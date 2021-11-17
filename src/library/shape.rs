@@ -140,7 +140,7 @@ impl Layout for ShapeNode {
             // When there's no child, fill the area if expansion is on,
             // otherwise fall back to a default size.
             let default = Length::pt(30.0);
-            let size = Size::new(
+            let mut size = Size::new(
                 if regions.expand.x {
                     regions.current.w
                 } else {
@@ -153,6 +153,11 @@ impl Layout for ShapeNode {
                 },
                 if regions.expand.y { regions.current.h } else { default },
             );
+
+            if matches!(self.kind, ShapeKind::Square | ShapeKind::Circle) {
+                size.w = size.w.min(size.h);
+                size.h = size.w;
+            }
 
             Frame::new(size, size.h)
         };
@@ -170,6 +175,13 @@ impl Layout for ShapeNode {
 
             frame.prepend(pos, Element::Geometry(geometry, fill));
         }
+
+        // Ensure frame size matches regions size if expansion is on.
+        let expand = regions.expand;
+        frame.size = Size::new(
+            if expand.x { regions.current.w } else { frame.size.w },
+            if expand.y { regions.current.h } else { frame.size.h },
+        );
 
         // Return tight constraints for now.
         let mut cts = Constraints::new(regions.expand);

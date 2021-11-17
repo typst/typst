@@ -36,6 +36,7 @@ pub fn par(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 
         if let Some(dir) = dir {
             par.dir = dir;
+            par.align = if dir == Dir::LTR { Align::Left } else { Align::Right };
         }
 
         if let Some(leading) = leading {
@@ -55,8 +56,10 @@ pub fn par(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 /// A node that arranges its children into a paragraph.
 #[derive(Debug, Hash)]
 pub struct ParNode {
-    /// The inline direction of this paragraph.
+    /// The text direction (either LTR or RTL).
     pub dir: Dir,
+    /// How to align text in its line.
+    pub align: Align,
     /// The spacing to insert between each line.
     pub leading: Length,
     /// The children to be arranged in a paragraph.
@@ -124,9 +127,9 @@ pub enum ParChild {
     /// Spacing between other nodes.
     Spacing(Spacing),
     /// A run of text and how to align it in its line.
-    Text(EcoString, Align, Rc<TextStyle>),
+    Text(EcoString, Rc<TextStyle>),
     /// Any child node and how to align it in its line.
-    Node(PackedNode, Align),
+    Node(PackedNode),
     /// A decoration that applies until a matching `Undecorate`.
     Decorate(Decoration),
     /// The end of a decoration.
@@ -137,8 +140,8 @@ impl Debug for ParChild {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::Spacing(v) => write!(f, "Spacing({:?})", v),
-            Self::Text(text, ..) => write!(f, "Text({:?})", text),
-            Self::Node(node, ..) => node.fmt(f),
+            Self::Text(text, _) => write!(f, "Text({:?})", text),
+            Self::Node(node) => node.fmt(f),
             Self::Decorate(deco) => write!(f, "Decorate({:?})", deco),
             Self::Undecorate => write!(f, "Undecorate"),
         }
@@ -148,9 +151,9 @@ impl Debug for ParChild {
 /// A paragraph representation in which children are already layouted and text
 /// is separated into shapable runs.
 struct ParLayouter<'a> {
-    /// The top-level direction.
-    dir: Dir,
-    /// The line spacing.
+    /// How to align text in its line.
+    align: Align,
+    /// The spacing to insert between each line.
     leading: Length,
     /// Bidirectional text embedding levels for the paragraph.
     bidi: BidiInfo<'a>,
@@ -172,9 +175,9 @@ enum ParItem<'a> {
     /// Fractional spacing between other items.
     Fractional(Fractional),
     /// A shaped text run with consistent direction.
-    Text(ShapedText<'a>, Align),
+    Text(ShapedText<'a>),
     /// A layouted child node.
-    Frame(Frame, Align),
+    Frame(Frame),
 }
 
 impl<'a> ParLayouter<'a> {
@@ -202,7 +205,7 @@ impl<'a> ParLayouter<'a> {
                     items.push(ParItem::Fractional(v));
                     ranges.push(range);
                 }
-                ParChild::Text(_, align, ref style) => {
+                ParChild::Text(_, ref style) => {
                     // TODO: Also split by language and script.
                     let mut cursor = range.start;
                     for (level, group) in bidi.levels[range].group_by_key(|&lvl| lvl) {
@@ -211,16 +214,16 @@ impl<'a> ParLayouter<'a> {
                         let subrange = start .. cursor;
                         let text = &bidi.text[subrange.clone()];
                         let shaped = shape(ctx, text, style, level.dir());
-                        items.push(ParItem::Text(shaped, align));
+                        items.push(ParItem::Text(shaped));
                         ranges.push(subrange);
                     }
                 }
-                ParChild::Node(ref node, align) => {
+                ParChild::Node(ref node) => {
                     let size = Size::new(regions.current.w, regions.base.h);
                     let expand = Spec::splat(false);
                     let pod = Regions::one(size, regions.base, expand);
                     let frame = node.layout(ctx, &pod).remove(0);
-                    items.push(ParItem::Frame(Rc::take(frame.item), align));
+                    items.push(ParItem::Frame(Rc::take(frame.item)));
                     ranges.push(range);
                 }
                 ParChild::Decorate(ref deco) => {
@@ -234,7 +237,7 @@ impl<'a> ParLayouter<'a> {
         }
 
         Self {
-            dir: par.dir,
+            align: par.align,
             leading: par.leading,
             bidi,
             items,
@@ -392,7 +395,7 @@ impl<'a> LineLayout<'a> {
 
         // Reshape the last item if it's split in half.
         let mut last = None;
-        if let Some((ParItem::Text(shaped, align), rest)) = items.split_last() {
+        if let Some((ParItem::Text(shaped), rest)) = items.split_last() {
             // Compute the range we want to shape, trimming whitespace at the
             // end of the line.
             let base = par.ranges[last_idx].start;
@@ -408,7 +411,7 @@ impl<'a> LineLayout<'a> {
                 if !range.is_empty() || rest.is_empty() {
                     // Reshape that part.
                     let reshaped = shaped.reshape(ctx, range);
-                    last = Some(ParItem::Text(reshaped, *align));
+                    last = Some(ParItem::Text(reshaped));
                 }
 
                 items = rest;
@@ -418,7 +421,7 @@ impl<'a> LineLayout<'a> {
 
         // Reshape the start item if it's split in half.
         let mut first = None;
-        if let Some((ParItem::Text(shaped, align), rest)) = items.split_first() {
+        if let Some((ParItem::Text(shaped), rest)) = items.split_first() {
             // Compute the range we want to shape.
             let Range { start: base, end: first_end } = par.ranges[first_idx];
             let start = line.start;
@@ -429,7 +432,7 @@ impl<'a> LineLayout<'a> {
             if range.len() < shaped.text.len() {
                 if !range.is_empty() {
                     let reshaped = shaped.reshape(ctx, range);
-                    first = Some(ParItem::Text(reshaped, *align));
+                    first = Some(ParItem::Text(reshaped));
                 }
 
                 items = rest;
@@ -446,8 +449,8 @@ impl<'a> LineLayout<'a> {
             match *item {
                 ParItem::Absolute(v) => width += v,
                 ParItem::Fractional(v) => fr += v,
-                ParItem::Text(ShapedText { size, baseline, .. }, _)
-                | ParItem::Frame(Frame { size, baseline, .. }, _) => {
+                ParItem::Text(ShapedText { size, baseline, .. })
+                | ParItem::Frame(Frame { size, baseline, .. }) => {
                     width += size.w;
                     top.set_max(baseline);
                     bottom.set_max(size.h - baseline);
@@ -475,10 +478,9 @@ impl<'a> LineLayout<'a> {
 
         let mut output = Frame::new(size, self.baseline);
         let mut offset = Length::zero();
-        let mut ruler = Align::Start;
 
         for (range, item) in self.reordered() {
-            let mut position = |mut frame: Frame, align: Align| {
+            let mut position = |mut frame: Frame| {
                 // Decorate.
                 for (deco_range, deco) in &self.par.decos {
                     if deco_range.contains(&range.start) {
@@ -486,9 +488,7 @@ impl<'a> LineLayout<'a> {
                     }
                 }
 
-                // FIXME: Ruler alignment for RTL.
-                ruler = ruler.max(align);
-                let x = ruler.resolve(self.par.dir, offset .. remaining + offset);
+                let x = self.par.align.resolve(offset .. remaining + offset);
                 let y = self.baseline - frame.baseline;
                 offset += frame.size.w;
 
@@ -499,8 +499,8 @@ impl<'a> LineLayout<'a> {
             match *item {
                 ParItem::Absolute(v) => offset += v,
                 ParItem::Fractional(v) => offset += v.resolve(self.fr, remaining),
-                ParItem::Text(ref shaped, align) => position(shaped.build(), align),
-                ParItem::Frame(ref frame, align) => position(frame.clone(), align),
+                ParItem::Text(ref shaped) => position(shaped.build()),
+                ParItem::Frame(ref frame) => position(frame.clone()),
             }
         }
 

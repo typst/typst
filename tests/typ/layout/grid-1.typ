@@ -34,11 +34,10 @@
 
 ---
 #page(height: 3cm, margins: 0pt)
-#align(center)
 #grid(
   columns: (1fr,),
   rows: (1fr, auto, 2fr),
   [],
-  [A bit more to the top],
+  align(center)[A bit more to the top],
   [],
 )

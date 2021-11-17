@@ -10,15 +10,16 @@ pub use constraints::*;
 pub use incremental::*;
 pub use regions::*;
 
+use std::any::Any;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
 use crate::font::FontStore;
 use crate::frame::Frame;
-use crate::geom::{Linear, Spec};
+use crate::geom::{Align, Linear, Spec};
 use crate::image::ImageStore;
-use crate::library::{DocumentNode, SizedNode};
+use crate::library::{AlignNode, DocumentNode, SizedNode};
 use crate::Context;
 
 /// Layout a document node into a collection of frames.
@@ -59,7 +60,7 @@ impl<'a> LayoutContext<'a> {
 ///
 /// Layout return one frame per used region alongside constraints that define
 /// whether the result is reusable in other regions.
-pub trait Layout: Debug {
+pub trait Layout {
     /// Layout the node into the given regions, producing constrained frames.
     fn layout(
         &self,
@@ -70,12 +71,11 @@ pub trait Layout: Debug {
     /// Convert to a packed node.
     fn pack(self) -> PackedNode
     where
-        Self: Sized + Hash + 'static,
+        Self: Debug + Hash + Sized + 'static,
     {
         PackedNode {
             #[cfg(feature = "layout-cache")]
             hash: {
-                use std::any::Any;
                 let mut state = fxhash::FxHasher64::default();
                 self.type_id().hash(&mut state);
                 self.hash(&mut state);
@@ -89,22 +89,36 @@ pub trait Layout: Debug {
 /// A packed layouting node with precomputed hash.
 #[derive(Clone)]
 pub struct PackedNode {
-    node: Rc<dyn Layout>,
+    node: Rc<dyn Bounds>,
     #[cfg(feature = "layout-cache")]
     hash: u64,
 }
 
 impl PackedNode {
+    /// Try to downcast to a specific layout node.
+    pub fn downcast<T>(&self) -> Option<&T>
+    where
+        T: Layout + Debug + Hash + 'static,
+    {
+        self.node.as_any().downcast_ref()
+    }
+
     /// Force a size for this node.
-    ///
-    /// If at least one of `width` and `height` is `Some`, this wraps the node
-    /// in a [`SizedNode`]. Otherwise, it returns the node unchanged.
     pub fn sized(self, width: Option<Linear>, height: Option<Linear>) -> PackedNode {
         if width.is_some() || height.is_some() {
             Layout::pack(SizedNode {
-                sizing: Spec::new(width, height),
                 child: self,
+                sizing: Spec::new(width, height),
             })
+        } else {
+            self
+        }
+    }
+
+    /// Set alignments for this node.
+    pub fn aligned(self, x: Option<Align>, y: Option<Align>) -> PackedNode {
+        if x.is_some() || y.is_some() {
+            Layout::pack(AlignNode { child: self, aligns: Spec::new(x, y) })
         } else {
             self
         }
@@ -164,5 +178,18 @@ impl Hash for PackedNode {
 impl Debug for PackedNode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         self.node.fmt(f)
+    }
+}
+
+trait Bounds: Layout + Debug + 'static {
+    fn as_any(&self) -> &dyn Any;
+}
+
+impl<T> Bounds for T
+where
+    T: Layout + Debug + 'static,
+{
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }

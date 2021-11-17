@@ -23,6 +23,11 @@ impl<T> Spec<T> {
         Self { x: v.clone(), y: v }
     }
 
+    /// Borrows the individual fields.
+    pub fn as_ref(&self) -> Spec<&T> {
+        Spec { x: &self.x, y: &self.y }
+    }
+
     /// Maps the individual fields with `f`.
     pub fn map<F, U>(self, mut f: F) -> Spec<U>
     where
@@ -38,6 +43,14 @@ impl<T> Spec<T> {
             x: (self.x, other.x),
             y: (self.y, other.y),
         }
+    }
+
+    /// Whether a condition is true for at least one of fields.
+    pub fn any<F>(self, mut f: F) -> bool
+    where
+        F: FnMut(&T) -> bool,
+    {
+        f(&self.x) || f(&self.y)
     }
 
     /// Whether a condition is true for both fields.

@@ -1,35 +1,19 @@
-// Configuration with `page` and `font` functions.
 #page(width: 450pt, margins: 1cm)
 
-// There are variables and they can take normal values like strings, ...
-#let city = "Berlin"
-
-// ... but also "template" values. While these contain markup,
-// they are also values and can be summed, stored in arrays etc.
-// There are also more standard control flow structures, like #if and #for.
-#let university = [*Technische Universität {city}*]
-#let faculty = [*Fakultät II, Institut for Mathematik*]
-
-// Backslashs add forced line breaks.
-#university #align(right)[*WiSe 2019/2020*] \
-#faculty #align(right)[Woche 3] \
+*Technische Universität Berlin* #h(1fr) *WiSe 2019/2020* \
+*Fakultät II, Institut for Mathematik* #h(1fr) Woche 3 \
 Sekretariat MA \
 Dr. Max Mustermann \
 Ola Nordmann, John Doe
 
-// Adds vertical spacing.
 #v(6mm)
-
-// If the last argument to a function is a template, we can also place it behind
-// the parentheses.
 #align(center)[
-  // Markdown-like syntax for headings.
   ==== 3. Übungsblatt Computerorientierte Mathematik II #v(4mm)
   *Abgabe: 03.05.2019* (bis 10:10 Uhr in MA 001) #v(4mm)
   *Alle Antworten sind zu beweisen.*
 ]
 
-*1. Aufgabe* #align(right)[(1 + 1 + 2 Punkte)]
+*1. Aufgabe* #h(1fr) (1 + 1 + 2 Punkte)
 
 Ein _Binärbaum_ ist ein Wurzelbaum, in dem jeder Knoten ≤ 2 Kinder hat.
 Die Tiefe eines Knotens _v_ ist die Länge des eindeutigen Weges von der Wurzel
@@ -37,7 +21,4 @@ zu _v_, und die Höhe von _v_ ist die Länge eines längsten (absteigenden) Wege
 von _v_ zu einem Blatt. Die Höhe des Baumes ist die Höhe der Wurzel.
 
 #v(6mm)
-
-// The `image` function returns a "template" value of the same type as
-// the `[...]` literals.
 #align(center, image("../res/graph.png", width: 75%))

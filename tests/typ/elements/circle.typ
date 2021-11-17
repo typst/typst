@@ -9,8 +9,7 @@
 
 Auto-sized circle. \
 #circle(fill: rgb("eb5278"))[
-  #align(center, center)
-  But, soft!
+  #align(center, center)[But, soft!]
 ]
 
 Center-aligned rect in auto-sized circle.
@@ -31,14 +30,18 @@ Expanded by height.
 #circle(fill: conifer)[A \ B \ C]
 
 ---
+// Ensure circle directly in rect works.
+#rect(width: 40pt, height: 30pt, circle(fill: forest))
+
+---
 // Test relative sizing.
-#rect(width: 100pt, height: 50pt, fill: rgb("aaa"))[
-  #align(center, center)
-  #font(fill: white)
-  #circle(radius: 10pt, fill: eastern)[A]      // D=20pt
-  #circle(height: 60%, fill: eastern)[B]       // D=30pt
-  #circle(width: 20% + 20pt, fill: eastern)[C] // D=40pt
-]
+#let centered(body) = align(center, center, body)
+#font(fill: white)
+#rect(width: 100pt, height: 50pt, fill: rgb("aaa"), centered[
+  #circle(radius: 10pt, fill: eastern, centered[A])      // D=20pt
+  #circle(height: 60%, fill: eastern, centered[B])       // D=30pt
+  #circle(width: 20% + 20pt, fill: eastern, centered[C]) // D=40pt
+])
 
 ---
 // Radius wins over width and height.

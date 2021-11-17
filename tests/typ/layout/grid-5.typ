@@ -16,13 +16,14 @@
 #grid(
   columns: 2,
   gutter: 10pt,
-  [#align(bottom) A],
+  align(bottom)[A],
   [
     Top
-    #align(bottom)
-    Bottom \
-    Bottom \
-    Top
+    #align(bottom)[
+      Bottom \
+      Bottom \
+      Top
+    ]
   ],
-  [#align(top) B],
+  align(top)[B],
 )

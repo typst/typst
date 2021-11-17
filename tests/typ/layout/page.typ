@@ -15,10 +15,10 @@
 
 // Set individual margins.
 #page(height: 40pt)
-[#page(left: 0pt) #align(left) Left]
-[#page(right: 0pt) #align(right) Right]
-[#page(top: 0pt) #align(top) Top]
-[#page(bottom: 0pt) #align(bottom) Bottom]
+[#page(left: 0pt) #align(left)[Left]]
+[#page(right: 0pt) #align(right)[Right]]
+[#page(top: 0pt) #align(top)[Top]]
+[#page(bottom: 0pt) #align(bottom)[Bottom]]
 
 // Ensure that specific margins override general margins.
 [#page(margins: 0pt, left: 20pt) Overriden]

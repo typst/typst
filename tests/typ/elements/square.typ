@@ -9,8 +9,7 @@
 // Test auto-sized square.
 #square(fill: eastern)[
   #font(fill: white, weight: "bold")
-  #align(center)
-  #pad(5pt)[Typst]
+  #align(center, pad(5pt)[Typst])
 ]
 
 ---

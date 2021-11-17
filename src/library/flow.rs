@@ -1,7 +1,7 @@
 use std::fmt::{self, Debug, Formatter};
 
 use super::prelude::*;
-use super::Spacing;
+use super::{AlignNode, ParNode, Spacing};
 
 /// `flow`: A vertical flow of paragraphs and other layout nodes.
 pub fn flow(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
@@ -27,7 +27,7 @@ pub fn flow(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
             .iter()
             .map(|child| match child {
                 Child::Spacing(spacing) => FlowChild::Spacing(*spacing),
-                Child::Any(node) => FlowChild::Node(node.pack(style), style.aligns.block),
+                Child::Any(node) => FlowChild::Node(node.pack(style)),
             })
             .collect();
 
@@ -62,14 +62,14 @@ pub enum FlowChild {
     /// Vertical spacing between other children.
     Spacing(Spacing),
     /// A node and how to align it in the flow.
-    Node(PackedNode, Align),
+    Node(PackedNode),
 }
 
 impl Debug for FlowChild {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::Spacing(v) => write!(f, "Spacing({:?})", v),
-            Self::Node(node, _) => node.fmt(f),
+            Self::Node(node) => node.fmt(f),
         }
     }
 }
@@ -101,8 +101,8 @@ enum FlowItem {
     Absolute(Length),
     /// Fractional spacing between other items.
     Fractional(Fractional),
-    /// A layouted child node.
-    Frame(Rc<Frame>, Align),
+    /// A layouted child node and how to align it vertically.
+    Frame(Rc<Frame>, Spec<Align>),
 }
 
 impl<'a> FlowLayouter<'a> {
@@ -135,8 +135,8 @@ impl<'a> FlowLayouter<'a> {
                     self.items.push(FlowItem::Fractional(v));
                     self.fr += v;
                 }
-                FlowChild::Node(ref node, align) => {
-                    self.layout_node(ctx, node, align);
+                FlowChild::Node(ref node) => {
+                    self.layout_node(ctx, node);
                 }
             }
         }
@@ -156,7 +156,17 @@ impl<'a> FlowLayouter<'a> {
     }
 
     /// Layout a node.
-    fn layout_node(&mut self, ctx: &mut LayoutContext, node: &PackedNode, align: Align) {
+    fn layout_node(&mut self, ctx: &mut LayoutContext, node: &PackedNode) {
+        let aligns = Spec::new(
+            // For non-expanding paragraphs it is crucial that we align the
+            // whole paragraph according to its internal alignment.
+            node.downcast::<ParNode>().map_or(Align::Left, |node| node.align),
+            // Vertical align node alignment is respected by the flow node.
+            node.downcast::<AlignNode>()
+                .and_then(|node| node.aligns.y)
+                .unwrap_or(Align::Top),
+        );
+
         let frames = node.layout(ctx, &self.regions);
         let len = frames.len();
         for (i, frame) in frames.into_iter().enumerate() {
@@ -165,7 +175,7 @@ impl<'a> FlowLayouter<'a> {
             self.used.h += size.h;
             self.used.w.set_max(size.w);
             self.regions.current.h -= size.h;
-            self.items.push(FlowItem::Frame(frame.item, align));
+            self.items.push(FlowItem::Frame(frame.item, aligns));
 
             if i + 1 < len {
                 self.finish_region();
@@ -177,43 +187,44 @@ impl<'a> FlowLayouter<'a> {
     fn finish_region(&mut self) {
         // Determine the size of the flow in this region dependening on whether
         // the region expands.
-        let size = Size::new(
+        let mut size = Size::new(
             if self.expand.x { self.full.w } else { self.used.w },
-            if self.expand.y || (self.fr.get() > 0.0 && self.full.h.is_finite()) {
-                self.full.h
-            } else {
-                self.used.h
-            },
+            if self.expand.y { self.full.h } else { self.used.h },
         );
+
+        // Account for fractional spacing in the size calculation.
+        let remaining = self.full.h - self.used.h;
+        if self.fr.get() > 0.0 && self.full.h.is_finite() {
+            self.used.h = self.full.h;
+            size.h = self.full.h;
+        }
 
         let mut output = Frame::new(size, size.h);
         let mut before = Length::zero();
-        let mut ruler = Align::Start;
+        let mut ruler = Align::Top;
         let mut first = true;
 
         // Place all frames.
         for item in self.items.drain(..) {
             match item {
                 FlowItem::Absolute(v) => before += v,
-                FlowItem::Fractional(v) => {
-                    let remaining = self.full.h - self.used.h;
-                    before += v.resolve(self.fr, remaining);
-                }
-                FlowItem::Frame(frame, align) => {
-                    ruler = ruler.max(align);
+                FlowItem::Fractional(v) => before += v.resolve(self.fr, remaining),
+                FlowItem::Frame(frame, aligns) => {
+                    ruler = ruler.max(aligns.y);
 
-                    // Align vertically.
-                    let range = before .. before + size.h - self.used.h;
-                    let y = ruler.resolve(Dir::TTB, range);
+                    // Align horizontally and vertically.
+                    let x = aligns.x.resolve(Length::zero() .. size.w - frame.size.w);
+                    let y = ruler.resolve(before .. before + size.h - self.used.h);
+                    let pos = Point::new(x, y);
                     before += frame.size.h;
 
                     // The baseline of the flow is that of the first frame.
                     if first {
-                        output.baseline = y + frame.baseline;
+                        output.baseline = pos.y + frame.baseline;
                         first = false;
                     }
 
-                    output.push_frame(Point::new(Length::zero(), y), frame);
+                    output.push_frame(pos, frame);
                 }
             }
         }

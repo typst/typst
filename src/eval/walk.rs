@@ -126,12 +126,9 @@ fn walk_item(ctx: &mut EvalContext, label: EcoString, body: Template) {
     ctx.template += Template::from_block(move |style| {
         let label = Layout::pack(ParNode {
             dir: style.par.dir,
+            align: style.par.align,
             leading: style.leading(),
-            children: vec![ParChild::Text(
-                label.clone(),
-                style.aligns.inline,
-                Rc::clone(&style.text),
-            )],
+            children: vec![ParChild::Text(label.clone(), Rc::clone(&style.text))],
         });
 
         let spacing = style.text.size / 2.0;

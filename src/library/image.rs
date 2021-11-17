@@ -54,9 +54,9 @@ impl Layout for ImageNode {
         let canvas = if expand.x && expand.y {
             current
         } else if expand.x || (wide && current.w.is_finite()) {
-            Size::new(current.w, current.w.safe_div(pixel_ratio))
+            Size::new(current.w, current.h.min(current.w.safe_div(pixel_ratio)))
         } else if current.h.is_finite() {
-            Size::new(current.h * pixel_ratio, current.h)
+            Size::new(current.w.min(current.h * pixel_ratio), current.h)
         } else {
             Size::new(Length::pt(pixel_w), Length::pt(pixel_h))
         };

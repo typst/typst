@@ -163,7 +163,6 @@
 
 ---
 // Test with operator.
-// Ref: true
 
 // Apply positional arguments.
 #let add(x, y) = x + y
@@ -175,6 +174,9 @@
 #test(f(4), 6)
 
 // Make sure that named arguments are overridable.
-#let align with (horizontal: right)
-#align[Right] \
-#align(horizontal: left)[Left]
+#let inc(x, y: 1) = x + y
+#test(inc(1), 2)
+
+#let inc with (y: 2)
+#test(inc(2), 4)
+#test(inc(2, y: 4), 6)

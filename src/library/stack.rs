@@ -1,7 +1,7 @@
 use std::fmt::{self, Debug, Formatter};
 
 use super::prelude::*;
-use super::Spacing;
+use super::{AlignNode, Spacing};
 
 /// `stack`: Stack children along an axis.
 pub fn stack(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
@@ -118,7 +118,7 @@ enum StackItem {
     /// Fractional spacing between other items.
     Fractional(Fractional),
     /// A layouted child node.
-    Frame(Rc<Frame>),
+    Frame(Rc<Frame>, Align),
 }
 
 impl<'a> StackLayouter<'a> {
@@ -176,6 +176,12 @@ impl<'a> StackLayouter<'a> {
 
     /// Layout a node.
     fn layout_node(&mut self, ctx: &mut LayoutContext, node: &PackedNode) {
+        // Align nodes' block-axis alignment is respected by the stack node.
+        let align = node
+            .downcast::<AlignNode>()
+            .and_then(|node| node.aligns.get(self.axis))
+            .unwrap_or(self.stack.dir.start().into());
+
         let frames = node.layout(ctx, &self.regions);
         let len = frames.len();
         for (i, frame) in frames.into_iter().enumerate() {
@@ -184,7 +190,7 @@ impl<'a> StackLayouter<'a> {
             self.used.block += size.block;
             self.used.inline.set_max(size.inline);
             *self.regions.current.get_mut(self.axis) -= size.block;
-            self.items.push(StackItem::Frame(frame.item));
+            self.items.push(StackItem::Frame(frame.item, align));
 
             if i + 1 < len {
                 self.finish_region();
@@ -204,29 +210,35 @@ impl<'a> StackLayouter<'a> {
 
         // Expand fully if there are fr spacings.
         let full = self.full.get(self.axis);
+        let remaining = full - self.used.block;
         if self.fr.get() > 0.0 && full.is_finite() {
+            self.used.block = full;
             size.set(self.axis, full);
         }
 
         let mut output = Frame::new(size, size.h);
         let mut before = Length::zero();
+        let mut ruler: Align = self.stack.dir.start().into();
 
         // Place all frames.
         for item in self.items.drain(..) {
             match item {
                 StackItem::Absolute(v) => before += v,
-                StackItem::Fractional(v) => {
-                    let remaining = self.full.get(self.axis) - self.used.block;
-                    before += v.resolve(self.fr, remaining)
-                }
-                StackItem::Frame(frame) => {
+                StackItem::Fractional(v) => before += v.resolve(self.fr, remaining),
+                StackItem::Frame(frame, align) => {
+                    ruler = ruler.max(align);
+
+                    // Align along the block axis.
                     let parent = size.get(self.axis);
                     let child = frame.size.get(self.axis);
-                    let block = if self.stack.dir.is_positive() {
-                        before
+                    let block = ruler.resolve(if self.stack.dir.is_positive() {
+                        let after = self.used.block - before;
+                        before .. parent - after
                     } else {
-                        parent - (before + child)
-                    };
+                        let before_with_self = before + child;
+                        let after = self.used.block - before_with_self;
+                        after .. parent - before_with_self
+                    });
 
                     before += child;
 

@@ -1,51 +1,77 @@
 use super::prelude::*;
 
 /// `align`: Configure the alignment along the layouting axes.
-pub fn align(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let first = args.find::<Align>();
-    let second = args.find::<Align>();
-    let body = args.find::<Template>();
-
-    let mut horizontal = args.named("horizontal")?;
-    let mut vertical = args.named("vertical")?;
-
-    for value in first.into_iter().chain(second) {
-        match value.axis() {
-            Some(SpecAxis::Horizontal) | None if horizontal.is_none() => {
-                horizontal = Some(value);
-            }
-            Some(SpecAxis::Vertical) | None if vertical.is_none() => {
-                vertical = Some(value);
-            }
-            _ => {}
+pub fn align(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
+    let mut x = args.named("horizontal")?;
+    let mut y = args.named("vertical")?;
+    for Spanned { v, span } in args.all::<Spanned<Align>>() {
+        match v.axis() {
+            None | Some(SpecAxis::Horizontal) if x.is_none() => x = Some(v),
+            None | Some(SpecAxis::Vertical) if y.is_none() => y = Some(v),
+            _ => bail!(span, "unexpected argument"),
         }
     }
 
-    let realign = |template: &mut Template| {
-        template.modify(move |style| {
-            if let Some(horizontal) = horizontal {
-                style.aligns.inline = horizontal;
-            }
+    let body = args.expect::<Template>("body")?;
 
-            if let Some(vertical) = vertical {
-                style.aligns.block = vertical;
-            }
-        });
-
-        if vertical.is_some() {
-            template.parbreak();
+    Ok(Value::Template(Template::from_block(move |style| {
+        let mut style = style.clone();
+        if let Some(x) = x {
+            style.par_mut().align = x;
         }
-    };
 
-    Ok(if let Some(body) = body {
-        let mut template = Template::new();
-        template.save();
-        realign(&mut template);
-        template += body;
-        template.restore();
-        Value::Template(template)
-    } else {
-        realign(&mut ctx.template);
-        Value::None
-    })
+        body.pack(&style).aligned(x, y)
+    })))
+}
+
+/// A node that aligns its child.
+#[derive(Debug, Hash)]
+pub struct AlignNode {
+    /// The node to be aligned.
+    pub child: PackedNode,
+    /// How to align the node horizontally and vertically.
+    pub aligns: Spec<Option<Align>>,
+}
+
+impl Layout for AlignNode {
+    fn layout(
+        &self,
+        ctx: &mut LayoutContext,
+        regions: &Regions,
+    ) -> Vec<Constrained<Rc<Frame>>> {
+        // Along axes with specified alignment, the child doesn't need to expand.
+        let mut pod = regions.clone();
+        pod.expand.x &= self.aligns.x.is_none();
+        pod.expand.y &= self.aligns.y.is_none();
+
+        let mut frames = self.child.layout(ctx, &pod);
+
+        for (Constrained { item: frame, cts }, (current, _)) in
+            frames.iter_mut().zip(regions.iter())
+        {
+            let canvas = Size::new(
+                if regions.expand.x { current.w } else { frame.size.w },
+                if regions.expand.y { current.h } else { frame.size.h },
+            );
+
+            let aligns = self.aligns.unwrap_or(Spec::new(Align::Left, Align::Top));
+            let offset = Point::new(
+                aligns.x.resolve(Length::zero() .. canvas.w - frame.size.w),
+                aligns.y.resolve(Length::zero() .. canvas.h - frame.size.h),
+            );
+
+            let frame = Rc::make_mut(frame);
+            frame.size = canvas;
+            frame.baseline += offset.y;
+
+            for (point, _) in &mut frame.elements {
+                *point += offset;
+            }
+
+            cts.expand = regions.expand;
+            cts.exact = current.to_spec().map(Some);
+        }
+
+        frames
+    }
 }

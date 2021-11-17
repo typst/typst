@@ -58,7 +58,7 @@ impl Template {
     pub fn from_inline<F, T>(f: F) -> Self
     where
         F: Fn(&Style) -> T + 'static,
-        T: Layout + Hash + 'static,
+        T: Layout + Debug + Hash + 'static,
     {
         let node = TemplateNode::Inline(Rc::new(move |s| f(s).pack()));
         Self(Rc::new(vec![node]))
@@ -68,7 +68,7 @@ impl Template {
     pub fn from_block<F, T>(f: F) -> Self
     where
         F: Fn(&Style) -> T + 'static,
-        T: Layout + Hash + 'static,
+        T: Layout + Debug + Hash + 'static,
     {
         let node = TemplateNode::Block(Rc::new(move |s| f(s).pack()));
         Self(Rc::new(vec![node]))
@@ -332,14 +332,13 @@ impl Builder {
 
     /// Push an inline node into the active paragraph.
     fn inline(&mut self, node: impl Into<PackedNode>) {
-        let align = self.style.aligns.inline;
-        self.flow.par.push(ParChild::Node(node.into(), align));
+        self.flow.par.push(ParChild::Node(node.into()));
     }
 
     /// Push a block node into the active flow, finishing the active paragraph.
     fn block(&mut self, node: impl Into<PackedNode>) {
         self.parbreak();
-        self.flow.push(FlowChild::Node(node.into(), self.style.aligns.block));
+        self.flow.push(FlowChild::Node(node.into()));
         self.parbreak();
     }
 
@@ -372,11 +371,7 @@ impl Builder {
     /// Construct a text node with the given text and settings from the current
     /// style.
     fn make_text_node(&self, text: impl Into<EcoString>) -> ParChild {
-        ParChild::Text(
-            text.into(),
-            self.style.aligns.inline,
-            Rc::clone(&self.style.text),
-        )
+        ParChild::Text(text.into(), Rc::clone(&self.style.text))
     }
 }
 
@@ -451,8 +446,8 @@ impl FlowBuilder {
 }
 
 struct ParBuilder {
-    align: Align,
     dir: Dir,
+    align: Align,
     leading: Length,
     children: Vec<ParChild>,
     last: Last<ParChild>,
@@ -461,8 +456,8 @@ struct ParBuilder {
 impl ParBuilder {
     fn new(style: &Style) -> Self {
         Self {
-            align: style.aligns.block,
             dir: style.par.dir,
+            align: style.par.align,
             leading: style.leading(),
             children: vec![],
             last: Last::None,
@@ -486,12 +481,10 @@ impl ParBuilder {
     }
 
     fn push_inner(&mut self, child: ParChild) {
-        if let ParChild::Text(curr_text, curr_align, curr_props) = &child {
-            if let Some(ParChild::Text(prev_text, prev_align, prev_props)) =
-                self.children.last_mut()
-            {
-                if prev_align == curr_align && Rc::ptr_eq(prev_props, curr_props) {
-                    prev_text.push_str(curr_text);
+        if let ParChild::Text(text2, style2) = &child {
+            if let Some(ParChild::Text(text1, style1)) = self.children.last_mut() {
+                if Rc::ptr_eq(style1, style2) {
+                    text1.push_str(text2);
                     return;
                 }
             }
@@ -501,9 +494,9 @@ impl ParBuilder {
     }
 
     fn build(self) -> Option<FlowChild> {
-        let Self { align, dir, leading, children, .. } = self;
+        let Self { dir, align, leading, children, .. } = self;
         (!children.is_empty())
-            .then(|| FlowChild::Node(ParNode { dir, leading, children }.pack(), align))
+            .then(|| FlowChild::Node(ParNode { dir, align, leading, children }.pack()))
     }
 }
 

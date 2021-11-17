@@ -24,7 +24,7 @@
   row-gutter: 10pt,
   column-gutter: (0pt, 10%),
   align(top, image("../../res/rhino.png")),
-  align(right, rect(width: 100%, fill: eastern)[LoL]),
+  align(top, rect(fill: eastern, align(right)[LoL])),
   [rofl],
   [\ A] * 3,
   [Ha!\ ] * 3,
@@ -55,7 +55,7 @@
   column-gutter: (0pt, 10%),
   [A], [B], [C], [D],
   grid(columns: 2, [A], [B], [C\ ]*3, [D]),
-  align(right, rect(width: 100%, fill: eastern)[LoL]),
+  align(top, rect(fill: eastern, align(right)[LoL])),
   [rofl],
   [E\ ]*4,
 )
