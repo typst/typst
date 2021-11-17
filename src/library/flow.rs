@@ -61,7 +61,7 @@ impl Layout for FlowNode {
 pub enum FlowChild {
     /// Vertical spacing between other children.
     Spacing(Spacing),
-    /// A node and how to align it in the flow.
+    /// An arbitrary node.
     Node(PackedNode),
 }
 

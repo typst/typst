@@ -49,7 +49,6 @@ impl Layout for AlignNode {
         pod.expand.y &= self.aligns.y.is_none();
 
         let mut frames = self.child.layout(ctx, &pod);
-
         for (Constrained { item: frame, cts }, (current, _)) in
             frames.iter_mut().zip(regions.iter())
         {
@@ -67,10 +66,7 @@ impl Layout for AlignNode {
             let frame = Rc::make_mut(frame);
             frame.size = canvas;
             frame.baseline += offset.y;
-
-            for (point, _) in &mut frame.elements {
-                *point += offset;
-            }
+            frame.translate(offset);
 
             cts.expand = regions.expand;
             cts.exact = current.to_spec().map(Some);

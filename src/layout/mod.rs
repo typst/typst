@@ -17,9 +17,9 @@ use std::rc::Rc;
 
 use crate::font::FontStore;
 use crate::frame::Frame;
-use crate::geom::{Align, Linear, Spec};
+use crate::geom::{Align, Linear, Sides, Spec};
 use crate::image::ImageStore;
-use crate::library::{AlignNode, DocumentNode, MoveNode, SizedNode};
+use crate::library::{AlignNode, DocumentNode, MoveNode, PadNode, SizedNode};
 use crate::Context;
 
 /// Layout a document node into a collection of frames.
@@ -125,6 +125,19 @@ impl PackedNode {
     pub fn moved(self, dx: Option<Linear>, dy: Option<Linear>) -> Self {
         if dx.is_some() || dy.is_some() {
             MoveNode { child: self, offset: Spec::new(dx, dy) }.pack()
+        } else {
+            self
+        }
+    }
+
+    /// Pad this node at the sides.
+    pub fn padded(self, padding: Sides<Linear>) -> Self {
+        if !padding.left.is_zero()
+            || !padding.top.is_zero()
+            || !padding.right.is_zero()
+            || !padding.bottom.is_zero()
+        {
+            PadNode { child: self, padding }.pack()
         } else {
             self
         }

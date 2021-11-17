@@ -30,14 +30,10 @@ impl Layout for MoveNode {
         for (Constrained { item: frame, .. }, (_, base)) in
             frames.iter_mut().zip(regions.iter())
         {
-            let offset = Point::new(
+            Rc::make_mut(frame).translate(Point::new(
                 self.offset.x.map(|x| x.resolve(base.w)).unwrap_or_default(),
                 self.offset.y.map(|y| y.resolve(base.h)).unwrap_or_default(),
-            );
-
-            for (point, _) in &mut Rc::make_mut(frame).elements {
-                *point += offset;
-            }
+            ));
         }
 
         frames

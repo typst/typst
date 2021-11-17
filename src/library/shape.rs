@@ -1,7 +1,6 @@
 use std::f64::consts::SQRT_2;
 
 use super::prelude::*;
-use super::PadNode;
 use crate::util::RcExt;
 
 /// `rect`: A rectangle with optional content.
@@ -113,10 +112,8 @@ impl Layout for ShapeNode {
             if matches!(self.kind, ShapeKind::Circle | ShapeKind::Ellipse) {
                 // Padding with this ratio ensures that a rectangular child fits
                 // perfectly into a circle / an ellipse.
-                storage = PadNode {
-                    padding: Sides::splat(Relative::new(0.5 - SQRT_2 / 4.0).into()),
-                    child: child.clone(),
-                };
+                let ratio = Relative::new(0.5 - SQRT_2 / 4.0);
+                storage = child.clone().padded(Sides::splat(ratio.into()));
                 node = &storage;
             }
 

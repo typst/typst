@@ -23,11 +23,6 @@ impl<T> Spec<T> {
         Self { x: v.clone(), y: v }
     }
 
-    /// Borrows the individual fields.
-    pub fn as_ref(&self) -> Spec<&T> {
-        Spec { x: &self.x, y: &self.y }
-    }
-
     /// Maps the individual fields with `f`.
     pub fn map<F, U>(self, mut f: F) -> Spec<U>
     where

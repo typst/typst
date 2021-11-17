@@ -75,7 +75,7 @@ impl Layout for StackNode {
 pub enum StackChild {
     /// Spacing between other nodes.
     Spacing(Spacing),
-    /// Any block node and how to align it in the stack.
+    /// An arbitrary node.
     Node(PackedNode),
 }
 

@@ -64,6 +64,13 @@ impl Frame {
         }
     }
 
+    /// Move all elements in the frame by an offset.
+    pub fn translate(&mut self, offset: Point) {
+        for (point, _) in &mut self.elements {
+            *point += offset;
+        }
+    }
+
     /// An iterator over all non-frame elements in this and nested frames.
     pub fn elements(&self) -> Elements {
         Elements { stack: vec![(0, Point::zero(), self)] }

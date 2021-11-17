@@ -9,7 +9,7 @@ use crate::diag::StrResult;
 use crate::geom::{Align, Dir, GenAxis, Length, Linear, Sides, Size};
 use crate::layout::{Layout, PackedNode};
 use crate::library::{
-    Decoration, DocumentNode, FlowChild, FlowNode, PadNode, PageNode, ParChild, ParNode,
+    Decoration, DocumentNode, FlowChild, FlowNode, PageNode, ParChild, ParNode,
     PlacedNode, Spacing,
 };
 use crate::style::Style;
@@ -400,7 +400,7 @@ impl PageBuilder {
         let Self { size, padding, hard } = self;
         (!child.children.is_empty() || (keep && hard)).then(|| PageNode {
             size,
-            child: PadNode { padding, child: child.pack() }.pack(),
+            child: child.pack().padded(padding),
         })
     }
 }
