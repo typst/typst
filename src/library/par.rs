@@ -15,17 +15,26 @@ pub fn par(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let spacing = args.named("spacing")?;
     let leading = args.named("leading")?;
 
-    let mut dir = args.named::<EcoString>("lang")?.map(|iso| {
-        match iso.to_ascii_lowercase().as_str() {
-            "ar" | "he" | "fa" | "ur" | "ps" | "yi" => Dir::RTL,
-            "en" | "fr" | "de" => Dir::LTR,
-            _ => Dir::LTR,
-        }
-    });
+    let mut dir =
+        args.named("lang")?
+            .map(|iso: EcoString| match iso.to_lowercase().as_str() {
+                "ar" | "he" | "fa" | "ur" | "ps" | "yi" => Dir::RTL,
+                "en" | "fr" | "de" => Dir::LTR,
+                _ => Dir::LTR,
+            });
 
     if let Some(Spanned { v, span }) = args.named::<Spanned<Dir>>("dir")? {
         if v.axis() == SpecAxis::Horizontal {
-            dir = Some(v)
+            dir = Some(v);
+        } else {
+            bail!(span, "must be horizontal");
+        }
+    }
+
+    let mut align = None;
+    if let Some(Spanned { v, span }) = args.named::<Spanned<Align>>("align")? {
+        if matches!(v.axis(), None | Some(SpecAxis::Horizontal)) {
+            align = Some(v);
         } else {
             bail!(span, "must be horizontal");
         }
@@ -37,6 +46,10 @@ pub fn par(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         if let Some(dir) = dir {
             par.dir = dir;
             par.align = if dir == Dir::LTR { Align::Left } else { Align::Right };
+        }
+
+        if let Some(align) = align {
+            par.align = align;
         }
 
         if let Some(leading) = leading {
