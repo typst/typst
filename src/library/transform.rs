@@ -2,22 +2,21 @@ use super::prelude::*;
 
 /// `move`: Move content without affecting layout.
 pub fn move_(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let x = args.named("x")?;
-    let y = args.named("y")?;
+    let dx = args.named("dx")?;
+    let dy = args.named("dy")?;
     let body: Template = args.expect("body")?;
-
     Ok(Value::Template(Template::from_inline(move |style| {
-        MoveNode {
-            offset: Spec::new(x, y),
-            child: body.pack(style),
-        }
+        body.pack(style).moved(dx, dy)
     })))
 }
 
+/// A node that moves its child without affecting layout.
 #[derive(Debug, Hash)]
-struct MoveNode {
-    offset: Spec<Option<Linear>>,
-    child: PackedNode,
+pub struct MoveNode {
+    /// The node whose contents should be moved.
+    pub child: PackedNode,
+    /// How much to move the contents.
+    pub offset: Spec<Option<Linear>>,
 }
 
 impl Layout for MoveNode {

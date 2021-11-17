@@ -10,7 +10,7 @@ use crate::geom::{Align, Dir, GenAxis, Length, Linear, Sides, Size};
 use crate::layout::{Layout, PackedNode};
 use crate::library::{
     Decoration, DocumentNode, FlowChild, FlowNode, PadNode, PageNode, ParChild, ParNode,
-    Spacing,
+    PlacedNode, Spacing,
 };
 use crate::style::Style;
 use crate::util::EcoString;
@@ -331,15 +331,21 @@ impl Builder {
     }
 
     /// Push an inline node into the active paragraph.
-    fn inline(&mut self, node: impl Into<PackedNode>) {
+    fn inline(&mut self, node: PackedNode) {
         self.flow.par.push(ParChild::Node(node.into()));
     }
 
     /// Push a block node into the active flow, finishing the active paragraph.
-    fn block(&mut self, node: impl Into<PackedNode>) {
+    fn block(&mut self, node: PackedNode) {
         self.parbreak();
-        self.flow.push(FlowChild::Node(node.into()));
-        self.parbreak();
+        let in_flow = node.downcast::<PlacedNode>().is_none();
+        self.flow.push(FlowChild::Node(node));
+        if in_flow {
+            self.parbreak();
+        } else {
+            // This prevents duplicate paragraph spacing around placed nodes.
+            self.flow.last = Last::None;
+        }
     }
 
     /// Push spacing into the active paragraph or flow depending on the `axis`.

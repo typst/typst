@@ -12,6 +12,7 @@ mod image;
 mod pad;
 mod page;
 mod par;
+mod placed;
 mod shape;
 mod sized;
 mod spacing;
@@ -42,6 +43,7 @@ pub use grid::*;
 pub use pad::*;
 pub use page::*;
 pub use par::*;
+pub use placed::*;
 pub use shape::*;
 pub use sized::*;
 pub use spacing::*;
@@ -71,13 +73,14 @@ pub fn new() -> Scope {
     std.def_func("pagebreak", pagebreak);
     std.def_func("h", h);
     std.def_func("v", v);
-    std.def_func("align", align);
     std.def_func("box", box_);
     std.def_func("block", block);
     std.def_func("flow", flow);
-    std.def_func("pad", pad);
+    std.def_func("align", align);
+    std.def_func("place", place);
     std.def_func("move", move_);
     std.def_func("stack", stack);
+    std.def_func("pad", pad);
     std.def_func("grid", grid);
 
     // Elements.

@@ -223,8 +223,12 @@ impl<'a> StackLayouter<'a> {
         // Place all frames.
         for item in self.items.drain(..) {
             match item {
-                StackItem::Absolute(v) => before += v,
-                StackItem::Fractional(v) => before += v.resolve(self.fr, remaining),
+                StackItem::Absolute(v) => {
+                    before += v;
+                }
+                StackItem::Fractional(v) => {
+                    before += v.resolve(self.fr, remaining);
+                }
                 StackItem::Frame(frame, align) => {
                     ruler = ruler.max(align);
 
@@ -240,9 +244,8 @@ impl<'a> StackLayouter<'a> {
                         after .. parent - before_with_self
                     });
 
-                    before += child;
-
                     let pos = Gen::new(Length::zero(), block).to_point(self.axis);
+                    before += child;
                     output.push_frame(pos, frame);
                 }
             }

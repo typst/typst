@@ -19,7 +19,7 @@ use crate::font::FontStore;
 use crate::frame::Frame;
 use crate::geom::{Align, Linear, Spec};
 use crate::image::ImageStore;
-use crate::library::{AlignNode, DocumentNode, SizedNode};
+use crate::library::{AlignNode, DocumentNode, MoveNode, SizedNode};
 use crate::Context;
 
 /// Layout a document node into a collection of frames.
@@ -104,21 +104,27 @@ impl PackedNode {
     }
 
     /// Force a size for this node.
-    pub fn sized(self, width: Option<Linear>, height: Option<Linear>) -> PackedNode {
-        if width.is_some() || height.is_some() {
-            Layout::pack(SizedNode {
-                child: self,
-                sizing: Spec::new(width, height),
-            })
+    pub fn sized(self, w: Option<Linear>, h: Option<Linear>) -> Self {
+        if w.is_some() || h.is_some() {
+            SizedNode { child: self, sizing: Spec::new(w, h) }.pack()
         } else {
             self
         }
     }
 
     /// Set alignments for this node.
-    pub fn aligned(self, x: Option<Align>, y: Option<Align>) -> PackedNode {
+    pub fn aligned(self, x: Option<Align>, y: Option<Align>) -> Self {
         if x.is_some() || y.is_some() {
-            Layout::pack(AlignNode { child: self, aligns: Spec::new(x, y) })
+            AlignNode { child: self, aligns: Spec::new(x, y) }.pack()
+        } else {
+            self
+        }
+    }
+
+    /// Move this node's contents without affecting layout.
+    pub fn moved(self, dx: Option<Linear>, dy: Option<Linear>) -> Self {
+        if dx.is_some() || dy.is_some() {
+            MoveNode { child: self, offset: Spec::new(dx, dy) }.pack()
         } else {
             self
         }

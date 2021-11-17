@@ -1,7 +1,7 @@
 use std::fmt::{self, Debug, Formatter};
 
 use super::prelude::*;
-use super::{AlignNode, ParNode, Spacing};
+use super::{AlignNode, ParNode, PlacedNode, Spacing};
 
 /// `flow`: A vertical flow of paragraphs and other layout nodes.
 pub fn flow(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
@@ -101,7 +101,9 @@ enum FlowItem {
     Absolute(Length),
     /// Fractional spacing between other items.
     Fractional(Fractional),
-    /// A layouted child node and how to align it vertically.
+    /// A frame to be placed directly at the origin.
+    Placed(Rc<Frame>),
+    /// A frame for a layouted child node and how to align it.
     Frame(Rc<Frame>, Spec<Align>),
 }
 
@@ -157,13 +159,27 @@ impl<'a> FlowLayouter<'a> {
 
     /// Layout a node.
     fn layout_node(&mut self, ctx: &mut LayoutContext, node: &PackedNode) {
+        // Placed nodes with vertical alignment are handled separately
+        // because their position shouldn't depend on other flow elements.
+        if let Some(placed) = node.downcast::<PlacedNode>() {
+            if let Some(aligned) = placed.child.downcast::<AlignNode>() {
+                if aligned.aligns.y.is_some() {
+                    let base = self.regions.base;
+                    let pod = Regions::one(base, base, Spec::splat(true));
+                    let frame = placed.layout(ctx, &pod).remove(0);
+                    self.items.push(FlowItem::Placed(frame.item));
+                    return;
+                }
+            }
+        }
+
         let aligns = Spec::new(
             // For non-expanding paragraphs it is crucial that we align the
             // whole paragraph according to its internal alignment.
-            node.downcast::<ParNode>().map_or(Align::Left, |node| node.align),
+            node.downcast::<ParNode>().map_or(Align::Left, |par| par.align),
             // Vertical align node alignment is respected by the flow node.
             node.downcast::<AlignNode>()
-                .and_then(|node| node.aligns.y)
+                .and_then(|aligned| aligned.aligns.y)
                 .unwrap_or(Align::Top),
         );
 
@@ -207,8 +223,15 @@ impl<'a> FlowLayouter<'a> {
         // Place all frames.
         for item in self.items.drain(..) {
             match item {
-                FlowItem::Absolute(v) => before += v,
-                FlowItem::Fractional(v) => before += v.resolve(self.fr, remaining),
+                FlowItem::Absolute(v) => {
+                    before += v;
+                }
+                FlowItem::Fractional(v) => {
+                    before += v.resolve(self.fr, remaining);
+                }
+                FlowItem::Placed(frame) => {
+                    output.push_frame(Point::zero(), frame);
+                }
                 FlowItem::Frame(frame, aligns) => {
                     ruler = ruler.max(aligns.y);
 

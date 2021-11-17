@@ -2,7 +2,7 @@
 #let tex = [{
   [T]
   h(-0.14 * size)
-  move(y: 0.22 * size)[E]
+  move(dy: 0.22 * size)[E]
   h(-0.12 * size)
   [X]
 }]

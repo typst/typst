@@ -2,6 +2,20 @@ use super::prelude::*;
 
 /// `align`: Configure the alignment along the layouting axes.
 pub fn align(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
+    let Spec { x, y } = parse_aligns(args)?;
+    let body = args.expect::<Template>("body")?;
+    Ok(Value::Template(Template::from_block(move |style| {
+        let mut style = style.clone();
+        if let Some(x) = x {
+            style.par_mut().align = x;
+        }
+
+        body.pack(&style).aligned(x, y)
+    })))
+}
+
+/// Parse alignment arguments with shorthand.
+pub(super) fn parse_aligns(args: &mut Args) -> TypResult<Spec<Option<Align>>> {
     let mut x = args.named("horizontal")?;
     let mut y = args.named("vertical")?;
     for Spanned { v, span } in args.all::<Spanned<Align>>() {
@@ -11,17 +25,7 @@ pub fn align(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
             _ => bail!(span, "unexpected argument"),
         }
     }
-
-    let body = args.expect::<Template>("body")?;
-
-    Ok(Value::Template(Template::from_block(move |style| {
-        let mut style = style.clone();
-        if let Some(x) = x {
-            style.par_mut().align = x;
-        }
-
-        body.pack(&style).aligned(x, y)
-    })))
+    Ok(Spec::new(x, y))
 }
 
 /// A node that aligns its child.
