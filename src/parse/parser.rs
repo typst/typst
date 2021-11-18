@@ -48,7 +48,7 @@ impl<'s> Parser<'s> {
     }
 
     /// End the parsing process and return multiple children.
-    pub fn eject(self) -> Option<(Vec<Green>, bool)>{
+    pub fn eject(self) -> Option<(Vec<Green>, bool)> {
         if self.eof() && self.group_success() {
             Some((self.children, self.tokens.was_unterminated()))
         } else {

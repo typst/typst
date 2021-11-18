@@ -32,6 +32,13 @@ pub fn parse_atomic(src: &str, _: bool) -> Option<(Vec<Green>, bool)> {
     p.eject_partial()
 }
 
+/// Parse an atomic primary. Returns `Some` if all of the input was consumed.
+pub fn parse_atomic_markup(src: &str, _: bool) -> Option<(Vec<Green>, bool)> {
+    let mut p = Parser::new(src, TokenMode::Markup);
+    markup_expr(&mut p);
+    p.eject_partial()
+}
+
 /// Parse some markup. Returns `Some` if all of the input was consumed.
 pub fn parse_markup(src: &str, _: bool) -> Option<(Vec<Green>, bool)> {
     let mut p = Parser::new(src, TokenMode::Markup);
@@ -171,17 +178,7 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
         | NodeKind::While
         | NodeKind::For
         | NodeKind::Import
-        | NodeKind::Include => {
-            let stmt = matches!(token, NodeKind::Let | NodeKind::Set | NodeKind::Import);
-            let group = if stmt { Group::Stmt } else { Group::Expr };
-
-            p.start_group(group);
-            let res = expr_prec(p, true, 0);
-            if stmt && res.is_ok() && !p.eof() {
-                p.expected_at("semicolon or line break");
-            }
-            p.end_group();
-        }
+        | NodeKind::Include => markup_expr(p),
 
         // Block and template.
         NodeKind::LeftBrace => block(p),
@@ -220,6 +217,21 @@ fn enum_node(p: &mut Parser) {
         let column = p.column(p.prev_end());
         markup_indented(p, column);
     });
+}
+
+/// Parse an expression within markup mode.
+fn markup_expr(p: &mut Parser) {
+    if let Some(token) = p.peek() {
+        let stmt = matches!(token, NodeKind::Let | NodeKind::Set | NodeKind::Import);
+        let group = if stmt { Group::Stmt } else { Group::Expr };
+
+        p.start_group(group);
+        let res = expr_prec(p, true, 0);
+        if stmt && res.is_ok() && !p.eof() {
+            p.expected_at("semicolon or line break");
+        }
+        p.end_group();
+    }
 }
 
 /// Parse an expression.

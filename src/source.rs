@@ -12,7 +12,7 @@ use crate::diag::TypResult;
 use crate::loading::{FileHash, Loader};
 use crate::parse::{is_newline, parse, Scanner};
 use crate::syntax::ast::Markup;
-use crate::syntax::{self, Category, GreenNode, RedNode, Span};
+use crate::syntax::{self, Category, GreenNode, RedNode, Reparser, Span};
 use crate::util::PathExt;
 
 #[cfg(feature = "codespan-reporting")]
@@ -285,9 +285,8 @@ impl SourceFile {
 
         // Update the root node.
         let span = Span::new(self.id, replace.start, replace.end);
-        if let Ok(range) =
-            Rc::make_mut(&mut self.root).incremental(&self.src, span, with.len())
-        {
+        let reparser = Reparser::new(&self.src, span, with.len());
+        if let Ok(range) = reparser.incremental(Rc::make_mut(&mut self.root)) {
             range
         } else {
             self.root = parse(&self.src);
@@ -502,6 +501,14 @@ mod tests {
         test("= A heading", 3 .. 3, "n evocative", 2 .. 15);
         test("your thing", 5 .. 5, "a", 4 .. 11);
         test("a your thing a", 6 .. 7, "a", 2 .. 12);
+        test("{call(); abc}", 7 .. 7, "[]", 0 .. 15);
+        test("#call() abc", 7 .. 7, "[]", 0 .. 13);
+        // test(
+        //     "hi\n- item\n- item 2\n    - item 3",
+        //     10 .. 10,
+        //     "  ",
+        //     9 .. 33,
+        // );
         test(
             "#grid(columns: (auto, 1fr, 40%), [*plonk*], rect(width: 100%, height: 1pt, fill: conifer), [thing])",
             16 .. 20,
@@ -535,7 +542,7 @@ mod tests {
             "C ",
             14 .. 22,
         );
-        test("{ let x = g() }", 10 .. 12, "f(54", 2 .. 15);
+        test("{ let x = g() }", 10 .. 12, "f(54", 0 .. 17);
         test(
             "a #let rect with (fill: eastern)\nb",
             16 .. 31,
