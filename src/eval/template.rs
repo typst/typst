@@ -6,7 +6,7 @@ use std::ops::{Add, AddAssign};
 use std::rc::Rc;
 
 use crate::diag::StrResult;
-use crate::geom::{Align, Dir, GenAxis, Length, Linear, Sides, Size};
+use crate::geom::{Align, Dir, GenAxis, Length, Linear, Paint, Sides, Size};
 use crate::layout::{Layout, PackedNode};
 use crate::library::{
     Decoration, DocumentNode, FlowChild, FlowNode, PageNode, ParChild, ParNode,
@@ -384,6 +384,7 @@ impl Builder {
 struct PageBuilder {
     size: Size,
     padding: Sides<Linear>,
+    fill: Option<Paint>,
     hard: bool,
 }
 
@@ -392,15 +393,17 @@ impl PageBuilder {
         Self {
             size: style.page.size,
             padding: style.page.margins(),
+            fill: style.page.fill,
             hard,
         }
     }
 
     fn build(self, child: FlowNode, keep: bool) -> Option<PageNode> {
-        let Self { size, padding, hard } = self;
+        let Self { size, padding, fill, hard } = self;
         (!child.children.is_empty() || (keep && hard)).then(|| PageNode {
-            size,
             child: child.pack().padded(padding),
+            size,
+            fill,
         })
     }
 }

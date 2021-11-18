@@ -71,6 +71,8 @@ pub struct PageStyle {
     /// The amount of white space on each side of the page. If a side is set to
     /// `None`, the default for the paper class is used.
     pub margins: Sides<Option<Linear>>,
+    /// The background fill of the page.
+    pub fill: Option<Paint>,
 }
 
 impl PageStyle {
@@ -93,6 +95,7 @@ impl Default for PageStyle {
             class: paper.class(),
             size: paper.size(),
             margins: Sides::splat(None),
+            fill: None,
         }
     }
 }

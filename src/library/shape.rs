@@ -131,6 +131,7 @@ impl Layout for ShapeNode {
                 frames = node.layout(ctx, &pod);
             }
 
+            // TODO: What if there are multiple or no frames?
             // Extract the frame.
             Rc::take(frames.into_iter().next().unwrap().item)
         } else {

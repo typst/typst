@@ -18,6 +18,7 @@ pub fn page(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let right = args.named("right")?;
     let bottom = args.named("bottom")?;
     let flip = args.named("flip")?;
+    let fill = args.named("fill")?;
 
     ctx.template.modify(move |style| {
         let page = style.page_mut();
@@ -60,6 +61,10 @@ pub fn page(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         if flip.unwrap_or(false) {
             std::mem::swap(&mut page.size.w, &mut page.size.h);
         }
+
+        if let Some(fill) = fill {
+            page.fill = Some(Paint::Color(fill));
+        }
     });
 
     ctx.template.pagebreak(false);
@@ -77,10 +82,12 @@ pub fn pagebreak(_: &mut EvalContext, _: &mut Args) -> TypResult<Value> {
 /// Layouts its children onto one or multiple pages.
 #[derive(Debug, Hash)]
 pub struct PageNode {
-    /// The size of the page.
-    pub size: Size,
     /// The node that produces the actual pages.
     pub child: PackedNode,
+    /// The size of the page.
+    pub size: Size,
+    /// The background fill.
+    pub fill: Option<Paint>,
 }
 
 impl PageNode {
@@ -90,6 +97,19 @@ impl PageNode {
         // that axis.
         let expand = self.size.to_spec().map(Length::is_finite);
         let regions = Regions::repeat(self.size, self.size, expand);
-        self.child.layout(ctx, &regions).into_iter().map(|c| c.item).collect()
+
+        // Layout the child.
+        let mut frames: Vec<_> =
+            self.child.layout(ctx, &regions).into_iter().map(|c| c.item).collect();
+
+        // Add background fill if requested.
+        if let Some(fill) = self.fill {
+            for frame in &mut frames {
+                let element = Element::Geometry(Geometry::Rect(frame.size), fill);
+                Rc::make_mut(frame).prepend(Point::zero(), element)
+            }
+        }
+
+        frames
     }
 }

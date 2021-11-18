@@ -2,15 +2,15 @@
 
 ---
 // Set width and height.
-#page(width: 120pt, height: 120pt)
+#page(width: 80pt, height: 80pt)
 [#page(width: 40pt) High]
 [#page(height: 40pt) Wide]
 
 // Set all margins at once.
 [
-  #page(margins: 30pt)
-  #align(top, left)[TL]
-  #align(bottom, right)[BR]
+  #page(margins: 5pt)
+  #place(top, left)[TL]
+  #place(bottom, right)[BR]
 ]
 
 // Set individual margins.
@@ -26,15 +26,10 @@
 // Flipped predefined paper.
 [#page(paper: "a11", flip: true) Flipped A11]
 
-// Flipped custom page size.
-#page(width: 40pt, height: 120pt)
-#page(flip: true)
-Wide
-
 ---
 // Test a combination of pages with bodies and normal content.
 
-#page(height: 50pt)
+#page(width: 80pt, height: 30pt)
 
 [#page() First]
 [#page() Second]
@@ -43,4 +38,9 @@ Wide
 Fourth
 [#page(height: 25pt)]
 Sixth
-[#page() Seventh and last]
+[#page() Seventh]
+
+---
+#page(width: 80pt, height: 40pt, fill: eastern)
+#font(15pt, "Roboto", fill: white, smallcaps: true)
+Typst
