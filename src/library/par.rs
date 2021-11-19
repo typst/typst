@@ -644,6 +644,7 @@ impl<'a> LineStack<'a> {
         self.regions.next();
         self.full = self.regions.current;
         self.cts = Constraints::new(self.regions.expand);
+        self.cts.base = self.regions.base.to_spec().map(Some);
         self.size = Size::zero();
     }
 

@@ -106,7 +106,7 @@ impl PageNode {
         if let Some(fill) = self.fill {
             for frame in &mut frames {
                 let element = Element::Geometry(Geometry::Rect(frame.size), fill);
-                Rc::make_mut(frame).prepend(Point::zero(), element)
+                Rc::make_mut(frame).prepend(Point::zero(), element);
             }
         }
 

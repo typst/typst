@@ -437,8 +437,13 @@ fn draw_frame(
         let h = frame.size.h.to_pt() as f32;
         let rect = sk::Rect::from_xywh(0.0, 0.0, w, h).unwrap();
         let path = sk::PathBuilder::from_rect(rect).transform(ts).unwrap();
+        let rule = sk::FillRule::default();
         storage = mask.clone();
-        storage.intersect_path(&path, sk::FillRule::default(), false);
+        if storage.intersect_path(&path, rule, false).is_none() {
+            // Fails if clipping rect is empty. In that case we just clip everything
+            // by returning.
+            return;
+        }
         &storage
     } else {
         mask

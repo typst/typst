@@ -77,7 +77,7 @@ impl Layout for ImageNode {
         let mut frame = Frame::new(canvas, canvas.h);
         frame.clips = self.fit == ImageFit::Cover;
         frame.push(
-            Point::new((canvas.w - size.w) / 2.0, (canvas.h - size.h) / 2.0),
+            (canvas - size).to_point() / 2.0,
             Element::Image(self.id, size),
         );
 
