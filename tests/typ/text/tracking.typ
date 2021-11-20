@@ -6,3 +6,7 @@ I saw Zoe yӛsterday, on the tram.
 
 ---
 I'm in#font(tracking: 0.3)[ spaace]!
+
+---
+#font("Noto Serif Hebrew", tracking: 0.3)
+טֶקסט

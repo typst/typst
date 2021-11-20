@@ -163,7 +163,7 @@ pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let fallback = args.named("fallback")?;
     let style = args.named("style")?;
     let weight = args.named("weight")?;
-    let tracking = args.named::<f64>("tracking")?;
+    let tracking = args.named("tracking")?;
     let stretch = args.named("stretch")?;
     let size = args.named::<Linear>("size")?.or_else(|| args.find());
     let top_edge = args.named("top-edge")?;
@@ -264,7 +264,7 @@ pub fn shape<'a>(
         );
     }
 
-    track_segment(&mut glyphs, style.tracking);
+    track(&mut glyphs, style.tracking);
 
     let (size, baseline) = measure(ctx, &glyphs, style);
     ShapedText {
@@ -563,7 +563,7 @@ fn shape_segment<'a>(
 }
 
 /// Apply tracking to a slice of shaped glyphs.
-fn track_segment(glyphs: &mut [ShapedGlyph], tracking: Em) {
+fn track(glyphs: &mut [ShapedGlyph], tracking: Em) {
     if tracking.is_zero() {
         return;
     }
