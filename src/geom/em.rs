@@ -3,7 +3,7 @@ use super::*;
 /// A length that is relative to the font size.
 ///
 /// `1em` is the same as the font size.
-#[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[derive(Serialize, Deserialize)]
 pub struct Em(N64);
 

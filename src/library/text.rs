@@ -163,6 +163,7 @@ pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let fallback = args.named("fallback")?;
     let style = args.named("style")?;
     let weight = args.named("weight")?;
+    let tracking = args.named::<f64>("tracking")?;
     let stretch = args.named("stretch")?;
     let size = args.named::<Linear>("size")?.or_else(|| args.find());
     let top_edge = args.named("top-edge")?;
@@ -201,6 +202,10 @@ pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 
         if let Some(fill) = fill {
             text.fill = Paint::Color(fill);
+        }
+
+        if let Some(tracking) = tracking {
+            text.tracking = Em::new(tracking);
         }
 
         set!(text.variant.style => style);
@@ -258,6 +263,8 @@ pub fn shape<'a>(
             &tags(&style.features),
         );
     }
+
+    track_segment(&mut glyphs, style.tracking);
 
     let (size, baseline) = measure(ctx, &glyphs, style);
     ShapedText {
@@ -552,6 +559,23 @@ fn shape_segment<'a>(
         }
 
         i += 1;
+    }
+}
+
+/// Apply tracking to a slice of shaped glyphs.
+fn track_segment(glyphs: &mut [ShapedGlyph], tracking: Em) {
+    if tracking.is_zero() {
+        return;
+    }
+
+    let mut glyphs = glyphs.iter_mut().peekable();
+    while let Some(glyph) = glyphs.next() {
+        if glyphs
+            .peek()
+            .map_or(false, |next| glyph.text_index != next.text_index)
+        {
+            glyph.x_advance += tracking;
+        }
     }
 }
 

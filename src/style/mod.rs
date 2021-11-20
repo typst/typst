@@ -140,6 +140,8 @@ pub struct TextStyle {
     pub families: Rc<FamilyStyle>,
     /// OpenType features.
     pub features: Rc<FontFeatures>,
+    /// The amount of space that should be added between character.
+    pub tracking: Em,
     /// Whether 300 extra font weight should be added to what is defined by the
     /// `variant`.
     pub strong: bool,
@@ -222,6 +224,7 @@ impl Default for TextStyle {
             fill: Paint::Color(Color::Rgba(RgbaColor::BLACK)),
             families: Rc::new(FamilyStyle::default()),
             features: Rc::new(FontFeatures::default()),
+            tracking: Em::zero(),
             strong: false,
             emph: false,
             monospace: false,
