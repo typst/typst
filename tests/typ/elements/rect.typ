@@ -8,10 +8,15 @@
 #page(width: 150pt)
 
 // Fit to text.
-#rect(fill: conifer)[Textbox]
+#rect(fill: conifer, padding: 3pt)[Textbox]
 
 // Empty with fixed width and height.
-#rect(width: 3cm, height: 12pt, fill: rgb("ed8a4c"))
+#block(rect(
+  height: 15pt,
+  fill: rgb("46b3c2"),
+  stroke: rgb("234994"),
+  thickness: 2pt,
+))
 
 // Fixed width, text height.
 #rect(width: 2cm, fill: rgb("9650d6"), pad(5pt)[Fixed and padded])

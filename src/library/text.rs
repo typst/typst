@@ -163,12 +163,12 @@ pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let fallback = args.named("fallback")?;
     let style = args.named("style")?;
     let weight = args.named("weight")?;
-    let tracking = args.named("tracking")?;
     let stretch = args.named("stretch")?;
     let size = args.named::<Linear>("size")?.or_else(|| args.find());
+    let tracking = args.named("tracking")?.map(Em::new);
     let top_edge = args.named("top-edge")?;
     let bottom_edge = args.named("bottom-edge")?;
-    let fill = args.named("fill")?.or_else(|| args.find());
+    let fill = args.named("fill")?.or_else(|| args.find()).map(Paint::Solid);
     let kerning = args.named("kerning")?;
     let smallcaps = args.named("smallcaps")?;
     let alternates = args.named("alternates")?;
@@ -182,7 +182,6 @@ pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let slashed_zero = args.named("slashed-zero")?;
     let fractions = args.named("fractions")?;
     let features = args.named("features")?;
-
     let body = args.find::<Template>();
 
     macro_rules! set {
@@ -195,30 +194,19 @@ pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 
     let f = move |style_: &mut Style| {
         let text = style_.text_mut();
-
-        if let Some(size) = size {
-            text.size = size.resolve(text.size);
-        }
-
-        if let Some(fill) = fill {
-            text.fill = Paint::Color(fill);
-        }
-
-        if let Some(tracking) = tracking {
-            text.tracking = Em::new(tracking);
-        }
-
-        set!(text.variant.style => style);
-        set!(text.variant.weight => weight);
-        set!(text.variant.stretch => stretch);
-        set!(text.top_edge => top_edge);
-        set!(text.bottom_edge => bottom_edge);
-        set!(text.fallback => fallback);
-
         set!(text.families_mut().list => list.clone());
         set!(text.families_mut().serif => serif.clone());
         set!(text.families_mut().sans_serif => sans_serif.clone());
         set!(text.families_mut().monospace => monospace.clone());
+        set!(text.fallback => fallback);
+        set!(text.variant.style => style);
+        set!(text.variant.weight => weight);
+        set!(text.variant.stretch => stretch);
+        set!(text.size => size.map(|v| v.resolve(text.size)));
+        set!(text.tracking => tracking);
+        set!(text.top_edge => top_edge);
+        set!(text.bottom_edge => bottom_edge);
+        set!(text.fill => fill);
         set!(text.features_mut().kerning => kerning);
         set!(text.features_mut().smallcaps => smallcaps);
         set!(text.features_mut().alternates => alternates);

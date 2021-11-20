@@ -128,14 +128,13 @@ impl<'a> Iterator for Elements<'a> {
 /// The building block frames are composed of.
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Element {
-    /// Shaped text.
+    /// A run of shaped text.
     Text(Text),
-    /// A geometric shape and the paint which with it should be filled or
-    /// stroked (which one depends on the kind of geometry).
-    Geometry(Geometry, Paint),
-    /// A raster image.
+    /// A geometric shape with optional fill and stroke.
+    Shape(Shape),
+    /// A raster image and its size.
     Image(ImageId, Size),
-    /// A link to an external resource.
+    /// A link to an external resource and its trigger region.
     Link(String, Size),
     /// A subframe, which can be a clipping boundary.
     Frame(Rc<Frame>),
@@ -167,15 +166,51 @@ pub struct Glyph {
     pub x_offset: Em,
 }
 
-/// A geometric shape.
+/// A geometric shape with optional fill and stroke.
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct Shape {
+    /// The shape's geometry.
+    pub geometry: Geometry,
+    /// The shape's background fill.
+    pub fill: Option<Paint>,
+    /// The shape's border stroke.
+    pub stroke: Option<Stroke>,
+}
+
+impl Shape {
+    /// Create a filled shape without a stroke.
+    pub fn filled(geometry: Geometry, fill: Paint) -> Self {
+        Self { geometry, fill: Some(fill), stroke: None }
+    }
+
+    /// Create a stroked shape without a fill.
+    pub fn stroked(geometry: Geometry, stroke: Stroke) -> Self {
+        Self {
+            geometry,
+            fill: None,
+            stroke: Some(stroke),
+        }
+    }
+}
+
+/// A shape's geometry.
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Geometry {
-    /// A filled rectangle with its origin in the topleft corner.
+    /// A line to a point (relative to its position).
+    Line(Point),
+    /// A rectangle with its origin in the topleft corner.
     Rect(Size),
-    /// A filled ellipse with its origin in the center.
+    /// A ellipse with its origin in the topleft corner.
     Ellipse(Size),
-    /// A stroked line to a point (relative to its position) with a thickness.
-    Line(Point, Length),
-    /// A filled bezier path.
+    /// A bezier path.
     Path(Path),
+}
+
+/// A stroke of a geometric shape.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub struct Stroke {
+    /// The stroke's paint.
+    pub paint: Paint,
+    /// The stroke's thickness.
+    pub thickness: Length,
 }

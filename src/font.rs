@@ -187,11 +187,11 @@ pub struct Face {
 /// Metrics for a decorative line.
 #[derive(Debug, Copy, Clone)]
 pub struct LineMetrics {
-    /// The thickness of the line.
-    pub strength: Em,
     /// The vertical offset of the line from the baseline. Positive goes
     /// upwards, negative downwards.
     pub position: Em,
+    /// The thickness of the line.
+    pub thickness: Em,
 }
 
 impl Face {
@@ -218,22 +218,22 @@ impl Face {
         let underline = ttf.underline_metrics();
 
         let strikethrough = LineMetrics {
-            strength: strikeout
+            position: strikeout.map_or(Em::new(0.25), |s| to_em(s.position)),
+            thickness: strikeout
                 .or(underline)
                 .map_or(Em::new(0.06), |s| to_em(s.thickness)),
-            position: strikeout.map_or(Em::new(0.25), |s| to_em(s.position)),
         };
 
         let underline = LineMetrics {
-            strength: underline
+            position: underline.map_or(Em::new(-0.2), |s| to_em(s.position)),
+            thickness: underline
                 .or(strikeout)
                 .map_or(Em::new(0.06), |s| to_em(s.thickness)),
-            position: underline.map_or(Em::new(-0.2), |s| to_em(s.position)),
         };
 
         let overline = LineMetrics {
-            strength: underline.strength,
             position: cap_height + Em::new(0.1),
+            thickness: underline.thickness,
         };
 
         Some(Self {

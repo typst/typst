@@ -7,7 +7,16 @@ use super::*;
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum Paint {
     /// A solid color.
-    Color(Color),
+    Solid(Color),
+}
+
+impl<T> From<T> for Paint
+where
+    T: Into<Color>,
+{
+    fn from(t: T) -> Self {
+        Self::Solid(t.into())
+    }
 }
 
 /// A color in a dynamic format.
@@ -22,6 +31,12 @@ impl Debug for Color {
         match self {
             Self::Rgba(c) => Debug::fmt(c, f),
         }
+    }
+}
+
+impl From<RgbaColor> for Color {
+    fn from(rgba: RgbaColor) -> Self {
+        Self::Rgba(rgba)
     }
 }
 

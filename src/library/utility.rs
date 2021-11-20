@@ -86,7 +86,7 @@ pub fn str(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 
 /// `rgb`: Create an RGB(A) color.
 pub fn rgb(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    Ok(Value::Color(Color::Rgba(
+    Ok(Value::from(
         if let Some(string) = args.find::<Spanned<EcoString>>() {
             match RgbaColor::from_str(&string.v) {
                 Ok(color) => color,
@@ -106,7 +106,7 @@ pub fn rgb(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
             };
             RgbaColor::new(f(r)?, f(g)?, f(b)?, f(a)?)
         },
-    )))
+    ))
 }
 
 /// `abs`: The absolute value of a numeric value.

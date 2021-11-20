@@ -18,7 +18,7 @@ pub fn page(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let right = args.named("right")?;
     let bottom = args.named("bottom")?;
     let flip = args.named("flip")?;
-    let fill = args.named("fill")?;
+    let fill = args.named("fill")?.map(Paint::Solid);
 
     ctx.template.modify(move |style| {
         let page = style.page_mut();
@@ -63,7 +63,7 @@ pub fn page(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         }
 
         if let Some(fill) = fill {
-            page.fill = Some(Paint::Color(fill));
+            page.fill = Some(fill);
         }
     });
 
@@ -105,8 +105,8 @@ impl PageNode {
         // Add background fill if requested.
         if let Some(fill) = self.fill {
             for frame in &mut frames {
-                let element = Element::Geometry(Geometry::Rect(frame.size), fill);
-                Rc::make_mut(frame).prepend(Point::zero(), element);
+                let shape = Shape::filled(Geometry::Rect(frame.size), fill);
+                Rc::make_mut(frame).prepend(Point::zero(), Element::Shape(shape));
             }
         }
 

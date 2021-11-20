@@ -7,9 +7,7 @@ use crate::util::RcExt;
 pub fn rect(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let width = args.named("width")?;
     let height = args.named("height")?;
-    let fill = args.named("fill")?;
-    let body = args.find();
-    Ok(shape_impl(ShapeKind::Rect, width, height, fill, body))
+    shape_impl(args, ShapeKind::Rect, width, height)
 }
 
 /// `square`: A square with optional content.
@@ -23,18 +21,14 @@ pub fn square(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         None => args.named("height")?,
         size => size,
     };
-    let fill = args.named("fill")?;
-    let body = args.find();
-    Ok(shape_impl(ShapeKind::Square, width, height, fill, body))
+    shape_impl(args, ShapeKind::Square, width, height)
 }
 
 /// `ellipse`: An ellipse with optional content.
 pub fn ellipse(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let width = args.named("width")?;
     let height = args.named("height")?;
-    let fill = args.named("fill")?;
-    let body = args.find();
-    Ok(shape_impl(ShapeKind::Ellipse, width, height, fill, body))
+    shape_impl(args, ShapeKind::Ellipse, width, height)
 }
 
 /// `circle`: A circle with optional content.
@@ -48,30 +42,44 @@ pub fn circle(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         None => args.named("height")?,
         diameter => diameter,
     };
-    let fill = args.named("fill")?;
-    let body = args.find();
-    Ok(shape_impl(ShapeKind::Circle, width, height, fill, body))
+    shape_impl(args, ShapeKind::Circle, width, height)
 }
 
 fn shape_impl(
+    args: &mut Args,
     kind: ShapeKind,
     width: Option<Linear>,
     height: Option<Linear>,
-    fill: Option<Color>,
-    body: Option<Template>,
-) -> Value {
-    // Set default fill if there's no fill.
-    let fill = fill.unwrap_or(Color::Rgba(RgbaColor::gray(175)));
+) -> TypResult<Value> {
+    // The default appearance of a shape.
+    let default = Stroke {
+        paint: RgbaColor::BLACK.into(),
+        thickness: Length::pt(1.0),
+    };
 
-    Value::Template(Template::from_inline(move |style| {
+    // Parse fill & stroke.
+    let fill = args.named("fill")?.map(Paint::Solid);
+    let stroke = match (args.named("stroke")?, args.named("thickness")?) {
+        (None, None) => fill.is_none().then(|| default),
+        (color, thickness) => Some(Stroke {
+            paint: color.map(Paint::Solid).unwrap_or(default.paint),
+            thickness: thickness.unwrap_or(default.thickness),
+        }),
+    };
+
+    let padding = Sides::splat(args.named("padding")?.unwrap_or_default());
+    let body = args.find::<Template>();
+
+    Ok(Value::Template(Template::from_inline(move |style| {
         ShapeNode {
             kind,
-            fill: Some(Paint::Color(fill)),
-            child: body.as_ref().map(|body| body.pack(style)),
+            fill,
+            stroke,
+            child: body.as_ref().map(|body| body.pack(style).padded(padding)),
         }
         .pack()
         .sized(width, height)
-    }))
+    })))
 }
 
 /// Places its child into a sizable and fillable shape.
@@ -79,8 +87,10 @@ fn shape_impl(
 pub struct ShapeNode {
     /// Which shape to place the child into.
     pub kind: ShapeKind,
-    /// How to fill the shape, if at all.
+    /// How to fill the shape.
     pub fill: Option<Paint>,
+    /// How the stroke the shape.
+    pub stroke: Option<Stroke>,
     /// The child node to place into the shape, if any.
     pub child: Option<PackedNode>,
 }
@@ -160,18 +170,20 @@ impl Layout for ShapeNode {
             Frame::new(size, size.h)
         };
 
-        // Add background fill if desired.
-        if let Some(fill) = self.fill {
-            let (pos, geometry) = match self.kind {
-                ShapeKind::Square | ShapeKind::Rect => {
-                    (Point::zero(), Geometry::Rect(frame.size))
-                }
-                ShapeKind::Circle | ShapeKind::Ellipse => {
-                    (frame.size.to_point() / 2.0, Geometry::Ellipse(frame.size))
-                }
+        // Add fill and/or stroke.
+        if self.fill.is_some() || self.stroke.is_some() {
+            let geometry = match self.kind {
+                ShapeKind::Square | ShapeKind::Rect => Geometry::Rect(frame.size),
+                ShapeKind::Circle | ShapeKind::Ellipse => Geometry::Ellipse(frame.size),
             };
 
-            frame.prepend(pos, Element::Geometry(geometry, fill));
+            let shape = Shape {
+                geometry,
+                fill: self.fill,
+                stroke: self.stroke,
+            };
+
+            frame.prepend(Point::zero(), Element::Shape(shape));
         }
 
         // Ensure frame size matches regions size if expansion is on.

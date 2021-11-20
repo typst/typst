@@ -14,7 +14,7 @@ use ttf_parser::{name_id, GlyphId, Tag};
 
 use super::subset;
 use crate::font::{find_name, FaceId, FontStore};
-use crate::frame::{Element, Frame, Geometry, Text};
+use crate::frame::{Element, Frame, Geometry, Shape, Stroke, Text};
 use crate::geom::{self, Color, Em, Length, Paint, Size};
 use crate::image::{Image, ImageId, ImageStore};
 use crate::Context;
@@ -389,7 +389,7 @@ impl<'a> PageExporter<'a> {
                     self.in_text_state = true;
                 }
 
-                Element::Geometry(..) | Element::Image(..) if self.in_text_state => {
+                Element::Shape(_) | Element::Image(..) if self.in_text_state => {
                     self.content.end_text();
                     self.in_text_state = false;
                 }
@@ -401,19 +401,11 @@ impl<'a> PageExporter<'a> {
             let y = y - offset.y.to_f32();
 
             match *element {
-                Element::Text(ref text) => {
-                    self.write_text(x, y, text);
-                }
-                Element::Geometry(ref geometry, paint) => {
-                    self.write_geometry(x, y, geometry, paint);
-                }
-                Element::Image(id, size) => {
-                    self.write_image(x, y, id, size);
-                }
+                Element::Text(ref text) => self.write_text(x, y, text),
+                Element::Shape(ref shape) => self.write_shape(x, y, shape),
+                Element::Image(id, size) => self.write_image(x, y, id, size),
+                Element::Frame(ref frame) => self.write_frame(x, y, frame),
                 Element::Link(_, _) => {}
-                Element::Frame(ref frame) => {
-                    self.write_frame(x, y, frame);
-                }
             }
         }
 
@@ -482,79 +474,92 @@ impl<'a> PageExporter<'a> {
         }
     }
 
+    /// Write a geometrical shape into the content stream.
+    fn write_shape(&mut self, x: f32, y: f32, shape: &Shape) {
+        if shape.fill.is_none() && shape.stroke.is_none() {
+            return;
+        }
+
+        match shape.geometry {
+            Geometry::Rect(size) => {
+                let w = size.w.to_f32();
+                let h = size.h.to_f32();
+                if w > 0.0 && h > 0.0 {
+                    self.content.rect(x, y - h, w, h);
+                }
+            }
+            Geometry::Ellipse(size) => {
+                let approx = geom::Path::ellipse(size);
+                self.write_path(x, y, &approx);
+            }
+            Geometry::Line(target) => {
+                let dx = target.x.to_f32();
+                let dy = target.y.to_f32();
+                self.content.move_to(x, y);
+                self.content.line_to(x + dx, y - dy);
+            }
+            Geometry::Path(ref path) => {
+                self.write_path(x, y, path);
+            }
+        }
+
+        self.content.save_state();
+
+        if let Some(fill) = shape.fill {
+            self.write_fill(fill);
+        }
+
+        if let Some(stroke) = shape.stroke {
+            self.write_stroke(stroke);
+        }
+
+        match (shape.fill, shape.stroke) {
+            (None, None) => unreachable!(),
+            (Some(_), None) => self.content.fill_nonzero(),
+            (None, Some(_)) => self.content.stroke(),
+            (Some(_), Some(_)) => self.content.fill_nonzero_and_stroke(),
+        };
+
+        self.content.restore_state();
+    }
+
     /// Write an image into the content stream.
     fn write_image(&mut self, x: f32, y: f32, id: ImageId, size: Size) {
         let name = format!("Im{}", self.image_map.map(id));
         let w = size.w.to_f32();
         let h = size.h.to_f32();
-
         self.content.save_state();
         self.content.concat_matrix([w, 0.0, 0.0, h, x, y - h]);
         self.content.x_object(Name(name.as_bytes()));
         self.content.restore_state();
     }
 
-    /// Write a geometrical shape into the content stream.
-    fn write_geometry(&mut self, x: f32, y: f32, geometry: &Geometry, paint: Paint) {
-        self.content.save_state();
-
-        match *geometry {
-            Geometry::Rect(Size { w, h }) => {
-                let w = w.to_f32();
-                let h = h.to_f32();
-                if w > 0.0 && h > 0.0 {
-                    self.write_fill(paint);
-                    self.content.rect(x, y - h, w, h);
-                    self.content.fill_nonzero();
-                }
-            }
-            Geometry::Ellipse(size) => {
-                let path = geom::Path::ellipse(size);
-                self.write_fill(paint);
-                self.write_filled_path(x, y, &path);
-            }
-            Geometry::Line(target, thickness) => {
-                self.write_stroke(paint, thickness.to_f32());
-                self.content.move_to(x, y);
-                self.content.line_to(x + target.x.to_f32(), y - target.y.to_f32());
-                self.content.stroke();
-            }
-            Geometry::Path(ref path) => {
-                self.write_fill(paint);
-                self.write_filled_path(x, y, path)
-            }
-        }
-
-        self.content.restore_state();
-    }
-
-    /// Write and fill path into a content stream.
-    fn write_filled_path(&mut self, x: f32, y: f32, path: &geom::Path) {
+    /// Write a path into a content stream.
+    fn write_path(&mut self, x: f32, y: f32, path: &geom::Path) {
         for elem in &path.0 {
             match elem {
                 geom::PathElement::MoveTo(p) => {
-                    self.content.move_to(x + p.x.to_f32(), y + p.y.to_f32())
+                    self.content.move_to(x + p.x.to_f32(), y - p.y.to_f32())
                 }
                 geom::PathElement::LineTo(p) => {
-                    self.content.line_to(x + p.x.to_f32(), y + p.y.to_f32())
+                    self.content.line_to(x + p.x.to_f32(), y - p.y.to_f32())
                 }
                 geom::PathElement::CubicTo(p1, p2, p3) => self.content.cubic_to(
                     x + p1.x.to_f32(),
-                    y + p1.y.to_f32(),
+                    y - p1.y.to_f32(),
                     x + p2.x.to_f32(),
-                    y + p2.y.to_f32(),
+                    y - p2.y.to_f32(),
                     x + p3.x.to_f32(),
-                    y + p3.y.to_f32(),
+                    y - p3.y.to_f32(),
                 ),
                 geom::PathElement::ClosePath => self.content.close_path(),
             };
         }
-        self.content.fill_nonzero();
     }
 
     /// Write a fill change into a content stream.
     fn write_fill(&mut self, fill: Paint) {
-        let Paint::Color(Color::Rgba(c)) = fill;
+        let Paint::Solid(Color::Rgba(c)) = fill;
         self.content.set_fill_rgb(
             c.r as f32 / 255.0,
             c.g as f32 / 255.0,
@@ -563,14 +568,14 @@ impl<'a> PageExporter<'a> {
     }
 
     /// Write a stroke change into a content stream.
-    fn write_stroke(&mut self, stroke: Paint, thickness: f32) {
-        let Paint::Color(Color::Rgba(c)) = stroke;
+    fn write_stroke(&mut self, stroke: Stroke) {
+        let Paint::Solid(Color::Rgba(c)) = stroke.paint;
         self.content.set_stroke_rgb(
             c.r as f32 / 255.0,
             c.g as f32 / 255.0,
             c.b as f32 / 255.0,
         );
-        self.content.set_line_width(thickness);
+        self.content.set_line_width(stroke.thickness.to_f32());
     }
 }
 

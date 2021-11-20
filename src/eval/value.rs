@@ -147,7 +147,7 @@ impl From<usize> for Value {
 
 impl From<RgbaColor> for Value {
     fn from(v: RgbaColor) -> Self {
-        Self::Color(Color::Rgba(v))
+        Self::Color(v.into())
     }
 }
 

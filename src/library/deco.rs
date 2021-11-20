@@ -17,20 +17,13 @@ pub fn overline(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 }
 
 fn line_impl(args: &mut Args, kind: LineKind) -> TypResult<Value> {
-    let stroke = args.named("stroke")?.or_else(|| args.find());
+    let stroke = args.named("stroke")?.or_else(|| args.find()).map(Paint::Solid);
     let thickness = args.named::<Linear>("thickness")?.or_else(|| args.find());
     let offset = args.named("offset")?;
     let extent = args.named("extent")?.unwrap_or_default();
     let body: Template = args.expect("body")?;
-
     Ok(Value::Template(body.decorate(Decoration::Line(
-        LineDecoration {
-            kind,
-            stroke: stroke.map(Paint::Color),
-            thickness,
-            offset,
-            extent,
-        },
+        LineDecoration { kind, stroke, thickness, offset, extent },
     ))))
 }
 
@@ -112,12 +105,15 @@ impl LineDecoration {
                     LineKind::Overline => face.overline,
                 };
 
-                let stroke = self.stroke.unwrap_or(text.fill);
-
                 let thickness = self
                     .thickness
                     .map(|s| s.resolve(text.size))
-                    .unwrap_or(metrics.strength.to_length(text.size));
+                    .unwrap_or(metrics.thickness.to_length(text.size));
+
+                let stroke = Stroke {
+                    paint: self.stroke.unwrap_or(text.fill),
+                    thickness,
+                };
 
                 let offset = self
                     .offset
@@ -127,10 +123,9 @@ impl LineDecoration {
                 let extent = self.extent.resolve(text.size);
 
                 let subpos = Point::new(pos.x - extent, pos.y + offset);
-                let vector = Point::new(text.width + 2.0 * extent, Length::zero());
-                let line = Geometry::Line(vector, thickness);
-
-                frame.push(subpos, Element::Geometry(line, stroke));
+                let target = Point::new(text.width + 2.0 * extent, Length::zero());
+                let shape = Shape::stroked(Geometry::Line(target), stroke);
+                frame.push(subpos, Element::Shape(shape));
             }
         }
     }

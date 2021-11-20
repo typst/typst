@@ -224,7 +224,7 @@ impl Default for TextStyle {
             },
             top_edge: VerticalFontMetric::CapHeight,
             bottom_edge: VerticalFontMetric::Baseline,
-            fill: Paint::Color(Color::Rgba(RgbaColor::BLACK)),
+            fill: RgbaColor::BLACK.into(),
             families: Rc::new(FamilyStyle::default()),
             features: Rc::new(FontFeatures::default()),
             tracking: Em::zero(),

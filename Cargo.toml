@@ -24,7 +24,7 @@ fxhash = "0.2.1"
 image = { version = "0.23", default-features = false, features = ["png", "jpeg"] }
 itertools = "0.10"
 miniz_oxide = "0.4"
-pdf-writer = { git = "https://github.com/typst/pdf-writer", rev = "a750b66" }
+pdf-writer = { git = "https://github.com/typst/pdf-writer", rev = "f446079" }
 rustybuzz = "0.4"
 serde = { version = "1", features = ["derive", "rc"] }
 ttf-parser = "0.12"
@@ -43,7 +43,7 @@ walkdir = { version = "2", optional = true }
 
 [dev-dependencies]
 walkdir = "2"
-tiny-skia = "0.5"
+tiny-skia = "0.6"
 usvg = { version = "0.15", default-features = false }
 iai = { git = "https://github.com/reknih/iai" }
 

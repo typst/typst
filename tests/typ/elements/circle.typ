@@ -3,17 +3,18 @@
 ---
 // Default circle.
 #circle()
+#circle[Hey]
 
 ---
 // Test auto sizing.
 
 Auto-sized circle. \
-#circle(fill: rgb("eb5278"))[
-  #align(center, center)[But, soft!]
-]
+#circle(fill: rgb("eb5278"), thickness: 2pt,
+  align(center, center)[But, soft!]
+)
 
 Center-aligned rect in auto-sized circle.
-#circle(fill: forest,
+#circle(fill: forest, stroke: conifer,
   align(center, center,
     rect(fill: conifer, pad(5pt)[But, soft!])
   )
@@ -21,17 +22,18 @@ Center-aligned rect in auto-sized circle.
 
 Rect in auto-sized circle. \
 #circle(fill: forest,
-  rect(fill: conifer)[
+  rect(fill: conifer, stroke: white, padding: 4pt)[
+    #font(8pt)
     But, soft! what light through yonder window breaks?
   ]
 )
 
 Expanded by height.
-#circle(fill: conifer)[A \ B \ C]
+#circle(stroke: black, align(center)[A \ B \ C])
 
 ---
 // Ensure circle directly in rect works.
-#rect(width: 40pt, height: 30pt, circle(fill: forest))
+#rect(width: 40pt, height: 30pt, fill: forest, circle(fill: conifer))
 
 ---
 // Test relative sizing.
