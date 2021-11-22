@@ -75,11 +75,21 @@ impl Layout for ImageNode {
 
         // The position of the image so that it is centered in the canvas.
         let mut frame = Frame::new(canvas, canvas.h);
-        frame.clips = self.fit == ImageFit::Cover;
         frame.push(
             (canvas - size).to_point() / 2.0,
             Element::Image(self.id, size),
         );
+
+        // Create a clipping group if the image mode is `cover`.
+        if self.fit == ImageFit::Cover {
+            let group = Group {
+                frame: Rc::new(frame),
+                clips: self.fit == ImageFit::Cover,
+            };
+
+            frame = Frame::new(canvas, canvas.h);
+            frame.push(Point::zero(), Element::Group(group));
+        }
 
         let mut cts = Constraints::new(regions.expand);
         cts.exact = regions.current.to_spec().map(Some);

@@ -14,7 +14,7 @@ use ttf_parser::{name_id, GlyphId, Tag};
 
 use super::subset;
 use crate::font::{find_name, FaceId, FontStore};
-use crate::frame::{Element, Frame, Geometry, Shape, Stroke, Text};
+use crate::frame::{Element, Frame, Geometry, Group, Shape, Stroke, Text};
 use crate::geom::{self, Color, Em, Length, Paint, Size};
 use crate::image::{Image, ImageId, ImageStore};
 use crate::Context;
@@ -369,18 +369,6 @@ impl<'a> PageExporter<'a> {
 
     /// Write a frame into the content stream.
     fn write_frame(&mut self, x: f32, y: f32, frame: &Frame) {
-        if frame.clips {
-            let w = frame.size.w.to_f32();
-            let h = frame.size.h.to_f32();
-            self.content.save_state();
-            self.content.move_to(x, y);
-            self.content.line_to(x + w, y);
-            self.content.line_to(x + w, y - h);
-            self.content.line_to(x, y - h);
-            self.content.clip_nonzero();
-            self.content.end_path();
-        }
-
         for (offset, element) in &frame.elements {
             // Make sure the content stream is in the correct state.
             match element {
@@ -401,10 +389,10 @@ impl<'a> PageExporter<'a> {
             let y = y - offset.y.to_f32();
 
             match *element {
+                Element::Group(ref group) => self.write_group(x, y, group),
                 Element::Text(ref text) => self.write_text(x, y, text),
                 Element::Shape(ref shape) => self.write_shape(x, y, shape),
                 Element::Image(id, size) => self.write_image(x, y, id, size),
-                Element::Frame(ref frame) => self.write_frame(x, y, frame),
                 Element::Link(_, _) => {}
             }
         }
@@ -412,8 +400,24 @@ impl<'a> PageExporter<'a> {
         if self.in_text_state {
             self.content.end_text();
         }
+    }
 
-        if frame.clips {
+    fn write_group(&mut self, x: f32, y: f32, group: &Group) {
+        if group.clips {
+            let w = group.frame.size.w.to_f32();
+            let h = group.frame.size.h.to_f32();
+            self.content.save_state();
+            self.content.move_to(x, y);
+            self.content.line_to(x + w, y);
+            self.content.line_to(x + w, y - h);
+            self.content.line_to(x, y - h);
+            self.content.clip_nonzero();
+            self.content.end_path();
+        }
+
+        self.write_frame(x, y, &group.frame);
+
+        if group.clips {
             self.content.restore_state();
         }
     }

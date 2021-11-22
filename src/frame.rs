@@ -16,8 +16,6 @@ pub struct Frame {
     pub size: Size,
     /// The baseline of the frame measured from the top.
     pub baseline: Length,
-    /// Whether this frame should be a clipping boundary.
-    pub clips: bool,
     /// The elements composing this layout.
     pub elements: Vec<(Point, Element)>,
 }
@@ -27,12 +25,7 @@ impl Frame {
     #[track_caller]
     pub fn new(size: Size, baseline: Length) -> Self {
         assert!(size.is_finite());
-        Self {
-            size,
-            baseline,
-            elements: vec![],
-            clips: false,
-        }
+        Self { size, baseline, elements: vec![] }
     }
 
     /// Add an element at a position in the background.
@@ -45,17 +38,16 @@ impl Frame {
         self.elements.push((pos, element));
     }
 
-    /// Add a frame element.
-    pub fn push_frame(&mut self, pos: Point, subframe: Rc<Self>) {
-        self.elements.push((pos, Element::Frame(subframe)))
+    /// Add a group element.
+    pub fn push_frame(&mut self, pos: Point, frame: Rc<Self>) {
+        self.elements
+            .push((pos, Element::Group(Group { frame, clips: false })))
     }
 
     /// Add all elements of another frame, placing them relative to the given
     /// position.
     pub fn merge_frame(&mut self, pos: Point, subframe: Self) {
-        if subframe.clips {
-            self.push_frame(pos, Rc::new(subframe));
-        } else if pos == Point::zero() && self.elements.is_empty() {
+        if pos == Point::zero() && self.elements.is_empty() {
             self.elements = subframe.elements;
         } else {
             for (subpos, child) in subframe.elements {
@@ -90,7 +82,6 @@ impl Debug for Frame {
         f.debug_struct("Frame")
             .field("size", &self.size)
             .field("baseline", &self.baseline)
-            .field("clips", &self.clips)
             .field("children", &Children(&self.elements))
             .finish()
     }
@@ -107,9 +98,9 @@ impl<'a> Iterator for Elements<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         let (cursor, offset, frame) = self.stack.last_mut()?;
         if let Some((pos, e)) = frame.elements.get(*cursor) {
-            if let Element::Frame(f) = e {
+            if let Element::Group(g) = e {
                 let new_offset = *offset + *pos;
-                self.stack.push((0, new_offset, f.as_ref()));
+                self.stack.push((0, new_offset, g.frame.as_ref()));
                 self.next()
             } else {
                 *cursor += 1;
@@ -128,6 +119,8 @@ impl<'a> Iterator for Elements<'a> {
 /// The building block frames are composed of.
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Element {
+    /// A group of elements.
+    Group(Group),
     /// A run of shaped text.
     Text(Text),
     /// A geometric shape with optional fill and stroke.
@@ -136,8 +129,15 @@ pub enum Element {
     Image(ImageId, Size),
     /// A link to an external resource and its trigger region.
     Link(String, Size),
-    /// A subframe, which can be a clipping boundary.
-    Frame(Rc<Frame>),
+}
+
+/// A group of elements with optional clipping.
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct Group {
+    /// The group's frame.
+    pub frame: Rc<Frame>,
+    /// Whether the frame should be a clipping boundary.
+    pub clips: bool,
 }
 
 /// A run of shaped text.

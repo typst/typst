@@ -12,7 +12,7 @@ use walkdir::WalkDir;
 use typst::diag::Error;
 use typst::eval::{Smart, Value};
 use typst::font::Face;
-use typst::frame::{Element, Frame, Geometry, Shape, Stroke, Text};
+use typst::frame::{Element, Frame, Geometry, Group, Shape, Stroke, Text};
 use typst::geom::{self, Color, Length, Paint, PathElement, RgbaColor, Sides, Size};
 use typst::image::Image;
 use typst::layout::layout;
@@ -431,30 +431,15 @@ fn draw_frame(
     ctx: &Context,
     frame: &Frame,
 ) {
-    let mut storage;
-    let mask = if frame.clips {
-        let w = frame.size.w.to_f32();
-        let h = frame.size.h.to_f32();
-        let rect = sk::Rect::from_xywh(0.0, 0.0, w, h).unwrap();
-        let path = sk::PathBuilder::from_rect(rect).transform(ts).unwrap();
-        let rule = sk::FillRule::default();
-        storage = mask.clone();
-        if storage.intersect_path(&path, rule, false).is_none() {
-            // Fails if clipping rect is empty. In that case we just clip everything
-            // by returning.
-            return;
-        }
-        &storage
-    } else {
-        mask
-    };
-
     for (pos, element) in &frame.elements {
         let x = pos.x.to_f32();
         let y = pos.y.to_f32();
         let ts = ts.pre_translate(x, y);
 
         match *element {
+            Element::Group(ref group) => {
+                draw_group(canvas, ts, mask, ctx, group);
+            }
             Element::Text(ref text) => {
                 draw_text(canvas, ts, mask, ctx.fonts.get(text.face_id), text);
             }
@@ -469,11 +454,33 @@ fn draw_frame(
                 let shape = Shape::filled(Geometry::Rect(s), fill);
                 draw_shape(canvas, ts, mask, &shape);
             }
-            Element::Frame(ref frame) => {
-                draw_frame(canvas, ts, mask, ctx, frame);
-            }
         }
     }
+}
+
+fn draw_group(
+    canvas: &mut sk::Pixmap,
+    ts: sk::Transform,
+    mask: &sk::ClipMask,
+    ctx: &Context,
+    group: &Group,
+) {
+    if group.clips {
+        let w = group.frame.size.w.to_f32();
+        let h = group.frame.size.h.to_f32();
+        let rect = sk::Rect::from_xywh(0.0, 0.0, w, h).unwrap();
+        let path = sk::PathBuilder::from_rect(rect).transform(ts).unwrap();
+        let rule = sk::FillRule::default();
+        let mut mask = mask.clone();
+        if mask.intersect_path(&path, rule, false).is_none() {
+            // Fails if clipping rect is empty. In that case we just clip everything
+            // by returning.
+            return;
+        }
+        draw_frame(canvas, ts, &mask, ctx, &group.frame);
+    } else {
+        draw_frame(canvas, ts, mask, ctx, &group.frame);
+    };
 }
 
 fn draw_text(
