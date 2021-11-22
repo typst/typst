@@ -11,7 +11,7 @@ pub struct Gen<T> {
 
 impl<T> Gen<T> {
     /// Create a new instance from the two components.
-    pub fn new(inline: T, block: T) -> Self {
+    pub const fn new(inline: T, block: T) -> Self {
         Self { inline, block }
     }
 

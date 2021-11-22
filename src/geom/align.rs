@@ -17,7 +17,7 @@ pub enum Align {
 
 impl Align {
     /// The axis this alignment belongs to if it is specific.
-    pub fn axis(self) -> Option<SpecAxis> {
+    pub const fn axis(self) -> Option<SpecAxis> {
         match self {
             Self::Left => Some(SpecAxis::Horizontal),
             Self::Top => Some(SpecAxis::Vertical),
@@ -28,7 +28,7 @@ impl Align {
     }
 
     /// The inverse alignment.
-    pub fn inv(self) -> Self {
+    pub const fn inv(self) -> Self {
         match self {
             Self::Left => Self::Right,
             Self::Top => Self::Bottom,

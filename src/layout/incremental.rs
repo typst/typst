@@ -2,11 +2,11 @@ use std::cmp::Reverse;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use decorum::N32;
 use itertools::Itertools;
 
 use super::{Constrained, Regions};
 use crate::frame::Frame;
+use crate::geom::Scalar;
 
 const TEMP_LEN: usize = 5;
 const TEMP_LAST: usize = TEMP_LEN - 1;
@@ -135,28 +135,27 @@ impl LayoutCache {
                     .0;
 
                 for entries in self.frames.values_mut() {
-                    entries.retain(|e| e.cooldown() < threshold);
+                    entries.retain(|f| f.cooldown() < threshold);
                 }
             }
             EvictionPolicy::LeastFrequentlyUsed => {
                 let threshold = self
                     .entries()
-                    .map(|f| N32::from(f.hits() as f32 / f.age() as f32))
+                    .map(|f| Scalar(f.hits() as f64 / f.age() as f64))
                     .k_smallest(len - self.max_size)
                     .last()
-                    .unwrap();
+                    .unwrap()
+                    .0;
 
                 for entries in self.frames.values_mut() {
-                    entries.retain(|f| {
-                        f.hits() as f32 / f.age() as f32 > threshold.into_inner()
-                    });
+                    entries.retain(|f| f.hits() as f64 / f.age() as f64 > threshold);
                 }
             }
             EvictionPolicy::Random => {
                 // Fraction of items that should be kept.
-                let threshold = self.max_size as f32 / len as f32;
+                let threshold = self.max_size as f64 / len as f64;
                 for entries in self.frames.values_mut() {
-                    entries.retain(|_| rand::random::<f32>() > threshold);
+                    entries.retain(|_| rand::random::<f64>() > threshold);
                 }
             }
             EvictionPolicy::Patterns => {
@@ -170,15 +169,16 @@ impl LayoutCache {
                 let threshold = self
                     .entries()
                     .filter(|f| !f.properties().must_keep())
-                    .map(|f| N32::from(f.hits() as f32 / f.age() as f32))
+                    .map(|f| Scalar(f.hits() as f64 / f.age() as f64))
                     .k_smallest((len - kept) - remaining_capacity)
                     .last()
-                    .unwrap();
+                    .unwrap()
+                    .0;
 
-                for (_, entries) in self.frames.iter_mut() {
+                for entries in self.frames.values_mut() {
                     entries.retain(|f| {
                         f.properties().must_keep()
-                            || f.hits() as f32 / f.age() as f32 > threshold.into_inner()
+                            || f.hits() as f64 / f.age() as f64 > threshold
                     });
                 }
             }

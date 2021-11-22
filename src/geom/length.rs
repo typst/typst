@@ -4,17 +4,17 @@ use super::*;
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct Length(N64);
+pub struct Length(Scalar);
 
 impl Length {
     /// The zero length.
-    pub fn zero() -> Self {
-        Self(N64::from(0.0))
+    pub const fn zero() -> Self {
+        Self(Scalar(0.0))
     }
 
     /// The inifinite length.
-    pub fn inf() -> Self {
-        Self(N64::from(f64::INFINITY))
+    pub const fn inf() -> Self {
+        Self(Scalar(f64::INFINITY))
     }
 
     /// Create a length from a number of points.
@@ -38,8 +38,8 @@ impl Length {
     }
 
     /// Create a length from a number of raw units.
-    pub fn raw(raw: f64) -> Self {
-        Self(N64::from(raw))
+    pub const fn raw(raw: f64) -> Self {
+        Self(Scalar(raw))
     }
 
     /// Convert this to a number of points.
@@ -63,13 +63,13 @@ impl Length {
     }
 
     /// Get the value of this length in raw units.
-    pub fn to_raw(self) -> f64 {
-        self.0.into()
+    pub const fn to_raw(self) -> f64 {
+        (self.0).0
     }
 
     /// Create a length from a value in a unit.
     pub fn with_unit(val: f64, unit: LengthUnit) -> Self {
-        Self(N64::from(val * unit.raw_scale()))
+        Self(Scalar(val * unit.raw_scale()))
     }
 
     /// Get the value of this length in unit.
@@ -79,17 +79,17 @@ impl Length {
 
     /// Whether the length is zero.
     pub fn is_zero(self) -> bool {
-        self.0 == 0.0
+        self.to_raw() == 0.0
     }
 
     /// Whether the length is finite.
     pub fn is_finite(self) -> bool {
-        self.0.into_inner().is_finite()
+        self.to_raw().is_finite()
     }
 
     /// Whether the length is infinite.
     pub fn is_infinite(self) -> bool {
-        self.0.into_inner().is_infinite()
+        self.to_raw().is_infinite()
     }
 
     /// The absolute value of the this length.
@@ -211,14 +211,14 @@ assign_impl!(Length *= f64);
 assign_impl!(Length /= f64);
 
 impl Sum for Length {
-    fn sum<I: Iterator<Item = Length>>(iter: I) -> Self {
-        iter.fold(Length::zero(), Add::add)
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        Self(iter.map(|s| s.0).sum())
     }
 }
 
-impl<'a> Sum<&'a Length> for Length {
-    fn sum<I: Iterator<Item = &'a Length>>(iter: I) -> Self {
-        iter.copied().fold(Length::zero(), Add::add)
+impl<'a> Sum<&'a Self> for Length {
+    fn sum<I: Iterator<Item = &'a Self>>(iter: I) -> Self {
+        Self(iter.map(|s| s.0).sum())
     }
 }
 

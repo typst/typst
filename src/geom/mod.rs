@@ -14,6 +14,7 @@ mod paint;
 mod path;
 mod point;
 mod relative;
+mod scalar;
 mod sides;
 mod size;
 mod spec;
@@ -30,16 +31,18 @@ pub use paint::*;
 pub use path::*;
 pub use point::*;
 pub use relative::*;
+pub use scalar::*;
 pub use sides::*;
 pub use size::*;
 pub use spec::*;
 
+use std::cmp::Ordering;
 use std::f64::consts::PI;
 use std::fmt::{self, Debug, Formatter};
+use std::hash::{Hash, Hasher};
 use std::iter::Sum;
 use std::ops::*;
 
-use decorum::N64;
 use serde::{Deserialize, Serialize};
 
 /// Generic access to a structure's components.

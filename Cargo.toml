@@ -19,7 +19,6 @@ debug = 0
 opt-level = 2
 
 [dependencies]
-decorum = { version = "0.3.1", default-features = false, features = ["serialize-serde"] }
 fxhash = "0.2.1"
 image = { version = "0.23", default-features = false, features = ["png", "jpeg"] }
 itertools = "0.10"

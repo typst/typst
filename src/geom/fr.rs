@@ -2,27 +2,27 @@ use super::*;
 
 /// A fractional length.
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct Fractional(N64);
+pub struct Fractional(Scalar);
 
 impl Fractional {
     /// Takes up zero space: `0fr`.
-    pub fn zero() -> Self {
-        Self(N64::from(0.0))
+    pub const fn zero() -> Self {
+        Self(Scalar(0.0))
     }
 
     /// Takes up as much space as all other items with this fractional size: `1fr`.
-    pub fn one() -> Self {
-        Self(N64::from(1.0))
+    pub const fn one() -> Self {
+        Self(Scalar(1.0))
     }
 
     /// Create a new fractional value.
-    pub fn new(ratio: f64) -> Self {
-        Self(N64::from(ratio))
+    pub const fn new(ratio: f64) -> Self {
+        Self(Scalar(ratio))
     }
 
     /// Get the underlying ratio.
-    pub fn get(self) -> f64 {
-        self.0.into()
+    pub const fn get(self) -> f64 {
+        (self.0).0
     }
 
     /// Whether the ratio is zero.

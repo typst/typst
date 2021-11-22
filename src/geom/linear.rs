@@ -11,7 +11,7 @@ pub struct Linear {
 
 impl Linear {
     /// The zero linear.
-    pub fn zero() -> Self {
+    pub const fn zero() -> Self {
         Self {
             rel: Relative::zero(),
             abs: Length::zero(),
@@ -19,7 +19,7 @@ impl Linear {
     }
 
     /// The linear with a relative part of `100%` and no absolute part.
-    pub fn one() -> Self {
+    pub const fn one() -> Self {
         Self {
             rel: Relative::one(),
             abs: Length::zero(),
@@ -27,7 +27,7 @@ impl Linear {
     }
 
     /// Create a new linear.
-    pub fn new(rel: Relative, abs: Length) -> Self {
+    pub const fn new(rel: Relative, abs: Length) -> Self {
         Self { rel, abs }
     }
 

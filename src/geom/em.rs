@@ -5,27 +5,27 @@ use super::*;
 /// `1em` is the same as the font size.
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[derive(Serialize, Deserialize)]
-pub struct Em(N64);
+pub struct Em(Scalar);
 
 impl Em {
     /// The zero length.
-    pub fn zero() -> Self {
-        Self(N64::from(0.0))
+    pub const fn zero() -> Self {
+        Self(Scalar(0.0))
     }
 
     /// The font size.
-    pub fn one() -> Self {
-        Self(N64::from(1.0))
+    pub const fn one() -> Self {
+        Self(Scalar(1.0))
     }
 
     /// Create an font-relative length.
-    pub fn new(em: f64) -> Self {
-        Self(N64::from(em))
+    pub const fn new(em: f64) -> Self {
+        Self(Scalar(em))
     }
 
     /// Create font units at the given units per em.
     pub fn from_units(units: impl Into<f64>, units_per_em: f64) -> Self {
-        Self(N64::from(units.into() / units_per_em))
+        Self(Scalar(units.into() / units_per_em))
     }
 
     /// Convert to a length at the given font size.
@@ -34,8 +34,8 @@ impl Em {
     }
 
     /// The number of em units.
-    pub fn get(self) -> f64 {
-        self.0.into()
+    pub const fn get(self) -> f64 {
+        (self.0).0
     }
 
     /// Whether the length is zero.

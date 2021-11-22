@@ -3,12 +3,12 @@ use super::*;
 /// An angle.
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[derive(Serialize, Deserialize)]
-pub struct Angle(N64);
+pub struct Angle(Scalar);
 
 impl Angle {
     /// The zero angle.
-    pub fn zero() -> Self {
-        Self(N64::from(0.0))
+    pub const fn zero() -> Self {
+        Self(Scalar(0.0))
     }
 
     /// Create an angle from a number of radians.
@@ -22,8 +22,8 @@ impl Angle {
     }
 
     /// Create an angle from a number of raw units.
-    pub fn raw(raw: f64) -> Self {
-        Self(N64::from(raw))
+    pub const fn raw(raw: f64) -> Self {
+        Self(Scalar(raw))
     }
 
     /// Convert this to a number of radians.
@@ -37,13 +37,13 @@ impl Angle {
     }
 
     /// Get the value of this angle in raw units.
-    pub fn to_raw(self) -> f64 {
-        self.0.into()
+    pub const fn to_raw(self) -> f64 {
+        (self.0).0
     }
 
     /// Create an angle from a value in a unit.
     pub fn with_unit(val: f64, unit: AngularUnit) -> Self {
-        Self(N64::from(val * unit.raw_scale()))
+        Self(Scalar(val * unit.raw_scale()))
     }
 
     /// Get the value of this length in unit.

@@ -5,27 +5,27 @@ use super::*;
 /// _Note_: `50%` is represented as `0.5` here, but stored as `50.0` in the
 /// corresponding [literal](crate::syntax::ast::LitKind::Percent).
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct Relative(N64);
+pub struct Relative(Scalar);
 
 impl Relative {
     /// A ratio of `0%` represented as `0.0`.
-    pub fn zero() -> Self {
-        Self(N64::from(0.0))
+    pub const fn zero() -> Self {
+        Self(Scalar(0.0))
     }
 
     /// A ratio of `100%` represented as `1.0`.
-    pub fn one() -> Self {
-        Self(N64::from(1.0))
+    pub const fn one() -> Self {
+        Self(Scalar(1.0))
     }
 
     /// Create a new relative value.
-    pub fn new(ratio: f64) -> Self {
-        Self(N64::from(ratio))
+    pub const fn new(ratio: f64) -> Self {
+        Self(Scalar(ratio))
     }
 
     /// Get the underlying ratio.
-    pub fn get(self) -> f64 {
-        self.0.into()
+    pub const fn get(self) -> f64 {
+        (self.0).0
     }
 
     /// Resolve this relative to the given `length`.

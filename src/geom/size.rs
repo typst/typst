@@ -11,17 +11,17 @@ pub struct Size {
 
 impl Size {
     /// The zero size.
-    pub fn zero() -> Self {
+    pub const fn zero() -> Self {
         Self { w: Length::zero(), h: Length::zero() }
     }
 
     /// Create a new size from width and height.
-    pub fn new(w: Length, h: Length) -> Self {
+    pub const fn new(w: Length, h: Length) -> Self {
         Self { w, h }
     }
 
     /// Create an instance with two equal components.
-    pub fn splat(v: Length) -> Self {
+    pub const fn splat(v: Length) -> Self {
         Self { w: v, h: v }
     }
 
@@ -41,17 +41,17 @@ impl Size {
     }
 
     /// Convert to a point.
-    pub fn to_point(self) -> Point {
+    pub const fn to_point(self) -> Point {
         Point::new(self.w, self.h)
     }
 
     /// Convert to a Spec.
-    pub fn to_spec(self) -> Spec<Length> {
+    pub const fn to_spec(self) -> Spec<Length> {
         Spec::new(self.w, self.h)
     }
 
     /// Convert to the generic representation.
-    pub fn to_gen(self, block: SpecAxis) -> Gen<Length> {
+    pub const fn to_gen(self, block: SpecAxis) -> Gen<Length> {
         match block {
             SpecAxis::Horizontal => Gen::new(self.h, self.w),
             SpecAxis::Vertical => Gen::new(self.w, self.h),

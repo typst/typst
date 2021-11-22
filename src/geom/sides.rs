@@ -15,7 +15,7 @@ pub struct Sides<T> {
 
 impl<T> Sides<T> {
     /// Create a new instance from the four components.
-    pub fn new(left: T, top: T, right: T, bottom: T) -> Self {
+    pub const fn new(left: T, top: T, right: T, bottom: T) -> Self {
         Self { left, top, right, bottom }
     }
 

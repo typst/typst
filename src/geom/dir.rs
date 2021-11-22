@@ -15,7 +15,7 @@ pub enum Dir {
 
 impl Dir {
     /// The side this direction starts at.
-    pub fn start(self) -> Side {
+    pub const fn start(self) -> Side {
         match self {
             Self::LTR => Side::Left,
             Self::RTL => Side::Right,
@@ -25,7 +25,7 @@ impl Dir {
     }
 
     /// The side this direction ends at.
-    pub fn end(self) -> Side {
+    pub const fn end(self) -> Side {
         match self {
             Self::LTR => Side::Right,
             Self::RTL => Side::Left,
@@ -35,7 +35,7 @@ impl Dir {
     }
 
     /// The specific axis this direction belongs to.
-    pub fn axis(self) -> SpecAxis {
+    pub const fn axis(self) -> SpecAxis {
         match self {
             Self::LTR | Self::RTL => SpecAxis::Horizontal,
             Self::TTB | Self::BTT => SpecAxis::Vertical,
@@ -45,7 +45,7 @@ impl Dir {
     /// Whether this direction points into the positive coordinate direction.
     ///
     /// The positive directions are left-to-right and top-to-bottom.
-    pub fn is_positive(self) -> bool {
+    pub const fn is_positive(self) -> bool {
         match self {
             Self::LTR | Self::TTB => true,
             Self::RTL | Self::BTT => false,
@@ -56,12 +56,12 @@ impl Dir {
     ///
     /// - `1.0` if the direction is positive.
     /// - `-1.0` if the direction is negative.
-    pub fn factor(self) -> f64 {
+    pub const fn factor(self) -> f64 {
         if self.is_positive() { 1.0 } else { -1.0 }
     }
 
     /// The inverse direction.
-    pub fn inv(self) -> Self {
+    pub const fn inv(self) -> Self {
         match self {
             Self::LTR => Self::RTL,
             Self::RTL => Self::LTR,

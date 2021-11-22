@@ -16,7 +16,7 @@ pub enum PathElement {
 
 impl Path {
     /// Create an empty path.
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self(vec![])
     }
 

@@ -11,22 +11,22 @@ pub struct Point {
 
 impl Point {
     /// The origin point.
-    pub fn zero() -> Self {
+    pub const fn zero() -> Self {
         Self { x: Length::zero(), y: Length::zero() }
     }
 
     /// Create a new point from x and y coordinate.
-    pub fn new(x: Length, y: Length) -> Self {
+    pub const fn new(x: Length, y: Length) -> Self {
         Self { x, y }
     }
 
     /// Create an instance with two equal components.
-    pub fn splat(value: Length) -> Self {
+    pub const fn splat(value: Length) -> Self {
         Self { x: value, y: value }
     }
 
     /// Convert to the generic representation.
-    pub fn to_gen(self, block: SpecAxis) -> Gen<Length> {
+    pub const fn to_gen(self, block: SpecAxis) -> Gen<Length> {
         match block {
             SpecAxis::Horizontal => Gen::new(self.y, self.x),
             SpecAxis::Vertical => Gen::new(self.x, self.y),
