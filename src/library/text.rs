@@ -93,18 +93,16 @@ pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 
     castable! {
         StylisticSet,
-        Expected: "none or integer",
-        Value::None => Self(None),
+        Expected: "integer",
         Value::Int(v) => match v {
-            1 ..= 20 => Self(Some(v as u8)),
+            1 ..= 20 => Self::new(v as u8),
             _ => Err("must be between 1 and 20")?,
         },
     }
 
     castable! {
         NumberType,
-        Expected: "auto or string",
-        Value::Auto => Self::Auto,
+        Expected: "string",
         Value::Str(string) => match string.as_str() {
             "lining" => Self::Lining,
             "old-style" => Self::OldStyle,
@@ -114,8 +112,7 @@ pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 
     castable! {
         NumberWidth,
-        Expected: "auto or string",
-        Value::Auto => Self::Auto,
+        Expected: "string",
         Value::Str(string) => match string.as_str() {
             "proportional" => Self::Proportional,
             "tabular" => Self::Tabular,
@@ -629,8 +626,8 @@ fn tags(features: &FontFeatures) -> Vec<Feature> {
     }
 
     let storage;
-    if let StylisticSet(Some(set @ 1 ..= 20)) = features.stylistic_set {
-        storage = [b's', b's', b'0' + set / 10, b'0' + set % 10];
+    if let Some(set) = features.stylistic_set {
+        storage = [b's', b's', b'0' + set.get() / 10, b'0' + set.get() % 10];
         feat(&storage, 1);
     }
 
@@ -648,15 +645,15 @@ fn tags(features: &FontFeatures) -> Vec<Feature> {
     }
 
     match features.numbers.type_ {
-        NumberType::Auto => {}
-        NumberType::Lining => feat(b"lnum", 1),
-        NumberType::OldStyle => feat(b"onum", 1),
+        Smart::Auto => {}
+        Smart::Custom(NumberType::Lining) => feat(b"lnum", 1),
+        Smart::Custom(NumberType::OldStyle) => feat(b"onum", 1),
     }
 
     match features.numbers.width {
-        NumberWidth::Auto => {}
-        NumberWidth::Proportional => feat(b"pnum", 1),
-        NumberWidth::Tabular => feat(b"tnum", 1),
+        Smart::Auto => {}
+        Smart::Custom(NumberWidth::Proportional) => feat(b"pnum", 1),
+        Smart::Custom(NumberWidth::Tabular) => feat(b"tnum", 1),
     }
 
     match features.numbers.position {

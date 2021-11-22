@@ -17,7 +17,7 @@ pub fn overline(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 }
 
 fn line_impl(args: &mut Args, kind: LineKind) -> TypResult<Value> {
-    let stroke = args.named("stroke")?.or_else(|| args.find()).map(Paint::Solid);
+    let stroke = args.named("stroke")?.or_else(|| args.find());
     let thickness = args.named::<Linear>("thickness")?.or_else(|| args.find());
     let offset = args.named("offset")?;
     let extent = args.named("extent")?.unwrap_or_default();

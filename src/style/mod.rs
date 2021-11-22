@@ -9,6 +9,7 @@ use std::rc::Rc;
 
 use ttf_parser::Tag;
 
+use crate::eval::Smart;
 use crate::font::*;
 use crate::geom::*;
 use crate::util::EcoString;
@@ -70,7 +71,7 @@ pub struct PageStyle {
     pub size: Size,
     /// The amount of white space on each side of the page. If a side is set to
     /// `None`, the default for the paper class is used.
-    pub margins: Sides<Option<Linear>>,
+    pub margins: Sides<Smart<Linear>>,
     /// The background fill of the page.
     pub fill: Option<Paint>,
 }
@@ -94,7 +95,7 @@ impl Default for PageStyle {
         Self {
             class: paper.class(),
             size: paper.size(),
-            margins: Sides::splat(None),
+            margins: Sides::splat(Smart::Auto),
             fill: None,
         }
     }
@@ -301,7 +302,7 @@ pub struct FontFeatures {
     /// Whether to apply stylistic alternates. ("salt")
     pub alternates: bool,
     /// Which stylistic set to apply. ("ss01" - "ss20")
-    pub stylistic_set: StylisticSet,
+    pub stylistic_set: Option<StylisticSet>,
     /// Configuration of ligature features.
     pub ligatures: LigatureFeatures,
     /// Configuration of numbers features.
@@ -316,7 +317,7 @@ impl Default for FontFeatures {
             kerning: true,
             smallcaps: false,
             alternates: false,
-            stylistic_set: StylisticSet::default(),
+            stylistic_set: None,
             ligatures: LigatureFeatures::default(),
             numbers: NumberFeatures::default(),
             raw: vec![],
@@ -326,11 +327,17 @@ impl Default for FontFeatures {
 
 /// A stylistic set in a font face.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct StylisticSet(pub Option<u8>);
+pub struct StylisticSet(u8);
 
-impl Default for StylisticSet {
-    fn default() -> Self {
-        Self(None)
+impl StylisticSet {
+    /// Creates a new set, clamping to 1-20.
+    pub fn new(index: u8) -> Self {
+        Self(index.clamp(1, 20))
+    }
+
+    /// Get the value, guaranteed to be 1-20.
+    pub fn get(self) -> u8 {
+        self.0
     }
 }
 
@@ -359,9 +366,9 @@ impl Default for LigatureFeatures {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct NumberFeatures {
     /// Whether to use lining or old-style numbers.
-    pub type_: NumberType,
+    pub type_: Smart<NumberType>,
     /// Whether to use proportional or tabular numbers.
-    pub width: NumberWidth,
+    pub width: Smart<NumberWidth>,
     /// How to position numbers vertically.
     pub position: NumberPosition,
     /// Whether to have a slash through the zero glyph. ("zero")
@@ -373,8 +380,8 @@ pub struct NumberFeatures {
 impl Default for NumberFeatures {
     fn default() -> Self {
         Self {
-            type_: NumberType::Auto,
-            width: NumberWidth::Auto,
+            type_: Smart::Auto,
+            width: Smart::Auto,
             position: NumberPosition::Normal,
             slashed_zero: false,
             fractions: false,
@@ -385,8 +392,6 @@ impl Default for NumberFeatures {
 /// Which kind of numbers / figures to select.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum NumberType {
-    /// Select the font's preference.
-    Auto,
     /// Numbers that fit well with capital text. ("lnum")
     Lining,
     /// Numbers that fit well into flow of upper- and lowercase text. ("onum")
@@ -396,8 +401,6 @@ pub enum NumberType {
 /// The width of numbers / figures.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum NumberWidth {
-    /// Select the font's preference.
-    Auto,
     /// Number widths are glyph specific. ("pnum")
     Proportional,
     /// All numbers are of equal width / monospaced. ("tnum")

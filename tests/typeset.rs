@@ -10,7 +10,7 @@ use ttf_parser::{GlyphId, OutlineBuilder};
 use walkdir::WalkDir;
 
 use typst::diag::Error;
-use typst::eval::Value;
+use typst::eval::{Smart, Value};
 use typst::font::Face;
 use typst::frame::{Element, Frame, Geometry, Shape, Stroke, Text};
 use typst::geom::{self, Color, Length, Paint, PathElement, RgbaColor, Sides, Size};
@@ -64,7 +64,7 @@ fn main() {
     // large and fit them to match their content.
     let mut style = Style::default();
     style.page_mut().size = Size::new(Length::pt(120.0), Length::inf());
-    style.page_mut().margins = Sides::splat(Some(Length::pt(10.0).into()));
+    style.page_mut().margins = Sides::splat(Smart::Custom(Length::pt(10.0).into()));
     style.text_mut().size = Length::pt(10.0);
 
     // Hook up an assert function into the global scope.

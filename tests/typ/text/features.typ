@@ -53,8 +53,16 @@ fi vs. #font(ligatures: false)[No fi] \
 fi vs. #font(features: (liga: 0))[No fi]
 
 ---
+// Error: 22-27 expected integer or none, found boolean
+#font(stylistic-set: false)
+
+---
 // Error: 22-24 must be between 1 and 20
 #font(stylistic-set: 25)
+
+---
+// Error: 20-21 expected string or auto, found integer
+#font(number-type: 2)
 
 ---
 // Error: 20-31 expected "lining" or "old-style"

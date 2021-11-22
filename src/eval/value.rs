@@ -252,43 +252,6 @@ pub trait Cast<V>: Sized {
     fn cast(value: V) -> StrResult<Self>;
 }
 
-impl Cast<Value> for Value {
-    fn is(_: &Value) -> bool {
-        true
-    }
-
-    fn cast(value: Value) -> StrResult<Self> {
-        Ok(value)
-    }
-}
-
-impl<T> Cast<Spanned<Value>> for T
-where
-    T: Cast<Value>,
-{
-    fn is(value: &Spanned<Value>) -> bool {
-        T::is(&value.v)
-    }
-
-    fn cast(value: Spanned<Value>) -> StrResult<Self> {
-        T::cast(value.v)
-    }
-}
-
-impl<T> Cast<Spanned<Value>> for Spanned<T>
-where
-    T: Cast<Value>,
-{
-    fn is(value: &Spanned<Value>) -> bool {
-        T::is(&value.v)
-    }
-
-    fn cast(value: Spanned<Value>) -> StrResult<Self> {
-        let span = value.span;
-        T::cast(value.v).map(|t| Spanned::new(t, span))
-    }
-}
-
 /// Implement traits for primitives.
 macro_rules! primitive {
     (
@@ -399,6 +362,113 @@ primitive! { Array: "array", Array }
 primitive! { Dict: "dictionary", Dict }
 primitive! { Template: "template", Template }
 primitive! { Function: "function", Func }
+
+impl Cast<Value> for Value {
+    fn is(_: &Value) -> bool {
+        true
+    }
+
+    fn cast(value: Value) -> StrResult<Self> {
+        Ok(value)
+    }
+}
+
+impl<T> Cast<Spanned<Value>> for T
+where
+    T: Cast<Value>,
+{
+    fn is(value: &Spanned<Value>) -> bool {
+        T::is(&value.v)
+    }
+
+    fn cast(value: Spanned<Value>) -> StrResult<Self> {
+        T::cast(value.v)
+    }
+}
+
+impl<T> Cast<Spanned<Value>> for Spanned<T>
+where
+    T: Cast<Value>,
+{
+    fn is(value: &Spanned<Value>) -> bool {
+        T::is(&value.v)
+    }
+
+    fn cast(value: Spanned<Value>) -> StrResult<Self> {
+        let span = value.span;
+        T::cast(value.v).map(|t| Spanned::new(t, span))
+    }
+}
+
+/// A value that can be automatically determined.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub enum Smart<T> {
+    /// The value should be determined smartly based on the
+    /// circumstances.
+    Auto,
+    /// A forced, specific value.
+    Custom(T),
+}
+
+impl<T> Smart<T> {
+    /// Returns the contained custom value or a provided default value.
+    pub fn unwrap_or(self, default: T) -> T {
+        match self {
+            Self::Auto => default,
+            Self::Custom(x) => x,
+        }
+    }
+}
+
+impl<T> Default for Smart<T> {
+    fn default() -> Self {
+        Self::Auto
+    }
+}
+
+impl<T> Cast<Value> for Option<T>
+where
+    T: Cast<Value>,
+{
+    fn is(value: &Value) -> bool {
+        matches!(value, Value::None) || T::is(value)
+    }
+
+    fn cast(value: Value) -> StrResult<Self> {
+        match value {
+            Value::None => Ok(None),
+            v => T::cast(v).map(Some).map_err(|msg| with_alternative(msg, "none")),
+        }
+    }
+}
+
+impl<T> Cast<Value> for Smart<T>
+where
+    T: Cast<Value>,
+{
+    fn is(value: &Value) -> bool {
+        matches!(value, Value::Auto) || T::is(value)
+    }
+
+    fn cast(value: Value) -> StrResult<Self> {
+        match value {
+            Value::Auto => Ok(Self::Auto),
+            v => T::cast(v)
+                .map(Self::Custom)
+                .map_err(|msg| with_alternative(msg, "auto")),
+        }
+    }
+}
+
+/// Transform `expected X, found Y` into `expected X or A, found Y`.
+fn with_alternative(msg: String, alt: &str) -> String {
+    let mut parts = msg.split(", found ");
+    if let (Some(a), Some(b)) = (parts.next(), parts.next()) {
+        format!("{} or {}, found {}", a, alt, b)
+    } else {
+        msg
+    }
+}
 
 #[cfg(test)]
 mod tests {

@@ -12,13 +12,13 @@ pub fn page(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let paper = args.named::<Paper>("paper")?.or_else(|| args.find());
     let width = args.named("width")?;
     let height = args.named("height")?;
+    let flip = args.named("flip")?;
     let margins = args.named("margins")?;
     let left = args.named("left")?;
     let top = args.named("top")?;
     let right = args.named("right")?;
     let bottom = args.named("bottom")?;
-    let flip = args.named("flip")?;
-    let fill = args.named("fill")?.map(Paint::Solid);
+    let fill = args.named("fill")?;
 
     ctx.template.modify(move |style| {
         let page = style.page_mut();
@@ -33,37 +33,37 @@ pub fn page(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
             page.size.w = width;
         }
 
+        if flip.unwrap_or(false) {
+            std::mem::swap(&mut page.size.w, &mut page.size.h);
+        }
+
         if let Some(height) = height {
             page.class = PaperClass::Custom;
             page.size.h = height;
         }
 
         if let Some(margins) = margins {
-            page.margins = Sides::splat(Some(margins));
+            page.margins = Sides::splat(margins);
         }
 
         if let Some(left) = left {
-            page.margins.left = Some(left);
+            page.margins.left = left;
         }
 
         if let Some(top) = top {
-            page.margins.top = Some(top);
+            page.margins.top = top;
         }
 
         if let Some(right) = right {
-            page.margins.right = Some(right);
+            page.margins.right = right;
         }
 
         if let Some(bottom) = bottom {
-            page.margins.bottom = Some(bottom);
-        }
-
-        if flip.unwrap_or(false) {
-            std::mem::swap(&mut page.size.w, &mut page.size.h);
+            page.margins.bottom = bottom;
         }
 
         if let Some(fill) = fill {
-            page.fill = Some(fill);
+            page.fill = fill;
         }
     });
 

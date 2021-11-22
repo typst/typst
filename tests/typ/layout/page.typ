@@ -27,20 +27,8 @@
 [#page(paper: "a11", flip: true) Flipped A11]
 
 ---
-// Test a combination of pages with bodies and normal content.
-
-#page(width: 80pt, height: 30pt)
-
-[#page() First]
-[#page() Second]
-#pagebreak()
-#pagebreak()
-Fourth
-[#page(height: 25pt)]
-Sixth
-[#page() Seventh]
-
----
 #page(width: 80pt, height: 40pt, fill: eastern)
-#font(15pt, "Roboto", fill: white, smallcaps: true)
-Typst
+#font(15pt, "Roboto", fill: white, smallcaps: true)[Typst]
+
+#page(width: 40pt, fill: none, margins: auto, top: 10pt)
+Hi

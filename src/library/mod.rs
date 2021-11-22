@@ -26,7 +26,7 @@ mod prelude {
     pub use std::rc::Rc;
 
     pub use crate::diag::{At, TypResult};
-    pub use crate::eval::{Args, EvalContext, Template, Value};
+    pub use crate::eval::{Args, EvalContext, Smart, Template, Value};
     pub use crate::frame::*;
     pub use crate::geom::*;
     pub use crate::layout::*;
@@ -143,4 +143,10 @@ dynamic! {
 dynamic! {
     FontFamily: "font family",
     Value::Str(string) => Self::Named(string.to_lowercase()),
+}
+
+castable! {
+    Paint,
+    Expected: "color",
+    Value::Color(color) => Paint::Solid(color),
 }

@@ -58,11 +58,11 @@ fn shape_impl(
     };
 
     // Parse fill & stroke.
-    let fill = args.named("fill")?.map(Paint::Solid);
+    let fill = args.named("fill")?.unwrap_or(None);
     let stroke = match (args.named("stroke")?, args.named("thickness")?) {
         (None, None) => fill.is_none().then(|| default),
-        (color, thickness) => Some(Stroke {
-            paint: color.map(Paint::Solid).unwrap_or(default.paint),
+        (color, thickness) => color.unwrap_or(Some(default.paint)).map(|paint| Stroke {
+            paint,
             thickness: thickness.unwrap_or(default.thickness),
         }),
     };
