@@ -14,6 +14,14 @@ pub enum Dir {
 }
 
 impl Dir {
+    /// The specific axis this direction belongs to.
+    pub const fn axis(self) -> SpecAxis {
+        match self {
+            Self::LTR | Self::RTL => SpecAxis::Horizontal,
+            Self::TTB | Self::BTT => SpecAxis::Vertical,
+        }
+    }
+
     /// The side this direction starts at.
     pub const fn start(self) -> Side {
         match self {
@@ -34,11 +42,13 @@ impl Dir {
         }
     }
 
-    /// The specific axis this direction belongs to.
-    pub const fn axis(self) -> SpecAxis {
+    /// The inverse direction.
+    pub const fn inv(self) -> Self {
         match self {
-            Self::LTR | Self::RTL => SpecAxis::Horizontal,
-            Self::TTB | Self::BTT => SpecAxis::Vertical,
+            Self::LTR => Self::RTL,
+            Self::RTL => Self::LTR,
+            Self::TTB => Self::BTT,
+            Self::BTT => Self::TTB,
         }
     }
 
@@ -49,24 +59,6 @@ impl Dir {
         match self {
             Self::LTR | Self::TTB => true,
             Self::RTL | Self::BTT => false,
-        }
-    }
-
-    /// The factor for this direction.
-    ///
-    /// - `1.0` if the direction is positive.
-    /// - `-1.0` if the direction is negative.
-    pub const fn factor(self) -> f64 {
-        if self.is_positive() { 1.0 } else { -1.0 }
-    }
-
-    /// The inverse direction.
-    pub const fn inv(self) -> Self {
-        match self {
-            Self::LTR => Self::RTL,
-            Self::RTL => Self::LTR,
-            Self::TTB => Self::BTT,
-            Self::BTT => Self::TTB,
         }
     }
 }

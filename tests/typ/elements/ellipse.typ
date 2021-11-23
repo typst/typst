@@ -9,7 +9,7 @@ Rect in ellipse in fixed rect. \
 #rect(width: 3cm, height: 2cm, fill: rgb("2a631a"),
   ellipse(fill: forest,
     rect(fill: conifer,
-      align(center, center)[
+      align(center, horizon)[
         Stuff inside an ellipse!
       ]
     )

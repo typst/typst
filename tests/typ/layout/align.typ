@@ -7,7 +7,7 @@
   align(center, square(size: 20pt, fill: eastern)),
   align(right, square(size: 15pt, fill: eastern)),
 )
-#align(center, center, rect(fill: eastern, height: 10pt))
+#align(center, horizon, rect(fill: eastern, height: 10pt))
 #align(bottom, stack(
   align(center, rect(fill: conifer, height: 10pt)),
   rect(fill: forest, height: 10pt),

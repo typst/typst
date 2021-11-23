@@ -33,7 +33,7 @@ pub fn par(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 
     let mut align = None;
     if let Some(Spanned { v, span }) = args.named::<Spanned<Align>>("align")? {
-        if matches!(v.axis(), None | Some(SpecAxis::Horizontal)) {
+        if v.axis() == SpecAxis::Horizontal {
             align = Some(v);
         } else {
             bail!(span, "must be horizontal");

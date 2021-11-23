@@ -16,7 +16,7 @@
   rect(fill: forest, thickness: 2pt),
   rect(fill: forest, stroke: conifer, thickness: 2pt),
 ) {
-  (align(vertical: center)[{i + 1}.], rect, [])
+  (align(horizon)[{i + 1}.], rect, [])
 }
 
 #grid(

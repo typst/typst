@@ -3,27 +3,26 @@ use super::*;
 /// Where to align something along an axis.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum Align {
-    /// Align at the left side of the axis.
+    /// Align at the left side.
     Left,
-    /// Align at the top side of the axis.
-    Top,
-    /// Align in the middle of the axis.
+    /// Align in the horizontal middle.
     Center,
-    /// Align at the right side of the axis.
+    /// Align at the right side.
     Right,
-    /// Align at the bottom side of the axis.
+    /// Align at the top side.
+    Top,
+    /// Align in the vertical middle.
+    Horizon,
+    /// Align at the bottom side.
     Bottom,
 }
 
 impl Align {
-    /// The axis this alignment belongs to if it is specific.
-    pub const fn axis(self) -> Option<SpecAxis> {
+    /// The axis this alignment belongs to.
+    pub const fn axis(self) -> SpecAxis {
         match self {
-            Self::Left => Some(SpecAxis::Horizontal),
-            Self::Top => Some(SpecAxis::Vertical),
-            Self::Center => None,
-            Self::Right => Some(SpecAxis::Horizontal),
-            Self::Bottom => Some(SpecAxis::Vertical),
+            Self::Left | Self::Center | Self::Right => SpecAxis::Horizontal,
+            Self::Top | Self::Horizon | Self::Bottom => SpecAxis::Vertical,
         }
     }
 
@@ -31,9 +30,10 @@ impl Align {
     pub const fn inv(self) -> Self {
         match self {
             Self::Left => Self::Right,
-            Self::Top => Self::Bottom,
             Self::Center => Self::Center,
             Self::Right => Self::Left,
+            Self::Top => Self::Bottom,
+            Self::Horizon => Self::Horizon,
             Self::Bottom => Self::Top,
         }
     }
@@ -42,8 +42,8 @@ impl Align {
     pub fn resolve(self, range: Range<Length>) -> Length {
         match self {
             Self::Left | Self::Top => range.start,
+            Self::Center | Self::Horizon => (range.start + range.end) / 2.0,
             Self::Right | Self::Bottom => range.end,
-            Self::Center => (range.start + range.end) / 2.0,
         }
     }
 }
@@ -63,9 +63,10 @@ impl Debug for Align {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.pad(match self {
             Self::Left => "left",
-            Self::Top => "top",
             Self::Center => "center",
             Self::Right => "right",
+            Self::Top => "top",
+            Self::Horizon => "horizon",
             Self::Bottom => "bottom",
         })
     }

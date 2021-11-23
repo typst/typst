@@ -121,9 +121,10 @@ pub fn new() -> Scope {
     std.def_const("ttb", Dir::TTB);
     std.def_const("btt", Dir::BTT);
     std.def_const("left", Align::Left);
-    std.def_const("top", Align::Top);
     std.def_const("center", Align::Center);
     std.def_const("right", Align::Right);
+    std.def_const("top", Align::Top);
+    std.def_const("horizon", Align::Horizon);
     std.def_const("bottom", Align::Bottom);
     std.def_const("serif", FontFamily::Serif);
     std.def_const("sans-serif", FontFamily::SansSerif);

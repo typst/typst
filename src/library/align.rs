@@ -20,8 +20,8 @@ pub(super) fn parse_aligns(args: &mut Args) -> TypResult<Spec<Option<Align>>> {
     let mut y = args.named("vertical")?;
     for Spanned { v, span } in args.all::<Spanned<Align>>() {
         match v.axis() {
-            None | Some(SpecAxis::Horizontal) if x.is_none() => x = Some(v),
-            None | Some(SpecAxis::Vertical) if y.is_none() => y = Some(v),
+            SpecAxis::Horizontal if x.is_none() => x = Some(v),
+            SpecAxis::Vertical if y.is_none() => y = Some(v),
             _ => bail!(span, "unexpected argument"),
         }
     }
