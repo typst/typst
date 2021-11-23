@@ -24,20 +24,18 @@ pub fn par(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
             });
 
     if let Some(Spanned { v, span }) = args.named::<Spanned<Dir>>("dir")? {
-        if v.axis() == SpecAxis::Horizontal {
-            dir = Some(v);
-        } else {
+        if v.axis() != SpecAxis::Horizontal {
             bail!(span, "must be horizontal");
         }
+        dir = Some(v);
     }
 
     let mut align = None;
     if let Some(Spanned { v, span }) = args.named::<Spanned<Align>>("align")? {
-        if v.axis() == SpecAxis::Horizontal {
-            align = Some(v);
-        } else {
+        if v.axis() != SpecAxis::Horizontal {
             bail!(span, "must be horizontal");
         }
+        align = Some(v);
     }
 
     ctx.template.modify(move |style| {

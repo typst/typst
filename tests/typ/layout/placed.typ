@@ -1,5 +1,5 @@
 #page("a8")
-#place(bottom, center)[© Typst]
+#place(bottom + center)[© Typst]
 
 = Placement
 #place(right, image("../../res/tiger.jpg", width: 1.8cm))

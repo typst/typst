@@ -7,8 +7,7 @@ use crate::image::ImageId;
 /// `image`: An image.
 pub fn image(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let path = args.expect::<Spanned<EcoString>>("path to image file")?;
-    let width = args.named("width")?;
-    let height = args.named("height")?;
+    let sizing = Spec::new(args.named("width")?, args.named("height")?);
     let fit = args.named("fit")?.unwrap_or_default();
 
     // Load the image.
@@ -21,7 +20,7 @@ pub fn image(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     })?;
 
     Ok(Value::Template(Template::from_inline(move |_| {
-        ImageNode { id, fit }.pack().sized(width, height)
+        ImageNode { id, fit }.pack().sized(sizing)
     })))
 }
 

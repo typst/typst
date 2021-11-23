@@ -21,7 +21,7 @@
 #image("../../res/tiger.jpg", width: 100%, height: 20pt, fit: "stretch")
 
 // Make sure the bounding-box of the image is correct.
-#align(bottom, right, image("../../res/tiger.jpg", width: 40pt))
+#align(bottom + right, image("../../res/tiger.jpg", width: 40pt))
 
 ---
 // Test all three fit modes.

@@ -422,7 +422,7 @@ impl Eval for CallArgs {
                     }
                     v => {
                         if let Value::Dyn(dynamic) = &v {
-                            if let Some(args) = dynamic.downcast_ref::<Args>() {
+                            if let Some(args) = dynamic.downcast::<Args>() {
                                 items.extend(args.items.iter().cloned());
                                 continue;
                             }

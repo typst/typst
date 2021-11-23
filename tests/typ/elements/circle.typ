@@ -10,12 +10,12 @@
 
 Auto-sized circle. \
 #circle(fill: rgb("eb5278"), thickness: 2pt,
-  align(center, horizon)[But, soft!]
+  align(center + horizon)[But, soft!]
 )
 
 Center-aligned rect in auto-sized circle.
 #circle(fill: forest, stroke: conifer,
-  align(center, horizon,
+  align(center + horizon,
     rect(fill: conifer, pad(5pt)[But, soft!])
   )
 )
@@ -37,7 +37,7 @@ Expanded by height.
 
 ---
 // Test relative sizing.
-#let centered(body) = align(center, horizon, body)
+#let centered(body) = align(center + horizon, body)
 #font(fill: white)
 #rect(width: 100pt, height: 50pt, fill: rgb("aaa"), centered[
   #circle(radius: 10pt, fill: eastern, centered[A])      // D=20pt

@@ -123,7 +123,7 @@ impl<T: Debug> Debug for Spec<T> {
 }
 
 /// The two specific layouting axes.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub enum SpecAxis {
     /// The horizontal layouting axis.
     Horizontal,
@@ -148,5 +148,14 @@ impl SpecAxis {
             Self::Horizontal => Self::Vertical,
             Self::Vertical => Self::Horizontal,
         }
+    }
+}
+
+impl Debug for SpecAxis {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.pad(match self {
+            Self::Horizontal => "horizontal",
+            Self::Vertical => "vertical",
+        })
     }
 }

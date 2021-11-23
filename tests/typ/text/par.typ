@@ -15,3 +15,7 @@ It is the east, and Juliet is the sun.
 ---
 // Error: 13-16 must be horizontal
 #par(align: top)
+
+---
+// Error: 13-29 expected alignment, found 2d alignment
+#par(align: horizon + center)

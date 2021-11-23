@@ -2,21 +2,19 @@ use super::prelude::*;
 
 /// `box`: Size content and place it into a paragraph.
 pub fn box_(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let width = args.named("width")?;
-    let height = args.named("height")?;
+    let sizing = Spec::new(args.named("width")?, args.named("height")?);
     let body: Template = args.find().unwrap_or_default();
     Ok(Value::Template(Template::from_inline(move |style| {
-        body.pack(style).sized(width, height)
+        body.pack(style).sized(sizing)
     })))
 }
 
 /// `block`: Size content and place it into the flow.
 pub fn block(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let width = args.named("width")?;
-    let height = args.named("height")?;
+    let sizing = Spec::new(args.named("width")?, args.named("height")?);
     let body: Template = args.find().unwrap_or_default();
     Ok(Value::Template(Template::from_block(move |style| {
-        body.pack(style).sized(width, height)
+        body.pack(style).sized(sizing)
     })))
 }
 

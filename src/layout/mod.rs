@@ -104,27 +104,27 @@ impl PackedNode {
     }
 
     /// Force a size for this node.
-    pub fn sized(self, w: Option<Linear>, h: Option<Linear>) -> Self {
-        if w.is_some() || h.is_some() {
-            SizedNode { child: self, sizing: Spec::new(w, h) }.pack()
+    pub fn sized(self, sizing: Spec<Option<Linear>>) -> Self {
+        if sizing.any(Option::is_some) {
+            SizedNode { child: self, sizing }.pack()
         } else {
             self
         }
     }
 
     /// Set alignments for this node.
-    pub fn aligned(self, x: Option<Align>, y: Option<Align>) -> Self {
-        if x.is_some() || y.is_some() {
-            AlignNode { child: self, aligns: Spec::new(x, y) }.pack()
+    pub fn aligned(self, aligns: Spec<Option<Align>>) -> Self {
+        if aligns.any(Option::is_some) {
+            AlignNode { child: self, aligns }.pack()
         } else {
             self
         }
     }
 
     /// Move this node's contents without affecting layout.
-    pub fn moved(self, dx: Option<Linear>, dy: Option<Linear>) -> Self {
-        if dx.is_some() || dy.is_some() {
-            MoveNode { child: self, offset: Spec::new(dx, dy) }.pack()
+    pub fn moved(self, offset: Spec<Option<Linear>>) -> Self {
+        if offset.any(Option::is_some) {
+            MoveNode { child: self, offset }.pack()
         } else {
             self
         }

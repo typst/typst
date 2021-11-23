@@ -142,6 +142,15 @@ dynamic! {
 }
 
 dynamic! {
+    Spec<Option<Align>>: "2d alignment",
+    @align: Align => {
+        let mut aligns = Spec::default();
+        aligns.set(align.axis(), Some(*align));
+        aligns
+    },
+}
+
+dynamic! {
     FontFamily: "font family",
     Value::Str(string) => Self::Named(string.to_lowercase()),
 }

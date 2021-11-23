@@ -13,6 +13,6 @@
     height: 100% + 20pt,
   )
 )
-#align(bottom, right)[
+#align(bottom + right)[
   _Welcome to_ #underline[*Tigerland*]
 ]

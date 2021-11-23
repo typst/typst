@@ -1,8 +1,9 @@
 use std::cmp::Ordering;
 use std::convert::TryFrom;
 
-use super::Value;
+use super::{Dynamic, Value};
 use crate::diag::StrResult;
+use crate::geom::{Align, Get, Spec};
 use crate::util::EcoString;
 use Value::*;
 
@@ -87,7 +88,25 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Template(a), Str(b)) => Template(a + b),
         (Str(a), Template(b)) => Template(a + b),
 
-        (a, b) => mismatch!("cannot add {} and {}", a, b),
+        (a, b) => {
+            if let (Dyn(a), Dyn(b)) = (&a, &b) {
+                // 1D alignments can be summed into 2D alignments.
+                if let (Some(&a), Some(&b)) =
+                    (a.downcast::<Align>(), b.downcast::<Align>())
+                {
+                    if a.axis() == b.axis() {
+                        return Err(format!("cannot add two {:?} alignments", a.axis()));
+                    }
+
+                    let mut aligns = Spec::default();
+                    aligns.set(a.axis(), Some(a));
+                    aligns.set(b.axis(), Some(b));
+                    return Ok(Dyn(Dynamic::new(aligns)));
+                }
+            }
+
+            mismatch!("cannot add {} and {}", a, b);
+        }
     })
 }
 

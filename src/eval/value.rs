@@ -188,7 +188,7 @@ impl Dynamic {
     }
 
     /// Try to downcast to a reference to a specific type.
-    pub fn downcast_ref<T: 'static>(&self) -> Option<&T> {
+    pub fn downcast<T: 'static>(&self) -> Option<&T> {
         self.0.as_any().downcast_ref()
     }
 
@@ -225,7 +225,7 @@ where
     }
 
     fn dyn_eq(&self, other: &Dynamic) -> bool {
-        if let Some(other) = other.downcast_ref::<Self>() {
+        if let Some(other) = other.downcast::<Self>() {
             self == other
         } else {
             false
@@ -334,7 +334,7 @@ macro_rules! castable {
                 let found = match value {
                     $($pattern => return Ok($out),)*
                     $crate::eval::Value::Dyn(dynamic) => {
-                        $(if let Some($dyn_in) = dynamic.downcast_ref::<$dyn_type>() {
+                        $(if let Some($dyn_in) = dynamic.downcast::<$dyn_type>() {
                             return Ok($dyn_out);
                         })*
                         dynamic.type_name()

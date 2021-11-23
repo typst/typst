@@ -2,11 +2,10 @@ use super::prelude::*;
 
 /// `move`: Move content without affecting layout.
 pub fn move_(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let dx = args.named("dx")?;
-    let dy = args.named("dy")?;
+    let offset = Spec::new(args.named("x")?, args.named("y")?);
     let body: Template = args.expect("body")?;
     Ok(Value::Template(Template::from_inline(move |style| {
-        body.pack(style).moved(dx, dy)
+        body.pack(style).moved(offset)
     })))
 }
 

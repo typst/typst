@@ -9,8 +9,8 @@
 // Set all margins at once.
 [
   #page(margins: 5pt)
-  #place(top, left)[TL]
-  #place(bottom, right)[BR]
+  #place(top + left)[TL]
+  #place(bottom + right)[BR]
 ]
 
 // Set individual margins.

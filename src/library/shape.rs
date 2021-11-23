@@ -5,9 +5,8 @@ use crate::util::RcExt;
 
 /// `rect`: A rectangle with optional content.
 pub fn rect(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let width = args.named("width")?;
-    let height = args.named("height")?;
-    shape_impl(args, ShapeKind::Rect, width, height)
+    let sizing = Spec::new(args.named("width")?, args.named("height")?);
+    shape_impl(args, ShapeKind::Rect, sizing)
 }
 
 /// `square`: A square with optional content.
@@ -21,14 +20,14 @@ pub fn square(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         None => args.named("height")?,
         size => size,
     };
-    shape_impl(args, ShapeKind::Square, width, height)
+    let sizing = Spec::new(width, height);
+    shape_impl(args, ShapeKind::Square, sizing)
 }
 
 /// `ellipse`: An ellipse with optional content.
 pub fn ellipse(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let width = args.named("width")?;
-    let height = args.named("height")?;
-    shape_impl(args, ShapeKind::Ellipse, width, height)
+    let sizing = Spec::new(args.named("width")?, args.named("height")?);
+    shape_impl(args, ShapeKind::Ellipse, sizing)
 }
 
 /// `circle`: A circle with optional content.
@@ -42,14 +41,14 @@ pub fn circle(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         None => args.named("height")?,
         diameter => diameter,
     };
-    shape_impl(args, ShapeKind::Circle, width, height)
+    let sizing = Spec::new(width, height);
+    shape_impl(args, ShapeKind::Circle, sizing)
 }
 
 fn shape_impl(
     args: &mut Args,
     kind: ShapeKind,
-    width: Option<Linear>,
-    height: Option<Linear>,
+    sizing: Spec<Option<Linear>>,
 ) -> TypResult<Value> {
     // The default appearance of a shape.
     let default = Stroke {
@@ -67,7 +66,10 @@ fn shape_impl(
         }),
     };
 
+    // Shorthand for padding.
     let padding = Sides::splat(args.named("padding")?.unwrap_or_default());
+
+    // The shape's contents.
     let body = args.find::<Template>();
 
     Ok(Value::Template(Template::from_inline(move |style| {
@@ -78,7 +80,7 @@ fn shape_impl(
             child: body.as_ref().map(|body| body.pack(style).padded(padding)),
         }
         .pack()
-        .sized(width, height)
+        .sized(sizing)
     })))
 }
 
