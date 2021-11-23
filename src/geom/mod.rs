@@ -18,6 +18,7 @@ mod scalar;
 mod sides;
 mod size;
 mod spec;
+mod transform;
 
 pub use align::*;
 pub use angle::*;
@@ -35,6 +36,7 @@ pub use scalar::*;
 pub use sides::*;
 pub use size::*;
 pub use spec::*;
+pub use transform::*;
 
 use std::cmp::Ordering;
 use std::f64::consts::PI;

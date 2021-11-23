@@ -13,7 +13,9 @@ use typst::diag::Error;
 use typst::eval::{Smart, Value};
 use typst::font::Face;
 use typst::frame::{Element, Frame, Geometry, Group, Shape, Stroke, Text};
-use typst::geom::{self, Color, Length, Paint, PathElement, RgbaColor, Sides, Size};
+use typst::geom::{
+    self, Color, Length, Paint, PathElement, RgbaColor, Sides, Size, Transform,
+};
 use typst::image::Image;
 use typst::layout::layout;
 #[cfg(feature = "layout-cache")]
@@ -465,6 +467,7 @@ fn draw_group(
     ctx: &Context,
     group: &Group,
 ) {
+    let ts = ts.pre_concat(convert_typst_transform(group.transform));
     if group.clips {
         let w = group.frame.size.w.to_f32();
         let h = group.frame.size.h.to_f32();
@@ -626,6 +629,18 @@ fn draw_image(
 
     let rect = sk::Rect::from_xywh(0.0, 0.0, view_width, view_height).unwrap();
     canvas.fill_rect(rect, &paint, ts, Some(mask));
+}
+
+fn convert_typst_transform(transform: Transform) -> sk::Transform {
+    let Transform { sx, ky, kx, sy, tx, ty } = transform;
+    sk::Transform::from_row(
+        sx.get() as _,
+        ky.get() as _,
+        kx.get() as _,
+        sy.get() as _,
+        tx.to_f32(),
+        ty.to_f32(),
+    )
 }
 
 fn convert_typst_paint(paint: Paint) -> sk::Paint<'static> {

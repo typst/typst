@@ -7,7 +7,8 @@ use crate::image::ImageId;
 /// `image`: An image.
 pub fn image(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let path = args.expect::<Spanned<EcoString>>("path to image file")?;
-    let sizing = Spec::new(args.named("width")?, args.named("height")?);
+    let width = args.named("width")?;
+    let height = args.named("height")?;
     let fit = args.named("fit")?.unwrap_or_default();
 
     // Load the image.
@@ -20,7 +21,7 @@ pub fn image(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     })?;
 
     Ok(Value::Template(Template::from_inline(move |_| {
-        ImageNode { id, fit }.pack().sized(sizing)
+        ImageNode { id, fit }.pack().sized(Spec::new(width, height))
     })))
 }
 
@@ -81,13 +82,12 @@ impl Layout for ImageNode {
 
         // Create a clipping group if the image mode is `cover`.
         if self.fit == ImageFit::Cover {
-            let group = Group {
-                frame: Rc::new(frame),
-                clips: self.fit == ImageFit::Cover,
-            };
-
-            frame = Frame::new(canvas, canvas.h);
-            frame.push(Point::zero(), Element::Group(group));
+            let mut wrapper = Frame::new(canvas, canvas.h);
+            wrapper.push(
+                Point::zero(),
+                Element::Group(Group::new(Rc::new(frame)).clips(true)),
+            );
+            frame = wrapper;
         }
 
         let mut cts = Constraints::new(regions.expand);

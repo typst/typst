@@ -628,7 +628,7 @@ impl<'a> LineStack<'a> {
         for line in self.lines.drain(..) {
             let frame = line.build(ctx, self.size.w);
 
-            let pos = Point::new(Length::zero(), offset);
+            let pos = Point::with_y(offset);
             if first {
                 output.baseline = pos.y + frame.baseline;
                 first = false;

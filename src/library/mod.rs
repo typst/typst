@@ -76,12 +76,14 @@ pub fn new() -> Scope {
     std.def_func("box", box_);
     std.def_func("block", block);
     std.def_func("flow", flow);
+    std.def_func("stack", stack);
+    std.def_func("grid", grid);
+    std.def_func("pad", pad);
     std.def_func("align", align);
     std.def_func("place", place);
     std.def_func("move", move_);
-    std.def_func("stack", stack);
-    std.def_func("pad", pad);
-    std.def_func("grid", grid);
+    std.def_func("scale", scale);
+    std.def_func("rotate", rotate);
 
     // Elements.
     std.def_func("image", image);

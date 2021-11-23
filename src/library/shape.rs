@@ -5,8 +5,9 @@ use crate::util::RcExt;
 
 /// `rect`: A rectangle with optional content.
 pub fn rect(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let sizing = Spec::new(args.named("width")?, args.named("height")?);
-    shape_impl(args, ShapeKind::Rect, sizing)
+    let width = args.named("width")?;
+    let height = args.named("height")?;
+    shape_impl(args, ShapeKind::Rect, width, height)
 }
 
 /// `square`: A square with optional content.
@@ -20,14 +21,14 @@ pub fn square(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         None => args.named("height")?,
         size => size,
     };
-    let sizing = Spec::new(width, height);
-    shape_impl(args, ShapeKind::Square, sizing)
+    shape_impl(args, ShapeKind::Square, width, height)
 }
 
 /// `ellipse`: An ellipse with optional content.
 pub fn ellipse(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let sizing = Spec::new(args.named("width")?, args.named("height")?);
-    shape_impl(args, ShapeKind::Ellipse, sizing)
+    let width = args.named("width")?;
+    let height = args.named("height")?;
+    shape_impl(args, ShapeKind::Ellipse, width, height)
 }
 
 /// `circle`: A circle with optional content.
@@ -41,14 +42,14 @@ pub fn circle(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         None => args.named("height")?,
         diameter => diameter,
     };
-    let sizing = Spec::new(width, height);
-    shape_impl(args, ShapeKind::Circle, sizing)
+    shape_impl(args, ShapeKind::Circle, width, height)
 }
 
 fn shape_impl(
     args: &mut Args,
     kind: ShapeKind,
-    sizing: Spec<Option<Linear>>,
+    width: Option<Linear>,
+    height: Option<Linear>,
 ) -> TypResult<Value> {
     // The default appearance of a shape.
     let default = Stroke {
@@ -80,7 +81,7 @@ fn shape_impl(
             child: body.as_ref().map(|body| body.pack(style).padded(padding)),
         }
         .pack()
-        .sized(sizing)
+        .sized(Spec::new(width, height))
     })))
 }
 

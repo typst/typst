@@ -5,6 +5,7 @@ use super::*;
 /// _Note_: `50%` is represented as `0.5` here, but stored as `50.0` in the
 /// corresponding [literal](crate::syntax::ast::LitKind::Percent).
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Serialize, Deserialize)]
 pub struct Relative(Scalar);
 
 impl Relative {
@@ -73,6 +74,14 @@ impl Add for Relative {
 
 sub_impl!(Relative - Relative -> Relative);
 
+impl Mul for Relative {
+    type Output = Self;
+
+    fn mul(self, other: Self) -> Self {
+        Self(self.0 * other.0)
+    }
+}
+
 impl Mul<f64> for Relative {
     type Output = Self;
 
@@ -107,5 +116,6 @@ impl Div for Relative {
 
 assign_impl!(Relative += Relative);
 assign_impl!(Relative -= Relative);
+assign_impl!(Relative *= Relative);
 assign_impl!(Relative *= f64);
 assign_impl!(Relative /= f64);

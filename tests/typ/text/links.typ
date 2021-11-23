@@ -14,3 +14,9 @@ Contact #link("mailto:hi@typst.app") or call #link("tel:123") for more informati
 // Styled with underline and color.
 #let link(url, body) = link(url, font(fill: rgb("283663"), underline(body)))
 You could also make the #link("https://html5zombo.com/")[link look way more typical.]
+
+---
+// Transformed link.
+#page(height: 60pt)
+#let link = link("https://typst.app/")[LINK]
+My cool #move(x: 0.7cm, y: 0.7cm, rotate(10deg, scale(200%, link)))

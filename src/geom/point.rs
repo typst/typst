@@ -25,12 +25,30 @@ impl Point {
         Self { x: value, y: value }
     }
 
+    /// Create a new point with y set to zero.
+    pub const fn with_x(x: Length) -> Self {
+        Self { x, y: Length::zero() }
+    }
+
+    /// Create a new point with x set to zero.
+    pub const fn with_y(y: Length) -> Self {
+        Self { x: Length::zero(), y }
+    }
+
     /// Convert to the generic representation.
     pub const fn to_gen(self, block: SpecAxis) -> Gen<Length> {
         match block {
             SpecAxis::Horizontal => Gen::new(self.y, self.x),
             SpecAxis::Vertical => Gen::new(self.x, self.y),
         }
+    }
+
+    /// Transform the point with the given transformation.
+    pub fn transform(self, transform: Transform) -> Self {
+        Self::new(
+            transform.sx.resolve(self.x) + transform.kx.resolve(self.y) + transform.tx,
+            transform.ky.resolve(self.x) + transform.sy.resolve(self.y) + transform.ty,
+        )
     }
 }
 

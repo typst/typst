@@ -6,7 +6,7 @@ use std::rc::Rc;
 use serde::{Deserialize, Serialize};
 
 use crate::font::FaceId;
-use crate::geom::{Em, Length, Paint, Path, Point, Size};
+use crate::geom::{Em, Length, Paint, Path, Point, Size, Transform};
 use crate::image::ImageId;
 
 /// A finished layout with elements at fixed positions.
@@ -40,8 +40,7 @@ impl Frame {
 
     /// Add a group element.
     pub fn push_frame(&mut self, pos: Point, frame: Rc<Self>) {
-        self.elements
-            .push((pos, Element::Group(Group { frame, clips: false })))
+        self.elements.push((pos, Element::Group(Group::new(frame))));
     }
 
     /// Add all elements of another frame, placing them relative to the given
@@ -62,11 +61,6 @@ impl Frame {
             *point += offset;
         }
     }
-
-    /// An iterator over all non-frame elements in this and nested frames.
-    pub fn elements(&self) -> Elements {
-        Elements { stack: vec![(0, Point::zero(), self)] }
-    }
 }
 
 impl Debug for Frame {
@@ -84,35 +78,6 @@ impl Debug for Frame {
             .field("baseline", &self.baseline)
             .field("children", &Children(&self.elements))
             .finish()
-    }
-}
-
-/// An iterator over all elements in a frame, alongside with their positions.
-pub struct Elements<'a> {
-    stack: Vec<(usize, Point, &'a Frame)>,
-}
-
-impl<'a> Iterator for Elements<'a> {
-    type Item = (Point, &'a Element);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let (cursor, offset, frame) = self.stack.last_mut()?;
-        if let Some((pos, e)) = frame.elements.get(*cursor) {
-            if let Element::Group(g) = e {
-                let new_offset = *offset + *pos;
-                self.stack.push((0, new_offset, g.frame.as_ref()));
-                self.next()
-            } else {
-                *cursor += 1;
-                Some((*offset + *pos, e))
-            }
-        } else {
-            self.stack.pop();
-            if let Some((cursor, _, _)) = self.stack.last_mut() {
-                *cursor += 1;
-            }
-            self.next()
-        }
     }
 }
 
@@ -136,8 +101,33 @@ pub enum Element {
 pub struct Group {
     /// The group's frame.
     pub frame: Rc<Frame>,
+    /// A transformation to apply to the group.
+    pub transform: Transform,
     /// Whether the frame should be a clipping boundary.
     pub clips: bool,
+}
+
+impl Group {
+    /// Create a new group with default settings.
+    pub fn new(frame: Rc<Frame>) -> Self {
+        Self {
+            frame,
+            transform: Transform::identity(),
+            clips: false,
+        }
+    }
+
+    /// Set the group's transform.
+    pub fn transform(mut self, transform: Transform) -> Self {
+        self.transform = transform;
+        self
+    }
+
+    /// Set whether the group should be a clipping boundary.
+    pub fn clips(mut self, clips: bool) -> Self {
+        self.clips = clips;
+        self
+    }
 }
 
 /// A run of shaped text.

@@ -17,9 +17,9 @@ use std::rc::Rc;
 
 use crate::font::FontStore;
 use crate::frame::Frame;
-use crate::geom::{Align, Linear, Sides, Spec};
+use crate::geom::{Align, Linear, Point, Sides, Spec, Transform};
 use crate::image::ImageStore;
-use crate::library::{AlignNode, DocumentNode, MoveNode, PadNode, SizedNode};
+use crate::library::{AlignNode, DocumentNode, PadNode, SizedNode, TransformNode};
 use crate::Context;
 
 /// Layout a document node into a collection of frames.
@@ -121,15 +121,6 @@ impl PackedNode {
         }
     }
 
-    /// Move this node's contents without affecting layout.
-    pub fn moved(self, offset: Spec<Option<Linear>>) -> Self {
-        if offset.any(Option::is_some) {
-            MoveNode { child: self, offset }.pack()
-        } else {
-            self
-        }
-    }
-
     /// Pad this node at the sides.
     pub fn padded(self, padding: Sides<Linear>) -> Self {
         if !padding.left.is_zero()
@@ -138,6 +129,23 @@ impl PackedNode {
             || !padding.bottom.is_zero()
         {
             PadNode { child: self, padding }.pack()
+        } else {
+            self
+        }
+    }
+
+    /// Transform this node's contents without affecting layout.
+    pub fn moved(self, offset: Point) -> Self {
+        self.transformed(
+            Transform::translation(offset.x, offset.y),
+            Spec::new(Align::Left, Align::Top),
+        )
+    }
+
+    /// Transform this node's contents without affecting layout.
+    pub fn transformed(self, transform: Transform, origin: Spec<Align>) -> Self {
+        if !transform.is_identity() {
+            TransformNode { child: self, transform, origin }.pack()
         } else {
             self
         }

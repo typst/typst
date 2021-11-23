@@ -15,7 +15,7 @@ use ttf_parser::{name_id, GlyphId, Tag};
 use super::subset;
 use crate::font::{find_name, FaceId, FontStore};
 use crate::frame::{Element, Frame, Geometry, Group, Shape, Stroke, Text};
-use crate::geom::{self, Color, Em, Length, Paint, Size};
+use crate::geom::{self, Color, Em, Length, Paint, Point, Size, Transform};
 use crate::image::{Image, ImageId, ImageStore};
 use crate::Context;
 
@@ -27,144 +27,63 @@ use crate::Context;
 ///
 /// Returns the raw bytes making up the PDF file.
 pub fn pdf(ctx: &Context, frames: &[Rc<Frame>]) -> Vec<u8> {
-    PdfExporter::new(ctx, frames).write()
+    PdfExporter::new(ctx).export(frames)
 }
 
+/// An exporter for a whole PDF document.
 struct PdfExporter<'a> {
-    writer: PdfWriter,
-    refs: Refs,
-    frames: &'a [Rc<Frame>],
     fonts: &'a FontStore,
     images: &'a ImageStore,
-    font_map: Remapper<FaceId>,
+    writer: PdfWriter,
+    alloc: Ref,
+    pages: Vec<Page>,
+    face_map: Remapper<FaceId>,
+    face_refs: Vec<Ref>,
+    glyph_sets: HashMap<FaceId, HashSet<u16>>,
     image_map: Remapper<ImageId>,
-    glyphs: HashMap<FaceId, HashSet<u16>>,
+    image_refs: Vec<Ref>,
 }
 
 impl<'a> PdfExporter<'a> {
-    fn new(ctx: &'a Context, frames: &'a [Rc<Frame>]) -> Self {
-        let mut font_map = Remapper::new();
-        let mut image_map = Remapper::new();
-        let mut glyphs = HashMap::<FaceId, HashSet<u16>>::new();
-        let mut alpha_masks = 0;
-
-        for frame in frames {
-            for (_, element) in frame.elements() {
-                match *element {
-                    Element::Text(ref text) => {
-                        font_map.insert(text.face_id);
-                        let set = glyphs.entry(text.face_id).or_default();
-                        set.extend(text.glyphs.iter().map(|g| g.id));
-                    }
-                    Element::Image(id, _) => {
-                        let img = ctx.images.get(id);
-                        if img.buf.color().has_alpha() {
-                            alpha_masks += 1;
-                        }
-                        image_map.insert(id);
-                    }
-                    _ => {}
-                }
-            }
-        }
-
+    fn new(ctx: &'a Context) -> Self {
         Self {
-            writer: PdfWriter::new(),
-            refs: Refs::new(frames.len(), font_map.len(), image_map.len(), alpha_masks),
-            frames,
             fonts: &ctx.fonts,
             images: &ctx.images,
-            glyphs,
-            font_map,
-            image_map,
+            writer: PdfWriter::new(),
+            alloc: Ref::new(1),
+            pages: vec![],
+            face_map: Remapper::new(),
+            face_refs: vec![],
+            glyph_sets: HashMap::new(),
+            image_map: Remapper::new(),
+            image_refs: vec![],
         }
     }
 
-    fn write(mut self) -> Vec<u8> {
-        self.write_structure();
-        self.write_pages();
+    fn export(mut self, frames: &[Rc<Frame>]) -> Vec<u8> {
+        self.build_pages(frames);
         self.write_fonts();
         self.write_images();
-        self.writer.finish(self.refs.catalog)
+        self.write_structure()
     }
 
-    fn write_structure(&mut self) {
-        // The document catalog.
-        self.writer.catalog(self.refs.catalog).pages(self.refs.page_tree);
-
-        // The root page tree.
-        let mut pages = self.writer.pages(self.refs.page_tree);
-        pages.kids(self.refs.pages());
-
-        let mut resources = pages.resources();
-        let mut fonts = resources.fonts();
-        for (refs, f) in self.refs.fonts().zip(self.font_map.pdf_indices()) {
-            let name = format_eco!("F{}", f);
-            fonts.pair(Name(name.as_bytes()), refs.type0_font);
+    fn build_pages(&mut self, frames: &[Rc<Frame>]) {
+        for frame in frames {
+            let page = PageExporter::new(self).export(frame);
+            self.pages.push(page);
         }
-
-        fonts.finish();
-
-        let mut images = resources.x_objects();
-        for (id, im) in self.refs.images().zip(self.image_map.pdf_indices()) {
-            let name = format_eco!("Im{}", im);
-            images.pair(Name(name.as_bytes()), id);
-        }
-
-        images.finish();
-        resources.finish();
-        pages.finish();
-
-        // The page objects (non-root nodes in the page tree).
-        for ((page_id, content_id), page) in
-            self.refs.pages().zip(self.refs.contents()).zip(self.frames)
-        {
-            let w = page.size.w.to_f32();
-            let h = page.size.h.to_f32();
-
-            let mut page_writer = self.writer.page(page_id);
-            page_writer
-                .parent(self.refs.page_tree)
-                .media_box(Rect::new(0.0, 0.0, w, h));
-
-            let mut annotations = page_writer.annotations();
-            for (pos, element) in page.elements() {
-                if let Element::Link(href, size) = element {
-                    let x = pos.x.to_f32();
-                    let y = (page.size.h - pos.y).to_f32();
-                    let w = size.w.to_f32();
-                    let h = size.h.to_f32();
-
-                    annotations
-                        .push()
-                        .subtype(AnnotationType::Link)
-                        .rect(Rect::new(x, y - h, x + w, y))
-                        .action()
-                        .action_type(ActionType::Uri)
-                        .uri(Str(href.as_bytes()));
-                }
-            }
-
-            annotations.finish();
-            page_writer.contents(content_id);
-        }
-    }
-
-    fn write_pages(&mut self) {
-        for (id, page) in self.refs.contents().zip(self.frames) {
-            self.write_page(id, page);
-        }
-    }
-
-    fn write_page(&mut self, id: Ref, page: &'a Frame) {
-        let writer = PageExporter::new(self);
-        let content = writer.write(page);
-        self.writer.stream(id, &deflate(&content)).filter(Filter::FlateDecode);
     }
 
     fn write_fonts(&mut self) {
-        for (refs, face_id) in self.refs.fonts().zip(self.font_map.layout_indices()) {
-            let glyphs = &self.glyphs[&face_id];
+        for face_id in self.face_map.layout_indices() {
+            let type0_ref = self.alloc.bump();
+            let cid_ref = self.alloc.bump();
+            let descriptor_ref = self.alloc.bump();
+            let cmap_ref = self.alloc.bump();
+            let data_ref = self.alloc.bump();
+            self.face_refs.push(type0_ref);
+
+            let glyphs = &self.glyph_sets[&face_id];
             let face = self.fonts.get(face_id);
             let ttf = face.ttf();
 
@@ -182,11 +101,11 @@ impl<'a> PdfExporter<'a> {
 
             // Write the base font object referencing the CID font.
             self.writer
-                .type0_font(refs.type0_font)
+                .type0_font(type0_ref)
                 .base_font(base_font)
                 .encoding_predefined(Name(b"Identity-H"))
-                .descendant_font(refs.cid_font)
-                .to_unicode(refs.cmap);
+                .descendant_font(cid_ref)
+                .to_unicode(cmap_ref);
 
             // Check for the presence of CFF outlines to select the correct
             // CID-Font subtype.
@@ -200,10 +119,10 @@ impl<'a> PdfExporter<'a> {
 
             // Write the CID font referencing the font descriptor.
             self.writer
-                .cid_font(refs.cid_font, subtype)
+                .cid_font(cid_ref, subtype)
                 .base_font(base_font)
                 .system_info(system_info)
-                .font_descriptor(refs.font_descriptor)
+                .font_descriptor(descriptor_ref)
                 .cid_to_gid_map_predefined(Name(b"Identity"))
                 .widths()
                 .individual(0, {
@@ -237,7 +156,7 @@ impl<'a> PdfExporter<'a> {
 
             // Write the font descriptor (contains metrics about the font).
             self.writer
-                .font_descriptor(refs.font_descriptor)
+                .font_descriptor(descriptor_ref)
                 .font_name(base_font)
                 .font_flags(flags)
                 .font_bbox(bbox)
@@ -246,7 +165,7 @@ impl<'a> PdfExporter<'a> {
                 .descent(descender)
                 .cap_height(cap_height)
                 .stem_v(stem_v)
-                .font_file2(refs.data);
+                .font_file2(data_ref);
 
             // Compute a reverse mapping from glyphs to unicode.
             let cmap = {
@@ -275,7 +194,7 @@ impl<'a> PdfExporter<'a> {
             // Write the /ToUnicode character map, which maps glyph ids back to
             // unicode codepoints to enable copying out of the PDF.
             self.writer
-                .cmap(refs.cmap, &deflate(&cmap.finish()))
+                .cmap(cmap_ref, &deflate(&cmap.finish()))
                 .filter(Filter::FlateDecode);
 
             // Subset and write the face's bytes.
@@ -283,21 +202,23 @@ impl<'a> PdfExporter<'a> {
             let subsetted = subset(buffer, face.index(), glyphs);
             let data = subsetted.as_deref().unwrap_or(buffer);
             self.writer
-                .stream(refs.data, &deflate(data))
+                .stream(data_ref, &deflate(data))
                 .filter(Filter::FlateDecode);
         }
     }
 
     fn write_images(&mut self) {
-        let mut masks_seen = 0;
+        for image_id in self.image_map.layout_indices() {
+            let image_ref = self.alloc.bump();
+            self.image_refs.push(image_ref);
 
-        for (id, image_id) in self.refs.images().zip(self.image_map.layout_indices()) {
             let img = self.images.get(image_id);
-            let (width, height) = img.buf.dimensions();
+            let width = img.width();
+            let height = img.height();
 
             // Add the primary image.
             if let Ok((data, filter, color_space)) = encode_image(img) {
-                let mut image = self.writer.image(id, &data);
+                let mut image = self.writer.image(image_ref, &data);
                 image.filter(filter);
                 image.width(width as i32);
                 image.height(height as i32);
@@ -308,23 +229,21 @@ impl<'a> PdfExporter<'a> {
                 // this image has an alpha channel.
                 if img.buf.color().has_alpha() {
                     let (alpha_data, alpha_filter) = encode_alpha(img);
-                    let mask_id = self.refs.alpha_mask(masks_seen);
-                    image.s_mask(mask_id);
+                    let mask_ref = self.alloc.bump();
+                    image.s_mask(mask_ref);
                     image.finish();
 
-                    let mut mask = self.writer.image(mask_id, &alpha_data);
+                    let mut mask = self.writer.image(mask_ref, &alpha_data);
                     mask.filter(alpha_filter);
                     mask.width(width as i32);
                     mask.height(height as i32);
                     mask.color_space(ColorSpace::DeviceGray);
                     mask.bits_per_component(8);
-
-                    masks_seen += 1;
                 }
             } else {
                 // TODO: Warn that image could not be encoded.
                 self.writer
-                    .image(id, &[])
+                    .image(image_ref, &[])
                     .width(0)
                     .height(0)
                     .color_space(ColorSpace::DeviceGray)
@@ -332,117 +251,180 @@ impl<'a> PdfExporter<'a> {
             }
         }
     }
+
+    fn write_structure(mut self) -> Vec<u8> {
+        // The root page tree.
+        let page_tree_ref = self.alloc.bump();
+
+        // The page objects (non-root nodes in the page tree).
+        let mut page_refs = vec![];
+        for page in self.pages {
+            let page_id = self.alloc.bump();
+            let content_id = self.alloc.bump();
+            page_refs.push(page_id);
+
+            let mut page_writer = self.writer.page(page_id);
+            page_writer.parent(page_tree_ref);
+
+            let w = page.size.w.to_f32();
+            let h = page.size.h.to_f32();
+            page_writer.media_box(Rect::new(0.0, 0.0, w, h));
+            page_writer.contents(content_id);
+
+            let mut annotations = page_writer.annotations();
+            for (url, rect) in page.links {
+                annotations
+                    .push()
+                    .subtype(AnnotationType::Link)
+                    .rect(rect)
+                    .action()
+                    .action_type(ActionType::Uri)
+                    .uri(Str(url.as_bytes()));
+            }
+
+            annotations.finish();
+            page_writer.finish();
+
+            self.writer
+                .stream(content_id, &deflate(&page.content.finish()))
+                .filter(Filter::FlateDecode);
+        }
+
+        let mut pages = self.writer.pages(page_tree_ref);
+        pages.kids(page_refs);
+
+        let mut resources = pages.resources();
+        let mut fonts = resources.fonts();
+        for (font_ref, f) in self.face_map.pdf_indices(&self.face_refs) {
+            let name = format_eco!("F{}", f);
+            fonts.pair(Name(name.as_bytes()), font_ref);
+        }
+
+        fonts.finish();
+
+        let mut images = resources.x_objects();
+        for (image_ref, im) in self.image_map.pdf_indices(&self.image_refs) {
+            let name = format_eco!("Im{}", im);
+            images.pair(Name(name.as_bytes()), image_ref);
+        }
+
+        images.finish();
+        resources.finish();
+        pages.finish();
+
+        // The document catalog.
+        let catalog_ref = self.alloc.bump();
+        self.writer.catalog(catalog_ref).pages(page_tree_ref);
+        self.writer.finish(catalog_ref)
+    }
 }
 
-/// A writer for the contents of a single page.
+/// An exporter for the contents of a single PDF page.
 struct PageExporter<'a> {
     fonts: &'a FontStore,
-    font_map: &'a Remapper<FaceId>,
-    image_map: &'a Remapper<ImageId>,
+    font_map: &'a mut Remapper<FaceId>,
+    image_map: &'a mut Remapper<ImageId>,
+    glyphs: &'a mut HashMap<FaceId, HashSet<u16>>,
+    bottom: f32,
     content: Content,
-    in_text_state: bool,
-    face_id: Option<FaceId>,
-    font_size: Length,
-    font_fill: Option<Paint>,
+    links: Vec<(String, Rect)>,
+    state: State,
+    saves: Vec<State>,
+}
+
+/// Data for an exported page.
+struct Page {
+    size: Size,
+    content: Content,
+    links: Vec<(String, Rect)>,
+}
+
+/// A simulated graphics state used to deduplicate graphics state changes and
+/// keep track of the current transformation matrix for link annotations.
+#[derive(Debug, Default, Clone)]
+struct State {
+    transform: Transform,
+    fill: Option<Paint>,
+    stroke: Option<Stroke>,
+    font: Option<(FaceId, Length)>,
 }
 
 impl<'a> PageExporter<'a> {
-    /// Create a new page exporter.
-    fn new(exporter: &'a PdfExporter) -> Self {
+    fn new(exporter: &'a mut PdfExporter) -> Self {
         Self {
             fonts: exporter.fonts,
-            font_map: &exporter.font_map,
-            image_map: &exporter.image_map,
+            font_map: &mut exporter.face_map,
+            image_map: &mut exporter.image_map,
+            glyphs: &mut exporter.glyph_sets,
+            bottom: 0.0,
             content: Content::new(),
-            in_text_state: false,
-            face_id: None,
-            font_size: Length::zero(),
-            font_fill: None,
+            links: vec![],
+            state: State::default(),
+            saves: vec![],
         }
     }
 
-    /// Write the page frame into the content stream.
-    fn write(mut self, frame: &Frame) -> Vec<u8> {
-        self.write_frame(0.0, frame.size.h.to_f32(), frame);
-        self.content.finish()
+    fn export(mut self, frame: &Frame) -> Page {
+        // Make the coordinate system start at the top-left.
+        self.bottom = frame.size.h.to_f32();
+        self.content.transform([1.0, 0.0, 0.0, -1.0, 0.0, self.bottom]);
+        self.write_frame(&frame);
+        Page {
+            size: frame.size,
+            content: self.content,
+            links: self.links,
+        }
     }
 
-    /// Write a frame into the content stream.
-    fn write_frame(&mut self, x: f32, y: f32, frame: &Frame) {
-        for (offset, element) in &frame.elements {
-            // Make sure the content stream is in the correct state.
-            match element {
-                Element::Text(_) if !self.in_text_state => {
-                    self.content.begin_text();
-                    self.in_text_state = true;
-                }
-
-                Element::Shape(_) | Element::Image(..) if self.in_text_state => {
-                    self.content.end_text();
-                    self.in_text_state = false;
-                }
-
-                _ => {}
-            }
-
-            let x = x + offset.x.to_f32();
-            let y = y - offset.y.to_f32();
-
+    fn write_frame(&mut self, frame: &Frame) {
+        for &(pos, ref element) in &frame.elements {
+            let x = pos.x.to_f32();
+            let y = pos.y.to_f32();
             match *element {
-                Element::Group(ref group) => self.write_group(x, y, group),
+                Element::Group(ref group) => self.write_group(pos, group),
                 Element::Text(ref text) => self.write_text(x, y, text),
                 Element::Shape(ref shape) => self.write_shape(x, y, shape),
                 Element::Image(id, size) => self.write_image(x, y, id, size),
-                Element::Link(_, _) => {}
+                Element::Link(ref url, size) => self.write_link(pos, url, size),
             }
-        }
-
-        if self.in_text_state {
-            self.content.end_text();
         }
     }
 
-    fn write_group(&mut self, x: f32, y: f32, group: &Group) {
+    fn write_group(&mut self, pos: Point, group: &Group) {
+        let translation = Transform::translation(pos.x, pos.y);
+
+        self.save_state();
+        self.transform(translation.pre_concat(group.transform));
+
         if group.clips {
             let w = group.frame.size.w.to_f32();
             let h = group.frame.size.h.to_f32();
-            self.content.save_state();
-            self.content.move_to(x, y);
-            self.content.line_to(x + w, y);
-            self.content.line_to(x + w, y - h);
-            self.content.line_to(x, y - h);
+            self.content.move_to(0.0, 0.0);
+            self.content.line_to(w, 0.0);
+            self.content.line_to(w, h);
+            self.content.line_to(0.0, h);
             self.content.clip_nonzero();
             self.content.end_path();
         }
 
-        self.write_frame(x, y, &group.frame);
-
-        if group.clips {
-            self.content.restore_state();
-        }
+        self.write_frame(&group.frame);
+        self.restore_state();
     }
 
-    /// Write a glyph run into the content stream.
     fn write_text(&mut self, x: f32, y: f32, text: &Text) {
-        if self.font_fill != Some(text.fill) {
-            self.write_fill(text.fill);
-            self.font_fill = Some(text.fill);
-        }
+        self.glyphs
+            .entry(text.face_id)
+            .or_default()
+            .extend(text.glyphs.iter().map(|g| g.id));
 
-        // Then, also check if we need to issue a font switching
-        // action.
-        if self.face_id != Some(text.face_id) || self.font_size != text.size {
-            self.face_id = Some(text.face_id);
-            self.font_size = text.size;
-
-            let name = format_eco!("F{}", self.font_map.map(text.face_id));
-            self.content.set_font(Name(name.as_bytes()), text.size.to_f32());
-        }
+        self.content.begin_text();
+        self.set_font(text.face_id, text.size);
+        self.set_fill(text.fill);
 
         let face = self.fonts.get(text.face_id);
 
         // Position the text.
-        self.content.set_text_matrix([1.0, 0.0, 0.0, 1.0, x, y]);
+        self.content.set_text_matrix([1.0, 0.0, 0.0, -1.0, x, y]);
 
         let mut positioned = self.content.show_positioned();
         let mut items = positioned.items();
@@ -476,9 +458,12 @@ impl<'a> PageExporter<'a> {
         if !encoded.is_empty() {
             items.show(Str(&encoded));
         }
+
+        items.finish();
+        positioned.finish();
+        self.content.end_text();
     }
 
-    /// Write a geometrical shape into the content stream.
     fn write_shape(&mut self, x: f32, y: f32, shape: &Shape) {
         if shape.fill.is_none() && shape.stroke.is_none() {
             return;
@@ -489,7 +474,7 @@ impl<'a> PageExporter<'a> {
                 let w = size.w.to_f32();
                 let h = size.h.to_f32();
                 if w > 0.0 && h > 0.0 {
-                    self.content.rect(x, y - h, w, h);
+                    self.content.rect(x, y, w, h);
                 }
             }
             Geometry::Ellipse(size) => {
@@ -500,21 +485,19 @@ impl<'a> PageExporter<'a> {
                 let dx = target.x.to_f32();
                 let dy = target.y.to_f32();
                 self.content.move_to(x, y);
-                self.content.line_to(x + dx, y - dy);
+                self.content.line_to(x + dx, y + dy);
             }
             Geometry::Path(ref path) => {
                 self.write_path(x, y, path);
             }
         }
 
-        self.content.save_state();
-
         if let Some(fill) = shape.fill {
-            self.write_fill(fill);
+            self.set_fill(fill);
         }
 
         if let Some(stroke) = shape.stroke {
-            self.write_stroke(stroke);
+            self.set_stroke(stroke);
         }
 
         match (shape.fill, shape.stroke) {
@@ -523,68 +506,123 @@ impl<'a> PageExporter<'a> {
             (None, Some(_)) => self.content.stroke(),
             (Some(_), Some(_)) => self.content.fill_nonzero_and_stroke(),
         };
-
-        self.content.restore_state();
     }
 
-    /// Write an image into the content stream.
-    fn write_image(&mut self, x: f32, y: f32, id: ImageId, size: Size) {
-        let name = format!("Im{}", self.image_map.map(id));
-        let w = size.w.to_f32();
-        let h = size.h.to_f32();
-        self.content.save_state();
-        self.content.concat_matrix([w, 0.0, 0.0, h, x, y - h]);
-        self.content.x_object(Name(name.as_bytes()));
-        self.content.restore_state();
-    }
-
-    /// Write a path into a content stream.
     fn write_path(&mut self, x: f32, y: f32, path: &geom::Path) {
         for elem in &path.0 {
             match elem {
                 geom::PathElement::MoveTo(p) => {
-                    self.content.move_to(x + p.x.to_f32(), y - p.y.to_f32())
+                    self.content.move_to(x + p.x.to_f32(), y + p.y.to_f32())
                 }
                 geom::PathElement::LineTo(p) => {
-                    self.content.line_to(x + p.x.to_f32(), y - p.y.to_f32())
+                    self.content.line_to(x + p.x.to_f32(), y + p.y.to_f32())
                 }
                 geom::PathElement::CubicTo(p1, p2, p3) => self.content.cubic_to(
                     x + p1.x.to_f32(),
-                    y - p1.y.to_f32(),
+                    y + p1.y.to_f32(),
                     x + p2.x.to_f32(),
-                    y - p2.y.to_f32(),
+                    y + p2.y.to_f32(),
                     x + p3.x.to_f32(),
-                    y - p3.y.to_f32(),
+                    y + p3.y.to_f32(),
                 ),
                 geom::PathElement::ClosePath => self.content.close_path(),
             };
         }
     }
 
-    /// Write a fill change into a content stream.
-    fn write_fill(&mut self, fill: Paint) {
-        let Paint::Solid(Color::Rgba(c)) = fill;
-        self.content.set_fill_rgb(
-            c.r as f32 / 255.0,
-            c.g as f32 / 255.0,
-            c.b as f32 / 255.0,
-        );
+    fn write_image(&mut self, x: f32, y: f32, id: ImageId, size: Size) {
+        self.image_map.insert(id);
+        let name = format_eco!("Im{}", self.image_map.map(id));
+        let w = size.w.to_f32();
+        let h = size.h.to_f32();
+        self.content.save_state();
+        self.content.transform([w, 0.0, 0.0, -h, x, y + h]);
+        self.content.x_object(Name(name.as_bytes()));
+        self.content.restore_state();
     }
 
-    /// Write a stroke change into a content stream.
-    fn write_stroke(&mut self, stroke: Stroke) {
-        let Paint::Solid(Color::Rgba(c)) = stroke.paint;
-        self.content.set_stroke_rgb(
-            c.r as f32 / 255.0,
-            c.g as f32 / 255.0,
-            c.b as f32 / 255.0,
-        );
-        self.content.set_line_width(stroke.thickness.to_f32());
+    fn write_link(&mut self, pos: Point, url: &str, size: Size) {
+        let mut min_x = Length::inf();
+        let mut min_y = Length::inf();
+        let mut max_x = -Length::inf();
+        let mut max_y = -Length::inf();
+
+        // Compute the bounding box of the transformed link.
+        for point in [
+            pos,
+            pos + Point::with_x(size.w),
+            pos + Point::with_y(size.h),
+            pos + size.to_point(),
+        ] {
+            let t = point.transform(self.state.transform);
+            min_x.set_min(t.x);
+            min_y.set_min(t.y);
+            max_x.set_max(t.x);
+            max_y.set_max(t.y);
+        }
+
+        let x1 = min_x.to_f32();
+        let x2 = max_x.to_f32();
+        let y1 = self.bottom - max_y.to_f32();
+        let y2 = self.bottom - min_y.to_f32();
+        let rect = Rect::new(x1, y1, x2, y2);
+        self.links.push((url.to_string(), rect));
+    }
+
+    fn save_state(&mut self) {
+        self.saves.push(self.state.clone());
+        self.content.save_state();
+    }
+
+    fn restore_state(&mut self) {
+        self.content.restore_state();
+        self.state = self.saves.pop().expect("missing state save");
+    }
+
+    fn transform(&mut self, transform: Transform) {
+        let Transform { sx, ky, kx, sy, tx, ty } = transform;
+        self.state.transform = self.state.transform.pre_concat(transform);
+        self.content.transform([
+            sx.get() as f32,
+            ky.get() as f32,
+            kx.get() as f32,
+            sy.get() as f32,
+            tx.to_f32(),
+            ty.to_f32(),
+        ]);
+    }
+
+    fn set_font(&mut self, face_id: FaceId, size: Length) {
+        if self.state.font != Some((face_id, size)) {
+            self.font_map.insert(face_id);
+            let name = format_eco!("F{}", self.font_map.map(face_id));
+            self.content.set_font(Name(name.as_bytes()), size.to_f32());
+        }
+    }
+
+    fn set_fill(&mut self, fill: Paint) {
+        if self.state.fill != Some(fill) {
+            let Paint::Solid(Color::Rgba(c)) = fill;
+            self.content.set_fill_rgb(
+                c.r as f32 / 255.0,
+                c.g as f32 / 255.0,
+                c.b as f32 / 255.0,
+            );
+        }
+    }
+
+    fn set_stroke(&mut self, stroke: Stroke) {
+        if self.state.stroke != Some(stroke) {
+            let Paint::Solid(Color::Rgba(c)) = stroke.paint;
+            self.content.set_stroke_rgb(
+                c.r as f32 / 255.0,
+                c.g as f32 / 255.0,
+                c.b as f32 / 255.0,
+            );
+            self.content.set_line_width(stroke.thickness.to_f32());
+        }
     }
 }
-
-/// The compression level for the deflating.
-const DEFLATE_LEVEL: u8 = 6;
 
 /// Encode an image with a suitable filter.
 ///
@@ -637,86 +675,11 @@ fn encode_alpha(img: &Image) -> (Vec<u8>, Filter) {
 
 /// Compress data with the DEFLATE algorithm.
 fn deflate(data: &[u8]) -> Vec<u8> {
-    miniz_oxide::deflate::compress_to_vec_zlib(data, DEFLATE_LEVEL)
+    const COMPRESSION_LEVEL: u8 = 6;
+    miniz_oxide::deflate::compress_to_vec_zlib(data, COMPRESSION_LEVEL)
 }
 
-/// We need to know exactly which indirect reference id will be used for which
-/// objects up-front to correctly declare the document catalogue, page tree and
-/// so on. These offsets are computed in the beginning and stored here.
-struct Refs {
-    catalog: Ref,
-    page_tree: Ref,
-    pages_start: i32,
-    contents_start: i32,
-    fonts_start: i32,
-    images_start: i32,
-    alpha_masks_start: i32,
-    end: i32,
-}
-
-struct FontRefs {
-    type0_font: Ref,
-    cid_font: Ref,
-    font_descriptor: Ref,
-    cmap: Ref,
-    data: Ref,
-}
-
-impl Refs {
-    const OBJECTS_PER_FONT: usize = 5;
-
-    fn new(pages: usize, fonts: usize, images: usize, alpha_masks: usize) -> Self {
-        let catalog = 1;
-        let page_tree = catalog + 1;
-        let pages_start = page_tree + 1;
-        let contents_start = pages_start + pages as i32;
-        let fonts_start = contents_start + pages as i32;
-        let images_start = fonts_start + (Self::OBJECTS_PER_FONT * fonts) as i32;
-        let alpha_masks_start = images_start + images as i32;
-        let end = alpha_masks_start + alpha_masks as i32;
-
-        Self {
-            catalog: Ref::new(catalog),
-            page_tree: Ref::new(page_tree),
-            pages_start,
-            contents_start,
-            fonts_start,
-            images_start,
-            alpha_masks_start,
-            end,
-        }
-    }
-
-    fn pages(&self) -> impl Iterator<Item = Ref> {
-        (self.pages_start .. self.contents_start).map(Ref::new)
-    }
-
-    fn contents(&self) -> impl Iterator<Item = Ref> {
-        (self.contents_start .. self.images_start).map(Ref::new)
-    }
-
-    fn fonts(&self) -> impl Iterator<Item = FontRefs> {
-        (self.fonts_start .. self.images_start)
-            .step_by(Self::OBJECTS_PER_FONT)
-            .map(|id| FontRefs {
-                type0_font: Ref::new(id),
-                cid_font: Ref::new(id + 1),
-                font_descriptor: Ref::new(id + 2),
-                cmap: Ref::new(id + 3),
-                data: Ref::new(id + 4),
-            })
-    }
-
-    fn images(&self) -> impl Iterator<Item = Ref> {
-        (self.images_start .. self.end).map(Ref::new)
-    }
-
-    fn alpha_mask(&self, i: usize) -> Ref {
-        Ref::new(self.alpha_masks_start + i as i32)
-    }
-}
-
-/// Used to assign new, consecutive PDF-internal indices to things.
+/// Assigns new, consecutive PDF-internal indices to things.
 struct Remapper<Index> {
     /// Forwards from the old indices to the new pdf indices.
     to_pdf: HashMap<Index, usize>,
@@ -735,10 +698,6 @@ where
         }
     }
 
-    fn len(&self) -> usize {
-        self.to_layout.len()
-    }
-
     fn insert(&mut self, index: Index) {
         let to_layout = &mut self.to_layout;
         self.to_pdf.entry(index).or_insert_with(|| {
@@ -752,8 +711,11 @@ where
         self.to_pdf[&index]
     }
 
-    fn pdf_indices(&self) -> impl Iterator<Item = usize> {
-        0 .. self.to_pdf.len()
+    fn pdf_indices<'a>(
+        &'a self,
+        refs: &'a [Ref],
+    ) -> impl Iterator<Item = (Ref, usize)> + 'a {
+        refs.iter().copied().zip(0 .. self.to_pdf.len())
     }
 
     fn layout_indices(&self) -> impl Iterator<Item = Index> + '_ {
@@ -782,5 +744,19 @@ trait EmExt {
 impl EmExt for Em {
     fn to_font_units(self) -> f32 {
         1000.0 * self.get() as f32
+    }
+}
+
+/// Additional methods for [`Ref`].
+trait RefExt {
+    /// Bump the reference up by one and return the previous one.
+    fn bump(&mut self) -> Self;
+}
+
+impl RefExt for Ref {
+    fn bump(&mut self) -> Self {
+        let prev = *self;
+        *self = Self::new(prev.get() + 1);
+        prev
     }
 }
