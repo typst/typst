@@ -19,6 +19,16 @@
 #stack(dir: btt, ..items)
 
 ---
+// Test RTL alignment.
+#page(width: 50pt, margins: 5pt)
+#font(8pt)
+#stack(dir: rtl,
+  align(center, [A]),
+  align(left, [B]),
+  [C],
+)
+
+---
 // Test spacing.
 #page(width: 50pt, margins: 0pt)
 #par(spacing: 5pt)

@@ -45,8 +45,8 @@ impl Layout for AlignNode {
 
             let aligns = self.aligns.unwrap_or(Spec::new(Align::Left, Align::Top));
             let offset = Point::new(
-                aligns.x.resolve(Length::zero() .. canvas.w - frame.size.w),
-                aligns.y.resolve(Length::zero() .. canvas.h - frame.size.h),
+                aligns.x.resolve(canvas.w - frame.size.w),
+                aligns.y.resolve(canvas.h - frame.size.h),
             );
 
             let frame = Rc::make_mut(frame);

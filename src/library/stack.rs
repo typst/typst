@@ -230,19 +230,21 @@ impl<'a> StackLayouter<'a> {
                     before += v.resolve(self.fr, remaining);
                 }
                 StackItem::Frame(frame, align) => {
-                    ruler = ruler.max(align);
+                    if self.stack.dir.is_positive() {
+                        ruler = ruler.max(align);
+                    } else {
+                        ruler = ruler.min(align);
+                    }
 
                     // Align along the block axis.
                     let parent = size.get(self.axis);
                     let child = frame.size.get(self.axis);
-                    let block = ruler.resolve(if self.stack.dir.is_positive() {
-                        let after = self.used.block - before;
-                        before .. parent - after
-                    } else {
-                        let before_with_self = before + child;
-                        let after = self.used.block - before_with_self;
-                        after .. parent - before_with_self
-                    });
+                    let block = ruler.resolve(parent - self.used.block)
+                        + if self.stack.dir.is_positive() {
+                            before
+                        } else {
+                            self.used.block - child - before
+                        };
 
                     let pos = Gen::new(Length::zero(), block).to_point(self.axis);
                     before += child;

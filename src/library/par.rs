@@ -499,7 +499,7 @@ impl<'a> LineLayout<'a> {
                     }
                 }
 
-                let x = self.par.align.resolve(offset .. remaining + offset);
+                let x = offset + self.par.align.resolve(remaining);
                 let y = self.baseline - frame.baseline;
                 offset += frame.size.w;
 

@@ -38,12 +38,12 @@ impl Align {
         }
     }
 
-    /// Returns the position of this alignment in the given range.
-    pub fn resolve(self, range: Range<Length>) -> Length {
+    /// Returns the position of this alignment in the given length.
+    pub fn resolve(self, length: Length) -> Length {
         match self {
-            Self::Left | Self::Top => range.start,
-            Self::Center | Self::Horizon => (range.start + range.end) / 2.0,
-            Self::Right | Self::Bottom => range.end,
+            Self::Left | Self::Top => Length::zero(),
+            Self::Center | Self::Horizon => length / 2.0,
+            Self::Right | Self::Bottom => length,
         }
     }
 }

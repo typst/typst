@@ -236,8 +236,8 @@ impl<'a> FlowLayouter<'a> {
                     ruler = ruler.max(aligns.y);
 
                     // Align horizontally and vertically.
-                    let x = aligns.x.resolve(Length::zero() .. size.w - frame.size.w);
-                    let y = ruler.resolve(before .. before + size.h - self.used.h);
+                    let x = aligns.x.resolve(size.w - frame.size.w);
+                    let y = before + ruler.resolve(size.h - self.used.h);
                     let pos = Point::new(x, y);
                     before += frame.size.h;
 
