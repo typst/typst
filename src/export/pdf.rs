@@ -583,10 +583,10 @@ impl<'a> PageExporter<'a> {
         let Transform { sx, ky, kx, sy, tx, ty } = transform;
         self.state.transform = self.state.transform.pre_concat(transform);
         self.content.transform([
-            sx.get() as f32,
-            ky.get() as f32,
-            kx.get() as f32,
-            sy.get() as f32,
+            sx.get() as _,
+            ky.get() as _,
+            kx.get() as _,
+            sy.get() as _,
             tx.to_f32(),
             ty.to_f32(),
         ]);

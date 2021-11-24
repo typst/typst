@@ -82,12 +82,12 @@ pub fn pagebreak(_: &mut EvalContext, _: &mut Args) -> TypResult<Value> {
 /// Layouts its children onto one or multiple pages.
 #[derive(Debug, Hash)]
 pub struct PageNode {
-    /// The node that produces the actual pages.
-    pub child: PackedNode,
     /// The size of the page.
     pub size: Size,
     /// The background fill.
     pub fill: Option<Paint>,
+    /// The node that produces the actual pages.
+    pub child: PackedNode,
 }
 
 impl PageNode {

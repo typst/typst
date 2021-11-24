@@ -17,10 +17,10 @@ pub fn align(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 /// A node that aligns its child.
 #[derive(Debug, Hash)]
 pub struct AlignNode {
-    /// The node to be aligned.
-    pub child: PackedNode,
     /// How to align the node horizontally and vertically.
     pub aligns: Spec<Option<Align>>,
+    /// The node to be aligned.
+    pub child: PackedNode,
 }
 
 impl Layout for AlignNode {

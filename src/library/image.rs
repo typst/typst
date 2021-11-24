@@ -73,7 +73,7 @@ impl Layout for ImageNode {
             ImageFit::Stretch => canvas,
         };
 
-        // The position of the image so that it is centered in the canvas.
+        // Position the image so that it is centered in the canvas.
         let mut frame = Frame::new(canvas, canvas.h);
         frame.push(
             (canvas - size).to_point() / 2.0,

@@ -165,7 +165,7 @@ pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let tracking = args.named("tracking")?.map(Em::new);
     let top_edge = args.named("top-edge")?;
     let bottom_edge = args.named("bottom-edge")?;
-    let fill = args.named("fill")?.or_else(|| args.find()).map(Paint::Solid);
+    let fill = args.named("fill")?.or_else(|| args.find());
     let kerning = args.named("kerning")?;
     let smallcaps = args.named("smallcaps")?;
     let alternates = args.named("alternates")?;

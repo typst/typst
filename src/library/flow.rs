@@ -68,7 +68,7 @@ pub enum FlowChild {
 impl Debug for FlowChild {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Self::Spacing(v) => write!(f, "Spacing({:?})", v),
+            Self::Spacing(spacing) => spacing.fmt(f),
             Self::Node(node) => node.fmt(f),
         }
     }

@@ -23,10 +23,10 @@ pub fn block(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 /// A node that sizes its child.
 #[derive(Debug, Hash)]
 pub struct SizedNode {
-    /// The node to be sized.
-    pub child: PackedNode,
     /// How to size the node horizontally and vertically.
     pub sizing: Spec<Option<Linear>>,
+    /// The node to be sized.
+    pub child: PackedNode,
 }
 
 impl Layout for SizedNode {

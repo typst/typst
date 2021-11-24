@@ -106,7 +106,7 @@ impl PackedNode {
     /// Force a size for this node.
     pub fn sized(self, sizing: Spec<Option<Linear>>) -> Self {
         if sizing.any(Option::is_some) {
-            SizedNode { child: self, sizing }.pack()
+            SizedNode { sizing, child: self }.pack()
         } else {
             self
         }
@@ -115,7 +115,7 @@ impl PackedNode {
     /// Set alignments for this node.
     pub fn aligned(self, aligns: Spec<Option<Align>>) -> Self {
         if aligns.any(Option::is_some) {
-            AlignNode { child: self, aligns }.pack()
+            AlignNode { aligns, child: self }.pack()
         } else {
             self
         }
@@ -128,7 +128,7 @@ impl PackedNode {
             || !padding.right.is_zero()
             || !padding.bottom.is_zero()
         {
-            PadNode { child: self, padding }.pack()
+            PadNode { padding, child: self }.pack()
         } else {
             self
         }
@@ -145,7 +145,7 @@ impl PackedNode {
     /// Transform this node's contents without affecting layout.
     pub fn transformed(self, transform: Transform, origin: Spec<Align>) -> Self {
         if !transform.is_identity() {
-            TransformNode { child: self, transform, origin }.pack()
+            TransformNode { transform, origin, child: self }.pack()
         } else {
             self
         }

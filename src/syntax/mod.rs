@@ -16,7 +16,7 @@ use crate::geom::{AngularUnit, LengthUnit};
 use crate::source::SourceId;
 use crate::util::EcoString;
 
-/// An inner of leaf node in the untyped green tree.
+/// An inner or leaf node in the untyped green tree.
 #[derive(Clone, PartialEq)]
 pub enum Green {
     /// A reference-counted inner node.

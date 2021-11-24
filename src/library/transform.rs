@@ -40,12 +40,12 @@ fn transform_impl(args: &mut Args, transform: Transform) -> TypResult<Value> {
 /// A node that transforms its child without affecting layout.
 #[derive(Debug, Hash)]
 pub struct TransformNode {
-    /// The node whose contents should be transformed.
-    pub child: PackedNode,
     /// Transformation to apply to the contents.
     pub transform: Transform,
     /// The origin of the transformation.
     pub origin: Spec<Align>,
+    /// The node whose contents should be transformed.
+    pub child: PackedNode,
 }
 
 impl Layout for TransformNode {

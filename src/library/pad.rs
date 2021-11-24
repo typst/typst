@@ -23,10 +23,10 @@ pub fn pad(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 /// A node that adds padding to its child.
 #[derive(Debug, Hash)]
 pub struct PadNode {
-    /// The child node whose sides to pad.
-    pub child: PackedNode,
     /// The amount of padding.
     pub padding: Sides<Linear>,
+    /// The child node whose sides to pad.
+    pub child: PackedNode,
 }
 
 impl Layout for PadNode {

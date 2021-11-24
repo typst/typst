@@ -490,19 +490,19 @@ impl<'a> GridLayouter<'a> {
     fn layout_multi_row(
         &self,
         ctx: &mut LayoutContext,
-        resolved: &[Length],
+        heights: &[Length],
         y: usize,
     ) -> Vec<Frame> {
         // Prepare frames.
-        let mut outputs: Vec<_> = resolved
+        let mut outputs: Vec<_> = heights
             .iter()
             .map(|&h| Frame::new(Size::new(self.used.w, h), h))
             .collect();
 
         // Prepare regions.
-        let size = Size::new(self.used.w, resolved[0]);
+        let size = Size::new(self.used.w, heights[0]);
         let mut pod = Regions::one(size, self.regions.base, Spec::splat(true));
-        pod.backlog = resolved[1 ..]
+        pod.backlog = heights[1 ..]
             .iter()
             .map(|&h| Size::new(self.used.w, h))
             .collect::<Vec<_>>()
