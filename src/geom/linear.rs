@@ -31,7 +31,7 @@ impl Linear {
         Self { rel, abs }
     }
 
-    /// Resolve this relative to the given `length`.
+    /// Resolve this linear's relative component to the given `length`.
     pub fn resolve(self, length: Length) -> Length {
         self.rel.resolve(length) + self.abs
     }

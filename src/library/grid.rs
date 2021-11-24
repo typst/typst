@@ -190,9 +190,15 @@ impl<'a> GridLayouter<'a> {
     /// Determine all column sizes.
     fn measure_columns(&mut self, ctx: &mut LayoutContext) {
         enum Case {
+            /// The column sizing is only determined by specified linear sizes.
             PurelyLinear,
+            /// The column sizing would be affected by the region size if it was
+            /// smaller.
             Fitting,
+            /// The column sizing is affected by the region size.
             Exact,
+            /// The column sizing would be affected by the region size if it was
+            /// larger.
             Overflowing,
         }
 
@@ -284,7 +290,7 @@ impl<'a> GridLayouter<'a> {
                     let mut regions =
                         Regions::one(size, self.regions.base, Spec::splat(false));
 
-                    // For fractional rows, we can already resolve the correct
+                    // For linear rows, we can already resolve the correct
                     // base, for auto it's already correct and for fr we could
                     // only guess anyway.
                     if let TrackSizing::Linear(v) = self.rows[y] {
