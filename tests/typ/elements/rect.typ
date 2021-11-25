@@ -19,7 +19,7 @@
 ))
 
 // Fixed width, text height.
-#rect(width: 2cm, fill: rgb("9650d6"), pad(5pt)[Fixed and padded])
+#rect(width: 2cm, fill: rgb("9650d6"), padding: 5pt)[Fixed and padded]
 
 // Page width, fixed height.
 #rect(height: 1cm, width: 100%, fill: rgb("734ced"))[Topleft]

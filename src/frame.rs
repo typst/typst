@@ -6,7 +6,7 @@ use std::rc::Rc;
 use serde::{Deserialize, Serialize};
 
 use crate::font::FaceId;
-use crate::geom::{Em, Length, Paint, Path, Point, Size, Transform};
+use crate::geom::{Align, Em, Length, Paint, Path, Point, Size, Spec, Transform};
 use crate::image::ImageId;
 
 /// A finished layout with elements at fixed positions.
@@ -23,9 +23,9 @@ pub struct Frame {
 impl Frame {
     /// Create a new, empty frame.
     #[track_caller]
-    pub fn new(size: Size, baseline: Length) -> Self {
+    pub fn new(size: Size) -> Self {
         assert!(size.is_finite());
-        Self { size, baseline, elements: vec![] }
+        Self { size, baseline: size.h, elements: vec![] }
     }
 
     /// Add an element at a position in the background.
@@ -55,11 +55,45 @@ impl Frame {
         }
     }
 
-    /// Move all elements in the frame by an offset.
+    /// Resize the frame to a new size, distributing new space according to the
+    /// given alignments.
+    pub fn resize(&mut self, new: Size, aligns: Spec<Align>) {
+        let offset = Point::new(
+            aligns.x.resolve(new.w - self.size.w),
+            aligns.y.resolve(new.h - self.size.h),
+        );
+        self.size = new;
+        self.baseline += offset.y;
+        self.translate(offset);
+    }
+
+    /// Move the contents of the frame by an offset.
     pub fn translate(&mut self, offset: Point) {
         for (point, _) in &mut self.elements {
             *point += offset;
         }
+    }
+
+    /// Arbitrarily transform the contents of the frame.
+    pub fn transform(&mut self, transform: Transform) {
+        self.group(|g| g.transform = transform);
+    }
+
+    /// Clip the contents of a frame to its size.
+    pub fn clip(&mut self) {
+        self.group(|g| g.clips = true);
+    }
+
+    /// Wrap the frame's contents in a group and modify that group with `f`.
+    pub fn group<F>(&mut self, f: F)
+    where
+        F: FnOnce(&mut Group),
+    {
+        let mut wrapper = Frame { elements: vec![], ..*self };
+        let mut group = Group::new(Rc::new(std::mem::take(self)));
+        f(&mut group);
+        wrapper.push(Point::zero(), Element::Group(group));
+        *self = wrapper;
     }
 }
 
@@ -115,18 +149,6 @@ impl Group {
             transform: Transform::identity(),
             clips: false,
         }
-    }
-
-    /// Set the group's transform.
-    pub fn transform(mut self, transform: Transform) -> Self {
-        self.transform = transform;
-        self
-    }
-
-    /// Set whether the group should be a clipping boundary.
-    pub fn clips(mut self, clips: bool) -> Self {
-        self.clips = clips;
-        self
     }
 }
 

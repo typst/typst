@@ -165,12 +165,16 @@ impl Layout for ShapeNode {
                 if regions.expand.y { regions.current.h } else { default },
             );
 
+            // Don't overflow the region.
+            size.w = size.w.min(regions.current.w);
+            size.h = size.h.min(regions.current.h);
+
             if matches!(self.kind, ShapeKind::Square | ShapeKind::Circle) {
                 size.w = size.w.min(size.h);
                 size.h = size.w;
             }
 
-            Frame::new(size, size.h)
+            Frame::new(size)
         };
 
         // Add fill and/or stroke.
@@ -197,9 +201,6 @@ impl Layout for ShapeNode {
         );
 
         // Return tight constraints for now.
-        let mut cts = Constraints::new(regions.expand);
-        cts.exact = regions.current.to_spec().map(Some);
-        cts.base = regions.base.to_spec().map(Some);
-        vec![frame.constrain(cts)]
+        vec![frame.constrain(Constraints::tight(regions))]
     }
 }

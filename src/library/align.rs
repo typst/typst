@@ -34,28 +34,29 @@ impl Layout for AlignNode {
         pod.expand.x &= self.aligns.x.is_none();
         pod.expand.y &= self.aligns.y.is_none();
 
+        // Layout the child.
         let mut frames = self.child.layout(ctx, &pod);
-        for (Constrained { item: frame, cts }, (current, _)) in
+
+        for (Constrained { item: frame, cts }, (current, base)) in
             frames.iter_mut().zip(regions.iter())
         {
-            let canvas = Size::new(
+            // The possibly larger size in which we align the frame.
+            let new = Size::new(
                 if regions.expand.x { current.w } else { frame.size.w },
                 if regions.expand.y { current.h } else { frame.size.h },
             );
 
             let aligns = self.aligns.unwrap_or(Spec::new(Align::Left, Align::Top));
-            let offset = Point::new(
-                aligns.x.resolve(canvas.w - frame.size.w),
-                aligns.y.resolve(canvas.h - frame.size.h),
-            );
+            Rc::make_mut(frame).resize(new, aligns);
 
-            let frame = Rc::make_mut(frame);
-            frame.size = canvas;
-            frame.baseline += offset.y;
-            frame.translate(offset);
-
+            // Set constraints.
             cts.expand = regions.expand;
-            cts.exact = current.to_spec().map(Some);
+            cts.base.x.and_set(Some(base.w));
+            cts.base.y.and_set(Some(base.h));
+            cts.exact = Spec::new(
+                regions.expand.x.then(|| current.w),
+                regions.expand.y.then(|| current.h),
+            );
         }
 
         frames

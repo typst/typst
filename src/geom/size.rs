@@ -51,8 +51,8 @@ impl Size {
     }
 
     /// Convert to the generic representation.
-    pub const fn to_gen(self, block: SpecAxis) -> Gen<Length> {
-        match block {
+    pub const fn to_gen(self, main: SpecAxis) -> Gen<Length> {
+        match main {
             SpecAxis::Horizontal => Gen::new(self.h, self.w),
             SpecAxis::Vertical => Gen::new(self.w, self.h),
         }

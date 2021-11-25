@@ -99,11 +99,11 @@ struct GridLayouter<'a> {
     cols: Vec<TrackSizing>,
     /// The row tracks including gutter tracks.
     rows: Vec<TrackSizing>,
-    /// The regions to layout into.
+    /// The regions to layout children into.
     regions: Regions,
     /// Resolved column sizes.
     rcols: Vec<Length>,
-    /// The full block size of the current region.
+    /// The full height of the current region.
     full: Length,
     /// The used-up size of the current region. The horizontal size is
     /// determined once after columns are resolved and not touched again.
@@ -353,6 +353,12 @@ impl<'a> GridLayouter<'a> {
     /// Layout the grid row-by-row.
     fn layout(mut self, ctx: &mut LayoutContext) -> Vec<Constrained<Rc<Frame>>> {
         for y in 0 .. self.rows.len() {
+            // Skip to next region if current one is full, but only for content
+            // rows, not for gutter rows.
+            if y % 2 == 0 && self.regions.is_full() {
+                self.finish_region(ctx);
+            }
+
             match self.rows[y] {
                 TrackSizing::Auto => self.layout_auto_row(ctx, y),
                 TrackSizing::Linear(v) => self.layout_linear_row(ctx, v, y),
@@ -368,8 +374,8 @@ impl<'a> GridLayouter<'a> {
         self.finished
     }
 
-    /// Layout a row with automatic size along the block axis. Such a row may
-    /// break across multiple regions.
+    /// Layout a row with automatic height. Such a row may break across multiple
+    /// regions.
     fn layout_auto_row(&mut self, ctx: &mut LayoutContext, y: usize) {
         let mut resolved: Vec<Length> = vec![];
 
@@ -388,10 +394,14 @@ impl<'a> GridLayouter<'a> {
                 let mut sizes =
                     node.layout(ctx, &pod).into_iter().map(|frame| frame.item.size.h);
 
+                // For each region, we want to know the maximum height any
+                // column requires.
                 for (target, size) in resolved.iter_mut().zip(&mut sizes) {
                     target.set_max(size);
                 }
 
+                // New heights are maximal by virtue of being new. Note that
+                // this extend only uses the rest of the sizes iterator.
                 resolved.extend(sizes);
             }
         }
@@ -431,16 +441,16 @@ impl<'a> GridLayouter<'a> {
         }
     }
 
-    /// Layout a row with linear sizing along the block axis. Such a row cannot
-    /// break across multiple regions, but it may force a region break.
+    /// Layout a row with linear height. Such a row cannot break across multiple
+    /// regions, but it may force a region break.
     fn layout_linear_row(&mut self, ctx: &mut LayoutContext, v: Linear, y: usize) {
         let resolved = v.resolve(self.regions.base.h);
         let frame = self.layout_single_row(ctx, resolved, y);
 
         // Skip to fitting region.
-        let length = frame.size.h;
-        while !self.regions.current.h.fits(length) && !self.regions.in_full_last() {
-            self.cts.max.y = Some(self.used.h + length);
+        let height = frame.size.h;
+        while !self.regions.current.h.fits(height) && !self.regions.in_last() {
+            self.cts.max.y = Some(self.used.h + height);
             self.finish_region(ctx);
 
             // Don't skip multiple regions for gutter and don't push a row.
@@ -452,14 +462,14 @@ impl<'a> GridLayouter<'a> {
         self.push_row(frame);
     }
 
-    /// Layout a row with a fixed size along the block axis and return its frame.
+    /// Layout a row with fixed height and return its frame.
     fn layout_single_row(
         &self,
         ctx: &mut LayoutContext,
         height: Length,
         y: usize,
     ) -> Frame {
-        let mut output = Frame::new(Size::new(self.used.w, height), height);
+        let mut output = Frame::new(Size::new(self.used.w, height));
         let mut pos = Point::zero();
 
         for (x, &rcol) in self.rcols.iter().enumerate() {
@@ -496,7 +506,7 @@ impl<'a> GridLayouter<'a> {
         // Prepare frames.
         let mut outputs: Vec<_> = heights
             .iter()
-            .map(|&h| Frame::new(Size::new(self.used.w, h), h))
+            .map(|&h| Frame::new(Size::new(self.used.w, h)))
             .collect();
 
         // Prepare regions.
@@ -553,7 +563,7 @@ impl<'a> GridLayouter<'a> {
         }
 
         // The frame for the region.
-        let mut output = Frame::new(size, size.h);
+        let mut output = Frame::new(size);
         let mut pos = Point::zero();
 
         // Place finished rows and layout fractional rows.

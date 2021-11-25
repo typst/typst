@@ -43,12 +43,12 @@ impl Layout for ImageNode {
         let &Regions { current, expand, .. } = regions;
 
         let img = ctx.images.get(self.id);
-        let pixel_w = img.width() as f64;
-        let pixel_h = img.height() as f64;
+        let pxw = img.width() as f64;
+        let pxh = img.height() as f64;
 
-        let region_ratio = current.w / current.h;
-        let pixel_ratio = pixel_w / pixel_h;
-        let wide = region_ratio < pixel_ratio;
+        let pixel_ratio = pxw / pxh;
+        let current_ratio = current.w / current.h;
+        let wide = pixel_ratio > current_ratio;
 
         // The space into which the image will be placed according to its fit.
         let canvas = if expand.x && expand.y {
@@ -58,7 +58,7 @@ impl Layout for ImageNode {
         } else if current.h.is_finite() {
             Size::new(current.w.min(current.h * pixel_ratio), current.h)
         } else {
-            Size::new(Length::pt(pixel_w), Length::pt(pixel_h))
+            Size::new(Length::pt(pxw), Length::pt(pxh))
         };
 
         // The actual size of the fitted image.
@@ -73,26 +73,19 @@ impl Layout for ImageNode {
             ImageFit::Stretch => canvas,
         };
 
-        // Position the image so that it is centered in the canvas.
-        let mut frame = Frame::new(canvas, canvas.h);
-        frame.push(
-            (canvas - size).to_point() / 2.0,
-            Element::Image(self.id, size),
-        );
+        // First, place the image in a frame of exactly its size and then resize
+        // the frame to the canvas size, center aligning the image in the
+        // process.
+        let mut frame = Frame::new(size);
+        frame.push(Point::zero(), Element::Image(self.id, size));
+        frame.resize(canvas, Spec::new(Align::Center, Align::Horizon));
 
-        // Create a clipping group if the image mode is `cover`.
+        // Create a clipping group if the fit mode is "cover".
         if self.fit == ImageFit::Cover {
-            let mut wrapper = Frame::new(canvas, canvas.h);
-            wrapper.push(
-                Point::zero(),
-                Element::Group(Group::new(Rc::new(frame)).clips(true)),
-            );
-            frame = wrapper;
+            frame.clip();
         }
 
-        let mut cts = Constraints::new(regions.expand);
-        cts.exact = regions.current.to_spec().map(Some);
-        vec![frame.constrain(cts)]
+        vec![frame.constrain(Constraints::tight(regions))]
     }
 }
 

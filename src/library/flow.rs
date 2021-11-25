@@ -52,7 +52,7 @@ impl Layout for FlowNode {
         ctx: &mut LayoutContext,
         regions: &Regions,
     ) -> Vec<Constrained<Rc<Frame>>> {
-        FlowLayouter::new(self, regions.clone()).layout(ctx)
+        FlowLayouter::new(self, regions).layout(ctx)
     }
 }
 
@@ -80,7 +80,7 @@ struct FlowLayouter<'a> {
     children: &'a [FlowChild],
     /// Whether the flow should expand to fill the region.
     expand: Spec<bool>,
-    /// The region to layout into.
+    /// The regions to layout children into.
     regions: Regions,
     /// The full size of `regions.current` that was available before we started
     /// subtracting.
@@ -109,15 +109,18 @@ enum FlowItem {
 
 impl<'a> FlowLayouter<'a> {
     /// Create a new flow layouter.
-    fn new(flow: &'a FlowNode, mut regions: Regions) -> Self {
-        // Disable vertical expansion for children.
+    fn new(flow: &'a FlowNode, regions: &Regions) -> Self {
         let expand = regions.expand;
+        let full = regions.current;
+
+        // Disable vertical expansion for children.
+        let mut regions = regions.clone();
         regions.expand.y = false;
 
         Self {
             children: &flow.children,
             expand,
-            full: regions.current,
+            full,
             regions,
             used: Size::zero(),
             fr: Fractional::zero(),
@@ -129,6 +132,10 @@ impl<'a> FlowLayouter<'a> {
     /// Layout all children.
     fn layout(mut self, ctx: &mut LayoutContext) -> Vec<Constrained<Rc<Frame>>> {
         for child in self.children {
+            if self.regions.is_full() {
+                self.finish_region();
+            }
+
             match *child {
                 FlowChild::Spacing(Spacing::Linear(v)) => {
                     self.layout_absolute(v);
@@ -215,7 +222,7 @@ impl<'a> FlowLayouter<'a> {
             size.h = self.full.h;
         }
 
-        let mut output = Frame::new(size, size.h);
+        let mut output = Frame::new(size);
         let mut before = Length::zero();
         let mut ruler = Align::Top;
         let mut first = true;

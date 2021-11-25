@@ -66,7 +66,7 @@ impl Layout for StackNode {
         ctx: &mut LayoutContext,
         regions: &Regions,
     ) -> Vec<Constrained<Rc<Frame>>> {
-        StackLayouter::new(self, regions.clone()).layout(ctx)
+        StackLayouter::new(self, regions).layout(ctx)
     }
 }
 
@@ -96,7 +96,7 @@ struct StackLayouter<'a> {
     axis: SpecAxis,
     /// Whether the stack should expand to fill the region.
     expand: Spec<bool>,
-    /// The region to layout into.
+    /// The regions to layout children into.
     regions: Regions,
     /// The full size of `regions.current` that was available before we started
     /// subtracting.
@@ -123,17 +123,21 @@ enum StackItem {
 
 impl<'a> StackLayouter<'a> {
     /// Create a new stack layouter.
-    fn new(stack: &'a StackNode, mut regions: Regions) -> Self {
-        // Disable expansion along the block axis for children.
+    fn new(stack: &'a StackNode, regions: &Regions) -> Self {
         let axis = stack.dir.axis();
         let expand = regions.expand;
+        let full = regions.current;
+
+
+        // Disable expansion along the block axis for children.
+        let mut regions = regions.clone();
         regions.expand.set(axis, false);
 
         Self {
             stack,
             axis,
             expand,
-            full: regions.current,
+            full,
             regions,
             used: Gen::zero(),
             fr: Fractional::zero(),
@@ -145,6 +149,10 @@ impl<'a> StackLayouter<'a> {
     /// Layout all children.
     fn layout(mut self, ctx: &mut LayoutContext) -> Vec<Constrained<Rc<Frame>>> {
         for child in &self.stack.children {
+            if self.regions.is_full() {
+                self.finish_region();
+            }
+
             match *child {
                 StackChild::Spacing(Spacing::Linear(v)) => {
                     self.layout_absolute(v);
@@ -167,10 +175,10 @@ impl<'a> StackLayouter<'a> {
     fn layout_absolute(&mut self, amount: Linear) {
         // Resolve the linear, limiting it to the remaining available space.
         let remaining = self.regions.current.get_mut(self.axis);
-        let resolved = amount.resolve(self.full.get(self.axis));
+        let resolved = amount.resolve(self.regions.base.get(self.axis));
         let limited = resolved.min(*remaining);
         *remaining -= limited;
-        self.used.block += limited;
+        self.used.main += limited;
         self.items.push(StackItem::Absolute(resolved));
     }
 
@@ -187,9 +195,9 @@ impl<'a> StackLayouter<'a> {
         for (i, frame) in frames.into_iter().enumerate() {
             // Grow our size, shrink the region and save the frame for later.
             let size = frame.item.size.to_gen(self.axis);
-            self.used.block += size.block;
-            self.used.inline.set_max(size.inline);
-            *self.regions.current.get_mut(self.axis) -= size.block;
+            self.used.main += size.main;
+            self.used.cross.set_max(size.cross);
+            *self.regions.current.get_mut(self.axis) -= size.main;
             self.items.push(StackItem::Frame(frame.item, align));
 
             if i + 1 < len {
@@ -210,13 +218,13 @@ impl<'a> StackLayouter<'a> {
 
         // Expand fully if there are fr spacings.
         let full = self.full.get(self.axis);
-        let remaining = full - self.used.block;
+        let remaining = full - self.used.main;
         if self.fr.get() > 0.0 && full.is_finite() {
-            self.used.block = full;
+            self.used.main = full;
             size.set(self.axis, full);
         }
 
-        let mut output = Frame::new(size, size.h);
+        let mut output = Frame::new(size);
         let mut before = Length::zero();
         let mut ruler: Align = self.stack.dir.start().into();
 
@@ -239,11 +247,11 @@ impl<'a> StackLayouter<'a> {
                     // Align along the block axis.
                     let parent = size.get(self.axis);
                     let child = frame.size.get(self.axis);
-                    let block = ruler.resolve(parent - self.used.block)
+                    let block = ruler.resolve(parent - self.used.main)
                         + if self.stack.dir.is_positive() {
                             before
                         } else {
-                            self.used.block - child - before
+                            self.used.main - child - before
                         };
 
                     let pos = Gen::new(Length::zero(), block).to_point(self.axis);

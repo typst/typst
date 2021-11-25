@@ -6,7 +6,7 @@ use std::ops::{Add, AddAssign};
 use std::rc::Rc;
 
 use crate::diag::StrResult;
-use crate::geom::{Align, Dir, GenAxis, Length, Linear, Paint, Sides, Size};
+use crate::geom::{Align, Dir, Length, Linear, Paint, Sides, Size, SpecAxis};
 use crate::layout::{Layout, PackedNode};
 use crate::library::{
     Decoration, DocumentNode, FlowChild, FlowNode, PageNode, ParChild, ParNode,
@@ -33,7 +33,7 @@ enum TemplateNode {
     /// Plain text.
     Text(EcoString),
     /// Spacing.
-    Spacing(GenAxis, Spacing),
+    Spacing(SpecAxis, Spacing),
     /// A decorated template.
     Decorated(Decoration, Template),
     /// An inline node builder.
@@ -108,7 +108,7 @@ impl Template {
     }
 
     /// Add spacing along an axis.
-    pub fn spacing(&mut self, axis: GenAxis, spacing: Spacing) {
+    pub fn spacing(&mut self, axis: SpecAxis, spacing: Spacing) {
         self.make_mut().push(TemplateNode::Spacing(axis, spacing));
     }
 
@@ -349,13 +349,13 @@ impl Builder {
     }
 
     /// Push spacing into the active paragraph or flow depending on the `axis`.
-    fn spacing(&mut self, axis: GenAxis, spacing: Spacing) {
+    fn spacing(&mut self, axis: SpecAxis, spacing: Spacing) {
         match axis {
-            GenAxis::Block => {
+            SpecAxis::Vertical => {
                 self.flow.finish_par(&self.style);
                 self.flow.push_hard(FlowChild::Spacing(spacing));
             }
-            GenAxis::Inline => {
+            SpecAxis::Horizontal => {
                 self.flow.par.push_hard(ParChild::Spacing(spacing));
             }
         }

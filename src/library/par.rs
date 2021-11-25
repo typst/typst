@@ -241,10 +241,15 @@ impl<'a> ParLayouter<'a> {
                     starts.push((range.start, deco));
                 }
                 ParChild::Undecorate => {
-                    let (start, deco) = starts.pop().unwrap();
-                    decos.push((start .. range.end, deco));
+                    if let Some((start, deco)) = starts.pop() {
+                        decos.push((start .. range.end, deco));
+                    }
                 }
             }
+        }
+
+        for (start, deco) in starts {
+            decos.push((start .. bidi.text.len(), deco));
         }
 
         Self {
@@ -307,7 +312,7 @@ impl<'a> ParLayouter<'a> {
 
             // If the line does not fit vertically, we start a new region.
             while !stack.regions.current.h.fits(line.size.h) {
-                if stack.regions.in_full_last() {
+                if stack.regions.in_last() {
                     stack.overflowing = true;
                     break;
                 }
@@ -487,8 +492,9 @@ impl<'a> LineLayout<'a> {
         let size = Size::new(self.size.w.max(width), self.size.h);
         let remaining = size.w - self.size.w;
 
-        let mut output = Frame::new(size, self.baseline);
+        let mut output = Frame::new(size);
         let mut offset = Length::zero();
+        output.baseline = self.baseline;
 
         for (range, item) in self.reordered() {
             let mut position = |mut frame: Frame| {
@@ -621,7 +627,7 @@ impl<'a> LineStack<'a> {
             self.cts.exact = self.full.to_spec().map(Some);
         }
 
-        let mut output = Frame::new(self.size, self.size.h);
+        let mut output = Frame::new(self.size);
         let mut offset = Length::zero();
         let mut first = true;
 

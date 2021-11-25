@@ -11,7 +11,7 @@
 
 // Syntax sugar for function definitions.
 #let fill = conifer
-#let rect(body) = rect(width: 2cm, fill: fill, pad(5pt, body))
+#let rect(body) = rect(width: 2cm, fill: fill, padding: 5pt, body)
 #rect[Hi!]
 
 ---

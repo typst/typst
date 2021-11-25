@@ -35,10 +35,6 @@ impl Layout for SizedNode {
         ctx: &mut LayoutContext,
         regions: &Regions,
     ) -> Vec<Constrained<Rc<Frame>>> {
-        // Resolve width and height relative to the region's base.
-        let width = self.sizing.x.map(|w| w.resolve(regions.base.w));
-        let height = self.sizing.y.map(|h| h.resolve(regions.base.h));
-
         // Generate constraints.
         let mut cts = Constraints::new(regions.expand);
         cts.set_base_if_linear(regions.base, self.sizing);
@@ -55,6 +51,10 @@ impl Layout for SizedNode {
             cts.exact.y = Some(regions.current.h);
             cts.base.y = Some(regions.base.h);
         }
+
+        // Resolve width and height relative to the region's base.
+        let width = self.sizing.x.map(|w| w.resolve(regions.base.w));
+        let height = self.sizing.y.map(|h| h.resolve(regions.base.h));
 
         // The "pod" is the region into which the child will be layouted.
         let pod = {

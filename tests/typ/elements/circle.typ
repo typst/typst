@@ -16,7 +16,7 @@ Auto-sized circle. \
 Center-aligned rect in auto-sized circle.
 #circle(fill: forest, stroke: conifer,
   align(center + horizon,
-    rect(fill: conifer, pad(5pt)[But, soft!])
+    rect(fill: conifer, padding: 5pt)[But, soft!]
   )
 )
 

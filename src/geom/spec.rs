@@ -57,8 +57,8 @@ impl<T> Spec<T> {
     }
 
     /// Convert to the generic representation.
-    pub fn to_gen(self, block: SpecAxis) -> Gen<T> {
-        match block {
+    pub fn to_gen(self, main: SpecAxis) -> Gen<T> {
+        match main {
             SpecAxis::Horizontal => Gen::new(self.y, self.x),
             SpecAxis::Vertical => Gen::new(self.x, self.y),
         }

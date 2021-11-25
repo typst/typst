@@ -20,8 +20,6 @@
   cell(100%,  rgb("00ff00")),
 )
 
-#grid()
-
 ---
 #grid(
   columns: (auto, auto, 40%),

@@ -1,18 +1,18 @@
 use super::*;
 
-/// A container with an inline and a block component.
+/// A container with a main and cross component.
 #[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Gen<T> {
-    /// The inline component.
-    pub inline: T,
-    /// The block component.
-    pub block: T,
+    /// The main component.
+    pub cross: T,
+    /// The cross component.
+    pub main: T,
 }
 
 impl<T> Gen<T> {
     /// Create a new instance from the two components.
-    pub const fn new(inline: T, block: T) -> Self {
-        Self { inline, block }
+    pub const fn new(cross: T, main: T) -> Self {
+        Self { cross, main }
     }
 
     /// Create a new instance with two equal components.
@@ -20,7 +20,7 @@ impl<T> Gen<T> {
     where
         T: Clone,
     {
-        Self { inline: value.clone(), block: value }
+        Self { cross: value.clone(), main: value }
     }
 
     /// Maps the individual fields with `f`.
@@ -28,17 +28,14 @@ impl<T> Gen<T> {
     where
         F: FnMut(T) -> U,
     {
-        Gen {
-            inline: f(self.inline),
-            block: f(self.block),
-        }
+        Gen { cross: f(self.cross), main: f(self.main) }
     }
 
     /// Convert to the specific representation, given the current block axis.
-    pub fn to_spec(self, block: SpecAxis) -> Spec<T> {
-        match block {
-            SpecAxis::Horizontal => Spec::new(self.block, self.inline),
-            SpecAxis::Vertical => Spec::new(self.inline, self.block),
+    pub fn to_spec(self, main: SpecAxis) -> Spec<T> {
+        match main {
+            SpecAxis::Horizontal => Spec::new(self.main, self.cross),
+            SpecAxis::Vertical => Spec::new(self.cross, self.main),
         }
     }
 }
@@ -47,19 +44,19 @@ impl Gen<Length> {
     /// The zero value.
     pub fn zero() -> Self {
         Self {
-            inline: Length::zero(),
-            block: Length::zero(),
+            cross: Length::zero(),
+            main: Length::zero(),
         }
     }
 
     /// Convert to a point.
-    pub fn to_point(self, block: SpecAxis) -> Point {
-        self.to_spec(block).to_point()
+    pub fn to_point(self, main: SpecAxis) -> Point {
+        self.to_spec(main).to_point()
     }
 
     /// Convert to a size.
-    pub fn to_size(self, block: SpecAxis) -> Size {
-        self.to_spec(block).to_size()
+    pub fn to_size(self, main: SpecAxis) -> Size {
+        self.to_spec(main).to_size()
     }
 }
 
@@ -67,8 +64,8 @@ impl<T> Gen<Option<T>> {
     /// Unwrap the individual fields.
     pub fn unwrap_or(self, other: Gen<T>) -> Gen<T> {
         Gen {
-            inline: self.inline.unwrap_or(other.inline),
-            block: self.block.unwrap_or(other.block),
+            cross: self.cross.unwrap_or(other.cross),
+            main: self.main.unwrap_or(other.main),
         }
     }
 }
@@ -78,40 +75,40 @@ impl<T> Get<GenAxis> for Gen<T> {
 
     fn get(self, axis: GenAxis) -> T {
         match axis {
-            GenAxis::Inline => self.inline,
-            GenAxis::Block => self.block,
+            GenAxis::Cross => self.cross,
+            GenAxis::Main => self.main,
         }
     }
 
     fn get_mut(&mut self, axis: GenAxis) -> &mut T {
         match axis {
-            GenAxis::Inline => &mut self.inline,
-            GenAxis::Block => &mut self.block,
+            GenAxis::Cross => &mut self.cross,
+            GenAxis::Main => &mut self.main,
         }
     }
 }
 
 impl<T: Debug> Debug for Gen<T> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "Gen({:?}, {:?})", self.inline, self.block)
+        write!(f, "Gen({:?}, {:?})", self.cross, self.main)
     }
 }
 
-/// The two generic layouting axes.
+/// Two generic axes of a container.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum GenAxis {
-    /// The axis words and lines are set along.
-    Inline,
-    /// The axis paragraphs and pages are set along.
-    Block,
+    /// The minor axis.
+    Cross,
+    /// The major axis.
+    Main,
 }
 
 impl GenAxis {
     /// The other axis.
     pub fn other(self) -> Self {
         match self {
-            Self::Inline => Self::Block,
-            Self::Block => Self::Inline,
+            Self::Cross => Self::Main,
+            Self::Main => Self::Cross,
         }
     }
 }

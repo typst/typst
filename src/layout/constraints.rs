@@ -1,5 +1,6 @@
 use std::rc::Rc;
 
+use super::Regions;
 use crate::frame::Frame;
 use crate::geom::{Length, Linear, Size, Spec};
 
@@ -56,6 +57,17 @@ impl Constraints {
             exact: Spec::default(),
             base: Spec::default(),
             expand,
+        }
+    }
+
+    /// Create tight constraints for a region.
+    pub fn tight(regions: &Regions) -> Self {
+        Self {
+            min: Spec::default(),
+            max: Spec::default(),
+            exact: regions.current.to_spec().map(Some),
+            base: regions.base.to_spec().map(Some),
+            expand: regions.expand,
         }
     }
 

@@ -305,8 +305,9 @@ pub struct ShapedGlyph {
 impl<'a> ShapedText<'a> {
     /// Build the shaped text's frame.
     pub fn build(&self) -> Frame {
-        let mut frame = Frame::new(self.size, self.baseline);
+        let mut frame = Frame::new(self.size);
         let mut offset = Length::zero();
+        frame.baseline = self.baseline;
 
         for (face_id, group) in self.glyphs.as_ref().group_by_key(|g| g.face_id) {
             let pos = Point::new(offset, self.baseline);

@@ -1,4 +1,4 @@
-use crate::geom::{Size, Spec};
+use crate::geom::{Length, Size, Spec};
 
 /// A sequence of regions to layout into.
 #[derive(Debug, Clone)]
@@ -13,9 +13,6 @@ pub struct Regions {
     pub last: Option<Size>,
     /// Whether nodes should expand to fill the regions instead of shrinking to
     /// fit the content.
-    ///
-    /// This property is only handled by nodes that have the ability to control
-    /// their own size.
     pub expand: Spec<bool>,
 }
 
@@ -52,11 +49,24 @@ impl Regions {
         regions
     }
 
-    /// Whether `current` is a fully sized (untouched) copy of the last region.
+    /// Whether the current region is full and a region break is called for.
+    pub fn is_full(&self) -> bool {
+        Length::zero().fits(self.current.h) && !self.in_last()
+    }
+
+    /// Whether `current` is the last usable region.
     ///
     /// If this is true, calling `next()` will have no effect.
-    pub fn in_full_last(&self) -> bool {
+    pub fn in_last(&self) -> bool {
         self.backlog.len() == 0 && self.last.map_or(true, |size| self.current == size)
+    }
+
+    /// Advance to the next region if there is any.
+    pub fn next(&mut self) {
+        if let Some(size) = self.backlog.next().or(self.last) {
+            self.current = size;
+            self.base = size;
+        }
     }
 
     /// An iterator that returns pairs of `(current, base)` that are equivalent
@@ -67,14 +77,6 @@ impl Regions {
         let backlog = self.backlog.as_slice().iter();
         let last = self.last.iter().cycle();
         first.chain(backlog.chain(last).map(|&s| (s, s)))
-    }
-
-    /// Advance to the next region if there is any.
-    pub fn next(&mut self) {
-        if let Some(size) = self.backlog.next().or(self.last) {
-            self.current = size;
-            self.base = size;
-        }
     }
 
     /// Mutate all contained sizes in place.

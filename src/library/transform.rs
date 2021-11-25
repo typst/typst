@@ -62,13 +62,7 @@ impl Layout for TransformNode {
             let transform = Transform::translation(x, y)
                 .pre_concat(self.transform)
                 .pre_concat(Transform::translation(-x, -y));
-
-            let mut wrapper = Frame::new(frame.size, frame.baseline);
-            wrapper.push(
-                Point::zero(),
-                Element::Group(Group::new(std::mem::take(frame)).transform(transform)),
-            );
-            *frame = Rc::new(wrapper);
+            Rc::make_mut(frame).transform(transform);
         }
 
         frames

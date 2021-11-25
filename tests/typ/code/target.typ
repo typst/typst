@@ -7,6 +7,6 @@
 #let d = 3
 #let value = [hi]
 #let item(a, b) = a + b
-#let fn(body) = rect(fill: conifer, pad(5pt, body))
+#let fn = rect with (fill: conifer, padding: 5pt)
 
 Some _includable_ text.

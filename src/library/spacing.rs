@@ -3,14 +3,14 @@ use super::prelude::*;
 /// `h`: Horizontal spacing.
 pub fn h(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let mut template = Template::new();
-    template.spacing(GenAxis::Inline, args.expect("spacing")?);
+    template.spacing(SpecAxis::Horizontal, args.expect("spacing")?);
     Ok(Value::Template(template))
 }
 
 /// `v`: Vertical spacing.
 pub fn v(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let mut template = Template::new();
-    template.spacing(GenAxis::Block, args.expect("spacing")?);
+    template.spacing(SpecAxis::Vertical, args.expect("spacing")?);
     Ok(Value::Template(template))
 }
 
