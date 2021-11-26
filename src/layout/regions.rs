@@ -51,7 +51,7 @@ impl Regions {
 
     /// Whether the current region is full and a region break is called for.
     pub fn is_full(&self) -> bool {
-        Length::zero().fits(self.current.h) && !self.in_last()
+        Length::zero().fits(self.current.y) && !self.in_last()
     }
 
     /// Whether `current` is the last usable region.

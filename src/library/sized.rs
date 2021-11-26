@@ -35,50 +35,36 @@ impl Layout for SizedNode {
         ctx: &mut LayoutContext,
         regions: &Regions,
     ) -> Vec<Constrained<Rc<Frame>>> {
-        // Generate constraints.
-        let mut cts = Constraints::new(regions.expand);
-        cts.set_base_if_linear(regions.base, self.sizing);
-
-        // Set tight exact and base constraints if the child is
-        // automatically sized since we don't know what the child might do.
-        if self.sizing.x.is_none() {
-            cts.exact.x = Some(regions.current.w);
-            cts.base.x = Some(regions.base.w);
-        }
-
-        // Same here.
-        if self.sizing.y.is_none() {
-            cts.exact.y = Some(regions.current.h);
-            cts.base.y = Some(regions.base.h);
-        }
-
-        // Resolve width and height relative to the region's base.
-        let width = self.sizing.x.map(|w| w.resolve(regions.base.w));
-        let height = self.sizing.y.map(|h| h.resolve(regions.base.h));
+        let is_auto = self.sizing.map_is_none();
+        let is_rel = self.sizing.map(|s| s.map_or(false, Linear::is_relative));
 
         // The "pod" is the region into which the child will be layouted.
         let pod = {
-            let size = Size::new(
-                width.unwrap_or(regions.current.w),
-                height.unwrap_or(regions.current.h),
-            );
+            // Resolve the sizing to a concrete size.
+            let size = self
+                .sizing
+                .zip(regions.base)
+                .map(|(s, b)| s.map(|v| v.resolve(b)))
+                .unwrap_or(regions.current);
 
-            let base = Size::new(
-                if width.is_some() { size.w } else { regions.base.w },
-                if height.is_some() { size.h } else { regions.base.h },
-            );
+            // Select the appropriate base and expansion for the child depending
+            // on whether it is automatically or linearly sized.
+            let base = is_auto.select(regions.base, size);
+            let expand = regions.expand | !is_auto;
 
-            let expand = Spec::new(
-                width.is_some() || regions.expand.x,
-                height.is_some() || regions.expand.y,
-            );
-
-            // TODO: Allow multiple regions if only width is set.
             Regions::one(size, base, expand)
         };
 
         let mut frames = self.child.layout(ctx, &pod);
-        frames[0].cts = cts;
+
+        // Set base & exact constraints if the child is automatically sized
+        // since we don't know what the child might do. Also set base if our
+        // sizing is relative.
+        let frame = &mut frames[0];
+        frame.cts = Constraints::new(regions.expand);
+        frame.cts.exact = regions.current.filter(is_auto);
+        frame.cts.base = regions.base.filter(is_auto | is_rel);
+
         frames
     }
 }

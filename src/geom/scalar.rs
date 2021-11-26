@@ -2,7 +2,7 @@ use super::*;
 
 /// A 64-bit float that implements `Eq`, `Ord` and `Hash`.
 ///
-/// Panics if its `NaN` during any of those operations.
+/// Panics if it's `NaN` during any of those operations.
 #[derive(Default, Copy, Clone, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Scalar(pub f64);

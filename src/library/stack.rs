@@ -128,7 +128,6 @@ impl<'a> StackLayouter<'a> {
         let expand = regions.expand;
         let full = regions.current;
 
-
         // Disable expansion along the block axis for children.
         let mut regions = regions.clone();
         regions.expand.set(axis, false);
@@ -210,11 +209,8 @@ impl<'a> StackLayouter<'a> {
     fn finish_region(&mut self) {
         // Determine the size of the stack in this region dependening on whether
         // the region expands.
-        let used = self.used.to_size(self.axis);
-        let mut size = Size::new(
-            if self.expand.x { self.full.w } else { used.w },
-            if self.expand.y { self.full.h } else { used.h },
-        );
+        let used = self.used.to_spec(self.axis);
+        let mut size = self.expand.select(self.full, used);
 
         // Expand fully if there are fr spacings.
         let full = self.full.get(self.axis);
@@ -263,8 +259,8 @@ impl<'a> StackLayouter<'a> {
 
         // Generate tight constraints for now.
         let mut cts = Constraints::new(self.expand);
-        cts.exact = self.full.to_spec().map(Some);
-        cts.base = self.regions.base.to_spec().map(Some);
+        cts.exact = self.full.map(Some);
+        cts.base = self.regions.base.map(Some);
 
         // Advance to the next region.
         self.regions.next();

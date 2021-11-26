@@ -54,29 +54,17 @@ impl Layout for PadNode {
             frame.baseline += offset.y;
             frame.translate(offset);
 
-            // Set exact and base constraints if the child had them.
-            cts.exact.x.and_set(Some(current.w));
-            cts.exact.y.and_set(Some(current.h));
-            cts.base.x.and_set(Some(base.w));
-            cts.base.y.and_set(Some(base.h));
-
-            // Also set base constraints if the padding is relative.
-            if self.padding.left.is_relative() || self.padding.right.is_relative() {
-                cts.base.x = Some(base.w);
-            }
-
-            if self.padding.top.is_relative() || self.padding.bottom.is_relative() {
-                cts.base.y = Some(base.h);
-            }
+            // Set exact and base constraints if the child had them. Also set
+            // base if our padding is relative.
+            let is_rel = self.padding.sum_by_axis().map(Linear::is_relative);
+            cts.exact = current.filter(cts.exact.map_is_some());
+            cts.base = base.filter(is_rel | cts.base.map_is_some());
 
             // Inflate min and max contraints by the padding.
             for spec in [&mut cts.min, &mut cts.max] {
-                if let Some(x) = spec.x.as_mut() {
-                    *x += padding.size().w;
-                }
-                if let Some(y) = spec.y.as_mut() {
-                    *y += padding.size().h;
-                }
+                spec.as_mut()
+                    .zip(padding.sum_by_axis())
+                    .map(|(s, p)| s.as_mut().map(|v| *v += p));
             }
         }
 
@@ -86,7 +74,7 @@ impl Layout for PadNode {
 
 /// Shrink a size by padding relative to the size itself.
 fn shrink(size: Size, padding: Sides<Linear>) -> Size {
-    size - padding.resolve(size).size()
+    size - padding.resolve(size).sum_by_axis()
 }
 
 /// Grow a size by padding relative to the grown size.
@@ -109,12 +97,6 @@ fn shrink(size: Size, padding: Sides<Linear>) -> Size {
 ///   <=> (1 - p.rel) * w = s + p.abs
 ///   <=> w = (s + p.abs) / (1 - p.rel)
 fn grow(size: Size, padding: Sides<Linear>) -> Size {
-    fn solve_axis(length: Length, padding: Linear) -> Length {
-        (length + padding.abs).safe_div(1.0 - padding.rel.get())
-    }
-
-    Size::new(
-        solve_axis(size.w, padding.left + padding.right),
-        solve_axis(size.h, padding.top + padding.bottom),
-    )
+    size.zip(padding.sum_by_axis())
+        .map(|(s, p)| (s + p.abs).safe_div(1.0 - p.rel.get()))
 }

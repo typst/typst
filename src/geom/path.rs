@@ -26,9 +26,9 @@ impl Path {
         let point = Point::new;
         let mut path = Self::new();
         path.move_to(point(z, z));
-        path.line_to(point(size.w, z));
-        path.line_to(point(size.w, size.h));
-        path.line_to(point(z, size.h));
+        path.line_to(point(size.x, z));
+        path.line_to(point(size.x, size.y));
+        path.line_to(point(z, size.y));
         path.close_path();
         path
     }
@@ -37,8 +37,8 @@ impl Path {
     pub fn ellipse(size: Size) -> Self {
         // https://stackoverflow.com/a/2007782
         let z = Length::zero();
-        let rx = size.w / 2.0;
-        let ry = size.h / 2.0;
+        let rx = size.x / 2.0;
+        let ry = size.y / 2.0;
         let m = 0.551784;
         let mx = m * rx;
         let my = m * ry;

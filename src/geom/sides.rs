@@ -33,11 +33,13 @@ impl<T> Sides<T> {
     }
 }
 
-impl Sides<Length> {
-    /// A size with `left` and `right` summed into `width`, and `top` and
-    /// `bottom` summed into `height`.
-    pub fn size(self) -> Size {
-        Size::new(self.left + self.right, self.top + self.bottom)
+impl<T> Sides<T>
+where
+    T: Add,
+{
+    /// Sums up `left` and `right` into `x`, and `top` and `bottom` into `y`.
+    pub fn sum_by_axis(self) -> Spec<T::Output> {
+        Spec::new(self.left + self.right, self.top + self.bottom)
     }
 }
 
@@ -45,10 +47,10 @@ impl Sides<Linear> {
     /// Resolve the linear sides relative to the given `size`.
     pub fn resolve(self, size: Size) -> Sides<Length> {
         Sides {
-            left: self.left.resolve(size.w),
-            top: self.top.resolve(size.h),
-            right: self.right.resolve(size.w),
-            bottom: self.bottom.resolve(size.h),
+            left: self.left.resolve(size.x),
+            top: self.top.resolve(size.y),
+            right: self.right.resolve(size.x),
+            bottom: self.bottom.resolve(size.y),
         }
     }
 }

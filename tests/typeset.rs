@@ -387,8 +387,8 @@ fn print_error(source: &SourceFile, line: usize, error: &Error) {
 
 fn draw(ctx: &Context, frames: &[Rc<Frame>], dpp: f32) -> sk::Pixmap {
     let pad = Length::pt(5.0);
-    let width = 2.0 * pad + frames.iter().map(|l| l.size.w).max().unwrap_or_default();
-    let height = pad + frames.iter().map(|l| l.size.h + pad).sum::<Length>();
+    let width = 2.0 * pad + frames.iter().map(|l| l.size.x).max().unwrap_or_default();
+    let height = pad + frames.iter().map(|l| l.size.y + pad).sum::<Length>();
 
     let pxw = (dpp * width.to_f32()) as u32;
     let pxh = (dpp * height.to_f32()) as u32;
@@ -414,13 +414,13 @@ fn draw(ctx: &Context, frames: &[Rc<Frame>], dpp: f32) -> sk::Pixmap {
         let mut background = sk::Paint::default();
         background.set_color(sk::Color::WHITE);
 
-        let w = frame.size.w.to_f32();
-        let h = frame.size.h.to_f32();
+        let w = frame.size.x.to_f32();
+        let h = frame.size.y.to_f32();
         let rect = sk::Rect::from_xywh(0.0, 0.0, w, h).unwrap();
         canvas.fill_rect(rect, &background, ts, None);
 
         draw_frame(&mut canvas, ts, &mask, ctx, frame);
-        ts = ts.pre_translate(0.0, (frame.size.h + pad).to_f32());
+        ts = ts.pre_translate(0.0, (frame.size.y + pad).to_f32());
     }
 
     canvas
@@ -469,8 +469,8 @@ fn draw_group(
 ) {
     let ts = ts.pre_concat(convert_typst_transform(group.transform));
     if group.clips {
-        let w = group.frame.size.w.to_f32();
-        let h = group.frame.size.h.to_f32();
+        let w = group.frame.size.x.to_f32();
+        let h = group.frame.size.y.to_f32();
         let rect = sk::Rect::from_xywh(0.0, 0.0, w, h).unwrap();
         let path = sk::PathBuilder::from_rect(rect).transform(ts).unwrap();
         let rule = sk::FillRule::default();
@@ -565,8 +565,8 @@ fn draw_shape(
 ) {
     let path = match shape.geometry {
         Geometry::Rect(size) => {
-            let w = size.w.to_f32();
-            let h = size.h.to_f32();
+            let w = size.x.to_f32();
+            let h = size.y.to_f32();
             let rect = sk::Rect::from_xywh(0.0, 0.0, w, h).unwrap();
             sk::PathBuilder::from_rect(rect)
         }
@@ -613,8 +613,8 @@ fn draw_image(
         *dest = sk::ColorU8::from_rgba(r, g, b, a).premultiply();
     }
 
-    let view_width = size.w.to_f32();
-    let view_height = size.h.to_f32();
+    let view_width = size.x.to_f32();
+    let view_height = size.y.to_f32();
     let scale_x = view_width as f32 / pixmap.width() as f32;
     let scale_y = view_height as f32 / pixmap.height() as f32;
 

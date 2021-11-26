@@ -57,8 +57,7 @@ impl Layout for TransformNode {
         let mut frames = self.child.layout(ctx, regions);
 
         for Constrained { item: frame, .. } in frames.iter_mut() {
-            let x = self.origin.x.resolve(frame.size.w);
-            let y = self.origin.y.resolve(frame.size.h);
+            let Spec { x, y } = self.origin.zip(frame.size).map(|(o, s)| o.resolve(s));
             let transform = Transform::translation(x, y)
                 .pre_concat(self.transform)
                 .pre_concat(Transform::translation(-x, -y));

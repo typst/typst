@@ -138,8 +138,8 @@ impl Layout for ShapeNode {
                 // the result is really a square or circle.
                 let size = frames[0].item.size;
                 let mut pod = regions.clone();
-                pod.current.w = size.w.max(size.h).min(pod.current.w);
-                pod.current.h = pod.current.w;
+                pod.current.x = size.x.max(size.y).min(pod.current.x);
+                pod.current.y = pod.current.x;
                 pod.expand = Spec::splat(true);
                 frames = node.layout(ctx, &pod);
             }
@@ -153,7 +153,7 @@ impl Layout for ShapeNode {
             let default = Length::pt(30.0);
             let mut size = Size::new(
                 if regions.expand.x {
-                    regions.current.w
+                    regions.current.x
                 } else {
                     // For rectangle and ellipse, the default shape is a bit
                     // wider than high.
@@ -162,16 +162,16 @@ impl Layout for ShapeNode {
                         ShapeKind::Rect | ShapeKind::Ellipse => 1.5 * default,
                     }
                 },
-                if regions.expand.y { regions.current.h } else { default },
+                if regions.expand.y { regions.current.y } else { default },
             );
 
             // Don't overflow the region.
-            size.w = size.w.min(regions.current.w);
-            size.h = size.h.min(regions.current.h);
+            size.x = size.x.min(regions.current.x);
+            size.y = size.y.min(regions.current.y);
 
             if matches!(self.kind, ShapeKind::Square | ShapeKind::Circle) {
-                size.w = size.w.min(size.h);
-                size.h = size.w;
+                size.x = size.x.min(size.y);
+                size.y = size.x;
             }
 
             Frame::new(size)
@@ -194,11 +194,7 @@ impl Layout for ShapeNode {
         }
 
         // Ensure frame size matches regions size if expansion is on.
-        let expand = regions.expand;
-        frame.size = Size::new(
-            if expand.x { regions.current.w } else { frame.size.w },
-            if expand.y { regions.current.h } else { frame.size.h },
-        );
+        frame.size = regions.expand.select(regions.current, frame.size);
 
         // Return tight constraints for now.
         vec![frame.constrain(Constraints::tight(regions))]

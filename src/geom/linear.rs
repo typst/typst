@@ -42,7 +42,7 @@ impl Linear {
     }
 
     /// Whether there is a linear component.
-    pub fn is_relative(&self) -> bool {
+    pub fn is_relative(self) -> bool {
         !self.rel.is_zero()
     }
 }

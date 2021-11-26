@@ -16,7 +16,6 @@ mod point;
 mod relative;
 mod scalar;
 mod sides;
-mod size;
 mod spec;
 mod transform;
 
@@ -34,7 +33,6 @@ pub use point::*;
 pub use relative::*;
 pub use scalar::*;
 pub use sides::*;
-pub use size::*;
 pub use spec::*;
 pub use transform::*;
 

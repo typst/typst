@@ -226,7 +226,3 @@ impl Debug for Arg {
         Debug::fmt(&self.value.v, f)
     }
 }
-
-dynamic! {
-    Args: "arguments",
-}

@@ -27,9 +27,6 @@ impl BoolExt for bool {
 
 /// Additional methods for options.
 pub trait OptionExt<T> {
-    /// Replace `self` with `other` if `self` is `Some`.
-    fn and_set(&mut self, other: Option<T>);
-
     /// Sets `other` as the value if `self` is `None` or if it contains a value
     /// larger than `other`.
     fn set_min(&mut self, other: T)
@@ -44,12 +41,6 @@ pub trait OptionExt<T> {
 }
 
 impl<T> OptionExt<T> for Option<T> {
-    fn and_set(&mut self, other: Option<T>) {
-        if self.is_some() {
-            *self = other;
-        }
-    }
-
     fn set_min(&mut self, other: T)
     where
         T: Ord,

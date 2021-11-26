@@ -30,16 +30,16 @@ pub fn page(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 
         if let Some(width) = width {
             page.class = PaperClass::Custom;
-            page.size.w = width;
+            page.size.x = width;
         }
 
         if flip.unwrap_or(false) {
-            std::mem::swap(&mut page.size.w, &mut page.size.h);
+            std::mem::swap(&mut page.size.x, &mut page.size.y);
         }
 
         if let Some(height) = height {
             page.class = PaperClass::Custom;
-            page.size.h = height;
+            page.size.y = height;
         }
 
         if let Some(margins) = margins {
@@ -95,7 +95,7 @@ impl PageNode {
     pub fn layout(&self, ctx: &mut LayoutContext) -> Vec<Rc<Frame>> {
         // When one of the lengths is infinite the page fits its content along
         // that axis.
-        let expand = self.size.to_spec().map(Length::is_finite);
+        let expand = self.size.map(Length::is_finite);
         let regions = Regions::repeat(self.size, self.size, expand);
 
         // Layout the child.

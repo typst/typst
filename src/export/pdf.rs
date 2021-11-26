@@ -266,8 +266,8 @@ impl<'a> PdfExporter<'a> {
             let mut page_writer = self.writer.page(page_id);
             page_writer.parent(page_tree_ref);
 
-            let w = page.size.w.to_f32();
-            let h = page.size.h.to_f32();
+            let w = page.size.x.to_f32();
+            let h = page.size.y.to_f32();
             page_writer.media_box(Rect::new(0.0, 0.0, w, h));
             page_writer.contents(content_id);
 
@@ -366,7 +366,7 @@ impl<'a> PageExporter<'a> {
 
     fn export(mut self, frame: &Frame) -> Page {
         // Make the coordinate system start at the top-left.
-        self.bottom = frame.size.h.to_f32();
+        self.bottom = frame.size.y.to_f32();
         self.content.transform([1.0, 0.0, 0.0, -1.0, 0.0, self.bottom]);
         self.write_frame(&frame);
         Page {
@@ -397,8 +397,8 @@ impl<'a> PageExporter<'a> {
         self.transform(translation.pre_concat(group.transform));
 
         if group.clips {
-            let w = group.frame.size.w.to_f32();
-            let h = group.frame.size.h.to_f32();
+            let w = group.frame.size.x.to_f32();
+            let h = group.frame.size.y.to_f32();
             self.content.move_to(0.0, 0.0);
             self.content.line_to(w, 0.0);
             self.content.line_to(w, h);
@@ -471,8 +471,8 @@ impl<'a> PageExporter<'a> {
 
         match shape.geometry {
             Geometry::Rect(size) => {
-                let w = size.w.to_f32();
-                let h = size.h.to_f32();
+                let w = size.x.to_f32();
+                let h = size.y.to_f32();
                 if w > 0.0 && h > 0.0 {
                     self.content.rect(x, y, w, h);
                 }
@@ -533,8 +533,8 @@ impl<'a> PageExporter<'a> {
     fn write_image(&mut self, x: f32, y: f32, id: ImageId, size: Size) {
         self.image_map.insert(id);
         let name = format_eco!("Im{}", self.image_map.map(id));
-        let w = size.w.to_f32();
-        let h = size.h.to_f32();
+        let w = size.x.to_f32();
+        let h = size.y.to_f32();
         self.content.save_state();
         self.content.transform([w, 0.0, 0.0, -h, x, y + h]);
         self.content.x_object(Name(name.as_bytes()));
@@ -550,8 +550,8 @@ impl<'a> PageExporter<'a> {
         // Compute the bounding box of the transformed link.
         for point in [
             pos,
-            pos + Point::with_x(size.w),
-            pos + Point::with_y(size.h),
+            pos + Point::with_x(size.x),
+            pos + Point::with_y(size.y),
             pos + size.to_point(),
         ] {
             let t = point.transform(self.state.transform);

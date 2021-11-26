@@ -144,15 +144,6 @@ dynamic! {
 }
 
 dynamic! {
-    Spec<Option<Align>>: "2d alignment",
-    @align: Align => {
-        let mut aligns = Spec::default();
-        aligns.set(align.axis(), Some(*align));
-        aligns
-    },
-}
-
-dynamic! {
     FontFamily: "font family",
     Value::Str(string) => Self::Named(string.to_lowercase()),
 }
@@ -161,4 +152,16 @@ castable! {
     Paint,
     Expected: "color",
     Value::Color(color) => Paint::Solid(color),
+}
+
+castable! {
+    Spec<Option<Align>>,
+    Expected: "1d or 2d alignment",
+    @align: Align => {
+        let mut aligns = Spec::default();
+        aligns.set(align.axis(), Some(*align));
+        aligns
+    },
+    @aligns: Spec<Align> => aligns.map(Some),
+
 }

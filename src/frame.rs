@@ -25,7 +25,7 @@ impl Frame {
     #[track_caller]
     pub fn new(size: Size) -> Self {
         assert!(size.is_finite());
-        Self { size, baseline: size.h, elements: vec![] }
+        Self { size, baseline: size.y, elements: vec![] }
     }
 
     /// Add an element at a position in the background.
@@ -58,13 +58,15 @@ impl Frame {
     /// Resize the frame to a new size, distributing new space according to the
     /// given alignments.
     pub fn resize(&mut self, new: Size, aligns: Spec<Align>) {
-        let offset = Point::new(
-            aligns.x.resolve(new.w - self.size.w),
-            aligns.y.resolve(new.h - self.size.h),
-        );
-        self.size = new;
-        self.baseline += offset.y;
-        self.translate(offset);
+        if self.size != new {
+            let offset = Point::new(
+                aligns.x.resolve(new.x - self.size.x),
+                aligns.y.resolve(new.y - self.size.y),
+            );
+            self.size = new;
+            self.baseline += offset.y;
+            self.translate(offset);
+        }
     }
 
     /// Move the contents of the frame by an offset.

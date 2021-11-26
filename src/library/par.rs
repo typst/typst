@@ -208,7 +208,7 @@ impl<'a> ParLayouter<'a> {
         for (range, child) in par.ranges().zip(&par.children) {
             match *child {
                 ParChild::Spacing(Spacing::Linear(v)) => {
-                    let resolved = v.resolve(regions.current.w);
+                    let resolved = v.resolve(regions.current.x);
                     items.push(ParItem::Absolute(resolved));
                     ranges.push(range);
                 }
@@ -230,7 +230,7 @@ impl<'a> ParLayouter<'a> {
                     }
                 }
                 ParChild::Node(ref node) => {
-                    let size = Size::new(regions.current.w, regions.base.h);
+                    let size = Size::new(regions.current.x, regions.base.y);
                     let expand = Spec::splat(false);
                     let pod = Regions::one(size, regions.base, expand);
                     let frame = node.layout(ctx, &pod).remove(0);
@@ -292,26 +292,26 @@ impl<'a> ParLayouter<'a> {
                     // fit the line will yield the same line break. Therefore,
                     // the width of the region must not fit the width of the
                     // tried line.
-                    if !stack.regions.current.w.fits(line.size.w) {
-                        stack.cts.max.x.set_min(line.size.w);
+                    if !stack.regions.current.x.fits(line.size.x) {
+                        stack.cts.max.x.set_min(line.size.x);
                     }
 
                     // Same as above, but for height.
-                    if !stack.regions.current.h.fits(line.size.h) {
-                        let too_large = stack.size.h + self.leading + line.size.h;
+                    if !stack.regions.current.y.fits(line.size.y) {
+                        let too_large = stack.size.y + self.leading + line.size.y;
                         stack.cts.max.y.set_min(too_large);
                     }
 
                     stack.push(last_line);
 
-                    stack.cts.min.y = Some(stack.size.h);
+                    stack.cts.min.y = Some(stack.size.y);
                     start = last_end;
                     line = LineLayout::new(ctx, &self, start .. end);
                 }
             }
 
             // If the line does not fit vertically, we start a new region.
-            while !stack.regions.current.h.fits(line.size.h) {
+            while !stack.regions.current.y.fits(line.size.y) {
                 if stack.regions.in_last() {
                     stack.overflowing = true;
                     break;
@@ -320,7 +320,7 @@ impl<'a> ParLayouter<'a> {
                 // Again, the line must not fit. It would if the space taken up
                 // plus the line height would fit, therefore the constraint
                 // below.
-                let too_large = stack.size.h + self.leading + line.size.h;
+                let too_large = stack.size.y + self.leading + line.size.y;
                 stack.cts.max.y.set_min(too_large);
 
                 stack.finish_region(ctx);
@@ -329,7 +329,7 @@ impl<'a> ParLayouter<'a> {
             // If the line does not fit horizontally or we have a mandatory
             // line break (i.e. due to "\n"), we push the line into the
             // stack.
-            if mandatory || !stack.regions.current.w.fits(line.size.w) {
+            if mandatory || !stack.regions.current.x.fits(line.size.x) {
                 start = end;
                 last = None;
 
@@ -339,23 +339,23 @@ impl<'a> ParLayouter<'a> {
                 // paragraph, we want to force an empty line.
                 if mandatory && end == self.bidi.text.len() {
                     let line = LineLayout::new(ctx, &self, end .. end);
-                    if stack.regions.current.h.fits(line.size.h) {
+                    if stack.regions.current.y.fits(line.size.y) {
                         stack.push(line);
                     }
                 }
 
-                stack.cts.min.y = Some(stack.size.h);
+                stack.cts.min.y = Some(stack.size.y);
             } else {
                 // Otherwise, the line fits both horizontally and vertically
                 // and we remember it.
-                stack.cts.min.x.set_max(line.size.w);
+                stack.cts.min.x.set_max(line.size.x);
                 last = Some((line, end));
             }
         }
 
         if let Some((line, _)) = last {
             stack.push(line);
-            stack.cts.min.y = Some(stack.size.h);
+            stack.cts.min.y = Some(stack.size.y);
         }
 
         stack.finish(ctx)
@@ -467,9 +467,9 @@ impl<'a> LineLayout<'a> {
                 ParItem::Fractional(v) => fr += v,
                 ParItem::Text(ShapedText { size, baseline, .. })
                 | ParItem::Frame(Frame { size, baseline, .. }) => {
-                    width += size.w;
+                    width += size.x;
                     top.set_max(baseline);
-                    bottom.set_max(size.h - baseline);
+                    bottom.set_max(size.y - baseline);
                 }
             }
         }
@@ -489,8 +489,8 @@ impl<'a> LineLayout<'a> {
 
     /// Build the line's frame.
     fn build(&self, ctx: &LayoutContext, width: Length) -> Frame {
-        let size = Size::new(self.size.w.max(width), self.size.h);
-        let remaining = size.w - self.size.w;
+        let size = Size::new(self.size.x.max(width), self.size.y);
+        let remaining = size.x - self.size.x;
 
         let mut output = Frame::new(size);
         let mut offset = Length::zero();
@@ -507,7 +507,7 @@ impl<'a> LineLayout<'a> {
 
                 let x = offset + self.par.align.resolve(remaining);
                 let y = self.baseline - frame.baseline;
-                offset += frame.size.w;
+                offset += frame.size.x;
 
                 // Add to the line's frame.
                 output.merge_frame(Point::new(x, y), frame);
@@ -602,12 +602,12 @@ impl<'a> LineStack<'a> {
 
     /// Push a new line into the stack.
     fn push(&mut self, line: LineLayout<'a>) {
-        self.regions.current.h -= line.size.h + self.leading;
+        self.regions.current.y -= line.size.y + self.leading;
 
-        self.size.w.set_max(line.size.w);
-        self.size.h += line.size.h;
+        self.size.x.set_max(line.size.x);
+        self.size.y += line.size.y;
         if !self.lines.is_empty() {
-            self.size.h += self.leading;
+            self.size.y += self.leading;
         }
 
         self.fractional |= !line.fr.is_zero();
@@ -617,14 +617,14 @@ impl<'a> LineStack<'a> {
     /// Finish the frame for one region.
     fn finish_region(&mut self, ctx: &LayoutContext) {
         if self.regions.expand.x || self.fractional {
-            self.size.w = self.regions.current.w;
-            self.cts.exact.x = Some(self.regions.current.w);
+            self.size.x = self.regions.current.x;
+            self.cts.exact.x = Some(self.regions.current.x);
         }
 
         if self.overflowing {
             self.cts.min.y = None;
             self.cts.max.y = None;
-            self.cts.exact = self.full.to_spec().map(Some);
+            self.cts.exact = self.full.map(Some);
         }
 
         let mut output = Frame::new(self.size);
@@ -632,7 +632,7 @@ impl<'a> LineStack<'a> {
         let mut first = true;
 
         for line in self.lines.drain(..) {
-            let frame = line.build(ctx, self.size.w);
+            let frame = line.build(ctx, self.size.x);
 
             let pos = Point::with_y(offset);
             if first {
@@ -640,7 +640,7 @@ impl<'a> LineStack<'a> {
                 first = false;
             }
 
-            offset += frame.size.h + self.leading;
+            offset += frame.size.y + self.leading;
             output.merge_frame(pos, frame);
         }
 
@@ -648,7 +648,7 @@ impl<'a> LineStack<'a> {
         self.regions.next();
         self.full = self.regions.current;
         self.cts = Constraints::new(self.regions.expand);
-        self.cts.base = self.regions.base.to_spec().map(Some);
+        self.cts.base = self.regions.base.map(Some);
         self.size = Size::zero();
     }
 

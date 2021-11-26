@@ -157,10 +157,10 @@ impl<'a> FlowLayouter<'a> {
     /// Layout absolute spacing.
     fn layout_absolute(&mut self, amount: Linear) {
         // Resolve the linear, limiting it to the remaining available space.
-        let resolved = amount.resolve(self.full.h);
-        let limited = resolved.min(self.regions.current.h);
-        self.regions.current.h -= limited;
-        self.used.h += limited;
+        let resolved = amount.resolve(self.full.y);
+        let limited = resolved.min(self.regions.current.y);
+        self.regions.current.y -= limited;
+        self.used.y += limited;
         self.items.push(FlowItem::Absolute(resolved));
     }
 
@@ -195,9 +195,9 @@ impl<'a> FlowLayouter<'a> {
         for (i, frame) in frames.into_iter().enumerate() {
             // Grow our size, shrink the region and save the frame for later.
             let size = frame.item.size;
-            self.used.h += size.h;
-            self.used.w.set_max(size.w);
-            self.regions.current.h -= size.h;
+            self.used.y += size.y;
+            self.used.x.set_max(size.x);
+            self.regions.current.y -= size.y;
             self.items.push(FlowItem::Frame(frame.item, aligns));
 
             if i + 1 < len {
@@ -210,16 +210,13 @@ impl<'a> FlowLayouter<'a> {
     fn finish_region(&mut self) {
         // Determine the size of the flow in this region dependening on whether
         // the region expands.
-        let mut size = Size::new(
-            if self.expand.x { self.full.w } else { self.used.w },
-            if self.expand.y { self.full.h } else { self.used.h },
-        );
+        let mut size = self.expand.select(self.full, self.used);
 
         // Account for fractional spacing in the size calculation.
-        let remaining = self.full.h - self.used.h;
-        if self.fr.get() > 0.0 && self.full.h.is_finite() {
-            self.used.h = self.full.h;
-            size.h = self.full.h;
+        let remaining = self.full.y - self.used.y;
+        if self.fr.get() > 0.0 && self.full.y.is_finite() {
+            self.used.y = self.full.y;
+            size.y = self.full.y;
         }
 
         let mut output = Frame::new(size);
@@ -243,10 +240,10 @@ impl<'a> FlowLayouter<'a> {
                     ruler = ruler.max(aligns.y);
 
                     // Align horizontally and vertically.
-                    let x = aligns.x.resolve(size.w - frame.size.w);
-                    let y = before + ruler.resolve(size.h - self.used.h);
+                    let x = aligns.x.resolve(size.x - frame.size.x);
+                    let y = before + ruler.resolve(size.y - self.used.y);
                     let pos = Point::new(x, y);
-                    before += frame.size.h;
+                    before += frame.size.y;
 
                     // The baseline of the flow is that of the first frame.
                     if first {
@@ -261,8 +258,8 @@ impl<'a> FlowLayouter<'a> {
 
         // Generate tight constraints for now.
         let mut cts = Constraints::new(self.expand);
-        cts.exact = self.full.to_spec().map(Some);
-        cts.base = self.regions.base.to_spec().map(Some);
+        cts.exact = self.full.map(Some);
+        cts.base = self.regions.base.map(Some);
 
         // Advance to the next region.
         self.regions.next();

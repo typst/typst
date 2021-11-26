@@ -47,16 +47,16 @@ impl Layout for ImageNode {
         let pxh = img.height() as f64;
 
         let pixel_ratio = pxw / pxh;
-        let current_ratio = current.w / current.h;
+        let current_ratio = current.x / current.y;
         let wide = pixel_ratio > current_ratio;
 
         // The space into which the image will be placed according to its fit.
         let canvas = if expand.x && expand.y {
             current
-        } else if expand.x || (wide && current.w.is_finite()) {
-            Size::new(current.w, current.h.min(current.w.safe_div(pixel_ratio)))
-        } else if current.h.is_finite() {
-            Size::new(current.w.min(current.h * pixel_ratio), current.h)
+        } else if expand.x || (wide && current.x.is_finite()) {
+            Size::new(current.x, current.y.min(current.x.safe_div(pixel_ratio)))
+        } else if current.y.is_finite() {
+            Size::new(current.x.min(current.y * pixel_ratio), current.y)
         } else {
             Size::new(Length::pt(pxw), Length::pt(pxh))
         };
@@ -65,9 +65,9 @@ impl Layout for ImageNode {
         let size = match self.fit {
             ImageFit::Contain | ImageFit::Cover => {
                 if wide == (self.fit == ImageFit::Contain) {
-                    Size::new(canvas.w, canvas.w / pixel_ratio)
+                    Size::new(canvas.x, canvas.x / pixel_ratio)
                 } else {
-                    Size::new(canvas.h * pixel_ratio, canvas.h)
+                    Size::new(canvas.y * pixel_ratio, canvas.y)
                 }
             }
             ImageFit::Stretch => canvas,

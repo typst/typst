@@ -29,10 +29,9 @@ impl Layout for AlignNode {
         ctx: &mut LayoutContext,
         regions: &Regions,
     ) -> Vec<Constrained<Rc<Frame>>> {
-        // Along axes with specified alignment, the child doesn't need to expand.
+        // The child only needs to expand along an axis if there's no alignment.
         let mut pod = regions.clone();
-        pod.expand.x &= self.aligns.x.is_none();
-        pod.expand.y &= self.aligns.y.is_none();
+        pod.expand &= self.aligns.map_is_none();
 
         // Layout the child.
         let mut frames = self.child.layout(ctx, &pod);
@@ -40,23 +39,17 @@ impl Layout for AlignNode {
         for (Constrained { item: frame, cts }, (current, base)) in
             frames.iter_mut().zip(regions.iter())
         {
-            // The possibly larger size in which we align the frame.
-            let new = Size::new(
-                if regions.expand.x { current.w } else { frame.size.w },
-                if regions.expand.y { current.h } else { frame.size.h },
-            );
-
-            let aligns = self.aligns.unwrap_or(Spec::new(Align::Left, Align::Top));
-            Rc::make_mut(frame).resize(new, aligns);
+            // Align in the target size. The target size depends on whether we
+            // should expand.
+            let target = regions.expand.select(current, frame.size);
+            let default = Spec::new(Align::Left, Align::Top);
+            let aligns = self.aligns.unwrap_or(default);
+            Rc::make_mut(frame).resize(target, aligns);
 
             // Set constraints.
             cts.expand = regions.expand;
-            cts.base.x.and_set(Some(base.w));
-            cts.base.y.and_set(Some(base.h));
-            cts.exact = Spec::new(
-                regions.expand.x.then(|| current.w),
-                regions.expand.y.then(|| current.h),
-            );
+            cts.base = base.filter(cts.base.map_is_some());
+            cts.exact = current.filter(regions.expand);
         }
 
         frames

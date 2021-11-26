@@ -494,6 +494,10 @@ impl Eval for ClosureExpr {
 
             // Put the remaining arguments into the sink.
             if let Some(sink) = &sink {
+                dynamic! {
+                    Args: "arguments",
+                }
+
                 ctx.scopes.def_mut(sink, args.take());
             }
 

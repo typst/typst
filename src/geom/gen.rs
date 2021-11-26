@@ -53,21 +53,6 @@ impl Gen<Length> {
     pub fn to_point(self, main: SpecAxis) -> Point {
         self.to_spec(main).to_point()
     }
-
-    /// Convert to a size.
-    pub fn to_size(self, main: SpecAxis) -> Size {
-        self.to_spec(main).to_size()
-    }
-}
-
-impl<T> Gen<Option<T>> {
-    /// Unwrap the individual fields.
-    pub fn unwrap_or(self, other: Gen<T>) -> Gen<T> {
-        Gen {
-            cross: self.cross.unwrap_or(other.cross),
-            main: self.main.unwrap_or(other.main),
-        }
-    }
 }
 
 impl<T> Get<GenAxis> for Gen<T> {

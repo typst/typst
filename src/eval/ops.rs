@@ -3,7 +3,7 @@ use std::convert::TryFrom;
 
 use super::{Dynamic, Value};
 use crate::diag::StrResult;
-use crate::geom::{Align, Get, Spec};
+use crate::geom::{Align, Spec, SpecAxis};
 use crate::util::EcoString;
 use Value::*;
 
@@ -94,14 +94,18 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
                 if let (Some(&a), Some(&b)) =
                     (a.downcast::<Align>(), b.downcast::<Align>())
                 {
-                    if a.axis() == b.axis() {
-                        return Err(format!("cannot add two {:?} alignments", a.axis()));
+                    dynamic! {
+                        Spec<Align>: "2d alignment",
                     }
 
-                    let mut aligns = Spec::default();
-                    aligns.set(a.axis(), Some(a));
-                    aligns.set(b.axis(), Some(b));
-                    return Ok(Dyn(Dynamic::new(aligns)));
+                    return if a.axis() != b.axis() {
+                        Ok(Dyn(Dynamic::new(match a.axis() {
+                            SpecAxis::Horizontal => Spec { x: a, y: b },
+                            SpecAxis::Vertical => Spec { x: b, y: a },
+                        })))
+                    } else {
+                        Err(format!("cannot add two {:?} alignments", a.axis()))
+                    };
                 }
             }
 
