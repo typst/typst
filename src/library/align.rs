@@ -2,6 +2,18 @@ use super::prelude::*;
 
 /// `align`: Configure the alignment along the layouting axes.
 pub fn align(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
+    castable! {
+        Spec<Option<Align>>,
+        Expected: "1d or 2d alignment",
+        @align: Align => {
+            let mut aligns = Spec::default();
+            aligns.set(align.axis(), Some(*align));
+            aligns
+        },
+        @aligns: Spec<Align> => aligns.map(Some),
+
+    }
+
     let aligns = args.expect::<Spec<_>>("alignment")?;
     let body = args.expect::<Template>("body")?;
     Ok(Value::Template(Template::from_block(move |style| {
@@ -36,8 +48,8 @@ impl Layout for AlignNode {
         // Layout the child.
         let mut frames = self.child.layout(ctx, &pod);
 
-        for (Constrained { item: frame, cts }, (current, base)) in
-            frames.iter_mut().zip(regions.iter())
+        for ((current, base), Constrained { item: frame, cts }) in
+            regions.iter().zip(&mut frames)
         {
             // Align in the target size. The target size depends on whether we
             // should expand.

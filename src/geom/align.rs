@@ -18,6 +18,12 @@ pub enum Align {
 }
 
 impl Align {
+    /// Top-left alignment.
+    pub const LEFT_TOP: Spec<Self> = Spec { x: Align::Left, y: Align::Top };
+
+    /// Center-horizon alignment.
+    pub const CENTER_HORIZON: Spec<Self> = Spec { x: Align::Center, y: Align::Horizon };
+
     /// The axis this alignment belongs to.
     pub const fn axis(self) -> SpecAxis {
         match self {

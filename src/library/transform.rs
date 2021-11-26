@@ -30,7 +30,7 @@ fn transform_impl(args: &mut Args, transform: Transform) -> TypResult<Value> {
     let origin = args
         .named("origin")?
         .unwrap_or(Spec::splat(None))
-        .unwrap_or(Spec::new(Align::Center, Align::Horizon));
+        .unwrap_or(Align::CENTER_HORIZON);
 
     Ok(Value::Template(Template::from_inline(move |style| {
         body.pack(style).transformed(transform, origin)
@@ -56,11 +56,12 @@ impl Layout for TransformNode {
     ) -> Vec<Constrained<Rc<Frame>>> {
         let mut frames = self.child.layout(ctx, regions);
 
-        for Constrained { item: frame, .. } in frames.iter_mut() {
+        for Constrained { item: frame, .. } in &mut frames {
             let Spec { x, y } = self.origin.zip(frame.size).map(|(o, s)| o.resolve(s));
             let transform = Transform::translation(x, y)
                 .pre_concat(self.transform)
                 .pre_concat(Transform::translation(-x, -y));
+
             Rc::make_mut(frame).transform(transform);
         }
 

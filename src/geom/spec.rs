@@ -281,11 +281,27 @@ impl BitOr for Spec<bool> {
     }
 }
 
+impl BitOr<bool> for Spec<bool> {
+    type Output = Self;
+
+    fn bitor(self, rhs: bool) -> Self::Output {
+        Self { x: self.x | rhs, y: self.y | rhs }
+    }
+}
+
 impl BitAnd for Spec<bool> {
     type Output = Self;
 
     fn bitand(self, rhs: Self) -> Self::Output {
         Self { x: self.x & rhs.x, y: self.y & rhs.y }
+    }
+}
+
+impl BitAnd<bool> for Spec<bool> {
+    type Output = Self;
+
+    fn bitand(self, rhs: bool) -> Self::Output {
+        Self { x: self.x & rhs, y: self.y & rhs }
     }
 }
 

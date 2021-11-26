@@ -39,8 +39,8 @@ impl Layout for PadNode {
         let pod = regions.map(|size| shrink(size, self.padding));
         let mut frames = self.child.layout(ctx, &pod);
 
-        for (Constrained { item: frame, cts }, (current, base)) in
-            frames.iter_mut().zip(regions.iter())
+        for ((current, base), Constrained { item: frame, cts }) in
+            regions.iter().zip(&mut frames)
         {
             // Apply the padding inversely such that the grown size padded
             // yields the frame's size.

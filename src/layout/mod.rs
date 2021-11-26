@@ -136,10 +136,7 @@ impl PackedNode {
 
     /// Transform this node's contents without affecting layout.
     pub fn moved(self, offset: Point) -> Self {
-        self.transformed(
-            Transform::translation(offset.x, offset.y),
-            Spec::new(Align::Left, Align::Top),
-        )
+        self.transformed(Transform::translation(offset.x, offset.y), Align::LEFT_TOP)
     }
 
     /// Transform this node's contents without affecting layout.

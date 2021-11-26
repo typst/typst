@@ -57,13 +57,13 @@ impl Frame {
 
     /// Resize the frame to a new size, distributing new space according to the
     /// given alignments.
-    pub fn resize(&mut self, new: Size, aligns: Spec<Align>) {
-        if self.size != new {
+    pub fn resize(&mut self, target: Size, aligns: Spec<Align>) {
+        if self.size != target {
             let offset = Point::new(
-                aligns.x.resolve(new.x - self.size.x),
-                aligns.y.resolve(new.y - self.size.y),
+                aligns.x.resolve(target.x - self.size.x),
+                aligns.y.resolve(target.y - self.size.y),
             );
-            self.size = new;
+            self.size = target;
             self.baseline += offset.y;
             self.translate(offset);
         }

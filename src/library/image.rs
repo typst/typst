@@ -51,7 +51,7 @@ impl Layout for ImageNode {
         let wide = pixel_ratio > current_ratio;
 
         // The space into which the image will be placed according to its fit.
-        let canvas = if expand.x && expand.y {
+        let target = if expand.x && expand.y {
             current
         } else if expand.x || (wide && current.x.is_finite()) {
             Size::new(current.x, current.y.min(current.x.safe_div(pixel_ratio)))
@@ -65,20 +65,20 @@ impl Layout for ImageNode {
         let size = match self.fit {
             ImageFit::Contain | ImageFit::Cover => {
                 if wide == (self.fit == ImageFit::Contain) {
-                    Size::new(canvas.x, canvas.x / pixel_ratio)
+                    Size::new(target.x, target.x / pixel_ratio)
                 } else {
-                    Size::new(canvas.y * pixel_ratio, canvas.y)
+                    Size::new(target.y * pixel_ratio, target.y)
                 }
             }
-            ImageFit::Stretch => canvas,
+            ImageFit::Stretch => target,
         };
 
         // First, place the image in a frame of exactly its size and then resize
-        // the frame to the canvas size, center aligning the image in the
+        // the frame to the target size, center aligning the image in the
         // process.
         let mut frame = Frame::new(size);
         frame.push(Point::zero(), Element::Image(self.id, size));
-        frame.resize(canvas, Spec::new(Align::Center, Align::Horizon));
+        frame.resize(target, Align::CENTER_HORIZON);
 
         // Create a clipping group if the fit mode is "cover".
         if self.fit == ImageFit::Cover {

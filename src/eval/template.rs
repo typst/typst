@@ -337,13 +337,24 @@ impl Builder {
 
     /// Push a block node into the active flow, finishing the active paragraph.
     fn block(&mut self, node: PackedNode) {
+        let mut is_placed = false;
+        if let Some(placed) = node.downcast::<PlacedNode>() {
+            is_placed = true;
+
+            // This prevents paragraph spacing after the placed node if it
+            // is completely out-of-flow.
+            if placed.out_of_flow() {
+                self.flow.last = Last::None;
+            }
+        }
+
         self.parbreak();
-        let in_flow = node.downcast::<PlacedNode>().is_none();
         self.flow.push(FlowChild::Node(node));
-        if in_flow {
-            self.parbreak();
-        } else {
-            // This prevents duplicate paragraph spacing around placed nodes.
+        self.parbreak();
+
+        // This prevents paragraph spacing between the placed node and
+        // the paragraph below it.
+        if is_placed {
             self.flow.last = Last::None;
         }
     }

@@ -101,10 +101,10 @@ enum FlowItem {
     Absolute(Length),
     /// Fractional spacing between other items.
     Fractional(Fractional),
-    /// A frame to be placed directly at the origin.
-    Placed(Rc<Frame>),
     /// A frame for a layouted child node and how to align it.
     Frame(Rc<Frame>, Spec<Align>),
+    /// An absolutely placed frame.
+    Placed(Rc<Frame>),
 }
 
 impl<'a> FlowLayouter<'a> {
@@ -166,17 +166,11 @@ impl<'a> FlowLayouter<'a> {
 
     /// Layout a node.
     fn layout_node(&mut self, ctx: &mut LayoutContext, node: &PackedNode) {
-        // Placed nodes with vertical alignment are handled separately
-        // because their position shouldn't depend on other flow elements.
         if let Some(placed) = node.downcast::<PlacedNode>() {
-            if let Some(aligned) = placed.child.downcast::<AlignNode>() {
-                if aligned.aligns.y.is_some() {
-                    let base = self.regions.base;
-                    let pod = Regions::one(base, base, Spec::splat(true));
-                    let frame = placed.layout(ctx, &pod).remove(0);
-                    self.items.push(FlowItem::Placed(frame.item));
-                    return;
-                }
+            let frame = node.layout(ctx, &self.regions).remove(0);
+            if placed.out_of_flow() {
+                self.items.push(FlowItem::Placed(frame.item));
+                return;
             }
         }
 
@@ -233,9 +227,6 @@ impl<'a> FlowLayouter<'a> {
                 FlowItem::Fractional(v) => {
                     before += v.resolve(self.fr, remaining);
                 }
-                FlowItem::Placed(frame) => {
-                    output.push_frame(Point::zero(), frame);
-                }
                 FlowItem::Frame(frame, aligns) => {
                     ruler = ruler.max(aligns.y);
 
@@ -252,6 +243,9 @@ impl<'a> FlowLayouter<'a> {
                     }
 
                     output.push_frame(pos, frame);
+                }
+                FlowItem::Placed(frame) => {
+                    output.push_frame(Point::with_y(before), frame);
                 }
             }
         }
