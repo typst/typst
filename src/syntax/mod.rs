@@ -2,7 +2,6 @@
 
 pub mod ast;
 mod highlight;
-mod incremental;
 mod pretty;
 mod span;
 
@@ -11,7 +10,6 @@ use std::ops::Range;
 use std::rc::Rc;
 
 pub use highlight::*;
-pub use incremental::*;
 pub use pretty::*;
 pub use span::*;
 
@@ -161,6 +159,9 @@ impl GreenNode {
         self.data().len()
     }
 
+    /// Replaces a range of children with some replacement.
+    ///
+    /// This method updates the `erroneous` and `data.len` fields.
     pub fn replace_child_range(
         &mut self,
         child_idx_range: Range<usize>,
@@ -189,6 +190,8 @@ impl GreenNode {
         self.data.set_len(self.data.len + new_len - old_len);
     }
 
+    /// Update the length of this node given the old and new length of a
+    /// replaced child.
     pub fn update_child_len(&mut self, new_len: usize, old_len: usize) {
         self.data.len = self.data.len() + new_len - old_len;
         self.erroneous = self.children.iter().any(|x| x.erroneous());
@@ -377,22 +380,6 @@ impl<'a> RedRef<'a> {
         self.green.erroneous()
     }
 
-    /// The node's children.
-    pub fn children(self) -> Children<'a> {
-        let children = match &self.green {
-            Green::Node(node) => node.children(),
-            Green::Token(_) => &[],
-        };
-
-        Children {
-            id: self.id,
-            iter: children.iter(),
-            front: self.offset,
-            back: self.offset + self.len(),
-        }
-    }
-
-
     /// The error messages for this node and its descendants.
     pub fn errors(self) -> Vec<Error> {
         if !self.green.erroneous() {
@@ -423,6 +410,21 @@ impl<'a> RedRef<'a> {
         T: TypedNode,
     {
         T::from_red(self)
+    }
+
+    /// The node's children.
+    pub fn children(self) -> Children<'a> {
+        let children = match &self.green {
+            Green::Node(node) => node.children(),
+            Green::Token(_) => &[],
+        };
+
+        Children {
+            id: self.id,
+            iter: children.iter(),
+            front: self.offset,
+            back: self.offset + self.len(),
+        }
     }
 
     /// Get the first child that can cast to some AST type.
@@ -760,7 +762,7 @@ impl NodeKind {
     }
 
     /// Whether this token appears in Markup.
-    pub fn mode(&self) -> NodeMode {
+    pub fn mode(&self) -> Option<TokenMode> {
         match self {
             Self::Markup
             | Self::Space(_)
@@ -779,7 +781,7 @@ impl NodeKind {
             | Self::EnumNumbering(_)
             | Self::List
             | Self::Raw(_)
-            | Self::Math(_) => NodeMode::Markup,
+            | Self::Math(_) => Some(TokenMode::Markup),
             Self::Template
             | Self::Block
             | Self::Ident(_)
@@ -794,8 +796,8 @@ impl NodeKind {
             | Self::BlockComment
             | Self::Error(_, _)
             | Self::Minus
-            | Self::Eq => NodeMode::Universal,
-            _ => NodeMode::Code,
+            | Self::Eq => None,
+            _ => Some(TokenMode::Code),
         }
     }
 
@@ -910,36 +912,5 @@ impl NodeKind {
 impl Display for NodeKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.pad(self.as_str())
-    }
-}
-
-/// This enum describes which mode a token of [`NodeKind`] can appear in.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum NodeMode {
-    /// The token can only appear in markup mode.
-    Markup,
-    /// The token can only appear in code mode.
-    Code,
-    /// The token can appear in either mode. Look at the parent node to decide
-    /// which mode it is in. After an apply, this is equivalent to Markup.
-    Universal,
-}
-
-impl NodeMode {
-    /// Returns a new mode considering the parent node.
-    pub fn contextualize(&self, old: TokenMode) -> TokenMode {
-        match self {
-            Self::Markup => TokenMode::Markup,
-            Self::Code => TokenMode::Code,
-            Self::Universal => old,
-        }
-    }
-
-    /// The mode of the children of this node.
-    pub fn child_mode(&self) -> TokenMode {
-        match self {
-            Self::Markup => TokenMode::Markup,
-            Self::Code | Self::Universal => TokenMode::Code,
-        }
     }
 }

@@ -1,20 +1,28 @@
 use std::ops::Range;
 use std::rc::Rc;
 
-use super::{Green, GreenNode, NodeKind, Span};
+use crate::syntax::{Green, GreenNode, NodeKind, Span};
 
-use crate::parse::{
+use super::{
     parse_atomic, parse_atomic_markup, parse_block, parse_comment, parse_markup,
     parse_markup_elements, parse_template, TokenMode,
 };
 
+/// Allows partial refreshs of the [`Green`] node tree.
+///
+/// This struct holds a description of a change. Its methods can be used to try
+/// and apply the change to a green tree.
 pub struct Reparser<'a> {
+    /// The new source code, with the change applied.
     src: &'a str,
+    /// Which range in the old source file was changed.
     replace_range: Span,
+    /// How many characters replaced the text in `replacement_range`.
     replace_len: usize,
 }
 
 impl<'a> Reparser<'a> {
+    /// Create a new reparser.
     pub fn new(src: &'a str, replace_range: Span, replace_len: usize) -> Self {
         Self { src, replace_range, replace_len }
     }
@@ -22,11 +30,11 @@ impl<'a> Reparser<'a> {
 
 impl Reparser<'_> {
     /// Find the innermost child that is incremental safe.
-    pub fn incremental(&self, green: &mut GreenNode) -> Result<Range<usize>, ()> {
-        self.incremental_int(green, 0, TokenMode::Markup, true)
+    pub fn reparse(&self, green: &mut GreenNode) -> Result<Range<usize>, ()> {
+        self.reparse_step(green, 0, TokenMode::Markup, true)
     }
 
-    fn incremental_int(
+    fn reparse_step(
         &self,
         green: &mut GreenNode,
         mut offset: usize,
@@ -34,72 +42,29 @@ impl Reparser<'_> {
         outermost: bool,
     ) -> Result<Range<usize>, ()> {
         let kind = green.kind().clone();
-        let mode = kind.mode().contextualize(parent_mode);
+        let mode = kind.mode().unwrap_or(parent_mode);
 
         let mut loop_result = None;
         let mut child_at_start = true;
-        let last = green.children.len() - 1;
+        let last = green.children().len() - 1;
         let mut start = None;
-        for (i, child) in green.children.iter_mut().enumerate() {
+
+        for (i, child) in green.children_mut().iter_mut().enumerate() {
             let child_span =
                 Span::new(self.replace_range.source, offset, offset + child.len());
-            if child_span.surrounds(self.replace_range)
-                && start.is_none()
-                && ((self.replace_range.start != child_span.end
-                    && self.replace_range.end != child_span.start)
-                    || mode == TokenMode::Code
+
+            // We look for the start in the element but we only take a position
+            // at the right border if this is markup or the last element.
+            //
+            // This is because in Markup mode, we want to examine all nodes
+            // touching a replacement but in code we want to atomically replace.
+            if child_span.contains(self.replace_range.start)
+                && (mode == TokenMode::Markup
+                    || self.replace_range.start != child_span.end
+                    || self.replace_range.len() == 0
                     || i == last)
             {
-                let old_len = child.len();
-                // First, we try if the child has another, more specific applicable child.
-                if !kind.post().unsafe_interior() {
-                    if let Ok(range) = match child {
-                        Green::Node(n) => self.incremental_int(
-                            Rc::make_mut(n),
-                            offset,
-                            kind.mode().child_mode(),
-                            i == last && outermost,
-                        ),
-                        Green::Token(_) => Err(()),
-                    } {
-                        let new_len = child.len();
-                        green.update_child_len(new_len, old_len);
-                        return Ok(range);
-                    }
-                }
-
-                // This didn't work, so we try to self.replace_range the child at this
-                // level.
-                loop_result =
-                    Some((i .. i + 1, child_span, i == last && outermost, child.kind()));
-                break;
-            } else if start.is_none()
-                && child_span.contains(self.replace_range.start)
-                && mode == TokenMode::Markup
-                && child.kind().post().markup_safe()
-            {
                 start = Some((i, offset));
-            } else if child_span.contains(self.replace_range.end)
-                && (self.replace_range.end != child_span.end || i == last)
-                && mode == TokenMode::Markup
-                && child.kind().post().markup_safe()
-            {
-                if let Some((start, start_offset)) = start {
-                    loop_result = Some((
-                        start .. i + 1,
-                        Span::new(
-                            self.replace_range.source,
-                            start_offset,
-                            offset + child.len(),
-                        ),
-                        i == last && outermost,
-                        child.kind(),
-                    ));
-                }
-                break;
-            } else if start.is_some()
-                && (mode != TokenMode::Markup || !child.kind().post().markup_safe())
-            {
                 break;
             }
 
@@ -107,17 +72,77 @@ impl Reparser<'_> {
             child_at_start = child.kind().is_at_start(child_at_start);
         }
 
+        let (start_idx, start_offset) = start.ok_or(())?;
 
-        // We now have a child that we can self.replace_range and a function to do so if
-        // the loop found any results at all.
-        let (child_idx_range, child_span, child_outermost, func, policy) =
-            loop_result.ok_or(()).and_then(|(a, b, c, child_kind)| {
-                let (func, policy) =
-                    child_kind.reparsing_function(kind.mode().child_mode());
-                Ok((a, b, c, func?, policy))
-            })?;
+        for (i, child) in (green.children_mut()[start_idx ..]).iter_mut().enumerate() {
+            let i = i + start_idx;
+            let child_span =
+                Span::new(self.replace_range.source, offset, offset + child.len());
 
-        let src_span = child_span.inserted(self.replace_range, self.replace_len);
+            // Similarly to above, the end of the edit must be in the node but
+            // if it is at the edge and we are in markup node, we also want its
+            // neighbor!
+            if child_span.contains(self.replace_range.end)
+                && (mode != TokenMode::Markup
+                    || self.replace_range.end != child_span.end
+                    || i == last)
+            {
+                loop_result = Some((
+                    start_idx .. i + 1,
+                    Span::new(
+                        self.replace_range.source,
+                        start_offset,
+                        offset + child.len(),
+                    ),
+                    i == last && outermost,
+                    child.kind().clone(),
+                ));
+                break;
+            } else if mode != TokenMode::Markup || !child.kind().post().markup_safe() {
+                break;
+            }
+
+            offset += child.len();
+        }
+
+        let (child_idx_range, child_span, child_outermost, child_kind) =
+            loop_result.ok_or(())?;
+
+        if child_idx_range.len() == 1 {
+            let idx = child_idx_range.start;
+            let child = &mut green.children_mut()[idx];
+
+            let old_len = child.len();
+            // First, we try if the child has another, more specific applicable child.
+            if !child_kind.post().unsafe_interior() {
+                if let Ok(range) = match child {
+                    Green::Node(n) => self.reparse_step(
+                        Rc::make_mut(n),
+                        start_offset,
+                        kind.mode().unwrap_or(TokenMode::Code),
+                        child_outermost,
+                    ),
+                    Green::Token(_) => Err(()),
+                } {
+                    let new_len = child.len();
+                    green.update_child_len(new_len, old_len);
+                    return Ok(range);
+                }
+            }
+        }
+
+        debug_assert_ne!(child_idx_range.len(), 0);
+
+        if mode == TokenMode::Code && child_idx_range.len() > 1 {
+            return Err(());
+        }
+
+        // We now have a child that we can replace and a function to do so.
+        let (func, policy) =
+            child_kind.reparsing_function(kind.mode().unwrap_or(TokenMode::Code));
+        let func = func?;
+
+        let src_span = inserted_span(child_span, self.replace_range, self.replace_len);
         let recompile_range = if policy == Postcondition::AtomicPrimary {
             src_span.start .. self.src.len()
         } else {
@@ -181,7 +206,10 @@ fn check_invariants(
         (use_children, InvariantResult::Ok)
     };
 
-    let child_mode = old_children[child_idx_range.start].kind().mode().child_mode();
+    let child_mode = old_children[child_idx_range.start]
+        .kind()
+        .mode()
+        .unwrap_or(TokenMode::Code);
 
     // Check if the children / child has the right type.
     let same_kind = match policy {
@@ -248,8 +276,22 @@ fn check_invariants(
     ok
 }
 
+/// Create a new span by specifying a span in which a modification happened
+/// and how many characters are now in that span.
+fn inserted_span(mut source: Span, other: Span, n: usize) -> Span {
+    if !source.surrounds(other) {
+        panic!();
+    }
+
+    let len_change = n as i64 - other.len() as i64;
+    source.end = (source.end as i64 + len_change) as usize;
+    source
+}
+
 impl NodeKind {
-    pub fn reparsing_function(
+    /// Return the correct reparsing function given the postconditions for the
+    /// type.
+    fn reparsing_function(
         &self,
         parent_mode: TokenMode,
     ) -> (
@@ -257,7 +299,7 @@ impl NodeKind {
         Postcondition,
     ) {
         let policy = self.post();
-        let mode = self.mode().contextualize(parent_mode);
+        let mode = self.mode().unwrap_or(parent_mode);
 
         match policy {
             Postcondition::Unsafe | Postcondition::UnsafeLayer => (Err(()), policy),
@@ -433,35 +475,10 @@ impl NodeKind {
     }
 }
 
-/// This enum describes what conditions a node has for being replaced by a new
-/// parse result.
+/// The conditions that a node has to fulfill in order to be replaced.
 ///
-/// Safe nodes are replaced by the new parse result from the respective mode.
-/// They can be replaced by multiple tokens. If a token is inserted in Markup
-/// mode and the next token would not be `at_start` there needs to be a forward
-/// check for a `EnsureAtStart` node. If this fails, the parent has to be
-/// reparsed. if the direct whitespace sibling of a `EnsureRightWhitespace` is
-/// `Unsafe`. Similarly, if a `EnsureRightWhitespace` token is one of the last
-/// tokens to be inserted, the edit is invalidated if there is no following
-/// whitespace. The atomic nodes may only be replaced by other atomic nodes. The
-/// unsafe layers cannot be used but allow children access, the unsafe nodes do
-/// neither.
-///
-/// *Procedure:*
-/// 1. Check if the node is safe - if unsafe layer recurse, if unsafe, return
-///    None.
-/// 2. Reparse with appropriate node kind and `at_start`.
-/// 3. Check whether the topmost group is terminated and the range was
-///    completely consumed, otherwise return None.
-/// 4. Check if the type criteria are met.
-/// 5. If the node is not at the end of the tree, check if Strings etc. are
-///    terminated.
-/// 6. If this is markup, check the following things:
-///   - The `at_start` conditions of the next non-comment and non-space(0) node
-///     are met.
-///   - The first node is whitespace or the previous siblings are not
-///     `EnsureRightWhitespace`.
-///   - If any of those fails, return None.
+/// This can dictate if a node can be replaced at all and if yes, what can take
+/// its place.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Postcondition {
     /// Changing this node can never have an influence on the other nodes.
@@ -481,6 +498,11 @@ pub enum Postcondition {
     Unsafe,
 }
 
+/// The conditions under which a node can be inserted or remain in a tree.
+///
+/// These conditions all search the neighbors of the node and see if its
+/// existence is plausible with them present. This can be used to encode some
+/// context-free language components for incremental parsing.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Precondition {
     /// These nodes depend on being at the start of a line. Reparsing of safe
@@ -511,5 +533,129 @@ impl Postcondition {
             Self::SameKind(tm) => tm.map_or(false, |tm| tm != TokenMode::Markup),
             _ => false,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::parse::parse;
+    use crate::source::SourceFile;
+
+    use super::*;
+
+    #[test]
+    fn test_incremental_parse() {
+        #[track_caller]
+        fn test(prev: &str, range: Range<usize>, with: &str, incr: Range<usize>) {
+            let mut source = SourceFile::detached(prev);
+            let range = source.edit(range, with);
+            assert_eq!(range, incr);
+
+            let incr_tree = source.root();
+            assert_eq!(parse(source.src()), incr_tree);
+        }
+
+        // Test simple replacements.
+        test("hello world", 6 .. 11, "wankers", 5 .. 13);
+        test("a d e", 1 .. 3, " b c d", 0 .. 8);
+        test("a #f() e", 1 .. 6, " b c d", 0 .. 8);
+        test("{(0, 1, 2)}", 5 .. 6, "11pt", 5 .. 9);
+        test("= A heading", 3 .. 3, "n evocative", 2 .. 15);
+        test("your thing", 5 .. 5, "a", 4 .. 11);
+        test("a your thing a", 6 .. 7, "a", 2 .. 12);
+        test("{call(); abc}", 7 .. 7, "[]", 0 .. 15);
+        test("#call() abc", 7 .. 7, "[]", 0 .. 13);
+        // test(
+        //     "hi\n- item\n- item 2\n    - item 3",
+        //     10 .. 10,
+        //     "  ",
+        //     9 .. 33,
+        // );
+        test(
+            "#grid(columns: (auto, 1fr, 40%), [*plonk*], rect(width: 100%, height: 1pt, fill: conifer), [thing])",
+            16 .. 20,
+            "none",
+            16 .. 20,
+        );
+        test(
+            "#grid(columns: (auto, 1fr, 40%), [*plonk*], rect(width: 100%, height: 1pt, fill: conifer), [thing])",
+            33 .. 42,
+            "[_gronk_]",
+            33 .. 42,
+        );
+        test(
+            "#grid(columns: (auto, 1fr, 40%), [*plonk*], rect(width: 100%, height: 1pt, fill: conifer), [thing])",
+            34 .. 41,
+            "_bar_",
+            34 .. 39,
+        );
+        test("{let i=1; for x in range(5) {i}}", 6 .. 6, " ", 1 .. 9);
+        test("{let i=1; for x in range(5) {i}}", 13 .. 14, "  ", 13 .. 15);
+        test("hello {x}", 6 .. 9, "#f()", 5 .. 10);
+        test(
+            "this is -- in my opinion -- spectacular",
+            8 .. 10,
+            "---",
+            7 .. 12,
+        );
+        test(
+            "understanding `code` is complicated",
+            15 .. 15,
+            "C ",
+            14 .. 22,
+        );
+        test("{ let x = g() }", 10 .. 12, "f(54", 0 .. 17);
+        test(
+            "a #let rect with (fill: eastern)\nb",
+            16 .. 31,
+            " (stroke: conifer",
+            2 .. 34,
+        );
+
+        // Test the whitespace invariants.
+        test("hello \\ world", 7 .. 8, "a ", 6 .. 14);
+        test("hello \\ world", 7 .. 8, " a", 6 .. 14);
+        test("x = y", 1 .. 1, " + y", 0 .. 6);
+        test("x = y", 1 .. 1, " + y\n", 0 .. 10);
+        test("abc\n= a heading\njoke", 3 .. 4, "\nmore\n\n", 0 .. 21);
+        test("abc\n= a heading\njoke", 3 .. 4, "\nnot ", 0 .. 19);
+        test("hey #myfriend", 4 .. 4, "\\", 0 .. 14);
+        test("hey  #myfriend", 4 .. 4, "\\", 3 .. 6);
+
+        // Test type invariants.
+        test("a #for x in array {x}", 18 .. 21, "[#x]", 2 .. 22);
+        test("a #let x = 1 {5}", 3 .. 6, "if", 0 .. 15);
+        test("a {let x = 1 {5}} b", 3 .. 6, "if", 2 .. 16);
+        test("#let x = 1 {5}", 4 .. 4, " if", 0 .. 17);
+        test("{let x = 1 {5}}", 4 .. 4, " if", 0 .. 18);
+        test("a // b c #f()", 3 .. 4, "", 0 .. 12);
+        test("{\nf()\n//g(a)\n}", 6 .. 8, "", 0 .. 12);
+        test("a{\nf()\n//g(a)\n}b", 7 .. 9, "", 1 .. 13);
+        test("a #while x {\n g(x) \n}  b", 11 .. 11, "//", 0 .. 26);
+        test("{(1, 2)}", 1 .. 1, "while ", 0 .. 14);
+        test("a b c", 1 .. 1, "{[}", 0 .. 5);
+
+        // Test unclosed things.
+        test(r#"{"hi"}"#, 4 .. 5, "c", 0 .. 6);
+        test(r"this \u{abcd}", 8 .. 9, "", 5 .. 12);
+        test(r"this \u{abcd} that", 12 .. 13, "", 0 .. 17);
+        test(r"{{let x = z}; a = 1} b", 6 .. 6, "//", 0 .. 24);
+        test("a b c", 1 .. 1, " /* letters */", 0 .. 16);
+        test("a b c", 1 .. 1, " /* letters", 0 .. 16);
+        test(
+            "{if i==1 {a} else [b]; b()}",
+            12 .. 12,
+            " /* letters */",
+            1 .. 35,
+        );
+        test(
+            "{if i==1 {a} else [b]; b()}",
+            12 .. 12,
+            " /* letters",
+            0 .. 38,
+        );
+
+        test(r#"a ```typst hello``` b"#, 16 .. 17, "", 0 .. 20);
+        test(r#"a ```typst hello```"#, 16 .. 17, "", 2 .. 18);
     }
 }

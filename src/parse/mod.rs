@@ -1,10 +1,12 @@
 //! Parsing and tokenization.
 
+mod incremental;
 mod parser;
 mod resolve;
 mod scanner;
 mod tokens;
 
+pub use incremental::*;
 pub use parser::*;
 pub use resolve::*;
 pub use scanner::*;
