@@ -552,9 +552,10 @@ impl<'a> GridLayouter<'a> {
         let mut size = self.used;
         if !self.fr.is_zero() && self.full.is_finite() {
             size.h = self.full;
+            self.cts.exact.y = Some(self.full);
+        } else {
+            self.cts.min.y = Some(size.h);
         }
-
-        self.cts.min.y = Some(size.h);
 
         // The frame for the region.
         let mut output = Frame::new(size, size.h);
