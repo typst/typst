@@ -85,13 +85,14 @@ impl Reparser<'_> {
         parent_mode: TokenMode,
         mut outermost: bool,
     ) -> Option<Range<usize>> {
-        let kind = green.kind().clone();
-        let mode = kind.mode().unwrap_or(parent_mode);
+        let mode = green.kind().mode().unwrap_or(parent_mode);
+        let child_mode = green.kind().mode().unwrap_or(TokenMode::Code);
+        let child_count = green.children().len();
 
-        let mut child_at_start = true;
-        let last = green.children().len().saturating_sub(1);
-        let mut start = None;
+        let mut first = None;
+        let mut at_start = true;
 
+        // Find the the first child in the range of children to reparse.
         for (i, child) in green.children_mut().iter_mut().enumerate() {
             let child_span = offset .. offset + child.len();
 
@@ -104,18 +105,19 @@ impl Reparser<'_> {
                 || (mode == TokenMode::Markup
                     && self.replace_range.start == child_span.end)
             {
-                start = Some((i, offset));
+                first = Some((i, offset));
                 break;
             }
 
             offset += child.len();
-            child_at_start = child.kind().is_at_start(child_at_start);
+            at_start = child.kind().is_at_start(at_start);
         }
 
-        let (start_idx, start_offset) = start?;
-        let mut end = None;
+        let (first_idx, first_start) = first?;
+        let mut last = None;
 
-        for (i, child) in green.children_mut().iter_mut().enumerate().skip(start_idx) {
+        // Find the the last child in the range of children to reparse.
+        for (i, child) in green.children_mut().iter_mut().enumerate().skip(first_idx) {
             let child_span = offset .. offset + child.len();
 
             // Similarly to above, the end of the edit must be in the node but
@@ -123,35 +125,35 @@ impl Reparser<'_> {
             // neighbor!
             if child_span.contains(&self.replace_range.end)
                 || self.replace_range.end == child_span.end
-                    && (mode != TokenMode::Markup || i == last)
+                    && (mode != TokenMode::Markup || i + 1 == child_count)
             {
-                outermost &= i == last;
-                end = Some(i);
+                outermost &= i + 1 == child_count;
+                last = Some((i, offset + child.len()));
                 break;
-            } else if mode != TokenMode::Markup || !child.kind().post().markup_safe() {
+            } else if mode != TokenMode::Markup || !child.kind().post().safe_in_markup() {
                 break;
             }
 
             offset += child.len();
         }
 
-        let end = end?;
-        let child_idx_range = start_idx .. end + 1;
-        let child_span = start_offset .. offset + green.children()[end].len();
-        let child_kind = green.children()[end].kind().clone();
+        let (last_idx, last_end) = last?;
+        let children_range = first_idx .. last_idx + 1;
+        let children_span = first_start .. last_end;
+        let last_kind = green.children()[last_idx].kind().clone();
 
-        if child_idx_range.len() == 1 {
-            let idx = child_idx_range.start;
-            let child = &mut green.children_mut()[idx];
+        // First, we try if the child itself has another, more specific
+        // applicable child.
+        if children_range.len() == 1 {
+            let child = &mut green.children_mut()[children_range.start];
             let prev_len = child.len();
 
-            // First, we try if the child has another, more specific applicable child.
-            if !child_kind.post().unsafe_interior() {
+            if last_kind.post() != Postcondition::Unsafe {
                 if let Some(range) = match child {
-                    Green::Node(n) => self.reparse_step(
-                        Rc::make_mut(n),
-                        start_offset,
-                        kind.mode().unwrap_or(TokenMode::Code),
+                    Green::Node(node) => self.reparse_step(
+                        Rc::make_mut(node),
+                        first_start,
+                        child_mode,
                         outermost,
                     ),
                     Green::Token(_) => None,
@@ -163,159 +165,147 @@ impl Reparser<'_> {
             }
         }
 
-        debug_assert_ne!(child_idx_range.len(), 0);
-
-        if mode == TokenMode::Code && child_idx_range.len() > 1 {
+        // We only replace multiple children in markup mode.
+        if children_range.len() > 1 && mode == TokenMode::Code {
             return None;
         }
 
         // We now have a child that we can replace and a function to do so.
-        let func =
-            child_kind.reparsing_function(kind.mode().unwrap_or(TokenMode::Code))?;
-        let policy = child_kind.post();
+        let func = last_kind.reparsing_func(child_mode)?;
+        let post = last_kind.post();
 
-        let len_change = self.replace_len as isize - self.replace_range.len() as isize;
-        let mut src_span = child_span;
-        src_span.end = (src_span.end as isize + len_change) as usize;
+        // The span of the to-be-reparsed children in the new source.
+        let replace_span = children_span.start
+            .. children_span.end + self.replace_len - self.replace_range.len();
 
-        let recompile_range = if policy == Postcondition::AtomicPrimary {
-            src_span.start .. self.src.len()
+        // For atomic primaries we need to pass in the whole remaining string to
+        // check whether the parser would eat more stuff illicitly.
+        let reparse_span = if post == Postcondition::AtomicPrimary {
+            replace_span.start .. self.src.len()
         } else {
-            src_span.clone()
+            replace_span.clone()
         };
 
-        let (mut new_children, terminated) =
-            func(&self.src[recompile_range], child_at_start)?;
+        // Do the reparsing!
+        let (mut newborns, terminated) = func(&self.src[reparse_span], at_start)?;
 
-        // Do not accept unclosed nodes if the old node did not use to be at the
-        // right edge of the tree.
+        // Make sure that atomic primaries ate only what they were supposed to.
+        if post == Postcondition::AtomicPrimary {
+            let len = replace_span.len();
+            if newborns.len() > 1 && newborns[0].len() == len {
+                newborns.truncate(1);
+            } else if newborns.iter().map(Green::len).sum::<usize>() != len {
+                return None;
+            }
+        }
+
+        // Do not accept unclosed nodes if the old node wasn't at the right edge
+        // of the tree.
         if !outermost && !terminated {
             return None;
         }
 
-        let insertion = match check_invariants(
-            &new_children,
+        // If all post- and preconditions match, we are good to go!
+        if validate(
             green.children(),
-            child_idx_range.clone(),
-            child_at_start,
+            children_range.clone(),
+            at_start,
+            &newborns,
             mode,
-            src_span.clone(),
-            policy,
+            post,
         ) {
-            InvariantResult::Ok => Some(new_children),
-            InvariantResult::UseFirst => Some(vec![std::mem::take(&mut new_children[0])]),
-            InvariantResult::Error => None,
-        }?;
-
-        green.replace_child_range(child_idx_range, insertion);
-
-        Some(src_span)
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-enum InvariantResult {
-    Ok,
-    UseFirst,
-    Error,
-}
-
-fn check_invariants(
-    use_children: &[Green],
-    old_children: &[Green],
-    child_idx_range: Range<usize>,
-    child_at_start: bool,
-    mode: TokenMode,
-    src_span: Range<usize>,
-    policy: Postcondition,
-) -> InvariantResult {
-    let (new_children, ok) = if policy == Postcondition::AtomicPrimary {
-        if use_children.iter().map(Green::len).sum::<usize>() == src_span.len() {
-            (use_children, InvariantResult::Ok)
-        } else if use_children.len() == 1 && use_children[0].len() == src_span.len() {
-            (&use_children[0 .. 1], InvariantResult::UseFirst)
+            green.replace_child_range(children_range, newborns);
+            Some(replace_span)
         } else {
-            return InvariantResult::Error;
+            None
         }
-    } else {
-        (use_children, InvariantResult::Ok)
-    };
+    }
+}
 
-    let child_mode = old_children[child_idx_range.start].kind().mode().unwrap_or(mode);
+/// Validate that a node replacement is allowed by post- and preconditions.
+fn validate(
+    prev_children: &[Green],
+    children_range: Range<usize>,
+    mut at_start: bool,
+    newborns: &[Green],
+    mode: TokenMode,
+    post: Postcondition,
+) -> bool {
+    // Atomic primaries must only generate one new child.
+    if post == Postcondition::AtomicPrimary && newborns.len() != 1 {
+        return false;
+    }
 
-    // Check if the children / child has the right type.
-    let same_kind = match policy {
-        Postcondition::SameKind(x) => x.map_or(true, |x| x == child_mode),
-        _ => false,
-    };
-
-    if same_kind || policy == Postcondition::AtomicPrimary {
-        if new_children.len() != 1 {
-            return InvariantResult::Error;
-        }
-
-        if same_kind {
-            if old_children[child_idx_range.start].kind() != new_children[0].kind() {
-                return InvariantResult::Error;
-            }
+    // Same kind in mode `inside` must generate only one child and that child
+    // must be of the same kind as previously.
+    if let Postcondition::SameKind(inside) = post {
+        let prev_kind = prev_children[children_range.start].kind();
+        let prev_mode = prev_kind.mode().unwrap_or(mode);
+        if inside.map_or(true, |m| m == prev_mode)
+            && (newborns.len() != 1 || prev_kind != newborns[0].kind())
+        {
+            return false;
         }
     }
 
-    // Check if the neighbor invariants are still true.
-    if mode == TokenMode::Markup {
-        if child_idx_range.start > 0 {
-            if old_children[child_idx_range.start - 1].kind().pre()
-                == Precondition::RightWhitespace
-                && !new_children[0].kind().is_whitespace()
-            {
-                return InvariantResult::Error;
-            }
-        }
+    // Neighbor invariants are only relevant in markup mode.
+    if mode == TokenMode::Code {
+        return true;
+    }
 
-        if new_children.last().map(|x| x.kind().pre())
-            == Some(Precondition::RightWhitespace)
-            && old_children.len() > child_idx_range.end
-        {
-            if !old_children[child_idx_range.end].kind().is_whitespace() {
-                return InvariantResult::Error;
-            }
-        }
+    // Ensure that a possible right-whitespace precondition of a node before the
+    // replacement range is satisfied.
+    if children_range.start > 0
+        && prev_children[children_range.start - 1].kind().pre()
+            == Precondition::RightWhitespace
+        && !newborns[0].kind().is_whitespace()
+    {
+        return false;
+    }
 
-        let mut post_at_start = child_at_start;
-        for child in new_children {
-            post_at_start = child.kind().is_at_start(post_at_start);
-        }
+    // Ensure that a possible right-whitespace precondition of a new node at the
+    // end of the replacement range is satisfied.
+    if newborns.last().map(|x| x.kind().pre()) == Some(Precondition::RightWhitespace)
+        && children_range.end < prev_children.len()
+        && !prev_children[children_range.end].kind().is_whitespace()
+    {
+        return false;
+    }
 
-        for child in &old_children[child_idx_range.end ..] {
-            if child.kind().is_trivia() {
-                post_at_start = child.kind().is_at_start(post_at_start);
-                continue;
-            }
+    // Compute the at_start state behind the new children.
+    for child in newborns {
+        at_start = child.kind().is_at_start(at_start);
+    }
 
+    // Ensure that a possible at-start or not-at-start precondition of
+    // a node after the replacement range is satisfied.
+    for child in &prev_children[children_range.end ..] {
+        if !child.kind().is_trivia() {
             let pre = child.kind().pre();
-            if pre == Precondition::AtStart && !post_at_start
-                || pre == Precondition::NotAtStart && post_at_start
+            if (pre == Precondition::AtStart && !at_start)
+                || (pre == Precondition::NotAtStart && at_start)
             {
-                return InvariantResult::Error;
+                return false;
             }
+
             break;
         }
+
+        at_start = child.kind().is_at_start(at_start);
     }
 
-    ok
+    true
 }
 
 impl NodeKind {
     /// Return the correct reparsing function given the postconditions for the
     /// type.
-    fn reparsing_function(
+    fn reparsing_func(
         &self,
         parent_mode: TokenMode,
     ) -> Option<fn(&str, bool) -> Option<(Vec<Green>, bool)>> {
-        let policy = self.post();
         let mode = self.mode().unwrap_or(parent_mode);
-
-        match policy {
+        match self.post() {
             Postcondition::Unsafe | Postcondition::UnsafeLayer => None,
             Postcondition::AtomicPrimary if mode == TokenMode::Code => Some(parse_atomic),
             Postcondition::AtomicPrimary => Some(parse_atomic_markup),
@@ -393,6 +383,7 @@ impl NodeKind {
             // changes the next layer.
             Self::EnumNumbering(_) => Postcondition::Unsafe,
 
+            // This can be anything, so we don't make any promises.
             Self::Error(_, _) | Self::Unknown(_) => Postcondition::Unsafe,
 
             // These are complex expressions which may screw with their
@@ -485,17 +476,11 @@ impl NodeKind {
 }
 
 impl Postcondition {
-    pub fn unsafe_interior(&self) -> bool {
-        match self {
-            Self::Unsafe => true,
-            _ => false,
-        }
-    }
-
-    pub fn markup_safe(&self) -> bool {
+    /// Whether a node with this condition can be reparsed in markup mode.
+    pub fn safe_in_markup(&self) -> bool {
         match self {
             Self::Safe | Self::UnsafeLayer => true,
-            Self::SameKind(tm) => tm.map_or(false, |tm| tm != TokenMode::Markup),
+            Self::SameKind(mode) => mode.map_or(false, |m| m != TokenMode::Markup),
             _ => false,
         }
     }
@@ -503,22 +488,19 @@ impl Postcondition {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::parse::parse;
     use crate::source::SourceFile;
-
-    use super::*;
 
     #[test]
     #[rustfmt::skip]
     fn test_incremental_parse() {
         #[track_caller]
-        fn test(prev: &str, range: Range<usize>, with: &str, incr: Range<usize>) {
+        fn test(prev: &str, range: Range<usize>, with: &str, goal: Range<usize>) {
             let mut source = SourceFile::detached(prev);
             let range = source.edit(range, with);
-            assert_eq!(range, incr);
-
-            let incr_tree = source.root().clone();
-            assert_eq!(parse(source.src()), incr_tree);
+            assert_eq!(range, goal);
+            assert_eq!(parse(source.src()), *source.root());
         }
 
         // Test simple replacements.
@@ -542,7 +524,7 @@ mod tests {
         test("hello {x}", 6 .. 9, "#f()", 5 .. 10);
         test("this is -- in my opinion -- spectacular", 8 .. 10, "---", 7 .. 12);
         test("understanding `code` is complicated", 15 .. 15, "C ", 14 .. 22);
-        test("{ let x = g() }", 10 .. 12, "f(54", 0 .. 17);
+        test("{ let x = g() }", 10 .. 12, "f(54", 2 .. 15);
         test("a #let rect with (fill: eastern)\nb", 16 .. 31, " (stroke: conifer", 2 .. 34);
 
         // Test the whitespace invariants.
@@ -578,6 +560,7 @@ mod tests {
         test("{if i==1 {a} else [b]; b()}", 12 .. 12, " /* letters */", 1 .. 35);
         test("{if i==1 {a} else [b]; b()}", 12 .. 12, " /* letters", 0 .. 38);
 
+        // Test raw tokens.
         test(r#"a ```typst hello``` b"#, 16 .. 17, "", 0 .. 20);
         test(r#"a ```typst hello```"#, 16 .. 17, "", 2 .. 18);
     }
