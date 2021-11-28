@@ -12,7 +12,7 @@ use crate::diag::TypResult;
 use crate::loading::{FileHash, Loader};
 use crate::parse::{is_newline, parse, Reparser, Scanner};
 use crate::syntax::ast::Markup;
-use crate::syntax::{self, Category, GreenNode, RedNode, Span};
+use crate::syntax::{self, Category, GreenNode, RedNode};
 use crate::util::PathExt;
 
 #[cfg(feature = "codespan-reporting")]
@@ -265,7 +265,8 @@ impl SourceFile {
 
     /// Edit the source file by replacing the given range.
     ///
-    /// This panics if the `replace` range is out of bounds.
+    /// Returns the range of the section in the new source that was ultimately
+    /// reparsed. The method panics if the `replace` range is out of bounds.
     pub fn edit(&mut self, replace: Range<usize>, with: &str) -> Range<usize> {
         let start = replace.start;
         self.src.replace_range(replace.clone(), with);
@@ -284,9 +285,8 @@ impl SourceFile {
             .extend(newlines(&self.src[start ..]).map(|idx| start + idx));
 
         // Update the root node.
-        let span = Span::new(self.id, replace.start, replace.end);
-        let reparser = Reparser::new(&self.src, span, with.len());
-        if let Ok(range) = reparser.reparse(Rc::make_mut(&mut self.root)) {
+        let reparser = Reparser::new(&self.src, replace, with.len());
+        if let Some(range) = reparser.reparse(Rc::make_mut(&mut self.root)) {
             range
         } else {
             self.root = parse(&self.src);
@@ -301,12 +301,6 @@ impl SourceFile {
     {
         let red = RedNode::from_root(self.root.clone(), self.id);
         syntax::highlight(red.as_ref(), range, &mut f)
-    }
-
-    /// Obtain a reference to the source's root green node.
-    #[cfg(test)]
-    pub(crate) fn root(&self) -> Rc<GreenNode> {
-        self.root.clone()
     }
 }
 

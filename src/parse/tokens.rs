@@ -13,7 +13,7 @@ use crate::util::EcoString;
 pub struct Tokens<'s> {
     s: Scanner<'s>,
     mode: TokenMode,
-    has_unterminated: bool,
+    was_terminated: bool,
 }
 
 /// What kind of tokens to emit.
@@ -32,7 +32,7 @@ impl<'s> Tokens<'s> {
         Self {
             s: Scanner::new(src),
             mode,
-            has_unterminated: false,
+            was_terminated: true,
         }
     }
 
@@ -69,10 +69,10 @@ impl<'s> Tokens<'s> {
         self.s
     }
 
-    /// Whether the last token was unterminated.
+    /// Whether the last token was terminated.
     #[inline]
-    pub fn was_unterminated(&self) -> bool {
-        self.has_unterminated
+    pub fn was_terminated(&self) -> bool {
+        self.was_terminated
     }
 }
 
@@ -259,7 +259,7 @@ impl<'s> Tokens<'s> {
                             )
                         }
                     } else {
-                        self.has_unterminated = true;
+                        self.was_terminated = false;
                         NodeKind::Error(
                             ErrorPos::End,
                             "expected closing brace".into(),
@@ -358,7 +358,7 @@ impl<'s> Tokens<'s> {
             let remaining = backticks - found;
             let noun = if remaining == 1 { "backtick" } else { "backticks" };
 
-            self.has_unterminated = true;
+            self.was_terminated = false;
             NodeKind::Error(
                 ErrorPos::End,
                 if found == 0 {
@@ -406,7 +406,7 @@ impl<'s> Tokens<'s> {
                 display,
             }))
         } else {
-            self.has_unterminated = true;
+            self.was_terminated = false;
             NodeKind::Error(
                 ErrorPos::End,
                 if !display || (!escaped && dollar) {
@@ -495,7 +495,7 @@ impl<'s> Tokens<'s> {
         if self.s.eat_if('"') {
             NodeKind::Str(string)
         } else {
-            self.has_unterminated = true;
+            self.was_terminated = false;
             NodeKind::Error(ErrorPos::End, "expected quote".into())
         }
     }
@@ -503,7 +503,7 @@ impl<'s> Tokens<'s> {
     fn line_comment(&mut self) -> NodeKind {
         self.s.eat_until(is_newline);
         if self.s.peek().is_none() {
-            self.has_unterminated = true;
+            self.was_terminated = false;
         }
         NodeKind::LineComment
     }
@@ -511,7 +511,7 @@ impl<'s> Tokens<'s> {
     fn block_comment(&mut self) -> NodeKind {
         let mut state = '_';
         let mut depth = 1;
-        let mut terminated = false;
+        self.was_terminated = false;
 
         // Find the first `*/` that does not correspond to a nested `/*`.
         while let Some(c) = self.s.eat() {
@@ -519,7 +519,7 @@ impl<'s> Tokens<'s> {
                 ('*', '/') => {
                     depth -= 1;
                     if depth == 0 {
-                        terminated = true;
+                        self.was_terminated = true;
                         break;
                     }
                     '_'
@@ -530,10 +530,6 @@ impl<'s> Tokens<'s> {
                 }
                 _ => c,
             }
-        }
-
-        if !terminated {
-            self.has_unterminated = true;
         }
 
         NodeKind::BlockComment

@@ -64,7 +64,7 @@ pub fn parse_markup_elements(
 /// Parse a template literal. Returns `Some` if all of the input was consumed.
 pub fn parse_template(source: &str, _: bool) -> Option<(Vec<Green>, bool)> {
     let mut p = Parser::new(source, TokenMode::Code);
-    if !matches!(p.peek(), Some(NodeKind::LeftBracket)) {
+    if !p.at(&NodeKind::LeftBracket) {
         return None;
     }
 
@@ -75,7 +75,7 @@ pub fn parse_template(source: &str, _: bool) -> Option<(Vec<Green>, bool)> {
 /// Parse a code block. Returns `Some` if all of the input was consumed.
 pub fn parse_block(source: &str, _: bool) -> Option<(Vec<Green>, bool)> {
     let mut p = Parser::new(source, TokenMode::Code);
-    if !matches!(p.peek(), Some(NodeKind::LeftBrace)) {
+    if !p.at(&NodeKind::LeftBrace) {
         return None;
     }
 
@@ -252,14 +252,14 @@ fn expr_prec(p: &mut Parser, atomic: bool, min_prec: usize) -> ParseResult {
     let marker = p.marker();
 
     // Start the unary expression.
-    match (!atomic).then(|| p.peek().and_then(UnOp::from_token)).flatten() {
-        Some(op) => {
+    match p.peek().and_then(UnOp::from_token) {
+        Some(op) if !atomic => {
             p.eat();
             let prec = op.precedence();
             expr_prec(p, atomic, prec)?;
             marker.end(p, NodeKind::Unary);
         }
-        None => primary(p, atomic)?,
+        _ => primary(p, atomic)?,
     };
 
     loop {

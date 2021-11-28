@@ -22,7 +22,7 @@ pub struct Parser<'s> {
     /// The children of the currently built node.
     children: Vec<Green>,
     /// Whether the last group was terminated.
-    last_group_terminated: bool,
+    last_terminated: bool,
 }
 
 impl<'s> Parser<'s> {
@@ -38,7 +38,7 @@ impl<'s> Parser<'s> {
             current_start: 0,
             groups: vec![],
             children: vec![],
-            last_group_terminated: true,
+            last_terminated: true,
         }
     }
 
@@ -50,7 +50,7 @@ impl<'s> Parser<'s> {
     /// End the parsing process and return multiple children.
     pub fn eject(self) -> Option<(Vec<Green>, bool)> {
         if self.eof() && self.group_success() {
-            Some((self.children, self.tokens.was_unterminated()))
+            Some((self.children, self.tokens.was_terminated()))
         } else {
             None
         }
@@ -99,7 +99,7 @@ impl<'s> Parser<'s> {
     /// remains stuff in the string.
     pub fn eject_partial(self) -> Option<(Vec<Green>, bool)> {
         self.group_success()
-            .then(|| (self.children, self.tokens.was_unterminated()))
+            .then(|| (self.children, self.tokens.was_terminated()))
     }
 
     /// Whether the end of the source string or group is reached.
@@ -244,7 +244,7 @@ impl<'s> Parser<'s> {
         let group = self.groups.pop().expect("no started group");
         self.tokens.set_mode(group.prev_mode);
         self.repeek();
-        self.last_group_terminated = true;
+        self.last_terminated = true;
 
         let mut rescan = self.tokens.mode() != group_mode;
 
@@ -263,7 +263,7 @@ impl<'s> Parser<'s> {
                 rescan = false;
             } else if required {
                 self.push_error(format_eco!("expected {}", end));
-                self.last_group_terminated = false;
+                self.last_terminated = false;
             }
         }
 
@@ -283,7 +283,7 @@ impl<'s> Parser<'s> {
 
     /// Check if the group processing was successfully terminated.
     pub fn group_success(&self) -> bool {
-        self.last_group_terminated && self.groups.is_empty()
+        self.last_terminated && self.groups.is_empty()
     }
 
     /// Low-level bump that consumes exactly one token without special trivia

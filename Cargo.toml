@@ -61,7 +61,6 @@ walkdir = "2"
 # Dependencies updates:
 # - Bump ttf-parser when rustybuzz is updated
 # - Bump usvg and resvg in conjunction with svg2pdf
-criterion = "0.3"
 
 [[bin]]
 name = "typst"
@@ -75,9 +74,4 @@ harness = false
 [[bench]]
 name = "oneshot"
 path = "benches/oneshot.rs"
-harness = false
-
-[[bench]]
-name = "timed"
-path = "benches/timed.rs"
 harness = false

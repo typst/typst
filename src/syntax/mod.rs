@@ -48,15 +48,6 @@ impl Green {
         self.data().len()
     }
 
-    /// Set the length of the node.
-    pub fn set_len(&mut self, len: usize) {
-        let data = match self {
-            Self::Node(node) => &mut Rc::make_mut(node).data,
-            Self::Token(data) => data,
-        };
-        data.set_len(len);
-    }
-
     /// Whether the node or its children contain an error.
     pub fn erroneous(&self) -> bool {
         match self {
@@ -139,11 +130,6 @@ impl GreenNode {
         &self.children
     }
 
-    /// The node's children, mutably.
-    pub fn children_mut(&mut self) -> &mut [Green] {
-        &mut self.children
-    }
-
     /// The node's metadata.
     pub fn data(&self) -> &GreenData {
         &self.data
@@ -159,10 +145,15 @@ impl GreenNode {
         self.data().len()
     }
 
+    /// The node's children, mutably.
+    pub(crate) fn children_mut(&mut self) -> &mut [Green] {
+        &mut self.children
+    }
+
     /// Replaces a range of children with some replacement.
     ///
     /// This method updates the `erroneous` and `data.len` fields.
-    pub fn replace_child_range(
+    pub(crate) fn replace_child_range(
         &mut self,
         child_idx_range: Range<usize>,
         replacement: Vec<Green>,
@@ -187,12 +178,12 @@ impl GreenNode {
         self.erroneous = self.erroneous || replacement.iter().any(Green::erroneous);
 
         self.children.splice(child_idx_range, replacement);
-        self.data.set_len(self.data.len + new_len - old_len);
+        self.data.len = self.data.len + new_len - old_len;
     }
 
     /// Update the length of this node given the old and new length of a
     /// replaced child.
-    pub fn update_child_len(&mut self, new_len: usize, old_len: usize) {
+    pub(crate) fn update_child_len(&mut self, new_len: usize, old_len: usize) {
         self.data.len = self.data.len() + new_len - old_len;
         self.erroneous = self.children.iter().any(|x| x.erroneous());
     }
@@ -246,11 +237,6 @@ impl GreenData {
     pub fn len(&self) -> usize {
         self.len
     }
-
-    /// Set the length of the node.
-    pub fn set_len(&mut self, len: usize) {
-        self.len = len;
-    }
 }
 
 impl From<GreenData> for Green {
@@ -261,7 +247,7 @@ impl From<GreenData> for Green {
 
 impl Debug for GreenData {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{:?}: {}", self.kind, self.len)
+        write!(f, "{:?}: {}", &self.kind, self.len)
     }
 }
 
@@ -373,11 +359,6 @@ impl<'a> RedRef<'a> {
     /// The span of the node.
     pub fn span(self) -> Span {
         Span::new(self.id, self.offset, self.offset + self.green.len())
-    }
-
-    /// Whether the node or its children contain an error.
-    pub fn erroneous(self) -> bool {
-        self.green.erroneous()
     }
 
     /// The error messages for this node and its descendants.
@@ -731,19 +712,12 @@ impl NodeKind {
 
     /// Whether this is whitespace.
     pub fn is_whitespace(&self) -> bool {
-        match self {
-            Self::Space(_) | Self::Parbreak => true,
-            _ => false,
-        }
+        matches!(self, Self::Space(_) | Self::Parbreak)
     }
 
     /// Whether this is trivia.
     pub fn is_trivia(&self) -> bool {
-        match self {
-            _ if self.is_whitespace() => true,
-            Self::LineComment | Self::BlockComment => true,
-            _ => false,
-        }
+        self.is_whitespace() || matches!(self, Self::LineComment | Self::BlockComment)
     }
 
     /// Whether this is some kind of error.
@@ -765,7 +739,6 @@ impl NodeKind {
     pub fn mode(&self) -> Option<TokenMode> {
         match self {
             Self::Markup
-            | Self::Space(_)
             | Self::Linebreak
             | Self::Parbreak
             | Self::Text(_)
@@ -783,6 +756,7 @@ impl NodeKind {
             | Self::Raw(_)
             | Self::Math(_) => Some(TokenMode::Markup),
             Self::Template
+            | Self::Space(_)
             | Self::Block
             | Self::Ident(_)
             | Self::LetExpr
