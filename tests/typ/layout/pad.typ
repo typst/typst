@@ -11,7 +11,7 @@
   )
 )
 
-Hi #pad(left: 10pt)[A] there
+Hi #box(pad(left: 10pt)[A]) there
 
 ---
 // Pad can grow.

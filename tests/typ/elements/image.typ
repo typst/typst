@@ -27,12 +27,12 @@
 // Test all three fit modes.
 #page(height: 50pt, margins: 0pt)
 #grid(
-  columns: 3,
+  columns: (1fr, 1fr, 1fr),
   rows: 100%,
   gutter: 3pt,
-  image("../../res/tiger.jpg", fit: "contain"),
-  image("../../res/tiger.jpg", fit: "cover"),
-  image("../../res/tiger.jpg", fit: "stretch"),
+  image("../../res/tiger.jpg", width: 100%, height: 100%, fit: "contain"),
+  image("../../res/tiger.jpg", width: 100%, height: 100%, fit: "cover"),
+  image("../../res/tiger.jpg", width: 100%, height: 100%, fit: "stretch"),
 )
 
 ---

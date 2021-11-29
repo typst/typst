@@ -10,13 +10,11 @@ pub fn box_(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     })))
 }
 
-/// `block`: Size content and place it into the flow.
+/// `block`: Place content into the flow.
 pub fn block(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let width = args.named("width")?;
-    let height = args.named("height")?;
     let body: Template = args.find().unwrap_or_default();
     Ok(Value::Template(Template::from_block(move |style| {
-        body.pack(style).sized(Spec::new(width, height))
+        body.pack(style)
     })))
 }
 

@@ -15,7 +15,7 @@ pub fn pad(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         bottom.or(all).unwrap_or_default(),
     );
 
-    Ok(Value::Template(Template::from_inline(move |style| {
+    Ok(Value::Template(Template::from_block(move |style| {
         body.pack(style).padded(padding)
     })))
 }

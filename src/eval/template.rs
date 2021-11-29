@@ -151,7 +151,7 @@ impl Template {
 
     /// Pack the template into a layout node.
     pub fn pack(&self, style: &Style) -> PackedNode {
-        if let [TemplateNode::Block(f) | TemplateNode::Inline(f)] = self.0.as_slice() {
+        if let [TemplateNode::Block(f)] = self.0.as_slice() {
             f(style)
         } else {
             let mut builder = Builder::new(style, false);

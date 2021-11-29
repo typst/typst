@@ -10,7 +10,7 @@
 #align(center + horizon, rect(fill: eastern, height: 10pt))
 #align(bottom, stack(
   align(center, rect(fill: conifer, height: 10pt)),
-  rect(fill: forest, height: 10pt),
+  rect(fill: forest, height: 10pt, width: 100%),
 ))
 
 ---
