@@ -119,10 +119,16 @@ impl Layout for ShapeNode {
             // Relayout with full expansion into square region to make sure
             // the result is really a square or circle.
             if self.kind.is_quadratic() {
-                let size = frames[0].item.size;
-                let desired = size.x.max(size.y);
-                let limit = regions.current.x.min(regions.current.y);
-                pod.current = Size::splat(desired.min(limit));
+                let length = if regions.expand.x || regions.expand.y {
+                    let target = regions.expand.select(regions.current, Size::zero());
+                    target.x.max(target.y)
+                } else {
+                    let size = frames[0].item.size;
+                    let desired = size.x.max(size.y);
+                    desired.min(regions.current.x).min(regions.current.y)
+                };
+
+                pod.current = Size::splat(length);
                 pod.expand = Spec::splat(true);
                 frames = child.layout(ctx, &pod);
                 frames[0].cts = Constraints::tight(regions);
@@ -130,27 +136,27 @@ impl Layout for ShapeNode {
         } else {
             // The default size that a shape takes on if it has no child and
             // enough space.
-            let mut default = Size::splat(Length::pt(30.0));
-            if !self.kind.is_quadratic() {
-                default.x *= 1.5;
-            }
-
             let mut size =
-                regions.expand.select(regions.current, default).min(regions.current);
+                Size::new(Length::pt(45.0), Length::pt(30.0)).min(regions.current);
 
-            // Make sure the result is really a square or circle.
             if self.kind.is_quadratic() {
-                size.x = size.x.min(size.y);
-                size.y = size.x;
+                let length = if regions.expand.x || regions.expand.y {
+                    let target = regions.expand.select(regions.current, Size::zero());
+                    target.x.max(target.y)
+                } else {
+                    size.x.min(size.y)
+                };
+                size = Size::splat(length);
+            } else {
+                size = regions.expand.select(regions.current, size);
             }
 
             frames = vec![Frame::new(size).constrain(Constraints::tight(regions))];
         }
 
-        let frame = Rc::make_mut(&mut frames.last_mut().unwrap().item);
-
         // Add fill and/or stroke.
         if self.fill.is_some() || self.stroke.is_some() {
+            let frame = Rc::make_mut(&mut frames[0].item);
             let geometry = match self.kind {
                 ShapeKind::Square | ShapeKind::Rect => Geometry::Rect(frame.size),
                 ShapeKind::Circle | ShapeKind::Ellipse => Geometry::Ellipse(frame.size),
@@ -164,10 +170,6 @@ impl Layout for ShapeNode {
 
             frame.prepend(Point::zero(), Element::Shape(shape));
         }
-
-        // Ensure frame size matches regions size if expansion is on.
-        let target = regions.expand.select(regions.current, frame.size);
-        frame.resize(target, Align::LEFT_TOP);
 
         frames
     }
