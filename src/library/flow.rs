@@ -132,10 +132,6 @@ impl<'a> FlowLayouter<'a> {
     /// Layout all children.
     fn layout(mut self, ctx: &mut LayoutContext) -> Vec<Constrained<Rc<Frame>>> {
         for child in self.children {
-            if self.regions.is_full() {
-                self.finish_region();
-            }
-
             match *child {
                 FlowChild::Spacing(Spacing::Linear(v)) => {
                     self.layout_absolute(v);
@@ -145,6 +141,10 @@ impl<'a> FlowLayouter<'a> {
                     self.fr += v;
                 }
                 FlowChild::Node(ref node) => {
+                    if self.regions.is_full() {
+                        self.finish_region();
+                    }
+
                     self.layout_node(ctx, node);
                 }
             }

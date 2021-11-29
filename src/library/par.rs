@@ -231,8 +231,7 @@ impl<'a> ParLayouter<'a> {
                 }
                 ParChild::Node(ref node) => {
                     let size = Size::new(regions.current.x, regions.base.y);
-                    let expand = Spec::splat(false);
-                    let pod = Regions::one(size, regions.base, expand);
+                    let pod = Regions::one(size, regions.base, Spec::splat(false));
                     let frame = node.layout(ctx, &pod).remove(0);
                     items.push(ParItem::Frame(Rc::take(frame.item)));
                     ranges.push(range);
@@ -288,25 +287,31 @@ impl<'a> ParLayouter<'a> {
             // line cannot be broken up further.
             if !stack.regions.current.fits(line.size) {
                 if let Some((last_line, last_end)) = last.take() {
+                    let fits =
+                        stack.regions.current.zip(line.size).map(|(c, s)| c.fits(s));
+
                     // Since the new line try did not fit, no region that would
                     // fit the line will yield the same line break. Therefore,
                     // the width of the region must not fit the width of the
                     // tried line.
-                    if !stack.regions.current.x.fits(line.size.x) {
+                    if !fits.x {
                         stack.cts.max.x.set_min(line.size.x);
                     }
 
                     // Same as above, but for height.
-                    if !stack.regions.current.y.fits(line.size.y) {
+                    if !fits.y {
                         let too_large = stack.size.y + self.leading + line.size.y;
                         stack.cts.max.y.set_min(too_large);
                     }
 
-                    stack.push(last_line);
-
-                    stack.cts.min.y = Some(stack.size.y);
-                    start = last_end;
-                    line = LineLayout::new(ctx, &self, start .. end);
+                    // Don't start new lines at every opportunity when we are
+                    // overflowing.
+                    if !stack.overflowing || !fits.x {
+                        stack.push(last_line);
+                        stack.cts.min.y = Some(stack.size.y);
+                        start = last_end;
+                        line = LineLayout::new(ctx, &self, start .. end);
+                    }
                 }
             }
 
@@ -322,7 +327,6 @@ impl<'a> ParLayouter<'a> {
                 // below.
                 let too_large = stack.size.y + self.leading + line.size.y;
                 stack.cts.max.y.set_min(too_large);
-
                 stack.finish_region(ctx);
             }
 
@@ -644,12 +648,12 @@ impl<'a> LineStack<'a> {
             output.merge_frame(pos, frame);
         }
 
+        self.cts.base = self.regions.base.map(Some);
         self.finished.push(output.constrain(self.cts));
         self.regions.next();
         self.full = self.regions.current;
-        self.cts = Constraints::new(self.regions.expand);
-        self.cts.base = self.regions.base.map(Some);
         self.size = Size::zero();
+        self.cts = Constraints::new(self.regions.expand);
     }
 
     /// Finish the last region and return the built frames.

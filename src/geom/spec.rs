@@ -85,6 +85,27 @@ impl<T> Spec<T> {
     }
 }
 
+impl<T> Spec<T>
+where
+    T: Ord,
+{
+    /// The component-wise minimum of this and another instance.
+    pub fn min(self, other: Self) -> Self {
+        Self {
+            x: self.x.min(other.x),
+            y: self.y.min(other.y),
+        }
+    }
+
+    /// The component-wise minimum of this and another instance.
+    pub fn max(self, other: Self) -> Self {
+        Self {
+            x: self.x.max(other.x),
+            y: self.y.max(other.y),
+        }
+    }
+}
+
 impl<T> Get<SpecAxis> for Spec<T> {
     type Component = T;
 

@@ -43,7 +43,8 @@ impl Layout for PlacedNode {
         // The pod is the base area of the region because for absolute
         // placement we don't really care about the already used area (current).
         let pod = {
-            let expand = if out_of_flow { Spec::splat(true) } else { regions.expand };
+            let finite = regions.base.map(Length::is_finite);
+            let expand = finite & (regions.expand | out_of_flow);
             Regions::one(regions.base, regions.base, expand)
         };
 

@@ -61,7 +61,7 @@ impl Layout for AlignNode {
             // Set constraints.
             cts.expand = regions.expand;
             cts.base = base.filter(cts.base.map_is_some());
-            cts.exact = current.filter(regions.expand);
+            cts.exact = current.filter(regions.expand | cts.exact.map_is_some());
         }
 
         frames

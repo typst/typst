@@ -1,7 +1,6 @@
 use std::f64::consts::SQRT_2;
 
 use super::prelude::*;
-use crate::util::RcExt;
 
 /// `rect`: A rectangle with optional content.
 pub fn rect(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
@@ -68,7 +67,13 @@ fn shape_impl(
     };
 
     // Shorthand for padding.
-    let padding = Sides::splat(args.named("padding")?.unwrap_or_default());
+    let mut padding = args.named::<Linear>("padding")?.unwrap_or_default();
+
+    // Padding with this ratio ensures that a rectangular child fits
+    // perfectly into a circle / an ellipse.
+    if kind.is_round() {
+        padding.rel += Relative::new(0.5 - SQRT_2 / 4.0);
+    }
 
     // The shape's contents.
     let body = args.find::<Template>();
@@ -78,7 +83,9 @@ fn shape_impl(
             kind,
             fill,
             stroke,
-            child: body.as_ref().map(|body| body.pack(style).padded(padding)),
+            child: body
+                .as_ref()
+                .map(|body| body.pack(style).padded(Sides::splat(padding))),
         }
         .pack()
         .sized(Spec::new(width, height))
@@ -98,84 +105,49 @@ pub struct ShapeNode {
     pub child: Option<PackedNode>,
 }
 
-/// The type of a shape.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum ShapeKind {
-    /// A rectangle with equal side lengths.
-    Square,
-    /// A quadrilateral with four right angles.
-    Rect,
-    /// An ellipse with coinciding foci.
-    Circle,
-    /// A curve around two focal points.
-    Ellipse,
-}
-
 impl Layout for ShapeNode {
     fn layout(
         &self,
         ctx: &mut LayoutContext,
         regions: &Regions,
     ) -> Vec<Constrained<Rc<Frame>>> {
-        // Layout, either with or without child.
-        let mut frame = if let Some(child) = &self.child {
-            let mut node: &dyn Layout = child;
+        let mut frames;
+        if let Some(child) = &self.child {
+            let mut pod = Regions::one(regions.current, regions.base, regions.expand);
+            frames = child.layout(ctx, &pod);
 
-            let storage;
-            if matches!(self.kind, ShapeKind::Circle | ShapeKind::Ellipse) {
-                // Padding with this ratio ensures that a rectangular child fits
-                // perfectly into a circle / an ellipse.
-                let ratio = Relative::new(0.5 - SQRT_2 / 4.0);
-                storage = child.clone().padded(Sides::splat(ratio.into()));
-                node = &storage;
-            }
-
-            // Now, layout the child.
-            let mut frames = node.layout(ctx, regions);
-
-            if matches!(self.kind, ShapeKind::Square | ShapeKind::Circle) {
-                // Relayout with full expansion into square region to make sure
-                // the result is really a square or circle.
+            // Relayout with full expansion into square region to make sure
+            // the result is really a square or circle.
+            if self.kind.is_quadratic() {
                 let size = frames[0].item.size;
-                let mut pod = regions.clone();
-                pod.current.x = size.x.max(size.y).min(pod.current.x);
-                pod.current.y = pod.current.x;
+                let desired = size.x.max(size.y);
+                let limit = regions.current.x.min(regions.current.y);
+                pod.current = Size::splat(desired.min(limit));
                 pod.expand = Spec::splat(true);
-                frames = node.layout(ctx, &pod);
+                frames = child.layout(ctx, &pod);
+                frames[0].cts = Constraints::tight(regions);
+            }
+        } else {
+            // The default size that a shape takes on if it has no child and
+            // enough space.
+            let mut default = Size::splat(Length::pt(30.0));
+            if !self.kind.is_quadratic() {
+                default.x *= 1.5;
             }
 
-            // TODO: What if there are multiple or no frames?
-            // Extract the frame.
-            Rc::take(frames.into_iter().next().unwrap().item)
-        } else {
-            // When there's no child, fill the area if expansion is on,
-            // otherwise fall back to a default size.
-            let default = Length::pt(30.0);
-            let mut size = Size::new(
-                if regions.expand.x {
-                    regions.current.x
-                } else {
-                    // For rectangle and ellipse, the default shape is a bit
-                    // wider than high.
-                    match self.kind {
-                        ShapeKind::Square | ShapeKind::Circle => default,
-                        ShapeKind::Rect | ShapeKind::Ellipse => 1.5 * default,
-                    }
-                },
-                if regions.expand.y { regions.current.y } else { default },
-            );
+            let mut size =
+                regions.expand.select(regions.current, default).min(regions.current);
 
-            // Don't overflow the region.
-            size.x = size.x.min(regions.current.x);
-            size.y = size.y.min(regions.current.y);
-
-            if matches!(self.kind, ShapeKind::Square | ShapeKind::Circle) {
+            // Make sure the result is really a square or circle.
+            if self.kind.is_quadratic() {
                 size.x = size.x.min(size.y);
                 size.y = size.x;
             }
 
-            Frame::new(size)
-        };
+            frames = vec![Frame::new(size).constrain(Constraints::tight(regions))];
+        }
+
+        let frame = Rc::make_mut(&mut frames.last_mut().unwrap().item);
 
         // Add fill and/or stroke.
         if self.fill.is_some() || self.stroke.is_some() {
@@ -194,9 +166,34 @@ impl Layout for ShapeNode {
         }
 
         // Ensure frame size matches regions size if expansion is on.
-        frame.size = regions.expand.select(regions.current, frame.size);
+        let target = regions.expand.select(regions.current, frame.size);
+        frame.resize(target, Align::LEFT_TOP);
 
-        // Return tight constraints for now.
-        vec![frame.constrain(Constraints::tight(regions))]
+        frames
+    }
+}
+
+/// The type of a shape.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum ShapeKind {
+    /// A rectangle with equal side lengths.
+    Square,
+    /// A quadrilateral with four right angles.
+    Rect,
+    /// An ellipse with coinciding foci.
+    Circle,
+    /// A curve around two focal points.
+    Ellipse,
+}
+
+impl ShapeKind {
+    /// Whether the shape is curved.
+    pub fn is_round(self) -> bool {
+        matches!(self, Self::Circle | Self::Ellipse)
+    }
+
+    /// Whether the shape has a fixed 1-1 aspect ratio.
+    pub fn is_quadratic(self) -> bool {
+        matches!(self, Self::Square | Self::Circle)
     }
 }

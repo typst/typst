@@ -552,7 +552,7 @@ impl<'a> GridLayouter<'a> {
             size.y = self.full;
             self.cts.exact.y = Some(self.full);
         } else {
-            self.cts.min.y = Some(size.y);
+            self.cts.min.y = Some(size.y.min(self.full));
         }
 
         // The frame for the region.
@@ -575,11 +575,12 @@ impl<'a> GridLayouter<'a> {
             pos.y += height;
         }
 
+        self.cts.base = self.regions.base.map(Some);
+        self.finished.push(output.constrain(self.cts));
         self.regions.next();
         self.full = self.regions.current.y;
         self.used.y = Length::zero();
         self.fr = Fractional::zero();
-        self.finished.push(output.constrain(self.cts));
         self.cts = Constraints::new(self.expand);
     }
 

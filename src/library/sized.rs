@@ -56,14 +56,18 @@ impl Layout for SizedNode {
         };
 
         let mut frames = self.child.layout(ctx, &pod);
-        let Constrained { cts, .. } = &mut frames[0];
+        let Constrained { item: frame, cts } = &mut frames[0];
+
+        // Ensure frame size matches regions size if expansion is on.
+        let target = regions.expand.select(regions.current, frame.size);
+        Rc::make_mut(frame).resize(target, Align::LEFT_TOP);
 
         // Set base & exact constraints if the child is automatically sized
         // since we don't know what the child might have done. Also set base if
         // our sizing is relative.
         *cts = Constraints::new(regions.expand);
-        cts.exact = regions.current.filter(is_auto);
-        cts.base = regions.base.filter(is_auto | is_rel);
+        cts.exact = regions.current.filter(regions.expand | is_auto);
+        cts.base = regions.base.filter(is_rel | is_auto);
 
         frames
     }

@@ -148,10 +148,6 @@ impl<'a> StackLayouter<'a> {
     /// Layout all children.
     fn layout(mut self, ctx: &mut LayoutContext) -> Vec<Constrained<Rc<Frame>>> {
         for child in &self.stack.children {
-            if self.regions.is_full() {
-                self.finish_region();
-            }
-
             match *child {
                 StackChild::Spacing(Spacing::Linear(v)) => {
                     self.layout_absolute(v);
@@ -161,6 +157,10 @@ impl<'a> StackLayouter<'a> {
                     self.fr += v;
                 }
                 StackChild::Node(ref node) => {
+                    if self.regions.is_full() {
+                        self.finish_region();
+                    }
+
                     self.layout_node(ctx, node);
                 }
             }
