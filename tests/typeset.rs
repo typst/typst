@@ -1,9 +1,10 @@
 use std::env;
 use std::ffi::OsStr;
-use std::fs;
+use std::fs::{self, File};
 use std::path::Path;
 use std::rc::Rc;
 
+use filedescriptor::{FileDescriptor, StdioDescriptor::*};
 use image::{GenericImageView, Rgba};
 use tiny_skia as sk;
 use ttf_parser::{GlyphId, OutlineBuilder};
@@ -298,7 +299,7 @@ fn test_incremental(
 
         ctx.layouts.turnaround();
 
-        let cached = layout(ctx, document);
+        let cached = silenced(|| layout(ctx, document));
         let misses = ctx
             .layouts
             .entries()
@@ -755,4 +756,19 @@ impl LengthExt for Length {
     fn to_f32(self) -> f32 {
         self.to_pt() as f32
     }
+}
+
+/// Disable stdout and stderr during execution of `f`.
+fn silenced<F, T>(f: F) -> T
+where
+    F: FnOnce() -> T,
+{
+    let path = if cfg!(windows) { "NUL" } else { "/dev/null" };
+    let null = File::create(path).unwrap();
+    let stderr = FileDescriptor::redirect_stdio(&null, Stderr).unwrap();
+    let stdout = FileDescriptor::redirect_stdio(&null, Stdout).unwrap();
+    let result = f();
+    FileDescriptor::redirect_stdio(&stderr, Stderr).unwrap();
+    FileDescriptor::redirect_stdio(&stdout, Stdout).unwrap();
+    result
 }

@@ -41,10 +41,11 @@ same-file = { version = "1", optional = true }
 walkdir = { version = "2", optional = true }
 
 [dev-dependencies]
-walkdir = "2"
+filedescriptor = "0.8"
+iai = { git = "https://github.com/reknih/iai" }
 tiny-skia = "0.6"
 usvg = { version = "0.15", default-features = false }
-iai = { git = "https://github.com/reknih/iai" }
+walkdir = "2"
 
 [[bin]]
 name = "typst"
