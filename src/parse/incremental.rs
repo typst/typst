@@ -5,7 +5,7 @@ use crate::syntax::{Green, GreenNode, NodeKind};
 
 use super::{
     parse_atomic, parse_atomic_markup, parse_block, parse_comment, parse_markup,
-    parse_markup_elements, parse_template, TokenMode,
+    parse_markup_elements, parse_template, Scanner, TokenMode,
 };
 
 /// The conditions that a node has to fulfill in order to be replaced.
@@ -40,14 +40,13 @@ pub enum Postcondition {
 pub enum Precondition {
     /// These nodes depend on being at the start of a line. Reparsing of safe
     /// left neighbors has to check this invariant. Otherwise, this node is
-    /// safe.
+    /// safe. Additionally, the indentation of the first right non-trivia,
+    /// non-whitespace sibling must not be greater than the current indentation.
     AtStart,
     /// These nodes depend on not being at the start of a line. Reparsing of
     /// safe left neighbors has to check this invariant. Otherwise, this node is
     /// safe.
     NotAtStart,
-    /// These nodes must be followed by whitespace.
-    RightWhitespace,
     /// No additional requirements.
     None,
 }
@@ -213,6 +212,8 @@ impl Reparser<'_> {
             &newborns,
             mode,
             post,
+            replace_span.clone(),
+            self.src,
         ) {
             green.replace_child_range(children_range, newborns);
             Some(replace_span)
@@ -230,6 +231,8 @@ fn validate(
     newborns: &[Green],
     mode: TokenMode,
     post: Postcondition,
+    replace_span: Range<usize>,
+    src: &str,
 ) -> bool {
     // Atomic primaries must only generate one new child.
     if post == Postcondition::AtomicPrimary && newborns.len() != 1 {
@@ -253,23 +256,37 @@ fn validate(
         return true;
     }
 
-    // Ensure that a possible right-whitespace precondition of a node before the
-    // replacement range is satisfied.
-    if children_range.start > 0
-        && prev_children[children_range.start - 1].kind().pre()
-            == Precondition::RightWhitespace
-        && !newborns[0].kind().is_whitespace()
-    {
-        return false;
-    }
+    // Check if there are any `AtStart` predecessors which require a certain
+    // indentation.
+    let s = Scanner::new(src);
+    let mut prev_pos = replace_span.start;
+    for child in (&prev_children[.. children_range.start]).iter().rev() {
+        prev_pos -= child.len();
+        if !child.kind().is_trivia() {
+            if child.kind().pre() == Precondition::AtStart {
+                let left_col = s.column(prev_pos);
 
-    // Ensure that a possible right-whitespace precondition of a new node at the
-    // end of the replacement range is satisfied.
-    if newborns.last().map(|x| x.kind().pre()) == Some(Precondition::RightWhitespace)
-        && children_range.end < prev_children.len()
-        && !prev_children[children_range.end].kind().is_whitespace()
-    {
-        return false;
+                // Search for the first non-trivia newborn.
+                let mut new_pos = replace_span.start;
+                let mut child_col = None;
+                for child in newborns {
+                    if !child.kind().is_trivia() {
+                        child_col = Some(s.column(new_pos));
+                        break;
+                    }
+
+                    new_pos += child.len();
+                }
+
+                if let Some(child_col) = child_col {
+                    if child_col > left_col {
+                        return false;
+                    }
+                }
+            }
+
+            break;
+        }
     }
 
     // Compute the at_start state behind the new children.
@@ -292,6 +309,37 @@ fn validate(
         }
 
         at_start = child.kind().is_at_start(at_start);
+    }
+
+    // We have to check whether the last non-trivia newborn is `AtStart` and
+    // verify the indent of its right neighbors in order to make sure its
+    // indentation requirements are fulfilled.
+    let mut child_pos = replace_span.end;
+    let mut child_col = None;
+    for child in newborns.iter().rev() {
+        child_pos -= child.len();
+
+        if !child.kind().is_trivia() {
+            if child.kind().pre() == Precondition::AtStart {
+                child_col = Some(s.column(child_pos));
+            }
+            break;
+        }
+    }
+
+    if let Some(child_col) = child_col {
+        let mut right_pos = replace_span.end;
+        for child in &prev_children[children_range.end ..] {
+            if !child.kind().is_trivia() {
+                if s.column(right_pos) > child_col {
+                    return false;
+                }
+
+                break;
+            }
+
+            right_pos += child.len();
+        }
     }
 
     true
@@ -469,7 +517,6 @@ impl NodeKind {
         match self {
             Self::Heading | Self::Enum | Self::List => Precondition::AtStart,
             Self::TextInLine(_) => Precondition::NotAtStart,
-            Self::Linebreak => Precondition::RightWhitespace,
             _ => Precondition::None,
         }
     }
@@ -515,7 +562,8 @@ mod tests {
         test("a your thing a", 6 .. 7, "a", 2 .. 12);
         test("{call(); abc}", 7 .. 7, "[]", 0 .. 15);
         test("#call() abc", 7 .. 7, "[]", 0 .. 10);
-        // test("hi\n- item\n- item 2\n    - item 3", 10 .. 10, "  ", 9 .. 33);
+        test("hi[\n- item\n- item 2\n    - item 3]", 11 .. 11, "  ", 2 .. 35);
+        test("hi\n- item\nno item\n    - item 3", 10 .. 10, "- ", 0 .. 32);
         test("#grid(columns: (auto, 1fr, 40%), [*plonk*], rect(width: 100%, height: 1pt, fill: conifer), [thing])", 16 .. 20, "none", 16 .. 20);
         test("#grid(columns: (auto, 1fr, 40%), [*plonk*], rect(width: 100%, height: 1pt, fill: conifer), [thing])", 33 .. 42, "[_gronk_]", 33 .. 42);
         test("#grid(columns: (auto, 1fr, 40%), [*plonk*], rect(width: 100%, height: 1pt, fill: conifer), [thing])", 34 .. 41, "_bar_", 34 .. 39);
