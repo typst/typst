@@ -12,7 +12,7 @@ use crate::diag::TypResult;
 use crate::loading::{FileHash, Loader};
 use crate::parse::{is_newline, parse, Scanner};
 use crate::syntax::ast::Markup;
-use crate::syntax::{GreenNode, RedNode};
+use crate::syntax::{self, Category, GreenNode, RedNode};
 use crate::util::PathExt;
 
 #[cfg(feature = "codespan-reporting")]
@@ -190,6 +190,11 @@ impl SourceFile {
         self.line_starts.len()
     }
 
+    /// Return the index of the UTF-16 code unit at the byte index.
+    pub fn byte_to_utf16(&self, byte_idx: usize) -> Option<usize> {
+        Some(self.src.get(.. byte_idx)?.chars().map(char::len_utf16).sum())
+    }
+
     /// Return the index of the line that contains the given byte index.
     pub fn byte_to_line(&self, byte_idx: usize) -> Option<usize> {
         (byte_idx <= self.src.len()).then(|| {
@@ -209,6 +214,18 @@ impl SourceFile {
         let start = self.line_to_byte(line)?;
         let head = self.get(start .. byte_idx)?;
         Some(head.chars().count())
+    }
+
+    /// Return the index of the UTF-16 code unit at the byte index.
+    pub fn utf16_to_byte(&self, utf16_idx: usize) -> Option<usize> {
+        let mut k = 0;
+        for (i, c) in self.src.char_indices() {
+            if k >= utf16_idx {
+                return Some(i);
+            }
+            k += c.len_utf16();
+        }
+        (k == utf16_idx).then(|| self.src.len())
     }
 
     /// Return the byte position at which the given line starts.
@@ -260,6 +277,18 @@ impl SourceFile {
         // Recalculate the line starts after the edit.
         self.line_starts
             .extend(newlines(&self.src[start ..]).map(|idx| start + idx));
+
+        // Reparse.
+        self.root = parse(&self.src);
+    }
+
+    /// Provide highlighting categories for the given range of the source file.
+    pub fn highlight<F>(&self, range: Range<usize>, mut f: F)
+    where
+        F: FnMut(Range<usize>, Category),
+    {
+        let red = RedNode::from_root(self.root.clone(), self.id);
+        syntax::highlight(red.as_ref(), range, &mut f)
     }
 }
 
@@ -371,6 +400,27 @@ mod tests {
         assert_eq!(source.byte_to_column(7), Some(0));
         assert_eq!(source.byte_to_column(8), Some(1));
         assert_eq!(source.byte_to_column(12), Some(2));
+    }
+
+    #[test]
+    fn test_source_file_utf16() {
+        #[track_caller]
+        fn roundtrip(source: &SourceFile, byte_idx: usize, utf16_idx: usize) {
+            let middle = source.byte_to_utf16(byte_idx).unwrap();
+            let result = source.utf16_to_byte(middle).unwrap();
+            assert_eq!(middle, utf16_idx);
+            assert_eq!(result, byte_idx);
+        }
+
+        let source = SourceFile::detached(TEST);
+        roundtrip(&source, 0, 0);
+        roundtrip(&source, 2, 1);
+        roundtrip(&source, 3, 2);
+        roundtrip(&source, 8, 7);
+        roundtrip(&source, 12, 9);
+        roundtrip(&source, 21, 18);
+        assert_eq!(source.byte_to_utf16(22), None);
+        assert_eq!(source.utf16_to_byte(19), None);
     }
 
     #[test]

@@ -64,7 +64,7 @@ impl Markup {
             NodeKind::Strong => Some(MarkupNode::Strong),
             NodeKind::Emph => Some(MarkupNode::Emph),
             NodeKind::Text(s) => Some(MarkupNode::Text(s.clone())),
-            NodeKind::UnicodeEscape(c) => Some(MarkupNode::Text((*c).into())),
+            NodeKind::Escape(c) => Some(MarkupNode::Text((*c).into())),
             NodeKind::EnDash => Some(MarkupNode::Text('\u{2013}'.into())),
             NodeKind::EmDash => Some(MarkupNode::Text('\u{2014}'.into())),
             NodeKind::NonBreakingSpace => Some(MarkupNode::Text('\u{00A0}'.into())),
@@ -581,39 +581,46 @@ impl BinOp {
     /// The precedence of this operator.
     pub fn precedence(self) -> usize {
         match self {
-            Self::Mul | Self::Div => 6,
-            Self::Add | Self::Sub => 5,
-            Self::Eq | Self::Neq | Self::Lt | Self::Leq | Self::Gt | Self::Geq => 4,
+            Self::Mul => 6,
+            Self::Div => 6,
+            Self::Add => 5,
+            Self::Sub => 5,
+            Self::Eq => 4,
+            Self::Neq => 4,
+            Self::Lt => 4,
+            Self::Leq => 4,
+            Self::Gt => 4,
+            Self::Geq => 4,
             Self::And => 3,
             Self::Or => 2,
-            Self::Assign
-            | Self::AddAssign
-            | Self::SubAssign
-            | Self::MulAssign
-            | Self::DivAssign => 1,
+            Self::Assign => 1,
+            Self::AddAssign => 1,
+            Self::SubAssign => 1,
+            Self::MulAssign => 1,
+            Self::DivAssign => 1,
         }
     }
 
     /// The associativity of this operator.
     pub fn associativity(self) -> Associativity {
         match self {
-            Self::Add
-            | Self::Sub
-            | Self::Mul
-            | Self::Div
-            | Self::And
-            | Self::Or
-            | Self::Eq
-            | Self::Neq
-            | Self::Lt
-            | Self::Leq
-            | Self::Gt
-            | Self::Geq => Associativity::Left,
-            Self::Assign
-            | Self::AddAssign
-            | Self::SubAssign
-            | Self::MulAssign
-            | Self::DivAssign => Associativity::Right,
+            Self::Add => Associativity::Left,
+            Self::Sub => Associativity::Left,
+            Self::Mul => Associativity::Left,
+            Self::Div => Associativity::Left,
+            Self::And => Associativity::Left,
+            Self::Or => Associativity::Left,
+            Self::Eq => Associativity::Left,
+            Self::Neq => Associativity::Left,
+            Self::Lt => Associativity::Left,
+            Self::Leq => Associativity::Left,
+            Self::Gt => Associativity::Left,
+            Self::Geq => Associativity::Left,
+            Self::Assign => Associativity::Right,
+            Self::AddAssign => Associativity::Right,
+            Self::SubAssign => Associativity::Right,
+            Self::MulAssign => Associativity::Right,
+            Self::DivAssign => Associativity::Right,
         }
     }
 

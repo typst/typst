@@ -94,7 +94,7 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
         | NodeKind::Linebreak
         | NodeKind::Raw(_)
         | NodeKind::Math(_)
-        | NodeKind::UnicodeEscape(_) => {
+        | NodeKind::Escape(_) => {
             p.eat();
         }
 

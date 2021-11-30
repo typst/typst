@@ -10,8 +10,8 @@ pub fn page(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     }
 
     let paper = args.named::<Paper>("paper")?.or_else(|| args.find());
-    let width = args.named("width")?;
-    let height = args.named("height")?;
+    let width = args.named::<Smart<_>>("width")?;
+    let height = args.named::<Smart<_>>("height")?;
     let flip = args.named("flip")?;
     let margins = args.named("margins")?;
     let left = args.named("left")?;
@@ -30,16 +30,16 @@ pub fn page(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 
         if let Some(width) = width {
             page.class = PaperClass::Custom;
-            page.size.x = width;
-        }
-
-        if flip.unwrap_or(false) {
-            std::mem::swap(&mut page.size.x, &mut page.size.y);
+            page.size.x = width.unwrap_or(Length::inf());
         }
 
         if let Some(height) = height {
             page.class = PaperClass::Custom;
-            page.size.y = height;
+            page.size.y = height.unwrap_or(Length::inf());
+        }
+
+        if flip.unwrap_or(false) {
+            std::mem::swap(&mut page.size.x, &mut page.size.y);
         }
 
         if let Some(margins) = margins {

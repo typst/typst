@@ -232,7 +232,7 @@ impl<'s> Tokens<'s> {
                 // Markup.
                 '*' | '_' | '=' | '~' | '`' | '$' => {
                     self.s.eat_assert(c);
-                    NodeKind::Text(c.into())
+                    NodeKind::Escape(c)
                 }
                 'u' if self.s.rest().starts_with("u{") => {
                     self.s.eat_assert('u');
@@ -240,7 +240,7 @@ impl<'s> Tokens<'s> {
                     let sequence = self.s.eat_while(|c| c.is_ascii_alphanumeric());
                     if self.s.eat_if('}') {
                         if let Some(c) = resolve_hex(sequence) {
-                            NodeKind::UnicodeEscape(c)
+                            NodeKind::Escape(c)
                         } else {
                             NodeKind::Error(
                                 ErrorPos::Full,
@@ -554,10 +554,6 @@ mod tests {
     use Option::None;
     use TokenMode::{Code, Markup};
 
-    fn UnicodeEscape(c: char) -> NodeKind {
-        NodeKind::UnicodeEscape(c)
-    }
-
     fn Error(pos: ErrorPos, message: &str) -> NodeKind {
         NodeKind::Error(pos, message.into())
     }
@@ -641,7 +637,7 @@ mod tests {
                 ('/', None, "/**/", BlockComment),
                 ('/', Some(Markup), "*", Strong),
                 ('/', Some(Markup), "$ $", Math(" ", false)),
-                ('/', Some(Markup), r"\\", Text("\\")),
+                ('/', Some(Markup), r"\\", Escape('\\')),
                 ('/', Some(Markup), "#let", Let),
                 ('/', Some(Code), "(", LeftParen),
                 ('/', Some(Code), ":", Colon),
@@ -741,19 +737,19 @@ mod tests {
     #[test]
     fn test_tokenize_escape_sequences() {
         // Test escapable symbols.
-        t!(Markup: r"\\" => Text(r"\"));
-        t!(Markup: r"\/" => Text("/"));
-        t!(Markup: r"\[" => Text("["));
-        t!(Markup: r"\]" => Text("]"));
-        t!(Markup: r"\{" => Text("{"));
-        t!(Markup: r"\}" => Text("}"));
-        t!(Markup: r"\*" => Text("*"));
-        t!(Markup: r"\_" => Text("_"));
-        t!(Markup: r"\=" => Text("="));
-        t!(Markup: r"\~" => Text("~"));
-        t!(Markup: r"\`" => Text("`"));
-        t!(Markup: r"\$" => Text("$"));
-        t!(Markup: r"\#" => Text("#"));
+        t!(Markup: r"\\" => Escape('\\'));
+        t!(Markup: r"\/" => Escape('/'));
+        t!(Markup: r"\[" => Escape('['));
+        t!(Markup: r"\]" => Escape(']'));
+        t!(Markup: r"\{" => Escape('{'));
+        t!(Markup: r"\}" => Escape('}'));
+        t!(Markup: r"\*" => Escape('*'));
+        t!(Markup: r"\_" => Escape('_'));
+        t!(Markup: r"\=" => Escape('='));
+        t!(Markup: r"\~" => Escape('~'));
+        t!(Markup: r"\`" => Escape('`'));
+        t!(Markup: r"\$" => Escape('$'));
+        t!(Markup: r"\#" => Escape('#'));
 
         // Test unescapable symbols.
         t!(Markup[" /"]: r"\a"   => Text(r"\"), Text("a"));
@@ -763,7 +759,7 @@ mod tests {
 
         // Test basic unicode escapes.
         t!(Markup: r"\u{}"     => Error(Full, "invalid unicode escape sequence"));
-        t!(Markup: r"\u{2603}" => UnicodeEscape('☃'));
+        t!(Markup: r"\u{2603}" => Escape('☃'));
         t!(Markup: r"\u{P}"    => Error(Full, "invalid unicode escape sequence"));
 
         // Test unclosed unicode escapes.

@@ -1,12 +1,14 @@
 //! Syntax types.
 
 pub mod ast;
+mod highlight;
 mod pretty;
 mod span;
 
 use std::fmt::{self, Debug, Display, Formatter};
 use std::rc::Rc;
 
+pub use highlight::*;
 pub use pretty::*;
 pub use span::*;
 
@@ -503,7 +505,7 @@ pub enum NodeKind {
     EmDash,
     /// A slash and the letter "u" followed by a hexadecimal unicode entity
     /// enclosed in curly braces: `\u{1F5FA}`.
-    UnicodeEscape(char),
+    Escape(char),
     /// Strong text was enabled / disabled: `*`.
     Strong,
     /// Emphasized text was enabled / disabled: `_`.
@@ -689,7 +691,7 @@ impl NodeKind {
             Self::NonBreakingSpace => "non-breaking space",
             Self::EnDash => "en dash",
             Self::EmDash => "em dash",
-            Self::UnicodeEscape(_) => "unicode escape sequence",
+            Self::Escape(_) => "escape sequence",
             Self::Strong => "strong",
             Self::Emph => "emphasis",
             Self::Heading => "heading",
