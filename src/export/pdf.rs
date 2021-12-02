@@ -9,7 +9,9 @@ use image::{DynamicImage, GenericImageView, ImageFormat, ImageResult, Rgba};
 use pdf_writer::types::{
     ActionType, AnnotationType, CidFontType, ColorSpace, FontFlags, SystemInfo,
 };
-use pdf_writer::{Content, Filter, Finish, Name, PdfWriter, Rect, Ref, Str, UnicodeCmap};
+use pdf_writer::{
+    Content, Filter, Finish, Name, PdfWriter, Rect, Ref, Str, TextStr, UnicodeCmap,
+};
 use ttf_parser::{name_id, GlyphId, Tag};
 
 use super::subset;
@@ -311,6 +313,11 @@ impl<'a> PdfExporter<'a> {
         images.finish();
         resources.finish();
         pages.finish();
+
+        // The document information.
+        let mut doc_info = self.writer.document_info(self.alloc.bump());
+        doc_info.creator(TextStr("Typst"));
+        doc_info.finish();
 
         // The document catalog.
         let catalog_ref = self.alloc.bump();
