@@ -14,8 +14,9 @@ use crate::image::ImageId;
 pub struct Frame {
     /// The size of the frame.
     pub size: Size,
-    /// The baseline of the frame measured from the top.
-    pub baseline: Length,
+    /// The baseline of the frame measured from the top. If this is `None`, the
+    /// frame's implicit baseline is at the bottom.
+    pub baseline: Option<Length>,
     /// The elements composing this layout.
     pub elements: Vec<(Point, Element)>,
 }
@@ -25,7 +26,12 @@ impl Frame {
     #[track_caller]
     pub fn new(size: Size) -> Self {
         assert!(size.is_finite());
-        Self { size, baseline: size.y, elements: vec![] }
+        Self { size, baseline: None, elements: vec![] }
+    }
+
+    /// The baseline of the frame.
+    pub fn baseline(&self) -> Length {
+        self.baseline.unwrap_or(self.size.y)
     }
 
     /// Add an element at a position in the background.
@@ -64,15 +70,19 @@ impl Frame {
                 aligns.y.resolve(target.y - self.size.y),
             );
             self.size = target;
-            self.baseline += offset.y;
             self.translate(offset);
         }
     }
 
-    /// Move the contents of the frame by an offset.
+    /// Move the baseline and contents of the frame by an offset.
     pub fn translate(&mut self, offset: Point) {
-        for (point, _) in &mut self.elements {
-            *point += offset;
+        if !offset.is_zero() {
+            if let Some(baseline) = &mut self.baseline {
+                *baseline += offset.y;
+            }
+            for (point, _) in &mut self.elements {
+                *point += offset;
+            }
         }
     }
 

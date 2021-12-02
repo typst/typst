@@ -193,6 +193,11 @@ impl Size {
         self.x.fits(other.x) && self.y.fits(other.y)
     }
 
+    /// Whether both components are zero.
+    pub fn is_zero(self) -> bool {
+        self.x.is_zero() && self.y.is_zero()
+    }
+
     /// Whether both components are finite.
     pub fn is_finite(self) -> bool {
         self.x.is_finite() && self.y.is_finite()

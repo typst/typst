@@ -11,14 +11,10 @@
 ---
 // Test alignment in automatically sized square and circle.
 #font(8pt)
-#grid(
-  columns: 2,
-  gutter: 10pt,
-  square(padding: 4pt)[
-    Hey there, #align(center + bottom, rotate(180deg, [you!]))
-  ],
-  circle(align(center + horizon, [Hey.])),
-)
+#square(padding: 4pt)[
+  Hey there, #align(center + bottom, rotate(180deg, [you!]))
+]
+#circle(align(center + horizon, [Hey.]))
 
 ---
 // Test that maximum wins if both width and height are given.

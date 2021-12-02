@@ -43,6 +43,10 @@ Stuff
 #image("../../res/rhino.png")
 
 ---
+// Test baseline.
+A #image("../../res/tiger.jpg", height: 1cm, width: 80%) B
+
+---
 // Error: 8-29 file not found
 #image("path/does/not/exist")
 

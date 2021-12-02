@@ -466,14 +466,18 @@ impl<'a> LineLayout<'a> {
 
         // Measure the size of the line.
         for item in first.iter().chain(items).chain(&last) {
-            match *item {
-                ParItem::Absolute(v) => width += v,
-                ParItem::Fractional(v) => fr += v,
-                ParItem::Text(ShapedText { size, baseline, .. })
-                | ParItem::Frame(Frame { size, baseline, .. }) => {
-                    width += size.x;
-                    top.set_max(baseline);
-                    bottom.set_max(size.y - baseline);
+            match item {
+                ParItem::Absolute(v) => width += *v,
+                ParItem::Fractional(v) => fr += *v,
+                ParItem::Text(shaped) => {
+                    width += shaped.size.x;
+                    top.set_max(shaped.baseline);
+                    bottom.set_max(shaped.size.y - shaped.baseline);
+                }
+                ParItem::Frame(frame) => {
+                    width += frame.size.x;
+                    top.set_max(frame.baseline());
+                    bottom.set_max(frame.size.y - frame.baseline());
                 }
             }
         }
@@ -496,9 +500,9 @@ impl<'a> LineLayout<'a> {
         let size = Size::new(self.size.x.max(width), self.size.y);
         let remaining = size.x - self.size.x;
 
-        let mut output = Frame::new(size);
         let mut offset = Length::zero();
-        output.baseline = self.baseline;
+        let mut output = Frame::new(size);
+        output.baseline = Some(self.baseline);
 
         for (range, item) in self.reordered() {
             let mut position = |mut frame: Frame| {
@@ -510,7 +514,7 @@ impl<'a> LineLayout<'a> {
                 }
 
                 let x = offset + self.par.align.resolve(remaining);
-                let y = self.baseline - frame.baseline;
+                let y = self.baseline - frame.baseline();
                 offset += frame.size.x;
 
                 // Add to the line's frame.
@@ -633,17 +637,10 @@ impl<'a> LineStack<'a> {
 
         let mut output = Frame::new(self.size);
         let mut offset = Length::zero();
-        let mut first = true;
 
         for line in self.lines.drain(..) {
             let frame = line.build(ctx, self.size.x);
-
             let pos = Point::with_y(offset);
-            if first {
-                output.baseline = pos.y + frame.baseline;
-                first = false;
-            }
-
             offset += frame.size.y + self.leading;
             output.merge_frame(pos, frame);
         }

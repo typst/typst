@@ -51,7 +51,6 @@ impl Layout for PadNode {
             // Grow the frame and translate everything in the frame inwards.
             let frame = Rc::make_mut(frame);
             frame.size = padded;
-            frame.baseline += offset.y;
             frame.translate(offset);
 
             // Set exact and base constraints if the child had them. Also set

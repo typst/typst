@@ -35,12 +35,9 @@ impl Point {
         Self { x: Length::zero(), y }
     }
 
-    /// Convert to the generic representation.
-    pub const fn to_gen(self, main: SpecAxis) -> Gen<Length> {
-        match main {
-            SpecAxis::Horizontal => Gen::new(self.y, self.x),
-            SpecAxis::Vertical => Gen::new(self.x, self.y),
-        }
+    /// Whether both components are zero.
+    pub fn is_zero(self) -> bool {
+        self.x.is_zero() && self.y.is_zero()
     }
 
     /// Transform the point with the given transformation.

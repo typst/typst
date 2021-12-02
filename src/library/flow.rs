@@ -214,38 +214,28 @@ impl<'a> FlowLayouter<'a> {
         }
 
         let mut output = Frame::new(size);
-        let mut before = Length::zero();
+        let mut offset = Length::zero();
         let mut ruler = Align::Top;
-        let mut first = true;
 
         // Place all frames.
         for item in self.items.drain(..) {
             match item {
                 FlowItem::Absolute(v) => {
-                    before += v;
+                    offset += v;
                 }
                 FlowItem::Fractional(v) => {
-                    before += v.resolve(self.fr, remaining);
+                    offset += v.resolve(self.fr, remaining);
                 }
                 FlowItem::Frame(frame, aligns) => {
                     ruler = ruler.max(aligns.y);
-
-                    // Align horizontally and vertically.
                     let x = aligns.x.resolve(size.x - frame.size.x);
-                    let y = before + ruler.resolve(size.y - self.used.y);
+                    let y = offset + ruler.resolve(size.y - self.used.y);
                     let pos = Point::new(x, y);
-                    before += frame.size.y;
-
-                    // The baseline of the flow is that of the first frame.
-                    if first {
-                        output.baseline = pos.y + frame.baseline;
-                        first = false;
-                    }
-
+                    offset += frame.size.y;
                     output.push_frame(pos, frame);
                 }
                 FlowItem::Placed(frame) => {
-                    output.push_frame(Point::with_y(before), frame);
+                    output.push_frame(Point::with_y(offset), frame);
                 }
             }
         }
