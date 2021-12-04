@@ -7,11 +7,9 @@ use std::rc::Rc;
 
 use image::{DynamicImage, GenericImageView, ImageFormat, ImageResult, Rgba};
 use pdf_writer::types::{
-    ActionType, AnnotationType, CidFontType, ColorSpace, FontFlags, SystemInfo,
+    ActionType, AnnotationType, CidFontType, FontFlags, SystemInfo, UnicodeCmap,
 };
-use pdf_writer::{
-    Content, Filter, Finish, Name, PdfWriter, Rect, Ref, Str, TextStr, UnicodeCmap,
-};
+use pdf_writer::{Content, Filter, Finish, Name, PdfWriter, Rect, Ref, Str, TextStr};
 use ttf_parser::{name_id, GlyphId, Tag};
 
 use super::subset;
@@ -121,13 +119,14 @@ impl<'a> PdfExporter<'a> {
 
             // Write the CID font referencing the font descriptor.
             self.writer
-                .cid_font(cid_ref, subtype)
+                .cid_font(cid_ref)
+                .subtype(subtype)
                 .base_font(base_font)
                 .system_info(system_info)
                 .font_descriptor(descriptor_ref)
                 .cid_to_gid_map_predefined(Name(b"Identity"))
                 .widths()
-                .individual(0, {
+                .consecutive(0, {
                     let num_glyphs = ttf.number_of_glyphs();
                     (0 .. num_glyphs).map(|g| {
                         let x = ttf.glyph_hor_advance(GlyphId(g)).unwrap_or(0);
@@ -159,9 +158,9 @@ impl<'a> PdfExporter<'a> {
             // Write the font descriptor (contains metrics about the font).
             self.writer
                 .font_descriptor(descriptor_ref)
-                .font_name(base_font)
-                .font_flags(flags)
-                .font_bbox(bbox)
+                .name(base_font)
+                .flags(flags)
+                .bbox(bbox)
                 .italic_angle(italic_angle)
                 .ascent(ascender)
                 .descent(descender)
@@ -219,13 +218,19 @@ impl<'a> PdfExporter<'a> {
             let height = img.height();
 
             // Add the primary image.
-            if let Ok((data, filter, color_space)) = encode_image(img) {
-                let mut image = self.writer.image(image_ref, &data);
+            if let Ok((data, filter, has_color)) = encode_image(img) {
+                let mut image = self.writer.image_xobject(image_ref, &data);
                 image.filter(filter);
                 image.width(width as i32);
                 image.height(height as i32);
-                image.color_space(color_space);
                 image.bits_per_component(8);
+
+                let space = image.color_space();
+                if has_color {
+                    space.device_rgb();
+                } else {
+                    space.device_gray();
+                }
 
                 // Add a second gray-scale image containing the alpha values if
                 // this image has an alpha channel.
@@ -235,21 +240,22 @@ impl<'a> PdfExporter<'a> {
                     image.s_mask(mask_ref);
                     image.finish();
 
-                    let mut mask = self.writer.image(mask_ref, &alpha_data);
+                    let mut mask = self.writer.image_xobject(mask_ref, &alpha_data);
                     mask.filter(alpha_filter);
                     mask.width(width as i32);
                     mask.height(height as i32);
-                    mask.color_space(ColorSpace::DeviceGray);
+                    mask.color_space().device_gray();
                     mask.bits_per_component(8);
                 }
             } else {
                 // TODO: Warn that image could not be encoded.
                 self.writer
-                    .image(image_ref, &[])
+                    .image_xobject(image_ref, &[])
                     .width(0)
                     .height(0)
-                    .color_space(ColorSpace::DeviceGray)
-                    .bits_per_component(1);
+                    .bits_per_component(1)
+                    .color_space()
+                    .device_gray();
             }
         }
     }
@@ -293,7 +299,7 @@ impl<'a> PdfExporter<'a> {
         }
 
         let mut pages = self.writer.pages(page_tree_ref);
-        pages.kids(page_refs);
+        pages.count(page_refs.len() as i32).kids(page_refs);
 
         let mut resources = pages.resources();
         let mut fonts = resources.fonts();
@@ -314,15 +320,10 @@ impl<'a> PdfExporter<'a> {
         resources.finish();
         pages.finish();
 
-        // The document information.
-        let mut doc_info = self.writer.document_info(self.alloc.bump());
-        doc_info.creator(TextStr("Typst"));
-        doc_info.finish();
-
-        // The document catalog.
-        let catalog_ref = self.alloc.bump();
-        self.writer.catalog(catalog_ref).pages(page_tree_ref);
-        self.writer.finish(catalog_ref)
+        // Write the document information, catalog and wrap it up!
+        self.writer.document_info(self.alloc.bump()).creator(TextStr("Typst"));
+        self.writer.catalog(self.alloc.bump()).pages(page_tree_ref);
+        self.writer.finish()
     }
 }
 
@@ -631,23 +632,24 @@ impl<'a> PageExporter<'a> {
     }
 }
 
-/// Encode an image with a suitable filter.
+/// Encode an image with a suitable filter and return the data, filter and
+/// whether the image has color.
 ///
 /// Skips the alpha channel as that's encoded separately.
-fn encode_image(img: &Image) -> ImageResult<(Vec<u8>, Filter, ColorSpace)> {
+fn encode_image(img: &Image) -> ImageResult<(Vec<u8>, Filter, bool)> {
     Ok(match (img.format, &img.buf) {
         // 8-bit gray JPEG.
         (ImageFormat::Jpeg, DynamicImage::ImageLuma8(_)) => {
             let mut data = vec![];
             img.buf.write_to(&mut data, img.format)?;
-            (data, Filter::DctDecode, ColorSpace::DeviceGray)
+            (data, Filter::DctDecode, false)
         }
 
         // 8-bit Rgb JPEG (Cmyk JPEGs get converted to Rgb earlier).
         (ImageFormat::Jpeg, DynamicImage::ImageRgb8(_)) => {
             let mut data = vec![];
             img.buf.write_to(&mut data, img.format)?;
-            (data, Filter::DctDecode, ColorSpace::DeviceRgb)
+            (data, Filter::DctDecode, true)
         }
 
         // TODO: Encode flate streams with PNG-predictor?
@@ -655,7 +657,7 @@ fn encode_image(img: &Image) -> ImageResult<(Vec<u8>, Filter, ColorSpace)> {
         // 8-bit gray PNG.
         (ImageFormat::Png, DynamicImage::ImageLuma8(luma)) => {
             let data = deflate(luma.as_raw());
-            (data, Filter::FlateDecode, ColorSpace::DeviceGray)
+            (data, Filter::FlateDecode, false)
         }
 
         // Anything else (including Rgb(a) PNGs).
@@ -669,7 +671,7 @@ fn encode_image(img: &Image) -> ImageResult<(Vec<u8>, Filter, ColorSpace)> {
             }
 
             let data = deflate(&pixels);
-            (data, Filter::FlateDecode, ColorSpace::DeviceRgb)
+            (data, Filter::FlateDecode, true)
         }
     })
 }
