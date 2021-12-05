@@ -21,8 +21,8 @@ fn line_impl(args: &mut Args, kind: LineKind) -> TypResult<Value> {
     let thickness = args.named::<Linear>("thickness")?.or_else(|| args.find());
     let offset = args.named("offset")?;
     let extent = args.named("extent")?.unwrap_or_default();
-    let body: Template = args.expect("body")?;
-    Ok(Value::Template(body.decorate(Decoration::Line(
+    let body: Node = args.expect("body")?;
+    Ok(Value::Node(body.decorate(Decoration::Line(
         LineDecoration { kind, stroke, thickness, offset, extent },
     ))))
 }
@@ -31,12 +31,9 @@ fn line_impl(args: &mut Args, kind: LineKind) -> TypResult<Value> {
 pub fn link(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let url = args.expect::<EcoString>("url")?;
     let body = args.find().unwrap_or_else(|| {
-        let mut template = Template::new();
-        template.text(url.trim_start_matches("mailto:").trim_start_matches("tel:"));
-        template
+        Node::Text(url.trim_start_matches("mailto:").trim_start_matches("tel:").into())
     });
-
-    Ok(Value::Template(body.decorate(Decoration::Link(url))))
+    Ok(Value::Node(body.decorate(Decoration::Link(url))))
 }
 
 /// A decoration for a frame.

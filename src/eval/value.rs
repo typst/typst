@@ -1,11 +1,13 @@
 use std::any::Any;
 use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
+use std::hash::Hash;
 use std::rc::Rc;
 
-use super::{ops, Array, Dict, Function, Template};
+use super::{ops, Array, Dict, Function, Node};
 use crate::diag::StrResult;
 use crate::geom::{Angle, Color, Fractional, Length, Linear, Relative, RgbaColor};
+use crate::layout::Layout;
 use crate::syntax::Spanned;
 use crate::util::EcoString;
 
@@ -40,8 +42,8 @@ pub enum Value {
     Array(Array),
     /// A dictionary value: `(color: #f79143, pattern: dashed)`.
     Dict(Dict),
-    /// A template value: `[*Hi* there]`.
-    Template(Template),
+    /// A node value: `[*Hi* there]`.
+    Node(Node),
     /// An executable function.
     Func(Function),
     /// A dynamic value.
@@ -49,6 +51,22 @@ pub enum Value {
 }
 
 impl Value {
+    /// Create an inline-level node value.
+    pub fn inline<T>(node: T) -> Self
+    where
+        T: Layout + Debug + Hash + 'static,
+    {
+        Self::Node(Node::inline(node))
+    }
+
+    /// Create a block-level node value.
+    pub fn block<T>(node: T) -> Self
+    where
+        T: Layout + Debug + Hash + 'static,
+    {
+        Self::Node(Node::block(node))
+    }
+
     /// The name of the stored value's type.
     pub fn type_name(&self) -> &'static str {
         match self {
@@ -66,7 +84,7 @@ impl Value {
             Self::Str(_) => EcoString::TYPE_NAME,
             Self::Array(_) => Array::TYPE_NAME,
             Self::Dict(_) => Dict::TYPE_NAME,
-            Self::Template(_) => Template::TYPE_NAME,
+            Self::Node(_) => Node::TYPE_NAME,
             Self::Func(_) => Function::TYPE_NAME,
             Self::Dyn(v) => v.type_name(),
         }
@@ -80,14 +98,29 @@ impl Value {
         T::cast(self)
     }
 
+    /// Join the value with another value.
+    pub fn join(self, rhs: Self) -> StrResult<Self> {
+        ops::join(self, rhs)
+    }
+
     /// Return the debug representation of the value.
     pub fn repr(&self) -> EcoString {
         format_eco!("{:?}", self)
     }
 
-    /// Join the value with another value.
-    pub fn join(self, rhs: Self) -> StrResult<Self> {
-        ops::join(self, rhs)
+    /// Return the display representation of a value in form of a node.
+    pub fn display(self) -> Node {
+        match self {
+            Value::None => Node::new(),
+            Value::Int(v) => Node::Text(format_eco!("{}", v)),
+            Value::Float(v) => Node::Text(format_eco!("{}", v)),
+            Value::Str(v) => Node::Text(v),
+            Value::Node(v) => v,
+            // For values which can't be shown "naturally", we print the
+            // representation in monospace.
+            // TODO(set): Styled in monospace.
+            v => Node::Text(v.repr()),
+        }
     }
 }
 
@@ -114,7 +147,7 @@ impl Debug for Value {
             Self::Str(v) => Debug::fmt(v, f),
             Self::Array(v) => Debug::fmt(v, f),
             Self::Dict(v) => Debug::fmt(v, f),
-            Self::Template(v) => Debug::fmt(v, f),
+            Self::Node(v) => Debug::fmt(v, f),
             Self::Func(v) => Debug::fmt(v, f),
             Self::Dyn(v) => Debug::fmt(v, f),
         }
@@ -360,7 +393,7 @@ primitive! { Color: "color", Color }
 primitive! { EcoString: "string", Str }
 primitive! { Array: "array", Array }
 primitive! { Dict: "dictionary", Dict }
-primitive! { Template: "template", Template }
+primitive! { Node: "node", Node }
 primitive! { Function: "function", Func }
 
 impl Cast<Value> for Value {

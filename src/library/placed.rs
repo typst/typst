@@ -6,12 +6,10 @@ pub fn place(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let aligns = args.find().unwrap_or(Spec::new(Some(Align::Left), None));
     let tx = args.named("dx")?.unwrap_or_default();
     let ty = args.named("dy")?.unwrap_or_default();
-    let body: Template = args.expect("body")?;
-    Ok(Value::Template(Template::from_block(move |style| {
-        PlacedNode {
-            child: body.pack(style).moved(Point::new(tx, ty)).aligned(aligns),
-        }
-    })))
+    let body: Node = args.expect("body")?;
+    Ok(Value::block(PlacedNode {
+        child: body.into_block().moved(Point::new(tx, ty)).aligned(aligns),
+    }))
 }
 
 /// A node that places its child absolutely.

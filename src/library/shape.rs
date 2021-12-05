@@ -76,20 +76,18 @@ fn shape_impl(
     }
 
     // The shape's contents.
-    let body = args.find::<Template>();
+    let body = args.find::<Node>();
 
-    Ok(Value::Template(Template::from_inline(move |style| {
+    Ok(Value::inline(
         ShapeNode {
             kind,
             fill,
             stroke,
-            child: body
-                .as_ref()
-                .map(|body| body.pack(style).padded(Sides::splat(padding))),
+            child: body.map(|body| body.into_block().padded(Sides::splat(padding))),
         }
         .pack()
-        .sized(Spec::new(width, height))
-    })))
+        .sized(Spec::new(width, height)),
+    ))
 }
 
 /// Places its child into a sizable and fillable shape.

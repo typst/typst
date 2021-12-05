@@ -20,9 +20,9 @@ pub fn image(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         })
     })?;
 
-    Ok(Value::Template(Template::from_inline(move |_| {
-        ImageNode { id, fit }.pack().sized(Spec::new(width, height))
-    })))
+    Ok(Value::inline(
+        ImageNode { id, fit }.pack().sized(Spec::new(width, height)),
+    ))
 }
 
 /// An image node.

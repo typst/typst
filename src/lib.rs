@@ -110,7 +110,7 @@ impl Context {
     /// Execute a source file and produce the resulting page nodes.
     pub fn execute(&mut self, id: SourceId) -> TypResult<DocumentNode> {
         let module = self.evaluate(id)?;
-        Ok(module.template.to_document(&self.style))
+        Ok(module.node.into_document())
     }
 
     /// Typeset a source file into a collection of layouted frames.

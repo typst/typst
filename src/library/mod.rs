@@ -26,7 +26,7 @@ mod prelude {
     pub use std::rc::Rc;
 
     pub use crate::diag::{At, TypResult};
-    pub use crate::eval::{Args, EvalContext, Smart, Template, Value};
+    pub use crate::eval::{Args, EvalContext, Node, Smart, Value};
     pub use crate::frame::*;
     pub use crate::geom::*;
     pub use crate::layout::*;

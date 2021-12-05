@@ -12,8 +12,8 @@ use crate::font::{
 };
 use crate::geom::{Dir, Em, Length, Point, Size};
 use crate::style::{
-    FontFamily, FontFeatures, NumberPosition, NumberType, NumberWidth, Style,
-    StylisticSet, TextStyle,
+    FontFamily, FontFeatures, NumberPosition, NumberType, NumberWidth, StylisticSet,
+    TextStyle,
 };
 use crate::util::{EcoString, SliceExt};
 
@@ -179,7 +179,6 @@ pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let slashed_zero = args.named("slashed-zero")?;
     let fractions = args.named("fractions")?;
     let features = args.named("features")?;
-    let body = args.find::<Template>();
 
     macro_rules! set {
         ($target:expr => $source:expr) => {
@@ -189,42 +188,35 @@ pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         };
     }
 
-    let f = move |style_: &mut Style| {
-        let text = style_.text_mut();
-        set!(text.families_mut().list => list.clone());
-        set!(text.families_mut().serif => serif.clone());
-        set!(text.families_mut().sans_serif => sans_serif.clone());
-        set!(text.families_mut().monospace => monospace.clone());
-        set!(text.fallback => fallback);
-        set!(text.variant.style => style);
-        set!(text.variant.weight => weight);
-        set!(text.variant.stretch => stretch);
-        set!(text.size => size.map(|v| v.resolve(text.size)));
-        set!(text.tracking => tracking);
-        set!(text.top_edge => top_edge);
-        set!(text.bottom_edge => bottom_edge);
-        set!(text.fill => fill);
-        set!(text.features_mut().kerning => kerning);
-        set!(text.features_mut().smallcaps => smallcaps);
-        set!(text.features_mut().alternates => alternates);
-        set!(text.features_mut().stylistic_set => stylistic_set);
-        set!(text.features_mut().ligatures.standard => ligatures);
-        set!(text.features_mut().ligatures.discretionary => discretionary_ligatures);
-        set!(text.features_mut().ligatures.historical => historical_ligatures);
-        set!(text.features_mut().numbers.type_ => number_type);
-        set!(text.features_mut().numbers.width => number_width);
-        set!(text.features_mut().numbers.position => number_position);
-        set!(text.features_mut().numbers.slashed_zero => slashed_zero);
-        set!(text.features_mut().numbers.fractions => fractions);
-        set!(text.features_mut().raw => features.clone());
-    };
+    let text = ctx.style.text_mut();
+    set!(text.families_mut().list => list.clone());
+    set!(text.families_mut().serif => serif.clone());
+    set!(text.families_mut().sans_serif => sans_serif.clone());
+    set!(text.families_mut().monospace => monospace.clone());
+    set!(text.fallback => fallback);
+    set!(text.variant.style => style);
+    set!(text.variant.weight => weight);
+    set!(text.variant.stretch => stretch);
+    set!(text.size => size.map(|v| v.resolve(text.size)));
+    set!(text.tracking => tracking);
+    set!(text.top_edge => top_edge);
+    set!(text.bottom_edge => bottom_edge);
+    set!(text.fill => fill);
+    set!(text.features_mut().kerning => kerning);
+    set!(text.features_mut().smallcaps => smallcaps);
+    set!(text.features_mut().alternates => alternates);
+    set!(text.features_mut().stylistic_set => stylistic_set);
+    set!(text.features_mut().ligatures.standard => ligatures);
+    set!(text.features_mut().ligatures.discretionary => discretionary_ligatures);
+    set!(text.features_mut().ligatures.historical => historical_ligatures);
+    set!(text.features_mut().numbers.type_ => number_type);
+    set!(text.features_mut().numbers.width => number_width);
+    set!(text.features_mut().numbers.position => number_position);
+    set!(text.features_mut().numbers.slashed_zero => slashed_zero);
+    set!(text.features_mut().numbers.fractions => fractions);
+    set!(text.features_mut().raw => features.clone());
 
-    Ok(if let Some(body) = body {
-        Value::Template(body.modified(f))
-    } else {
-        ctx.template.modify(f);
-        Value::None
-    })
+    Ok(Value::None)
 }
 
 /// Shape text into [`ShapedText`].

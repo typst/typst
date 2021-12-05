@@ -1,13 +1,13 @@
 use std::fmt::{self, Debug, Formatter};
 
 use super::prelude::*;
-use super::{AlignNode, ParNode, PlacedNode, Spacing};
+use super::{AlignNode, PlacedNode, Spacing};
 
 /// `flow`: A vertical flow of paragraphs and other layout nodes.
 pub fn flow(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     enum Child {
         Spacing(Spacing),
-        Any(Template),
+        Any(Node),
     }
 
     castable! {
@@ -17,22 +17,18 @@ pub fn flow(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         Value::Relative(v) => Self::Spacing(Spacing::Linear(v.into())),
         Value::Linear(v) => Self::Spacing(Spacing::Linear(v)),
         Value::Fractional(v) => Self::Spacing(Spacing::Fractional(v)),
-        Value::Template(v) => Self::Any(v),
+        Value::Node(v) => Self::Any(v),
     }
 
-    let children: Vec<Child> = args.all().collect();
+    let children = args
+        .all()
+        .map(|child| match child {
+            Child::Spacing(spacing) => FlowChild::Spacing(spacing),
+            Child::Any(node) => FlowChild::Node(node.into_block()),
+        })
+        .collect();
 
-    Ok(Value::Template(Template::from_block(move |style| {
-        let children = children
-            .iter()
-            .map(|child| match child {
-                Child::Spacing(spacing) => FlowChild::Spacing(*spacing),
-                Child::Any(node) => FlowChild::Node(node.pack(style)),
-            })
-            .collect();
-
-        FlowNode { children }
-    })))
+    Ok(Value::block(FlowNode(children)))
 }
 
 /// A vertical flow of content consisting of paragraphs and other layout nodes.
@@ -40,11 +36,7 @@ pub fn flow(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 /// This node is reponsible for layouting both the top-level content flow and
 /// the contents of boxes.
 #[derive(Debug, Hash)]
-pub struct FlowNode {
-    /// The children that compose the flow. There are different kinds of
-    /// children for different purposes.
-    pub children: Vec<FlowChild>,
-}
+pub struct FlowNode(pub Vec<FlowChild>);
 
 impl Layout for FlowNode {
     fn layout(
@@ -118,7 +110,7 @@ impl<'a> FlowLayouter<'a> {
         regions.expand.y = false;
 
         Self {
-            children: &flow.children,
+            children: &flow.0,
             expand,
             full,
             regions,
@@ -175,9 +167,8 @@ impl<'a> FlowLayouter<'a> {
         }
 
         let aligns = Spec::new(
-            // For non-expanding paragraphs it is crucial that we align the
-            // whole paragraph according to its internal alignment.
-            node.downcast::<ParNode>().map_or(Align::Left, |par| par.align),
+            // TODO(set): Align paragraph according to its internal alignment.
+            Align::Left,
             // Vertical align node alignment is respected by the flow node.
             node.downcast::<AlignNode>()
                 .and_then(|aligned| aligned.aligns.y)

@@ -7,7 +7,7 @@ use super::{AlignNode, Spacing};
 pub fn stack(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     enum Child {
         Spacing(Spacing),
-        Any(Template),
+        Any(Node),
     }
 
     castable! {
@@ -17,38 +17,34 @@ pub fn stack(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         Value::Relative(v) => Self::Spacing(Spacing::Linear(v.into())),
         Value::Linear(v) => Self::Spacing(Spacing::Linear(v)),
         Value::Fractional(v) => Self::Spacing(Spacing::Fractional(v)),
-        Value::Template(v) => Self::Any(v),
+        Value::Node(v) => Self::Any(v),
     }
 
     let dir = args.named("dir")?.unwrap_or(Dir::TTB);
     let spacing = args.named("spacing")?;
-    let list: Vec<Child> = args.all().collect();
 
-    Ok(Value::Template(Template::from_block(move |style| {
-        let mut children = vec![];
-        let mut delayed = None;
+    let mut children = vec![];
+    let mut delayed = None;
 
-        // Build the list of stack children.
-        for child in &list {
-            match child {
-                Child::Spacing(v) => {
-                    children.push(StackChild::Spacing(*v));
-                    delayed = None;
+    // Build the list of stack children.
+    for child in args.all() {
+        match child {
+            Child::Spacing(v) => {
+                children.push(StackChild::Spacing(v));
+                delayed = None;
+            }
+            Child::Any(child) => {
+                if let Some(v) = delayed {
+                    children.push(StackChild::Spacing(v));
                 }
-                Child::Any(child) => {
-                    if let Some(v) = delayed {
-                        children.push(StackChild::Spacing(v));
-                    }
 
-                    let node = child.pack(style);
-                    children.push(StackChild::Node(node));
-                    delayed = spacing;
-                }
+                children.push(StackChild::Node(child.into_block()));
+                delayed = spacing;
             }
         }
+    }
 
-        StackNode { dir, children }
-    })))
+    Ok(Value::block(StackNode { dir, children }))
 }
 
 /// A node that stacks its children.

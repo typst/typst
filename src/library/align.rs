@@ -15,15 +15,10 @@ pub fn align(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     }
 
     let aligns = args.expect::<Spec<_>>("alignment")?;
-    let body = args.expect::<Template>("body")?;
-    Ok(Value::Template(Template::from_block(move |style| {
-        let mut style = style.clone();
-        if let Some(x) = aligns.x {
-            style.par_mut().align = x;
-        }
+    let body = args.expect::<Node>("body")?;
 
-        body.pack(&style).aligned(aligns)
-    })))
+    // TODO(set): Style paragraphs with x alignment.
+    Ok(Value::block(body.into_block().aligned(aligns)))
 }
 
 /// A node that aligns its child.

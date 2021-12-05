@@ -2,16 +2,18 @@ use super::prelude::*;
 
 /// `h`: Horizontal spacing.
 pub fn h(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let mut template = Template::new();
-    template.spacing(SpecAxis::Horizontal, args.expect("spacing")?);
-    Ok(Value::Template(template))
+    Ok(Value::Node(Node::Spacing(
+        SpecAxis::Horizontal,
+        args.expect("spacing")?,
+    )))
 }
 
 /// `v`: Vertical spacing.
 pub fn v(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let mut template = Template::new();
-    template.spacing(SpecAxis::Vertical, args.expect("spacing")?);
-    Ok(Value::Template(template))
+    Ok(Value::Node(Node::Spacing(
+        SpecAxis::Vertical,
+        args.expect("spacing")?,
+    )))
 }
 
 /// Kinds of spacing.

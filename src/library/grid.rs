@@ -39,15 +39,8 @@ pub fn grid(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         row_gutter.unwrap_or(base_gutter),
     );
 
-    let children: Vec<Template> = args.all().collect();
-
-    Ok(Value::Template(Template::from_block(move |style| {
-        GridNode {
-            tracks: tracks.clone(),
-            gutter: gutter.clone(),
-            children: children.iter().map(|child| child.pack(style)).collect(),
-        }
-    })))
+    let children = args.all().map(Node::into_block).collect();
+    Ok(Value::block(GridNode { tracks, gutter, children }))
 }
 
 /// A node that arranges its children in a grid.
