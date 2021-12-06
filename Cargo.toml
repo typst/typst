@@ -23,13 +23,15 @@ fxhash = "0.2.1"
 image = { version = "0.23", default-features = false, features = ["png", "jpeg"] }
 itertools = "0.10"
 miniz_oxide = "0.4"
-pdf-writer = "0.4"
+pdf-writer = { git = "https://github.com/typst/pdf-writer", rev = "e1ec200" }
 rustybuzz = "0.4"
 serde = { version = "1", features = ["derive", "rc"] }
+svg2pdf = { git = "https://github.com/typst/svg2pdf", rev = "a127d6f", default-features = false, features = ["text", "png", "jpeg"] }
 ttf-parser = "0.12"
 unicode-bidi = "0.3.5"
 unicode-segmentation = "1.8"
 unicode-xid = "0.2"
+usvg = { version = "0.19", default-features = false, features = ["text"] }
 xi-unicode = "0.3"
 anyhow = { version = "1", optional = true }
 codespan-reporting = { version = "0.11", optional = true }
@@ -43,8 +45,8 @@ walkdir = { version = "2", optional = true }
 [dev-dependencies]
 filedescriptor = "0.8"
 iai = { git = "https://github.com/reknih/iai" }
-tiny-skia = "0.6"
-usvg = { version = "0.15", default-features = false }
+resvg = { version = "0.19", default-features = false, features = ["text"] }
+tiny-skia = "0.6.1"
 walkdir = "2"
 
 [[bin]]

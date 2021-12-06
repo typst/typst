@@ -9,6 +9,7 @@ use std::rc::Rc;
 use image::io::Reader as ImageReader;
 use image::{DynamicImage, GenericImageView, ImageFormat};
 use serde::{Deserialize, Serialize};
+use usvg::{Error as USvgError, Tree};
 
 use crate::loading::{FileHash, Loader};
 
@@ -88,14 +89,112 @@ impl ImageStore {
 }
 
 /// A loaded image.
-pub struct Image {
+#[derive(Debug)]
+pub enum Image {
+    Raster(RasterImage),
+    Svg(Svg),
+}
+
+impl Image {
+    /// Parse an image from raw data. This will prioritize SVG images and then
+    /// try to decode a supported raster format.
+    pub fn parse(data: &[u8]) -> io::Result<Self> {
+        match Svg::parse(data) {
+            Ok(svg) => Ok(Self::Svg(svg)),
+            Err(e) if e.kind() == io::ErrorKind::InvalidData => {
+                Ok(Self::Raster(RasterImage::parse(data)?))
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    /// The width of the image in pixels.
+    pub fn width(&self) -> u32 {
+        match self {
+            Self::Raster(image) => image.width(),
+            Self::Svg(image) => image.width(),
+        }
+    }
+
+    /// The height of the image in pixels.
+    pub fn height(&self) -> u32 {
+        match self {
+            Self::Raster(image) => image.height(),
+            Self::Svg(image) => image.height(),
+        }
+    }
+
+    pub fn is_vector(&self) -> bool {
+        match self {
+            Self::Raster(_) => false,
+            Self::Svg(_) => true,
+        }
+    }
+}
+
+/// An SVG image, supported through the usvg crate.
+pub struct Svg(pub Tree);
+
+impl Svg {
+    /// Parse an SVG file from a data buffer. This also handles `.svgz`
+    /// compressed files.
+    pub fn parse(data: &[u8]) -> io::Result<Self> {
+        let usvg_opts = usvg::Options::default();
+        let tree = Tree::from_data(data, &usvg_opts.to_ref()).map_err(|e| match e {
+            USvgError::NotAnUtf8Str => {
+                io::Error::new(io::ErrorKind::InvalidData, "file is not valid utf-8")
+            }
+            USvgError::MalformedGZip => io::Error::new(
+                io::ErrorKind::InvalidData,
+                "could not extract gzipped SVG",
+            ),
+            USvgError::ElementsLimitReached => io::Error::new(
+                io::ErrorKind::Other,
+                "SVG file has more than 1 million elements",
+            ),
+            USvgError::InvalidSize => io::Error::new(
+                io::ErrorKind::InvalidData,
+                "SVG width or height not greater than zero",
+            ),
+            USvgError::ParsingFailed(error) => io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("SVG parsing error: {}", error.to_string()),
+            ),
+        })?;
+
+        Ok(Self(tree))
+    }
+
+    /// The width of the image in rounded-up nominal SVG pixels.
+    pub fn width(&self) -> u32 {
+        self.0.svg_node().size.width().ceil() as u32
+    }
+
+    /// The height of the image in rounded-up nominal SVG pixels.
+    pub fn height(&self) -> u32 {
+        self.0.svg_node().size.height().ceil() as u32
+    }
+}
+
+impl Debug for Svg {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.debug_struct("Svg")
+            .field("width", &self.0.svg_node().size.width())
+            .field("height", &self.0.svg_node().size.height())
+            .field("viewBox", &self.0.svg_node().view_box)
+            .finish()
+    }
+}
+
+/// A raster image, supported through the image crate.
+pub struct RasterImage {
     /// The original format the image was encoded in.
     pub format: ImageFormat,
     /// The decoded image.
     pub buf: DynamicImage,
 }
 
-impl Image {
+impl RasterImage {
     /// Parse an image from raw data in a supported format (PNG or JPEG).
     ///
     /// The image format is determined automatically.
@@ -124,7 +223,7 @@ impl Image {
     }
 }
 
-impl Debug for Image {
+impl Debug for RasterImage {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.debug_struct("Image")
             .field("format", &self.format)
