@@ -18,7 +18,7 @@
 #image("../../res/rhino.png", height: 30pt)
 
 // Set width and height explicitly and force stretching.
-#image("../../res/tiger.jpg", width: 100%, height: 20pt, fit: "stretch")
+#image("../../res/monkey.svg", width: 100%, height: 20pt, fit: "stretch")
 
 // Make sure the bounding-box of the image is correct.
 #align(bottom + right, image("../../res/tiger.jpg", width: 40pt))
@@ -32,7 +32,7 @@
   gutter: 3pt,
   image("../../res/tiger.jpg", width: 100%, height: 100%, fit: "contain"),
   image("../../res/tiger.jpg", width: 100%, height: 100%, fit: "cover"),
-  image("../../res/tiger.jpg", width: 100%, height: 100%, fit: "stretch"),
+  image("../../res/monkey.svg", width: 100%, height: 100%, fit: "stretch"),
 )
 
 ---
@@ -45,6 +45,10 @@ Stuff
 ---
 // Test baseline.
 A #image("../../res/tiger.jpg", height: 1cm, width: 80%) B
+
+---
+// Test advanced SVG features.
+#image("../../res/pattern.svg")
 
 ---
 // Error: 8-29 file not found

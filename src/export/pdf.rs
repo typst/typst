@@ -16,7 +16,7 @@ use super::subset;
 use crate::font::{find_name, FaceId, FontStore};
 use crate::frame::{Element, Frame, Geometry, Group, Shape, Stroke, Text};
 use crate::geom::{self, Color, Em, Length, Paint, Point, Size, Transform};
-use crate::image::{Image, ImageId, ImageStore};
+use crate::image::{Image, ImageId, ImageStore, RasterImage};
 use crate::Context;
 
 /// Export a collection of frames into a PDF file.
@@ -90,7 +90,7 @@ impl<'a> PdfExporter<'a> {
             let postscript_name = find_name(ttf.names(), name_id::POST_SCRIPT_NAME)
                 .unwrap_or_else(|| "unknown".to_string());
 
-            let base_font = format!("ABCDEF+{}", postscript_name);
+            let base_font = format_eco!("ABCDEF+{}", postscript_name);
             let base_font = Name(base_font.as_bytes());
             let cmap_name = Name(b"Custom");
             let system_info = SystemInfo {
@@ -218,44 +218,58 @@ impl<'a> PdfExporter<'a> {
             let height = img.height();
 
             // Add the primary image.
-            if let Ok((data, filter, has_color)) = encode_image(img) {
-                let mut image = self.writer.image_xobject(image_ref, &data);
-                image.filter(filter);
-                image.width(width as i32);
-                image.height(height as i32);
-                image.bits_per_component(8);
+            match img {
+                Image::Raster(img) => {
+                    if let Ok((data, filter, has_color)) = encode_image(img) {
+                        let mut image = self.writer.image_xobject(image_ref, &data);
+                        image.filter(filter);
+                        image.width(width as i32);
+                        image.height(height as i32);
+                        image.bits_per_component(8);
 
-                let space = image.color_space();
-                if has_color {
-                    space.device_rgb();
-                } else {
-                    space.device_gray();
+                        let space = image.color_space();
+                        if has_color {
+                            space.device_rgb();
+                        } else {
+                            space.device_gray();
+                        }
+
+                        // Add a second gray-scale image containing the alpha values if
+                        // this image has an alpha channel.
+                        if img.buf.color().has_alpha() {
+                            let (alpha_data, alpha_filter) = encode_alpha(img);
+                            let mask_ref = self.alloc.bump();
+                            image.s_mask(mask_ref);
+                            image.finish();
+
+                            let mut mask =
+                                self.writer.image_xobject(mask_ref, &alpha_data);
+                            mask.filter(alpha_filter);
+                            mask.width(width as i32);
+                            mask.height(height as i32);
+                            mask.color_space().device_gray();
+                            mask.bits_per_component(8);
+                        }
+                    } else {
+                        // TODO: Warn that image could not be encoded.
+                        self.writer
+                            .image_xobject(image_ref, &[])
+                            .width(0)
+                            .height(0)
+                            .bits_per_component(1)
+                            .color_space()
+                            .device_gray();
+                    }
                 }
-
-                // Add a second gray-scale image containing the alpha values if
-                // this image has an alpha channel.
-                if img.buf.color().has_alpha() {
-                    let (alpha_data, alpha_filter) = encode_alpha(img);
-                    let mask_ref = self.alloc.bump();
-                    image.s_mask(mask_ref);
-                    image.finish();
-
-                    let mut mask = self.writer.image_xobject(mask_ref, &alpha_data);
-                    mask.filter(alpha_filter);
-                    mask.width(width as i32);
-                    mask.height(height as i32);
-                    mask.color_space().device_gray();
-                    mask.bits_per_component(8);
+                Image::Svg(img) => {
+                    let next_ref = svg2pdf::convert_tree_into(
+                        &img.0,
+                        svg2pdf::Options::default(),
+                        &mut self.writer,
+                        image_ref,
+                    );
+                    self.alloc = next_ref;
                 }
-            } else {
-                // TODO: Warn that image could not be encoded.
-                self.writer
-                    .image_xobject(image_ref, &[])
-                    .width(0)
-                    .height(0)
-                    .bits_per_component(1)
-                    .color_space()
-                    .device_gray();
             }
         }
     }
@@ -636,7 +650,7 @@ impl<'a> PageExporter<'a> {
 /// whether the image has color.
 ///
 /// Skips the alpha channel as that's encoded separately.
-fn encode_image(img: &Image) -> ImageResult<(Vec<u8>, Filter, bool)> {
+fn encode_image(img: &RasterImage) -> ImageResult<(Vec<u8>, Filter, bool)> {
     Ok(match (img.format, &img.buf) {
         // 8-bit gray JPEG.
         (ImageFormat::Jpeg, DynamicImage::ImageLuma8(_)) => {
@@ -677,7 +691,7 @@ fn encode_image(img: &Image) -> ImageResult<(Vec<u8>, Filter, bool)> {
 }
 
 /// Encode an image's alpha channel if present.
-fn encode_alpha(img: &Image) -> (Vec<u8>, Filter) {
+fn encode_alpha(img: &RasterImage) -> (Vec<u8>, Filter) {
     let pixels: Vec<_> = img.buf.pixels().map(|(_, _, Rgba([_, _, _, a]))| a).collect();
     (deflate(&pixels), Filter::FlateDecode)
 }

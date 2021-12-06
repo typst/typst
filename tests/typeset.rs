@@ -8,6 +8,7 @@ use filedescriptor::{FileDescriptor, StdioDescriptor::*};
 use image::{GenericImageView, Rgba};
 use tiny_skia as sk;
 use ttf_parser::{GlyphId, OutlineBuilder};
+use usvg::FitTo;
 use walkdir::WalkDir;
 
 use typst::diag::Error;
@@ -17,7 +18,7 @@ use typst::frame::{Element, Frame, Geometry, Group, Shape, Stroke, Text};
 use typst::geom::{
     self, Color, Length, Paint, PathElement, RgbaColor, Sides, Size, Transform,
 };
-use typst::image::Image;
+use typst::image::{Image, RasterImage, Svg};
 use typst::layout::layout;
 #[cfg(feature = "layout-cache")]
 use typst::library::DocumentNode;
@@ -513,7 +514,9 @@ fn draw_text(
                 let viewbox = format!("viewBox=\"0 0 {0} {0}\" xmlns", units_per_em);
                 svg.replace("xmlns", &viewbox)
             })
-            .and_then(|s| usvg::Tree::from_str(&s, &usvg::Options::default()).ok())
+            .and_then(|s| {
+                usvg::Tree::from_str(&s, &usvg::Options::default().to_ref()).ok()
+            })
         {
             for child in tree.root().children() {
                 if let usvg::NodeKind::Path(node) = &*child.borrow() {
@@ -535,13 +538,13 @@ fn draw_text(
             // TODO: Vertical alignment isn't quite right for Apple Color Emoji,
             // and maybe also for Noto Color Emoji. And: Is the size calculation
             // correct?
-            let img = Image::parse(&raster.data).unwrap();
+            let img = RasterImage::parse(&raster.data).unwrap();
             let h = text.size;
             let w = (img.width() as f64 / img.height() as f64) * h;
             let dx = (raster.x as f32) / (img.width() as f32) * size;
             let dy = (raster.y as f32) / (img.height() as f32) * size;
             let ts = ts.pre_translate(dx, -size - dy);
-            draw_image(canvas, ts, mask, &img, Size::new(w, h));
+            draw_image(canvas, ts, mask, &Image::Raster(img), Size::new(w, h));
         } else {
             // Otherwise, draw normal outline.
             let mut builder = WrappedPathBuilder(sk::PathBuilder::new());
@@ -608,16 +611,34 @@ fn draw_image(
     img: &Image,
     size: Size,
 ) {
-    let mut pixmap = sk::Pixmap::new(img.buf.width(), img.buf.height()).unwrap();
-    for ((_, _, src), dest) in img.buf.pixels().zip(pixmap.pixels_mut()) {
-        let Rgba([r, g, b, a]) = src;
-        *dest = sk::ColorU8::from_rgba(r, g, b, a).premultiply();
-    }
-
     let view_width = size.x.to_f32();
     let view_height = size.y.to_f32();
-    let scale_x = view_width as f32 / pixmap.width() as f32;
-    let scale_y = view_height as f32 / pixmap.height() as f32;
+
+    let pixmap = match img {
+        Image::Raster(img) => {
+            let w = img.buf.width();
+            let h = img.buf.height();
+            let mut pixmap = sk::Pixmap::new(w, h).unwrap();
+            for ((_, _, src), dest) in img.buf.pixels().zip(pixmap.pixels_mut()) {
+                let Rgba([r, g, b, a]) = src;
+                *dest = sk::ColorU8::from_rgba(r, g, b, a).premultiply();
+            }
+            pixmap
+        }
+        Image::Svg(Svg(tree)) => {
+            let size = tree.svg_node().size;
+            let aspect = (size.width() / size.height()) as f32;
+            let scale = ts.sx.max(ts.sy);
+            let w = (scale * view_width.max(aspect * view_height)).ceil() as u32;
+            let h = ((w as f32) / aspect).ceil() as u32;
+            let mut pixmap = sk::Pixmap::new(w, h).unwrap();
+            resvg::render(&tree, FitTo::Size(w, h), pixmap.as_mut());
+            pixmap
+        }
+    };
+
+    let scale_x = view_width / pixmap.width() as f32;
+    let scale_y = view_height / pixmap.height() as f32;
 
     let mut paint = sk::Paint::default();
     paint.shader = sk::Pattern::new(
@@ -689,7 +710,7 @@ fn convert_usvg_fill(fill: &usvg::Fill) -> (sk::Paint<'static>, sk::FillRule) {
     let mut paint = sk::Paint::default();
     paint.anti_alias = true;
 
-    if let usvg::Paint::Color(usvg::Color { red, green, blue }) = fill.paint {
+    if let usvg::Paint::Color(usvg::Color { red, green, blue, alpha: _ }) = fill.paint {
         paint.set_color_rgba8(red, green, blue, fill.opacity.to_u8())
     }
 
