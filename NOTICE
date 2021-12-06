@@ -16,6 +16,12 @@ The SIL Open Font License Version 1.1 applies to:
   Copyright (c) 2010, ParaType Ltd. (http://www.paratype.com/public),
   with Reserved Font Names "PT Sans" and "ParaType".
 
+* Monkey emoji in tests/res/monkey.svg
+  Copyright 2018 Vincent Le Moign, Streamline Emoji Project
+  Via Wikimedia Commons
+  (https://commons.wikimedia.org/wiki/File:440-monkey.svg)
+  Partially minified using SVGO
+
 -----------------------------------------------------------
 SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
 -----------------------------------------------------------

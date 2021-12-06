@@ -10,7 +10,6 @@ use pdf_writer::types::{
     ActionType, AnnotationType, CidFontType, FontFlags, SystemInfo, UnicodeCmap,
 };
 use pdf_writer::{Content, Filter, Finish, Name, PdfWriter, Rect, Ref, Str, TextStr};
-use svg2pdf::{convert_tree_into, Options};
 use ttf_parser::{name_id, GlyphId, Tag};
 
 use super::subset;
@@ -263,9 +262,9 @@ impl<'a> PdfExporter<'a> {
                     }
                 }
                 Image::Svg(img) => {
-                    let next_ref = convert_tree_into(
+                    let next_ref = svg2pdf::convert_tree_into(
                         &img.0,
-                        Options::default(),
+                        svg2pdf::Options::default(),
                         &mut self.writer,
                         image_ref,
                     );
