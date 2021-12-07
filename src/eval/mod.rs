@@ -6,6 +6,8 @@ mod array;
 mod dict;
 #[macro_use]
 mod value;
+#[macro_use]
+mod styles;
 mod capture;
 mod function;
 mod node;
@@ -18,6 +20,7 @@ pub use dict::*;
 pub use function::*;
 pub use node::*;
 pub use scope::*;
+pub use styles::*;
 pub use value::*;
 
 use std::cell::RefMut;
@@ -31,13 +34,12 @@ use unicode_segmentation::UnicodeSegmentation;
 use crate::diag::{At, Error, StrResult, Trace, Tracepoint, TypResult};
 use crate::geom::{Angle, Fractional, Length, Relative, Spec};
 use crate::image::ImageStore;
-use crate::library::{GridNode, TrackSizing};
+use crate::library::{GridNode, TextNode, TrackSizing};
 use crate::loading::Loader;
 use crate::source::{SourceId, SourceStore};
-use crate::style::Style;
 use crate::syntax::ast::*;
 use crate::syntax::{Span, Spanned};
-use crate::util::{BoolExt, EcoString, RefMutExt};
+use crate::util::{EcoString, RefMutExt};
 use crate::Context;
 
 /// Evaluate a parsed source file into a module.
@@ -70,8 +72,8 @@ pub struct EvalContext<'a> {
     pub modules: HashMap<SourceId, Module>,
     /// The active scopes.
     pub scopes: Scopes<'a>,
-    /// The active style.
-    pub style: Style,
+    /// The active styles.
+    pub styles: Styles,
 }
 
 impl<'a> EvalContext<'a> {
@@ -84,7 +86,7 @@ impl<'a> EvalContext<'a> {
             route: vec![source],
             modules: HashMap::new(),
             scopes: Scopes::new(Some(&ctx.std)),
-            style: ctx.style.clone(),
+            styles: Styles::new(),
         }
     }
 
@@ -158,14 +160,10 @@ impl Eval for Markup {
     type Output = Node;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        let snapshot = ctx.style.clone();
-
         let mut result = Node::new();
         for piece in self.nodes() {
             result += piece.eval(ctx)?;
         }
-
-        ctx.style = snapshot;
         Ok(result)
     }
 }
@@ -179,11 +177,11 @@ impl Eval for MarkupNode {
             Self::Linebreak => Node::Linebreak,
             Self::Parbreak => Node::Parbreak,
             Self::Strong => {
-                ctx.style.text_mut().strong.flip();
+                ctx.styles.set(TextNode::STRONG, !ctx.styles.get(TextNode::STRONG));
                 Node::new()
             }
             Self::Emph => {
-                ctx.style.text_mut().emph.flip();
+                ctx.styles.set(TextNode::EMPH, !ctx.styles.get(TextNode::EMPH));
                 Node::new()
             }
             Self::Text(text) => Node::Text(text.clone()),

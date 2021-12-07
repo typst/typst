@@ -44,13 +44,12 @@ pub mod library;
 pub mod loading;
 pub mod parse;
 pub mod source;
-pub mod style;
 pub mod syntax;
 
 use std::rc::Rc;
 
 use crate::diag::TypResult;
-use crate::eval::{Module, Scope};
+use crate::eval::{Module, Scope, Styles};
 use crate::font::FontStore;
 use crate::frame::Frame;
 use crate::image::ImageStore;
@@ -59,7 +58,6 @@ use crate::layout::{EvictionPolicy, LayoutCache};
 use crate::library::DocumentNode;
 use crate::loading::Loader;
 use crate::source::{SourceId, SourceStore};
-use crate::style::Style;
 
 /// The core context which holds the loader, configuration and cached artifacts.
 pub struct Context {
@@ -76,8 +74,8 @@ pub struct Context {
     pub layouts: LayoutCache,
     /// The standard library scope.
     std: Scope,
-    /// The default style.
-    style: Style,
+    /// The default styles.
+    styles: Styles,
 }
 
 impl Context {
@@ -96,9 +94,9 @@ impl Context {
         &self.std
     }
 
-    /// A read-only reference to the style.
-    pub fn style(&self) -> &Style {
-        &self.style
+    /// A read-only reference to the styles.
+    pub fn styles(&self) -> &Styles {
+        &self.styles
     }
 
     /// Evaluate a source file and return the resulting module.
@@ -136,7 +134,7 @@ impl Context {
 /// This struct is created by [`Context::builder`].
 pub struct ContextBuilder {
     std: Option<Scope>,
-    style: Option<Style>,
+    styles: Option<Styles>,
     #[cfg(feature = "layout-cache")]
     policy: EvictionPolicy,
     #[cfg(feature = "layout-cache")]
@@ -151,9 +149,9 @@ impl ContextBuilder {
         self
     }
 
-    /// The initial properties for page size, font selection and so on.
-    pub fn style(mut self, style: Style) -> Self {
-        self.style = Some(style);
+    /// The default properties for page size, font selection and so on.
+    pub fn styles(mut self, styles: Styles) -> Self {
+        self.styles = Some(styles);
         self
     }
 
@@ -185,7 +183,7 @@ impl ContextBuilder {
             #[cfg(feature = "layout-cache")]
             layouts: LayoutCache::new(self.policy, self.max_size),
             std: self.std.unwrap_or_else(library::new),
-            style: self.style.unwrap_or_default(),
+            styles: self.styles.unwrap_or_default(),
         }
     }
 }
@@ -194,7 +192,7 @@ impl Default for ContextBuilder {
     fn default() -> Self {
         Self {
             std: None,
-            style: None,
+            styles: None,
             #[cfg(feature = "layout-cache")]
             policy: EvictionPolicy::default(),
             #[cfg(feature = "layout-cache")]

@@ -2,18 +2,6 @@ use super::prelude::*;
 
 /// `align`: Configure the alignment along the layouting axes.
 pub fn align(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    castable! {
-        Spec<Option<Align>>,
-        Expected: "1d or 2d alignment",
-        @align: Align => {
-            let mut aligns = Spec::default();
-            aligns.set(align.axis(), Some(*align));
-            aligns
-        },
-        @aligns: Spec<Align> => aligns.map(Some),
-
-    }
-
     let aligns = args.expect::<Spec<_>>("alignment")?;
     let body = args.expect::<Node>("body")?;
 
@@ -61,4 +49,20 @@ impl Layout for AlignNode {
 
         frames
     }
+}
+
+dynamic! {
+    Align: "alignment",
+}
+
+castable! {
+    Spec<Option<Align>>,
+    Expected: "1d or 2d alignment",
+    @align: Align => {
+        let mut aligns = Spec::default();
+        aligns.set(align.axis(), Some(*align));
+        aligns
+    },
+    @aligns: Spec<Align> => aligns.map(Some),
+
 }

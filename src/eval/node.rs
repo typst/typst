@@ -9,6 +9,7 @@ use crate::geom::SpecAxis;
 use crate::layout::{Layout, PackedNode};
 use crate::library::{
     Decoration, DocumentNode, FlowChild, FlowNode, PageNode, ParChild, ParNode, Spacing,
+    TextNode,
 };
 use crate::util::EcoString;
 
@@ -158,10 +159,10 @@ impl NodePacker {
     fn walk(&mut self, node: Node) {
         match node {
             Node::Space => {
-                self.push_inline(ParChild::Text(' '.into()));
+                self.push_inline(ParChild::Text(TextNode(' '.into())));
             }
             Node::Linebreak => {
-                self.push_inline(ParChild::Text('\n'.into()));
+                self.push_inline(ParChild::Text(TextNode('\n'.into())));
             }
             Node::Parbreak => {
                 self.parbreak();
@@ -170,7 +171,7 @@ impl NodePacker {
                 self.pagebreak();
             }
             Node::Text(text) => {
-                self.push_inline(ParChild::Text(text));
+                self.push_inline(ParChild::Text(TextNode(text)));
             }
             Node::Spacing(axis, amount) => match axis {
                 SpecAxis::Horizontal => self.push_inline(ParChild::Spacing(amount)),

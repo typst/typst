@@ -31,6 +31,7 @@ fn transform_impl(args: &mut Args, transform: Transform) -> TypResult<Value> {
         .named("origin")?
         .unwrap_or(Spec::splat(None))
         .unwrap_or(Align::CENTER_HORIZON);
+
     Ok(Value::inline(
         body.into_block().transformed(transform, origin),
     ))

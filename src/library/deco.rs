@@ -31,7 +31,11 @@ fn line_impl(args: &mut Args, kind: LineKind) -> TypResult<Value> {
 pub fn link(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let url = args.expect::<EcoString>("url")?;
     let body = args.find().unwrap_or_else(|| {
-        Node::Text(url.trim_start_matches("mailto:").trim_start_matches("tel:").into())
+        let mut text = url.as_str();
+        for prefix in ["mailto:", "tel:"] {
+            text = text.trim_start_matches(prefix);
+        }
+        Node::Text(text.into())
     });
     Ok(Value::Node(body.decorate(Decoration::Link(url))))
 }
@@ -120,7 +124,7 @@ impl LineDecoration {
                 let extent = self.extent.resolve(text.size);
 
                 let subpos = Point::new(pos.x - extent, pos.y + offset);
-                let target = Point::new(text.width + 2.0 * extent, Length::zero());
+                let target = Point::new(text.width() + 2.0 * extent, Length::zero());
                 let shape = Shape::stroked(Geometry::Line(target), stroke);
                 frame.push(subpos, Element::Shape(shape));
             }

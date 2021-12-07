@@ -12,20 +12,17 @@ use usvg::FitTo;
 use walkdir::WalkDir;
 
 use typst::diag::Error;
-use typst::eval::{Smart, Value};
+use typst::eval::{Smart, Styles, Value};
 use typst::font::Face;
 use typst::frame::{Element, Frame, Geometry, Group, Shape, Stroke, Text};
-use typst::geom::{
-    self, Color, Length, Paint, PathElement, RgbaColor, Sides, Size, Transform,
-};
+use typst::geom::{self, Color, Length, Paint, PathElement, RgbaColor, Size, Transform};
 use typst::image::{Image, RasterImage, Svg};
 use typst::layout::layout;
 #[cfg(feature = "layout-cache")]
-use typst::library::DocumentNode;
+use typst::library::{DocumentNode, PageNode, TextNode};
 use typst::loading::FsLoader;
 use typst::parse::Scanner;
 use typst::source::SourceFile;
-use typst::style::Style;
 use typst::syntax::Span;
 use typst::Context;
 
@@ -64,12 +61,17 @@ fn main() {
         println!("Running {} tests", len);
     }
 
-    // We want to have "unbounded" pages, so we allow them to be infinitely
-    // large and fit them to match their content.
-    let mut style = Style::default();
-    style.page_mut().size = Size::new(Length::pt(120.0), Length::inf());
-    style.page_mut().margins = Sides::splat(Smart::Custom(Length::pt(10.0).into()));
-    style.text_mut().size = Length::pt(10.0);
+    // Set page width to 120pt with 10pt margins, so that the inner page is
+    // exactly 100pt wide. Page height is unbounded and font size is 10pt so
+    // that it multiplies to nice round numbers.
+    let mut styles = Styles::new();
+    styles.set(PageNode::WIDTH, Smart::Custom(Length::pt(120.0)));
+    styles.set(PageNode::HEIGHT, Smart::Auto);
+    styles.set(PageNode::LEFT, Smart::Custom(Length::pt(10.0).into()));
+    styles.set(PageNode::TOP, Smart::Custom(Length::pt(10.0).into()));
+    styles.set(PageNode::RIGHT, Smart::Custom(Length::pt(10.0).into()));
+    styles.set(PageNode::BOTTOM, Smart::Custom(Length::pt(10.0).into()));
+    styles.set(TextNode::SIZE, Length::pt(10.0));
 
     // Hook up an assert function into the global scope.
     let mut std = typst::library::new();
@@ -87,7 +89,7 @@ fn main() {
 
     // Create loader and context.
     let loader = FsLoader::new().with_path(FONT_DIR).wrap();
-    let mut ctx = Context::builder().std(std).style(style).build(loader);
+    let mut ctx = Context::builder().std(std).styles(styles).build(loader);
 
     // Run all the tests.
     let mut ok = true;

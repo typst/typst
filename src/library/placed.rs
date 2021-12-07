@@ -7,24 +7,21 @@ pub fn place(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let tx = args.named("dx")?.unwrap_or_default();
     let ty = args.named("dy")?.unwrap_or_default();
     let body: Node = args.expect("body")?;
-    Ok(Value::block(PlacedNode {
-        child: body.into_block().moved(Point::new(tx, ty)).aligned(aligns),
-    }))
+    Ok(Value::block(PlacedNode(
+        body.into_block().moved(Point::new(tx, ty)).aligned(aligns),
+    )))
 }
 
 /// A node that places its child absolutely.
 #[derive(Debug, Hash)]
-pub struct PlacedNode {
-    /// The node to be placed.
-    pub child: PackedNode,
-}
+pub struct PlacedNode(pub PackedNode);
 
 impl PlacedNode {
     /// Whether this node wants to be placed relative to its its parent's base
     /// origin. instead of relative to the parent's current flow/cursor
     /// position.
     pub fn out_of_flow(&self) -> bool {
-        self.child
+        self.0
             .downcast::<AlignNode>()
             .map_or(false, |node| node.aligns.y.is_some())
     }
@@ -46,7 +43,7 @@ impl Layout for PlacedNode {
             Regions::one(regions.base, regions.base, expand)
         };
 
-        let mut frames = self.child.layout(ctx, &pod);
+        let mut frames = self.0.layout(ctx, &pod);
         let Constrained { item: frame, cts } = &mut frames[0];
 
         // If expansion is off, zero all sizes so that we don't take up any

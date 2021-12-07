@@ -6,8 +6,7 @@ use unicode_bidi::{BidiInfo, Level};
 use xi_unicode::LineBreakIterator;
 
 use super::prelude::*;
-use super::{shape, Decoration, ShapedText, Spacing};
-use crate::style::TextStyle;
+use super::{shape, Decoration, ShapedText, Spacing, TextNode};
 use crate::util::{EcoString, RangeExt, RcExt, SliceExt};
 
 /// `par`: Configure paragraphs.
@@ -38,24 +37,14 @@ pub fn par(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         align = Some(v);
     }
 
-    let par = ctx.style.par_mut();
-
-    if let Some(dir) = dir {
-        par.dir = dir;
-        par.align = if dir == Dir::LTR { Align::Left } else { Align::Right };
+    if let (Some(dir), None) = (dir, align) {
+        align = Some(if dir == Dir::LTR { Align::Left } else { Align::Right });
     }
 
-    if let Some(align) = align {
-        par.align = align;
-    }
-
-    if let Some(leading) = leading {
-        par.leading = leading;
-    }
-
-    if let Some(spacing) = spacing {
-        par.spacing = spacing;
-    }
+    set!(ctx, ParNode::DIR => dir);
+    set!(ctx, ParNode::ALIGN => align);
+    set!(ctx, ParNode::LEADING => leading);
+    set!(ctx, ParNode::SPACING => spacing);
 
     Ok(Value::None)
 }
@@ -64,24 +53,39 @@ pub fn par(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 #[derive(Debug, Hash)]
 pub struct ParNode(pub Vec<ParChild>);
 
+properties! {
+    ParNode,
+
+    /// The direction for text and inline objects.
+    DIR: Dir = Dir::LTR,
+    /// How to align text and inline objects in their line.
+    ALIGN: Align = Align::Left,
+    // TODO(set): Make relative to font size.
+    /// The spacing between lines (dependent on scaled font size).
+    LEADING: Length = Length::pt(6.5),
+    /// The spacing between paragraphs (dependent on scaled font size).
+    SPACING: Length = Length::pt(12.0),
+}
+
 impl Layout for ParNode {
     fn layout(
         &self,
         ctx: &mut LayoutContext,
         regions: &Regions,
     ) -> Vec<Constrained<Rc<Frame>>> {
+        // TODO(set): Take styles as parameter.
+        let styles = Styles::new();
+
         // Collect all text into one string used for BiDi analysis.
         let text = self.collect_text();
 
         // Find out the BiDi embedding levels.
-        // TODO(set): Get dir from styles.
-        let bidi = BidiInfo::new(&text, Level::from_dir(Dir::LTR));
+        let default_level = Level::from_dir(styles.get(Self::DIR));
+        let bidi = BidiInfo::new(&text, default_level);
 
         // Prepare paragraph layout by building a representation on which we can
         // do line breaking without layouting each and every line from scratch.
-        // TODO(set): Get text style from styles.
-        let style = crate::style::TextStyle::default();
-        let layouter = ParLayouter::new(self, ctx, regions, bidi, &style);
+        let layouter = ParLayouter::new(self, ctx, regions, bidi, &styles);
 
         // Find suitable linebreaks.
         layouter.layout(ctx, regions.clone())
@@ -115,7 +119,7 @@ impl ParNode {
     fn strings(&self) -> impl Iterator<Item = &str> {
         self.0.iter().map(|child| match child {
             ParChild::Spacing(_) => " ",
-            ParChild::Text(ref piece, ..) => piece,
+            ParChild::Text(ref piece, ..) => &piece.0,
             ParChild::Node(..) => "\u{FFFC}",
             ParChild::Decorate(_) | ParChild::Undecorate => "",
         })
@@ -128,7 +132,8 @@ pub enum ParChild {
     /// Spacing between other nodes.
     Spacing(Spacing),
     /// A run of text and how to align it in its line.
-    Text(EcoString),
+    // TODO(set): A single text run may also have its own style.
+    Text(TextNode),
     /// Any child node and how to align it in its line.
     Node(PackedNode),
     /// A decoration that applies until a matching `Undecorate`.
@@ -188,7 +193,7 @@ impl<'a> ParLayouter<'a> {
         ctx: &mut LayoutContext,
         regions: &Regions,
         bidi: BidiInfo<'a>,
-        style: &'a TextStyle,
+        styles: &'a Styles,
     ) -> Self {
         let mut items = vec![];
         let mut ranges = vec![];
@@ -215,7 +220,7 @@ impl<'a> ParLayouter<'a> {
                         cursor += group.len();
                         let subrange = start .. cursor;
                         let text = &bidi.text[subrange.clone()];
-                        let shaped = shape(ctx, text, style, level.dir());
+                        let shaped = shape(ctx, text, styles, level.dir());
                         items.push(ParItem::Text(shaped));
                         ranges.push(subrange);
                     }
@@ -243,9 +248,8 @@ impl<'a> ParLayouter<'a> {
         }
 
         Self {
-            // TODO(set): Get alignment and leading from styles.
-            align: Align::Left,
-            leading: Length::pt(6.0),
+            align: styles.get(ParNode::ALIGN),
+            leading: styles.get(ParNode::LEADING),
             bidi,
             items,
             ranges,
@@ -540,7 +544,7 @@ impl<'a> LineLayout<'a> {
             // Compute the reordered ranges in visual order (left to right).
             self.par.bidi.visual_runs(para, self.line.clone())
         } else {
-            <_>::default()
+            (vec![], vec![])
         };
 
         runs.into_iter()

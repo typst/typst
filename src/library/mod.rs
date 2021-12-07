@@ -26,7 +26,7 @@ mod prelude {
     pub use std::rc::Rc;
 
     pub use crate::diag::{At, TypResult};
-    pub use crate::eval::{Args, EvalContext, Node, Smart, Value};
+    pub use crate::eval::{Args, EvalContext, Node, Property, Smart, Styles, Value};
     pub use crate::frame::*;
     pub use crate::geom::*;
     pub use crate::layout::*;
@@ -54,7 +54,6 @@ pub use utility::*;
 
 use crate::eval::{Scope, Value};
 use crate::geom::*;
-use crate::style::FontFamily;
 
 /// Construct a scope containing all standard library definitions.
 pub fn new() -> Scope {
@@ -137,15 +136,6 @@ pub fn new() -> Scope {
 
 dynamic! {
     Dir: "direction",
-}
-
-dynamic! {
-    Align: "alignment",
-}
-
-dynamic! {
-    FontFamily: "font family",
-    Value::Str(string) => Self::Named(string.to_lowercase()),
 }
 
 castable! {
