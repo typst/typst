@@ -53,7 +53,12 @@ pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 
 /// A single run of text with the same style.
 #[derive(Debug, Hash)]
-pub struct TextNode(pub EcoString);
+pub struct TextNode {
+    /// The run's text.
+    pub text: EcoString,
+    /// The run's styles.
+    pub styles: Styles,
+}
 
 properties! {
     TextNode,
@@ -138,12 +143,12 @@ pub enum FontFamily {
 
 impl Debug for FontFamily {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad(match self {
-            Self::Serif => "serif",
-            Self::SansSerif => "sans-serif",
-            Self::Monospace => "monospace",
-            Self::Named(s) => s,
-        })
+        match self {
+            Self::Serif => f.pad("serif"),
+            Self::SansSerif => f.pad("sans-serif"),
+            Self::Monospace => f.pad("monospace"),
+            Self::Named(s) => s.fmt(f),
+        }
     }
 }
 
@@ -329,28 +334,28 @@ castable! {
 
 /// Shape text into [`ShapedText`].
 pub fn shape<'a>(
-    ctx: &mut LayoutContext,
+    fonts: &mut FontStore,
     text: &'a str,
-    styles: &'a Styles,
+    styles: Styles,
     dir: Dir,
 ) -> ShapedText<'a> {
     let mut glyphs = vec![];
     if !text.is_empty() {
         shape_segment(
-            ctx.fonts,
+            fonts,
             &mut glyphs,
             0,
             text,
-            variant(styles),
-            families(styles),
+            variant(&styles),
+            families(&styles),
             None,
             dir,
-            &tags(styles),
+            &tags(&styles),
         );
     }
 
     track(&mut glyphs, styles.get(TextNode::TRACKING));
-    let (size, baseline) = measure(ctx, &glyphs, styles);
+    let (size, baseline) = measure(fonts, &glyphs, &styles);
 
     ShapedText {
         text,
@@ -507,7 +512,7 @@ fn track(glyphs: &mut [ShapedGlyph], tracking: Em) {
 /// Measure the size and baseline of a run of shaped glyphs with the given
 /// properties.
 fn measure(
-    ctx: &mut LayoutContext,
+    fonts: &mut FontStore,
     glyphs: &[ShapedGlyph],
     styles: &Styles,
 ) -> (Size, Length) {
@@ -529,14 +534,14 @@ fn measure(
         // When there are no glyphs, we just use the vertical metrics of the
         // first available font.
         for family in families(styles) {
-            if let Some(face_id) = ctx.fonts.select(family, variant(styles)) {
-                expand(ctx.fonts.get(face_id));
+            if let Some(face_id) = fonts.select(family, variant(styles)) {
+                expand(fonts.get(face_id));
                 break;
             }
         }
     } else {
         for (face_id, group) in glyphs.group_by_key(|g| g.face_id) {
-            let face = ctx.fonts.get(face_id);
+            let face = fonts.get(face_id);
             expand(face);
 
             for glyph in group {
@@ -685,7 +690,8 @@ pub struct ShapedText<'a> {
     /// The text direction.
     pub dir: Dir,
     /// The text's style properties.
-    pub styles: &'a Styles,
+    // TODO(set): Go back to reference.
+    pub styles: Styles,
     /// The font size.
     pub size: Size,
     /// The baseline from the top of the frame.
@@ -749,21 +755,21 @@ impl<'a> ShapedText<'a> {
     /// shaping process if possible.
     pub fn reshape(
         &'a self,
-        ctx: &mut LayoutContext,
+        fonts: &mut FontStore,
         text_range: Range<usize>,
     ) -> ShapedText<'a> {
         if let Some(glyphs) = self.slice_safe_to_break(text_range.clone()) {
-            let (size, baseline) = measure(ctx, glyphs, self.styles);
+            let (size, baseline) = measure(fonts, glyphs, &self.styles);
             Self {
                 text: &self.text[text_range],
                 dir: self.dir,
-                styles: self.styles,
+                styles: self.styles.clone(),
                 size,
                 baseline,
                 glyphs: Cow::Borrowed(glyphs),
             }
         } else {
-            shape(ctx, &self.text[text_range], self.styles, self.dir)
+            shape(fonts, &self.text[text_range], self.styles.clone(), self.dir)
         }
     }
 

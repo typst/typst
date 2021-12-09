@@ -117,14 +117,16 @@ impl<'a> EvalContext<'a> {
 
         // Prepare the new context.
         let new_scopes = Scopes::new(self.scopes.base);
-        let old_scopes = mem::replace(&mut self.scopes, new_scopes);
+        let prev_scopes = mem::replace(&mut self.scopes, new_scopes);
+        let prev_styles = mem::take(&mut self.styles);
         self.route.push(id);
 
         // Evaluate the module.
         let template = ast.eval(self).trace(|| Tracepoint::Import, span)?;
 
         // Restore the old context.
-        let new_scopes = mem::replace(&mut self.scopes, old_scopes);
+        let new_scopes = mem::replace(&mut self.scopes, prev_scopes);
+        self.styles = prev_styles;
         self.route.pop().unwrap();
 
         // Save the evaluated module.
@@ -160,11 +162,13 @@ impl Eval for Markup {
     type Output = Node;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        let mut result = Node::new();
+        let prev = mem::take(&mut ctx.styles);
+        let mut seq = vec![];
         for piece in self.nodes() {
-            result += piece.eval(ctx)?;
+            seq.push((piece.eval(ctx)?, ctx.styles.clone()));
         }
-        Ok(result)
+        ctx.styles = prev;
+        Ok(Node::Sequence(seq))
     }
 }
 
@@ -190,7 +194,7 @@ impl Eval for MarkupNode {
             Self::Heading(heading) => heading.eval(ctx)?,
             Self::List(list) => list.eval(ctx)?,
             Self::Enum(enum_) => enum_.eval(ctx)?,
-            Self::Expr(expr) => expr.eval(ctx)?.display(),
+            Self::Expr(expr) => expr.eval(ctx)?.show(),
         })
     }
 }
@@ -199,8 +203,7 @@ impl Eval for RawNode {
     type Output = Node;
 
     fn eval(&self, _: &mut EvalContext) -> TypResult<Self::Output> {
-        // TODO(set): Styled in monospace.
-        let text = Node::Text(self.text.clone());
+        let text = Node::Text(self.text.clone()).monospaced();
         Ok(if self.block {
             Node::Block(text.into_block())
         } else {
@@ -213,8 +216,7 @@ impl Eval for MathNode {
     type Output = Node;
 
     fn eval(&self, _: &mut EvalContext) -> TypResult<Self::Output> {
-        // TODO(set): Styled in monospace.
-        let text = Node::Text(self.formula.clone());
+        let text = Node::Text(self.formula.clone()).monospaced();
         Ok(if self.display {
             Node::Block(text.into_block())
         } else {
@@ -227,8 +229,14 @@ impl Eval for HeadingNode {
     type Output = Node;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        // TODO(set): Styled appropriately.
-        Ok(Node::Block(self.body().eval(ctx)?.into_block()))
+        // TODO(set): Relative font size.
+        let upscale = (1.6 - 0.1 * self.level() as f64).max(0.75);
+        let mut styles = Styles::new();
+        styles.set(TextNode::STRONG, true);
+        styles.set(TextNode::SIZE, upscale * Length::pt(11.0));
+        Ok(Node::Block(
+            self.body().eval(ctx)?.into_block().styled(styles),
+        ))
     }
 }
 

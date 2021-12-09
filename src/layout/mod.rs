@@ -15,6 +15,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
+use crate::eval::Styles;
 use crate::font::FontStore;
 use crate::frame::Frame;
 use crate::geom::{Align, Linear, Point, Sides, Spec, Transform};
@@ -37,6 +38,8 @@ pub struct LayoutContext<'a> {
     /// Caches layouting artifacts.
     #[cfg(feature = "layout-cache")]
     pub layouts: &'a mut LayoutCache,
+    /// The inherited style properties.
+    pub styles: Styles,
     /// How deeply nested the current layout tree position is.
     #[cfg(feature = "layout-cache")]
     pub level: usize,
@@ -50,6 +53,7 @@ impl<'a> LayoutContext<'a> {
             images: &mut ctx.images,
             #[cfg(feature = "layout-cache")]
             layouts: &mut ctx.layouts,
+            styles: ctx.styles.clone(),
             #[cfg(feature = "layout-cache")]
             level: 0,
         }
@@ -75,13 +79,9 @@ pub trait Layout {
     {
         PackedNode {
             #[cfg(feature = "layout-cache")]
-            hash: {
-                let mut state = fxhash::FxHasher64::default();
-                self.type_id().hash(&mut state);
-                self.hash(&mut state);
-                state.finish()
-            },
+            hash: self.hash64(),
             node: Rc::new(self),
+            styles: Styles::new(),
         }
     }
 }
@@ -89,8 +89,12 @@ pub trait Layout {
 /// A packed layouting node with precomputed hash.
 #[derive(Clone)]
 pub struct PackedNode {
+    /// The type-erased node.
     node: Rc<dyn Bounds>,
+    /// The node's styles.
+    pub styles: Styles,
     #[cfg(feature = "layout-cache")]
+    /// A precomputed hash.
     hash: u64,
 }
 
@@ -101,6 +105,16 @@ impl PackedNode {
         T: Layout + Debug + Hash + 'static,
     {
         self.node.as_any().downcast_ref()
+    }
+
+    /// Style the node with styles from a style map.
+    pub fn styled(mut self, styles: Styles) -> Self {
+        if self.styles.is_empty() {
+            self.styles = styles;
+        } else {
+            self.styles.apply(&styles);
+        }
+        self
     }
 
     /// Force a size for this node.
@@ -156,12 +170,12 @@ impl Layout for PackedNode {
         regions: &Regions,
     ) -> Vec<Constrained<Rc<Frame>>> {
         #[cfg(not(feature = "layout-cache"))]
-        return self.node.layout(ctx, regions);
+        return self.layout_impl(ctx, regions);
 
         #[cfg(feature = "layout-cache")]
         ctx.layouts.get(self.hash, regions).unwrap_or_else(|| {
             ctx.level += 1;
-            let frames = self.node.layout(ctx, regions);
+            let frames = self.layout_impl(ctx, regions);
             ctx.level -= 1;
 
             let entry = FramesEntry::new(frames.clone(), ctx.level);
@@ -190,12 +204,27 @@ impl Layout for PackedNode {
     }
 }
 
+impl PackedNode {
+    /// Layout the node without checking the cache.
+    fn layout_impl(
+        &self,
+        ctx: &mut LayoutContext,
+        regions: &Regions,
+    ) -> Vec<Constrained<Rc<Frame>>> {
+        let new = self.styles.chain(&ctx.styles);
+        let prev = std::mem::replace(&mut ctx.styles, new);
+        let frames = self.node.layout(ctx, regions);
+        ctx.styles = prev;
+        frames
+    }
+}
+
 impl Hash for PackedNode {
-    fn hash<H: Hasher>(&self, _state: &mut H) {
+    fn hash<H: Hasher>(&self, state: &mut H) {
         #[cfg(feature = "layout-cache")]
-        _state.write_u64(self.hash);
+        state.write_u64(self.hash);
         #[cfg(not(feature = "layout-cache"))]
-        unimplemented!()
+        state.write_u64(self.hash64());
     }
 }
 
@@ -207,13 +236,23 @@ impl Debug for PackedNode {
 
 trait Bounds: Layout + Debug + 'static {
     fn as_any(&self) -> &dyn Any;
+    fn hash64(&self) -> u64;
 }
 
 impl<T> Bounds for T
 where
-    T: Layout + Debug + 'static,
+    T: Layout + Hash + Debug + 'static,
 {
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    fn hash64(&self) -> u64 {
+        // Also hash the TypeId since nodes with different types but
+        // equal data should be different.
+        let mut state = fxhash::FxHasher64::default();
+        self.type_id().hash(&mut state);
+        self.hash(&mut state);
+        state.finish()
     }
 }

@@ -1,9 +1,10 @@
 use std::convert::TryFrom;
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::Debug;
 use std::hash::Hash;
 use std::mem;
 use std::ops::{Add, AddAssign};
 
+use super::Styles;
 use crate::diag::StrResult;
 use crate::geom::SpecAxis;
 use crate::layout::{Layout, PackedNode};
@@ -16,8 +17,9 @@ use crate::util::EcoString;
 /// A partial representation of a layout node.
 ///
 /// A node is a composable intermediate representation that can be converted
-/// into a proper layout node by lifting it to the block or page level.
-#[derive(Clone)]
+/// into a proper layout node by lifting it to a block-level or document node.
+// TODO(set): Fix Debug impl leaking into user-facing repr.
+#[derive(Debug, Clone)]
 pub enum Node {
     /// A word space.
     Space,
@@ -36,13 +38,13 @@ pub enum Node {
     /// A block node.
     Block(PackedNode),
     /// A sequence of nodes (which may themselves contain sequences).
-    Seq(Vec<Self>),
+    Sequence(Vec<(Self, Styles)>),
 }
 
 impl Node {
     /// Create an empty node.
     pub fn new() -> Self {
-        Self::Seq(vec![])
+        Self::Sequence(vec![])
     }
 
     /// Create an inline-level node.
@@ -61,8 +63,22 @@ impl Node {
         Self::Block(node.pack())
     }
 
-    /// Decoration this node.
-    pub fn decorate(self, _: Decoration) -> Self {
+    /// Style this node.
+    pub fn styled(self, styles: Styles) -> Self {
+        match self {
+            Self::Inline(inline) => Self::Inline(inline.styled(styles)),
+            Self::Block(block) => Self::Block(block.styled(styles)),
+            other => Self::Sequence(vec![(other, styles)]),
+        }
+    }
+
+    /// Style this node in monospace.
+    pub fn monospaced(self) -> Self {
+        self.styled(Styles::one(TextNode::MONOSPACE, true))
+    }
+
+    /// Decorate this node.
+    pub fn decorated(self, _: Decoration) -> Self {
         // TODO(set): Actually decorate.
         self
     }
@@ -73,7 +89,7 @@ impl Node {
             packed
         } else {
             let mut packer = NodePacker::new();
-            packer.walk(self);
+            packer.walk(self, Styles::new());
             packer.into_block()
         }
     }
@@ -81,7 +97,7 @@ impl Node {
     /// Lift to a document node, the root of the layout tree.
     pub fn into_document(self) -> DocumentNode {
         let mut packer = NodePacker::new();
-        packer.walk(self);
+        packer.walk(self, Styles::new());
         packer.into_document()
     }
 
@@ -91,13 +107,7 @@ impl Node {
             .map_err(|_| format!("cannot repeat this template {} times", n))?;
 
         // TODO(set): Make more efficient.
-        Ok(Self::Seq(vec![self.clone(); count]))
-    }
-}
-
-impl Debug for Node {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad("<node>")
+        Ok(Self::Sequence(vec![(self.clone(), Styles::new()); count]))
     }
 }
 
@@ -119,7 +129,7 @@ impl Add for Node {
 
     fn add(self, rhs: Self) -> Self::Output {
         // TODO(set): Make more efficient.
-        Self::Seq(vec![self, rhs])
+        Self::Sequence(vec![(self, Styles::new()), (rhs, Styles::new())])
     }
 }
 
@@ -129,86 +139,211 @@ impl AddAssign for Node {
     }
 }
 
-/// Packs a `Node` into a flow or whole document.
+/// Packs a [`Node`] into a flow or whole document.
 struct NodePacker {
+    /// The accumulated page nodes.
     document: Vec<PageNode>,
+    /// The common style properties of all items on the current page.
+    page_styles: Styles,
+    /// The accumulated flow children.
     flow: Vec<FlowChild>,
+    /// The accumulated paragraph children.
     par: Vec<ParChild>,
+    /// The common style properties of all items in the current paragraph.
+    par_styles: Styles,
+    /// The kind of thing that was last added to the current paragraph.
+    last: Last,
+}
+
+/// The type of the last thing that was pushed into the paragraph.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+enum Last {
+    None,
+    Spacing,
+    Newline,
+    Space,
+    Other,
 }
 
 impl NodePacker {
+    /// Start a new node-packing session.
     fn new() -> Self {
         Self {
             document: vec![],
+            page_styles: Styles::new(),
             flow: vec![],
             par: vec![],
+            par_styles: Styles::new(),
+            last: Last::None,
         }
     }
 
+    /// Finish up and return the resulting flow.
     fn into_block(mut self) -> PackedNode {
         self.parbreak();
         FlowNode(self.flow).pack()
     }
 
+    /// Finish up and return the resulting document.
     fn into_document(mut self) -> DocumentNode {
-        self.parbreak();
-        self.pagebreak();
+        self.pagebreak(true);
         DocumentNode(self.document)
     }
 
-    fn walk(&mut self, node: Node) {
+    /// Consider a node with the given styles.
+    fn walk(&mut self, node: Node, styles: Styles) {
         match node {
             Node::Space => {
-                self.push_inline(ParChild::Text(TextNode(' '.into())));
+                // Only insert a space if the previous thing was actual content.
+                if self.last == Last::Other {
+                    self.push_text(' '.into(), styles);
+                    self.last = Last::Space;
+                }
             }
             Node::Linebreak => {
-                self.push_inline(ParChild::Text(TextNode('\n'.into())));
+                self.trim();
+                self.push_text('\n'.into(), styles);
+                self.last = Last::Newline;
             }
             Node::Parbreak => {
                 self.parbreak();
             }
             Node::Pagebreak => {
-                self.pagebreak();
+                self.pagebreak(true);
+                self.page_styles = styles;
             }
             Node::Text(text) => {
-                self.push_inline(ParChild::Text(TextNode(text)));
+                self.push_text(text, styles);
             }
-            Node::Spacing(axis, amount) => match axis {
-                SpecAxis::Horizontal => self.push_inline(ParChild::Spacing(amount)),
-                SpecAxis::Vertical => self.push_block(FlowChild::Spacing(amount)),
-            },
+            Node::Spacing(SpecAxis::Horizontal, amount) => {
+                self.push_inline(ParChild::Spacing(amount), styles);
+                self.last = Last::Spacing;
+            }
+            Node::Spacing(SpecAxis::Vertical, amount) => {
+                self.push_block(FlowChild::Spacing(amount), styles);
+            }
             Node::Inline(inline) => {
-                self.push_inline(ParChild::Node(inline));
+                self.push_inline(ParChild::Node(inline), styles);
             }
             Node::Block(block) => {
-                self.push_block(FlowChild::Node(block));
+                self.push_block(FlowChild::Node(block), styles);
             }
-            Node::Seq(list) => {
-                for node in list {
-                    self.walk(node);
+            Node::Sequence(list) => {
+                for (node, mut inner) in list {
+                    inner.apply(&styles);
+                    self.walk(node, inner);
                 }
             }
         }
     }
 
-    fn parbreak(&mut self) {
-        let children = mem::take(&mut self.par);
-        if !children.is_empty() {
-            self.flow.push(FlowChild::Node(ParNode(children).pack()));
+    /// Remove a trailing space.
+    fn trim(&mut self) {
+        if self.last == Last::Space {
+            self.par.pop();
+            self.last = Last::Other;
         }
     }
 
-    fn pagebreak(&mut self) {
-        let children = mem::take(&mut self.flow);
-        self.document.push(PageNode(FlowNode(children).pack()));
+    /// Advance to the next paragraph.
+    fn parbreak(&mut self) {
+        self.trim();
+
+        let children = mem::take(&mut self.par);
+        let styles = mem::take(&mut self.par_styles);
+        if !children.is_empty() {
+            // The paragraph's children are all compatible with the page, so the
+            // paragraph is too, meaning we don't need to check or intersect
+            // anything here.
+            let node = ParNode(children).pack().styled(styles);
+            self.flow.push(FlowChild::Node(node));
+        }
+
+        self.last = Last::None;
     }
 
-    fn push_inline(&mut self, child: ParChild) {
-        self.par.push(child);
-    }
-
-    fn push_block(&mut self, child: FlowChild) {
+    /// Advance to the next page.
+    fn pagebreak(&mut self, keep: bool) {
         self.parbreak();
+        let children = mem::take(&mut self.flow);
+        let styles = mem::take(&mut self.page_styles);
+        if keep || !children.is_empty() {
+            let node = PageNode { node: FlowNode(children).pack(), styles };
+            self.document.push(node);
+        }
+    }
+
+    /// Insert text into the current paragraph.
+    fn push_text(&mut self, text: EcoString, styles: Styles) {
+        // TODO(set): Join compatible text nodes. Take care with space
+        // coalescing.
+        let node = TextNode { text, styles: Styles::new() };
+        self.push_inline(ParChild::Text(node), styles);
+    }
+
+    /// Insert an inline-level element into the current paragraph.
+    fn push_inline(&mut self, mut child: ParChild, styles: Styles) {
+        match &mut child {
+            ParChild::Spacing(_) => {}
+            ParChild::Text(node) => node.styles.apply(&styles),
+            ParChild::Node(node) => node.styles.apply(&styles),
+            ParChild::Decorate(_) => {}
+            ParChild::Undecorate => {}
+        }
+
+        // The node must be both compatible with the current page and the
+        // current paragraph.
+        self.make_page_compatible(&styles);
+        self.make_par_compatible(&styles);
+        self.par.push(child);
+        self.last = Last::Other;
+    }
+
+    /// Insert a block-level element into the current flow.
+    fn push_block(&mut self, mut child: FlowChild, styles: Styles) {
+        self.parbreak();
+
+        match &mut child {
+            FlowChild::Spacing(_) => {}
+            FlowChild::Node(node) => node.styles.apply(&styles),
+        }
+
+        // The node must be compatible with the current page.
+        self.make_page_compatible(&styles);
         self.flow.push(child);
+    }
+
+    /// Break to a new paragraph if the `styles` contain paragraph styles that
+    /// are incompatible with the current paragraph.
+    fn make_par_compatible(&mut self, styles: &Styles) {
+        if self.par.is_empty() {
+            self.par_styles = styles.clone();
+            return;
+        }
+
+        if !self.par_styles.compatible(&styles, ParNode::has_property) {
+            self.parbreak();
+            self.par_styles = styles.clone();
+            return;
+        }
+
+        self.par_styles.intersect(&styles);
+    }
+
+    /// Break to a new page if the `styles` contain page styles that are
+    /// incompatible with the current page.
+    fn make_page_compatible(&mut self, styles: &Styles) {
+        if self.flow.is_empty() && self.par.is_empty() {
+            self.page_styles = styles.clone();
+            return;
+        }
+
+        if !self.page_styles.compatible(&styles, PageNode::has_property) {
+            self.pagebreak(false);
+            self.page_styles = styles.clone();
+            return;
+        }
+
+        self.page_styles.intersect(styles);
     }
 }

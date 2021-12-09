@@ -108,8 +108,8 @@ impl Value {
         format_eco!("{:?}", self)
     }
 
-    /// Return the display representation of a value in form of a node.
-    pub fn display(self) -> Node {
+    /// Return the display representation of the value.
+    pub fn show(self) -> Node {
         match self {
             Value::None => Node::new(),
             Value::Int(v) => Node::Text(format_eco!("{}", v)),
@@ -118,8 +118,7 @@ impl Value {
             Value::Node(v) => v,
             // For values which can't be shown "naturally", we print the
             // representation in monospace.
-            // TODO(set): Styled in monospace.
-            v => Node::Text(v.repr()),
+            v => Node::Text(v.repr()).monospaced(),
         }
     }
 }

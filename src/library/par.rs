@@ -73,19 +73,16 @@ impl Layout for ParNode {
         ctx: &mut LayoutContext,
         regions: &Regions,
     ) -> Vec<Constrained<Rc<Frame>>> {
-        // TODO(set): Take styles as parameter.
-        let styles = Styles::new();
-
         // Collect all text into one string used for BiDi analysis.
         let text = self.collect_text();
 
         // Find out the BiDi embedding levels.
-        let default_level = Level::from_dir(styles.get(Self::DIR));
+        let default_level = Level::from_dir(ctx.styles.get(Self::DIR));
         let bidi = BidiInfo::new(&text, default_level);
 
         // Prepare paragraph layout by building a representation on which we can
         // do line breaking without layouting each and every line from scratch.
-        let layouter = ParLayouter::new(self, ctx, regions, bidi, &styles);
+        let layouter = ParLayouter::new(self, ctx, regions, bidi);
 
         // Find suitable linebreaks.
         layouter.layout(ctx, regions.clone())
@@ -119,8 +116,8 @@ impl ParNode {
     fn strings(&self) -> impl Iterator<Item = &str> {
         self.0.iter().map(|child| match child {
             ParChild::Spacing(_) => " ",
-            ParChild::Text(ref piece, ..) => &piece.0,
-            ParChild::Node(..) => "\u{FFFC}",
+            ParChild::Text(ref node) => &node.text,
+            ParChild::Node(_) => "\u{FFFC}",
             ParChild::Decorate(_) | ParChild::Undecorate => "",
         })
     }
@@ -132,7 +129,6 @@ pub enum ParChild {
     /// Spacing between other nodes.
     Spacing(Spacing),
     /// A run of text and how to align it in its line.
-    // TODO(set): A single text run may also have its own style.
     Text(TextNode),
     /// Any child node and how to align it in its line.
     Node(PackedNode),
@@ -146,7 +142,7 @@ impl Debug for ParChild {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::Spacing(v) => write!(f, "Spacing({:?})", v),
-            Self::Text(text) => write!(f, "Text({:?})", text),
+            Self::Text(node) => write!(f, "Text({:?})", node.text),
             Self::Node(node) => node.fmt(f),
             Self::Decorate(deco) => write!(f, "Decorate({:?})", deco),
             Self::Undecorate => write!(f, "Undecorate"),
@@ -193,7 +189,6 @@ impl<'a> ParLayouter<'a> {
         ctx: &mut LayoutContext,
         regions: &Regions,
         bidi: BidiInfo<'a>,
-        styles: &'a Styles,
     ) -> Self {
         let mut items = vec![];
         let mut ranges = vec![];
@@ -212,7 +207,7 @@ impl<'a> ParLayouter<'a> {
                     items.push(ParItem::Fractional(v));
                     ranges.push(range);
                 }
-                ParChild::Text(_) => {
+                ParChild::Text(ref node) => {
                     // TODO: Also split by language and script.
                     let mut cursor = range.start;
                     for (level, group) in bidi.levels[range].group_by_key(|&lvl| lvl) {
@@ -220,7 +215,8 @@ impl<'a> ParLayouter<'a> {
                         cursor += group.len();
                         let subrange = start .. cursor;
                         let text = &bidi.text[subrange.clone()];
-                        let shaped = shape(ctx, text, styles, level.dir());
+                        let styles = node.styles.chain(&ctx.styles);
+                        let shaped = shape(&mut ctx.fonts, text, styles, level.dir());
                         items.push(ParItem::Text(shaped));
                         ranges.push(subrange);
                     }
@@ -248,8 +244,8 @@ impl<'a> ParLayouter<'a> {
         }
 
         Self {
-            align: styles.get(ParNode::ALIGN),
-            leading: styles.get(ParNode::LEADING),
+            align: ctx.styles.get(ParNode::ALIGN),
+            leading: ctx.styles.get(ParNode::LEADING),
             bidi,
             items,
             ranges,
@@ -426,7 +422,7 @@ impl<'a> LineLayout<'a> {
                 // empty string.
                 if !range.is_empty() || rest.is_empty() {
                     // Reshape that part.
-                    let reshaped = shaped.reshape(ctx, range);
+                    let reshaped = shaped.reshape(&mut ctx.fonts, range);
                     last = Some(ParItem::Text(reshaped));
                 }
 
@@ -447,7 +443,7 @@ impl<'a> LineLayout<'a> {
             // Reshape if necessary.
             if range.len() < shaped.text.len() {
                 if !range.is_empty() {
-                    let reshaped = shaped.reshape(ctx, range);
+                    let reshaped = shaped.reshape(&mut ctx.fonts, range);
                     first = Some(ParItem::Text(reshaped));
                 }
 

@@ -1,7 +1,7 @@
 use std::fmt::{self, Debug, Formatter};
 
 use super::prelude::*;
-use super::{AlignNode, PlacedNode, Spacing};
+use super::{AlignNode, ParNode, PlacedNode, Spacing};
 
 /// `flow`: A vertical flow of paragraphs and other layout nodes.
 pub fn flow(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
@@ -158,6 +158,13 @@ impl<'a> FlowLayouter<'a> {
 
     /// Layout a node.
     fn layout_node(&mut self, ctx: &mut LayoutContext, node: &PackedNode) {
+        // Add paragraph spacing.
+        // TODO(set): Handle edge cases.
+        if !self.items.is_empty() {
+            let spacing = node.styles.chain(&ctx.styles).get(ParNode::SPACING);
+            self.layout_absolute(spacing.into());
+        }
+
         if let Some(placed) = node.downcast::<PlacedNode>() {
             let frame = node.layout(ctx, &self.regions).remove(0);
             if placed.out_of_flow() {

@@ -1,12 +1,19 @@
 use super::prelude::*;
+use super::ParNode;
 
 /// `align`: Configure the alignment along the layouting axes.
 pub fn align(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let aligns = args.expect::<Spec<_>>("alignment")?;
     let body = args.expect::<Node>("body")?;
 
-    // TODO(set): Style paragraphs with x alignment.
-    Ok(Value::block(body.into_block().aligned(aligns)))
+    let mut styles = Styles::new();
+    if let Some(align) = aligns.x {
+        styles.set(ParNode::ALIGN, align);
+    }
+
+    Ok(Value::block(
+        body.into_block().styled(styles).aligned(aligns),
+    ))
 }
 
 /// A node that aligns its child.

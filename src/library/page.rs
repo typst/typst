@@ -49,7 +49,12 @@ pub fn pagebreak(_: &mut EvalContext, _: &mut Args) -> TypResult<Value> {
 
 /// Layouts its child onto one or multiple pages.
 #[derive(Debug, Hash)]
-pub struct PageNode(pub PackedNode);
+pub struct PageNode {
+    /// The node producing the content.
+    pub node: PackedNode,
+    /// The page's styles.
+    pub styles: Styles,
+}
 
 properties! {
     PageNode,
@@ -77,30 +82,31 @@ properties! {
 impl PageNode {
     /// Layout the page run into a sequence of frames, one per page.
     pub fn layout(&self, ctx: &mut LayoutContext) -> Vec<Rc<Frame>> {
-        // TODO(set): Take styles as parameter.
-        let styles = Styles::new();
+        // TODO(set): Use chaining.
+        let prev = std::mem::replace(&mut ctx.styles, self.styles.clone());
+        ctx.styles.apply(&prev);
 
         // When one of the lengths is infinite the page fits its content along
         // that axis.
-        let width = styles.get(Self::WIDTH).unwrap_or(Length::inf());
-        let height = styles.get(Self::HEIGHT).unwrap_or(Length::inf());
+        let width = ctx.styles.get(Self::WIDTH).unwrap_or(Length::inf());
+        let height = ctx.styles.get(Self::HEIGHT).unwrap_or(Length::inf());
         let mut size = Size::new(width, height);
-        if styles.get(Self::FLIPPED) {
+        if ctx.styles.get(Self::FLIPPED) {
             std::mem::swap(&mut size.x, &mut size.y);
         }
 
         // Determine the margins.
-        let class = styles.get(Self::CLASS);
+        let class = ctx.styles.get(Self::CLASS);
         let default = class.default_margins();
         let padding = Sides {
-            left: styles.get(Self::LEFT).unwrap_or(default.left),
-            right: styles.get(Self::RIGHT).unwrap_or(default.right),
-            top: styles.get(Self::TOP).unwrap_or(default.top),
-            bottom: styles.get(Self::BOTTOM).unwrap_or(default.bottom),
+            left: ctx.styles.get(Self::LEFT).unwrap_or(default.left),
+            right: ctx.styles.get(Self::RIGHT).unwrap_or(default.right),
+            top: ctx.styles.get(Self::TOP).unwrap_or(default.top),
+            bottom: ctx.styles.get(Self::BOTTOM).unwrap_or(default.bottom),
         };
 
         // Pad the child.
-        let padded = PadNode { child: self.0.clone(), padding }.pack();
+        let padded = PadNode { child: self.node.clone(), padding }.pack();
 
         // Layout the child.
         let expand = size.map(Length::is_finite);
@@ -109,13 +115,14 @@ impl PageNode {
             padded.layout(ctx, &regions).into_iter().map(|c| c.item).collect();
 
         // Add background fill if requested.
-        if let Some(fill) = styles.get(Self::FILL) {
+        if let Some(fill) = ctx.styles.get(Self::FILL) {
             for frame in &mut frames {
                 let shape = Shape::filled(Geometry::Rect(frame.size), fill);
                 Rc::make_mut(frame).prepend(Point::zero(), Element::Shape(shape));
             }
         }
 
+        ctx.styles = prev;
         frames
     }
 }

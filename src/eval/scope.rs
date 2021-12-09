@@ -120,6 +120,7 @@ impl Scope {
 
 impl Debug for Scope {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.write_str("Scope ")?;
         f.debug_map()
             .entries(self.values.iter().map(|(k, v)| (k, v.borrow())))
             .finish()

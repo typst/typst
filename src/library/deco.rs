@@ -22,7 +22,7 @@ fn line_impl(args: &mut Args, kind: LineKind) -> TypResult<Value> {
     let offset = args.named("offset")?;
     let extent = args.named("extent")?.unwrap_or_default();
     let body: Node = args.expect("body")?;
-    Ok(Value::Node(body.decorate(Decoration::Line(
+    Ok(Value::Node(body.decorated(Decoration::Line(
         LineDecoration { kind, stroke, thickness, offset, extent },
     ))))
 }
@@ -37,7 +37,7 @@ pub fn link(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         }
         Node::Text(text.into())
     });
-    Ok(Value::Node(body.decorate(Decoration::Link(url))))
+    Ok(Value::Node(body.decorated(Decoration::Link(url))))
 }
 
 /// A decoration for a frame.
