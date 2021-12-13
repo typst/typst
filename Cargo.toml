@@ -2,7 +2,7 @@
 name = "typst"
 version = "0.1.0"
 authors = ["The Typst Project Developers"]
-edition = "2018"
+edition = "2021"
 
 [features]
 default = ["cli", "fs", "layout-cache"]

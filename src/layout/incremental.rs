@@ -8,8 +8,7 @@ use super::{Constrained, Regions};
 use crate::frame::Frame;
 use crate::geom::Scalar;
 
-const TEMP_LEN: usize = 5;
-const TEMP_LAST: usize = TEMP_LEN - 1;
+const TEMP_LEN: usize = 4;
 
 /// Caches layouting artifacts.
 ///
@@ -101,13 +100,13 @@ impl LayoutCache {
                 entry.used_cycles += 1;
             }
 
-            let last = entry.temperature[TEMP_LAST];
+            let last = *entry.temperature.last().unwrap();
             for i in (1 .. TEMP_LEN).rev() {
                 entry.temperature[i] = entry.temperature[i - 1];
             }
 
             entry.temperature[0] = 0;
-            entry.temperature[TEMP_LAST] += last;
+            entry.ancient_hits += last as usize;
             entry.age += 1;
         }
 
@@ -199,9 +198,10 @@ pub struct FramesEntry {
     /// For how long the element already exists.
     age: usize,
     /// How much the element was accessed during the last five compilations, the
-    /// most recent one being the first element. The last element will collect
-    /// all usages that are farther in the past.
-    temperature: [usize; TEMP_LEN],
+    /// most recent one being the first element.
+    temperature: [u8; TEMP_LEN],
+    /// All past usages that do not fit in the temperature array.
+    ancient_hits: usize,
     /// Amount of cycles in which the element has been used at all.
     used_cycles: usize,
 }
@@ -214,6 +214,7 @@ impl FramesEntry {
             level,
             age: 1,
             temperature: [0; TEMP_LEN],
+            ancient_hits: 0,
             used_cycles: 0,
         }
     }
@@ -222,7 +223,7 @@ impl FramesEntry {
     /// them if so.
     pub fn lookup(&mut self, regions: &Regions) -> Option<Vec<Constrained<Rc<Frame>>>> {
         self.check(regions).then(|| {
-            self.temperature[0] += 1;
+            self.temperature[0] = self.temperature[0].saturating_add(1);
             self.frames.clone()
         })
     }
@@ -254,7 +255,7 @@ impl FramesEntry {
 
     /// Get the total amount of hits over the lifetime of this item.
     pub fn hits(&self) -> usize {
-        self.temperature.iter().sum()
+        self.temperature.into_iter().map(usize::from).sum::<usize>() + self.ancient_hits
     }
 
     /// The amount of consecutive cycles in which this item has not been used.
@@ -280,7 +281,7 @@ impl FramesEntry {
         let mut last = None;
         let mut all_same = true;
 
-        for (i, &temp) in self.temperature[.. TEMP_LAST].iter().enumerate() {
+        for (i, &temp) in self.temperature.iter().enumerate() {
             if temp == 0 && !all_zeros {
                 sparse = true;
             }
@@ -310,16 +311,16 @@ impl FramesEntry {
             last = Some(temp);
         }
 
-        if self.age >= TEMP_LEN && self.age - TEMP_LAST < self.temperature[TEMP_LAST] {
+        if self.age > TEMP_LEN && self.age - TEMP_LEN <= self.ancient_hits {
             multi_use = true;
         }
 
-        if self.temperature[TEMP_LAST] > 0 {
+        if self.ancient_hits > 0 {
             all_zeros = false;
         }
 
         PatternProperties {
-            mature: self.age >= TEMP_LEN,
+            mature: self.age > TEMP_LEN,
             hit: self.temperature[0] >= 1,
             top_level: self.level == 0,
             all_zeros,
@@ -421,19 +422,22 @@ mod tests {
 
         let entry = cache.frames.get(&0).unwrap().first().unwrap();
         assert_eq!(entry.age(), 1);
-        assert_eq!(entry.temperature, [0, 0, 0, 0, 0]);
+        assert_eq!(entry.temperature, [0, 0, 0, 0]);
+        assert_eq!(entry.ancient_hits, 0);
         assert_eq!(entry.used_cycles, 0);
         assert_eq!(entry.level, 0);
 
         cache.get(0, &regions).unwrap();
         let entry = cache.frames.get(&0).unwrap().first().unwrap();
         assert_eq!(entry.age(), 1);
-        assert_eq!(entry.temperature, [1, 0, 0, 0, 0]);
+        assert_eq!(entry.temperature, [1, 0, 0, 0]);
+        assert_eq!(entry.ancient_hits, 0);
 
         cache.turnaround();
         let entry = cache.frames.get(&0).unwrap().first().unwrap();
         assert_eq!(entry.age(), 2);
-        assert_eq!(entry.temperature, [0, 1, 0, 0, 0]);
+        assert_eq!(entry.temperature, [0, 1, 0, 0]);
+        assert_eq!(entry.ancient_hits, 0);
         assert_eq!(entry.used_cycles, 1);
 
         cache.get(0, &regions).unwrap();
@@ -443,7 +447,8 @@ mod tests {
 
         let entry = cache.frames.get(&0).unwrap().first().unwrap();
         assert_eq!(entry.age(), 6);
-        assert_eq!(entry.temperature, [0, 0, 0, 0, 2]);
+        assert_eq!(entry.temperature, [0, 0, 0, 0]);
+        assert_eq!(entry.ancient_hits, 2);
         assert_eq!(entry.used_cycles, 2);
     }
 

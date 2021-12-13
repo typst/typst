@@ -27,7 +27,7 @@ macro_rules! node {
     ($(#[$attr:meta])* $name:ident: $variant:ident) => {
         node!{$(#[$attr])* $name: NodeKind::$variant}
     };
-    ($(#[$attr:meta])* $name:ident: $($variant:pat)|*) => {
+    ($(#[$attr:meta])* $name:ident: $variants:pat) => {
         #[derive(Debug, Clone, PartialEq)]
         #[repr(transparent)]
         $(#[$attr])*
@@ -35,7 +35,7 @@ macro_rules! node {
 
         impl TypedNode for $name {
             fn from_red(node: RedRef) -> Option<Self> {
-                if matches!(node.kind(), $($variant)|*) {
+                if matches!(node.kind(), $variants) {
                     Some(Self(node.own()))
                 } else {
                     None
@@ -274,15 +274,16 @@ impl TypedNode for Expr {
 impl Expr {
     /// Whether the expression can be shortened in markup with a hashtag.
     pub fn has_short_form(&self) -> bool {
-        matches!(self,
+        matches!(
+            self,
             Self::Ident(_)
-            | Self::Call(_)
-            | Self::Let(_)
-            | Self::If(_)
-            | Self::While(_)
-            | Self::For(_)
-            | Self::Import(_)
-            | Self::Include(_)
+                | Self::Call(_)
+                | Self::Let(_)
+                | Self::If(_)
+                | Self::While(_)
+                | Self::For(_)
+                | Self::Import(_)
+                | Self::Include(_)
         )
     }
 }
