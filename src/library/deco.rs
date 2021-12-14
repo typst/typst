@@ -38,6 +38,41 @@ pub struct Decoration {
     pub extent: Linear,
 }
 
+impl Decoration {
+    /// Create a new underline with default settings.
+    pub const fn underline() -> Self {
+        Self {
+            line: DecoLine::Underline,
+            stroke: None,
+            thickness: None,
+            offset: None,
+            extent: Linear::zero(),
+        }
+    }
+
+    /// Create a new strikethrough with default settings.
+    pub const fn strikethrough() -> Self {
+        Self {
+            line: DecoLine::Underline,
+            stroke: None,
+            thickness: None,
+            offset: None,
+            extent: Linear::zero(),
+        }
+    }
+
+    /// Create a new overline with default settings.
+    pub const fn overline() -> Self {
+        Self {
+            line: DecoLine::Overline,
+            stroke: None,
+            thickness: None,
+            offset: None,
+            extent: Linear::zero(),
+        }
+    }
+}
+
 /// The kind of decorative line.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum DecoLine {
@@ -49,7 +84,7 @@ pub enum DecoLine {
     Overline,
 }
 
-/// Differents kinds of decorative lines for text.
+/// Different kinds of decorative lines for text.
 pub trait LineKind {
     const LINE: DecoLine;
 }

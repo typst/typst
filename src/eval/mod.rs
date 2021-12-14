@@ -30,20 +30,35 @@ use std::collections::HashMap;
 use std::io;
 use std::mem;
 use std::path::PathBuf;
+use std::sync::Mutex;
+
+use once_cell::sync::Lazy;
+use syntect::easy::HighlightLines;
+use syntect::highlighting::{FontStyle, Highlighter, Style as SynStyle, Theme, ThemeSet};
+use syntect::parsing::SyntaxSet;
 
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::diag::{At, Error, StrResult, Trace, Tracepoint, TypResult};
-use crate::geom::{Angle, Fractional, Length, Relative};
+use crate::geom::{Angle, Fractional, Length, Paint, Relative, RgbaColor};
 use crate::image::ImageStore;
 use crate::layout::RootNode;
-use crate::library::{self, TextNode};
+use crate::library::{self, Decoration, TextNode};
 use crate::loading::Loader;
+use crate::parse;
 use crate::source::{SourceId, SourceStore};
+use crate::syntax;
 use crate::syntax::ast::*;
-use crate::syntax::{Span, Spanned};
+use crate::syntax::{RedNode, Span, Spanned};
 use crate::util::{EcoString, RefMutExt};
 use crate::Context;
+
+static THEME: Lazy<Mutex<Theme>> = Lazy::new(|| {
+    Mutex::new(ThemeSet::load_defaults().themes.remove("InspiredGitHub").unwrap())
+});
+
+static SYNTAXES: Lazy<Mutex<SyntaxSet>> =
+    Lazy::new(|| Mutex::new(SyntaxSet::load_defaults_newlines()));
 
 /// An evaluated module, ready for importing or conversion to a root layout
 /// tree.
@@ -209,12 +224,96 @@ impl Eval for RawNode {
     type Output = Node;
 
     fn eval(&self, _: &mut EvalContext) -> TypResult<Self::Output> {
-        let text = Node::Text(self.text.clone()).monospaced();
+        let code = self.highlighted();
         Ok(if self.block {
-            Node::Block(text.into_block())
+            Node::Block(code.into_block())
         } else {
-            text
+            code
         })
+    }
+}
+
+impl RawNode {
+    /// Styled node for a code block, with optional syntax highlighting.
+    pub fn highlighted(&self) -> Node {
+        let mut sequence: Vec<Styled<Node>> = vec![];
+        let syntaxes = SYNTAXES.lock().unwrap();
+
+        let syntax = if let Some(syntax) = self
+            .lang
+            .as_ref()
+            .and_then(|token| syntaxes.find_syntax_by_token(&token))
+        {
+            Some(syntax)
+        } else if matches!(
+            self.lang.as_ref().map(|s| s.to_ascii_lowercase()).as_deref(),
+            Some("typ" | "typst")
+        ) {
+            None
+        } else {
+            return Node::Text(self.text.clone()).monospaced();
+        };
+
+        let theme = THEME.lock().unwrap();
+        let foreground = theme
+            .settings
+            .foreground
+            .map(RgbaColor::from)
+            .unwrap_or(RgbaColor::BLACK)
+            .into();
+
+        match syntax {
+            Some(syntax) => {
+                let mut highlighter = HighlightLines::new(syntax, &theme);
+                for (i, line) in self.text.lines().enumerate() {
+                    if i != 0 {
+                        sequence.push(Styled::bare(Node::Linebreak));
+                    }
+
+                    for (style, line) in highlighter.highlight(line, &syntaxes) {
+                        sequence.push(Self::styled_line(style, line, foreground));
+                    }
+                }
+            }
+            None => {
+                let red_tree =
+                    RedNode::from_root(parse::parse(&self.text), SourceId::from_raw(0));
+                let highlighter = Highlighter::new(&theme);
+
+                syntax::highlight_syntect(
+                    red_tree.as_ref(),
+                    &self.text,
+                    &highlighter,
+                    &mut |style, line| {
+                        sequence.push(Self::styled_line(style, line, foreground));
+                    },
+                )
+            }
+        }
+
+        Node::Sequence(sequence).monospaced()
+    }
+
+    fn styled_line(style: SynStyle, line: &str, foreground: Paint) -> Styled<Node> {
+        let paint = style.foreground.into();
+        let text_node = Node::Text(line.into());
+        let mut style_map = StyleMap::new();
+
+        if paint != foreground {
+            style_map.set(TextNode::FILL, paint);
+        }
+
+        if style.font_style.contains(FontStyle::BOLD) {
+            style_map.set(TextNode::STRONG, true);
+        }
+        if style.font_style.contains(FontStyle::ITALIC) {
+            style_map.set(TextNode::EMPH, true);
+        }
+        if style.font_style.contains(FontStyle::UNDERLINE) {
+            style_map.set(TextNode::LINES, vec![Decoration::underline()]);
+        }
+
+        Styled::new(text_node, style_map)
     }
 }
 

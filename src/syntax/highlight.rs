@@ -1,5 +1,8 @@
 use std::ops::Range;
 
+use syntect::highlighting::{Highlighter, Style};
+use syntect::parsing::Scope;
+
 use super::{NodeKind, RedRef};
 
 /// Provide highlighting categories for the children of a node that fall into a
@@ -16,6 +19,45 @@ where
             }
             highlight(child, range.clone(), f);
         }
+    }
+}
+
+/// Provide syntect highlighting styles for the children of a node.
+pub fn highlight_syntect<F>(
+    node: RedRef,
+    text: &str,
+    highlighter: &Highlighter,
+    f: &mut F,
+) where
+    F: FnMut(Style, &str),
+{
+    highlight_syntect_impl(node, text, vec![], highlighter, f)
+}
+
+/// Recursive implementation for returning syntect styles.
+fn highlight_syntect_impl<F>(
+    node: RedRef,
+    text: &str,
+    scopes: Vec<Scope>,
+    highlighter: &Highlighter,
+    f: &mut F,
+) where
+    F: FnMut(Style, &str),
+{
+    if node.children().size_hint().0 == 0 {
+        f(
+            highlighter.style_for_stack(&scopes),
+            &text[node.span().to_range()],
+        );
+        return;
+    }
+
+    for child in node.children() {
+        let mut scopes = scopes.clone();
+        if let Some(category) = Category::determine(child, node) {
+            scopes.push(Scope::new(category.tm_scope()).unwrap())
+        }
+        highlight_syntect_impl(child, text, scopes, highlighter, f);
     }
 }
 
@@ -184,6 +226,33 @@ impl Category {
             NodeKind::ImportExpr => None,
             NodeKind::ImportItems => None,
             NodeKind::IncludeExpr => None,
+        }
+    }
+
+    /// Return the TextMate grammar scope for the given highlighting category.
+    pub const fn tm_scope(&self) -> &'static str {
+        match self {
+            Self::Bracket => "punctuation.definition.typst",
+            Self::Punctuation => "punctuation.typst",
+            Self::Comment => "comment.typst",
+            Self::Strong => "markup.bold.typst",
+            Self::Emph => "markup.italic.typst",
+            Self::Raw => "markup.raw.typst",
+            Self::Math => "string.other.math.typst",
+            Self::Heading => "markup.heading.typst",
+            Self::List => "markup.list.typst",
+            Self::Shortcut => "punctuation.shortcut.typst",
+            Self::Escape => "constant.character.escape.content.typst",
+            Self::Keyword => "keyword.typst",
+            Self::Operator => "keyword.operator.typst",
+            Self::None => "constant.language.none.typst",
+            Self::Auto => "constant.language.auto.typst",
+            Self::Bool => "constant.language.boolean.typst",
+            Self::Number => "constant.numeric.typst",
+            Self::String => "string.quoted.double.typst",
+            Self::Function => "entity.name.function.typst",
+            Self::Variable => "variable.parameter.typst",
+            Self::Invalid => "invalid.typst",
         }
     }
 }
