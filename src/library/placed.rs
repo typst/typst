@@ -51,13 +51,6 @@ impl Layout for PlacedNode {
         let target = regions.expand.select(regions.current, Size::zero());
         Rc::make_mut(frame).resize(target, Align::LEFT_TOP);
 
-        // Place relative to parent's base origin by offsetting our elements by
-        // the negative cursor position.
-        if out_of_flow {
-            let offset = (regions.current - regions.base).to_point();
-            Rc::make_mut(frame).translate(offset);
-        }
-
         // Set base constraint because our pod size is base and exact
         // constraints if we needed to expand or offset.
         *cts = Constraints::new(regions.expand);

@@ -62,7 +62,7 @@ pub fn pagebreak(_: &mut EvalContext, _: &mut Args) -> TypResult<Value> {
 #[derive(Hash)]
 pub struct PageNode {
     /// The node producing the content.
-    pub node: PackedNode,
+    pub child: PackedNode,
     /// The page's styles.
     pub styles: Styles,
 }
@@ -116,7 +116,7 @@ impl PageNode {
         };
 
         // Pad the child.
-        let padded = PadNode { child: self.node.clone(), padding }.pack();
+        let padded = PadNode { child: self.child.clone(), padding }.pack();
 
         // Layout the child.
         let expand = size.map(Length::is_finite);
@@ -143,7 +143,7 @@ impl Debug for PageNode {
             self.styles.fmt(f)?;
         }
         f.write_str("Page(")?;
-        self.node.fmt(f)?;
+        self.child.fmt(f)?;
         f.write_str(")")
     }
 }

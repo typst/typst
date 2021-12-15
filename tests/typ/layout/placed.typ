@@ -1,3 +1,6 @@
+// Test the `place` function.
+
+---
 #page("a8")
 #place(bottom + center)[© Typst]
 
@@ -20,3 +23,13 @@ the line breaks still had to be inserted manually.
   #place(center, dx: 7pt, dy: 5pt)[Hello]
   Hello #h(1fr) Hello
 ]
+
+---
+// Test how the placed node interacts with paragraph spacing around it.
+#page("a8", height: 60pt)
+
+First
+
+#place(bottom + right)[Placed]
+
+Second

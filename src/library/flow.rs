@@ -30,30 +30,30 @@ impl Debug for FlowNode {
 /// A child of a flow node.
 #[derive(Hash)]
 pub enum FlowChild {
+    /// A paragraph/block break.
+    Break(Styles),
     /// Vertical spacing between other children.
     Spacing(SpacingNode),
     /// An arbitrary node.
     Node(PackedNode),
-    /// A paragraph break.
-    Parbreak(Styles),
 }
 
 impl FlowChild {
     /// A reference to the child's styles.
     pub fn styles(&self) -> &Styles {
         match self {
+            Self::Break(styles) => styles,
             Self::Spacing(node) => &node.styles,
             Self::Node(node) => &node.styles,
-            Self::Parbreak(styles) => styles,
         }
     }
 
     /// A mutable reference to the child's styles.
     pub fn styles_mut(&mut self) -> &mut Styles {
         match self {
+            Self::Break(styles) => styles,
             Self::Spacing(node) => &mut node.styles,
             Self::Node(node) => &mut node.styles,
-            Self::Parbreak(styles) => styles,
         }
     }
 }
@@ -61,14 +61,14 @@ impl FlowChild {
 impl Debug for FlowChild {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Self::Spacing(node) => node.fmt(f),
-            Self::Node(node) => node.fmt(f),
-            Self::Parbreak(styles) => {
+            Self::Break(styles) => {
                 if f.alternate() {
                     styles.fmt(f)?;
                 }
-                write!(f, "Parbreak")
+                write!(f, "Break")
             }
+            Self::Spacing(node) => node.fmt(f),
+            Self::Node(node) => node.fmt(f),
         }
     }
 }
@@ -132,6 +132,13 @@ impl<'a> FlowLayouter<'a> {
     fn layout(mut self, ctx: &mut LayoutContext) -> Vec<Constrained<Rc<Frame>>> {
         for child in self.children {
             match child {
+                FlowChild::Break(styles) => {
+                    let chain = styles.chain(&ctx.styles);
+                    let amount = chain
+                        .get(ParNode::SPACING)
+                        .resolve(chain.get(TextNode::SIZE).abs);
+                    self.layout_absolute(amount.into());
+                }
                 FlowChild::Spacing(node) => match node.kind {
                     SpacingKind::Linear(v) => self.layout_absolute(v),
                     SpacingKind::Fractional(v) => {
@@ -145,13 +152,6 @@ impl<'a> FlowLayouter<'a> {
                     }
 
                     self.layout_node(ctx, node);
-                }
-                FlowChild::Parbreak(styles) => {
-                    let chain = styles.chain(&ctx.styles);
-                    let amount = chain
-                        .get(ParNode::SPACING)
-                        .resolve(chain.get(TextNode::SIZE).abs);
-                    self.layout_absolute(amount.into());
                 }
             }
         }
@@ -248,7 +248,7 @@ impl<'a> FlowLayouter<'a> {
                     output.push_frame(pos, frame);
                 }
                 FlowItem::Placed(frame) => {
-                    output.push_frame(Point::with_y(offset), frame);
+                    output.push_frame(Point::zero(), frame);
                 }
             }
         }
