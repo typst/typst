@@ -9,6 +9,7 @@ mod value;
 #[macro_use]
 mod styles;
 mod capture;
+mod class;
 mod function;
 mod node;
 mod ops;
@@ -16,6 +17,7 @@ mod scope;
 
 pub use array::*;
 pub use capture::*;
+pub use class::*;
 pub use dict::*;
 pub use function::*;
 pub use node::*;
@@ -54,7 +56,7 @@ pub fn eval(ctx: &mut Context, source: SourceId, markup: &Markup) -> TypResult<M
 pub struct Module {
     /// The top-level definitions that were bound in this module.
     pub scope: Scope,
-    /// The node defined by this module.
+    /// The module's layoutable contents.
     pub node: Node,
 }
 
@@ -288,6 +290,7 @@ impl Eval for Expr {
             Self::Unary(v) => v.eval(ctx),
             Self::Binary(v) => v.eval(ctx),
             Self::Let(v) => v.eval(ctx),
+            Self::Set(v) => v.eval(ctx),
             Self::If(v) => v.eval(ctx),
             Self::While(v) => v.eval(ctx),
             Self::For(v) => v.eval(ctx),
@@ -474,9 +477,17 @@ impl Eval for CallExpr {
                 Ok(value)
             }
 
+            Value::Class(class) => {
+                let mut styles = Styles::new();
+                class.set(&mut styles, &mut args)?;
+                let node = class.construct(ctx, &mut args)?;
+                args.finish()?;
+                Ok(Value::Node(node.styled(styles)))
+            }
+
             v => bail!(
                 self.callee().span(),
-                "expected function or collection, found {}",
+                "expected callable or collection, found {}",
                 v.type_name(),
             ),
         }
@@ -639,6 +650,19 @@ impl Eval for LetExpr {
             None => Value::None,
         };
         ctx.scopes.def_mut(self.binding().take(), value);
+        Ok(Value::None)
+    }
+}
+
+impl Eval for SetExpr {
+    type Output = Value;
+
+    fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
+        let class = self.class();
+        let class = class.eval(ctx)?.cast::<Class>().at(class.span())?;
+        let mut args = self.args().eval(ctx)?;
+        class.set(&mut ctx.styles, &mut args)?;
+        args.finish()?;
         Ok(Value::None)
     }
 }

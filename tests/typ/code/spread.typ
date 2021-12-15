@@ -4,14 +4,14 @@
 ---
 // Test standard argument overriding.
 {
-  let font(style: "normal", weight: "regular") = {
+  let f(style: "normal", weight: "regular") = {
     "(style: " + style + ", weight: " + weight + ")"
   }
 
-  let myfont(..args) = font(weight: "bold", ..args)
-  test(myfont(), "(style: normal, weight: bold)")
-  test(myfont(weight: "black"), "(style: normal, weight: black)")
-  test(myfont(style: "italic"), "(style: italic, weight: bold)")
+  let myf(..args) = f(weight: "bold", ..args)
+  test(myf(), "(style: normal, weight: bold)")
+  test(myf(weight: "black"), "(style: normal, weight: black)")
+  test(myf(style: "italic"), "(style: italic, weight: bold)")
 }
 
 ---

@@ -527,6 +527,7 @@ fn keyword(ident: &str) -> Option<NodeKind> {
         "or" => NodeKind::Or,
         "with" => NodeKind::With,
         "let" => NodeKind::Let,
+        "set" => NodeKind::Set,
         "if" => NodeKind::If,
         "else" => NodeKind::Else,
         "for" => NodeKind::For,

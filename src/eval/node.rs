@@ -36,6 +36,8 @@ pub enum Node {
     Inline(PackedNode),
     /// A block node.
     Block(PackedNode),
+    /// A page node.
+    Page(PackedNode),
     /// A sequence of nodes (which may themselves contain sequences).
     Sequence(Vec<(Self, Styles)>),
 }
@@ -213,6 +215,14 @@ impl Packer {
             }
             Node::Block(block) => {
                 self.push_block(block.styled(styles));
+            }
+            Node::Page(flow) => {
+                if self.top {
+                    self.pagebreak();
+                    self.pages.push(PageNode { child: flow, styles });
+                } else {
+                    self.push_block(flow.styled(styles));
+                }
             }
             Node::Sequence(list) => {
                 // For a list of nodes, we apply the list's styles to each node

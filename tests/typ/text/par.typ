@@ -2,37 +2,37 @@
 
 ---
 // Test ragged-left.
-#par(align: right)
+#set par(align: right)
 To the right! Where the sunlight peeks behind the mountain.
 
 ---
 // Test that explicit paragraph break respects active styles.
-#par(spacing: 7pt)
-[#par(spacing: 100pt) First]
+#set par(spacing: 7pt)
+[#set par(spacing: 100pt);First]
 
-[#par(spacing: 100pt) Second]
-#par(spacing: 20pt)
+[#set par(spacing: 100pt);Second]
+#set par(spacing: 20pt)
 
 Third
 
 ---
 // Test that paragraph break due to incompatibility respects
 // spacing defined by the two adjacent paragraphs.
-#let a = [#par(spacing: 40pt) Hello]
-#let b = [#par(spacing: 60pt) World]
+#let a = [#set par(spacing: 40pt);Hello]
+#let b = [#set par(spacing: 60pt);World]
 {a}{b}
 
 ---
 // Test weird metrics.
-#par(spacing: 100%, leading: 0pt)
+#set par(spacing: 100%, leading: 0pt)
 But, soft! what light through yonder window breaks?
 
 It is the east, and Juliet is the sun.
 
 ---
-// Error: 13-16 must be horizontal
-#par(align: top)
+// Error: 17-20 must be horizontal
+#set par(align: top)
 
 ---
-// Error: 13-29 expected alignment, found 2d alignment
-#par(align: horizon + center)
+// Error: 17-33 expected alignment, found 2d alignment
+#set par(align: horizon + center)

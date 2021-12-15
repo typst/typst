@@ -23,13 +23,13 @@
   [X]
 }
 
-#font("Latin Modern Math", size)
+#set text("Latin Modern Math", size)
 Neither #tex, \
 nor #xetex!
 
 ---
 // Test combination of scaling and rotation.
-#page(height: 80pt)
+#set page(height: 80pt)
 #align(center + horizon,
   rotate(20deg, scale(70%, image("../../res/tiger.jpg")))
 )
@@ -43,7 +43,7 @@ nor #xetex!
 ---
 // Test setting scaling origin.
 #let r = rect(width: 100pt, height: 10pt, fill: forest)
-#page(height: 65pt)
+#set page(height: 65pt)
 #scale(r, x: 50%, y: 200%, origin: left + top)
 #scale(r, x: 50%, origin: center)
 #scale(r, x: 50%, y: 200%, origin: right + bottom)

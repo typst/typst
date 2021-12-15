@@ -6,53 +6,6 @@ use std::str::FromStr;
 use super::prelude::*;
 use super::PadNode;
 
-/// `page`: Configure pages.
-pub fn page(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    castable! {
-        Paper,
-        Expected: "string",
-        Value::Str(string) => Paper::from_str(&string).map_err(|e| e.to_string())?,
-    }
-
-    let body: Option<Node> = args.find();
-
-    let mut map = Styles::new();
-    let styles = match body {
-        Some(_) => &mut map,
-        None => &mut ctx.styles,
-    };
-
-    if let Some(paper) = args.named::<Paper>("paper")?.or_else(|| args.find()) {
-        styles.set(PageNode::CLASS, paper.class());
-        styles.set(PageNode::WIDTH, Smart::Custom(paper.width()));
-        styles.set(PageNode::HEIGHT, Smart::Custom(paper.height()));
-    }
-
-    if let Some(width) = args.named("width")? {
-        styles.set(PageNode::CLASS, PaperClass::Custom);
-        styles.set(PageNode::WIDTH, width);
-    }
-
-    if let Some(height) = args.named("height")? {
-        styles.set(PageNode::CLASS, PaperClass::Custom);
-        styles.set(PageNode::HEIGHT, height);
-    }
-
-    let margins = args.named("margins")?;
-
-    set!(styles, PageNode::FLIPPED => args.named("flipped")?);
-    set!(styles, PageNode::LEFT => args.named("left")?.or(margins));
-    set!(styles, PageNode::TOP => args.named("top")?.or(margins));
-    set!(styles, PageNode::RIGHT => args.named("right")?.or(margins));
-    set!(styles, PageNode::BOTTOM => args.named("bottom")?.or(margins));
-    set!(styles, PageNode::FILL => args.named("fill")?);
-
-    Ok(match body {
-        Some(body) => Value::block(body.into_block().styled(map)),
-        None => Value::None,
-    })
-}
-
 /// `pagebreak`: Start a new page.
 pub fn pagebreak(_: &mut EvalContext, _: &mut Args) -> TypResult<Value> {
     Ok(Value::Node(Node::Pagebreak))
@@ -88,6 +41,45 @@ properties! {
     BOTTOM: Smart<Linear> = Smart::Auto,
     /// The page's background color.
     FILL: Option<Paint> = None,
+}
+
+impl Construct for PageNode {
+    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
+        // TODO(set): Make sure it's really a page so that it doesn't merge
+        // with adjacent pages.
+        Ok(Node::Page(args.expect::<Node>("body")?.into_block()))
+    }
+}
+
+impl Set for PageNode {
+    fn set(styles: &mut Styles, args: &mut Args) -> TypResult<()> {
+        if let Some(paper) = args.named::<Paper>("paper")?.or_else(|| args.find()) {
+            styles.set(PageNode::CLASS, paper.class());
+            styles.set(PageNode::WIDTH, Smart::Custom(paper.width()));
+            styles.set(PageNode::HEIGHT, Smart::Custom(paper.height()));
+        }
+
+        if let Some(width) = args.named("width")? {
+            styles.set(PageNode::CLASS, PaperClass::Custom);
+            styles.set(PageNode::WIDTH, width);
+        }
+
+        if let Some(height) = args.named("height")? {
+            styles.set(PageNode::CLASS, PaperClass::Custom);
+            styles.set(PageNode::HEIGHT, height);
+        }
+
+        let margins = args.named("margins")?;
+
+        set!(styles, PageNode::FLIPPED => args.named("flipped")?);
+        set!(styles, PageNode::LEFT => args.named("left")?.or(margins));
+        set!(styles, PageNode::TOP => args.named("top")?.or(margins));
+        set!(styles, PageNode::RIGHT => args.named("right")?.or(margins));
+        set!(styles, PageNode::BOTTOM => args.named("bottom")?.or(margins));
+        set!(styles, PageNode::FILL => args.named("fill")?);
+
+        Ok(())
+    }
 }
 
 impl PageNode {
@@ -180,6 +172,12 @@ impl Default for Paper {
     fn default() -> Self {
         Paper::A4
     }
+}
+
+castable! {
+    Paper,
+    Expected: "string",
+    Value::Str(string) => Paper::from_str(&string).map_err(|e| e.to_string())?,
 }
 
 /// Defines default margins for a class of related papers.

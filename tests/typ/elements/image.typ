@@ -7,7 +7,7 @@
 #image("../../res/rhino.png")
 
 // Load an RGB JPEG image.
-#page(height: 60pt)
+#set page(height: 60pt)
 #image("../../res/tiger.jpg")
 
 ---
@@ -25,7 +25,7 @@
 
 ---
 // Test all three fit modes.
-#page(height: 50pt, margins: 0pt)
+#set page(height: 50pt, margins: 0pt)
 #grid(
   columns: (1fr, 1fr, 1fr),
   rows: 100%,
@@ -37,7 +37,7 @@
 
 ---
 // Does not fit to remaining height of page.
-#page(height: 60pt)
+#set page(height: 60pt)
 Stuff \
 Stuff
 #image("../../res/rhino.png")

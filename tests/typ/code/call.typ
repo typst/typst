@@ -5,7 +5,8 @@
 // Ref: true
 
 // Ommitted space.
-[#font(weight:"bold")Bold]
+#let f() = {}
+[#f()*Bold*]
 
 // Call return value of function with body.
 #let f(x, body) = (y) => [#x] + body + [#y]
@@ -44,25 +45,25 @@
 }
 
 ---
-// Error: 2-6 expected function or collection, found boolean
+// Error: 2-6 expected callable or collection, found boolean
 {true()}
 
 ---
 #let x = "x"
 
-// Error: 1-3 expected function or collection, found string
+// Error: 1-3 expected callable or collection, found string
 #x()
 
 ---
 #let f(x) = x
 
-// Error: 1-6 expected function or collection, found integer
+// Error: 1-6 expected callable or collection, found integer
 #f(1)(2)
 
 ---
 #let f(x) = x
 
-// Error: 1-6 expected function or collection, found template
+// Error: 1-6 expected callable or collection, found template
 #f[1](2)
 
 ---

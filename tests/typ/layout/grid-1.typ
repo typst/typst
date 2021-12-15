@@ -3,7 +3,7 @@
 ---
 #let cell(width, color) = rect(width: width, height: 2cm, fill: color)
 
-#page(width: 100pt, height: 140pt)
+#set page(width: 100pt, height: 140pt)
 #grid(
   columns: (auto, 1fr, 3fr, 0.25cm, 3%, 2mm + 10%),
   cell(0.5cm, rgb("2a631a")),
@@ -31,7 +31,7 @@
 )
 
 ---
-#page(height: 3cm, margins: 0pt)
+#set page(height: 3cm, margins: 0pt)
 #grid(
   columns: (1fr,),
   rows: (1fr, auto, 2fr),

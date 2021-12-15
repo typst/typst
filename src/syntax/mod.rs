@@ -83,19 +83,15 @@ impl Default for Green {
 
 impl Debug for Green {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{:?}: {}", self.kind(), self.len())?;
-        if let Self::Node(n) = self {
-            if !n.children.is_empty() {
-                f.write_str(" ")?;
-                f.debug_list().entries(&n.children).finish()?;
-            }
+        match self {
+            Self::Node(node) => node.fmt(f),
+            Self::Token(token) => token.fmt(f),
         }
-        Ok(())
     }
 }
 
 /// An inner node in the untyped green tree.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct GreenNode {
     /// Node metadata.
     data: GreenData,
@@ -145,8 +141,19 @@ impl From<Rc<GreenNode>> for Green {
     }
 }
 
+impl Debug for GreenNode {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        self.data.fmt(f)?;
+        if !self.children.is_empty() {
+            f.write_str(" ")?;
+            f.debug_list().entries(&self.children).finish()?;
+        }
+        Ok(())
+    }
+}
+
 /// Data shared between inner and leaf nodes.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct GreenData {
     /// What kind of node this is (each kind would have its own struct in a
     /// strongly typed AST).
@@ -175,6 +182,12 @@ impl GreenData {
 impl From<GreenData> for Green {
     fn from(token: GreenData) -> Self {
         Self::Token(token)
+    }
+}
+
+impl Debug for GreenData {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{:?}: {}", self.kind, self.len())
     }
 }
 
@@ -465,6 +478,8 @@ pub enum NodeKind {
     Auto,
     /// The `let` keyword.
     Let,
+    /// The `set` keyword.
+    Set,
     /// The `if` keyword.
     If,
     /// The `else` keyword.
@@ -552,8 +567,12 @@ pub enum NodeKind {
     Dict,
     /// A named pair: `thickness: 3pt`.
     Named,
+    /// A template expression: `[*Hi* there!]`.
+    Template,
     /// A grouped expression: `(1 + 2)`.
     Group,
+    /// A block expression: `{ let x = 1; x + 2 }`.
+    Block,
     /// A unary operation: `-x`.
     Unary,
     /// A binary operation: `a + b`.
@@ -562,39 +581,37 @@ pub enum NodeKind {
     Call,
     /// A function call's argument list: `(x, y)`.
     CallArgs,
+    /// Spreaded arguments or a parameter sink: `..x`.
+    Spread,
     /// A closure expression: `(x, y) => z`.
     Closure,
     /// A closure's parameters: `(x, y)`.
     ClosureParams,
-    /// A parameter sink: `..x`.
-    Spread,
-    /// A template expression: `[*Hi* there!]`.
-    Template,
-    /// A block expression: `{ let x = 1; x + 2 }`.
-    Block,
-    /// A for loop expression: `for x in y { ... }`.
-    ForExpr,
-    /// A while loop expression: `while x { ... }`.
-    WhileExpr,
-    /// An if expression: `if x { ... }`.
-    IfExpr,
+    /// A with expression: `f with (x, y: 1)`.
+    WithExpr,
     /// A let expression: `let x = 1`.
     LetExpr,
-    /// The `with` expression: `with (1)`.
-    WithExpr,
+    /// A set expression: `set text(...)`.
+    SetExpr,
+    /// An if-else expression: `if x { y } else { z }`.
+    IfExpr,
+    /// A while loop expression: `while x { ... }`.
+    WhileExpr,
+    /// A for loop expression: `for x in y { ... }`.
+    ForExpr,
     /// A for loop's destructuring pattern: `x` or `x, y`.
     ForPattern,
-    /// The import expression: `import x from "foo.typ"`.
+    /// An import expression: `import a, b, c from "utils.typ"`.
     ImportExpr,
     /// Items to import: `a, b, c`.
     ImportItems,
-    /// The include expression: `include "foo.typ"`.
+    /// An include expression: `include "chapter1.typ"`.
     IncludeExpr,
-    /// Two slashes followed by inner contents, terminated with a newline:
-    /// `//<str>\n`.
+    /// A line comment, two slashes followed by inner contents, terminated with
+    /// a newline: `//<str>\n`.
     LineComment,
-    /// A slash and a star followed by inner contents,  terminated with a star
-    /// and a slash: `/*<str>*/`.
+    /// A block comment, a slash and a star followed by inner contents,
+    /// terminated with a star and a slash: `/*<str>*/`.
     ///
     /// The comment can contain nested block comments.
     BlockComment,
@@ -616,11 +633,6 @@ pub enum ErrorPos {
 }
 
 impl NodeKind {
-    /// Whether this is some kind of parenthesis.
-    pub fn is_paren(&self) -> bool {
-        matches!(self, Self::LeftParen | Self::RightParen)
-    }
-
     /// Whether this is some kind of bracket.
     pub fn is_bracket(&self) -> bool {
         matches!(self, Self::LeftBracket | Self::RightBracket)
@@ -629,6 +641,11 @@ impl NodeKind {
     /// Whether this is some kind of brace.
     pub fn is_brace(&self) -> bool {
         matches!(self, Self::LeftBrace | Self::RightBrace)
+    }
+
+    /// Whether this is some kind of parenthesis.
+    pub fn is_paren(&self) -> bool {
+        matches!(self, Self::LeftParen | Self::RightParen)
     }
 
     /// Whether this is some kind of error.
@@ -672,6 +689,7 @@ impl NodeKind {
             Self::None => "`none`",
             Self::Auto => "`auto`",
             Self::Let => "keyword `let`",
+            Self::Set => "keyword `set`",
             Self::If => "keyword `if`",
             Self::Else => "keyword `else`",
             Self::For => "keyword `for`",
@@ -712,21 +730,22 @@ impl NodeKind {
             Self::Array => "array",
             Self::Dict => "dictionary",
             Self::Named => "named argument",
+            Self::Template => "template",
             Self::Group => "group",
+            Self::Block => "block",
             Self::Unary => "unary expression",
             Self::Binary => "binary expression",
             Self::Call => "call",
             Self::CallArgs => "call arguments",
+            Self::Spread => "parameter sink",
             Self::Closure => "closure",
             Self::ClosureParams => "closure parameters",
-            Self::Spread => "parameter sink",
-            Self::Template => "template",
-            Self::Block => "block",
-            Self::ForExpr => "for-loop expression",
-            Self::WhileExpr => "while-loop expression",
-            Self::IfExpr => "`if` expression",
-            Self::LetExpr => "`let` expression",
             Self::WithExpr => "`with` expression",
+            Self::LetExpr => "`let` expression",
+            Self::SetExpr => "`set` expression",
+            Self::IfExpr => "`if` expression",
+            Self::WhileExpr => "while-loop expression",
+            Self::ForExpr => "for-loop expression",
             Self::ForPattern => "for-loop destructuring pattern",
             Self::ImportExpr => "`import` expression",
             Self::ImportItems => "import items",

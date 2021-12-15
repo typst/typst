@@ -110,12 +110,13 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
         // Hashtag + keyword / identifier.
         NodeKind::Ident(_)
         | NodeKind::Let
+        | NodeKind::Set
         | NodeKind::If
         | NodeKind::While
         | NodeKind::For
         | NodeKind::Import
         | NodeKind::Include => {
-            let stmt = matches!(token, NodeKind::Let | NodeKind::Import);
+            let stmt = matches!(token, NodeKind::Let | NodeKind::Set | NodeKind::Import);
             let group = if stmt { Group::Stmt } else { Group::Expr };
 
             p.start_group(group);
@@ -265,6 +266,7 @@ fn primary(p: &mut Parser, atomic: bool) -> ParseResult {
 
         // Keywords.
         Some(NodeKind::Let) => let_expr(p),
+        Some(NodeKind::Set) => set_expr(p),
         Some(NodeKind::If) => if_expr(p),
         Some(NodeKind::While) => while_expr(p),
         Some(NodeKind::For) => for_expr(p),
@@ -507,45 +509,40 @@ fn block(p: &mut Parser) {
 
 /// Parse a function call.
 fn call(p: &mut Parser, callee: Marker) -> ParseResult {
-    callee.perform(p, NodeKind::Call, |p| match p.peek_direct() {
-        Some(NodeKind::LeftParen | NodeKind::LeftBracket) => {
-            args(p, true);
-            Ok(())
-        }
-        _ => {
-            p.expected_at("argument list");
-            Err(())
-        }
-    })
+    callee.perform(p, NodeKind::Call, |p| args(p, true, true))
 }
 
 /// Parse the arguments to a function call.
-fn args(p: &mut Parser, allow_template: bool) {
+fn args(p: &mut Parser, direct: bool, brackets: bool) -> ParseResult {
+    match if direct { p.peek_direct() } else { p.peek() } {
+        Some(NodeKind::LeftParen) => {}
+        Some(NodeKind::LeftBracket) if brackets => {}
+        _ => {
+            p.expected("argument list");
+            return Err(());
+        }
+    }
+
     p.perform(NodeKind::CallArgs, |p| {
-        if !allow_template || p.peek_direct() == Some(&NodeKind::LeftParen) {
+        if p.at(&NodeKind::LeftParen) {
             p.start_group(Group::Paren);
             collection(p);
             p.end_group();
         }
 
-        while allow_template && p.peek_direct() == Some(&NodeKind::LeftBracket) {
+        while brackets && p.peek_direct() == Some(&NodeKind::LeftBracket) {
             template(p);
         }
-    })
+    });
+
+    Ok(())
 }
 
 /// Parse a with expression.
 fn with_expr(p: &mut Parser, marker: Marker) -> ParseResult {
     marker.perform(p, NodeKind::WithExpr, |p| {
         p.eat_assert(&NodeKind::With);
-
-        if p.at(&NodeKind::LeftParen) {
-            args(p, false);
-            Ok(())
-        } else {
-            p.expected("argument list");
-            Err(())
-        }
+        args(p, false, false)
     })
 }
 
@@ -587,6 +584,15 @@ fn let_expr(p: &mut Parser) -> ParseResult {
     })
 }
 
+/// Parse a set expression.
+fn set_expr(p: &mut Parser) -> ParseResult {
+    p.perform(NodeKind::SetExpr, |p| {
+        p.eat_assert(&NodeKind::Set);
+        ident(p)?;
+        args(p, true, false)
+    })
+}
+
 /// Parse an if expresion.
 fn if_expr(p: &mut Parser) -> ParseResult {
     p.perform(NodeKind::IfExpr, |p| {
@@ -612,8 +618,7 @@ fn while_expr(p: &mut Parser) -> ParseResult {
     p.perform(NodeKind::WhileExpr, |p| {
         p.eat_assert(&NodeKind::While);
         expr(p)?;
-        body(p)?;
-        Ok(())
+        body(p)
     })
 }
 
@@ -624,8 +629,7 @@ fn for_expr(p: &mut Parser) -> ParseResult {
         for_pattern(p)?;
         p.eat_expect(&NodeKind::In)?;
         expr(p)?;
-        body(p)?;
-        Ok(())
+        body(p)
     })
 }
 
@@ -664,9 +668,7 @@ fn import_expr(p: &mut Parser) -> ParseResult {
         };
 
         p.eat_expect(&NodeKind::From)?;
-        expr(p)?;
-
-        Ok(())
+        expr(p)
     })
 }
 
@@ -674,8 +676,7 @@ fn import_expr(p: &mut Parser) -> ParseResult {
 fn include_expr(p: &mut Parser) -> ParseResult {
     p.perform(NodeKind::IncludeExpr, |p| {
         p.eat_assert(&NodeKind::Include);
-        expr(p)?;
-        Ok(())
+        expr(p)
     })
 }
 

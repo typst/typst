@@ -3,14 +3,14 @@
 ---
 // Test relative width and height and size that is smaller
 // than default size.
-#page(width: 120pt, height: 70pt)
+#set page(width: 120pt, height: 70pt)
 #square(width: 50%, align(bottom)[A])
 #square(height: 50%)
 #box(stack(square(size: 10pt), 5pt, square(size: 10pt, [B])))
 
 ---
 // Test alignment in automatically sized square and circle.
-#font(8pt)
+#set text(8pt)
 #square(padding: 4pt)[
   Hey there, #align(center + bottom, rotate(180deg, [you!]))
 ]
@@ -23,19 +23,19 @@
 
 ---
 // Test square that is limited by region size.
-#page(width: 20pt, height: 10pt, margins: 0pt)
+#set page(width: 20pt, height: 10pt, margins: 0pt)
 #stack(dir: ltr, square(fill: forest), square(fill: conifer))
 
 ---
 // Test different ways of sizing.
-#page(width: 120pt, height: 40pt)
+#set page(width: 120pt, height: 40pt)
 #circle(radius: 5pt)
 #circle(width: 10%)
 #circle(height: 50%)
 
 ---
 // Test square that is overflowing due to its aspect ratio.
-#page(width: 40pt, height: 20pt, margins: 5pt)
+#set page(width: 40pt, height: 20pt, margins: 5pt)
 #square(width: 100%)
 #square(width: 100%)[Hello]
 

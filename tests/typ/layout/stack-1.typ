@@ -15,13 +15,13 @@
 
 #let items = for w in widths { (align(right, shaded(w)),) }
 
-#page(width: 50pt, margins: 0pt)
+#set page(width: 50pt, margins: 0pt)
 #stack(dir: btt, ..items)
 
 ---
 // Test RTL alignment.
-#page(width: 50pt, margins: 5pt)
-#font(8pt)
+#set page(width: 50pt, margins: 5pt)
+#set text(8pt)
 #stack(dir: rtl,
   align(center, [A]),
   align(left, [B]),
@@ -30,8 +30,8 @@
 
 ---
 // Test spacing.
-#page(width: 50pt, margins: 0pt)
-#par(spacing: 5pt)
+#set page(width: 50pt, margins: 0pt)
+#set par(spacing: 5pt)
 
 #let x = square(size: 10pt, fill: eastern)
 #stack(dir: rtl, spacing: 5pt, x, x, x)
@@ -40,7 +40,7 @@
 
 ---
 // Test overflow.
-#page(width: 50pt, height: 30pt, margins: 0pt)
+#set page(width: 50pt, height: 30pt, margins: 0pt)
 #box(stack(
   rect(width: 40pt, height: 20pt, fill: conifer),
   rect(width: 30pt, height: 13pt, fill: forest),

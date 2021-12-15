@@ -1,7 +1,7 @@
 
 ---
 // Test that trailing linebreak doesn't overflow the region.
-#page(height: 2cm)
+#set page(height: 2cm)
 #grid[
   Hello \
   Hello \
@@ -12,7 +12,7 @@
 
 ---
 // Test that broken cell expands vertically.
-#page(height: 2.25cm)
+#set page(height: 2.25cm)
 #grid(
   columns: 2,
   gutter: 10pt,

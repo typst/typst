@@ -30,11 +30,11 @@ A #for _ in (none,) {"B"}C
 
 ---
 // Test that a run consisting only of whitespace isn't trimmed.
-A[#font(serif) ]B
+A[#set text(serif); ]B
 
 ---
 // Test font change after space.
-Left [#font(serif)Right].
+Left [#set text(serif);Right].
 
 ---
 // Test that space at start of line is not trimmed.

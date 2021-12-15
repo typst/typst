@@ -15,54 +15,6 @@ use crate::font::{
 use crate::geom::{Dir, Em, Length, Point, Size};
 use crate::util::{EcoString, SliceExt};
 
-/// `font`: Configure the font.
-pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let body = args.find::<Node>();
-
-    let mut map = Styles::new();
-    let styles = match body {
-        Some(_) => &mut map,
-        None => &mut ctx.styles,
-    };
-
-    let list = args.named("family")?.or_else(|| {
-        let families: Vec<_> = args.all().collect();
-        (!families.is_empty()).then(|| families)
-    });
-
-    set!(styles, TextNode::FAMILY_LIST => list);
-    set!(styles, TextNode::SERIF_LIST => args.named("serif")?);
-    set!(styles, TextNode::SANS_SERIF_LIST => args.named("sans-serif")?);
-    set!(styles, TextNode::MONOSPACE_LIST => args.named("monospace")?);
-    set!(styles, TextNode::FALLBACK => args.named("fallback")?);
-    set!(styles, TextNode::STYLE => args.named("style")?);
-    set!(styles, TextNode::WEIGHT => args.named("weight")?);
-    set!(styles, TextNode::STRETCH => args.named("stretch")?);
-    set!(styles, TextNode::FILL => args.named("fill")?.or_else(|| args.find()));
-    set!(styles, TextNode::SIZE => args.named("size")?.or_else(|| args.find()));
-    set!(styles, TextNode::TRACKING => args.named("tracking")?.map(Em::new));
-    set!(styles, TextNode::TOP_EDGE => args.named("top-edge")?);
-    set!(styles, TextNode::BOTTOM_EDGE => args.named("bottom-edge")?);
-    set!(styles, TextNode::KERNING => args.named("kerning")?);
-    set!(styles, TextNode::SMALLCAPS => args.named("smallcaps")?);
-    set!(styles, TextNode::ALTERNATES => args.named("alternates")?);
-    set!(styles, TextNode::STYLISTIC_SET => args.named("stylistic-set")?);
-    set!(styles, TextNode::LIGATURES => args.named("ligatures")?);
-    set!(styles, TextNode::DISCRETIONARY_LIGATURES => args.named("discretionary-ligatures")?);
-    set!(styles, TextNode::HISTORICAL_LIGATURES => args.named("historical-ligatures")?);
-    set!(styles, TextNode::NUMBER_TYPE => args.named("number-type")?);
-    set!(styles, TextNode::NUMBER_WIDTH => args.named("number-width")?);
-    set!(styles, TextNode::NUMBER_POSITION => args.named("number-position")?);
-    set!(styles, TextNode::SLASHED_ZERO => args.named("slashed-zero")?);
-    set!(styles, TextNode::FRACTIONS => args.named("fractions")?);
-    set!(styles, TextNode::FEATURES => args.named("features")?);
-
-    Ok(match body {
-        Some(body) => Value::Node(body.styled(map)),
-        None => Value::None,
-    })
-}
-
 /// `strike`: Typeset striken-through text.
 pub fn strike(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     line_impl(args, LineKind::Strikethrough)
@@ -170,6 +122,53 @@ properties! {
     FRACTIONS: bool = false,
     /// Raw OpenType features to apply.
     FEATURES: Vec<(Tag, u32)> = vec![],
+}
+
+impl Construct for TextNode {
+    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
+        // We don't need to do anything more here because the whole point of the
+        // text constructor is to apply the styles and that happens
+        // automatically during class construction.
+        args.expect::<Node>("body")
+    }
+}
+
+impl Set for TextNode {
+    fn set(styles: &mut Styles, args: &mut Args) -> TypResult<()> {
+        let list = args.named("family")?.or_else(|| {
+            let families: Vec<_> = args.all().collect();
+            (!families.is_empty()).then(|| families)
+        });
+
+        set!(styles, TextNode::FAMILY_LIST => list);
+        set!(styles, TextNode::SERIF_LIST => args.named("serif")?);
+        set!(styles, TextNode::SANS_SERIF_LIST => args.named("sans-serif")?);
+        set!(styles, TextNode::MONOSPACE_LIST => args.named("monospace")?);
+        set!(styles, TextNode::FALLBACK => args.named("fallback")?);
+        set!(styles, TextNode::STYLE => args.named("style")?);
+        set!(styles, TextNode::WEIGHT => args.named("weight")?);
+        set!(styles, TextNode::STRETCH => args.named("stretch")?);
+        set!(styles, TextNode::FILL => args.named("fill")?.or_else(|| args.find()));
+        set!(styles, TextNode::SIZE => args.named("size")?.or_else(|| args.find()));
+        set!(styles, TextNode::TRACKING => args.named("tracking")?.map(Em::new));
+        set!(styles, TextNode::TOP_EDGE => args.named("top-edge")?);
+        set!(styles, TextNode::BOTTOM_EDGE => args.named("bottom-edge")?);
+        set!(styles, TextNode::KERNING => args.named("kerning")?);
+        set!(styles, TextNode::SMALLCAPS => args.named("smallcaps")?);
+        set!(styles, TextNode::ALTERNATES => args.named("alternates")?);
+        set!(styles, TextNode::STYLISTIC_SET => args.named("stylistic-set")?);
+        set!(styles, TextNode::LIGATURES => args.named("ligatures")?);
+        set!(styles, TextNode::DISCRETIONARY_LIGATURES => args.named("discretionary-ligatures")?);
+        set!(styles, TextNode::HISTORICAL_LIGATURES => args.named("historical-ligatures")?);
+        set!(styles, TextNode::NUMBER_TYPE => args.named("number-type")?);
+        set!(styles, TextNode::NUMBER_WIDTH => args.named("number-width")?);
+        set!(styles, TextNode::NUMBER_POSITION => args.named("number-position")?);
+        set!(styles, TextNode::SLASHED_ZERO => args.named("slashed-zero")?);
+        set!(styles, TextNode::FRACTIONS => args.named("fractions")?);
+        set!(styles, TextNode::FEATURES => args.named("features")?);
+
+        Ok(())
+    }
 }
 
 impl Debug for TextNode {

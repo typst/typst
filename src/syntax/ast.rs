@@ -211,6 +211,8 @@ pub enum Expr {
     With(WithExpr),
     /// A let expression: `let x = 1`.
     Let(LetExpr),
+    /// A set expression: `set text(...)`.
+    Set(SetExpr),
     /// An if-else expression: `if x { y } else { z }`.
     If(IfExpr),
     /// A while loop expression: `while x { y }`.
@@ -238,6 +240,7 @@ impl TypedNode for Expr {
             NodeKind::Closure => node.cast().map(Self::Closure),
             NodeKind::WithExpr => node.cast().map(Self::With),
             NodeKind::LetExpr => node.cast().map(Self::Let),
+            NodeKind::SetExpr => node.cast().map(Self::Set),
             NodeKind::IfExpr => node.cast().map(Self::If),
             NodeKind::WhileExpr => node.cast().map(Self::While),
             NodeKind::ForExpr => node.cast().map(Self::For),
@@ -262,6 +265,7 @@ impl TypedNode for Expr {
             Self::Closure(v) => v.as_red(),
             Self::With(v) => v.as_red(),
             Self::Let(v) => v.as_red(),
+            Self::Set(v) => v.as_red(),
             Self::If(v) => v.as_red(),
             Self::While(v) => v.as_red(),
             Self::For(v) => v.as_red(),
@@ -834,6 +838,25 @@ impl LetExpr {
             // This is a let .. with expression.
             self.0.cast_first_child()
         }
+    }
+}
+
+node! {
+    /// A set expression: `set text(...)`.
+    SetExpr
+}
+
+impl SetExpr {
+    /// The class to set style properties for.
+    pub fn class(&self) -> Ident {
+        self.0.cast_first_child().expect("set expression is missing class")
+    }
+
+    /// The style properties to set.
+    pub fn args(&self) -> CallArgs {
+        self.0
+            .cast_first_child()
+            .expect("set expression is missing argument list")
     }
 }
 

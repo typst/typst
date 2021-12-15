@@ -9,46 +9,6 @@ use super::prelude::*;
 use super::{shape, ShapedText, SpacingKind, SpacingNode, TextNode};
 use crate::util::{EcoString, RangeExt, RcExt, SliceExt};
 
-/// `par`: Configure paragraphs.
-pub fn par(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let spacing = args.named("spacing")?;
-    let leading = args.named("leading")?;
-
-    let mut dir =
-        args.named("lang")?
-            .map(|iso: EcoString| match iso.to_lowercase().as_str() {
-                "ar" | "he" | "fa" | "ur" | "ps" | "yi" => Dir::RTL,
-                "en" | "fr" | "de" => Dir::LTR,
-                _ => Dir::LTR,
-            });
-
-    if let Some(Spanned { v, span }) = args.named::<Spanned<Dir>>("dir")? {
-        if v.axis() != SpecAxis::Horizontal {
-            bail!(span, "must be horizontal");
-        }
-        dir = Some(v);
-    }
-
-    let mut align = None;
-    if let Some(Spanned { v, span }) = args.named::<Spanned<Align>>("align")? {
-        if v.axis() != SpecAxis::Horizontal {
-            bail!(span, "must be horizontal");
-        }
-        align = Some(v);
-    }
-
-    if let (Some(dir), None) = (dir, align) {
-        align = Some(if dir == Dir::LTR { Align::Left } else { Align::Right });
-    }
-
-    set!(ctx.styles, ParNode::DIR => dir);
-    set!(ctx.styles, ParNode::ALIGN => align);
-    set!(ctx.styles, ParNode::LEADING => leading);
-    set!(ctx.styles, ParNode::SPACING => spacing);
-
-    Ok(Value::None)
-}
-
 /// `parbreak`: Start a new paragraph.
 pub fn parbreak(_: &mut EvalContext, _: &mut Args) -> TypResult<Value> {
     Ok(Value::Node(Node::Parbreak))
@@ -69,6 +29,54 @@ properties! {
     LEADING: Linear = Relative::new(0.65).into(),
     /// The spacing between paragraphs (dependent on scaled font size).
     SPACING: Linear = Relative::new(1.2).into(),
+}
+
+impl Construct for ParNode {
+    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
+        // Lift to a block so that it doesn't merge with adjacent stuff.
+        Ok(Node::Block(args.expect::<Node>("body")?.into_block()))
+    }
+}
+
+impl Set for ParNode {
+    fn set(styles: &mut Styles, args: &mut Args) -> TypResult<()> {
+        let spacing = args.named("spacing")?;
+        let leading = args.named("leading")?;
+
+        let mut dir =
+            args.named("lang")?
+                .map(|iso: EcoString| match iso.to_lowercase().as_str() {
+                    "ar" | "he" | "fa" | "ur" | "ps" | "yi" => Dir::RTL,
+                    "en" | "fr" | "de" => Dir::LTR,
+                    _ => Dir::LTR,
+                });
+
+        if let Some(Spanned { v, span }) = args.named::<Spanned<Dir>>("dir")? {
+            if v.axis() != SpecAxis::Horizontal {
+                bail!(span, "must be horizontal");
+            }
+            dir = Some(v);
+        }
+
+        let mut align = None;
+        if let Some(Spanned { v, span }) = args.named::<Spanned<Align>>("align")? {
+            if v.axis() != SpecAxis::Horizontal {
+                bail!(span, "must be horizontal");
+            }
+            align = Some(v);
+        }
+
+        if let (Some(dir), None) = (dir, align) {
+            align = Some(if dir == Dir::LTR { Align::Left } else { Align::Right });
+        }
+
+        set!(styles, ParNode::DIR => dir);
+        set!(styles, ParNode::ALIGN => align);
+        set!(styles, ParNode::LEADING => leading);
+        set!(styles, ParNode::SPACING => spacing);
+
+        Ok(())
+    }
 }
 
 impl Layout for ParNode {

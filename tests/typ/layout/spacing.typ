@@ -20,8 +20,8 @@ Add #h(10pt) #h(10pt) up
 ---
 // Test that spacing has style properties.
 
-A[#par(align: right)#h(1cm)]B
-[#page(height: 20pt)#v(1cm)]
+A[#set par(align: right);#h(1cm)]B
+[#set page(height: 20pt);#v(1cm)]
 B
 
 ---

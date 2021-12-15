@@ -4,7 +4,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::rc::Rc;
 
-use super::{ops, Array, Dict, Function, Node};
+use super::{ops, Array, Class, Dict, Function, Node};
 use crate::diag::StrResult;
 use crate::geom::{Angle, Color, Fractional, Length, Linear, Relative, RgbaColor};
 use crate::layout::Layout;
@@ -46,6 +46,8 @@ pub enum Value {
     Node(Node),
     /// An executable function.
     Func(Function),
+    /// A class of nodes.
+    Class(Class),
     /// A dynamic value.
     Dyn(Dynamic),
 }
@@ -86,6 +88,7 @@ impl Value {
             Self::Dict(_) => Dict::TYPE_NAME,
             Self::Node(_) => Node::TYPE_NAME,
             Self::Func(_) => Function::TYPE_NAME,
+            Self::Class(_) => Class::TYPE_NAME,
             Self::Dyn(v) => v.type_name(),
         }
     }
@@ -148,6 +151,7 @@ impl Debug for Value {
             Self::Dict(v) => Debug::fmt(v, f),
             Self::Node(_) => f.pad("<template>"),
             Self::Func(v) => Debug::fmt(v, f),
+            Self::Class(v) => Debug::fmt(v, f),
             Self::Dyn(v) => Debug::fmt(v, f),
         }
     }
@@ -394,6 +398,7 @@ primitive! { Array: "array", Array }
 primitive! { Dict: "dictionary", Dict }
 primitive! { Node: "template", Node }
 primitive! { Function: "function", Func }
+primitive! { Class: "class", Class }
 
 impl Cast<Value> for Value {
     fn is(_: &Value) -> bool {

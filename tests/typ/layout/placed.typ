@@ -1,7 +1,7 @@
 // Test the `place` function.
 
 ---
-#page("a8")
+#set page("a8")
 #place(bottom + center)[© Typst]
 
 = Placement
@@ -26,7 +26,7 @@ the line breaks still had to be inserted manually.
 
 ---
 // Test how the placed node interacts with paragraph spacing around it.
-#page("a8", height: 60pt)
+#set page("a8", height: 60pt)
 
 First
 

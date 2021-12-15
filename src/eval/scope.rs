@@ -4,7 +4,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::iter;
 use std::rc::Rc;
 
-use super::{Args, EvalContext, Function, Value};
+use super::{Args, Class, Construct, EvalContext, Function, Set, Value};
 use crate::diag::TypResult;
 use crate::util::EcoString;
 
@@ -88,15 +88,6 @@ impl Scope {
         self.values.insert(var.into(), Rc::new(cell));
     }
 
-    /// Define a constant function.
-    pub fn def_func<F>(&mut self, name: impl Into<EcoString>, f: F)
-    where
-        F: Fn(&mut EvalContext, &mut Args) -> TypResult<Value> + 'static,
-    {
-        let name = name.into();
-        self.def_const(name.clone(), Function::new(Some(name), f));
-    }
-
     /// Define a mutable variable with a value.
     pub fn def_mut(&mut self, var: impl Into<EcoString>, value: impl Into<Value>) {
         self.values.insert(var.into(), Rc::new(RefCell::new(value.into())));
@@ -105,6 +96,24 @@ impl Scope {
     /// Define a variable with a slot.
     pub fn def_slot(&mut self, var: impl Into<EcoString>, slot: Slot) {
         self.values.insert(var.into(), slot);
+    }
+
+    /// Define a constant function.
+    pub fn def_func<F>(&mut self, name: &str, f: F)
+    where
+        F: Fn(&mut EvalContext, &mut Args) -> TypResult<Value> + 'static,
+    {
+        let name = EcoString::from(name);
+        self.def_const(name.clone(), Function::new(Some(name), f));
+    }
+
+    /// Define a constant class.
+    pub fn def_class<T>(&mut self, name: &str)
+    where
+        T: Construct + Set + 'static,
+    {
+        let name = EcoString::from(name);
+        self.def_const(name.clone(), Class::new::<T>(name));
     }
 
     /// Look up the value of a variable.
