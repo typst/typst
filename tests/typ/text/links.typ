@@ -20,3 +20,10 @@ You could also make the #link("https://html5zombo.com/")[link look way more typi
 #page(height: 60pt)
 #let link = link("https://typst.app/")[LINK]
 My cool #move(x: 0.7cm, y: 0.7cm, rotate(10deg, scale(200%, link)))
+
+---
+// Link containing a block.
+#link("https://example.com/", block[
+  My cool rhino
+  #move(x: 10pt, image("../../res/rhino.png", width: 1cm))
+])

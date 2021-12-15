@@ -15,9 +15,19 @@ Running the integration tests (the tests in this directory).
 cargo test --test typeset
 ```
 
-Running all tests whose names contain the word `filter`.
+Running all tests whose paths contain the string `page` or `stack`.
 ```bash
-cargo test --test typeset filter
+cargo test --test typeset page stack
+```
+
+Running a test with the exact filename `page.typ`.
+```bash
+cargo test --test typeset -- --exact page.typ
+```
+
+Debug-printing the layout trees for all executed tests.
+```bash
+cargo test --test typeset -- --debug empty.typ
 ```
 
 To make the integration tests go faster they don't generate PDFs by default.
@@ -38,4 +48,25 @@ oxipng -o max path/to/image.png
 
 # All images
 oxipng -r -o max tests/ref
+```
+
+## Shorthand for running tests
+If you want to have a quicker way to run the tests, consider adding a shortcut
+to your shell profile so that you can simply write something like:
+```bash
+tests --debug empty.typ
+```
+
+### PowerShell
+Open your PowerShell profile by executing `notepad $profile`.
+```ps
+function tests {
+    cargo test --test typeset -- $args
+}
+```
+
+### Bash
+Open your Bash configuration by executing `nano ~/.bashrc`.
+```bash
+alias tests="cargo test --test typeset --"
 ```

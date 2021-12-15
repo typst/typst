@@ -280,11 +280,11 @@ impl NodePacker {
 
     /// Advance to the next paragraph.
     fn parbreak(&mut self, break_styles: Option<Styles>) {
+        let styles = break_styles.unwrap_or_else(|| self.par_styles.clone());
         self.finish_par();
 
         // Insert paragraph spacing.
-        self.flow_last
-            .soft(FlowChild::Parbreak(break_styles.unwrap_or_default()));
+        self.flow_last.soft(FlowChild::Parbreak(styles));
     }
 
     fn finish_par(&mut self) {

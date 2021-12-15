@@ -49,7 +49,7 @@ fn main() {
             continue;
         }
 
-        if args.matches(&src_path.to_string_lossy()) {
+        if args.matches(&src_path) {
             filtered.push(src_path);
         }
     }
@@ -106,6 +106,7 @@ fn main() {
             &png_path,
             &ref_path,
             pdf_path.as_deref(),
+            args.debug,
         ) as usize;
     }
 
@@ -120,33 +121,43 @@ fn main() {
 
 struct Args {
     filter: Vec<String>,
+    exact: bool,
+    debug: bool,
     pdf: bool,
-    perfect: bool,
 }
 
 impl Args {
     fn new(args: impl Iterator<Item = String>) -> Self {
         let mut filter = Vec::new();
-        let mut perfect = false;
+        let mut exact = false;
+        let mut debug = false;
         let mut pdf = false;
 
         for arg in args {
             match arg.as_str() {
+                // Ignore this, its for cargo.
                 "--nocapture" => {}
+                // Match only the exact filename.
+                "--exact" => exact = true,
+                // Generate PDFs.
                 "--pdf" => pdf = true,
-                "=" => perfect = true,
+                // Debug print the layout trees.
+                "--debug" | "-d" => debug = true,
+                // Everything else is a file filter.
                 _ => filter.push(arg),
             }
         }
 
-        Self { filter, pdf, perfect }
+        Self { filter, pdf, debug, exact }
     }
 
-    fn matches(&self, name: &str) -> bool {
-        if self.perfect {
-            self.filter.iter().any(|p| name == p)
+    fn matches(&self, path: &Path) -> bool {
+        if self.exact {
+            let name = path.file_name().unwrap().to_string_lossy();
+            self.filter.iter().any(|v| v == &name)
         } else {
-            self.filter.is_empty() || self.filter.iter().any(|p| name.contains(p))
+            let path = path.to_string_lossy();
+            self.filter.is_empty() || self.filter.iter().any(|v| path.contains(v))
         }
     }
 }
@@ -157,6 +168,7 @@ fn test(
     png_path: &Path,
     ref_path: &Path,
     pdf_path: Option<&Path>,
+    debug: bool,
 ) -> bool {
     let name = src_path.strip_prefix(TYP_DIR).unwrap_or(src_path);
     println!("Testing {}", name.display());
@@ -185,7 +197,7 @@ fn test(
             }
         } else {
             let (part_ok, compare_here, part_frames) =
-                test_part(ctx, src_path, part.into(), i, compare_ref, line);
+                test_part(ctx, src_path, part.into(), i, compare_ref, line, debug);
             ok &= part_ok;
             compare_ever |= compare_here;
             frames.extend(part_frames);
@@ -217,7 +229,10 @@ fn test(
     }
 
     if ok {
-        println!("\x1b[1ATesting {} ✔", name.display());
+        if !debug {
+            print!("\x1b[1A");
+        }
+        println!("Testing {} ✔", name.display());
     }
 
     ok
@@ -230,6 +245,7 @@ fn test_part(
     i: usize,
     compare_ref: bool,
     line: usize,
+    debug: bool,
 ) -> (bool, bool, Vec<Rc<Frame>>) {
     let id = ctx.sources.provide(src_path, src);
     let source = ctx.sources.get(id);
@@ -240,7 +256,10 @@ fn test_part(
     let mut ok = true;
     let (frames, mut errors) = match ctx.execute(id) {
         Ok(document) => {
-            // dbg!(&document);
+            if debug {
+                println!("{:#?}", document);
+            }
+
             let mut frames = layout(ctx, &document);
 
             #[cfg(feature = "layout-cache")]

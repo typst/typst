@@ -8,7 +8,8 @@ Ola Nordmann, John Doe
 
 #v(6mm)
 #align(center)[
-  ==== 3. Übungsblatt Computerorientierte Mathematik II #v(4mm)
+  ==== 3. Übungsblatt Computerorientierte Mathematik II
+  #v(4mm)
   *Abgabe: 03.05.2019* (bis 10:10 Uhr in MA 001) #v(4mm)
   *Alle Antworten sind zu beweisen.*
 ]

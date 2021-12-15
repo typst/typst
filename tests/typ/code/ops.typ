@@ -64,7 +64,7 @@
   }
 
   // Linears cannot be divided by themselves.
-  if type(v) != "linear" {
+  if type(v) != "relative length" {
     test(v / v, 1.0)
     test(v / v == 1, true)
   }
@@ -130,12 +130,14 @@
 #test(test == test, true)
 #test((() => {}) == (() => {}), false)
 
-// Templates also compare by identity.
+// Templates compare by shallow equality.
 #let t = [a]
 #test(t == t, true)
-#test([] == [], false)
+#test([] == [], true)
+#test([a] == [a], true)
 #test([] == [a], false)
-#test([a] == [a], false)
+#test([[a]] == [a], false)
+#test(box[] == box[], false)
 
 ---
 // Test comparison operators.

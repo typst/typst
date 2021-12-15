@@ -24,7 +24,7 @@
 [#page(margins: 0pt, left: 20pt) Overriden]
 
 // Flipped predefined paper.
-[#page(paper: "a11", flip: true) Flipped A11]
+[#page(paper: "a11", flipped: true) Flipped A11]
 
 ---
 #page(width: 80pt, height: 40pt, fill: eastern)
