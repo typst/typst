@@ -1,25 +1,10 @@
 use std::fmt::{self, Debug, Formatter};
 
 use super::prelude::*;
-use super::{AlignNode, Spacing};
+use super::{AlignNode, SpacingKind, SpacingNode};
 
 /// `stack`: Stack children along an axis.
 pub fn stack(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    enum Child {
-        Spacing(Spacing),
-        Any(Node),
-    }
-
-    castable! {
-        Child,
-        Expected: "linear, fractional or template",
-        Value::Length(v) => Self::Spacing(Spacing::Linear(v.into())),
-        Value::Relative(v) => Self::Spacing(Spacing::Linear(v.into())),
-        Value::Linear(v) => Self::Spacing(Spacing::Linear(v)),
-        Value::Fractional(v) => Self::Spacing(Spacing::Fractional(v)),
-        Value::Node(v) => Self::Any(v),
-    }
-
     let dir = args.named("dir")?.unwrap_or(Dir::TTB);
     let spacing = args.named("spacing")?;
 
@@ -29,19 +14,15 @@ pub fn stack(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     // Build the list of stack children.
     for child in args.all() {
         match child {
-            Child::Spacing(v) => {
-                children.push(StackChild::Spacing(v));
-                delayed = None;
-            }
-            Child::Any(child) => {
+            StackChild::Spacing(_) => delayed = None,
+            StackChild::Node(_) => {
                 if let Some(v) = delayed {
-                    children.push(StackChild::Spacing(v));
+                    children.push(StackChild::spacing(v));
                 }
-
-                children.push(StackChild::Node(child.into_block()));
                 delayed = spacing;
             }
         }
+        children.push(child);
     }
 
     Ok(Value::block(StackNode { dir, children }))
@@ -70,18 +51,35 @@ impl Layout for StackNode {
 #[derive(Hash)]
 pub enum StackChild {
     /// Spacing between other nodes.
-    Spacing(Spacing),
+    Spacing(SpacingNode),
     /// An arbitrary node.
     Node(PackedNode),
+}
+
+impl StackChild {
+    /// Create a spacing node from a spacing kind.
+    pub fn spacing(kind: SpacingKind) -> Self {
+        Self::Spacing(SpacingNode { kind, styles: Styles::new() })
+    }
 }
 
 impl Debug for StackChild {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Self::Spacing(spacing) => spacing.fmt(f),
+            Self::Spacing(node) => node.fmt(f),
             Self::Node(node) => node.fmt(f),
         }
     }
+}
+
+castable! {
+    StackChild,
+    Expected: "linear, fractional or template",
+    Value::Length(v) => Self::spacing(SpacingKind::Linear(v.into())),
+    Value::Relative(v) => Self::spacing(SpacingKind::Linear(v.into())),
+    Value::Linear(v) => Self::spacing(SpacingKind::Linear(v)),
+    Value::Fractional(v) => Self::spacing(SpacingKind::Fractional(v)),
+    Value::Node(v) => Self::Node(v.into_block()),
 }
 
 /// Performs stack layout.
@@ -144,15 +142,15 @@ impl<'a> StackLayouter<'a> {
     /// Layout all children.
     fn layout(mut self, ctx: &mut LayoutContext) -> Vec<Constrained<Rc<Frame>>> {
         for child in &self.stack.children {
-            match *child {
-                StackChild::Spacing(Spacing::Linear(v)) => {
-                    self.layout_absolute(v);
-                }
-                StackChild::Spacing(Spacing::Fractional(v)) => {
-                    self.items.push(StackItem::Fractional(v));
-                    self.fr += v;
-                }
-                StackChild::Node(ref node) => {
+            match child {
+                StackChild::Spacing(node) => match node.kind {
+                    SpacingKind::Linear(v) => self.layout_absolute(v),
+                    SpacingKind::Fractional(v) => {
+                        self.items.push(StackItem::Fractional(v));
+                        self.fr += v;
+                    }
+                },
+                StackChild::Node(node) => {
                     if self.regions.is_full() {
                         self.finish_region();
                     }

@@ -29,7 +29,7 @@ impl Em {
     }
 
     /// Convert to a length at the given font size.
-    pub fn to_length(self, font_size: Length) -> Length {
+    pub fn resolve(self, font_size: Length) -> Length {
         self.get() * font_size
     }
 

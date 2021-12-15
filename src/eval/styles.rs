@@ -11,7 +11,7 @@ use std::rc::Rc;
 /// A map of style properties.
 #[derive(Default, Clone, Hash)]
 pub struct Styles {
-    pub(crate) map: Vec<(StyleId, Entry)>,
+    map: Vec<(StyleId, Entry)>,
 }
 
 impl Styles {
@@ -21,10 +21,7 @@ impl Styles {
     }
 
     /// Create a style map with a single property-value pair.
-    pub fn one<P: Property>(key: P, value: P::Value) -> Self
-    where
-        P::Value: Debug + Hash + PartialEq + 'static,
-    {
+    pub fn one<P: Property>(key: P, value: P::Value) -> Self {
         let mut styles = Self::new();
         styles.set(key, value);
         styles
@@ -36,21 +33,31 @@ impl Styles {
     }
 
     /// Set the value for a style property.
-    pub fn set<P: Property>(&mut self, key: P, value: P::Value)
-    where
-        P::Value: Debug + Hash + PartialEq + 'static,
-    {
+    pub fn set<P: Property>(&mut self, key: P, value: P::Value) {
         let id = StyleId::of::<P>();
-        let entry = Entry::new(key, value);
-
         for pair in &mut self.map {
             if pair.0 == id {
-                pair.1 = entry;
+                let prev = pair.1.downcast::<P::Value>().unwrap();
+                let folded = P::combine(value, prev.clone());
+                pair.1 = Entry::new(key, folded);
                 return;
             }
         }
 
-        self.map.push((id, entry));
+        self.map.push((id, Entry::new(key, value)));
+    }
+
+    /// Toggle a boolean style property.
+    pub fn toggle<P: Property<Value = bool>>(&mut self, key: P) {
+        let id = StyleId::of::<P>();
+        for (i, pair) in self.map.iter_mut().enumerate() {
+            if pair.0 == id {
+                self.map.swap_remove(i);
+                return;
+            }
+        }
+
+        self.map.push((id, Entry::new(key, true)));
     }
 
     /// Get the value of a copyable style property.
@@ -84,10 +91,15 @@ impl Styles {
     ///
     /// Properties from `self` take precedence over the ones from `outer`.
     pub fn apply(&mut self, outer: &Self) {
-        for pair in &outer.map {
-            if self.map.iter().all(|&(id, _)| pair.0 != id) {
-                self.map.push(pair.clone());
+        'outer: for pair in &outer.map {
+            for (id, entry) in &mut self.map {
+                if pair.0 == *id {
+                    entry.apply(&pair.1);
+                    continue 'outer;
+                }
             }
+
+            self.map.push(pair.clone());
         }
     }
 
@@ -105,12 +117,18 @@ impl Styles {
         self.map.retain(|a| other.map.iter().any(|b| a == b));
     }
 
+    /// Keep only those styles that are not also in `other`.
+    pub fn erase(&mut self, other: &Self) {
+        self.map.retain(|a| other.map.iter().all(|b| a != b));
+    }
+
     /// Whether two style maps are equal when filtered down to the given
     /// properties.
     pub fn compatible<F>(&self, other: &Self, filter: F) -> bool
     where
         F: Fn(StyleId) -> bool,
     {
+        // TODO(set): Filtered length + one direction equal should suffice.
         let f = |e: &&(StyleId, Entry)| filter(e.0);
         self.map.iter().filter(f).all(|pair| other.map.contains(pair))
             && other.map.iter().filter(f).all(|pair| self.map.contains(pair))
@@ -119,73 +137,88 @@ impl Styles {
 
 impl Debug for Styles {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_str("Styles ")?;
-        f.debug_set().entries(self.map.iter().map(|pair| &pair.1)).finish()
+        if f.alternate() {
+            for pair in &self.map {
+                writeln!(f, "{:#?}", pair.1)?;
+            }
+            Ok(())
+        } else {
+            f.write_str("Styles ")?;
+            f.debug_set().entries(self.map.iter().map(|pair| &pair.1)).finish()
+        }
+    }
+}
+
+impl PartialEq for Styles {
+    fn eq(&self, other: &Self) -> bool {
+        self.compatible(other, |_| true)
     }
 }
 
 /// An entry for a single style property.
 #[derive(Clone)]
-pub(crate) struct Entry {
-    #[cfg(debug_assertions)]
-    name: &'static str,
-    value: Rc<dyn Bounds>,
-}
+pub(crate) struct Entry(Rc<dyn Bounds>);
 
 impl Entry {
-    fn new<P: Property>(_: P, value: P::Value) -> Self
-    where
-        P::Value: Debug + Hash + PartialEq + 'static,
-    {
-        Self {
-            #[cfg(debug_assertions)]
-            name: P::NAME,
-            value: Rc::new(value),
-        }
+    fn new<P: Property>(key: P, value: P::Value) -> Self {
+        Self(Rc::new((key, value)))
     }
 
     fn downcast<T: 'static>(&self) -> Option<&T> {
-        self.value.as_any().downcast_ref()
+        self.0.as_any().downcast_ref()
+    }
+
+    fn apply(&mut self, outer: &Self) {
+        *self = self.0.combine(outer);
     }
 }
 
 impl Debug for Entry {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        #[cfg(debug_assertions)]
-        write!(f, "{}: ", self.name)?;
-        write!(f, "{:?}", &self.value)
+        self.0.fmt(f)
     }
 }
 
 impl PartialEq for Entry {
     fn eq(&self, other: &Self) -> bool {
-        self.value.dyn_eq(other)
+        self.0.dyn_eq(other)
     }
 }
 
 impl Hash for Entry {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write_u64(self.value.hash64());
+        state.write_u64(self.0.hash64());
     }
 }
 
-trait Bounds: Debug + 'static {
+trait Bounds: 'static {
     fn as_any(&self) -> &dyn Any;
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result;
     fn dyn_eq(&self, other: &Entry) -> bool;
     fn hash64(&self) -> u64;
+    fn combine(&self, outer: &Entry) -> Entry;
 }
 
-impl<T> Bounds for T
+impl<P> Bounds for (P, P::Value)
 where
-    T: Debug + Hash + PartialEq + 'static,
+    P: Property,
+    P::Value: Debug + Hash + PartialEq + 'static,
 {
     fn as_any(&self) -> &dyn Any {
-        self
+        &self.1
+    }
+
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        if f.alternate() {
+            write!(f, "#[{} = {:?}]", P::NAME, self.1)
+        } else {
+            write!(f, "{}: {:?}", P::NAME, self.1)
+        }
     }
 
     fn dyn_eq(&self, other: &Entry) -> bool {
-        if let Some(other) = other.downcast::<Self>() {
-            self == other
+        if let Some(other) = other.downcast::<P::Value>() {
+            &self.1 == other
         } else {
             false
         }
@@ -194,7 +227,13 @@ where
     fn hash64(&self) -> u64 {
         // No need to hash the TypeId since there's only one
         // valid value type per property.
-        fxhash::hash64(self)
+        fxhash::hash64(&self.1)
+    }
+
+    fn combine(&self, outer: &Entry) -> Entry {
+        let outer = outer.downcast::<P::Value>().unwrap();
+        let combined = P::combine(self.1.clone(), outer.clone());
+        Entry::new(self.0, combined)
     }
 }
 
@@ -202,13 +241,16 @@ where
 ///
 /// This trait is not intended to be implemented manually, but rather through
 /// the `properties!` macro.
-pub trait Property: 'static {
+pub trait Property: Copy + 'static {
     /// The type of this property, for example, this could be
     /// [`Length`](crate::geom::Length) for a `WIDTH` property.
-    type Value;
+    type Value: Debug + Clone + Hash + PartialEq + 'static;
 
     /// The name of the property, used for debug printing.
     const NAME: &'static str;
+
+    /// Combine the property with an outer value.
+    fn combine(inner: Self::Value, outer: Self::Value) -> Self::Value;
 
     /// The default value of the property.
     fn default() -> Self::Value;
@@ -235,7 +277,8 @@ impl StyleId {
 /// Generate the property keys for a node.
 macro_rules! properties {
     ($node:ty, $(
-        $(#[$attr:meta])*
+        $(#[doc = $doc:expr])*
+        $(#[fold($combine:expr)])?
         $name:ident: $type:ty = $default:expr
     ),* $(,)?) => {
         // TODO(set): Fix possible name clash.
@@ -250,12 +293,28 @@ macro_rules! properties {
 
                 pub struct Key<T>(pub PhantomData<T>);
 
+                impl<T> Copy for Key<T> {}
+                impl<T> Clone for Key<T> {
+                    fn clone(&self) -> Self {
+                        *self
+                    }
+                }
+
                 impl Property for Key<$type> {
                     type Value = $type;
 
                     const NAME: &'static str = concat!(
                         stringify!($node), "::", stringify!($name)
                     );
+
+                    #[allow(unused_mut, unused_variables)]
+                    fn combine(mut inner: Self::Value, outer: Self::Value) -> Self::Value {
+                        $(
+                            let combine: fn(Self::Value, Self::Value) -> Self::Value = $combine;
+                            inner = combine(inner, outer);
+                        )?
+                        inner
+                    }
 
                     fn default() -> Self::Value {
                         $default
@@ -275,7 +334,7 @@ macro_rules! properties {
                     false || $(id == StyleId::of::<$name::Key<$type>>())||*
                 }
 
-                $($(#[$attr])* pub const $name: $name::Key<$type>
+                $($(#[doc = $doc])* pub const $name: $name::Key<$type>
                     = $name::Key(PhantomData);)*
             }
         }
@@ -284,9 +343,9 @@ macro_rules! properties {
 
 /// Set a style property to a value if the value is `Some`.
 macro_rules! set {
-    ($ctx:expr, $target:expr => $value:expr) => {
+    ($styles:expr, $target:expr => $value:expr) => {
         if let Some(v) = $value {
-            $ctx.styles.set($target, v);
+            $styles.set($target, v);
         }
     };
 }

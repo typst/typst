@@ -91,14 +91,19 @@ pub trait Layout {
 pub struct PackedNode {
     /// The type-erased node.
     node: Rc<dyn Bounds>,
+    /// A precomputed hash for the node.
+    #[cfg(feature = "layout-cache")]
+    hash: u64,
     /// The node's styles.
     pub styles: Styles,
-    #[cfg(feature = "layout-cache")]
-    /// A precomputed hash.
-    hash: u64,
 }
 
 impl PackedNode {
+    /// Check whether the contained node is a specific layout node.
+    pub fn is<T: 'static>(&self) -> bool {
+        self.node.as_any().is::<T>()
+    }
+
     /// Try to downcast to a specific layout node.
     pub fn downcast<T>(&self) -> Option<&T>
     where
@@ -173,7 +178,15 @@ impl Layout for PackedNode {
         return self.layout_impl(ctx, regions);
 
         #[cfg(feature = "layout-cache")]
-        ctx.layouts.get(self.hash, regions).unwrap_or_else(|| {
+        let hash = {
+            let mut state = fxhash::FxHasher64::default();
+            self.hash(&mut state);
+            ctx.styles.hash(&mut state);
+            state.finish()
+        };
+
+        #[cfg(feature = "layout-cache")]
+        ctx.layouts.get(hash, regions).unwrap_or_else(|| {
             ctx.level += 1;
             let frames = self.layout_impl(ctx, regions);
             ctx.level -= 1;
@@ -191,7 +204,7 @@ impl Layout for PackedNode {
                 panic!("constraints did not match regions they were created for");
             }
 
-            ctx.layouts.insert(self.hash, entry);
+            ctx.layouts.insert(hash, entry);
             frames
         })
     }
@@ -219,18 +232,31 @@ impl PackedNode {
     }
 }
 
+impl Debug for PackedNode {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        if f.alternate() {
+            self.styles.fmt(f)?;
+        }
+        self.node.fmt(f)
+    }
+}
+
+impl PartialEq for PackedNode {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::as_ptr(&self.node) as *const () == Rc::as_ptr(&other.node) as *const ()
+    }
+}
+
 impl Hash for PackedNode {
     fn hash<H: Hasher>(&self, state: &mut H) {
+        // Hash the node.
         #[cfg(feature = "layout-cache")]
         state.write_u64(self.hash);
         #[cfg(not(feature = "layout-cache"))]
         state.write_u64(self.hash64());
-    }
-}
 
-impl Debug for PackedNode {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        self.node.fmt(f)
+        // Hash the styles.
+        self.styles.hash(state);
     }
 }
 

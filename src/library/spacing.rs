@@ -16,9 +16,27 @@ pub fn v(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     )))
 }
 
+/// A single run of text with the same style.
+#[derive(Hash)]
+pub struct SpacingNode {
+    /// The kind of spacing.
+    pub kind: SpacingKind,
+    /// The rspacing's styles.
+    pub styles: Styles,
+}
+
+impl Debug for SpacingNode {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        if f.alternate() {
+            self.styles.fmt(f)?;
+        }
+        write!(f, "{:?}", self.kind)
+    }
+}
+
 /// Kinds of spacing.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum Spacing {
+pub enum SpacingKind {
     /// A length stated in absolute values and/or relative to the parent's size.
     Linear(Linear),
     /// A length that is the fraction of the remaining free space in the parent.
@@ -26,7 +44,7 @@ pub enum Spacing {
 }
 
 castable! {
-    Spacing,
+    SpacingKind,
     Expected: "linear or fractional",
     Value::Length(v) => Self::Linear(v.into()),
     Value::Relative(v) => Self::Linear(v.into()),

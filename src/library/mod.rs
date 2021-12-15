@@ -4,11 +4,11 @@
 //! definitions.
 
 mod align;
-mod deco;
 mod document;
 mod flow;
 mod grid;
 mod image;
+mod link;
 mod pad;
 mod page;
 mod par;
@@ -23,6 +23,7 @@ mod utility;
 
 /// Helpful imports for creating library functionality.
 mod prelude {
+    pub use std::fmt::{self, Debug, Formatter};
     pub use std::rc::Rc;
 
     pub use crate::diag::{At, TypResult};
@@ -36,10 +37,10 @@ mod prelude {
 
 pub use self::image::*;
 pub use align::*;
-pub use deco::*;
 pub use document::*;
 pub use flow::*;
 pub use grid::*;
+pub use link::*;
 pub use pad::*;
 pub use page::*;
 pub use par::*;
@@ -62,6 +63,7 @@ pub fn new() -> Scope {
     // Text.
     std.def_func("font", font);
     std.def_func("par", par);
+    std.def_func("parbreak", parbreak);
     std.def_func("strike", strike);
     std.def_func("underline", underline);
     std.def_func("overline", overline);
@@ -74,7 +76,6 @@ pub fn new() -> Scope {
     std.def_func("v", v);
     std.def_func("box", box_);
     std.def_func("block", block);
-    std.def_func("flow", flow);
     std.def_func("stack", stack);
     std.def_func("grid", grid);
     std.def_func("pad", pad);

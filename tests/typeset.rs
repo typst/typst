@@ -71,7 +71,7 @@ fn main() {
     styles.set(PageNode::TOP, Smart::Custom(Length::pt(10.0).into()));
     styles.set(PageNode::RIGHT, Smart::Custom(Length::pt(10.0).into()));
     styles.set(PageNode::BOTTOM, Smart::Custom(Length::pt(10.0).into()));
-    styles.set(TextNode::SIZE, Length::pt(10.0));
+    styles.set(TextNode::SIZE, Length::pt(10.0).into());
 
     // Hook up an assert function into the global scope.
     let mut std = typst::library::new();
@@ -92,7 +92,7 @@ fn main() {
     let mut ctx = Context::builder().std(std).styles(styles).build(loader);
 
     // Run all the tests.
-    let mut ok = true;
+    let mut ok = 0;
     for src_path in filtered {
         let path = src_path.strip_prefix(TYP_DIR).unwrap();
         let png_path = Path::new(PNG_DIR).join(path).with_extension("png");
@@ -100,16 +100,20 @@ fn main() {
         let pdf_path =
             args.pdf.then(|| Path::new(PDF_DIR).join(path).with_extension("pdf"));
 
-        ok &= test(
+        ok += test(
             &mut ctx,
             &src_path,
             &png_path,
             &ref_path,
             pdf_path.as_deref(),
-        );
+        ) as usize;
     }
 
-    if !ok {
+    if len > 1 {
+        println!("{} / {} tests passed.", ok, len);
+    }
+
+    if ok < len {
         std::process::exit(1);
     }
 }
@@ -236,6 +240,7 @@ fn test_part(
     let mut ok = true;
     let (frames, mut errors) = match ctx.execute(id) {
         Ok(document) => {
+            // dbg!(&document);
             let mut frames = layout(ctx, &document);
 
             #[cfg(feature = "layout-cache")]
@@ -321,7 +326,10 @@ fn test_incremental(
         }
 
         if cached != frames {
-            println!("    Subtest {} relayout differs from clean pass ❌", i);
+            println!(
+                "    Subtest {} relayout differs from clean pass on level {} ❌",
+                i, level
+            );
             ok = false;
         }
     }
@@ -506,7 +514,7 @@ fn draw_text(
     let mut x = 0.0;
     for glyph in &text.glyphs {
         let glyph_id = GlyphId(glyph.id);
-        let offset = x + glyph.x_offset.to_length(text.size).to_f32();
+        let offset = x + glyph.x_offset.resolve(text.size).to_f32();
         let ts = ts.pre_translate(offset, 0.0);
 
         if let Some(tree) = ttf
@@ -559,7 +567,7 @@ fn draw_text(
             }
         }
 
-        x += glyph.x_advance.to_length(text.size).to_f32();
+        x += glyph.x_advance.resolve(text.size).to_f32();
     }
 }
 

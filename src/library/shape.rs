@@ -1,6 +1,7 @@
 use std::f64::consts::SQRT_2;
 
 use super::prelude::*;
+use super::LinkNode;
 
 /// `rect`: A rectangle with optional content.
 pub fn rect(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
@@ -76,17 +77,14 @@ fn shape_impl(
     }
 
     // The shape's contents.
-    let body = args.find::<Node>();
+    let child = args
+        .find()
+        .map(|body: Node| body.into_block().padded(Sides::splat(padding)));
 
     Ok(Value::inline(
-        ShapeNode {
-            kind,
-            fill,
-            stroke,
-            child: body.map(|body| body.into_block().padded(Sides::splat(padding))),
-        }
-        .pack()
-        .sized(Spec::new(width, height)),
+        ShapeNode { kind, fill, stroke, child }
+            .pack()
+            .sized(Spec::new(width, height)),
     ))
 }
 
@@ -152,9 +150,10 @@ impl Layout for ShapeNode {
             frames = vec![Frame::new(size).constrain(Constraints::tight(regions))];
         }
 
+        let frame = Rc::make_mut(&mut frames[0].item);
+
         // Add fill and/or stroke.
         if self.fill.is_some() || self.stroke.is_some() {
-            let frame = Rc::make_mut(&mut frames[0].item);
             let geometry = match self.kind {
                 ShapeKind::Square | ShapeKind::Rect => Geometry::Rect(frame.size),
                 ShapeKind::Circle | ShapeKind::Ellipse => Geometry::Ellipse(frame.size),
@@ -167,6 +166,11 @@ impl Layout for ShapeNode {
             };
 
             frame.prepend(Point::zero(), Element::Shape(shape));
+        }
+
+        // Apply link if it exists.
+        if let Some(url) = ctx.styles.get_ref(LinkNode::URL) {
+            frame.link(url);
         }
 
         frames

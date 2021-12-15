@@ -36,6 +36,16 @@ impl Linear {
         self.rel.resolve(length) + self.abs
     }
 
+    /// Compose with another linear.
+    ///
+    /// The resulting linear is (self ∘ inner)(x) = self(inner(x)).
+    pub fn compose(self, inner: Self) -> Self {
+        Self {
+            rel: self.rel * inner.rel,
+            abs: self.rel.resolve(inner.abs) + self.abs,
+        }
+    }
+
     /// Whether both parts are zero.
     pub fn is_zero(self) -> bool {
         self.rel.is_zero() && self.abs.is_zero()
@@ -155,10 +165,7 @@ impl Mul<Linear> for f64 {
     type Output = Linear;
 
     fn mul(self, other: Linear) -> Linear {
-        Linear {
-            rel: self * other.rel,
-            abs: self * other.abs,
-        }
+        other * self
     }
 }
 

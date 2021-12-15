@@ -181,11 +181,11 @@ impl Eval for MarkupNode {
             Self::Linebreak => Node::Linebreak,
             Self::Parbreak => Node::Parbreak,
             Self::Strong => {
-                ctx.styles.set(TextNode::STRONG, !ctx.styles.get(TextNode::STRONG));
+                ctx.styles.toggle(TextNode::STRONG);
                 Node::new()
             }
             Self::Emph => {
-                ctx.styles.set(TextNode::EMPH, !ctx.styles.get(TextNode::EMPH));
+                ctx.styles.toggle(TextNode::EMPH);
                 Node::new()
             }
             Self::Text(text) => Node::Text(text.clone()),
@@ -216,7 +216,7 @@ impl Eval for MathNode {
     type Output = Node;
 
     fn eval(&self, _: &mut EvalContext) -> TypResult<Self::Output> {
-        let text = Node::Text(self.formula.clone()).monospaced();
+        let text = Node::Text(self.formula.trim().into()).monospaced();
         Ok(if self.display {
             Node::Block(text.into_block())
         } else {
@@ -229,11 +229,10 @@ impl Eval for HeadingNode {
     type Output = Node;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        // TODO(set): Relative font size.
         let upscale = (1.6 - 0.1 * self.level() as f64).max(0.75);
         let mut styles = Styles::new();
         styles.set(TextNode::STRONG, true);
-        styles.set(TextNode::SIZE, upscale * Length::pt(11.0));
+        styles.set(TextNode::SIZE, Relative::new(upscale).into());
         Ok(Node::Block(
             self.body().eval(ctx)?.into_block().styled(styles),
         ))
@@ -266,7 +265,7 @@ fn labelled(_: &mut EvalContext, label: EcoString, body: Node) -> TypResult<Node
     // TODO: Switch to em units for gutter once available.
     Ok(Node::block(GridNode {
         tracks: Spec::new(vec![TrackSizing::Auto; 2], vec![]),
-        gutter: Spec::new(vec![TrackSizing::Linear(Length::pt(6.0).into())], vec![]),
+        gutter: Spec::new(vec![TrackSizing::Linear(Length::pt(5.0).into())], vec![]),
         children: vec![Node::Text(label).into_block(), body.into_block()],
     }))
 }

@@ -3,8 +3,8 @@ use super::ParNode;
 
 /// `align`: Configure the alignment along the layouting axes.
 pub fn align(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let aligns = args.expect::<Spec<_>>("alignment")?;
-    let body = args.expect::<Node>("body")?;
+    let aligns: Spec<_> = args.expect("alignment")?;
+    let body: Node = args.expect("body")?;
 
     let mut styles = Styles::new();
     if let Some(align) = aligns.x {

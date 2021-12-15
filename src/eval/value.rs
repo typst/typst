@@ -26,7 +26,7 @@ pub enum Value {
     Float(f64),
     /// A length: `12pt`, `3cm`.
     Length(Length),
-    /// An angle:  `1.5rad`, `90deg`.
+    /// An angle: `1.5rad`, `90deg`.
     Angle(Angle),
     /// A relative value: `50%`.
     Relative(Relative),
@@ -146,7 +146,7 @@ impl Debug for Value {
             Self::Str(v) => Debug::fmt(v, f),
             Self::Array(v) => Debug::fmt(v, f),
             Self::Dict(v) => Debug::fmt(v, f),
-            Self::Node(v) => Debug::fmt(v, f),
+            Self::Node(_) => f.pad("<template>"),
             Self::Func(v) => Debug::fmt(v, f),
             Self::Dyn(v) => Debug::fmt(v, f),
         }
@@ -386,13 +386,13 @@ primitive! { f64: "float", Float, Int(v) => v as f64 }
 primitive! { Length: "length", Length }
 primitive! { Angle: "angle", Angle }
 primitive! { Relative: "relative", Relative }
-primitive! { Linear: "linear", Linear, Length(v) => v.into(), Relative(v) => v.into() }
-primitive! { Fractional: "fractional", Fractional }
+primitive! { Linear: "relative length", Linear, Length(v) => v.into(), Relative(v) => v.into() }
+primitive! { Fractional: "fractional length", Fractional }
 primitive! { Color: "color", Color }
 primitive! { EcoString: "string", Str }
 primitive! { Array: "array", Array }
 primitive! { Dict: "dictionary", Dict }
-primitive! { Node: "node", Node }
+primitive! { Node: "template", Node }
 primitive! { Function: "function", Func }
 
 impl Cast<Value> for Value {

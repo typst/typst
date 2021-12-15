@@ -14,32 +14,43 @@ pub fn page(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         Value::Str(string) => Paper::from_str(&string).map_err(|e| e.to_string())?,
     }
 
+    let body: Option<Node> = args.find();
+
+    let mut map = Styles::new();
+    let styles = match body {
+        Some(_) => &mut map,
+        None => &mut ctx.styles,
+    };
+
     if let Some(paper) = args.named::<Paper>("paper")?.or_else(|| args.find()) {
-        ctx.styles.set(PageNode::CLASS, paper.class());
-        ctx.styles.set(PageNode::WIDTH, Smart::Custom(paper.width()));
-        ctx.styles.set(PageNode::HEIGHT, Smart::Custom(paper.height()));
+        styles.set(PageNode::CLASS, paper.class());
+        styles.set(PageNode::WIDTH, Smart::Custom(paper.width()));
+        styles.set(PageNode::HEIGHT, Smart::Custom(paper.height()));
     }
 
     if let Some(width) = args.named("width")? {
-        ctx.styles.set(PageNode::CLASS, PaperClass::Custom);
-        ctx.styles.set(PageNode::WIDTH, width);
+        styles.set(PageNode::CLASS, PaperClass::Custom);
+        styles.set(PageNode::WIDTH, width);
     }
 
     if let Some(height) = args.named("height")? {
-        ctx.styles.set(PageNode::CLASS, PaperClass::Custom);
-        ctx.styles.set(PageNode::HEIGHT, height);
+        styles.set(PageNode::CLASS, PaperClass::Custom);
+        styles.set(PageNode::HEIGHT, height);
     }
 
     let margins = args.named("margins")?;
 
-    set!(ctx, PageNode::FLIPPED => args.named("flipped")?);
-    set!(ctx, PageNode::LEFT => args.named("left")?.or(margins));
-    set!(ctx, PageNode::TOP => args.named("top")?.or(margins));
-    set!(ctx, PageNode::RIGHT => args.named("right")?.or(margins));
-    set!(ctx, PageNode::BOTTOM => args.named("bottom")?.or(margins));
-    set!(ctx, PageNode::FILL => args.named("fill")?);
+    set!(styles, PageNode::FLIPPED => args.named("flipped")?);
+    set!(styles, PageNode::LEFT => args.named("left")?.or(margins));
+    set!(styles, PageNode::TOP => args.named("top")?.or(margins));
+    set!(styles, PageNode::RIGHT => args.named("right")?.or(margins));
+    set!(styles, PageNode::BOTTOM => args.named("bottom")?.or(margins));
+    set!(styles, PageNode::FILL => args.named("fill")?);
 
-    Ok(Value::None)
+    Ok(match body {
+        Some(body) => Value::block(body.into_block().styled(map)),
+        None => Value::None,
+    })
 }
 
 /// `pagebreak`: Start a new page.
@@ -48,7 +59,7 @@ pub fn pagebreak(_: &mut EvalContext, _: &mut Args) -> TypResult<Value> {
 }
 
 /// Layouts its child onto one or multiple pages.
-#[derive(Debug, Hash)]
+#[derive(Hash)]
 pub struct PageNode {
     /// The node producing the content.
     pub node: PackedNode,
@@ -82,9 +93,8 @@ properties! {
 impl PageNode {
     /// Layout the page run into a sequence of frames, one per page.
     pub fn layout(&self, ctx: &mut LayoutContext) -> Vec<Rc<Frame>> {
-        // TODO(set): Use chaining.
-        let prev = std::mem::replace(&mut ctx.styles, self.styles.clone());
-        ctx.styles.apply(&prev);
+        let prev = ctx.styles.clone();
+        ctx.styles = self.styles.chain(&ctx.styles);
 
         // When one of the lengths is infinite the page fits its content along
         // that axis.
@@ -124,6 +134,17 @@ impl PageNode {
 
         ctx.styles = prev;
         frames
+    }
+}
+
+impl Debug for PageNode {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        if f.alternate() {
+            self.styles.fmt(f)?;
+        }
+        f.write_str("Page(")?;
+        self.node.fmt(f)?;
+        f.write_str(")")
     }
 }
 

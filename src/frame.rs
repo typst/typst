@@ -107,6 +107,11 @@ impl Frame {
         wrapper.push(Point::zero(), Element::Group(group));
         *self = wrapper;
     }
+
+    /// Link the whole frame to a resource.
+    pub fn link(&mut self, url: impl Into<String>) {
+        self.push(Point::zero(), Element::Link(url.into(), self.size));
+    }
 }
 
 impl Debug for Frame {
@@ -180,7 +185,7 @@ pub struct Text {
 impl Text {
     /// The width of the text run.
     pub fn width(&self) -> Length {
-        self.glyphs.iter().map(|g| g.x_advance.to_length(self.size)).sum()
+        self.glyphs.iter().map(|g| g.x_advance.resolve(self.size)).sum()
     }
 }
 

@@ -1,12 +1,13 @@
 use std::borrow::Cow;
 use std::convert::TryInto;
 use std::fmt::{self, Debug, Formatter};
-use std::ops::Range;
+use std::ops::{BitXor, Range};
 
 use rustybuzz::{Feature, UnicodeBuffer};
 use ttf_parser::Tag;
 
 use super::prelude::*;
+use super::LinkNode;
 use crate::font::{
     Face, FaceId, FontStore, FontStretch, FontStyle, FontVariant, FontWeight,
     VerticalFontMetric,
@@ -16,43 +17,81 @@ use crate::util::{EcoString, SliceExt};
 
 /// `font`: Configure the font.
 pub fn font(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
+    let body = args.find::<Node>();
+
+    let mut map = Styles::new();
+    let styles = match body {
+        Some(_) => &mut map,
+        None => &mut ctx.styles,
+    };
+
     let list = args.named("family")?.or_else(|| {
         let families: Vec<_> = args.all().collect();
         (!families.is_empty()).then(|| families)
     });
 
-    set!(ctx, TextNode::FAMILY_LIST => list);
-    set!(ctx, TextNode::SERIF_LIST => args.named("serif")?);
-    set!(ctx, TextNode::SANS_SERIF_LIST => args.named("sans-serif")?);
-    set!(ctx, TextNode::MONOSPACE_LIST => args.named("monospace")?);
-    set!(ctx, TextNode::FALLBACK => args.named("fallback")?);
-    set!(ctx, TextNode::STYLE => args.named("style")?);
-    set!(ctx, TextNode::WEIGHT => args.named("weight")?);
-    set!(ctx, TextNode::STRETCH => args.named("stretch")?);
-    set!(ctx, TextNode::FILL => args.named("fill")?.or_else(|| args.find()));
-    set!(ctx, TextNode::SIZE => args.named("size")?.or_else(|| args.find()));
-    set!(ctx, TextNode::TRACKING => args.named("tracking")?.map(Em::new));
-    set!(ctx, TextNode::TOP_EDGE => args.named("top-edge")?);
-    set!(ctx, TextNode::BOTTOM_EDGE => args.named("bottom-edge")?);
-    set!(ctx, TextNode::KERNING => args.named("kerning")?);
-    set!(ctx, TextNode::SMALLCAPS => args.named("smallcaps")?);
-    set!(ctx, TextNode::ALTERNATES => args.named("alternates")?);
-    set!(ctx, TextNode::STYLISTIC_SET => args.named("stylistic-set")?);
-    set!(ctx, TextNode::LIGATURES => args.named("ligatures")?);
-    set!(ctx, TextNode::DISCRETIONARY_LIGATURES => args.named("discretionary-ligatures")?);
-    set!(ctx, TextNode::HISTORICAL_LIGATURES => args.named("historical-ligatures")?);
-    set!(ctx, TextNode::NUMBER_TYPE => args.named("number-type")?);
-    set!(ctx, TextNode::NUMBER_WIDTH => args.named("number-width")?);
-    set!(ctx, TextNode::NUMBER_POSITION => args.named("number-position")?);
-    set!(ctx, TextNode::SLASHED_ZERO => args.named("slashed-zero")?);
-    set!(ctx, TextNode::FRACTIONS => args.named("fractions")?);
-    set!(ctx, TextNode::FEATURES => args.named("features")?);
+    set!(styles, TextNode::FAMILY_LIST => list);
+    set!(styles, TextNode::SERIF_LIST => args.named("serif")?);
+    set!(styles, TextNode::SANS_SERIF_LIST => args.named("sans-serif")?);
+    set!(styles, TextNode::MONOSPACE_LIST => args.named("monospace")?);
+    set!(styles, TextNode::FALLBACK => args.named("fallback")?);
+    set!(styles, TextNode::STYLE => args.named("style")?);
+    set!(styles, TextNode::WEIGHT => args.named("weight")?);
+    set!(styles, TextNode::STRETCH => args.named("stretch")?);
+    set!(styles, TextNode::FILL => args.named("fill")?.or_else(|| args.find()));
+    set!(styles, TextNode::SIZE => args.named("size")?.or_else(|| args.find()));
+    set!(styles, TextNode::TRACKING => args.named("tracking")?.map(Em::new));
+    set!(styles, TextNode::TOP_EDGE => args.named("top-edge")?);
+    set!(styles, TextNode::BOTTOM_EDGE => args.named("bottom-edge")?);
+    set!(styles, TextNode::KERNING => args.named("kerning")?);
+    set!(styles, TextNode::SMALLCAPS => args.named("smallcaps")?);
+    set!(styles, TextNode::ALTERNATES => args.named("alternates")?);
+    set!(styles, TextNode::STYLISTIC_SET => args.named("stylistic-set")?);
+    set!(styles, TextNode::LIGATURES => args.named("ligatures")?);
+    set!(styles, TextNode::DISCRETIONARY_LIGATURES => args.named("discretionary-ligatures")?);
+    set!(styles, TextNode::HISTORICAL_LIGATURES => args.named("historical-ligatures")?);
+    set!(styles, TextNode::NUMBER_TYPE => args.named("number-type")?);
+    set!(styles, TextNode::NUMBER_WIDTH => args.named("number-width")?);
+    set!(styles, TextNode::NUMBER_POSITION => args.named("number-position")?);
+    set!(styles, TextNode::SLASHED_ZERO => args.named("slashed-zero")?);
+    set!(styles, TextNode::FRACTIONS => args.named("fractions")?);
+    set!(styles, TextNode::FEATURES => args.named("features")?);
 
-    Ok(Value::None)
+    Ok(match body {
+        Some(body) => Value::Node(body.styled(map)),
+        None => Value::None,
+    })
+}
+
+/// `strike`: Typeset striken-through text.
+pub fn strike(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
+    line_impl(args, LineKind::Strikethrough)
+}
+
+/// `underline`: Typeset underlined text.
+pub fn underline(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
+    line_impl(args, LineKind::Underline)
+}
+
+/// `overline`: Typeset text with an overline.
+pub fn overline(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
+    line_impl(args, LineKind::Overline)
+}
+
+fn line_impl(args: &mut Args, kind: LineKind) -> TypResult<Value> {
+    let stroke = args.named("stroke")?.or_else(|| args.find());
+    let thickness = args.named::<Linear>("thickness")?.or_else(|| args.find());
+    let offset = args.named("offset")?;
+    let extent = args.named("extent")?.unwrap_or_default();
+    let body: Node = args.expect("body")?;
+    let deco = LineDecoration { kind, stroke, thickness, offset, extent };
+    Ok(Value::Node(
+        body.styled(Styles::one(TextNode::LINES, vec![deco])),
+    ))
 }
 
 /// A single run of text with the same style.
-#[derive(Debug, Hash)]
+#[derive(Hash)]
 pub struct TextNode {
     /// The run's text.
     pub text: EcoString,
@@ -82,17 +121,22 @@ properties! {
     /// The width of the glyphs.
     STRETCH: FontStretch = FontStretch::NORMAL,
     /// Whether the font weight should be increased by 300.
+    #[fold(bool::bitxor)]
     STRONG: bool = false,
     /// Whether the the font style should be inverted.
+    #[fold(bool::bitxor)]
     EMPH: bool = false,
     /// Whether a monospace font should be preferred.
     MONOSPACE: bool = false,
     /// The glyph fill color.
     FILL: Paint = RgbaColor::BLACK.into(),
+    /// Decorative lines.
+    #[fold(|a, b| a.into_iter().chain(b).collect())]
+    LINES: Vec<LineDecoration> = vec![],
 
     /// The size of the glyphs.
-    // TODO(set): Resolve relative to outer font size.
-    SIZE: Length = Length::pt(11.0),
+    #[fold(Linear::compose)]
+    SIZE: Linear = Length::pt(11.0).into(),
     /// The amount of space that should be added between characters.
     TRACKING: Em = Em::zero(),
     /// The top end of the text bounding box.
@@ -126,6 +170,15 @@ properties! {
     FRACTIONS: bool = false,
     /// Raw OpenType features to apply.
     FEATURES: Vec<(Tag, u32)> = vec![],
+}
+
+impl Debug for TextNode {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        if f.alternate() {
+            self.styles.fmt(f)?;
+        }
+        write!(f, "Text({:?})", self.text)
+    }
 }
 
 /// A generic or named font family.
@@ -332,6 +385,35 @@ castable! {
         .collect(),
 }
 
+/// Defines a line that is positioned over, under or on top of text.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct LineDecoration {
+    /// The kind of line.
+    pub kind: LineKind,
+    /// Stroke color of the line, defaults to the text color if `None`.
+    pub stroke: Option<Paint>,
+    /// Thickness of the line's strokes (dependent on scaled font size), read
+    /// from the font tables if `None`.
+    pub thickness: Option<Linear>,
+    /// Position of the line relative to the baseline (dependent on scaled font
+    /// size), read from the font tables if `None`.
+    pub offset: Option<Linear>,
+    /// Amount that the line will be longer or shorter than its associated text
+    /// (dependent on scaled font size).
+    pub extent: Linear,
+}
+
+/// The kind of line decoration.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum LineKind {
+    /// A line under text.
+    Underline,
+    /// A line through text.
+    Strikethrough,
+    /// A line over text.
+    Overline,
+}
+
 /// Shape text into [`ShapedText`].
 pub fn shape<'a>(
     fonts: &mut FontStore,
@@ -520,7 +602,7 @@ fn measure(
     let mut top = Length::zero();
     let mut bottom = Length::zero();
 
-    let size = styles.get(TextNode::SIZE);
+    let size = styles.get(TextNode::SIZE).abs;
     let top_edge = styles.get(TextNode::TOP_EDGE);
     let bottom_edge = styles.get(TextNode::BOTTOM_EDGE);
 
@@ -545,7 +627,7 @@ fn measure(
             expand(face);
 
             for glyph in group {
-                width += glyph.x_advance.to_length(size);
+                width += glyph.x_advance.resolve(size);
             }
         }
     }
@@ -553,7 +635,7 @@ fn measure(
     (Size::new(width, top + bottom), top)
 }
 
-/// Resolved the font variant with `STRONG` and `EMPH` factored in.
+/// Resolve the font variant with `STRONG` and `EMPH` factored in.
 fn variant(styles: &Styles) -> FontVariant {
     let mut variant = FontVariant::new(
         styles.get(TextNode::STYLE),
@@ -721,7 +803,7 @@ pub struct ShapedGlyph {
 
 impl<'a> ShapedText<'a> {
     /// Build the shaped text's frame.
-    pub fn build(&self) -> Frame {
+    pub fn build(&self, fonts: &FontStore) -> Frame {
         let mut offset = Length::zero();
         let mut frame = Frame::new(self.size);
         frame.baseline = Some(self.baseline);
@@ -729,23 +811,56 @@ impl<'a> ShapedText<'a> {
         for (face_id, group) in self.glyphs.as_ref().group_by_key(|g| g.face_id) {
             let pos = Point::new(offset, self.baseline);
 
-            let mut text = Text {
-                face_id,
-                size: self.styles.get(TextNode::SIZE),
-                fill: self.styles.get(TextNode::FILL),
-                glyphs: vec![],
-            };
-
-            for glyph in group {
-                text.glyphs.push(Glyph {
+            let size = self.styles.get(TextNode::SIZE).abs;
+            let fill = self.styles.get(TextNode::FILL);
+            let glyphs = group
+                .iter()
+                .map(|glyph| Glyph {
                     id: glyph.glyph_id,
                     x_advance: glyph.x_advance,
                     x_offset: glyph.x_offset,
-                });
+                })
+                .collect();
+
+            let text = Text { face_id, size, fill, glyphs };
+            let width = text.width();
+            frame.push(pos, Element::Text(text));
+
+            // Apply line decorations.
+            for line in self.styles.get_ref(TextNode::LINES) {
+                let face = fonts.get(face_id);
+                let metrics = match line.kind {
+                    LineKind::Underline => face.underline,
+                    LineKind::Strikethrough => face.strikethrough,
+                    LineKind::Overline => face.overline,
+                };
+
+                let extent = line.extent.resolve(size);
+                let offset = line
+                    .offset
+                    .map(|s| s.resolve(size))
+                    .unwrap_or(-metrics.position.resolve(size));
+
+                let stroke = Stroke {
+                    paint: line.stroke.unwrap_or(fill),
+                    thickness: line
+                        .thickness
+                        .map(|s| s.resolve(size))
+                        .unwrap_or(metrics.thickness.resolve(size)),
+                };
+
+                let subpos = Point::new(pos.x - extent, pos.y + offset);
+                let target = Point::new(width + 2.0 * extent, Length::zero());
+                let shape = Shape::stroked(Geometry::Line(target), stroke);
+                frame.push(subpos, Element::Shape(shape));
             }
 
-            offset += text.width();
-            frame.push(pos, Element::Text(text));
+            offset += width;
+        }
+
+        // Apply link if it exists.
+        if let Some(url) = self.styles.get_ref(LinkNode::URL) {
+            frame.link(url);
         }
 
         frame

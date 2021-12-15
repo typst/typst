@@ -9,8 +9,8 @@ use crate::diag::StrResult;
 use crate::geom::SpecAxis;
 use crate::layout::{Layout, PackedNode};
 use crate::library::{
-    Decoration, DocumentNode, FlowChild, FlowNode, PageNode, ParChild, ParNode, Spacing,
-    TextNode,
+    DocumentNode, FlowChild, FlowNode, PageNode, ParChild, ParNode, PlacedNode,
+    SpacingKind, SpacingNode, TextNode,
 };
 use crate::util::EcoString;
 
@@ -18,8 +18,7 @@ use crate::util::EcoString;
 ///
 /// A node is a composable intermediate representation that can be converted
 /// into a proper layout node by lifting it to a block-level or document node.
-// TODO(set): Fix Debug impl leaking into user-facing repr.
-#[derive(Debug, Clone)]
+#[derive(Debug, PartialEq, Clone, Hash)]
 pub enum Node {
     /// A word space.
     Space,
@@ -32,7 +31,7 @@ pub enum Node {
     /// Plain text.
     Text(EcoString),
     /// Spacing.
-    Spacing(SpecAxis, Spacing),
+    Spacing(SpecAxis, SpacingKind),
     /// An inline node.
     Inline(PackedNode),
     /// A block node.
@@ -77,18 +76,12 @@ impl Node {
         self.styled(Styles::one(TextNode::MONOSPACE, true))
     }
 
-    /// Decorate this node.
-    pub fn decorated(self, _: Decoration) -> Self {
-        // TODO(set): Actually decorate.
-        self
-    }
-
     /// Lift to a type-erased block-level node.
     pub fn into_block(self) -> PackedNode {
         if let Node::Block(packed) = self {
             packed
         } else {
-            let mut packer = NodePacker::new();
+            let mut packer = NodePacker::new(true);
             packer.walk(self, Styles::new());
             packer.into_block()
         }
@@ -96,7 +89,7 @@ impl Node {
 
     /// Lift to a document node, the root of the layout tree.
     pub fn into_document(self) -> DocumentNode {
-        let mut packer = NodePacker::new();
+        let mut packer = NodePacker::new(false);
         packer.walk(self, Styles::new());
         packer.into_document()
     }
@@ -117,13 +110,6 @@ impl Default for Node {
     }
 }
 
-impl PartialEq for Node {
-    fn eq(&self, _: &Self) -> bool {
-        // TODO(set): Figure out what to do here.
-        false
-    }
-}
-
 impl Add for Node {
     type Output = Self;
 
@@ -141,92 +127,89 @@ impl AddAssign for Node {
 
 /// Packs a [`Node`] into a flow or whole document.
 struct NodePacker {
+    /// Whether packing should produce a block-level node.
+    block: bool,
     /// The accumulated page nodes.
-    document: Vec<PageNode>,
-    /// The common style properties of all items on the current page.
-    page_styles: Styles,
+    pages: Vec<PageNode>,
     /// The accumulated flow children.
     flow: Vec<FlowChild>,
+    /// The common style properties of all items on the current flow.
+    flow_styles: Styles,
+    /// The kind of thing that was last added to the current flow.
+    flow_last: Last<FlowChild>,
     /// The accumulated paragraph children.
     par: Vec<ParChild>,
     /// The common style properties of all items in the current paragraph.
     par_styles: Styles,
     /// The kind of thing that was last added to the current paragraph.
-    last: Last,
-}
-
-/// The type of the last thing that was pushed into the paragraph.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-enum Last {
-    None,
-    Spacing,
-    Newline,
-    Space,
-    Other,
+    par_last: Last<ParChild>,
 }
 
 impl NodePacker {
     /// Start a new node-packing session.
-    fn new() -> Self {
+    fn new(block: bool) -> Self {
         Self {
-            document: vec![],
-            page_styles: Styles::new(),
+            block,
+            pages: vec![],
             flow: vec![],
+            flow_styles: Styles::new(),
+            flow_last: Last::None,
             par: vec![],
             par_styles: Styles::new(),
-            last: Last::None,
+            par_last: Last::None,
         }
     }
 
     /// Finish up and return the resulting flow.
     fn into_block(mut self) -> PackedNode {
-        self.parbreak();
+        self.finish_par();
         FlowNode(self.flow).pack()
     }
 
     /// Finish up and return the resulting document.
     fn into_document(mut self) -> DocumentNode {
         self.pagebreak(true);
-        DocumentNode(self.document)
+        DocumentNode(self.pages)
     }
 
     /// Consider a node with the given styles.
     fn walk(&mut self, node: Node, styles: Styles) {
         match node {
             Node::Space => {
-                // Only insert a space if the previous thing was actual content.
-                if self.last == Last::Other {
-                    self.push_text(' '.into(), styles);
-                    self.last = Last::Space;
+                if self.is_flow_compatible(&styles) && self.is_par_compatible(&styles) {
+                    self.par_last.soft(ParChild::text(' ', styles));
                 }
             }
             Node::Linebreak => {
-                self.trim();
-                self.push_text('\n'.into(), styles);
-                self.last = Last::Newline;
+                self.par_last.hard();
+                self.push_inline(ParChild::text('\n', styles));
+                self.par_last.hard();
             }
             Node::Parbreak => {
-                self.parbreak();
+                self.parbreak(Some(styles));
             }
             Node::Pagebreak => {
                 self.pagebreak(true);
-                self.page_styles = styles;
+                self.flow_styles = styles;
             }
             Node::Text(text) => {
-                self.push_text(text, styles);
+                self.push_inline(ParChild::text(text, styles));
             }
-            Node::Spacing(SpecAxis::Horizontal, amount) => {
-                self.push_inline(ParChild::Spacing(amount), styles);
-                self.last = Last::Spacing;
+            Node::Spacing(SpecAxis::Horizontal, kind) => {
+                self.par_last.hard();
+                self.push_inline(ParChild::Spacing(SpacingNode { kind, styles }));
+                self.par_last.hard();
             }
-            Node::Spacing(SpecAxis::Vertical, amount) => {
-                self.push_block(FlowChild::Spacing(amount), styles);
+            Node::Spacing(SpecAxis::Vertical, kind) => {
+                self.finish_par();
+                self.flow.push(FlowChild::Spacing(SpacingNode { kind, styles }));
+                self.flow_last.hard();
             }
             Node::Inline(inline) => {
-                self.push_inline(ParChild::Node(inline), styles);
+                self.push_inline(ParChild::Node(inline.styled(styles)));
             }
             Node::Block(block) => {
-                self.push_block(FlowChild::Node(block), styles);
+                self.push_block(block.styled(styles));
             }
             Node::Sequence(list) => {
                 for (node, mut inner) in list {
@@ -237,80 +220,118 @@ impl NodePacker {
         }
     }
 
-    /// Remove a trailing space.
-    fn trim(&mut self) {
-        if self.last == Last::Space {
-            self.par.pop();
-            self.last = Last::Other;
+    /// Insert an inline-level element into the current paragraph.
+    fn push_inline(&mut self, child: ParChild) {
+        if let Some(child) = self.par_last.any() {
+            self.push_inline_impl(child);
+        }
+
+        // The node must be both compatible with the current page and the
+        // current paragraph.
+        self.make_flow_compatible(child.styles());
+        self.make_par_compatible(child.styles());
+        self.push_inline_impl(child);
+        self.par_last = Last::Any;
+    }
+
+    /// Push a paragraph child, coalescing text nodes with compatible styles.
+    fn push_inline_impl(&mut self, child: ParChild) {
+        if let ParChild::Text(right) = &child {
+            if let Some(ParChild::Text(left)) = self.par.last_mut() {
+                if left.styles.compatible(&right.styles, TextNode::has_property) {
+                    left.text.push_str(&right.text);
+                    return;
+                }
+            }
+        }
+
+        self.par.push(child);
+    }
+
+    /// Insert a block-level element into the current flow.
+    fn push_block(&mut self, node: PackedNode) {
+        let mut is_placed = false;
+        if let Some(placed) = node.downcast::<PlacedNode>() {
+            is_placed = true;
+
+            // This prevents paragraph spacing after the placed node if it
+            // is completely out-of-flow.
+            if placed.out_of_flow() {
+                self.flow_last = Last::None;
+            }
+        }
+
+        self.parbreak(None);
+        self.make_flow_compatible(&node.styles);
+
+        if let Some(child) = self.flow_last.any() {
+            self.flow.push(child);
+        }
+
+        self.flow.push(FlowChild::Node(node));
+        self.parbreak(None);
+
+        // This prevents paragraph spacing between the placed node and
+        // the paragraph below it.
+        if is_placed {
+            self.flow_last = Last::None;
         }
     }
 
     /// Advance to the next paragraph.
-    fn parbreak(&mut self) {
-        self.trim();
+    fn parbreak(&mut self, break_styles: Option<Styles>) {
+        self.finish_par();
 
-        let children = mem::take(&mut self.par);
+        // Insert paragraph spacing.
+        self.flow_last
+            .soft(FlowChild::Parbreak(break_styles.unwrap_or_default()));
+    }
+
+    fn finish_par(&mut self) {
+        let mut children = mem::take(&mut self.par);
         let styles = mem::take(&mut self.par_styles);
+        self.par_last = Last::None;
+
+        // No empty paragraphs.
         if !children.is_empty() {
+            // Erase any styles that will be inherited anyway.
+            for child in &mut children {
+                child.styles_mut().erase(&styles);
+            }
+
+            if let Some(child) = self.flow_last.any() {
+                self.flow.push(child);
+            }
+
             // The paragraph's children are all compatible with the page, so the
             // paragraph is too, meaning we don't need to check or intersect
             // anything here.
             let node = ParNode(children).pack().styled(styles);
             self.flow.push(FlowChild::Node(node));
         }
-
-        self.last = Last::None;
     }
 
     /// Advance to the next page.
     fn pagebreak(&mut self, keep: bool) {
-        self.parbreak();
-        let children = mem::take(&mut self.flow);
-        let styles = mem::take(&mut self.page_styles);
+        if self.block {
+            return;
+        }
+
+        self.finish_par();
+
+        let styles = mem::take(&mut self.flow_styles);
+        let mut children = mem::take(&mut self.flow);
+        self.flow_last = Last::None;
+
         if keep || !children.is_empty() {
+            // Erase any styles that will be inherited anyway.
+            for child in &mut children {
+                child.styles_mut().erase(&styles);
+            }
+
             let node = PageNode { node: FlowNode(children).pack(), styles };
-            self.document.push(node);
+            self.pages.push(node);
         }
-    }
-
-    /// Insert text into the current paragraph.
-    fn push_text(&mut self, text: EcoString, styles: Styles) {
-        // TODO(set): Join compatible text nodes. Take care with space
-        // coalescing.
-        let node = TextNode { text, styles: Styles::new() };
-        self.push_inline(ParChild::Text(node), styles);
-    }
-
-    /// Insert an inline-level element into the current paragraph.
-    fn push_inline(&mut self, mut child: ParChild, styles: Styles) {
-        match &mut child {
-            ParChild::Spacing(_) => {}
-            ParChild::Text(node) => node.styles.apply(&styles),
-            ParChild::Node(node) => node.styles.apply(&styles),
-            ParChild::Decorate(_) => {}
-            ParChild::Undecorate => {}
-        }
-
-        // The node must be both compatible with the current page and the
-        // current paragraph.
-        self.make_page_compatible(&styles);
-        self.make_par_compatible(&styles);
-        self.par.push(child);
-        self.last = Last::Other;
-    }
-
-    /// Insert a block-level element into the current flow.
-    fn push_block(&mut self, mut child: FlowChild, styles: Styles) {
-        self.parbreak();
-
-        match &mut child {
-            FlowChild::Spacing(_) => {}
-            FlowChild::Node(node) => node.styles.apply(&styles),
-        }
-
-        // The node must be compatible with the current page.
-        self.make_page_compatible(&styles);
-        self.flow.push(child);
     }
 
     /// Break to a new paragraph if the `styles` contain paragraph styles that
@@ -321,8 +342,8 @@ impl NodePacker {
             return;
         }
 
-        if !self.par_styles.compatible(&styles, ParNode::has_property) {
-            self.parbreak();
+        if !self.is_par_compatible(styles) {
+            self.parbreak(None);
             self.par_styles = styles.clone();
             return;
         }
@@ -331,19 +352,55 @@ impl NodePacker {
     }
 
     /// Break to a new page if the `styles` contain page styles that are
-    /// incompatible with the current page.
-    fn make_page_compatible(&mut self, styles: &Styles) {
+    /// incompatible with the current flow.
+    fn make_flow_compatible(&mut self, styles: &Styles) {
         if self.flow.is_empty() && self.par.is_empty() {
-            self.page_styles = styles.clone();
+            self.flow_styles = styles.clone();
             return;
         }
 
-        if !self.page_styles.compatible(&styles, PageNode::has_property) {
+        if !self.is_flow_compatible(styles) {
             self.pagebreak(false);
-            self.page_styles = styles.clone();
+            self.flow_styles = styles.clone();
             return;
         }
 
-        self.page_styles.intersect(styles);
+        self.flow_styles.intersect(styles);
+    }
+
+    /// Whether the given styles are compatible with the current page.
+    fn is_par_compatible(&self, styles: &Styles) -> bool {
+        self.par_styles.compatible(&styles, ParNode::has_property)
+    }
+
+    /// Whether the given styles are compatible with the current flow.
+    fn is_flow_compatible(&self, styles: &Styles) -> bool {
+        self.block || self.flow_styles.compatible(&styles, PageNode::has_property)
+    }
+}
+
+/// Finite state machine for spacing coalescing.
+enum Last<N> {
+    None,
+    Any,
+    Soft(N),
+}
+
+impl<N> Last<N> {
+    fn any(&mut self) -> Option<N> {
+        match mem::replace(self, Self::Any) {
+            Self::Soft(soft) => Some(soft),
+            _ => None,
+        }
+    }
+
+    fn soft(&mut self, soft: N) {
+        if let Self::Any = self {
+            *self = Self::Soft(soft);
+        }
+    }
+
+    fn hard(&mut self) {
+        *self = Self::None;
     }
 }

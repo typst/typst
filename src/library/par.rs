@@ -6,7 +6,7 @@ use unicode_bidi::{BidiInfo, Level};
 use xi_unicode::LineBreakIterator;
 
 use super::prelude::*;
-use super::{shape, Decoration, ShapedText, Spacing, TextNode};
+use super::{shape, ShapedText, SpacingKind, SpacingNode, TextNode};
 use crate::util::{EcoString, RangeExt, RcExt, SliceExt};
 
 /// `par`: Configure paragraphs.
@@ -41,16 +41,21 @@ pub fn par(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         align = Some(if dir == Dir::LTR { Align::Left } else { Align::Right });
     }
 
-    set!(ctx, ParNode::DIR => dir);
-    set!(ctx, ParNode::ALIGN => align);
-    set!(ctx, ParNode::LEADING => leading);
-    set!(ctx, ParNode::SPACING => spacing);
+    set!(ctx.styles, ParNode::DIR => dir);
+    set!(ctx.styles, ParNode::ALIGN => align);
+    set!(ctx.styles, ParNode::LEADING => leading);
+    set!(ctx.styles, ParNode::SPACING => spacing);
 
     Ok(Value::None)
 }
 
+/// `parbreak`: Start a new paragraph.
+pub fn parbreak(_: &mut EvalContext, _: &mut Args) -> TypResult<Value> {
+    Ok(Value::Node(Node::Parbreak))
+}
+
 /// A node that arranges its children into a paragraph.
-#[derive(Debug, Hash)]
+#[derive(Hash)]
 pub struct ParNode(pub Vec<ParChild>);
 
 properties! {
@@ -60,11 +65,10 @@ properties! {
     DIR: Dir = Dir::LTR,
     /// How to align text and inline objects in their line.
     ALIGN: Align = Align::Left,
-    // TODO(set): Make relative to font size.
     /// The spacing between lines (dependent on scaled font size).
-    LEADING: Length = Length::pt(6.5),
+    LEADING: Linear = Relative::new(0.65).into(),
     /// The spacing between paragraphs (dependent on scaled font size).
-    SPACING: Length = Length::pt(12.0),
+    SPACING: Linear = Relative::new(1.2).into(),
 }
 
 impl Layout for ParNode {
@@ -118,8 +122,14 @@ impl ParNode {
             ParChild::Spacing(_) => " ",
             ParChild::Text(ref node) => &node.text,
             ParChild::Node(_) => "\u{FFFC}",
-            ParChild::Decorate(_) | ParChild::Undecorate => "",
         })
+    }
+}
+
+impl Debug for ParNode {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.write_str("Par ")?;
+        f.debug_list().entries(&self.0).finish()
     }
 }
 
@@ -127,25 +137,44 @@ impl ParNode {
 #[derive(Hash)]
 pub enum ParChild {
     /// Spacing between other nodes.
-    Spacing(Spacing),
+    Spacing(SpacingNode),
     /// A run of text and how to align it in its line.
     Text(TextNode),
     /// Any child node and how to align it in its line.
     Node(PackedNode),
-    /// A decoration that applies until a matching `Undecorate`.
-    Decorate(Decoration),
-    /// The end of a decoration.
-    Undecorate,
+}
+
+impl ParChild {
+    /// Create a text child.
+    pub fn text(text: impl Into<EcoString>, styles: Styles) -> Self {
+        Self::Text(TextNode { text: text.into(), styles })
+    }
+
+    /// A reference to the child's styles.
+    pub fn styles(&self) -> &Styles {
+        match self {
+            Self::Spacing(node) => &node.styles,
+            Self::Text(node) => &node.styles,
+            Self::Node(node) => &node.styles,
+        }
+    }
+
+    /// A mutable reference to the child's styles.
+    pub fn styles_mut(&mut self) -> &mut Styles {
+        match self {
+            Self::Spacing(node) => &mut node.styles,
+            Self::Text(node) => &mut node.styles,
+            Self::Node(node) => &mut node.styles,
+        }
+    }
 }
 
 impl Debug for ParChild {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Self::Spacing(v) => write!(f, "Spacing({:?})", v),
-            Self::Text(node) => write!(f, "Text({:?})", node.text),
+            Self::Spacing(node) => node.fmt(f),
+            Self::Text(node) => node.fmt(f),
             Self::Node(node) => node.fmt(f),
-            Self::Decorate(deco) => write!(f, "Decorate({:?})", deco),
-            Self::Undecorate => write!(f, "Undecorate"),
         }
     }
 }
@@ -163,8 +192,6 @@ struct ParLayouter<'a> {
     items: Vec<ParItem<'a>>,
     /// The ranges of the items in `bidi.text`.
     ranges: Vec<Range>,
-    /// The decorations and the ranges they span.
-    decos: Vec<(Range, &'a Decoration)>,
 }
 
 /// Range of a substring of text.
@@ -192,22 +219,22 @@ impl<'a> ParLayouter<'a> {
     ) -> Self {
         let mut items = vec![];
         let mut ranges = vec![];
-        let mut starts = vec![];
-        let mut decos = vec![];
 
         // Layout the children and collect them into items.
         for (range, child) in par.ranges().zip(&par.0) {
-            match *child {
-                ParChild::Spacing(Spacing::Linear(v)) => {
-                    let resolved = v.resolve(regions.current.x);
-                    items.push(ParItem::Absolute(resolved));
-                    ranges.push(range);
-                }
-                ParChild::Spacing(Spacing::Fractional(v)) => {
-                    items.push(ParItem::Fractional(v));
-                    ranges.push(range);
-                }
-                ParChild::Text(ref node) => {
+            match child {
+                ParChild::Spacing(node) => match node.kind {
+                    SpacingKind::Linear(v) => {
+                        let resolved = v.resolve(regions.current.x);
+                        items.push(ParItem::Absolute(resolved));
+                        ranges.push(range);
+                    }
+                    SpacingKind::Fractional(v) => {
+                        items.push(ParItem::Fractional(v));
+                        ranges.push(range);
+                    }
+                },
+                ParChild::Text(node) => {
                     // TODO: Also split by language and script.
                     let mut cursor = range.start;
                     for (level, group) in bidi.levels[range].group_by_key(|&lvl| lvl) {
@@ -221,36 +248,23 @@ impl<'a> ParLayouter<'a> {
                         ranges.push(subrange);
                     }
                 }
-                ParChild::Node(ref node) => {
+                ParChild::Node(node) => {
                     let size = Size::new(regions.current.x, regions.base.y);
                     let pod = Regions::one(size, regions.base, Spec::splat(false));
                     let frame = node.layout(ctx, &pod).remove(0);
                     items.push(ParItem::Frame(Rc::take(frame.item)));
                     ranges.push(range);
                 }
-                ParChild::Decorate(ref deco) => {
-                    starts.push((range.start, deco));
-                }
-                ParChild::Undecorate => {
-                    if let Some((start, deco)) = starts.pop() {
-                        decos.push((start .. range.end, deco));
-                    }
-                }
             }
         }
 
-        for (start, deco) in starts {
-            decos.push((start .. bidi.text.len(), deco));
-        }
+        let align = ctx.styles.get(ParNode::ALIGN);
+        let leading = ctx
+            .styles
+            .get(ParNode::LEADING)
+            .resolve(ctx.styles.get(TextNode::SIZE).abs);
 
-        Self {
-            align: ctx.styles.get(ParNode::ALIGN),
-            leading: ctx.styles.get(ParNode::LEADING),
-            bidi,
-            items,
-            ranges,
-            decos,
-        }
+        Self { align, leading, bidi, items, ranges }
     }
 
     /// Find first-fit line breaks and build the paragraph.
@@ -496,28 +510,19 @@ impl<'a> LineLayout<'a> {
         let mut output = Frame::new(size);
         output.baseline = Some(self.baseline);
 
-        for (range, item) in self.reordered() {
-            let mut position = |mut frame: Frame| {
-                // Decorate.
-                for (deco_range, deco) in &self.par.decos {
-                    if deco_range.contains(&range.start) {
-                        deco.apply(ctx, &mut frame);
-                    }
-                }
-
+        for item in self.reordered() {
+            let mut position = |frame: Frame| {
                 let x = offset + self.par.align.resolve(remaining);
                 let y = self.baseline - frame.baseline();
                 offset += frame.size.x;
-
-                // Add to the line's frame.
                 output.merge_frame(Point::new(x, y), frame);
             };
 
-            match *item {
-                ParItem::Absolute(v) => offset += v,
+            match item {
+                ParItem::Absolute(v) => offset += *v,
                 ParItem::Fractional(v) => offset += v.resolve(self.fr, remaining),
-                ParItem::Text(ref shaped) => position(shaped.build()),
-                ParItem::Frame(ref frame) => position(frame.clone()),
+                ParItem::Text(shaped) => position(shaped.build(&ctx.fonts)),
+                ParItem::Frame(frame) => position(frame.clone()),
             }
         }
 
@@ -525,7 +530,7 @@ impl<'a> LineLayout<'a> {
     }
 
     /// Iterate through the line's items in visual order.
-    fn reordered(&self) -> impl Iterator<Item = (Range, &ParItem<'a>)> {
+    fn reordered(&self) -> impl Iterator<Item = &ParItem<'a>> {
         // The bidi crate doesn't like empty lines.
         let (levels, runs) = if !self.line.is_empty() {
             // Find the paragraph that contains the line.
@@ -557,7 +562,7 @@ impl<'a> LineLayout<'a> {
                     Either::Right(range.rev())
                 }
             })
-            .map(move |idx| (self.ranges[idx].clone(), self.get(idx).unwrap()))
+            .map(move |idx| self.get(idx).unwrap())
     }
 
     /// Find the index of the item whose range contains the `text_offset`.
