@@ -26,6 +26,8 @@ mod prelude {
     pub use std::fmt::{self, Debug, Formatter};
     pub use std::rc::Rc;
 
+    pub use typst_macros::properties;
+
     pub use crate::diag::{At, TypResult};
     pub use crate::eval::{
         Args, Construct, EvalContext, Node, Property, Set, Smart, Styles, Value,
@@ -80,6 +82,7 @@ pub fn new() -> Scope {
     std.def_func("block", block);
     std.def_func("pagebreak", pagebreak);
     std.def_func("parbreak", parbreak);
+    std.def_func("linebreak", linebreak);
     std.def_func("stack", stack);
     std.def_func("grid", grid);
     std.def_func("pad", pad);

@@ -134,9 +134,8 @@ impl<'a> FlowLayouter<'a> {
             match child {
                 FlowChild::Break(styles) => {
                     let chain = styles.chain(&ctx.styles);
-                    let amount = chain
-                        .get(ParNode::SPACING)
-                        .resolve(chain.get(TextNode::SIZE).abs);
+                    let em = chain.get(TextNode::SIZE).abs;
+                    let amount = chain.get(ParNode::SPACING).resolve(em);
                     self.layout_absolute(amount.into());
                 }
                 FlowChild::Spacing(node) => match node.kind {

@@ -21,9 +21,8 @@ pub fn link(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 #[derive(Debug, Hash)]
 pub struct LinkNode;
 
-properties! {
-    LinkNode,
-
+#[properties]
+impl LinkNode {
     /// An URL to link to.
-    URL: Option<String> = None,
+    pub const URL: Option<String> = None;
 }

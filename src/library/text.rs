@@ -51,77 +51,76 @@ pub struct TextNode {
     pub styles: Styles,
 }
 
-properties! {
-    TextNode,
-
+#[properties]
+impl TextNode {
     /// A prioritized sequence of font families.
-    FAMILY_LIST: Vec<FontFamily> = vec![FontFamily::SansSerif],
+    pub const FAMILY_LIST: Vec<FontFamily> = vec![FontFamily::SansSerif];
     /// The serif font family/families.
-    SERIF_LIST: Vec<String> = vec!["ibm plex serif".into()],
+    pub const SERIF_LIST: Vec<String> = vec!["ibm plex serif".into()];
     /// The sans-serif font family/families.
-    SANS_SERIF_LIST: Vec<String> = vec!["ibm plex sans".into()],
+    pub const SANS_SERIF_LIST: Vec<String> = vec!["ibm plex sans".into()];
     /// The monospace font family/families.
-    MONOSPACE_LIST: Vec<String> = vec!["ibm plex mono".into()],
+    pub const MONOSPACE_LIST: Vec<String> = vec!["ibm plex mono".into()];
     /// Whether to allow font fallback when the primary font list contains no
     /// match.
-    FALLBACK: bool = true,
+    pub const FALLBACK: bool = true;
 
     /// How the font is styled.
-    STYLE: FontStyle = FontStyle::Normal,
+    pub const STYLE: FontStyle = FontStyle::Normal;
     /// The boldness / thickness of the font's glyphs.
-    WEIGHT: FontWeight = FontWeight::REGULAR,
+    pub const WEIGHT: FontWeight = FontWeight::REGULAR;
     /// The width of the glyphs.
-    STRETCH: FontStretch = FontStretch::NORMAL,
+    pub const STRETCH: FontStretch = FontStretch::NORMAL;
     /// Whether the font weight should be increased by 300.
     #[fold(bool::bitxor)]
-    STRONG: bool = false,
+    pub const STRONG: bool = false;
     /// Whether the the font style should be inverted.
     #[fold(bool::bitxor)]
-    EMPH: bool = false,
+    pub const EMPH: bool = false;
     /// Whether a monospace font should be preferred.
-    MONOSPACE: bool = false,
+    pub const MONOSPACE: bool = false;
     /// The glyph fill color.
-    FILL: Paint = RgbaColor::BLACK.into(),
+    pub const FILL: Paint = RgbaColor::BLACK.into();
     /// Decorative lines.
     #[fold(|a, b| a.into_iter().chain(b).collect())]
-    LINES: Vec<LineDecoration> = vec![],
+    pub const LINES: Vec<LineDecoration> = vec![];
 
     /// The size of the glyphs.
     #[fold(Linear::compose)]
-    SIZE: Linear = Length::pt(11.0).into(),
+    pub const SIZE: Linear = Length::pt(11.0).into();
     /// The amount of space that should be added between characters.
-    TRACKING: Em = Em::zero(),
+    pub const TRACKING: Em = Em::zero();
     /// The top end of the text bounding box.
-    TOP_EDGE: VerticalFontMetric = VerticalFontMetric::CapHeight,
+    pub const TOP_EDGE: VerticalFontMetric = VerticalFontMetric::CapHeight;
     /// The bottom end of the text bounding box.
-    BOTTOM_EDGE: VerticalFontMetric = VerticalFontMetric::Baseline,
+    pub const BOTTOM_EDGE: VerticalFontMetric = VerticalFontMetric::Baseline;
 
     /// Whether to apply kerning ("kern").
-    KERNING: bool = true,
+    pub const KERNING: bool = true;
     /// Whether small capital glyphs should be used. ("smcp")
-    SMALLCAPS: bool = false,
+    pub const SMALLCAPS: bool = false;
     /// Whether to apply stylistic alternates. ("salt")
-    ALTERNATES: bool = false,
+    pub const ALTERNATES: bool = false;
     /// Which stylistic set to apply. ("ss01" - "ss20")
-    STYLISTIC_SET: Option<StylisticSet> = None,
+    pub const STYLISTIC_SET: Option<StylisticSet> = None;
     /// Whether standard ligatures are active. ("liga", "clig")
-    LIGATURES: bool = true,
+    pub const LIGATURES: bool = true;
     /// Whether ligatures that should be used sparingly are active. ("dlig")
-    DISCRETIONARY_LIGATURES: bool = false,
+    pub const DISCRETIONARY_LIGATURES: bool = false;
     /// Whether historical ligatures are active. ("hlig")
-    HISTORICAL_LIGATURES: bool = false,
+    pub const HISTORICAL_LIGATURES: bool = false;
     /// Which kind of numbers / figures to select.
-    NUMBER_TYPE: Smart<NumberType> = Smart::Auto,
+    pub const NUMBER_TYPE: Smart<NumberType> = Smart::Auto;
     /// The width of numbers / figures.
-    NUMBER_WIDTH: Smart<NumberWidth> = Smart::Auto,
+    pub const NUMBER_WIDTH: Smart<NumberWidth> = Smart::Auto;
     /// How to position numbers.
-    NUMBER_POSITION: NumberPosition = NumberPosition::Normal,
+    pub const NUMBER_POSITION: NumberPosition = NumberPosition::Normal;
     /// Whether to have a slash through the zero glyph. ("zero")
-    SLASHED_ZERO: bool = false,
+    pub const SLASHED_ZERO: bool = false;
     /// Whether to convert fractions. ("frac")
-    FRACTIONS: bool = false,
+    pub const FRACTIONS: bool = false;
     /// Raw OpenType features to apply.
-    FEATURES: Vec<(Tag, u32)> = vec![],
+    pub const FEATURES: Vec<(Tag, u32)> = vec![];
 }
 
 impl Construct for TextNode {
@@ -140,32 +139,32 @@ impl Set for TextNode {
             (!families.is_empty()).then(|| families)
         });
 
-        set!(styles, TextNode::FAMILY_LIST => list);
-        set!(styles, TextNode::SERIF_LIST => args.named("serif")?);
-        set!(styles, TextNode::SANS_SERIF_LIST => args.named("sans-serif")?);
-        set!(styles, TextNode::MONOSPACE_LIST => args.named("monospace")?);
-        set!(styles, TextNode::FALLBACK => args.named("fallback")?);
-        set!(styles, TextNode::STYLE => args.named("style")?);
-        set!(styles, TextNode::WEIGHT => args.named("weight")?);
-        set!(styles, TextNode::STRETCH => args.named("stretch")?);
-        set!(styles, TextNode::FILL => args.named("fill")?.or_else(|| args.find()));
-        set!(styles, TextNode::SIZE => args.named("size")?.or_else(|| args.find()));
-        set!(styles, TextNode::TRACKING => args.named("tracking")?.map(Em::new));
-        set!(styles, TextNode::TOP_EDGE => args.named("top-edge")?);
-        set!(styles, TextNode::BOTTOM_EDGE => args.named("bottom-edge")?);
-        set!(styles, TextNode::KERNING => args.named("kerning")?);
-        set!(styles, TextNode::SMALLCAPS => args.named("smallcaps")?);
-        set!(styles, TextNode::ALTERNATES => args.named("alternates")?);
-        set!(styles, TextNode::STYLISTIC_SET => args.named("stylistic-set")?);
-        set!(styles, TextNode::LIGATURES => args.named("ligatures")?);
-        set!(styles, TextNode::DISCRETIONARY_LIGATURES => args.named("discretionary-ligatures")?);
-        set!(styles, TextNode::HISTORICAL_LIGATURES => args.named("historical-ligatures")?);
-        set!(styles, TextNode::NUMBER_TYPE => args.named("number-type")?);
-        set!(styles, TextNode::NUMBER_WIDTH => args.named("number-width")?);
-        set!(styles, TextNode::NUMBER_POSITION => args.named("number-position")?);
-        set!(styles, TextNode::SLASHED_ZERO => args.named("slashed-zero")?);
-        set!(styles, TextNode::FRACTIONS => args.named("fractions")?);
-        set!(styles, TextNode::FEATURES => args.named("features")?);
+        set!(styles, Self::FAMILY_LIST => list);
+        set!(styles, Self::SERIF_LIST => args.named("serif")?);
+        set!(styles, Self::SANS_SERIF_LIST => args.named("sans-serif")?);
+        set!(styles, Self::MONOSPACE_LIST => args.named("monospace")?);
+        set!(styles, Self::FALLBACK => args.named("fallback")?);
+        set!(styles, Self::STYLE => args.named("style")?);
+        set!(styles, Self::WEIGHT => args.named("weight")?);
+        set!(styles, Self::STRETCH => args.named("stretch")?);
+        set!(styles, Self::FILL => args.named("fill")?.or_else(|| args.find()));
+        set!(styles, Self::SIZE => args.named("size")?.or_else(|| args.find()));
+        set!(styles, Self::TRACKING => args.named("tracking")?.map(Em::new));
+        set!(styles, Self::TOP_EDGE => args.named("top-edge")?);
+        set!(styles, Self::BOTTOM_EDGE => args.named("bottom-edge")?);
+        set!(styles, Self::KERNING => args.named("kerning")?);
+        set!(styles, Self::SMALLCAPS => args.named("smallcaps")?);
+        set!(styles, Self::ALTERNATES => args.named("alternates")?);
+        set!(styles, Self::STYLISTIC_SET => args.named("stylistic-set")?);
+        set!(styles, Self::LIGATURES => args.named("ligatures")?);
+        set!(styles, Self::DISCRETIONARY_LIGATURES => args.named("discretionary-ligatures")?);
+        set!(styles, Self::HISTORICAL_LIGATURES => args.named("historical-ligatures")?);
+        set!(styles, Self::NUMBER_TYPE => args.named("number-type")?);
+        set!(styles, Self::NUMBER_WIDTH => args.named("number-width")?);
+        set!(styles, Self::NUMBER_POSITION => args.named("number-position")?);
+        set!(styles, Self::SLASHED_ZERO => args.named("slashed-zero")?);
+        set!(styles, Self::FRACTIONS => args.named("fractions")?);
+        set!(styles, Self::FEATURES => args.named("features")?);
 
         Ok(())
     }

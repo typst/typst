@@ -1,6 +1,7 @@
 use std::convert::TryFrom;
 use std::fmt::Debug;
 use std::hash::Hash;
+use std::iter::Sum;
 use std::mem;
 use std::ops::{Add, AddAssign};
 
@@ -124,6 +125,12 @@ impl Add for Node {
 impl AddAssign for Node {
     fn add_assign(&mut self, rhs: Self) {
         *self = mem::take(self) + rhs;
+    }
+}
+
+impl Sum for Node {
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        Self::Sequence(iter.map(|n| (n, Styles::new())).collect())
     }
 }
 

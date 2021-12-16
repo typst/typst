@@ -14,21 +14,25 @@ pub fn parbreak(_: &mut EvalContext, _: &mut Args) -> TypResult<Value> {
     Ok(Value::Node(Node::Parbreak))
 }
 
+/// `linebreak`: Start a new line.
+pub fn linebreak(_: &mut EvalContext, _: &mut Args) -> TypResult<Value> {
+    Ok(Value::Node(Node::Linebreak))
+}
+
 /// A node that arranges its children into a paragraph.
 #[derive(Hash)]
 pub struct ParNode(pub Vec<ParChild>);
 
-properties! {
-    ParNode,
-
+#[properties]
+impl ParNode {
     /// The direction for text and inline objects.
-    DIR: Dir = Dir::LTR,
+    pub const DIR: Dir = Dir::LTR;
     /// How to align text and inline objects in their line.
-    ALIGN: Align = Align::Left,
+    pub const ALIGN: Align = Align::Left;
     /// The spacing between lines (dependent on scaled font size).
-    LEADING: Linear = Relative::new(0.65).into(),
+    pub const LEADING: Linear = Relative::new(0.65).into();
     /// The spacing between paragraphs (dependent on scaled font size).
-    SPACING: Linear = Relative::new(1.2).into(),
+    pub const SPACING: Linear = Relative::new(1.2).into();
 }
 
 impl Construct for ParNode {
@@ -70,10 +74,10 @@ impl Set for ParNode {
             align = Some(if dir == Dir::LTR { Align::Left } else { Align::Right });
         }
 
-        set!(styles, ParNode::DIR => dir);
-        set!(styles, ParNode::ALIGN => align);
-        set!(styles, ParNode::LEADING => leading);
-        set!(styles, ParNode::SPACING => spacing);
+        set!(styles, Self::DIR => dir);
+        set!(styles, Self::ALIGN => align);
+        set!(styles, Self::LEADING => leading);
+        set!(styles, Self::SPACING => spacing);
 
         Ok(())
     }
@@ -266,11 +270,9 @@ impl<'a> ParLayouter<'a> {
             }
         }
 
+        let em = ctx.styles.get(TextNode::SIZE).abs;
         let align = ctx.styles.get(ParNode::ALIGN);
-        let leading = ctx
-            .styles
-            .get(ParNode::LEADING)
-            .resolve(ctx.styles.get(TextNode::SIZE).abs);
+        let leading = ctx.styles.get(ParNode::LEADING).resolve(em);
 
         Self { align, leading, bidi, items, ranges }
     }

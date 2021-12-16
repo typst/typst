@@ -20,27 +20,26 @@ pub struct PageNode {
     pub styles: Styles,
 }
 
-properties! {
-    PageNode,
-
+#[properties]
+impl PageNode {
     /// The unflipped width of the page.
-    WIDTH: Smart<Length> = Smart::Custom(Paper::default().width()),
+    pub const WIDTH: Smart<Length> = Smart::Custom(Paper::default().width());
     /// The unflipped height of the page.
-    HEIGHT: Smart<Length> = Smart::Custom(Paper::default().height()),
+    pub const HEIGHT: Smart<Length> = Smart::Custom(Paper::default().height());
     /// The class of paper. Defines the default margins.
-    CLASS: PaperClass = Paper::default().class(),
+    pub const CLASS: PaperClass = Paper::default().class();
     /// Whether the page is flipped into landscape orientation.
-    FLIPPED: bool = false,
+    pub const FLIPPED: bool = false;
     /// The left margin.
-    LEFT: Smart<Linear> = Smart::Auto,
+    pub const LEFT: Smart<Linear> = Smart::Auto;
     /// The right margin.
-    RIGHT: Smart<Linear> = Smart::Auto,
+    pub const RIGHT: Smart<Linear> = Smart::Auto;
     /// The top margin.
-    TOP: Smart<Linear> = Smart::Auto,
+    pub const TOP: Smart<Linear> = Smart::Auto;
     /// The bottom margin.
-    BOTTOM: Smart<Linear> = Smart::Auto,
+    pub const BOTTOM: Smart<Linear> = Smart::Auto;
     /// The page's background color.
-    FILL: Option<Paint> = None,
+    pub const FILL: Option<Paint> = None;
 }
 
 impl Construct for PageNode {
@@ -54,29 +53,29 @@ impl Construct for PageNode {
 impl Set for PageNode {
     fn set(styles: &mut Styles, args: &mut Args) -> TypResult<()> {
         if let Some(paper) = args.named::<Paper>("paper")?.or_else(|| args.find()) {
-            styles.set(PageNode::CLASS, paper.class());
-            styles.set(PageNode::WIDTH, Smart::Custom(paper.width()));
-            styles.set(PageNode::HEIGHT, Smart::Custom(paper.height()));
+            styles.set(Self::CLASS, paper.class());
+            styles.set(Self::WIDTH, Smart::Custom(paper.width()));
+            styles.set(Self::HEIGHT, Smart::Custom(paper.height()));
         }
 
         if let Some(width) = args.named("width")? {
-            styles.set(PageNode::CLASS, PaperClass::Custom);
-            styles.set(PageNode::WIDTH, width);
+            styles.set(Self::CLASS, PaperClass::Custom);
+            styles.set(Self::WIDTH, width);
         }
 
         if let Some(height) = args.named("height")? {
-            styles.set(PageNode::CLASS, PaperClass::Custom);
-            styles.set(PageNode::HEIGHT, height);
+            styles.set(Self::CLASS, PaperClass::Custom);
+            styles.set(Self::HEIGHT, height);
         }
 
         let margins = args.named("margins")?;
 
-        set!(styles, PageNode::FLIPPED => args.named("flipped")?);
-        set!(styles, PageNode::LEFT => args.named("left")?.or(margins));
-        set!(styles, PageNode::TOP => args.named("top")?.or(margins));
-        set!(styles, PageNode::RIGHT => args.named("right")?.or(margins));
-        set!(styles, PageNode::BOTTOM => args.named("bottom")?.or(margins));
-        set!(styles, PageNode::FILL => args.named("fill")?);
+        set!(styles, Self::FLIPPED => args.named("flipped")?);
+        set!(styles, Self::LEFT => args.named("left")?.or(margins));
+        set!(styles, Self::TOP => args.named("top")?.or(margins));
+        set!(styles, Self::RIGHT => args.named("right")?.or(margins));
+        set!(styles, Self::BOTTOM => args.named("bottom")?.or(margins));
+        set!(styles, Self::FILL => args.named("fill")?);
 
         Ok(())
     }

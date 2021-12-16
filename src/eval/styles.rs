@@ -68,7 +68,9 @@ impl Styles {
     where
         P::Value: Copy,
     {
-        self.get_direct(key).copied().unwrap_or_else(P::default)
+        self.get_direct(key)
+            .map(|&v| P::combine(v, P::default()))
+            .unwrap_or_else(P::default)
     }
 
     /// Get a reference to a style property.
@@ -249,9 +251,6 @@ pub trait Property: Copy + 'static {
     /// The name of the property, used for debug printing.
     const NAME: &'static str;
 
-    /// Combine the property with an outer value.
-    fn combine(inner: Self::Value, outer: Self::Value) -> Self::Value;
-
     /// The default value of the property.
     fn default() -> Self::Value;
 
@@ -261,6 +260,11 @@ pub trait Property: Copy + 'static {
     /// `properties!` macro. This way, expensive defaults don't need to be
     /// recreated all the time.
     fn default_ref() -> &'static Self::Value;
+
+    /// Combine the property with an outer value.
+    fn combine(inner: Self::Value, _: Self::Value) -> Self::Value {
+        inner
+    }
 }
 
 /// A unique identifier for a style property.
@@ -272,73 +276,6 @@ impl StyleId {
     pub fn of<P: Property>() -> Self {
         Self(TypeId::of::<P>())
     }
-}
-
-/// Generate the property keys for a node.
-macro_rules! properties {
-    ($node:ty, $(
-        $(#[doc = $doc:expr])*
-        $(#[fold($combine:expr)])?
-        $name:ident: $type:ty = $default:expr
-    ),* $(,)?) => {
-        // TODO(set): Fix possible name clash.
-        mod properties {
-            use std::marker::PhantomData;
-            use $crate::eval::{Property, StyleId};
-            use super::*;
-
-            $(#[allow(non_snake_case)] mod $name {
-                use once_cell::sync::Lazy;
-                use super::*;
-
-                pub struct Key<T>(pub PhantomData<T>);
-
-                impl<T> Copy for Key<T> {}
-                impl<T> Clone for Key<T> {
-                    fn clone(&self) -> Self {
-                        *self
-                    }
-                }
-
-                impl Property for Key<$type> {
-                    type Value = $type;
-
-                    const NAME: &'static str = concat!(
-                        stringify!($node), "::", stringify!($name)
-                    );
-
-                    #[allow(unused_mut, unused_variables)]
-                    fn combine(mut inner: Self::Value, outer: Self::Value) -> Self::Value {
-                        $(
-                            let combine: fn(Self::Value, Self::Value) -> Self::Value = $combine;
-                            inner = combine(inner, outer);
-                        )?
-                        inner
-                    }
-
-                    fn default() -> Self::Value {
-                        $default
-                    }
-
-                    fn default_ref() -> &'static Self::Value {
-                        static LAZY: Lazy<$type> = Lazy::new(|| $default);
-                        &*LAZY
-                    }
-                }
-            })*
-
-            impl $node {
-                /// Check whether the property with the given type id belongs to
-                /// `Self`.
-                pub fn has_property(id: StyleId) -> bool {
-                    false || $(id == StyleId::of::<$name::Key<$type>>())||*
-                }
-
-                $($(#[doc = $doc])* pub const $name: $name::Key<$type>
-                    = $name::Key(PhantomData);)*
-            }
-        }
-    };
 }
 
 /// Set a style property to a value if the value is `Some`.

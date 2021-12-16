@@ -18,7 +18,7 @@ use std::rc::Rc;
 use crate::eval::Styles;
 use crate::font::FontStore;
 use crate::frame::Frame;
-use crate::geom::{Align, Linear, Point, Sides, Spec, Transform};
+use crate::geom::{Align, Linear, Point, Sides, Size, Spec, Transform};
 use crate::image::ImageStore;
 use crate::library::{AlignNode, DocumentNode, PadNode, SizedNode, TransformNode};
 use crate::Context;
@@ -232,6 +232,12 @@ impl PackedNode {
     }
 }
 
+impl Default for PackedNode {
+    fn default() -> Self {
+        EmptyNode.pack()
+    }
+}
+
 impl Debug for PackedNode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         if f.alternate() {
@@ -280,5 +286,24 @@ where
         self.type_id().hash(&mut state);
         self.hash(&mut state);
         state.finish()
+    }
+}
+
+/// A layout node that produces an empty frame.
+///
+/// The packed version of this is returned by [`PackedNode::default`].
+#[derive(Debug, Hash)]
+pub struct EmptyNode;
+
+impl Layout for EmptyNode {
+    fn layout(
+        &self,
+        _: &mut LayoutContext,
+        regions: &Regions,
+    ) -> Vec<Constrained<Rc<Frame>>> {
+        let size = regions.expand.select(regions.current, Size::zero());
+        let mut cts = Constraints::new(regions.expand);
+        cts.exact = regions.current.filter(regions.expand);
+        vec![Frame::new(size).constrain(cts)]
     }
 }
