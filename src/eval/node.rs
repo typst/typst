@@ -32,6 +32,8 @@ pub enum Node {
     Linebreak,
     /// A paragraph break.
     Parbreak,
+    /// A column break.
+    Colbreak,
     /// A page break.
     Pagebreak,
     /// Plain text.
@@ -212,6 +214,14 @@ impl Packer {
                 // paragraph.
                 self.parbreak(Some(styles));
             }
+            Node::Colbreak => {
+                // Explicit column breaks end the current paragraph and then
+                // discards the paragraph break.
+                self.parbreak(None);
+                self.make_flow_compatible(&styles);
+                self.flow.children.push(FlowChild::Skip);
+                self.flow.last.hard();
+            }
             Node::Pagebreak => {
                 // We must set the flow styles after the page break such that an
                 // empty page created by two page breaks in a row has styles at
@@ -345,7 +355,7 @@ impl Packer {
             // Take the flow and erase any styles that will be inherited anyway.
             let Builder { mut children, styles, .. } = mem::take(&mut self.flow);
             for child in &mut children {
-                child.styles_mut().erase(&styles);
+                child.styles_mut().map(|s| s.erase(&styles));
             }
 
             let flow = FlowNode(children).pack();

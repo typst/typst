@@ -4,6 +4,7 @@
 //! definitions.
 
 mod align;
+mod columns;
 mod flow;
 mod grid;
 mod heading;
@@ -42,6 +43,7 @@ mod prelude {
 
 pub use self::image::*;
 pub use align::*;
+pub use columns::*;
 pub use flow::*;
 pub use grid::*;
 pub use heading::*;
@@ -83,6 +85,7 @@ pub fn new() -> Scope {
 
     // Break and spacing functions.
     std.def_func("pagebreak", pagebreak);
+    std.def_func("colbreak", colbreak);
     std.def_func("parbreak", parbreak);
     std.def_func("linebreak", linebreak);
     std.def_func("h", h);
@@ -96,6 +99,7 @@ pub fn new() -> Scope {
     std.def_func("stack", stack);
     std.def_func("grid", grid);
     std.def_func("pad", pad);
+    std.def_func("columns", columns);
     std.def_func("align", align);
     std.def_func("place", place);
     std.def_func("move", move_);

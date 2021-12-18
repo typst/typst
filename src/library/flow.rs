@@ -32,6 +32,8 @@ impl Debug for FlowNode {
 pub enum FlowChild {
     /// A paragraph/block break.
     Break(Styles),
+    /// Skip the rest of the region and move to the next.
+    Skip,
     /// Vertical spacing between other children.
     Spacing(SpacingNode),
     /// An arbitrary node.
@@ -40,20 +42,22 @@ pub enum FlowChild {
 
 impl FlowChild {
     /// A reference to the child's styles.
-    pub fn styles(&self) -> &Styles {
+    pub fn styles(&self) -> Option<&Styles> {
         match self {
-            Self::Break(styles) => styles,
-            Self::Spacing(node) => &node.styles,
-            Self::Node(node) => &node.styles,
+            Self::Break(styles) => Some(styles),
+            Self::Spacing(node) => Some(&node.styles),
+            Self::Node(node) => Some(&node.styles),
+            Self::Skip => None,
         }
     }
 
     /// A mutable reference to the child's styles.
-    pub fn styles_mut(&mut self) -> &mut Styles {
+    pub fn styles_mut(&mut self) -> Option<&mut Styles> {
         match self {
-            Self::Break(styles) => styles,
-            Self::Spacing(node) => &mut node.styles,
-            Self::Node(node) => &mut node.styles,
+            Self::Break(styles) => Some(styles),
+            Self::Spacing(node) => Some(&mut node.styles),
+            Self::Node(node) => Some(&mut node.styles),
+            Self::Skip => None,
         }
     }
 }
@@ -69,6 +73,7 @@ impl Debug for FlowChild {
             }
             Self::Spacing(node) => node.fmt(f),
             Self::Node(node) => node.fmt(f),
+            Self::Skip => write!(f, "Skip"),
         }
     }
 }
@@ -137,6 +142,9 @@ impl<'a> FlowLayouter<'a> {
                     let em = chain.get(TextNode::SIZE).abs;
                     let amount = chain.get(ParNode::SPACING).resolve(em);
                     self.layout_absolute(amount.into());
+                }
+                FlowChild::Skip => {
+                    self.finish_region();
                 }
                 FlowChild::Spacing(node) => match node.kind {
                     SpacingKind::Linear(v) => self.layout_absolute(v),
