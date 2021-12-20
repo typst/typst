@@ -2,30 +2,32 @@
 //!
 //! # Steps
 //! - **Parsing:** The parsing step first transforms a plain string into an
-//!   [iterator of tokens][tokens]. This token stream is [parsed] into [markup].
-//!   The syntactical structures describing markup and embedded code can be
-//!   found in the [syntax] module.
+//!   [iterator of tokens][tokens]. This token stream is [parsed] into a
+//!   [green tree]. The green tree itself is untyped, but a typed layer over it
+//!   is provided in the [AST] module.
 //! - **Evaluation:** The next step is to [evaluate] the markup. This produces a
 //!   [module], consisting of a scope of values that were exported by the code
-//!   and a template with the contents of the module. This template can be
-//!   instantiated with a style to produce a layout tree, a high-level, fully
-//!   styled representation, rooted in the [document node]. The nodes of this
-//!   tree are self-contained and order-independent and thus much better suited
-//!   for layouting than the raw markup.
+//!   and a [node] with the contents of the module. This node can be converted
+//!   into a [layout tree], a hierarchical, styled representation of the
+//!   document. The nodes of this tree are well structured and order-independent
+//!   and thus much better suited for layouting than the raw markup.
 //! - **Layouting:** Next, the tree is [layouted] into a portable version of the
 //!   typeset document. The output of this is a collection of [`Frame`]s (one
-//!   per page), ready for exporting.
+//!   per page), ready for exporting. This step is supported by an incremental
+//!   [cache] that enables reuse of intermediate layouting results.
 //! - **Exporting:** The finished layout can be exported into a supported
 //!   format. Currently, the only supported output format is [PDF].
 //!
 //! [tokens]: parse::Tokens
 //! [parsed]: parse::parse
-//! [markup]: syntax::ast::Markup
-//! [evaluate]: eval::eval
+//! [green tree]: syntax::GreenNode
+//! [AST]: syntax::ast
+//! [evaluate]: Context::evaluate
 //! [module]: eval::Module
-//! [layout tree]: layout::LayoutTree
-//! [document node]: library::DocumentNode
-//! [layouted]: layout::layout
+//! [node]: eval::Node
+//! [layout tree]: layout::RootNode
+//! [layouted]: layout::RootNode::layout
+//! [cache]: layout::LayoutCache
 //! [PDF]: export::pdf
 
 #[macro_use]
@@ -49,13 +51,12 @@ pub mod syntax;
 use std::rc::Rc;
 
 use crate::diag::TypResult;
-use crate::eval::{Module, Scope, Styles};
+use crate::eval::{Eval, EvalContext, Module, Scope, Styles};
 use crate::font::FontStore;
 use crate::frame::Frame;
 use crate::image::ImageStore;
 #[cfg(feature = "layout-cache")]
 use crate::layout::{EvictionPolicy, LayoutCache};
-use crate::library::DocumentNode;
 use crate::loading::Loader;
 use crate::source::{SourceId, SourceStore};
 
@@ -100,15 +101,15 @@ impl Context {
     }
 
     /// Evaluate a source file and return the resulting module.
+    ///
+    /// Returns either a module containing a scope with top-level bindings and a
+    /// layoutable node or diagnostics in the form of a vector of error message
+    /// with file and span information.
     pub fn evaluate(&mut self, id: SourceId) -> TypResult<Module> {
-        let ast = self.sources.get(id).ast()?;
-        eval::eval(self, id, &ast)
-    }
-
-    /// Execute a source file and produce the resulting page nodes.
-    pub fn execute(&mut self, id: SourceId) -> TypResult<DocumentNode> {
-        let module = self.evaluate(id)?;
-        Ok(module.node.into_document())
+        let markup = self.sources.get(id).ast()?;
+        let mut ctx = EvalContext::new(self, id);
+        let node = markup.eval(&mut ctx)?;
+        Ok(Module { scope: ctx.scopes.top, node })
     }
 
     /// Typeset a source file into a collection of layouted frames.
@@ -117,8 +118,9 @@ impl Context {
     /// diagnostics in the form of a vector of error message with file and span
     /// information.
     pub fn typeset(&mut self, id: SourceId) -> TypResult<Vec<Rc<Frame>>> {
-        let tree = self.execute(id)?;
-        let frames = layout::layout(self, &tree);
+        let module = self.evaluate(id)?;
+        let tree = module.into_root();
+        let frames = tree.layout(self);
         Ok(frames)
     }
 

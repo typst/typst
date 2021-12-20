@@ -1,4 +1,6 @@
 //! A typed layer over the red-green tree.
+//!
+//! The AST is rooted in the [`Markup`] node.
 
 use std::ops::Deref;
 
@@ -283,6 +285,7 @@ impl Expr {
             Self::Ident(_)
                 | Self::Call(_)
                 | Self::Let(_)
+                | Self::Set(_)
                 | Self::If(_)
                 | Self::While(_)
                 | Self::For(_)

@@ -20,43 +20,25 @@ use crate::font::FontStore;
 use crate::frame::Frame;
 use crate::geom::{Align, Linear, Point, Sides, Size, Spec, Transform};
 use crate::image::ImageStore;
-use crate::library::{AlignNode, DocumentNode, PadNode, SizedNode, TransformNode};
+use crate::library::{AlignNode, PadNode, PageNode, SizedNode, TransformNode};
 use crate::Context;
 
-/// Layout a document node into a collection of frames.
-pub fn layout(ctx: &mut Context, node: &DocumentNode) -> Vec<Rc<Frame>> {
-    let mut ctx = LayoutContext::new(ctx);
-    node.layout(&mut ctx)
+/// The root layout node, a document consisting of top-level page runs.
+#[derive(Hash)]
+pub struct RootNode(pub Vec<PageNode>);
+
+impl RootNode {
+    /// Layout the document into a sequence of frames, one per page.
+    pub fn layout(&self, ctx: &mut Context) -> Vec<Rc<Frame>> {
+        let mut ctx = LayoutContext::new(ctx);
+        self.0.iter().flat_map(|node| node.layout(&mut ctx)).collect()
+    }
 }
 
-/// The context for layouting.
-pub struct LayoutContext<'a> {
-    /// Stores parsed font faces.
-    pub fonts: &'a mut FontStore,
-    /// Stores decoded images.
-    pub images: &'a mut ImageStore,
-    /// Caches layouting artifacts.
-    #[cfg(feature = "layout-cache")]
-    pub layouts: &'a mut LayoutCache,
-    /// The inherited style properties.
-    pub styles: Styles,
-    /// How deeply nested the current layout tree position is.
-    #[cfg(feature = "layout-cache")]
-    pub level: usize,
-}
-
-impl<'a> LayoutContext<'a> {
-    /// Create a new layout context.
-    pub fn new(ctx: &'a mut Context) -> Self {
-        Self {
-            fonts: &mut ctx.fonts,
-            images: &mut ctx.images,
-            #[cfg(feature = "layout-cache")]
-            layouts: &mut ctx.layouts,
-            styles: ctx.styles.clone(),
-            #[cfg(feature = "layout-cache")]
-            level: 0,
-        }
+impl Debug for RootNode {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.write_str("Root ")?;
+        f.debug_list().entries(&self.0).finish()
     }
 }
 
@@ -83,6 +65,57 @@ pub trait Layout {
             node: Rc::new(self),
             styles: Styles::new(),
         }
+    }
+}
+
+/// The context for layouting.
+pub struct LayoutContext<'a> {
+    /// Stores parsed font faces.
+    pub fonts: &'a mut FontStore,
+    /// Stores decoded images.
+    pub images: &'a mut ImageStore,
+    /// Caches layouting artifacts.
+    #[cfg(feature = "layout-cache")]
+    pub layouts: &'a mut LayoutCache,
+    /// The inherited style properties.
+    // TODO(style): This probably shouldn't be here.
+    pub styles: Styles,
+    /// How deeply nested the current layout tree position is.
+    #[cfg(feature = "layout-cache")]
+    pub level: usize,
+}
+
+impl<'a> LayoutContext<'a> {
+    /// Create a new layout context.
+    pub fn new(ctx: &'a mut Context) -> Self {
+        Self {
+            fonts: &mut ctx.fonts,
+            images: &mut ctx.images,
+            #[cfg(feature = "layout-cache")]
+            layouts: &mut ctx.layouts,
+            styles: ctx.styles.clone(),
+            #[cfg(feature = "layout-cache")]
+            level: 0,
+        }
+    }
+}
+
+/// A layout node that produces an empty frame.
+///
+/// The packed version of this is returned by [`PackedNode::default`].
+#[derive(Debug, Hash)]
+pub struct EmptyNode;
+
+impl Layout for EmptyNode {
+    fn layout(
+        &self,
+        _: &mut LayoutContext,
+        regions: &Regions,
+    ) -> Vec<Constrained<Rc<Frame>>> {
+        let size = regions.expand.select(regions.current, Size::zero());
+        let mut cts = Constraints::new(regions.expand);
+        cts.exact = regions.current.filter(regions.expand);
+        vec![Frame::new(size).constrain(cts)]
     }
 }
 
@@ -286,24 +319,5 @@ where
         self.type_id().hash(&mut state);
         self.hash(&mut state);
         state.finish()
-    }
-}
-
-/// A layout node that produces an empty frame.
-///
-/// The packed version of this is returned by [`PackedNode::default`].
-#[derive(Debug, Hash)]
-pub struct EmptyNode;
-
-impl Layout for EmptyNode {
-    fn layout(
-        &self,
-        _: &mut LayoutContext,
-        regions: &Regions,
-    ) -> Vec<Constrained<Rc<Frame>>> {
-        let size = regions.expand.select(regions.current, Size::zero());
-        let mut cts = Constraints::new(regions.expand);
-        cts.exact = regions.current.filter(regions.expand);
-        vec![Frame::new(size).constrain(cts)]
     }
 }

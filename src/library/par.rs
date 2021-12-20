@@ -74,10 +74,10 @@ impl Set for ParNode {
             align = Some(if dir == Dir::LTR { Align::Left } else { Align::Right });
         }
 
-        set!(styles, Self::DIR => dir);
-        set!(styles, Self::ALIGN => align);
-        set!(styles, Self::LEADING => leading);
-        set!(styles, Self::SPACING => spacing);
+        styles.set_opt(Self::DIR, dir);
+        styles.set_opt(Self::ALIGN, align);
+        styles.set_opt(Self::LEADING, leading);
+        styles.set_opt(Self::SPACING, spacing);
 
         Ok(())
     }
@@ -93,8 +93,7 @@ impl Layout for ParNode {
         let text = self.collect_text();
 
         // Find out the BiDi embedding levels.
-        let default_level = Level::from_dir(ctx.styles.get(Self::DIR));
-        let bidi = BidiInfo::new(&text, default_level);
+        let bidi = BidiInfo::new(&text, Level::from_dir(ctx.styles.get(Self::DIR)));
 
         // Prepare paragraph layout by building a representation on which we can
         // do line breaking without layouting each and every line from scratch.

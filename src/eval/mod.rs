@@ -34,9 +34,10 @@ use std::path::PathBuf;
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::diag::{At, Error, StrResult, Trace, Tracepoint, TypResult};
-use crate::geom::{Angle, Fractional, Length, Relative, Spec};
+use crate::geom::{Angle, Fractional, Length, Relative};
 use crate::image::ImageStore;
-use crate::library::{GridNode, TextNode, TrackSizing};
+use crate::layout::RootNode;
+use crate::library::{self, TextNode};
 use crate::loading::Loader;
 use crate::source::{SourceId, SourceStore};
 use crate::syntax::ast::*;
@@ -44,20 +45,30 @@ use crate::syntax::{Span, Spanned};
 use crate::util::{EcoString, RefMutExt};
 use crate::Context;
 
-/// Evaluate a parsed source file into a module.
-pub fn eval(ctx: &mut Context, source: SourceId, markup: &Markup) -> TypResult<Module> {
-    let mut ctx = EvalContext::new(ctx, source);
-    let node = markup.eval(&mut ctx)?;
-    Ok(Module { scope: ctx.scopes.top, node })
-}
-
-/// An evaluated module, ready for importing or instantiation.
-#[derive(Debug, Clone)]
+/// An evaluated module, ready for importing or conversion to a root layout
+/// tree.
+#[derive(Debug, Default, Clone)]
 pub struct Module {
     /// The top-level definitions that were bound in this module.
     pub scope: Scope,
     /// The module's layoutable contents.
     pub node: Node,
+}
+
+impl Module {
+    /// Convert this module's node into a layout tree.
+    pub fn into_root(self) -> RootNode {
+        self.node.into_root()
+    }
+}
+
+/// Evaluate an expression.
+pub trait Eval {
+    /// The output of evaluating the expression.
+    type Output;
+
+    /// Evaluate the expression to the output value.
+    fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output>;
 }
 
 /// The context for evaluation.
@@ -124,7 +135,7 @@ impl<'a> EvalContext<'a> {
         self.route.push(id);
 
         // Evaluate the module.
-        let template = ast.eval(self).trace(|| Tracepoint::Import, span)?;
+        let node = ast.eval(self).trace(|| Tracepoint::Import, span)?;
 
         // Restore the old context.
         let new_scopes = mem::replace(&mut self.scopes, prev_scopes);
@@ -132,7 +143,7 @@ impl<'a> EvalContext<'a> {
         self.route.pop().unwrap();
 
         // Save the evaluated module.
-        let module = Module { scope: new_scopes.top, node: template };
+        let module = Module { scope: new_scopes.top, node };
         self.modules.insert(id, module);
 
         Ok(id)
@@ -149,15 +160,6 @@ impl<'a> EvalContext<'a> {
 
         path.into()
     }
-}
-
-/// Evaluate an expression.
-pub trait Eval {
-    /// The output of evaluating the expression.
-    type Output;
-
-    /// Evaluate the expression to the output value.
-    fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output>;
 }
 
 impl Eval for Markup {
@@ -231,13 +233,10 @@ impl Eval for HeadingNode {
     type Output = Node;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        let upscale = (1.6 - 0.1 * self.level() as f64).max(0.75);
-        let mut styles = Styles::new();
-        styles.set(TextNode::STRONG, true);
-        styles.set(TextNode::SIZE, Relative::new(upscale).into());
-        Ok(Node::Block(
-            self.body().eval(ctx)?.into_block().styled(styles),
-        ))
+        Ok(Node::block(library::HeadingNode {
+            child: self.body().eval(ctx)?.into_block(),
+            level: self.level(),
+        }))
     }
 }
 
@@ -245,8 +244,10 @@ impl Eval for ListNode {
     type Output = Node;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        let body = self.body().eval(ctx)?;
-        labelled(ctx, '•'.into(), body)
+        Ok(Node::block(library::ListNode {
+            child: self.body().eval(ctx)?.into_block(),
+            labelling: library::Unordered,
+        }))
     }
 }
 
@@ -254,22 +255,11 @@ impl Eval for EnumNode {
     type Output = Node;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        let body = self.body().eval(ctx)?;
-        let label = format_eco!("{}.", self.number().unwrap_or(1));
-        labelled(ctx, label, body)
+        Ok(Node::block(library::ListNode {
+            child: self.body().eval(ctx)?.into_block(),
+            labelling: library::Ordered(self.number()),
+        }))
     }
-}
-
-/// Evaluate a labelled list / enum.
-fn labelled(_: &mut EvalContext, label: EcoString, body: Node) -> TypResult<Node> {
-    // Create a grid containing the label, a bit of gutter space and then
-    // the item's body.
-    // TODO: Switch to em units for gutter once available.
-    Ok(Node::block(GridNode {
-        tracks: Spec::new(vec![TrackSizing::Auto; 2], vec![]),
-        gutter: Spec::new(vec![TrackSizing::Linear(Length::pt(5.0).into())], vec![]),
-        children: vec![Node::Text(label).into_block(), body.into_block()],
-    }))
 }
 
 impl Eval for Expr {

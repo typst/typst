@@ -44,8 +44,6 @@ impl PageNode {
 
 impl Construct for PageNode {
     fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
-        // TODO(set): Make sure it's really a page so that it doesn't merge
-        // with adjacent pages.
         Ok(Node::Page(args.expect::<Node>("body")?.into_block()))
     }
 }
@@ -69,13 +67,12 @@ impl Set for PageNode {
         }
 
         let margins = args.named("margins")?;
-
-        set!(styles, Self::FLIPPED => args.named("flipped")?);
-        set!(styles, Self::LEFT => args.named("left")?.or(margins));
-        set!(styles, Self::TOP => args.named("top")?.or(margins));
-        set!(styles, Self::RIGHT => args.named("right")?.or(margins));
-        set!(styles, Self::BOTTOM => args.named("bottom")?.or(margins));
-        set!(styles, Self::FILL => args.named("fill")?);
+        styles.set_opt(Self::FLIPPED, args.named("flipped")?);
+        styles.set_opt(Self::LEFT, args.named("left")?.or(margins));
+        styles.set_opt(Self::TOP, args.named("top")?.or(margins));
+        styles.set_opt(Self::RIGHT, args.named("right")?.or(margins));
+        styles.set_opt(Self::BOTTOM, args.named("bottom")?.or(margins));
+        styles.set_opt(Self::FILL, args.named("fill")?);
 
         Ok(())
     }

@@ -39,3 +39,12 @@ is not.
 = A {
   "B"
 }
+
+---
+// Test styling.
+= Heading
+
+#set heading(family: "Roboto", fill: eastern)
+
+===== Heading 🌍
+#heading(level: 5)[Heading]

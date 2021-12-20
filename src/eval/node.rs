@@ -8,17 +8,18 @@ use std::ops::{Add, AddAssign};
 use super::Styles;
 use crate::diag::StrResult;
 use crate::geom::SpecAxis;
-use crate::layout::{Layout, PackedNode};
+use crate::layout::{Layout, PackedNode, RootNode};
 use crate::library::{
-    DocumentNode, FlowChild, FlowNode, PageNode, ParChild, ParNode, PlacedNode,
-    SpacingKind, SpacingNode, TextNode,
+    FlowChild, FlowNode, PageNode, ParChild, ParNode, PlacedNode, SpacingKind,
+    SpacingNode, TextNode,
 };
 use crate::util::EcoString;
 
 /// A partial representation of a layout node.
 ///
 /// A node is a composable intermediate representation that can be converted
-/// into a proper layout node by lifting it to a block-level or document node.
+/// into a proper layout node by lifting it to a [block-level](PackedNode) or
+/// [root node](RootNode).
 #[derive(Debug, PartialEq, Clone, Hash)]
 pub enum Node {
     /// A word space.
@@ -90,19 +91,19 @@ impl Node {
         }
     }
 
-    /// Lift to a document node, the root of the layout tree.
-    pub fn into_document(self) -> DocumentNode {
+    /// Lift to a root layout tree node.
+    pub fn into_root(self) -> RootNode {
         let mut packer = Packer::new(true);
         packer.walk(self, Styles::new());
-        packer.into_document()
+        packer.into_root()
     }
 
-    /// Repeat this template `n` times.
+    /// Repeat this node `n` times.
     pub fn repeat(&self, n: i64) -> StrResult<Self> {
         let count = usize::try_from(n)
             .map_err(|_| format!("cannot repeat this template {} times", n))?;
 
-        // TODO(set): Make more efficient.
+        // TODO(style): Make more efficient.
         Ok(Self::Sequence(vec![(self.clone(), Styles::new()); count]))
     }
 }
@@ -117,7 +118,7 @@ impl Add for Node {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
-        // TODO(set): Make more efficient.
+        // TODO(style): Make more efficient.
         Self::Sequence(vec![(self, Styles::new()), (rhs, Styles::new())])
     }
 }
@@ -134,9 +135,9 @@ impl Sum for Node {
     }
 }
 
-/// Packs a [`Node`] into a flow or whole document.
+/// Packs a [`Node`] into a flow or root node.
 struct Packer {
-    /// Whether this packer produces the top-level document.
+    /// Whether this packer produces a root node.
     top: bool,
     /// The accumulated page nodes.
     pages: Vec<PageNode>,
@@ -163,10 +164,10 @@ impl Packer {
         FlowNode(self.flow.children).pack()
     }
 
-    /// Finish up and return the resulting document.
-    fn into_document(mut self) -> DocumentNode {
+    /// Finish up and return the resulting root node.
+    fn into_root(mut self) -> RootNode {
         self.pagebreak();
-        DocumentNode(self.pages)
+        RootNode(self.pages)
     }
 
     /// Consider a node with the given styles.

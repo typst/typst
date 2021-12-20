@@ -16,6 +16,16 @@ To the right! Where the sunlight peeks behind the mountain.
 Third
 
 ---
+// Test that paragraph spacing uses correct set rule.
+Hello
+
+#set par(spacing: 100pt)
+World
+#set par(spacing: 0pt)
+
+You
+
+---
 // Test that paragraph break due to incompatibility respects
 // spacing defined by the two adjacent paragraphs.
 #let a = [#set par(spacing: 40pt);Hello]

@@ -1,32 +1,21 @@
 // Test whitespace handling.
 
 ---
-// Spacing around let.
+// Spacing around code constructs.
 A#let x = 1;B  #test(x, 1) \
-A #let x = 2;B #test(x, 2) \
-A#let x = 3; B #test(x, 3)
+C #let x = 2;D #test(x, 2) \
+E#if true [F]G \
+H #if true{"I"} J \
+K #if true [L] else []M \
+#let c = true; N#while c [{c = false}O] P \
+#let c = true; Q #while c { c = false; "R" } S \
+T#for _ in (none,) {"U"}V
 
 ---
-// Spacing around if-else.
-A#if true [B]C \
-A#if true [B] C \
-A #if true{"B"}C \
-A #if true{"B"} C \
-A#if false [] else [B]C \
-A#if true [B] else [] C
-
----
-// Spacing around while loop.
-#let c = true; A#while c [{c = false}B]C \
-#let c = true; A#while c [{c = false}B] C \
-#let c = true; A #while c { c = false; "B" }C \
-#let c = true; A #while c { c = false; "B" } C
-
----
-// Spacing around for loop.
-A#for _ in (none,) [B]C  \
-A#for _ in (none,) [B] C \
-A #for _ in (none,) {"B"}C
+// Test spacing with comments.
+A/**/B/**/C \
+A /**/ B/**/C \
+A /**/B/**/ C
 
 ---
 // Test that a run consisting only of whitespace isn't trimmed.
@@ -37,7 +26,11 @@ A[#set text(serif); ]B
 Left [#set text(serif);Right].
 
 ---
-// Test that space at start of line is not trimmed.
+// Test that linebreak consumed surrounding spaces.
+#align(center)[A \ B \ C]
+
+---
+// Test that space at start of non-backslash-linebreak line isn't trimmed.
 A{"\n"} B
 
 ---

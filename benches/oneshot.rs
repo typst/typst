@@ -2,8 +2,6 @@ use std::path::Path;
 
 use iai::{black_box, main, Iai};
 
-use typst::eval::eval;
-use typst::layout::layout;
 use typst::loading::MemLoader;
 use typst::parse::{parse, Scanner, TokenMode, Tokens};
 use typst::source::SourceId;
@@ -53,20 +51,14 @@ fn bench_parse(iai: &mut Iai) {
 
 fn bench_eval(iai: &mut Iai) {
     let (mut ctx, id) = context();
-    let ast = ctx.sources.get(id).ast().unwrap();
-    iai.run(|| eval(&mut ctx, id, &ast).unwrap());
-}
-
-fn bench_to_tree(iai: &mut Iai) {
-    let (mut ctx, id) = context();
-    let module = ctx.evaluate(id).unwrap();
-    iai.run(|| module.node.clone().into_document());
+    iai.run(|| ctx.evaluate(id).unwrap());
 }
 
 fn bench_layout(iai: &mut Iai) {
     let (mut ctx, id) = context();
-    let tree = ctx.execute(id).unwrap();
-    iai.run(|| layout(&mut ctx, &tree));
+    let module = ctx.evaluate(id).unwrap();
+    let tree = module.into_root();
+    iai.run(|| tree.layout(&mut ctx));
 }
 
 main!(
@@ -75,6 +67,5 @@ main!(
     bench_tokenize,
     bench_parse,
     bench_eval,
-    bench_to_tree,
     bench_layout
 );

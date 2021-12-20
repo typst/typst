@@ -187,7 +187,7 @@ impl From<GreenData> for Green {
 
 impl Debug for GreenData {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{:?}: {}", self.kind, self.len())
+        write!(f, "{:?}: {}", self.kind, self.len)
     }
 }
 

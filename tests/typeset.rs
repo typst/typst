@@ -17,9 +17,9 @@ use typst::font::Face;
 use typst::frame::{Element, Frame, Geometry, Group, Shape, Stroke, Text};
 use typst::geom::{self, Color, Length, Paint, PathElement, RgbaColor, Size, Transform};
 use typst::image::{Image, RasterImage, Svg};
-use typst::layout::layout;
 #[cfg(feature = "layout-cache")]
-use typst::library::{DocumentNode, PageNode, TextNode};
+use typst::layout::RootNode;
+use typst::library::{PageNode, TextNode};
 use typst::loading::FsLoader;
 use typst::parse::Scanner;
 use typst::source::SourceFile;
@@ -254,16 +254,17 @@ fn test_part(
     let compare_ref = local_compare_ref.unwrap_or(compare_ref);
 
     let mut ok = true;
-    let (frames, mut errors) = match ctx.execute(id) {
-        Ok(document) => {
+    let (frames, mut errors) = match ctx.evaluate(id) {
+        Ok(module) => {
+            let tree = module.into_root();
             if debug {
-                println!("{:#?}", document);
+                println!("{:#?}", tree);
             }
 
-            let mut frames = layout(ctx, &document);
+            let mut frames = tree.layout(ctx);
 
             #[cfg(feature = "layout-cache")]
-            (ok &= test_incremental(ctx, i, &document, &frames));
+            (ok &= test_incremental(ctx, i, &tree, &frames));
 
             if !compare_ref {
                 frames.clear();
@@ -311,7 +312,7 @@ fn test_part(
 fn test_incremental(
     ctx: &mut Context,
     i: usize,
-    document: &DocumentNode,
+    tree: &RootNode,
     frames: &[Rc<Frame>],
 ) -> bool {
     let mut ok = true;
@@ -326,7 +327,7 @@ fn test_incremental(
 
         ctx.layouts.turnaround();
 
-        let cached = silenced(|| layout(ctx, document));
+        let cached = silenced(|| tree.layout(ctx));
         let misses = ctx
             .layouts
             .entries()

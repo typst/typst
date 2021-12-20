@@ -4,11 +4,12 @@
 //! definitions.
 
 mod align;
-mod document;
 mod flow;
 mod grid;
+mod heading;
 mod image;
 mod link;
+mod list;
 mod pad;
 mod page;
 mod par;
@@ -41,10 +42,11 @@ mod prelude {
 
 pub use self::image::*;
 pub use align::*;
-pub use document::*;
 pub use flow::*;
 pub use grid::*;
+pub use heading::*;
 pub use link::*;
+pub use list::*;
 pub use pad::*;
 pub use page::*;
 pub use par::*;
@@ -68,21 +70,29 @@ pub fn new() -> Scope {
     std.def_class::<PageNode>("page");
     std.def_class::<ParNode>("par");
     std.def_class::<TextNode>("text");
+    std.def_class::<HeadingNode>("heading");
+    std.def_class::<ListNode<Unordered>>("list");
+    std.def_class::<ListNode<Ordered>>("enum");
 
     // Text functions.
+    // TODO(style): These should be classes, once that works for inline nodes.
     std.def_func("strike", strike);
     std.def_func("underline", underline);
     std.def_func("overline", overline);
     std.def_func("link", link);
 
-    // Layout functions.
-    std.def_func("h", h);
-    std.def_func("v", v);
-    std.def_func("box", box_);
-    std.def_func("block", block);
+    // Break and spacing functions.
     std.def_func("pagebreak", pagebreak);
     std.def_func("parbreak", parbreak);
     std.def_func("linebreak", linebreak);
+    std.def_func("h", h);
+    std.def_func("v", v);
+
+    // Layout functions.
+    // TODO(style): Decide which of these should be classes
+    // (and which of their properties should be settable).
+    std.def_func("box", box_);
+    std.def_func("block", block);
     std.def_func("stack", stack);
     std.def_func("grid", grid);
     std.def_func("pad", pad);
@@ -91,8 +101,6 @@ pub fn new() -> Scope {
     std.def_func("move", move_);
     std.def_func("scale", scale);
     std.def_func("rotate", rotate);
-
-    // Element functions.
     std.def_func("image", image);
     std.def_func("rect", rect);
     std.def_func("square", square);
@@ -118,6 +126,7 @@ pub fn new() -> Scope {
     std.def_func("sorted", sorted);
 
     // Predefined colors.
+    // TODO: More colors.
     std.def_const("white", RgbaColor::WHITE);
     std.def_const("black", RgbaColor::BLACK);
     std.def_const("eastern", RgbaColor::new(0x23, 0x9D, 0xAD, 0xFF));
@@ -150,4 +159,16 @@ castable! {
     Paint,
     Expected: "color",
     Value::Color(color) => Paint::Solid(color),
+}
+
+castable! {
+    usize,
+    Expected: "non-negative integer",
+    Value::Int(int) => int.try_into().map_err(|_| "must be at least zero")?,
+}
+
+castable! {
+    String,
+    Expected: "string",
+    Value::Str(string) => string.into(),
 }

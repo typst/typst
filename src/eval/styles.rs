@@ -20,16 +20,16 @@ impl Styles {
         Self { map: vec![] }
     }
 
+    /// Whether this map contains no styles.
+    pub fn is_empty(&self) -> bool {
+        self.map.is_empty()
+    }
+
     /// Create a style map with a single property-value pair.
     pub fn one<P: Property>(key: P, value: P::Value) -> Self {
         let mut styles = Self::new();
         styles.set(key, value);
         styles
-    }
-
-    /// Whether this map contains no styles.
-    pub fn is_empty(&self) -> bool {
-        self.map.is_empty()
     }
 
     /// Set the value for a style property.
@@ -45,6 +45,13 @@ impl Styles {
         }
 
         self.map.push((id, Entry::new(key, value)));
+    }
+
+    /// Set a value for a style property if it is `Some(_)`.
+    pub fn set_opt<P: Property>(&mut self, key: P, value: Option<P::Value>) {
+        if let Some(value) = value {
+            self.set(key, value);
+        }
     }
 
     /// Toggle a boolean style property.
@@ -82,11 +89,20 @@ impl Styles {
     }
 
     /// Get a reference to a style directly in this map (no default value).
-    pub fn get_direct<P: Property>(&self, _: P) -> Option<&P::Value> {
+    fn get_direct<P: Property>(&self, _: P) -> Option<&P::Value> {
         self.map
             .iter()
             .find(|pair| pair.0 == StyleId::of::<P>())
             .and_then(|pair| pair.1.downcast())
+    }
+
+    /// Create new styles combining `self` with `outer`.
+    ///
+    /// Properties from `self` take precedence over the ones from `outer`.
+    pub fn chain(&self, outer: &Self) -> Self {
+        let mut styles = self.clone();
+        styles.apply(outer);
+        styles
     }
 
     /// Apply styles from `outer` in-place.
@@ -105,23 +121,14 @@ impl Styles {
         }
     }
 
-    /// Create new styles combining `self` with `outer`.
-    ///
-    /// Properties from `self` take precedence over the ones from `outer`.
-    pub fn chain(&self, outer: &Self) -> Self {
-        let mut styles = self.clone();
-        styles.apply(outer);
-        styles
+    /// Keep only those styles that are not also in `other`.
+    pub fn erase(&mut self, other: &Self) {
+        self.map.retain(|a| other.map.iter().all(|b| a != b));
     }
 
     /// Keep only those styles that are also in `other`.
     pub fn intersect(&mut self, other: &Self) {
         self.map.retain(|a| other.map.iter().any(|b| a == b));
-    }
-
-    /// Keep only those styles that are not also in `other`.
-    pub fn erase(&mut self, other: &Self) {
-        self.map.retain(|a| other.map.iter().all(|b| a != b));
     }
 
     /// Whether two style maps are equal when filtered down to the given
@@ -130,7 +137,7 @@ impl Styles {
     where
         F: Fn(StyleId) -> bool,
     {
-        // TODO(set): Filtered length + one direction equal should suffice.
+        // TODO(style): Filtered length + one direction equal should suffice.
         let f = |e: &&(StyleId, Entry)| filter(e.0);
         self.map.iter().filter(f).all(|pair| other.map.contains(pair))
             && other.map.iter().filter(f).all(|pair| self.map.contains(pair))
@@ -177,7 +184,7 @@ impl Entry {
 
 impl Debug for Entry {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        self.0.fmt(f)
+        self.0.dyn_fmt(f)
     }
 }
 
@@ -195,22 +202,23 @@ impl Hash for Entry {
 
 trait Bounds: 'static {
     fn as_any(&self) -> &dyn Any;
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result;
+    fn dyn_fmt(&self, f: &mut Formatter) -> fmt::Result;
     fn dyn_eq(&self, other: &Entry) -> bool;
     fn hash64(&self) -> u64;
     fn combine(&self, outer: &Entry) -> Entry;
 }
 
-impl<P> Bounds for (P, P::Value)
-where
-    P: Property,
-    P::Value: Debug + Hash + PartialEq + 'static,
-{
+// `P` is always zero-sized. We only implement the trait for a pair of key and
+// associated value so that `P` is a constrained type parameter that we can use
+// in `dyn_fmt` to access the property's name. This way, we can effectively
+// store the property's name in its vtable instead of having an actual runtime
+// string somewhere in `Entry`.
+impl<P: Property> Bounds for (P, P::Value) {
     fn as_any(&self) -> &dyn Any {
         &self.1
     }
 
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn dyn_fmt(&self, f: &mut Formatter) -> fmt::Result {
         if f.alternate() {
             write!(f, "#[{} = {:?}]", P::NAME, self.1)
         } else {
@@ -242,11 +250,12 @@ where
 /// Style property keys.
 ///
 /// This trait is not intended to be implemented manually, but rather through
-/// the `properties!` macro.
+/// the `#[properties]` proc-macro.
 pub trait Property: Copy + 'static {
-    /// The type of this property, for example, this could be
-    /// [`Length`](crate::geom::Length) for a `WIDTH` property.
-    type Value: Debug + Clone + Hash + PartialEq + 'static;
+    /// The type of value that is returned when getting this property from a
+    /// style map. For example, this could be [`Length`](crate::geom::Length)
+    /// for a `WIDTH` property.
+    type Value: Debug + Clone + PartialEq + Hash + 'static;
 
     /// The name of the property, used for debug printing.
     const NAME: &'static str;
@@ -257,12 +266,16 @@ pub trait Property: Copy + 'static {
     /// A static reference to the default value of the property.
     ///
     /// This is automatically implemented through lazy-initialization in the
-    /// `properties!` macro. This way, expensive defaults don't need to be
+    /// `#[properties]` macro. This way, expensive defaults don't need to be
     /// recreated all the time.
     fn default_ref() -> &'static Self::Value;
 
-    /// Combine the property with an outer value.
-    fn combine(inner: Self::Value, _: Self::Value) -> Self::Value {
+    /// Fold the property with an outer value.
+    ///
+    /// For example, this would combine a relative font size with an outer
+    /// absolute font size.
+    #[allow(unused_variables)]
+    fn combine(inner: Self::Value, outer: Self::Value) -> Self::Value {
         inner
     }
 }
@@ -276,13 +289,4 @@ impl StyleId {
     pub fn of<P: Property>() -> Self {
         Self(TypeId::of::<P>())
     }
-}
-
-/// Set a style property to a value if the value is `Some`.
-macro_rules! set {
-    ($styles:expr, $target:expr => $value:expr) => {
-        if let Some(v) = $value {
-            $styles.set($target, v);
-        }
-    };
 }

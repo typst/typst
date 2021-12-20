@@ -56,11 +56,11 @@ impl TextNode {
     /// A prioritized sequence of font families.
     pub const FAMILY_LIST: Vec<FontFamily> = vec![FontFamily::SansSerif];
     /// The serif font family/families.
-    pub const SERIF_LIST: Vec<String> = vec!["ibm plex serif".into()];
+    pub const SERIF_LIST: Vec<NamedFamily> = vec![NamedFamily::new("IBM Plex Serif")];
     /// The sans-serif font family/families.
-    pub const SANS_SERIF_LIST: Vec<String> = vec!["ibm plex sans".into()];
+    pub const SANS_SERIF_LIST: Vec<NamedFamily> = vec![NamedFamily::new("IBM Plex Sans")];
     /// The monospace font family/families.
-    pub const MONOSPACE_LIST: Vec<String> = vec!["ibm plex mono".into()];
+    pub const MONOSPACE_LIST: Vec<NamedFamily> = vec![NamedFamily::new("IBM Plex Mono")];
     /// Whether to allow font fallback when the primary font list contains no
     /// match.
     pub const FALLBACK: bool = true;
@@ -139,32 +139,38 @@ impl Set for TextNode {
             (!families.is_empty()).then(|| families)
         });
 
-        set!(styles, Self::FAMILY_LIST => list);
-        set!(styles, Self::SERIF_LIST => args.named("serif")?);
-        set!(styles, Self::SANS_SERIF_LIST => args.named("sans-serif")?);
-        set!(styles, Self::MONOSPACE_LIST => args.named("monospace")?);
-        set!(styles, Self::FALLBACK => args.named("fallback")?);
-        set!(styles, Self::STYLE => args.named("style")?);
-        set!(styles, Self::WEIGHT => args.named("weight")?);
-        set!(styles, Self::STRETCH => args.named("stretch")?);
-        set!(styles, Self::FILL => args.named("fill")?.or_else(|| args.find()));
-        set!(styles, Self::SIZE => args.named("size")?.or_else(|| args.find()));
-        set!(styles, Self::TRACKING => args.named("tracking")?.map(Em::new));
-        set!(styles, Self::TOP_EDGE => args.named("top-edge")?);
-        set!(styles, Self::BOTTOM_EDGE => args.named("bottom-edge")?);
-        set!(styles, Self::KERNING => args.named("kerning")?);
-        set!(styles, Self::SMALLCAPS => args.named("smallcaps")?);
-        set!(styles, Self::ALTERNATES => args.named("alternates")?);
-        set!(styles, Self::STYLISTIC_SET => args.named("stylistic-set")?);
-        set!(styles, Self::LIGATURES => args.named("ligatures")?);
-        set!(styles, Self::DISCRETIONARY_LIGATURES => args.named("discretionary-ligatures")?);
-        set!(styles, Self::HISTORICAL_LIGATURES => args.named("historical-ligatures")?);
-        set!(styles, Self::NUMBER_TYPE => args.named("number-type")?);
-        set!(styles, Self::NUMBER_WIDTH => args.named("number-width")?);
-        set!(styles, Self::NUMBER_POSITION => args.named("number-position")?);
-        set!(styles, Self::SLASHED_ZERO => args.named("slashed-zero")?);
-        set!(styles, Self::FRACTIONS => args.named("fractions")?);
-        set!(styles, Self::FEATURES => args.named("features")?);
+        styles.set_opt(Self::FAMILY_LIST, list);
+        styles.set_opt(Self::SERIF_LIST, args.named("serif")?);
+        styles.set_opt(Self::SANS_SERIF_LIST, args.named("sans-serif")?);
+        styles.set_opt(Self::MONOSPACE_LIST, args.named("monospace")?);
+        styles.set_opt(Self::FALLBACK, args.named("fallback")?);
+        styles.set_opt(Self::STYLE, args.named("style")?);
+        styles.set_opt(Self::WEIGHT, args.named("weight")?);
+        styles.set_opt(Self::STRETCH, args.named("stretch")?);
+        styles.set_opt(Self::FILL, args.named("fill")?.or_else(|| args.find()));
+        styles.set_opt(Self::SIZE, args.named("size")?.or_else(|| args.find()));
+        styles.set_opt(Self::TRACKING, args.named("tracking")?.map(Em::new));
+        styles.set_opt(Self::TOP_EDGE, args.named("top-edge")?);
+        styles.set_opt(Self::BOTTOM_EDGE, args.named("bottom-edge")?);
+        styles.set_opt(Self::KERNING, args.named("kerning")?);
+        styles.set_opt(Self::SMALLCAPS, args.named("smallcaps")?);
+        styles.set_opt(Self::ALTERNATES, args.named("alternates")?);
+        styles.set_opt(Self::STYLISTIC_SET, args.named("stylistic-set")?);
+        styles.set_opt(Self::LIGATURES, args.named("ligatures")?);
+        styles.set_opt(
+            Self::DISCRETIONARY_LIGATURES,
+            args.named("discretionary-ligatures")?,
+        );
+        styles.set_opt(
+            Self::HISTORICAL_LIGATURES,
+            args.named("historical-ligatures")?,
+        );
+        styles.set_opt(Self::NUMBER_TYPE, args.named("number-type")?);
+        styles.set_opt(Self::NUMBER_WIDTH, args.named("number-width")?);
+        styles.set_opt(Self::NUMBER_POSITION, args.named("number-position")?);
+        styles.set_opt(Self::SLASHED_ZERO, args.named("slashed-zero")?);
+        styles.set_opt(Self::FRACTIONS, args.named("fractions")?);
+        styles.set_opt(Self::FEATURES, args.named("features")?);
 
         Ok(())
     }
@@ -188,8 +194,15 @@ pub enum FontFamily {
     SansSerif,
     /// A family in which (almost) all glyphs are of equal width.
     Monospace,
-    /// A specific family with a name.
-    Named(String),
+    /// A specific font family like "Arial".
+    Named(NamedFamily),
+}
+
+impl FontFamily {
+    /// Create a named font family variant, directly from a string.
+    pub fn named(string: &str) -> Self {
+        Self::Named(NamedFamily::new(string))
+    }
 }
 
 impl Debug for FontFamily {
@@ -203,15 +216,37 @@ impl Debug for FontFamily {
     }
 }
 
+/// A specific font family like "Arial".
+#[derive(Clone, Eq, PartialEq, Hash)]
+pub struct NamedFamily(String);
+
+impl NamedFamily {
+    /// Create a named font family variant.
+    pub fn new(string: &str) -> Self {
+        Self(string.to_lowercase())
+    }
+
+    /// The lowercased family name.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl Debug for NamedFamily {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
 dynamic! {
     FontFamily: "font family",
-    Value::Str(string) => Self::Named(string.to_lowercase().into()),
+    Value::Str(string) => Self::named(&string),
 }
 
 castable! {
     Vec<FontFamily>,
     Expected: "string, generic family or array thereof",
-    Value::Str(string) => vec![FontFamily::Named(string.to_lowercase().into())],
+    Value::Str(string) => vec![FontFamily::named(&string)],
     Value::Array(values) => {
         values.into_iter().filter_map(|v| v.cast().ok()).collect()
     },
@@ -219,13 +254,13 @@ castable! {
 }
 
 castable! {
-    Vec<String>,
+    Vec<NamedFamily>,
     Expected: "string or array of strings",
-    Value::Str(string) => vec![string.to_lowercase().into()],
+    Value::Str(string) => vec![NamedFamily::new(&string)],
     Value::Array(values) => values
         .into_iter()
         .filter_map(|v| v.cast().ok())
-        .map(|string: EcoString| string.to_lowercase().into())
+        .map(|string: EcoString| NamedFamily::new(&string))
         .collect(),
 }
 
@@ -243,7 +278,10 @@ castable! {
 castable! {
     FontWeight,
     Expected: "integer or string",
-    Value::Int(v) => v.try_into().map_or(Self::BLACK, Self::from_number),
+    Value::Int(v) => Value::Int(v)
+        .cast::<usize>()?
+        .try_into()
+        .map_or(Self::BLACK, Self::from_number),
     Value::Str(string) => match string.as_str() {
         "thin" => Self::THIN,
         "extralight" => Self::EXTRALIGHT,
@@ -681,7 +719,7 @@ fn families(styles: &Styles) -> impl Iterator<Item = &str> + Clone {
 
     head.iter()
         .chain(core)
-        .map(String::as_str)
+        .map(|named| named.as_str())
         .chain(tail.iter().copied())
 }
 
@@ -770,7 +808,7 @@ pub struct ShapedText<'a> {
     /// The text direction.
     pub dir: Dir,
     /// The text's style properties.
-    // TODO(set): Go back to reference.
+    // TODO(style): Go back to reference.
     pub styles: Styles,
     /// The font size.
     pub size: Size,
