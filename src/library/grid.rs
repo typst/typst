@@ -10,7 +10,7 @@ pub fn grid(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         Value::Relative(v) => vec![TrackSizing::Linear(v.into())],
         Value::Linear(v) => vec![TrackSizing::Linear(v)],
         Value::Fractional(v) => vec![TrackSizing::Fractional(v)],
-        Value::Int(count) => vec![TrackSizing::Auto; count.max(0) as usize],
+        Value::Int(v) => vec![TrackSizing::Auto; Value::Int(v).cast()?],
         Value::Array(values) => values
             .into_iter()
             .filter_map(|v| v.cast().ok())
@@ -39,15 +39,11 @@ pub fn grid(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         row_gutter.unwrap_or(base_gutter),
     );
 
-    let children: Vec<Template> = args.all().collect();
-
-    Ok(Value::Template(Template::from_block(move |style| {
-        GridNode {
-            tracks: tracks.clone(),
-            gutter: gutter.clone(),
-            children: children.iter().map(|child| child.pack(style)).collect(),
-        }
-    })))
+    Ok(Value::block(GridNode {
+        tracks,
+        gutter,
+        children: args.all().map(Node::into_block).collect(),
+    }))
 }
 
 /// A node that arranges its children in a grid.

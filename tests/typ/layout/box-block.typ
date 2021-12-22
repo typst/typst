@@ -12,7 +12,7 @@ Apart
 ---
 // Test block over multiple pages.
 
-#page(height: 60pt)
+#set page(height: 60pt)
 
 First!
 #block[

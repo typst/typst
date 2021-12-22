@@ -4,11 +4,12 @@
 //! definitions.
 
 mod align;
-mod deco;
-mod document;
 mod flow;
 mod grid;
+mod heading;
 mod image;
+mod link;
+mod list;
 mod pad;
 mod page;
 mod par;
@@ -23,10 +24,15 @@ mod utility;
 
 /// Helpful imports for creating library functionality.
 mod prelude {
+    pub use std::fmt::{self, Debug, Formatter};
     pub use std::rc::Rc;
 
+    pub use typst_macros::properties;
+
     pub use crate::diag::{At, TypResult};
-    pub use crate::eval::{Args, EvalContext, Smart, Template, Value};
+    pub use crate::eval::{
+        Args, Construct, EvalContext, Node, Property, Set, Smart, Styles, Value,
+    };
     pub use crate::frame::*;
     pub use crate::geom::*;
     pub use crate::layout::*;
@@ -36,10 +42,11 @@ mod prelude {
 
 pub use self::image::*;
 pub use align::*;
-pub use deco::*;
-pub use document::*;
 pub use flow::*;
 pub use grid::*;
+pub use heading::*;
+pub use link::*;
+pub use list::*;
 pub use pad::*;
 pub use page::*;
 pub use par::*;
@@ -54,28 +61,38 @@ pub use utility::*;
 
 use crate::eval::{Scope, Value};
 use crate::geom::*;
-use crate::style::FontFamily;
 
 /// Construct a scope containing all standard library definitions.
 pub fn new() -> Scope {
     let mut std = Scope::new();
 
-    // Text.
-    std.def_func("font", font);
-    std.def_func("par", par);
+    // Classes.
+    std.def_class::<PageNode>("page");
+    std.def_class::<ParNode>("par");
+    std.def_class::<TextNode>("text");
+    std.def_class::<HeadingNode>("heading");
+    std.def_class::<ListNode<Unordered>>("list");
+    std.def_class::<ListNode<Ordered>>("enum");
+
+    // Text functions.
+    // TODO(style): These should be classes, once that works for inline nodes.
     std.def_func("strike", strike);
     std.def_func("underline", underline);
     std.def_func("overline", overline);
     std.def_func("link", link);
 
-    // Layout.
-    std.def_func("page", page);
+    // Break and spacing functions.
     std.def_func("pagebreak", pagebreak);
+    std.def_func("parbreak", parbreak);
+    std.def_func("linebreak", linebreak);
     std.def_func("h", h);
     std.def_func("v", v);
+
+    // Layout functions.
+    // TODO(style): Decide which of these should be classes
+    // (and which of their properties should be settable).
     std.def_func("box", box_);
     std.def_func("block", block);
-    std.def_func("flow", flow);
     std.def_func("stack", stack);
     std.def_func("grid", grid);
     std.def_func("pad", pad);
@@ -84,15 +101,13 @@ pub fn new() -> Scope {
     std.def_func("move", move_);
     std.def_func("scale", scale);
     std.def_func("rotate", rotate);
-
-    // Elements.
     std.def_func("image", image);
     std.def_func("rect", rect);
     std.def_func("square", square);
     std.def_func("ellipse", ellipse);
     std.def_func("circle", circle);
 
-    // Utility.
+    // Utility functions.
     std.def_func("assert", assert);
     std.def_func("type", type_);
     std.def_func("repr", repr);
@@ -110,14 +125,15 @@ pub fn new() -> Scope {
     std.def_func("len", len);
     std.def_func("sorted", sorted);
 
-    // Colors.
+    // Predefined colors.
+    // TODO: More colors.
     std.def_const("white", RgbaColor::WHITE);
     std.def_const("black", RgbaColor::BLACK);
     std.def_const("eastern", RgbaColor::new(0x23, 0x9D, 0xAD, 0xFF));
     std.def_const("conifer", RgbaColor::new(0x9f, 0xEB, 0x52, 0xFF));
     std.def_const("forest", RgbaColor::new(0x43, 0xA1, 0x27, 0xFF));
 
-    // Arbitrary constants.
+    // Other constants.
     std.def_const("ltr", Dir::LTR);
     std.def_const("rtl", Dir::RTL);
     std.def_const("ttb", Dir::TTB);
@@ -139,17 +155,20 @@ dynamic! {
     Dir: "direction",
 }
 
-dynamic! {
-    Align: "alignment",
-}
-
-dynamic! {
-    FontFamily: "font family",
-    Value::Str(string) => Self::Named(string.to_lowercase()),
-}
-
 castable! {
     Paint,
     Expected: "color",
     Value::Color(color) => Paint::Solid(color),
+}
+
+castable! {
+    usize,
+    Expected: "non-negative integer",
+    Value::Int(int) => int.try_into().map_err(|_| "must be at least zero")?,
+}
+
+castable! {
+    String,
+    Expected: "string",
+    Value::Str(string) => string.into(),
 }

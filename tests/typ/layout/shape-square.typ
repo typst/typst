@@ -8,7 +8,7 @@
 ---
 // Test auto-sized square.
 #square(fill: eastern, padding: 5pt)[
-  #font(fill: white, weight: "bold")
+  #set text(fill: white, weight: "bold")
   Typst
 ]
 
@@ -21,14 +21,14 @@
 
 ---
 // Test text overflowing height.
-#page(width: 75pt, height: 100pt)
+#set page(width: 75pt, height: 100pt)
 #square(fill: conifer)[
   But, soft! what light through yonder window breaks?
 ]
 
 ---
 // Test that square does not overflow page.
-#page(width: 100pt, height: 75pt)
+#set page(width: 100pt, height: 75pt)
 #square(fill: conifer)[
   But, soft! what light through yonder window breaks?
 ]

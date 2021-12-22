@@ -125,6 +125,7 @@ impl<'s> Parser<'s> {
     }
 
     /// Eat, debug-asserting that the token is the given one.
+    #[track_caller]
     pub fn eat_assert(&mut self, t: &NodeKind) {
         debug_assert_eq!(self.peek(), Some(t));
         self.eat();
@@ -199,6 +200,7 @@ impl<'s> Parser<'s> {
     /// to `end_group`.
     ///
     /// This panics if the current token does not start the given group.
+    #[track_caller]
     pub fn start_group(&mut self, kind: Group) {
         self.groups.push(GroupEntry { kind, prev_mode: self.tokens.mode() });
         self.tokens.set_mode(match kind {
@@ -220,6 +222,7 @@ impl<'s> Parser<'s> {
     /// End the parsing of a group.
     ///
     /// This panics if no group was started.
+    #[track_caller]
     pub fn end_group(&mut self) {
         let group_mode = self.tokens.mode();
         let group = self.groups.pop().expect("no started group");

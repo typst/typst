@@ -5,7 +5,7 @@
 #rect()
 
 ---
-#page(width: 150pt)
+#set page(width: 150pt)
 
 // Fit to text.
 #rect(fill: conifer, padding: 3pt)[Textbox]

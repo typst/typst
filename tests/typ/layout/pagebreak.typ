@@ -3,7 +3,8 @@
 ---
 First of two
 #pagebreak()
-#page(height: 40pt)
+#set page(height: 40pt)
+Second of two
 
 ---
 // Make sure that you can't do page related stuff in a container.
@@ -11,7 +12,7 @@ A
 #box[
   B
   #pagebreak()
-  #page("a4")
+  #set page("a4")
 ]
 C
 
@@ -22,13 +23,13 @@ D
 ---
 // Test a combination of pages with bodies and normal content.
 
-#page(width: 80pt, height: 30pt)
+#set page(width: 80pt, height: 30pt)
 
-[#page() First]
-[#page() Second]
+Fi[#set page(width: 80pt);rst]
+[#set page(width: 70pt); Second]
 #pagebreak()
 #pagebreak()
 Fourth
-[#page(height: 25pt)]
+#page(height: 20pt)[]
 Sixth
-[#page() Seventh]
+[#set page(); Seventh]

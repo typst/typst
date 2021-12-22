@@ -15,44 +15,30 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
+use crate::eval::Styles;
 use crate::font::FontStore;
 use crate::frame::Frame;
-use crate::geom::{Align, Linear, Point, Sides, Spec, Transform};
+use crate::geom::{Align, Linear, Point, Sides, Size, Spec, Transform};
 use crate::image::ImageStore;
-use crate::library::{AlignNode, DocumentNode, PadNode, SizedNode, TransformNode};
+use crate::library::{AlignNode, PadNode, PageNode, SizedNode, TransformNode};
 use crate::Context;
 
-/// Layout a document node into a collection of frames.
-pub fn layout(ctx: &mut Context, node: &DocumentNode) -> Vec<Rc<Frame>> {
-    let mut ctx = LayoutContext::new(ctx);
-    node.layout(&mut ctx)
+/// The root layout node, a document consisting of top-level page runs.
+#[derive(Hash)]
+pub struct RootNode(pub Vec<PageNode>);
+
+impl RootNode {
+    /// Layout the document into a sequence of frames, one per page.
+    pub fn layout(&self, ctx: &mut Context) -> Vec<Rc<Frame>> {
+        let mut ctx = LayoutContext::new(ctx);
+        self.0.iter().flat_map(|node| node.layout(&mut ctx)).collect()
+    }
 }
 
-/// The context for layouting.
-pub struct LayoutContext<'a> {
-    /// Stores parsed font faces.
-    pub fonts: &'a mut FontStore,
-    /// Stores decoded images.
-    pub images: &'a mut ImageStore,
-    /// Caches layouting artifacts.
-    #[cfg(feature = "layout-cache")]
-    pub layouts: &'a mut LayoutCache,
-    /// How deeply nested the current layout tree position is.
-    #[cfg(feature = "layout-cache")]
-    pub level: usize,
-}
-
-impl<'a> LayoutContext<'a> {
-    /// Create a new layout context.
-    pub fn new(ctx: &'a mut Context) -> Self {
-        Self {
-            fonts: &mut ctx.fonts,
-            images: &mut ctx.images,
-            #[cfg(feature = "layout-cache")]
-            layouts: &mut ctx.layouts,
-            #[cfg(feature = "layout-cache")]
-            level: 0,
-        }
+impl Debug for RootNode {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.write_str("Root ")?;
+        f.debug_list().entries(&self.0).finish()
     }
 }
 
@@ -75,32 +61,98 @@ pub trait Layout {
     {
         PackedNode {
             #[cfg(feature = "layout-cache")]
-            hash: {
-                let mut state = fxhash::FxHasher64::default();
-                self.type_id().hash(&mut state);
-                self.hash(&mut state);
-                state.finish()
-            },
+            hash: self.hash64(),
             node: Rc::new(self),
+            styles: Styles::new(),
         }
     }
 }
 
-/// A packed layouting node with precomputed hash.
+/// The context for layouting.
+pub struct LayoutContext<'a> {
+    /// Stores parsed font faces.
+    pub fonts: &'a mut FontStore,
+    /// Stores decoded images.
+    pub images: &'a mut ImageStore,
+    /// Caches layouting artifacts.
+    #[cfg(feature = "layout-cache")]
+    pub layouts: &'a mut LayoutCache,
+    /// The inherited style properties.
+    // TODO(style): This probably shouldn't be here.
+    pub styles: Styles,
+    /// How deeply nested the current layout tree position is.
+    #[cfg(feature = "layout-cache")]
+    pub level: usize,
+}
+
+impl<'a> LayoutContext<'a> {
+    /// Create a new layout context.
+    pub fn new(ctx: &'a mut Context) -> Self {
+        Self {
+            fonts: &mut ctx.fonts,
+            images: &mut ctx.images,
+            #[cfg(feature = "layout-cache")]
+            layouts: &mut ctx.layouts,
+            styles: ctx.styles.clone(),
+            #[cfg(feature = "layout-cache")]
+            level: 0,
+        }
+    }
+}
+
+/// A layout node that produces an empty frame.
+///
+/// The packed version of this is returned by [`PackedNode::default`].
+#[derive(Debug, Hash)]
+pub struct EmptyNode;
+
+impl Layout for EmptyNode {
+    fn layout(
+        &self,
+        _: &mut LayoutContext,
+        regions: &Regions,
+    ) -> Vec<Constrained<Rc<Frame>>> {
+        let size = regions.expand.select(regions.current, Size::zero());
+        let mut cts = Constraints::new(regions.expand);
+        cts.exact = regions.current.filter(regions.expand);
+        vec![Frame::new(size).constrain(cts)]
+    }
+}
+
+/// A packed layouting node with style properties and a precomputed hash.
 #[derive(Clone)]
 pub struct PackedNode {
+    /// The type-erased node.
     node: Rc<dyn Bounds>,
+    /// A precomputed hash for the node.
     #[cfg(feature = "layout-cache")]
     hash: u64,
+    /// The node's styles.
+    pub styles: Styles,
 }
 
 impl PackedNode {
+    /// Check whether the contained node is a specific layout node.
+    pub fn is<T: 'static>(&self) -> bool {
+        self.node.as_any().is::<T>()
+    }
+
     /// Try to downcast to a specific layout node.
     pub fn downcast<T>(&self) -> Option<&T>
     where
         T: Layout + Debug + Hash + 'static,
     {
         self.node.as_any().downcast_ref()
+    }
+
+    /// Style the node with styles from a style map.
+    pub fn styled(mut self, styles: Styles) -> Self {
+        if self.styles.is_empty() {
+            self.styles = styles;
+        } else {
+            self.styles.apply(&styles);
+        }
+        self
     }
 
     /// Force a size for this node.
@@ -156,12 +208,20 @@ impl Layout for PackedNode {
         regions: &Regions,
     ) -> Vec<Constrained<Rc<Frame>>> {
         #[cfg(not(feature = "layout-cache"))]
-        return self.node.layout(ctx, regions);
+        return self.layout_impl(ctx, regions);
 
         #[cfg(feature = "layout-cache")]
-        ctx.layouts.get(self.hash, regions).unwrap_or_else(|| {
+        let hash = {
+            let mut state = fxhash::FxHasher64::default();
+            self.hash(&mut state);
+            ctx.styles.hash(&mut state);
+            state.finish()
+        };
+
+        #[cfg(feature = "layout-cache")]
+        ctx.layouts.get(hash, regions).unwrap_or_else(|| {
             ctx.level += 1;
-            let frames = self.node.layout(ctx, regions);
+            let frames = self.layout_impl(ctx, regions);
             ctx.level -= 1;
 
             let entry = FramesEntry::new(frames.clone(), ctx.level);
@@ -177,7 +237,7 @@ impl Layout for PackedNode {
                 panic!("constraints did not match regions they were created for");
             }
 
-            ctx.layouts.insert(self.hash, entry);
+            ctx.layouts.insert(hash, entry);
             frames
         })
     }
@@ -190,30 +250,74 @@ impl Layout for PackedNode {
     }
 }
 
-impl Hash for PackedNode {
-    fn hash<H: Hasher>(&self, _state: &mut H) {
-        #[cfg(feature = "layout-cache")]
-        _state.write_u64(self.hash);
-        #[cfg(not(feature = "layout-cache"))]
-        unimplemented!()
+impl PackedNode {
+    /// Layout the node without checking the cache.
+    fn layout_impl(
+        &self,
+        ctx: &mut LayoutContext,
+        regions: &Regions,
+    ) -> Vec<Constrained<Rc<Frame>>> {
+        let new = self.styles.chain(&ctx.styles);
+        let prev = std::mem::replace(&mut ctx.styles, new);
+        let frames = self.node.layout(ctx, regions);
+        ctx.styles = prev;
+        frames
+    }
+}
+
+impl Default for PackedNode {
+    fn default() -> Self {
+        EmptyNode.pack()
     }
 }
 
 impl Debug for PackedNode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        if f.alternate() {
+            self.styles.fmt(f)?;
+        }
         self.node.fmt(f)
+    }
+}
+
+impl PartialEq for PackedNode {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::as_ptr(&self.node) as *const () == Rc::as_ptr(&other.node) as *const ()
+    }
+}
+
+impl Hash for PackedNode {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // Hash the node.
+        #[cfg(feature = "layout-cache")]
+        state.write_u64(self.hash);
+        #[cfg(not(feature = "layout-cache"))]
+        state.write_u64(self.hash64());
+
+        // Hash the styles.
+        self.styles.hash(state);
     }
 }
 
 trait Bounds: Layout + Debug + 'static {
     fn as_any(&self) -> &dyn Any;
+    fn hash64(&self) -> u64;
 }
 
 impl<T> Bounds for T
 where
-    T: Layout + Debug + 'static,
+    T: Layout + Hash + Debug + 'static,
 {
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    fn hash64(&self) -> u64 {
+        // Also hash the TypeId since nodes with different types but
+        // equal data should be different.
+        let mut state = fxhash::FxHasher64::default();
+        self.type_id().hash(&mut state);
+        self.hash(&mut state);
+        state.finish()
     }
 }

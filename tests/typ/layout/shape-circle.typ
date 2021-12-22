@@ -23,7 +23,7 @@ Center-aligned rect in auto-sized circle.
 Rect in auto-sized circle. \
 #circle(fill: forest,
   rect(fill: conifer, stroke: white, padding: 4pt)[
-    #font(8pt)
+    #set text(8pt)
     But, soft! what light through yonder window breaks?
   ]
 )
@@ -38,7 +38,7 @@ Expanded by height.
 ---
 // Test relative sizing.
 #let centered(body) = align(center + horizon, body)
-#font(fill: white)
+#set text(fill: white)
 #rect(width: 100pt, height: 50pt, fill: rgb("aaa"), centered[
   #circle(radius: 10pt, fill: eastern, centered[A])      // D=20pt
   #circle(height: 60%, fill: eastern, centered[B])       // D=30pt

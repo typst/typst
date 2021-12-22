@@ -1,7 +1,7 @@
 // Test include statements.
 
 ---
-#page(width: 200pt)
+#set page(width: 200pt)
 
 = Document
 

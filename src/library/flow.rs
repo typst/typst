@@ -1,50 +1,14 @@
 use std::fmt::{self, Debug, Formatter};
 
 use super::prelude::*;
-use super::{AlignNode, ParNode, PlacedNode, Spacing};
-
-/// `flow`: A vertical flow of paragraphs and other layout nodes.
-pub fn flow(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    enum Child {
-        Spacing(Spacing),
-        Any(Template),
-    }
-
-    castable! {
-        Child,
-        Expected: "linear, fractional or template",
-        Value::Length(v) => Self::Spacing(Spacing::Linear(v.into())),
-        Value::Relative(v) => Self::Spacing(Spacing::Linear(v.into())),
-        Value::Linear(v) => Self::Spacing(Spacing::Linear(v)),
-        Value::Fractional(v) => Self::Spacing(Spacing::Fractional(v)),
-        Value::Template(v) => Self::Any(v),
-    }
-
-    let children: Vec<Child> = args.all().collect();
-
-    Ok(Value::Template(Template::from_block(move |style| {
-        let children = children
-            .iter()
-            .map(|child| match child {
-                Child::Spacing(spacing) => FlowChild::Spacing(*spacing),
-                Child::Any(node) => FlowChild::Node(node.pack(style)),
-            })
-            .collect();
-
-        FlowNode { children }
-    })))
-}
+use super::{AlignNode, ParNode, PlacedNode, SpacingKind, SpacingNode, TextNode};
 
 /// A vertical flow of content consisting of paragraphs and other layout nodes.
 ///
 /// This node is reponsible for layouting both the top-level content flow and
 /// the contents of boxes.
-#[derive(Debug, Hash)]
-pub struct FlowNode {
-    /// The children that compose the flow. There are different kinds of
-    /// children for different purposes.
-    pub children: Vec<FlowChild>,
-}
+#[derive(Hash)]
+pub struct FlowNode(pub Vec<FlowChild>);
 
 impl Layout for FlowNode {
     fn layout(
@@ -56,19 +20,54 @@ impl Layout for FlowNode {
     }
 }
 
+impl Debug for FlowNode {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.write_str("Flow ")?;
+        f.debug_list().entries(&self.0).finish()
+    }
+}
+
 /// A child of a flow node.
 #[derive(Hash)]
 pub enum FlowChild {
+    /// A paragraph/block break.
+    Break(Styles),
     /// Vertical spacing between other children.
-    Spacing(Spacing),
+    Spacing(SpacingNode),
     /// An arbitrary node.
     Node(PackedNode),
+}
+
+impl FlowChild {
+    /// A reference to the child's styles.
+    pub fn styles(&self) -> &Styles {
+        match self {
+            Self::Break(styles) => styles,
+            Self::Spacing(node) => &node.styles,
+            Self::Node(node) => &node.styles,
+        }
+    }
+
+    /// A mutable reference to the child's styles.
+    pub fn styles_mut(&mut self) -> &mut Styles {
+        match self {
+            Self::Break(styles) => styles,
+            Self::Spacing(node) => &mut node.styles,
+            Self::Node(node) => &mut node.styles,
+        }
+    }
 }
 
 impl Debug for FlowChild {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Self::Spacing(spacing) => spacing.fmt(f),
+            Self::Break(styles) => {
+                if f.alternate() {
+                    styles.fmt(f)?;
+                }
+                write!(f, "Break")
+            }
+            Self::Spacing(node) => node.fmt(f),
             Self::Node(node) => node.fmt(f),
         }
     }
@@ -118,7 +117,7 @@ impl<'a> FlowLayouter<'a> {
         regions.expand.y = false;
 
         Self {
-            children: &flow.children,
+            children: &flow.0,
             expand,
             full,
             regions,
@@ -132,15 +131,21 @@ impl<'a> FlowLayouter<'a> {
     /// Layout all children.
     fn layout(mut self, ctx: &mut LayoutContext) -> Vec<Constrained<Rc<Frame>>> {
         for child in self.children {
-            match *child {
-                FlowChild::Spacing(Spacing::Linear(v)) => {
-                    self.layout_absolute(v);
+            match child {
+                FlowChild::Break(styles) => {
+                    let chain = styles.chain(&ctx.styles);
+                    let em = chain.get(TextNode::SIZE).abs;
+                    let amount = chain.get(ParNode::SPACING).resolve(em);
+                    self.layout_absolute(amount.into());
                 }
-                FlowChild::Spacing(Spacing::Fractional(v)) => {
-                    self.items.push(FlowItem::Fractional(v));
-                    self.fr += v;
-                }
-                FlowChild::Node(ref node) => {
+                FlowChild::Spacing(node) => match node.kind {
+                    SpacingKind::Linear(v) => self.layout_absolute(v),
+                    SpacingKind::Fractional(v) => {
+                        self.items.push(FlowItem::Fractional(v));
+                        self.fr += v;
+                    }
+                },
+                FlowChild::Node(node) => {
                     if self.regions.is_full() {
                         self.finish_region();
                     }
@@ -166,18 +171,25 @@ impl<'a> FlowLayouter<'a> {
 
     /// Layout a node.
     fn layout_node(&mut self, ctx: &mut LayoutContext, node: &PackedNode) {
+        // Placed nodes that are out of flow produce placed items which aren't
+        // aligned later.
         if let Some(placed) = node.downcast::<PlacedNode>() {
-            let frame = node.layout(ctx, &self.regions).remove(0);
             if placed.out_of_flow() {
+                let frame = node.layout(ctx, &self.regions).remove(0);
                 self.items.push(FlowItem::Placed(frame.item));
                 return;
             }
         }
 
+        // How to align the node.
         let aligns = Spec::new(
             // For non-expanding paragraphs it is crucial that we align the
             // whole paragraph according to its internal alignment.
-            node.downcast::<ParNode>().map_or(Align::Left, |par| par.align),
+            if node.is::<ParNode>() {
+                node.styles.chain(&ctx.styles).get(ParNode::ALIGN)
+            } else {
+                Align::Left
+            },
             // Vertical align node alignment is respected by the flow node.
             node.downcast::<AlignNode>()
                 .and_then(|aligned| aligned.aligns.y)
@@ -235,7 +247,7 @@ impl<'a> FlowLayouter<'a> {
                     output.push_frame(pos, frame);
                 }
                 FlowItem::Placed(frame) => {
-                    output.push_frame(Point::with_y(offset), frame);
+                    output.push_frame(Point::zero(), frame);
                 }
             }
         }

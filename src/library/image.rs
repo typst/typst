@@ -1,6 +1,7 @@
 use std::io;
 
 use super::prelude::*;
+use super::LinkNode;
 use crate::diag::Error;
 use crate::image::ImageId;
 
@@ -20,9 +21,9 @@ pub fn image(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         })
     })?;
 
-    Ok(Value::Template(Template::from_inline(move |_| {
-        ImageNode { id, fit }.pack().sized(Spec::new(width, height))
-    })))
+    Ok(Value::inline(
+        ImageNode { id, fit }.pack().sized(Spec::new(width, height)),
+    ))
 }
 
 /// An image node.
@@ -83,6 +84,11 @@ impl Layout for ImageNode {
         // Create a clipping group if only part of the image should be visible.
         if self.fit == ImageFit::Cover && !target.fits(fitted) {
             frame.clip();
+        }
+
+        // Apply link if it exists.
+        if let Some(url) = ctx.styles.get_ref(LinkNode::URL) {
+            frame.link(url);
         }
 
         vec![frame.constrain(Constraints::tight(regions))]

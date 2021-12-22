@@ -149,7 +149,12 @@ impl SourceFile {
         Self::new(SourceId(0), Path::new(""), src.into())
     }
 
-    /// The file's abstract syntax tree.
+    /// The root node of the file's untyped green tree.
+    pub fn root(&self) -> &Rc<GreenNode> {
+        &self.root
+    }
+
+    /// The root node of the file's typed abstract syntax tree.
     pub fn ast(&self) -> TypResult<Markup> {
         let red = RedNode::from_root(self.root.clone(), self.id);
         let errors = red.errors();

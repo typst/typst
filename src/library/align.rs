@@ -1,29 +1,19 @@
 use super::prelude::*;
+use super::ParNode;
 
 /// `align`: Configure the alignment along the layouting axes.
 pub fn align(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    castable! {
-        Spec<Option<Align>>,
-        Expected: "1d or 2d alignment",
-        @align: Align => {
-            let mut aligns = Spec::default();
-            aligns.set(align.axis(), Some(*align));
-            aligns
-        },
-        @aligns: Spec<Align> => aligns.map(Some),
+    let aligns: Spec<_> = args.expect("alignment")?;
+    let body: Node = args.expect("body")?;
 
+    let mut styles = Styles::new();
+    if let Some(align) = aligns.x {
+        styles.set(ParNode::ALIGN, align);
     }
 
-    let aligns = args.expect::<Spec<_>>("alignment")?;
-    let body = args.expect::<Template>("body")?;
-    Ok(Value::Template(Template::from_block(move |style| {
-        let mut style = style.clone();
-        if let Some(x) = aligns.x {
-            style.par_mut().align = x;
-        }
-
-        body.pack(&style).aligned(aligns)
-    })))
+    Ok(Value::block(
+        body.into_block().styled(styles).aligned(aligns),
+    ))
 }
 
 /// A node that aligns its child.
@@ -66,4 +56,20 @@ impl Layout for AlignNode {
 
         frames
     }
+}
+
+dynamic! {
+    Align: "alignment",
+}
+
+castable! {
+    Spec<Option<Align>>,
+    Expected: "1d or 2d alignment",
+    @align: Align => {
+        let mut aligns = Spec::default();
+        aligns.set(align.axis(), Some(*align));
+        aligns
+    },
+    @aligns: Spec<Align> => aligns.map(Some),
+
 }

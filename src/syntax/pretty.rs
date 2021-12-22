@@ -225,6 +225,7 @@ impl Pretty for Expr {
             Self::Closure(v) => v.pretty(p),
             Self::With(v) => v.pretty(p),
             Self::Let(v) => v.pretty(p),
+            Self::Set(v) => v.pretty(p),
             Self::If(v) => v.pretty(p),
             Self::While(v) => v.pretty(p),
             Self::For(v) => v.pretty(p),
@@ -444,6 +445,16 @@ impl Pretty for LetExpr {
     }
 }
 
+impl Pretty for SetExpr {
+    fn pretty(&self, p: &mut Printer) {
+        p.push_str("set ");
+        self.class().pretty(p);
+        p.push_str("(");
+        self.args().pretty(p);
+        p.push(')');
+    }
+}
+
 impl Pretty for IfExpr {
     fn pretty(&self, p: &mut Printer) {
         p.push_str("if ");
@@ -639,6 +650,7 @@ mod tests {
         // Control flow.
         roundtrip("#let x = 1 + 2");
         roundtrip("#let f(x) = y");
+        roundtrip("#set text(size: 12pt)");
         roundtrip("#if x [y] else [z]");
         roundtrip("#if x {} else if y {} else {}");
         roundtrip("#while x {y}");

@@ -283,11 +283,11 @@ impl Face {
     /// Look up a vertical metric at the given font size.
     pub fn vertical_metric(&self, metric: VerticalFontMetric, size: Length) -> Length {
         match metric {
-            VerticalFontMetric::Ascender => self.ascender.to_length(size),
-            VerticalFontMetric::CapHeight => self.cap_height.to_length(size),
-            VerticalFontMetric::XHeight => self.x_height.to_length(size),
+            VerticalFontMetric::Ascender => self.ascender.resolve(size),
+            VerticalFontMetric::CapHeight => self.cap_height.resolve(size),
+            VerticalFontMetric::XHeight => self.x_height.resolve(size),
             VerticalFontMetric::Baseline => Length::zero(),
-            VerticalFontMetric::Descender => self.descender.to_length(size),
+            VerticalFontMetric::Descender => self.descender.resolve(size),
             VerticalFontMetric::Linear(v) => v.resolve(size),
         }
     }

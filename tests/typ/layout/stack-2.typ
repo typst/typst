@@ -1,7 +1,7 @@
 // Test fr units in stacks.
 
 ---
-#page(height: 3.5cm)
+#set page(height: 3.5cm)
 #stack(
   dir: ltr,
   spacing: 1fr,
@@ -15,8 +15,8 @@ from #h(1fr) the #h(1fr) wonderful
 World! 🌍
 
 ---
-#page(height: 2cm)
-#font(white)
+#set page(height: 2cm)
+#set text(white)
 #rect(fill: forest)[
           #v(1fr)
   #h(1fr) Hi you! #h(5pt)

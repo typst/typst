@@ -1,12 +1,12 @@
 // Test tracking characters apart or together.
 
 ---
-#font(tracking: -0.01)
+#set text(tracking: -0.01)
 I saw Zoe yӛsterday, on the tram.
 
 ---
-I'm in#font(tracking: 0.3)[ spaace]!
+I'm in#text(tracking: 0.3)[ spaace]!
 
 ---
-#font("Noto Serif Hebrew", tracking: 0.3)
+#set text("Noto Serif Hebrew", tracking: 0.3)
 טֶקסט

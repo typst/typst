@@ -107,6 +107,11 @@ impl Frame {
         wrapper.push(Point::zero(), Element::Group(group));
         *self = wrapper;
     }
+
+    /// Link the whole frame to a resource.
+    pub fn link(&mut self, url: impl Into<String>) {
+        self.push(Point::zero(), Element::Link(url.into(), self.size));
+    }
 }
 
 impl Debug for Frame {
@@ -171,12 +176,17 @@ pub struct Text {
     pub face_id: FaceId,
     /// The font size.
     pub size: Length,
-    /// The width of the text run.
-    pub width: Length,
     /// Glyph color.
     pub fill: Paint,
     /// The glyphs.
     pub glyphs: Vec<Glyph>,
+}
+
+impl Text {
+    /// The width of the text run.
+    pub fn width(&self) -> Length {
+        self.glyphs.iter().map(|g| g.x_advance.resolve(self.size)).sum()
+    }
 }
 
 /// A glyph in a run of shaped text.

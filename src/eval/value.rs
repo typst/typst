@@ -1,11 +1,13 @@
 use std::any::Any;
 use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
+use std::hash::Hash;
 use std::rc::Rc;
 
-use super::{ops, Array, Dict, Function, Template};
+use super::{ops, Array, Class, Dict, Function, Node};
 use crate::diag::StrResult;
 use crate::geom::{Angle, Color, Fractional, Length, Linear, Relative, RgbaColor};
+use crate::layout::Layout;
 use crate::syntax::Spanned;
 use crate::util::EcoString;
 
@@ -24,7 +26,7 @@ pub enum Value {
     Float(f64),
     /// A length: `12pt`, `3cm`.
     Length(Length),
-    /// An angle:  `1.5rad`, `90deg`.
+    /// An angle: `1.5rad`, `90deg`.
     Angle(Angle),
     /// A relative value: `50%`.
     Relative(Relative),
@@ -40,15 +42,33 @@ pub enum Value {
     Array(Array),
     /// A dictionary value: `(color: #f79143, pattern: dashed)`.
     Dict(Dict),
-    /// A template value: `[*Hi* there]`.
-    Template(Template),
+    /// A node value: `[*Hi* there]`.
+    Node(Node),
     /// An executable function.
     Func(Function),
+    /// A class of nodes.
+    Class(Class),
     /// A dynamic value.
     Dyn(Dynamic),
 }
 
 impl Value {
+    /// Create an inline-level node value.
+    pub fn inline<T>(node: T) -> Self
+    where
+        T: Layout + Debug + Hash + 'static,
+    {
+        Self::Node(Node::inline(node))
+    }
+
+    /// Create a block-level node value.
+    pub fn block<T>(node: T) -> Self
+    where
+        T: Layout + Debug + Hash + 'static,
+    {
+        Self::Node(Node::block(node))
+    }
+
     /// The name of the stored value's type.
     pub fn type_name(&self) -> &'static str {
         match self {
@@ -66,8 +86,9 @@ impl Value {
             Self::Str(_) => EcoString::TYPE_NAME,
             Self::Array(_) => Array::TYPE_NAME,
             Self::Dict(_) => Dict::TYPE_NAME,
-            Self::Template(_) => Template::TYPE_NAME,
+            Self::Node(_) => Node::TYPE_NAME,
             Self::Func(_) => Function::TYPE_NAME,
+            Self::Class(_) => Class::TYPE_NAME,
             Self::Dyn(v) => v.type_name(),
         }
     }
@@ -80,14 +101,28 @@ impl Value {
         T::cast(self)
     }
 
+    /// Join the value with another value.
+    pub fn join(self, rhs: Self) -> StrResult<Self> {
+        ops::join(self, rhs)
+    }
+
     /// Return the debug representation of the value.
     pub fn repr(&self) -> EcoString {
         format_eco!("{:?}", self)
     }
 
-    /// Join the value with another value.
-    pub fn join(self, rhs: Self) -> StrResult<Self> {
-        ops::join(self, rhs)
+    /// Return the display representation of the value.
+    pub fn show(self) -> Node {
+        match self {
+            Value::None => Node::new(),
+            Value::Int(v) => Node::Text(format_eco!("{}", v)),
+            Value::Float(v) => Node::Text(format_eco!("{}", v)),
+            Value::Str(v) => Node::Text(v),
+            Value::Node(v) => v,
+            // For values which can't be shown "naturally", we print the
+            // representation in monospace.
+            v => Node::Text(v.repr()).monospaced(),
+        }
     }
 }
 
@@ -114,8 +149,9 @@ impl Debug for Value {
             Self::Str(v) => Debug::fmt(v, f),
             Self::Array(v) => Debug::fmt(v, f),
             Self::Dict(v) => Debug::fmt(v, f),
-            Self::Template(v) => Debug::fmt(v, f),
+            Self::Node(_) => f.pad("<template>"),
             Self::Func(v) => Debug::fmt(v, f),
+            Self::Class(v) => Debug::fmt(v, f),
             Self::Dyn(v) => Debug::fmt(v, f),
         }
     }
@@ -354,14 +390,15 @@ primitive! { f64: "float", Float, Int(v) => v as f64 }
 primitive! { Length: "length", Length }
 primitive! { Angle: "angle", Angle }
 primitive! { Relative: "relative", Relative }
-primitive! { Linear: "linear", Linear, Length(v) => v.into(), Relative(v) => v.into() }
-primitive! { Fractional: "fractional", Fractional }
+primitive! { Linear: "relative length", Linear, Length(v) => v.into(), Relative(v) => v.into() }
+primitive! { Fractional: "fractional length", Fractional }
 primitive! { Color: "color", Color }
 primitive! { EcoString: "string", Str }
 primitive! { Array: "array", Array }
 primitive! { Dict: "dictionary", Dict }
-primitive! { Template: "template", Template }
+primitive! { Node: "template", Node }
 primitive! { Function: "function", Func }
+primitive! { Class: "class", Class }
 
 impl Cast<Value> for Value {
     fn is(_: &Value) -> bool {

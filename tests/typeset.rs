@@ -12,20 +12,17 @@ use usvg::FitTo;
 use walkdir::WalkDir;
 
 use typst::diag::Error;
-use typst::eval::{Smart, Value};
+use typst::eval::{Smart, Styles, Value};
 use typst::font::Face;
 use typst::frame::{Element, Frame, Geometry, Group, Shape, Stroke, Text};
-use typst::geom::{
-    self, Color, Length, Paint, PathElement, RgbaColor, Sides, Size, Transform,
-};
+use typst::geom::{self, Color, Length, Paint, PathElement, RgbaColor, Size, Transform};
 use typst::image::{Image, RasterImage, Svg};
-use typst::layout::layout;
 #[cfg(feature = "layout-cache")]
-use typst::library::DocumentNode;
+use typst::layout::RootNode;
+use typst::library::{PageNode, TextNode};
 use typst::loading::FsLoader;
 use typst::parse::Scanner;
 use typst::source::SourceFile;
-use typst::style::Style;
 use typst::syntax::Span;
 use typst::Context;
 
@@ -52,7 +49,7 @@ fn main() {
             continue;
         }
 
-        if args.matches(&src_path.to_string_lossy()) {
+        if args.matches(&src_path) {
             filtered.push(src_path);
         }
     }
@@ -64,12 +61,17 @@ fn main() {
         println!("Running {} tests", len);
     }
 
-    // We want to have "unbounded" pages, so we allow them to be infinitely
-    // large and fit them to match their content.
-    let mut style = Style::default();
-    style.page_mut().size = Size::new(Length::pt(120.0), Length::inf());
-    style.page_mut().margins = Sides::splat(Smart::Custom(Length::pt(10.0).into()));
-    style.text_mut().size = Length::pt(10.0);
+    // Set page width to 120pt with 10pt margins, so that the inner page is
+    // exactly 100pt wide. Page height is unbounded and font size is 10pt so
+    // that it multiplies to nice round numbers.
+    let mut styles = Styles::new();
+    styles.set(PageNode::WIDTH, Smart::Custom(Length::pt(120.0)));
+    styles.set(PageNode::HEIGHT, Smart::Auto);
+    styles.set(PageNode::LEFT, Smart::Custom(Length::pt(10.0).into()));
+    styles.set(PageNode::TOP, Smart::Custom(Length::pt(10.0).into()));
+    styles.set(PageNode::RIGHT, Smart::Custom(Length::pt(10.0).into()));
+    styles.set(PageNode::BOTTOM, Smart::Custom(Length::pt(10.0).into()));
+    styles.set(TextNode::SIZE, Length::pt(10.0).into());
 
     // Hook up an assert function into the global scope.
     let mut std = typst::library::new();
@@ -87,10 +89,10 @@ fn main() {
 
     // Create loader and context.
     let loader = FsLoader::new().with_path(FONT_DIR).wrap();
-    let mut ctx = Context::builder().std(std).style(style).build(loader);
+    let mut ctx = Context::builder().std(std).styles(styles).build(loader);
 
     // Run all the tests.
-    let mut ok = true;
+    let mut ok = 0;
     for src_path in filtered {
         let path = src_path.strip_prefix(TYP_DIR).unwrap();
         let png_path = Path::new(PNG_DIR).join(path).with_extension("png");
@@ -98,49 +100,64 @@ fn main() {
         let pdf_path =
             args.pdf.then(|| Path::new(PDF_DIR).join(path).with_extension("pdf"));
 
-        ok &= test(
+        ok += test(
             &mut ctx,
             &src_path,
             &png_path,
             &ref_path,
             pdf_path.as_deref(),
-        );
+            args.debug,
+        ) as usize;
     }
 
-    if !ok {
+    if len > 1 {
+        println!("{} / {} tests passed.", ok, len);
+    }
+
+    if ok < len {
         std::process::exit(1);
     }
 }
 
 struct Args {
     filter: Vec<String>,
+    exact: bool,
+    debug: bool,
     pdf: bool,
-    perfect: bool,
 }
 
 impl Args {
     fn new(args: impl Iterator<Item = String>) -> Self {
         let mut filter = Vec::new();
-        let mut perfect = false;
+        let mut exact = false;
+        let mut debug = false;
         let mut pdf = false;
 
         for arg in args {
             match arg.as_str() {
+                // Ignore this, its for cargo.
                 "--nocapture" => {}
+                // Match only the exact filename.
+                "--exact" => exact = true,
+                // Generate PDFs.
                 "--pdf" => pdf = true,
-                "=" => perfect = true,
+                // Debug print the layout trees.
+                "--debug" | "-d" => debug = true,
+                // Everything else is a file filter.
                 _ => filter.push(arg),
             }
         }
 
-        Self { filter, pdf, perfect }
+        Self { filter, pdf, debug, exact }
     }
 
-    fn matches(&self, name: &str) -> bool {
-        if self.perfect {
-            self.filter.iter().any(|p| name == p)
+    fn matches(&self, path: &Path) -> bool {
+        if self.exact {
+            let name = path.file_name().unwrap().to_string_lossy();
+            self.filter.iter().any(|v| v == &name)
         } else {
-            self.filter.is_empty() || self.filter.iter().any(|p| name.contains(p))
+            let path = path.to_string_lossy();
+            self.filter.is_empty() || self.filter.iter().any(|v| path.contains(v))
         }
     }
 }
@@ -151,6 +168,7 @@ fn test(
     png_path: &Path,
     ref_path: &Path,
     pdf_path: Option<&Path>,
+    debug: bool,
 ) -> bool {
     let name = src_path.strip_prefix(TYP_DIR).unwrap_or(src_path);
     println!("Testing {}", name.display());
@@ -179,7 +197,7 @@ fn test(
             }
         } else {
             let (part_ok, compare_here, part_frames) =
-                test_part(ctx, src_path, part.into(), i, compare_ref, line);
+                test_part(ctx, src_path, part.into(), i, compare_ref, line, debug);
             ok &= part_ok;
             compare_ever |= compare_here;
             frames.extend(part_frames);
@@ -211,7 +229,10 @@ fn test(
     }
 
     if ok {
-        println!("\x1b[1ATesting {} ✔", name.display());
+        if !debug {
+            print!("\x1b[1A");
+        }
+        println!("Testing {} ✔", name.display());
     }
 
     ok
@@ -224,6 +245,7 @@ fn test_part(
     i: usize,
     compare_ref: bool,
     line: usize,
+    debug: bool,
 ) -> (bool, bool, Vec<Rc<Frame>>) {
     let id = ctx.sources.provide(src_path, src);
     let source = ctx.sources.get(id);
@@ -232,12 +254,17 @@ fn test_part(
     let compare_ref = local_compare_ref.unwrap_or(compare_ref);
 
     let mut ok = true;
-    let (frames, mut errors) = match ctx.execute(id) {
-        Ok(document) => {
-            let mut frames = layout(ctx, &document);
+    let (frames, mut errors) = match ctx.evaluate(id) {
+        Ok(module) => {
+            let tree = module.into_root();
+            if debug {
+                println!("{:#?}", tree);
+            }
+
+            let mut frames = tree.layout(ctx);
 
             #[cfg(feature = "layout-cache")]
-            (ok &= test_incremental(ctx, i, &document, &frames));
+            (ok &= test_incremental(ctx, i, &tree, &frames));
 
             if !compare_ref {
                 frames.clear();
@@ -285,7 +312,7 @@ fn test_part(
 fn test_incremental(
     ctx: &mut Context,
     i: usize,
-    document: &DocumentNode,
+    tree: &RootNode,
     frames: &[Rc<Frame>],
 ) -> bool {
     let mut ok = true;
@@ -300,7 +327,7 @@ fn test_incremental(
 
         ctx.layouts.turnaround();
 
-        let cached = silenced(|| layout(ctx, document));
+        let cached = silenced(|| tree.layout(ctx));
         let misses = ctx
             .layouts
             .entries()
@@ -319,7 +346,10 @@ fn test_incremental(
         }
 
         if cached != frames {
-            println!("    Subtest {} relayout differs from clean pass ❌", i);
+            println!(
+                "    Subtest {} relayout differs from clean pass on level {} ❌",
+                i, level
+            );
             ok = false;
         }
     }
@@ -504,7 +534,7 @@ fn draw_text(
     let mut x = 0.0;
     for glyph in &text.glyphs {
         let glyph_id = GlyphId(glyph.id);
-        let offset = x + glyph.x_offset.to_length(text.size).to_f32();
+        let offset = x + glyph.x_offset.resolve(text.size).to_f32();
         let ts = ts.pre_translate(offset, 0.0);
 
         if let Some(tree) = ttf
@@ -557,7 +587,7 @@ fn draw_text(
             }
         }
 
-        x += glyph.x_advance.to_length(text.size).to_f32();
+        x += glyph.x_advance.resolve(text.size).to_f32();
     }
 }
 

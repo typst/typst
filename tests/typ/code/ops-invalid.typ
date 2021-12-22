@@ -26,7 +26,7 @@
 {not ()}
 
 ---
-// Error: 2-18 cannot apply '<=' to linear and relative
+// Error: 2-18 cannot apply '<=' to relative length and relative
 {30% + 1pt <= 40%}
 
 ---
