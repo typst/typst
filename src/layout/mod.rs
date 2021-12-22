@@ -119,7 +119,7 @@ impl Layout for EmptyNode {
     }
 }
 
-/// A packed layouting node with precomputed hash.
+/// A packed layouting node with style properties and a precomputed hash.
 #[derive(Clone)]
 pub struct PackedNode {
     /// The type-erased node.

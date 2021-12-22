@@ -30,7 +30,7 @@ impl Construct for HeadingNode {
 }
 
 impl Set for HeadingNode {
-    fn set(styles: &mut Styles, args: &mut Args) -> TypResult<()> {
+    fn set(args: &mut Args, styles: &mut Styles) -> TypResult<()> {
         styles.set_opt(Self::FAMILY, args.named("family")?);
         styles.set_opt(Self::FILL, args.named("fill")?);
         Ok(())

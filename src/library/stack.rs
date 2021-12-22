@@ -9,17 +9,17 @@ pub fn stack(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let spacing = args.named("spacing")?;
 
     let mut children = vec![];
-    let mut delayed = None;
+    let mut deferred = None;
 
     // Build the list of stack children.
     for child in args.all() {
         match child {
-            StackChild::Spacing(_) => delayed = None,
+            StackChild::Spacing(_) => deferred = None,
             StackChild::Node(_) => {
-                if let Some(v) = delayed {
+                if let Some(v) = deferred {
                     children.push(StackChild::spacing(v));
                 }
-                delayed = spacing;
+                deferred = spacing;
             }
         }
         children.push(child);

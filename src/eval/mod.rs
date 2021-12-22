@@ -167,8 +167,10 @@ impl Eval for Markup {
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
         let prev = mem::take(&mut ctx.styles);
-        let mut seq = vec![];
-        for piece in self.nodes() {
+        let nodes = self.nodes();
+        let upper = nodes.size_hint().1.unwrap_or_default();
+        let mut seq = Vec::with_capacity(upper);
+        for piece in nodes {
             seq.push((piece.eval(ctx)?, ctx.styles.clone()));
         }
         ctx.styles = prev;
@@ -468,11 +470,9 @@ impl Eval for CallExpr {
             }
 
             Value::Class(class) => {
-                let mut styles = Styles::new();
-                class.set(&mut styles, &mut args)?;
                 let node = class.construct(ctx, &mut args)?;
                 args.finish()?;
-                Ok(Value::Node(node.styled(styles)))
+                Ok(Value::Node(node))
             }
 
             v => bail!(
@@ -651,7 +651,7 @@ impl Eval for SetExpr {
         let class = self.class();
         let class = class.eval(ctx)?.cast::<Class>().at(class.span())?;
         let mut args = self.args().eval(ctx)?;
-        class.set(&mut ctx.styles, &mut args)?;
+        class.set(&mut args, &mut ctx.styles)?;
         args.finish()?;
         Ok(Value::None)
     }

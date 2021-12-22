@@ -12,7 +12,7 @@ pub fn pagebreak(_: &mut EvalContext, _: &mut Args) -> TypResult<Value> {
 }
 
 /// Layouts its child onto one or multiple pages.
-#[derive(Hash)]
+#[derive(Clone, PartialEq, Hash)]
 pub struct PageNode {
     /// The node producing the content.
     pub child: PackedNode,
@@ -44,12 +44,15 @@ impl PageNode {
 
 impl Construct for PageNode {
     fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
-        Ok(Node::Page(args.expect::<Node>("body")?.into_block()))
+        Ok(Node::Page(Self {
+            child: args.expect::<Node>("body")?.into_block(),
+            styles: Styles::new(),
+        }))
     }
 }
 
 impl Set for PageNode {
-    fn set(styles: &mut Styles, args: &mut Args) -> TypResult<()> {
+    fn set(args: &mut Args, styles: &mut Styles) -> TypResult<()> {
         if let Some(paper) = args.named::<Paper>("paper")?.or_else(|| args.find()) {
             styles.set(Self::CLASS, paper.class());
             styles.set(Self::WIDTH, Smart::Custom(paper.width()));
@@ -79,6 +82,12 @@ impl Set for PageNode {
 }
 
 impl PageNode {
+    /// Style the node with styles from a style map.
+    pub fn styled(mut self, styles: Styles) -> Self {
+        self.styles.apply(&styles);
+        self
+    }
+
     /// Layout the page run into a sequence of frames, one per page.
     pub fn layout(&self, ctx: &mut LayoutContext) -> Vec<Rc<Frame>> {
         let prev = ctx.styles.clone();

@@ -20,6 +20,10 @@ use crate::util::EcoString;
 /// A node is a composable intermediate representation that can be converted
 /// into a proper layout node by lifting it to a [block-level](PackedNode) or
 /// [root node](RootNode).
+///
+/// When you write `[Hi] + [you]` in Typst, this type's [`Add`] implementation
+/// is invoked. There, multiple nodes are combined into a single
+/// [`Sequence`](Self::Sequence) node.
 #[derive(Debug, PartialEq, Clone, Hash)]
 pub enum Node {
     /// A word space.
@@ -39,8 +43,24 @@ pub enum Node {
     /// A block node.
     Block(PackedNode),
     /// A page node.
-    Page(PackedNode),
-    /// A sequence of nodes (which may themselves contain sequences).
+    Page(PageNode),
+    /// Multiple nodes with attached styles.
+    ///
+    /// For example, the Typst template `[Hi *you!*]` would result in the
+    /// sequence:
+    /// ```ignore
+    /// Sequence([
+    ///   (Text("Hi"), {}),
+    ///   (Space, {}),
+    ///   (Text("you!"), { TextNode::STRONG: true }),
+    /// ])
+    /// ```
+    /// A sequence may contain nested sequences (meaning this variant
+    /// effectively allows nodes to form trees). All nested sequences can
+    /// equivalently be represented as a single flat sequence, but allowing
+    /// nesting doesn't hurt since we can just recurse into the nested sequences
+    /// during packing. Also, in theory, this allows better complexity when
+    /// adding (large) sequence nodes (just like for a text rope).
     Sequence(Vec<(Self, Styles)>),
 }
 
@@ -71,6 +91,7 @@ impl Node {
         match self {
             Self::Inline(inline) => Self::Inline(inline.styled(styles)),
             Self::Block(block) => Self::Block(block.styled(styles)),
+            Self::Page(page) => Self::Page(page.styled(styles)),
             other => Self::Sequence(vec![(other, styles)]),
         }
     }
@@ -224,11 +245,12 @@ impl Packer {
             Node::Block(block) => {
                 self.push_block(block.styled(styles));
             }
-            Node::Page(flow) => {
+            Node::Page(page) => {
                 if self.top {
                     self.pagebreak();
-                    self.pages.push(PageNode { child: flow, styles });
+                    self.pages.push(page.styled(styles));
                 } else {
+                    let flow = page.child.styled(page.styles);
                     self.push_block(flow.styled(styles));
                 }
             }
@@ -387,15 +409,27 @@ impl<T> Default for Builder<T> {
     }
 }
 
-/// Finite state machine for spacing coalescing.
+/// The kind of node that was last added to a flow or paragraph. A small finite
+/// state machine used to coalesce spaces.
+///
+/// Soft nodes can only exist when surrounded by `Any` nodes. Not at the
+/// start, end or next to hard nodes. This way, spaces at start and end of
+/// paragraphs and next to `#h(..)` goes away.
 enum Last<N> {
+    /// Start state, nothing there.
     None,
+    /// Text or a block node or something.
     Any,
+    /// Hard nodes: Linebreaks and explicit spacing.
     Hard,
+    /// Soft nodes: Word spaces and paragraph breaks. These are saved here
+    /// temporarily and then applied once an `Any` node appears.
     Soft(N),
 }
 
 impl<N> Last<N> {
+    /// Transition into the `Any` state and return a soft node to really add
+    /// now if currently in `Soft` state.
     fn any(&mut self) -> Option<N> {
         match mem::replace(self, Self::Any) {
             Self::Soft(soft) => Some(soft),
@@ -403,12 +437,16 @@ impl<N> Last<N> {
         }
     }
 
+    /// Transition into the `Soft` state, but only if in `Any`. Otherwise, the
+    /// soft node is discarded.
     fn soft(&mut self, soft: N) {
         if let Self::Any = self {
             *self = Self::Soft(soft);
         }
     }
 
+    /// Transition into the `Hard` state, discarding a possibly existing soft
+    /// node and preventing further soft nodes from being added.
     fn hard(&mut self) {
         *self = Self::Hard;
     }

@@ -3,7 +3,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
-// Possible optimizations:
+// TODO(style): Possible optimizations:
 // - Ref-count map for cheaper cloning and smaller footprint
 // - Store map in `Option` to make empty maps non-allocating
 // - Store small properties inline

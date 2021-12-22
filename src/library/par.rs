@@ -43,7 +43,7 @@ impl Construct for ParNode {
 }
 
 impl Set for ParNode {
-    fn set(styles: &mut Styles, args: &mut Args) -> TypResult<()> {
+    fn set(args: &mut Args, styles: &mut Styles) -> TypResult<()> {
         let spacing = args.named("spacing")?;
         let leading = args.named("leading")?;
 

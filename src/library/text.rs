@@ -133,7 +133,7 @@ impl Construct for TextNode {
 }
 
 impl Set for TextNode {
-    fn set(styles: &mut Styles, args: &mut Args) -> TypResult<()> {
+    fn set(args: &mut Args, styles: &mut Styles) -> TypResult<()> {
         let list = args.named("family")?.or_else(|| {
             let families: Vec<_> = args.all().collect();
             (!families.is_empty()).then(|| families)

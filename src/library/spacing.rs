@@ -16,12 +16,12 @@ pub fn v(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     )))
 }
 
-/// A single run of text with the same style.
+/// Explicit spacing in a flow or paragraph.
 #[derive(Hash)]
 pub struct SpacingNode {
     /// The kind of spacing.
     pub kind: SpacingKind,
-    /// The rspacing's styles.
+    /// The spacing's styles.
     pub styles: Styles,
 }
 

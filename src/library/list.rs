@@ -35,7 +35,7 @@ impl<L: Labelling> Construct for ListNode<L> {
 }
 
 impl<L: Labelling> Set for ListNode<L> {
-    fn set(styles: &mut Styles, args: &mut Args) -> TypResult<()> {
+    fn set(args: &mut Args, styles: &mut Styles) -> TypResult<()> {
         styles.set_opt(Self::LABEL_INDENT, args.named("label-indent")?);
         styles.set_opt(Self::BODY_INDENT, args.named("body-indent")?);
         Ok(())

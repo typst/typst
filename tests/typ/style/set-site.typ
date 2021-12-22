@@ -2,7 +2,7 @@
 // definition site of a template.
 
 ---
-// Test that text is affected by instantion-site bold.
+// Test that text is affected by instantiation-site bold.
 #let x = [World]
 Hello *{x}*
 
