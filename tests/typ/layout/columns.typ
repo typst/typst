@@ -48,6 +48,7 @@ a page for a test but it does get the job done.
 إلى جانب كل من البروتينات والليبيدات والسكريات المتعددة
 #rect(fill: eastern, height: 8pt, width: 6pt)
 الجزيئات الضخمة الأربعة الضرورية للحياة. 
+
 ---
 // Test the `colbreak` function.
 #set page(height: 1cm, width: 7.05cm, columns: 2)
@@ -69,7 +70,7 @@ C
 // Test columns when one of them is empty.
 #set page(width: auto, columns: 3)
 
-The page can grow as much as it wants horizontally.
+Arbitrary horizontal growth.
 
 ---
 // Test columns in an infinitely wide frame.
@@ -91,7 +92,7 @@ This is a normal page. Very normal.
 
 ---
 // Test a page with zero columns.
+// Error: 49-50 must be positive
 #set page(height: auto, width: 7.05cm, columns: 0)
 
-This makes less sense but will still
-produce a normal page.
+This makes less sense.

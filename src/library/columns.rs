@@ -3,12 +3,11 @@ use super::ParNode;
 
 /// `columns`: Stack children along an axis.
 pub fn columns(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let count = args.expect("column count")?;
+    let columns = args.expect("column count")?;
     let gutter = args.named("gutter")?.unwrap_or(Relative::new(0.04).into());
     let body: Node = args.expect("body")?;
-
     Ok(Value::block(ColumnsNode {
-        columns: count,
+        columns,
         gutter,
         child: body.into_block(),
     }))
@@ -23,7 +22,7 @@ pub fn colbreak(_: &mut EvalContext, _: &mut Args) -> TypResult<Value> {
 #[derive(Debug, Hash)]
 pub struct ColumnsNode {
     /// How many columns there should be.
-    pub columns: usize,
+    pub columns: NonZeroUsize,
     /// The size of the gutter space between each column.
     pub gutter: Linear,
     /// The child to be layouted into the columns. Most likely, this should be a
@@ -50,11 +49,10 @@ impl Layout for ColumnsNode {
         // `region.backlog`.
         let mut sizes = vec![];
 
-        // Assure there is at least one column.
-        let columns = self.columns.max(1);
+        let columns = self.columns.get();
 
         for (current, base) in std::iter::once((regions.current, regions.base))
-            .chain(regions.backlog.clone().into_iter().map(|s| (s, s)))
+            .chain(regions.backlog.as_slice().iter().map(|&s| (s, s)))
         {
             let gutter = self.gutter.resolve(base.x);
             gutters.push(gutter);
@@ -68,8 +66,9 @@ impl Layout for ColumnsNode {
         }
 
         let first = sizes.remove(0);
-        let mut col_regions = Regions::one(first, first, regions.expand);
-        col_regions.backlog = sizes.clone().into_iter();
+        let mut pod =
+            Regions::one(first, Spec::new(first.x, regions.base.y), regions.expand);
+        pod.backlog = sizes.clone().into_iter();
 
         // We have to treat the last region separately.
         let last_column_gutter = regions.last.map(|last| {
@@ -78,11 +77,11 @@ impl Layout for ColumnsNode {
                 (last.x - gutter * (columns - 1) as f64) / columns as f64,
                 last.y,
             );
-            col_regions.last = Some(size);
+            pod.last = Some(size);
             (size, gutter)
         });
 
-        let frames = self.child.layout(ctx, &col_regions);
+        let frames = self.child.layout(ctx, &pod);
         let dir = ctx.styles.get(ParNode::DIR);
 
         // Dealing with infinite height areas here.

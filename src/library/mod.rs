@@ -26,6 +26,7 @@ mod utility;
 /// Helpful imports for creating library functionality.
 mod prelude {
     pub use std::fmt::{self, Debug, Formatter};
+    pub use std::num::NonZeroUsize;
     pub use std::rc::Rc;
 
     pub use typst_macros::properties;
@@ -169,6 +170,15 @@ castable! {
     usize,
     Expected: "non-negative integer",
     Value::Int(int) => int.try_into().map_err(|_| "must be at least zero")?,
+}
+
+castable! {
+    prelude::NonZeroUsize,
+    Expected: "positive integer",
+    Value::Int(int) => int
+        .try_into()
+        .and_then(|n: usize| n.try_into())
+        .map_err(|_| "must be positive")?,
 }
 
 castable! {

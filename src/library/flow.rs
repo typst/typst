@@ -32,12 +32,12 @@ impl Debug for FlowNode {
 pub enum FlowChild {
     /// A paragraph/block break.
     Break(Styles),
-    /// Skip the rest of the region and move to the next.
-    Skip,
     /// Vertical spacing between other children.
     Spacing(SpacingNode),
     /// An arbitrary node.
     Node(PackedNode),
+    /// Skip the rest of the region and move to the next.
+    Skip,
 }
 
 impl FlowChild {
@@ -73,7 +73,7 @@ impl Debug for FlowChild {
             }
             Self::Spacing(node) => node.fmt(f),
             Self::Node(node) => node.fmt(f),
-            Self::Skip => write!(f, "Skip"),
+            Self::Skip => f.pad("Skip"),
         }
     }
 }

@@ -354,8 +354,8 @@ impl Packer {
 
             // Take the flow and erase any styles that will be inherited anyway.
             let Builder { mut children, styles, .. } = mem::take(&mut self.flow);
-            for child in &mut children {
-                child.styles_mut().map(|s| s.erase(&styles));
+            for local in children.iter_mut().filter_map(FlowChild::styles_mut) {
+                local.erase(&styles);
             }
 
             let flow = FlowNode(children).pack();

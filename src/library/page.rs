@@ -41,7 +41,7 @@ impl PageNode {
     /// The page's background color.
     pub const FILL: Option<Paint> = None;
     /// How many columns the page has.
-    pub const COLUMNS: usize = 1;
+    pub const COLUMNS: NonZeroUsize = NonZeroUsize::new(1).unwrap();
     /// How many columns the page has.
     pub const COLUMN_GUTTER: Linear = Relative::new(0.04).into();
 }
@@ -119,11 +119,11 @@ impl PageNode {
         };
 
         let columns = ctx.styles.get(Self::COLUMNS);
-        let child = if ctx.styles.get(Self::COLUMNS) > 1 {
+        let child = if columns.get() > 1 {
             ColumnsNode {
-                child: self.child.clone(),
                 columns,
                 gutter: ctx.styles.get(Self::COLUMN_GUTTER),
+                child: self.child.clone(),
             }
             .pack()
         } else {
