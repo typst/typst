@@ -81,7 +81,7 @@ D
 Arbitrary horizontal growth.
 
 ---
-// Test columns in an infinitely wide frame.
+// Test columns in an infinitely high frame.
 #set page(width: 7.05cm, columns: 2)
 
 There can be as much content as you want in the left column
@@ -102,7 +102,3 @@ This is a normal page. Very normal.
 // Test a page with zero columns.
 // Error: 49-50 must be positive
 #set page(height: auto, width: 7.05cm, columns: 0)
-
-This makes less sense.
-
-// colbreak in auto stroke box on sized page that should be higher than box
