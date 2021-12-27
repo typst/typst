@@ -4,6 +4,7 @@
 //! definitions.
 
 mod align;
+mod columns;
 mod flow;
 mod grid;
 mod heading;
@@ -25,6 +26,7 @@ mod utility;
 /// Helpful imports for creating library functionality.
 mod prelude {
     pub use std::fmt::{self, Debug, Formatter};
+    pub use std::num::NonZeroUsize;
     pub use std::rc::Rc;
 
     pub use typst_macros::properties;
@@ -42,6 +44,7 @@ mod prelude {
 
 pub use self::image::*;
 pub use align::*;
+pub use columns::*;
 pub use flow::*;
 pub use grid::*;
 pub use heading::*;
@@ -83,6 +86,7 @@ pub fn new() -> Scope {
 
     // Break and spacing functions.
     std.def_func("pagebreak", pagebreak);
+    std.def_func("colbreak", colbreak);
     std.def_func("parbreak", parbreak);
     std.def_func("linebreak", linebreak);
     std.def_func("h", h);
@@ -96,6 +100,7 @@ pub fn new() -> Scope {
     std.def_func("stack", stack);
     std.def_func("grid", grid);
     std.def_func("pad", pad);
+    std.def_func("columns", columns);
     std.def_func("align", align);
     std.def_func("place", place);
     std.def_func("move", move_);
@@ -165,6 +170,15 @@ castable! {
     usize,
     Expected: "non-negative integer",
     Value::Int(int) => int.try_into().map_err(|_| "must be at least zero")?,
+}
+
+castable! {
+    prelude::NonZeroUsize,
+    Expected: "positive integer",
+    Value::Int(int) => int
+        .try_into()
+        .and_then(|n: usize| n.try_into())
+        .map_err(|_| "must be positive")?,
 }
 
 castable! {

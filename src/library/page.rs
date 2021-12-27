@@ -4,7 +4,7 @@ use std::fmt::{self, Display, Formatter};
 use std::str::FromStr;
 
 use super::prelude::*;
-use super::PadNode;
+use super::{ColumnsNode, PadNode};
 
 /// `pagebreak`: Start a new page.
 pub fn pagebreak(_: &mut EvalContext, _: &mut Args) -> TypResult<Value> {
@@ -40,6 +40,10 @@ impl PageNode {
     pub const BOTTOM: Smart<Linear> = Smart::Auto;
     /// The page's background color.
     pub const FILL: Option<Paint> = None;
+    /// How many columns the page has.
+    pub const COLUMNS: NonZeroUsize = NonZeroUsize::new(1).unwrap();
+    /// How many columns the page has.
+    pub const COLUMN_GUTTER: Linear = Relative::new(0.04).into();
 }
 
 impl Construct for PageNode {
@@ -76,6 +80,8 @@ impl Set for PageNode {
         styles.set_opt(Self::RIGHT, args.named("right")?.or(margins));
         styles.set_opt(Self::BOTTOM, args.named("bottom")?.or(margins));
         styles.set_opt(Self::FILL, args.named("fill")?);
+        styles.set_opt(Self::COLUMNS, args.named("columns")?);
+        styles.set_opt(Self::COLUMN_GUTTER, args.named("column-gutter")?);
 
         Ok(())
     }
@@ -112,8 +118,20 @@ impl PageNode {
             bottom: ctx.styles.get(Self::BOTTOM).unwrap_or(default.bottom),
         };
 
+        let columns = ctx.styles.get(Self::COLUMNS);
+        let child = if columns.get() > 1 {
+            ColumnsNode {
+                columns,
+                gutter: ctx.styles.get(Self::COLUMN_GUTTER),
+                child: self.child.clone(),
+            }
+            .pack()
+        } else {
+            self.child.clone()
+        };
+
         // Pad the child.
-        let padded = PadNode { child: self.child.clone(), padding }.pack();
+        let padded = PadNode { child, padding }.pack();
 
         // Layout the child.
         let expand = size.map(Length::is_finite);
