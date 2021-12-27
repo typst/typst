@@ -69,6 +69,7 @@ impl Layout for ColumnsNode {
         let mut pod =
             Regions::one(first, Spec::new(first.x, regions.base.y), regions.expand);
         pod.backlog = sizes.clone().into_iter();
+        pod.expand.x = true;
 
         // We have to treat the last region separately.
         let last_column_gutter = regions.last.map(|last| {
@@ -81,9 +82,7 @@ impl Layout for ColumnsNode {
             (size, gutter)
         });
 
-        // We reverse the frames so they can be used as a stack.
-        let mut frames = self.child.layout(ctx, &pod);
-        frames.reverse();
+        let frames = self.child.layout(ctx, &pod);
 
         let dir = ctx.styles.get(ParNode::DIR);
 
@@ -107,30 +106,26 @@ impl Layout for ColumnsNode {
         };
         let mut cursor = Length::zero();
 
+        let mut frames = frames.into_iter();
         let mut res = vec![];
         let mut frame = Frame::new(Spec::new(regions.current.x, height));
         let total_regions = (frames.len() as f32 / columns as f32).ceil() as usize;
 
         for (i, (current, base)) in regions.iter().take(total_regions).enumerate() {
-            for col in 0 .. columns {
-                let total_col = i * columns + col;
-                let child_frame = match frames.pop() {
+            for _ in 0 .. columns {
+                let child_frame = match frames.next() {
                     Some(frame) => frame.item,
                     None => break,
                 };
 
-                let size = std::iter::once(&first)
-                    .chain(sizes.iter())
-                    .nth(total_col)
-                    .copied()
-                    .unwrap_or_else(|| last_column_gutter.unwrap().0);
+                let size = child_frame.size.x;
 
                 frame.push_frame(
-                    Point::new(to(cursor, size.x, &regions), Length::zero()),
+                    Point::new(to(cursor, size, &regions), Length::zero()),
                     child_frame,
                 );
 
-                cursor += size.x
+                cursor += size
                     + gutters
                         .get(i)
                         .copied()
