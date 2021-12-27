@@ -1,14 +1,16 @@
 // Test the column layouter.
 
 ---
-// Test columns for a sized page.
-#set page(height: 4.3cm, width: 7.05cm, columns: 2)
+// Test normal operation and RTL directions.
+#set page(height: 3.25cm, width: 7.05cm, columns: 2, column-gutter: 30pt)
+#set text("Noto Sans Arabic", serif)
+#set par(lang: "ar")
 
-Lorem ipsum dolor sit amet is a common blind text
-and I again am in need of filling up this page so I'm
-returning to this trusty tool of tangible terror.
-Sure, it is not the most creative way of filling up
-a page for a test but it does get the job done.
+#rect(fill: conifer, height: 8pt, width: 6pt) وتحفيز
+العديد من التفاعلات الكيميائية. (DNA) من أهم الأحماض النووية التي تُشكِّل
+إلى جانب كل من البروتينات والليبيدات والسكريات المتعددة
+#rect(fill: eastern, height: 8pt, width: 6pt)
+الجزيئات الضخمة الأربعة الضرورية للحياة. 
 
 ---
 // Test the `columns` function.
@@ -22,43 +24,49 @@ a page for a test but it does get the job done.
 ]))
 
 ---
-// Test more than two columns.
-#set page(height: 2cm, width: 7.05cm, columns: 3)
-#set par(align: center)
+// Test columns for a sized page.
+#set page(height: 5cm, width: 7.05cm, columns: 2)
 
-#circle(fill: eastern)
-#circle(fill: conifer)
-#circle(fill: eastern)
+Lorem ipsum dolor sit amet is a common blind text
+and I again am in need of filling up this page 
+#align(bottom, rect(fill: eastern, width: 100%, height: 12pt))
+#colbreak()
+
+so I'm returning to this trusty tool of tangible terror.
+Sure, it is not the most creative way of filling up
+a page for a test but it does get the job done.
 
 ---
-// Test setting a column gutter.
-#set page(height: 3.25cm, width: 7.05cm, columns: 2, column-gutter: 30pt)
+// Test the expansion behavior.
+#set page(height: 2.5cm, width: 7.05cm)
+
+#rect(padding: 6pt, columns(2, [
+    ABC \
+    BCD
+    #colbreak()
+    DEF
+]))
+
+---
+// Test setting a column gutter and more than two columns.
+#set page(height: 3.25cm, width: 7.05cm, columns: 3, column-gutter: 30pt)
 
 #rect(width: 100%, height: 2.5cm, fill: conifer)
 #rect(width: 100%, height: 2cm, fill: eastern)
+#circle(fill: eastern)
 
 ---
-// Test RTL columns.
-#set page(height: 3.25cm, width: 7.05cm, columns: 2, column-gutter: 30pt)
-#set text("Noto Sans Arabic", serif)
-#set par(lang: "ar")
-
-#rect(fill: conifer, height: 8pt, width: 6pt) وتحفيز
-العديد من التفاعلات الكيميائية. (DNA) من أهم الأحماض النووية التي تُشكِّل
-إلى جانب كل من البروتينات والليبيدات والسكريات المتعددة
-#rect(fill: eastern, height: 8pt, width: 6pt)
-الجزيئات الضخمة الأربعة الضرورية للحياة. 
-
----
-// Test the `colbreak` function.
+// Test the `colbreak` and `pagebreak` functions.
 #set page(height: 1cm, width: 7.05cm, columns: 2)
 
 A
 #colbreak()
 #colbreak()
 B
-#colbreak()
+#pagebreak()
 C
+#colbreak()
+D
 
 ---
 // Test an empty second column.
@@ -96,3 +104,5 @@ This is a normal page. Very normal.
 #set page(height: auto, width: 7.05cm, columns: 0)
 
 This makes less sense.
+
+// colbreak in auto stroke box on sized page that should be higher than box

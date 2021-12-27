@@ -37,7 +37,8 @@ impl Layout for ColumnsNode {
         regions: &Regions,
     ) -> Vec<Constrained<Rc<Frame>>> {
         // Separating the infinite space into infinite columns does not make
-        // much sense.
+        // much sense. Note that this line assumes that no infinitely wide
+        // region will follow if the first region's width is finite.
         if regions.current.x.is_infinite() {
             return self.child.layout(ctx, regions);
         }
@@ -53,10 +54,11 @@ impl Layout for ColumnsNode {
 
         for (current, base) in std::iter::once((regions.current, regions.base))
             .chain(regions.backlog.as_slice().iter().map(|&s| (s, s)))
+            .chain(regions.last.iter().map(|&s| (s, s)))
         {
             let gutter = self.gutter.resolve(base.x);
             gutters.push(gutter);
-            let size = Spec::new(
+            let size = Size::new(
                 (current.x - gutter * (columns - 1) as f64) / columns as f64,
                 current.y,
             );
@@ -67,35 +69,24 @@ impl Layout for ColumnsNode {
 
         let first = sizes.remove(0);
         let mut pod =
-            Regions::one(first, Spec::new(first.x, regions.base.y), regions.expand);
-        pod.backlog = sizes.clone().into_iter();
+            Regions::one(first, Size::new(first.x, regions.base.y), regions.expand);
         pod.expand.x = true;
 
-        // We have to treat the last region separately.
-        let last_column_gutter = regions.last.map(|last| {
-            let gutter = self.gutter.resolve(last.x);
-            let size = Spec::new(
-                (last.x - gutter * (columns - 1) as f64) / columns as f64,
-                last.y,
-            );
+        // Retrieve elements for the last region from the vectors.
+        let last_gutter = if regions.last.is_some() {
+            let gutter = gutters.pop().unwrap();
+            let size = sizes.drain(sizes.len() - columns ..).next().unwrap();
             pod.last = Some(size);
-            (size, gutter)
-        });
+            Some(gutter)
+        } else {
+            None
+        };
+
+        pod.backlog = sizes.into_iter();
 
         let frames = self.child.layout(ctx, &pod);
 
         let dir = ctx.styles.get(ParNode::DIR);
-
-        // Dealing with infinite height areas here.
-        let height = if regions.current.y.is_infinite() {
-            frames
-                .iter()
-                .map(|frame| frame.item.size.y)
-                .max()
-                .unwrap_or(Length::zero())
-        } else {
-            regions.current.y
-        };
 
         let to = |cursor: Length, width: Length, regions: &Regions| {
             if dir.is_positive() {
@@ -108,39 +99,43 @@ impl Layout for ColumnsNode {
 
         let mut frames = frames.into_iter();
         let mut res = vec![];
-        let mut frame = Frame::new(Spec::new(regions.current.x, height));
         let total_regions = (frames.len() as f32 / columns as f32).ceil() as usize;
 
         for (i, (current, base)) in regions.iter().take(total_regions).enumerate() {
+            // The height should be the parent height if the node shall expand.
+            // Otherwise its the maximum column height for the frame. In that
+            // case, the frame is first created with zero height and then
+            // resized.
+            let mut height = if regions.expand.y { current.y } else { Length::zero() };
+            let mut frame = Frame::new(Spec::new(regions.current.x, height));
+
             for _ in 0 .. columns {
                 let child_frame = match frames.next() {
                     Some(frame) => frame.item,
                     None => break,
                 };
 
-                let size = child_frame.size.x;
+                let width = child_frame.size.x;
+
+                if !regions.expand.y {
+                    height = height.max(child_frame.size.y);
+                }
 
                 frame.push_frame(
-                    Point::new(to(cursor, size, &regions), Length::zero()),
+                    Point::new(to(cursor, width, &regions), Length::zero()),
                     child_frame,
                 );
 
-                cursor += size
-                    + gutters
-                        .get(i)
-                        .copied()
-                        .unwrap_or_else(|| last_column_gutter.unwrap().1)
+                cursor += width
+                    + gutters.get(i).copied().unwrap_or_else(|| last_gutter.unwrap());
             }
 
-            let old_frame = std::mem::replace(
-                &mut frame,
-                Frame::new(Spec::new(regions.current.x, height)),
-            );
+            frame.size.y = height;
 
             let mut cts = Constraints::new(regions.expand);
             cts.base = base.map(Some);
             cts.exact = current.map(Some);
-            res.push(old_frame.constrain(cts));
+            res.push(frame.constrain(cts));
             cursor = Length::zero();
         }
 
