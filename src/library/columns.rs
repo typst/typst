@@ -81,7 +81,10 @@ impl Layout for ColumnsNode {
             (size, gutter)
         });
 
-        let frames = self.child.layout(ctx, &pod);
+        // We reverse the frames so they can be used as a stack.
+        let mut frames = self.child.layout(ctx, &pod);
+        frames.reverse();
+
         let dir = ctx.styles.get(ParNode::DIR);
 
         // Dealing with infinite height areas here.
@@ -95,8 +98,6 @@ impl Layout for ColumnsNode {
             regions.current.y
         };
 
-        let mut regions = regions.clone();
-
         let to = |cursor: Length, width: Length, regions: &Regions| {
             if dir.is_positive() {
                 cursor
@@ -108,47 +109,44 @@ impl Layout for ColumnsNode {
 
         let mut res = vec![];
         let mut frame = Frame::new(Spec::new(regions.current.x, height));
+        let total_regions = (frames.len() as f32 / columns as f32).ceil() as usize;
 
-        for (i, child_frame) in frames.into_iter().enumerate() {
-            let region = i / columns;
-            let size = std::iter::once(&first)
-                .chain(sizes.iter())
-                .nth(i)
-                .copied()
-                .unwrap_or_else(|| last_column_gutter.unwrap().0);
-
-            frame.push_frame(
-                Point::new(to(cursor, size.x, &regions), Length::zero()),
-                child_frame.item,
-            );
-
-            cursor += size.x;
-
-            if i % columns == columns - 1 {
-                // Refresh column height for non-infinite regions here.
-                let height = if regions.current.y.is_infinite() {
-                    height
-                } else {
-                    regions.current.y
+        for (i, (current, base)) in regions.iter().take(total_regions).enumerate() {
+            for col in 0 .. columns {
+                let total_col = i * columns + col;
+                let child_frame = match frames.pop() {
+                    Some(frame) => frame.item,
+                    None => break,
                 };
 
-                regions.next();
-                let old_frame = std::mem::replace(
-                    &mut frame,
-                    Frame::new(Spec::new(regions.current.x, height)),
-                );
-                res.push(old_frame.constrain(Constraints::tight(&regions)));
-                cursor = Length::zero();
-            } else {
-                cursor += gutters
-                    .get(region)
+                let size = std::iter::once(&first)
+                    .chain(sizes.iter())
+                    .nth(total_col)
                     .copied()
-                    .unwrap_or_else(|| last_column_gutter.unwrap().1);
-            }
-        }
+                    .unwrap_or_else(|| last_column_gutter.unwrap().0);
 
-        if !frame.elements.is_empty() {
-            res.push(frame.constrain(Constraints::tight(&regions)));
+                frame.push_frame(
+                    Point::new(to(cursor, size.x, &regions), Length::zero()),
+                    child_frame,
+                );
+
+                cursor += size.x
+                    + gutters
+                        .get(i)
+                        .copied()
+                        .unwrap_or_else(|| last_column_gutter.unwrap().1)
+            }
+
+            let old_frame = std::mem::replace(
+                &mut frame,
+                Frame::new(Spec::new(regions.current.x, height)),
+            );
+
+            let mut cts = Constraints::new(regions.expand);
+            cts.base = base.map(Some);
+            cts.exact = current.map(Some);
+            res.push(old_frame.constrain(cts));
+            cursor = Length::zero();
         }
 
         res
