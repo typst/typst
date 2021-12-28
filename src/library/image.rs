@@ -1,3 +1,5 @@
+//! Raster and vector graphics.
+
 use std::io;
 
 use super::prelude::*;
@@ -106,6 +108,12 @@ pub enum ImageFit {
     Stretch,
 }
 
+impl Default for ImageFit {
+    fn default() -> Self {
+        Self::Cover
+    }
+}
+
 castable! {
     ImageFit,
     Expected: "string",
@@ -115,10 +123,4 @@ castable! {
         "stretch" => Self::Stretch,
         _ => Err(r#"expected "cover", "contain" or "stretch""#)?,
     },
-}
-
-impl Default for ImageFit {
-    fn default() -> Self {
-        Self::Cover
-    }
 }

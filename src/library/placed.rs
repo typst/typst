@@ -1,3 +1,5 @@
+//! Absolute placement of nodes.
+
 use super::prelude::*;
 use super::AlignNode;
 

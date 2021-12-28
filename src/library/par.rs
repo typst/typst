@@ -1,3 +1,5 @@
+//! Paragraph layout.
+
 use std::fmt::{self, Debug, Formatter};
 use std::rc::Rc;
 
@@ -8,16 +10,6 @@ use xi_unicode::LineBreakIterator;
 use super::prelude::*;
 use super::{shape, ShapedText, SpacingKind, SpacingNode, TextNode};
 use crate::util::{EcoString, RangeExt, RcExt, SliceExt};
-
-/// `parbreak`: Start a new paragraph.
-pub fn parbreak(_: &mut EvalContext, _: &mut Args) -> TypResult<Value> {
-    Ok(Value::Node(Node::Parbreak))
-}
-
-/// `linebreak`: Start a new line.
-pub fn linebreak(_: &mut EvalContext, _: &mut Args) -> TypResult<Value> {
-    Ok(Value::Node(Node::Linebreak))
-}
 
 /// A node that arranges its children into a paragraph.
 #[derive(Hash)]
@@ -62,17 +54,17 @@ impl Set for ParNode {
             dir = Some(v);
         }
 
-        let mut align = None;
-        if let Some(Spanned { v, span }) = args.named::<Spanned<Align>>("align")? {
-            if v.axis() != SpecAxis::Horizontal {
-                bail!(span, "must be horizontal");
-            }
-            align = Some(v);
-        }
-
-        if let (Some(dir), None) = (dir, align) {
-            align = Some(if dir == Dir::LTR { Align::Left } else { Align::Right });
-        }
+        let align =
+            if let Some(Spanned { v, span }) = args.named::<Spanned<Align>>("align")? {
+                if v.axis() != SpecAxis::Horizontal {
+                    bail!(span, "must be horizontal");
+                }
+                Some(v)
+            } else if let Some(dir) = dir {
+                Some(if dir == Dir::LTR { Align::Left } else { Align::Right })
+            } else {
+                None
+            };
 
         styles.set_opt(Self::DIR, dir);
         styles.set_opt(Self::ALIGN, align);
@@ -107,8 +99,7 @@ impl Layout for ParNode {
 impl ParNode {
     /// Concatenate all text in the paragraph into one string, replacing spacing
     /// with a space character and other non-text nodes with the object
-    /// replacement character. Returns the full text alongside the range each
-    /// child spans in the text.
+    /// replacement character.
     fn collect_text(&self) -> String {
         let mut text = String::new();
         for string in self.strings() {
@@ -188,6 +179,16 @@ impl Debug for ParChild {
             Self::Node(node) => node.fmt(f),
         }
     }
+}
+
+/// `parbreak`: Start a new paragraph.
+pub fn parbreak(_: &mut EvalContext, _: &mut Args) -> TypResult<Value> {
+    Ok(Value::Node(Node::Parbreak))
+}
+
+/// `linebreak`: Start a new line.
+pub fn linebreak(_: &mut EvalContext, _: &mut Args) -> TypResult<Value> {
+    Ok(Value::Node(Node::Linebreak))
 }
 
 /// A paragraph representation in which children are already layouted and text

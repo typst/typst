@@ -1,47 +1,20 @@
+//! Layout along a row and column raster.
+
 use super::prelude::*;
 
 /// `grid`: Arrange children into a grid.
 pub fn grid(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    castable! {
-        Vec<TrackSizing>,
-        Expected: "integer or (auto, linear, fractional, or array thereof)",
-        Value::Auto => vec![TrackSizing::Auto],
-        Value::Length(v) => vec![TrackSizing::Linear(v.into())],
-        Value::Relative(v) => vec![TrackSizing::Linear(v.into())],
-        Value::Linear(v) => vec![TrackSizing::Linear(v)],
-        Value::Fractional(v) => vec![TrackSizing::Fractional(v)],
-        Value::Int(v) => vec![TrackSizing::Auto; Value::Int(v).cast()?],
-        Value::Array(values) => values
-            .into_iter()
-            .filter_map(|v| v.cast().ok())
-            .collect(),
-    }
-
-    castable! {
-        TrackSizing,
-        Expected: "auto, linear, or fractional",
-        Value::Auto => Self::Auto,
-        Value::Length(v) => Self::Linear(v.into()),
-        Value::Relative(v) => Self::Linear(v.into()),
-        Value::Linear(v) => Self::Linear(v),
-        Value::Fractional(v) => Self::Fractional(v),
-    }
-
     let columns = args.named("columns")?.unwrap_or_default();
     let rows = args.named("rows")?.unwrap_or_default();
-    let tracks = Spec::new(columns, rows);
-
     let base_gutter: Vec<TrackSizing> = args.named("gutter")?.unwrap_or_default();
     let column_gutter = args.named("column-gutter")?;
     let row_gutter = args.named("row-gutter")?;
-    let gutter = Spec::new(
-        column_gutter.unwrap_or_else(|| base_gutter.clone()),
-        row_gutter.unwrap_or(base_gutter),
-    );
-
     Ok(Value::block(GridNode {
-        tracks,
-        gutter,
+        tracks: Spec::new(columns, rows),
+        gutter: Spec::new(
+            column_gutter.unwrap_or_else(|| base_gutter.clone()),
+            row_gutter.unwrap_or(base_gutter),
+        ),
         children: args.all().map(Node::into_block).collect(),
     }))
 }
@@ -55,17 +28,6 @@ pub struct GridNode {
     pub gutter: Spec<Vec<TrackSizing>>,
     /// The nodes to be arranged in a grid.
     pub children: Vec<PackedNode>,
-}
-
-/// Defines how to size a grid cell along an axis.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum TrackSizing {
-    /// Fit the cell to its contents.
-    Auto,
-    /// A length stated in absolute values and/or relative to the parent's size.
-    Linear(Linear),
-    /// A length that is the fraction of the remaining free space in the parent.
-    Fractional(Fractional),
 }
 
 impl Layout for GridNode {
@@ -83,6 +45,42 @@ impl Layout for GridNode {
         // Layout the grid row-by-row.
         layouter.layout(ctx)
     }
+}
+
+/// Defines how to size a grid cell along an axis.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum TrackSizing {
+    /// Fit the cell to its contents.
+    Auto,
+    /// A length stated in absolute values and/or relative to the parent's size.
+    Linear(Linear),
+    /// A length that is the fraction of the remaining free space in the parent.
+    Fractional(Fractional),
+}
+
+castable! {
+    Vec<TrackSizing>,
+    Expected: "integer or (auto, linear, fractional, or array thereof)",
+    Value::Auto => vec![TrackSizing::Auto],
+    Value::Length(v) => vec![TrackSizing::Linear(v.into())],
+    Value::Relative(v) => vec![TrackSizing::Linear(v.into())],
+    Value::Linear(v) => vec![TrackSizing::Linear(v)],
+    Value::Fractional(v) => vec![TrackSizing::Fractional(v)],
+    Value::Int(v) => vec![TrackSizing::Auto; Value::Int(v).cast()?],
+    Value::Array(values) => values
+        .into_iter()
+        .filter_map(|v| v.cast().ok())
+        .collect(),
+}
+
+castable! {
+    TrackSizing,
+    Expected: "auto, linear, or fractional",
+    Value::Auto => Self::Auto,
+    Value::Length(v) => Self::Linear(v.into()),
+    Value::Relative(v) => Self::Linear(v.into()),
+    Value::Linear(v) => Self::Linear(v),
+    Value::Fractional(v) => Self::Fractional(v),
 }
 
 /// Performs grid layout.

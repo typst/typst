@@ -1,3 +1,5 @@
+//! Document-structuring section headings.
+
 use super::prelude::*;
 use super::{FontFamily, TextNode};
 

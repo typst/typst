@@ -94,10 +94,6 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
                 if let (Some(&a), Some(&b)) =
                     (a.downcast::<Align>(), b.downcast::<Align>())
                 {
-                    dynamic! {
-                        Spec<Align>: "2d alignment",
-                    }
-
                     return if a.axis() != b.axis() {
                         Ok(Dyn(Dynamic::new(match a.axis() {
                             SpecAxis::Horizontal => Spec { x: a, y: b },

@@ -1,3 +1,5 @@
+//! Computational utility functions.
+
 use std::cmp::Ordering;
 use std::str::FromStr;
 
@@ -44,7 +46,7 @@ pub fn join(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     Ok(result)
 }
 
-/// `int`: Try to convert a value to a integer.
+/// `int`: Convert a value to a integer.
 pub fn int(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let Spanned { v, span } = args.expect("value")?;
     Ok(Value::Int(match v {
@@ -59,7 +61,7 @@ pub fn int(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     }))
 }
 
-/// `float`: Try to convert a value to a float.
+/// `float`: Convert a value to a float.
 pub fn float(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let Spanned { v, span } = args.expect("value")?;
     Ok(Value::Float(match v {

@@ -1,3 +1,5 @@
+//! Unordered (bulleted) and ordered (numbered) lists.
+
 use std::hash::Hash;
 
 use super::prelude::*;

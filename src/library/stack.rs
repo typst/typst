@@ -1,3 +1,5 @@
+//! Side-by-side layout of nodes along an axis.
+
 use std::fmt::{self, Debug, Formatter};
 
 use super::prelude::*;
@@ -215,17 +217,17 @@ impl<'a> StackLayouter<'a> {
         }
 
         let mut output = Frame::new(size);
-        let mut before = Length::zero();
+        let mut cursor = Length::zero();
         let mut ruler: Align = self.stack.dir.start().into();
 
         // Place all frames.
         for item in self.items.drain(..) {
             match item {
                 StackItem::Absolute(v) => {
-                    before += v;
+                    cursor += v;
                 }
                 StackItem::Fractional(v) => {
-                    before += v.resolve(self.fr, remaining);
+                    cursor += v.resolve(self.fr, remaining);
                 }
                 StackItem::Frame(frame, align) => {
                     if self.stack.dir.is_positive() {
@@ -239,13 +241,13 @@ impl<'a> StackLayouter<'a> {
                     let child = frame.size.get(self.axis);
                     let block = ruler.resolve(parent - self.used.main)
                         + if self.stack.dir.is_positive() {
-                            before
+                            cursor
                         } else {
-                            self.used.main - child - before
+                            self.used.main - child - cursor
                         };
 
                     let pos = Gen::new(Length::zero(), block).to_point(self.axis);
-                    before += child;
+                    cursor += child;
                     output.push_frame(pos, frame);
                 }
             }

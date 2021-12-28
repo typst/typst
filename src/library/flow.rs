@@ -1,3 +1,5 @@
+//! A flow of paragraphs and other block-level nodes.
+
 use std::fmt::{self, Debug, Formatter};
 
 use super::prelude::*;

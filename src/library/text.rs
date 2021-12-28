@@ -1,3 +1,5 @@
+//! Text shaping and styling.
+
 use std::borrow::Cow;
 use std::convert::TryInto;
 use std::fmt::{self, Debug, Formatter};
@@ -14,33 +16,6 @@ use crate::font::{
 };
 use crate::geom::{Dir, Em, Length, Point, Size};
 use crate::util::{EcoString, SliceExt};
-
-/// `strike`: Typeset striken-through text.
-pub fn strike(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    line_impl(args, LineKind::Strikethrough)
-}
-
-/// `underline`: Typeset underlined text.
-pub fn underline(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    line_impl(args, LineKind::Underline)
-}
-
-/// `overline`: Typeset text with an overline.
-pub fn overline(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    line_impl(args, LineKind::Overline)
-}
-
-fn line_impl(args: &mut Args, kind: LineKind) -> TypResult<Value> {
-    let stroke = args.named("stroke")?.or_else(|| args.find());
-    let thickness = args.named::<Linear>("thickness")?.or_else(|| args.find());
-    let offset = args.named("offset")?;
-    let extent = args.named("extent")?.unwrap_or_default();
-    let body: Node = args.expect("body")?;
-    let deco = LineDecoration { kind, stroke, thickness, offset, extent };
-    Ok(Value::Node(
-        body.styled(Styles::one(TextNode::LINES, vec![deco])),
-    ))
-}
 
 /// A single run of text with the same style.
 #[derive(Hash)]
@@ -216,6 +191,21 @@ impl Debug for FontFamily {
     }
 }
 
+dynamic! {
+    FontFamily: "font family",
+    Value::Str(string) => Self::named(&string),
+}
+
+castable! {
+    Vec<FontFamily>,
+    Expected: "string, generic family or array thereof",
+    Value::Str(string) => vec![FontFamily::named(&string)],
+    Value::Array(values) => {
+        values.into_iter().filter_map(|v| v.cast().ok()).collect()
+    },
+    @family: FontFamily => vec![family.clone()],
+}
+
 /// A specific font family like "Arial".
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub struct NamedFamily(String);
@@ -236,21 +226,6 @@ impl Debug for NamedFamily {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         self.0.fmt(f)
     }
-}
-
-dynamic! {
-    FontFamily: "font family",
-    Value::Str(string) => Self::named(&string),
-}
-
-castable! {
-    Vec<FontFamily>,
-    Expected: "string, generic family or array thereof",
-    Value::Str(string) => vec![FontFamily::named(&string)],
-    Value::Array(values) => {
-        values.into_iter().filter_map(|v| v.cast().ok()).collect()
-    },
-    @family: FontFamily => vec![family.clone()],
 }
 
 castable! {
@@ -419,6 +394,33 @@ castable! {
             Some((tag, num))
         })
         .collect(),
+}
+
+/// `strike`: Typeset striken-through text.
+pub fn strike(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
+    line_impl(args, LineKind::Strikethrough)
+}
+
+/// `underline`: Typeset underlined text.
+pub fn underline(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
+    line_impl(args, LineKind::Underline)
+}
+
+/// `overline`: Typeset text with an overline.
+pub fn overline(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
+    line_impl(args, LineKind::Overline)
+}
+
+fn line_impl(args: &mut Args, kind: LineKind) -> TypResult<Value> {
+    let stroke = args.named("stroke")?.or_else(|| args.find());
+    let thickness = args.named::<Linear>("thickness")?.or_else(|| args.find());
+    let offset = args.named("offset")?;
+    let extent = args.named("extent")?.unwrap_or_default();
+    let body: Node = args.expect("body")?;
+    let deco = LineDecoration { kind, stroke, thickness, offset, extent };
+    Ok(Value::Node(
+        body.styled(Styles::one(TextNode::LINES, vec![deco])),
+    ))
 }
 
 /// Defines a line that is positioned over, under or on top of text.

@@ -1,3 +1,5 @@
+//! Colorable geometrical shapes.
+
 use std::f64::consts::SQRT_2;
 
 use super::prelude::*;

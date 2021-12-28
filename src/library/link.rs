@@ -1,3 +1,5 @@
+//! Hyperlinking.
+
 use super::prelude::*;
 use crate::util::EcoString;
 

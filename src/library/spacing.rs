@@ -1,3 +1,5 @@
+//! Horizontal and vertical spacing between nodes.
+
 use super::prelude::*;
 
 /// `h`: Horizontal spacing.

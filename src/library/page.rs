@@ -1,15 +1,10 @@
-#![allow(unused)]
+//! Pages of paper.
 
 use std::fmt::{self, Display, Formatter};
 use std::str::FromStr;
 
 use super::prelude::*;
 use super::{ColumnsNode, PadNode};
-
-/// `pagebreak`: Start a new page.
-pub fn pagebreak(_: &mut EvalContext, _: &mut Args) -> TypResult<Value> {
-    Ok(Value::Node(Node::Pagebreak))
-}
 
 /// Layouts its child onto one or multiple pages.
 #[derive(Clone, PartialEq, Hash)]
@@ -42,7 +37,7 @@ impl PageNode {
     pub const FILL: Option<Paint> = None;
     /// How many columns the page has.
     pub const COLUMNS: NonZeroUsize = NonZeroUsize::new(1).unwrap();
-    /// How many columns the page has.
+    /// How much space is between the page's columns.
     pub const COLUMN_GUTTER: Linear = Relative::new(0.04).into();
 }
 
@@ -74,11 +69,12 @@ impl Set for PageNode {
         }
 
         let margins = args.named("margins")?;
-        styles.set_opt(Self::FLIPPED, args.named("flipped")?);
         styles.set_opt(Self::LEFT, args.named("left")?.or(margins));
         styles.set_opt(Self::TOP, args.named("top")?.or(margins));
         styles.set_opt(Self::RIGHT, args.named("right")?.or(margins));
         styles.set_opt(Self::BOTTOM, args.named("bottom")?.or(margins));
+
+        styles.set_opt(Self::FLIPPED, args.named("flipped")?);
         styles.set_opt(Self::FILL, args.named("fill")?);
         styles.set_opt(Self::COLUMNS, args.named("columns")?);
         styles.set_opt(Self::COLUMN_GUTTER, args.named("column-gutter")?);
@@ -163,6 +159,36 @@ impl Debug for PageNode {
     }
 }
 
+/// `pagebreak`: Start a new page.
+pub fn pagebreak(_: &mut EvalContext, _: &mut Args) -> TypResult<Value> {
+    Ok(Value::Node(Node::Pagebreak))
+}
+
+/// Defines default margins for a class of related papers.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum PaperClass {
+    Custom,
+    Base,
+    US,
+    Newspaper,
+    Book,
+}
+
+impl PaperClass {
+    /// The default margins for this page class.
+    fn default_margins(self) -> Sides<Linear> {
+        let f = |r| Relative::new(r).into();
+        let s = |l, t, r, b| Sides::new(f(l), f(t), f(r), f(b));
+        match self {
+            Self::Custom => s(0.1190, 0.0842, 0.1190, 0.0842),
+            Self::Base => s(0.1190, 0.0842, 0.1190, 0.0842),
+            Self::US => s(0.1760, 0.1092, 0.1760, 0.0910),
+            Self::Newspaper => s(0.0455, 0.0587, 0.0455, 0.0294),
+            Self::Book => s(0.1200, 0.0852, 0.1500, 0.0965),
+        }
+    }
+}
+
 /// Specification of a paper.
 #[derive(Debug, Copy, Clone)]
 pub struct Paper {
@@ -197,37 +223,6 @@ impl Default for Paper {
     }
 }
 
-castable! {
-    Paper,
-    Expected: "string",
-    Value::Str(string) => Paper::from_str(&string).map_err(|e| e.to_string())?,
-}
-
-/// Defines default margins for a class of related papers.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum PaperClass {
-    Custom,
-    Base,
-    US,
-    Newspaper,
-    Book,
-}
-
-impl PaperClass {
-    /// The default margins for this page class.
-    fn default_margins(self) -> Sides<Linear> {
-        let f = |r| Relative::new(r).into();
-        let s = |l, t, r, b| Sides::new(f(l), f(t), f(r), f(b));
-        match self {
-            Self::Custom => s(0.1190, 0.0842, 0.1190, 0.0842),
-            Self::Base => s(0.1190, 0.0842, 0.1190, 0.0842),
-            Self::US => s(0.1760, 0.1092, 0.1760, 0.0910),
-            Self::Newspaper => s(0.0455, 0.0587, 0.0455, 0.0294),
-            Self::Book => s(0.1200, 0.0852, 0.1500, 0.0965),
-        }
-    }
-}
-
 /// Defines paper constants and a paper parsing implementation.
 macro_rules! papers {
     ($(($var:ident: $class:ident, $width:expr, $height: expr, $($pats:tt)*))*) => {
@@ -252,18 +247,6 @@ macro_rules! papers {
                 }
             }
         }
-
-        /// The error when parsing a [`Paper`] from a string fails.
-        #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-        pub struct ParsePaperError;
-
-        impl Display for ParsePaperError {
-            fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-                f.pad("invalid paper name")
-            }
-        }
-
-        impl std::error::Error for ParsePaperError {}
     };
 }
 
@@ -421,3 +404,21 @@ papers! {
     (PRESENTATION_16_9:    Base,      297.0, 167.0625, "presentation-16-9")
     (PRESENTATION_4_3:     Base,      280.0, 210.0,    "presentation-4-3")
 }
+
+castable! {
+    Paper,
+    Expected: "string",
+    Value::Str(string) => Paper::from_str(&string).map_err(|e| e.to_string())?,
+}
+
+/// The error when parsing a [`Paper`] from a string fails.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct ParsePaperError;
+
+impl Display for ParsePaperError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.pad("invalid paper name")
+    }
+}
+
+impl std::error::Error for ParsePaperError {}

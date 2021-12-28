@@ -3,44 +3,25 @@
 //! Call [`new`] to obtain a [`Scope`] containing all standard library
 //! definitions.
 
-mod align;
-mod columns;
-mod flow;
-mod grid;
-mod heading;
-mod image;
-mod link;
-mod list;
-mod pad;
-mod page;
-mod par;
-mod placed;
-mod shape;
-mod sized;
-mod spacing;
-mod stack;
-mod text;
-mod transform;
-mod utility;
-
-/// Helpful imports for creating library functionality.
-mod prelude {
-    pub use std::fmt::{self, Debug, Formatter};
-    pub use std::num::NonZeroUsize;
-    pub use std::rc::Rc;
-
-    pub use typst_macros::properties;
-
-    pub use crate::diag::{At, TypResult};
-    pub use crate::eval::{
-        Args, Construct, EvalContext, Node, Property, Set, Smart, Styles, Value,
-    };
-    pub use crate::frame::*;
-    pub use crate::geom::*;
-    pub use crate::layout::*;
-    pub use crate::syntax::{Span, Spanned};
-    pub use crate::util::{EcoString, OptionExt};
-}
+pub mod align;
+pub mod columns;
+pub mod flow;
+pub mod grid;
+pub mod heading;
+pub mod image;
+pub mod link;
+pub mod list;
+pub mod pad;
+pub mod page;
+pub mod par;
+pub mod placed;
+pub mod shape;
+pub mod sized;
+pub mod spacing;
+pub mod stack;
+pub mod text;
+pub mod transform;
+pub mod utility;
 
 pub use self::image::*;
 pub use align::*;
@@ -62,8 +43,37 @@ pub use text::*;
 pub use transform::*;
 pub use utility::*;
 
-use crate::eval::{Scope, Value};
-use crate::geom::*;
+macro_rules! prelude {
+    ($($reexport:item)*) => {
+        /// Helpful imports for creating library functionality.
+        pub mod prelude {
+            $(#[doc(no_inline)] $reexport)*
+        }
+    };
+}
+
+prelude! {
+    pub use std::fmt::{self, Debug, Formatter};
+    pub use std::num::NonZeroUsize;
+    pub use std::rc::Rc;
+
+    pub use typst_macros::properties;
+
+    pub use crate::diag::{At, TypResult};
+    pub use crate::eval::{
+        Args, Construct, EvalContext, Node, Property, Set, Smart, Styles, Value,
+    };
+    pub use crate::frame::*;
+    pub use crate::geom::*;
+    pub use crate::layout::{
+        Constrain, Constrained, Constraints, Layout, LayoutContext, PackedNode, Regions,
+    };
+    pub use crate::syntax::{Span, Spanned};
+    pub use crate::util::{EcoString, OptionExt};
+}
+
+use crate::eval::Scope;
+use prelude::*;
 
 /// Construct a scope containing all standard library definitions.
 pub fn new() -> Scope {
@@ -78,9 +88,8 @@ pub fn new() -> Scope {
     std.def_class::<ListNode<Ordered>>("enum");
 
     // Text functions.
-    // TODO(style): These should be classes, once that works for inline nodes.
-    std.def_func("strike", strike);
     std.def_func("underline", underline);
+    std.def_func("strike", strike);
     std.def_func("overline", overline);
     std.def_func("link", link);
 
@@ -93,8 +102,6 @@ pub fn new() -> Scope {
     std.def_func("v", v);
 
     // Layout functions.
-    // TODO(style): Decide which of these should be classes
-    // (and which of their properties should be settable).
     std.def_func("box", box_);
     std.def_func("block", block);
     std.def_func("stack", stack);
@@ -161,24 +168,24 @@ dynamic! {
 }
 
 castable! {
-    Paint,
-    Expected: "color",
-    Value::Color(color) => Paint::Solid(color),
-}
-
-castable! {
     usize,
     Expected: "non-negative integer",
     Value::Int(int) => int.try_into().map_err(|_| "must be at least zero")?,
 }
 
 castable! {
-    prelude::NonZeroUsize,
+    NonZeroUsize,
     Expected: "positive integer",
     Value::Int(int) => int
         .try_into()
-        .and_then(|n: usize| n.try_into())
+        .and_then(usize::try_into)
         .map_err(|_| "must be positive")?,
+}
+
+castable! {
+    Paint,
+    Expected: "color",
+    Value::Color(color) => Paint::Solid(color),
 }
 
 castable! {

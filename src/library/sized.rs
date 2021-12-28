@@ -1,3 +1,5 @@
+//! Horizontal and vertical sizing of nodes.
+
 use super::prelude::*;
 
 /// `box`: Size content and place it into a paragraph.

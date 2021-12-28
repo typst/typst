@@ -1,3 +1,5 @@
+//! Affine transformations on nodes.
+
 use super::prelude::*;
 use crate::geom::Transform;
 
@@ -20,7 +22,7 @@ pub fn scale(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 
 /// `rotate`: Rotate content without affecting layout.
 pub fn rotate(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let angle = args.expect("angle")?;
+    let angle = args.named("angle")?.or_else(|| args.find()).unwrap_or_default();
     let transform = Transform::rotation(angle);
     transform_impl(args, transform)
 }

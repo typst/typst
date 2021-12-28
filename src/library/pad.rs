@@ -1,3 +1,5 @@
+//! Surrounding nodes with extra space.
+
 use super::prelude::*;
 
 /// `pad`: Pad content at the sides.
