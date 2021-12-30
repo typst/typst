@@ -23,7 +23,7 @@ pub struct TextNode {
     /// The run's text.
     pub text: EcoString,
     /// The run's styles.
-    pub styles: Styles,
+    pub styles: StyleMap,
 }
 
 #[properties]
@@ -108,7 +108,7 @@ impl Construct for TextNode {
 }
 
 impl Set for TextNode {
-    fn set(args: &mut Args, styles: &mut Styles) -> TypResult<()> {
+    fn set(args: &mut Args, styles: &mut StyleMap) -> TypResult<()> {
         let list = args.named("family")?.or_else(|| {
             let families: Vec<_> = args.all().collect();
             (!families.is_empty()).then(|| families)
@@ -412,7 +412,7 @@ fn line_impl(args: &mut Args, kind: LineKind) -> TypResult<Value> {
     let body: Node = args.expect("body")?;
     let deco = LineDecoration { kind, stroke, thickness, offset, extent };
     Ok(Value::Node(
-        body.styled(Styles::one(TextNode::LINES, vec![deco])),
+        body.styled(StyleMap::with(TextNode::LINES, vec![deco])),
     ))
 }
 
@@ -449,7 +449,7 @@ pub enum LineKind {
 pub fn shape<'a>(
     fonts: &mut FontStore,
     text: &'a str,
-    styles: Styles,
+    styles: StyleChain<'a>,
     dir: Dir,
 ) -> ShapedText<'a> {
     let mut glyphs = vec![];
@@ -459,16 +459,16 @@ pub fn shape<'a>(
             &mut glyphs,
             0,
             text,
-            variant(&styles),
-            families(&styles),
+            variant(styles),
+            families(styles),
             None,
             dir,
-            &tags(&styles),
+            &tags(styles),
         );
     }
 
     track(&mut glyphs, styles.get(TextNode::TRACKING));
-    let (size, baseline) = measure(fonts, &glyphs, &styles);
+    let (size, baseline) = measure(fonts, &glyphs, styles);
 
     ShapedText {
         text,
@@ -627,7 +627,7 @@ fn track(glyphs: &mut [ShapedGlyph], tracking: Em) {
 fn measure(
     fonts: &mut FontStore,
     glyphs: &[ShapedGlyph],
-    styles: &Styles,
+    styles: StyleChain,
 ) -> (Size, Length) {
     let mut width = Length::zero();
     let mut top = Length::zero();
@@ -667,7 +667,7 @@ fn measure(
 }
 
 /// Resolve the font variant with `STRONG` and `EMPH` factored in.
-fn variant(styles: &Styles) -> FontVariant {
+fn variant(styles: StyleChain) -> FontVariant {
     let mut variant = FontVariant::new(
         styles.get(TextNode::STYLE),
         styles.get(TextNode::WEIGHT),
@@ -690,7 +690,7 @@ fn variant(styles: &Styles) -> FontVariant {
 }
 
 /// Resolve a prioritized iterator over the font families.
-fn families(styles: &Styles) -> impl Iterator<Item = &str> + Clone {
+fn families(styles: StyleChain) -> impl Iterator<Item = &str> + Clone {
     let head = if styles.get(TextNode::MONOSPACE) {
         styles.get_ref(TextNode::MONOSPACE_LIST).as_slice()
     } else {
@@ -719,7 +719,7 @@ fn families(styles: &Styles) -> impl Iterator<Item = &str> + Clone {
 }
 
 /// Collect the tags of the OpenType features to apply.
-fn tags(styles: &Styles) -> Vec<Feature> {
+fn tags(styles: StyleChain) -> Vec<Feature> {
     let mut tags = vec![];
     let mut feat = |tag, value| {
         tags.push(Feature::new(Tag::from_bytes(tag), value, ..));
@@ -803,8 +803,7 @@ pub struct ShapedText<'a> {
     /// The text direction.
     pub dir: Dir,
     /// The text's style properties.
-    // TODO(style): Go back to reference.
-    pub styles: Styles,
+    pub styles: StyleChain<'a>,
     /// The font size.
     pub size: Size,
     /// The baseline from the top of the frame.
@@ -858,7 +857,7 @@ impl<'a> ShapedText<'a> {
             frame.push(pos, Element::Text(text));
 
             // Apply line decorations.
-            for line in self.styles.get_ref(TextNode::LINES) {
+            for line in self.styles.get_cloned(TextNode::LINES) {
                 let face = fonts.get(face_id);
                 let metrics = match line.kind {
                     LineKind::Underline => face.underline,
@@ -905,7 +904,7 @@ impl<'a> ShapedText<'a> {
         text_range: Range<usize>,
     ) -> ShapedText<'a> {
         if let Some(glyphs) = self.slice_safe_to_break(text_range.clone()) {
-            let (size, baseline) = measure(fonts, glyphs, &self.styles);
+            let (size, baseline) = measure(fonts, glyphs, self.styles);
             Self {
                 text: &self.text[text_range],
                 dir: self.dir,

@@ -86,7 +86,7 @@ pub struct EvalContext<'a> {
     /// The active scopes.
     pub scopes: Scopes<'a>,
     /// The active styles.
-    pub styles: Styles,
+    pub styles: StyleMap,
 }
 
 impl<'a> EvalContext<'a> {
@@ -99,7 +99,7 @@ impl<'a> EvalContext<'a> {
             route: vec![source],
             modules: HashMap::new(),
             scopes: Scopes::new(Some(&ctx.std)),
-            styles: Styles::new(),
+            styles: StyleMap::new(),
         }
     }
 

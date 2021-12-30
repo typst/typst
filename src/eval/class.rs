@@ -2,7 +2,7 @@ use std::fmt::{self, Debug, Formatter, Write};
 use std::marker::PhantomData;
 use std::rc::Rc;
 
-use super::{Args, EvalContext, Node, Styles};
+use super::{Args, EvalContext, Node, StyleMap};
 use crate::diag::TypResult;
 use crate::util::EcoString;
 
@@ -66,7 +66,7 @@ impl Class {
     /// This parses both property and data arguments (in this order) and styles
     /// the node constructed from the data with the style properties.
     pub fn construct(&self, ctx: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
-        let mut styles = Styles::new();
+        let mut styles = StyleMap::new();
         self.set(args, &mut styles)?;
         let node = self.0.shim.construct(ctx, args)?;
         Ok(node.styled(styles))
@@ -76,7 +76,7 @@ impl Class {
     ///
     /// This parses property arguments and writes the resulting styles into the
     /// given style map. There are no further side effects.
-    pub fn set(&self, args: &mut Args, styles: &mut Styles) -> TypResult<()> {
+    pub fn set(&self, args: &mut Args, styles: &mut StyleMap) -> TypResult<()> {
         self.0.shim.set(args, styles)
     }
 }
@@ -113,14 +113,14 @@ pub trait Construct {
 pub trait Set {
     /// Parse the arguments and insert style properties of this class into the
     /// given style map.
-    fn set(args: &mut Args, styles: &mut Styles) -> TypResult<()>;
+    fn set(args: &mut Args, styles: &mut StyleMap) -> TypResult<()>;
 }
 
 /// Rewires the operations available on a class in an object-safe way. This is
 /// only implemented by the zero-sized `Shim` struct.
 trait Bounds {
     fn construct(&self, ctx: &mut EvalContext, args: &mut Args) -> TypResult<Node>;
-    fn set(&self, args: &mut Args, styles: &mut Styles) -> TypResult<()>;
+    fn set(&self, args: &mut Args, styles: &mut StyleMap) -> TypResult<()>;
 }
 
 struct Shim<T>(PhantomData<T>);
@@ -133,7 +133,7 @@ where
         T::construct(ctx, args)
     }
 
-    fn set(&self, args: &mut Args, styles: &mut Styles) -> TypResult<()> {
+    fn set(&self, args: &mut Args, styles: &mut StyleMap) -> TypResult<()> {
         T::set(args, styles)
     }
 }

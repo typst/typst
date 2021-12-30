@@ -12,7 +12,7 @@ pub struct PageNode {
     /// The node producing the content.
     pub child: PackedNode,
     /// The page's styles.
-    pub styles: Styles,
+    pub styles: StyleMap,
 }
 
 #[properties]
@@ -44,14 +44,14 @@ impl PageNode {
 impl Construct for PageNode {
     fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
         Ok(Node::Page(Self {
-            styles: Styles::new(),
             child: args.expect("body")?,
+            styles: StyleMap::new(),
         }))
     }
 }
 
 impl Set for PageNode {
-    fn set(args: &mut Args, styles: &mut Styles) -> TypResult<()> {
+    fn set(args: &mut Args, styles: &mut StyleMap) -> TypResult<()> {
         if let Some(paper) = args.named::<Paper>("paper")?.or_else(|| args.find()) {
             styles.set(Self::CLASS, paper.class());
             styles.set(Self::WIDTH, Smart::Custom(paper.width()));
@@ -85,41 +85,40 @@ impl Set for PageNode {
 
 impl PageNode {
     /// Style the node with styles from a style map.
-    pub fn styled(mut self, styles: Styles) -> Self {
+    pub fn styled(mut self, styles: StyleMap) -> Self {
         self.styles.apply(&styles);
         self
     }
 
     /// Layout the page run into a sequence of frames, one per page.
-    pub fn layout(&self, ctx: &mut LayoutContext) -> Vec<Rc<Frame>> {
-        let prev = ctx.styles.clone();
-        ctx.styles = self.styles.chain(&ctx.styles);
+    pub fn layout(&self, ctx: &mut LayoutContext, styles: StyleChain) -> Vec<Rc<Frame>> {
+        let styles = self.styles.chain(&styles);
 
         // When one of the lengths is infinite the page fits its content along
         // that axis.
-        let width = ctx.styles.get(Self::WIDTH).unwrap_or(Length::inf());
-        let height = ctx.styles.get(Self::HEIGHT).unwrap_or(Length::inf());
+        let width = styles.get(Self::WIDTH).unwrap_or(Length::inf());
+        let height = styles.get(Self::HEIGHT).unwrap_or(Length::inf());
         let mut size = Size::new(width, height);
-        if ctx.styles.get(Self::FLIPPED) {
+        if styles.get(Self::FLIPPED) {
             std::mem::swap(&mut size.x, &mut size.y);
         }
 
         // Determine the margins.
-        let class = ctx.styles.get(Self::CLASS);
+        let class = styles.get(Self::CLASS);
         let default = class.default_margins();
         let padding = Sides {
-            left: ctx.styles.get(Self::LEFT).unwrap_or(default.left),
-            right: ctx.styles.get(Self::RIGHT).unwrap_or(default.right),
-            top: ctx.styles.get(Self::TOP).unwrap_or(default.top),
-            bottom: ctx.styles.get(Self::BOTTOM).unwrap_or(default.bottom),
+            left: styles.get(Self::LEFT).unwrap_or(default.left),
+            right: styles.get(Self::RIGHT).unwrap_or(default.right),
+            top: styles.get(Self::TOP).unwrap_or(default.top),
+            bottom: styles.get(Self::BOTTOM).unwrap_or(default.bottom),
         };
 
         // Realize columns with columns node.
-        let columns = ctx.styles.get(Self::COLUMNS);
+        let columns = styles.get(Self::COLUMNS);
         let child = if columns.get() > 1 {
             ColumnsNode {
                 columns,
-                gutter: ctx.styles.get(Self::COLUMN_GUTTER),
+                gutter: styles.get(Self::COLUMN_GUTTER),
                 child: self.child.clone(),
             }
             .pack()
@@ -133,18 +132,20 @@ impl PageNode {
         // Layout the child.
         let expand = size.map(Length::is_finite);
         let regions = Regions::repeat(size, size, expand);
-        let mut frames: Vec<_> =
-            child.layout(ctx, &regions).into_iter().map(|c| c.item).collect();
+        let mut frames: Vec<_> = child
+            .layout(ctx, &regions, styles)
+            .into_iter()
+            .map(|c| c.item)
+            .collect();
 
         // Add background fill if requested.
-        if let Some(fill) = ctx.styles.get(Self::FILL) {
+        if let Some(fill) = styles.get(Self::FILL) {
             for frame in &mut frames {
                 let shape = Shape::filled(Geometry::Rect(frame.size), fill);
                 Rc::make_mut(frame).prepend(Point::zero(), Element::Shape(shape));
             }
         }
 
-        ctx.styles = prev;
         frames
     }
 }

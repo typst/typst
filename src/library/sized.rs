@@ -30,6 +30,7 @@ impl Layout for SizedNode {
         &self,
         ctx: &mut LayoutContext,
         regions: &Regions,
+        styles: StyleChain,
     ) -> Vec<Constrained<Rc<Frame>>> {
         let is_auto = self.sizing.map_is_none();
         let is_rel = self.sizing.map(|s| s.map_or(false, Linear::is_relative));
@@ -51,7 +52,7 @@ impl Layout for SizedNode {
             Regions::one(size, base, expand)
         };
 
-        let mut frames = self.child.layout(ctx, &pod);
+        let mut frames = self.child.layout(ctx, &pod, styles);
         let Constrained { item: frame, cts } = &mut frames[0];
 
         // Ensure frame size matches regions size if expansion is on.

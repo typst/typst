@@ -5,7 +5,7 @@ use std::iter::Sum;
 use std::mem;
 use std::ops::{Add, AddAssign};
 
-use super::Styles;
+use super::StyleMap;
 use crate::diag::StrResult;
 use crate::geom::SpecAxis;
 use crate::layout::{Layout, PackedNode, RootNode};
@@ -63,7 +63,7 @@ pub enum Node {
     /// nesting doesn't hurt since we can just recurse into the nested sequences
     /// during packing. Also, in theory, this allows better complexity when
     /// adding (large) sequence nodes (just like for a text rope).
-    Sequence(Vec<(Self, Styles)>),
+    Sequence(Vec<(Self, StyleMap)>),
 }
 
 impl Node {
@@ -89,7 +89,7 @@ impl Node {
     }
 
     /// Style this node.
-    pub fn styled(self, styles: Styles) -> Self {
+    pub fn styled(self, styles: StyleMap) -> Self {
         match self {
             Self::Inline(inline) => Self::Inline(inline.styled(styles)),
             Self::Block(block) => Self::Block(block.styled(styles)),
@@ -100,7 +100,7 @@ impl Node {
 
     /// Style this node in monospace.
     pub fn monospaced(self) -> Self {
-        self.styled(Styles::one(TextNode::MONOSPACE, true))
+        self.styled(StyleMap::with(TextNode::MONOSPACE, true))
     }
 
     /// Lift to a type-erased block-level node.
@@ -109,7 +109,7 @@ impl Node {
             packed
         } else {
             let mut packer = Packer::new(false);
-            packer.walk(self, Styles::new());
+            packer.walk(self, StyleMap::new());
             packer.into_block()
         }
     }
@@ -117,7 +117,7 @@ impl Node {
     /// Lift to a root layout tree node.
     pub fn into_root(self) -> RootNode {
         let mut packer = Packer::new(true);
-        packer.walk(self, Styles::new());
+        packer.walk(self, StyleMap::new());
         packer.into_root()
     }
 
@@ -127,7 +127,7 @@ impl Node {
             .map_err(|_| format!("cannot repeat this template {} times", n))?;
 
         // TODO(style): Make more efficient.
-        Ok(Self::Sequence(vec![(self.clone(), Styles::new()); count]))
+        Ok(Self::Sequence(vec![(self.clone(), StyleMap::new()); count]))
     }
 }
 
@@ -142,7 +142,7 @@ impl Add for Node {
 
     fn add(self, rhs: Self) -> Self::Output {
         // TODO(style): Make more efficient.
-        Self::Sequence(vec![(self, Styles::new()), (rhs, Styles::new())])
+        Self::Sequence(vec![(self, StyleMap::new()), (rhs, StyleMap::new())])
     }
 }
 
@@ -154,7 +154,7 @@ impl AddAssign for Node {
 
 impl Sum for Node {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
-        Self::Sequence(iter.map(|n| (n, Styles::new())).collect())
+        Self::Sequence(iter.map(|n| (n, StyleMap::new())).collect())
     }
 }
 
@@ -194,7 +194,7 @@ impl Packer {
     }
 
     /// Consider a node with the given styles.
-    fn walk(&mut self, node: Node, styles: Styles) {
+    fn walk(&mut self, node: Node, styles: StyleMap) {
         match node {
             Node::Space => {
                 // A text space is "soft", meaning that it can be eaten up by
@@ -321,7 +321,7 @@ impl Packer {
     }
 
     /// Advance to the next paragraph.
-    fn parbreak(&mut self, break_styles: Option<Styles>) {
+    fn parbreak(&mut self, break_styles: Option<StyleMap>) {
         // Erase any styles that will be inherited anyway.
         let Builder { mut children, styles, .. } = mem::take(&mut self.par);
         for child in &mut children {
@@ -366,7 +366,7 @@ impl Packer {
 
     /// Break to a new paragraph if the `styles` contain paragraph styles that
     /// are incompatible with the current paragraph.
-    fn make_par_compatible(&mut self, styles: &Styles) {
+    fn make_par_compatible(&mut self, styles: &StyleMap) {
         if self.par.children.is_empty() {
             self.par.styles = styles.clone();
             return;
@@ -383,7 +383,7 @@ impl Packer {
 
     /// Break to a new page if the `styles` contain page styles that are
     /// incompatible with the current flow.
-    fn make_flow_compatible(&mut self, styles: &Styles) {
+    fn make_flow_compatible(&mut self, styles: &StyleMap) {
         if self.flow.children.is_empty() && self.par.children.is_empty() {
             self.flow.styles = styles.clone();
             return;
@@ -402,7 +402,7 @@ impl Packer {
 /// Container for building a flow or paragraph.
 struct Builder<T> {
     /// The intersection of the style properties of all `children`.
-    styles: Styles,
+    styles: StyleMap,
     /// The accumulated flow or paragraph children.
     children: Vec<T>,
     /// The kind of thing that was last added.
@@ -412,7 +412,7 @@ struct Builder<T> {
 impl<T> Default for Builder<T> {
     fn default() -> Self {
         Self {
-            styles: Styles::new(),
+            styles: StyleMap::new(),
             children: vec![],
             last: Last::None,
         }

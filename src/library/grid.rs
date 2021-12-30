@@ -35,9 +35,10 @@ impl Layout for GridNode {
         &self,
         ctx: &mut LayoutContext,
         regions: &Regions,
+        styles: StyleChain,
     ) -> Vec<Constrained<Rc<Frame>>> {
         // Prepare grid layout by unifying content and gutter tracks.
-        let mut layouter = GridLayouter::new(self, regions.clone());
+        let mut layouter = GridLayouter::new(self, regions.clone(), styles);
 
         // Determine all column sizes.
         layouter.measure_columns(ctx);
@@ -93,6 +94,8 @@ struct GridLayouter<'a> {
     rows: Vec<TrackSizing>,
     /// The regions to layout children into.
     regions: Regions,
+    /// The inherited styles.
+    styles: StyleChain<'a>,
     /// Resolved column sizes.
     rcols: Vec<Length>,
     /// Rows in the current region.
@@ -123,7 +126,7 @@ enum Row {
 
 impl<'a> GridLayouter<'a> {
     /// Prepare grid layout by unifying content and gutter tracks.
-    fn new(grid: &'a GridNode, mut regions: Regions) -> Self {
+    fn new(grid: &'a GridNode, mut regions: Regions, styles: StyleChain<'a>) -> Self {
         let mut cols = vec![];
         let mut rows = vec![];
 
@@ -175,6 +178,7 @@ impl<'a> GridLayouter<'a> {
             cols,
             rows,
             regions,
+            styles,
             rcols,
             lrows,
             expand,
@@ -296,7 +300,7 @@ impl<'a> GridLayouter<'a> {
                         pod.base.y = v.resolve(self.regions.base.y);
                     }
 
-                    let frame = node.layout(ctx, &pod).remove(0).item;
+                    let frame = node.layout(ctx, &pod, self.styles).remove(0).item;
                     resolved.set_max(frame.size.x);
                 }
             }
@@ -387,8 +391,10 @@ impl<'a> GridLayouter<'a> {
                     pod.base.x = self.regions.base.x;
                 }
 
-                let mut sizes =
-                    node.layout(ctx, &pod).into_iter().map(|frame| frame.item.size.y);
+                let mut sizes = node
+                    .layout(ctx, &pod, self.styles)
+                    .into_iter()
+                    .map(|frame| frame.item.size.y);
 
                 // For each region, we want to know the maximum height any
                 // column requires.
@@ -479,7 +485,7 @@ impl<'a> GridLayouter<'a> {
                     .select(self.regions.base, size);
 
                 let pod = Regions::one(size, base, Spec::splat(true));
-                let frame = node.layout(ctx, &pod).remove(0);
+                let frame = node.layout(ctx, &pod, self.styles).remove(0);
                 output.push_frame(pos, frame.item);
             }
 
@@ -522,7 +528,7 @@ impl<'a> GridLayouter<'a> {
                 }
 
                 // Push the layouted frames into the individual output frames.
-                let frames = node.layout(ctx, &pod);
+                let frames = node.layout(ctx, &pod, self.styles);
                 for (output, frame) in outputs.iter_mut().zip(frames) {
                     output.push_frame(pos, frame.item);
                 }

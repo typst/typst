@@ -47,7 +47,7 @@ fn expand(mut impl_block: syn::ItemImpl) -> Result<TokenStream2> {
         mod #module {
             use std::marker::PhantomData;
             use once_cell::sync::Lazy;
-            use crate::eval::{Property, StyleId};
+            use crate::eval::{Nonfolding, Property, StyleId};
             use super::*;
 
             #impl_block
@@ -106,17 +106,24 @@ fn process_const(
     // initialization value of the const.
     let default = &item.expr;
 
+    let mut folder = None;
+    let mut nonfolding = Some(quote! {
+        impl<T: 'static> Nonfolding for Key<T> {}
+    });
+
     // Look for a folding function like `#[fold(u64::add)]`.
-    let mut combinator = None;
     for attr in &item.attrs {
         if attr.path.is_ident("fold") {
-            let fold: syn::Expr = attr.parse_args()?;
-            combinator = Some(quote! {
-                fn combine(inner: Self::Value, outer: Self::Value) -> Self::Value {
-                    let f: fn(Self::Value, Self::Value) -> Self::Value = #fold;
+            let func: syn::Expr = attr.parse_args()?;
+            folder = Some(quote! {
+                const FOLDABLE: bool = true;
+
+                fn fold(inner: Self::Value, outer: Self::Value) -> Self::Value {
+                    let f: fn(Self::Value, Self::Value) -> Self::Value = #func;
                     f(inner, outer)
                 }
             });
+            nonfolding = None;
         }
     }
 
@@ -136,8 +143,10 @@ fn process_const(
                 &*LAZY
             }
 
-            #combinator
+            #folder
         }
+
+        #nonfolding
     };
 
     // The module that will contain the `Key` type.

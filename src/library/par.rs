@@ -35,7 +35,7 @@ impl Construct for ParNode {
 }
 
 impl Set for ParNode {
-    fn set(args: &mut Args, styles: &mut Styles) -> TypResult<()> {
+    fn set(args: &mut Args, styles: &mut StyleMap) -> TypResult<()> {
         let spacing = args.named("spacing")?;
         let leading = args.named("leading")?;
 
@@ -78,17 +78,18 @@ impl Layout for ParNode {
         &self,
         ctx: &mut LayoutContext,
         regions: &Regions,
+        styles: StyleChain,
     ) -> Vec<Constrained<Rc<Frame>>> {
         // Collect all text into one string used for BiDi analysis.
         let text = self.collect_text();
 
         // Find out the BiDi embedding levels.
-        let level = Level::from_dir(ctx.styles.get(Self::DIR));
+        let level = Level::from_dir(styles.get(Self::DIR));
         let bidi = BidiInfo::new(&text, level);
 
         // Prepare paragraph layout by building a representation on which we can
         // do line breaking without layouting each and every line from scratch.
-        let layouter = ParLayouter::new(self, ctx, regions, bidi);
+        let layouter = ParLayouter::new(self, ctx, regions, &styles, bidi);
 
         // Find suitable linebreaks.
         layouter.layout(ctx, regions.clone())
@@ -147,12 +148,12 @@ pub enum ParChild {
 
 impl ParChild {
     /// Create a text child.
-    pub fn text(text: impl Into<EcoString>, styles: Styles) -> Self {
+    pub fn text(text: impl Into<EcoString>, styles: StyleMap) -> Self {
         Self::Text(TextNode { text: text.into(), styles })
     }
 
     /// A reference to the child's styles.
-    pub fn styles(&self) -> &Styles {
+    pub fn styles(&self) -> &StyleMap {
         match self {
             Self::Spacing(node) => &node.styles,
             Self::Text(node) => &node.styles,
@@ -161,7 +162,7 @@ impl ParChild {
     }
 
     /// A mutable reference to the child's styles.
-    pub fn styles_mut(&mut self) -> &mut Styles {
+    pub fn styles_mut(&mut self) -> &mut StyleMap {
         match self {
             Self::Spacing(node) => &mut node.styles,
             Self::Text(node) => &mut node.styles,
@@ -226,6 +227,7 @@ impl<'a> ParLayouter<'a> {
         par: &'a ParNode,
         ctx: &mut LayoutContext,
         regions: &Regions,
+        styles: &'a StyleChain<'a>,
         bidi: BidiInfo<'a>,
     ) -> Self {
         let mut items = vec![];
@@ -253,7 +255,7 @@ impl<'a> ParLayouter<'a> {
                         cursor += group.len();
                         let subrange = start .. cursor;
                         let text = &bidi.text[subrange.clone()];
-                        let styles = node.styles.chain(&ctx.styles);
+                        let styles = node.styles.chain(styles);
                         let shaped = shape(ctx.fonts, text, styles, level.dir());
                         items.push(ParItem::Text(shaped));
                         ranges.push(subrange);
@@ -262,16 +264,16 @@ impl<'a> ParLayouter<'a> {
                 ParChild::Node(node) => {
                     let size = Size::new(regions.current.x, regions.base.y);
                     let pod = Regions::one(size, regions.base, Spec::splat(false));
-                    let frame = node.layout(ctx, &pod).remove(0);
+                    let frame = node.layout(ctx, &pod, *styles).remove(0);
                     items.push(ParItem::Frame(Rc::take(frame.item)));
                     ranges.push(range);
                 }
             }
         }
 
-        let em = ctx.styles.get(TextNode::SIZE).abs;
-        let align = ctx.styles.get(ParNode::ALIGN);
-        let leading = ctx.styles.get(ParNode::LEADING).resolve(em);
+        let em = styles.get(TextNode::SIZE).abs;
+        let align = styles.get(ParNode::ALIGN);
+        let leading = styles.get(ParNode::LEADING).resolve(em);
 
         Self { align, leading, bidi, items, ranges }
     }

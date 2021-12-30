@@ -32,7 +32,7 @@ impl<L: Labelling> Construct for ListNode<L> {
 }
 
 impl<L: Labelling> Set for ListNode<L> {
-    fn set(args: &mut Args, styles: &mut Styles) -> TypResult<()> {
+    fn set(args: &mut Args, styles: &mut StyleMap) -> TypResult<()> {
         styles.set_opt(Self::LABEL_INDENT, args.named("label-indent")?);
         styles.set_opt(Self::BODY_INDENT, args.named("body-indent")?);
         Ok(())
@@ -44,10 +44,11 @@ impl<L: Labelling> Layout for ListNode<L> {
         &self,
         ctx: &mut LayoutContext,
         regions: &Regions,
+        styles: StyleChain,
     ) -> Vec<Constrained<Rc<Frame>>> {
-        let em = ctx.styles.get(TextNode::SIZE).abs;
-        let label_indent = ctx.styles.get(Self::LABEL_INDENT).resolve(em);
-        let body_indent = ctx.styles.get(Self::BODY_INDENT).resolve(em);
+        let em = styles.get(TextNode::SIZE).abs;
+        let label_indent = styles.get(Self::LABEL_INDENT).resolve(em);
+        let body_indent = styles.get(Self::BODY_INDENT).resolve(em);
 
         let columns = vec![
             TrackSizing::Linear(label_indent.into()),
@@ -68,7 +69,7 @@ impl<L: Labelling> Layout for ListNode<L> {
             gutter: Spec::default(),
             children,
         }
-        .layout(ctx, regions)
+        .layout(ctx, regions, styles)
     }
 }
 

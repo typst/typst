@@ -55,7 +55,7 @@ pub mod syntax;
 use std::rc::Rc;
 
 use crate::diag::TypResult;
-use crate::eval::{Eval, EvalContext, Module, Scope, Styles};
+use crate::eval::{Eval, EvalContext, Module, Scope, StyleMap};
 use crate::font::FontStore;
 use crate::frame::Frame;
 use crate::image::ImageStore;
@@ -80,7 +80,7 @@ pub struct Context {
     /// The standard library scope.
     std: Scope,
     /// The default styles.
-    styles: Styles,
+    styles: StyleMap,
 }
 
 impl Context {
@@ -100,7 +100,7 @@ impl Context {
     }
 
     /// A read-only reference to the styles.
-    pub fn styles(&self) -> &Styles {
+    pub fn styles(&self) -> &StyleMap {
         &self.styles
     }
 
@@ -140,7 +140,7 @@ impl Context {
 /// This struct is created by [`Context::builder`].
 pub struct ContextBuilder {
     std: Option<Scope>,
-    styles: Option<Styles>,
+    styles: Option<StyleMap>,
     #[cfg(feature = "layout-cache")]
     policy: EvictionPolicy,
     #[cfg(feature = "layout-cache")]
@@ -156,7 +156,7 @@ impl ContextBuilder {
     }
 
     /// The default properties for page size, font selection and so on.
-    pub fn styles(mut self, styles: Styles) -> Self {
+    pub fn styles(mut self, styles: StyleMap) -> Self {
         self.styles = Some(styles);
         self
     }

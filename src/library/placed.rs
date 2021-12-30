@@ -34,6 +34,7 @@ impl Layout for PlacedNode {
         &self,
         ctx: &mut LayoutContext,
         regions: &Regions,
+        styles: StyleChain,
     ) -> Vec<Constrained<Rc<Frame>>> {
         let out_of_flow = self.out_of_flow();
 
@@ -45,7 +46,7 @@ impl Layout for PlacedNode {
             Regions::one(regions.base, regions.base, expand)
         };
 
-        let mut frames = self.0.layout(ctx, &pod);
+        let mut frames = self.0.layout(ctx, &pod, styles);
         let Constrained { item: frame, cts } = &mut frames[0];
 
         // If expansion is off, zero all sizes so that we don't take up any

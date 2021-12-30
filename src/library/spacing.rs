@@ -24,7 +24,7 @@ pub struct SpacingNode {
     /// The kind of spacing.
     pub kind: SpacingKind,
     /// The spacing's styles.
-    pub styles: Styles,
+    pub styles: StyleMap,
 }
 
 impl Debug for SpacingNode {

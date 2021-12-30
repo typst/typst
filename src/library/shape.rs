@@ -106,11 +106,12 @@ impl Layout for ShapeNode {
         &self,
         ctx: &mut LayoutContext,
         regions: &Regions,
+        styles: StyleChain,
     ) -> Vec<Constrained<Rc<Frame>>> {
         let mut frames;
         if let Some(child) = &self.child {
             let mut pod = Regions::one(regions.current, regions.base, regions.expand);
-            frames = child.layout(ctx, &pod);
+            frames = child.layout(ctx, &pod, styles);
 
             // Relayout with full expansion into square region to make sure
             // the result is really a square or circle.
@@ -126,7 +127,7 @@ impl Layout for ShapeNode {
 
                 pod.current = Size::splat(length);
                 pod.expand = Spec::splat(true);
-                frames = child.layout(ctx, &pod);
+                frames = child.layout(ctx, &pod, styles);
                 frames[0].cts = Constraints::tight(regions);
             }
         } else {
@@ -169,7 +170,7 @@ impl Layout for ShapeNode {
         }
 
         // Apply link if it exists.
-        if let Some(url) = ctx.styles.get_ref(LinkNode::URL) {
+        if let Some(url) = styles.get_ref(LinkNode::URL) {
             frame.link(url);
         }
 

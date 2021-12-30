@@ -8,7 +8,7 @@ pub fn align(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let aligns: Spec<_> = args.find().unwrap_or_default();
     let body: PackedNode = args.expect("body")?;
 
-    let mut styles = Styles::new();
+    let mut styles = StyleMap::new();
     if let Some(align) = aligns.x {
         styles.set(ParNode::ALIGN, align);
     }
@@ -50,13 +50,14 @@ impl Layout for AlignNode {
         &self,
         ctx: &mut LayoutContext,
         regions: &Regions,
+        styles: StyleChain,
     ) -> Vec<Constrained<Rc<Frame>>> {
         // The child only needs to expand along an axis if there's no alignment.
         let mut pod = regions.clone();
         pod.expand &= self.aligns.map_is_none();
 
         // Layout the child.
-        let mut frames = self.child.layout(ctx, &pod);
+        let mut frames = self.child.layout(ctx, &pod, styles);
 
         for ((current, base), Constrained { item: frame, cts }) in
             regions.iter().zip(&mut frames)

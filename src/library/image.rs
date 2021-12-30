@@ -42,6 +42,7 @@ impl Layout for ImageNode {
         &self,
         ctx: &mut LayoutContext,
         regions: &Regions,
+        styles: StyleChain,
     ) -> Vec<Constrained<Rc<Frame>>> {
         let img = ctx.images.get(self.id);
         let pxw = img.width() as f64;
@@ -89,7 +90,7 @@ impl Layout for ImageNode {
         }
 
         // Apply link if it exists.
-        if let Some(url) = ctx.styles.get_ref(LinkNode::URL) {
+        if let Some(url) = styles.get_ref(LinkNode::URL) {
             frame.link(url);
         }
 
