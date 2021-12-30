@@ -656,7 +656,7 @@ mod cff {
 
             if count > 0 {
                 let offsize = usize::from(s.read::<u8>()?);
-                if offsize < 1 || offsize > 4 {
+                if !matches!(offsize, 1 ..= 4) {
                     return None;
                 }
 

@@ -1,33 +1,15 @@
 //! Side-by-side layout of nodes along an axis.
 
-use std::fmt::{self, Debug, Formatter};
-
 use super::prelude::*;
 use super::{AlignNode, SpacingKind, SpacingNode};
 
 /// `stack`: Stack children along an axis.
 pub fn stack(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let dir = args.named("dir")?.unwrap_or(Dir::TTB);
-    let spacing = args.named("spacing")?;
-
-    let mut children = vec![];
-    let mut deferred = None;
-
-    // Build the list of stack children.
-    for child in args.all() {
-        match child {
-            StackChild::Spacing(_) => deferred = None,
-            StackChild::Node(_) => {
-                if let Some(v) = deferred {
-                    children.push(StackChild::spacing(v));
-                }
-                deferred = spacing;
-            }
-        }
-        children.push(child);
-    }
-
-    Ok(Value::block(StackNode { dir, children }))
+    Ok(Value::block(StackNode {
+        dir: args.named("dir")?.unwrap_or(Dir::TTB),
+        spacing: args.named("spacing")?,
+        children: args.all().collect(),
+    }))
 }
 
 /// A node that stacks its children.
@@ -35,6 +17,8 @@ pub fn stack(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 pub struct StackNode {
     /// The stacking direction.
     pub dir: Dir,
+    /// The spacing between non-spacing children.
+    pub spacing: Option<SpacingKind>,
     /// The children to be stacked.
     pub children: Vec<StackChild>,
 }
@@ -45,7 +29,7 @@ impl Layout for StackNode {
         ctx: &mut LayoutContext,
         regions: &Regions,
     ) -> Vec<Constrained<Rc<Frame>>> {
-        StackLayouter::new(self, regions).layout(ctx)
+        StackLayouter::new(self, regions.clone()).layout(ctx)
     }
 }
 
@@ -58,9 +42,8 @@ pub enum StackChild {
     Node(PackedNode),
 }
 
-impl StackChild {
-    /// Create a spacing node from a spacing kind.
-    pub fn spacing(kind: SpacingKind) -> Self {
+impl From<SpacingKind> for StackChild {
+    fn from(kind: SpacingKind) -> Self {
         Self::Spacing(SpacingNode { kind, styles: Styles::new() })
     }
 }
@@ -77,23 +60,27 @@ impl Debug for StackChild {
 castable! {
     StackChild,
     Expected: "linear, fractional or template",
-    Value::Length(v) => Self::spacing(SpacingKind::Linear(v.into())),
-    Value::Relative(v) => Self::spacing(SpacingKind::Linear(v.into())),
-    Value::Linear(v) => Self::spacing(SpacingKind::Linear(v)),
-    Value::Fractional(v) => Self::spacing(SpacingKind::Fractional(v)),
+    Value::Length(v) => SpacingKind::Linear(v.into()).into(),
+    Value::Relative(v) => SpacingKind::Linear(v.into()).into(),
+    Value::Linear(v) => SpacingKind::Linear(v).into(),
+    Value::Fractional(v) => SpacingKind::Fractional(v).into(),
     Value::Node(v) => Self::Node(v.into_block()),
 }
 
 /// Performs stack layout.
 struct StackLayouter<'a> {
-    /// The stack node to layout.
-    stack: &'a StackNode,
-    /// The axis of the block direction.
+    /// The flow node to layout.
+    children: &'a [StackChild],
+    /// The stacking direction.
+    dir: Dir,
+    /// The axis of the stacking direction.
     axis: SpecAxis,
-    /// Whether the stack should expand to fill the region.
-    expand: Spec<bool>,
+    /// The spacing between non-spacing children.
+    spacing: Option<SpacingKind>,
     /// The regions to layout children into.
     regions: Regions,
+    /// Whether the stack should expand to fill the region.
+    expand: Spec<bool>,
     /// The full size of `regions.current` that was available before we started
     /// subtracting.
     full: Size,
@@ -119,21 +106,23 @@ enum StackItem {
 
 impl<'a> StackLayouter<'a> {
     /// Create a new stack layouter.
-    fn new(stack: &'a StackNode, regions: &Regions) -> Self {
-        let axis = stack.dir.axis();
+    fn new(stack: &'a StackNode, mut regions: Regions) -> Self {
+        let dir = stack.dir;
+        let axis = dir.axis();
         let expand = regions.expand;
         let full = regions.current;
 
         // Disable expansion along the block axis for children.
-        let mut regions = regions.clone();
         regions.expand.set(axis, false);
 
         Self {
-            stack,
+            children: &stack.children,
+            dir,
             axis,
+            spacing: stack.spacing,
+            regions,
             expand,
             full,
-            regions,
             used: Gen::zero(),
             fr: Fractional::zero(),
             items: vec![],
@@ -143,27 +132,43 @@ impl<'a> StackLayouter<'a> {
 
     /// Layout all children.
     fn layout(mut self, ctx: &mut LayoutContext) -> Vec<Constrained<Rc<Frame>>> {
-        for child in &self.stack.children {
+        // Spacing to insert before the next node.
+        let mut deferred = None;
+
+        for child in self.children {
             match child {
-                StackChild::Spacing(node) => match node.kind {
-                    SpacingKind::Linear(v) => self.layout_absolute(v),
-                    SpacingKind::Fractional(v) => {
-                        self.items.push(StackItem::Fractional(v));
-                        self.fr += v;
-                    }
-                },
+                StackChild::Spacing(node) => {
+                    self.layout_spacing(node.kind);
+                    deferred = None;
+                }
                 StackChild::Node(node) => {
+                    if let Some(kind) = deferred {
+                        self.layout_spacing(kind);
+                    }
+
                     if self.regions.is_full() {
                         self.finish_region();
                     }
 
                     self.layout_node(ctx, node);
+                    deferred = self.spacing;
                 }
             }
         }
 
         self.finish_region();
         self.finished
+    }
+
+    /// Layout spacing.
+    fn layout_spacing(&mut self, spacing: SpacingKind) {
+        match spacing {
+            SpacingKind::Linear(v) => self.layout_absolute(v),
+            SpacingKind::Fractional(v) => {
+                self.items.push(StackItem::Fractional(v));
+                self.fr += v;
+            }
+        }
     }
 
     /// Layout absolute spacing.
@@ -183,7 +188,7 @@ impl<'a> StackLayouter<'a> {
         let align = node
             .downcast::<AlignNode>()
             .and_then(|node| node.aligns.get(self.axis))
-            .unwrap_or(self.stack.dir.start().into());
+            .unwrap_or(self.dir.start().into());
 
         let frames = node.layout(ctx, &self.regions);
         let len = frames.len();
@@ -218,7 +223,7 @@ impl<'a> StackLayouter<'a> {
 
         let mut output = Frame::new(size);
         let mut cursor = Length::zero();
-        let mut ruler: Align = self.stack.dir.start().into();
+        let mut ruler: Align = self.dir.start().into();
 
         // Place all frames.
         for item in self.items.drain(..) {
@@ -230,7 +235,7 @@ impl<'a> StackLayouter<'a> {
                     cursor += v.resolve(self.fr, remaining);
                 }
                 StackItem::Frame(frame, align) => {
-                    if self.stack.dir.is_positive() {
+                    if self.dir.is_positive() {
                         ruler = ruler.max(align);
                     } else {
                         ruler = ruler.min(align);
@@ -240,7 +245,7 @@ impl<'a> StackLayouter<'a> {
                     let parent = size.get(self.axis);
                     let child = frame.size.get(self.axis);
                     let block = ruler.resolve(parent - self.used.main)
-                        + if self.stack.dir.is_positive() {
+                        + if self.dir.is_positive() {
                             cursor
                         } else {
                             self.used.main - child - cursor

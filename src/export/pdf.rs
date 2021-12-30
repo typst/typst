@@ -390,7 +390,7 @@ impl<'a> PageExporter<'a> {
         // Make the coordinate system start at the top-left.
         self.bottom = frame.size.y.to_f32();
         self.content.transform([1.0, 0.0, 0.0, -1.0, 0.0, self.bottom]);
-        self.write_frame(&frame);
+        self.write_frame(frame);
         Page {
             size: frame.size,
             content: self.content,

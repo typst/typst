@@ -173,13 +173,6 @@ pub enum FontFamily {
     Named(NamedFamily),
 }
 
-impl FontFamily {
-    /// Create a named font family variant, directly from a string.
-    pub fn named(string: &str) -> Self {
-        Self::Named(NamedFamily::new(string))
-    }
-}
-
 impl Debug for FontFamily {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
@@ -193,13 +186,13 @@ impl Debug for FontFamily {
 
 dynamic! {
     FontFamily: "font family",
-    Value::Str(string) => Self::named(&string),
+    Value::Str(string) => Self::Named(NamedFamily::new(&string)),
 }
 
 castable! {
     Vec<FontFamily>,
     Expected: "string, generic family or array thereof",
-    Value::Str(string) => vec![FontFamily::named(&string)],
+    Value::Str(string) => vec![FontFamily::Named(NamedFamily::new(&string))],
     Value::Array(values) => {
         values.into_iter().filter_map(|v| v.cast().ok()).collect()
     },

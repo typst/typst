@@ -9,7 +9,7 @@ pub fn pad(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let top = args.named("top")?;
     let right = args.named("right")?;
     let bottom = args.named("bottom")?;
-    let body: Node = args.expect("body")?;
+    let body: PackedNode = args.expect("body")?;
     let padding = Sides::new(
         left.or(all).unwrap_or_default(),
         top.or(all).unwrap_or_default(),
@@ -17,7 +17,7 @@ pub fn pad(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         bottom.or(all).unwrap_or_default(),
     );
 
-    Ok(Value::block(body.into_block().padded(padding)))
+    Ok(Value::block(body.padded(padding)))
 }
 
 /// A node that adds padding to its child.

@@ -26,12 +26,7 @@ impl<L: Labelling> Construct for ListNode<L> {
     fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
         Ok(args
             .all()
-            .map(|node: Node| {
-                Node::block(Self {
-                    child: node.into_block(),
-                    labelling: L::default(),
-                })
-            })
+            .map(|child: PackedNode| Node::block(Self { child, labelling: L::default() }))
             .sum())
     }
 }

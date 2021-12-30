@@ -15,7 +15,7 @@ pub fn grid(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
             column_gutter.unwrap_or_else(|| base_gutter.clone()),
             row_gutter.unwrap_or(base_gutter),
         ),
-        children: args.all().map(Node::into_block).collect(),
+        children: args.all().collect(),
     }))
 }
 
@@ -87,8 +87,6 @@ castable! {
 struct GridLayouter<'a> {
     /// The children of the grid.
     children: &'a [PackedNode],
-    /// Whether the grid should expand to fill the region.
-    expand: Spec<bool>,
     /// The column tracks including gutter tracks.
     cols: Vec<TrackSizing>,
     /// The row tracks including gutter tracks.
@@ -97,6 +95,10 @@ struct GridLayouter<'a> {
     regions: Regions,
     /// Resolved column sizes.
     rcols: Vec<Length>,
+    /// Rows in the current region.
+    lrows: Vec<Row>,
+    /// Whether the grid should expand to fill the region.
+    expand: Spec<bool>,
     /// The full height of the current region.
     full: Length,
     /// The used-up size of the current region. The horizontal size is
@@ -104,8 +106,6 @@ struct GridLayouter<'a> {
     used: Size,
     /// The sum of fractional ratios in the current region.
     fr: Fractional,
-    /// Rows in the current region.
-    lrows: Vec<Row>,
     /// Constraints for the active region.
     cts: Constraints,
     /// Frames for finished regions.
@@ -161,22 +161,26 @@ impl<'a> GridLayouter<'a> {
         cols.pop();
         rows.pop();
 
+        let expand = regions.expand;
+        let full = regions.current.y;
+        let rcols = vec![Length::zero(); cols.len()];
+        let lrows = vec![];
+
         // We use the regions for auto row measurement. Since at that moment,
         // columns are already sized, we can enable horizontal expansion.
-        let expand = regions.expand;
         regions.expand = Spec::new(true, false);
 
         Self {
             children: &grid.children,
-            expand,
-            rcols: vec![Length::zero(); cols.len()],
             cols,
             rows,
-            full: regions.current.y,
             regions,
+            rcols,
+            lrows,
+            expand,
+            full,
             used: Size::zero(),
             fr: Fractional::zero(),
-            lrows: vec![],
             cts: Constraints::new(expand),
             finished: vec![],
         }

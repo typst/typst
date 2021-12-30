@@ -27,7 +27,7 @@ impl Debug for Scalar {
 
 impl Ord for Scalar {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.partial_cmp(&other).expect("float is NaN")
+        self.partial_cmp(other).expect("float is NaN")
     }
 }
 

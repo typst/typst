@@ -372,13 +372,13 @@ impl Packer {
             return;
         }
 
-        if !self.par.styles.compatible(&styles, ParNode::has_property) {
+        if !self.par.styles.compatible(styles, ParNode::has_property) {
             self.parbreak(None);
             self.par.styles = styles.clone();
             return;
         }
 
-        self.par.styles.intersect(&styles);
+        self.par.styles.intersect(styles);
     }
 
     /// Break to a new page if the `styles` contain page styles that are
@@ -389,7 +389,7 @@ impl Packer {
             return;
         }
 
-        if self.top && !self.flow.styles.compatible(&styles, PageNode::has_property) {
+        if self.top && !self.flow.styles.compatible(styles, PageNode::has_property) {
             self.pagebreak();
             self.flow.styles = styles.clone();
             return;

@@ -1,12 +1,9 @@
+use std::fmt::{self, Display, Formatter};
 use std::mem;
 
 use super::{TokenMode, Tokens};
 use crate::syntax::{ErrorPos, Green, GreenData, GreenNode, NodeKind};
 use crate::util::EcoString;
-
-/// Allows parser methods to use the try operator. Not exposed as the parser
-/// recovers from all errors.
-pub(crate) type ParseResult<T = ()> = Result<T, ()>;
 
 /// A convenient token-based parser.
 pub struct Parser<'s> {
@@ -121,7 +118,7 @@ impl<'s> Parser<'s> {
         if !eaten {
             self.expected_at(t.as_str());
         }
-        if eaten { Ok(()) } else { Err(()) }
+        if eaten { Ok(()) } else { Err(ParseError) }
     }
 
     /// Eat, debug-asserting that the token is the given one.
@@ -448,3 +445,19 @@ pub enum Group {
     /// A group for import items, ended by a semicolon, line break or `from`.
     Imports,
 }
+
+/// Allows parser methods to use the try operator. Never returned top-level
+/// because the parser recovers from all errors.
+pub type ParseResult<T = ()> = Result<T, ParseError>;
+
+/// The error type for parsing.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct ParseError;
+
+impl Display for ParseError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.pad("failed to parse")
+    }
+}
+
+impl std::error::Error for ParseError {}

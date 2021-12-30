@@ -193,3 +193,9 @@ castable! {
     Expected: "string",
     Value::Str(string) => string.into(),
 }
+
+castable! {
+    PackedNode,
+    Expected: "node",
+    Value::Node(node) => node.into_block(),
+}

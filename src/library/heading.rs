@@ -16,7 +16,7 @@ pub struct HeadingNode {
 #[properties]
 impl HeadingNode {
     /// The heading's font family.
-    pub const FAMILY: Smart<String> = Smart::Auto;
+    pub const FAMILY: Smart<FontFamily> = Smart::Auto;
     /// The fill color of heading in the text. Just the surrounding text color
     /// if `auto`.
     pub const FILL: Smart<Paint> = Smart::Auto;
@@ -25,7 +25,7 @@ impl HeadingNode {
 impl Construct for HeadingNode {
     fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
         Ok(Node::block(Self {
-            child: args.expect::<Node>("body")?.into_block(),
+            child: args.expect("body")?,
             level: args.named("level")?.unwrap_or(1),
         }))
     }
@@ -50,8 +50,9 @@ impl Layout for HeadingNode {
         ctx.styles.set(TextNode::SIZE, Relative::new(upscale).into());
 
         if let Smart::Custom(family) = ctx.styles.get_ref(Self::FAMILY) {
-            let list: Vec<_> = std::iter::once(FontFamily::named(family))
-                .chain(ctx.styles.get_ref(TextNode::FAMILY_LIST).iter().cloned())
+            let list = std::iter::once(family)
+                .chain(ctx.styles.get_ref(TextNode::FAMILY_LIST))
+                .cloned()
                 .collect();
             ctx.styles.set(TextNode::FAMILY_LIST, list);
         }

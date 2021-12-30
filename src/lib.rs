@@ -30,6 +30,10 @@
 //! [cache]: layout::LayoutCache
 //! [PDF]: export::pdf
 
+#![allow(clippy::len_without_is_empty)]
+#![allow(clippy::or_fun_call)]
+#![allow(clippy::try_err)]
+
 #[macro_use]
 pub mod util;
 #[macro_use]

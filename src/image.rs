@@ -67,7 +67,7 @@ impl ImageStore {
             Entry::Vacant(entry) => {
                 let buffer = self.loader.load(path)?;
                 let ext = path.extension().and_then(OsStr::to_str).unwrap_or_default();
-                let image = Image::parse(&buffer, &ext)?;
+                let image = Image::parse(&buffer, ext)?;
                 let id = ImageId(self.images.len() as u32);
                 if let Some(callback) = &self.on_load {
                     callback(id, &image);

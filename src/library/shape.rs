@@ -79,9 +79,7 @@ fn shape_impl(
     }
 
     // The shape's contents.
-    let child = args
-        .find()
-        .map(|body: Node| body.into_block().padded(Sides::splat(padding)));
+    let child = args.find().map(|body: PackedNode| body.padded(Sides::splat(padding)));
 
     Ok(Value::inline(
         ShapeNode { kind, fill, stroke, child }

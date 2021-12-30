@@ -72,7 +72,7 @@ impl RgbaColor {
 }
 
 impl FromStr for RgbaColor {
-    type Err = ParseRgbaError;
+    type Err = RgbaError;
 
     /// Constructs a new color from hex strings like the following:
     /// - `#aef` (shorthand, with leading hashtag),
@@ -83,7 +83,7 @@ impl FromStr for RgbaColor {
     fn from_str(hex_str: &str) -> Result<Self, Self::Err> {
         let hex_str = hex_str.strip_prefix('#').unwrap_or(hex_str);
         if !hex_str.is_ascii() {
-            return Err(ParseRgbaError);
+            return Err(RgbaError);
         }
 
         let len = hex_str.len();
@@ -92,7 +92,7 @@ impl FromStr for RgbaColor {
         let alpha = len == 4 || len == 8;
 
         if !long && !short {
-            return Err(ParseRgbaError);
+            return Err(RgbaError);
         }
 
         let mut values: [u8; 4] = [255; 4];
@@ -102,7 +102,7 @@ impl FromStr for RgbaColor {
             let pos = elem * item_len;
 
             let item = &hex_str[pos .. (pos + item_len)];
-            values[elem] = u8::from_str_radix(item, 16).map_err(|_| ParseRgbaError)?;
+            values[elem] = u8::from_str_radix(item, 16).map_err(|_| RgbaError)?;
 
             if short {
                 // Duplicate number for shorthand notation, i.e. `a` -> `aa`
@@ -134,15 +134,15 @@ impl Debug for RgbaColor {
 
 /// The error when parsing an [`RgbaColor`] from a string fails.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct ParseRgbaError;
+pub struct RgbaError;
 
-impl Display for ParseRgbaError {
+impl Display for RgbaError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad("invalid color")
+        f.pad("invalid hex string")
     }
 }
 
-impl std::error::Error for ParseRgbaError {}
+impl std::error::Error for RgbaError {}
 
 #[cfg(test)]
 mod tests {
@@ -166,7 +166,7 @@ mod tests {
     fn test_parse_invalid_colors() {
         #[track_caller]
         fn test(hex: &str) {
-            assert_eq!(RgbaColor::from_str(hex), Err(ParseRgbaError));
+            assert_eq!(RgbaColor::from_str(hex), Err(RgbaError));
         }
 
         test("12345");

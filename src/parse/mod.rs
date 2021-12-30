@@ -275,13 +275,13 @@ fn primary(p: &mut Parser, atomic: bool) -> ParseResult {
 
         Some(NodeKind::Error(_, _)) => {
             p.eat();
-            Err(())
+            Err(ParseError)
         }
 
         // Nothing.
         _ => {
             p.expected("expression");
-            Err(())
+            Err(ParseError)
         }
     }
 }
@@ -428,7 +428,7 @@ fn item(p: &mut Parser) -> ParseResult<NodeKind> {
                 marker.end(p, error);
                 p.eat();
                 expr(p).ok();
-                Err(())
+                Err(ParseError)
             }
         })?;
 
@@ -519,7 +519,7 @@ fn args(p: &mut Parser, direct: bool, brackets: bool) -> ParseResult {
         Some(NodeKind::LeftBracket) if brackets => {}
         _ => {
             p.expected("argument list");
-            return Err(());
+            return Err(ParseError);
         }
     }
 
@@ -689,7 +689,7 @@ fn ident(p: &mut Parser) -> ParseResult {
         }
         _ => {
             p.expected("identifier");
-            Err(())
+            Err(ParseError)
         }
     }
 }
@@ -701,7 +701,7 @@ fn body(p: &mut Parser) -> ParseResult {
         Some(NodeKind::LeftBrace) => block(p),
         _ => {
             p.expected_at("body");
-            return Err(());
+            return Err(ParseError);
         }
     }
     Ok(())

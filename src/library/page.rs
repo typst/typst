@@ -44,8 +44,8 @@ impl PageNode {
 impl Construct for PageNode {
     fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
         Ok(Node::Page(Self {
-            child: args.expect::<Node>("body")?.into_block(),
             styles: Styles::new(),
+            child: args.expect("body")?,
         }))
     }
 }
@@ -114,6 +114,7 @@ impl PageNode {
             bottom: ctx.styles.get(Self::BOTTOM).unwrap_or(default.bottom),
         };
 
+        // Realize columns with columns node.
         let columns = ctx.styles.get(Self::COLUMNS);
         let child = if columns.get() > 1 {
             ColumnsNode {
@@ -126,14 +127,14 @@ impl PageNode {
             self.child.clone()
         };
 
-        // Pad the child.
-        let padded = PadNode { child, padding }.pack();
+        // Realize margins with padding node.
+        let child = PadNode { child, padding }.pack();
 
         // Layout the child.
         let expand = size.map(Length::is_finite);
         let regions = Regions::repeat(size, size, expand);
         let mut frames: Vec<_> =
-            padded.layout(ctx, &regions).into_iter().map(|c| c.item).collect();
+            child.layout(ctx, &regions).into_iter().map(|c| c.item).collect();
 
         // Add background fill if requested.
         if let Some(fill) = ctx.styles.get(Self::FILL) {
@@ -238,12 +239,12 @@ macro_rules! papers {
         }
 
         impl FromStr for Paper {
-            type Err = ParsePaperError;
+            type Err = PaperError;
 
             fn from_str(name: &str) -> Result<Self, Self::Err> {
                 match name.to_lowercase().as_str() {
                     $($($pats)* => Ok(Self::$var),)*
-                    _ => Err(ParsePaperError),
+                    _ => Err(PaperError),
                 }
             }
         }
@@ -413,12 +414,12 @@ castable! {
 
 /// The error when parsing a [`Paper`] from a string fails.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct ParsePaperError;
+pub struct PaperError;
 
-impl Display for ParsePaperError {
+impl Display for PaperError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.pad("invalid paper name")
     }
 }
 
-impl std::error::Error for ParsePaperError {}
+impl std::error::Error for PaperError {}

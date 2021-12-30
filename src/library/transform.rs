@@ -28,15 +28,13 @@ pub fn rotate(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 }
 
 fn transform_impl(args: &mut Args, transform: Transform) -> TypResult<Value> {
-    let body: Node = args.expect("body")?;
+    let body: PackedNode = args.expect("body")?;
     let origin = args
         .named("origin")?
         .unwrap_or(Spec::splat(None))
         .unwrap_or(Align::CENTER_HORIZON);
 
-    Ok(Value::inline(
-        body.into_block().transformed(transform, origin),
-    ))
+    Ok(Value::inline(body.transformed(transform, origin)))
 }
 
 /// A node that transforms its child without affecting layout.

@@ -5,13 +5,10 @@ use super::ParNode;
 
 /// `columns`: Set content into multiple columns.
 pub fn columns(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let columns = args.expect("column count")?;
-    let gutter = args.named("gutter")?.unwrap_or(Relative::new(0.04).into());
-    let body: Node = args.expect("body")?;
     Ok(Value::block(ColumnsNode {
-        columns,
-        gutter,
-        child: body.into_block(),
+        columns: args.expect("column count")?,
+        gutter: args.named("gutter")?.unwrap_or(Relative::new(0.04).into()),
+        child: args.expect("body")?,
     }))
 }
 

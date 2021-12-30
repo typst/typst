@@ -377,22 +377,14 @@ pub struct PatternProperties {
 impl PatternProperties {
     /// Check if it is vital to keep an entry based on its properties.
     pub fn must_keep(&self) -> bool {
-        if self.top_level && !self.mature {
-            // Keep an undo stack.
-            true
-        } else if self.all_zeros && !self.mature {
-            // Keep the most recently created items, even if they have not yet
-            // been used.
-            true
-        } else if self.multi_use && !self.abandoned {
-            true
-        } else if self.hit {
-            true
-        } else if self.sparse {
-            true
-        } else {
-            false
-        }
+        // Keep an undo stack.
+        (self.top_level && !self.mature)
+        // Keep the most recently created items, even if they have not yet
+        // been used.
+        || (self.all_zeros && !self.mature)
+        || (self.multi_use && !self.abandoned)
+        || self.hit
+        || self.sparse
     }
 }
 

@@ -8,9 +8,9 @@ pub fn place(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let aligns = args.find().unwrap_or(Spec::new(Some(Align::Left), None));
     let tx = args.named("dx")?.unwrap_or_default();
     let ty = args.named("dy")?.unwrap_or_default();
-    let body: Node = args.expect("body")?;
+    let body: PackedNode = args.expect("body")?;
     Ok(Value::block(PlacedNode(
-        body.into_block().moved(Point::new(tx, ty)).aligned(aligns),
+        body.moved(Point::new(tx, ty)).aligned(aligns),
     )))
 }
 

@@ -6,16 +6,14 @@ use super::ParNode;
 /// `align`: Configure the alignment along the layouting axes.
 pub fn align(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let aligns: Spec<_> = args.find().unwrap_or_default();
-    let body: Node = args.expect("body")?;
+    let body: PackedNode = args.expect("body")?;
 
     let mut styles = Styles::new();
     if let Some(align) = aligns.x {
         styles.set(ParNode::ALIGN, align);
     }
 
-    Ok(Value::block(
-        body.into_block().styled(styles).aligned(aligns),
-    ))
+    Ok(Value::block(body.styled(styles).aligned(aligns)))
 }
 
 dynamic! {

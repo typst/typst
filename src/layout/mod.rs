@@ -282,7 +282,10 @@ impl Debug for PackedNode {
 
 impl PartialEq for PackedNode {
     fn eq(&self, other: &Self) -> bool {
-        Rc::as_ptr(&self.node) as *const () == Rc::as_ptr(&other.node) as *const ()
+        std::ptr::eq(
+            Rc::as_ptr(&self.node) as *const (),
+            Rc::as_ptr(&other.node) as *const (),
+        )
     }
 }
 

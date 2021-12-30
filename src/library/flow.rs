@@ -18,7 +18,7 @@ impl Layout for FlowNode {
         ctx: &mut LayoutContext,
         regions: &Regions,
     ) -> Vec<Constrained<Rc<Frame>>> {
-        FlowLayouter::new(self, regions).layout(ctx)
+        FlowLayouter::new(self, regions.clone()).layout(ctx)
     }
 }
 
@@ -32,12 +32,12 @@ impl Debug for FlowNode {
 /// A child of a flow node.
 #[derive(Hash)]
 pub enum FlowChild {
-    /// A paragraph/block break.
-    Break(Styles),
     /// Vertical spacing between other children.
     Spacing(SpacingNode),
     /// An arbitrary node.
     Node(PackedNode),
+    /// A paragraph/block break.
+    Break(Styles),
     /// Skip the rest of the region and move to the next.
     Skip,
 }
@@ -46,9 +46,9 @@ impl FlowChild {
     /// A reference to the child's styles.
     pub fn styles(&self) -> Option<&Styles> {
         match self {
-            Self::Break(styles) => Some(styles),
             Self::Spacing(node) => Some(&node.styles),
             Self::Node(node) => Some(&node.styles),
+            Self::Break(styles) => Some(styles),
             Self::Skip => None,
         }
     }
@@ -56,9 +56,9 @@ impl FlowChild {
     /// A mutable reference to the child's styles.
     pub fn styles_mut(&mut self) -> Option<&mut Styles> {
         match self {
-            Self::Break(styles) => Some(styles),
             Self::Spacing(node) => Some(&mut node.styles),
             Self::Node(node) => Some(&mut node.styles),
+            Self::Break(styles) => Some(styles),
             Self::Skip => None,
         }
     }
@@ -67,14 +67,14 @@ impl FlowChild {
 impl Debug for FlowChild {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
+            Self::Spacing(node) => node.fmt(f),
+            Self::Node(node) => node.fmt(f),
             Self::Break(styles) => {
                 if f.alternate() {
                     styles.fmt(f)?;
                 }
                 write!(f, "Break")
             }
-            Self::Spacing(node) => node.fmt(f),
-            Self::Node(node) => node.fmt(f),
             Self::Skip => f.pad("Skip"),
         }
     }
@@ -84,10 +84,10 @@ impl Debug for FlowChild {
 struct FlowLayouter<'a> {
     /// The flow node to layout.
     children: &'a [FlowChild],
-    /// Whether the flow should expand to fill the region.
-    expand: Spec<bool>,
     /// The regions to layout children into.
     regions: Regions,
+    /// Whether the flow should expand to fill the region.
+    expand: Spec<bool>,
     /// The full size of `regions.current` that was available before we started
     /// subtracting.
     full: Size,
@@ -115,19 +115,18 @@ enum FlowItem {
 
 impl<'a> FlowLayouter<'a> {
     /// Create a new flow layouter.
-    fn new(flow: &'a FlowNode, regions: &Regions) -> Self {
+    fn new(flow: &'a FlowNode, mut regions: Regions) -> Self {
         let expand = regions.expand;
         let full = regions.current;
 
         // Disable vertical expansion for children.
-        let mut regions = regions.clone();
         regions.expand.y = false;
 
         Self {
             children: &flow.0,
+            regions,
             expand,
             full,
-            regions,
             used: Size::zero(),
             fr: Fractional::zero(),
             items: vec![],
@@ -139,6 +138,16 @@ impl<'a> FlowLayouter<'a> {
     fn layout(mut self, ctx: &mut LayoutContext) -> Vec<Constrained<Rc<Frame>>> {
         for child in self.children {
             match child {
+                FlowChild::Spacing(node) => {
+                    self.layout_spacing(node.kind);
+                }
+                FlowChild::Node(node) => {
+                    if self.regions.is_full() {
+                        self.finish_region();
+                    }
+
+                    self.layout_node(ctx, node);
+                }
                 FlowChild::Break(styles) => {
                     let chain = styles.chain(&ctx.styles);
                     let em = chain.get(TextNode::SIZE).abs;
@@ -148,25 +157,22 @@ impl<'a> FlowLayouter<'a> {
                 FlowChild::Skip => {
                     self.finish_region();
                 }
-                FlowChild::Spacing(node) => match node.kind {
-                    SpacingKind::Linear(v) => self.layout_absolute(v),
-                    SpacingKind::Fractional(v) => {
-                        self.items.push(FlowItem::Fractional(v));
-                        self.fr += v;
-                    }
-                },
-                FlowChild::Node(node) => {
-                    if self.regions.is_full() {
-                        self.finish_region();
-                    }
-
-                    self.layout_node(ctx, node);
-                }
             }
         }
 
         self.finish_region();
         self.finished
+    }
+
+    /// Layout spacing.
+    fn layout_spacing(&mut self, spacing: SpacingKind) {
+        match spacing {
+            SpacingKind::Linear(v) => self.layout_absolute(v),
+            SpacingKind::Fractional(v) => {
+                self.items.push(FlowItem::Fractional(v));
+                self.fr += v;
+            }
+        }
     }
 
     /// Layout absolute spacing.

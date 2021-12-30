@@ -30,7 +30,7 @@ impl ParNode {
 impl Construct for ParNode {
     fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
         // Lift to a block so that it doesn't merge with adjacent stuff.
-        Ok(Node::Block(args.expect::<Node>("body")?.into_block()))
+        Ok(Node::Block(args.expect("body")?))
     }
 }
 
@@ -60,10 +60,8 @@ impl Set for ParNode {
                     bail!(span, "must be horizontal");
                 }
                 Some(v)
-            } else if let Some(dir) = dir {
-                Some(if dir == Dir::LTR { Align::Left } else { Align::Right })
             } else {
-                None
+                dir.map(|dir| dir.start().into())
             };
 
         styles.set_opt(Self::DIR, dir);
@@ -85,7 +83,8 @@ impl Layout for ParNode {
         let text = self.collect_text();
 
         // Find out the BiDi embedding levels.
-        let bidi = BidiInfo::new(&text, Level::from_dir(ctx.styles.get(Self::DIR)));
+        let level = Level::from_dir(ctx.styles.get(Self::DIR));
+        let bidi = BidiInfo::new(&text, level);
 
         // Prepare paragraph layout by building a representation on which we can
         // do line breaking without layouting each and every line from scratch.
@@ -255,7 +254,7 @@ impl<'a> ParLayouter<'a> {
                         let subrange = start .. cursor;
                         let text = &bidi.text[subrange.clone()];
                         let styles = node.styles.chain(&ctx.styles);
-                        let shaped = shape(&mut ctx.fonts, text, styles, level.dir());
+                        let shaped = shape(ctx.fonts, text, styles, level.dir());
                         items.push(ParItem::Text(shaped));
                         ranges.push(subrange);
                     }
@@ -446,7 +445,7 @@ impl<'a> LineLayout<'a> {
                 // empty string.
                 if !range.is_empty() || rest.is_empty() {
                     // Reshape that part.
-                    let reshaped = shaped.reshape(&mut ctx.fonts, range);
+                    let reshaped = shaped.reshape(ctx.fonts, range);
                     last = Some(ParItem::Text(reshaped));
                 }
 
@@ -467,7 +466,7 @@ impl<'a> LineLayout<'a> {
             // Reshape if necessary.
             if range.len() < shaped.text.len() {
                 if !range.is_empty() {
-                    let reshaped = shaped.reshape(&mut ctx.fonts, range);
+                    let reshaped = shaped.reshape(ctx.fonts, range);
                     first = Some(ParItem::Text(reshaped));
                 }
 
@@ -531,7 +530,7 @@ impl<'a> LineLayout<'a> {
             match item {
                 ParItem::Absolute(v) => offset += *v,
                 ParItem::Fractional(v) => offset += v.resolve(self.fr, remaining),
-                ParItem::Text(shaped) => position(shaped.build(&ctx.fonts)),
+                ParItem::Text(shaped) => position(shaped.build(ctx.fonts)),
                 ParItem::Frame(frame) => position(frame.clone()),
             }
         }

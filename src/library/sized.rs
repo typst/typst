@@ -6,16 +6,14 @@ use super::prelude::*;
 pub fn box_(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let width = args.named("width")?;
     let height = args.named("height")?;
-    let body: Node = args.find().unwrap_or_default();
-    Ok(Value::inline(
-        body.into_block().sized(Spec::new(width, height)),
-    ))
+    let body: PackedNode = args.find().unwrap_or_default();
+    Ok(Value::inline(body.sized(Spec::new(width, height))))
 }
 
 /// `block`: Place content into the flow.
 pub fn block(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let body: Node = args.find().unwrap_or_default();
-    Ok(Value::block(body.into_block()))
+    let body: PackedNode = args.find().unwrap_or_default();
+    Ok(Value::block(body))
 }
 
 /// A node that sizes its child.

@@ -21,6 +21,7 @@ pub trait Pretty {
 }
 
 /// A buffer into which items can be pretty printed.
+#[derive(Default)]
 pub struct Printer {
     buf: String,
 }
@@ -28,7 +29,7 @@ pub struct Printer {
 impl Printer {
     /// Create a new pretty printer.
     pub fn new() -> Self {
-        Self { buf: String::new() }
+        Self::default()
     }
 
     /// Push a character into the buffer.
