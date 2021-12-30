@@ -34,7 +34,7 @@ impl StyleMap {
     pub fn set<P: Property>(&mut self, key: P, value: P::Value) {
         for entry in &mut self.0 {
             if entry.is::<P>() {
-                let prev = entry.downcast::<P::Value>().unwrap();
+                let prev = entry.downcast::<P>().unwrap();
                 let folded = P::fold(value, prev.clone());
                 *entry = Entry::new(key, folded);
                 return;
@@ -81,6 +81,10 @@ impl StyleMap {
     /// Apply styles from `outer` in-place. The resulting style map is
     /// equivalent to the style chain created by
     /// `self.chain(StyleChain::new(outer))`.
+    ///
+    /// This is useful in the evaluation phase while building nodes and their
+    /// style maps, whereas `chain` would be used during layouting to combine
+    /// immutable style maps from different levels of the hierarchy.
     pub fn apply(&mut self, outer: &Self) {
         'outer: for outer in &outer.0 {
             for inner in &mut self.0 {
@@ -94,14 +98,16 @@ impl StyleMap {
         }
     }
 
-    /// Keep only those styles that are not also in `other`.
+    /// Subtract `other` from `self` in-place, keeping only styles that are in
+    /// `self` but not in `other`.
     pub fn erase(&mut self, other: &Self) {
-        self.0.retain(|a| other.0.iter().all(|b| a != b));
+        self.0.retain(|x| !other.0.contains(x));
     }
 
-    /// Keep only those styles that are also in `other`.
+    /// Intersect `self` with `other` in-place, keeping only styles that are
+    /// both in `self` and `other`.
     pub fn intersect(&mut self, other: &Self) {
-        self.0.retain(|a| other.0.iter().any(|b| a == b));
+        self.0.retain(|x| other.0.contains(x));
     }
 
     /// Whether two style maps are equal when filtered down to the given
@@ -112,7 +118,7 @@ impl StyleMap {
     {
         let f = |entry: &&Entry| filter(entry.style_id());
         self.0.iter().filter(f).count() == other.0.iter().filter(f).count()
-            && self.0.iter().filter(f).all(|pair| other.0.contains(pair))
+            && self.0.iter().filter(f).all(|x| other.0.contains(x))
     }
 }
 
@@ -218,7 +224,7 @@ impl<'a> StyleChain<'a> {
             .0
             .iter()
             .find(|entry| entry.is::<P>())
-            .and_then(|entry| entry.downcast())
+            .and_then(|entry| entry.downcast::<P>())
     }
 }
 
@@ -299,7 +305,7 @@ impl Entry {
         self.style_id() == StyleId::of::<P>()
     }
 
-    fn downcast<T: 'static>(&self) -> Option<&T> {
+    fn downcast<P: Property>(&self) -> Option<&P::Value> {
         self.0.as_any().downcast_ref()
     }
 
@@ -345,7 +351,7 @@ impl<P: Property> Bounds for (P, P::Value) {
     }
 
     fn fold(&self, outer: &Entry) -> Entry {
-        let outer = outer.downcast::<P::Value>().unwrap();
+        let outer = outer.downcast::<P>().unwrap();
         let combined = P::fold(self.1.clone(), outer.clone());
         Entry::new(self.0, combined)
     }
@@ -360,7 +366,7 @@ impl<P: Property> Bounds for (P, P::Value) {
 
     fn dyn_eq(&self, other: &Entry) -> bool {
         self.style_id() == other.style_id()
-            && if let Some(other) = other.downcast::<P::Value>() {
+            && if let Some(other) = other.downcast::<P>() {
                 &self.1 == other
             } else {
                 false
