@@ -380,6 +380,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "miniz_oxide"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d2b29bd4bc3f33391105ebee3589c19197c4271e3e5a9ec9bfe8127eeff8f082"
+dependencies = [
+ "adler",
+]
+
+[[package]]
 name = "num-integer"
 version = "0.1.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -765,7 +774,7 @@ dependencies = [
  "image",
  "itertools",
  "memmap2",
- "miniz_oxide 0.4.4",
+ "miniz_oxide 0.5.1",
  "once_cell",
  "pdf-writer",
  "pico-args",
