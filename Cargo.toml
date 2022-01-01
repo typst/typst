@@ -47,7 +47,7 @@ walkdir = { version = "2", optional = true }
 [dev-dependencies]
 filedescriptor = "0.8"
 iai = { git = "https://github.com/reknih/iai" }
-resvg = { version = "0.19", default-features = false, features = ["text"] }
+resvg = { version = "0.20", default-features = false, features = ["text"] }
 tiny-skia = "0.6.2"
 walkdir = "2"
 
