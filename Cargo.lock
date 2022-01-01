@@ -569,7 +569,7 @@ dependencies = [
  "png 0.17.2",
  "rgb",
  "tiny-skia",
- "usvg",
+ "usvg 0.19.0",
 ]
 
 [[package]]
@@ -680,7 +680,7 @@ dependencies = [
  "image",
  "miniz_oxide 0.4.4",
  "pdf-writer",
- "usvg",
+ "usvg 0.19.0",
 ]
 
 [[package]]
@@ -781,7 +781,7 @@ dependencies = [
  "unicode-bidi",
  "unicode-segmentation",
  "unicode-xid",
- "usvg",
+ "usvg 0.20.0",
  "walkdir",
  "xi-unicode",
 ]
@@ -854,6 +854,32 @@ name = "usvg"
 version = "0.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f472f6f5d41d3eaef059bc893dcd2382eefcdda3e04ebe0b2860c56b538e491e"
+dependencies = [
+ "base64",
+ "data-url",
+ "flate2",
+ "float-cmp",
+ "fontdb",
+ "kurbo",
+ "log",
+ "pico-args",
+ "rctree",
+ "roxmltree",
+ "rustybuzz",
+ "simplecss",
+ "siphasher",
+ "svgtypes",
+ "ttf-parser",
+ "unicode-bidi",
+ "unicode-script",
+ "unicode-vo",
+]
+
+[[package]]
+name = "usvg"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "00f064d38f79ff69e3160e2fba884e4ede897061c15178041a3976371c68cab1"
 dependencies = [
  "base64",
  "data-url",

@@ -33,7 +33,7 @@ typst-macros = { path = "./macros" }
 unicode-bidi = "0.3.5"
 unicode-segmentation = "1"
 unicode-xid = "0.2"
-usvg = { version = "0.19", default-features = false, features = ["text"] }
+usvg = { version = "0.20", default-features = false, features = ["text"] }
 xi-unicode = "0.3"
 anyhow = { version = "1", optional = true }
 codespan-reporting = { version = "0.11", optional = true }
