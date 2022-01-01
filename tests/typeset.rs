@@ -1,10 +1,9 @@
 use std::env;
 use std::ffi::OsStr;
-use std::fs::{self, File};
+use std::fs;
 use std::path::Path;
 use std::rc::Rc;
 
-use filedescriptor::{FileDescriptor, StdioDescriptor::*};
 use image::{GenericImageView, Rgba};
 use tiny_skia as sk;
 use ttf_parser::{GlyphId, OutlineBuilder};
@@ -14,17 +13,22 @@ use walkdir::WalkDir;
 use typst::diag::Error;
 use typst::eval::{Smart, Styles, Value};
 use typst::font::Face;
-use typst::frame::{Element, Frame, Geometry, Group, Shape, Stroke, Text};
+use typst::frame::{Element, Frame, Geometry, Shape, Stroke, Text};
 use typst::geom::{self, Color, Length, Paint, PathElement, RgbaColor, Size, Transform};
 use typst::image::{Image, RasterImage, Svg};
-#[cfg(feature = "layout-cache")]
-use typst::layout::RootNode;
 use typst::library::{PageNode, TextNode};
 use typst::loading::FsLoader;
 use typst::parse::Scanner;
 use typst::source::SourceFile;
 use typst::syntax::Span;
 use typst::Context;
+
+#[cfg(feature = "layout-cache")]
+use {
+    filedescriptor::{FileDescriptor, StdioDescriptor::*},
+    std::fs::File,
+    typst::layout::RootNode,
+};
 
 const TYP_DIR: &str = "./typ";
 const REF_DIR: &str = "./ref";
@@ -38,7 +42,9 @@ fn main() {
     let args = Args::new(env::args().skip(1));
     let mut filtered = Vec::new();
 
-    for entry in WalkDir::new(".").into_iter() {
+    // Since differents tests can affect each other through the layout cache, a
+    // deterministic order is very important for reproducibility.
+    for entry in WalkDir::new(".").sort_by_file_name() {
         let entry = entry.unwrap();
         if entry.depth() <= 1 {
             continue;
@@ -451,7 +457,7 @@ fn draw(ctx: &Context, frames: &[Rc<Frame>], dpp: f32) -> sk::Pixmap {
         let rect = sk::Rect::from_xywh(0.0, 0.0, w, h).unwrap();
         canvas.fill_rect(rect, &background, ts, None);
 
-        draw_frame(&mut canvas, ts, &mask, ctx, frame);
+        draw_frame(&mut canvas, ts, &mask, ctx, frame, true);
         ts = ts.pre_translate(0.0, (frame.size.y + pad).to_f32());
     }
 
@@ -464,7 +470,25 @@ fn draw_frame(
     mask: &sk::ClipMask,
     ctx: &Context,
     frame: &Frame,
+    clip: bool,
 ) {
+    let mut storage;
+    let mut mask = mask;
+    if clip {
+        let w = frame.size.x.to_f32();
+        let h = frame.size.y.to_f32();
+        let rect = sk::Rect::from_xywh(0.0, 0.0, w, h).unwrap();
+        let path = sk::PathBuilder::from_rect(rect).transform(ts).unwrap();
+        let rule = sk::FillRule::default();
+        storage = mask.clone();
+        if storage.intersect_path(&path, rule, false).is_none() {
+            // Fails if clipping rect is empty. In that case we just clip
+            // everything by returning.
+            return;
+        }
+        mask = &storage;
+    }
+
     for (pos, element) in &frame.elements {
         let x = pos.x.to_f32();
         let y = pos.y.to_f32();
@@ -472,7 +496,8 @@ fn draw_frame(
 
         match *element {
             Element::Group(ref group) => {
-                draw_group(canvas, ts, mask, ctx, group);
+                let ts = ts.pre_concat(convert_typst_transform(group.transform));
+                draw_frame(canvas, ts, &mask, ctx, &group.frame, group.clips);
             }
             Element::Text(ref text) => {
                 draw_text(canvas, ts, mask, ctx.fonts.get(text.face_id), text);
@@ -490,32 +515,6 @@ fn draw_frame(
             }
         }
     }
-}
-
-fn draw_group(
-    canvas: &mut sk::Pixmap,
-    ts: sk::Transform,
-    mask: &sk::ClipMask,
-    ctx: &Context,
-    group: &Group,
-) {
-    let ts = ts.pre_concat(convert_typst_transform(group.transform));
-    if group.clips {
-        let w = group.frame.size.x.to_f32();
-        let h = group.frame.size.y.to_f32();
-        let rect = sk::Rect::from_xywh(0.0, 0.0, w, h).unwrap();
-        let path = sk::PathBuilder::from_rect(rect).transform(ts).unwrap();
-        let rule = sk::FillRule::default();
-        let mut mask = mask.clone();
-        if mask.intersect_path(&path, rule, false).is_none() {
-            // Fails if clipping rect is empty. In that case we just clip everything
-            // by returning.
-            return;
-        }
-        draw_frame(canvas, ts, &mask, ctx, &group.frame);
-    } else {
-        draw_frame(canvas, ts, mask, ctx, &group.frame);
-    };
 }
 
 fn draw_text(
@@ -810,6 +809,7 @@ impl LengthExt for Length {
 }
 
 /// Disable stdout and stderr during execution of `f`.
+#[cfg(feature = "layout-cache")]
 fn silenced<F, T>(f: F) -> T
 where
     F: FnOnce() -> T,

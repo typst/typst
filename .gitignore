@@ -12,7 +12,6 @@ tarpaulin-report.html
 /target
 bench/target
 **/*.rs.bk
-Cargo.lock
 
 # Node
 node_modules
