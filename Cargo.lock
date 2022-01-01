@@ -253,7 +253,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "01b07f5c05414a0d8caba4c17eef8dc8b5c8955fc7c68d324191c7a56d3f3449"
 dependencies = [
  "log",
- "ttf-parser",
+ "ttf-parser 0.12.3",
 ]
 
 [[package]]
@@ -599,7 +599,7 @@ dependencies = [
  "bitflags",
  "bytemuck",
  "smallvec",
- "ttf-parser",
+ "ttf-parser 0.12.3",
  "unicode-bidi-mirroring",
  "unicode-ccc",
  "unicode-general-category",
@@ -753,6 +753,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7ae2f58a822f08abdaf668897e96a5656fe72f5a9ce66422423e8849384872e6"
 
 [[package]]
+name = "ttf-parser"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ccbe8381883510b6a2d8f1e32905bddd178c11caef8083086d0c0c9ab0ac281"
+
+[[package]]
 name = "typst"
 version = "0.1.0"
 dependencies = [
@@ -776,7 +782,7 @@ dependencies = [
  "serde",
  "svg2pdf",
  "tiny-skia",
- "ttf-parser",
+ "ttf-parser 0.14.0",
  "typst-macros",
  "unicode-bidi",
  "unicode-segmentation",
@@ -869,7 +875,7 @@ dependencies = [
  "simplecss",
  "siphasher",
  "svgtypes",
- "ttf-parser",
+ "ttf-parser 0.12.3",
  "unicode-bidi",
  "unicode-script",
  "unicode-vo",
