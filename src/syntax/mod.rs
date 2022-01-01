@@ -64,6 +64,14 @@ impl Green {
         }
     }
 
+    /// Whether the node is a leaf node in the green tree.
+    pub fn is_leaf(&self) -> bool {
+        match self {
+            Green::Node(n) => n.children().is_empty(),
+            Green::Token(_) => true,
+        }
+    }
+
     /// Change the type of the node.
     pub fn convert(&mut self, kind: NodeKind) {
         match self {
@@ -361,6 +369,11 @@ impl<'a> RedRef<'a> {
         Span::new(self.id, self.offset, self.offset + self.green.len())
     }
 
+    /// Whether the node is a leaf node.
+    pub fn is_leaf(self) -> bool {
+        self.green.is_leaf()
+    }
+
     /// The error messages for this node and its descendants.
     pub fn errors(self) -> Vec<Error> {
         if !self.green.erroneous() {
@@ -383,6 +396,14 @@ impl<'a> RedRef<'a> {
                 .flat_map(|red| red.errors())
                 .collect(),
         }
+    }
+
+    /// Perform a depth-first search starting at this node.
+    pub fn all_children(&self) -> Vec<Self> {
+        let mut res = vec![self.clone()];
+        res.extend(self.children().flat_map(|child| child.all_children().into_iter()));
+
+        res
     }
 
     /// Convert the node to a typed AST node.
@@ -562,8 +583,8 @@ pub enum NodeKind {
     Include,
     /// The `from` keyword.
     From,
-    /// Template markup.
-    Markup,
+    /// Template markup of which all lines must start in some column.
+    Markup(usize),
     /// One or more whitespace characters.
     Space(usize),
     /// A forced line break: `\`.
@@ -738,7 +759,7 @@ impl NodeKind {
     /// Whether this token appears in Markup.
     pub fn mode(&self) -> Option<TokenMode> {
         match self {
-            Self::Markup
+            Self::Markup(_)
             | Self::Linebreak
             | Self::Parbreak
             | Self::Text(_)
@@ -823,7 +844,7 @@ impl NodeKind {
             Self::Import => "keyword `import`",
             Self::Include => "keyword `include`",
             Self::From => "keyword `from`",
-            Self::Markup => "markup",
+            Self::Markup(_) => "markup",
             Self::Space(_) => "space",
             Self::Linebreak => "forced linebreak",
             Self::Parbreak => "paragraph break",

@@ -53,7 +53,7 @@ macro_rules! node {
 
 node! {
     /// The syntactical root capable of representing a full parsed document.
-    Markup
+    Markup: NodeKind::Markup(_)
 }
 
 impl Markup {

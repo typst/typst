@@ -154,7 +154,7 @@ impl Category {
             NodeKind::Str(_) => Some(Category::String),
             NodeKind::Error(_, _) => Some(Category::Invalid),
             NodeKind::Unknown(_) => Some(Category::Invalid),
-            NodeKind::Markup => None,
+            NodeKind::Markup(_) => None,
             NodeKind::Space(_) => None,
             NodeKind::Parbreak => None,
             NodeKind::Text(_) => None,

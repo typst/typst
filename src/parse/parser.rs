@@ -21,8 +21,12 @@ pub struct Parser<'s> {
     groups: Vec<GroupEntry>,
     /// The children of the currently built node.
     children: Vec<Green>,
-    /// Whether the last group was terminated.
-    last_terminated: bool,
+    /// Is `Some` if there is an unterminated group at the last position where
+    /// groups were terminated.
+    last_unterminated: Option<usize>,
+    /// Offset the indentation. This can be used if the parser is processing a
+    /// subslice of the source and there was leading indent.
+    column_offset: usize,
 }
 
 impl<'s> Parser<'s> {
@@ -38,7 +42,8 @@ impl<'s> Parser<'s> {
             current_start: 0,
             groups: vec![],
             children: vec![],
-            last_terminated: true,
+            last_unterminated: None,
+            column_offset: 0,
         }
     }
 
@@ -100,6 +105,11 @@ impl<'s> Parser<'s> {
     pub fn eject_partial(self) -> Option<(Vec<Green>, bool)> {
         self.group_success()
             .then(|| (self.children, self.tokens.was_terminated()))
+    }
+
+    /// Set an indentation offset.
+    pub fn offset(&mut self, columns: usize) {
+        self.column_offset = columns;
     }
 
     /// Whether the end of the source string or group is reached.
@@ -206,6 +216,12 @@ impl<'s> Parser<'s> {
 
     /// Determine the column index for the given byte index.
     pub fn column(&self, index: usize) -> usize {
+        self.tokens.scanner().column(index) + self.column_offset
+    }
+
+    /// Determine the column index for the given byte index while ignoring the
+    /// offset.
+    pub fn clean_column(&self, index: usize) -> usize {
         self.tokens.scanner().column(index)
     }
 
@@ -244,7 +260,11 @@ impl<'s> Parser<'s> {
         let group = self.groups.pop().expect("no started group");
         self.tokens.set_mode(group.prev_mode);
         self.repeek();
-        self.last_terminated = true;
+        if let Some(n) = self.last_unterminated {
+            if n != self.prev_end() {
+                self.last_unterminated = None;
+            }
+        }
 
         let mut rescan = self.tokens.mode() != group_mode;
 
@@ -262,8 +282,14 @@ impl<'s> Parser<'s> {
                 self.eat();
                 rescan = false;
             } else if required {
+                // FIXME The error has to be inserted before any space rolls
+                // around because the rescan will set the cursor back in front
+                // of the space and reconsume it. Supressing the rescan is not
+                // an option since additional rescans (e.g. for statements) can
+                // be triggered directly afterwards, without processing any
+                // other token.
                 self.push_error(format_eco!("expected {}", end));
-                self.last_terminated = false;
+                self.last_unterminated = Some(self.prev_end());
             }
         }
 
@@ -283,13 +309,21 @@ impl<'s> Parser<'s> {
 
     /// Check if the group processing was successfully terminated.
     pub fn group_success(&self) -> bool {
-        self.last_terminated && self.groups.is_empty()
+        self.last_unterminated.is_none() && self.groups.is_empty()
     }
 
     /// Low-level bump that consumes exactly one token without special trivia
     /// handling.
     fn bump(&mut self) {
         let kind = self.current.take().unwrap();
+        if match kind {
+            NodeKind::Space(n) if n > 0 => true,
+            NodeKind::Parbreak => true,
+            _ => false,
+        } {
+            self.column_offset = 0;
+        }
+
         let len = self.tokens.index() - self.current_start;
         self.children.push(GreenData::new(kind, len).into());
         self.current_start = self.tokens.index();
@@ -346,6 +380,13 @@ impl Parser<'_> {
     /// Push an error into the children list.
     pub fn push_error(&mut self, msg: impl Into<EcoString>) {
         let error = NodeKind::Error(ErrorPos::Full, msg.into());
+        for i in (0 .. self.children.len()).rev() {
+            if Self::is_trivia_ext(self.children[i].kind(), false) {
+                self.children.remove(i);
+            } else {
+                break;
+            }
+        }
         self.children.push(GreenData::new(error, 0).into());
     }
 
@@ -445,6 +486,7 @@ impl Marker {
 }
 
 /// A logical group of tokens, e.g. `[...]`.
+#[derive(Debug)]
 struct GroupEntry {
     /// The kind of group this is. This decides which tokens will end the group.
     /// For example, a [`Group::Paren`] will be ended by

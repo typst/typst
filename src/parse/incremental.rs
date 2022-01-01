@@ -47,6 +47,10 @@ pub enum Precondition {
     /// safe left neighbors has to check this invariant. Otherwise, this node is
     /// safe.
     NotAtStart,
+    /// These nodes could end up somewhere else up the tree if the parse was
+    /// happening from scratch. The parse result has to be checked for such
+    /// nodes. They are safe to add if followed up by other nodes.
+    NotAtEnd,
     /// No additional requirements.
     None,
 }
@@ -87,6 +91,12 @@ impl Reparser<'_> {
         let mode = green.kind().mode().unwrap_or(parent_mode);
         let child_mode = green.kind().mode().unwrap_or(TokenMode::Code);
         let child_count = green.children().len();
+
+        // Save the current indent if this is a markup node.
+        let indent = match green.kind() {
+            NodeKind::Markup(n) => *n,
+            _ => 0,
+        };
 
         let mut first = None;
         let mut at_start = true;
@@ -170,12 +180,29 @@ impl Reparser<'_> {
         }
 
         // We now have a child that we can replace and a function to do so.
-        let func = last_kind.reparsing_func(child_mode)?;
+        let func = last_kind.reparsing_func(child_mode, indent)?;
         let post = last_kind.post();
+
+        let mut column = if mode == TokenMode::Markup {
+            // In this case, we want to pass the indentation to the function.
+            Scanner::new(self.src).column(children_span.start)
+        } else {
+            0
+        };
+
+        // If this is a markup node, we want to save its indent instead to pass
+        // the right indent argument.
+        if children_range.len() == 1 {
+            let child = &mut green.children_mut()[children_range.start];
+            if let NodeKind::Markup(n) = child.kind() {
+                column = *n;
+            }
+        }
 
         // The span of the to-be-reparsed children in the new source.
         let replace_span = children_span.start
-            .. children_span.end + self.replace_len - self.replace_range.len();
+            ..
+            children_span.end + self.replace_len - self.replace_range.len();
 
         // For atomic primaries we need to pass in the whole remaining string to
         // check whether the parser would eat more stuff illicitly.
@@ -186,7 +213,7 @@ impl Reparser<'_> {
         };
 
         // Do the reparsing!
-        let (mut newborns, terminated) = func(&self.src[reparse_span], at_start)?;
+        let (mut newborns, terminated) = func(&self.src[reparse_span], at_start, column)?;
 
         // Make sure that atomic primaries ate only what they were supposed to.
         if post == Postcondition::AtomicPrimary {
@@ -311,6 +338,14 @@ fn validate(
         at_start = child.kind().is_at_start(at_start);
     }
 
+    // Verify that the last of the newborns is not `NotAtEnd`.
+    if newborns
+        .last()
+        .map_or(false, |child| child.kind().pre() == Precondition::NotAtEnd)
+    {
+        return false;
+    }
+
     // We have to check whether the last non-trivia newborn is `AtStart` and
     // verify the indent of its right neighbors in order to make sure its
     // indentation requirements are fulfilled.
@@ -351,21 +386,22 @@ impl NodeKind {
     fn reparsing_func(
         &self,
         parent_mode: TokenMode,
-    ) -> Option<fn(&str, bool) -> Option<(Vec<Green>, bool)>> {
+        indent: usize,
+    ) -> Option<fn(&str, bool, usize) -> Option<(Vec<Green>, bool)>> {
         let mode = self.mode().unwrap_or(parent_mode);
         match self.post() {
             Postcondition::Unsafe | Postcondition::UnsafeLayer => None,
             Postcondition::AtomicPrimary if mode == TokenMode::Code => Some(parse_atomic),
             Postcondition::AtomicPrimary => Some(parse_atomic_markup),
             Postcondition::SameKind(x) if x == None || x == Some(mode) => match self {
+                NodeKind::Markup(_) => Some(parse_markup),
                 NodeKind::Template => Some(parse_template),
                 NodeKind::Block => Some(parse_block),
                 NodeKind::LineComment | NodeKind::BlockComment => Some(parse_comment),
                 _ => None,
             },
             _ => match mode {
-                TokenMode::Markup if self == &Self::Markup => Some(parse_markup),
-                TokenMode::Markup => Some(parse_markup_elements),
+                TokenMode::Markup if indent == 0 => Some(parse_markup_elements),
                 _ => return None,
             },
         }
@@ -452,8 +488,9 @@ impl NodeKind {
                 Postcondition::UnsafeLayer
             }
 
-            // Only markup is expected at the points where it does occur.
-            Self::Markup => Postcondition::SameKind(None),
+            // Only markup is expected at the points where it does occur. The
+            // indentation must be preserved as well, also for the children.
+            Self::Markup(_) => Postcondition::SameKind(None),
 
             // These can appear everywhere and must not change to other stuff
             // because that could change the outer expression.
@@ -493,6 +530,10 @@ impl NodeKind {
             | Self::ImportExpr
             | Self::IncludeExpr => Postcondition::AtomicPrimary,
 
+            // This element always has to remain in the same column so better
+            // reparse the whole parent.
+            Self::Raw(_) => Postcondition::Unsafe,
+
             // These are all replaceable by other tokens.
             Self::Parbreak
             | Self::Linebreak
@@ -507,7 +548,6 @@ impl NodeKind {
             | Self::Heading
             | Self::Enum
             | Self::List
-            | Self::Raw(_)
             | Self::Math(_) => Postcondition::Safe,
         }
     }
@@ -517,6 +557,7 @@ impl NodeKind {
         match self {
             Self::Heading | Self::Enum | Self::List => Precondition::AtStart,
             Self::TextInLine(_) => Precondition::NotAtStart,
+            Self::Error(_, _) => Precondition::NotAtEnd,
             _ => Precondition::None,
         }
     }
@@ -557,12 +598,12 @@ mod tests {
         test("a d e", 1 .. 3, " b c d", 0 .. 8);
         test("a #f() e", 1 .. 6, " b c d", 0 .. 8);
         test("{(0, 1, 2)}", 5 .. 6, "11pt", 5 .. 9);
-        test("= A heading", 3 .. 3, "n evocative", 2 .. 15);
+        test("= A heading", 3 .. 3, "n evocative", 2 .. 22);
         test("your thing", 5 .. 5, "a", 4 .. 11);
         test("a your thing a", 6 .. 7, "a", 2 .. 12);
         test("{call(); abc}", 7 .. 7, "[]", 0 .. 15);
         test("#call() abc", 7 .. 7, "[]", 0 .. 10);
-        test("hi[\n- item\n- item 2\n    - item 3]", 11 .. 11, "  ", 2 .. 35);
+        test("hi[\n- item\n- item 2\n    - item 3]", 11 .. 11, "  ", 3 .. 34);
         test("hi\n- item\nno item\n    - item 3", 10 .. 10, "- ", 0 .. 32);
         test("#grid(columns: (auto, 1fr, 40%), [*plonk*], rect(width: 100%, height: 1pt, fill: conifer), [thing])", 16 .. 20, "none", 16 .. 20);
         test("#grid(columns: (auto, 1fr, 40%), [*plonk*], rect(width: 100%, height: 1pt, fill: conifer), [thing])", 33 .. 42, "[_gronk_]", 33 .. 42);
@@ -571,7 +612,7 @@ mod tests {
         test("{let i=1; for x in range(5) {i}}", 13 .. 14, "  ", 10 .. 32);
         test("hello {x}", 6 .. 9, "#f()", 5 .. 10);
         test("this is -- in my opinion -- spectacular", 8 .. 10, "---", 7 .. 12);
-        test("understanding `code` is complicated", 15 .. 15, "C ", 14 .. 22);
+        test("understanding `code` is complicated", 15 .. 15, "C ", 0 .. 37);
         test("{ let x = g() }", 10 .. 12, "f(54", 2 .. 15);
         test("a #let rect with (fill: eastern)\nb", 16 .. 31, " (stroke: conifer", 2 .. 34);
 
@@ -596,7 +637,7 @@ mod tests {
         test("a{\nf()\n//g(a)\n}b", 7 .. 9, "", 1 .. 13);
         test("a #while x {\n g(x) \n}  b", 11 .. 11, "//", 0 .. 26);
         test("{(1, 2)}", 1 .. 1, "while ", 0 .. 14);
-        test("a b c", 1 .. 1, "{[}", 0 .. 5);
+        test("a b c", 1 .. 1, "{[}", 0 .. 8);
 
         // Test unclosed things.
         test(r#"{"hi"}"#, 4 .. 5, "c", 0 .. 6);
@@ -610,6 +651,6 @@ mod tests {
 
         // Test raw tokens.
         test(r#"a ```typst hello``` b"#, 16 .. 17, "", 0 .. 20);
-        test(r#"a ```typst hello```"#, 16 .. 17, "", 2 .. 18);
+        test(r#"a ```typst hello```"#, 16 .. 17, "", 0 .. 18);
     }
 }

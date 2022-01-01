@@ -19,8 +19,8 @@ use typst::image::{Image, RasterImage, Svg};
 use typst::library::{PageNode, TextNode};
 use typst::loading::FsLoader;
 use typst::parse::Scanner;
-use typst::source::SourceFile;
-use typst::syntax::Span;
+use typst::source::{SourceFile, SourceId};
+use typst::syntax::{RedNode, Span};
 use typst::Context;
 
 #[cfg(feature = "layout-cache")]
@@ -186,6 +186,7 @@ fn test(
     let mut line = 0;
     let mut compare_ref = true;
     let mut compare_ever = false;
+    let mut rng = LinearShift::new();
 
     let parts: Vec<_> = src.split("\n---").collect();
     for (i, &part) in parts.iter().enumerate() {
@@ -202,8 +203,16 @@ fn test(
                 }
             }
         } else {
-            let (part_ok, compare_here, part_frames) =
-                test_part(ctx, src_path, part.into(), i, compare_ref, line, debug);
+            let (part_ok, compare_here, part_frames) = test_part(
+                ctx,
+                src_path,
+                part.into(),
+                i,
+                compare_ref,
+                line,
+                debug,
+                &mut rng,
+            );
             ok &= part_ok;
             compare_ever |= compare_here;
             frames.extend(part_frames);
@@ -252,14 +261,16 @@ fn test_part(
     compare_ref: bool,
     line: usize,
     debug: bool,
+    rng: &mut LinearShift,
 ) -> (bool, bool, Vec<Rc<Frame>>) {
+    let mut ok = test_reparse(&src, i, rng);
+
     let id = ctx.sources.provide(src_path, src);
     let source = ctx.sources.get(id);
 
     let (local_compare_ref, mut ref_errors) = parse_metadata(&source);
     let compare_ref = local_compare_ref.unwrap_or(compare_ref);
 
-    let mut ok = true;
     let (frames, mut errors) = match ctx.evaluate(id) {
         Ok(module) => {
             let tree = module.into_root();
@@ -362,6 +373,108 @@ fn test_incremental(
 
     ctx.layouts = reference;
     ctx.layouts.turnaround();
+
+    ok
+}
+
+/// Pseudorandomly edit the source file and test whether a reparse produces the
+/// same result as a clean parse.
+///
+/// The method will first inject 10 strings once every 400 source characters
+/// and then select 5 leaf node boundries to inject an additional, randomly
+/// chosen string from the injection list.
+fn test_reparse(src: &str, i: usize, rng: &mut LinearShift) -> bool {
+    let supplements = [
+        "[",
+        ")",
+        "#rect()",
+        "a word",
+        ", a: 1",
+        "10.0",
+        ":",
+        "if i == 0 {true}",
+        "for",
+        "* hello *",
+        "//",
+        "/*",
+        "\\u{12e4}",
+        "```typst",
+        " ",
+        "trees",
+        "\\",
+        "$ a $",
+        "2.",
+        "-",
+        "5",
+    ];
+
+    let mut ok = true;
+
+    let apply = |replace: std::ops::Range<usize>, with| {
+        let mut incr_source = SourceFile::detached(src);
+
+        incr_source.edit(replace.clone(), with);
+        let edited_src = incr_source.src();
+
+        let ref_source = SourceFile::detached(edited_src);
+        let incr_root = incr_source.root();
+        let ref_root = ref_source.root();
+        if incr_root != ref_root {
+            println!(
+                "    Subtest {} reparse differs from clean parse when inserting '{}' at {}-{} ❌",
+                i, with, replace.start, replace.end,
+            );
+            println!(
+                "\n    Expected reference tree:\n{:#?}\n\n    Found incremental tree:\n{:#?}",
+                ref_root, incr_root
+            );
+            println!("Full source ({}):\n\"{}\"", edited_src.len(), edited_src);
+            false
+        } else {
+            true
+        }
+    };
+
+    let mut in_range = |range: std::ops::Range<usize>| {
+        let full = rng.next().unwrap() as f64 / u64::MAX as f64;
+        (range.start as f64 + full * (range.end as f64 - range.start as f64)).floor()
+            as usize
+    };
+
+    let insertions = (src.len() as f64 / 400.0).ceil() as usize;
+
+    for _ in 0 .. insertions {
+        let supplement = supplements[in_range(0 .. supplements.len())];
+        let start = in_range(0 .. src.len());
+        let end = in_range(start .. src.len());
+
+        if !src.is_char_boundary(start) || !src.is_char_boundary(end) {
+            continue;
+        }
+
+        if !apply(start .. end, supplement) {
+            println!("original tree: {:#?}", SourceFile::detached(src).root());
+
+            ok = false;
+        }
+    }
+
+    let red = RedNode::from_root(
+        SourceFile::detached(src).root().clone(),
+        SourceId::from_raw(0),
+    );
+
+    let leafs: Vec<_> = red
+        .as_ref()
+        .all_children()
+        .into_iter()
+        .filter(|red| red.is_leaf())
+        .collect();
+
+    let leaf_start = leafs[in_range(0 .. leafs.len())].span().start;
+    let supplement = supplements[in_range(0 .. supplements.len())];
+
+    ok &= apply(leaf_start .. leaf_start, supplement);
 
     ok
 }
@@ -822,4 +935,34 @@ where
     FileDescriptor::redirect_stdio(&stderr, Stderr).unwrap();
     FileDescriptor::redirect_stdio(&stdout, Stdout).unwrap();
     result
+}
+
+/// This is an Linear-feedback shift register using XOR as its shifting
+/// function. It can be used as PRNG.
+struct LinearShift(u64);
+
+impl LinearShift {
+    /// Initialize the shift register with a pre-set seed.
+    pub fn new() -> Self {
+        Self(0xACE5)
+    }
+}
+
+impl Iterator for LinearShift {
+    type Item = u64;
+
+    /// Apply the shift.
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0 ^= self.0 >> 3;
+        self.0 ^= self.0 << 14;
+        self.0 ^= self.0 >> 28;
+        self.0 ^= self.0 << 36;
+        self.0 ^= self.0 >> 52;
+        Some(self.0)
+    }
+
+    /// The iterator is endless but will repeat eventually.
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (usize::MAX, None)
+    }
 }

@@ -16,6 +16,7 @@ use std::rc::Rc;
 
 use crate::syntax::ast::{Associativity, BinOp, UnOp};
 use crate::syntax::{ErrorPos, Green, GreenNode, NodeKind};
+use crate::util::EcoString;
 
 /// Parse a source file.
 pub fn parse(src: &str) -> Rc<GreenNode> {
@@ -28,23 +29,27 @@ pub fn parse(src: &str) -> Rc<GreenNode> {
 }
 
 /// Parse an atomic primary. Returns `Some` if all of the input was consumed.
-pub fn parse_atomic(src: &str, _: bool) -> Option<(Vec<Green>, bool)> {
+pub fn parse_atomic(src: &str, _: bool, _: usize) -> Option<(Vec<Green>, bool)> {
     let mut p = Parser::new(src, TokenMode::Code);
     primary(&mut p, true).ok()?;
     p.eject_partial()
 }
 
 /// Parse an atomic primary. Returns `Some` if all of the input was consumed.
-pub fn parse_atomic_markup(src: &str, _: bool) -> Option<(Vec<Green>, bool)> {
+pub fn parse_atomic_markup(src: &str, _: bool, _: usize) -> Option<(Vec<Green>, bool)> {
     let mut p = Parser::new(src, TokenMode::Markup);
     markup_expr(&mut p);
     p.eject_partial()
 }
 
 /// Parse some markup. Returns `Some` if all of the input was consumed.
-pub fn parse_markup(src: &str, _: bool) -> Option<(Vec<Green>, bool)> {
+pub fn parse_markup(src: &str, _: bool, column: usize) -> Option<(Vec<Green>, bool)> {
     let mut p = Parser::new(src, TokenMode::Markup);
-    markup(&mut p);
+    if column == 0 {
+        markup(&mut p);
+    } else {
+        markup_indented(&mut p, column);
+    }
     p.eject()
 }
 
@@ -53,8 +58,10 @@ pub fn parse_markup(src: &str, _: bool) -> Option<(Vec<Green>, bool)> {
 pub fn parse_markup_elements(
     src: &str,
     mut at_start: bool,
+    column: usize,
 ) -> Option<(Vec<Green>, bool)> {
     let mut p = Parser::new(src, TokenMode::Markup);
+    p.offset(column);
     while !p.eof() {
         markup_node(&mut p, &mut at_start);
     }
@@ -62,7 +69,7 @@ pub fn parse_markup_elements(
 }
 
 /// Parse a template literal. Returns `Some` if all of the input was consumed.
-pub fn parse_template(source: &str, _: bool) -> Option<(Vec<Green>, bool)> {
+pub fn parse_template(source: &str, _: bool, _: usize) -> Option<(Vec<Green>, bool)> {
     let mut p = Parser::new(source, TokenMode::Code);
     if !p.at(&NodeKind::LeftBracket) {
         return None;
@@ -73,7 +80,7 @@ pub fn parse_template(source: &str, _: bool) -> Option<(Vec<Green>, bool)> {
 }
 
 /// Parse a code block. Returns `Some` if all of the input was consumed.
-pub fn parse_block(source: &str, _: bool) -> Option<(Vec<Green>, bool)> {
+pub fn parse_block(source: &str, _: bool, _: usize) -> Option<(Vec<Green>, bool)> {
     let mut p = Parser::new(source, TokenMode::Code);
     if !p.at(&NodeKind::LeftBrace) {
         return None;
@@ -84,7 +91,7 @@ pub fn parse_block(source: &str, _: bool) -> Option<(Vec<Green>, bool)> {
 }
 
 /// Parse a comment. Returns `Some` if all of the input was consumed.
-pub fn parse_comment(source: &str, _: bool) -> Option<(Vec<Green>, bool)> {
+pub fn parse_comment(source: &str, _: bool, _: usize) -> Option<(Vec<Green>, bool)> {
     let mut p = Parser::new(source, TokenMode::Code);
     comment(&mut p).ok()?;
     p.eject()
@@ -92,7 +99,7 @@ pub fn parse_comment(source: &str, _: bool) -> Option<(Vec<Green>, bool)> {
 
 /// Parse markup.
 fn markup(p: &mut Parser) {
-    markup_while(p, true, &mut |_| true)
+    markup_while(p, true, 0, &mut |_| true)
 }
 
 /// Parse markup that stays right of the given column.
@@ -103,8 +110,8 @@ fn markup_indented(p: &mut Parser, column: usize) {
         _ => false,
     });
 
-    markup_while(p, false, &mut |p| match p.peek() {
-        Some(NodeKind::Space(n)) if *n >= 1 => p.column(p.current_end()) >= column,
+    markup_while(p, false, column, &mut |p| match p.peek() {
+        Some(NodeKind::Space(n)) if *n >= 1 => p.clean_column(p.current_end()) >= column,
         _ => true,
     })
 }
@@ -113,11 +120,11 @@ fn markup_indented(p: &mut Parser, column: usize) {
 ///
 /// If `at_start` is true, things like headings that may only appear at the
 /// beginning of a line or template are allowed.
-fn markup_while<F>(p: &mut Parser, mut at_start: bool, f: &mut F)
+fn markup_while<F>(p: &mut Parser, mut at_start: bool, column: usize, f: &mut F)
 where
     F: FnMut(&mut Parser) -> bool,
 {
-    p.perform(NodeKind::Markup, |p| {
+    p.perform(NodeKind::Markup(column), |p| {
         while !p.eof() && f(p) {
             markup_node(p, &mut at_start);
         }
@@ -205,20 +212,32 @@ fn heading(p: &mut Parser) {
 
 /// Parse a single list item.
 fn list_node(p: &mut Parser) {
-    p.perform(NodeKind::List, |p| {
-        p.eat_assert(&NodeKind::Minus);
+    let marker = p.marker();
+    let src: EcoString = p.peek_src().into();
+    p.eat_assert(&NodeKind::Minus);
+
+    if p.peek().map_or(true, |kind| kind.is_whitespace()) {
         let column = p.column(p.prev_end());
         markup_indented(p, column);
-    });
+        marker.end(p, NodeKind::List);
+    } else {
+        marker.convert(p, NodeKind::TextInLine(src));
+    }
 }
 
 /// Parse a single enum item.
 fn enum_node(p: &mut Parser) {
-    p.perform(NodeKind::Enum, |p| {
-        p.eat();
+    let marker = p.marker();
+    let src: EcoString = p.peek_src().into();
+    p.eat();
+
+    if p.peek().map_or(true, |kind| kind.is_whitespace()) {
         let column = p.column(p.prev_end());
         markup_indented(p, column);
-    });
+        marker.end(p, NodeKind::Enum);
+    } else {
+        marker.convert(p, NodeKind::TextInLine(src));
+    }
 }
 
 /// Parse an expression within markup mode.

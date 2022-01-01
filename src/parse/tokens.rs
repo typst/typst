@@ -293,10 +293,8 @@ impl<'s> Tokens<'s> {
             } else {
                 NodeKind::EnDash
             }
-        } else if self.s.check_or(true, char::is_whitespace) {
-            NodeKind::Minus
         } else {
-            NodeKind::Text('-'.into())
+            NodeKind::Minus
         }
     }
 
@@ -312,11 +310,7 @@ impl<'s> Tokens<'s> {
             None
         };
 
-        if self.s.check_or(true, char::is_whitespace) {
-            NodeKind::EnumNumbering(number)
-        } else {
-            NodeKind::Text(self.s.eaten_from(start).into())
-        }
+        NodeKind::EnumNumbering(number)
     }
 
     fn raw(&mut self) -> NodeKind {
@@ -742,12 +736,12 @@ mod tests {
     fn test_tokenize_text() {
         // Test basic text.
         t!(Markup[" /"]: "hello"       => Text("hello"));
-        t!(Markup[" /"]: "hello-world" => Text("hello"), Text("-"), Text("world"));
+        t!(Markup[" /"]: "hello-world" => Text("hello"), Minus, Text("world"));
 
         // Test code symbols in text.
         t!(Markup[" /"]: "a():\"b" => Text("a():\"b"));
         t!(Markup[" /"]: ";:,|/+"  => Text(";:,|"), Text("/+"));
-        t!(Markup[" /"]: "=-a"     => Text("="), Text("-"), Text("a"));
+        t!(Markup[" /"]: "=-a"     => Text("="), Minus, Text("a"));
         t!(Markup[" "]: "#123"     => Text("#"), Text("123"));
 
         // Test text ends.
@@ -804,7 +798,7 @@ mod tests {
         t!(Markup["a1/"]: "- "  => Minus, Space(0));
         t!(Markup[" "]: "."     => EnumNumbering(None));
         t!(Markup[" "]: "1."    => EnumNumbering(Some(1)));
-        t!(Markup[" "]: "1.a"   => Text("1."), Text("a"));
+        t!(Markup[" "]: "1.a"   => EnumNumbering(Some(1)), Text("a"));
         t!(Markup[" /"]: "a1."  => Text("a1."));
     }
 
