@@ -15,7 +15,7 @@ pub fn link(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     });
 
     Ok(Value::Node(
-        body.styled(Styles::one(LinkNode::URL, Some(url))),
+        body.styled(StyleMap::with(LinkNode::URL, Some(url))),
     ))
 }
 

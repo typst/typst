@@ -34,10 +34,11 @@ impl Layout for PadNode {
         &self,
         ctx: &mut LayoutContext,
         regions: &Regions,
+        styles: StyleChain,
     ) -> Vec<Constrained<Rc<Frame>>> {
         // Layout child into padded regions.
         let pod = regions.map(|size| shrink(size, self.padding));
-        let mut frames = self.child.layout(ctx, &pod);
+        let mut frames = self.child.layout(ctx, &pod, styles);
 
         for ((current, base), Constrained { item: frame, cts }) in
             regions.iter().zip(&mut frames)

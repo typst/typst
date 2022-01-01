@@ -10,23 +10,21 @@ use std::rc::Rc;
 
 /// A map of style properties.
 #[derive(Default, Clone, Hash)]
-pub struct Styles {
-    map: Vec<(StyleId, Entry)>,
-}
+pub struct StyleMap(Vec<Entry>);
 
-impl Styles {
+impl StyleMap {
     /// Create a new, empty style map.
     pub fn new() -> Self {
-        Self { map: vec![] }
+        Self(vec![])
     }
 
     /// Whether this map contains no styles.
     pub fn is_empty(&self) -> bool {
-        self.map.is_empty()
+        self.0.is_empty()
     }
 
-    /// Create a style map with a single property-value pair.
-    pub fn one<P: Property>(key: P, value: P::Value) -> Self {
+    /// Create a style map from a single property-value pair.
+    pub fn with<P: Property>(key: P, value: P::Value) -> Self {
         let mut styles = Self::new();
         styles.set(key, value);
         styles
@@ -34,17 +32,16 @@ impl Styles {
 
     /// Set the value for a style property.
     pub fn set<P: Property>(&mut self, key: P, value: P::Value) {
-        let id = StyleId::of::<P>();
-        for pair in &mut self.map {
-            if pair.0 == id {
-                let prev = pair.1.downcast::<P::Value>().unwrap();
-                let folded = P::combine(value, prev.clone());
-                pair.1 = Entry::new(key, folded);
+        for entry in &mut self.0 {
+            if entry.is::<P>() {
+                let prev = entry.downcast::<P>().unwrap();
+                let folded = P::fold(value, prev.clone());
+                *entry = Entry::new(key, folded);
                 return;
             }
         }
 
-        self.map.push((id, Entry::new(key, value)));
+        self.0.push(Entry::new(key, value));
     }
 
     /// Set a value for a style property if it is `Some(_)`.
@@ -54,81 +51,63 @@ impl Styles {
         }
     }
 
-    /// Toggle a boolean style property.
+    /// Toggle a boolean style property, removing it if it exists and inserting
+    /// it with `true` if it doesn't.
     pub fn toggle<P: Property<Value = bool>>(&mut self, key: P) {
-        let id = StyleId::of::<P>();
-        for (i, pair) in self.map.iter_mut().enumerate() {
-            if pair.0 == id {
-                self.map.swap_remove(i);
+        for (i, entry) in self.0.iter_mut().enumerate() {
+            if entry.is::<P>() {
+                self.0.swap_remove(i);
                 return;
             }
         }
 
-        self.map.push((id, Entry::new(key, true)));
+        self.0.push(Entry::new(key, true));
     }
 
-    /// Get the value of a copyable style property.
+    /// Make `self` the first link of the style chain `outer`.
     ///
-    /// Returns the property's default value if the map does not contain an
-    /// entry for it.
-    pub fn get<P: Property>(&self, key: P) -> P::Value
-    where
-        P::Value: Copy,
-    {
-        self.get_direct(key)
-            .map(|&v| P::combine(v, P::default()))
-            .unwrap_or_else(P::default)
+    /// The resulting style chain contains styles from `self` as well as
+    /// `outer`. The ones from `self` take precedence over the ones from
+    /// `outer`. For folded properties `self` contributes the inner value.
+    pub fn chain<'a>(&'a self, outer: &'a StyleChain<'a>) -> StyleChain<'a> {
+        if self.is_empty() {
+            // No need to chain an empty map.
+            *outer
+        } else {
+            StyleChain { inner: self, outer: Some(outer) }
+        }
     }
 
-    /// Get a reference to a style property.
+    /// Apply styles from `outer` in-place. The resulting style map is
+    /// equivalent to the style chain created by
+    /// `self.chain(StyleChain::new(outer))`.
     ///
-    /// Returns a reference to the property's default value if the map does not
-    /// contain an entry for it.
-    pub fn get_ref<P: Property>(&self, key: P) -> &P::Value {
-        self.get_direct(key).unwrap_or_else(|| P::default_ref())
-    }
-
-    /// Get a reference to a style directly in this map (no default value).
-    fn get_direct<P: Property>(&self, _: P) -> Option<&P::Value> {
-        self.map
-            .iter()
-            .find(|pair| pair.0 == StyleId::of::<P>())
-            .and_then(|pair| pair.1.downcast())
-    }
-
-    /// Create new styles combining `self` with `outer`.
-    ///
-    /// Properties from `self` take precedence over the ones from `outer`.
-    pub fn chain(&self, outer: &Self) -> Self {
-        let mut styles = self.clone();
-        styles.apply(outer);
-        styles
-    }
-
-    /// Apply styles from `outer` in-place.
-    ///
-    /// Properties from `self` take precedence over the ones from `outer`.
+    /// This is useful in the evaluation phase while building nodes and their
+    /// style maps, whereas `chain` would be used during layouting to combine
+    /// immutable style maps from different levels of the hierarchy.
     pub fn apply(&mut self, outer: &Self) {
-        'outer: for pair in &outer.map {
-            for (id, entry) in &mut self.map {
-                if pair.0 == *id {
-                    entry.apply(&pair.1);
+        'outer: for outer in &outer.0 {
+            for inner in &mut self.0 {
+                if inner.style_id() == outer.style_id() {
+                    inner.fold(outer);
                     continue 'outer;
                 }
             }
 
-            self.map.push(pair.clone());
+            self.0.push(outer.clone());
         }
     }
 
-    /// Keep only those styles that are not also in `other`.
+    /// Subtract `other` from `self` in-place, keeping only styles that are in
+    /// `self` but not in `other`.
     pub fn erase(&mut self, other: &Self) {
-        self.map.retain(|a| other.map.iter().all(|b| a != b));
+        self.0.retain(|x| !other.0.contains(x));
     }
 
-    /// Keep only those styles that are also in `other`.
+    /// Intersect `self` with `other` in-place, keeping only styles that are
+    /// both in `self` and `other`.
     pub fn intersect(&mut self, other: &Self) {
-        self.map.retain(|a| other.map.iter().any(|b| a == b));
+        self.0.retain(|x| other.0.contains(x));
     }
 
     /// Whether two style maps are equal when filtered down to the given
@@ -137,113 +116,136 @@ impl Styles {
     where
         F: Fn(StyleId) -> bool,
     {
-        // TODO(style): Filtered length + one direction equal should suffice.
-        let f = |e: &&(StyleId, Entry)| filter(e.0);
-        self.map.iter().filter(f).all(|pair| other.map.contains(pair))
-            && other.map.iter().filter(f).all(|pair| self.map.contains(pair))
+        let f = |entry: &&Entry| filter(entry.style_id());
+        self.0.iter().filter(f).count() == other.0.iter().filter(f).count()
+            && self.0.iter().filter(f).all(|x| other.0.contains(x))
     }
 }
 
-impl Debug for Styles {
+impl Debug for StyleMap {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        if f.alternate() {
-            for pair in &self.map {
-                writeln!(f, "{:#?}", pair.1)?;
-            }
-            Ok(())
-        } else {
-            f.write_str("Styles ")?;
-            f.debug_set().entries(self.map.iter().map(|pair| &pair.1)).finish()
+        for entry in &self.0 {
+            writeln!(f, "{:#?}", entry)?;
         }
+        Ok(())
     }
 }
 
-impl PartialEq for Styles {
+impl PartialEq for StyleMap {
     fn eq(&self, other: &Self) -> bool {
         self.compatible(other, |_| true)
     }
 }
 
-/// An entry for a single style property.
-#[derive(Clone)]
-pub(crate) struct Entry(Rc<dyn Bounds>);
+/// A chain of style maps, similar to a linked list.
+///
+/// A style chain allows to conceptually merge (and fold) properties from
+/// multiple style maps in a node hierarchy in a non-allocating way. Rather than
+/// eagerly merging the maps, each access walks the hierarchy from the innermost
+/// to the outermost map, trying to find a match and then folding it with
+/// matches further up the chain.
+#[derive(Clone, Copy, Hash)]
+pub struct StyleChain<'a> {
+    inner: &'a StyleMap,
+    outer: Option<&'a Self>,
+}
 
-impl Entry {
-    fn new<P: Property>(key: P, value: P::Value) -> Self {
-        Self(Rc::new((key, value)))
+impl<'a> StyleChain<'a> {
+    /// Start a new style chain with a root map.
+    pub fn new(map: &'a StyleMap) -> Self {
+        Self { inner: map, outer: None }
     }
 
-    fn downcast<T: 'static>(&self) -> Option<&T> {
-        self.0.as_any().downcast_ref()
+    /// Get the (folded) value of a copyable style property.
+    ///
+    /// Returns the property's default value if no map in the chain contains an
+    /// entry for it.
+    pub fn get<P>(self, key: P) -> P::Value
+    where
+        P: Property,
+        P::Value: Copy,
+    {
+        // This exists separately to `get_cloned` for `Copy` types so that
+        // people don't just naively use `get` / `get_cloned` where they should
+        // use `get_ref`.
+        self.get_cloned(key)
     }
 
-    fn apply(&mut self, outer: &Self) {
-        *self = self.0.combine(outer);
+    /// Get a reference to a style property's value.
+    ///
+    /// This is naturally only possible for properties that don't need folding.
+    /// Prefer `get` if possible or resort to `get_cloned` for non-`Copy`
+    /// properties that need folding.
+    ///
+    /// Returns a reference to the property's default value if no map in the
+    /// chain contains an entry for it.
+    pub fn get_ref<P>(self, key: P) -> &'a P::Value
+    where
+        P: Property + Nonfolding,
+    {
+        if let Some(value) = self.get_locally(key) {
+            value
+        } else if let Some(outer) = self.outer {
+            outer.get_ref(key)
+        } else {
+            P::default_ref()
+        }
+    }
+
+    /// Get the (folded) value of any style property.
+    ///
+    /// While this works for all properties, you should prefer `get` or
+    /// `get_ref` where possible. This is only needed for non-`Copy` properties
+    /// that need folding.
+    pub fn get_cloned<P>(self, key: P) -> P::Value
+    where
+        P: Property,
+    {
+        if let Some(value) = self.get_locally(key).cloned() {
+            if P::FOLDABLE {
+                if let Some(outer) = self.outer {
+                    P::fold(value, outer.get_cloned(key))
+                } else {
+                    P::fold(value, P::default())
+                }
+            } else {
+                value
+            }
+        } else if let Some(outer) = self.outer {
+            outer.get_cloned(key)
+        } else {
+            P::default()
+        }
+    }
+
+    /// Find a property directly in the most local map.
+    fn get_locally<P: Property>(&self, _: P) -> Option<&'a P::Value> {
+        self.inner
+            .0
+            .iter()
+            .find(|entry| entry.is::<P>())
+            .and_then(|entry| entry.downcast::<P>())
     }
 }
 
-impl Debug for Entry {
+impl Debug for StyleChain<'_> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        self.0.dyn_fmt(f)
-    }
-}
-
-impl PartialEq for Entry {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.dyn_eq(other)
-    }
-}
-
-impl Hash for Entry {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write_u64(self.0.hash64());
-    }
-}
-
-trait Bounds: 'static {
-    fn as_any(&self) -> &dyn Any;
-    fn dyn_fmt(&self, f: &mut Formatter) -> fmt::Result;
-    fn dyn_eq(&self, other: &Entry) -> bool;
-    fn hash64(&self) -> u64;
-    fn combine(&self, outer: &Entry) -> Entry;
-}
-
-// `P` is always zero-sized. We only implement the trait for a pair of key and
-// associated value so that `P` is a constrained type parameter that we can use
-// in `dyn_fmt` to access the property's name. This way, we can effectively
-// store the property's name in its vtable instead of having an actual runtime
-// string somewhere in `Entry`.
-impl<P: Property> Bounds for (P, P::Value) {
-    fn as_any(&self) -> &dyn Any {
-        &self.1
-    }
-
-    fn dyn_fmt(&self, f: &mut Formatter) -> fmt::Result {
-        if f.alternate() {
-            write!(f, "#[{} = {:?}]", P::NAME, self.1)
-        } else {
-            write!(f, "{}: {:?}", P::NAME, self.1)
+        self.inner.fmt(f)?;
+        if let Some(outer) = self.outer {
+            outer.fmt(f)?;
         }
+        Ok(())
     }
+}
 
-    fn dyn_eq(&self, other: &Entry) -> bool {
-        if let Some(other) = other.downcast::<P::Value>() {
-            &self.1 == other
-        } else {
-            false
-        }
-    }
+/// A unique identifier for a style property.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct StyleId(TypeId);
 
-    fn hash64(&self) -> u64 {
-        // No need to hash the TypeId since there's only one
-        // valid value type per property.
-        fxhash::hash64(&self.1)
-    }
-
-    fn combine(&self, outer: &Entry) -> Entry {
-        let outer = outer.downcast::<P::Value>().unwrap();
-        let combined = P::combine(self.1.clone(), outer.clone());
-        Entry::new(self.0, combined)
+impl StyleId {
+    /// The style id of the property.
+    pub fn of<P: Property>() -> Self {
+        Self(TypeId::of::<P>())
     }
 }
 
@@ -270,23 +272,111 @@ pub trait Property: Copy + 'static {
     /// recreated all the time.
     fn default_ref() -> &'static Self::Value;
 
+    /// Whether the property needs folding.
+    const FOLDABLE: bool = false;
+
     /// Fold the property with an outer value.
     ///
-    /// For example, this would combine a relative font size with an outer
+    /// For example, this would fold a relative font size with an outer
     /// absolute font size.
     #[allow(unused_variables)]
-    fn combine(inner: Self::Value, outer: Self::Value) -> Self::Value {
+    fn fold(inner: Self::Value, outer: Self::Value) -> Self::Value {
         inner
     }
 }
 
-/// A unique identifier for a style property.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct StyleId(TypeId);
+/// Marker trait that indicates that a property doesn't need folding.
+pub trait Nonfolding {}
 
-impl StyleId {
-    /// The style id of the property.
-    pub fn of<P: Property>() -> Self {
-        Self(TypeId::of::<P>())
+/// An entry for a single style property.
+#[derive(Clone)]
+struct Entry(Rc<dyn Bounds>);
+
+impl Entry {
+    fn new<P: Property>(key: P, value: P::Value) -> Self {
+        Self(Rc::new((key, value)))
+    }
+
+    fn style_id(&self) -> StyleId {
+        self.0.style_id()
+    }
+
+    fn is<P: Property>(&self) -> bool {
+        self.style_id() == StyleId::of::<P>()
+    }
+
+    fn downcast<P: Property>(&self) -> Option<&P::Value> {
+        self.0.as_any().downcast_ref()
+    }
+
+    fn fold(&mut self, outer: &Self) {
+        *self = self.0.fold(outer);
+    }
+}
+
+impl Debug for Entry {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        self.0.dyn_fmt(f)
+    }
+}
+
+impl PartialEq for Entry {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.dyn_eq(other)
+    }
+}
+
+impl Hash for Entry {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write_u64(self.0.hash64());
+    }
+}
+
+/// This trait is implemented for pairs of zero-sized property keys and their
+/// value types below. Although it is zero-sized, the property `P` must be part
+/// of the implementing type so that we can use it in the methods (it must be a
+/// constrained type parameter).
+trait Bounds: 'static {
+    fn style_id(&self) -> StyleId;
+    fn fold(&self, outer: &Entry) -> Entry;
+    fn as_any(&self) -> &dyn Any;
+    fn dyn_fmt(&self, f: &mut Formatter) -> fmt::Result;
+    fn dyn_eq(&self, other: &Entry) -> bool;
+    fn hash64(&self) -> u64;
+}
+
+impl<P: Property> Bounds for (P, P::Value) {
+    fn style_id(&self) -> StyleId {
+        StyleId::of::<P>()
+    }
+
+    fn fold(&self, outer: &Entry) -> Entry {
+        let outer = outer.downcast::<P>().unwrap();
+        let combined = P::fold(self.1.clone(), outer.clone());
+        Entry::new(self.0, combined)
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        &self.1
+    }
+
+    fn dyn_fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "#[{} = {:?}]", P::NAME, self.1)
+    }
+
+    fn dyn_eq(&self, other: &Entry) -> bool {
+        self.style_id() == other.style_id()
+            && if let Some(other) = other.downcast::<P>() {
+                &self.1 == other
+            } else {
+                false
+            }
+    }
+
+    fn hash64(&self) -> u64 {
+        let mut state = fxhash::FxHasher64::default();
+        self.style_id().hash(&mut state);
+        self.1.hash(&mut state);
+        state.finish()
     }
 }

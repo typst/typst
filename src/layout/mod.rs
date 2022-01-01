@@ -15,7 +15,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
-use crate::eval::Styles;
+use crate::eval::{StyleChain, StyleMap};
 use crate::font::FontStore;
 use crate::frame::Frame;
 use crate::geom::{Align, Linear, Point, Sides, Size, Spec, Transform};
@@ -30,8 +30,8 @@ pub struct RootNode(pub Vec<PageNode>);
 impl RootNode {
     /// Layout the document into a sequence of frames, one per page.
     pub fn layout(&self, ctx: &mut Context) -> Vec<Rc<Frame>> {
-        let mut ctx = LayoutContext::new(ctx);
-        self.0.iter().flat_map(|node| node.layout(&mut ctx)).collect()
+        let (mut ctx, styles) = LayoutContext::new(ctx);
+        self.0.iter().flat_map(|node| node.layout(&mut ctx, styles)).collect()
     }
 }
 
@@ -52,6 +52,7 @@ pub trait Layout {
         &self,
         ctx: &mut LayoutContext,
         regions: &Regions,
+        styles: StyleChain,
     ) -> Vec<Constrained<Rc<Frame>>>;
 
     /// Convert to a packed node.
@@ -63,7 +64,7 @@ pub trait Layout {
             #[cfg(feature = "layout-cache")]
             hash: self.hash64(),
             node: Rc::new(self),
-            styles: Styles::new(),
+            styles: StyleMap::new(),
         }
     }
 }
@@ -77,26 +78,23 @@ pub struct LayoutContext<'a> {
     /// Caches layouting artifacts.
     #[cfg(feature = "layout-cache")]
     pub layouts: &'a mut LayoutCache,
-    /// The inherited style properties.
-    // TODO(style): This probably shouldn't be here.
-    pub styles: Styles,
     /// How deeply nested the current layout tree position is.
     #[cfg(feature = "layout-cache")]
-    pub level: usize,
+    level: usize,
 }
 
 impl<'a> LayoutContext<'a> {
     /// Create a new layout context.
-    pub fn new(ctx: &'a mut Context) -> Self {
-        Self {
+    fn new(ctx: &'a mut Context) -> (Self, StyleChain<'a>) {
+        let this = Self {
             fonts: &mut ctx.fonts,
             images: &mut ctx.images,
             #[cfg(feature = "layout-cache")]
             layouts: &mut ctx.layouts,
-            styles: ctx.styles.clone(),
             #[cfg(feature = "layout-cache")]
             level: 0,
-        }
+        };
+        (this, StyleChain::new(&ctx.styles))
     }
 }
 
@@ -111,6 +109,7 @@ impl Layout for EmptyNode {
         &self,
         _: &mut LayoutContext,
         regions: &Regions,
+        _: StyleChain,
     ) -> Vec<Constrained<Rc<Frame>>> {
         let size = regions.expand.select(regions.current, Size::zero());
         let mut cts = Constraints::new(regions.expand);
@@ -128,7 +127,7 @@ pub struct PackedNode {
     #[cfg(feature = "layout-cache")]
     hash: u64,
     /// The node's styles.
-    pub styles: Styles,
+    pub styles: StyleMap,
 }
 
 impl PackedNode {
@@ -146,7 +145,7 @@ impl PackedNode {
     }
 
     /// Style the node with styles from a style map.
-    pub fn styled(mut self, styles: Styles) -> Self {
+    pub fn styled(mut self, styles: StyleMap) -> Self {
         if self.styles.is_empty() {
             self.styles = styles;
         } else {
@@ -206,22 +205,25 @@ impl Layout for PackedNode {
         &self,
         ctx: &mut LayoutContext,
         regions: &Regions,
+        styles: StyleChain,
     ) -> Vec<Constrained<Rc<Frame>>> {
+        let chained = self.styles.chain(&styles);
+
         #[cfg(not(feature = "layout-cache"))]
-        return self.layout_impl(ctx, regions);
+        return self.node.layout(ctx, regions, chained);
 
         #[cfg(feature = "layout-cache")]
         let hash = {
             let mut state = fxhash::FxHasher64::default();
             self.hash(&mut state);
-            ctx.styles.hash(&mut state);
+            styles.hash(&mut state);
             state.finish()
         };
 
         #[cfg(feature = "layout-cache")]
         ctx.layouts.get(hash, regions).unwrap_or_else(|| {
             ctx.level += 1;
-            let frames = self.layout_impl(ctx, regions);
+            let frames = self.node.layout(ctx, regions, chained);
             ctx.level -= 1;
 
             let entry = FramesEntry::new(frames.clone(), ctx.level);
@@ -247,21 +249,6 @@ impl Layout for PackedNode {
         Self: Sized + Hash + 'static,
     {
         self
-    }
-}
-
-impl PackedNode {
-    /// Layout the node without checking the cache.
-    fn layout_impl(
-        &self,
-        ctx: &mut LayoutContext,
-        regions: &Regions,
-    ) -> Vec<Constrained<Rc<Frame>>> {
-        let new = self.styles.chain(&ctx.styles);
-        let prev = std::mem::replace(&mut ctx.styles, new);
-        let frames = self.node.layout(ctx, regions);
-        ctx.styles = prev;
-        frames
     }
 }
 

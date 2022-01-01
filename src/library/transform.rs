@@ -53,8 +53,9 @@ impl Layout for TransformNode {
         &self,
         ctx: &mut LayoutContext,
         regions: &Regions,
+        styles: StyleChain,
     ) -> Vec<Constrained<Rc<Frame>>> {
-        let mut frames = self.child.layout(ctx, regions);
+        let mut frames = self.child.layout(ctx, regions, styles);
 
         for Constrained { item: frame, .. } in &mut frames {
             let Spec { x, y } = self.origin.zip(frame.size).map(|(o, s)| o.resolve(s));

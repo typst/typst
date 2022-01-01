@@ -34,6 +34,7 @@ impl Layout for ColumnsNode {
         &self,
         ctx: &mut LayoutContext,
         regions: &Regions,
+        styles: StyleChain,
     ) -> Vec<Constrained<Rc<Frame>>> {
         let columns = self.columns.get();
 
@@ -41,7 +42,7 @@ impl Layout for ColumnsNode {
         // much sense. Note that this line assumes that no infinitely wide
         // region will follow if the first region's width is finite.
         if regions.current.x.is_infinite() {
-            return self.child.layout(ctx, regions);
+            return self.child.layout(ctx, regions, styles);
         }
 
         // Gutter width for each region. (Can be different because the relative
@@ -81,9 +82,9 @@ impl Layout for ColumnsNode {
         pod.backlog = sizes.into_iter();
 
         let mut finished = vec![];
-        let mut frames = self.child.layout(ctx, &pod).into_iter();
+        let mut frames = self.child.layout(ctx, &pod, styles).into_iter();
 
-        let dir = ctx.styles.get(ParNode::DIR);
+        let dir = styles.get(ParNode::DIR);
         let total_regions = (frames.len() as f32 / columns as f32).ceil() as usize;
 
         // Stitch together the columns for each region.

@@ -11,7 +11,7 @@ use usvg::FitTo;
 use walkdir::WalkDir;
 
 use typst::diag::Error;
-use typst::eval::{Smart, Styles, Value};
+use typst::eval::{Smart, StyleMap, Value};
 use typst::font::Face;
 use typst::frame::{Element, Frame, Geometry, Shape, Stroke, Text};
 use typst::geom::{self, Color, Length, Paint, PathElement, RgbaColor, Size, Transform};
@@ -70,7 +70,7 @@ fn main() {
     // Set page width to 120pt with 10pt margins, so that the inner page is
     // exactly 100pt wide. Page height is unbounded and font size is 10pt so
     // that it multiplies to nice round numbers.
-    let mut styles = Styles::new();
+    let mut styles = StyleMap::new();
     styles.set(PageNode::WIDTH, Smart::Custom(Length::pt(120.0)));
     styles.set(PageNode::HEIGHT, Smart::Auto);
     styles.set(PageNode::LEFT, Smart::Custom(Length::pt(10.0).into()));

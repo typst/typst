@@ -28,8 +28,9 @@ impl Layout for StackNode {
         &self,
         ctx: &mut LayoutContext,
         regions: &Regions,
+        styles: StyleChain,
     ) -> Vec<Constrained<Rc<Frame>>> {
-        StackLayouter::new(self, regions.clone()).layout(ctx)
+        StackLayouter::new(self, regions.clone(), styles).layout(ctx)
     }
 }
 
@@ -44,7 +45,7 @@ pub enum StackChild {
 
 impl From<SpacingKind> for StackChild {
     fn from(kind: SpacingKind) -> Self {
-        Self::Spacing(SpacingNode { kind, styles: Styles::new() })
+        Self::Spacing(SpacingNode { kind, styles: StyleMap::new() })
     }
 }
 
@@ -79,6 +80,8 @@ struct StackLayouter<'a> {
     spacing: Option<SpacingKind>,
     /// The regions to layout children into.
     regions: Regions,
+    /// The inherited styles.
+    styles: StyleChain<'a>,
     /// Whether the stack should expand to fill the region.
     expand: Spec<bool>,
     /// The full size of `regions.current` that was available before we started
@@ -106,7 +109,7 @@ enum StackItem {
 
 impl<'a> StackLayouter<'a> {
     /// Create a new stack layouter.
-    fn new(stack: &'a StackNode, mut regions: Regions) -> Self {
+    fn new(stack: &'a StackNode, mut regions: Regions, styles: StyleChain<'a>) -> Self {
         let dir = stack.dir;
         let axis = dir.axis();
         let expand = regions.expand;
@@ -121,6 +124,7 @@ impl<'a> StackLayouter<'a> {
             axis,
             spacing: stack.spacing,
             regions,
+            styles,
             expand,
             full,
             used: Gen::zero(),
@@ -190,7 +194,7 @@ impl<'a> StackLayouter<'a> {
             .and_then(|node| node.aligns.get(self.axis))
             .unwrap_or(self.dir.start().into());
 
-        let frames = node.layout(ctx, &self.regions);
+        let frames = node.layout(ctx, &self.regions, self.styles);
         let len = frames.len();
         for (i, frame) in frames.into_iter().enumerate() {
             // Grow our size, shrink the region and save the frame for later.
