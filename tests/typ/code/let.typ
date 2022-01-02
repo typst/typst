@@ -59,6 +59,7 @@ Three
 // Error: 18 expected expression
 // Error: 18 expected closing paren
 #let v5 = (1, 2 + ; Five
+                   ^^^^^ + \r\n
 
 ---
 // Error: 13 expected body

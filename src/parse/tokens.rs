@@ -727,6 +727,7 @@ mod tests {
         t!(Both["a1/"]: "  \n"         => Space(1));
         t!(Both["a1/"]: "  \n   "      => Space(1));
         t!(Both["a1/"]: "\r\n"         => Space(1));
+        t!(Both["a1/"]: "\r\n\r"       => Space(2));
         t!(Both["a1/"]: "  \n\t \n  "  => Space(2));
         t!(Both["a1/"]: "\n\r"         => Space(2));
         t!(Both["a1/"]: " \r\r\n \x0D" => Space(3));

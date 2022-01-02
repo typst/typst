@@ -412,6 +412,15 @@ fn test_reparse(src: &str, i: usize, rng: &mut LinearShift) -> bool {
 
     let apply = |replace: std::ops::Range<usize>, with| {
         let mut incr_source = SourceFile::detached(src);
+        if incr_source.root().len() != src.len() {
+            println!(
+                "    Subtest {} tree length {} does not match string length {} ❌",
+                i,
+                incr_source.root().len(),
+                src.len(),
+            );
+            return false;
+        }
 
         incr_source.edit(replace.clone(), with);
         let edited_src = incr_source.src();
@@ -428,7 +437,7 @@ fn test_reparse(src: &str, i: usize, rng: &mut LinearShift) -> bool {
                 "\n    Expected reference tree:\n{:#?}\n\n    Found incremental tree:\n{:#?}",
                 ref_root, incr_root
             );
-            println!("Full source ({}):\n\"{}\"", edited_src.len(), edited_src);
+            println!("Full source ({}):\n\"{:?}\"", edited_src.len(), edited_src);
             false
         } else {
             true
@@ -454,7 +463,6 @@ fn test_reparse(src: &str, i: usize, rng: &mut LinearShift) -> bool {
 
         if !apply(start .. end, supplement) {
             println!("original tree: {:#?}", SourceFile::detached(src).root());
-
             ok = false;
         }
     }

@@ -282,12 +282,6 @@ impl<'s> Parser<'s> {
                 self.eat();
                 rescan = false;
             } else if required {
-                // FIXME The error has to be inserted before any space rolls
-                // around because the rescan will set the cursor back in front
-                // of the space and reconsume it. Supressing the rescan is not
-                // an option since additional rescans (e.g. for statements) can
-                // be triggered directly afterwards, without processing any
-                // other token.
                 self.push_error(format_eco!("expected {}", end));
                 self.last_unterminated = Some(self.prev_end());
             }
@@ -380,14 +374,8 @@ impl Parser<'_> {
     /// Push an error into the children list.
     pub fn push_error(&mut self, msg: impl Into<EcoString>) {
         let error = NodeKind::Error(ErrorPos::Full, msg.into());
-        for i in (0 .. self.children.len()).rev() {
-            if Self::is_trivia_ext(self.children[i].kind(), false) {
-                self.children.remove(i);
-            } else {
-                break;
-            }
-        }
-        self.children.push(GreenData::new(error, 0).into());
+        let idx = self.trivia_start();
+        self.children.insert(idx.0, GreenData::new(error, 0).into());
     }
 
     /// Eat the current token and add an error that it is unexpected.

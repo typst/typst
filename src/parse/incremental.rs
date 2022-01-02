@@ -623,6 +623,7 @@ mod tests {
         test("x = y", 1 .. 1, " + y\n", 0 .. 10);
         test("abc\n= a heading\njoke", 3 .. 4, "\nmore\n\n", 0 .. 21);
         test("abc\n= a heading\njoke", 3 .. 4, "\nnot ", 0 .. 19);
+        test("#let x = (1, 2 + ; Five\r\n\r", 19..22, "2.", 18..22);
         test("hey #myfriend", 4 .. 4, "\\", 0 .. 14);
         test("hey  #myfriend", 4 .. 4, "\\", 3 .. 6);
 
