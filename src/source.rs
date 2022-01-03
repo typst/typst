@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::diag::TypResult;
 use crate::loading::{FileHash, Loader};
-use crate::parse::{is_newline, parse, Scanner};
+use crate::parse::{is_newline, parse, Reparser, Scanner};
 use crate::syntax::ast::Markup;
 use crate::syntax::{self, Category, GreenNode, RedNode};
 use crate::util::PathExt;
@@ -154,9 +154,14 @@ impl SourceFile {
         &self.root
     }
 
+    /// The root red node of the file's untyped red tree.
+    pub fn red(&self) -> RedNode {
+        RedNode::from_root(self.root.clone(), self.id)
+    }
+
     /// The root node of the file's typed abstract syntax tree.
     pub fn ast(&self) -> TypResult<Markup> {
-        let red = RedNode::from_root(self.root.clone(), self.id);
+        let red = self.red();
         let errors = red.errors();
         if errors.is_empty() {
             Ok(red.cast().unwrap())
@@ -265,10 +270,11 @@ impl SourceFile {
 
     /// Edit the source file by replacing the given range.
     ///
-    /// This panics if the `replace` range is out of bounds.
-    pub fn edit(&mut self, replace: Range<usize>, with: &str) {
+    /// Returns the range of the section in the new source that was ultimately
+    /// reparsed. The method panics if the `replace` range is out of bounds.
+    pub fn edit(&mut self, replace: Range<usize>, with: &str) -> Range<usize> {
         let start = replace.start;
-        self.src.replace_range(replace, with);
+        self.src.replace_range(replace.clone(), with);
 
         // Remove invalidated line starts.
         let line = self.byte_to_line(start).unwrap();
@@ -283,8 +289,8 @@ impl SourceFile {
         self.line_starts
             .extend(newlines(&self.src[start ..]).map(|idx| start + idx));
 
-        // Reparse.
-        self.root = parse(&self.src);
+        // Incrementally reparse the replaced range.
+        Reparser::new(&self.src, replace, with.len()).reparse(&mut self.root)
     }
 
     /// Provide highlighting categories for the given range of the source file.

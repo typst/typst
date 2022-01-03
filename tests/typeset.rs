@@ -1,6 +1,7 @@
 use std::env;
 use std::ffi::OsStr;
 use std::fs;
+use std::ops::Range;
 use std::path::Path;
 use std::rc::Rc;
 
@@ -186,6 +187,7 @@ fn test(
     let mut line = 0;
     let mut compare_ref = true;
     let mut compare_ever = false;
+    let mut rng = LinearShift::new();
 
     let parts: Vec<_> = src.split("\n---").collect();
     for (i, &part) in parts.iter().enumerate() {
@@ -202,8 +204,16 @@ fn test(
                 }
             }
         } else {
-            let (part_ok, compare_here, part_frames) =
-                test_part(ctx, src_path, part.into(), i, compare_ref, line, debug);
+            let (part_ok, compare_here, part_frames) = test_part(
+                ctx,
+                src_path,
+                part.into(),
+                i,
+                compare_ref,
+                line,
+                debug,
+                &mut rng,
+            );
             ok &= part_ok;
             compare_ever |= compare_here;
             frames.extend(part_frames);
@@ -252,14 +262,15 @@ fn test_part(
     compare_ref: bool,
     line: usize,
     debug: bool,
+    rng: &mut LinearShift,
 ) -> (bool, bool, Vec<Rc<Frame>>) {
     let id = ctx.sources.provide(src_path, src);
     let source = ctx.sources.get(id);
 
     let (local_compare_ref, mut ref_errors) = parse_metadata(&source);
     let compare_ref = local_compare_ref.unwrap_or(compare_ref);
+    let mut ok = test_reparse(ctx.sources.get(id).src(), i, rng);
 
-    let mut ok = true;
     let (frames, mut errors) = match ctx.evaluate(id) {
         Ok(module) => {
             let tree = module.into_root();
@@ -362,6 +373,104 @@ fn test_incremental(
 
     ctx.layouts = reference;
     ctx.layouts.turnaround();
+
+    ok
+}
+
+/// Pseudorandomly edit the source file and test whether a reparse produces the
+/// same result as a clean parse.
+///
+/// The method will first inject 10 strings once every 400 source characters
+/// and then select 5 leaf node boundries to inject an additional, randomly
+/// chosen string from the injection list.
+fn test_reparse(src: &str, i: usize, rng: &mut LinearShift) -> bool {
+    let supplements = [
+        "[",
+        ")",
+        "#rect()",
+        "a word",
+        ", a: 1",
+        "10.0",
+        ":",
+        "if i == 0 {true}",
+        "for",
+        "* hello *",
+        "//",
+        "/*",
+        "\\u{12e4}",
+        "```typst",
+        " ",
+        "trees",
+        "\\",
+        "$ a $",
+        "2.",
+        "-",
+        "5",
+    ];
+
+    let mut ok = true;
+
+    let apply = |replace: std::ops::Range<usize>, with| {
+        let mut incr_source = SourceFile::detached(src);
+        if incr_source.root().len() != src.len() {
+            println!(
+                "    Subtest {} tree length {} does not match string length {} ❌",
+                i,
+                incr_source.root().len(),
+                src.len(),
+            );
+            return false;
+        }
+
+        incr_source.edit(replace.clone(), with);
+        let edited_src = incr_source.src();
+
+        let ref_source = SourceFile::detached(edited_src);
+        let incr_root = incr_source.root();
+        let ref_root = ref_source.root();
+        if incr_root != ref_root {
+            println!(
+                "    Subtest {} reparse differs from clean parse when inserting '{}' at {}-{} ❌",
+                i, with, replace.start, replace.end,
+            );
+            println!(
+                "\n    Expected reference tree:\n{:#?}\n\n    Found incremental tree:\n{:#?}",
+                ref_root, incr_root
+            );
+            println!("Full source ({}):\n\"{:?}\"", edited_src.len(), edited_src);
+            false
+        } else {
+            true
+        }
+    };
+
+    let mut pick = |range: Range<usize>| {
+        let ratio = rng.next();
+        (range.start as f64 + ratio * (range.end - range.start) as f64).floor() as usize
+    };
+
+    let insertions = (src.len() as f64 / 400.0).ceil() as usize;
+
+    for _ in 0 .. insertions {
+        let supplement = supplements[pick(0 .. supplements.len())];
+        let start = pick(0 .. src.len());
+        let end = pick(start .. src.len());
+
+        if !src.is_char_boundary(start) || !src.is_char_boundary(end) {
+            continue;
+        }
+
+        ok &= apply(start .. end, supplement);
+    }
+
+    let red = SourceFile::detached(src).red();
+
+    let leafs = red.as_ref().leafs();
+
+    let leaf_start = leafs[pick(0 .. leafs.len())].span().start;
+    let supplement = supplements[pick(0 .. supplements.len())];
+
+    ok &= apply(leaf_start .. leaf_start, supplement);
 
     ok
 }
@@ -822,4 +931,25 @@ where
     FileDescriptor::redirect_stdio(&stderr, Stderr).unwrap();
     FileDescriptor::redirect_stdio(&stdout, Stdout).unwrap();
     result
+}
+
+/// This is an Linear-feedback shift register using XOR as its shifting
+/// function. It can be used as PRNG.
+struct LinearShift(u64);
+
+impl LinearShift {
+    /// Initialize the shift register with a pre-set seed.
+    pub fn new() -> Self {
+        Self(0xACE5)
+    }
+
+    /// Return a pseudo-random number between `0.0` and `1.0`.
+    pub fn next(&mut self) -> f64 {
+        self.0 ^= self.0 >> 3;
+        self.0 ^= self.0 << 14;
+        self.0 ^= self.0 >> 28;
+        self.0 ^= self.0 << 36;
+        self.0 ^= self.0 >> 52;
+        self.0 as f64 / u64::MAX as f64
+    }
 }

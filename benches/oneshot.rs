@@ -49,6 +49,11 @@ fn bench_parse(iai: &mut Iai) {
     iai.run(|| parse(SRC));
 }
 
+fn bench_edit(iai: &mut Iai) {
+    let (mut ctx, id) = context();
+    iai.run(|| black_box(ctx.sources.edit(id, 1168 .. 1171, "_Uhr_")));
+}
+
 fn bench_eval(iai: &mut Iai) {
     let (mut ctx, id) = context();
     iai.run(|| ctx.evaluate(id).unwrap());
@@ -66,6 +71,7 @@ main!(
     bench_scan,
     bench_tokenize,
     bench_parse,
+    bench_edit,
     bench_eval,
     bench_layout
 );

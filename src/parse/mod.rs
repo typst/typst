@@ -1,10 +1,12 @@
 //! Parsing and tokenization.
 
+mod incremental;
 mod parser;
 mod resolve;
 mod scanner;
 mod tokens;
 
+pub use incremental::*;
 pub use parser::*;
 pub use resolve::*;
 pub use scanner::*;
@@ -14,10 +16,11 @@ use std::rc::Rc;
 
 use crate::syntax::ast::{Associativity, BinOp, UnOp};
 use crate::syntax::{ErrorPos, Green, GreenNode, NodeKind};
+use crate::util::EcoString;
 
 /// Parse a source file.
 pub fn parse(src: &str) -> Rc<GreenNode> {
-    let mut p = Parser::new(src);
+    let mut p = Parser::new(src, TokenMode::Markup);
     markup(&mut p);
     match p.finish().into_iter().next() {
         Some(Green::Node(node)) => node,
@@ -25,9 +28,108 @@ pub fn parse(src: &str) -> Rc<GreenNode> {
     }
 }
 
+/// Parse an atomic primary. Returns `Some` if all of the input was consumed.
+pub fn parse_atomic(
+    prefix: &str,
+    src: &str,
+    _: bool,
+    _: usize,
+) -> Option<(Vec<Green>, bool)> {
+    let mut p = Parser::with_prefix(prefix, src, TokenMode::Code);
+    primary(&mut p, true).ok()?;
+    p.consume_unterminated()
+}
+
+/// Parse an atomic primary. Returns `Some` if all of the input was consumed.
+pub fn parse_atomic_markup(
+    prefix: &str,
+    src: &str,
+    _: bool,
+    _: usize,
+) -> Option<(Vec<Green>, bool)> {
+    let mut p = Parser::with_prefix(prefix, src, TokenMode::Markup);
+    markup_expr(&mut p);
+    p.consume_unterminated()
+}
+
+/// Parse some markup. Returns `Some` if all of the input was consumed.
+pub fn parse_markup(
+    prefix: &str,
+    src: &str,
+    _: bool,
+    min_column: usize,
+) -> Option<(Vec<Green>, bool)> {
+    let mut p = Parser::with_prefix(prefix, src, TokenMode::Markup);
+    if min_column == 0 {
+        markup(&mut p);
+    } else {
+        markup_indented(&mut p, min_column);
+    }
+    p.consume()
+}
+
+/// Parse some markup without the topmost node. Returns `Some` if all of the
+/// input was consumed.
+pub fn parse_markup_elements(
+    prefix: &str,
+    src: &str,
+    mut at_start: bool,
+    _: usize,
+) -> Option<(Vec<Green>, bool)> {
+    let mut p = Parser::with_prefix(prefix, src, TokenMode::Markup);
+    while !p.eof() {
+        markup_node(&mut p, &mut at_start);
+    }
+    p.consume()
+}
+
+/// Parse a template literal. Returns `Some` if all of the input was consumed.
+pub fn parse_template(
+    prefix: &str,
+    src: &str,
+    _: bool,
+    _: usize,
+) -> Option<(Vec<Green>, bool)> {
+    let mut p = Parser::with_prefix(prefix, src, TokenMode::Code);
+    if !p.at(&NodeKind::LeftBracket) {
+        return None;
+    }
+
+    template(&mut p);
+    p.consume()
+}
+
+/// Parse a code block. Returns `Some` if all of the input was consumed.
+pub fn parse_block(
+    prefix: &str,
+    src: &str,
+    _: bool,
+    _: usize,
+) -> Option<(Vec<Green>, bool)> {
+    let mut p = Parser::with_prefix(prefix, src, TokenMode::Code);
+    if !p.at(&NodeKind::LeftBrace) {
+        return None;
+    }
+
+    block(&mut p);
+    p.consume()
+}
+
+/// Parse a comment. Returns `Some` if all of the input was consumed.
+pub fn parse_comment(
+    prefix: &str,
+    src: &str,
+    _: bool,
+    _: usize,
+) -> Option<(Vec<Green>, bool)> {
+    let mut p = Parser::with_prefix(prefix, src, TokenMode::Code);
+    comment(&mut p).ok()?;
+    p.consume()
+}
+
 /// Parse markup.
 fn markup(p: &mut Parser) {
-    markup_while(p, true, &mut |_| true)
+    markup_while(p, true, 0, &mut |_| true)
 }
 
 /// Parse markup that stays right of the given column.
@@ -38,7 +140,7 @@ fn markup_indented(p: &mut Parser, column: usize) {
         _ => false,
     });
 
-    markup_while(p, false, &mut |p| match p.peek() {
+    markup_while(p, false, column, &mut |p| match p.peek() {
         Some(NodeKind::Space(n)) if *n >= 1 => p.column(p.current_end()) >= column,
         _ => true,
     })
@@ -48,11 +150,11 @@ fn markup_indented(p: &mut Parser, column: usize) {
 ///
 /// If `at_start` is true, things like headings that may only appear at the
 /// beginning of a line or template are allowed.
-fn markup_while<F>(p: &mut Parser, mut at_start: bool, f: &mut F)
+fn markup_while<F>(p: &mut Parser, mut at_start: bool, column: usize, f: &mut F)
 where
     F: FnMut(&mut Parser) -> bool,
 {
-    p.perform(NodeKind::Markup, |p| {
+    p.perform(NodeKind::Markup(column), |p| {
         while !p.eof() && f(p) {
             markup_node(p, &mut at_start);
         }
@@ -98,14 +200,9 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
             p.eat();
         }
 
-        NodeKind::Eq if *at_start => heading(p),
-        NodeKind::Minus if *at_start => list_node(p),
-        NodeKind::EnumNumbering(_) if *at_start => enum_node(p),
-
-        // Line-based markup that is not currently at the start of the line.
-        NodeKind::Eq | NodeKind::Minus | NodeKind::EnumNumbering(_) => {
-            p.convert(NodeKind::Text(p.peek_src().into()));
-        }
+        NodeKind::Eq => heading(p, *at_start),
+        NodeKind::Minus => list_node(p, *at_start),
+        NodeKind::EnumNumbering(_) => enum_node(p, *at_start),
 
         // Hashtag + keyword / identifier.
         NodeKind::Ident(_)
@@ -115,17 +212,7 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
         | NodeKind::While
         | NodeKind::For
         | NodeKind::Import
-        | NodeKind::Include => {
-            let stmt = matches!(token, NodeKind::Let | NodeKind::Set | NodeKind::Import);
-            let group = if stmt { Group::Stmt } else { Group::Expr };
-
-            p.start_group(group);
-            let res = expr_prec(p, true, 0);
-            if stmt && res.is_ok() && !p.eof() {
-                p.expected_at("semicolon or line break");
-            }
-            p.end_group();
-        }
+        | NodeKind::Include => markup_expr(p),
 
         // Block and template.
         NodeKind::LeftBrace => block(p),
@@ -139,31 +226,65 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
 }
 
 /// Parse a heading.
-fn heading(p: &mut Parser) {
-    p.perform(NodeKind::Heading, |p| {
-        p.eat_assert(&NodeKind::Eq);
-        while p.eat_if(&NodeKind::Eq) {}
+fn heading(p: &mut Parser, at_start: bool) {
+    let marker = p.marker();
+    let current_start = p.current_start();
+    p.eat_assert(&NodeKind::Eq);
+    while p.eat_if(&NodeKind::Eq) {}
+
+    if at_start && p.peek().map_or(true, |kind| kind.is_whitespace()) {
         let column = p.column(p.prev_end());
         markup_indented(p, column);
-    });
+        marker.end(p, NodeKind::Heading);
+    } else {
+        let text = p.get(current_start .. p.prev_end()).into();
+        marker.convert(p, NodeKind::TextInLine(text));
+    }
 }
 
 /// Parse a single list item.
-fn list_node(p: &mut Parser) {
-    p.perform(NodeKind::List, |p| {
-        p.eat_assert(&NodeKind::Minus);
+fn list_node(p: &mut Parser, at_start: bool) {
+    let marker = p.marker();
+    let text: EcoString = p.peek_src().into();
+    p.eat_assert(&NodeKind::Minus);
+
+    if at_start && p.peek().map_or(true, |kind| kind.is_whitespace()) {
         let column = p.column(p.prev_end());
         markup_indented(p, column);
-    });
+        marker.end(p, NodeKind::List);
+    } else {
+        marker.convert(p, NodeKind::TextInLine(text));
+    }
 }
 
 /// Parse a single enum item.
-fn enum_node(p: &mut Parser) {
-    p.perform(NodeKind::Enum, |p| {
-        p.eat();
+fn enum_node(p: &mut Parser, at_start: bool) {
+    let marker = p.marker();
+    let text: EcoString = p.peek_src().into();
+    p.eat();
+
+    if at_start && p.peek().map_or(true, |kind| kind.is_whitespace()) {
         let column = p.column(p.prev_end());
         markup_indented(p, column);
-    });
+        marker.end(p, NodeKind::Enum);
+    } else {
+        marker.convert(p, NodeKind::TextInLine(text));
+    }
+}
+
+/// Parse an expression within markup mode.
+fn markup_expr(p: &mut Parser) {
+    if let Some(token) = p.peek() {
+        let stmt = matches!(token, NodeKind::Let | NodeKind::Set | NodeKind::Import);
+        let group = if stmt { Group::Stmt } else { Group::Expr };
+
+        p.start_group(group);
+        let res = expr_prec(p, true, 0);
+        if stmt && res.is_ok() && !p.eof() {
+            p.expected_at("semicolon or line break");
+        }
+        p.end_group();
+    }
 }
 
 /// Parse an expression.
@@ -183,13 +304,13 @@ fn expr_prec(p: &mut Parser, atomic: bool, min_prec: usize) -> ParseResult {
 
     // Start the unary expression.
     match p.peek().and_then(UnOp::from_token) {
-        Some(op) => {
+        Some(op) if !atomic => {
             p.eat();
             let prec = op.precedence();
             expr_prec(p, atomic, prec)?;
             marker.end(p, NodeKind::Unary);
         }
-        None => primary(p, atomic)?,
+        _ => primary(p, atomic)?,
     };
 
     loop {
@@ -254,7 +375,7 @@ fn primary(p: &mut Parser, atomic: bool) -> ParseResult {
         }
 
         // Structures.
-        Some(NodeKind::LeftParen) => parenthesized(p),
+        Some(NodeKind::LeftParen) => parenthesized(p, atomic),
         Some(NodeKind::LeftBracket) => {
             template(p);
             Ok(())
@@ -315,7 +436,7 @@ fn literal(p: &mut Parser) -> bool {
 /// - Dictionary literal
 /// - Parenthesized expression
 /// - Parameter list of closure expression
-fn parenthesized(p: &mut Parser) -> ParseResult {
+fn parenthesized(p: &mut Parser, atomic: bool) -> ParseResult {
     let marker = p.marker();
 
     p.start_group(Group::Paren);
@@ -330,7 +451,7 @@ fn parenthesized(p: &mut Parser) -> ParseResult {
     }
 
     // Arrow means this is a closure's parameter list.
-    if p.at(&NodeKind::Arrow) {
+    if !atomic && p.at(&NodeKind::Arrow) {
         params(p, marker);
         p.eat_assert(&NodeKind::Arrow);
         return marker.perform(p, NodeKind::Closure, expr);
@@ -705,4 +826,15 @@ fn body(p: &mut Parser) -> ParseResult {
         }
     }
     Ok(())
+}
+
+/// Parse a comment.
+fn comment(p: &mut Parser) -> ParseResult {
+    match p.peek() {
+        Some(NodeKind::LineComment | NodeKind::BlockComment) => {
+            p.eat();
+            Ok(())
+        }
+        _ => Err(ParseError),
+    }
 }

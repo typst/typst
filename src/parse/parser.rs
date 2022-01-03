@@ -1,7 +1,8 @@
+use core::slice::SliceIndex;
 use std::fmt::{self, Display, Formatter};
 use std::mem;
 
-use super::{TokenMode, Tokens};
+use super::{Scanner, TokenMode, Tokens};
 use crate::syntax::{ErrorPos, Green, GreenData, GreenNode, NodeKind};
 use crate::util::EcoString;
 
@@ -21,12 +22,17 @@ pub struct Parser<'s> {
     groups: Vec<GroupEntry>,
     /// The children of the currently built node.
     children: Vec<Green>,
+    /// Is `Some` if there is an unterminated group at the last position where
+    /// groups were terminated.
+    last_unterminated: Option<usize>,
+    /// Offsets the indentation on the first line of the source.
+    column_offset: usize,
 }
 
 impl<'s> Parser<'s> {
     /// Create a new parser for the source string.
-    pub fn new(src: &'s str) -> Self {
-        let mut tokens = Tokens::new(src, TokenMode::Markup);
+    pub fn new(src: &'s str, mode: TokenMode) -> Self {
+        let mut tokens = Tokens::new(src, mode);
         let current = tokens.next();
         Self {
             tokens,
@@ -36,12 +42,36 @@ impl<'s> Parser<'s> {
             current_start: 0,
             groups: vec![],
             children: vec![],
+            last_unterminated: None,
+            column_offset: 0,
         }
+    }
+
+    /// Create a new parser for the source string that is prefixed by some text
+    /// that does not need to be parsed but taken into account for column
+    /// calculation.
+    pub fn with_prefix(prefix: &str, src: &'s str, mode: TokenMode) -> Self {
+        let mut p = Self::new(src, mode);
+        p.column_offset = Scanner::new(prefix).column(prefix.len());
+        p
     }
 
     /// End the parsing process and return the last child.
     pub fn finish(self) -> Vec<Green> {
         self.children
+    }
+
+    /// End the parsing process and return multiple children and whether the
+    /// last token was terminated.
+    pub fn consume(self) -> Option<(Vec<Green>, bool)> {
+        (self.eof() && self.terminated())
+            .then(|| (self.children, self.tokens.terminated()))
+    }
+
+    /// End the parsing process and return multiple children and whether the
+    /// last token was terminated, even if there remains stuff in the string.
+    pub fn consume_unterminated(self) -> Option<(Vec<Green>, bool)> {
+        self.terminated().then(|| (self.children, self.tokens.terminated()))
     }
 
     /// Create a new marker.
@@ -170,6 +200,14 @@ impl<'s> Parser<'s> {
         self.tokens.scanner().get(self.current_start() .. self.current_end())
     }
 
+    /// Obtain a range of the source code.
+    pub fn get<I>(&self, index: I) -> &'s str
+    where
+        I: SliceIndex<str, Output = str>,
+    {
+        self.tokens.scanner().get(index)
+    }
+
     /// The byte index at which the last non-trivia token ended.
     pub fn prev_end(&self) -> usize {
         self.prev_end
@@ -187,7 +225,7 @@ impl<'s> Parser<'s> {
 
     /// Determine the column index for the given byte index.
     pub fn column(&self, index: usize) -> usize {
-        self.tokens.scanner().column(index)
+        self.tokens.scanner().column_offset(index, self.column_offset)
     }
 
     /// Continue parsing in a group.
@@ -225,6 +263,9 @@ impl<'s> Parser<'s> {
         let group = self.groups.pop().expect("no started group");
         self.tokens.set_mode(group.prev_mode);
         self.repeek();
+        if self.last_unterminated != Some(self.prev_end()) {
+            self.last_unterminated = None;
+        }
 
         let mut rescan = self.tokens.mode() != group_mode;
 
@@ -243,6 +284,7 @@ impl<'s> Parser<'s> {
                 rescan = false;
             } else if required {
                 self.push_error(format_eco!("expected {}", end));
+                self.last_unterminated = Some(self.prev_end());
             }
         }
 
@@ -258,6 +300,11 @@ impl<'s> Parser<'s> {
             self.current = self.tokens.next();
             self.repeek();
         }
+    }
+
+    /// Checks if all groups were correctly terminated.
+    pub fn terminated(&self) -> bool {
+        self.groups.is_empty() && self.last_unterminated.is_none()
     }
 
     /// Low-level bump that consumes exactly one token without special trivia
@@ -320,7 +367,8 @@ impl Parser<'_> {
     /// Push an error into the children list.
     pub fn push_error(&mut self, msg: impl Into<EcoString>) {
         let error = NodeKind::Error(ErrorPos::Full, msg.into());
-        self.children.push(GreenData::new(error, 0).into());
+        let idx = self.trivia_start();
+        self.children.insert(idx.0, GreenData::new(error, 0).into());
     }
 
     /// Eat the current token and add an error that it is unexpected.
@@ -419,6 +467,7 @@ impl Marker {
 }
 
 /// A logical group of tokens, e.g. `[...]`.
+#[derive(Debug)]
 struct GroupEntry {
     /// The kind of group this is. This decides which tokens will end the group.
     /// For example, a [`Group::Paren`] will be ended by

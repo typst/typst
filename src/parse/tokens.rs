@@ -13,6 +13,7 @@ use crate::util::EcoString;
 pub struct Tokens<'s> {
     s: Scanner<'s>,
     mode: TokenMode,
+    terminated: bool,
 }
 
 /// What kind of tokens to emit.
@@ -28,7 +29,11 @@ impl<'s> Tokens<'s> {
     /// Create a new token iterator with the given mode.
     #[inline]
     pub fn new(src: &'s str, mode: TokenMode) -> Self {
-        Self { s: Scanner::new(src), mode }
+        Self {
+            s: Scanner::new(src),
+            mode,
+            terminated: true,
+        }
     }
 
     /// Get the current token mode.
@@ -62,6 +67,12 @@ impl<'s> Tokens<'s> {
     #[inline]
     pub fn scanner(&self) -> Scanner<'s> {
         self.s
+    }
+
+    /// Whether the last token was terminated.
+    #[inline]
+    pub fn terminated(&self) -> bool {
+        self.terminated
     }
 }
 
@@ -117,9 +128,7 @@ impl<'s> Tokens<'s> {
             '`' => self.raw(),
             '$' => self.math(),
             '-' => self.hyph(),
-            '=' if self.s.check_or(true, |c| c == '=' || c.is_whitespace()) => {
-                NodeKind::Eq
-            }
+            '=' => NodeKind::Eq,
             c if c == '.' || c.is_ascii_digit() => self.numbering(start, c),
 
             // Plain text.
@@ -248,6 +257,7 @@ impl<'s> Tokens<'s> {
                             )
                         }
                     } else {
+                        self.terminated = false;
                         NodeKind::Error(
                             ErrorPos::End,
                             "expected closing brace".into(),
@@ -281,10 +291,8 @@ impl<'s> Tokens<'s> {
             } else {
                 NodeKind::EnDash
             }
-        } else if self.s.check_or(true, char::is_whitespace) {
-            NodeKind::Minus
         } else {
-            NodeKind::Text('-'.into())
+            NodeKind::Minus
         }
     }
 
@@ -300,11 +308,7 @@ impl<'s> Tokens<'s> {
             None
         };
 
-        if self.s.check_or(true, char::is_whitespace) {
-            NodeKind::EnumNumbering(number)
-        } else {
-            NodeKind::Text(self.s.eaten_from(start).into())
-        }
+        NodeKind::EnumNumbering(number)
     }
 
     fn raw(&mut self) -> NodeKind {
@@ -346,6 +350,7 @@ impl<'s> Tokens<'s> {
             let remaining = backticks - found;
             let noun = if remaining == 1 { "backtick" } else { "backticks" };
 
+            self.terminated = false;
             NodeKind::Error(
                 ErrorPos::End,
                 if found == 0 {
@@ -393,6 +398,7 @@ impl<'s> Tokens<'s> {
                 display,
             }))
         } else {
+            self.terminated = false;
             NodeKind::Error(
                 ErrorPos::End,
                 if !display || (!escaped && dollar) {
@@ -481,18 +487,23 @@ impl<'s> Tokens<'s> {
         if self.s.eat_if('"') {
             NodeKind::Str(string)
         } else {
+            self.terminated = false;
             NodeKind::Error(ErrorPos::End, "expected quote".into())
         }
     }
 
     fn line_comment(&mut self) -> NodeKind {
         self.s.eat_until(is_newline);
+        if self.s.peek().is_none() {
+            self.terminated = false;
+        }
         NodeKind::LineComment
     }
 
     fn block_comment(&mut self) -> NodeKind {
         let mut state = '_';
         let mut depth = 1;
+        self.terminated = false;
 
         // Find the first `*/` that does not correspond to a nested `/*`.
         while let Some(c) = self.s.eat() {
@@ -500,6 +511,7 @@ impl<'s> Tokens<'s> {
                 ('*', '/') => {
                     depth -= 1;
                     if depth == 0 {
+                        self.terminated = true;
                         break;
                     }
                     '_'
@@ -713,6 +725,7 @@ mod tests {
         t!(Both["a1/"]: "  \n"         => Space(1));
         t!(Both["a1/"]: "  \n   "      => Space(1));
         t!(Both["a1/"]: "\r\n"         => Space(1));
+        t!(Both["a1/"]: "\r\n\r"       => Space(2));
         t!(Both["a1/"]: "  \n\t \n  "  => Space(2));
         t!(Both["a1/"]: "\n\r"         => Space(2));
         t!(Both["a1/"]: " \r\r\n \x0D" => Space(3));
@@ -722,12 +735,12 @@ mod tests {
     fn test_tokenize_text() {
         // Test basic text.
         t!(Markup[" /"]: "hello"       => Text("hello"));
-        t!(Markup[" /"]: "hello-world" => Text("hello"), Text("-"), Text("world"));
+        t!(Markup[" /"]: "hello-world" => Text("hello"), Minus, Text("world"));
 
         // Test code symbols in text.
         t!(Markup[" /"]: "a():\"b" => Text("a():\"b"));
         t!(Markup[" /"]: ";:,|/+"  => Text(";:,|"), Text("/+"));
-        t!(Markup[" /"]: "=-a"     => Text("="), Text("-"), Text("a"));
+        t!(Markup[" /"]: "=-a"     => Eq, Minus, Text("a"));
         t!(Markup[" "]: "#123"     => Text("#"), Text("123"));
 
         // Test text ends.
@@ -784,7 +797,7 @@ mod tests {
         t!(Markup["a1/"]: "- "  => Minus, Space(0));
         t!(Markup[" "]: "."     => EnumNumbering(None));
         t!(Markup[" "]: "1."    => EnumNumbering(Some(1)));
-        t!(Markup[" "]: "1.a"   => Text("1."), Text("a"));
+        t!(Markup[" "]: "1.a"   => EnumNumbering(Some(1)), Text("a"));
         t!(Markup[" /"]: "a1."  => Text("a1."));
     }
 

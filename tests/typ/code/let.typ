@@ -57,7 +57,7 @@ Three
 
 // Terminated by semicolon even though we are in a paren group.
 // Error: 18 expected expression
-// Error: 19 expected closing paren
+// Error: 18 expected closing paren
 #let v5 = (1, 2 + ; Five
 
 ---

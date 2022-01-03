@@ -6,6 +6,7 @@ mod pretty;
 mod span;
 
 use std::fmt::{self, Debug, Display, Formatter};
+use std::ops::Range;
 use std::rc::Rc;
 
 pub use highlight::*;
@@ -15,6 +16,7 @@ pub use span::*;
 use self::ast::{MathNode, RawNode, TypedNode};
 use crate::diag::Error;
 use crate::geom::{AngularUnit, LengthUnit};
+use crate::parse::TokenMode;
 use crate::source::SourceId;
 use crate::util::EcoString;
 
@@ -59,6 +61,14 @@ impl Green {
         match self {
             Green::Node(n) => n.children(),
             Green::Token(_) => &[],
+        }
+    }
+
+    /// Whether the node is a leaf node in the green tree.
+    pub fn is_leaf(&self) -> bool {
+        match self {
+            Green::Node(n) => n.children().is_empty(),
+            Green::Token(_) => true,
         }
     }
 
@@ -126,6 +136,52 @@ impl GreenNode {
     /// The node's children.
     pub fn children(&self) -> &[Green] {
         &self.children
+    }
+
+    /// The node's metadata.
+    fn data(&self) -> &GreenData {
+        &self.data
+    }
+
+    /// The node's type.
+    pub fn kind(&self) -> &NodeKind {
+        self.data().kind()
+    }
+
+    /// The node's length.
+    pub fn len(&self) -> usize {
+        self.data().len()
+    }
+
+    /// The node's children, mutably.
+    pub(crate) fn children_mut(&mut self) -> &mut [Green] {
+        &mut self.children
+    }
+
+    /// Replaces a range of children with some replacement.
+    pub(crate) fn replace_children(
+        &mut self,
+        range: Range<usize>,
+        replacement: Vec<Green>,
+    ) {
+        let superseded = &self.children[range.clone()];
+        let superseded_len: usize = superseded.iter().map(Green::len).sum();
+        let replacement_len: usize = replacement.iter().map(Green::len).sum();
+
+        // If we're erroneous, but not due to the superseded range, then we will
+        // still be erroneous after the replacement.
+        let still_erroneous = self.erroneous && !superseded.iter().any(Green::erroneous);
+
+        self.children.splice(range, replacement);
+        self.data.len = self.data.len + replacement_len - superseded_len;
+        self.erroneous = still_erroneous || self.children.iter().any(Green::erroneous);
+    }
+
+    /// Update the length of this node given the old and new length of
+    /// replaced children.
+    pub(crate) fn update_parent(&mut self, new_len: usize, old_len: usize) {
+        self.data.len = self.data.len() + new_len - old_len;
+        self.erroneous = self.children.iter().any(Green::erroneous);
     }
 }
 
@@ -266,7 +322,7 @@ impl Debug for RedNode {
     }
 }
 
-/// A borrowed wrapper for a green node with span information.
+/// A borrowed wrapper for a [`GreenNode`] with span information.
 ///
 /// Borrowed variant of [`RedNode`]. Can be [cast](Self::cast) to an AST node.
 #[derive(Copy, Clone, PartialEq)]
@@ -301,6 +357,11 @@ impl<'a> RedRef<'a> {
         Span::new(self.id, self.offset, self.offset + self.green.len())
     }
 
+    /// Whether the node is a leaf node.
+    pub fn is_leaf(self) -> bool {
+        self.green.is_leaf()
+    }
+
     /// The error messages for this node and its descendants.
     pub fn errors(self) -> Vec<Error> {
         if !self.green.erroneous() {
@@ -322,6 +383,15 @@ impl<'a> RedRef<'a> {
                 .filter(|red| red.green.erroneous())
                 .flat_map(|red| red.errors())
                 .collect(),
+        }
+    }
+
+    /// Returns all leaf descendants of this node (may include itself).
+    pub fn leafs(self) -> Vec<Self> {
+        if self.is_leaf() {
+            vec![self]
+        } else {
+            self.children().flat_map(Self::leafs).collect()
         }
     }
 
@@ -502,8 +572,8 @@ pub enum NodeKind {
     Include,
     /// The `from` keyword.
     From,
-    /// Template markup.
-    Markup,
+    /// Template markup of which all lines must start in some column.
+    Markup(usize),
     /// One or more whitespace characters.
     Space(usize),
     /// A forced line break: `\`.
@@ -512,6 +582,8 @@ pub enum NodeKind {
     Parbreak,
     /// A consecutive non-markup string.
     Text(EcoString),
+    /// A text node that cannot appear at the beginning of a source line.
+    TextInLine(EcoString),
     /// A non-breaking space: `~`.
     NonBreakingSpace,
     /// An en-dash: `--`.
@@ -648,9 +720,69 @@ impl NodeKind {
         matches!(self, Self::LeftParen | Self::RightParen)
     }
 
+    /// Whether this is whitespace.
+    pub fn is_whitespace(&self) -> bool {
+        matches!(self, Self::Space(_) | Self::Parbreak)
+    }
+
+    /// Whether this is trivia.
+    pub fn is_trivia(&self) -> bool {
+        self.is_whitespace() || matches!(self, Self::LineComment | Self::BlockComment)
+    }
+
     /// Whether this is some kind of error.
     pub fn is_error(&self) -> bool {
         matches!(self, NodeKind::Error(_, _) | NodeKind::Unknown(_))
+    }
+
+    /// Whether this node is `at_start` given the previous value of the property.
+    pub fn is_at_start(&self, prev: bool) -> bool {
+        match self {
+            Self::Space(n) if *n > 0 => true,
+            Self::Parbreak => true,
+            Self::LineComment | Self::BlockComment => prev,
+            _ => false,
+        }
+    }
+
+    /// Whether this token appears in Markup.
+    pub fn mode(&self) -> Option<TokenMode> {
+        match self {
+            Self::Markup(_)
+            | Self::Linebreak
+            | Self::Parbreak
+            | Self::Text(_)
+            | Self::TextInLine(_)
+            | Self::NonBreakingSpace
+            | Self::EnDash
+            | Self::EmDash
+            | Self::Escape(_)
+            | Self::Strong
+            | Self::Emph
+            | Self::Heading
+            | Self::Enum
+            | Self::EnumNumbering(_)
+            | Self::List
+            | Self::Raw(_)
+            | Self::Math(_) => Some(TokenMode::Markup),
+            Self::Template
+            | Self::Space(_)
+            | Self::Block
+            | Self::Ident(_)
+            | Self::LetExpr
+            | Self::IfExpr
+            | Self::WhileExpr
+            | Self::ForExpr
+            | Self::ImportExpr
+            | Self::Call
+            | Self::IncludeExpr
+            | Self::LineComment
+            | Self::BlockComment
+            | Self::Error(_, _)
+            | Self::Minus
+            | Self::Eq => None,
+            _ => Some(TokenMode::Code),
+        }
     }
 
     /// A human-readable name for the kind.
@@ -701,11 +833,11 @@ impl NodeKind {
             Self::Import => "keyword `import`",
             Self::Include => "keyword `include`",
             Self::From => "keyword `from`",
-            Self::Markup => "markup",
+            Self::Markup(_) => "markup",
             Self::Space(_) => "space",
             Self::Linebreak => "forced linebreak",
             Self::Parbreak => "paragraph break",
-            Self::Text(_) => "text",
+            Self::Text(_) | Self::TextInLine(_) => "text",
             Self::NonBreakingSpace => "non-breaking space",
             Self::EnDash => "en dash",
             Self::EmDash => "em dash",
