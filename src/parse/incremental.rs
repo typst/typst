@@ -4,8 +4,8 @@ use std::rc::Rc;
 use crate::syntax::{Green, GreenNode, NodeKind};
 
 use super::{
-    parse_atomic, parse_atomic_markup, parse_block, parse_comment, parse_markup,
-    parse_markup_elements, parse_template, Scanner, TokenMode,
+    is_newline, parse, parse_atomic, parse_atomic_markup, parse_block, parse_comment,
+    parse_markup, parse_markup_elements, parse_template, Scanner, TokenMode,
 };
 
 /// The conditions that a node has to fulfill in order to be replaced.
@@ -13,21 +13,21 @@ use super::{
 /// This can dictate if a node can be replaced at all and if yes, what can take
 /// its place.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum Postcondition {
+pub enum SuccessionRule {
     /// Changing this node can never have an influence on the other nodes.
     Safe,
     /// This node has to be replaced with a single token of the same kind.
     SameKind(Option<TokenMode>),
-    /// Changing this node into a single atomic expression is allowed if it
-    /// appears in code mode, otherwise it is safe.
+    /// In code mode, this node can only be changed into a single atomic
+    /// expression, otherwise it is safe.
     AtomicPrimary,
-    /// Changing an unsafe layer node changes what the parents or the
-    /// surrounding nodes would be and is therefore disallowed. Change the
+    /// Changing an unsafe layer node in code mode changes what the parents or
+    /// the surrounding nodes would be and is therefore disallowed. Change the
     /// parents or children instead. If it appears in Markup, however, it is
     /// safe to change.
     UnsafeLayer,
-    /// Changing an unsafe node or any of its children will trigger undefined
-    /// behavior. Change the parents instead.
+    /// Changing an unsafe node or any of its children is not allowed. Change
+    /// the parents instead.
     Unsafe,
 }
 
@@ -37,11 +37,12 @@ pub enum Postcondition {
 /// existence is plausible with them present. This can be used to encode some
 /// context-free language components for incremental parsing.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum Precondition {
+pub enum NeighbourRule {
     /// These nodes depend on being at the start of a line. Reparsing of safe
-    /// left neighbors has to check this invariant. Otherwise, this node is
-    /// safe. Additionally, the indentation of the first right non-trivia,
-    /// non-whitespace sibling must not be greater than the current indentation.
+    /// left neighbors has to check this invariant. Additionally, when
+    /// exchanging the right sibling or inserting such a node the indentation of
+    /// the first right non-trivia, non-whitespace sibling must not be greater
+    /// than the current indentation.
     AtStart,
     /// These nodes depend on not being at the start of a line. Reparsing of
     /// safe left neighbors has to check this invariant. Otherwise, this node is
@@ -77,8 +78,12 @@ impl<'a> Reparser<'a> {
 
 impl Reparser<'_> {
     /// Find the innermost child that is incremental safe.
-    pub fn reparse(&self, green: &mut GreenNode) -> Option<Range<usize>> {
-        self.reparse_step(green, 0, TokenMode::Markup, true)
+    pub fn reparse(&self, green: &mut Rc<GreenNode>) -> Range<usize> {
+        self.reparse_step(Rc::make_mut(green), 0, TokenMode::Markup, true)
+            .unwrap_or_else(|| {
+                *green = parse(self.src);
+                0 .. self.src.len()
+            })
     }
 
     fn reparse_step(
@@ -90,7 +95,7 @@ impl Reparser<'_> {
     ) -> Option<Range<usize>> {
         let mode = green.kind().mode().unwrap_or(parent_mode);
         let child_mode = green.kind().mode().unwrap_or(TokenMode::Code);
-        let child_count = green.children().len();
+        let original_count = green.children().len();
 
         // Save the current indent if this is a markup node.
         let indent = match green.kind() {
@@ -134,12 +139,14 @@ impl Reparser<'_> {
             // neighbor!
             if child_span.contains(&self.replace_range.end)
                 || self.replace_range.end == child_span.end
-                    && (mode != TokenMode::Markup || i + 1 == child_count)
+                    && (mode != TokenMode::Markup || i + 1 == original_count)
             {
-                outermost &= i + 1 == child_count;
+                outermost &= i + 1 == original_count;
                 last = Some((i, offset + child.len()));
                 break;
-            } else if mode != TokenMode::Markup || !child.kind().post().safe_in_markup() {
+            } else if mode != TokenMode::Markup
+                || !child.kind().succession_rule().safe_in_markup()
+            {
                 break;
             }
 
@@ -147,17 +154,17 @@ impl Reparser<'_> {
         }
 
         let (last_idx, last_end) = last?;
-        let children_range = first_idx .. last_idx + 1;
-        let children_span = first_start .. last_end;
+        let superseded_range = first_idx .. last_idx + 1;
+        let superseded_span = first_start .. last_end;
         let last_kind = green.children()[last_idx].kind().clone();
 
         // First, we try if the child itself has another, more specific
         // applicable child.
-        if children_range.len() == 1 {
-            let child = &mut green.children_mut()[children_range.start];
+        if superseded_range.len() == 1 {
+            let child = &mut green.children_mut()[superseded_range.start];
             let prev_len = child.len();
 
-            if last_kind.post() != Postcondition::Unsafe {
+            if last_kind.succession_rule() != SuccessionRule::Unsafe {
                 if let Some(range) = match child {
                     Green::Node(node) => self.reparse_step(
                         Rc::make_mut(node),
@@ -168,56 +175,64 @@ impl Reparser<'_> {
                     Green::Token(_) => None,
                 } {
                     let new_len = child.len();
-                    green.update_child_len(new_len, prev_len);
+                    green.update_parent(new_len, prev_len);
                     return Some(range);
                 }
             }
         }
 
         // We only replace multiple children in markup mode.
-        if children_range.len() > 1 && mode == TokenMode::Code {
+        if superseded_range.len() > 1 && mode == TokenMode::Code {
             return None;
         }
 
         // We now have a child that we can replace and a function to do so.
         let func = last_kind.reparsing_func(child_mode, indent)?;
-        let post = last_kind.post();
+        let succession = last_kind.succession_rule();
 
-        let mut column = if mode == TokenMode::Markup {
-            // In this case, we want to pass the indentation to the function.
-            Scanner::new(self.src).column(children_span.start)
-        } else {
-            0
-        };
+        let mut markup_min_column = 0;
 
         // If this is a markup node, we want to save its indent instead to pass
         // the right indent argument.
-        if children_range.len() == 1 {
-            let child = &mut green.children_mut()[children_range.start];
+        if superseded_range.len() == 1 {
+            let child = &mut green.children_mut()[superseded_range.start];
             if let NodeKind::Markup(n) = child.kind() {
-                column = *n;
+                markup_min_column = *n;
             }
         }
 
         // The span of the to-be-reparsed children in the new source.
-        let replace_span = children_span.start
+        let newborn_span = superseded_span.start
             ..
-            children_span.end + self.replace_len - self.replace_range.len();
+            superseded_span.end + self.replace_len - self.replace_range.len();
 
         // For atomic primaries we need to pass in the whole remaining string to
         // check whether the parser would eat more stuff illicitly.
-        let reparse_span = if post == Postcondition::AtomicPrimary {
-            replace_span.start .. self.src.len()
+        let reparse_span = if succession == SuccessionRule::AtomicPrimary {
+            newborn_span.start .. self.src.len()
         } else {
-            replace_span.clone()
+            newborn_span.clone()
         };
 
+        let mut prefix = "";
+        for (i, c) in self.src[.. reparse_span.start].char_indices().rev() {
+            if is_newline(c) {
+                break;
+            }
+            prefix = &self.src[i .. reparse_span.start];
+        }
+
         // Do the reparsing!
-        let (mut newborns, terminated) = func(&self.src[reparse_span], at_start, column)?;
+        let (mut newborns, terminated) = func(
+            &prefix,
+            &self.src[reparse_span.clone()],
+            at_start,
+            markup_min_column,
+        )?;
 
         // Make sure that atomic primaries ate only what they were supposed to.
-        if post == Postcondition::AtomicPrimary {
-            let len = replace_span.len();
+        if succession == SuccessionRule::AtomicPrimary {
+            let len = newborn_span.len();
             if newborns.len() > 1 && newborns[0].len() == len {
                 newborns.truncate(1);
             } else if newborns.iter().map(Green::len).sum::<usize>() != len {
@@ -234,16 +249,16 @@ impl Reparser<'_> {
         // If all post- and preconditions match, we are good to go!
         if validate(
             green.children(),
-            children_range.clone(),
+            superseded_range.clone(),
             at_start,
             &newborns,
             mode,
-            post,
-            replace_span.clone(),
+            succession,
+            newborn_span.clone(),
             self.src,
         ) {
-            green.replace_child_range(children_range, newborns);
-            Some(replace_span)
+            green.replace_children(superseded_range, newborns);
+            Some(newborn_span)
         } else {
             None
         }
@@ -252,27 +267,27 @@ impl Reparser<'_> {
 
 /// Validate that a node replacement is allowed by post- and preconditions.
 fn validate(
-    prev_children: &[Green],
-    children_range: Range<usize>,
+    superseded: &[Green],
+    superseded_range: Range<usize>,
     mut at_start: bool,
     newborns: &[Green],
     mode: TokenMode,
-    post: Postcondition,
-    replace_span: Range<usize>,
+    post: SuccessionRule,
+    newborn_span: Range<usize>,
     src: &str,
 ) -> bool {
     // Atomic primaries must only generate one new child.
-    if post == Postcondition::AtomicPrimary && newborns.len() != 1 {
+    if post == SuccessionRule::AtomicPrimary && newborns.len() != 1 {
         return false;
     }
 
     // Same kind in mode `inside` must generate only one child and that child
     // must be of the same kind as previously.
-    if let Postcondition::SameKind(inside) = post {
-        let prev_kind = prev_children[children_range.start].kind();
-        let prev_mode = prev_kind.mode().unwrap_or(mode);
-        if inside.map_or(true, |m| m == prev_mode)
-            && (newborns.len() != 1 || prev_kind != newborns[0].kind())
+    if let SuccessionRule::SameKind(inside) = post {
+        let superseded_kind = superseded[superseded_range.start].kind();
+        let superseded_mode = superseded_kind.mode().unwrap_or(mode);
+        if inside.map_or(true, |m| m == superseded_mode)
+            && (newborns.len() != 1 || superseded_kind != newborns[0].kind())
         {
             return false;
         }
@@ -286,15 +301,15 @@ fn validate(
     // Check if there are any `AtStart` predecessors which require a certain
     // indentation.
     let s = Scanner::new(src);
-    let mut prev_pos = replace_span.start;
-    for child in (&prev_children[.. children_range.start]).iter().rev() {
+    let mut prev_pos = newborn_span.start;
+    for child in (&superseded[.. superseded_range.start]).iter().rev() {
         prev_pos -= child.len();
         if !child.kind().is_trivia() {
-            if child.kind().pre() == Precondition::AtStart {
+            if child.kind().neighbour_rule() == NeighbourRule::AtStart {
                 let left_col = s.column(prev_pos);
 
                 // Search for the first non-trivia newborn.
-                let mut new_pos = replace_span.start;
+                let mut new_pos = newborn_span.start;
                 let mut child_col = None;
                 for child in newborns {
                     if !child.kind().is_trivia() {
@@ -323,15 +338,15 @@ fn validate(
 
     // Ensure that a possible at-start or not-at-start precondition of
     // a node after the replacement range is satisfied.
-    for child in &prev_children[children_range.end ..] {
-        if !child.kind().is_trivia() {
-            let pre = child.kind().pre();
-            if (pre == Precondition::AtStart && !at_start)
-                || (pre == Precondition::NotAtStart && at_start)
-            {
-                return false;
-            }
+    for child in &superseded[superseded_range.end ..] {
+        let neighbour_rule = child.kind().neighbour_rule();
+        if (neighbour_rule == NeighbourRule::AtStart && !at_start)
+            || (neighbour_rule == NeighbourRule::NotAtStart && at_start)
+        {
+            return false;
+        }
 
+        if !child.kind().is_trivia() {
             break;
         }
 
@@ -339,42 +354,40 @@ fn validate(
     }
 
     // Verify that the last of the newborns is not `NotAtEnd`.
-    if newborns
-        .last()
-        .map_or(false, |child| child.kind().pre() == Precondition::NotAtEnd)
-    {
+    if newborns.last().map_or(false, |child| {
+        child.kind().neighbour_rule() == NeighbourRule::NotAtEnd
+    }) {
         return false;
     }
 
     // We have to check whether the last non-trivia newborn is `AtStart` and
     // verify the indent of its right neighbors in order to make sure its
     // indentation requirements are fulfilled.
-    let mut child_pos = replace_span.end;
-    let mut child_col = None;
+    let mut child_pos = newborn_span.end;
     for child in newborns.iter().rev() {
         child_pos -= child.len();
 
-        if !child.kind().is_trivia() {
-            if child.kind().pre() == Precondition::AtStart {
-                child_col = Some(s.column(child_pos));
-            }
-            break;
+        if child.kind().is_trivia() {
+            continue;
         }
-    }
 
-    if let Some(child_col) = child_col {
-        let mut right_pos = replace_span.end;
-        for child in &prev_children[children_range.end ..] {
-            if !child.kind().is_trivia() {
+        if child.kind().neighbour_rule() == NeighbourRule::AtStart {
+            let child_col = s.column(child_pos);
+
+            let mut right_pos = newborn_span.end;
+            for child in &superseded[superseded_range.end ..] {
+                if child.kind().is_trivia() {
+                    right_pos += child.len();
+                    continue;
+                }
+
                 if s.column(right_pos) > child_col {
                     return false;
                 }
-
                 break;
             }
-
-            right_pos += child.len();
         }
+        break;
     }
 
     true
@@ -387,13 +400,15 @@ impl NodeKind {
         &self,
         parent_mode: TokenMode,
         indent: usize,
-    ) -> Option<fn(&str, bool, usize) -> Option<(Vec<Green>, bool)>> {
+    ) -> Option<fn(&str, &str, bool, usize) -> Option<(Vec<Green>, bool)>> {
         let mode = self.mode().unwrap_or(parent_mode);
-        match self.post() {
-            Postcondition::Unsafe | Postcondition::UnsafeLayer => None,
-            Postcondition::AtomicPrimary if mode == TokenMode::Code => Some(parse_atomic),
-            Postcondition::AtomicPrimary => Some(parse_atomic_markup),
-            Postcondition::SameKind(x) if x == None || x == Some(mode) => match self {
+        match self.succession_rule() {
+            SuccessionRule::Unsafe | SuccessionRule::UnsafeLayer => None,
+            SuccessionRule::AtomicPrimary if mode == TokenMode::Code => {
+                Some(parse_atomic)
+            }
+            SuccessionRule::AtomicPrimary => Some(parse_atomic_markup),
+            SuccessionRule::SameKind(x) if x == None || x == Some(mode) => match self {
                 NodeKind::Markup(_) => Some(parse_markup),
                 NodeKind::Template => Some(parse_template),
                 NodeKind::Block => Some(parse_block),
@@ -409,7 +424,7 @@ impl NodeKind {
 
     /// Whether it is safe to do incremental parsing on this node. Never allow
     /// non-termination errors if this is not already the last leaf node.
-    pub fn post(&self) -> Postcondition {
+    pub fn succession_rule(&self) -> SuccessionRule {
         match self {
             // Replacing parenthesis changes if the expression is balanced and
             // is therefore not safe.
@@ -418,7 +433,7 @@ impl NodeKind {
             | Self::LeftBrace
             | Self::RightBrace
             | Self::LeftParen
-            | Self::RightParen => Postcondition::Unsafe,
+            | Self::RightParen => SuccessionRule::Unsafe,
 
             // Replacing an operator can change whether the parent is an
             // operation which makes it unsafe. The star can appear in markup.
@@ -445,7 +460,7 @@ impl NodeKind {
             | Self::Or
             | Self::With
             | Self::Dots
-            | Self::Arrow => Postcondition::Unsafe,
+            | Self::Arrow => SuccessionRule::Unsafe,
 
             // These keywords change what kind of expression the parent is and
             // how far the expression would go.
@@ -461,14 +476,14 @@ impl NodeKind {
             | Self::Return
             | Self::Import
             | Self::Include
-            | Self::From => Postcondition::Unsafe,
+            | Self::From => SuccessionRule::Unsafe,
 
             // Changing the heading level, enum numbering, or list bullet
             // changes the next layer.
-            Self::EnumNumbering(_) => Postcondition::Unsafe,
+            Self::EnumNumbering(_) => SuccessionRule::Unsafe,
 
             // This can be anything, so we don't make any promises.
-            Self::Error(_, _) | Self::Unknown(_) => Postcondition::Unsafe,
+            Self::Error(_, _) | Self::Unknown(_) => SuccessionRule::Unsafe,
 
             // These are complex expressions which may screw with their
             // environments.
@@ -477,33 +492,33 @@ impl NodeKind {
             | Self::Binary
             | Self::CallArgs
             | Self::Named
-            | Self::Spread => Postcondition::UnsafeLayer,
+            | Self::Spread => SuccessionRule::UnsafeLayer,
 
             // The closure is a bit magic with the let expression, and also it
             // is not atomic.
-            Self::Closure | Self::ClosureParams => Postcondition::UnsafeLayer,
+            Self::Closure | Self::ClosureParams => SuccessionRule::UnsafeLayer,
 
             // Missing these creates errors for the parents.
             Self::WithExpr | Self::ForPattern | Self::ImportItems => {
-                Postcondition::UnsafeLayer
+                SuccessionRule::UnsafeLayer
             }
 
             // Only markup is expected at the points where it does occur. The
             // indentation must be preserved as well, also for the children.
-            Self::Markup(_) => Postcondition::SameKind(None),
+            Self::Markup(_) => SuccessionRule::SameKind(None),
 
             // These can appear everywhere and must not change to other stuff
             // because that could change the outer expression.
-            Self::LineComment | Self::BlockComment => Postcondition::SameKind(None),
+            Self::LineComment | Self::BlockComment => SuccessionRule::SameKind(None),
 
             // These can appear as bodies and would trigger an error if they
             // became something else.
-            Self::Template => Postcondition::SameKind(None),
-            Self::Block => Postcondition::SameKind(Some(TokenMode::Code)),
+            Self::Template => SuccessionRule::SameKind(None),
+            Self::Block => SuccessionRule::SameKind(Some(TokenMode::Code)),
 
             // Whitespace in code mode has to remain whitespace or else the type
             // of things would change.
-            Self::Space(_) => Postcondition::SameKind(Some(TokenMode::Code)),
+            Self::Space(_) => SuccessionRule::SameKind(Some(TokenMode::Code)),
 
             // These are expressions that can be replaced by other expressions.
             Self::Ident(_)
@@ -519,7 +534,7 @@ impl NodeKind {
             | Self::Dict
             | Self::Group
             | Self::None
-            | Self::Auto => Postcondition::AtomicPrimary,
+            | Self::Auto => SuccessionRule::AtomicPrimary,
 
             // More complex, but still an expression.
             Self::ForExpr
@@ -528,11 +543,11 @@ impl NodeKind {
             | Self::LetExpr
             | Self::SetExpr
             | Self::ImportExpr
-            | Self::IncludeExpr => Postcondition::AtomicPrimary,
+            | Self::IncludeExpr => SuccessionRule::AtomicPrimary,
 
             // This element always has to remain in the same column so better
             // reparse the whole parent.
-            Self::Raw(_) => Postcondition::Unsafe,
+            Self::Raw(_) => SuccessionRule::Unsafe,
 
             // These are all replaceable by other tokens.
             Self::Parbreak
@@ -548,22 +563,22 @@ impl NodeKind {
             | Self::Heading
             | Self::Enum
             | Self::List
-            | Self::Math(_) => Postcondition::Safe,
+            | Self::Math(_) => SuccessionRule::Safe,
         }
     }
 
     /// The appropriate precondition for the type.
-    pub fn pre(&self) -> Precondition {
+    pub fn neighbour_rule(&self) -> NeighbourRule {
         match self {
-            Self::Heading | Self::Enum | Self::List => Precondition::AtStart,
-            Self::TextInLine(_) => Precondition::NotAtStart,
-            Self::Error(_, _) => Precondition::NotAtEnd,
-            _ => Precondition::None,
+            Self::Heading | Self::Enum | Self::List => NeighbourRule::AtStart,
+            Self::TextInLine(_) => NeighbourRule::NotAtStart,
+            Self::Error(_, _) => NeighbourRule::NotAtEnd,
+            _ => NeighbourRule::None,
         }
     }
 }
 
-impl Postcondition {
+impl SuccessionRule {
     /// Whether a node with this condition can be reparsed in markup mode.
     pub fn safe_in_markup(&self) -> bool {
         match self {

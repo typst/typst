@@ -108,7 +108,7 @@ pub struct GreenNode {
     /// This node's children, losslessly make up this node.
     children: Vec<Green>,
     /// Whether this node or any of its children are erroneous.
-    pub erroneous: bool,
+    erroneous: bool,
 }
 
 impl GreenNode {
@@ -139,7 +139,7 @@ impl GreenNode {
     }
 
     /// The node's metadata.
-    pub fn data(&self) -> &GreenData {
+    fn data(&self) -> &GreenData {
         &self.data
     }
 
@@ -159,41 +159,29 @@ impl GreenNode {
     }
 
     /// Replaces a range of children with some replacement.
-    ///
-    /// This method updates the `erroneous` and `data.len` fields.
-    pub(crate) fn replace_child_range(
+    pub(crate) fn replace_children(
         &mut self,
-        child_idx_range: Range<usize>,
+        range: Range<usize>,
         replacement: Vec<Green>,
     ) {
-        let old_len: usize =
-            self.children[child_idx_range.clone()].iter().map(Green::len).sum();
-        let new_len: usize = replacement.iter().map(Green::len).sum();
+        let superseded = &self.children[range.clone()];
+        let superseded_len: usize = superseded.iter().map(Green::len).sum();
+        let replacement_len: usize = replacement.iter().map(Green::len).sum();
 
-        if self.erroneous {
-            if self.children[child_idx_range.clone()].iter().any(Green::erroneous) {
-                // the old range was erroneous but we do not know if anywhere
-                // else was so we have to iterate over the whole thing.
-                self.erroneous = self.children[.. child_idx_range.start]
-                    .iter()
-                    .any(Green::erroneous)
-                    || self.children[child_idx_range.end ..].iter().any(Green::erroneous);
-            }
-            // in this case nothing changes so we do not have to bother.
-        }
+        // If we're erroneous, but not due to the superseded range, then we will
+        // still be erroneous after the replacement.
+        let still_erroneous = self.erroneous && !superseded.iter().any(Green::erroneous);
 
-        // the or assignment operator is not lazy.
-        self.erroneous = self.erroneous || replacement.iter().any(Green::erroneous);
-
-        self.children.splice(child_idx_range, replacement);
-        self.data.len = self.data.len + new_len - old_len;
+        self.children.splice(range, replacement);
+        self.data.len = self.data.len + replacement_len - superseded_len;
+        self.erroneous = still_erroneous || self.children.iter().any(Green::erroneous);
     }
 
-    /// Update the length of this node given the old and new length of a
-    /// replaced child.
-    pub(crate) fn update_child_len(&mut self, new_len: usize, old_len: usize) {
+    /// Update the length of this node given the old and new length of
+    /// replaced children.
+    pub(crate) fn update_parent(&mut self, new_len: usize, old_len: usize) {
         self.data.len = self.data.len() + new_len - old_len;
-        self.erroneous = self.children.iter().any(|x| x.erroneous());
+        self.erroneous = self.children.iter().any(Green::erroneous);
     }
 }
 
@@ -255,7 +243,7 @@ impl From<GreenData> for Green {
 
 impl Debug for GreenData {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{:?}: {}", &self.kind, self.len)
+        write!(f, "{:?}: {}", self.kind, self.len)
     }
 }
 
@@ -398,12 +386,13 @@ impl<'a> RedRef<'a> {
         }
     }
 
-    /// Perform a depth-first search starting at this node.
-    pub fn all_children(&self) -> Vec<Self> {
-        let mut res = vec![self.clone()];
-        res.extend(self.children().flat_map(|child| child.all_children().into_iter()));
-
-        res
+    /// Returns all leaf descendants of this node (may include itself).
+    pub fn leafs(self) -> Vec<Self> {
+        if self.is_leaf() {
+            vec![self]
+        } else {
+            self.children().flat_map(Self::leafs).collect()
+        }
     }
 
     /// Convert the node to a typed AST node.

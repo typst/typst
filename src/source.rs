@@ -154,9 +154,14 @@ impl SourceFile {
         &self.root
     }
 
+    /// The root red node of the file's untyped red tree.
+    pub fn red(&self) -> RedNode {
+        RedNode::from_root(self.root.clone(), self.id)
+    }
+
     /// The root node of the file's typed abstract syntax tree.
     pub fn ast(&self) -> TypResult<Markup> {
-        let red = RedNode::from_root(self.root.clone(), self.id);
+        let red = self.red();
         let errors = red.errors();
         if errors.is_empty() {
             Ok(red.cast().unwrap())
@@ -284,14 +289,8 @@ impl SourceFile {
         self.line_starts
             .extend(newlines(&self.src[start ..]).map(|idx| start + idx));
 
-        // Update the root node.
-        let reparser = Reparser::new(&self.src, replace, with.len());
-        if let Some(range) = reparser.reparse(Rc::make_mut(&mut self.root)) {
-            range
-        } else {
-            self.root = parse(&self.src);
-            0 .. self.src.len()
-        }
+        // Incrementally reparse the replaced range.
+        Reparser::new(&self.src, replace, with.len()).reparse(&mut self.root)
     }
 
     /// Provide highlighting categories for the given range of the source file.

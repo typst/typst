@@ -1,6 +1,7 @@
 use std::env;
 use std::ffi::OsStr;
 use std::fs;
+use std::ops::Range;
 use std::path::Path;
 use std::rc::Rc;
 
@@ -19,8 +20,8 @@ use typst::image::{Image, RasterImage, Svg};
 use typst::library::{PageNode, TextNode};
 use typst::loading::FsLoader;
 use typst::parse::Scanner;
-use typst::source::{SourceFile, SourceId};
-use typst::syntax::{RedNode, Span};
+use typst::source::SourceFile;
+use typst::syntax::Span;
 use typst::Context;
 
 #[cfg(feature = "layout-cache")]
@@ -263,13 +264,12 @@ fn test_part(
     debug: bool,
     rng: &mut LinearShift,
 ) -> (bool, bool, Vec<Rc<Frame>>) {
-    let mut ok = test_reparse(&src, i, rng);
-
     let id = ctx.sources.provide(src_path, src);
     let source = ctx.sources.get(id);
 
     let (local_compare_ref, mut ref_errors) = parse_metadata(&source);
     let compare_ref = local_compare_ref.unwrap_or(compare_ref);
+    let mut ok = test_reparse(ctx.sources.get(id).src(), i, rng);
 
     let (frames, mut errors) = match ctx.evaluate(id) {
         Ok(module) => {
@@ -444,43 +444,31 @@ fn test_reparse(src: &str, i: usize, rng: &mut LinearShift) -> bool {
         }
     };
 
-    let mut in_range = |range: std::ops::Range<usize>| {
-        let full = rng.next().unwrap() as f64 / u64::MAX as f64;
-        (range.start as f64 + full * (range.end as f64 - range.start as f64)).floor()
-            as usize
+    let mut pick = |range: Range<usize>| {
+        let ratio = rng.next();
+        (range.start as f64 + ratio * (range.end - range.start) as f64).floor() as usize
     };
 
     let insertions = (src.len() as f64 / 400.0).ceil() as usize;
 
     for _ in 0 .. insertions {
-        let supplement = supplements[in_range(0 .. supplements.len())];
-        let start = in_range(0 .. src.len());
-        let end = in_range(start .. src.len());
+        let supplement = supplements[pick(0 .. supplements.len())];
+        let start = pick(0 .. src.len());
+        let end = pick(start .. src.len());
 
         if !src.is_char_boundary(start) || !src.is_char_boundary(end) {
             continue;
         }
 
-        if !apply(start .. end, supplement) {
-            println!("original tree: {:#?}", SourceFile::detached(src).root());
-            ok = false;
-        }
+        ok &= apply(start .. end, supplement);
     }
 
-    let red = RedNode::from_root(
-        SourceFile::detached(src).root().clone(),
-        SourceId::from_raw(0),
-    );
+    let red = SourceFile::detached(src).red();
 
-    let leafs: Vec<_> = red
-        .as_ref()
-        .all_children()
-        .into_iter()
-        .filter(|red| red.is_leaf())
-        .collect();
+    let leafs = red.as_ref().leafs();
 
-    let leaf_start = leafs[in_range(0 .. leafs.len())].span().start;
-    let supplement = supplements[in_range(0 .. supplements.len())];
+    let leaf_start = leafs[pick(0 .. leafs.len())].span().start;
+    let supplement = supplements[pick(0 .. supplements.len())];
 
     ok &= apply(leaf_start .. leaf_start, supplement);
 
@@ -954,23 +942,14 @@ impl LinearShift {
     pub fn new() -> Self {
         Self(0xACE5)
     }
-}
 
-impl Iterator for LinearShift {
-    type Item = u64;
-
-    /// Apply the shift.
-    fn next(&mut self) -> Option<Self::Item> {
+    /// Return a pseudo-random number between `0.0` and `1.0`.
+    pub fn next(&mut self) -> f64 {
         self.0 ^= self.0 >> 3;
         self.0 ^= self.0 << 14;
         self.0 ^= self.0 >> 28;
         self.0 ^= self.0 << 36;
         self.0 ^= self.0 >> 52;
-        Some(self.0)
-    }
-
-    /// The iterator is endless but will repeat eventually.
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        (usize::MAX, None)
+        self.0 as f64 / u64::MAX as f64
     }
 }

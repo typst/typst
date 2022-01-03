@@ -162,11 +162,26 @@ impl<'s> Scanner<'s> {
     /// The column index of a given index in the source string.
     #[inline]
     pub fn column(&self, index: usize) -> usize {
-        self.src[.. index]
-            .chars()
+        self.column_offset(index, 0)
+    }
+
+    /// The column index of a given index in the source string when an offset is
+    /// applied to the first line of the string.
+    #[inline]
+    pub fn column_offset(&self, index: usize, offset: usize) -> usize {
+        let mut apply_offset = false;
+        let res = self.src[.. index]
+            .char_indices()
             .rev()
-            .take_while(|&c| !is_newline(c))
-            .count()
+            .take_while(|&(_, c)| !is_newline(c))
+            .inspect(|&(i, _)| {
+                if i == 0 {
+                    apply_offset = true
+                }
+            })
+            .count();
+
+        if apply_offset { res + offset } else { res }
     }
 }
 

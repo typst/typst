@@ -13,7 +13,7 @@ use crate::util::EcoString;
 pub struct Tokens<'s> {
     s: Scanner<'s>,
     mode: TokenMode,
-    was_terminated: bool,
+    terminated: bool,
 }
 
 /// What kind of tokens to emit.
@@ -32,7 +32,7 @@ impl<'s> Tokens<'s> {
         Self {
             s: Scanner::new(src),
             mode,
-            was_terminated: true,
+            terminated: true,
         }
     }
 
@@ -71,8 +71,8 @@ impl<'s> Tokens<'s> {
 
     /// Whether the last token was terminated.
     #[inline]
-    pub fn was_terminated(&self) -> bool {
-        self.was_terminated
+    pub fn terminated(&self) -> bool {
+        self.terminated
     }
 }
 
@@ -128,9 +128,7 @@ impl<'s> Tokens<'s> {
             '`' => self.raw(),
             '$' => self.math(),
             '-' => self.hyph(),
-            '=' if self.s.check_or(true, |c| c == '=' || c.is_whitespace()) => {
-                NodeKind::Eq
-            }
+            '=' => NodeKind::Eq,
             c if c == '.' || c.is_ascii_digit() => self.numbering(start, c),
 
             // Plain text.
@@ -259,7 +257,7 @@ impl<'s> Tokens<'s> {
                             )
                         }
                     } else {
-                        self.was_terminated = false;
+                        self.terminated = false;
                         NodeKind::Error(
                             ErrorPos::End,
                             "expected closing brace".into(),
@@ -352,7 +350,7 @@ impl<'s> Tokens<'s> {
             let remaining = backticks - found;
             let noun = if remaining == 1 { "backtick" } else { "backticks" };
 
-            self.was_terminated = false;
+            self.terminated = false;
             NodeKind::Error(
                 ErrorPos::End,
                 if found == 0 {
@@ -400,7 +398,7 @@ impl<'s> Tokens<'s> {
                 display,
             }))
         } else {
-            self.was_terminated = false;
+            self.terminated = false;
             NodeKind::Error(
                 ErrorPos::End,
                 if !display || (!escaped && dollar) {
@@ -489,7 +487,7 @@ impl<'s> Tokens<'s> {
         if self.s.eat_if('"') {
             NodeKind::Str(string)
         } else {
-            self.was_terminated = false;
+            self.terminated = false;
             NodeKind::Error(ErrorPos::End, "expected quote".into())
         }
     }
@@ -497,7 +495,7 @@ impl<'s> Tokens<'s> {
     fn line_comment(&mut self) -> NodeKind {
         self.s.eat_until(is_newline);
         if self.s.peek().is_none() {
-            self.was_terminated = false;
+            self.terminated = false;
         }
         NodeKind::LineComment
     }
@@ -505,7 +503,7 @@ impl<'s> Tokens<'s> {
     fn block_comment(&mut self) -> NodeKind {
         let mut state = '_';
         let mut depth = 1;
-        self.was_terminated = false;
+        self.terminated = false;
 
         // Find the first `*/` that does not correspond to a nested `/*`.
         while let Some(c) = self.s.eat() {
@@ -513,7 +511,7 @@ impl<'s> Tokens<'s> {
                 ('*', '/') => {
                     depth -= 1;
                     if depth == 0 {
-                        self.was_terminated = true;
+                        self.terminated = true;
                         break;
                     }
                     '_'
@@ -742,7 +740,7 @@ mod tests {
         // Test code symbols in text.
         t!(Markup[" /"]: "a():\"b" => Text("a():\"b"));
         t!(Markup[" /"]: ";:,|/+"  => Text(";:,|"), Text("/+"));
-        t!(Markup[" /"]: "=-a"     => Text("="), Minus, Text("a"));
+        t!(Markup[" /"]: "=-a"     => Eq, Minus, Text("a"));
         t!(Markup[" "]: "#123"     => Text("#"), Text("123"));
 
         // Test text ends.
