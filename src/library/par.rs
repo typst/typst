@@ -8,12 +8,12 @@ use unicode_bidi::{BidiInfo, Level};
 use xi_unicode::LineBreakIterator;
 
 use super::prelude::*;
-use super::{shape, ShapedText, SpacingKind, SpacingNode, TextNode};
+use super::{shape, ShapedText, SpacingKind, TextNode};
 use crate::util::{EcoString, RangeExt, RcExt, SliceExt};
 
 /// A node that arranges its children into a paragraph.
 #[derive(Hash)]
-pub struct ParNode(pub Vec<ParChild>);
+pub struct ParNode(pub Vec<Styled<ParChild>>);
 
 #[properties]
 impl ParNode {
@@ -120,9 +120,9 @@ impl ParNode {
 
     /// The string representation of each child.
     fn strings(&self) -> impl Iterator<Item = &str> {
-        self.0.iter().map(|child| match child {
+        self.0.iter().map(|styled| match &styled.item {
             ParChild::Spacing(_) => " ",
-            ParChild::Text(ref node) => &node.text,
+            ParChild::Text(node) => &node.0,
             ParChild::Node(_) => "\u{FFFC}",
         })
     }
@@ -139,7 +139,7 @@ impl Debug for ParNode {
 #[derive(Hash)]
 pub enum ParChild {
     /// Spacing between other nodes.
-    Spacing(SpacingNode),
+    Spacing(SpacingKind),
     /// A run of text and how to align it in its line.
     Text(TextNode),
     /// Any child node and how to align it in its line.
@@ -148,26 +148,8 @@ pub enum ParChild {
 
 impl ParChild {
     /// Create a text child.
-    pub fn text(text: impl Into<EcoString>, styles: StyleMap) -> Self {
-        Self::Text(TextNode { text: text.into(), styles })
-    }
-
-    /// A reference to the child's styles.
-    pub fn styles(&self) -> &StyleMap {
-        match self {
-            Self::Spacing(node) => &node.styles,
-            Self::Text(node) => &node.styles,
-            Self::Node(node) => &node.styles,
-        }
-    }
-
-    /// A mutable reference to the child's styles.
-    pub fn styles_mut(&mut self) -> &mut StyleMap {
-        match self {
-            Self::Spacing(node) => &mut node.styles,
-            Self::Text(node) => &mut node.styles,
-            Self::Node(node) => &mut node.styles,
-        }
+    pub fn text(text: impl Into<EcoString>) -> Self {
+        Self::Text(TextNode(text.into()))
     }
 }
 
@@ -234,9 +216,10 @@ impl<'a> ParLayouter<'a> {
         let mut ranges = vec![];
 
         // Layout the children and collect them into items.
-        for (range, child) in par.ranges().zip(&par.0) {
-            match child {
-                ParChild::Spacing(node) => match node.kind {
+        for (range, styled) in par.ranges().zip(&par.0) {
+            let styles = styled.map.chain(styles);
+            match styled.item {
+                ParChild::Spacing(kind) => match kind {
                     SpacingKind::Linear(v) => {
                         let resolved = v.resolve(regions.current.x);
                         items.push(ParItem::Absolute(resolved));
@@ -247,7 +230,7 @@ impl<'a> ParLayouter<'a> {
                         ranges.push(range);
                     }
                 },
-                ParChild::Text(node) => {
+                ParChild::Text(_) => {
                     // TODO: Also split by language and script.
                     let mut cursor = range.start;
                     for (level, group) in bidi.levels[range].group_by_key(|&lvl| lvl) {
@@ -255,16 +238,15 @@ impl<'a> ParLayouter<'a> {
                         cursor += group.len();
                         let subrange = start .. cursor;
                         let text = &bidi.text[subrange.clone()];
-                        let styles = node.styles.chain(styles);
                         let shaped = shape(ctx.fonts, text, styles, level.dir());
                         items.push(ParItem::Text(shaped));
                         ranges.push(subrange);
                     }
                 }
-                ParChild::Node(node) => {
+                ParChild::Node(ref node) => {
                     let size = Size::new(regions.current.x, regions.base.y);
                     let pod = Regions::one(size, regions.base, Spec::splat(false));
-                    let frame = node.layout(ctx, &pod, *styles).remove(0);
+                    let frame = node.layout(ctx, &pod, styles).remove(0);
                     items.push(ParItem::Frame(Rc::take(frame.item)));
                     ranges.push(range);
                 }

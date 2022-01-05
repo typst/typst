@@ -3,14 +3,14 @@
 use std::fmt::{self, Debug, Formatter};
 
 use super::prelude::*;
-use super::{AlignNode, ParNode, PlacedNode, SpacingKind, SpacingNode, TextNode};
+use super::{AlignNode, ParNode, PlacedNode, SpacingKind, TextNode};
 
 /// A vertical flow of content consisting of paragraphs and other layout nodes.
 ///
 /// This node is reponsible for layouting both the top-level content flow and
 /// the contents of boxes.
 #[derive(Hash)]
-pub struct FlowNode(pub Vec<FlowChild>);
+pub struct FlowNode(pub Vec<Styled<FlowChild>>);
 
 impl Layout for FlowNode {
     fn layout(
@@ -19,7 +19,7 @@ impl Layout for FlowNode {
         regions: &Regions,
         styles: StyleChain,
     ) -> Vec<Constrained<Rc<Frame>>> {
-        FlowLayouter::new(self, regions.clone(), styles).layout(ctx)
+        FlowLayouter::new(self, regions.clone()).layout(ctx, styles)
     }
 }
 
@@ -33,50 +33,23 @@ impl Debug for FlowNode {
 /// A child of a flow node.
 #[derive(Hash)]
 pub enum FlowChild {
-    /// Vertical spacing between other children.
-    Spacing(SpacingNode),
-    /// An arbitrary node.
-    Node(PackedNode),
     /// A paragraph/block break.
-    Break(StyleMap),
+    Break,
     /// Skip the rest of the region and move to the next.
     Skip,
-}
-
-impl FlowChild {
-    /// A reference to the child's styles.
-    pub fn styles(&self) -> Option<&StyleMap> {
-        match self {
-            Self::Spacing(node) => Some(&node.styles),
-            Self::Node(node) => Some(&node.styles),
-            Self::Break(styles) => Some(styles),
-            Self::Skip => None,
-        }
-    }
-
-    /// A mutable reference to the child's styles.
-    pub fn styles_mut(&mut self) -> Option<&mut StyleMap> {
-        match self {
-            Self::Spacing(node) => Some(&mut node.styles),
-            Self::Node(node) => Some(&mut node.styles),
-            Self::Break(styles) => Some(styles),
-            Self::Skip => None,
-        }
-    }
+    /// Vertical spacing between other children.
+    Spacing(SpacingKind),
+    /// An arbitrary node.
+    Node(PackedNode),
 }
 
 impl Debug for FlowChild {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
+            Self::Break => f.pad("Break"),
+            Self::Skip => f.pad("Skip"),
             Self::Spacing(node) => node.fmt(f),
             Self::Node(node) => node.fmt(f),
-            Self::Break(styles) => {
-                if f.alternate() {
-                    styles.fmt(f)?;
-                }
-                write!(f, "Break")
-            }
-            Self::Skip => f.pad("Skip"),
         }
     }
 }
@@ -84,11 +57,9 @@ impl Debug for FlowChild {
 /// Performs flow layout.
 struct FlowLayouter<'a> {
     /// The flow node to layout.
-    children: &'a [FlowChild],
+    children: &'a [Styled<FlowChild>],
     /// The regions to layout children into.
     regions: Regions,
-    /// The inherited styles.
-    styles: StyleChain<'a>,
     /// Whether the flow should expand to fill the region.
     expand: Spec<bool>,
     /// The full size of `regions.current` that was available before we started
@@ -118,7 +89,7 @@ enum FlowItem {
 
 impl<'a> FlowLayouter<'a> {
     /// Create a new flow layouter.
-    fn new(flow: &'a FlowNode, mut regions: Regions, styles: StyleChain<'a>) -> Self {
+    fn new(flow: &'a FlowNode, mut regions: Regions) -> Self {
         let expand = regions.expand;
         let full = regions.current;
 
@@ -128,7 +99,6 @@ impl<'a> FlowLayouter<'a> {
         Self {
             children: &flow.0,
             regions,
-            styles,
             expand,
             full,
             used: Size::zero(),
@@ -139,27 +109,31 @@ impl<'a> FlowLayouter<'a> {
     }
 
     /// Layout all children.
-    fn layout(mut self, ctx: &mut LayoutContext) -> Vec<Constrained<Rc<Frame>>> {
-        for child in self.children {
-            match child {
-                FlowChild::Spacing(node) => {
-                    self.layout_spacing(node.kind);
-                }
-                FlowChild::Node(node) => {
-                    if self.regions.is_full() {
-                        self.finish_region();
-                    }
-
-                    self.layout_node(ctx, node);
-                }
-                FlowChild::Break(styles) => {
-                    let chain = styles.chain(&self.styles);
-                    let em = chain.get(TextNode::SIZE).abs;
-                    let amount = chain.get(ParNode::SPACING).resolve(em);
+    fn layout(
+        mut self,
+        ctx: &mut LayoutContext,
+        styles: StyleChain,
+    ) -> Vec<Constrained<Rc<Frame>>> {
+        for styled in self.children {
+            let styles = styled.map.chain(&styles);
+            match styled.item {
+                FlowChild::Break => {
+                    let em = styles.get(TextNode::SIZE).abs;
+                    let amount = styles.get(ParNode::SPACING).resolve(em);
                     self.layout_absolute(amount.into());
                 }
                 FlowChild::Skip => {
                     self.finish_region();
+                }
+                FlowChild::Spacing(kind) => {
+                    self.layout_spacing(kind);
+                }
+                FlowChild::Node(ref node) => {
+                    if self.regions.is_full() {
+                        self.finish_region();
+                    }
+
+                    self.layout_node(ctx, node, styles);
                 }
             }
         }
@@ -190,12 +164,17 @@ impl<'a> FlowLayouter<'a> {
     }
 
     /// Layout a node.
-    fn layout_node(&mut self, ctx: &mut LayoutContext, node: &PackedNode) {
+    fn layout_node(
+        &mut self,
+        ctx: &mut LayoutContext,
+        node: &PackedNode,
+        styles: StyleChain,
+    ) {
         // Placed nodes that are out of flow produce placed items which aren't
         // aligned later.
         if let Some(placed) = node.downcast::<PlacedNode>() {
             if placed.out_of_flow() {
-                let frame = node.layout(ctx, &self.regions, self.styles).remove(0);
+                let frame = node.layout(ctx, &self.regions, styles).remove(0);
                 self.items.push(FlowItem::Placed(frame.item));
                 return;
             }
@@ -204,9 +183,9 @@ impl<'a> FlowLayouter<'a> {
         // How to align the node.
         let aligns = Spec::new(
             // For non-expanding paragraphs it is crucial that we align the
-            // whole paragraph according to its internal alignment.
+            // whole paragraph as it is itself aligned.
             if node.is::<ParNode>() {
-                node.styles.chain(&self.styles).get(ParNode::ALIGN)
+                styles.get(ParNode::ALIGN)
             } else {
                 Align::Left
             },
@@ -216,7 +195,7 @@ impl<'a> FlowLayouter<'a> {
                 .unwrap_or(Align::Top),
         );
 
-        let frames = node.layout(ctx, &self.regions, self.styles);
+        let frames = node.layout(ctx, &self.regions, styles);
         let len = frames.len();
         for (i, frame) in frames.into_iter().enumerate() {
             // Grow our size, shrink the region and save the frame for later.

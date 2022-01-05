@@ -1,6 +1,4 @@
 use std::fmt::{self, Debug, Formatter, Write};
-use std::marker::PhantomData;
-use std::rc::Rc;
 
 use super::{Args, EvalContext, Node, StyleMap};
 use crate::diag::TypResult;
@@ -36,12 +34,10 @@ use crate::util::EcoString;
 /// [`TextNode`]: crate::library::TextNode
 /// [`set`]: Self::set
 #[derive(Clone)]
-pub struct Class(Rc<Inner<dyn Bounds>>);
-
-/// The unsized structure behind the [`Rc`].
-struct Inner<T: ?Sized> {
+pub struct Class {
     name: EcoString,
-    shim: T,
+    construct: fn(&mut EvalContext, &mut Args) -> TypResult<Node>,
+    set: fn(&mut Args, &mut StyleMap) -> TypResult<()>,
 }
 
 impl Class {
@@ -50,15 +46,16 @@ impl Class {
     where
         T: Construct + Set + 'static,
     {
-        // By specializing the shim to `T`, its vtable will contain T's
-        // `Construct` and `Set` impls (through the `Bounds` trait), enabling us
-        // to use them in the class's methods.
-        Self(Rc::new(Inner { name, shim: Shim::<T>(PhantomData) }))
+        Self {
+            name,
+            construct: T::construct,
+            set: T::set,
+        }
     }
 
     /// The name of the class.
     pub fn name(&self) -> &EcoString {
-        &self.0.name
+        &self.name
     }
 
     /// Construct an instance of the class.
@@ -68,7 +65,7 @@ impl Class {
     pub fn construct(&self, ctx: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
         let mut styles = StyleMap::new();
         self.set(args, &mut styles)?;
-        let node = self.0.shim.construct(ctx, args)?;
+        let node = (self.construct)(ctx, args)?;
         Ok(node.styled(styles))
     }
 
@@ -77,7 +74,7 @@ impl Class {
     /// This parses property arguments and writes the resulting styles into the
     /// given style map. There are no further side effects.
     pub fn set(&self, args: &mut Args, styles: &mut StyleMap) -> TypResult<()> {
-        self.0.shim.set(args, styles)
+        (self.set)(args, styles)
     }
 }
 
@@ -91,12 +88,7 @@ impl Debug for Class {
 
 impl PartialEq for Class {
     fn eq(&self, other: &Self) -> bool {
-        // We cast to thin pointers for comparison because we don't want to
-        // compare vtables (there can be duplicate vtables across codegen units).
-        std::ptr::eq(
-            Rc::as_ptr(&self.0) as *const (),
-            Rc::as_ptr(&other.0) as *const (),
-        )
+        self.name == other.name
     }
 }
 
@@ -114,26 +106,4 @@ pub trait Set {
     /// Parse the arguments and insert style properties of this class into the
     /// given style map.
     fn set(args: &mut Args, styles: &mut StyleMap) -> TypResult<()>;
-}
-
-/// Rewires the operations available on a class in an object-safe way. This is
-/// only implemented by the zero-sized `Shim` struct.
-trait Bounds {
-    fn construct(&self, ctx: &mut EvalContext, args: &mut Args) -> TypResult<Node>;
-    fn set(&self, args: &mut Args, styles: &mut StyleMap) -> TypResult<()>;
-}
-
-struct Shim<T>(PhantomData<T>);
-
-impl<T> Bounds for Shim<T>
-where
-    T: Construct + Set,
-{
-    fn construct(&self, ctx: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
-        T::construct(ctx, args)
-    }
-
-    fn set(&self, args: &mut Args, styles: &mut StyleMap) -> TypResult<()> {
-        T::set(args, styles)
-    }
 }

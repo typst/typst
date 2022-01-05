@@ -171,7 +171,7 @@ impl Eval for Markup {
         let upper = nodes.size_hint().1.unwrap_or_default();
         let mut seq = Vec::with_capacity(upper);
         for piece in nodes {
-            seq.push((piece.eval(ctx)?, ctx.styles.clone()));
+            seq.push(Styled::new(piece.eval(ctx)?, ctx.styles.clone()));
         }
         ctx.styles = prev;
         Ok(Node::Sequence(seq))

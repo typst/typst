@@ -8,12 +8,7 @@ use super::{ColumnsNode, PadNode};
 
 /// Layouts its child onto one or multiple pages.
 #[derive(Clone, PartialEq, Hash)]
-pub struct PageNode {
-    /// The node producing the content.
-    pub child: PackedNode,
-    /// The page's styles.
-    pub styles: StyleMap,
-}
+pub struct PageNode(pub PackedNode);
 
 #[properties]
 impl PageNode {
@@ -43,10 +38,7 @@ impl PageNode {
 
 impl Construct for PageNode {
     fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
-        Ok(Node::Page(Self {
-            child: args.expect("body")?,
-            styles: StyleMap::new(),
-        }))
+        Ok(Node::Page(Self(args.expect("body")?)))
     }
 }
 
@@ -84,16 +76,8 @@ impl Set for PageNode {
 }
 
 impl PageNode {
-    /// Style the node with styles from a style map.
-    pub fn styled(mut self, styles: StyleMap) -> Self {
-        self.styles.apply(&styles);
-        self
-    }
-
     /// Layout the page run into a sequence of frames, one per page.
     pub fn layout(&self, ctx: &mut LayoutContext, styles: StyleChain) -> Vec<Rc<Frame>> {
-        let styles = self.styles.chain(&styles);
-
         // When one of the lengths is infinite the page fits its content along
         // that axis.
         let width = styles.get(Self::WIDTH).unwrap_or(Length::inf());
@@ -113,21 +97,21 @@ impl PageNode {
             bottom: styles.get(Self::BOTTOM).unwrap_or(default.bottom),
         };
 
+        let mut child = self.0.clone();
+
         // Realize columns with columns node.
         let columns = styles.get(Self::COLUMNS);
-        let child = if columns.get() > 1 {
-            ColumnsNode {
+        if columns.get() > 1 {
+            child = ColumnsNode {
                 columns,
                 gutter: styles.get(Self::COLUMN_GUTTER),
-                child: self.child.clone(),
+                child: self.0.clone(),
             }
-            .pack()
-        } else {
-            self.child.clone()
-        };
+            .pack();
+        }
 
         // Realize margins with padding node.
-        let child = PadNode { child, padding }.pack();
+        child = PadNode { child, padding }.pack();
 
         // Layout the child.
         let expand = size.map(Length::is_finite);
@@ -152,11 +136,8 @@ impl PageNode {
 
 impl Debug for PageNode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        if f.alternate() {
-            self.styles.fmt(f)?;
-        }
         f.write_str("Page(")?;
-        self.child.fmt(f)?;
+        self.0.fmt(f)?;
         f.write_str(")")
     }
 }

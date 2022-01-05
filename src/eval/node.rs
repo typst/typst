@@ -5,13 +5,12 @@ use std::iter::Sum;
 use std::mem;
 use std::ops::{Add, AddAssign};
 
-use super::StyleMap;
+use super::{StyleMap, Styled};
 use crate::diag::StrResult;
 use crate::geom::SpecAxis;
 use crate::layout::{Layout, PackedNode, RootNode};
 use crate::library::{
-    FlowChild, FlowNode, PageNode, ParChild, ParNode, PlacedNode, SpacingKind,
-    SpacingNode, TextNode,
+    FlowChild, FlowNode, PageNode, ParChild, ParNode, PlacedNode, SpacingKind, TextNode,
 };
 use crate::util::EcoString;
 
@@ -50,20 +49,17 @@ pub enum Node {
     ///
     /// For example, the Typst template `[Hi *you!*]` would result in the
     /// sequence:
-    /// ```ignore
-    /// Sequence([
-    ///   (Text("Hi"), {}),
-    ///   (Space, {}),
-    ///   (Text("you!"), { TextNode::STRONG: true }),
-    /// ])
-    /// ```
+    /// - `Text("Hi")` with empty style map,
+    /// - `Space` with empty style map,
+    /// - `Text("you!")` with `TextNode::STRONG` set to `true`.
+    ///
     /// A sequence may contain nested sequences (meaning this variant
     /// effectively allows nodes to form trees). All nested sequences can
     /// equivalently be represented as a single flat sequence, but allowing
     /// nesting doesn't hurt since we can just recurse into the nested sequences
     /// during packing. Also, in theory, this allows better complexity when
     /// adding (large) sequence nodes (just like for a text rope).
-    Sequence(Vec<(Self, StyleMap)>),
+    Sequence(Vec<Styled<Self>>),
 }
 
 impl Node {
@@ -90,12 +86,7 @@ impl Node {
 
     /// Style this node.
     pub fn styled(self, styles: StyleMap) -> Self {
-        match self {
-            Self::Inline(inline) => Self::Inline(inline.styled(styles)),
-            Self::Block(block) => Self::Block(block.styled(styles)),
-            Self::Page(page) => Self::Page(page.styled(styles)),
-            other => Self::Sequence(vec![(other, styles)]),
-        }
+        Self::Sequence(vec![Styled::new(self, styles)])
     }
 
     /// Style this node in monospace.
@@ -127,7 +118,7 @@ impl Node {
             .map_err(|_| format!("cannot repeat this template {} times", n))?;
 
         // TODO(style): Make more efficient.
-        Ok(Self::Sequence(vec![(self.clone(), StyleMap::new()); count]))
+        Ok(Self::Sequence(vec![Styled::bare(self.clone()); count]))
     }
 }
 
@@ -142,7 +133,7 @@ impl Add for Node {
 
     fn add(self, rhs: Self) -> Self::Output {
         // TODO(style): Make more efficient.
-        Self::Sequence(vec![(self, StyleMap::new()), (rhs, StyleMap::new())])
+        Self::Sequence(vec![Styled::bare(self), Styled::bare(rhs)])
     }
 }
 
@@ -154,7 +145,7 @@ impl AddAssign for Node {
 
 impl Sum for Node {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
-        Self::Sequence(iter.map(|n| (n, StyleMap::new())).collect())
+        Self::Sequence(iter.map(|n| Styled::bare(n)).collect())
     }
 }
 
@@ -163,11 +154,11 @@ struct Packer {
     /// Whether this packer produces a root node.
     top: bool,
     /// The accumulated page nodes.
-    pages: Vec<PageNode>,
+    pages: Vec<Styled<PageNode>>,
     /// The accumulated flow children.
-    flow: Builder<FlowChild>,
+    flow: Builder<Styled<FlowChild>>,
     /// The accumulated paragraph children.
-    par: Builder<ParChild>,
+    par: Builder<Styled<ParChild>>,
 }
 
 impl Packer {
@@ -199,12 +190,12 @@ impl Packer {
             Node::Space => {
                 // A text space is "soft", meaning that it can be eaten up by
                 // adjacent line breaks or explicit spacings.
-                self.par.last.soft(ParChild::text(' ', styles));
+                self.par.last.soft(Styled::new(ParChild::text(' '), styles));
             }
             Node::Linebreak => {
                 // A line break eats up surrounding text spaces.
                 self.par.last.hard();
-                self.push_inline(ParChild::text('\n', styles));
+                self.push_inline(Styled::new(ParChild::text('\n'), styles));
                 self.par.last.hard();
             }
             Node::Parbreak => {
@@ -219,7 +210,7 @@ impl Packer {
                 // discards the paragraph break.
                 self.parbreak(None);
                 self.make_flow_compatible(&styles);
-                self.flow.children.push(FlowChild::Skip);
+                self.flow.children.push(Styled::new(FlowChild::Skip, styles));
                 self.flow.last.hard();
             }
             Node::Pagebreak => {
@@ -230,13 +221,13 @@ impl Packer {
                 self.flow.styles = styles;
             }
             Node::Text(text) => {
-                self.push_inline(ParChild::text(text, styles));
+                self.push_inline(Styled::new(ParChild::text(text), styles));
             }
             Node::Spacing(SpecAxis::Horizontal, kind) => {
                 // Just like a line break, explicit horizontal spacing eats up
                 // surrounding text spaces.
                 self.par.last.hard();
-                self.push_inline(ParChild::Spacing(SpacingNode { kind, styles }));
+                self.push_inline(Styled::new(ParChild::Spacing(kind), styles));
                 self.par.last.hard();
             }
             Node::Spacing(SpecAxis::Vertical, kind) => {
@@ -244,57 +235,56 @@ impl Packer {
                 // discards the paragraph break.
                 self.parbreak(None);
                 self.make_flow_compatible(&styles);
-                self.flow
-                    .children
-                    .push(FlowChild::Spacing(SpacingNode { kind, styles }));
+                self.flow.children.push(Styled::new(FlowChild::Spacing(kind), styles));
                 self.flow.last.hard();
             }
             Node::Inline(inline) => {
-                self.push_inline(ParChild::Node(inline.styled(styles)));
+                self.push_inline(Styled::new(ParChild::Node(inline), styles));
             }
             Node::Block(block) => {
-                self.push_block(block.styled(styles));
+                self.push_block(Styled::new(block, styles));
             }
             Node::Page(page) => {
                 if self.top {
                     self.pagebreak();
-                    self.pages.push(page.styled(styles));
+                    self.pages.push(Styled::new(page, styles));
                 } else {
-                    let flow = page.child.styled(page.styles);
-                    self.push_block(flow.styled(styles));
+                    self.push_block(Styled::new(page.0, styles));
                 }
             }
             Node::Sequence(list) => {
                 // For a list of nodes, we apply the list's styles to each node
                 // individually.
-                for (node, mut inner) in list {
-                    inner.apply(&styles);
-                    self.walk(node, inner);
+                for mut node in list {
+                    node.map.apply(&styles);
+                    self.walk(node.item, node.map);
                 }
             }
         }
     }
 
     /// Insert an inline-level element into the current paragraph.
-    fn push_inline(&mut self, child: ParChild) {
-        if let Some(child) = self.par.last.any() {
-            self.push_coalescing(child);
+    fn push_inline(&mut self, child: Styled<ParChild>) {
+        if let Some(styled) = self.par.last.any() {
+            self.push_coalescing(styled);
         }
 
         // The node must be both compatible with the current page and the
         // current paragraph.
-        self.make_flow_compatible(child.styles());
-        self.make_par_compatible(child.styles());
+        self.make_flow_compatible(&child.map);
+        self.make_par_compatible(&child.map);
         self.push_coalescing(child);
         self.par.last.any();
     }
 
     /// Push a paragraph child, coalescing text nodes with compatible styles.
-    fn push_coalescing(&mut self, child: ParChild) {
-        if let ParChild::Text(right) = &child {
-            if let Some(ParChild::Text(left)) = self.par.children.last_mut() {
-                if left.styles.compatible(&right.styles, TextNode::has_property) {
-                    left.text.push_str(&right.text);
+    fn push_coalescing(&mut self, child: Styled<ParChild>) {
+        if let ParChild::Text(right) = &child.item {
+            if let Some(Styled { item: ParChild::Text(left), map }) =
+                self.par.children.last_mut()
+            {
+                if child.map.compatible(map, TextNode::has_property) {
+                    left.0.push_str(&right.0);
                     return;
                 }
             }
@@ -304,13 +294,13 @@ impl Packer {
     }
 
     /// Insert a block-level element into the current flow.
-    fn push_block(&mut self, node: PackedNode) {
-        let placed = node.is::<PlacedNode>();
+    fn push_block(&mut self, node: Styled<PackedNode>) {
+        let placed = node.item.is::<PlacedNode>();
 
         self.parbreak(None);
-        self.make_flow_compatible(&node.styles);
+        self.make_flow_compatible(&node.map);
         self.flow.children.extend(self.flow.last.any());
-        self.flow.children.push(FlowChild::Node(node));
+        self.flow.children.push(node.map(FlowChild::Node));
         self.parbreak(None);
 
         // Prevent paragraph spacing between the placed node and the paragraph
@@ -324,8 +314,8 @@ impl Packer {
     fn parbreak(&mut self, break_styles: Option<StyleMap>) {
         // Erase any styles that will be inherited anyway.
         let Builder { mut children, styles, .. } = mem::take(&mut self.par);
-        for child in &mut children {
-            child.styles_mut().erase(&styles);
+        for Styled { map, .. } in &mut children {
+            map.erase(&styles);
         }
 
         // For explicit paragraph breaks, `break_styles` is already `Some(_)`.
@@ -338,13 +328,13 @@ impl Packer {
             // The paragraph's children are all compatible with the page, so the
             // paragraph is too, meaning we don't need to check or intersect
             // anything here.
-            let par = ParNode(children).pack().styled(styles);
+            let par = ParNode(children).pack();
             self.flow.children.extend(self.flow.last.any());
-            self.flow.children.push(FlowChild::Node(par));
+            self.flow.children.push(Styled::new(FlowChild::Node(par), styles));
         }
 
         // Insert paragraph spacing.
-        self.flow.last.soft(FlowChild::Break(break_styles));
+        self.flow.last.soft(Styled::new(FlowChild::Break, break_styles));
     }
 
     /// Advance to the next page.
@@ -354,13 +344,12 @@ impl Packer {
 
             // Take the flow and erase any styles that will be inherited anyway.
             let Builder { mut children, styles, .. } = mem::take(&mut self.flow);
-            for local in children.iter_mut().filter_map(FlowChild::styles_mut) {
-                local.erase(&styles);
+            for Styled { map, .. } in &mut children {
+                map.erase(&styles);
             }
 
             let flow = FlowNode(children).pack();
-            let page = PageNode { child: flow, styles };
-            self.pages.push(page);
+            self.pages.push(Styled::new(PageNode(flow), styles));
         }
     }
 

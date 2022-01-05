@@ -15,7 +15,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
-use crate::eval::{StyleChain, StyleMap};
+use crate::eval::{StyleChain, Styled};
 use crate::font::FontStore;
 use crate::frame::Frame;
 use crate::geom::{Align, Linear, Point, Sides, Size, Spec, Transform};
@@ -25,13 +25,16 @@ use crate::Context;
 
 /// The root layout node, a document consisting of top-level page runs.
 #[derive(Hash)]
-pub struct RootNode(pub Vec<PageNode>);
+pub struct RootNode(pub Vec<Styled<PageNode>>);
 
 impl RootNode {
     /// Layout the document into a sequence of frames, one per page.
     pub fn layout(&self, ctx: &mut Context) -> Vec<Rc<Frame>> {
         let (mut ctx, styles) = LayoutContext::new(ctx);
-        self.0.iter().flat_map(|node| node.layout(&mut ctx, styles)).collect()
+        self.0
+            .iter()
+            .flat_map(|styled| styled.item.layout(&mut ctx, styled.map.chain(&styles)))
+            .collect()
     }
 }
 
@@ -64,7 +67,6 @@ pub trait Layout {
             #[cfg(feature = "layout-cache")]
             hash: self.hash64(),
             node: Rc::new(self),
-            styles: StyleMap::new(),
         }
     }
 }
@@ -118,7 +120,7 @@ impl Layout for EmptyNode {
     }
 }
 
-/// A packed layouting node with style properties and a precomputed hash.
+/// A packed layouting node with a precomputed hash.
 #[derive(Clone)]
 pub struct PackedNode {
     /// The type-erased node.
@@ -126,8 +128,6 @@ pub struct PackedNode {
     /// A precomputed hash for the node.
     #[cfg(feature = "layout-cache")]
     hash: u64,
-    /// The node's styles.
-    pub styles: StyleMap,
 }
 
 impl PackedNode {
@@ -142,16 +142,6 @@ impl PackedNode {
         T: Layout + Debug + Hash + 'static,
     {
         self.node.as_any().downcast_ref()
-    }
-
-    /// Style the node with styles from a style map.
-    pub fn styled(mut self, styles: StyleMap) -> Self {
-        if self.styles.is_empty() {
-            self.styles = styles;
-        } else {
-            self.styles.apply(&styles);
-        }
-        self
     }
 
     /// Force a size for this node.
@@ -207,10 +197,8 @@ impl Layout for PackedNode {
         regions: &Regions,
         styles: StyleChain,
     ) -> Vec<Constrained<Rc<Frame>>> {
-        let chained = self.styles.chain(&styles);
-
         #[cfg(not(feature = "layout-cache"))]
-        return self.node.layout(ctx, regions, chained);
+        return self.node.layout(ctx, regions, styles);
 
         #[cfg(feature = "layout-cache")]
         let hash = {
@@ -223,7 +211,7 @@ impl Layout for PackedNode {
         #[cfg(feature = "layout-cache")]
         ctx.layouts.get(hash, regions).unwrap_or_else(|| {
             ctx.level += 1;
-            let frames = self.node.layout(ctx, regions, chained);
+            let frames = self.node.layout(ctx, regions, styles);
             ctx.level -= 1;
 
             let entry = FramesEntry::new(frames.clone(), ctx.level);
@@ -260,9 +248,6 @@ impl Default for PackedNode {
 
 impl Debug for PackedNode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        if f.alternate() {
-            self.styles.fmt(f)?;
-        }
         self.node.fmt(f)
     }
 }
@@ -283,9 +268,6 @@ impl Hash for PackedNode {
         state.write_u64(self.hash);
         #[cfg(not(feature = "layout-cache"))]
         state.write_u64(self.hash64());
-
-        // Hash the styles.
-        self.styles.hash(state);
     }
 }
 

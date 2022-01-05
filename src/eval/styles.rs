@@ -8,6 +8,42 @@ use std::rc::Rc;
 // - Store map in `Option` to make empty maps non-allocating
 // - Store small properties inline
 
+/// An item with associated styles.
+#[derive(PartialEq, Clone, Hash)]
+pub struct Styled<T> {
+    /// The item to apply styles to.
+    pub item: T,
+    /// The associated style map.
+    pub map: StyleMap,
+}
+
+impl<T> Styled<T> {
+    /// Create a new instance from an item and a style map.
+    pub fn new(item: T, map: StyleMap) -> Self {
+        Self { item, map }
+    }
+
+    /// Create a new instance with empty style map.
+    pub fn bare(item: T) -> Self {
+        Self { item, map: StyleMap::new() }
+    }
+
+    /// Map the item with `f`.
+    pub fn map<F, U>(self, f: F) -> Styled<U>
+    where
+        F: FnOnce(T) -> U,
+    {
+        Styled { item: f(self.item), map: self.map }
+    }
+}
+
+impl<T: Debug> Debug for Styled<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.map.fmt(f)?;
+        self.item.fmt(f)
+    }
+}
+
 /// A map of style properties.
 #[derive(Default, Clone, Hash)]
 pub struct StyleMap(Vec<Entry>);

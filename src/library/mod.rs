@@ -62,7 +62,7 @@ prelude! {
     pub use crate::diag::{At, TypResult};
     pub use crate::eval::{
         Args, Construct, EvalContext, Node, Property, Set, Smart, StyleChain, StyleMap,
-        Value,
+        Styled, Value,
     };
     pub use crate::frame::*;
     pub use crate::geom::*;

@@ -1,7 +1,7 @@
 //! Side-by-side layout of nodes along an axis.
 
 use super::prelude::*;
-use super::{AlignNode, SpacingKind, SpacingNode};
+use super::{AlignNode, SpacingKind};
 
 /// `stack`: Stack children along an axis.
 pub fn stack(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
@@ -38,15 +38,9 @@ impl Layout for StackNode {
 #[derive(Hash)]
 pub enum StackChild {
     /// Spacing between other nodes.
-    Spacing(SpacingNode),
+    Spacing(SpacingKind),
     /// An arbitrary node.
     Node(PackedNode),
-}
-
-impl From<SpacingKind> for StackChild {
-    fn from(kind: SpacingKind) -> Self {
-        Self::Spacing(SpacingNode { kind, styles: StyleMap::new() })
-    }
 }
 
 impl Debug for StackChild {
@@ -61,10 +55,10 @@ impl Debug for StackChild {
 castable! {
     StackChild,
     Expected: "linear, fractional or template",
-    Value::Length(v) => SpacingKind::Linear(v.into()).into(),
-    Value::Relative(v) => SpacingKind::Linear(v.into()).into(),
-    Value::Linear(v) => SpacingKind::Linear(v).into(),
-    Value::Fractional(v) => SpacingKind::Fractional(v).into(),
+    Value::Length(v) => Self::Spacing(SpacingKind::Linear(v.into())),
+    Value::Relative(v) => Self::Spacing(SpacingKind::Linear(v.into())),
+    Value::Linear(v) => Self::Spacing(SpacingKind::Linear(v)),
+    Value::Fractional(v) => Self::Spacing(SpacingKind::Fractional(v)),
     Value::Node(v) => Self::Node(v.into_block()),
 }
 
@@ -140,12 +134,12 @@ impl<'a> StackLayouter<'a> {
         let mut deferred = None;
 
         for child in self.children {
-            match child {
-                StackChild::Spacing(node) => {
-                    self.layout_spacing(node.kind);
+            match *child {
+                StackChild::Spacing(kind) => {
+                    self.layout_spacing(kind);
                     deferred = None;
                 }
-                StackChild::Node(node) => {
+                StackChild::Node(ref node) => {
                     if let Some(kind) = deferred {
                         self.layout_spacing(kind);
                     }

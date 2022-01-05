@@ -18,24 +18,6 @@ pub fn v(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     )))
 }
 
-/// Explicit spacing in a flow or paragraph.
-#[derive(Hash)]
-pub struct SpacingNode {
-    /// The kind of spacing.
-    pub kind: SpacingKind,
-    /// The spacing's styles.
-    pub styles: StyleMap,
-}
-
-impl Debug for SpacingNode {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        if f.alternate() {
-            self.styles.fmt(f)?;
-        }
-        write!(f, "{:?}", self.kind)
-    }
-}
-
 /// Kinds of spacing.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum SpacingKind {
