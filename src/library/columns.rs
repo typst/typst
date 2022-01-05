@@ -98,7 +98,7 @@ impl Layout for ColumnsNode {
             // case, the frame is first created with zero height and then
             // resized.
             let height = if regions.expand.y { current.y } else { Length::zero() };
-            let mut output = Frame::new(Spec::new(regions.current.x, height));
+            let mut output = Frame::new(Size::new(regions.current.x, height));
             let mut cursor = Length::zero();
 
             for _ in 0 .. columns {

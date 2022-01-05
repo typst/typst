@@ -70,8 +70,8 @@ impl StyleMap {
     /// `outer`. The ones from `self` take precedence over the ones from
     /// `outer`. For folded properties `self` contributes the inner value.
     pub fn chain<'a>(&'a self, outer: &'a StyleChain<'a>) -> StyleChain<'a> {
+        // No need to chain an empty map.
         if self.is_empty() {
-            // No need to chain an empty map.
             *outer
         } else {
             StyleChain { inner: self, outer: Some(outer) }
@@ -86,12 +86,12 @@ impl StyleMap {
     /// style maps, whereas `chain` would be used during layouting to combine
     /// immutable style maps from different levels of the hierarchy.
     pub fn apply(&mut self, outer: &Self) {
-        'outer: for outer in &outer.0 {
-            for inner in &mut self.0 {
-                if inner.style_id() == outer.style_id() {
-                    inner.fold(outer);
-                    continue 'outer;
-                }
+        for outer in &outer.0 {
+            if let Some(inner) =
+                self.0.iter_mut().find(|inner| inner.style_id() == outer.style_id())
+            {
+                *inner = inner.fold(outer);
+                continue;
             }
 
             self.0.push(outer.clone());
@@ -158,16 +158,16 @@ impl<'a> StyleChain<'a> {
 
     /// Get the (folded) value of a copyable style property.
     ///
+    /// This is the method you should reach for first. If it doesn't work
+    /// because your property is not copyable, use `get_ref`. If that doesn't
+    /// work either because your property needs folding, use `get_cloned`.
+    ///
     /// Returns the property's default value if no map in the chain contains an
     /// entry for it.
-    pub fn get<P>(self, key: P) -> P::Value
+    pub fn get<P: Property>(self, key: P) -> P::Value
     where
-        P: Property,
         P::Value: Copy,
     {
-        // This exists separately to `get_cloned` for `Copy` types so that
-        // people don't just naively use `get` / `get_cloned` where they should
-        // use `get_ref`.
         self.get_cloned(key)
     }
 
@@ -177,13 +177,13 @@ impl<'a> StyleChain<'a> {
     /// Prefer `get` if possible or resort to `get_cloned` for non-`Copy`
     /// properties that need folding.
     ///
-    /// Returns a reference to the property's default value if no map in the
-    /// chain contains an entry for it.
-    pub fn get_ref<P>(self, key: P) -> &'a P::Value
+    /// Returns a lazily-initialized reference to the property's default value
+    /// if no map in the chain contains an entry for it.
+    pub fn get_ref<P: Property>(self, key: P) -> &'a P::Value
     where
-        P: Property + Nonfolding,
+        P: Nonfolding,
     {
-        if let Some(value) = self.get_locally(key) {
+        if let Some(value) = self.find(key) {
             value
         } else if let Some(outer) = self.outer {
             outer.get_ref(key)
@@ -197,11 +197,11 @@ impl<'a> StyleChain<'a> {
     /// While this works for all properties, you should prefer `get` or
     /// `get_ref` where possible. This is only needed for non-`Copy` properties
     /// that need folding.
-    pub fn get_cloned<P>(self, key: P) -> P::Value
-    where
-        P: Property,
-    {
-        if let Some(value) = self.get_locally(key).cloned() {
+    ///
+    /// Returns the property's default value if no map in the chain contains an
+    /// entry for it.
+    pub fn get_cloned<P: Property>(self, key: P) -> P::Value {
+        if let Some(value) = self.find(key).cloned() {
             if P::FOLDABLE {
                 if let Some(outer) = self.outer {
                     P::fold(value, outer.get_cloned(key))
@@ -218,8 +218,8 @@ impl<'a> StyleChain<'a> {
         }
     }
 
-    /// Find a property directly in the most local map.
-    fn get_locally<P: Property>(&self, _: P) -> Option<&'a P::Value> {
+    /// Find a property directly in the localmost map.
+    fn find<P: Property>(self, _: P) -> Option<&'a P::Value> {
         self.inner
             .0
             .iter()
@@ -309,8 +309,8 @@ impl Entry {
         self.0.as_any().downcast_ref()
     }
 
-    fn fold(&mut self, outer: &Self) {
-        *self = self.0.fold(outer);
+    fn fold(&self, outer: &Self) -> Self {
+        self.0.fold(outer)
     }
 }
 

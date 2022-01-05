@@ -3,7 +3,6 @@
 use std::f64::consts::SQRT_2;
 
 use super::prelude::*;
-use super::LinkNode;
 
 /// `rect`: A rectangle with optional content.
 pub fn rect(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
@@ -101,6 +100,12 @@ pub struct ShapeNode {
     pub child: Option<PackedNode>,
 }
 
+#[properties]
+impl ShapeNode {
+    /// An URL the shape should link to.
+    pub const LINK: Option<String> = None;
+}
+
 impl Layout for ShapeNode {
     fn layout(
         &self,
@@ -170,7 +175,7 @@ impl Layout for ShapeNode {
         }
 
         // Apply link if it exists.
-        if let Some(url) = styles.get_ref(LinkNode::URL) {
+        if let Some(url) = styles.get_ref(Self::LINK) {
             frame.link(url);
         }
 

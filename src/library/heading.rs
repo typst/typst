@@ -6,18 +6,18 @@ use super::{FontFamily, TextNode};
 /// A section heading.
 #[derive(Debug, Hash)]
 pub struct HeadingNode {
-    /// The node that produces the heading's contents.
-    pub child: PackedNode,
     /// The logical nesting depth of the section, starting from one. In the
     /// default style, this controls the text size of the heading.
     pub level: usize,
+    /// The node that produces the heading's contents.
+    pub child: PackedNode,
 }
 
 #[properties]
 impl HeadingNode {
     /// The heading's font family.
     pub const FAMILY: Smart<FontFamily> = Smart::Auto;
-    /// The fill color of heading in the text. Just the surrounding text color
+    /// The fill color of text in the heading. Just the surrounding text color
     /// if `auto`.
     pub const FILL: Smart<Paint> = Smart::Auto;
 }
@@ -48,12 +48,12 @@ impl Layout for HeadingNode {
     ) -> Vec<Constrained<Rc<Frame>>> {
         let upscale = (1.6 - 0.1 * self.level as f64).max(0.75);
 
-        let mut local = StyleMap::new();
-        local.set(TextNode::STRONG, true);
-        local.set(TextNode::SIZE, Relative::new(upscale).into());
+        let mut passed = StyleMap::new();
+        passed.set(TextNode::STRONG, true);
+        passed.set(TextNode::SIZE, Relative::new(upscale).into());
 
         if let Smart::Custom(family) = styles.get_ref(Self::FAMILY) {
-            local.set(
+            passed.set(
                 TextNode::FAMILY_LIST,
                 std::iter::once(family)
                     .chain(styles.get_ref(TextNode::FAMILY_LIST))
@@ -63,9 +63,9 @@ impl Layout for HeadingNode {
         }
 
         if let Smart::Custom(fill) = styles.get(Self::FILL) {
-            local.set(TextNode::FILL, fill);
+            passed.set(TextNode::FILL, fill);
         }
 
-        self.child.layout(ctx, regions, local.chain(&styles))
+        self.child.layout(ctx, regions, passed.chain(&styles))
     }
 }

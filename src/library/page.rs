@@ -166,31 +166,6 @@ pub fn pagebreak(_: &mut EvalContext, _: &mut Args) -> TypResult<Value> {
     Ok(Value::Node(Node::Pagebreak))
 }
 
-/// Defines default margins for a class of related papers.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum PaperClass {
-    Custom,
-    Base,
-    US,
-    Newspaper,
-    Book,
-}
-
-impl PaperClass {
-    /// The default margins for this page class.
-    fn default_margins(self) -> Sides<Linear> {
-        let f = |r| Relative::new(r).into();
-        let s = |l, t, r, b| Sides::new(f(l), f(t), f(r), f(b));
-        match self {
-            Self::Custom => s(0.1190, 0.0842, 0.1190, 0.0842),
-            Self::Base => s(0.1190, 0.0842, 0.1190, 0.0842),
-            Self::US => s(0.1760, 0.1092, 0.1760, 0.0910),
-            Self::Newspaper => s(0.0455, 0.0587, 0.0455, 0.0294),
-            Self::Book => s(0.1200, 0.0852, 0.1500, 0.0965),
-        }
-    }
-}
-
 /// Specification of a paper.
 #[derive(Debug, Copy, Clone)]
 pub struct Paper {
@@ -411,6 +386,31 @@ castable! {
     Paper,
     Expected: "string",
     Value::Str(string) => Paper::from_str(&string).map_err(|e| e.to_string())?,
+}
+
+/// Defines default margins for a class of related papers.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum PaperClass {
+    Custom,
+    Base,
+    US,
+    Newspaper,
+    Book,
+}
+
+impl PaperClass {
+    /// The default margins for this page class.
+    fn default_margins(self) -> Sides<Linear> {
+        let f = |r| Relative::new(r).into();
+        let s = |l, t, r, b| Sides::new(f(l), f(t), f(r), f(b));
+        match self {
+            Self::Custom => s(0.1190, 0.0842, 0.1190, 0.0842),
+            Self::Base => s(0.1190, 0.0842, 0.1190, 0.0842),
+            Self::US => s(0.1760, 0.1092, 0.1760, 0.0910),
+            Self::Newspaper => s(0.0455, 0.0587, 0.0455, 0.0294),
+            Self::Book => s(0.1200, 0.0852, 0.1500, 0.0965),
+        }
+    }
 }
 
 /// The error when parsing a [`Paper`] from a string fails.

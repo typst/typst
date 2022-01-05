@@ -50,26 +50,23 @@ impl<L: Labelling> Layout for ListNode<L> {
         let label_indent = styles.get(Self::LABEL_INDENT).resolve(em);
         let body_indent = styles.get(Self::BODY_INDENT).resolve(em);
 
-        let columns = vec![
-            TrackSizing::Linear(label_indent.into()),
-            TrackSizing::Auto,
-            TrackSizing::Linear(body_indent.into()),
-            TrackSizing::Auto,
-        ];
-
-        let children = vec![
-            PackedNode::default(),
-            Node::Text(self.labelling.label()).into_block(),
-            PackedNode::default(),
-            self.child.clone(),
-        ];
-
-        GridNode {
-            tracks: Spec::new(columns, vec![]),
+        let grid = GridNode {
+            tracks: Spec::with_x(vec![
+                TrackSizing::Linear(label_indent.into()),
+                TrackSizing::Auto,
+                TrackSizing::Linear(body_indent.into()),
+                TrackSizing::Auto,
+            ]),
             gutter: Spec::default(),
-            children,
-        }
-        .layout(ctx, regions, styles)
+            children: vec![
+                PackedNode::default(),
+                Node::Text(self.labelling.label()).into_block(),
+                PackedNode::default(),
+                self.child.clone(),
+            ],
+        };
+
+        grid.layout(ctx, regions, styles)
     }
 }
 

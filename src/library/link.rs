@@ -1,9 +1,10 @@
 //! Hyperlinking.
 
 use super::prelude::*;
+use super::{ImageNode, ShapeNode, TextNode};
 use crate::util::EcoString;
 
-/// `link`: Link text or other elements.
+/// `link`: Link text and other elements to an URL.
 pub fn link(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let url: String = args.expect::<EcoString>("url")?.into();
     let body = args.find().unwrap_or_else(|| {
@@ -14,17 +15,9 @@ pub fn link(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         Node::Text(text.into())
     });
 
-    Ok(Value::Node(
-        body.styled(StyleMap::with(LinkNode::URL, Some(url))),
-    ))
-}
-
-/// Host for link styles.
-#[derive(Debug, Hash)]
-pub struct LinkNode;
-
-#[properties]
-impl LinkNode {
-    /// An URL to link to.
-    pub const URL: Option<String> = None;
+    let mut passed = StyleMap::new();
+    passed.set(TextNode::LINK, Some(url.clone()));
+    passed.set(ImageNode::LINK, Some(url.clone()));
+    passed.set(ShapeNode::LINK, Some(url));
+    Ok(Value::Node(body.styled(passed)))
 }

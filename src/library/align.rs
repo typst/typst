@@ -7,33 +7,7 @@ use super::ParNode;
 pub fn align(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let aligns: Spec<_> = args.find().unwrap_or_default();
     let body: PackedNode = args.expect("body")?;
-
-    let mut styles = StyleMap::new();
-    if let Some(align) = aligns.x {
-        styles.set(ParNode::ALIGN, align);
-    }
-
-    Ok(Value::block(body.styled(styles).aligned(aligns)))
-}
-
-dynamic! {
-    Align: "alignment",
-}
-
-dynamic! {
-    Spec<Align>: "2d alignment",
-}
-
-castable! {
-    Spec<Option<Align>>,
-    Expected: "1d or 2d alignment",
-    @align: Align => {
-        let mut aligns = Spec::default();
-        aligns.set(align.axis(), Some(*align));
-        aligns
-    },
-    @aligns: Spec<Align> => aligns.map(Some),
-
+    Ok(Value::block(body.aligned(aligns)))
 }
 
 /// A node that aligns its child.
@@ -56,8 +30,14 @@ impl Layout for AlignNode {
         let mut pod = regions.clone();
         pod.expand &= self.aligns.map_is_none();
 
+        // Align paragraphs inside the child.
+        let mut passed = StyleMap::new();
+        if let Some(align) = self.aligns.x {
+            passed.set(ParNode::ALIGN, align);
+        }
+
         // Layout the child.
-        let mut frames = self.child.layout(ctx, &pod, styles);
+        let mut frames = self.child.layout(ctx, &pod, passed.chain(&styles));
 
         for ((current, base), Constrained { item: frame, cts }) in
             regions.iter().zip(&mut frames)
@@ -77,4 +57,24 @@ impl Layout for AlignNode {
 
         frames
     }
+}
+
+dynamic! {
+    Align: "alignment",
+}
+
+dynamic! {
+    Spec<Align>: "2d alignment",
+}
+
+castable! {
+    Spec<Option<Align>>,
+    Expected: "1d or 2d alignment",
+    @align: Align => {
+        let mut aligns = Spec::default();
+        aligns.set(align.axis(), Some(*align));
+        aligns
+    },
+    @aligns: Spec<Align> => aligns.map(Some),
+
 }

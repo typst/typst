@@ -3,18 +3,13 @@
 use std::io;
 
 use super::prelude::*;
-use super::LinkNode;
 use crate::diag::Error;
 use crate::image::ImageId;
 
 /// `image`: An image.
 pub fn image(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let path = args.expect::<Spanned<EcoString>>("path to image file")?;
-    let width = args.named("width")?;
-    let height = args.named("height")?;
-    let fit = args.named("fit")?.unwrap_or_default();
-
     // Load the image.
+    let path = args.expect::<Spanned<EcoString>>("path to image file")?;
     let full = ctx.make_path(&path.v);
     let id = ctx.images.load(&full).map_err(|err| {
         Error::boxed(path.span, match err.kind() {
@@ -22,6 +17,10 @@ pub fn image(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
             _ => format!("failed to load image ({})", err),
         })
     })?;
+
+    let width = args.named("width")?;
+    let height = args.named("height")?;
+    let fit = args.named("fit")?.unwrap_or_default();
 
     Ok(Value::inline(
         ImageNode { id, fit }.pack().sized(Spec::new(width, height)),
@@ -35,6 +34,12 @@ pub struct ImageNode {
     pub id: ImageId,
     /// How the image should adjust itself to a given area.
     pub fit: ImageFit,
+}
+
+#[properties]
+impl ImageNode {
+    /// An URL the image should link to.
+    pub const LINK: Option<String> = None;
 }
 
 impl Layout for ImageNode {
@@ -90,7 +95,7 @@ impl Layout for ImageNode {
         }
 
         // Apply link if it exists.
-        if let Some(url) = styles.get_ref(LinkNode::URL) {
+        if let Some(url) = styles.get_ref(Self::LINK) {
             frame.link(url);
         }
 

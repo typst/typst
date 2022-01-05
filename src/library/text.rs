@@ -9,7 +9,6 @@ use rustybuzz::{Feature, UnicodeBuffer};
 use ttf_parser::Tag;
 
 use super::prelude::*;
-use super::LinkNode;
 use crate::font::{
     Face, FaceId, FontStore, FontStretch, FontStyle, FontVariant, FontWeight,
     VerticalFontMetric,
@@ -59,6 +58,8 @@ impl TextNode {
     /// Decorative lines.
     #[fold(|a, b| a.into_iter().chain(b).collect())]
     pub const LINES: Vec<LineDecoration> = vec![];
+    /// An URL the text should link to.
+    pub const LINK: Option<String> = None;
 
     /// The size of the glyphs.
     #[fold(Linear::compose)]
@@ -889,7 +890,7 @@ impl<'a> ShapedText<'a> {
         }
 
         // Apply link if it exists.
-        if let Some(url) = self.styles.get_ref(LinkNode::URL) {
+        if let Some(url) = self.styles.get_ref(TextNode::LINK) {
             frame.link(url);
         }
 

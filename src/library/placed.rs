@@ -5,7 +5,7 @@ use super::AlignNode;
 
 /// `place`: Place content at an absolute position.
 pub fn place(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let aligns = args.find().unwrap_or(Spec::new(Some(Align::Left), None));
+    let aligns = args.find().unwrap_or(Spec::with_x(Some(Align::Left)));
     let tx = args.named("dx")?.unwrap_or_default();
     let ty = args.named("dy")?.unwrap_or_default();
     let body: PackedNode = args.expect("body")?;

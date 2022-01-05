@@ -84,7 +84,7 @@ impl Class {
 impl Debug for Class {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.write_str("<class ")?;
-        f.write_str(&self.0.name)?;
+        f.write_str(self.name())?;
         f.write_char('>')
     }
 }

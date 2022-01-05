@@ -85,10 +85,19 @@ impl<T> Spec<T> {
     }
 }
 
-impl<T> Spec<T>
-where
-    T: Ord,
-{
+impl<T: Default> Spec<T> {
+    /// Create a new instance with y set to its default value.
+    pub fn with_x(x: T) -> Self {
+        Self { x, y: T::default() }
+    }
+
+    /// Create a new instance with x set to its default value.
+    pub fn with_y(y: T) -> Self {
+        Self { x: T::default(), y }
+    }
+}
+
+impl<T: Ord> Spec<T> {
     /// The component-wise minimum of this and another instance.
     pub fn min(self, other: Self) -> Self {
         Self {
