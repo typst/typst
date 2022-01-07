@@ -12,8 +12,7 @@ Hello *{x}*
 #let fruit = [
   - Apple
   - Orange
-  #set list(body-indent: 10pt)
-  - Pear
+  #list(body-indent: 10pt, [Pear])
 ]
 
 - Fruit

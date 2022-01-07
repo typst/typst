@@ -15,9 +15,9 @@ pub fn link(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         Node::Text(text.into())
     });
 
-    let mut passed = StyleMap::new();
-    passed.set(TextNode::LINK, Some(url.clone()));
-    passed.set(ImageNode::LINK, Some(url.clone()));
-    passed.set(ShapeNode::LINK, Some(url));
-    Ok(Value::Node(body.styled(passed)))
+    let mut map = StyleMap::new();
+    map.set(TextNode::LINK, Some(url.clone()));
+    map.set(ImageNode::LINK, Some(url.clone()));
+    map.set(ShapeNode::LINK, Some(url));
+    Ok(Value::Node(body.styled_with_map(map)))
 }

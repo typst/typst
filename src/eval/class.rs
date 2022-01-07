@@ -66,7 +66,7 @@ impl Class {
         let mut styles = StyleMap::new();
         self.set(args, &mut styles)?;
         let node = (self.construct)(ctx, args)?;
-        Ok(node.styled(styles))
+        Ok(node.styled_with_map(styles))
     }
 
     /// Execute the class's set rule.

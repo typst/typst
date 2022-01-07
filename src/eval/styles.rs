@@ -106,7 +106,6 @@ impl StyleMap {
     /// `outer`. The ones from `self` take precedence over the ones from
     /// `outer`. For folded properties `self` contributes the inner value.
     pub fn chain<'a>(&'a self, outer: &'a StyleChain<'a>) -> StyleChain<'a> {
-        // No need to chain an empty map.
         if self.is_empty() {
             *outer
         } else {
@@ -182,7 +181,9 @@ impl PartialEq for StyleMap {
 /// matches further up the chain.
 #[derive(Clone, Copy, Hash)]
 pub struct StyleChain<'a> {
+    /// The first map in the chain.
     inner: &'a StyleMap,
+    /// The remaining maps in the chain.
     outer: Option<&'a Self>,
 }
 
@@ -238,14 +239,13 @@ impl<'a> StyleChain<'a> {
     /// entry for it.
     pub fn get_cloned<P: Property>(self, key: P) -> P::Value {
         if let Some(value) = self.find(key).cloned() {
-            if P::FOLDABLE {
-                if let Some(outer) = self.outer {
-                    P::fold(value, outer.get_cloned(key))
-                } else {
-                    P::fold(value, P::default())
-                }
-            } else {
-                value
+            if !P::FOLDABLE {
+                return value;
+            }
+
+            match self.outer {
+                Some(outer) => P::fold(value, outer.get_cloned(key)),
+                None => P::fold(value, P::default()),
             }
         } else if let Some(outer) = self.outer {
             outer.get_cloned(key)

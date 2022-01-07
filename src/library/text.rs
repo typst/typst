@@ -96,10 +96,10 @@ impl TextNode {
 
 impl Construct for TextNode {
     fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
-        // We don't need to do anything more here because the whole point of the
-        // text constructor is to apply the styles and that happens
-        // automatically during class construction.
-        args.expect::<Node>("body")
+        // The text constructor is special: It doesn't create a text node.
+        // Instead, it leaves the passed argument structurally unchanged, but
+        // styles all text in it.
+        args.expect("body")
     }
 }
 
@@ -404,9 +404,7 @@ fn line_impl(args: &mut Args, kind: LineKind) -> TypResult<Value> {
     let extent = args.named("extent")?.unwrap_or_default();
     let body: Node = args.expect("body")?;
     let deco = LineDecoration { kind, stroke, thickness, offset, extent };
-    Ok(Value::Node(
-        body.styled(StyleMap::with(TextNode::LINES, vec![deco])),
-    ))
+    Ok(Value::Node(body.styled(TextNode::LINES, vec![deco])))
 }
 
 /// Defines a line that is positioned over, under or on top of text.

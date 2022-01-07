@@ -4,7 +4,7 @@ use std::fmt::{self, Display, Formatter};
 use std::str::FromStr;
 
 use super::prelude::*;
-use super::{ColumnsNode, PadNode};
+use super::ColumnsNode;
 
 /// Layouts its child onto one or multiple pages.
 #[derive(Clone, PartialEq, Hash)]
@@ -111,7 +111,7 @@ impl PageNode {
         }
 
         // Realize margins with padding node.
-        child = PadNode { child, padding }.pack();
+        child = child.padded(padding);
 
         // Layout the child.
         let expand = size.map(Length::is_finite);

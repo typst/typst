@@ -61,8 +61,8 @@ prelude! {
 
     pub use crate::diag::{At, TypResult};
     pub use crate::eval::{
-        Args, Construct, EvalContext, Node, Property, Set, Smart, StyleChain, StyleMap,
-        Styled, Value,
+        Args, Construct, EvalContext, Node, Property, Scope, Set, Smart, StyleChain,
+        StyleMap, Styled, Value,
     };
     pub use crate::frame::*;
     pub use crate::geom::*;
@@ -73,52 +73,49 @@ prelude! {
     pub use crate::util::{EcoString, OptionExt};
 }
 
-use crate::eval::Scope;
 use prelude::*;
 
 /// Construct a scope containing all standard library definitions.
 pub fn new() -> Scope {
     let mut std = Scope::new();
 
-    // Classes.
+    // Structure and semantics.
     std.def_class::<PageNode>("page");
     std.def_class::<ParNode>("par");
     std.def_class::<TextNode>("text");
-    std.def_class::<HeadingNode>("heading");
-    std.def_class::<ListNode<Unordered>>("list");
-    std.def_class::<ListNode<Ordered>>("enum");
-
-    // Text functions.
     std.def_func("underline", underline);
     std.def_func("strike", strike);
     std.def_func("overline", overline);
     std.def_func("link", link);
-
-    // Break and spacing functions.
-    std.def_func("pagebreak", pagebreak);
-    std.def_func("colbreak", colbreak);
-    std.def_func("parbreak", parbreak);
-    std.def_func("linebreak", linebreak);
-    std.def_func("h", h);
-    std.def_func("v", v);
-
-    // Layout functions.
-    std.def_func("box", box_);
-    std.def_func("block", block);
-    std.def_func("stack", stack);
-    std.def_func("grid", grid);
-    std.def_func("pad", pad);
-    std.def_func("columns", columns);
-    std.def_func("align", align);
-    std.def_func("place", place);
-    std.def_func("move", move_);
-    std.def_func("scale", scale);
-    std.def_func("rotate", rotate);
+    std.def_class::<HeadingNode>("heading");
+    std.def_class::<ListNode<Unordered>>("list");
+    std.def_class::<ListNode<Ordered>>("enum");
     std.def_func("image", image);
     std.def_func("rect", rect);
     std.def_func("square", square);
     std.def_func("ellipse", ellipse);
     std.def_func("circle", circle);
+
+    // Layout.
+    std.def_func("h", h);
+    std.def_func("v", v);
+    std.def_func("box", box_);
+    std.def_func("block", block);
+    std.def_func("align", align);
+    std.def_func("pad", pad);
+    std.def_func("place", place);
+    std.def_func("move", move_);
+    std.def_func("scale", scale);
+    std.def_func("rotate", rotate);
+    std.def_func("stack", stack);
+    std.def_func("grid", grid);
+    std.def_func("columns", columns);
+
+    // Breaks.
+    std.def_func("pagebreak", pagebreak);
+    std.def_func("colbreak", colbreak);
+    std.def_func("parbreak", parbreak);
+    std.def_func("linebreak", linebreak);
 
     // Utility functions.
     std.def_func("assert", assert);

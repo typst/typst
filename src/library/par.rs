@@ -29,7 +29,10 @@ impl ParNode {
 
 impl Construct for ParNode {
     fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
-        // Lift to a block so that it doesn't merge with adjacent stuff.
+        // The paragraph constructor is special: It doesn't create a paragraph
+        // since that happens automatically through markup. Instead, it just
+        // lifts the passed body to the block level so that it won't merge with
+        // adjacent stuff and it styles the contained paragraphs.
         Ok(Node::Block(args.expect("body")?))
     }
 }

@@ -5,7 +5,7 @@ use std::iter::Sum;
 use std::mem;
 use std::ops::{Add, AddAssign};
 
-use super::{StyleMap, Styled};
+use super::{Property, StyleMap, Styled};
 use crate::diag::StrResult;
 use crate::geom::SpecAxis;
 use crate::layout::{Layout, PackedNode, RootNode};
@@ -84,14 +84,33 @@ impl Node {
         Self::Block(node.pack())
     }
 
-    /// Style this node.
-    pub fn styled(self, styles: StyleMap) -> Self {
+    /// Style this node with a single property.
+    pub fn styled<P: Property>(mut self, key: P, value: P::Value) -> Self {
+        if let Self::Sequence(vec) = &mut self {
+            if let [styled] = vec.as_mut_slice() {
+                styled.map.set(key, value);
+                return self;
+            }
+        }
+
+        self.styled_with_map(StyleMap::with(key, value))
+    }
+
+    /// Style this node with a full style map.
+    pub fn styled_with_map(mut self, styles: StyleMap) -> Self {
+        if let Self::Sequence(vec) = &mut self {
+            if let [styled] = vec.as_mut_slice() {
+                styled.map.apply(&styles);
+                return self;
+            }
+        }
+
         Self::Sequence(vec![Styled::new(self, styles)])
     }
 
     /// Style this node in monospace.
     pub fn monospaced(self) -> Self {
-        self.styled(StyleMap::with(TextNode::MONOSPACE, true))
+        self.styled(TextNode::MONOSPACE, true)
     }
 
     /// Lift to a type-erased block-level node.
