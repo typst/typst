@@ -3,16 +3,7 @@
 use super::prelude::*;
 use super::{AlignNode, SpacingKind};
 
-/// `stack`: Stack children along an axis.
-pub fn stack(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    Ok(Value::block(StackNode {
-        dir: args.named("dir")?.unwrap_or(Dir::TTB),
-        spacing: args.named("spacing")?,
-        children: args.all().collect(),
-    }))
-}
-
-/// A node that stacks its children.
+/// Stack children along an axis.
 #[derive(Debug, Hash)]
 pub struct StackNode {
     /// The stacking direction.
@@ -21,6 +12,17 @@ pub struct StackNode {
     pub spacing: Option<SpacingKind>,
     /// The children to be stacked.
     pub children: Vec<StackChild>,
+}
+
+#[class]
+impl StackNode {
+    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
+        Ok(Node::block(Self {
+            dir: args.named("dir")?.unwrap_or(Dir::TTB),
+            spacing: args.named("spacing")?,
+            children: args.all().collect(),
+        }))
+    }
 }
 
 impl Layout for StackNode {

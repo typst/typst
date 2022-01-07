@@ -10,7 +10,7 @@ use crate::diag::StrResult;
 use crate::geom::SpecAxis;
 use crate::layout::{Layout, PackedNode, RootNode};
 use crate::library::{
-    FlowChild, FlowNode, PageNode, ParChild, ParNode, PlacedNode, SpacingKind, TextNode,
+    FlowChild, FlowNode, PageNode, ParChild, ParNode, PlaceNode, SpacingKind, TextNode,
 };
 use crate::util::EcoString;
 
@@ -98,6 +98,10 @@ impl Node {
 
     /// Style this node with a full style map.
     pub fn styled_with_map(mut self, styles: StyleMap) -> Self {
+        if styles.is_empty() {
+            return self;
+        }
+
         if let Self::Sequence(vec) = &mut self {
             if let [styled] = vec.as_mut_slice() {
                 styled.map.apply(&styles);
@@ -193,7 +197,7 @@ impl Packer {
 
     /// Finish up and return the resulting flow.
     fn into_block(mut self) -> PackedNode {
-        self.parbreak(None);
+        self.parbreak(None, false);
         FlowNode(self.flow.children).pack()
     }
 
@@ -209,7 +213,7 @@ impl Packer {
             Node::Space => {
                 // A text space is "soft", meaning that it can be eaten up by
                 // adjacent line breaks or explicit spacings.
-                self.par.last.soft(Styled::new(ParChild::text(' '), styles));
+                self.par.last.soft(Styled::new(ParChild::text(' '), styles), false);
             }
             Node::Linebreak => {
                 // A line break eats up surrounding text spaces.
@@ -222,12 +226,12 @@ impl Packer {
                 // styles (`Some(_)`) whereas paragraph breaks forced by
                 // incompatibility take their styles from the preceding
                 // paragraph.
-                self.parbreak(Some(styles));
+                self.parbreak(Some(styles), true);
             }
             Node::Colbreak => {
                 // Explicit column breaks end the current paragraph and then
                 // discards the paragraph break.
-                self.parbreak(None);
+                self.parbreak(None, false);
                 self.make_flow_compatible(&styles);
                 self.flow.children.push(Styled::new(FlowChild::Skip, styles));
                 self.flow.last.hard();
@@ -252,7 +256,7 @@ impl Packer {
             Node::Spacing(SpecAxis::Vertical, kind) => {
                 // Explicit vertical spacing ends the current paragraph and then
                 // discards the paragraph break.
-                self.parbreak(None);
+                self.parbreak(None, false);
                 self.make_flow_compatible(&styles);
                 self.flow.children.push(Styled::new(FlowChild::Spacing(kind), styles));
                 self.flow.last.hard();
@@ -284,14 +288,15 @@ impl Packer {
 
     /// Insert an inline-level element into the current paragraph.
     fn push_inline(&mut self, child: Styled<ParChild>) {
-        if let Some(styled) = self.par.last.any() {
-            self.push_coalescing(styled);
-        }
-
         // The node must be both compatible with the current page and the
         // current paragraph.
         self.make_flow_compatible(&child.map);
         self.make_par_compatible(&child.map);
+
+        if let Some(styled) = self.par.last.any() {
+            self.push_coalescing(styled);
+        }
+
         self.push_coalescing(child);
         self.par.last.any();
     }
@@ -314,13 +319,13 @@ impl Packer {
 
     /// Insert a block-level element into the current flow.
     fn push_block(&mut self, node: Styled<PackedNode>) {
-        let placed = node.item.is::<PlacedNode>();
+        let placed = node.item.is::<PlaceNode>();
 
-        self.parbreak(None);
+        self.parbreak(Some(node.map.clone()), false);
         self.make_flow_compatible(&node.map);
         self.flow.children.extend(self.flow.last.any());
         self.flow.children.push(node.map(FlowChild::Node));
-        self.parbreak(None);
+        self.parbreak(None, false);
 
         // Prevent paragraph spacing between the placed node and the paragraph
         // below it.
@@ -330,17 +335,12 @@ impl Packer {
     }
 
     /// Advance to the next paragraph.
-    fn parbreak(&mut self, break_styles: Option<StyleMap>) {
+    fn parbreak(&mut self, break_styles: Option<StyleMap>, important: bool) {
         // Erase any styles that will be inherited anyway.
         let Builder { mut children, styles, .. } = mem::take(&mut self.par);
         for Styled { map, .. } in &mut children {
             map.erase(&styles);
         }
-
-        // For explicit paragraph breaks, `break_styles` is already `Some(_)`.
-        // For page breaks due to incompatibility, we fall back to the styles
-        // of the preceding paragraph.
-        let break_styles = break_styles.unwrap_or_else(|| styles.clone());
 
         // We don't want empty paragraphs.
         if !children.is_empty() {
@@ -352,14 +352,30 @@ impl Packer {
             self.flow.children.push(Styled::new(FlowChild::Node(par), styles));
         }
 
+        // Actually styled breaks have precedence over whatever was before.
+        if break_styles.is_some() {
+            if let Last::Soft(_, false) = self.flow.last {
+                self.flow.last = Last::Any;
+            }
+        }
+
+        // For explicit paragraph breaks, `break_styles` is already `Some(_)`.
+        // For page breaks due to incompatibility, we fall back to the styles
+        // of the preceding thing.
+        let break_styles = break_styles
+            .or_else(|| self.flow.children.last().map(|styled| styled.map.clone()))
+            .unwrap_or_default();
+
         // Insert paragraph spacing.
-        self.flow.last.soft(Styled::new(FlowChild::Break, break_styles));
+        self.flow
+            .last
+            .soft(Styled::new(FlowChild::Break, break_styles), important);
     }
 
     /// Advance to the next page.
     fn pagebreak(&mut self) {
         if self.top {
-            self.parbreak(None);
+            self.parbreak(None, false);
 
             // Take the flow and erase any styles that will be inherited anyway.
             let Builder { mut children, styles, .. } = mem::take(&mut self.flow);
@@ -381,7 +397,7 @@ impl Packer {
         }
 
         if !self.par.styles.compatible::<ParNode>(styles) {
-            self.parbreak(None);
+            self.parbreak(Some(styles.clone()), false);
             self.par.styles = styles.clone();
             return;
         }
@@ -441,8 +457,10 @@ enum Last<N> {
     /// Hard nodes: Linebreaks and explicit spacing.
     Hard,
     /// Soft nodes: Word spaces and paragraph breaks. These are saved here
-    /// temporarily and then applied once an `Any` node appears.
-    Soft(N),
+    /// temporarily and then applied once an `Any` node appears. The boolean
+    /// says whether this soft node is "important" and preferrable to other soft
+    /// nodes (that is the case for explicit paragraph breaks).
+    Soft(N, bool),
 }
 
 impl<N> Last<N> {
@@ -450,16 +468,19 @@ impl<N> Last<N> {
     /// now if currently in `Soft` state.
     fn any(&mut self) -> Option<N> {
         match mem::replace(self, Self::Any) {
-            Self::Soft(soft) => Some(soft),
+            Self::Soft(soft, _) => Some(soft),
             _ => None,
         }
     }
 
     /// Transition into the `Soft` state, but only if in `Any`. Otherwise, the
     /// soft node is discarded.
-    fn soft(&mut self, soft: N) {
-        if let Self::Any = self {
-            *self = Self::Soft(soft);
+    fn soft(&mut self, soft: N, important: bool) {
+        if matches!(
+            (&self, important),
+            (Self::Any, _) | (Self::Soft(_, false), true)
+        ) {
+            *self = Self::Soft(soft, important);
         }
     }
 

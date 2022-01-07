@@ -2,7 +2,8 @@
 
 ---
 // Test normal operation and RTL directions.
-#set page(height: 3.25cm, width: 7.05cm, columns: 2, column-gutter: 30pt)
+#set page(height: 3.25cm, width: 7.05cm, columns: 2)
+#set columns(gutter: 30pt)
 #set text("Noto Sans Arabic", serif)
 #set par(lang: "ar")
 
@@ -10,7 +11,7 @@
 العديد من التفاعلات الكيميائية. (DNA) من أهم الأحماض النووية التي تُشكِّل
 إلى جانب كل من البروتينات والليبيدات والسكريات المتعددة
 #rect(fill: eastern, height: 8pt, width: 6pt)
-الجزيئات الضخمة الأربعة الضرورية للحياة. 
+الجزيئات الضخمة الأربعة الضرورية للحياة.
 
 ---
 // Test the `columns` function.
@@ -28,7 +29,7 @@
 #set page(height: 5cm, width: 7.05cm, columns: 2)
 
 Lorem ipsum dolor sit amet is a common blind text
-and I again am in need of filling up this page 
+and I again am in need of filling up this page
 #align(bottom, rect(fill: eastern, width: 100%, height: 12pt))
 #colbreak()
 
@@ -49,7 +50,8 @@ a page for a test but it does get the job done.
 
 ---
 // Test setting a column gutter and more than two columns.
-#set page(height: 3.25cm, width: 7.05cm, columns: 3, column-gutter: 30pt)
+#set page(height: 3.25cm, width: 7.05cm, columns: 3)
+#set columns(gutter: 30pt)
 
 #rect(width: 100%, height: 2.5cm, fill: conifer)
 #rect(width: 100%, height: 2cm, fill: eastern)

@@ -5,6 +5,7 @@
 
 pub mod align;
 pub mod columns;
+pub mod deco;
 pub mod flow;
 pub mod grid;
 pub mod heading;
@@ -26,6 +27,7 @@ pub mod utility;
 pub use self::image::*;
 pub use align::*;
 pub use columns::*;
+pub use deco::*;
 pub use flow::*;
 pub use grid::*;
 pub use heading::*;
@@ -56,8 +58,9 @@ prelude! {
     pub use std::fmt::{self, Debug, Formatter};
     pub use std::num::NonZeroUsize;
     pub use std::rc::Rc;
+    pub use std::hash::Hash;
 
-    pub use typst_macros::properties;
+    pub use typst_macros::class;
 
     pub use crate::diag::{At, TypResult};
     pub use crate::eval::{
@@ -81,41 +84,39 @@ pub fn new() -> Scope {
 
     // Structure and semantics.
     std.def_class::<PageNode>("page");
+    std.def_class::<PagebreakNode>("pagebreak");
     std.def_class::<ParNode>("par");
+    std.def_class::<ParbreakNode>("parbreak");
+    std.def_class::<LinebreakNode>("linebreak");
     std.def_class::<TextNode>("text");
-    std.def_func("underline", underline);
-    std.def_func("strike", strike);
-    std.def_func("overline", overline);
-    std.def_func("link", link);
+    std.def_class::<DecoNode<Underline>>("underline");
+    std.def_class::<DecoNode<Strikethrough>>("strike");
+    std.def_class::<DecoNode<Overline>>("overline");
+    std.def_class::<LinkNode>("link");
     std.def_class::<HeadingNode>("heading");
     std.def_class::<ListNode<Unordered>>("list");
     std.def_class::<ListNode<Ordered>>("enum");
-    std.def_func("image", image);
-    std.def_func("rect", rect);
-    std.def_func("square", square);
-    std.def_func("ellipse", ellipse);
-    std.def_func("circle", circle);
+    std.def_class::<ImageNode>("image");
+    std.def_class::<ShapeNode<Rect>>("rect");
+    std.def_class::<ShapeNode<Square>>("square");
+    std.def_class::<ShapeNode<Ellipse>>("ellipse");
+    std.def_class::<ShapeNode<Circle>>("circle");
 
     // Layout.
-    std.def_func("h", h);
-    std.def_func("v", v);
-    std.def_func("box", box_);
-    std.def_func("block", block);
-    std.def_func("align", align);
-    std.def_func("pad", pad);
-    std.def_func("place", place);
-    std.def_func("move", move_);
-    std.def_func("scale", scale);
-    std.def_func("rotate", rotate);
-    std.def_func("stack", stack);
-    std.def_func("grid", grid);
-    std.def_func("columns", columns);
-
-    // Breaks.
-    std.def_func("pagebreak", pagebreak);
-    std.def_func("colbreak", colbreak);
-    std.def_func("parbreak", parbreak);
-    std.def_func("linebreak", linebreak);
+    std.def_class::<HNode>("h");
+    std.def_class::<VNode>("v");
+    std.def_class::<BoxNode>("box");
+    std.def_class::<BlockNode>("block");
+    std.def_class::<AlignNode>("align");
+    std.def_class::<PadNode>("pad");
+    std.def_class::<PlaceNode>("place");
+    std.def_class::<TransformNode<Move>>("move");
+    std.def_class::<TransformNode<Scale>>("scale");
+    std.def_class::<TransformNode<Rotate>>("rotate");
+    std.def_class::<StackNode>("stack");
+    std.def_class::<GridNode>("grid");
+    std.def_class::<ColumnsNode>("columns");
+    std.def_class::<ColbreakNode>("colbreak");
 
     // Utility functions.
     std.def_func("assert", assert);

@@ -26,10 +26,25 @@ World
 You
 
 ---
+// Test that paragraphs break due to incompatibility has correct spacing.
+A #set par(spacing: 0pt); B #parbreak() C
+
+---
+// Test that paragraph breaks due to block nodes have the correct spacing.
+- A
+
+#set par(spacing: 0pt)
+- B
+- C
+#set par(spacing: 5pt)
+- D
+- E
+
+---
 // Test that paragraph break due to incompatibility respects
 // spacing defined by the two adjacent paragraphs.
 #let a = [#set par(spacing: 40pt);Hello]
-#let b = [#set par(spacing: 60pt);World]
+#let b = [#set par(spacing: 10pt);World]
 {a}{b}
 
 ---

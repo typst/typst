@@ -397,7 +397,13 @@ primitive! { EcoString: "string", Str }
 primitive! { Array: "array", Array }
 primitive! { Dict: "dictionary", Dict }
 primitive! { Node: "template", Node }
-primitive! { Function: "function", Func }
+primitive! { Function: "function",
+    Func,
+    Class(v) => Function::new(
+        Some(v.name().clone()),
+        move |ctx, args| v.construct(ctx, args).map(Value::Node)
+    )
+}
 primitive! { Class: "class", Class }
 
 impl Cast<Value> for Value {

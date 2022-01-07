@@ -18,9 +18,9 @@ use std::rc::Rc;
 use crate::eval::{StyleChain, Styled};
 use crate::font::FontStore;
 use crate::frame::Frame;
-use crate::geom::{Align, Linear, Point, Sides, Size, Spec, Transform};
+use crate::geom::{Align, Linear, Point, Sides, Size, Spec};
 use crate::image::ImageStore;
-use crate::library::{AlignNode, PadNode, PageNode, SizedNode, TransformNode};
+use crate::library::{AlignNode, Move, PadNode, PageNode, SizedNode, TransformNode};
 use crate::Context;
 
 /// The root layout node, a document consisting of top-level page runs.
@@ -177,13 +177,12 @@ impl PackedNode {
 
     /// Transform this node's contents without affecting layout.
     pub fn moved(self, offset: Point) -> Self {
-        self.transformed(Transform::translation(offset.x, offset.y), Align::LEFT_TOP)
-    }
-
-    /// Transform this node's contents without affecting layout.
-    pub fn transformed(self, transform: Transform, origin: Spec<Align>) -> Self {
-        if !transform.is_identity() {
-            TransformNode { transform, origin, child: self }.pack()
+        if !offset.is_zero() {
+            TransformNode {
+                kind: Move(offset.x, offset.y),
+                child: self,
+            }
+            .pack()
         } else {
             self
         }

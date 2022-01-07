@@ -1,37 +1,31 @@
 //! Unordered (bulleted) and ordered (numbered) lists.
 
-use std::hash::Hash;
-
 use super::prelude::*;
 use super::{GridNode, TextNode, TrackSizing};
 
 /// An unordered or ordered list.
 #[derive(Debug, Hash)]
-pub struct ListNode<L> {
+pub struct ListNode<L: ListKind> {
+    /// The list labelling style -- unordered or ordered.
+    pub kind: L,
     /// The node that produces the item's body.
     pub child: PackedNode,
-    /// The list labelling style -- unordered or ordered.
-    pub labelling: L,
 }
 
-#[properties]
-impl<L: Labelling> ListNode<L> {
+#[class]
+impl<L: ListKind> ListNode<L> {
     /// The indentation of each item's label.
     pub const LABEL_INDENT: Linear = Relative::new(0.0).into();
     /// The space between the label and the body of each item.
     pub const BODY_INDENT: Linear = Relative::new(0.5).into();
-}
 
-impl<L: Labelling> Construct for ListNode<L> {
     fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
         Ok(args
             .all()
-            .map(|child: PackedNode| Node::block(Self { child, labelling: L::default() }))
+            .map(|child: PackedNode| Node::block(Self { kind: L::default(), child }))
             .sum())
     }
-}
 
-impl<L: Labelling> Set for ListNode<L> {
     fn set(args: &mut Args, styles: &mut StyleMap) -> TypResult<()> {
         styles.set_opt(Self::LABEL_INDENT, args.named("label-indent")?);
         styles.set_opt(Self::BODY_INDENT, args.named("body-indent")?);
@@ -39,7 +33,7 @@ impl<L: Labelling> Set for ListNode<L> {
     }
 }
 
-impl<L: Labelling> Layout for ListNode<L> {
+impl<L: ListKind> Layout for ListNode<L> {
     fn layout(
         &self,
         ctx: &mut LayoutContext,
@@ -60,7 +54,7 @@ impl<L: Labelling> Layout for ListNode<L> {
             gutter: Spec::default(),
             children: vec![
                 PackedNode::default(),
-                Node::Text(self.labelling.label()).into_block(),
+                Node::Text(self.kind.label()).into_block(),
                 PackedNode::default(),
                 self.child.clone(),
             ],
@@ -71,7 +65,7 @@ impl<L: Labelling> Layout for ListNode<L> {
 }
 
 /// How to label a list.
-pub trait Labelling: Debug + Default + Hash + 'static {
+pub trait ListKind: Debug + Default + Hash + 'static {
     /// Return the item's label.
     fn label(&self) -> EcoString;
 }
@@ -80,7 +74,7 @@ pub trait Labelling: Debug + Default + Hash + 'static {
 #[derive(Debug, Default, Hash)]
 pub struct Unordered;
 
-impl Labelling for Unordered {
+impl ListKind for Unordered {
     fn label(&self) -> EcoString {
         '•'.into()
     }
@@ -90,7 +84,7 @@ impl Labelling for Unordered {
 #[derive(Debug, Default, Hash)]
 pub struct Ordered(pub Option<usize>);
 
-impl Labelling for Ordered {
+impl ListKind for Ordered {
     fn label(&self) -> EcoString {
         format_eco!("{}.", self.0.unwrap_or(1))
     }

@@ -13,25 +13,21 @@ pub struct HeadingNode {
     pub child: PackedNode,
 }
 
-#[properties]
+#[class]
 impl HeadingNode {
     /// The heading's font family.
     pub const FAMILY: Smart<FontFamily> = Smart::Auto;
     /// The fill color of text in the heading. Just the surrounding text color
     /// if `auto`.
     pub const FILL: Smart<Paint> = Smart::Auto;
-}
 
-impl Construct for HeadingNode {
     fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
         Ok(Node::block(Self {
             child: args.expect("body")?,
             level: args.named("level")?.unwrap_or(1),
         }))
     }
-}
 
-impl Set for HeadingNode {
     fn set(args: &mut Args, styles: &mut StyleMap) -> TypResult<()> {
         styles.set_opt(Self::FAMILY, args.named("family")?);
         styles.set_opt(Self::FILL, args.named("fill")?);

@@ -2,31 +2,33 @@
 
 use super::prelude::*;
 
-/// `pad`: Pad content at the sides.
-pub fn pad(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let all = args.find();
-    let left = args.named("left")?;
-    let top = args.named("top")?;
-    let right = args.named("right")?;
-    let bottom = args.named("bottom")?;
-    let body: PackedNode = args.expect("body")?;
-    let padding = Sides::new(
-        left.or(all).unwrap_or_default(),
-        top.or(all).unwrap_or_default(),
-        right.or(all).unwrap_or_default(),
-        bottom.or(all).unwrap_or_default(),
-    );
-
-    Ok(Value::block(body.padded(padding)))
-}
-
-/// A node that adds padding to its child.
+/// Pad content at the sides.
 #[derive(Debug, Hash)]
 pub struct PadNode {
     /// The amount of padding.
     pub padding: Sides<Linear>,
     /// The child node whose sides to pad.
     pub child: PackedNode,
+}
+
+#[class]
+impl PadNode {
+    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
+        let all = args.find();
+        let left = args.named("left")?;
+        let top = args.named("top")?;
+        let right = args.named("right")?;
+        let bottom = args.named("bottom")?;
+        let body: PackedNode = args.expect("body")?;
+        let padding = Sides::new(
+            left.or(all).unwrap_or_default(),
+            top.or(all).unwrap_or_default(),
+            right.or(all).unwrap_or_default(),
+            bottom.or(all).unwrap_or_default(),
+        );
+
+        Ok(Node::block(body.padded(padding)))
+    }
 }
 
 impl Layout for PadNode {

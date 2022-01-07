@@ -30,7 +30,7 @@ impl Transform {
     }
 
     /// A scaling transform.
-    pub const fn scaling(sx: Relative, sy: Relative) -> Self {
+    pub const fn scale(sx: Relative, sy: Relative) -> Self {
         Self { sx, sy, ..Self::identity() }
     }
 

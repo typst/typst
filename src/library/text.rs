@@ -9,6 +9,7 @@ use rustybuzz::{Feature, UnicodeBuffer};
 use ttf_parser::Tag;
 
 use super::prelude::*;
+use super::{DecoLine, Decoration};
 use crate::font::{
     Face, FaceId, FontStore, FontStretch, FontStyle, FontVariant, FontWeight,
     VerticalFontMetric,
@@ -20,7 +21,7 @@ use crate::util::{EcoString, SliceExt};
 #[derive(Hash)]
 pub struct TextNode(pub EcoString);
 
-#[properties]
+#[class]
 impl TextNode {
     /// A prioritized sequence of font families.
     pub const FAMILY_LIST: Vec<FontFamily> = vec![FontFamily::SansSerif];
@@ -52,7 +53,7 @@ impl TextNode {
     pub const FILL: Paint = RgbaColor::BLACK.into();
     /// Decorative lines.
     #[fold(|a, b| a.into_iter().chain(b).collect())]
-    pub const LINES: Vec<LineDecoration> = vec![];
+    pub const LINES: Vec<Decoration> = vec![];
     /// An URL the text should link to.
     pub const LINK: Option<String> = None;
 
@@ -92,18 +93,14 @@ impl TextNode {
     pub const FRACTIONS: bool = false;
     /// Raw OpenType features to apply.
     pub const FEATURES: Vec<(Tag, u32)> = vec![];
-}
 
-impl Construct for TextNode {
     fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
         // The text constructor is special: It doesn't create a text node.
         // Instead, it leaves the passed argument structurally unchanged, but
         // styles all text in it.
         args.expect("body")
     }
-}
 
-impl Set for TextNode {
     fn set(args: &mut Args, styles: &mut StyleMap) -> TypResult<()> {
         let list = args.named("family")?.or_else(|| {
             let families: Vec<_> = args.all().collect();
@@ -380,60 +377,6 @@ castable! {
             Some((tag, num))
         })
         .collect(),
-}
-
-/// `strike`: Typeset striken-through text.
-pub fn strike(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    line_impl(args, LineKind::Strikethrough)
-}
-
-/// `underline`: Typeset underlined text.
-pub fn underline(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    line_impl(args, LineKind::Underline)
-}
-
-/// `overline`: Typeset text with an overline.
-pub fn overline(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    line_impl(args, LineKind::Overline)
-}
-
-fn line_impl(args: &mut Args, kind: LineKind) -> TypResult<Value> {
-    let stroke = args.named("stroke")?.or_else(|| args.find());
-    let thickness = args.named::<Linear>("thickness")?.or_else(|| args.find());
-    let offset = args.named("offset")?;
-    let extent = args.named("extent")?.unwrap_or_default();
-    let body: Node = args.expect("body")?;
-    let deco = LineDecoration { kind, stroke, thickness, offset, extent };
-    Ok(Value::Node(body.styled(TextNode::LINES, vec![deco])))
-}
-
-/// Defines a line that is positioned over, under or on top of text.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct LineDecoration {
-    /// The kind of line.
-    pub kind: LineKind,
-    /// Stroke color of the line, defaults to the text color if `None`.
-    pub stroke: Option<Paint>,
-    /// Thickness of the line's strokes (dependent on scaled font size), read
-    /// from the font tables if `None`.
-    pub thickness: Option<Linear>,
-    /// Position of the line relative to the baseline (dependent on scaled font
-    /// size), read from the font tables if `None`.
-    pub offset: Option<Linear>,
-    /// Amount that the line will be longer or shorter than its associated text
-    /// (dependent on scaled font size).
-    pub extent: Linear,
-}
-
-/// The kind of line decoration.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum LineKind {
-    /// A line under text.
-    Underline,
-    /// A line through text.
-    Strikethrough,
-    /// A line over text.
-    Overline,
 }
 
 /// Shape text into [`ShapedText`].
@@ -848,23 +791,23 @@ impl<'a> ShapedText<'a> {
             frame.push(pos, Element::Text(text));
 
             // Apply line decorations.
-            for line in self.styles.get_cloned(TextNode::LINES) {
+            for deco in self.styles.get_cloned(TextNode::LINES) {
                 let face = fonts.get(face_id);
-                let metrics = match line.kind {
-                    LineKind::Underline => face.underline,
-                    LineKind::Strikethrough => face.strikethrough,
-                    LineKind::Overline => face.overline,
+                let metrics = match deco.line {
+                    DecoLine::Underline => face.underline,
+                    DecoLine::Strikethrough => face.strikethrough,
+                    DecoLine::Overline => face.overline,
                 };
 
-                let extent = line.extent.resolve(size);
-                let offset = line
+                let extent = deco.extent.resolve(size);
+                let offset = deco
                     .offset
                     .map(|s| s.resolve(size))
                     .unwrap_or(-metrics.position.resolve(size));
 
                 let stroke = Stroke {
-                    paint: line.stroke.unwrap_or(fill),
-                    thickness: line
+                    paint: deco.stroke.unwrap_or(fill),
+                    thickness: deco
                         .thickness
                         .map(|s| s.resolve(size))
                         .unwrap_or(metrics.thickness.resolve(size)),

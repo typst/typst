@@ -15,7 +15,7 @@ use crate::util::{EcoString, RangeExt, RcExt, SliceExt};
 #[derive(Hash)]
 pub struct ParNode(pub Vec<Styled<ParChild>>);
 
-#[properties]
+#[class]
 impl ParNode {
     /// The direction for text and inline objects.
     pub const DIR: Dir = Dir::LTR;
@@ -25,9 +25,7 @@ impl ParNode {
     pub const LEADING: Linear = Relative::new(0.65).into();
     /// The spacing between paragraphs (dependent on scaled font size).
     pub const SPACING: Linear = Relative::new(1.2).into();
-}
 
-impl Construct for ParNode {
     fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
         // The paragraph constructor is special: It doesn't create a paragraph
         // since that happens automatically through markup. Instead, it just
@@ -35,13 +33,8 @@ impl Construct for ParNode {
         // adjacent stuff and it styles the contained paragraphs.
         Ok(Node::Block(args.expect("body")?))
     }
-}
 
-impl Set for ParNode {
     fn set(args: &mut Args, styles: &mut StyleMap) -> TypResult<()> {
-        let spacing = args.named("spacing")?;
-        let leading = args.named("leading")?;
-
         let mut dir =
             args.named("lang")?
                 .map(|iso: EcoString| match iso.to_lowercase().as_str() {
@@ -69,8 +62,8 @@ impl Set for ParNode {
 
         styles.set_opt(Self::DIR, dir);
         styles.set_opt(Self::ALIGN, align);
-        styles.set_opt(Self::LEADING, leading);
-        styles.set_opt(Self::SPACING, spacing);
+        styles.set_opt(Self::LEADING, args.named("leading")?);
+        styles.set_opt(Self::SPACING, args.named("spacing")?);
 
         Ok(())
     }
@@ -166,14 +159,24 @@ impl Debug for ParChild {
     }
 }
 
-/// `parbreak`: Start a new paragraph.
-pub fn parbreak(_: &mut EvalContext, _: &mut Args) -> TypResult<Value> {
-    Ok(Value::Node(Node::Parbreak))
+/// A paragraph break.
+pub struct ParbreakNode;
+
+#[class]
+impl ParbreakNode {
+    fn construct(_: &mut EvalContext, _: &mut Args) -> TypResult<Node> {
+        Ok(Node::Parbreak)
+    }
 }
 
-/// `linebreak`: Start a new line.
-pub fn linebreak(_: &mut EvalContext, _: &mut Args) -> TypResult<Value> {
-    Ok(Value::Node(Node::Linebreak))
+/// A line break.
+pub struct LinebreakNode;
+
+#[class]
+impl LinebreakNode {
+    fn construct(_: &mut EvalContext, _: &mut Args) -> TypResult<Node> {
+        Ok(Node::Linebreak)
+    }
 }
 
 /// A paragraph representation in which children are already layouted and text

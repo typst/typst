@@ -248,7 +248,7 @@ impl Eval for ListNode {
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
         Ok(Node::block(library::ListNode {
             child: self.body().eval(ctx)?.into_block(),
-            labelling: library::Unordered,
+            kind: library::Unordered,
         }))
     }
 }
@@ -259,7 +259,7 @@ impl Eval for EnumNode {
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
         Ok(Node::block(library::ListNode {
             child: self.body().eval(ctx)?.into_block(),
-            labelling: library::Ordered(self.number()),
+            kind: library::Ordered(self.number()),
         }))
     }
 }
@@ -450,6 +450,7 @@ impl Eval for CallExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
+        let span = self.callee().span();
         let callee = self.callee().eval(ctx)?;
         let mut args = self.args().eval(ctx)?;
 
@@ -470,13 +471,14 @@ impl Eval for CallExpr {
             }
 
             Value::Class(class) => {
-                let node = class.construct(ctx, &mut args)?;
+                let point = || Tracepoint::Call(Some(class.name().to_string()));
+                let node = class.construct(ctx, &mut args).trace(point, self.span())?;
                 args.finish()?;
                 Ok(Value::Node(node))
             }
 
             v => bail!(
-                self.callee().span(),
+                span,
                 "expected callable or collection, found {}",
                 v.type_name(),
             ),

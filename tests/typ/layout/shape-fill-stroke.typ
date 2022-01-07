@@ -13,7 +13,7 @@
   rect(fill: eastern, stroke: none),
   rect(fill: forest, stroke: none, thickness: 2pt),
   rect(fill: forest, stroke: conifer),
-  rect(fill: forest, thickness: 2pt),
+  rect(fill: forest, stroke: black, thickness: 2pt),
   rect(fill: forest, stroke: conifer, thickness: 2pt),
 ) {
   (align(horizon)[{i + 1}.], rect, [])

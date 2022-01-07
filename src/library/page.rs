@@ -10,7 +10,7 @@ use super::ColumnsNode;
 #[derive(Clone, PartialEq, Hash)]
 pub struct PageNode(pub PackedNode);
 
-#[properties]
+#[class]
 impl PageNode {
     /// The unflipped width of the page.
     pub const WIDTH: Smart<Length> = Smart::Custom(Paper::default().width());
@@ -32,17 +32,11 @@ impl PageNode {
     pub const FILL: Option<Paint> = None;
     /// How many columns the page has.
     pub const COLUMNS: NonZeroUsize = NonZeroUsize::new(1).unwrap();
-    /// How much space is between the page's columns.
-    pub const COLUMN_GUTTER: Linear = Relative::new(0.04).into();
-}
 
-impl Construct for PageNode {
     fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
         Ok(Node::Page(Self(args.expect("body")?)))
     }
-}
 
-impl Set for PageNode {
     fn set(args: &mut Args, styles: &mut StyleMap) -> TypResult<()> {
         if let Some(paper) = args.named::<Paper>("paper")?.or_else(|| args.find()) {
             styles.set(Self::CLASS, paper.class());
@@ -69,7 +63,6 @@ impl Set for PageNode {
         styles.set_opt(Self::FLIPPED, args.named("flipped")?);
         styles.set_opt(Self::FILL, args.named("fill")?);
         styles.set_opt(Self::COLUMNS, args.named("columns")?);
-        styles.set_opt(Self::COLUMN_GUTTER, args.named("column-gutter")?);
 
         Ok(())
     }
@@ -102,12 +95,7 @@ impl PageNode {
         // Realize columns with columns node.
         let columns = styles.get(Self::COLUMNS);
         if columns.get() > 1 {
-            child = ColumnsNode {
-                columns,
-                gutter: styles.get(Self::COLUMN_GUTTER),
-                child: self.0.clone(),
-            }
-            .pack();
+            child = ColumnsNode { columns, child: self.0.clone() }.pack();
         }
 
         // Realize margins with padding node.
@@ -142,9 +130,14 @@ impl Debug for PageNode {
     }
 }
 
-/// `pagebreak`: Start a new page.
-pub fn pagebreak(_: &mut EvalContext, _: &mut Args) -> TypResult<Value> {
-    Ok(Value::Node(Node::Pagebreak))
+/// A page break.
+pub struct PagebreakNode;
+
+#[class]
+impl PagebreakNode {
+    fn construct(_: &mut EvalContext, _: &mut Args) -> TypResult<Node> {
+        Ok(Node::Pagebreak)
+    }
 }
 
 /// Specification of a paper.

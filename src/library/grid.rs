@@ -2,23 +2,6 @@
 
 use super::prelude::*;
 
-/// `grid`: Arrange children into a grid.
-pub fn grid(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let columns = args.named("columns")?.unwrap_or_default();
-    let rows = args.named("rows")?.unwrap_or_default();
-    let base_gutter: Vec<TrackSizing> = args.named("gutter")?.unwrap_or_default();
-    let column_gutter = args.named("column-gutter")?;
-    let row_gutter = args.named("row-gutter")?;
-    Ok(Value::block(GridNode {
-        tracks: Spec::new(columns, rows),
-        gutter: Spec::new(
-            column_gutter.unwrap_or_else(|| base_gutter.clone()),
-            row_gutter.unwrap_or(base_gutter),
-        ),
-        children: args.all().collect(),
-    }))
-}
-
 /// A node that arranges its children in a grid.
 #[derive(Debug, Hash)]
 pub struct GridNode {
@@ -28,6 +11,25 @@ pub struct GridNode {
     pub gutter: Spec<Vec<TrackSizing>>,
     /// The nodes to be arranged in a grid.
     pub children: Vec<PackedNode>,
+}
+
+#[class]
+impl GridNode {
+    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
+        let columns = args.named("columns")?.unwrap_or_default();
+        let rows = args.named("rows")?.unwrap_or_default();
+        let base_gutter: Vec<TrackSizing> = args.named("gutter")?.unwrap_or_default();
+        let column_gutter = args.named("column-gutter")?;
+        let row_gutter = args.named("row-gutter")?;
+        Ok(Node::block(Self {
+            tracks: Spec::new(columns, rows),
+            gutter: Spec::new(
+                column_gutter.unwrap_or_else(|| base_gutter.clone()),
+                row_gutter.unwrap_or(base_gutter),
+            ),
+            children: args.all().collect(),
+        }))
+    }
 }
 
 impl Layout for GridNode {

@@ -3,30 +3,32 @@
 use super::prelude::*;
 use super::ParNode;
 
-/// `columns`: Set content into multiple columns.
-pub fn columns(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    Ok(Value::block(ColumnsNode {
-        columns: args.expect("column count")?,
-        gutter: args.named("gutter")?.unwrap_or(Relative::new(0.04).into()),
-        child: args.expect("body")?,
-    }))
-}
-
-/// `colbreak`: Start a new column.
-pub fn colbreak(_: &mut EvalContext, _: &mut Args) -> TypResult<Value> {
-    Ok(Value::Node(Node::Colbreak))
-}
-
 /// A node that separates a region into multiple equally sized columns.
 #[derive(Debug, Hash)]
 pub struct ColumnsNode {
     /// How many columns there should be.
     pub columns: NonZeroUsize,
-    /// The size of the gutter space between each column.
-    pub gutter: Linear,
     /// The child to be layouted into the columns. Most likely, this should be a
     /// flow or stack node.
     pub child: PackedNode,
+}
+
+#[class]
+impl ColumnsNode {
+    /// The size of the gutter space between each column.
+    pub const GUTTER: Linear = Relative::new(0.04).into();
+
+    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
+        Ok(Node::block(Self {
+            columns: args.expect("column count")?,
+            child: args.expect("body")?,
+        }))
+    }
+
+    fn set(args: &mut Args, styles: &mut StyleMap) -> TypResult<()> {
+        styles.set_opt(Self::GUTTER, args.named("gutter")?);
+        Ok(())
+    }
 }
 
 impl Layout for ColumnsNode {
@@ -57,7 +59,7 @@ impl Layout for ColumnsNode {
             .iter()
             .take(1 + regions.backlog.len() + regions.last.iter().len())
         {
-            let gutter = self.gutter.resolve(base.x);
+            let gutter = styles.get(Self::GUTTER).resolve(base.x);
             let width = (current.x - gutter * (columns - 1) as f64) / columns as f64;
             let size = Size::new(width, current.y);
             gutters.push(gutter);
@@ -129,5 +131,15 @@ impl Layout for ColumnsNode {
         }
 
         finished
+    }
+}
+
+/// A column break.
+pub struct ColbreakNode;
+
+#[class]
+impl ColbreakNode {
+    fn construct(_: &mut EvalContext, _: &mut Args) -> TypResult<Node> {
+        Ok(Node::Colbreak)
     }
 }

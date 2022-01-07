@@ -3,33 +3,24 @@
 use super::prelude::*;
 use super::AlignNode;
 
-/// `place`: Place content at an absolute position.
-pub fn place(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let aligns = args.find().unwrap_or(Spec::with_x(Some(Align::Left)));
-    let tx = args.named("dx")?.unwrap_or_default();
-    let ty = args.named("dy")?.unwrap_or_default();
-    let body: PackedNode = args.expect("body")?;
-    Ok(Value::block(PlacedNode(
-        body.moved(Point::new(tx, ty)).aligned(aligns),
-    )))
-}
-
-/// A node that places its child absolutely.
+/// Place content at an absolute position.
 #[derive(Debug, Hash)]
-pub struct PlacedNode(pub PackedNode);
+pub struct PlaceNode(pub PackedNode);
 
-impl PlacedNode {
-    /// Whether this node wants to be placed relative to its its parent's base
-    /// origin. instead of relative to the parent's current flow/cursor
-    /// position.
-    pub fn out_of_flow(&self) -> bool {
-        self.0
-            .downcast::<AlignNode>()
-            .map_or(false, |node| node.aligns.y.is_some())
+#[class]
+impl PlaceNode {
+    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
+        let aligns = args.find().unwrap_or(Spec::with_x(Some(Align::Left)));
+        let tx = args.named("dx")?.unwrap_or_default();
+        let ty = args.named("dy")?.unwrap_or_default();
+        let body: PackedNode = args.expect("body")?;
+        Ok(Node::block(Self(
+            body.moved(Point::new(tx, ty)).aligned(aligns),
+        )))
     }
 }
 
-impl Layout for PlacedNode {
+impl Layout for PlaceNode {
     fn layout(
         &self,
         ctx: &mut LayoutContext,
@@ -61,5 +52,16 @@ impl Layout for PlacedNode {
         cts.exact = regions.current.filter(regions.expand | out_of_flow);
 
         frames
+    }
+}
+
+impl PlaceNode {
+    /// Whether this node wants to be placed relative to its its parent's base
+    /// origin. instead of relative to the parent's current flow/cursor
+    /// position.
+    pub fn out_of_flow(&self) -> bool {
+        self.0
+            .downcast::<AlignNode>()
+            .map_or(false, |node| node.aligns.y.is_some())
     }
 }

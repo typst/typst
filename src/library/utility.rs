@@ -6,7 +6,7 @@ use std::str::FromStr;
 use super::prelude::*;
 use crate::eval::Array;
 
-/// `assert`: Ensure that a condition is fulfilled.
+/// Ensure that a condition is fulfilled.
 pub fn assert(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let Spanned { v, span } = args.expect::<Spanned<bool>>("condition")?;
     if !v {
@@ -15,18 +15,17 @@ pub fn assert(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     Ok(Value::None)
 }
 
-/// `type`: The name of a value's type.
+/// The name of a value's type.
 pub fn type_(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     Ok(args.expect::<Value>("value")?.type_name().into())
 }
 
-/// `repr`: The string representation of a value.
+/// The string representation of a value.
 pub fn repr(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     Ok(args.expect::<Value>("value")?.repr().into())
 }
 
-/// `join`: Join a sequence of values, optionally interspersing it with another
-/// value.
+/// Join a sequence of values, optionally interspersing it with another value.
 pub fn join(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let span = args.span;
     let sep = args.named::<Value>("sep")?.unwrap_or(Value::None);
@@ -46,7 +45,7 @@ pub fn join(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     Ok(result)
 }
 
-/// `int`: Convert a value to a integer.
+/// Convert a value to a integer.
 pub fn int(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let Spanned { v, span } = args.expect("value")?;
     Ok(Value::Int(match v {
@@ -61,7 +60,7 @@ pub fn int(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     }))
 }
 
-/// `float`: Convert a value to a float.
+/// Convert a value to a float.
 pub fn float(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let Spanned { v, span } = args.expect("value")?;
     Ok(Value::Float(match v {
@@ -75,7 +74,7 @@ pub fn float(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     }))
 }
 
-/// `str`: Try to convert a value to a string.
+/// Try to convert a value to a string.
 pub fn str(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let Spanned { v, span } = args.expect("value")?;
     Ok(Value::Str(match v {
@@ -86,7 +85,7 @@ pub fn str(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     }))
 }
 
-/// `rgb`: Create an RGB(A) color.
+/// Create an RGB(A) color.
 pub fn rgb(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     Ok(Value::from(
         if let Some(string) = args.find::<Spanned<EcoString>>() {
@@ -111,7 +110,7 @@ pub fn rgb(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     ))
 }
 
-/// `abs`: The absolute value of a numeric value.
+/// The absolute value of a numeric value.
 pub fn abs(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let Spanned { v, span } = args.expect("numeric value")?;
     Ok(match v {
@@ -126,12 +125,12 @@ pub fn abs(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     })
 }
 
-/// `min`: The minimum of a sequence of values.
+/// The minimum of a sequence of values.
 pub fn min(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     minmax(args, Ordering::Less)
 }
 
-/// `max`: The maximum of a sequence of values.
+/// The maximum of a sequence of values.
 pub fn max(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     minmax(args, Ordering::Greater)
 }
@@ -157,7 +156,7 @@ fn minmax(args: &mut Args, goal: Ordering) -> TypResult<Value> {
     Ok(extremum)
 }
 
-/// `range`: Create a sequence of numbers.
+/// Create a sequence of numbers.
 pub fn range(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let first = args.expect::<i64>("end")?;
     let (start, end) = match args.eat::<i64>()? {
@@ -182,17 +181,17 @@ pub fn range(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     Ok(Value::Array(Array::from_vec(seq)))
 }
 
-/// `lower`: Convert a string to lowercase.
+/// Convert a string to lowercase.
 pub fn lower(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     Ok(args.expect::<EcoString>("string")?.to_lowercase().into())
 }
 
-/// `upper`: Convert a string to uppercase.
+/// Convert a string to uppercase.
 pub fn upper(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     Ok(args.expect::<EcoString>("string")?.to_uppercase().into())
 }
 
-/// `len`: The length of a string, an array or a dictionary.
+/// The length of a string, an array or a dictionary.
 pub fn len(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let Spanned { v, span } = args.expect("collection")?;
     Ok(Value::Int(match v {
@@ -207,7 +206,7 @@ pub fn len(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     }))
 }
 
-/// `sorted`: The sorted version of an array.
+/// The sorted version of an array.
 pub fn sorted(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let Spanned { v, span } = args.expect::<Spanned<Array>>("array")?;
     Ok(Value::Array(v.sorted().at(span)?))

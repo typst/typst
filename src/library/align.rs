@@ -3,20 +3,22 @@
 use super::prelude::*;
 use super::ParNode;
 
-/// `align`: Configure the alignment along the layouting axes.
-pub fn align(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let aligns: Spec<_> = args.find().unwrap_or_default();
-    let body: PackedNode = args.expect("body")?;
-    Ok(Value::block(body.aligned(aligns)))
-}
-
-/// A node that aligns its child.
+/// Align a node along the layouting axes.
 #[derive(Debug, Hash)]
 pub struct AlignNode {
     /// How to align the node horizontally and vertically.
     pub aligns: Spec<Option<Align>>,
     /// The node to be aligned.
     pub child: PackedNode,
+}
+
+#[class]
+impl AlignNode {
+    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
+        let aligns: Spec<_> = args.find().unwrap_or_default();
+        let body: PackedNode = args.expect("body")?;
+        Ok(Node::block(body.aligned(aligns)))
+    }
 }
 
 impl Layout for AlignNode {

@@ -3,110 +3,64 @@
 use std::f64::consts::SQRT_2;
 
 use super::prelude::*;
-
-/// `rect`: A rectangle with optional content.
-pub fn rect(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let width = args.named("width")?;
-    let height = args.named("height")?;
-    shape_impl(args, ShapeKind::Rect, width, height)
-}
-
-/// `square`: A square with optional content.
-pub fn square(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let size = args.named::<Length>("size")?.map(Linear::from);
-    let width = match size {
-        None => args.named("width")?,
-        size => size,
-    };
-    let height = match size {
-        None => args.named("height")?,
-        size => size,
-    };
-    shape_impl(args, ShapeKind::Square, width, height)
-}
-
-/// `ellipse`: An ellipse with optional content.
-pub fn ellipse(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let width = args.named("width")?;
-    let height = args.named("height")?;
-    shape_impl(args, ShapeKind::Ellipse, width, height)
-}
-
-/// `circle`: A circle with optional content.
-pub fn circle(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let diameter = args.named("radius")?.map(|r: Length| 2.0 * Linear::from(r));
-    let width = match diameter {
-        None => args.named("width")?,
-        diameter => diameter,
-    };
-    let height = match diameter {
-        None => args.named("height")?,
-        diameter => diameter,
-    };
-    shape_impl(args, ShapeKind::Circle, width, height)
-}
-
-fn shape_impl(
-    args: &mut Args,
-    kind: ShapeKind,
-    width: Option<Linear>,
-    height: Option<Linear>,
-) -> TypResult<Value> {
-    // The default appearance of a shape.
-    let default = Stroke {
-        paint: RgbaColor::BLACK.into(),
-        thickness: Length::pt(1.0),
-    };
-
-    // Parse fill & stroke.
-    let fill = args.named("fill")?.unwrap_or(None);
-    let stroke = match (args.named("stroke")?, args.named("thickness")?) {
-        (None, None) => fill.is_none().then(|| default),
-        (color, thickness) => color.unwrap_or(Some(default.paint)).map(|paint| Stroke {
-            paint,
-            thickness: thickness.unwrap_or(default.thickness),
-        }),
-    };
-
-    // Shorthand for padding.
-    let mut padding = args.named::<Linear>("padding")?.unwrap_or_default();
-
-    // Padding with this ratio ensures that a rectangular child fits
-    // perfectly into a circle / an ellipse.
-    if kind.is_round() {
-        padding.rel += Relative::new(0.5 - SQRT_2 / 4.0);
-    }
-
-    // The shape's contents.
-    let child = args.find().map(|body: PackedNode| body.padded(Sides::splat(padding)));
-
-    Ok(Value::inline(
-        ShapeNode { kind, fill, stroke, child }
-            .pack()
-            .sized(Spec::new(width, height)),
-    ))
-}
+use super::TextNode;
 
 /// Places its child into a sizable and fillable shape.
 #[derive(Debug, Hash)]
-pub struct ShapeNode {
+pub struct ShapeNode<S: ShapeKind> {
     /// Which shape to place the child into.
-    pub kind: ShapeKind,
-    /// How to fill the shape.
-    pub fill: Option<Paint>,
-    /// How the stroke the shape.
-    pub stroke: Option<Stroke>,
+    pub kind: S,
     /// The child node to place into the shape, if any.
     pub child: Option<PackedNode>,
 }
 
-#[properties]
-impl ShapeNode {
-    /// An URL the shape should link to.
-    pub const LINK: Option<String> = None;
+#[class]
+impl<S: ShapeKind> ShapeNode<S> {
+    /// How to fill the shape.
+    pub const FILL: Option<Paint> = None;
+    /// How the stroke the shape.
+    pub const STROKE: Smart<Option<Paint>> = Smart::Auto;
+    /// The stroke's thickness.
+    pub const THICKNESS: Length = Length::pt(1.0);
+    /// The How much to pad the shape's content.
+    pub const PADDING: Linear = Linear::zero();
+
+    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
+        let size = if !S::ROUND && S::QUADRATIC {
+            args.named::<Length>("size")?.map(Linear::from)
+        } else if S::ROUND && S::QUADRATIC {
+            args.named("radius")?.map(|r: Length| 2.0 * Linear::from(r))
+        } else {
+            None
+        };
+
+        let width = match size {
+            None => args.named("width")?,
+            size => size,
+        };
+
+        let height = match size {
+            None => args.named("height")?,
+            size => size,
+        };
+
+        Ok(Node::inline(
+            ShapeNode { kind: S::default(), child: args.find() }
+                .pack()
+                .sized(Spec::new(width, height)),
+        ))
+    }
+
+    fn set(args: &mut Args, styles: &mut StyleMap) -> TypResult<()> {
+        styles.set_opt(Self::FILL, args.named("fill")?);
+        styles.set_opt(Self::STROKE, args.named("stroke")?);
+        styles.set_opt(Self::THICKNESS, args.named("thickness")?);
+        styles.set_opt(Self::PADDING, args.named("padding")?);
+        Ok(())
+    }
 }
 
-impl Layout for ShapeNode {
+impl<S: ShapeKind> Layout for ShapeNode<S> {
     fn layout(
         &self,
         ctx: &mut LayoutContext,
@@ -115,12 +69,20 @@ impl Layout for ShapeNode {
     ) -> Vec<Constrained<Rc<Frame>>> {
         let mut frames;
         if let Some(child) = &self.child {
+            let mut padding = styles.get(Self::PADDING);
+            if S::ROUND {
+                padding.rel += Relative::new(0.5 - SQRT_2 / 4.0);
+            }
+
+            // Pad the child.
+            let child = child.clone().padded(Sides::splat(padding));
+
             let mut pod = Regions::one(regions.current, regions.base, regions.expand);
             frames = child.layout(ctx, &pod, styles);
 
             // Relayout with full expansion into square region to make sure
             // the result is really a square or circle.
-            if self.kind.is_quadratic() {
+            if S::QUADRATIC {
                 let length = if regions.expand.x || regions.expand.y {
                     let target = regions.expand.select(regions.current, Size::zero());
                     target.x.max(target.y)
@@ -141,7 +103,7 @@ impl Layout for ShapeNode {
             let mut size =
                 Size::new(Length::pt(45.0), Length::pt(30.0)).min(regions.current);
 
-            if self.kind.is_quadratic() {
+            if S::QUADRATIC {
                 let length = if regions.expand.x || regions.expand.y {
                     let target = regions.expand.select(regions.current, Size::zero());
                     target.x.max(target.y)
@@ -159,23 +121,26 @@ impl Layout for ShapeNode {
         let frame = Rc::make_mut(&mut frames[0].item);
 
         // Add fill and/or stroke.
-        if self.fill.is_some() || self.stroke.is_some() {
-            let geometry = match self.kind {
-                ShapeKind::Square | ShapeKind::Rect => Geometry::Rect(frame.size),
-                ShapeKind::Circle | ShapeKind::Ellipse => Geometry::Ellipse(frame.size),
+        let fill = styles.get(Self::FILL);
+        let thickness = styles.get(Self::THICKNESS);
+        let stroke = styles
+            .get(Self::STROKE)
+            .unwrap_or(fill.is_none().then(|| RgbaColor::BLACK.into()))
+            .map(|paint| Stroke { paint, thickness });
+
+        if fill.is_some() || stroke.is_some() {
+            let geometry = if S::ROUND {
+                Geometry::Ellipse(frame.size)
+            } else {
+                Geometry::Rect(frame.size)
             };
 
-            let shape = Shape {
-                geometry,
-                fill: self.fill,
-                stroke: self.stroke,
-            };
-
+            let shape = Shape { geometry, fill, stroke };
             frame.prepend(Point::zero(), Element::Shape(shape));
         }
 
         // Apply link if it exists.
-        if let Some(url) = styles.get_ref(Self::LINK) {
+        if let Some(url) = styles.get_ref(TextNode::LINK) {
             frame.link(url);
         }
 
@@ -183,27 +148,44 @@ impl Layout for ShapeNode {
     }
 }
 
-/// The type of a shape.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum ShapeKind {
-    /// A rectangle with equal side lengths.
-    Square,
-    /// A quadrilateral with four right angles.
-    Rect,
-    /// An ellipse with coinciding foci.
-    Circle,
-    /// A curve around two focal points.
-    Ellipse,
+/// Categorizes shapes.
+pub trait ShapeKind: Debug + Default + Hash + 'static {
+    const ROUND: bool;
+    const QUADRATIC: bool;
 }
 
-impl ShapeKind {
-    /// Whether the shape is curved.
-    pub fn is_round(self) -> bool {
-        matches!(self, Self::Circle | Self::Ellipse)
-    }
+/// A rectangle with equal side lengths.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct Square;
 
-    /// Whether the shape has a fixed 1-1 aspect ratio.
-    pub fn is_quadratic(self) -> bool {
-        matches!(self, Self::Square | Self::Circle)
-    }
+impl ShapeKind for Square {
+    const ROUND: bool = false;
+    const QUADRATIC: bool = true;
+}
+
+/// A quadrilateral with four right angles.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct Rect;
+
+impl ShapeKind for Rect {
+    const ROUND: bool = false;
+    const QUADRATIC: bool = false;
+}
+
+/// An ellipse with coinciding foci.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct Circle;
+
+impl ShapeKind for Circle {
+    const ROUND: bool = true;
+    const QUADRATIC: bool = true;
+}
+
+/// A curve around two focal points.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct Ellipse;
+
+impl ShapeKind for Ellipse {
+    const ROUND: bool = true;
+    const QUADRATIC: bool = false;
 }

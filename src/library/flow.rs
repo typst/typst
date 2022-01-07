@@ -3,7 +3,7 @@
 use std::fmt::{self, Debug, Formatter};
 
 use super::prelude::*;
-use super::{AlignNode, ParNode, PlacedNode, SpacingKind, TextNode};
+use super::{AlignNode, ParNode, PlaceNode, SpacingKind, TextNode};
 
 /// A vertical flow of content consisting of paragraphs and other layout nodes.
 ///
@@ -172,7 +172,7 @@ impl<'a> FlowLayouter<'a> {
     ) {
         // Placed nodes that are out of flow produce placed items which aren't
         // aligned later.
-        if let Some(placed) = node.downcast::<PlacedNode>() {
+        if let Some(placed) = node.downcast::<PlaceNode>() {
             if placed.out_of_flow() {
                 let frame = node.layout(ctx, &self.regions, styles).remove(0);
                 self.items.push(FlowItem::Placed(frame.item));

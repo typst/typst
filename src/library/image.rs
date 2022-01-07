@@ -1,45 +1,41 @@
 //! Raster and vector graphics.
 
-use std::io;
-
 use super::prelude::*;
+use super::TextNode;
 use crate::diag::Error;
 use crate::image::ImageId;
 
-/// `image`: An image.
-pub fn image(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    // Load the image.
-    let path = args.expect::<Spanned<EcoString>>("path to image file")?;
-    let full = ctx.make_path(&path.v);
-    let id = ctx.images.load(&full).map_err(|err| {
-        Error::boxed(path.span, match err.kind() {
-            io::ErrorKind::NotFound => "file not found".into(),
-            _ => format!("failed to load image ({})", err),
-        })
-    })?;
-
-    let width = args.named("width")?;
-    let height = args.named("height")?;
-    let fit = args.named("fit")?.unwrap_or_default();
-
-    Ok(Value::inline(
-        ImageNode { id, fit }.pack().sized(Spec::new(width, height)),
-    ))
-}
-
 /// An image node.
 #[derive(Debug, Hash)]
-pub struct ImageNode {
-    /// The id of the image file.
-    pub id: ImageId,
-    /// How the image should adjust itself to a given area.
-    pub fit: ImageFit,
-}
+pub struct ImageNode(pub ImageId);
 
-#[properties]
+#[class]
 impl ImageNode {
-    /// An URL the image should link to.
-    pub const LINK: Option<String> = None;
+    /// How the image should adjust itself to a given area.
+    pub const FIT: ImageFit = ImageFit::Cover;
+
+    fn construct(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
+        let path = args.expect::<Spanned<EcoString>>("path to image file")?;
+        let full = ctx.make_path(&path.v);
+        let id = ctx.images.load(&full).map_err(|err| {
+            Error::boxed(path.span, match err.kind() {
+                std::io::ErrorKind::NotFound => "file not found".into(),
+                _ => format!("failed to load image ({})", err),
+            })
+        })?;
+
+        let width = args.named("width")?;
+        let height = args.named("height")?;
+
+        Ok(Node::inline(
+            ImageNode(id).pack().sized(Spec::new(width, height)),
+        ))
+    }
+
+    fn set(args: &mut Args, styles: &mut StyleMap) -> TypResult<()> {
+        styles.set_opt(Self::FIT, args.named("fit")?);
+        Ok(())
+    }
 }
 
 impl Layout for ImageNode {
@@ -49,7 +45,7 @@ impl Layout for ImageNode {
         regions: &Regions,
         styles: StyleChain,
     ) -> Vec<Constrained<Rc<Frame>>> {
-        let img = ctx.images.get(self.id);
+        let img = ctx.images.get(self.0);
         let pxw = img.width() as f64;
         let pxh = img.height() as f64;
         let px_ratio = pxw / pxh;
@@ -70,10 +66,11 @@ impl Layout for ImageNode {
             Size::new(Length::pt(pxw), Length::pt(pxh))
         };
 
-        // The actual size of the fitted image.
-        let fitted = match self.fit {
+        // Compute the actual size of the fitted image.
+        let fit = styles.get(Self::FIT);
+        let fitted = match fit {
             ImageFit::Cover | ImageFit::Contain => {
-                if wide == (self.fit == ImageFit::Contain) {
+                if wide == (fit == ImageFit::Contain) {
                     Size::new(target.x, target.x / px_ratio)
                 } else {
                     Size::new(target.y * px_ratio, target.y)
@@ -86,16 +83,16 @@ impl Layout for ImageNode {
         // the frame to the target size, center aligning the image in the
         // process.
         let mut frame = Frame::new(fitted);
-        frame.push(Point::zero(), Element::Image(self.id, fitted));
+        frame.push(Point::zero(), Element::Image(self.0, fitted));
         frame.resize(target, Align::CENTER_HORIZON);
 
         // Create a clipping group if only part of the image should be visible.
-        if self.fit == ImageFit::Cover && !target.fits(fitted) {
+        if fit == ImageFit::Cover && !target.fits(fitted) {
             frame.clip();
         }
 
         // Apply link if it exists.
-        if let Some(url) = styles.get_ref(Self::LINK) {
+        if let Some(url) = styles.get_ref(TextNode::LINK) {
             frame.link(url);
         }
 
@@ -112,12 +109,6 @@ pub enum ImageFit {
     Contain,
     /// The image should be stretched so that it exactly fills the area.
     Stretch,
-}
-
-impl Default for ImageFit {
-    fn default() -> Self {
-        Self::Cover
-    }
 }
 
 castable! {

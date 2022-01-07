@@ -2,18 +2,27 @@
 
 use super::prelude::*;
 
-/// `box`: Size content and place it into a paragraph.
-pub fn box_(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let width = args.named("width")?;
-    let height = args.named("height")?;
-    let body: PackedNode = args.find().unwrap_or_default();
-    Ok(Value::inline(body.sized(Spec::new(width, height))))
+/// Size content and place it into a paragraph.
+pub struct BoxNode;
+
+#[class]
+impl BoxNode {
+    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
+        let width = args.named("width")?;
+        let height = args.named("height")?;
+        let body: PackedNode = args.find().unwrap_or_default();
+        Ok(Node::inline(body.sized(Spec::new(width, height))))
+    }
 }
 
-/// `block`: Place content into the flow.
-pub fn block(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let body: PackedNode = args.find().unwrap_or_default();
-    Ok(Value::block(body))
+/// Place content into a separate flow.
+pub struct BlockNode;
+
+#[class]
+impl BlockNode {
+    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
+        Ok(Node::Block(args.find().unwrap_or_default()))
+    }
 }
 
 /// A node that sizes its child.
