@@ -302,7 +302,7 @@ impl Packer {
             if let Some(Styled { item: ParChild::Text(left), map }) =
                 self.par.children.last_mut()
             {
-                if child.map.compatible(map, TextNode::has_property) {
+                if child.map.compatible::<TextNode>(map) {
                     left.0.push_str(&right.0);
                     return;
                 }
@@ -380,7 +380,7 @@ impl Packer {
             return;
         }
 
-        if !self.par.styles.compatible(styles, ParNode::has_property) {
+        if !self.par.styles.compatible::<ParNode>(styles) {
             self.parbreak(None);
             self.par.styles = styles.clone();
             return;
@@ -397,7 +397,7 @@ impl Packer {
             return;
         }
 
-        if self.top && !self.flow.styles.compatible(styles, PageNode::has_property) {
+        if self.top && !self.flow.styles.compatible::<PageNode>(styles) {
             self.pagebreak();
             self.flow.styles = styles.clone();
             return;

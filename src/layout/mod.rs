@@ -197,6 +197,8 @@ impl Layout for PackedNode {
         regions: &Regions,
         styles: StyleChain,
     ) -> Vec<Constrained<Rc<Frame>>> {
+        let styles = styles.barred(self.node.as_any().type_id());
+
         #[cfg(not(feature = "layout-cache"))]
         return self.node.layout(ctx, regions, styles);
 

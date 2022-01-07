@@ -17,27 +17,23 @@ pub fn properties(_: TokenStream, item: TokenStream) -> TokenStream {
 /// Expand a property impl block for a node.
 fn expand(mut impl_block: syn::ItemImpl) -> Result<TokenStream2> {
     // Split the node type into name and generic type arguments.
-    let (self_name, self_args) = parse_self(&*impl_block.self_ty)?;
+    let self_ty = &*impl_block.self_ty;
+    let (self_name, self_args) = parse_self(self_ty)?;
 
     // Rewrite the const items from values to keys.
-    let mut style_ids = vec![];
     let mut modules = vec![];
     for item in &mut impl_block.items {
         if let syn::ImplItem::Const(item) = item {
-            let (style_id, module) = process_const(item, &self_name, &self_args)?;
-            style_ids.push(style_id);
+            let module = process_const(
+                item,
+                &impl_block.generics,
+                self_ty,
+                &self_name,
+                &self_args,
+            )?;
             modules.push(module);
         }
     }
-
-    // Here, we use the collected `style_ids` to provide a function that checks
-    // whether a property belongs to the node.
-    impl_block.items.insert(0, parse_quote! {
-        /// Check whether the property with the given type id belongs to `Self`.
-        pub fn has_property(id: StyleId) -> bool {
-            [#(#style_ids),*].contains(&id)
-        }
-    });
 
     // Put everything into a module with a hopefully unique type to isolate
     // it from the outside.
@@ -45,9 +41,10 @@ fn expand(mut impl_block: syn::ItemImpl) -> Result<TokenStream2> {
     Ok(quote! {
         #[allow(non_snake_case)]
         mod #module {
+            use std::any::TypeId;
             use std::marker::PhantomData;
             use once_cell::sync::Lazy;
-            use crate::eval::{Nonfolding, Property, StyleId};
+            use crate::eval::{Nonfolding, Property};
             use super::*;
 
             #impl_block
@@ -85,19 +82,21 @@ fn parse_self(self_ty: &syn::Type) -> Result<(String, Vec<&syn::Type>)> {
 /// Process a single const item.
 fn process_const(
     item: &mut syn::ImplItemConst,
+    impl_generics: &syn::Generics,
+    self_ty: &syn::Type,
     self_name: &str,
     self_args: &[&syn::Type],
-) -> Result<(syn::Expr, syn::ItemMod)> {
+) -> Result<syn::ItemMod> {
+    // The module that will contain the `Key` type.
+    let module_name = &item.ident;
+
     // The type of the property's value is what the user of our macro wrote
     // as type of the const ...
     let value_ty = &item.ty;
 
-    // ... but the real type of the const becomes Key<#key_param>.
-    let key_param = if self_args.is_empty() {
-        quote! { #value_ty }
-    } else {
-        quote! { (#value_ty, #(#self_args),*) }
-    };
+    // ... but the real type of the const becomes Key<#key_args>.
+    let key_params = &impl_generics.params;
+    let key_args = quote! { #value_ty #(, #self_args)* };
 
     // The display name, e.g. `TextNode::STRONG`.
     let name = format!("{}::{}", self_name, &item.ident);
@@ -108,7 +107,7 @@ fn process_const(
 
     let mut folder = None;
     let mut nonfolding = Some(quote! {
-        impl<T: 'static> Nonfolding for Key<T> {}
+        impl<#key_params> Nonfolding for Key<#key_args> {}
     });
 
     // Look for a folding function like `#[fold(u64::add)]`.
@@ -127,54 +126,50 @@ fn process_const(
         }
     }
 
-    // The implementation of the `Property` trait.
-    let property_impl = quote! {
-        impl<T: 'static> Property for Key<T> {
-            type Value = #value_ty;
-
-            const NAME: &'static str = #name;
-
-            fn default() -> Self::Value {
-                #default
-            }
-
-            fn default_ref() -> &'static Self::Value {
-                static LAZY: Lazy<#value_ty> = Lazy::new(|| #default);
-                &*LAZY
-            }
-
-            #folder
-        }
-
-        #nonfolding
-    };
-
-    // The module that will contain the `Key` type.
-    let module_name = &item.ident;
-
-    // Generate the style id and module code.
-    let style_id = parse_quote! { StyleId::of::<#module_name::Key<#key_param>>() };
+    // Generate the module code.
     let module = parse_quote! {
         #[allow(non_snake_case)]
         mod #module_name {
             use super::*;
 
-            pub struct Key<T>(pub PhantomData<T>);
-            impl<T> Copy for Key<T> {}
-            impl<T> Clone for Key<T> {
+            pub struct Key<T, #key_params>(pub PhantomData<(T, #key_args)>);
+
+            impl<#key_params> Copy for Key<#key_args> {}
+            impl<#key_params> Clone for Key<#key_args> {
                 fn clone(&self) -> Self {
                     *self
                 }
             }
 
-            #property_impl
+            impl<#key_params> Property for Key<#key_args> {
+                type Value = #value_ty;
+
+                const NAME: &'static str = #name;
+
+                fn node_id() -> TypeId {
+                    TypeId::of::<#self_ty>()
+                }
+
+                fn default() -> Self::Value {
+                    #default
+                }
+
+                fn default_ref() -> &'static Self::Value {
+                    static LAZY: Lazy<#value_ty> = Lazy::new(|| #default);
+                    &*LAZY
+                }
+
+                #folder
+            }
+
+            #nonfolding
         }
     };
 
     // Replace type and initializer expression with the `Key`.
     item.attrs.retain(|attr| !attr.path.is_ident("fold"));
-    item.ty = parse_quote! { #module_name::Key<#key_param> };
+    item.ty = parse_quote! { #module_name::Key<#key_args> };
     item.expr = parse_quote! { #module_name::Key(PhantomData) };
 
-    Ok((style_id, module))
+    Ok(module)
 }
