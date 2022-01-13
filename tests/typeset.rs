@@ -65,7 +65,7 @@ fn main() {
     if len == 1 {
         println!("Running test ...");
     } else if len > 1 {
-        println!("Running {} tests", len);
+        println!("Running {len} tests");
     }
 
     // Set page width to 120pt with 10pt margins, so that the inner page is
@@ -118,7 +118,7 @@ fn main() {
     }
 
     if len > 1 {
-        println!("{} / {} tests passed.", ok, len);
+        println!("{ok} / {len} tests passed.");
     }
 
     if ok < len {
@@ -275,7 +275,7 @@ fn test_part(
         Ok(module) => {
             let tree = module.into_root();
             if debug {
-                println!("{:#?}", tree);
+                println!("{tree:#?}");
             }
 
             let mut frames = tree.layout(ctx);
@@ -303,7 +303,7 @@ fn test_part(
     errors.sort_by(|a, b| a.span.partial_cmp(&b.span).unwrap());
 
     if errors != ref_errors {
-        println!("  Subtest {} does not match expected errors. ❌", i);
+        println!("  Subtest {i} does not match expected errors. ❌");
         ok = false;
 
         let source = ctx.sources.get(id);
@@ -345,6 +345,7 @@ fn test_incremental(
         ctx.layouts.turnaround();
 
         let cached = silenced(|| tree.layout(ctx));
+        let total = reference.levels() - 1;
         let misses = ctx
             .layouts
             .entries()
@@ -353,19 +354,14 @@ fn test_incremental(
 
         if misses > 0 {
             println!(
-                "    Subtest {} relayout had {} cache misses on level {} of {} ❌",
-                i,
-                misses,
-                level,
-                reference.levels() - 1,
+                "    Subtest {i} relayout had {misses} cache misses on level {level} of {total} ❌",
             );
             ok = false;
         }
 
         if cached != frames {
             println!(
-                "    Subtest {} relayout differs from clean pass on level {} ❌",
-                i, level
+                "    Subtest {i} relayout differs from clean pass on level {level} ❌",
             );
             ok = false;
         }
@@ -414,8 +410,7 @@ fn test_reparse(src: &str, i: usize, rng: &mut LinearShift) -> bool {
         let mut incr_source = SourceFile::detached(src);
         if incr_source.root().len() != src.len() {
             println!(
-                "    Subtest {} tree length {} does not match string length {} ❌",
-                i,
+                "    Subtest {i} tree length {} does not match string length {} ❌",
                 incr_source.root().len(),
                 src.len(),
             );
@@ -430,14 +425,12 @@ fn test_reparse(src: &str, i: usize, rng: &mut LinearShift) -> bool {
         let ref_root = ref_source.root();
         if incr_root != ref_root {
             println!(
-                "    Subtest {} reparse differs from clean parse when inserting '{}' at {}-{} ❌",
-                i, with, replace.start, replace.end,
+                "    Subtest {i} reparse differs from clean parse when inserting '{with}' at {}-{} ❌\n",
+                replace.start, replace.end,
             );
-            println!(
-                "\n    Expected reference tree:\n{:#?}\n\n    Found incremental tree:\n{:#?}",
-                ref_root, incr_root
-            );
-            println!("Full source ({}):\n\"{:?}\"", edited_src.len(), edited_src);
+            println!("    Expected reference tree:\n{ref_root:#?}\n");
+            println!("    Found incremental tree:\n{incr_root:#?}");
+            println!("Full source ({}):\n\"{edited_src:?}\"", edited_src.len());
             false
         } else {
             true
@@ -527,8 +520,8 @@ fn print_error(source: &SourceFile, line: usize, error: &Error) {
     let end_line = 1 + line + source.byte_to_line(error.span.end).unwrap();
     let end_col = 1 + source.byte_to_column(error.span.end).unwrap();
     println!(
-        "Error: {}:{}-{}:{}: {}",
-        start_line, start_col, end_line, end_col, error.message
+        "Error: {start_line}:{start_col}-{end_line}:{end_col}: {}",
+        error.message,
     );
 }
 
@@ -540,10 +533,7 @@ fn draw(ctx: &Context, frames: &[Rc<Frame>], dpp: f32) -> sk::Pixmap {
     let pxw = (dpp * width.to_f32()) as u32;
     let pxh = (dpp * height.to_f32()) as u32;
     if pxw > 4000 || pxh > 4000 {
-        panic!(
-            "overlarge image: {} by {} ({:?} x {:?})",
-            pxw, pxh, width, height,
-        );
+        panic!("overlarge image: {pxw} by {pxh} ({width:?} x {height:?})",);
     }
 
     let mut canvas = sk::Pixmap::new(pxw, pxh).unwrap();

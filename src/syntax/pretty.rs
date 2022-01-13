@@ -549,9 +549,9 @@ mod tests {
         let ast = source.ast().unwrap();
         let found = pretty(&ast);
         if found != expected {
-            println!("tree:     {:#?}", ast);
-            println!("expected: {}", expected);
-            println!("found:    {}", found);
+            println!("tree:     {ast:#?}");
+            println!("expected: {expected}");
+            println!("found:    {found}");
             panic!("test failed");
         }
     }

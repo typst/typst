@@ -220,10 +220,10 @@ impl Layout for PackedNode {
             #[cfg(debug_assertions)]
             if !entry.check(regions) {
                 eprintln!("node: {:#?}", self.node);
-                eprintln!("regions: {:#?}", regions);
+                eprintln!("regions: {regions:#?}");
                 eprintln!(
                     "constraints: {:#?}",
-                    frames.iter().map(|c| c.cts).collect::<Vec<_>>()
+                    frames.iter().map(|c| c.cts).collect::<Vec<_>>(),
                 );
                 panic!("constraints did not match regions they were created for");
             }

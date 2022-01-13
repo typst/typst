@@ -683,9 +683,9 @@ mod tests {
         T: Debug + PartialEq,
     {
         if found != expected {
-            println!("source:   {:?}", src);
-            println!("expected: {:#?}", expected);
-            println!("found:    {:#?}", found);
+            println!("source:   {src:?}");
+            println!("expected: {expected:#?}");
+            println!("found:    {found:#?}");
             panic!("test failed");
         }
     }
