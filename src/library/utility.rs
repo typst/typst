@@ -135,6 +135,16 @@ pub fn max(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     minmax(args, Ordering::Greater)
 }
 
+/// Whether an integer is even.
+pub fn even(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
+    Ok(Value::Bool(args.expect::<i64>("integer")? % 2 == 0))
+}
+
+/// Whether an integer is odd.
+pub fn odd(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
+    Ok(Value::Bool(args.expect::<i64>("integer")? % 2 != 0))
+}
+
 /// Find the minimum or maximum of a sequence of values.
 fn minmax(args: &mut Args, goal: Ordering) -> TypResult<Value> {
     let mut extremum = args.expect::<Value>("value")?;

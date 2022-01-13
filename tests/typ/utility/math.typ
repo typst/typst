@@ -12,6 +12,13 @@
 #test(abs(50%), 50%)
 
 ---
+// Test the `even` and `odd` functions.
+#test(even(2), true)
+#test(odd(2), false)
+#test(odd(-1), true)
+#test(even(-11), false)
+
+---
 // Error: 6-16 cannot take absolute value of a linear
 #abs(10pt + 50%)
 

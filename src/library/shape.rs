@@ -22,7 +22,7 @@ impl<S: ShapeKind> ShapeNode<S> {
     pub const STROKE: Smart<Option<Paint>> = Smart::Auto;
     /// The stroke's thickness.
     pub const THICKNESS: Length = Length::pt(1.0);
-    /// The How much to pad the shape's content.
+    /// How much to pad the shape's content.
     pub const PADDING: Linear = Linear::zero();
 
     fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
