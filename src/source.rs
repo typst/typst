@@ -13,7 +13,7 @@ use crate::loading::{FileHash, Loader};
 use crate::parse::{is_newline, parse, Reparser, Scanner};
 use crate::syntax::ast::Markup;
 use crate::syntax::{self, Category, GreenNode, RedNode};
-use crate::util::PathExt;
+use crate::util::{PathExt, StrExt};
 
 #[cfg(feature = "codespan-reporting")]
 use codespan_reporting::files::{self, Files};
@@ -98,15 +98,6 @@ impl SourceStore {
         id
     }
 
-    /// Edit a source file by replacing the given range.
-    ///
-    /// This panics if no source file with this `id` exists or if the `replace`
-    /// range is out of bounds for the source file identified by `id`.
-    #[track_caller]
-    pub fn edit(&mut self, id: SourceId, replace: Range<usize>, with: &str) {
-        self.sources[id.0 as usize].edit(replace, with);
-    }
-
     /// Get a reference to a loaded source file.
     ///
     /// This panics if no source file with this `id` exists. This function
@@ -115,6 +106,15 @@ impl SourceStore {
     #[track_caller]
     pub fn get(&self, id: SourceId) -> &SourceFile {
         &self.sources[id.0 as usize]
+    }
+
+    /// Edit a source file by replacing the given range.
+    ///
+    /// This panics if no source file with this `id` exists or if the `replace`
+    /// range is out of bounds for the source file identified by `id`.
+    #[track_caller]
+    pub fn edit(&mut self, id: SourceId, replace: Range<usize>, with: &str) {
+        self.sources[id.0 as usize].edit(replace, with);
     }
 }
 
@@ -126,21 +126,21 @@ pub struct SourceFile {
     id: SourceId,
     path: PathBuf,
     src: String,
-    line_starts: Vec<usize>,
+    lines: Vec<Line>,
     root: Rc<GreenNode>,
 }
 
 impl SourceFile {
     /// Create a new source file.
     pub fn new(id: SourceId, path: &Path, src: String) -> Self {
-        let mut line_starts = vec![0];
-        line_starts.extend(newlines(&src));
+        let mut lines = vec![Line { byte_idx: 0, utf16_idx: 0 }];
+        lines.extend(Line::iter(0, 0, &src));
         Self {
             id,
             path: path.normalize(),
             root: parse(&src),
             src,
-            line_starts,
+            lines,
         }
     }
 
@@ -195,20 +195,29 @@ impl SourceFile {
         self.src.len()
     }
 
+    /// Get the length of the file in UTF16 code units.
+    pub fn len_utf16(&self) -> usize {
+        let last = self.lines.last().unwrap();
+        last.utf16_idx + self.src[last.byte_idx ..].len_utf16()
+    }
+
     /// Get the length of the file in lines.
     pub fn len_lines(&self) -> usize {
-        self.line_starts.len()
+        self.lines.len()
     }
 
     /// Return the index of the UTF-16 code unit at the byte index.
     pub fn byte_to_utf16(&self, byte_idx: usize) -> Option<usize> {
-        Some(self.src.get(.. byte_idx)?.chars().map(char::len_utf16).sum())
+        let line_idx = self.byte_to_line(byte_idx)?;
+        let line = self.lines.get(line_idx)?;
+        let head = self.src.get(line.byte_idx .. byte_idx)?;
+        Some(line.utf16_idx + head.len_utf16())
     }
 
     /// Return the index of the line that contains the given byte index.
     pub fn byte_to_line(&self, byte_idx: usize) -> Option<usize> {
         (byte_idx <= self.src.len()).then(|| {
-            match self.line_starts.binary_search(&byte_idx) {
+            match self.lines.binary_search_by_key(&byte_idx, |line| line.byte_idx) {
                 Ok(i) => i,
                 Err(i) => i - 1,
             }
@@ -226,21 +235,30 @@ impl SourceFile {
         Some(head.chars().count())
     }
 
-    /// Return the index of the UTF-16 code unit at the byte index.
+    /// Return the byte index at the UTF-16 code unit.
     pub fn utf16_to_byte(&self, utf16_idx: usize) -> Option<usize> {
-        let mut k = 0;
-        for (i, c) in self.src.char_indices() {
+        let line = self.lines.get(
+            match self.lines.binary_search_by_key(&utf16_idx, |line| line.utf16_idx) {
+                Ok(i) => i,
+                Err(i) => i - 1,
+            },
+        )?;
+
+        let mut k = line.utf16_idx;
+        for (i, c) in self.src[line.byte_idx ..].char_indices() {
             if k >= utf16_idx {
-                return Some(i);
+                return Some(line.byte_idx + i);
             }
             k += c.len_utf16();
         }
+
         (k == utf16_idx).then(|| self.src.len())
     }
 
+
     /// Return the byte position at which the given line starts.
     pub fn line_to_byte(&self, line_idx: usize) -> Option<usize> {
-        self.line_starts.get(line_idx).copied()
+        self.lines.get(line_idx).map(|line| line.byte_idx)
     }
 
     /// Return the range which encloses the given line.
@@ -273,21 +291,25 @@ impl SourceFile {
     /// Returns the range of the section in the new source that was ultimately
     /// reparsed. The method panics if the `replace` range is out of bounds.
     pub fn edit(&mut self, replace: Range<usize>, with: &str) -> Range<usize> {
-        let start = replace.start;
+        let start_byte = replace.start;
+        let start_utf16 = self.byte_to_utf16(replace.start).unwrap();
         self.src.replace_range(replace.clone(), with);
 
         // Remove invalidated line starts.
-        let line = self.byte_to_line(start).unwrap();
-        self.line_starts.truncate(line + 1);
+        let line = self.byte_to_line(start_byte).unwrap();
+        self.lines.truncate(line + 1);
 
         // Handle adjoining of \r and \n.
-        if self.src[.. start].ends_with('\r') && with.starts_with('\n') {
-            self.line_starts.pop();
+        if self.src[.. start_byte].ends_with('\r') && with.starts_with('\n') {
+            self.lines.pop();
         }
 
         // Recalculate the line starts after the edit.
-        self.line_starts
-            .extend(newlines(&self.src[start ..]).map(|idx| start + idx));
+        self.lines.extend(Line::iter(
+            start_byte,
+            start_utf16,
+            &self.src[start_byte ..],
+        ));
 
         // Incrementally reparse the replaced range.
         Reparser::new(&self.src, replace, with.len()).reparse(&mut self.root)
@@ -298,27 +320,49 @@ impl SourceFile {
     where
         F: FnMut(Range<usize>, Category),
     {
-        let red = RedNode::from_root(self.root.clone(), self.id);
-        syntax::highlight(red.as_ref(), range, &mut f)
+        syntax::highlight(self.red().as_ref(), range, &mut f)
     }
 }
 
-/// The indices at which lines start (right behind newlines).
-///
-/// The beginning of the string (index 0) is not returned.
-fn newlines(string: &str) -> impl Iterator<Item = usize> + '_ {
-    let mut s = Scanner::new(string);
-    std::iter::from_fn(move || {
-        while let Some(c) = s.eat() {
-            if is_newline(c) {
-                if c == '\r' {
-                    s.eat_if('\n');
-                }
-                return Some(s.index());
+/// Metadata about a line.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+struct Line {
+    /// The UTF-8 byte offset where the line starts.
+    byte_idx: usize,
+    /// The UTF-16 codepoint offset where the line starts.
+    utf16_idx: usize,
+}
+
+impl Line {
+    /// Iterate over the lines in the string.
+    fn iter(
+        byte_offset: usize,
+        utf16_offset: usize,
+        string: &str,
+    ) -> impl Iterator<Item = Line> + '_ {
+        let mut s = Scanner::new(string);
+        let mut utf16_idx = utf16_offset;
+
+        std::iter::from_fn(move || {
+            s.eat_until(|c| {
+                utf16_idx += c.len_utf16();
+                is_newline(c)
+            });
+
+            if s.eof() {
+                return None;
             }
-        }
-        None
-    })
+
+            if s.eat() == Some('\r') && s.eat_if('\n') {
+                utf16_idx += 1;
+            }
+
+            Some(Line {
+                byte_idx: byte_offset + s.index(),
+                utf16_idx,
+            })
+        })
+    }
 }
 
 impl AsRef<str> for SourceFile {
@@ -386,7 +430,12 @@ mod tests {
     #[test]
     fn test_source_file_new() {
         let source = SourceFile::detached(TEST);
-        assert_eq!(source.line_starts, [0, 7, 15, 18]);
+        assert_eq!(source.lines, [
+            Line { byte_idx: 0, utf16_idx: 0 },
+            Line { byte_idx: 7, utf16_idx: 6 },
+            Line { byte_idx: 15, utf16_idx: 12 },
+            Line { byte_idx: 18, utf16_idx: 15 },
+        ]);
     }
 
     #[test]
@@ -459,7 +508,7 @@ mod tests {
             let result = SourceFile::detached(after);
             source.edit(range, with);
             assert_eq!(source.src, result.src);
-            assert_eq!(source.line_starts, result.line_starts);
+            assert_eq!(source.lines, result.lines);
         }
 
         // Test inserting at the begining.

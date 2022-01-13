@@ -66,6 +66,26 @@ fn bench_layout(iai: &mut Iai) {
     iai.run(|| tree.layout(&mut ctx));
 }
 
+fn bench_highlight(iai: &mut Iai) {
+    let (ctx, id) = context();
+    let source = ctx.sources.get(id);
+    iai.run(|| source.highlight(0 .. source.len_bytes(), |_, _| {}));
+}
+
+fn bench_byte_to_utf16(iai: &mut Iai) {
+    let (ctx, id) = context();
+    let source = ctx.sources.get(id);
+    let mut ranges = vec![];
+    source.highlight(0 .. source.len_bytes(), |range, _| ranges.push(range));
+    iai.run(|| {
+        ranges
+            .iter()
+            .map(|range| source.byte_to_utf16(range.start)
+                .. source.byte_to_utf16(range.end))
+            .collect::<Vec<_>>()
+    });
+}
+
 main!(
     bench_decode,
     bench_scan,
@@ -73,5 +93,7 @@ main!(
     bench_parse,
     bench_edit,
     bench_eval,
-    bench_layout
+    bench_layout,
+    bench_highlight,
+    bench_byte_to_utf16,
 );

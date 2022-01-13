@@ -13,6 +13,19 @@ use std::ops::Range;
 use std::path::{Component, Path, PathBuf};
 use std::rc::Rc;
 
+/// Additional methods for strings.
+pub trait StrExt {
+    /// The number of code units this string would use if it was encoded in
+    /// UTF16. This runs in linear time.
+    fn len_utf16(&self) -> usize;
+}
+
+impl StrExt for str {
+    fn len_utf16(&self) -> usize {
+        self.chars().map(char::len_utf16).sum()
+    }
+}
+
 /// Additional methods for options.
 pub trait OptionExt<T> {
     /// Sets `other` as the value if `self` is `None` or if it contains a value

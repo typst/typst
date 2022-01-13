@@ -19,6 +19,11 @@ impl<'s> Scanner<'s> {
         Self { src, index: 0 }
     }
 
+    /// Whether the end of the string is reached.
+    pub fn eof(&self) -> bool {
+        self.index == self.src.len()
+    }
+
     /// Consume the next char.
     #[inline]
     pub fn eat(&mut self) -> Option<char> {
