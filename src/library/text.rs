@@ -426,6 +426,11 @@ fn shape_segment<'a>(
     dir: Dir,
     tags: &[rustybuzz::Feature],
 ) {
+    // No font has newlines.
+    if text.chars().all(|c| c == '\n') {
+        return;
+    }
+
     // Select the font family.
     let (face_id, fallback) = loop {
         // Try to load the next available font family.
