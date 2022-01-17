@@ -138,6 +138,12 @@ impl<'a> FlowLayouter<'a> {
             }
         }
 
+        if self.expand.y {
+            while self.regions.backlog.len() > 0 {
+                self.finish_region();
+            }
+        }
+
         self.finish_region();
         self.finished
     }

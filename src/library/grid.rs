@@ -69,7 +69,7 @@ castable! {
     Value::Relative(v) => vec![TrackSizing::Linear(v.into())],
     Value::Linear(v) => vec![TrackSizing::Linear(v)],
     Value::Fractional(v) => vec![TrackSizing::Fractional(v)],
-    Value::Int(v) => vec![TrackSizing::Auto; Value::Int(v).cast()?],
+    Value::Int(v) => vec![TrackSizing::Auto; Value::Int(v).cast::<NonZeroUsize>()?.get()],
     Value::Array(values) => values
         .into_iter()
         .filter_map(|v| v.cast().ok())

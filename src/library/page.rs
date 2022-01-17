@@ -98,27 +98,22 @@ impl PageNode {
             child = ColumnsNode { columns, child: self.0.clone() }.pack();
         }
 
-        // Realize margins with padding node.
+        // Realize margins.
         child = child.padded(padding);
+
+        // Realize background fill.
+        if let Some(fill) = styles.get(Self::FILL) {
+            child = child.filled(fill);
+        }
 
         // Layout the child.
         let expand = size.map(Length::is_finite);
         let regions = Regions::repeat(size, size, expand);
-        let mut frames: Vec<_> = child
+        child
             .layout(ctx, &regions, styles)
             .into_iter()
             .map(|c| c.item)
-            .collect();
-
-        // Add background fill if requested.
-        if let Some(fill) = styles.get(Self::FILL) {
-            for frame in &mut frames {
-                let shape = Shape::filled(Geometry::Rect(frame.size), fill);
-                Rc::make_mut(frame).prepend(Point::zero(), Element::Shape(shape));
-            }
-        }
-
-        frames
+            .collect()
     }
 }
 

@@ -17,10 +17,10 @@ use std::rc::Rc;
 
 use crate::eval::{StyleChain, Styled};
 use crate::font::FontStore;
-use crate::frame::Frame;
-use crate::geom::{Align, Linear, Point, Sides, Size, Spec};
+use crate::frame::{Element, Frame, Geometry, Shape, Stroke};
+use crate::geom::{Align, Linear, Paint, Point, Sides, Size, Spec};
 use crate::image::ImageStore;
-use crate::library::{AlignNode, Move, PadNode, PageNode, SizedNode, TransformNode};
+use crate::library::{AlignNode, Move, PadNode, PageNode, TransformNode};
 use crate::Context;
 
 /// The root layout node, a document consisting of top-level page runs.
@@ -151,6 +151,16 @@ impl PackedNode {
         } else {
             self
         }
+    }
+
+    /// Fill the frames resulting from a node.
+    pub fn filled(self, fill: Paint) -> Self {
+        FillNode { fill, child: self }.pack()
+    }
+
+    /// Stroke the frames resulting from a node.
+    pub fn stroked(self, stroke: Stroke) -> Self {
+        StrokeNode { stroke, child: self }.pack()
     }
 
     /// Set alignments for this node.
@@ -292,5 +302,109 @@ where
         self.type_id().hash(&mut state);
         self.hash(&mut state);
         state.finish()
+    }
+}
+
+/// A node that sizes its child.
+#[derive(Debug, Hash)]
+pub struct SizedNode {
+    /// How to size the node horizontally and vertically.
+    pub sizing: Spec<Option<Linear>>,
+    /// The node to be sized.
+    pub child: PackedNode,
+}
+
+impl Layout for SizedNode {
+    fn layout(
+        &self,
+        ctx: &mut LayoutContext,
+        regions: &Regions,
+        styles: StyleChain,
+    ) -> Vec<Constrained<Rc<Frame>>> {
+        let is_auto = self.sizing.map_is_none();
+        let is_rel = self.sizing.map(|s| s.map_or(false, Linear::is_relative));
+
+        // The "pod" is the region into which the child will be layouted.
+        let pod = {
+            // Resolve the sizing to a concrete size.
+            let size = self
+                .sizing
+                .zip(regions.base)
+                .map(|(s, b)| s.map(|v| v.resolve(b)))
+                .unwrap_or(regions.current);
+
+            // Select the appropriate base and expansion for the child depending
+            // on whether it is automatically or linearly sized.
+            let base = is_auto.select(regions.base, size);
+            let expand = regions.expand | !is_auto;
+
+            Regions::one(size, base, expand)
+        };
+
+        let mut frames = self.child.layout(ctx, &pod, styles);
+        let Constrained { item: frame, cts } = &mut frames[0];
+
+        // Ensure frame size matches regions size if expansion is on.
+        let target = regions.expand.select(regions.current, frame.size);
+        Rc::make_mut(frame).resize(target, Align::LEFT_TOP);
+
+        // Set base & exact constraints if the child is automatically sized
+        // since we don't know what the child might have done. Also set base if
+        // our sizing is relative.
+        *cts = Constraints::new(regions.expand);
+        cts.exact = regions.current.filter(regions.expand | is_auto);
+        cts.base = regions.base.filter(is_rel | is_auto);
+
+        frames
+    }
+}
+
+/// Fill the frames resulting from a node.
+#[derive(Debug, Hash)]
+pub struct FillNode {
+    /// How to fill the frames resulting from the `child`.
+    pub fill: Paint,
+    /// The node to fill.
+    pub child: PackedNode,
+}
+
+impl Layout for FillNode {
+    fn layout(
+        &self,
+        ctx: &mut LayoutContext,
+        regions: &Regions,
+        styles: StyleChain,
+    ) -> Vec<Constrained<Rc<Frame>>> {
+        let mut frames = self.child.layout(ctx, regions, styles);
+        for Constrained { item: frame, .. } in &mut frames {
+            let shape = Shape::filled(Geometry::Rect(frame.size), self.fill);
+            Rc::make_mut(frame).prepend(Point::zero(), Element::Shape(shape));
+        }
+        frames
+    }
+}
+
+/// Stroke the frames resulting from a node.
+#[derive(Debug, Hash)]
+pub struct StrokeNode {
+    /// How to stroke the frames resulting from the `child`.
+    pub stroke: Stroke,
+    /// The node to stroke.
+    pub child: PackedNode,
+}
+
+impl Layout for StrokeNode {
+    fn layout(
+        &self,
+        ctx: &mut LayoutContext,
+        regions: &Regions,
+        styles: StyleChain,
+    ) -> Vec<Constrained<Rc<Frame>>> {
+        let mut frames = self.child.layout(ctx, regions, styles);
+        for Constrained { item: frame, .. } in &mut frames {
+            let shape = Shape::stroked(Geometry::Rect(frame.size), self.stroke);
+            Rc::make_mut(frame).prepend(Point::zero(), Element::Shape(shape));
+        }
+        frames
     }
 }
