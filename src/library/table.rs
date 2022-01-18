@@ -67,7 +67,7 @@ impl Layout for TableNode {
         let stroke = styles.get(Self::STROKE).map(|paint| Stroke { paint, thickness });
         let padding = styles.get(Self::PADDING);
 
-        let cols = self.tracks.x.len();
+        let cols = self.tracks.x.len().max(1);
         let children = self
             .children
             .iter()

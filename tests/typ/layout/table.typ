@@ -7,3 +7,7 @@
   thickness: 2pt,
   [A], [B], [C], [], [], [D \ E \ F \ \ \ G], [H],
 )
+
+---
+// Ref: false
+#table()
