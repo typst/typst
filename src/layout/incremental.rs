@@ -150,6 +150,7 @@ impl LayoutCache {
                     entries.retain(|f| f.hits() as f64 / f.age() as f64 > threshold);
                 }
             }
+            #[cfg(feature = "rand")]
             EvictionPolicy::Random => {
                 // Fraction of items that should be kept.
                 let threshold = self.max_size as f64 / len as f64;
@@ -340,6 +341,7 @@ pub enum EvictionPolicy {
     /// Evict the least frequently used item.
     LeastFrequentlyUsed,
     /// Evict randomly.
+    #[cfg(feature = "rand")]
     Random,
     /// Use the pattern verdicts.
     Patterns,

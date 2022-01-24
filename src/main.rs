@@ -3,7 +3,6 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process;
 
-use anyhow::Context as _;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term::{self, termcolor, Config, Styles};
 use same_file::is_same_file;
@@ -15,20 +14,34 @@ use typst::loading::FsLoader;
 use typst::source::SourceStore;
 use typst::Context;
 
+const HELP: &'static str = "\
+typst creates PDF files from .typ files
+
+USAGE:
+  typst [OPTIONS] <input.typ> [output.pdf]
+
+OPTIONS:
+  -h, --help     Print this help
+
+ARGS:
+  <input.typ>    Path input Typst file
+  [output.pdf]   Path to output PDF
+";
+
 fn main() {
-    if let Err(error) = try_main() {
-        print_error(error).unwrap();
+    let args = parse_args();
+    let ok = args.is_ok();
+    if let Err(msg) = args.and_then(try_main) {
+        print_error(&msg).unwrap();
+        if !ok {
+            println!("\nfor more information, try --help");
+        }
         process::exit(1);
     }
 }
 
 /// The main compiler logic.
-fn try_main() -> anyhow::Result<()> {
-    let args = Args::from_env().unwrap_or_else(|_| {
-        print_usage().unwrap();
-        process::exit(2);
-    });
-
+fn try_main(args: Args) -> Result<(), String> {
     // Create a loader for fonts and files.
     let mut loader = FsLoader::new();
 
@@ -51,24 +64,27 @@ fn try_main() -> anyhow::Result<()> {
 
     // Ensure that the source file is not overwritten.
     if is_same_file(&args.input, &args.output).unwrap_or(false) {
-        anyhow::bail!("source and destination files are the same");
+        Err("source and destination files are the same")?;
     }
 
     // Load the source file.
-    let id = ctx.sources.load(&args.input).context("source file not found")?;
+    let id = ctx
+        .sources
+        .load(&args.input)
+        .map_err(|_| "failed to load source file")?;
 
     // Typeset.
     match ctx.typeset(id) {
         // Export the PDF.
         Ok(frames) => {
             let buffer = export::pdf(&ctx, &frames);
-            fs::write(&args.output, buffer).context("failed to write PDF file")?;
+            fs::write(&args.output, buffer).map_err(|_| "failed to write PDF file")?;
         }
 
         // Print diagnostics.
         Err(errors) => {
             print_diagnostics(&ctx.sources, *errors)
-                .context("failed to print diagnostics")?;
+                .map_err(|_| "failed to print diagnostics")?;
         }
     }
 
@@ -80,55 +96,41 @@ struct Args {
     output: PathBuf,
 }
 
-impl Args {
-    fn from_env() -> Result<Self, anyhow::Error> {
-        let mut parser = pico_args::Arguments::from_env();
+/// Parse command line arguments.
+fn parse_args() -> Result<Args, String> {
+    let mut args = pico_args::Arguments::from_env();
+    if args.contains(["-h", "--help"]) {
+        print!("{}", HELP);
+        std::process::exit(0);
+    }
 
-        // Parse free-standing arguments.
-        let input = parser.free_from_str::<PathBuf>()?;
-        let output = match parser.opt_free_from_str()? {
-            Some(output) => output,
-            None => {
-                let name = input.file_name().context("source path is not a file")?;
-                Path::new(name).with_extension("pdf")
-            }
-        };
-
-        // Don't allow excess arguments.
-        if !parser.finish().is_empty() {
-            anyhow::bail!("too many arguments");
+    let input = args.free_from_str::<PathBuf>().map_err(|_| "missing input file")?;
+    let output = match args.opt_free_from_str().ok().flatten() {
+        Some(output) => output,
+        None => {
+            let name = input.file_name().ok_or("source path does not point to a file")?;
+            Path::new(name).with_extension("pdf")
         }
+    };
 
-        Ok(Self { input, output })
+    // Don't allow excess arguments.
+    if !args.finish().is_empty() {
+        Err("too many arguments")?;
     }
+
+    Ok(Args { input, output })
 }
 
-/// Print a usage message.
-fn print_usage() -> io::Result<()> {
+/// Print an application-level error (independent from a source file).
+fn print_error(msg: &str) -> io::Result<()> {
     let mut w = StandardStream::stderr(ColorChoice::Always);
     let styles = Styles::default();
 
-    w.set_color(&styles.header_help)?;
-    write!(w, "usage")?;
+    w.set_color(&styles.header_error)?;
+    write!(w, "error")?;
 
-    w.set_color(&styles.header_message)?;
-    writeln!(w, ": typst <input.typ> [output.pdf]")
-}
-
-/// Print an error outside of a source file.
-fn print_error(error: anyhow::Error) -> io::Result<()> {
-    let mut w = StandardStream::stderr(ColorChoice::Always);
-    let styles = Styles::default();
-
-    for (i, cause) in error.chain().enumerate() {
-        w.set_color(&styles.header_error)?;
-        write!(w, "{}", if i == 0 { "error" } else { "cause" })?;
-
-        w.set_color(&styles.header_message)?;
-        writeln!(w, ": {}", cause)?;
-    }
-
-    w.reset()
+    w.reset()?;
+    writeln!(w, ": {msg}.")
 }
 
 /// Print diagnostics messages to the terminal.

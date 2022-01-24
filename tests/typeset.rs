@@ -760,7 +760,12 @@ fn draw_image(
             let w = (scale * view_width.max(aspect * view_height)).ceil() as u32;
             let h = ((w as f32) / aspect).ceil() as u32;
             let mut pixmap = sk::Pixmap::new(w, h).unwrap();
-            resvg::render(&tree, FitTo::Size(w, h), pixmap.as_mut());
+            resvg::render(
+                &tree,
+                FitTo::Size(w, h),
+                sk::Transform::identity(),
+                pixmap.as_mut(),
+            );
             pixmap
         }
     };
@@ -838,7 +843,7 @@ fn convert_usvg_fill(fill: &usvg::Fill) -> (sk::Paint<'static>, sk::FillRule) {
     let mut paint = sk::Paint::default();
     paint.anti_alias = true;
 
-    if let usvg::Paint::Color(usvg::Color { red, green, blue, alpha: _ }) = fill.paint {
+    if let usvg::Paint::Color(usvg::Color { red, green, blue }) = fill.paint {
         paint.set_color_rgba8(red, green, blue, fill.opacity.to_u8())
     }
 
