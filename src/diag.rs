@@ -2,8 +2,6 @@
 
 use std::fmt::{self, Display, Formatter};
 
-use serde::{Deserialize, Serialize};
-
 use crate::syntax::{Span, Spanned};
 
 /// Early-return with a vec-boxed [`Error`].
@@ -24,7 +22,7 @@ pub type TypResult<T> = Result<T, Box<Vec<Error>>>;
 pub type StrResult<T> = Result<T, String>;
 
 /// An error in a source file.
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Error {
     /// The erroneous location in the source code.
     pub span: Span,
@@ -52,7 +50,7 @@ impl Error {
 }
 
 /// A part of an error's [trace](Error::trace).
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum Tracepoint {
     /// A function call.
     Call(Option<String>),

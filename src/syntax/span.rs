@@ -2,12 +2,10 @@ use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
 use std::ops::Range;
 
-use serde::{Deserialize, Serialize};
-
 use crate::source::SourceId;
 
 /// A value with the span it corresponds to in the source code.
-#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub struct Spanned<T> {
     /// The spanned value.
     pub v: T,
@@ -48,7 +46,7 @@ impl<T: Debug> Debug for Spanned<T> {
 }
 
 /// Bounds of a slice of source code.
-#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub struct Span {
     /// The id of the source file.
     pub source: SourceId,

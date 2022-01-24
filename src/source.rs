@@ -6,8 +6,6 @@ use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
-use serde::{Deserialize, Serialize};
-
 use crate::diag::TypResult;
 use crate::loading::{FileHash, Loader};
 use crate::parse::{is_newline, parse, Reparser, Scanner};
@@ -19,7 +17,7 @@ use crate::util::{PathExt, StrExt};
 use codespan_reporting::files::{self, Files};
 
 /// A unique identifier for a loaded source file.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct SourceId(u32);
 
 impl SourceId {

@@ -428,6 +428,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "db8bcd96cb740d03149cbad5518db9fd87126a10ab519c011893b1754134c468"
 
 [[package]]
+name = "pixglyph"
+version = "0.1.0"
+source = "git+https://github.com/typst/pixglyph#b63319b30eb34bcd7f3f3bb4c253a0731bae4234"
+dependencies = [
+ "ttf-parser",
+]
+
+[[package]]
 name = "png"
 version = "0.16.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -745,6 +753,7 @@ dependencies = [
  "codespan-reporting",
  "dirs",
  "filedescriptor",
+ "flate2",
  "fxhash",
  "iai",
  "image",
@@ -754,8 +763,10 @@ dependencies = [
  "once_cell",
  "pdf-writer",
  "pico-args",
+ "pixglyph",
  "rand",
  "resvg",
+ "roxmltree",
  "rustybuzz",
  "same-file",
  "serde",

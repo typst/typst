@@ -3,8 +3,7 @@ use super::*;
 /// A 64-bit float that implements `Eq`, `Ord` and `Hash`.
 ///
 /// Panics if it's `NaN` during any of those operations.
-#[derive(Default, Copy, Clone, Serialize, Deserialize)]
-#[serde(transparent)]
+#[derive(Default, Copy, Clone)]
 pub struct Scalar(pub f64);
 
 impl From<f64> for Scalar {

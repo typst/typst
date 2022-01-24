@@ -4,7 +4,7 @@ use std::str::FromStr;
 use super::*;
 
 /// How a fill or stroke should be painted.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Paint {
     /// A solid color.
     Solid(Color),
@@ -20,7 +20,7 @@ where
 }
 
 /// A color in a dynamic format.
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Color {
     /// An 8-bit RGBA color.
     Rgba(RgbaColor),
@@ -41,7 +41,7 @@ impl From<RgbaColor> for Color {
 }
 
 /// An 8-bit RGBA color.
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct RgbaColor {
     /// Red channel.
     pub r: u8,

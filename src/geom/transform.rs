@@ -1,7 +1,7 @@
 use super::*;
 
 /// A scale-skew-translate transformation.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Transform {
     pub sx: Relative,
     pub ky: Relative,

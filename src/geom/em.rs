@@ -4,7 +4,6 @@ use super::*;
 ///
 /// `1em` is the same as the font size.
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-#[derive(Serialize, Deserialize)]
 pub struct Em(Scalar);
 
 impl Em {

@@ -9,12 +9,11 @@ use std::rc::Rc;
 
 use image::io::Reader as ImageReader;
 use image::{DynamicImage, GenericImageView, ImageFormat};
-use serde::{Deserialize, Serialize};
 
 use crate::loading::{FileHash, Loader};
 
 /// A unique identifier for a loaded image.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct ImageId(u32);
 
 impl ImageId {
@@ -37,7 +36,6 @@ pub struct ImageStore {
     loader: Rc<dyn Loader>,
     files: HashMap<FileHash, ImageId>,
     images: Vec<Image>,
-    on_load: Option<Box<dyn Fn(ImageId, &Image)>>,
 }
 
 impl ImageStore {
@@ -47,16 +45,7 @@ impl ImageStore {
             loader,
             files: HashMap::new(),
             images: vec![],
-            on_load: None,
         }
-    }
-
-    /// Register a callback which is invoked each time an image is loaded.
-    pub fn on_load<F>(&mut self, f: F)
-    where
-        F: Fn(ImageId, &Image) + 'static,
-    {
-        self.on_load = Some(Box::new(f));
     }
 
     /// Load and decode an image file from a path.
@@ -69,9 +58,6 @@ impl ImageStore {
                 let ext = path.extension().and_then(OsStr::to_str).unwrap_or_default();
                 let image = Image::parse(&buffer, ext)?;
                 let id = ImageId(self.images.len() as u32);
-                if let Some(callback) = &self.on_load {
-                    callback(id, &image);
-                }
                 self.images.push(image);
                 entry.insert(id)
             }

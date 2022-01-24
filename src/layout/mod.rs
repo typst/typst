@@ -79,7 +79,7 @@ pub struct LayoutContext<'a> {
     pub images: &'a mut ImageStore,
     /// Caches layouting artifacts.
     #[cfg(feature = "layout-cache")]
-    pub layouts: &'a mut LayoutCache,
+    pub layout_cache: &'a mut LayoutCache,
     /// How deeply nested the current layout tree position is.
     #[cfg(feature = "layout-cache")]
     level: usize,
@@ -92,7 +92,7 @@ impl<'a> LayoutContext<'a> {
             fonts: &mut ctx.fonts,
             images: &mut ctx.images,
             #[cfg(feature = "layout-cache")]
-            layouts: &mut ctx.layouts,
+            layout_cache: &mut ctx.layout_cache,
             #[cfg(feature = "layout-cache")]
             level: 0,
         };
@@ -220,7 +220,7 @@ impl Layout for PackedNode {
         };
 
         #[cfg(feature = "layout-cache")]
-        ctx.layouts.get(hash, regions).unwrap_or_else(|| {
+        ctx.layout_cache.get(hash, regions).unwrap_or_else(|| {
             ctx.level += 1;
             let frames = self.node.layout(ctx, regions, styles);
             ctx.level -= 1;
@@ -238,7 +238,7 @@ impl Layout for PackedNode {
                 panic!("constraints did not match regions they were created for");
             }
 
-            ctx.layouts.insert(hash, entry);
+            ctx.layout_cache.insert(hash, entry);
             frames
         })
     }

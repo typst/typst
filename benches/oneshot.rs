@@ -17,6 +17,19 @@ fn context() -> (Context, SourceId) {
     (ctx, id)
 }
 
+main!(
+    bench_decode,
+    bench_scan,
+    bench_tokenize,
+    bench_parse,
+    bench_edit,
+    bench_eval,
+    bench_layout,
+    bench_highlight,
+    bench_byte_to_utf16,
+    bench_render,
+);
+
 fn bench_decode(iai: &mut Iai) {
     iai.run(|| {
         // We don't use chars().count() because that has a special
@@ -86,14 +99,8 @@ fn bench_byte_to_utf16(iai: &mut Iai) {
     });
 }
 
-main!(
-    bench_decode,
-    bench_scan,
-    bench_tokenize,
-    bench_parse,
-    bench_edit,
-    bench_eval,
-    bench_layout,
-    bench_highlight,
-    bench_byte_to_utf16,
-);
+fn bench_render(iai: &mut Iai) {
+    let (mut ctx, id) = context();
+    let frames = ctx.typeset(id).unwrap();
+    iai.run(|| typst::export::render(&mut ctx, &frames[0], 1.0))
+}

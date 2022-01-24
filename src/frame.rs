@@ -3,14 +3,12 @@
 use std::fmt::{self, Debug, Formatter};
 use std::rc::Rc;
 
-use serde::{Deserialize, Serialize};
-
 use crate::font::FaceId;
 use crate::geom::{Align, Em, Length, Paint, Path, Point, Size, Spec, Transform};
 use crate::image::ImageId;
 
 /// A finished layout with elements at fixed positions.
-#[derive(Default, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Clone, Eq, PartialEq)]
 pub struct Frame {
     /// The size of the frame.
     pub size: Size,
@@ -133,7 +131,7 @@ impl Debug for Frame {
 }
 
 /// The building block frames are composed of.
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Element {
     /// A group of elements.
     Group(Group),
@@ -141,14 +139,14 @@ pub enum Element {
     Text(Text),
     /// A geometric shape with optional fill and stroke.
     Shape(Shape),
-    /// A raster image and its size.
+    /// An image and its size.
     Image(ImageId, Size),
     /// A link to an external resource and its trigger region.
     Link(String, Size),
 }
 
 /// A group of elements with optional clipping.
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Group {
     /// The group's frame.
     pub frame: Rc<Frame>,
@@ -170,7 +168,7 @@ impl Group {
 }
 
 /// A run of shaped text.
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Text {
     /// The font face the glyphs are contained in.
     pub face_id: FaceId,
@@ -190,7 +188,7 @@ impl Text {
 }
 
 /// A glyph in a run of shaped text.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Glyph {
     /// The glyph's index in the face.
     pub id: u16,
@@ -201,7 +199,7 @@ pub struct Glyph {
 }
 
 /// A geometric shape with optional fill and stroke.
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Shape {
     /// The shape's geometry.
     pub geometry: Geometry,
@@ -228,7 +226,7 @@ impl Shape {
 }
 
 /// A shape's geometry.
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Geometry {
     /// A line to a point (relative to its position).
     Line(Point),
@@ -241,7 +239,7 @@ pub enum Geometry {
 }
 
 /// A stroke of a geometric shape.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Stroke {
     /// The stroke's paint.
     pub paint: Paint,

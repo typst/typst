@@ -23,7 +23,7 @@ bytemuck = "1"
 fxhash = "0.2"
 itertools = "0.10"
 once_cell = "1"
-serde = { version = "1", features = ["derive", "rc"] }
+serde = { version = "1", features = ["derive"] }
 
 # Text and font handling
 ttf-parser = "0.12"
@@ -35,13 +35,19 @@ xi-unicode = "0.3"
 
 # Raster and vector graphics handling
 image = { version = "0.23", default-features = false, features = ["png", "jpeg"] }
-resvg = { version = "0.20", default-features = false }
 usvg = { version = "0.20", default-features = false }
 
 # PDF export
 miniz_oxide = "0.4"
 pdf-writer = "0.4"
 svg2pdf = "0.2"
+
+# Raster export / rendering
+tiny-skia = "0.6.2"
+pixglyph = { git = "https://github.com/typst/pixglyph" }
+resvg = { version = "0.20", default-features = false }
+roxmltree = "0.14"
+flate2 = "1"
 
 # Command line interface
 pico-args = { version = "0.4", optional = true }
@@ -59,8 +65,6 @@ rand = { version = "0.8", optional = true }
 [dev-dependencies]
 filedescriptor = "0.8"
 iai = { git = "https://github.com/reknih/iai" }
-resvg = { version = "0.20", default-features = false }
-tiny-skia = "0.6.2"
 walkdir = "2"
 
 [profile.dev]

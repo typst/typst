@@ -1,7 +1,7 @@
 use super::*;
 
 /// A point in 2D.
-#[derive(Default, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Point {
     /// The x coordinate.
     pub x: Length,

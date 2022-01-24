@@ -13,7 +13,7 @@ use crate::loading::{FileHash, Loader};
 use crate::util::decode_mac_roman;
 
 /// A unique identifier for a loaded font face.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct FaceId(u32);
 
 impl FaceId {
@@ -37,7 +37,6 @@ pub struct FontStore {
     faces: Vec<Option<Face>>,
     families: BTreeMap<String, Vec<FaceId>>,
     buffers: HashMap<FileHash, Rc<Vec<u8>>>,
-    on_load: Option<Box<dyn Fn(FaceId, &Face)>>,
 }
 
 impl FontStore {
@@ -57,16 +56,7 @@ impl FontStore {
             faces,
             families,
             buffers: HashMap::new(),
-            on_load: None,
         }
-    }
-
-    /// Register a callback which is invoked each time a font face is loaded.
-    pub fn on_load<F>(&mut self, f: F)
-    where
-        F: Fn(FaceId, &Face) + 'static,
-    {
-        self.on_load = Some(Box::new(f));
     }
 
     /// Query for and load the font face from the given `family` that most
@@ -124,10 +114,6 @@ impl FontStore {
             };
 
             let face = Face::new(Rc::clone(buffer), index)?;
-            if let Some(callback) = &self.on_load {
-                callback(id, &face);
-            }
-
             *slot = Some(face);
         }
 

@@ -12,7 +12,7 @@ use pdf_writer::types::{
 use pdf_writer::{Content, Filter, Finish, Name, PdfWriter, Rect, Ref, Str, TextStr};
 use ttf_parser::{name_id, GlyphId, Tag};
 
-use super::subset;
+use super::subset::subset;
 use crate::font::{find_name, FaceId, FontStore};
 use crate::frame::{Element, Frame, Geometry, Group, Shape, Stroke, Text};
 use crate::geom::{self, Color, Em, Length, Paint, Point, Size, Transform};
@@ -22,8 +22,8 @@ use crate::Context;
 /// Export a collection of frames into a PDF file.
 ///
 /// This creates one page per frame. In addition to the frames, you need to pass
-/// in the context used during compilation such that things like fonts and
-/// images can be included in the PDF.
+/// in the context used during compilation so that fonts and images can be
+/// included in the PDF.
 ///
 /// Returns the raw bytes making up the PDF file.
 pub fn pdf(ctx: &Context, frames: &[Rc<Frame>]) -> Vec<u8> {

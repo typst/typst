@@ -4,7 +4,7 @@ use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
 use super::*;
 
 /// A container with a horizontal and vertical component.
-#[derive(Default, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Spec<T> {
     /// The horizontal component.
     pub x: T,

@@ -5,18 +5,13 @@ use std::ops::Range;
 use std::path::Path;
 use std::rc::Rc;
 
-use image::{GenericImageView, Rgba};
 use tiny_skia as sk;
-use ttf_parser::{GlyphId, OutlineBuilder};
-use usvg::FitTo;
 use walkdir::WalkDir;
 
 use typst::diag::Error;
 use typst::eval::{Smart, StyleMap, Value};
-use typst::font::Face;
-use typst::frame::{Element, Frame, Geometry, Shape, Stroke, Text};
-use typst::geom::{self, Color, Length, Paint, PathElement, RgbaColor, Size, Transform};
-use typst::image::{Image, RasterImage, Svg};
+use typst::frame::{Element, Frame};
+use typst::geom::Length;
 use typst::library::{PageNode, TextNode};
 use typst::loading::FsLoader;
 use typst::parse::Scanner;
@@ -229,7 +224,7 @@ fn test(
             fs::write(pdf_path, pdf_data).unwrap();
         }
 
-        let canvas = draw(ctx, &frames, 2.0);
+        let canvas = render(ctx, &frames);
         fs::create_dir_all(&png_path.parent().unwrap()).unwrap();
         canvas.save_png(png_path).unwrap();
 
@@ -325,149 +320,6 @@ fn test_part(
     (ok, compare_ref, frames)
 }
 
-#[cfg(feature = "layout-cache")]
-fn test_incremental(
-    ctx: &mut Context,
-    i: usize,
-    tree: &RootNode,
-    frames: &[Rc<Frame>],
-) -> bool {
-    let mut ok = true;
-
-    let reference = ctx.layouts.clone();
-    for level in 0 .. reference.levels() {
-        ctx.layouts = reference.clone();
-        ctx.layouts.retain(|x| x == level);
-        if ctx.layouts.is_empty() {
-            continue;
-        }
-
-        ctx.layouts.turnaround();
-
-        let cached = silenced(|| tree.layout(ctx));
-        let total = reference.levels() - 1;
-        let misses = ctx
-            .layouts
-            .entries()
-            .filter(|e| e.level() == level && !e.hit() && e.age() == 2)
-            .count();
-
-        if misses > 0 {
-            println!(
-                "    Subtest {i} relayout had {misses} cache misses on level {level} of {total} ❌",
-            );
-            ok = false;
-        }
-
-        if cached != frames {
-            println!(
-                "    Subtest {i} relayout differs from clean pass on level {level} ❌",
-            );
-            ok = false;
-        }
-    }
-
-    ctx.layouts = reference;
-    ctx.layouts.turnaround();
-
-    ok
-}
-
-/// Pseudorandomly edit the source file and test whether a reparse produces the
-/// same result as a clean parse.
-///
-/// The method will first inject 10 strings once every 400 source characters
-/// and then select 5 leaf node boundries to inject an additional, randomly
-/// chosen string from the injection list.
-fn test_reparse(src: &str, i: usize, rng: &mut LinearShift) -> bool {
-    let supplements = [
-        "[",
-        ")",
-        "#rect()",
-        "a word",
-        ", a: 1",
-        "10.0",
-        ":",
-        "if i == 0 {true}",
-        "for",
-        "* hello *",
-        "//",
-        "/*",
-        "\\u{12e4}",
-        "```typst",
-        " ",
-        "trees",
-        "\\",
-        "$ a $",
-        "2.",
-        "-",
-        "5",
-    ];
-
-    let mut ok = true;
-
-    let apply = |replace: std::ops::Range<usize>, with| {
-        let mut incr_source = SourceFile::detached(src);
-        if incr_source.root().len() != src.len() {
-            println!(
-                "    Subtest {i} tree length {} does not match string length {} ❌",
-                incr_source.root().len(),
-                src.len(),
-            );
-            return false;
-        }
-
-        incr_source.edit(replace.clone(), with);
-        let edited_src = incr_source.src();
-
-        let ref_source = SourceFile::detached(edited_src);
-        let incr_root = incr_source.root();
-        let ref_root = ref_source.root();
-        if incr_root != ref_root {
-            println!(
-                "    Subtest {i} reparse differs from clean parse when inserting '{with}' at {}-{} ❌\n",
-                replace.start, replace.end,
-            );
-            println!("    Expected reference tree:\n{ref_root:#?}\n");
-            println!("    Found incremental tree:\n{incr_root:#?}");
-            println!("Full source ({}):\n\"{edited_src:?}\"", edited_src.len());
-            false
-        } else {
-            true
-        }
-    };
-
-    let mut pick = |range: Range<usize>| {
-        let ratio = rng.next();
-        (range.start as f64 + ratio * (range.end - range.start) as f64).floor() as usize
-    };
-
-    let insertions = (src.len() as f64 / 400.0).ceil() as usize;
-
-    for _ in 0 .. insertions {
-        let supplement = supplements[pick(0 .. supplements.len())];
-        let start = pick(0 .. src.len());
-        let end = pick(start .. src.len());
-
-        if !src.is_char_boundary(start) || !src.is_char_boundary(end) {
-            continue;
-        }
-
-        ok &= apply(start .. end, supplement);
-    }
-
-    let red = SourceFile::detached(src).red();
-
-    let leafs = red.as_ref().leafs();
-
-    let leaf_start = leafs[pick(0 .. leafs.len())].span().start;
-    let supplement = supplements[pick(0 .. supplements.len())];
-
-    ok &= apply(leaf_start .. leaf_start, supplement);
-
-    ok
-}
-
 fn parse_metadata(source: &SourceFile) -> (Option<bool>, Vec<Error>) {
     let mut compare_ref = None;
     let mut errors = vec![];
@@ -525,390 +377,210 @@ fn print_error(source: &SourceFile, line: usize, error: &Error) {
     );
 }
 
-fn draw(ctx: &Context, frames: &[Rc<Frame>], dpp: f32) -> sk::Pixmap {
-    let pad = Length::pt(5.0);
-    let width = 2.0 * pad + frames.iter().map(|l| l.size.x).max().unwrap_or_default();
-    let height = pad + frames.iter().map(|l| l.size.y + pad).sum::<Length>();
+/// Pseudorandomly edit the source file and test whether a reparse produces the
+/// same result as a clean parse.
+///
+/// The method will first inject 10 strings once every 400 source characters
+/// and then select 5 leaf node boundries to inject an additional, randomly
+/// chosen string from the injection list.
+fn test_reparse(src: &str, i: usize, rng: &mut LinearShift) -> bool {
+    let supplements = [
+        "[",
+        ")",
+        "#rect()",
+        "a word",
+        ", a: 1",
+        "10.0",
+        ":",
+        "if i == 0 {true}",
+        "for",
+        "* hello *",
+        "//",
+        "/*",
+        "\\u{12e4}",
+        "```typst",
+        " ",
+        "trees",
+        "\\",
+        "$ a $",
+        "2.",
+        "-",
+        "5",
+    ];
 
-    let pxw = (dpp * width.to_f32()) as u32;
-    let pxh = (dpp * height.to_f32()) as u32;
-    if pxw > 4000 || pxh > 4000 {
-        panic!("overlarge image: {pxw} by {pxh} ({width:?} x {height:?})",);
+    let mut ok = true;
+
+    let apply = |replace: std::ops::Range<usize>, with| {
+        let mut incr_source = SourceFile::detached(src);
+        if incr_source.root().len() != src.len() {
+            println!(
+                "    Subtest {i} tree length {} does not match string length {} ❌",
+                incr_source.root().len(),
+                src.len(),
+            );
+            return false;
+        }
+
+        incr_source.edit(replace.clone(), with);
+
+        let edited_src = incr_source.src();
+        let ref_source = SourceFile::detached(edited_src);
+        let incr_root = incr_source.root();
+        let ref_root = ref_source.root();
+        let same = incr_root == ref_root;
+        if !same {
+            println!(
+                "    Subtest {i} reparse differs from clean parse when inserting '{with}' at {}-{} ❌\n",
+                replace.start, replace.end,
+            );
+            println!("    Expected reference tree:\n{ref_root:#?}\n");
+            println!("    Found incremental tree:\n{incr_root:#?}");
+            println!("Full source ({}):\n\"{edited_src:?}\"", edited_src.len());
+        }
+
+        same
+    };
+
+    let mut pick = |range: Range<usize>| {
+        let ratio = rng.next();
+        (range.start as f64 + ratio * (range.end - range.start) as f64).floor() as usize
+    };
+
+    let insertions = (src.len() as f64 / 400.0).ceil() as usize;
+    for _ in 0 .. insertions {
+        let supplement = supplements[pick(0 .. supplements.len())];
+        let start = pick(0 .. src.len());
+        let end = pick(start .. src.len());
+
+        if !src.is_char_boundary(start) || !src.is_char_boundary(end) {
+            continue;
+        }
+
+        ok &= apply(start .. end, supplement);
     }
+
+    let red = SourceFile::detached(src).red();
+    let leafs = red.as_ref().leafs();
+    let leaf_start = leafs[pick(0 .. leafs.len())].span().start;
+    let supplement = supplements[pick(0 .. supplements.len())];
+    ok &= apply(leaf_start .. leaf_start, supplement);
+
+    ok
+}
+
+#[cfg(feature = "layout-cache")]
+fn test_incremental(
+    ctx: &mut Context,
+    i: usize,
+    tree: &RootNode,
+    frames: &[Rc<Frame>],
+) -> bool {
+    let mut ok = true;
+
+    let reference = ctx.layout_cache.clone();
+    for level in 0 .. reference.levels() {
+        ctx.layout_cache = reference.clone();
+        ctx.layout_cache.retain(|x| x == level);
+        if ctx.layout_cache.is_empty() {
+            continue;
+        }
+
+        ctx.layout_cache.turnaround();
+
+        let cached = silenced(|| tree.layout(ctx));
+        let total = reference.levels() - 1;
+        let misses = ctx
+            .layout_cache
+            .entries()
+            .filter(|e| e.level() == level && !e.hit() && e.age() == 2)
+            .count();
+
+        if misses > 0 {
+            println!(
+                "    Subtest {i} relayout had {misses} cache misses on level {level} of {total} ❌",
+            );
+            ok = false;
+        }
+
+        if cached != frames {
+            println!(
+                "    Subtest {i} relayout differs from clean pass on level {level} ❌",
+            );
+            ok = false;
+        }
+    }
+
+    ctx.layout_cache = reference;
+    ctx.layout_cache.turnaround();
+
+    ok
+}
+
+/// Draw all frames into one image with padding in between.
+fn render(ctx: &mut Context, frames: &[Rc<Frame>]) -> sk::Pixmap {
+    let pixel_per_pt = 2.0;
+    let pixmaps: Vec<_> = frames
+        .iter()
+        .map(|frame| {
+            let limit = Length::cm(100.0);
+            if frame.size.x > limit || frame.size.y > limit {
+                panic!("overlarge frame: {:?}", frame.size);
+            }
+            typst::export::render(ctx, frame, pixel_per_pt)
+        })
+        .collect();
+
+    let pad = (5.0 * pixel_per_pt).round() as u32;
+    let pxw = 2 * pad + pixmaps.iter().map(sk::Pixmap::width).max().unwrap_or_default();
+    let pxh = pad + pixmaps.iter().map(|pixmap| pixmap.height() + pad).sum::<u32>();
 
     let mut canvas = sk::Pixmap::new(pxw, pxh).unwrap();
     canvas.fill(sk::Color::BLACK);
 
-    let mut mask = sk::ClipMask::new();
-    let rect = sk::Rect::from_xywh(0.0, 0.0, pxw as f32, pxh as f32).unwrap();
-    let path = sk::PathBuilder::from_rect(rect);
-    mask.set_path(pxw, pxh, &path, sk::FillRule::default(), false);
+    let [x, mut y] = [pad; 2];
+    for (frame, mut pixmap) in frames.iter().zip(pixmaps) {
+        let ts = sk::Transform::from_scale(pixel_per_pt, pixel_per_pt);
+        render_links(&mut pixmap, ts, ctx, frame);
 
-    let mut ts =
-        sk::Transform::from_scale(dpp, dpp).pre_translate(pad.to_f32(), pad.to_f32());
+        canvas.draw_pixmap(
+            x as i32,
+            y as i32,
+            pixmap.as_ref(),
+            &sk::PixmapPaint::default(),
+            sk::Transform::identity(),
+            None,
+        );
 
-    for frame in frames {
-        let mut background = sk::Paint::default();
-        background.set_color(sk::Color::WHITE);
-
-        let w = frame.size.x.to_f32();
-        let h = frame.size.y.to_f32();
-        let rect = sk::Rect::from_xywh(0.0, 0.0, w, h).unwrap();
-        canvas.fill_rect(rect, &background, ts, None);
-
-        draw_frame(&mut canvas, ts, &mask, ctx, frame, true);
-        ts = ts.pre_translate(0.0, (frame.size.y + pad).to_f32());
+        y += pixmap.height() + pad;
     }
 
     canvas
 }
 
-fn draw_frame(
+/// Draw extra boxes for links so we can see whether they are there.
+fn render_links(
     canvas: &mut sk::Pixmap,
     ts: sk::Transform,
-    mask: &sk::ClipMask,
     ctx: &Context,
     frame: &Frame,
-    clip: bool,
 ) {
-    let mut storage;
-    let mut mask = mask;
-    if clip {
-        let w = frame.size.x.to_f32();
-        let h = frame.size.y.to_f32();
-        let rect = sk::Rect::from_xywh(0.0, 0.0, w, h).unwrap();
-        let path = sk::PathBuilder::from_rect(rect).transform(ts).unwrap();
-        let rule = sk::FillRule::default();
-        storage = mask.clone();
-        if storage.intersect_path(&path, rule, false).is_none() {
-            // Fails if clipping rect is empty. In that case we just clip
-            // everything by returning.
-            return;
-        }
-        mask = &storage;
-    }
-
     for (pos, element) in &frame.elements {
-        let x = pos.x.to_f32();
-        let y = pos.y.to_f32();
-        let ts = ts.pre_translate(x, y);
-
+        let ts = ts.pre_translate(pos.x.to_pt() as f32, pos.y.to_pt() as f32);
         match *element {
             Element::Group(ref group) => {
-                let ts = ts.pre_concat(convert_typst_transform(group.transform));
-                draw_frame(canvas, ts, &mask, ctx, &group.frame, group.clips);
+                let ts = ts.pre_concat(group.transform.into());
+                render_links(canvas, ts, ctx, &group.frame);
             }
-            Element::Text(ref text) => {
-                draw_text(canvas, ts, mask, ctx.fonts.get(text.face_id), text);
+            Element::Link(_, size) => {
+                let w = size.x.to_pt() as f32;
+                let h = size.y.to_pt() as f32;
+                let rect = sk::Rect::from_xywh(0.0, 0.0, w, h).unwrap();
+                let mut paint = sk::Paint::default();
+                paint.set_color_rgba8(40, 54, 99, 40);
+                canvas.fill_rect(rect, &paint, ts, None);
             }
-            Element::Shape(ref shape) => {
-                draw_shape(canvas, ts, mask, shape);
-            }
-            Element::Image(id, size) => {
-                draw_image(canvas, ts, mask, ctx.images.get(id), size);
-            }
-            Element::Link(_, s) => {
-                let fill = RgbaColor::new(40, 54, 99, 40).into();
-                let shape = Shape::filled(Geometry::Rect(s), fill);
-                draw_shape(canvas, ts, mask, &shape);
-            }
+            _ => {}
         }
-    }
-}
-
-fn draw_text(
-    canvas: &mut sk::Pixmap,
-    ts: sk::Transform,
-    mask: &sk::ClipMask,
-    face: &Face,
-    text: &Text,
-) {
-    let ttf = face.ttf();
-    let size = text.size.to_f32();
-    let units_per_em = face.units_per_em as f32;
-    let pixels_per_em = text.size.to_f32() * ts.sy;
-    let scale = size / units_per_em;
-
-    let mut x = 0.0;
-    for glyph in &text.glyphs {
-        let glyph_id = GlyphId(glyph.id);
-        let offset = x + glyph.x_offset.resolve(text.size).to_f32();
-        let ts = ts.pre_translate(offset, 0.0);
-
-        if let Some(tree) = ttf
-            .glyph_svg_image(glyph_id)
-            .and_then(|data| std::str::from_utf8(data).ok())
-            .map(|svg| {
-                let viewbox = format!("viewBox=\"0 0 {0} {0}\" xmlns", units_per_em);
-                svg.replace("xmlns", &viewbox)
-            })
-            .and_then(|s| {
-                usvg::Tree::from_str(&s, &usvg::Options::default().to_ref()).ok()
-            })
-        {
-            for child in tree.root().children() {
-                if let usvg::NodeKind::Path(node) = &*child.borrow() {
-                    // SVG is already Y-down, no flipping required.
-                    let ts = convert_usvg_transform(node.transform)
-                        .post_scale(scale, scale)
-                        .post_concat(ts);
-
-                    if let Some(fill) = &node.fill {
-                        let path = convert_usvg_path(&node.data);
-                        let (paint, fill_rule) = convert_usvg_fill(fill);
-                        canvas.fill_path(&path, &paint, fill_rule, ts, Some(mask));
-                    }
-                }
-            }
-        } else if let Some(raster) =
-            ttf.glyph_raster_image(glyph_id, pixels_per_em as u16)
-        {
-            // TODO: Vertical alignment isn't quite right for Apple Color Emoji,
-            // and maybe also for Noto Color Emoji. And: Is the size calculation
-            // correct?
-            let img = RasterImage::parse(&raster.data).unwrap();
-            let h = text.size;
-            let w = (img.width() as f64 / img.height() as f64) * h;
-            let dx = (raster.x as f32) / (img.width() as f32) * size;
-            let dy = (raster.y as f32) / (img.height() as f32) * size;
-            let ts = ts.pre_translate(dx, -size - dy);
-            draw_image(canvas, ts, mask, &Image::Raster(img), Size::new(w, h));
-        } else {
-            // Otherwise, draw normal outline.
-            let mut builder = WrappedPathBuilder(sk::PathBuilder::new());
-            if ttf.outline_glyph(glyph_id, &mut builder).is_some() {
-                // Flip vertically because font design coordinate system is Y-up.
-                let ts = ts.pre_scale(scale, -scale);
-                let path = builder.0.finish().unwrap();
-                let paint = convert_typst_paint(text.fill);
-                canvas.fill_path(&path, &paint, sk::FillRule::default(), ts, Some(mask));
-            }
-        }
-
-        x += glyph.x_advance.resolve(text.size).to_f32();
-    }
-}
-
-fn draw_shape(
-    canvas: &mut sk::Pixmap,
-    ts: sk::Transform,
-    mask: &sk::ClipMask,
-    shape: &Shape,
-) {
-    let path = match shape.geometry {
-        Geometry::Rect(size) => {
-            let w = size.x.to_f32();
-            let h = size.y.to_f32();
-            let rect = sk::Rect::from_xywh(0.0, 0.0, w, h).unwrap();
-            sk::PathBuilder::from_rect(rect)
-        }
-        Geometry::Ellipse(size) => {
-            let approx = geom::Path::ellipse(size);
-            convert_typst_path(&approx)
-        }
-        Geometry::Line(target) => {
-            let mut builder = sk::PathBuilder::new();
-            builder.line_to(target.x.to_f32(), target.y.to_f32());
-            builder.finish().unwrap()
-        }
-        Geometry::Path(ref path) => convert_typst_path(path),
-    };
-
-    if let Some(fill) = shape.fill {
-        let mut paint = convert_typst_paint(fill);
-        if matches!(shape.geometry, Geometry::Rect(_)) {
-            paint.anti_alias = false;
-        }
-
-        let rule = sk::FillRule::default();
-        canvas.fill_path(&path, &paint, rule, ts, Some(mask));
-    }
-
-    if let Some(Stroke { paint, thickness }) = shape.stroke {
-        let paint = convert_typst_paint(paint);
-        let mut stroke = sk::Stroke::default();
-        stroke.width = thickness.to_f32();
-        canvas.stroke_path(&path, &paint, &stroke, ts, Some(mask));
-    }
-}
-
-fn draw_image(
-    canvas: &mut sk::Pixmap,
-    ts: sk::Transform,
-    mask: &sk::ClipMask,
-    img: &Image,
-    size: Size,
-) {
-    let view_width = size.x.to_f32();
-    let view_height = size.y.to_f32();
-
-    let pixmap = match img {
-        Image::Raster(img) => {
-            let w = img.buf.width();
-            let h = img.buf.height();
-            let mut pixmap = sk::Pixmap::new(w, h).unwrap();
-            for ((_, _, src), dest) in img.buf.pixels().zip(pixmap.pixels_mut()) {
-                let Rgba([r, g, b, a]) = src;
-                *dest = sk::ColorU8::from_rgba(r, g, b, a).premultiply();
-            }
-            pixmap
-        }
-        Image::Svg(Svg(tree)) => {
-            let size = tree.svg_node().size;
-            let aspect = (size.width() / size.height()) as f32;
-            let scale = ts.sx.max(ts.sy);
-            let w = (scale * view_width.max(aspect * view_height)).ceil() as u32;
-            let h = ((w as f32) / aspect).ceil() as u32;
-            let mut pixmap = sk::Pixmap::new(w, h).unwrap();
-            resvg::render(
-                &tree,
-                FitTo::Size(w, h),
-                sk::Transform::identity(),
-                pixmap.as_mut(),
-            );
-            pixmap
-        }
-    };
-
-    let scale_x = view_width / pixmap.width() as f32;
-    let scale_y = view_height / pixmap.height() as f32;
-
-    let mut paint = sk::Paint::default();
-    paint.shader = sk::Pattern::new(
-        pixmap.as_ref(),
-        sk::SpreadMode::Pad,
-        sk::FilterQuality::Bilinear,
-        1.0,
-        sk::Transform::from_scale(scale_x, scale_y),
-    );
-
-    let rect = sk::Rect::from_xywh(0.0, 0.0, view_width, view_height).unwrap();
-    canvas.fill_rect(rect, &paint, ts, Some(mask));
-}
-
-fn convert_typst_transform(transform: Transform) -> sk::Transform {
-    let Transform { sx, ky, kx, sy, tx, ty } = transform;
-    sk::Transform::from_row(
-        sx.get() as _,
-        ky.get() as _,
-        kx.get() as _,
-        sy.get() as _,
-        tx.to_f32(),
-        ty.to_f32(),
-    )
-}
-
-fn convert_typst_paint(paint: Paint) -> sk::Paint<'static> {
-    let Paint::Solid(Color::Rgba(c)) = paint;
-    let mut paint = sk::Paint::default();
-    paint.set_color_rgba8(c.r, c.g, c.b, c.a);
-    paint.anti_alias = true;
-    paint
-}
-
-fn convert_typst_path(path: &geom::Path) -> sk::Path {
-    let mut builder = sk::PathBuilder::new();
-    for elem in &path.0 {
-        match elem {
-            PathElement::MoveTo(p) => {
-                builder.move_to(p.x.to_f32(), p.y.to_f32());
-            }
-            PathElement::LineTo(p) => {
-                builder.line_to(p.x.to_f32(), p.y.to_f32());
-            }
-            PathElement::CubicTo(p1, p2, p3) => {
-                builder.cubic_to(
-                    p1.x.to_f32(),
-                    p1.y.to_f32(),
-                    p2.x.to_f32(),
-                    p2.y.to_f32(),
-                    p3.x.to_f32(),
-                    p3.y.to_f32(),
-                );
-            }
-            PathElement::ClosePath => {
-                builder.close();
-            }
-        };
-    }
-    builder.finish().unwrap()
-}
-
-fn convert_usvg_transform(transform: usvg::Transform) -> sk::Transform {
-    let usvg::Transform { a, b, c, d, e, f } = transform;
-    sk::Transform::from_row(a as _, b as _, c as _, d as _, e as _, f as _)
-}
-
-fn convert_usvg_fill(fill: &usvg::Fill) -> (sk::Paint<'static>, sk::FillRule) {
-    let mut paint = sk::Paint::default();
-    paint.anti_alias = true;
-
-    if let usvg::Paint::Color(usvg::Color { red, green, blue }) = fill.paint {
-        paint.set_color_rgba8(red, green, blue, fill.opacity.to_u8())
-    }
-
-    let rule = match fill.rule {
-        usvg::FillRule::NonZero => sk::FillRule::Winding,
-        usvg::FillRule::EvenOdd => sk::FillRule::EvenOdd,
-    };
-
-    (paint, rule)
-}
-
-fn convert_usvg_path(path: &usvg::PathData) -> sk::Path {
-    let mut builder = sk::PathBuilder::new();
-    for seg in path.iter() {
-        match *seg {
-            usvg::PathSegment::MoveTo { x, y } => {
-                builder.move_to(x as _, y as _);
-            }
-            usvg::PathSegment::LineTo { x, y } => {
-                builder.line_to(x as _, y as _);
-            }
-            usvg::PathSegment::CurveTo { x1, y1, x2, y2, x, y } => {
-                builder.cubic_to(x1 as _, y1 as _, x2 as _, y2 as _, x as _, y as _);
-            }
-            usvg::PathSegment::ClosePath => {
-                builder.close();
-            }
-        }
-    }
-    builder.finish().unwrap()
-}
-
-struct WrappedPathBuilder(sk::PathBuilder);
-
-impl OutlineBuilder for WrappedPathBuilder {
-    fn move_to(&mut self, x: f32, y: f32) {
-        self.0.move_to(x, y);
-    }
-
-    fn line_to(&mut self, x: f32, y: f32) {
-        self.0.line_to(x, y);
-    }
-
-    fn quad_to(&mut self, x1: f32, y1: f32, x: f32, y: f32) {
-        self.0.quad_to(x1, y1, x, y);
-    }
-
-    fn curve_to(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, x: f32, y: f32) {
-        self.0.cubic_to(x1, y1, x2, y2, x, y);
-    }
-
-    fn close(&mut self) {
-        self.0.close();
-    }
-}
-
-/// Additional methods for [`Length`].
-trait LengthExt {
-    /// Convert an em length to a number of points.
-    fn to_f32(self) -> f32;
-}
-
-impl LengthExt for Length {
-    fn to_f32(self) -> f32 {
-        self.to_pt() as f32
     }
 }
 

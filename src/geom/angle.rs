@@ -2,7 +2,6 @@ use super::*;
 
 /// An angle.
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-#[derive(Serialize, Deserialize)]
 pub struct Angle(Scalar);
 
 impl Angle {

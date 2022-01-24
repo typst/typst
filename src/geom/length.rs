@@ -2,8 +2,6 @@ use super::*;
 
 /// An absolute length.
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-#[derive(Serialize, Deserialize)]
-#[serde(transparent)]
 pub struct Length(Scalar);
 
 impl Length {

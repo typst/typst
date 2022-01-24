@@ -43,8 +43,6 @@ use std::hash::{Hash, Hasher};
 use std::iter::Sum;
 use std::ops::*;
 
-use serde::{Deserialize, Serialize};
-
 /// Generic access to a structure's components.
 pub trait Get<Index> {
     /// The structure's component type.

@@ -56,6 +56,7 @@ use std::rc::Rc;
 
 use crate::diag::TypResult;
 use crate::eval::{Eval, EvalContext, Module, Scope, StyleMap};
+use crate::export::RenderCache;
 use crate::font::FontStore;
 use crate::frame::Frame;
 use crate::image::ImageStore;
@@ -76,7 +77,9 @@ pub struct Context {
     pub images: ImageStore,
     /// Caches layouting artifacts.
     #[cfg(feature = "layout-cache")]
-    pub layouts: LayoutCache,
+    pub layout_cache: LayoutCache,
+    /// Caches rendering artifacts.
+    pub render_cache: RenderCache,
     /// The standard library scope.
     std: Scope,
     /// The default styles.
@@ -131,7 +134,7 @@ impl Context {
     /// Garbage-collect caches.
     pub fn turnaround(&mut self) {
         #[cfg(feature = "layout-cache")]
-        self.layouts.turnaround();
+        self.layout_cache.turnaround();
     }
 }
 
@@ -187,7 +190,8 @@ impl ContextBuilder {
             images: ImageStore::new(Rc::clone(&loader)),
             loader,
             #[cfg(feature = "layout-cache")]
-            layouts: LayoutCache::new(self.policy, self.max_size),
+            layout_cache: LayoutCache::new(self.policy, self.max_size),
+            render_cache: RenderCache::new(),
             std: self.std.unwrap_or_else(library::new),
             styles: self.styles.unwrap_or_default(),
         }
