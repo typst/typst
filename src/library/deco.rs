@@ -38,6 +38,18 @@ pub struct Decoration {
     pub extent: Linear,
 }
 
+impl From<DecoLine> for Decoration {
+    fn from(line: DecoLine) -> Self {
+        Self {
+            line,
+            stroke: None,
+            thickness: None,
+            offset: None,
+            extent: Linear::zero(),
+        }
+    }
+}
+
 /// The kind of decorative line.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum DecoLine {
@@ -49,7 +61,7 @@ pub enum DecoLine {
     Overline,
 }
 
-/// Differents kinds of decorative lines for text.
+/// Different kinds of decorative lines for text.
 pub trait LineKind {
     const LINE: DecoLine;
 }

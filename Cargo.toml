@@ -37,6 +37,9 @@ xi-unicode = "0.3"
 image = { version = "0.23", default-features = false, features = ["png", "jpeg"] }
 usvg = { version = "0.20", default-features = false }
 
+# External implementation of user-facing features
+syntect = { version = "4.6", default-features = false, features = ["dump-load", "parsing", "regex-fancy", "assets"] }
+
 # PDF export
 miniz_oxide = "0.4"
 pdf-writer = "0.4"

@@ -31,19 +31,31 @@ use std::io;
 use std::mem;
 use std::path::PathBuf;
 
+use once_cell::sync::Lazy;
+use syntect::easy::HighlightLines;
+use syntect::highlighting::{FontStyle, Highlighter, Style as SynStyle, Theme, ThemeSet};
+use syntect::parsing::SyntaxSet;
+
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::diag::{At, Error, StrResult, Trace, Tracepoint, TypResult};
-use crate::geom::{Angle, Fractional, Length, Relative};
+use crate::geom::{Angle, Fractional, Length, Paint, Relative, RgbaColor};
 use crate::image::ImageStore;
 use crate::layout::RootNode;
-use crate::library::{self, TextNode};
+use crate::library::{self, DecoLine, TextNode};
 use crate::loading::Loader;
+use crate::parse;
 use crate::source::{SourceId, SourceStore};
+use crate::syntax;
 use crate::syntax::ast::*;
-use crate::syntax::{Span, Spanned};
+use crate::syntax::{RedNode, Span, Spanned};
 use crate::util::{EcoString, RefMutExt};
 use crate::Context;
+
+static THEME: Lazy<Theme> =
+    Lazy::new(|| ThemeSet::load_defaults().themes.remove("InspiredGitHub").unwrap());
+
+static SYNTAXES: Lazy<SyntaxSet> = Lazy::new(|| SyntaxSet::load_defaults_newlines());
 
 /// An evaluated module, ready for importing or conversion to a root layout
 /// tree.
@@ -209,12 +221,100 @@ impl Eval for RawNode {
     type Output = Node;
 
     fn eval(&self, _: &mut EvalContext) -> TypResult<Self::Output> {
-        let text = Node::Text(self.text.clone()).monospaced();
+        let code = self.highlighted();
         Ok(if self.block {
-            Node::Block(text.into_block())
+            Node::Block(code.into_block())
         } else {
-            text
+            code
         })
+    }
+}
+
+impl RawNode {
+    /// Styled node for a code block, with optional syntax highlighting.
+    pub fn highlighted(&self) -> Node {
+        let mut sequence: Vec<Styled<Node>> = vec![];
+
+        let syntax = if let Some(syntax) = self
+            .lang
+            .as_ref()
+            .and_then(|token| SYNTAXES.find_syntax_by_token(&token))
+        {
+            Some(syntax)
+        } else if matches!(
+            self.lang.as_ref().map(|s| s.to_ascii_lowercase()).as_deref(),
+            Some("typ" | "typst")
+        ) {
+            None
+        } else {
+            return Node::Text(self.text.clone()).monospaced();
+        };
+
+        let foreground = THEME
+            .settings
+            .foreground
+            .map(RgbaColor::from)
+            .unwrap_or(RgbaColor::BLACK)
+            .into();
+
+        match syntax {
+            Some(syntax) => {
+                let mut highlighter = HighlightLines::new(syntax, &THEME);
+                for (i, line) in self.text.lines().enumerate() {
+                    if i != 0 {
+                        sequence.push(Styled::bare(Node::Linebreak));
+                    }
+
+                    for (style, line) in highlighter.highlight(line, &SYNTAXES) {
+                        sequence.push(Self::styled_piece(style, line, foreground));
+                    }
+                }
+            }
+            None => {
+                let green = parse::parse(&self.text);
+                let red = RedNode::from_root(green, SourceId::from_raw(0));
+                let highlighter = Highlighter::new(&THEME);
+
+                syntax::highlight_syntect(
+                    red.as_ref(),
+                    &highlighter,
+                    &mut |range, style| {
+                        sequence.push(Self::styled_piece(
+                            style,
+                            &self.text[range],
+                            foreground,
+                        ));
+                    },
+                )
+            }
+        }
+
+        Node::Sequence(sequence).monospaced()
+    }
+
+    fn styled_piece(style: SynStyle, piece: &str, foreground: Paint) -> Styled<Node> {
+        let paint = style.foreground.into();
+        let node = Node::Text(piece.into());
+
+        let mut styles = StyleMap::new();
+
+        if paint != foreground {
+            styles.set(TextNode::FILL, paint);
+        }
+
+        if style.font_style.contains(FontStyle::BOLD) {
+            styles.set(TextNode::STRONG, true);
+        }
+
+        if style.font_style.contains(FontStyle::ITALIC) {
+            styles.set(TextNode::EMPH, true);
+        }
+
+        if style.font_style.contains(FontStyle::UNDERLINE) {
+            styles.set(TextNode::LINES, vec![DecoLine::Underline.into()]);
+        }
+
+        Styled::new(node, styles)
     }
 }
 
