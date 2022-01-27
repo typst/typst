@@ -23,32 +23,24 @@ where
 }
 
 /// Provide syntect highlighting styles for the children of a node.
-pub fn highlight_syntect<F>(
-    node: RedRef,
-    text: &str,
-    highlighter: &Highlighter,
-    f: &mut F,
-) where
-    F: FnMut(Style, &str),
+pub fn highlight_syntect<F>(node: RedRef, highlighter: &Highlighter, f: &mut F)
+where
+    F: FnMut(Range<usize>, Style),
 {
-    highlight_syntect_impl(node, text, vec![], highlighter, f)
+    highlight_syntect_impl(node, vec![], highlighter, f)
 }
 
 /// Recursive implementation for returning syntect styles.
 fn highlight_syntect_impl<F>(
     node: RedRef,
-    text: &str,
     scopes: Vec<Scope>,
     highlighter: &Highlighter,
     f: &mut F,
 ) where
-    F: FnMut(Style, &str),
+    F: FnMut(Range<usize>, Style),
 {
     if node.children().size_hint().0 == 0 {
-        f(
-            highlighter.style_for_stack(&scopes),
-            &text[node.span().to_range()],
-        );
+        f(node.span().to_range(), highlighter.style_for_stack(&scopes));
         return;
     }
 
@@ -57,7 +49,7 @@ fn highlight_syntect_impl<F>(
         if let Some(category) = Category::determine(child, node) {
             scopes.push(Scope::new(category.tm_scope()).unwrap())
         }
-        highlight_syntect_impl(child, text, scopes, highlighter, f);
+        highlight_syntect_impl(child, scopes, highlighter, f);
     }
 }
 
@@ -230,7 +222,7 @@ impl Category {
     }
 
     /// Return the TextMate grammar scope for the given highlighting category.
-    pub const fn tm_scope(&self) -> &'static str {
+    pub fn tm_scope(&self) -> &'static str {
         match self {
             Self::Bracket => "punctuation.definition.typst",
             Self::Punctuation => "punctuation.typst",

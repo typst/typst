@@ -38,33 +38,10 @@ pub struct Decoration {
     pub extent: Linear,
 }
 
-impl Decoration {
-    /// Create a new underline with default settings.
-    pub const fn underline() -> Self {
+impl From<DecoLine> for Decoration {
+    fn from(line: DecoLine) -> Self {
         Self {
-            line: DecoLine::Underline,
-            stroke: None,
-            thickness: None,
-            offset: None,
-            extent: Linear::zero(),
-        }
-    }
-
-    /// Create a new strikethrough with default settings.
-    pub const fn strikethrough() -> Self {
-        Self {
-            line: DecoLine::Underline,
-            stroke: None,
-            thickness: None,
-            offset: None,
-            extent: Linear::zero(),
-        }
-    }
-
-    /// Create a new overline with default settings.
-    pub const fn overline() -> Self {
-        Self {
-            line: DecoLine::Overline,
+            line,
             stroke: None,
             thickness: None,
             offset: None,
