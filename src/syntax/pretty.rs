@@ -227,6 +227,8 @@ impl Pretty for Expr {
             Self::With(v) => v.pretty(p),
             Self::Let(v) => v.pretty(p),
             Self::Set(v) => v.pretty(p),
+            Self::Show(v) => v.pretty(p),
+            Self::Wrap(v) => v.pretty(p),
             Self::If(v) => v.pretty(p),
             Self::While(v) => v.pretty(p),
             Self::For(v) => v.pretty(p),
@@ -456,6 +458,24 @@ impl Pretty for SetExpr {
     }
 }
 
+impl Pretty for ShowExpr {
+    fn pretty(&self, p: &mut Printer) {
+        p.push_str("show ");
+        self.pattern().pretty(p);
+        p.push_str(" as ");
+        self.body().pretty(p);
+    }
+}
+
+impl Pretty for WrapExpr {
+    fn pretty(&self, p: &mut Printer) {
+        p.push_str("wrap ");
+        self.binding().pretty(p);
+        p.push_str(" in ");
+        self.body().pretty(p);
+    }
+}
+
 impl Pretty for IfExpr {
     fn pretty(&self, p: &mut Printer) {
         p.push_str("if ");
@@ -652,6 +672,8 @@ mod tests {
         roundtrip("#let x = 1 + 2");
         roundtrip("#let f(x) = y");
         roundtrip("#set text(size: 12pt)");
+        roundtrip("#show heading(body) as [*{body}*]");
+        roundtrip("#wrap body in columns(2, body)");
         roundtrip("#if x [y] else [z]");
         roundtrip("#if x {} else if y {} else {}");
         roundtrip("#while x {y}");

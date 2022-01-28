@@ -466,10 +466,13 @@ impl NodeKind {
             // how far the expression would go.
             Self::Let
             | Self::Set
+            | Self::Show
+            | Self::Wrap
             | Self::If
             | Self::Else
             | Self::For
             | Self::In
+            | Self::As
             | Self::While
             | Self::Break
             | Self::Continue
@@ -542,6 +545,8 @@ impl NodeKind {
             | Self::IfExpr
             | Self::LetExpr
             | Self::SetExpr
+            | Self::ShowExpr
+            | Self::WrapExpr
             | Self::ImportExpr
             | Self::IncludeExpr => SuccessionRule::AtomicPrimary,
 

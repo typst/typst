@@ -550,6 +550,10 @@ pub enum NodeKind {
     Let,
     /// The `set` keyword.
     Set,
+    /// The `show` keyword.
+    Show,
+    /// The `wrap` keyword.
+    Wrap,
     /// The `if` keyword.
     If,
     /// The `else` keyword.
@@ -572,6 +576,8 @@ pub enum NodeKind {
     Include,
     /// The `from` keyword.
     From,
+    /// The `as` keyword.
+    As,
     /// Template markup of which all lines must start in some column.
     Markup(usize),
     /// One or more whitespace characters.
@@ -665,6 +671,10 @@ pub enum NodeKind {
     LetExpr,
     /// A set expression: `set text(...)`.
     SetExpr,
+    /// A show expression: `show heading(body) as [*{body}*]`.
+    ShowExpr,
+    /// A wrap expression: `wrap body in columns(2, body)`.
+    WrapExpr,
     /// An if-else expression: `if x { y } else { z }`.
     IfExpr,
     /// A while loop expression: `while x { ... }`.
@@ -822,10 +832,13 @@ impl NodeKind {
             Self::Auto => "`auto`",
             Self::Let => "keyword `let`",
             Self::Set => "keyword `set`",
+            Self::Show => "keyword `show`",
+            Self::Wrap => "keyword `wrap`",
             Self::If => "keyword `if`",
             Self::Else => "keyword `else`",
             Self::For => "keyword `for`",
             Self::In => "keyword `in`",
+            Self::As => "keyword `as`",
             Self::While => "keyword `while`",
             Self::Break => "keyword `break`",
             Self::Continue => "keyword `continue`",
@@ -875,6 +888,8 @@ impl NodeKind {
             Self::WithExpr => "`with` expression",
             Self::LetExpr => "`let` expression",
             Self::SetExpr => "`set` expression",
+            Self::ShowExpr => "`show` expression",
+            Self::WrapExpr => "`wrap` expression",
             Self::IfExpr => "`if` expression",
             Self::WhileExpr => "while-loop expression",
             Self::ForExpr => "for-loop expression",

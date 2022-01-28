@@ -208,6 +208,8 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
         NodeKind::Ident(_)
         | NodeKind::Let
         | NodeKind::Set
+        | NodeKind::Show
+        | NodeKind::Wrap
         | NodeKind::If
         | NodeKind::While
         | NodeKind::For
@@ -275,7 +277,14 @@ fn enum_node(p: &mut Parser, at_start: bool) {
 /// Parse an expression within markup mode.
 fn markup_expr(p: &mut Parser) {
     if let Some(token) = p.peek() {
-        let stmt = matches!(token, NodeKind::Let | NodeKind::Set | NodeKind::Import);
+        let stmt = matches!(
+            token,
+            NodeKind::Let
+                | NodeKind::Set
+                | NodeKind::Show
+                | NodeKind::Wrap
+                | NodeKind::Import
+        );
         let group = if stmt { Group::Stmt } else { Group::Expr };
 
         p.start_group(group);
@@ -388,6 +397,8 @@ fn primary(p: &mut Parser, atomic: bool) -> ParseResult {
         // Keywords.
         Some(NodeKind::Let) => let_expr(p),
         Some(NodeKind::Set) => set_expr(p),
+        Some(NodeKind::Show) => show_expr(p),
+        Some(NodeKind::Wrap) => wrap_expr(p),
         Some(NodeKind::If) => if_expr(p),
         Some(NodeKind::While) => while_expr(p),
         Some(NodeKind::For) => for_expr(p),
@@ -711,6 +722,26 @@ fn set_expr(p: &mut Parser) -> ParseResult {
         p.eat_assert(&NodeKind::Set);
         ident(p)?;
         args(p, true, false)
+    })
+}
+
+/// Parse a show expression.
+fn show_expr(p: &mut Parser) -> ParseResult {
+    p.perform(NodeKind::ShowExpr, |p| {
+        p.eat_assert(&NodeKind::Show);
+        expr(p)?;
+        p.eat_expect(&NodeKind::As)?;
+        expr(p)
+    })
+}
+
+/// Parse a wrap expression.
+fn wrap_expr(p: &mut Parser) -> ParseResult {
+    p.perform(NodeKind::WrapExpr, |p| {
+        p.eat_assert(&NodeKind::Wrap);
+        ident(p)?;
+        p.eat_expect(&NodeKind::In)?;
+        expr(p)
     })
 }
 

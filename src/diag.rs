@@ -76,7 +76,10 @@ pub trait At<T> {
     fn at(self, span: Span) -> TypResult<T>;
 }
 
-impl<T> At<T> for StrResult<T> {
+impl<T, S> At<T> for Result<T, S>
+where
+    S: Into<String>,
+{
     fn at(self, span: Span) -> TypResult<T> {
         self.map_err(|message| Error::boxed(span, message))
     }

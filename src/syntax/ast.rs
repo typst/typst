@@ -217,6 +217,10 @@ pub enum Expr {
     Let(LetExpr),
     /// A set expression: `set text(...)`.
     Set(SetExpr),
+    /// A show expression: `show heading(body) as [*{body}*]`.
+    Show(ShowExpr),
+    /// A wrap expression: `wrap body in columns(2, body)`.
+    Wrap(WrapExpr),
     /// An if-else expression: `if x { y } else { z }`.
     If(IfExpr),
     /// A while loop expression: `while x { y }`.
@@ -245,6 +249,8 @@ impl TypedNode for Expr {
             NodeKind::WithExpr => node.cast().map(Self::With),
             NodeKind::LetExpr => node.cast().map(Self::Let),
             NodeKind::SetExpr => node.cast().map(Self::Set),
+            NodeKind::ShowExpr => node.cast().map(Self::Show),
+            NodeKind::WrapExpr => node.cast().map(Self::Wrap),
             NodeKind::IfExpr => node.cast().map(Self::If),
             NodeKind::WhileExpr => node.cast().map(Self::While),
             NodeKind::ForExpr => node.cast().map(Self::For),
@@ -270,6 +276,8 @@ impl TypedNode for Expr {
             Self::With(v) => v.as_red(),
             Self::Let(v) => v.as_red(),
             Self::Set(v) => v.as_red(),
+            Self::Show(v) => v.as_red(),
+            Self::Wrap(v) => v.as_red(),
             Self::If(v) => v.as_red(),
             Self::While(v) => v.as_red(),
             Self::For(v) => v.as_red(),
@@ -288,6 +296,8 @@ impl Expr {
                 | Self::Call(_)
                 | Self::Let(_)
                 | Self::Set(_)
+                | Self::Show(_)
+                | Self::Wrap(_)
                 | Self::If(_)
                 | Self::While(_)
                 | Self::For(_)
@@ -910,6 +920,40 @@ impl IncludeExpr {
     /// The location of the file to be included.
     pub fn path(&self) -> Expr {
         self.0.cast_last_child().expect("include is missing path")
+    }
+}
+
+node! {
+    /// A show expression: `show heading(body) as [*{body}*]`.
+    ShowExpr
+}
+
+impl ShowExpr {
+    /// The pattern that decides which node's appearence to redefine.
+    pub fn pattern(&self) -> Expr {
+        self.0.cast_first_child().expect("show expression is missing pattern")
+    }
+
+    /// The expression that defines the node's appearence.
+    pub fn body(&self) -> Expr {
+        self.0.cast_last_child().expect("show expression is missing body")
+    }
+}
+
+node! {
+    /// A wrap expression: wrap body in columns(2, body)`.
+    WrapExpr
+}
+
+impl WrapExpr {
+    /// The binding to assign the remaining markup to.
+    pub fn binding(&self) -> Ident {
+        self.0.cast_first_child().expect("wrap expression is missing binding")
+    }
+
+    /// The expression to evaluate.
+    pub fn body(&self) -> Expr {
+        self.0.cast_last_child().expect("wrap expression is missing body")
     }
 }
 

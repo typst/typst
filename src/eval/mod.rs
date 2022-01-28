@@ -383,6 +383,8 @@ impl Eval for Expr {
             Self::Binary(v) => v.eval(ctx),
             Self::Let(v) => v.eval(ctx),
             Self::Set(v) => v.eval(ctx),
+            Self::Show(v) => v.eval(ctx),
+            Self::Wrap(v) => v.eval(ctx),
             Self::If(v) => v.eval(ctx),
             Self::While(v) => v.eval(ctx),
             Self::For(v) => v.eval(ctx),
@@ -756,6 +758,22 @@ impl Eval for SetExpr {
         class.set(&mut args, &mut ctx.styles)?;
         args.finish()?;
         Ok(Value::None)
+    }
+}
+
+impl Eval for ShowExpr {
+    type Output = Value;
+
+    fn eval(&self, _: &mut EvalContext) -> TypResult<Self::Output> {
+        Err("show rules are not yet implemented").at(self.span())
+    }
+}
+
+impl Eval for WrapExpr {
+    type Output = Value;
+
+    fn eval(&self, _: &mut EvalContext) -> TypResult<Self::Output> {
+        Err("wrap is not yet implemented").at(self.span())
     }
 }
 
