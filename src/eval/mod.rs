@@ -178,16 +178,31 @@ impl Eval for Markup {
     type Output = Node;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        let prev = mem::take(&mut ctx.styles);
-        let nodes = self.nodes();
-        let upper = nodes.size_hint().1.unwrap_or_default();
-        let mut seq = Vec::with_capacity(upper);
-        for piece in nodes {
-            seq.push(Styled::new(piece.eval(ctx)?, ctx.styles.clone()));
-        }
-        ctx.styles = prev;
-        Ok(Node::Sequence(seq))
+        process_nodes(ctx, &mut self.nodes())
     }
+}
+
+/// Evaluate a stream of nodes.
+fn process_nodes(
+    ctx: &mut EvalContext,
+    nodes: &mut impl Iterator<Item = MarkupNode>,
+) -> TypResult<Node> {
+    let prev = mem::take(&mut ctx.styles);
+    let mut seq = Vec::with_capacity(nodes.size_hint().1.unwrap_or_default());
+    while let Some(piece) = nodes.next() {
+        // Need to deal with wrap here.
+        let node = if let MarkupNode::Expr(Expr::Wrap(wrap)) = piece {
+            let tail = process_nodes(ctx, nodes)?;
+            ctx.scopes.def_mut(wrap.binding().take(), tail);
+            wrap.body().eval(ctx)?.show()
+        } else {
+            piece.eval(ctx)?
+        };
+
+        seq.push(Styled::new(node, ctx.styles.clone()));
+    }
+    ctx.styles = prev;
+    Ok(Node::Sequence(seq))
 }
 
 impl Eval for MarkupNode {
@@ -265,8 +280,8 @@ impl RawNode {
                         sequence.push(Styled::bare(Node::Linebreak));
                     }
 
-                    for (style, line) in highlighter.highlight(line, &SYNTAXES) {
-                        sequence.push(Self::styled_piece(style, line, foreground));
+                    for (style, piece) in highlighter.highlight(line, &SYNTAXES) {
+                        sequence.push(style_piece(piece, foreground, style));
                     }
                 }
             }
@@ -279,11 +294,7 @@ impl RawNode {
                     red.as_ref(),
                     &highlighter,
                     &mut |range, style| {
-                        sequence.push(Self::styled_piece(
-                            style,
-                            &self.text[range],
-                            foreground,
-                        ));
+                        sequence.push(style_piece(&self.text[range], foreground, style));
                     },
                 )
             }
@@ -291,31 +302,32 @@ impl RawNode {
 
         Node::Sequence(sequence).monospaced()
     }
+}
 
-    fn styled_piece(style: SynStyle, piece: &str, foreground: Paint) -> Styled<Node> {
-        let paint = style.foreground.into();
-        let node = Node::Text(piece.into());
+/// Style a piece of text with a syntect style.
+fn style_piece(piece: &str, foreground: Paint, style: SynStyle) -> Styled<Node> {
+    let paint = style.foreground.into();
+    let node = Node::Text(piece.into());
 
-        let mut styles = StyleMap::new();
+    let mut styles = StyleMap::new();
 
-        if paint != foreground {
-            styles.set(TextNode::FILL, paint);
-        }
-
-        if style.font_style.contains(FontStyle::BOLD) {
-            styles.set(TextNode::STRONG, true);
-        }
-
-        if style.font_style.contains(FontStyle::ITALIC) {
-            styles.set(TextNode::EMPH, true);
-        }
-
-        if style.font_style.contains(FontStyle::UNDERLINE) {
-            styles.set(TextNode::LINES, vec![DecoLine::Underline.into()]);
-        }
-
-        Styled::new(node, styles)
+    if paint != foreground {
+        styles.set(TextNode::FILL, paint);
     }
+
+    if style.font_style.contains(FontStyle::BOLD) {
+        styles.set(TextNode::STRONG, true);
+    }
+
+    if style.font_style.contains(FontStyle::ITALIC) {
+        styles.set(TextNode::EMPH, true);
+    }
+
+    if style.font_style.contains(FontStyle::UNDERLINE) {
+        styles.set(TextNode::LINES, vec![DecoLine::Underline.into()]);
+    }
+
+    Styled::new(node, styles)
 }
 
 impl Eval for MathNode {
@@ -776,7 +788,7 @@ impl Eval for WrapExpr {
     type Output = Value;
 
     fn eval(&self, _: &mut EvalContext) -> TypResult<Self::Output> {
-        Err("wrap is not yet implemented").at(self.span())
+        Err("wrap is only allowed directly in markup").at(self.span())
     }
 }
 

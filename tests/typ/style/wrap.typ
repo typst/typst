@@ -1,6 +1,23 @@
 // Test wrap.
-// Ref: false
 
 ---
-// Error: 1-31 wrap is not yet implemented
+#set page(height: 130pt)
+#set text(70%)
+
+#align(center)[
+  #text(130%)[*Essay on typography*] \
+  T. Ypst
+]
+
 #wrap body in columns(2, body)
+Great typography is at the essence of great storytelling. It is the medium that
+transports meaning from parchment to reader, the wave that sparks a flame
+in booklovers and the great fulfiller of human need.
+
+---
+// Test wrap in template.
+A [_B #wrap c in [*#c*]; C] D
+
+---
+// Error: 6-17 wrap is only allowed directly in markup
+{1 + wrap x in y}
