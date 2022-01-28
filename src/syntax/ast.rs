@@ -876,54 +876,6 @@ impl SetExpr {
 }
 
 node! {
-    /// An import expression: `import a, b, c from "utils.typ"`.
-    ImportExpr
-}
-
-impl ImportExpr {
-    /// The items to be imported.
-    pub fn imports(&self) -> Imports {
-        self.0
-            .children()
-            .find_map(|node| match node.kind() {
-                NodeKind::Star => Some(Imports::Wildcard),
-                NodeKind::ImportItems => {
-                    let items = node.children().filter_map(RedRef::cast).collect();
-                    Some(Imports::Items(items))
-                }
-                _ => None,
-            })
-            .expect("import is missing items")
-    }
-
-    /// The location of the importable file.
-    pub fn path(&self) -> Expr {
-        self.0.cast_last_child().expect("import is missing path")
-    }
-}
-
-/// The items that ought to be imported from a file.
-#[derive(Debug, Clone, PartialEq)]
-pub enum Imports {
-    /// All items in the scope of the file should be imported.
-    Wildcard,
-    /// The specified items from the file should be imported.
-    Items(Vec<Ident>),
-}
-
-node! {
-    /// An include expression: `include "chapter1.typ"`.
-    IncludeExpr
-}
-
-impl IncludeExpr {
-    /// The location of the file to be included.
-    pub fn path(&self) -> Expr {
-        self.0.cast_last_child().expect("include is missing path")
-    }
-}
-
-node! {
     /// A show expression: `show heading(body) as [*{body}*]`.
     ShowExpr
 }
@@ -1038,6 +990,54 @@ impl ForPattern {
     /// The value part of the pattern.
     pub fn value(&self) -> Ident {
         self.0.cast_last_child().expect("for loop pattern is missing value")
+    }
+}
+
+node! {
+    /// An import expression: `import a, b, c from "utils.typ"`.
+    ImportExpr
+}
+
+impl ImportExpr {
+    /// The items to be imported.
+    pub fn imports(&self) -> Imports {
+        self.0
+            .children()
+            .find_map(|node| match node.kind() {
+                NodeKind::Star => Some(Imports::Wildcard),
+                NodeKind::ImportItems => {
+                    let items = node.children().filter_map(RedRef::cast).collect();
+                    Some(Imports::Items(items))
+                }
+                _ => None,
+            })
+            .expect("import is missing items")
+    }
+
+    /// The location of the importable file.
+    pub fn path(&self) -> Expr {
+        self.0.cast_last_child().expect("import is missing path")
+    }
+}
+
+/// The items that ought to be imported from a file.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Imports {
+    /// All items in the scope of the file should be imported.
+    Wildcard,
+    /// The specified items from the file should be imported.
+    Items(Vec<Ident>),
+}
+
+node! {
+    /// An include expression: `include "chapter1.typ"`.
+    IncludeExpr
+}
+
+impl IncludeExpr {
+    /// The location of the file to be included.
+    pub fn path(&self) -> Expr {
+        self.0.cast_last_child().expect("include is missing path")
     }
 }
 

@@ -248,7 +248,6 @@ impl<'s> Parser<'s> {
             Group::Paren => self.eat_assert(&NodeKind::LeftParen),
             Group::Bracket => self.eat_assert(&NodeKind::LeftBracket),
             Group::Brace => self.eat_assert(&NodeKind::LeftBrace),
-            Group::Stmt => {}
             Group::Expr => {}
             Group::Imports => {}
         }
@@ -274,8 +273,7 @@ impl<'s> Parser<'s> {
             Group::Paren => Some((NodeKind::RightParen, true)),
             Group::Bracket => Some((NodeKind::RightBracket, true)),
             Group::Brace => Some((NodeKind::RightBrace, true)),
-            Group::Stmt => Some((NodeKind::Semicolon, false)),
-            Group::Expr => None,
+            Group::Expr => Some((NodeKind::Semicolon, false)),
             Group::Imports => None,
         } {
             if self.current.as_ref() == Some(&end) {
@@ -324,7 +322,7 @@ impl<'s> Parser<'s> {
             Some(NodeKind::RightParen) => self.inside(Group::Paren),
             Some(NodeKind::RightBracket) => self.inside(Group::Bracket),
             Some(NodeKind::RightBrace) => self.inside(Group::Brace),
-            Some(NodeKind::Semicolon) => self.inside(Group::Stmt),
+            Some(NodeKind::Semicolon) => self.inside(Group::Expr),
             Some(NodeKind::From) => self.inside(Group::Imports),
             Some(NodeKind::Space(n)) => *n >= 1 && self.stop_at_newline(),
             Some(_) => false,
@@ -352,7 +350,7 @@ impl<'s> Parser<'s> {
     fn stop_at_newline(&self) -> bool {
         matches!(
             self.groups.last().map(|group| group.kind),
-            Some(Group::Stmt | Group::Expr | Group::Imports)
+            Some(Group::Expr | Group::Imports)
         )
     }
 
@@ -488,8 +486,6 @@ pub enum Group {
     /// A parenthesized group: `(...)`.
     Paren,
     /// A group ended by a semicolon or a line break: `;`, `\n`.
-    Stmt,
-    /// A group for a single expression, ended by a line break.
     Expr,
     /// A group for import items, ended by a semicolon, line break or `from`.
     Imports,

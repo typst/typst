@@ -276,24 +276,25 @@ fn enum_node(p: &mut Parser, at_start: bool) {
 
 /// Parse an expression within markup mode.
 fn markup_expr(p: &mut Parser) {
-    if let Some(token) = p.peek() {
-        let stmt = matches!(
-            token,
+    // Does the expression need termination or can content follow directly?
+    let stmt = matches!(
+        p.peek(),
+        Some(
             NodeKind::Let
                 | NodeKind::Set
                 | NodeKind::Show
                 | NodeKind::Wrap
                 | NodeKind::Import
-        );
-        let group = if stmt { Group::Stmt } else { Group::Expr };
+                | NodeKind::Include
+        )
+    );
 
-        p.start_group(group);
-        let res = expr_prec(p, true, 0);
-        if stmt && res.is_ok() && !p.eof() {
-            p.expected_at("semicolon or line break");
-        }
-        p.end_group();
+    p.start_group(Group::Expr);
+    let res = expr_prec(p, true, 0);
+    if stmt && res.is_ok() && !p.eof() {
+        p.expected_at("semicolon or line break");
     }
+    p.end_group();
 }
 
 /// Parse an expression.
@@ -626,7 +627,7 @@ fn block(p: &mut Parser) {
     p.perform(NodeKind::Block, |p| {
         p.start_group(Group::Brace);
         while !p.eof() {
-            p.start_group(Group::Stmt);
+            p.start_group(Group::Expr);
             if expr(p).is_ok() && !p.eof() {
                 p.expected_at("semicolon or line break");
             }

@@ -26,3 +26,7 @@
 // The variables of the file should not appear in this scope.
 // Error: 1-6 unknown variable
 #name
+
+---
+// Error: 18 expected semicolon or line break
+#include "hi.typ" Hi
