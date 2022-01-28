@@ -548,7 +548,10 @@ impl NodeKind {
             | Self::ShowExpr
             | Self::WrapExpr
             | Self::ImportExpr
-            | Self::IncludeExpr => SuccessionRule::AtomicPrimary,
+            | Self::IncludeExpr
+            | Self::BreakExpr
+            | Self::ContinueExpr
+            | Self::ReturnExpr => SuccessionRule::AtomicPrimary,
 
             // This element always has to remain in the same column so better
             // reparse the whole parent.

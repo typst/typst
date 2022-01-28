@@ -405,6 +405,9 @@ fn primary(p: &mut Parser, atomic: bool) -> ParseResult {
         Some(NodeKind::For) => for_expr(p),
         Some(NodeKind::Import) => import_expr(p),
         Some(NodeKind::Include) => include_expr(p),
+        Some(NodeKind::Break) => break_expr(p),
+        Some(NodeKind::Continue) => continue_expr(p),
+        Some(NodeKind::Return) => return_expr(p),
 
         Some(NodeKind::Error(_, _)) => {
             p.eat();
@@ -830,6 +833,33 @@ fn include_expr(p: &mut Parser) -> ParseResult {
     p.perform(NodeKind::IncludeExpr, |p| {
         p.eat_assert(&NodeKind::Include);
         expr(p)
+    })
+}
+
+/// Parse a break expression.
+fn break_expr(p: &mut Parser) -> ParseResult {
+    p.perform(NodeKind::BreakExpr, |p| {
+        p.eat_assert(&NodeKind::Break);
+        Ok(())
+    })
+}
+
+/// Parse a continue expression.
+fn continue_expr(p: &mut Parser) -> ParseResult {
+    p.perform(NodeKind::ContinueExpr, |p| {
+        p.eat_assert(&NodeKind::Continue);
+        Ok(())
+    })
+}
+
+/// Parse a return expression.
+fn return_expr(p: &mut Parser) -> ParseResult {
+    p.perform(NodeKind::ReturnExpr, |p| {
+        p.eat_assert(&NodeKind::Return);
+        if !p.eof() {
+            expr(p)?;
+        }
+        Ok(())
     })
 }
 

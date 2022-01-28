@@ -689,6 +689,12 @@ pub enum NodeKind {
     ImportItems,
     /// An include expression: `include "chapter1.typ"`.
     IncludeExpr,
+    /// A break expression: `break`.
+    BreakExpr,
+    /// A continue expression: `continue`.
+    ContinueExpr,
+    /// A return expression: `return x + 1`.
+    ReturnExpr,
     /// A line comment, two slashes followed by inner contents, terminated with
     /// a newline: `//<str>\n`.
     LineComment,
@@ -755,7 +761,7 @@ impl NodeKind {
         }
     }
 
-    /// Whether this token appears in Markup.
+    /// Which mode this token can appear in, in both if `None`.
     pub fn mode(&self) -> Option<TokenMode> {
         match self {
             Self::Markup(_)
@@ -780,6 +786,9 @@ impl NodeKind {
             | Self::Block
             | Self::Ident(_)
             | Self::LetExpr
+            | Self::SetExpr
+            | Self::ShowExpr
+            | Self::WrapExpr
             | Self::IfExpr
             | Self::WhileExpr
             | Self::ForExpr
@@ -897,6 +906,9 @@ impl NodeKind {
             Self::ImportExpr => "`import` expression",
             Self::ImportItems => "import items",
             Self::IncludeExpr => "`include` expression",
+            Self::BreakExpr => "`break` expression",
+            Self::ContinueExpr => "`continue` expression",
+            Self::ReturnExpr => "`return` expression",
             Self::LineComment => "line comment",
             Self::BlockComment => "block comment",
             Self::Error(_, _) => "parse error",

@@ -234,6 +234,9 @@ impl Pretty for Expr {
             Self::For(v) => v.pretty(p),
             Self::Import(v) => v.pretty(p),
             Self::Include(v) => v.pretty(p),
+            Self::Break(v) => v.pretty(p),
+            Self::Continue(v) => v.pretty(p),
+            Self::Return(v) => v.pretty(p),
         }
     }
 }
@@ -547,6 +550,28 @@ impl Pretty for IncludeExpr {
     }
 }
 
+impl Pretty for BreakExpr {
+    fn pretty(&self, p: &mut Printer) {
+        p.push_str("break");
+    }
+}
+
+impl Pretty for ContinueExpr {
+    fn pretty(&self, p: &mut Printer) {
+        p.push_str("continue");
+    }
+}
+
+impl Pretty for ReturnExpr {
+    fn pretty(&self, p: &mut Printer) {
+        p.push_str("return");
+        if let Some(body) = self.body() {
+            p.push(' ');
+            body.pretty(p);
+        }
+    }
+}
+
 impl Pretty for Ident {
     fn pretty(&self, p: &mut Printer) {
         p.push_str(self);
@@ -681,5 +706,9 @@ mod tests {
         roundtrip("#for k, x in y {z}");
         roundtrip("#import * from \"file.typ\"");
         roundtrip("#include \"chapter1.typ\"");
+        roundtrip("{break}");
+        roundtrip("{continue}");
+        roundtrip("{return}");
+        roundtrip("{return x + 1}");
     }
 }

@@ -231,6 +231,12 @@ pub enum Expr {
     Import(ImportExpr),
     /// An include expression: `include "chapter1.typ"`.
     Include(IncludeExpr),
+    /// A break expression: `break`.
+    Break(BreakExpr),
+    /// A continue expression: `continue`.
+    Continue(ContinueExpr),
+    /// A return expression: `return`.
+    Return(ReturnExpr),
 }
 
 impl TypedNode for Expr {
@@ -256,6 +262,9 @@ impl TypedNode for Expr {
             NodeKind::ForExpr => node.cast().map(Self::For),
             NodeKind::ImportExpr => node.cast().map(Self::Import),
             NodeKind::IncludeExpr => node.cast().map(Self::Include),
+            NodeKind::BreakExpr => node.cast().map(Self::Break),
+            NodeKind::ContinueExpr => node.cast().map(Self::Continue),
+            NodeKind::ReturnExpr => node.cast().map(Self::Return),
             _ => node.cast().map(Self::Lit),
         }
     }
@@ -283,6 +292,9 @@ impl TypedNode for Expr {
             Self::For(v) => v.as_red(),
             Self::Import(v) => v.as_red(),
             Self::Include(v) => v.as_red(),
+            Self::Break(v) => v.as_red(),
+            Self::Continue(v) => v.as_red(),
+            Self::Return(v) => v.as_red(),
         }
     }
 }
@@ -1038,6 +1050,28 @@ impl IncludeExpr {
     /// The location of the file to be included.
     pub fn path(&self) -> Expr {
         self.0.cast_last_child().expect("include is missing path")
+    }
+}
+
+node! {
+    /// A break expression: `break`.
+    BreakExpr
+}
+
+node! {
+    /// A continue expression: `continue`.
+    ContinueExpr
+}
+
+node! {
+    /// A return expression: `return x + 1`.
+    ReturnExpr
+}
+
+impl ReturnExpr {
+    /// The expression to return.
+    pub fn body(&self) -> Option<Expr> {
+        self.0.cast_last_child()
     }
 }
 

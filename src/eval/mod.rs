@@ -390,6 +390,9 @@ impl Eval for Expr {
             Self::For(v) => v.eval(ctx),
             Self::Import(v) => v.eval(ctx),
             Self::Include(v) => v.eval(ctx),
+            Self::Break(v) => v.eval(ctx),
+            Self::Continue(v) => v.eval(ctx),
+            Self::Return(v) => v.eval(ctx),
         }
     }
 }
@@ -902,6 +905,30 @@ impl Eval for IncludeExpr {
         let file = ctx.import(&resolved, path.span())?;
         let module = &ctx.modules[&file];
         Ok(Value::Node(module.node.clone()))
+    }
+}
+
+impl Eval for BreakExpr {
+    type Output = Value;
+
+    fn eval(&self, _: &mut EvalContext) -> TypResult<Self::Output> {
+        Err("break is not yet implemented").at(self.span())
+    }
+}
+
+impl Eval for ContinueExpr {
+    type Output = Value;
+
+    fn eval(&self, _: &mut EvalContext) -> TypResult<Self::Output> {
+        Err("continue is not yet implemented").at(self.span())
+    }
+}
+
+impl Eval for ReturnExpr {
+    type Output = Value;
+
+    fn eval(&self, _: &mut EvalContext) -> TypResult<Self::Output> {
+        Err("return is not yet implemented").at(self.span())
     }
 }
 

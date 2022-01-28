@@ -223,6 +223,9 @@ impl Category {
             NodeKind::ImportExpr => None,
             NodeKind::ImportItems => None,
             NodeKind::IncludeExpr => None,
+            NodeKind::BreakExpr => None,
+            NodeKind::ContinueExpr => None,
+            NodeKind::ReturnExpr => None,
         }
     }
 
