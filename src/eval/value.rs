@@ -4,7 +4,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::rc::Rc;
 
-use super::{ops, Array, Class, Dict, Function, Node};
+use super::{ops, Args, Array, Class, Dict, Function, Node};
 use crate::diag::StrResult;
 use crate::geom::{Angle, Color, Fractional, Length, Linear, Relative, RgbaColor};
 use crate::layout::Layout;
@@ -46,6 +46,8 @@ pub enum Value {
     Node(Node),
     /// An executable function.
     Func(Function),
+    /// Captured arguments to a function.
+    Args(Args),
     /// A class of nodes.
     Class(Class),
     /// A dynamic value.
@@ -88,6 +90,7 @@ impl Value {
             Self::Dict(_) => Dict::TYPE_NAME,
             Self::Node(_) => Node::TYPE_NAME,
             Self::Func(_) => Function::TYPE_NAME,
+            Self::Args(_) => Args::TYPE_NAME,
             Self::Class(_) => Class::TYPE_NAME,
             Self::Dyn(v) => v.type_name(),
         }
@@ -151,6 +154,7 @@ impl Debug for Value {
             Self::Dict(v) => Debug::fmt(v, f),
             Self::Node(_) => f.pad("<template>"),
             Self::Func(v) => Debug::fmt(v, f),
+            Self::Args(v) => Debug::fmt(v, f),
             Self::Class(v) => Debug::fmt(v, f),
             Self::Dyn(v) => Debug::fmt(v, f),
         }
@@ -219,12 +223,12 @@ impl Dynamic {
     }
 
     /// Whether the wrapped type is `T`.
-    pub fn is<T: 'static>(&self) -> bool {
+    pub fn is<T: Type + 'static>(&self) -> bool {
         self.0.as_any().is::<T>()
     }
 
     /// Try to downcast to a reference to a specific type.
-    pub fn downcast<T: 'static>(&self) -> Option<&T> {
+    pub fn downcast<T: Type + 'static>(&self) -> Option<&T> {
         self.0.as_any().downcast_ref()
     }
 
@@ -404,6 +408,7 @@ primitive! { Function: "function",
         move |ctx, args| v.construct(ctx, args).map(Value::Node)
     )
 }
+primitive! { Args: "arguments", Args }
 primitive! { Class: "class", Class }
 
 impl Cast<Value> for Value {

@@ -642,16 +642,8 @@ impl Eval for CallArgs {
                             value: Spanned::new(value, span),
                         }));
                     }
-                    v => {
-                        if let Value::Dyn(dynamic) = &v {
-                            if let Some(args) = dynamic.downcast::<Args>() {
-                                items.extend(args.items.iter().cloned());
-                                continue;
-                            }
-                        }
-
-                        bail!(expr.span(), "cannot spread {}", v.type_name())
-                    }
+                    Value::Args(args) => items.extend(args.items),
+                    v => bail!(expr.span(), "cannot spread {}", v.type_name()),
                 },
             }
         }
@@ -716,10 +708,6 @@ impl Eval for ClosureExpr {
 
             // Put the remaining arguments into the sink.
             if let Some(sink) = &sink {
-                dynamic! {
-                    Args: "arguments",
-                }
-
                 ctx.scopes.def_mut(sink, args.take());
             }
 
@@ -867,6 +855,15 @@ impl Eval for ForExpr {
             }
             (Some(k), v, Value::Dict(dict)) => {
                 iter!(for (k => key, v => value) in dict.into_iter());
+            }
+            (None, v, Value::Args(args)) => {
+                iter!(for (v => value) in args.items.into_iter()
+                    .filter(|arg| arg.name.is_none())
+                    .map(|arg| arg.value.v));
+            }
+            (Some(k), v, Value::Args(args)) => {
+                iter!(for (k => key, v => value) in args.items.into_iter()
+                    .map(|arg| (arg.name.map_or(Value::None, Value::Str), arg.value.v)));
             }
             (_, _, Value::Str(_)) => {
                 bail!(pattern.span(), "mismatched pattern");
