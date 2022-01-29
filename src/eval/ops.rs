@@ -84,6 +84,9 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Str(a), Str(b)) => Str(a + b),
         (Array(a), Array(b)) => Array(a + b),
         (Dict(a), Dict(b)) => Dict(a + b),
+
+        (Node(a), None) => Node(a),
+        (None, Node(b)) => Node(b),
         (Node(a), Node(b)) => Node(a + b),
         (Node(a), Str(b)) => Node(a + super::Node::Text(b)),
         (Str(a), Node(b)) => Node(super::Node::Text(a) + b),
