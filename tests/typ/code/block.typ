@@ -103,6 +103,13 @@
 }
 
 ---
+// Template also creates a scope.
+[#let x = 1]
+
+// Error: 2-3 unknown variable
+{x}
+
+---
 // Multiple unseparated expressions in one line.
 
 // Error: 2-4 expected expression, found invalid token

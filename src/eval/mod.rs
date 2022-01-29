@@ -187,7 +187,7 @@ fn process_nodes(
     ctx: &mut EvalContext,
     nodes: &mut impl Iterator<Item = MarkupNode>,
 ) -> TypResult<Node> {
-    let prev = mem::take(&mut ctx.styles);
+    let prev_styles = mem::take(&mut ctx.styles);
     let mut seq = Vec::with_capacity(nodes.size_hint().1.unwrap_or_default());
     while let Some(piece) = nodes.next() {
         // Need to deal with wrap here.
@@ -201,7 +201,7 @@ fn process_nodes(
 
         seq.push(Styled::new(node, ctx.styles.clone()));
     }
-    ctx.styles = prev;
+    ctx.styles = prev_styles;
     Ok(Node::Sequence(seq))
 }
 
@@ -461,7 +461,10 @@ impl Eval for TemplateExpr {
     type Output = Node;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        self.body().eval(ctx)
+        ctx.scopes.enter();
+        let node = self.body().eval(ctx)?;
+        ctx.scopes.exit();
+        Ok(node)
     }
 }
 

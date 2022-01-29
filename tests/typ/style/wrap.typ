@@ -19,5 +19,11 @@ in booklovers and the great fulfiller of human need.
 A [_B #wrap c in [*#c*]; C] D
 
 ---
+// Test wrap style precedence.
+#set text(fill: eastern, size: 150%)
+#wrap body in text(fill: forest, body)
+Forest
+
+---
 // Error: 6-17 wrap is only allowed directly in markup
 {1 + wrap x in y}
