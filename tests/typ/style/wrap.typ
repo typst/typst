@@ -16,7 +16,7 @@ in booklovers and the great fulfiller of human need.
 
 ---
 // Test wrap in template.
-A [_B #wrap c in [*#c*]; C] D
+A [_B #wrap c in [*#c*]; C_] D
 
 ---
 // Test wrap style precedence.

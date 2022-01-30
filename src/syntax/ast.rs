@@ -63,8 +63,6 @@ impl Markup {
             NodeKind::Space(_) => Some(MarkupNode::Space),
             NodeKind::Linebreak => Some(MarkupNode::Linebreak),
             NodeKind::Parbreak => Some(MarkupNode::Parbreak),
-            NodeKind::Strong => Some(MarkupNode::Strong),
-            NodeKind::Emph => Some(MarkupNode::Emph),
             NodeKind::Text(s) | NodeKind::TextInLine(s) => {
                 Some(MarkupNode::Text(s.clone()))
             }
@@ -72,8 +70,10 @@ impl Markup {
             NodeKind::EnDash => Some(MarkupNode::Text('\u{2013}'.into())),
             NodeKind::EmDash => Some(MarkupNode::Text('\u{2014}'.into())),
             NodeKind::NonBreakingSpace => Some(MarkupNode::Text('\u{00A0}'.into())),
-            NodeKind::Math(math) => Some(MarkupNode::Math(math.as_ref().clone())),
+            NodeKind::Strong => node.cast().map(MarkupNode::Strong),
+            NodeKind::Emph => node.cast().map(MarkupNode::Emph),
             NodeKind::Raw(raw) => Some(MarkupNode::Raw(raw.as_ref().clone())),
+            NodeKind::Math(math) => Some(MarkupNode::Math(math.as_ref().clone())),
             NodeKind::Heading => node.cast().map(MarkupNode::Heading),
             NodeKind::List => node.cast().map(MarkupNode::List),
             NodeKind::Enum => node.cast().map(MarkupNode::Enum),
@@ -91,12 +91,12 @@ pub enum MarkupNode {
     Linebreak,
     /// A paragraph break: Two or more newlines.
     Parbreak,
-    /// Strong text was enabled / disabled: `*`.
-    Strong,
-    /// Emphasized text was enabled / disabled: `_`.
-    Emph,
     /// Plain text.
     Text(EcoString),
+    /// Strong content: `*Strong*`.
+    Strong(StrongNode),
+    /// Emphasized content: `_Emphasized_`.
+    Emph(EmphNode),
     /// A raw block with optional syntax highlighting: `` `...` ``.
     Raw(RawNode),
     /// A math formula: `$a^2 = b^2 + c^2$`.
@@ -109,6 +109,32 @@ pub enum MarkupNode {
     Enum(EnumNode),
     /// An expression.
     Expr(Expr),
+}
+
+node! {
+    /// Strong content: `*Strong*`.
+    StrongNode: Strong
+}
+
+impl StrongNode {
+    /// The contents of the strong node.
+    pub fn body(&self) -> Markup {
+        self.0.cast_first_child().expect("strong node is missing markup body")
+    }
+}
+
+node! {
+    /// Emphasized content: `_Emphasized_`.
+    EmphNode: Emph
+}
+
+impl EmphNode {
+    /// The contents of the emphasis node.
+    pub fn body(&self) -> Markup {
+        self.0
+            .cast_first_child()
+            .expect("emphasis node is missing markup body")
+    }
 }
 
 /// A raw block with optional syntax highlighting: `` `...` ``.

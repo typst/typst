@@ -21,7 +21,7 @@ use crate::util::EcoString;
 /// Parse a source file.
 pub fn parse(src: &str) -> Rc<GreenNode> {
     let mut p = Parser::new(src, TokenMode::Markup);
-    markup(&mut p);
+    markup(&mut p, true);
     match p.finish().into_iter().next() {
         Some(Green::Node(node)) => node,
         _ => unreachable!(),
@@ -61,7 +61,7 @@ pub fn parse_markup(
 ) -> Option<(Vec<Green>, bool)> {
     let mut p = Parser::with_prefix(prefix, src, TokenMode::Markup);
     if min_column == 0 {
-        markup(&mut p);
+        markup(&mut p, true);
     } else {
         markup_indented(&mut p, min_column);
     }
@@ -128,8 +128,8 @@ pub fn parse_comment(
 }
 
 /// Parse markup.
-fn markup(p: &mut Parser) {
-    markup_while(p, true, 0, &mut |_| true)
+fn markup(p: &mut Parser, at_start: bool) {
+    markup_while(p, at_start, 0, &mut |_| true)
 }
 
 /// Parse markup that stays right of the given column.
@@ -191,8 +191,6 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
         | NodeKind::EnDash
         | NodeKind::EmDash
         | NodeKind::NonBreakingSpace
-        | NodeKind::Emph
-        | NodeKind::Strong
         | NodeKind::Linebreak
         | NodeKind::Raw(_)
         | NodeKind::Math(_)
@@ -200,6 +198,9 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
             p.eat();
         }
 
+        // Grouping markup.
+        NodeKind::Star => strong(p),
+        NodeKind::Underscore => emph(p),
         NodeKind::Eq => heading(p, *at_start),
         NodeKind::Minus => list_node(p, *at_start),
         NodeKind::EnumNumbering(_) => enum_node(p, *at_start),
@@ -227,6 +228,24 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
     *at_start = false;
 }
 
+/// Parse strong content.
+fn strong(p: &mut Parser) {
+    p.perform(NodeKind::Strong, |p| {
+        p.start_group(Group::Strong);
+        markup(p, false);
+        p.end_group();
+    })
+}
+
+/// Parse emphasized content.
+fn emph(p: &mut Parser) {
+    p.perform(NodeKind::Emph, |p| {
+        p.start_group(Group::Emph);
+        markup(p, false);
+        p.end_group();
+    })
+}
+
 /// Parse a heading.
 fn heading(p: &mut Parser, at_start: bool) {
     let marker = p.marker();
@@ -234,7 +253,7 @@ fn heading(p: &mut Parser, at_start: bool) {
     p.eat_assert(&NodeKind::Eq);
     while p.eat_if(&NodeKind::Eq) {}
 
-    if at_start && p.peek().map_or(true, |kind| kind.is_whitespace()) {
+    if at_start && p.peek().map_or(true, |kind| kind.is_space()) {
         let column = p.column(p.prev_end());
         markup_indented(p, column);
         marker.end(p, NodeKind::Heading);
@@ -250,7 +269,7 @@ fn list_node(p: &mut Parser, at_start: bool) {
     let text: EcoString = p.peek_src().into();
     p.eat_assert(&NodeKind::Minus);
 
-    if at_start && p.peek().map_or(true, |kind| kind.is_whitespace()) {
+    if at_start && p.peek().map_or(true, |kind| kind.is_space()) {
         let column = p.column(p.prev_end());
         markup_indented(p, column);
         marker.end(p, NodeKind::List);
@@ -265,7 +284,7 @@ fn enum_node(p: &mut Parser, at_start: bool) {
     let text: EcoString = p.peek_src().into();
     p.eat();
 
-    if at_start && p.peek().map_or(true, |kind| kind.is_whitespace()) {
+    if at_start && p.peek().map_or(true, |kind| kind.is_space()) {
         let column = p.column(p.prev_end());
         markup_indented(p, column);
         marker.end(p, NodeKind::Enum);
@@ -620,7 +639,7 @@ fn params(p: &mut Parser, marker: Marker) {
 fn template(p: &mut Parser) {
     p.perform(NodeKind::Template, |p| {
         p.start_group(Group::Bracket);
-        markup(p);
+        markup(p, true);
         p.end_group();
     });
 }

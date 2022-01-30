@@ -259,6 +259,8 @@ fn test_part(
     debug: bool,
     rng: &mut LinearShift,
 ) -> (bool, bool, Vec<Rc<Frame>>) {
+    let mut ok = true;
+
     let id = ctx.sources.provide(src_path, src);
     let source = ctx.sources.get(id);
     if debug {
@@ -267,7 +269,8 @@ fn test_part(
 
     let (local_compare_ref, mut ref_errors) = parse_metadata(&source);
     let compare_ref = local_compare_ref.unwrap_or(compare_ref);
-    let mut ok = test_reparse(ctx.sources.get(id).src(), i, rng);
+
+    ok &= test_reparse(ctx.sources.get(id).src(), i, rng);
 
     let (frames, mut errors) = match ctx.evaluate(id) {
         Ok(module) => {

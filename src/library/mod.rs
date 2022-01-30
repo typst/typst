@@ -93,6 +93,8 @@ pub fn new() -> Scope {
     std.def_class::<ParbreakNode>("parbreak");
     std.def_class::<LinebreakNode>("linebreak");
     std.def_class::<TextNode>("text");
+    std.def_class::<StrongNode>("strong");
+    std.def_class::<EmphNode>("emph");
     std.def_class::<DecoNode<Underline>>("underline");
     std.def_class::<DecoNode<Strikethrough>>("strike");
     std.def_class::<DecoNode<Overline>>("overline");

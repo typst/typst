@@ -496,6 +496,8 @@ pub enum NodeKind {
     RightParen,
     /// An asterisk: `*`.
     Star,
+    /// An underscore: `_`.
+    Underscore,
     /// A comma: `,`.
     Comma,
     /// A semicolon: `;`.
@@ -599,25 +601,25 @@ pub enum NodeKind {
     /// A slash and the letter "u" followed by a hexadecimal unicode entity
     /// enclosed in curly braces: `\u{1F5FA}`.
     Escape(char),
-    /// Strong text was enabled / disabled: `*`.
+    /// Strong content: `*Strong*`.
     Strong,
-    /// Emphasized text was enabled / disabled: `_`.
+    /// Emphasized content: `_Emphasized_`.
     Emph,
+    /// An arbitrary number of backticks followed by inner contents, terminated
+    /// with the same number of backticks: `` `...` ``.
+    Raw(Rc<RawNode>),
+    /// Dollar signs surrounding inner contents.
+    Math(Rc<MathNode>),
     /// A section heading: `= Introduction`.
     Heading,
+    /// An item in an unordered list: `- ...`.
+    List,
     /// An item in an enumeration (ordered list): `1. ...`.
     Enum,
     /// A numbering: `23.`.
     ///
     /// Can also exist without the number: `.`.
     EnumNumbering(Option<usize>),
-    /// An item in an unordered list: `- ...`.
-    List,
-    /// An arbitrary number of backticks followed by inner contents, terminated
-    /// with the same number of backticks: `` `...` ``.
-    Raw(Rc<RawNode>),
-    /// Dollar signs surrounding inner contents.
-    Math(Rc<MathNode>),
     /// An identifier: `center`.
     Ident(EcoString),
     /// A boolean: `true`, `false`.
@@ -736,14 +738,14 @@ impl NodeKind {
         matches!(self, Self::LeftParen | Self::RightParen)
     }
 
-    /// Whether this is whitespace.
-    pub fn is_whitespace(&self) -> bool {
-        matches!(self, Self::Space(_) | Self::Parbreak)
+    /// Whether this is a space.
+    pub fn is_space(&self) -> bool {
+        matches!(self, Self::Space(_))
     }
 
     /// Whether this is trivia.
     pub fn is_trivia(&self) -> bool {
-        self.is_whitespace() || matches!(self, Self::LineComment | Self::BlockComment)
+        self.is_space() || matches!(self, Self::LineComment | Self::BlockComment)
     }
 
     /// Whether this is some kind of error.
@@ -761,7 +763,7 @@ impl NodeKind {
         }
     }
 
-    /// Which mode this token can appear in, in both if `None`.
+    /// Which mode this node can appear in, in both if `None`.
     pub fn mode(&self) -> Option<TokenMode> {
         match self {
             Self::Markup(_)
@@ -814,6 +816,7 @@ impl NodeKind {
             Self::LeftParen => "opening paren",
             Self::RightParen => "closing paren",
             Self::Star => "star",
+            Self::Underscore => "underscore",
             Self::Comma => "comma",
             Self::Semicolon => "semicolon",
             Self::Colon => "colon",
@@ -864,14 +867,14 @@ impl NodeKind {
             Self::EnDash => "en dash",
             Self::EmDash => "em dash",
             Self::Escape(_) => "escape sequence",
-            Self::Strong => "strong",
-            Self::Emph => "emphasis",
+            Self::Strong => "strong content",
+            Self::Emph => "emphasized content",
+            Self::Raw(_) => "raw block",
+            Self::Math(_) => "math formula",
+            Self::List => "list item",
             Self::Heading => "heading",
             Self::Enum => "enumeration item",
             Self::EnumNumbering(_) => "enumeration item numbering",
-            Self::List => "list item",
-            Self::Raw(_) => "raw block",
-            Self::Math(_) => "math formula",
             Self::Ident(_) => "identifier",
             Self::Bool(_) => "boolean",
             Self::Int(_) => "integer",

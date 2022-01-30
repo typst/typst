@@ -151,7 +151,10 @@ impl Category {
             NodeKind::From => Some(Category::Keyword),
             NodeKind::Include => Some(Category::Keyword),
             NodeKind::Plus => Some(Category::Operator),
-            NodeKind::Star => Some(Category::Operator),
+            NodeKind::Star => match parent.kind() {
+                NodeKind::Strong => None,
+                _ => Some(Category::Operator),
+            },
             NodeKind::Slash => Some(Category::Operator),
             NodeKind::PlusEq => Some(Category::Operator),
             NodeKind::HyphEq => Some(Category::Operator),
@@ -191,6 +194,7 @@ impl Category {
             NodeKind::Str(_) => Some(Category::String),
             NodeKind::Error(_, _) => Some(Category::Invalid),
             NodeKind::Unknown(_) => Some(Category::Invalid),
+            NodeKind::Underscore => None,
             NodeKind::Markup(_) => None,
             NodeKind::Space(_) => None,
             NodeKind::Parbreak => None,
@@ -276,11 +280,7 @@ mod tests {
             assert_eq!(vec, goal);
         }
 
-        test("= *AB*", &[
-            (0 .. 6, Heading),
-            (2 .. 3, Strong),
-            (5 .. 6, Strong),
-        ]);
+        test("= *AB*", &[(0 .. 6, Heading), (2 .. 6, Strong)]);
 
         test("#f(x + 1)", &[
             (0 .. 2, Function),

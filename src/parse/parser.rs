@@ -239,17 +239,18 @@ impl<'s> Parser<'s> {
     pub fn start_group(&mut self, kind: Group) {
         self.groups.push(GroupEntry { kind, prev_mode: self.tokens.mode() });
         self.tokens.set_mode(match kind {
-            Group::Bracket => TokenMode::Markup,
-            _ => TokenMode::Code,
+            Group::Bracket | Group::Strong | Group::Emph => TokenMode::Markup,
+            Group::Paren | Group::Brace | Group::Expr | Group::Imports => TokenMode::Code,
         });
 
-        self.repeek();
         match kind {
             Group::Paren => self.eat_assert(&NodeKind::LeftParen),
             Group::Bracket => self.eat_assert(&NodeKind::LeftBracket),
             Group::Brace => self.eat_assert(&NodeKind::LeftBrace),
-            Group::Expr => {}
-            Group::Imports => {}
+            Group::Strong => self.eat_assert(&NodeKind::Star),
+            Group::Emph => self.eat_assert(&NodeKind::Underscore),
+            Group::Expr => self.repeek(),
+            Group::Imports => self.repeek(),
         }
     }
 
@@ -273,6 +274,8 @@ impl<'s> Parser<'s> {
             Group::Paren => Some((NodeKind::RightParen, true)),
             Group::Bracket => Some((NodeKind::RightBracket, true)),
             Group::Brace => Some((NodeKind::RightBrace, true)),
+            Group::Strong => Some((NodeKind::Star, true)),
+            Group::Emph => Some((NodeKind::Underscore, true)),
             Group::Expr => Some((NodeKind::Semicolon, false)),
             Group::Imports => None,
         } {
@@ -322,9 +325,11 @@ impl<'s> Parser<'s> {
             Some(NodeKind::RightParen) => self.inside(Group::Paren),
             Some(NodeKind::RightBracket) => self.inside(Group::Bracket),
             Some(NodeKind::RightBrace) => self.inside(Group::Brace),
+            Some(NodeKind::Star) => self.inside(Group::Strong),
+            Some(NodeKind::Underscore) => self.inside(Group::Emph),
             Some(NodeKind::Semicolon) => self.inside(Group::Expr),
             Some(NodeKind::From) => self.inside(Group::Imports),
-            Some(NodeKind::Space(n)) => *n >= 1 && self.stop_at_newline(),
+            Some(NodeKind::Space(n)) => self.space_ends_group(*n),
             Some(_) => false,
             None => true,
         };
@@ -332,31 +337,34 @@ impl<'s> Parser<'s> {
 
     /// Returns whether the given type can be skipped over.
     fn is_trivia(&self, token: &NodeKind) -> bool {
-        Self::is_trivia_ext(token, self.stop_at_newline())
-    }
-
-    /// Returns whether the given type can be skipped over given the current
-    /// newline mode.
-    fn is_trivia_ext(token: &NodeKind, stop_at_newline: bool) -> bool {
         match token {
-            NodeKind::Space(n) => *n == 0 || !stop_at_newline,
+            NodeKind::Space(n) => !self.space_ends_group(*n),
             NodeKind::LineComment => true,
             NodeKind::BlockComment => true,
             _ => false,
         }
     }
 
-    /// Whether the active group must end at a newline.
-    fn stop_at_newline(&self) -> bool {
-        matches!(
-            self.groups.last().map(|group| group.kind),
-            Some(Group::Expr | Group::Imports)
-        )
+    /// Whether a space with the given number of newlines ends the current group.
+    fn space_ends_group(&self, n: usize) -> bool {
+        if n == 0 {
+            return false;
+        }
+
+        match self.groups.last().map(|group| group.kind) {
+            Some(Group::Strong | Group::Emph) => n >= 2,
+            Some(Group::Expr | Group::Imports) => n >= 1,
+            _ => false,
+        }
     }
 
-    /// Whether we are inside the given group.
+    /// Whether we are inside the given group (can be nested).
     fn inside(&self, kind: Group) -> bool {
-        self.groups.iter().any(|g| g.kind == kind)
+        self.groups
+            .iter()
+            .rev()
+            .take_while(|g| !kind.is_weak() || g.kind.is_weak())
+            .any(|g| g.kind == kind)
     }
 }
 
@@ -431,15 +439,20 @@ impl Marker {
         F: Fn(&Green) -> Result<(), &'static str>,
     {
         for child in &mut p.children[self.0 ..] {
-            if (p.tokens.mode() == TokenMode::Markup
-                || !Parser::is_trivia_ext(child.kind(), false))
-                && !child.kind().is_error()
-            {
-                if let Err(msg) = f(child) {
-                    let error = NodeKind::Error(ErrorPos::Full, msg.into());
-                    let inner = mem::take(child);
-                    *child = GreenNode::with_child(error, inner).into();
-                }
+            // Don't expose errors.
+            if child.kind().is_error() {
+                continue;
+            }
+
+            // Don't expose trivia in code.
+            if p.tokens.mode() == TokenMode::Code && child.kind().is_trivia() {
+                continue;
+            }
+
+            if let Err(msg) = f(child) {
+                let error = NodeKind::Error(ErrorPos::Full, msg.into());
+                let inner = mem::take(child);
+                *child = GreenNode::with_child(error, inner).into();
             }
         }
     }
@@ -485,10 +498,21 @@ pub enum Group {
     Brace,
     /// A parenthesized group: `(...)`.
     Paren,
+    /// A group surrounded with stars: `*...*`.
+    Strong,
+    /// A group surrounded with underscore: `_..._`.
+    Emph,
     /// A group ended by a semicolon or a line break: `;`, `\n`.
     Expr,
     /// A group for import items, ended by a semicolon, line break or `from`.
     Imports,
+}
+
+impl Group {
+    /// Whether the group can only force other weak groups to end.
+    fn is_weak(self) -> bool {
+        matches!(self, Group::Strong | Group::Emph)
+    }
 }
 
 /// Allows parser methods to use the try operator. Never returned top-level

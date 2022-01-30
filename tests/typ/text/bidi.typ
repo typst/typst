@@ -10,7 +10,7 @@
 ---
 // Test that consecutive, embedded  LTR runs stay LTR.
 // Here, we have two runs: "A" and italic "B".
-#let content = [أنت A_B_مطرC]
+#let content = [أنت A#emph[B]مطرC]
 #set text(serif, "Noto Sans Arabic")
 #par(lang: "ar", content)
 #par(lang: "de", content)
@@ -18,7 +18,7 @@
 ---
 // Test that consecutive, embedded RTL runs stay RTL.
 // Here, we have three runs: "גֶ", bold "שֶׁ", and "ם".
-#let content = [Aגֶ*שֶׁ*םB]
+#let content = [Aגֶ#strong[שֶׁ]םB]
 #set text(serif, "Noto Serif Hebrew")
 #par(lang: "he", content)
 #par(lang: "de", content)

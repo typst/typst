@@ -150,6 +150,26 @@ impl Debug for TextNode {
     }
 }
 
+/// Strong text, rendered in boldface.
+pub struct StrongNode;
+
+#[class]
+impl StrongNode {
+    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
+        Ok(args.expect::<Node>("body")?.styled(TextNode::STRONG, true))
+    }
+}
+
+/// Emphasized text, rendered with an italic face.
+pub struct EmphNode;
+
+#[class]
+impl EmphNode {
+    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
+        Ok(args.expect::<Node>("body")?.styled(TextNode::EMPH, true))
+    }
+}
+
 /// A generic or named font family.
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub enum FontFamily {

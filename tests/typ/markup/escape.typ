@@ -32,4 +32,4 @@ let f() , ; : | + - /= == 12 "string"
 ---
 // Unterminated.
 // Error: 6 expected closing brace
-\u{41*Bold*
+\u{41[*Bold*]

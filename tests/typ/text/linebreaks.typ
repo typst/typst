@@ -10,7 +10,7 @@ Supercalifragilisticexpialidocious Expialigoricmetrioxidation.
 
 ---
 // Test that there are no unwanted line break opportunities on run change.
-This is partly emp_has_ized.
+This is partly emp#emph[has]ized.
 
 ---
 Hard \ break.

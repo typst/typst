@@ -44,15 +44,15 @@
         },
         {
           "name": "markup.bold.typst",
-          "begin": "\\*",
-          "end": "\\*|(?=\\])",
+          "begin": "(^\\*|\\*$|((?<=\\W|_)\\*)|(\\*(?=\\W|_)))",
+          "end": "(^\\*|\\*$|((?<=\\W|_)\\*)|(\\*(?=\\W|_)))|\n|(?=\\])",
           "captures": { "0": { "name": "punctuation.definition.bold.typst" } },
           "patterns": [{ "include": "#markup" }]
         },
         {
           "name": "markup.italic.typst",
-          "begin": "_",
-          "end": "_|(?=\\])",
+          "begin": "(^_|_$|((?<=\\W|_)_)|(_(?=\\W|_)))",
+          "end": "(^_|_$|((?<=\\W|_)_)|(_(?=\\W|_)))|\n|(?=\\])",
           "captures": { "0": { "name": "punctuation.definition.italic.typst" } },
           "patterns": [{ "include": "#markup" }]
         },

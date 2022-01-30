@@ -213,15 +213,9 @@ impl Eval for MarkupNode {
             Self::Space => Node::Space,
             Self::Linebreak => Node::Linebreak,
             Self::Parbreak => Node::Parbreak,
-            Self::Strong => {
-                ctx.styles.toggle(TextNode::STRONG);
-                Node::new()
-            }
-            Self::Emph => {
-                ctx.styles.toggle(TextNode::EMPH);
-                Node::new()
-            }
             Self::Text(text) => Node::Text(text.clone()),
+            Self::Strong(strong) => strong.eval(ctx)?,
+            Self::Emph(emph) => emph.eval(ctx)?,
             Self::Raw(raw) => raw.eval(ctx)?,
             Self::Math(math) => math.eval(ctx)?,
             Self::Heading(heading) => heading.eval(ctx)?,
@@ -229,6 +223,22 @@ impl Eval for MarkupNode {
             Self::Enum(enum_) => enum_.eval(ctx)?,
             Self::Expr(expr) => expr.eval(ctx)?.show(),
         })
+    }
+}
+
+impl Eval for StrongNode {
+    type Output = Node;
+
+    fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
+        Ok(self.body().eval(ctx)?.styled(TextNode::STRONG, true))
+    }
+}
+
+impl Eval for EmphNode {
+    type Output = Node;
+
+    fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
+        Ok(self.body().eval(ctx)?.styled(TextNode::EMPH, true))
     }
 }
 

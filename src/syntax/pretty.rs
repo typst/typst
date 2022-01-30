@@ -95,8 +95,8 @@ impl Pretty for MarkupNode {
             Self::Space => p.push(' '),
             Self::Linebreak => p.push_str(r"\"),
             Self::Parbreak => p.push_str("\n\n"),
-            Self::Strong => p.push('*'),
-            Self::Emph => p.push('_'),
+            Self::Strong(strong) => strong.pretty(p),
+            Self::Emph(emph) => emph.pretty(p),
             Self::Text(text) => p.push_str(text),
             Self::Raw(raw) => raw.pretty(p),
             Self::Math(math) => math.pretty(p),
@@ -110,6 +110,22 @@ impl Pretty for MarkupNode {
                 expr.pretty(p);
             }
         }
+    }
+}
+
+impl Pretty for StrongNode {
+    fn pretty(&self, p: &mut Printer) {
+        p.push('*');
+        self.body().pretty(p);
+        p.push('*');
+    }
+}
+
+impl Pretty for EmphNode {
+    fn pretty(&self, p: &mut Printer) {
+        p.push('_');
+        self.body().pretty(p);
+        p.push('_');
     }
 }
 
@@ -604,12 +620,12 @@ mod tests {
     #[test]
     fn test_pretty_print_markup() {
         // Basic stuff.
-        roundtrip("*");
-        roundtrip("_");
         roundtrip(" ");
+        roundtrip("*ab*");
         roundtrip("\\ ");
         roundtrip("\n\n");
         roundtrip("hi");
+        roundtrip("_ab_");
         roundtrip("= *Ok*");
         roundtrip("- Ok");
 

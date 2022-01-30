@@ -123,8 +123,8 @@ impl<'s> Tokens<'s> {
 
             // Markup.
             '~' => NodeKind::NonBreakingSpace,
-            '*' => NodeKind::Strong,
-            '_' => NodeKind::Emph,
+            '*' if !self.in_word() => NodeKind::Star,
+            '_' if !self.in_word() => NodeKind::Underscore,
             '`' => self.raw(),
             '$' => self.math(),
             '-' => self.hyph(),
@@ -527,6 +527,13 @@ impl<'s> Tokens<'s> {
         NodeKind::BlockComment
     }
 
+    fn in_word(&self) -> bool {
+        let alphanumeric = |c: Option<char>| c.map_or(false, |c| c.is_alphanumeric());
+        let prev = self.s.get(.. self.s.last_index()).chars().next_back();
+        let next = self.s.peek();
+        alphanumeric(prev) && alphanumeric(next)
+    }
+
     fn maybe_in_url(&self) -> bool {
         self.mode == TokenMode::Markup && self.s.eaten().ends_with(":/")
     }
@@ -651,7 +658,7 @@ mod tests {
                 ('/', None, "[", LeftBracket),
                 ('/', None, "//", LineComment),
                 ('/', None, "/**/", BlockComment),
-                ('/', Some(Markup), "*", Strong),
+                ('/', Some(Markup), "*", Star),
                 ('/', Some(Markup), "$ $", Math(" ", false)),
                 ('/', Some(Markup), r"\\", Escape('\\')),
                 ('/', Some(Markup), "#let", Let),
@@ -790,8 +797,8 @@ mod tests {
     #[test]
     fn test_tokenize_markup_symbols() {
         // Test markup tokens.
-        t!(Markup[" a1"]: "*"   => Strong);
-        t!(Markup: "_"          => Emph);
+        t!(Markup[" a1"]: "*"   => Star);
+        t!(Markup: "_"          => Underscore);
         t!(Markup[""]: "==="    => Eq, Eq, Eq);
         t!(Markup["a1/"]: "= "  => Eq, Space(0));
         t!(Markup: "~"          => NonBreakingSpace);

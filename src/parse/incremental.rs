@@ -435,10 +435,12 @@ impl NodeKind {
             | Self::LeftParen
             | Self::RightParen => SuccessionRule::Unsafe,
 
+            // These work similar to parentheses.
+            Self::Star | Self::Underscore => SuccessionRule::Unsafe,
+
             // Replacing an operator can change whether the parent is an
-            // operation which makes it unsafe. The star can appear in markup.
-            Self::Star
-            | Self::Comma
+            // operation which makes it unsafe.
+            Self::Comma
             | Self::Semicolon
             | Self::Colon
             | Self::Plus

@@ -87,19 +87,6 @@ impl StyleMap {
         }
     }
 
-    /// Toggle a boolean style property, removing it if it exists and inserting
-    /// it with `true` if it doesn't.
-    pub fn toggle<P: Property<Value = bool>>(&mut self, key: P) {
-        for (i, entry) in self.0.iter_mut().enumerate() {
-            if entry.is::<P>() {
-                self.0.swap_remove(i);
-                return;
-            }
-        }
-
-        self.0.push(Entry::new(key, true));
-    }
-
     /// Mark all contained properties as _scoped_. This means that they only
     /// apply to the first descendant node (of their type) in the hierarchy and
     /// not its children, too. This is used by class constructors.
