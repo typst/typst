@@ -261,6 +261,9 @@ fn test_part(
 ) -> (bool, bool, Vec<Rc<Frame>>) {
     let id = ctx.sources.provide(src_path, src);
     let source = ctx.sources.get(id);
+    if debug {
+        println!("Syntax: {:#?}", source.root())
+    }
 
     let (local_compare_ref, mut ref_errors) = parse_metadata(&source);
     let compare_ref = local_compare_ref.unwrap_or(compare_ref);
@@ -270,7 +273,7 @@ fn test_part(
         Ok(module) => {
             let tree = module.into_root();
             if debug {
-                println!("{tree:#?}");
+                println!("Layout: {tree:#?}");
             }
 
             let mut frames = tree.layout(ctx);
