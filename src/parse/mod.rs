@@ -28,30 +28,6 @@ pub fn parse(src: &str) -> Rc<GreenNode> {
     }
 }
 
-/// Parse an atomic primary. Returns `Some` if all of the input was consumed.
-pub fn parse_atomic(
-    prefix: &str,
-    src: &str,
-    _: bool,
-    _: usize,
-) -> Option<(Vec<Green>, bool)> {
-    let mut p = Parser::with_prefix(prefix, src, TokenMode::Code);
-    primary(&mut p, true).ok()?;
-    p.consume_unterminated()
-}
-
-/// Parse an atomic primary. Returns `Some` if all of the input was consumed.
-pub fn parse_atomic_markup(
-    prefix: &str,
-    src: &str,
-    _: bool,
-    _: usize,
-) -> Option<(Vec<Green>, bool)> {
-    let mut p = Parser::with_prefix(prefix, src, TokenMode::Markup);
-    markup_expr(&mut p);
-    p.consume_unterminated()
-}
-
 /// Parse some markup. Returns `Some` if all of the input was consumed.
 pub fn parse_markup(
     prefix: &str,
@@ -81,6 +57,30 @@ pub fn parse_markup_elements(
         markup_node(&mut p, &mut at_start);
     }
     p.consume()
+}
+
+/// Parse an atomic primary. Returns `Some` if all of the input was consumed.
+pub fn parse_atomic(
+    prefix: &str,
+    src: &str,
+    _: bool,
+    _: usize,
+) -> Option<(Vec<Green>, bool)> {
+    let mut p = Parser::with_prefix(prefix, src, TokenMode::Code);
+    primary(&mut p, true).ok()?;
+    p.consume_unterminated()
+}
+
+/// Parse an atomic primary. Returns `Some` if all of the input was consumed.
+pub fn parse_atomic_markup(
+    prefix: &str,
+    src: &str,
+    _: bool,
+    _: usize,
+) -> Option<(Vec<Green>, bool)> {
+    let mut p = Parser::with_prefix(prefix, src, TokenMode::Markup);
+    markup_expr(&mut p);
+    p.consume_unterminated()
 }
 
 /// Parse a template literal. Returns `Some` if all of the input was consumed.
@@ -128,11 +128,18 @@ pub fn parse_comment(
 }
 
 /// Parse markup.
-fn markup(p: &mut Parser, at_start: bool) {
-    markup_while(p, at_start, 0, &mut |_| true)
+///
+/// If `at_start` is true, things like headings that may only appear at the
+/// beginning of a line or template are initially allowed.
+fn markup(p: &mut Parser, mut at_start: bool) {
+    p.perform(NodeKind::Markup(0), |p| {
+        while !p.eof() {
+            markup_node(p, &mut at_start);
+        }
+    });
 }
 
-/// Parse markup that stays right of the given column.
+/// Parse markup that stays right of the given `column`.
 fn markup_indented(p: &mut Parser, column: usize) {
     p.eat_while(|t| match t {
         NodeKind::Space(n) => *n == 0,
@@ -140,22 +147,15 @@ fn markup_indented(p: &mut Parser, column: usize) {
         _ => false,
     });
 
-    markup_while(p, false, column, &mut |p| match p.peek() {
-        Some(NodeKind::Space(n)) if *n >= 1 => p.column(p.current_end()) >= column,
-        _ => true,
-    })
-}
-
-/// Parse a syntax tree while the peeked NodeKind satisifies a condition.
-///
-/// If `at_start` is true, things like headings that may only appear at the
-/// beginning of a line or template are allowed.
-fn markup_while<F>(p: &mut Parser, mut at_start: bool, column: usize, f: &mut F)
-where
-    F: FnMut(&mut Parser) -> bool,
-{
+    let mut at_start = false;
     p.perform(NodeKind::Markup(column), |p| {
-        while !p.eof() && f(p) {
+        while !p.eof() {
+            if let Some(NodeKind::Space(1 ..)) = p.peek() {
+                if p.column(p.current_end()) < column {
+                    break;
+                }
+            }
+
             markup_node(p, &mut at_start);
         }
     });
