@@ -4,7 +4,6 @@ use std::mem;
 
 use super::{Scanner, TokenMode, Tokens};
 use crate::syntax::{ErrorPos, Green, GreenData, GreenNode, NodeKind};
-use crate::util::EcoString;
 
 /// A convenient token-based parser.
 pub struct Parser<'s> {
@@ -81,7 +80,7 @@ impl<'s> Parser<'s> {
         Marker(self.children.len())
     }
 
-    /// Create a markup right before the trailing trivia.
+    /// Create a marker right before the trailing trivia.
     pub fn trivia_start(&self) -> Marker {
         let count = self
             .children
@@ -155,7 +154,7 @@ impl<'s> Parser<'s> {
     pub fn eat_expect(&mut self, t: &NodeKind) -> ParseResult {
         let eaten = self.eat_if(t);
         if !eaten {
-            self.expected_at(t.as_str());
+            self.expected(t.as_str());
         }
         if eaten { Ok(()) } else { Err(ParseError) }
     }
@@ -298,18 +297,22 @@ impl<'s> Parser<'s> {
                 self.stray_terminator = s;
                 rescan = false;
             } else if required {
-                self.push_error(format_eco!("expected {}", end));
+                self.expected(end.as_str());
                 self.unterminated_group = true;
             }
         }
 
         // Rescan the peeked token if the mode changed.
         if rescan {
+            let mut target = self.prev_end();
             if group_mode == TokenMode::Code {
-                self.children.truncate(self.trivia_start().0);
+                let start = self.trivia_start().0;
+                target = self.current_start
+                    - self.children[start ..].iter().map(Green::len).sum::<usize>();
+                self.children.truncate(start);
             }
 
-            self.tokens.jump(self.prev_end());
+            self.tokens.jump(target);
             self.prev_end = self.tokens.index();
             self.current_start = self.tokens.index();
             self.current = self.tokens.next();
@@ -385,41 +388,39 @@ impl<'s> Parser<'s> {
 
 /// Error handling.
 impl Parser<'_> {
-    /// Push an error into the children list.
-    pub fn push_error(&mut self, msg: impl Into<EcoString>) {
-        let error = NodeKind::Error(ErrorPos::Full, msg.into());
-        let idx = self.trivia_start();
-        self.children.insert(idx.0, GreenData::new(error, 0).into());
-    }
-
     /// Eat the current token and add an error that it is unexpected.
     pub fn unexpected(&mut self) {
-        match self.peek() {
-            Some(found) => {
-                let msg = format_eco!("unexpected {}", found);
-                let error = NodeKind::Error(ErrorPos::Full, msg);
-                self.perform(error, Self::eat);
-            }
-            None => self.push_error("unexpected end of file"),
+        if let Some(found) = self.peek() {
+            let msg = format_eco!("unexpected {}", found);
+            let error = NodeKind::Error(ErrorPos::Full, msg);
+            self.perform(error, Self::eat);
         }
     }
 
-    /// Eat the current token and add an error that it is not the expected `thing`.
+    /// Add an error that the `thing` was expected at the end of the last
+    /// non-trivia token.
     pub fn expected(&mut self, thing: &str) {
+        self.expected_at(self.trivia_start(), thing);
+    }
+
+    /// Insert an error message that `what` was expected at the marker position.
+    pub fn expected_at(&mut self, marker: Marker, what: &str) {
+        let msg = format_eco!("expected {}", what);
+        let error = NodeKind::Error(ErrorPos::Full, msg);
+        self.children.insert(marker.0, GreenData::new(error, 0).into());
+    }
+
+    /// Eat the current token and add an error that it is not the expected
+    /// `thing`.
+    pub fn expected_found(&mut self, thing: &str) {
         match self.peek() {
             Some(found) => {
                 let msg = format_eco!("expected {}, found {}", thing, found);
                 let error = NodeKind::Error(ErrorPos::Full, msg);
                 self.perform(error, Self::eat);
             }
-            None => self.expected_at(thing),
+            None => self.expected(thing),
         }
-    }
-
-    /// Add an error that the `thing` was expected at the end of the last
-    /// non-trivia token.
-    pub fn expected_at(&mut self, thing: &str) {
-        self.trivia_start().expected(self, thing);
     }
 }
 
@@ -428,6 +429,18 @@ impl Parser<'_> {
 pub struct Marker(usize);
 
 impl Marker {
+    /// Peek at the child directly after the marker.
+    pub fn peek<'a>(self, p: &'a Parser) -> Option<&'a Green> {
+        p.children.get(self.0)
+    }
+
+    /// Convert the child directly after marker.
+    pub fn convert(self, p: &mut Parser, kind: NodeKind) {
+        if let Some(child) = p.children.get_mut(self.0) {
+            child.convert(kind);
+        }
+    }
+
     /// Perform a subparse that wraps all children after the marker in a node
     /// with the given kind.
     pub fn perform<T, F>(self, p: &mut Parser, kind: NodeKind, f: F) -> T
@@ -469,25 +482,6 @@ impl Marker {
                 let inner = mem::take(child);
                 *child = GreenNode::with_child(error, inner).into();
             }
-        }
-    }
-
-    /// Insert an error message that `what` was expected at the marker position.
-    pub fn expected(self, p: &mut Parser, what: &str) {
-        let msg = format_eco!("expected {}", what);
-        let error = NodeKind::Error(ErrorPos::Full, msg);
-        p.children.insert(self.0, GreenData::new(error, 0).into());
-    }
-
-    /// Peek at the child directly after the marker.
-    pub fn peek<'a>(self, p: &'a Parser) -> Option<&'a Green> {
-        p.children.get(self.0)
-    }
-
-    /// Convert the child directly after marker.
-    pub fn convert(self, p: &mut Parser, kind: NodeKind) {
-        if let Some(child) = p.children.get_mut(self.0) {
-            child.convert(kind);
         }
     }
 }

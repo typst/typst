@@ -311,7 +311,7 @@ fn markup_expr(p: &mut Parser) {
     p.start_group(Group::Expr);
     let res = expr_prec(p, true, 0);
     if stmt && res.is_ok() && !p.eof() {
-        p.expected_at("semicolon or line break");
+        p.expected("semicolon or line break");
     }
     p.end_group();
 }
@@ -435,7 +435,7 @@ fn primary(p: &mut Parser, atomic: bool) -> ParseResult {
 
         // Nothing.
         _ => {
-            p.expected("expression");
+            p.expected_found("expression");
             Err(ParseError)
         }
     }
@@ -538,7 +538,7 @@ fn collection(p: &mut Parser) -> (CollectionKind, usize) {
             items += 1;
 
             if let Some(marker) = missing_coma.take() {
-                marker.expected(p, "comma");
+                p.expected_at(marker, "comma");
             }
 
             if p.eof() {
@@ -651,7 +651,7 @@ fn block(p: &mut Parser) {
         while !p.eof() {
             p.start_group(Group::Expr);
             if expr(p).is_ok() && !p.eof() {
-                p.expected_at("semicolon or line break");
+                p.expected("semicolon or line break");
             }
             p.end_group();
 
@@ -673,7 +673,7 @@ fn args(p: &mut Parser, direct: bool, brackets: bool) -> ParseResult {
         Some(NodeKind::LeftParen) => {}
         Some(NodeKind::LeftBracket) if brackets => {}
         _ => {
-            p.expected("argument list");
+            p.expected_found("argument list");
             return Err(ParseError);
         }
     }
@@ -726,7 +726,7 @@ fn let_expr(p: &mut Parser) -> ParseResult {
                 expr(p)?;
             } else if has_params {
                 // Function definitions must have a body.
-                p.expected_at("body");
+                p.expected("body");
             }
 
             // Rewrite into a closure expression if it's a function definition.
@@ -831,7 +831,7 @@ fn import_expr(p: &mut Parser) -> ParseResult {
                 let marker = p.marker();
                 let items = collection(p).1;
                 if items == 0 {
-                    p.expected_at("import items");
+                    p.expected("import items");
                 }
                 p.end_group();
 
@@ -890,7 +890,7 @@ fn ident(p: &mut Parser) -> ParseResult {
             Ok(())
         }
         _ => {
-            p.expected("identifier");
+            p.expected_found("identifier");
             Err(ParseError)
         }
     }
@@ -902,7 +902,7 @@ fn body(p: &mut Parser) -> ParseResult {
         Some(NodeKind::LeftBracket) => template(p),
         Some(NodeKind::LeftBrace) => block(p),
         _ => {
-            p.expected_at("body");
+            p.expected("body");
             return Err(ParseError);
         }
     }

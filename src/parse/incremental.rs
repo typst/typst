@@ -644,6 +644,7 @@ mod tests {
         test("a #let rect with (fill: eastern)\nb", 16 .. 31, " (stroke: conifer", 2 .. 34);
         test(r#"a ```typst hello``` b"#, 16 .. 17, "", 0 .. 20);
         test(r#"a ```typst hello```"#, 16 .. 17, "", 0 .. 18);
+        test("#for", 4 .. 4, "//", 0 .. 6);
     }
 
     #[test]

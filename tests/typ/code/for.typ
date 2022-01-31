@@ -94,6 +94,9 @@
 // Error: 5 expected identifier
 #for
 
+// Error: 7 expected identifier
+#for//
+
 // Error: 5 expected identifier
 {for}
 
