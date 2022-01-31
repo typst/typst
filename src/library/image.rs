@@ -44,7 +44,7 @@ impl Layout for ImageNode {
         ctx: &mut LayoutContext,
         regions: &Regions,
         styles: StyleChain,
-    ) -> Vec<Constrained<Rc<Frame>>> {
+    ) -> Vec<Constrained<Arc<Frame>>> {
         let img = ctx.images.get(self.0);
         let pxw = img.width() as f64;
         let pxh = img.height() as f64;

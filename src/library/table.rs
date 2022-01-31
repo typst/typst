@@ -60,7 +60,7 @@ impl Layout for TableNode {
         ctx: &mut LayoutContext,
         regions: &Regions,
         styles: StyleChain,
-    ) -> Vec<Constrained<Rc<Frame>>> {
+    ) -> Vec<Constrained<Arc<Frame>>> {
         let primary = styles.get(Self::PRIMARY);
         let secondary = styles.get(Self::SECONDARY);
         let thickness = styles.get(Self::THICKNESS);

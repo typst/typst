@@ -27,7 +27,7 @@ impl Layout for AlignNode {
         ctx: &mut LayoutContext,
         regions: &Regions,
         styles: StyleChain,
-    ) -> Vec<Constrained<Rc<Frame>>> {
+    ) -> Vec<Constrained<Arc<Frame>>> {
         // The child only needs to expand along an axis if there's no alignment.
         let mut pod = regions.clone();
         pod.expand &= self.aligns.map_is_none();
@@ -49,7 +49,7 @@ impl Layout for AlignNode {
             let target = regions.expand.select(current, frame.size);
             let default = Spec::new(Align::Left, Align::Top);
             let aligns = self.aligns.unwrap_or(default);
-            Rc::make_mut(frame).resize(target, aligns);
+            Arc::make_mut(frame).resize(target, aligns);
 
             // Set constraints.
             cts.expand = regions.expand;

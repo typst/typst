@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::sync::Arc;
 
 use super::Regions;
 use crate::frame::Frame;
@@ -7,12 +7,12 @@ use crate::geom::{Length, Size, Spec};
 /// Constrain a frame with constraints.
 pub trait Constrain {
     /// Reference-count the frame and wrap it with constraints.
-    fn constrain(self, cts: Constraints) -> Constrained<Rc<Frame>>;
+    fn constrain(self, cts: Constraints) -> Constrained<Arc<Frame>>;
 }
 
 impl Constrain for Frame {
-    fn constrain(self, cts: Constraints) -> Constrained<Rc<Frame>> {
-        Constrained::new(Rc::new(self), cts)
+    fn constrain(self, cts: Constraints) -> Constrained<Arc<Frame>> {
+        Constrained::new(Arc::new(self), cts)
     }
 }
 

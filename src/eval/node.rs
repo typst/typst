@@ -71,7 +71,7 @@ impl Node {
     /// Create an inline-level node.
     pub fn inline<T>(node: T) -> Self
     where
-        T: Layout + Debug + Hash + 'static,
+        T: Layout + Debug + Hash + Sync + Send + 'static,
     {
         Self::Inline(node.pack())
     }
@@ -79,7 +79,7 @@ impl Node {
     /// Create a block-level node.
     pub fn block<T>(node: T) -> Self
     where
-        T: Layout + Debug + Hash + 'static,
+        T: Layout + Debug + Hash + Sync + Send + 'static,
     {
         Self::Block(node.pack())
     }

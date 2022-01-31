@@ -2,11 +2,11 @@ use std::collections::BTreeMap;
 use std::fmt::{self, Debug, Formatter, Write};
 use std::iter::FromIterator;
 use std::ops::{Add, AddAssign};
-use std::rc::Rc;
+use std::sync::Arc;
 
 use super::Value;
 use crate::diag::StrResult;
-use crate::util::{EcoString, RcExt};
+use crate::util::{ArcExt, EcoString};
 
 /// Create a new [`Dict`] from key-value pairs.
 #[allow(unused_macros)]
@@ -21,7 +21,7 @@ macro_rules! dict {
 
 /// A dictionary from strings to values with clone-on-write value semantics.
 #[derive(Default, Clone, PartialEq)]
-pub struct Dict(Rc<BTreeMap<EcoString, Value>>);
+pub struct Dict(Arc<BTreeMap<EcoString, Value>>);
 
 impl Dict {
     /// Create a new, empty dictionary.
@@ -31,7 +31,7 @@ impl Dict {
 
     /// Create a new dictionary from a mapping of strings to values.
     pub fn from_map(map: BTreeMap<EcoString, Value>) -> Self {
-        Self(Rc::new(map))
+        Self(Arc::new(map))
     }
 
     /// Whether the dictionary is empty.
@@ -54,18 +54,18 @@ impl Dict {
     /// This inserts the key with [`None`](Value::None) as the value if not
     /// present so far.
     pub fn get_mut(&mut self, key: EcoString) -> &mut Value {
-        Rc::make_mut(&mut self.0).entry(key).or_default()
+        Arc::make_mut(&mut self.0).entry(key).or_default()
     }
 
     /// Insert a mapping from the given `key` to the given `value`.
     pub fn insert(&mut self, key: EcoString, value: Value) {
-        Rc::make_mut(&mut self.0).insert(key, value);
+        Arc::make_mut(&mut self.0).insert(key, value);
     }
 
     /// Clear the dictionary.
     pub fn clear(&mut self) {
-        if Rc::strong_count(&self.0) == 1 {
-            Rc::make_mut(&mut self.0).clear();
+        if Arc::strong_count(&self.0) == 1 {
+            Arc::make_mut(&mut self.0).clear();
         } else {
             *self = Self::new();
         }
@@ -112,7 +112,7 @@ impl Add for Dict {
 
 impl AddAssign for Dict {
     fn add_assign(&mut self, rhs: Dict) {
-        match Rc::try_unwrap(rhs.0) {
+        match Arc::try_unwrap(rhs.0) {
             Ok(map) => self.extend(map),
             Err(rc) => self.extend(rc.iter().map(|(k, v)| (k.clone(), v.clone()))),
         }
@@ -121,13 +121,13 @@ impl AddAssign for Dict {
 
 impl Extend<(EcoString, Value)> for Dict {
     fn extend<T: IntoIterator<Item = (EcoString, Value)>>(&mut self, iter: T) {
-        Rc::make_mut(&mut self.0).extend(iter);
+        Arc::make_mut(&mut self.0).extend(iter);
     }
 }
 
 impl FromIterator<(EcoString, Value)> for Dict {
     fn from_iter<T: IntoIterator<Item = (EcoString, Value)>>(iter: T) -> Self {
-        Self(Rc::new(iter.into_iter().collect()))
+        Self(Arc::new(iter.into_iter().collect()))
     }
 }
 
@@ -136,7 +136,7 @@ impl IntoIterator for Dict {
     type IntoIter = std::collections::btree_map::IntoIter<EcoString, Value>;
 
     fn into_iter(self) -> Self::IntoIter {
-        Rc::take(self.0).into_iter()
+        Arc::take(self.0).into_iter()
     }
 }
 

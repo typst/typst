@@ -1,7 +1,7 @@
 //! Paragraph layout.
 
 use std::fmt::{self, Debug, Formatter};
-use std::rc::Rc;
+use std::sync::Arc;
 
 use itertools::Either;
 use unicode_bidi::{BidiInfo, Level};
@@ -9,7 +9,7 @@ use xi_unicode::LineBreakIterator;
 
 use super::prelude::*;
 use super::{shape, ShapedText, SpacingKind, TextNode};
-use crate::util::{EcoString, RangeExt, RcExt, SliceExt};
+use crate::util::{ArcExt, EcoString, RangeExt, SliceExt};
 
 /// A node that arranges its children into a paragraph.
 #[derive(Hash)]
@@ -75,7 +75,7 @@ impl Layout for ParNode {
         ctx: &mut LayoutContext,
         regions: &Regions,
         styles: StyleChain,
-    ) -> Vec<Constrained<Rc<Frame>>> {
+    ) -> Vec<Constrained<Arc<Frame>>> {
         // Collect all text into one string used for BiDi analysis.
         let text = self.collect_text();
 
@@ -253,7 +253,7 @@ impl<'a> ParLayouter<'a> {
                     let size = Size::new(regions.current.x, regions.base.y);
                     let pod = Regions::one(size, regions.base, Spec::splat(false));
                     let frame = node.layout(ctx, &pod, styles).remove(0);
-                    items.push(ParItem::Frame(Rc::take(frame.item)));
+                    items.push(ParItem::Frame(Arc::take(frame.item)));
                     ranges.push(range);
                 }
             }
@@ -271,7 +271,7 @@ impl<'a> ParLayouter<'a> {
         self,
         ctx: &mut LayoutContext,
         regions: Regions,
-    ) -> Vec<Constrained<Rc<Frame>>> {
+    ) -> Vec<Constrained<Arc<Frame>>> {
         let mut stack = LineStack::new(self.leading, regions);
 
         // The current line attempt.
@@ -582,7 +582,7 @@ struct LineStack<'a> {
     regions: Regions,
     size: Size,
     lines: Vec<LineLayout<'a>>,
-    finished: Vec<Constrained<Rc<Frame>>>,
+    finished: Vec<Constrained<Arc<Frame>>>,
     cts: Constraints,
     overflowing: bool,
     fractional: bool,
@@ -650,7 +650,7 @@ impl<'a> LineStack<'a> {
     }
 
     /// Finish the last region and return the built frames.
-    fn finish(mut self, ctx: &LayoutContext) -> Vec<Constrained<Rc<Frame>>> {
+    fn finish(mut self, ctx: &LayoutContext) -> Vec<Constrained<Arc<Frame>>> {
         self.finish_region(ctx);
         self.finished
     }

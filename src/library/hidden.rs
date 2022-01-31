@@ -19,12 +19,12 @@ impl Layout for HideNode {
         ctx: &mut LayoutContext,
         regions: &Regions,
         styles: StyleChain,
-    ) -> Vec<Constrained<Rc<Frame>>> {
+    ) -> Vec<Constrained<Arc<Frame>>> {
         let mut frames = self.0.layout(ctx, regions, styles);
 
         // Clear the frames.
         for Constrained { item: frame, .. } in &mut frames {
-            *frame = Rc::new(Frame { elements: vec![], ..**frame });
+            *frame = Arc::new(Frame { elements: vec![], ..**frame });
         }
 
         frames

@@ -37,7 +37,7 @@ impl Layout for ColumnsNode {
         ctx: &mut LayoutContext,
         regions: &Regions,
         styles: StyleChain,
-    ) -> Vec<Constrained<Rc<Frame>>> {
+    ) -> Vec<Constrained<Arc<Frame>>> {
         let columns = self.columns.get();
 
         // Separating the infinite space into infinite columns does not make

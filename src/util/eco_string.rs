@@ -3,9 +3,9 @@ use std::cmp::Ordering;
 use std::fmt::{self, Debug, Display, Formatter, Write};
 use std::hash::{Hash, Hasher};
 use std::ops::{Add, AddAssign, Deref};
-use std::rc::Rc;
+use std::sync::Arc;
 
-use super::RcExt;
+use super::ArcExt;
 
 /// Create a new [`EcoString`] from a format string.
 macro_rules! format_eco {
@@ -27,13 +27,13 @@ pub struct EcoString(Repr);
 #[derive(Clone)]
 enum Repr {
     Small { buf: [u8; LIMIT], len: u8 },
-    Large(Rc<String>),
+    Large(Arc<String>),
 }
 
 /// The maximum number of bytes that can be stored inline.
 ///
 /// The value is chosen such that an `EcoString` fits exactly into 16 bytes
-/// (which are needed anyway due to the `Rc`s alignment, at least on 64-bit
+/// (which are needed anyway due to the `Arc`s alignment, at least on 64-bit
 /// platforms).
 ///
 /// Must be at least 4 to hold any char.
@@ -50,7 +50,7 @@ impl EcoString {
         if capacity <= LIMIT {
             Self::new()
         } else {
-            Self(Repr::Large(Rc::new(String::with_capacity(capacity))))
+            Self(Repr::Large(Arc::new(String::with_capacity(capacity))))
         }
     }
 
@@ -66,7 +66,7 @@ impl EcoString {
             buf[.. len].copy_from_slice(slice.as_bytes());
             Repr::Small { buf, len: len as u8 }
         } else {
-            Repr::Large(Rc::new(s.into()))
+            Repr::Large(Arc::new(s.into()))
         })
     }
 
@@ -100,7 +100,7 @@ impl EcoString {
                     self.push_str(c.encode_utf8(&mut [0; 4]));
                 }
             }
-            Repr::Large(rc) => Rc::make_mut(rc).push(c),
+            Repr::Large(rc) => Arc::make_mut(rc).push(c),
         }
     }
 
@@ -117,10 +117,10 @@ impl EcoString {
                     let mut spilled = String::with_capacity(new);
                     spilled.push_str(self);
                     spilled.push_str(string);
-                    self.0 = Repr::Large(Rc::new(spilled));
+                    self.0 = Repr::Large(Arc::new(spilled));
                 }
             }
-            Repr::Large(rc) => Rc::make_mut(rc).push_str(string),
+            Repr::Large(rc) => Arc::make_mut(rc).push_str(string),
         }
     }
 
@@ -132,7 +132,7 @@ impl EcoString {
                 *len -= c.len_utf8() as u8;
             }
             Repr::Large(rc) => {
-                Rc::make_mut(rc).pop();
+                Arc::make_mut(rc).pop();
             }
         }
         Some(c)
@@ -143,8 +143,8 @@ impl EcoString {
         match &mut self.0 {
             Repr::Small { len, .. } => *len = 0,
             Repr::Large(rc) => {
-                if Rc::strong_count(rc) == 1 {
-                    Rc::make_mut(rc).clear();
+                if Arc::strong_count(rc) == 1 {
+                    Arc::make_mut(rc).clear();
                 } else {
                     *self = Self::new();
                 }
@@ -351,11 +351,17 @@ impl From<String> for EcoString {
     }
 }
 
+impl From<&EcoString> for String {
+    fn from(s: &EcoString) -> Self {
+        s.as_str().to_owned()
+    }
+}
+
 impl From<EcoString> for String {
     fn from(s: EcoString) -> Self {
         match s.0 {
             Repr::Small { .. } => s.as_str().to_owned(),
-            Repr::Large(rc) => Rc::take(rc),
+            Repr::Large(rc) => Arc::take(rc),
         }
     }
 }

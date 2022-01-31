@@ -1,5 +1,5 @@
 use std::ops::Range;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::syntax::{Green, GreenNode, NodeKind};
 
@@ -78,8 +78,8 @@ impl<'a> Reparser<'a> {
 
 impl Reparser<'_> {
     /// Find the innermost child that is incremental safe.
-    pub fn reparse(&self, green: &mut Rc<GreenNode>) -> Range<usize> {
-        self.reparse_step(Rc::make_mut(green), 0, TokenMode::Markup, true)
+    pub fn reparse(&self, green: &mut Arc<GreenNode>) -> Range<usize> {
+        self.reparse_step(Arc::make_mut(green), 0, TokenMode::Markup, true)
             .unwrap_or_else(|| {
                 *green = parse(self.src);
                 0 .. self.src.len()
@@ -167,7 +167,7 @@ impl Reparser<'_> {
             if last_kind.succession_rule() != SuccessionRule::Unsafe {
                 if let Some(range) = match child {
                     Green::Node(node) => self.reparse_step(
-                        Rc::make_mut(node),
+                        Arc::make_mut(node),
                         first_start,
                         child_mode,
                         outermost,

@@ -1,5 +1,5 @@
 use std::fmt::{self, Debug, Formatter, Write};
-use std::rc::Rc;
+use std::sync::Arc;
 
 use super::{Cast, EvalContext, Value};
 use crate::diag::{At, TypResult};
@@ -8,9 +8,9 @@ use crate::util::EcoString;
 
 /// An evaluatable function.
 #[derive(Clone)]
-pub struct Function(Rc<Inner<Func>>);
+pub struct Function(Arc<Inner<Func>>);
 
-/// The unsized structure behind the [`Rc`].
+/// The unsized structure behind the [`Arc`].
 struct Inner<T: ?Sized> {
     name: Option<EcoString>,
     func: T,
@@ -24,7 +24,7 @@ impl Function {
     where
         F: Fn(&mut EvalContext, &mut Args) -> TypResult<Value> + 'static,
     {
-        Self(Rc::new(Inner { name, func }))
+        Self(Arc::new(Inner { name, func }))
     }
 
     /// The name of the function.
@@ -53,8 +53,8 @@ impl PartialEq for Function {
     fn eq(&self, other: &Self) -> bool {
         // We cast to thin pointers for comparison.
         std::ptr::eq(
-            Rc::as_ptr(&self.0) as *const (),
-            Rc::as_ptr(&other.0) as *const (),
+            Arc::as_ptr(&self.0) as *const (),
+            Arc::as_ptr(&other.0) as *const (),
         )
     }
 }

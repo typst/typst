@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::io;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::diag::TypResult;
 use crate::loading::{FileHash, Loader};
@@ -37,14 +37,14 @@ impl SourceId {
 
 /// Storage for loaded source files.
 pub struct SourceStore {
-    loader: Rc<dyn Loader>,
+    loader: Arc<dyn Loader>,
     files: HashMap<FileHash, SourceId>,
     sources: Vec<SourceFile>,
 }
 
 impl SourceStore {
     /// Create a new, empty source store.
-    pub fn new(loader: Rc<dyn Loader>) -> Self {
+    pub fn new(loader: Arc<dyn Loader>) -> Self {
         Self {
             loader,
             files: HashMap::new(),
@@ -125,7 +125,7 @@ pub struct SourceFile {
     path: PathBuf,
     src: String,
     lines: Vec<Line>,
-    root: Rc<GreenNode>,
+    root: Arc<GreenNode>,
 }
 
 impl SourceFile {
@@ -148,7 +148,7 @@ impl SourceFile {
     }
 
     /// The root node of the file's untyped green tree.
-    pub fn root(&self) -> &Rc<GreenNode> {
+    pub fn root(&self) -> &Arc<GreenNode> {
         &self.root
     }
 

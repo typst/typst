@@ -3,7 +3,7 @@
 use std::collections::{hash_map::Entry, BTreeMap, HashMap};
 use std::fmt::{self, Debug, Formatter};
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
+use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 use ttf_parser::{name_id, GlyphId, PlatformId};
@@ -33,15 +33,15 @@ impl FaceId {
 
 /// Storage for loaded and parsed font faces.
 pub struct FontStore {
-    loader: Rc<dyn Loader>,
+    loader: Arc<dyn Loader>,
     faces: Vec<Option<Face>>,
     families: BTreeMap<String, Vec<FaceId>>,
-    buffers: HashMap<FileHash, Rc<Vec<u8>>>,
+    buffers: HashMap<FileHash, Arc<Vec<u8>>>,
 }
 
 impl FontStore {
     /// Create a new, empty font store.
-    pub fn new(loader: Rc<dyn Loader>) -> Self {
+    pub fn new(loader: Arc<dyn Loader>) -> Self {
         let mut faces = vec![];
         let mut families = BTreeMap::<String, Vec<FaceId>>::new();
 
@@ -109,11 +109,11 @@ impl FontStore {
                 Entry::Occupied(entry) => entry.into_mut(),
                 Entry::Vacant(entry) => {
                     let buffer = self.loader.load(path).ok()?;
-                    entry.insert(Rc::new(buffer))
+                    entry.insert(Arc::new(buffer))
                 }
             };
 
-            let face = Face::new(Rc::clone(buffer), index)?;
+            let face = Face::new(Arc::clone(buffer), index)?;
             *slot = Some(face);
         }
 
@@ -147,7 +147,7 @@ pub struct Face {
     /// The raw face data, possibly shared with other faces from the same
     /// collection. Must stay alive put, because `ttf` points into it using
     /// unsafe code.
-    buffer: Rc<Vec<u8>>,
+    buffer: Arc<Vec<u8>>,
     /// The face's index in the collection (zero if not a collection).
     index: u32,
     /// The underlying ttf-parser/rustybuzz face.
@@ -182,11 +182,11 @@ pub struct LineMetrics {
 
 impl Face {
     /// Parse a font face from a buffer and collection index.
-    pub fn new(buffer: Rc<Vec<u8>>, index: u32) -> Option<Self> {
+    pub fn new(buffer: Arc<Vec<u8>>, index: u32) -> Option<Self> {
         // Safety:
         // - The slices's location is stable in memory:
         //   - We don't move the underlying vector
-        //   - Nobody else can move it since we have a strong ref to the `Rc`.
+        //   - Nobody else can move it since we have a strong ref to the `Arc`.
         // - The internal static lifetime is not leaked because its rewritten
         //   to the self-lifetime in `ttf()`.
         let slice: &'static [u8] =
@@ -238,7 +238,7 @@ impl Face {
     }
 
     /// The underlying buffer.
-    pub fn buffer(&self) -> &Rc<Vec<u8>> {
+    pub fn buffer(&self) -> &Arc<Vec<u8>> {
         &self.buffer
     }
 

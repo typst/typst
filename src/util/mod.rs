@@ -11,7 +11,7 @@ use std::cell::RefMut;
 use std::cmp::Ordering;
 use std::ops::Range;
 use std::path::{Component, Path, PathBuf};
-use std::rc::Rc;
+use std::sync::Arc;
 
 /// Additional methods for strings.
 pub trait StrExt {
@@ -62,18 +62,18 @@ impl<T> OptionExt<T> for Option<T> {
 }
 
 /// Additional methods for reference-counted pointers.
-pub trait RcExt<T> {
+pub trait ArcExt<T> {
     /// Takes the inner value if there is exactly one strong reference and
     /// clones it otherwise.
     fn take(self) -> T;
 }
 
-impl<T> RcExt<T> for Rc<T>
+impl<T> ArcExt<T> for Arc<T>
 where
     T: Clone,
 {
     fn take(self) -> T {
-        match Rc::try_unwrap(self) {
+        match Arc::try_unwrap(self) {
             Ok(v) => v,
             Err(rc) => (*rc).clone(),
         }

@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::sync::Arc;
 
 use super::{Scope, Scopes, Value};
 use crate::syntax::ast::{ClosureParam, Expr, Ident, Imports, TypedNode};
@@ -35,7 +35,7 @@ impl<'a> CapturesVisitor<'a> {
     pub fn capture(&mut self, ident: Ident) {
         if self.internal.get(&ident).is_none() {
             if let Some(slot) = self.external.get(&ident) {
-                self.captures.def_slot(ident.take(), Rc::clone(slot));
+                self.captures.def_slot(ident.take(), Arc::clone(slot));
             }
         }
     }

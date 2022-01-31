@@ -66,7 +66,7 @@ impl<S: ShapeKind> Layout for ShapeNode<S> {
         ctx: &mut LayoutContext,
         regions: &Regions,
         styles: StyleChain,
-    ) -> Vec<Constrained<Rc<Frame>>> {
+    ) -> Vec<Constrained<Arc<Frame>>> {
         let mut frames;
         if let Some(child) = &self.child {
             let mut padding = styles.get(Self::PADDING);
@@ -118,7 +118,7 @@ impl<S: ShapeKind> Layout for ShapeNode<S> {
             frames = vec![Frame::new(size).constrain(Constraints::tight(regions))];
         }
 
-        let frame = Rc::make_mut(&mut frames[0].item);
+        let frame = Arc::make_mut(&mut frames[0].item);
 
         // Add fill and/or stroke.
         let fill = styles.get(Self::FILL);
@@ -149,7 +149,7 @@ impl<S: ShapeKind> Layout for ShapeNode<S> {
 }
 
 /// Categorizes shapes.
-pub trait ShapeKind: Debug + Default + Hash + 'static {
+pub trait ShapeKind: Debug + Default + Hash + Sync + Send + 'static {
     const ROUND: bool;
     const QUADRATIC: bool;
 }

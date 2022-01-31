@@ -55,7 +55,7 @@ impl TextNode {
     #[fold(|a, b| a.into_iter().chain(b).collect())]
     pub const LINES: Vec<Decoration> = vec![];
     /// An URL the text should link to.
-    pub const LINK: Option<String> = None;
+    pub const LINK: Option<EcoString> = None;
 
     /// The size of the glyphs.
     #[fold(Linear::compose)]
@@ -211,12 +211,12 @@ castable! {
 
 /// A specific font family like "Arial".
 #[derive(Clone, Eq, PartialEq, Hash)]
-pub struct NamedFamily(String);
+pub struct NamedFamily(EcoString);
 
 impl NamedFamily {
     /// Create a named font family variant.
     pub fn new(string: &str) -> Self {
-        Self(string.to_lowercase())
+        Self(string.to_lowercase().into())
     }
 
     /// The lowercased family name.

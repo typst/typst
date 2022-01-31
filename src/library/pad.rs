@@ -37,7 +37,7 @@ impl Layout for PadNode {
         ctx: &mut LayoutContext,
         regions: &Regions,
         styles: StyleChain,
-    ) -> Vec<Constrained<Rc<Frame>>> {
+    ) -> Vec<Constrained<Arc<Frame>>> {
         // Layout child into padded regions.
         let pod = regions.map(|size| shrink(size, self.padding));
         let mut frames = self.child.layout(ctx, &pod, styles);
@@ -52,7 +52,7 @@ impl Layout for PadNode {
             let offset = Point::new(padding.left, padding.top);
 
             // Grow the frame and translate everything in the frame inwards.
-            let frame = Rc::make_mut(frame);
+            let frame = Arc::make_mut(frame);
             frame.size = padded;
             frame.translate(offset);
 

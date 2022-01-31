@@ -13,7 +13,7 @@ pub use regions::*;
 use std::any::Any;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::eval::{StyleChain, Styled};
 use crate::font::FontStore;
@@ -29,7 +29,7 @@ pub struct RootNode(pub Vec<Styled<PageNode>>);
 
 impl RootNode {
     /// Layout the document into a sequence of frames, one per page.
-    pub fn layout(&self, ctx: &mut Context) -> Vec<Rc<Frame>> {
+    pub fn layout(&self, ctx: &mut Context) -> Vec<Arc<Frame>> {
         let (mut ctx, styles) = LayoutContext::new(ctx);
         self.0
             .iter()
@@ -56,17 +56,17 @@ pub trait Layout {
         ctx: &mut LayoutContext,
         regions: &Regions,
         styles: StyleChain,
-    ) -> Vec<Constrained<Rc<Frame>>>;
+    ) -> Vec<Constrained<Arc<Frame>>>;
 
     /// Convert to a packed node.
     fn pack(self) -> PackedNode
     where
-        Self: Debug + Hash + Sized + 'static,
+        Self: Debug + Hash + Sized + Sync + Send + 'static,
     {
         PackedNode {
             #[cfg(feature = "layout-cache")]
             hash: self.hash64(),
-            node: Rc::new(self),
+            node: Arc::new(self),
         }
     }
 }
@@ -112,7 +112,7 @@ impl Layout for EmptyNode {
         _: &mut LayoutContext,
         regions: &Regions,
         _: StyleChain,
-    ) -> Vec<Constrained<Rc<Frame>>> {
+    ) -> Vec<Constrained<Arc<Frame>>> {
         let size = regions.expand.select(regions.current, Size::zero());
         let mut cts = Constraints::new(regions.expand);
         cts.exact = regions.current.filter(regions.expand);
@@ -124,7 +124,7 @@ impl Layout for EmptyNode {
 #[derive(Clone)]
 pub struct PackedNode {
     /// The type-erased node.
-    node: Rc<dyn Bounds>,
+    node: Arc<dyn Bounds>,
     /// A precomputed hash for the node.
     #[cfg(feature = "layout-cache")]
     hash: u64,
@@ -205,7 +205,7 @@ impl Layout for PackedNode {
         ctx: &mut LayoutContext,
         regions: &Regions,
         styles: StyleChain,
-    ) -> Vec<Constrained<Rc<Frame>>> {
+    ) -> Vec<Constrained<Arc<Frame>>> {
         let styles = styles.barred(self.node.as_any().type_id());
 
         #[cfg(not(feature = "layout-cache"))]
@@ -243,10 +243,7 @@ impl Layout for PackedNode {
         })
     }
 
-    fn pack(self) -> PackedNode
-    where
-        Self: Sized + Hash + 'static,
-    {
+    fn pack(self) -> PackedNode {
         self
     }
 }
@@ -266,8 +263,8 @@ impl Debug for PackedNode {
 impl PartialEq for PackedNode {
     fn eq(&self, other: &Self) -> bool {
         std::ptr::eq(
-            Rc::as_ptr(&self.node) as *const (),
-            Rc::as_ptr(&other.node) as *const (),
+            Arc::as_ptr(&self.node) as *const (),
+            Arc::as_ptr(&other.node) as *const (),
         )
     }
 }
@@ -282,14 +279,14 @@ impl Hash for PackedNode {
     }
 }
 
-trait Bounds: Layout + Debug + 'static {
+trait Bounds: Layout + Debug + Sync + Send + 'static {
     fn as_any(&self) -> &dyn Any;
     fn hash64(&self) -> u64;
 }
 
 impl<T> Bounds for T
 where
-    T: Layout + Hash + Debug + 'static,
+    T: Layout + Hash + Debug + Sync + Send + 'static,
 {
     fn as_any(&self) -> &dyn Any {
         self
@@ -320,7 +317,7 @@ impl Layout for SizedNode {
         ctx: &mut LayoutContext,
         regions: &Regions,
         styles: StyleChain,
-    ) -> Vec<Constrained<Rc<Frame>>> {
+    ) -> Vec<Constrained<Arc<Frame>>> {
         let is_auto = self.sizing.map_is_none();
         let is_rel = self.sizing.map(|s| s.map_or(false, Linear::is_relative));
 
@@ -346,7 +343,7 @@ impl Layout for SizedNode {
 
         // Ensure frame size matches regions size if expansion is on.
         let target = regions.expand.select(regions.current, frame.size);
-        Rc::make_mut(frame).resize(target, Align::LEFT_TOP);
+        Arc::make_mut(frame).resize(target, Align::LEFT_TOP);
 
         // Set base & exact constraints if the child is automatically sized
         // since we don't know what the child might have done. Also set base if
@@ -374,11 +371,11 @@ impl Layout for FillNode {
         ctx: &mut LayoutContext,
         regions: &Regions,
         styles: StyleChain,
-    ) -> Vec<Constrained<Rc<Frame>>> {
+    ) -> Vec<Constrained<Arc<Frame>>> {
         let mut frames = self.child.layout(ctx, regions, styles);
         for Constrained { item: frame, .. } in &mut frames {
             let shape = Shape::filled(Geometry::Rect(frame.size), self.fill);
-            Rc::make_mut(frame).prepend(Point::zero(), Element::Shape(shape));
+            Arc::make_mut(frame).prepend(Point::zero(), Element::Shape(shape));
         }
         frames
     }
@@ -399,11 +396,11 @@ impl Layout for StrokeNode {
         ctx: &mut LayoutContext,
         regions: &Regions,
         styles: StyleChain,
-    ) -> Vec<Constrained<Rc<Frame>>> {
+    ) -> Vec<Constrained<Arc<Frame>>> {
         let mut frames = self.child.layout(ctx, regions, styles);
         for Constrained { item: frame, .. } in &mut frames {
             let shape = Shape::stroked(Geometry::Rect(frame.size), self.stroke);
-            Rc::make_mut(frame).prepend(Point::zero(), Element::Shape(shape));
+            Arc::make_mut(frame).prepend(Point::zero(), Element::Shape(shape));
         }
         frames
     }

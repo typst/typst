@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::sync::Arc;
 
 use super::{
     is_id_continue, is_id_start, is_newline, resolve_hex, resolve_raw, resolve_string,
@@ -321,7 +321,7 @@ impl<'s> Tokens<'s> {
 
         // Special case for empty inline block.
         if backticks == 2 {
-            return NodeKind::Raw(Rc::new(RawNode {
+            return NodeKind::Raw(Arc::new(RawNode {
                 text: EcoString::new(),
                 lang: None,
                 block: false,
@@ -341,7 +341,7 @@ impl<'s> Tokens<'s> {
 
         if found == backticks {
             let end = self.s.index() - found as usize;
-            NodeKind::Raw(Rc::new(resolve_raw(
+            NodeKind::Raw(Arc::new(resolve_raw(
                 column,
                 backticks,
                 self.s.get(start .. end),
@@ -393,7 +393,7 @@ impl<'s> Tokens<'s> {
             };
 
         if terminated {
-            NodeKind::Math(Rc::new(MathNode {
+            NodeKind::Math(Arc::new(MathNode {
                 formula: self.s.get(start .. end).into(),
                 display,
             }))
@@ -581,7 +581,7 @@ mod tests {
     }
 
     fn Raw(text: &str, lang: Option<&str>, block: bool) -> NodeKind {
-        NodeKind::Raw(Rc::new(RawNode {
+        NodeKind::Raw(Arc::new(RawNode {
             text: text.into(),
             lang: lang.map(Into::into),
             block,
@@ -589,7 +589,7 @@ mod tests {
     }
 
     fn Math(formula: &str, display: bool) -> NodeKind {
-        NodeKind::Math(Rc::new(MathNode { formula: formula.into(), display }))
+        NodeKind::Math(Arc::new(MathNode { formula: formula.into(), display }))
     }
 
     fn Str(string: &str) -> NodeKind {

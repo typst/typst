@@ -31,7 +31,7 @@ impl Layout for StackNode {
         ctx: &mut LayoutContext,
         regions: &Regions,
         styles: StyleChain,
-    ) -> Vec<Constrained<Rc<Frame>>> {
+    ) -> Vec<Constrained<Arc<Frame>>> {
         StackLayouter::new(self, regions.clone(), styles).layout(ctx)
     }
 }
@@ -90,7 +90,7 @@ struct StackLayouter<'a> {
     /// Spacing and layouted nodes.
     items: Vec<StackItem>,
     /// Finished frames for previous regions.
-    finished: Vec<Constrained<Rc<Frame>>>,
+    finished: Vec<Constrained<Arc<Frame>>>,
 }
 
 /// A prepared item in a stack layout.
@@ -100,7 +100,7 @@ enum StackItem {
     /// Fractional spacing between other items.
     Fractional(Fractional),
     /// A layouted child node.
-    Frame(Rc<Frame>, Align),
+    Frame(Arc<Frame>, Align),
 }
 
 impl<'a> StackLayouter<'a> {
@@ -131,7 +131,7 @@ impl<'a> StackLayouter<'a> {
     }
 
     /// Layout all children.
-    fn layout(mut self, ctx: &mut LayoutContext) -> Vec<Constrained<Rc<Frame>>> {
+    fn layout(mut self, ctx: &mut LayoutContext) -> Vec<Constrained<Arc<Frame>>> {
         // Spacing to insert before the next node.
         let mut deferred = None;
 

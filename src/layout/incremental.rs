@@ -1,6 +1,6 @@
 use std::cmp::Reverse;
 use std::collections::HashMap;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use itertools::Itertools;
 
@@ -65,7 +65,7 @@ impl LayoutCache {
         &mut self,
         hash: u64,
         regions: &Regions,
-    ) -> Option<Vec<Constrained<Rc<Frame>>>> {
+    ) -> Option<Vec<Constrained<Arc<Frame>>>> {
         self.frames
             .get_mut(&hash)?
             .iter_mut()
@@ -193,7 +193,7 @@ impl LayoutCache {
 #[derive(Debug, Clone)]
 pub struct FramesEntry {
     /// The cached frames for a node.
-    frames: Vec<Constrained<Rc<Frame>>>,
+    frames: Vec<Constrained<Arc<Frame>>>,
     /// How nested the frame was in the context is was originally appearing in.
     level: usize,
     /// For how long the element already exists.
@@ -209,7 +209,7 @@ pub struct FramesEntry {
 
 impl FramesEntry {
     /// Construct a new instance.
-    pub fn new(frames: Vec<Constrained<Rc<Frame>>>, level: usize) -> Self {
+    pub fn new(frames: Vec<Constrained<Arc<Frame>>>, level: usize) -> Self {
         Self {
             frames,
             level,
@@ -222,7 +222,7 @@ impl FramesEntry {
 
     /// Checks if the cached frames are valid in the given regions and returns
     /// them if so.
-    pub fn lookup(&mut self, regions: &Regions) -> Option<Vec<Constrained<Rc<Frame>>>> {
+    pub fn lookup(&mut self, regions: &Regions) -> Option<Vec<Constrained<Arc<Frame>>>> {
         self.check(regions).then(|| {
             self.temperature[0] = self.temperature[0].saturating_add(1);
             self.frames.clone()
@@ -396,9 +396,9 @@ mod tests {
     use crate::geom::{Size, Spec};
     use crate::layout::Constraints;
 
-    fn empty_frames() -> Vec<Constrained<Rc<Frame>>> {
+    fn empty_frames() -> Vec<Constrained<Arc<Frame>>> {
         vec![Constrained {
-            item: Rc::new(Frame::default()),
+            item: Arc::new(Frame::default()),
             cts: Constraints::new(Spec::splat(false)),
         }]
     }

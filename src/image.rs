@@ -5,7 +5,7 @@ use std::ffi::OsStr;
 use std::fmt::{self, Debug, Formatter};
 use std::io;
 use std::path::Path;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use image::io::Reader as ImageReader;
 use image::{DynamicImage, GenericImageView, ImageFormat};
@@ -33,14 +33,14 @@ impl ImageId {
 
 /// Storage for loaded and decoded images.
 pub struct ImageStore {
-    loader: Rc<dyn Loader>,
+    loader: Arc<dyn Loader>,
     files: HashMap<FileHash, ImageId>,
     images: Vec<Image>,
 }
 
 impl ImageStore {
     /// Create a new, empty image store.
-    pub fn new(loader: Rc<dyn Loader>) -> Self {
+    pub fn new(loader: Arc<dyn Loader>) -> Self {
         Self {
             loader,
             files: HashMap::new(),

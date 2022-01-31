@@ -18,7 +18,7 @@ impl Layout for FlowNode {
         ctx: &mut LayoutContext,
         regions: &Regions,
         styles: StyleChain,
-    ) -> Vec<Constrained<Rc<Frame>>> {
+    ) -> Vec<Constrained<Arc<Frame>>> {
         FlowLayouter::new(self, regions.clone()).layout(ctx, styles)
     }
 }
@@ -72,7 +72,7 @@ struct FlowLayouter<'a> {
     /// Spacing and layouted nodes.
     items: Vec<FlowItem>,
     /// Finished frames for previous regions.
-    finished: Vec<Constrained<Rc<Frame>>>,
+    finished: Vec<Constrained<Arc<Frame>>>,
 }
 
 /// A prepared item in a flow layout.
@@ -82,9 +82,9 @@ enum FlowItem {
     /// Fractional spacing between other items.
     Fractional(Fractional),
     /// A frame for a layouted child node and how to align it.
-    Frame(Rc<Frame>, Spec<Align>),
+    Frame(Arc<Frame>, Spec<Align>),
     /// An absolutely placed frame.
-    Placed(Rc<Frame>),
+    Placed(Arc<Frame>),
 }
 
 impl<'a> FlowLayouter<'a> {
@@ -113,7 +113,7 @@ impl<'a> FlowLayouter<'a> {
         mut self,
         ctx: &mut LayoutContext,
         styles: StyleChain,
-    ) -> Vec<Constrained<Rc<Frame>>> {
+    ) -> Vec<Constrained<Arc<Frame>>> {
         for styled in self.children {
             let styles = styled.map.chain(&styles);
             match styled.item {

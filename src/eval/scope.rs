@@ -2,14 +2,14 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 use std::iter;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use super::{Args, Class, Construct, EvalContext, Function, Set, Value};
 use crate::diag::TypResult;
 use crate::util::EcoString;
 
 /// A slot where a variable is stored.
-pub type Slot = Rc<RefCell<Value>>;
+pub type Slot = Arc<RefCell<Value>>;
 
 /// A stack of scopes.
 #[derive(Debug, Default, Clone)]
@@ -85,12 +85,12 @@ impl Scope {
         // FIXME: Use Ref::leak once stable.
         std::mem::forget(cell.borrow());
 
-        self.values.insert(var.into(), Rc::new(cell));
+        self.values.insert(var.into(), Arc::new(cell));
     }
 
     /// Define a mutable variable with a value.
     pub fn def_mut(&mut self, var: impl Into<EcoString>, value: impl Into<Value>) {
-        self.values.insert(var.into(), Rc::new(RefCell::new(value.into())));
+        self.values.insert(var.into(), Arc::new(RefCell::new(value.into())));
     }
 
     /// Define a variable with a slot.

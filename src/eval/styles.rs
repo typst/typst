@@ -1,7 +1,7 @@
 use std::any::{Any, TypeId};
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
-use std::rc::Rc;
+use std::sync::Arc;
 
 // TODO(style): Possible optimizations:
 // - Ref-count map for cheaper cloning and smaller footprint
@@ -334,13 +334,13 @@ impl Debug for Link<'_> {
 /// An entry for a single style property.
 #[derive(Clone)]
 struct Entry {
-    p: Rc<dyn Bounds>,
+    p: Arc<dyn Bounds>,
     scoped: bool,
 }
 
 impl Entry {
     fn new<P: Property>(key: P, value: P::Value) -> Self {
-        Self { p: Rc::new((key, value)), scoped: false }
+        Self { p: Arc::new((key, value)), scoped: false }
     }
 
     fn is<P: Property>(&self) -> bool {
@@ -390,11 +390,11 @@ impl Hash for Entry {
 ///
 /// This trait is not intended to be implemented manually, but rather through
 /// the `#[properties]` proc-macro.
-pub trait Property: Copy + 'static {
+pub trait Property: Copy + Sync + Send + 'static {
     /// The type of value that is returned when getting this property from a
     /// style map. For example, this could be [`Length`](crate::geom::Length)
     /// for a `WIDTH` property.
-    type Value: Debug + Clone + PartialEq + Hash + 'static;
+    type Value: Debug + Clone + PartialEq + Hash + Sync + Send + 'static;
 
     /// The name of the property, used for debug printing.
     const NAME: &'static str;
@@ -432,7 +432,7 @@ pub trait Nonfolding {}
 /// value types below. Although it is zero-sized, the property `P` must be part
 /// of the implementing type so that we can use it in the methods (it must be a
 /// constrained type parameter).
-trait Bounds: 'static {
+trait Bounds: Sync + Send + 'static {
     fn as_any(&self) -> &dyn Any;
     fn dyn_fmt(&self, f: &mut Formatter) -> fmt::Result;
     fn dyn_eq(&self, other: &Entry) -> bool;

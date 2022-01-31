@@ -7,7 +7,7 @@ mod span;
 
 use std::fmt::{self, Debug, Display, Formatter};
 use std::ops::Range;
-use std::rc::Rc;
+use std::sync::Arc;
 
 pub use highlight::*;
 pub use pretty::*;
@@ -24,7 +24,7 @@ use crate::util::EcoString;
 #[derive(Clone, PartialEq)]
 pub enum Green {
     /// A reference-counted inner node.
-    Node(Rc<GreenNode>),
+    Node(Arc<GreenNode>),
     /// A terminal, owned token.
     Token(GreenData),
 }
@@ -76,7 +76,7 @@ impl Green {
     pub fn convert(&mut self, kind: NodeKind) {
         match self {
             Self::Node(node) => {
-                let node = Rc::make_mut(node);
+                let node = Arc::make_mut(node);
                 node.erroneous |= kind.is_error();
                 node.data.kind = kind;
             }
@@ -187,12 +187,12 @@ impl GreenNode {
 
 impl From<GreenNode> for Green {
     fn from(node: GreenNode) -> Self {
-        Rc::new(node).into()
+        Arc::new(node).into()
     }
 }
 
-impl From<Rc<GreenNode>> for Green {
-    fn from(node: Rc<GreenNode>) -> Self {
+impl From<Arc<GreenNode>> for Green {
+    fn from(node: Arc<GreenNode>) -> Self {
         Self::Node(node)
     }
 }
@@ -259,7 +259,7 @@ pub struct RedNode {
 
 impl RedNode {
     /// Create a new red node from a root [`GreenNode`].
-    pub fn from_root(root: Rc<GreenNode>, id: SourceId) -> Self {
+    pub fn from_root(root: Arc<GreenNode>, id: SourceId) -> Self {
         Self { id, offset: 0, green: root.into() }
     }
 
@@ -611,9 +611,9 @@ pub enum NodeKind {
     Emph,
     /// An arbitrary number of backticks followed by inner contents, terminated
     /// with the same number of backticks: `` `...` ``.
-    Raw(Rc<RawNode>),
+    Raw(Arc<RawNode>),
     /// Dollar signs surrounding inner contents.
-    Math(Rc<MathNode>),
+    Math(Arc<MathNode>),
     /// A section heading: `= Introduction`.
     Heading,
     /// An item in an unordered list: `- ...`.

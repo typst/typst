@@ -12,14 +12,14 @@ pub use resolve::*;
 pub use scanner::*;
 pub use tokens::*;
 
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::syntax::ast::{Associativity, BinOp, UnOp};
 use crate::syntax::{ErrorPos, Green, GreenNode, NodeKind};
 use crate::util::EcoString;
 
 /// Parse a source file.
-pub fn parse(src: &str) -> Rc<GreenNode> {
+pub fn parse(src: &str) -> Arc<GreenNode> {
     let mut p = Parser::new(src, TokenMode::Markup);
     markup(&mut p, true);
     match p.finish().into_iter().next() {

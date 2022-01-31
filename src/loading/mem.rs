@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::io;
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
+use std::sync::Arc;
 
 use super::{FileHash, Loader};
 use crate::font::FaceInfo;
@@ -31,10 +31,10 @@ impl MemLoader {
         self
     }
 
-    /// Builder-style method to wrap the loader in an [`Rc`] to make it usable
+    /// Builder-style method to wrap the loader in an [`Arc`] to make it usable
     /// with the [`Context`](crate::Context).
-    pub fn wrap(self) -> Rc<Self> {
-        Rc::new(self)
+    pub fn wrap(self) -> Arc<Self> {
+        Arc::new(self)
     }
 
     /// Insert a path-file mapping. If the data forms a font, then that font

@@ -70,7 +70,7 @@ impl PageNode {
 
 impl PageNode {
     /// Layout the page run into a sequence of frames, one per page.
-    pub fn layout(&self, ctx: &mut LayoutContext, styles: StyleChain) -> Vec<Rc<Frame>> {
+    pub fn layout(&self, ctx: &mut LayoutContext, styles: StyleChain) -> Vec<Arc<Frame>> {
         // When one of the lengths is infinite the page fits its content along
         // that axis.
         let width = styles.get(Self::WIDTH).unwrap_or(Length::inf());

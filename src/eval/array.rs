@@ -3,11 +3,11 @@ use std::convert::TryFrom;
 use std::fmt::{self, Debug, Formatter, Write};
 use std::iter::FromIterator;
 use std::ops::{Add, AddAssign};
-use std::rc::Rc;
+use std::sync::Arc;
 
 use super::Value;
 use crate::diag::StrResult;
-use crate::util::RcExt;
+use crate::util::ArcExt;
 
 /// Create a new [`Array`] from values.
 #[allow(unused_macros)]
@@ -23,7 +23,7 @@ macro_rules! array {
 
 /// An array of values with clone-on-write value semantics.
 #[derive(Default, Clone, PartialEq)]
-pub struct Array(Rc<Vec<Value>>);
+pub struct Array(Arc<Vec<Value>>);
 
 impl Array {
     /// Create a new, empty array.
@@ -33,7 +33,7 @@ impl Array {
 
     /// Create a new array from a vector of values.
     pub fn from_vec(vec: Vec<Value>) -> Self {
-        Self(Rc::new(vec))
+        Self(Arc::new(vec))
     }
 
     /// Whether the array is empty.
@@ -59,19 +59,19 @@ impl Array {
         let len = self.len();
         usize::try_from(index)
             .ok()
-            .and_then(move |i| Rc::make_mut(&mut self.0).get_mut(i))
+            .and_then(move |i| Arc::make_mut(&mut self.0).get_mut(i))
             .ok_or_else(|| out_of_bounds(index, len))
     }
 
     /// Push a value to the end of the array.
     pub fn push(&mut self, value: Value) {
-        Rc::make_mut(&mut self.0).push(value);
+        Arc::make_mut(&mut self.0).push(value);
     }
 
     /// Clear the array.
     pub fn clear(&mut self) {
-        if Rc::strong_count(&self.0) == 1 {
-            Rc::make_mut(&mut self.0).clear();
+        if Arc::strong_count(&self.0) == 1 {
+            Arc::make_mut(&mut self.0).clear();
         } else {
             *self = Self::new();
         }
@@ -87,7 +87,7 @@ impl Array {
     /// Returns an error if two values could not be compared.
     pub fn sorted(mut self) -> StrResult<Self> {
         let mut result = Ok(());
-        Rc::make_mut(&mut self.0).sort_by(|a, b| {
+        Arc::make_mut(&mut self.0).sort_by(|a, b| {
             a.partial_cmp(b).unwrap_or_else(|| {
                 if result.is_ok() {
                     result = Err(format!(
@@ -146,7 +146,7 @@ impl Add for Array {
 
 impl AddAssign for Array {
     fn add_assign(&mut self, rhs: Array) {
-        match Rc::try_unwrap(rhs.0) {
+        match Arc::try_unwrap(rhs.0) {
             Ok(vec) => self.extend(vec),
             Err(rc) => self.extend(rc.iter().cloned()),
         }
@@ -155,13 +155,13 @@ impl AddAssign for Array {
 
 impl Extend<Value> for Array {
     fn extend<T: IntoIterator<Item = Value>>(&mut self, iter: T) {
-        Rc::make_mut(&mut self.0).extend(iter);
+        Arc::make_mut(&mut self.0).extend(iter);
     }
 }
 
 impl FromIterator<Value> for Array {
     fn from_iter<T: IntoIterator<Item = Value>>(iter: T) -> Self {
-        Self(Rc::new(iter.into_iter().collect()))
+        Self(Arc::new(iter.into_iter().collect()))
     }
 }
 
@@ -170,7 +170,7 @@ impl IntoIterator for Array {
     type IntoIter = std::vec::IntoIter<Value>;
 
     fn into_iter(self) -> Self::IntoIter {
-        Rc::take(self.0).into_iter()
+        Arc::take(self.0).into_iter()
     }
 }
 

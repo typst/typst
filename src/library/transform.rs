@@ -36,7 +36,7 @@ impl<T: TransformKind> Layout for TransformNode<T> {
         ctx: &mut LayoutContext,
         regions: &Regions,
         styles: StyleChain,
-    ) -> Vec<Constrained<Rc<Frame>>> {
+    ) -> Vec<Constrained<Arc<Frame>>> {
         let origin = styles.get(Self::ORIGIN).unwrap_or(Align::CENTER_HORIZON);
         let matrix = self.kind.matrix();
 
@@ -48,7 +48,7 @@ impl<T: TransformKind> Layout for TransformNode<T> {
                 .pre_concat(matrix)
                 .pre_concat(Transform::translation(-x, -y));
 
-            Rc::make_mut(frame).transform(transform);
+            Arc::make_mut(frame).transform(transform);
         }
 
         frames
@@ -56,7 +56,7 @@ impl<T: TransformKind> Layout for TransformNode<T> {
 }
 
 /// Kinds of transformations.
-pub trait TransformKind: Debug + Hash + Sized + 'static {
+pub trait TransformKind: Debug + Hash + Sized + Sync + Send + 'static {
     fn construct(args: &mut Args) -> TypResult<Self>;
     fn matrix(&self) -> Transform;
 }

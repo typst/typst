@@ -1,7 +1,7 @@
 //! Finished layouts.
 
 use std::fmt::{self, Debug, Formatter};
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::font::FaceId;
 use crate::geom::{Align, Em, Length, Paint, Path, Point, Size, Spec, Transform};
@@ -43,7 +43,7 @@ impl Frame {
     }
 
     /// Add a group element.
-    pub fn push_frame(&mut self, pos: Point, frame: Rc<Self>) {
+    pub fn push_frame(&mut self, pos: Point, frame: Arc<Self>) {
         self.elements.push((pos, Element::Group(Group::new(frame))));
     }
 
@@ -100,7 +100,7 @@ impl Frame {
         F: FnOnce(&mut Group),
     {
         let mut wrapper = Frame { elements: vec![], ..*self };
-        let mut group = Group::new(Rc::new(std::mem::take(self)));
+        let mut group = Group::new(Arc::new(std::mem::take(self)));
         f(&mut group);
         wrapper.push(Point::zero(), Element::Group(group));
         *self = wrapper;
@@ -149,7 +149,7 @@ pub enum Element {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Group {
     /// The group's frame.
-    pub frame: Rc<Frame>,
+    pub frame: Arc<Frame>,
     /// A transformation to apply to the group.
     pub transform: Transform,
     /// Whether the frame should be a clipping boundary.
@@ -158,7 +158,7 @@ pub struct Group {
 
 impl Group {
     /// Create a new group with default settings.
-    pub fn new(frame: Rc<Frame>) -> Self {
+    pub fn new(frame: Arc<Frame>) -> Self {
         Self {
             frame,
             transform: Transform::identity(),

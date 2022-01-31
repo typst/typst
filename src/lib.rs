@@ -52,7 +52,7 @@ pub mod parse;
 pub mod source;
 pub mod syntax;
 
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::diag::TypResult;
 use crate::eval::{Eval, EvalContext, Module, Scope, StyleMap};
@@ -68,7 +68,7 @@ use crate::source::{SourceId, SourceStore};
 /// The core context which holds the loader, configuration and cached artifacts.
 pub struct Context {
     /// The loader the context was created with.
-    pub loader: Rc<dyn Loader>,
+    pub loader: Arc<dyn Loader>,
     /// Stores loaded source files.
     pub sources: SourceStore,
     /// Stores parsed font faces.
@@ -88,7 +88,7 @@ pub struct Context {
 
 impl Context {
     /// Create a new context with the default settings.
-    pub fn new(loader: Rc<dyn Loader>) -> Self {
+    pub fn new(loader: Arc<dyn Loader>) -> Self {
         Self::builder().build(loader)
     }
 
@@ -124,7 +124,7 @@ impl Context {
     /// Returns either a vector of frames representing individual pages or
     /// diagnostics in the form of a vector of error message with file and span
     /// information.
-    pub fn typeset(&mut self, id: SourceId) -> TypResult<Vec<Rc<Frame>>> {
+    pub fn typeset(&mut self, id: SourceId) -> TypResult<Vec<Arc<Frame>>> {
         let module = self.evaluate(id)?;
         let tree = module.into_root();
         let frames = tree.layout(self);
@@ -183,11 +183,11 @@ impl ContextBuilder {
 
     /// Finish building the context by providing the `loader` used to load
     /// fonts, images, source files and other resources.
-    pub fn build(self, loader: Rc<dyn Loader>) -> Context {
+    pub fn build(self, loader: Arc<dyn Loader>) -> Context {
         Context {
-            sources: SourceStore::new(Rc::clone(&loader)),
-            fonts: FontStore::new(Rc::clone(&loader)),
-            images: ImageStore::new(Rc::clone(&loader)),
+            sources: SourceStore::new(Arc::clone(&loader)),
+            fonts: FontStore::new(Arc::clone(&loader)),
+            images: ImageStore::new(Arc::clone(&loader)),
             loader,
             #[cfg(feature = "layout-cache")]
             layout_cache: LayoutCache::new(self.policy, self.max_size),

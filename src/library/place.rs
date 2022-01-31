@@ -26,7 +26,7 @@ impl Layout for PlaceNode {
         ctx: &mut LayoutContext,
         regions: &Regions,
         styles: StyleChain,
-    ) -> Vec<Constrained<Rc<Frame>>> {
+    ) -> Vec<Constrained<Arc<Frame>>> {
         let out_of_flow = self.out_of_flow();
 
         // The pod is the base area of the region because for absolute
@@ -43,7 +43,7 @@ impl Layout for PlaceNode {
         // If expansion is off, zero all sizes so that we don't take up any
         // space in our parent. Otherwise, respect the expand settings.
         let target = regions.expand.select(regions.current, Size::zero());
-        Rc::make_mut(frame).resize(target, Align::LEFT_TOP);
+        Arc::make_mut(frame).resize(target, Align::LEFT_TOP);
 
         // Set base constraint because our pod size is base and exact
         // constraints if we needed to expand or offset.

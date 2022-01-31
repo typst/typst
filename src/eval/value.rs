@@ -2,7 +2,7 @@ use std::any::Any;
 use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use super::{ops, Args, Array, Class, Dict, Function, Node};
 use crate::diag::StrResult;
@@ -58,7 +58,7 @@ impl Value {
     /// Create an inline-level node value.
     pub fn inline<T>(node: T) -> Self
     where
-        T: Layout + Debug + Hash + 'static,
+        T: Layout + Debug + Hash + Sync + Send + 'static,
     {
         Self::Node(Node::inline(node))
     }
@@ -66,7 +66,7 @@ impl Value {
     /// Create a block-level node value.
     pub fn block<T>(node: T) -> Self
     where
-        T: Layout + Debug + Hash + 'static,
+        T: Layout + Debug + Hash + Sync + Send + 'static,
     {
         Self::Node(Node::block(node))
     }
@@ -211,15 +211,15 @@ impl From<Dynamic> for Value {
 
 /// A dynamic value.
 #[derive(Clone)]
-pub struct Dynamic(Rc<dyn Bounds>);
+pub struct Dynamic(Arc<dyn Bounds>);
 
 impl Dynamic {
     /// Create a new instance from any value that satisifies the required bounds.
     pub fn new<T>(any: T) -> Self
     where
-        T: Type + Debug + PartialEq + 'static,
+        T: Type + Debug + PartialEq + Sync + Send + 'static,
     {
-        Self(Rc::new(any))
+        Self(Arc::new(any))
     }
 
     /// Whether the wrapped type is `T`.
@@ -250,7 +250,7 @@ impl PartialEq for Dynamic {
     }
 }
 
-trait Bounds: Debug + 'static {
+trait Bounds: Debug + Sync + Send + 'static {
     fn as_any(&self) -> &dyn Any;
     fn dyn_eq(&self, other: &Dynamic) -> bool;
     fn dyn_type_name(&self) -> &'static str;
@@ -258,7 +258,7 @@ trait Bounds: Debug + 'static {
 
 impl<T> Bounds for T
 where
-    T: Type + Debug + PartialEq + 'static,
+    T: Type + Debug + PartialEq + Sync + Send + 'static,
 {
     fn as_any(&self) -> &dyn Any {
         self

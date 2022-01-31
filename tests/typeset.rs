@@ -3,7 +3,7 @@ use std::ffi::OsStr;
 use std::fs;
 use std::ops::Range;
 use std::path::Path;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use tiny_skia as sk;
 use walkdir::WalkDir;
@@ -258,7 +258,7 @@ fn test_part(
     line: usize,
     debug: bool,
     rng: &mut LinearShift,
-) -> (bool, bool, Vec<Rc<Frame>>) {
+) -> (bool, bool, Vec<Arc<Frame>>) {
     let mut ok = true;
 
     let id = ctx.sources.provide(src_path, src);
@@ -483,7 +483,7 @@ fn test_incremental(
     ctx: &mut Context,
     i: usize,
     tree: &RootNode,
-    frames: &[Rc<Frame>],
+    frames: &[Arc<Frame>],
 ) -> bool {
     let mut ok = true;
 
@@ -527,7 +527,7 @@ fn test_incremental(
 }
 
 /// Draw all frames into one image with padding in between.
-fn render(ctx: &mut Context, frames: &[Rc<Frame>]) -> sk::Pixmap {
+fn render(ctx: &mut Context, frames: &[Arc<Frame>]) -> sk::Pixmap {
     let pixel_per_pt = 2.0;
     let pixmaps: Vec<_> = frames
         .iter()

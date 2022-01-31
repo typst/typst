@@ -39,7 +39,7 @@ impl<L: ListKind> Layout for ListNode<L> {
         ctx: &mut LayoutContext,
         regions: &Regions,
         styles: StyleChain,
-    ) -> Vec<Constrained<Rc<Frame>>> {
+    ) -> Vec<Constrained<Arc<Frame>>> {
         let em = styles.get(TextNode::SIZE).abs;
         let label_indent = styles.get(Self::LABEL_INDENT).resolve(em);
         let body_indent = styles.get(Self::BODY_INDENT).resolve(em);
@@ -65,7 +65,7 @@ impl<L: ListKind> Layout for ListNode<L> {
 }
 
 /// How to label a list.
-pub trait ListKind: Debug + Default + Hash + 'static {
+pub trait ListKind: Debug + Default + Hash + Sync + Send + 'static {
     /// Return the item's label.
     fn label(&self) -> EcoString;
 }

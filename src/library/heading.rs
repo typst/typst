@@ -51,7 +51,7 @@ impl Layout for HeadingNode {
         ctx: &mut LayoutContext,
         regions: &Regions,
         styles: StyleChain,
-    ) -> Vec<Constrained<Rc<Frame>>> {
+    ) -> Vec<Constrained<Arc<Frame>>> {
         let upscale = (1.6 - 0.1 * self.level as f64).max(0.75);
 
         let mut passed = StyleMap::new();
@@ -82,7 +82,7 @@ impl Layout for HeadingNode {
 
         // FIXME: Constraints and region size.
         for Constrained { item: frame, .. } in &mut frames {
-            let frame = Rc::make_mut(frame);
+            let frame = Arc::make_mut(frame);
             frame.size.y += above + below;
             frame.translate(Point::with_y(above));
         }
