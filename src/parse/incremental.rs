@@ -116,7 +116,7 @@ impl Reparser<'_> {
             // This is because in Markup mode, we want to examine all nodes
             // touching a replacement but in code we want to atomically replace.
             if child_span.contains(&self.replace_range.start)
-                || (mode == TokenMode::Markup
+                || (child_mode == TokenMode::Markup
                     && self.replace_range.start == child_span.end)
             {
                 first = Some((i, offset));
@@ -139,12 +139,12 @@ impl Reparser<'_> {
             // neighbor!
             if child_span.contains(&self.replace_range.end)
                 || self.replace_range.end == child_span.end
-                    && (mode != TokenMode::Markup || i + 1 == original_count)
+                    && (child_mode != TokenMode::Markup || i + 1 == original_count)
             {
                 outermost &= i + 1 == original_count;
                 last = Some((i, offset + child.len()));
                 break;
-            } else if mode != TokenMode::Markup
+            } else if child_mode != TokenMode::Markup
                 || !child.kind().succession_rule().safe_in_markup()
             {
                 break;
@@ -404,10 +404,10 @@ impl NodeKind {
         let mode = self.mode().unwrap_or(parent_mode);
         match self.succession_rule() {
             SuccessionRule::Unsafe | SuccessionRule::UnsafeLayer => None,
-            SuccessionRule::AtomicPrimary if mode == TokenMode::Code => {
-                Some(parse_atomic)
-            }
-            SuccessionRule::AtomicPrimary => Some(parse_atomic_markup),
+            SuccessionRule::AtomicPrimary => match mode {
+                TokenMode::Code => Some(parse_atomic),
+                TokenMode::Markup => Some(parse_atomic_markup),
+            },
             SuccessionRule::SameKind(x) if x == None || x == Some(mode) => match self {
                 NodeKind::Markup(_) => Some(parse_markup),
                 NodeKind::Template => Some(parse_template),
@@ -601,28 +601,29 @@ impl SuccessionRule {
 }
 
 #[cfg(test)]
+#[rustfmt::skip]
 mod tests {
     use super::*;
     use crate::parse::parse;
+    use crate::parse::tests::check;
     use crate::source::SourceFile;
 
-    #[test]
-    #[rustfmt::skip]
-    fn test_incremental_parse() {
-        #[track_caller]
-        fn test(prev: &str, range: Range<usize>, with: &str, goal: Range<usize>) {
-            let mut source = SourceFile::detached(prev);
-            let range = source.edit(range, with);
-            assert_eq!(range, goal);
-            assert_eq!(parse(source.src()), *source.root());
-        }
+    #[track_caller]
+    fn test(prev: &str, range: Range<usize>, with: &str, goal: Range<usize>) {
+        let mut source = SourceFile::detached(prev);
+        let range = source.edit(range, with);
+        check(source.src(), source.root(), &parse(source.src()));
+        assert_eq!(range, goal);
+    }
 
-        // Test simple replacements.
+    #[test]
+    fn test_parse_incremental_simple_replacements() {
         test("hello world", 6 .. 11, "walkers", 5 .. 13);
         test("some content", 0..12, "", 0..0);
         test("", 0..0, "do it", 0..5);
         test("a d e", 1 .. 3, " b c d", 0 .. 8);
         test("a #f() e", 1 .. 6, " b c d", 0 .. 8);
+        test("{a}", 1 .. 2, "b", 1 .. 2);
         test("{(0, 1, 2)}", 5 .. 6, "11pt", 5 .. 9);
         test("= A heading", 3 .. 3, "n evocative", 2 .. 22);
         test("your thing", 5 .. 5, "a", 4 .. 11);
@@ -641,8 +642,12 @@ mod tests {
         test("understanding `code` is complicated", 15 .. 15, "C ", 0 .. 37);
         test("{ let x = g() }", 10 .. 12, "f(54", 2 .. 15);
         test("a #let rect with (fill: eastern)\nb", 16 .. 31, " (stroke: conifer", 2 .. 34);
+        test(r#"a ```typst hello``` b"#, 16 .. 17, "", 0 .. 20);
+        test(r#"a ```typst hello```"#, 16 .. 17, "", 0 .. 18);
+    }
 
-        // Test the whitespace invariants.
+    #[test]
+    fn test_parse_incremental_whitespace_invariants() {
         test("hello \\ world", 7 .. 8, "a ", 6 .. 14);
         test("hello \\ world", 7 .. 8, " a", 6 .. 14);
         test("x = y", 1 .. 1, " + y", 0 .. 6);
@@ -652,8 +657,10 @@ mod tests {
         test("#let x = (1, 2 + ; Five\r\n\r", 19..22, "2.", 18..22);
         test("hey #myfriend", 4 .. 4, "\\", 0 .. 14);
         test("hey  #myfriend", 4 .. 4, "\\", 3 .. 6);
+    }
 
-        // Test type invariants.
+    #[test]
+    fn test_parse_incremental_type_invariants() {
         test("a #for x in array {x}", 18 .. 21, "[#x]", 2 .. 22);
         test("a #let x = 1 {5}", 3 .. 6, "if", 0 .. 15);
         test("a {let x = 1 {5}} b", 3 .. 6, "if", 2 .. 16);
@@ -664,9 +671,11 @@ mod tests {
         test("a{\nf()\n//g(a)\n}b", 7 .. 9, "", 1 .. 13);
         test("a #while x {\n g(x) \n}  b", 11 .. 11, "//", 0 .. 26);
         test("{(1, 2)}", 1 .. 1, "while ", 0 .. 14);
-        test("a b c", 1 .. 1, "{[}", 0 .. 8);
+        test("a b c", 1 .. 1, "{[}", 0 .. 5);
+    }
 
-        // Test unclosed things.
+    #[test]
+    fn test_parse_incremental_wrongly_or_unclosed_things() {
         test(r#"{"hi"}"#, 4 .. 5, "c", 0 .. 6);
         test(r"this \u{abcd}", 8 .. 9, "", 5 .. 12);
         test(r"this \u{abcd} that", 12 .. 13, "", 0 .. 17);
@@ -675,9 +684,10 @@ mod tests {
         test("a b c", 1 .. 1, " /* letters", 0 .. 16);
         test("{if i==1 {a} else [b]; b()}", 12 .. 12, " /* letters */", 1 .. 35);
         test("{if i==1 {a} else [b]; b()}", 12 .. 12, " /* letters", 0 .. 38);
-
-        // Test raw tokens.
-        test(r#"a ```typst hello``` b"#, 16 .. 17, "", 0 .. 20);
-        test(r#"a ```typst hello```"#, 16 .. 17, "", 0 .. 18);
+        test("~~~~", 2 .. 2, "[]", 1 .. 5);
+        test("a[]b", 2 .. 2, "{", 1 .. 4);
+        test("[hello]", 2 .. 3, "]", 0 .. 7);
+        test("{a}", 1 .. 2, "b", 1 .. 2);
+        test("{ a; b; c }", 5 .. 6, "[}]", 0 .. 13);
     }
 }

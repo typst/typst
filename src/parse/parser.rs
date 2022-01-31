@@ -8,6 +8,8 @@ use crate::util::EcoString;
 
 /// A convenient token-based parser.
 pub struct Parser<'s> {
+    /// Offsets the indentation on the first line of the source.
+    column_offset: usize,
     /// An iterator over the source tokens.
     tokens: Tokens<'s>,
     /// Whether we are at the end of the file or of a group.
@@ -22,11 +24,10 @@ pub struct Parser<'s> {
     groups: Vec<GroupEntry>,
     /// The children of the currently built node.
     children: Vec<Green>,
-    /// Is `Some` if there is an unterminated group at the last position where
-    /// groups were terminated.
-    last_unterminated: Option<usize>,
-    /// Offsets the indentation on the first line of the source.
-    column_offset: usize,
+    /// Whether the last group was not correctly terminated.
+    unterminated_group: bool,
+    /// Whether a group terminator was found, that did not close a group.
+    stray_terminator: bool,
 }
 
 impl<'s> Parser<'s> {
@@ -35,6 +36,7 @@ impl<'s> Parser<'s> {
         let mut tokens = Tokens::new(src, mode);
         let current = tokens.next();
         Self {
+            column_offset: 0,
             tokens,
             eof: current.is_none(),
             current,
@@ -42,8 +44,8 @@ impl<'s> Parser<'s> {
             current_start: 0,
             groups: vec![],
             children: vec![],
-            last_unterminated: None,
-            column_offset: 0,
+            unterminated_group: false,
+            stray_terminator: false,
         }
     }
 
@@ -70,7 +72,7 @@ impl<'s> Parser<'s> {
 
     /// End the parsing process and return multiple children and whether the
     /// last token was terminated, even if there remains stuff in the string.
-    pub fn consume_unterminated(self) -> Option<(Vec<Green>, bool)> {
+    pub fn consume_open_ended(self) -> Option<(Vec<Green>, bool)> {
         self.terminated().then(|| (self.children, self.tokens.terminated()))
     }
 
@@ -120,6 +122,13 @@ impl<'s> Parser<'s> {
 
     /// Consume the current token and also trailing trivia.
     pub fn eat(&mut self) {
+        self.stray_terminator |= match self.current {
+            Some(NodeKind::RightParen) => !self.inside(Group::Paren),
+            Some(NodeKind::RightBracket) => !self.inside(Group::Bracket),
+            Some(NodeKind::RightBrace) => !self.inside(Group::Brace),
+            _ => false,
+        };
+
         self.prev_end = self.tokens.index();
         self.bump();
 
@@ -259,13 +268,14 @@ impl<'s> Parser<'s> {
     /// This panics if no group was started.
     #[track_caller]
     pub fn end_group(&mut self) {
+        // If another group closes after a group with the missing terminator,
+        // its scope of influence ends here and no longer taints the rest of the
+        // reparse.
+        self.unterminated_group = false;
+
         let group_mode = self.tokens.mode();
         let group = self.groups.pop().expect("no started group");
         self.tokens.set_mode(group.prev_mode);
-        self.repeek();
-        if self.last_unterminated != Some(self.prev_end()) {
-            self.last_unterminated = None;
-        }
 
         let mut rescan = self.tokens.mode() != group_mode;
 
@@ -280,12 +290,16 @@ impl<'s> Parser<'s> {
             Group::Imports => None,
         } {
             if self.current.as_ref() == Some(&end) {
-                // Bump the delimeter and return. No need to rescan in this case.
+                // Bump the delimeter and return. No need to rescan in this
+                // case. Also, we know that the delimiter is not stray even
+                // though we already removed the group.
+                let s = self.stray_terminator;
                 self.eat();
+                self.stray_terminator = s;
                 rescan = false;
             } else if required {
                 self.push_error(format_eco!("expected {}", end));
-                self.last_unterminated = Some(self.prev_end());
+                self.unterminated_group = true;
             }
         }
 
@@ -299,13 +313,14 @@ impl<'s> Parser<'s> {
             self.prev_end = self.tokens.index();
             self.current_start = self.tokens.index();
             self.current = self.tokens.next();
-            self.repeek();
         }
+
+        self.repeek();
     }
 
     /// Checks if all groups were correctly terminated.
-    pub fn terminated(&self) -> bool {
-        self.groups.is_empty() && self.last_unterminated.is_none()
+    fn terminated(&self) -> bool {
+        self.groups.is_empty() && !self.unterminated_group && !self.stray_terminator
     }
 
     /// Low-level bump that consumes exactly one token without special trivia

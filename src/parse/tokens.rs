@@ -568,9 +568,8 @@ fn keyword(ident: &str) -> Option<NodeKind> {
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod tests {
-    use std::fmt::Debug;
-
     use super::*;
+    use crate::parse::tests::check;
 
     use ErrorPos::*;
     use NodeKind::*;
@@ -685,19 +684,6 @@ mod tests {
             let expected = vec![$($token.clone()),*];
             check(&src, found, expected);
         }};
-    }
-
-    #[track_caller]
-    fn check<T>(src: &str, found: T, expected: T)
-    where
-        T: Debug + PartialEq,
-    {
-        if found != expected {
-            println!("source:   {src:?}");
-            println!("expected: {expected:#?}");
-            println!("found:    {found:#?}");
-            panic!("test failed");
-        }
     }
 
     #[test]

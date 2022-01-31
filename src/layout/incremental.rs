@@ -408,7 +408,7 @@ mod tests {
     }
 
     #[test]
-    fn test_incremental_temperature() {
+    fn test_layout_incremental_temperature() {
         let mut cache = LayoutCache::new(EvictionPolicy::None, 20);
         let regions = zero_regions();
         cache.policy = EvictionPolicy::None;
@@ -447,7 +447,7 @@ mod tests {
     }
 
     #[test]
-    fn test_incremental_properties() {
+    fn test_layout_incremental_properties() {
         let mut cache = LayoutCache::new(EvictionPolicy::None, 20);
         cache.policy = EvictionPolicy::None;
         cache.insert(0, FramesEntry::new(empty_frames(), 1));

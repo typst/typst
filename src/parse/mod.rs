@@ -68,7 +68,7 @@ pub fn parse_atomic(
 ) -> Option<(Vec<Green>, bool)> {
     let mut p = Parser::with_prefix(prefix, src, TokenMode::Code);
     primary(&mut p, true).ok()?;
-    p.consume_unterminated()
+    p.consume_open_ended()
 }
 
 /// Parse an atomic primary. Returns `Some` if all of the input was consumed.
@@ -80,7 +80,7 @@ pub fn parse_atomic_markup(
 ) -> Option<(Vec<Green>, bool)> {
     let mut p = Parser::with_prefix(prefix, src, TokenMode::Markup);
     markup_expr(&mut p);
-    p.consume_unterminated()
+    p.consume_open_ended()
 }
 
 /// Parse a template literal. Returns `Some` if all of the input was consumed.
@@ -917,5 +917,23 @@ fn comment(p: &mut Parser) -> ParseResult {
             Ok(())
         }
         _ => Err(ParseError),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fmt::Debug;
+
+    #[track_caller]
+    pub fn check<T>(src: &str, found: T, expected: T)
+    where
+        T: Debug + PartialEq,
+    {
+        if found != expected {
+            println!("source:   {src:?}");
+            println!("expected: {expected:#?}");
+            println!("found:    {found:#?}");
+            panic!("test failed");
+        }
     }
 }

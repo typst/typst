@@ -392,6 +392,10 @@ fn print_error(source: &SourceFile, line: usize, error: &Error) {
 fn test_reparse(src: &str, i: usize, rng: &mut LinearShift) -> bool {
     let supplements = [
         "[",
+        "]",
+        "{",
+        "}",
+        "(",
         ")",
         "#rect()",
         "a word",
