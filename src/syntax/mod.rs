@@ -581,6 +581,10 @@ pub enum NodeKind {
     /// The `as` keyword.
     As,
     /// Template markup of which all lines must start in some column.
+    ///
+    /// Notably, the usize does not determine in which column the markup
+    /// started, but to the right of which column all markup elements must be,
+    /// so it is zero except for headings and lists.
     Markup(usize),
     /// One or more whitespace characters.
     Space(usize),

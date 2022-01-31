@@ -422,10 +422,89 @@ impl NodeKind {
         }
     }
 
-    /// Whether it is safe to do incremental parsing on this node. Never allow
-    /// non-termination errors if this is not already the last leaf node.
+    /// Whether it is safe to do incremental parsing on this node.
     pub fn succession_rule(&self) -> SuccessionRule {
         match self {
+            // These are all replaceable by other tokens.
+            Self::Linebreak
+            | Self::Text(_)
+            | Self::TextInLine(_)
+            | Self::NonBreakingSpace
+            | Self::EnDash
+            | Self::EmDash
+            | Self::Escape(_)
+            | Self::Strong
+            | Self::Emph
+            | Self::Heading
+            | Self::Enum
+            | Self::List
+            | Self::Math(_) => SuccessionRule::Safe,
+
+            // Only markup is expected at the points where it does occur. The
+            // indentation must be preserved as well, also for the children.
+            Self::Markup(_) => SuccessionRule::SameKind(None),
+
+            // These can appear everywhere and must not change to other stuff
+            // because that could change the outer expression.
+            Self::LineComment | Self::BlockComment => SuccessionRule::SameKind(None),
+
+            // These can appear as bodies and would trigger an error if they
+            // became something else.
+            Self::Template => SuccessionRule::SameKind(None),
+            Self::Block => SuccessionRule::SameKind(Some(TokenMode::Code)),
+
+            // Whitespace in code mode has to remain whitespace or else the type
+            // of things would change.
+            Self::Space(_) => SuccessionRule::SameKind(Some(TokenMode::Code)),
+
+            // These are expressions that can be replaced by other expressions.
+            Self::Ident(_)
+            | Self::Bool(_)
+            | Self::Int(_)
+            | Self::Float(_)
+            | Self::Length(_, _)
+            | Self::Angle(_, _)
+            | Self::Percentage(_)
+            | Self::Str(_)
+            | Self::Fraction(_)
+            | Self::Array
+            | Self::Dict
+            | Self::Group
+            | Self::None
+            | Self::Auto => SuccessionRule::AtomicPrimary,
+
+            // More complex, but still an expression.
+            Self::ForExpr
+            | Self::WhileExpr
+            | Self::IfExpr
+            | Self::LetExpr
+            | Self::SetExpr
+            | Self::ShowExpr
+            | Self::WrapExpr
+            | Self::ImportExpr
+            | Self::IncludeExpr
+            | Self::BreakExpr
+            | Self::ContinueExpr
+            | Self::ReturnExpr => SuccessionRule::AtomicPrimary,
+
+            // These are complex expressions which may screw with their
+            // environments.
+            Self::Call
+            | Self::Unary
+            | Self::Binary
+            | Self::CallArgs
+            | Self::Named
+            | Self::Spread => SuccessionRule::UnsafeLayer,
+
+            // The closure is a bit magic with the let expression, and also it
+            // is not atomic.
+            Self::Closure | Self::ClosureParams => SuccessionRule::UnsafeLayer,
+
+            // Missing these creates errors for the parents.
+            Self::WithExpr | Self::ForPattern | Self::ImportItems => {
+                SuccessionRule::UnsafeLayer
+            }
+
             // Replacing parenthesis changes if the expression is balanced and
             // is therefore not safe.
             Self::LeftBracket
@@ -483,101 +562,23 @@ impl NodeKind {
             | Self::Include
             | Self::From => SuccessionRule::Unsafe,
 
+            // This can affect whether strong or emph content ends.
+            Self::Parbreak => SuccessionRule::Unsafe,
+
+            // This element always has to remain in the same column so better
+            // reparse the whole parent.
+            Self::Raw(_) => SuccessionRule::Unsafe,
+
             // Changing the heading level, enum numbering, or list bullet
             // changes the next layer.
             Self::EnumNumbering(_) => SuccessionRule::Unsafe,
 
             // This can be anything, so we don't make any promises.
             Self::Error(_, _) | Self::Unknown(_) => SuccessionRule::Unsafe,
-
-            // These are complex expressions which may screw with their
-            // environments.
-            Self::Call
-            | Self::Unary
-            | Self::Binary
-            | Self::CallArgs
-            | Self::Named
-            | Self::Spread => SuccessionRule::UnsafeLayer,
-
-            // The closure is a bit magic with the let expression, and also it
-            // is not atomic.
-            Self::Closure | Self::ClosureParams => SuccessionRule::UnsafeLayer,
-
-            // Missing these creates errors for the parents.
-            Self::WithExpr | Self::ForPattern | Self::ImportItems => {
-                SuccessionRule::UnsafeLayer
-            }
-
-            // Only markup is expected at the points where it does occur. The
-            // indentation must be preserved as well, also for the children.
-            Self::Markup(_) => SuccessionRule::SameKind(None),
-
-            // These can appear everywhere and must not change to other stuff
-            // because that could change the outer expression.
-            Self::LineComment | Self::BlockComment => SuccessionRule::SameKind(None),
-
-            // These can appear as bodies and would trigger an error if they
-            // became something else.
-            Self::Template => SuccessionRule::SameKind(None),
-            Self::Block => SuccessionRule::SameKind(Some(TokenMode::Code)),
-
-            // Whitespace in code mode has to remain whitespace or else the type
-            // of things would change.
-            Self::Space(_) => SuccessionRule::SameKind(Some(TokenMode::Code)),
-
-            // These are expressions that can be replaced by other expressions.
-            Self::Ident(_)
-            | Self::Bool(_)
-            | Self::Int(_)
-            | Self::Float(_)
-            | Self::Length(_, _)
-            | Self::Angle(_, _)
-            | Self::Percentage(_)
-            | Self::Str(_)
-            | Self::Fraction(_)
-            | Self::Array
-            | Self::Dict
-            | Self::Group
-            | Self::None
-            | Self::Auto => SuccessionRule::AtomicPrimary,
-
-            // More complex, but still an expression.
-            Self::ForExpr
-            | Self::WhileExpr
-            | Self::IfExpr
-            | Self::LetExpr
-            | Self::SetExpr
-            | Self::ShowExpr
-            | Self::WrapExpr
-            | Self::ImportExpr
-            | Self::IncludeExpr
-            | Self::BreakExpr
-            | Self::ContinueExpr
-            | Self::ReturnExpr => SuccessionRule::AtomicPrimary,
-
-            // This element always has to remain in the same column so better
-            // reparse the whole parent.
-            Self::Raw(_) => SuccessionRule::Unsafe,
-
-            // These are all replaceable by other tokens.
-            Self::Parbreak
-            | Self::Linebreak
-            | Self::Text(_)
-            | Self::TextInLine(_)
-            | Self::NonBreakingSpace
-            | Self::EnDash
-            | Self::EmDash
-            | Self::Escape(_)
-            | Self::Strong
-            | Self::Emph
-            | Self::Heading
-            | Self::Enum
-            | Self::List
-            | Self::Math(_) => SuccessionRule::Safe,
         }
     }
 
-    /// The appropriate precondition for the type.
+    /// Whether it is safe to insert this node next to some nodes or vice versa.
     pub fn neighbour_rule(&self) -> NeighbourRule {
         match self {
             Self::Heading | Self::Enum | Self::List => NeighbourRule::AtStart,
