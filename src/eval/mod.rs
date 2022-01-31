@@ -10,7 +10,7 @@ mod value;
 mod styles;
 mod capture;
 mod class;
-mod function;
+mod func;
 mod node;
 mod ops;
 mod scope;
@@ -19,7 +19,7 @@ pub use array::*;
 pub use capture::*;
 pub use class::*;
 pub use dict::*;
-pub use function::*;
+pub use func::*;
 pub use node::*;
 pub use scope::*;
 pub use styles::*;
@@ -602,9 +602,9 @@ impl Eval for CallExpr {
 
             Value::Class(class) => {
                 let point = || Tracepoint::Call(Some(class.name().to_string()));
-                let node = class.construct(ctx, &mut args).trace(point, self.span())?;
+                let value = class.construct(ctx, &mut args).trace(point, self.span())?;
                 args.finish()?;
-                Ok(Value::Node(node))
+                Ok(value)
             }
 
             v => bail!(
@@ -669,6 +669,9 @@ impl Eval for ClosureExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
+        // The closure's name is defined by its let binding if there's one.
+        let name = self.name().map(Ident::take);
+
         // Collect captured variables.
         let captured = {
             let mut visitor = CapturesVisitor::new(&ctx.scopes);
@@ -676,8 +679,8 @@ impl Eval for ClosureExpr {
             visitor.finish()
         };
 
-        let mut sink = None;
         let mut params = Vec::new();
+        let mut sink = None;
 
         // Collect parameters and an optional sink parameter.
         for param in self.params() {
@@ -697,39 +700,14 @@ impl Eval for ClosureExpr {
             }
         }
 
-        // Clone the body expression so that we don't have a lifetime
-        // dependence on the AST.
-        let name = self.name().map(Ident::take);
-        let body = self.body();
-
         // Define the actual function.
-        let func = Function::new(name, move |ctx, args| {
-            // Don't leak the scopes from the call site. Instead, we use the
-            // scope of captured variables we collected earlier.
-            let prev_scopes = mem::take(&mut ctx.scopes);
-            ctx.scopes.top = captured.clone();
-
-            // Parse the arguments according to the parameter list.
-            for (param, default) in &params {
-                ctx.scopes.def_mut(param, match default {
-                    None => args.expect::<Value>(param)?,
-                    Some(default) => {
-                        args.named::<Value>(param)?.unwrap_or_else(|| default.clone())
-                    }
-                });
-            }
-
-            // Put the remaining arguments into the sink.
-            if let Some(sink) = &sink {
-                ctx.scopes.def_mut(sink, args.take());
-            }
-
-            let value = body.eval(ctx)?;
-            ctx.scopes = prev_scopes;
-            Ok(value)
-        });
-
-        Ok(Value::Func(func))
+        Ok(Value::Func(Func::closure(Closure {
+            name,
+            captured,
+            params,
+            sink,
+            body: self.body(),
+        })))
     }
 }
 
@@ -738,16 +716,9 @@ impl Eval for WithExpr {
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
         let callee = self.callee();
-        let wrapped = callee.eval(ctx)?.cast::<Function>().at(callee.span())?;
-        let applied = self.args().eval(ctx)?;
-
-        let name = wrapped.name().cloned();
-        let func = Function::new(name, move |ctx, args| {
-            args.items.splice(.. 0, applied.items.iter().cloned());
-            wrapped.call(ctx, args)
-        });
-
-        Ok(Value::Func(func))
+        let func = callee.eval(ctx)?.cast::<Func>().at(callee.span())?;
+        let args = self.args().eval(ctx)?;
+        Ok(Value::Func(func.with(args)))
     }
 }
 

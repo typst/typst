@@ -1,44 +1,68 @@
 use std::fmt::{self, Debug, Formatter, Write};
 use std::sync::Arc;
 
-use super::{Cast, EvalContext, Value};
+use super::{Cast, Eval, EvalContext, Scope, Value};
 use crate::diag::{At, TypResult};
+use crate::syntax::ast::Expr;
 use crate::syntax::{Span, Spanned};
 use crate::util::EcoString;
 
 /// An evaluatable function.
 #[derive(Clone)]
-pub struct Function(Arc<Inner<Func>>);
+pub struct Func(Arc<Repr>);
 
-/// The unsized structure behind the [`Arc`].
-struct Inner<T: ?Sized> {
-    name: Option<EcoString>,
-    func: T,
+/// The different kinds of function representations.
+enum Repr {
+    /// A native rust function.
+    Native(Native),
+    /// A user-defined closure.
+    Closure(Closure),
+    /// A nested function with pre-applied arguments.
+    With(Func, Args),
 }
 
-type Func = dyn Fn(&mut EvalContext, &mut Args) -> TypResult<Value>;
+impl Func {
+    /// Create a new function from a native rust function.
+    pub fn native(
+        name: &'static str,
+        func: fn(&mut EvalContext, &mut Args) -> TypResult<Value>,
+    ) -> Self {
+        Self(Arc::new(Repr::Native(Native { name, func })))
+    }
 
-impl Function {
-    /// Create a new function from a rust closure.
-    pub fn new<F>(name: Option<EcoString>, func: F) -> Self
-    where
-        F: Fn(&mut EvalContext, &mut Args) -> TypResult<Value> + 'static,
-    {
-        Self(Arc::new(Inner { name, func }))
+    /// Create a new function from a closure.
+    pub fn closure(closure: Closure) -> Self {
+        Self(Arc::new(Repr::Closure(closure)))
     }
 
     /// The name of the function.
-    pub fn name(&self) -> Option<&EcoString> {
-        self.0.name.as_ref()
+    pub fn name(&self) -> Option<&str> {
+        match self.0.as_ref() {
+            Repr::Native(native) => Some(native.name),
+            Repr::Closure(closure) => closure.name.as_deref(),
+            Repr::With(func, _) => func.name(),
+        }
     }
 
     /// Call the function in the context with the arguments.
     pub fn call(&self, ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-        (&self.0.func)(ctx, args)
+        match self.0.as_ref() {
+            Repr::Native(native) => (native.func)(ctx, args),
+            Repr::Closure(closure) => closure.call(ctx, args),
+            Repr::With(wrapped, applied) => {
+                args.items.splice(.. 0, applied.items.iter().cloned());
+                wrapped.call(ctx, args)
+            }
+        }
+    }
+
+    /// Apply the given arguments to the function.
+    pub fn with(self, args: Args) -> Self {
+        Self(Arc::new(Repr::With(self, args)))
     }
 }
 
-impl Debug for Function {
+impl Debug for Func {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.write_str("<function")?;
         if let Some(name) = self.name() {
@@ -49,13 +73,65 @@ impl Debug for Function {
     }
 }
 
-impl PartialEq for Function {
+impl PartialEq for Func {
     fn eq(&self, other: &Self) -> bool {
-        // We cast to thin pointers for comparison.
-        std::ptr::eq(
-            Arc::as_ptr(&self.0) as *const (),
-            Arc::as_ptr(&other.0) as *const (),
-        )
+        Arc::ptr_eq(&self.0, &other.0)
+    }
+}
+
+/// A native rust function.
+struct Native {
+    /// The name of the function.
+    pub name: &'static str,
+    /// The function pointer.
+    pub func: fn(&mut EvalContext, &mut Args) -> TypResult<Value>,
+}
+
+/// A user-defined closure.
+pub struct Closure {
+    /// The name of the closure.
+    pub name: Option<EcoString>,
+    /// Captured values from outer scopes.
+    pub captured: Scope,
+    /// The parameter names and default values. Parameters with default value
+    /// are named parameters.
+    pub params: Vec<(EcoString, Option<Value>)>,
+    /// The name of an argument sink where remaining arguments are placed.
+    pub sink: Option<EcoString>,
+    /// The expression the closure should evaluate to.
+    pub body: Expr,
+}
+
+impl Closure {
+    /// Call the function in the context with the arguments.
+    pub fn call(&self, ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
+        // Don't leak the scopes from the call site. Instead, we use the
+        // scope of captured variables we collected earlier.
+        let prev_scopes = std::mem::take(&mut ctx.scopes);
+        ctx.scopes.top = self.captured.clone();
+
+        // Parse the arguments according to the parameter list.
+        for (param, default) in &self.params {
+            ctx.scopes.def_mut(param, match default {
+                None => args.expect::<Value>(param)?,
+                Some(default) => {
+                    args.named::<Value>(param)?.unwrap_or_else(|| default.clone())
+                }
+            });
+        }
+
+        // Put the remaining arguments into the sink.
+        if let Some(sink) = &self.sink {
+            ctx.scopes.def_mut(sink, args.take());
+        }
+
+        // Evaluate the body.
+        let value = self.body.eval(ctx)?;
+
+        // Restore the call site scopes.
+        ctx.scopes = prev_scopes;
+
+        Ok(value)
     }
 }
 

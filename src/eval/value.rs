@@ -4,7 +4,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::sync::Arc;
 
-use super::{ops, Args, Array, Class, Dict, Function, Node};
+use super::{ops, Args, Array, Class, Dict, Func, Node};
 use crate::diag::StrResult;
 use crate::geom::{Angle, Color, Fractional, Length, Linear, Relative, RgbaColor};
 use crate::layout::Layout;
@@ -45,7 +45,7 @@ pub enum Value {
     /// A node value: `[*Hi* there]`.
     Node(Node),
     /// An executable function.
-    Func(Function),
+    Func(Func),
     /// Captured arguments to a function.
     Args(Args),
     /// A class of nodes.
@@ -89,7 +89,7 @@ impl Value {
             Self::Array(_) => Array::TYPE_NAME,
             Self::Dict(_) => Dict::TYPE_NAME,
             Self::Node(_) => Node::TYPE_NAME,
-            Self::Func(_) => Function::TYPE_NAME,
+            Self::Func(_) => Func::TYPE_NAME,
             Self::Args(_) => Args::TYPE_NAME,
             Self::Class(_) => Class::TYPE_NAME,
             Self::Dyn(v) => v.type_name(),
@@ -401,13 +401,7 @@ primitive! { EcoString: "string", Str }
 primitive! { Array: "array", Array }
 primitive! { Dict: "dictionary", Dict }
 primitive! { Node: "template", Node }
-primitive! { Function: "function",
-    Func,
-    Class(v) => Function::new(
-        Some(v.name().clone()),
-        move |ctx, args| v.construct(ctx, args).map(Value::Node)
-    )
-}
+primitive! { Func: "function", Func, Class(v) => v.constructor() }
 primitive! { Args: "arguments", Args }
 primitive! { Class: "class", Class }
 
@@ -554,9 +548,8 @@ mod tests {
         test(dict!["two" => false, "one" => 1], "(one: 1, two: false)");
 
         // Functions.
-        test(Function::new(None, |_, _| Ok(Value::None)), "<function>");
         test(
-            Function::new(Some("nil".into()), |_, _| Ok(Value::None)),
+            Func::native("nil", |_, _| Ok(Value::None)),
             "<function nil>",
         );
 

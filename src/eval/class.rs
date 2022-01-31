@@ -1,8 +1,7 @@
 use std::fmt::{self, Debug, Formatter, Write};
 
-use super::{Args, EvalContext, Node, StyleMap};
+use super::{Args, EvalContext, Func, Node, StyleMap, Value};
 use crate::diag::TypResult;
-use crate::util::EcoString;
 
 /// A class of [nodes](Node).
 ///
@@ -35,38 +34,40 @@ use crate::util::EcoString;
 /// [`set`]: Self::set
 #[derive(Clone)]
 pub struct Class {
-    name: EcoString,
-    construct: fn(&mut EvalContext, &mut Args) -> TypResult<Node>,
+    name: &'static str,
+    construct: fn(&mut EvalContext, &mut Args) -> TypResult<Value>,
     set: fn(&mut Args, &mut StyleMap) -> TypResult<()>,
 }
 
 impl Class {
     /// Create a new class.
-    pub fn new<T>(name: EcoString) -> Self
+    pub fn new<T>(name: &'static str) -> Self
     where
         T: Construct + Set + 'static,
     {
         Self {
             name,
-            construct: T::construct,
+            construct: |ctx, args| {
+                let mut styles = StyleMap::new();
+                T::set(args, &mut styles)?;
+                let node = T::construct(ctx, args)?;
+                Ok(Value::Node(node.styled_with_map(styles.scoped())))
+            },
             set: T::set,
         }
     }
 
     /// The name of the class.
-    pub fn name(&self) -> &EcoString {
-        &self.name
+    pub fn name(&self) -> &'static str {
+        self.name
     }
 
     /// Construct an instance of the class.
     ///
     /// This parses both property and data arguments (in this order) and styles
     /// the node constructed from the data with the style properties.
-    pub fn construct(&self, ctx: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
-        let mut styles = StyleMap::new();
-        self.set(args, &mut styles)?;
-        let node = (self.construct)(ctx, args)?;
-        Ok(node.styled_with_map(styles.scoped()))
+    pub fn construct(&self, ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
+        (self.construct)(ctx, args)
     }
 
     /// Execute the class's set rule.
@@ -75,6 +76,11 @@ impl Class {
     /// given style map. There are no further side effects.
     pub fn set(&self, args: &mut Args, styles: &mut StyleMap) -> TypResult<()> {
         (self.set)(args, styles)
+    }
+
+    /// Return the class constructor as a function.
+    pub fn constructor(&self) -> Func {
+        Func::native(self.name, self.construct)
     }
 }
 

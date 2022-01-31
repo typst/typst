@@ -4,7 +4,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::iter;
 use std::sync::Arc;
 
-use super::{Args, Class, Construct, EvalContext, Function, Set, Value};
+use super::{Args, Class, Construct, EvalContext, Func, Set, Value};
 use crate::diag::TypResult;
 use crate::util::EcoString;
 
@@ -98,22 +98,21 @@ impl Scope {
         self.values.insert(var.into(), slot);
     }
 
-    /// Define a constant function.
-    pub fn def_func<F>(&mut self, name: &str, f: F)
-    where
-        F: Fn(&mut EvalContext, &mut Args) -> TypResult<Value> + 'static,
-    {
-        let name = EcoString::from(name);
-        self.def_const(name.clone(), Function::new(Some(name), f));
+    /// Define a constant native function.
+    pub fn def_func(
+        &mut self,
+        name: &'static str,
+        func: fn(&mut EvalContext, &mut Args) -> TypResult<Value>,
+    ) {
+        self.def_const(name, Func::native(name, func));
     }
 
     /// Define a constant class.
-    pub fn def_class<T>(&mut self, name: &str)
+    pub fn def_class<T>(&mut self, name: &'static str)
     where
         T: Construct + Set + 'static,
     {
-        let name = EcoString::from(name);
-        self.def_const(name.clone(), Class::new::<T>(name));
+        self.def_const(name, Class::new::<T>(name));
     }
 
     /// Look up the value of a variable.
