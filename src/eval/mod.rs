@@ -189,10 +189,8 @@ fn eval_markup(
             MarkupNode::Expr(Expr::Set(set)) => {
                 let class = set.class();
                 let class = class.eval(ctx)?.cast::<Class>().at(class.span())?;
-                let mut args = set.args().eval(ctx)?;
-                let mut styles = StyleMap::new();
-                class.set(&mut args, &mut styles)?;
-                args.finish()?;
+                let args = set.args().eval(ctx)?;
+                let styles = class.set(args)?;
                 let tail = eval_markup(ctx, nodes)?;
                 tail.styled_with_map(styles)
             }
@@ -590,7 +588,7 @@ impl Eval for CallExpr {
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
         let span = self.callee().span();
         let callee = self.callee().eval(ctx)?;
-        let mut args = self.args().eval(ctx)?;
+        let args = self.args().eval(ctx)?;
 
         match callee {
             Value::Array(array) => {
@@ -603,16 +601,12 @@ impl Eval for CallExpr {
 
             Value::Func(func) => {
                 let point = || Tracepoint::Call(func.name().map(ToString::to_string));
-                let value = func.call(ctx, &mut args).trace(point, self.span())?;
-                args.finish()?;
-                Ok(value)
+                func.call(ctx, args).trace(point, self.span())
             }
 
             Value::Class(class) => {
                 let point = || Tracepoint::Call(Some(class.name().to_string()));
-                let value = class.construct(ctx, &mut args).trace(point, self.span())?;
-                args.finish()?;
-                Ok(value)
+                class.construct(ctx, args).trace(point, self.span())
             }
 
             v => bail!(

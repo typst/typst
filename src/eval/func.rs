@@ -45,15 +45,17 @@ impl Func {
     }
 
     /// Call the function in the context with the arguments.
-    pub fn call(&self, ctx: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-        match self.0.as_ref() {
-            Repr::Native(native) => (native.func)(ctx, args),
-            Repr::Closure(closure) => closure.call(ctx, args),
+    pub fn call(&self, ctx: &mut EvalContext, mut args: Args) -> TypResult<Value> {
+        let value = match self.0.as_ref() {
+            Repr::Native(native) => (native.func)(ctx, &mut args)?,
+            Repr::Closure(closure) => closure.call(ctx, &mut args)?,
             Repr::With(wrapped, applied) => {
                 args.items.splice(.. 0, applied.items.iter().cloned());
-                wrapped.call(ctx, args)
+                return wrapped.call(ctx, args);
             }
-        }
+        };
+        args.finish()?;
+        Ok(value)
     }
 
     /// Apply the given arguments to the function.
