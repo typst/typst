@@ -143,6 +143,8 @@ pub fn new() -> Scope {
     std.def_func("rgb", rgb);
     std.def_func("lower", lower);
     std.def_func("upper", upper);
+    std.def_func("roman", roman);
+    std.def_func("symbol", symbol);
     std.def_func("len", len);
     std.def_func("sorted", sorted);
 

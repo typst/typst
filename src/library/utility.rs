@@ -6,6 +6,31 @@ use std::str::FromStr;
 use super::prelude::*;
 use crate::eval::Array;
 
+static ROMAN_PAIRS: &'static [(&'static str, u32)] = &[
+    ("M̅", 1000000),
+    ("D̅", 500000),
+    ("C̅", 100000),
+    ("L̅", 50000),
+    ("X̅", 10000),
+    ("V̅", 5000),
+    ("I̅V̅", 4000),
+    ("M", 1000),
+    ("CM", 900),
+    ("D", 500),
+    ("CD", 400),
+    ("C", 100),
+    ("XC", 90),
+    ("L", 50),
+    ("XL", 40),
+    ("X", 10),
+    ("IX", 9),
+    ("V", 5),
+    ("IV", 4),
+    ("I", 1),
+];
+
+static SYMBOLS: &'static [char] = &['*', '†', '‡', '§', '‖', '¶'];
+
 /// Ensure that a condition is fulfilled.
 pub fn assert(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let Spanned { v, span } = args.expect::<Spanned<bool>>("condition")?;
@@ -199,6 +224,54 @@ pub fn lower(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 /// Convert a string to uppercase.
 pub fn upper(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     Ok(args.expect::<EcoString>("string")?.to_uppercase().into())
+}
+
+/// Converts an integer into a roman numeral.
+///
+/// Works for integer between 0 and 3,999,999 inclusive, returns None otherwise.
+/// Adapted from Yann Villessuzanne's roman.rs under the Unlicense, at
+/// https://github.com/linfir/roman.rs/
+pub fn roman(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
+    let source: Spanned<i64> = args.expect("integer")?;
+    let mut n = source.v as u32;
+
+    match n {
+        0 => return Ok("N".into()),
+        i if i > 3_999_999 => {
+            bail!(
+                source.span,
+                "cannot convert integers greater than 3,999,999 to roman numerals"
+            )
+        }
+        _ => {}
+    }
+
+    let mut roman = String::new();
+    for &(name, value) in ROMAN_PAIRS.iter() {
+        while n >= value {
+            n -= value;
+            roman.push_str(name);
+        }
+    }
+
+    Ok(roman.into())
+}
+
+/// Convert a number into a roman numeral.
+pub fn symbol(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
+    let source: Spanned<i64> = args.expect("integer")?;
+    let n: usize = match source.v.try_into() {
+        Ok(n) => n,
+        Err(_) if source.v < 0 => bail!(source.span, "number must not be negative"),
+        Err(_) => bail!(source.span, "number too large"),
+    };
+
+    let symbol = SYMBOLS[n % SYMBOLS.len()];
+    let amount = (n / SYMBOLS.len()) + 1;
+
+    let symbols: String = std::iter::repeat(symbol).take(amount).collect();
+
+    Ok(symbols.into())
 }
 
 /// The length of a string, an array or a dictionary.
