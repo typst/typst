@@ -200,6 +200,7 @@ impl PackedNode {
 }
 
 impl Layout for PackedNode {
+    #[track_caller]
     fn layout(
         &self,
         ctx: &mut LayoutContext,
@@ -219,8 +220,12 @@ impl Layout for PackedNode {
             state.finish()
         };
 
+        // This is not written with `unwrap_or_else`, because then the
+        // #[track_caller] annotation doesn't work.
         #[cfg(feature = "layout-cache")]
-        ctx.layout_cache.get(hash, regions).unwrap_or_else(|| {
+        if let Some(frames) = ctx.layout_cache.get(hash, regions) {
+            frames
+        } else {
             ctx.level += 1;
             let frames = self.node.layout(ctx, regions, styles);
             ctx.level -= 1;
@@ -240,7 +245,7 @@ impl Layout for PackedNode {
 
             ctx.layout_cache.insert(hash, entry);
             frames
-        })
+        }
     }
 
     fn pack(self) -> PackedNode {

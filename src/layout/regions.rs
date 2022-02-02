@@ -7,10 +7,11 @@ pub struct Regions {
     pub current: Size,
     /// The base size for relative sizing.
     pub base: Size,
-    /// An iterator of followup regions.
-    pub backlog: std::vec::IntoIter<Size>,
-    /// The final region that is repeated once the backlog is drained.
-    pub last: Option<Size>,
+    /// The height of followup regions. The width is the same for all regions.
+    pub backlog: std::vec::IntoIter<Length>,
+    /// The height of the final region that is repeated once the backlog is
+    /// drained. The width is the same for all regions.
+    pub last: Option<Length>,
     /// Whether nodes should expand to fill the regions instead of shrinking to
     /// fit the content.
     pub expand: Spec<bool>,
@@ -34,19 +35,33 @@ impl Regions {
             current: size,
             base,
             backlog: vec![].into_iter(),
-            last: Some(size),
+            last: Some(size.y),
             expand,
         }
     }
 
     /// Create new regions where all sizes are mapped with `f`.
+    ///
+    /// Note that since all regions must have the same width, the width returned
+    /// by `f` is ignored for the backlog and the final region.
     pub fn map<F>(&self, mut f: F) -> Self
     where
         F: FnMut(Size) -> Size,
     {
-        let mut regions = self.clone();
-        regions.mutate(|s| *s = f(*s));
-        regions
+        let x = self.current.x;
+        Self {
+            current: f(self.current),
+            base: f(self.base),
+            backlog: self
+                .backlog
+                .as_slice()
+                .iter()
+                .map(|&y| f(Size::new(x, y)).y)
+                .collect::<Vec<_>>()
+                .into_iter(),
+            last: self.last.map(|y| f(Size::new(x, y)).y),
+            expand: self.expand,
+        }
     }
 
     /// Whether the current region is full and a region break is called for.
@@ -58,14 +73,15 @@ impl Regions {
     ///
     /// If this is true, calling `next()` will have no effect.
     pub fn in_last(&self) -> bool {
-        self.backlog.len() == 0 && self.last.map_or(true, |size| self.current == size)
+        self.backlog.len() == 0
+            && self.last.map_or(true, |height| self.current.y == height)
     }
 
     /// Advance to the next region if there is any.
     pub fn next(&mut self) {
-        if let Some(size) = self.backlog.next().or(self.last) {
-            self.current = size;
-            self.base = size;
+        if let Some(height) = self.backlog.next().or(self.last) {
+            self.current.y = height;
+            self.base.y = height;
         }
     }
 
@@ -76,17 +92,11 @@ impl Regions {
         let first = std::iter::once((self.current, self.base));
         let backlog = self.backlog.as_slice().iter();
         let last = self.last.iter().cycle();
-        first.chain(backlog.chain(last).map(|&s| (s, s)))
-    }
-
-    /// Mutate all contained sizes in place.
-    pub fn mutate<F>(&mut self, mut f: F)
-    where
-        F: FnMut(&mut Size),
-    {
-        f(&mut self.current);
-        f(&mut self.base);
-        self.last.as_mut().map(|x| f(x));
-        self.backlog.as_mut_slice().iter_mut().for_each(f);
+        first.chain(backlog.chain(last).map(|&height| {
+            (
+                Size::new(self.current.x, height),
+                Size::new(self.base.x, height),
+            )
+        }))
     }
 }

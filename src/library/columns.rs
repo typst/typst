@@ -38,63 +38,40 @@ impl Layout for ColumnsNode {
         regions: &Regions,
         styles: StyleChain,
     ) -> Vec<Constrained<Arc<Frame>>> {
-        let columns = self.columns.get();
-
         // Separating the infinite space into infinite columns does not make
-        // much sense. Note that this line assumes that no infinitely wide
-        // region will follow if the first region's width is finite.
+        // much sense.
         if regions.current.x.is_infinite() {
             return self.child.layout(ctx, regions, styles);
         }
 
-        // Gutter width for each region. (Can be different because the relative
-        // component is calculated seperately for each region.)
-        let mut gutters = vec![];
+        // Determine the width of the gutter and each column.
+        let columns = self.columns.get();
+        let gutter = styles.get(Self::GUTTER).resolve(regions.base.x);
+        let width = (regions.current.x - gutter * (columns - 1) as f64) / columns as f64;
 
-        // Sizes of all columns resulting from `region.current`,
-        // `region.backlog` and `regions.last`.
-        let mut sizes = vec![];
+        // Create the pod regions.
+        let pod = Regions {
+            current: Size::new(width, regions.current.y),
+            base: Size::new(width, regions.base.y),
+            backlog: std::iter::once(&regions.current.y)
+                .chain(regions.backlog.as_slice())
+                .flat_map(|&height| std::iter::repeat(height).take(columns))
+                .skip(1)
+                .collect::<Vec<_>>()
+                .into_iter(),
+            last: regions.last,
+            expand: Spec::new(true, regions.expand.y),
+        };
 
-        for (current, base) in regions
-            .iter()
-            .take(1 + regions.backlog.len() + regions.last.iter().len())
-        {
-            let gutter = styles.get(Self::GUTTER).resolve(base.x);
-            let width = (current.x - gutter * (columns - 1) as f64) / columns as f64;
-            let size = Size::new(width, current.y);
-            gutters.push(gutter);
-            sizes.extend(std::iter::repeat(size).take(columns));
-        }
-
-        let first = sizes.remove(0);
-        let mut pod = Regions::one(
-            first,
-            Size::new(first.x, regions.base.y),
-            Spec::new(true, regions.expand.y),
-        );
-
-        // Retrieve elements for the last region from the vectors.
-        let last_gutter = regions.last.map(|_| {
-            let gutter = gutters.pop().unwrap();
-            let size = sizes.drain(sizes.len() - columns ..).next().unwrap();
-            pod.last = Some(size);
-            gutter
-        });
-
-        pod.backlog = sizes.into_iter();
-
-        let mut finished = vec![];
+        // Layout the children.
         let mut frames = self.child.layout(ctx, &pod, styles).into_iter();
 
         let dir = styles.get(ParNode::DIR);
         let total_regions = (frames.len() as f32 / columns as f32).ceil() as usize;
+        let mut finished = vec![];
 
         // Stitch together the columns for each region.
-        for ((current, base), gutter) in regions
-            .iter()
-            .take(total_regions)
-            .zip(gutters.into_iter().chain(last_gutter.into_iter().cycle()))
-        {
+        for (current, base) in regions.iter().take(total_regions) {
             // The height should be the parent height if the node shall expand.
             // Otherwise its the maximum column height for the frame. In that
             // case, the frame is first created with zero height and then

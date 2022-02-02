@@ -386,9 +386,10 @@ impl<'a> GridLayouter<'a> {
         // Determine the size for each region of the row.
         for (x, &rcol) in self.rcols.iter().enumerate() {
             if let Some(node) = self.cell(x, y) {
-                // All widths should be `rcol` except the base for auto columns.
                 let mut pod = self.regions.clone();
-                pod.mutate(|size| size.x = rcol);
+                pod.current.x = rcol;
+
+                // All widths should be `rcol` except the base for auto columns.
                 if self.cols[x] == TrackSizing::Auto {
                     pod.base.x = self.regions.base.x;
                 }
@@ -513,18 +514,15 @@ impl<'a> GridLayouter<'a> {
         // Prepare regions.
         let size = Size::new(self.used.x, heights[0]);
         let mut pod = Regions::one(size, self.regions.base, Spec::splat(true));
-        pod.backlog = heights[1 ..]
-            .iter()
-            .map(|&h| Size::new(self.used.x, h))
-            .collect::<Vec<_>>()
-            .into_iter();
+        pod.backlog = heights[1 ..].to_vec().into_iter();
 
         // Layout the row.
         let mut pos = Point::zero();
         for (x, &rcol) in self.rcols.iter().enumerate() {
             if let Some(node) = self.cell(x, y) {
+                pod.current.x = rcol;
+
                 // All widths should be `rcol` except the base for auto columns.
-                pod.mutate(|size| size.x = rcol);
                 if self.cols[x] == TrackSizing::Auto {
                     pod.base.x = self.regions.base.x;
                 }
