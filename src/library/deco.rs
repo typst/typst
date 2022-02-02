@@ -8,7 +8,7 @@ pub struct DecoNode<L: LineKind>(pub L);
 
 #[class]
 impl<L: LineKind> DecoNode<L> {
-    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
+    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
         let deco = Decoration {
             line: L::LINE,
             stroke: args.named("stroke")?.or_else(|| args.find()),
@@ -17,7 +17,7 @@ impl<L: LineKind> DecoNode<L> {
             extent: args.named("extent")?.unwrap_or_default(),
             evade: args.named("evade")?.unwrap_or(true),
         };
-        Ok(args.expect::<Node>("body")?.styled(TextNode::LINES, vec![deco]))
+        Ok(args.expect::<Template>("body")?.styled(TextNode::LINES, vec![deco]))
     }
 }
 

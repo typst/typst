@@ -19,10 +19,10 @@ impl<L: ListKind> ListNode<L> {
     /// The space between the label and the body of each item.
     pub const BODY_INDENT: Linear = Relative::new(0.5).into();
 
-    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
+    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
         Ok(args
             .all()
-            .map(|child: PackedNode| Node::block(Self { kind: L::default(), child }))
+            .map(|child: PackedNode| Template::block(Self { kind: L::default(), child }))
             .sum())
     }
 
@@ -54,7 +54,7 @@ impl<L: ListKind> Layout for ListNode<L> {
             gutter: Spec::default(),
             children: vec![
                 PackedNode::default(),
-                Node::Text(self.kind.label()).into_block(),
+                Template::Text(self.kind.label()).into_block(),
                 PackedNode::default(),
                 self.child.clone(),
             ],

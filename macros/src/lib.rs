@@ -179,7 +179,7 @@ fn process_const(
 
                 const NAME: &'static str = #name;
 
-                fn node_id() -> TypeId {
+                fn class_id() -> TypeId {
                     TypeId::of::<#self_ty>()
                 }
 

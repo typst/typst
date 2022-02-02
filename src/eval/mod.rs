@@ -11,18 +11,18 @@ mod styles;
 mod capture;
 mod class;
 mod func;
-mod node;
 mod ops;
 mod scope;
+mod template;
 
 pub use array::*;
 pub use capture::*;
 pub use class::*;
 pub use dict::*;
 pub use func::*;
-pub use node::*;
 pub use scope::*;
 pub use styles::*;
+pub use template::*;
 pub use value::*;
 
 use std::cell::RefMut;
@@ -64,13 +64,13 @@ pub struct Module {
     /// The top-level definitions that were bound in this module.
     pub scope: Scope,
     /// The module's layoutable contents.
-    pub node: Node,
+    pub template: Template,
 }
 
 impl Module {
-    /// Convert this module's node into a layout tree.
+    /// Convert this module's template into a layout tree.
     pub fn into_root(self) -> RootNode {
-        self.node.into_root()
+        self.template.into_root()
     }
 }
 
@@ -143,14 +143,14 @@ impl<'a> EvalContext<'a> {
         self.route.push(id);
 
         // Evaluate the module.
-        let node = ast.eval(self).trace(|| Tracepoint::Import, span)?;
+        let template = ast.eval(self).trace(|| Tracepoint::Import, span)?;
 
         // Restore the old context.
         let new_scopes = mem::replace(&mut self.scopes, prev_scopes);
         self.route.pop().unwrap();
 
         // Save the evaluated module.
-        let module = Module { scope: new_scopes.top, node };
+        let module = Module { scope: new_scopes.top, template };
         self.modules.insert(id, module);
 
         Ok(id)
@@ -170,7 +170,7 @@ impl<'a> EvalContext<'a> {
 }
 
 impl Eval for Markup {
-    type Output = Node;
+    type Output = Template;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
         eval_markup(ctx, &mut self.nodes())
@@ -181,12 +181,12 @@ impl Eval for Markup {
 fn eval_markup(
     ctx: &mut EvalContext,
     nodes: &mut impl Iterator<Item = MarkupNode>,
-) -> TypResult<Node> {
+) -> TypResult<Template> {
     let mut seq = Vec::with_capacity(nodes.size_hint().1.unwrap_or_default());
     let mut styles = StyleMap::new();
 
     while let Some(node) = nodes.next() {
-        let result = match node {
+        let template = match node {
             MarkupNode::Expr(Expr::Set(set)) => {
                 let class = set.class();
                 let class = class.eval(ctx)?.cast::<Class>().at(class.span())?;
@@ -206,21 +206,21 @@ fn eval_markup(
             _ => node.eval(ctx)?,
         };
 
-        seq.push(Styled::new(result, styles.clone()));
+        seq.push(Styled::new(template, styles.clone()));
     }
 
-    Ok(Node::Sequence(seq))
+    Ok(Template::Sequence(seq))
 }
 
 impl Eval for MarkupNode {
-    type Output = Node;
+    type Output = Template;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
         Ok(match self {
-            Self::Space => Node::Space,
-            Self::Linebreak => Node::Linebreak,
-            Self::Parbreak => Node::Parbreak,
-            Self::Text(text) => Node::Text(text.clone()),
+            Self::Space => Template::Space,
+            Self::Linebreak => Template::Linebreak,
+            Self::Parbreak => Template::Parbreak,
+            Self::Text(text) => Template::Text(text.clone()),
             Self::Strong(strong) => strong.eval(ctx)?,
             Self::Emph(emph) => emph.eval(ctx)?,
             Self::Raw(raw) => raw.eval(ctx)?,
@@ -234,7 +234,7 @@ impl Eval for MarkupNode {
 }
 
 impl Eval for StrongNode {
-    type Output = Node;
+    type Output = Template;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
         Ok(self.body().eval(ctx)?.styled(TextNode::STRONG, true))
@@ -242,7 +242,7 @@ impl Eval for StrongNode {
 }
 
 impl Eval for EmphNode {
-    type Output = Node;
+    type Output = Template;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
         Ok(self.body().eval(ctx)?.styled(TextNode::EMPH, true))
@@ -250,12 +250,12 @@ impl Eval for EmphNode {
 }
 
 impl Eval for RawNode {
-    type Output = Node;
+    type Output = Template;
 
     fn eval(&self, _: &mut EvalContext) -> TypResult<Self::Output> {
         let code = self.highlighted();
         Ok(if self.block {
-            Node::Block(code.into_block())
+            Template::Block(code.into_block())
         } else {
             code
         })
@@ -263,9 +263,9 @@ impl Eval for RawNode {
 }
 
 impl RawNode {
-    /// Styled node for a code block, with optional syntax highlighting.
-    pub fn highlighted(&self) -> Node {
-        let mut sequence: Vec<Styled<Node>> = vec![];
+    /// Styled template for a code block, with optional syntax highlighting.
+    pub fn highlighted(&self) -> Template {
+        let mut seq: Vec<Styled<Template>> = vec![];
 
         let syntax = if let Some(syntax) = self
             .lang
@@ -279,7 +279,7 @@ impl RawNode {
         ) {
             None
         } else {
-            return Node::Text(self.text.clone()).monospaced();
+            return Template::Text(self.text.clone()).monospaced();
         };
 
         let foreground = THEME
@@ -294,11 +294,11 @@ impl RawNode {
                 let mut highlighter = HighlightLines::new(syntax, &THEME);
                 for (i, line) in self.text.lines().enumerate() {
                     if i != 0 {
-                        sequence.push(Styled::bare(Node::Linebreak));
+                        seq.push(Styled::bare(Template::Linebreak));
                     }
 
                     for (style, piece) in highlighter.highlight(line, &SYNTAXES) {
-                        sequence.push(style_piece(piece, foreground, style));
+                        seq.push(style_piece(piece, foreground, style));
                     }
                 }
             }
@@ -311,23 +311,21 @@ impl RawNode {
                     red.as_ref(),
                     &highlighter,
                     &mut |range, style| {
-                        sequence.push(style_piece(&self.text[range], foreground, style));
+                        seq.push(style_piece(&self.text[range], foreground, style));
                     },
                 )
             }
         }
 
-        Node::Sequence(sequence).monospaced()
+        Template::Sequence(seq).monospaced()
     }
 }
 
 /// Style a piece of text with a syntect style.
-fn style_piece(piece: &str, foreground: Paint, style: SynStyle) -> Styled<Node> {
-    let paint = style.foreground.into();
-    let node = Node::Text(piece.into());
-
+fn style_piece(piece: &str, foreground: Paint, style: SynStyle) -> Styled<Template> {
     let mut styles = StyleMap::new();
 
+    let paint = style.foreground.into();
     if paint != foreground {
         styles.set(TextNode::FILL, paint);
     }
@@ -344,16 +342,16 @@ fn style_piece(piece: &str, foreground: Paint, style: SynStyle) -> Styled<Node> 
         styles.set(TextNode::LINES, vec![DecoLine::Underline.into()]);
     }
 
-    Styled::new(node, styles)
+    Styled::new(Template::Text(piece.into()), styles)
 }
 
 impl Eval for MathNode {
-    type Output = Node;
+    type Output = Template;
 
     fn eval(&self, _: &mut EvalContext) -> TypResult<Self::Output> {
-        let text = Node::Text(self.formula.trim().into()).monospaced();
+        let text = Template::Text(self.formula.trim().into()).monospaced();
         Ok(if self.display {
-            Node::Block(text.into_block())
+            Template::Block(text.into_block())
         } else {
             text
         })
@@ -361,10 +359,10 @@ impl Eval for MathNode {
 }
 
 impl Eval for HeadingNode {
-    type Output = Node;
+    type Output = Template;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        Ok(Node::block(library::HeadingNode {
+        Ok(Template::block(library::HeadingNode {
             child: self.body().eval(ctx)?.into_block(),
             level: self.level(),
         }))
@@ -372,10 +370,10 @@ impl Eval for HeadingNode {
 }
 
 impl Eval for ListNode {
-    type Output = Node;
+    type Output = Template;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        Ok(Node::block(library::ListNode {
+        Ok(Template::block(library::ListNode {
             child: self.body().eval(ctx)?.into_block(),
             kind: library::Unordered,
         }))
@@ -383,10 +381,10 @@ impl Eval for ListNode {
 }
 
 impl Eval for EnumNode {
-    type Output = Node;
+    type Output = Template;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        Ok(Node::block(library::ListNode {
+        Ok(Template::block(library::ListNode {
             child: self.body().eval(ctx)?.into_block(),
             kind: library::Ordered(self.number()),
         }))
@@ -402,7 +400,7 @@ impl Eval for Expr {
             Self::Ident(v) => v.eval(ctx),
             Self::Array(v) => v.eval(ctx).map(Value::Array),
             Self::Dict(v) => v.eval(ctx).map(Value::Dict),
-            Self::Template(v) => v.eval(ctx).map(Value::Node),
+            Self::Template(v) => v.eval(ctx).map(Value::Template),
             Self::Group(v) => v.eval(ctx),
             Self::Block(v) => v.eval(ctx),
             Self::Call(v) => v.eval(ctx),
@@ -475,13 +473,13 @@ impl Eval for DictExpr {
 }
 
 impl Eval for TemplateExpr {
-    type Output = Node;
+    type Output = Template;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
         ctx.scopes.enter();
-        let node = self.body().eval(ctx)?;
+        let template = self.body().eval(ctx)?;
         ctx.scopes.exit();
-        Ok(node)
+        Ok(template)
     }
 }
 
@@ -899,7 +897,7 @@ impl Eval for IncludeExpr {
         let resolved = path.eval(ctx)?.cast::<EcoString>().at(path.span())?;
         let file = ctx.import(&resolved, path.span())?;
         let module = &ctx.modules[&file];
-        Ok(Value::Node(module.node.clone()))
+        Ok(Value::Template(module.template.clone()))
     }
 }
 

@@ -95,7 +95,7 @@ impl TextNode {
     /// Raw OpenType features to apply.
     pub const FEATURES: Vec<(Tag, u32)> = vec![];
 
-    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
+    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
         // The text constructor is special: It doesn't create a text node.
         // Instead, it leaves the passed argument structurally unchanged, but
         // styles all text in it.
@@ -156,8 +156,8 @@ pub struct StrongNode;
 
 #[class]
 impl StrongNode {
-    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
-        Ok(args.expect::<Node>("body")?.styled(TextNode::STRONG, true))
+    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
+        Ok(args.expect::<Template>("body")?.styled(TextNode::STRONG, true))
     }
 }
 
@@ -166,8 +166,8 @@ pub struct EmphNode;
 
 #[class]
 impl EmphNode {
-    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
-        Ok(args.expect::<Node>("body")?.styled(TextNode::EMPH, true))
+    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
+        Ok(args.expect::<Template>("body")?.styled(TextNode::EMPH, true))
     }
 }
 

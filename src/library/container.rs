@@ -7,11 +7,11 @@ pub struct BoxNode;
 
 #[class]
 impl BoxNode {
-    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
+    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
         let width = args.named("width")?;
         let height = args.named("height")?;
         let body: PackedNode = args.find().unwrap_or_default();
-        Ok(Node::inline(body.sized(Spec::new(width, height))))
+        Ok(Template::inline(body.sized(Spec::new(width, height))))
     }
 }
 
@@ -20,7 +20,7 @@ pub struct BlockNode;
 
 #[class]
 impl BlockNode {
-    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
-        Ok(Node::Block(args.find().unwrap_or_default()))
+    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
+        Ok(Template::Block(args.find().unwrap_or_default()))
     }
 }

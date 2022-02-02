@@ -7,10 +7,11 @@
 //!   is provided in the [AST] module.
 //! - **Evaluation:** The next step is to [evaluate] the markup. This produces a
 //!   [module], consisting of a scope of values that were exported by the code
-//!   and a [node] with the contents of the module. This node can be converted
-//!   into a [layout tree], a hierarchical, styled representation of the
-//!   document. The nodes of this tree are well structured and order-independent
-//!   and thus much better suited for layouting than the raw markup.
+//!   and a [template] with the contents of the module. This node can be
+//!   converted into a [layout tree], a hierarchical, styled representation of
+//!   the document. The nodes of this tree are well structured and
+//!   order-independent and thus much better suited for layouting than the raw
+//!   markup.
 //! - **Layouting:** Next, the tree is [layouted] into a portable version of the
 //!   typeset document. The output of this is a collection of [`Frame`]s (one
 //!   per page), ready for exporting. This step is supported by an incremental
@@ -24,7 +25,7 @@
 //! [AST]: syntax::ast
 //! [evaluate]: Context::evaluate
 //! [module]: eval::Module
-//! [node]: eval::Node
+//! [template]: eval::Template
 //! [layout tree]: layout::RootNode
 //! [layouted]: layout::RootNode::layout
 //! [cache]: layout::LayoutCache
@@ -110,13 +111,13 @@ impl Context {
     /// Evaluate a source file and return the resulting module.
     ///
     /// Returns either a module containing a scope with top-level bindings and a
-    /// layoutable node or diagnostics in the form of a vector of error message
-    /// with file and span information.
+    /// layoutable template or diagnostics in the form of a vector of error
+    /// message with file and span information.
     pub fn evaluate(&mut self, id: SourceId) -> TypResult<Module> {
         let markup = self.sources.get(id).ast()?;
         let mut ctx = EvalContext::new(self, id);
-        let node = markup.eval(&mut ctx)?;
-        Ok(Module { scope: ctx.scopes.top, node })
+        let template = markup.eval(&mut ctx)?;
+        Ok(Module { scope: ctx.scopes.top, template })
     }
 
     /// Typeset a source file into a collection of layouted frames.

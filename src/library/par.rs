@@ -11,7 +11,7 @@ use super::prelude::*;
 use super::{shape, ShapedText, SpacingKind, TextNode};
 use crate::util::{ArcExt, EcoString, RangeExt, SliceExt};
 
-/// A node that arranges its children into a paragraph.
+/// Arrange text, spacing and inline nodes into a paragraph.
 #[derive(Hash)]
 pub struct ParNode(pub Vec<Styled<ParChild>>);
 
@@ -26,12 +26,12 @@ impl ParNode {
     /// The spacing between paragraphs (dependent on scaled font size).
     pub const SPACING: Linear = Relative::new(1.2).into();
 
-    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
+    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
         // The paragraph constructor is special: It doesn't create a paragraph
         // since that happens automatically through markup. Instead, it just
         // lifts the passed body to the block level so that it won't merge with
         // adjacent stuff and it styles the contained paragraphs.
-        Ok(Node::Block(args.expect("body")?))
+        Ok(Template::Block(args.expect("body")?))
     }
 
     fn set(args: &mut Args, styles: &mut StyleMap) -> TypResult<()> {
@@ -118,7 +118,7 @@ impl ParNode {
     fn strings(&self) -> impl Iterator<Item = &str> {
         self.0.iter().map(|styled| match &styled.item {
             ParChild::Spacing(_) => " ",
-            ParChild::Text(node) => &node.0,
+            ParChild::Text(text) => &text.0,
             ParChild::Node(_) => "\u{FFFC}",
         })
     }
@@ -152,8 +152,8 @@ impl ParChild {
 impl Debug for ParChild {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Self::Spacing(node) => node.fmt(f),
-            Self::Text(node) => node.fmt(f),
+            Self::Spacing(kind) => kind.fmt(f),
+            Self::Text(text) => text.fmt(f),
             Self::Node(node) => node.fmt(f),
         }
     }
@@ -164,8 +164,8 @@ pub struct ParbreakNode;
 
 #[class]
 impl ParbreakNode {
-    fn construct(_: &mut EvalContext, _: &mut Args) -> TypResult<Node> {
-        Ok(Node::Parbreak)
+    fn construct(_: &mut EvalContext, _: &mut Args) -> TypResult<Template> {
+        Ok(Template::Parbreak)
     }
 }
 
@@ -174,8 +174,8 @@ pub struct LinebreakNode;
 
 #[class]
 impl LinebreakNode {
-    fn construct(_: &mut EvalContext, _: &mut Args) -> TypResult<Node> {
-        Ok(Node::Linebreak)
+    fn construct(_: &mut EvalContext, _: &mut Args) -> TypResult<Template> {
+        Ok(Template::Linebreak)
     }
 }
 

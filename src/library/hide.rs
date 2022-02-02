@@ -2,14 +2,14 @@
 
 use super::prelude::*;
 
-/// A node that hides its child without affecting layout.
+/// Hide a node without affecting layout.
 #[derive(Debug, Hash)]
 pub struct HideNode(pub PackedNode);
 
 #[class]
 impl HideNode {
-    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
-        Ok(Node::inline(Self(args.expect("body")?)))
+    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
+        Ok(Template::inline(Self(args.expect("body")?)))
     }
 }
 

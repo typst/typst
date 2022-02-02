@@ -33,8 +33,8 @@ impl PageNode {
     /// How many columns the page has.
     pub const COLUMNS: NonZeroUsize = NonZeroUsize::new(1).unwrap();
 
-    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
-        Ok(Node::Page(Self(args.expect("body")?)))
+    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
+        Ok(Template::Page(Self(args.expect("body")?)))
     }
 
     fn set(args: &mut Args, styles: &mut StyleMap) -> TypResult<()> {
@@ -130,8 +130,8 @@ pub struct PagebreakNode;
 
 #[class]
 impl PagebreakNode {
-    fn construct(_: &mut EvalContext, _: &mut Args) -> TypResult<Node> {
-        Ok(Node::Pagebreak)
+    fn construct(_: &mut EvalContext, _: &mut Args) -> TypResult<Template> {
+        Ok(Template::Pagebreak)
     }
 }
 

@@ -68,7 +68,7 @@ prelude! {
 
     pub use crate::diag::{At, TypResult};
     pub use crate::eval::{
-        Args, Construct, EvalContext, Node, Property, Scope, Set, Smart, StyleChain,
+        Args, Construct, EvalContext, Template, Property, Scope, Set, Smart, StyleChain,
         StyleMap, Styled, Value,
     };
     pub use crate::frame::*;
@@ -227,6 +227,6 @@ castable! {
 
 castable! {
     PackedNode,
-    Expected: "node",
-    Value::Node(node) => node.into_block(),
+    Expected: "template",
+    Value::Template(template) => template.into_block(),
 }

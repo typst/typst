@@ -3,7 +3,7 @@
 use super::prelude::*;
 use crate::geom::Transform;
 
-/// A node that transforms its child without affecting layout.
+/// Transform a node without affecting layout.
 #[derive(Debug, Hash)]
 pub struct TransformNode<T: TransformKind> {
     /// Transformation to apply to the contents.
@@ -17,8 +17,8 @@ impl<T: TransformKind> TransformNode<T> {
     /// The origin of the transformation.
     pub const ORIGIN: Spec<Option<Align>> = Spec::default();
 
-    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
-        Ok(Node::inline(Self {
+    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
+        Ok(Template::inline(Self {
             kind: T::construct(args)?,
             child: args.expect("body")?,
         }))

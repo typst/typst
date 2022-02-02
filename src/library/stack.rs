@@ -3,7 +3,7 @@
 use super::prelude::*;
 use super::{AlignNode, SpacingKind};
 
-/// Stack children along an axis.
+/// Arrange nodes and spacing along an axis.
 #[derive(Debug, Hash)]
 pub struct StackNode {
     /// The stacking direction.
@@ -16,8 +16,8 @@ pub struct StackNode {
 
 #[class]
 impl StackNode {
-    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
-        Ok(Node::block(Self {
+    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
+        Ok(Template::block(Self {
             dir: args.named("dir")?.unwrap_or(Dir::TTB),
             spacing: args.named("spacing")?,
             children: args.all().collect(),
@@ -48,7 +48,7 @@ pub enum StackChild {
 impl Debug for StackChild {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Self::Spacing(node) => node.fmt(f),
+            Self::Spacing(kind) => kind.fmt(f),
             Self::Node(node) => node.fmt(f),
         }
     }
@@ -61,12 +61,12 @@ castable! {
     Value::Relative(v) => Self::Spacing(SpacingKind::Linear(v.into())),
     Value::Linear(v) => Self::Spacing(SpacingKind::Linear(v)),
     Value::Fractional(v) => Self::Spacing(SpacingKind::Fractional(v)),
-    Value::Node(v) => Self::Node(v.into_block()),
+    Value::Template(v) => Self::Node(v.into_block()),
 }
 
 /// Performs stack layout.
 struct StackLayouter<'a> {
-    /// The flow node to layout.
+    /// The children of the stack.
     children: &'a [StackChild],
     /// The stacking direction.
     dir: Dir,
@@ -99,7 +99,7 @@ enum StackItem {
     Absolute(Length),
     /// Fractional spacing between other items.
     Fractional(Fractional),
-    /// A layouted child node.
+    /// A frame for a layouted child node.
     Frame(Arc<Frame>, Align),
 }
 

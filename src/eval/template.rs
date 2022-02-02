@@ -14,17 +14,17 @@ use crate::library::{
 };
 use crate::util::EcoString;
 
-/// A partial representation of a layout node.
+/// Composable representation of styled content.
 ///
-/// A node is a composable intermediate representation that can be converted
-/// into a proper layout node by lifting it to a [block-level](PackedNode) or
-/// [root node](RootNode).
+/// This results from:
+/// - anything written between square brackets in Typst
+/// - any class constructor
 ///
 /// When you write `[Hi] + [you]` in Typst, this type's [`Add`] implementation
-/// is invoked. There, multiple nodes are combined into a single
-/// [`Sequence`](Self::Sequence) node.
+/// is invoked. There, multiple templates are combined into a single
+/// [`Sequence`](Self::Sequence) template.
 #[derive(Debug, PartialEq, Clone, Hash)]
-pub enum Node {
+pub enum Template {
     /// A word space.
     Space,
     /// A line break.
@@ -62,13 +62,13 @@ pub enum Node {
     Sequence(Vec<Styled<Self>>),
 }
 
-impl Node {
-    /// Create an empty node.
+impl Template {
+    /// Create an empty template.
     pub fn new() -> Self {
         Self::Sequence(vec![])
     }
 
-    /// Create an inline-level node.
+    /// Create a template from an inline-level node.
     pub fn inline<T>(node: T) -> Self
     where
         T: Layout + Debug + Hash + Sync + Send + 'static,
@@ -76,7 +76,7 @@ impl Node {
         Self::Inline(node.pack())
     }
 
-    /// Create a block-level node.
+    /// Create a template from a block-level node.
     pub fn block<T>(node: T) -> Self
     where
         T: Layout + Debug + Hash + Sync + Send + 'static,
@@ -84,7 +84,7 @@ impl Node {
         Self::Block(node.pack())
     }
 
-    /// Style this node with a single property.
+    /// Style this template with a single property.
     pub fn styled<P: Property>(mut self, key: P, value: P::Value) -> Self {
         if let Self::Sequence(vec) = &mut self {
             if let [styled] = vec.as_mut_slice() {
@@ -96,7 +96,7 @@ impl Node {
         self.styled_with_map(StyleMap::with(key, value))
     }
 
-    /// Style this node with a full style map.
+    /// Style this template with a full style map.
     pub fn styled_with_map(mut self, styles: StyleMap) -> Self {
         if styles.is_empty() {
             return self;
@@ -112,14 +112,14 @@ impl Node {
         Self::Sequence(vec![Styled::new(self, styles)])
     }
 
-    /// Style this node in monospace.
+    /// Style this template in monospace.
     pub fn monospaced(self) -> Self {
         self.styled(TextNode::MONOSPACE, true)
     }
 
-    /// Lift to a type-erased block-level node.
+    /// Lift to a type-erased block-level template.
     pub fn into_block(self) -> PackedNode {
-        if let Node::Block(packed) = self {
+        if let Template::Block(packed) = self {
             packed
         } else {
             let mut packer = Packer::new(false);
@@ -135,23 +135,22 @@ impl Node {
         packer.into_root()
     }
 
-    /// Repeat this node `n` times.
+    /// Repeat this template `n` times.
     pub fn repeat(&self, n: i64) -> StrResult<Self> {
         let count = usize::try_from(n)
             .map_err(|_| format!("cannot repeat this template {} times", n))?;
 
-        // TODO(style): Make more efficient.
         Ok(Self::Sequence(vec![Styled::bare(self.clone()); count]))
     }
 }
 
-impl Default for Node {
+impl Default for Template {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl Add for Node {
+impl Add for Template {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
@@ -175,19 +174,19 @@ impl Add for Node {
     }
 }
 
-impl AddAssign for Node {
+impl AddAssign for Template {
     fn add_assign(&mut self, rhs: Self) {
         *self = mem::take(self) + rhs;
     }
 }
 
-impl Sum for Node {
+impl Sum for Template {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
         Self::Sequence(iter.map(|n| Styled::bare(n)).collect())
     }
 }
 
-/// Packs a [`Node`] into a flow or root node.
+/// Packs a [`Template`] into a flow or root node.
 struct Packer {
     /// Whether this packer produces a root node.
     top: bool,
@@ -200,7 +199,7 @@ struct Packer {
 }
 
 impl Packer {
-    /// Start a new node-packing session.
+    /// Start a new template-packing session.
     fn new(top: bool) -> Self {
         Self {
             top,
@@ -222,28 +221,28 @@ impl Packer {
         RootNode(self.pages)
     }
 
-    /// Consider a node with the given styles.
-    fn walk(&mut self, node: Node, styles: StyleMap) {
-        match node {
-            Node::Space => {
+    /// Consider a template with the given styles.
+    fn walk(&mut self, template: Template, styles: StyleMap) {
+        match template {
+            Template::Space => {
                 // A text space is "soft", meaning that it can be eaten up by
                 // adjacent line breaks or explicit spacings.
                 self.par.last.soft(Styled::new(ParChild::text(' '), styles), false);
             }
-            Node::Linebreak => {
+            Template::Linebreak => {
                 // A line break eats up surrounding text spaces.
                 self.par.last.hard();
                 self.push_inline(Styled::new(ParChild::text('\n'), styles));
                 self.par.last.hard();
             }
-            Node::Parbreak => {
+            Template::Parbreak => {
                 // An explicit paragraph break is styled according to the active
                 // styles (`Some(_)`) whereas paragraph breaks forced by
                 // incompatibility take their styles from the preceding
                 // paragraph.
                 self.parbreak(Some(styles), true);
             }
-            Node::Colbreak => {
+            Template::Colbreak => {
                 // Explicit column breaks end the current paragraph and then
                 // discards the paragraph break.
                 self.parbreak(None, false);
@@ -251,24 +250,24 @@ impl Packer {
                 self.flow.children.push(Styled::new(FlowChild::Skip, styles));
                 self.flow.last.hard();
             }
-            Node::Pagebreak => {
+            Template::Pagebreak => {
                 // We must set the flow styles after the page break such that an
                 // empty page created by two page breaks in a row has styles at
                 // all.
                 self.pagebreak();
                 self.flow.styles = styles;
             }
-            Node::Text(text) => {
+            Template::Text(text) => {
                 self.push_inline(Styled::new(ParChild::text(text), styles));
             }
-            Node::Spacing(SpecAxis::Horizontal, kind) => {
+            Template::Spacing(SpecAxis::Horizontal, kind) => {
                 // Just like a line break, explicit horizontal spacing eats up
                 // surrounding text spaces.
                 self.par.last.hard();
                 self.push_inline(Styled::new(ParChild::Spacing(kind), styles));
                 self.par.last.hard();
             }
-            Node::Spacing(SpecAxis::Vertical, kind) => {
+            Template::Spacing(SpecAxis::Vertical, kind) => {
                 // Explicit vertical spacing ends the current paragraph and then
                 // discards the paragraph break.
                 self.parbreak(None, false);
@@ -276,13 +275,13 @@ impl Packer {
                 self.flow.children.push(Styled::new(FlowChild::Spacing(kind), styles));
                 self.flow.last.hard();
             }
-            Node::Inline(inline) => {
+            Template::Inline(inline) => {
                 self.push_inline(Styled::new(ParChild::Node(inline), styles));
             }
-            Node::Block(block) => {
+            Template::Block(block) => {
                 self.push_block(Styled::new(block, styles));
             }
-            Node::Page(page) => {
+            Template::Page(page) => {
                 if self.top {
                     self.pagebreak();
                     self.pages.push(Styled::new(page, styles));
@@ -290,12 +289,12 @@ impl Packer {
                     self.push_block(Styled::new(page.0, styles));
                 }
             }
-            Node::Sequence(list) => {
-                // For a list of nodes, we apply the list's styles to each node
-                // individually.
-                for mut node in list {
-                    node.map.apply(&styles);
-                    self.walk(node.item, node.map);
+            Template::Sequence(list) => {
+                // For a list of templates, we apply the list's styles to each
+                // templates individually.
+                for Styled { item, mut map } in list {
+                    map.apply(&styles);
+                    self.walk(item, map);
                 }
             }
         }
@@ -303,7 +302,7 @@ impl Packer {
 
     /// Insert an inline-level element into the current paragraph.
     fn push_inline(&mut self, child: Styled<ParChild>) {
-        // The node must be both compatible with the current page and the
+        // The child's map must be both compatible with the current page and the
         // current paragraph.
         self.make_flow_compatible(&child.map);
         self.make_par_compatible(&child.map);
@@ -458,28 +457,28 @@ impl<T> Default for Builder<T> {
     }
 }
 
-/// The kind of node that was last added to a flow or paragraph. A small finite
+/// The kind of child that was last added to a flow or paragraph. A small finite
 /// state machine used to coalesce spaces.
 ///
-/// Soft nodes can only exist when surrounded by `Any` nodes. Not at the
-/// start, end or next to hard nodes. This way, spaces at start and end of
+/// Soft children can only exist when surrounded by `Any` children. Not at the
+/// start, end or next to hard children. This way, spaces at start and end of
 /// paragraphs and next to `#h(..)` goes away.
 enum Last<N> {
     /// Start state, nothing there.
     None,
     /// Text or a block node or something.
     Any,
-    /// Hard nodes: Linebreaks and explicit spacing.
+    /// Hard children: Linebreaks and explicit spacing.
     Hard,
-    /// Soft nodes: Word spaces and paragraph breaks. These are saved here
-    /// temporarily and then applied once an `Any` node appears. The boolean
-    /// says whether this soft node is "important" and preferrable to other soft
+    /// Soft children: Word spaces and paragraph breaks. These are saved here
+    /// temporarily and then applied once an `Any` child appears. The boolean
+    /// says whether this soft child is "important" and preferrable to other soft
     /// nodes (that is the case for explicit paragraph breaks).
     Soft(N, bool),
 }
 
 impl<N> Last<N> {
-    /// Transition into the `Any` state and return a soft node to really add
+    /// Transition into the `Any` state and return a soft child to really add
     /// now if currently in `Soft` state.
     fn any(&mut self) -> Option<N> {
         match mem::replace(self, Self::Any) {
@@ -489,7 +488,7 @@ impl<N> Last<N> {
     }
 
     /// Transition into the `Soft` state, but only if in `Any`. Otherwise, the
-    /// soft node is discarded.
+    /// soft child is discarded.
     fn soft(&mut self, soft: N, important: bool) {
         if matches!(
             (&self, important),
@@ -500,7 +499,7 @@ impl<N> Last<N> {
     }
 
     /// Transition into the `Hard` state, discarding a possibly existing soft
-    /// node and preventing further soft nodes from being added.
+    /// child and preventing further soft nodes from being added.
     fn hard(&mut self) {
         *self = Self::Hard;
     }

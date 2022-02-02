@@ -48,7 +48,7 @@ impl Debug for FlowChild {
         match self {
             Self::Break => f.pad("Break"),
             Self::Skip => f.pad("Skip"),
-            Self::Spacing(node) => node.fmt(f),
+            Self::Spacing(kind) => kind.fmt(f),
             Self::Node(node) => node.fmt(f),
         }
     }
@@ -56,7 +56,7 @@ impl Debug for FlowChild {
 
 /// Performs flow layout.
 struct FlowLayouter<'a> {
-    /// The flow node to layout.
+    /// The children of the flow.
     children: &'a [Styled<FlowChild>],
     /// The regions to layout children into.
     regions: Regions,

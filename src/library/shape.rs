@@ -5,7 +5,7 @@ use std::f64::consts::SQRT_2;
 use super::prelude::*;
 use super::TextNode;
 
-/// Places its child into a sizable and fillable shape.
+/// Place a node into a sizable and fillable shape.
 #[derive(Debug, Hash)]
 pub struct ShapeNode<S: ShapeKind> {
     /// Which shape to place the child into.
@@ -25,7 +25,7 @@ impl<S: ShapeKind> ShapeNode<S> {
     /// How much to pad the shape's content.
     pub const PADDING: Linear = Linear::zero();
 
-    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
+    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
         let size = if !S::ROUND && S::QUADRATIC {
             args.named::<Length>("size")?.map(Linear::from)
         } else if S::ROUND && S::QUADRATIC {
@@ -44,7 +44,7 @@ impl<S: ShapeKind> ShapeNode<S> {
             size => size,
         };
 
-        Ok(Node::inline(
+        Ok(Template::inline(
             ShapeNode { kind: S::default(), child: args.find() }
                 .pack()
                 .sized(Spec::new(width, height)),

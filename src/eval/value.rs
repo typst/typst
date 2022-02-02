@@ -4,7 +4,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::sync::Arc;
 
-use super::{ops, Args, Array, Class, Dict, Func, Node};
+use super::{ops, Args, Array, Class, Dict, Func, Template};
 use crate::diag::StrResult;
 use crate::geom::{Angle, Color, Fractional, Length, Linear, Relative, RgbaColor};
 use crate::layout::Layout;
@@ -42,8 +42,8 @@ pub enum Value {
     Array(Array),
     /// A dictionary value: `(color: #f79143, pattern: dashed)`.
     Dict(Dict),
-    /// A node value: `[*Hi* there]`.
-    Node(Node),
+    /// A template value: `[*Hi* there]`.
+    Template(Template),
     /// An executable function.
     Func(Func),
     /// Captured arguments to a function.
@@ -55,20 +55,20 @@ pub enum Value {
 }
 
 impl Value {
-    /// Create an inline-level node value.
+    /// Create a template value from an inline-level node.
     pub fn inline<T>(node: T) -> Self
     where
         T: Layout + Debug + Hash + Sync + Send + 'static,
     {
-        Self::Node(Node::inline(node))
+        Self::Template(Template::inline(node))
     }
 
-    /// Create a block-level node value.
+    /// Create a template value from a block-level node.
     pub fn block<T>(node: T) -> Self
     where
         T: Layout + Debug + Hash + Sync + Send + 'static,
     {
-        Self::Node(Node::block(node))
+        Self::Template(Template::block(node))
     }
 
     /// The name of the stored value's type.
@@ -88,7 +88,7 @@ impl Value {
             Self::Str(_) => EcoString::TYPE_NAME,
             Self::Array(_) => Array::TYPE_NAME,
             Self::Dict(_) => Dict::TYPE_NAME,
-            Self::Node(_) => Node::TYPE_NAME,
+            Self::Template(_) => Template::TYPE_NAME,
             Self::Func(_) => Func::TYPE_NAME,
             Self::Args(_) => Args::TYPE_NAME,
             Self::Class(_) => Class::TYPE_NAME,
@@ -115,16 +115,16 @@ impl Value {
     }
 
     /// Return the display representation of the value.
-    pub fn show(self) -> Node {
+    pub fn show(self) -> Template {
         match self {
-            Value::None => Node::new(),
-            Value::Int(v) => Node::Text(format_eco!("{}", v)),
-            Value::Float(v) => Node::Text(format_eco!("{}", v)),
-            Value::Str(v) => Node::Text(v),
-            Value::Node(v) => v,
+            Value::None => Template::new(),
+            Value::Int(v) => Template::Text(format_eco!("{}", v)),
+            Value::Float(v) => Template::Text(format_eco!("{}", v)),
+            Value::Str(v) => Template::Text(v),
+            Value::Template(v) => v,
             // For values which can't be shown "naturally", we print the
             // representation in monospace.
-            v => Node::Text(v.repr()).monospaced(),
+            v => Template::Text(v.repr()).monospaced(),
         }
     }
 }
@@ -152,7 +152,7 @@ impl Debug for Value {
             Self::Str(v) => Debug::fmt(v, f),
             Self::Array(v) => Debug::fmt(v, f),
             Self::Dict(v) => Debug::fmt(v, f),
-            Self::Node(_) => f.pad("<template>"),
+            Self::Template(_) => f.pad("<template>"),
             Self::Func(v) => Debug::fmt(v, f),
             Self::Args(v) => Debug::fmt(v, f),
             Self::Class(v) => Debug::fmt(v, f),
@@ -400,7 +400,7 @@ primitive! { Color: "color", Color }
 primitive! { EcoString: "string", Str }
 primitive! { Array: "array", Array }
 primitive! { Dict: "dictionary", Dict }
-primitive! { Node: "template", Node }
+primitive! { Template: "template", Template }
 primitive! { Func: "function", Func, Class(v) => v.constructor() }
 primitive! { Args: "arguments", Args }
 primitive! { Class: "class", Class }

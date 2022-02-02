@@ -9,7 +9,7 @@ pub struct LinkNode;
 
 #[class]
 impl LinkNode {
-    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
+    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
         let url = args.expect::<EcoString>("url")?;
         let body = args.find().unwrap_or_else(|| {
             let mut text = url.as_str();
@@ -17,7 +17,7 @@ impl LinkNode {
                 text = text.trim_start_matches(prefix);
             }
             let shorter = text.len() < url.len();
-            Node::Text(if shorter { text.into() } else { url.clone() })
+            Template::Text(if shorter { text.into() } else { url.clone() })
         });
 
         Ok(body.styled(TextNode::LINK, Some(url)))

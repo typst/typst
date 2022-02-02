@@ -144,7 +144,7 @@ impl StyleMap {
     }
 
     /// Whether two style maps are equal when filtered down to properties of the
-    /// node `T`.
+    /// class `T`.
     pub fn compatible<T: 'static>(&self, other: &Self) -> bool {
         let f = |entry: &&Entry| entry.is_of::<T>();
         self.0.iter().filter(f).count() == other.0.iter().filter(f).count()
@@ -242,10 +242,10 @@ impl<'a> StyleChain<'a> {
     /// Barriers interact with [scoped](StyleMap::scoped) styles: A scoped style
     /// can still be read through a single barrier (the one of the node it
     /// _should_ apply to), but a second barrier will make it invisible.
-    pub fn barred<'b>(&'b self, node: TypeId) -> StyleChain<'b> {
-        if self.needs_barrier(node) {
+    pub fn barred<'b>(&'b self, class: TypeId) -> StyleChain<'b> {
+        if self.needs_barrier(class) {
             StyleChain {
-                first: Link::Barrier(node),
+                first: Link::Barrier(class),
                 outer: Some(self),
             }
         } else {
@@ -297,18 +297,18 @@ impl<'a> StyleChain<'a> {
                     .and_then(|entry| entry.downcast::<P>()),
                 depth,
             ),
-            Link::Barrier(node) => (None, depth + (P::node_id() == node) as usize),
+            Link::Barrier(class) => (None, depth + (P::class_id() == class) as usize),
         }
     }
 
-    fn needs_barrier(self, node: TypeId) -> bool {
+    fn needs_barrier(self, class: TypeId) -> bool {
         if let Link::Map(map) = self.first {
-            if map.0.iter().any(|entry| entry.is_of_same(node)) {
+            if map.0.iter().any(|entry| entry.is_of_same(class)) {
                 return true;
             }
         }
 
-        self.outer.map_or(false, |outer| outer.needs_barrier(node))
+        self.outer.map_or(false, |outer| outer.needs_barrier(class))
     }
 }
 
@@ -352,11 +352,11 @@ impl Entry {
     }
 
     fn is_of<T: 'static>(&self) -> bool {
-        self.p.node_id() == TypeId::of::<T>()
+        self.p.class_id() == TypeId::of::<T>()
     }
 
-    fn is_of_same(&self, node: TypeId) -> bool {
-        self.p.node_id() == node
+    fn is_of_same(&self, class: TypeId) -> bool {
+        self.p.class_id() == class
     }
 
     fn downcast<P: Property>(&self) -> Option<&P::Value> {
@@ -402,8 +402,8 @@ pub trait Property: Copy + Sync + Send + 'static {
     /// Whether the property needs folding.
     const FOLDABLE: bool = false;
 
-    /// The type id of the node this property belongs to.
-    fn node_id() -> TypeId;
+    /// The type id of the class this property belongs to.
+    fn class_id() -> TypeId;
 
     /// The default value of the property.
     fn default() -> Self::Value;
@@ -437,7 +437,7 @@ trait Bounds: Sync + Send + 'static {
     fn dyn_fmt(&self, f: &mut Formatter) -> fmt::Result;
     fn dyn_eq(&self, other: &Entry) -> bool;
     fn hash64(&self) -> u64;
-    fn node_id(&self) -> TypeId;
+    fn class_id(&self) -> TypeId;
     fn style_id(&self) -> TypeId;
     fn fold(&self, outer: &Entry) -> Entry;
 }
@@ -467,8 +467,8 @@ impl<P: Property> Bounds for (P, P::Value) {
         state.finish()
     }
 
-    fn node_id(&self) -> TypeId {
-        P::node_id()
+    fn class_id(&self) -> TypeId {
+        P::class_id()
     }
 
     fn style_id(&self) -> TypeId {

@@ -307,7 +307,7 @@ where
     }
 }
 
-/// A node that sizes its child.
+/// Fix the size of a node.
 #[derive(Debug, Hash)]
 pub struct SizedNode {
     /// How to size the node horizontally and vertically.

@@ -3,18 +3,18 @@
 use super::prelude::*;
 use super::AlignNode;
 
-/// Place content at an absolute position.
+/// Place a node at an absolute position.
 #[derive(Debug, Hash)]
 pub struct PlaceNode(pub PackedNode);
 
 #[class]
 impl PlaceNode {
-    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
+    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
         let aligns = args.find().unwrap_or(Spec::with_x(Some(Align::Left)));
         let tx = args.named("dx")?.unwrap_or_default();
         let ty = args.named("dy")?.unwrap_or_default();
         let body: PackedNode = args.expect("body")?;
-        Ok(Node::block(Self(
+        Ok(Template::block(Self(
             body.moved(Point::new(tx, ty)).aligned(aligns),
         )))
     }

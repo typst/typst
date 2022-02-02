@@ -14,10 +14,10 @@ pub struct AlignNode {
 
 #[class]
 impl AlignNode {
-    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
+    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
         let aligns: Spec<_> = args.find().unwrap_or_default();
         let body: PackedNode = args.expect("body")?;
-        Ok(Node::block(body.aligned(aligns)))
+        Ok(Template::block(body.aligned(aligns)))
     }
 }
 

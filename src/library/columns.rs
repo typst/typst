@@ -3,7 +3,7 @@
 use super::prelude::*;
 use super::ParNode;
 
-/// A node that separates a region into multiple equally sized columns.
+/// Separate a region into multiple equally sized columns.
 #[derive(Debug, Hash)]
 pub struct ColumnsNode {
     /// How many columns there should be.
@@ -18,8 +18,8 @@ impl ColumnsNode {
     /// The size of the gutter space between each column.
     pub const GUTTER: Linear = Relative::new(0.04).into();
 
-    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
-        Ok(Node::block(Self {
+    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
+        Ok(Template::block(Self {
             columns: args.expect("column count")?,
             child: args.expect("body")?,
         }))
@@ -116,7 +116,7 @@ pub struct ColbreakNode;
 
 #[class]
 impl ColbreakNode {
-    fn construct(_: &mut EvalContext, _: &mut Args) -> TypResult<Node> {
-        Ok(Node::Colbreak)
+    fn construct(_: &mut EvalContext, _: &mut Args) -> TypResult<Template> {
+        Ok(Template::Colbreak)
     }
 }

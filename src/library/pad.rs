@@ -2,7 +2,7 @@
 
 use super::prelude::*;
 
-/// Pad content at the sides.
+/// Pad a node at the sides.
 #[derive(Debug, Hash)]
 pub struct PadNode {
     /// The amount of padding.
@@ -13,7 +13,7 @@ pub struct PadNode {
 
 #[class]
 impl PadNode {
-    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
+    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
         let all = args.find();
         let left = args.named("left")?;
         let top = args.named("top")?;
@@ -27,7 +27,7 @@ impl PadNode {
             bottom.or(all).unwrap_or_default(),
         );
 
-        Ok(Node::block(body.padded(padding)))
+        Ok(Template::block(body.padded(padding)))
     }
 }
 

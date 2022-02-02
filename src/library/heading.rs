@@ -28,8 +28,8 @@ impl HeadingNode {
     /// The extra padding below the heading.
     pub const BELOW: Length = Length::zero();
 
-    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
-        Ok(Node::block(Self {
+    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
+        Ok(Template::block(Self {
             child: args.expect("body")?,
             level: args.named("level")?.unwrap_or(1),
         }))

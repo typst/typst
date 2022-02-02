@@ -2,7 +2,7 @@
 
 use super::prelude::*;
 
-/// A node that arranges its children in a grid.
+/// Arrange nodes in a grid.
 #[derive(Debug, Hash)]
 pub struct GridNode {
     /// Defines sizing for content rows and columns.
@@ -15,13 +15,13 @@ pub struct GridNode {
 
 #[class]
 impl GridNode {
-    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
+    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
         let columns = args.named("columns")?.unwrap_or_default();
         let rows = args.named("rows")?.unwrap_or_default();
         let base_gutter: Vec<TrackSizing> = args.named("gutter")?.unwrap_or_default();
         let column_gutter = args.named("column-gutter")?;
         let row_gutter = args.named("row-gutter")?;
-        Ok(Node::block(Self {
+        Ok(Template::block(Self {
             tracks: Spec::new(columns, rows),
             gutter: Spec::new(
                 column_gutter.unwrap_or_else(|| base_gutter.clone()),

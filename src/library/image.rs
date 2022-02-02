@@ -5,7 +5,7 @@ use super::TextNode;
 use crate::diag::Error;
 use crate::image::ImageId;
 
-/// An image node.
+/// Show a raster or vector graphic.
 #[derive(Debug, Hash)]
 pub struct ImageNode(pub ImageId);
 
@@ -14,7 +14,7 @@ impl ImageNode {
     /// How the image should adjust itself to a given area.
     pub const FIT: ImageFit = ImageFit::Cover;
 
-    fn construct(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
+    fn construct(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
         let path = args.expect::<Spanned<EcoString>>("path to image file")?;
         let full = ctx.make_path(&path.v);
         let id = ctx.images.load(&full).map_err(|err| {
@@ -27,7 +27,7 @@ impl ImageNode {
         let width = args.named("width")?;
         let height = args.named("height")?;
 
-        Ok(Node::inline(
+        Ok(Template::inline(
             ImageNode(id).pack().sized(Spec::new(width, height)),
         ))
     }

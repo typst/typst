@@ -7,8 +7,8 @@ pub struct HNode;
 
 #[class]
 impl HNode {
-    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
-        Ok(Node::Spacing(SpecAxis::Horizontal, args.expect("spacing")?))
+    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
+        Ok(Template::Spacing(SpecAxis::Horizontal, args.expect("spacing")?))
     }
 }
 
@@ -17,8 +17,8 @@ pub struct VNode;
 
 #[class]
 impl VNode {
-    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Node> {
-        Ok(Node::Spacing(SpecAxis::Vertical, args.expect("spacing")?))
+    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
+        Ok(Template::Spacing(SpecAxis::Vertical, args.expect("spacing")?))
     }
 }
 
