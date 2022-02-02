@@ -155,8 +155,23 @@ impl Add for Node {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
-        // TODO(style): Make more efficient.
-        Self::Sequence(vec![Styled::bare(self), Styled::bare(rhs)])
+        Self::Sequence(match (self, rhs) {
+            (Self::Sequence(mut left), Self::Sequence(right)) => {
+                left.extend(right);
+                left
+            }
+            (Self::Sequence(mut left), right) => {
+                left.push(Styled::bare(right));
+                left
+            }
+            (left, Self::Sequence(mut right)) => {
+                right.insert(0, Styled::bare(left));
+                right
+            }
+            (left, right) => {
+                vec![Styled::bare(left), Styled::bare(right)]
+            }
+        })
     }
 }
 
