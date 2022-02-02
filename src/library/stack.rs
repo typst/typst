@@ -61,7 +61,7 @@ castable! {
     Value::Relative(v) => Self::Spacing(SpacingKind::Linear(v.into())),
     Value::Linear(v) => Self::Spacing(SpacingKind::Linear(v)),
     Value::Fractional(v) => Self::Spacing(SpacingKind::Fractional(v)),
-    Value::Template(v) => Self::Node(v.into_block()),
+    Value::Template(v) => Self::Node(v.pack()),
 }
 
 /// Performs stack layout.

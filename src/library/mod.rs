@@ -228,5 +228,5 @@ castable! {
 castable! {
     PackedNode,
     Expected: "template",
-    Value::Template(template) => template.into_block(),
+    Value::Template(template) => template.pack(),
 }

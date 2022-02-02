@@ -54,7 +54,7 @@ impl<L: ListKind> Layout for ListNode<L> {
             gutter: Spec::default(),
             children: vec![
                 PackedNode::default(),
-                Template::Text(self.kind.label()).into_block(),
+                Template::Text(self.kind.label()).pack(),
                 PackedNode::default(),
                 self.child.clone(),
             ],

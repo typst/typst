@@ -27,18 +27,18 @@ use crate::util::EcoString;
 ///    represented as a `Styled(Text("Hello"), [TextNode::STRONG: true])`
 ///    template.
 ///
-/// 2. A `Sequence` template simply combines multiple templates and will be
-///    layouted as a [flow](FlowNode). So, when you write `[Hi] + [you]` in
-///    Typst, this type's [`Add`] implementation is invoked and the two
-///    templates are combined into a single [`Sequence`](Self::Sequence)
-///    template.
+/// 2. A `Sequence` template combines multiple arbitrary templates and is the
+///    representation of a "flow" of content. So, when you write `[Hi] + [you]`
+///    in Typst, this type's [`Add`] implementation is invoked and the two
+///    [`Text`](Self::Text) templates are combined into a single
+///    [`Sequence`](Self::Sequence) template.
 ///
 ///    A sequence may contain nested sequences (meaning this variant effectively
-///    allows nodes to form trees). All nested sequences can equivalently be
+///    allows templates to form trees). All nested sequences can equivalently be
 ///    represented as a single flat sequence, but allowing nesting doesn't hurt
-///    since we can just recurse into the nested sequences during packing. Also,
-///    in theory, this allows better complexity when adding (large) sequence
-///    nodes (just like for a text rope).
+///    since we can just recurse into the nested sequences. Also, in theory,
+///    this allows better complexity when adding large sequence nodes just like
+///    for something like a text rope.
 #[derive(Debug, PartialEq, Clone, Hash)]
 pub enum Template {
     /// A word space.
@@ -116,8 +116,16 @@ impl Template {
         self.styled(TextNode::MONOSPACE, true)
     }
 
-    /// Lift to a type-erased block-level template.
-    pub fn into_block(self) -> PackedNode {
+    /// Repeat this template `n` times.
+    pub fn repeat(&self, n: i64) -> StrResult<Self> {
+        let count = usize::try_from(n)
+            .map_err(|_| format!("cannot repeat this template {} times", n))?;
+
+        Ok(Self::Sequence(vec![self.clone(); count]))
+    }
+
+    /// Convert to a type-erased block-level node.
+    pub fn pack(self) -> PackedNode {
         if let Template::Block(packed) = self {
             packed
         } else {
@@ -132,14 +140,6 @@ impl Template {
         let mut packer = Packer::new(true);
         packer.walk(self, StyleMap::new());
         packer.into_root()
-    }
-
-    /// Repeat this template `n` times.
-    pub fn repeat(&self, n: i64) -> StrResult<Self> {
-        let count = usize::try_from(n)
-            .map_err(|_| format!("cannot repeat this template {} times", n))?;
-
-        Ok(Self::Sequence(vec![self.clone(); count]))
     }
 }
 

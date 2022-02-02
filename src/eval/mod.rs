@@ -35,7 +35,6 @@ use once_cell::sync::Lazy;
 use syntect::easy::HighlightLines;
 use syntect::highlighting::{FontStyle, Highlighter, Style as SynStyle, Theme, ThemeSet};
 use syntect::parsing::SyntaxSet;
-
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::diag::{At, Error, StrResult, Trace, Tracepoint, TypResult};
@@ -255,11 +254,7 @@ impl Eval for RawNode {
 
     fn eval(&self, _: &mut EvalContext) -> TypResult<Self::Output> {
         let code = self.highlighted();
-        Ok(if self.block {
-            Template::Block(code.into_block())
-        } else {
-            code
-        })
+        Ok(if self.block { Template::Block(code.pack()) } else { code })
     }
 }
 
@@ -352,7 +347,7 @@ impl Eval for MathNode {
     fn eval(&self, _: &mut EvalContext) -> TypResult<Self::Output> {
         let text = Template::Text(self.formula.trim().into()).monospaced();
         Ok(if self.display {
-            Template::Block(text.into_block())
+            Template::Block(text.pack())
         } else {
             text
         })
@@ -364,7 +359,7 @@ impl Eval for HeadingNode {
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
         Ok(Template::block(library::HeadingNode {
-            child: self.body().eval(ctx)?.into_block(),
+            child: self.body().eval(ctx)?.pack(),
             level: self.level(),
         }))
     }
@@ -375,7 +370,7 @@ impl Eval for ListNode {
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
         Ok(Template::block(library::ListNode {
-            child: self.body().eval(ctx)?.into_block(),
+            child: self.body().eval(ctx)?.pack(),
             kind: library::Unordered,
         }))
     }
@@ -386,7 +381,7 @@ impl Eval for EnumNode {
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
         Ok(Template::block(library::ListNode {
-            child: self.body().eval(ctx)?.into_block(),
+            child: self.body().eval(ctx)?.pack(),
             kind: library::Ordered(self.number()),
         }))
     }

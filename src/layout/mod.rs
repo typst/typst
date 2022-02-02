@@ -267,6 +267,8 @@ impl Debug for PackedNode {
 
 impl PartialEq for PackedNode {
     fn eq(&self, other: &Self) -> bool {
+        // We cast to thin pointers for comparison because we don't want to
+        // compare vtables (which can be different across codegen units).
         std::ptr::eq(
             Arc::as_ptr(&self.node) as *const (),
             Arc::as_ptr(&other.node) as *const (),
