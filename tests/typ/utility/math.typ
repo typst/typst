@@ -19,6 +19,22 @@
 #test(even(-11), false)
 
 ---
+// Test the `mod` function.
+#test(mod(1, 1), 0)
+#test(mod(5, 3), 2)
+#test(mod(5, -3), 2)
+#test(mod(22.5, 10), 2.5)
+#test(mod(9, 4.5), 0)
+
+---
+// Error: 9-10 divisor must not be zero
+#mod(5, 0)
+
+---
+// Error: 11-14 divisor must not be zero
+#mod(3.0, 0.0)
+
+---
 // Error: 6-16 cannot take absolute value of a linear
 #abs(10pt + 50%)
 

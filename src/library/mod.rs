@@ -139,6 +139,7 @@ pub fn new() -> Scope {
     std.def_func("max", max);
     std.def_func("even", even);
     std.def_func("odd", odd);
+    std.def_func("mod", modulo);
     std.def_func("range", range);
     std.def_func("rgb", rgb);
     std.def_func("lower", lower);

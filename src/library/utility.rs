@@ -170,6 +170,36 @@ pub fn odd(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     Ok(Value::Bool(args.expect::<i64>("integer")? % 2 != 0))
 }
 
+/// The modulo of two numbers.
+pub fn modulo(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
+    let Spanned { v: v1, span: span1 } = args.expect("integer or float")?;
+    let Spanned { v: v2, span: span2 } = args.expect("integer or float")?;
+
+    let (a, b) = match (v1, v2) {
+        (Value::Int(a), Value::Int(b)) => match a.checked_rem(b) {
+            Some(res) => return Ok(res.into()),
+            None => bail!(span2, "divisor must not be zero"),
+        },
+        (Value::Int(a), Value::Float(b)) => (a as f64, b),
+        (Value::Float(a), Value::Int(b)) => (a, b as f64),
+        (Value::Float(a), Value::Float(b)) => (a, b),
+        (Value::Int(_), b) | (Value::Float(_), b) => bail!(
+            span2,
+            format!("expected integer or float, found {}", b.type_name())
+        ),
+        (a, _) => bail!(
+            span1,
+            format!("expected integer or float, found {}", a.type_name())
+        ),
+    };
+
+    if b == 0.0 {
+        bail!(span2, "divisor must not be zero");
+    }
+
+    Ok((a % b).into())
+}
+
 /// Find the minimum or maximum of a sequence of values.
 fn minmax(args: &mut Args, goal: Ordering) -> TypResult<Value> {
     let mut extremum = args.expect::<Value>("value")?;
