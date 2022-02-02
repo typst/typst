@@ -97,8 +97,6 @@ pub struct EvalContext<'a> {
     pub modules: HashMap<SourceId, Module>,
     /// The active scopes.
     pub scopes: Scopes<'a>,
-    /// The active styles.
-    pub styles: StyleMap,
 }
 
 impl<'a> EvalContext<'a> {
@@ -111,7 +109,6 @@ impl<'a> EvalContext<'a> {
             route: vec![source],
             modules: HashMap::new(),
             scopes: Scopes::new(Some(&ctx.std)),
-            styles: StyleMap::new(),
         }
     }
 
@@ -143,7 +140,6 @@ impl<'a> EvalContext<'a> {
         // Prepare the new context.
         let new_scopes = Scopes::new(self.scopes.base);
         let prev_scopes = mem::replace(&mut self.scopes, new_scopes);
-        let prev_styles = mem::take(&mut self.styles);
         self.route.push(id);
 
         // Evaluate the module.
@@ -151,7 +147,6 @@ impl<'a> EvalContext<'a> {
 
         // Restore the old context.
         let new_scopes = mem::replace(&mut self.scopes, prev_scopes);
-        self.styles = prev_styles;
         self.route.pop().unwrap();
 
         // Save the evaluated module.
@@ -178,30 +173,42 @@ impl Eval for Markup {
     type Output = Node;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        process_nodes(ctx, &mut self.nodes())
+        eval_markup(ctx, &mut self.nodes())
     }
 }
 
-/// Evaluate a stream of nodes.
-fn process_nodes(
+/// Evaluate a stream of markup nodes.
+fn eval_markup(
     ctx: &mut EvalContext,
     nodes: &mut impl Iterator<Item = MarkupNode>,
 ) -> TypResult<Node> {
-    let prev_styles = mem::take(&mut ctx.styles);
     let mut seq = Vec::with_capacity(nodes.size_hint().1.unwrap_or_default());
-    while let Some(piece) = nodes.next() {
-        // Need to deal with wrap here.
-        let node = if let MarkupNode::Expr(Expr::Wrap(wrap)) = piece {
-            let tail = process_nodes(ctx, nodes)?;
-            ctx.scopes.def_mut(wrap.binding().take(), tail);
-            wrap.body().eval(ctx)?.show()
-        } else {
-            piece.eval(ctx)?
+    let mut styles = StyleMap::new();
+
+    while let Some(node) = nodes.next() {
+        let result = match node {
+            MarkupNode::Expr(Expr::Set(set)) => {
+                let class = set.class();
+                let class = class.eval(ctx)?.cast::<Class>().at(class.span())?;
+                let mut args = set.args().eval(ctx)?;
+                class.set(&mut args, &mut styles)?;
+                args.finish()?;
+                continue;
+            }
+            MarkupNode::Expr(Expr::Show(show)) => {
+                return Err("show rules are not yet implemented").at(show.span());
+            }
+            MarkupNode::Expr(Expr::Wrap(wrap)) => {
+                let tail = eval_markup(ctx, nodes)?;
+                ctx.scopes.def_mut(wrap.binding().take(), tail);
+                wrap.body().eval(ctx)?.show()
+            }
+            _ => node.eval(ctx)?,
         };
 
-        seq.push(Styled::new(node, ctx.styles.clone()));
+        seq.push(Styled::new(result, styles.clone()));
     }
-    ctx.styles = prev_styles;
+
     Ok(Node::Sequence(seq))
 }
 
@@ -738,13 +745,8 @@ impl Eval for LetExpr {
 impl Eval for SetExpr {
     type Output = Value;
 
-    fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        let class = self.class();
-        let class = class.eval(ctx)?.cast::<Class>().at(class.span())?;
-        let mut args = self.args().eval(ctx)?;
-        class.set(&mut args, &mut ctx.styles)?;
-        args.finish()?;
-        Ok(Value::None)
+    fn eval(&self, _: &mut EvalContext) -> TypResult<Self::Output> {
+        Err("set is only allowed directly in markup").at(self.span())
     }
 }
 
@@ -752,7 +754,7 @@ impl Eval for ShowExpr {
     type Output = Value;
 
     fn eval(&self, _: &mut EvalContext) -> TypResult<Self::Output> {
-        Err("show rules are not yet implemented").at(self.span())
+        Err("show is only allowed directly in markup").at(self.span())
     }
 }
 
