@@ -130,13 +130,13 @@
 #test(test == test, true)
 #test((() => {}) == (() => {}), false)
 
-// Templates compare by shallow equality.
+// Templates compare by some kind of equality.
 #let t = [a]
 #test(t == t, true)
 #test([] == [], true)
 #test([a] == [a], true)
+#test([[a]] == [a], true)
 #test([] == [a], false)
-#test([[a]] == [a], false)
 #test(box[] == box[], false)
 
 ---

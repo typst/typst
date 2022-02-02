@@ -20,9 +20,25 @@ use crate::util::EcoString;
 /// - anything written between square brackets in Typst
 /// - any class constructor
 ///
-/// When you write `[Hi] + [you]` in Typst, this type's [`Add`] implementation
-/// is invoked. There, multiple templates are combined into a single
-/// [`Sequence`](Self::Sequence) template.
+/// This enum has two notable variants:
+///
+/// 1. A `Styled` template attaches a style map to a template. This map affects
+///    the whole subtemplate. For example, a single bold word could be
+///    represented as a `Styled(Text("Hello"), [TextNode::STRONG: true])`
+///    template.
+///
+/// 2. A `Sequence` template simply combines multiple templates and will be
+///    layouted as a [flow](FlowNode). So, when you write `[Hi] + [you]` in
+///    Typst, this type's [`Add`] implementation is invoked and the two
+///    templates are combined into a single [`Sequence`](Self::Sequence)
+///    template.
+///
+///    A sequence may contain nested sequences (meaning this variant effectively
+///    allows nodes to form trees). All nested sequences can equivalently be
+///    represented as a single flat sequence, but allowing nesting doesn't hurt
+///    since we can just recurse into the nested sequences during packing. Also,
+///    in theory, this allows better complexity when adding (large) sequence
+///    nodes (just like for a text rope).
 #[derive(Debug, PartialEq, Clone, Hash)]
 pub enum Template {
     /// A word space.
@@ -45,21 +61,10 @@ pub enum Template {
     Block(PackedNode),
     /// A page node.
     Page(PageNode),
-    /// Multiple nodes with attached styles.
-    ///
-    /// For example, the Typst template `[Hi *you!*]` would result in the
-    /// sequence:
-    /// - `Text("Hi")` with empty style map,
-    /// - `Space` with empty style map,
-    /// - `Text("you!")` with `TextNode::STRONG` set to `true`.
-    ///
-    /// A sequence may contain nested sequences (meaning this variant
-    /// effectively allows nodes to form trees). All nested sequences can
-    /// equivalently be represented as a single flat sequence, but allowing
-    /// nesting doesn't hurt since we can just recurse into the nested sequences
-    /// during packing. Also, in theory, this allows better complexity when
-    /// adding (large) sequence nodes (just like for a text rope).
-    Sequence(Vec<Styled<Self>>),
+    /// A template with attached styles.
+    Styled(Box<Self>, StyleMap),
+    /// A sequence of multiple subtemplates.
+    Sequence(Vec<Self>),
 }
 
 impl Template {
@@ -86,30 +91,24 @@ impl Template {
 
     /// Style this template with a single property.
     pub fn styled<P: Property>(mut self, key: P, value: P::Value) -> Self {
-        if let Self::Sequence(vec) = &mut self {
-            if let [styled] = vec.as_mut_slice() {
-                styled.map.set(key, value);
-                return self;
-            }
+        if let Self::Styled(_, map) = &mut self {
+            map.set(key, value);
+            self
+        } else {
+            self.styled_with_map(StyleMap::with(key, value))
         }
-
-        self.styled_with_map(StyleMap::with(key, value))
     }
 
     /// Style this template with a full style map.
     pub fn styled_with_map(mut self, styles: StyleMap) -> Self {
         if styles.is_empty() {
-            return self;
+            self
+        } else if let Self::Styled(_, map) = &mut self {
+            map.apply(&styles);
+            self
+        } else {
+            Self::Styled(Box::new(self), styles)
         }
-
-        if let Self::Sequence(vec) = &mut self {
-            if let [styled] = vec.as_mut_slice() {
-                styled.map.apply(&styles);
-                return self;
-            }
-        }
-
-        Self::Sequence(vec![Styled::new(self, styles)])
     }
 
     /// Style this template in monospace.
@@ -140,7 +139,7 @@ impl Template {
         let count = usize::try_from(n)
             .map_err(|_| format!("cannot repeat this template {} times", n))?;
 
-        Ok(Self::Sequence(vec![Styled::bare(self.clone()); count]))
+        Ok(Self::Sequence(vec![self.clone(); count]))
     }
 }
 
@@ -160,15 +159,15 @@ impl Add for Template {
                 left
             }
             (Self::Sequence(mut left), right) => {
-                left.push(Styled::bare(right));
+                left.push(right);
                 left
             }
             (left, Self::Sequence(mut right)) => {
-                right.insert(0, Styled::bare(left));
+                right.insert(0, left);
                 right
             }
             (left, right) => {
-                vec![Styled::bare(left), Styled::bare(right)]
+                vec![left, right]
             }
         })
     }
@@ -182,7 +181,7 @@ impl AddAssign for Template {
 
 impl Sum for Template {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
-        Self::Sequence(iter.map(|n| Styled::bare(n)).collect())
+        Self::Sequence(iter.collect())
     }
 }
 
@@ -289,12 +288,15 @@ impl Packer {
                     self.push_block(Styled::new(page.0, styles));
                 }
             }
-            Template::Sequence(list) => {
+            Template::Styled(template, mut map) => {
+                map.apply(&styles);
+                self.walk(*template, map);
+            }
+            Template::Sequence(seq) => {
                 // For a list of templates, we apply the list's styles to each
                 // templates individually.
-                for Styled { item, mut map } in list {
-                    map.apply(&styles);
-                    self.walk(item, map);
+                for item in seq {
+                    self.walk(item, styles.clone());
                 }
             }
         }

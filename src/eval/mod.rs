@@ -183,17 +183,18 @@ fn eval_markup(
     nodes: &mut impl Iterator<Item = MarkupNode>,
 ) -> TypResult<Template> {
     let mut seq = Vec::with_capacity(nodes.size_hint().1.unwrap_or_default());
-    let mut styles = StyleMap::new();
 
     while let Some(node) = nodes.next() {
-        let template = match node {
+        seq.push(match node {
             MarkupNode::Expr(Expr::Set(set)) => {
                 let class = set.class();
                 let class = class.eval(ctx)?.cast::<Class>().at(class.span())?;
                 let mut args = set.args().eval(ctx)?;
+                let mut styles = StyleMap::new();
                 class.set(&mut args, &mut styles)?;
                 args.finish()?;
-                continue;
+                let tail = eval_markup(ctx, nodes)?;
+                tail.styled_with_map(styles)
             }
             MarkupNode::Expr(Expr::Show(show)) => {
                 return Err("show rules are not yet implemented").at(show.span());
@@ -204,12 +205,14 @@ fn eval_markup(
                 wrap.body().eval(ctx)?.show()
             }
             _ => node.eval(ctx)?,
-        };
-
-        seq.push(Styled::new(template, styles.clone()));
+        });
     }
 
-    Ok(Template::Sequence(seq))
+    if seq.len() == 1 {
+        Ok(seq.into_iter().next().unwrap())
+    } else {
+        Ok(Template::Sequence(seq))
+    }
 }
 
 impl Eval for MarkupNode {
@@ -265,7 +268,7 @@ impl Eval for RawNode {
 impl RawNode {
     /// Styled template for a code block, with optional syntax highlighting.
     pub fn highlighted(&self) -> Template {
-        let mut seq: Vec<Styled<Template>> = vec![];
+        let mut seq: Vec<Template> = vec![];
 
         let syntax = if let Some(syntax) = self
             .lang
@@ -294,7 +297,7 @@ impl RawNode {
                 let mut highlighter = HighlightLines::new(syntax, &THEME);
                 for (i, line) in self.text.lines().enumerate() {
                     if i != 0 {
-                        seq.push(Styled::bare(Template::Linebreak));
+                        seq.push(Template::Linebreak);
                     }
 
                     for (style, piece) in highlighter.highlight(line, &SYNTAXES) {
@@ -322,7 +325,7 @@ impl RawNode {
 }
 
 /// Style a piece of text with a syntect style.
-fn style_piece(piece: &str, foreground: Paint, style: SynStyle) -> Styled<Template> {
+fn style_piece(piece: &str, foreground: Paint, style: SynStyle) -> Template {
     let mut styles = StyleMap::new();
 
     let paint = style.foreground.into();
@@ -342,7 +345,7 @@ fn style_piece(piece: &str, foreground: Paint, style: SynStyle) -> Styled<Templa
         styles.set(TextNode::LINES, vec![DecoLine::Underline.into()]);
     }
 
-    Styled::new(Template::Text(piece.into()), styles)
+    Template::Text(piece.into()).styled_with_map(styles)
 }
 
 impl Eval for MathNode {
