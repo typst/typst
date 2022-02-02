@@ -75,8 +75,7 @@ fn bench_eval(iai: &mut Iai) {
 fn bench_layout(iai: &mut Iai) {
     let (mut ctx, id) = context();
     let module = ctx.evaluate(id).unwrap();
-    let tree = module.into_root();
-    iai.run(|| tree.layout(&mut ctx));
+    iai.run(|| module.template.layout(&mut ctx));
 }
 
 fn bench_highlight(iai: &mut Iai) {

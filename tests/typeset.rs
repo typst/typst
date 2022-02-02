@@ -23,7 +23,7 @@ use typst::Context;
 use {
     filedescriptor::{FileDescriptor, StdioDescriptor::*},
     std::fs::File,
-    typst::layout::RootNode,
+    typst::eval::Template,
 };
 
 const TYP_DIR: &str = "./typ";
@@ -266,7 +266,7 @@ fn test_part(
     let id = ctx.sources.provide(src_path, src);
     let source = ctx.sources.get(id);
     if debug {
-        println!("Syntax: {:#?}", source.root())
+        println!("Syntax Tree: {:#?}", source.root())
     }
 
     let (local_compare_ref, mut ref_errors) = parse_metadata(&source);
@@ -276,15 +276,14 @@ fn test_part(
 
     let (frames, mut errors) = match ctx.evaluate(id) {
         Ok(module) => {
-            let tree = module.into_root();
             if debug {
-                println!("Layout: {tree:#?}");
+                println!("Template: {:#?}", module.template);
             }
 
-            let mut frames = tree.layout(ctx);
+            let mut frames = module.template.layout(ctx);
 
             #[cfg(feature = "layout-cache")]
-            (ok &= test_incremental(ctx, i, &tree, &frames));
+            (ok &= test_incremental(ctx, i, &module.template, &frames));
 
             if !compare_ref {
                 frames.clear();
@@ -484,7 +483,7 @@ fn test_reparse(src: &str, i: usize, rng: &mut LinearShift) -> bool {
 fn test_incremental(
     ctx: &mut Context,
     i: usize,
-    tree: &RootNode,
+    template: &Template,
     frames: &[Arc<Frame>],
 ) -> bool {
     let mut ok = true;
@@ -499,7 +498,7 @@ fn test_incremental(
 
         ctx.layout_cache.turnaround();
 
-        let cached = silenced(|| tree.layout(ctx));
+        let cached = silenced(|| template.layout(ctx));
         let total = reference.levels() - 1;
         let misses = ctx
             .layout_cache

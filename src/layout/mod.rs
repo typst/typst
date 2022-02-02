@@ -15,35 +15,13 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use crate::eval::{StyleChain, Styled};
+use crate::eval::StyleChain;
 use crate::font::FontStore;
 use crate::frame::{Element, Frame, Geometry, Shape, Stroke};
 use crate::geom::{Align, Linear, Paint, Point, Sides, Size, Spec};
 use crate::image::ImageStore;
-use crate::library::{AlignNode, Move, PadNode, PageNode, TransformNode};
+use crate::library::{AlignNode, Move, PadNode, TransformNode};
 use crate::Context;
-
-/// The root layout node, a document consisting of top-level page runs.
-#[derive(Hash)]
-pub struct RootNode(pub Vec<Styled<PageNode>>);
-
-impl RootNode {
-    /// Layout the document into a sequence of frames, one per page.
-    pub fn layout(&self, ctx: &mut Context) -> Vec<Arc<Frame>> {
-        let (mut ctx, styles) = LayoutContext::new(ctx);
-        self.0
-            .iter()
-            .flat_map(|styled| styled.item.layout(&mut ctx, styled.map.chain(&styles)))
-            .collect()
-    }
-}
-
-impl Debug for RootNode {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_str("Root ")?;
-        f.debug_list().entries(&self.0).finish()
-    }
-}
 
 /// A node that can be layouted into a sequence of regions.
 ///
@@ -63,11 +41,7 @@ pub trait Layout {
     where
         Self: Debug + Hash + Sized + Sync + Send + 'static,
     {
-        PackedNode {
-            #[cfg(feature = "layout-cache")]
-            hash: self.hash64(),
-            node: Arc::new(self),
-        }
+        PackedNode::new(self)
     }
 }
 
@@ -86,8 +60,8 @@ pub struct LayoutContext<'a> {
 }
 
 impl<'a> LayoutContext<'a> {
-    /// Create a new layout context.
-    fn new(ctx: &'a mut Context) -> (Self, StyleChain<'a>) {
+    /// Create a new layout context and style chain.
+    pub fn new(ctx: &'a mut Context) -> (Self, StyleChain<'a>) {
         let this = Self {
             fonts: &mut ctx.fonts,
             images: &mut ctx.images,
@@ -100,27 +74,7 @@ impl<'a> LayoutContext<'a> {
     }
 }
 
-/// A layout node that produces an empty frame.
-///
-/// The packed version of this is returned by [`PackedNode::default`].
-#[derive(Debug, Hash)]
-pub struct EmptyNode;
-
-impl Layout for EmptyNode {
-    fn layout(
-        &self,
-        _: &mut LayoutContext,
-        regions: &Regions,
-        _: StyleChain,
-    ) -> Vec<Constrained<Arc<Frame>>> {
-        let size = regions.expand.select(regions.current, Size::zero());
-        let mut cts = Constraints::new(regions.expand);
-        cts.exact = regions.current.filter(regions.expand);
-        vec![Frame::new(size).constrain(cts)]
-    }
-}
-
-/// A packed layouting node with a precomputed hash.
+/// A type-erased layouting node with a precomputed hash.
 #[derive(Clone)]
 pub struct PackedNode {
     /// The type-erased node.
@@ -131,6 +85,18 @@ pub struct PackedNode {
 }
 
 impl PackedNode {
+    /// Pack any layoutable node.
+    pub fn new<T>(node: T) -> Self
+    where
+        T: Layout + Debug + Hash + Sync + Send + 'static,
+    {
+        Self {
+            #[cfg(feature = "layout-cache")]
+            hash: node.hash64(),
+            node: Arc::new(node),
+        }
+    }
+
     /// Check whether the contained node is a specific layout node.
     pub fn is<T: 'static>(&self) -> bool {
         self.node.as_any().is::<T>()
@@ -293,7 +259,7 @@ trait Bounds: Layout + Debug + Sync + Send + 'static {
 
 impl<T> Bounds for T
 where
-    T: Layout + Hash + Debug + Sync + Send + 'static,
+    T: Layout + Debug + Hash + Sync + Send + 'static,
 {
     fn as_any(&self) -> &dyn Any {
         self
@@ -309,13 +275,33 @@ where
     }
 }
 
+/// A layout node that produces an empty frame.
+///
+/// The packed version of this is returned by [`PackedNode::default`].
+#[derive(Debug, Hash)]
+struct EmptyNode;
+
+impl Layout for EmptyNode {
+    fn layout(
+        &self,
+        _: &mut LayoutContext,
+        regions: &Regions,
+        _: StyleChain,
+    ) -> Vec<Constrained<Arc<Frame>>> {
+        let size = regions.expand.select(regions.current, Size::zero());
+        let mut cts = Constraints::new(regions.expand);
+        cts.exact = regions.current.filter(regions.expand);
+        vec![Frame::new(size).constrain(cts)]
+    }
+}
+
 /// Fix the size of a node.
 #[derive(Debug, Hash)]
-pub struct SizedNode {
+struct SizedNode {
     /// How to size the node horizontally and vertically.
-    pub sizing: Spec<Option<Linear>>,
+    sizing: Spec<Option<Linear>>,
     /// The node to be sized.
-    pub child: PackedNode,
+    child: PackedNode,
 }
 
 impl Layout for SizedNode {
@@ -365,11 +351,11 @@ impl Layout for SizedNode {
 
 /// Fill the frames resulting from a node.
 #[derive(Debug, Hash)]
-pub struct FillNode {
+struct FillNode {
     /// How to fill the frames resulting from the `child`.
-    pub fill: Paint,
+    fill: Paint,
     /// The node to fill.
-    pub child: PackedNode,
+    child: PackedNode,
 }
 
 impl Layout for FillNode {
@@ -390,11 +376,11 @@ impl Layout for FillNode {
 
 /// Stroke the frames resulting from a node.
 #[derive(Debug, Hash)]
-pub struct StrokeNode {
+struct StrokeNode {
     /// How to stroke the frames resulting from the `child`.
-    pub stroke: Stroke,
+    stroke: Stroke,
     /// The node to stroke.
-    pub child: PackedNode,
+    child: PackedNode,
 }
 
 impl Layout for StrokeNode {

@@ -40,7 +40,7 @@ use unicode_segmentation::UnicodeSegmentation;
 use crate::diag::{At, Error, StrResult, Trace, Tracepoint, TypResult};
 use crate::geom::{Angle, Color, Fractional, Length, Paint, Relative};
 use crate::image::ImageStore;
-use crate::layout::RootNode;
+use crate::layout::Layout;
 use crate::library::{self, DecoLine, TextNode};
 use crate::loading::Loader;
 use crate::parse;
@@ -64,13 +64,6 @@ pub struct Module {
     pub scope: Scope,
     /// The module's layoutable contents.
     pub template: Template,
-}
-
-impl Module {
-    /// Convert this module's template into a layout tree.
-    pub fn into_root(self) -> RootNode {
-        self.template.into_root()
-    }
 }
 
 /// Evaluate an expression.

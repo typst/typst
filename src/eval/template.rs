@@ -8,11 +8,13 @@ use std::ops::{Add, AddAssign};
 use super::{Property, StyleMap, Styled};
 use crate::diag::StrResult;
 use crate::geom::SpecAxis;
-use crate::layout::{Layout, PackedNode, RootNode};
+use crate::layout::{Layout, PackedNode};
+use crate::library::prelude::*;
 use crate::library::{
     FlowChild, FlowNode, PageNode, ParChild, ParNode, PlaceNode, SpacingKind, TextNode,
 };
 use crate::util::EcoString;
+use crate::Context;
 
 /// Composable representation of styled content.
 ///
@@ -89,6 +91,18 @@ impl Template {
         Self::Block(node.pack())
     }
 
+    /// Layout this template into a collection of pages.
+    pub fn layout(&self, ctx: &mut Context) -> Vec<Arc<Frame>> {
+        let (mut ctx, styles) = LayoutContext::new(ctx);
+        let mut packer = Packer::new(true);
+        packer.walk(self.clone(), StyleMap::new());
+        packer
+            .into_root()
+            .iter()
+            .flat_map(|styled| styled.item.layout(&mut ctx, styled.map.chain(&styles)))
+            .collect()
+    }
+
     /// Style this template with a single property.
     pub fn styled<P: Property>(mut self, key: P, value: P::Value) -> Self {
         if let Self::Styled(_, map) = &mut self {
@@ -122,24 +136,6 @@ impl Template {
             .map_err(|_| format!("cannot repeat this template {} times", n))?;
 
         Ok(Self::Sequence(vec![self.clone(); count]))
-    }
-
-    /// Convert to a type-erased block-level node.
-    pub fn pack(self) -> PackedNode {
-        if let Template::Block(packed) = self {
-            packed
-        } else {
-            let mut packer = Packer::new(false);
-            packer.walk(self, StyleMap::new());
-            packer.into_block()
-        }
-    }
-
-    /// Lift to a root layout tree node.
-    pub fn into_root(self) -> RootNode {
-        let mut packer = Packer::new(true);
-        packer.walk(self, StyleMap::new());
-        packer.into_root()
     }
 }
 
@@ -185,6 +181,27 @@ impl Sum for Template {
     }
 }
 
+impl Layout for Template {
+    fn layout(
+        &self,
+        ctx: &mut LayoutContext,
+        regions: &Regions,
+        styles: StyleChain,
+    ) -> Vec<Constrained<Arc<Frame>>> {
+        let mut packer = Packer::new(false);
+        packer.walk(self.clone(), StyleMap::new());
+        packer.into_block().layout(ctx, regions, styles)
+    }
+
+    fn pack(self) -> PackedNode {
+        if let Template::Block(packed) = self {
+            packed
+        } else {
+            PackedNode::new(self)
+        }
+    }
+}
+
 /// Packs a [`Template`] into a flow or root node.
 struct Packer {
     /// Whether this packer produces a root node.
@@ -215,9 +232,9 @@ impl Packer {
     }
 
     /// Finish up and return the resulting root node.
-    fn into_root(mut self) -> RootNode {
+    fn into_root(mut self) -> Vec<Styled<PageNode>> {
         self.pagebreak();
-        RootNode(self.pages)
+        self.pages
     }
 
     /// Consider a template with the given styles.

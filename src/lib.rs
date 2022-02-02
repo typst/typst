@@ -2,14 +2,13 @@
 //!
 //! # Steps
 //! - **Parsing:** The parsing step first transforms a plain string into an
-//!   [iterator of tokens][tokens]. This token stream is [parsed] into a
-//!   [green tree]. The green tree itself is untyped, but a typed layer over it
-//!   is provided in the [AST] module.
+//!   [iterator of tokens][tokens]. This token stream is [parsed] into a [green
+//!   tree]. The green tree itself is untyped, but a typed layer over it is
+//!   provided in the [AST] module.
 //! - **Evaluation:** The next step is to [evaluate] the markup. This produces a
 //!   [module], consisting of a scope of values that were exported by the code
-//!   and a [template] with the contents of the module. This node can be
-//!   converted into a [layout tree], a hierarchical, styled representation of
-//!   the document. The nodes of this tree are well structured and
+//!   and a [template], a hierarchical, styled representation with the contents
+//!   of the module. The nodes of this tree are well structured and
 //!   order-independent and thus much better suited for layouting than the raw
 //!   markup.
 //! - **Layouting:** Next, the tree is [layouted] into a portable version of the
@@ -26,8 +25,7 @@
 //! [evaluate]: Context::evaluate
 //! [module]: eval::Module
 //! [template]: eval::Template
-//! [layout tree]: layout::RootNode
-//! [layouted]: layout::RootNode::layout
+//! [layouted]: eval::Template::layout
 //! [cache]: layout::LayoutCache
 //! [PDF]: export::pdf
 
@@ -127,8 +125,7 @@ impl Context {
     /// information.
     pub fn typeset(&mut self, id: SourceId) -> TypResult<Vec<Arc<Frame>>> {
         let module = self.evaluate(id)?;
-        let tree = module.into_root();
-        let frames = tree.layout(self);
+        let frames = module.template.layout(self);
         Ok(frames)
     }
 
