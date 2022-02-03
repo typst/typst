@@ -7,7 +7,6 @@ use std::ops::{Add, AddAssign};
 
 use super::{Property, StyleMap, Styled};
 use crate::diag::StrResult;
-use crate::geom::SpecAxis;
 use crate::layout::{Layout, PackedNode};
 use crate::library::prelude::*;
 use crate::library::{
@@ -41,26 +40,28 @@ use crate::Context;
 ///    since we can just recurse into the nested sequences. Also, in theory,
 ///    this allows better complexity when adding large sequence nodes just like
 ///    for something like a text rope.
-#[derive(Debug, PartialEq, Clone, Hash)]
+#[derive(PartialEq, Clone, Hash)]
 pub enum Template {
     /// A word space.
     Space,
     /// A line break.
     Linebreak,
+    /// Horizontal spacing.
+    Horizontal(SpacingKind),
+    /// Plain text.
+    Text(EcoString),
+    /// An inline node.
+    Inline(PackedNode),
     /// A paragraph break.
     Parbreak,
+    /// Vertical spacing.
+    Vertical(SpacingKind),
+    /// A block node.
+    Block(PackedNode),
     /// A column break.
     Colbreak,
     /// A page break.
     Pagebreak,
-    /// Plain text.
-    Text(EcoString),
-    /// Spacing.
-    Spacing(SpecAxis, SpacingKind),
-    /// An inline node.
-    Inline(PackedNode),
-    /// A block node.
-    Block(PackedNode),
     /// A page node.
     Page(PageNode),
     /// A template with attached styles.
@@ -145,25 +146,56 @@ impl Default for Template {
     }
 }
 
+impl Debug for Template {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Self::Space => f.pad("Space"),
+            Self::Linebreak => f.pad("Linebreak"),
+            Self::Horizontal(kind) => write!(f, "Horizontal({kind:?})"),
+            Self::Text(text) => write!(f, "Text({text:?})"),
+            Self::Inline(node) => {
+                f.write_str("Inline(")?;
+                node.fmt(f)?;
+                f.write_str(")")
+            }
+            Self::Parbreak => f.pad("Parbreak"),
+            Self::Vertical(kind) => write!(f, "Vertical({kind:?})"),
+            Self::Block(node) => {
+                f.write_str("Block(")?;
+                node.fmt(f)?;
+                f.write_str(")")
+            }
+            Self::Colbreak => f.pad("Colbreak"),
+            Self::Pagebreak => f.pad("Pagebreak"),
+            Self::Page(page) => page.fmt(f),
+            Self::Styled(sub, map) => {
+                map.fmt(f)?;
+                sub.fmt(f)
+            }
+            Self::Sequence(seq) => f.debug_list().entries(seq).finish(),
+        }
+    }
+}
+
 impl Add for Template {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
         Self::Sequence(match (self, rhs) {
-            (Self::Sequence(mut left), Self::Sequence(right)) => {
-                left.extend(right);
-                left
+            (Self::Sequence(mut lhs), Self::Sequence(rhs)) => {
+                lhs.extend(rhs);
+                lhs
             }
-            (Self::Sequence(mut left), right) => {
-                left.push(right);
-                left
+            (Self::Sequence(mut lhs), rhs) => {
+                lhs.push(rhs);
+                lhs
             }
-            (left, Self::Sequence(mut right)) => {
-                right.insert(0, left);
-                right
+            (lhs, Self::Sequence(mut rhs)) => {
+                rhs.insert(0, lhs);
+                rhs
             }
-            (left, right) => {
-                vec![left, right]
+            (lhs, rhs) => {
+                vec![lhs, rhs]
             }
         })
     }
@@ -276,14 +308,14 @@ impl Packer {
             Template::Text(text) => {
                 self.push_inline(Styled::new(ParChild::text(text), styles));
             }
-            Template::Spacing(SpecAxis::Horizontal, kind) => {
+            Template::Horizontal(kind) => {
                 // Just like a line break, explicit horizontal spacing eats up
                 // surrounding text spaces.
                 self.par.last.hard();
                 self.push_inline(Styled::new(ParChild::Spacing(kind), styles));
                 self.par.last.hard();
             }
-            Template::Spacing(SpecAxis::Vertical, kind) => {
+            Template::Vertical(kind) => {
                 // Explicit vertical spacing ends the current paragraph and then
                 // discards the paragraph break.
                 self.parbreak(None, false);
