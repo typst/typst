@@ -40,12 +40,15 @@ impl Layout for GridNode {
         styles: StyleChain,
     ) -> Vec<Constrained<Arc<Frame>>> {
         // Prepare grid layout by unifying content and gutter tracks.
-        let mut layouter = GridLayouter::new(self, regions.clone(), styles);
+        let layouter = GridLayouter::new(
+            self.tracks.as_deref(),
+            self.gutter.as_deref(),
+            &self.children,
+            regions,
+            styles,
+        );
 
-        // Determine all column sizes.
-        layouter.measure_columns(ctx);
-
-        // Layout the grid row-by-row.
+        // Measure the columsna nd layout the grid row-by-row.
         layouter.layout(ctx)
     }
 }
@@ -87,9 +90,9 @@ castable! {
 }
 
 /// Performs grid layout.
-struct GridLayouter<'a> {
-    /// The children of the grid.
-    children: &'a [PackedNode],
+pub struct GridLayouter<'a> {
+    /// The  grid cells.
+    cells: &'a [PackedNode],
     /// The column tracks including gutter tracks.
     cols: Vec<TrackSizing>,
     /// The row tracks including gutter tracks.
@@ -102,7 +105,7 @@ struct GridLayouter<'a> {
     rcols: Vec<Length>,
     /// Rows in the current region.
     lrows: Vec<Row>,
-    /// Whether the grid should expand to fill the region.
+    /// Whether the grid itself should expand to fill the region.
     expand: Spec<bool>,
     /// The full height of the current region.
     full: Length,
@@ -127,19 +130,27 @@ enum Row {
 }
 
 impl<'a> GridLayouter<'a> {
-    /// Prepare grid layout by unifying content and gutter tracks.
-    fn new(grid: &'a GridNode, mut regions: Regions, styles: StyleChain<'a>) -> Self {
+    /// Create a new grid layouter.
+    ///
+    /// This prepares grid layout by unifying content and gutter tracks.
+    pub fn new(
+        tracks: Spec<&[TrackSizing]>,
+        gutter: Spec<&[TrackSizing]>,
+        cells: &'a [PackedNode],
+        regions: &Regions,
+        styles: StyleChain<'a>,
+    ) -> Self {
         let mut cols = vec![];
         let mut rows = vec![];
 
         // Number of content columns: Always at least one.
-        let c = grid.tracks.x.len().max(1);
+        let c = tracks.x.len().max(1);
 
         // Number of content rows: At least as many as given, but also at least
         // as many as needed to place each item.
         let r = {
-            let len = grid.children.len();
-            let given = grid.tracks.y.len();
+            let len = cells.len();
+            let given = tracks.y.len();
             let needed = len / c + (len % c).clamp(0, 1);
             given.max(needed)
         };
@@ -152,14 +163,14 @@ impl<'a> GridLayouter<'a> {
 
         // Collect content and gutter columns.
         for x in 0 .. c {
-            cols.push(get_or(&grid.tracks.x, x, auto));
-            cols.push(get_or(&grid.gutter.x, x, zero));
+            cols.push(get_or(tracks.x, x, auto));
+            cols.push(get_or(gutter.x, x, zero));
         }
 
         // Collect content and gutter rows.
         for y in 0 .. r {
-            rows.push(get_or(&grid.tracks.y, y, auto));
-            rows.push(get_or(&grid.gutter.y, y, zero));
+            rows.push(get_or(tracks.y, y, auto));
+            rows.push(get_or(gutter.y, y, zero));
         }
 
         // Remove superfluous gutter tracks.
@@ -173,10 +184,11 @@ impl<'a> GridLayouter<'a> {
 
         // We use the regions for auto row measurement. Since at that moment,
         // columns are already sized, we can enable horizontal expansion.
+        let mut regions = regions.clone();
         regions.expand = Spec::new(true, false);
 
         Self {
-            children: &grid.children,
+            cells,
             cols,
             rows,
             regions,
@@ -190,6 +202,32 @@ impl<'a> GridLayouter<'a> {
             cts: Constraints::new(expand),
             finished: vec![],
         }
+    }
+
+    /// Determines the columns sizes and then layouts the grid row-by-row.
+    pub fn layout(mut self, ctx: &mut LayoutContext) -> Vec<Constrained<Arc<Frame>>> {
+        self.measure_columns(ctx);
+
+        for y in 0 .. self.rows.len() {
+            // Skip to next region if current one is full, but only for content
+            // rows, not for gutter rows.
+            if y % 2 == 0 && self.regions.is_full() {
+                self.finish_region(ctx);
+            }
+
+            match self.rows[y] {
+                TrackSizing::Auto => self.layout_auto_row(ctx, y),
+                TrackSizing::Linear(v) => self.layout_linear_row(ctx, v, y),
+                TrackSizing::Fractional(v) => {
+                    self.cts.exact.y = Some(self.full);
+                    self.lrows.push(Row::Fr(v, y));
+                    self.fr += v;
+                }
+            }
+        }
+
+        self.finish_region(ctx);
+        self.finished
     }
 
     /// Determine all column sizes.
@@ -352,30 +390,6 @@ impl<'a> GridLayouter<'a> {
                 *rcol = share;
             }
         }
-    }
-
-    /// Layout the grid row-by-row.
-    fn layout(mut self, ctx: &mut LayoutContext) -> Vec<Constrained<Arc<Frame>>> {
-        for y in 0 .. self.rows.len() {
-            // Skip to next region if current one is full, but only for content
-            // rows, not for gutter rows.
-            if y % 2 == 0 && self.regions.is_full() {
-                self.finish_region(ctx);
-            }
-
-            match self.rows[y] {
-                TrackSizing::Auto => self.layout_auto_row(ctx, y),
-                TrackSizing::Linear(v) => self.layout_linear_row(ctx, v, y),
-                TrackSizing::Fractional(v) => {
-                    self.cts.exact.y = Some(self.full);
-                    self.lrows.push(Row::Fr(v, y));
-                    self.fr += v;
-                }
-            }
-        }
-
-        self.finish_region(ctx);
-        self.finished
     }
 
     /// Layout a row with automatic height. Such a row may break across multiple
@@ -599,7 +613,7 @@ impl<'a> GridLayouter<'a> {
         // Even columns and rows are children, odd ones are gutter.
         if x % 2 == 0 && y % 2 == 0 {
             let c = 1 + self.cols.len() / 2;
-            self.children.get((y / 2) * c + x / 2)
+            self.cells.get((y / 2) * c + x / 2)
         } else {
             None
         }

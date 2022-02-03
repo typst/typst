@@ -39,6 +39,14 @@ impl<T> Spec<T> {
         Spec { x: &self.x, y: &self.y }
     }
 
+    /// Convert from `&Spec<T>` to `Spec<&<T as Deref>::Target>`.
+    pub fn as_deref(&self) -> Spec<&T::Target>
+    where
+        T: Deref,
+    {
+        Spec { x: &self.x, y: &self.y }
+    }
+
     /// Convert from `&mut Spec<T>` to `Spec<&mut T>`.
     pub fn as_mut(&mut self) -> Spec<&mut T> {
         Spec { x: &mut self.x, y: &mut self.y }

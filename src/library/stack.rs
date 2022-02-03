@@ -32,7 +32,29 @@ impl Layout for StackNode {
         regions: &Regions,
         styles: StyleChain,
     ) -> Vec<Constrained<Arc<Frame>>> {
-        StackLayouter::new(self, regions.clone(), styles).layout(ctx)
+        let mut layouter = StackLayouter::new(self.dir, regions);
+
+        // Spacing to insert before the next node.
+        let mut deferred = None;
+
+        for child in &self.children {
+            match child {
+                StackChild::Spacing(kind) => {
+                    layouter.layout_spacing(*kind);
+                    deferred = None;
+                }
+                StackChild::Node(node) => {
+                    if let Some(kind) = deferred {
+                        layouter.layout_spacing(kind);
+                    }
+
+                    layouter.layout_node(ctx, node, styles);
+                    deferred = self.spacing;
+                }
+            }
+        }
+
+        layouter.finish()
     }
 }
 
@@ -65,29 +87,23 @@ castable! {
 }
 
 /// Performs stack layout.
-struct StackLayouter<'a> {
-    /// The children of the stack.
-    children: &'a [StackChild],
+pub struct StackLayouter {
     /// The stacking direction.
     dir: Dir,
     /// The axis of the stacking direction.
     axis: SpecAxis,
-    /// The spacing between non-spacing children.
-    spacing: Option<SpacingKind>,
     /// The regions to layout children into.
     regions: Regions,
-    /// The inherited styles.
-    styles: StyleChain<'a>,
-    /// Whether the stack should expand to fill the region.
+    /// Whether the stack itself should expand to fill the region.
     expand: Spec<bool>,
-    /// The full size of `regions.current` that was available before we started
-    /// subtracting.
+    /// The full size of the current region that was available at the start.
     full: Size,
     /// The generic size used by the frames for the current region.
     used: Gen<Length>,
     /// The sum of fractional ratios in the current region.
     fr: Fractional,
-    /// Spacing and layouted nodes.
+    /// Already layouted items whose exact positions are not yet known due to
+    /// fractional spacing.
     items: Vec<StackItem>,
     /// Finished frames for previous regions.
     finished: Vec<Constrained<Arc<Frame>>>,
@@ -103,24 +119,21 @@ enum StackItem {
     Frame(Arc<Frame>, Align),
 }
 
-impl<'a> StackLayouter<'a> {
+impl StackLayouter {
     /// Create a new stack layouter.
-    fn new(stack: &'a StackNode, mut regions: Regions, styles: StyleChain<'a>) -> Self {
-        let dir = stack.dir;
+    pub fn new(dir: Dir, regions: &Regions) -> Self {
         let axis = dir.axis();
         let expand = regions.expand;
         let full = regions.current;
 
         // Disable expansion along the block axis for children.
+        let mut regions = regions.clone();
         regions.expand.set(axis, false);
 
         Self {
-            children: &stack.children,
             dir,
             axis,
-            spacing: stack.spacing,
             regions,
-            styles,
             expand,
             full,
             used: Gen::zero(),
@@ -130,67 +143,43 @@ impl<'a> StackLayouter<'a> {
         }
     }
 
-    /// Layout all children.
-    fn layout(mut self, ctx: &mut LayoutContext) -> Vec<Constrained<Arc<Frame>>> {
-        // Spacing to insert before the next node.
-        let mut deferred = None;
-
-        for child in self.children {
-            match *child {
-                StackChild::Spacing(kind) => {
-                    self.layout_spacing(kind);
-                    deferred = None;
-                }
-                StackChild::Node(ref node) => {
-                    if let Some(kind) = deferred {
-                        self.layout_spacing(kind);
-                    }
-
-                    if self.regions.is_full() {
-                        self.finish_region();
-                    }
-
-                    self.layout_node(ctx, node);
-                    deferred = self.spacing;
-                }
-            }
-        }
-
-        self.finish_region();
-        self.finished
-    }
-
-    /// Layout spacing.
-    fn layout_spacing(&mut self, spacing: SpacingKind) {
+    /// Add spacing along the spacing direction.
+    pub fn layout_spacing(&mut self, spacing: SpacingKind) {
         match spacing {
-            SpacingKind::Linear(v) => self.layout_absolute(v),
+            SpacingKind::Linear(v) => {
+                // Resolve the linear and limit it to the remaining space.
+                let resolved = v.resolve(self.regions.base.get(self.axis));
+                let remaining = self.regions.current.get_mut(self.axis);
+                let limited = resolved.min(*remaining);
+                *remaining -= limited;
+                self.used.main += limited;
+                self.items.push(StackItem::Absolute(resolved));
+            }
             SpacingKind::Fractional(v) => {
-                self.items.push(StackItem::Fractional(v));
                 self.fr += v;
+                self.items.push(StackItem::Fractional(v));
             }
         }
     }
 
-    /// Layout absolute spacing.
-    fn layout_absolute(&mut self, amount: Linear) {
-        // Resolve the linear, limiting it to the remaining available space.
-        let remaining = self.regions.current.get_mut(self.axis);
-        let resolved = amount.resolve(self.regions.base.get(self.axis));
-        let limited = resolved.min(*remaining);
-        *remaining -= limited;
-        self.used.main += limited;
-        self.items.push(StackItem::Absolute(resolved));
-    }
+    /// Layout an arbitrary node.
+    pub fn layout_node(
+        &mut self,
+        ctx: &mut LayoutContext,
+        node: &PackedNode,
+        styles: StyleChain,
+    ) {
+        if self.regions.is_full() {
+            self.finish_region();
+        }
 
-    /// Layout a node.
-    fn layout_node(&mut self, ctx: &mut LayoutContext, node: &PackedNode) {
         // Align nodes' block-axis alignment is respected by the stack node.
         let align = node
             .downcast::<AlignNode>()
             .and_then(|node| node.aligns.get(self.axis))
             .unwrap_or(self.dir.start().into());
 
-        let frames = node.layout(ctx, &self.regions, self.styles);
+        let frames = node.layout(ctx, &self.regions, styles);
         let len = frames.len();
         for (i, frame) in frames.into_iter().enumerate() {
             // Grow our size, shrink the region and save the frame for later.
@@ -206,8 +195,8 @@ impl<'a> StackLayouter<'a> {
         }
     }
 
-    /// Finish the frame for one region.
-    fn finish_region(&mut self) {
+    /// Advance to the next region.
+    pub fn finish_region(&mut self) {
         // Determine the size of the stack in this region dependening on whether
         // the region expands.
         let used = self.used.to_spec(self.axis);
@@ -228,12 +217,8 @@ impl<'a> StackLayouter<'a> {
         // Place all frames.
         for item in self.items.drain(..) {
             match item {
-                StackItem::Absolute(v) => {
-                    cursor += v;
-                }
-                StackItem::Fractional(v) => {
-                    cursor += v.resolve(self.fr, remaining);
-                }
+                StackItem::Absolute(v) => cursor += v,
+                StackItem::Fractional(v) => cursor += v.resolve(self.fr, remaining),
                 StackItem::Frame(frame, align) => {
                     if self.dir.is_positive() {
                         ruler = ruler.max(align);
@@ -269,5 +254,11 @@ impl<'a> StackLayouter<'a> {
         self.used = Gen::zero();
         self.fr = Fractional::zero();
         self.finished.push(output.constrain(cts));
+    }
+
+    /// Finish layouting and return the resulting frames.
+    pub fn finish(mut self) -> Vec<Constrained<Arc<Frame>>> {
+        self.finish_region();
+        self.finished
     }
 }

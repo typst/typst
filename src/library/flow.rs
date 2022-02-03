@@ -190,11 +190,7 @@ impl<'a> FlowLayouter<'a> {
         let aligns = Spec::new(
             // For non-expanding paragraphs it is crucial that we align the
             // whole paragraph as it is itself aligned.
-            if node.is::<ParNode>() {
-                styles.get(ParNode::ALIGN)
-            } else {
-                Align::Left
-            },
+            styles.get(ParNode::ALIGN),
             // Vertical align node alignment is respected by the flow node.
             node.downcast::<AlignNode>()
                 .and_then(|aligned| aligned.aligns.y)
