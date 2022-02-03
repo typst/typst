@@ -945,6 +945,7 @@ dependencies = [
  "iai",
  "image",
  "itertools",
+ "kurbo",
  "memmap2",
  "miniz_oxide 0.4.4",
  "once_cell",
