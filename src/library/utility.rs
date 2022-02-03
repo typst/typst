@@ -6,31 +6,6 @@ use std::str::FromStr;
 use super::prelude::*;
 use crate::eval::Array;
 
-static ROMAN_PAIRS: &'static [(&'static str, u32)] = &[
-    ("M̅", 1000000),
-    ("D̅", 500000),
-    ("C̅", 100000),
-    ("L̅", 50000),
-    ("X̅", 10000),
-    ("V̅", 5000),
-    ("I̅V̅", 4000),
-    ("M", 1000),
-    ("CM", 900),
-    ("D", 500),
-    ("CD", 400),
-    ("C", 100),
-    ("XC", 90),
-    ("L", 50),
-    ("XL", 40),
-    ("X", 10),
-    ("IX", 9),
-    ("V", 5),
-    ("IV", 4),
-    ("I", 1),
-];
-
-static SYMBOLS: &'static [char] = &['*', '†', '‡', '§', '‖', '¶'];
-
 /// Ensure that a condition is fulfilled.
 pub fn assert(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let Spanned { v, span } = args.expect::<Spanned<bool>>("condition")?;
@@ -177,7 +152,7 @@ pub fn modulo(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 
     let (a, b) = match (v1, v2) {
         (Value::Int(a), Value::Int(b)) => match a.checked_rem(b) {
-            Some(res) => return Ok(res.into()),
+            Some(res) => return Ok(Value::Int(res)),
             None => bail!(span2, "divisor must not be zero"),
         },
         (Value::Int(a), Value::Float(b)) => (a as f64, b),
@@ -197,7 +172,7 @@ pub fn modulo(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         bail!(span2, "divisor must not be zero");
     }
 
-    Ok((a % b).into())
+    Ok(Value::Float(a % b))
 }
 
 /// Find the minimum or maximum of a sequence of values.
@@ -262,14 +237,35 @@ pub fn upper(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 /// Adapted from Yann Villessuzanne's roman.rs under the Unlicense, at
 /// https://github.com/linfir/roman.rs/
 pub fn roman(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let source: Spanned<i64> = args.expect("integer")?;
-    let mut n = source.v as u32;
+    static PAIRS: &'static [(&'static str, usize)] = &[
+        ("M̅", 1000000),
+        ("D̅", 500000),
+        ("C̅", 100000),
+        ("L̅", 50000),
+        ("X̅", 10000),
+        ("V̅", 5000),
+        ("I̅V̅", 4000),
+        ("M", 1000),
+        ("CM", 900),
+        ("D", 500),
+        ("CD", 400),
+        ("C", 100),
+        ("XC", 90),
+        ("L", 50),
+        ("XL", 40),
+        ("X", 10),
+        ("IX", 9),
+        ("V", 5),
+        ("IV", 4),
+        ("I", 1),
+    ];
 
-    match n {
-        0 => return Ok("N".into()),
-        i if i > 3_999_999 => {
+    let Spanned { mut v, span } = args.expect("non-negative integer")?;
+    match v {
+        0_usize => return Ok("N".into()),
+        3_999_999 .. => {
             bail!(
-                source.span,
+                span,
                 "cannot convert integers greater than 3,999,999 to roman numerals"
             )
         }
@@ -277,9 +273,9 @@ pub fn roman(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     }
 
     let mut roman = String::new();
-    for &(name, value) in ROMAN_PAIRS.iter() {
-        while n >= value {
-            n -= value;
+    for &(name, value) in PAIRS {
+        while v >= value {
+            v -= value;
             roman.push_str(name);
         }
     }
@@ -289,18 +285,14 @@ pub fn roman(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 
 /// Convert a number into a roman numeral.
 pub fn symbol(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
-    let source: Spanned<i64> = args.expect("integer")?;
-    let n: usize = match source.v.try_into() {
-        Ok(n) => n,
-        Err(_) if source.v < 0 => bail!(source.span, "number must not be negative"),
-        Err(_) => bail!(source.span, "number too large"),
-    };
+    static SYMBOLS: &'static [char] = &['*', '†', '‡', '§', '‖', '¶'];
+
+    let n = args.expect::<usize>("non-negative integer")?;
 
     let symbol = SYMBOLS[n % SYMBOLS.len()];
     let amount = (n / SYMBOLS.len()) + 1;
 
     let symbols: String = std::iter::repeat(symbol).take(amount).collect();
-
     Ok(symbols.into())
 }
 

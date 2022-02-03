@@ -182,7 +182,13 @@ dynamic! {
 castable! {
     usize,
     Expected: "non-negative integer",
-    Value::Int(int) => int.try_into().map_err(|_| "must be at least zero")?,
+    Value::Int(int) => int.try_into().map_err(|_| {
+        if int < 0 {
+            "must be at least zero"
+        } else {
+            "number too large"
+        }
+    })?,
 }
 
 castable! {

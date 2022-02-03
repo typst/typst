@@ -19,5 +19,5 @@
 #roman(8000000)
 
 ---
-// Error: 9-11 number must not be negative
+// Error: 9-11 must be at least zero
 #symbol(-1)
