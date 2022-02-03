@@ -267,11 +267,6 @@ impl<'s> Parser<'s> {
     /// This panics if no group was started.
     #[track_caller]
     pub fn end_group(&mut self) {
-        // If another group closes after a group with the missing terminator,
-        // its scope of influence ends here and no longer taints the rest of the
-        // reparse.
-        self.unterminated_group = false;
-
         let group_mode = self.tokens.mode();
         let group = self.groups.pop().expect("no started group");
         self.tokens.set_mode(group.prev_mode);
@@ -289,6 +284,11 @@ impl<'s> Parser<'s> {
             Group::Imports => None,
         } {
             if self.current.as_ref() == Some(&end) {
+                // If another group closes after a group with the missing terminator,
+                // its scope of influence ends here and no longer taints the rest of the
+                // reparse.
+                self.unterminated_group = false;
+
                 // Bump the delimeter and return. No need to rescan in this
                 // case. Also, we know that the delimiter is not stray even
                 // though we already removed the group.
