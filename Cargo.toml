@@ -26,6 +26,7 @@ once_cell = "1"
 serde = { version = "1", features = ["derive"] }
 
 # Text and font handling
+kurbo = "0.8"
 ttf-parser = "0.12"
 rustybuzz = "0.4"
 unicode-bidi = "0.3.5"

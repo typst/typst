@@ -15,6 +15,7 @@ impl<L: LineKind> DecoNode<L> {
             thickness: args.named::<Linear>("thickness")?.or_else(|| args.find()),
             offset: args.named("offset")?,
             extent: args.named("extent")?.unwrap_or_default(),
+            evade: args.named("evade")?.unwrap_or(true),
         };
         Ok(args.expect::<Node>("body")?.styled(TextNode::LINES, vec![deco]))
     }
@@ -36,6 +37,9 @@ pub struct Decoration {
     /// Amount that the line will be longer or shorter than its associated text
     /// (dependent on scaled font size).
     pub extent: Linear,
+    /// Whether the line skips sections in which it would collide
+    /// with the glyphs. Does not apply to strikethrough.
+    pub evade: bool,
 }
 
 impl From<DecoLine> for Decoration {
@@ -46,6 +50,7 @@ impl From<DecoLine> for Decoration {
             thickness: None,
             offset: None,
             extent: Linear::zero(),
+            evade: true,
         }
     }
 }

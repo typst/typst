@@ -42,6 +42,19 @@ impl Frame {
         self.elements.push((pos, element));
     }
 
+    /// The layer the next item will be added on. This corresponds to the number
+    /// of elements in the frame.
+    pub fn layer(&self) -> usize {
+        self.elements.len()
+    }
+
+    /// Insert an element at the given layer in the frame.
+    ///
+    /// This panics if the layer is greater than the number of layers present.
+    pub fn insert(&mut self, layer: usize, pos: Point, element: Element) {
+        self.elements.insert(layer, (pos, element));
+    }
+
     /// Add a group element.
     pub fn push_frame(&mut self, pos: Point, frame: Arc<Self>) {
         self.elements.push((pos, Element::Group(Group::new(frame))));

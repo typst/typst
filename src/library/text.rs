@@ -5,8 +5,9 @@ use std::convert::TryInto;
 use std::fmt::{self, Debug, Formatter};
 use std::ops::{BitXor, Range};
 
+use kurbo::{BezPath, Line, ParamCurve};
 use rustybuzz::{Feature, UnicodeBuffer};
-use ttf_parser::Tag;
+use ttf_parser::{GlyphId, OutlineBuilder, Tag};
 
 use super::prelude::*;
 use super::{DecoLine, Decoration};
@@ -812,37 +813,15 @@ impl<'a> ShapedText<'a> {
                 .collect();
 
             let text = Text { face_id, size, fill, glyphs };
+            let text_layer = frame.layer();
             let width = text.width();
-            frame.push(pos, Element::Text(text));
 
             // Apply line decorations.
             for deco in self.styles.get_cloned(TextNode::LINES) {
-                let face = fonts.get(face_id);
-                let metrics = match deco.line {
-                    DecoLine::Underline => face.underline,
-                    DecoLine::Strikethrough => face.strikethrough,
-                    DecoLine::Overline => face.overline,
-                };
-
-                let extent = deco.extent.resolve(size);
-                let offset = deco
-                    .offset
-                    .map(|s| s.resolve(size))
-                    .unwrap_or(-metrics.position.resolve(size));
-
-                let stroke = Stroke {
-                    paint: deco.stroke.unwrap_or(fill),
-                    thickness: deco
-                        .thickness
-                        .map(|s| s.resolve(size))
-                        .unwrap_or(metrics.thickness.resolve(size)),
-                };
-
-                let subpos = Point::new(pos.x - extent, pos.y + offset);
-                let target = Point::new(width + 2.0 * extent, Length::zero());
-                let shape = Shape::stroked(Geometry::Line(target), stroke);
-                frame.push(subpos, Element::Shape(shape));
+                self.add_line_decos(&mut frame, &deco, fonts, &text, pos, width);
             }
+
+            frame.insert(text_layer, pos, Element::Text(text));
 
             offset += width;
         }
@@ -854,6 +833,121 @@ impl<'a> ShapedText<'a> {
 
         frame
     }
+
+    /// Add line decorations to a run of shaped text of a single font.
+    fn add_line_decos(
+        &self,
+        frame: &mut Frame,
+        deco: &Decoration,
+        fonts: &FontStore,
+        text: &Text,
+        pos: Point,
+        width: Length,
+    ) {
+        let face = fonts.get(text.face_id);
+        let metrics = match deco.line {
+            DecoLine::Underline => face.underline,
+            DecoLine::Strikethrough => face.strikethrough,
+            DecoLine::Overline => face.overline,
+        };
+
+        let evade = deco.evade && deco.line != DecoLine::Strikethrough;
+        let extent = deco.extent.resolve(text.size);
+        let offset = deco
+            .offset
+            .map(|s| s.resolve(text.size))
+            .unwrap_or(-metrics.position.resolve(text.size));
+
+        let stroke = Stroke {
+            paint: deco.stroke.unwrap_or(text.fill),
+            thickness: deco
+                .thickness
+                .map(|s| s.resolve(text.size))
+                .unwrap_or(metrics.thickness.resolve(text.size)),
+        };
+
+        let gap_padding = 0.08 * text.size;
+        let min_width = 0.162 * text.size;
+
+        let mut start = pos.x - extent;
+        let end = pos.x + (width + 2.0 * extent);
+
+        let mut push_segment = |from: Length, to: Length| {
+            let origin = Point::new(from, pos.y + offset);
+            let target = Point::new(to - from, Length::zero());
+
+            if target.x >= min_width || !evade {
+                let shape = Shape::stroked(Geometry::Line(target), stroke);
+                frame.push(origin, Element::Shape(shape));
+            }
+        };
+
+        if !evade {
+            push_segment(start, end);
+            return;
+        }
+
+        let line = Line::new(
+            kurbo::Point::new(pos.x.to_raw(), offset.to_raw()),
+            kurbo::Point::new((pos.x + width).to_raw(), offset.to_raw()),
+        );
+
+        let mut x = pos.x;
+        let mut intersections = vec![];
+
+        for glyph in text.glyphs.iter() {
+            let dx = glyph.x_offset.resolve(text.size) + x;
+            let mut builder =
+                KurboPathBuilder::new(face.units_per_em, text.size, dx.to_raw());
+
+            let bbox = face.ttf().outline_glyph(GlyphId(glyph.id), &mut builder);
+            let path = builder.finish();
+
+            x += glyph.x_advance.resolve(text.size);
+
+            // Only do the costly segments intersection test if the line
+            // intersects the bounding box.
+            if bbox.map_or(false, |bbox| {
+                let y_min = -face.to_em(bbox.y_max).resolve(text.size);
+                let y_max = -face.to_em(bbox.y_min).resolve(text.size);
+
+                offset >= y_min && offset <= y_max
+            }) {
+                // Find all intersections of segments with the line.
+                intersections.extend(
+                    path.segments()
+                        .flat_map(|seg| seg.intersect_line(line))
+                        .map(|is| Length::raw(line.eval(is.line_t).x)),
+                );
+            }
+        }
+
+        // When emitting the decorative line segments, we move from left to
+        // right. The intersections are not necessarily in this order, yet.
+        intersections.sort();
+
+        for gap in intersections.chunks_exact(2) {
+            let l = gap[0] - gap_padding;
+            let r = gap[1] + gap_padding;
+
+            if start >= end {
+                break;
+            }
+
+            if start >= l {
+                start = r;
+                continue;
+            }
+
+            push_segment(start, l);
+            start = r;
+        }
+
+        if start < end {
+            push_segment(start, end);
+        }
+    }
+
 
     /// Reshape a range of the shaped text, reusing information from this
     /// shaping process if possible.
@@ -940,4 +1034,56 @@ impl<'a> ShapedText<'a> {
 enum Side {
     Left,
     Right,
+}
+
+struct KurboPathBuilder {
+    path: BezPath,
+    units_per_em: f64,
+    font_size: Length,
+    x_offset: f64,
+}
+
+impl KurboPathBuilder {
+    fn new(units_per_em: f64, font_size: Length, x_offset: f64) -> Self {
+        Self {
+            path: BezPath::new(),
+            units_per_em,
+            font_size,
+            x_offset,
+        }
+    }
+
+    fn finish(self) -> BezPath {
+        self.path
+    }
+
+    fn p(&self, x: f32, y: f32) -> kurbo::Point {
+        kurbo::Point::new(self.s(x) + self.x_offset, -self.s(y))
+    }
+
+    fn s(&self, v: f32) -> f64 {
+        Em::from_units(v, self.units_per_em).resolve(self.font_size).to_raw()
+    }
+}
+
+impl OutlineBuilder for KurboPathBuilder {
+    fn move_to(&mut self, x: f32, y: f32) {
+        self.path.move_to(self.p(x, y));
+    }
+
+    fn line_to(&mut self, x: f32, y: f32) {
+        self.path.line_to(self.p(x, y));
+    }
+
+    fn quad_to(&mut self, x1: f32, y1: f32, x: f32, y: f32) {
+        self.path.quad_to(self.p(x1, y1), self.p(x, y));
+    }
+
+    fn curve_to(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, x: f32, y: f32) {
+        self.path.curve_to(self.p(x1, y1), self.p(x2, y2), self.p(x, y));
+    }
+
+    fn close(&mut self) {
+        self.path.close_path();
+    }
 }

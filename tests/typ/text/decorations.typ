@@ -10,7 +10,7 @@
 #underline(offset: 5pt)[Further below.]
 
 // Different color.
-#underline(red)[Critical information is conveyed here.]
+#underline(red, evade: false)[Critical information is conveyed here.]
 
 // Inherits font color.
 #text(fill: red, underline[Change with the wind.])
