@@ -48,8 +48,9 @@ impl Frame {
         self.elements.len()
     }
 
-    /// Insert an element at the given layer in the Frame. This method panics if
-    /// the layer is greater than the number of layers present.
+    /// Insert an element at the given layer in the frame.
+    ///
+    /// This panics if the layer is greater than the number of layers present.
     pub fn insert(&mut self, layer: usize, pos: Point, element: Element) {
         self.elements.insert(layer, (pos, element));
     }
