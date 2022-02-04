@@ -82,9 +82,14 @@ where
 
 /// Additional methods for slices.
 pub trait SliceExt<T> {
-    /// Split a slice into consecutive groups with the same key.
-    ///
-    /// Returns an iterator of pairs of a key and the group with that key.
+    /// Find consecutive runs of the same elements in a slice and yield for
+    /// each such run the element and number of times it appears.
+    fn group(&self) -> Group<'_, T>
+    where
+        T: PartialEq;
+
+    /// Split a slice into consecutive runs with the same key and yield for
+    /// each such run the key and the slice of elements with that key.
     fn group_by_key<K, F>(&self, f: F) -> GroupByKey<'_, T, F>
     where
         F: FnMut(&T) -> K,
@@ -92,12 +97,32 @@ pub trait SliceExt<T> {
 }
 
 impl<T> SliceExt<T> for [T] {
-    fn group_by_key<K, F>(&self, f: F) -> GroupByKey<'_, T, F>
-    where
-        F: FnMut(&T) -> K,
-        K: PartialEq,
-    {
+    fn group(&self) -> Group<'_, T> {
+        Group { slice: self }
+    }
+
+    fn group_by_key<K, F>(&self, f: F) -> GroupByKey<'_, T, F> {
         GroupByKey { slice: self, f }
+    }
+}
+
+/// This struct is created by [`SliceExt::group`].
+pub struct Group<'a, T> {
+    slice: &'a [T],
+}
+
+impl<'a, T> Iterator for Group<'a, T>
+where
+    T: PartialEq,
+{
+    type Item = (&'a T, usize);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut iter = self.slice.iter();
+        let first = iter.next()?;
+        let count = 1 + iter.take_while(|&t| t == first).count();
+        self.slice = &self.slice[count ..];
+        Some((first, count))
     }
 }
 
@@ -115,15 +140,10 @@ where
     type Item = (K, &'a [T]);
 
     fn next(&mut self) -> Option<Self::Item> {
-        let first = self.slice.first()?;
-        let key = (self.f)(first);
-
-        let mut i = 1;
-        while self.slice.get(i).map_or(false, |t| (self.f)(t) == key) {
-            i += 1;
-        }
-
-        let (head, tail) = self.slice.split_at(i);
+        let mut iter = self.slice.iter();
+        let key = (self.f)(iter.next()?);
+        let count = 1 + iter.take_while(|t| (self.f)(t) == key).count();
+        let (head, tail) = self.slice.split_at(count);
         self.slice = tail;
         Some((key, head))
     }

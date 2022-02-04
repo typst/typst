@@ -239,9 +239,9 @@ impl<'a> ParLayouter<'a> {
                 ParChild::Text(_) => {
                     // TODO: Also split by language and script.
                     let mut cursor = range.start;
-                    for (level, group) in bidi.levels[range].group_by_key(|&lvl| lvl) {
+                    for (level, count) in bidi.levels[range].group() {
                         let start = cursor;
-                        cursor += group.len();
+                        cursor += count;
                         let subrange = start .. cursor;
                         let text = &bidi.text[subrange.clone()];
                         let shaped = shape(ctx.fonts, text, styles, level.dir());
