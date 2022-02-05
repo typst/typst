@@ -8,3 +8,10 @@
   [First],
   list([A], [B])
 )
+
+---
+// Ensure that constructor styles win, but not over outer styles.
+#set par(align: center)
+#par(align: right)[
+  A #rect(width: 2cm, fill: conifer, padding: 4pt)[B]
+]

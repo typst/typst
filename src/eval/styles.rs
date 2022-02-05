@@ -3,11 +3,6 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-// TODO(style): Possible optimizations:
-// - Ref-count map for cheaper cloning and smaller footprint
-// - Store map in `Option` to make empty maps non-allocating
-// - Store small properties inline
-
 /// An item with associated styles.
 #[derive(PartialEq, Clone, Hash)]
 pub struct Styled<T> {
@@ -68,15 +63,6 @@ impl StyleMap {
 
     /// Set the value for a style property.
     pub fn set<P: Property>(&mut self, key: P, value: P::Value) {
-        for entry in &mut self.0 {
-            if entry.is::<P>() {
-                let prev = entry.downcast::<P>().unwrap();
-                let folded = P::fold(value, prev.clone());
-                *entry = Entry::new(key, folded);
-                return;
-            }
-        }
-
         self.0.push(Entry::new(key, value));
     }
 
@@ -121,14 +107,7 @@ impl StyleMap {
     /// style maps, whereas `chain` would be used during layouting to combine
     /// immutable style maps from different levels of the hierarchy.
     pub fn apply(&mut self, outer: &Self) {
-        for outer in &outer.0 {
-            if let Some(inner) = self.0.iter_mut().find(|inner| inner.is_same(outer)) {
-                *inner = inner.fold(outer);
-                continue;
-            }
-
-            self.0.push(outer.clone());
-        }
+        self.0.splice(0 .. 0, outer.0.clone());
     }
 
     /// Subtract `other` from `self` in-place, keeping only styles that are in
@@ -144,7 +123,7 @@ impl StyleMap {
     }
 
     /// Whether two style maps are equal when filtered down to properties of the
-    /// class `T`.
+    /// node `T`.
     pub fn compatible<T: 'static>(&self, other: &Self) -> bool {
         let f = |entry: &&Entry| entry.is_of::<T>();
         self.0.iter().filter(f).count() == other.0.iter().filter(f).count()
@@ -154,7 +133,7 @@ impl StyleMap {
 
 impl Debug for StyleMap {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        for entry in &self.0 {
+        for entry in self.0.iter().rev() {
             writeln!(f, "{:#?}", entry)?;
         }
         Ok(())
@@ -176,23 +155,26 @@ impl PartialEq for StyleMap {
 /// matches further up the chain.
 #[derive(Clone, Copy, Hash)]
 pub struct StyleChain<'a> {
-    /// The first map in the chain.
+    /// The first link in the chain.
     first: Link<'a>,
-    /// The remaining maps in the chain.
+    /// The remaining links in the chain.
     outer: Option<&'a Self>,
 }
 
 /// The two kinds of links in the chain.
 #[derive(Clone, Copy, Hash)]
 enum Link<'a> {
+    /// Just a map with styles.
     Map(&'a StyleMap),
+    /// A barrier that, in combination with one more such barrier, stops scoped
+    /// styles for the node with this type id.
     Barrier(TypeId),
 }
 
 impl<'a> StyleChain<'a> {
     /// Start a new style chain with a root map.
-    pub fn new(map: &'a StyleMap) -> Self {
-        Self { first: Link::Map(map), outer: None }
+    pub fn new(first: &'a StyleMap) -> Self {
+        Self { first: Link::Map(first), outer: None }
     }
 
     /// Get the (folded) value of a copyable style property.
@@ -207,7 +189,7 @@ impl<'a> StyleChain<'a> {
     where
         P::Value: Copy,
     {
-        self.get_impl(key, 0)
+        self.get_cloned(key)
     }
 
     /// Get a reference to a style property's value.
@@ -222,7 +204,7 @@ impl<'a> StyleChain<'a> {
     where
         P: Nonfolding,
     {
-        self.get_ref_impl(key, 0)
+        self.values(key).next().unwrap_or_else(|| P::default_ref())
     }
 
     /// Get the (folded) value of any style property.
@@ -234,7 +216,15 @@ impl<'a> StyleChain<'a> {
     /// Returns the property's default value if no map in the chain contains an
     /// entry for it.
     pub fn get_cloned<P: Property>(self, key: P) -> P::Value {
-        self.get_impl(key, 0)
+        if P::FOLDING {
+            self.values(key)
+                .cloned()
+                .chain(std::iter::once(P::default()))
+                .reduce(P::fold)
+                .unwrap()
+        } else {
+            self.values(key).next().cloned().unwrap_or_else(P::default)
+        }
     }
 
     /// Insert a barrier into the style chain.
@@ -242,81 +232,60 @@ impl<'a> StyleChain<'a> {
     /// Barriers interact with [scoped](StyleMap::scoped) styles: A scoped style
     /// can still be read through a single barrier (the one of the node it
     /// _should_ apply to), but a second barrier will make it invisible.
-    pub fn barred<'b>(&'b self, class: TypeId) -> StyleChain<'b> {
-        if self.needs_barrier(class) {
+    pub fn barred<'b>(&'b self, node: TypeId) -> StyleChain<'b> {
+        if self
+            .maps()
+            .any(|map| map.0.iter().any(|entry| entry.scoped && entry.is_of_same(node)))
+        {
             StyleChain {
-                first: Link::Barrier(class),
+                first: Link::Barrier(node),
                 outer: Some(self),
             }
         } else {
             *self
         }
     }
-}
 
-impl<'a> StyleChain<'a> {
-    fn get_impl<P: Property>(self, key: P, depth: usize) -> P::Value {
-        let (value, depth) = self.process(key, depth);
-        if let Some(value) = value.cloned() {
-            if P::FOLDABLE {
-                if let Some(outer) = self.outer {
-                    P::fold(value, outer.get_cloned(key))
-                } else {
-                    P::fold(value, P::default())
-                }
-            } else {
-                value
+    /// Iterate over all values for the given property in the chain.
+    fn values<P: Property>(self, _: P) -> impl Iterator<Item = &'a P::Value> {
+        let mut depth = 0;
+        self.links().flat_map(move |link| {
+            let mut entries: &[Entry] = &[];
+            match link {
+                Link::Map(map) => entries = &map.0,
+                Link::Barrier(id) => depth += (id == P::node_id()) as usize,
             }
-        } else if let Some(outer) = self.outer {
-            outer.get_impl(key, depth)
-        } else {
-            P::default()
-        }
+            entries
+                .iter()
+                .rev()
+                .filter(move |entry| entry.is::<P>() && (!entry.scoped || depth <= 1))
+                .filter_map(|entry| entry.downcast::<P>())
+        })
     }
 
-    fn get_ref_impl<P: Property>(self, key: P, depth: usize) -> &'a P::Value
-    where
-        P: Nonfolding,
-    {
-        let (value, depth) = self.process(key, depth);
-        if let Some(value) = value {
-            value
-        } else if let Some(outer) = self.outer {
-            outer.get_ref_impl(key, depth)
-        } else {
-            P::default_ref()
-        }
+    /// Iterate over the links of the chain.
+    fn links(self) -> impl Iterator<Item = Link<'a>> {
+        let mut cursor = Some(self);
+        std::iter::from_fn(move || {
+            let Self { first, outer } = cursor?;
+            cursor = outer.copied();
+            Some(first)
+        })
     }
 
-    fn process<P: Property>(self, _: P, depth: usize) -> (Option<&'a P::Value>, usize) {
-        match self.first {
-            Link::Map(map) => (
-                map.0
-                    .iter()
-                    .find(|entry| entry.is::<P>() && (!entry.scoped || depth <= 1))
-                    .and_then(|entry| entry.downcast::<P>()),
-                depth,
-            ),
-            Link::Barrier(class) => (None, depth + (P::class_id() == class) as usize),
-        }
-    }
-
-    fn needs_barrier(self, class: TypeId) -> bool {
-        if let Link::Map(map) = self.first {
-            if map.0.iter().any(|entry| entry.is_of_same(class)) {
-                return true;
-            }
-        }
-
-        self.outer.map_or(false, |outer| outer.needs_barrier(class))
+    /// Iterate over the map links of the chain.
+    fn maps(self) -> impl Iterator<Item = &'a StyleMap> {
+        self.links().filter_map(|link| match link {
+            Link::Map(map) => Some(map),
+            Link::Barrier(_) => None,
+        })
     }
 }
 
 impl Debug for StyleChain<'_> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        self.first.fmt(f)?;
-        if let Some(outer) = self.outer {
-            outer.fmt(f)?;
+        for link in self.links() {
+            link.fmt(f)?;
         }
         Ok(())
     }
@@ -334,55 +303,56 @@ impl Debug for Link<'_> {
 /// An entry for a single style property.
 #[derive(Clone)]
 struct Entry {
-    p: Arc<dyn Bounds>,
+    pair: Arc<dyn Bounds>,
     scoped: bool,
 }
 
 impl Entry {
     fn new<P: Property>(key: P, value: P::Value) -> Self {
-        Self { p: Arc::new((key, value)), scoped: false }
+        Self {
+            pair: Arc::new((key, value)),
+            scoped: false,
+        }
     }
 
     fn is<P: Property>(&self) -> bool {
-        self.p.style_id() == TypeId::of::<P>()
-    }
-
-    fn is_same(&self, other: &Self) -> bool {
-        self.p.style_id() == other.p.style_id()
+        self.pair.style_id() == TypeId::of::<P>()
     }
 
     fn is_of<T: 'static>(&self) -> bool {
-        self.p.class_id() == TypeId::of::<T>()
+        self.pair.node_id() == TypeId::of::<T>()
     }
 
-    fn is_of_same(&self, class: TypeId) -> bool {
-        self.p.class_id() == class
+    fn is_of_same(&self, node: TypeId) -> bool {
+        self.pair.node_id() == node
     }
 
     fn downcast<P: Property>(&self) -> Option<&P::Value> {
-        self.p.as_any().downcast_ref()
-    }
-
-    fn fold(&self, outer: &Self) -> Self {
-        self.p.fold(outer)
+        self.pair.as_any().downcast_ref()
     }
 }
 
 impl Debug for Entry {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        self.p.dyn_fmt(f)
+        f.write_str("#[")?;
+        self.pair.dyn_fmt(f)?;
+        if self.scoped {
+            f.write_str(" (scoped)")?;
+        }
+        f.write_str("]")
     }
 }
 
 impl PartialEq for Entry {
     fn eq(&self, other: &Self) -> bool {
-        self.p.dyn_eq(other)
+        self.pair.dyn_eq(other) && self.scoped == other.scoped
     }
 }
 
 impl Hash for Entry {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write_u64(self.p.hash64());
+        state.write_u64(self.pair.hash64());
+        state.write_u8(self.scoped as u8);
     }
 }
 
@@ -390,7 +360,7 @@ impl Hash for Entry {
 ///
 /// This trait is not intended to be implemented manually, but rather through
 /// the `#[properties]` proc-macro.
-pub trait Property: Copy + Sync + Send + 'static {
+pub trait Property: Sync + Send + 'static {
     /// The type of value that is returned when getting this property from a
     /// style map. For example, this could be [`Length`](crate::geom::Length)
     /// for a `WIDTH` property.
@@ -400,10 +370,10 @@ pub trait Property: Copy + Sync + Send + 'static {
     const NAME: &'static str;
 
     /// Whether the property needs folding.
-    const FOLDABLE: bool = false;
+    const FOLDING: bool = false;
 
-    /// The type id of the class this property belongs to.
-    fn class_id() -> TypeId;
+    /// The type id of the node this property belongs to.
+    fn node_id() -> TypeId;
 
     /// The default value of the property.
     fn default() -> Self::Value;
@@ -437,9 +407,8 @@ trait Bounds: Sync + Send + 'static {
     fn dyn_fmt(&self, f: &mut Formatter) -> fmt::Result;
     fn dyn_eq(&self, other: &Entry) -> bool;
     fn hash64(&self) -> u64;
-    fn class_id(&self) -> TypeId;
+    fn node_id(&self) -> TypeId;
     fn style_id(&self) -> TypeId;
-    fn fold(&self, outer: &Entry) -> Entry;
 }
 
 impl<P: Property> Bounds for (P, P::Value) {
@@ -448,11 +417,11 @@ impl<P: Property> Bounds for (P, P::Value) {
     }
 
     fn dyn_fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "#[{} = {:?}]", P::NAME, self.1)
+        write!(f, "{} = {:?}", P::NAME, self.1)
     }
 
     fn dyn_eq(&self, other: &Entry) -> bool {
-        self.style_id() == other.p.style_id()
+        self.style_id() == other.pair.style_id()
             && if let Some(other) = other.downcast::<P>() {
                 &self.1 == other
             } else {
@@ -467,17 +436,11 @@ impl<P: Property> Bounds for (P, P::Value) {
         state.finish()
     }
 
-    fn class_id(&self) -> TypeId {
-        P::class_id()
+    fn node_id(&self) -> TypeId {
+        P::node_id()
     }
 
     fn style_id(&self) -> TypeId {
         TypeId::of::<P>()
-    }
-
-    fn fold(&self, outer: &Entry) -> Entry {
-        let outer = outer.downcast::<P>().unwrap();
-        let combined = P::fold(self.1.clone(), outer.clone());
-        Entry::new(self.0, combined)
     }
 }

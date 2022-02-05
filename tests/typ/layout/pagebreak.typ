@@ -25,8 +25,8 @@ D
 
 #set page(width: 80pt, height: 30pt)
 
-Fi[#set page(width: 80pt);rst]
-[#set page(width: 70pt); Second]
+[#set page(width: 80pt); First]
+#pagebreak()
 #pagebreak()
 #pagebreak()
 Fourth

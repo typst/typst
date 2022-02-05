@@ -148,7 +148,7 @@ fn process_const(
         if attr.path.is_ident("fold") {
             let func: syn::Expr = attr.parse_args()?;
             folder = Some(quote! {
-                const FOLDABLE: bool = true;
+                const FOLDING: bool = true;
 
                 fn fold(inner: Self::Value, outer: Self::Value) -> Self::Value {
                     let f: fn(Self::Value, Self::Value) -> Self::Value = #func;
@@ -179,7 +179,7 @@ fn process_const(
 
                 const NAME: &'static str = #name;
 
-                fn class_id() -> TypeId {
+                fn node_id() -> TypeId {
                     TypeId::of::<#self_ty>()
                 }
 
