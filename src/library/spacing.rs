@@ -31,6 +31,13 @@ pub enum SpacingKind {
     Fractional(Fractional),
 }
 
+impl SpacingKind {
+    /// Whether this is fractional spacing.
+    pub fn is_fractional(self) -> bool {
+        matches!(self, Self::Fractional(_))
+    }
+}
+
 castable! {
     SpacingKind,
     Expected: "linear or fractional",

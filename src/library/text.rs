@@ -19,7 +19,7 @@ use crate::util::{EcoString, SliceExt};
 
 /// A single run of text with the same style.
 #[derive(Hash)]
-pub struct TextNode(pub EcoString);
+pub struct TextNode;
 
 #[class]
 impl TextNode {
@@ -141,12 +141,6 @@ impl TextNode {
         styles.set_opt(Self::FEATURES, args.named("features")?);
 
         Ok(())
-    }
-}
-
-impl Debug for TextNode {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "Text({:?})", self.0)
     }
 }
 

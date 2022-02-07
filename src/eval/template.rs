@@ -1,11 +1,12 @@
-use std::convert::TryFrom;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::iter::Sum;
 use std::mem;
 use std::ops::{Add, AddAssign};
 
-use super::{Property, StyleMap, Styled};
+use typed_arena::Arena;
+
+use super::{CollapsingBuilder, Interruption, Property, StyleMap, StyleVecBuilder};
 use crate::diag::StrResult;
 use crate::layout::{Layout, PackedNode};
 use crate::library::prelude::*;
@@ -50,16 +51,16 @@ pub enum Template {
     Horizontal(SpacingKind),
     /// Plain text.
     Text(EcoString),
-    /// An inline node.
+    /// An inline-level node.
     Inline(PackedNode),
     /// A paragraph break.
     Parbreak,
-    /// Vertical spacing.
-    Vertical(SpacingKind),
-    /// A block node.
-    Block(PackedNode),
     /// A column break.
     Colbreak,
+    /// Vertical spacing.
+    Vertical(SpacingKind),
+    /// A block-level node.
+    Block(PackedNode),
     /// A page break.
     Pagebreak,
     /// A page node.
@@ -95,12 +96,11 @@ impl Template {
     /// Layout this template into a collection of pages.
     pub fn layout(&self, ctx: &mut Context) -> Vec<Arc<Frame>> {
         let (mut ctx, styles) = LayoutContext::new(ctx);
-        let mut packer = Packer::new(true);
-        packer.walk(self.clone(), StyleMap::new());
-        packer
-            .into_root()
+        let (pages, shared) = Builder::build_pages(self);
+        let styles = shared.chain(&styles);
+        pages
             .iter()
-            .flat_map(|styled| styled.item.layout(&mut ctx, styled.map.chain(&styles)))
+            .flat_map(|(page, map)| page.layout(&mut ctx, map.chain(&styles)))
             .collect()
     }
 
@@ -159,13 +159,13 @@ impl Debug for Template {
                 f.write_str(")")
             }
             Self::Parbreak => f.pad("Parbreak"),
+            Self::Colbreak => f.pad("Colbreak"),
             Self::Vertical(kind) => write!(f, "Vertical({kind:?})"),
             Self::Block(node) => {
                 f.write_str("Block(")?;
                 node.fmt(f)?;
                 f.write_str(")")
             }
-            Self::Colbreak => f.pad("Colbreak"),
             Self::Pagebreak => f.pad("Pagebreak"),
             Self::Page(page) => page.fmt(f),
             Self::Styled(sub, map) => {
@@ -220,338 +220,172 @@ impl Layout for Template {
         regions: &Regions,
         styles: StyleChain,
     ) -> Vec<Constrained<Arc<Frame>>> {
-        let mut packer = Packer::new(false);
-        packer.walk(self.clone(), StyleMap::new());
-        packer.into_block().layout(ctx, regions, styles)
+        let (flow, shared) = Builder::build_flow(self);
+        flow.layout(ctx, regions, shared.chain(&styles))
     }
 
     fn pack(self) -> PackedNode {
-        if let Template::Block(packed) = self {
-            packed
-        } else {
-            PackedNode::new(self)
+        match self {
+            Template::Block(node) => node,
+            other => PackedNode::new(other),
         }
     }
 }
 
-/// Packs a [`Template`] into a flow or root node.
-struct Packer {
-    /// Whether this packer produces a root node.
-    top: bool,
-    /// The accumulated page nodes.
-    pages: Vec<Styled<PageNode>>,
-    /// The accumulated flow children.
-    flow: Builder<Styled<FlowChild>>,
-    /// The accumulated paragraph children.
-    par: Builder<Styled<ParChild>>,
+/// Builds a flow or page nodes from a template.
+struct Builder<'a> {
+    /// An arena where intermediate style chains are stored.
+    arena: &'a Arena<StyleChain<'a>>,
+    /// The already built page runs.
+    pages: Option<StyleVecBuilder<'a, PageNode>>,
+    /// The currently built flow.
+    flow: CollapsingBuilder<'a, FlowChild>,
+    /// The currently built paragraph.
+    par: CollapsingBuilder<'a, ParChild>,
+    /// Whether to keep the next page even if it is empty.
+    keep_next: bool,
 }
 
-impl Packer {
-    /// Start a new template-packing session.
-    fn new(top: bool) -> Self {
+impl<'a> Builder<'a> {
+    /// Build page runs from a template.
+    fn build_pages(template: &Template) -> (StyleVec<PageNode>, StyleMap) {
+        let arena = Arena::new();
+
+        let mut builder = Builder::prepare(&arena, true);
+        builder.process(template, StyleChain::default());
+        builder.finish_page(true, false, StyleChain::default());
+
+        let (pages, shared) = builder.pages.unwrap().finish();
+        (pages, shared.to_map())
+    }
+
+    /// Build a subflow from a template.
+    fn build_flow(template: &Template) -> (FlowNode, StyleMap) {
+        let arena = Arena::new();
+
+        let mut builder = Builder::prepare(&arena, false);
+        builder.process(template, StyleChain::default());
+        builder.finish_par();
+
+        let (flow, shared) = builder.flow.finish();
+        (FlowNode(flow), shared.to_map())
+    }
+
+    /// Prepare the builder.
+    fn prepare(arena: &'a Arena<StyleChain<'a>>, top: bool) -> Self {
         Self {
-            top,
-            pages: vec![],
-            flow: Builder::default(),
-            par: Builder::default(),
+            arena,
+            pages: top.then(|| StyleVecBuilder::new()),
+            flow: CollapsingBuilder::new(),
+            par: CollapsingBuilder::new(),
+            keep_next: true,
         }
     }
 
-    /// Finish up and return the resulting flow.
-    fn into_block(mut self) -> PackedNode {
-        self.parbreak(None, false);
-        FlowNode(self.flow.children).pack()
-    }
-
-    /// Finish up and return the resulting root node.
-    fn into_root(mut self) -> Vec<Styled<PageNode>> {
-        self.pagebreak();
-        self.pages
-    }
-
-    /// Consider a template with the given styles.
-    fn walk(&mut self, template: Template, styles: StyleMap) {
+    /// Process a template.
+    fn process(&mut self, template: &'a Template, styles: StyleChain<'a>) {
         match template {
             Template::Space => {
-                // A text space is "soft", meaning that it can be eaten up by
-                // adjacent line breaks or explicit spacings.
-                self.par.last.soft(Styled::new(ParChild::text(' '), styles), false);
+                self.par.weak(ParChild::Text(' '.into()), styles);
             }
             Template::Linebreak => {
-                // A line break eats up surrounding text spaces.
-                self.par.last.hard();
-                self.push_inline(Styled::new(ParChild::text('\n'), styles));
-                self.par.last.hard();
-            }
-            Template::Parbreak => {
-                // An explicit paragraph break is styled according to the active
-                // styles (`Some(_)`) whereas paragraph breaks forced by
-                // incompatibility take their styles from the preceding
-                // paragraph.
-                self.parbreak(Some(styles), true);
-            }
-            Template::Colbreak => {
-                // Explicit column breaks end the current paragraph and then
-                // discards the paragraph break.
-                self.parbreak(None, false);
-                self.make_flow_compatible(&styles);
-                self.flow.children.push(Styled::new(FlowChild::Skip, styles));
-                self.flow.last.hard();
-            }
-            Template::Pagebreak => {
-                // We must set the flow styles after the page break such that an
-                // empty page created by two page breaks in a row has styles at
-                // all.
-                self.pagebreak();
-                self.flow.styles = styles;
-            }
-            Template::Text(text) => {
-                self.push_inline(Styled::new(ParChild::text(text), styles));
+                self.par.destructive(ParChild::Text('\n'.into()), styles);
             }
             Template::Horizontal(kind) => {
-                // Just like a line break, explicit horizontal spacing eats up
-                // surrounding text spaces.
-                self.par.last.hard();
-                self.push_inline(Styled::new(ParChild::Spacing(kind), styles));
-                self.par.last.hard();
+                let child = ParChild::Spacing(*kind);
+                if kind.is_fractional() {
+                    self.par.destructive(child, styles);
+                } else {
+                    self.par.ignorant(child, styles);
+                }
+            }
+            Template::Text(text) => {
+                self.par.supportive(ParChild::Text(text.clone()), styles);
+            }
+            Template::Inline(node) => {
+                self.par.supportive(ParChild::Node(node.clone()), styles);
+            }
+            Template::Parbreak => {
+                self.finish_par();
+                self.flow.weak(FlowChild::Parbreak, styles);
+            }
+            Template::Colbreak => {
+                self.finish_par();
+                self.flow.destructive(FlowChild::Colbreak, styles);
             }
             Template::Vertical(kind) => {
-                // Explicit vertical spacing ends the current paragraph and then
-                // discards the paragraph break.
-                self.parbreak(None, false);
-                self.make_flow_compatible(&styles);
-                self.flow.children.push(Styled::new(FlowChild::Spacing(kind), styles));
-                self.flow.last.hard();
+                self.finish_par();
+                let child = FlowChild::Spacing(*kind);
+                if kind.is_fractional() {
+                    self.flow.destructive(child, styles);
+                } else {
+                    self.flow.ignorant(child, styles);
+                }
             }
-            Template::Inline(inline) => {
-                self.push_inline(Styled::new(ParChild::Node(inline), styles));
+            Template::Block(node) => {
+                self.finish_par();
+                let child = FlowChild::Node(node.clone());
+                if node.is::<PlaceNode>() {
+                    self.flow.ignorant(child, styles);
+                } else {
+                    self.flow.supportive(child, styles);
+                }
             }
-            Template::Block(block) => {
-                self.push_block(Styled::new(block, styles));
+            Template::Pagebreak => {
+                self.finish_page(true, true, styles);
             }
             Template::Page(page) => {
-                if self.top {
-                    self.pagebreak();
-                    self.pages.push(Styled::new(page, styles));
-                } else {
-                    self.push_block(Styled::new(page.0, styles));
+                self.finish_page(false, false, styles);
+                if let Some(pages) = &mut self.pages {
+                    pages.push(page.clone(), styles);
                 }
             }
-            Template::Styled(template, mut map) => {
-                map.apply(&styles);
-                self.walk(*template, map);
+            Template::Styled(sub, map) => {
+                let interruption = map.interruption();
+                match interruption {
+                    Some(Interruption::Page) => self.finish_page(false, true, styles),
+                    Some(Interruption::Par) => self.finish_par(),
+                    None => {}
+                }
+
+                let outer = self.arena.alloc(styles);
+                let styles = map.chain(outer);
+                self.process(sub, styles);
+
+                match interruption {
+                    Some(Interruption::Page) => self.finish_page(true, false, styles),
+                    Some(Interruption::Par) => self.finish_par(),
+                    None => {}
+                }
             }
             Template::Sequence(seq) => {
-                // For a list of templates, we apply the list's styles to each
-                // templates individually.
-                for item in seq {
-                    self.walk(item, styles.clone());
+                for sub in seq {
+                    self.process(sub, styles);
                 }
             }
         }
     }
 
-    /// Insert an inline-level element into the current paragraph.
-    fn push_inline(&mut self, child: Styled<ParChild>) {
-        // The child's map must be both compatible with the current page and the
-        // current paragraph.
-        self.make_flow_compatible(&child.map);
-        self.make_par_compatible(&child.map);
-
-        if let Some(styled) = self.par.last.any() {
-            self.push_coalescing(styled);
+    /// Finish the currently built paragraph.
+    fn finish_par(&mut self) {
+        let (par, shared) = mem::take(&mut self.par).finish();
+        if !par.is_empty() {
+            let node = ParNode(par).pack();
+            self.flow.supportive(FlowChild::Node(node), shared);
         }
-
-        self.push_coalescing(child);
-        self.par.last.any();
     }
 
-    /// Push a paragraph child, coalescing text nodes with compatible styles.
-    fn push_coalescing(&mut self, child: Styled<ParChild>) {
-        if let ParChild::Text(right) = &child.item {
-            if let Some(Styled { item: ParChild::Text(left), map }) =
-                self.par.children.last_mut()
-            {
-                if child.map.compatible::<TextNode>(map) {
-                    left.0.push_str(&right.0);
-                    return;
-                }
+    /// Finish the currently built page run.
+    fn finish_page(&mut self, keep_last: bool, keep_next: bool, styles: StyleChain<'a>) {
+        self.finish_par();
+        if let Some(pages) = &mut self.pages {
+            let (flow, shared) = mem::take(&mut self.flow).finish();
+            if !flow.is_empty() || (keep_last && self.keep_next) {
+                let styles = if flow.is_empty() { styles } else { shared };
+                let node = PageNode(FlowNode(flow).pack());
+                pages.push(node, styles);
             }
         }
-
-        self.par.children.push(child);
-    }
-
-    /// Insert a block-level element into the current flow.
-    fn push_block(&mut self, node: Styled<PackedNode>) {
-        let placed = node.item.is::<PlaceNode>();
-
-        self.parbreak(Some(node.map.clone()), false);
-        self.make_flow_compatible(&node.map);
-        self.flow.children.extend(self.flow.last.any());
-        self.flow.children.push(node.map(FlowChild::Node));
-        self.parbreak(None, false);
-
-        // Prevent paragraph spacing between the placed node and the paragraph
-        // below it.
-        if placed {
-            self.flow.last.hard();
-        }
-    }
-
-    /// Advance to the next paragraph.
-    fn parbreak(&mut self, break_styles: Option<StyleMap>, important: bool) {
-        // Erase any styles that will be inherited anyway.
-        let Builder { mut children, styles, .. } = mem::take(&mut self.par);
-        for Styled { map, .. } in &mut children {
-            map.erase(&styles);
-        }
-
-        // We don't want empty paragraphs.
-        if !children.is_empty() {
-            // The paragraph's children are all compatible with the page, so the
-            // paragraph is too, meaning we don't need to check or intersect
-            // anything here.
-            let par = ParNode(children).pack();
-            self.flow.children.extend(self.flow.last.any());
-            self.flow.children.push(Styled::new(FlowChild::Node(par), styles));
-        }
-
-        // Actually styled breaks have precedence over whatever was before.
-        if break_styles.is_some() {
-            if let Last::Soft(_, false) = self.flow.last {
-                self.flow.last = Last::Any;
-            }
-        }
-
-        // For explicit paragraph breaks, `break_styles` is already `Some(_)`.
-        // For page breaks due to incompatibility, we fall back to the styles
-        // of the preceding thing.
-        let break_styles = break_styles
-            .or_else(|| self.flow.children.last().map(|styled| styled.map.clone()))
-            .unwrap_or_default();
-
-        // Insert paragraph spacing.
-        self.flow
-            .last
-            .soft(Styled::new(FlowChild::Break, break_styles), important);
-    }
-
-    /// Advance to the next page.
-    fn pagebreak(&mut self) {
-        if self.top {
-            self.parbreak(None, false);
-
-            // Take the flow and erase any styles that will be inherited anyway.
-            let Builder { mut children, styles, .. } = mem::take(&mut self.flow);
-            for Styled { map, .. } in &mut children {
-                map.erase(&styles);
-            }
-
-            let flow = FlowNode(children).pack();
-            self.pages.push(Styled::new(PageNode(flow), styles));
-        }
-    }
-
-    /// Break to a new paragraph if the `styles` contain paragraph styles that
-    /// are incompatible with the current paragraph.
-    fn make_par_compatible(&mut self, styles: &StyleMap) {
-        if self.par.children.is_empty() {
-            self.par.styles = styles.clone();
-            return;
-        }
-
-        if !self.par.styles.compatible::<ParNode>(styles) {
-            self.parbreak(Some(styles.clone()), false);
-            self.par.styles = styles.clone();
-            return;
-        }
-
-        self.par.styles.intersect(styles);
-    }
-
-    /// Break to a new page if the `styles` contain page styles that are
-    /// incompatible with the current flow.
-    fn make_flow_compatible(&mut self, styles: &StyleMap) {
-        if self.flow.children.is_empty() && self.par.children.is_empty() {
-            self.flow.styles = styles.clone();
-            return;
-        }
-
-        if self.top && !self.flow.styles.compatible::<PageNode>(styles) {
-            self.pagebreak();
-            self.flow.styles = styles.clone();
-            return;
-        }
-
-        self.flow.styles.intersect(styles);
-    }
-}
-
-/// Container for building a flow or paragraph.
-struct Builder<T> {
-    /// The intersection of the style properties of all `children`.
-    styles: StyleMap,
-    /// The accumulated flow or paragraph children.
-    children: Vec<T>,
-    /// The kind of thing that was last added.
-    last: Last<T>,
-}
-
-impl<T> Default for Builder<T> {
-    fn default() -> Self {
-        Self {
-            styles: StyleMap::new(),
-            children: vec![],
-            last: Last::None,
-        }
-    }
-}
-
-/// The kind of child that was last added to a flow or paragraph. A small finite
-/// state machine used to coalesce spaces.
-///
-/// Soft children can only exist when surrounded by `Any` children. Not at the
-/// start, end or next to hard children. This way, spaces at start and end of
-/// paragraphs and next to `#h(..)` goes away.
-enum Last<N> {
-    /// Start state, nothing there.
-    None,
-    /// Text or a block node or something.
-    Any,
-    /// Hard children: Linebreaks and explicit spacing.
-    Hard,
-    /// Soft children: Word spaces and paragraph breaks. These are saved here
-    /// temporarily and then applied once an `Any` child appears. The boolean
-    /// says whether this soft child is "important" and preferrable to other soft
-    /// nodes (that is the case for explicit paragraph breaks).
-    Soft(N, bool),
-}
-
-impl<N> Last<N> {
-    /// Transition into the `Any` state and return a soft child to really add
-    /// now if currently in `Soft` state.
-    fn any(&mut self) -> Option<N> {
-        match mem::replace(self, Self::Any) {
-            Self::Soft(soft, _) => Some(soft),
-            _ => None,
-        }
-    }
-
-    /// Transition into the `Soft` state, but only if in `Any`. Otherwise, the
-    /// soft child is discarded.
-    fn soft(&mut self, soft: N, important: bool) {
-        if matches!(
-            (&self, important),
-            (Self::Any, _) | (Self::Soft(_, false), true)
-        ) {
-            *self = Self::Soft(soft, important);
-        }
-    }
-
-    /// Transition into the `Hard` state, discarding a possibly existing soft
-    /// child and preventing further soft nodes from being added.
-    fn hard(&mut self) {
-        *self = Self::Hard;
+        self.keep_next = keep_next;
     }
 }

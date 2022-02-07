@@ -1,34 +1,33 @@
-// Test configuring page sizes and margins.
+// Test the page class.
+
+---
+// Just empty page.
+// Should result in auto-sized page, just like nothing.
+#page[]
+
+---
+// Just empty page with styles.
+// Should result in one conifer-colored A11 page.
+#page("a11", flipped: true, fill: conifer)[]
 
 ---
 // Set width and height.
+// Should result in one high and one wide page.
 #set page(width: 80pt, height: 80pt)
 [#set page(width: 40pt);High]
 [#set page(height: 40pt);Wide]
-
-// Set all margins at once.
-[
-  #set page(margins: 5pt)
-  #place(top + left)[TL]
-  #place(bottom + right)[BR]
-]
-
-// Set individual margins.
-#set page(height: 40pt)
-[#set page(left: 0pt); #align(left)[Left]]
-[#set page(right: 0pt); #align(right)[Right]]
-[#set page(top: 0pt); #align(top)[Top]]
-[#set page(bottom: 0pt); #align(bottom)[Bottom]]
-
-// Ensure that specific margins override general margins.
-[#set page(margins: 0pt, left: 20pt); Overriden]
 
 // Flipped predefined paper.
 [#set page(paper: "a11", flipped: true);Flipped A11]
 
 ---
+// Test page fill.
 #set page(width: 80pt, height: 40pt, fill: eastern)
 #text(15pt, "Roboto", fill: white, smallcaps: true)[Typst]
+#page(width: 40pt, fill: none, margins: auto, top: 10pt)[Hi]
 
-#set page(width: 40pt, fill: none, margins: auto, top: 10pt)
-Hi
+---
+// Just page followed by pagebreak.
+// Should result in one forest-colored A11 page and one auto-sized page.
+#page("a11", flipped: true, fill: forest)[]
+#pagebreak()

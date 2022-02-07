@@ -7,11 +7,11 @@ To the right! Where the sunlight peeks behind the mountain.
 
 ---
 // Test that explicit paragraph break respects active styles.
-#set par(spacing: 7pt)
+#set par(spacing: 0pt)
 [#set par(spacing: 100pt);First]
 
 [#set par(spacing: 100pt);Second]
-#set par(spacing: 20pt)
+#set par(spacing: 13.5pt)
 
 Third
 
@@ -21,31 +21,25 @@ Hello
 
 #set par(spacing: 100pt)
 World
-#set par(spacing: 0pt)
+#set par(spacing: 0pt, leading: 0pt)
 
 You
 
 ---
 // Test that paragraphs break due to incompatibility has correct spacing.
-A #set par(spacing: 0pt); B #parbreak() C
+A #set par(spacing: 0pt, leading: 0pt); B #parbreak() C
 
 ---
 // Test that paragraph breaks due to block nodes have the correct spacing.
+#set par(spacing: 10pt)
 - A
 
-#set par(spacing: 0pt)
+#set par(leading: 0pt)
 - B
 - C
-#set par(spacing: 5pt)
+#set par(leading: 5pt)
 - D
 - E
-
----
-// Test that paragraph break due to incompatibility respects
-// spacing defined by the two adjacent paragraphs.
-#let a = [#set par(spacing: 40pt);Hello]
-#let b = [#set par(spacing: 10pt);World]
-{a}{b}
 
 ---
 // Test weird metrics.

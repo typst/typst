@@ -24,6 +24,7 @@ fxhash = "0.2"
 itertools = "0.10"
 once_cell = "1"
 serde = { version = "1", features = ["derive"] }
+typed-arena = "2"
 
 # Text and font handling
 kurbo = "0.8"

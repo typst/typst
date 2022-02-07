@@ -1,35 +1,23 @@
 // Test forced page breaks.
 
 ---
-First of two
+// Just a pagebreak.
+// Should result in two auto-sized pages.
 #pagebreak()
-#set page(height: 40pt)
-Second of two
 
 ---
-// Make sure that you can't do page related stuff in a container.
-A
-#box[
-  B
-  #pagebreak()
-  #set page("a4")
-]
-C
-
-// No consequences from the page("A4") call here.
+// Pagebreak, empty with styles and then pagebreak
+// Should result in one auto-sized page and two conifer-colored A11 pages.
 #pagebreak()
-D
+#set page(width: 2cm, fill: conifer)
+#pagebreak()
 
 ---
-// Test a combination of pages with bodies and normal content.
-
+// Test a combination of pagebreaks, styled pages and pages with bodies.
 #set page(width: 80pt, height: 30pt)
-
-[#set page(width: 80pt); First]
+[#set page(width: 60pt); First]
 #pagebreak()
 #pagebreak()
-#pagebreak()
-Fourth
-#page(height: 20pt)[]
-Sixth
-[#set page(); Seventh]
+Third
+#page(height: 20pt, fill: forest)[]
+Fif[#set page();th]

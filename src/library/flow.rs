@@ -1,16 +1,27 @@
 //! A flow of paragraphs and other block-level nodes.
 
-use std::fmt::{self, Debug, Formatter};
-
 use super::prelude::*;
 use super::{AlignNode, ParNode, PlaceNode, SpacingKind, TextNode};
 
-/// A vertical flow of content consisting of paragraphs and other layout nodes.
+/// Arrange spacing, paragraphs and other block-level nodes into a flow.
 ///
 /// This node is reponsible for layouting both the top-level content flow and
 /// the contents of boxes.
 #[derive(Hash)]
-pub struct FlowNode(pub Vec<Styled<FlowChild>>);
+pub struct FlowNode(pub StyleVec<FlowChild>);
+
+/// A child of a flow node.
+#[derive(Hash)]
+pub enum FlowChild {
+    /// A paragraph / block break.
+    Parbreak,
+    /// A column / region break.
+    Colbreak,
+    /// Vertical spacing between other children.
+    Spacing(SpacingKind),
+    /// An arbitrary block-level node.
+    Node(PackedNode),
+}
 
 impl Layout for FlowNode {
     fn layout(
@@ -19,45 +30,58 @@ impl Layout for FlowNode {
         regions: &Regions,
         styles: StyleChain,
     ) -> Vec<Constrained<Arc<Frame>>> {
-        FlowLayouter::new(self, regions.clone()).layout(ctx, styles)
+        let mut layouter = FlowLayouter::new(regions);
+
+        for (child, map) in self.0.iter() {
+            let styles = map.chain(&styles);
+            match child {
+                FlowChild::Parbreak => {
+                    let em = styles.get(TextNode::SIZE).abs;
+                    let amount = styles.get(ParNode::SPACING).resolve(em);
+                    layouter.layout_spacing(SpacingKind::Linear(amount.into()));
+                }
+                FlowChild::Colbreak => {
+                    layouter.finish_region();
+                }
+                FlowChild::Spacing(kind) => {
+                    layouter.layout_spacing(*kind);
+                }
+                FlowChild::Node(ref node) => {
+                    layouter.layout_node(ctx, node, styles);
+                }
+            }
+        }
+
+        layouter.finish()
+    }
+}
+
+impl Merge for FlowChild {
+    fn merge(&mut self, _: &Self) -> bool {
+        false
     }
 }
 
 impl Debug for FlowNode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.write_str("Flow ")?;
-        f.debug_list().entries(&self.0).finish()
+        self.0.fmt(f)
     }
-}
-
-/// A child of a flow node.
-#[derive(Hash)]
-pub enum FlowChild {
-    /// A paragraph/block break.
-    Break,
-    /// Skip the rest of the region and move to the next.
-    Skip,
-    /// Vertical spacing between other children.
-    Spacing(SpacingKind),
-    /// An arbitrary node.
-    Node(PackedNode),
 }
 
 impl Debug for FlowChild {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Self::Break => f.pad("Break"),
-            Self::Skip => f.pad("Skip"),
-            Self::Spacing(kind) => kind.fmt(f),
+            Self::Parbreak => f.pad("Parbreak"),
+            Self::Colbreak => f.pad("Colbreak"),
+            Self::Spacing(kind) => write!(f, "{:?}", kind),
             Self::Node(node) => node.fmt(f),
         }
     }
 }
 
 /// Performs flow layout.
-struct FlowLayouter<'a> {
-    /// The children of the flow.
-    children: &'a [Styled<FlowChild>],
+pub struct FlowLayouter {
     /// The regions to layout children into.
     regions: Regions,
     /// Whether the flow should expand to fill the region.
@@ -69,6 +93,8 @@ struct FlowLayouter<'a> {
     used: Size,
     /// The sum of fractional ratios in the current region.
     fr: Fractional,
+    /// Whether to add leading before the next node.
+    leading: bool,
     /// Spacing and layouted nodes.
     items: Vec<FlowItem>,
     /// Finished frames for previous regions.
@@ -87,103 +113,76 @@ enum FlowItem {
     Placed(Arc<Frame>),
 }
 
-impl<'a> FlowLayouter<'a> {
+impl FlowLayouter {
     /// Create a new flow layouter.
-    fn new(flow: &'a FlowNode, mut regions: Regions) -> Self {
+    pub fn new(regions: &Regions) -> Self {
         let expand = regions.expand;
         let full = regions.current;
 
         // Disable vertical expansion for children.
+        let mut regions = regions.clone();
         regions.expand.y = false;
 
         Self {
-            children: &flow.0,
             regions,
             expand,
             full,
             used: Size::zero(),
             fr: Fractional::zero(),
+            leading: false,
             items: vec![],
             finished: vec![],
         }
     }
 
-    /// Layout all children.
-    fn layout(
-        mut self,
-        ctx: &mut LayoutContext,
-        styles: StyleChain,
-    ) -> Vec<Constrained<Arc<Frame>>> {
-        for styled in self.children {
-            let styles = styled.map.chain(&styles);
-            match styled.item {
-                FlowChild::Break => {
-                    let em = styles.get(TextNode::SIZE).abs;
-                    let amount = styles.get(ParNode::SPACING).resolve(em);
-                    self.layout_absolute(amount.into());
-                }
-                FlowChild::Skip => {
-                    self.finish_region();
-                }
-                FlowChild::Spacing(kind) => {
-                    self.layout_spacing(kind);
-                }
-                FlowChild::Node(ref node) => {
-                    if self.regions.is_full() {
-                        self.finish_region();
-                    }
-
-                    self.layout_node(ctx, node, styles);
-                }
-            }
-        }
-
-        if self.expand.y {
-            while self.regions.backlog.len() > 0 {
-                self.finish_region();
-            }
-        }
-
-        self.finish_region();
-        self.finished
-    }
-
     /// Layout spacing.
-    fn layout_spacing(&mut self, spacing: SpacingKind) {
+    pub fn layout_spacing(&mut self, spacing: SpacingKind) {
         match spacing {
-            SpacingKind::Linear(v) => self.layout_absolute(v),
+            SpacingKind::Linear(v) => {
+                // Resolve the linear and limit it to the remaining space.
+                let resolved = v.resolve(self.full.y);
+                let limited = resolved.min(self.regions.current.y);
+                self.regions.current.y -= limited;
+                self.used.y += limited;
+                self.items.push(FlowItem::Absolute(resolved));
+            }
             SpacingKind::Fractional(v) => {
                 self.items.push(FlowItem::Fractional(v));
                 self.fr += v;
+                self.leading = false;
             }
         }
     }
 
-    /// Layout absolute spacing.
-    fn layout_absolute(&mut self, amount: Linear) {
-        // Resolve the linear, limiting it to the remaining available space.
-        let resolved = amount.resolve(self.full.y);
-        let limited = resolved.min(self.regions.current.y);
-        self.regions.current.y -= limited;
-        self.used.y += limited;
-        self.items.push(FlowItem::Absolute(resolved));
-    }
-
     /// Layout a node.
-    fn layout_node(
+    pub fn layout_node(
         &mut self,
         ctx: &mut LayoutContext,
         node: &PackedNode,
         styles: StyleChain,
     ) {
+        // Don't even try layouting into a full region.
+        if self.regions.is_full() {
+            self.finish_region();
+        }
+
         // Placed nodes that are out of flow produce placed items which aren't
         // aligned later.
+        let mut is_placed = false;
         if let Some(placed) = node.downcast::<PlaceNode>() {
+            is_placed = true;
             if placed.out_of_flow() {
                 let frame = node.layout(ctx, &self.regions, styles).remove(0);
                 self.items.push(FlowItem::Placed(frame.item));
                 return;
             }
+        }
+
+        // Add leading.
+        if self.leading {
+            let em = styles.get(TextNode::SIZE).abs;
+            let amount = styles.get(ParNode::LEADING).resolve(em);
+            self.layout_spacing(SpacingKind::Linear(amount.into()));
         }
 
         // How to align the node.
@@ -211,10 +210,12 @@ impl<'a> FlowLayouter<'a> {
                 self.finish_region();
             }
         }
+
+        self.leading = !is_placed;
     }
 
     /// Finish the frame for one region.
-    fn finish_region(&mut self) {
+    pub fn finish_region(&mut self) {
         // Determine the size of the flow in this region dependening on whether
         // the region expands.
         let mut size = self.expand.select(self.full, self.used);
@@ -263,6 +264,19 @@ impl<'a> FlowLayouter<'a> {
         self.full = self.regions.current;
         self.used = Size::zero();
         self.fr = Fractional::zero();
+        self.leading = false;
         self.finished.push(output.constrain(cts));
+    }
+
+    /// Finish layouting and return the resulting frames.
+    pub fn finish(mut self) -> Vec<Constrained<Arc<Frame>>> {
+        if self.expand.y {
+            while self.regions.backlog.len() > 0 {
+                self.finish_region();
+            }
+        }
+
+        self.finish_region();
+        self.finished
     }
 }

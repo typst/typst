@@ -6,11 +6,10 @@ Sekretariat MA \
 Dr. Max Mustermann \
 Ola Nordmann, John Doe
 
-#v(6mm)
+#v(2mm)
 #align(center)[
-  ==== 3. Übungsblatt Computerorientierte Mathematik II
-  #v(4mm)
-  *Abgabe: 03.05.2019* (bis 10:10 Uhr in MA 001) #v(4mm)
+  ==== 3. Übungsblatt Computerorientierte Mathematik II #v(1mm)
+  *Abgabe: 03.05.2019* (bis 10:10 Uhr in MA 001) #v(1mm)
   *Alle Antworten sind zu beweisen.*
 ]
 
@@ -21,5 +20,4 @@ Die Tiefe eines Knotens _v_ ist die Länge des eindeutigen Weges von der Wurzel
 zu _v_, und die Höhe von _v_ ist die Länge eines längsten (absteigenden) Weges
 von _v_ zu einem Blatt. Die Höhe des Baumes ist die Höhe der Wurzel.
 
-#v(6mm)
 #align(center, image("../res/graph.png", width: 75%))

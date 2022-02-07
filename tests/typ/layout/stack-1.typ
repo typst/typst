@@ -31,7 +31,7 @@
 ---
 // Test spacing.
 #set page(width: 50pt, margins: 0pt)
-#set par(spacing: 5pt)
+#set par(leading: 5pt)
 
 #let x = square(size: 10pt, fill: eastern)
 #stack(dir: rtl, spacing: 5pt, x, x, x)

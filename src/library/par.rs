@@ -1,6 +1,5 @@
 //! Paragraph layout.
 
-use std::fmt::{self, Debug, Formatter};
 use std::sync::Arc;
 
 use itertools::Either;
@@ -11,9 +10,20 @@ use super::prelude::*;
 use super::{shape, ShapedText, SpacingKind, TextNode};
 use crate::util::{ArcExt, EcoString, RangeExt, SliceExt};
 
-/// Arrange text, spacing and inline nodes into a paragraph.
+/// Arrange text, spacing and inline-level nodes into a paragraph.
 #[derive(Hash)]
-pub struct ParNode(pub Vec<Styled<ParChild>>);
+pub struct ParNode(pub StyleVec<ParChild>);
+
+/// A uniformly styled atomic piece of a paragraph.
+#[derive(Hash)]
+pub enum ParChild {
+    /// A chunk of text.
+    Text(EcoString),
+    /// Horizontal spacing between other children.
+    Spacing(SpacingKind),
+    /// An arbitrary inline-level node.
+    Node(PackedNode),
+}
 
 #[class]
 impl ParNode {
@@ -23,8 +33,8 @@ impl ParNode {
     pub const ALIGN: Align = Align::Left;
     /// The spacing between lines (dependent on scaled font size).
     pub const LEADING: Linear = Relative::new(0.65).into();
-    /// The spacing between paragraphs (dependent on scaled font size).
-    pub const SPACING: Linear = Relative::new(1.2).into();
+    /// The extra spacing between paragraphs (dependent on scaled font size).
+    pub const SPACING: Linear = Relative::new(0.55).into();
 
     fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
         // The paragraph constructor is special: It doesn't create a paragraph
@@ -116,9 +126,9 @@ impl ParNode {
 
     /// The string representation of each child.
     fn strings(&self) -> impl Iterator<Item = &str> {
-        self.0.iter().map(|styled| match &styled.item {
+        self.0.items().map(|child| match child {
+            ParChild::Text(text) => text,
             ParChild::Spacing(_) => " ",
-            ParChild::Text(text) => &text.0,
             ParChild::Node(_) => "\u{FFFC}",
         })
     }
@@ -127,34 +137,27 @@ impl ParNode {
 impl Debug for ParNode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.write_str("Par ")?;
-        f.debug_list().entries(&self.0).finish()
-    }
-}
-
-/// A child of a paragraph node.
-#[derive(Hash)]
-pub enum ParChild {
-    /// Spacing between other nodes.
-    Spacing(SpacingKind),
-    /// A run of text and how to align it in its line.
-    Text(TextNode),
-    /// Any child node and how to align it in its line.
-    Node(PackedNode),
-}
-
-impl ParChild {
-    /// Create a text child.
-    pub fn text(text: impl Into<EcoString>) -> Self {
-        Self::Text(TextNode(text.into()))
+        self.0.fmt(f)
     }
 }
 
 impl Debug for ParChild {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Self::Spacing(kind) => kind.fmt(f),
-            Self::Text(text) => text.fmt(f),
+            Self::Text(text) => write!(f, "Text({:?})", text),
+            Self::Spacing(kind) => write!(f, "{:?}", kind),
             Self::Node(node) => node.fmt(f),
+        }
+    }
+}
+
+impl Merge for ParChild {
+    fn merge(&mut self, next: &Self) -> bool {
+        if let (Self::Text(left), Self::Text(right)) = (self, next) {
+            left.push_str(right);
+            true
+        } else {
+            false
         }
     }
 }
@@ -222,20 +225,9 @@ impl<'a> ParLayouter<'a> {
         let mut ranges = vec![];
 
         // Layout the children and collect them into items.
-        for (range, styled) in par.ranges().zip(&par.0) {
-            let styles = styled.map.chain(styles);
-            match styled.item {
-                ParChild::Spacing(kind) => match kind {
-                    SpacingKind::Linear(v) => {
-                        let resolved = v.resolve(regions.current.x);
-                        items.push(ParItem::Absolute(resolved));
-                        ranges.push(range);
-                    }
-                    SpacingKind::Fractional(v) => {
-                        items.push(ParItem::Fractional(v));
-                        ranges.push(range);
-                    }
-                },
+        for (range, (child, map)) in par.ranges().zip(par.0.iter()) {
+            let styles = map.chain(styles);
+            match child {
                 ParChild::Text(_) => {
                     // TODO: Also split by language and script.
                     let mut cursor = range.start;
@@ -249,7 +241,18 @@ impl<'a> ParLayouter<'a> {
                         ranges.push(subrange);
                     }
                 }
-                ParChild::Node(ref node) => {
+                ParChild::Spacing(kind) => match *kind {
+                    SpacingKind::Linear(v) => {
+                        let resolved = v.resolve(regions.current.x);
+                        items.push(ParItem::Absolute(resolved));
+                        ranges.push(range);
+                    }
+                    SpacingKind::Fractional(v) => {
+                        items.push(ParItem::Fractional(v));
+                        ranges.push(range);
+                    }
+                },
+                ParChild::Node(node) => {
                     let size = Size::new(regions.current.x, regions.base.y);
                     let pod = Regions::one(size, regions.base, Spec::splat(false));
                     let frame = node.layout(ctx, &pod, styles).remove(0);

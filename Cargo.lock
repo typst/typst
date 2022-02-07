@@ -933,6 +933,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7ae2f58a822f08abdaf668897e96a5656fe72f5a9ce66422423e8849384872e6"
 
 [[package]]
+name = "typed-arena"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0685c84d5d54d1c26f7d3eb96cd41550adb97baed141a761cf335d3d33bcd0ae"
+
+[[package]]
 name = "typst"
 version = "0.1.0"
 dependencies = [
@@ -962,6 +968,7 @@ dependencies = [
  "syntect",
  "tiny-skia",
  "ttf-parser",
+ "typed-arena",
  "typst-macros",
  "unicode-bidi",
  "unicode-segmentation",

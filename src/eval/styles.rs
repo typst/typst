@@ -3,44 +3,10 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-/// An item with associated styles.
-#[derive(PartialEq, Clone, Hash)]
-pub struct Styled<T> {
-    /// The item to apply styles to.
-    pub item: T,
-    /// The associated style map.
-    pub map: StyleMap,
-}
-
-impl<T> Styled<T> {
-    /// Create a new instance from an item and a style map.
-    pub fn new(item: T, map: StyleMap) -> Self {
-        Self { item, map }
-    }
-
-    /// Create a new instance with empty style map.
-    pub fn bare(item: T) -> Self {
-        Self { item, map: StyleMap::new() }
-    }
-
-    /// Map the item with `f`.
-    pub fn map<F, U>(self, f: F) -> Styled<U>
-    where
-        F: FnOnce(T) -> U,
-    {
-        Styled { item: f(self.item), map: self.map }
-    }
-}
-
-impl<T: Debug> Debug for Styled<T> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        self.map.fmt(f)?;
-        self.item.fmt(f)
-    }
-}
+use crate::library::{PageNode, ParNode};
 
 /// A map of style properties.
-#[derive(Default, Clone, Hash)]
+#[derive(Default, Clone, PartialEq, Hash)]
 pub struct StyleMap(Vec<Entry>);
 
 impl StyleMap {
@@ -93,7 +59,7 @@ impl StyleMap {
             *outer
         } else {
             StyleChain {
-                first: Link::Map(self),
+                link: Some(Link::Map(self)),
                 outer: Some(outer),
             }
         }
@@ -103,31 +69,16 @@ impl StyleMap {
     /// equivalent to the style chain created by
     /// `self.chain(StyleChain::new(outer))`.
     ///
-    /// This is useful in the evaluation phase while building nodes and their
-    /// style maps, whereas `chain` would be used during layouting to combine
-    /// immutable style maps from different levels of the hierarchy.
+    /// This is useful over `chain` when you need an owned map without a
+    /// lifetime, for example, because you want to store the style map inside a
+    /// packed node.
     pub fn apply(&mut self, outer: &Self) {
         self.0.splice(0 .. 0, outer.0.clone());
     }
 
-    /// Subtract `other` from `self` in-place, keeping only styles that are in
-    /// `self` but not in `other`.
-    pub fn erase(&mut self, other: &Self) {
-        self.0.retain(|x| !other.0.contains(x));
-    }
-
-    /// Intersect `self` with `other` in-place, keeping only styles that are
-    /// both in `self` and `other`.
-    pub fn intersect(&mut self, other: &Self) {
-        self.0.retain(|x| other.0.contains(x));
-    }
-
-    /// Whether two style maps are equal when filtered down to properties of the
-    /// node `T`.
-    pub fn compatible<T: 'static>(&self, other: &Self) -> bool {
-        let f = |entry: &&Entry| entry.is_of::<T>();
-        self.0.iter().filter(f).count() == other.0.iter().filter(f).count()
-            && self.0.iter().filter(f).all(|x| other.0.contains(x))
+    /// The highest-level interruption of the map.
+    pub fn interruption(&self) -> Option<Interruption> {
+        self.0.iter().filter_map(|entry| entry.interruption()).max()
     }
 }
 
@@ -140,10 +91,13 @@ impl Debug for StyleMap {
     }
 }
 
-impl PartialEq for StyleMap {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.len() == other.0.len() && self.0.iter().all(|x| other.0.contains(x))
-    }
+/// Determines whether a style could interrupt some composable structure.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
+pub enum Interruption {
+    /// The style forces a paragraph break.
+    Par,
+    /// The style forces a page break.
+    Page,
 }
 
 /// A chain of style maps, similar to a linked list.
@@ -153,10 +107,10 @@ impl PartialEq for StyleMap {
 /// eagerly merging the maps, each access walks the hierarchy from the innermost
 /// to the outermost map, trying to find a match and then folding it with
 /// matches further up the chain.
-#[derive(Clone, Copy, Hash)]
+#[derive(Default, Clone, Copy, Hash)]
 pub struct StyleChain<'a> {
-    /// The first link in the chain.
-    first: Link<'a>,
+    /// The first link of this chain.
+    link: Option<Link<'a>>,
     /// The remaining links in the chain.
     outer: Option<&'a Self>,
 }
@@ -173,10 +127,52 @@ enum Link<'a> {
 
 impl<'a> StyleChain<'a> {
     /// Start a new style chain with a root map.
-    pub fn new(first: &'a StyleMap) -> Self {
-        Self { first: Link::Map(first), outer: None }
+    pub fn new(map: &'a StyleMap) -> Self {
+        Self { link: Some(Link::Map(map)), outer: None }
     }
 
+    /// The number of links in the chain.
+    pub fn len(self) -> usize {
+        self.links().count()
+    }
+
+    /// Convert to an owned style map.
+    ///
+    /// Panics if the chain contains barrier links.
+    pub fn to_map(self) -> StyleMap {
+        let mut suffix = StyleMap::new();
+        for link in self.links() {
+            match link {
+                Link::Map(map) => suffix.apply(map),
+                Link::Barrier(_) => panic!("chain contains barrier"),
+            }
+        }
+        suffix
+    }
+
+    /// Build a style map from the suffix (all links beyond the `len`) of the
+    /// chain.
+    ///
+    /// Panics if the suffix contains barrier links.
+    pub fn suffix(self, len: usize) -> StyleMap {
+        let mut suffix = StyleMap::new();
+        let remove = self.len().saturating_sub(len);
+        for link in self.links().take(remove) {
+            match link {
+                Link::Map(map) => suffix.apply(map),
+                Link::Barrier(_) => panic!("suffix contains barrier"),
+            }
+        }
+        suffix
+    }
+
+    /// Remove the last link from the chain.
+    pub fn pop(&mut self) {
+        *self = self.outer.copied().unwrap_or_default();
+    }
+}
+
+impl<'a> StyleChain<'a> {
     /// Get the (folded) value of a copyable style property.
     ///
     /// This is the method you should reach for first. If it doesn't work
@@ -235,17 +231,19 @@ impl<'a> StyleChain<'a> {
     pub fn barred<'b>(&'b self, node: TypeId) -> StyleChain<'b> {
         if self
             .maps()
-            .any(|map| map.0.iter().any(|entry| entry.scoped && entry.is_of_same(node)))
+            .any(|map| map.0.iter().any(|entry| entry.scoped && entry.is_of_id(node)))
         {
             StyleChain {
-                first: Link::Barrier(node),
+                link: Some(Link::Barrier(node)),
                 outer: Some(self),
             }
         } else {
             *self
         }
     }
+}
 
+impl<'a> StyleChain<'a> {
     /// Iterate over all values for the given property in the chain.
     fn values<P: Property>(self, _: P) -> impl Iterator<Item = &'a P::Value> {
         let mut depth = 0;
@@ -263,21 +261,21 @@ impl<'a> StyleChain<'a> {
         })
     }
 
-    /// Iterate over the links of the chain.
-    fn links(self) -> impl Iterator<Item = Link<'a>> {
-        let mut cursor = Some(self);
-        std::iter::from_fn(move || {
-            let Self { first, outer } = cursor?;
-            cursor = outer.copied();
-            Some(first)
-        })
-    }
-
     /// Iterate over the map links of the chain.
     fn maps(self) -> impl Iterator<Item = &'a StyleMap> {
         self.links().filter_map(|link| match link {
             Link::Map(map) => Some(map),
             Link::Barrier(_) => None,
+        })
+    }
+
+    /// Iterate over the links of the chain.
+    fn links(self) -> impl Iterator<Item = Link<'a>> {
+        let mut cursor = Some(self);
+        std::iter::from_fn(move || {
+            let Self { link, outer } = cursor?;
+            cursor = outer.copied();
+            link
         })
     }
 }
@@ -299,6 +297,192 @@ impl Debug for Link<'_> {
         }
     }
 }
+
+impl PartialEq for StyleChain<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        let as_ptr = |s| s as *const _;
+        self.link == other.link && self.outer.map(as_ptr) == other.outer.map(as_ptr)
+    }
+}
+
+impl PartialEq for Link<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        match (*self, *other) {
+            (Self::Map(a), Self::Map(b)) => std::ptr::eq(a, b),
+            (Self::Barrier(a), Self::Barrier(b)) => a == b,
+            _ => false,
+        }
+    }
+}
+
+/// A sequence of items with associated styles.
+#[derive(Hash)]
+pub struct StyleVec<T> {
+    items: Vec<T>,
+    maps: Vec<(StyleMap, usize)>,
+}
+
+impl<T> StyleVec<T> {
+    /// Whether there are any items in the sequence.
+    pub fn is_empty(&self) -> bool {
+        self.items.is_empty()
+    }
+
+    /// Iterate over the contained items.
+    pub fn items(&self) -> std::slice::Iter<'_, T> {
+        self.items.iter()
+    }
+
+    /// Iterate over the contained items and associated style maps.
+    pub fn iter(&self) -> impl Iterator<Item = (&T, &StyleMap)> + '_ {
+        let styles = self
+            .maps
+            .iter()
+            .flat_map(|(map, count)| std::iter::repeat(map).take(*count));
+        self.items().zip(styles)
+    }
+}
+
+impl<T> Default for StyleVec<T> {
+    fn default() -> Self {
+        Self { items: vec![], maps: vec![] }
+    }
+}
+
+impl<T: Debug> Debug for StyleVec<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_list()
+            .entries(self.iter().map(|(item, map)| {
+                crate::util::debug(|f| {
+                    map.fmt(f)?;
+                    item.fmt(f)
+                })
+            }))
+            .finish()
+    }
+}
+
+/// Assists in the construction of a [`StyleVec`].
+pub struct StyleVecBuilder<'a, T> {
+    items: Vec<T>,
+    chains: Vec<(StyleChain<'a>, usize)>,
+}
+
+impl<'a, T> StyleVecBuilder<'a, T> {
+    /// Create a new style-vec builder.
+    pub fn new() -> Self {
+        Self { items: vec![], chains: vec![] }
+    }
+
+    /// Push a new item into the style vector.
+    pub fn push(&mut self, item: T, styles: StyleChain<'a>) {
+        self.items.push(item);
+
+        if let Some((prev, count)) = self.chains.last_mut() {
+            if *prev == styles {
+                *count += 1;
+                return;
+            }
+        }
+
+        self.chains.push((styles, 1));
+    }
+
+    /// Access the last item mutably and its chain by value.
+    pub fn last_mut(&mut self) -> Option<(&mut T, StyleChain<'a>)> {
+        let item = self.items.last_mut()?;
+        let chain = self.chains.last()?.0;
+        Some((item, chain))
+    }
+
+    /// Finish building, returning a pair of two things:
+    /// - a style vector of items with the non-shared styles
+    /// - a shared prefix chain of styles that apply to all items
+    pub fn finish(self) -> (StyleVec<T>, StyleChain<'a>) {
+        let mut iter = self.chains.iter();
+        let mut trunk = match iter.next() {
+            Some(&(chain, _)) => chain,
+            None => return Default::default(),
+        };
+
+        let mut shared = trunk.len();
+        for &(mut chain, _) in iter {
+            let len = chain.len();
+            if len < shared {
+                for _ in 0 .. shared - len {
+                    trunk.pop();
+                }
+                shared = len;
+            } else if len > shared {
+                for _ in 0 .. len - shared {
+                    chain.pop();
+                }
+            }
+
+            while shared > 0 && chain != trunk {
+                trunk.pop();
+                chain.pop();
+                shared -= 1;
+            }
+        }
+
+        let maps = self
+            .chains
+            .into_iter()
+            .map(|(chain, count)| (chain.suffix(shared), count))
+            .collect();
+
+        (StyleVec { items: self.items, maps }, trunk)
+    }
+}
+
+impl<'a, T> Default for StyleVecBuilder<'a, T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Style property keys.
+///
+/// This trait is not intended to be implemented manually, but rather through
+/// the `#[class]` proc-macro.
+pub trait Property: Sync + Send + 'static {
+    /// The type of value that is returned when getting this property from a
+    /// style map. For example, this could be [`Length`](crate::geom::Length)
+    /// for a `WIDTH` property.
+    type Value: Debug + Clone + PartialEq + Hash + Sync + Send + 'static;
+
+    /// The name of the property, used for debug printing.
+    const NAME: &'static str;
+
+    /// Whether the property needs folding.
+    const FOLDING: bool = false;
+
+    /// The type id of the node this property belongs to.
+    fn node_id() -> TypeId;
+
+    /// The default value of the property.
+    fn default() -> Self::Value;
+
+    /// A static reference to the default value of the property.
+    ///
+    /// This is automatically implemented through lazy-initialization in the
+    /// `#[class]` macro. This way, expensive defaults don't need to be
+    /// recreated all the time.
+    fn default_ref() -> &'static Self::Value;
+
+    /// Fold the property with an outer value.
+    ///
+    /// For example, this would fold a relative font size with an outer
+    /// absolute font size.
+    #[allow(unused_variables)]
+    fn fold(inner: Self::Value, outer: Self::Value) -> Self::Value {
+        inner
+    }
+}
+
+/// Marker trait that indicates that a property doesn't need folding.
+pub trait Nonfolding {}
 
 /// An entry for a single style property.
 #[derive(Clone)]
@@ -323,12 +507,22 @@ impl Entry {
         self.pair.node_id() == TypeId::of::<T>()
     }
 
-    fn is_of_same(&self, node: TypeId) -> bool {
+    fn is_of_id(&self, node: TypeId) -> bool {
         self.pair.node_id() == node
     }
 
     fn downcast<P: Property>(&self) -> Option<&P::Value> {
         self.pair.as_any().downcast_ref()
+    }
+
+    fn interruption(&self) -> Option<Interruption> {
+        if self.is_of::<PageNode>() {
+            Some(Interruption::Page)
+        } else if self.is_of::<ParNode>() {
+            Some(Interruption::Par)
+        } else {
+            None
+        }
     }
 }
 
@@ -355,48 +549,6 @@ impl Hash for Entry {
         state.write_u8(self.scoped as u8);
     }
 }
-
-/// Style property keys.
-///
-/// This trait is not intended to be implemented manually, but rather through
-/// the `#[properties]` proc-macro.
-pub trait Property: Sync + Send + 'static {
-    /// The type of value that is returned when getting this property from a
-    /// style map. For example, this could be [`Length`](crate::geom::Length)
-    /// for a `WIDTH` property.
-    type Value: Debug + Clone + PartialEq + Hash + Sync + Send + 'static;
-
-    /// The name of the property, used for debug printing.
-    const NAME: &'static str;
-
-    /// Whether the property needs folding.
-    const FOLDING: bool = false;
-
-    /// The type id of the node this property belongs to.
-    fn node_id() -> TypeId;
-
-    /// The default value of the property.
-    fn default() -> Self::Value;
-
-    /// A static reference to the default value of the property.
-    ///
-    /// This is automatically implemented through lazy-initialization in the
-    /// `#[properties]` macro. This way, expensive defaults don't need to be
-    /// recreated all the time.
-    fn default_ref() -> &'static Self::Value;
-
-    /// Fold the property with an outer value.
-    ///
-    /// For example, this would fold a relative font size with an outer
-    /// absolute font size.
-    #[allow(unused_variables)]
-    fn fold(inner: Self::Value, outer: Self::Value) -> Self::Value {
-        inner
-    }
-}
-
-/// Marker trait that indicates that a property doesn't need folding.
-pub trait Nonfolding {}
 
 /// This trait is implemented for pairs of zero-sized property keys and their
 /// value types below. Although it is zero-sized, the property `P` must be part

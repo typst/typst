@@ -2,7 +2,7 @@
 
 ---
 // Ensure that constructor styles aren't passed down the tree.
-#set par(spacing: 2pt)
+#set par(leading: 2pt)
 #list(
   body-indent: 20pt,
   [First],
