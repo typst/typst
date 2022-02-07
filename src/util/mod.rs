@@ -9,9 +9,29 @@ pub use mac_roman::decode_mac_roman;
 
 use std::cell::RefMut;
 use std::cmp::Ordering;
+use std::fmt::{self, Debug, Formatter};
 use std::ops::Range;
 use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
+
+/// Turn a closure into a struct implementing [`Debug`].
+pub fn debug<F>(f: F) -> impl Debug
+where
+    F: Fn(&mut Formatter) -> fmt::Result,
+{
+    struct Wrapper<F>(F);
+
+    impl<F> Debug for Wrapper<F>
+    where
+        F: Fn(&mut Formatter) -> fmt::Result,
+    {
+        fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+            self.0(f)
+        }
+    }
+
+    Wrapper(f)
+}
 
 /// Additional methods for strings.
 pub trait StrExt {

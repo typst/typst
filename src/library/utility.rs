@@ -262,10 +262,10 @@ pub fn upper(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 
 /// Converts an integer into a roman numeral.
 ///
-/// Works for integer between 0 and 3,999,999 inclusive, returns None otherwise.
-/// Adapted from Yann Villessuzanne's roman.rs under the Unlicense, at
-/// https://github.com/linfir/roman.rs/
+/// Works for integer between 0 and 3,999,999.
 pub fn roman(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
+    // Adapted from Yann Villessuzanne's roman.rs under the Unlicense, at
+    // https://github.com/linfir/roman.rs/
     static PAIRS: &'static [(&'static str, usize)] = &[
         ("M̅", 1000000),
         ("D̅", 500000),
@@ -292,7 +292,7 @@ pub fn roman(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let Spanned { mut v, span } = args.expect("non-negative integer")?;
     match v {
         0_usize => return Ok("N".into()),
-        3_999_999 .. => {
+        4_000_000 .. => {
             bail!(
                 span,
                 "cannot convert integers greater than 3,999,999 to roman numerals"

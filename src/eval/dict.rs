@@ -1,6 +1,5 @@
 use std::collections::BTreeMap;
 use std::fmt::{self, Debug, Formatter, Write};
-use std::iter::FromIterator;
 use std::ops::{Add, AddAssign};
 use std::sync::Arc;
 

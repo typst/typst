@@ -1,5 +1,4 @@
 use std::cmp::Ordering;
-use std::convert::TryFrom;
 
 use super::{Dynamic, Value};
 use crate::diag::StrResult;

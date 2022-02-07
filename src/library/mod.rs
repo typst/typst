@@ -60,9 +60,9 @@ macro_rules! prelude {
 
 prelude! {
     pub use std::fmt::{self, Debug, Formatter};
+    pub use std::hash::Hash;
     pub use std::num::NonZeroUsize;
     pub use std::sync::Arc;
-    pub use std::hash::Hash;
 
     pub use typst_macros::class;
 

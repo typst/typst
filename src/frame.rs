@@ -127,18 +127,17 @@ impl Frame {
 
 impl Debug for Frame {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        struct Children<'a>(&'a [(Point, Element)]);
-
-        impl Debug for Children<'_> {
-            fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-                f.debug_map().entries(self.0.iter().map(|(k, v)| (k, v))).finish()
-            }
-        }
-
         f.debug_struct("Frame")
             .field("size", &self.size)
             .field("baseline", &self.baseline)
-            .field("children", &Children(&self.elements))
+            .field(
+                "children",
+                &crate::util::debug(|f| {
+                    f.debug_map()
+                        .entries(self.elements.iter().map(|(k, v)| (k, v)))
+                        .finish()
+                }),
+            )
             .finish()
     }
 }

@@ -1,7 +1,6 @@
 //! Text shaping and styling.
 
 use std::borrow::Cow;
-use std::convert::TryInto;
 use std::fmt::{self, Debug, Formatter};
 use std::ops::{BitXor, Range};
 
