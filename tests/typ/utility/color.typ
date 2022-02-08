@@ -3,20 +3,21 @@
 
 ---
 // Compare both ways.
-#test(rgb(0.0, 0.3, 0.7), rgb("004db3"))
+#test(rgb(0%, 30%, 70%), rgb("004db3"))
 
 // Alpha channel.
-#test(rgb(1.0, 0.0, 0.0, 0.5), rgb("ff000080"))
+#test(rgb(255, 0, 0, 50%), rgb("ff000080"))
+
+---
+// Test CMYK color conversion.
+// Ref: true
+#rect(fill: cmyk(69%, 11%, 69%, 41%))
+#rect(fill: cmyk(50%, 64%, 16%, 17%))
 
 ---
 // Error for values that are out of range.
-// Error: 11-14 value must be between 0.0 and 1.0
-#test(rgb(-30, 15.5, 0.5))
-
----
-// Error for values that are out of range.
-// Error: 26-30 value must be between 0.0 and 1.0
-#test(rgb(0.1, 0.2, 0.3, -0.1))
+// Error: 11-14 must be between 0 and 255
+#test(rgb(-30, 15, 50))
 
 ---
 // Error: 6-11 invalid hex string
@@ -31,5 +32,5 @@
 #rgb(0, 1)
 
 ---
-// Error: 21-26 expected float, found boolean
-#rgb(0.1, 0.2, 0.3, false)
+// Error: 21-26 expected integer or relative, found boolean
+#rgb(10%, 20%, 30%, false)

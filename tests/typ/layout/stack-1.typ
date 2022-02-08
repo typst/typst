@@ -8,8 +8,8 @@
 )
 
 #let shaded = {
-  let v = 0
-  let next() = { v += 0.1; rgb(v, v, v) }
+  let v = 0%
+  let next() = { v += 10%; rgb(v, v, v) }
   w => rect(width: w, height: 10pt, fill: next())
 }
 

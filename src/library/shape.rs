@@ -125,7 +125,7 @@ impl<S: ShapeKind> Layout for ShapeNode<S> {
         let thickness = styles.get(Self::THICKNESS);
         let stroke = styles
             .get(Self::STROKE)
-            .unwrap_or(fill.is_none().then(|| RgbaColor::BLACK.into()))
+            .unwrap_or(fill.is_none().then(|| Color::BLACK.into()))
             .map(|paint| Stroke { paint, thickness });
 
         if fill.is_some() || stroke.is_some() {

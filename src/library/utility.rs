@@ -94,20 +94,49 @@ pub fn rgb(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
                 Err(_) => bail!(string.span, "invalid hex string"),
             }
         } else {
-            let r = args.expect("red component")?;
-            let g = args.expect("green component")?;
-            let b = args.expect("blue component")?;
-            let a = args.eat()?.unwrap_or(Spanned::new(1.0, Span::detached()));
-            let f = |Spanned { v, span }: Spanned<f64>| {
-                if (0.0 ..= 1.0).contains(&v) {
-                    Ok((v * 255.0).round() as u8)
+            struct Component(u8);
+
+            castable! {
+                Component,
+                Expected: "integer or relative",
+                Value::Int(v) => match v {
+                    0 ..= 255 => Self(v as u8),
+                    _ => Err("must be between 0 and 255")?,
+                },
+                Value::Relative(v) => if (0.0 ..= 1.0).contains(&v.get()) {
+                    Self((v.get() * 255.0).round() as u8)
                 } else {
-                    bail!(span, "value must be between 0.0 and 1.0");
-                }
-            };
-            RgbaColor::new(f(r)?, f(g)?, f(b)?, f(a)?)
+                    Err("must be between 0% and 100%")?
+                },
+            }
+
+            let Component(r) = args.expect("red component")?;
+            let Component(g) = args.expect("green component")?;
+            let Component(b) = args.expect("blue component")?;
+            let Component(a) = args.eat()?.unwrap_or(Component(255));
+            RgbaColor::new(r, g, b, a)
         },
     ))
+}
+/// Create an CMYK color.
+pub fn cmyk(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
+    struct Component(u8);
+
+    castable! {
+        Component,
+        Expected: "relative",
+        Value::Relative(v) => if (0.0 ..= 1.0).contains(&v.get()) {
+            Self((v.get() * 255.0).round() as u8)
+        } else {
+            Err("must be between 0% and 100%")?
+        },
+    }
+
+    let Component(c) = args.expect("cyan component")?;
+    let Component(m) = args.expect("magenta component")?;
+    let Component(y) = args.expect("yellow component")?;
+    let Component(k) = args.expect("key component")?;
+    Ok(Value::Color(CmykColor::new(c, m, y, k).into()))
 }
 
 /// The absolute value of a numeric value.

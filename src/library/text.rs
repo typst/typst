@@ -51,7 +51,7 @@ impl TextNode {
     /// Whether a monospace font should be preferred.
     pub const MONOSPACE: bool = false;
     /// The glyph fill color.
-    pub const FILL: Paint = RgbaColor::BLACK.into();
+    pub const FILL: Paint = Color::BLACK.into();
     /// Decorative lines.
     #[fold(|a, b| a.into_iter().chain(b).collect())]
     pub const LINES: Vec<Decoration> = vec![];

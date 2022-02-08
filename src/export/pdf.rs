@@ -7,8 +7,10 @@ use std::sync::Arc;
 
 use image::{DynamicImage, GenericImageView, ImageFormat, ImageResult, Rgba};
 use pdf_writer::types::{
-    ActionType, AnnotationType, CidFontType, FontFlags, SystemInfo, UnicodeCmap,
+    ActionType, AnnotationType, CidFontType, ColorSpaceOperand, FontFlags, SystemInfo,
+    UnicodeCmap,
 };
+use pdf_writer::writers::ColorSpace;
 use pdf_writer::{Content, Filter, Finish, Name, PdfWriter, Rect, Ref, Str, TextStr};
 use ttf_parser::{name_id, GlyphId, Tag};
 
@@ -29,6 +31,9 @@ use crate::Context;
 pub fn pdf(ctx: &Context, frames: &[Arc<Frame>]) -> Vec<u8> {
     PdfExporter::new(ctx).export(frames)
 }
+
+/// Identifies the sRGB color space definition.
+pub const SRGB: Name<'static> = Name(b"sRGB");
 
 /// An exporter for a whole PDF document.
 struct PdfExporter<'a> {
@@ -316,6 +321,8 @@ impl<'a> PdfExporter<'a> {
         pages.count(page_refs.len() as i32).kids(page_refs);
 
         let mut resources = pages.resources();
+        resources.color_spaces().insert(SRGB).start::<ColorSpace>().srgb();
+
         let mut fonts = resources.fonts();
         for (font_ref, f) in self.face_map.pdf_indices(&self.face_refs) {
             let name = format_eco!("F{}", f);
@@ -390,6 +397,8 @@ impl<'a> PageExporter<'a> {
         // Make the coordinate system start at the top-left.
         self.bottom = frame.size.y.to_f32();
         self.content.transform([1.0, 0.0, 0.0, -1.0, 0.0, self.bottom]);
+        self.content.set_fill_color_space(ColorSpaceOperand::Named(SRGB));
+        self.content.set_stroke_color_space(ColorSpaceOperand::Named(SRGB));
         self.write_frame(frame);
         Page {
             size: frame.size,
@@ -624,23 +633,32 @@ impl<'a> PageExporter<'a> {
 
     fn set_fill(&mut self, fill: Paint) {
         if self.state.fill != Some(fill) {
-            let Paint::Solid(Color::Rgba(c)) = fill;
-            self.content.set_fill_rgb(
-                c.r as f32 / 255.0,
-                c.g as f32 / 255.0,
-                c.b as f32 / 255.0,
-            );
+            let f = |c| c as f32 / 255.0;
+            let Paint::Solid(color) = fill;
+            match color {
+                Color::Rgba(c) => {
+                    self.content.set_fill_color([f(c.r), f(c.g), f(c.b)]);
+                }
+                Color::Cmyk(c) => {
+                    self.content.set_fill_cmyk(f(c.c), f(c.m), f(c.y), f(c.k));
+                }
+            }
         }
     }
 
     fn set_stroke(&mut self, stroke: Stroke) {
         if self.state.stroke != Some(stroke) {
-            let Paint::Solid(Color::Rgba(c)) = stroke.paint;
-            self.content.set_stroke_rgb(
-                c.r as f32 / 255.0,
-                c.g as f32 / 255.0,
-                c.b as f32 / 255.0,
-            );
+            let f = |c| c as f32 / 255.0;
+            let Paint::Solid(color) = stroke.paint;
+            match color {
+                Color::Rgba(c) => {
+                    self.content.set_stroke_color([f(c.r), f(c.g), f(c.b)]);
+                }
+                Color::Cmyk(c) => {
+                    self.content.set_stroke_cmyk(f(c.c), f(c.m), f(c.y), f(c.k));
+                }
+            }
+
             self.content.set_line_width(stroke.thickness.to_f32());
         }
     }

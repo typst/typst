@@ -11,7 +11,7 @@ use walkdir::WalkDir;
 use typst::diag::Error;
 use typst::eval::{Smart, StyleMap, Value};
 use typst::frame::{Element, Frame};
-use typst::geom::Length;
+use typst::geom::{Length, RgbaColor};
 use typst::library::{PageNode, TextNode};
 use typst::loading::FsLoader;
 use typst::parse::Scanner;
@@ -77,6 +77,8 @@ fn main() {
 
     // Hook up an assert function into the global scope.
     let mut std = typst::library::new();
+    std.def_const("conifer", RgbaColor::new(0x9f, 0xEB, 0x52, 0xFF));
+    std.def_const("forest", RgbaColor::new(0x43, 0xA1, 0x27, 0xFF));
     std.def_func("test", move |_, args| {
         let lhs = args.expect::<Value>("left-hand side")?;
         let rhs = args.expect::<Value>("right-hand side")?;

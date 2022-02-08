@@ -39,7 +39,7 @@ use syntect::parsing::SyntaxSet;
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::diag::{At, Error, StrResult, Trace, Tracepoint, TypResult};
-use crate::geom::{Angle, Fractional, Length, Paint, Relative, RgbaColor};
+use crate::geom::{Angle, Color, Fractional, Length, Paint, Relative};
 use crate::image::ImageStore;
 use crate::layout::RootNode;
 use crate::library::{self, DecoLine, TextNode};
@@ -278,8 +278,8 @@ impl RawNode {
         let foreground = THEME
             .settings
             .foreground
-            .map(RgbaColor::from)
-            .unwrap_or(RgbaColor::BLACK)
+            .map(Color::from)
+            .unwrap_or(Color::BLACK)
             .into();
 
         match syntax {

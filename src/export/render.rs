@@ -10,7 +10,7 @@ use usvg::FitTo;
 
 use crate::font::{Face, FaceId};
 use crate::frame::{Element, Frame, Geometry, Group, Shape, Stroke, Text};
-use crate::geom::{self, Color, Length, Paint, PathElement, Size, Transform};
+use crate::geom::{self, Length, Paint, PathElement, Size, Transform};
 use crate::image::{Image, RasterImage, Svg};
 use crate::Context;
 
@@ -279,7 +279,8 @@ fn render_outline_glyph(
     let bottom = top + mh;
 
     // Premultiply the text color.
-    let Paint::Solid(Color::Rgba(c)) = text.fill;
+    let Paint::Solid(color) = text.fill;
+    let c = color.to_rgba();
     let color = sk::ColorU8::from_rgba(c.r, c.g, c.b, 255).premultiply().get();
 
     // Blend the glyph bitmap with the existing pixels on the canvas.
@@ -453,7 +454,8 @@ impl From<Transform> for sk::Transform {
 impl From<Paint> for sk::Paint<'static> {
     fn from(paint: Paint) -> Self {
         let mut sk_paint = sk::Paint::default();
-        let Paint::Solid(Color::Rgba(c)) = paint;
+        let Paint::Solid(color) = paint;
+        let c = color.to_rgba();
         sk_paint.set_color_rgba8(c.r, c.g, c.b, c.a);
         sk_paint.anti_alias = true;
         sk_paint

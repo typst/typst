@@ -21,7 +21,7 @@ impl TableNode {
     /// The secondary cell fill color.
     pub const SECONDARY: Option<Paint> = None;
     /// How the stroke the cells.
-    pub const STROKE: Option<Paint> = Some(RgbaColor::BLACK.into());
+    pub const STROKE: Option<Paint> = Some(Color::BLACK.into());
     /// The stroke's thickness.
     pub const THICKNESS: Length = Length::pt(1.0);
     /// How much to pad the cells's content.

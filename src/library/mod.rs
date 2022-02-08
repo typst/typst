@@ -142,6 +142,7 @@ pub fn new() -> Scope {
     std.def_func("mod", modulo);
     std.def_func("range", range);
     std.def_func("rgb", rgb);
+    std.def_func("cmyk", cmyk);
     std.def_func("lower", lower);
     std.def_func("upper", upper);
     std.def_func("roman", roman);
@@ -150,12 +151,24 @@ pub fn new() -> Scope {
     std.def_func("sorted", sorted);
 
     // Predefined colors.
-    // TODO: More colors.
-    std.def_const("white", RgbaColor::WHITE);
-    std.def_const("black", RgbaColor::BLACK);
-    std.def_const("eastern", RgbaColor::new(0x23, 0x9D, 0xAD, 0xFF));
-    std.def_const("conifer", RgbaColor::new(0x9f, 0xEB, 0x52, 0xFF));
-    std.def_const("forest", RgbaColor::new(0x43, 0xA1, 0x27, 0xFF));
+    std.def_const("black", Color::BLACK);
+    std.def_const("gray", Color::GRAY);
+    std.def_const("silver", Color::SILVER);
+    std.def_const("white", Color::WHITE);
+    std.def_const("navy", Color::NAVY);
+    std.def_const("blue", Color::BLUE);
+    std.def_const("aqua", Color::AQUA);
+    std.def_const("teal", Color::TEAL);
+    std.def_const("eastern", Color::EASTERN);
+    std.def_const("purple", Color::PURPLE);
+    std.def_const("fuchsia", Color::FUCHSIA);
+    std.def_const("maroon", Color::MAROON);
+    std.def_const("red", Color::RED);
+    std.def_const("orange", Color::ORANGE);
+    std.def_const("yellow", Color::YELLOW);
+    std.def_const("olive", Color::OLIVE);
+    std.def_const("green", Color::GREEN);
+    std.def_const("lime", Color::LIME);
 
     // Other constants.
     std.def_const("ltr", Dir::LTR);
