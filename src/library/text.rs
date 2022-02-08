@@ -24,13 +24,14 @@ pub struct TextNode;
 #[class]
 impl TextNode {
     /// A prioritized sequence of font families.
-    pub const FAMILY_LIST: Vec<FontFamily> = vec![FontFamily::SansSerif];
+    #[variadic]
+    pub const FAMILY: Vec<FontFamily> = vec![FontFamily::SansSerif];
     /// The serif font family/families.
-    pub const SERIF_LIST: Vec<NamedFamily> = vec![NamedFamily::new("IBM Plex Serif")];
+    pub const SERIF: Vec<NamedFamily> = vec![NamedFamily::new("IBM Plex Serif")];
     /// The sans-serif font family/families.
-    pub const SANS_SERIF_LIST: Vec<NamedFamily> = vec![NamedFamily::new("IBM Plex Sans")];
+    pub const SANS_SERIF: Vec<NamedFamily> = vec![NamedFamily::new("IBM Plex Sans")];
     /// The monospace font family/families.
-    pub const MONOSPACE_LIST: Vec<NamedFamily> = vec![NamedFamily::new("IBM Plex Mono")];
+    pub const MONOSPACE: Vec<NamedFamily> = vec![NamedFamily::new("IBM Plex Mono")];
     /// Whether to allow font fallback when the primary font list contains no
     /// match.
     pub const FALLBACK: bool = true;
@@ -41,23 +42,12 @@ impl TextNode {
     pub const WEIGHT: FontWeight = FontWeight::REGULAR;
     /// The width of the glyphs.
     pub const STRETCH: FontStretch = FontStretch::NORMAL;
-    /// Whether the font weight should be increased by 300.
-    #[fold(bool::bitxor)]
-    pub const STRONG: bool = false;
-    /// Whether the the font style should be inverted.
-    #[fold(bool::bitxor)]
-    pub const EMPH: bool = false;
-    /// Whether a monospace font should be preferred.
-    pub const MONOSPACE: bool = false;
     /// The glyph fill color.
+    #[shorthand]
     pub const FILL: Paint = Color::BLACK.into();
-    /// Decorative lines.
-    #[fold(|a, b| a.into_iter().chain(b).collect())]
-    pub const LINES: Vec<Decoration> = vec![];
-    /// An URL the text should link to.
-    pub const LINK: Option<EcoString> = None;
 
     /// The size of the glyphs.
+    #[shorthand]
     #[fold(Linear::compose)]
     pub const SIZE: Linear = Length::pt(11.0).into();
     /// The amount of space that should be added between characters.
@@ -94,73 +84,64 @@ impl TextNode {
     /// Raw OpenType features to apply.
     pub const FEATURES: Vec<(Tag, u32)> = vec![];
 
+    /// Whether the font weight should be increased by 300.
+    #[skip]
+    #[fold(bool::bitxor)]
+    pub const STRONG: bool = false;
+    /// Whether the the font style should be inverted.
+    #[skip]
+    #[fold(bool::bitxor)]
+    pub const EMPH: bool = false;
+    /// Whether a monospace font should be preferred.
+    #[skip]
+    pub const MONOSPACED: bool = false;
+    /// Decorative lines.
+    #[skip]
+    #[fold(|a, b| a.into_iter().chain(b).collect())]
+    pub const LINES: Vec<Decoration> = vec![];
+    /// An URL the text should link to.
+    #[skip]
+    pub const LINK: Option<EcoString> = None;
+
     fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
         // The text constructor is special: It doesn't create a text node.
         // Instead, it leaves the passed argument structurally unchanged, but
         // styles all text in it.
         args.expect("body")
     }
-
-    fn set(args: &mut Args, styles: &mut StyleMap) -> TypResult<()> {
-        let list = args.named("family")?.or_else(|| {
-            let families: Vec<_> = args.all().collect();
-            (!families.is_empty()).then(|| families)
-        });
-
-        styles.set_opt(Self::FAMILY_LIST, list);
-        styles.set_opt(Self::SERIF_LIST, args.named("serif")?);
-        styles.set_opt(Self::SANS_SERIF_LIST, args.named("sans-serif")?);
-        styles.set_opt(Self::MONOSPACE_LIST, args.named("monospace")?);
-        styles.set_opt(Self::FALLBACK, args.named("fallback")?);
-        styles.set_opt(Self::STYLE, args.named("style")?);
-        styles.set_opt(Self::WEIGHT, args.named("weight")?);
-        styles.set_opt(Self::STRETCH, args.named("stretch")?);
-        styles.set_opt(Self::FILL, args.named("fill")?.or_else(|| args.find()));
-        styles.set_opt(Self::SIZE, args.named("size")?.or_else(|| args.find()));
-        styles.set_opt(Self::TRACKING, args.named("tracking")?.map(Em::new));
-        styles.set_opt(Self::TOP_EDGE, args.named("top-edge")?);
-        styles.set_opt(Self::BOTTOM_EDGE, args.named("bottom-edge")?);
-        styles.set_opt(Self::KERNING, args.named("kerning")?);
-        styles.set_opt(Self::SMALLCAPS, args.named("smallcaps")?);
-        styles.set_opt(Self::ALTERNATES, args.named("alternates")?);
-        styles.set_opt(Self::STYLISTIC_SET, args.named("stylistic-set")?);
-        styles.set_opt(Self::LIGATURES, args.named("ligatures")?);
-        styles.set_opt(
-            Self::DISCRETIONARY_LIGATURES,
-            args.named("discretionary-ligatures")?,
-        );
-        styles.set_opt(
-            Self::HISTORICAL_LIGATURES,
-            args.named("historical-ligatures")?,
-        );
-        styles.set_opt(Self::NUMBER_TYPE, args.named("number-type")?);
-        styles.set_opt(Self::NUMBER_WIDTH, args.named("number-width")?);
-        styles.set_opt(Self::NUMBER_POSITION, args.named("number-position")?);
-        styles.set_opt(Self::SLASHED_ZERO, args.named("slashed-zero")?);
-        styles.set_opt(Self::FRACTIONS, args.named("fractions")?);
-        styles.set_opt(Self::FEATURES, args.named("features")?);
-
-        Ok(())
-    }
 }
 
 /// Strong text, rendered in boldface.
-pub struct StrongNode;
+#[derive(Debug, Hash)]
+pub struct StrongNode(pub Template);
 
 #[class]
 impl StrongNode {
     fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
-        Ok(args.expect::<Template>("body")?.styled(TextNode::STRONG, true))
+        Ok(Template::show(Self(args.expect("body")?)))
+    }
+}
+
+impl Show for StrongNode {
+    fn show(&self, _: StyleChain) -> Template {
+        self.0.clone().styled(TextNode::STRONG, true)
     }
 }
 
 /// Emphasized text, rendered with an italic face.
-pub struct EmphNode;
+#[derive(Debug, Hash)]
+pub struct EmphNode(pub Template);
 
 #[class]
 impl EmphNode {
     fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
-        Ok(args.expect::<Template>("body")?.styled(TextNode::EMPH, true))
+        Ok(Template::show(Self(args.expect("body")?)))
+    }
+}
+
+impl Show for EmphNode {
+    fn show(&self, _: StyleChain) -> Template {
+        self.0.clone().styled(TextNode::EMPH, true)
     }
 }
 
@@ -272,6 +253,12 @@ castable! {
     FontStretch,
     Expected: "relative",
     Value::Relative(v) => Self::from_ratio(v.get() as f32),
+}
+
+castable! {
+    Em,
+    Expected: "float",
+    Value::Float(v) => Self::new(v),
 }
 
 castable! {
@@ -644,18 +631,18 @@ fn variant(styles: StyleChain) -> FontVariant {
 
 /// Resolve a prioritized iterator over the font families.
 fn families(styles: StyleChain) -> impl Iterator<Item = &str> + Clone {
-    let head = if styles.get(TextNode::MONOSPACE) {
-        styles.get_ref(TextNode::MONOSPACE_LIST).as_slice()
+    let head = if styles.get(TextNode::MONOSPACED) {
+        styles.get_ref(TextNode::MONOSPACE).as_slice()
     } else {
         &[]
     };
 
-    let core = styles.get_ref(TextNode::FAMILY_LIST).iter().flat_map(move |family| {
+    let core = styles.get_ref(TextNode::FAMILY).iter().flat_map(move |family| {
         match family {
             FontFamily::Named(name) => std::slice::from_ref(name),
-            FontFamily::Serif => styles.get_ref(TextNode::SERIF_LIST),
-            FontFamily::SansSerif => styles.get_ref(TextNode::SANS_SERIF_LIST),
-            FontFamily::Monospace => styles.get_ref(TextNode::MONOSPACE_LIST),
+            FontFamily::Serif => styles.get_ref(TextNode::SERIF),
+            FontFamily::SansSerif => styles.get_ref(TextNode::SANS_SERIF),
+            FontFamily::Monospace => styles.get_ref(TextNode::MONOSPACE),
         }
     });
 

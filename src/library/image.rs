@@ -31,11 +31,6 @@ impl ImageNode {
             ImageNode(id).pack().sized(Spec::new(width, height)),
         ))
     }
-
-    fn set(args: &mut Args, styles: &mut StyleMap) -> TypResult<()> {
-        styles.set_opt(Self::FIT, args.named("fit")?);
-        Ok(())
-    }
 }
 
 impl Layout for ImageNode {

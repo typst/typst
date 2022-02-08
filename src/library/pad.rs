@@ -8,7 +8,7 @@ pub struct PadNode {
     /// The amount of padding.
     pub padding: Sides<Linear>,
     /// The child node whose sides to pad.
-    pub child: PackedNode,
+    pub child: LayoutNode,
 }
 
 #[class]
@@ -19,7 +19,7 @@ impl PadNode {
         let top = args.named("top")?;
         let right = args.named("right")?;
         let bottom = args.named("bottom")?;
-        let body: PackedNode = args.expect("body")?;
+        let body: LayoutNode = args.expect("body")?;
         let padding = Sides::new(
             left.or(all).unwrap_or_default(),
             top.or(all).unwrap_or_default(),

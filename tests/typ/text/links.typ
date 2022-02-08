@@ -1,3 +1,6 @@
+// Test hyperlinking.
+
+---
 // Link without body.
 #link("https://example.com/")
 
@@ -8,22 +11,25 @@
 This link appears #link("https://google.com/")[in the middle of] a paragraph.
 
 // Prefix is trimmed.
-Contact #link("mailto:hi@typst.app") or call #link("tel:123") for more information.
+Contact #link("mailto:hi@typst.app") or
+call #link("tel:123") for more information.
 
 ---
 // Styled with underline and color.
-#let link(url, body) = link(url, text(fill: rgb("283663"), underline(body)))
-You could also make the #link("https://html5zombo.com/")[link look way more typical.]
+#set link(fill: rgb("283663"))
+You could also make the
+#link("https://html5zombo.com/")[link look way more typical.]
 
 ---
 // Transformed link.
 #set page(height: 60pt)
-#let link = link("https://typst.app/")[LINK]
-My cool #move(x: 0.7cm, y: 0.7cm, rotate(10deg, scale(200%, link)))
+#set link(underline: false)
+#let mylink = link("https://typst.app/")[LINK]
+My cool #move(x: 0.7cm, y: 0.7cm, rotate(10deg, scale(200%, mylink)))
 
 ---
 // Link containing a block.
-#link("https://example.com/", block[
+#link("https://example.com/", underline: false, block[
   My cool rhino
   #move(x: 10pt, image("../../res/rhino.png", width: 1cm))
 ])

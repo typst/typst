@@ -14,18 +14,20 @@ pub mod hide;
 pub mod image;
 pub mod link;
 pub mod list;
+pub mod math;
 pub mod pad;
 pub mod page;
 pub mod par;
 pub mod place;
+pub mod raw;
 pub mod shape;
 pub mod spacing;
 pub mod stack;
 pub mod table;
 pub mod text;
 pub mod transform;
-pub mod utility;
 
+pub mod utility;
 pub use self::image::*;
 pub use align::*;
 pub use columns::*;
@@ -37,10 +39,12 @@ pub use heading::*;
 pub use hide::*;
 pub use link::*;
 pub use list::*;
+pub use math::*;
 pub use pad::*;
 pub use page::*;
 pub use par::*;
 pub use place::*;
+pub use raw::*;
 pub use shape::*;
 pub use spacing::*;
 pub use stack::*;
@@ -68,13 +72,13 @@ prelude! {
 
     pub use crate::diag::{At, TypResult};
     pub use crate::eval::{
-        Args, Construct, EvalContext, Merge, Property, Scope, Set, Smart, StyleChain,
-        StyleMap, StyleVec, Template, Value,
+        Args, Construct, EvalContext, Merge, Property, Scope, Set, Show, ShowNode, Smart,
+        StyleChain, StyleMap, StyleVec, Template, Value,
     };
     pub use crate::frame::*;
     pub use crate::geom::*;
     pub use crate::layout::{
-        Constrain, Constrained, Constraints, Layout, LayoutContext, PackedNode, Regions,
+        Constrain, Constrained, Constraints, Layout, LayoutContext, LayoutNode, Regions,
     };
     pub use crate::syntax::{Span, Spanned};
     pub use crate::util::{EcoString, OptionExt};
@@ -95,6 +99,8 @@ pub fn new() -> Scope {
     std.def_class::<TextNode>("text");
     std.def_class::<StrongNode>("strong");
     std.def_class::<EmphNode>("emph");
+    std.def_class::<RawNode>("raw");
+    std.def_class::<MathNode>("math");
     std.def_class::<DecoNode<Underline>>("underline");
     std.def_class::<DecoNode<Strikethrough>>("strike");
     std.def_class::<DecoNode<Overline>>("overline");
@@ -207,9 +213,9 @@ castable! {
 castable! {
     NonZeroUsize,
     Expected: "positive integer",
-    Value::Int(int) => int
+    Value::Int(int) => Value::Int(int)
+        .cast::<usize>()?
         .try_into()
-        .and_then(usize::try_into)
         .map_err(|_| "must be positive")?,
 }
 
@@ -226,7 +232,7 @@ castable! {
 }
 
 castable! {
-    PackedNode,
+    LayoutNode,
     Expected: "template",
     Value::Template(template) => template.pack(),
 }

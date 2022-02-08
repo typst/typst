@@ -10,7 +10,7 @@ impl BoxNode {
     fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
         let width = args.named("width")?;
         let height = args.named("height")?;
-        let body: PackedNode = args.find().unwrap_or_default();
+        let body: LayoutNode = args.find().unwrap_or_default();
         Ok(Template::inline(body.sized(Spec::new(width, height))))
     }
 }

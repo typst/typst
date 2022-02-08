@@ -10,7 +10,7 @@ pub struct GridNode {
     /// Defines sizing of gutter rows and columns between content.
     pub gutter: Spec<Vec<TrackSizing>>,
     /// The nodes to be arranged in a grid.
-    pub children: Vec<PackedNode>,
+    pub children: Vec<LayoutNode>,
 }
 
 #[class]
@@ -92,7 +92,7 @@ castable! {
 /// Performs grid layout.
 pub struct GridLayouter<'a> {
     /// The  grid cells.
-    cells: &'a [PackedNode],
+    cells: &'a [LayoutNode],
     /// The column tracks including gutter tracks.
     cols: Vec<TrackSizing>,
     /// The row tracks including gutter tracks.
@@ -136,7 +136,7 @@ impl<'a> GridLayouter<'a> {
     pub fn new(
         tracks: Spec<&[TrackSizing]>,
         gutter: Spec<&[TrackSizing]>,
-        cells: &'a [PackedNode],
+        cells: &'a [LayoutNode],
         regions: &Regions,
         styles: StyleChain<'a>,
     ) -> Self {
@@ -606,7 +606,7 @@ impl<'a> GridLayouter<'a> {
     ///
     /// Returns `None` if it's a gutter cell.
     #[track_caller]
-    fn cell(&self, x: usize, y: usize) -> Option<&'a PackedNode> {
+    fn cell(&self, x: usize, y: usize) -> Option<&'a LayoutNode> {
         assert!(x < self.cols.len());
         assert!(y < self.rows.len());
 

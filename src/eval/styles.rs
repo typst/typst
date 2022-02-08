@@ -49,6 +49,11 @@ impl StyleMap {
         self
     }
 
+    /// Whether this map contains scoped styles.
+    pub fn has_scoped(&self) -> bool {
+        self.0.iter().any(|e| e.scoped)
+    }
+
     /// Make `self` the first link of the style chain `outer`.
     ///
     /// The resulting style chain contains styles from `self` as well as
@@ -136,20 +141,6 @@ impl<'a> StyleChain<'a> {
         self.links().count()
     }
 
-    /// Convert to an owned style map.
-    ///
-    /// Panics if the chain contains barrier links.
-    pub fn to_map(self) -> StyleMap {
-        let mut suffix = StyleMap::new();
-        for link in self.links() {
-            match link {
-                Link::Map(map) => suffix.apply(map),
-                Link::Barrier(_) => panic!("chain contains barrier"),
-            }
-        }
-        suffix
-    }
-
     /// Build a style map from the suffix (all links beyond the `len`) of the
     /// chain.
     ///
@@ -169,6 +160,17 @@ impl<'a> StyleChain<'a> {
     /// Remove the last link from the chain.
     pub fn pop(&mut self) {
         *self = self.outer.copied().unwrap_or_default();
+    }
+
+    /// Return the chain, but without the last link if that one contains only
+    /// scoped styles. This is a hack.
+    pub(crate) fn unscoped(mut self, node: TypeId) -> Self {
+        if let Some(Link::Map(map)) = self.link {
+            if map.0.iter().all(|e| e.scoped && e.is_of_id(node)) {
+                self.pop();
+            }
+        }
+        self
     }
 }
 

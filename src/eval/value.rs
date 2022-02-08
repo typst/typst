@@ -115,7 +115,7 @@ impl Value {
     }
 
     /// Return the display representation of the value.
-    pub fn show(self) -> Template {
+    pub fn display(self) -> Template {
         match self {
             Value::None => Template::new(),
             Value::Int(v) => Template::Text(format_eco!("{}", v)),

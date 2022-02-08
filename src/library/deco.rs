@@ -4,55 +4,65 @@ use super::prelude::*;
 use super::TextNode;
 
 /// Typeset underline, striken-through or overlined text.
-pub struct DecoNode<L: LineKind>(pub L);
+#[derive(Debug, Hash)]
+pub struct DecoNode<L: LineKind> {
+    /// The kind of line.
+    pub kind: L,
+    /// The decorated contents.
+    pub body: Template,
+}
 
 #[class]
 impl<L: LineKind> DecoNode<L> {
+    /// Stroke color of the line, defaults to the text color if `None`.
+    #[shorthand]
+    pub const STROKE: Option<Paint> = None;
+    /// Thickness of the line's strokes (dependent on scaled font size), read
+    /// from the font tables if `None`.
+    #[shorthand]
+    pub const THICKNESS: Option<Linear> = None;
+    /// Position of the line relative to the baseline (dependent on scaled font
+    /// size), read from the font tables if `None`.
+    pub const OFFSET: Option<Linear> = None;
+    /// Amount that the line will be longer or shorter than its associated text
+    /// (dependent on scaled font size).
+    pub const EXTENT: Linear = Linear::zero();
+    /// Whether the line skips sections in which it would collide
+    /// with the glyphs. Does not apply to strikethrough.
+    pub const EVADE: bool = true;
+
     fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
-        let deco = Decoration {
+        Ok(Template::show(Self {
+            kind: L::default(),
+            body: args.expect::<Template>("body")?,
+        }))
+    }
+}
+
+impl<L: LineKind> Show for DecoNode<L> {
+    fn show(&self, styles: StyleChain) -> Template {
+        self.body.clone().styled(TextNode::LINES, vec![Decoration {
             line: L::LINE,
-            stroke: args.named("stroke")?.or_else(|| args.find()),
-            thickness: args.named::<Linear>("thickness")?.or_else(|| args.find()),
-            offset: args.named("offset")?,
-            extent: args.named("extent")?.unwrap_or_default(),
-            evade: args.named("evade")?.unwrap_or(true),
-        };
-        Ok(args.expect::<Template>("body")?.styled(TextNode::LINES, vec![deco]))
+            stroke: styles.get(Self::STROKE),
+            thickness: styles.get(Self::THICKNESS),
+            offset: styles.get(Self::OFFSET),
+            extent: styles.get(Self::EXTENT),
+            evade: styles.get(Self::EVADE),
+        }])
     }
 }
 
 /// Defines a line that is positioned over, under or on top of text.
+///
+/// For more details, see [`DecoNode`].
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Decoration {
-    /// Which line to draw.
     pub line: DecoLine,
-    /// Stroke color of the line, defaults to the text color if `None`.
     pub stroke: Option<Paint>,
-    /// Thickness of the line's strokes (dependent on scaled font size), read
-    /// from the font tables if `None`.
     pub thickness: Option<Linear>,
-    /// Position of the line relative to the baseline (dependent on scaled font
-    /// size), read from the font tables if `None`.
     pub offset: Option<Linear>,
-    /// Amount that the line will be longer or shorter than its associated text
-    /// (dependent on scaled font size).
     pub extent: Linear,
-    /// Whether the line skips sections in which it would collide
-    /// with the glyphs. Does not apply to strikethrough.
     pub evade: bool,
-}
-
-impl From<DecoLine> for Decoration {
-    fn from(line: DecoLine) -> Self {
-        Self {
-            line,
-            stroke: None,
-            thickness: None,
-            offset: None,
-            extent: Linear::zero(),
-            evade: true,
-        }
-    }
 }
 
 /// The kind of decorative line.
@@ -67,7 +77,7 @@ pub enum DecoLine {
 }
 
 /// Different kinds of decorative lines for text.
-pub trait LineKind {
+pub trait LineKind: Debug + Default + Hash + Sync + Send + 'static {
     const LINE: DecoLine;
 }
 

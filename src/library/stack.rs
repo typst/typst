@@ -64,7 +64,7 @@ pub enum StackChild {
     /// Spacing between other nodes.
     Spacing(SpacingKind),
     /// An arbitrary node.
-    Node(PackedNode),
+    Node(LayoutNode),
 }
 
 impl Debug for StackChild {
@@ -166,7 +166,7 @@ impl StackLayouter {
     pub fn layout_node(
         &mut self,
         ctx: &mut LayoutContext,
-        node: &PackedNode,
+        node: &LayoutNode,
         styles: StyleChain,
     ) {
         if self.regions.is_full() {

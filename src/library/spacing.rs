@@ -38,6 +38,12 @@ impl SpacingKind {
     }
 }
 
+impl From<Length> for SpacingKind {
+    fn from(length: Length) -> Self {
+        Self::Linear(length.into())
+    }
+}
+
 castable! {
     SpacingKind,
     Expected: "linear or fractional",

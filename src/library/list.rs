@@ -5,15 +5,15 @@ use super::{GridNode, TextNode, TrackSizing};
 
 /// An unordered or ordered list.
 #[derive(Debug, Hash)]
-pub struct ListNode<L: ListKind> {
-    /// The list labelling style -- unordered or ordered.
-    pub kind: L,
+pub struct ListNode<L: ListLabel> {
+    /// The list label -- unordered or ordered with index.
+    pub label: L,
     /// The node that produces the item's body.
-    pub child: PackedNode,
+    pub child: LayoutNode,
 }
 
 #[class]
-impl<L: ListKind> ListNode<L> {
+impl<L: ListLabel> ListNode<L> {
     /// The indentation of each item's label.
     pub const LABEL_INDENT: Linear = Relative::new(0.0).into();
     /// The space between the label and the body of each item.
@@ -22,29 +22,19 @@ impl<L: ListKind> ListNode<L> {
     fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
         Ok(args
             .all()
-            .map(|child: PackedNode| Template::block(Self { kind: L::default(), child }))
+            .enumerate()
+            .map(|(i, child)| Template::show(Self { label: L::new(1 + i), child }))
             .sum())
-    }
-
-    fn set(args: &mut Args, styles: &mut StyleMap) -> TypResult<()> {
-        styles.set_opt(Self::LABEL_INDENT, args.named("label-indent")?);
-        styles.set_opt(Self::BODY_INDENT, args.named("body-indent")?);
-        Ok(())
     }
 }
 
-impl<L: ListKind> Layout for ListNode<L> {
-    fn layout(
-        &self,
-        ctx: &mut LayoutContext,
-        regions: &Regions,
-        styles: StyleChain,
-    ) -> Vec<Constrained<Arc<Frame>>> {
+impl<L: ListLabel> Show for ListNode<L> {
+    fn show(&self, styles: StyleChain) -> Template {
         let em = styles.get(TextNode::SIZE).abs;
         let label_indent = styles.get(Self::LABEL_INDENT).resolve(em);
         let body_indent = styles.get(Self::BODY_INDENT).resolve(em);
 
-        let grid = GridNode {
+        Template::block(GridNode {
             tracks: Spec::with_x(vec![
                 TrackSizing::Linear(label_indent.into()),
                 TrackSizing::Auto,
@@ -53,19 +43,20 @@ impl<L: ListKind> Layout for ListNode<L> {
             ]),
             gutter: Spec::default(),
             children: vec![
-                PackedNode::default(),
-                Template::Text(self.kind.label()).pack(),
-                PackedNode::default(),
+                LayoutNode::default(),
+                Template::Text(self.label.label()).pack(),
+                LayoutNode::default(),
                 self.child.clone(),
             ],
-        };
-
-        grid.layout(ctx, regions, styles)
+        })
     }
 }
 
 /// How to label a list.
-pub trait ListKind: Debug + Default + Hash + Sync + Send + 'static {
+pub trait ListLabel: Debug + Default + Hash + Sync + Send + 'static {
+    /// Create a new list label.
+    fn new(number: usize) -> Self;
+
     /// Return the item's label.
     fn label(&self) -> EcoString;
 }
@@ -74,7 +65,11 @@ pub trait ListKind: Debug + Default + Hash + Sync + Send + 'static {
 #[derive(Debug, Default, Hash)]
 pub struct Unordered;
 
-impl ListKind for Unordered {
+impl ListLabel for Unordered {
+    fn new(_: usize) -> Self {
+        Self
+    }
+
     fn label(&self) -> EcoString {
         '•'.into()
     }
@@ -84,7 +79,11 @@ impl ListKind for Unordered {
 #[derive(Debug, Default, Hash)]
 pub struct Ordered(pub Option<usize>);
 
-impl ListKind for Ordered {
+impl ListLabel for Ordered {
+    fn new(number: usize) -> Self {
+        Self(Some(number))
+    }
+
     fn label(&self) -> EcoString {
         format_eco!("{}.", self.0.unwrap_or(1))
     }

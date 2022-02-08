@@ -30,18 +30,6 @@ You
 A #set par(spacing: 0pt, leading: 0pt); B #parbreak() C
 
 ---
-// Test that paragraph breaks due to block nodes have the correct spacing.
-#set par(spacing: 10pt)
-- A
-
-#set par(leading: 0pt)
-- B
-- C
-#set par(leading: 5pt)
-- D
-- E
-
----
 // Test weird metrics.
 #set par(spacing: 100%, leading: 0pt)
 But, soft! what light through yonder window breaks?

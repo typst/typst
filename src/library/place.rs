@@ -5,7 +5,7 @@ use super::AlignNode;
 
 /// Place a node at an absolute position.
 #[derive(Debug, Hash)]
-pub struct PlaceNode(pub PackedNode);
+pub struct PlaceNode(pub LayoutNode);
 
 #[class]
 impl PlaceNode {
@@ -13,7 +13,7 @@ impl PlaceNode {
         let aligns = args.find().unwrap_or(Spec::with_x(Some(Align::Left)));
         let tx = args.named("dx")?.unwrap_or_default();
         let ty = args.named("dy")?.unwrap_or_default();
-        let body: PackedNode = args.expect("body")?;
+        let body: LayoutNode = args.expect("body")?;
         Ok(Template::block(Self(
             body.moved(Point::new(tx, ty)).aligned(aligns),
         )))

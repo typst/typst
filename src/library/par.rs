@@ -22,7 +22,7 @@ pub enum ParChild {
     /// Horizontal spacing between other children.
     Spacing(SpacingKind),
     /// An arbitrary inline-level node.
-    Node(PackedNode),
+    Node(LayoutNode),
 }
 
 #[class]

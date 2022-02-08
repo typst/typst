@@ -3,7 +3,7 @@ use super::{StyleChain, StyleVec, StyleVecBuilder};
 /// A wrapper around a [`StyleVecBuilder`] that allows to collapse items.
 pub struct CollapsingBuilder<'a, T> {
     builder: StyleVecBuilder<'a, T>,
-    staged: Vec<(T, StyleChain<'a>, bool)>,
+    staged: Vec<(T, StyleChain<'a>, Option<u8>)>,
     last: Last,
 }
 
@@ -29,9 +29,21 @@ impl<'a, T: Merge> CollapsingBuilder<'a, T> {
     /// and to its right, with no destructive items or weak items in between to
     /// its left and no destructive items in between to its right. There may be
     /// ignorant items in between in both directions.
-    pub fn weak(&mut self, item: T, styles: StyleChain<'a>) {
-        if self.last == Last::Supportive {
-            self.staged.push((item, styles, true));
+    pub fn weak(&mut self, item: T, strength: u8, styles: StyleChain<'a>) {
+        if self.last != Last::Destructive {
+            if self.last == Last::Weak {
+                if let Some(i) = self
+                    .staged
+                    .iter()
+                    .position(|(.., prev)| prev.map_or(false, |p| p < strength))
+                {
+                    self.staged.remove(i);
+                } else {
+                    return;
+                }
+            }
+
+            self.staged.push((item, styles, Some(strength)));
             self.last = Last::Weak;
         }
     }
@@ -52,7 +64,7 @@ impl<'a, T: Merge> CollapsingBuilder<'a, T> {
 
     /// Has no influence on other items.
     pub fn ignorant(&mut self, item: T, styles: StyleChain<'a>) {
-        self.staged.push((item, styles, false));
+        self.staged.push((item, styles, None));
     }
 
     /// Return the finish style vec and the common prefix chain.
@@ -63,8 +75,8 @@ impl<'a, T: Merge> CollapsingBuilder<'a, T> {
 
     /// Push the staged items, filtering out weak items if `supportive` is false.
     fn flush(&mut self, supportive: bool) {
-        for (item, styles, weak) in self.staged.drain(..) {
-            if !weak || supportive {
+        for (item, styles, strength) in self.staged.drain(..) {
+            if supportive || strength.is_none() {
                 push_merging(&mut self.builder, item, styles);
             }
         }

@@ -10,7 +10,7 @@ pub struct ColumnsNode {
     pub columns: NonZeroUsize,
     /// The child to be layouted into the columns. Most likely, this should be a
     /// flow or stack node.
-    pub child: PackedNode,
+    pub child: LayoutNode,
 }
 
 #[class]
@@ -23,11 +23,6 @@ impl ColumnsNode {
             columns: args.expect("column count")?,
             child: args.expect("body")?,
         }))
-    }
-
-    fn set(args: &mut Args, styles: &mut StyleMap) -> TypResult<()> {
-        styles.set_opt(Self::GUTTER, args.named("gutter")?);
-        Ok(())
     }
 }
 

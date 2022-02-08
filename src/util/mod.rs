@@ -3,9 +3,11 @@
 #[macro_use]
 mod eco_string;
 mod mac_roman;
+mod prehashed;
 
 pub use eco_string::EcoString;
 pub use mac_roman::decode_mac_roman;
+pub use prehashed::Prehashed;
 
 use std::cell::RefMut;
 use std::cmp::Ordering;

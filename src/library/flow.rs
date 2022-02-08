@@ -13,6 +13,8 @@ pub struct FlowNode(pub StyleVec<FlowChild>);
 /// A child of a flow node.
 #[derive(Hash)]
 pub enum FlowChild {
+    /// Leading between other children.
+    Leading,
     /// A paragraph / block break.
     Parbreak,
     /// A column / region break.
@@ -20,7 +22,7 @@ pub enum FlowChild {
     /// Vertical spacing between other children.
     Spacing(SpacingKind),
     /// An arbitrary block-level node.
-    Node(PackedNode),
+    Node(LayoutNode),
 }
 
 impl Layout for FlowNode {
@@ -35,10 +37,17 @@ impl Layout for FlowNode {
         for (child, map) in self.0.iter() {
             let styles = map.chain(&styles);
             match child {
+                FlowChild::Leading => {
+                    let em = styles.get(TextNode::SIZE).abs;
+                    let amount = styles.get(ParNode::LEADING).resolve(em);
+                    layouter.layout_spacing(amount.into());
+                }
                 FlowChild::Parbreak => {
                     let em = styles.get(TextNode::SIZE).abs;
-                    let amount = styles.get(ParNode::SPACING).resolve(em);
-                    layouter.layout_spacing(SpacingKind::Linear(amount.into()));
+                    let leading = styles.get(ParNode::LEADING);
+                    let spacing = styles.get(ParNode::SPACING);
+                    let amount = (leading + spacing).resolve(em);
+                    layouter.layout_spacing(amount.into());
                 }
                 FlowChild::Colbreak => {
                     layouter.finish_region();
@@ -72,6 +81,7 @@ impl Debug for FlowNode {
 impl Debug for FlowChild {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
+            Self::Leading => f.pad("Leading"),
             Self::Parbreak => f.pad("Parbreak"),
             Self::Colbreak => f.pad("Colbreak"),
             Self::Spacing(kind) => write!(f, "{:?}", kind),
@@ -93,8 +103,6 @@ pub struct FlowLayouter {
     used: Size,
     /// The sum of fractional ratios in the current region.
     fr: Fractional,
-    /// Whether to add leading before the next node.
-    leading: bool,
     /// Spacing and layouted nodes.
     items: Vec<FlowItem>,
     /// Finished frames for previous regions.
@@ -129,7 +137,6 @@ impl FlowLayouter {
             full,
             used: Size::zero(),
             fr: Fractional::zero(),
-            leading: false,
             items: vec![],
             finished: vec![],
         }
@@ -149,7 +156,6 @@ impl FlowLayouter {
             SpacingKind::Fractional(v) => {
                 self.items.push(FlowItem::Fractional(v));
                 self.fr += v;
-                self.leading = false;
             }
         }
     }
@@ -158,7 +164,7 @@ impl FlowLayouter {
     pub fn layout_node(
         &mut self,
         ctx: &mut LayoutContext,
-        node: &PackedNode,
+        node: &LayoutNode,
         styles: StyleChain,
     ) {
         // Don't even try layouting into a full region.
@@ -168,21 +174,12 @@ impl FlowLayouter {
 
         // Placed nodes that are out of flow produce placed items which aren't
         // aligned later.
-        let mut is_placed = false;
         if let Some(placed) = node.downcast::<PlaceNode>() {
-            is_placed = true;
             if placed.out_of_flow() {
                 let frame = node.layout(ctx, &self.regions, styles).remove(0);
                 self.items.push(FlowItem::Placed(frame.item));
                 return;
             }
-        }
-
-        // Add leading.
-        if self.leading {
-            let em = styles.get(TextNode::SIZE).abs;
-            let amount = styles.get(ParNode::LEADING).resolve(em);
-            self.layout_spacing(SpacingKind::Linear(amount.into()));
         }
 
         // How to align the node.
@@ -210,8 +207,6 @@ impl FlowLayouter {
                 self.finish_region();
             }
         }
-
-        self.leading = !is_placed;
     }
 
     /// Finish the frame for one region.
@@ -264,7 +259,6 @@ impl FlowLayouter {
         self.full = self.regions.current;
         self.used = Size::zero();
         self.fr = Fractional::zero();
-        self.leading = false;
         self.finished.push(output.constrain(cts));
     }
 

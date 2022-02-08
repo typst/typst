@@ -9,14 +9,14 @@ pub struct AlignNode {
     /// How to align the node horizontally and vertically.
     pub aligns: Spec<Option<Align>>,
     /// The node to be aligned.
-    pub child: PackedNode,
+    pub child: LayoutNode,
 }
 
 #[class]
 impl AlignNode {
     fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
         let aligns: Spec<_> = args.find().unwrap_or_default();
-        let body: PackedNode = args.expect("body")?;
+        let body: LayoutNode = args.expect("body")?;
         Ok(Template::block(body.aligned(aligns)))
     }
 }

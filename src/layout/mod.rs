@@ -10,7 +10,7 @@ pub use constraints::*;
 pub use incremental::*;
 pub use regions::*;
 
-use std::any::Any;
+use std::any::{Any, TypeId};
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
@@ -21,6 +21,7 @@ use crate::frame::{Element, Frame, Geometry, Shape, Stroke};
 use crate::geom::{Align, Linear, Paint, Point, Sides, Size, Spec};
 use crate::image::ImageStore;
 use crate::library::{AlignNode, Move, PadNode, TransformNode};
+use crate::util::Prehashed;
 use crate::Context;
 
 /// A node that can be layouted into a sequence of regions.
@@ -37,11 +38,11 @@ pub trait Layout {
     ) -> Vec<Constrained<Arc<Frame>>>;
 
     /// Convert to a packed node.
-    fn pack(self) -> PackedNode
+    fn pack(self) -> LayoutNode
     where
         Self: Debug + Hash + Sized + Sync + Send + 'static,
     {
-        PackedNode::new(self)
+        LayoutNode::new(self)
     }
 }
 
@@ -75,31 +76,26 @@ impl<'a> LayoutContext<'a> {
 }
 
 /// A type-erased layouting node with a precomputed hash.
-#[derive(Clone)]
-pub struct PackedNode {
-    /// The type-erased node.
-    node: Arc<dyn Bounds>,
-    /// A precomputed hash for the node.
-    #[cfg(feature = "layout-cache")]
-    hash: u64,
-}
+#[derive(Clone, Hash)]
+pub struct LayoutNode(Arc<Prehashed<dyn Bounds>>);
 
-impl PackedNode {
+impl LayoutNode {
     /// Pack any layoutable node.
     pub fn new<T>(node: T) -> Self
     where
         T: Layout + Debug + Hash + Sync + Send + 'static,
     {
-        Self {
-            #[cfg(feature = "layout-cache")]
-            hash: node.hash64(),
-            node: Arc::new(node),
-        }
+        Self(Arc::new(Prehashed::new(node)))
     }
 
     /// Check whether the contained node is a specific layout node.
     pub fn is<T: 'static>(&self) -> bool {
-        self.node.as_any().is::<T>()
+        self.0.as_any().is::<T>()
+    }
+
+    /// The type id of this node.
+    pub fn id(&self) -> TypeId {
+        self.0.as_any().type_id()
     }
 
     /// Try to downcast to a specific layout node.
@@ -107,7 +103,7 @@ impl PackedNode {
     where
         T: Layout + Debug + Hash + 'static,
     {
-        self.node.as_any().downcast_ref()
+        self.0.as_any().downcast_ref()
     }
 
     /// Force a size for this node.
@@ -165,7 +161,7 @@ impl PackedNode {
     }
 }
 
-impl Layout for PackedNode {
+impl Layout for LayoutNode {
     #[track_caller]
     fn layout(
         &self,
@@ -173,7 +169,7 @@ impl Layout for PackedNode {
         regions: &Regions,
         styles: StyleChain,
     ) -> Vec<Constrained<Arc<Frame>>> {
-        let styles = styles.barred(self.node.as_any().type_id());
+        let styles = styles.barred(self.id());
 
         #[cfg(not(feature = "layout-cache"))]
         return self.node.layout(ctx, regions, styles);
@@ -193,14 +189,14 @@ impl Layout for PackedNode {
             frames
         } else {
             ctx.level += 1;
-            let frames = self.node.layout(ctx, regions, styles);
+            let frames = self.0.layout(ctx, regions, styles);
             ctx.level -= 1;
 
             let entry = FramesEntry::new(frames.clone(), ctx.level);
 
             #[cfg(debug_assertions)]
             if !entry.check(regions) {
-                eprintln!("node: {:#?}", self.node);
+                eprintln!("node: {:#?}", self.0);
                 eprintln!("regions: {regions:#?}");
                 eprintln!(
                     "constraints: {:#?}",
@@ -214,41 +210,31 @@ impl Layout for PackedNode {
         }
     }
 
-    fn pack(self) -> PackedNode {
+    fn pack(self) -> LayoutNode {
         self
     }
 }
 
-impl Default for PackedNode {
+impl Default for LayoutNode {
     fn default() -> Self {
         EmptyNode.pack()
     }
 }
 
-impl Debug for PackedNode {
+impl Debug for LayoutNode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        self.node.fmt(f)
+        self.0.fmt(f)
     }
 }
 
-impl PartialEq for PackedNode {
+impl PartialEq for LayoutNode {
     fn eq(&self, other: &Self) -> bool {
         // We cast to thin pointers for comparison because we don't want to
         // compare vtables (which can be different across codegen units).
         std::ptr::eq(
-            Arc::as_ptr(&self.node) as *const (),
-            Arc::as_ptr(&other.node) as *const (),
+            Arc::as_ptr(&self.0) as *const (),
+            Arc::as_ptr(&other.0) as *const (),
         )
-    }
-}
-
-impl Hash for PackedNode {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        // Hash the node.
-        #[cfg(feature = "layout-cache")]
-        state.write_u64(self.hash);
-        #[cfg(not(feature = "layout-cache"))]
-        state.write_u64(self.hash64());
     }
 }
 
@@ -272,6 +258,12 @@ where
         self.type_id().hash(&mut state);
         self.hash(&mut state);
         state.finish()
+    }
+}
+
+impl Hash for dyn Bounds {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write_u64(self.hash64());
     }
 }
 
@@ -301,7 +293,7 @@ struct SizedNode {
     /// How to size the node horizontally and vertically.
     sizing: Spec<Option<Linear>>,
     /// The node to be sized.
-    child: PackedNode,
+    child: LayoutNode,
 }
 
 impl Layout for SizedNode {
@@ -355,7 +347,7 @@ struct FillNode {
     /// How to fill the frames resulting from the `child`.
     fill: Paint,
     /// The node to fill.
-    child: PackedNode,
+    child: LayoutNode,
 }
 
 impl Layout for FillNode {
@@ -380,7 +372,7 @@ struct StrokeNode {
     /// How to stroke the frames resulting from the `child`.
     stroke: Stroke,
     /// The node to stroke.
-    child: PackedNode,
+    child: LayoutNode,
 }
 
 impl Layout for StrokeNode {

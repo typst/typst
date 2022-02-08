@@ -6,12 +6,15 @@ use std::ops::{Add, AddAssign};
 
 use typed_arena::Arena;
 
-use super::{CollapsingBuilder, Interruption, Property, StyleMap, StyleVecBuilder};
+use super::{
+    CollapsingBuilder, Interruption, Property, Show, ShowNode, StyleMap, StyleVecBuilder,
+};
 use crate::diag::StrResult;
-use crate::layout::{Layout, PackedNode};
+use crate::layout::{Layout, LayoutNode};
 use crate::library::prelude::*;
 use crate::library::{
-    FlowChild, FlowNode, PageNode, ParChild, ParNode, PlaceNode, SpacingKind, TextNode,
+    DecoNode, FlowChild, FlowNode, PageNode, ParChild, ParNode, PlaceNode, SpacingKind,
+    TextNode, Underline,
 };
 use crate::util::EcoString;
 use crate::Context;
@@ -52,7 +55,7 @@ pub enum Template {
     /// Plain text.
     Text(EcoString),
     /// An inline-level node.
-    Inline(PackedNode),
+    Inline(LayoutNode),
     /// A paragraph break.
     Parbreak,
     /// A column break.
@@ -60,21 +63,23 @@ pub enum Template {
     /// Vertical spacing.
     Vertical(SpacingKind),
     /// A block-level node.
-    Block(PackedNode),
+    Block(LayoutNode),
     /// A page break.
     Pagebreak,
     /// A page node.
     Page(PageNode),
+    /// A node that can be realized with styles.
+    Show(ShowNode),
     /// A template with attached styles.
-    Styled(Box<Self>, StyleMap),
+    Styled(Arc<(Self, StyleMap)>),
     /// A sequence of multiple subtemplates.
-    Sequence(Vec<Self>),
+    Sequence(Arc<Vec<Self>>),
 }
 
 impl Template {
     /// Create an empty template.
     pub fn new() -> Self {
-        Self::Sequence(vec![])
+        Self::sequence(vec![])
     }
 
     /// Create a template from an inline-level node.
@@ -93,42 +98,63 @@ impl Template {
         Self::Block(node.pack())
     }
 
-    /// Layout this template into a collection of pages.
-    pub fn layout(&self, ctx: &mut Context) -> Vec<Arc<Frame>> {
-        let (mut ctx, styles) = LayoutContext::new(ctx);
-        let (pages, shared) = Builder::build_pages(self);
-        let styles = shared.chain(&styles);
-        pages
-            .iter()
-            .flat_map(|(page, map)| page.layout(&mut ctx, map.chain(&styles)))
-            .collect()
+    /// Create a template from a showable node.
+    pub fn show<T>(node: T) -> Self
+    where
+        T: Show + Debug + Hash + Sync + Send + 'static,
+    {
+        Self::Show(node.pack())
     }
 
     /// Style this template with a single property.
     pub fn styled<P: Property>(mut self, key: P, value: P::Value) -> Self {
-        if let Self::Styled(_, map) = &mut self {
-            map.set(key, value);
-            self
-        } else {
-            self.styled_with_map(StyleMap::with(key, value))
+        if let Self::Styled(styled) = &mut self {
+            if let Some((_, map)) = Arc::get_mut(styled) {
+                if !map.has_scoped() {
+                    map.set(key, value);
+                }
+                return self;
+            }
         }
+
+        self.styled_with_map(StyleMap::with(key, value))
     }
 
     /// Style this template with a full style map.
     pub fn styled_with_map(mut self, styles: StyleMap) -> Self {
         if styles.is_empty() {
-            self
-        } else if let Self::Styled(_, map) = &mut self {
-            map.apply(&styles);
-            self
-        } else {
-            Self::Styled(Box::new(self), styles)
+            return self;
         }
+
+        if let Self::Styled(styled) = &mut self {
+            if let Some((_, map)) = Arc::get_mut(styled) {
+                if !styles.has_scoped() && !map.has_scoped() {
+                    map.apply(&styles);
+                    return self;
+                }
+            }
+        }
+
+        Self::Styled(Arc::new((self, styles)))
     }
 
     /// Style this template in monospace.
     pub fn monospaced(self) -> Self {
-        self.styled(TextNode::MONOSPACE, true)
+        self.styled(TextNode::MONOSPACED, true)
+    }
+
+    /// Underline this template.
+    pub fn underlined(self) -> Self {
+        Self::show(DecoNode { kind: Underline, body: self })
+    }
+
+    /// Create a new sequence template.
+    pub fn sequence(seq: Vec<Self>) -> Self {
+        if seq.len() == 1 {
+            seq.into_iter().next().unwrap()
+        } else {
+            Self::Sequence(Arc::new(seq))
+        }
     }
 
     /// Repeat this template `n` times.
@@ -136,7 +162,24 @@ impl Template {
         let count = usize::try_from(n)
             .map_err(|_| format!("cannot repeat this template {} times", n))?;
 
-        Ok(Self::Sequence(vec![self.clone(); count]))
+        Ok(Self::sequence(vec![self.clone(); count]))
+    }
+
+    /// Layout this template into a collection of pages.
+    pub fn layout(&self, ctx: &mut Context) -> Vec<Arc<Frame>> {
+        let style_arena = Arena::new();
+        let template_arena = Arena::new();
+        let (mut ctx, styles) = LayoutContext::new(ctx);
+
+        let mut builder = Builder::new(&style_arena, &template_arena, true);
+        builder.process(self, styles);
+        builder.finish_page(true, false, styles);
+
+        let (pages, shared) = builder.pages.unwrap().finish();
+        pages
+            .iter()
+            .flat_map(|(page, map)| page.layout(&mut ctx, map.chain(&shared)))
+            .collect()
     }
 }
 
@@ -168,11 +211,17 @@ impl Debug for Template {
             }
             Self::Pagebreak => f.pad("Pagebreak"),
             Self::Page(page) => page.fmt(f),
-            Self::Styled(sub, map) => {
+            Self::Show(node) => {
+                f.write_str("Show(")?;
+                node.fmt(f)?;
+                f.write_str(")")
+            }
+            Self::Styled(styled) => {
+                let (sub, map) = styled.as_ref();
                 map.fmt(f)?;
                 sub.fmt(f)
             }
-            Self::Sequence(seq) => f.debug_list().entries(seq).finish(),
+            Self::Sequence(seq) => f.debug_list().entries(seq.iter()).finish(),
         }
     }
 }
@@ -183,20 +232,22 @@ impl Add for Template {
     fn add(self, rhs: Self) -> Self::Output {
         Self::Sequence(match (self, rhs) {
             (Self::Sequence(mut lhs), Self::Sequence(rhs)) => {
-                lhs.extend(rhs);
+                let mutable = Arc::make_mut(&mut lhs);
+                match Arc::try_unwrap(rhs) {
+                    Ok(vec) => mutable.extend(vec),
+                    Err(rc) => mutable.extend(rc.iter().cloned()),
+                }
                 lhs
             }
             (Self::Sequence(mut lhs), rhs) => {
-                lhs.push(rhs);
+                Arc::make_mut(&mut lhs).push(rhs);
                 lhs
             }
             (lhs, Self::Sequence(mut rhs)) => {
-                rhs.insert(0, lhs);
+                Arc::make_mut(&mut rhs).insert(0, lhs);
                 rhs
             }
-            (lhs, rhs) => {
-                vec![lhs, rhs]
-            }
+            (lhs, rhs) => Arc::new(vec![lhs, rhs]),
         })
     }
 }
@@ -209,7 +260,7 @@ impl AddAssign for Template {
 
 impl Sum for Template {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
-        Self::Sequence(iter.collect())
+        Self::sequence(iter.collect())
     }
 }
 
@@ -220,14 +271,21 @@ impl Layout for Template {
         regions: &Regions,
         styles: StyleChain,
     ) -> Vec<Constrained<Arc<Frame>>> {
-        let (flow, shared) = Builder::build_flow(self);
-        flow.layout(ctx, regions, shared.chain(&styles))
+        let style_arena = Arena::new();
+        let template_arena = Arena::new();
+
+        let mut builder = Builder::new(&style_arena, &template_arena, false);
+        builder.process(self, styles);
+        builder.finish_par(styles);
+
+        let (flow, shared) = builder.flow.finish();
+        FlowNode(flow).layout(ctx, regions, shared)
     }
 
-    fn pack(self) -> PackedNode {
+    fn pack(self) -> LayoutNode {
         match self {
             Template::Block(node) => node,
-            other => PackedNode::new(other),
+            other => LayoutNode::new(other),
         }
     }
 }
@@ -235,7 +293,9 @@ impl Layout for Template {
 /// Builds a flow or page nodes from a template.
 struct Builder<'a> {
     /// An arena where intermediate style chains are stored.
-    arena: &'a Arena<StyleChain<'a>>,
+    style_arena: &'a Arena<StyleChain<'a>>,
+    /// An arena where intermediate templates are stored.
+    template_arena: &'a Arena<Template>,
     /// The already built page runs.
     pages: Option<StyleVecBuilder<'a, PageNode>>,
     /// The currently built flow.
@@ -247,34 +307,15 @@ struct Builder<'a> {
 }
 
 impl<'a> Builder<'a> {
-    /// Build page runs from a template.
-    fn build_pages(template: &Template) -> (StyleVec<PageNode>, StyleMap) {
-        let arena = Arena::new();
-
-        let mut builder = Builder::prepare(&arena, true);
-        builder.process(template, StyleChain::default());
-        builder.finish_page(true, false, StyleChain::default());
-
-        let (pages, shared) = builder.pages.unwrap().finish();
-        (pages, shared.to_map())
-    }
-
-    /// Build a subflow from a template.
-    fn build_flow(template: &Template) -> (FlowNode, StyleMap) {
-        let arena = Arena::new();
-
-        let mut builder = Builder::prepare(&arena, false);
-        builder.process(template, StyleChain::default());
-        builder.finish_par();
-
-        let (flow, shared) = builder.flow.finish();
-        (FlowNode(flow), shared.to_map())
-    }
-
     /// Prepare the builder.
-    fn prepare(arena: &'a Arena<StyleChain<'a>>, top: bool) -> Self {
+    fn new(
+        style_arena: &'a Arena<StyleChain<'a>>,
+        template_arena: &'a Arena<Template>,
+        top: bool,
+    ) -> Self {
         Self {
-            arena,
+            style_arena,
+            template_arena,
             pages: top.then(|| StyleVecBuilder::new()),
             flow: CollapsingBuilder::new(),
             par: CollapsingBuilder::new(),
@@ -286,7 +327,7 @@ impl<'a> Builder<'a> {
     fn process(&mut self, template: &'a Template, styles: StyleChain<'a>) {
         match template {
             Template::Space => {
-                self.par.weak(ParChild::Text(' '.into()), styles);
+                self.par.weak(ParChild::Text(' '.into()), 0, styles);
             }
             Template::Linebreak => {
                 self.par.destructive(ParChild::Text('\n'.into()), styles);
@@ -306,15 +347,15 @@ impl<'a> Builder<'a> {
                 self.par.supportive(ParChild::Node(node.clone()), styles);
             }
             Template::Parbreak => {
-                self.finish_par();
-                self.flow.weak(FlowChild::Parbreak, styles);
+                self.finish_par(styles);
+                self.flow.weak(FlowChild::Parbreak, 1, styles);
             }
             Template::Colbreak => {
-                self.finish_par();
+                self.finish_par(styles);
                 self.flow.destructive(FlowChild::Colbreak, styles);
             }
             Template::Vertical(kind) => {
-                self.finish_par();
+                self.finish_par(styles);
                 let child = FlowChild::Spacing(*kind);
                 if kind.is_fractional() {
                     self.flow.destructive(child, styles);
@@ -323,13 +364,14 @@ impl<'a> Builder<'a> {
                 }
             }
             Template::Block(node) => {
-                self.finish_par();
+                self.finish_par(styles);
                 let child = FlowChild::Node(node.clone());
                 if node.is::<PlaceNode>() {
                     self.flow.ignorant(child, styles);
                 } else {
                     self.flow.supportive(child, styles);
                 }
+                self.finish_par(styles);
             }
             Template::Pagebreak => {
                 self.finish_page(true, true, styles);
@@ -340,26 +382,32 @@ impl<'a> Builder<'a> {
                     pages.push(page.clone(), styles);
                 }
             }
-            Template::Styled(sub, map) => {
+            Template::Show(node) => {
+                let template = self.template_arena.alloc(node.show(styles));
+                self.process(template, styles.unscoped(node.id()));
+            }
+            Template::Styled(styled) => {
+                let (sub, map) = styled.as_ref();
+                let stored = self.style_arena.alloc(styles);
+                let styles = map.chain(stored);
+
                 let interruption = map.interruption();
                 match interruption {
                     Some(Interruption::Page) => self.finish_page(false, true, styles),
-                    Some(Interruption::Par) => self.finish_par(),
+                    Some(Interruption::Par) => self.finish_par(styles),
                     None => {}
                 }
 
-                let outer = self.arena.alloc(styles);
-                let styles = map.chain(outer);
                 self.process(sub, styles);
 
                 match interruption {
                     Some(Interruption::Page) => self.finish_page(true, false, styles),
-                    Some(Interruption::Par) => self.finish_par(),
+                    Some(Interruption::Par) => self.finish_par(styles),
                     None => {}
                 }
             }
             Template::Sequence(seq) => {
-                for sub in seq {
+                for sub in seq.iter() {
                     self.process(sub, styles);
                 }
             }
@@ -367,17 +415,18 @@ impl<'a> Builder<'a> {
     }
 
     /// Finish the currently built paragraph.
-    fn finish_par(&mut self) {
+    fn finish_par(&mut self, styles: StyleChain<'a>) {
         let (par, shared) = mem::take(&mut self.par).finish();
         if !par.is_empty() {
             let node = ParNode(par).pack();
             self.flow.supportive(FlowChild::Node(node), shared);
         }
+        self.flow.weak(FlowChild::Leading, 0, styles);
     }
 
     /// Finish the currently built page run.
     fn finish_page(&mut self, keep_last: bool, keep_next: bool, styles: StyleChain<'a>) {
-        self.finish_par();
+        self.finish_par(styles);
         if let Some(pages) = &mut self.pages {
             let (flow, shared) = mem::take(&mut self.flow).finish();
             if !flow.is_empty() || (keep_last && self.keep_next) {

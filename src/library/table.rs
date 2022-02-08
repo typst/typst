@@ -11,7 +11,7 @@ pub struct TableNode {
     /// Defines sizing of gutter rows and columns between content.
     pub gutter: Spec<Vec<TrackSizing>>,
     /// The nodes to be arranged in the table.
-    pub children: Vec<PackedNode>,
+    pub children: Vec<LayoutNode>,
 }
 
 #[class]
@@ -33,7 +33,7 @@ impl TableNode {
         let base_gutter: Vec<TrackSizing> = args.named("gutter")?.unwrap_or_default();
         let column_gutter = args.named("column-gutter")?;
         let row_gutter = args.named("row-gutter")?;
-        Ok(Template::block(Self {
+        Ok(Template::show(Self {
             tracks: Spec::new(columns, rows),
             gutter: Spec::new(
                 column_gutter.unwrap_or_else(|| base_gutter.clone()),
@@ -54,13 +54,8 @@ impl TableNode {
     }
 }
 
-impl Layout for TableNode {
-    fn layout(
-        &self,
-        ctx: &mut LayoutContext,
-        regions: &Regions,
-        styles: StyleChain,
-    ) -> Vec<Constrained<Arc<Frame>>> {
+impl Show for TableNode {
+    fn show(&self, styles: StyleChain) -> Template {
         let primary = styles.get(Self::PRIMARY);
         let secondary = styles.get(Self::SECONDARY);
         let thickness = styles.get(Self::THICKNESS);
@@ -90,12 +85,10 @@ impl Layout for TableNode {
             })
             .collect();
 
-        let grid = GridNode {
+        Template::block(GridNode {
             tracks: self.tracks.clone(),
             gutter: self.gutter.clone(),
             children,
-        };
-
-        grid.layout(ctx, regions, styles)
+        })
     }
 }

@@ -9,7 +9,7 @@ pub struct TransformNode<T: TransformKind> {
     /// Transformation to apply to the contents.
     pub kind: T,
     /// The node whose contents should be transformed.
-    pub child: PackedNode,
+    pub child: LayoutNode,
 }
 
 #[class]
@@ -22,11 +22,6 @@ impl<T: TransformKind> TransformNode<T> {
             kind: T::construct(args)?,
             child: args.expect("body")?,
         }))
-    }
-
-    fn set(args: &mut Args, styles: &mut StyleMap) -> TypResult<()> {
-        styles.set_opt(Self::ORIGIN, args.named("origin")?);
-        Ok(())
     }
 }
 

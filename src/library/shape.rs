@@ -11,7 +11,7 @@ pub struct ShapeNode<S: ShapeKind> {
     /// Which shape to place the child into.
     pub kind: S,
     /// The child node to place into the shape, if any.
-    pub child: Option<PackedNode>,
+    pub child: Option<LayoutNode>,
 }
 
 #[class]
@@ -49,14 +49,6 @@ impl<S: ShapeKind> ShapeNode<S> {
                 .pack()
                 .sized(Spec::new(width, height)),
         ))
-    }
-
-    fn set(args: &mut Args, styles: &mut StyleMap) -> TypResult<()> {
-        styles.set_opt(Self::FILL, args.named("fill")?);
-        styles.set_opt(Self::STROKE, args.named("stroke")?);
-        styles.set_opt(Self::THICKNESS, args.named("thickness")?);
-        styles.set_opt(Self::PADDING, args.named("padding")?);
-        Ok(())
     }
 }
 

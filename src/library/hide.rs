@@ -4,7 +4,7 @@ use super::prelude::*;
 
 /// Hide a node without affecting layout.
 #[derive(Debug, Hash)]
-pub struct HideNode(pub PackedNode);
+pub struct HideNode(pub LayoutNode);
 
 #[class]
 impl HideNode {

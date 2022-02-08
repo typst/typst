@@ -14,6 +14,7 @@ mod collapse;
 mod func;
 mod ops;
 mod scope;
+mod show;
 mod template;
 
 pub use array::*;
@@ -23,6 +24,7 @@ pub use collapse::*;
 pub use dict::*;
 pub use func::*;
 pub use scope::*;
+pub use show::*;
 pub use styles::*;
 pub use template::*;
 pub use value::*;
@@ -33,34 +35,23 @@ use std::io;
 use std::mem;
 use std::path::PathBuf;
 
-use once_cell::sync::Lazy;
-use syntect::easy::HighlightLines;
-use syntect::highlighting::{FontStyle, Highlighter, Style as SynStyle, Theme, ThemeSet};
-use syntect::parsing::SyntaxSet;
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::diag::{At, Error, StrResult, Trace, Tracepoint, TypResult};
-use crate::geom::{Angle, Color, Fractional, Length, Paint, Relative};
+use crate::geom::{Angle, Fractional, Length, Relative};
 use crate::image::ImageStore;
 use crate::layout::Layout;
-use crate::library::{self, DecoLine, TextNode};
+use crate::library::{self};
 use crate::loading::Loader;
-use crate::parse;
 use crate::source::{SourceId, SourceStore};
-use crate::syntax;
 use crate::syntax::ast::*;
-use crate::syntax::{RedNode, Span, Spanned};
+use crate::syntax::{Span, Spanned};
 use crate::util::{EcoString, RefMutExt};
 use crate::Context;
 
-static THEME: Lazy<Theme> =
-    Lazy::new(|| ThemeSet::load_defaults().themes.remove("InspiredGitHub").unwrap());
-
-static SYNTAXES: Lazy<SyntaxSet> = Lazy::new(|| SyntaxSet::load_defaults_newlines());
-
 /// An evaluated module, ready for importing or conversion to a root layout
 /// tree.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct Module {
     /// The top-level definitions that were bound in this module.
     pub scope: Scope,
@@ -194,17 +185,13 @@ fn eval_markup(
             MarkupNode::Expr(Expr::Wrap(wrap)) => {
                 let tail = eval_markup(ctx, nodes)?;
                 ctx.scopes.def_mut(wrap.binding().take(), tail);
-                wrap.body().eval(ctx)?.show()
+                wrap.body().eval(ctx)?.display()
             }
             _ => node.eval(ctx)?,
         });
     }
 
-    if seq.len() == 1 {
-        Ok(seq.into_iter().next().unwrap())
-    } else {
-        Ok(Template::Sequence(seq))
-    }
+    Ok(Template::sequence(seq))
 }
 
 impl Eval for MarkupNode {
@@ -223,7 +210,7 @@ impl Eval for MarkupNode {
             Self::Heading(heading) => heading.eval(ctx)?,
             Self::List(list) => list.eval(ctx)?,
             Self::Enum(enum_) => enum_.eval(ctx)?,
-            Self::Expr(expr) => expr.eval(ctx)?.show(),
+            Self::Expr(expr) => expr.eval(ctx)?.display(),
         })
     }
 }
@@ -232,7 +219,7 @@ impl Eval for StrongNode {
     type Output = Template;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        Ok(self.body().eval(ctx)?.styled(TextNode::STRONG, true))
+        Ok(Template::show(library::StrongNode(self.body().eval(ctx)?)))
     }
 }
 
@@ -240,7 +227,7 @@ impl Eval for EmphNode {
     type Output = Template;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        Ok(self.body().eval(ctx)?.styled(TextNode::EMPH, true))
+        Ok(Template::show(library::EmphNode(self.body().eval(ctx)?)))
     }
 }
 
@@ -248,104 +235,25 @@ impl Eval for RawNode {
     type Output = Template;
 
     fn eval(&self, _: &mut EvalContext) -> TypResult<Self::Output> {
-        let code = self.highlighted();
-        Ok(if self.block { Template::Block(code.pack()) } else { code })
+        let template = Template::show(library::RawNode {
+            text: self.text.clone(),
+            block: self.block,
+        });
+        Ok(match self.lang {
+            Some(_) => template.styled(library::RawNode::LANG, self.lang.clone()),
+            None => template,
+        })
     }
-}
-
-impl RawNode {
-    /// Styled template for a code block, with optional syntax highlighting.
-    pub fn highlighted(&self) -> Template {
-        let mut seq: Vec<Template> = vec![];
-
-        let syntax = if let Some(syntax) = self
-            .lang
-            .as_ref()
-            .and_then(|token| SYNTAXES.find_syntax_by_token(&token))
-        {
-            Some(syntax)
-        } else if matches!(
-            self.lang.as_ref().map(|s| s.to_ascii_lowercase()).as_deref(),
-            Some("typ" | "typst")
-        ) {
-            None
-        } else {
-            return Template::Text(self.text.clone()).monospaced();
-        };
-
-        let foreground = THEME
-            .settings
-            .foreground
-            .map(Color::from)
-            .unwrap_or(Color::BLACK)
-            .into();
-
-        match syntax {
-            Some(syntax) => {
-                let mut highlighter = HighlightLines::new(syntax, &THEME);
-                for (i, line) in self.text.lines().enumerate() {
-                    if i != 0 {
-                        seq.push(Template::Linebreak);
-                    }
-
-                    for (style, piece) in highlighter.highlight(line, &SYNTAXES) {
-                        seq.push(style_piece(piece, foreground, style));
-                    }
-                }
-            }
-            None => {
-                let green = parse::parse(&self.text);
-                let red = RedNode::from_root(green, SourceId::from_raw(0));
-                let highlighter = Highlighter::new(&THEME);
-
-                syntax::highlight_syntect(
-                    red.as_ref(),
-                    &highlighter,
-                    &mut |range, style| {
-                        seq.push(style_piece(&self.text[range], foreground, style));
-                    },
-                )
-            }
-        }
-
-        Template::Sequence(seq).monospaced()
-    }
-}
-
-/// Style a piece of text with a syntect style.
-fn style_piece(piece: &str, foreground: Paint, style: SynStyle) -> Template {
-    let mut styles = StyleMap::new();
-
-    let paint = style.foreground.into();
-    if paint != foreground {
-        styles.set(TextNode::FILL, paint);
-    }
-
-    if style.font_style.contains(FontStyle::BOLD) {
-        styles.set(TextNode::STRONG, true);
-    }
-
-    if style.font_style.contains(FontStyle::ITALIC) {
-        styles.set(TextNode::EMPH, true);
-    }
-
-    if style.font_style.contains(FontStyle::UNDERLINE) {
-        styles.set(TextNode::LINES, vec![DecoLine::Underline.into()]);
-    }
-
-    Template::Text(piece.into()).styled_with_map(styles)
 }
 
 impl Eval for MathNode {
     type Output = Template;
 
     fn eval(&self, _: &mut EvalContext) -> TypResult<Self::Output> {
-        let text = Template::Text(self.formula.trim().into()).monospaced();
-        Ok(if self.display {
-            Template::Block(text.pack())
-        } else {
-            text
-        })
+        Ok(Template::show(library::MathNode {
+            formula: self.formula.clone(),
+            display: self.display,
+        }))
     }
 }
 
@@ -353,8 +261,8 @@ impl Eval for HeadingNode {
     type Output = Template;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        Ok(Template::block(library::HeadingNode {
-            child: self.body().eval(ctx)?.pack(),
+        Ok(Template::show(library::HeadingNode {
+            body: self.body().eval(ctx)?,
             level: self.level(),
         }))
     }
@@ -364,9 +272,9 @@ impl Eval for ListNode {
     type Output = Template;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        Ok(Template::block(library::ListNode {
+        Ok(Template::show(library::ListNode {
             child: self.body().eval(ctx)?.pack(),
-            kind: library::Unordered,
+            label: library::Unordered,
         }))
     }
 }
@@ -375,9 +283,9 @@ impl Eval for EnumNode {
     type Output = Template;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        Ok(Template::block(library::ListNode {
+        Ok(Template::show(library::ListNode {
             child: self.body().eval(ctx)?.pack(),
-            kind: library::Ordered(self.number()),
+            label: library::Ordered(self.number()),
         }))
     }
 }

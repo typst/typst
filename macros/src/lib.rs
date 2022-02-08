@@ -5,7 +5,7 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::parse_quote;
 use syn::spanned::Spanned;
-use syn::{Error, Result};
+use syn::{Error, Ident, Result};
 
 /// Turn a node into a class.
 #[proc_macro_attribute]
@@ -24,15 +24,17 @@ fn expand(mut impl_block: syn::ItemImpl) -> Result<TokenStream2> {
     let module = quote::format_ident!("{}_types", self_name);
 
     let mut key_modules = vec![];
+    let mut properties = vec![];
     let mut construct = None;
     let mut set = None;
 
     for item in std::mem::take(&mut impl_block.items) {
         match item {
             syn::ImplItem::Const(mut item) => {
-                key_modules.push(process_const(
-                    &mut item, params, self_ty, &self_name, &self_args,
-                )?);
+                let (property, module) =
+                    process_const(&mut item, params, self_ty, &self_name, &self_args)?;
+                properties.push(property);
+                key_modules.push(module);
                 impl_block.items.push(syn::ImplItem::Const(item));
             }
             syn::ImplItem::Method(method) => {
@@ -49,17 +51,34 @@ fn expand(mut impl_block: syn::ItemImpl) -> Result<TokenStream2> {
     let construct =
         construct.ok_or_else(|| Error::new(impl_block.span(), "missing constructor"))?;
 
-    let set = if impl_block.items.is_empty() {
-        set.unwrap_or_else(|| {
-            parse_quote! {
-                fn set(_: &mut Args, _: &mut StyleMap) -> TypResult<()> {
-                    Ok(())
+    let set = set.unwrap_or_else(|| {
+        let sets = properties.into_iter().filter(|p| !p.skip).map(|property| {
+            let name = property.name;
+            let string = name.to_string().replace("_", "-").to_lowercase();
+
+            let alternative = if property.variadic {
+                quote! {
+                    .or_else(|| {
+                        let list: Vec<_> = args.all().collect();
+                        (!list.is_empty()).then(|| list)
+                    })
                 }
+            } else if property.shorthand {
+                quote! { .or_else(|| args.find()) }
+            } else {
+                quote! {}
+            };
+
+            quote! { styles.set_opt(Self::#name, args.named(#string)? #alternative); }
+        });
+
+        parse_quote! {
+            fn set(args: &mut Args, styles: &mut StyleMap) -> TypResult<()> {
+                #(#sets)*
+                Ok(())
             }
-        })
-    } else {
-        set.ok_or_else(|| Error::new(impl_block.span(), "missing set method"))?
-    };
+        }
+    });
 
     // Put everything into a module with a hopefully unique type to isolate
     // it from the outside.
@@ -85,6 +104,14 @@ fn expand(mut impl_block: syn::ItemImpl) -> Result<TokenStream2> {
             #(#key_modules)*
         }
     })
+}
+
+/// A style property.
+struct Property {
+    name: Ident,
+    shorthand: bool,
+    variadic: bool,
+    skip: bool,
 }
 
 /// Parse the name and generic type arguments of the node type.
@@ -120,7 +147,7 @@ fn process_const(
     self_ty: &syn::Type,
     self_name: &str,
     self_args: &[&syn::Type],
-) -> Result<syn::ItemMod> {
+) -> Result<(Property, syn::ItemMod)> {
     // The module that will contain the `Key` type.
     let module_name = &item.ident;
 
@@ -139,13 +166,16 @@ fn process_const(
     let default = &item.expr;
 
     let mut folder = None;
-    let mut nonfolding = Some(quote! {
-        impl<#params> Nonfolding for Key<#key_args> {}
-    });
+    let mut property = Property {
+        name: item.ident.clone(),
+        shorthand: false,
+        variadic: false,
+        skip: false,
+    };
 
-    // Look for a folding function like `#[fold(u64::add)]`.
-    for attr in &item.attrs {
+    for attr in std::mem::take(&mut item.attrs) {
         if attr.path.is_ident("fold") {
+            // Look for a folding function like `#[fold(u64::add)]`.
             let func: syn::Expr = attr.parse_args()?;
             folder = Some(quote! {
                 const FOLDING: bool = true;
@@ -155,9 +185,29 @@ fn process_const(
                     f(inner, outer)
                 }
             });
-            nonfolding = None;
+        } else if attr.path.is_ident("shorthand") {
+            property.shorthand = true;
+        } else if attr.path.is_ident("variadic") {
+            property.variadic = true;
+        } else if attr.path.is_ident("skip") {
+            property.skip = true;
+        } else {
+            item.attrs.push(attr);
         }
     }
+
+    if property.shorthand && property.variadic {
+        return Err(Error::new(
+            property.name.span(),
+            "shorthand and variadic are mutually exclusive",
+        ));
+    }
+
+    let nonfolding = folder.is_none().then(|| {
+        quote! {
+            impl<#params> Nonfolding for Key<#key_args> {}
+        }
+    });
 
     // Generate the module code.
     let module = parse_quote! {
@@ -204,5 +254,5 @@ fn process_const(
     item.ty = parse_quote! { #module_name::Key<#key_args> };
     item.expr = parse_quote! { #module_name::Key(PhantomData) };
 
-    Ok(module)
+    Ok((property, module))
 }

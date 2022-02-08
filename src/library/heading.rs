@@ -9,8 +9,8 @@ pub struct HeadingNode {
     /// The logical nesting depth of the section, starting from one. In the
     /// default style, this controls the text size of the heading.
     pub level: usize,
-    /// The node that produces the heading's contents.
-    pub child: PackedNode,
+    /// The heading's contents.
+    pub body: Template,
 }
 
 #[class]
@@ -23,70 +23,76 @@ impl HeadingNode {
     /// The fill color of text in the heading. Just the surrounding text color
     /// if `auto`.
     pub const FILL: Smart<Paint> = Smart::Auto;
+    /// Whether text in the heading is strengthend.
+    pub const STRONG: bool = true;
+    /// Whether text in the heading is emphasized.
+    pub const EMPH: bool = false;
+    /// Whether the heading is underlined.
+    pub const UNDERLINE: bool = false;
     /// The extra padding above the heading.
     pub const ABOVE: Length = Length::zero();
     /// The extra padding below the heading.
     pub const BELOW: Length = Length::zero();
 
     fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
-        Ok(Template::block(Self {
-            child: args.expect("body")?,
+        Ok(Template::show(Self {
+            body: args.expect("body")?,
             level: args.named("level")?.unwrap_or(1),
         }))
     }
-
-    fn set(args: &mut Args, styles: &mut StyleMap) -> TypResult<()> {
-        styles.set_opt(Self::FAMILY, args.named("family")?);
-        styles.set_opt(Self::SIZE, args.named("size")?);
-        styles.set_opt(Self::FILL, args.named("fill")?);
-        styles.set_opt(Self::ABOVE, args.named("above")?);
-        styles.set_opt(Self::BELOW, args.named("below")?);
-        Ok(())
-    }
 }
 
-impl Layout for HeadingNode {
-    fn layout(
-        &self,
-        ctx: &mut LayoutContext,
-        regions: &Regions,
-        styles: StyleChain,
-    ) -> Vec<Constrained<Arc<Frame>>> {
-        let upscale = (1.6 - 0.1 * self.level as f64).max(0.75);
+impl Show for HeadingNode {
+    fn show(&self, styles: StyleChain) -> Template {
+        let mut map = StyleMap::new();
 
-        let mut passed = StyleMap::new();
-        passed.set(TextNode::STRONG, true);
-        passed.set(
+        let upscale = (1.6 - 0.1 * self.level as f64).max(0.75);
+        map.set(
             TextNode::SIZE,
             styles.get(Self::SIZE).unwrap_or(Relative::new(upscale).into()),
         );
 
         if let Smart::Custom(family) = styles.get_ref(Self::FAMILY) {
-            passed.set(
-                TextNode::FAMILY_LIST,
+            map.set(
+                TextNode::FAMILY,
                 std::iter::once(family)
-                    .chain(styles.get_ref(TextNode::FAMILY_LIST))
+                    .chain(styles.get_ref(TextNode::FAMILY))
                     .cloned()
                     .collect(),
             );
         }
 
         if let Smart::Custom(fill) = styles.get(Self::FILL) {
-            passed.set(TextNode::FILL, fill);
+            map.set(TextNode::FILL, fill);
         }
 
-        let mut frames = self.child.layout(ctx, regions, passed.chain(&styles));
+        if styles.get(Self::STRONG) {
+            map.set(TextNode::STRONG, true);
+        }
+
+        if styles.get(Self::EMPH) {
+            map.set(TextNode::EMPH, true);
+        }
+
+        let mut body = self.body.clone();
+        if styles.get(Self::UNDERLINE) {
+            body = body.underlined();
+        }
+
+        let mut seq = vec![];
 
         let above = styles.get(Self::ABOVE);
-        let below = styles.get(Self::BELOW);
-
-        // FIXME: Constraints and region size.
-        for Constrained { item: frame, .. } in &mut frames {
-            let frame = Arc::make_mut(frame);
-            frame.size.y += above + below;
-            frame.translate(Point::with_y(above));
+        if !above.is_zero() {
+            seq.push(Template::Vertical(above.into()));
         }
 
-        frames
+        seq.push(body);
+
+        let below = styles.get(Self::BELOW);
+        if !below.is_zero() {
+            seq.push(Template::Vertical(below.into()));
+        }
+
+        Template::block(Template::sequence(seq).styled_with_map(map))
     }
 }
