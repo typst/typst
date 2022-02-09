@@ -176,7 +176,9 @@ impl Reparser<'_> {
             let child = &mut green.children_mut()[superseded_range.start];
             let prev_len = child.len();
 
-            if last_kind.succession_rule() != SuccessionRule::Unsafe {
+            if last_kind.succession_rule() != SuccessionRule::Unsafe
+                && !matches!(last_kind, NodeKind::Strong | NodeKind::Emph)
+            {
                 if let Some(range) = match child {
                     Green::Node(node) => self.reparse_step(
                         Arc::make_mut(node),
@@ -384,11 +386,21 @@ fn validate(
         }
 
         if child.kind().neighbour_rule() == NeighbourRule::AtStart {
-            let child_col = s.column(child_pos);
+            let child_col = s.column(child_pos)
+                + match child.kind() {
+                    NodeKind::Heading => child
+                        .children()
+                        .iter()
+                        .filter(|n| n.kind() == &NodeKind::Eq)
+                        .count(),
+                    NodeKind::List => 1,
+                    NodeKind::Enum => child.children().first().unwrap().len(),
+                    _ => 0,
+                };
 
             let mut right_pos = newborn_span.end;
             for child in &superseded[superseded_range.end ..] {
-                if child.kind().is_trivia() {
+                if child.kind().is_trivia() || child.kind() == &NodeKind::Parbreak {
                     right_pos += child.len();
                     continue;
                 }
@@ -439,6 +451,7 @@ impl NodeKind {
         match self {
             // These are all replaceable by other tokens.
             Self::Linebreak
+            | Self::Parbreak
             | Self::Text(_)
             | Self::TextInLine(_)
             | Self::NonBreakingSpace
@@ -574,9 +587,6 @@ impl NodeKind {
             | Self::Include
             | Self::From => SuccessionRule::Unsafe,
 
-            // This can affect whether strong or emph content ends.
-            Self::Parbreak => SuccessionRule::Unsafe,
-
             // This element always has to remain in the same column so better
             // reparse the whole parent.
             Self::Raw(_) => SuccessionRule::Unsafe,
@@ -635,6 +645,9 @@ mod tests {
         test("", 0..0, "do it", 0..5);
         test("a d e", 1 .. 3, " b c d", 0 .. 9);
         test("a #f() e", 1 .. 6, " b c d", 0 .. 9);
+        test("a\nb\nc\nd\ne\n", 5..5, "c", 3..8);
+        test("a\n\nb\n\nc\n\nd\n\ne\n", 7..7, "c", 4..11);
+        test("a\nb\nc *hel a b lo* d\nd\ne", 13..13, "c ", 6..20);
         test("{a}", 1 .. 2, "b", 1 .. 2);
         test("{(0, 1, 2)}", 5 .. 6, "11pt", 5 .. 9);
         test("\n= A heading", 3 .. 3, "n evocative", 1 .. 23);

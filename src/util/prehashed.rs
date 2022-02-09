@@ -1,7 +1,9 @@
-use std::any::Any;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
+
+#[cfg(feature = "layout-cache")]
+use std::any::Any;
 
 /// A wrapper around a type that precomputes its hash.
 #[derive(Copy, Clone)]

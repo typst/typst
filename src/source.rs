@@ -108,11 +108,17 @@ impl SourceStore {
 
     /// Edit a source file by replacing the given range.
     ///
-    /// This panics if no source file with this `id` exists or if the `replace`
-    /// range is out of bounds for the source file identified by `id`.
+    /// Returns the range of the section in the new source that was ultimately
+    /// reparsed. This panics if no source file with this `id` exists or if the
+    /// `replace` range is out of bounds.
     #[track_caller]
-    pub fn edit(&mut self, id: SourceId, replace: Range<usize>, with: &str) {
-        self.sources[id.0 as usize].edit(replace, with);
+    pub fn edit(
+        &mut self,
+        id: SourceId,
+        replace: Range<usize>,
+        with: &str,
+    ) -> Range<usize> {
+        self.sources[id.0 as usize].edit(replace, with)
     }
 }
 

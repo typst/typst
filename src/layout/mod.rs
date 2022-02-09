@@ -172,7 +172,7 @@ impl Layout for LayoutNode {
         let styles = styles.barred(self.id());
 
         #[cfg(not(feature = "layout-cache"))]
-        return self.node.layout(ctx, regions, styles);
+        return self.0.layout(ctx, regions, styles);
 
         #[cfg(feature = "layout-cache")]
         let hash = {
