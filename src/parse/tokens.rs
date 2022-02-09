@@ -202,9 +202,18 @@ impl<'s> Tokens<'s> {
             '~' | '*' | '_' | '`' | '$' | '-' | '\\'
         };
 
-        self.s.eat_until(|c| {
-            TABLE.get(c as usize).copied().unwrap_or_else(|| c.is_whitespace())
-        });
+        loop {
+            self.s.eat_until(|c| {
+                TABLE.get(c as usize).copied().unwrap_or_else(|| c.is_whitespace())
+            });
+
+            let mut s = self.s;
+            if !(s.eat_if(' ') && s.check_or(false, char::is_alphanumeric)) {
+                break;
+            }
+
+            self.s.eat();
+        }
 
         NodeKind::Text(self.s.eaten_from(start).into())
     }

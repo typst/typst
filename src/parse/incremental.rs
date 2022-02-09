@@ -113,11 +113,13 @@ impl Reparser<'_> {
             // We look for the start in the element but we only take a position
             // at the right border if this is markup or the last element.
             //
-            // This is because in Markup mode, we want to examine all nodes
-            // touching a replacement but in code we want to atomically replace.
-            if child_span.contains(&self.replace_range.start)
-                || (child_mode == TokenMode::Markup
-                    && self.replace_range.start == child_span.end)
+            // This is because in Markup mode, we want to examine all nodes next
+            // to a replacement but in code we want to atomically replace. At
+            // least one character on either side of the replacement must be
+            // reparsed with it to keep the Space / Text node coalescing intact.
+            if (child_mode == TokenMode::Markup
+                && child_span.end + 1 >= self.replace_range.start)
+                || child_span.contains(&self.replace_range.start)
             {
                 first = Some((i, offset));
                 break;
@@ -134,12 +136,22 @@ impl Reparser<'_> {
         for (i, child) in green.children_mut().iter_mut().enumerate().skip(first_idx) {
             let child_span = offset .. offset + child.len();
 
-            // Similarly to above, the end of the edit must be in the node but
-            // if it is at the edge and we are in markup node, we also want its
-            // neighbor!
-            if child_span.contains(&self.replace_range.end)
-                || self.replace_range.end == child_span.end
-                    && (child_mode != TokenMode::Markup || i + 1 == original_count)
+            // Similarly to above, the end of the edit must be in the
+            // reconsidered range. However, in markup mode, we need to extend
+            // the reconsidered range by up to two nodes so that spaceing etc.
+            // results in the same tree.
+            //
+            // Therefore, there are two cases:
+            // 1. We are at the end of the string or in code mode and the
+            //    current node perfectly matches the end of the replacement
+            // 2. The end is contained within this node, and, in Markup mode,
+            //    is not the first thing in it.
+            let ignore_overhang =
+                i + 1 == original_count || child_mode != TokenMode::Markup;
+
+            if (self.replace_range.end == child_span.end && ignore_overhang)
+                || (child_span.end > self.replace_range.end
+                    && (self.replace_range.end != child_span.start || ignore_overhang))
             {
                 outermost &= i + 1 == original_count;
                 last = Some((i, offset + child.len()));
@@ -618,27 +630,27 @@ mod tests {
 
     #[test]
     fn test_parse_incremental_simple_replacements() {
-        test("hello world", 6 .. 11, "walkers", 5 .. 13);
+        test("hello  world", 7 .. 12, "walkers", 5 .. 14);
         test("some content", 0..12, "", 0..0);
         test("", 0..0, "do it", 0..5);
-        test("a d e", 1 .. 3, " b c d", 0 .. 8);
-        test("a #f() e", 1 .. 6, " b c d", 0 .. 8);
+        test("a d e", 1 .. 3, " b c d", 0 .. 9);
+        test("a #f() e", 1 .. 6, " b c d", 0 .. 9);
         test("{a}", 1 .. 2, "b", 1 .. 2);
         test("{(0, 1, 2)}", 5 .. 6, "11pt", 5 .. 9);
-        test("= A heading", 3 .. 3, "n evocative", 2 .. 22);
-        test("your thing", 5 .. 5, "a", 4 .. 11);
-        test("a your thing a", 6 .. 7, "a", 2 .. 12);
+        test("\n= A heading", 3 .. 3, "n evocative", 1 .. 23);
+        test("for~your~thing", 9 .. 9, "a", 4 .. 15);
+        test("a your thing a", 6 .. 7, "a", 0 .. 14);
         test("{call(); abc}", 7 .. 7, "[]", 0 .. 15);
-        test("#call() abc", 7 .. 7, "[]", 0 .. 10);
-        test("hi[\n- item\n- item 2\n    - item 3]", 11 .. 11, "  ", 3 .. 34);
+        test("#call() abc", 7 .. 7, "[]", 0 .. 13);
+        test("hi[\n- item\n- item 2\n    - item 3]", 11 .. 11, "  ", 4 .. 34);
         test("hi\n- item\nno item\n    - item 3", 10 .. 10, "- ", 0 .. 32);
         test("#grid(columns: (auto, 1fr, 40%), [*plonk*], rect(width: 100%, height: 1pt, fill: conifer), [thing])", 16 .. 20, "none", 16 .. 20);
         test("#grid(columns: (auto, 1fr, 40%), [*plonk*], rect(width: 100%, height: 1pt, fill: conifer), [thing])", 33 .. 42, "[_gronk_]", 33 .. 42);
         test("#grid(columns: (auto, 1fr, 40%), [*plonk*], rect(width: 100%, height: 1pt, fill: conifer), [thing])", 34 .. 41, "_bar_", 34 .. 39);
         test("{let i=1; for x in range(5) {i}}", 6 .. 6, " ", 1 .. 9);
         test("{let i=1; for x in range(5) {i}}", 13 .. 14, "  ", 10 .. 32);
-        test("hello {x}", 6 .. 9, "#f()", 5 .. 10);
-        test("this is -- in my opinion -- spectacular", 8 .. 10, "---", 7 .. 12);
+        test("hello~~{x}", 7 .. 10, "#f()", 5 .. 11);
+        test("this~is -- in my opinion -- spectacular", 8 .. 10, "---", 5 .. 25);
         test("understanding `code` is complicated", 15 .. 15, "C ", 0 .. 37);
         test("{ let x = g() }", 10 .. 12, "f(54", 2 .. 15);
         test("a #let rect with (fill: eastern)\nb", 16 .. 31, " (stroke: conifer", 2 .. 34);
@@ -649,22 +661,22 @@ mod tests {
 
     #[test]
     fn test_parse_incremental_whitespace_invariants() {
-        test("hello \\ world", 7 .. 8, "a ", 6 .. 14);
-        test("hello \\ world", 7 .. 8, " a", 6 .. 14);
-        test("x = y", 1 .. 1, " + y", 0 .. 6);
+        test("hello \\ world", 7 .. 8, "a ", 5 .. 14);
+        test("hello \\ world", 7 .. 8, " a", 5 .. 14);
+        test("x = y", 1 .. 1, " + y", 0 .. 7);
         test("x = y", 1 .. 1, " + y\n", 0 .. 10);
-        test("abc\n= a heading\njoke", 3 .. 4, "\nmore\n\n", 0 .. 21);
-        test("abc\n= a heading\njoke", 3 .. 4, "\nnot ", 0 .. 19);
-        test("#let x = (1, 2 + ; Five\r\n\r", 19..22, "2.", 18..22);
+        test("abc\n= a heading\njoke", 3 .. 4, "\nmore\n\n", 0 .. 22);
+        test("abc\n= a heading\njoke", 3 .. 4, "\nnot ", 0 .. 20);
+        test("#let x = (1, 2 + ;~ Five\r\n\r", 20..23, "2.", 18..23);
         test("hey #myfriend", 4 .. 4, "\\", 0 .. 14);
-        test("hey  #myfriend", 4 .. 4, "\\", 3 .. 6);
+        test("hey  #myfriend", 4 .. 4, "\\", 0 .. 6);
     }
 
     #[test]
     fn test_parse_incremental_type_invariants() {
         test("a #for x in array {x}", 18 .. 21, "[#x]", 2 .. 22);
         test("a #let x = 1 {5}", 3 .. 6, "if", 0 .. 15);
-        test("a {let x = 1 {5}} b", 3 .. 6, "if", 2 .. 16);
+        test("a {let x = 1 {5}} b", 3 .. 6, "if", 1 .. 16);
         test("#let x = 1 {5}", 4 .. 4, " if", 0 .. 17);
         test("{let x = 1 {5}}", 4 .. 4, " if", 0 .. 18);
         test("a // b c #f()", 3 .. 4, "", 0 .. 12);
@@ -672,21 +684,21 @@ mod tests {
         test("a{\nf()\n//g(a)\n}b", 7 .. 9, "", 1 .. 13);
         test("a #while x {\n g(x) \n}  b", 11 .. 11, "//", 0 .. 26);
         test("{(1, 2)}", 1 .. 1, "while ", 0 .. 14);
-        test("a b c", 1 .. 1, "{[}", 0 .. 5);
+        test("a b c", 1 .. 1, "{[}", 0 .. 8);
     }
 
     #[test]
     fn test_parse_incremental_wrongly_or_unclosed_things() {
         test(r#"{"hi"}"#, 4 .. 5, "c", 0 .. 6);
         test(r"this \u{abcd}", 8 .. 9, "", 5 .. 12);
-        test(r"this \u{abcd} that", 12 .. 13, "", 0 .. 17);
+        test(r"this \u{abcd} that", 12 .. 13, "", 5 .. 17);
         test(r"{{let x = z}; a = 1} b", 6 .. 6, "//", 0 .. 24);
-        test("a b c", 1 .. 1, " /* letters */", 0 .. 16);
+        test("a b c", 1 .. 1, " /* letters */", 0 .. 19);
         test("a b c", 1 .. 1, " /* letters", 0 .. 16);
         test("{if i==1 {a} else [b]; b()}", 12 .. 12, " /* letters */", 1 .. 35);
         test("{if i==1 {a} else [b]; b()}", 12 .. 12, " /* letters", 0 .. 38);
-        test("~~~~", 2 .. 2, "[]", 1 .. 5);
-        test("a[]b", 2 .. 2, "{", 1 .. 4);
+        test("~~~~", 2 .. 2, "[]", 0 .. 6);
+        test("a[]b", 2 .. 2, "{", 0 .. 5);
         test("[hello]", 2 .. 3, "]", 0 .. 7);
         test("{a}", 1 .. 2, "b", 1 .. 2);
         test("{ a; b; c }", 5 .. 6, "[}]", 0 .. 13);
