@@ -14,7 +14,7 @@ pub struct PadNode {
 #[class]
 impl PadNode {
     fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
-        let all = args.find();
+        let all = args.find()?;
         let left = args.named("left")?;
         let top = args.named("top")?;
         let right = args.named("right")?;

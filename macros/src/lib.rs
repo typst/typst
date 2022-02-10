@@ -56,20 +56,23 @@ fn expand(mut impl_block: syn::ItemImpl) -> Result<TokenStream2> {
             let name = property.name;
             let string = name.to_string().replace("_", "-").to_lowercase();
 
-            let alternative = if property.variadic {
+            let value = if property.variadic {
                 quote! {
-                    .or_else(|| {
-                        let list: Vec<_> = args.all().collect();
-                        (!list.is_empty()).then(|| list)
-                    })
+                    match args.named(#string)? {
+                        Some(value) => value,
+                        None => {
+                            let list: Vec<_> = args.all()?;
+                            (!list.is_empty()).then(|| list)
+                        }
+                    }
                 }
             } else if property.shorthand {
-                quote! { .or_else(|| args.find()) }
+                quote! { args.named_or_find(#string)? }
             } else {
-                quote! {}
+                quote! { args.named(#string)? }
             };
 
-            quote! { styles.set_opt(Self::#name, args.named(#string)? #alternative); }
+            quote! { styles.set_opt(Self::#name, #value); }
         });
 
         parse_quote! {

@@ -78,9 +78,7 @@ pub struct Rotate(pub Angle);
 
 impl TransformKind for Rotate {
     fn construct(args: &mut Args) -> TypResult<Self> {
-        Ok(Self(
-            args.named("angle")?.or_else(|| args.find()).unwrap_or_default(),
-        ))
+        Ok(Self(args.named_or_find("angle")?.unwrap_or_default()))
     }
 
     fn matrix(&self) -> Transform {
@@ -94,7 +92,7 @@ pub struct Scale(pub Relative, pub Relative);
 
 impl TransformKind for Scale {
     fn construct(args: &mut Args) -> TypResult<Self> {
-        let all = args.find();
+        let all = args.find()?;
         let sx = args.named("x")?.or(all).unwrap_or(Relative::one());
         let sy = args.named("y")?.or(all).unwrap_or(Relative::one());
         Ok(Self(sx, sy))

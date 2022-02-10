@@ -45,7 +45,7 @@ impl<S: ShapeKind> ShapeNode<S> {
         };
 
         Ok(Template::inline(
-            ShapeNode { kind: S::default(), child: args.find() }
+            ShapeNode { kind: S::default(), child: args.find()? }
                 .pack()
                 .sized(Spec::new(width, height)),
         ))

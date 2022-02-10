@@ -31,7 +31,7 @@ pub fn join(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     let sep = args.named::<Value>("sep")?.unwrap_or(Value::None);
 
     let mut result = Value::None;
-    let mut iter = args.all::<Value>();
+    let mut iter = args.all::<Value>()?.into_iter();
 
     if let Some(first) = iter.next() {
         result = first;
@@ -88,7 +88,7 @@ pub fn str(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 /// Create an RGB(A) color.
 pub fn rgb(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     Ok(Value::from(
-        if let Some(string) = args.find::<Spanned<EcoString>>() {
+        if let Some(string) = args.find::<Spanned<EcoString>>()? {
             match RgbaColor::from_str(&string.v) {
                 Ok(color) => color,
                 Err(_) => bail!(string.span, "invalid hex string"),
@@ -208,7 +208,7 @@ pub fn modulo(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
 /// Find the minimum or maximum of a sequence of values.
 fn minmax(args: &mut Args, goal: Ordering) -> TypResult<Value> {
     let mut extremum = args.expect::<Value>("value")?;
-    for Spanned { v, span } in args.all::<Spanned<Value>>() {
+    for Spanned { v, span } in args.all::<Spanned<Value>>()? {
         match v.partial_cmp(&extremum) {
             Some(ordering) => {
                 if ordering == goal {

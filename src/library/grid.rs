@@ -27,7 +27,7 @@ impl GridNode {
                 column_gutter.unwrap_or_else(|| base_gutter.clone()),
                 row_gutter.unwrap_or(base_gutter),
             ),
-            children: args.all().collect(),
+            children: args.all()?,
         }))
     }
 }

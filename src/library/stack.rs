@@ -20,7 +20,7 @@ impl StackNode {
         Ok(Template::block(Self {
             dir: args.named("dir")?.unwrap_or(Dir::TTB),
             spacing: args.named("spacing")?,
-            children: args.all().collect(),
+            children: args.all()?,
         }))
     }
 }

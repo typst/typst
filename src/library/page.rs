@@ -36,7 +36,7 @@ impl PageNode {
     }
 
     fn set(args: &mut Args, styles: &mut StyleMap) -> TypResult<()> {
-        if let Some(paper) = args.named::<Paper>("paper")?.or_else(|| args.find()) {
+        if let Some(paper) = args.named_or_find::<Paper>("paper")? {
             styles.set(Self::WIDTH, Smart::Custom(paper.width()));
             styles.set(Self::HEIGHT, Smart::Custom(paper.height()));
         }

@@ -10,7 +10,7 @@ pub struct PlaceNode(pub LayoutNode);
 #[class]
 impl PlaceNode {
     fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
-        let aligns = args.find().unwrap_or(Spec::with_x(Some(Align::Left)));
+        let aligns = args.find()?.unwrap_or(Spec::with_x(Some(Align::Left)));
         let tx = args.named("dx")?.unwrap_or_default();
         let ty = args.named("dy")?.unwrap_or_default();
         let body: LayoutNode = args.expect("body")?;

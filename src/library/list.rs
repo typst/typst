@@ -21,7 +21,8 @@ impl<L: ListLabel> ListNode<L> {
 
     fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
         Ok(args
-            .all()
+            .all()?
+            .into_iter()
             .enumerate()
             .map(|(i, child)| Template::show(Self { label: L::new(1 + i), child }))
             .sum())

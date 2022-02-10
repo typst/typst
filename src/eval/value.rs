@@ -284,7 +284,7 @@ pub trait Type {
 }
 
 /// Cast from a value to a specific type.
-pub trait Cast<V>: Sized {
+pub trait Cast<V = Spanned<Value>>: Sized {
     /// Check whether the value is castable to `Self`.
     fn is(value: &V) -> bool;
 
@@ -415,7 +415,7 @@ impl Cast<Value> for Value {
     }
 }
 
-impl<T> Cast<Spanned<Value>> for T
+impl<T> Cast for T
 where
     T: Cast<Value>,
 {
@@ -428,7 +428,7 @@ where
     }
 }
 
-impl<T> Cast<Spanned<Value>> for Spanned<T>
+impl<T> Cast for Spanned<T>
 where
     T: Cast<Value>,
 {

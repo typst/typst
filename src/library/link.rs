@@ -23,7 +23,7 @@ impl LinkNode {
 
     fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
         let url = args.expect::<EcoString>("url")?;
-        let body = args.find().unwrap_or_else(|| {
+        let body = args.find()?.unwrap_or_else(|| {
             let mut text = url.as_str();
             for prefix in ["mailto:", "tel:"] {
                 text = text.trim_start_matches(prefix);
