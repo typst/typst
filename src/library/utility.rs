@@ -118,7 +118,8 @@ pub fn rgb(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
         },
     ))
 }
-/// Create an CMYK color.
+
+/// Create a CMYK color.
 pub fn cmyk(_: &mut EvalContext, args: &mut Args) -> TypResult<Value> {
     struct Component(u8);
 
