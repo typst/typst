@@ -34,6 +34,7 @@ impl FaceId {
 /// Storage for loaded and parsed font faces.
 pub struct FontStore {
     loader: Arc<dyn Loader>,
+    failed: Vec<bool>,
     faces: Vec<Option<Face>>,
     families: BTreeMap<String, Vec<FaceId>>,
     buffers: HashMap<FileHash, Arc<Vec<u8>>>,
@@ -43,17 +44,20 @@ impl FontStore {
     /// Create a new, empty font store.
     pub fn new(loader: Arc<dyn Loader>) -> Self {
         let mut faces = vec![];
+        let mut failed = vec![];
         let mut families = BTreeMap::<String, Vec<FaceId>>::new();
 
         for (i, info) in loader.faces().iter().enumerate() {
             let id = FaceId(i as u32);
             faces.push(None);
+            failed.push(false);
             families.entry(info.family.to_lowercase()).or_default().push(id);
         }
 
         Self {
             loader,
             faces,
+            failed,
             families,
             buffers: HashMap::new(),
         }
@@ -95,12 +99,16 @@ impl FontStore {
         }
 
         let id = best?;
-
-        // Load the face if it's not already loaded.
         let idx = id.0 as usize;
         let slot = &mut self.faces[idx];
+        if self.failed[idx] {
+            return None;
+        }
+
+        // Load the face if it's not already loaded.
         if slot.is_none() {
             let FaceInfo { ref path, index, .. } = infos[idx];
+            self.failed[idx] = true;
 
             // Check the buffer cache since multiple faces may
             // refer to the same data (font collection).
@@ -115,6 +123,7 @@ impl FontStore {
 
             let face = Face::new(Arc::clone(buffer), index)?;
             *slot = Some(face);
+            self.failed[idx] = false;
         }
 
         Some(id)
