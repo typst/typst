@@ -248,7 +248,7 @@ impl<'s> Tokens<'s> {
                 // Parenthesis and hashtag.
                 '[' | ']' | '{' | '}' | '#' |
                 // Markup.
-                '*' | '_' | '=' | '~' | '`' | '$' => {
+                '~' | '*' | '_' | '`' | '$' | '=' | '-' | '.'  => {
                     self.s.eat_assert(c);
                     NodeKind::Escape(c)
                 }

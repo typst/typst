@@ -24,6 +24,9 @@
 // Some code stuff in text.
 let f() , ; : | + - /= == 12 "string"
 
+// Escaped dot.
+10\. May
+
 ---
 // Unicode codepoint does not exist.
 // Error: 1-11 invalid unicode escape sequence
