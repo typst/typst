@@ -304,6 +304,8 @@ struct Builder<'a> {
     par: CollapsingBuilder<'a, ParChild>,
     /// Whether to keep the next page even if it is empty.
     keep_next: bool,
+    /// Whether this paragraph is the first one or behind something special.
+    first: bool,
 }
 
 impl<'a> Builder<'a> {
@@ -320,6 +322,7 @@ impl<'a> Builder<'a> {
             flow: CollapsingBuilder::new(),
             par: CollapsingBuilder::new(),
             keep_next: true,
+            first: true,
         }
     }
 
@@ -344,6 +347,10 @@ impl<'a> Builder<'a> {
                 self.par.supportive(ParChild::Text(text.clone()), styles);
             }
             Template::Inline(node) => {
+                if self.par.is_empty() {
+                    self.first = true;
+                }
+
                 self.par.supportive(ParChild::Node(node.clone()), styles);
             }
             Template::Parbreak => {
@@ -372,6 +379,7 @@ impl<'a> Builder<'a> {
                     self.flow.supportive(child, styles);
                 }
                 self.finish_par(styles);
+                self.first = true;
             }
             Template::Pagebreak => {
                 self.finish_page(true, true, styles);
@@ -385,6 +393,7 @@ impl<'a> Builder<'a> {
             Template::Show(node) => {
                 let template = self.template_arena.alloc(node.show(styles));
                 self.process(template, styles.unscoped(node.id()));
+                self.first = true;
             }
             Template::Styled(styled) => {
                 let (sub, map) = styled.as_ref();
@@ -416,10 +425,18 @@ impl<'a> Builder<'a> {
 
     /// Finish the currently built paragraph.
     fn finish_par(&mut self, styles: StyleChain<'a>) {
-        let (par, shared) = mem::take(&mut self.par).finish();
+        let (mut par, shared) = mem::take(&mut self.par).finish();
+        // Insert par spacing at the front here if not first and indent.
+
+        let indent = styles.get(ParNode::INDENT);
+        if !self.first && !indent.is_zero() {
+            par.push_front(ParChild::Spacing(SpacingKind::Linear(indent)))
+        }
+
         if !par.is_empty() {
             let node = ParNode(par).pack();
             self.flow.supportive(FlowChild::Node(node), shared);
+            self.first = false;
         }
         self.flow.weak(FlowChild::Leading, 0, styles);
     }

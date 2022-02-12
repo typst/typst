@@ -6,6 +6,22 @@
 To the right! Where the sunlight peeks behind the mountain.
 
 ---
+// Test first line indent.
+#set par(indent: 16pt, spacing: 0pt)
+#set heading(above: 8pt, below: 2pt)
+Only in fancy texts, writers eschew paragraph
+spacing in favor of line indent.
+
+This can have the following consequences for the document's look:
+
+- dense
+- positively dashing
+
+=== Heading
+
+Here, it should be surpressed.
+
+---
 // Test that explicit paragraph break respects active styles.
 #set par(spacing: 0pt)
 [#set par(spacing: 100pt);First]

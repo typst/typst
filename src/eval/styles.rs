@@ -335,6 +335,13 @@ impl<T> StyleVec<T> {
         self.items.iter()
     }
 
+    pub fn push_front(&mut self, item: T) {
+        if !self.maps.is_empty() {
+            self.items.insert(0, item);
+            self.maps[0].1 += 1;
+        }
+    }
+
     /// Iterate over the contained items and associated style maps.
     pub fn iter(&self) -> impl Iterator<Item = (&T, &StyleMap)> + '_ {
         let styles = self
@@ -395,6 +402,11 @@ impl<'a, T> StyleVecBuilder<'a, T> {
         let item = self.items.last_mut()?;
         let chain = self.chains.last()?.0;
         Some((item, chain))
+    }
+
+    /// Whether the builder is empty.
+    pub fn is_empty(&self) -> bool {
+        self.items.is_empty()
     }
 
     /// Finish building, returning a pair of two things:

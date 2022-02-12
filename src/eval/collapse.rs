@@ -67,6 +67,11 @@ impl<'a, T: Merge> CollapsingBuilder<'a, T> {
         self.staged.push((item, styles, None));
     }
 
+    /// Whether this builder is empty.
+    pub fn is_empty(&self) -> bool {
+        self.staged.is_empty() && self.builder.is_empty()
+    }
+
     /// Return the finish style vec and the common prefix chain.
     pub fn finish(mut self) -> (StyleVec<T>, StyleChain<'a>) {
         self.flush(false);
