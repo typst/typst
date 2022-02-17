@@ -1,16 +1,15 @@
-use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::iter;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 use super::{Args, Class, Construct, EvalContext, Func, Set, Value};
 use crate::diag::TypResult;
 use crate::util::EcoString;
 
 /// A slot where a variable is stored.
-pub type Slot = Arc<RefCell<Value>>;
+pub type Slot = Arc<RwLock<Value>>;
 
 /// A stack of scopes.
 #[derive(Debug, Default, Clone)]
@@ -80,18 +79,17 @@ impl Scope {
 
     /// Define a constant variable with a value.
     pub fn def_const(&mut self, var: impl Into<EcoString>, value: impl Into<Value>) {
-        let cell = RefCell::new(value.into());
+        let cell = RwLock::new(value.into());
 
         // Make it impossible to write to this value again.
-        // FIXME: Use Ref::leak once stable.
-        std::mem::forget(cell.borrow());
+        std::mem::forget(cell.read());
 
         self.values.insert(var.into(), Arc::new(cell));
     }
 
     /// Define a mutable variable with a value.
     pub fn def_mut(&mut self, var: impl Into<EcoString>, value: impl Into<Value>) {
-        self.values.insert(var.into(), Arc::new(RefCell::new(value.into())));
+        self.values.insert(var.into(), Arc::new(RwLock::new(value.into())));
     }
 
     /// Define a variable with a slot.
@@ -132,7 +130,7 @@ impl Hash for Scope {
         self.values.len().hash(state);
         for (name, value) in self.values.iter() {
             name.hash(state);
-            value.borrow().hash(state);
+            value.read().unwrap().hash(state);
         }
     }
 }
@@ -141,7 +139,7 @@ impl Debug for Scope {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.write_str("Scope ")?;
         f.debug_map()
-            .entries(self.values.iter().map(|(k, v)| (k, v.borrow())))
+            .entries(self.values.iter().map(|(k, v)| (k, v.read().unwrap())))
             .finish()
     }
 }

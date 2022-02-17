@@ -29,7 +29,6 @@ pub use styles::*;
 pub use template::*;
 pub use value::*;
 
-use std::cell::RefMut;
 use std::collections::HashMap;
 use std::io;
 use std::mem;
@@ -46,7 +45,7 @@ use crate::loading::Loader;
 use crate::source::{SourceId, SourceStore};
 use crate::syntax::ast::*;
 use crate::syntax::{Span, Spanned};
-use crate::util::{EcoString, RefMutExt};
+use crate::util::EcoString;
 use crate::Context;
 
 /// An evaluated module, ready for importing or conversion to a root layout
@@ -347,7 +346,7 @@ impl Eval for Ident {
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
         match ctx.scopes.get(self) {
-            Some(slot) => Ok(slot.borrow().clone()),
+            Some(slot) => Ok(slot.read().unwrap().clone()),
             None => bail!(self.span(), "unknown variable"),
         }
     }
@@ -450,10 +449,11 @@ impl Eval for BinaryExpr {
 
 impl BinaryExpr {
     /// Apply a basic binary operation.
-    fn apply<F>(&self, ctx: &mut EvalContext, op: F) -> TypResult<Value>
-    where
-        F: FnOnce(Value, Value) -> StrResult<Value>,
-    {
+    fn apply(
+        &self,
+        ctx: &mut EvalContext,
+        op: fn(Value, Value) -> StrResult<Value>,
+    ) -> TypResult<Value> {
         let lhs = self.lhs().eval(ctx)?;
 
         // Short-circuit boolean operations.
@@ -468,14 +468,20 @@ impl BinaryExpr {
     }
 
     /// Apply an assignment operation.
-    fn assign<F>(&self, ctx: &mut EvalContext, op: F) -> TypResult<Value>
-    where
-        F: FnOnce(Value, Value) -> StrResult<Value>,
-    {
+    fn assign(
+        &self,
+        ctx: &mut EvalContext,
+        op: fn(Value, Value) -> StrResult<Value>,
+    ) -> TypResult<Value> {
         let rhs = self.rhs().eval(ctx)?;
-        let mut target = self.lhs().access(ctx)?;
-        let lhs = mem::take(&mut *target);
-        *target = op(lhs, rhs).at(self.span())?;
+        self.lhs().access(
+            ctx,
+            Box::new(|target| {
+                let lhs = mem::take(&mut *target);
+                *target = op(lhs, rhs).at(self.span())?;
+                Ok(())
+            }),
+        )?;
         Ok(Value::None)
     }
 }
@@ -766,13 +772,13 @@ impl Eval for ImportExpr {
         match self.imports() {
             Imports::Wildcard => {
                 for (var, slot) in module.scope.iter() {
-                    ctx.scopes.def_mut(var, slot.borrow().clone());
+                    ctx.scopes.def_mut(var, slot.read().unwrap().clone());
                 }
             }
             Imports::Items(idents) => {
                 for ident in idents {
                     if let Some(slot) = module.scope.get(&ident) {
-                        ctx.scopes.def_mut(ident.take(), slot.borrow().clone());
+                        ctx.scopes.def_mut(ident.take(), slot.read().unwrap().clone());
                     } else {
                         bail!(ident.span(), "unresolved import");
                     }
@@ -825,24 +831,27 @@ impl Eval for ReturnExpr {
 /// This only works if the expression is a valid lvalue.
 pub trait Access {
     /// Try to access the value.
-    fn access<'a>(&self, ctx: &'a mut EvalContext) -> TypResult<RefMut<'a, Value>>;
+    fn access(&self, ctx: &mut EvalContext, f: Handler) -> TypResult<()>;
 }
 
+/// Process an accessed value.
+type Handler<'a> = Box<dyn FnOnce(&mut Value) -> TypResult<()> + 'a>;
+
 impl Access for Expr {
-    fn access<'a>(&self, ctx: &'a mut EvalContext) -> TypResult<RefMut<'a, Value>> {
+    fn access(&self, ctx: &mut EvalContext, f: Handler) -> TypResult<()> {
         match self {
-            Expr::Ident(ident) => ident.access(ctx),
-            Expr::Call(call) => call.access(ctx),
+            Expr::Ident(ident) => ident.access(ctx, f),
+            Expr::Call(call) => call.access(ctx, f),
             _ => bail!(self.span(), "cannot access this expression mutably"),
         }
     }
 }
 
 impl Access for Ident {
-    fn access<'a>(&self, ctx: &'a mut EvalContext) -> TypResult<RefMut<'a, Value>> {
+    fn access(&self, ctx: &mut EvalContext, f: Handler) -> TypResult<()> {
         match ctx.scopes.get(self) {
-            Some(slot) => match slot.try_borrow_mut() {
-                Ok(guard) => Ok(guard),
+            Some(slot) => match slot.try_write() {
+                Ok(mut guard) => f(&mut guard),
                 Err(_) => bail!(self.span(), "cannot mutate a constant"),
             },
             None => bail!(self.span(), "unknown variable"),
@@ -851,18 +860,21 @@ impl Access for Ident {
 }
 
 impl Access for CallExpr {
-    fn access<'a>(&self, ctx: &'a mut EvalContext) -> TypResult<RefMut<'a, Value>> {
+    fn access(&self, ctx: &mut EvalContext, f: Handler) -> TypResult<()> {
         let args = self.args().eval(ctx)?;
-        let guard = self.callee().access(ctx)?;
-
-        RefMut::try_map(guard, |value| match value {
-            Value::Array(array) => array.get_mut(args.into_index()?).at(self.span()),
-            Value::Dict(dict) => Ok(dict.get_mut(args.into_key()?)),
-            v => bail!(
-                self.callee().span(),
-                "expected collection, found {}",
-                v.type_name(),
-            ),
-        })
+        self.callee().access(
+            ctx,
+            Box::new(|value| match value {
+                Value::Array(array) => {
+                    f(array.get_mut(args.into_index()?).at(self.span())?)
+                }
+                Value::Dict(dict) => f(dict.get_mut(args.into_key()?)),
+                v => bail!(
+                    self.callee().span(),
+                    "expected collection, found {}",
+                    v.type_name(),
+                ),
+            }),
+        )
     }
 }

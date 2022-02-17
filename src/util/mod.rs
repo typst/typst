@@ -9,7 +9,6 @@ pub use eco_string::EcoString;
 pub use mac_roman::decode_mac_roman;
 pub use prehashed::Prehashed;
 
-use std::cell::RefMut;
 use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
 use std::ops::Range;
@@ -221,25 +220,5 @@ impl PathExt for Path {
             }
         }
         out
-    }
-}
-
-/// Additional methods for [`RefMut`].
-pub trait RefMutExt<'a, T> {
-    fn try_map<U, F, E>(orig: Self, f: F) -> Result<RefMut<'a, U>, E>
-    where
-        F: FnOnce(&mut T) -> Result<&mut U, E>;
-}
-
-impl<'a, T> RefMutExt<'a, T> for RefMut<'a, T> {
-    fn try_map<U, F, E>(mut orig: Self, f: F) -> Result<RefMut<'a, U>, E>
-    where
-        F: FnOnce(&mut T) -> Result<&mut U, E>,
-    {
-        // Taken from here:
-        // https://github.com/rust-lang/rust/issues/27746#issuecomment-172899746
-        f(&mut orig)
-            .map(|new| new as *mut U)
-            .map(|raw| RefMut::map(orig, |_| unsafe { &mut *raw }))
     }
 }
