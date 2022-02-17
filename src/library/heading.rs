@@ -113,9 +113,9 @@ pub enum Leveled<T> {
 impl<T: Cast> Leveled<T> {
     /// Resolve the value based on the level.
     pub fn resolve(self, vm: &mut Vm, level: usize) -> TypResult<T> {
-        match self {
-            Self::Value(value) => Ok(value),
-            Self::Mapping(mapping) => Ok(mapping(level)),
+        Ok(match self {
+            Self::Value(value) => value,
+            Self::Mapping(mapping) => mapping(level),
             Self::Func(func, span) => {
                 let args = Args {
                     span,
@@ -125,9 +125,9 @@ impl<T: Cast> Leveled<T> {
                         value: Spanned::new(Value::Int(level as i64), span),
                     }],
                 };
-                func.call(vm, args)?.cast().at(span)
+                func.call(vm, args)?.cast().at(span)?
             }
-        }
+        })
     }
 }
 
@@ -138,7 +138,7 @@ impl<T: Cast> Cast<Spanned<Value>> for Leveled<T> {
 
     fn cast(value: Spanned<Value>) -> StrResult<Self> {
         match value.v {
-            Value::Func(f) => Ok(Self::Func(f, value.span)),
+            Value::Func(v) => Ok(Self::Func(v, value.span)),
             v => T::cast(v)
                 .map(Self::Value)
                 .map_err(|msg| with_alternative(msg, "function")),

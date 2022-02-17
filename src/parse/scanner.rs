@@ -90,6 +90,12 @@ impl<'s> Scanner<'s> {
         self.rest().chars().next()
     }
 
+    /// Get the nth-previous eaten char.
+    #[inline]
+    pub fn prev(&self, n: usize) -> Option<char> {
+        self.eaten().chars().nth_back(n)
+    }
+
     /// Checks whether the next char fulfills a condition.
     ///
     /// Returns `default` if there is no next char.

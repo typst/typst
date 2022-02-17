@@ -13,7 +13,7 @@ use crate::diag::StrResult;
 use crate::layout::{Layout, LayoutNode};
 use crate::library::prelude::*;
 use crate::library::{
-    DecoNode, FlowChild, FlowNode, Labelling, ListItem, ListNode, PageNode, ParChild,
+    DecoNode, FlowChild, FlowNode, ListItem, ListKind, ListNode, PageNode, ParChild,
     ParNode, PlaceNode, SpacingKind, TextNode, ORDERED, UNDERLINE, UNORDERED,
 };
 use crate::util::EcoString;
@@ -307,14 +307,14 @@ impl<'a> Builder<'a> {
                     builder.staged.push((template, styles));
                     return Ok(());
                 }
-                Template::List(item) if builder.labelling == UNORDERED => {
+                Template::List(item) if builder.kind == UNORDERED => {
                     builder.wide |=
                         builder.staged.iter().any(|&(t, _)| *t == Template::Parbreak);
                     builder.staged.clear();
                     builder.items.push(item.clone());
                     return Ok(());
                 }
-                Template::Enum(item) if builder.labelling == ORDERED => {
+                Template::Enum(item) if builder.kind == ORDERED => {
                     builder.wide |=
                         builder.staged.iter().any(|&(t, _)| *t == Template::Parbreak);
                     builder.staged.clear();
@@ -376,7 +376,7 @@ impl<'a> Builder<'a> {
             Template::List(item) => {
                 self.list = Some(ListBuilder {
                     styles,
-                    labelling: UNORDERED,
+                    kind: UNORDERED,
                     items: vec![item.clone()],
                     wide: false,
                     staged: vec![],
@@ -385,7 +385,7 @@ impl<'a> Builder<'a> {
             Template::Enum(item) => {
                 self.list = Some(ListBuilder {
                     styles,
-                    labelling: ORDERED,
+                    kind: ORDERED,
                     items: vec![item.clone()],
                     wide: false,
                     staged: vec![],
@@ -447,13 +447,12 @@ impl<'a> Builder<'a> {
 
     /// Finish the currently built list.
     fn finish_list(&mut self, vm: &mut Vm) -> TypResult<()> {
-        let ListBuilder { styles, labelling, items, wide, staged } =
-            match self.list.take() {
-                Some(list) => list,
-                None => return Ok(()),
-            };
+        let ListBuilder { styles, kind, items, wide, staged } = match self.list.take() {
+            Some(list) => list,
+            None => return Ok(()),
+        };
 
-        let template = match labelling {
+        let template = match kind {
             UNORDERED => Template::show(ListNode::<UNORDERED> { items, wide, start: 1 }),
             ORDERED | _ => Template::show(ListNode::<ORDERED> { items, wide, start: 1 }),
         };
@@ -492,7 +491,7 @@ impl<'a> Builder<'a> {
 /// Builds an unordered or ordered list from items.
 struct ListBuilder<'a> {
     styles: StyleChain<'a>,
-    labelling: Labelling,
+    kind: ListKind,
     items: Vec<ListItem>,
     wide: bool,
     staged: Vec<(&'a Template, StyleChain<'a>)>,

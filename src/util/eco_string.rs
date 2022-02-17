@@ -366,6 +366,16 @@ impl From<EcoString> for String {
     }
 }
 
+impl FromIterator<char> for EcoString {
+    fn from_iter<T: IntoIterator<Item = char>>(iter: T) -> Self {
+        let mut s = Self::new();
+        for c in iter {
+            s.push(c);
+        }
+        s
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

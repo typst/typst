@@ -538,7 +538,7 @@ impl<'s> Tokens<'s> {
 
     fn in_word(&self) -> bool {
         let alphanumeric = |c: Option<char>| c.map_or(false, |c| c.is_alphanumeric());
-        let prev = self.s.get(.. self.s.last_index()).chars().next_back();
+        let prev = self.s.prev(1);
         let next = self.s.peek();
         alphanumeric(prev) && alphanumeric(next)
     }
