@@ -62,10 +62,10 @@ pub mod prelude {
 
     pub use typst_macros::class;
 
-    pub use crate::diag::{At, TypResult};
+    pub use crate::diag::{with_alternative, At, StrResult, TypResult};
     pub use crate::eval::{
-        Args, Construct, Merge, Property, Scope, Set, Show, ShowNode, Smart, StyleChain,
-        StyleMap, StyleVec, Template, Value,
+        Arg, Args, Cast, Construct, Func, Merge, Property, Scope, Set, Show, ShowNode,
+        Smart, StyleChain, StyleMap, StyleVec, Template, Value,
     };
     pub use crate::frame::*;
     pub use crate::geom::*;

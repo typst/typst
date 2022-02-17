@@ -108,3 +108,13 @@ impl<T> Trace<T> for TypResult<T> {
         })
     }
 }
+
+/// Transform `expected X, found Y` into `expected X or A, found Y`.
+pub fn with_alternative(msg: String, alt: &str) -> String {
+    let mut parts = msg.split(", found ");
+    if let (Some(a), Some(b)) = (parts.next(), parts.next()) {
+        format!("{} or {}, found {}", a, alt, b)
+    } else {
+        msg
+    }
+}

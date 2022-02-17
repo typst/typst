@@ -531,7 +531,7 @@ impl<T: Cast> Cast for Smart<T> {
 }
 
 /// Transform `expected X, found Y` into `expected X or A, found Y`.
-fn with_alternative(msg: String, alt: &str) -> String {
+pub fn with_alternative(msg: String, alt: &str) -> String {
     let mut parts = msg.split(", found ");
     if let (Some(a), Some(b)) = (parts.next(), parts.next()) {
         format!("{} or {}, found {}", a, alt, b)
