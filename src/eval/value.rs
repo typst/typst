@@ -97,10 +97,7 @@ impl Value {
     }
 
     /// Try to cast the value into a specific type.
-    pub fn cast<T>(self) -> StrResult<T>
-    where
-        T: Cast<Value>,
-    {
+    pub fn cast<T: Cast>(self) -> StrResult<T> {
         T::cast(self)
     }
 
@@ -327,7 +324,7 @@ pub trait Type {
 }
 
 /// Cast from a value to a specific type.
-pub trait Cast<V = Spanned<Value>>: Sized {
+pub trait Cast<V = Value>: Sized {
     /// Check whether the value is castable to `Self`.
     fn is(value: &V) -> bool;
 
@@ -345,7 +342,7 @@ macro_rules! primitive {
             const TYPE_NAME: &'static str = $name;
         }
 
-        impl Cast<Value> for $type {
+        impl Cast for $type {
             fn is(value: &Value) -> bool {
                 matches!(value, Value::$variant(_) $(| Value::$other(_))*)
             }
@@ -448,7 +445,7 @@ primitive! { Func: "function", Func, Class(v) => v.constructor() }
 primitive! { Args: "arguments", Args }
 primitive! { Class: "class", Class }
 
-impl Cast<Value> for Value {
+impl Cast for Value {
     fn is(_: &Value) -> bool {
         true
     }
@@ -458,10 +455,7 @@ impl Cast<Value> for Value {
     }
 }
 
-impl<T> Cast for T
-where
-    T: Cast<Value>,
-{
+impl<T: Cast> Cast<Spanned<Value>> for T {
     fn is(value: &Spanned<Value>) -> bool {
         T::is(&value.v)
     }
@@ -471,10 +465,7 @@ where
     }
 }
 
-impl<T> Cast for Spanned<T>
-where
-    T: Cast<Value>,
-{
+impl<T: Cast> Cast<Spanned<Value>> for Spanned<T> {
     fn is(value: &Spanned<Value>) -> bool {
         T::is(&value.v)
     }
@@ -511,10 +502,7 @@ impl<T> Default for Smart<T> {
     }
 }
 
-impl<T> Cast<Value> for Option<T>
-where
-    T: Cast<Value>,
-{
+impl<T: Cast> Cast for Option<T> {
     fn is(value: &Value) -> bool {
         matches!(value, Value::None) || T::is(value)
     }
@@ -527,10 +515,7 @@ where
     }
 }
 
-impl<T> Cast<Value> for Smart<T>
-where
-    T: Cast<Value>,
-{
+impl<T: Cast> Cast for Smart<T> {
     fn is(value: &Value) -> bool {
         matches!(value, Value::Auto) || T::is(value)
     }

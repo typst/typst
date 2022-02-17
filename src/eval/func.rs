@@ -171,7 +171,10 @@ impl Args {
     ///
     /// Returns a `missing argument: {what}` error if no positional argument is
     /// left.
-    pub fn expect<T: Cast>(&mut self, what: &str) -> TypResult<T> {
+    pub fn expect<T>(&mut self, what: &str) -> TypResult<T>
+    where
+        T: Cast<Spanned<Value>>,
+    {
         match self.eat()? {
             Some(v) => Ok(v),
             None => bail!(self.span, "missing argument: {}", what),
@@ -179,7 +182,10 @@ impl Args {
     }
 
     /// Consume and cast the first positional argument if there is one.
-    pub fn eat<T: Cast>(&mut self) -> TypResult<Option<T>> {
+    pub fn eat<T>(&mut self) -> TypResult<Option<T>>
+    where
+        T: Cast<Spanned<Value>>,
+    {
         for (i, slot) in self.items.iter().enumerate() {
             if slot.name.is_none() {
                 let value = self.items.remove(i).value;
@@ -191,7 +197,10 @@ impl Args {
     }
 
     /// Find and consume the first castable positional argument.
-    pub fn find<T: Cast>(&mut self) -> TypResult<Option<T>> {
+    pub fn find<T>(&mut self) -> TypResult<Option<T>>
+    where
+        T: Cast<Spanned<Value>>,
+    {
         for (i, slot) in self.items.iter().enumerate() {
             if slot.name.is_none() && T::is(&slot.value) {
                 let value = self.items.remove(i).value;
@@ -203,7 +212,10 @@ impl Args {
     }
 
     /// Find and consume all castable positional arguments.
-    pub fn all<T: Cast>(&mut self) -> TypResult<Vec<T>> {
+    pub fn all<T>(&mut self) -> TypResult<Vec<T>>
+    where
+        T: Cast<Spanned<Value>>,
+    {
         let mut list = vec![];
         while let Some(value) = self.find()? {
             list.push(value);
@@ -213,7 +225,10 @@ impl Args {
 
     /// Cast and remove the value for the given named argument, returning an
     /// error if the conversion fails.
-    pub fn named<T: Cast>(&mut self, name: &str) -> TypResult<Option<T>> {
+    pub fn named<T>(&mut self, name: &str) -> TypResult<Option<T>>
+    where
+        T: Cast<Spanned<Value>>,
+    {
         // We don't quit once we have a match because when multiple matches
         // exist, we want to remove all of them and use the last one.
         let mut i = 0;
@@ -231,7 +246,10 @@ impl Args {
     }
 
     /// Same as named, but with fallback to find.
-    pub fn named_or_find<T: Cast>(&mut self, name: &str) -> TypResult<Option<T>> {
+    pub fn named_or_find<T>(&mut self, name: &str) -> TypResult<Option<T>>
+    where
+        T: Cast<Spanned<Value>>,
+    {
         match self.named(name)? {
             Some(value) => Ok(Some(value)),
             None => self.find(),
@@ -266,10 +284,7 @@ impl Args {
     }
 
     /// Reinterpret these arguments as actually being a single castable thing.
-    fn into_castable<T>(self, what: &str) -> TypResult<T>
-    where
-        T: Cast<Value>,
-    {
+    fn into_castable<T: Cast>(self, what: &str) -> TypResult<T> {
         let mut iter = self.items.into_iter();
         let value = match iter.next() {
             Some(Arg { name: None, value, .. }) => value.v.cast().at(value.span)?,
