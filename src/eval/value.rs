@@ -531,7 +531,7 @@ mod tests {
         test(Length::pt(5.5), "5.5pt");
         test(Angle::deg(90.0), "90deg");
         test(Relative::one() / 2.0, "50%");
-        test(Relative::new(0.3) + Length::cm(2.0), "30% + 2cm");
+        test(Relative::new(0.3) + Length::cm(2.0), "30% + 56.69pt");
         test(Fractional::one() * 7.55, "7.55fr");
         test(Color::Rgba(RgbaColor::new(1, 1, 1, 0xff)), "#010101");
 

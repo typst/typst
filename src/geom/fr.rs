@@ -48,7 +48,7 @@ impl Fractional {
 
 impl Debug for Fractional {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}fr", self.get())
+        write!(f, "{}fr", round_2(self.get()))
     }
 }
 

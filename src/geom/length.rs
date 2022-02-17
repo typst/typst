@@ -139,17 +139,7 @@ impl Length {
 
 impl Debug for Length {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        use LengthUnit::*;
-
-        // Format with the unit that yields the shortest output, preferring
-        // larger / metric units when tied.
-        let unit = [Cm, Mm, In, Pt]
-            .iter()
-            .copied()
-            .min_by_key(|&unit| self.to_unit(unit).to_string().len())
-            .unwrap();
-
-        write!(f, "{}{:?}", self.to_unit(unit), unit)
+        write!(f, "{}pt", round_2(self.to_pt()))
     }
 }
 
@@ -263,13 +253,5 @@ mod tests {
     #[test]
     fn test_length_unit_conversion() {
         assert!((Length::mm(150.0).to_cm() - 15.0) < 1e-4);
-    }
-
-    #[test]
-    fn test_length_formatting() {
-        assert_eq!(format!("{:?}", Length::pt(23.0)), "23pt");
-        assert_eq!(format!("{:?}", Length::pt(-28.3465)), "-1cm");
-        assert_eq!(format!("{:?}", Length::cm(12.728)), "12.728cm");
-        assert_eq!(format!("{:?}", Length::cm(4.5)), "45mm");
     }
 }
