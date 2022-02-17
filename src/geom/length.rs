@@ -211,7 +211,7 @@ impl<'a> Sum<&'a Self> for Length {
 }
 
 /// Different units of length measurement.
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub enum LengthUnit {
     /// Points.
     Pt,

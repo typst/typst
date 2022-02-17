@@ -1,4 +1,5 @@
 use std::fmt::{self, Debug, Formatter, Write};
+use std::hash::{Hash, Hasher};
 
 use super::{Args, EvalContext, Func, StyleMap, Template, Value};
 use crate::diag::TypResult;
@@ -100,6 +101,13 @@ impl Debug for Class {
 impl PartialEq for Class {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name
+    }
+}
+
+impl Hash for Class {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        (self.construct as usize).hash(state);
+        (self.set as usize).hash(state);
     }
 }
 

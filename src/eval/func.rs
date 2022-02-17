@@ -1,4 +1,5 @@
 use std::fmt::{self, Debug, Formatter, Write};
+use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use super::{Cast, Eval, EvalContext, Scope, Value};
@@ -8,10 +9,11 @@ use crate::syntax::{Span, Spanned};
 use crate::util::EcoString;
 
 /// An evaluatable function.
-#[derive(Clone)]
+#[derive(Clone, Hash)]
 pub struct Func(Arc<Repr>);
 
 /// The different kinds of function representations.
+#[derive(Hash)]
 enum Repr {
     /// A native rust function.
     Native(Native),
@@ -89,7 +91,14 @@ struct Native {
     pub func: fn(&mut EvalContext, &mut Args) -> TypResult<Value>,
 }
 
+impl Hash for Native {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        (self.func as usize).hash(state);
+    }
+}
+
 /// A user-defined closure.
+#[derive(Hash)]
 pub struct Closure {
     /// The name of the closure.
     pub name: Option<EcoString>,
@@ -138,7 +147,7 @@ impl Closure {
 }
 
 /// Evaluated arguments to a function.
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Hash)]
 pub struct Args {
     /// The span of the whole argument list.
     pub span: Span,
@@ -147,7 +156,7 @@ pub struct Args {
 }
 
 /// An argument to a function call: `12` or `draw: false`.
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Hash)]
 pub struct Arg {
     /// The span of the whole argument.
     pub span: Span,

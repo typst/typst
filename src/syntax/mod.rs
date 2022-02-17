@@ -6,6 +6,7 @@ mod pretty;
 mod span;
 
 use std::fmt::{self, Debug, Display, Formatter};
+use std::hash::{Hash, Hasher};
 use std::ops::Range;
 use std::sync::Arc;
 
@@ -21,7 +22,7 @@ use crate::source::SourceId;
 use crate::util::EcoString;
 
 /// An inner or leaf node in the untyped green tree.
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Hash)]
 pub enum Green {
     /// A reference-counted inner node.
     Node(Arc<GreenNode>),
@@ -101,7 +102,7 @@ impl Debug for Green {
 }
 
 /// An inner node in the untyped green tree.
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Hash)]
 pub struct GreenNode {
     /// Node metadata.
     data: GreenData,
@@ -209,7 +210,7 @@ impl Debug for GreenNode {
 }
 
 /// Data shared between inner and leaf nodes.
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Hash)]
 pub struct GreenData {
     /// What kind of node this is (each kind would have its own struct in a
     /// strongly typed AST).
@@ -250,7 +251,7 @@ impl Debug for GreenData {
 /// A owned wrapper for a green node with span information.
 ///
 /// Owned variant of [`RedRef`]. Can be [cast](Self::cast) to an AST node.
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Hash)]
 pub struct RedNode {
     id: SourceId,
     offset: usize,
@@ -325,7 +326,7 @@ impl Debug for RedNode {
 /// A borrowed wrapper for a [`GreenNode`] with span information.
 ///
 /// Borrowed variant of [`RedNode`]. Can be [cast](Self::cast) to an AST node.
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Hash)]
 pub struct RedRef<'a> {
     id: SourceId,
     offset: usize,
@@ -716,7 +717,7 @@ pub enum NodeKind {
 }
 
 /// Where in a node an error should be annotated.
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum ErrorPos {
     /// At the start of the node.
     Start,
@@ -930,5 +931,121 @@ impl NodeKind {
 impl Display for NodeKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.pad(self.as_str())
+    }
+}
+
+impl Hash for NodeKind {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        std::mem::discriminant(self).hash(state);
+        match self {
+            Self::LeftBracket => {}
+            Self::RightBracket => {}
+            Self::LeftBrace => {}
+            Self::RightBrace => {}
+            Self::LeftParen => {}
+            Self::RightParen => {}
+            Self::Star => {}
+            Self::Underscore => {}
+            Self::Comma => {}
+            Self::Semicolon => {}
+            Self::Colon => {}
+            Self::Plus => {}
+            Self::Minus => {}
+            Self::Slash => {}
+            Self::Eq => {}
+            Self::EqEq => {}
+            Self::ExclEq => {}
+            Self::Lt => {}
+            Self::LtEq => {}
+            Self::Gt => {}
+            Self::GtEq => {}
+            Self::PlusEq => {}
+            Self::HyphEq => {}
+            Self::StarEq => {}
+            Self::SlashEq => {}
+            Self::Not => {}
+            Self::And => {}
+            Self::Or => {}
+            Self::With => {}
+            Self::Dots => {}
+            Self::Arrow => {}
+            Self::None => {}
+            Self::Auto => {}
+            Self::Let => {}
+            Self::Set => {}
+            Self::Show => {}
+            Self::Wrap => {}
+            Self::If => {}
+            Self::Else => {}
+            Self::For => {}
+            Self::In => {}
+            Self::As => {}
+            Self::While => {}
+            Self::Break => {}
+            Self::Continue => {}
+            Self::Return => {}
+            Self::Import => {}
+            Self::Include => {}
+            Self::From => {}
+            Self::Markup(c) => c.hash(state),
+            Self::Space(n) => n.hash(state),
+            Self::Linebreak => {}
+            Self::Parbreak => {}
+            Self::Text(s) => s.hash(state),
+            Self::TextInLine(s) => s.hash(state),
+            Self::NonBreakingSpace => {}
+            Self::EnDash => {}
+            Self::EmDash => {}
+            Self::Escape(c) => c.hash(state),
+            Self::Strong => {}
+            Self::Emph => {}
+            Self::Raw(raw) => raw.hash(state),
+            Self::Math(math) => math.hash(state),
+            Self::List => {}
+            Self::Heading => {}
+            Self::Enum => {}
+            Self::EnumNumbering(num) => num.hash(state),
+            Self::Ident(v) => v.hash(state),
+            Self::Bool(v) => v.hash(state),
+            Self::Int(v) => v.hash(state),
+            Self::Float(v) => v.to_bits().hash(state),
+            Self::Length(v, u) => (v.to_bits(), u).hash(state),
+            Self::Angle(v, u) => (v.to_bits(), u).hash(state),
+            Self::Percentage(v) => v.to_bits().hash(state),
+            Self::Fraction(v) => v.to_bits().hash(state),
+            Self::Str(v) => v.hash(state),
+            Self::Array => {}
+            Self::Dict => {}
+            Self::Named => {}
+            Self::Template => {}
+            Self::Group => {}
+            Self::Block => {}
+            Self::Unary => {}
+            Self::Binary => {}
+            Self::Call => {}
+            Self::CallArgs => {}
+            Self::Spread => {}
+            Self::Closure => {}
+            Self::ClosureParams => {}
+            Self::WithExpr => {}
+            Self::LetExpr => {}
+            Self::SetExpr => {}
+            Self::ShowExpr => {}
+            Self::WrapExpr => {}
+            Self::IfExpr => {}
+            Self::WhileExpr => {}
+            Self::ForExpr => {}
+            Self::ForPattern => {}
+            Self::ImportExpr => {}
+            Self::ImportItems => {}
+            Self::IncludeExpr => {}
+            Self::BreakExpr => {}
+            Self::ContinueExpr => {}
+            Self::ReturnExpr => {}
+            Self::LineComment => {}
+            Self::BlockComment => {}
+            Self::Error(pos, msg) => (pos, msg).hash(state),
+            Self::Unknown(src) => src.hash(state),
+        }
     }
 }

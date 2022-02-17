@@ -20,7 +20,7 @@ macro_rules! array {
 }
 
 /// An array of values with clone-on-write value semantics.
-#[derive(Default, Clone, PartialEq)]
+#[derive(Default, Clone, PartialEq, Hash)]
 pub struct Array(Arc<Vec<Value>>);
 
 impl Array {

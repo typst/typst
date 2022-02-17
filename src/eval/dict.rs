@@ -19,7 +19,7 @@ macro_rules! dict {
 }
 
 /// A dictionary from strings to values with clone-on-write value semantics.
-#[derive(Default, Clone, PartialEq)]
+#[derive(Default, Clone, PartialEq, Hash)]
 pub struct Dict(Arc<BTreeMap<EcoString, Value>>);
 
 impl Dict {

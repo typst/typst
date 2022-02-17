@@ -30,7 +30,7 @@ macro_rules! node {
         node!{$(#[$attr])* $name: NodeKind::$variant}
     };
     ($(#[$attr:meta])* $name:ident: $variants:pat) => {
-        #[derive(Debug, Clone, PartialEq)]
+        #[derive(Debug, Clone, PartialEq, Hash)]
         #[repr(transparent)]
         $(#[$attr])*
         pub struct $name(RedNode);
@@ -138,7 +138,7 @@ impl EmphNode {
 }
 
 /// A raw block with optional syntax highlighting: `` `...` ``.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub struct RawNode {
     /// An optional identifier specifying the language to syntax-highlight in.
     pub lang: Option<EcoString>,
@@ -151,7 +151,7 @@ pub struct RawNode {
 }
 
 /// A math formula: `$a^2 + b^2 = c^2$`.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub struct MathNode {
     /// The formula between the dollars / brackets.
     pub formula: EcoString,
@@ -213,7 +213,7 @@ impl EnumNode {
 }
 
 /// An expression.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum Expr {
     /// A literal: `1`, `true`, ...
     Lit(Lit),
@@ -504,7 +504,7 @@ impl UnaryExpr {
 }
 
 /// A unary operator.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum UnOp {
     /// The plus operator: `+`.
     Pos,
@@ -573,7 +573,7 @@ impl BinaryExpr {
 }
 
 /// A binary operator.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum BinOp {
     /// The addition operator: `+`.
     Add,
@@ -707,7 +707,7 @@ impl BinOp {
 }
 
 /// The associativity of a binary operator.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Associativity {
     /// Left-associative: `a + b + c` is equivalent to `(a + b) + c`.
     Left,
@@ -745,7 +745,7 @@ impl CallArgs {
 }
 
 /// An argument to a function call.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum CallArg {
     /// A positional argument: `12`.
     Pos(Expr),
@@ -814,7 +814,7 @@ impl ClosureExpr {
 }
 
 /// A parameter to a closure.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum ClosureParam {
     /// A positional parameter: `x`.
     Pos(Ident),
@@ -1059,7 +1059,7 @@ impl ImportExpr {
 }
 
 /// The items that ought to be imported from a file.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum Imports {
     /// All items in the scope of the file should be imported.
     Wildcard,

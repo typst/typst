@@ -1,6 +1,7 @@
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fmt::{self, Debug, Formatter};
+use std::hash::{Hash, Hasher};
 use std::iter;
 use std::sync::Arc;
 
@@ -68,7 +69,7 @@ impl<'a> Scopes<'a> {
 #[derive(Default, Clone)]
 pub struct Scope {
     /// The mapping from names to slots.
-    values: HashMap<EcoString, Slot>,
+    values: BTreeMap<EcoString, Slot>,
 }
 
 impl Scope {
@@ -123,6 +124,16 @@ impl Scope {
     /// Iterate over all definitions.
     pub fn iter(&self) -> impl Iterator<Item = (&str, &Slot)> {
         self.values.iter().map(|(k, v)| (k.as_str(), v))
+    }
+}
+
+impl Hash for Scope {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.values.len().hash(state);
+        for (name, value) in self.values.iter() {
+            name.hash(state);
+            value.borrow().hash(state);
+        }
     }
 }
 

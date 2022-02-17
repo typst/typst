@@ -1,7 +1,7 @@
 use std::any::Any;
 use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
-use std::hash::Hash;
+use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use super::{ops, Args, Array, Class, Dict, Func, Template};
@@ -173,6 +173,33 @@ impl PartialOrd for Value {
     }
 }
 
+impl Hash for Value {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        std::mem::discriminant(self).hash(state);
+        match self {
+            Self::None => {}
+            Self::Auto => {}
+            Self::Bool(v) => v.hash(state),
+            Self::Int(v) => v.hash(state),
+            Self::Float(v) => v.to_bits().hash(state),
+            Self::Length(v) => v.hash(state),
+            Self::Angle(v) => v.hash(state),
+            Self::Relative(v) => v.hash(state),
+            Self::Linear(v) => v.hash(state),
+            Self::Fractional(v) => v.hash(state),
+            Self::Color(v) => v.hash(state),
+            Self::Str(v) => v.hash(state),
+            Self::Array(v) => v.hash(state),
+            Self::Dict(v) => v.hash(state),
+            Self::Template(v) => v.hash(state),
+            Self::Func(v) => v.hash(state),
+            Self::Args(v) => v.hash(state),
+            Self::Class(v) => v.hash(state),
+            Self::Dyn(v) => v.hash(state),
+        }
+    }
+}
+
 impl From<i32> for Value {
     fn from(v: i32) -> Self {
         Self::Int(v as i64)
@@ -210,14 +237,14 @@ impl From<Dynamic> for Value {
 }
 
 /// A dynamic value.
-#[derive(Clone)]
+#[derive(Clone, Hash)]
 pub struct Dynamic(Arc<dyn Bounds>);
 
 impl Dynamic {
     /// Create a new instance from any value that satisifies the required bounds.
     pub fn new<T>(any: T) -> Self
     where
-        T: Type + Debug + PartialEq + Sync + Send + 'static,
+        T: Type + Debug + PartialEq + Hash + Sync + Send + 'static,
     {
         Self(Arc::new(any))
     }
@@ -254,11 +281,12 @@ trait Bounds: Debug + Sync + Send + 'static {
     fn as_any(&self) -> &dyn Any;
     fn dyn_eq(&self, other: &Dynamic) -> bool;
     fn dyn_type_name(&self) -> &'static str;
+    fn hash64(&self) -> u64;
 }
 
 impl<T> Bounds for T
 where
-    T: Type + Debug + PartialEq + Sync + Send + 'static,
+    T: Type + Debug + PartialEq + Hash + Sync + Send + 'static,
 {
     fn as_any(&self) -> &dyn Any {
         self
@@ -274,6 +302,21 @@ where
 
     fn dyn_type_name(&self) -> &'static str {
         T::TYPE_NAME
+    }
+
+    fn hash64(&self) -> u64 {
+        // Also hash the TypeId since nodes with different types but
+        // equal data should be different.
+        let mut state = fxhash::FxHasher64::default();
+        self.type_id().hash(&mut state);
+        self.hash(&mut state);
+        state.finish()
+    }
+}
+
+impl Hash for dyn Bounds {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write_u64(self.hash64());
     }
 }
 

@@ -5,7 +5,7 @@ use std::ops::Range;
 use crate::source::SourceId;
 
 /// A value with the span it corresponds to in the source code.
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Spanned<T> {
     /// The spanned value.
     pub v: T,
@@ -46,7 +46,7 @@ impl<T: Debug> Debug for Spanned<T> {
 }
 
 /// Bounds of a slice of source code.
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Span {
     /// The id of the source file.
     pub source: SourceId,

@@ -123,7 +123,7 @@ impl Sum for Angle {
     }
 }
 /// Different units of angular measurement.
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub enum AngularUnit {
     /// Radians.
     Rad,
