@@ -37,7 +37,7 @@ use unicode_segmentation::UnicodeSegmentation;
 use crate::diag::{At, Error, StrResult, Trace, Tracepoint, TypResult};
 use crate::geom::{Angle, Fractional, Length, Relative};
 use crate::layout::Layout;
-use crate::library::{self, ORDERED, UNORDERED};
+use crate::library;
 use crate::syntax::ast::*;
 use crate::syntax::{Span, Spanned};
 use crate::util::EcoString;
@@ -180,9 +180,9 @@ impl Eval for ListNode {
     type Output = Template;
 
     fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
-        Ok(Template::show(library::ListNode::<UNORDERED> {
+        Ok(Template::List(library::ListItem {
             number: None,
-            child: self.body().eval(vm)?.pack(),
+            body: self.body().eval(vm)?.pack(),
         }))
     }
 }
@@ -191,9 +191,9 @@ impl Eval for EnumNode {
     type Output = Template;
 
     fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
-        Ok(Template::show(library::ListNode::<ORDERED> {
+        Ok(Template::Enum(library::ListItem {
             number: self.number(),
-            child: self.body().eval(vm)?.pack(),
+            body: self.body().eval(vm)?.pack(),
         }))
     }
 }

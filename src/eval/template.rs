@@ -13,8 +13,8 @@ use crate::diag::StrResult;
 use crate::layout::{Layout, LayoutNode};
 use crate::library::prelude::*;
 use crate::library::{
-    DecoNode, FlowChild, FlowNode, PageNode, ParChild, ParNode, PlaceNode, SpacingKind,
-    TextNode, UNDERLINE,
+    DecoNode, FlowChild, FlowNode, Labelling, ListItem, ListNode, PageNode, ParChild,
+    ParNode, PlaceNode, SpacingKind, TextNode, ORDERED, UNDERLINE, UNORDERED,
 };
 use crate::util::EcoString;
 
@@ -63,6 +63,10 @@ pub enum Template {
     Vertical(SpacingKind),
     /// A block-level node.
     Block(LayoutNode),
+    /// An item in an unordered list.
+    List(ListItem),
+    /// An item in an ordered list.
+    Enum(ListItem),
     /// A page break.
     Pagebreak,
     /// A page node.
@@ -166,13 +170,13 @@ impl Template {
 
     /// Layout this template into a collection of pages.
     pub fn layout(&self, vm: &mut Vm) -> TypResult<Vec<Arc<Frame>>> {
-        let style_arena = Arena::new();
-        let template_arena = Arena::new();
+        let sya = Arena::new();
+        let tpa = Arena::new();
 
-        let mut builder = Builder::new(&style_arena, &template_arena, true);
-        let chain = StyleChain::new(vm.styles);
-        builder.process(self, vm, chain)?;
-        builder.finish_page(true, false, chain);
+        let mut builder = Builder::new(&sya, &tpa, true);
+        let styles = StyleChain::new(vm.styles);
+        builder.process(vm, self, styles)?;
+        builder.finish(vm, styles)?;
 
         let mut frames = vec![];
         let (pages, shared) = builder.pages.unwrap().finish();
@@ -187,43 +191,6 @@ impl Template {
 impl Default for Template {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-impl Debug for Template {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            Self::Space => f.pad("Space"),
-            Self::Linebreak => f.pad("Linebreak"),
-            Self::Horizontal(kind) => write!(f, "Horizontal({kind:?})"),
-            Self::Text(text) => write!(f, "Text({text:?})"),
-            Self::Inline(node) => {
-                f.write_str("Inline(")?;
-                node.fmt(f)?;
-                f.write_str(")")
-            }
-            Self::Parbreak => f.pad("Parbreak"),
-            Self::Colbreak => f.pad("Colbreak"),
-            Self::Vertical(kind) => write!(f, "Vertical({kind:?})"),
-            Self::Block(node) => {
-                f.write_str("Block(")?;
-                node.fmt(f)?;
-                f.write_str(")")
-            }
-            Self::Pagebreak => f.pad("Pagebreak"),
-            Self::Page(page) => page.fmt(f),
-            Self::Show(node) => {
-                f.write_str("Show(")?;
-                node.fmt(f)?;
-                f.write_str(")")
-            }
-            Self::Styled(styled) => {
-                let (sub, map) = styled.as_ref();
-                map.fmt(f)?;
-                sub.fmt(f)
-            }
-            Self::Sequence(seq) => f.debug_list().entries(seq.iter()).finish(),
-        }
     }
 }
 
@@ -272,12 +239,12 @@ impl Layout for Template {
         regions: &Regions,
         styles: StyleChain,
     ) -> TypResult<Vec<Constrained<Arc<Frame>>>> {
-        let style_arena = Arena::new();
-        let template_arena = Arena::new();
+        let sya = Arena::new();
+        let tpa = Arena::new();
 
-        let mut builder = Builder::new(&style_arena, &template_arena, false);
-        builder.process(self, vm, styles)?;
-        builder.finish_par(styles);
+        let mut builder = Builder::new(&sya, &tpa, false);
+        builder.process(vm, self, styles)?;
+        builder.finish(vm, styles)?;
 
         let (flow, shared) = builder.flow.finish();
         FlowNode(flow).layout(vm, regions, shared)
@@ -294,11 +261,13 @@ impl Layout for Template {
 /// Builds a flow or page nodes from a template.
 struct Builder<'a> {
     /// An arena where intermediate style chains are stored.
-    style_arena: &'a Arena<StyleChain<'a>>,
+    sya: &'a Arena<StyleChain<'a>>,
     /// An arena where intermediate templates are stored.
-    template_arena: &'a Arena<Template>,
+    tpa: &'a Arena<Template>,
     /// The already built page runs.
     pages: Option<StyleVecBuilder<'a, PageNode>>,
+    /// The currently built list.
+    list: Option<ListBuilder<'a>>,
     /// The currently built flow.
     flow: CollapsingBuilder<'a, FlowChild>,
     /// The currently built paragraph.
@@ -309,16 +278,13 @@ struct Builder<'a> {
 
 impl<'a> Builder<'a> {
     /// Prepare the builder.
-    fn new(
-        style_arena: &'a Arena<StyleChain<'a>>,
-        template_arena: &'a Arena<Template>,
-        top: bool,
-    ) -> Self {
+    fn new(sya: &'a Arena<StyleChain<'a>>, tpa: &'a Arena<Template>, top: bool) -> Self {
         Self {
-            style_arena,
-            template_arena,
+            sya,
+            tpa,
             pages: top.then(|| StyleVecBuilder::new()),
             flow: CollapsingBuilder::new(),
+            list: None,
             par: CollapsingBuilder::new(),
             keep_next: true,
         }
@@ -327,10 +293,38 @@ impl<'a> Builder<'a> {
     /// Process a template.
     fn process(
         &mut self,
-        template: &'a Template,
         vm: &mut Vm,
+        template: &'a Template,
         styles: StyleChain<'a>,
     ) -> TypResult<()> {
+        if let Some(builder) = &mut self.list {
+            match template {
+                Template::Space => {
+                    builder.staged.push((template, styles));
+                    return Ok(());
+                }
+                Template::Parbreak => {
+                    builder.staged.push((template, styles));
+                    return Ok(());
+                }
+                Template::List(item) if builder.labelling == UNORDERED => {
+                    builder.wide |=
+                        builder.staged.iter().any(|&(t, _)| *t == Template::Parbreak);
+                    builder.staged.clear();
+                    builder.items.push(item.clone());
+                    return Ok(());
+                }
+                Template::Enum(item) if builder.labelling == ORDERED => {
+                    builder.wide |=
+                        builder.staged.iter().any(|&(t, _)| *t == Template::Parbreak);
+                    builder.staged.clear();
+                    builder.items.push(item.clone());
+                    return Ok(());
+                }
+                _ => self.finish_list(vm)?,
+            }
+        }
+
         match template {
             Template::Space => {
                 self.par.weak(ParChild::Text(' '.into()), 0, styles);
@@ -379,6 +373,24 @@ impl<'a> Builder<'a> {
                 }
                 self.finish_par(styles);
             }
+            Template::List(item) => {
+                self.list = Some(ListBuilder {
+                    styles,
+                    labelling: UNORDERED,
+                    items: vec![item.clone()],
+                    wide: false,
+                    staged: vec![],
+                });
+            }
+            Template::Enum(item) => {
+                self.list = Some(ListBuilder {
+                    styles,
+                    labelling: ORDERED,
+                    items: vec![item.clone()],
+                    wide: false,
+                    staged: vec![],
+                });
+            }
             Template::Pagebreak => {
                 self.finish_page(true, true, styles);
             }
@@ -390,12 +402,12 @@ impl<'a> Builder<'a> {
             }
             Template::Show(node) => {
                 let template = node.show(vm, styles)?;
-                let stored = self.template_arena.alloc(template);
-                self.process(stored, vm, styles.unscoped(node.id()))?;
+                let stored = self.tpa.alloc(template);
+                self.process(vm, stored, styles.unscoped(node.id()))?;
             }
             Template::Styled(styled) => {
                 let (sub, map) = styled.as_ref();
-                let stored = self.style_arena.alloc(styles);
+                let stored = self.sya.alloc(styles);
                 let styles = map.chain(stored);
 
                 let interruption = map.interruption();
@@ -405,7 +417,7 @@ impl<'a> Builder<'a> {
                     None => {}
                 }
 
-                self.process(sub, vm, styles)?;
+                self.process(vm, sub, styles)?;
 
                 match interruption {
                     Some(Interruption::Page) => self.finish_page(true, false, styles),
@@ -415,7 +427,7 @@ impl<'a> Builder<'a> {
             }
             Template::Sequence(seq) => {
                 for sub in seq.iter() {
-                    self.process(sub, vm, styles)?;
+                    self.process(vm, sub, styles)?;
                 }
             }
         }
@@ -433,6 +445,28 @@ impl<'a> Builder<'a> {
         self.flow.weak(FlowChild::Leading, 0, styles);
     }
 
+    /// Finish the currently built list.
+    fn finish_list(&mut self, vm: &mut Vm) -> TypResult<()> {
+        let ListBuilder { styles, labelling, items, wide, staged } =
+            match self.list.take() {
+                Some(list) => list,
+                None => return Ok(()),
+            };
+
+        let template = match labelling {
+            UNORDERED => Template::show(ListNode::<UNORDERED> { items, wide, start: 1 }),
+            ORDERED | _ => Template::show(ListNode::<ORDERED> { items, wide, start: 1 }),
+        };
+
+        let stored = self.tpa.alloc(template);
+        self.process(vm, stored, styles)?;
+        for (template, styles) in staged {
+            self.process(vm, template, styles)?;
+        }
+
+        Ok(())
+    }
+
     /// Finish the currently built page run.
     fn finish_page(&mut self, keep_last: bool, keep_next: bool, styles: StyleChain<'a>) {
         self.finish_par(styles);
@@ -445,5 +479,69 @@ impl<'a> Builder<'a> {
             }
         }
         self.keep_next = keep_next;
+    }
+
+    /// Finish everything.
+    fn finish(&mut self, vm: &mut Vm, styles: StyleChain<'a>) -> TypResult<()> {
+        self.finish_list(vm)?;
+        self.finish_page(true, false, styles);
+        Ok(())
+    }
+}
+
+/// Builds an unordered or ordered list from items.
+struct ListBuilder<'a> {
+    styles: StyleChain<'a>,
+    labelling: Labelling,
+    items: Vec<ListItem>,
+    wide: bool,
+    staged: Vec<(&'a Template, StyleChain<'a>)>,
+}
+
+impl Debug for Template {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Self::Space => f.pad("Space"),
+            Self::Linebreak => f.pad("Linebreak"),
+            Self::Horizontal(kind) => write!(f, "Horizontal({kind:?})"),
+            Self::Text(text) => write!(f, "Text({text:?})"),
+            Self::Inline(node) => {
+                f.write_str("Inline(")?;
+                node.fmt(f)?;
+                f.write_str(")")
+            }
+            Self::Parbreak => f.pad("Parbreak"),
+            Self::Colbreak => f.pad("Colbreak"),
+            Self::Vertical(kind) => write!(f, "Vertical({kind:?})"),
+            Self::Block(node) => {
+                f.write_str("Block(")?;
+                node.fmt(f)?;
+                f.write_str(")")
+            }
+            Self::List(item) => {
+                f.write_str("- ")?;
+                item.body.fmt(f)
+            }
+            Self::Enum(item) => {
+                if let Some(number) = item.number {
+                    write!(f, "{}", number)?;
+                }
+                f.write_str(". ")?;
+                item.body.fmt(f)
+            }
+            Self::Pagebreak => f.pad("Pagebreak"),
+            Self::Page(page) => page.fmt(f),
+            Self::Show(node) => {
+                f.write_str("Show(")?;
+                node.fmt(f)?;
+                f.write_str(")")
+            }
+            Self::Styled(styled) => {
+                let (sub, map) = styled.as_ref();
+                map.fmt(f)?;
+                sub.fmt(f)
+            }
+            Self::Sequence(seq) => f.debug_list().entries(seq.iter()).finish(),
+        }
     }
 }

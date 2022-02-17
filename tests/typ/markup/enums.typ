@@ -1,9 +1,9 @@
 // Test enums.
 
 ---
-1. Embrace
-2. Extend
-3. Extinguish
+. Embrace
+. Extend
+. Extinguish
 
 ---
 1. First.
@@ -13,5 +13,11 @@
 
 ---
 2. Second
- . First
+1. First
   . Indented
+
+---
+// Test automatic numbering in summed templates.
+#for i in range(5) {
+   [. #roman(1 + i)]
+}
