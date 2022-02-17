@@ -14,7 +14,7 @@ use crate::layout::{Layout, LayoutNode};
 use crate::library::prelude::*;
 use crate::library::{
     DecoNode, FlowChild, FlowNode, PageNode, ParChild, ParNode, PlaceNode, SpacingKind,
-    TextNode, Underline,
+    TextNode, UNDERLINE,
 };
 use crate::util::EcoString;
 use crate::Context;
@@ -145,7 +145,7 @@ impl Template {
 
     /// Underline this template.
     pub fn underlined(self) -> Self {
-        Self::show(DecoNode { kind: Underline, body: self })
+        Self::show(DecoNode::<UNDERLINE>(self))
     }
 
     /// Create a new sequence template.

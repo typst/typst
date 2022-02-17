@@ -4,6 +4,7 @@ use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::parse_quote;
+use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::{Error, Ident, Result};
 
@@ -118,7 +119,9 @@ struct Property {
 }
 
 /// Parse the name and generic type arguments of the node type.
-fn parse_self(self_ty: &syn::Type) -> Result<(String, Vec<&syn::Type>)> {
+fn parse_self(
+    self_ty: &syn::Type,
+) -> Result<(String, Punctuated<syn::GenericArgument, syn::Token![,]>)> {
     // Extract the node type for which we want to generate properties.
     let path = match self_ty {
         syn::Type::Path(path) => path,
@@ -129,15 +132,8 @@ fn parse_self(self_ty: &syn::Type) -> Result<(String, Vec<&syn::Type>)> {
     let last = path.path.segments.last().unwrap();
     let self_name = last.ident.to_string();
     let self_args = match &last.arguments {
-        syn::PathArguments::AngleBracketed(args) => args
-            .args
-            .iter()
-            .filter_map(|arg| match arg {
-                syn::GenericArgument::Type(ty) => Some(ty),
-                _ => None,
-            })
-            .collect(),
-        _ => vec![],
+        syn::PathArguments::AngleBracketed(args) => args.args.clone(),
+        _ => Punctuated::new(),
     };
 
     Ok((self_name, self_args))
@@ -146,29 +142,35 @@ fn parse_self(self_ty: &syn::Type) -> Result<(String, Vec<&syn::Type>)> {
 /// Process a single const item.
 fn process_const(
     item: &mut syn::ImplItemConst,
-    params: &syn::punctuated::Punctuated<syn::GenericParam, syn::Token![,]>,
+    params: &Punctuated<syn::GenericParam, syn::Token![,]>,
     self_ty: &syn::Type,
     self_name: &str,
-    self_args: &[&syn::Type],
+    self_args: &Punctuated<syn::GenericArgument, syn::Token![,]>,
 ) -> Result<(Property, syn::ItemMod)> {
-    // The module that will contain the `Key` type.
-    let module_name = &item.ident;
+    // The display name, e.g. `TextNode::STRONG`.
+    let name = format!("{}::{}", self_name, &item.ident);
 
     // The type of the property's value is what the user of our macro wrote
     // as type of the const ...
     let value_ty = &item.ty;
 
-    // ... but the real type of the const becomes Key<#key_args>.
-    let key_args = quote! { #value_ty #(, #self_args)* };
-
-    // The display name, e.g. `TextNode::STRONG`.
-    let name = format!("{}::{}", self_name, &item.ident);
+    // ... but the real type of the const becomes this..
+    let key = quote! { Key<#value_ty, #self_args> };
+    let phantom_args = self_args.iter().filter(|arg| match arg {
+        syn::GenericArgument::Type(syn::Type::Path(path)) => {
+            params.iter().all(|param| match param {
+                syn::GenericParam::Const(c) => !path.path.is_ident(&c.ident),
+                _ => true,
+            })
+        }
+        _ => true,
+    });
 
     // The default value of the property is what the user wrote as
     // initialization value of the const.
     let default = &item.expr;
 
-    let mut folder = None;
+    let mut fold = None;
     let mut property = Property {
         name: item.ident.clone(),
         shorthand: false,
@@ -177,25 +179,23 @@ fn process_const(
     };
 
     for attr in std::mem::take(&mut item.attrs) {
-        if attr.path.is_ident("fold") {
-            // Look for a folding function like `#[fold(u64::add)]`.
-            let func: syn::Expr = attr.parse_args()?;
-            folder = Some(quote! {
-                const FOLDING: bool = true;
+        match attr.path.get_ident().map(ToString::to_string).as_deref() {
+            Some("fold") => {
+                // Look for a folding function like `#[fold(u64::add)]`.
+                let func: syn::Expr = attr.parse_args()?;
+                fold = Some(quote! {
+                    const FOLDING: bool = true;
 
-                fn fold(inner: Self::Value, outer: Self::Value) -> Self::Value {
-                    let f: fn(Self::Value, Self::Value) -> Self::Value = #func;
-                    f(inner, outer)
-                }
-            });
-        } else if attr.path.is_ident("shorthand") {
-            property.shorthand = true;
-        } else if attr.path.is_ident("variadic") {
-            property.variadic = true;
-        } else if attr.path.is_ident("skip") {
-            property.skip = true;
-        } else {
-            item.attrs.push(attr);
+                    fn fold(inner: Self::Value, outer: Self::Value) -> Self::Value {
+                        let f: fn(Self::Value, Self::Value) -> Self::Value = #func;
+                        f(inner, outer)
+                    }
+                });
+            }
+            Some("shorthand") => property.shorthand = true,
+            Some("variadic") => property.variadic = true,
+            Some("skip") => property.skip = true,
+            _ => item.attrs.push(attr),
         }
     }
 
@@ -206,28 +206,27 @@ fn process_const(
         ));
     }
 
-    let nonfolding = folder.is_none().then(|| {
-        quote! {
-            impl<#params> Nonfolding for Key<#key_args> {}
-        }
+    let nonfolding = fold.is_none().then(|| {
+        quote! { impl<#params> Nonfolding for #key {} }
     });
 
     // Generate the module code.
+    let module_name = &item.ident;
     let module = parse_quote! {
         #[allow(non_snake_case)]
         mod #module_name {
             use super::*;
 
-            pub struct Key<VALUE, #params>(pub PhantomData<(VALUE, #key_args)>);
+            pub struct Key<VALUE, #params>(pub PhantomData<(VALUE, #(#phantom_args,)*)>);
 
-            impl<#params> Copy for Key<#key_args> {}
-            impl<#params> Clone for Key<#key_args> {
+            impl<#params> Copy for #key {}
+            impl<#params> Clone for #key {
                 fn clone(&self) -> Self {
                     *self
                 }
             }
 
-            impl<#params> Property for Key<#key_args> {
+            impl<#params> Property for #key {
                 type Value = #value_ty;
 
                 const NAME: &'static str = #name;
@@ -245,7 +244,7 @@ fn process_const(
                     &*LAZY
                 }
 
-                #folder
+                #fold
             }
 
             #nonfolding
@@ -253,8 +252,7 @@ fn process_const(
     };
 
     // Replace type and initializer expression with the `Key`.
-    item.attrs.retain(|attr| !attr.path.is_ident("fold"));
-    item.ty = parse_quote! { #module_name::Key<#key_args> };
+    item.ty = parse_quote! { #module_name::#key };
     item.expr = parse_quote! { #module_name::Key(PhantomData) };
 
     Ok((property, module))

@@ -5,15 +5,15 @@ use super::{GridNode, TextNode, TrackSizing};
 
 /// An unordered or ordered list.
 #[derive(Debug, Hash)]
-pub struct ListNode<L: ListLabel> {
-    /// The list label -- unordered or ordered with index.
-    pub label: L,
+pub struct ListNode<const L: Labelling> {
+    /// The number of the item.
+    pub number: Option<usize>,
     /// The node that produces the item's body.
     pub child: LayoutNode,
 }
 
 #[class]
-impl<L: ListLabel> ListNode<L> {
+impl<const L: Labelling> ListNode<L> {
     /// The indentation of each item's label.
     pub const LABEL_INDENT: Linear = Relative::new(0.0).into();
     /// The space between the label and the body of each item.
@@ -24,16 +24,21 @@ impl<L: ListLabel> ListNode<L> {
             .all()?
             .into_iter()
             .enumerate()
-            .map(|(i, child)| Template::show(Self { label: L::new(1 + i), child }))
+            .map(|(i, child)| Template::show(Self { number: Some(1 + i), child }))
             .sum())
     }
 }
 
-impl<L: ListLabel> Show for ListNode<L> {
+impl<const L: Labelling> Show for ListNode<L> {
     fn show(&self, styles: StyleChain) -> Template {
         let em = styles.get(TextNode::SIZE).abs;
         let label_indent = styles.get(Self::LABEL_INDENT).resolve(em);
         let body_indent = styles.get(Self::BODY_INDENT).resolve(em);
+
+        let label = match L {
+            UNORDERED => '•'.into(),
+            ORDERED | _ => format_eco!("{}.", self.number.unwrap_or(1)),
+        };
 
         Template::block(GridNode {
             tracks: Spec::with_x(vec![
@@ -45,7 +50,7 @@ impl<L: ListLabel> Show for ListNode<L> {
             gutter: Spec::default(),
             children: vec![
                 LayoutNode::default(),
-                Template::Text(self.label.label()).pack(),
+                Template::Text(label).pack(),
                 LayoutNode::default(),
                 self.child.clone(),
             ],
@@ -54,38 +59,10 @@ impl<L: ListLabel> Show for ListNode<L> {
 }
 
 /// How to label a list.
-pub trait ListLabel: Debug + Default + Hash + Sync + Send + 'static {
-    /// Create a new list label.
-    fn new(number: usize) -> Self;
-
-    /// Return the item's label.
-    fn label(&self) -> EcoString;
-}
+pub type Labelling = usize;
 
 /// Unordered list labelling style.
-#[derive(Debug, Default, Hash)]
-pub struct Unordered;
-
-impl ListLabel for Unordered {
-    fn new(_: usize) -> Self {
-        Self
-    }
-
-    fn label(&self) -> EcoString {
-        '•'.into()
-    }
-}
+pub const UNORDERED: Labelling = 0;
 
 /// Ordered list labelling style.
-#[derive(Debug, Default, Hash)]
-pub struct Ordered(pub Option<usize>);
-
-impl ListLabel for Ordered {
-    fn new(number: usize) -> Self {
-        Self(Some(number))
-    }
-
-    fn label(&self) -> EcoString {
-        format_eco!("{}.", self.0.unwrap_or(1))
-    }
-}
+pub const ORDERED: Labelling = 1;

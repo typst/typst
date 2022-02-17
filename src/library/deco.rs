@@ -5,15 +5,10 @@ use super::TextNode;
 
 /// Typeset underline, striken-through or overlined text.
 #[derive(Debug, Hash)]
-pub struct DecoNode<L: LineKind> {
-    /// The kind of line.
-    pub kind: L,
-    /// The decorated contents.
-    pub body: Template,
-}
+pub struct DecoNode<const L: DecoLine>(pub Template);
 
 #[class]
-impl<L: LineKind> DecoNode<L> {
+impl<const L: DecoLine> DecoNode<L> {
     /// Stroke color of the line, defaults to the text color if `None`.
     #[shorthand]
     pub const STROKE: Option<Paint> = None;
@@ -32,17 +27,14 @@ impl<L: LineKind> DecoNode<L> {
     pub const EVADE: bool = true;
 
     fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
-        Ok(Template::show(Self {
-            kind: L::default(),
-            body: args.expect::<Template>("body")?,
-        }))
+        Ok(Template::show(Self(args.expect::<Template>("body")?)))
     }
 }
 
-impl<L: LineKind> Show for DecoNode<L> {
+impl<const L: DecoLine> Show for DecoNode<L> {
     fn show(&self, styles: StyleChain) -> Template {
-        self.body.clone().styled(TextNode::LINES, vec![Decoration {
-            line: L::LINE,
+        self.0.clone().styled(TextNode::LINES, vec![Decoration {
+            line: L,
             stroke: styles.get(Self::STROKE),
             thickness: styles.get(Self::THICKNESS),
             offset: styles.get(Self::OFFSET),
@@ -65,42 +57,14 @@ pub struct Decoration {
     pub evade: bool,
 }
 
-/// The kind of decorative line.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum DecoLine {
-    /// A line under text.
-    Underline,
-    /// A line through text.
-    Strikethrough,
-    /// A line over text.
-    Overline,
-}
-
-/// Different kinds of decorative lines for text.
-pub trait LineKind: Debug + Default + Hash + Sync + Send + 'static {
-    const LINE: DecoLine;
-}
+/// A kind of decorative line.
+pub type DecoLine = usize;
 
 /// A line under text.
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct Underline;
-
-impl LineKind for Underline {
-    const LINE: DecoLine = DecoLine::Underline;
-}
+pub const UNDERLINE: DecoLine = 0;
 
 /// A line through text.
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct Strikethrough;
-
-impl LineKind for Strikethrough {
-    const LINE: DecoLine = DecoLine::Strikethrough;
-}
+pub const STRIKETHROUGH: DecoLine = 1;
 
 /// A line over text.
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct Overline;
-
-impl LineKind for Overline {
-    const LINE: DecoLine = DecoLine::Overline;
-}
+pub const OVERLINE: DecoLine = 2;

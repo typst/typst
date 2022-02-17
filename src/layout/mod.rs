@@ -18,9 +18,9 @@ use std::sync::Arc;
 use crate::eval::StyleChain;
 use crate::font::FontStore;
 use crate::frame::{Element, Frame, Geometry, Shape, Stroke};
-use crate::geom::{Align, Linear, Paint, Point, Sides, Size, Spec};
+use crate::geom::{Align, Linear, Paint, Point, Sides, Size, Spec, Transform};
 use crate::image::ImageStore;
-use crate::library::{AlignNode, Move, PadNode, TransformNode};
+use crate::library::{AlignNode, PadNode, TransformNode, MOVE};
 use crate::util::Prehashed;
 use crate::Context;
 
@@ -150,8 +150,8 @@ impl LayoutNode {
     /// Transform this node's contents without affecting layout.
     pub fn moved(self, offset: Point) -> Self {
         if !offset.is_zero() {
-            TransformNode {
-                kind: Move(offset.x, offset.y),
+            TransformNode::<MOVE> {
+                transform: Transform::translation(offset.x, offset.y),
                 child: self,
             }
             .pack()

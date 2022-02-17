@@ -9,7 +9,7 @@ use rustybuzz::{Feature, UnicodeBuffer};
 use ttf_parser::{GlyphId, OutlineBuilder, Tag};
 
 use super::prelude::*;
-use super::{DecoLine, Decoration};
+use super::Decoration;
 use crate::font::{
     Face, FaceId, FontStore, FontStretch, FontStyle, FontVariant, FontWeight,
     VerticalFontMetric,
@@ -826,12 +826,12 @@ impl<'a> ShapedText<'a> {
     ) {
         let face = fonts.get(text.face_id);
         let metrics = match deco.line {
-            DecoLine::Underline => face.underline,
-            DecoLine::Strikethrough => face.strikethrough,
-            DecoLine::Overline => face.overline,
+            super::STRIKETHROUGH => face.strikethrough,
+            super::OVERLINE => face.overline,
+            super::UNDERLINE | _ => face.underline,
         };
 
-        let evade = deco.evade && deco.line != DecoLine::Strikethrough;
+        let evade = deco.evade && deco.line != super::STRIKETHROUGH;
         let extent = deco.extent.resolve(text.size);
         let offset = deco
             .offset

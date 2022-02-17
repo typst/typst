@@ -7,15 +7,10 @@ use super::TextNode;
 
 /// Place a node into a sizable and fillable shape.
 #[derive(Debug, Hash)]
-pub struct ShapeNode<S: ShapeKind> {
-    /// Which shape to place the child into.
-    pub kind: S,
-    /// The child node to place into the shape, if any.
-    pub child: Option<LayoutNode>,
-}
+pub struct ShapeNode<const S: ShapeKind>(pub Option<LayoutNode>);
 
 #[class]
-impl<S: ShapeKind> ShapeNode<S> {
+impl<const S: ShapeKind> ShapeNode<S> {
     /// How to fill the shape.
     pub const FILL: Option<Paint> = None;
     /// How the stroke the shape.
@@ -26,12 +21,10 @@ impl<S: ShapeKind> ShapeNode<S> {
     pub const PADDING: Linear = Linear::zero();
 
     fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
-        let size = if !S::ROUND && S::QUADRATIC {
-            args.named::<Length>("size")?.map(Linear::from)
-        } else if S::ROUND && S::QUADRATIC {
-            args.named("radius")?.map(|r: Length| 2.0 * Linear::from(r))
-        } else {
-            None
+        let size = match S {
+            SQUARE => args.named::<Length>("size")?.map(Linear::from),
+            CIRCLE => args.named::<Length>("radius")?.map(|r| 2.0 * Linear::from(r)),
+            _ => None,
         };
 
         let width = match size {
@@ -45,14 +38,12 @@ impl<S: ShapeKind> ShapeNode<S> {
         };
 
         Ok(Template::inline(
-            ShapeNode { kind: S::default(), child: args.find()? }
-                .pack()
-                .sized(Spec::new(width, height)),
+            Self(args.find()?).pack().sized(Spec::new(width, height)),
         ))
     }
 }
 
-impl<S: ShapeKind> Layout for ShapeNode<S> {
+impl<const S: ShapeKind> Layout for ShapeNode<S> {
     fn layout(
         &self,
         ctx: &mut LayoutContext,
@@ -60,9 +51,9 @@ impl<S: ShapeKind> Layout for ShapeNode<S> {
         styles: StyleChain,
     ) -> Vec<Constrained<Arc<Frame>>> {
         let mut frames;
-        if let Some(child) = &self.child {
+        if let Some(child) = &self.0 {
             let mut padding = styles.get(Self::PADDING);
-            if S::ROUND {
+            if is_round(S) {
                 padding.rel += Relative::new(0.5 - SQRT_2 / 4.0);
             }
 
@@ -74,7 +65,7 @@ impl<S: ShapeKind> Layout for ShapeNode<S> {
 
             // Relayout with full expansion into square region to make sure
             // the result is really a square or circle.
-            if S::QUADRATIC {
+            if is_quadratic(S) {
                 let length = if regions.expand.x || regions.expand.y {
                     let target = regions.expand.select(regions.current, Size::zero());
                     target.x.max(target.y)
@@ -95,7 +86,7 @@ impl<S: ShapeKind> Layout for ShapeNode<S> {
             let mut size =
                 Size::new(Length::pt(45.0), Length::pt(30.0)).min(regions.current);
 
-            if S::QUADRATIC {
+            if is_quadratic(S) {
                 let length = if regions.expand.x || regions.expand.y {
                     let target = regions.expand.select(regions.current, Size::zero());
                     target.x.max(target.y)
@@ -121,7 +112,7 @@ impl<S: ShapeKind> Layout for ShapeNode<S> {
             .map(|paint| Stroke { paint, thickness });
 
         if fill.is_some() || stroke.is_some() {
-            let geometry = if S::ROUND {
+            let geometry = if is_round(S) {
                 Geometry::Ellipse(frame.size)
             } else {
                 Geometry::Rect(frame.size)
@@ -140,44 +131,27 @@ impl<S: ShapeKind> Layout for ShapeNode<S> {
     }
 }
 
-/// Categorizes shapes.
-pub trait ShapeKind: Debug + Default + Hash + Sync + Send + 'static {
-    const ROUND: bool;
-    const QUADRATIC: bool;
-}
+/// A category of shape.
+pub type ShapeKind = usize;
 
 /// A rectangle with equal side lengths.
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct Square;
-
-impl ShapeKind for Square {
-    const ROUND: bool = false;
-    const QUADRATIC: bool = true;
-}
+pub const SQUARE: ShapeKind = 0;
 
 /// A quadrilateral with four right angles.
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct Rect;
-
-impl ShapeKind for Rect {
-    const ROUND: bool = false;
-    const QUADRATIC: bool = false;
-}
+pub const RECT: ShapeKind = 1;
 
 /// An ellipse with coinciding foci.
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct Circle;
-
-impl ShapeKind for Circle {
-    const ROUND: bool = true;
-    const QUADRATIC: bool = true;
-}
+pub const CIRCLE: ShapeKind = 2;
 
 /// A curve around two focal points.
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct Ellipse;
+pub const ELLIPSE: ShapeKind = 3;
 
-impl ShapeKind for Ellipse {
-    const ROUND: bool = true;
-    const QUADRATIC: bool = false;
+/// Whether a shape kind is curvy.
+fn is_round(kind: ShapeKind) -> bool {
+    matches!(kind, CIRCLE | ELLIPSE)
+}
+
+/// Whether a shape kind has equal side length.
+fn is_quadratic(kind: ShapeKind) -> bool {
+    matches!(kind, SQUARE | CIRCLE)
 }

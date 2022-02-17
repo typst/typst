@@ -53,16 +53,8 @@ pub use text::*;
 pub use transform::*;
 pub use utility::*;
 
-macro_rules! prelude {
-    ($($reexport:item)*) => {
-        /// Helpful imports for creating library functionality.
-        pub mod prelude {
-            $(#[doc(no_inline)] $reexport)*
-        }
-    };
-}
-
-prelude! {
+/// Helpful imports for creating library functionality.
+pub mod prelude {
     pub use std::fmt::{self, Debug, Formatter};
     pub use std::hash::Hash;
     pub use std::num::NonZeroUsize;
@@ -101,19 +93,19 @@ pub fn new() -> Scope {
     std.def_class::<EmphNode>("emph");
     std.def_class::<RawNode>("raw");
     std.def_class::<MathNode>("math");
-    std.def_class::<DecoNode<Underline>>("underline");
-    std.def_class::<DecoNode<Strikethrough>>("strike");
-    std.def_class::<DecoNode<Overline>>("overline");
+    std.def_class::<DecoNode<UNDERLINE>>("underline");
+    std.def_class::<DecoNode<STRIKETHROUGH>>("strike");
+    std.def_class::<DecoNode<OVERLINE>>("overline");
     std.def_class::<LinkNode>("link");
     std.def_class::<HeadingNode>("heading");
-    std.def_class::<ListNode<Unordered>>("list");
-    std.def_class::<ListNode<Ordered>>("enum");
+    std.def_class::<ListNode<UNORDERED>>("list");
+    std.def_class::<ListNode<ORDERED>>("enum");
     std.def_class::<TableNode>("table");
     std.def_class::<ImageNode>("image");
-    std.def_class::<ShapeNode<Rect>>("rect");
-    std.def_class::<ShapeNode<Square>>("square");
-    std.def_class::<ShapeNode<Ellipse>>("ellipse");
-    std.def_class::<ShapeNode<Circle>>("circle");
+    std.def_class::<ShapeNode<RECT>>("rect");
+    std.def_class::<ShapeNode<SQUARE>>("square");
+    std.def_class::<ShapeNode<ELLIPSE>>("ellipse");
+    std.def_class::<ShapeNode<CIRCLE>>("circle");
 
     // Layout.
     std.def_class::<HNode>("h");
@@ -123,9 +115,9 @@ pub fn new() -> Scope {
     std.def_class::<AlignNode>("align");
     std.def_class::<PadNode>("pad");
     std.def_class::<PlaceNode>("place");
-    std.def_class::<TransformNode<Move>>("move");
-    std.def_class::<TransformNode<Scale>>("scale");
-    std.def_class::<TransformNode<Rotate>>("rotate");
+    std.def_class::<TransformNode<MOVE>>("move");
+    std.def_class::<TransformNode<SCALE>>("scale");
+    std.def_class::<TransformNode<ROTATE>>("rotate");
     std.def_class::<HideNode>("hide");
     std.def_class::<StackNode>("stack");
     std.def_class::<GridNode>("grid");

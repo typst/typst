@@ -41,7 +41,7 @@ use crate::diag::{At, Error, StrResult, Trace, Tracepoint, TypResult};
 use crate::geom::{Angle, Fractional, Length, Relative};
 use crate::image::ImageStore;
 use crate::layout::Layout;
-use crate::library::{self};
+use crate::library::{self, ORDERED, UNORDERED};
 use crate::loading::Loader;
 use crate::source::{SourceId, SourceStore};
 use crate::syntax::ast::*;
@@ -272,9 +272,9 @@ impl Eval for ListNode {
     type Output = Template;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        Ok(Template::show(library::ListNode {
+        Ok(Template::show(library::ListNode::<UNORDERED> {
+            number: None,
             child: self.body().eval(ctx)?.pack(),
-            label: library::Unordered,
         }))
     }
 }
@@ -283,9 +283,9 @@ impl Eval for EnumNode {
     type Output = Template;
 
     fn eval(&self, ctx: &mut EvalContext) -> TypResult<Self::Output> {
-        Ok(Template::show(library::ListNode {
+        Ok(Template::show(library::ListNode::<ORDERED> {
+            number: self.number(),
             child: self.body().eval(ctx)?.pack(),
-            label: library::Ordered(self.number()),
         }))
     }
 }
