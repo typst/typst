@@ -64,16 +64,17 @@ pub mod prelude {
 
     pub use crate::diag::{At, TypResult};
     pub use crate::eval::{
-        Args, Construct, EvalContext, Merge, Property, Scope, Set, Show, ShowNode, Smart,
-        StyleChain, StyleMap, StyleVec, Template, Value,
+        Args, Construct, Merge, Property, Scope, Set, Show, ShowNode, Smart, StyleChain,
+        StyleMap, StyleVec, Template, Value,
     };
     pub use crate::frame::*;
     pub use crate::geom::*;
     pub use crate::layout::{
-        Constrain, Constrained, Constraints, Layout, LayoutContext, LayoutNode, Regions,
+        Constrain, Constrained, Constraints, Layout, LayoutNode, Regions,
     };
     pub use crate::syntax::{Span, Spanned};
     pub use crate::util::{EcoString, OptionExt};
+    pub use crate::Vm;
 }
 
 use prelude::*;

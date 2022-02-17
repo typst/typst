@@ -22,7 +22,7 @@
 //! [parsed]: parse::parse
 //! [green tree]: syntax::GreenNode
 //! [AST]: syntax::ast
-//! [evaluate]: Context::evaluate
+//! [evaluate]: Vm::evaluate
 //! [module]: eval::Module
 //! [template]: eval::Template
 //! [layouted]: eval::Template::layout
@@ -51,10 +51,12 @@ pub mod parse;
 pub mod source;
 pub mod syntax;
 
+use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use crate::diag::TypResult;
-use crate::eval::{Eval, EvalContext, Module, Scope, StyleMap};
+use crate::eval::{Eval, Module, Scope, Scopes, StyleMap};
 use crate::export::RenderCache;
 use crate::font::FontStore;
 use crate::frame::Frame;
@@ -106,27 +108,13 @@ impl Context {
         &self.styles
     }
 
-    /// Evaluate a source file and return the resulting module.
-    ///
-    /// Returns either a module containing a scope with top-level bindings and a
-    /// layoutable template or diagnostics in the form of a vector of error
-    /// message with file and span information.
-    pub fn evaluate(&mut self, id: SourceId) -> TypResult<Module> {
-        let markup = self.sources.get(id).ast()?;
-        let mut ctx = EvalContext::new(self, id);
-        let template = markup.eval(&mut ctx)?;
-        Ok(Module { scope: ctx.scopes.top, template })
-    }
-
     /// Typeset a source file into a collection of layouted frames.
     ///
     /// Returns either a vector of frames representing individual pages or
     /// diagnostics in the form of a vector of error message with file and span
     /// information.
     pub fn typeset(&mut self, id: SourceId) -> TypResult<Vec<Arc<Frame>>> {
-        let module = self.evaluate(id)?;
-        let frames = module.template.layout(self);
-        Ok(frames)
+        Vm::new(self).typeset(id)
     }
 
     /// Garbage-collect caches.
@@ -206,5 +194,109 @@ impl Default for ContextBuilder {
             #[cfg(feature = "layout-cache")]
             max_size: 2000,
         }
+    }
+}
+
+/// A virtual machine for a single typesetting process.
+pub struct Vm<'a> {
+    /// The loader the context was created with.
+    pub loader: &'a dyn Loader,
+    /// Stores loaded source files.
+    pub sources: &'a mut SourceStore,
+    /// Stores parsed font faces.
+    pub fonts: &'a mut FontStore,
+    /// Stores decoded images.
+    pub images: &'a mut ImageStore,
+    /// Caches layouting artifacts.
+    #[cfg(feature = "layout-cache")]
+    pub layout_cache: &'a mut LayoutCache,
+    /// The default styles.
+    pub styles: &'a StyleMap,
+    /// The stack of imported files that led to evaluation of the current file.
+    pub route: Vec<SourceId>,
+    /// Caches imported modules.
+    pub modules: HashMap<SourceId, Module>,
+    /// The active scopes.
+    pub scopes: Scopes<'a>,
+    /// How deeply nested the current layout tree position is.
+    #[cfg(feature = "layout-cache")]
+    pub level: usize,
+}
+
+impl<'a> Vm<'a> {
+    /// Create a new virtual machine.
+    pub fn new(ctx: &'a mut Context) -> Self {
+        Self {
+            loader: ctx.loader.as_ref(),
+            sources: &mut ctx.sources,
+            fonts: &mut ctx.fonts,
+            images: &mut ctx.images,
+            layout_cache: &mut ctx.layout_cache,
+            styles: &ctx.styles,
+            route: vec![],
+            modules: HashMap::new(),
+            scopes: Scopes::new(Some(&ctx.std)),
+            level: 0,
+        }
+    }
+
+    /// Evaluate a source file and return the resulting module.
+    ///
+    /// Returns either a module containing a scope with top-level bindings and a
+    /// layoutable template or diagnostics in the form of a vector of error
+    /// message with file and span information.
+    pub fn evaluate(&mut self, id: SourceId) -> TypResult<Module> {
+        // Prevent cyclic evaluation.
+        assert!(!self.route.contains(&id));
+
+        // Check whether the module was already loaded.
+        if let Some(module) = self.modules.get(&id) {
+            return Ok(module.clone());
+        }
+
+        // Parse the file.
+        let source = self.sources.get(id);
+        let ast = source.ast()?;
+
+        // Prepare the new context.
+        let fresh = Scopes::new(self.scopes.base);
+        let prev = std::mem::replace(&mut self.scopes, fresh);
+        self.route.push(id);
+
+        // Evaluate the module.
+        let template = ast.eval(self)?;
+
+        // Restore the old context.
+        let scope = std::mem::replace(&mut self.scopes, prev).top;
+        self.route.pop().unwrap();
+
+        // Save the evaluated module.
+        let module = Module { scope, template };
+        self.modules.insert(id, module.clone());
+
+        Ok(module)
+    }
+
+    /// Typeset a source file into a collection of layouted frames.
+    ///
+    /// Returns either a vector of frames representing individual pages or
+    /// diagnostics in the form of a vector of error message with file and span
+    /// information.
+    pub fn typeset(&mut self, id: SourceId) -> TypResult<Vec<Arc<Frame>>> {
+        let module = self.evaluate(id)?;
+        let frames = module.template.layout(self);
+        Ok(frames)
+    }
+
+    /// Resolve a user-entered path (relative to the source file) to be
+    /// relative to the compilation environment's root.
+    pub fn resolve(&self, path: &str) -> PathBuf {
+        if let Some(&id) = self.route.last() {
+            if let Some(dir) = self.sources.get(id).path().parent() {
+                return dir.join(path);
+            }
+        }
+
+        path.into()
     }
 }

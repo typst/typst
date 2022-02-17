@@ -15,7 +15,7 @@ pub struct GridNode {
 
 #[class]
 impl GridNode {
-    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
+    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Template> {
         let columns = args.named("columns")?.unwrap_or_default();
         let rows = args.named("rows")?.unwrap_or_default();
         let base_gutter: Vec<TrackSizing> = args.named("gutter")?.unwrap_or_default();
@@ -35,7 +35,7 @@ impl GridNode {
 impl Layout for GridNode {
     fn layout(
         &self,
-        ctx: &mut LayoutContext,
+        vm: &mut Vm,
         regions: &Regions,
         styles: StyleChain,
     ) -> Vec<Constrained<Arc<Frame>>> {
@@ -49,7 +49,7 @@ impl Layout for GridNode {
         );
 
         // Measure the columsna nd layout the grid row-by-row.
-        layouter.layout(ctx)
+        layouter.layout(vm)
     }
 }
 
@@ -205,19 +205,19 @@ impl<'a> GridLayouter<'a> {
     }
 
     /// Determines the columns sizes and then layouts the grid row-by-row.
-    pub fn layout(mut self, ctx: &mut LayoutContext) -> Vec<Constrained<Arc<Frame>>> {
-        self.measure_columns(ctx);
+    pub fn layout(mut self, vm: &mut Vm) -> Vec<Constrained<Arc<Frame>>> {
+        self.measure_columns(vm);
 
         for y in 0 .. self.rows.len() {
             // Skip to next region if current one is full, but only for content
             // rows, not for gutter rows.
             if y % 2 == 0 && self.regions.is_full() {
-                self.finish_region(ctx);
+                self.finish_region(vm);
             }
 
             match self.rows[y] {
-                TrackSizing::Auto => self.layout_auto_row(ctx, y),
-                TrackSizing::Linear(v) => self.layout_linear_row(ctx, v, y),
+                TrackSizing::Auto => self.layout_auto_row(vm, y),
+                TrackSizing::Linear(v) => self.layout_linear_row(vm, v, y),
                 TrackSizing::Fractional(v) => {
                     self.cts.exact.y = Some(self.full);
                     self.lrows.push(Row::Fr(v, y));
@@ -226,12 +226,12 @@ impl<'a> GridLayouter<'a> {
             }
         }
 
-        self.finish_region(ctx);
+        self.finish_region(vm);
         self.finished
     }
 
     /// Determine all column sizes.
-    fn measure_columns(&mut self, ctx: &mut LayoutContext) {
+    fn measure_columns(&mut self, vm: &mut Vm) {
         enum Case {
             /// The column sizing is only determined by specified linear sizes.
             PurelyLinear,
@@ -277,7 +277,7 @@ impl<'a> GridLayouter<'a> {
         let available = self.regions.current.x - linear;
         if available >= Length::zero() {
             // Determine size of auto columns.
-            let (auto, count) = self.measure_auto_columns(ctx, available);
+            let (auto, count) = self.measure_auto_columns(vm, available);
 
             // If there is remaining space, distribute it to fractional columns,
             // otherwise shrink auto columns.
@@ -313,7 +313,7 @@ impl<'a> GridLayouter<'a> {
     /// Measure the size that is available to auto columns.
     fn measure_auto_columns(
         &mut self,
-        ctx: &mut LayoutContext,
+        vm: &mut Vm,
         available: Length,
     ) -> (Length, usize) {
         let mut auto = Length::zero();
@@ -340,7 +340,7 @@ impl<'a> GridLayouter<'a> {
                         pod.base.y = v.resolve(self.regions.base.y);
                     }
 
-                    let frame = node.layout(ctx, &pod, self.styles).remove(0).item;
+                    let frame = node.layout(vm, &pod, self.styles).remove(0).item;
                     resolved.set_max(frame.size.x);
                 }
             }
@@ -394,7 +394,7 @@ impl<'a> GridLayouter<'a> {
 
     /// Layout a row with automatic height. Such a row may break across multiple
     /// regions.
-    fn layout_auto_row(&mut self, ctx: &mut LayoutContext, y: usize) {
+    fn layout_auto_row(&mut self, vm: &mut Vm, y: usize) {
         let mut resolved: Vec<Length> = vec![];
 
         // Determine the size for each region of the row.
@@ -409,7 +409,7 @@ impl<'a> GridLayouter<'a> {
                 }
 
                 let mut sizes = node
-                    .layout(ctx, &pod, self.styles)
+                    .layout(vm, &pod, self.styles)
                     .into_iter()
                     .map(|frame| frame.item.size.y);
 
@@ -432,7 +432,7 @@ impl<'a> GridLayouter<'a> {
 
         // Layout into a single region.
         if let &[first] = resolved.as_slice() {
-            let frame = self.layout_single_row(ctx, first, y);
+            let frame = self.layout_single_row(vm, first, y);
             self.push_row(frame);
             return;
         }
@@ -449,28 +449,28 @@ impl<'a> GridLayouter<'a> {
         }
 
         // Layout into multiple regions.
-        let frames = self.layout_multi_row(ctx, &resolved, y);
+        let frames = self.layout_multi_row(vm, &resolved, y);
         let len = frames.len();
         for (i, frame) in frames.into_iter().enumerate() {
             self.push_row(frame);
             if i + 1 < len {
                 self.cts.exact.y = Some(self.full);
-                self.finish_region(ctx);
+                self.finish_region(vm);
             }
         }
     }
 
     /// Layout a row with linear height. Such a row cannot break across multiple
     /// regions, but it may force a region break.
-    fn layout_linear_row(&mut self, ctx: &mut LayoutContext, v: Linear, y: usize) {
+    fn layout_linear_row(&mut self, vm: &mut Vm, v: Linear, y: usize) {
         let resolved = v.resolve(self.regions.base.y);
-        let frame = self.layout_single_row(ctx, resolved, y);
+        let frame = self.layout_single_row(vm, resolved, y);
 
         // Skip to fitting region.
         let height = frame.size.y;
         while !self.regions.current.y.fits(height) && !self.regions.in_last() {
             self.cts.max.y = Some(self.used.y + height);
-            self.finish_region(ctx);
+            self.finish_region(vm);
 
             // Don't skip multiple regions for gutter and don't push a row.
             if y % 2 == 1 {
@@ -484,7 +484,7 @@ impl<'a> GridLayouter<'a> {
     /// Layout a row with fixed height and return its frame.
     fn layout_single_row(
         &self,
-        ctx: &mut LayoutContext,
+        vm: &mut Vm,
         height: Length,
         y: usize,
     ) -> Frame {
@@ -502,7 +502,7 @@ impl<'a> GridLayouter<'a> {
                     .select(self.regions.base, size);
 
                 let pod = Regions::one(size, base, Spec::splat(true));
-                let frame = node.layout(ctx, &pod, self.styles).remove(0);
+                let frame = node.layout(vm, &pod, self.styles).remove(0);
                 output.push_frame(pos, frame.item);
             }
 
@@ -515,7 +515,7 @@ impl<'a> GridLayouter<'a> {
     /// Layout a row spanning multiple regions.
     fn layout_multi_row(
         &self,
-        ctx: &mut LayoutContext,
+        vm: &mut Vm,
         heights: &[Length],
         y: usize,
     ) -> Vec<Frame> {
@@ -542,7 +542,7 @@ impl<'a> GridLayouter<'a> {
                 }
 
                 // Push the layouted frames into the individual output frames.
-                let frames = node.layout(ctx, &pod, self.styles);
+                let frames = node.layout(vm, &pod, self.styles);
                 for (output, frame) in outputs.iter_mut().zip(frames) {
                     output.push_frame(pos, frame.item);
                 }
@@ -562,7 +562,7 @@ impl<'a> GridLayouter<'a> {
     }
 
     /// Finish rows for one region.
-    fn finish_region(&mut self, ctx: &mut LayoutContext) {
+    fn finish_region(&mut self, vm: &mut Vm) {
         // Determine the size of the grid in this region, expanding fully if
         // there are fr rows.
         let mut size = self.used;
@@ -584,7 +584,7 @@ impl<'a> GridLayouter<'a> {
                 Row::Fr(v, y) => {
                     let remaining = self.full - self.used.y;
                     let height = v.resolve(self.fr, remaining);
-                    self.layout_single_row(ctx, height, y)
+                    self.layout_single_row(vm, height, y)
                 }
             };
 

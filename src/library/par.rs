@@ -36,7 +36,7 @@ impl ParNode {
     /// The extra spacing between paragraphs (dependent on scaled font size).
     pub const SPACING: Linear = Relative::new(0.55).into();
 
-    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
+    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Template> {
         // The paragraph constructor is special: It doesn't create a paragraph
         // since that happens automatically through markup. Instead, it just
         // lifts the passed body to the block level so that it won't merge with
@@ -82,7 +82,7 @@ impl ParNode {
 impl Layout for ParNode {
     fn layout(
         &self,
-        ctx: &mut LayoutContext,
+        vm: &mut Vm,
         regions: &Regions,
         styles: StyleChain,
     ) -> Vec<Constrained<Arc<Frame>>> {
@@ -95,10 +95,10 @@ impl Layout for ParNode {
 
         // Prepare paragraph layout by building a representation on which we can
         // do line breaking without layouting each and every line from scratch.
-        let layouter = ParLayouter::new(self, ctx, regions, &styles, bidi);
+        let layouter = ParLayouter::new(self, vm, regions, &styles, bidi);
 
         // Find suitable linebreaks.
-        layouter.layout(ctx, regions.clone())
+        layouter.layout(vm, regions.clone())
     }
 }
 
@@ -167,7 +167,7 @@ pub struct ParbreakNode;
 
 #[class]
 impl ParbreakNode {
-    fn construct(_: &mut EvalContext, _: &mut Args) -> TypResult<Template> {
+    fn construct(_: &mut Vm, _: &mut Args) -> TypResult<Template> {
         Ok(Template::Parbreak)
     }
 }
@@ -177,7 +177,7 @@ pub struct LinebreakNode;
 
 #[class]
 impl LinebreakNode {
-    fn construct(_: &mut EvalContext, _: &mut Args) -> TypResult<Template> {
+    fn construct(_: &mut Vm, _: &mut Args) -> TypResult<Template> {
         Ok(Template::Linebreak)
     }
 }
@@ -216,7 +216,7 @@ impl<'a> ParLayouter<'a> {
     /// Prepare initial shaped text and layouted children.
     fn new(
         par: &'a ParNode,
-        ctx: &mut LayoutContext,
+        vm: &mut Vm,
         regions: &Regions,
         styles: &'a StyleChain<'a>,
         bidi: BidiInfo<'a>,
@@ -236,7 +236,7 @@ impl<'a> ParLayouter<'a> {
                         cursor += count;
                         let subrange = start .. cursor;
                         let text = &bidi.text[subrange.clone()];
-                        let shaped = shape(ctx.fonts, text, styles, level.dir());
+                        let shaped = shape(vm.fonts, text, styles, level.dir());
                         items.push(ParItem::Text(shaped));
                         ranges.push(subrange);
                     }
@@ -255,7 +255,7 @@ impl<'a> ParLayouter<'a> {
                 ParChild::Node(node) => {
                     let size = Size::new(regions.current.x, regions.base.y);
                     let pod = Regions::one(size, regions.base, Spec::splat(false));
-                    let frame = node.layout(ctx, &pod, styles).remove(0);
+                    let frame = node.layout(vm, &pod, styles).remove(0);
                     items.push(ParItem::Frame(Arc::take(frame.item)));
                     ranges.push(range);
                 }
@@ -270,11 +270,7 @@ impl<'a> ParLayouter<'a> {
     }
 
     /// Find first-fit line breaks and build the paragraph.
-    fn layout(
-        self,
-        ctx: &mut LayoutContext,
-        regions: Regions,
-    ) -> Vec<Constrained<Arc<Frame>>> {
+    fn layout(self, vm: &mut Vm, regions: Regions) -> Vec<Constrained<Arc<Frame>>> {
         let mut stack = LineStack::new(self.leading, regions);
 
         // The current line attempt.
@@ -288,7 +284,7 @@ impl<'a> ParLayouter<'a> {
         // TODO: Provide line break opportunities on alignment changes.
         for (end, mandatory) in LineBreakIterator::new(self.bidi.text) {
             // Compute the line and its size.
-            let mut line = LineLayout::new(ctx, &self, start .. end);
+            let mut line = LineLayout::new(vm, &self, start .. end);
 
             // If the line doesn't fit anymore, we push the last fitting attempt
             // into the stack and rebuild the line from its end. The resulting
@@ -318,7 +314,7 @@ impl<'a> ParLayouter<'a> {
                         stack.push(last_line);
                         stack.cts.min.y = Some(stack.size.y);
                         start = last_end;
-                        line = LineLayout::new(ctx, &self, start .. end);
+                        line = LineLayout::new(vm, &self, start .. end);
                     }
                 }
             }
@@ -335,7 +331,7 @@ impl<'a> ParLayouter<'a> {
                 // below.
                 let too_large = stack.size.y + self.leading + line.size.y;
                 stack.cts.max.y.set_min(too_large);
-                stack.finish_region(ctx);
+                stack.finish_region(vm);
             }
 
             // If the line does not fit horizontally or we have a mandatory
@@ -350,7 +346,7 @@ impl<'a> ParLayouter<'a> {
                 // If there is a trailing line break at the end of the
                 // paragraph, we want to force an empty line.
                 if mandatory && end == self.bidi.text.len() {
-                    let line = LineLayout::new(ctx, &self, end .. end);
+                    let line = LineLayout::new(vm, &self, end .. end);
                     if stack.regions.current.y.fits(line.size.y) {
                         stack.push(line);
                     }
@@ -370,7 +366,7 @@ impl<'a> ParLayouter<'a> {
             stack.cts.min.y = Some(stack.size.y);
         }
 
-        stack.finish(ctx)
+        stack.finish(vm)
     }
 
     /// Find the index of the item whose range contains the `text_offset`.
@@ -408,7 +404,7 @@ struct LineLayout<'a> {
 
 impl<'a> LineLayout<'a> {
     /// Create a line which spans the given range.
-    fn new(ctx: &mut LayoutContext, par: &'a ParLayouter<'a>, mut line: Range) -> Self {
+    fn new(vm: &mut Vm, par: &'a ParLayouter<'a>, mut line: Range) -> Self {
         // Find the items which bound the text range.
         let last_idx = par.find(line.end.saturating_sub(1)).unwrap();
         let first_idx = if line.is_empty() {
@@ -438,7 +434,7 @@ impl<'a> LineLayout<'a> {
                 // empty string.
                 if !range.is_empty() || rest.is_empty() {
                     // Reshape that part.
-                    let reshaped = shaped.reshape(ctx.fonts, range);
+                    let reshaped = shaped.reshape(vm.fonts, range);
                     last = Some(ParItem::Text(reshaped));
                 }
 
@@ -459,7 +455,7 @@ impl<'a> LineLayout<'a> {
             // Reshape if necessary.
             if range.len() < shaped.text.len() {
                 if !range.is_empty() {
-                    let reshaped = shaped.reshape(ctx.fonts, range);
+                    let reshaped = shaped.reshape(vm.fonts, range);
                     first = Some(ParItem::Text(reshaped));
                 }
 
@@ -504,7 +500,7 @@ impl<'a> LineLayout<'a> {
     }
 
     /// Build the line's frame.
-    fn build(&self, ctx: &LayoutContext, width: Length) -> Frame {
+    fn build(&self, ctx: &Vm, width: Length) -> Frame {
         let size = Size::new(self.size.x.max(width), self.size.y);
         let remaining = size.x - self.size.x;
 
@@ -622,7 +618,7 @@ impl<'a> LineStack<'a> {
     }
 
     /// Finish the frame for one region.
-    fn finish_region(&mut self, ctx: &LayoutContext) {
+    fn finish_region(&mut self, ctx: &Vm) {
         if self.regions.expand.x || self.fractional {
             self.size.x = self.regions.current.x;
             self.cts.exact.x = Some(self.regions.current.x);
@@ -653,7 +649,7 @@ impl<'a> LineStack<'a> {
     }
 
     /// Finish the last region and return the built frames.
-    fn finish(mut self, ctx: &LayoutContext) -> Vec<Constrained<Arc<Frame>>> {
+    fn finish(mut self, ctx: &Vm) -> Vec<Constrained<Arc<Frame>>> {
         self.finish_region(ctx);
         self.finished
     }

@@ -17,7 +17,7 @@ use typst::loading::FsLoader;
 use typst::parse::Scanner;
 use typst::source::SourceFile;
 use typst::syntax::Span;
-use typst::Context;
+use typst::{Context, Vm};
 
 #[cfg(feature = "layout-cache")]
 use {
@@ -274,13 +274,14 @@ fn test_part(
 
     ok &= test_reparse(ctx.sources.get(id).src(), i, rng);
 
-    let (frames, mut errors) = match ctx.evaluate(id) {
+    let mut vm = Vm::new(ctx);
+    let (frames, mut errors) = match vm.evaluate(id) {
         Ok(module) => {
             if debug {
                 println!("Template: {:#?}", module.template);
             }
 
-            let mut frames = module.template.layout(ctx);
+            let mut frames = module.template.layout(&mut vm);
 
             #[cfg(feature = "layout-cache")]
             (ok &= test_incremental(ctx, i, &module.template, &frames));
@@ -498,7 +499,7 @@ fn test_incremental(
 
         ctx.layout_cache.turnaround();
 
-        let cached = silenced(|| template.layout(ctx));
+        let cached = silenced(|| template.layout(&mut Vm::new(ctx)));
         let total = reference.levels() - 1;
         let misses = ctx
             .layout_cache

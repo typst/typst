@@ -16,7 +16,7 @@ pub struct StackNode {
 
 #[class]
 impl StackNode {
-    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
+    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Template> {
         Ok(Template::block(Self {
             dir: args.named("dir")?.unwrap_or(Dir::TTB),
             spacing: args.named("spacing")?,
@@ -28,7 +28,7 @@ impl StackNode {
 impl Layout for StackNode {
     fn layout(
         &self,
-        ctx: &mut LayoutContext,
+        vm: &mut Vm,
         regions: &Regions,
         styles: StyleChain,
     ) -> Vec<Constrained<Arc<Frame>>> {
@@ -48,7 +48,7 @@ impl Layout for StackNode {
                         layouter.layout_spacing(kind);
                     }
 
-                    layouter.layout_node(ctx, node, styles);
+                    layouter.layout_node(vm, node, styles);
                     deferred = self.spacing;
                 }
             }
@@ -163,12 +163,7 @@ impl StackLayouter {
     }
 
     /// Layout an arbitrary node.
-    pub fn layout_node(
-        &mut self,
-        ctx: &mut LayoutContext,
-        node: &LayoutNode,
-        styles: StyleChain,
-    ) {
+    pub fn layout_node(&mut self, vm: &mut Vm, node: &LayoutNode, styles: StyleChain) {
         if self.regions.is_full() {
             self.finish_region();
         }
@@ -179,7 +174,7 @@ impl StackLayouter {
             .and_then(|node| node.aligns.get(self.axis))
             .unwrap_or(self.dir.start().into());
 
-        let frames = node.layout(ctx, &self.regions, styles);
+        let frames = node.layout(vm, &self.regions, styles);
         let len = frames.len();
         for (i, frame) in frames.into_iter().enumerate() {
             // Grow our size, shrink the region and save the frame for later.

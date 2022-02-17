@@ -31,7 +31,7 @@ impl PageNode {
     /// How many columns the page has.
     pub const COLUMNS: NonZeroUsize = NonZeroUsize::new(1).unwrap();
 
-    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
+    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Template> {
         Ok(Template::Page(Self(args.expect("body")?)))
     }
 
@@ -60,7 +60,7 @@ impl PageNode {
 
 impl PageNode {
     /// Layout the page run into a sequence of frames, one per page.
-    pub fn layout(&self, ctx: &mut LayoutContext, styles: StyleChain) -> Vec<Arc<Frame>> {
+    pub fn layout(&self, vm: &mut Vm, styles: StyleChain) -> Vec<Arc<Frame>> {
         // When one of the lengths is infinite the page fits its content along
         // that axis.
         let width = styles.get(Self::WIDTH).unwrap_or(Length::inf());
@@ -104,7 +104,7 @@ impl PageNode {
         let expand = size.map(Length::is_finite);
         let regions = Regions::repeat(size, size, expand);
         child
-            .layout(ctx, &regions, styles)
+            .layout(vm, &regions, styles)
             .into_iter()
             .map(|c| c.item)
             .collect()
@@ -124,7 +124,7 @@ pub struct PagebreakNode;
 
 #[class]
 impl PagebreakNode {
-    fn construct(_: &mut EvalContext, _: &mut Args) -> TypResult<Template> {
+    fn construct(_: &mut Vm, _: &mut Args) -> TypResult<Template> {
         Ok(Template::Pagebreak)
     }
 }

@@ -5,7 +5,7 @@ use iai::{black_box, main, Iai};
 use typst::loading::MemLoader;
 use typst::parse::{parse, Scanner, TokenMode, Tokens};
 use typst::source::SourceId;
-use typst::Context;
+use typst::{Context, Vm};
 
 const SRC: &str = include_str!("bench.typ");
 const FONT: &[u8] = include_bytes!("../fonts/IBMPlexSans-Regular.ttf");
@@ -69,13 +69,15 @@ fn bench_edit(iai: &mut Iai) {
 
 fn bench_eval(iai: &mut Iai) {
     let (mut ctx, id) = context();
-    iai.run(|| ctx.evaluate(id).unwrap());
+    let mut vm = Vm::new(&mut ctx);
+    iai.run(|| vm.evaluate(id).unwrap());
 }
 
 fn bench_layout(iai: &mut Iai) {
     let (mut ctx, id) = context();
-    let module = ctx.evaluate(id).unwrap();
-    iai.run(|| module.template.layout(&mut ctx));
+    let mut vm = Vm::new(&mut ctx);
+    let module = vm.evaluate(id).unwrap();
+    iai.run(|| module.template.layout(&mut vm));
 }
 
 fn bench_highlight(iai: &mut Iai) {

@@ -9,7 +9,7 @@ pub struct PlaceNode(pub LayoutNode);
 
 #[class]
 impl PlaceNode {
-    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
+    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Template> {
         let aligns = args.find()?.unwrap_or(Spec::with_x(Some(Align::Left)));
         let tx = args.named("dx")?.unwrap_or_default();
         let ty = args.named("dy")?.unwrap_or_default();
@@ -23,7 +23,7 @@ impl PlaceNode {
 impl Layout for PlaceNode {
     fn layout(
         &self,
-        ctx: &mut LayoutContext,
+        vm: &mut Vm,
         regions: &Regions,
         styles: StyleChain,
     ) -> Vec<Constrained<Arc<Frame>>> {
@@ -37,7 +37,7 @@ impl Layout for PlaceNode {
             Regions::one(regions.base, regions.base, expand)
         };
 
-        let mut frames = self.0.layout(ctx, &pod, styles);
+        let mut frames = self.0.layout(vm, &pod, styles);
         let Constrained { item: frame, cts } = &mut frames[0];
 
         // If expansion is off, zero all sizes so that we don't take up any

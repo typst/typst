@@ -18,7 +18,7 @@ impl ColumnsNode {
     /// The size of the gutter space between each column.
     pub const GUTTER: Linear = Relative::new(0.04).into();
 
-    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
+    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Template> {
         Ok(Template::block(Self {
             columns: args.expect("column count")?,
             child: args.expect("body")?,
@@ -29,14 +29,14 @@ impl ColumnsNode {
 impl Layout for ColumnsNode {
     fn layout(
         &self,
-        ctx: &mut LayoutContext,
+        vm: &mut Vm,
         regions: &Regions,
         styles: StyleChain,
     ) -> Vec<Constrained<Arc<Frame>>> {
         // Separating the infinite space into infinite columns does not make
         // much sense.
         if regions.current.x.is_infinite() {
-            return self.child.layout(ctx, regions, styles);
+            return self.child.layout(vm, regions, styles);
         }
 
         // Determine the width of the gutter and each column.
@@ -59,7 +59,7 @@ impl Layout for ColumnsNode {
         };
 
         // Layout the children.
-        let mut frames = self.child.layout(ctx, &pod, styles).into_iter();
+        let mut frames = self.child.layout(vm, &pod, styles).into_iter();
 
         let dir = styles.get(ParNode::DIR);
         let total_regions = (frames.len() as f32 / columns as f32).ceil() as usize;
@@ -111,7 +111,7 @@ pub struct ColbreakNode;
 
 #[class]
 impl ColbreakNode {
-    fn construct(_: &mut EvalContext, _: &mut Args) -> TypResult<Template> {
+    fn construct(_: &mut Vm, _: &mut Args) -> TypResult<Template> {
         Ok(Template::Colbreak)
     }
 }

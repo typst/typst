@@ -28,7 +28,7 @@ impl<'a> CapturesVisitor<'a> {
 
     /// Bind a new internal variable.
     pub fn bind(&mut self, ident: Ident) {
-        self.internal.def_mut(ident.take(), Value::None);
+        self.internal.top.def_mut(ident.take(), Value::None);
     }
 
     /// Capture a variable if it isn't internal.
@@ -135,9 +135,9 @@ mod tests {
         let red = RedNode::from_root(green, SourceId::from_raw(0));
 
         let mut scopes = Scopes::new(None);
-        scopes.def_const("x", 0);
-        scopes.def_const("y", 0);
-        scopes.def_const("z", 0);
+        scopes.top.def_const("x", 0);
+        scopes.top.def_const("y", 0);
+        scopes.top.def_const("z", 0);
 
         let mut visitor = CapturesVisitor::new(&scopes);
         visitor.visit(red.as_ref());

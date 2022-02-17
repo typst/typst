@@ -31,7 +31,7 @@ impl RawNode {
     /// The language to syntax-highlight in.
     pub const LANG: Option<EcoString> = None;
 
-    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
+    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Template> {
         Ok(Template::show(Self {
             text: args.expect("text")?,
             block: args.named("block")?.unwrap_or(false),

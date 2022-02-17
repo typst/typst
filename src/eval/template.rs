@@ -17,7 +17,6 @@ use crate::library::{
     TextNode, UNDERLINE,
 };
 use crate::util::EcoString;
-use crate::Context;
 
 /// Composable representation of styled content.
 ///
@@ -166,19 +165,19 @@ impl Template {
     }
 
     /// Layout this template into a collection of pages.
-    pub fn layout(&self, ctx: &mut Context) -> Vec<Arc<Frame>> {
+    pub fn layout(&self, vm: &mut Vm) -> Vec<Arc<Frame>> {
         let style_arena = Arena::new();
         let template_arena = Arena::new();
-        let (mut ctx, styles) = LayoutContext::new(ctx);
 
         let mut builder = Builder::new(&style_arena, &template_arena, true);
-        builder.process(self, styles);
-        builder.finish_page(true, false, styles);
+        let chain = StyleChain::new(vm.styles);
+        builder.process(self, chain);
+        builder.finish_page(true, false, chain);
 
         let (pages, shared) = builder.pages.unwrap().finish();
         pages
             .iter()
-            .flat_map(|(page, map)| page.layout(&mut ctx, map.chain(&shared)))
+            .flat_map(|(page, map)| page.layout(vm, map.chain(&shared)))
             .collect()
     }
 }
@@ -267,7 +266,7 @@ impl Sum for Template {
 impl Layout for Template {
     fn layout(
         &self,
-        ctx: &mut LayoutContext,
+        vm: &mut Vm,
         regions: &Regions,
         styles: StyleChain,
     ) -> Vec<Constrained<Arc<Frame>>> {
@@ -279,7 +278,7 @@ impl Layout for Template {
         builder.finish_par(styles);
 
         let (flow, shared) = builder.flow.finish();
-        FlowNode(flow).layout(ctx, regions, shared)
+        FlowNode(flow).layout(vm, regions, shared)
     }
 
     fn pack(self) -> LayoutNode {

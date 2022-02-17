@@ -4,7 +4,7 @@ use std::hash::{Hash, Hasher};
 use std::iter;
 use std::sync::{Arc, RwLock};
 
-use super::{Args, Class, Construct, EvalContext, Func, Set, Value};
+use super::{Args, Class, Construct, Func, Set, Value, Vm};
 use crate::diag::TypResult;
 use crate::util::EcoString;
 
@@ -38,21 +38,6 @@ impl<'a> Scopes<'a> {
     /// This panics if no scope was entered.
     pub fn exit(&mut self) {
         self.top = self.scopes.pop().expect("no pushed scope");
-    }
-
-    /// Define a constant variable with a value in the active scope.
-    pub fn def_const(&mut self, var: impl Into<EcoString>, value: impl Into<Value>) {
-        self.top.def_const(var, value);
-    }
-
-    /// Define a mutable variable with a value in the active scope.
-    pub fn def_mut(&mut self, var: impl Into<EcoString>, value: impl Into<Value>) {
-        self.top.def_mut(var, value);
-    }
-
-    /// Define a variable with a slot in the active scope.
-    pub fn def_slot(&mut self, var: impl Into<EcoString>, slot: Slot) {
-        self.top.def_slot(var, slot);
     }
 
     /// Look up the slot of a variable.
@@ -101,7 +86,7 @@ impl Scope {
     pub fn def_func(
         &mut self,
         name: &'static str,
-        func: fn(&mut EvalContext, &mut Args) -> TypResult<Value>,
+        func: fn(&mut Vm, &mut Args) -> TypResult<Value>,
     ) {
         self.def_const(name, Func::native(name, func));
     }

@@ -103,7 +103,7 @@ impl TextNode {
     #[skip]
     pub const LINK: Option<EcoString> = None;
 
-    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
+    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Template> {
         // The text constructor is special: It doesn't create a text node.
         // Instead, it leaves the passed argument structurally unchanged, but
         // styles all text in it.
@@ -117,7 +117,7 @@ pub struct StrongNode(pub Template);
 
 #[class]
 impl StrongNode {
-    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
+    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Template> {
         Ok(Template::show(Self(args.expect("body")?)))
     }
 }
@@ -134,7 +134,7 @@ pub struct EmphNode(pub Template);
 
 #[class]
 impl EmphNode {
-    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
+    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Template> {
         Ok(Template::show(Self(args.expect("body")?)))
     }
 }

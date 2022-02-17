@@ -17,7 +17,7 @@ impl<const T: TransformKind> TransformNode<T> {
     /// The origin of the transformation.
     pub const ORIGIN: Spec<Option<Align>> = Spec::default();
 
-    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
+    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Template> {
         let transform = match T {
             MOVE => {
                 let tx = args.named("x")?.unwrap_or_default();
@@ -46,12 +46,12 @@ impl<const T: TransformKind> TransformNode<T> {
 impl<const T: TransformKind> Layout for TransformNode<T> {
     fn layout(
         &self,
-        ctx: &mut LayoutContext,
+        vm: &mut Vm,
         regions: &Regions,
         styles: StyleChain,
     ) -> Vec<Constrained<Arc<Frame>>> {
         let origin = styles.get(Self::ORIGIN).unwrap_or(Align::CENTER_HORIZON);
-        let mut frames = self.child.layout(ctx, regions, styles);
+        let mut frames = self.child.layout(vm, regions, styles);
 
         for Constrained { item: frame, .. } in &mut frames {
             let Spec { x, y } = origin.zip(frame.size).map(|(o, s)| o.resolve(s));

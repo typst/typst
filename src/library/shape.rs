@@ -20,7 +20,7 @@ impl<const S: ShapeKind> ShapeNode<S> {
     /// How much to pad the shape's content.
     pub const PADDING: Linear = Linear::zero();
 
-    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
+    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Template> {
         let size = match S {
             SQUARE => args.named::<Length>("size")?.map(Linear::from),
             CIRCLE => args.named::<Length>("radius")?.map(|r| 2.0 * Linear::from(r)),
@@ -46,7 +46,7 @@ impl<const S: ShapeKind> ShapeNode<S> {
 impl<const S: ShapeKind> Layout for ShapeNode<S> {
     fn layout(
         &self,
-        ctx: &mut LayoutContext,
+        vm: &mut Vm,
         regions: &Regions,
         styles: StyleChain,
     ) -> Vec<Constrained<Arc<Frame>>> {
@@ -61,7 +61,7 @@ impl<const S: ShapeKind> Layout for ShapeNode<S> {
             let child = child.clone().padded(Sides::splat(padding));
 
             let mut pod = Regions::one(regions.current, regions.base, regions.expand);
-            frames = child.layout(ctx, &pod, styles);
+            frames = child.layout(vm, &pod, styles);
 
             // Relayout with full expansion into square region to make sure
             // the result is really a square or circle.
@@ -77,7 +77,7 @@ impl<const S: ShapeKind> Layout for ShapeNode<S> {
 
                 pod.current = Size::splat(length);
                 pod.expand = Spec::splat(true);
-                frames = child.layout(ctx, &pod, styles);
+                frames = child.layout(vm, &pod, styles);
                 frames[0].cts = Constraints::tight(regions);
             }
         } else {

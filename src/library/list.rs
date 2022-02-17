@@ -19,7 +19,7 @@ impl<const L: Labelling> ListNode<L> {
     /// The space between the label and the body of each item.
     pub const BODY_INDENT: Linear = Relative::new(0.5).into();
 
-    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
+    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Template> {
         Ok(args
             .all()?
             .into_iter()

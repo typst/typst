@@ -14,10 +14,10 @@ impl ImageNode {
     /// How the image should adjust itself to a given area.
     pub const FIT: ImageFit = ImageFit::Cover;
 
-    fn construct(ctx: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
+    fn construct(vm: &mut Vm, args: &mut Args) -> TypResult<Template> {
         let path = args.expect::<Spanned<EcoString>>("path to image file")?;
-        let full = ctx.make_path(&path.v);
-        let id = ctx.images.load(&full).map_err(|err| {
+        let full = vm.resolve(&path.v);
+        let id = vm.images.load(&full).map_err(|err| {
             Error::boxed(path.span, match err.kind() {
                 std::io::ErrorKind::NotFound => "file not found".into(),
                 _ => format!("failed to load image ({})", err),
@@ -36,11 +36,11 @@ impl ImageNode {
 impl Layout for ImageNode {
     fn layout(
         &self,
-        ctx: &mut LayoutContext,
+        vm: &mut Vm,
         regions: &Regions,
         styles: StyleChain,
     ) -> Vec<Constrained<Arc<Frame>>> {
-        let img = ctx.images.get(self.0);
+        let img = vm.images.get(self.0);
         let pxw = img.width() as f64;
         let pxh = img.height() as f64;
         let px_ratio = pxw / pxh;

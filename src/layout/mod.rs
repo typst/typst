@@ -16,13 +16,11 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use crate::eval::StyleChain;
-use crate::font::FontStore;
 use crate::frame::{Element, Frame, Geometry, Shape, Stroke};
 use crate::geom::{Align, Linear, Paint, Point, Sides, Size, Spec, Transform};
-use crate::image::ImageStore;
 use crate::library::{AlignNode, PadNode, TransformNode, MOVE};
 use crate::util::Prehashed;
-use crate::Context;
+use crate::Vm;
 
 /// A node that can be layouted into a sequence of regions.
 ///
@@ -32,7 +30,7 @@ pub trait Layout {
     /// Layout the node into the given regions, producing constrained frames.
     fn layout(
         &self,
-        ctx: &mut LayoutContext,
+        vm: &mut Vm,
         regions: &Regions,
         styles: StyleChain,
     ) -> Vec<Constrained<Arc<Frame>>>;
@@ -43,35 +41,6 @@ pub trait Layout {
         Self: Debug + Hash + Sized + Sync + Send + 'static,
     {
         LayoutNode::new(self)
-    }
-}
-
-/// The context for layouting.
-pub struct LayoutContext<'a> {
-    /// Stores parsed font faces.
-    pub fonts: &'a mut FontStore,
-    /// Stores decoded images.
-    pub images: &'a mut ImageStore,
-    /// Caches layouting artifacts.
-    #[cfg(feature = "layout-cache")]
-    pub layout_cache: &'a mut LayoutCache,
-    /// How deeply nested the current layout tree position is.
-    #[cfg(feature = "layout-cache")]
-    level: usize,
-}
-
-impl<'a> LayoutContext<'a> {
-    /// Create a new layout context and style chain.
-    pub fn new(ctx: &'a mut Context) -> (Self, StyleChain<'a>) {
-        let this = Self {
-            fonts: &mut ctx.fonts,
-            images: &mut ctx.images,
-            #[cfg(feature = "layout-cache")]
-            layout_cache: &mut ctx.layout_cache,
-            #[cfg(feature = "layout-cache")]
-            level: 0,
-        };
-        (this, StyleChain::new(&ctx.styles))
     }
 }
 
@@ -165,7 +134,7 @@ impl Layout for LayoutNode {
     #[track_caller]
     fn layout(
         &self,
-        ctx: &mut LayoutContext,
+        vm: &mut Vm,
         regions: &Regions,
         styles: StyleChain,
     ) -> Vec<Constrained<Arc<Frame>>> {
@@ -185,14 +154,14 @@ impl Layout for LayoutNode {
         // This is not written with `unwrap_or_else`, because then the
         // #[track_caller] annotation doesn't work.
         #[cfg(feature = "layout-cache")]
-        if let Some(frames) = ctx.layout_cache.get(hash, regions) {
+        if let Some(frames) = vm.layout_cache.get(hash, regions) {
             frames
         } else {
-            ctx.level += 1;
-            let frames = self.0.layout(ctx, regions, styles);
-            ctx.level -= 1;
+            vm.level += 1;
+            let frames = self.0.layout(vm, regions, styles);
+            vm.level -= 1;
 
-            let entry = FramesEntry::new(frames.clone(), ctx.level);
+            let entry = FramesEntry::new(frames.clone(), vm.level);
 
             #[cfg(debug_assertions)]
             if !entry.check(regions) {
@@ -205,7 +174,7 @@ impl Layout for LayoutNode {
                 panic!("constraints did not match regions they were created for");
             }
 
-            ctx.layout_cache.insert(hash, entry);
+            vm.layout_cache.insert(hash, entry);
             frames
         }
     }
@@ -276,7 +245,7 @@ struct EmptyNode;
 impl Layout for EmptyNode {
     fn layout(
         &self,
-        _: &mut LayoutContext,
+        _: &mut Vm,
         regions: &Regions,
         _: StyleChain,
     ) -> Vec<Constrained<Arc<Frame>>> {
@@ -299,7 +268,7 @@ struct SizedNode {
 impl Layout for SizedNode {
     fn layout(
         &self,
-        ctx: &mut LayoutContext,
+        vm: &mut Vm,
         regions: &Regions,
         styles: StyleChain,
     ) -> Vec<Constrained<Arc<Frame>>> {
@@ -323,7 +292,7 @@ impl Layout for SizedNode {
             Regions::one(size, base, expand)
         };
 
-        let mut frames = self.child.layout(ctx, &pod, styles);
+        let mut frames = self.child.layout(vm, &pod, styles);
         let Constrained { item: frame, cts } = &mut frames[0];
 
         // Ensure frame size matches regions size if expansion is on.
@@ -353,11 +322,11 @@ struct FillNode {
 impl Layout for FillNode {
     fn layout(
         &self,
-        ctx: &mut LayoutContext,
+        vm: &mut Vm,
         regions: &Regions,
         styles: StyleChain,
     ) -> Vec<Constrained<Arc<Frame>>> {
-        let mut frames = self.child.layout(ctx, regions, styles);
+        let mut frames = self.child.layout(vm, regions, styles);
         for Constrained { item: frame, .. } in &mut frames {
             let shape = Shape::filled(Geometry::Rect(frame.size), self.fill);
             Arc::make_mut(frame).prepend(Point::zero(), Element::Shape(shape));
@@ -378,11 +347,11 @@ struct StrokeNode {
 impl Layout for StrokeNode {
     fn layout(
         &self,
-        ctx: &mut LayoutContext,
+        vm: &mut Vm,
         regions: &Regions,
         styles: StyleChain,
     ) -> Vec<Constrained<Arc<Frame>>> {
-        let mut frames = self.child.layout(ctx, regions, styles);
+        let mut frames = self.child.layout(vm, regions, styles);
         for Constrained { item: frame, .. } in &mut frames {
             let shape = Shape::stroked(Geometry::Rect(frame.size), self.stroke);
             Arc::make_mut(frame).prepend(Point::zero(), Element::Shape(shape));

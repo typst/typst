@@ -21,7 +21,7 @@ impl LinkNode {
     /// Whether to underline link.
     pub const UNDERLINE: bool = true;
 
-    fn construct(_: &mut EvalContext, args: &mut Args) -> TypResult<Template> {
+    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Template> {
         let url = args.expect::<EcoString>("url")?;
         let body = args.find()?.unwrap_or_else(|| {
             let mut text = url.as_str();
