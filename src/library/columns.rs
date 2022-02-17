@@ -32,7 +32,7 @@ impl Layout for ColumnsNode {
         vm: &mut Vm,
         regions: &Regions,
         styles: StyleChain,
-    ) -> Vec<Constrained<Arc<Frame>>> {
+    ) -> TypResult<Vec<Constrained<Arc<Frame>>>> {
         // Separating the infinite space into infinite columns does not make
         // much sense.
         if regions.current.x.is_infinite() {
@@ -59,7 +59,7 @@ impl Layout for ColumnsNode {
         };
 
         // Layout the children.
-        let mut frames = self.child.layout(vm, &pod, styles).into_iter();
+        let mut frames = self.child.layout(vm, &pod, styles)?.into_iter();
 
         let dir = styles.get(ParNode::DIR);
         let total_regions = (frames.len() as f32 / columns as f32).ceil() as usize;
@@ -102,7 +102,7 @@ impl Layout for ColumnsNode {
             finished.push(output.constrain(cts));
         }
 
-        finished
+        Ok(finished)
     }
 }
 

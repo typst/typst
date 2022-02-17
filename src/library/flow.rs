@@ -31,7 +31,7 @@ impl Layout for FlowNode {
         vm: &mut Vm,
         regions: &Regions,
         styles: StyleChain,
-    ) -> Vec<Constrained<Arc<Frame>>> {
+    ) -> TypResult<Vec<Constrained<Arc<Frame>>>> {
         let mut layouter = FlowLayouter::new(regions);
 
         for (child, map) in self.0.iter() {
@@ -56,12 +56,12 @@ impl Layout for FlowNode {
                     layouter.layout_spacing(*kind);
                 }
                 FlowChild::Node(ref node) => {
-                    layouter.layout_node(vm, node, styles);
+                    layouter.layout_node(vm, node, styles)?;
                 }
             }
         }
 
-        layouter.finish()
+        Ok(layouter.finish())
     }
 }
 
@@ -161,7 +161,12 @@ impl FlowLayouter {
     }
 
     /// Layout a node.
-    pub fn layout_node(&mut self, vm: &mut Vm, node: &LayoutNode, styles: StyleChain) {
+    pub fn layout_node(
+        &mut self,
+        vm: &mut Vm,
+        node: &LayoutNode,
+        styles: StyleChain,
+    ) -> TypResult<()> {
         // Don't even try layouting into a full region.
         if self.regions.is_full() {
             self.finish_region();
@@ -171,9 +176,9 @@ impl FlowLayouter {
         // aligned later.
         if let Some(placed) = node.downcast::<PlaceNode>() {
             if placed.out_of_flow() {
-                let frame = node.layout(vm, &self.regions, styles).remove(0);
+                let frame = node.layout(vm, &self.regions, styles)?.remove(0);
                 self.items.push(FlowItem::Placed(frame.item));
-                return;
+                return Ok(());
             }
         }
 
@@ -188,7 +193,7 @@ impl FlowLayouter {
                 .unwrap_or(Align::Top),
         );
 
-        let frames = node.layout(vm, &self.regions, styles);
+        let frames = node.layout(vm, &self.regions, styles)?;
         let len = frames.len();
         for (i, frame) in frames.into_iter().enumerate() {
             // Grow our size, shrink the region and save the frame for later.
@@ -202,6 +207,8 @@ impl FlowLayouter {
                 self.finish_region();
             }
         }
+
+        Ok(())
     }
 
     /// Finish the frame for one region.

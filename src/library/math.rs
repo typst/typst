@@ -22,11 +22,11 @@ impl MathNode {
 }
 
 impl Show for MathNode {
-    fn show(&self, _: StyleChain) -> Template {
+    fn show(&self, _: &mut Vm, _: StyleChain) -> TypResult<Template> {
         let mut template = Template::Text(self.formula.trim().into());
         if self.display {
             template = Template::Block(template.pack());
         }
-        template.monospaced()
+        Ok(template.monospaced())
     }
 }

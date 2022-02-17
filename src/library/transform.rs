@@ -49,9 +49,9 @@ impl<const T: TransformKind> Layout for TransformNode<T> {
         vm: &mut Vm,
         regions: &Regions,
         styles: StyleChain,
-    ) -> Vec<Constrained<Arc<Frame>>> {
+    ) -> TypResult<Vec<Constrained<Arc<Frame>>>> {
         let origin = styles.get(Self::ORIGIN).unwrap_or(Align::CENTER_HORIZON);
-        let mut frames = self.child.layout(vm, regions, styles);
+        let mut frames = self.child.layout(vm, regions, styles)?;
 
         for Constrained { item: frame, .. } in &mut frames {
             let Spec { x, y } = origin.zip(frame.size).map(|(o, s)| o.resolve(s));
@@ -62,7 +62,7 @@ impl<const T: TransformKind> Layout for TransformNode<T> {
             Arc::make_mut(frame).transform(transform);
         }
 
-        frames
+        Ok(frames)
     }
 }
 

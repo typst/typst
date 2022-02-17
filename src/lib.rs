@@ -283,9 +283,7 @@ impl<'a> Vm<'a> {
     /// diagnostics in the form of a vector of error message with file and span
     /// information.
     pub fn typeset(&mut self, id: SourceId) -> TypResult<Vec<Arc<Frame>>> {
-        let module = self.evaluate(id)?;
-        let frames = module.template.layout(self);
-        Ok(frames)
+        self.evaluate(id)?.template.layout(self)
     }
 
     /// Resolve a user-entered path (relative to the source file) to be

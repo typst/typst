@@ -275,13 +275,12 @@ fn test_part(
     ok &= test_reparse(ctx.sources.get(id).src(), i, rng);
 
     let mut vm = Vm::new(ctx);
-    let (frames, mut errors) = match vm.evaluate(id) {
-        Ok(module) => {
+    let (frames, mut errors) = match vm.typeset(id) {
+        Ok(mut frames) => {
+            let module = vm.evaluate(id).unwrap();
             if debug {
                 println!("Template: {:#?}", module.template);
             }
-
-            let mut frames = module.template.layout(&mut vm);
 
             #[cfg(feature = "layout-cache")]
             (ok &= test_incremental(ctx, i, &module.template, &frames));
@@ -499,7 +498,7 @@ fn test_incremental(
 
         ctx.layout_cache.turnaround();
 
-        let cached = silenced(|| template.layout(&mut Vm::new(ctx)));
+        let cached = silenced(|| template.layout(&mut Vm::new(ctx)).unwrap());
         let total = reference.levels() - 1;
         let misses = ctx
             .layout_cache

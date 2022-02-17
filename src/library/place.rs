@@ -26,7 +26,7 @@ impl Layout for PlaceNode {
         vm: &mut Vm,
         regions: &Regions,
         styles: StyleChain,
-    ) -> Vec<Constrained<Arc<Frame>>> {
+    ) -> TypResult<Vec<Constrained<Arc<Frame>>>> {
         let out_of_flow = self.out_of_flow();
 
         // The pod is the base area of the region because for absolute
@@ -37,7 +37,7 @@ impl Layout for PlaceNode {
             Regions::one(regions.base, regions.base, expand)
         };
 
-        let mut frames = self.0.layout(vm, &pod, styles);
+        let mut frames = self.0.layout(vm, &pod, styles)?;
         let Constrained { item: frame, cts } = &mut frames[0];
 
         // If expansion is off, zero all sizes so that we don't take up any
@@ -51,7 +51,7 @@ impl Layout for PlaceNode {
         cts.base = regions.base.map(Some);
         cts.exact = regions.current.filter(regions.expand | out_of_flow);
 
-        frames
+        Ok(frames)
     }
 }
 

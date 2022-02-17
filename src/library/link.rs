@@ -37,7 +37,7 @@ impl LinkNode {
 }
 
 impl Show for LinkNode {
-    fn show(&self, styles: StyleChain) -> Template {
+    fn show(&self, _: &mut Vm, styles: StyleChain) -> TypResult<Template> {
         let mut map = StyleMap::new();
         map.set(TextNode::LINK, Some(self.url.clone()));
 
@@ -50,6 +50,6 @@ impl Show for LinkNode {
             body = body.underlined();
         }
 
-        body.styled_with_map(map)
+        Ok(body.styled_with_map(map))
     }
 }

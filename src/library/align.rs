@@ -27,7 +27,7 @@ impl Layout for AlignNode {
         vm: &mut Vm,
         regions: &Regions,
         styles: StyleChain,
-    ) -> Vec<Constrained<Arc<Frame>>> {
+    ) -> TypResult<Vec<Constrained<Arc<Frame>>>> {
         // The child only needs to expand along an axis if there's no alignment.
         let mut pod = regions.clone();
         pod.expand &= self.aligns.map_is_none();
@@ -39,7 +39,7 @@ impl Layout for AlignNode {
         }
 
         // Layout the child.
-        let mut frames = self.child.layout(vm, &pod, passed.chain(&styles));
+        let mut frames = self.child.layout(vm, &pod, passed.chain(&styles))?;
 
         for ((current, base), Constrained { item: frame, cts }) in
             regions.iter().zip(&mut frames)
@@ -57,7 +57,7 @@ impl Layout for AlignNode {
             cts.exact = current.filter(regions.expand | cts.exact.map_is_some());
         }
 
-        frames
+        Ok(frames)
     }
 }
 

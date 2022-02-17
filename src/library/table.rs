@@ -55,7 +55,7 @@ impl TableNode {
 }
 
 impl Show for TableNode {
-    fn show(&self, styles: StyleChain) -> Template {
+    fn show(&self, _: &mut Vm, styles: StyleChain) -> TypResult<Template> {
         let primary = styles.get(Self::PRIMARY);
         let secondary = styles.get(Self::SECONDARY);
         let thickness = styles.get(Self::THICKNESS);
@@ -85,10 +85,10 @@ impl Show for TableNode {
             })
             .collect();
 
-        Template::block(GridNode {
+        Ok(Template::block(GridNode {
             tracks: self.tracks.clone(),
             gutter: self.gutter.clone(),
             children,
-        })
+        }))
     }
 }

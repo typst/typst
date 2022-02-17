@@ -31,7 +31,7 @@ impl Layout for StackNode {
         vm: &mut Vm,
         regions: &Regions,
         styles: StyleChain,
-    ) -> Vec<Constrained<Arc<Frame>>> {
+    ) -> TypResult<Vec<Constrained<Arc<Frame>>>> {
         let mut layouter = StackLayouter::new(self.dir, regions);
 
         // Spacing to insert before the next node.
@@ -48,13 +48,13 @@ impl Layout for StackNode {
                         layouter.layout_spacing(kind);
                     }
 
-                    layouter.layout_node(vm, node, styles);
+                    layouter.layout_node(vm, node, styles)?;
                     deferred = self.spacing;
                 }
             }
         }
 
-        layouter.finish()
+        Ok(layouter.finish())
     }
 }
 
@@ -163,7 +163,12 @@ impl StackLayouter {
     }
 
     /// Layout an arbitrary node.
-    pub fn layout_node(&mut self, vm: &mut Vm, node: &LayoutNode, styles: StyleChain) {
+    pub fn layout_node(
+        &mut self,
+        vm: &mut Vm,
+        node: &LayoutNode,
+        styles: StyleChain,
+    ) -> TypResult<()> {
         if self.regions.is_full() {
             self.finish_region();
         }
@@ -174,7 +179,7 @@ impl StackLayouter {
             .and_then(|node| node.aligns.get(self.axis))
             .unwrap_or(self.dir.start().into());
 
-        let frames = node.layout(vm, &self.regions, styles);
+        let frames = node.layout(vm, &self.regions, styles)?;
         let len = frames.len();
         for (i, frame) in frames.into_iter().enumerate() {
             // Grow our size, shrink the region and save the frame for later.
@@ -188,6 +193,8 @@ impl StackLayouter {
                 self.finish_region();
             }
         }
+
+        Ok(())
     }
 
     /// Advance to the next region.

@@ -40,7 +40,7 @@ impl RawNode {
 }
 
 impl Show for RawNode {
-    fn show(&self, styles: StyleChain) -> Template {
+    fn show(&self, _: &mut Vm, styles: StyleChain) -> TypResult<Template> {
         let lang = styles.get_ref(Self::LANG).as_ref();
         let foreground = THEME
             .settings
@@ -87,7 +87,7 @@ impl Show for RawNode {
             template = Template::Block(template.pack());
         }
 
-        template.monospaced()
+        Ok(template.monospaced())
     }
 }
 

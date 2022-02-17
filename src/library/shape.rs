@@ -49,7 +49,7 @@ impl<const S: ShapeKind> Layout for ShapeNode<S> {
         vm: &mut Vm,
         regions: &Regions,
         styles: StyleChain,
-    ) -> Vec<Constrained<Arc<Frame>>> {
+    ) -> TypResult<Vec<Constrained<Arc<Frame>>>> {
         let mut frames;
         if let Some(child) = &self.0 {
             let mut padding = styles.get(Self::PADDING);
@@ -61,7 +61,7 @@ impl<const S: ShapeKind> Layout for ShapeNode<S> {
             let child = child.clone().padded(Sides::splat(padding));
 
             let mut pod = Regions::one(regions.current, regions.base, regions.expand);
-            frames = child.layout(vm, &pod, styles);
+            frames = child.layout(vm, &pod, styles)?;
 
             // Relayout with full expansion into square region to make sure
             // the result is really a square or circle.
@@ -77,7 +77,7 @@ impl<const S: ShapeKind> Layout for ShapeNode<S> {
 
                 pod.current = Size::splat(length);
                 pod.expand = Spec::splat(true);
-                frames = child.layout(vm, &pod, styles);
+                frames = child.layout(vm, &pod, styles)?;
                 frames[0].cts = Constraints::tight(regions);
             }
         } else {
@@ -127,7 +127,7 @@ impl<const S: ShapeKind> Layout for ShapeNode<S> {
             frame.link(url);
         }
 
-        frames
+        Ok(frames)
     }
 }
 

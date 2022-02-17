@@ -15,6 +15,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
+use crate::diag::TypResult;
 use crate::eval::StyleChain;
 use crate::frame::{Element, Frame, Geometry, Shape, Stroke};
 use crate::geom::{Align, Linear, Paint, Point, Sides, Size, Spec, Transform};
@@ -33,7 +34,7 @@ pub trait Layout {
         vm: &mut Vm,
         regions: &Regions,
         styles: StyleChain,
-    ) -> Vec<Constrained<Arc<Frame>>>;
+    ) -> TypResult<Vec<Constrained<Arc<Frame>>>>;
 
     /// Convert to a packed node.
     fn pack(self) -> LayoutNode
@@ -137,7 +138,7 @@ impl Layout for LayoutNode {
         vm: &mut Vm,
         regions: &Regions,
         styles: StyleChain,
-    ) -> Vec<Constrained<Arc<Frame>>> {
+    ) -> TypResult<Vec<Constrained<Arc<Frame>>>> {
         let styles = styles.barred(self.id());
 
         #[cfg(not(feature = "layout-cache"))]
@@ -155,10 +156,10 @@ impl Layout for LayoutNode {
         // #[track_caller] annotation doesn't work.
         #[cfg(feature = "layout-cache")]
         if let Some(frames) = vm.layout_cache.get(hash, regions) {
-            frames
+            Ok(frames)
         } else {
             vm.level += 1;
-            let frames = self.0.layout(vm, regions, styles);
+            let frames = self.0.layout(vm, regions, styles)?;
             vm.level -= 1;
 
             let entry = FramesEntry::new(frames.clone(), vm.level);
@@ -175,7 +176,7 @@ impl Layout for LayoutNode {
             }
 
             vm.layout_cache.insert(hash, entry);
-            frames
+            Ok(frames)
         }
     }
 
@@ -248,11 +249,11 @@ impl Layout for EmptyNode {
         _: &mut Vm,
         regions: &Regions,
         _: StyleChain,
-    ) -> Vec<Constrained<Arc<Frame>>> {
+    ) -> TypResult<Vec<Constrained<Arc<Frame>>>> {
         let size = regions.expand.select(regions.current, Size::zero());
         let mut cts = Constraints::new(regions.expand);
         cts.exact = regions.current.filter(regions.expand);
-        vec![Frame::new(size).constrain(cts)]
+        Ok(vec![Frame::new(size).constrain(cts)])
     }
 }
 
@@ -271,7 +272,7 @@ impl Layout for SizedNode {
         vm: &mut Vm,
         regions: &Regions,
         styles: StyleChain,
-    ) -> Vec<Constrained<Arc<Frame>>> {
+    ) -> TypResult<Vec<Constrained<Arc<Frame>>>> {
         let is_auto = self.sizing.map_is_none();
         let is_rel = self.sizing.map(|s| s.map_or(false, Linear::is_relative));
 
@@ -292,7 +293,7 @@ impl Layout for SizedNode {
             Regions::one(size, base, expand)
         };
 
-        let mut frames = self.child.layout(vm, &pod, styles);
+        let mut frames = self.child.layout(vm, &pod, styles)?;
         let Constrained { item: frame, cts } = &mut frames[0];
 
         // Ensure frame size matches regions size if expansion is on.
@@ -306,7 +307,7 @@ impl Layout for SizedNode {
         cts.exact = regions.current.filter(regions.expand | is_auto);
         cts.base = regions.base.filter(is_rel | is_auto);
 
-        frames
+        Ok(frames)
     }
 }
 
@@ -325,13 +326,13 @@ impl Layout for FillNode {
         vm: &mut Vm,
         regions: &Regions,
         styles: StyleChain,
-    ) -> Vec<Constrained<Arc<Frame>>> {
-        let mut frames = self.child.layout(vm, regions, styles);
+    ) -> TypResult<Vec<Constrained<Arc<Frame>>>> {
+        let mut frames = self.child.layout(vm, regions, styles)?;
         for Constrained { item: frame, .. } in &mut frames {
             let shape = Shape::filled(Geometry::Rect(frame.size), self.fill);
             Arc::make_mut(frame).prepend(Point::zero(), Element::Shape(shape));
         }
-        frames
+        Ok(frames)
     }
 }
 
@@ -350,12 +351,12 @@ impl Layout for StrokeNode {
         vm: &mut Vm,
         regions: &Regions,
         styles: StyleChain,
-    ) -> Vec<Constrained<Arc<Frame>>> {
-        let mut frames = self.child.layout(vm, regions, styles);
+    ) -> TypResult<Vec<Constrained<Arc<Frame>>>> {
+        let mut frames = self.child.layout(vm, regions, styles)?;
         for Constrained { item: frame, .. } in &mut frames {
             let shape = Shape::stroked(Geometry::Rect(frame.size), self.stroke);
             Arc::make_mut(frame).prepend(Point::zero(), Element::Shape(shape));
         }
-        frames
+        Ok(frames)
     }
 }

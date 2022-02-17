@@ -43,7 +43,7 @@ impl HeadingNode {
 }
 
 impl Show for HeadingNode {
-    fn show(&self, styles: StyleChain) -> Template {
+    fn show(&self, _: &mut Vm, styles: StyleChain) -> TypResult<Template> {
         let mut map = StyleMap::new();
 
         let upscale = (1.6 - 0.1 * self.level as f64).max(0.75);
@@ -93,6 +93,8 @@ impl Show for HeadingNode {
             seq.push(Template::Vertical(below.into()));
         }
 
-        Template::block(Template::sequence(seq).styled_with_map(map))
+        Ok(Template::block(
+            Template::sequence(seq).styled_with_map(map),
+        ))
     }
 }

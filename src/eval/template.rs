@@ -165,20 +165,22 @@ impl Template {
     }
 
     /// Layout this template into a collection of pages.
-    pub fn layout(&self, vm: &mut Vm) -> Vec<Arc<Frame>> {
+    pub fn layout(&self, vm: &mut Vm) -> TypResult<Vec<Arc<Frame>>> {
         let style_arena = Arena::new();
         let template_arena = Arena::new();
 
         let mut builder = Builder::new(&style_arena, &template_arena, true);
         let chain = StyleChain::new(vm.styles);
-        builder.process(self, chain);
+        builder.process(self, vm, chain)?;
         builder.finish_page(true, false, chain);
 
+        let mut frames = vec![];
         let (pages, shared) = builder.pages.unwrap().finish();
-        pages
-            .iter()
-            .flat_map(|(page, map)| page.layout(vm, map.chain(&shared)))
-            .collect()
+        for (page, map) in pages.iter() {
+            frames.extend(page.layout(vm, map.chain(&shared))?);
+        }
+
+        Ok(frames)
     }
 }
 
@@ -269,12 +271,12 @@ impl Layout for Template {
         vm: &mut Vm,
         regions: &Regions,
         styles: StyleChain,
-    ) -> Vec<Constrained<Arc<Frame>>> {
+    ) -> TypResult<Vec<Constrained<Arc<Frame>>>> {
         let style_arena = Arena::new();
         let template_arena = Arena::new();
 
         let mut builder = Builder::new(&style_arena, &template_arena, false);
-        builder.process(self, styles);
+        builder.process(self, vm, styles)?;
         builder.finish_par(styles);
 
         let (flow, shared) = builder.flow.finish();
@@ -323,7 +325,12 @@ impl<'a> Builder<'a> {
     }
 
     /// Process a template.
-    fn process(&mut self, template: &'a Template, styles: StyleChain<'a>) {
+    fn process(
+        &mut self,
+        template: &'a Template,
+        vm: &mut Vm,
+        styles: StyleChain<'a>,
+    ) -> TypResult<()> {
         match template {
             Template::Space => {
                 self.par.weak(ParChild::Text(' '.into()), 0, styles);
@@ -382,8 +389,9 @@ impl<'a> Builder<'a> {
                 }
             }
             Template::Show(node) => {
-                let template = self.template_arena.alloc(node.show(styles));
-                self.process(template, styles.unscoped(node.id()));
+                let template = node.show(vm, styles)?;
+                let stored = self.template_arena.alloc(template);
+                self.process(stored, vm, styles.unscoped(node.id()))?;
             }
             Template::Styled(styled) => {
                 let (sub, map) = styled.as_ref();
@@ -397,7 +405,7 @@ impl<'a> Builder<'a> {
                     None => {}
                 }
 
-                self.process(sub, styles);
+                self.process(sub, vm, styles)?;
 
                 match interruption {
                     Some(Interruption::Page) => self.finish_page(true, false, styles),
@@ -407,10 +415,12 @@ impl<'a> Builder<'a> {
             }
             Template::Sequence(seq) => {
                 for sub in seq.iter() {
-                    self.process(sub, styles);
+                    self.process(sub, vm, styles)?;
                 }
             }
         }
+
+        Ok(())
     }
 
     /// Finish the currently built paragraph.

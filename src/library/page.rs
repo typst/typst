@@ -60,7 +60,7 @@ impl PageNode {
 
 impl PageNode {
     /// Layout the page run into a sequence of frames, one per page.
-    pub fn layout(&self, vm: &mut Vm, styles: StyleChain) -> Vec<Arc<Frame>> {
+    pub fn layout(&self, vm: &mut Vm, styles: StyleChain) -> TypResult<Vec<Arc<Frame>>> {
         // When one of the lengths is infinite the page fits its content along
         // that axis.
         let width = styles.get(Self::WIDTH).unwrap_or(Length::inf());
@@ -103,11 +103,11 @@ impl PageNode {
         // Layout the child.
         let expand = size.map(Length::is_finite);
         let regions = Regions::repeat(size, size, expand);
-        child
-            .layout(vm, &regions, styles)
+        Ok(child
+            .layout(vm, &regions, styles)?
             .into_iter()
             .map(|c| c.item)
-            .collect()
+            .collect())
     }
 }
 

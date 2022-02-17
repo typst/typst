@@ -85,7 +85,7 @@ impl Layout for ParNode {
         vm: &mut Vm,
         regions: &Regions,
         styles: StyleChain,
-    ) -> Vec<Constrained<Arc<Frame>>> {
+    ) -> TypResult<Vec<Constrained<Arc<Frame>>>> {
         // Collect all text into one string used for BiDi analysis.
         let text = self.collect_text();
 
@@ -95,10 +95,10 @@ impl Layout for ParNode {
 
         // Prepare paragraph layout by building a representation on which we can
         // do line breaking without layouting each and every line from scratch.
-        let layouter = ParLayouter::new(self, vm, regions, &styles, bidi);
+        let layouter = ParLayouter::new(self, vm, regions, &styles, bidi)?;
 
         // Find suitable linebreaks.
-        layouter.layout(vm, regions.clone())
+        Ok(layouter.layout(vm, regions.clone()))
     }
 }
 
@@ -220,7 +220,7 @@ impl<'a> ParLayouter<'a> {
         regions: &Regions,
         styles: &'a StyleChain<'a>,
         bidi: BidiInfo<'a>,
-    ) -> Self {
+    ) -> TypResult<Self> {
         let mut items = vec![];
         let mut ranges = vec![];
 
@@ -255,7 +255,7 @@ impl<'a> ParLayouter<'a> {
                 ParChild::Node(node) => {
                     let size = Size::new(regions.current.x, regions.base.y);
                     let pod = Regions::one(size, regions.base, Spec::splat(false));
-                    let frame = node.layout(vm, &pod, styles).remove(0);
+                    let frame = node.layout(vm, &pod, styles)?.remove(0);
                     items.push(ParItem::Frame(Arc::take(frame.item)));
                     ranges.push(range);
                 }
@@ -266,7 +266,7 @@ impl<'a> ParLayouter<'a> {
         let align = styles.get(ParNode::ALIGN);
         let leading = styles.get(ParNode::LEADING).resolve(em);
 
-        Self { align, leading, bidi, items, ranges }
+        Ok(Self { align, leading, bidi, items, ranges })
     }
 
     /// Find first-fit line breaks and build the paragraph.

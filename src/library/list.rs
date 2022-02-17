@@ -30,7 +30,7 @@ impl<const L: Labelling> ListNode<L> {
 }
 
 impl<const L: Labelling> Show for ListNode<L> {
-    fn show(&self, styles: StyleChain) -> Template {
+    fn show(&self, _: &mut Vm, styles: StyleChain) -> TypResult<Template> {
         let em = styles.get(TextNode::SIZE).abs;
         let label_indent = styles.get(Self::LABEL_INDENT).resolve(em);
         let body_indent = styles.get(Self::BODY_INDENT).resolve(em);
@@ -40,7 +40,7 @@ impl<const L: Labelling> Show for ListNode<L> {
             ORDERED | _ => format_eco!("{}.", self.number.unwrap_or(1)),
         };
 
-        Template::block(GridNode {
+        Ok(Template::block(GridNode {
             tracks: Spec::with_x(vec![
                 TrackSizing::Linear(label_indent.into()),
                 TrackSizing::Auto,
@@ -54,7 +54,7 @@ impl<const L: Labelling> Show for ListNode<L> {
                 LayoutNode::default(),
                 self.child.clone(),
             ],
-        })
+        }))
     }
 }
 
