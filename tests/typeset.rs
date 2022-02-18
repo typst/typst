@@ -1,10 +1,11 @@
 use std::env;
 use std::ffi::OsStr;
-use std::fs;
+use std::fs::{self, File};
 use std::ops::Range;
 use std::path::Path;
 use std::sync::Arc;
 
+use filedescriptor::{FileDescriptor, StdioDescriptor::*};
 use tiny_skia as sk;
 use walkdir::WalkDir;
 
@@ -15,16 +16,9 @@ use typst::geom::{Length, RgbaColor};
 use typst::library::{PageNode, TextNode};
 use typst::loading::FsLoader;
 use typst::parse::Scanner;
-use typst::source::SourceFile;
+use typst::source::{SourceFile, SourceId};
 use typst::syntax::Span;
 use typst::{Context, Vm};
-
-#[cfg(feature = "layout-cache")]
-use {
-    filedescriptor::{FileDescriptor, StdioDescriptor::*},
-    std::fs::File,
-    typst::source::SourceId,
-};
 
 const TYP_DIR: &str = "./typ";
 const REF_DIR: &str = "./ref";
@@ -277,8 +271,7 @@ fn test_part(
     let mut vm = Vm::new(ctx);
     let (frames, mut errors) = match vm.typeset(id) {
         Ok(mut frames) => {
-            #[cfg(feature = "layout-cache")]
-            (ok &= test_incremental(ctx, i, id, &frames));
+            ok &= test_incremental(ctx, i, id, &frames);
 
             if !compare_ref {
                 frames.clear();
@@ -474,7 +467,6 @@ fn test_reparse(src: &str, i: usize, rng: &mut LinearShift) -> bool {
     ok
 }
 
-#[cfg(feature = "layout-cache")]
 fn test_incremental(
     ctx: &mut Context,
     i: usize,
@@ -591,7 +583,6 @@ fn render_links(
 }
 
 /// Disable stdout and stderr during execution of `f`.
-#[cfg(feature = "layout-cache")]
 fn silenced<F, T>(f: F) -> T
 where
     F: FnOnce() -> T,

@@ -11,8 +11,6 @@ use crate::geom::Scalar;
 const TEMP_LEN: usize = 4;
 
 /// Caches layouting artifacts.
-///
-/// _This is only available when the `layout-cache` feature is enabled._
 #[derive(Default, Clone)]
 pub struct LayoutCache {
     /// Maps from node hashes to the resulting frames and regions in which the
@@ -150,14 +148,6 @@ impl LayoutCache {
                     entries.retain(|f| f.hits() as f64 / f.age() as f64 > threshold);
                 }
             }
-            #[cfg(feature = "rand")]
-            EvictionPolicy::Random => {
-                // Fraction of items that should be kept.
-                let threshold = self.max_size as f64 / len as f64;
-                for entries in self.frames.values_mut() {
-                    entries.retain(|_| rand::random::<f64>() > threshold);
-                }
-            }
             EvictionPolicy::Patterns => {
                 let kept = self.entries().filter(|f| f.properties().must_keep()).count();
 
@@ -188,8 +178,6 @@ impl LayoutCache {
 }
 
 /// Cached frames from past layouting.
-///
-/// _This is only available when the `layout-cache` feature is enabled._
 #[derive(Debug, Clone)]
 pub struct FramesEntry {
     /// The cached frames for a node.
@@ -340,9 +328,6 @@ pub enum EvictionPolicy {
     LeastRecentlyUsed,
     /// Evict the least frequently used item.
     LeastFrequentlyUsed,
-    /// Evict randomly.
-    #[cfg(feature = "rand")]
-    Random,
     /// Use the pattern verdicts.
     Patterns,
     /// Do not evict.

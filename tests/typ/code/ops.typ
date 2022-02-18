@@ -137,7 +137,8 @@
 #test([a] == [a], true)
 #test([[a]] == [a], true)
 #test([] == [a], false)
-#test(box[] == box[], false)
+#test(box[] == box[], true)
+#test(box[a] == box[], false)
 
 ---
 // Test comparison operators.

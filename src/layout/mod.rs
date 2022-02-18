@@ -1,12 +1,10 @@
 //! Layouting infrastructure.
 
 mod constraints;
-#[cfg(feature = "layout-cache")]
 mod incremental;
 mod regions;
 
 pub use constraints::*;
-#[cfg(feature = "layout-cache")]
 pub use incremental::*;
 pub use regions::*;
 
@@ -141,10 +139,6 @@ impl Layout for LayoutNode {
     ) -> TypResult<Vec<Constrained<Arc<Frame>>>> {
         let styles = styles.barred(self.id());
 
-        #[cfg(not(feature = "layout-cache"))]
-        return self.0.layout(ctx, regions, styles);
-
-        #[cfg(feature = "layout-cache")]
         let hash = {
             let mut state = fxhash::FxHasher64::default();
             self.hash(&mut state);
@@ -154,7 +148,6 @@ impl Layout for LayoutNode {
 
         // This is not written with `unwrap_or_else`, because then the
         // #[track_caller] annotation doesn't work.
-        #[cfg(feature = "layout-cache")]
         if let Some(frames) = vm.layout_cache.get(hash, regions) {
             Ok(frames)
         } else {
@@ -199,18 +192,12 @@ impl Debug for LayoutNode {
 
 impl PartialEq for LayoutNode {
     fn eq(&self, other: &Self) -> bool {
-        // We cast to thin pointers for comparison because we don't want to
-        // compare vtables (which can be different across codegen units).
-        std::ptr::eq(
-            Arc::as_ptr(&self.0) as *const (),
-            Arc::as_ptr(&other.0) as *const (),
-        )
+        self.0.eq(&other.0)
     }
 }
 
 trait Bounds: Layout + Debug + Sync + Send + 'static {
     fn as_any(&self) -> &dyn Any;
-    fn hash64(&self) -> u64;
 }
 
 impl<T> Bounds for T
@@ -219,21 +206,6 @@ where
 {
     fn as_any(&self) -> &dyn Any {
         self
-    }
-
-    fn hash64(&self) -> u64 {
-        // Also hash the TypeId since nodes with different types but
-        // equal data should be different.
-        let mut state = fxhash::FxHasher64::default();
-        self.type_id().hash(&mut state);
-        self.hash(&mut state);
-        state.finish()
-    }
-}
-
-impl Hash for dyn Bounds {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write_u64(self.hash64());
     }
 }
 
