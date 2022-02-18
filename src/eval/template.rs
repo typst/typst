@@ -169,7 +169,7 @@ impl Template {
     }
 
     /// Layout this template into a collection of pages.
-    pub fn layout(&self, vm: &mut Vm) -> TypResult<Vec<Arc<Frame>>> {
+    pub fn layout_pages(&self, vm: &mut Vm) -> TypResult<Vec<Arc<Frame>>> {
         let sya = Arena::new();
         let tpa = Arena::new();
 
@@ -180,8 +180,10 @@ impl Template {
 
         let mut frames = vec![];
         let (pages, shared) = builder.pages.unwrap().finish();
+
         for (page, map) in pages.iter() {
-            frames.extend(page.layout(vm, map.chain(&shared))?);
+            let number = 1 + frames.len();
+            frames.extend(page.layout(vm, number, map.chain(&shared))?);
         }
 
         Ok(frames)

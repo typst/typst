@@ -30,6 +30,10 @@ impl PageNode {
     pub const FILL: Option<Paint> = None;
     /// How many columns the page has.
     pub const COLUMNS: NonZeroUsize = NonZeroUsize::new(1).unwrap();
+    /// The page's header.
+    pub const HEADER: Marginal = Marginal::None;
+    /// The page's footer.
+    pub const FOOTER: Marginal = Marginal::None;
 
     fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Template> {
         Ok(Template::Page(Self(args.expect("body")?)))
@@ -44,15 +48,19 @@ impl PageNode {
         styles.set_opt(Self::WIDTH, args.named("width")?);
         styles.set_opt(Self::HEIGHT, args.named("height")?);
 
-        let margins = args.named("margins")?;
-        styles.set_opt(Self::LEFT, args.named("left")?.or(margins));
-        styles.set_opt(Self::TOP, args.named("top")?.or(margins));
-        styles.set_opt(Self::RIGHT, args.named("right")?.or(margins));
-        styles.set_opt(Self::BOTTOM, args.named("bottom")?.or(margins));
+        let all = args.named("margins")?;
+        let hor = args.named("horizontal")?;
+        let ver = args.named("vertical")?;
+        styles.set_opt(Self::LEFT, args.named("left")?.or(hor).or(all));
+        styles.set_opt(Self::TOP, args.named("top")?.or(ver).or(all));
+        styles.set_opt(Self::RIGHT, args.named("right")?.or(hor).or(all));
+        styles.set_opt(Self::BOTTOM, args.named("bottom")?.or(ver).or(all));
 
         styles.set_opt(Self::FLIPPED, args.named("flipped")?);
         styles.set_opt(Self::FILL, args.named("fill")?);
         styles.set_opt(Self::COLUMNS, args.named("columns")?);
+        styles.set_opt(Self::HEADER, args.named("header")?);
+        styles.set_opt(Self::FOOTER, args.named("footer")?);
 
         Ok(())
     }
@@ -60,7 +68,12 @@ impl PageNode {
 
 impl PageNode {
     /// Layout the page run into a sequence of frames, one per page.
-    pub fn layout(&self, vm: &mut Vm, styles: StyleChain) -> TypResult<Vec<Arc<Frame>>> {
+    pub fn layout(
+        &self,
+        vm: &mut Vm,
+        mut page: usize,
+        styles: StyleChain,
+    ) -> TypResult<Vec<Arc<Frame>>> {
         // When one of the lengths is infinite the page fits its content along
         // that axis.
         let width = styles.get(Self::WIDTH).unwrap_or(Length::inf());
@@ -101,13 +114,37 @@ impl PageNode {
         }
 
         // Layout the child.
-        let expand = size.map(Length::is_finite);
-        let regions = Regions::repeat(size, size, expand);
-        Ok(child
+        let regions = Regions::repeat(size, size, size.map(Length::is_finite));
+        let mut frames: Vec<_> = child
             .layout(vm, &regions, styles)?
             .into_iter()
             .map(|c| c.item)
-            .collect())
+            .collect();
+
+        let header = styles.get_ref(Self::HEADER);
+        let footer = styles.get_ref(Self::FOOTER);
+
+        for frame in &mut frames {
+            let size = frame.size;
+            let padding = padding.resolve(size);
+            for (y, h, marginal) in [
+                (Length::zero(), padding.top, header),
+                (size.y - padding.bottom, padding.bottom, footer),
+            ] {
+                if let Some(template) = marginal.resolve(vm, page)? {
+                    let pos = Point::new(padding.left, y);
+                    let w = size.x - padding.left - padding.right;
+                    let area = Size::new(w, h);
+                    let pod = Regions::one(area, area, area.map(Length::is_finite));
+                    let sub = template.layout(vm, &pod, styles)?.remove(0).item;
+                    Arc::make_mut(frame).push_frame(pos, sub);
+                }
+            }
+
+            page += 1;
+        }
+
+        Ok(frames)
     }
 }
 
@@ -126,6 +163,46 @@ pub struct PagebreakNode;
 impl PagebreakNode {
     fn construct(_: &mut Vm, _: &mut Args) -> TypResult<Template> {
         Ok(Template::Pagebreak)
+    }
+}
+
+/// A header or footer definition.
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub enum Marginal {
+    /// Nothing,
+    None,
+    /// A bare template.
+    Template(Template),
+    /// A closure mapping from a page number to a template.
+    Func(Func, Span),
+}
+
+impl Marginal {
+    /// Resolve the marginal based on the page number.
+    pub fn resolve(&self, vm: &mut Vm, page: usize) -> TypResult<Option<Template>> {
+        Ok(match self {
+            Self::None => None,
+            Self::Template(template) => Some(template.clone()),
+            Self::Func(func, span) => {
+                let args = Args::from_values(*span, [Value::Int(page as i64)]);
+                func.call(vm, args)?.cast().at(*span)?
+            }
+        })
+    }
+}
+
+impl Cast<Spanned<Value>> for Marginal {
+    fn is(value: &Spanned<Value>) -> bool {
+        matches!(&value.v, Value::Template(_) | Value::Func(_))
+    }
+
+    fn cast(value: Spanned<Value>) -> StrResult<Self> {
+        match value.v {
+            Value::None => Ok(Self::None),
+            Value::Template(v) => Ok(Self::Template(v)),
+            Value::Func(v) => Ok(Self::Func(v, value.span)),
+            _ => Err("expected none, template or function")?,
+        }
     }
 }
 

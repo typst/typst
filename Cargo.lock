@@ -537,7 +537,7 @@ checksum = "db8bcd96cb740d03149cbad5518db9fd87126a10ab519c011893b1754134c468"
 [[package]]
 name = "pixglyph"
 version = "0.1.0"
-source = "git+https://github.com/typst/pixglyph#da648abb60d0e0f4353cd7602652c832132e6a39"
+source = "git+https://github.com/typst/pixglyph#8ee0d4517d887125e9184916780ac230e40a042a"
 dependencies = [
  "ttf-parser",
 ]

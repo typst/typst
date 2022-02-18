@@ -77,7 +77,7 @@ fn bench_layout(iai: &mut Iai) {
     let (mut ctx, id) = context();
     let mut vm = Vm::new(&mut ctx);
     let module = vm.evaluate(id).unwrap();
-    iai.run(|| module.template.layout(&mut vm));
+    iai.run(|| module.template.layout_pages(&mut vm));
 }
 
 fn bench_highlight(iai: &mut Iai) {

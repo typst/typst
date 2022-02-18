@@ -167,6 +167,21 @@ pub struct Arg {
 }
 
 impl Args {
+    /// Create positional arguments from a span and values.
+    pub fn from_values(span: Span, values: impl IntoIterator<Item = Value>) -> Self {
+        Self {
+            span,
+            items: values
+                .into_iter()
+                .map(|value| Arg {
+                    span,
+                    name: None,
+                    value: Spanned::new(value, span),
+                })
+                .collect(),
+        }
+    }
+
     /// Consume and cast the first positional argument.
     ///
     /// Returns a `missing argument: {what}` error if no positional argument is

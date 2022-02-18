@@ -498,7 +498,7 @@ fn test_incremental(
 
         ctx.layout_cache.turnaround();
 
-        let cached = silenced(|| template.layout(&mut Vm::new(ctx)).unwrap());
+        let cached = silenced(|| template.layout_pages(&mut Vm::new(ctx)).unwrap());
         let total = reference.levels() - 1;
         let misses = ctx
             .layout_cache

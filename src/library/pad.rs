@@ -15,18 +15,14 @@ pub struct PadNode {
 impl PadNode {
     fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Template> {
         let all = args.find()?;
-        let left = args.named("left")?;
-        let top = args.named("top")?;
-        let right = args.named("right")?;
-        let bottom = args.named("bottom")?;
+        let hor = args.named("horizontal")?;
+        let ver = args.named("vertical")?;
+        let left = args.named("left")?.or(hor).or(all).unwrap_or_default();
+        let top = args.named("top")?.or(ver).or(all).unwrap_or_default();
+        let right = args.named("right")?.or(hor).or(all).unwrap_or_default();
+        let bottom = args.named("bottom")?.or(ver).or(all).unwrap_or_default();
         let body: LayoutNode = args.expect("body")?;
-        let padding = Sides::new(
-            left.or(all).unwrap_or_default(),
-            top.or(all).unwrap_or_default(),
-            right.or(all).unwrap_or_default(),
-            bottom.or(all).unwrap_or_default(),
-        );
-
+        let padding = Sides::new(left, top, right, bottom);
         Ok(Template::block(body.padded(padding)))
     }
 }

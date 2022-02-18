@@ -146,14 +146,7 @@ impl Label {
             Self::Template(template) => template.clone(),
             Self::Mapping(mapping) => mapping(number),
             &Self::Func(ref func, span) => {
-                let args = Args {
-                    span,
-                    items: vec![Arg {
-                        span,
-                        name: None,
-                        value: Spanned::new(Value::Int(number as i64), span),
-                    }],
-                };
+                let args = Args::from_values(span, [Value::Int(number as i64)]);
                 func.call(vm, args)?.cast().at(span)?
             }
         })

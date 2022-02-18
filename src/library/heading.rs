@@ -117,14 +117,7 @@ impl<T: Cast> Leveled<T> {
             Self::Value(value) => value,
             Self::Mapping(mapping) => mapping(level),
             Self::Func(func, span) => {
-                let args = Args {
-                    span,
-                    items: vec![Arg {
-                        span,
-                        name: None,
-                        value: Spanned::new(Value::Int(level as i64), span),
-                    }],
-                };
+                let args = Args::from_values(span, [Value::Int(level as i64)]);
                 func.call(vm, args)?.cast().at(span)?
             }
         })
