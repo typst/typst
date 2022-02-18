@@ -48,10 +48,15 @@ impl Numbering {
                     return '-'.into();
                 }
 
+                n -= 1;
+
                 let mut letters = vec![];
-                while n > 0 {
-                    letters.push(b'a' - 1 + (n % 26) as u8);
+                loop {
+                    letters.push(b'a' + (n % 26) as u8);
                     n /= 26;
+                    if n == 0 {
+                        break;
+                    }
                 }
 
                 letters.reverse();
