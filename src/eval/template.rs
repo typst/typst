@@ -403,9 +403,16 @@ impl<'a> Builder<'a> {
                 }
             }
             Template::Show(node) => {
+                let id = node.id();
+                if vm.rules.contains(&id) {
+                    let span = styles.recipe_span(id).unwrap();
+                    return Err("show rule is recursive").at(span)?;
+                }
+                vm.rules.push(id);
                 let template = node.show(vm, styles)?;
                 let stored = self.tpa.alloc(template);
-                self.process(vm, stored, styles.unscoped(node.id()))?;
+                self.process(vm, stored, styles.unscoped(id))?;
+                vm.rules.pop();
             }
             Template::Styled(styled) => {
                 let (sub, map) = styled.as_ref();
@@ -455,8 +462,8 @@ impl<'a> Builder<'a> {
         };
 
         let template = match kind {
-            UNORDERED => Template::show(ListNode::<UNORDERED> { items, wide, start: 1 }),
-            ORDERED | _ => Template::show(ListNode::<ORDERED> { items, wide, start: 1 }),
+            UNORDERED => Template::show(ListNode::<UNORDERED> { start: 1, wide, items }),
+            ORDERED | _ => Template::show(ListNode::<ORDERED> { start: 1, wide, items }),
         };
 
         let stored = self.tpa.alloc(template);

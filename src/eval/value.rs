@@ -336,7 +336,7 @@ pub trait Cast<V = Value>: Sized {
 macro_rules! primitive {
     (
         $type:ty: $name:literal, $variant:ident
-        $(, $other:ident($binding:ident) => $out:expr)*
+        $(, $other:ident$(($binding:ident))? => $out:expr)*
     ) => {
         impl Type for $type {
             const TYPE_NAME: &'static str = $name;
@@ -344,13 +344,14 @@ macro_rules! primitive {
 
         impl Cast for $type {
             fn is(value: &Value) -> bool {
-                matches!(value, Value::$variant(_) $(| Value::$other(_))*)
+                matches!(value, Value::$variant(_)
+                    $(|  primitive!(@$other $(($binding))?))*)
             }
 
             fn cast(value: Value) -> StrResult<Self> {
                 match value {
                     Value::$variant(v) => Ok(v),
-                    $(Value::$other($binding) => Ok($out),)*
+                    $(Value::$other$(($binding))? => Ok($out),)*
                     v => Err(format!(
                         "expected {}, found {}",
                         Self::TYPE_NAME,
@@ -366,6 +367,9 @@ macro_rules! primitive {
             }
         }
     };
+
+    (@$other:ident($binding:ident)) => { Value::$other(_) };
+    (@$other:ident) => { Value::$other };
 }
 
 /// Implement traits for dynamic types.
@@ -440,7 +444,7 @@ primitive! { Color: "color", Color }
 primitive! { EcoString: "string", Str }
 primitive! { Array: "array", Array }
 primitive! { Dict: "dictionary", Dict }
-primitive! { Template: "template", Template }
+primitive! { Template: "template", Template, None => Template::new() }
 primitive! { Func: "function", Func, Class(v) => v.constructor() }
 primitive! { Args: "arguments", Args }
 primitive! { Class: "class", Class }

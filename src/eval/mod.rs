@@ -36,7 +36,6 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use crate::diag::{At, Error, StrResult, Trace, Tracepoint, TypResult};
 use crate::geom::{Angle, Fractional, Length, Relative};
-use crate::layout::Layout;
 use crate::library;
 use crate::syntax::ast::*;
 use crate::syntax::{Span, Spanned};
@@ -80,15 +79,12 @@ fn eval_markup(
     while let Some(node) = nodes.next() {
         seq.push(match node {
             MarkupNode::Expr(Expr::Set(set)) => {
-                let class = set.class();
-                let class = class.eval(vm)?.cast::<Class>().at(class.span())?;
-                let args = set.args().eval(vm)?;
-                let styles = class.set(args)?;
-                let tail = eval_markup(vm, nodes)?;
-                tail.styled_with_map(styles)
+                let styles = set.eval(vm)?;
+                eval_markup(vm, nodes)?.styled_with_map(styles)
             }
             MarkupNode::Expr(Expr::Show(show)) => {
-                return Err("show rules are not yet implemented").at(show.span());
+                let styles = show.eval(vm)?;
+                eval_markup(vm, nodes)?.styled_with_map(styles)
             }
             MarkupNode::Expr(Expr::Wrap(wrap)) => {
                 let tail = eval_markup(vm, nodes)?;
@@ -182,7 +178,7 @@ impl Eval for ListNode {
     fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
         Ok(Template::List(library::ListItem {
             number: None,
-            body: self.body().eval(vm)?.pack(),
+            body: Box::new(self.body().eval(vm)?),
         }))
     }
 }
@@ -193,7 +189,7 @@ impl Eval for EnumNode {
     fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
         Ok(Template::Enum(library::ListItem {
             number: self.number(),
-            body: self.body().eval(vm)?.pack(),
+            body: Box::new(self.body().eval(vm)?),
         }))
     }
 }
@@ -216,9 +212,10 @@ impl Eval for Expr {
             Self::Unary(v) => v.eval(vm),
             Self::Binary(v) => v.eval(vm),
             Self::Let(v) => v.eval(vm),
-            Self::Set(v) => v.eval(vm),
-            Self::Show(v) => v.eval(vm),
-            Self::Wrap(v) => v.eval(vm),
+            Self::Set(_) | Self::Show(_) | Self::Wrap(_) => {
+                Err("set, show and wrap are only allowed directly in markup")
+                    .at(self.span())
+            }
             Self::If(v) => v.eval(vm),
             Self::While(v) => v.eval(vm),
             Self::For(v) => v.eval(vm),
@@ -551,26 +548,27 @@ impl Eval for LetExpr {
 }
 
 impl Eval for SetExpr {
-    type Output = Value;
+    type Output = StyleMap;
 
-    fn eval(&self, _: &mut Vm) -> TypResult<Self::Output> {
-        Err("set is only allowed directly in markup").at(self.span())
+    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
+        let class = self.class();
+        let class = class.eval(vm)?.cast::<Class>().at(class.span())?;
+        let args = self.args().eval(vm)?;
+        class.set(args)
     }
 }
 
 impl Eval for ShowExpr {
-    type Output = Value;
+    type Output = StyleMap;
 
-    fn eval(&self, _: &mut Vm) -> TypResult<Self::Output> {
-        Err("show is only allowed directly in markup").at(self.span())
-    }
-}
-
-impl Eval for WrapExpr {
-    type Output = Value;
-
-    fn eval(&self, _: &mut Vm) -> TypResult<Self::Output> {
-        Err("wrap is only allowed directly in markup").at(self.span())
+    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
+        let class = self.class();
+        let class = class.eval(vm)?.cast::<Class>().at(class.span())?;
+        let closure = self.closure();
+        let func = closure.eval(vm)?.cast::<Func>().at(closure.span())?;
+        let mut styles = StyleMap::new();
+        styles.set_recipe(class.id(), func, self.span());
+        Ok(styles)
     }
 }
 

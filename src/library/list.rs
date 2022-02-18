@@ -8,13 +8,13 @@ use crate::parse::Scanner;
 /// An unordered or ordered list.
 #[derive(Debug, Hash)]
 pub struct ListNode<const L: ListKind> {
-    /// The individual bulleted or numbered items.
-    pub items: Vec<ListItem>,
+    /// Where the list starts.
+    pub start: usize,
     /// If true, there is paragraph spacing between the items, if false
     /// there is list spacing between the items.
     pub wide: bool,
-    /// Where the list starts.
-    pub start: usize,
+    /// The individual bulleted or numbered items.
+    pub items: Vec<ListItem>,
 }
 
 /// An item in a list.
@@ -23,7 +23,7 @@ pub struct ListItem {
     /// The number of the item.
     pub number: Option<usize>,
     /// The node that produces the item's body.
-    pub body: LayoutNode,
+    pub body: Box<Template>,
 }
 
 #[class]
@@ -39,19 +39,27 @@ impl<const L: ListKind> ListNode<L> {
 
     fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Template> {
         Ok(Template::show(Self {
+            start: args.named("start")?.unwrap_or(0),
+            wide: args.named("wide")?.unwrap_or(false),
             items: args
                 .all()?
                 .into_iter()
-                .map(|body| ListItem { number: None, body })
+                .map(|body| ListItem { number: None, body: Box::new(body) })
                 .collect(),
-            wide: args.named("wide")?.unwrap_or(false),
-            start: args.named("start")?.unwrap_or(0),
         }))
     }
 }
 
 impl<const L: ListKind> Show for ListNode<L> {
     fn show(&self, vm: &mut Vm, styles: StyleChain) -> TypResult<Template> {
+        if let Some(template) = styles.show(
+            self,
+            vm,
+            self.items.iter().map(|item| Value::Template((*item.body).clone())),
+        )? {
+            return Ok(template);
+        }
+
         let mut children = vec![];
         let mut number = self.start;
 
@@ -66,7 +74,7 @@ impl<const L: ListKind> Show for ListNode<L> {
             children.push(LayoutNode::default());
             children.push(label.resolve(vm, L, number)?.pack());
             children.push(LayoutNode::default());
-            children.push(item.body.clone());
+            children.push((*item.body).clone().pack());
             number += 1;
         }
 
@@ -119,8 +127,6 @@ pub enum Label {
     Pattern(EcoString, Numbering, bool, EcoString),
     /// A bare template.
     Template(Template),
-    /// A simple mapping from an item number to a template.
-    Mapping(fn(usize) -> Template),
     /// A closure mapping from an item number to a value.
     Func(Func, Span),
 }
@@ -144,10 +150,9 @@ impl Label {
                 Template::Text(format_eco!("{}{}{}", prefix, mid, suffix))
             }
             Self::Template(template) => template.clone(),
-            Self::Mapping(mapping) => mapping(number),
-            &Self::Func(ref func, span) => {
-                let args = Args::from_values(span, [Value::Int(number as i64)]);
-                func.call(vm, args)?.cast().at(span)?
+            Self::Func(func, span) => {
+                let args = Args::from_values(*span, [Value::Int(number as i64)]);
+                func.call(vm, args)?.cast().at(*span)?
             }
         })
     }

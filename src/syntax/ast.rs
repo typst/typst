@@ -919,14 +919,14 @@ node! {
 }
 
 impl ShowExpr {
-    /// The pattern that decides which node's appearence to redefine.
-    pub fn pattern(&self) -> Expr {
-        self.0.cast_first_child().expect("show expression is missing pattern")
+    /// The class to set the show rule for.
+    pub fn class(&self) -> Ident {
+        self.0.cast_first_child().expect("show expression is missing class")
     }
 
-    /// The expression that defines the node's appearence.
-    pub fn body(&self) -> Expr {
-        self.0.cast_last_child().expect("show expression is missing body")
+    /// The closure that defines the rule.
+    pub fn closure(&self) -> ClosureExpr {
+        self.0.cast_first_child().expect("show expression is missing closure")
     }
 }
 

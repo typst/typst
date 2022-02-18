@@ -181,6 +181,7 @@ impl Category {
                 }
                 NodeKind::WithExpr => Some(Category::Function),
                 NodeKind::SetExpr => Some(Category::Function),
+                NodeKind::ShowExpr => Some(Category::Function),
                 NodeKind::Call => Some(Category::Function),
                 _ => Some(Category::Variable),
             },

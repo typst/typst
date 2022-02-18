@@ -23,7 +23,7 @@ use typst::{Context, Vm};
 use {
     filedescriptor::{FileDescriptor, StdioDescriptor::*},
     std::fs::File,
-    typst::eval::Template,
+    typst::source::SourceId,
 };
 
 const TYP_DIR: &str = "./typ";
@@ -110,7 +110,7 @@ fn main() {
             &png_path,
             &ref_path,
             pdf_path.as_deref(),
-            args.debug,
+            args.syntax,
         ) as usize;
     }
 
@@ -126,7 +126,7 @@ fn main() {
 struct Args {
     filter: Vec<String>,
     exact: bool,
-    debug: bool,
+    syntax: bool,
     pdf: bool,
 }
 
@@ -134,7 +134,7 @@ impl Args {
     fn new(args: impl Iterator<Item = String>) -> Self {
         let mut filter = Vec::new();
         let mut exact = false;
-        let mut debug = false;
+        let mut syntax = false;
         let mut pdf = false;
 
         for arg in args {
@@ -146,13 +146,13 @@ impl Args {
                 // Generate PDFs.
                 "--pdf" => pdf = true,
                 // Debug print the layout trees.
-                "--debug" | "-d" => debug = true,
+                "--syntax" => syntax = true,
                 // Everything else is a file filter.
                 _ => filter.push(arg),
             }
         }
 
-        Self { filter, pdf, debug, exact }
+        Self { filter, pdf, syntax, exact }
     }
 
     fn matches(&self, path: &Path) -> bool {
@@ -172,7 +172,7 @@ fn test(
     png_path: &Path,
     ref_path: &Path,
     pdf_path: Option<&Path>,
-    debug: bool,
+    syntax: bool,
 ) -> bool {
     let name = src_path.strip_prefix(TYP_DIR).unwrap_or(src_path);
     println!("Testing {}", name.display());
@@ -208,7 +208,7 @@ fn test(
                 i,
                 compare_ref,
                 line,
-                debug,
+                syntax,
                 &mut rng,
             );
             ok &= part_ok;
@@ -242,7 +242,7 @@ fn test(
     }
 
     if ok {
-        if !debug {
+        if !syntax {
             print!("\x1b[1A");
         }
         println!("Testing {} ✔", name.display());
@@ -258,14 +258,14 @@ fn test_part(
     i: usize,
     compare_ref: bool,
     line: usize,
-    debug: bool,
+    syntax: bool,
     rng: &mut LinearShift,
 ) -> (bool, bool, Vec<Arc<Frame>>) {
     let mut ok = true;
 
     let id = ctx.sources.provide(src_path, src);
     let source = ctx.sources.get(id);
-    if debug {
+    if syntax {
         println!("Syntax Tree: {:#?}", source.root())
     }
 
@@ -277,13 +277,8 @@ fn test_part(
     let mut vm = Vm::new(ctx);
     let (frames, mut errors) = match vm.typeset(id) {
         Ok(mut frames) => {
-            let module = vm.evaluate(id).unwrap();
-            if debug {
-                println!("Template: {:#?}", module.template);
-            }
-
             #[cfg(feature = "layout-cache")]
-            (ok &= test_incremental(ctx, i, &module.template, &frames));
+            (ok &= test_incremental(ctx, i, id, &frames));
 
             if !compare_ref {
                 frames.clear();
@@ -483,7 +478,7 @@ fn test_reparse(src: &str, i: usize, rng: &mut LinearShift) -> bool {
 fn test_incremental(
     ctx: &mut Context,
     i: usize,
-    template: &Template,
+    id: SourceId,
     frames: &[Arc<Frame>],
 ) -> bool {
     let mut ok = true;
@@ -498,7 +493,7 @@ fn test_incremental(
 
         ctx.layout_cache.turnaround();
 
-        let cached = silenced(|| template.layout_pages(&mut Vm::new(ctx)).unwrap());
+        let cached = silenced(|| ctx.typeset(id).unwrap());
         let total = reference.levels() - 1;
         let misses = ctx
             .layout_cache

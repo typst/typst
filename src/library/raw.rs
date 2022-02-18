@@ -40,8 +40,20 @@ impl RawNode {
 }
 
 impl Show for RawNode {
-    fn show(&self, _: &mut Vm, styles: StyleChain) -> TypResult<Template> {
+    fn show(&self, vm: &mut Vm, styles: StyleChain) -> TypResult<Template> {
         let lang = styles.get_ref(Self::LANG).as_ref();
+
+        if let Some(template) = styles.show(self, vm, [
+            Value::Str(self.text.clone()),
+            match lang {
+                Some(lang) => Value::Str(lang.clone()),
+                None => Value::None,
+            },
+            Value::Bool(self.block),
+        ])? {
+            return Ok(template);
+        }
+
         let foreground = THEME
             .settings
             .foreground

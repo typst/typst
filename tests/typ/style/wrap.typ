@@ -25,5 +25,5 @@ A [_B #wrap c in [*#c*]; C_] D
 Forest
 
 ---
-// Error: 6-17 wrap is only allowed directly in markup
+// Error: 6-17 set, show and wrap are only allowed directly in markup
 {1 + wrap x in y}

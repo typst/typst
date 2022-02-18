@@ -3,21 +3,28 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
+use super::{Args, Func, Span, Template, Value, Vm};
+use crate::diag::{At, TypResult};
 use crate::library::{PageNode, ParNode};
 
 /// A map of style properties.
 #[derive(Default, Clone, PartialEq, Hash)]
-pub struct StyleMap(Vec<Entry>);
+pub struct StyleMap {
+    /// Settable properties.
+    props: Vec<Entry>,
+    /// Show rule recipes.
+    recipes: Vec<Recipe>,
+}
 
 impl StyleMap {
     /// Create a new, empty style map.
     pub fn new() -> Self {
-        Self(vec![])
+        Self { props: vec![], recipes: vec![] }
     }
 
     /// Whether this map contains no styles.
     pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
+        self.props.is_empty() && self.recipes.is_empty()
     }
 
     /// Create a style map from a single property-value pair.
@@ -29,7 +36,7 @@ impl StyleMap {
 
     /// Set the value for a style property.
     pub fn set<P: Property>(&mut self, key: P, value: P::Value) {
-        self.0.push(Entry::new(key, value));
+        self.props.push(Entry::new(key, value));
     }
 
     /// Set a value for a style property if it is `Some(_)`.
@@ -39,11 +46,16 @@ impl StyleMap {
         }
     }
 
+    /// Set a recipe.
+    pub fn set_recipe(&mut self, node: TypeId, func: Func, span: Span) {
+        self.recipes.push(Recipe { node, func, span });
+    }
+
     /// Mark all contained properties as _scoped_. This means that they only
     /// apply to the first descendant node (of their type) in the hierarchy and
     /// not its children, too. This is used by class constructors.
     pub fn scoped(mut self) -> Self {
-        for entry in &mut self.0 {
+        for entry in &mut self.props {
             entry.scoped = true;
         }
         self
@@ -51,7 +63,7 @@ impl StyleMap {
 
     /// Whether this map contains scoped styles.
     pub fn has_scoped(&self) -> bool {
-        self.0.iter().any(|e| e.scoped)
+        self.props.iter().any(|e| e.scoped)
     }
 
     /// Make `self` the first link of the style chain `outer`.
@@ -78,19 +90,23 @@ impl StyleMap {
     /// lifetime, for example, because you want to store the style map inside a
     /// packed node.
     pub fn apply(&mut self, outer: &Self) {
-        self.0.splice(0 .. 0, outer.0.clone());
+        self.props.splice(0 .. 0, outer.props.iter().cloned());
+        self.recipes.splice(0 .. 0, outer.recipes.iter().cloned());
     }
 
     /// The highest-level interruption of the map.
     pub fn interruption(&self) -> Option<Interruption> {
-        self.0.iter().filter_map(|entry| entry.interruption()).max()
+        self.props.iter().filter_map(|entry| entry.interruption()).max()
     }
 }
 
 impl Debug for StyleMap {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        for entry in self.0.iter().rev() {
+        for entry in self.props.iter().rev() {
             writeln!(f, "{:#?}", entry)?;
+        }
+        for recipe in self.recipes.iter().rev() {
+            writeln!(f, "#[Recipe for {:?} from {:?}]", recipe.node, recipe.span)?;
         }
         Ok(())
     }
@@ -103,6 +119,169 @@ pub enum Interruption {
     Par,
     /// The style forces a page break.
     Page,
+}
+
+/// Style property keys.
+///
+/// This trait is not intended to be implemented manually, but rather through
+/// the `#[class]` proc-macro.
+pub trait Property: Sync + Send + 'static {
+    /// The type of value that is returned when getting this property from a
+    /// style map. For example, this could be [`Length`](crate::geom::Length)
+    /// for a `WIDTH` property.
+    type Value: Debug + Clone + PartialEq + Hash + Sync + Send + 'static;
+
+    /// The name of the property, used for debug printing.
+    const NAME: &'static str;
+
+    /// Whether the property needs folding.
+    const FOLDING: bool = false;
+
+    /// The type id of the node this property belongs to.
+    fn node_id() -> TypeId;
+
+    /// The default value of the property.
+    fn default() -> Self::Value;
+
+    /// A static reference to the default value of the property.
+    ///
+    /// This is automatically implemented through lazy-initialization in the
+    /// `#[class]` macro. This way, expensive defaults don't need to be
+    /// recreated all the time.
+    fn default_ref() -> &'static Self::Value;
+
+    /// Fold the property with an outer value.
+    ///
+    /// For example, this would fold a relative font size with an outer
+    /// absolute font size.
+    #[allow(unused_variables)]
+    fn fold(inner: Self::Value, outer: Self::Value) -> Self::Value {
+        inner
+    }
+}
+
+/// Marker trait that indicates that a property doesn't need folding.
+pub trait Nonfolding {}
+
+/// An entry for a single style property.
+#[derive(Clone)]
+struct Entry {
+    pair: Arc<dyn Bounds>,
+    scoped: bool,
+}
+
+impl Entry {
+    fn new<P: Property>(key: P, value: P::Value) -> Self {
+        Self {
+            pair: Arc::new((key, value)),
+            scoped: false,
+        }
+    }
+
+    fn is<P: Property>(&self) -> bool {
+        self.pair.style_id() == TypeId::of::<P>()
+    }
+
+    fn is_of<T: 'static>(&self) -> bool {
+        self.pair.node_id() == TypeId::of::<T>()
+    }
+
+    fn is_of_id(&self, node: TypeId) -> bool {
+        self.pair.node_id() == node
+    }
+
+    fn downcast<P: Property>(&self) -> Option<&P::Value> {
+        self.pair.as_any().downcast_ref()
+    }
+
+    fn interruption(&self) -> Option<Interruption> {
+        if self.is_of::<PageNode>() {
+            Some(Interruption::Page)
+        } else if self.is_of::<ParNode>() {
+            Some(Interruption::Par)
+        } else {
+            None
+        }
+    }
+}
+
+impl Debug for Entry {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.write_str("#[")?;
+        self.pair.dyn_fmt(f)?;
+        if self.scoped {
+            f.write_str(" (scoped)")?;
+        }
+        f.write_str("]")
+    }
+}
+
+impl PartialEq for Entry {
+    fn eq(&self, other: &Self) -> bool {
+        self.pair.dyn_eq(other) && self.scoped == other.scoped
+    }
+}
+
+impl Hash for Entry {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write_u64(self.pair.hash64());
+        state.write_u8(self.scoped as u8);
+    }
+}
+
+/// This trait is implemented for pairs of zero-sized property keys and their
+/// value types below. Although it is zero-sized, the property `P` must be part
+/// of the implementing type so that we can use it in the methods (it must be a
+/// constrained type parameter).
+trait Bounds: Sync + Send + 'static {
+    fn as_any(&self) -> &dyn Any;
+    fn dyn_fmt(&self, f: &mut Formatter) -> fmt::Result;
+    fn dyn_eq(&self, other: &Entry) -> bool;
+    fn hash64(&self) -> u64;
+    fn node_id(&self) -> TypeId;
+    fn style_id(&self) -> TypeId;
+}
+
+impl<P: Property> Bounds for (P, P::Value) {
+    fn as_any(&self) -> &dyn Any {
+        &self.1
+    }
+
+    fn dyn_fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{} = {:?}", P::NAME, self.1)
+    }
+
+    fn dyn_eq(&self, other: &Entry) -> bool {
+        self.style_id() == other.pair.style_id()
+            && if let Some(other) = other.downcast::<P>() {
+                &self.1 == other
+            } else {
+                false
+            }
+    }
+
+    fn hash64(&self) -> u64 {
+        let mut state = fxhash::FxHasher64::default();
+        self.style_id().hash(&mut state);
+        self.1.hash(&mut state);
+        state.finish()
+    }
+
+    fn node_id(&self) -> TypeId {
+        P::node_id()
+    }
+
+    fn style_id(&self) -> TypeId {
+        TypeId::of::<P>()
+    }
+}
+
+/// A show rule recipe.
+#[derive(Debug, Clone, PartialEq, Hash)]
+struct Recipe {
+    node: TypeId,
+    func: Func,
+    span: Span,
 }
 
 /// A chain of style maps, similar to a linked list.
@@ -162,11 +341,18 @@ impl<'a> StyleChain<'a> {
         *self = self.outer.copied().unwrap_or_default();
     }
 
+    /// Return the span of a recipe for the given node.
+    pub(crate) fn recipe_span(self, node: TypeId) -> Option<Span> {
+        self.recipes(node).next().map(|recipe| recipe.span)
+    }
+
     /// Return the chain, but without the last link if that one contains only
     /// scoped styles. This is a hack.
     pub(crate) fn unscoped(mut self, node: TypeId) -> Self {
         if let Some(Link::Map(map)) = self.link {
-            if map.0.iter().all(|e| e.scoped && e.is_of_id(node)) {
+            if map.props.iter().all(|e| e.scoped && e.is_of_id(node))
+                && map.recipes.is_empty()
+            {
                 self.pop();
             }
         }
@@ -225,6 +411,21 @@ impl<'a> StyleChain<'a> {
         }
     }
 
+    /// Execute a user recipe for a node.
+    pub fn show(
+        self,
+        node: &dyn Any,
+        vm: &mut Vm,
+        values: impl IntoIterator<Item = Value>,
+    ) -> TypResult<Option<Template>> {
+        Ok(if let Some(recipe) = self.recipes(node.type_id()).next() {
+            let args = Args::from_values(recipe.span, values);
+            Some(recipe.func.call(vm, args)?.cast().at(recipe.span)?)
+        } else {
+            None
+        })
+    }
+
     /// Insert a barrier into the style chain.
     ///
     /// Barriers interact with [scoped](StyleMap::scoped) styles: A scoped style
@@ -233,7 +434,7 @@ impl<'a> StyleChain<'a> {
     pub fn barred<'b>(&'b self, node: TypeId) -> StyleChain<'b> {
         if self
             .maps()
-            .any(|map| map.0.iter().any(|entry| entry.scoped && entry.is_of_id(node)))
+            .any(|map| map.props.iter().any(|entry| entry.scoped && entry.is_of_id(node)))
         {
             StyleChain {
                 link: Some(Link::Barrier(node)),
@@ -252,7 +453,7 @@ impl<'a> StyleChain<'a> {
         self.links().flat_map(move |link| {
             let mut entries: &[Entry] = &[];
             match link {
-                Link::Map(map) => entries = &map.0,
+                Link::Map(map) => entries = &map.props,
                 Link::Barrier(id) => depth += (id == P::node_id()) as usize,
             }
             entries
@@ -261,6 +462,13 @@ impl<'a> StyleChain<'a> {
                 .filter(move |entry| entry.is::<P>() && (!entry.scoped || depth <= 1))
                 .filter_map(|entry| entry.downcast::<P>())
         })
+    }
+
+    /// Iterate over the recipes for the given node.
+    fn recipes(self, node: TypeId) -> impl Iterator<Item = &'a Recipe> {
+        self.maps()
+            .flat_map(|map| map.recipes.iter().rev())
+            .filter(move |recipe| recipe.node == node)
     }
 
     /// Iterate over the map links of the chain.
@@ -441,160 +649,5 @@ impl<'a, T> StyleVecBuilder<'a, T> {
 impl<'a, T> Default for StyleVecBuilder<'a, T> {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-/// Style property keys.
-///
-/// This trait is not intended to be implemented manually, but rather through
-/// the `#[class]` proc-macro.
-pub trait Property: Sync + Send + 'static {
-    /// The type of value that is returned when getting this property from a
-    /// style map. For example, this could be [`Length`](crate::geom::Length)
-    /// for a `WIDTH` property.
-    type Value: Debug + Clone + PartialEq + Hash + Sync + Send + 'static;
-
-    /// The name of the property, used for debug printing.
-    const NAME: &'static str;
-
-    /// Whether the property needs folding.
-    const FOLDING: bool = false;
-
-    /// The type id of the node this property belongs to.
-    fn node_id() -> TypeId;
-
-    /// The default value of the property.
-    fn default() -> Self::Value;
-
-    /// A static reference to the default value of the property.
-    ///
-    /// This is automatically implemented through lazy-initialization in the
-    /// `#[class]` macro. This way, expensive defaults don't need to be
-    /// recreated all the time.
-    fn default_ref() -> &'static Self::Value;
-
-    /// Fold the property with an outer value.
-    ///
-    /// For example, this would fold a relative font size with an outer
-    /// absolute font size.
-    #[allow(unused_variables)]
-    fn fold(inner: Self::Value, outer: Self::Value) -> Self::Value {
-        inner
-    }
-}
-
-/// Marker trait that indicates that a property doesn't need folding.
-pub trait Nonfolding {}
-
-/// An entry for a single style property.
-#[derive(Clone)]
-struct Entry {
-    pair: Arc<dyn Bounds>,
-    scoped: bool,
-}
-
-impl Entry {
-    fn new<P: Property>(key: P, value: P::Value) -> Self {
-        Self {
-            pair: Arc::new((key, value)),
-            scoped: false,
-        }
-    }
-
-    fn is<P: Property>(&self) -> bool {
-        self.pair.style_id() == TypeId::of::<P>()
-    }
-
-    fn is_of<T: 'static>(&self) -> bool {
-        self.pair.node_id() == TypeId::of::<T>()
-    }
-
-    fn is_of_id(&self, node: TypeId) -> bool {
-        self.pair.node_id() == node
-    }
-
-    fn downcast<P: Property>(&self) -> Option<&P::Value> {
-        self.pair.as_any().downcast_ref()
-    }
-
-    fn interruption(&self) -> Option<Interruption> {
-        if self.is_of::<PageNode>() {
-            Some(Interruption::Page)
-        } else if self.is_of::<ParNode>() {
-            Some(Interruption::Par)
-        } else {
-            None
-        }
-    }
-}
-
-impl Debug for Entry {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_str("#[")?;
-        self.pair.dyn_fmt(f)?;
-        if self.scoped {
-            f.write_str(" (scoped)")?;
-        }
-        f.write_str("]")
-    }
-}
-
-impl PartialEq for Entry {
-    fn eq(&self, other: &Self) -> bool {
-        self.pair.dyn_eq(other) && self.scoped == other.scoped
-    }
-}
-
-impl Hash for Entry {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write_u64(self.pair.hash64());
-        state.write_u8(self.scoped as u8);
-    }
-}
-
-/// This trait is implemented for pairs of zero-sized property keys and their
-/// value types below. Although it is zero-sized, the property `P` must be part
-/// of the implementing type so that we can use it in the methods (it must be a
-/// constrained type parameter).
-trait Bounds: Sync + Send + 'static {
-    fn as_any(&self) -> &dyn Any;
-    fn dyn_fmt(&self, f: &mut Formatter) -> fmt::Result;
-    fn dyn_eq(&self, other: &Entry) -> bool;
-    fn hash64(&self) -> u64;
-    fn node_id(&self) -> TypeId;
-    fn style_id(&self) -> TypeId;
-}
-
-impl<P: Property> Bounds for (P, P::Value) {
-    fn as_any(&self) -> &dyn Any {
-        &self.1
-    }
-
-    fn dyn_fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{} = {:?}", P::NAME, self.1)
-    }
-
-    fn dyn_eq(&self, other: &Entry) -> bool {
-        self.style_id() == other.pair.style_id()
-            && if let Some(other) = other.downcast::<P>() {
-                &self.1 == other
-            } else {
-                false
-            }
-    }
-
-    fn hash64(&self) -> u64 {
-        let mut state = fxhash::FxHasher64::default();
-        self.style_id().hash(&mut state);
-        self.1.hash(&mut state);
-        state.finish()
-    }
-
-    fn node_id(&self) -> TypeId {
-        P::node_id()
-    }
-
-    fn style_id(&self) -> TypeId {
-        TypeId::of::<P>()
     }
 }

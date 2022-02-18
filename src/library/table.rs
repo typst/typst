@@ -11,7 +11,7 @@ pub struct TableNode {
     /// Defines sizing of gutter rows and columns between content.
     pub gutter: Spec<Vec<TrackSizing>>,
     /// The nodes to be arranged in the table.
-    pub children: Vec<LayoutNode>,
+    pub children: Vec<Template>,
 }
 
 #[class]
@@ -55,7 +55,15 @@ impl TableNode {
 }
 
 impl Show for TableNode {
-    fn show(&self, _: &mut Vm, styles: StyleChain) -> TypResult<Template> {
+    fn show(&self, vm: &mut Vm, styles: StyleChain) -> TypResult<Template> {
+        if let Some(template) = styles.show(
+            self,
+            vm,
+            self.children.iter().map(|child| Value::Template(child.clone())),
+        )? {
+            return Ok(template);
+        }
+
         let primary = styles.get(Self::PRIMARY);
         let secondary = styles.get(Self::SECONDARY);
         let thickness = styles.get(Self::THICKNESS);
@@ -68,8 +76,8 @@ impl Show for TableNode {
             .iter()
             .cloned()
             .enumerate()
-            .map(|(i, mut child)| {
-                child = child.padded(Sides::splat(padding));
+            .map(|(i, child)| {
+                let mut child = child.pack().padded(Sides::splat(padding));
 
                 if let Some(stroke) = stroke {
                     child = child.stroked(stroke);

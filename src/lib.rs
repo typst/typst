@@ -25,7 +25,7 @@
 //! [evaluate]: Vm::evaluate
 //! [module]: eval::Module
 //! [template]: eval::Template
-//! [layouted]: eval::Template::layout
+//! [layouted]: eval::Template::layout_pages
 //! [cache]: layout::LayoutCache
 //! [PDF]: export::pdf
 
@@ -51,6 +51,7 @@ pub mod parse;
 pub mod source;
 pub mod syntax;
 
+use std::any::TypeId;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -218,6 +219,9 @@ pub struct Vm<'a> {
     pub modules: HashMap<SourceId, Module>,
     /// The active scopes.
     pub scopes: Scopes<'a>,
+    /// Currently evaluated show rules. This is used to prevent recursive show
+    /// rules.
+    pub rules: Vec<TypeId>,
     /// How deeply nested the current layout tree position is.
     #[cfg(feature = "layout-cache")]
     pub level: usize,
@@ -236,6 +240,7 @@ impl<'a> Vm<'a> {
             route: vec![],
             modules: HashMap::new(),
             scopes: Scopes::new(Some(&ctx.std)),
+            rules: vec![],
             level: 0,
         }
     }

@@ -752,9 +752,20 @@ fn set_expr(p: &mut Parser) -> ParseResult {
 fn show_expr(p: &mut Parser) -> ParseResult {
     p.perform(NodeKind::ShowExpr, |p| {
         p.eat_assert(&NodeKind::Show);
-        expr(p)?;
-        p.eat_expect(&NodeKind::As)?;
-        expr(p)
+        ident(p)?;
+        if !p.at(&NodeKind::LeftParen) {
+            p.expected_found("parameter list");
+            return Err(ParseError);
+        }
+        p.perform(NodeKind::Closure, |p| {
+            let marker = p.marker();
+            p.start_group(Group::Paren);
+            collection(p);
+            p.end_group();
+            params(p, marker);
+            p.eat_expect(&NodeKind::As)?;
+            expr(p)
+        })
     })
 }
 

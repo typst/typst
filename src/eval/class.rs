@@ -1,3 +1,4 @@
+use std::any::TypeId;
 use std::fmt::{self, Debug, Formatter, Write};
 use std::hash::{Hash, Hasher};
 
@@ -36,6 +37,7 @@ use crate::diag::TypResult;
 #[derive(Clone)]
 pub struct Class {
     name: &'static str,
+    id: TypeId,
     construct: fn(&mut Vm, &mut Args) -> TypResult<Value>,
     set: fn(&mut Args, &mut StyleMap) -> TypResult<()>,
 }
@@ -48,6 +50,7 @@ impl Class {
     {
         Self {
             name,
+            id: TypeId::of::<T>(),
             construct: |ctx, args| {
                 let mut styles = StyleMap::new();
                 T::set(args, &mut styles)?;
@@ -61,6 +64,11 @@ impl Class {
     /// The name of the class.
     pub fn name(&self) -> &'static str {
         self.name
+    }
+
+    /// The type id of the class.
+    pub fn id(&self) -> TypeId {
+        self.id
     }
 
     /// Return the class constructor as a function.

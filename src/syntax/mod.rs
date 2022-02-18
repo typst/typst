@@ -2,7 +2,6 @@
 
 pub mod ast;
 mod highlight;
-mod pretty;
 mod span;
 
 use std::fmt::{self, Debug, Display, Formatter};
@@ -11,7 +10,6 @@ use std::ops::Range;
 use std::sync::Arc;
 
 pub use highlight::*;
-pub use pretty::*;
 pub use span::*;
 
 use self::ast::{MathNode, RawNode, TypedNode};

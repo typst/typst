@@ -34,6 +34,8 @@ impl HeadingNode {
     pub const ABOVE: Leveled<Length> = Leveled::Value(Length::zero());
     /// The extra padding below the heading.
     pub const BELOW: Leveled<Length> = Leveled::Value(Length::zero());
+    /// Whether the heading is block-level.
+    pub const BLOCK: Leveled<bool> = Leveled::Value(true);
 
     fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Template> {
         Ok(Template::show(Self {
@@ -50,6 +52,14 @@ impl Show for HeadingNode {
                 styles.get_cloned($key).resolve(vm, self.level)?
             };
         }
+
+        // Resolve the user recipe.
+        let mut body = styles
+            .show(self, vm, [
+                Value::Int(self.level as i64),
+                Value::Template(self.body.clone()),
+            ])?
+            .unwrap_or_else(|| self.body.clone());
 
         let mut map = StyleMap::new();
         map.set(TextNode::SIZE, resolve!(Self::SIZE));
@@ -76,7 +86,6 @@ impl Show for HeadingNode {
         }
 
         let mut seq = vec![];
-        let mut body = self.body.clone();
         if resolve!(Self::UNDERLINE) {
             body = body.underlined();
         }
@@ -93,9 +102,12 @@ impl Show for HeadingNode {
             seq.push(Template::Vertical(below.into()));
         }
 
-        Ok(Template::block(
-            Template::sequence(seq).styled_with_map(map),
-        ))
+        let mut template = Template::sequence(seq).styled_with_map(map);
+        if resolve!(Self::BLOCK) {
+            template = Template::block(template);
+        }
+
+        Ok(template)
     }
 }
 

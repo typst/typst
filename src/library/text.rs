@@ -123,8 +123,10 @@ impl StrongNode {
 }
 
 impl Show for StrongNode {
-    fn show(&self, _: &mut Vm, _: StyleChain) -> TypResult<Template> {
-        Ok(self.0.clone().styled(TextNode::STRONG, true))
+    fn show(&self, vm: &mut Vm, styles: StyleChain) -> TypResult<Template> {
+        Ok(styles
+            .show(self, vm, [Value::Template(self.0.clone())])?
+            .unwrap_or_else(|| self.0.clone().styled(TextNode::STRONG, true)))
     }
 }
 
@@ -140,8 +142,10 @@ impl EmphNode {
 }
 
 impl Show for EmphNode {
-    fn show(&self, _: &mut Vm, _: StyleChain) -> TypResult<Template> {
-        Ok(self.0.clone().styled(TextNode::EMPH, true))
+    fn show(&self, vm: &mut Vm, styles: StyleChain) -> TypResult<Template> {
+        Ok(styles
+            .show(self, vm, [Value::Template(self.0.clone())])?
+            .unwrap_or_else(|| self.0.clone().styled(TextNode::EMPH, true)))
     }
 }
 

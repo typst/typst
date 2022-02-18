@@ -50,7 +50,7 @@ impl<'a> CapturesVisitor<'a> {
             Some(Expr::Ident(ident)) => self.capture(ident),
 
             // A closure contains parameter bindings, which are bound before the
-            // body is evaluated. Take must be taken so that the default values
+            // body is evaluated. Care must be taken so that the default values
             // of named parameters cannot access previous parameter bindings.
             Some(Expr::Closure(expr)) => {
                 for param in expr.params() {

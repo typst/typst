@@ -32,15 +32,19 @@ impl<const L: DecoLine> DecoNode<L> {
 }
 
 impl<const L: DecoLine> Show for DecoNode<L> {
-    fn show(&self, _: &mut Vm, styles: StyleChain) -> TypResult<Template> {
-        Ok(self.0.clone().styled(TextNode::LINES, vec![Decoration {
-            line: L,
-            stroke: styles.get(Self::STROKE),
-            thickness: styles.get(Self::THICKNESS),
-            offset: styles.get(Self::OFFSET),
-            extent: styles.get(Self::EXTENT),
-            evade: styles.get(Self::EVADE),
-        }]))
+    fn show(&self, vm: &mut Vm, styles: StyleChain) -> TypResult<Template> {
+        Ok(styles
+            .show(self, vm, [Value::Template(self.0.clone())])?
+            .unwrap_or_else(|| {
+                self.0.clone().styled(TextNode::LINES, vec![Decoration {
+                    line: L,
+                    stroke: styles.get(Self::STROKE),
+                    thickness: styles.get(Self::THICKNESS),
+                    offset: styles.get(Self::OFFSET),
+                    extent: styles.get(Self::EXTENT),
+                    evade: styles.get(Self::EVADE),
+                }])
+            }))
     }
 }
 
