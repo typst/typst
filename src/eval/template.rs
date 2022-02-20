@@ -394,10 +394,10 @@ impl<'a> Builder<'a> {
                 });
             }
             Template::Pagebreak => {
-                self.finish_page(true, true, styles);
+                self.finish_page(vm, true, true, styles)?;
             }
             Template::Page(page) => {
-                self.finish_page(false, false, styles);
+                self.finish_page(vm, false, false, styles)?;
                 if let Some(pages) = &mut self.pages {
                     pages.push(page.clone(), styles);
                 }
@@ -421,7 +421,9 @@ impl<'a> Builder<'a> {
 
                 let interruption = map.interruption();
                 match interruption {
-                    Some(Interruption::Page) => self.finish_page(false, true, styles),
+                    Some(Interruption::Page) => {
+                        self.finish_page(vm, false, true, styles)?
+                    }
                     Some(Interruption::Par) => self.finish_par(styles),
                     None => {}
                 }
@@ -429,7 +431,9 @@ impl<'a> Builder<'a> {
                 self.process(vm, sub, styles)?;
 
                 match interruption {
-                    Some(Interruption::Page) => self.finish_page(true, false, styles),
+                    Some(Interruption::Page) => {
+                        self.finish_page(vm, true, false, styles)?
+                    }
                     Some(Interruption::Par) => self.finish_par(styles),
                     None => {}
                 }
@@ -476,7 +480,14 @@ impl<'a> Builder<'a> {
     }
 
     /// Finish the currently built page run.
-    fn finish_page(&mut self, keep_last: bool, keep_next: bool, styles: StyleChain<'a>) {
+    fn finish_page(
+        &mut self,
+        vm: &mut Vm,
+        keep_last: bool,
+        keep_next: bool,
+        styles: StyleChain<'a>,
+    ) -> TypResult<()> {
+        self.finish_list(vm)?;
         self.finish_par(styles);
         if let Some(pages) = &mut self.pages {
             let (flow, shared) = mem::take(&mut self.flow).finish();
@@ -487,13 +498,12 @@ impl<'a> Builder<'a> {
             }
         }
         self.keep_next = keep_next;
+        Ok(())
     }
 
     /// Finish everything.
     fn finish(&mut self, vm: &mut Vm, styles: StyleChain<'a>) -> TypResult<()> {
-        self.finish_list(vm)?;
-        self.finish_page(true, false, styles);
-        Ok(())
+        self.finish_page(vm, true, false, styles)
     }
 }
 
