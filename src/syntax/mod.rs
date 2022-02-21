@@ -589,8 +589,6 @@ pub enum NodeKind {
     Space(usize),
     /// A forced line break: `\`.
     Linebreak,
-    /// A paragraph break: Two or more newlines.
-    Parbreak,
     /// A consecutive non-markup string.
     Text(EcoString),
     /// A text node that cannot appear at the beginning of a source line.
@@ -760,7 +758,6 @@ impl NodeKind {
     pub fn is_at_start(&self, prev: bool) -> bool {
         match self {
             Self::Space(n) if *n > 0 => true,
-            Self::Parbreak => true,
             Self::LineComment | Self::BlockComment => prev,
             _ => false,
         }
@@ -771,7 +768,6 @@ impl NodeKind {
         match self {
             Self::Markup(_)
             | Self::Linebreak
-            | Self::Parbreak
             | Self::Text(_)
             | Self::TextInLine(_)
             | Self::NonBreakingSpace
@@ -862,9 +858,9 @@ impl NodeKind {
             Self::Include => "keyword `include`",
             Self::From => "keyword `from`",
             Self::Markup(_) => "markup",
+            Self::Space(n) if *n > 1 => "paragraph break",
             Self::Space(_) => "space",
             Self::Linebreak => "forced linebreak",
-            Self::Parbreak => "paragraph break",
             Self::Text(_) | Self::TextInLine(_) => "text",
             Self::NonBreakingSpace => "non-breaking space",
             Self::EnDash => "en dash",
@@ -988,7 +984,6 @@ impl Hash for NodeKind {
             Self::Markup(c) => c.hash(state),
             Self::Space(n) => n.hash(state),
             Self::Linebreak => {}
-            Self::Parbreak => {}
             Self::Text(s) => s.hash(state),
             Self::TextInLine(s) => s.hash(state),
             Self::NonBreakingSpace => {}

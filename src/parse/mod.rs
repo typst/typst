@@ -172,11 +172,7 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
         // Whitespace.
         NodeKind::Space(newlines) => {
             *at_start |= *newlines > 0;
-            if *newlines < 2 {
-                p.eat();
-            } else {
-                p.convert(NodeKind::Parbreak);
-            }
+            p.eat();
             return;
         }
 

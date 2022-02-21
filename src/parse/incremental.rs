@@ -138,7 +138,7 @@ impl Reparser<'_> {
 
             // Similarly to above, the end of the edit must be in the
             // reconsidered range. However, in markup mode, we need to extend
-            // the reconsidered range by up to two nodes so that spaceing etc.
+            // the reconsidered range by up to two nodes so that spacing etc.
             // results in the same tree.
             //
             // Therefore, there are two cases:
@@ -400,7 +400,7 @@ fn validate(
 
             let mut right_pos = newborn_span.end;
             for child in &superseded[superseded_range.end ..] {
-                if child.kind().is_trivia() || child.kind() == &NodeKind::Parbreak {
+                if child.kind().is_trivia() {
                     right_pos += child.len();
                     continue;
                 }
@@ -451,7 +451,6 @@ impl NodeKind {
         match self {
             // These are all replaceable by other tokens.
             Self::Linebreak
-            | Self::Parbreak
             | Self::Text(_)
             | Self::TextInLine(_)
             | Self::NonBreakingSpace

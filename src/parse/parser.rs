@@ -176,13 +176,6 @@ impl<'s> Parser<'s> {
         }
     }
 
-    /// Eat the current token, but change its type.
-    pub fn convert(&mut self, kind: NodeKind) {
-        let marker = self.marker();
-        self.eat();
-        marker.convert(self, kind);
-    }
-
     /// Whether the current token is of the given type.
     pub fn at(&self, kind: &NodeKind) -> bool {
         self.peek() == Some(kind)
