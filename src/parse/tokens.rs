@@ -28,9 +28,9 @@ pub enum TokenMode {
 impl<'s> Tokens<'s> {
     /// Create a new token iterator with the given mode.
     #[inline]
-    pub fn new(src: &'s str, mode: TokenMode) -> Self {
+    pub fn new(src: &'s str, mode: TokenMode, offset: usize) -> Self {
         Self {
-            s: Scanner::new(src),
+            s: Scanner::with_indent_offset(src, offset),
             mode,
             terminated: true,
         }
@@ -689,7 +689,7 @@ mod tests {
         }};
         (@$mode:ident: $src:expr => $($token:expr),*) => {{
             let src = $src;
-            let found = Tokens::new(&src, $mode).collect::<Vec<_>>();
+            let found = Tokens::new(&src, $mode, 0).collect::<Vec<_>>();
             let expected = vec![$($token.clone()),*];
             check(&src, found, expected);
         }};

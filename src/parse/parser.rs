@@ -7,8 +7,6 @@ use crate::syntax::{ErrorPos, Green, GreenData, GreenNode, NodeKind};
 
 /// A convenient token-based parser.
 pub struct Parser<'s> {
-    /// Offsets the indentation on the first line of the source.
-    column_offset: usize,
     /// An iterator over the source tokens.
     tokens: Tokens<'s>,
     /// Whether we are at the end of the file or of a group.
@@ -22,7 +20,7 @@ pub struct Parser<'s> {
     /// The stack of open groups.
     groups: Vec<GroupEntry>,
     /// The children of the currently built node.
-    children: Vec<Green>,
+    pub children: Vec<Green>,
     /// Whether the last group was not correctly terminated.
     unterminated_group: bool,
     /// Whether a group terminator was found, that did not close a group.
@@ -32,10 +30,13 @@ pub struct Parser<'s> {
 impl<'s> Parser<'s> {
     /// Create a new parser for the source string.
     pub fn new(src: &'s str, mode: TokenMode) -> Self {
-        let mut tokens = Tokens::new(src, mode);
+        Self::with_offset(src, mode, 0)
+    }
+
+    fn with_offset(src: &'s str, mode: TokenMode, offset: usize) -> Self {
+        let mut tokens = Tokens::new(src, mode, offset);
         let current = tokens.next();
         Self {
-            column_offset: 0,
             tokens,
             eof: current.is_none(),
             current,
@@ -52,9 +53,7 @@ impl<'s> Parser<'s> {
     /// that does not need to be parsed but taken into account for column
     /// calculation.
     pub fn with_prefix(prefix: &str, src: &'s str, mode: TokenMode) -> Self {
-        let mut p = Self::new(src, mode);
-        p.column_offset = Scanner::new(prefix).column(prefix.len());
-        p
+        Self::with_offset(src, mode, Scanner::new(prefix).column(prefix.len()))
     }
 
     /// End the parsing process and return the last child.
@@ -226,7 +225,7 @@ impl<'s> Parser<'s> {
 
     /// Determine the column index for the given byte index.
     pub fn column(&self, index: usize) -> usize {
-        self.tokens.scanner().column_offset(index, self.column_offset)
+        self.tokens.scanner().column(index)
     }
 
     /// Continue parsing in a group.

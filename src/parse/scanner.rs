@@ -10,13 +10,21 @@ pub struct Scanner<'s> {
     /// The index at which the peekable character starts. Must be in bounds and
     /// at a codepoint boundary to guarantee safety.
     index: usize,
+    /// Offsets the indentation on the first line of the source.
+    column_offset: usize,
 }
 
 impl<'s> Scanner<'s> {
     /// Create a new char scanner.
     #[inline]
     pub fn new(src: &'s str) -> Self {
-        Self { src, index: 0 }
+        Self { src, index: 0, column_offset: 0 }
+    }
+
+    /// Create a new char scanner with an offset for the first line indent.
+    #[inline]
+    pub fn with_indent_offset(src: &'s str, column_offset: usize) -> Self {
+        Self { src, index: 0, column_offset }
     }
 
     /// Whether the end of the string is reached.
@@ -173,13 +181,6 @@ impl<'s> Scanner<'s> {
     /// The column index of a given index in the source string.
     #[inline]
     pub fn column(&self, index: usize) -> usize {
-        self.column_offset(index, 0)
-    }
-
-    /// The column index of a given index in the source string when an offset is
-    /// applied to the first line of the string.
-    #[inline]
-    pub fn column_offset(&self, index: usize, offset: usize) -> usize {
         let mut apply_offset = false;
         let res = self.src[.. index]
             .char_indices()
@@ -192,7 +193,13 @@ impl<'s> Scanner<'s> {
             })
             .count();
 
-        if apply_offset { res + offset } else { res }
+        // The loop is never executed if the slice is empty, but we are of
+        // course still at the start of the first line.
+        if self.src[.. index].len() == 0 {
+            apply_offset = true;
+        }
+
+        if apply_offset { res + self.column_offset } else { res }
     }
 }
 
