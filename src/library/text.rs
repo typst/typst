@@ -802,11 +802,10 @@ impl<'a> ShapedText<'a> {
 
             // Apply line decorations.
             for deco in self.styles.get_cloned(TextNode::LINES) {
-                self.add_line_decos(&mut frame, &deco, fonts, &text, pos, width);
+                self.decorate(&mut frame, &deco, fonts, &text, pos, width);
             }
 
             frame.insert(text_layer, pos, Element::Text(text));
-
             offset += width;
         }
 
@@ -819,7 +818,7 @@ impl<'a> ShapedText<'a> {
     }
 
     /// Add line decorations to a run of shaped text of a single font.
-    fn add_line_decos(
+    fn decorate(
         &self,
         frame: &mut Frame,
         deco: &Decoration,
@@ -931,7 +930,6 @@ impl<'a> ShapedText<'a> {
             push_segment(start, end);
         }
     }
-
 
     /// Reshape a range of the shaped text, reusing information from this
     /// shaping process if possible.

@@ -18,7 +18,7 @@ a vs #text(alternates: true)[a] \
 
 ---
 // Test ligatures.
-fi vs. #text(ligatures: false)[No fi] \
+fi vs. #text(ligatures: false)[No fi]
 
 ---
 // Test number type.

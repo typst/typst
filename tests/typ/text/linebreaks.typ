@@ -24,5 +24,5 @@ Hard break directly after \ normal break.
 Two consecutive \ \ breaks and three \ \ \ more.
 
 ---
-// Test trailing newline.
-Trailing break \
+// Test forcing an empty trailing line.
+Trailing break \ \

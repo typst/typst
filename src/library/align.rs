@@ -40,7 +40,6 @@ impl Layout for AlignNode {
 
         // Layout the child.
         let mut frames = self.child.layout(vm, &pod, passed.chain(&styles))?;
-
         for ((current, base), Constrained { item: frame, cts }) in
             regions.iter().zip(&mut frames)
         {
@@ -78,5 +77,4 @@ castable! {
         aligns
     },
     @aligns: Spec<Align> => aligns.map(Some),
-
 }
