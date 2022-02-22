@@ -4,10 +4,9 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use super::{ops, Args, Array, Class, Dict, Func, Template};
+use super::{ops, Args, Array, Class, Dict, Func, Layout, Template};
 use crate::diag::StrResult;
 use crate::geom::{Angle, Color, Fractional, Length, Linear, Relative, RgbaColor};
-use crate::layout::Layout;
 use crate::syntax::Spanned;
 use crate::util::EcoString;
 

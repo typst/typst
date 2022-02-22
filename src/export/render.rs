@@ -1,6 +1,5 @@
 //! Rendering into raster images.
 
-use std::collections::{hash_map::Entry, HashMap};
 use std::io::Read;
 
 use image::{GenericImageView, Rgba};
@@ -8,25 +7,11 @@ use tiny_skia as sk;
 use ttf_parser::{GlyphId, OutlineBuilder};
 use usvg::FitTo;
 
-use crate::font::{Face, FaceId};
+use crate::font::Face;
 use crate::frame::{Element, Frame, Geometry, Group, Shape, Stroke, Text};
 use crate::geom::{self, Length, Paint, PathElement, Size, Transform};
 use crate::image::{Image, RasterImage, Svg};
 use crate::Context;
-
-/// Caches rendering artifacts.
-#[derive(Default, Clone)]
-pub struct RenderCache {
-    /// Glyphs prepared for rendering.
-    glyphs: HashMap<(FaceId, GlyphId), pixglyph::Glyph>,
-}
-
-impl RenderCache {
-    /// Create a new, empty rendering cache.
-    pub fn new() -> Self {
-        Self::default()
-    }
-}
 
 /// Export a frame into a rendered image.
 ///
@@ -131,7 +116,6 @@ fn render_text(
     text: &Text,
 ) {
     let face = ctx.fonts.get(text.face_id);
-    let cache = &mut ctx.render_cache;
 
     let mut x = 0.0;
     for glyph in &text.glyphs {
@@ -141,7 +125,7 @@ fn render_text(
 
         render_svg_glyph(canvas, ts, mask, text, face, id)
             .or_else(|| render_bitmap_glyph(canvas, ts, mask, text, face, id))
-            .or_else(|| render_outline_glyph(canvas, ts, mask, cache, text, face, id));
+            .or_else(|| render_outline_glyph(canvas, ts, mask, text, face, id));
 
         x += glyph.x_advance.resolve(text.size).to_f32();
     }
@@ -227,7 +211,6 @@ fn render_outline_glyph(
     canvas: &mut sk::Pixmap,
     ts: sk::Transform,
     mask: Option<&sk::ClipMask>,
-    cache: &mut RenderCache,
     text: &Text,
     face: &Face,
     id: GlyphId,
@@ -255,15 +238,10 @@ fn render_outline_glyph(
         return Some(());
     }
 
+    // TODO(query)
     // Try to retrieve a prepared glyph or prepare it from scratch if it
     // doesn't exist, yet.
-    let glyph = match cache.glyphs.entry((text.face_id, id)) {
-        Entry::Occupied(entry) => entry.into_mut(),
-        Entry::Vacant(entry) => {
-            let glyph = pixglyph::Glyph::load(face.ttf(), id)?;
-            entry.insert(glyph)
-        }
-    };
+    let glyph = pixglyph::Glyph::load(face.ttf(), id)?;
 
     // Rasterize the glyph with `pixglyph`.
     let bitmap = glyph.rasterize(ts.tx, ts.ty, ppem);

@@ -49,11 +49,11 @@ impl<const T: TransformKind> Layout for TransformNode<T> {
         vm: &mut Vm,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Constrained<Arc<Frame>>>> {
+    ) -> TypResult<Vec<Arc<Frame>>> {
         let origin = styles.get(Self::ORIGIN).unwrap_or(Align::CENTER_HORIZON);
         let mut frames = self.child.layout(vm, regions, styles)?;
 
-        for Constrained { item: frame, .. } in &mut frames {
+        for frame in &mut frames {
             let Spec { x, y } = origin.zip(frame.size).map(|(o, s)| o.resolve(s));
             let transform = Transform::translation(x, y)
                 .pre_concat(self.transform)

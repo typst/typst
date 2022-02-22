@@ -64,7 +64,6 @@ memmap2 = { version = "0.5", optional = true }
 walkdir = { version = "2", optional = true }
 
 [dev-dependencies]
-filedescriptor = "0.8"
 iai = { git = "https://github.com/reknih/iai" }
 walkdir = "2"
 

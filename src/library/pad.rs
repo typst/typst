@@ -33,14 +33,12 @@ impl Layout for PadNode {
         vm: &mut Vm,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Constrained<Arc<Frame>>>> {
+    ) -> TypResult<Vec<Arc<Frame>>> {
         // Layout child into padded regions.
         let pod = regions.map(|size| shrink(size, self.padding));
         let mut frames = self.child.layout(vm, &pod, styles)?;
 
-        for ((current, base), Constrained { item: frame, cts }) in
-            regions.iter().zip(&mut frames)
-        {
+        for frame in &mut frames {
             // Apply the padding inversely such that the grown size padded
             // yields the frame's size.
             let padded = grow(frame.size, self.padding);
@@ -51,19 +49,6 @@ impl Layout for PadNode {
             let frame = Arc::make_mut(frame);
             frame.size = padded;
             frame.translate(offset);
-
-            // Set exact and base constraints if the child had them. Also set
-            // base if our padding is relative.
-            let is_rel = self.padding.sum_by_axis().map(Linear::is_relative);
-            cts.exact = current.filter(cts.exact.map_is_some());
-            cts.base = base.filter(is_rel | cts.base.map_is_some());
-
-            // Inflate min and max contraints by the padding.
-            for spec in [&mut cts.min, &mut cts.max] {
-                spec.as_mut()
-                    .zip(padding.sum_by_axis())
-                    .map(|(s, p)| s.as_mut().map(|v| *v += p));
-            }
         }
 
         Ok(frames)

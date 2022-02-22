@@ -7,10 +7,10 @@ use std::ops::{Add, AddAssign};
 use typed_arena::Arena;
 
 use super::{
-    CollapsingBuilder, Interruption, Property, Show, ShowNode, StyleMap, StyleVecBuilder,
+    CollapsingBuilder, Interruption, Layout, LayoutNode, Property, Show, ShowNode,
+    StyleMap, StyleVecBuilder,
 };
 use crate::diag::StrResult;
-use crate::layout::{Layout, LayoutNode};
 use crate::library::prelude::*;
 use crate::library::{
     DecoNode, FlowChild, FlowNode, ListItem, ListKind, ListNode, PageNode, ParChild,
@@ -240,7 +240,7 @@ impl Layout for Template {
         vm: &mut Vm,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Constrained<Arc<Frame>>>> {
+    ) -> TypResult<Vec<Arc<Frame>>> {
         let sya = Arena::new();
         let tpa = Arena::new();
 

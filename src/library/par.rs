@@ -86,7 +86,7 @@ impl Layout for ParNode {
         vm: &mut Vm,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Constrained<Arc<Frame>>>> {
+    ) -> TypResult<Vec<Arc<Frame>>> {
         // Collect all text into one string used for BiDi analysis.
         let text = self.collect_text();
         let level = Level::from_dir(styles.get(Self::DIR));
@@ -113,7 +113,7 @@ impl Layout for ParNode {
             // If the line doesn't fit anymore, we push the last fitting attempt
             // into the stack and rebuild the line from its end. The resulting
             // line cannot be broken up further.
-            if !regions.current.x.fits(line.size.x) {
+            if !regions.first.x.fits(line.size.x) {
                 if let Some((last_line, last_end)) = last.take() {
                     lines.push(last_line);
                     start = last_end;
@@ -124,7 +124,7 @@ impl Layout for ParNode {
             // Finish the current line if there is a mandatory line break (i.e.
             // due to "\n") or if the line doesn't fit horizontally already
             // since no shorter line will be possible.
-            if mandatory || !regions.current.x.fits(line.size.x) {
+            if mandatory || !regions.first.x.fits(line.size.x) {
                 lines.push(line);
                 start = end;
                 last = None;
@@ -139,7 +139,7 @@ impl Layout for ParNode {
 
         // Determine the paragraph's width: Fit to width if we shoudn't expand
         // and there's no fractional spacing.
-        let mut width = regions.current.x;
+        let mut width = regions.first.x;
         if !regions.expand.x && lines.iter().all(|line| line.fr.is_zero()) {
             width = lines.iter().map(|line| line.size.x).max().unwrap_or_default();
         }
@@ -149,15 +149,13 @@ impl Layout for ParNode {
         let mut finished = vec![];
         let mut first = true;
         let mut output = Frame::new(Size::with_x(width));
-        let mut cts = Constraints::tight(&regions);
 
         // Stack the lines into one frame per region.
         for line in lines {
-            while !regions.current.y.fits(line.size.y) && !regions.in_last() {
-                finished.push(output.constrain(cts));
+            while !regions.first.y.fits(line.size.y) && !regions.in_last() {
+                finished.push(Arc::new(output));
                 output = Frame::new(Size::with_x(width));
                 regions.next();
-                cts = Constraints::tight(&regions);
                 first = true;
             }
 
@@ -170,11 +168,11 @@ impl Layout for ParNode {
             output.size.y += frame.size.y;
             output.merge_frame(pos, frame);
 
-            regions.current.y -= line.size.y + leading;
+            regions.first.y -= line.size.y + leading;
             first = false;
         }
 
-        finished.push(output.constrain(cts));
+        finished.push(Arc::new(output));
         Ok(finished)
     }
 }
@@ -316,7 +314,7 @@ impl<'a> ParLayout<'a> {
                 }
                 ParChild::Spacing(kind) => match *kind {
                     SpacingKind::Linear(v) => {
-                        let resolved = v.resolve(regions.current.x);
+                        let resolved = v.resolve(regions.first.x);
                         items.push(ParItem::Absolute(resolved));
                         ranges.push(range);
                     }
@@ -326,10 +324,10 @@ impl<'a> ParLayout<'a> {
                     }
                 },
                 ParChild::Node(node) => {
-                    let size = Size::new(regions.current.x, regions.base.y);
+                    let size = Size::new(regions.first.x, regions.base.y);
                     let pod = Regions::one(size, regions.base, Spec::splat(false));
                     let frame = node.layout(vm, &pod, styles)?.remove(0);
-                    items.push(ParItem::Frame(Arc::take(frame.item)));
+                    items.push(ParItem::Frame(Arc::take(frame)));
                     ranges.push(range);
                 }
             }

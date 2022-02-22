@@ -31,7 +31,7 @@ impl Layout for StackNode {
         vm: &mut Vm,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Constrained<Arc<Frame>>>> {
+    ) -> TypResult<Vec<Arc<Frame>>> {
         let mut layouter = StackLayouter::new(self.dir, regions);
 
         // Spacing to insert before the next node.
@@ -106,7 +106,7 @@ pub struct StackLayouter {
     /// fractional spacing.
     items: Vec<StackItem>,
     /// Finished frames for previous regions.
-    finished: Vec<Constrained<Arc<Frame>>>,
+    finished: Vec<Arc<Frame>>,
 }
 
 /// A prepared item in a stack layout.
@@ -124,7 +124,7 @@ impl StackLayouter {
     pub fn new(dir: Dir, regions: &Regions) -> Self {
         let axis = dir.axis();
         let expand = regions.expand;
-        let full = regions.current;
+        let full = regions.first;
 
         // Disable expansion along the block axis for children.
         let mut regions = regions.clone();
@@ -149,7 +149,7 @@ impl StackLayouter {
             SpacingKind::Linear(v) => {
                 // Resolve the linear and limit it to the remaining space.
                 let resolved = v.resolve(self.regions.base.get(self.axis));
-                let remaining = self.regions.current.get_mut(self.axis);
+                let remaining = self.regions.first.get_mut(self.axis);
                 let limited = resolved.min(*remaining);
                 *remaining -= limited;
                 self.used.main += limited;
@@ -183,11 +183,11 @@ impl StackLayouter {
         let len = frames.len();
         for (i, frame) in frames.into_iter().enumerate() {
             // Grow our size, shrink the region and save the frame for later.
-            let size = frame.item.size.to_gen(self.axis);
+            let size = frame.size.to_gen(self.axis);
             self.used.main += size.main;
             self.used.cross.set_max(size.cross);
-            *self.regions.current.get_mut(self.axis) -= size.main;
-            self.items.push(StackItem::Frame(frame.item, align));
+            *self.regions.first.get_mut(self.axis) -= size.main;
+            self.items.push(StackItem::Frame(frame, align));
 
             if i + 1 < len {
                 self.finish_region();
@@ -245,21 +245,16 @@ impl StackLayouter {
             }
         }
 
-        // Generate tight constraints for now.
-        let mut cts = Constraints::new(self.expand);
-        cts.exact = self.full.map(Some);
-        cts.base = self.regions.base.map(Some);
-
         // Advance to the next region.
         self.regions.next();
-        self.full = self.regions.current;
+        self.full = self.regions.first;
         self.used = Gen::zero();
         self.fr = Fractional::zero();
-        self.finished.push(output.constrain(cts));
+        self.finished.push(Arc::new(output));
     }
 
     /// Finish layouting and return the resulting frames.
-    pub fn finish(mut self) -> Vec<Constrained<Arc<Frame>>> {
+    pub fn finish(mut self) -> Vec<Arc<Frame>> {
         self.finish_region();
         self.finished
     }

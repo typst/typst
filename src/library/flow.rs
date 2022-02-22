@@ -31,7 +31,7 @@ impl Layout for FlowNode {
         vm: &mut Vm,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Constrained<Arc<Frame>>>> {
+    ) -> TypResult<Vec<Arc<Frame>>> {
         let mut layouter = FlowLayouter::new(regions);
 
         for (child, map) in self.0.iter() {
@@ -96,7 +96,7 @@ pub struct FlowLayouter {
     regions: Regions,
     /// Whether the flow should expand to fill the region.
     expand: Spec<bool>,
-    /// The full size of `regions.current` that was available before we started
+    /// The full size of `regions.size` that was available before we started
     /// subtracting.
     full: Size,
     /// The size used by the frames for the current region.
@@ -106,7 +106,7 @@ pub struct FlowLayouter {
     /// Spacing and layouted nodes.
     items: Vec<FlowItem>,
     /// Finished frames for previous regions.
-    finished: Vec<Constrained<Arc<Frame>>>,
+    finished: Vec<Arc<Frame>>,
 }
 
 /// A prepared item in a flow layout.
@@ -125,7 +125,7 @@ impl FlowLayouter {
     /// Create a new flow layouter.
     pub fn new(regions: &Regions) -> Self {
         let expand = regions.expand;
-        let full = regions.current;
+        let full = regions.first;
 
         // Disable vertical expansion for children.
         let mut regions = regions.clone();
@@ -148,8 +148,8 @@ impl FlowLayouter {
             SpacingKind::Linear(v) => {
                 // Resolve the linear and limit it to the remaining space.
                 let resolved = v.resolve(self.full.y);
-                let limited = resolved.min(self.regions.current.y);
-                self.regions.current.y -= limited;
+                let limited = resolved.min(self.regions.first.y);
+                self.regions.first.y -= limited;
                 self.used.y += limited;
                 self.items.push(FlowItem::Absolute(resolved));
             }
@@ -177,7 +177,7 @@ impl FlowLayouter {
         if let Some(placed) = node.downcast::<PlaceNode>() {
             if placed.out_of_flow() {
                 let frame = node.layout(vm, &self.regions, styles)?.remove(0);
-                self.items.push(FlowItem::Placed(frame.item));
+                self.items.push(FlowItem::Placed(frame));
                 return Ok(());
             }
         }
@@ -197,11 +197,11 @@ impl FlowLayouter {
         let len = frames.len();
         for (i, frame) in frames.into_iter().enumerate() {
             // Grow our size, shrink the region and save the frame for later.
-            let size = frame.item.size;
+            let size = frame.size;
             self.used.y += size.y;
             self.used.x.set_max(size.x);
-            self.regions.current.y -= size.y;
-            self.items.push(FlowItem::Frame(frame.item, aligns));
+            self.regions.first.y -= size.y;
+            self.items.push(FlowItem::Frame(frame, aligns));
 
             if i + 1 < len {
                 self.finish_region();
@@ -251,21 +251,16 @@ impl FlowLayouter {
             }
         }
 
-        // Generate tight constraints for now.
-        let mut cts = Constraints::new(self.expand);
-        cts.exact = self.full.map(Some);
-        cts.base = self.regions.base.map(Some);
-
         // Advance to the next region.
         self.regions.next();
-        self.full = self.regions.current;
+        self.full = self.regions.first;
         self.used = Size::zero();
         self.fr = Fractional::zero();
-        self.finished.push(output.constrain(cts));
+        self.finished.push(Arc::new(output));
     }
 
     /// Finish layouting and return the resulting frames.
-    pub fn finish(mut self) -> Vec<Constrained<Arc<Frame>>> {
+    pub fn finish(mut self) -> Vec<Arc<Frame>> {
         if self.expand.y {
             while self.regions.backlog.len() > 0 {
                 self.finish_region();

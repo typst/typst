@@ -19,11 +19,11 @@ impl Layout for HideNode {
         vm: &mut Vm,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Constrained<Arc<Frame>>>> {
+    ) -> TypResult<Vec<Arc<Frame>>> {
         let mut frames = self.0.layout(vm, regions, styles)?;
 
         // Clear the frames.
-        for Constrained { item: frame, .. } in &mut frames {
+        for frame in &mut frames {
             *frame = Arc::new(Frame { elements: vec![], ..**frame });
         }
 

@@ -1,11 +1,10 @@
 use std::env;
 use std::ffi::OsStr;
-use std::fs::{self, File};
+use std::fs;
 use std::ops::Range;
 use std::path::Path;
 use std::sync::Arc;
 
-use filedescriptor::{FileDescriptor, StdioDescriptor::*};
 use tiny_skia as sk;
 use walkdir::WalkDir;
 
@@ -16,7 +15,7 @@ use typst::geom::{Length, RgbaColor};
 use typst::library::{PageNode, TextNode};
 use typst::loading::FsLoader;
 use typst::parse::Scanner;
-use typst::source::{SourceFile, SourceId};
+use typst::source::SourceFile;
 use typst::syntax::Span;
 use typst::{Context, Vm};
 
@@ -269,18 +268,15 @@ fn test_part(
     ok &= test_reparse(ctx.sources.get(id).src(), i, rng);
 
     let mut vm = Vm::new(ctx);
-    let (frames, mut errors) = match vm.typeset(id) {
-        Ok(mut frames) => {
-            ok &= test_incremental(ctx, i, id, &frames);
-
-            if !compare_ref {
-                frames.clear();
-            }
-
-            (frames, vec![])
-        }
+    let (mut frames, mut errors) = match vm.typeset(id) {
+        Ok(frames) => (frames, vec![]),
         Err(errors) => (vec![], *errors),
     };
+
+    // Don't retain frames if we don't wanna compare with reference images.
+    if !compare_ref {
+        frames.clear();
+    }
 
     // TODO: Also handle errors from other files.
     errors.retain(|error| error.span.source == id);
@@ -467,53 +463,6 @@ fn test_reparse(src: &str, i: usize, rng: &mut LinearShift) -> bool {
     ok
 }
 
-fn test_incremental(
-    ctx: &mut Context,
-    i: usize,
-    id: SourceId,
-    frames: &[Arc<Frame>],
-) -> bool {
-    let mut ok = true;
-
-    let reference = ctx.layout_cache.clone();
-    for level in 0 .. reference.levels() {
-        ctx.layout_cache = reference.clone();
-        ctx.layout_cache.retain(|x| x == level);
-        if ctx.layout_cache.is_empty() {
-            continue;
-        }
-
-        ctx.layout_cache.turnaround();
-
-        let cached = silenced(|| ctx.typeset(id).unwrap());
-        let total = reference.levels() - 1;
-        let misses = ctx
-            .layout_cache
-            .entries()
-            .filter(|e| e.level() == level && !e.hit() && e.age() == 2)
-            .count();
-
-        if misses > 0 {
-            println!(
-                "    Subtest {i} relayout had {misses} cache misses on level {level} of {total} ❌",
-            );
-            ok = false;
-        }
-
-        if cached != frames {
-            println!(
-                "    Subtest {i} relayout differs from clean pass on level {level} ❌",
-            );
-            ok = false;
-        }
-    }
-
-    ctx.layout_cache = reference;
-    ctx.layout_cache.turnaround();
-
-    ok
-}
-
 /// Draw all frames into one image with padding in between.
 fn render(ctx: &mut Context, frames: &[Arc<Frame>]) -> sk::Pixmap {
     let pixel_per_pt = 2.0;
@@ -580,21 +529,6 @@ fn render_links(
             _ => {}
         }
     }
-}
-
-/// Disable stdout and stderr during execution of `f`.
-fn silenced<F, T>(f: F) -> T
-where
-    F: FnOnce() -> T,
-{
-    let path = if cfg!(windows) { "NUL" } else { "/dev/null" };
-    let null = File::create(path).unwrap();
-    let stderr = FileDescriptor::redirect_stdio(&null, Stderr).unwrap();
-    let stdout = FileDescriptor::redirect_stdio(&null, Stdout).unwrap();
-    let result = f();
-    FileDescriptor::redirect_stdio(&stderr, Stderr).unwrap();
-    FileDescriptor::redirect_stdio(&stdout, Stdout).unwrap();
-    result
 }
 
 /// This is an Linear-feedback shift register using XOR as its shifting

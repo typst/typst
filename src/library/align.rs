@@ -27,7 +27,7 @@ impl Layout for AlignNode {
         vm: &mut Vm,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Constrained<Arc<Frame>>>> {
+    ) -> TypResult<Vec<Arc<Frame>>> {
         // The child only needs to expand along an axis if there's no alignment.
         let mut pod = regions.clone();
         pod.expand &= self.aligns.map_is_none();
@@ -40,20 +40,13 @@ impl Layout for AlignNode {
 
         // Layout the child.
         let mut frames = self.child.layout(vm, &pod, passed.chain(&styles))?;
-        for ((current, base), Constrained { item: frame, cts }) in
-            regions.iter().zip(&mut frames)
-        {
+        for (region, frame) in regions.iter().zip(&mut frames) {
             // Align in the target size. The target size depends on whether we
             // should expand.
-            let target = regions.expand.select(current, frame.size);
+            let target = regions.expand.select(region, frame.size);
             let default = Spec::new(Align::Left, Align::Top);
             let aligns = self.aligns.unwrap_or(default);
             Arc::make_mut(frame).resize(target, aligns);
-
-            // Set constraints.
-            cts.expand = regions.expand;
-            cts.base = base.filter(cts.base.map_is_some());
-            cts.exact = current.filter(regions.expand | cts.exact.map_is_some());
         }
 
         Ok(frames)

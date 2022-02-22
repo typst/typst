@@ -32,23 +32,23 @@ impl Layout for ColumnsNode {
         vm: &mut Vm,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Constrained<Arc<Frame>>>> {
+    ) -> TypResult<Vec<Arc<Frame>>> {
         // Separating the infinite space into infinite columns does not make
         // much sense.
-        if regions.current.x.is_infinite() {
+        if regions.first.x.is_infinite() {
             return self.child.layout(vm, regions, styles);
         }
 
         // Determine the width of the gutter and each column.
         let columns = self.columns.get();
         let gutter = styles.get(Self::GUTTER).resolve(regions.base.x);
-        let width = (regions.current.x - gutter * (columns - 1) as f64) / columns as f64;
+        let width = (regions.first.x - gutter * (columns - 1) as f64) / columns as f64;
 
         // Create the pod regions.
         let pod = Regions {
-            current: Size::new(width, regions.current.y),
+            first: Size::new(width, regions.first.y),
             base: Size::new(width, regions.base.y),
-            backlog: std::iter::once(&regions.current.y)
+            backlog: std::iter::once(&regions.first.y)
                 .chain(regions.backlog.as_slice())
                 .flat_map(|&height| std::iter::repeat(height).take(columns))
                 .skip(1)
@@ -66,18 +66,18 @@ impl Layout for ColumnsNode {
         let mut finished = vec![];
 
         // Stitch together the columns for each region.
-        for (current, base) in regions.iter().take(total_regions) {
+        for region in regions.iter().take(total_regions) {
             // The height should be the parent height if the node shall expand.
             // Otherwise its the maximum column height for the frame. In that
             // case, the frame is first created with zero height and then
             // resized.
-            let height = if regions.expand.y { current.y } else { Length::zero() };
-            let mut output = Frame::new(Size::new(regions.current.x, height));
+            let height = if regions.expand.y { region.y } else { Length::zero() };
+            let mut output = Frame::new(Size::new(regions.first.x, height));
             let mut cursor = Length::zero();
 
             for _ in 0 .. columns {
                 let frame = match frames.next() {
-                    Some(frame) => frame.item,
+                    Some(frame) => frame,
                     None => break,
                 };
 
@@ -89,17 +89,14 @@ impl Layout for ColumnsNode {
                 let x = if dir.is_positive() {
                     cursor
                 } else {
-                    regions.current.x - cursor - width
+                    regions.first.x - cursor - width
                 };
 
                 output.push_frame(Point::with_x(x), frame);
                 cursor += width + gutter;
             }
 
-            let mut cts = Constraints::new(regions.expand);
-            cts.base = base.map(Some);
-            cts.exact = current.map(Some);
-            finished.push(output.constrain(cts));
+            finished.push(Arc::new(output));
         }
 
         Ok(finished)

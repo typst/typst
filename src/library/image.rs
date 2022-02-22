@@ -39,24 +39,24 @@ impl Layout for ImageNode {
         vm: &mut Vm,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Constrained<Arc<Frame>>>> {
+    ) -> TypResult<Vec<Arc<Frame>>> {
         let img = vm.images.get(self.0);
         let pxw = img.width() as f64;
         let pxh = img.height() as f64;
         let px_ratio = pxw / pxh;
 
         // Find out whether the image is wider or taller than the target size.
-        let &Regions { current, expand, .. } = regions;
-        let current_ratio = current.x / current.y;
-        let wide = px_ratio > current_ratio;
+        let &Regions { first, expand, .. } = regions;
+        let region_ratio = first.x / first.y;
+        let wide = px_ratio > region_ratio;
 
         // The space into which the image will be placed according to its fit.
         let target = if expand.x && expand.y {
-            current
-        } else if expand.x || (!expand.y && wide && current.x.is_finite()) {
-            Size::new(current.x, current.y.min(current.x.safe_div(px_ratio)))
-        } else if current.y.is_finite() {
-            Size::new(current.x.min(current.y * px_ratio), current.y)
+            first
+        } else if expand.x || (!expand.y && wide && first.x.is_finite()) {
+            Size::new(first.x, first.y.min(first.x.safe_div(px_ratio)))
+        } else if first.y.is_finite() {
+            Size::new(first.x.min(first.y * px_ratio), first.y)
         } else {
             Size::new(Length::pt(pxw), Length::pt(pxh))
         };
@@ -91,7 +91,7 @@ impl Layout for ImageNode {
             frame.link(url);
         }
 
-        Ok(vec![frame.constrain(Constraints::tight(regions))])
+        Ok(vec![Arc::new(frame)])
     }
 }
 

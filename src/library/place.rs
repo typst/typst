@@ -26,11 +26,11 @@ impl Layout for PlaceNode {
         vm: &mut Vm,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Constrained<Arc<Frame>>>> {
+    ) -> TypResult<Vec<Arc<Frame>>> {
         let out_of_flow = self.out_of_flow();
 
         // The pod is the base area of the region because for absolute
-        // placement we don't really care about the already used area (current).
+        // placement we don't really care about the already used area.
         let pod = {
             let finite = regions.base.map(Length::is_finite);
             let expand = finite & (regions.expand | out_of_flow);
@@ -38,18 +38,12 @@ impl Layout for PlaceNode {
         };
 
         let mut frames = self.0.layout(vm, &pod, styles)?;
-        let Constrained { item: frame, cts } = &mut frames[0];
 
         // If expansion is off, zero all sizes so that we don't take up any
         // space in our parent. Otherwise, respect the expand settings.
-        let target = regions.expand.select(regions.current, Size::zero());
+        let frame = &mut frames[0];
+        let target = regions.expand.select(regions.first, Size::zero());
         Arc::make_mut(frame).resize(target, Align::LEFT_TOP);
-
-        // Set base constraint because our pod size is base and exact
-        // constraints if we needed to expand or offset.
-        *cts = Constraints::new(regions.expand);
-        cts.base = regions.base.map(Some);
-        cts.exact = regions.current.filter(regions.expand | out_of_flow);
 
         Ok(frames)
     }
@@ -57,7 +51,7 @@ impl Layout for PlaceNode {
 
 impl PlaceNode {
     /// Whether this node wants to be placed relative to its its parent's base
-    /// origin. instead of relative to the parent's current flow/cursor
+    /// origin. Instead of relative to the parent's current flow/cursor
     /// position.
     pub fn out_of_flow(&self) -> bool {
         self.0

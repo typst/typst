@@ -44,7 +44,6 @@ pub mod font;
 pub mod frame;
 pub mod geom;
 pub mod image;
-pub mod layout;
 pub mod library;
 pub mod loading;
 pub mod parse;
@@ -58,11 +57,9 @@ use std::sync::Arc;
 
 use crate::diag::TypResult;
 use crate::eval::{Eval, Module, Scope, Scopes, StyleMap};
-use crate::export::RenderCache;
 use crate::font::FontStore;
 use crate::frame::Frame;
 use crate::image::ImageStore;
-use crate::layout::{EvictionPolicy, LayoutCache};
 use crate::loading::Loader;
 use crate::source::{SourceId, SourceStore};
 
@@ -76,10 +73,6 @@ pub struct Context {
     pub fonts: FontStore,
     /// Stores decoded images.
     pub images: ImageStore,
-    /// Caches layouting artifacts.
-    pub layout_cache: LayoutCache,
-    /// Caches rendering artifacts.
-    pub render_cache: RenderCache,
     /// The standard library scope.
     std: Scope,
     /// The default styles.
@@ -115,11 +108,6 @@ impl Context {
     pub fn typeset(&mut self, id: SourceId) -> TypResult<Vec<Arc<Frame>>> {
         Vm::new(self).typeset(id)
     }
-
-    /// Garbage-collect caches.
-    pub fn turnaround(&mut self) {
-        self.layout_cache.turnaround();
-    }
 }
 
 /// A builder for a [`Context`].
@@ -128,8 +116,6 @@ impl Context {
 pub struct ContextBuilder {
     std: Option<Scope>,
     styles: Option<StyleMap>,
-    policy: EvictionPolicy,
-    max_size: usize,
 }
 
 impl ContextBuilder {
@@ -146,21 +132,6 @@ impl ContextBuilder {
         self
     }
 
-    /// The policy for eviction of the layout cache.
-    pub fn cache_policy(mut self, policy: EvictionPolicy) -> Self {
-        self.policy = policy;
-        self
-    }
-
-    /// The maximum number of entries the layout cache should have.
-    ///
-    /// Note that this can be exceeded if more entries are categorized as [must
-    /// keep][crate::layout::PatternProperties::must_keep].
-    pub fn cache_max_size(mut self, max_size: usize) -> Self {
-        self.max_size = max_size;
-        self
-    }
-
     /// Finish building the context by providing the `loader` used to load
     /// fonts, images, source files and other resources.
     pub fn build(self, loader: Arc<dyn Loader>) -> Context {
@@ -169,8 +140,6 @@ impl ContextBuilder {
             fonts: FontStore::new(Arc::clone(&loader)),
             images: ImageStore::new(Arc::clone(&loader)),
             loader,
-            layout_cache: LayoutCache::new(self.policy, self.max_size),
-            render_cache: RenderCache::new(),
             std: self.std.unwrap_or_else(library::new),
             styles: self.styles.unwrap_or_default(),
         }
@@ -179,12 +148,7 @@ impl ContextBuilder {
 
 impl Default for ContextBuilder {
     fn default() -> Self {
-        Self {
-            std: None,
-            styles: None,
-            policy: EvictionPolicy::default(),
-            max_size: 2000,
-        }
+        Self { std: None, styles: None }
     }
 }
 
@@ -198,8 +162,6 @@ pub struct Vm<'a> {
     pub fonts: &'a mut FontStore,
     /// Stores decoded images.
     pub images: &'a mut ImageStore,
-    /// Caches layouting artifacts.
-    pub layout_cache: &'a mut LayoutCache,
     /// The default styles.
     pub styles: &'a StyleMap,
     /// The stack of imported files that led to evaluation of the current file.
@@ -223,7 +185,6 @@ impl<'a> Vm<'a> {
             sources: &mut ctx.sources,
             fonts: &mut ctx.fonts,
             images: &mut ctx.images,
-            layout_cache: &mut ctx.layout_cache,
             styles: &ctx.styles,
             route: vec![],
             modules: HashMap::new(),

@@ -49,7 +49,7 @@ impl<const S: ShapeKind> Layout for ShapeNode<S> {
         vm: &mut Vm,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Constrained<Arc<Frame>>>> {
+    ) -> TypResult<Vec<Arc<Frame>>> {
         let mut frames;
         if let Some(child) = &self.0 {
             let mut padding = styles.get(Self::PADDING);
@@ -60,48 +60,47 @@ impl<const S: ShapeKind> Layout for ShapeNode<S> {
             // Pad the child.
             let child = child.clone().padded(Sides::splat(padding));
 
-            let mut pod = Regions::one(regions.current, regions.base, regions.expand);
+            let mut pod = Regions::one(regions.first, regions.base, regions.expand);
             frames = child.layout(vm, &pod, styles)?;
 
             // Relayout with full expansion into square region to make sure
             // the result is really a square or circle.
             if is_quadratic(S) {
                 let length = if regions.expand.x || regions.expand.y {
-                    let target = regions.expand.select(regions.current, Size::zero());
+                    let target = regions.expand.select(regions.first, Size::zero());
                     target.x.max(target.y)
                 } else {
-                    let size = frames[0].item.size;
+                    let size = frames[0].size;
                     let desired = size.x.max(size.y);
-                    desired.min(regions.current.x).min(regions.current.y)
+                    desired.min(regions.first.x).min(regions.first.y)
                 };
 
-                pod.current = Size::splat(length);
+                pod.first = Size::splat(length);
                 pod.expand = Spec::splat(true);
                 frames = child.layout(vm, &pod, styles)?;
-                frames[0].cts = Constraints::tight(regions);
             }
         } else {
             // The default size that a shape takes on if it has no child and
             // enough space.
             let mut size =
-                Size::new(Length::pt(45.0), Length::pt(30.0)).min(regions.current);
+                Size::new(Length::pt(45.0), Length::pt(30.0)).min(regions.first);
 
             if is_quadratic(S) {
                 let length = if regions.expand.x || regions.expand.y {
-                    let target = regions.expand.select(regions.current, Size::zero());
+                    let target = regions.expand.select(regions.first, Size::zero());
                     target.x.max(target.y)
                 } else {
                     size.x.min(size.y)
                 };
                 size = Size::splat(length);
             } else {
-                size = regions.expand.select(regions.current, size);
+                size = regions.expand.select(regions.first, size);
             }
 
-            frames = vec![Frame::new(size).constrain(Constraints::tight(regions))];
+            frames = vec![Arc::new(Frame::new(size))];
         }
 
-        let frame = Arc::make_mut(&mut frames[0].item);
+        let frame = Arc::make_mut(&mut frames[0]);
 
         // Add fill and/or stroke.
         let fill = styles.get(Self::FILL);

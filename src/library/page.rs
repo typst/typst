@@ -115,15 +115,12 @@ impl PageNode {
 
         // Layout the child.
         let regions = Regions::repeat(size, size, size.map(Length::is_finite));
-        let mut frames: Vec<_> = child
-            .layout(vm, &regions, styles)?
-            .into_iter()
-            .map(|c| c.item)
-            .collect();
+        let mut frames = child.layout(vm, &regions, styles)?;
 
         let header = styles.get_ref(Self::HEADER);
         let footer = styles.get_ref(Self::FOOTER);
 
+        // Realize header and footer.
         for frame in &mut frames {
             let size = frame.size;
             let padding = padding.resolve(size);
@@ -136,7 +133,7 @@ impl PageNode {
                     let w = size.x - padding.left - padding.right;
                     let area = Size::new(w, h);
                     let pod = Regions::one(area, area, area.map(Length::is_finite));
-                    let sub = template.layout(vm, &pod, styles)?.remove(0).item;
+                    let sub = template.layout(vm, &pod, styles)?.remove(0);
                     Arc::make_mut(frame).push_frame(pos, sub);
                 }
             }
