@@ -103,7 +103,7 @@ impl TextNode {
     #[skip]
     pub const LINK: Option<EcoString> = None;
 
-    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Template> {
+    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Template> {
         // The text constructor is special: It doesn't create a text node.
         // Instead, it leaves the passed argument structurally unchanged, but
         // styles all text in it.
@@ -117,15 +117,15 @@ pub struct StrongNode(pub Template);
 
 #[class]
 impl StrongNode {
-    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Template> {
+    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Template> {
         Ok(Template::show(Self(args.expect("body")?)))
     }
 }
 
 impl Show for StrongNode {
-    fn show(&self, vm: &mut Vm, styles: StyleChain) -> TypResult<Template> {
+    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Template> {
         Ok(styles
-            .show(self, vm, [Value::Template(self.0.clone())])?
+            .show(self, ctx, [Value::Template(self.0.clone())])?
             .unwrap_or_else(|| self.0.clone().styled(TextNode::STRONG, true)))
     }
 }
@@ -136,15 +136,15 @@ pub struct EmphNode(pub Template);
 
 #[class]
 impl EmphNode {
-    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Template> {
+    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Template> {
         Ok(Template::show(Self(args.expect("body")?)))
     }
 }
 
 impl Show for EmphNode {
-    fn show(&self, vm: &mut Vm, styles: StyleChain) -> TypResult<Template> {
+    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Template> {
         Ok(styles
-            .show(self, vm, [Value::Template(self.0.clone())])?
+            .show(self, ctx, [Value::Template(self.0.clone())])?
             .unwrap_or_else(|| self.0.clone().styled(TextNode::EMPH, true)))
     }
 }

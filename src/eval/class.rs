@@ -2,8 +2,9 @@ use std::any::TypeId;
 use std::fmt::{self, Debug, Formatter, Write};
 use std::hash::{Hash, Hasher};
 
-use super::{Args, Func, StyleMap, Template, Value, Vm};
+use super::{Args, Func, StyleMap, Template, Value};
 use crate::diag::TypResult;
+use crate::Context;
 
 /// A class of nodes.
 ///
@@ -38,7 +39,7 @@ use crate::diag::TypResult;
 pub struct Class {
     name: &'static str,
     id: TypeId,
-    construct: fn(&mut Vm, &mut Args) -> TypResult<Value>,
+    construct: fn(&mut Context, &mut Args) -> TypResult<Value>,
     set: fn(&mut Args, &mut StyleMap) -> TypResult<()>,
 }
 
@@ -81,8 +82,8 @@ impl Class {
     /// This parses both property and data arguments (in this order), styles the
     /// template constructed from the data with the style properties and wraps
     /// it in a value.
-    pub fn construct(&self, vm: &mut Vm, mut args: Args) -> TypResult<Value> {
-        let value = (self.construct)(vm, &mut args)?;
+    pub fn construct(&self, ctx: &mut Context, mut args: Args) -> TypResult<Value> {
+        let value = (self.construct)(ctx, &mut args)?;
         args.finish()?;
         Ok(value)
     }
@@ -125,7 +126,7 @@ pub trait Construct {
     ///
     /// This is passed only the arguments that remain after execution of the
     /// class's set rule.
-    fn construct(vm: &mut Vm, args: &mut Args) -> TypResult<Template>;
+    fn construct(ctx: &mut Context, args: &mut Args) -> TypResult<Template>;
 }
 
 /// Set style properties of a class.

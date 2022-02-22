@@ -37,7 +37,7 @@ impl ParNode {
     /// The extra spacing between paragraphs (dependent on scaled font size).
     pub const SPACING: Linear = Relative::new(0.55).into();
 
-    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Template> {
+    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Template> {
         // The paragraph constructor is special: It doesn't create a paragraph
         // since that happens automatically through markup. Instead, it just
         // lifts the passed body to the block level so that it won't merge with
@@ -83,7 +83,7 @@ impl ParNode {
 impl Layout for ParNode {
     fn layout(
         &self,
-        vm: &mut Vm,
+        ctx: &mut Context,
         regions: &Regions,
         styles: StyleChain,
     ) -> TypResult<Vec<Arc<Frame>>> {
@@ -94,8 +94,8 @@ impl Layout for ParNode {
 
         // Prepare paragraph layout by building a representation on which we can
         // do line breaking without layouting each and every line from scratch.
-        let par = ParLayout::new(vm, self, bidi, regions, &styles)?;
-        let fonts = &mut *vm.fonts;
+        let par = ParLayout::new(ctx, self, bidi, regions, &styles)?;
+        let fonts = &mut ctx.fonts;
         let em = styles.get(TextNode::SIZE).abs;
         let align = styles.get(ParNode::ALIGN);
         let leading = styles.get(ParNode::LEADING).resolve(em);
@@ -242,7 +242,7 @@ pub struct ParbreakNode;
 
 #[class]
 impl ParbreakNode {
-    fn construct(_: &mut Vm, _: &mut Args) -> TypResult<Template> {
+    fn construct(_: &mut Context, _: &mut Args) -> TypResult<Template> {
         Ok(Template::Parbreak)
     }
 }
@@ -252,7 +252,7 @@ pub struct LinebreakNode;
 
 #[class]
 impl LinebreakNode {
-    fn construct(_: &mut Vm, _: &mut Args) -> TypResult<Template> {
+    fn construct(_: &mut Context, _: &mut Args) -> TypResult<Template> {
         Ok(Template::Linebreak)
     }
 }
@@ -286,7 +286,7 @@ enum ParItem<'a> {
 impl<'a> ParLayout<'a> {
     /// Prepare initial shaped text and layouted children.
     fn new(
-        vm: &mut Vm,
+        ctx: &mut Context,
         par: &'a ParNode,
         bidi: BidiInfo<'a>,
         regions: &Regions,
@@ -307,7 +307,7 @@ impl<'a> ParLayout<'a> {
                         cursor += count;
                         let subrange = start .. cursor;
                         let text = &bidi.text[subrange.clone()];
-                        let shaped = shape(vm.fonts, text, styles, level.dir());
+                        let shaped = shape(&mut ctx.fonts, text, styles, level.dir());
                         items.push(ParItem::Text(shaped));
                         ranges.push(subrange);
                     }
@@ -326,7 +326,7 @@ impl<'a> ParLayout<'a> {
                 ParChild::Node(node) => {
                     let size = Size::new(regions.first.x, regions.base.y);
                     let pod = Regions::one(size, regions.base, Spec::splat(false));
-                    let frame = node.layout(vm, &pod, styles)?.remove(0);
+                    let frame = node.layout(ctx, &pod, styles)?.remove(0);
                     items.push(ParItem::Frame(Arc::take(frame)));
                     ranges.push(range);
                 }

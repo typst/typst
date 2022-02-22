@@ -2,11 +2,12 @@ use std::fmt::{self, Debug, Formatter, Write};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use super::{Cast, Eval, Scope, Value, Vm};
+use super::{Cast, Eval, Scope, Scopes, Value};
 use crate::diag::{At, TypResult};
 use crate::syntax::ast::Expr;
 use crate::syntax::{Span, Spanned};
 use crate::util::EcoString;
+use crate::Context;
 
 /// An evaluatable function.
 #[derive(Clone, Hash)]
@@ -27,7 +28,7 @@ impl Func {
     /// Create a new function from a native rust function.
     pub fn native(
         name: &'static str,
-        func: fn(&mut Vm, &mut Args) -> TypResult<Value>,
+        func: fn(&mut Context, &mut Args) -> TypResult<Value>,
     ) -> Self {
         Self(Arc::new(Repr::Native(Native { name, func })))
     }
@@ -46,14 +47,14 @@ impl Func {
         }
     }
 
-    /// Call the function in the context with the arguments.
-    pub fn call(&self, vm: &mut Vm, mut args: Args) -> TypResult<Value> {
+    /// Call the function with a virtual machine and arguments.
+    pub fn call(&self, ctx: &mut Context, mut args: Args) -> TypResult<Value> {
         let value = match self.0.as_ref() {
-            Repr::Native(native) => (native.func)(vm, &mut args)?,
-            Repr::Closure(closure) => closure.call(vm, &mut args)?,
+            Repr::Native(native) => (native.func)(ctx, &mut args)?,
+            Repr::Closure(closure) => closure.call(ctx, &mut args)?,
             Repr::With(wrapped, applied) => {
                 args.items.splice(.. 0, applied.items.iter().cloned());
-                return wrapped.call(vm, args);
+                return wrapped.call(ctx, args);
             }
         };
         args.finish()?;
@@ -88,7 +89,7 @@ struct Native {
     /// The name of the function.
     pub name: &'static str,
     /// The function pointer.
-    pub func: fn(&mut Vm, &mut Args) -> TypResult<Value>,
+    pub func: fn(&mut Context, &mut Args) -> TypResult<Value>,
 }
 
 impl Hash for Native {
@@ -115,15 +116,15 @@ pub struct Closure {
 
 impl Closure {
     /// Call the function in the context with the arguments.
-    pub fn call(&self, vm: &mut Vm, args: &mut Args) -> TypResult<Value> {
+    pub fn call(&self, ctx: &mut Context, args: &mut Args) -> TypResult<Value> {
         // Don't leak the scopes from the call site. Instead, we use the
         // scope of captured variables we collected earlier.
-        let prev_scopes = std::mem::take(&mut vm.scopes);
-        vm.scopes.top = self.captured.clone();
+        let mut scp = Scopes::new(None);
+        scp.top = self.captured.clone();
 
         // Parse the arguments according to the parameter list.
         for (param, default) in &self.params {
-            vm.scopes.top.def_mut(param, match default {
+            scp.top.def_mut(param, match default {
                 None => args.expect::<Value>(param)?,
                 Some(default) => {
                     args.named::<Value>(param)?.unwrap_or_else(|| default.clone())
@@ -133,14 +134,11 @@ impl Closure {
 
         // Put the remaining arguments into the sink.
         if let Some(sink) = &self.sink {
-            vm.scopes.top.def_mut(sink, args.take());
+            scp.top.def_mut(sink, args.take());
         }
 
         // Evaluate the body.
-        let value = self.body.eval(vm)?;
-
-        // Restore the call site scopes.
-        vm.scopes = prev_scopes;
+        let value = self.body.eval(ctx, &mut scp)?;
 
         Ok(value)
     }

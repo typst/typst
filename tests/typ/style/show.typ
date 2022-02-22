@@ -44,9 +44,10 @@ A [= Heading] C
 = Heading
 
 ---
-// Error: 1-29 show rule is recursive
-#show strong(x) as strong(x)
-*Hi*
+// Ref: false
+// // Error: 1-29 show rule is recursive
+// #show strong(x) as strong(x)
+// *Hi*
 
 ---
 // Error: 2-19 set, show and wrap are only allowed directly in markup

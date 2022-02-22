@@ -21,7 +21,7 @@ impl LinkNode {
     /// Whether to underline link.
     pub const UNDERLINE: bool = true;
 
-    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Template> {
+    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Template> {
         Ok(Template::show(Self {
             url: args.expect::<EcoString>("url")?,
             body: args.find()?,
@@ -30,12 +30,15 @@ impl LinkNode {
 }
 
 impl Show for LinkNode {
-    fn show(&self, vm: &mut Vm, styles: StyleChain) -> TypResult<Template> {
+    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Template> {
         let mut body = styles
-            .show(self, vm, [Value::Str(self.url.clone()), match &self.body {
-                Some(body) => Value::Template(body.clone()),
-                None => Value::None,
-            }])?
+            .show(self, ctx, [
+                Value::Str(self.url.clone()),
+                match &self.body {
+                    Some(body) => Value::Template(body.clone()),
+                    None => Value::None,
+                },
+            ])?
             .or_else(|| self.body.clone())
             .unwrap_or_else(|| {
                 let url = &self.url;

@@ -13,8 +13,7 @@
 //!   markup.
 //! - **Layouting:** Next, the tree is [layouted] into a portable version of the
 //!   typeset document. The output of this is a collection of [`Frame`]s (one
-//!   per page), ready for exporting. This step is supported by an incremental
-//!   [cache] that enables reuse of intermediate layouting results.
+//!   per page), ready for exporting.
 //! - **Exporting:** The finished layout can be exported into a supported
 //!   format. Currently, the only supported output format is [PDF].
 //!
@@ -22,11 +21,10 @@
 //! [parsed]: parse::parse
 //! [green tree]: syntax::GreenNode
 //! [AST]: syntax::ast
-//! [evaluate]: Vm::evaluate
+//! [evaluate]: eval::Eval
 //! [module]: eval::Module
 //! [template]: eval::Template
-//! [layouted]: eval::Template::layout_pages
-//! [cache]: layout::LayoutCache
+//! [layouted]: eval::Template::layout
 //! [PDF]: export::pdf
 
 #![allow(clippy::len_without_is_empty)]
@@ -50,7 +48,6 @@ pub mod parse;
 pub mod source;
 pub mod syntax;
 
-use std::any::TypeId;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -74,9 +71,15 @@ pub struct Context {
     /// Stores decoded images.
     pub images: ImageStore,
     /// The standard library scope.
-    std: Scope,
+    std: Arc<Scope>,
     /// The default styles.
-    styles: StyleMap,
+    styles: Arc<StyleMap>,
+    /// Cached modules.
+    modules: HashMap<SourceId, Module>,
+    /// The stack of imported files that led to evaluation of the current file.
+    route: Vec<SourceId>,
+    /// The dependencies of the current evaluation process.
+    deps: Vec<(SourceId, usize)>,
 }
 
 impl Context {
@@ -100,132 +103,49 @@ impl Context {
         &self.styles
     }
 
-    /// Typeset a source file into a collection of layouted frames.
-    ///
-    /// Returns either a vector of frames representing individual pages or
-    /// diagnostics in the form of a vector of error message with file and span
-    /// information.
-    pub fn typeset(&mut self, id: SourceId) -> TypResult<Vec<Arc<Frame>>> {
-        Vm::new(self).typeset(id)
-    }
-}
-
-/// A builder for a [`Context`].
-///
-/// This struct is created by [`Context::builder`].
-pub struct ContextBuilder {
-    std: Option<Scope>,
-    styles: Option<StyleMap>,
-}
-
-impl ContextBuilder {
-    /// The scope containing definitions that are available everywhere
-    /// (the standard library).
-    pub fn std(mut self, std: Scope) -> Self {
-        self.std = Some(std);
-        self
-    }
-
-    /// The default properties for page size, font selection and so on.
-    pub fn styles(mut self, styles: StyleMap) -> Self {
-        self.styles = Some(styles);
-        self
-    }
-
-    /// Finish building the context by providing the `loader` used to load
-    /// fonts, images, source files and other resources.
-    pub fn build(self, loader: Arc<dyn Loader>) -> Context {
-        Context {
-            sources: SourceStore::new(Arc::clone(&loader)),
-            fonts: FontStore::new(Arc::clone(&loader)),
-            images: ImageStore::new(Arc::clone(&loader)),
-            loader,
-            std: self.std.unwrap_or_else(library::new),
-            styles: self.styles.unwrap_or_default(),
-        }
-    }
-}
-
-impl Default for ContextBuilder {
-    fn default() -> Self {
-        Self { std: None, styles: None }
-    }
-}
-
-/// A virtual machine for a single typesetting process.
-pub struct Vm<'a> {
-    /// The loader the context was created with.
-    pub loader: &'a dyn Loader,
-    /// Stores loaded source files.
-    pub sources: &'a mut SourceStore,
-    /// Stores parsed font faces.
-    pub fonts: &'a mut FontStore,
-    /// Stores decoded images.
-    pub images: &'a mut ImageStore,
-    /// The default styles.
-    pub styles: &'a StyleMap,
-    /// The stack of imported files that led to evaluation of the current file.
-    pub route: Vec<SourceId>,
-    /// Caches imported modules.
-    pub modules: HashMap<SourceId, Module>,
-    /// The active scopes.
-    pub scopes: Scopes<'a>,
-    /// Currently evaluated show rules. This is used to prevent recursive show
-    /// rules.
-    pub rules: Vec<TypeId>,
-    /// How deeply nested the current layout tree position is.
-    pub level: usize,
-}
-
-impl<'a> Vm<'a> {
-    /// Create a new virtual machine.
-    pub fn new(ctx: &'a mut Context) -> Self {
-        Self {
-            loader: ctx.loader.as_ref(),
-            sources: &mut ctx.sources,
-            fonts: &mut ctx.fonts,
-            images: &mut ctx.images,
-            styles: &ctx.styles,
-            route: vec![],
-            modules: HashMap::new(),
-            scopes: Scopes::new(Some(&ctx.std)),
-            rules: vec![],
-            level: 0,
-        }
-    }
-
     /// Evaluate a source file and return the resulting module.
     ///
     /// Returns either a module containing a scope with top-level bindings and a
     /// layoutable template or diagnostics in the form of a vector of error
-    /// message with file and span information.
+    /// messages with file and span information.
     pub fn evaluate(&mut self, id: SourceId) -> TypResult<Module> {
         // Prevent cyclic evaluation.
-        assert!(!self.route.contains(&id));
+        if self.route.contains(&id) {
+            let path = self.sources.get(id).path().display();
+            panic!("Tried to cyclicly evaluate {}", path);
+        }
 
-        // Check whether the module was already loaded.
+        // Check whether the module was already evaluated.
         if let Some(module) = self.modules.get(&id) {
-            return Ok(module.clone());
+            if module.valid(&self.sources) {
+                return Ok(module.clone());
+            } else {
+                self.modules.remove(&id);
+            }
         }
 
         // Parse the file.
         let source = self.sources.get(id);
         let ast = source.ast()?;
 
-        // Prepare the new context.
-        let fresh = Scopes::new(self.scopes.base);
-        let prev = std::mem::replace(&mut self.scopes, fresh);
-        self.route.push(id);
+        let std = self.std.clone();
+        let mut scp = Scopes::new(Some(&std));
 
         // Evaluate the module.
-        let template = ast.eval(self)?;
-
-        // Restore the old context.
-        let scope = std::mem::replace(&mut self.scopes, prev).top;
+        let prev = std::mem::replace(&mut self.deps, vec![(id, source.rev())]);
+        self.route.push(id);
+        let template = ast.eval(self, &mut scp);
         self.route.pop().unwrap();
+        let deps = std::mem::replace(&mut self.deps, prev);
+
+        // Assemble the module.
+        let module = Module {
+            scope: scp.top,
+            template: template?,
+            deps,
+        };
 
         // Save the evaluated module.
-        let module = Module { scope, template };
         self.modules.insert(id, module.clone());
 
         Ok(module)
@@ -237,11 +157,11 @@ impl<'a> Vm<'a> {
     /// diagnostics in the form of a vector of error message with file and span
     /// information.
     pub fn typeset(&mut self, id: SourceId) -> TypResult<Vec<Arc<Frame>>> {
-        self.evaluate(id)?.template.layout_pages(self)
+        self.evaluate(id)?.template.layout(self)
     }
 
-    /// Resolve a user-entered path (relative to the source file) to be
-    /// relative to the compilation environment's root.
+    /// Resolve a user-entered path (relative to the current evaluation
+    /// location) to be relative to the compilation environment's root.
     pub fn resolve(&self, path: &str) -> PathBuf {
         if let Some(&id) = self.route.last() {
             if let Some(dir) = self.sources.get(id).path().parent() {
@@ -250,5 +170,50 @@ impl<'a> Vm<'a> {
         }
 
         path.into()
+    }
+}
+
+/// A builder for a [`Context`].
+///
+/// This struct is created by [`Context::builder`].
+pub struct ContextBuilder {
+    std: Option<Arc<Scope>>,
+    styles: Option<Arc<StyleMap>>,
+}
+
+impl ContextBuilder {
+    /// The scope containing definitions that are available everywhere
+    /// (the standard library).
+    pub fn std(mut self, std: impl Into<Arc<Scope>>) -> Self {
+        self.std = Some(std.into());
+        self
+    }
+
+    /// The default properties for page size, font selection and so on.
+    pub fn styles(mut self, styles: impl Into<Arc<StyleMap>>) -> Self {
+        self.styles = Some(styles.into());
+        self
+    }
+
+    /// Finish building the context by providing the `loader` used to load
+    /// fonts, images, source files and other resources.
+    pub fn build(self, loader: Arc<dyn Loader>) -> Context {
+        Context {
+            sources: SourceStore::new(Arc::clone(&loader)),
+            fonts: FontStore::new(Arc::clone(&loader)),
+            images: ImageStore::new(Arc::clone(&loader)),
+            loader,
+            std: self.std.unwrap_or_else(|| Arc::new(library::new())),
+            styles: self.styles.unwrap_or_default(),
+            modules: HashMap::new(),
+            route: vec![],
+            deps: vec![],
+        }
+    }
+}
+
+impl Default for ContextBuilder {
+    fn default() -> Self {
+        Self { std: None, styles: None }
     }
 }

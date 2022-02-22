@@ -53,7 +53,11 @@ impl SourceStore {
     }
 
     /// Load a source file from a path using the `loader`.
-    pub fn load(&mut self, path: &Path) -> io::Result<SourceId> {
+    ///
+    /// If there already exists a source file for this path, it is
+    /// [replaced](SourceFile::replace).
+    pub fn load(&mut self, path: impl AsRef<Path>) -> io::Result<SourceId> {
+        let path = path.as_ref();
         let hash = self.loader.resolve(path)?;
         if let Some(&id) = self.files.get(&hash) {
             return Ok(id);
@@ -74,13 +78,14 @@ impl SourceStore {
     /// will use the inserted file instead of going through [`Loader::load`].
     ///
     /// If the path is resolvable and points to an existing source file, it is
-    /// overwritten.
-    pub fn provide(&mut self, path: &Path, src: String) -> SourceId {
+    /// [replaced](SourceFile::replace).
+    pub fn provide(&mut self, path: impl AsRef<Path>, src: String) -> SourceId {
+        let path = path.as_ref();
         let hash = self.loader.resolve(path).ok();
 
         // Check for existing file and replace if one exists.
         if let Some(&id) = hash.and_then(|hash| self.files.get(&hash)) {
-            self.sources[id.0 as usize] = SourceFile::new(id, path, src);
+            self.replace(id, src);
             return id;
         }
 
@@ -98,19 +103,24 @@ impl SourceStore {
 
     /// Get a reference to a loaded source file.
     ///
-    /// This panics if no source file with this `id` exists. This function
-    /// should only be called with ids returned by this store's
-    /// [`load()`](Self::load) and [`provide()`](Self::provide) methods.
+    /// This panics if no source file with this `id` exists.
     #[track_caller]
     pub fn get(&self, id: SourceId) -> &SourceFile {
         &self.sources[id.0 as usize]
     }
 
-    /// Edit a source file by replacing the given range.
+    /// Fully [replace](SourceFile::replace) the source text of a file.
     ///
-    /// Returns the range of the section in the new source that was ultimately
-    /// reparsed. This panics if no source file with this `id` exists or if the
-    /// `replace` range is out of bounds.
+    /// This panics if no source file with this `id` exists.
+    #[track_caller]
+    pub fn replace(&mut self, id: SourceId, src: String) {
+        self.sources[id.0 as usize].replace(src)
+    }
+
+    /// [Edit](SourceFile::edit) a source file by replacing the given range.
+    ///
+    /// This panics if no source file with this `id` exists or if the `replace`
+    /// range is out of bounds.
     #[track_caller]
     pub fn edit(
         &mut self,
@@ -132,6 +142,7 @@ pub struct SourceFile {
     src: String,
     lines: Vec<Line>,
     root: Arc<GreenNode>,
+    rev: usize,
 }
 
 impl SourceFile {
@@ -145,6 +156,7 @@ impl SourceFile {
             root: parse(&src),
             src,
             lines,
+            rev: 0,
         }
     }
 
@@ -189,9 +201,68 @@ impl SourceFile {
         &self.src
     }
 
-    /// Slice out the part of the source code enclosed by the span.
+    /// The revision number of the file.
+    ///
+    /// This is increased on [replacements](Self::replace) and
+    /// [edits](Self::edit).
+    pub fn rev(&self) -> usize {
+        self.rev
+    }
+
+    /// Slice out the part of the source code enclosed by the range.
     pub fn get(&self, range: Range<usize>) -> Option<&str> {
         self.src.get(range)
+    }
+
+    /// Fully replace the source text and increase the revision number.
+    pub fn replace(&mut self, src: String) {
+        self.src = src;
+        self.lines = vec![Line { byte_idx: 0, utf16_idx: 0 }];
+        self.lines.extend(Line::iter(0, 0, &self.src));
+        self.root = parse(&self.src);
+        self.rev = self.rev.wrapping_add(1);
+    }
+
+    /// Edit the source file by replacing the given range and increase the
+    /// revision number.
+    ///
+    /// Returns the range of the section in the new source that was ultimately
+    /// reparsed.
+    ///
+    /// The method panics if the `replace` range is out of bounds.
+    pub fn edit(&mut self, replace: Range<usize>, with: &str) -> Range<usize> {
+        self.rev = self.rev.wrapping_add(1);
+
+        let start_byte = replace.start;
+        let start_utf16 = self.byte_to_utf16(replace.start).unwrap();
+        self.src.replace_range(replace.clone(), with);
+
+        // Remove invalidated line starts.
+        let line = self.byte_to_line(start_byte).unwrap();
+        self.lines.truncate(line + 1);
+
+        // Handle adjoining of \r and \n.
+        if self.src[.. start_byte].ends_with('\r') && with.starts_with('\n') {
+            self.lines.pop();
+        }
+
+        // Recalculate the line starts after the edit.
+        self.lines.extend(Line::iter(
+            start_byte,
+            start_utf16,
+            &self.src[start_byte ..],
+        ));
+
+        // Incrementally reparse the replaced range.
+        Reparser::new(&self.src, replace, with.len()).reparse(&mut self.root)
+    }
+
+    /// Provide highlighting categories for the given range of the source file.
+    pub fn highlight<F>(&self, range: Range<usize>, mut f: F)
+    where
+        F: FnMut(Range<usize>, Category),
+    {
+        syntax::highlight(self.red().as_ref(), range, &mut f)
     }
 
     /// Get the length of the file in bytes.
@@ -288,43 +359,6 @@ impl SourceFile {
             chars.next();
         }
         Some(range.start + (line.len() - chars.as_str().len()))
-    }
-
-    /// Edit the source file by replacing the given range.
-    ///
-    /// Returns the range of the section in the new source that was ultimately
-    /// reparsed. The method panics if the `replace` range is out of bounds.
-    pub fn edit(&mut self, replace: Range<usize>, with: &str) -> Range<usize> {
-        let start_byte = replace.start;
-        let start_utf16 = self.byte_to_utf16(replace.start).unwrap();
-        self.src.replace_range(replace.clone(), with);
-
-        // Remove invalidated line starts.
-        let line = self.byte_to_line(start_byte).unwrap();
-        self.lines.truncate(line + 1);
-
-        // Handle adjoining of \r and \n.
-        if self.src[.. start_byte].ends_with('\r') && with.starts_with('\n') {
-            self.lines.pop();
-        }
-
-        // Recalculate the line starts after the edit.
-        self.lines.extend(Line::iter(
-            start_byte,
-            start_utf16,
-            &self.src[start_byte ..],
-        ));
-
-        // Incrementally reparse the replaced range.
-        Reparser::new(&self.src, replace, with.len()).reparse(&mut self.root)
-    }
-
-    /// Provide highlighting categories for the given range of the source file.
-    pub fn highlight<F>(&self, range: Range<usize>, mut f: F)
-    where
-        F: FnMut(Range<usize>, Category),
-    {
-        syntax::highlight(self.red().as_ref(), range, &mut f)
     }
 }
 

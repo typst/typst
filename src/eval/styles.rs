@@ -3,9 +3,10 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use super::{Args, Func, Span, Template, Value, Vm};
+use super::{Args, Func, Span, Template, Value};
 use crate::diag::{At, TypResult};
 use crate::library::{PageNode, ParNode};
+use crate::Context;
 
 /// A map of style properties.
 #[derive(Default, Clone, PartialEq, Hash)]
@@ -341,11 +342,6 @@ impl<'a> StyleChain<'a> {
         *self = self.outer.copied().unwrap_or_default();
     }
 
-    /// Return the span of a recipe for the given node.
-    pub(crate) fn recipe_span(self, node: TypeId) -> Option<Span> {
-        self.recipes(node).next().map(|recipe| recipe.span)
-    }
-
     /// Return the chain, but without the last link if that one contains only
     /// scoped styles. This is a hack.
     pub(crate) fn unscoped(mut self, node: TypeId) -> Self {
@@ -415,12 +411,12 @@ impl<'a> StyleChain<'a> {
     pub fn show(
         self,
         node: &dyn Any,
-        vm: &mut Vm,
+        ctx: &mut Context,
         values: impl IntoIterator<Item = Value>,
     ) -> TypResult<Option<Template>> {
         Ok(if let Some(recipe) = self.recipes(node.type_id()).next() {
             let args = Args::from_values(recipe.span, values);
-            Some(recipe.func.call(vm, args)?.cast().at(recipe.span)?)
+            Some(recipe.func.call(ctx, args)?.cast().at(recipe.span)?)
         } else {
             None
         })

@@ -4,9 +4,10 @@ use std::hash::{Hash, Hasher};
 use std::iter;
 use std::sync::{Arc, RwLock};
 
-use super::{Args, Class, Construct, Func, Set, Value, Vm};
+use super::{Args, Class, Construct, Func, Set, Value};
 use crate::diag::TypResult;
 use crate::util::EcoString;
+use crate::Context;
 
 /// A slot where a variable is stored.
 pub type Slot = Arc<RwLock<Value>>;
@@ -86,7 +87,7 @@ impl Scope {
     pub fn def_func(
         &mut self,
         name: &'static str,
-        func: fn(&mut Vm, &mut Args) -> TypResult<Value>,
+        func: fn(&mut Context, &mut Args) -> TypResult<Value>,
     ) {
         self.def_const(name, Func::native(name, func));
     }

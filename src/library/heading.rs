@@ -37,7 +37,7 @@ impl HeadingNode {
     /// Whether the heading is block-level.
     pub const BLOCK: Leveled<bool> = Leveled::Value(true);
 
-    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Template> {
+    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Template> {
         Ok(Template::show(Self {
             body: args.expect("body")?,
             level: args.named("level")?.unwrap_or(1),
@@ -46,16 +46,16 @@ impl HeadingNode {
 }
 
 impl Show for HeadingNode {
-    fn show(&self, vm: &mut Vm, styles: StyleChain) -> TypResult<Template> {
+    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Template> {
         macro_rules! resolve {
             ($key:expr) => {
-                styles.get_cloned($key).resolve(vm, self.level)?
+                styles.get_cloned($key).resolve(ctx, self.level)?
             };
         }
 
         // Resolve the user recipe.
         let mut body = styles
-            .show(self, vm, [
+            .show(self, ctx, [
                 Value::Int(self.level as i64),
                 Value::Template(self.body.clone()),
             ])?
@@ -124,13 +124,13 @@ pub enum Leveled<T> {
 
 impl<T: Cast> Leveled<T> {
     /// Resolve the value based on the level.
-    pub fn resolve(self, vm: &mut Vm, level: usize) -> TypResult<T> {
+    pub fn resolve(self, ctx: &mut Context, level: usize) -> TypResult<T> {
         Ok(match self {
             Self::Value(value) => value,
             Self::Mapping(mapping) => mapping(level),
             Self::Func(func, span) => {
                 let args = Args::from_values(span, [Value::Int(level as i64)]);
-                func.call(vm, args)?.cast().at(span)?
+                func.call(ctx, args)?.cast().at(span)?
             }
         })
     }

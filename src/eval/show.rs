@@ -6,12 +6,12 @@ use std::sync::Arc;
 use super::{StyleChain, Template};
 use crate::diag::TypResult;
 use crate::util::Prehashed;
-use crate::Vm;
+use crate::Context;
 
 /// A node that can be realized given some styles.
 pub trait Show {
     /// Realize the template in the given styles.
-    fn show(&self, vm: &mut Vm, styles: StyleChain) -> TypResult<Template>;
+    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Template>;
 
     /// Convert to a packed show node.
     fn pack(self) -> ShowNode
@@ -42,8 +42,8 @@ impl ShowNode {
 }
 
 impl Show for ShowNode {
-    fn show(&self, vm: &mut Vm, styles: StyleChain) -> TypResult<Template> {
-        self.0.show(vm, styles)
+    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Template> {
+        self.0.show(ctx, styles)
     }
 
     fn pack(self) -> ShowNode {

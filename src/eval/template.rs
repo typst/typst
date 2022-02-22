@@ -1,7 +1,6 @@
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::iter::Sum;
-use std::mem;
 use std::ops::{Add, AddAssign};
 
 use typed_arena::Arena;
@@ -169,21 +168,23 @@ impl Template {
     }
 
     /// Layout this template into a collection of pages.
-    pub fn layout_pages(&self, vm: &mut Vm) -> TypResult<Vec<Arc<Frame>>> {
+    pub fn layout(&self, ctx: &mut Context) -> TypResult<Vec<Arc<Frame>>> {
         let sya = Arena::new();
         let tpa = Arena::new();
 
+        let styles = ctx.styles.clone();
+        let styles = StyleChain::new(&styles);
+
         let mut builder = Builder::new(&sya, &tpa, true);
-        let styles = StyleChain::new(vm.styles);
-        builder.process(vm, self, styles)?;
-        builder.finish(vm, styles)?;
+        builder.process(ctx, self, styles)?;
+        builder.finish(ctx, styles)?;
 
         let mut frames = vec![];
         let (pages, shared) = builder.pages.unwrap().finish();
 
         for (page, map) in pages.iter() {
             let number = 1 + frames.len();
-            frames.extend(page.layout(vm, number, map.chain(&shared))?);
+            frames.extend(page.layout(ctx, number, map.chain(&shared))?);
         }
 
         Ok(frames)
@@ -224,7 +225,7 @@ impl Add for Template {
 
 impl AddAssign for Template {
     fn add_assign(&mut self, rhs: Self) {
-        *self = mem::take(self) + rhs;
+        *self = std::mem::take(self) + rhs;
     }
 }
 
@@ -237,7 +238,7 @@ impl Sum for Template {
 impl Layout for Template {
     fn layout(
         &self,
-        vm: &mut Vm,
+        ctx: &mut Context,
         regions: &Regions,
         styles: StyleChain,
     ) -> TypResult<Vec<Arc<Frame>>> {
@@ -245,11 +246,11 @@ impl Layout for Template {
         let tpa = Arena::new();
 
         let mut builder = Builder::new(&sya, &tpa, false);
-        builder.process(vm, self, styles)?;
-        builder.finish(vm, styles)?;
+        builder.process(ctx, self, styles)?;
+        builder.finish(ctx, styles)?;
 
         let (flow, shared) = builder.flow.finish();
-        FlowNode(flow).layout(vm, regions, shared)
+        FlowNode(flow).layout(ctx, regions, shared)
     }
 
     fn pack(self) -> LayoutNode {
@@ -295,7 +296,7 @@ impl<'a> Builder<'a> {
     /// Process a template.
     fn process(
         &mut self,
-        vm: &mut Vm,
+        ctx: &mut Context,
         template: &'a Template,
         styles: StyleChain<'a>,
     ) -> TypResult<()> {
@@ -323,7 +324,7 @@ impl<'a> Builder<'a> {
                     builder.items.push(item.clone());
                     return Ok(());
                 }
-                _ => self.finish_list(vm)?,
+                _ => self.finish_list(ctx)?,
             }
         }
 
@@ -394,25 +395,19 @@ impl<'a> Builder<'a> {
                 });
             }
             Template::Pagebreak => {
-                self.finish_page(vm, true, true, styles)?;
+                self.finish_page(ctx, true, true, styles)?;
             }
             Template::Page(page) => {
-                self.finish_page(vm, false, false, styles)?;
+                self.finish_page(ctx, false, false, styles)?;
                 if let Some(pages) = &mut self.pages {
                     pages.push(page.clone(), styles);
                 }
             }
             Template::Show(node) => {
                 let id = node.id();
-                if vm.rules.contains(&id) {
-                    let span = styles.recipe_span(id).unwrap();
-                    return Err("show rule is recursive").at(span)?;
-                }
-                vm.rules.push(id);
-                let template = node.show(vm, styles)?;
+                let template = node.show(ctx, styles)?;
                 let stored = self.tpa.alloc(template);
-                self.process(vm, stored, styles.unscoped(id))?;
-                vm.rules.pop();
+                self.process(ctx, stored, styles.unscoped(id))?;
             }
             Template::Styled(styled) => {
                 let (sub, map) = styled.as_ref();
@@ -422,17 +417,17 @@ impl<'a> Builder<'a> {
                 let interruption = map.interruption();
                 match interruption {
                     Some(Interruption::Page) => {
-                        self.finish_page(vm, false, true, styles)?
+                        self.finish_page(ctx, false, true, styles)?
                     }
                     Some(Interruption::Par) => self.finish_par(styles),
                     None => {}
                 }
 
-                self.process(vm, sub, styles)?;
+                self.process(ctx, sub, styles)?;
 
                 match interruption {
                     Some(Interruption::Page) => {
-                        self.finish_page(vm, true, false, styles)?
+                        self.finish_page(ctx, true, false, styles)?
                     }
                     Some(Interruption::Par) => self.finish_par(styles),
                     None => {}
@@ -440,7 +435,7 @@ impl<'a> Builder<'a> {
             }
             Template::Sequence(seq) => {
                 for sub in seq.iter() {
-                    self.process(vm, sub, styles)?;
+                    self.process(ctx, sub, styles)?;
                 }
             }
         }
@@ -450,7 +445,7 @@ impl<'a> Builder<'a> {
 
     /// Finish the currently built paragraph.
     fn finish_par(&mut self, styles: StyleChain<'a>) {
-        let (par, shared) = mem::take(&mut self.par).finish();
+        let (par, shared) = std::mem::take(&mut self.par).finish();
         if !par.is_empty() {
             let node = ParNode(par).pack();
             self.flow.supportive(FlowChild::Node(node), shared);
@@ -459,7 +454,7 @@ impl<'a> Builder<'a> {
     }
 
     /// Finish the currently built list.
-    fn finish_list(&mut self, vm: &mut Vm) -> TypResult<()> {
+    fn finish_list(&mut self, ctx: &mut Context) -> TypResult<()> {
         let ListBuilder { styles, kind, items, wide, staged } = match self.list.take() {
             Some(list) => list,
             None => return Ok(()),
@@ -471,9 +466,9 @@ impl<'a> Builder<'a> {
         };
 
         let stored = self.tpa.alloc(template);
-        self.process(vm, stored, styles)?;
+        self.process(ctx, stored, styles)?;
         for (template, styles) in staged {
-            self.process(vm, template, styles)?;
+            self.process(ctx, template, styles)?;
         }
 
         Ok(())
@@ -482,15 +477,15 @@ impl<'a> Builder<'a> {
     /// Finish the currently built page run.
     fn finish_page(
         &mut self,
-        vm: &mut Vm,
+        ctx: &mut Context,
         keep_last: bool,
         keep_next: bool,
         styles: StyleChain<'a>,
     ) -> TypResult<()> {
-        self.finish_list(vm)?;
+        self.finish_list(ctx)?;
         self.finish_par(styles);
         if let Some(pages) = &mut self.pages {
-            let (flow, shared) = mem::take(&mut self.flow).finish();
+            let (flow, shared) = std::mem::take(&mut self.flow).finish();
             if !flow.is_empty() || (keep_last && self.keep_next) {
                 let styles = if flow.is_empty() { styles } else { shared };
                 let node = PageNode(FlowNode(flow).pack());
@@ -502,8 +497,8 @@ impl<'a> Builder<'a> {
     }
 
     /// Finish everything.
-    fn finish(&mut self, vm: &mut Vm, styles: StyleChain<'a>) -> TypResult<()> {
-        self.finish_page(vm, true, false, styles)
+    fn finish(&mut self, ctx: &mut Context, styles: StyleChain<'a>) -> TypResult<()> {
+        self.finish_page(ctx, true, false, styles)
     }
 }
 

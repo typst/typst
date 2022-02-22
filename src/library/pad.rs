@@ -13,7 +13,7 @@ pub struct PadNode {
 
 #[class]
 impl PadNode {
-    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Template> {
+    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Template> {
         let all = args.find()?;
         let hor = args.named("horizontal")?;
         let ver = args.named("vertical")?;
@@ -30,13 +30,13 @@ impl PadNode {
 impl Layout for PadNode {
     fn layout(
         &self,
-        vm: &mut Vm,
+        ctx: &mut Context,
         regions: &Regions,
         styles: StyleChain,
     ) -> TypResult<Vec<Arc<Frame>>> {
         // Layout child into padded regions.
         let pod = regions.map(|size| shrink(size, self.padding));
-        let mut frames = self.child.layout(vm, &pod, styles)?;
+        let mut frames = self.child.layout(ctx, &pod, styles)?;
 
         for frame in &mut frames {
             // Apply the padding inversely such that the grown size padded

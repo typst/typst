@@ -74,7 +74,7 @@ pub mod prelude {
     pub use crate::geom::*;
     pub use crate::syntax::{Span, Spanned};
     pub use crate::util::{EcoString, OptionExt};
-    pub use crate::Vm;
+    pub use crate::Context;
 }
 
 use prelude::*;

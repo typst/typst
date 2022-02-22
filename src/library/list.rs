@@ -37,7 +37,7 @@ impl<const L: ListKind> ListNode<L> {
     /// The space between the label and the body of each item.
     pub const BODY_INDENT: Linear = Relative::new(0.5).into();
 
-    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Template> {
+    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Template> {
         Ok(Template::show(Self {
             start: args.named("start")?.unwrap_or(0),
             wide: args.named("wide")?.unwrap_or(false),
@@ -51,10 +51,10 @@ impl<const L: ListKind> ListNode<L> {
 }
 
 impl<const L: ListKind> Show for ListNode<L> {
-    fn show(&self, vm: &mut Vm, styles: StyleChain) -> TypResult<Template> {
+    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Template> {
         if let Some(template) = styles.show(
             self,
-            vm,
+            ctx,
             self.items.iter().map(|item| Value::Template((*item.body).clone())),
         )? {
             return Ok(template);
@@ -72,7 +72,7 @@ impl<const L: ListKind> Show for ListNode<L> {
             }
 
             children.push(LayoutNode::default());
-            children.push(label.resolve(vm, L, number)?.pack());
+            children.push(label.resolve(ctx, L, number)?.pack());
             children.push(LayoutNode::default());
             children.push((*item.body).clone().pack());
             number += 1;
@@ -135,7 +135,7 @@ impl Label {
     /// Resolve the value based on the level.
     pub fn resolve(
         &self,
-        vm: &mut Vm,
+        ctx: &mut Context,
         kind: ListKind,
         number: usize,
     ) -> TypResult<Template> {
@@ -152,7 +152,7 @@ impl Label {
             Self::Template(template) => template.clone(),
             Self::Func(func, span) => {
                 let args = Args::from_values(*span, [Value::Int(number as i64)]);
-                func.call(vm, args)?.cast().at(*span)?
+                func.call(ctx, args)?.cast().at(*span)?
             }
         })
     }

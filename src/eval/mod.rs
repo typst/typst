@@ -13,6 +13,7 @@ mod class;
 mod collapse;
 mod func;
 mod layout;
+mod module;
 mod ops;
 mod scope;
 mod show;
@@ -25,14 +26,12 @@ pub use collapse::*;
 pub use dict::*;
 pub use func::*;
 pub use layout::*;
+pub use module::*;
 pub use scope::*;
 pub use show::*;
 pub use styles::*;
 pub use template::*;
 pub use value::*;
-
-use std::io;
-use std::mem;
 
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -42,17 +41,7 @@ use crate::library;
 use crate::syntax::ast::*;
 use crate::syntax::{Span, Spanned};
 use crate::util::EcoString;
-use crate::Vm;
-
-/// An evaluated module, ready for importing or conversion to a root layout
-/// tree.
-#[derive(Debug, Clone)]
-pub struct Module {
-    /// The top-level definitions that were bound in this module.
-    pub scope: Scope,
-    /// The module's layoutable contents.
-    pub template: Template,
-}
+use crate::Context;
 
 /// Evaluate an expression.
 pub trait Eval {
@@ -60,20 +49,21 @@ pub trait Eval {
     type Output;
 
     /// Evaluate the expression to the output value.
-    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output>;
+    fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> TypResult<Self::Output>;
 }
 
 impl Eval for Markup {
     type Output = Template;
 
-    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
-        eval_markup(vm, &mut self.nodes())
+    fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> TypResult<Self::Output> {
+        eval_markup(ctx, scp, &mut self.nodes())
     }
 }
 
 /// Evaluate a stream of markup nodes.
 fn eval_markup(
-    vm: &mut Vm,
+    ctx: &mut Context,
+    scp: &mut Scopes,
     nodes: &mut impl Iterator<Item = MarkupNode>,
 ) -> TypResult<Template> {
     let mut seq = Vec::with_capacity(nodes.size_hint().1.unwrap_or_default());
@@ -81,19 +71,19 @@ fn eval_markup(
     while let Some(node) = nodes.next() {
         seq.push(match node {
             MarkupNode::Expr(Expr::Set(set)) => {
-                let styles = set.eval(vm)?;
-                eval_markup(vm, nodes)?.styled_with_map(styles)
+                let styles = set.eval(ctx, scp)?;
+                eval_markup(ctx, scp, nodes)?.styled_with_map(styles)
             }
             MarkupNode::Expr(Expr::Show(show)) => {
-                let styles = show.eval(vm)?;
-                eval_markup(vm, nodes)?.styled_with_map(styles)
+                let styles = show.eval(ctx, scp)?;
+                eval_markup(ctx, scp, nodes)?.styled_with_map(styles)
             }
             MarkupNode::Expr(Expr::Wrap(wrap)) => {
-                let tail = eval_markup(vm, nodes)?;
-                vm.scopes.top.def_mut(wrap.binding().take(), tail);
-                wrap.body().eval(vm)?.display()
+                let tail = eval_markup(ctx, scp, nodes)?;
+                scp.top.def_mut(wrap.binding().take(), tail);
+                wrap.body().eval(ctx, scp)?.display()
             }
-            _ => node.eval(vm)?,
+            _ => node.eval(ctx, scp)?,
         });
     }
 
@@ -103,20 +93,20 @@ fn eval_markup(
 impl Eval for MarkupNode {
     type Output = Template;
 
-    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
+    fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> TypResult<Self::Output> {
         Ok(match self {
             Self::Space => Template::Space,
             Self::Linebreak => Template::Linebreak,
             Self::Parbreak => Template::Parbreak,
             Self::Text(text) => Template::Text(text.clone()),
-            Self::Strong(strong) => strong.eval(vm)?,
-            Self::Emph(emph) => emph.eval(vm)?,
-            Self::Raw(raw) => raw.eval(vm)?,
-            Self::Math(math) => math.eval(vm)?,
-            Self::Heading(heading) => heading.eval(vm)?,
-            Self::List(list) => list.eval(vm)?,
-            Self::Enum(enum_) => enum_.eval(vm)?,
-            Self::Expr(expr) => expr.eval(vm)?.display(),
+            Self::Strong(strong) => strong.eval(ctx, scp)?,
+            Self::Emph(emph) => emph.eval(ctx, scp)?,
+            Self::Raw(raw) => raw.eval(ctx, scp)?,
+            Self::Math(math) => math.eval(ctx, scp)?,
+            Self::Heading(heading) => heading.eval(ctx, scp)?,
+            Self::List(list) => list.eval(ctx, scp)?,
+            Self::Enum(enum_) => enum_.eval(ctx, scp)?,
+            Self::Expr(expr) => expr.eval(ctx, scp)?.display(),
         })
     }
 }
@@ -124,23 +114,27 @@ impl Eval for MarkupNode {
 impl Eval for StrongNode {
     type Output = Template;
 
-    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
-        Ok(Template::show(library::StrongNode(self.body().eval(vm)?)))
+    fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> TypResult<Self::Output> {
+        Ok(Template::show(library::StrongNode(
+            self.body().eval(ctx, scp)?,
+        )))
     }
 }
 
 impl Eval for EmphNode {
     type Output = Template;
 
-    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
-        Ok(Template::show(library::EmphNode(self.body().eval(vm)?)))
+    fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> TypResult<Self::Output> {
+        Ok(Template::show(library::EmphNode(
+            self.body().eval(ctx, scp)?,
+        )))
     }
 }
 
 impl Eval for RawNode {
     type Output = Template;
 
-    fn eval(&self, _: &mut Vm) -> TypResult<Self::Output> {
+    fn eval(&self, _: &mut Context, _: &mut Scopes) -> TypResult<Self::Output> {
         let template = Template::show(library::RawNode {
             text: self.text.clone(),
             block: self.block,
@@ -155,7 +149,7 @@ impl Eval for RawNode {
 impl Eval for MathNode {
     type Output = Template;
 
-    fn eval(&self, _: &mut Vm) -> TypResult<Self::Output> {
+    fn eval(&self, _: &mut Context, _: &mut Scopes) -> TypResult<Self::Output> {
         Ok(Template::show(library::MathNode {
             formula: self.formula.clone(),
             display: self.display,
@@ -166,9 +160,9 @@ impl Eval for MathNode {
 impl Eval for HeadingNode {
     type Output = Template;
 
-    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
+    fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> TypResult<Self::Output> {
         Ok(Template::show(library::HeadingNode {
-            body: self.body().eval(vm)?,
+            body: self.body().eval(ctx, scp)?,
             level: self.level(),
         }))
     }
@@ -177,10 +171,10 @@ impl Eval for HeadingNode {
 impl Eval for ListNode {
     type Output = Template;
 
-    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
+    fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> TypResult<Self::Output> {
         Ok(Template::List(library::ListItem {
             number: None,
-            body: Box::new(self.body().eval(vm)?),
+            body: Box::new(self.body().eval(ctx, scp)?),
         }))
     }
 }
@@ -188,10 +182,10 @@ impl Eval for ListNode {
 impl Eval for EnumNode {
     type Output = Template;
 
-    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
+    fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> TypResult<Self::Output> {
         Ok(Template::Enum(library::ListItem {
             number: self.number(),
-            body: Box::new(self.body().eval(vm)?),
+            body: Box::new(self.body().eval(ctx, scp)?),
         }))
     }
 }
@@ -199,33 +193,33 @@ impl Eval for EnumNode {
 impl Eval for Expr {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
+    fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> TypResult<Self::Output> {
         match self {
-            Self::Lit(v) => v.eval(vm),
-            Self::Ident(v) => v.eval(vm),
-            Self::Array(v) => v.eval(vm).map(Value::Array),
-            Self::Dict(v) => v.eval(vm).map(Value::Dict),
-            Self::Template(v) => v.eval(vm).map(Value::Template),
-            Self::Group(v) => v.eval(vm),
-            Self::Block(v) => v.eval(vm),
-            Self::Call(v) => v.eval(vm),
-            Self::Closure(v) => v.eval(vm),
-            Self::With(v) => v.eval(vm),
-            Self::Unary(v) => v.eval(vm),
-            Self::Binary(v) => v.eval(vm),
-            Self::Let(v) => v.eval(vm),
+            Self::Lit(v) => v.eval(ctx, scp),
+            Self::Ident(v) => v.eval(ctx, scp),
+            Self::Array(v) => v.eval(ctx, scp).map(Value::Array),
+            Self::Dict(v) => v.eval(ctx, scp).map(Value::Dict),
+            Self::Template(v) => v.eval(ctx, scp).map(Value::Template),
+            Self::Group(v) => v.eval(ctx, scp),
+            Self::Block(v) => v.eval(ctx, scp),
+            Self::Call(v) => v.eval(ctx, scp),
+            Self::Closure(v) => v.eval(ctx, scp),
+            Self::With(v) => v.eval(ctx, scp),
+            Self::Unary(v) => v.eval(ctx, scp),
+            Self::Binary(v) => v.eval(ctx, scp),
+            Self::Let(v) => v.eval(ctx, scp),
             Self::Set(_) | Self::Show(_) | Self::Wrap(_) => {
                 Err("set, show and wrap are only allowed directly in markup")
                     .at(self.span())
             }
-            Self::If(v) => v.eval(vm),
-            Self::While(v) => v.eval(vm),
-            Self::For(v) => v.eval(vm),
-            Self::Import(v) => v.eval(vm),
-            Self::Include(v) => v.eval(vm),
-            Self::Break(v) => v.eval(vm),
-            Self::Continue(v) => v.eval(vm),
-            Self::Return(v) => v.eval(vm),
+            Self::If(v) => v.eval(ctx, scp),
+            Self::While(v) => v.eval(ctx, scp),
+            Self::For(v) => v.eval(ctx, scp),
+            Self::Import(v) => v.eval(ctx, scp),
+            Self::Include(v) => v.eval(ctx, scp).map(Value::Template),
+            Self::Break(v) => v.eval(ctx, scp),
+            Self::Continue(v) => v.eval(ctx, scp),
+            Self::Return(v) => v.eval(ctx, scp),
         }
     }
 }
@@ -233,7 +227,7 @@ impl Eval for Expr {
 impl Eval for Lit {
     type Output = Value;
 
-    fn eval(&self, _: &mut Vm) -> TypResult<Self::Output> {
+    fn eval(&self, _: &mut Context, _: &mut Scopes) -> TypResult<Self::Output> {
         Ok(match self.kind() {
             LitKind::None => Value::None,
             LitKind::Auto => Value::Auto,
@@ -252,8 +246,8 @@ impl Eval for Lit {
 impl Eval for Ident {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
-        match vm.scopes.get(self) {
+    fn eval(&self, _: &mut Context, scp: &mut Scopes) -> TypResult<Self::Output> {
+        match scp.get(self) {
             Some(slot) => Ok(slot.read().unwrap().clone()),
             None => bail!(self.span(), "unknown variable"),
         }
@@ -263,17 +257,17 @@ impl Eval for Ident {
 impl Eval for ArrayExpr {
     type Output = Array;
 
-    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
-        self.items().map(|expr| expr.eval(vm)).collect()
+    fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> TypResult<Self::Output> {
+        self.items().map(|expr| expr.eval(ctx, scp)).collect()
     }
 }
 
 impl Eval for DictExpr {
     type Output = Dict;
 
-    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
+    fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> TypResult<Self::Output> {
         self.items()
-            .map(|x| Ok((x.name().take(), x.expr().eval(vm)?)))
+            .map(|x| Ok((x.name().take(), x.expr().eval(ctx, scp)?)))
             .collect()
     }
 }
@@ -281,10 +275,10 @@ impl Eval for DictExpr {
 impl Eval for TemplateExpr {
     type Output = Template;
 
-    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
-        vm.scopes.enter();
-        let template = self.body().eval(vm)?;
-        vm.scopes.exit();
+    fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> TypResult<Self::Output> {
+        scp.enter();
+        let template = self.body().eval(ctx, scp)?;
+        scp.exit();
         Ok(template)
     }
 }
@@ -292,24 +286,24 @@ impl Eval for TemplateExpr {
 impl Eval for GroupExpr {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
-        self.expr().eval(vm)
+    fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> TypResult<Self::Output> {
+        self.expr().eval(ctx, scp)
     }
 }
 
 impl Eval for BlockExpr {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
-        vm.scopes.enter();
+    fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> TypResult<Self::Output> {
+        scp.enter();
 
         let mut output = Value::None;
         for expr in self.exprs() {
-            let value = expr.eval(vm)?;
+            let value = expr.eval(ctx, scp)?;
             output = ops::join(output, value).at(expr.span())?;
         }
 
-        vm.scopes.exit();
+        scp.exit();
 
         Ok(output)
     }
@@ -318,8 +312,8 @@ impl Eval for BlockExpr {
 impl Eval for UnaryExpr {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
-        let value = self.expr().eval(vm)?;
+    fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> TypResult<Self::Output> {
+        let value = self.expr().eval(ctx, scp)?;
         let result = match self.op() {
             UnOp::Pos => ops::pos(value),
             UnOp::Neg => ops::neg(value),
@@ -332,25 +326,25 @@ impl Eval for UnaryExpr {
 impl Eval for BinaryExpr {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
+    fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> TypResult<Self::Output> {
         match self.op() {
-            BinOp::Add => self.apply(vm, ops::add),
-            BinOp::Sub => self.apply(vm, ops::sub),
-            BinOp::Mul => self.apply(vm, ops::mul),
-            BinOp::Div => self.apply(vm, ops::div),
-            BinOp::And => self.apply(vm, ops::and),
-            BinOp::Or => self.apply(vm, ops::or),
-            BinOp::Eq => self.apply(vm, ops::eq),
-            BinOp::Neq => self.apply(vm, ops::neq),
-            BinOp::Lt => self.apply(vm, ops::lt),
-            BinOp::Leq => self.apply(vm, ops::leq),
-            BinOp::Gt => self.apply(vm, ops::gt),
-            BinOp::Geq => self.apply(vm, ops::geq),
-            BinOp::Assign => self.assign(vm, |_, b| Ok(b)),
-            BinOp::AddAssign => self.assign(vm, ops::add),
-            BinOp::SubAssign => self.assign(vm, ops::sub),
-            BinOp::MulAssign => self.assign(vm, ops::mul),
-            BinOp::DivAssign => self.assign(vm, ops::div),
+            BinOp::Add => self.apply(ctx, scp, ops::add),
+            BinOp::Sub => self.apply(ctx, scp, ops::sub),
+            BinOp::Mul => self.apply(ctx, scp, ops::mul),
+            BinOp::Div => self.apply(ctx, scp, ops::div),
+            BinOp::And => self.apply(ctx, scp, ops::and),
+            BinOp::Or => self.apply(ctx, scp, ops::or),
+            BinOp::Eq => self.apply(ctx, scp, ops::eq),
+            BinOp::Neq => self.apply(ctx, scp, ops::neq),
+            BinOp::Lt => self.apply(ctx, scp, ops::lt),
+            BinOp::Leq => self.apply(ctx, scp, ops::leq),
+            BinOp::Gt => self.apply(ctx, scp, ops::gt),
+            BinOp::Geq => self.apply(ctx, scp, ops::geq),
+            BinOp::Assign => self.assign(ctx, scp, |_, b| Ok(b)),
+            BinOp::AddAssign => self.assign(ctx, scp, ops::add),
+            BinOp::SubAssign => self.assign(ctx, scp, ops::sub),
+            BinOp::MulAssign => self.assign(ctx, scp, ops::mul),
+            BinOp::DivAssign => self.assign(ctx, scp, ops::div),
         }
     }
 }
@@ -359,10 +353,11 @@ impl BinaryExpr {
     /// Apply a basic binary operation.
     fn apply(
         &self,
-        vm: &mut Vm,
+        ctx: &mut Context,
+        scp: &mut Scopes,
         op: fn(Value, Value) -> StrResult<Value>,
     ) -> TypResult<Value> {
-        let lhs = self.lhs().eval(vm)?;
+        let lhs = self.lhs().eval(ctx, scp)?;
 
         // Short-circuit boolean operations.
         if (self.op() == BinOp::And && lhs == Value::Bool(false))
@@ -371,21 +366,23 @@ impl BinaryExpr {
             return Ok(lhs);
         }
 
-        let rhs = self.rhs().eval(vm)?;
+        let rhs = self.rhs().eval(ctx, scp)?;
         op(lhs, rhs).at(self.span())
     }
 
     /// Apply an assignment operation.
     fn assign(
         &self,
-        vm: &mut Vm,
+        ctx: &mut Context,
+        scp: &mut Scopes,
         op: fn(Value, Value) -> StrResult<Value>,
     ) -> TypResult<Value> {
-        let rhs = self.rhs().eval(vm)?;
+        let rhs = self.rhs().eval(ctx, scp)?;
         self.lhs().access(
-            vm,
+            ctx,
+            scp,
             Box::new(|target| {
-                let lhs = mem::take(&mut *target);
+                let lhs = std::mem::take(&mut *target);
                 *target = op(lhs, rhs).at(self.span())?;
                 Ok(())
             }),
@@ -397,10 +394,10 @@ impl BinaryExpr {
 impl Eval for CallExpr {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
+    fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> TypResult<Self::Output> {
         let span = self.callee().span();
-        let callee = self.callee().eval(vm)?;
-        let args = self.args().eval(vm)?;
+        let callee = self.callee().eval(ctx, scp)?;
+        let args = self.args().eval(ctx, scp)?;
 
         match callee {
             Value::Array(array) => {
@@ -413,12 +410,12 @@ impl Eval for CallExpr {
 
             Value::Func(func) => {
                 let point = || Tracepoint::Call(func.name().map(ToString::to_string));
-                func.call(vm, args).trace(point, self.span())
+                func.call(ctx, args).trace(point, self.span())
             }
 
             Value::Class(class) => {
                 let point = || Tracepoint::Call(Some(class.name().to_string()));
-                class.construct(vm, args).trace(point, self.span())
+                class.construct(ctx, args).trace(point, self.span())
             }
 
             v => bail!(
@@ -433,7 +430,7 @@ impl Eval for CallExpr {
 impl Eval for CallArgs {
     type Output = Args;
 
-    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
+    fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> TypResult<Self::Output> {
         let mut items = Vec::new();
 
         for arg in self.items() {
@@ -443,17 +440,20 @@ impl Eval for CallArgs {
                     items.push(Arg {
                         span,
                         name: None,
-                        value: Spanned::new(expr.eval(vm)?, expr.span()),
+                        value: Spanned::new(expr.eval(ctx, scp)?, expr.span()),
                     });
                 }
                 CallArg::Named(named) => {
                     items.push(Arg {
                         span,
                         name: Some(named.name().take()),
-                        value: Spanned::new(named.expr().eval(vm)?, named.expr().span()),
+                        value: Spanned::new(
+                            named.expr().eval(ctx, scp)?,
+                            named.expr().span(),
+                        ),
                     });
                 }
-                CallArg::Spread(expr) => match expr.eval(vm)? {
+                CallArg::Spread(expr) => match expr.eval(ctx, scp)? {
                     Value::None => {}
                     Value::Array(array) => {
                         items.extend(array.into_iter().map(|value| Arg {
@@ -482,13 +482,13 @@ impl Eval for CallArgs {
 impl Eval for ClosureExpr {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
+    fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> TypResult<Self::Output> {
         // The closure's name is defined by its let binding if there's one.
         let name = self.name().map(Ident::take);
 
         // Collect captured variables.
         let captured = {
-            let mut visitor = CapturesVisitor::new(&vm.scopes);
+            let mut visitor = CapturesVisitor::new(scp);
             visitor.visit(self.as_red());
             visitor.finish()
         };
@@ -503,7 +503,8 @@ impl Eval for ClosureExpr {
                     params.push((name.take(), None));
                 }
                 ClosureParam::Named(named) => {
-                    params.push((named.name().take(), Some(named.expr().eval(vm)?)));
+                    params
+                        .push((named.name().take(), Some(named.expr().eval(ctx, scp)?)));
                 }
                 ClosureParam::Sink(name) => {
                     if sink.is_some() {
@@ -528,10 +529,10 @@ impl Eval for ClosureExpr {
 impl Eval for WithExpr {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
+    fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> TypResult<Self::Output> {
         let callee = self.callee();
-        let func = callee.eval(vm)?.cast::<Func>().at(callee.span())?;
-        let args = self.args().eval(vm)?;
+        let func = callee.eval(ctx, scp)?.cast::<Func>().at(callee.span())?;
+        let args = self.args().eval(ctx, scp)?;
         Ok(Value::Func(func.with(args)))
     }
 }
@@ -539,12 +540,12 @@ impl Eval for WithExpr {
 impl Eval for LetExpr {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
+    fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> TypResult<Self::Output> {
         let value = match self.init() {
-            Some(expr) => expr.eval(vm)?,
+            Some(expr) => expr.eval(ctx, scp)?,
             None => Value::None,
         };
-        vm.scopes.top.def_mut(self.binding().take(), value);
+        scp.top.def_mut(self.binding().take(), value);
         Ok(Value::None)
     }
 }
@@ -552,10 +553,10 @@ impl Eval for LetExpr {
 impl Eval for SetExpr {
     type Output = StyleMap;
 
-    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
+    fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> TypResult<Self::Output> {
         let class = self.class();
-        let class = class.eval(vm)?.cast::<Class>().at(class.span())?;
-        let args = self.args().eval(vm)?;
+        let class = class.eval(ctx, scp)?.cast::<Class>().at(class.span())?;
+        let args = self.args().eval(ctx, scp)?;
         class.set(args)
     }
 }
@@ -563,11 +564,11 @@ impl Eval for SetExpr {
 impl Eval for ShowExpr {
     type Output = StyleMap;
 
-    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
+    fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> TypResult<Self::Output> {
         let class = self.class();
-        let class = class.eval(vm)?.cast::<Class>().at(class.span())?;
+        let class = class.eval(ctx, scp)?.cast::<Class>().at(class.span())?;
         let closure = self.closure();
-        let func = closure.eval(vm)?.cast::<Func>().at(closure.span())?;
+        let func = closure.eval(ctx, scp)?.cast::<Func>().at(closure.span())?;
         let mut styles = StyleMap::new();
         styles.set_recipe(class.id(), func, self.span());
         Ok(styles)
@@ -577,12 +578,12 @@ impl Eval for ShowExpr {
 impl Eval for IfExpr {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
+    fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> TypResult<Self::Output> {
         let condition = self.condition();
-        if condition.eval(vm)?.cast::<bool>().at(condition.span())? {
-            self.if_body().eval(vm)
+        if condition.eval(ctx, scp)?.cast::<bool>().at(condition.span())? {
+            self.if_body().eval(ctx, scp)
         } else if let Some(else_body) = self.else_body() {
-            else_body.eval(vm)
+            else_body.eval(ctx, scp)
         } else {
             Ok(Value::None)
         }
@@ -592,13 +593,13 @@ impl Eval for IfExpr {
 impl Eval for WhileExpr {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
+    fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> TypResult<Self::Output> {
         let mut output = Value::None;
 
         let condition = self.condition();
-        while condition.eval(vm)?.cast::<bool>().at(condition.span())? {
+        while condition.eval(ctx, scp)?.cast::<bool>().at(condition.span())? {
             let body = self.body();
-            let value = body.eval(vm)?;
+            let value = body.eval(ctx, scp)?;
             output = ops::join(output, value).at(body.span())?;
         }
 
@@ -609,27 +610,27 @@ impl Eval for WhileExpr {
 impl Eval for ForExpr {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
+    fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> TypResult<Self::Output> {
         macro_rules! iter {
             (for ($($binding:ident => $value:ident),*) in $iter:expr) => {{
                 let mut output = Value::None;
-                vm.scopes.enter();
+                scp.enter();
 
                 #[allow(unused_parens)]
                 for ($($value),*) in $iter {
-                    $(vm.scopes.top.def_mut(&$binding, $value);)*
+                    $(scp.top.def_mut(&$binding, $value);)*
 
-                    let value = self.body().eval(vm)?;
+                    let value = self.body().eval(ctx, scp)?;
                     output = ops::join(output, value)
                         .at(self.body().span())?;
                 }
 
-                vm.scopes.exit();
+                scp.exit();
                 return Ok(output);
             }};
         }
 
-        let iter = self.iter().eval(vm)?;
+        let iter = self.iter().eval(ctx, scp)?;
         let pattern = self.pattern();
         let key = pattern.key().map(Ident::take);
         let value = pattern.value().take();
@@ -672,21 +673,21 @@ impl Eval for ForExpr {
 impl Eval for ImportExpr {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
+    fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> TypResult<Self::Output> {
         let span = self.path().span();
-        let path = self.path().eval(vm)?.cast::<EcoString>().at(span)?;
-        let module = import(vm, &path, span)?;
+        let path = self.path().eval(ctx, scp)?.cast::<EcoString>().at(span)?;
+        let module = import(ctx, &path, span)?;
 
         match self.imports() {
             Imports::Wildcard => {
                 for (var, slot) in module.scope.iter() {
-                    vm.scopes.top.def_mut(var, slot.read().unwrap().clone());
+                    scp.top.def_mut(var, slot.read().unwrap().clone());
                 }
             }
             Imports::Items(idents) => {
                 for ident in idents {
                     if let Some(slot) = module.scope.get(&ident) {
-                        vm.scopes.top.def_mut(ident.take(), slot.read().unwrap().clone());
+                        scp.top.def_mut(ident.take(), slot.read().unwrap().clone());
                     } else {
                         bail!(ident.span(), "unresolved import");
                     }
@@ -699,40 +700,42 @@ impl Eval for ImportExpr {
 }
 
 impl Eval for IncludeExpr {
-    type Output = Value;
+    type Output = Template;
 
-    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
+    fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> TypResult<Self::Output> {
         let span = self.path().span();
-        let path = self.path().eval(vm)?.cast::<EcoString>().at(span)?;
-        let module = import(vm, &path, span)?;
-        Ok(Value::Template(module.template.clone()))
+        let path = self.path().eval(ctx, scp)?.cast::<EcoString>().at(span)?;
+        let module = import(ctx, &path, span)?;
+        Ok(module.template.clone())
     }
 }
 
 /// Process an import of a module relative to the current location.
-fn import(vm: &mut Vm, path: &str, span: Span) -> TypResult<Module> {
+fn import(ctx: &mut Context, path: &str, span: Span) -> TypResult<Module> {
     // Load the source file.
-    let full = vm.resolve(path);
-    let id = vm.sources.load(&full).map_err(|err| {
+    let full = ctx.resolve(path);
+    let id = ctx.sources.load(&full).map_err(|err| {
         Error::boxed(span, match err.kind() {
-            io::ErrorKind::NotFound => "file not found".into(),
+            std::io::ErrorKind::NotFound => "file not found".into(),
             _ => format!("failed to load source file ({})", err),
         })
     })?;
 
     // Prevent cyclic importing.
-    if vm.route.contains(&id) {
+    if ctx.route.contains(&id) {
         bail!(span, "cyclic import");
     }
 
     // Evaluate the file.
-    vm.evaluate(id).trace(|| Tracepoint::Import, span)
+    let module = ctx.evaluate(id).trace(|| Tracepoint::Import, span)?;
+    ctx.deps.extend(module.deps.iter().cloned());
+    Ok(module)
 }
 
 impl Eval for BreakExpr {
     type Output = Value;
 
-    fn eval(&self, _: &mut Vm) -> TypResult<Self::Output> {
+    fn eval(&self, _: &mut Context, _: &mut Scopes) -> TypResult<Self::Output> {
         Err("break is not yet implemented").at(self.span())
     }
 }
@@ -740,7 +743,7 @@ impl Eval for BreakExpr {
 impl Eval for ContinueExpr {
     type Output = Value;
 
-    fn eval(&self, _: &mut Vm) -> TypResult<Self::Output> {
+    fn eval(&self, _: &mut Context, _: &mut Scopes) -> TypResult<Self::Output> {
         Err("continue is not yet implemented").at(self.span())
     }
 }
@@ -748,7 +751,7 @@ impl Eval for ContinueExpr {
 impl Eval for ReturnExpr {
     type Output = Value;
 
-    fn eval(&self, _: &mut Vm) -> TypResult<Self::Output> {
+    fn eval(&self, _: &mut Context, _: &mut Scopes) -> TypResult<Self::Output> {
         Err("return is not yet implemented").at(self.span())
     }
 }
@@ -758,25 +761,25 @@ impl Eval for ReturnExpr {
 /// This only works if the expression is a valid lvalue.
 pub trait Access {
     /// Try to access the value.
-    fn access(&self, vm: &mut Vm, f: Handler) -> TypResult<()>;
+    fn access(&self, ctx: &mut Context, scp: &mut Scopes, f: Handler) -> TypResult<()>;
 }
 
 /// Process an accessed value.
 type Handler<'a> = Box<dyn FnOnce(&mut Value) -> TypResult<()> + 'a>;
 
 impl Access for Expr {
-    fn access(&self, vm: &mut Vm, f: Handler) -> TypResult<()> {
+    fn access(&self, ctx: &mut Context, scp: &mut Scopes, f: Handler) -> TypResult<()> {
         match self {
-            Expr::Ident(ident) => ident.access(vm, f),
-            Expr::Call(call) => call.access(vm, f),
+            Expr::Ident(ident) => ident.access(ctx, scp, f),
+            Expr::Call(call) => call.access(ctx, scp, f),
             _ => bail!(self.span(), "cannot access this expression mutably"),
         }
     }
 }
 
 impl Access for Ident {
-    fn access(&self, vm: &mut Vm, f: Handler) -> TypResult<()> {
-        match vm.scopes.get(self) {
+    fn access(&self, _: &mut Context, scp: &mut Scopes, f: Handler) -> TypResult<()> {
+        match scp.get(self) {
             Some(slot) => match slot.try_write() {
                 Ok(mut guard) => f(&mut guard),
                 Err(_) => bail!(self.span(), "cannot mutate a constant"),
@@ -787,10 +790,11 @@ impl Access for Ident {
 }
 
 impl Access for CallExpr {
-    fn access(&self, vm: &mut Vm, f: Handler) -> TypResult<()> {
-        let args = self.args().eval(vm)?;
+    fn access(&self, ctx: &mut Context, scp: &mut Scopes, f: Handler) -> TypResult<()> {
+        let args = self.args().eval(ctx, scp)?;
         self.callee().access(
-            vm,
+            ctx,
+            scp,
             Box::new(|value| match value {
                 Value::Array(array) => {
                     f(array.get_mut(args.into_index()?).at(self.span())?)

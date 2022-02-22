@@ -7,7 +7,7 @@ pub struct BoxNode;
 
 #[class]
 impl BoxNode {
-    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Template> {
+    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Template> {
         let width = args.named("width")?;
         let height = args.named("height")?;
         let body: LayoutNode = args.find()?.unwrap_or_default();
@@ -20,7 +20,7 @@ pub struct BlockNode;
 
 #[class]
 impl BlockNode {
-    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Template> {
+    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Template> {
         Ok(Template::Block(args.find()?.unwrap_or_default()))
     }
 }

@@ -35,7 +35,7 @@ impl PageNode {
     /// The page's footer.
     pub const FOOTER: Marginal = Marginal::None;
 
-    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Template> {
+    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Template> {
         Ok(Template::Page(Self(args.expect("body")?)))
     }
 
@@ -70,7 +70,7 @@ impl PageNode {
     /// Layout the page run into a sequence of frames, one per page.
     pub fn layout(
         &self,
-        vm: &mut Vm,
+        ctx: &mut Context,
         mut page: usize,
         styles: StyleChain,
     ) -> TypResult<Vec<Arc<Frame>>> {
@@ -115,7 +115,7 @@ impl PageNode {
 
         // Layout the child.
         let regions = Regions::repeat(size, size, size.map(Length::is_finite));
-        let mut frames = child.layout(vm, &regions, styles)?;
+        let mut frames = child.layout(ctx, &regions, styles)?;
 
         let header = styles.get_ref(Self::HEADER);
         let footer = styles.get_ref(Self::FOOTER);
@@ -128,12 +128,12 @@ impl PageNode {
                 (Length::zero(), padding.top, header),
                 (size.y - padding.bottom, padding.bottom, footer),
             ] {
-                if let Some(template) = marginal.resolve(vm, page)? {
+                if let Some(template) = marginal.resolve(ctx, page)? {
                     let pos = Point::new(padding.left, y);
                     let w = size.x - padding.left - padding.right;
                     let area = Size::new(w, h);
                     let pod = Regions::one(area, area, area.map(Length::is_finite));
-                    let sub = template.layout(vm, &pod, styles)?.remove(0);
+                    let sub = Layout::layout(&template, ctx, &pod, styles)?.remove(0);
                     Arc::make_mut(frame).push_frame(pos, sub);
                 }
             }
@@ -158,7 +158,7 @@ pub struct PagebreakNode;
 
 #[class]
 impl PagebreakNode {
-    fn construct(_: &mut Vm, _: &mut Args) -> TypResult<Template> {
+    fn construct(_: &mut Context, _: &mut Args) -> TypResult<Template> {
         Ok(Template::Pagebreak)
     }
 }
@@ -176,13 +176,13 @@ pub enum Marginal {
 
 impl Marginal {
     /// Resolve the marginal based on the page number.
-    pub fn resolve(&self, vm: &mut Vm, page: usize) -> TypResult<Option<Template>> {
+    pub fn resolve(&self, ctx: &mut Context, page: usize) -> TypResult<Option<Template>> {
         Ok(match self {
             Self::None => None,
             Self::Template(template) => Some(template.clone()),
             Self::Func(func, span) => {
                 let args = Args::from_values(*span, [Value::Int(page as i64)]);
-                func.call(vm, args)?.cast().at(*span)?
+                func.call(ctx, args)?.cast().at(*span)?
             }
         })
     }

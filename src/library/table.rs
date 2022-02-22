@@ -27,7 +27,7 @@ impl TableNode {
     /// How much to pad the cells's content.
     pub const PADDING: Linear = Length::pt(5.0).into();
 
-    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Template> {
+    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Template> {
         let columns = args.named("columns")?.unwrap_or_default();
         let rows = args.named("rows")?.unwrap_or_default();
         let base_gutter: Vec<TrackSizing> = args.named("gutter")?.unwrap_or_default();
@@ -55,10 +55,10 @@ impl TableNode {
 }
 
 impl Show for TableNode {
-    fn show(&self, vm: &mut Vm, styles: StyleChain) -> TypResult<Template> {
+    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Template> {
         if let Some(template) = styles.show(
             self,
-            vm,
+            ctx,
             self.children.iter().map(|child| Value::Template(child.clone())),
         )? {
             return Ok(template);

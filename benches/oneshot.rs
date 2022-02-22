@@ -5,7 +5,7 @@ use iai::{black_box, main, Iai};
 use typst::loading::MemLoader;
 use typst::parse::{parse, Scanner, TokenMode, Tokens};
 use typst::source::SourceId;
-use typst::{Context, Vm};
+use typst::Context;
 
 const SRC: &str = include_str!("bench.typ");
 const FONT: &[u8] = include_bytes!("../fonts/IBMPlexSans-Regular.ttf");
@@ -26,7 +26,6 @@ main!(
     bench_eval,
     bench_layout,
     bench_highlight,
-    bench_byte_to_utf16,
     bench_render,
 );
 
@@ -67,37 +66,21 @@ fn bench_edit(iai: &mut Iai) {
     iai.run(|| black_box(ctx.sources.edit(id, 1168 .. 1171, "_Uhr_")));
 }
 
-fn bench_eval(iai: &mut Iai) {
-    let (mut ctx, id) = context();
-    let mut vm = Vm::new(&mut ctx);
-    iai.run(|| vm.evaluate(id).unwrap());
-}
-
-fn bench_layout(iai: &mut Iai) {
-    let (mut ctx, id) = context();
-    let mut vm = Vm::new(&mut ctx);
-    let module = vm.evaluate(id).unwrap();
-    iai.run(|| module.template.layout_pages(&mut vm));
-}
-
 fn bench_highlight(iai: &mut Iai) {
     let (ctx, id) = context();
     let source = ctx.sources.get(id);
     iai.run(|| source.highlight(0 .. source.len_bytes(), |_, _| {}));
 }
 
-fn bench_byte_to_utf16(iai: &mut Iai) {
-    let (ctx, id) = context();
-    let source = ctx.sources.get(id);
-    let mut ranges = vec![];
-    source.highlight(0 .. source.len_bytes(), |range, _| ranges.push(range));
-    iai.run(|| {
-        ranges
-            .iter()
-            .map(|range| source.byte_to_utf16(range.start)
-                .. source.byte_to_utf16(range.end))
-            .collect::<Vec<_>>()
-    });
+fn bench_eval(iai: &mut Iai) {
+    let (mut ctx, id) = context();
+    iai.run(|| ctx.evaluate(id).unwrap());
+}
+
+fn bench_layout(iai: &mut Iai) {
+    let (mut ctx, id) = context();
+    let module = ctx.evaluate(id).unwrap();
+    iai.run(|| module.template.layout(&mut ctx));
 }
 
 fn bench_render(iai: &mut Iai) {

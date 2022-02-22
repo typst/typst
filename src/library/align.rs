@@ -14,7 +14,7 @@ pub struct AlignNode {
 
 #[class]
 impl AlignNode {
-    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Template> {
+    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Template> {
         let aligns: Spec<_> = args.find()?.unwrap_or_default();
         let body: LayoutNode = args.expect("body")?;
         Ok(Template::block(body.aligned(aligns)))
@@ -24,7 +24,7 @@ impl AlignNode {
 impl Layout for AlignNode {
     fn layout(
         &self,
-        vm: &mut Vm,
+        ctx: &mut Context,
         regions: &Regions,
         styles: StyleChain,
     ) -> TypResult<Vec<Arc<Frame>>> {
@@ -39,7 +39,7 @@ impl Layout for AlignNode {
         }
 
         // Layout the child.
-        let mut frames = self.child.layout(vm, &pod, passed.chain(&styles))?;
+        let mut frames = self.child.layout(ctx, &pod, passed.chain(&styles))?;
         for (region, frame) in regions.iter().zip(&mut frames) {
             // Align in the target size. The target size depends on whether we
             // should expand.

@@ -17,7 +17,7 @@ use typst::loading::FsLoader;
 use typst::parse::Scanner;
 use typst::source::SourceFile;
 use typst::syntax::Span;
-use typst::{Context, Vm};
+use typst::Context;
 
 const TYP_DIR: &str = "./typ";
 const REF_DIR: &str = "./ref";
@@ -267,8 +267,7 @@ fn test_part(
 
     ok &= test_reparse(ctx.sources.get(id).src(), i, rng);
 
-    let mut vm = Vm::new(ctx);
-    let (mut frames, mut errors) = match vm.typeset(id) {
+    let (mut frames, mut errors) = match ctx.typeset(id) {
         Ok(frames) => (frames, vec![]),
         Err(errors) => (vec![], *errors),
     };

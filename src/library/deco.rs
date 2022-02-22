@@ -26,15 +26,15 @@ impl<const L: DecoLine> DecoNode<L> {
     /// with the glyphs. Does not apply to strikethrough.
     pub const EVADE: bool = true;
 
-    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Template> {
+    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Template> {
         Ok(Template::show(Self(args.expect::<Template>("body")?)))
     }
 }
 
 impl<const L: DecoLine> Show for DecoNode<L> {
-    fn show(&self, vm: &mut Vm, styles: StyleChain) -> TypResult<Template> {
+    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Template> {
         Ok(styles
-            .show(self, vm, [Value::Template(self.0.clone())])?
+            .show(self, ctx, [Value::Template(self.0.clone())])?
             .unwrap_or_else(|| {
                 self.0.clone().styled(TextNode::LINES, vec![Decoration {
                     line: L,

@@ -31,7 +31,7 @@ impl RawNode {
     /// The language to syntax-highlight in.
     pub const LANG: Option<EcoString> = None;
 
-    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Template> {
+    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Template> {
         Ok(Template::show(Self {
             text: args.expect("text")?,
             block: args.named("block")?.unwrap_or(false),
@@ -40,10 +40,10 @@ impl RawNode {
 }
 
 impl Show for RawNode {
-    fn show(&self, vm: &mut Vm, styles: StyleChain) -> TypResult<Template> {
+    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Template> {
         let lang = styles.get_ref(Self::LANG).as_ref();
 
-        if let Some(template) = styles.show(self, vm, [
+        if let Some(template) = styles.show(self, ctx, [
             Value::Str(self.text.clone()),
             match lang {
                 Some(lang) => Value::Str(lang.clone()),

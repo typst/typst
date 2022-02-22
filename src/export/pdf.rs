@@ -33,7 +33,7 @@ pub fn pdf(ctx: &Context, frames: &[Arc<Frame>]) -> Vec<u8> {
 }
 
 /// Identifies the sRGB color space definition.
-pub const SRGB: Name<'static> = Name(b"sRGB");
+const SRGB: Name<'static> = Name(b"sRGB");
 
 /// An exporter for a whole PDF document.
 struct PdfExporter<'a> {

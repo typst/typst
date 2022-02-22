@@ -93,17 +93,17 @@ impl Numbering {
 }
 
 /// Converts an integer into one or multiple letters.
-pub fn letter(_: &mut Vm, args: &mut Args) -> TypResult<Value> {
+pub fn letter(_: &mut Context, args: &mut Args) -> TypResult<Value> {
     convert(Numbering::Letter, args)
 }
 
 /// Converts an integer into a roman numeral.
-pub fn roman(_: &mut Vm, args: &mut Args) -> TypResult<Value> {
+pub fn roman(_: &mut Context, args: &mut Args) -> TypResult<Value> {
     convert(Numbering::Roman, args)
 }
 
 /// Convert a number into a symbol.
-pub fn symbol(_: &mut Vm, args: &mut Args) -> TypResult<Value> {
+pub fn symbol(_: &mut Context, args: &mut Args) -> TypResult<Value> {
     convert(Numbering::Symbol, args)
 }
 

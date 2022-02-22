@@ -11,7 +11,7 @@ use crate::frame::{Element, Frame, Geometry, Shape, Stroke};
 use crate::geom::{Align, Length, Linear, Paint, Point, Sides, Size, Spec, Transform};
 use crate::library::{AlignNode, PadNode, TransformNode, MOVE};
 use crate::util::Prehashed;
-use crate::Vm;
+use crate::Context;
 
 /// A node that can be layouted into a sequence of regions.
 ///
@@ -21,7 +21,7 @@ pub trait Layout {
     /// Layout the node into the given regions, producing constrained frames.
     fn layout(
         &self,
-        vm: &mut Vm,
+        ctx: &mut Context,
         regions: &Regions,
         styles: StyleChain,
     ) -> TypResult<Vec<Arc<Frame>>>;
@@ -36,14 +36,14 @@ pub trait Layout {
 }
 
 /// A sequence of regions to layout into.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 pub struct Regions {
     /// The (remaining) size of the first region.
     pub first: Size,
     /// The base size for relative sizing.
     pub base: Size,
     /// The height of followup regions. The width is the same for all regions.
-    pub backlog: std::vec::IntoIter<Length>,
+    pub backlog: Vec<Length>,
     /// The height of the final region that is repeated once the backlog is
     /// drained. The width is the same for all regions.
     pub last: Option<Length>,
@@ -58,7 +58,7 @@ impl Regions {
         Self {
             first: size,
             base,
-            backlog: vec![].into_iter(),
+            backlog: vec![],
             last: None,
             expand,
         }
@@ -69,7 +69,7 @@ impl Regions {
         Self {
             first: size,
             base,
-            backlog: vec![].into_iter(),
+            backlog: vec![],
             last: Some(size.y),
             expand,
         }
@@ -87,13 +87,7 @@ impl Regions {
         Self {
             first: f(self.first),
             base: f(self.base),
-            backlog: self
-                .backlog
-                .as_slice()
-                .iter()
-                .map(|&y| f(Size::new(x, y)).y)
-                .collect::<Vec<_>>()
-                .into_iter(),
+            backlog: self.backlog.iter().map(|&y| f(Size::new(x, y)).y).collect(),
             last: self.last.map(|y| f(Size::new(x, y)).y),
             expand: self.expand,
         }
@@ -113,7 +107,10 @@ impl Regions {
 
     /// Advance to the next region if there is any.
     pub fn next(&mut self) {
-        if let Some(height) = self.backlog.next().or(self.last) {
+        if let Some(height) = (!self.backlog.is_empty())
+            .then(|| self.backlog.remove(0))
+            .or(self.last)
+        {
             self.first.y = height;
             self.base.y = height;
         }
@@ -125,7 +122,7 @@ impl Regions {
     /// This iterater may be infinite.
     pub fn iter(&self) -> impl Iterator<Item = Size> + '_ {
         let first = std::iter::once(self.first);
-        let backlog = self.backlog.as_slice().iter();
+        let backlog = self.backlog.iter();
         let last = self.last.iter().cycle();
         first.chain(backlog.chain(last).map(|&h| Size::new(self.first.x, h)))
     }
@@ -218,15 +215,14 @@ impl LayoutNode {
 }
 
 impl Layout for LayoutNode {
-    #[track_caller]
     fn layout(
         &self,
-        vm: &mut Vm,
+        ctx: &mut Context,
         regions: &Regions,
         styles: StyleChain,
     ) -> TypResult<Vec<Arc<Frame>>> {
         // TODO(query)
-        self.0.layout(vm, regions, styles.barred(self.id()))
+        self.0.layout(ctx, regions, styles.barred(self.id()))
     }
 
     fn pack(self) -> LayoutNode {
@@ -274,7 +270,7 @@ struct EmptyNode;
 impl Layout for EmptyNode {
     fn layout(
         &self,
-        _: &mut Vm,
+        _: &mut Context,
         regions: &Regions,
         _: StyleChain,
     ) -> TypResult<Vec<Arc<Frame>>> {
@@ -296,7 +292,7 @@ struct SizedNode {
 impl Layout for SizedNode {
     fn layout(
         &self,
-        vm: &mut Vm,
+        ctx: &mut Context,
         regions: &Regions,
         styles: StyleChain,
     ) -> TypResult<Vec<Arc<Frame>>> {
@@ -319,7 +315,7 @@ impl Layout for SizedNode {
         };
 
         // Layout the child.
-        let mut frames = self.child.layout(vm, &pod, styles)?;
+        let mut frames = self.child.layout(ctx, &pod, styles)?;
 
         // Ensure frame size matches regions size if expansion is on.
         let frame = &mut frames[0];
@@ -342,11 +338,11 @@ struct FillNode {
 impl Layout for FillNode {
     fn layout(
         &self,
-        vm: &mut Vm,
+        ctx: &mut Context,
         regions: &Regions,
         styles: StyleChain,
     ) -> TypResult<Vec<Arc<Frame>>> {
-        let mut frames = self.child.layout(vm, regions, styles)?;
+        let mut frames = self.child.layout(ctx, regions, styles)?;
         for frame in &mut frames {
             let shape = Shape::filled(Geometry::Rect(frame.size), self.fill);
             Arc::make_mut(frame).prepend(Point::zero(), Element::Shape(shape));
@@ -367,11 +363,11 @@ struct StrokeNode {
 impl Layout for StrokeNode {
     fn layout(
         &self,
-        vm: &mut Vm,
+        ctx: &mut Context,
         regions: &Regions,
         styles: StyleChain,
     ) -> TypResult<Vec<Arc<Frame>>> {
-        let mut frames = self.child.layout(vm, regions, styles)?;
+        let mut frames = self.child.layout(ctx, regions, styles)?;
         for frame in &mut frames {
             let shape = Shape::stroked(Geometry::Rect(frame.size), self.stroke);
             Arc::make_mut(frame).prepend(Point::zero(), Element::Shape(shape));
