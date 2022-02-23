@@ -758,7 +758,7 @@ impl NodeKind {
     pub fn is_at_start(&self, prev: bool) -> bool {
         match self {
             Self::Space(n) if *n > 0 => true,
-            Self::LineComment | Self::BlockComment => prev,
+            Self::Space(_) | Self::LineComment | Self::BlockComment => prev,
             _ => false,
         }
     }

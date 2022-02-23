@@ -64,13 +64,6 @@ impl<'s> Parser<'s> {
     /// End the parsing process and return multiple children and whether the
     /// last token was terminated.
     pub fn consume(self) -> Option<(Vec<Green>, bool)> {
-        (self.eof() && self.terminated())
-            .then(|| (self.children, self.tokens.terminated()))
-    }
-
-    /// End the parsing process and return multiple children and whether the
-    /// last token was terminated, even if there remains stuff in the string.
-    pub fn consume_open_ended(self) -> Option<(Vec<Green>, bool)> {
         self.terminated().then(|| (self.children, self.tokens.terminated()))
     }
 

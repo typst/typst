@@ -89,7 +89,12 @@ fn trim_and_split_raw(column: usize, mut raw: &str) -> (String, bool) {
 
     // Dedent based on column, but not for the first line.
     for line in lines.iter_mut().skip(1) {
-        let offset = line.chars().take(column).take_while(|c| c.is_whitespace()).count();
+        let offset = line
+            .chars()
+            .take(column)
+            .take_while(|c| c.is_whitespace())
+            .map(char::len_utf8)
+            .sum();
         *line = &line[offset ..];
     }
 

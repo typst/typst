@@ -37,6 +37,7 @@ pub fn parse_markup_elements(
     differential: isize,
     reference: &[Green],
     mut at_start: bool,
+    column: usize,
 ) -> Option<(Vec<Green>, bool, usize)> {
     let mut p = Parser::with_prefix(prefix, src, TokenMode::Markup);
 
@@ -47,6 +48,12 @@ pub fn parse_markup_elements(
     let mut stopped = false;
 
     while !p.eof() {
+        if let Some(NodeKind::Space(1 ..)) = p.peek() {
+            if p.column(p.current_end()) < column {
+                return None;
+            }
+        }
+
         markup_node(&mut p, &mut at_start);
 
         if p.prev_end() >= end_pos {
@@ -85,11 +92,15 @@ pub fn parse_markup_elements(
         }
     }
 
+    if p.prev_end() < end_pos {
+        return None;
+    }
+
     if p.eof() && !stopped {
         replaced = reference.len();
     }
 
-    let (mut res, terminated) = p.consume_open_ended()?;
+    let (mut res, terminated) = p.consume()?;
     if stopped {
         res.pop().unwrap();
     }
@@ -103,8 +114,9 @@ pub fn parse_template(
     src: &str,
     end_pos: usize,
     _: isize,
-    reference: &[Green],
+    _: &[Green],
     _: bool,
+    _: usize,
 ) -> Option<(Vec<Green>, bool, usize)> {
     let mut p = Parser::with_prefix(prefix, src, TokenMode::Code);
     if !p.at(&NodeKind::LeftBracket) {
@@ -113,7 +125,7 @@ pub fn parse_template(
 
     template(&mut p);
 
-    let (mut green, terminated) = p.consume_open_ended()?;
+    let (mut green, terminated) = p.consume()?;
     let first = green.remove(0);
     if first.len() != end_pos {
         return None;
@@ -128,8 +140,9 @@ pub fn parse_block(
     src: &str,
     end_pos: usize,
     _: isize,
-    reference: &[Green],
+    _: &[Green],
     _: bool,
+    _: usize,
 ) -> Option<(Vec<Green>, bool, usize)> {
     let mut p = Parser::with_prefix(prefix, src, TokenMode::Code);
     if !p.at(&NodeKind::LeftBrace) {
@@ -138,9 +151,8 @@ pub fn parse_block(
 
     block(&mut p);
 
-    let (mut green, terminated) = p.consume_open_ended()?;
+    let (mut green, terminated) = p.consume()?;
     let first = green.remove(0);
-
     if first.len() != end_pos {
         return None;
     }

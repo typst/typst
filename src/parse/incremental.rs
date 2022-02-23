@@ -7,8 +7,15 @@ use super::{
     is_newline, parse, parse_block, parse_markup_elements, parse_template, TokenMode,
 };
 
-type ReparseFunc =
-    fn(&str, &str, usize, isize, &[Green], bool) -> Option<(Vec<Green>, bool, usize)>;
+type ReparseFunc = fn(
+    &str,
+    &str,
+    usize,
+    isize,
+    &[Green],
+    bool,
+    usize,
+) -> Option<(Vec<Green>, bool, usize)>;
 
 /// Allows partial refreshs of the [`Green`] node tree.
 ///
@@ -48,11 +55,17 @@ impl Reparser<'_> {
         let child_mode = green.kind().mode().unwrap_or(TokenMode::Code);
         let original_count = green.children().len();
 
+        // Save the current indent if this is a markup node.
+        let indent = match green.kind() {
+            NodeKind::Markup(n) => *n,
+            _ => 0,
+        };
+
         let mut search = SearchState::default();
         let mut ahead_nontrivia = None;
         // Whether the first node that should be replaced is at start.
         let mut at_start = true;
-        let mut end_outermost = false;
+        let mut child_outermost = false;
 
         // Find the the first child in the range of children to reparse.
         for (i, child) in green.children().iter().enumerate() {
@@ -72,14 +85,16 @@ impl Reparser<'_> {
                         {
                             SearchState::RequireNonWS(pos)
                         } else {
-                            // println!("found containing block {:?}", green.kind());
                             SearchState::Contained(pos)
                         };
                     } else if child_span.contains(&self.replace_range.start) {
                         search = SearchState::Inside(pos);
                     } else {
-                        if !child.kind().is_space()
-                            && child.kind() != &NodeKind::Semicolon
+                        if (self.replace_range.len() != 0
+                            || self.replace_range.end != child_span.end
+                            || ahead_nontrivia.is_none())
+                            && (!child.kind().is_space()
+                                && child.kind() != &NodeKind::Semicolon)
                         {
                             ahead_nontrivia = Some((pos, at_start));
                         }
@@ -102,7 +117,7 @@ impl Reparser<'_> {
             }
 
             offset += child.len();
-            end_outermost = outermost && i + 1 == original_count;
+            child_outermost = outermost && i + 1 == original_count;
             if search.end().is_some() {
                 break;
             }
@@ -114,7 +129,7 @@ impl Reparser<'_> {
 
             if let Some(range) = match child {
                 Green::Node(node) => {
-                    self.reparse_step(Arc::make_mut(node), pos.offset, end_outermost)
+                    self.reparse_step(Arc::make_mut(node), pos.offset, child_outermost)
                 }
                 Green::Token(_) => None,
             } {
@@ -137,7 +152,7 @@ impl Reparser<'_> {
                     pos.idx .. pos.idx + 1,
                     superseded_span,
                     at_start,
-                    end_outermost,
+                    indent,
                     outermost,
                 ) {
                     return Some(result);
@@ -155,7 +170,7 @@ impl Reparser<'_> {
 
             if start.offset == self.replace_range.start
                 || ahead_kind.only_at_start()
-                || ahead_kind == &NodeKind::LineComment
+                || ahead_kind.mode() != Some(TokenMode::Markup)
             {
                 start = ahead;
                 at_start = ahead_at_start;
@@ -170,7 +185,7 @@ impl Reparser<'_> {
             start.idx .. end.idx + 1,
             superseded_span,
             at_start,
-            end_outermost,
+            indent,
             outermost,
         )
     }
@@ -182,8 +197,8 @@ impl Reparser<'_> {
         superseded_idx: Range<usize>,
         superseded_span: Range<usize>,
         at_start: bool,
+        indent: usize,
         outermost: bool,
-        parent_outermost: bool,
     ) -> Option<Range<usize>> {
         let differential: isize =
             self.replace_len as isize - self.replace_range.len() as isize;
@@ -200,8 +215,6 @@ impl Reparser<'_> {
             prefix = &self.src[i .. newborn_span.start];
         }
 
-        // // println!("reparsing...");
-
         let (newborns, terminated, amount) = func(
             &prefix,
             &self.src[newborn_span.start ..],
@@ -209,17 +222,12 @@ impl Reparser<'_> {
             differential,
             &green.children()[superseded_start ..],
             at_start,
+            indent,
         )?;
-
-        // // println!("Reparse success");
 
         // Do not accept unclosed nodes if the old node wasn't at the right edge
         // of the tree.
         if !outermost && !terminated {
-            return None;
-        }
-
-        if !parent_outermost && green.children()[superseded_start ..].len() == amount {
             return None;
         }
 
@@ -305,17 +313,16 @@ mod tests {
         test("", 0..0, "do it", 0..5);
         test("a d e", 1 .. 3, " b c d", 0 .. 9);
         test("a #f() e", 1 .. 6, " b c d", 0 .. 9);
-        test("a\nb\nc\nd\ne\n", 5 .. 5, "c", 4 .. 7);
-        test("a\n\nb\n\nc\n\nd\n\ne\n", 7 .. 7, "c", 6 .. 10);
+        test("a\nb\nc\nd\ne\n", 5 .. 5, "c", 2 .. 7);
+        test("a\n\nb\n\nc\n\nd\n\ne\n", 7 .. 7, "c", 3 .. 10);
         test("a\nb\nc *hel a b lo* d\nd\ne", 13..13, "c ", 6..20);
         test("~~ {a} ~~", 4 .. 5, "b", 3 .. 6);
         test("{(0, 1, 2)}", 5 .. 6, "11pt", 0..14);
         test("\n= A heading", 3 .. 3, "n evocative", 3 .. 23);
-        test("for~your~thing", 9 .. 9, "a", 8 .. 15);
+        test("for~your~thing", 9 .. 9, "a", 4 .. 15);
         test("a your thing a", 6 .. 7, "a", 0 .. 14);
         test("{call(); abc}", 7 .. 7, "[]", 0 .. 15);
         test("#call() abc", 7 .. 7, "[]", 0 .. 10);
-        // Investigate
         test("hi[\n- item\n- item 2\n    - item 3]", 11 .. 11, "  ", 2 .. 35);
         test("hi\n- item\nno item\n    - item 3", 10 .. 10, "- ", 3..19);
         test("#grid(columns: (auto, 1fr, 40%), [*plonk*], rect(width: 100%, height: 1pt, fill: conifer), [thing])", 16 .. 20, "none", 0..99);
@@ -323,15 +330,16 @@ mod tests {
         test("#grid(columns: (auto, 1fr, 40%), [*plonk*], rect(width: 100%, height: 1pt, fill: conifer), [thing])", 34 .. 41, "_bar_", 33 .. 40);
         test("{let i=1; for x in range(5) {i}}", 6 .. 6, " ", 0 .. 33);
         test("{let i=1; for x in range(5) {i}}", 13 .. 14, "  ", 0 .. 33);
-        // Investigate
         test("hello~~{x}", 7 .. 10, "#f()", 0 .. 11);
         test("this~is -- in my opinion -- spectacular", 8 .. 10, "---", 5 .. 25);
         test("understanding `code` is complicated", 15 .. 15, "C ", 14 .. 22);
         test("{ let x = g() }", 10 .. 12, "f(54", 0 .. 17);
         test("a #let rect with (fill: eastern)\nb", 16 .. 31, " (stroke: conifer", 2 .. 34);
-        test(r#"a ```typst hello``` b"#, 16 .. 17, "", 0 .. 20);
+        test(r#"a ```typst hello``` b"#, 16 .. 17, "", 2 .. 18);
         test(r#"a ```typst hello```"#, 16 .. 17, "", 2 .. 18);
         test("#for", 4 .. 4, "//", 0 .. 6);
+        test("a\n#let \nb", 7 .. 7, "i", 2 .. 9);
+        test("a\n#for i \nb", 9 .. 9, "in", 2 .. 12);
     }
 
     #[test]
@@ -345,7 +353,8 @@ mod tests {
         test("#let x = (1, 2 + ;~ Five\r\n\r", 20 .. 23, "2.", 18 .. 23);
         test("hey #myfriend", 4 .. 4, "\\", 0 .. 14);
         test("hey  #myfriend", 4 .. 4, "\\", 3 .. 6);
-        test("= foo\nbar\n - a\n - b", 6 .. 9, "", 0..11)
+        test("= foo\nbar\n - a\n - b", 6 .. 9, "", 0..11);
+        test("= foo\n  bar\n  baz", 6..8, "", 0..15);
     }
 
     #[test]
@@ -373,7 +382,7 @@ mod tests {
         test("a b c", 1 .. 1, " /* letters", 0 .. 16);
         test("{if i==1 {a} else [b]; b()}", 12 .. 12, " /* letters */", 0 .. 41);
         test("{if i==1 {a} else [b]; b()}", 12 .. 12, " /* letters", 0 .. 38);
-        test("~~~~", 2 .. 2, "[]", 1 .. 5);
+        test("~~~~", 2 .. 2, "[]", 0 .. 5);
         test("a[]b", 2 .. 2, "{", 1 .. 4);
         test("[hello]", 2 .. 3, "]", 0 .. 7);
         test("{a}", 1 .. 2, "b", 0 .. 3);
