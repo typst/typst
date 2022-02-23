@@ -221,8 +221,10 @@ impl Layout for LayoutNode {
         regions: &Regions,
         styles: StyleChain,
     ) -> TypResult<Vec<Arc<Frame>>> {
-        // TODO(query)
-        self.0.layout(ctx, regions, styles.barred(self.id()))
+        ctx.query((self, regions, styles), |ctx, (node, regions, styles)| {
+            node.0.layout(ctx, regions, styles.barred(node.id()))
+        })
+        .clone()
     }
 
     fn pack(self) -> LayoutNode {

@@ -48,7 +48,10 @@ pub mod parse;
 pub mod source;
 pub mod syntax;
 
+use std::any::Any;
 use std::collections::HashMap;
+use std::fmt::{self, Display, Formatter};
+use std::hash::Hash;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -76,6 +79,8 @@ pub struct Context {
     styles: Arc<StyleMap>,
     /// Cached modules.
     modules: HashMap<SourceId, Module>,
+    /// Cached queries.
+    cache: HashMap<u64, CacheEntry>,
     /// The stack of imported files that led to evaluation of the current file.
     route: Vec<SourceId>,
     /// The dependencies of the current evaluation process.
@@ -206,6 +211,7 @@ impl ContextBuilder {
             std: self.std.unwrap_or_else(|| Arc::new(library::new())),
             styles: self.styles.unwrap_or_default(),
             modules: HashMap::new(),
+            cache: HashMap::new(),
             route: vec![],
             deps: vec![],
         }
@@ -215,5 +221,72 @@ impl ContextBuilder {
 impl Default for ContextBuilder {
     fn default() -> Self {
         Self { std: None, styles: None }
+    }
+}
+
+/// An entry in the query cache.
+struct CacheEntry {
+    /// The query's results.
+    data: Box<dyn Any>,
+    /// How many evictions have passed since the entry has been last used.
+    age: usize,
+}
+
+impl Context {
+    /// Execute a query.
+    ///
+    /// This hashes all inputs to the query and then either returns a cached
+    /// version or executes the query, saves the results in the cache and
+    /// returns a reference to them.
+    pub fn query<I, O>(
+        &mut self,
+        input: I,
+        query: fn(ctx: &mut Self, input: I) -> O,
+    ) -> &O
+    where
+        I: Hash,
+        O: 'static,
+    {
+        let hash = fxhash::hash64(&input);
+        if !self.cache.contains_key(&hash) {
+            let output = query(self, input);
+            self.cache.insert(hash, CacheEntry { data: Box::new(output), age: 0 });
+        }
+
+        let entry = self.cache.get_mut(&hash).unwrap();
+        entry.age = 0;
+        entry.data.downcast_ref().expect("oh no, a hash collision")
+    }
+
+    /// Garbage-collect the query cache. This deletes elements which haven't
+    /// been used in a while.
+    ///
+    /// Returns details about the eviction.
+    pub fn evict(&mut self) -> Eviction {
+        const MAX_AGE: usize = 5;
+
+        let before = self.cache.len();
+        self.cache.retain(|_, entry| {
+            entry.age += 1;
+            entry.age <= MAX_AGE
+        });
+
+        Eviction { before, after: self.cache.len() }
+    }
+}
+
+/// Details about a cache eviction.
+pub struct Eviction {
+    /// The number of items in the cache before the eviction.
+    pub before: usize,
+    /// The number of items in the cache after the eviction.
+    pub after: usize,
+}
+
+impl Display for Eviction {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        writeln!(f, "Before: {}", self.before)?;
+        writeln!(f, "Evicted: {}", self.before - self.after)?;
+        writeln!(f, "After: {}", self.after)
     }
 }

@@ -43,7 +43,10 @@ impl ShowNode {
 
 impl Show for ShowNode {
     fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Template> {
-        self.0.show(ctx, styles)
+        ctx.query((self, styles), |ctx, (node, styles)| {
+            node.0.show(ctx, styles)
+        })
+        .clone()
     }
 
     fn pack(self) -> ShowNode {

@@ -7,7 +7,6 @@ use tiny_skia as sk;
 use ttf_parser::{GlyphId, OutlineBuilder};
 use usvg::FitTo;
 
-use crate::font::Face;
 use crate::frame::{Element, Frame, Geometry, Group, Shape, Stroke, Text};
 use crate::geom::{self, Length, Paint, PathElement, Size, Transform};
 use crate::image::{Image, RasterImage, Svg};
@@ -115,17 +114,15 @@ fn render_text(
     ctx: &mut Context,
     text: &Text,
 ) {
-    let face = ctx.fonts.get(text.face_id);
-
     let mut x = 0.0;
     for glyph in &text.glyphs {
         let id = GlyphId(glyph.id);
         let offset = x + glyph.x_offset.resolve(text.size).to_f32();
         let ts = ts.pre_translate(offset, 0.0);
 
-        render_svg_glyph(canvas, ts, mask, text, face, id)
-            .or_else(|| render_bitmap_glyph(canvas, ts, mask, text, face, id))
-            .or_else(|| render_outline_glyph(canvas, ts, mask, text, face, id));
+        render_svg_glyph(canvas, ts, mask, ctx, text, id)
+            .or_else(|| render_bitmap_glyph(canvas, ts, mask, ctx, text, id))
+            .or_else(|| render_outline_glyph(canvas, ts, mask, ctx, text, id));
 
         x += glyph.x_advance.resolve(text.size).to_f32();
     }
@@ -136,10 +133,11 @@ fn render_svg_glyph(
     canvas: &mut sk::Pixmap,
     ts: sk::Transform,
     _: Option<&sk::ClipMask>,
+    ctx: &mut Context,
     text: &Text,
-    face: &Face,
     id: GlyphId,
 ) -> Option<()> {
+    let face = ctx.fonts.get(text.face_id);
     let mut data = face.ttf().glyph_svg_image(id)?;
 
     // Decompress SVGZ.
@@ -186,12 +184,13 @@ fn render_bitmap_glyph(
     canvas: &mut sk::Pixmap,
     ts: sk::Transform,
     mask: Option<&sk::ClipMask>,
+    ctx: &mut Context,
     text: &Text,
-    face: &Face,
     id: GlyphId,
 ) -> Option<()> {
     let size = text.size.to_f32();
     let ppem = size * ts.sy;
+    let face = ctx.fonts.get(text.face_id);
     let raster = face.ttf().glyph_raster_image(id, ppem as u16)?;
     let img = RasterImage::parse(&raster.data).ok()?;
 
@@ -211,8 +210,8 @@ fn render_outline_glyph(
     canvas: &mut sk::Pixmap,
     ts: sk::Transform,
     mask: Option<&sk::ClipMask>,
+    ctx: &mut Context,
     text: &Text,
-    face: &Face,
     id: GlyphId,
 ) -> Option<()> {
     let ppem = text.size.to_f32() * ts.sy;
@@ -221,6 +220,7 @@ fn render_outline_glyph(
     // rasterization can't be used due to very large text size or weird
     // scale/skewing transforms.
     if ppem > 100.0 || ts.kx != 0.0 || ts.ky != 0.0 || ts.sx != ts.sy {
+        let face = ctx.fonts.get(text.face_id);
         let path = {
             let mut builder = WrappedPathBuilder(sk::PathBuilder::new());
             face.ttf().outline_glyph(id, &mut builder)?;
@@ -241,7 +241,11 @@ fn render_outline_glyph(
     // TODO(query)
     // Try to retrieve a prepared glyph or prepare it from scratch if it
     // doesn't exist, yet.
-    let glyph = pixglyph::Glyph::load(face.ttf(), id)?;
+    let glyph = ctx
+        .query((text.face_id, id), |ctx, (face_id, id)| {
+            pixglyph::Glyph::load(ctx.fonts.get(face_id).ttf(), id)
+        })
+        .as_ref()?;
 
     // Rasterize the glyph with `pixglyph`.
     let bitmap = glyph.rasterize(ts.tx, ts.ty, ppem);
