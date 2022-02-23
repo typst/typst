@@ -757,7 +757,7 @@ impl NodeKind {
     /// Whether this node is `at_start` given the previous value of the property.
     pub fn is_at_start(&self, prev: bool) -> bool {
         match self {
-            Self::Space(n) if *n > 0 => true,
+            Self::Space(1 ..) => true,
             Self::Space(_) | Self::LineComment | Self::BlockComment => prev,
             _ => false,
         }
@@ -858,7 +858,7 @@ impl NodeKind {
             Self::Include => "keyword `include`",
             Self::From => "keyword `from`",
             Self::Markup(_) => "markup",
-            Self::Space(n) if *n > 1 => "paragraph break",
+            Self::Space(2 ..) => "paragraph break",
             Self::Space(_) => "space",
             Self::Linebreak => "forced linebreak",
             Self::Text(_) | Self::TextInLine(_) => "text",

@@ -30,7 +30,7 @@ pub fn parse(src: &str) -> Arc<GreenNode> {
 
 /// Parse some markup without the topmost node. Returns `Some` if all of the
 /// input was consumed.
-pub fn parse_markup_elements(
+pub fn reparse_markup_elements(
     prefix: &str,
     src: &str,
     end_pos: usize,
@@ -43,11 +43,11 @@ pub fn parse_markup_elements(
 
     let mut node: Option<&Green> = None;
     let mut iter = reference.iter();
-    let mut offset = 0;
+    let mut offset = differential;
     let mut replaced = 0;
     let mut stopped = false;
 
-    while !p.eof() {
+    'outer: while !p.eof() {
         if let Some(NodeKind::Space(1 ..)) = p.peek() {
             if p.column(p.current_end()) < column {
                 return None;
@@ -56,44 +56,36 @@ pub fn parse_markup_elements(
 
         markup_node(&mut p, &mut at_start);
 
-        if p.prev_end() >= end_pos {
-            let recent = p.children.last().unwrap();
-            let recent_start = p.prev_end() - recent.len();
+        if p.prev_end() < end_pos {
+            continue;
+        }
 
-            while offset <= recent_start {
-                if let Some(node) = node {
-                    // The nodes are equal, at the same position and have the
-                    // same content. The parsing trees have converged again, so
-                    // the reparse may stop here.
-                    if (offset as isize + differential) as usize == recent_start
-                        && node == recent
-                    {
-                        replaced -= 1;
-                        stopped = true;
-                        break;
-                    }
-                }
+        let recent = p.children.last().unwrap();
+        let recent_start = p.prev_end() - recent.len();
 
-                let result = iter.next();
-                if let Some(node) = node {
-                    offset += node.len();
-                }
-                node = result;
-                if node.is_none() {
-                    break;
-                } else {
-                    replaced += 1;
+        while offset <= recent_start as isize {
+            if let Some(node) = node {
+                // The nodes are equal, at the same position and have the
+                // same content. The parsing trees have converged again, so
+                // the reparse may stop here.
+                if offset == recent_start as isize && node == recent {
+                    replaced -= 1;
+                    stopped = true;
+                    break 'outer;
                 }
             }
 
-            if stopped {
+            if let Some(node) = node {
+                offset += node.len() as isize;
+            }
+
+            node = iter.next();
+            if node.is_none() {
                 break;
             }
-        }
-    }
 
-    if p.prev_end() < end_pos {
-        return None;
+            replaced += 1;
+        }
     }
 
     if p.eof() && !stopped {
@@ -109,14 +101,10 @@ pub fn parse_markup_elements(
 }
 
 /// Parse a template literal. Returns `Some` if all of the input was consumed.
-pub fn parse_template(
+pub fn reparse_template(
     prefix: &str,
     src: &str,
     end_pos: usize,
-    _: isize,
-    _: &[Green],
-    _: bool,
-    _: usize,
 ) -> Option<(Vec<Green>, bool, usize)> {
     let mut p = Parser::with_prefix(prefix, src, TokenMode::Code);
     if !p.at(&NodeKind::LeftBracket) {
@@ -135,14 +123,10 @@ pub fn parse_template(
 }
 
 /// Parse a code block. Returns `Some` if all of the input was consumed.
-pub fn parse_block(
+pub fn reparse_block(
     prefix: &str,
     src: &str,
     end_pos: usize,
-    _: isize,
-    _: &[Green],
-    _: bool,
-    _: usize,
 ) -> Option<(Vec<Green>, bool, usize)> {
     let mut p = Parser::with_prefix(prefix, src, TokenMode::Code);
     if !p.at(&NodeKind::LeftBrace) {

@@ -4,18 +4,9 @@ use std::sync::Arc;
 use crate::syntax::{Green, GreenNode, NodeKind};
 
 use super::{
-    is_newline, parse, parse_block, parse_markup_elements, parse_template, TokenMode,
+    is_newline, parse, reparse_block, reparse_markup_elements, reparse_template,
+    TokenMode,
 };
-
-type ReparseFunc = fn(
-    &str,
-    &str,
-    usize,
-    isize,
-    &[Green],
-    bool,
-    usize,
-) -> Option<(Vec<Green>, bool, usize)>;
 
 /// Allows partial refreshs of the [`Green`] node tree.
 ///
@@ -55,16 +46,12 @@ impl Reparser<'_> {
         let child_mode = green.kind().mode().unwrap_or(TokenMode::Code);
         let original_count = green.children().len();
 
-        // Save the current indent if this is a markup node.
-        let indent = match green.kind() {
-            NodeKind::Markup(n) => *n,
-            _ => 0,
-        };
-
         let mut search = SearchState::default();
         let mut ahead_nontrivia = None;
+
         // Whether the first node that should be replaced is at start.
         let mut at_start = true;
+        // Whether the last searched child is the outermost child.
         let mut child_outermost = false;
 
         // Find the the first child in the range of children to reparse.
@@ -83,18 +70,17 @@ impl Reparser<'_> {
                         search = if child_span.end == self.replace_range.end
                             && child_mode == TokenMode::Markup
                         {
-                            SearchState::RequireNonWS(pos)
+                            SearchState::RequireNonTrivia(pos)
                         } else {
                             SearchState::Contained(pos)
                         };
                     } else if child_span.contains(&self.replace_range.start) {
                         search = SearchState::Inside(pos);
                     } else {
-                        if (self.replace_range.len() != 0
-                            || self.replace_range.end != child_span.end
-                            || ahead_nontrivia.is_none())
-                            && (!child.kind().is_space()
-                                && child.kind() != &NodeKind::Semicolon)
+                        if (!child.kind().is_space()
+                            && child.kind() != &NodeKind::Semicolon)
+                            && (ahead_nontrivia.is_none()
+                                || self.replace_range.start > child_span.end)
                         {
                             ahead_nontrivia = Some((pos, at_start));
                         }
@@ -103,12 +89,12 @@ impl Reparser<'_> {
                 }
                 SearchState::Inside(start) => {
                     if child_span.end == self.replace_range.end {
-                        search = SearchState::RequireNonWS(start);
+                        search = SearchState::RequireNonTrivia(start);
                     } else if child_span.end > self.replace_range.end {
                         search = SearchState::SpanFound(start, pos);
                     }
                 }
-                SearchState::RequireNonWS(start) => {
+                SearchState::RequireNonTrivia(start) => {
                     if !child.kind().is_trivia() {
                         search = SearchState::SpanFound(start, pos);
                     }
@@ -118,9 +104,19 @@ impl Reparser<'_> {
 
             offset += child.len();
             child_outermost = outermost && i + 1 == original_count;
-            if search.end().is_some() {
+
+            if search.done().is_some() {
                 break;
             }
+        }
+
+        // If we were looking for a non-whitespace element and hit the end of
+        // the file here, we instead use EOF as the end of the span.
+        if let SearchState::RequireNonTrivia(start) = search {
+            search = SearchState::SpanFound(start, GreenPos {
+                idx: green.children().len() - 1,
+                offset: offset - green.children().last().unwrap().len(),
+            })
         }
 
         if let SearchState::Contained(pos) = search {
@@ -139,20 +135,20 @@ impl Reparser<'_> {
             }
 
             let superseded_span = pos.offset .. pos.offset + prev_len;
-            let func: Option<ReparseFunc> = match child.kind() {
-                NodeKind::Template => Some(parse_template),
-                NodeKind::Block => Some(parse_block),
+            let func: Option<ReparseMode> = match child.kind() {
+                NodeKind::Template => Some(ReparseMode::Template),
+                NodeKind::Block => Some(ReparseMode::Block),
                 _ => None,
             };
 
+            // Return if the element was reparsable on its own, otherwise try to
+            // treat it as a markup element.
             if let Some(func) = func {
                 if let Some(result) = self.replace(
                     green,
                     func,
                     pos.idx .. pos.idx + 1,
                     superseded_span,
-                    at_start,
-                    indent,
                     outermost,
                 ) {
                     return Some(result);
@@ -160,11 +156,13 @@ impl Reparser<'_> {
             }
         }
 
-        if !matches!(green.kind(), NodeKind::Markup(_)) {
-            return None;
-        }
+        // Save the current indent if this is a markup node and stop otherwise.
+        let indent = match green.kind() {
+            NodeKind::Markup(n) => *n,
+            _ => return None,
+        };
 
-        let (mut start, end) = search.end()?;
+        let (mut start, end) = search.done()?;
         if let Some((ahead, ahead_at_start)) = ahead_nontrivia {
             let ahead_kind = green.children()[ahead.idx].kind();
 
@@ -179,13 +177,12 @@ impl Reparser<'_> {
 
         let superseded_span =
             start.offset .. end.offset + green.children()[end.idx].len();
+
         self.replace(
             green,
-            parse_markup_elements,
+            ReparseMode::MarkupElements(at_start, indent),
             start.idx .. end.idx + 1,
             superseded_span,
-            at_start,
-            indent,
             outermost,
         )
     }
@@ -193,19 +190,17 @@ impl Reparser<'_> {
     fn replace(
         &self,
         green: &mut GreenNode,
-        func: ReparseFunc,
+        mode: ReparseMode,
         superseded_idx: Range<usize>,
         superseded_span: Range<usize>,
-        at_start: bool,
-        indent: usize,
         outermost: bool,
     ) -> Option<Range<usize>> {
+        let superseded_start = superseded_idx.start;
+
         let differential: isize =
             self.replace_len as isize - self.replace_range.len() as isize;
-        let newborn_span = superseded_span.start
-            ..
-            (superseded_span.end as isize + differential) as usize;
-        let superseded_start = superseded_idx.start;
+        let newborn_end = (superseded_span.end as isize + differential) as usize;
+        let newborn_span = superseded_span.start .. newborn_end;
 
         let mut prefix = "";
         for (i, c) in self.src[.. newborn_span.start].char_indices().rev() {
@@ -215,15 +210,27 @@ impl Reparser<'_> {
             prefix = &self.src[i .. newborn_span.start];
         }
 
-        let (newborns, terminated, amount) = func(
-            &prefix,
-            &self.src[newborn_span.start ..],
-            newborn_span.len(),
-            differential,
-            &green.children()[superseded_start ..],
-            at_start,
-            indent,
-        )?;
+        let (newborns, terminated, amount) = match mode {
+            ReparseMode::Block => reparse_block(
+                &prefix,
+                &self.src[newborn_span.start ..],
+                newborn_span.len(),
+            ),
+            ReparseMode::Template => reparse_template(
+                &prefix,
+                &self.src[newborn_span.start ..],
+                newborn_span.len(),
+            ),
+            ReparseMode::MarkupElements(at_start, indent) => reparse_markup_elements(
+                &prefix,
+                &self.src[newborn_span.start ..],
+                newborn_span.len(),
+                differential,
+                &green.children()[superseded_start ..],
+                at_start,
+                indent,
+            ),
+        }?;
 
         // Do not accept unclosed nodes if the old node wasn't at the right edge
         // of the tree.
@@ -236,6 +243,8 @@ impl Reparser<'_> {
     }
 }
 
+/// The position of a green node in terms of its string offset and index within
+/// the parent node.
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct GreenPos {
     idx: usize,
@@ -256,7 +265,7 @@ enum SearchState {
     Inside(GreenPos),
     /// The search has found the end of the modified nodes but the change
     /// touched its boundries so another non-trivia node is needed.
-    RequireNonWS(GreenPos),
+    RequireNonTrivia(GreenPos),
     /// The search has concluded by finding a start and an end index for nodes
     /// with a pending reparse.
     SpanFound(GreenPos, GreenPos),
@@ -269,15 +278,27 @@ impl Default for SearchState {
 }
 
 impl SearchState {
-    fn end(&self) -> Option<(GreenPos, GreenPos)> {
+    fn done(self) -> Option<(GreenPos, GreenPos)> {
         match self {
             Self::NoneFound => None,
-            Self::Contained(s) => Some((*s, *s)),
+            Self::Contained(s) => Some((s, s)),
             Self::Inside(_) => None,
-            Self::RequireNonWS(_) => None,
-            Self::SpanFound(s, e) => Some((*s, *e)),
+            Self::RequireNonTrivia(_) => None,
+            Self::SpanFound(s, e) => Some((s, e)),
         }
     }
+}
+
+/// Which reparse function to choose for a span of elements.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum ReparseMode {
+    /// Reparse a code block with its braces.
+    Block,
+    /// Reparse a template, including its square brackets.
+    Template,
+    /// Reparse elements of the markup. The variant carries whether the node is
+    /// `at_start` and the minimum indent of the containing markup node.
+    MarkupElements(bool, usize),
 }
 
 impl NodeKind {
@@ -330,7 +351,7 @@ mod tests {
         test("#grid(columns: (auto, 1fr, 40%), [*plonk*], rect(width: 100%, height: 1pt, fill: conifer), [thing])", 34 .. 41, "_bar_", 33 .. 40);
         test("{let i=1; for x in range(5) {i}}", 6 .. 6, " ", 0 .. 33);
         test("{let i=1; for x in range(5) {i}}", 13 .. 14, "  ", 0 .. 33);
-        test("hello~~{x}", 7 .. 10, "#f()", 0 .. 11);
+        test("hello~~{x}", 7 .. 10, "#f()", 5 .. 11);
         test("this~is -- in my opinion -- spectacular", 8 .. 10, "---", 5 .. 25);
         test("understanding `code` is complicated", 15 .. 15, "C ", 14 .. 22);
         test("{ let x = g() }", 10 .. 12, "f(54", 0 .. 17);
@@ -344,8 +365,8 @@ mod tests {
 
     #[test]
     fn test_parse_incremental_whitespace_invariants() {
-        test("hello \\ world", 7 .. 8, "a ", 6 .. 14);
-        test("hello \\ world", 7 .. 8, " a", 6 .. 14);
+        test("hello \\ world", 7 .. 8, "a ", 0 .. 14);
+        test("hello \\ world", 7 .. 8, " a", 0 .. 14);
         test("x = y", 1 .. 1, " + y", 0 .. 6);
         test("x = y", 1 .. 1, " + y\n", 0 .. 7);
         test("abc\n= a heading\njoke", 3 .. 4, "\nmore\n\n", 0 .. 21);
@@ -353,13 +374,13 @@ mod tests {
         test("#let x = (1, 2 + ;~ Five\r\n\r", 20 .. 23, "2.", 18 .. 23);
         test("hey #myfriend", 4 .. 4, "\\", 0 .. 14);
         test("hey  #myfriend", 4 .. 4, "\\", 3 .. 6);
-        test("= foo\nbar\n - a\n - b", 6 .. 9, "", 0..11);
-        test("= foo\n  bar\n  baz", 6..8, "", 0..15);
+        test("= foo\nbar\n - a\n - b", 6 .. 9, "", 0 .. 11);
+        test("= foo\n  bar\n  baz", 6 .. 8, "", 0 .. 15);
     }
 
     #[test]
     fn test_parse_incremental_type_invariants() {
-        test("a #for x in array {x}", 18 .. 21, "[#x]", 0 .. 22);
+        test("a #for x in array {x}", 18 .. 21, "[#x]", 2 .. 22);
         test("a #let x = 1 {5}", 3 .. 6, "if", 2 .. 11);
         test("a {let x = 1 {5}} b", 3 .. 6, "if", 2 .. 16);
         test("#let x = 1 {5}", 4 .. 4, " if", 0 .. 13);

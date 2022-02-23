@@ -11,9 +11,14 @@ use crate::util::EcoString;
 
 /// An iterator over the tokens of a string of source code.
 pub struct Tokens<'s> {
+    /// The underlying scanner.
     s: Scanner<'s>,
+    /// The mode the scanner is in. This determines what tokens it recognizes.
     mode: TokenMode,
+    /// Whether the last token has been terminated.
     terminated: bool,
+    /// Offsets the indentation on the first line of the source.
+    column_offset: usize,
 }
 
 /// What kind of tokens to emit.
@@ -28,11 +33,19 @@ pub enum TokenMode {
 impl<'s> Tokens<'s> {
     /// Create a new token iterator with the given mode.
     #[inline]
-    pub fn new(src: &'s str, mode: TokenMode, offset: usize) -> Self {
+    pub fn new(src: &'s str, mode: TokenMode) -> Self {
+        Self::with_prefix("", src, mode)
+    }
+
+    /// Create a new token iterator with the given mode and a prefix to offset
+    /// column calculations.
+    #[inline]
+    pub fn with_prefix(prefix: &str, src: &'s str, mode: TokenMode) -> Self {
         Self {
-            s: Scanner::with_indent_offset(src, offset),
+            s: Scanner::new(src),
             mode,
             terminated: true,
+            column_offset: column(prefix, prefix.len(), 0),
         }
     }
 
@@ -73,6 +86,12 @@ impl<'s> Tokens<'s> {
     #[inline]
     pub fn terminated(&self) -> bool {
         self.terminated
+    }
+
+    /// The column index of a given index in the source string.
+    #[inline]
+    pub fn column(&self, index: usize) -> usize {
+        column(self.s.src(), index, self.column_offset)
     }
 }
 
@@ -321,7 +340,7 @@ impl<'s> Tokens<'s> {
     }
 
     fn raw(&mut self) -> NodeKind {
-        let column = self.s.column(self.s.index() - 1);
+        let column = self.column(self.s.index() - 1);
 
         let mut backticks = 1;
         while self.s.eat_if('`') {
@@ -574,6 +593,30 @@ fn keyword(ident: &str) -> Option<NodeKind> {
     })
 }
 
+/// The column index of a given index in the source string, given a column offset for the first line.
+#[inline]
+fn column(string: &str, index: usize, offset: usize) -> usize {
+    let mut apply_offset = false;
+    let res = string[.. index]
+        .char_indices()
+        .rev()
+        .take_while(|&(_, c)| !is_newline(c))
+        .inspect(|&(i, _)| {
+            if i == 0 {
+                apply_offset = true
+            }
+        })
+        .count();
+
+    // The loop is never executed if the slice is empty, but we are of
+    // course still at the start of the first line.
+    if index == 0 {
+        apply_offset = true;
+    }
+
+    if apply_offset { res + offset } else { res }
+}
+
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod tests {
@@ -689,7 +732,7 @@ mod tests {
         }};
         (@$mode:ident: $src:expr => $($token:expr),*) => {{
             let src = $src;
-            let found = Tokens::new(&src, $mode, 0).collect::<Vec<_>>();
+            let found = Tokens::new(&src, $mode).collect::<Vec<_>>();
             let expected = vec![$($token.clone()),*];
             check(&src, found, expected);
         }};

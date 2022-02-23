@@ -2,7 +2,7 @@ use core::slice::SliceIndex;
 use std::fmt::{self, Display, Formatter};
 use std::mem;
 
-use super::{Scanner, TokenMode, Tokens};
+use super::{TokenMode, Tokens};
 use crate::syntax::{ErrorPos, Green, GreenData, GreenNode, NodeKind};
 
 /// A convenient token-based parser.
@@ -30,11 +30,14 @@ pub struct Parser<'s> {
 impl<'s> Parser<'s> {
     /// Create a new parser for the source string.
     pub fn new(src: &'s str, mode: TokenMode) -> Self {
-        Self::with_offset(src, mode, 0)
+        Self::with_prefix("", src, mode)
     }
 
-    fn with_offset(src: &'s str, mode: TokenMode, offset: usize) -> Self {
-        let mut tokens = Tokens::new(src, mode, offset);
+    /// Create a new parser for the source string that is prefixed by some text
+    /// that does not need to be parsed but taken into account for column
+    /// calculation.
+    pub fn with_prefix(prefix: &str, src: &'s str, mode: TokenMode) -> Self {
+        let mut tokens = Tokens::with_prefix(prefix, src, mode);
         let current = tokens.next();
         Self {
             tokens,
@@ -47,13 +50,6 @@ impl<'s> Parser<'s> {
             unterminated_group: false,
             stray_terminator: false,
         }
-    }
-
-    /// Create a new parser for the source string that is prefixed by some text
-    /// that does not need to be parsed but taken into account for column
-    /// calculation.
-    pub fn with_prefix(prefix: &str, src: &'s str, mode: TokenMode) -> Self {
-        Self::with_offset(src, mode, Scanner::new(prefix).column(prefix.len()))
     }
 
     /// End the parsing process and return the last child.
@@ -218,7 +214,7 @@ impl<'s> Parser<'s> {
 
     /// Determine the column index for the given byte index.
     pub fn column(&self, index: usize) -> usize {
-        self.tokens.scanner().column(index)
+        self.tokens.column(index)
     }
 
     /// Continue parsing in a group.
