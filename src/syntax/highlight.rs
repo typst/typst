@@ -198,7 +198,6 @@ impl Category {
             NodeKind::Underscore => None,
             NodeKind::Markup(_) => None,
             NodeKind::Space(_) => None,
-            NodeKind::Parbreak => None,
             NodeKind::Text(_) => None,
             NodeKind::TextInLine(_) => None,
             NodeKind::List => None,

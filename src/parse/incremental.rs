@@ -4,57 +4,9 @@ use std::sync::Arc;
 use crate::syntax::{Green, GreenNode, NodeKind};
 
 use super::{
-    is_newline, parse, parse_atomic, parse_atomic_markup, parse_block, parse_comment,
-    parse_markup, parse_markup_elements, parse_template, Scanner, TokenMode,
+    is_newline, parse, reparse_block, reparse_markup_elements, reparse_template,
+    TokenMode,
 };
-
-/// The conditions that a node has to fulfill in order to be replaced.
-///
-/// This can dictate if a node can be replaced at all and if yes, what can take
-/// its place.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum SuccessionRule {
-    /// Changing this node can never have an influence on the other nodes.
-    Safe,
-    /// This node has to be replaced with a single token of the same kind.
-    SameKind(Option<TokenMode>),
-    /// In code mode, this node can only be changed into a single atomic
-    /// expression, otherwise it is safe.
-    AtomicPrimary,
-    /// Changing an unsafe layer node in code mode changes what the parents or
-    /// the surrounding nodes would be and is therefore disallowed. Change the
-    /// parents or children instead. If it appears in Markup, however, it is
-    /// safe to change.
-    UnsafeLayer,
-    /// Changing an unsafe node or any of its children is not allowed. Change
-    /// the parents instead.
-    Unsafe,
-}
-
-/// The conditions under which a node can be inserted or remain in a tree.
-///
-/// These conditions all search the neighbors of the node and see if its
-/// existence is plausible with them present. This can be used to encode some
-/// context-free language components for incremental parsing.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum NeighbourRule {
-    /// These nodes depend on being at the start of a line. Reparsing of safe
-    /// left neighbors has to check this invariant. Additionally, when
-    /// exchanging the right sibling or inserting such a node the indentation of
-    /// the first right non-trivia, non-whitespace sibling must not be greater
-    /// than the current indentation.
-    AtStart,
-    /// These nodes depend on not being at the start of a line. Reparsing of
-    /// safe left neighbors has to check this invariant. Otherwise, this node is
-    /// safe.
-    NotAtStart,
-    /// These nodes could end up somewhere else up the tree if the parse was
-    /// happening from scratch. The parse result has to be checked for such
-    /// nodes. They are safe to add if followed up by other nodes.
-    NotAtEnd,
-    /// No additional requirements.
-    None,
-}
 
 /// Allows partial refreshs of the [`Green`] node tree.
 ///
@@ -79,180 +31,206 @@ impl<'a> Reparser<'a> {
 impl Reparser<'_> {
     /// Find the innermost child that is incremental safe.
     pub fn reparse(&self, green: &mut Arc<GreenNode>) -> Range<usize> {
-        self.reparse_step(Arc::make_mut(green), 0, TokenMode::Markup, true)
-            .unwrap_or_else(|| {
-                *green = parse(self.src);
-                0 .. self.src.len()
-            })
+        self.reparse_step(Arc::make_mut(green), 0, true).unwrap_or_else(|| {
+            *green = parse(self.src);
+            0 .. self.src.len()
+        })
     }
 
     fn reparse_step(
         &self,
         green: &mut GreenNode,
         mut offset: usize,
-        parent_mode: TokenMode,
-        mut outermost: bool,
+        outermost: bool,
     ) -> Option<Range<usize>> {
-        let mode = green.kind().mode().unwrap_or(parent_mode);
         let child_mode = green.kind().mode().unwrap_or(TokenMode::Code);
         let original_count = green.children().len();
 
-        // Save the current indent if this is a markup node.
-        let indent = match green.kind() {
-            NodeKind::Markup(n) => *n,
-            _ => 0,
-        };
+        let mut search = SearchState::default();
+        let mut ahead_nontrivia = None;
 
-        let mut first = None;
+        // Whether the first node that should be replaced is at start.
         let mut at_start = true;
+        // Whether the last searched child is the outermost child.
+        let mut child_outermost = false;
 
         // Find the the first child in the range of children to reparse.
-        for (i, child) in green.children_mut().iter_mut().enumerate() {
+        for (i, child) in green.children().iter().enumerate() {
+            let pos = GreenPos { idx: i, offset };
             let child_span = offset .. offset + child.len();
 
-            // We look for the start in the element but we only take a position
-            // at the right border if this is markup or the last element.
-            //
-            // This is because in Markup mode, we want to examine all nodes next
-            // to a replacement but in code we want to atomically replace. At
-            // least one character on either side of the replacement must be
-            // reparsed with it to keep the Space / Text node coalescing intact.
-            if (child_mode == TokenMode::Markup
-                && child_span.end + 1 >= self.replace_range.start)
-                || child_span.contains(&self.replace_range.start)
-            {
-                first = Some((i, offset));
-                break;
+            match search {
+                SearchState::NoneFound => {
+                    // The edit is contained within the span of the current element.
+                    if child_span.contains(&self.replace_range.start)
+                        && child_span.end >= self.replace_range.end
+                    {
+                        // In Markup mode, we want to consider a non-whitespace
+                        // neighbor if the edit is on the node boundary.
+                        search = if child_span.end == self.replace_range.end
+                            && child_mode == TokenMode::Markup
+                        {
+                            SearchState::RequireNonTrivia(pos)
+                        } else {
+                            SearchState::Contained(pos)
+                        };
+                    } else if child_span.contains(&self.replace_range.start) {
+                        search = SearchState::Inside(pos);
+                    } else {
+                        if (!child.kind().is_space()
+                            && child.kind() != &NodeKind::Semicolon)
+                            && (ahead_nontrivia.is_none()
+                                || self.replace_range.start > child_span.end)
+                        {
+                            ahead_nontrivia = Some((pos, at_start));
+                        }
+                        at_start = child.kind().is_at_start(at_start);
+                    }
+                }
+                SearchState::Inside(start) => {
+                    if child_span.end == self.replace_range.end {
+                        search = SearchState::RequireNonTrivia(start);
+                    } else if child_span.end > self.replace_range.end {
+                        search = SearchState::SpanFound(start, pos);
+                    }
+                }
+                SearchState::RequireNonTrivia(start) => {
+                    if !child.kind().is_trivia() {
+                        search = SearchState::SpanFound(start, pos);
+                    }
+                }
+                _ => unreachable!(),
             }
 
             offset += child.len();
-            at_start = child.kind().is_at_start(at_start);
-        }
+            child_outermost = outermost && i + 1 == original_count;
 
-        let (first_idx, first_start) = first?;
-        let mut last = None;
-
-        // Find the the last child in the range of children to reparse.
-        for (i, child) in green.children_mut().iter_mut().enumerate().skip(first_idx) {
-            let child_span = offset .. offset + child.len();
-
-            // Similarly to above, the end of the edit must be in the
-            // reconsidered range. However, in markup mode, we need to extend
-            // the reconsidered range by up to two nodes so that spaceing etc.
-            // results in the same tree.
-            //
-            // Therefore, there are two cases:
-            // 1. We are at the end of the string or in code mode and the
-            //    current node perfectly matches the end of the replacement
-            // 2. The end is contained within this node, and, in Markup mode,
-            //    is not the first thing in it.
-            let ignore_overhang =
-                i + 1 == original_count || child_mode != TokenMode::Markup;
-
-            if (self.replace_range.end == child_span.end && ignore_overhang)
-                || (child_span.end > self.replace_range.end
-                    && (self.replace_range.end != child_span.start || ignore_overhang))
-            {
-                outermost &= i + 1 == original_count;
-                last = Some((i, offset + child.len()));
-                break;
-            } else if child_mode != TokenMode::Markup
-                || !child.kind().succession_rule().safe_in_markup()
-            {
+            if search.done().is_some() {
                 break;
             }
-
-            offset += child.len();
         }
 
-        let (last_idx, last_end) = last?;
-        let superseded_range = first_idx .. last_idx + 1;
-        let superseded_span = first_start .. last_end;
-        let last_kind = green.children()[last_idx].kind().clone();
+        // If we were looking for a non-whitespace element and hit the end of
+        // the file here, we instead use EOF as the end of the span.
+        if let SearchState::RequireNonTrivia(start) = search {
+            search = SearchState::SpanFound(start, GreenPos {
+                idx: green.children().len() - 1,
+                offset: offset - green.children().last().unwrap().len(),
+            })
+        }
 
-        // First, we try if the child itself has another, more specific
-        // applicable child.
-        if superseded_range.len() == 1 {
-            let child = &mut green.children_mut()[superseded_range.start];
+        if let SearchState::Contained(pos) = search {
+            let child = &mut green.children_mut()[pos.idx];
             let prev_len = child.len();
 
-            if last_kind.succession_rule() != SuccessionRule::Unsafe
-                && !matches!(last_kind, NodeKind::Strong | NodeKind::Emph)
-            {
-                if let Some(range) = match child {
-                    Green::Node(node) => self.reparse_step(
-                        Arc::make_mut(node),
-                        first_start,
-                        child_mode,
-                        outermost,
-                    ),
-                    Green::Token(_) => None,
-                } {
-                    let new_len = child.len();
-                    green.update_parent(new_len, prev_len);
-                    return Some(range);
+            if let Some(range) = match child {
+                Green::Node(node) => {
+                    self.reparse_step(Arc::make_mut(node), pos.offset, child_outermost)
+                }
+                Green::Token(_) => None,
+            } {
+                let new_len = child.len();
+                green.update_parent(new_len, prev_len);
+                return Some(range);
+            }
+
+            let superseded_span = pos.offset .. pos.offset + prev_len;
+            let func: Option<ReparseMode> = match child.kind() {
+                NodeKind::Template => Some(ReparseMode::Template),
+                NodeKind::Block => Some(ReparseMode::Block),
+                _ => None,
+            };
+
+            // Return if the element was reparsable on its own, otherwise try to
+            // treat it as a markup element.
+            if let Some(func) = func {
+                if let Some(result) = self.replace(
+                    green,
+                    func,
+                    pos.idx .. pos.idx + 1,
+                    superseded_span,
+                    outermost,
+                ) {
+                    return Some(result);
                 }
             }
         }
 
-        // We only replace multiple children in markup mode.
-        if superseded_range.len() > 1 && mode == TokenMode::Code {
-            return None;
-        }
+        // Save the current indent if this is a markup node and stop otherwise.
+        let indent = match green.kind() {
+            NodeKind::Markup(n) => *n,
+            _ => return None,
+        };
 
-        // We now have a child that we can replace and a function to do so.
-        let func = last_kind.reparsing_func(child_mode, indent)?;
-        let succession = last_kind.succession_rule();
+        let (mut start, end) = search.done()?;
+        if let Some((ahead, ahead_at_start)) = ahead_nontrivia {
+            let ahead_kind = green.children()[ahead.idx].kind();
 
-        let mut markup_min_column = 0;
-
-        // If this is a markup node, we want to save its indent instead to pass
-        // the right indent argument.
-        if superseded_range.len() == 1 {
-            let child = &mut green.children_mut()[superseded_range.start];
-            if let NodeKind::Markup(n) = child.kind() {
-                markup_min_column = *n;
+            if start.offset == self.replace_range.start
+                || ahead_kind.only_at_start()
+                || ahead_kind.mode() != Some(TokenMode::Markup)
+            {
+                start = ahead;
+                at_start = ahead_at_start;
             }
         }
 
-        // The span of the to-be-reparsed children in the new source.
-        let newborn_span = superseded_span.start
-            ..
-            superseded_span.end + self.replace_len - self.replace_range.len();
+        let superseded_span =
+            start.offset .. end.offset + green.children()[end.idx].len();
 
-        // For atomic primaries we need to pass in the whole remaining string to
-        // check whether the parser would eat more stuff illicitly.
-        let reparse_span = if succession == SuccessionRule::AtomicPrimary {
-            newborn_span.start .. self.src.len()
-        } else {
-            newborn_span.clone()
-        };
+        self.replace(
+            green,
+            ReparseMode::MarkupElements(at_start, indent),
+            start.idx .. end.idx + 1,
+            superseded_span,
+            outermost,
+        )
+    }
+
+    fn replace(
+        &self,
+        green: &mut GreenNode,
+        mode: ReparseMode,
+        superseded_idx: Range<usize>,
+        superseded_span: Range<usize>,
+        outermost: bool,
+    ) -> Option<Range<usize>> {
+        let superseded_start = superseded_idx.start;
+
+        let differential: isize =
+            self.replace_len as isize - self.replace_range.len() as isize;
+        let newborn_end = (superseded_span.end as isize + differential) as usize;
+        let newborn_span = superseded_span.start .. newborn_end;
 
         let mut prefix = "";
-        for (i, c) in self.src[.. reparse_span.start].char_indices().rev() {
+        for (i, c) in self.src[.. newborn_span.start].char_indices().rev() {
             if is_newline(c) {
                 break;
             }
-            prefix = &self.src[i .. reparse_span.start];
+            prefix = &self.src[i .. newborn_span.start];
         }
 
-        // Do the reparsing!
-        let (mut newborns, terminated) = func(
-            &prefix,
-            &self.src[reparse_span.clone()],
-            at_start,
-            markup_min_column,
-        )?;
-
-        // Make sure that atomic primaries ate only what they were supposed to.
-        if succession == SuccessionRule::AtomicPrimary {
-            let len = newborn_span.len();
-            if newborns.len() > 1 && newborns[0].len() == len {
-                newborns.truncate(1);
-            } else if newborns.iter().map(Green::len).sum::<usize>() != len {
-                return None;
-            }
-        }
+        let (newborns, terminated, amount) = match mode {
+            ReparseMode::Block => reparse_block(
+                &prefix,
+                &self.src[newborn_span.start ..],
+                newborn_span.len(),
+            ),
+            ReparseMode::Template => reparse_template(
+                &prefix,
+                &self.src[newborn_span.start ..],
+                newborn_span.len(),
+            ),
+            ReparseMode::MarkupElements(at_start, indent) => reparse_markup_elements(
+                &prefix,
+                &self.src[newborn_span.start ..],
+                newborn_span.len(),
+                differential,
+                &green.children()[superseded_start ..],
+                at_start,
+                indent,
+            ),
+        }?;
 
         // Do not accept unclosed nodes if the old node wasn't at the right edge
         // of the tree.
@@ -260,363 +238,74 @@ impl Reparser<'_> {
             return None;
         }
 
-        // If all post- and preconditions match, we are good to go!
-        if validate(
-            green.children(),
-            superseded_range.clone(),
-            at_start,
-            &newborns,
-            mode,
-            succession,
-            newborn_span.clone(),
-            self.src,
-        ) {
-            green.replace_children(superseded_range, newborns);
-            Some(newborn_span)
-        } else {
-            None
+        green.replace_children(superseded_start .. superseded_start + amount, newborns);
+        Some(newborn_span)
+    }
+}
+
+/// The position of a green node in terms of its string offset and index within
+/// the parent node.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct GreenPos {
+    idx: usize,
+    offset: usize,
+}
+
+/// Encodes the state machine of the search for the node which is pending for
+/// replacement.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum SearchState {
+    /// Neither an end nor a start have been found as of now.
+    /// The last non-whitespace child is continually saved.
+    NoneFound,
+    /// The search has concluded by finding a node that fully contains the
+    /// modifications.
+    Contained(GreenPos),
+    /// The search has found the start of the modified nodes.
+    Inside(GreenPos),
+    /// The search has found the end of the modified nodes but the change
+    /// touched its boundries so another non-trivia node is needed.
+    RequireNonTrivia(GreenPos),
+    /// The search has concluded by finding a start and an end index for nodes
+    /// with a pending reparse.
+    SpanFound(GreenPos, GreenPos),
+}
+
+impl Default for SearchState {
+    fn default() -> Self {
+        Self::NoneFound
+    }
+}
+
+impl SearchState {
+    fn done(self) -> Option<(GreenPos, GreenPos)> {
+        match self {
+            Self::NoneFound => None,
+            Self::Contained(s) => Some((s, s)),
+            Self::Inside(_) => None,
+            Self::RequireNonTrivia(_) => None,
+            Self::SpanFound(s, e) => Some((s, e)),
         }
     }
 }
 
-/// Validate that a node replacement is allowed by post- and preconditions.
-fn validate(
-    superseded: &[Green],
-    superseded_range: Range<usize>,
-    mut at_start: bool,
-    newborns: &[Green],
-    mode: TokenMode,
-    post: SuccessionRule,
-    newborn_span: Range<usize>,
-    src: &str,
-) -> bool {
-    // Atomic primaries must only generate one new child.
-    if post == SuccessionRule::AtomicPrimary && newborns.len() != 1 {
-        return false;
-    }
-
-    // Same kind in mode `inside` must generate only one child and that child
-    // must be of the same kind as previously.
-    if let SuccessionRule::SameKind(inside) = post {
-        let superseded_kind = superseded[superseded_range.start].kind();
-        let superseded_mode = superseded_kind.mode().unwrap_or(mode);
-        if inside.map_or(true, |m| m == superseded_mode)
-            && (newborns.len() != 1 || superseded_kind != newborns[0].kind())
-        {
-            return false;
-        }
-    }
-
-    // Neighbor invariants are only relevant in markup mode.
-    if mode == TokenMode::Code {
-        return true;
-    }
-
-    // Check if there are any `AtStart` predecessors which require a certain
-    // indentation.
-    let s = Scanner::new(src);
-    let mut prev_pos = newborn_span.start;
-    for child in (&superseded[.. superseded_range.start]).iter().rev() {
-        prev_pos -= child.len();
-        if !child.kind().is_trivia() {
-            if child.kind().neighbour_rule() == NeighbourRule::AtStart {
-                let left_col = s.column(prev_pos);
-
-                // Search for the first non-trivia newborn.
-                let mut new_pos = newborn_span.start;
-                let mut child_col = None;
-                for child in newborns {
-                    if !child.kind().is_trivia() {
-                        child_col = Some(s.column(new_pos));
-                        break;
-                    }
-
-                    new_pos += child.len();
-                }
-
-                if let Some(child_col) = child_col {
-                    if child_col > left_col {
-                        return false;
-                    }
-                }
-            }
-
-            break;
-        }
-    }
-
-    // Compute the at_start state behind the new children.
-    for child in newborns {
-        at_start = child.kind().is_at_start(at_start);
-    }
-
-    // Ensure that a possible at-start or not-at-start precondition of
-    // a node after the replacement range is satisfied.
-    for child in &superseded[superseded_range.end ..] {
-        let neighbour_rule = child.kind().neighbour_rule();
-        if (neighbour_rule == NeighbourRule::AtStart && !at_start)
-            || (neighbour_rule == NeighbourRule::NotAtStart && at_start)
-        {
-            return false;
-        }
-
-        if !child.kind().is_trivia() {
-            break;
-        }
-
-        at_start = child.kind().is_at_start(at_start);
-    }
-
-    // Verify that the last of the newborns is not `NotAtEnd`.
-    if newborns.last().map_or(false, |child| {
-        child.kind().neighbour_rule() == NeighbourRule::NotAtEnd
-    }) {
-        return false;
-    }
-
-    // We have to check whether the last non-trivia newborn is `AtStart` and
-    // verify the indent of its right neighbors in order to make sure its
-    // indentation requirements are fulfilled.
-    let mut child_pos = newborn_span.end;
-    for child in newborns.iter().rev() {
-        child_pos -= child.len();
-
-        if child.kind().is_trivia() {
-            continue;
-        }
-
-        if child.kind().neighbour_rule() == NeighbourRule::AtStart {
-            let child_col = s.column(child_pos)
-                + match child.kind() {
-                    NodeKind::Heading => child
-                        .children()
-                        .iter()
-                        .filter(|n| n.kind() == &NodeKind::Eq)
-                        .count(),
-                    NodeKind::List => 1,
-                    NodeKind::Enum => child.children().first().unwrap().len(),
-                    _ => 0,
-                };
-
-            let mut right_pos = newborn_span.end;
-            for child in &superseded[superseded_range.end ..] {
-                if child.kind().is_trivia() || child.kind() == &NodeKind::Parbreak {
-                    right_pos += child.len();
-                    continue;
-                }
-
-                if s.column(right_pos) > child_col {
-                    return false;
-                }
-                break;
-            }
-        }
-        break;
-    }
-
-    true
+/// Which reparse function to choose for a span of elements.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum ReparseMode {
+    /// Reparse a code block with its braces.
+    Block,
+    /// Reparse a template, including its square brackets.
+    Template,
+    /// Reparse elements of the markup. The variant carries whether the node is
+    /// `at_start` and the minimum indent of the containing markup node.
+    MarkupElements(bool, usize),
 }
 
 impl NodeKind {
-    /// Return the correct reparsing function given the postconditions for the
-    /// type.
-    fn reparsing_func(
-        &self,
-        parent_mode: TokenMode,
-        indent: usize,
-    ) -> Option<fn(&str, &str, bool, usize) -> Option<(Vec<Green>, bool)>> {
-        let mode = self.mode().unwrap_or(parent_mode);
-        match self.succession_rule() {
-            SuccessionRule::Unsafe | SuccessionRule::UnsafeLayer => None,
-            SuccessionRule::AtomicPrimary => match mode {
-                TokenMode::Code => Some(parse_atomic),
-                TokenMode::Markup => Some(parse_atomic_markup),
-            },
-            SuccessionRule::SameKind(x) if x == None || x == Some(mode) => match self {
-                NodeKind::Markup(_) => Some(parse_markup),
-                NodeKind::Template => Some(parse_template),
-                NodeKind::Block => Some(parse_block),
-                NodeKind::LineComment | NodeKind::BlockComment => Some(parse_comment),
-                _ => None,
-            },
-            _ => match mode {
-                TokenMode::Markup if indent == 0 => Some(parse_markup_elements),
-                _ => return None,
-            },
-        }
-    }
-
-    /// Whether it is safe to do incremental parsing on this node.
-    pub fn succession_rule(&self) -> SuccessionRule {
+    /// Whether this node has to appear at the start of a line.
+    pub fn only_at_start(&self) -> bool {
         match self {
-            // These are all replaceable by other tokens.
-            Self::Linebreak
-            | Self::Parbreak
-            | Self::Text(_)
-            | Self::TextInLine(_)
-            | Self::NonBreakingSpace
-            | Self::EnDash
-            | Self::EmDash
-            | Self::Escape(_)
-            | Self::Strong
-            | Self::Emph
-            | Self::Heading
-            | Self::Enum
-            | Self::List
-            | Self::Math(_) => SuccessionRule::Safe,
-
-            // Only markup is expected at the points where it does occur. The
-            // indentation must be preserved as well, also for the children.
-            Self::Markup(_) => SuccessionRule::SameKind(None),
-
-            // These can appear everywhere and must not change to other stuff
-            // because that could change the outer expression.
-            Self::LineComment | Self::BlockComment => SuccessionRule::SameKind(None),
-
-            // These can appear as bodies and would trigger an error if they
-            // became something else.
-            Self::Template => SuccessionRule::SameKind(None),
-            Self::Block => SuccessionRule::SameKind(Some(TokenMode::Code)),
-
-            // Whitespace in code mode has to remain whitespace or else the type
-            // of things would change.
-            Self::Space(_) => SuccessionRule::SameKind(Some(TokenMode::Code)),
-
-            // These are expressions that can be replaced by other expressions.
-            Self::Ident(_)
-            | Self::Bool(_)
-            | Self::Int(_)
-            | Self::Float(_)
-            | Self::Length(_, _)
-            | Self::Angle(_, _)
-            | Self::Percentage(_)
-            | Self::Str(_)
-            | Self::Fraction(_)
-            | Self::Array
-            | Self::Dict
-            | Self::Group
-            | Self::None
-            | Self::Auto => SuccessionRule::AtomicPrimary,
-
-            // More complex, but still an expression.
-            Self::ForExpr
-            | Self::WhileExpr
-            | Self::IfExpr
-            | Self::LetExpr
-            | Self::SetExpr
-            | Self::ShowExpr
-            | Self::WrapExpr
-            | Self::ImportExpr
-            | Self::IncludeExpr
-            | Self::BreakExpr
-            | Self::ContinueExpr
-            | Self::ReturnExpr => SuccessionRule::AtomicPrimary,
-
-            // These are complex expressions which may screw with their
-            // environments.
-            Self::Call
-            | Self::Unary
-            | Self::Binary
-            | Self::CallArgs
-            | Self::Named
-            | Self::Spread => SuccessionRule::UnsafeLayer,
-
-            // The closure is a bit magic with the let expression, and also it
-            // is not atomic.
-            Self::Closure | Self::ClosureParams => SuccessionRule::UnsafeLayer,
-
-            // Missing these creates errors for the parents.
-            Self::WithExpr | Self::ForPattern | Self::ImportItems => {
-                SuccessionRule::UnsafeLayer
-            }
-
-            // Replacing parenthesis changes if the expression is balanced and
-            // is therefore not safe.
-            Self::LeftBracket
-            | Self::RightBracket
-            | Self::LeftBrace
-            | Self::RightBrace
-            | Self::LeftParen
-            | Self::RightParen => SuccessionRule::Unsafe,
-
-            // These work similar to parentheses.
-            Self::Star | Self::Underscore => SuccessionRule::Unsafe,
-
-            // Replacing an operator can change whether the parent is an
-            // operation which makes it unsafe.
-            Self::Comma
-            | Self::Semicolon
-            | Self::Colon
-            | Self::Plus
-            | Self::Minus
-            | Self::Slash
-            | Self::Eq
-            | Self::EqEq
-            | Self::ExclEq
-            | Self::Lt
-            | Self::LtEq
-            | Self::Gt
-            | Self::GtEq
-            | Self::PlusEq
-            | Self::HyphEq
-            | Self::StarEq
-            | Self::SlashEq
-            | Self::Not
-            | Self::And
-            | Self::Or
-            | Self::With
-            | Self::Dots
-            | Self::Arrow => SuccessionRule::Unsafe,
-
-            // These keywords change what kind of expression the parent is and
-            // how far the expression would go.
-            Self::Let
-            | Self::Set
-            | Self::Show
-            | Self::Wrap
-            | Self::If
-            | Self::Else
-            | Self::For
-            | Self::In
-            | Self::As
-            | Self::While
-            | Self::Break
-            | Self::Continue
-            | Self::Return
-            | Self::Import
-            | Self::Include
-            | Self::From => SuccessionRule::Unsafe,
-
-            // This element always has to remain in the same column so better
-            // reparse the whole parent.
-            Self::Raw(_) => SuccessionRule::Unsafe,
-
-            // Changing the heading level, enum numbering, or list bullet
-            // changes the next layer.
-            Self::EnumNumbering(_) => SuccessionRule::Unsafe,
-
-            // This can be anything, so we don't make any promises.
-            Self::Error(_, _) | Self::Unknown(_) => SuccessionRule::Unsafe,
-        }
-    }
-
-    /// Whether it is safe to insert this node next to some nodes or vice versa.
-    pub fn neighbour_rule(&self) -> NeighbourRule {
-        match self {
-            Self::Heading | Self::Enum | Self::List => NeighbourRule::AtStart,
-            Self::TextInLine(_) => NeighbourRule::NotAtStart,
-            Self::Error(_, _) => NeighbourRule::NotAtEnd,
-            _ => NeighbourRule::None,
-        }
-    }
-}
-
-impl SuccessionRule {
-    /// Whether a node with this condition can be reparsed in markup mode.
-    pub fn safe_in_markup(&self) -> bool {
-        match self {
-            Self::Safe | Self::UnsafeLayer => true,
-            Self::SameKind(mode) => mode.map_or(false, |m| m != TokenMode::Markup),
+            Self::Heading | Self::Enum | Self::List => true,
             _ => false,
         }
     }
@@ -640,59 +329,63 @@ mod tests {
 
     #[test]
     fn test_parse_incremental_simple_replacements() {
-        test("hello  world", 7 .. 12, "walkers", 5 .. 14);
+        test("hello  world", 7 .. 12, "walkers", 0 .. 14);
         test("some content", 0..12, "", 0..0);
         test("", 0..0, "do it", 0..5);
         test("a d e", 1 .. 3, " b c d", 0 .. 9);
         test("a #f() e", 1 .. 6, " b c d", 0 .. 9);
-        test("a\nb\nc\nd\ne\n", 5..5, "c", 3..8);
-        test("a\n\nb\n\nc\n\nd\n\ne\n", 7..7, "c", 4..11);
+        test("a\nb\nc\nd\ne\n", 5 .. 5, "c", 2 .. 7);
+        test("a\n\nb\n\nc\n\nd\n\ne\n", 7 .. 7, "c", 3 .. 10);
         test("a\nb\nc *hel a b lo* d\nd\ne", 13..13, "c ", 6..20);
-        test("{a}", 1 .. 2, "b", 1 .. 2);
-        test("{(0, 1, 2)}", 5 .. 6, "11pt", 5 .. 9);
-        test("\n= A heading", 3 .. 3, "n evocative", 1 .. 23);
+        test("~~ {a} ~~", 4 .. 5, "b", 3 .. 6);
+        test("{(0, 1, 2)}", 5 .. 6, "11pt", 0..14);
+        test("\n= A heading", 3 .. 3, "n evocative", 3 .. 23);
         test("for~your~thing", 9 .. 9, "a", 4 .. 15);
         test("a your thing a", 6 .. 7, "a", 0 .. 14);
         test("{call(); abc}", 7 .. 7, "[]", 0 .. 15);
-        test("#call() abc", 7 .. 7, "[]", 0 .. 13);
-        test("hi[\n- item\n- item 2\n    - item 3]", 11 .. 11, "  ", 4 .. 34);
-        test("hi\n- item\nno item\n    - item 3", 10 .. 10, "- ", 0 .. 32);
-        test("#grid(columns: (auto, 1fr, 40%), [*plonk*], rect(width: 100%, height: 1pt, fill: conifer), [thing])", 16 .. 20, "none", 16 .. 20);
-        test("#grid(columns: (auto, 1fr, 40%), [*plonk*], rect(width: 100%, height: 1pt, fill: conifer), [thing])", 33 .. 42, "[_gronk_]", 33 .. 42);
-        test("#grid(columns: (auto, 1fr, 40%), [*plonk*], rect(width: 100%, height: 1pt, fill: conifer), [thing])", 34 .. 41, "_bar_", 34 .. 39);
-        test("{let i=1; for x in range(5) {i}}", 6 .. 6, " ", 1 .. 9);
-        test("{let i=1; for x in range(5) {i}}", 13 .. 14, "  ", 10 .. 32);
+        test("#call() abc", 7 .. 7, "[]", 0 .. 10);
+        test("hi[\n- item\n- item 2\n    - item 3]", 11 .. 11, "  ", 2 .. 35);
+        test("hi\n- item\nno item\n    - item 3", 10 .. 10, "- ", 3..19);
+        test("#grid(columns: (auto, 1fr, 40%), [*plonk*], rect(width: 100%, height: 1pt, fill: conifer), [thing])", 16 .. 20, "none", 0..99);
+        test("#grid(columns: (auto, 1fr, 40%), [*plonk*], rect(width: 100%, height: 1pt, fill: conifer), [thing])", 33 .. 42, "[_gronk_]", 33..42);
+        test("#grid(columns: (auto, 1fr, 40%), [*plonk*], rect(width: 100%, height: 1pt, fill: conifer), [thing])", 34 .. 41, "_bar_", 33 .. 40);
+        test("{let i=1; for x in range(5) {i}}", 6 .. 6, " ", 0 .. 33);
+        test("{let i=1; for x in range(5) {i}}", 13 .. 14, "  ", 0 .. 33);
         test("hello~~{x}", 7 .. 10, "#f()", 5 .. 11);
         test("this~is -- in my opinion -- spectacular", 8 .. 10, "---", 5 .. 25);
-        test("understanding `code` is complicated", 15 .. 15, "C ", 0 .. 37);
-        test("{ let x = g() }", 10 .. 12, "f(54", 2 .. 15);
+        test("understanding `code` is complicated", 15 .. 15, "C ", 14 .. 22);
+        test("{ let x = g() }", 10 .. 12, "f(54", 0 .. 17);
         test("a #let rect with (fill: eastern)\nb", 16 .. 31, " (stroke: conifer", 2 .. 34);
-        test(r#"a ```typst hello``` b"#, 16 .. 17, "", 0 .. 20);
-        test(r#"a ```typst hello```"#, 16 .. 17, "", 0 .. 18);
+        test(r#"a ```typst hello``` b"#, 16 .. 17, "", 2 .. 18);
+        test(r#"a ```typst hello```"#, 16 .. 17, "", 2 .. 18);
         test("#for", 4 .. 4, "//", 0 .. 6);
+        test("a\n#let \nb", 7 .. 7, "i", 2 .. 9);
+        test("a\n#for i \nb", 9 .. 9, "in", 2 .. 12);
     }
 
     #[test]
     fn test_parse_incremental_whitespace_invariants() {
-        test("hello \\ world", 7 .. 8, "a ", 5 .. 14);
-        test("hello \\ world", 7 .. 8, " a", 5 .. 14);
-        test("x = y", 1 .. 1, " + y", 0 .. 7);
-        test("x = y", 1 .. 1, " + y\n", 0 .. 10);
-        test("abc\n= a heading\njoke", 3 .. 4, "\nmore\n\n", 0 .. 22);
-        test("abc\n= a heading\njoke", 3 .. 4, "\nnot ", 0 .. 20);
-        test("#let x = (1, 2 + ;~ Five\r\n\r", 20..23, "2.", 18..23);
+        test("hello \\ world", 7 .. 8, "a ", 0 .. 14);
+        test("hello \\ world", 7 .. 8, " a", 0 .. 14);
+        test("x = y", 1 .. 1, " + y", 0 .. 6);
+        test("x = y", 1 .. 1, " + y\n", 0 .. 7);
+        test("abc\n= a heading\njoke", 3 .. 4, "\nmore\n\n", 0 .. 21);
+        test("abc\n= a heading\njoke", 3 .. 4, "\nnot ", 0 .. 19);
+        test("#let x = (1, 2 + ;~ Five\r\n\r", 20 .. 23, "2.", 18 .. 23);
         test("hey #myfriend", 4 .. 4, "\\", 0 .. 14);
-        test("hey  #myfriend", 4 .. 4, "\\", 0 .. 6);
+        test("hey  #myfriend", 4 .. 4, "\\", 3 .. 6);
+        test("= foo\nbar\n - a\n - b", 6 .. 9, "", 0 .. 11);
+        test("= foo\n  bar\n  baz", 6 .. 8, "", 0 .. 15);
     }
 
     #[test]
     fn test_parse_incremental_type_invariants() {
         test("a #for x in array {x}", 18 .. 21, "[#x]", 2 .. 22);
-        test("a #let x = 1 {5}", 3 .. 6, "if", 0 .. 15);
-        test("a {let x = 1 {5}} b", 3 .. 6, "if", 1 .. 16);
-        test("#let x = 1 {5}", 4 .. 4, " if", 0 .. 17);
+        test("a #let x = 1 {5}", 3 .. 6, "if", 2 .. 11);
+        test("a {let x = 1 {5}} b", 3 .. 6, "if", 2 .. 16);
+        test("#let x = 1 {5}", 4 .. 4, " if", 0 .. 13);
         test("{let x = 1 {5}}", 4 .. 4, " if", 0 .. 18);
-        test("a // b c #f()", 3 .. 4, "", 0 .. 12);
+        test("a // b c #f()", 3 .. 4, "", 2 .. 12);
         test("{\nf()\n//g(a)\n}", 6 .. 8, "", 0 .. 12);
         test("a{\nf()\n//g(a)\n}b", 7 .. 9, "", 1 .. 13);
         test("a #while x {\n g(x) \n}  b", 11 .. 11, "//", 0 .. 26);
@@ -708,12 +401,12 @@ mod tests {
         test(r"{{let x = z}; a = 1} b", 6 .. 6, "//", 0 .. 24);
         test("a b c", 1 .. 1, " /* letters */", 0 .. 19);
         test("a b c", 1 .. 1, " /* letters", 0 .. 16);
-        test("{if i==1 {a} else [b]; b()}", 12 .. 12, " /* letters */", 1 .. 35);
+        test("{if i==1 {a} else [b]; b()}", 12 .. 12, " /* letters */", 0 .. 41);
         test("{if i==1 {a} else [b]; b()}", 12 .. 12, " /* letters", 0 .. 38);
-        test("~~~~", 2 .. 2, "[]", 0 .. 6);
-        test("a[]b", 2 .. 2, "{", 0 .. 5);
+        test("~~~~", 2 .. 2, "[]", 0 .. 5);
+        test("a[]b", 2 .. 2, "{", 1 .. 4);
         test("[hello]", 2 .. 3, "]", 0 .. 7);
-        test("{a}", 1 .. 2, "b", 1 .. 2);
+        test("{a}", 1 .. 2, "b", 0 .. 3);
         test("{ a; b; c }", 5 .. 6, "[}]", 0 .. 13);
         test("#a()\n~", 3..4, "{}", 0..7);
         test("[]\n~", 1..2, "#if i==0 {true}", 0..18);

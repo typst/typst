@@ -28,103 +28,120 @@ pub fn parse(src: &str) -> Arc<GreenNode> {
     }
 }
 
-/// Parse some markup. Returns `Some` if all of the input was consumed.
-pub fn parse_markup(
-    prefix: &str,
-    src: &str,
-    _: bool,
-    min_column: usize,
-) -> Option<(Vec<Green>, bool)> {
-    let mut p = Parser::with_prefix(prefix, src, TokenMode::Markup);
-    if min_column == 0 {
-        markup(&mut p, true);
-    } else {
-        markup_indented(&mut p, min_column);
-    }
-    p.consume()
-}
-
 /// Parse some markup without the topmost node. Returns `Some` if all of the
 /// input was consumed.
-pub fn parse_markup_elements(
+pub fn reparse_markup_elements(
     prefix: &str,
     src: &str,
+    end_pos: usize,
+    differential: isize,
+    reference: &[Green],
     mut at_start: bool,
-    _: usize,
-) -> Option<(Vec<Green>, bool)> {
+    column: usize,
+) -> Option<(Vec<Green>, bool, usize)> {
     let mut p = Parser::with_prefix(prefix, src, TokenMode::Markup);
-    while !p.eof() {
+
+    let mut node: Option<&Green> = None;
+    let mut iter = reference.iter();
+    let mut offset = differential;
+    let mut replaced = 0;
+    let mut stopped = false;
+
+    'outer: while !p.eof() {
+        if let Some(NodeKind::Space(1 ..)) = p.peek() {
+            if p.column(p.current_end()) < column {
+                return None;
+            }
+        }
+
         markup_node(&mut p, &mut at_start);
+
+        if p.prev_end() < end_pos {
+            continue;
+        }
+
+        let recent = p.children.last().unwrap();
+        let recent_start = p.prev_end() - recent.len();
+
+        while offset <= recent_start as isize {
+            if let Some(node) = node {
+                // The nodes are equal, at the same position and have the
+                // same content. The parsing trees have converged again, so
+                // the reparse may stop here.
+                if offset == recent_start as isize && node == recent {
+                    replaced -= 1;
+                    stopped = true;
+                    break 'outer;
+                }
+            }
+
+            if let Some(node) = node {
+                offset += node.len() as isize;
+            }
+
+            node = iter.next();
+            if node.is_none() {
+                break;
+            }
+
+            replaced += 1;
+        }
     }
-    p.consume()
-}
 
-/// Parse an atomic primary. Returns `Some` if all of the input was consumed.
-pub fn parse_atomic(
-    prefix: &str,
-    src: &str,
-    _: bool,
-    _: usize,
-) -> Option<(Vec<Green>, bool)> {
-    let mut p = Parser::with_prefix(prefix, src, TokenMode::Code);
-    primary(&mut p, true).ok()?;
-    p.consume_open_ended()
-}
+    if p.eof() && !stopped {
+        replaced = reference.len();
+    }
 
-/// Parse an atomic primary. Returns `Some` if all of the input was consumed.
-pub fn parse_atomic_markup(
-    prefix: &str,
-    src: &str,
-    _: bool,
-    _: usize,
-) -> Option<(Vec<Green>, bool)> {
-    let mut p = Parser::with_prefix(prefix, src, TokenMode::Markup);
-    markup_expr(&mut p);
-    p.consume_open_ended()
+    let (mut res, terminated) = p.consume()?;
+    if stopped {
+        res.pop().unwrap();
+    }
+
+    Some((res, terminated, replaced))
 }
 
 /// Parse a template literal. Returns `Some` if all of the input was consumed.
-pub fn parse_template(
+pub fn reparse_template(
     prefix: &str,
     src: &str,
-    _: bool,
-    _: usize,
-) -> Option<(Vec<Green>, bool)> {
+    end_pos: usize,
+) -> Option<(Vec<Green>, bool, usize)> {
     let mut p = Parser::with_prefix(prefix, src, TokenMode::Code);
     if !p.at(&NodeKind::LeftBracket) {
         return None;
     }
 
     template(&mut p);
-    p.consume()
+
+    let (mut green, terminated) = p.consume()?;
+    let first = green.remove(0);
+    if first.len() != end_pos {
+        return None;
+    }
+
+    Some((vec![first], terminated, 1))
 }
 
 /// Parse a code block. Returns `Some` if all of the input was consumed.
-pub fn parse_block(
+pub fn reparse_block(
     prefix: &str,
     src: &str,
-    _: bool,
-    _: usize,
-) -> Option<(Vec<Green>, bool)> {
+    end_pos: usize,
+) -> Option<(Vec<Green>, bool, usize)> {
     let mut p = Parser::with_prefix(prefix, src, TokenMode::Code);
     if !p.at(&NodeKind::LeftBrace) {
         return None;
     }
 
     block(&mut p);
-    p.consume()
-}
 
-/// Parse a comment. Returns `Some` if all of the input was consumed.
-pub fn parse_comment(
-    prefix: &str,
-    src: &str,
-    _: bool,
-    _: usize,
-) -> Option<(Vec<Green>, bool)> {
-    let mut p = Parser::with_prefix(prefix, src, TokenMode::Code);
-    comment(&mut p).ok()?;
-    p.consume()
+    let (mut green, terminated) = p.consume()?;
+    let first = green.remove(0);
+    if first.len() != end_pos {
+        return None;
+    }
+
+    Some((vec![first], terminated, 1))
 }
 
 /// Parse markup.
@@ -172,11 +189,7 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
         // Whitespace.
         NodeKind::Space(newlines) => {
             *at_start |= *newlines > 0;
-            if *newlines < 2 {
-                p.eat();
-            } else {
-                p.convert(NodeKind::Parbreak);
-            }
+            p.eat();
             return;
         }
 
@@ -918,17 +931,6 @@ fn body(p: &mut Parser) -> ParseResult {
         }
     }
     Ok(())
-}
-
-/// Parse a comment.
-fn comment(p: &mut Parser) -> ParseResult {
-    match p.peek() {
-        Some(NodeKind::LineComment | NodeKind::BlockComment) => {
-            p.eat();
-            Ok(())
-        }
-        _ => Err(ParseError),
-    }
 }
 
 #[cfg(test)]

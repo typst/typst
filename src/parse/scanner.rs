@@ -169,31 +169,6 @@ impl<'s> Scanner<'s> {
         // optimized away in some cases.
         self.src.get(start .. self.index).unwrap_or_default()
     }
-
-    /// The column index of a given index in the source string.
-    #[inline]
-    pub fn column(&self, index: usize) -> usize {
-        self.column_offset(index, 0)
-    }
-
-    /// The column index of a given index in the source string when an offset is
-    /// applied to the first line of the string.
-    #[inline]
-    pub fn column_offset(&self, index: usize, offset: usize) -> usize {
-        let mut apply_offset = false;
-        let res = self.src[.. index]
-            .char_indices()
-            .rev()
-            .take_while(|&(_, c)| !is_newline(c))
-            .inspect(|&(i, _)| {
-                if i == 0 {
-                    apply_offset = true
-                }
-            })
-            .count();
-
-        if apply_offset { res + offset } else { res }
-    }
 }
 
 /// Whether this character denotes a newline.

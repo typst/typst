@@ -2,13 +2,11 @@ use core::slice::SliceIndex;
 use std::fmt::{self, Display, Formatter};
 use std::mem;
 
-use super::{Scanner, TokenMode, Tokens};
+use super::{TokenMode, Tokens};
 use crate::syntax::{ErrorPos, Green, GreenData, GreenNode, NodeKind};
 
 /// A convenient token-based parser.
 pub struct Parser<'s> {
-    /// Offsets the indentation on the first line of the source.
-    column_offset: usize,
     /// An iterator over the source tokens.
     tokens: Tokens<'s>,
     /// Whether we are at the end of the file or of a group.
@@ -22,7 +20,7 @@ pub struct Parser<'s> {
     /// The stack of open groups.
     groups: Vec<GroupEntry>,
     /// The children of the currently built node.
-    children: Vec<Green>,
+    pub children: Vec<Green>,
     /// Whether the last group was not correctly terminated.
     unterminated_group: bool,
     /// Whether a group terminator was found, that did not close a group.
@@ -32,10 +30,16 @@ pub struct Parser<'s> {
 impl<'s> Parser<'s> {
     /// Create a new parser for the source string.
     pub fn new(src: &'s str, mode: TokenMode) -> Self {
-        let mut tokens = Tokens::new(src, mode);
+        Self::with_prefix("", src, mode)
+    }
+
+    /// Create a new parser for the source string that is prefixed by some text
+    /// that does not need to be parsed but taken into account for column
+    /// calculation.
+    pub fn with_prefix(prefix: &str, src: &'s str, mode: TokenMode) -> Self {
+        let mut tokens = Tokens::with_prefix(prefix, src, mode);
         let current = tokens.next();
         Self {
-            column_offset: 0,
             tokens,
             eof: current.is_none(),
             current,
@@ -48,15 +52,6 @@ impl<'s> Parser<'s> {
         }
     }
 
-    /// Create a new parser for the source string that is prefixed by some text
-    /// that does not need to be parsed but taken into account for column
-    /// calculation.
-    pub fn with_prefix(prefix: &str, src: &'s str, mode: TokenMode) -> Self {
-        let mut p = Self::new(src, mode);
-        p.column_offset = Scanner::new(prefix).column(prefix.len());
-        p
-    }
-
     /// End the parsing process and return the last child.
     pub fn finish(self) -> Vec<Green> {
         self.children
@@ -65,13 +60,6 @@ impl<'s> Parser<'s> {
     /// End the parsing process and return multiple children and whether the
     /// last token was terminated.
     pub fn consume(self) -> Option<(Vec<Green>, bool)> {
-        (self.eof() && self.terminated())
-            .then(|| (self.children, self.tokens.terminated()))
-    }
-
-    /// End the parsing process and return multiple children and whether the
-    /// last token was terminated, even if there remains stuff in the string.
-    pub fn consume_open_ended(self) -> Option<(Vec<Green>, bool)> {
         self.terminated().then(|| (self.children, self.tokens.terminated()))
     }
 
@@ -176,13 +164,6 @@ impl<'s> Parser<'s> {
         }
     }
 
-    /// Eat the current token, but change its type.
-    pub fn convert(&mut self, kind: NodeKind) {
-        let marker = self.marker();
-        self.eat();
-        marker.convert(self, kind);
-    }
-
     /// Whether the current token is of the given type.
     pub fn at(&self, kind: &NodeKind) -> bool {
         self.peek() == Some(kind)
@@ -233,7 +214,7 @@ impl<'s> Parser<'s> {
 
     /// Determine the column index for the given byte index.
     pub fn column(&self, index: usize) -> usize {
-        self.tokens.scanner().column_offset(index, self.column_offset)
+        self.tokens.column(index)
     }
 
     /// Continue parsing in a group.

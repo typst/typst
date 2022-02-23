@@ -60,9 +60,9 @@ impl Markup {
     /// The markup nodes.
     pub fn nodes(&self) -> impl Iterator<Item = MarkupNode> + '_ {
         self.0.children().filter_map(|node| match node.kind() {
+            NodeKind::Space(2 ..) => Some(MarkupNode::Parbreak),
             NodeKind::Space(_) => Some(MarkupNode::Space),
             NodeKind::Linebreak => Some(MarkupNode::Linebreak),
-            NodeKind::Parbreak => Some(MarkupNode::Parbreak),
             NodeKind::Text(s) | NodeKind::TextInLine(s) => {
                 Some(MarkupNode::Text(s.clone()))
             }
