@@ -67,6 +67,11 @@ impl<'a, T: Merge> CollapsingBuilder<'a, T> {
         self.staged.push((item, styles, None));
     }
 
+    /// Iterate over the contained items.
+    pub fn items(&self) -> impl DoubleEndedIterator<Item = &T> {
+        self.builder.items().chain(self.staged.iter().map(|(item, ..)| item))
+    }
+
     /// Return the finish style vec and the common prefix chain.
     pub fn finish(mut self) -> (StyleVec<T>, StyleChain<'a>) {
         self.flush(false);

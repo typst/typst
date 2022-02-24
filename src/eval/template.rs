@@ -445,8 +445,36 @@ impl<'a> Builder<'a> {
 
     /// Finish the currently built paragraph.
     fn finish_par(&mut self, styles: StyleChain<'a>) {
-        let (par, shared) = std::mem::take(&mut self.par).finish();
+        let (mut par, shared) = std::mem::take(&mut self.par).finish();
         if !par.is_empty() {
+            // Paragraph indent should only apply if the paragraph starts with
+            // text and follows directly after another paragraph.
+            let indent = shared.get(ParNode::INDENT);
+            if !indent.is_zero()
+                && par
+                    .items()
+                    .find_map(|child| match child {
+                        ParChild::Spacing(_) => None,
+                        ParChild::Text(_) => Some(true),
+                        ParChild::Node(_) => Some(false),
+                    })
+                    .unwrap_or_default()
+                && self
+                    .flow
+                    .items()
+                    .rev()
+                    .find_map(|child| match child {
+                        FlowChild::Leading => None,
+                        FlowChild::Parbreak => None,
+                        FlowChild::Node(node) => Some(node.is::<ParNode>()),
+                        FlowChild::Spacing(_) => Some(false),
+                        FlowChild::Colbreak => Some(false),
+                    })
+                    .unwrap_or_default()
+            {
+                par.push_front(ParChild::Spacing(SpacingKind::Linear(indent)))
+            }
+
             let node = ParNode(par).pack();
             self.flow.supportive(FlowChild::Node(node), shared);
         }

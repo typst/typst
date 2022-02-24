@@ -547,6 +547,17 @@ impl<T> StyleVec<T> {
             .flat_map(|(map, count)| std::iter::repeat(map).take(*count));
         self.items().zip(styles)
     }
+
+    /// Insert an element in the front. The element will share the style of the
+    /// current first element.
+    ///
+    /// This method has no effect if the vector is empty.
+    pub fn push_front(&mut self, item: T) {
+        if !self.maps.is_empty() {
+            self.items.insert(0, item);
+            self.maps[0].1 += 1;
+        }
+    }
 }
 
 impl<T> Default for StyleVec<T> {
@@ -599,6 +610,11 @@ impl<'a, T> StyleVecBuilder<'a, T> {
         let item = self.items.last_mut()?;
         let chain = self.chains.last()?.0;
         Some((item, chain))
+    }
+
+    /// Iterate over the contained items.
+    pub fn items(&self) -> std::slice::Iter<'_, T> {
+        self.items.iter()
     }
 
     /// Finish building, returning a pair of two things:

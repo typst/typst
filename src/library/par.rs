@@ -36,6 +36,8 @@ impl ParNode {
     pub const LEADING: Linear = Relative::new(0.65).into();
     /// The extra spacing between paragraphs (dependent on scaled font size).
     pub const SPACING: Linear = Relative::new(0.55).into();
+    /// The indent the first line of a consecutive paragraph should have.
+    pub const INDENT: Linear = Linear::zero();
 
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Template> {
         // The paragraph constructor is special: It doesn't create a paragraph
@@ -75,6 +77,7 @@ impl ParNode {
         styles.set_opt(Self::ALIGN, align);
         styles.set_opt(Self::LEADING, args.named("leading")?);
         styles.set_opt(Self::SPACING, args.named("spacing")?);
+        styles.set_opt(Self::INDENT, args.named("indent")?);
 
         Ok(())
     }
