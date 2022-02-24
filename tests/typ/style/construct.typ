@@ -30,4 +30,4 @@ A #rect(fill: yellow, padding: 5pt, rect()) B
 
 ---
 // The inner list should not be indented extra.
-[#set text(100%);#list(label-indent: 20pt, list[A])]
+[#set text(100%);#list(indent: 20pt, list[A])]

@@ -15,7 +15,7 @@ Hello *{x}*
 ]
 
 - Fruit
-[#set list(label-indent: 10pt)
+[#set list(indent: 10pt)
  #fruit]
 - No more fruit
 

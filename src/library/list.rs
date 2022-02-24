@@ -33,9 +33,13 @@ impl<const L: ListKind> ListNode<L> {
     /// The spacing between the list items of a non-wide list.
     pub const SPACING: Linear = Linear::zero();
     /// The indentation of each item's label.
-    pub const LABEL_INDENT: Linear = Relative::new(0.0).into();
+    pub const INDENT: Linear = Relative::new(0.0).into();
     /// The space between the label and the body of each item.
     pub const BODY_INDENT: Linear = Relative::new(0.5).into();
+    /// The extra padding above the list.
+    pub const ABOVE: Length = Length::zero();
+    /// The extra padding below the list.
+    pub const BELOW: Length = Length::zero();
 
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Template> {
         Ok(Template::show(Self {
@@ -52,54 +56,69 @@ impl<const L: ListKind> ListNode<L> {
 
 impl<const L: ListKind> Show for ListNode<L> {
     fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Template> {
-        if let Some(template) = styles.show(
+        let template = if let Some(template) = styles.show(
             self,
             ctx,
             self.items.iter().map(|item| Value::Template((*item.body).clone())),
         )? {
-            return Ok(template);
-        }
+            template
+        } else {
+            let mut children = vec![];
+            let mut number = self.start;
 
-        let mut children = vec![];
-        let mut number = self.start;
+            let label = styles.get_ref(Self::LABEL);
 
-        let label = styles.get_ref(Self::LABEL);
+            for item in &self.items {
+                number = item.number.unwrap_or(number);
+                if L == UNORDERED {
+                    number = 1;
+                }
 
-        for item in &self.items {
-            number = item.number.unwrap_or(number);
-            if L == UNORDERED {
-                number = 1;
+                children.push(LayoutNode::default());
+                children.push(label.resolve(ctx, L, number)?.pack());
+                children.push(LayoutNode::default());
+                children.push((*item.body).clone().pack());
+                number += 1;
             }
 
-            children.push(LayoutNode::default());
-            children.push(label.resolve(ctx, L, number)?.pack());
-            children.push(LayoutNode::default());
-            children.push((*item.body).clone().pack());
-            number += 1;
-        }
+            let em = styles.get(TextNode::SIZE).abs;
+            let leading = styles.get(ParNode::LEADING);
+            let spacing = if self.wide {
+                styles.get(ParNode::SPACING)
+            } else {
+                styles.get(Self::SPACING)
+            };
 
-        let em = styles.get(TextNode::SIZE).abs;
-        let leading = styles.get(ParNode::LEADING);
-        let spacing = if self.wide {
-            styles.get(ParNode::SPACING)
-        } else {
-            styles.get(Self::SPACING)
+            let gutter = (leading + spacing).resolve(em);
+            let indent = styles.get(Self::INDENT).resolve(em);
+            let body_indent = styles.get(Self::BODY_INDENT).resolve(em);
+
+            Template::block(GridNode {
+                tracks: Spec::with_x(vec![
+                    TrackSizing::Linear(indent.into()),
+                    TrackSizing::Auto,
+                    TrackSizing::Linear(body_indent.into()),
+                    TrackSizing::Auto,
+                ]),
+                gutter: Spec::with_y(vec![TrackSizing::Linear(gutter.into())]),
+                children,
+            })
         };
 
-        let gutter = (leading + spacing).resolve(em);
-        let label_indent = styles.get(Self::LABEL_INDENT).resolve(em);
-        let body_indent = styles.get(Self::BODY_INDENT).resolve(em);
+        let mut seq = vec![];
+        let above = styles.get(Self::ABOVE);
+        if !above.is_zero() {
+            seq.push(Template::Vertical(above.into()));
+        }
 
-        Ok(Template::block(GridNode {
-            tracks: Spec::with_x(vec![
-                TrackSizing::Linear(label_indent.into()),
-                TrackSizing::Auto,
-                TrackSizing::Linear(body_indent.into()),
-                TrackSizing::Auto,
-            ]),
-            gutter: Spec::with_y(vec![TrackSizing::Linear(gutter.into())]),
-            children,
-        }))
+        seq.push(template);
+
+        let below = styles.get(Self::BELOW);
+        if !below.is_zero() {
+            seq.push(Template::Vertical(below.into()));
+        }
+
+        Ok(Template::sequence(seq))
     }
 }
 
