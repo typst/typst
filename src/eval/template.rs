@@ -114,8 +114,8 @@ impl Template {
             if let Some((_, map)) = Arc::get_mut(styled) {
                 if !map.has_scoped() {
                     map.set(key, value);
+                    return self;
                 }
-                return self;
             }
         }
 

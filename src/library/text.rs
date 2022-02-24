@@ -95,6 +95,9 @@ impl TextNode {
     /// Whether a monospace font should be preferred.
     #[skip]
     pub const MONOSPACED: bool = false;
+    /// The case transformation that should be applied to the next.
+    #[skip]
+    pub const CASE: Option<Case> = None;
     /// Decorative lines.
     #[skip]
     #[fold(|a, b| a.into_iter().chain(b).collect())]
@@ -384,6 +387,25 @@ castable! {
         .collect(),
 }
 
+/// A case transformation on text.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum Case {
+    /// Everything is uppercased.
+    Upper,
+    /// Everything is lowercased.
+    Lower,
+}
+
+impl Case {
+    /// Apply the case to a string of text.
+    pub fn apply(self, text: &str) -> String {
+        match self {
+            Self::Upper => text.to_uppercase(),
+            Self::Lower => text.to_lowercase(),
+        }
+    }
+}
+
 /// Shape text into [`ShapedText`].
 pub fn shape<'a>(
     fonts: &mut FontStore,
@@ -391,13 +413,18 @@ pub fn shape<'a>(
     styles: StyleChain<'a>,
     dir: Dir,
 ) -> ShapedText<'a> {
+    let text = match styles.get(TextNode::CASE) {
+        Some(case) => Cow::Owned(case.apply(text)),
+        None => Cow::Borrowed(text),
+    };
+
     let mut glyphs = vec![];
     if !text.is_empty() {
         shape_segment(
             fonts,
             &mut glyphs,
             0,
-            text,
+            &text,
             variant(styles),
             families(styles),
             None,
@@ -743,7 +770,7 @@ fn tags(styles: StyleChain) -> Vec<Feature> {
 #[derive(Debug, Clone)]
 pub struct ShapedText<'a> {
     /// The text that was shaped.
-    pub text: &'a str,
+    pub text: Cow<'a, str>,
     /// The text direction.
     pub dir: Dir,
     /// The text's style properties.
@@ -941,7 +968,7 @@ impl<'a> ShapedText<'a> {
         if let Some(glyphs) = self.slice_safe_to_break(text_range.clone()) {
             let (size, baseline) = measure(fonts, glyphs, self.styles);
             Self {
-                text: &self.text[text_range],
+                text: Cow::Borrowed(&self.text[text_range]),
                 dir: self.dir,
                 styles: self.styles.clone(),
                 size,

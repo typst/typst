@@ -4,6 +4,7 @@ use std::cmp::Ordering;
 use std::str::FromStr;
 
 use super::prelude::*;
+use super::{Case, TextNode};
 use crate::eval::Array;
 
 /// Ensure that a condition is fulfilled.
@@ -253,12 +254,22 @@ pub fn range(_: &mut Context, args: &mut Args) -> TypResult<Value> {
 
 /// Convert a string to lowercase.
 pub fn lower(_: &mut Context, args: &mut Args) -> TypResult<Value> {
-    Ok(args.expect::<EcoString>("string")?.to_lowercase().into())
+    case(Case::Lower, args)
 }
 
 /// Convert a string to uppercase.
 pub fn upper(_: &mut Context, args: &mut Args) -> TypResult<Value> {
-    Ok(args.expect::<EcoString>("string")?.to_uppercase().into())
+    case(Case::Upper, args)
+}
+
+/// Change the case of a string or template.
+fn case(case: Case, args: &mut Args) -> TypResult<Value> {
+    let Spanned { v, span } = args.expect("string or template")?;
+    Ok(match v {
+        Value::Str(v) => Value::Str(case.apply(&v).into()),
+        Value::Template(v) => Value::Template(v.styled(TextNode::CASE, Some(case))),
+        v => bail!(span, "expected string or template, found {}", v.type_name()),
+    })
 }
 
 /// The length of a string, an array or a dictionary.
