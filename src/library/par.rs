@@ -32,6 +32,8 @@ impl ParNode {
     pub const DIR: Dir = Dir::LTR;
     /// How to align text and inline objects in their line.
     pub const ALIGN: Align = Align::Left;
+    /// Whether to justify text in its line.
+    pub const JUSTIFY: bool = false;
     /// The spacing between lines (dependent on scaled font size).
     pub const LEADING: Linear = Relative::new(0.65).into();
     /// The extra spacing between paragraphs (dependent on scaled font size).
@@ -75,108 +77,12 @@ impl ParNode {
 
         styles.set_opt(Self::DIR, dir);
         styles.set_opt(Self::ALIGN, align);
+        styles.set_opt(Self::JUSTIFY, args.named("justify")?);
         styles.set_opt(Self::LEADING, args.named("leading")?);
         styles.set_opt(Self::SPACING, args.named("spacing")?);
         styles.set_opt(Self::INDENT, args.named("indent")?);
 
         Ok(())
-    }
-}
-
-impl Layout for ParNode {
-    fn layout(
-        &self,
-        ctx: &mut Context,
-        regions: &Regions,
-        styles: StyleChain,
-    ) -> TypResult<Vec<Arc<Frame>>> {
-        // Collect all text into one string used for BiDi analysis.
-        let text = self.collect_text();
-        let level = Level::from_dir(styles.get(Self::DIR));
-        let bidi = BidiInfo::new(&text, level);
-
-        // Prepare paragraph layout by building a representation on which we can
-        // do line breaking without layouting each and every line from scratch.
-        let par = ParLayout::new(ctx, self, bidi, regions, &styles)?;
-        let fonts = &mut ctx.fonts;
-        let em = styles.get(TextNode::SIZE).abs;
-        let align = styles.get(ParNode::ALIGN);
-        let leading = styles.get(ParNode::LEADING).resolve(em);
-
-        // The already determined lines and the current line attempt.
-        let mut lines = vec![];
-        let mut start = 0;
-        let mut last = None;
-
-        // Find suitable line breaks.
-        for (end, mandatory) in LineBreakIterator::new(&text) {
-            // Compute the line and its size.
-            let mut line = par.line(fonts, start .. end);
-
-            // If the line doesn't fit anymore, we push the last fitting attempt
-            // into the stack and rebuild the line from its end. The resulting
-            // line cannot be broken up further.
-            if !regions.first.x.fits(line.size.x) {
-                if let Some((last_line, last_end)) = last.take() {
-                    lines.push(last_line);
-                    start = last_end;
-                    line = par.line(fonts, start .. end);
-                }
-            }
-
-            // Finish the current line if there is a mandatory line break (i.e.
-            // due to "\n") or if the line doesn't fit horizontally already
-            // since no shorter line will be possible.
-            if mandatory || !regions.first.x.fits(line.size.x) {
-                lines.push(line);
-                start = end;
-                last = None;
-            } else {
-                last = Some((line, end));
-            }
-        }
-
-        if let Some((line, _)) = last {
-            lines.push(line);
-        }
-
-        // Determine the paragraph's width: Fit to width if we shoudn't expand
-        // and there's no fractional spacing.
-        let mut width = regions.first.x;
-        if !regions.expand.x && lines.iter().all(|line| line.fr.is_zero()) {
-            width = lines.iter().map(|line| line.size.x).max().unwrap_or_default();
-        }
-
-        // State for final frame building.
-        let mut regions = regions.clone();
-        let mut finished = vec![];
-        let mut first = true;
-        let mut output = Frame::new(Size::with_x(width));
-
-        // Stack the lines into one frame per region.
-        for line in lines {
-            while !regions.first.y.fits(line.size.y) && !regions.in_last() {
-                finished.push(Arc::new(output));
-                output = Frame::new(Size::with_x(width));
-                regions.next();
-                first = true;
-            }
-
-            if !first {
-                output.size.y += leading;
-            }
-
-            let frame = line.build(fonts, width, align);
-            let pos = Point::with_y(output.size.y);
-            output.size.y += frame.size.y;
-            output.merge_frame(pos, frame);
-
-            regions.first.y -= line.size.y + leading;
-            first = false;
-        }
-
-        finished.push(Arc::new(output));
-        Ok(finished)
     }
 }
 
@@ -210,6 +116,127 @@ impl ParNode {
             ParChild::Node(_) => "\u{FFFC}",
         })
     }
+}
+
+impl Layout for ParNode {
+    fn layout(
+        &self,
+        ctx: &mut Context,
+        regions: &Regions,
+        styles: StyleChain,
+    ) -> TypResult<Vec<Arc<Frame>>> {
+        // Collect all text into one string and perform BiDi analysis.
+        let text = self.collect_text();
+        let level = Level::from_dir(styles.get(Self::DIR));
+        let bidi = BidiInfo::new(&text, level);
+
+        // Prepare paragraph layout by building a representation on which we can
+        // do line breaking without layouting each and every line from scratch.
+        let par = ParLayout::new(ctx, self, bidi, regions, &styles)?;
+
+        // Break the paragraph into lines.
+        let lines = break_lines(&mut ctx.fonts, &par, regions.first.x);
+
+        // Stack the lines into one frame per region.
+        Ok(stack_lines(&ctx.fonts, lines, regions, styles))
+    }
+}
+
+/// Perform line breaking.
+fn break_lines<'a>(
+    fonts: &mut FontStore,
+    par: &'a ParLayout<'a>,
+    width: Length,
+) -> Vec<LineLayout<'a>> {
+    // The already determined lines and the current line attempt.
+    let mut lines = vec![];
+    let mut start = 0;
+    let mut last = None;
+
+    // Find suitable line breaks.
+    for (end, mandatory) in LineBreakIterator::new(&par.bidi.text) {
+        // Compute the line and its size.
+        let mut line = par.line(fonts, start .. end, mandatory);
+
+        // If the line doesn't fit anymore, we push the last fitting attempt
+        // into the stack and rebuild the line from its end. The resulting
+        // line cannot be broken up further.
+        if !width.fits(line.size.x) {
+            if let Some((last_line, last_end)) = last.take() {
+                lines.push(last_line);
+                start = last_end;
+                line = par.line(fonts, start .. end, mandatory);
+            }
+        }
+
+        // Finish the current line if there is a mandatory line break (i.e.
+        // due to "\n") or if the line doesn't fit horizontally already
+        // since then no shorter line will be possible.
+        if mandatory || !width.fits(line.size.x) {
+            lines.push(line);
+            start = end;
+            last = None;
+        } else {
+            last = Some((line, end));
+        }
+    }
+
+    if let Some((line, _)) = last {
+        lines.push(line);
+    }
+
+    lines
+}
+
+/// Combine the lines into one frame per region.
+fn stack_lines(
+    fonts: &FontStore,
+    lines: Vec<LineLayout>,
+    regions: &Regions,
+    styles: StyleChain,
+) -> Vec<Arc<Frame>> {
+    let em = styles.get(TextNode::SIZE).abs;
+    let leading = styles.get(ParNode::LEADING).resolve(em);
+    let align = styles.get(ParNode::ALIGN);
+    let justify = styles.get(ParNode::JUSTIFY);
+
+    // Determine the paragraph's width: Full width of the region if we
+    // should expand or there's fractional spacing, fit-to-width otherwise.
+    let mut width = regions.first.x;
+    if !regions.expand.x && lines.iter().all(|line| line.fr.is_zero()) {
+        width = lines.iter().map(|line| line.size.x).max().unwrap_or_default();
+    }
+
+    // State for final frame building.
+    let mut regions = regions.clone();
+    let mut finished = vec![];
+    let mut first = true;
+    let mut output = Frame::new(Size::with_x(width));
+
+    // Stack the lines into one frame per region.
+    for line in lines {
+        while !regions.first.y.fits(line.size.y) && !regions.in_last() {
+            finished.push(Arc::new(output));
+            output = Frame::new(Size::with_x(width));
+            regions.next();
+            first = true;
+        }
+
+        if !first {
+            output.size.y += leading;
+        }
+
+        let frame = line.build(fonts, width, align, justify);
+        let pos = Point::with_y(output.size.y);
+        output.size.y += frame.size.y;
+        output.merge_frame(pos, frame);
+
+        regions.first.y -= line.size.y + leading;
+        first = false;
+    }
+
+    finished.push(Arc::new(output));
+    finished
 }
 
 impl Debug for ParNode {
@@ -261,7 +288,7 @@ impl LinebreakNode {
 }
 
 /// A paragraph representation in which children are already layouted and text
-/// is separated into shapable runs.
+/// is already preshaped.
 struct ParLayout<'a> {
     /// Bidirectional text embedding levels for the paragraph.
     bidi: BidiInfo<'a>,
@@ -340,7 +367,12 @@ impl<'a> ParLayout<'a> {
     }
 
     /// Create a line which spans the given range.
-    fn line(&'a self, fonts: &mut FontStore, mut range: Range) -> LineLayout<'a> {
+    fn line(
+        &'a self,
+        fonts: &mut FontStore,
+        mut range: Range,
+        mandatory: bool,
+    ) -> LineLayout<'a> {
         // Find the items which bound the text range.
         let last_idx = self.find(range.end.saturating_sub(1)).unwrap();
         let first_idx = if range.is_empty() {
@@ -432,6 +464,7 @@ impl<'a> ParLayout<'a> {
             size: Size::new(width, top + bottom),
             baseline: top,
             fr,
+            mandatory,
         }
     }
 
@@ -467,17 +500,35 @@ struct LineLayout<'a> {
     baseline: Length,
     /// The sum of fractional ratios in the line.
     fr: Fractional,
+    /// Whether the line ends at a mandatory break.
+    mandatory: bool,
 }
 
 impl<'a> LineLayout<'a> {
     /// Build the line's frame.
-    fn build(&self, fonts: &FontStore, width: Length, align: Align) -> Frame {
-        let size = Size::new(self.size.x.max(width), self.size.y);
-        let remaining = size.x - self.size.x;
+    fn build(
+        &self,
+        fonts: &FontStore,
+        width: Length,
+        align: Align,
+        justify: bool,
+    ) -> Frame {
+        let size = Size::new(width, self.size.y);
 
+        let mut remaining = width - self.size.x;
         let mut offset = Length::zero();
         let mut output = Frame::new(size);
         output.baseline = Some(self.baseline);
+
+        let mut justification = Length::zero();
+        if justify
+            && !self.mandatory
+            && self.range.end < self.bidi.text.len()
+            && self.fr.is_zero()
+        {
+            justification = remaining / self.spaces() as f64;
+            remaining = Length::zero();
+        }
 
         for item in self.reordered() {
             let mut position = |frame: Frame| {
@@ -490,12 +541,17 @@ impl<'a> LineLayout<'a> {
             match item {
                 ParItem::Absolute(v) => offset += *v,
                 ParItem::Fractional(v) => offset += v.resolve(self.fr, remaining),
-                ParItem::Text(shaped) => position(shaped.build(fonts)),
+                ParItem::Text(shaped) => position(shaped.build(fonts, justification)),
                 ParItem::Frame(frame) => position(frame.clone()),
             }
         }
 
         output
+    }
+
+    /// The number of spaces in the line.
+    fn spaces(&self) -> usize {
+        self.shapeds().map(ShapedText::spaces).sum()
     }
 
     /// Iterate through the line's items in visual order.
@@ -533,6 +589,19 @@ impl<'a> LineLayout<'a> {
             .map(move |idx| self.get(idx).unwrap())
     }
 
+    /// Iterate over the line's items.
+    fn items(&self) -> impl Iterator<Item = &ParItem<'a>> {
+        self.first.iter().chain(self.items).chain(&self.last)
+    }
+
+    /// Iterate through the line's text items.
+    fn shapeds(&self) -> impl Iterator<Item = &ShapedText<'a>> {
+        self.items().filter_map(|item| match item {
+            ParItem::Text(shaped) => Some(shaped),
+            _ => None,
+        })
+    }
+
     /// Find the index of the item whose range contains the `text_offset`.
     fn find(&self, text_offset: usize) -> Option<usize> {
         self.ranges.binary_search_by(|r| r.locate(text_offset)).ok()
@@ -540,7 +609,7 @@ impl<'a> LineLayout<'a> {
 
     /// Get the item at the index.
     fn get(&self, index: usize) -> Option<&ParItem<'a>> {
-        self.first.iter().chain(self.items).chain(&self.last).nth(index)
+        self.items().nth(index)
     }
 }
 

@@ -406,6 +406,191 @@ impl Case {
     }
 }
 
+/// The result of shaping text.
+///
+/// This type contains owned or borrowed shaped text runs, which can be
+/// measured, used to reshape substrings more quickly and converted into a
+/// frame.
+#[derive(Debug, Clone)]
+pub struct ShapedText<'a> {
+    /// The text that was shaped.
+    pub text: Cow<'a, str>,
+    /// The text direction.
+    pub dir: Dir,
+    /// The text's style properties.
+    pub styles: StyleChain<'a>,
+    /// The size of the text's bounding box.
+    pub size: Size,
+    /// The baseline from the top of the frame.
+    pub baseline: Length,
+    /// The shaped glyphs.
+    pub glyphs: Cow<'a, [ShapedGlyph]>,
+}
+
+/// A single glyph resulting from shaping.
+#[derive(Debug, Copy, Clone)]
+pub struct ShapedGlyph {
+    /// The font face the glyph is contained in.
+    pub face_id: FaceId,
+    /// The glyph's index in the face.
+    pub glyph_id: u16,
+    /// The advance width of the glyph.
+    pub x_advance: Em,
+    /// The horizontal offset of the glyph.
+    pub x_offset: Em,
+    /// The start index of the glyph in the source text.
+    pub text_index: usize,
+    /// Whether splitting the shaping result before this glyph would yield the
+    /// same results as shaping the parts to both sides of `text_index`
+    /// separately.
+    pub safe_to_break: bool,
+    /// Whether this glyph represents a space.
+    pub is_space: bool,
+}
+
+/// A visual side.
+enum Side {
+    Left,
+    Right,
+}
+
+impl<'a> ShapedText<'a> {
+    /// Build the shaped text's frame.
+    ///
+    /// The `justification` defines how much extra advance width each
+    /// [space glyph](ShapedGlyph::is_space) will get.
+    pub fn build(&self, fonts: &FontStore, justification: Length) -> Frame {
+        let mut offset = Length::zero();
+        let mut frame = Frame::new(self.size);
+        frame.baseline = Some(self.baseline);
+
+        for (face_id, group) in self.glyphs.as_ref().group_by_key(|g| g.face_id) {
+            let pos = Point::new(offset, self.baseline);
+
+            let size = self.styles.get(TextNode::SIZE).abs;
+            let fill = self.styles.get(TextNode::FILL);
+            let glyphs = group
+                .iter()
+                .map(|glyph| Glyph {
+                    id: glyph.glyph_id,
+                    x_advance: glyph.x_advance
+                        + if glyph.is_space {
+                            frame.size.x += justification;
+                            Em::from_length(justification, size)
+                        } else {
+                            Em::zero()
+                        },
+                    x_offset: glyph.x_offset,
+                })
+                .collect();
+
+            let text = Text { face_id, size, fill, glyphs };
+            let text_layer = frame.layer();
+            let width = text.width();
+
+            // Apply line decorations.
+            for deco in self.styles.get_cloned(TextNode::LINES) {
+                decorate(&mut frame, &deco, fonts, &text, pos, width);
+            }
+
+            frame.insert(text_layer, pos, Element::Text(text));
+            offset += width;
+        }
+
+        // Apply link if it exists.
+        if let Some(url) = self.styles.get_ref(TextNode::LINK) {
+            frame.link(url);
+        }
+
+        frame
+    }
+
+    /// How many spaces the text contains.
+    pub fn spaces(&self) -> usize {
+        self.glyphs.iter().filter(|g| g.is_space).count()
+    }
+
+    /// Reshape a range of the shaped text, reusing information from this
+    /// shaping process if possible.
+    pub fn reshape(
+        &'a self,
+        fonts: &mut FontStore,
+        text_range: Range<usize>,
+    ) -> ShapedText<'a> {
+        if let Some(glyphs) = self.slice_safe_to_break(text_range.clone()) {
+            let (size, baseline) = measure(fonts, glyphs, self.styles);
+            Self {
+                text: Cow::Borrowed(&self.text[text_range]),
+                dir: self.dir,
+                styles: self.styles.clone(),
+                size,
+                baseline,
+                glyphs: Cow::Borrowed(glyphs),
+            }
+        } else {
+            shape(fonts, &self.text[text_range], self.styles.clone(), self.dir)
+        }
+    }
+
+    /// Find the subslice of glyphs that represent the given text range if both
+    /// sides are safe to break.
+    fn slice_safe_to_break(&self, text_range: Range<usize>) -> Option<&[ShapedGlyph]> {
+        let Range { mut start, mut end } = text_range;
+        if !self.dir.is_positive() {
+            std::mem::swap(&mut start, &mut end);
+        }
+
+        let left = self.find_safe_to_break(start, Side::Left)?;
+        let right = self.find_safe_to_break(end, Side::Right)?;
+        Some(&self.glyphs[left .. right])
+    }
+
+    /// Find the glyph offset matching the text index that is most towards the
+    /// given side and safe-to-break.
+    fn find_safe_to_break(&self, text_index: usize, towards: Side) -> Option<usize> {
+        let ltr = self.dir.is_positive();
+
+        // Handle edge cases.
+        let len = self.glyphs.len();
+        if text_index == 0 {
+            return Some(if ltr { 0 } else { len });
+        } else if text_index == self.text.len() {
+            return Some(if ltr { len } else { 0 });
+        }
+
+        // Find any glyph with the text index.
+        let mut idx = self
+            .glyphs
+            .binary_search_by(|g| {
+                let ordering = g.text_index.cmp(&text_index);
+                if ltr { ordering } else { ordering.reverse() }
+            })
+            .ok()?;
+
+        let next = match towards {
+            Side::Left => usize::checked_sub,
+            Side::Right => usize::checked_add,
+        };
+
+        // Search for the outermost glyph with the text index.
+        while let Some(next) = next(idx, 1) {
+            if self.glyphs.get(next).map_or(true, |g| g.text_index != text_index) {
+                break;
+            }
+            idx = next;
+        }
+
+        // RTL needs offset one because the left side of the range should be
+        // exclusive and the right side inclusive, contrary to the normal
+        // behaviour of ranges.
+        if !ltr {
+            idx += 1;
+        }
+
+        self.glyphs[idx].safe_to_break.then(|| idx)
+    }
+}
+
 /// Shape text into [`ShapedText`].
 pub fn shape<'a>(
     fonts: &mut FontStore,
@@ -444,197 +629,6 @@ pub fn shape<'a>(
         baseline,
         glyphs: Cow::Owned(glyphs),
     }
-}
-
-/// Shape text with font fallback using the `families` iterator.
-fn shape_segment<'a>(
-    fonts: &mut FontStore,
-    glyphs: &mut Vec<ShapedGlyph>,
-    base: usize,
-    text: &str,
-    variant: FontVariant,
-    mut families: impl Iterator<Item = &'a str> + Clone,
-    mut first_face: Option<FaceId>,
-    dir: Dir,
-    tags: &[rustybuzz::Feature],
-) {
-    // No font has newlines.
-    if text.chars().all(|c| c == '\n') {
-        return;
-    }
-
-    // Select the font family.
-    let (face_id, fallback) = loop {
-        // Try to load the next available font family.
-        match families.next() {
-            Some(family) => {
-                if let Some(id) = fonts.select(family, variant) {
-                    break (id, true);
-                }
-            }
-            // We're out of families, so we don't do any more fallback and just
-            // shape the tofus with the first face we originally used.
-            None => match first_face {
-                Some(id) => break (id, false),
-                None => return,
-            },
-        }
-    };
-
-    // Remember the id if this the first available face since we use that one to
-    // shape tofus.
-    first_face.get_or_insert(face_id);
-
-    // Fill the buffer with our text.
-    let mut buffer = UnicodeBuffer::new();
-    buffer.push_str(text);
-    buffer.set_direction(match dir {
-        Dir::LTR => rustybuzz::Direction::LeftToRight,
-        Dir::RTL => rustybuzz::Direction::RightToLeft,
-        _ => unimplemented!(),
-    });
-
-    // Shape!
-    let mut face = fonts.get(face_id);
-    let buffer = rustybuzz::shape(face.ttf(), tags, buffer);
-    let infos = buffer.glyph_infos();
-    let pos = buffer.glyph_positions();
-
-    // Collect the shaped glyphs, doing fallback and shaping parts again with
-    // the next font if necessary.
-    let mut i = 0;
-    while i < infos.len() {
-        let info = &infos[i];
-        let cluster = info.cluster as usize;
-
-        if info.glyph_id != 0 || !fallback {
-            // Add the glyph to the shaped output.
-            // TODO: Don't ignore y_advance and y_offset.
-            glyphs.push(ShapedGlyph {
-                face_id,
-                glyph_id: info.glyph_id as u16,
-                x_advance: face.to_em(pos[i].x_advance),
-                x_offset: face.to_em(pos[i].x_offset),
-                text_index: base + cluster,
-                safe_to_break: !info.unsafe_to_break(),
-            });
-        } else {
-            // Determine the source text range for the tofu sequence.
-            let range = {
-                // First, search for the end of the tofu sequence.
-                let k = i;
-                while infos.get(i + 1).map_or(false, |info| info.glyph_id == 0) {
-                    i += 1;
-                }
-
-                // Then, determine the start and end text index.
-                //
-                // Examples:
-                // Everything is shown in visual order. Tofus are written as "_".
-                // We want to find out that the tofus span the text `2..6`.
-                // Note that the clusters are longer than 1 char.
-                //
-                // Left-to-right:
-                // Text:     h a l i h a l l o
-                // Glyphs:   A   _   _   C   E
-                // Clusters: 0   2   4   6   8
-                //              k=1 i=2
-                //
-                // Right-to-left:
-                // Text:     O L L A H I L A H
-                // Glyphs:   E   C   _   _   A
-                // Clusters: 8   6   4   2   0
-                //                  k=2 i=3
-                let ltr = dir.is_positive();
-                let first = if ltr { k } else { i };
-                let start = infos[first].cluster as usize;
-                let last = if ltr { i.checked_add(1) } else { k.checked_sub(1) };
-                let end = last
-                    .and_then(|last| infos.get(last))
-                    .map_or(text.len(), |info| info.cluster as usize);
-
-                start .. end
-            };
-
-            // Recursively shape the tofu sequence with the next family.
-            shape_segment(
-                fonts,
-                glyphs,
-                base + range.start,
-                &text[range],
-                variant,
-                families.clone(),
-                first_face,
-                dir,
-                tags,
-            );
-
-            face = fonts.get(face_id);
-        }
-
-        i += 1;
-    }
-}
-
-/// Apply tracking to a slice of shaped glyphs.
-fn track(glyphs: &mut [ShapedGlyph], tracking: Em) {
-    if tracking.is_zero() {
-        return;
-    }
-
-    let mut glyphs = glyphs.iter_mut().peekable();
-    while let Some(glyph) = glyphs.next() {
-        if glyphs
-            .peek()
-            .map_or(false, |next| glyph.text_index != next.text_index)
-        {
-            glyph.x_advance += tracking;
-        }
-    }
-}
-
-/// Measure the size and baseline of a run of shaped glyphs with the given
-/// properties.
-fn measure(
-    fonts: &mut FontStore,
-    glyphs: &[ShapedGlyph],
-    styles: StyleChain,
-) -> (Size, Length) {
-    let mut width = Length::zero();
-    let mut top = Length::zero();
-    let mut bottom = Length::zero();
-
-    let size = styles.get(TextNode::SIZE).abs;
-    let top_edge = styles.get(TextNode::TOP_EDGE);
-    let bottom_edge = styles.get(TextNode::BOTTOM_EDGE);
-
-    // Expand top and bottom by reading the face's vertical metrics.
-    let mut expand = |face: &Face| {
-        top.set_max(face.vertical_metric(top_edge, size));
-        bottom.set_max(-face.vertical_metric(bottom_edge, size));
-    };
-
-    if glyphs.is_empty() {
-        // When there are no glyphs, we just use the vertical metrics of the
-        // first available font.
-        for family in families(styles) {
-            if let Some(face_id) = fonts.select(family, variant(styles)) {
-                expand(fonts.get(face_id));
-                break;
-            }
-        }
-    } else {
-        for (face_id, group) in glyphs.group_by_key(|g| g.face_id) {
-            let face = fonts.get(face_id);
-            expand(face);
-
-            for glyph in group {
-                width += glyph.x_advance.resolve(size);
-            }
-        }
-    }
-
-    (Size::new(width, top + bottom), top)
 }
 
 /// Resolve the font variant with `STRONG` and `EMPH` factored in.
@@ -762,297 +756,319 @@ fn tags(styles: StyleChain) -> Vec<Feature> {
     tags
 }
 
-/// The result of shaping text.
-///
-/// This type contains owned or borrowed shaped text runs, which can be
-/// measured, used to reshape substrings more quickly and converted into a
-/// frame.
-#[derive(Debug, Clone)]
-pub struct ShapedText<'a> {
-    /// The text that was shaped.
-    pub text: Cow<'a, str>,
-    /// The text direction.
-    pub dir: Dir,
-    /// The text's style properties.
-    pub styles: StyleChain<'a>,
-    /// The font size.
-    pub size: Size,
-    /// The baseline from the top of the frame.
-    pub baseline: Length,
-    /// The shaped glyphs.
-    pub glyphs: Cow<'a, [ShapedGlyph]>,
-}
-
-/// A single glyph resulting from shaping.
-#[derive(Debug, Copy, Clone)]
-pub struct ShapedGlyph {
-    /// The font face the glyph is contained in.
-    pub face_id: FaceId,
-    /// The glyph's index in the face.
-    pub glyph_id: u16,
-    /// The advance width of the glyph.
-    pub x_advance: Em,
-    /// The horizontal offset of the glyph.
-    pub x_offset: Em,
-    /// The start index of the glyph in the source text.
-    pub text_index: usize,
-    /// Whether splitting the shaping result before this glyph would yield the
-    /// same results as shaping the parts to both sides of `text_index`
-    /// separately.
-    pub safe_to_break: bool,
-}
-
-impl<'a> ShapedText<'a> {
-    /// Build the shaped text's frame.
-    pub fn build(&self, fonts: &FontStore) -> Frame {
-        let mut offset = Length::zero();
-        let mut frame = Frame::new(self.size);
-        frame.baseline = Some(self.baseline);
-
-        for (face_id, group) in self.glyphs.as_ref().group_by_key(|g| g.face_id) {
-            let pos = Point::new(offset, self.baseline);
-
-            let size = self.styles.get(TextNode::SIZE).abs;
-            let fill = self.styles.get(TextNode::FILL);
-            let glyphs = group
-                .iter()
-                .map(|glyph| Glyph {
-                    id: glyph.glyph_id,
-                    x_advance: glyph.x_advance,
-                    x_offset: glyph.x_offset,
-                })
-                .collect();
-
-            let text = Text { face_id, size, fill, glyphs };
-            let text_layer = frame.layer();
-            let width = text.width();
-
-            // Apply line decorations.
-            for deco in self.styles.get_cloned(TextNode::LINES) {
-                self.decorate(&mut frame, &deco, fonts, &text, pos, width);
-            }
-
-            frame.insert(text_layer, pos, Element::Text(text));
-            offset += width;
-        }
-
-        // Apply link if it exists.
-        if let Some(url) = self.styles.get_ref(TextNode::LINK) {
-            frame.link(url);
-        }
-
-        frame
+/// Shape text with font fallback using the `families` iterator.
+fn shape_segment<'a>(
+    fonts: &mut FontStore,
+    glyphs: &mut Vec<ShapedGlyph>,
+    base: usize,
+    text: &str,
+    variant: FontVariant,
+    mut families: impl Iterator<Item = &'a str> + Clone,
+    mut first_face: Option<FaceId>,
+    dir: Dir,
+    tags: &[rustybuzz::Feature],
+) {
+    // No font has newlines.
+    if text.chars().all(|c| c == '\n') {
+        return;
     }
 
-    /// Add line decorations to a run of shaped text of a single font.
-    fn decorate(
-        &self,
-        frame: &mut Frame,
-        deco: &Decoration,
-        fonts: &FontStore,
-        text: &Text,
-        pos: Point,
-        width: Length,
-    ) {
-        let face = fonts.get(text.face_id);
-        let metrics = match deco.line {
-            super::STRIKETHROUGH => face.strikethrough,
-            super::OVERLINE => face.overline,
-            super::UNDERLINE | _ => face.underline,
-        };
-
-        let evade = deco.evade && deco.line != super::STRIKETHROUGH;
-        let extent = deco.extent.resolve(text.size);
-        let offset = deco
-            .offset
-            .map(|s| s.resolve(text.size))
-            .unwrap_or(-metrics.position.resolve(text.size));
-
-        let stroke = Stroke {
-            paint: deco.stroke.unwrap_or(text.fill),
-            thickness: deco
-                .thickness
-                .map(|s| s.resolve(text.size))
-                .unwrap_or(metrics.thickness.resolve(text.size)),
-        };
-
-        let gap_padding = 0.08 * text.size;
-        let min_width = 0.162 * text.size;
-
-        let mut start = pos.x - extent;
-        let end = pos.x + (width + 2.0 * extent);
-
-        let mut push_segment = |from: Length, to: Length| {
-            let origin = Point::new(from, pos.y + offset);
-            let target = Point::new(to - from, Length::zero());
-
-            if target.x >= min_width || !evade {
-                let shape = Shape::stroked(Geometry::Line(target), stroke);
-                frame.push(origin, Element::Shape(shape));
+    // Select the font family.
+    let (face_id, fallback) = loop {
+        // Try to load the next available font family.
+        match families.next() {
+            Some(family) => {
+                if let Some(id) = fonts.select(family, variant) {
+                    break (id, true);
+                }
             }
-        };
-
-        if !evade {
-            push_segment(start, end);
-            return;
+            // We're out of families, so we don't do any more fallback and just
+            // shape the tofus with the first face we originally used.
+            None => match first_face {
+                Some(id) => break (id, false),
+                None => return,
+            },
         }
+    };
 
-        let line = Line::new(
-            kurbo::Point::new(pos.x.to_raw(), offset.to_raw()),
-            kurbo::Point::new((pos.x + width).to_raw(), offset.to_raw()),
-        );
+    // Remember the id if this the first available face since we use that one to
+    // shape tofus.
+    first_face.get_or_insert(face_id);
 
-        let mut x = pos.x;
-        let mut intersections = vec![];
+    // Fill the buffer with our text.
+    let mut buffer = UnicodeBuffer::new();
+    buffer.push_str(text);
+    buffer.set_direction(match dir {
+        Dir::LTR => rustybuzz::Direction::LeftToRight,
+        Dir::RTL => rustybuzz::Direction::RightToLeft,
+        _ => unimplemented!(),
+    });
 
-        for glyph in text.glyphs.iter() {
-            let dx = glyph.x_offset.resolve(text.size) + x;
-            let mut builder =
-                KurboPathBuilder::new(face.units_per_em, text.size, dx.to_raw());
+    // Shape!
+    let mut face = fonts.get(face_id);
+    let buffer = rustybuzz::shape(face.ttf(), tags, buffer);
+    let infos = buffer.glyph_infos();
+    let pos = buffer.glyph_positions();
 
-            let bbox = face.ttf().outline_glyph(GlyphId(glyph.id), &mut builder);
-            let path = builder.finish();
+    // Collect the shaped glyphs, doing fallback and shaping parts again with
+    // the next font if necessary.
+    let mut i = 0;
+    while i < infos.len() {
+        let info = &infos[i];
+        let cluster = info.cluster as usize;
 
-            x += glyph.x_advance.resolve(text.size);
-
-            // Only do the costly segments intersection test if the line
-            // intersects the bounding box.
-            if bbox.map_or(false, |bbox| {
-                let y_min = -face.to_em(bbox.y_max).resolve(text.size);
-                let y_max = -face.to_em(bbox.y_min).resolve(text.size);
-
-                offset >= y_min && offset <= y_max
-            }) {
-                // Find all intersections of segments with the line.
-                intersections.extend(
-                    path.segments()
-                        .flat_map(|seg| seg.intersect_line(line))
-                        .map(|is| Length::raw(line.eval(is.line_t).x)),
-                );
-            }
-        }
-
-        // When emitting the decorative line segments, we move from left to
-        // right. The intersections are not necessarily in this order, yet.
-        intersections.sort();
-
-        for gap in intersections.chunks_exact(2) {
-            let l = gap[0] - gap_padding;
-            let r = gap[1] + gap_padding;
-
-            if start >= end {
-                break;
-            }
-
-            if start >= l {
-                start = r;
-                continue;
-            }
-
-            push_segment(start, l);
-            start = r;
-        }
-
-        if start < end {
-            push_segment(start, end);
-        }
-    }
-
-    /// Reshape a range of the shaped text, reusing information from this
-    /// shaping process if possible.
-    pub fn reshape(
-        &'a self,
-        fonts: &mut FontStore,
-        text_range: Range<usize>,
-    ) -> ShapedText<'a> {
-        if let Some(glyphs) = self.slice_safe_to_break(text_range.clone()) {
-            let (size, baseline) = measure(fonts, glyphs, self.styles);
-            Self {
-                text: Cow::Borrowed(&self.text[text_range]),
-                dir: self.dir,
-                styles: self.styles.clone(),
-                size,
-                baseline,
-                glyphs: Cow::Borrowed(glyphs),
-            }
+        if info.glyph_id != 0 || !fallback {
+            // Add the glyph to the shaped output.
+            // TODO: Don't ignore y_advance and y_offset.
+            glyphs.push(ShapedGlyph {
+                face_id,
+                glyph_id: info.glyph_id as u16,
+                x_advance: face.to_em(pos[i].x_advance),
+                x_offset: face.to_em(pos[i].x_offset),
+                text_index: base + cluster,
+                safe_to_break: !info.unsafe_to_break(),
+                is_space: text[cluster ..].chars().next() == Some(' '),
+            });
         } else {
-            shape(fonts, &self.text[text_range], self.styles.clone(), self.dir)
+            // Determine the source text range for the tofu sequence.
+            let range = {
+                // First, search for the end of the tofu sequence.
+                let k = i;
+                while infos.get(i + 1).map_or(false, |info| info.glyph_id == 0) {
+                    i += 1;
+                }
+
+                // Then, determine the start and end text index.
+                //
+                // Examples:
+                // Everything is shown in visual order. Tofus are written as "_".
+                // We want to find out that the tofus span the text `2..6`.
+                // Note that the clusters are longer than 1 char.
+                //
+                // Left-to-right:
+                // Text:     h a l i h a l l o
+                // Glyphs:   A   _   _   C   E
+                // Clusters: 0   2   4   6   8
+                //              k=1 i=2
+                //
+                // Right-to-left:
+                // Text:     O L L A H I L A H
+                // Glyphs:   E   C   _   _   A
+                // Clusters: 8   6   4   2   0
+                //                  k=2 i=3
+                let ltr = dir.is_positive();
+                let first = if ltr { k } else { i };
+                let start = infos[first].cluster as usize;
+                let last = if ltr { i.checked_add(1) } else { k.checked_sub(1) };
+                let end = last
+                    .and_then(|last| infos.get(last))
+                    .map_or(text.len(), |info| info.cluster as usize);
+
+                start .. end
+            };
+
+            // Recursively shape the tofu sequence with the next family.
+            shape_segment(
+                fonts,
+                glyphs,
+                base + range.start,
+                &text[range],
+                variant,
+                families.clone(),
+                first_face,
+                dir,
+                tags,
+            );
+
+            face = fonts.get(face_id);
         }
+
+        i += 1;
+    }
+}
+
+/// Apply tracking to a slice of shaped glyphs.
+fn track(glyphs: &mut [ShapedGlyph], tracking: Em) {
+    if tracking.is_zero() {
+        return;
     }
 
-    /// Find the subslice of glyphs that represent the given text range if both
-    /// sides are safe to break.
-    fn slice_safe_to_break(&self, text_range: Range<usize>) -> Option<&[ShapedGlyph]> {
-        let Range { mut start, mut end } = text_range;
-        if !self.dir.is_positive() {
-            std::mem::swap(&mut start, &mut end);
+    let mut glyphs = glyphs.iter_mut().peekable();
+    while let Some(glyph) = glyphs.next() {
+        if glyphs
+            .peek()
+            .map_or(false, |next| glyph.text_index != next.text_index)
+        {
+            glyph.x_advance += tracking;
         }
-
-        let left = self.find_safe_to_break(start, Side::Left)?;
-        let right = self.find_safe_to_break(end, Side::Right)?;
-        Some(&self.glyphs[left .. right])
     }
+}
 
-    /// Find the glyph offset matching the text index that is most towards the
-    /// given side and safe-to-break.
-    fn find_safe_to_break(&self, text_index: usize, towards: Side) -> Option<usize> {
-        let ltr = self.dir.is_positive();
+/// Measure the size and baseline of a run of shaped glyphs with the given
+/// properties.
+fn measure(
+    fonts: &mut FontStore,
+    glyphs: &[ShapedGlyph],
+    styles: StyleChain,
+) -> (Size, Length) {
+    let mut width = Length::zero();
+    let mut top = Length::zero();
+    let mut bottom = Length::zero();
 
-        // Handle edge cases.
-        let len = self.glyphs.len();
-        if text_index == 0 {
-            return Some(if ltr { 0 } else { len });
-        } else if text_index == self.text.len() {
-            return Some(if ltr { len } else { 0 });
-        }
+    let size = styles.get(TextNode::SIZE).abs;
+    let top_edge = styles.get(TextNode::TOP_EDGE);
+    let bottom_edge = styles.get(TextNode::BOTTOM_EDGE);
 
-        // Find any glyph with the text index.
-        let mut idx = self
-            .glyphs
-            .binary_search_by(|g| {
-                let ordering = g.text_index.cmp(&text_index);
-                if ltr { ordering } else { ordering.reverse() }
-            })
-            .ok()?;
+    // Expand top and bottom by reading the face's vertical metrics.
+    let mut expand = |face: &Face| {
+        top.set_max(face.vertical_metric(top_edge, size));
+        bottom.set_max(-face.vertical_metric(bottom_edge, size));
+    };
 
-        let next = match towards {
-            Side::Left => usize::checked_sub,
-            Side::Right => usize::checked_add,
-        };
-
-        // Search for the outermost glyph with the text index.
-        while let Some(next) = next(idx, 1) {
-            if self.glyphs.get(next).map_or(true, |g| g.text_index != text_index) {
+    if glyphs.is_empty() {
+        // When there are no glyphs, we just use the vertical metrics of the
+        // first available font.
+        for family in families(styles) {
+            if let Some(face_id) = fonts.select(family, variant(styles)) {
+                expand(fonts.get(face_id));
                 break;
             }
-            idx = next;
+        }
+    } else {
+        for (face_id, group) in glyphs.group_by_key(|g| g.face_id) {
+            let face = fonts.get(face_id);
+            expand(face);
+
+            for glyph in group {
+                width += glyph.x_advance.resolve(size);
+            }
+        }
+    }
+
+    (Size::new(width, top + bottom), top)
+}
+
+/// Add line decorations to a single run of shaped text.
+fn decorate(
+    frame: &mut Frame,
+    deco: &Decoration,
+    fonts: &FontStore,
+    text: &Text,
+    pos: Point,
+    width: Length,
+) {
+    let face = fonts.get(text.face_id);
+    let metrics = match deco.line {
+        super::STRIKETHROUGH => face.strikethrough,
+        super::OVERLINE => face.overline,
+        super::UNDERLINE | _ => face.underline,
+    };
+
+    let evade = deco.evade && deco.line != super::STRIKETHROUGH;
+    let extent = deco.extent.resolve(text.size);
+    let offset = deco
+        .offset
+        .map(|s| s.resolve(text.size))
+        .unwrap_or(-metrics.position.resolve(text.size));
+
+    let stroke = Stroke {
+        paint: deco.stroke.unwrap_or(text.fill),
+        thickness: deco
+            .thickness
+            .map(|s| s.resolve(text.size))
+            .unwrap_or(metrics.thickness.resolve(text.size)),
+    };
+
+    let gap_padding = 0.08 * text.size;
+    let min_width = 0.162 * text.size;
+
+    let mut start = pos.x - extent;
+    let end = pos.x + (width + 2.0 * extent);
+
+    let mut push_segment = |from: Length, to: Length| {
+        let origin = Point::new(from, pos.y + offset);
+        let target = Point::new(to - from, Length::zero());
+
+        if target.x >= min_width || !evade {
+            let shape = Shape::stroked(Geometry::Line(target), stroke);
+            frame.push(origin, Element::Shape(shape));
+        }
+    };
+
+    if !evade {
+        push_segment(start, end);
+        return;
+    }
+
+    let line = Line::new(
+        kurbo::Point::new(pos.x.to_raw(), offset.to_raw()),
+        kurbo::Point::new((pos.x + width).to_raw(), offset.to_raw()),
+    );
+
+    let mut x = pos.x;
+    let mut intersections = vec![];
+
+    for glyph in text.glyphs.iter() {
+        let dx = glyph.x_offset.resolve(text.size) + x;
+        let mut builder = BezPathBuilder::new(face.units_per_em, text.size, dx.to_raw());
+
+        let bbox = face.ttf().outline_glyph(GlyphId(glyph.id), &mut builder);
+        let path = builder.finish();
+
+        x += glyph.x_advance.resolve(text.size);
+
+        // Only do the costly segments intersection test if the line
+        // intersects the bounding box.
+        if bbox.map_or(false, |bbox| {
+            let y_min = -face.to_em(bbox.y_max).resolve(text.size);
+            let y_max = -face.to_em(bbox.y_min).resolve(text.size);
+
+            offset >= y_min && offset <= y_max
+        }) {
+            // Find all intersections of segments with the line.
+            intersections.extend(
+                path.segments()
+                    .flat_map(|seg| seg.intersect_line(line))
+                    .map(|is| Length::raw(line.eval(is.line_t).x)),
+            );
+        }
+    }
+
+    // When emitting the decorative line segments, we move from left to
+    // right. The intersections are not necessarily in this order, yet.
+    intersections.sort();
+
+    for gap in intersections.chunks_exact(2) {
+        let l = gap[0] - gap_padding;
+        let r = gap[1] + gap_padding;
+
+        if start >= end {
+            break;
         }
 
-        // RTL needs offset one because the left side of the range should be
-        // exclusive and the right side inclusive, contrary to the normal
-        // behaviour of ranges.
-        if !ltr {
-            idx += 1;
+        if start >= l {
+            start = r;
+            continue;
         }
 
-        self.glyphs[idx].safe_to_break.then(|| idx)
+        push_segment(start, l);
+        start = r;
+    }
+
+    if start < end {
+        push_segment(start, end);
     }
 }
 
-/// A visual side.
-enum Side {
-    Left,
-    Right,
-}
-
-struct KurboPathBuilder {
+/// Builds a kurbo [`BezPath`] for a glyph.
+struct BezPathBuilder {
     path: BezPath,
     units_per_em: f64,
     font_size: Length,
     x_offset: f64,
 }
 
-impl KurboPathBuilder {
+impl BezPathBuilder {
     fn new(units_per_em: f64, font_size: Length, x_offset: f64) -> Self {
         Self {
             path: BezPath::new(),
@@ -1075,7 +1091,7 @@ impl KurboPathBuilder {
     }
 }
 
-impl OutlineBuilder for KurboPathBuilder {
+impl OutlineBuilder for BezPathBuilder {
     fn move_to(&mut self, x: f32, y: f32) {
         self.path.move_to(self.p(x, y));
     }

@@ -27,6 +27,11 @@ impl Em {
         Self(Scalar(units.into() / units_per_em))
     }
 
+    /// Create an em length from a length at the given font size.
+    pub fn from_length(length: Length, font_size: Length) -> Self {
+        Self(Scalar(length / font_size))
+    }
+
     /// Convert to a length at the given font size.
     pub fn resolve(self, font_size: Length) -> Length {
         self.get() * font_size
