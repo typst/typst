@@ -9,18 +9,14 @@ default = ["fs"]
 cli = ["fs", "pico-args", "codespan-reporting", "same-file"]
 fs = ["dirs", "memmap2", "same-file", "walkdir"]
 
-# Dependency updates:
-# - Bump ttf-parser when rustybuzz is updated
-# - Bump usvg and resvg in conjunction with svg2pdf
-
 [dependencies]
 # Workspace
 typst-macros = { path = "./macros" }
 
 # Utilities
 bytemuck = "1"
+either = "1"
 fxhash = "0.2"
-itertools = "0.10"
 once_cell = "1"
 serde = { version = "1", features = ["derive"] }
 typed-arena = "2"

@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use itertools::Either;
+use either::Either;
 use unicode_bidi::{BidiInfo, Level};
 use xi_unicode::LineBreakIterator;
 
