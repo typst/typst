@@ -7,7 +7,7 @@ use crate::syntax::{Span, Spanned};
 /// Early-return with a vec-boxed [`Error`].
 macro_rules! bail {
     ($span:expr, $message:expr $(,)?) => {
-        return Err($crate::diag::Error::boxed($span, $message))
+        return Err($crate::diag::Error::boxed($span, $message).into())
     };
 
     ($span:expr, $fmt:expr, $($arg:expr),+ $(,)?) => {
@@ -16,7 +16,10 @@ macro_rules! bail {
 }
 
 /// The result type for typesetting and all its subpasses.
-pub type TypResult<T> = Result<T, Box<Vec<Error>>>;
+pub type TypResult<T> = Result<T, TypError>;
+
+/// The error type for typesetting and all its subpasses.
+pub type TypError = Box<Vec<Error>>;
 
 /// A result type with a string error message.
 pub type StrResult<T> = Result<T, String>;
