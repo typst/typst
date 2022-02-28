@@ -58,9 +58,13 @@ pub type EvalResult<T> = Result<T, Control>;
 /// A control flow event that occurred during evaluation.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Control {
+    /// Stop iteration in a loop.
     Break(Span),
+    /// Skip the remainder of the current iteration in a loop.
     Continue(Span),
+    /// Stop execution of a function early, optionally returning a value.
     Return(Option<Value>, Span),
+    /// Stop the execution because an error occurred.
     Err(TypError),
 }
 
@@ -634,7 +638,6 @@ impl Eval for WhileExpr {
         while condition.eval(ctx, scp)?.cast::<bool>().at(condition.span())? {
             let body = self.body();
             let value = match body.eval(ctx, scp) {
-                Ok(value) => value,
                 Err(Control::Break(_)) => break,
                 Err(Control::Continue(_)) => continue,
                 other => other?,
@@ -661,14 +664,12 @@ impl Eval for ForExpr {
 
                     let body = self.body();
                     let value = match body.eval(ctx, scp) {
-                        Ok(value) => value,
                         Err(Control::Break(_)) => break,
                         Err(Control::Continue(_)) => continue,
                         other => other?,
                     };
 
-                    output = ops::join(output, value)
-                        .at(self.body().span())?;
+                    output = ops::join(output, value).at(body.span())?;
                 }
 
                 scp.exit();
