@@ -1,7 +1,17 @@
-// Test string functions.
+// Test string handling functions.
+// Ref: false
 
 ---
 // Test the `upper`, `lower`, and number formatting functions.
+#let memes = "ArE mEmEs gReAt?";
+#test(lower(memes), "are memes great?")
+#test(upper(memes), "ARE MEMES GREAT?")
+#test(upper("Ελλάδα"), "ΕΛΛΆΔΑ")
+
+---
+// Test numbering formatting functions.
+// Ref: true
+
 #upper("Abc 8")
 #upper[def]
 

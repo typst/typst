@@ -5,7 +5,8 @@ use std::sync::Arc;
 
 use super::{Args, Func, Span, Template, Value};
 use crate::diag::{At, TypResult};
-use crate::library::{PageNode, ParNode};
+use crate::library::layout::PageNode;
+use crate::library::text::ParNode;
 use crate::Context;
 
 /// A map of style properties.

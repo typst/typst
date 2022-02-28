@@ -33,7 +33,7 @@ use crate::Context;
 /// ```
 ///
 /// [construct]: Self::construct
-/// [`TextNode`]: crate::library::TextNode
+/// [`TextNode`]: crate::library::text::TextNode
 /// [`set`]: Self::set
 #[derive(Clone)]
 pub struct Class {

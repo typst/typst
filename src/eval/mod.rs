@@ -120,7 +120,7 @@ impl Eval for StrongNode {
     type Output = Template;
 
     fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> EvalResult<Self::Output> {
-        Ok(Template::show(library::StrongNode(
+        Ok(Template::show(library::text::StrongNode(
             self.body().eval(ctx, scp)?,
         )))
     }
@@ -130,7 +130,7 @@ impl Eval for EmphNode {
     type Output = Template;
 
     fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> EvalResult<Self::Output> {
-        Ok(Template::show(library::EmphNode(
+        Ok(Template::show(library::text::EmphNode(
             self.body().eval(ctx, scp)?,
         )))
     }
@@ -140,12 +140,12 @@ impl Eval for RawNode {
     type Output = Template;
 
     fn eval(&self, _: &mut Context, _: &mut Scopes) -> EvalResult<Self::Output> {
-        let template = Template::show(library::RawNode {
+        let template = Template::show(library::text::RawNode {
             text: self.text.clone(),
             block: self.block,
         });
         Ok(match self.lang {
-            Some(_) => template.styled(library::RawNode::LANG, self.lang.clone()),
+            Some(_) => template.styled(library::text::RawNode::LANG, self.lang.clone()),
             None => template,
         })
     }
@@ -155,7 +155,7 @@ impl Eval for MathNode {
     type Output = Template;
 
     fn eval(&self, _: &mut Context, _: &mut Scopes) -> EvalResult<Self::Output> {
-        Ok(Template::show(library::MathNode {
+        Ok(Template::show(library::elements::MathNode {
             formula: self.formula.clone(),
             display: self.display,
         }))
@@ -166,7 +166,7 @@ impl Eval for HeadingNode {
     type Output = Template;
 
     fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> EvalResult<Self::Output> {
-        Ok(Template::show(library::HeadingNode {
+        Ok(Template::show(library::elements::HeadingNode {
             body: self.body().eval(ctx, scp)?,
             level: self.level(),
         }))
@@ -177,7 +177,7 @@ impl Eval for ListNode {
     type Output = Template;
 
     fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> EvalResult<Self::Output> {
-        Ok(Template::List(library::ListItem {
+        Ok(Template::List(library::elements::ListItem {
             number: None,
             body: Box::new(self.body().eval(ctx, scp)?),
         }))
@@ -188,7 +188,7 @@ impl Eval for EnumNode {
     type Output = Template;
 
     fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> EvalResult<Self::Output> {
-        Ok(Template::Enum(library::ListItem {
+        Ok(Template::Enum(library::elements::ListItem {
             number: self.number(),
             body: Box::new(self.body().eval(ctx, scp)?),
         }))

@@ -9,7 +9,7 @@ use crate::diag::TypResult;
 use crate::eval::StyleChain;
 use crate::frame::{Element, Frame, Geometry, Shape, Stroke};
 use crate::geom::{Align, Length, Linear, Paint, Point, Sides, Size, Spec, Transform};
-use crate::library::{AlignNode, PadNode, TransformNode, MOVE};
+use crate::library::layout::{AlignNode, MoveNode, PadNode};
 use crate::util::Prehashed;
 use crate::Context;
 
@@ -203,7 +203,7 @@ impl LayoutNode {
     /// Transform this node's contents without affecting layout.
     pub fn moved(self, offset: Point) -> Self {
         if !offset.is_zero() {
-            TransformNode::<MOVE> {
+            MoveNode {
                 transform: Transform::translation(offset.x, offset.y),
                 child: self,
             }
