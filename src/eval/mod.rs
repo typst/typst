@@ -633,7 +633,12 @@ impl Eval for WhileExpr {
         let condition = self.condition();
         while condition.eval(ctx, scp)?.cast::<bool>().at(condition.span())? {
             let body = self.body();
-            let value = body.eval(ctx, scp)?;
+            let value = match body.eval(ctx, scp) {
+                Ok(value) => value,
+                Err(Control::Break(_)) => break,
+                Err(Control::Continue(_)) => continue,
+                other => other?,
+            };
             output = ops::join(output, value).at(body.span())?;
         }
 
@@ -654,7 +659,14 @@ impl Eval for ForExpr {
                 for ($($value),*) in $iter {
                     $(scp.top.def_mut(&$binding, $value);)*
 
-                    let value = self.body().eval(ctx, scp)?;
+                    let body = self.body();
+                    let value = match body.eval(ctx, scp) {
+                        Ok(value) => value,
+                        Err(Control::Break(_)) => break,
+                        Err(Control::Continue(_)) => continue,
+                        other => other?,
+                    };
+
                     output = ops::join(output, value)
                         .at(self.body().span())?;
                 }

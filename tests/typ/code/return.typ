@@ -3,8 +3,15 @@
 
 ---
 #let f(x) = {
-  // Error: 3-15 return is not yet implemented
   return x + 1
 }
 
-#f(1)
+#test(f(1), 2)
+
+---
+// Test return outside of function.
+
+#for x in range(5) {
+  // Error: 3-9 cannot return outside of function
+  return
+}

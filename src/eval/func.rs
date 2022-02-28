@@ -2,7 +2,7 @@ use std::fmt::{self, Debug, Formatter, Write};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use super::{Cast, Eval, Scope, Scopes, Value};
+use super::{Cast, Control, Eval, Scope, Scopes, Value};
 use crate::diag::{At, TypResult};
 use crate::syntax::ast::Expr;
 use crate::syntax::{Span, Spanned};
@@ -138,7 +138,11 @@ impl Closure {
         }
 
         // Evaluate the body.
-        let value = self.body.eval(ctx, &mut scp)?;
+        let value = match self.body.eval(ctx, &mut scp) {
+            Ok(value) => value,
+            Err(Control::Return(value, _)) => return Ok(value.unwrap_or_default()),
+            other => other?,
+        };
 
         Ok(value)
     }
