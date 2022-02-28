@@ -4,8 +4,8 @@
 ---
 // Test break.
 
-#let error = false
 #let var = 0
+#let error = false
 
 #for i in range(10) {
   var += i
@@ -15,18 +15,32 @@
   }
 }
 
-#test(error, false)
 #test(var, 21)
+#test(error, false)
+
+---
+// Test joining with break.
+
+#let i = 0
+#let x = while true {
+  i += 1
+  str(i)
+  if i >= 5 {
+    "."
+    break
+  }
+}
+
+#test(x, "12345.")
 
 ---
 // Test continue.
 
-#let x = 0
 #let i = 0
+#let x = 0
 
 #while x < 8 {
   i += 1
-
   if mod(i, 3) == 0 {
     continue
   }
@@ -37,12 +51,27 @@
 #test(x, 12)
 
 ---
+// Test joining with continue.
+
+#let x = for i in range(5) {
+  "a"
+  if mod(i, 3) == 0 {
+    "_"
+    continue
+  }
+  str(i)
+}
+
+#test(x, "a_a1a2a_a4")
+
+---
 // Test break outside of loop.
 
 #let f() = {
   // Error: 3-8 cannot break outside of loop
   break
 }
+
 #f()
 
 ---

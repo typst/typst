@@ -11,6 +11,7 @@ mod styles;
 mod capture;
 mod class;
 mod collapse;
+mod control;
 mod func;
 mod layout;
 mod module;
@@ -23,6 +24,7 @@ pub use array::*;
 pub use capture::*;
 pub use class::*;
 pub use collapse::*;
+pub use control::*;
 pub use dict::*;
 pub use func::*;
 pub use layout::*;
@@ -35,7 +37,7 @@ pub use value::*;
 
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::diag::{At, Error, StrResult, Trace, Tracepoint, TypError, TypResult};
+use crate::diag::{At, Error, StrResult, Trace, Tracepoint, TypResult};
 use crate::geom::{Angle, Fractional, Length, Relative};
 use crate::library;
 use crate::syntax::ast::*;
@@ -54,40 +56,6 @@ pub trait Eval {
 
 /// The result type for evaluating a syntactic construct.
 pub type EvalResult<T> = Result<T, Control>;
-
-/// A control flow event that occurred during evaluation.
-#[derive(Clone, Debug, PartialEq)]
-pub enum Control {
-    /// Stop iteration in a loop.
-    Break(Span),
-    /// Skip the remainder of the current iteration in a loop.
-    Continue(Span),
-    /// Stop execution of a function early, optionally returning a value.
-    Return(Option<Value>, Span),
-    /// Stop the execution because an error occurred.
-    Err(TypError),
-}
-
-impl From<TypError> for Control {
-    fn from(error: TypError) -> Self {
-        Self::Err(error)
-    }
-}
-
-impl From<Control> for TypError {
-    fn from(control: Control) -> Self {
-        match control {
-            Control::Break(span) => Error::boxed(span, "cannot break outside of loop"),
-            Control::Continue(span) => {
-                Error::boxed(span, "cannot continue outside of loop")
-            }
-            Control::Return(_, span) => {
-                Error::boxed(span, "cannot return outside of function")
-            }
-            Control::Err(e) => e,
-        }
-    }
-}
 
 impl Eval for Markup {
     type Output = Template;
@@ -337,12 +305,10 @@ impl Eval for BlockExpr {
 
         let mut output = Value::None;
         for expr in self.exprs() {
-            let value = expr.eval(ctx, scp)?;
-            output = ops::join(output, value).at(expr.span())?;
+            output = join_result(output, expr.eval(ctx, scp), expr.span())?;
         }
 
         scp.exit();
-
         Ok(output)
     }
 }
@@ -637,12 +603,14 @@ impl Eval for WhileExpr {
         let condition = self.condition();
         while condition.eval(ctx, scp)?.cast::<bool>().at(condition.span())? {
             let body = self.body();
-            let value = match body.eval(ctx, scp) {
-                Err(Control::Break(_)) => break,
-                Err(Control::Continue(_)) => continue,
-                other => other?,
-            };
-            output = ops::join(output, value).at(body.span())?;
+            match join_result(output, body.eval(ctx, scp), body.span()) {
+                Err(Control::Break(value, _)) => {
+                    output = value;
+                    break;
+                }
+                Err(Control::Continue(value, _)) => output = value,
+                other => output = other?,
+            }
         }
 
         Ok(output)
@@ -663,13 +631,14 @@ impl Eval for ForExpr {
                     $(scp.top.def_mut(&$binding, $value);)*
 
                     let body = self.body();
-                    let value = match body.eval(ctx, scp) {
-                        Err(Control::Break(_)) => break,
-                        Err(Control::Continue(_)) => continue,
-                        other => other?,
-                    };
-
-                    output = ops::join(output, value).at(body.span())?;
+                    match join_result(output, body.eval(ctx, scp), body.span()) {
+                        Err(Control::Break(value, _)) => {
+                            output = value;
+                            break;
+                        }
+                        Err(Control::Continue(value, _)) => output = value,
+                        other => output = other?,
+                    }
                 }
 
                 scp.exit();
@@ -783,7 +752,7 @@ impl Eval for BreakExpr {
     type Output = Value;
 
     fn eval(&self, _: &mut Context, _: &mut Scopes) -> EvalResult<Self::Output> {
-        Err(Control::Break(self.span()))
+        Err(Control::Break(Value::default(), self.span()))
     }
 }
 
@@ -791,7 +760,7 @@ impl Eval for ContinueExpr {
     type Output = Value;
 
     fn eval(&self, _: &mut Context, _: &mut Scopes) -> EvalResult<Self::Output> {
-        Err(Control::Continue(self.span()))
+        Err(Control::Continue(Value::default(), self.span()))
     }
 }
 
@@ -799,8 +768,11 @@ impl Eval for ReturnExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> EvalResult<Self::Output> {
+        let value = self.body().map(|body| body.eval(ctx, scp)).transpose()?;
+        let explicit = value.is_some();
         Err(Control::Return(
-            self.body().map(|body| body.eval(ctx, scp)).transpose()?,
+            value.unwrap_or_default(),
+            explicit,
             self.span(),
         ))
     }

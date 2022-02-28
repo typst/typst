@@ -139,7 +139,7 @@ impl Closure {
 
         // Evaluate the body.
         let value = match self.body.eval(ctx, &mut scp) {
-            Err(Control::Return(value, _)) => value.unwrap_or_default(),
+            Err(Control::Return(value, _, _)) => value,
             other => other?,
         };
 
