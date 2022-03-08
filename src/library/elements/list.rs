@@ -72,10 +72,6 @@ impl<const L: ListKind> Show for ListNode<L> {
 
             for item in &self.items {
                 number = item.number.unwrap_or(number);
-                if L == UNORDERED {
-                    number = 1;
-                }
-
                 children.push(LayoutNode::default());
                 children.push(label.resolve(ctx, L, number)?.pack());
                 children.push(LayoutNode::default());

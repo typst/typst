@@ -1,4 +1,3 @@
-use std::fmt::{self, Display, Formatter};
 use std::str::FromStr;
 
 use super::ColumnsNode;
@@ -233,16 +232,22 @@ macro_rules! papers {
         }
 
         impl FromStr for Paper {
-            type Err = PaperError;
+            type Err = &'static str;
 
             fn from_str(name: &str) -> Result<Self, Self::Err> {
                 match name.to_lowercase().as_str() {
                     $($($pats)* => Ok(Self::$var),)*
-                    _ => Err(PaperError),
+                    _ => Err("invalid paper name"),
                 }
             }
         }
     };
+}
+
+castable! {
+    Paper,
+    Expected: "string",
+    Value::Str(string) => Self::from_str(&string)?,
 }
 
 // All paper sizes in mm.
@@ -399,21 +404,3 @@ papers! {
     (PRESENTATION_16_9:    297.0, 167.0625, "presentation-16-9")
     (PRESENTATION_4_3:     280.0,    210.0,    "presentation-4-3")
 }
-
-castable! {
-    Paper,
-    Expected: "string",
-    Value::Str(string) => Paper::from_str(&string).map_err(|e| e.to_string())?,
-}
-
-/// The error when parsing a [`Paper`] from a string fails.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct PaperError;
-
-impl Display for PaperError {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad("invalid paper name")
-    }
-}
-
-impl std::error::Error for PaperError {}
