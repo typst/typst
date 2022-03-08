@@ -241,6 +241,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ab5ef0d4909ef3724cc8cce6ccc8572c5c817592e9285f5464f8e86f8bd3726e"
 
 [[package]]
+name = "hypher"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d29349e08e99b98d0e16a0ca738d181d5c73431a9a46b78918318c4bc9b10106"
+
+[[package]]
 name = "iai"
 version = "0.1.1"
 source = "git+https://github.com/reknih/iai#3f0f92736408ebce6545808b98e0cb2aea89b7dd"
@@ -806,6 +812,7 @@ dependencies = [
  "either",
  "flate2",
  "fxhash",
+ "hypher",
  "iai",
  "image",
  "kurbo",

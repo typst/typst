@@ -27,12 +27,17 @@ pub enum ParChild {
 
 #[class]
 impl ParNode {
+    /// An ISO 639-1 language code.
+    pub const LANG: Option<EcoString> = None;
     /// The direction for text and inline objects.
     pub const DIR: Dir = Dir::LTR;
     /// How to align text and inline objects in their line.
     pub const ALIGN: Align = Align::Left;
     /// Whether to justify text in its line.
     pub const JUSTIFY: bool = false;
+    /// Whether to hyphenate text to improve line breaking. When `auto`, words
+    /// will will be hyphenated if and only if justification is enabled.
+    pub const HYPHENATE: Smart<bool> = Smart::Auto;
     /// The spacing between lines (dependent on scaled font size).
     pub const LEADING: Linear = Relative::new(0.65).into();
     /// The extra spacing between paragraphs (dependent on scaled font size).
@@ -49,13 +54,14 @@ impl ParNode {
     }
 
     fn set(args: &mut Args, styles: &mut StyleMap) -> TypResult<()> {
+        let lang = args.named::<Option<EcoString>>("lang")?;
+
         let mut dir =
-            args.named("lang")?
-                .map(|iso: EcoString| match iso.to_lowercase().as_str() {
-                    "ar" | "he" | "fa" | "ur" | "ps" | "yi" => Dir::RTL,
-                    "en" | "fr" | "de" => Dir::LTR,
-                    _ => Dir::LTR,
-                });
+            lang.clone().flatten().map(|iso| match iso.to_lowercase().as_str() {
+                "ar" | "dv" | "fa" | "he" | "ks" | "pa" | "ps" | "sd" | "ug" | "ur"
+                | "yi" => Dir::RTL,
+                _ => Dir::LTR,
+            });
 
         if let Some(Spanned { v, span }) = args.named::<Spanned<Dir>>("dir")? {
             if v.axis() != SpecAxis::Horizontal {
@@ -74,9 +80,11 @@ impl ParNode {
                 dir.map(|dir| dir.start().into())
             };
 
+        styles.set_opt(Self::LANG, lang);
         styles.set_opt(Self::DIR, dir);
         styles.set_opt(Self::ALIGN, align);
         styles.set_opt(Self::JUSTIFY, args.named("justify")?);
+        styles.set_opt(Self::HYPHENATE, args.named("hyphenate")?);
         styles.set_opt(Self::LEADING, args.named("leading")?);
         styles.set_opt(Self::SPACING, args.named("spacing")?);
         styles.set_opt(Self::INDENT, args.named("indent")?);
@@ -137,7 +145,7 @@ impl Layout for ParNode {
         let par = ParLayout::new(ctx, self, bidi, regions, &styles)?;
 
         // Break the paragraph into lines.
-        let lines = break_into_lines(&mut ctx.fonts, &par, regions.first.x);
+        let lines = break_into_lines(&mut ctx.fonts, &par, regions.first.x, styles);
 
         // Stack the lines into one frame per region.
         Ok(stack_lines(&ctx.fonts, lines, regions, styles))
@@ -278,6 +286,7 @@ impl<'a> ParLayout<'a> {
         fonts: &mut FontStore,
         mut range: Range,
         mandatory: bool,
+        hyphen: bool,
     ) -> LineLayout<'a> {
         // Find the items which bound the text range.
         let last_idx = self.find(range.end.saturating_sub(1)).unwrap();
@@ -308,7 +317,10 @@ impl<'a> ParLayout<'a> {
                 // empty string.
                 if !shifted.is_empty() || rest.is_empty() {
                     // Reshape that part.
-                    let reshaped = shaped.reshape(fonts, shifted);
+                    let mut reshaped = shaped.reshape(fonts, shifted);
+                    if hyphen {
+                        reshaped.push_hyphen(fonts);
+                    }
                     last = Some(ParItem::Text(reshaped));
                 }
 
@@ -524,6 +536,7 @@ fn break_into_lines<'a>(
     fonts: &mut FontStore,
     par: &'a ParLayout<'a>,
     width: Length,
+    styles: StyleChain,
 ) -> Vec<LineLayout<'a>> {
     // The already determined lines and the current line attempt.
     let mut lines = vec![];
@@ -531,9 +544,9 @@ fn break_into_lines<'a>(
     let mut last = None;
 
     // Find suitable line breaks.
-    for (end, mandatory) in LineBreakIterator::new(&par.bidi.text) {
+    for (end, mandatory, hyphen) in breakpoints(&par.bidi.text, styles) {
         // Compute the line and its size.
-        let mut line = par.line(fonts, start .. end, mandatory);
+        let mut line = par.line(fonts, start .. end, mandatory, hyphen);
 
         // If the line doesn't fit anymore, we push the last fitting attempt
         // into the stack and rebuild the line from its end. The resulting
@@ -542,7 +555,7 @@ fn break_into_lines<'a>(
             if let Some((last_line, last_end)) = last.take() {
                 lines.push(last_line);
                 start = last_end;
-                line = par.line(fonts, start .. end, mandatory);
+                line = par.line(fonts, start .. end, mandatory, hyphen);
             }
         }
 
@@ -563,6 +576,47 @@ fn break_into_lines<'a>(
     }
 
     lines
+}
+
+/// Determine all possible points in the text where lines can broken.
+fn breakpoints<'a>(
+    text: &'a str,
+    styles: StyleChain,
+) -> impl Iterator<Item = (usize, bool, bool)> + 'a {
+    let mut lang = None;
+    if styles.get(ParNode::HYPHENATE).unwrap_or(styles.get(ParNode::JUSTIFY)) {
+        lang = styles
+            .get_ref(ParNode::LANG)
+            .as_ref()
+            .and_then(|iso| iso.as_bytes().try_into().ok())
+            .and_then(hypher::Lang::from_iso);
+    }
+
+    let breaks = LineBreakIterator::new(text);
+    let mut last = 0;
+
+    if let Some(lang) = lang {
+        Either::Left(breaks.flat_map(move |(end, mandatory)| {
+            let word = &text[last .. end];
+            let trimmed = word.trim_end_matches(|c: char| !c.is_alphabetic());
+            let suffix = last + trimmed.len();
+            let mut start = std::mem::replace(&mut last, end);
+            if trimmed.is_empty() {
+                Either::Left([(end, mandatory, false)].into_iter())
+            } else {
+                Either::Right(hypher::hyphenate(trimmed, lang).map(move |syllable| {
+                    start += syllable.len();
+                    if start == suffix {
+                        start = end;
+                    }
+                    let hyphen = start < end;
+                    (start, mandatory && !hyphen, hyphen)
+                }))
+            }
+        }))
+    } else {
+        Either::Right(breaks.map(|(e, m)| (e, m, false)))
+    }
 }
 
 /// Combine the lines into one frame per region.

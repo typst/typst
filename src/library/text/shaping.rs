@@ -135,6 +135,34 @@ impl<'a> ShapedText<'a> {
         }
     }
 
+    /// Push a hyphen to end of the text.
+    pub fn push_hyphen(&mut self, fonts: &mut FontStore) {
+        // When there are no glyphs, we just use the vertical metrics of the
+        // first available font.
+        let size = self.styles.get(TextNode::SIZE).abs;
+        let variant = variant(self.styles);
+        families(self.styles).find_map(|family| {
+            // Allow hyphens to overhang a bit.
+            const INSET: f64 = 0.4;
+            let face_id = fonts.select(family, variant)?;
+            let face = fonts.get(face_id);
+            let ttf = face.ttf();
+            let glyph_id = ttf.glyph_index('-')?;
+            let x_advance = face.to_em(ttf.glyph_hor_advance(glyph_id)?);
+            self.size.x += INSET * x_advance.resolve(size);
+            self.glyphs.to_mut().push(ShapedGlyph {
+                face_id,
+                glyph_id: glyph_id.0,
+                x_advance,
+                x_offset: Em::zero(),
+                text_index: self.text.len(),
+                safe_to_break: true,
+                is_space: false,
+            });
+            Some(())
+        });
+    }
+
     /// Find the subslice of glyphs that represent the given text range if both
     /// sides are safe to break.
     fn slice_safe_to_break(&self, text_range: Range<usize>) -> Option<&[ShapedGlyph]> {
@@ -531,8 +559,9 @@ fn measure(
     if glyphs.is_empty() {
         // When there are no glyphs, we just use the vertical metrics of the
         // first available font.
+        let variant = variant(styles);
         for family in families(styles) {
-            if let Some(face_id) = fonts.select(family, variant(styles)) {
+            if let Some(face_id) = fonts.select(family, variant) {
                 expand(fonts.get(face_id));
                 break;
             }

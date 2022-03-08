@@ -1,9 +1,16 @@
 
 ---
-#set par(indent: 14pt, spacing: 0pt, leading: 5pt, justify: true)
+#set page(width: 180pt)
+#set par(
+  lang: "en",
+  justify: true,
+  indent: 14pt,
+  spacing: 0pt,
+  leading: 5pt,
+)
 
 This text is justified, meaning that spaces are stretched so that the text
-forms as "block" with flush edges at both sides.
+forms a "block" with flush edges at both sides.
 
 First line indents and hyphenation play nicely with justified text.
 

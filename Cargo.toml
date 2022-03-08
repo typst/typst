@@ -22,6 +22,7 @@ serde = { version = "1", features = ["derive"] }
 typed-arena = "2"
 
 # Text and font handling
+hypher = "0.1"
 kurbo = "0.8"
 ttf-parser = "0.12"
 rustybuzz = "0.4"

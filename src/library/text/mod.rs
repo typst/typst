@@ -1,3 +1,5 @@
+//! Text shaping and paragraph layout.
+
 mod deco;
 mod link;
 mod par;
