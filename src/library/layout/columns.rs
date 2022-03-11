@@ -16,8 +16,8 @@ impl ColumnsNode {
     /// The size of the gutter space between each column.
     pub const GUTTER: Linear = Relative::new(0.04).into();
 
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Template> {
-        Ok(Template::block(Self {
+    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
+        Ok(Content::block(Self {
             columns: args.expect("column count")?,
             child: args.expect("body")?,
         }))
@@ -105,7 +105,7 @@ pub struct ColbreakNode;
 
 #[class]
 impl ColbreakNode {
-    fn construct(_: &mut Context, _: &mut Args) -> TypResult<Template> {
-        Ok(Template::Colbreak)
+    fn construct(_: &mut Context, _: &mut Args) -> TypResult<Content> {
+        Ok(Content::Colbreak)
     }
 }

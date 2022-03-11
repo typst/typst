@@ -30,7 +30,7 @@
 #test(f(2), "ad")
 
 ---
-// Test return with joining and template.
+// Test return with joining and content.
 // Ref: true
 
 #let f(text, caption: none) = {

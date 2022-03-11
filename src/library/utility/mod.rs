@@ -170,13 +170,13 @@ pub fn upper(_: &mut Context, args: &mut Args) -> TypResult<Value> {
     case(Case::Upper, args)
 }
 
-/// Change the case of a string or template.
+/// Change the case of a string or content.
 fn case(case: Case, args: &mut Args) -> TypResult<Value> {
-    let Spanned { v, span } = args.expect("string or template")?;
+    let Spanned { v, span } = args.expect("string or content")?;
     Ok(match v {
         Value::Str(v) => Value::Str(case.apply(&v).into()),
-        Value::Template(v) => Value::Template(v.styled(TextNode::CASE, Some(case))),
-        v => bail!(span, "expected string or template, found {}", v.type_name()),
+        Value::Content(v) => Value::Content(v.styled(TextNode::CASE, Some(case))),
+        v => bail!(span, "expected string or content, found {}", v.type_name()),
     })
 }
 

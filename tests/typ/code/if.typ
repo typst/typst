@@ -16,7 +16,7 @@
   One.
 ]
 
-// Template in condition.
+// Content block in condition.
 #if [] != none [
   Two.
 ]
@@ -39,10 +39,10 @@
   "Four" + point
 }
 
-// Template can be argument or body depending on whitespace.
+// Content block can be argument or body depending on whitespace.
 {
-  if "template" == type[b] [Fi] else [Nope]
-  if "template" == type [Nope] else [ve.]
+  if "content" == type[b] [Fi] else [Nope]
+  if "content" == type [Nope] else [ve.]
 }
 
 #let i = 3

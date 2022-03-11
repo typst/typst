@@ -7,7 +7,7 @@ use crate::library::prelude::*;
 
 /// Typeset underline, stricken-through or overlined text.
 #[derive(Debug, Hash)]
-pub struct DecoNode<const L: DecoLine>(pub Template);
+pub struct DecoNode<const L: DecoLine>(pub Content);
 
 /// Typeset underlined text.
 pub type UnderlineNode = DecoNode<UNDERLINE>;
@@ -37,15 +37,15 @@ impl<const L: DecoLine> DecoNode<L> {
     /// with the glyphs. Does not apply to strikethrough.
     pub const EVADE: bool = true;
 
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Template> {
-        Ok(Template::show(Self(args.expect::<Template>("body")?)))
+    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
+        Ok(Content::show(Self(args.expect::<Content>("body")?)))
     }
 }
 
 impl<const L: DecoLine> Show for DecoNode<L> {
-    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Template> {
+    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content> {
         Ok(styles
-            .show(self, ctx, [Value::Template(self.0.clone())])?
+            .show(self, ctx, [Value::Content(self.0.clone())])?
             .unwrap_or_else(|| {
                 self.0.clone().styled(TextNode::LINES, vec![Decoration {
                     line: L,

@@ -7,7 +7,7 @@
 //!   provided in the [AST] module.
 //! - **Evaluation:** The next step is to [evaluate] the markup. This produces a
 //!   [module], consisting of a scope of values that were exported by the code
-//!   and a [template], a hierarchical, styled representation with the contents
+//!   and [content], a hierarchical, styled representation with the contents
 //!   of the module. The nodes of this tree are well structured and
 //!   order-independent and thus much better suited for layouting than the raw
 //!   markup.
@@ -23,8 +23,8 @@
 //! [AST]: syntax::ast
 //! [evaluate]: eval::Eval
 //! [module]: eval::Module
-//! [template]: eval::Template
-//! [layouted]: eval::Template::layout
+//! [content]: eval::Content
+//! [layouted]: eval::Content::layout
 //! [PDF]: export::pdf
 
 #![allow(clippy::len_without_is_empty)]
@@ -110,8 +110,8 @@ impl Context {
 
     /// Evaluate a source file and return the resulting module.
     ///
-    /// Returns either a module containing a scope with top-level bindings and a
-    /// layoutable template or diagnostics in the form of a vector of error
+    /// Returns either a module containing a scope with top-level bindings and
+    /// layoutable contents or diagnostics in the form of a vector of error
     /// messages with file and span information.
     pub fn evaluate(&mut self, id: SourceId) -> TypResult<Module> {
         // Prevent cyclic evaluation.
@@ -139,16 +139,12 @@ impl Context {
         // Evaluate the module.
         let prev = std::mem::replace(&mut self.deps, vec![(id, source.rev())]);
         self.route.push(id);
-        let template = ast.eval(self, &mut scp);
+        let content = ast.eval(self, &mut scp);
         self.route.pop().unwrap();
         let deps = std::mem::replace(&mut self.deps, prev);
 
         // Assemble the module.
-        let module = Module {
-            scope: scp.top,
-            template: template?,
-            deps,
-        };
+        let module = Module { scope: scp.top, content: content?, deps };
 
         // Save the evaluated module.
         self.modules.insert(id, module.clone());
@@ -162,7 +158,7 @@ impl Context {
     /// diagnostics in the form of a vector of error message with file and span
     /// information.
     pub fn typeset(&mut self, id: SourceId) -> TypResult<Vec<Arc<Frame>>> {
-        self.evaluate(id)?.template.layout(self)
+        self.evaluate(id)?.content.layout(self)
     }
 
     /// Resolve a user-entered path (relative to the current evaluation

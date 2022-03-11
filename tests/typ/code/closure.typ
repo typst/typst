@@ -2,7 +2,7 @@
 // Ref: false
 
 ---
-// Don't parse closure directly in template.
+// Don't parse closure directly in content.
 // Ref: true
 
 #let x = "\"hi\""

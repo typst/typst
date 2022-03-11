@@ -167,6 +167,6 @@ castable! {
 
 castable! {
     LayoutNode,
-    Expected: "template",
-    Value::Template(template) => template.pack(),
+    Expected: "content",
+    Value::Content(content) => content.pack(),
 }

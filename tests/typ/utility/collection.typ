@@ -24,7 +24,7 @@
 #test(upper("Ελλάδα"), "ΕΛΛΆΔΑ")
 
 ---
-// Error: 8-9 expected string or template, found integer
+// Error: 8-9 expected string or content, found integer
 #upper(1)
 
 ---
@@ -35,9 +35,9 @@
 #test(sorted((2, 1, 3, 10, 5, 8, 6, -7, 2)), (-7, 1, 2, 2, 3, 5, 6, 8, 10))
 
 ---
-// Error: 9-21 cannot compare string with integer
+// Error: 9-21 cannot order string and integer
 #sorted((1, 2, "ab"))
 
 ---
-// Error: 9-24 cannot compare template with template
+// Error: 9-24 cannot order content and content
 #sorted(([Hi], [There]))

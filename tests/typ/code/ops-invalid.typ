@@ -14,7 +14,7 @@
 #test({2*}, 2)
 
 ---
-// Error: 2-12 cannot apply '+' to template
+// Error: 2-12 cannot apply '+' to content
 {+([] + [])}
 
 ---

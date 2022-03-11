@@ -28,7 +28,7 @@ paragraphs.
 ---
 - Level 1
   - Level [
-2 through template
+2 through content block
 ]
 
 ---

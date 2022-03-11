@@ -7,12 +7,12 @@ pub struct PlaceNode(pub LayoutNode);
 
 #[class]
 impl PlaceNode {
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Template> {
+    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         let aligns = args.find()?.unwrap_or(Spec::with_x(Some(Align::Left)));
         let tx = args.named("dx")?.unwrap_or_default();
         let ty = args.named("dy")?.unwrap_or_default();
         let body: LayoutNode = args.expect("body")?;
-        Ok(Template::block(Self(
+        Ok(Content::block(Self(
             body.moved(Point::new(tx, ty)).aligned(aligns),
         )))
     }

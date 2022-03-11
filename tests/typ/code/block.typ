@@ -11,7 +11,7 @@
   for s in parts [{s}]
 }
 
-// Evaluates to join of the templates and strings.
+// Evaluates to join of the content and strings.
 {
   [How]
   if true {
@@ -52,13 +52,13 @@
 // Some things can't be joined.
 {
   [A]
-  // Error: 3-4 cannot join template with integer
+  // Error: 3-4 cannot join content with integer
   1
   [B]
 }
 
 ---
-// Block directly in template also creates a scope.
+// Block directly in markup also creates a scope.
 { let x = 1 }
 
 // Error: 7-8 unknown variable
@@ -103,7 +103,7 @@
 }
 
 ---
-// Template also creates a scope.
+// Content blocks also create a scope.
 [#let x = 1]
 
 // Error: 2-3 unknown variable

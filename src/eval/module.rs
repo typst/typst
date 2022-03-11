@@ -1,4 +1,4 @@
-use super::{Scope, Template};
+use super::{Content, Scope};
 use crate::source::{SourceId, SourceStore};
 
 /// An evaluated module, ready for importing or layouting.
@@ -7,7 +7,7 @@ pub struct Module {
     /// The top-level definitions that were bound in this module.
     pub scope: Scope,
     /// The module's layoutable contents.
-    pub template: Template,
+    pub content: Content,
     /// The source file revisions this module depends on.
     pub deps: Vec<(SourceId, usize)>,
 }

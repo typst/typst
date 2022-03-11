@@ -4,8 +4,7 @@ use std::sync::Arc;
 use crate::syntax::{Green, GreenNode, NodeKind};
 
 use super::{
-    is_newline, parse, reparse_block, reparse_markup_elements, reparse_template,
-    TokenMode,
+    is_newline, parse, reparse_block, reparse_content, reparse_markup_elements, TokenMode,
 };
 
 /// Allows partial refreshs of the [`Green`] node tree.
@@ -43,7 +42,7 @@ impl Reparser<'_> {
         mut offset: usize,
         outermost: bool,
     ) -> Option<Range<usize>> {
-        let child_mode = green.kind().mode().unwrap_or(TokenMode::Code);
+        let child_mode = green.kind().only_in_mode().unwrap_or(TokenMode::Code);
         let original_count = green.children().len();
 
         let mut search = SearchState::default();
@@ -137,7 +136,7 @@ impl Reparser<'_> {
             let superseded_span = pos.offset .. pos.offset + prev_len;
             let func: Option<ReparseMode> = match child.kind() {
                 NodeKind::CodeBlock => Some(ReparseMode::Code),
-                NodeKind::TemplateBlock => Some(ReparseMode::Template),
+                NodeKind::ContentBlock => Some(ReparseMode::Content),
                 _ => None,
             };
 
@@ -168,7 +167,7 @@ impl Reparser<'_> {
 
             if start.offset == self.replace_range.start
                 || ahead_kind.only_at_start()
-                || ahead_kind.mode() != Some(TokenMode::Markup)
+                || ahead_kind.only_in_mode() != Some(TokenMode::Markup)
             {
                 start = ahead;
                 at_start = ahead_at_start;
@@ -216,7 +215,7 @@ impl Reparser<'_> {
                 &self.src[newborn_span.start ..],
                 newborn_span.len(),
             ),
-            ReparseMode::Template => reparse_template(
+            ReparseMode::Content => reparse_content(
                 &prefix,
                 &self.src[newborn_span.start ..],
                 newborn_span.len(),
@@ -294,21 +293,11 @@ impl SearchState {
 enum ReparseMode {
     /// Reparse a code block, including its braces.
     Code,
-    /// Reparse a template block, including its square brackets.
-    Template,
+    /// Reparse a content block, including its square brackets.
+    Content,
     /// Reparse elements of the markup. The variant carries whether the node is
     /// `at_start` and the minimum indent of the containing markup node.
     MarkupElements(bool, usize),
-}
-
-impl NodeKind {
-    /// Whether this node has to appear at the start of a line.
-    pub fn only_at_start(&self) -> bool {
-        match self {
-            Self::Heading | Self::Enum | Self::List => true,
-            _ => false,
-        }
-    }
 }
 
 #[cfg(test)]

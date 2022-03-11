@@ -19,11 +19,11 @@ pub fn join(lhs: Value, rhs: Value) -> StrResult<Value> {
         (a, None) => a,
         (None, b) => b,
         (Str(a), Str(b)) => Str(a + b),
+        (Str(a), Content(b)) => Content(super::Content::Text(a) + b),
+        (Content(a), Str(b)) => Content(a + super::Content::Text(b)),
+        (Content(a), Content(b)) => Content(a + b),
         (Array(a), Array(b)) => Array(a + b),
         (Dict(a), Dict(b)) => Dict(a + b),
-        (Template(a), Template(b)) => Template(a + b),
-        (Template(a), Str(b)) => Template(a + super::Template::Text(b)),
-        (Str(a), Template(b)) => Template(super::Template::Text(a) + b),
         (a, b) => mismatch!("cannot join {} with {}", a, b),
     })
 }
@@ -81,14 +81,15 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Fractional(a), Fractional(b)) => Fractional(a + b),
 
         (Str(a), Str(b)) => Str(a + b),
+
+        (Content(a), None) => Content(a),
+        (None, Content(b)) => Content(b),
+        (Content(a), Content(b)) => Content(a + b),
+        (Content(a), Str(b)) => Content(a + super::Content::Text(b)),
+        (Str(a), Content(b)) => Content(super::Content::Text(a) + b),
+
         (Array(a), Array(b)) => Array(a + b),
         (Dict(a), Dict(b)) => Dict(a + b),
-
-        (Template(a), None) => Template(a),
-        (None, Template(b)) => Template(b),
-        (Template(a), Template(b)) => Template(a + b),
-        (Template(a), Str(b)) => Template(a + super::Template::Text(b)),
-        (Str(a), Template(b)) => Template(super::Template::Text(a) + b),
 
         (a, b) => {
             if let (Dyn(a), Dyn(b)) = (&a, &b) {
@@ -177,8 +178,8 @@ pub fn mul(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Int(a), Str(b)) => Str(repeat_str(b, a)?),
         (Array(a), Int(b)) => Array(a.repeat(b)?),
         (Int(a), Array(b)) => Array(b.repeat(a)?),
-        (Template(a), Int(b)) => Template(a.repeat(b)?),
-        (Int(a), Template(b)) => Template(b.repeat(a)?),
+        (Content(a), Int(b)) => Content(a.repeat(b)?),
+        (Int(a), Content(b)) => Content(b.repeat(a)?),
 
         (a, b) => mismatch!("cannot multiply {} with {}", a, b),
     })
@@ -293,9 +294,9 @@ pub fn equal(lhs: &Value, rhs: &Value) -> bool {
         (Fractional(a), Fractional(b)) => a == b,
         (Color(a), Color(b)) => a == b,
         (Str(a), Str(b)) => a == b,
+        (Content(a), Content(b)) => a == b,
         (Array(a), Array(b)) => a == b,
         (Dict(a), Dict(b)) => a == b,
-        (Template(a), Template(b)) => a == b,
         (Func(a), Func(b)) => a == b,
         (Dyn(a), Dyn(b)) => a == b,
 

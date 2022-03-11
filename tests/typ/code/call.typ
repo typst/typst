@@ -63,7 +63,7 @@
 ---
 #let f(x) = x
 
-// Error: 1-6 expected callable or collection, found template
+// Error: 1-6 expected callable or collection, found content
 #f[1](2)
 
 ---

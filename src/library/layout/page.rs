@@ -32,8 +32,8 @@ impl PageNode {
     /// The page's footer.
     pub const FOOTER: Marginal = Marginal::None;
 
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Template> {
-        Ok(Template::Page(Self(args.expect("body")?)))
+    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
+        Ok(Content::Page(Self(args.expect("body")?)))
     }
 
     fn set(args: &mut Args, styles: &mut StyleMap) -> TypResult<()> {
@@ -125,12 +125,12 @@ impl PageNode {
                 (Length::zero(), padding.top, header),
                 (size.y - padding.bottom, padding.bottom, footer),
             ] {
-                if let Some(template) = marginal.resolve(ctx, page)? {
+                if let Some(content) = marginal.resolve(ctx, page)? {
                     let pos = Point::new(padding.left, y);
                     let w = size.x - padding.left - padding.right;
                     let area = Size::new(w, h);
                     let pod = Regions::one(area, area, area.map(Length::is_finite));
-                    let sub = Layout::layout(&template, ctx, &pod, styles)?.remove(0);
+                    let sub = Layout::layout(&content, ctx, &pod, styles)?.remove(0);
                     Arc::make_mut(frame).push_frame(pos, sub);
                 }
             }
@@ -155,8 +155,8 @@ pub struct PagebreakNode;
 
 #[class]
 impl PagebreakNode {
-    fn construct(_: &mut Context, _: &mut Args) -> TypResult<Template> {
-        Ok(Template::Pagebreak)
+    fn construct(_: &mut Context, _: &mut Args) -> TypResult<Content> {
+        Ok(Content::Pagebreak)
     }
 }
 
@@ -165,18 +165,18 @@ impl PagebreakNode {
 pub enum Marginal {
     /// Nothing,
     None,
-    /// A bare template.
-    Template(Template),
-    /// A closure mapping from a page number to a template.
+    /// Bare content.
+    Content(Content),
+    /// A closure mapping from a page number to content.
     Func(Func, Span),
 }
 
 impl Marginal {
     /// Resolve the marginal based on the page number.
-    pub fn resolve(&self, ctx: &mut Context, page: usize) -> TypResult<Option<Template>> {
+    pub fn resolve(&self, ctx: &mut Context, page: usize) -> TypResult<Option<Content>> {
         Ok(match self {
             Self::None => None,
-            Self::Template(template) => Some(template.clone()),
+            Self::Content(content) => Some(content.clone()),
             Self::Func(func, span) => {
                 let args = Args::from_values(*span, [Value::Int(page as i64)]);
                 func.call(ctx, args)?.cast().at(*span)?
@@ -187,15 +187,15 @@ impl Marginal {
 
 impl Cast<Spanned<Value>> for Marginal {
     fn is(value: &Spanned<Value>) -> bool {
-        matches!(&value.v, Value::Template(_) | Value::Func(_))
+        matches!(&value.v, Value::Content(_) | Value::Func(_))
     }
 
     fn cast(value: Spanned<Value>) -> StrResult<Self> {
         match value.v {
             Value::None => Ok(Self::None),
-            Value::Template(v) => Ok(Self::Template(v)),
+            Value::Content(v) => Ok(Self::Content(v)),
             Value::Func(v) => Ok(Self::Func(v, value.span)),
-            _ => Err("expected none, template or function")?,
+            _ => Err("expected none, content or function")?,
         }
     }
 }

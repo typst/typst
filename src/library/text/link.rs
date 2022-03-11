@@ -8,7 +8,7 @@ pub struct LinkNode {
     /// The url the link points to.
     pub url: EcoString,
     /// How the link is represented.
-    pub body: Option<Template>,
+    pub body: Option<Content>,
 }
 
 #[class]
@@ -19,8 +19,8 @@ impl LinkNode {
     /// Whether to underline link.
     pub const UNDERLINE: bool = true;
 
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Template> {
-        Ok(Template::show(Self {
+    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
+        Ok(Content::show(Self {
             url: args.expect::<EcoString>("url")?,
             body: args.find()?,
         }))
@@ -28,12 +28,12 @@ impl LinkNode {
 }
 
 impl Show for LinkNode {
-    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Template> {
+    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content> {
         let mut body = styles
             .show(self, ctx, [
                 Value::Str(self.url.clone()),
                 match &self.body {
-                    Some(body) => Value::Template(body.clone()),
+                    Some(body) => Value::Content(body.clone()),
                     None => Value::None,
                 },
             ])?
@@ -45,7 +45,7 @@ impl Show for LinkNode {
                     text = text.trim_start_matches(prefix);
                 }
                 let shorter = text.len() < url.len();
-                Template::Text(if shorter { text.into() } else { url.clone() })
+                Content::Text(if shorter { text.into() } else { url.clone() })
             });
 
         let mut map = StyleMap::new();

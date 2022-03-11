@@ -17,7 +17,7 @@
   . Indented
 
 ---
-// Test automatic numbering in summed templates.
+// Test automatic numbering in summed content.
 #for i in range(5) {
    [. #roman(1 + i)]
 }
@@ -55,6 +55,6 @@
 #set enum(label: "(())")
 
 ---
-// Error: 18-28 expected template, found boolean
+// Error: 18-28 expected content, found boolean
 #set enum(label: n => false)
 . A

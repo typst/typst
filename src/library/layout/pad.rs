@@ -11,7 +11,7 @@ pub struct PadNode {
 
 #[class]
 impl PadNode {
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Template> {
+    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         let all = args.find()?;
         let hor = args.named("horizontal")?;
         let ver = args.named("vertical")?;
@@ -21,7 +21,7 @@ impl PadNode {
         let bottom = args.named("bottom")?.or(ver).or(all).unwrap_or_default();
         let body: LayoutNode = args.expect("body")?;
         let padding = Sides::new(left, top, right, bottom);
-        Ok(Template::block(body.padded(padding)))
+        Ok(Content::block(body.padded(padding)))
     }
 }
 

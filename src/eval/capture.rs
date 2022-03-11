@@ -49,8 +49,8 @@ impl<'a> CapturesVisitor<'a> {
             // through the expressions that contain them).
             Some(Expr::Ident(ident)) => self.capture(ident),
 
-            // Blocks and templates create a scope.
-            Some(Expr::Code(_) | Expr::Template(_)) => {
+            // Code and content blocks create a scope.
+            Some(Expr::Code(_) | Expr::Content(_)) => {
                 self.internal.enter();
                 for child in node.children() {
                     self.visit(child);

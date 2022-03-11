@@ -13,8 +13,8 @@ pub struct MathNode {
 
 #[class]
 impl MathNode {
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Template> {
-        Ok(Template::show(Self {
+    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
+        Ok(Content::show(Self {
             formula: args.expect("formula")?,
             display: args.named("display")?.unwrap_or(false),
         }))
@@ -22,18 +22,18 @@ impl MathNode {
 }
 
 impl Show for MathNode {
-    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Template> {
+    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content> {
         Ok(styles
             .show(self, ctx, [
                 Value::Str(self.formula.clone()),
                 Value::Bool(self.display),
             ])?
             .unwrap_or_else(|| {
-                let mut template = Template::Text(self.formula.trim().into());
+                let mut content = Content::Text(self.formula.trim().into());
                 if self.display {
-                    template = Template::Block(template.pack());
+                    content = Content::Block(content.pack());
                 }
-                template.monospaced()
+                content.monospaced()
             }))
     }
 }

@@ -9,8 +9,8 @@ pub use typst_macros::class;
 
 pub use crate::diag::{with_alternative, At, StrResult, TypResult};
 pub use crate::eval::{
-    Arg, Args, Array, Cast, Construct, Dict, Func, Layout, LayoutNode, Merge, Property,
-    Regions, Scope, Set, Show, ShowNode, Smart, StyleChain, StyleMap, StyleVec, Template,
+    Arg, Args, Array, Cast, Construct, Content, Dict, Func, Layout, LayoutNode, Merge,
+    Property, Regions, Scope, Set, Show, ShowNode, Smart, StyleChain, StyleMap, StyleVec,
     Value,
 };
 pub use crate::frame::*;

@@ -24,7 +24,7 @@ impl<const T: TransformKind> TransformNode<T> {
     /// The origin of the transformation.
     pub const ORIGIN: Spec<Option<Align>> = Spec::default();
 
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Template> {
+    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         let transform = match T {
             MOVE => {
                 let tx = args.named("x")?.unwrap_or_default();
@@ -43,7 +43,7 @@ impl<const T: TransformKind> TransformNode<T> {
             }
         };
 
-        Ok(Template::inline(Self {
+        Ok(Content::inline(Self {
             transform,
             child: args.expect("body")?,
         }))

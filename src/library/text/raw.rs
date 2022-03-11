@@ -29,8 +29,8 @@ impl RawNode {
     /// The language to syntax-highlight in.
     pub const LANG: Option<EcoString> = None;
 
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Template> {
-        Ok(Template::show(Self {
+    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
+        Ok(Content::show(Self {
             text: args.expect("text")?,
             block: args.named("block")?.unwrap_or(false),
         }))
@@ -38,10 +38,10 @@ impl RawNode {
 }
 
 impl Show for RawNode {
-    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Template> {
+    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content> {
         let lang = styles.get_ref(Self::LANG).as_ref();
 
-        if let Some(template) = styles.show(self, ctx, [
+        if let Some(content) = styles.show(self, ctx, [
             Value::Str(self.text.clone()),
             match lang {
                 Some(lang) => Value::Str(lang.clone()),
@@ -49,7 +49,7 @@ impl Show for RawNode {
             },
             Value::Bool(self.block),
         ])? {
-            return Ok(template);
+            return Ok(content);
         }
 
         let foreground = THEME
@@ -59,7 +59,7 @@ impl Show for RawNode {
             .unwrap_or(Color::BLACK)
             .into();
 
-        let mut template = if matches!(
+        let mut content = if matches!(
             lang.map(|s| s.to_lowercase()).as_deref(),
             Some("typ" | "typst")
         ) {
@@ -72,7 +72,7 @@ impl Show for RawNode {
                 seq.push(styled(&self.text[range], foreground, style));
             });
 
-            Template::sequence(seq)
+            Content::sequence(seq)
         } else if let Some(syntax) =
             lang.and_then(|token| SYNTAXES.find_syntax_by_token(&token))
         {
@@ -80,7 +80,7 @@ impl Show for RawNode {
             let mut highlighter = HighlightLines::new(syntax, &THEME);
             for (i, line) in self.text.lines().enumerate() {
                 if i != 0 {
-                    seq.push(Template::Linebreak);
+                    seq.push(Content::Linebreak);
                 }
 
                 for (style, piece) in highlighter.highlight(line, &SYNTAXES) {
@@ -88,23 +88,23 @@ impl Show for RawNode {
                 }
             }
 
-            Template::sequence(seq)
+            Content::sequence(seq)
         } else {
-            Template::Text(self.text.clone())
+            Content::Text(self.text.clone())
         };
 
         if self.block {
-            template = Template::Block(template.pack());
+            content = Content::Block(content.pack());
         }
 
-        Ok(template.monospaced())
+        Ok(content.monospaced())
     }
 }
 
 /// Style a piece of text with a syntect style.
-fn styled(piece: &str, foreground: Paint, style: Style) -> Template {
+fn styled(piece: &str, foreground: Paint, style: Style) -> Content {
     let mut styles = StyleMap::new();
-    let mut body = Template::Text(piece.into());
+    let mut body = Content::Text(piece.into());
 
     let paint = style.foreground.into();
     if paint != foreground {

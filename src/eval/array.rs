@@ -89,7 +89,7 @@ impl Array {
             a.partial_cmp(b).unwrap_or_else(|| {
                 if result.is_ok() {
                     result = Err(format!(
-                        "cannot compare {} with {}",
+                        "cannot order {} and {}",
                         a.type_name(),
                         b.type_name(),
                     ));

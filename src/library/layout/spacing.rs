@@ -5,8 +5,8 @@ pub struct HNode;
 
 #[class]
 impl HNode {
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Template> {
-        Ok(Template::Horizontal(args.expect("spacing")?))
+    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
+        Ok(Content::Horizontal(args.expect("spacing")?))
     }
 }
 
@@ -15,8 +15,8 @@ pub struct VNode;
 
 #[class]
 impl VNode {
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Template> {
-        Ok(Template::Vertical(args.expect("spacing")?))
+    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
+        Ok(Content::Vertical(args.expect("spacing")?))
     }
 }
 

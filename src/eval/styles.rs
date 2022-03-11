@@ -3,7 +3,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use super::{Args, Func, Span, Template, Value};
+use super::{Args, Content, Func, Span, Value};
 use crate::diag::{At, TypResult};
 use crate::library::layout::PageNode;
 use crate::library::text::ParNode;
@@ -414,7 +414,7 @@ impl<'a> StyleChain<'a> {
         node: &dyn Any,
         ctx: &mut Context,
         values: impl IntoIterator<Item = Value>,
-    ) -> TypResult<Option<Template>> {
+    ) -> TypResult<Option<Content>> {
         Ok(if let Some(recipe) = self.recipes(node.type_id()).next() {
             let args = Args::from_values(recipe.span, values);
             Some(recipe.func.call(ctx, args)?.cast().at(recipe.span)?)

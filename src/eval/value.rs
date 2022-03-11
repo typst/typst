@@ -4,7 +4,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use super::{ops, Args, Array, Class, Dict, Func, Layout, Template};
+use super::{ops, Args, Array, Class, Content, Dict, Func, Layout};
 use crate::diag::{with_alternative, StrResult};
 use crate::geom::{Angle, Color, Fractional, Length, Linear, Relative, RgbaColor};
 use crate::syntax::Spanned;
@@ -37,12 +37,12 @@ pub enum Value {
     Color(Color),
     /// A string: `"string"`.
     Str(EcoString),
+    /// A content value: `[*Hi* there]`.
+    Content(Content),
     /// An array of values: `(1, "hi", 12cm)`.
     Array(Array),
     /// A dictionary value: `(color: #f79143, pattern: dashed)`.
     Dict(Dict),
-    /// A template value: `[*Hi* there]`.
-    Template(Template),
     /// An executable function.
     Func(Func),
     /// Captured arguments to a function.
@@ -54,20 +54,20 @@ pub enum Value {
 }
 
 impl Value {
-    /// Create a template value from an inline-level node.
+    /// Create a content value from an inline-level node.
     pub fn inline<T>(node: T) -> Self
     where
         T: Layout + Debug + Hash + Sync + Send + 'static,
     {
-        Self::Template(Template::inline(node))
+        Self::Content(Content::inline(node))
     }
 
-    /// Create a template value from a block-level node.
+    /// Create a content value from a block-level node.
     pub fn block<T>(node: T) -> Self
     where
         T: Layout + Debug + Hash + Sync + Send + 'static,
     {
-        Self::Template(Template::block(node))
+        Self::Content(Content::block(node))
     }
 
     /// The name of the stored value's type.
@@ -85,9 +85,9 @@ impl Value {
             Self::Fractional(_) => Fractional::TYPE_NAME,
             Self::Color(_) => Color::TYPE_NAME,
             Self::Str(_) => EcoString::TYPE_NAME,
+            Self::Content(_) => Content::TYPE_NAME,
             Self::Array(_) => Array::TYPE_NAME,
             Self::Dict(_) => Dict::TYPE_NAME,
-            Self::Template(_) => Template::TYPE_NAME,
             Self::Func(_) => Func::TYPE_NAME,
             Self::Args(_) => Args::TYPE_NAME,
             Self::Class(_) => Class::TYPE_NAME,
@@ -111,16 +111,16 @@ impl Value {
     }
 
     /// Return the display representation of the value.
-    pub fn display(self) -> Template {
+    pub fn display(self) -> Content {
         match self {
-            Value::None => Template::new(),
-            Value::Int(v) => Template::Text(format_eco!("{}", v)),
-            Value::Float(v) => Template::Text(format_eco!("{}", v)),
-            Value::Str(v) => Template::Text(v),
-            Value::Template(v) => v,
+            Value::None => Content::new(),
+            Value::Int(v) => Content::Text(format_eco!("{}", v)),
+            Value::Float(v) => Content::Text(format_eco!("{}", v)),
+            Value::Str(v) => Content::Text(v),
+            Value::Content(v) => v,
             // For values which can't be shown "naturally", we print the
             // representation in monospace.
-            v => Template::Text(v.repr()).monospaced(),
+            v => Content::Text(v.repr()).monospaced(),
         }
     }
 }
@@ -146,9 +146,9 @@ impl Debug for Value {
             Self::Fractional(v) => Debug::fmt(v, f),
             Self::Color(v) => Debug::fmt(v, f),
             Self::Str(v) => Debug::fmt(v, f),
+            Self::Content(_) => f.pad("<content>"),
             Self::Array(v) => Debug::fmt(v, f),
             Self::Dict(v) => Debug::fmt(v, f),
-            Self::Template(_) => f.pad("<template>"),
             Self::Func(v) => Debug::fmt(v, f),
             Self::Args(v) => Debug::fmt(v, f),
             Self::Class(v) => Debug::fmt(v, f),
@@ -185,9 +185,9 @@ impl Hash for Value {
             Self::Fractional(v) => v.hash(state),
             Self::Color(v) => v.hash(state),
             Self::Str(v) => v.hash(state),
+            Self::Content(v) => v.hash(state),
             Self::Array(v) => v.hash(state),
             Self::Dict(v) => v.hash(state),
-            Self::Template(v) => v.hash(state),
             Self::Func(v) => v.hash(state),
             Self::Args(v) => v.hash(state),
             Self::Class(v) => v.hash(state),
@@ -441,9 +441,9 @@ primitive! { Linear: "relative length", Linear, Length(v) => v.into(), Relative(
 primitive! { Fractional: "fractional length", Fractional }
 primitive! { Color: "color", Color }
 primitive! { EcoString: "string", Str }
+primitive! { Content: "content", Content, None => Content::new() }
 primitive! { Array: "array", Array }
 primitive! { Dict: "dictionary", Dict }
-primitive! { Template: "template", Template, None => Template::new() }
 primitive! { Func: "function", Func, Class(v) => v.constructor() }
 primitive! { Args: "arguments", Args }
 primitive! { Class: "class", Class }

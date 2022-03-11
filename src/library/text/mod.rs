@@ -110,7 +110,7 @@ impl TextNode {
     #[skip]
     pub const LINK: Option<EcoString> = None;
 
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Template> {
+    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         // The text constructor is special: It doesn't create a text node.
         // Instead, it leaves the passed argument structurally unchanged, but
         // styles all text in it.
@@ -120,38 +120,38 @@ impl TextNode {
 
 /// Strong text, rendered in boldface.
 #[derive(Debug, Hash)]
-pub struct StrongNode(pub Template);
+pub struct StrongNode(pub Content);
 
 #[class]
 impl StrongNode {
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Template> {
-        Ok(Template::show(Self(args.expect("body")?)))
+    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
+        Ok(Content::show(Self(args.expect("body")?)))
     }
 }
 
 impl Show for StrongNode {
-    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Template> {
+    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content> {
         Ok(styles
-            .show(self, ctx, [Value::Template(self.0.clone())])?
+            .show(self, ctx, [Value::Content(self.0.clone())])?
             .unwrap_or_else(|| self.0.clone().styled(TextNode::STRONG, true)))
     }
 }
 
 /// Emphasized text, rendered with an italic face.
 #[derive(Debug, Hash)]
-pub struct EmphNode(pub Template);
+pub struct EmphNode(pub Content);
 
 #[class]
 impl EmphNode {
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Template> {
-        Ok(Template::show(Self(args.expect("body")?)))
+    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
+        Ok(Content::show(Self(args.expect("body")?)))
     }
 }
 
 impl Show for EmphNode {
-    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Template> {
+    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content> {
         Ok(styles
-            .show(self, ctx, [Value::Template(self.0.clone())])?
+            .show(self, ctx, [Value::Content(self.0.clone())])?
             .unwrap_or_else(|| self.0.clone().styled(TextNode::EMPH, true)))
     }
 }

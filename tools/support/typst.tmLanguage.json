@@ -14,17 +14,17 @@
           "patterns": [{ "include": "$self" }]
         },
         {
-          "name": "meta.block.typst",
+          "name": "meta.block.code.typst",
           "begin": "{",
           "end": "}",
-          "captures": { "0": { "name": "punctuation.definition.block.typst" } },
+          "captures": { "0": { "name": "punctuation.definition.block.code.typst" } },
           "patterns": [{ "include": "#code" }]
         },
         {
-          "name": "meta.template.typst",
+          "name": "meta.block.content.typst",
           "begin": "\\[",
           "end": "\\]",
-          "captures": { "0": { "name": "punctuation.definition.template.typst" } },
+          "captures": { "0": { "name": "punctuation.definition.block.content.typst" } },
           "patterns": [{ "include": "#markup" }]
         }
       ]

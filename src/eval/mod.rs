@@ -11,6 +11,7 @@ mod styles;
 mod capture;
 mod class;
 mod collapse;
+mod content;
 mod control;
 mod func;
 mod layout;
@@ -18,12 +19,12 @@ mod module;
 mod ops;
 mod scope;
 mod show;
-mod template;
 
 pub use array::*;
 pub use capture::*;
 pub use class::*;
 pub use collapse::*;
+pub use content::*;
 pub use control::*;
 pub use dict::*;
 pub use func::*;
@@ -32,7 +33,6 @@ pub use module::*;
 pub use scope::*;
 pub use show::*;
 pub use styles::*;
-pub use template::*;
 pub use value::*;
 
 use unicode_segmentation::UnicodeSegmentation;
@@ -58,7 +58,7 @@ pub trait Eval {
 pub type EvalResult<T> = Result<T, Control>;
 
 impl Eval for Markup {
-    type Output = Template;
+    type Output = Content;
 
     fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> EvalResult<Self::Output> {
         eval_markup(ctx, scp, &mut self.nodes())
@@ -70,7 +70,7 @@ fn eval_markup(
     ctx: &mut Context,
     scp: &mut Scopes,
     nodes: &mut impl Iterator<Item = MarkupNode>,
-) -> EvalResult<Template> {
+) -> EvalResult<Content> {
     let mut seq = Vec::with_capacity(nodes.size_hint().1.unwrap_or_default());
 
     while let Some(node) = nodes.next() {
@@ -92,18 +92,18 @@ fn eval_markup(
         });
     }
 
-    Ok(Template::sequence(seq))
+    Ok(Content::sequence(seq))
 }
 
 impl Eval for MarkupNode {
-    type Output = Template;
+    type Output = Content;
 
     fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> EvalResult<Self::Output> {
         Ok(match self {
-            Self::Space => Template::Space,
-            Self::Linebreak => Template::Linebreak,
-            Self::Parbreak => Template::Parbreak,
-            Self::Text(text) => Template::Text(text.clone()),
+            Self::Space => Content::Space,
+            Self::Linebreak => Content::Linebreak,
+            Self::Parbreak => Content::Parbreak,
+            Self::Text(text) => Content::Text(text.clone()),
             Self::Strong(strong) => strong.eval(ctx, scp)?,
             Self::Emph(emph) => emph.eval(ctx, scp)?,
             Self::Raw(raw) => raw.eval(ctx, scp)?,
@@ -117,45 +117,45 @@ impl Eval for MarkupNode {
 }
 
 impl Eval for StrongNode {
-    type Output = Template;
+    type Output = Content;
 
     fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> EvalResult<Self::Output> {
-        Ok(Template::show(library::text::StrongNode(
+        Ok(Content::show(library::text::StrongNode(
             self.body().eval(ctx, scp)?,
         )))
     }
 }
 
 impl Eval for EmphNode {
-    type Output = Template;
+    type Output = Content;
 
     fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> EvalResult<Self::Output> {
-        Ok(Template::show(library::text::EmphNode(
+        Ok(Content::show(library::text::EmphNode(
             self.body().eval(ctx, scp)?,
         )))
     }
 }
 
 impl Eval for RawNode {
-    type Output = Template;
+    type Output = Content;
 
     fn eval(&self, _: &mut Context, _: &mut Scopes) -> EvalResult<Self::Output> {
-        let template = Template::show(library::text::RawNode {
+        let content = Content::show(library::text::RawNode {
             text: self.text.clone(),
             block: self.block,
         });
         Ok(match self.lang {
-            Some(_) => template.styled(library::text::RawNode::LANG, self.lang.clone()),
-            None => template,
+            Some(_) => content.styled(library::text::RawNode::LANG, self.lang.clone()),
+            None => content,
         })
     }
 }
 
 impl Eval for MathNode {
-    type Output = Template;
+    type Output = Content;
 
     fn eval(&self, _: &mut Context, _: &mut Scopes) -> EvalResult<Self::Output> {
-        Ok(Template::show(library::math::MathNode {
+        Ok(Content::show(library::math::MathNode {
             formula: self.formula.clone(),
             display: self.display,
         }))
@@ -163,10 +163,10 @@ impl Eval for MathNode {
 }
 
 impl Eval for HeadingNode {
-    type Output = Template;
+    type Output = Content;
 
     fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> EvalResult<Self::Output> {
-        Ok(Template::show(library::structure::HeadingNode {
+        Ok(Content::show(library::structure::HeadingNode {
             body: self.body().eval(ctx, scp)?,
             level: self.level(),
         }))
@@ -174,10 +174,10 @@ impl Eval for HeadingNode {
 }
 
 impl Eval for ListNode {
-    type Output = Template;
+    type Output = Content;
 
     fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> EvalResult<Self::Output> {
-        Ok(Template::List(library::structure::ListItem {
+        Ok(Content::List(library::structure::ListItem {
             number: None,
             body: Box::new(self.body().eval(ctx, scp)?),
         }))
@@ -185,10 +185,10 @@ impl Eval for ListNode {
 }
 
 impl Eval for EnumNode {
-    type Output = Template;
+    type Output = Content;
 
     fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> EvalResult<Self::Output> {
-        Ok(Template::Enum(library::structure::ListItem {
+        Ok(Content::Enum(library::structure::ListItem {
             number: self.number(),
             body: Box::new(self.body().eval(ctx, scp)?),
         }))
@@ -203,7 +203,7 @@ impl Eval for Expr {
             Self::Lit(v) => v.eval(ctx, scp),
             Self::Ident(v) => v.eval(ctx, scp),
             Self::Code(v) => v.eval(ctx, scp),
-            Self::Template(v) => v.eval(ctx, scp).map(Value::Template),
+            Self::Content(v) => v.eval(ctx, scp).map(Value::Content),
             Self::Array(v) => v.eval(ctx, scp).map(Value::Array),
             Self::Dict(v) => v.eval(ctx, scp).map(Value::Dict),
             Self::Group(v) => v.eval(ctx, scp),
@@ -222,7 +222,7 @@ impl Eval for Expr {
             Self::While(v) => v.eval(ctx, scp),
             Self::For(v) => v.eval(ctx, scp),
             Self::Import(v) => v.eval(ctx, scp),
-            Self::Include(v) => v.eval(ctx, scp).map(Value::Template),
+            Self::Include(v) => v.eval(ctx, scp).map(Value::Content),
             Self::Break(v) => v.eval(ctx, scp),
             Self::Continue(v) => v.eval(ctx, scp),
             Self::Return(v) => v.eval(ctx, scp),
@@ -276,14 +276,14 @@ impl Eval for CodeBlock {
     }
 }
 
-impl Eval for TemplateBlock {
-    type Output = Template;
+impl Eval for ContentBlock {
+    type Output = Content;
 
     fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> EvalResult<Self::Output> {
         scp.enter();
-        let template = self.body().eval(ctx, scp)?;
+        let content = self.body().eval(ctx, scp)?;
         scp.exit();
-        Ok(template)
+        Ok(content)
     }
 }
 
@@ -716,13 +716,13 @@ impl Eval for ImportExpr {
 }
 
 impl Eval for IncludeExpr {
-    type Output = Template;
+    type Output = Content;
 
     fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> EvalResult<Self::Output> {
         let span = self.path().span();
         let path = self.path().eval(ctx, scp)?.cast::<EcoString>().at(span)?;
         let module = import(ctx, &path, span)?;
-        Ok(module.template.clone())
+        Ok(module.content.clone())
     }
 }
 

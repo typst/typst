@@ -20,29 +20,23 @@ use crate::util::EcoString;
 ///
 /// This results from:
 /// - anything written between square brackets in Typst
-/// - any class constructor
+/// - any node constructor
 ///
-/// This enum has two notable variants:
+/// Content is represented as a tree of nodes. There are two nodes of special
+/// interest:
 ///
-/// 1. A `Styled` template attaches a style map to a template. This map affects
-///    the whole subtemplate. For example, a single bold word could be
-///    represented as a `Styled(Text("Hello"), [TextNode::STRONG: true])`
-///    template.
-///
-/// 2. A `Sequence` template combines multiple arbitrary templates and is the
-///    representation of a "flow" of content. So, when you write `[Hi] + [you]`
-///    in Typst, this type's [`Add`] implementation is invoked and the two
-///    [`Text`](Self::Text) templates are combined into a single
-///    [`Sequence`](Self::Sequence) template.
-///
-///    A sequence may contain nested sequences (meaning this variant effectively
-///    allows templates to form trees). All nested sequences can equivalently be
-///    represented as a single flat sequence, but allowing nesting doesn't hurt
-///    since we can just recurse into the nested sequences. Also, in theory,
-///    this allows better complexity when adding large sequence nodes just like
-///    for something like a text rope.
+/// 1. A `Styled` node attaches a style map to other content. For example, a
+///    single bold word could be represented as a `Styled(Text("Hello"),
+///    [TextNode::STRONG: true])` node.
+
+/// 2. A `Sequence` node content combines other arbitrary content and is the
+///    representation of a "flow" of other nodes. So, when you write `[Hi] +
+///    [you]` in Typst, this type's [`Add`] implementation is invoked and the
+///    two [`Text`](Self::Text) nodes are combined into a single
+///    [`Sequence`](Self::Sequence) node. A sequence may contain nested
+///    sequences.
 #[derive(PartialEq, Clone, Hash)]
-pub enum Template {
+pub enum Content {
     /// A word space.
     Space,
     /// A line break.
@@ -71,19 +65,19 @@ pub enum Template {
     Page(PageNode),
     /// A node that can be realized with styles.
     Show(ShowNode),
-    /// A template with attached styles.
+    /// Content with attached styles.
     Styled(Arc<(Self, StyleMap)>),
-    /// A sequence of multiple subtemplates.
+    /// A sequence of multiple nodes.
     Sequence(Arc<Vec<Self>>),
 }
 
-impl Template {
-    /// Create an empty template.
+impl Content {
+    /// Create empty content.
     pub fn new() -> Self {
         Self::sequence(vec![])
     }
 
-    /// Create a template from an inline-level node.
+    /// Create content from an inline-level node.
     pub fn inline<T>(node: T) -> Self
     where
         T: Layout + Debug + Hash + Sync + Send + 'static,
@@ -91,7 +85,7 @@ impl Template {
         Self::Inline(node.pack())
     }
 
-    /// Create a template from a block-level node.
+    /// Create content from a block-level node.
     pub fn block<T>(node: T) -> Self
     where
         T: Layout + Debug + Hash + Sync + Send + 'static,
@@ -99,7 +93,7 @@ impl Template {
         Self::Block(node.pack())
     }
 
-    /// Create a template from a showable node.
+    /// Create content from a showable node.
     pub fn show<T>(node: T) -> Self
     where
         T: Show + Debug + Hash + Sync + Send + 'static,
@@ -107,7 +101,7 @@ impl Template {
         Self::Show(node.pack())
     }
 
-    /// Style this template with a single property.
+    /// Style this content with a single style property.
     pub fn styled<P: Property>(mut self, key: P, value: P::Value) -> Self {
         if let Self::Styled(styled) = &mut self {
             if let Some((_, map)) = Arc::get_mut(styled) {
@@ -121,7 +115,7 @@ impl Template {
         self.styled_with_map(StyleMap::with(key, value))
     }
 
-    /// Style this template with a full style map.
+    /// Style this content with a full style map.
     pub fn styled_with_map(mut self, styles: StyleMap) -> Self {
         if styles.is_empty() {
             return self;
@@ -139,17 +133,17 @@ impl Template {
         Self::Styled(Arc::new((self, styles)))
     }
 
-    /// Style this template in monospace.
+    /// Style this content in monospace.
     pub fn monospaced(self) -> Self {
         self.styled(TextNode::MONOSPACED, true)
     }
 
-    /// Underline this template.
+    /// Underline this content.
     pub fn underlined(self) -> Self {
         Self::show(DecoNode::<UNDERLINE>(self))
     }
 
-    /// Create a new sequence template.
+    /// Create a new sequence nodes from multiples nodes.
     pub fn sequence(seq: Vec<Self>) -> Self {
         if seq.len() == 1 {
             seq.into_iter().next().unwrap()
@@ -158,15 +152,15 @@ impl Template {
         }
     }
 
-    /// Repeat this template `n` times.
+    /// Repeat this content `n` times.
     pub fn repeat(&self, n: i64) -> StrResult<Self> {
         let count = usize::try_from(n)
-            .map_err(|_| format!("cannot repeat this template {} times", n))?;
+            .map_err(|_| format!("cannot repeat this content {} times", n))?;
 
         Ok(Self::sequence(vec![self.clone(); count]))
     }
 
-    /// Layout this template into a collection of pages.
+    /// Layout this content into a collection of pages.
     pub fn layout(&self, ctx: &mut Context) -> TypResult<Vec<Arc<Frame>>> {
         let sya = Arena::new();
         let tpa = Arena::new();
@@ -190,13 +184,13 @@ impl Template {
     }
 }
 
-impl Default for Template {
+impl Default for Content {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl Add for Template {
+impl Add for Content {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
@@ -222,19 +216,19 @@ impl Add for Template {
     }
 }
 
-impl AddAssign for Template {
+impl AddAssign for Content {
     fn add_assign(&mut self, rhs: Self) {
         *self = std::mem::take(self) + rhs;
     }
 }
 
-impl Sum for Template {
+impl Sum for Content {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
         Self::sequence(iter.collect())
     }
 }
 
-impl Layout for Template {
+impl Layout for Content {
     fn layout(
         &self,
         ctx: &mut Context,
@@ -254,18 +248,18 @@ impl Layout for Template {
 
     fn pack(self) -> LayoutNode {
         match self {
-            Template::Block(node) => node,
+            Content::Block(node) => node,
             other => LayoutNode::new(other),
         }
     }
 }
 
-/// Builds a flow or page nodes from a template.
+/// Builds a flow or page nodes from content.
 struct Builder<'a> {
     /// An arena where intermediate style chains are stored.
     sya: &'a Arena<StyleChain<'a>>,
-    /// An arena where intermediate templates are stored.
-    tpa: &'a Arena<Template>,
+    /// An arena where intermediate content resulting from show rules is stored.
+    tpa: &'a Arena<Content>,
     /// The already built page runs.
     pages: Option<StyleVecBuilder<'a, PageNode>>,
     /// The currently built list.
@@ -280,7 +274,7 @@ struct Builder<'a> {
 
 impl<'a> Builder<'a> {
     /// Prepare the builder.
-    fn new(sya: &'a Arena<StyleChain<'a>>, tpa: &'a Arena<Template>, top: bool) -> Self {
+    fn new(sya: &'a Arena<StyleChain<'a>>, tpa: &'a Arena<Content>, top: bool) -> Self {
         Self {
             sya,
             tpa,
@@ -292,33 +286,33 @@ impl<'a> Builder<'a> {
         }
     }
 
-    /// Process a template.
+    /// Process content.
     fn process(
         &mut self,
         ctx: &mut Context,
-        template: &'a Template,
+        content: &'a Content,
         styles: StyleChain<'a>,
     ) -> TypResult<()> {
         if let Some(builder) = &mut self.list {
-            match template {
-                Template::Space => {
-                    builder.staged.push((template, styles));
+            match content {
+                Content::Space => {
+                    builder.staged.push((content, styles));
                     return Ok(());
                 }
-                Template::Parbreak => {
-                    builder.staged.push((template, styles));
+                Content::Parbreak => {
+                    builder.staged.push((content, styles));
                     return Ok(());
                 }
-                Template::List(item) if builder.kind == UNORDERED => {
+                Content::List(item) if builder.kind == UNORDERED => {
                     builder.wide |=
-                        builder.staged.iter().any(|&(t, _)| *t == Template::Parbreak);
+                        builder.staged.iter().any(|&(t, _)| *t == Content::Parbreak);
                     builder.staged.clear();
                     builder.items.push(item.clone());
                     return Ok(());
                 }
-                Template::Enum(item) if builder.kind == ORDERED => {
+                Content::Enum(item) if builder.kind == ORDERED => {
                     builder.wide |=
-                        builder.staged.iter().any(|&(t, _)| *t == Template::Parbreak);
+                        builder.staged.iter().any(|&(t, _)| *t == Content::Parbreak);
                     builder.staged.clear();
                     builder.items.push(item.clone());
                     return Ok(());
@@ -327,14 +321,14 @@ impl<'a> Builder<'a> {
             }
         }
 
-        match template {
-            Template::Space => {
+        match content {
+            Content::Space => {
                 self.par.weak(ParChild::Text(' '.into()), 0, styles);
             }
-            Template::Linebreak => {
+            Content::Linebreak => {
                 self.par.destructive(ParChild::Text('\n'.into()), styles);
             }
-            Template::Horizontal(kind) => {
+            Content::Horizontal(kind) => {
                 let child = ParChild::Spacing(*kind);
                 if kind.is_fractional() {
                     self.par.destructive(child, styles);
@@ -342,21 +336,21 @@ impl<'a> Builder<'a> {
                     self.par.ignorant(child, styles);
                 }
             }
-            Template::Text(text) => {
+            Content::Text(text) => {
                 self.par.supportive(ParChild::Text(text.clone()), styles);
             }
-            Template::Inline(node) => {
+            Content::Inline(node) => {
                 self.par.supportive(ParChild::Node(node.clone()), styles);
             }
-            Template::Parbreak => {
+            Content::Parbreak => {
                 self.finish_par(styles);
                 self.flow.weak(FlowChild::Parbreak, 1, styles);
             }
-            Template::Colbreak => {
+            Content::Colbreak => {
                 self.finish_par(styles);
                 self.flow.destructive(FlowChild::Colbreak, styles);
             }
-            Template::Vertical(kind) => {
+            Content::Vertical(kind) => {
                 self.finish_par(styles);
                 let child = FlowChild::Spacing(*kind);
                 if kind.is_fractional() {
@@ -365,7 +359,7 @@ impl<'a> Builder<'a> {
                     self.flow.ignorant(child, styles);
                 }
             }
-            Template::Block(node) => {
+            Content::Block(node) => {
                 self.finish_par(styles);
                 let child = FlowChild::Node(node.clone());
                 if node.is::<PlaceNode>() {
@@ -375,7 +369,7 @@ impl<'a> Builder<'a> {
                 }
                 self.finish_par(styles);
             }
-            Template::List(item) => {
+            Content::List(item) => {
                 self.list = Some(ListBuilder {
                     styles,
                     kind: UNORDERED,
@@ -384,7 +378,7 @@ impl<'a> Builder<'a> {
                     staged: vec![],
                 });
             }
-            Template::Enum(item) => {
+            Content::Enum(item) => {
                 self.list = Some(ListBuilder {
                     styles,
                     kind: ORDERED,
@@ -393,22 +387,22 @@ impl<'a> Builder<'a> {
                     staged: vec![],
                 });
             }
-            Template::Pagebreak => {
+            Content::Pagebreak => {
                 self.finish_page(ctx, true, true, styles)?;
             }
-            Template::Page(page) => {
+            Content::Page(page) => {
                 self.finish_page(ctx, false, false, styles)?;
                 if let Some(pages) = &mut self.pages {
                     pages.push(page.clone(), styles);
                 }
             }
-            Template::Show(node) => {
+            Content::Show(node) => {
                 let id = node.id();
-                let template = node.show(ctx, styles)?;
-                let stored = self.tpa.alloc(template);
+                let content = node.show(ctx, styles)?;
+                let stored = self.tpa.alloc(content);
                 self.process(ctx, stored, styles.unscoped(id))?;
             }
-            Template::Styled(styled) => {
+            Content::Styled(styled) => {
                 let (sub, map) = styled.as_ref();
                 let stored = self.sya.alloc(styles);
                 let styles = map.chain(stored);
@@ -432,7 +426,7 @@ impl<'a> Builder<'a> {
                     None => {}
                 }
             }
-            Template::Sequence(seq) => {
+            Content::Sequence(seq) => {
                 for sub in seq.iter() {
                     self.process(ctx, sub, styles)?;
                 }
@@ -487,15 +481,15 @@ impl<'a> Builder<'a> {
             None => return Ok(()),
         };
 
-        let template = match kind {
-            UNORDERED => Template::show(ListNode::<UNORDERED> { start: 1, wide, items }),
-            ORDERED | _ => Template::show(ListNode::<ORDERED> { start: 1, wide, items }),
+        let content = match kind {
+            UNORDERED => Content::show(ListNode::<UNORDERED> { start: 1, wide, items }),
+            ORDERED | _ => Content::show(ListNode::<ORDERED> { start: 1, wide, items }),
         };
 
-        let stored = self.tpa.alloc(template);
+        let stored = self.tpa.alloc(content);
         self.process(ctx, stored, styles)?;
-        for (template, styles) in staged {
-            self.process(ctx, template, styles)?;
+        for (content, styles) in staged {
+            self.process(ctx, content, styles)?;
         }
 
         Ok(())
@@ -535,10 +529,10 @@ struct ListBuilder<'a> {
     kind: ListKind,
     items: Vec<ListItem>,
     wide: bool,
-    staged: Vec<(&'a Template, StyleChain<'a>)>,
+    staged: Vec<(&'a Content, StyleChain<'a>)>,
 }
 
-impl Debug for Template {
+impl Debug for Content {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::Space => f.pad("Space"),

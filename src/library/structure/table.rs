@@ -9,7 +9,7 @@ pub struct TableNode {
     /// Defines sizing of gutter rows and columns between content.
     pub gutter: Spec<Vec<TrackSizing>>,
     /// The nodes to be arranged in the table.
-    pub children: Vec<Template>,
+    pub children: Vec<Content>,
 }
 
 #[class]
@@ -25,13 +25,13 @@ impl TableNode {
     /// How much to pad the cells's content.
     pub const PADDING: Linear = Length::pt(5.0).into();
 
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Template> {
+    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         let columns = args.named("columns")?.unwrap_or_default();
         let rows = args.named("rows")?.unwrap_or_default();
         let base_gutter: Vec<TrackSizing> = args.named("gutter")?.unwrap_or_default();
         let column_gutter = args.named("column-gutter")?;
         let row_gutter = args.named("row-gutter")?;
-        Ok(Template::show(Self {
+        Ok(Content::show(Self {
             tracks: Spec::new(columns, rows),
             gutter: Spec::new(
                 column_gutter.unwrap_or_else(|| base_gutter.clone()),
@@ -53,13 +53,13 @@ impl TableNode {
 }
 
 impl Show for TableNode {
-    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Template> {
-        if let Some(template) = styles.show(
+    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content> {
+        if let Some(content) = styles.show(
             self,
             ctx,
-            self.children.iter().map(|child| Value::Template(child.clone())),
+            self.children.iter().map(|child| Value::Content(child.clone())),
         )? {
-            return Ok(template);
+            return Ok(content);
         }
 
         let primary = styles.get(Self::PRIMARY);
@@ -91,7 +91,7 @@ impl Show for TableNode {
             })
             .collect();
 
-        Ok(Template::block(GridNode {
+        Ok(Content::block(GridNode {
             tracks: self.tracks.clone(),
             gutter: self.gutter.clone(),
             children,

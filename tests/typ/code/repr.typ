@@ -39,7 +39,7 @@
 {"a\n[]\"\u{1F680}string"}
 
 ---
-// Templates.
+// Content.
 {[*{"H" + "i"} there*]}
 
 ---

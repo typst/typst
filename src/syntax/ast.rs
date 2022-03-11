@@ -221,8 +221,8 @@ pub enum Expr {
     Ident(Ident),
     /// A code block: `{ let x = 1; x + 2 }`.
     Code(CodeBlock),
-    /// A template block: `[*Hi* there!]`.
-    Template(TemplateBlock),
+    /// A content block: `[*Hi* there!]`.
+    Content(ContentBlock),
     /// A grouped expression: `(1 + 2)`.
     Group(GroupExpr),
     /// An array expression: `(1, "hi", 12cm)`.
@@ -270,7 +270,7 @@ impl TypedNode for Expr {
         match node.kind() {
             NodeKind::Ident(_) => node.cast().map(Self::Ident),
             NodeKind::CodeBlock => node.cast().map(Self::Code),
-            NodeKind::TemplateBlock => node.cast().map(Self::Template),
+            NodeKind::ContentBlock => node.cast().map(Self::Content),
             NodeKind::GroupExpr => node.cast().map(Self::Group),
             NodeKind::ArrayExpr => node.cast().map(Self::Array),
             NodeKind::DictExpr => node.cast().map(Self::Dict),
@@ -299,7 +299,7 @@ impl TypedNode for Expr {
         match self {
             Self::Lit(v) => v.as_red(),
             Self::Code(v) => v.as_red(),
-            Self::Template(v) => v.as_red(),
+            Self::Content(v) => v.as_red(),
             Self::Ident(v) => v.as_red(),
             Self::Array(v) => v.as_red(),
             Self::Dict(v) => v.as_red(),
@@ -419,14 +419,14 @@ impl CodeBlock {
 }
 
 node! {
-    /// A template block: `[*Hi* there!]`.
-    TemplateBlock: TemplateBlock
+    /// A content block: `[*Hi* there!]`.
+    ContentBlock: ContentBlock
 }
 
-impl TemplateBlock {
-    /// The contents of the template.
+impl ContentBlock {
+    /// The contained markup.
     pub fn body(&self) -> Markup {
-        self.0.cast_first_child().expect("template is missing body")
+        self.0.cast_first_child().expect("content is missing body")
     }
 }
 

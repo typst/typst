@@ -579,9 +579,9 @@ pub enum NodeKind {
     From,
     /// The `as` keyword.
     As,
-    /// Template markup of which all lines must start in some column.
+    /// Markup of which all lines must start in some column.
     ///
-    /// Notably, the usize does not determine in which column the markup
+    /// Notably, the number does not determine in which column the markup
     /// started, but to the right of which column all markup elements must be,
     /// so it is zero except for headings and lists.
     Markup(usize),
@@ -644,8 +644,8 @@ pub enum NodeKind {
     Str(EcoString),
     /// A code block: `{ let x = 1; x + 2 }`.
     CodeBlock,
-    /// A template block: `[*Hi* there!]`.
-    TemplateBlock,
+    /// A content block: `[*Hi* there!]`.
+    ContentBlock,
     /// A grouped expression: `(1 + 2)`.
     GroupExpr,
     /// An array expression: `(1, "hi", 12cm)`.
@@ -763,8 +763,16 @@ impl NodeKind {
         }
     }
 
+    /// Whether this node has to appear at the start of a line.
+    pub fn only_at_start(&self) -> bool {
+        match self {
+            Self::Heading | Self::Enum | Self::List => true,
+            _ => false,
+        }
+    }
+
     /// Which mode this node can appear in, in both if `None`.
-    pub fn mode(&self) -> Option<TokenMode> {
+    pub fn only_in_mode(&self) -> Option<TokenMode> {
         match self {
             Self::Markup(_)
             | Self::Linebreak
@@ -782,7 +790,7 @@ impl NodeKind {
             | Self::List
             | Self::Raw(_)
             | Self::Math(_) => Some(TokenMode::Markup),
-            Self::TemplateBlock
+            Self::ContentBlock
             | Self::Space(_)
             | Self::Ident(_)
             | Self::CodeBlock
@@ -884,7 +892,7 @@ impl NodeKind {
             Self::Fraction(_) => "`fr` value",
             Self::Str(_) => "string",
             Self::CodeBlock => "code block",
-            Self::TemplateBlock => "template block",
+            Self::ContentBlock => "content block",
             Self::GroupExpr => "group",
             Self::ArrayExpr => "array",
             Self::DictExpr => "dictionary",
@@ -1008,7 +1016,7 @@ impl Hash for NodeKind {
             Self::Fraction(v) => v.to_bits().hash(state),
             Self::Str(v) => v.hash(state),
             Self::CodeBlock => {}
-            Self::TemplateBlock => {}
+            Self::ContentBlock => {}
             Self::GroupExpr => {}
             Self::ArrayExpr => {}
             Self::DictExpr => {}

@@ -26,11 +26,11 @@
 #test(while false {}, none)
 
 #let i = 0
-#test(type(while i < 1 [{ i += 1 }]), "template")
+#test(type(while i < 1 [{ i += 1 }]), "content")
 
 ---
 // Condition must be boolean.
-// Error: 8-14 expected boolean, found template
+// Error: 8-14 expected boolean, found content
 #while [nope] [nope]
 
 ---

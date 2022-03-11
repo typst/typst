@@ -28,7 +28,7 @@
    "]"
 }
 
-// Template body.
+// Content block body.
 // Should output `2345`.
 #for v in (1, 2, 3, 4, 5, 6, 7) [#if v >= 2 and v <= 5 { repr(v) }]
 
@@ -76,7 +76,7 @@
 
 // Return value.
 #test(for v in "" [], none)
-#test(type(for v in "1" []), "template")
+#test(type(for v in "1" []), "content")
 
 ---
 // Uniterable expression.

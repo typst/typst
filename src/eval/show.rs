@@ -3,15 +3,15 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::sync::Arc;
 
-use super::{StyleChain, Template};
+use super::{Content, StyleChain};
 use crate::diag::TypResult;
 use crate::util::Prehashed;
 use crate::Context;
 
 /// A node that can be realized given some styles.
 pub trait Show {
-    /// Realize the template in the given styles.
-    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Template>;
+    /// Realize this node in the given styles.
+    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content>;
 
     /// Convert to a packed show node.
     fn pack(self) -> ShowNode
@@ -42,7 +42,7 @@ impl ShowNode {
 }
 
 impl Show for ShowNode {
-    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Template> {
+    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content> {
         self.0.show(ctx, styles)
     }
 

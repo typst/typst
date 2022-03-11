@@ -39,7 +39,7 @@ A [= Heading] C
 = Heading
 
 ---
-// Error: 1-28 expected template, found string
+// Error: 1-28 expected content, found string
 #show heading(_, _) as "hi"
 = Heading
 

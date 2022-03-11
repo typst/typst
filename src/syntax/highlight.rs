@@ -203,7 +203,7 @@ impl Category {
             NodeKind::List => None,
             NodeKind::Enum => None,
             NodeKind::CodeBlock => None,
-            NodeKind::TemplateBlock => None,
+            NodeKind::ContentBlock => None,
             NodeKind::GroupExpr => None,
             NodeKind::ArrayExpr => None,
             NodeKind::DictExpr => None,

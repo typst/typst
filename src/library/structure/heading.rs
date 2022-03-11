@@ -8,7 +8,7 @@ pub struct HeadingNode {
     /// default style, this controls the text size of the heading.
     pub level: usize,
     /// The heading's contents.
-    pub body: Template,
+    pub body: Content,
 }
 
 #[class]
@@ -35,8 +35,8 @@ impl HeadingNode {
     /// Whether the heading is block-level.
     pub const BLOCK: Leveled<bool> = Leveled::Value(true);
 
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Template> {
-        Ok(Template::show(Self {
+    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
+        Ok(Content::show(Self {
             body: args.expect("body")?,
             level: args.named("level")?.unwrap_or(1),
         }))
@@ -44,7 +44,7 @@ impl HeadingNode {
 }
 
 impl Show for HeadingNode {
-    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Template> {
+    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content> {
         macro_rules! resolve {
             ($key:expr) => {
                 styles.get_cloned($key).resolve(ctx, self.level)?
@@ -55,7 +55,7 @@ impl Show for HeadingNode {
         let mut body = styles
             .show(self, ctx, [
                 Value::Int(self.level as i64),
-                Value::Template(self.body.clone()),
+                Value::Content(self.body.clone()),
             ])?
             .unwrap_or_else(|| self.body.clone());
 
@@ -90,22 +90,22 @@ impl Show for HeadingNode {
 
         let above = resolve!(Self::ABOVE);
         if !above.is_zero() {
-            seq.push(Template::Vertical(above.into()));
+            seq.push(Content::Vertical(above.into()));
         }
 
         seq.push(body);
 
         let below = resolve!(Self::BELOW);
         if !below.is_zero() {
-            seq.push(Template::Vertical(below.into()));
+            seq.push(Content::Vertical(below.into()));
         }
 
-        let mut template = Template::sequence(seq).styled_with_map(map);
+        let mut content = Content::sequence(seq).styled_with_map(map);
         if resolve!(Self::BLOCK) {
-            template = Template::block(template);
+            content = Content::block(content);
         }
 
-        Ok(template)
+        Ok(content)
     }
 }
 

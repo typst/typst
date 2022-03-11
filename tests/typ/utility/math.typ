@@ -54,7 +54,7 @@
 #min()
 
 ---
-// Error: 9-13 cannot compare integer with string
+// Error: 9-13 cannot compare integer and string
 #min(1, "hi")
 
 ---

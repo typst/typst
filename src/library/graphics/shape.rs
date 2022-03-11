@@ -30,7 +30,7 @@ impl<const S: ShapeKind> ShapeNode<S> {
     /// How much to pad the shape's content.
     pub const PADDING: Linear = Linear::zero();
 
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Template> {
+    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         let size = match S {
             SQUARE => args.named::<Length>("size")?.map(Linear::from),
             CIRCLE => args.named::<Length>("radius")?.map(|r| 2.0 * Linear::from(r)),
@@ -47,7 +47,7 @@ impl<const S: ShapeKind> ShapeNode<S> {
             size => size,
         };
 
-        Ok(Template::inline(
+        Ok(Content::inline(
             Self(args.find()?).pack().sized(Spec::new(width, height)),
         ))
     }

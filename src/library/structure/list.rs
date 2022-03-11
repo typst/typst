@@ -22,7 +22,7 @@ pub struct ListItem {
     /// The number of the item.
     pub number: Option<usize>,
     /// The node that produces the item's body.
-    pub body: Box<Template>,
+    pub body: Box<Content>,
 }
 
 /// An ordered list.
@@ -43,8 +43,8 @@ impl<const L: ListKind> ListNode<L> {
     /// The extra padding below the list.
     pub const BELOW: Length = Length::zero();
 
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Template> {
-        Ok(Template::show(Self {
+    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
+        Ok(Content::show(Self {
             start: args.named("start")?.unwrap_or(0),
             wide: args.named("wide")?.unwrap_or(false),
             items: args
@@ -57,13 +57,13 @@ impl<const L: ListKind> ListNode<L> {
 }
 
 impl<const L: ListKind> Show for ListNode<L> {
-    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Template> {
-        let template = if let Some(template) = styles.show(
+    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content> {
+        let content = if let Some(content) = styles.show(
             self,
             ctx,
-            self.items.iter().map(|item| Value::Template((*item.body).clone())),
+            self.items.iter().map(|item| Value::Content((*item.body).clone())),
         )? {
-            template
+            content
         } else {
             let mut children = vec![];
             let mut number = self.start;
@@ -91,7 +91,7 @@ impl<const L: ListKind> Show for ListNode<L> {
             let indent = styles.get(Self::INDENT).resolve(em);
             let body_indent = styles.get(Self::BODY_INDENT).resolve(em);
 
-            Template::block(GridNode {
+            Content::block(GridNode {
                 tracks: Spec::with_x(vec![
                     TrackSizing::Linear(indent.into()),
                     TrackSizing::Auto,
@@ -106,17 +106,17 @@ impl<const L: ListKind> Show for ListNode<L> {
         let mut seq = vec![];
         let above = styles.get(Self::ABOVE);
         if !above.is_zero() {
-            seq.push(Template::Vertical(above.into()));
+            seq.push(Content::Vertical(above.into()));
         }
 
-        seq.push(template);
+        seq.push(content);
 
         let below = styles.get(Self::BELOW);
         if !below.is_zero() {
-            seq.push(Template::Vertical(below.into()));
+            seq.push(Content::Vertical(below.into()));
         }
 
-        Ok(Template::sequence(seq))
+        Ok(Content::sequence(seq))
     }
 }
 
@@ -135,15 +135,15 @@ pub const UNORDERED: ListKind = 0;
 /// Ordered list labelling style.
 pub const ORDERED: ListKind = 1;
 
-/// Either a template or a closure mapping to a template.
+/// Either content or a closure mapping to content.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum Label {
     /// The default labelling.
     Default,
     /// A pattern with prefix, numbering, lower / upper case and suffix.
     Pattern(EcoString, Numbering, bool, EcoString),
-    /// A bare template.
-    Template(Template),
+    /// Bare content.
+    Content(Content),
     /// A closure mapping from an item number to a value.
     Func(Func, Span),
 }
@@ -155,18 +155,18 @@ impl Label {
         ctx: &mut Context,
         kind: ListKind,
         number: usize,
-    ) -> TypResult<Template> {
+    ) -> TypResult<Content> {
         Ok(match self {
             Self::Default => match kind {
-                UNORDERED => Template::Text('•'.into()),
-                ORDERED | _ => Template::Text(format_eco!("{}.", number)),
+                UNORDERED => Content::Text('•'.into()),
+                ORDERED | _ => Content::Text(format_eco!("{}.", number)),
             },
             Self::Pattern(prefix, numbering, upper, suffix) => {
                 let fmt = numbering.apply(number);
                 let mid = if *upper { fmt.to_uppercase() } else { fmt.to_lowercase() };
-                Template::Text(format_eco!("{}{}{}", prefix, mid, suffix))
+                Content::Text(format_eco!("{}{}{}", prefix, mid, suffix))
             }
-            Self::Template(template) => template.clone(),
+            Self::Content(content) => content.clone(),
             Self::Func(func, span) => {
                 let args = Args::from_values(*span, [Value::Int(number as i64)]);
                 func.call(ctx, args)?.cast().at(*span)?
@@ -177,7 +177,7 @@ impl Label {
 
 impl Cast<Spanned<Value>> for Label {
     fn is(value: &Spanned<Value>) -> bool {
-        matches!(&value.v, Value::Template(_) | Value::Func(_))
+        matches!(&value.v, Value::Content(_) | Value::Func(_))
     }
 
     fn cast(value: Spanned<Value>) -> StrResult<Self> {
@@ -200,9 +200,9 @@ impl Cast<Spanned<Value>> for Label {
                 let suffix = s.rest().into();
                 Ok(Self::Pattern(prefix.into(), numbering, upper, suffix))
             }
-            Value::Template(v) => Ok(Self::Template(v)),
+            Value::Content(v) => Ok(Self::Content(v)),
             Value::Func(v) => Ok(Self::Func(v, value.span)),
-            _ => Err("expected pattern, template or function")?,
+            _ => Err("expected pattern, content or function")?,
         }
     }
 }

@@ -15,7 +15,7 @@ transports meaning from parchment to reader, the wave that sparks a flame
 in booklovers and the great fulfiller of human need.
 
 ---
-// Test wrap in template.
+// Test wrap in content block.
 A [_B #wrap c in [*#c*]; C_] D
 
 ---

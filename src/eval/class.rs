@@ -2,24 +2,25 @@ use std::any::TypeId;
 use std::fmt::{self, Debug, Formatter, Write};
 use std::hash::{Hash, Hasher};
 
-use super::{Args, Func, StyleMap, Template, Value};
+use super::{Args, Content, Func, StyleMap, Value};
 use crate::diag::TypResult;
 use crate::Context;
 
 /// A class of nodes.
 ///
 /// You can [construct] an instance of a class in Typst code by invoking the
-/// class as a callable. This always produces a template value, but not
+/// class as a callable. This always produces a content value, but not
 /// necessarily a simple inline or block node. For example, the `text`
 /// constructor does not actually create a [`TextNode`]. Instead it applies
-/// styling to whatever node you pass in and returns it structurally unchanged.
+/// styling to whatever content you pass in and returns it structurally
+/// unchanged.
 ///
 /// The arguments you can pass to a class constructor fall into two categories:
 /// Data that is inherent to the instance (e.g. the text/content of a heading)
 /// and style properties (e.g. the fill color of a heading). As the latter are
 /// often shared by many instances throughout a document, they can also be
 /// conveniently configured through class's [`set`] rule. Then, they apply to
-/// all nodes that are instantiated into the template where the `set` was
+/// all nodes that are instantiated into the content block where the `set` was
 /// executed.
 ///
 /// ```typst
@@ -55,8 +56,8 @@ impl Class {
             construct: |ctx, args| {
                 let mut styles = StyleMap::new();
                 T::set(args, &mut styles)?;
-                let template = T::construct(ctx, args)?;
-                Ok(Value::Template(template.styled_with_map(styles.scoped())))
+                let content = T::construct(ctx, args)?;
+                Ok(Value::Content(content.styled_with_map(styles.scoped())))
             },
             set: T::set,
         }
@@ -80,8 +81,8 @@ impl Class {
     /// Construct an instance of the class.
     ///
     /// This parses both property and data arguments (in this order), styles the
-    /// template constructed from the data with the style properties and wraps
-    /// it in a value.
+    /// content constructed from the data with the style properties and wraps it
+    /// in a value.
     pub fn construct(&self, ctx: &mut Context, mut args: Args) -> TypResult<Value> {
         let value = (self.construct)(ctx, &mut args)?;
         args.finish()?;
@@ -126,7 +127,7 @@ pub trait Construct {
     ///
     /// This is passed only the arguments that remain after execution of the
     /// class's set rule.
-    fn construct(ctx: &mut Context, args: &mut Args) -> TypResult<Template>;
+    fn construct(ctx: &mut Context, args: &mut Args) -> TypResult<Content>;
 }
 
 /// Set style properties of a class.

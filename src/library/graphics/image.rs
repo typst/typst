@@ -12,7 +12,7 @@ impl ImageNode {
     /// How the image should adjust itself to a given area.
     pub const FIT: ImageFit = ImageFit::Cover;
 
-    fn construct(ctx: &mut Context, args: &mut Args) -> TypResult<Template> {
+    fn construct(ctx: &mut Context, args: &mut Args) -> TypResult<Content> {
         let path = args.expect::<Spanned<EcoString>>("path to image file")?;
         let full = ctx.resolve(&path.v);
         let id = ctx.images.load(&full).map_err(|err| {
@@ -25,7 +25,7 @@ impl ImageNode {
         let width = args.named("width")?;
         let height = args.named("height")?;
 
-        Ok(Template::inline(
+        Ok(Content::inline(
             ImageNode(id).pack().sized(Spec::new(width, height)),
         ))
     }

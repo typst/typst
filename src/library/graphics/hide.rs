@@ -6,8 +6,8 @@ pub struct HideNode(pub LayoutNode);
 
 #[class]
 impl HideNode {
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Template> {
-        Ok(Template::inline(Self(args.expect("body")?)))
+    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
+        Ok(Content::inline(Self(args.expect("body")?)))
     }
 }
 

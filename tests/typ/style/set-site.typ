@@ -1,5 +1,5 @@
 // Test that set affects the instantiation site and not the
-// definition site of a template.
+// definition site of a content.
 
 ---
 // Test that text is affected by instantiation-site bold.

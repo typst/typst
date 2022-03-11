@@ -39,7 +39,7 @@ fn minmax(args: &mut Args, goal: Ordering) -> TypResult<Value> {
             }
             None => bail!(
                 span,
-                "cannot compare {} with {}",
+                "cannot compare {} and {}",
                 extremum.type_name(),
                 v.type_name(),
             ),

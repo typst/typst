@@ -14,8 +14,8 @@ pub struct StackNode {
 
 #[class]
 impl StackNode {
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Template> {
-        Ok(Template::block(Self {
+    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
+        Ok(Content::block(Self {
             dir: args.named("dir")?.unwrap_or(Dir::TTB),
             spacing: args.named("spacing")?,
             children: args.all()?,
@@ -76,12 +76,12 @@ impl Debug for StackChild {
 
 castable! {
     StackChild,
-    Expected: "linear, fractional or template",
+    Expected: "linear, fractional or content",
     Value::Length(v) => Self::Spacing(SpacingKind::Linear(v.into())),
     Value::Relative(v) => Self::Spacing(SpacingKind::Linear(v.into())),
     Value::Linear(v) => Self::Spacing(SpacingKind::Linear(v)),
     Value::Fractional(v) => Self::Spacing(SpacingKind::Fractional(v)),
-    Value::Template(v) => Self::Node(v.pack()),
+    Value::Content(v) => Self::Node(v.pack()),
 }
 
 /// Performs stack layout.

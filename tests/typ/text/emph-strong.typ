@@ -7,7 +7,7 @@ _Emphasized and *strong* words!_
 // Inside of a word it's a normal underscore or star.
 hello_world Nutzer*innen
 
-// Can contain paragraph in child template.
+// Can contain paragraph in nested content block.
 _Still [
 
 ] emphasized._

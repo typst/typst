@@ -52,10 +52,10 @@ pub fn reparse_block(
     Some((vec![first], terminated, 1))
 }
 
-/// Reparse a template literal.
+/// Reparse a content block.
 ///
 /// Returns `Some` if all of the input was consumed.
-pub fn reparse_template(
+pub fn reparse_content(
     prefix: &str,
     src: &str,
     end_pos: usize,
@@ -65,7 +65,7 @@ pub fn reparse_template(
         return None;
     }
 
-    template(&mut p);
+    content(&mut p);
 
     let (mut green, terminated) = p.consume()?;
     let first = green.remove(0);
@@ -152,7 +152,7 @@ pub fn reparse_markup_elements(
 /// Parse markup.
 ///
 /// If `at_start` is true, things like headings that may only appear at the
-/// beginning of a line or template are initially allowed.
+/// beginning of a line or content block are initially allowed.
 fn markup(p: &mut Parser, mut at_start: bool) {
     p.perform(NodeKind::Markup(0), |p| {
         while !p.eof() {
@@ -235,9 +235,9 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
         | NodeKind::Import
         | NodeKind::Include => markup_expr(p),
 
-        // Block and template.
+        // Code and content block.
         NodeKind::LeftBrace => block(p),
-        NodeKind::LeftBracket => template(p),
+        NodeKind::LeftBracket => content(p),
 
         NodeKind::Error(_, _) => p.eat(),
         _ => p.unexpected(),
@@ -424,7 +424,7 @@ fn primary(p: &mut Parser, atomic: bool) -> ParseResult {
         // Structures.
         Some(NodeKind::LeftParen) => parenthesized(p, atomic),
         Some(NodeKind::LeftBrace) => Ok(block(p)),
-        Some(NodeKind::LeftBracket) => Ok(template(p)),
+        Some(NodeKind::LeftBracket) => Ok(content(p)),
 
         // Keywords.
         Some(NodeKind::Let) => let_expr(p),
@@ -679,9 +679,9 @@ fn block(p: &mut Parser) {
     });
 }
 
-// Parse a template block: `[...]`.
-fn template(p: &mut Parser) {
-    p.perform(NodeKind::TemplateBlock, |p| {
+// Parse a content block: `[...]`.
+fn content(p: &mut Parser) {
+    p.perform(NodeKind::ContentBlock, |p| {
         p.start_group(Group::Bracket);
         markup(p, true);
         p.end_group();
@@ -712,7 +712,7 @@ fn args(p: &mut Parser, direct: bool, brackets: bool) -> ParseResult {
         }
 
         while brackets && p.peek_direct() == Some(&NodeKind::LeftBracket) {
-            template(p);
+            content(p);
         }
     });
 
@@ -922,7 +922,7 @@ fn return_expr(p: &mut Parser) -> ParseResult {
 /// Parse a control flow body.
 fn body(p: &mut Parser) -> ParseResult {
     match p.peek() {
-        Some(NodeKind::LeftBracket) => Ok(template(p)),
+        Some(NodeKind::LeftBracket) => Ok(content(p)),
         Some(NodeKind::LeftBrace) => Ok(block(p)),
         _ => {
             p.expected("body");

@@ -36,7 +36,7 @@
 #test("(" + join("a", "b", "c", sep: ", ") + ")", "(a, b, c)")
 
 ---
-// Test joining templates.
+// Test content joining.
 // Ref: true
 #join([One], [Two], [Three], sep: [, ]).
 
@@ -72,7 +72,7 @@
 #float(float)
 
 ---
-// Error: 6-8 cannot convert template to string
+// Error: 6-8 cannot convert content to string
 #str([])
 
 ---

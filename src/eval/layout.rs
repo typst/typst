@@ -19,7 +19,7 @@ use crate::Context;
 /// Layout return one frame per used region alongside constraints that define
 /// whether the result is reusable in other regions.
 pub trait Layout {
-    /// Layout the node into the given regions, producing constrained frames.
+    /// Layout this node into the given regions, producing constrained frames.
     fn layout(
         &self,
         ctx: &mut Context,

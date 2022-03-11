@@ -45,12 +45,12 @@ impl ParNode {
     /// The indent the first line of a consecutive paragraph should have.
     pub const INDENT: Linear = Linear::zero();
 
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Template> {
+    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         // The paragraph constructor is special: It doesn't create a paragraph
         // since that happens automatically through markup. Instead, it just
         // lifts the passed body to the block level so that it won't merge with
         // adjacent stuff and it styles the contained paragraphs.
-        Ok(Template::Block(args.expect("body")?))
+        Ok(Content::Block(args.expect("body")?))
     }
 
     fn set(args: &mut Args, styles: &mut StyleMap) -> TypResult<()> {
@@ -185,8 +185,8 @@ pub struct ParbreakNode;
 
 #[class]
 impl ParbreakNode {
-    fn construct(_: &mut Context, _: &mut Args) -> TypResult<Template> {
-        Ok(Template::Parbreak)
+    fn construct(_: &mut Context, _: &mut Args) -> TypResult<Content> {
+        Ok(Content::Parbreak)
     }
 }
 
@@ -195,8 +195,8 @@ pub struct LinebreakNode;
 
 #[class]
 impl LinebreakNode {
-    fn construct(_: &mut Context, _: &mut Args) -> TypResult<Template> {
-        Ok(Template::Linebreak)
+    fn construct(_: &mut Context, _: &mut Args) -> TypResult<Content> {
+        Ok(Content::Linebreak)
     }
 }
 

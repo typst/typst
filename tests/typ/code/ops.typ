@@ -2,7 +2,7 @@
 // Ref: false
 
 ---
-// Test template addition.
+// Test adding content.
 // Ref: true
 {[*Hello* ] + [world!]}
 
@@ -130,7 +130,7 @@
 #test(test == test, true)
 #test((() => {}) == (() => {}), false)
 
-// Templates compare by some kind of equality.
+// Content compares by hash equality.
 #let t = [a]
 #test(t == t, true)
 #test([] == [], true)
