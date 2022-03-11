@@ -1,3 +1,5 @@
+//! Mathematical formulas.
+
 use crate::library::prelude::*;
 
 /// A mathematical formula.

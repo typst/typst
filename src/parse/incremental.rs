@@ -136,8 +136,8 @@ impl Reparser<'_> {
 
             let superseded_span = pos.offset .. pos.offset + prev_len;
             let func: Option<ReparseMode> = match child.kind() {
-                NodeKind::Template => Some(ReparseMode::Template),
-                NodeKind::Block => Some(ReparseMode::Block),
+                NodeKind::CodeBlock => Some(ReparseMode::Code),
+                NodeKind::TemplateBlock => Some(ReparseMode::Template),
                 _ => None,
             };
 
@@ -211,7 +211,7 @@ impl Reparser<'_> {
         }
 
         let (newborns, terminated, amount) = match mode {
-            ReparseMode::Block => reparse_block(
+            ReparseMode::Code => reparse_block(
                 &prefix,
                 &self.src[newborn_span.start ..],
                 newborn_span.len(),
@@ -292,9 +292,9 @@ impl SearchState {
 /// Which reparse function to choose for a span of elements.
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum ReparseMode {
-    /// Reparse a code block with its braces.
-    Block,
-    /// Reparse a template, including its square brackets.
+    /// Reparse a code block, including its braces.
+    Code,
+    /// Reparse a template block, including its square brackets.
     Template,
     /// Reparse elements of the markup. The variant carries whether the node is
     /// `at_start` and the minimum indent of the containing markup node.

@@ -202,11 +202,11 @@ impl Eval for Expr {
         match self {
             Self::Lit(v) => v.eval(ctx, scp),
             Self::Ident(v) => v.eval(ctx, scp),
+            Self::Code(v) => v.eval(ctx, scp),
+            Self::Template(v) => v.eval(ctx, scp).map(Value::Template),
             Self::Array(v) => v.eval(ctx, scp).map(Value::Array),
             Self::Dict(v) => v.eval(ctx, scp).map(Value::Dict),
-            Self::Template(v) => v.eval(ctx, scp).map(Value::Template),
             Self::Group(v) => v.eval(ctx, scp),
-            Self::Block(v) => v.eval(ctx, scp),
             Self::Call(v) => v.eval(ctx, scp),
             Self::Closure(v) => v.eval(ctx, scp),
             Self::With(v) => v.eval(ctx, scp),
@@ -260,25 +260,23 @@ impl Eval for Ident {
     }
 }
 
-impl Eval for ArrayExpr {
-    type Output = Array;
+impl Eval for CodeBlock {
+    type Output = Value;
 
     fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> EvalResult<Self::Output> {
-        self.items().map(|expr| expr.eval(ctx, scp)).collect()
+        scp.enter();
+
+        let mut output = Value::None;
+        for expr in self.exprs() {
+            output = join_result(output, expr.eval(ctx, scp), expr.span())?;
+        }
+
+        scp.exit();
+        Ok(output)
     }
 }
 
-impl Eval for DictExpr {
-    type Output = Dict;
-
-    fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> EvalResult<Self::Output> {
-        self.items()
-            .map(|x| Ok((x.name().take(), x.expr().eval(ctx, scp)?)))
-            .collect()
-    }
-}
-
-impl Eval for TemplateExpr {
+impl Eval for TemplateBlock {
     type Output = Template;
 
     fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> EvalResult<Self::Output> {
@@ -297,19 +295,21 @@ impl Eval for GroupExpr {
     }
 }
 
-impl Eval for BlockExpr {
-    type Output = Value;
+impl Eval for ArrayExpr {
+    type Output = Array;
 
     fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> EvalResult<Self::Output> {
-        scp.enter();
+        self.items().map(|expr| expr.eval(ctx, scp)).collect()
+    }
+}
 
-        let mut output = Value::None;
-        for expr in self.exprs() {
-            output = join_result(output, expr.eval(ctx, scp), expr.span())?;
-        }
+impl Eval for DictExpr {
+    type Output = Dict;
 
-        scp.exit();
-        Ok(output)
+    fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> EvalResult<Self::Output> {
+        self.items()
+            .map(|x| Ok((x.name().take(), x.expr().eval(ctx, scp)?)))
+            .collect()
     }
 }
 

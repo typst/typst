@@ -1,4 +1,4 @@
-//! Text shaping and paragraph layout.
+//! Text handling and paragraph layout.
 
 mod deco;
 mod link;

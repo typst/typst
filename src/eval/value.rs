@@ -5,7 +5,7 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use super::{ops, Args, Array, Class, Dict, Func, Layout, Template};
-use crate::diag::StrResult;
+use crate::diag::{with_alternative, StrResult};
 use crate::geom::{Angle, Color, Fractional, Length, Linear, Relative, RgbaColor};
 use crate::syntax::Spanned;
 use crate::util::EcoString;
@@ -530,16 +530,6 @@ impl<T: Cast> Cast for Smart<T> {
                 .map(Self::Custom)
                 .map_err(|msg| with_alternative(msg, "auto")),
         }
-    }
-}
-
-/// Transform `expected X, found Y` into `expected X or A, found Y`.
-pub fn with_alternative(msg: String, alt: &str) -> String {
-    let mut parts = msg.split(", found ");
-    if let (Some(a), Some(b)) = (parts.next(), parts.next()) {
-        format!("{} or {}, found {}", a, alt, b)
-    } else {
-        msg
     }
 }
 

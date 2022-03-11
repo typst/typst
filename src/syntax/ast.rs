@@ -67,9 +67,9 @@ impl Markup {
                 Some(MarkupNode::Text(s.clone()))
             }
             NodeKind::Escape(c) => Some(MarkupNode::Text((*c).into())),
+            NodeKind::NonBreakingSpace => Some(MarkupNode::Text('\u{00A0}'.into())),
             NodeKind::EnDash => Some(MarkupNode::Text('\u{2013}'.into())),
             NodeKind::EmDash => Some(MarkupNode::Text('\u{2014}'.into())),
-            NodeKind::NonBreakingSpace => Some(MarkupNode::Text('\u{00A0}'.into())),
             NodeKind::Strong => node.cast().map(MarkupNode::Strong),
             NodeKind::Emph => node.cast().map(MarkupNode::Emph),
             NodeKind::Raw(raw) => Some(MarkupNode::Raw(raw.as_ref().clone())),
@@ -219,16 +219,16 @@ pub enum Expr {
     Lit(Lit),
     /// An identifier: `left`.
     Ident(Ident),
+    /// A code block: `{ let x = 1; x + 2 }`.
+    Code(CodeBlock),
+    /// A template block: `[*Hi* there!]`.
+    Template(TemplateBlock),
+    /// A grouped expression: `(1 + 2)`.
+    Group(GroupExpr),
     /// An array expression: `(1, "hi", 12cm)`.
     Array(ArrayExpr),
     /// A dictionary expression: `(thickness: 3pt, pattern: dashed)`.
     Dict(DictExpr),
-    /// A template expression: `[*Hi* there!]`.
-    Template(TemplateExpr),
-    /// A grouped expression: `(1 + 2)`.
-    Group(GroupExpr),
-    /// A block expression: `{ let x = 1; x + 2 }`.
-    Block(BlockExpr),
     /// A unary operation: `-x`.
     Unary(UnaryExpr),
     /// A binary operation: `a + b`.
@@ -269,15 +269,15 @@ impl TypedNode for Expr {
     fn from_red(node: RedRef) -> Option<Self> {
         match node.kind() {
             NodeKind::Ident(_) => node.cast().map(Self::Ident),
-            NodeKind::Array => node.cast().map(Self::Array),
-            NodeKind::Dict => node.cast().map(Self::Dict),
-            NodeKind::Template => node.cast().map(Self::Template),
-            NodeKind::Group => node.cast().map(Self::Group),
-            NodeKind::Block => node.cast().map(Self::Block),
-            NodeKind::Unary => node.cast().map(Self::Unary),
-            NodeKind::Binary => node.cast().map(Self::Binary),
-            NodeKind::Call => node.cast().map(Self::Call),
-            NodeKind::Closure => node.cast().map(Self::Closure),
+            NodeKind::CodeBlock => node.cast().map(Self::Code),
+            NodeKind::TemplateBlock => node.cast().map(Self::Template),
+            NodeKind::GroupExpr => node.cast().map(Self::Group),
+            NodeKind::ArrayExpr => node.cast().map(Self::Array),
+            NodeKind::DictExpr => node.cast().map(Self::Dict),
+            NodeKind::UnaryExpr => node.cast().map(Self::Unary),
+            NodeKind::BinaryExpr => node.cast().map(Self::Binary),
+            NodeKind::CallExpr => node.cast().map(Self::Call),
+            NodeKind::ClosureExpr => node.cast().map(Self::Closure),
             NodeKind::WithExpr => node.cast().map(Self::With),
             NodeKind::LetExpr => node.cast().map(Self::Let),
             NodeKind::SetExpr => node.cast().map(Self::Set),
@@ -298,12 +298,12 @@ impl TypedNode for Expr {
     fn as_red(&self) -> RedRef<'_> {
         match self {
             Self::Lit(v) => v.as_red(),
+            Self::Code(v) => v.as_red(),
+            Self::Template(v) => v.as_red(),
             Self::Ident(v) => v.as_red(),
             Self::Array(v) => v.as_red(),
             Self::Dict(v) => v.as_red(),
-            Self::Template(v) => v.as_red(),
             Self::Group(v) => v.as_red(),
-            Self::Block(v) => v.as_red(),
             Self::Unary(v) => v.as_red(),
             Self::Binary(v) => v.as_red(),
             Self::Call(v) => v.as_red(),
@@ -407,8 +407,44 @@ pub enum LitKind {
 }
 
 node! {
+    /// A code block: `{ let x = 1; x + 2 }`.
+    CodeBlock: CodeBlock
+}
+
+impl CodeBlock {
+    /// The list of expressions contained in the block.
+    pub fn exprs(&self) -> impl Iterator<Item = Expr> + '_ {
+        self.0.children().filter_map(RedRef::cast)
+    }
+}
+
+node! {
+    /// A template block: `[*Hi* there!]`.
+    TemplateBlock: TemplateBlock
+}
+
+impl TemplateBlock {
+    /// The contents of the template.
+    pub fn body(&self) -> Markup {
+        self.0.cast_first_child().expect("template is missing body")
+    }
+}
+
+node! {
+    /// A grouped expression: `(1 + 2)`.
+    GroupExpr: GroupExpr
+}
+
+impl GroupExpr {
+    /// The wrapped expression.
+    pub fn expr(&self) -> Expr {
+        self.0.cast_first_child().expect("group is missing expression")
+    }
+}
+
+node! {
     /// An array expression: `(1, "hi", 12cm)`.
-    ArrayExpr: Array
+    ArrayExpr: ArrayExpr
 }
 
 impl ArrayExpr {
@@ -420,7 +456,7 @@ impl ArrayExpr {
 
 node! {
     /// A dictionary expression: `(thickness: 3pt, pattern: dashed)`.
-    DictExpr: Dict
+    DictExpr: DictExpr
 }
 
 impl DictExpr {
@@ -448,44 +484,8 @@ impl Named {
 }
 
 node! {
-    /// A template expression: `[*Hi* there!]`.
-    TemplateExpr: Template
-}
-
-impl TemplateExpr {
-    /// The contents of the template.
-    pub fn body(&self) -> Markup {
-        self.0.cast_first_child().expect("template is missing body")
-    }
-}
-
-node! {
-    /// A grouped expression: `(1 + 2)`.
-    GroupExpr: Group
-}
-
-impl GroupExpr {
-    /// The wrapped expression.
-    pub fn expr(&self) -> Expr {
-        self.0.cast_first_child().expect("group is missing expression")
-    }
-}
-
-node! {
-    /// A block expression: `{ let x = 1; x + 2 }`.
-    BlockExpr: Block
-}
-
-impl BlockExpr {
-    /// The list of expressions contained in the block.
-    pub fn exprs(&self) -> impl Iterator<Item = Expr> + '_ {
-        self.0.children().filter_map(RedRef::cast)
-    }
-}
-
-node! {
     /// A unary operation: `-x`.
-    UnaryExpr: Unary
+    UnaryExpr: UnaryExpr
 }
 
 impl UnaryExpr {
@@ -545,7 +545,7 @@ impl UnOp {
 
 node! {
     /// A binary operation: `a + b`.
-    BinaryExpr: Binary
+    BinaryExpr: BinaryExpr
 }
 
 impl BinaryExpr {
@@ -717,7 +717,7 @@ pub enum Associativity {
 
 node! {
     /// An invocation of a function: `foo(...)`.
-    CallExpr: Call
+    CallExpr: CallExpr
 }
 
 impl CallExpr {
@@ -786,7 +786,7 @@ impl CallArg {
 
 node! {
     /// A closure expression: `(x, y) => z`.
-    ClosureExpr: Closure
+    ClosureExpr: ClosureExpr
 }
 
 impl ClosureExpr {

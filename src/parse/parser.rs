@@ -229,13 +229,13 @@ impl<'s> Parser<'s> {
         self.groups.push(GroupEntry { kind, prev_mode: self.tokens.mode() });
         self.tokens.set_mode(match kind {
             Group::Bracket | Group::Strong | Group::Emph => TokenMode::Markup,
-            Group::Paren | Group::Brace | Group::Expr | Group::Imports => TokenMode::Code,
+            Group::Brace | Group::Paren | Group::Expr | Group::Imports => TokenMode::Code,
         });
 
         match kind {
-            Group::Paren => self.eat_assert(&NodeKind::LeftParen),
-            Group::Bracket => self.eat_assert(&NodeKind::LeftBracket),
             Group::Brace => self.eat_assert(&NodeKind::LeftBrace),
+            Group::Bracket => self.eat_assert(&NodeKind::LeftBracket),
+            Group::Paren => self.eat_assert(&NodeKind::LeftParen),
             Group::Strong => self.eat_assert(&NodeKind::Star),
             Group::Emph => self.eat_assert(&NodeKind::Underscore),
             Group::Expr => self.repeek(),
@@ -321,9 +321,9 @@ impl<'s> Parser<'s> {
     /// group.
     fn repeek(&mut self) {
         self.eof = match &self.current {
-            Some(NodeKind::RightParen) => self.inside(Group::Paren),
-            Some(NodeKind::RightBracket) => self.inside(Group::Bracket),
             Some(NodeKind::RightBrace) => self.inside(Group::Brace),
+            Some(NodeKind::RightBracket) => self.inside(Group::Bracket),
+            Some(NodeKind::RightParen) => self.inside(Group::Paren),
             Some(NodeKind::Star) => self.inside(Group::Strong),
             Some(NodeKind::Underscore) => self.inside(Group::Emph),
             Some(NodeKind::Semicolon) => self.inside(Group::Expr),
@@ -482,10 +482,10 @@ struct GroupEntry {
 /// A group, confined by optional start and end delimiters.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Group {
-    /// A bracketed group: `[...]`.
-    Bracket,
     /// A curly-braced group: `{...}`.
     Brace,
+    /// A bracketed group: `[...]`.
+    Bracket,
     /// A parenthesized group: `(...)`.
     Paren,
     /// A group surrounded with stars: `*...*`.

@@ -28,8 +28,57 @@ pub fn parse(src: &str) -> Arc<GreenNode> {
     }
 }
 
-/// Parse some markup without the topmost node. Returns `Some` if all of the
-/// input was consumed.
+/// Reparse a code block.
+///
+/// Returns `Some` if all of the input was consumed.
+pub fn reparse_block(
+    prefix: &str,
+    src: &str,
+    end_pos: usize,
+) -> Option<(Vec<Green>, bool, usize)> {
+    let mut p = Parser::with_prefix(prefix, src, TokenMode::Code);
+    if !p.at(&NodeKind::LeftBrace) {
+        return None;
+    }
+
+    block(&mut p);
+
+    let (mut green, terminated) = p.consume()?;
+    let first = green.remove(0);
+    if first.len() != end_pos {
+        return None;
+    }
+
+    Some((vec![first], terminated, 1))
+}
+
+/// Reparse a template literal.
+///
+/// Returns `Some` if all of the input was consumed.
+pub fn reparse_template(
+    prefix: &str,
+    src: &str,
+    end_pos: usize,
+) -> Option<(Vec<Green>, bool, usize)> {
+    let mut p = Parser::with_prefix(prefix, src, TokenMode::Code);
+    if !p.at(&NodeKind::LeftBracket) {
+        return None;
+    }
+
+    template(&mut p);
+
+    let (mut green, terminated) = p.consume()?;
+    let first = green.remove(0);
+    if first.len() != end_pos {
+        return None;
+    }
+
+    Some((vec![first], terminated, 1))
+}
+
+/// Reparse some markup elements without the topmost node.
+///
+/// Returns `Some` if all of the input was consumed.
 pub fn reparse_markup_elements(
     prefix: &str,
     src: &str,
@@ -100,50 +149,6 @@ pub fn reparse_markup_elements(
     Some((res, terminated, replaced))
 }
 
-/// Parse a template literal. Returns `Some` if all of the input was consumed.
-pub fn reparse_template(
-    prefix: &str,
-    src: &str,
-    end_pos: usize,
-) -> Option<(Vec<Green>, bool, usize)> {
-    let mut p = Parser::with_prefix(prefix, src, TokenMode::Code);
-    if !p.at(&NodeKind::LeftBracket) {
-        return None;
-    }
-
-    template(&mut p);
-
-    let (mut green, terminated) = p.consume()?;
-    let first = green.remove(0);
-    if first.len() != end_pos {
-        return None;
-    }
-
-    Some((vec![first], terminated, 1))
-}
-
-/// Parse a code block. Returns `Some` if all of the input was consumed.
-pub fn reparse_block(
-    prefix: &str,
-    src: &str,
-    end_pos: usize,
-) -> Option<(Vec<Green>, bool, usize)> {
-    let mut p = Parser::with_prefix(prefix, src, TokenMode::Code);
-    if !p.at(&NodeKind::LeftBrace) {
-        return None;
-    }
-
-    block(&mut p);
-
-    let (mut green, terminated) = p.consume()?;
-    let first = green.remove(0);
-    if first.len() != end_pos {
-        return None;
-    }
-
-    Some((vec![first], terminated, 1))
-}
-
 /// Parse markup.
 ///
 /// If `at_start` is true, things like headings that may only appear at the
@@ -201,9 +206,9 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
 
         // Text and markup.
         NodeKind::Text(_)
+        | NodeKind::NonBreakingSpace
         | NodeKind::EnDash
         | NodeKind::EmDash
-        | NodeKind::NonBreakingSpace
         | NodeKind::Linebreak
         | NodeKind::Raw(_)
         | NodeKind::Math(_)
@@ -350,7 +355,7 @@ fn expr_prec(p: &mut Parser, atomic: bool, min_prec: usize) -> ParseResult {
             p.eat();
             let prec = op.precedence();
             expr_prec(p, atomic, prec)?;
-            marker.end(p, NodeKind::Unary);
+            marker.end(p, NodeKind::UnaryExpr);
         }
         _ => primary(p, atomic)?,
     };
@@ -388,7 +393,7 @@ fn expr_prec(p: &mut Parser, atomic: bool, min_prec: usize) -> ParseResult {
             Associativity::Right => {}
         }
 
-        marker.perform(p, NodeKind::Binary, |p| expr_prec(p, atomic, prec))?;
+        marker.perform(p, NodeKind::BinaryExpr, |p| expr_prec(p, atomic, prec))?;
     }
 
     Ok(())
@@ -410,7 +415,7 @@ fn primary(p: &mut Parser, atomic: bool) -> ParseResult {
             if !atomic && p.at(&NodeKind::Arrow) {
                 marker.end(p, NodeKind::ClosureParams);
                 p.eat_assert(&NodeKind::Arrow);
-                marker.perform(p, NodeKind::Closure, expr)
+                marker.perform(p, NodeKind::ClosureExpr, expr)
             } else {
                 Ok(())
             }
@@ -418,14 +423,8 @@ fn primary(p: &mut Parser, atomic: bool) -> ParseResult {
 
         // Structures.
         Some(NodeKind::LeftParen) => parenthesized(p, atomic),
-        Some(NodeKind::LeftBracket) => {
-            template(p);
-            Ok(())
-        }
-        Some(NodeKind::LeftBrace) => {
-            block(p);
-            Ok(())
-        }
+        Some(NodeKind::LeftBrace) => Ok(block(p)),
+        Some(NodeKind::LeftBracket) => Ok(template(p)),
 
         // Keywords.
         Some(NodeKind::Let) => let_expr(p),
@@ -478,6 +477,20 @@ fn literal(p: &mut Parser) -> bool {
     }
 }
 
+/// Parse an identifier.
+fn ident(p: &mut Parser) -> ParseResult {
+    match p.peek() {
+        Some(NodeKind::Ident(_)) => {
+            p.eat();
+            Ok(())
+        }
+        _ => {
+            p.expected_found("identifier");
+            Err(ParseError)
+        }
+    }
+}
+
 /// Parse something that starts with a parenthesis, which can be either of:
 /// - Array literal
 /// - Dictionary literal
@@ -501,12 +514,12 @@ fn parenthesized(p: &mut Parser, atomic: bool) -> ParseResult {
     if !atomic && p.at(&NodeKind::Arrow) {
         params(p, marker);
         p.eat_assert(&NodeKind::Arrow);
-        return marker.perform(p, NodeKind::Closure, expr);
+        return marker.perform(p, NodeKind::ClosureExpr, expr);
     }
 
     // Transform into the identified collection.
     match kind {
-        CollectionKind::Group => marker.end(p, NodeKind::Group),
+        CollectionKind::Group => marker.end(p, NodeKind::GroupExpr),
         CollectionKind::Positional => array(p, marker),
         CollectionKind::Named => dict(p, marker),
     }
@@ -614,7 +627,7 @@ fn array(p: &mut Parser, marker: Marker) {
         NodeKind::Spread => Err("spreading is not allowed here"),
         _ => Ok(()),
     });
-    marker.end(p, NodeKind::Array);
+    marker.end(p, NodeKind::ArrayExpr);
 }
 
 /// Convert a collection into a dictionary, producing errors for anything other
@@ -626,7 +639,7 @@ fn dict(p: &mut Parser, marker: Marker) {
         NodeKind::Spread => Err("spreading is not allowed here"),
         _ => Err("expected named pair, found expression"),
     });
-    marker.end(p, NodeKind::Dict);
+    marker.end(p, NodeKind::DictExpr);
 }
 
 /// Convert a collection into a list of parameters, producing errors for
@@ -648,18 +661,9 @@ fn params(p: &mut Parser, marker: Marker) {
     marker.end(p, NodeKind::ClosureParams);
 }
 
-// Parse a template block: `[...]`.
-fn template(p: &mut Parser) {
-    p.perform(NodeKind::Template, |p| {
-        p.start_group(Group::Bracket);
-        markup(p, true);
-        p.end_group();
-    });
-}
-
 /// Parse a code block: `{...}`.
 fn block(p: &mut Parser) {
-    p.perform(NodeKind::Block, |p| {
+    p.perform(NodeKind::CodeBlock, |p| {
         p.start_group(Group::Brace);
         while !p.eof() {
             p.start_group(Group::Expr);
@@ -675,9 +679,18 @@ fn block(p: &mut Parser) {
     });
 }
 
+// Parse a template block: `[...]`.
+fn template(p: &mut Parser) {
+    p.perform(NodeKind::TemplateBlock, |p| {
+        p.start_group(Group::Bracket);
+        markup(p, true);
+        p.end_group();
+    });
+}
+
 /// Parse a function call.
 fn call(p: &mut Parser, callee: Marker) -> ParseResult {
-    callee.perform(p, NodeKind::Call, |p| args(p, true, true))
+    callee.perform(p, NodeKind::CallExpr, |p| args(p, true, true))
 }
 
 /// Parse the arguments to a function call.
@@ -744,7 +757,7 @@ fn let_expr(p: &mut Parser) -> ParseResult {
 
             // Rewrite into a closure expression if it's a function definition.
             if has_params {
-                marker.end(p, NodeKind::Closure);
+                marker.end(p, NodeKind::ClosureExpr);
             }
         }
 
@@ -770,7 +783,7 @@ fn show_expr(p: &mut Parser) -> ParseResult {
             p.expected_found("parameter list");
             return Err(ParseError);
         }
-        p.perform(NodeKind::Closure, |p| {
+        p.perform(NodeKind::ClosureExpr, |p| {
             let marker = p.marker();
             p.start_group(Group::Paren);
             collection(p);
@@ -906,31 +919,16 @@ fn return_expr(p: &mut Parser) -> ParseResult {
     })
 }
 
-/// Parse an identifier.
-fn ident(p: &mut Parser) -> ParseResult {
-    match p.peek() {
-        Some(NodeKind::Ident(_)) => {
-            p.eat();
-            Ok(())
-        }
-        _ => {
-            p.expected_found("identifier");
-            Err(ParseError)
-        }
-    }
-}
-
 /// Parse a control flow body.
 fn body(p: &mut Parser) -> ParseResult {
     match p.peek() {
-        Some(NodeKind::LeftBracket) => template(p),
-        Some(NodeKind::LeftBrace) => block(p),
+        Some(NodeKind::LeftBracket) => Ok(template(p)),
+        Some(NodeKind::LeftBrace) => Ok(block(p)),
         _ => {
             p.expected("body");
-            return Err(ParseError);
+            Err(ParseError)
         }
     }
-    Ok(())
 }
 
 #[cfg(test)]

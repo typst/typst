@@ -26,7 +26,7 @@ pub struct Tokens<'s> {
 pub enum TokenMode {
     /// Text and markup.
     Markup,
-    /// Blocks and expressions.
+    /// Keywords, literals and operators.
     Code,
 }
 
@@ -104,11 +104,11 @@ impl<'s> Iterator for Tokens<'s> {
         let start = self.s.index();
         let c = self.s.eat()?;
         Some(match c {
-            // Blocks and templates.
-            '[' => NodeKind::LeftBracket,
-            ']' => NodeKind::RightBracket,
+            // Blocks.
             '{' => NodeKind::LeftBrace,
             '}' => NodeKind::RightBrace,
+            '[' => NodeKind::LeftBracket,
+            ']' => NodeKind::RightBracket,
 
             // Whitespace.
             ' ' if self.s.check_or(true, |c| !c.is_whitespace()) => NodeKind::Space(0),
@@ -741,18 +741,18 @@ mod tests {
     #[test]
     fn test_tokenize_brackets() {
         // Test in markup.
-        t!(Markup: "["       => LeftBracket);
-        t!(Markup: "]"       => RightBracket);
         t!(Markup: "{"       => LeftBrace);
         t!(Markup: "}"       => RightBrace);
+        t!(Markup: "["       => LeftBracket);
+        t!(Markup: "]"       => RightBracket);
         t!(Markup[" /"]: "(" => Text("("));
         t!(Markup[" /"]: ")" => Text(")"));
 
         // Test in code.
-        t!(Code: "[" => LeftBracket);
-        t!(Code: "]" => RightBracket);
         t!(Code: "{" => LeftBrace);
         t!(Code: "}" => RightBrace);
+        t!(Code: "[" => LeftBracket);
+        t!(Code: "]" => RightBracket);
         t!(Code: "(" => LeftParen);
         t!(Code: ")" => RightParen);
     }

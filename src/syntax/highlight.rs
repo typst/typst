@@ -104,10 +104,10 @@ impl Category {
     /// Determine the highlighting category of a node given its parent.
     pub fn determine(child: RedRef, parent: RedRef) -> Option<Category> {
         match child.kind() {
-            NodeKind::LeftBracket => Some(Category::Bracket),
-            NodeKind::RightBracket => Some(Category::Bracket),
             NodeKind::LeftBrace => Some(Category::Bracket),
             NodeKind::RightBrace => Some(Category::Bracket),
+            NodeKind::LeftBracket => Some(Category::Bracket),
+            NodeKind::RightBracket => Some(Category::Bracket),
             NodeKind::LeftParen => Some(Category::Bracket),
             NodeKind::RightParen => Some(Category::Bracket),
             NodeKind::Comma => Some(Category::Punctuation),
@@ -176,13 +176,13 @@ impl Category {
             NodeKind::Auto => Some(Category::Auto),
             NodeKind::Ident(_) => match parent.kind() {
                 NodeKind::Named => None,
-                NodeKind::Closure if child.span().start == parent.span().start => {
+                NodeKind::ClosureExpr if child.span().start == parent.span().start => {
                     Some(Category::Function)
                 }
                 NodeKind::WithExpr => Some(Category::Function),
                 NodeKind::SetExpr => Some(Category::Function),
                 NodeKind::ShowExpr => Some(Category::Function),
-                NodeKind::Call => Some(Category::Function),
+                NodeKind::CallExpr => Some(Category::Function),
                 _ => Some(Category::Variable),
             },
             NodeKind::Bool(_) => Some(Category::Bool),
@@ -202,18 +202,18 @@ impl Category {
             NodeKind::TextInLine(_) => None,
             NodeKind::List => None,
             NodeKind::Enum => None,
-            NodeKind::Array => None,
-            NodeKind::Dict => None,
+            NodeKind::CodeBlock => None,
+            NodeKind::TemplateBlock => None,
+            NodeKind::GroupExpr => None,
+            NodeKind::ArrayExpr => None,
+            NodeKind::DictExpr => None,
             NodeKind::Named => None,
-            NodeKind::Template => None,
-            NodeKind::Group => None,
-            NodeKind::Block => None,
-            NodeKind::Unary => None,
-            NodeKind::Binary => None,
-            NodeKind::Call => None,
+            NodeKind::UnaryExpr => None,
+            NodeKind::BinaryExpr => None,
+            NodeKind::CallExpr => None,
             NodeKind::CallArgs => None,
             NodeKind::Spread => None,
-            NodeKind::Closure => None,
+            NodeKind::ClosureExpr => None,
             NodeKind::ClosureParams => None,
             NodeKind::WithExpr => None,
             NodeKind::LetExpr => None,

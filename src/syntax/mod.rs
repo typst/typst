@@ -481,14 +481,14 @@ impl ExactSizeIterator for Children<'_> {}
 /// the parser.
 #[derive(Debug, Clone, PartialEq)]
 pub enum NodeKind {
-    /// A left square bracket: `[`.
-    LeftBracket,
-    /// A right square bracket: `]`.
-    RightBracket,
     /// A left curly brace: `{`.
     LeftBrace,
     /// A right curly brace: `}`.
     RightBrace,
+    /// A left square bracket: `[`.
+    LeftBracket,
+    /// A right square bracket: `]`.
+    RightBracket,
     /// A left round parenthesis: `(`.
     LeftParen,
     /// A right round parenthesis: `)`.
@@ -642,30 +642,30 @@ pub enum NodeKind {
     Fraction(f64),
     /// A quoted string: `"..."`.
     Str(EcoString),
+    /// A code block: `{ let x = 1; x + 2 }`.
+    CodeBlock,
+    /// A template block: `[*Hi* there!]`.
+    TemplateBlock,
+    /// A grouped expression: `(1 + 2)`.
+    GroupExpr,
     /// An array expression: `(1, "hi", 12cm)`.
-    Array,
+    ArrayExpr,
     /// A dictionary expression: `(thickness: 3pt, pattern: dashed)`.
-    Dict,
+    DictExpr,
     /// A named pair: `thickness: 3pt`.
     Named,
-    /// A template expression: `[*Hi* there!]`.
-    Template,
-    /// A grouped expression: `(1 + 2)`.
-    Group,
-    /// A block expression: `{ let x = 1; x + 2 }`.
-    Block,
     /// A unary operation: `-x`.
-    Unary,
+    UnaryExpr,
     /// A binary operation: `a + b`.
-    Binary,
+    BinaryExpr,
     /// An invocation of a function: `f(x, y)`.
-    Call,
+    CallExpr,
     /// A function call's argument list: `(x, y)`.
     CallArgs,
     /// Spreaded arguments or a parameter sink: `..x`.
     Spread,
     /// A closure expression: `(x, y) => z`.
-    Closure,
+    ClosureExpr,
     /// A closure's parameters: `(x, y)`.
     ClosureParams,
     /// A with expression: `f with (x, y: 1)`.
@@ -724,14 +724,14 @@ pub enum ErrorPos {
 }
 
 impl NodeKind {
-    /// Whether this is some kind of bracket.
-    pub fn is_bracket(&self) -> bool {
-        matches!(self, Self::LeftBracket | Self::RightBracket)
-    }
-
     /// Whether this is some kind of brace.
     pub fn is_brace(&self) -> bool {
         matches!(self, Self::LeftBrace | Self::RightBrace)
+    }
+
+    /// Whether this is some kind of bracket.
+    pub fn is_bracket(&self) -> bool {
+        matches!(self, Self::LeftBracket | Self::RightBracket)
     }
 
     /// Whether this is some kind of parenthesis.
@@ -782,10 +782,10 @@ impl NodeKind {
             | Self::List
             | Self::Raw(_)
             | Self::Math(_) => Some(TokenMode::Markup),
-            Self::Template
+            Self::TemplateBlock
             | Self::Space(_)
-            | Self::Block
             | Self::Ident(_)
+            | Self::CodeBlock
             | Self::LetExpr
             | Self::SetExpr
             | Self::ShowExpr
@@ -794,7 +794,7 @@ impl NodeKind {
             | Self::WhileExpr
             | Self::ForExpr
             | Self::ImportExpr
-            | Self::Call
+            | Self::CallExpr
             | Self::IncludeExpr
             | Self::LineComment
             | Self::BlockComment
@@ -808,10 +808,10 @@ impl NodeKind {
     /// A human-readable name for the kind.
     pub fn as_str(&self) -> &'static str {
         match self {
-            Self::LeftBracket => "opening bracket",
-            Self::RightBracket => "closing bracket",
             Self::LeftBrace => "opening brace",
             Self::RightBrace => "closing brace",
+            Self::LeftBracket => "opening bracket",
+            Self::RightBracket => "closing bracket",
             Self::LeftParen => "opening paren",
             Self::RightParen => "closing paren",
             Self::Star => "star",
@@ -883,18 +883,18 @@ impl NodeKind {
             Self::Percentage(_) => "percentage",
             Self::Fraction(_) => "`fr` value",
             Self::Str(_) => "string",
-            Self::Array => "array",
-            Self::Dict => "dictionary",
+            Self::CodeBlock => "code block",
+            Self::TemplateBlock => "template block",
+            Self::GroupExpr => "group",
+            Self::ArrayExpr => "array",
+            Self::DictExpr => "dictionary",
             Self::Named => "named argument",
-            Self::Template => "template",
-            Self::Group => "group",
-            Self::Block => "block",
-            Self::Unary => "unary expression",
-            Self::Binary => "binary expression",
-            Self::Call => "call",
+            Self::UnaryExpr => "unary expression",
+            Self::BinaryExpr => "binary expression",
+            Self::CallExpr => "call",
             Self::CallArgs => "call arguments",
             Self::Spread => "parameter sink",
-            Self::Closure => "closure",
+            Self::ClosureExpr => "closure",
             Self::ClosureParams => "closure parameters",
             Self::WithExpr => "`with` expression",
             Self::LetExpr => "`let` expression",
@@ -932,10 +932,10 @@ impl Hash for NodeKind {
     fn hash<H: Hasher>(&self, state: &mut H) {
         std::mem::discriminant(self).hash(state);
         match self {
-            Self::LeftBracket => {}
-            Self::RightBracket => {}
             Self::LeftBrace => {}
             Self::RightBrace => {}
+            Self::LeftBracket => {}
+            Self::RightBracket => {}
             Self::LeftParen => {}
             Self::RightParen => {}
             Self::Star => {}
@@ -1007,18 +1007,18 @@ impl Hash for NodeKind {
             Self::Percentage(v) => v.to_bits().hash(state),
             Self::Fraction(v) => v.to_bits().hash(state),
             Self::Str(v) => v.hash(state),
-            Self::Array => {}
-            Self::Dict => {}
+            Self::CodeBlock => {}
+            Self::TemplateBlock => {}
+            Self::GroupExpr => {}
+            Self::ArrayExpr => {}
+            Self::DictExpr => {}
             Self::Named => {}
-            Self::Template => {}
-            Self::Group => {}
-            Self::Block => {}
-            Self::Unary => {}
-            Self::Binary => {}
-            Self::Call => {}
+            Self::UnaryExpr => {}
+            Self::BinaryExpr => {}
+            Self::CallExpr => {}
             Self::CallArgs => {}
             Self::Spread => {}
-            Self::Closure => {}
+            Self::ClosureExpr => {}
             Self::ClosureParams => {}
             Self::WithExpr => {}
             Self::LetExpr => {}

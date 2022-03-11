@@ -49,6 +49,15 @@ impl<'a> CapturesVisitor<'a> {
             // through the expressions that contain them).
             Some(Expr::Ident(ident)) => self.capture(ident),
 
+            // Blocks and templates create a scope.
+            Some(Expr::Code(_) | Expr::Template(_)) => {
+                self.internal.enter();
+                for child in node.children() {
+                    self.visit(child);
+                }
+                self.internal.exit();
+            }
+
             // A closure contains parameter bindings, which are bound before the
             // body is evaluated. Care must be taken so that the default values
             // of named parameters cannot access previous parameter bindings.
@@ -101,15 +110,6 @@ impl<'a> CapturesVisitor<'a> {
                         self.bind(item);
                     }
                 }
-            }
-
-            // Blocks and templates create a scope.
-            Some(Expr::Block(_) | Expr::Template(_)) => {
-                self.internal.enter();
-                for child in node.children() {
-                    self.visit(child);
-                }
-                self.internal.exit();
             }
 
             // Everything else is traversed from left to right.
