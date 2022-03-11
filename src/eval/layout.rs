@@ -9,7 +9,8 @@ use crate::diag::TypResult;
 use crate::eval::StyleChain;
 use crate::frame::{Element, Frame, Geometry, Shape, Stroke};
 use crate::geom::{Align, Length, Linear, Paint, Point, Sides, Size, Spec, Transform};
-use crate::library::layout::{AlignNode, MoveNode, PadNode};
+use crate::library::graphics::MoveNode;
+use crate::library::layout::{AlignNode, PadNode};
 use crate::util::Prehashed;
 use crate::Context;
 

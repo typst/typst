@@ -155,7 +155,7 @@ impl Eval for MathNode {
     type Output = Template;
 
     fn eval(&self, _: &mut Context, _: &mut Scopes) -> EvalResult<Self::Output> {
-        Ok(Template::show(library::elements::MathNode {
+        Ok(Template::show(library::math::MathNode {
             formula: self.formula.clone(),
             display: self.display,
         }))
@@ -166,7 +166,7 @@ impl Eval for HeadingNode {
     type Output = Template;
 
     fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> EvalResult<Self::Output> {
-        Ok(Template::show(library::elements::HeadingNode {
+        Ok(Template::show(library::structure::HeadingNode {
             body: self.body().eval(ctx, scp)?,
             level: self.level(),
         }))
@@ -177,7 +177,7 @@ impl Eval for ListNode {
     type Output = Template;
 
     fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> EvalResult<Self::Output> {
-        Ok(Template::List(library::elements::ListItem {
+        Ok(Template::List(library::structure::ListItem {
             number: None,
             body: Box::new(self.body().eval(ctx, scp)?),
         }))
@@ -188,7 +188,7 @@ impl Eval for EnumNode {
     type Output = Template;
 
     fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> EvalResult<Self::Output> {
-        Ok(Template::Enum(library::elements::ListItem {
+        Ok(Template::Enum(library::structure::ListItem {
             number: self.number(),
             body: Box::new(self.body().eval(ctx, scp)?),
         }))

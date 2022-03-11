@@ -10,9 +10,9 @@ use super::{
     StyleMap, StyleVecBuilder,
 };
 use crate::diag::StrResult;
-use crate::library::elements::{ListItem, ListKind, ListNode, ORDERED, UNORDERED};
 use crate::library::layout::{FlowChild, FlowNode, PageNode, PlaceNode, SpacingKind};
 use crate::library::prelude::*;
+use crate::library::structure::{ListItem, ListKind, ListNode, ORDERED, UNORDERED};
 use crate::library::text::{DecoNode, ParChild, ParNode, TextNode, UNDERLINE};
 use crate::util::EcoString;
 

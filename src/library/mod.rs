@@ -3,9 +3,11 @@
 //! Call [`new`] to obtain a [`Scope`] containing all standard library
 //! definitions.
 
-pub mod elements;
+pub mod graphics;
 pub mod layout;
+pub mod math;
 pub mod prelude;
+pub mod structure;
 pub mod text;
 pub mod utility;
 
@@ -18,8 +20,8 @@ pub fn new() -> Scope {
     // Text.
     std.def_class::<text::TextNode>("text");
     std.def_class::<text::ParNode>("par");
-    std.def_class::<text::ParbreakNode>("parbreak");
     std.def_class::<text::LinebreakNode>("linebreak");
+    std.def_class::<text::ParbreakNode>("parbreak");
     std.def_class::<text::StrongNode>("strong");
     std.def_class::<text::EmphNode>("emph");
     std.def_class::<text::RawNode>("raw");
@@ -28,17 +30,11 @@ pub fn new() -> Scope {
     std.def_class::<text::OverlineNode>("overline");
     std.def_class::<text::LinkNode>("link");
 
-    // Elements.
-    std.def_class::<elements::MathNode>("math");
-    std.def_class::<elements::HeadingNode>("heading");
-    std.def_class::<elements::ListNode>("list");
-    std.def_class::<elements::EnumNode>("enum");
-    std.def_class::<elements::TableNode>("table");
-    std.def_class::<elements::ImageNode>("image");
-    std.def_class::<elements::RectNode>("rect");
-    std.def_class::<elements::SquareNode>("square");
-    std.def_class::<elements::EllipseNode>("ellipse");
-    std.def_class::<elements::CircleNode>("circle");
+    // Structure.
+    std.def_class::<structure::HeadingNode>("heading");
+    std.def_class::<structure::ListNode>("list");
+    std.def_class::<structure::EnumNode>("enum");
+    std.def_class::<structure::TableNode>("table");
 
     // Layout.
     std.def_class::<layout::PageNode>("page");
@@ -54,10 +50,20 @@ pub fn new() -> Scope {
     std.def_class::<layout::ColumnsNode>("columns");
     std.def_class::<layout::ColbreakNode>("colbreak");
     std.def_class::<layout::PlaceNode>("place");
-    std.def_class::<layout::MoveNode>("move");
-    std.def_class::<layout::ScaleNode>("scale");
-    std.def_class::<layout::RotateNode>("rotate");
-    std.def_class::<layout::HideNode>("hide");
+
+    // Graphics.
+    std.def_class::<graphics::ImageNode>("image");
+    std.def_class::<graphics::RectNode>("rect");
+    std.def_class::<graphics::SquareNode>("square");
+    std.def_class::<graphics::EllipseNode>("ellipse");
+    std.def_class::<graphics::CircleNode>("circle");
+    std.def_class::<graphics::MoveNode>("move");
+    std.def_class::<graphics::ScaleNode>("scale");
+    std.def_class::<graphics::RotateNode>("rotate");
+    std.def_class::<graphics::HideNode>("hide");
+
+    // Math.
+    std.def_class::<math::MathNode>("math");
 
     // Utility functions.
     std.def_func("assert", utility::assert);

@@ -17,6 +17,17 @@
 #len(12pt)
 
 ---
+// Test the `upper` and `lower` functions.
+#let memes = "ArE mEmEs gReAt?";
+#test(lower(memes), "are memes great?")
+#test(upper(memes), "ARE MEMES GREAT?")
+#test(upper("Ελλάδα"), "ΕΛΛΆΔΑ")
+
+---
+// Error: 8-9 expected string or template, found integer
+#upper(1)
+
+---
 // Test the `sorted` function.
 #test(sorted(()), ())
 #test(sorted((true, false) * 10), (false,) * 10 + (true,) * 10)
