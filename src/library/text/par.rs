@@ -6,7 +6,7 @@ use xi_unicode::LineBreakIterator;
 
 use super::{shape, ShapedText, TextNode};
 use crate::font::FontStore;
-use crate::library::layout::SpacingKind;
+use crate::library::layout::Spacing;
 use crate::library::prelude::*;
 use crate::util::{ArcExt, EcoString, RangeExt, SliceExt};
 
@@ -20,12 +20,12 @@ pub enum ParChild {
     /// A chunk of text.
     Text(EcoString),
     /// Horizontal spacing between other children.
-    Spacing(SpacingKind),
+    Spacing(Spacing),
     /// An arbitrary inline-level node.
     Node(LayoutNode),
 }
 
-#[class]
+#[node]
 impl ParNode {
     /// An ISO 639-1 language code.
     pub const LANG: Option<EcoString> = None;
@@ -53,9 +53,10 @@ impl ParNode {
         Ok(Content::Block(args.expect("body")?))
     }
 
-    fn set(args: &mut Args, styles: &mut StyleMap) -> TypResult<()> {
-        let lang = args.named::<Option<EcoString>>("lang")?;
+    fn set(args: &mut Args) -> TypResult<StyleMap> {
+        let mut styles = StyleMap::new();
 
+        let lang = args.named::<Option<EcoString>>("lang")?;
         let mut dir =
             lang.clone().flatten().map(|iso| match iso.to_lowercase().as_str() {
                 "ar" | "dv" | "fa" | "he" | "ks" | "pa" | "ps" | "sd" | "ug" | "ur"
@@ -89,7 +90,7 @@ impl ParNode {
         styles.set_opt(Self::SPACING, args.named("spacing")?);
         styles.set_opt(Self::INDENT, args.named("indent")?);
 
-        Ok(())
+        Ok(styles)
     }
 }
 
@@ -183,7 +184,7 @@ impl Merge for ParChild {
 /// A paragraph break.
 pub struct ParbreakNode;
 
-#[class]
+#[node]
 impl ParbreakNode {
     fn construct(_: &mut Context, _: &mut Args) -> TypResult<Content> {
         Ok(Content::Parbreak)
@@ -193,7 +194,7 @@ impl ParbreakNode {
 /// A line break.
 pub struct LinebreakNode;
 
-#[class]
+#[node]
 impl LinebreakNode {
     fn construct(_: &mut Context, _: &mut Args) -> TypResult<Content> {
         Ok(Content::Linebreak)
@@ -256,13 +257,13 @@ impl<'a> ParLayout<'a> {
                         ranges.push(subrange);
                     }
                 }
-                ParChild::Spacing(kind) => match *kind {
-                    SpacingKind::Linear(v) => {
+                ParChild::Spacing(spacing) => match *spacing {
+                    Spacing::Linear(v) => {
                         let resolved = v.resolve(regions.first.x);
                         items.push(ParItem::Absolute(resolved));
                         ranges.push(range);
                     }
-                    SpacingKind::Fractional(v) => {
+                    Spacing::Fractional(v) => {
                         items.push(ParItem::Fractional(v));
                         ranges.push(range);
                     }

@@ -30,19 +30,19 @@ impl StyleMap {
     }
 
     /// Create a style map from a single property-value pair.
-    pub fn with<P: Property>(key: P, value: P::Value) -> Self {
+    pub fn with<K: Key>(key: K, value: K::Value) -> Self {
         let mut styles = Self::new();
         styles.set(key, value);
         styles
     }
 
     /// Set the value for a style property.
-    pub fn set<P: Property>(&mut self, key: P, value: P::Value) {
+    pub fn set<K: Key>(&mut self, key: K, value: K::Value) {
         self.props.push(Entry::new(key, value));
     }
 
     /// Set a value for a style property if it is `Some(_)`.
-    pub fn set_opt<P: Property>(&mut self, key: P, value: Option<P::Value>) {
+    pub fn set_opt<K: Key>(&mut self, key: K, value: Option<K::Value>) {
         if let Some(value) = value {
             self.set(key, value);
         }
@@ -126,8 +126,8 @@ pub enum Interruption {
 /// Style property keys.
 ///
 /// This trait is not intended to be implemented manually, but rather through
-/// the `#[class]` proc-macro.
-pub trait Property: Sync + Send + 'static {
+/// the `#[node]` proc-macro.
+pub trait Key: Sync + Send + 'static {
     /// The type of value that is returned when getting this property from a
     /// style map. For example, this could be [`Length`](crate::geom::Length)
     /// for a `WIDTH` property.
@@ -148,7 +148,7 @@ pub trait Property: Sync + Send + 'static {
     /// A static reference to the default value of the property.
     ///
     /// This is automatically implemented through lazy-initialization in the
-    /// `#[class]` macro. This way, expensive defaults don't need to be
+    /// `#[node]` macro. This way, expensive defaults don't need to be
     /// recreated all the time.
     fn default_ref() -> &'static Self::Value;
 
@@ -162,8 +162,12 @@ pub trait Property: Sync + Send + 'static {
     }
 }
 
-/// Marker trait that indicates that a property doesn't need folding.
-pub trait Nonfolding {}
+/// Marker trait indicating that a property can be accessed by reference.
+///
+/// This is implemented by a key if and only if `K::FOLDING` if false.
+/// Unfortunately, Rust's type system doesn't allow use to use an associated
+/// constant to bound a function, so we need this trait.
+pub trait Referencable {}
 
 /// An entry for a single style property.
 #[derive(Clone)]
@@ -173,14 +177,14 @@ struct Entry {
 }
 
 impl Entry {
-    fn new<P: Property>(key: P, value: P::Value) -> Self {
+    fn new<K: Key>(key: K, value: K::Value) -> Self {
         Self {
             pair: Arc::new((key, value)),
             scoped: false,
         }
     }
 
-    fn is<P: Property>(&self) -> bool {
+    fn is<P: Key>(&self) -> bool {
         self.pair.style_id() == TypeId::of::<P>()
     }
 
@@ -192,7 +196,7 @@ impl Entry {
         self.pair.node_id() == node
     }
 
-    fn downcast<P: Property>(&self) -> Option<&P::Value> {
+    fn downcast<K: Key>(&self) -> Option<&K::Value> {
         self.pair.as_any().downcast_ref()
     }
 
@@ -244,18 +248,18 @@ trait Bounds: Sync + Send + 'static {
     fn style_id(&self) -> TypeId;
 }
 
-impl<P: Property> Bounds for (P, P::Value) {
+impl<K: Key> Bounds for (K, K::Value) {
     fn as_any(&self) -> &dyn Any {
         &self.1
     }
 
     fn dyn_fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{} = {:?}", P::NAME, self.1)
+        write!(f, "{} = {:?}", K::NAME, self.1)
     }
 
     fn dyn_eq(&self, other: &Entry) -> bool {
         self.style_id() == other.pair.style_id()
-            && if let Some(other) = other.downcast::<P>() {
+            && if let Some(other) = other.downcast::<K>() {
                 &self.1 == other
             } else {
                 false
@@ -270,11 +274,11 @@ impl<P: Property> Bounds for (P, P::Value) {
     }
 
     fn node_id(&self) -> TypeId {
-        P::node_id()
+        K::node_id()
     }
 
     fn style_id(&self) -> TypeId {
-        TypeId::of::<P>()
+        TypeId::of::<K>()
     }
 }
 
@@ -366,9 +370,9 @@ impl<'a> StyleChain<'a> {
     ///
     /// Returns the property's default value if no map in the chain contains an
     /// entry for it.
-    pub fn get<P: Property>(self, key: P) -> P::Value
+    pub fn get<K: Key>(self, key: K) -> K::Value
     where
-        P::Value: Copy,
+        K::Value: Copy,
     {
         self.get_cloned(key)
     }
@@ -381,11 +385,11 @@ impl<'a> StyleChain<'a> {
     ///
     /// Returns a lazily-initialized reference to the property's default value
     /// if no map in the chain contains an entry for it.
-    pub fn get_ref<P: Property>(self, key: P) -> &'a P::Value
+    pub fn get_ref<K: Key>(self, key: K) -> &'a K::Value
     where
-        P: Nonfolding,
+        K: Referencable,
     {
-        self.values(key).next().unwrap_or_else(|| P::default_ref())
+        self.values(key).next().unwrap_or_else(|| K::default_ref())
     }
 
     /// Get the (folded) value of any style property.
@@ -396,15 +400,15 @@ impl<'a> StyleChain<'a> {
     ///
     /// Returns the property's default value if no map in the chain contains an
     /// entry for it.
-    pub fn get_cloned<P: Property>(self, key: P) -> P::Value {
-        if P::FOLDING {
+    pub fn get_cloned<K: Key>(self, key: K) -> K::Value {
+        if K::FOLDING {
             self.values(key)
                 .cloned()
-                .chain(std::iter::once(P::default()))
-                .reduce(P::fold)
+                .chain(std::iter::once(K::default()))
+                .reduce(K::fold)
                 .unwrap()
         } else {
-            self.values(key).next().cloned().unwrap_or_else(P::default)
+            self.values(key).next().cloned().unwrap_or_else(K::default)
         }
     }
 
@@ -445,19 +449,19 @@ impl<'a> StyleChain<'a> {
 
 impl<'a> StyleChain<'a> {
     /// Iterate over all values for the given property in the chain.
-    fn values<P: Property>(self, _: P) -> impl Iterator<Item = &'a P::Value> {
+    fn values<K: Key>(self, _: K) -> impl Iterator<Item = &'a K::Value> {
         let mut depth = 0;
         self.links().flat_map(move |link| {
             let mut entries: &[Entry] = &[];
             match link {
                 Link::Map(map) => entries = &map.props,
-                Link::Barrier(id) => depth += (id == P::node_id()) as usize,
+                Link::Barrier(id) => depth += (id == K::node_id()) as usize,
             }
             entries
                 .iter()
                 .rev()
-                .filter(move |entry| entry.is::<P>() && (!entry.scoped || depth <= 1))
-                .filter_map(|entry| entry.downcast::<P>())
+                .filter(move |entry| entry.is::<K>() && (!entry.scoped || depth <= 1))
+                .filter_map(|entry| entry.downcast::<K>())
         })
     }
 

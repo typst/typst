@@ -12,7 +12,7 @@ pub struct TableNode {
     pub children: Vec<Content>,
 }
 
-#[class]
+#[node(showable)]
 impl TableNode {
     /// The primary cell fill color.
     pub const PRIMARY: Option<Paint> = None;
@@ -41,14 +41,15 @@ impl TableNode {
         }))
     }
 
-    fn set(args: &mut Args, styles: &mut StyleMap) -> TypResult<()> {
+    fn set(args: &mut Args) -> TypResult<StyleMap> {
+        let mut styles = StyleMap::new();
         let fill = args.named("fill")?;
         styles.set_opt(Self::PRIMARY, args.named("primary")?.or(fill));
         styles.set_opt(Self::SECONDARY, args.named("secondary")?.or(fill));
         styles.set_opt(Self::STROKE, args.named("stroke")?);
         styles.set_opt(Self::THICKNESS, args.named("thickness")?);
         styles.set_opt(Self::PADDING, args.named("padding")?);
-        Ok(())
+        Ok(styles)
     }
 }
 

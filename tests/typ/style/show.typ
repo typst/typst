@@ -34,14 +34,18 @@ Another text.
 A [= Heading] C
 
 ---
-// Error: 1-22 unexpected argument
+// Error: 14-22 unexpected argument
 #show heading() as []
 = Heading
 
 ---
-// Error: 1-28 expected content, found string
+// Error: 14-28 expected content, found string
 #show heading(_, _) as "hi"
 = Heading
+
+---
+// Error: 7-12 this function cannot be customized with show
+#show upper() as {}
 
 ---
 // Ref: false

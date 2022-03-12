@@ -7,7 +7,7 @@ use crate::library::text::TextNode;
 #[derive(Debug, Hash)]
 pub struct ImageNode(pub ImageId);
 
-#[class]
+#[node]
 impl ImageNode {
     /// How the image should adjust itself to a given area.
     pub const FIT: ImageFit = ImageFit::Cover;

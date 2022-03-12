@@ -11,7 +11,7 @@ pub struct MathNode {
     pub display: bool,
 }
 
-#[class]
+#[node(showable)]
 impl MathNode {
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         Ok(Content::show(Self {

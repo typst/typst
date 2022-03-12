@@ -18,7 +18,7 @@ pub type StrikethroughNode = DecoNode<STRIKETHROUGH>;
 /// Typeset overlined text.
 pub type OverlineNode = DecoNode<OVERLINE>;
 
-#[class]
+#[node(showable)]
 impl<const L: DecoLine> DecoNode<L> {
     /// Stroke color of the line, defaults to the text color if `None`.
     #[shorthand]

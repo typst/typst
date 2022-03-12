@@ -19,7 +19,7 @@ pub type CircleNode = ShapeNode<CIRCLE>;
 /// Place a node into an ellipse.
 pub type EllipseNode = ShapeNode<ELLIPSE>;
 
-#[class]
+#[node]
 impl<const S: ShapeKind> ShapeNode<S> {
     /// How to fill the shape.
     pub const FILL: Option<Paint> = None;

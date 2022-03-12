@@ -7,7 +7,7 @@ use crate::library::prelude::*;
 #[derive(Clone, PartialEq, Hash)]
 pub struct PageNode(pub LayoutNode);
 
-#[class]
+#[node]
 impl PageNode {
     /// The unflipped width of the page.
     pub const WIDTH: Smart<Length> = Smart::Custom(Paper::A4.width());
@@ -36,7 +36,9 @@ impl PageNode {
         Ok(Content::Page(Self(args.expect("body")?)))
     }
 
-    fn set(args: &mut Args, styles: &mut StyleMap) -> TypResult<()> {
+    fn set(args: &mut Args) -> TypResult<StyleMap> {
+        let mut styles = StyleMap::new();
+
         if let Some(paper) = args.named_or_find::<Paper>("paper")? {
             styles.set(Self::WIDTH, Smart::Custom(paper.width()));
             styles.set(Self::HEIGHT, Smart::Custom(paper.height()));
@@ -59,7 +61,7 @@ impl PageNode {
         styles.set_opt(Self::HEADER, args.named("header")?);
         styles.set_opt(Self::FOOTER, args.named("footer")?);
 
-        Ok(())
+        Ok(styles)
     }
 }
 
@@ -153,7 +155,7 @@ impl Debug for PageNode {
 /// A page break.
 pub struct PagebreakNode;
 
-#[class]
+#[node]
 impl PagebreakNode {
     fn construct(_: &mut Context, _: &mut Args) -> TypResult<Content> {
         Ok(Content::Pagebreak)

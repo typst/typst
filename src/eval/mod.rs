@@ -8,8 +8,8 @@ mod dict;
 mod value;
 #[macro_use]
 mod styles;
+mod args;
 mod capture;
-mod class;
 mod collapse;
 mod content;
 mod control;
@@ -20,9 +20,9 @@ mod ops;
 mod scope;
 mod show;
 
+pub use args::*;
 pub use array::*;
 pub use capture::*;
-pub use class::*;
 pub use collapse::*;
 pub use content::*;
 pub use control::*;
@@ -417,11 +417,6 @@ impl Eval for CallExpr {
                 func.call(ctx, args).trace(point, self.span())
             }
 
-            Value::Class(class) => {
-                let point = || Tracepoint::Call(Some(class.name().to_string()));
-                class.construct(ctx, args).trace(point, self.span())
-            }
-
             v => bail!(
                 span,
                 "expected callable or collection, found {}",
@@ -520,7 +515,7 @@ impl Eval for ClosureExpr {
         }
 
         // Define the actual function.
-        Ok(Value::Func(Func::closure(Closure {
+        Ok(Value::Func(Func::from_closure(Closure {
             name,
             captured,
             params,
@@ -558,10 +553,10 @@ impl Eval for SetExpr {
     type Output = StyleMap;
 
     fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> EvalResult<Self::Output> {
-        let class = self.class();
-        let class = class.eval(ctx, scp)?.cast::<Class>().at(class.span())?;
+        let target = self.target();
+        let target = target.eval(ctx, scp)?.cast::<Func>().at(target.span())?;
         let args = self.args().eval(ctx, scp)?;
-        Ok(class.set(args)?)
+        Ok(target.set(args)?)
     }
 }
 
@@ -569,13 +564,13 @@ impl Eval for ShowExpr {
     type Output = StyleMap;
 
     fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> EvalResult<Self::Output> {
-        let class = self.class();
-        let class = class.eval(ctx, scp)?.cast::<Class>().at(class.span())?;
-        let closure = self.closure();
-        let func = closure.eval(ctx, scp)?.cast::<Func>().at(closure.span())?;
-        let mut styles = StyleMap::new();
-        styles.set_recipe(class.id(), func, self.span());
-        Ok(styles)
+        let target = self.target();
+        let target_span = target.span();
+        let target = target.eval(ctx, scp)?.cast::<Func>().at(target_span)?;
+        let recipe = self.recipe();
+        let recipe_span = recipe.span();
+        let recipe = recipe.eval(ctx, scp)?.cast::<Func>().at(recipe_span)?;
+        Ok(target.show(recipe, recipe_span).at(target_span)?)
     }
 }
 

@@ -3,7 +3,7 @@ use crate::library::prelude::*;
 /// Horizontal spacing.
 pub struct HNode;
 
-#[class]
+#[node]
 impl HNode {
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         Ok(Content::Horizontal(args.expect("spacing")?))
@@ -13,7 +13,7 @@ impl HNode {
 /// Vertical spacing.
 pub struct VNode;
 
-#[class]
+#[node]
 impl VNode {
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         Ok(Content::Vertical(args.expect("spacing")?))
@@ -22,28 +22,28 @@ impl VNode {
 
 /// Kinds of spacing.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum SpacingKind {
+pub enum Spacing {
     /// A length stated in absolute values and/or relative to the parent's size.
     Linear(Linear),
     /// A length that is the fraction of the remaining free space in the parent.
     Fractional(Fractional),
 }
 
-impl SpacingKind {
+impl Spacing {
     /// Whether this is fractional spacing.
     pub fn is_fractional(self) -> bool {
         matches!(self, Self::Fractional(_))
     }
 }
 
-impl From<Length> for SpacingKind {
+impl From<Length> for Spacing {
     fn from(length: Length) -> Self {
         Self::Linear(length.into())
     }
 }
 
 castable! {
-    SpacingKind,
+    Spacing,
     Expected: "linear or fractional",
     Value::Length(v) => Self::Linear(v.into()),
     Value::Relative(v) => Self::Linear(v.into()),

@@ -18,77 +18,77 @@ pub fn new() -> Scope {
     let mut std = Scope::new();
 
     // Text.
-    std.def_class::<text::TextNode>("text");
-    std.def_class::<text::ParNode>("par");
-    std.def_class::<text::LinebreakNode>("linebreak");
-    std.def_class::<text::ParbreakNode>("parbreak");
-    std.def_class::<text::StrongNode>("strong");
-    std.def_class::<text::EmphNode>("emph");
-    std.def_class::<text::RawNode>("raw");
-    std.def_class::<text::UnderlineNode>("underline");
-    std.def_class::<text::StrikethroughNode>("strike");
-    std.def_class::<text::OverlineNode>("overline");
-    std.def_class::<text::LinkNode>("link");
+    std.def_node::<text::TextNode>("text");
+    std.def_node::<text::ParNode>("par");
+    std.def_node::<text::LinebreakNode>("linebreak");
+    std.def_node::<text::ParbreakNode>("parbreak");
+    std.def_node::<text::StrongNode>("strong");
+    std.def_node::<text::EmphNode>("emph");
+    std.def_node::<text::RawNode>("raw");
+    std.def_node::<text::UnderlineNode>("underline");
+    std.def_node::<text::StrikethroughNode>("strike");
+    std.def_node::<text::OverlineNode>("overline");
+    std.def_node::<text::LinkNode>("link");
 
     // Structure.
-    std.def_class::<structure::HeadingNode>("heading");
-    std.def_class::<structure::ListNode>("list");
-    std.def_class::<structure::EnumNode>("enum");
-    std.def_class::<structure::TableNode>("table");
+    std.def_node::<structure::HeadingNode>("heading");
+    std.def_node::<structure::ListNode>("list");
+    std.def_node::<structure::EnumNode>("enum");
+    std.def_node::<structure::TableNode>("table");
 
     // Layout.
-    std.def_class::<layout::PageNode>("page");
-    std.def_class::<layout::PagebreakNode>("pagebreak");
-    std.def_class::<layout::HNode>("h");
-    std.def_class::<layout::VNode>("v");
-    std.def_class::<layout::BoxNode>("box");
-    std.def_class::<layout::BlockNode>("block");
-    std.def_class::<layout::AlignNode>("align");
-    std.def_class::<layout::PadNode>("pad");
-    std.def_class::<layout::StackNode>("stack");
-    std.def_class::<layout::GridNode>("grid");
-    std.def_class::<layout::ColumnsNode>("columns");
-    std.def_class::<layout::ColbreakNode>("colbreak");
-    std.def_class::<layout::PlaceNode>("place");
+    std.def_node::<layout::PageNode>("page");
+    std.def_node::<layout::PagebreakNode>("pagebreak");
+    std.def_node::<layout::HNode>("h");
+    std.def_node::<layout::VNode>("v");
+    std.def_node::<layout::BoxNode>("box");
+    std.def_node::<layout::BlockNode>("block");
+    std.def_node::<layout::AlignNode>("align");
+    std.def_node::<layout::PadNode>("pad");
+    std.def_node::<layout::StackNode>("stack");
+    std.def_node::<layout::GridNode>("grid");
+    std.def_node::<layout::ColumnsNode>("columns");
+    std.def_node::<layout::ColbreakNode>("colbreak");
+    std.def_node::<layout::PlaceNode>("place");
 
     // Graphics.
-    std.def_class::<graphics::ImageNode>("image");
-    std.def_class::<graphics::RectNode>("rect");
-    std.def_class::<graphics::SquareNode>("square");
-    std.def_class::<graphics::EllipseNode>("ellipse");
-    std.def_class::<graphics::CircleNode>("circle");
-    std.def_class::<graphics::MoveNode>("move");
-    std.def_class::<graphics::ScaleNode>("scale");
-    std.def_class::<graphics::RotateNode>("rotate");
-    std.def_class::<graphics::HideNode>("hide");
+    std.def_node::<graphics::ImageNode>("image");
+    std.def_node::<graphics::RectNode>("rect");
+    std.def_node::<graphics::SquareNode>("square");
+    std.def_node::<graphics::EllipseNode>("ellipse");
+    std.def_node::<graphics::CircleNode>("circle");
+    std.def_node::<graphics::MoveNode>("move");
+    std.def_node::<graphics::ScaleNode>("scale");
+    std.def_node::<graphics::RotateNode>("rotate");
+    std.def_node::<graphics::HideNode>("hide");
 
     // Math.
-    std.def_class::<math::MathNode>("math");
+    std.def_node::<math::MathNode>("math");
 
     // Utility functions.
-    std.def_func("assert", utility::assert);
-    std.def_func("type", utility::type_);
-    std.def_func("repr", utility::repr);
-    std.def_func("join", utility::join);
-    std.def_func("int", utility::int);
-    std.def_func("float", utility::float);
-    std.def_func("str", utility::str);
-    std.def_func("abs", utility::abs);
-    std.def_func("min", utility::min);
-    std.def_func("max", utility::max);
-    std.def_func("even", utility::even);
-    std.def_func("odd", utility::odd);
-    std.def_func("mod", utility::modulo);
-    std.def_func("range", utility::range);
-    std.def_func("rgb", utility::rgb);
-    std.def_func("cmyk", utility::cmyk);
-    std.def_func("lower", utility::lower);
-    std.def_func("upper", utility::upper);
-    std.def_func("letter", utility::letter);
-    std.def_func("roman", utility::roman);
-    std.def_func("symbol", utility::symbol);
-    std.def_func("len", utility::len);
-    std.def_func("sorted", utility::sorted);
+    std.def_fn("assert", utility::assert);
+    std.def_fn("type", utility::type_);
+    std.def_fn("repr", utility::repr);
+    std.def_fn("join", utility::join);
+    std.def_fn("int", utility::int);
+    std.def_fn("float", utility::float);
+    std.def_fn("str", utility::str);
+    std.def_fn("abs", utility::abs);
+    std.def_fn("min", utility::min);
+    std.def_fn("max", utility::max);
+    std.def_fn("even", utility::even);
+    std.def_fn("odd", utility::odd);
+    std.def_fn("mod", utility::modulo);
+    std.def_fn("range", utility::range);
+    std.def_fn("rgb", utility::rgb);
+    std.def_fn("cmyk", utility::cmyk);
+    std.def_fn("lower", utility::lower);
+    std.def_fn("upper", utility::upper);
+    std.def_fn("letter", utility::letter);
+    std.def_fn("roman", utility::roman);
+    std.def_fn("symbol", utility::symbol);
+    std.def_fn("len", utility::len);
+    std.def_fn("sorted", utility::sorted);
 
     // Predefined colors.
     std.def_const("black", Color::BLACK);

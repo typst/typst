@@ -1,4 +1,4 @@
-use super::{AlignNode, SpacingKind};
+use super::{AlignNode, Spacing};
 use crate::library::prelude::*;
 
 /// Arrange nodes and spacing along an axis.
@@ -7,12 +7,12 @@ pub struct StackNode {
     /// The stacking direction.
     pub dir: Dir,
     /// The spacing between non-spacing children.
-    pub spacing: Option<SpacingKind>,
+    pub spacing: Option<Spacing>,
     /// The children to be stacked.
     pub children: Vec<StackChild>,
 }
 
-#[class]
+#[node]
 impl StackNode {
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         Ok(Content::block(Self {
@@ -60,7 +60,7 @@ impl Layout for StackNode {
 #[derive(Hash)]
 pub enum StackChild {
     /// Spacing between other nodes.
-    Spacing(SpacingKind),
+    Spacing(Spacing),
     /// An arbitrary node.
     Node(LayoutNode),
 }
@@ -77,10 +77,10 @@ impl Debug for StackChild {
 castable! {
     StackChild,
     Expected: "linear, fractional or content",
-    Value::Length(v) => Self::Spacing(SpacingKind::Linear(v.into())),
-    Value::Relative(v) => Self::Spacing(SpacingKind::Linear(v.into())),
-    Value::Linear(v) => Self::Spacing(SpacingKind::Linear(v)),
-    Value::Fractional(v) => Self::Spacing(SpacingKind::Fractional(v)),
+    Value::Length(v) => Self::Spacing(Spacing::Linear(v.into())),
+    Value::Relative(v) => Self::Spacing(Spacing::Linear(v.into())),
+    Value::Linear(v) => Self::Spacing(Spacing::Linear(v)),
+    Value::Fractional(v) => Self::Spacing(Spacing::Fractional(v)),
     Value::Content(v) => Self::Node(v.pack()),
 }
 
@@ -142,9 +142,9 @@ impl StackLayouter {
     }
 
     /// Add spacing along the spacing direction.
-    pub fn layout_spacing(&mut self, spacing: SpacingKind) {
+    pub fn layout_spacing(&mut self, spacing: Spacing) {
         match spacing {
-            SpacingKind::Linear(v) => {
+            Spacing::Linear(v) => {
                 // Resolve the linear and limit it to the remaining space.
                 let resolved = v.resolve(self.regions.base.get(self.axis));
                 let remaining = self.regions.first.get_mut(self.axis);
@@ -153,7 +153,7 @@ impl StackLayouter {
                 self.used.main += limited;
                 self.items.push(StackItem::Absolute(resolved));
             }
-            SpacingKind::Fractional(v) => {
+            Spacing::Fractional(v) => {
                 self.fr += v;
                 self.items.push(StackItem::Fractional(v));
             }

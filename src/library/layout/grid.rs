@@ -11,7 +11,7 @@ pub struct GridNode {
     pub children: Vec<LayoutNode>,
 }
 
-#[class]
+#[node]
 impl GridNode {
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         let columns = args.named("columns")?.unwrap_or_default();

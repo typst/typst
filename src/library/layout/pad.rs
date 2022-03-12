@@ -9,7 +9,7 @@ pub struct PadNode {
     pub child: LayoutNode,
 }
 
-#[class]
+#[node]
 impl PadNode {
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         let all = args.find()?;

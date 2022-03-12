@@ -28,7 +28,7 @@ pub struct ListItem {
 /// An ordered list.
 pub type EnumNode = ListNode<ORDERED>;
 
-#[class]
+#[node(showable)]
 impl<const L: ListKind> ListNode<L> {
     /// How the list is labelled.
     pub const LABEL: Label = Label::Default;

@@ -1,4 +1,4 @@
-use super::{AlignNode, PlaceNode, SpacingKind};
+use super::{AlignNode, PlaceNode, Spacing};
 use crate::library::prelude::*;
 use crate::library::text::{ParNode, TextNode};
 
@@ -19,7 +19,7 @@ pub enum FlowChild {
     /// A column / region break.
     Colbreak,
     /// Vertical spacing between other children.
-    Spacing(SpacingKind),
+    Spacing(Spacing),
     /// An arbitrary block-level node.
     Node(LayoutNode),
 }
@@ -142,9 +142,9 @@ impl FlowLayouter {
     }
 
     /// Layout spacing.
-    pub fn layout_spacing(&mut self, spacing: SpacingKind) {
+    pub fn layout_spacing(&mut self, spacing: Spacing) {
         match spacing {
-            SpacingKind::Linear(v) => {
+            Spacing::Linear(v) => {
                 // Resolve the linear and limit it to the remaining space.
                 let resolved = v.resolve(self.full.y);
                 let limited = resolved.min(self.regions.first.y);
@@ -152,7 +152,7 @@ impl FlowLayouter {
                 self.used.y += limited;
                 self.items.push(FlowItem::Absolute(resolved));
             }
-            SpacingKind::Fractional(v) => {
+            Spacing::Fractional(v) => {
                 self.items.push(FlowItem::Fractional(v));
                 self.fr += v;
             }

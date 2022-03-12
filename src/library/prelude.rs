@@ -5,13 +5,12 @@ pub use std::hash::Hash;
 pub use std::num::NonZeroUsize;
 pub use std::sync::Arc;
 
-pub use typst_macros::class;
+pub use typst_macros::node;
 
 pub use crate::diag::{with_alternative, At, StrResult, TypResult};
 pub use crate::eval::{
-    Arg, Args, Array, Cast, Construct, Content, Dict, Func, Layout, LayoutNode, Merge,
-    Property, Regions, Scope, Set, Show, ShowNode, Smart, StyleChain, StyleMap, StyleVec,
-    Value,
+    Arg, Args, Array, Cast, Content, Dict, Func, Key, Layout, LayoutNode, Merge, Node,
+    Regions, Scope, Show, ShowNode, Smart, StyleChain, StyleMap, StyleVec, Value,
 };
 pub use crate::frame::*;
 pub use crate::geom::*;

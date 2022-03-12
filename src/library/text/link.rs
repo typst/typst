@@ -11,7 +11,7 @@ pub struct LinkNode {
     pub body: Option<Content>,
 }
 
-#[class]
+#[node(showable)]
 impl LinkNode {
     /// The fill color of text in the link. Just the surrounding text color
     /// if `auto`.

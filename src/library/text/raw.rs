@@ -24,7 +24,7 @@ pub struct RawNode {
     pub block: bool,
 }
 
-#[class]
+#[node(showable)]
 impl RawNode {
     /// The language to syntax-highlight in.
     pub const LANG: Option<EcoString> = None;

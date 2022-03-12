@@ -1,11 +1,12 @@
+use std::any::TypeId;
 use std::fmt::{self, Debug, Formatter, Write};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use super::{Cast, Control, Eval, Scope, Scopes, Value};
-use crate::diag::{At, TypResult};
+use super::{Args, Content, Control, Eval, Scope, Scopes, StyleMap, Value};
+use crate::diag::{StrResult, TypResult};
 use crate::syntax::ast::Expr;
-use crate::syntax::{Span, Spanned};
+use crate::syntax::Span;
 use crate::util::EcoString;
 use crate::Context;
 
@@ -26,16 +27,48 @@ enum Repr {
 
 impl Func {
     /// Create a new function from a native rust function.
-    pub fn native(
+    pub fn from_fn(
         name: &'static str,
         func: fn(&mut Context, &mut Args) -> TypResult<Value>,
     ) -> Self {
-        Self(Arc::new(Repr::Native(Native { name, func })))
+        Self(Arc::new(Repr::Native(Native {
+            name,
+            func,
+            set: None,
+            show: None,
+        })))
+    }
+
+    /// Create a new function from a native rust node.
+    pub fn from_node<T: Node>(name: &'static str) -> Self {
+        Self(Arc::new(Repr::Native(Native {
+            name,
+            func: |ctx, args| {
+                let styles = T::set(args)?;
+                let content = T::construct(ctx, args)?;
+                Ok(Value::Content(content.styled_with_map(styles.scoped())))
+            },
+            set: Some(T::set),
+            show: if T::SHOWABLE {
+                Some(|recipe, span| {
+                    let mut styles = StyleMap::new();
+                    styles.set_recipe(TypeId::of::<T>(), recipe, span);
+                    styles
+                })
+            } else {
+                None
+            },
+        })))
     }
 
     /// Create a new function from a closure.
-    pub fn closure(closure: Closure) -> Self {
+    pub fn from_closure(closure: Closure) -> Self {
         Self(Arc::new(Repr::Closure(closure)))
+    }
+
+    /// Apply the given arguments to the function.
+    pub fn with(self, args: Args) -> Self {
+        Self(Arc::new(Repr::With(self, args)))
     }
 
     /// The name of the function.
@@ -61,9 +94,22 @@ impl Func {
         Ok(value)
     }
 
-    /// Apply the given arguments to the function.
-    pub fn with(self, args: Args) -> Self {
-        Self(Arc::new(Repr::With(self, args)))
+    /// Execute the function's set rule.
+    pub fn set(&self, mut args: Args) -> TypResult<StyleMap> {
+        let styles = match self.0.as_ref() {
+            Repr::Native(Native { set: Some(set), .. }) => set(&mut args)?,
+            _ => StyleMap::new(),
+        };
+        args.finish()?;
+        Ok(styles)
+    }
+
+    /// Execute the function's show rule.
+    pub fn show(&self, recipe: Func, span: Span) -> StrResult<StyleMap> {
+        match self.0.as_ref() {
+            Repr::Native(Native { show: Some(show), .. }) => Ok(show(recipe, span)),
+            _ => Err("this function cannot be customized with show")?,
+        }
     }
 }
 
@@ -90,12 +136,34 @@ struct Native {
     pub name: &'static str,
     /// The function pointer.
     pub func: fn(&mut Context, &mut Args) -> TypResult<Value>,
+    /// The set rule.
+    pub set: Option<fn(&mut Args) -> TypResult<StyleMap>>,
+    /// The show rule.
+    pub show: Option<fn(Func, Span) -> StyleMap>,
 }
 
 impl Hash for Native {
     fn hash<H: Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
         (self.func as usize).hash(state);
+        self.set.map(|set| set as usize).hash(state);
+        self.show.map(|show| show as usize).hash(state);
     }
+}
+
+/// A constructable, stylable content node.
+pub trait Node: 'static {
+    /// Whether this node can be customized through a show rule.
+    const SHOWABLE: bool;
+
+    /// Construct a node from the arguments.
+    ///
+    /// This is passed only the arguments that remain after execution of the
+    /// node's set rule.
+    fn construct(ctx: &mut Context, args: &mut Args) -> TypResult<Content>;
+
+    /// Parse the arguments into style properties for this node.
+    fn set(args: &mut Args) -> TypResult<StyleMap>;
 }
 
 /// A user-defined closure.
@@ -144,201 +212,5 @@ impl Closure {
         };
 
         Ok(value)
-    }
-}
-
-/// Evaluated arguments to a function.
-#[derive(Clone, PartialEq, Hash)]
-pub struct Args {
-    /// The span of the whole argument list.
-    pub span: Span,
-    /// The positional and named arguments.
-    pub items: Vec<Arg>,
-}
-
-/// An argument to a function call: `12` or `draw: false`.
-#[derive(Clone, PartialEq, Hash)]
-pub struct Arg {
-    /// The span of the whole argument.
-    pub span: Span,
-    /// The name of the argument (`None` for positional arguments).
-    pub name: Option<EcoString>,
-    /// The value of the argument.
-    pub value: Spanned<Value>,
-}
-
-impl Args {
-    /// Create positional arguments from a span and values.
-    pub fn from_values(span: Span, values: impl IntoIterator<Item = Value>) -> Self {
-        Self {
-            span,
-            items: values
-                .into_iter()
-                .map(|value| Arg {
-                    span,
-                    name: None,
-                    value: Spanned::new(value, span),
-                })
-                .collect(),
-        }
-    }
-
-    /// Consume and cast the first positional argument.
-    ///
-    /// Returns a `missing argument: {what}` error if no positional argument is
-    /// left.
-    pub fn expect<T>(&mut self, what: &str) -> TypResult<T>
-    where
-        T: Cast<Spanned<Value>>,
-    {
-        match self.eat()? {
-            Some(v) => Ok(v),
-            None => bail!(self.span, "missing argument: {}", what),
-        }
-    }
-
-    /// Consume and cast the first positional argument if there is one.
-    pub fn eat<T>(&mut self) -> TypResult<Option<T>>
-    where
-        T: Cast<Spanned<Value>>,
-    {
-        for (i, slot) in self.items.iter().enumerate() {
-            if slot.name.is_none() {
-                let value = self.items.remove(i).value;
-                let span = value.span;
-                return T::cast(value).at(span).map(Some);
-            }
-        }
-        Ok(None)
-    }
-
-    /// Find and consume the first castable positional argument.
-    pub fn find<T>(&mut self) -> TypResult<Option<T>>
-    where
-        T: Cast<Spanned<Value>>,
-    {
-        for (i, slot) in self.items.iter().enumerate() {
-            if slot.name.is_none() && T::is(&slot.value) {
-                let value = self.items.remove(i).value;
-                let span = value.span;
-                return T::cast(value).at(span).map(Some);
-            }
-        }
-        Ok(None)
-    }
-
-    /// Find and consume all castable positional arguments.
-    pub fn all<T>(&mut self) -> TypResult<Vec<T>>
-    where
-        T: Cast<Spanned<Value>>,
-    {
-        let mut list = vec![];
-        while let Some(value) = self.find()? {
-            list.push(value);
-        }
-        Ok(list)
-    }
-
-    /// Cast and remove the value for the given named argument, returning an
-    /// error if the conversion fails.
-    pub fn named<T>(&mut self, name: &str) -> TypResult<Option<T>>
-    where
-        T: Cast<Spanned<Value>>,
-    {
-        // We don't quit once we have a match because when multiple matches
-        // exist, we want to remove all of them and use the last one.
-        let mut i = 0;
-        let mut found = None;
-        while i < self.items.len() {
-            if self.items[i].name.as_deref() == Some(name) {
-                let value = self.items.remove(i).value;
-                let span = value.span;
-                found = Some(T::cast(value).at(span)?);
-            } else {
-                i += 1;
-            }
-        }
-        Ok(found)
-    }
-
-    /// Same as named, but with fallback to find.
-    pub fn named_or_find<T>(&mut self, name: &str) -> TypResult<Option<T>>
-    where
-        T: Cast<Spanned<Value>>,
-    {
-        match self.named(name)? {
-            Some(value) => Ok(Some(value)),
-            None => self.find(),
-        }
-    }
-
-    /// Take out all arguments into a new instance.
-    pub fn take(&mut self) -> Self {
-        Self {
-            span: self.span,
-            items: std::mem::take(&mut self.items),
-        }
-    }
-
-    /// Return an "unexpected argument" error if there is any remaining
-    /// argument.
-    pub fn finish(self) -> TypResult<()> {
-        if let Some(arg) = self.items.first() {
-            bail!(arg.span, "unexpected argument");
-        }
-        Ok(())
-    }
-
-    /// Reinterpret these arguments as actually being an array index.
-    pub fn into_index(self) -> TypResult<i64> {
-        self.into_castable("index")
-    }
-
-    /// Reinterpret these arguments as actually being a dictionary key.
-    pub fn into_key(self) -> TypResult<EcoString> {
-        self.into_castable("key")
-    }
-
-    /// Reinterpret these arguments as actually being a single castable thing.
-    fn into_castable<T: Cast>(self, what: &str) -> TypResult<T> {
-        let mut iter = self.items.into_iter();
-        let value = match iter.next() {
-            Some(Arg { name: None, value, .. }) => value.v.cast().at(value.span)?,
-            None => {
-                bail!(self.span, "missing {}", what);
-            }
-            Some(Arg { name: Some(_), span, .. }) => {
-                bail!(span, "named pair is not allowed here");
-            }
-        };
-
-        if let Some(arg) = iter.next() {
-            bail!(arg.span, "only one {} is allowed", what);
-        }
-
-        Ok(value)
-    }
-}
-
-impl Debug for Args {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_char('(')?;
-        for (i, arg) in self.items.iter().enumerate() {
-            arg.fmt(f)?;
-            if i + 1 < self.items.len() {
-                f.write_str(", ")?;
-            }
-        }
-        f.write_char(')')
-    }
-}
-
-impl Debug for Arg {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        if let Some(name) = &self.name {
-            f.write_str(name)?;
-            f.write_str(": ")?;
-        }
-        Debug::fmt(&self.value.v, f)
     }
 }

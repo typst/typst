@@ -11,7 +11,7 @@ pub struct ColumnsNode {
     pub child: LayoutNode,
 }
 
-#[class]
+#[node]
 impl ColumnsNode {
     /// The size of the gutter space between each column.
     pub const GUTTER: Linear = Relative::new(0.04).into();
@@ -103,7 +103,7 @@ impl Layout for ColumnsNode {
 /// A column break.
 pub struct ColbreakNode;
 
-#[class]
+#[node]
 impl ColbreakNode {
     fn construct(_: &mut Context, _: &mut Args) -> TypResult<Content> {
         Ok(Content::Colbreak)

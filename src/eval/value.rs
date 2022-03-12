@@ -4,7 +4,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use super::{ops, Args, Array, Class, Content, Dict, Func, Layout};
+use super::{ops, Args, Array, Content, Dict, Func, Layout};
 use crate::diag::{with_alternative, StrResult};
 use crate::geom::{Angle, Color, Fractional, Length, Linear, Relative, RgbaColor};
 use crate::syntax::Spanned;
@@ -47,8 +47,6 @@ pub enum Value {
     Func(Func),
     /// Captured arguments to a function.
     Args(Args),
-    /// A class of nodes.
-    Class(Class),
     /// A dynamic value.
     Dyn(Dynamic),
 }
@@ -90,7 +88,6 @@ impl Value {
             Self::Dict(_) => Dict::TYPE_NAME,
             Self::Func(_) => Func::TYPE_NAME,
             Self::Args(_) => Args::TYPE_NAME,
-            Self::Class(_) => Class::TYPE_NAME,
             Self::Dyn(v) => v.type_name(),
         }
     }
@@ -151,7 +148,6 @@ impl Debug for Value {
             Self::Dict(v) => Debug::fmt(v, f),
             Self::Func(v) => Debug::fmt(v, f),
             Self::Args(v) => Debug::fmt(v, f),
-            Self::Class(v) => Debug::fmt(v, f),
             Self::Dyn(v) => Debug::fmt(v, f),
         }
     }
@@ -190,7 +186,6 @@ impl Hash for Value {
             Self::Dict(v) => v.hash(state),
             Self::Func(v) => v.hash(state),
             Self::Args(v) => v.hash(state),
-            Self::Class(v) => v.hash(state),
             Self::Dyn(v) => v.hash(state),
         }
     }
@@ -444,9 +439,8 @@ primitive! { EcoString: "string", Str }
 primitive! { Content: "content", Content, None => Content::new() }
 primitive! { Array: "array", Array }
 primitive! { Dict: "dictionary", Dict }
-primitive! { Func: "function", Func, Class(v) => v.constructor() }
+primitive! { Func: "function", Func }
 primitive! { Args: "arguments", Args }
-primitive! { Class: "class", Class }
 
 impl Cast for Value {
     fn is(_: &Value) -> bool {
@@ -570,7 +564,7 @@ mod tests {
 
         // Functions.
         test(
-            Func::native("nil", |_, _| Ok(Value::None)),
+            Func::from_fn("nil", |_, _| Ok(Value::None)),
             "<function nil>",
         );
 

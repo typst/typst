@@ -6,11 +6,11 @@ use std::ops::{Add, AddAssign};
 use typed_arena::Arena;
 
 use super::{
-    CollapsingBuilder, Interruption, Layout, LayoutNode, Property, Show, ShowNode,
-    StyleMap, StyleVecBuilder,
+    CollapsingBuilder, Interruption, Key, Layout, LayoutNode, Show, ShowNode, StyleMap,
+    StyleVecBuilder,
 };
 use crate::diag::StrResult;
-use crate::library::layout::{FlowChild, FlowNode, PageNode, PlaceNode, SpacingKind};
+use crate::library::layout::{FlowChild, FlowNode, PageNode, PlaceNode, Spacing};
 use crate::library::prelude::*;
 use crate::library::structure::{ListItem, ListKind, ListNode, ORDERED, UNORDERED};
 use crate::library::text::{DecoNode, ParChild, ParNode, TextNode, UNDERLINE};
@@ -42,7 +42,7 @@ pub enum Content {
     /// A line break.
     Linebreak,
     /// Horizontal spacing.
-    Horizontal(SpacingKind),
+    Horizontal(Spacing),
     /// Plain text.
     Text(EcoString),
     /// An inline-level node.
@@ -52,7 +52,7 @@ pub enum Content {
     /// A column break.
     Colbreak,
     /// Vertical spacing.
-    Vertical(SpacingKind),
+    Vertical(Spacing),
     /// A block-level node.
     Block(LayoutNode),
     /// An item in an unordered list.
@@ -102,7 +102,7 @@ impl Content {
     }
 
     /// Style this content with a single style property.
-    pub fn styled<P: Property>(mut self, key: P, value: P::Value) -> Self {
+    pub fn styled<P: Key>(mut self, key: P, value: P::Value) -> Self {
         if let Self::Styled(styled) = &mut self {
             if let Some((_, map)) = Arc::get_mut(styled) {
                 if !map.has_scoped() {
@@ -465,7 +465,7 @@ impl<'a> Builder<'a> {
                     })
                     .unwrap_or_default()
             {
-                par.push_front(ParChild::Spacing(SpacingKind::Linear(indent)))
+                par.push_front(ParChild::Spacing(Spacing::Linear(indent)))
             }
 
             let node = ParNode(par).pack();

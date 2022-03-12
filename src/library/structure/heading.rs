@@ -11,7 +11,7 @@ pub struct HeadingNode {
     pub body: Content,
 }
 
-#[class]
+#[node(showable)]
 impl HeadingNode {
     /// The heading's font family. Just the normal text family if `auto`.
     pub const FAMILY: Leveled<Smart<FontFamily>> = Leveled::Value(Smart::Auto);

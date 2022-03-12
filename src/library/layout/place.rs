@@ -5,7 +5,7 @@ use crate::library::prelude::*;
 #[derive(Debug, Hash)]
 pub struct PlaceNode(pub LayoutNode);
 
-#[class]
+#[node]
 impl PlaceNode {
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         let aligns = args.find()?.unwrap_or(Spec::with_x(Some(Align::Left)));

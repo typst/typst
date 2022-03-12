@@ -73,7 +73,7 @@ fn main() {
     let mut std = typst::library::new();
     std.def_const("conifer", RgbaColor::new(0x9f, 0xEB, 0x52, 0xFF));
     std.def_const("forest", RgbaColor::new(0x43, 0xA1, 0x27, 0xFF));
-    std.def_func("test", move |_, args| {
+    std.def_fn("test", move |_, args| {
         let lhs = args.expect::<Value>("left-hand side")?;
         let rhs = args.expect::<Value>("right-hand side")?;
         if lhs != rhs {

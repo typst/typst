@@ -4,7 +4,7 @@ use crate::library::prelude::*;
 #[derive(Debug, Hash)]
 pub struct HideNode(pub LayoutNode);
 
-#[class]
+#[node]
 impl HideNode {
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         Ok(Content::inline(Self(args.expect("body")?)))

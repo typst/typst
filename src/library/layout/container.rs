@@ -3,7 +3,7 @@ use crate::library::prelude::*;
 /// An inline-level container that sizes content and places it into a paragraph.
 pub struct BoxNode;
 
-#[class]
+#[node]
 impl BoxNode {
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         let width = args.named("width")?;
@@ -16,7 +16,7 @@ impl BoxNode {
 /// A block-level container that places content into a separate flow.
 pub struct BlockNode;
 
-#[class]
+#[node]
 impl BlockNode {
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         Ok(Content::Block(args.find()?.unwrap_or_default()))

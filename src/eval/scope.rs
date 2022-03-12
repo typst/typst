@@ -4,7 +4,7 @@ use std::hash::{Hash, Hasher};
 use std::iter;
 use std::sync::{Arc, RwLock};
 
-use super::{Args, Class, Construct, Func, Set, Value};
+use super::{Args, Func, Node, Value};
 use crate::diag::TypResult;
 use crate::util::EcoString;
 use crate::Context;
@@ -83,21 +83,18 @@ impl Scope {
         self.values.insert(var.into(), slot);
     }
 
-    /// Define a constant native function.
-    pub fn def_func(
+    /// Define a function through a native rust function.
+    pub fn def_fn(
         &mut self,
         name: &'static str,
         func: fn(&mut Context, &mut Args) -> TypResult<Value>,
     ) {
-        self.def_const(name, Func::native(name, func));
+        self.def_const(name, Func::from_fn(name, func));
     }
 
-    /// Define a constant class.
-    pub fn def_class<T>(&mut self, name: &'static str)
-    where
-        T: Construct + Set + 'static,
-    {
-        self.def_const(name, Class::new::<T>(name));
+    /// Define a function through a native rust node.
+    pub fn def_node<T: Node>(&mut self, name: &'static str) {
+        self.def_const(name, Func::from_node::<T>(name));
     }
 
     /// Look up the value of a variable.

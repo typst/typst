@@ -8,15 +8,16 @@ use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::{Error, Ident, Result};
 
-/// Turn a node into a class.
 #[proc_macro_attribute]
-pub fn class(_: TokenStream, item: TokenStream) -> TokenStream {
+pub fn node(stream: TokenStream, item: TokenStream) -> TokenStream {
     let impl_block = syn::parse_macro_input!(item as syn::ItemImpl);
-    expand(impl_block).unwrap_or_else(|err| err.to_compile_error()).into()
+    expand(TokenStream2::from(stream), impl_block)
+        .unwrap_or_else(|err| err.to_compile_error())
+        .into()
 }
 
 /// Expand an impl block for a node.
-fn expand(mut impl_block: syn::ItemImpl) -> Result<TokenStream2> {
+fn expand(stream: TokenStream2, mut impl_block: syn::ItemImpl) -> Result<TokenStream2> {
     // Split the node type into name and generic type arguments.
     let params = &impl_block.generics.params;
     let self_ty = &*impl_block.self_ty;
@@ -77,12 +78,19 @@ fn expand(mut impl_block: syn::ItemImpl) -> Result<TokenStream2> {
         });
 
         parse_quote! {
-            fn set(args: &mut Args, styles: &mut StyleMap) -> TypResult<()> {
+            fn set(args: &mut Args) -> TypResult<StyleMap> {
+                let mut styles = StyleMap::new();
                 #(#sets)*
-                Ok(())
+                Ok(styles)
             }
         }
     });
+
+    let showable = match stream.to_string().as_str() {
+        "" => false,
+        "showable" => true,
+        _ => return Err(Error::new(stream.span(), "unrecognized argument")),
+    };
 
     // Put everything into a module with a hopefully unique type to isolate
     // it from the outside.
@@ -92,16 +100,14 @@ fn expand(mut impl_block: syn::ItemImpl) -> Result<TokenStream2> {
             use std::any::TypeId;
             use std::marker::PhantomData;
             use once_cell::sync::Lazy;
-            use crate::eval::{Construct, Nonfolding, Property, Set};
+            use crate::eval;
             use super::*;
 
             #impl_block
 
-            impl<#params> Construct for #self_ty {
+            impl<#params> eval::Node for #self_ty {
+                const SHOWABLE: bool = #showable;
                 #construct
-            }
-
-            impl<#params> Set for #self_ty {
                 #set
             }
 
@@ -206,8 +212,8 @@ fn process_const(
         ));
     }
 
-    let nonfolding = fold.is_none().then(|| {
-        quote! { impl<#params> Nonfolding for #key {} }
+    let referencable = fold.is_none().then(|| {
+        quote! { impl<#params> eval::Referencable for #key {} }
     });
 
     // Generate the module code.
@@ -226,7 +232,7 @@ fn process_const(
                 }
             }
 
-            impl<#params> Property for #key {
+            impl<#params> eval::Key for #key {
                 type Value = #value_ty;
 
                 const NAME: &'static str = #name;
@@ -247,7 +253,7 @@ fn process_const(
                 #fold
             }
 
-            #nonfolding
+            #referencable
         }
     };
 

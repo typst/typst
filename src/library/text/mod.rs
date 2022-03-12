@@ -25,7 +25,7 @@ use crate::util::EcoString;
 #[derive(Hash)]
 pub struct TextNode;
 
-#[class]
+#[node]
 impl TextNode {
     /// A prioritized sequence of font families.
     #[variadic]
@@ -122,7 +122,7 @@ impl TextNode {
 #[derive(Debug, Hash)]
 pub struct StrongNode(pub Content);
 
-#[class]
+#[node(showable)]
 impl StrongNode {
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         Ok(Content::show(Self(args.expect("body")?)))
@@ -141,7 +141,7 @@ impl Show for StrongNode {
 #[derive(Debug, Hash)]
 pub struct EmphNode(pub Content);
 
-#[class]
+#[node(showable)]
 impl EmphNode {
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         Ok(Content::show(Self(args.expect("body")?)))

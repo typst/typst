@@ -900,16 +900,14 @@ node! {
 }
 
 impl SetExpr {
-    /// The class to set style properties for.
-    pub fn class(&self) -> Ident {
-        self.0.cast_first_child().expect("set expression is missing class")
+    /// The function to set style properties for.
+    pub fn target(&self) -> Ident {
+        self.0.cast_first_child().expect("set rule is missing target")
     }
 
     /// The style properties to set.
     pub fn args(&self) -> CallArgs {
-        self.0
-            .cast_first_child()
-            .expect("set expression is missing argument list")
+        self.0.cast_last_child().expect("set rule is missing argument list")
     }
 }
 
@@ -919,14 +917,14 @@ node! {
 }
 
 impl ShowExpr {
-    /// The class to set the show rule for.
-    pub fn class(&self) -> Ident {
-        self.0.cast_first_child().expect("show expression is missing class")
+    /// The function to customize with this show rule.
+    pub fn target(&self) -> Ident {
+        self.0.cast_first_child().expect("show rule is missing target")
     }
 
     /// The closure that defines the rule.
-    pub fn closure(&self) -> ClosureExpr {
-        self.0.cast_first_child().expect("show expression is missing closure")
+    pub fn recipe(&self) -> ClosureExpr {
+        self.0.cast_last_child().expect("show rule is missing closure")
     }
 }
 

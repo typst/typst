@@ -10,7 +10,7 @@ pub struct AlignNode {
     pub child: LayoutNode,
 }
 
-#[class]
+#[node]
 impl AlignNode {
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         let aligns: Spec<_> = args.find()?.unwrap_or_default();

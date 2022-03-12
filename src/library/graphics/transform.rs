@@ -19,7 +19,7 @@ pub type RotateNode = TransformNode<ROTATE>;
 /// Transform a node by scaling it without affecting layout.
 pub type ScaleNode = TransformNode<SCALE>;
 
-#[class]
+#[node]
 impl<const T: TransformKind> TransformNode<T> {
     /// The origin of the transformation.
     pub const ORIGIN: Spec<Option<Align>> = Spec::default();
