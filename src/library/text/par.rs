@@ -135,21 +135,16 @@ impl Layout for ParNode {
     ) -> TypResult<Vec<Arc<Frame>>> {
         // Collect all text into one string and perform BiDi analysis.
         let text = self.collect_text();
-        let bidi = BidiInfo::new(&text, match styles.get(Self::DIR) {
-            Dir::LTR => Some(Level::ltr()),
-            Dir::RTL => Some(Level::rtl()),
-            _ => None,
-        });
 
         // Prepare paragraph layout by building a representation on which we can
         // do line breaking without layouting each and every line from scratch.
-        let par = ParLayout::new(ctx, self, bidi, regions, &styles)?;
+        let p = prepare(ctx, self, &text, regions, &styles)?;
 
         // Break the paragraph into lines.
-        let lines = break_into_lines(&mut ctx.fonts, &par, regions.first.x, styles);
+        let lines = linebreak(&p, &mut ctx.fonts, regions.first.x, styles);
 
         // Stack the lines into one frame per region.
-        Ok(stack_lines(&ctx.fonts, lines, regions, styles))
+        Ok(stack(&lines, &ctx.fonts, regions, styles))
     }
 }
 
@@ -201,9 +196,16 @@ impl LinebreakNode {
     }
 }
 
+/// Range of a substring of text.
+type Range = std::ops::Range<usize>;
+
 /// A paragraph representation in which children are already layouted and text
 /// is already preshaped.
-struct ParLayout<'a> {
+///
+/// In many cases, we can directly reuse these results when constructing a line.
+/// Only when a line break falls onto a text index that is not safe-to-break per
+/// rustybuzz, we have to reshape that portion.
+struct Preparation<'a> {
     /// Bidirectional text embedding levels for the paragraph.
     bidi: BidiInfo<'a>,
     /// Spacing, separated text runs and layouted nodes.
@@ -212,8 +214,12 @@ struct ParLayout<'a> {
     ranges: Vec<Range>,
 }
 
-/// Range of a substring of text.
-type Range = std::ops::Range<usize>;
+impl Preparation<'_> {
+    /// Find the index of the item whose range contains the `text_offset`.
+    fn find(&self, text_offset: usize) -> Option<usize> {
+        self.ranges.binary_search_by(|r| r.locate(text_offset)).ok()
+    }
+}
 
 /// A prepared item in a paragraph layout.
 enum ParItem<'a> {
@@ -227,177 +233,16 @@ enum ParItem<'a> {
     Frame(Frame),
 }
 
-impl<'a> ParLayout<'a> {
-    /// Prepare initial shaped text and layouted children.
-    fn new(
-        ctx: &mut Context,
-        par: &'a ParNode,
-        bidi: BidiInfo<'a>,
-        regions: &Regions,
-        styles: &'a StyleChain<'a>,
-    ) -> TypResult<Self> {
-        let mut items = vec![];
-        let mut ranges = vec![];
-
-        // Layout the children and collect them into items.
-        for (range, (child, map)) in par.ranges().zip(par.0.iter()) {
-            let styles = map.chain(styles);
-            match child {
-                ParChild::Text(_) => {
-                    // TODO: Also split by language and script.
-                    let mut cursor = range.start;
-                    for (level, count) in bidi.levels[range].group() {
-                        let start = cursor;
-                        cursor += count;
-                        let subrange = start .. cursor;
-                        let text = &bidi.text[subrange.clone()];
-                        let dir = if level.is_ltr() { Dir::LTR } else { Dir::RTL };
-                        let shaped = shape(&mut ctx.fonts, text, styles, dir);
-                        items.push(ParItem::Text(shaped));
-                        ranges.push(subrange);
-                    }
-                }
-                ParChild::Spacing(spacing) => match *spacing {
-                    Spacing::Linear(v) => {
-                        let resolved = v.resolve(regions.first.x);
-                        items.push(ParItem::Absolute(resolved));
-                        ranges.push(range);
-                    }
-                    Spacing::Fractional(v) => {
-                        items.push(ParItem::Fractional(v));
-                        ranges.push(range);
-                    }
-                },
-                ParChild::Node(node) => {
-                    let size = Size::new(regions.first.x, regions.base.y);
-                    let pod = Regions::one(size, regions.base, Spec::splat(false));
-                    let frame = node.layout(ctx, &pod, styles)?.remove(0);
-                    items.push(ParItem::Frame(Arc::take(frame)));
-                    ranges.push(range);
-                }
-            }
-        }
-
-        Ok(Self { bidi, items, ranges })
-    }
-
-    /// Create a line which spans the given range.
-    fn line(
-        &'a self,
-        fonts: &mut FontStore,
-        mut range: Range,
-        mandatory: bool,
-        hyphen: bool,
-    ) -> LineLayout<'a> {
-        // Find the items which bound the text range.
-        let last_idx = self.find(range.end.saturating_sub(1)).unwrap();
-        let first_idx = if range.is_empty() {
-            last_idx
-        } else {
-            self.find(range.start).unwrap()
-        };
-
-        // Slice out the relevant items and ranges.
-        let mut items = &self.items[first_idx ..= last_idx];
-        let ranges = &self.ranges[first_idx ..= last_idx];
-
-        // Reshape the last item if it's split in half.
-        let mut last = None;
-        if let Some((ParItem::Text(shaped), rest)) = items.split_last() {
-            // Compute the range we want to shape, trimming whitespace at the
-            // end of the line.
-            let base = self.ranges[last_idx].start;
-            let start = range.start.max(base);
-            let end = start + self.bidi.text[start .. range.end].trim_end().len();
-            let shifted = start - base .. end - base;
-
-            // Reshape if necessary.
-            if shifted.len() < shaped.text.len() {
-                // If start == end and the rest is empty, then we have an empty
-                // line. To make that line have the appropriate height, we shape the
-                // empty string.
-                if !shifted.is_empty() || rest.is_empty() {
-                    // Reshape that part.
-                    let mut reshaped = shaped.reshape(fonts, shifted);
-                    if hyphen {
-                        reshaped.push_hyphen(fonts);
-                    }
-                    last = Some(ParItem::Text(reshaped));
-                }
-
-                items = rest;
-                range.end = end;
-            }
-        }
-
-        // Reshape the start item if it's split in half.
-        let mut first = None;
-        if let Some((ParItem::Text(shaped), rest)) = items.split_first() {
-            // Compute the range we want to shape.
-            let Range { start: base, end: first_end } = self.ranges[first_idx];
-            let start = range.start;
-            let end = range.end.min(first_end);
-            let shifted = start - base .. end - base;
-
-            // Reshape if necessary.
-            if shifted.len() < shaped.text.len() {
-                if !shifted.is_empty() {
-                    let reshaped = shaped.reshape(fonts, shifted);
-                    first = Some(ParItem::Text(reshaped));
-                }
-
-                items = rest;
-            }
-        }
-
-        let mut width = Length::zero();
-        let mut top = Length::zero();
-        let mut bottom = Length::zero();
-        let mut fr = Fractional::zero();
-
-        // Measure the size of the line.
-        for item in first.iter().chain(items).chain(&last) {
-            match item {
-                ParItem::Absolute(v) => width += *v,
-                ParItem::Fractional(v) => fr += *v,
-                ParItem::Text(shaped) => {
-                    width += shaped.size.x;
-                    top.set_max(shaped.baseline);
-                    bottom.set_max(shaped.size.y - shaped.baseline);
-                }
-                ParItem::Frame(frame) => {
-                    width += frame.size.x;
-                    top.set_max(frame.baseline());
-                    bottom.set_max(frame.size.y - frame.baseline());
-                }
-            }
-        }
-
-        LineLayout {
-            bidi: &self.bidi,
-            range,
-            first,
-            items,
-            last,
-            ranges,
-            size: Size::new(width, top + bottom),
-            baseline: top,
-            fr,
-            mandatory,
-        }
-    }
-
-
-    /// Find the index of the item whose range contains the `text_offset`.
-    fn find(&self, text_offset: usize) -> Option<usize> {
-        self.ranges.binary_search_by(|r| r.locate(text_offset)).ok()
-    }
-}
-
-/// A lightweight representation of a line that spans a specific range in a
-/// paragraph's text. This type enables you to cheaply measure the size of a
-/// line in a range before comitting to building the line's frame.
-struct LineLayout<'a> {
+/// A layouted line, consisting of a sequence of layouted paragraph items that
+/// are mostly borrowed from the preparation phase. This type enables you to
+/// measure the size of a line in a range before comitting to building the
+/// line's frame.
+///
+/// At most two paragraph items must be created individually for this line: The
+/// first and last one since they may be broken apart by the start or end of the
+/// line, respectively. But even those can partially reuse previous results when
+/// the break index is safe-to-break per rustybuzz.
+struct Line<'a> {
     /// Bidi information about the paragraph.
     bidi: &'a BidiInfo<'a>,
     /// The range the line spans in the paragraph.
@@ -423,102 +268,10 @@ struct LineLayout<'a> {
     mandatory: bool,
 }
 
-impl<'a> LineLayout<'a> {
-    /// Build the line's frame.
-    fn build(
-        &self,
-        fonts: &FontStore,
-        width: Length,
-        align: Align,
-        justify: bool,
-    ) -> Frame {
-        let size = Size::new(width, self.size.y);
-
-        let mut remaining = width - self.size.x;
-        let mut offset = Length::zero();
-        let mut output = Frame::new(size);
-        output.baseline = Some(self.baseline);
-
-        let mut justification = Length::zero();
-        if justify
-            && !self.mandatory
-            && self.range.end < self.bidi.text.len()
-            && self.fr.is_zero()
-        {
-            justification = remaining / self.spaces() as f64;
-            remaining = Length::zero();
-        }
-
-        for item in self.reordered() {
-            let mut position = |frame: Frame| {
-                let x = offset + align.resolve(remaining);
-                let y = self.baseline - frame.baseline();
-                offset += frame.size.x;
-                output.merge_frame(Point::new(x, y), frame);
-            };
-
-            match item {
-                ParItem::Absolute(v) => offset += *v,
-                ParItem::Fractional(v) => offset += v.resolve(self.fr, remaining),
-                ParItem::Text(shaped) => position(shaped.build(fonts, justification)),
-                ParItem::Frame(frame) => position(frame.clone()),
-            }
-        }
-
-        output
-    }
-
-    /// The number of spaces in the line.
-    fn spaces(&self) -> usize {
-        self.shapeds().map(ShapedText::spaces).sum()
-    }
-
-    /// Iterate through the line's items in visual order.
-    fn reordered(&self) -> impl Iterator<Item = &ParItem<'a>> {
-        // The bidi crate doesn't like empty lines.
-        let (levels, runs) = if !self.range.is_empty() {
-            // Find the paragraph that contains the line.
-            let para = self
-                .bidi
-                .paragraphs
-                .iter()
-                .find(|para| para.range.contains(&self.range.start))
-                .unwrap();
-
-            // Compute the reordered ranges in visual order (left to right).
-            self.bidi.visual_runs(para, self.range.clone())
-        } else {
-            (vec![], vec![])
-        };
-
-        runs.into_iter()
-            .flat_map(move |run| {
-                let first_idx = self.find(run.start).unwrap();
-                let last_idx = self.find(run.end - 1).unwrap();
-                let range = first_idx ..= last_idx;
-
-                // Provide the items forwards or backwards depending on the run's
-                // direction.
-                if levels[run.start].is_ltr() {
-                    Either::Left(range)
-                } else {
-                    Either::Right(range.rev())
-                }
-            })
-            .map(move |idx| self.get(idx).unwrap())
-    }
-
+impl<'a> Line<'a> {
     /// Iterate over the line's items.
     fn items(&self) -> impl Iterator<Item = &ParItem<'a>> {
         self.first.iter().chain(self.items).chain(&self.last)
-    }
-
-    /// Iterate through the line's text items.
-    fn shapeds(&self) -> impl Iterator<Item = &ShapedText<'a>> {
-        self.items().filter_map(|item| match item {
-            ParItem::Text(shaped) => Some(shaped),
-            _ => None,
-        })
     }
 
     /// Find the index of the item whose range contains the `text_offset`.
@@ -532,43 +285,103 @@ impl<'a> LineLayout<'a> {
     }
 }
 
+/// Prepare paragraph layout by shaping the whole paragraph and layouting all
+/// contained inline-level nodes.
+fn prepare<'a>(
+    ctx: &mut Context,
+    par: &'a ParNode,
+    text: &'a str,
+    regions: &Regions,
+    styles: &'a StyleChain,
+) -> TypResult<Preparation<'a>> {
+    let bidi = BidiInfo::new(&text, match styles.get(ParNode::DIR) {
+        Dir::LTR => Some(Level::ltr()),
+        Dir::RTL => Some(Level::rtl()),
+        _ => None,
+    });
+
+    let mut items = vec![];
+    let mut ranges = vec![];
+
+    // Layout the children and collect them into items.
+    for (range, (child, map)) in par.ranges().zip(par.0.iter()) {
+        let styles = map.chain(styles);
+        match child {
+            ParChild::Text(_) => {
+                // TODO: Also split by language and script.
+                let mut cursor = range.start;
+                for (level, count) in bidi.levels[range].group() {
+                    let start = cursor;
+                    cursor += count;
+                    let subrange = start .. cursor;
+                    let text = &bidi.text[subrange.clone()];
+                    let dir = if level.is_ltr() { Dir::LTR } else { Dir::RTL };
+                    let shaped = shape(&mut ctx.fonts, text, styles, dir);
+                    items.push(ParItem::Text(shaped));
+                    ranges.push(subrange);
+                }
+            }
+            ParChild::Spacing(spacing) => match *spacing {
+                Spacing::Linear(v) => {
+                    let resolved = v.resolve(regions.first.x);
+                    items.push(ParItem::Absolute(resolved));
+                    ranges.push(range);
+                }
+                Spacing::Fractional(v) => {
+                    items.push(ParItem::Fractional(v));
+                    ranges.push(range);
+                }
+            },
+            ParChild::Node(node) => {
+                let size = Size::new(regions.first.x, regions.base.y);
+                let pod = Regions::one(size, regions.base, Spec::splat(false));
+                let frame = node.layout(ctx, &pod, styles)?.remove(0);
+                items.push(ParItem::Frame(Arc::take(frame)));
+                ranges.push(range);
+            }
+        }
+    }
+
+    Ok(Preparation { bidi, items, ranges })
+}
+
 /// Perform line breaking.
-fn break_into_lines<'a>(
+fn linebreak<'a>(
+    p: &'a Preparation<'a>,
     fonts: &mut FontStore,
-    par: &'a ParLayout<'a>,
     width: Length,
     styles: StyleChain,
-) -> Vec<LineLayout<'a>> {
+) -> Vec<Line<'a>> {
     // The already determined lines and the current line attempt.
     let mut lines = vec![];
     let mut start = 0;
     let mut last = None;
 
     // Find suitable line breaks.
-    for (end, mandatory, hyphen) in breakpoints(&par.bidi.text, styles) {
+    for (end, mandatory, hyphen) in breakpoints(&p.bidi.text, styles) {
         // Compute the line and its size.
-        let mut line = par.line(fonts, start .. end, mandatory, hyphen);
+        let mut attempt = line(p, fonts, start .. end, mandatory, hyphen);
 
         // If the line doesn't fit anymore, we push the last fitting attempt
         // into the stack and rebuild the line from its end. The resulting
         // line cannot be broken up further.
-        if !width.fits(line.size.x) {
-            if let Some((last_line, last_end)) = last.take() {
-                lines.push(last_line);
+        if !width.fits(attempt.size.x) {
+            if let Some((last_attempt, last_end)) = last.take() {
+                lines.push(last_attempt);
                 start = last_end;
-                line = par.line(fonts, start .. end, mandatory, hyphen);
+                attempt = line(p, fonts, start .. end, mandatory, hyphen);
             }
         }
 
         // Finish the current line if there is a mandatory line break (i.e.
         // due to "\n") or if the line doesn't fit horizontally already
         // since then no shorter line will be possible.
-        if mandatory || !width.fits(line.size.x) {
-            lines.push(line);
+        if mandatory || !width.fits(attempt.size.x) {
+            lines.push(attempt);
             start = end;
             last = None;
         } else {
-            last = Some((line, end));
+            last = Some((attempt, end));
         }
     }
 
@@ -580,6 +393,10 @@ fn break_into_lines<'a>(
 }
 
 /// Determine all possible points in the text where lines can broken.
+///
+/// Returns for each breakpoint the text index, whether the break is mandatory
+/// (after `\n`) and whether a hyphen is required (when breaking inside of a
+/// word).
 fn breakpoints<'a>(
     text: &'a str,
     styles: StyleChain,
@@ -620,10 +437,116 @@ fn breakpoints<'a>(
     }
 }
 
-/// Combine the lines into one frame per region.
-fn stack_lines(
+/// Create a line which spans the given range.
+fn line<'a>(
+    p: &'a Preparation,
+    fonts: &mut FontStore,
+    mut range: Range,
+    mandatory: bool,
+    hyphen: bool,
+) -> Line<'a> {
+    // Find the items which bound the text range.
+    let last_idx = p.find(range.end.saturating_sub(1)).unwrap();
+    let first_idx = if range.is_empty() {
+        last_idx
+    } else {
+        p.find(range.start).unwrap()
+    };
+
+    // Slice out the relevant items and ranges.
+    let mut items = &p.items[first_idx ..= last_idx];
+    let ranges = &p.ranges[first_idx ..= last_idx];
+
+    // Reshape the last item if it's split in half.
+    let mut last = None;
+    if let Some((ParItem::Text(shaped), rest)) = items.split_last() {
+        // Compute the range we want to shape, trimming whitespace at the
+        // end of the line.
+        let base = p.ranges[last_idx].start;
+        let start = range.start.max(base);
+        let end = start + p.bidi.text[start .. range.end].trim_end().len();
+        let shifted = start - base .. end - base;
+
+        // Reshape if necessary.
+        if shifted.len() < shaped.text.len() {
+            // If start == end and the rest is empty, then we have an empty
+            // line. To make that line have the appropriate height, we shape the
+            // empty string.
+            if !shifted.is_empty() || rest.is_empty() {
+                // Reshape that part.
+                let mut reshaped = shaped.reshape(fonts, shifted);
+                if hyphen {
+                    reshaped.push_hyphen(fonts);
+                }
+                last = Some(ParItem::Text(reshaped));
+            }
+
+            items = rest;
+            range.end = end;
+        }
+    }
+
+    // Reshape the start item if it's split in half.
+    let mut first = None;
+    if let Some((ParItem::Text(shaped), rest)) = items.split_first() {
+        // Compute the range we want to shape.
+        let Range { start: base, end: first_end } = p.ranges[first_idx];
+        let start = range.start;
+        let end = range.end.min(first_end);
+        let shifted = start - base .. end - base;
+
+        // Reshape if necessary.
+        if shifted.len() < shaped.text.len() {
+            if !shifted.is_empty() {
+                let reshaped = shaped.reshape(fonts, shifted);
+                first = Some(ParItem::Text(reshaped));
+            }
+
+            items = rest;
+        }
+    }
+
+    let mut width = Length::zero();
+    let mut top = Length::zero();
+    let mut bottom = Length::zero();
+    let mut fr = Fractional::zero();
+
+    // Measure the size of the line.
+    for item in first.iter().chain(items).chain(&last) {
+        match item {
+            ParItem::Absolute(v) => width += *v,
+            ParItem::Fractional(v) => fr += *v,
+            ParItem::Text(shaped) => {
+                width += shaped.size.x;
+                top.set_max(shaped.baseline);
+                bottom.set_max(shaped.size.y - shaped.baseline);
+            }
+            ParItem::Frame(frame) => {
+                width += frame.size.x;
+                top.set_max(frame.baseline());
+                bottom.set_max(frame.size.y - frame.baseline());
+            }
+        }
+    }
+
+    Line {
+        bidi: &p.bidi,
+        range,
+        first,
+        items,
+        last,
+        ranges,
+        size: Size::new(width, top + bottom),
+        baseline: top,
+        fr,
+        mandatory,
+    }
+}
+
+/// Combine layouted lines into one frame per region.
+fn stack(
+    lines: &[Line],
     fonts: &FontStore,
-    lines: Vec<LineLayout>,
     regions: &Regions,
     styles: StyleChain,
 ) -> Vec<Arc<Frame>> {
@@ -658,7 +581,7 @@ fn stack_lines(
             output.size.y += leading;
         }
 
-        let frame = line.build(fonts, width, align, justify);
+        let frame = commit(line, fonts, width, align, justify);
         let pos = Point::with_y(output.size.y);
         output.size.y += frame.size.y;
         output.merge_frame(pos, frame);
@@ -669,4 +592,90 @@ fn stack_lines(
 
     finished.push(Arc::new(output));
     finished
+}
+
+/// Commit to a line and build its frame.
+fn commit(
+    line: &Line,
+    fonts: &FontStore,
+    width: Length,
+    align: Align,
+    justify: bool,
+) -> Frame {
+    let size = Size::new(width, line.size.y);
+
+    let mut remaining = width - line.size.x;
+    let mut offset = Length::zero();
+    let mut output = Frame::new(size);
+    output.baseline = Some(line.baseline);
+
+    let mut justification = Length::zero();
+    if justify
+        && !line.mandatory
+        && line.range.end < line.bidi.text.len()
+        && line.fr.is_zero()
+    {
+        let mut spaces = 0;
+        for item in line.items() {
+            if let ParItem::Text(shaped) = item {
+                spaces += shaped.spaces();
+            }
+        }
+
+        justification = remaining / spaces as f64;
+        remaining = Length::zero();
+    }
+
+    for item in reorder(line) {
+        let mut position = |frame: Frame| {
+            let x = offset + align.resolve(remaining);
+            let y = line.baseline - frame.baseline();
+            offset += frame.size.x;
+            output.merge_frame(Point::new(x, y), frame);
+        };
+
+        match item {
+            ParItem::Absolute(v) => offset += *v,
+            ParItem::Fractional(v) => offset += v.resolve(line.fr, remaining),
+            ParItem::Text(shaped) => position(shaped.build(fonts, justification)),
+            ParItem::Frame(frame) => position(frame.clone()),
+        }
+    }
+
+    output
+}
+
+/// Iterate through a line's items in visual order.
+fn reorder<'a>(line: &'a Line<'a>) -> impl Iterator<Item = &'a ParItem<'a>> {
+    // The bidi crate doesn't like empty lines.
+    let (levels, runs) = if !line.range.is_empty() {
+        // Find the paragraph that contains the line.
+        let para = line
+            .bidi
+            .paragraphs
+            .iter()
+            .find(|para| para.range.contains(&line.range.start))
+            .unwrap();
+
+        // Compute the reordered ranges in visual order (left to right).
+        line.bidi.visual_runs(para, line.range.clone())
+    } else {
+        (vec![], vec![])
+    };
+
+    runs.into_iter()
+        .flat_map(move |run| {
+            let first_idx = line.find(run.start).unwrap();
+            let last_idx = line.find(run.end - 1).unwrap();
+            let range = first_idx ..= last_idx;
+
+            // Provide the items forwards or backwards depending on the run's
+            // direction.
+            if levels[run.start].is_ltr() {
+                Either::Left(range)
+            } else {
+                Either::Right(range.rev())
+            }
+        })
+        .map(move |idx| line.get(idx).unwrap())
 }
