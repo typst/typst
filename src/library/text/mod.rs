@@ -56,6 +56,10 @@ impl TextNode {
     pub const SIZE: Linear = Length::pt(11.0).into();
     /// The amount of space that should be added between characters.
     pub const TRACKING: Em = Em::zero();
+    /// The ratio by which spaces should be stretched.
+    pub const SPACING: Relative = Relative::one();
+    /// Whether glyphs can hang over into the margin.
+    pub const OVERHANG: bool = true;
     /// The top end of the text bounding box.
     pub const TOP_EDGE: VerticalFontMetric = VerticalFontMetric::CapHeight;
     /// The bottom end of the text bounding box.

@@ -539,6 +539,11 @@ impl<T> StyleVec<T> {
         self.items.is_empty()
     }
 
+    /// Number of items in the sequence.
+    pub fn len(&self) -> usize {
+        self.items.len()
+    }
+
     /// Iterate over the contained items.
     pub fn items(&self) -> std::slice::Iter<'_, T> {
         self.items.iter()

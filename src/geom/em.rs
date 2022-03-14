@@ -108,3 +108,9 @@ assign_impl!(Em += Em);
 assign_impl!(Em -= Em);
 assign_impl!(Em *= f64);
 assign_impl!(Em /= f64);
+
+impl Sum for Em {
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        Self(iter.map(|s| s.0).sum())
+    }
+}

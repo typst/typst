@@ -43,6 +43,11 @@ impl Relative {
         self.0 == 0.0
     }
 
+    /// Whether the ratio is one.
+    pub fn is_one(self) -> bool {
+        self.0 == 1.0
+    }
+
     /// The absolute value of the this relative.
     pub fn abs(self) -> Self {
         Self::new(self.get().abs())

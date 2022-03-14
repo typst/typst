@@ -491,6 +491,17 @@ impl<T> Smart<T> {
             Self::Custom(x) => x,
         }
     }
+
+    /// Returns the contained custom value or computes a default value.
+    pub fn unwrap_or_else<F>(self, f: F) -> T
+    where
+        F: FnOnce() -> T,
+    {
+        match self {
+            Self::Auto => f(),
+            Self::Custom(x) => x,
+        }
+    }
 }
 
 impl<T> Default for Smart<T> {

@@ -39,14 +39,21 @@ pub struct ShapedGlyph {
     pub x_advance: Em,
     /// The horizontal offset of the glyph.
     pub x_offset: Em,
-    /// The start index of the glyph in the source text.
-    pub text_index: usize,
+    /// A value that is the same for all glyphs belong to one cluster.
+    pub cluster: usize,
     /// Whether splitting the shaping result before this glyph would yield the
     /// same results as shaping the parts to both sides of `text_index`
     /// separately.
     pub safe_to_break: bool,
-    /// Whether this glyph represents a space.
-    pub is_space: bool,
+    /// The first char in this glyph's cluster.
+    pub c: char,
+}
+
+impl ShapedGlyph {
+    /// Whether the glyph is a justifiable space.
+    pub fn is_space(&self) -> bool {
+        self.c == ' '
+    }
 }
 
 /// A side you can go toward.
@@ -77,7 +84,7 @@ impl<'a> ShapedText<'a> {
                 .map(|glyph| Glyph {
                     id: glyph.glyph_id,
                     x_advance: glyph.x_advance
-                        + if glyph.is_space {
+                        + if glyph.is_space() {
                             frame.size.x += justification;
                             Em::from_length(justification, size)
                         } else {
@@ -110,7 +117,17 @@ impl<'a> ShapedText<'a> {
 
     /// How many spaces the text contains.
     pub fn spaces(&self) -> usize {
-        self.glyphs.iter().filter(|g| g.is_space).count()
+        self.glyphs.iter().filter(|g| g.is_space()).count()
+    }
+
+    /// The width of the spaces in the text.
+    pub fn stretch(&self) -> Length {
+        self.glyphs
+            .iter()
+            .filter(|g| g.is_space())
+            .map(|g| g.x_advance)
+            .sum::<Em>()
+            .resolve(self.styles.get(TextNode::SIZE).abs)
     }
 
     /// Reshape a range of the shaped text, reusing information from this
@@ -121,43 +138,40 @@ impl<'a> ShapedText<'a> {
         text_range: Range<usize>,
     ) -> ShapedText<'a> {
         if let Some(glyphs) = self.slice_safe_to_break(text_range.clone()) {
-            let (size, baseline) = measure(fonts, glyphs, self.styles);
+            let (size, baseline) = measure(fonts, &glyphs, self.styles);
             Self {
                 text: Cow::Borrowed(&self.text[text_range]),
                 dir: self.dir,
-                styles: self.styles.clone(),
+                styles: self.styles,
                 size,
                 baseline,
                 glyphs: Cow::Borrowed(glyphs),
             }
         } else {
-            shape(fonts, &self.text[text_range], self.styles.clone(), self.dir)
+            shape(fonts, &self.text[text_range], self.styles, self.dir)
         }
     }
 
     /// Push a hyphen to end of the text.
     pub fn push_hyphen(&mut self, fonts: &mut FontStore) {
-        // When there are no glyphs, we just use the vertical metrics of the
-        // first available font.
         let size = self.styles.get(TextNode::SIZE).abs;
         let variant = variant(self.styles);
         families(self.styles).find_map(|family| {
-            // Allow hyphens to overhang a bit.
-            const INSET: f64 = 0.4;
             let face_id = fonts.select(family, variant)?;
             let face = fonts.get(face_id);
             let ttf = face.ttf();
             let glyph_id = ttf.glyph_index('-')?;
             let x_advance = face.to_em(ttf.glyph_hor_advance(glyph_id)?);
-            self.size.x += INSET * x_advance.resolve(size);
+            let cluster = self.glyphs.last().map(|g| g.cluster).unwrap_or_default();
+            self.size.x += x_advance.resolve(size);
             self.glyphs.to_mut().push(ShapedGlyph {
                 face_id,
                 glyph_id: glyph_id.0,
                 x_advance,
                 x_offset: Em::zero(),
-                text_index: self.text.len(),
+                cluster,
                 safe_to_break: true,
-                is_space: false,
+                c: '-',
             });
             Some(())
         });
@@ -193,7 +207,7 @@ impl<'a> ShapedText<'a> {
         let mut idx = self
             .glyphs
             .binary_search_by(|g| {
-                let ordering = g.text_index.cmp(&text_index);
+                let ordering = g.cluster.cmp(&text_index);
                 if ltr { ordering } else { ordering.reverse() }
             })
             .ok()?;
@@ -205,7 +219,7 @@ impl<'a> ShapedText<'a> {
 
         // Search for the outermost glyph with the text index.
         while let Some(next) = next(idx, 1) {
-            if self.glyphs.get(next).map_or(true, |g| g.text_index != text_index) {
+            if self.glyphs.get(next).map_or(true, |g| g.cluster != text_index) {
                 break;
             }
             idx = next;
@@ -249,7 +263,12 @@ pub fn shape<'a>(
         );
     }
 
-    track(&mut glyphs, styles.get(TextNode::TRACKING));
+    track_and_space(
+        &mut glyphs,
+        styles.get(TextNode::TRACKING),
+        styles.get(TextNode::SPACING),
+    );
+
     let (size, baseline) = measure(fonts, &glyphs, styles);
 
     ShapedText {
@@ -456,9 +475,9 @@ fn shape_segment<'a>(
                 glyph_id: info.glyph_id as u16,
                 x_advance: face.to_em(pos[i].x_advance),
                 x_offset: face.to_em(pos[i].x_offset),
-                text_index: base + cluster,
+                cluster: base + cluster,
                 safe_to_break: !info.unsafe_to_break(),
-                is_space: text[cluster ..].chars().next() == Some(' '),
+                c: text[cluster ..].chars().next().unwrap(),
             });
         } else {
             // Determine the source text range for the tofu sequence.
@@ -518,18 +537,19 @@ fn shape_segment<'a>(
     }
 }
 
-/// Apply tracking to a slice of shaped glyphs.
-fn track(glyphs: &mut [ShapedGlyph], tracking: Em) {
-    if tracking.is_zero() {
+/// Apply tracking and spacing to a slice of shaped glyphs.
+fn track_and_space(glyphs: &mut [ShapedGlyph], tracking: Em, spacing: Relative) {
+    if tracking.is_zero() && spacing.is_one() {
         return;
     }
 
     let mut glyphs = glyphs.iter_mut().peekable();
     while let Some(glyph) = glyphs.next() {
-        if glyphs
-            .peek()
-            .map_or(false, |next| glyph.text_index != next.text_index)
-        {
+        if glyph.is_space() {
+            glyph.x_advance *= spacing.get();
+        }
+
+        if glyphs.peek().map_or(false, |next| glyph.cluster != next.cluster) {
             glyph.x_advance += tracking;
         }
     }

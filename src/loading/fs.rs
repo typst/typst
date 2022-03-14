@@ -154,6 +154,8 @@ mod tests {
         paths.sort();
 
         assert_eq!(paths, [
+            Path::new("fonts/CMU-Serif-Bold.ttf"),
+            Path::new("fonts/CMU-Serif-Regular.ttf"),
             Path::new("fonts/IBMPlexMono-Regular.ttf"),
             Path::new("fonts/IBMPlexSans-Bold.ttf"),
             Path::new("fonts/IBMPlexSans-BoldItalic.ttf"),

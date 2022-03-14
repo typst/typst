@@ -8,6 +8,7 @@
 #let x = "\"hi\""
 
 // Should output `"hi" => "bye"`.
+#set text(overhang: false)
 #x => "bye"
 
 ---
