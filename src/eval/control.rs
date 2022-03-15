@@ -1,5 +1,5 @@
 use super::{ops, EvalResult, Value};
-use crate::diag::{At, Error, TypError};
+use crate::diag::{At, TypError};
 use crate::syntax::Span;
 
 /// A control flow event that occurred during evaluation.
@@ -25,12 +25,14 @@ impl From<TypError> for Control {
 impl From<Control> for TypError {
     fn from(control: Control) -> Self {
         match control {
-            Control::Break(_, span) => Error::boxed(span, "cannot break outside of loop"),
+            Control::Break(_, span) => {
+                error!(span, "cannot break outside of loop")
+            }
             Control::Continue(_, span) => {
-                Error::boxed(span, "cannot continue outside of loop")
+                error!(span, "cannot continue outside of loop")
             }
             Control::Return(_, _, span) => {
-                Error::boxed(span, "cannot return outside of function")
+                error!(span, "cannot return outside of function")
             }
             Control::Err(e) => e,
         }

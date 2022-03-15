@@ -7,7 +7,7 @@ pub use std::sync::Arc;
 
 pub use typst_macros::node;
 
-pub use crate::diag::{with_alternative, At, StrResult, TypResult};
+pub use crate::diag::{with_alternative, At, Error, StrResult, TypError, TypResult};
 pub use crate::eval::{
     Arg, Args, Array, Cast, Content, Dict, Func, Key, Layout, LayoutNode, Merge, Node,
     Regions, Scope, Show, ShowNode, Smart, StyleChain, StyleMap, StyleVec, Value,

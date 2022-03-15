@@ -4,14 +4,23 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::syntax::{Span, Spanned};
 
-/// Early-return with a vec-boxed [`Error`].
+/// Early-return with a [`TypError`].
+#[macro_export]
 macro_rules! bail {
+    ($($tts:tt)*) => {
+        return Err($crate::error!($($tts)*).into())
+    };
+}
+
+/// Construct a [`TypError`].
+#[macro_export]
+macro_rules! error {
     ($span:expr, $message:expr $(,)?) => {
-        return Err($crate::diag::Error::boxed($span, $message).into())
+        Box::new(vec![$crate::diag::Error::new($span, $message)])
     };
 
     ($span:expr, $fmt:expr, $($arg:expr),+ $(,)?) => {
-        bail!($span, format!($fmt, $($arg),+))
+        $crate::error!($span, format!($fmt, $($arg),+))
     };
 }
 
@@ -44,12 +53,6 @@ impl Error {
             message: message.into(),
         }
     }
-
-    /// Create a boxed vector containing one error. The return value is suitable
-    /// as the `Err` variant of a [`TypResult`].
-    pub fn boxed(span: Span, message: impl Into<String>) -> Box<Vec<Self>> {
-        Box::new(vec![Self::new(span, message)])
-    }
 }
 
 /// A part of an error's [trace](Error::trace).
@@ -67,8 +70,12 @@ impl Display for Tracepoint {
             Tracepoint::Call(Some(name)) => {
                 write!(f, "error occured in this call of function `{}`", name)
             }
-            Tracepoint::Call(None) => f.pad("error occured in this function call"),
-            Tracepoint::Import => f.pad("error occured while importing this module"),
+            Tracepoint::Call(None) => {
+                write!(f, "error occured in this function call")
+            }
+            Tracepoint::Import => {
+                write!(f, "error occured while importing this module")
+            }
         }
     }
 }
@@ -84,7 +91,7 @@ where
     S: Into<String>,
 {
     fn at(self, span: Span) -> TypResult<T> {
-        self.map_err(|message| Error::boxed(span, message))
+        self.map_err(|message| error!(span, message))
     }
 }
 

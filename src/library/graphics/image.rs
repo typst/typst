@@ -1,4 +1,3 @@
-use crate::diag::Error;
 use crate::image::ImageId;
 use crate::library::prelude::*;
 use crate::library::text::TextNode;
@@ -15,11 +14,9 @@ impl ImageNode {
     fn construct(ctx: &mut Context, args: &mut Args) -> TypResult<Content> {
         let path = args.expect::<Spanned<EcoString>>("path to image file")?;
         let full = ctx.resolve(&path.v);
-        let id = ctx.images.load(&full).map_err(|err| {
-            Error::boxed(path.span, match err.kind() {
-                std::io::ErrorKind::NotFound => "file not found".into(),
-                _ => format!("failed to load image ({})", err),
-            })
+        let id = ctx.images.load(&full).map_err(|err| match err.kind() {
+            std::io::ErrorKind::NotFound => error!(path.span, "file not found"),
+            _ => error!(path.span, "failed to load image ({})", err),
         })?;
 
         let width = args.named("width")?;

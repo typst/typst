@@ -18,7 +18,7 @@ use typst::loading::FsLoader;
 use typst::parse::Scanner;
 use typst::source::SourceFile;
 use typst::syntax::Span;
-use typst::Context;
+use typst::{bail, Context};
 
 const TYP_DIR: &str = "./typ";
 const REF_DIR: &str = "./ref";
@@ -77,10 +77,7 @@ fn main() {
         let lhs = args.expect::<Value>("left-hand side")?;
         let rhs = args.expect::<Value>("right-hand side")?;
         if lhs != rhs {
-            return Err(Error::boxed(
-                args.span,
-                format!("Assertion failed: {:?} != {:?}", lhs, rhs),
-            ));
+            bail!(args.span, "Assertion failed: {:?} != {:?}", lhs, rhs,);
         }
         Ok(Value::None)
     });

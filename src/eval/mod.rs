@@ -37,7 +37,7 @@ pub use value::*;
 
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::diag::{At, Error, StrResult, Trace, Tracepoint, TypResult};
+use crate::diag::{At, StrResult, Trace, Tracepoint, TypResult};
 use crate::geom::{Angle, Fractional, Length, Relative};
 use crate::library;
 use crate::syntax::ast::*;
@@ -725,11 +725,9 @@ impl Eval for IncludeExpr {
 fn import(ctx: &mut Context, path: &str, span: Span) -> TypResult<Module> {
     // Load the source file.
     let full = ctx.resolve(path);
-    let id = ctx.sources.load(&full).map_err(|err| {
-        Error::boxed(span, match err.kind() {
-            std::io::ErrorKind::NotFound => "file not found".into(),
-            _ => format!("failed to load source file ({})", err),
-        })
+    let id = ctx.sources.load(&full).map_err(|err| match err.kind() {
+        std::io::ErrorKind::NotFound => error!(span, "file not found"),
+        _ => error!(span, "failed to load source file ({})", err),
     })?;
 
     // Prevent cyclic importing.
