@@ -344,6 +344,8 @@ impl Eval for BinaryExpr {
             BinOp::Leq => self.apply(ctx, scp, ops::leq),
             BinOp::Gt => self.apply(ctx, scp, ops::gt),
             BinOp::Geq => self.apply(ctx, scp, ops::geq),
+            BinOp::In => self.apply(ctx, scp, ops::in_),
+            BinOp::NotIn => self.apply(ctx, scp, ops::not_in),
             BinOp::Assign => self.assign(ctx, scp, |_, b| Ok(b)),
             BinOp::AddAssign => self.assign(ctx, scp, ops::add),
             BinOp::SubAssign => self.assign(ctx, scp, ops::sub),

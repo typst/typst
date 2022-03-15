@@ -335,3 +335,31 @@ pub fn compare(lhs: &Value, rhs: &Value) -> Option<Ordering> {
         _ => Option::None,
     }
 }
+
+/// Test whether one value is "in" another one.
+pub fn in_(lhs: Value, rhs: Value) -> StrResult<Value> {
+    if let Some(b) = contains(&lhs, &rhs) {
+        Ok(Bool(b))
+    } else {
+        mismatch!("cannot apply 'in' to {} and {}", lhs, rhs)
+    }
+}
+
+/// Test whether one value is "not in" another one.
+pub fn not_in(lhs: Value, rhs: Value) -> StrResult<Value> {
+    if let Some(b) = contains(&lhs, &rhs) {
+        Ok(Bool(!b))
+    } else {
+        mismatch!("cannot apply 'not in' to {} and {}", lhs, rhs)
+    }
+}
+
+/// Test for containment.
+pub fn contains(lhs: &Value, rhs: &Value) -> Option<bool> {
+    Some(match (lhs, rhs) {
+        (Value::Str(a), Value::Str(b)) => b.contains(a.as_str()),
+        (Value::Str(a), Value::Dict(b)) => b.contains_key(a),
+        (a, Value::Array(b)) => b.contains(a),
+        _ => return Option::None,
+    })
+}

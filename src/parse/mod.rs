@@ -376,9 +376,18 @@ fn expr_prec(p: &mut Parser, atomic: bool, min_prec: usize) -> ParseResult {
             with_expr(p, marker)?;
         }
 
-        let op = match p.peek().and_then(BinOp::from_token) {
-            Some(binop) => binop,
-            None => break,
+        let op = if p.eat_if(&NodeKind::Not) {
+            if p.at(&NodeKind::In) {
+                BinOp::NotIn
+            } else {
+                p.expected("keyword `in`");
+                return Err(ParseError);
+            }
+        } else {
+            match p.peek().and_then(BinOp::from_token) {
+                Some(binop) => binop,
+                None => break,
+            }
         };
 
         let mut prec = op.precedence();

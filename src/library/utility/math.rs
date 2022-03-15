@@ -59,7 +59,7 @@ pub fn odd(_: &mut Context, args: &mut Args) -> TypResult<Value> {
 }
 
 /// The modulo of two numbers.
-pub fn modulo(_: &mut Context, args: &mut Args) -> TypResult<Value> {
+pub fn mod_(_: &mut Context, args: &mut Args) -> TypResult<Value> {
     let Spanned { v: v1, span: span1 } = args.expect("integer or float")?;
     let Spanned { v: v2, span: span2 } = args.expect("integer or float")?;
 

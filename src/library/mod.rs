@@ -79,7 +79,7 @@ pub fn new() -> Scope {
     std.def_fn("max", utility::max);
     std.def_fn("even", utility::even);
     std.def_fn("odd", utility::odd);
-    std.def_fn("mod", utility::modulo);
+    std.def_fn("mod", utility::mod_);
     std.def_fn("range", utility::range);
     std.def_fn("rgb", utility::rgb);
     std.def_fn("cmyk", utility::cmyk);

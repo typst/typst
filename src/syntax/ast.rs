@@ -551,9 +551,17 @@ node! {
 impl BinaryExpr {
     /// The binary operator: `+`.
     pub fn op(&self) -> BinOp {
+        let mut not = false;
         self.0
             .children()
-            .find_map(|node| BinOp::from_token(node.kind()))
+            .find_map(|node| match node.kind() {
+                NodeKind::Not => {
+                    not = true;
+                    None
+                }
+                NodeKind::In if not => Some(BinOp::NotIn),
+                _ => BinOp::from_token(node.kind()),
+            })
             .expect("binary expression is missing operator")
     }
 
@@ -601,6 +609,10 @@ pub enum BinOp {
     Geq,
     /// The assignment operator: `=`.
     Assign,
+    /// The containment operator: `in`.
+    In,
+    /// The inversed containment operator: `not in`.
+    NotIn,
     /// The add-assign operator: `+=`.
     AddAssign,
     /// The subtract-assign oeprator: `-=`.
@@ -628,6 +640,7 @@ impl BinOp {
             NodeKind::Gt => Self::Gt,
             NodeKind::GtEq => Self::Geq,
             NodeKind::Eq => Self::Assign,
+            NodeKind::In => Self::In,
             NodeKind::PlusEq => Self::AddAssign,
             NodeKind::HyphEq => Self::SubAssign,
             NodeKind::StarEq => Self::MulAssign,
@@ -649,6 +662,8 @@ impl BinOp {
             Self::Leq => 4,
             Self::Gt => 4,
             Self::Geq => 4,
+            Self::In => 4,
+            Self::NotIn => 4,
             Self::And => 3,
             Self::Or => 2,
             Self::Assign => 1,
@@ -674,6 +689,8 @@ impl BinOp {
             Self::Leq => Associativity::Left,
             Self::Gt => Associativity::Left,
             Self::Geq => Associativity::Left,
+            Self::In => Associativity::Left,
+            Self::NotIn => Associativity::Left,
             Self::Assign => Associativity::Right,
             Self::AddAssign => Associativity::Right,
             Self::SubAssign => Associativity::Right,
@@ -697,6 +714,8 @@ impl BinOp {
             Self::Leq => "<=",
             Self::Gt => ">",
             Self::Geq => ">=",
+            Self::In => "in",
+            Self::NotIn => "not in",
             Self::Assign => "=",
             Self::AddAssign => "+=",
             Self::SubAssign => "-=",

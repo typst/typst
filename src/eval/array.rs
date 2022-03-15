@@ -66,6 +66,11 @@ impl Array {
         Arc::make_mut(&mut self.0).push(value);
     }
 
+    /// Whether the array contains a specific value.
+    pub fn contains(&self, value: &Value) -> bool {
+        self.0.contains(value)
+    }
+
     /// Clear the array.
     pub fn clear(&mut self) {
         if Arc::strong_count(&self.0) == 1 {
