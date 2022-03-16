@@ -53,6 +53,7 @@ pub fn new() -> Scope {
 
     // Graphics.
     std.def_node::<graphics::ImageNode>("image");
+    std.def_node::<graphics::LineNode>("line");
     std.def_node::<graphics::RectNode>("rect");
     std.def_node::<graphics::SquareNode>("square");
     std.def_node::<graphics::EllipseNode>("ellipse");
@@ -169,4 +170,15 @@ castable! {
     LayoutNode,
     Expected: "content",
     Value::Content(content) => content.pack(),
+}
+
+castable! {
+    Spec<Linear>,
+    Expected: "two-dimensional length array",
+    Value::Array(array) => {
+        let e = "point array must contain exactly two entries";
+        let a = array.get(0).map_err(|_| e)?.clone().cast::<Linear>()?;
+        let b = array.get(1).map_err(|_| e)?.clone().cast::<Linear>()?;
+        Spec::new(a, b)
+    },
 }

@@ -40,6 +40,16 @@ impl Angle {
         (self.0).0
     }
 
+    /// Get the sine of this angle.
+    pub fn sin(self) -> f64 {
+        self.to_rad().sin()
+    }
+
+    /// Get the cosine of this angle.
+    pub fn cos(self) -> f64 {
+        self.to_rad().cos()
+    }
+
     /// Create an angle from a value in a unit.
     pub fn with_unit(val: f64, unit: AngularUnit) -> Self {
         Self(Scalar(val * unit.raw_scale()))

@@ -49,6 +49,12 @@ impl Point {
     }
 }
 
+impl From<Spec<Length>> for Point {
+    fn from(spec: Spec<Length>) -> Self {
+        Self::new(spec.x, spec.y)
+    }
+}
+
 impl Get<SpecAxis> for Point {
     type Component = Length;
 
