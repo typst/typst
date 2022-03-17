@@ -36,9 +36,8 @@ impl Transform {
 
     /// A rotation transform.
     pub fn rotation(angle: Angle) -> Self {
-        let v = angle.to_rad();
-        let cos = Relative::new(v.cos());
-        let sin = Relative::new(v.sin());
+        let cos = Relative::new(angle.cos());
+        let sin = Relative::new(angle.sin());
         Self {
             sx: cos,
             ky: sin,

@@ -80,6 +80,11 @@ impl Array {
         self.0.iter()
     }
 
+    /// Extracts a slice of the whole array.
+    pub fn as_slice(&self) -> &[Value] {
+        self.0.as_slice()
+    }
+
     /// Return a sorted version of this array.
     ///
     /// Returns an error if two values could not be compared.

@@ -174,11 +174,15 @@ castable! {
 
 castable! {
     Spec<Linear>,
-    Expected: "two-dimensional length array",
+    Expected: "array of exactly two linears",
     Value::Array(array) => {
-        let e = "point array must contain exactly two entries";
-        let a = array.get(0).map_err(|_| e)?.clone().cast::<Linear>()?;
-        let b = array.get(1).map_err(|_| e)?.clone().cast::<Linear>()?;
-        Spec::new(a, b)
+        match array.as_slice() {
+            [a, b] => {
+                let a = a.clone().cast::<Linear>()?;
+                let b = b.clone().cast::<Linear>()?;
+                Spec::new(a, b)
+            },
+            _ => return Err("point array must contain exactly two entries".to_string()),
+        }
     },
 }

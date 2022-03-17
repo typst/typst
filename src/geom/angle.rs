@@ -40,12 +40,12 @@ impl Angle {
         (self.0).0
     }
 
-    /// Get the sine of this angle.
+    /// Get the sine of this angle in radians.
     pub fn sin(self) -> f64 {
         self.to_rad().sin()
     }
 
-    /// Get the cosine of this angle.
+    /// Get the cosine of this angle in radians.
     pub fn cos(self) -> f64 {
         self.to_rad().cos()
     }
