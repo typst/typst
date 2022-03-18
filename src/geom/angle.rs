@@ -129,7 +129,7 @@ assign_impl!(Angle /= f64);
 
 impl Sum for Angle {
     fn sum<I: Iterator<Item = Angle>>(iter: I) -> Self {
-        iter.fold(Angle::zero(), Add::add)
+        Self(iter.map(|s| s.0).sum())
     }
 }
 /// Different units of angular measurement.

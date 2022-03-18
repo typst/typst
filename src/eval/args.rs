@@ -1,6 +1,6 @@
 use std::fmt::{self, Debug, Formatter, Write};
 
-use super::{Cast, Value};
+use super::{Array, Cast, Dict, Value};
 use crate::diag::{At, TypResult};
 use crate::syntax::{Span, Spanned};
 use crate::util::EcoString;
@@ -145,6 +145,23 @@ impl Args {
             bail!(arg.span, "unexpected argument");
         }
         Ok(())
+    }
+
+    /// Extract the positional arguments as an array.
+    pub fn to_positional(&self) -> Array {
+        self.items
+            .iter()
+            .filter(|item| item.name.is_none())
+            .map(|item| item.value.v.clone())
+            .collect()
+    }
+
+    /// Extract the named arguments as a dictionary.
+    pub fn to_named(&self) -> Dict {
+        self.items
+            .iter()
+            .filter_map(|item| item.name.clone().map(|name| (name, item.value.v.clone())))
+            .collect()
     }
 
     /// Reinterpret these arguments as actually being an array index.

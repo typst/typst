@@ -3,9 +3,11 @@ use std::fmt::{self, Debug, Formatter, Write};
 use std::ops::{Add, AddAssign};
 use std::sync::Arc;
 
-use super::Value;
-use crate::diag::StrResult;
+use super::{Args, Array, Func, Value};
+use crate::diag::{StrResult, TypResult};
+use crate::syntax::Spanned;
 use crate::util::{ArcExt, EcoString};
+use crate::Context;
 
 /// Create a new [`Dict`] from key-value pairs.
 #[allow(unused_macros)]
@@ -56,14 +58,22 @@ impl Dict {
         Arc::make_mut(&mut self.0).entry(key).or_default()
     }
 
+    /// Whether the dictionary contains a specific key.
+    pub fn contains(&self, key: &str) -> bool {
+        self.0.contains_key(key)
+    }
+
     /// Insert a mapping from the given `key` to the given `value`.
     pub fn insert(&mut self, key: EcoString, value: Value) {
         Arc::make_mut(&mut self.0).insert(key, value);
     }
 
-    /// Whether the dictionary contains a specific key.
-    pub fn contains_key(&self, key: &str) -> bool {
-        self.0.contains_key(key)
+    /// Remove a mapping by `key`.
+    pub fn remove(&mut self, key: EcoString) -> StrResult<()> {
+        match Arc::make_mut(&mut self.0).remove(&key) {
+            Some(_) => Ok(()),
+            None => Err(missing_key(&key)),
+        }
     }
 
     /// Clear the dictionary.
@@ -73,6 +83,29 @@ impl Dict {
         } else {
             *self = Self::new();
         }
+    }
+
+    /// Return the keys of the dictionary as an array.
+    pub fn keys(&self) -> Array {
+        self.iter().map(|(key, _)| Value::Str(key.clone())).collect()
+    }
+
+    /// Return the values of the dictionary as an array.
+    pub fn values(&self) -> Array {
+        self.iter().map(|(_, value)| value.clone()).collect()
+    }
+
+    /// Transform each pair in the array with a function.
+    pub fn map(&self, ctx: &mut Context, f: Spanned<Func>) -> TypResult<Array> {
+        Ok(self
+            .iter()
+            .map(|(key, value)| {
+                f.v.call(
+                    ctx,
+                    Args::from_values(f.span, [Value::Str(key.clone()), value.clone()]),
+                )
+            })
+            .collect::<TypResult<_>>()?)
     }
 
     /// Iterate over pairs of references to the contained keys and values.

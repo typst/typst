@@ -32,10 +32,10 @@
 // Should output `2345`.
 #for v in (1, 2, 3, 4, 5, 6, 7) [#if v >= 2 and v <= 5 { repr(v) }]
 
-// Loop over captured arguments.
-#let f1(..args) = for v in args { (repr(v),) }
-#let f2(..args) = for k, v in args { (repr(k) + ": " + repr(v),) }
-#let f(..args) = join(sep: ", ", ..f1(..args), ..f2(..args))
+// Map captured arguments.
+#let f1(..args) = args.positional().map(repr)
+#let f2(..args) = args.named().pairs((k, v) => repr(k) + ": " + repr(v))
+#let f(..args) = (f1(..args) + f2(..args)).join(", ")
 #f(1, a: 2)
 
 ---

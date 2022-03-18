@@ -65,19 +65,11 @@
 { let x = 1; x += "2" }
 
 ---
-// Error: 13-14 expected argument list, found integer
-{ test with 2 }
-
----
-// Error: 3-4 expected function, found integer
-{ 1 with () }
-
----
-// Error: 3-6 cannot access this expression mutably
+// Error: 3-6 cannot mutate a temporary value
 { (x) = "" }
 
 ---
-// Error: 3-8 cannot access this expression mutably
+// Error: 3-8 cannot mutate a temporary value
 { 1 + 2 += 3 }
 
 ---

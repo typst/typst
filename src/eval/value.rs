@@ -4,10 +4,10 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use super::{ops, Args, Array, Content, Dict, Func, Layout};
-use crate::diag::{with_alternative, StrResult};
+use super::{ops, Args, Array, Content, Context, Dict, Func, Layout, StrExt};
+use crate::diag::{with_alternative, At, StrResult, TypResult};
 use crate::geom::{Angle, Color, Fractional, Length, Linear, Relative, RgbaColor};
-use crate::syntax::Spanned;
+use crate::syntax::{Span, Spanned};
 use crate::util::EcoString;
 
 /// A computational value.
@@ -120,6 +120,121 @@ impl Value {
             v => Content::Text(v.repr()).monospaced(),
         }
     }
+
+    /// Call a method on the value.
+    pub fn call(
+        &self,
+        ctx: &mut Context,
+        method: &str,
+        span: Span,
+        mut args: Args,
+    ) -> TypResult<Self> {
+        let name = self.type_name();
+        let missing = || Err(missing_method(name, method)).at(span);
+
+        let output = match self {
+            Value::Str(string) => match method {
+                "len" => Value::Int(string.len() as i64),
+                "trim" => Value::Str(string.trim().into()),
+                "split" => Value::Array(string.split(args.eat()?)),
+                _ => missing()?,
+            },
+
+            Value::Array(array) => match method {
+                "len" => Value::Int(array.len()),
+                "slice" => {
+                    let start = args.expect("start")?;
+                    let mut end = args.eat()?;
+                    if end.is_none() {
+                        end = args.named("count")?.map(|c: i64| start + c);
+                    }
+                    Value::Array(array.slice(start, end).at(span)?)
+                }
+                "map" => Value::Array(array.map(ctx, args.expect("function")?)?),
+                "filter" => Value::Array(array.filter(ctx, args.expect("function")?)?),
+                "flatten" => Value::Array(array.flatten()),
+                "find" => {
+                    array.find(args.expect("value")?).map_or(Value::None, Value::Int)
+                }
+                "join" => {
+                    let sep = args.eat()?;
+                    let last = args.named("last")?;
+                    array.join(sep, last).at(span)?
+                }
+                "sorted" => Value::Array(array.sorted().at(span)?),
+                _ => missing()?,
+            },
+
+            Value::Dict(dict) => match method {
+                "len" => Value::Int(dict.len()),
+                "keys" => Value::Array(dict.keys()),
+                "values" => Value::Array(dict.values()),
+                "pairs" => Value::Array(dict.map(ctx, args.expect("function")?)?),
+                _ => missing()?,
+            },
+
+            Value::Func(func) => match method {
+                "with" => Value::Func(func.clone().with(args.take())),
+                _ => missing()?,
+            },
+
+            Value::Args(args) => match method {
+                "positional" => Value::Array(args.to_positional()),
+                "named" => Value::Dict(args.to_named()),
+                _ => missing()?,
+            },
+
+            _ => missing()?,
+        };
+
+        args.finish()?;
+        Ok(output)
+    }
+
+    /// Call a mutating method on the value.
+    pub fn call_mut(
+        &mut self,
+        _: &mut Context,
+        method: &str,
+        span: Span,
+        mut args: Args,
+    ) -> TypResult<()> {
+        let name = self.type_name();
+        let missing = || Err(missing_method(name, method)).at(span);
+
+        match self {
+            Value::Array(array) => match method {
+                "push" => array.push(args.expect("value")?),
+                "pop" => array.pop().at(span)?,
+                "insert" => {
+                    array.insert(args.expect("index")?, args.expect("value")?).at(span)?
+                }
+                "remove" => array.remove(args.expect("index")?).at(span)?,
+                _ => missing()?,
+            },
+
+            Value::Dict(dict) => match method {
+                "remove" => dict.remove(args.expect("key")?).at(span)?,
+                _ => missing()?,
+            },
+
+            _ => missing()?,
+        }
+
+        args.finish()?;
+        Ok(())
+    }
+
+    /// Whether a specific method is mutable.
+    pub fn is_mutable_method(method: &str) -> bool {
+        matches!(method, "push" | "pop" | "insert" | "remove")
+    }
+}
+
+/// The missing method error message.
+#[cold]
+fn missing_method(type_name: &str, method: &str) -> String {
+    format!("type {type_name} has no method `{method}`")
 }
 
 impl Default for Value {

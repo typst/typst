@@ -1,9 +1,8 @@
 use std::cmp::Ordering;
 
-use super::{Dynamic, Value};
+use super::{Dynamic, StrExt, Value};
 use crate::diag::StrResult;
 use crate::geom::{Align, Spec, SpecAxis};
-use crate::util::EcoString;
 use Value::*;
 
 /// Bail with a type mismatch error.
@@ -174,8 +173,8 @@ pub fn mul(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Fractional(a), Float(b)) => Fractional(a * b),
         (Int(a), Fractional(b)) => Fractional(a as f64 * b),
 
-        (Str(a), Int(b)) => Str(repeat_str(a, b)?),
-        (Int(a), Str(b)) => Str(repeat_str(b, a)?),
+        (Str(a), Int(b)) => Str(StrExt::repeat(&a, b)?),
+        (Int(a), Str(b)) => Str(StrExt::repeat(&b, a)?),
         (Array(a), Int(b)) => Array(a.repeat(b)?),
         (Int(a), Array(b)) => Array(b.repeat(a)?),
         (Content(a), Int(b)) => Content(a.repeat(b)?),
@@ -183,16 +182,6 @@ pub fn mul(lhs: Value, rhs: Value) -> StrResult<Value> {
 
         (a, b) => mismatch!("cannot multiply {} with {}", a, b),
     })
-}
-
-/// Repeat a string a number of times.
-fn repeat_str(string: EcoString, n: i64) -> StrResult<EcoString> {
-    let n = usize::try_from(n)
-        .ok()
-        .and_then(|n| string.len().checked_mul(n).map(|_| n))
-        .ok_or_else(|| format!("cannot repeat this string {} times", n))?;
-
-    Ok(string.repeat(n))
 }
 
 /// Compute the quotient of two values.
@@ -358,7 +347,7 @@ pub fn not_in(lhs: Value, rhs: Value) -> StrResult<Value> {
 pub fn contains(lhs: &Value, rhs: &Value) -> Option<bool> {
     Some(match (lhs, rhs) {
         (Value::Str(a), Value::Str(b)) => b.contains(a.as_str()),
-        (Value::Str(a), Value::Dict(b)) => b.contains_key(a),
+        (Value::Str(a), Value::Dict(b)) => b.contains(a),
         (a, Value::Array(b)) => b.contains(a),
         _ => return Option::None,
     })

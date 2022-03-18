@@ -31,7 +31,7 @@ pub fn parse(src: &str) -> Arc<GreenNode> {
 /// Reparse a code block.
 ///
 /// Returns `Some` if all of the input was consumed.
-pub fn reparse_block(
+pub fn reparse_code_block(
     prefix: &str,
     src: &str,
     end_pos: usize,
@@ -41,7 +41,7 @@ pub fn reparse_block(
         return None;
     }
 
-    block(&mut p);
+    code_block(&mut p);
 
     let (mut green, terminated) = p.consume()?;
     let first = green.remove(0);
@@ -55,7 +55,7 @@ pub fn reparse_block(
 /// Reparse a content block.
 ///
 /// Returns `Some` if all of the input was consumed.
-pub fn reparse_content(
+pub fn reparse_content_block(
     prefix: &str,
     src: &str,
     end_pos: usize,
@@ -65,7 +65,7 @@ pub fn reparse_content(
         return None;
     }
 
-    content(&mut p);
+    content_block(&mut p);
 
     let (mut green, terminated) = p.consume()?;
     let first = green.remove(0);
@@ -236,8 +236,8 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
         | NodeKind::Include => markup_expr(p),
 
         // Code and content block.
-        NodeKind::LeftBrace => block(p),
-        NodeKind::LeftBracket => content(p),
+        NodeKind::LeftBrace => code_block(p),
+        NodeKind::LeftBracket => content_block(p),
 
         NodeKind::Error(_, _) => p.eat(),
         _ => p.unexpected(),
@@ -364,7 +364,7 @@ fn expr_prec(p: &mut Parser, atomic: bool, min_prec: usize) -> ParseResult {
         // Exclamation mark, parenthesis or bracket means this is a function
         // call.
         if let Some(NodeKind::LeftParen | NodeKind::LeftBracket) = p.peek_direct() {
-            call(p, marker)?;
+            func_call(p, marker)?;
             continue;
         }
 
@@ -372,8 +372,9 @@ fn expr_prec(p: &mut Parser, atomic: bool, min_prec: usize) -> ParseResult {
             break;
         }
 
-        if p.at(&NodeKind::With) {
-            with_expr(p, marker)?;
+        if p.at(&NodeKind::Dot) {
+            method_call(p, marker)?;
+            continue;
         }
 
         let op = if p.eat_if(&NodeKind::Not) {
@@ -432,8 +433,8 @@ fn primary(p: &mut Parser, atomic: bool) -> ParseResult {
 
         // Structures.
         Some(NodeKind::LeftParen) => parenthesized(p, atomic),
-        Some(NodeKind::LeftBrace) => Ok(block(p)),
-        Some(NodeKind::LeftBracket) => Ok(content(p)),
+        Some(NodeKind::LeftBrace) => Ok(code_block(p)),
+        Some(NodeKind::LeftBracket) => Ok(content_block(p)),
 
         // Keywords.
         Some(NodeKind::Let) => let_expr(p),
@@ -671,7 +672,7 @@ fn params(p: &mut Parser, marker: Marker) {
 }
 
 /// Parse a code block: `{...}`.
-fn block(p: &mut Parser) {
+fn code_block(p: &mut Parser) {
     p.perform(NodeKind::CodeBlock, |p| {
         p.start_group(Group::Brace);
         while !p.eof() {
@@ -689,7 +690,7 @@ fn block(p: &mut Parser) {
 }
 
 // Parse a content block: `[...]`.
-fn content(p: &mut Parser) {
+fn content_block(p: &mut Parser) {
     p.perform(NodeKind::ContentBlock, |p| {
         p.start_group(Group::Bracket);
         markup(p, true);
@@ -698,8 +699,17 @@ fn content(p: &mut Parser) {
 }
 
 /// Parse a function call.
-fn call(p: &mut Parser, callee: Marker) -> ParseResult {
-    callee.perform(p, NodeKind::CallExpr, |p| args(p, true, true))
+fn func_call(p: &mut Parser, callee: Marker) -> ParseResult {
+    callee.perform(p, NodeKind::FuncCall, |p| args(p, true, true))
+}
+
+/// Parse a method call.
+fn method_call(p: &mut Parser, marker: Marker) -> ParseResult {
+    marker.perform(p, NodeKind::MethodCall, |p| {
+        p.eat_assert(&NodeKind::Dot);
+        ident(p)?;
+        args(p, true, true)
+    })
 }
 
 /// Parse the arguments to a function call.
@@ -721,19 +731,11 @@ fn args(p: &mut Parser, direct: bool, brackets: bool) -> ParseResult {
         }
 
         while brackets && p.peek_direct() == Some(&NodeKind::LeftBracket) {
-            content(p);
+            content_block(p);
         }
     });
 
     Ok(())
-}
-
-/// Parse a with expression.
-fn with_expr(p: &mut Parser, marker: Marker) -> ParseResult {
-    marker.perform(p, NodeKind::WithExpr, |p| {
-        p.eat_assert(&NodeKind::With);
-        args(p, false, false)
-    })
 }
 
 /// Parse a let expression.
@@ -744,30 +746,26 @@ fn let_expr(p: &mut Parser) -> ParseResult {
         let marker = p.marker();
         ident(p)?;
 
-        if p.at(&NodeKind::With) {
-            with_expr(p, marker)?;
-        } else {
-            // If a parenthesis follows, this is a function definition.
-            let has_params = p.peek_direct() == Some(&NodeKind::LeftParen);
-            if has_params {
-                let marker = p.marker();
-                p.start_group(Group::Paren);
-                collection(p);
-                p.end_group();
-                params(p, marker);
-            }
+        // If a parenthesis follows, this is a function definition.
+        let has_params = p.peek_direct() == Some(&NodeKind::LeftParen);
+        if has_params {
+            let marker = p.marker();
+            p.start_group(Group::Paren);
+            collection(p);
+            p.end_group();
+            params(p, marker);
+        }
 
-            if p.eat_if(&NodeKind::Eq) {
-                expr(p)?;
-            } else if has_params {
-                // Function definitions must have a body.
-                p.expected("body");
-            }
+        if p.eat_if(&NodeKind::Eq) {
+            expr(p)?;
+        } else if has_params {
+            // Function definitions must have a body.
+            p.expected("body");
+        }
 
-            // Rewrite into a closure expression if it's a function definition.
-            if has_params {
-                marker.end(p, NodeKind::ClosureExpr);
-            }
+        // Rewrite into a closure expression if it's a function definition.
+        if has_params {
+            marker.end(p, NodeKind::ClosureExpr);
         }
 
         Ok(())
@@ -931,8 +929,8 @@ fn return_expr(p: &mut Parser) -> ParseResult {
 /// Parse a control flow body.
 fn body(p: &mut Parser) -> ParseResult {
     match p.peek() {
-        Some(NodeKind::LeftBracket) => Ok(content(p)),
-        Some(NodeKind::LeftBrace) => Ok(block(p)),
+        Some(NodeKind::LeftBracket) => Ok(content_block(p)),
+        Some(NodeKind::LeftBrace) => Ok(code_block(p)),
         _ => {
             p.expected("body");
             Err(ParseError)

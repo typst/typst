@@ -13,7 +13,7 @@
 #test(not "b" == "b", false)
 
 // Assignment binds stronger than boolean operations.
-// Error: 2-7 cannot access this expression mutably
+// Error: 2-7 cannot mutate a temporary value
 {not x = "a"}
 
 ---

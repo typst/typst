@@ -234,11 +234,11 @@ pub enum Expr {
     /// A binary operation: `a + b`.
     Binary(BinaryExpr),
     /// An invocation of a function: `f(x, y)`.
-    Call(CallExpr),
+    FuncCall(FuncCall),
+    /// An invocation of a method: `array.push(v)`.
+    MethodCall(MethodCall),
     /// A closure expression: `(x, y) => z`.
     Closure(ClosureExpr),
-    /// A with expression: `f with (x, y: 1)`.
-    With(WithExpr),
     /// A let expression: `let x = 1`.
     Let(LetExpr),
     /// A set expression: `set text(...)`.
@@ -276,9 +276,9 @@ impl TypedNode for Expr {
             NodeKind::DictExpr => node.cast().map(Self::Dict),
             NodeKind::UnaryExpr => node.cast().map(Self::Unary),
             NodeKind::BinaryExpr => node.cast().map(Self::Binary),
-            NodeKind::CallExpr => node.cast().map(Self::Call),
+            NodeKind::FuncCall => node.cast().map(Self::FuncCall),
+            NodeKind::MethodCall => node.cast().map(Self::MethodCall),
             NodeKind::ClosureExpr => node.cast().map(Self::Closure),
-            NodeKind::WithExpr => node.cast().map(Self::With),
             NodeKind::LetExpr => node.cast().map(Self::Let),
             NodeKind::SetExpr => node.cast().map(Self::Set),
             NodeKind::ShowExpr => node.cast().map(Self::Show),
@@ -306,9 +306,9 @@ impl TypedNode for Expr {
             Self::Group(v) => v.as_red(),
             Self::Unary(v) => v.as_red(),
             Self::Binary(v) => v.as_red(),
-            Self::Call(v) => v.as_red(),
+            Self::FuncCall(v) => v.as_red(),
+            Self::MethodCall(v) => v.as_red(),
             Self::Closure(v) => v.as_red(),
-            Self::With(v) => v.as_red(),
             Self::Let(v) => v.as_red(),
             Self::Set(v) => v.as_red(),
             Self::Show(v) => v.as_red(),
@@ -331,7 +331,7 @@ impl Expr {
         matches!(
             self,
             Self::Ident(_)
-                | Self::Call(_)
+                | Self::FuncCall(_)
                 | Self::Let(_)
                 | Self::Set(_)
                 | Self::Show(_)
@@ -735,19 +735,45 @@ pub enum Associativity {
 }
 
 node! {
-    /// An invocation of a function: `foo(...)`.
-    CallExpr: CallExpr
+    /// An invocation of a function: `f(x, y)`.
+    FuncCall: FuncCall
 }
 
-impl CallExpr {
+impl FuncCall {
     /// The function to call.
     pub fn callee(&self) -> Expr {
-        self.0.cast_first_child().expect("call is missing callee")
+        self.0.cast_first_child().expect("function call is missing callee")
     }
 
     /// The arguments to the function.
     pub fn args(&self) -> CallArgs {
-        self.0.cast_last_child().expect("call is missing argument list")
+        self.0
+            .cast_last_child()
+            .expect("function call is missing argument list")
+    }
+}
+
+node! {
+    /// An invocation of a method: `array.push(v)`.
+    MethodCall: MethodCall
+}
+
+impl MethodCall {
+    /// The value to call the method on.
+    pub fn receiver(&self) -> Expr {
+        self.0.cast_first_child().expect("method call is missing callee")
+    }
+
+    /// The name of the method.
+    pub fn method(&self) -> Ident {
+        self.0.cast_last_child().expect("method call is missing name")
+    }
+
+    /// The arguments to the method.
+    pub fn args(&self) -> CallArgs {
+        self.0
+            .cast_last_child()
+            .expect("method call is missing argument list")
     }
 }
 
@@ -863,25 +889,6 @@ impl TypedNode for ClosureParam {
 }
 
 node! {
-    /// A with expression: `f with (x, y: 1)`.
-    WithExpr
-}
-
-impl WithExpr {
-    /// The function to apply the arguments to.
-    pub fn callee(&self) -> Expr {
-        self.0.cast_first_child().expect("with expression is missing callee")
-    }
-
-    /// The arguments to apply to the function.
-    pub fn args(&self) -> CallArgs {
-        self.0
-            .cast_first_child()
-            .expect("with expression is missing argument list")
-    }
-}
-
-node! {
     /// A let expression: `let x = 1`.
     LetExpr
 }
@@ -891,10 +898,6 @@ impl LetExpr {
     pub fn binding(&self) -> Ident {
         match self.0.cast_first_child() {
             Some(Expr::Ident(binding)) => binding,
-            Some(Expr::With(with)) => match with.callee() {
-                Expr::Ident(binding) => binding,
-                _ => panic!("let .. with callee must be identifier"),
-            },
             Some(Expr::Closure(closure)) => {
                 closure.name().expect("let-bound closure is missing name")
             }

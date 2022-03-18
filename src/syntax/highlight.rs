@@ -11,10 +11,10 @@ pub fn highlight<F>(node: RedRef, range: Range<usize>, f: &mut F)
 where
     F: FnMut(Range<usize>, Category),
 {
-    for child in node.children() {
+    for (i, child) in node.children().enumerate() {
         let span = child.span();
         if range.start <= span.end && range.end >= span.start {
-            if let Some(category) = Category::determine(child, node) {
+            if let Some(category) = Category::determine(child, node, i) {
                 f(span.to_range(), category);
             }
             highlight(child, range.clone(), f);
@@ -44,9 +44,9 @@ fn highlight_syntect_impl<F>(
         return;
     }
 
-    for child in node.children() {
+    for (i, child) in node.children().enumerate() {
         let mut scopes = scopes.clone();
-        if let Some(category) = Category::determine(child, node) {
+        if let Some(category) = Category::determine(child, node, i) {
             scopes.push(Scope::new(category.tm_scope()).unwrap())
         }
         highlight_syntect_impl(child, scopes, highlighter, f);
@@ -101,8 +101,9 @@ pub enum Category {
 }
 
 impl Category {
-    /// Determine the highlighting category of a node given its parent.
-    pub fn determine(child: RedRef, parent: RedRef) -> Option<Category> {
+    /// Determine the highlighting category of a node given its parent and its
+    /// index in its siblings.
+    pub fn determine(child: RedRef, parent: RedRef, i: usize) -> Option<Category> {
         match child.kind() {
             NodeKind::LeftBrace => Some(Category::Bracket),
             NodeKind::RightBrace => Some(Category::Bracket),
@@ -133,7 +134,6 @@ impl Category {
             NodeKind::Not => Some(Category::Keyword),
             NodeKind::And => Some(Category::Keyword),
             NodeKind::Or => Some(Category::Keyword),
-            NodeKind::With => Some(Category::Keyword),
             NodeKind::Let => Some(Category::Keyword),
             NodeKind::Set => Some(Category::Keyword),
             NodeKind::Show => Some(Category::Keyword),
@@ -156,6 +156,7 @@ impl Category {
                 _ => Some(Category::Operator),
             },
             NodeKind::Slash => Some(Category::Operator),
+            NodeKind::Dot => Some(Category::Operator),
             NodeKind::PlusEq => Some(Category::Operator),
             NodeKind::HyphEq => Some(Category::Operator),
             NodeKind::StarEq => Some(Category::Operator),
@@ -176,13 +177,11 @@ impl Category {
             NodeKind::Auto => Some(Category::Auto),
             NodeKind::Ident(_) => match parent.kind() {
                 NodeKind::Named => None,
-                NodeKind::ClosureExpr if child.span().start == parent.span().start => {
-                    Some(Category::Function)
-                }
-                NodeKind::WithExpr => Some(Category::Function),
+                NodeKind::ClosureExpr if i == 0 => Some(Category::Function),
                 NodeKind::SetExpr => Some(Category::Function),
                 NodeKind::ShowExpr => Some(Category::Function),
-                NodeKind::CallExpr => Some(Category::Function),
+                NodeKind::FuncCall => Some(Category::Function),
+                NodeKind::MethodCall if i > 0 => Some(Category::Function),
                 _ => Some(Category::Variable),
             },
             NodeKind::Bool(_) => Some(Category::Bool),
@@ -210,12 +209,12 @@ impl Category {
             NodeKind::Named => None,
             NodeKind::UnaryExpr => None,
             NodeKind::BinaryExpr => None,
-            NodeKind::CallExpr => None,
+            NodeKind::FuncCall => None,
+            NodeKind::MethodCall => None,
             NodeKind::CallArgs => None,
             NodeKind::Spread => None,
             NodeKind::ClosureExpr => None,
             NodeKind::ClosureParams => None,
-            NodeKind::WithExpr => None,
             NodeKind::LetExpr => None,
             NodeKind::SetExpr => None,
             NodeKind::ShowExpr => None,

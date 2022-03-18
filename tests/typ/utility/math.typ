@@ -2,6 +2,33 @@
 // Ref: false
 
 ---
+// Test conversion to numbers.
+#test(int(false), 0)
+#test(int(true), 1)
+#test(int(10), 10)
+#test(int("150"), 150)
+#test(int(10 / 3), 3)
+#test(float(10), 10.0)
+#test(float("31.4e-1"), 3.14)
+#test(type(float(10)), "float")
+
+---
+// Error: 6-10 cannot convert length to integer
+#int(10pt)
+
+---
+// Error: 8-13 cannot convert function to float
+#float(float)
+
+---
+// Error: 6-12 invalid integer
+#int("nope")
+
+---
+// Error: 8-15 invalid float
+#float("1.2.3")
+
+---
 // Test the `abs` function.
 #test(abs(-3), 3)
 #test(abs(3), 3)

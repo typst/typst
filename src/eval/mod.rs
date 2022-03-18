@@ -19,7 +19,9 @@ mod module;
 mod ops;
 mod scope;
 mod show;
+mod str;
 
+pub use self::str::*;
 pub use args::*;
 pub use array::*;
 pub use capture::*;
@@ -35,6 +37,7 @@ pub use show::*;
 pub use styles::*;
 pub use value::*;
 
+use parking_lot::{MappedRwLockWriteGuard, RwLockWriteGuard};
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::diag::{At, StrResult, Trace, Tracepoint, TypResult};
@@ -207,9 +210,9 @@ impl Eval for Expr {
             Self::Array(v) => v.eval(ctx, scp).map(Value::Array),
             Self::Dict(v) => v.eval(ctx, scp).map(Value::Dict),
             Self::Group(v) => v.eval(ctx, scp),
-            Self::Call(v) => v.eval(ctx, scp),
+            Self::FuncCall(v) => v.eval(ctx, scp),
+            Self::MethodCall(v) => v.eval(ctx, scp),
             Self::Closure(v) => v.eval(ctx, scp),
-            Self::With(v) => v.eval(ctx, scp),
             Self::Unary(v) => v.eval(ctx, scp),
             Self::Binary(v) => v.eval(ctx, scp),
             Self::Let(v) => v.eval(ctx, scp),
@@ -254,7 +257,7 @@ impl Eval for Ident {
 
     fn eval(&self, _: &mut Context, scp: &mut Scopes) -> EvalResult<Self::Output> {
         match scp.get(self) {
-            Some(slot) => Ok(slot.read().unwrap().clone()),
+            Some(slot) => Ok(slot.read().clone()),
             None => bail!(self.span(), "unknown variable"),
         }
     }
@@ -384,47 +387,62 @@ impl BinaryExpr {
         op: fn(Value, Value) -> StrResult<Value>,
     ) -> EvalResult<Value> {
         let rhs = self.rhs().eval(ctx, scp)?;
-        self.lhs().access(
-            ctx,
-            scp,
-            Box::new(|target| {
-                let lhs = std::mem::take(&mut *target);
-                *target = op(lhs, rhs).at(self.span())?;
-                Ok(())
-            }),
-        )?;
+        let lhs = self.lhs();
+        let mut location = lhs.access(ctx, scp)?;
+        let lhs = std::mem::take(&mut *location);
+        *location = op(lhs, rhs).at(self.span())?;
         Ok(Value::None)
     }
 }
 
-impl Eval for CallExpr {
+impl Eval for FuncCall {
     type Output = Value;
 
     fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> EvalResult<Self::Output> {
-        let span = self.callee().span();
         let callee = self.callee().eval(ctx, scp)?;
         let args = self.args().eval(ctx, scp)?;
 
         Ok(match callee {
             Value::Array(array) => {
-                array.get(args.into_index()?).map(Value::clone).at(self.span())
+                array.get(args.into_index()?).map(Value::clone).at(self.span())?
             }
 
             Value::Dict(dict) => {
-                dict.get(args.into_key()?).map(Value::clone).at(self.span())
+                dict.get(args.into_key()?).map(Value::clone).at(self.span())?
             }
 
             Value::Func(func) => {
                 let point = || Tracepoint::Call(func.name().map(ToString::to_string));
-                func.call(ctx, args).trace(point, self.span())
+                func.call(ctx, args).trace(point, self.span())?
             }
 
             v => bail!(
-                span,
+                self.callee().span(),
                 "expected callable or collection, found {}",
                 v.type_name(),
             ),
-        }?)
+        })
+    }
+}
+
+impl Eval for MethodCall {
+    type Output = Value;
+
+    fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> EvalResult<Self::Output> {
+        let span = self.span();
+        let method = self.method();
+        let point = || Tracepoint::Call(Some(method.to_string()));
+
+        Ok(if Value::is_mutable_method(&method) {
+            let args = self.args().eval(ctx, scp)?;
+            let mut receiver = self.receiver().access(ctx, scp)?;
+            receiver.call_mut(ctx, &method, span, args).trace(point, span)?;
+            Value::None
+        } else {
+            let receiver = self.receiver().eval(ctx, scp)?;
+            let args = self.args().eval(ctx, scp)?;
+            receiver.call(ctx, &method, span, args).trace(point, span)?
+        })
     }
 }
 
@@ -524,17 +542,6 @@ impl Eval for ClosureExpr {
             sink,
             body: self.body(),
         })))
-    }
-}
-
-impl Eval for WithExpr {
-    type Output = Value;
-
-    fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> EvalResult<Self::Output> {
-        let callee = self.callee();
-        let func = callee.eval(ctx, scp)?.cast::<Func>().at(callee.span())?;
-        let args = self.args().eval(ctx, scp)?;
-        Ok(Value::Func(func.with(args)))
     }
 }
 
@@ -694,13 +701,13 @@ impl Eval for ImportExpr {
         match self.imports() {
             Imports::Wildcard => {
                 for (var, slot) in module.scope.iter() {
-                    scp.top.def_mut(var, slot.read().unwrap().clone());
+                    scp.top.def_mut(var, slot.read().clone());
                 }
             }
             Imports::Items(idents) => {
                 for ident in idents {
                     if let Some(slot) = module.scope.get(&ident) {
-                        scp.top.def_mut(ident.take(), slot.read().unwrap().clone());
+                        scp.top.def_mut(ident.take(), slot.read().clone());
                     } else {
                         bail!(ident.span(), "unresolved import");
                     }
@@ -773,56 +780,85 @@ impl Eval for ReturnExpr {
     }
 }
 
-/// Try to mutably access the value an expression points to.
-///
-/// This only works if the expression is a valid lvalue.
+/// Access an expression mutably.
 pub trait Access {
-    /// Try to access the value.
-    fn access(&self, ctx: &mut Context, scp: &mut Scopes, f: Handler) -> TypResult<()>;
+    /// Access the value.
+    fn access<'a>(
+        &self,
+        ctx: &mut Context,
+        scp: &'a mut Scopes,
+    ) -> EvalResult<Location<'a>>;
 }
 
-/// Process an accessed value.
-type Handler<'a> = Box<dyn FnOnce(&mut Value) -> TypResult<()> + 'a>;
-
 impl Access for Expr {
-    fn access(&self, ctx: &mut Context, scp: &mut Scopes, f: Handler) -> TypResult<()> {
+    fn access<'a>(
+        &self,
+        ctx: &mut Context,
+        scp: &'a mut Scopes,
+    ) -> EvalResult<Location<'a>> {
         match self {
-            Expr::Ident(ident) => ident.access(ctx, scp, f),
-            Expr::Call(call) => call.access(ctx, scp, f),
-            _ => bail!(self.span(), "cannot access this expression mutably"),
+            Expr::Ident(ident) => ident.access(ctx, scp),
+            Expr::FuncCall(call) => call.access(ctx, scp),
+            _ => bail!(self.span(), "cannot mutate a temporary value"),
         }
     }
 }
 
 impl Access for Ident {
-    fn access(&self, _: &mut Context, scp: &mut Scopes, f: Handler) -> TypResult<()> {
+    fn access<'a>(
+        &self,
+        _: &mut Context,
+        scp: &'a mut Scopes,
+    ) -> EvalResult<Location<'a>> {
         match scp.get(self) {
             Some(slot) => match slot.try_write() {
-                Ok(mut guard) => f(&mut guard),
-                Err(_) => bail!(self.span(), "cannot mutate a constant"),
+                Some(guard) => Ok(RwLockWriteGuard::map(guard, |v| v)),
+                None => bail!(self.span(), "cannot mutate a constant"),
             },
             None => bail!(self.span(), "unknown variable"),
         }
     }
 }
 
-impl Access for CallExpr {
-    fn access(&self, ctx: &mut Context, scp: &mut Scopes, f: Handler) -> TypResult<()> {
+impl Access for FuncCall {
+    fn access<'a>(
+        &self,
+        ctx: &mut Context,
+        scp: &'a mut Scopes,
+    ) -> EvalResult<Location<'a>> {
         let args = self.args().eval(ctx, scp)?;
-        self.callee().access(
-            ctx,
-            scp,
-            Box::new(|value| match value {
+        let guard = self.callee().access(ctx, scp)?;
+        try_map(guard, |value| {
+            Ok(match value {
                 Value::Array(array) => {
-                    f(array.get_mut(args.into_index()?).at(self.span())?)
+                    array.get_mut(args.into_index()?).at(self.span())?
                 }
-                Value::Dict(dict) => f(dict.get_mut(args.into_key()?)),
+                Value::Dict(dict) => dict.get_mut(args.into_key()?),
                 v => bail!(
                     self.callee().span(),
                     "expected collection, found {}",
                     v.type_name(),
                 ),
-            }),
-        )
+            })
+        })
     }
+}
+
+/// A mutable location.
+type Location<'a> = MappedRwLockWriteGuard<'a, Value>;
+
+/// Map a reader-writer lock with a function.
+fn try_map<F>(location: Location, f: F) -> EvalResult<Location>
+where
+    F: FnOnce(&mut Value) -> EvalResult<&mut Value>,
+{
+    let mut error = None;
+    MappedRwLockWriteGuard::try_map(location, |value| match f(value) {
+        Ok(value) => Some(value),
+        Err(err) => {
+            error = Some(err);
+            None
+        }
+    })
+    .map_err(|_| error.unwrap())
 }

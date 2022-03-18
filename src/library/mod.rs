@@ -67,13 +67,10 @@ pub fn new() -> Scope {
     std.def_node::<math::MathNode>("math");
 
     // Utility functions.
-    std.def_fn("assert", utility::assert);
     std.def_fn("type", utility::type_);
-    std.def_fn("repr", utility::repr);
-    std.def_fn("join", utility::join);
+    std.def_fn("assert", utility::assert);
     std.def_fn("int", utility::int);
     std.def_fn("float", utility::float);
-    std.def_fn("str", utility::str);
     std.def_fn("abs", utility::abs);
     std.def_fn("min", utility::min);
     std.def_fn("max", utility::max);
@@ -83,13 +80,13 @@ pub fn new() -> Scope {
     std.def_fn("range", utility::range);
     std.def_fn("rgb", utility::rgb);
     std.def_fn("cmyk", utility::cmyk);
+    std.def_fn("repr", utility::repr);
+    std.def_fn("str", utility::str);
     std.def_fn("lower", utility::lower);
     std.def_fn("upper", utility::upper);
     std.def_fn("letter", utility::letter);
     std.def_fn("roman", utility::roman);
     std.def_fn("symbol", utility::symbol);
-    std.def_fn("len", utility::len);
-    std.def_fn("sorted", utility::sorted);
 
     // Predefined colors.
     std.def_const("black", Color::BLACK);

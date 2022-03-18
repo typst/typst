@@ -20,6 +20,7 @@ fxhash = "0.2"
 once_cell = "1"
 serde = { version = "1", features = ["derive"] }
 typed-arena = "2"
+parking_lot = "0.12"
 
 # Text and font handling
 hypher = "0.1"

@@ -4,7 +4,8 @@ use std::sync::Arc;
 use crate::syntax::{Green, GreenNode, NodeKind};
 
 use super::{
-    is_newline, parse, reparse_block, reparse_content, reparse_markup_elements, TokenMode,
+    is_newline, parse, reparse_code_block, reparse_content_block,
+    reparse_markup_elements, TokenMode,
 };
 
 /// Allows partial refreshs of the [`Green`] node tree.
@@ -210,12 +211,12 @@ impl Reparser<'_> {
         }
 
         let (newborns, terminated, amount) = match mode {
-            ReparseMode::Code => reparse_block(
+            ReparseMode::Code => reparse_code_block(
                 &prefix,
                 &self.src[newborn_span.start ..],
                 newborn_span.len(),
             ),
-            ReparseMode::Content => reparse_content(
+            ReparseMode::Content => reparse_content_block(
                 &prefix,
                 &self.src[newborn_span.start ..],
                 newborn_span.len(),
@@ -344,7 +345,6 @@ mod tests {
         test("this~is -- in my opinion -- spectacular", 8 .. 10, "---", 5 .. 25);
         test("understanding `code` is complicated", 15 .. 15, "C ", 14 .. 22);
         test("{ let x = g() }", 10 .. 12, "f(54", 0 .. 17);
-        test("a #let rect with (fill: eastern)\nb", 16 .. 31, " (stroke: conifer", 2 .. 34);
         test(r#"a ```typst hello``` b"#, 16 .. 17, "", 2 .. 18);
         test(r#"a ```typst hello```"#, 16 .. 17, "", 2 .. 18);
         test("#for", 4 .. 4, "//", 0 .. 6);

@@ -509,6 +509,8 @@ pub enum NodeKind {
     Minus,
     /// A slash: `/`.
     Slash,
+    /// A dot: `.`.
+    Dot,
     /// A single equals sign: `=`.
     Eq,
     /// Two equals signs: `==`.
@@ -537,8 +539,6 @@ pub enum NodeKind {
     And,
     /// The `or` operator.
     Or,
-    /// The `with` operator.
-    With,
     /// Two dots: `..`.
     Dots,
     /// An equals sign followed by a greater-than sign: `=>`.
@@ -659,7 +659,9 @@ pub enum NodeKind {
     /// A binary operation: `a + b`.
     BinaryExpr,
     /// An invocation of a function: `f(x, y)`.
-    CallExpr,
+    FuncCall,
+    /// An invocation of a method: `array.push(v)`.
+    MethodCall,
     /// A function call's argument list: `(x, y)`.
     CallArgs,
     /// Spreaded arguments or a parameter sink: `..x`.
@@ -668,8 +670,6 @@ pub enum NodeKind {
     ClosureExpr,
     /// A closure's parameters: `(x, y)`.
     ClosureParams,
-    /// A with expression: `f with (x, y: 1)`.
-    WithExpr,
     /// A let expression: `let x = 1`.
     LetExpr,
     /// A set expression: `set text(...)`.
@@ -802,7 +802,7 @@ impl NodeKind {
             | Self::WhileExpr
             | Self::ForExpr
             | Self::ImportExpr
-            | Self::CallExpr
+            | Self::FuncCall
             | Self::IncludeExpr
             | Self::LineComment
             | Self::BlockComment
@@ -830,6 +830,7 @@ impl NodeKind {
             Self::Plus => "plus",
             Self::Minus => "minus",
             Self::Slash => "slash",
+            Self::Dot => "dot",
             Self::Eq => "assignment operator",
             Self::EqEq => "equality operator",
             Self::ExclEq => "inequality operator",
@@ -844,7 +845,6 @@ impl NodeKind {
             Self::Not => "operator `not`",
             Self::And => "operator `and`",
             Self::Or => "operator `or`",
-            Self::With => "operator `with`",
             Self::Dots => "dots",
             Self::Arrow => "arrow",
             Self::None => "`none`",
@@ -899,12 +899,12 @@ impl NodeKind {
             Self::Named => "named argument",
             Self::UnaryExpr => "unary expression",
             Self::BinaryExpr => "binary expression",
-            Self::CallExpr => "call",
+            Self::FuncCall => "function call",
+            Self::MethodCall => "method call",
             Self::CallArgs => "call arguments",
             Self::Spread => "parameter sink",
             Self::ClosureExpr => "closure",
             Self::ClosureParams => "closure parameters",
-            Self::WithExpr => "`with` expression",
             Self::LetExpr => "`let` expression",
             Self::SetExpr => "`set` expression",
             Self::ShowExpr => "`show` expression",
@@ -954,6 +954,7 @@ impl Hash for NodeKind {
             Self::Plus => {}
             Self::Minus => {}
             Self::Slash => {}
+            Self::Dot => {}
             Self::Eq => {}
             Self::EqEq => {}
             Self::ExclEq => {}
@@ -968,7 +969,6 @@ impl Hash for NodeKind {
             Self::Not => {}
             Self::And => {}
             Self::Or => {}
-            Self::With => {}
             Self::Dots => {}
             Self::Arrow => {}
             Self::None => {}
@@ -1023,12 +1023,12 @@ impl Hash for NodeKind {
             Self::Named => {}
             Self::UnaryExpr => {}
             Self::BinaryExpr => {}
-            Self::CallExpr => {}
+            Self::FuncCall => {}
+            Self::MethodCall => {}
             Self::CallArgs => {}
             Self::Spread => {}
             Self::ClosureExpr => {}
             Self::ClosureParams => {}
-            Self::WithExpr => {}
             Self::LetExpr => {}
             Self::SetExpr => {}
             Self::ShowExpr => {}

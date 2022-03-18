@@ -352,7 +352,16 @@ impl<'s> Parser<'s> {
 
         match self.groups.last().map(|group| group.kind) {
             Some(Group::Strong | Group::Emph) => n >= 2,
-            Some(Group::Expr | Group::Imports) => n >= 1,
+            Some(Group::Imports) => n >= 1,
+            Some(Group::Expr) if n >= 1 => {
+                // Allow else and method call to continue on next line.
+                self.groups.iter().nth_back(1).map(|group| group.kind)
+                    != Some(Group::Brace)
+                    || !matches!(
+                        self.tokens.clone().next(),
+                        Some(NodeKind::Else | NodeKind::Dot)
+                    )
+            }
             _ => false,
         }
     }

@@ -60,10 +60,10 @@
 
 #let nth(n) = {
   str(n)
-  (if n == 1 { "st" }
-   else if n == 2 { "nd" }
-   else if n == 3 { "rd" }
-   else { "th" })
+  if n == 1 { "st" }
+  else if n == 2 { "nd" }
+  else if n == 3 { "rd" }
+  else { "th" }
 }
 
 #test(nth(1), "1st")

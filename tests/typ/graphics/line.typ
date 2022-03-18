@@ -34,10 +34,10 @@
     #line(length: +30%, origin: (25.4%, 48%), angle: -36deg)
     #line(length: +30%, origin: (25.6%, 48%), angle: -72deg)
     #line(length: +32%, origin: (8.50%, 02%), angle: 34deg)
-    ]
+  ]
 ]
 
-#align(center, grid(columns: (1fr, ) * 3, ..((star(20pt, thickness: .5pt), ) * 9)))
+#align(center, grid(columns: (1fr,) * 3, ..((star(20pt, thickness: .5pt),) * 9)))
 
 ---
 // Test errors.

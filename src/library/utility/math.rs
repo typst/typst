@@ -2,6 +2,35 @@ use std::cmp::Ordering;
 
 use crate::library::prelude::*;
 
+/// Convert a value to a integer.
+pub fn int(_: &mut Context, args: &mut Args) -> TypResult<Value> {
+    let Spanned { v, span } = args.expect("value")?;
+    Ok(Value::Int(match v {
+        Value::Bool(v) => v as i64,
+        Value::Int(v) => v,
+        Value::Float(v) => v as i64,
+        Value::Str(v) => match v.parse() {
+            Ok(v) => v,
+            Err(_) => bail!(span, "invalid integer"),
+        },
+        v => bail!(span, "cannot convert {} to integer", v.type_name()),
+    }))
+}
+
+/// Convert a value to a float.
+pub fn float(_: &mut Context, args: &mut Args) -> TypResult<Value> {
+    let Spanned { v, span } = args.expect("value")?;
+    Ok(Value::Float(match v {
+        Value::Int(v) => v as f64,
+        Value::Float(v) => v,
+        Value::Str(v) => match v.parse() {
+            Ok(v) => v,
+            Err(_) => bail!(span, "invalid float"),
+        },
+        v => bail!(span, "cannot convert {} to float", v.type_name()),
+    }))
+}
+
 /// The absolute value of a numeric value.
 pub fn abs(_: &mut Context, args: &mut Args) -> TypResult<Value> {
     let Spanned { v, span } = args.expect("numeric value")?;

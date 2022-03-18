@@ -10,6 +10,7 @@ use crate::syntax::{ErrorPos, NodeKind};
 use crate::util::EcoString;
 
 /// An iterator over the tokens of a string of source code.
+#[derive(Clone)]
 pub struct Tokens<'s> {
     /// The underlying scanner.
     s: Scanner<'s>,
@@ -184,6 +185,7 @@ impl<'s> Tokens<'s> {
             '=' => NodeKind::Eq,
             '<' => NodeKind::Lt,
             '>' => NodeKind::Gt,
+            '.' if self.s.check_or(true, |n| !n.is_ascii_digit()) => NodeKind::Dot,
 
             // Identifiers.
             c if is_id_start(c) => self.ident(start),
@@ -572,7 +574,6 @@ fn keyword(ident: &str) -> Option<NodeKind> {
         "not" => NodeKind::Not,
         "and" => NodeKind::And,
         "or" => NodeKind::Or,
-        "with" => NodeKind::With,
         "let" => NodeKind::Let,
         "set" => NodeKind::Set,
         "show" => NodeKind::Show,
@@ -859,6 +860,7 @@ mod tests {
         t!(Code: "-"        => Minus);
         t!(Code[" a1"]: "*" => Star);
         t!(Code[" a1"]: "/" => Slash);
+        t!(Code[" a/"]: "." => Dot);
         t!(Code: "="        => Eq);
         t!(Code: "=="       => EqEq);
         t!(Code: "!="       => ExclEq);
@@ -875,7 +877,7 @@ mod tests {
 
         // Test combinations.
         t!(Code: "<=>"        => LtEq, Gt);
-        t!(Code[" a/"]: "..." => Dots, Invalid("."));
+        t!(Code[" a/"]: "..." => Dots, Dot);
 
         // Test hyphen as symbol vs part of identifier.
         t!(Code[" /"]: "-1"   => Minus, Int(1));

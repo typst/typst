@@ -2,7 +2,9 @@ use std::collections::BTreeMap;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::iter;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
+
+use parking_lot::RwLock;
 
 use super::{Args, Func, Node, Value};
 use crate::diag::TypResult;
@@ -113,7 +115,7 @@ impl Hash for Scope {
         self.values.len().hash(state);
         for (name, value) in self.values.iter() {
             name.hash(state);
-            value.read().unwrap().hash(state);
+            value.read().hash(state);
         }
     }
 }
@@ -122,7 +124,7 @@ impl Debug for Scope {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.write_str("Scope ")?;
         f.debug_map()
-            .entries(self.values.iter().map(|(k, v)| (k, v.read().unwrap())))
+            .entries(self.values.iter().map(|(k, v)| (k, v.read())))
             .finish()
     }
 }

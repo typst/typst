@@ -3,9 +3,11 @@ use std::fmt::{self, Debug, Formatter, Write};
 use std::ops::{Add, AddAssign};
 use std::sync::Arc;
 
-use super::Value;
-use crate::diag::StrResult;
+use super::{Args, Func, Value};
+use crate::diag::{At, StrResult, TypResult};
+use crate::syntax::Spanned;
 use crate::util::ArcExt;
+use crate::Context;
 
 /// Create a new [`Array`] from values.
 #[allow(unused_macros)]
@@ -66,36 +68,134 @@ impl Array {
         Arc::make_mut(&mut self.0).push(value);
     }
 
+    /// Remove the last value in the array.
+    pub fn pop(&mut self) -> StrResult<()> {
+        Arc::make_mut(&mut self.0).pop().ok_or_else(|| "array is empty")?;
+        Ok(())
+    }
+
+    /// Insert a value at the specified index.
+    pub fn insert(&mut self, index: i64, value: Value) -> StrResult<()> {
+        let len = self.len();
+        let i = usize::try_from(index)
+            .ok()
+            .filter(|&i| i <= self.0.len())
+            .ok_or_else(|| out_of_bounds(index, len))?;
+
+        Arc::make_mut(&mut self.0).insert(i, value);
+        Ok(())
+    }
+
+    /// Remove and return the value at the specified index.
+    pub fn remove(&mut self, index: i64) -> StrResult<()> {
+        let len = self.len();
+        let i = usize::try_from(index)
+            .ok()
+            .filter(|&i| i < self.0.len())
+            .ok_or_else(|| out_of_bounds(index, len))?;
+
+        Arc::make_mut(&mut self.0).remove(i);
+        return Ok(());
+    }
+
     /// Whether the array contains a specific value.
     pub fn contains(&self, value: &Value) -> bool {
         self.0.contains(value)
     }
 
-    /// Clear the array.
-    pub fn clear(&mut self) {
-        if Arc::strong_count(&self.0) == 1 {
-            Arc::make_mut(&mut self.0).clear();
-        } else {
-            *self = Self::new();
+    /// Extract a contigous subregion of the array.
+    pub fn slice(&self, start: i64, end: Option<i64>) -> StrResult<Self> {
+        let len = self.len();
+        let start = usize::try_from(start)
+            .ok()
+            .filter(|&start| start <= self.0.len())
+            .ok_or_else(|| out_of_bounds(start, len))?;
+
+        let end = end.unwrap_or(self.len());
+        let end = usize::try_from(end)
+            .ok()
+            .filter(|&end| end <= self.0.len())
+            .ok_or_else(|| out_of_bounds(end, len))?;
+
+        Ok(Self::from_vec(self.0[start .. end].to_vec()))
+    }
+
+    /// Transform each item in the array with a function.
+    pub fn map(&self, ctx: &mut Context, f: Spanned<Func>) -> TypResult<Self> {
+        Ok(self
+            .iter()
+            .cloned()
+            .map(|item| f.v.call(ctx, Args::from_values(f.span, [item])))
+            .collect::<TypResult<_>>()?)
+    }
+
+    /// Return a new array with only those elements for which the function
+    /// return true.
+    pub fn filter(&self, ctx: &mut Context, f: Spanned<Func>) -> TypResult<Self> {
+        let mut kept = vec![];
+        for item in self.iter() {
+            if f.v
+                .call(ctx, Args::from_values(f.span, [item.clone()]))?
+                .cast::<bool>()
+                .at(f.span)?
+            {
+                kept.push(item.clone())
+            }
         }
+        Ok(Self::from_vec(kept))
     }
 
-    /// Iterate over references to the contained values.
-    pub fn iter(&self) -> std::slice::Iter<Value> {
-        self.0.iter()
+    /// Return a new array with all items from this and nested arrays.
+    pub fn flatten(&self) -> Self {
+        let mut flat = vec![];
+        for item in self.iter() {
+            if let Value::Array(nested) = item {
+                flat.extend(nested.flatten().into_iter());
+            } else {
+                flat.push(item.clone());
+            }
+        }
+        Self::from_vec(flat)
     }
 
-    /// Extracts a slice of the whole array.
-    pub fn as_slice(&self) -> &[Value] {
-        self.0.as_slice()
+    /// Return the index of the element if it is part of the array.
+    pub fn find(&self, value: Value) -> Option<i64> {
+        self.0.iter().position(|x| *x == value).map(|i| i as i64)
+    }
+
+    /// Join all values in the array, optionally with separator and last
+    /// separator (between the final two items).
+    pub fn join(&self, sep: Option<Value>, mut last: Option<Value>) -> StrResult<Value> {
+        let len = self.0.len();
+        let sep = sep.unwrap_or(Value::None);
+
+        let mut result = Value::None;
+        for (i, value) in self.iter().cloned().enumerate() {
+            if i > 0 {
+                if i + 1 == len {
+                    if let Some(last) = last.take() {
+                        result = result.join(last)?;
+                    } else {
+                        result = result.join(sep.clone())?;
+                    }
+                } else {
+                    result = result.join(sep.clone())?;
+                }
+            }
+
+            result = result.join(value)?;
+        }
+
+        Ok(result)
     }
 
     /// Return a sorted version of this array.
     ///
     /// Returns an error if two values could not be compared.
-    pub fn sorted(mut self) -> StrResult<Self> {
+    pub fn sorted(&self) -> StrResult<Self> {
         let mut result = Ok(());
-        Arc::make_mut(&mut self.0).sort_by(|a, b| {
+        let mut vec = (*self.0).clone();
+        vec.sort_by(|a, b| {
             a.partial_cmp(b).unwrap_or_else(|| {
                 if result.is_ok() {
                     result = Err(format!(
@@ -107,7 +207,7 @@ impl Array {
                 Ordering::Equal
             })
         });
-        result.map(|_| self)
+        result.map(|_| Self::from_vec(vec))
     }
 
     /// Repeat this array `n` times.
@@ -118,6 +218,17 @@ impl Array {
             .ok_or_else(|| format!("cannot repeat this array {} times", n))?;
 
         Ok(self.iter().cloned().cycle().take(count).collect())
+    }
+
+    /// Extract a slice of the whole array.
+    pub fn as_slice(&self) -> &[Value] {
+        self.0.as_slice()
+    }
+
+
+    /// Iterate over references to the contained values.
+    pub fn iter(&self) -> std::slice::Iter<Value> {
+        self.0.iter()
     }
 }
 
