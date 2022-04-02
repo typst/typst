@@ -63,12 +63,7 @@ impl Show for HeadingNode {
         map.set(TextNode::SIZE, resolve!(Self::SIZE));
 
         if let Smart::Custom(family) = resolve!(Self::FAMILY) {
-            map.set(
-                TextNode::FAMILY,
-                std::iter::once(family)
-                    .chain(styles.get_ref(TextNode::FAMILY).iter().cloned())
-                    .collect(),
-            );
+            map.set_family(family, styles);
         }
 
         if let Smart::Custom(fill) = resolve!(Self::FILL) {
@@ -101,6 +96,7 @@ impl Show for HeadingNode {
         }
 
         let mut content = Content::sequence(seq).styled_with_map(map);
+
         if resolve!(Self::BLOCK) {
             content = Content::block(content);
         }

@@ -19,7 +19,7 @@
 #text(stretch: 50%)[Condensed]
 
 // Set family.
-#text(family: serif)[Serif]
+#text(family: "IBM Plex Serif")[Serif]
 
 // Emoji.
 Emoji: 🐪, 🌋, 🏞
@@ -39,20 +39,12 @@ Emoji: 🐪, 🌋, 🏞
 2π = 𝛼 + 𝛽. ✅
 
 ---
-// Test class definitions.
-#set text(sans-serif: "PT Sans")
-#text(family: sans-serif)[Sans-serif.] \
-#text(monospace)[Monospace.] \
-#text(monospace, monospace: ("Nope", "Latin Modern Math"))[Math.]
-
----
 // Test top and bottom edge.
-
 #set page(width: 150pt)
 #set text(size: 8pt)
 
 #let try(top, bottom) = rect(fill: conifer)[
-  #set text(monospace, top-edge: top, bottom-edge: bottom)
+  #set text("IBM Plex Mono", top-edge: top, bottom-edge: bottom)
   From #top to #bottom
 ]
 
@@ -78,10 +70,6 @@ Emoji: 🐪, 🌋, 🏞
 ---
 // Error: 21-23 unknown font metric
 #set text(top-edge: "")
-
----
-// Error: 18-19 expected string or array of strings, found integer
-#set text(serif: 0)
 
 ---
 // Error: 23-27 unexpected argument

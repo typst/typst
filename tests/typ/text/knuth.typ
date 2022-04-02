@@ -1,6 +1,6 @@
 #set page(width: auto, height: auto)
-#set par(lang: "en", leading: 3pt, justify: true)
-#set text(family: "CMU Serif")
+#set par(lang: "en", leading: 4pt, justify: true)
+#set text(family: "Latin Modern Roman")
 
 #let story = [
   In olden times when wishing still helped one, there lived a king whose

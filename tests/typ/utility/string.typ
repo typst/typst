@@ -38,6 +38,7 @@
 ---
 // Test integrated lower, upper and symbols.
 // Ref: true
+
 #upper("Abc 8")
 #upper[def]
 

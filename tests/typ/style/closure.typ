@@ -23,7 +23,7 @@
 )[Level 3]
 
 ---
-// Error: 22-26 expected font family or auto or function, found length
+// Error: 22-26 expected string or auto or function, found length
 #set heading(family: 10pt)
 = Heading
 
@@ -33,7 +33,7 @@
 = Heading
 
 ---
-// Error: 22-34 expected font family or auto, found boolean
+// Error: 22-34 expected string or auto, found boolean
 #set heading(family: lvl => false)
 = Heading
 

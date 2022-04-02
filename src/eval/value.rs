@@ -7,6 +7,7 @@ use std::sync::Arc;
 use super::{ops, Args, Array, Content, Context, Dict, Func, Layout, StrExt};
 use crate::diag::{with_alternative, At, StrResult, TypResult};
 use crate::geom::{Angle, Color, Fractional, Length, Linear, Relative, RgbaColor};
+use crate::library::text::RawNode;
 use crate::syntax::{Span, Spanned};
 use crate::util::EcoString;
 
@@ -115,9 +116,10 @@ impl Value {
             Value::Float(v) => Content::Text(format_eco!("{}", v)),
             Value::Str(v) => Content::Text(v),
             Value::Content(v) => v,
-            // For values which can't be shown "naturally", we print the
-            // representation in monospace.
-            v => Content::Text(v.repr()).monospaced(),
+
+            // For values which can't be shown "naturally", we return the raw
+            // representation.
+            v => Content::show(RawNode { text: v.repr(), block: false }),
         }
     }
 

@@ -3,16 +3,15 @@ Licenses for third party components used by this project can be found below.
 ================================================================================
 The SIL Open Font License Version 1.1 applies to:
 
-* IBM Plex fonts in fonts/IBMPlex-*.ttf
+* IBM Plex fonts in fonts/IBMPlex*.ttf
   Copyright © 2017 IBM Corp. with Reserved Font Name "Plex"
   (https://github.com/IBM/plex)
 
-* Noto fonts in fonts/Noto-*.ttf
+* Noto fonts in fonts/Noto*.ttf
   Copyright 2018 The Noto Project Authors
-  (https://github.com/googlefonts/noto-fonts)
-  (https://github.com/googlefonts/noto-cjk)
+  (github.com/googlei18n/noto-fonts)
 
-* PT Sans fonts in fonts/PTSans-*.ttf
+* PT Sans fonts in fonts/PTSans*.ttf
   Copyright (c) 2010, ParaType Ltd. (http://www.paratype.com/public),
   with Reserved Font Names "PT Sans" and "ParaType".
 
@@ -135,7 +134,7 @@ THE SOFTWARE.
 ================================================================================
 The Apache License Version 2.0 applies to:
 
-* Roboto fonts in fonts/Roboto-*.ttf
+* Roboto fonts in fonts/Roboto*.ttf
   (https://github.com/googlefonts/roboto)
 
                                  Apache License
@@ -319,7 +318,7 @@ The Apache License Version 2.0 applies to:
 ================================================================================
 The GUST Font License Version 1.0 applies to:
 
-* Latin Modern Math font in fonts/LatinModernMath.otf
+* Latin Modern fonts in fonts/LatinModern*.otf
   (http://www.gust.org.pl/projects/e-foundry/lm-math)
 
 % This is version 1.0, dated 22 June 2009, of the GUST Font License.

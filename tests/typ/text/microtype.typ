@@ -24,7 +24,7 @@ A#box["]B
 
 ---
 #set par(lang: "ar")
-#set text("Noto Sans Arabic")
+#set text("Noto Sans Arabic", "IBM Plex Sans")
 "المطر هو الحياة" \
 المطر هو الحياة
 

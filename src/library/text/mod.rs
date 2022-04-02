@@ -29,13 +29,7 @@ pub struct TextNode;
 impl TextNode {
     /// A prioritized sequence of font families.
     #[variadic]
-    pub const FAMILY: Vec<FontFamily> = vec![FontFamily::SansSerif];
-    /// The serif font family/families.
-    pub const SERIF: Vec<NamedFamily> = vec![NamedFamily::new("IBM Plex Serif")];
-    /// The sans-serif font family/families.
-    pub const SANS_SERIF: Vec<NamedFamily> = vec![NamedFamily::new("IBM Plex Sans")];
-    /// The monospace font family/families.
-    pub const MONOSPACE: Vec<NamedFamily> = vec![NamedFamily::new("IBM Plex Mono")];
+    pub const FAMILY: Vec<FontFamily> = vec![FontFamily::new("IBM Plex Sans")];
     /// Whether to allow font fallback when the primary font list contains no
     /// match.
     pub const FALLBACK: bool = true;
@@ -100,9 +94,6 @@ impl TextNode {
     #[skip]
     #[fold(bool::bitxor)]
     pub const EMPH: bool = false;
-    /// Whether a monospace font should be preferred.
-    #[skip]
-    pub const MONOSPACED: bool = false;
     /// The case transformation that should be applied to the next.
     #[skip]
     pub const CASE: Option<Case> = None;
@@ -160,50 +151,11 @@ impl Show for EmphNode {
     }
 }
 
-/// A generic or named font family.
+/// A font family like "Arial".
 #[derive(Clone, Eq, PartialEq, Hash)]
-pub enum FontFamily {
-    /// A family that has "serifs", small strokes attached to letters.
-    Serif,
-    /// A family in which glyphs do not have "serifs", small attached strokes.
-    SansSerif,
-    /// A family in which (almost) all glyphs are of equal width.
-    Monospace,
-    /// A specific font family like "Arial".
-    Named(NamedFamily),
-}
+pub struct FontFamily(EcoString);
 
-impl Debug for FontFamily {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            Self::Serif => f.pad("serif"),
-            Self::SansSerif => f.pad("sans-serif"),
-            Self::Monospace => f.pad("monospace"),
-            Self::Named(s) => s.fmt(f),
-        }
-    }
-}
-
-dynamic! {
-    FontFamily: "font family",
-    Value::Str(string) => Self::Named(NamedFamily::new(&string)),
-}
-
-castable! {
-    Vec<FontFamily>,
-    Expected: "string, generic family or array thereof",
-    Value::Str(string) => vec![FontFamily::Named(NamedFamily::new(&string))],
-    Value::Array(values) => {
-        values.into_iter().filter_map(|v| v.cast().ok()).collect()
-    },
-    @family: FontFamily => vec![family.clone()],
-}
-
-/// A specific font family like "Arial".
-#[derive(Clone, Eq, PartialEq, Hash)]
-pub struct NamedFamily(EcoString);
-
-impl NamedFamily {
+impl FontFamily {
     /// Create a named font family variant.
     pub fn new(string: &str) -> Self {
         Self(string.to_lowercase().into())
@@ -215,20 +167,26 @@ impl NamedFamily {
     }
 }
 
-impl Debug for NamedFamily {
+impl Debug for FontFamily {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         self.0.fmt(f)
     }
 }
 
 castable! {
-    Vec<NamedFamily>,
+    FontFamily,
+    Expected: "string",
+    Value::Str(string) => Self::new(&string),
+}
+
+castable! {
+    Vec<FontFamily>,
     Expected: "string or array of strings",
-    Value::Str(string) => vec![NamedFamily::new(&string)],
+    Value::Str(string) => vec![FontFamily::new(&string)],
     Value::Array(values) => values
         .into_iter()
         .filter_map(|v| v.cast().ok())
-        .map(|string: EcoString| NamedFamily::new(&string))
+        .map(|string: EcoString| FontFamily::new(&string))
         .collect(),
 }
 

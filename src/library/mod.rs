@@ -119,9 +119,6 @@ pub fn new() -> Scope {
     std.def_const("top", Align::Top);
     std.def_const("horizon", Align::Horizon);
     std.def_const("bottom", Align::Bottom);
-    std.def_const("serif", text::FontFamily::Serif);
-    std.def_const("sans-serif", text::FontFamily::SansSerif);
-    std.def_const("monospace", text::FontFamily::Monospace);
 
     std
 }

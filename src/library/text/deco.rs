@@ -94,10 +94,11 @@ pub fn decorate(
     width: Length,
 ) {
     let face = fonts.get(text.face_id);
+    let face_metrics = face.metrics();
     let metrics = match deco.line {
-        STRIKETHROUGH => face.strikethrough,
-        OVERLINE => face.overline,
-        UNDERLINE | _ => face.underline,
+        STRIKETHROUGH => face_metrics.strikethrough,
+        OVERLINE => face_metrics.overline,
+        UNDERLINE | _ => face_metrics.underline,
     };
 
     let evade = deco.evade && deco.line != STRIKETHROUGH;
@@ -146,7 +147,8 @@ pub fn decorate(
 
     for glyph in text.glyphs.iter() {
         let dx = glyph.x_offset.resolve(text.size) + x;
-        let mut builder = BezPathBuilder::new(face.units_per_em, text.size, dx.to_raw());
+        let mut builder =
+            BezPathBuilder::new(face_metrics.units_per_em, text.size, dx.to_raw());
 
         let bbox = face.ttf().outline_glyph(GlyphId(glyph.id), &mut builder);
         let path = builder.finish();

@@ -1,12 +1,14 @@
 //! Font handling.
 
+use std::cmp::Reverse;
 use std::collections::{hash_map::Entry, BTreeMap, HashMap};
 use std::fmt::{self, Debug, Formatter};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
-use ttf_parser::{name_id, GlyphId, PlatformId};
+use ttf_parser::{name_id, GlyphId, PlatformId, Tag};
+use unicode_segmentation::UnicodeSegmentation;
 
 use crate::geom::{Em, Length, Linear};
 use crate::loading::{FileHash, Loader};
@@ -47,11 +49,17 @@ impl FontStore {
         let mut failed = vec![];
         let mut families = BTreeMap::<String, Vec<FaceId>>::new();
 
-        for (i, info) in loader.faces().iter().enumerate() {
+        let infos = loader.faces();
+        for (i, info) in infos.iter().enumerate() {
             let id = FaceId(i as u32);
             faces.push(None);
             failed.push(false);
             families.entry(info.family.to_lowercase()).or_default().push(id);
+        }
+
+        for faces in families.values_mut() {
+            faces.sort_by_key(|id| infos[id.0 as usize].variant);
+            faces.dedup_by_key(|id| infos[id.0 as usize].variant);
         }
 
         Self {
@@ -63,33 +71,88 @@ impl FontStore {
         }
     }
 
-    /// Query for and load the font face from the given `family` that most
-    /// closely matches the given `variant`.
+    /// Try to find and load a font face from the given `family` that matches
+    /// the given `variant` as closely as possible.
     pub fn select(&mut self, family: &str, variant: FontVariant) -> Option<FaceId> {
-        // Check whether a family with this name exists.
         let ids = self.families.get(family)?;
+        let id = self.find_best_variant(None, variant, ids.iter().copied())?;
+        self.load(id)
+    }
+
+    /// Try to find and load a fallback font that
+    /// - is as close as possible to the face `like` (if any)
+    /// - is as close as possible to the given `variant`
+    /// - is suitable for shaping the given `text`
+    pub fn select_fallback(
+        &mut self,
+        like: Option<FaceId>,
+        variant: FontVariant,
+        text: &str,
+    ) -> Option<FaceId> {
+        // Find the faces that contain the text's first char ...
+        let c = text.chars().next()?;
+        let ids = self
+            .loader
+            .faces()
+            .iter()
+            .enumerate()
+            .filter(|(_, info)| info.coverage.contains(c as u32))
+            .map(|(i, _)| FaceId(i as u32));
+
+        // ... and find the best variant among them.
+        let id = self.find_best_variant(like, variant, ids)?;
+        self.load(id)
+    }
+
+    /// Find the face in the passed iterator that
+    /// - is closest to the face `like` (if any)
+    /// - is closest to the given `variant`
+    ///
+    /// To do that we compute a key for all variants and select the one with the
+    /// minimal key. This key prioritizes:
+    /// - If `like` is some other face:
+    ///   - Are both faces (not) monospaced.
+    ///   - Do both faces (not) have serifs.
+    ///   - How many words do the families share in their prefix? E.g. "Noto
+    ///     Sans" and "Noto Sans Arabic" share two words, whereas "IBM Plex
+    ///     Arabic" shares none with "Noto Sans", so prefer "Noto Sans Arabic"
+    ///     if `like` is "Noto Sans". In case there are two equally good
+    ///     matches, we prefer the shorter one because it is less special (e.g.
+    ///     if `like` is "Noto Sans Arabic", we prefer "Noto Sans" over "Noto
+    ///     Sans CJK HK".)
+    /// - The style (normal / italic / oblique). If we want italic or oblique
+    ///   but it doesn't exist, the other one of the two is still better than
+    ///   normal.
+    /// - The absolute distance to the target stretch.
+    /// - The absolute distance to the target weight.
+    fn find_best_variant(
+        &self,
+        like: Option<FaceId>,
+        variant: FontVariant,
+        ids: impl IntoIterator<Item = FaceId>,
+    ) -> Option<FaceId> {
         let infos = self.loader.faces();
+        let like = like.map(|id| &infos[id.0 as usize]);
 
         let mut best = None;
         let mut best_key = None;
 
         // Find the best matching variant of this font.
-        for &id in ids {
-            let current = infos[id.0 as usize].variant;
+        for id in ids {
+            let current = &infos[id.0 as usize];
 
-            // This is a perfect match, no need to search further.
-            if current == variant {
-                best = Some(id);
-                break;
-            }
-
-            // If this is not a perfect match, we compute a key that we want to
-            // minimize among all variants. This key prioritizes style, then
-            // stretch distance and then weight distance.
             let key = (
-                current.style != variant.style,
-                current.stretch.distance(variant.stretch),
-                current.weight.distance(variant.weight),
+                like.map(|like| {
+                    (
+                        current.monospaced != like.monospaced,
+                        like.serif.is_some() && current.serif != like.serif,
+                        Reverse(shared_prefix_words(&current.family, &like.family)),
+                        current.family.len(),
+                    )
+                }),
+                current.variant.style.distance(variant.style),
+                current.variant.stretch.distance(variant.stretch),
+                current.variant.weight.distance(variant.weight),
             );
 
             if best_key.map_or(true, |b| key < b) {
@@ -98,57 +161,77 @@ impl FontStore {
             }
         }
 
-        let id = best?;
+        best
+    }
+
+    /// Load the face with the given id.
+    ///
+    /// Returns `Some(id)` if the face was loaded successfully.
+    fn load(&mut self, id: FaceId) -> Option<FaceId> {
         let idx = id.0 as usize;
         let slot = &mut self.faces[idx];
+        if slot.is_some() {
+            return Some(id);
+        }
+
         if self.failed[idx] {
             return None;
         }
 
-        // Load the face if it's not already loaded.
-        if slot.is_none() {
-            let FaceInfo { ref path, index, .. } = infos[idx];
-            self.failed[idx] = true;
+        let FaceInfo { ref path, index, .. } = self.loader.faces()[idx];
+        self.failed[idx] = true;
 
-            // Check the buffer cache since multiple faces may
-            // refer to the same data (font collection).
-            let hash = self.loader.resolve(path).ok()?;
-            let buffer = match self.buffers.entry(hash) {
-                Entry::Occupied(entry) => entry.into_mut(),
-                Entry::Vacant(entry) => {
-                    let buffer = self.loader.load(path).ok()?;
-                    entry.insert(Arc::new(buffer))
-                }
-            };
+        // Check the buffer cache since multiple faces may
+        // refer to the same data (font collection).
+        let hash = self.loader.resolve(path).ok()?;
+        let buffer = match self.buffers.entry(hash) {
+            Entry::Occupied(entry) => entry.into_mut(),
+            Entry::Vacant(entry) => {
+                let buffer = self.loader.load(path).ok()?;
+                entry.insert(Arc::new(buffer))
+            }
+        };
 
-            let face = Face::new(Arc::clone(buffer), index)?;
-            *slot = Some(face);
-            self.failed[idx] = false;
-        }
+        let face = Face::new(Arc::clone(buffer), index)?;
+        *slot = Some(face);
+        self.failed[idx] = false;
 
         Some(id)
     }
 
     /// Get a reference to a loaded face.
     ///
-    /// This panics if no face with this `id` was loaded. This function should
-    /// only be called with ids returned by this store's
-    /// [`select()`](Self::select) method.
+    /// This panics if the face with this `id` was not loaded. This function
+    /// should only be called with ids returned by this store's
+    /// [`select()`](Self::select) and
+    /// [`select_fallback()`](Self::select_fallback) methods.
     #[track_caller]
     pub fn get(&self, id: FaceId) -> &Face {
         self.faces[id.0 as usize].as_ref().expect("font face was not loaded")
     }
 
-    /// Returns an ordered iterator over all font family names this loader
-    /// knows.
-    pub fn families(&self) -> impl Iterator<Item = &str> + '_ {
+    /// An ordered iterator over all font families this loader knows and details
+    /// about the faces that are part of them.
+    pub fn families(
+        &self,
+    ) -> impl Iterator<Item = (&str, impl Iterator<Item = &FaceInfo>)> + '_ {
         // Since the keys are lowercased, we instead use the family field of the
         // first face's info.
         let faces = self.loader.faces();
-        self.families
-            .values()
-            .map(move |id| faces[id[0].0 as usize].family.as_str())
+        self.families.values().map(|ids| {
+            let family = faces[ids[0].0 as usize].family.as_str();
+            let infos = ids.iter().map(|&id| &faces[id.0 as usize]);
+            (family, infos)
+        })
     }
+}
+
+/// How many words the two strings share in their prefix.
+fn shared_prefix_words(left: &str, right: &str) -> usize {
+    left.unicode_words()
+        .zip(right.unicode_words())
+        .take_while(|(l, r)| l == r)
+        .count()
 }
 
 /// A font face.
@@ -161,6 +244,71 @@ pub struct Face {
     index: u32,
     /// The underlying ttf-parser/rustybuzz face.
     ttf: rustybuzz::Face<'static>,
+    /// The faces metrics.
+    metrics: FaceMetrics,
+}
+
+impl Face {
+    /// Parse a font face from a buffer and collection index.
+    pub fn new(buffer: Arc<Vec<u8>>, index: u32) -> Option<Self> {
+        // Safety:
+        // - The slices's location is stable in memory:
+        //   - We don't move the underlying vector
+        //   - Nobody else can move it since we have a strong ref to the `Arc`.
+        // - The internal static lifetime is not leaked because its rewritten
+        //   to the self-lifetime in `ttf()`.
+        let slice: &'static [u8] =
+            unsafe { std::slice::from_raw_parts(buffer.as_ptr(), buffer.len()) };
+
+        let ttf = rustybuzz::Face::from_slice(slice, index)?;
+        let metrics = FaceMetrics::from_ttf(&ttf);
+
+        Some(Self { buffer, index, ttf, metrics })
+    }
+
+    /// The underlying buffer.
+    pub fn buffer(&self) -> &Arc<Vec<u8>> {
+        &self.buffer
+    }
+
+    /// The collection index.
+    pub fn index(&self) -> u32 {
+        self.index
+    }
+
+    /// A reference to the underlying `ttf-parser` / `rustybuzz` face.
+    pub fn ttf(&self) -> &rustybuzz::Face<'_> {
+        // We can't implement Deref because that would leak the internal 'static
+        // lifetime.
+        &self.ttf
+    }
+
+    /// The number of units per em.
+    pub fn units_per_em(&self) -> f64 {
+        self.metrics.units_per_em
+    }
+
+    /// Access the face's metrics.
+    pub fn metrics(&self) -> &FaceMetrics {
+        &self.metrics
+    }
+
+    /// Convert from font units to an em length.
+    pub fn to_em(&self, units: impl Into<f64>) -> Em {
+        Em::from_units(units, self.units_per_em())
+    }
+
+    /// Look up the horizontal advance width of a glyph.
+    pub fn advance(&self, glyph: u16) -> Option<Em> {
+        self.ttf
+            .glyph_hor_advance(GlyphId(glyph))
+            .map(|units| self.to_em(units))
+    }
+}
+
+/// Metrics for a font face.
+#[derive(Debug, Copy, Clone)]
+pub struct FaceMetrics {
     /// How many font units represent one em unit.
     pub units_per_em: f64,
     /// The distance from the baseline to the typographic ascender.
@@ -179,30 +327,10 @@ pub struct Face {
     pub overline: LineMetrics,
 }
 
-/// Metrics for a decorative line.
-#[derive(Debug, Copy, Clone)]
-pub struct LineMetrics {
-    /// The vertical offset of the line from the baseline. Positive goes
-    /// upwards, negative downwards.
-    pub position: Em,
-    /// The thickness of the line.
-    pub thickness: Em,
-}
-
-impl Face {
-    /// Parse a font face from a buffer and collection index.
-    pub fn new(buffer: Arc<Vec<u8>>, index: u32) -> Option<Self> {
-        // Safety:
-        // - The slices's location is stable in memory:
-        //   - We don't move the underlying vector
-        //   - Nobody else can move it since we have a strong ref to the `Arc`.
-        // - The internal static lifetime is not leaked because its rewritten
-        //   to the self-lifetime in `ttf()`.
-        let slice: &'static [u8] =
-            unsafe { std::slice::from_raw_parts(buffer.as_ptr(), buffer.len()) };
-
-        let ttf = rustybuzz::Face::from_slice(slice, index)?;
-        let units_per_em = f64::from(ttf.units_per_em());
+impl FaceMetrics {
+    /// Extract the face's metrics.
+    pub fn from_ttf(ttf: &ttf_parser::Face) -> Self {
+        let units_per_em = f64::from(ttf.units_per_em().unwrap_or(0));
         let to_em = |units| Em::from_units(units, units_per_em);
 
         let ascender = to_em(ttf.typographic_ascender().unwrap_or(ttf.ascender()));
@@ -231,10 +359,7 @@ impl Face {
             thickness: underline.thickness,
         };
 
-        Some(Self {
-            buffer,
-            index,
-            ttf,
+        Self {
             units_per_em,
             ascender,
             cap_height,
@@ -243,40 +368,11 @@ impl Face {
             strikethrough,
             underline,
             overline,
-        })
-    }
-
-    /// The underlying buffer.
-    pub fn buffer(&self) -> &Arc<Vec<u8>> {
-        &self.buffer
-    }
-
-    /// The collection index.
-    pub fn index(&self) -> u32 {
-        self.index
-    }
-
-    /// A reference to the underlying `ttf-parser` / `rustybuzz` face.
-    pub fn ttf(&self) -> &rustybuzz::Face<'_> {
-        // We can't implement Deref because that would leak the internal 'static
-        // lifetime.
-        &self.ttf
-    }
-
-    /// Convert from font units to an em length.
-    pub fn to_em(&self, units: impl Into<f64>) -> Em {
-        Em::from_units(units, self.units_per_em)
-    }
-
-    /// Look up the horizontal advance width of a glyph.
-    pub fn advance(&self, glyph: u16) -> Option<Em> {
-        self.ttf
-            .glyph_hor_advance(GlyphId(glyph))
-            .map(|units| self.to_em(units))
+        }
     }
 
     /// Look up a vertical metric at the given font size.
-    pub fn vertical_metric(&self, metric: VerticalFontMetric, size: Length) -> Length {
+    pub fn vertical(&self, metric: VerticalFontMetric, size: Length) -> Length {
         match metric {
             VerticalFontMetric::Ascender => self.ascender.resolve(size),
             VerticalFontMetric::CapHeight => self.cap_height.resolve(size),
@@ -286,6 +382,16 @@ impl Face {
             VerticalFontMetric::Linear(v) => v.resolve(size),
         }
     }
+}
+
+/// Metrics for a decorative line.
+#[derive(Debug, Copy, Clone)]
+pub struct LineMetrics {
+    /// The vertical offset of the line from the baseline. Positive goes
+    /// upwards, negative downwards.
+    pub position: Em,
+    /// The thickness of the line.
+    pub thickness: Em,
 }
 
 /// Identifies a vertical metric of a font.
@@ -323,50 +429,112 @@ pub struct FaceInfo {
     pub family: String,
     /// Properties that distinguish this face from other faces in the same
     /// family.
-    #[serde(flatten)]
     pub variant: FontVariant,
+    /// Whether the face is monospaced.
+    pub monospaced: bool,
+    /// Whether the face has serifs (if known).
+    pub serif: Option<bool>,
+    /// The unicode coverage of the face.
+    pub coverage: Coverage,
 }
 
 impl FaceInfo {
-    /// Determine metadata about all faces that are found in the given data.
-    pub fn parse<'a>(
+    /// Compute metadata for all faces in the given data.
+    pub fn from_data<'a>(
         path: &'a Path,
         data: &'a [u8],
     ) -> impl Iterator<Item = FaceInfo> + 'a {
         let count = ttf_parser::fonts_in_collection(data).unwrap_or(1);
         (0 .. count).filter_map(move |index| {
             let face = ttf_parser::Face::from_slice(data, index).ok()?;
-            let mut family = find_name(face.names(), name_id::TYPOGRAPHIC_FAMILY)
-                .or_else(|| find_name(face.names(), name_id::FAMILY))?;
+            Self::from_ttf(path, index, &face)
+        })
+    }
 
-            // Remove weird leading dot appearing in some fonts.
-            if let Some(undotted) = family.strip_prefix('.') {
-                family = undotted.to_string();
+    /// Compute metadata for a single ttf-parser face.
+    pub fn from_ttf(path: &Path, index: u32, ttf: &ttf_parser::Face) -> Option<Self> {
+        // We cannot use Name ID 16 "Typographic Family", because for some
+        // fonts it groups together more than just Style / Weight / Stretch
+        // variants (e.g. Display variants of Noto fonts) and then some
+        // variants become inaccessible from Typst. And even though the
+        // fsSelection bit WWS should help us decide whether that is the
+        // case, it's wrong for some fonts (e.g. for some faces of "Noto
+        // Sans Display").
+        //
+        // So, instead we use Name ID 1 "Family" and trim many common
+        // suffixes for which know that they just describe styling (e.g.
+        // "ExtraBold").
+        //
+        // Also, for Noto fonts we use Name ID 4 "Full Name" instead,
+        // because Name ID 1 "Family" sometimes contains "Display" and
+        // sometimes doesn't for the Display variants and that mixes things
+        // up.
+        let family = {
+            let mut family = find_name(ttf, name_id::FAMILY)?;
+            if family.starts_with("Noto") {
+                family = find_name(ttf, name_id::FULL_NAME)?;
             }
+            trim_styles(&family).to_string()
+        };
 
-            let variant = FontVariant {
-                style: match (face.is_italic(), face.is_oblique()) {
-                    (false, false) => FontStyle::Normal,
-                    (true, _) => FontStyle::Italic,
-                    (_, true) => FontStyle::Oblique,
-                },
-                weight: FontWeight::from_number(face.weight().to_number()),
-                stretch: FontStretch::from_number(face.width().to_number()),
+        let variant = {
+            let mut full = find_name(ttf, name_id::FULL_NAME).unwrap_or_default();
+            full.make_ascii_lowercase();
+
+            // Some fonts miss the relevant bits for italic or oblique, so
+            // we also try to infer that from the full name.
+            let italic = ttf.is_italic() || full.contains("italic");
+            let oblique =
+                ttf.is_oblique() || full.contains("oblique") || full.contains("slanted");
+
+            let style = match (italic, oblique) {
+                (false, false) => FontStyle::Normal,
+                (true, _) => FontStyle::Italic,
+                (_, true) => FontStyle::Oblique,
             };
 
-            Some(FaceInfo {
-                path: path.to_owned(),
-                index,
-                family,
-                variant,
-            })
+            let weight = FontWeight::from_number(ttf.weight().to_number());
+            let stretch = FontStretch::from_number(ttf.width().to_number());
+
+            FontVariant { style, weight, stretch }
+        };
+
+        // Determine the unicode coverage.
+        let mut codepoints = vec![];
+        for subtable in ttf.character_mapping_subtables() {
+            if subtable.is_unicode() {
+                subtable.codepoints(|c| codepoints.push(c));
+            }
+        }
+
+        // Determine whether this is a serif or sans-serif font.
+        let mut serif = None;
+        if let Some(panose) = ttf
+            .table_data(Tag::from_bytes(b"OS/2"))
+            .and_then(|os2| os2.get(32 .. 45))
+        {
+            match panose {
+                [2, 2 ..= 10, ..] => serif = Some(true),
+                [2, 11 ..= 15, ..] => serif = Some(false),
+                _ => {}
+            }
+        }
+
+        Some(FaceInfo {
+            path: path.to_owned(),
+            index,
+            family,
+            variant,
+            monospaced: ttf.is_monospaced(),
+            serif,
+            coverage: Coverage::from_vec(codepoints),
         })
     }
 }
 
-/// Find a decodable entry in a name table iterator.
-pub fn find_name(mut names: ttf_parser::Names<'_>, name_id: u16) -> Option<String> {
-    names.find_map(|entry| {
+/// Try to find and decode the name with the given id.
+pub fn find_name(ttf: &ttf_parser::Face, name_id: u16) -> Option<String> {
+    ttf.names().find_map(|entry| {
         if entry.name_id() == name_id {
             if let Some(string) = entry.to_string() {
                 return Some(string);
@@ -381,8 +549,63 @@ pub fn find_name(mut names: ttf_parser::Names<'_>, name_id: u16) -> Option<Strin
     })
 }
 
+/// Trim style naming from a family name.
+fn trim_styles(mut family: &str) -> &str {
+    // Separators between names, modifiers and styles.
+    const SEPARATORS: [char; 3] = [' ', '-', '_'];
+
+    // Modifiers that can appear in combination with suffixes.
+    const MODIFIERS: &[&str] = &[
+        "extra", "ext", "ex", "x", "semi", "sem", "sm", "demi", "dem", "ultra",
+    ];
+
+    // Style suffixes.
+    #[rustfmt::skip]
+    const SUFFIXES: &[&str] = &[
+        "normal", "italic", "oblique", "slanted",
+        "thin", "th", "hairline", "light", "lt", "regular", "medium", "med",
+        "md", "bold", "bd", "demi", "extb", "black", "blk", "bk", "heavy",
+        "narrow", "condensed", "cond", "cn", "cd", "compressed", "expanded", "exp"
+    ];
+
+    // Trim spacing and weird leading dots in Apple fonts.
+    family = family.trim().trim_start_matches('.');
+
+    // Lowercase the string so that the suffixes match case-insensitively.
+    let lower = family.to_ascii_lowercase();
+    let mut len = usize::MAX;
+    let mut trimmed = lower.as_str();
+
+    // Trim style suffixes repeatedly.
+    while trimmed.len() < len {
+        len = trimmed.len();
+
+        // Find style suffix.
+        let mut t = match SUFFIXES.iter().find_map(|s| trimmed.strip_suffix(s)) {
+            Some(t) => t,
+            None => break,
+        };
+
+        // Strip optional separator.
+        if let Some(s) = t.strip_suffix(SEPARATORS) {
+            trimmed = s;
+            t = s;
+        }
+
+        // Also allow an extra modifier, but apply it only if it is separated it
+        // from the text before it (to prevent false positives).
+        if let Some(t) = MODIFIERS.iter().find_map(|s| t.strip_suffix(s)) {
+            if let Some(stripped) = t.strip_suffix(SEPARATORS) {
+                trimmed = stripped;
+            }
+        }
+    }
+
+    &family[.. len]
+}
+
 /// Properties that distinguish a face from other faces in the same family.
-#[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[derive(Serialize, Deserialize)]
 pub struct FontVariant {
     /// The style of the face (normal / italic / oblique).
@@ -417,6 +640,19 @@ pub enum FontStyle {
     Italic,
     /// A slanted style.
     Oblique,
+}
+
+impl FontStyle {
+    /// The conceptual distance between the styles, expressed as a number.
+    pub fn distance(self, other: Self) -> u16 {
+        if self == other {
+            0
+        } else if self != Self::Normal && other != Self::Normal {
+            1
+        } else {
+            2
+        }
+    }
 }
 
 impl Default for FontStyle {
@@ -572,6 +808,66 @@ impl Debug for FontStretch {
     }
 }
 
+/// A compactly encoded set of codepoints.
+///
+/// The set is represented by alternating specifications of how many codepoints
+/// are not in the set and how many are in the set.
+///
+/// For example, for the set `{2, 3, 4, 9, 10, 11, 15, 18, 19}`, there are:
+/// - 2 codepoints not inside (0, 1)
+/// - 3 codepoints inside (2, 3, 4)
+/// - 4 codepoints not inside (5, 6, 7, 8)
+/// - 3 codepoints inside (9, 10, 11)
+/// - 3 codepoints not inside (12, 13, 14)
+/// - 1 codepoint inside (15)
+/// - 2 codepoints not inside (16, 17)
+/// - 2 codepoints inside (18, 19)
+///
+/// So the resulting encoding is `[2, 3, 4, 3, 3, 1, 2, 2]`.
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct Coverage(Vec<u32>);
+
+impl Coverage {
+    /// Encode a vector of codepoints.
+    pub fn from_vec(mut codepoints: Vec<u32>) -> Self {
+        codepoints.sort();
+        codepoints.dedup();
+
+        let mut runs = Vec::new();
+        let mut next = 0;
+
+        for c in codepoints {
+            if let Some(run) = runs.last_mut().filter(|_| c == next) {
+                *run += 1;
+            } else {
+                runs.push(c - next);
+                runs.push(1);
+            }
+
+            next = c + 1;
+        }
+
+        Self(runs)
+    }
+
+    /// Whether the codepoint is covered.
+    pub fn contains(&self, c: u32) -> bool {
+        let mut inside = false;
+        let mut cursor = 0;
+
+        for &run in &self.0 {
+            if (cursor .. cursor + run).contains(&c) {
+                return inside;
+            }
+            cursor += run;
+            inside = !inside;
+        }
+
+        false
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -588,5 +884,48 @@ mod tests {
     #[test]
     fn test_font_stretch_debug() {
         assert_eq!(format!("{:?}", FontStretch::EXPANDED), "125%")
+    }
+
+    #[test]
+    fn test_trim_styles() {
+        assert_eq!(trim_styles("Atma Light"), "Atma");
+        assert_eq!(trim_styles("eras bold"), "eras");
+        assert_eq!(trim_styles("footlight mt light"), "footlight mt");
+        assert_eq!(trim_styles("times new roman"), "times new roman");
+        assert_eq!(trim_styles("noto sans mono cond sembd"), "noto sans mono");
+        assert_eq!(trim_styles("noto serif SEMCOND sembd"), "noto serif");
+        assert_eq!(trim_styles("crimson text"), "crimson text");
+        assert_eq!(trim_styles("footlight light"), "footlight");
+        assert_eq!(trim_styles("Noto Sans"), "Noto Sans");
+        assert_eq!(trim_styles("Noto Sans Light"), "Noto Sans");
+        assert_eq!(trim_styles("Noto Sans Semicondensed Heavy"), "Noto Sans");
+        assert_eq!(trim_styles("Familx"), "Familx");
+        assert_eq!(trim_styles("Font Ultra"), "Font Ultra");
+        assert_eq!(trim_styles("Font Ultra Bold"), "Font");
+    }
+
+    #[test]
+    fn test_coverage() {
+        #[track_caller]
+        fn test(set: &[u32], runs: &[u32]) {
+            let coverage = Coverage::from_vec(set.to_vec());
+            assert_eq!(coverage.0, runs);
+
+            let max = 5 + set.iter().copied().max().unwrap_or_default();
+            for c in 0 .. max {
+                assert_eq!(set.contains(&c), coverage.contains(c));
+            }
+        }
+
+        test(&[], &[]);
+        test(&[0], &[0, 1]);
+        test(&[1], &[1, 1]);
+        test(&[0, 1], &[0, 2]);
+        test(&[0, 1, 3], &[0, 2, 1, 1]);
+        test(
+            // [2, 3, 4, 9, 10, 11, 15, 18, 19]
+            &[18, 19, 2, 4, 9, 11, 15, 3, 3, 10],
+            &[2, 3, 4, 3, 3, 1, 2, 2],
+        )
     }
 }

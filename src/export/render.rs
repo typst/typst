@@ -160,7 +160,7 @@ fn render_svg_glyph(
 
     // If there's no viewbox defined, use the em square for our scale
     // transformation ...
-    let upem = face.units_per_em as f32;
+    let upem = face.units_per_em() as f32;
     let (mut width, mut height) = (upem, upem);
 
     // ... but if there's a viewbox or width, use that.
@@ -232,7 +232,7 @@ fn render_outline_glyph(
 
         // Flip vertically because font design coordinate
         // system is Y-up.
-        let scale = text.size.to_f32() / face.units_per_em as f32;
+        let scale = text.size.to_f32() / face.units_per_em() as f32;
         let ts = ts.pre_scale(scale, -scale);
         canvas.fill_path(&path, &paint, rule, ts, mask)?;
         return Some(());

@@ -2,6 +2,7 @@
 .vscode
 _things
 desktop.ini
+.DS_Store
 
 # Tests and benchmarks
 tests/png

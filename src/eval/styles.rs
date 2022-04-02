@@ -6,7 +6,7 @@ use std::sync::Arc;
 use super::{Args, Content, Func, Span, Value};
 use crate::diag::{At, TypResult};
 use crate::library::layout::PageNode;
-use crate::library::text::ParNode;
+use crate::library::text::{FontFamily, ParNode, TextNode};
 use crate::Context;
 
 /// A map of style properties.
@@ -46,6 +46,17 @@ impl StyleMap {
         if let Some(value) = value {
             self.set(key, value);
         }
+    }
+
+    /// Set a font family composed of a preferred family and existing families
+    /// from a style chain.
+    pub fn set_family(&mut self, family: FontFamily, existing: StyleChain) {
+        self.set(
+            TextNode::FAMILY,
+            std::iter::once(family)
+                .chain(existing.get_ref(TextNode::FAMILY).iter().cloned())
+                .collect(),
+        );
     }
 
     /// Set a recipe.

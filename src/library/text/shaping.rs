@@ -236,6 +236,18 @@ impl<'a> ShapedText<'a> {
     }
 }
 
+/// Holds shaping results and metadata common to all shaped segments.
+struct ShapingContext<'a> {
+    fonts: &'a mut FontStore,
+    glyphs: Vec<ShapedGlyph>,
+    used: Vec<FaceId>,
+    styles: StyleChain<'a>,
+    variant: FontVariant,
+    tags: Vec<rustybuzz::Feature>,
+    fallback: bool,
+    dir: Dir,
+}
+
 /// Shape text into [`ShapedText`].
 pub fn shape<'a>(
     fonts: &mut FontStore,
@@ -248,28 +260,24 @@ pub fn shape<'a>(
         None => Cow::Borrowed(text),
     };
 
-    let mut glyphs = vec![];
+    let mut ctx = ShapingContext {
+        fonts,
+        glyphs: vec![],
+        used: vec![],
+        styles,
+        variant: variant(styles),
+        tags: tags(styles),
+        fallback: styles.get(TextNode::FALLBACK),
+        dir,
+    };
+
     if !text.is_empty() {
-        shape_segment(
-            fonts,
-            &mut glyphs,
-            0,
-            &text,
-            variant(styles),
-            families(styles),
-            None,
-            dir,
-            &tags(styles),
-        );
+        shape_segment(&mut ctx, 0, &text, families(styles));
     }
 
-    track_and_space(
-        &mut glyphs,
-        styles.get(TextNode::TRACKING),
-        styles.get(TextNode::SPACING),
-    );
+    track_and_space(&mut ctx);
 
-    let (size, baseline) = measure(fonts, &glyphs, styles);
+    let (size, baseline) = measure(ctx.fonts, &ctx.glyphs, styles);
 
     ShapedText {
         text,
@@ -277,8 +285,221 @@ pub fn shape<'a>(
         styles,
         size,
         baseline,
-        glyphs: Cow::Owned(glyphs),
+        glyphs: Cow::Owned(ctx.glyphs),
     }
+}
+
+/// Shape text with font fallback using the `families` iterator.
+fn shape_segment<'a>(
+    ctx: &mut ShapingContext,
+    base: usize,
+    text: &str,
+    mut families: impl Iterator<Item = &'a str> + Clone,
+) {
+    // Fonts dont have newlines and tabs.
+    if text.chars().all(|c| c == '\n' || c == '\t') {
+        return;
+    }
+
+    // Find the next available family.
+    let mut selection = families.find_map(|family| {
+        ctx.fonts
+            .select(family, ctx.variant)
+            .filter(|id| !ctx.used.contains(id))
+    });
+
+    // Do font fallback if the families are exhausted and fallback is enabled.
+    if selection.is_none() && ctx.fallback {
+        let first = ctx.used.first().copied();
+        selection = ctx
+            .fonts
+            .select_fallback(first, ctx.variant, text)
+            .filter(|id| !ctx.used.contains(id));
+    }
+
+    // Extract the face id or shape notdef glyphs if we couldn't find any face.
+    let face_id = if let Some(id) = selection {
+        id
+    } else {
+        if let Some(&face_id) = ctx.used.first() {
+            shape_tofus(ctx, base, text, face_id);
+        }
+        return;
+    };
+
+    ctx.used.push(face_id);
+
+    // Fill the buffer with our text.
+    let mut buffer = UnicodeBuffer::new();
+    buffer.push_str(text);
+    buffer.set_direction(match ctx.dir {
+        Dir::LTR => rustybuzz::Direction::LeftToRight,
+        Dir::RTL => rustybuzz::Direction::RightToLeft,
+        _ => unimplemented!("vertical text layout"),
+    });
+
+    // Shape!
+    let mut face = ctx.fonts.get(face_id);
+    let buffer = rustybuzz::shape(face.ttf(), &ctx.tags, buffer);
+    let infos = buffer.glyph_infos();
+    let pos = buffer.glyph_positions();
+
+    // Collect the shaped glyphs, doing fallback and shaping parts again with
+    // the next font if necessary.
+    let mut i = 0;
+    while i < infos.len() {
+        let info = &infos[i];
+        let cluster = info.cluster as usize;
+
+        if info.glyph_id != 0 {
+            // Add the glyph to the shaped output.
+            // TODO: Don't ignore y_advance and y_offset.
+            ctx.glyphs.push(ShapedGlyph {
+                face_id,
+                glyph_id: info.glyph_id as u16,
+                x_advance: face.to_em(pos[i].x_advance),
+                x_offset: face.to_em(pos[i].x_offset),
+                cluster: base + cluster,
+                safe_to_break: !info.unsafe_to_break(),
+                c: text[cluster ..].chars().next().unwrap(),
+            });
+        } else {
+            // Determine the source text range for the tofu sequence.
+            let range = {
+                // First, search for the end of the tofu sequence.
+                let k = i;
+                while infos.get(i + 1).map_or(false, |info| info.glyph_id == 0) {
+                    i += 1;
+                }
+
+                // Then, determine the start and end text index.
+                //
+                // Examples:
+                // Everything is shown in visual order. Tofus are written as "_".
+                // We want to find out that the tofus span the text `2..6`.
+                // Note that the clusters are longer than 1 char.
+                //
+                // Left-to-right:
+                // Text:     h a l i h a l l o
+                // Glyphs:   A   _   _   C   E
+                // Clusters: 0   2   4   6   8
+                //              k=1 i=2
+                //
+                // Right-to-left:
+                // Text:     O L L A H I L A H
+                // Glyphs:   E   C   _   _   A
+                // Clusters: 8   6   4   2   0
+                //                  k=2 i=3
+                let ltr = ctx.dir.is_positive();
+                let first = if ltr { k } else { i };
+                let start = infos[first].cluster as usize;
+                let last = if ltr { i.checked_add(1) } else { k.checked_sub(1) };
+                let end = last
+                    .and_then(|last| infos.get(last))
+                    .map_or(text.len(), |info| info.cluster as usize);
+
+                start .. end
+            };
+
+            // Trim half-baked cluster.
+            let remove = base + range.start .. base + range.end;
+            while ctx.glyphs.last().map_or(false, |g| remove.contains(&g.cluster)) {
+                ctx.glyphs.pop();
+            }
+
+            // Recursively shape the tofu sequence with the next family.
+            shape_segment(ctx, base + range.start, &text[range], families.clone());
+
+            face = ctx.fonts.get(face_id);
+        }
+
+        i += 1;
+    }
+
+    ctx.used.pop();
+}
+
+/// Shape the text with tofus from the given face.
+fn shape_tofus(ctx: &mut ShapingContext, base: usize, text: &str, face_id: FaceId) {
+    let face = ctx.fonts.get(face_id);
+    let x_advance = face.advance(0).unwrap_or_default();
+    for (cluster, c) in text.char_indices() {
+        ctx.glyphs.push(ShapedGlyph {
+            face_id,
+            glyph_id: 0,
+            x_advance,
+            x_offset: Em::zero(),
+            cluster: base + cluster,
+            safe_to_break: true,
+            c,
+        });
+    }
+}
+
+/// Apply tracking and spacing to a slice of shaped glyphs.
+fn track_and_space(ctx: &mut ShapingContext) {
+    let tracking = ctx.styles.get(TextNode::TRACKING);
+    let spacing = ctx.styles.get(TextNode::SPACING);
+    if tracking.is_zero() && spacing.is_one() {
+        return;
+    }
+
+    let mut glyphs = ctx.glyphs.iter_mut().peekable();
+    while let Some(glyph) = glyphs.next() {
+        if glyph.is_space() {
+            glyph.x_advance *= spacing.get();
+        }
+
+        if glyphs.peek().map_or(false, |next| glyph.cluster != next.cluster) {
+            glyph.x_advance += tracking;
+        }
+    }
+}
+
+/// Measure the size and baseline of a run of shaped glyphs with the given
+/// properties.
+fn measure(
+    fonts: &mut FontStore,
+    glyphs: &[ShapedGlyph],
+    styles: StyleChain,
+) -> (Size, Length) {
+    let mut width = Length::zero();
+    let mut top = Length::zero();
+    let mut bottom = Length::zero();
+
+    let size = styles.get(TextNode::SIZE).abs;
+    let top_edge = styles.get(TextNode::TOP_EDGE);
+    let bottom_edge = styles.get(TextNode::BOTTOM_EDGE);
+
+    // Expand top and bottom by reading the face's vertical metrics.
+    let mut expand = |face: &Face| {
+        let metrics = face.metrics();
+        top.set_max(metrics.vertical(top_edge, size));
+        bottom.set_max(-metrics.vertical(bottom_edge, size));
+    };
+
+    if glyphs.is_empty() {
+        // When there are no glyphs, we just use the vertical metrics of the
+        // first available font.
+        let variant = variant(styles);
+        for family in families(styles) {
+            if let Some(face_id) = fonts.select(family, variant) {
+                expand(fonts.get(face_id));
+                break;
+            }
+        }
+    } else {
+        for (face_id, group) in glyphs.group_by_key(|g| g.face_id) {
+            let face = fonts.get(face_id);
+            expand(face);
+
+            for glyph in group {
+                width += glyph.x_advance.resolve(size);
+            }
+        }
+    }
+
+    (Size::new(width, top + bottom), top)
 }
 
 /// Resolve the font variant with `STRONG` and `EMPH` factored in.
@@ -306,30 +527,19 @@ fn variant(styles: StyleChain) -> FontVariant {
 
 /// Resolve a prioritized iterator over the font families.
 fn families(styles: StyleChain) -> impl Iterator<Item = &str> + Clone {
-    let head = if styles.get(TextNode::MONOSPACED) {
-        styles.get_ref(TextNode::MONOSPACE).as_slice()
-    } else {
-        &[]
-    };
+    const FALLBACKS: &[&str] = &[
+        "ibm plex sans",
+        "twitter color emoji",
+        "noto color emoji",
+        "apple color emoji",
+        "segoe ui emoji",
+    ];
 
-    let core = styles.get_ref(TextNode::FAMILY).iter().flat_map(move |family| {
-        match family {
-            FontFamily::Named(name) => std::slice::from_ref(name),
-            FontFamily::Serif => styles.get_ref(TextNode::SERIF),
-            FontFamily::SansSerif => styles.get_ref(TextNode::SANS_SERIF),
-            FontFamily::Monospace => styles.get_ref(TextNode::MONOSPACE),
-        }
-    });
-
-    let tail: &[&str] = if styles.get(TextNode::FALLBACK) {
-        &["ibm plex sans", "latin modern math", "twitter color emoji"]
-    } else {
-        &[]
-    };
-
-    head.iter()
-        .chain(core)
-        .map(|named| named.as_str())
+    let tail = if styles.get(TextNode::FALLBACK) { FALLBACKS } else { &[] };
+    styles
+        .get_ref(TextNode::FAMILY)
+        .iter()
+        .map(|family| family.as_str())
         .chain(tail.iter().copied())
 }
 
@@ -404,198 +614,4 @@ fn tags(styles: StyleChain) -> Vec<Feature> {
     }
 
     tags
-}
-
-/// Shape text with font fallback using the `families` iterator.
-fn shape_segment<'a>(
-    fonts: &mut FontStore,
-    glyphs: &mut Vec<ShapedGlyph>,
-    base: usize,
-    text: &str,
-    variant: FontVariant,
-    mut families: impl Iterator<Item = &'a str> + Clone,
-    mut first_face: Option<FaceId>,
-    dir: Dir,
-    tags: &[rustybuzz::Feature],
-) {
-    // No font has newlines.
-    if text.chars().all(|c| c == '\n') {
-        return;
-    }
-
-    // Select the font family.
-    let (face_id, fallback) = loop {
-        // Try to load the next available font family.
-        match families.next() {
-            Some(family) => {
-                if let Some(id) = fonts.select(family, variant) {
-                    break (id, true);
-                }
-            }
-            // We're out of families, so we don't do any more fallback and just
-            // shape the tofus with the first face we originally used.
-            None => match first_face {
-                Some(id) => break (id, false),
-                None => return,
-            },
-        }
-    };
-
-    // Remember the id if this the first available face since we use that one to
-    // shape tofus.
-    first_face.get_or_insert(face_id);
-
-    // Fill the buffer with our text.
-    let mut buffer = UnicodeBuffer::new();
-    buffer.push_str(text);
-    buffer.set_direction(match dir {
-        Dir::LTR => rustybuzz::Direction::LeftToRight,
-        Dir::RTL => rustybuzz::Direction::RightToLeft,
-        _ => unimplemented!(),
-    });
-
-    // Shape!
-    let mut face = fonts.get(face_id);
-    let buffer = rustybuzz::shape(face.ttf(), tags, buffer);
-    let infos = buffer.glyph_infos();
-    let pos = buffer.glyph_positions();
-
-    // Collect the shaped glyphs, doing fallback and shaping parts again with
-    // the next font if necessary.
-    let mut i = 0;
-    while i < infos.len() {
-        let info = &infos[i];
-        let cluster = info.cluster as usize;
-
-        if info.glyph_id != 0 || !fallback {
-            // Add the glyph to the shaped output.
-            // TODO: Don't ignore y_advance and y_offset.
-            glyphs.push(ShapedGlyph {
-                face_id,
-                glyph_id: info.glyph_id as u16,
-                x_advance: face.to_em(pos[i].x_advance),
-                x_offset: face.to_em(pos[i].x_offset),
-                cluster: base + cluster,
-                safe_to_break: !info.unsafe_to_break(),
-                c: text[cluster ..].chars().next().unwrap(),
-            });
-        } else {
-            // Determine the source text range for the tofu sequence.
-            let range = {
-                // First, search for the end of the tofu sequence.
-                let k = i;
-                while infos.get(i + 1).map_or(false, |info| info.glyph_id == 0) {
-                    i += 1;
-                }
-
-                // Then, determine the start and end text index.
-                //
-                // Examples:
-                // Everything is shown in visual order. Tofus are written as "_".
-                // We want to find out that the tofus span the text `2..6`.
-                // Note that the clusters are longer than 1 char.
-                //
-                // Left-to-right:
-                // Text:     h a l i h a l l o
-                // Glyphs:   A   _   _   C   E
-                // Clusters: 0   2   4   6   8
-                //              k=1 i=2
-                //
-                // Right-to-left:
-                // Text:     O L L A H I L A H
-                // Glyphs:   E   C   _   _   A
-                // Clusters: 8   6   4   2   0
-                //                  k=2 i=3
-                let ltr = dir.is_positive();
-                let first = if ltr { k } else { i };
-                let start = infos[first].cluster as usize;
-                let last = if ltr { i.checked_add(1) } else { k.checked_sub(1) };
-                let end = last
-                    .and_then(|last| infos.get(last))
-                    .map_or(text.len(), |info| info.cluster as usize);
-
-                start .. end
-            };
-
-            // Recursively shape the tofu sequence with the next family.
-            shape_segment(
-                fonts,
-                glyphs,
-                base + range.start,
-                &text[range],
-                variant,
-                families.clone(),
-                first_face,
-                dir,
-                tags,
-            );
-
-            face = fonts.get(face_id);
-        }
-
-        i += 1;
-    }
-}
-
-/// Apply tracking and spacing to a slice of shaped glyphs.
-fn track_and_space(glyphs: &mut [ShapedGlyph], tracking: Em, spacing: Relative) {
-    if tracking.is_zero() && spacing.is_one() {
-        return;
-    }
-
-    let mut glyphs = glyphs.iter_mut().peekable();
-    while let Some(glyph) = glyphs.next() {
-        if glyph.is_space() {
-            glyph.x_advance *= spacing.get();
-        }
-
-        if glyphs.peek().map_or(false, |next| glyph.cluster != next.cluster) {
-            glyph.x_advance += tracking;
-        }
-    }
-}
-
-/// Measure the size and baseline of a run of shaped glyphs with the given
-/// properties.
-fn measure(
-    fonts: &mut FontStore,
-    glyphs: &[ShapedGlyph],
-    styles: StyleChain,
-) -> (Size, Length) {
-    let mut width = Length::zero();
-    let mut top = Length::zero();
-    let mut bottom = Length::zero();
-
-    let size = styles.get(TextNode::SIZE).abs;
-    let top_edge = styles.get(TextNode::TOP_EDGE);
-    let bottom_edge = styles.get(TextNode::BOTTOM_EDGE);
-
-    // Expand top and bottom by reading the face's vertical metrics.
-    let mut expand = |face: &Face| {
-        top.set_max(face.vertical_metric(top_edge, size));
-        bottom.set_max(-face.vertical_metric(bottom_edge, size));
-    };
-
-    if glyphs.is_empty() {
-        // When there are no glyphs, we just use the vertical metrics of the
-        // first available font.
-        let variant = variant(styles);
-        for family in families(styles) {
-            if let Some(face_id) = fonts.select(family, variant) {
-                expand(fonts.get(face_id));
-                break;
-            }
-        }
-    } else {
-        for (face_id, group) in glyphs.group_by_key(|g| g.face_id) {
-            let face = fonts.get(face_id);
-            expand(face);
-
-            for glyph in group {
-                width += glyph.x_advance.resolve(size);
-            }
-        }
-    }
-
-    (Size::new(width, top + bottom), top)
 }

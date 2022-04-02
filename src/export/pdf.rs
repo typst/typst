@@ -90,9 +90,10 @@ impl<'a> PdfExporter<'a> {
 
             let glyphs = &self.glyph_sets[&face_id];
             let face = self.fonts.get(face_id);
+            let metrics = face.metrics();
             let ttf = face.ttf();
 
-            let postscript_name = find_name(ttf.names(), name_id::POST_SCRIPT_NAME)
+            let postscript_name = find_name(ttf, name_id::POST_SCRIPT_NAME)
                 .unwrap_or_else(|| "unknown".to_string());
 
             let base_font = format_eco!("ABCDEF+{}", postscript_name);
@@ -155,9 +156,9 @@ impl<'a> PdfExporter<'a> {
             );
 
             let italic_angle = ttf.italic_angle().unwrap_or(0.0);
-            let ascender = face.ascender.to_font_units();
-            let descender = face.descender.to_font_units();
-            let cap_height = face.cap_height.to_font_units();
+            let ascender = metrics.ascender.to_font_units();
+            let descender = metrics.descender.to_font_units();
+            let cap_height = metrics.cap_height.to_font_units();
             let stem_v = 10.0 + 0.244 * (f32::from(ttf.weight().to_number()) - 50.0);
 
             // Write the font descriptor (contains metrics about the font).

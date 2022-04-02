@@ -49,7 +49,7 @@ impl MemLoader {
     {
         let path = path.as_ref().normalize();
         let data = data.into();
-        self.faces.extend(FaceInfo::parse(&path, &data));
+        self.faces.extend(FaceInfo::from_data(&path, &data));
         self.files.insert(path, data);
     }
 }

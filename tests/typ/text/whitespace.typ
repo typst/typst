@@ -19,11 +19,11 @@ A /**/B/**/ C
 
 ---
 // Test that a run consisting only of whitespace isn't trimmed.
-A[#set text(serif); ]B
+A[#set text("IBM Plex Serif"); ]B
 
 ---
 // Test font change after space.
-Left [#set text(serif);Right].
+Left [#set text("IBM Plex Serif");Right].
 
 ---
 // Test that linebreak consumed surrounding spaces.

@@ -3,8 +3,8 @@ use syntect::easy::HighlightLines;
 use syntect::highlighting::{FontStyle, Highlighter, Style, Theme, ThemeSet};
 use syntect::parsing::SyntaxSet;
 
+use super::{FontFamily, TextNode};
 use crate::library::prelude::*;
-use crate::library::text::TextNode;
 use crate::source::SourceId;
 use crate::syntax::{self, RedNode};
 
@@ -26,6 +26,8 @@ pub struct RawNode {
 
 #[node(showable)]
 impl RawNode {
+    /// The raw text's font family. Just the normal text family if `none`.
+    pub const FAMILY: Smart<FontFamily> = Smart::Custom(FontFamily::new("IBM Plex Mono"));
     /// The language to syntax-highlight in.
     pub const LANG: Option<EcoString> = None;
 
@@ -40,18 +42,6 @@ impl RawNode {
 impl Show for RawNode {
     fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content> {
         let lang = styles.get_ref(Self::LANG).as_ref();
-
-        if let Some(content) = styles.show(self, ctx, [
-            Value::Str(self.text.clone()),
-            match lang {
-                Some(lang) => Value::Str(lang.clone()),
-                None => Value::None,
-            },
-            Value::Bool(self.block),
-        ])? {
-            return Ok(content);
-        }
-
         let foreground = THEME
             .settings
             .foreground
@@ -59,7 +49,16 @@ impl Show for RawNode {
             .unwrap_or(Color::BLACK)
             .into();
 
-        let mut content = if matches!(
+        let mut content = if let Some(content) = styles.show(self, ctx, [
+            Value::Str(self.text.clone()),
+            match lang {
+                Some(lang) => Value::Str(lang.clone()),
+                None => Value::None,
+            },
+            Value::Bool(self.block),
+        ])? {
+            content
+        } else if matches!(
             lang.map(|s| s.to_lowercase()).as_deref(),
             Some("typ" | "typst")
         ) {
@@ -93,11 +92,18 @@ impl Show for RawNode {
             Content::Text(self.text.clone())
         };
 
+        let mut map = StyleMap::new();
+        if let Smart::Custom(family) = styles.get_cloned(Self::FAMILY) {
+            map.set_family(family, styles);
+        }
+
+        content = content.styled_with_map(map);
+
         if self.block {
             content = Content::Block(content.pack());
         }
 
-        Ok(content.monospaced())
+        Ok(content)
     }
 }
 

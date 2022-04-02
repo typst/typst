@@ -13,7 +13,7 @@ use crate::diag::StrResult;
 use crate::library::layout::{FlowChild, FlowNode, PageNode, PlaceNode, Spacing};
 use crate::library::prelude::*;
 use crate::library::structure::{ListItem, ListKind, ListNode, ORDERED, UNORDERED};
-use crate::library::text::{DecoNode, ParChild, ParNode, TextNode, UNDERLINE};
+use crate::library::text::{DecoNode, ParChild, ParNode, UNDERLINE};
 use crate::util::EcoString;
 
 /// Composable representation of styled content.
@@ -131,11 +131,6 @@ impl Content {
         }
 
         Self::Styled(Arc::new((self, styles)))
-    }
-
-    /// Style this content in monospace.
-    pub fn monospaced(self) -> Self {
-        self.styled(TextNode::MONOSPACED, true)
     }
 
     /// Underline this content.

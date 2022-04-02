@@ -116,7 +116,7 @@ impl FsLoader {
         let path = path.strip_prefix(".").unwrap_or(path);
         if let Ok(file) = File::open(path) {
             if let Ok(mmap) = unsafe { Mmap::map(&file) } {
-                self.faces.extend(FaceInfo::parse(path, &mmap));
+                self.faces.extend(FaceInfo::from_data(path, &mmap));
             }
         }
     }
@@ -140,36 +140,5 @@ impl Loader for FsLoader {
 
     fn load(&self, path: &Path) -> io::Result<Vec<u8>> {
         fs::read(path)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_index_font_dir() {
-        let faces = FsLoader::new().with_path("fonts").faces;
-        let mut paths: Vec<_> = faces.into_iter().map(|info| info.path).collect();
-        paths.sort();
-
-        assert_eq!(paths, [
-            Path::new("fonts/CMU-Serif-Bold.ttf"),
-            Path::new("fonts/CMU-Serif-Regular.ttf"),
-            Path::new("fonts/IBMPlexMono-Regular.ttf"),
-            Path::new("fonts/IBMPlexSans-Bold.ttf"),
-            Path::new("fonts/IBMPlexSans-BoldItalic.ttf"),
-            Path::new("fonts/IBMPlexSans-Italic.ttf"),
-            Path::new("fonts/IBMPlexSans-Regular.ttf"),
-            Path::new("fonts/IBMPlexSerif-Regular.ttf"),
-            Path::new("fonts/LatinModernMath.otf"),
-            Path::new("fonts/NotoSansArabic-Regular.ttf"),
-            Path::new("fonts/NotoSerifCJKsc-Regular.otf"),
-            Path::new("fonts/NotoSerifHebrew-Bold.ttf"),
-            Path::new("fonts/NotoSerifHebrew-Regular.ttf"),
-            Path::new("fonts/PTSans-Regular.ttf"),
-            Path::new("fonts/Roboto-Regular.ttf"),
-            Path::new("fonts/TwitterColorEmoji.ttf"),
-        ]);
     }
 }
