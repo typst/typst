@@ -277,6 +277,7 @@ fn heading(p: &mut Parser, at_start: bool) {
     while p.eat_if(&NodeKind::Eq) {}
 
     if at_start && p.peek().map_or(true, |kind| kind.is_space()) {
+        p.eat_while(|kind| kind.is_space());
         markup_line(p);
         marker.end(p, NodeKind::Heading);
     } else {
@@ -291,8 +292,8 @@ fn list_node(p: &mut Parser, at_start: bool) {
     let text: EcoString = p.peek_src().into();
     p.eat_assert(&NodeKind::Minus);
 
-    if at_start && p.peek().map_or(true, |kind| kind.is_space()) {
-        let column = p.column(p.prev_end());
+    let column = p.column(p.prev_end());
+    if at_start && p.eat_if(&NodeKind::Space(0)) && !p.eof() {
         markup_indented(p, column);
         marker.end(p, NodeKind::List);
     } else {
@@ -306,8 +307,8 @@ fn enum_node(p: &mut Parser, at_start: bool) {
     let text: EcoString = p.peek_src().into();
     p.eat();
 
-    if at_start && p.peek().map_or(true, |kind| kind.is_space()) {
-        let column = p.column(p.prev_end());
+    let column = p.column(p.prev_end());
+    if at_start && p.eat_if(&NodeKind::Space(0)) && !p.eof() {
         markup_indented(p, column);
         marker.end(p, NodeKind::Enum);
     } else {

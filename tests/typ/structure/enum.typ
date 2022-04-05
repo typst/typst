@@ -47,6 +47,10 @@
 )
 
 ---
+// Lone dot is not a list.
+.
+
+---
 // Error: 18-20 invalid pattern
 #set enum(label: "")
 
