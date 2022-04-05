@@ -89,7 +89,7 @@ impl<'a> Subsetter<'a> {
         // Write table directory.
         let count = self.tables.len() as u16;
         let entry_selector = (count as f32).log2().floor() as u16;
-        let search_range = entry_selector.pow(2) * 16;
+        let search_range = 2u16.pow(u32::from(entry_selector)) * 16;
         let range_shift = count * 16 - search_range;
         w.write(count);
         w.write(search_range);
