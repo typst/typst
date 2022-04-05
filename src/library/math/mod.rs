@@ -14,7 +14,7 @@ pub struct MathNode {
 
 #[node(showable)]
 impl MathNode {
-    /// The raw text's font family. Just the normal text family if `none`.
+    /// The raw text's font family. Just the normal text family if `auto`.
     pub const FAMILY: Smart<FontFamily> =
         Smart::Custom(FontFamily::new("Latin Modern Math"));
 
