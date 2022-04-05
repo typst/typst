@@ -364,7 +364,7 @@ mod tests {
         test("hey #myfriend", 4 .. 4, "\\", 0 .. 14);
         test("hey  #myfriend", 4 .. 4, "\\", 3 .. 6);
         test("= foo\nbar\n - a\n - b", 6 .. 9, "", 0 .. 11);
-        test("= foo\n  bar\n  baz", 6 .. 8, "", 0 .. 15);
+        test("= foo\n  bar\n  baz", 6 .. 8, "", 0 .. 9);
     }
 
     #[test]

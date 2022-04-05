@@ -26,19 +26,15 @@ No = heading
 \= No heading
 
 ---
-// While indented at least as much as the start, the heading continues.
+// Blocks can continue the heading.
+
+= [This
+is
+multiline.
+]
 
 = This
-  is
-    indented.
-
-=  This
-is not.
-
-// Code blocks continue heading.
-= A {
-  "B"
-}
+  is not.
 
 ---
 // Test styling.

@@ -161,6 +161,11 @@ fn markup(p: &mut Parser, mut at_start: bool) {
     });
 }
 
+/// Parse a single line of markup.
+fn markup_line(p: &mut Parser) {
+    markup_indented(p, usize::MAX);
+}
+
 /// Parse markup that stays right of the given `column`.
 fn markup_indented(p: &mut Parser, column: usize) {
     p.eat_while(|t| match t {
@@ -272,8 +277,7 @@ fn heading(p: &mut Parser, at_start: bool) {
     while p.eat_if(&NodeKind::Eq) {}
 
     if at_start && p.peek().map_or(true, |kind| kind.is_space()) {
-        let column = p.column(p.prev_end());
-        markup_indented(p, column);
+        markup_line(p);
         marker.end(p, NodeKind::Heading);
     } else {
         let text = p.get(current_start .. p.prev_end()).into();
