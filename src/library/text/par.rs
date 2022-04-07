@@ -310,15 +310,15 @@ impl<'a> Line<'a> {
         self.items().nth(index)
     }
 
-    // How many spaces the line contains.
-    fn spaces(&self) -> usize {
-        let mut spaces = 0;
+    // How many justifiable glyphs the line contains.
+    fn justifiables(&self) -> usize {
+        let mut count = 0;
         for item in self.items() {
             if let ParItem::Text(shaped) = item {
-                spaces += shaped.spaces();
+                count += shaped.justifiables();
             }
         }
-        spaces
+        count
     }
 
     /// How much of the line is stretchable spaces.
@@ -509,11 +509,11 @@ fn linebreak_optimized<'a>(
     // Cost parameters.
     const HYPH_COST: Cost = 0.5;
     const CONSECUTIVE_DASH_COST: Cost = 30.0;
-    const MAX_COST: Cost = 10_000.0;
+    const MAX_COST: Cost = 1_000_000.0;
     const MIN_COST: Cost = -MAX_COST;
     const MIN_RATIO: f64 = -0.15;
 
-    // Density parameters.
+    let em = styles.get(TextNode::SIZE);
     let justify = styles.get(ParNode::JUSTIFY);
 
     // Dynamic programming table.
@@ -537,10 +537,14 @@ fn linebreak_optimized<'a>(
 
             // Determine how much the line's spaces would need to be stretched
             // to make it the desired width.
-            let mut ratio = (width - attempt.size.x) / attempt.stretch();
+            let delta = width - attempt.size.x;
+            let mut ratio = delta / attempt.stretch();
             if ratio.is_infinite() {
-                ratio = ratio.signum() * MAX_COST;
+                ratio = delta / (em / 2.0);
             }
+
+            // At some point, it doesn't matter any more.
+            ratio = ratio.min(10.0);
 
             // Determine the cost of the line.
             let mut cost = if ratio < if justify { MIN_RATIO } else { 0.0 } {
@@ -863,9 +867,9 @@ fn commit(
             && line.range.end < line.bidi.text.len()
             && line.fr.is_zero())
     {
-        let spaces = line.spaces();
-        if spaces > 0 {
-            justification = remaining / spaces as f64;
+        let justifiables = line.justifiables();
+        if justifiables > 0 {
+            justification = remaining / justifiables as f64;
             remaining = Length::zero();
         }
     }

@@ -50,9 +50,14 @@ pub struct ShapedGlyph {
 }
 
 impl ShapedGlyph {
-    /// Whether the glyph is a justifiable space.
+    /// Whether the glyph is a space.
     pub fn is_space(&self) -> bool {
         self.c == ' '
+    }
+
+    /// Whether the glyph is justifiable.
+    pub fn is_justifiable(&self) -> bool {
+        matches!(self.c, ' ' | '，' | '　' | '。' | '、')
     }
 }
 
@@ -68,7 +73,7 @@ impl<'a> ShapedText<'a> {
     /// Build the shaped text's frame.
     ///
     /// The `justification` defines how much extra advance width each
-    /// [space glyph](ShapedGlyph::is_space) will get.
+    /// [justifiable glyph](ShapedGlyph::is_justifiable) will get.
     pub fn build(&self, fonts: &FontStore, justification: Length) -> Frame {
         let mut offset = Length::zero();
         let mut frame = Frame::new(self.size);
@@ -84,7 +89,7 @@ impl<'a> ShapedText<'a> {
                 .map(|glyph| Glyph {
                     id: glyph.glyph_id,
                     x_advance: glyph.x_advance
-                        + if glyph.is_space() {
+                        + if glyph.is_justifiable() {
                             frame.size.x += justification;
                             Em::from_length(justification, size)
                         } else {
@@ -115,16 +120,16 @@ impl<'a> ShapedText<'a> {
         frame
     }
 
-    /// How many spaces the text contains.
-    pub fn spaces(&self) -> usize {
-        self.glyphs.iter().filter(|g| g.is_space()).count()
+    /// How many justifiable glyphs the text contains.
+    pub fn justifiables(&self) -> usize {
+        self.glyphs.iter().filter(|g| g.is_justifiable()).count()
     }
 
     /// The width of the spaces in the text.
     pub fn stretch(&self) -> Length {
         self.glyphs
             .iter()
-            .filter(|g| g.is_space())
+            .filter(|g| g.is_justifiable())
             .map(|g| g.x_advance)
             .sum::<Em>()
             .resolve(self.styles.get(TextNode::SIZE))
