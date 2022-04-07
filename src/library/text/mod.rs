@@ -13,7 +13,6 @@ pub use raw::*;
 pub use shaping::*;
 
 use std::borrow::Cow;
-use std::ops::BitXor;
 
 use ttf_parser::Tag;
 
@@ -28,7 +27,7 @@ pub struct TextNode;
 #[node]
 impl TextNode {
     /// A prioritized sequence of font families.
-    #[variadic]
+    #[property(referenced, variadic)]
     pub const FAMILY: Vec<FontFamily> = vec![FontFamily::new("IBM Plex Sans")];
     /// Whether to allow font fallback when the primary font list contains no
     /// match.
@@ -40,14 +39,13 @@ impl TextNode {
     pub const WEIGHT: FontWeight = FontWeight::REGULAR;
     /// The width of the glyphs.
     pub const STRETCH: FontStretch = FontStretch::NORMAL;
+    /// The size of the glyphs.
+    #[property(shorthand, fold)]
+    pub const SIZE: FontSize = Length::pt(11.0);
     /// The glyph fill color.
-    #[shorthand]
+    #[property(shorthand)]
     pub const FILL: Paint = Color::BLACK.into();
 
-    /// The size of the glyphs.
-    #[shorthand]
-    #[fold(Linear::compose)]
-    pub const SIZE: Linear = Length::pt(11.0).into();
     /// The amount of space that should be added between characters.
     pub const TRACKING: Em = Em::zero();
     /// The ratio by which spaces should be stretched.
@@ -84,70 +82,30 @@ impl TextNode {
     /// Whether to convert fractions. ("frac")
     pub const FRACTIONS: bool = false;
     /// Raw OpenType features to apply.
+    #[property(fold)]
     pub const FEATURES: Vec<(Tag, u32)> = vec![];
 
     /// Whether the font weight should be increased by 300.
-    #[skip]
-    #[fold(bool::bitxor)]
-    pub const STRONG: bool = false;
+    #[property(hidden, fold)]
+    pub const STRONG: Toggle = false;
     /// Whether the the font style should be inverted.
-    #[skip]
-    #[fold(bool::bitxor)]
-    pub const EMPH: bool = false;
-    /// The case transformation that should be applied to the next.
-    #[skip]
+    #[property(hidden, fold)]
+    pub const EMPH: Toggle = false;
+    /// A case transformation that should be applied to the text.
+    #[property(hidden)]
     pub const CASE: Option<Case> = None;
-    /// Decorative lines.
-    #[skip]
-    #[fold(|a, b| a.into_iter().chain(b).collect())]
-    pub const LINES: Vec<Decoration> = vec![];
     /// An URL the text should link to.
-    #[skip]
+    #[property(hidden, referenced)]
     pub const LINK: Option<EcoString> = None;
+    /// Decorative lines.
+    #[property(hidden, fold)]
+    pub const DECO: Decoration = vec![];
 
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         // The text constructor is special: It doesn't create a text node.
         // Instead, it leaves the passed argument structurally unchanged, but
         // styles all text in it.
         args.expect("body")
-    }
-}
-
-/// Strong text, rendered in boldface.
-#[derive(Debug, Hash)]
-pub struct StrongNode(pub Content);
-
-#[node(showable)]
-impl StrongNode {
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
-        Ok(Content::show(Self(args.expect("body")?)))
-    }
-}
-
-impl Show for StrongNode {
-    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content> {
-        Ok(styles
-            .show(self, ctx, [Value::Content(self.0.clone())])?
-            .unwrap_or_else(|| self.0.clone().styled(TextNode::STRONG, true)))
-    }
-}
-
-/// Emphasized text, rendered with an italic face.
-#[derive(Debug, Hash)]
-pub struct EmphNode(pub Content);
-
-#[node(showable)]
-impl EmphNode {
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
-        Ok(Content::show(Self(args.expect("body")?)))
-    }
-}
-
-impl Show for EmphNode {
-    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content> {
-        Ok(styles
-            .show(self, ctx, [Value::Content(self.0.clone())])?
-            .unwrap_or_else(|| self.0.clone().styled(TextNode::EMPH, true)))
     }
 }
 
@@ -226,6 +184,26 @@ castable! {
     FontStretch,
     Expected: "relative",
     Value::Relative(v) => Self::from_ratio(v.get() as f32),
+}
+
+/// The size of text.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct FontSize(pub Linear);
+
+impl Fold for FontSize {
+    type Output = Length;
+
+    fn fold(self, outer: Self::Output) -> Self::Output {
+        self.0.rel.resolve(outer) + self.0.abs
+    }
+}
+
+castable! {
+    FontSize,
+    Expected: "linear",
+    Value::Length(v) => Self(v.into()),
+    Value::Relative(v) => Self(v.into()),
+    Value::Linear(v) => Self(v),
 }
 
 castable! {
@@ -353,6 +331,15 @@ castable! {
         .collect(),
 }
 
+impl Fold for Vec<(Tag, u32)> {
+    type Output = Self;
+
+    fn fold(mut self, outer: Self::Output) -> Self::Output {
+        self.extend(outer);
+        self
+    }
+}
+
 /// A case transformation on text.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Case {
@@ -369,5 +356,64 @@ impl Case {
             Self::Upper => text.to_uppercase(),
             Self::Lower => text.to_lowercase(),
         }
+    }
+}
+
+/// A toggle that turns on and off alternatingly if folded.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct Toggle;
+
+impl Fold for Toggle {
+    type Output = bool;
+
+    fn fold(self, outer: Self::Output) -> Self::Output {
+        !outer
+    }
+}
+
+impl Fold for Decoration {
+    type Output = Vec<Self>;
+
+    fn fold(self, mut outer: Self::Output) -> Self::Output {
+        outer.insert(0, self);
+        outer
+    }
+}
+
+/// Strong text, rendered in boldface.
+#[derive(Debug, Hash)]
+pub struct StrongNode(pub Content);
+
+#[node(showable)]
+impl StrongNode {
+    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
+        Ok(Content::show(Self(args.expect("body")?)))
+    }
+}
+
+impl Show for StrongNode {
+    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content> {
+        Ok(styles
+            .show::<Self, _>(ctx, [Value::Content(self.0.clone())])?
+            .unwrap_or_else(|| self.0.clone().styled(TextNode::STRONG, Toggle)))
+    }
+}
+
+/// Emphasized text, rendered with an italic face.
+#[derive(Debug, Hash)]
+pub struct EmphNode(pub Content);
+
+#[node(showable)]
+impl EmphNode {
+    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
+        Ok(Content::show(Self(args.expect("body")?)))
+    }
+}
+
+impl Show for EmphNode {
+    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content> {
+        Ok(styles
+            .show::<Self, _>(ctx, [Value::Content(self.0.clone())])?
+            .unwrap_or_else(|| self.0.clone().styled(TextNode::EMPH, Toggle)))
     }
 }

@@ -55,11 +55,8 @@ impl TableNode {
 
 impl Show for TableNode {
     fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content> {
-        if let Some(content) = styles.show(
-            self,
-            ctx,
-            self.children.iter().map(|child| Value::Content(child.clone())),
-        )? {
+        let args = self.children.iter().map(|child| Value::Content(child.clone()));
+        if let Some(content) = styles.show::<Self, _>(ctx, args)? {
             return Ok(content);
         }
 

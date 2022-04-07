@@ -31,6 +31,7 @@ pub type EnumNode = ListNode<ORDERED>;
 #[node(showable)]
 impl<const L: ListKind> ListNode<L> {
     /// How the list is labelled.
+    #[property(referenced)]
     pub const LABEL: Label = Label::Default;
     /// The spacing between the list items of a non-wide list.
     pub const SPACING: Linear = Linear::zero();
@@ -58,17 +59,14 @@ impl<const L: ListKind> ListNode<L> {
 
 impl<const L: ListKind> Show for ListNode<L> {
     fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content> {
-        let content = if let Some(content) = styles.show(
-            self,
-            ctx,
-            self.items.iter().map(|item| Value::Content((*item.body).clone())),
-        )? {
+        let args = self.items.iter().map(|item| Value::Content((*item.body).clone()));
+        let content = if let Some(content) = styles.show::<Self, _>(ctx, args)? {
             content
         } else {
             let mut children = vec![];
             let mut number = self.start;
 
-            let label = styles.get_ref(Self::LABEL);
+            let label = styles.get(Self::LABEL);
 
             for item in &self.items {
                 number = item.number.unwrap_or(number);
@@ -79,7 +77,7 @@ impl<const L: ListKind> Show for ListNode<L> {
                 number += 1;
             }
 
-            let em = styles.get(TextNode::SIZE).abs;
+            let em = styles.get(TextNode::SIZE);
             let leading = styles.get(ParNode::LEADING);
             let spacing = if self.wide {
                 styles.get(ParNode::SPACING)

@@ -77,7 +77,7 @@ impl<'a> ShapedText<'a> {
         for (face_id, group) in self.glyphs.as_ref().group_by_key(|g| g.face_id) {
             let pos = Point::new(offset, self.baseline);
 
-            let size = self.styles.get(TextNode::SIZE).abs;
+            let size = self.styles.get(TextNode::SIZE);
             let fill = self.styles.get(TextNode::FILL);
             let glyphs = group
                 .iter()
@@ -99,7 +99,7 @@ impl<'a> ShapedText<'a> {
             let width = text.width();
 
             // Apply line decorations.
-            for deco in self.styles.get_cloned(TextNode::LINES) {
+            for deco in self.styles.get(TextNode::DECO) {
                 decorate(&mut frame, &deco, fonts, &text, pos, width);
             }
 
@@ -108,7 +108,7 @@ impl<'a> ShapedText<'a> {
         }
 
         // Apply link if it exists.
-        if let Some(url) = self.styles.get_ref(TextNode::LINK) {
+        if let Some(url) = self.styles.get(TextNode::LINK) {
             frame.link(url);
         }
 
@@ -127,7 +127,7 @@ impl<'a> ShapedText<'a> {
             .filter(|g| g.is_space())
             .map(|g| g.x_advance)
             .sum::<Em>()
-            .resolve(self.styles.get(TextNode::SIZE).abs)
+            .resolve(self.styles.get(TextNode::SIZE))
     }
 
     /// Reshape a range of the shaped text, reusing information from this
@@ -154,7 +154,7 @@ impl<'a> ShapedText<'a> {
 
     /// Push a hyphen to end of the text.
     pub fn push_hyphen(&mut self, fonts: &mut FontStore) {
-        let size = self.styles.get(TextNode::SIZE).abs;
+        let size = self.styles.get(TextNode::SIZE);
         let variant = variant(self.styles);
         families(self.styles).find_map(|family| {
             let face_id = fonts.select(family, variant)?;
@@ -467,7 +467,7 @@ fn measure(
     let mut top = Length::zero();
     let mut bottom = Length::zero();
 
-    let size = styles.get(TextNode::SIZE).abs;
+    let size = styles.get(TextNode::SIZE);
     let top_edge = styles.get(TextNode::TOP_EDGE);
     let bottom_edge = styles.get(TextNode::BOTTOM_EDGE);
 
@@ -537,7 +537,7 @@ fn families(styles: StyleChain) -> impl Iterator<Item = &str> + Clone {
 
     let tail = if styles.get(TextNode::FALLBACK) { FALLBACKS } else { &[] };
     styles
-        .get_ref(TextNode::FAMILY)
+        .get(TextNode::FAMILY)
         .iter()
         .map(|family| family.as_str())
         .chain(tail.iter().copied())
@@ -609,7 +609,7 @@ fn tags(styles: StyleChain) -> Vec<Feature> {
         feat(b"frac", 1);
     }
 
-    for &(tag, value) in styles.get_ref(TextNode::FEATURES).iter() {
+    for (tag, value) in styles.get(TextNode::FEATURES) {
         tags.push(Feature::new(tag, value, ..))
     }
 

@@ -1,12 +1,12 @@
 //! Layouting infrastructure.
 
-use std::any::{Any, TypeId};
+use std::any::Any;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::sync::Arc;
 
+use super::{Barrier, StyleChain};
 use crate::diag::TypResult;
-use crate::eval::StyleChain;
 use crate::frame::{Element, Frame, Geometry, Shape, Stroke};
 use crate::geom::{Align, Length, Linear, Paint, Point, Sides, Size, Spec, Transform};
 use crate::library::graphics::MoveNode;
@@ -18,7 +18,7 @@ use crate::Context;
 ///
 /// Layout return one frame per used region alongside constraints that define
 /// whether the result is reusable in other regions.
-pub trait Layout {
+pub trait Layout: 'static {
     /// Layout this node into the given regions, producing constrained frames.
     fn layout(
         &self,
@@ -144,12 +144,12 @@ impl LayoutNode {
 
     /// Check whether the contained node is a specific layout node.
     pub fn is<T: 'static>(&self) -> bool {
-        self.0.as_any().is::<T>()
+        (**self.0).as_any().is::<T>()
     }
 
-    /// The type id of this node.
-    pub fn id(&self) -> TypeId {
-        self.0.as_any().type_id()
+    /// A barrier for the node.
+    pub fn barrier(&self) -> Barrier {
+        (**self.0).barrier()
     }
 
     /// Try to downcast to a specific layout node.
@@ -157,7 +157,7 @@ impl LayoutNode {
     where
         T: Layout + Debug + Hash + 'static,
     {
-        self.0.as_any().downcast_ref()
+        (**self.0).as_any().downcast_ref()
     }
 
     /// Force a size for this node.
@@ -223,7 +223,7 @@ impl Layout for LayoutNode {
         styles: StyleChain,
     ) -> TypResult<Vec<Arc<Frame>>> {
         ctx.query((self, regions, styles), |ctx, (node, regions, styles)| {
-            node.0.layout(ctx, regions, styles.barred(node.id()))
+            node.0.layout(ctx, regions, node.barrier().chain(&styles))
         })
         .clone()
     }
@@ -253,6 +253,7 @@ impl PartialEq for LayoutNode {
 
 trait Bounds: Layout + Debug + Sync + Send + 'static {
     fn as_any(&self) -> &dyn Any;
+    fn barrier(&self) -> Barrier;
 }
 
 impl<T> Bounds for T
@@ -261,6 +262,10 @@ where
 {
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    fn barrier(&self) -> Barrier {
+        Barrier::new::<T>()
     }
 }
 

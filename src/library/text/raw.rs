@@ -3,7 +3,7 @@ use syntect::easy::HighlightLines;
 use syntect::highlighting::{FontStyle, Highlighter, Style, Theme, ThemeSet};
 use syntect::parsing::SyntaxSet;
 
-use super::{FontFamily, TextNode};
+use super::{FontFamily, TextNode, Toggle};
 use crate::library::prelude::*;
 use crate::source::SourceId;
 use crate::syntax::{self, RedNode};
@@ -27,8 +27,10 @@ pub struct RawNode {
 #[node(showable)]
 impl RawNode {
     /// The raw text's font family. Just the normal text family if `none`.
+    #[property(referenced)]
     pub const FAMILY: Smart<FontFamily> = Smart::Custom(FontFamily::new("IBM Plex Mono"));
     /// The language to syntax-highlight in.
+    #[property(referenced)]
     pub const LANG: Option<EcoString> = None;
 
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
@@ -41,7 +43,7 @@ impl RawNode {
 
 impl Show for RawNode {
     fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content> {
-        let lang = styles.get_ref(Self::LANG).as_ref();
+        let lang = styles.get(Self::LANG).as_ref();
         let foreground = THEME
             .settings
             .foreground
@@ -49,14 +51,16 @@ impl Show for RawNode {
             .unwrap_or(Color::BLACK)
             .into();
 
-        let mut content = if let Some(content) = styles.show(self, ctx, [
+        let args = [
             Value::Str(self.text.clone()),
             match lang {
                 Some(lang) => Value::Str(lang.clone()),
                 None => Value::None,
             },
             Value::Bool(self.block),
-        ])? {
+        ];
+
+        let mut content = if let Some(content) = styles.show::<Self, _>(ctx, args)? {
             content
         } else if matches!(
             lang.map(|s| s.to_lowercase()).as_deref(),
@@ -93,8 +97,8 @@ impl Show for RawNode {
         };
 
         let mut map = StyleMap::new();
-        if let Smart::Custom(family) = styles.get_cloned(Self::FAMILY) {
-            map.set_family(family, styles);
+        if let Smart::Custom(family) = styles.get(Self::FAMILY) {
+            map.set_family(family.clone(), styles);
         }
 
         content = content.styled_with_map(map);
@@ -118,11 +122,11 @@ fn styled(piece: &str, foreground: Paint, style: Style) -> Content {
     }
 
     if style.font_style.contains(FontStyle::BOLD) {
-        styles.set(TextNode::STRONG, true);
+        styles.set(TextNode::STRONG, Toggle);
     }
 
     if style.font_style.contains(FontStyle::ITALIC) {
-        styles.set(TextNode::EMPH, true);
+        styles.set(TextNode::EMPH, Toggle);
     }
 
     if style.font_style.contains(FontStyle::UNDERLINE) {

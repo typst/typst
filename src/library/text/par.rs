@@ -28,6 +28,7 @@ pub enum ParChild {
 #[node]
 impl ParNode {
     /// An ISO 639-1 language code.
+    #[property(referenced)]
     pub const LANG: Option<EcoString> = None;
     /// The direction for text and inline objects.
     pub const DIR: Dir = Dir::LTR;
@@ -611,7 +612,7 @@ fn breakpoints<'a>(
     let mut lang = None;
     if styles.get(ParNode::HYPHENATE).unwrap_or(styles.get(ParNode::JUSTIFY)) {
         lang = styles
-            .get_ref(ParNode::LANG)
+            .get(ParNode::LANG)
             .as_ref()
             .and_then(|iso| iso.as_bytes().try_into().ok())
             .and_then(hypher::Lang::from_iso);
@@ -768,7 +769,7 @@ fn stack(
     regions: &Regions,
     styles: StyleChain,
 ) -> Vec<Arc<Frame>> {
-    let em = styles.get(TextNode::SIZE).abs;
+    let em = styles.get(TextNode::SIZE);
     let leading = styles.get(ParNode::LEADING).resolve(em);
     let align = styles.get(ParNode::ALIGN);
     let justify = styles.get(ParNode::JUSTIFY);
@@ -832,7 +833,7 @@ fn commit(
         if let Some(glyph) = text.glyphs.first() {
             if text.styles.get(TextNode::OVERHANG) {
                 let start = text.dir.is_positive();
-                let em = text.styles.get(TextNode::SIZE).abs;
+                let em = text.styles.get(TextNode::SIZE);
                 let amount = overhang(glyph.c, start) * glyph.x_advance.resolve(em);
                 offset -= amount;
                 remaining += amount;
@@ -847,7 +848,7 @@ fn commit(
                 && (reordered.len() > 1 || text.glyphs.len() > 1)
             {
                 let start = !text.dir.is_positive();
-                let em = text.styles.get(TextNode::SIZE).abs;
+                let em = text.styles.get(TextNode::SIZE);
                 let amount = overhang(glyph.c, start) * glyph.x_advance.resolve(em);
                 remaining += amount;
             }

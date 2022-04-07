@@ -13,7 +13,7 @@ use typst::eval::{Smart, StyleMap, Value};
 use typst::frame::{Element, Frame};
 use typst::geom::{Length, RgbaColor};
 use typst::library::layout::PageNode;
-use typst::library::text::TextNode;
+use typst::library::text::{FontSize, TextNode};
 use typst::loading::FsLoader;
 use typst::parse::Scanner;
 use typst::source::SourceFile;
@@ -67,7 +67,7 @@ fn main() {
     styles.set(PageNode::TOP, Smart::Custom(Length::pt(10.0).into()));
     styles.set(PageNode::RIGHT, Smart::Custom(Length::pt(10.0).into()));
     styles.set(PageNode::BOTTOM, Smart::Custom(Length::pt(10.0).into()));
-    styles.set(TextNode::SIZE, Length::pt(10.0).into());
+    styles.set(TextNode::SIZE, FontSize(Length::pt(10.0).into()));
 
     // Hook up an assert function into the global scope.
     let mut std = typst::library::new();

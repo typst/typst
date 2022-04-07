@@ -359,12 +359,12 @@ impl Dynamic {
 
     /// Whether the wrapped type is `T`.
     pub fn is<T: Type + 'static>(&self) -> bool {
-        self.0.as_any().is::<T>()
+        (*self.0).as_any().is::<T>()
     }
 
     /// Try to downcast to a reference to a specific type.
     pub fn downcast<T: Type + 'static>(&self) -> Option<&T> {
-        self.0.as_any().downcast_ref()
+        (*self.0).as_any().downcast_ref()
     }
 
     /// The name of the stored value's type.

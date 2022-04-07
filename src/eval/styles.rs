@@ -1,48 +1,49 @@
 use std::any::{Any, TypeId};
 use std::fmt::{self, Debug, Formatter};
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
+use std::marker::PhantomData;
 use std::sync::Arc;
 
-use super::{Args, Content, Func, Span, Value};
+use super::{Args, Content, Func, Layout, Node, Span, Value};
 use crate::diag::{At, TypResult};
 use crate::library::layout::PageNode;
 use crate::library::text::{FontFamily, ParNode, TextNode};
+use crate::util::Prehashed;
 use crate::Context;
 
 /// A map of style properties.
 #[derive(Default, Clone, PartialEq, Hash)]
-pub struct StyleMap {
-    /// Settable properties.
-    props: Vec<Entry>,
-    /// Show rule recipes.
-    recipes: Vec<Recipe>,
-}
+pub struct StyleMap(Vec<Entry>);
 
 impl StyleMap {
     /// Create a new, empty style map.
     pub fn new() -> Self {
-        Self { props: vec![], recipes: vec![] }
+        Self::default()
     }
 
     /// Whether this map contains no styles.
     pub fn is_empty(&self) -> bool {
-        self.props.is_empty() && self.recipes.is_empty()
+        self.0.is_empty()
     }
 
     /// Create a style map from a single property-value pair.
-    pub fn with<K: Key>(key: K, value: K::Value) -> Self {
+    pub fn with<'a, K: Key<'a>>(key: K, value: K::Value) -> Self {
         let mut styles = Self::new();
         styles.set(key, value);
         styles
     }
 
-    /// Set the value for a style property.
-    pub fn set<K: Key>(&mut self, key: K, value: K::Value) {
-        self.props.push(Entry::new(key, value));
+    /// Set an inner value for a style property.
+    ///
+    /// If the property needs folding and the value is already contained in the
+    /// style map, `self` contributes the outer values and `value` is the inner
+    /// one.
+    pub fn set<'a, K: Key<'a>>(&mut self, key: K, value: K::Value) {
+        self.0.push(Entry::Property(Property::new(key, value)));
     }
 
-    /// Set a value for a style property if it is `Some(_)`.
-    pub fn set_opt<K: Key>(&mut self, key: K, value: Option<K::Value>) {
+    /// Set an inner value for a style property if it is `Some(_)`.
+    pub fn set_opt<'a, K: Key<'a>>(&mut self, key: K, value: Option<K::Value>) {
         if let Some(value) = value {
             self.set(key, value);
         }
@@ -50,78 +51,324 @@ impl StyleMap {
 
     /// Set a font family composed of a preferred family and existing families
     /// from a style chain.
-    pub fn set_family(&mut self, family: FontFamily, existing: StyleChain) {
+    pub fn set_family(&mut self, preferred: FontFamily, existing: StyleChain) {
         self.set(
             TextNode::FAMILY,
-            std::iter::once(family)
-                .chain(existing.get_ref(TextNode::FAMILY).iter().cloned())
+            std::iter::once(preferred)
+                .chain(existing.get(TextNode::FAMILY).iter().cloned())
                 .collect(),
         );
     }
 
-    /// Set a recipe.
-    pub fn set_recipe(&mut self, node: TypeId, func: Func, span: Span) {
-        self.recipes.push(Recipe { node, func, span });
+    /// Set a show rule recipe for a node.
+    pub fn set_recipe<T: Node>(&mut self, func: Func, span: Span) {
+        self.0.push(Entry::Recipe(Recipe::new::<T>(func, span)));
+    }
+
+    /// Make `self` the first link of the `tail` chain.
+    ///
+    /// The resulting style chain contains styles from `self` as well as
+    /// `tail`. The ones from `self` take precedence over the ones from
+    /// `tail`. For folded properties `self` contributes the inner value.
+    pub fn chain<'a>(&'a self, tail: &'a StyleChain<'a>) -> StyleChain<'a> {
+        if self.is_empty() {
+            *tail
+        } else {
+            StyleChain { head: &self.0, tail: Some(tail) }
+        }
+    }
+
+    /// Set an outer value for a style property.
+    ///
+    /// If the property needs folding and the value is already contained in the
+    /// style map, `self` contributes the inner values and `value` is the outer
+    /// one.
+    ///
+    /// Like [`chain`](Self::chain) or [`apply_map`](Self::apply_map), but with
+    /// only a single property.
+    pub fn apply<'a, K: Key<'a>>(&mut self, key: K, value: K::Value) {
+        self.0.insert(0, Entry::Property(Property::new(key, value)));
+    }
+
+    /// Apply styles from `tail` in-place. The resulting style map is equivalent
+    /// to the style chain created by `self.chain(StyleChain::new(tail))`.
+    ///
+    /// This is useful over `chain` when you want to combine two maps, but you
+    /// still need an owned map without a lifetime.
+    pub fn apply_map(&mut self, tail: &Self) {
+        self.0.splice(0 .. 0, tail.0.iter().cloned());
     }
 
     /// Mark all contained properties as _scoped_. This means that they only
     /// apply to the first descendant node (of their type) in the hierarchy and
-    /// not its children, too. This is used by class constructors.
+    /// not its children, too. This is used by [constructors](Node::construct).
     pub fn scoped(mut self) -> Self {
-        for entry in &mut self.props {
-            entry.scoped = true;
+        for entry in &mut self.0 {
+            if let Entry::Property(property) = entry {
+                property.scoped = true;
+            }
         }
         self
     }
 
-    /// Whether this map contains scoped styles.
-    pub fn has_scoped(&self) -> bool {
-        self.props.iter().any(|e| e.scoped)
-    }
-
-    /// Make `self` the first link of the style chain `outer`.
-    ///
-    /// The resulting style chain contains styles from `self` as well as
-    /// `outer`. The ones from `self` take precedence over the ones from
-    /// `outer`. For folded properties `self` contributes the inner value.
-    pub fn chain<'a>(&'a self, outer: &'a StyleChain<'a>) -> StyleChain<'a> {
-        if self.is_empty() {
-            *outer
-        } else {
-            StyleChain {
-                link: Some(Link::Map(self)),
-                outer: Some(outer),
-            }
-        }
-    }
-
-    /// Apply styles from `outer` in-place. The resulting style map is
-    /// equivalent to the style chain created by
-    /// `self.chain(StyleChain::new(outer))`.
-    ///
-    /// This is useful over `chain` when you need an owned map without a
-    /// lifetime, for example, because you want to store the style map inside a
-    /// packed node.
-    pub fn apply(&mut self, outer: &Self) {
-        self.props.splice(0 .. 0, outer.props.iter().cloned());
-        self.recipes.splice(0 .. 0, outer.recipes.iter().cloned());
-    }
-
-    /// The highest-level interruption of the map.
+    /// The highest-level kind of of structure the map interrupts.
     pub fn interruption(&self) -> Option<Interruption> {
-        self.props.iter().filter_map(|entry| entry.interruption()).max()
+        self.0
+            .iter()
+            .filter_map(|entry| entry.property())
+            .filter_map(|property| property.interruption())
+            .max()
     }
 }
 
 impl Debug for StyleMap {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        for entry in self.props.iter().rev() {
-            writeln!(f, "{:#?}", entry)?;
-        }
-        for recipe in self.recipes.iter().rev() {
-            writeln!(f, "#[Recipe for {:?} from {:?}]", recipe.node, recipe.span)?;
+        for entry in self.0.iter().rev() {
+            writeln!(f, "{:?}", entry)?;
         }
         Ok(())
+    }
+}
+
+/// An entry for a single style property, recipe or barrier.
+#[derive(Clone, PartialEq, Hash)]
+enum Entry {
+    /// A style property originating from a set rule or constructor.
+    Property(Property),
+    /// A barrier for scoped styles.
+    Barrier(TypeId, &'static str),
+    /// A show rule recipe.
+    Recipe(Recipe),
+}
+
+impl Entry {
+    /// If this is a property, return it.
+    fn property(&self) -> Option<&Property> {
+        match self {
+            Self::Property(property) => Some(property),
+            _ => None,
+        }
+    }
+
+    /// If this is a recipe, return it.
+    fn recipe(&self) -> Option<&Recipe> {
+        match self {
+            Self::Recipe(recipe) => Some(recipe),
+            _ => None,
+        }
+    }
+}
+
+impl Debug for Entry {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.write_str("#[")?;
+        match self {
+            Self::Property(property) => property.fmt(f)?,
+            Self::Recipe(recipe) => recipe.fmt(f)?,
+            Self::Barrier(_, name) => write!(f, "Barrier for {name}")?,
+        }
+        f.write_str("]")
+    }
+}
+
+/// A style property originating from a set rule or constructor.
+#[derive(Clone, Hash)]
+struct Property {
+    /// The type id of the property's [key](Key).
+    key: TypeId,
+    /// The type id of the node the property belongs to.
+    node: TypeId,
+    /// The name of the property.
+    name: &'static str,
+    /// The property's value.
+    value: Arc<Prehashed<dyn Bounds>>,
+    /// Whether the property should only affects the first node down the
+    /// hierarchy. Used by constructors.
+    scoped: bool,
+}
+
+impl Property {
+    /// Create a new property from a key-value pair.
+    fn new<'a, K: Key<'a>>(_: K, value: K::Value) -> Self {
+        Self {
+            key: TypeId::of::<K>(),
+            node: K::node(),
+            name: K::NAME,
+            value: Arc::new(Prehashed::new(value)),
+            scoped: false,
+        }
+    }
+
+    /// What kind of structure the property interrupts.
+    fn interruption(&self) -> Option<Interruption> {
+        if self.is_of::<PageNode>() {
+            Some(Interruption::Page)
+        } else if self.is_of::<ParNode>() {
+            Some(Interruption::Par)
+        } else {
+            None
+        }
+    }
+
+    /// Access the property's value if it is of the given key.
+    fn downcast<'a, K: Key<'a>>(&'a self) -> Option<&'a K::Value> {
+        if self.key == TypeId::of::<K>() {
+            (**self.value).as_any().downcast_ref()
+        } else {
+            None
+        }
+    }
+
+    /// Whether this property belongs to the node `T`.
+    fn is_of<T: Node>(&self) -> bool {
+        self.node == TypeId::of::<T>()
+    }
+}
+
+impl Debug for Property {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{} = {:?}", self.name, self.value)?;
+        if self.scoped {
+            write!(f, " [scoped]")?;
+        }
+        Ok(())
+    }
+}
+
+impl PartialEq for Property {
+    fn eq(&self, other: &Self) -> bool {
+        self.key == other.key
+            && self.value.eq(&other.value)
+            && self.scoped == other.scoped
+    }
+}
+
+trait Bounds: Debug + Sync + Send + 'static {
+    fn as_any(&self) -> &dyn Any;
+}
+
+impl<T> Bounds for T
+where
+    T: Debug + Sync + Send + 'static,
+{
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+/// Style property keys.
+///
+/// This trait is not intended to be implemented manually, but rather through
+/// the `#[node]` proc-macro.
+pub trait Key<'a>: 'static {
+    /// The unfolded type which this property is stored as in a style map. For
+    /// example, this is [`Toggle`](crate::geom::Length) for the
+    /// [`STRONG`](TextNode::STRONG) property.
+    type Value: Debug + Clone + Hash + Sync + Send + 'static;
+
+    /// The folded type of value that is returned when reading this property
+    /// from a style chain. For example, this is [`bool`] for the
+    /// [`STRONG`](TextNode::STRONG) property. For non-copy, non-folding
+    /// properties this is a reference type.
+    type Output: 'a;
+
+    /// The name of the property, used for debug printing.
+    const NAME: &'static str;
+
+    /// The type id of the node this property belongs to.
+    fn node() -> TypeId;
+
+    /// Compute an output value from a sequence of values belong to this key,
+    /// folding if necessary.
+    fn get(values: impl Iterator<Item = &'a Self::Value>) -> Self::Output;
+}
+
+/// A property that is folded to determine its final value.
+pub trait Fold {
+    /// The type of the folded output.
+    type Output;
+
+    /// Fold this inner value with an outer folded value.
+    fn fold(self, outer: Self::Output) -> Self::Output;
+}
+
+/// A show rule recipe.
+#[derive(Clone, PartialEq, Hash)]
+struct Recipe {
+    /// The affected node.
+    node: TypeId,
+    /// The name of the affected node.
+    name: &'static str,
+    /// The function that defines the recipe.
+    func: Func,
+    /// The span to report all erros with.
+    span: Span,
+}
+
+impl Recipe {
+    /// Create a new recipe for the node `T`.
+    fn new<T: Node>(func: Func, span: Span) -> Self {
+        Self {
+            node: TypeId::of::<T>(),
+            name: std::any::type_name::<T>(),
+            func,
+            span,
+        }
+    }
+}
+
+impl Debug for Recipe {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "Recipe for {} from {:?}", self.name, self.span)
+    }
+}
+
+/// A style chain barrier.
+///
+/// Barriers interact with [scoped](StyleMap::scoped) styles: A scoped style
+/// can still be read through a single barrier (the one of the node it
+/// _should_ apply to), but a second barrier will make it invisible.
+#[derive(Clone, PartialEq, Hash)]
+pub struct Barrier(Entry);
+
+impl Barrier {
+    /// Create a new barrier for the layout node `T`.
+    pub fn new<T: Layout>() -> Self {
+        Self(Entry::Barrier(
+            TypeId::of::<T>(),
+            std::any::type_name::<T>(),
+        ))
+    }
+
+    /// Make this barrier the first link of the `tail` chain.
+    pub fn chain<'a>(&'a self, tail: &'a StyleChain) -> StyleChain<'a> {
+        // We have to store a full `Entry` enum inside the barrier because
+        // otherwise the `slice::from_ref` trick below won't work.
+        // Unfortunately, that also means we have to somehow extract the id
+        // here.
+        let id = match self.0 {
+            Entry::Barrier(id, _) => id,
+            _ => unreachable!(),
+        };
+
+        if tail
+            .entries()
+            .filter_map(Entry::property)
+            .any(|p| p.scoped && p.node == id)
+        {
+            StyleChain {
+                head: std::slice::from_ref(&self.0),
+                tail: Some(tail),
+            }
+        } else {
+            *tail
+        }
+    }
+}
+
+impl Debug for Barrier {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        self.0.fmt(f)
     }
 }
 
@@ -134,406 +381,198 @@ pub enum Interruption {
     Page,
 }
 
-/// Style property keys.
-///
-/// This trait is not intended to be implemented manually, but rather through
-/// the `#[node]` proc-macro.
-pub trait Key: Sync + Send + 'static {
-    /// The type of value that is returned when getting this property from a
-    /// style map. For example, this could be [`Length`](crate::geom::Length)
-    /// for a `WIDTH` property.
-    type Value: Debug + Clone + PartialEq + Hash + Sync + Send + 'static;
-
-    /// The name of the property, used for debug printing.
-    const NAME: &'static str;
-
-    /// Whether the property needs folding.
-    const FOLDING: bool = false;
-
-    /// The type id of the node this property belongs to.
-    fn node_id() -> TypeId;
-
-    /// The default value of the property.
-    fn default() -> Self::Value;
-
-    /// A static reference to the default value of the property.
-    ///
-    /// This is automatically implemented through lazy-initialization in the
-    /// `#[node]` macro. This way, expensive defaults don't need to be
-    /// recreated all the time.
-    fn default_ref() -> &'static Self::Value;
-
-    /// Fold the property with an outer value.
-    ///
-    /// For example, this would fold a relative font size with an outer
-    /// absolute font size.
-    #[allow(unused_variables)]
-    fn fold(inner: Self::Value, outer: Self::Value) -> Self::Value {
-        inner
-    }
-}
-
-/// Marker trait indicating that a property can be accessed by reference.
-///
-/// This is implemented by a key if and only if `K::FOLDING` if false.
-/// Unfortunately, Rust's type system doesn't allow use to use an associated
-/// constant to bound a function, so we need this trait.
-pub trait Referencable {}
-
-/// An entry for a single style property.
-#[derive(Clone)]
-struct Entry {
-    pair: Arc<dyn Bounds>,
-    scoped: bool,
-}
-
-impl Entry {
-    fn new<K: Key>(key: K, value: K::Value) -> Self {
-        Self {
-            pair: Arc::new((key, value)),
-            scoped: false,
-        }
-    }
-
-    fn is<P: Key>(&self) -> bool {
-        self.pair.style_id() == TypeId::of::<P>()
-    }
-
-    fn is_of<T: 'static>(&self) -> bool {
-        self.pair.node_id() == TypeId::of::<T>()
-    }
-
-    fn is_of_id(&self, node: TypeId) -> bool {
-        self.pair.node_id() == node
-    }
-
-    fn downcast<K: Key>(&self) -> Option<&K::Value> {
-        self.pair.as_any().downcast_ref()
-    }
-
-    fn interruption(&self) -> Option<Interruption> {
-        if self.is_of::<PageNode>() {
-            Some(Interruption::Page)
-        } else if self.is_of::<ParNode>() {
-            Some(Interruption::Par)
-        } else {
-            None
-        }
-    }
-}
-
-impl Debug for Entry {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_str("#[")?;
-        self.pair.dyn_fmt(f)?;
-        if self.scoped {
-            f.write_str(" (scoped)")?;
-        }
-        f.write_str("]")
-    }
-}
-
-impl PartialEq for Entry {
-    fn eq(&self, other: &Self) -> bool {
-        self.pair.dyn_eq(other) && self.scoped == other.scoped
-    }
-}
-
-impl Hash for Entry {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write_u64(self.pair.hash64());
-        state.write_u8(self.scoped as u8);
-    }
-}
-
-/// This trait is implemented for pairs of zero-sized property keys and their
-/// value types below. Although it is zero-sized, the property `P` must be part
-/// of the implementing type so that we can use it in the methods (it must be a
-/// constrained type parameter).
-trait Bounds: Sync + Send + 'static {
-    fn as_any(&self) -> &dyn Any;
-    fn dyn_fmt(&self, f: &mut Formatter) -> fmt::Result;
-    fn dyn_eq(&self, other: &Entry) -> bool;
-    fn hash64(&self) -> u64;
-    fn node_id(&self) -> TypeId;
-    fn style_id(&self) -> TypeId;
-}
-
-impl<K: Key> Bounds for (K, K::Value) {
-    fn as_any(&self) -> &dyn Any {
-        &self.1
-    }
-
-    fn dyn_fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{} = {:?}", K::NAME, self.1)
-    }
-
-    fn dyn_eq(&self, other: &Entry) -> bool {
-        self.style_id() == other.pair.style_id()
-            && if let Some(other) = other.downcast::<K>() {
-                &self.1 == other
-            } else {
-                false
-            }
-    }
-
-    fn hash64(&self) -> u64 {
-        let mut state = fxhash::FxHasher64::default();
-        self.style_id().hash(&mut state);
-        self.1.hash(&mut state);
-        state.finish()
-    }
-
-    fn node_id(&self) -> TypeId {
-        K::node_id()
-    }
-
-    fn style_id(&self) -> TypeId {
-        TypeId::of::<K>()
-    }
-}
-
-/// A show rule recipe.
-#[derive(Debug, Clone, PartialEq, Hash)]
-struct Recipe {
-    node: TypeId,
-    func: Func,
-    span: Span,
-}
-
 /// A chain of style maps, similar to a linked list.
 ///
-/// A style chain allows to conceptually merge (and fold) properties from
-/// multiple style maps in a node hierarchy in a non-allocating way. Rather than
-/// eagerly merging the maps, each access walks the hierarchy from the innermost
-/// to the outermost map, trying to find a match and then folding it with
-/// matches further up the chain.
+/// A style chain allows to combine properties from multiple style maps in a
+/// node hierarchy in a non-allocating way. Rather than eagerly merging the
+/// maps, each access walks the hierarchy from the innermost to the outermost
+/// map, trying to find a match and then folding it with matches further up the
+/// chain.
 #[derive(Default, Clone, Copy, Hash)]
 pub struct StyleChain<'a> {
     /// The first link of this chain.
-    link: Option<Link<'a>>,
+    head: &'a [Entry],
     /// The remaining links in the chain.
-    outer: Option<&'a Self>,
-}
-
-/// The two kinds of links in the chain.
-#[derive(Clone, Copy, Hash)]
-enum Link<'a> {
-    /// Just a map with styles.
-    Map(&'a StyleMap),
-    /// A barrier that, in combination with one more such barrier, stops scoped
-    /// styles for the node with this type id.
-    Barrier(TypeId),
+    tail: Option<&'a Self>,
 }
 
 impl<'a> StyleChain<'a> {
-    /// Start a new style chain with a root map.
-    pub fn new(map: &'a StyleMap) -> Self {
-        Self { link: Some(Link::Map(map)), outer: None }
+    /// Create a new, empty style chain.
+    pub fn new() -> Self {
+        Self::default()
     }
 
-    /// The number of links in the chain.
-    pub fn len(self) -> usize {
-        self.links().count()
+    /// Start a new style chain with a root map.
+    pub fn with_root(root: &'a StyleMap) -> Self {
+        Self { head: &root.0, tail: None }
+    }
+
+    /// Get the output value of a style property.
+    ///
+    /// Returns the property's default value if no map in the chain contains an
+    /// entry for it. Also takes care of folding and returns references where
+    /// applicable.
+    pub fn get<K: Key<'a>>(self, key: K) -> K::Output {
+        K::get(self.values(key))
+    }
+
+    /// Execute and return the result of a user recipe for a node if there is
+    /// any.
+    pub fn show<T, I>(self, ctx: &mut Context, values: I) -> TypResult<Option<Content>>
+    where
+        T: Node,
+        I: IntoIterator<Item = Value>,
+    {
+        if let Some(recipe) = self
+            .entries()
+            .filter_map(Entry::recipe)
+            .find(|recipe| recipe.node == TypeId::of::<T>())
+        {
+            let args = Args::from_values(recipe.span, values);
+            Ok(Some(recipe.func.call(ctx, args)?.cast().at(recipe.span)?))
+        } else {
+            Ok(None)
+        }
+    }
+}
+
+impl<'a> StyleChain<'a> {
+    /// Return the chain, but without the trailing scoped property for the given
+    /// `node`. This is a 90% hack fix for show node constructor scoping.
+    pub(super) fn unscoped(mut self, node: TypeId) -> Self {
+        while self
+            .head
+            .last()
+            .and_then(Entry::property)
+            .map_or(false, |p| p.scoped && p.node == node)
+        {
+            let len = self.head.len();
+            self.head = &self.head[.. len - 1]
+        }
+        self
+    }
+
+    /// Remove the last link from the chain.
+    fn pop(&mut self) {
+        *self = self.tail.copied().unwrap_or_default();
     }
 
     /// Build a style map from the suffix (all links beyond the `len`) of the
     /// chain.
-    ///
-    /// Panics if the suffix contains barrier links.
-    pub fn suffix(self, len: usize) -> StyleMap {
+    fn suffix(self, len: usize) -> StyleMap {
         let mut suffix = StyleMap::new();
-        let remove = self.len().saturating_sub(len);
-        for link in self.links().take(remove) {
-            match link {
-                Link::Map(map) => suffix.apply(map),
-                Link::Barrier(_) => panic!("suffix contains barrier"),
-            }
+        let take = self.links().count().saturating_sub(len);
+        for link in self.links().take(take) {
+            suffix.0.splice(0 .. 0, link.iter().cloned());
         }
         suffix
     }
 
-    /// Remove the last link from the chain.
-    pub fn pop(&mut self) {
-        *self = self.outer.copied().unwrap_or_default();
-    }
-
-    /// Return the chain, but without the last link if that one contains only
-    /// scoped styles. This is a hack.
-    pub(crate) fn unscoped(mut self, node: TypeId) -> Self {
-        if let Some(Link::Map(map)) = self.link {
-            if map.props.iter().all(|e| e.scoped && e.is_of_id(node))
-                && map.recipes.is_empty()
-            {
-                self.pop();
-            }
-        }
-        self
-    }
-}
-
-impl<'a> StyleChain<'a> {
-    /// Get the (folded) value of a copyable style property.
-    ///
-    /// This is the method you should reach for first. If it doesn't work
-    /// because your property is not copyable, use `get_ref`. If that doesn't
-    /// work either because your property needs folding, use `get_cloned`.
-    ///
-    /// Returns the property's default value if no map in the chain contains an
-    /// entry for it.
-    pub fn get<K: Key>(self, key: K) -> K::Value
-    where
-        K::Value: Copy,
-    {
-        self.get_cloned(key)
-    }
-
-    /// Get a reference to a style property's value.
-    ///
-    /// This is naturally only possible for properties that don't need folding.
-    /// Prefer `get` if possible or resort to `get_cloned` for non-`Copy`
-    /// properties that need folding.
-    ///
-    /// Returns a lazily-initialized reference to the property's default value
-    /// if no map in the chain contains an entry for it.
-    pub fn get_ref<K: Key>(self, key: K) -> &'a K::Value
-    where
-        K: Referencable,
-    {
-        self.values(key).next().unwrap_or_else(|| K::default_ref())
-    }
-
-    /// Get the (folded) value of any style property.
-    ///
-    /// While this works for all properties, you should prefer `get` or
-    /// `get_ref` where possible. This is only needed for non-`Copy` properties
-    /// that need folding.
-    ///
-    /// Returns the property's default value if no map in the chain contains an
-    /// entry for it.
-    pub fn get_cloned<K: Key>(self, key: K) -> K::Value {
-        if K::FOLDING {
-            self.values(key)
-                .cloned()
-                .chain(std::iter::once(K::default()))
-                .reduce(K::fold)
-                .unwrap()
-        } else {
-            self.values(key).next().cloned().unwrap_or_else(K::default)
-        }
-    }
-
-    /// Execute a user recipe for a node.
-    pub fn show(
-        self,
-        node: &dyn Any,
-        ctx: &mut Context,
-        values: impl IntoIterator<Item = Value>,
-    ) -> TypResult<Option<Content>> {
-        Ok(if let Some(recipe) = self.recipes(node.type_id()).next() {
-            let args = Args::from_values(recipe.span, values);
-            Some(recipe.func.call(ctx, args)?.cast().at(recipe.span)?)
-        } else {
-            None
-        })
-    }
-
-    /// Insert a barrier into the style chain.
-    ///
-    /// Barriers interact with [scoped](StyleMap::scoped) styles: A scoped style
-    /// can still be read through a single barrier (the one of the node it
-    /// _should_ apply to), but a second barrier will make it invisible.
-    pub fn barred<'b>(&'b self, node: TypeId) -> StyleChain<'b> {
-        if self
-            .maps()
-            .any(|map| map.props.iter().any(|entry| entry.scoped && entry.is_of_id(node)))
-        {
-            StyleChain {
-                link: Some(Link::Barrier(node)),
-                outer: Some(self),
-            }
-        } else {
-            *self
-        }
-    }
-}
-
-impl<'a> StyleChain<'a> {
     /// Iterate over all values for the given property in the chain.
-    fn values<K: Key>(self, _: K) -> impl Iterator<Item = &'a K::Value> {
-        let mut depth = 0;
-        self.links().flat_map(move |link| {
-            let mut entries: &[Entry] = &[];
-            match link {
-                Link::Map(map) => entries = &map.props,
-                Link::Barrier(id) => depth += (id == K::node_id()) as usize,
-            }
-            entries
-                .iter()
-                .rev()
-                .filter(move |entry| entry.is::<K>() && (!entry.scoped || depth <= 1))
-                .filter_map(|entry| entry.downcast::<K>())
-        })
+    fn values<K: Key<'a>>(self, _: K) -> Values<'a, K> {
+        Values {
+            entries: self.entries(),
+            depth: 0,
+            key: PhantomData,
+        }
     }
 
-    /// Iterate over the recipes for the given node.
-    fn recipes(self, node: TypeId) -> impl Iterator<Item = &'a Recipe> {
-        self.maps()
-            .flat_map(|map| map.recipes.iter().rev())
-            .filter(move |recipe| recipe.node == node)
-    }
-
-    /// Iterate over the map links of the chain.
-    fn maps(self) -> impl Iterator<Item = &'a StyleMap> {
-        self.links().filter_map(|link| match link {
-            Link::Map(map) => Some(map),
-            Link::Barrier(_) => None,
-        })
+    /// Iterate over the entries of the chain.
+    fn entries(self) -> Entries<'a> {
+        Entries {
+            inner: [].as_slice().iter(),
+            links: self.links(),
+        }
     }
 
     /// Iterate over the links of the chain.
-    fn links(self) -> impl Iterator<Item = Link<'a>> {
-        let mut cursor = Some(self);
-        std::iter::from_fn(move || {
-            let Self { link, outer } = cursor?;
-            cursor = outer.copied();
-            link
-        })
+    fn links(self) -> Links<'a> {
+        Links(Some(self))
     }
 }
 
 impl Debug for StyleChain<'_> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        for link in self.links() {
-            link.fmt(f)?;
+        for entry in self.entries() {
+            writeln!(f, "{:?}", entry)?;
         }
         Ok(())
-    }
-}
-
-impl Debug for Link<'_> {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            Self::Map(map) => map.fmt(f),
-            Self::Barrier(id) => writeln!(f, "Barrier({:?})", id),
-        }
     }
 }
 
 impl PartialEq for StyleChain<'_> {
     fn eq(&self, other: &Self) -> bool {
         let as_ptr = |s| s as *const _;
-        self.link == other.link && self.outer.map(as_ptr) == other.outer.map(as_ptr)
+        self.head.as_ptr() == other.head.as_ptr()
+            && self.head.len() == other.head.len()
+            && self.tail.map(as_ptr) == other.tail.map(as_ptr)
     }
 }
 
-impl PartialEq for Link<'_> {
-    fn eq(&self, other: &Self) -> bool {
-        match (*self, *other) {
-            (Self::Map(a), Self::Map(b)) => std::ptr::eq(a, b),
-            (Self::Barrier(a), Self::Barrier(b)) => a == b,
-            _ => false,
+/// An iterator over the values in a style chain.
+struct Values<'a, K> {
+    entries: Entries<'a>,
+    depth: usize,
+    key: PhantomData<K>,
+}
+
+impl<'a, K: Key<'a>> Iterator for Values<'a, K> {
+    type Item = &'a K::Value;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some(entry) = self.entries.next() {
+            match entry {
+                Entry::Property(property) => {
+                    if let Some(value) = property.downcast::<K>() {
+                        if !property.scoped || self.depth <= 1 {
+                            return Some(value);
+                        }
+                    }
+                }
+                Entry::Barrier(id, _) => {
+                    self.depth += (*id == K::node()) as usize;
+                }
+                Entry::Recipe(_) => {}
+            }
         }
+
+        None
+    }
+}
+
+/// An iterator over the entries in a style chain.
+struct Entries<'a> {
+    inner: std::slice::Iter<'a, Entry>,
+    links: Links<'a>,
+}
+
+impl<'a> Iterator for Entries<'a> {
+    type Item = &'a Entry;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if let Some(entry) = self.inner.next_back() {
+                return Some(entry);
+            }
+
+            match self.links.next() {
+                Some(next) => self.inner = next.iter(),
+                None => return None,
+            }
+        }
+    }
+}
+
+/// An iterator over the links of a style chain.
+struct Links<'a>(Option<StyleChain<'a>>);
+
+impl<'a> Iterator for Links<'a> {
+    type Item = &'a [Entry];
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let StyleChain { head, tail } = self.0?;
+        self.0 = tail.copied();
+        Some(head)
     }
 }
 
@@ -648,9 +687,9 @@ impl<'a, T> StyleVecBuilder<'a, T> {
             None => return Default::default(),
         };
 
-        let mut shared = trunk.len();
+        let mut shared = trunk.links().count();
         for &(mut chain, _) in iter {
-            let len = chain.len();
+            let len = chain.links().count();
             if len < shared {
                 for _ in 0 .. shared - len {
                     trunk.pop();

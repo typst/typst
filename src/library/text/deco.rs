@@ -21,11 +21,11 @@ pub type OverlineNode = DecoNode<OVERLINE>;
 #[node(showable)]
 impl<const L: DecoLine> DecoNode<L> {
     /// Stroke color of the line, defaults to the text color if `None`.
-    #[shorthand]
+    #[property(shorthand)]
     pub const STROKE: Option<Paint> = None;
     /// Thickness of the line's strokes (dependent on scaled font size), read
     /// from the font tables if `None`.
-    #[shorthand]
+    #[property(shorthand)]
     pub const THICKNESS: Option<Linear> = None;
     /// Position of the line relative to the baseline (dependent on scaled font
     /// size), read from the font tables if `None`.
@@ -45,16 +45,16 @@ impl<const L: DecoLine> DecoNode<L> {
 impl<const L: DecoLine> Show for DecoNode<L> {
     fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content> {
         Ok(styles
-            .show(self, ctx, [Value::Content(self.0.clone())])?
+            .show::<Self, _>(ctx, [Value::Content(self.0.clone())])?
             .unwrap_or_else(|| {
-                self.0.clone().styled(TextNode::LINES, vec![Decoration {
+                self.0.clone().styled(TextNode::DECO, Decoration {
                     line: L,
                     stroke: styles.get(Self::STROKE),
                     thickness: styles.get(Self::THICKNESS),
                     offset: styles.get(Self::OFFSET),
                     extent: styles.get(Self::EXTENT),
                     evade: styles.get(Self::EVADE),
-                }])
+                })
             }))
     }
 }

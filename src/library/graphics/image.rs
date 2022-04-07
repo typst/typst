@@ -82,7 +82,7 @@ impl Layout for ImageNode {
         }
 
         // Apply link if it exists.
-        if let Some(url) = styles.get_ref(TextNode::LINK) {
+        if let Some(url) = styles.get(TextNode::LINK) {
             frame.link(url);
         }
 

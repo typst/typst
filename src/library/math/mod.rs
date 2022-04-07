@@ -15,6 +15,7 @@ pub struct MathNode {
 #[node(showable)]
 impl MathNode {
     /// The raw text's font family. Just the normal text family if `auto`.
+    #[property(referenced)]
     pub const FAMILY: Smart<FontFamily> =
         Smart::Custom(FontFamily::new("Latin Modern Math"));
 
@@ -28,16 +29,14 @@ impl MathNode {
 
 impl Show for MathNode {
     fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content> {
+        let args = [Value::Str(self.formula.clone()), Value::Bool(self.display)];
         let mut content = styles
-            .show(self, ctx, [
-                Value::Str(self.formula.clone()),
-                Value::Bool(self.display),
-            ])?
+            .show::<Self, _>(ctx, args)?
             .unwrap_or_else(|| Content::Text(self.formula.trim().into()));
 
         let mut map = StyleMap::new();
-        if let Smart::Custom(family) = styles.get_cloned(Self::FAMILY) {
-            map.set_family(family, styles);
+        if let Smart::Custom(family) = styles.get(Self::FAMILY) {
+            map.set_family(family.clone(), styles);
         }
 
         content = content.styled_with_map(map);

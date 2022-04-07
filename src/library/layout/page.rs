@@ -28,8 +28,10 @@ impl PageNode {
     /// How many columns the page has.
     pub const COLUMNS: NonZeroUsize = NonZeroUsize::new(1).unwrap();
     /// The page's header.
+    #[property(referenced)]
     pub const HEADER: Marginal = Marginal::None;
     /// The page's footer.
+    #[property(referenced)]
     pub const FOOTER: Marginal = Marginal::None;
 
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
@@ -116,8 +118,8 @@ impl PageNode {
         let regions = Regions::repeat(size, size, size.map(Length::is_finite));
         let mut frames = child.layout(ctx, &regions, styles)?;
 
-        let header = styles.get_ref(Self::HEADER);
-        let footer = styles.get_ref(Self::FOOTER);
+        let header = styles.get(Self::HEADER);
+        let footer = styles.get(Self::FOOTER);
 
         // Realize header and footer.
         for frame in &mut frames {

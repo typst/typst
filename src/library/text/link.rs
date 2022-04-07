@@ -29,14 +29,13 @@ impl LinkNode {
 
 impl Show for LinkNode {
     fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content> {
+        let args = [Value::Str(self.url.clone()), match &self.body {
+            Some(body) => Value::Content(body.clone()),
+            None => Value::None,
+        }];
+
         let mut body = styles
-            .show(self, ctx, [
-                Value::Str(self.url.clone()),
-                match &self.body {
-                    Some(body) => Value::Content(body.clone()),
-                    None => Value::None,
-                },
-            ])?
+            .show::<Self, _>(ctx, args)?
             .or_else(|| self.body.clone())
             .unwrap_or_else(|| {
                 let url = &self.url;

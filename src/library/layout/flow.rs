@@ -37,12 +37,12 @@ impl Layout for FlowNode {
             let styles = map.chain(&styles);
             match child {
                 FlowChild::Leading => {
-                    let em = styles.get(TextNode::SIZE).abs;
+                    let em = styles.get(TextNode::SIZE);
                     let amount = styles.get(ParNode::LEADING).resolve(em);
                     layouter.layout_spacing(amount.into());
                 }
                 FlowChild::Parbreak => {
-                    let em = styles.get(TextNode::SIZE).abs;
+                    let em = styles.get(TextNode::SIZE);
                     let leading = styles.get(ParNode::LEADING);
                     let spacing = styles.get(ParNode::SPACING);
                     let amount = (leading + spacing).resolve(em);

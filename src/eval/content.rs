@@ -102,17 +102,15 @@ impl Content {
     }
 
     /// Style this content with a single style property.
-    pub fn styled<P: Key>(mut self, key: P, value: P::Value) -> Self {
+    pub fn styled<'k, K: Key<'k>>(mut self, key: K, value: K::Value) -> Self {
         if let Self::Styled(styled) = &mut self {
             if let Some((_, map)) = Arc::get_mut(styled) {
-                if !map.has_scoped() {
-                    map.set(key, value);
-                    return self;
-                }
+                map.apply(key, value);
+                return self;
             }
         }
 
-        self.styled_with_map(StyleMap::with(key, value))
+        Self::Styled(Arc::new((self, StyleMap::with(key, value))))
     }
 
     /// Style this content with a full style map.
@@ -123,10 +121,8 @@ impl Content {
 
         if let Self::Styled(styled) = &mut self {
             if let Some((_, map)) = Arc::get_mut(styled) {
-                if !styles.has_scoped() && !map.has_scoped() {
-                    map.apply(&styles);
-                    return self;
-                }
+                map.apply_map(&styles);
+                return self;
             }
         }
 
@@ -161,7 +157,7 @@ impl Content {
         let tpa = Arena::new();
 
         let styles = ctx.styles.clone();
-        let styles = StyleChain::new(&styles);
+        let styles = StyleChain::with_root(&styles);
 
         let mut builder = Builder::new(&sya, &tpa, true);
         builder.process(ctx, self, styles)?;

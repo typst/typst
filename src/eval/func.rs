@@ -1,4 +1,3 @@
-use std::any::TypeId;
 use std::fmt::{self, Debug, Formatter, Write};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
@@ -52,7 +51,7 @@ impl Func {
             show: if T::SHOWABLE {
                 Some(|recipe, span| {
                     let mut styles = StyleMap::new();
-                    styles.set_recipe(TypeId::of::<T>(), recipe, span);
+                    styles.set_recipe::<T>(recipe, span);
                     styles
                 })
             } else {

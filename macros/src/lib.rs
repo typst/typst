@@ -1,8 +1,8 @@
 extern crate proc_macro;
 
 use proc_macro::TokenStream;
-use proc_macro2::TokenStream as TokenStream2;
-use quote::quote;
+use proc_macro2::{TokenStream as TokenStream2, TokenTree};
+use quote::{quote, quote_spanned};
 use syn::parse_quote;
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
@@ -54,7 +54,7 @@ fn expand(stream: TokenStream2, mut impl_block: syn::ItemImpl) -> Result<TokenSt
         construct.ok_or_else(|| Error::new(impl_block.span(), "missing constructor"))?;
 
     let set = set.unwrap_or_else(|| {
-        let sets = properties.into_iter().filter(|p| !p.skip).map(|property| {
+        let sets = properties.into_iter().filter(|p| !p.hidden).map(|property| {
             let name = property.name;
             let string = name.to_string().replace("_", "-").to_lowercase();
 
@@ -116,14 +116,6 @@ fn expand(stream: TokenStream2, mut impl_block: syn::ItemImpl) -> Result<TokenSt
     })
 }
 
-/// A style property.
-struct Property {
-    name: Ident,
-    shorthand: bool,
-    variadic: bool,
-    skip: bool,
-}
-
 /// Parse the name and generic type arguments of the node type.
 fn parse_self(
     self_ty: &syn::Type,
@@ -153,12 +145,21 @@ fn process_const(
     self_name: &str,
     self_args: &Punctuated<syn::GenericArgument, syn::Token![,]>,
 ) -> Result<(Property, syn::ItemMod)> {
+    let property = parse_property(item)?;
+
     // The display name, e.g. `TextNode::STRONG`.
     let name = format!("{}::{}", self_name, &item.ident);
 
     // The type of the property's value is what the user of our macro wrote
     // as type of the const ...
     let value_ty = &item.ty;
+    let output_ty = if property.fold {
+        parse_quote!(<#value_ty as eval::Fold>::Output)
+    } else if property.referenced {
+        parse_quote!(&'a #value_ty)
+    } else {
+        value_ty.clone()
+    };
 
     // ... but the real type of the const becomes this..
     let key = quote! { Key<#value_ty, #self_args> };
@@ -172,49 +173,40 @@ fn process_const(
         _ => true,
     });
 
-    // The default value of the property is what the user wrote as
-    // initialization value of the const.
     let default = &item.expr;
 
-    let mut fold = None;
-    let mut property = Property {
-        name: item.ident.clone(),
-        shorthand: false,
-        variadic: false,
-        skip: false,
-    };
+    // Ensure that the type is either `Copy` or that the property is referenced
+    // or that the property isn't copy but can't be referenced because it needs
+    // folding.
+    let get;
+    let mut copy = None;
 
-    for attr in std::mem::take(&mut item.attrs) {
-        match attr.path.get_ident().map(ToString::to_string).as_deref() {
-            Some("fold") => {
-                // Look for a folding function like `#[fold(u64::add)]`.
-                let func: syn::Expr = attr.parse_args()?;
-                fold = Some(quote! {
-                    const FOLDING: bool = true;
-
-                    fn fold(inner: Self::Value, outer: Self::Value) -> Self::Value {
-                        let f: fn(Self::Value, Self::Value) -> Self::Value = #func;
-                        f(inner, outer)
-                    }
-                });
+    if property.referenced {
+        get = quote! {
+            values.next().unwrap_or_else(|| {
+                static LAZY: Lazy<#value_ty> = Lazy::new(|| #default);
+                &*LAZY
+            })
+        };
+    } else if property.fold {
+        get = quote! {
+            match values.next().cloned() {
+                Some(inner) => eval::Fold::fold(inner, Self::get(values)),
+                None => #default,
             }
-            Some("shorthand") => property.shorthand = true,
-            Some("variadic") => property.variadic = true,
-            Some("skip") => property.skip = true,
-            _ => item.attrs.push(attr),
-        }
-    }
+        };
+    } else {
+        get = quote! {
+            values.next().copied().unwrap_or(#default)
+        };
 
-    if property.shorthand && property.variadic {
-        return Err(Error::new(
-            property.name.span(),
-            "shorthand and variadic are mutually exclusive",
-        ));
+        copy = Some(quote_spanned! { item.ty.span() =>
+            const _: fn() -> () = || {
+                fn type_must_be_copy_or_fold_or_referenced<T: Copy>() {}
+                type_must_be_copy_or_fold_or_referenced::<#value_ty>();
+            };
+        });
     }
-
-    let referencable = fold.is_none().then(|| {
-        quote! { impl<#params> eval::Referencable for #key {} }
-    });
 
     // Generate the module code.
     let module_name = &item.ident;
@@ -232,28 +224,21 @@ fn process_const(
                 }
             }
 
-            impl<#params> eval::Key for #key {
+            impl<'a, #params> eval::Key<'a> for #key {
                 type Value = #value_ty;
-
+                type Output = #output_ty;
                 const NAME: &'static str = #name;
 
-                fn node_id() -> TypeId {
+                fn node() -> TypeId {
                     TypeId::of::<#self_ty>()
                 }
 
-                fn default() -> Self::Value {
-                    #default
+                fn get(mut values: impl Iterator<Item = &'a Self::Value>) -> Self::Output {
+                    #get
                 }
-
-                fn default_ref() -> &'static Self::Value {
-                    static LAZY: Lazy<#value_ty> = Lazy::new(|| #default);
-                    &*LAZY
-                }
-
-                #fold
             }
 
-            #referencable
+            #copy
         }
     };
 
@@ -262,4 +247,65 @@ fn process_const(
     item.expr = parse_quote! { #module_name::Key(PhantomData) };
 
     Ok((property, module))
+}
+
+/// A style property.
+struct Property {
+    name: Ident,
+    hidden: bool,
+    referenced: bool,
+    shorthand: bool,
+    variadic: bool,
+    fold: bool,
+}
+
+/// Parse a style property attribute.
+fn parse_property(item: &mut syn::ImplItemConst) -> Result<Property> {
+    let mut property = Property {
+        name: item.ident.clone(),
+        hidden: false,
+        referenced: false,
+        shorthand: false,
+        variadic: false,
+        fold: false,
+    };
+
+    if let Some(idx) = item
+        .attrs
+        .iter()
+        .position(|attr| attr.path.get_ident().map_or(false, |name| name == "property"))
+    {
+        let attr = item.attrs.remove(idx);
+        for token in attr.parse_args::<TokenStream2>()? {
+            match token {
+                TokenTree::Ident(ident) => match ident.to_string().as_str() {
+                    "hidden" => property.hidden = true,
+                    "shorthand" => property.shorthand = true,
+                    "referenced" => property.referenced = true,
+                    "variadic" => property.variadic = true,
+                    "fold" => property.fold = true,
+                    _ => return Err(Error::new(ident.span(), "invalid attribute")),
+                },
+                TokenTree::Punct(_) => {}
+                _ => return Err(Error::new(token.span(), "invalid token")),
+            }
+        }
+    }
+
+    let span = property.name.span();
+    if property.shorthand && property.variadic {
+        return Err(Error::new(
+            span,
+            "shorthand and variadic are mutually exclusive",
+        ));
+    }
+
+    if property.referenced && property.fold {
+        return Err(Error::new(
+            span,
+            "referenced and fold are mutually exclusive",
+        ));
+    }
+
+    Ok(property)
 }

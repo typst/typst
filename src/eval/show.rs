@@ -9,7 +9,7 @@ use crate::util::Prehashed;
 use crate::Context;
 
 /// A node that can be realized given some styles.
-pub trait Show {
+pub trait Show: 'static {
     /// Realize this node in the given styles.
     fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content>;
 

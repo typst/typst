@@ -1,5 +1,5 @@
 use crate::library::prelude::*;
-use crate::library::text::{FontFamily, TextNode};
+use crate::library::text::{FontFamily, FontSize, TextNode, Toggle};
 
 /// A section heading.
 #[derive(Debug, Hash)]
@@ -14,25 +14,34 @@ pub struct HeadingNode {
 #[node(showable)]
 impl HeadingNode {
     /// The heading's font family. Just the normal text family if `auto`.
+    #[property(referenced)]
     pub const FAMILY: Leveled<Smart<FontFamily>> = Leveled::Value(Smart::Auto);
     /// The color of text in the heading. Just the normal text color if `auto`.
+    #[property(referenced)]
     pub const FILL: Leveled<Smart<Paint>> = Leveled::Value(Smart::Auto);
     /// The size of text in the heading.
-    pub const SIZE: Leveled<Linear> = Leveled::Mapping(|level| {
+    #[property(referenced)]
+    pub const SIZE: Leveled<FontSize> = Leveled::Mapping(|level| {
         let upscale = (1.6 - 0.1 * level as f64).max(0.75);
-        Relative::new(upscale).into()
+        FontSize(Relative::new(upscale).into())
     });
     /// Whether text in the heading is strengthend.
+    #[property(referenced)]
     pub const STRONG: Leveled<bool> = Leveled::Value(true);
     /// Whether text in the heading is emphasized.
+    #[property(referenced)]
     pub const EMPH: Leveled<bool> = Leveled::Value(false);
     /// Whether the heading is underlined.
+    #[property(referenced)]
     pub const UNDERLINE: Leveled<bool> = Leveled::Value(false);
     /// The extra padding above the heading.
+    #[property(referenced)]
     pub const ABOVE: Leveled<Length> = Leveled::Value(Length::zero());
     /// The extra padding below the heading.
+    #[property(referenced)]
     pub const BELOW: Leveled<Length> = Leveled::Value(Length::zero());
     /// Whether the heading is block-level.
+    #[property(referenced)]
     pub const BLOCK: Leveled<bool> = Leveled::Value(true);
 
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
@@ -47,16 +56,17 @@ impl Show for HeadingNode {
     fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content> {
         macro_rules! resolve {
             ($key:expr) => {
-                styles.get_cloned($key).resolve(ctx, self.level)?
+                styles.get($key).resolve(ctx, self.level)?
             };
         }
 
-        // Resolve the user recipe.
+        let args = [
+            Value::Int(self.level as i64),
+            Value::Content(self.body.clone()),
+        ];
+
         let mut body = styles
-            .show(self, ctx, [
-                Value::Int(self.level as i64),
-                Value::Content(self.body.clone()),
-            ])?
+            .show::<Self, _>(ctx, args)?
             .unwrap_or_else(|| self.body.clone());
 
         let mut map = StyleMap::new();
@@ -71,11 +81,11 @@ impl Show for HeadingNode {
         }
 
         if resolve!(Self::STRONG) {
-            map.set(TextNode::STRONG, true);
+            map.set(TextNode::STRONG, Toggle);
         }
 
         if resolve!(Self::EMPH) {
-            map.set(TextNode::EMPH, true);
+            map.set(TextNode::EMPH, Toggle);
         }
 
         let mut seq = vec![];
@@ -116,15 +126,15 @@ pub enum Leveled<T> {
     Func(Func, Span),
 }
 
-impl<T: Cast> Leveled<T> {
+impl<T: Cast + Clone> Leveled<T> {
     /// Resolve the value based on the level.
-    pub fn resolve(self, ctx: &mut Context, level: usize) -> TypResult<T> {
+    pub fn resolve(&self, ctx: &mut Context, level: usize) -> TypResult<T> {
         Ok(match self {
-            Self::Value(value) => value,
+            Self::Value(value) => value.clone(),
             Self::Mapping(mapping) => mapping(level),
             Self::Func(func, span) => {
-                let args = Args::from_values(span, [Value::Int(level as i64)]);
-                func.call(ctx, args)?.cast().at(span)?
+                let args = Args::from_values(*span, [Value::Int(level as i64)]);
+                func.call(ctx, args)?.cast().at(*span)?
             }
         })
     }
