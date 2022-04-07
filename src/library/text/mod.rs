@@ -49,7 +49,7 @@ impl TextNode {
     /// The amount of space that should be added between characters.
     pub const TRACKING: Em = Em::zero();
     /// The ratio by which spaces should be stretched.
-    pub const SPACING: Relative = Relative::one();
+    pub const SPACING: Ratio = Ratio::one();
     /// Whether glyphs can hang over into the margin.
     pub const OVERHANG: bool = true;
     /// The top end of the text bounding box.
@@ -182,13 +182,13 @@ castable! {
 
 castable! {
     FontStretch,
-    Expected: "relative",
-    Value::Relative(v) => Self::from_ratio(v.get() as f32),
+    Expected: "ratio",
+    Value::Ratio(v) => Self::from_ratio(v.get() as f32),
 }
 
 /// The size of text.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct FontSize(pub Linear);
+pub struct FontSize(pub Relative);
 
 impl Fold for FontSize {
     type Output = Length;
@@ -200,10 +200,10 @@ impl Fold for FontSize {
 
 castable! {
     FontSize,
-    Expected: "linear",
+    Expected: "relative length",
     Value::Length(v) => Self(v.into()),
-    Value::Relative(v) => Self(v.into()),
-    Value::Linear(v) => Self(v),
+    Value::Ratio(v) => Self(v.into()),
+    Value::Relative(v) => Self(v),
 }
 
 castable! {
@@ -214,10 +214,10 @@ castable! {
 
 castable! {
     VerticalFontMetric,
-    Expected: "linear or string",
-    Value::Length(v) => Self::Linear(v.into()),
-    Value::Relative(v) => Self::Linear(v.into()),
-    Value::Linear(v) => Self::Linear(v),
+    Expected: "string or relative length",
+    Value::Length(v) => Self::Relative(v.into()),
+    Value::Ratio(v) => Self::Relative(v.into()),
+    Value::Relative(v) => Self::Relative(v),
     Value::Str(string) => match string.as_str() {
         "ascender" => Self::Ascender,
         "cap-height" => Self::CapHeight,

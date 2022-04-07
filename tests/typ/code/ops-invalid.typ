@@ -26,7 +26,7 @@
 {not ()}
 
 ---
-// Error: 2-18 cannot apply '<=' to relative length and relative
+// Error: 2-18 cannot apply '<=' to relative length and ratio
 {30% + 1pt <= 40%}
 
 ---
@@ -35,7 +35,7 @@
 {(1 + "2", 40% - 1)}
 
 ---
-// Error: 12-19 cannot subtract integer from relative
+// Error: 12-19 cannot subtract integer from ratio
 {(1234567, 40% - 1)}
 
 ---

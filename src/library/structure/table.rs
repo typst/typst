@@ -18,12 +18,12 @@ impl TableNode {
     pub const PRIMARY: Option<Paint> = None;
     /// The secondary cell fill color.
     pub const SECONDARY: Option<Paint> = None;
-    /// How the stroke the cells.
+    /// How to stroke the cells.
     pub const STROKE: Option<Paint> = Some(Color::BLACK.into());
     /// The stroke's thickness.
     pub const THICKNESS: Length = Length::pt(1.0);
     /// How much to pad the cells's content.
-    pub const PADDING: Linear = Length::pt(5.0).into();
+    pub const PADDING: Relative = Length::pt(5.0).into();
 
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         let columns = args.named("columns")?.unwrap_or_default();

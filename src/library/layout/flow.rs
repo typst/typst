@@ -100,8 +100,8 @@ pub struct FlowLayouter {
     full: Size,
     /// The size used by the frames for the current region.
     used: Size,
-    /// The sum of fractional ratios in the current region.
-    fr: Fractional,
+    /// The sum of fractions in the current region.
+    fr: Fraction,
     /// Spacing and layouted nodes.
     items: Vec<FlowItem>,
     /// Finished frames for previous regions.
@@ -113,7 +113,7 @@ enum FlowItem {
     /// Absolute spacing between other items.
     Absolute(Length),
     /// Fractional spacing between other items.
-    Fractional(Fractional),
+    Fractional(Fraction),
     /// A frame for a layouted child node and how to align it.
     Frame(Arc<Frame>, Spec<Align>),
     /// An absolutely placed frame.
@@ -135,7 +135,7 @@ impl FlowLayouter {
             expand,
             full,
             used: Size::zero(),
-            fr: Fractional::zero(),
+            fr: Fraction::zero(),
             items: vec![],
             finished: vec![],
         }
@@ -144,8 +144,8 @@ impl FlowLayouter {
     /// Layout spacing.
     pub fn layout_spacing(&mut self, spacing: Spacing) {
         match spacing {
-            Spacing::Linear(v) => {
-                // Resolve the linear and limit it to the remaining space.
+            Spacing::Relative(v) => {
+                // Resolve the spacing and limit it to the remaining space.
                 let resolved = v.resolve(self.full.y);
                 let limited = resolved.min(self.regions.first.y);
                 self.regions.first.y -= limited;
@@ -254,7 +254,7 @@ impl FlowLayouter {
         self.regions.next();
         self.full = self.regions.first;
         self.used = Size::zero();
-        self.fr = Fractional::zero();
+        self.fr = Fraction::zero();
         self.finished.push(Arc::new(output));
     }
 

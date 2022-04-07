@@ -23,7 +23,7 @@ impl HeadingNode {
     #[property(referenced)]
     pub const SIZE: Leveled<FontSize> = Leveled::Mapping(|level| {
         let upscale = (1.6 - 0.1 * level as f64).max(0.75);
-        FontSize(Relative::new(upscale).into())
+        FontSize(Ratio::new(upscale).into())
     });
     /// Whether text in the heading is strengthend.
     #[property(referenced)]

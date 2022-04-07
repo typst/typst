@@ -34,11 +34,11 @@ impl<const L: ListKind> ListNode<L> {
     #[property(referenced)]
     pub const LABEL: Label = Label::Default;
     /// The spacing between the list items of a non-wide list.
-    pub const SPACING: Linear = Linear::zero();
+    pub const SPACING: Relative = Relative::zero();
     /// The indentation of each item's label.
-    pub const INDENT: Linear = Relative::new(0.0).into();
+    pub const INDENT: Relative = Ratio::new(0.0).into();
     /// The space between the label and the body of each item.
-    pub const BODY_INDENT: Linear = Relative::new(0.5).into();
+    pub const BODY_INDENT: Relative = Ratio::new(0.5).into();
     /// The extra padding above the list.
     pub const ABOVE: Length = Length::zero();
     /// The extra padding below the list.
@@ -91,12 +91,12 @@ impl<const L: ListKind> Show for ListNode<L> {
 
             Content::block(GridNode {
                 tracks: Spec::with_x(vec![
-                    TrackSizing::Linear(indent.into()),
+                    TrackSizing::Relative(indent.into()),
                     TrackSizing::Auto,
-                    TrackSizing::Linear(body_indent.into()),
+                    TrackSizing::Relative(body_indent.into()),
                     TrackSizing::Auto,
                 ]),
-                gutter: Spec::with_y(vec![TrackSizing::Linear(gutter.into())]),
+                gutter: Spec::with_y(vec![TrackSizing::Relative(gutter.into())]),
                 children,
             })
         };

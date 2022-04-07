@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use ttf_parser::{name_id, GlyphId, PlatformId, Tag};
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::geom::{Em, Length, Linear};
+use crate::geom::{Em, Length, Relative};
 use crate::loading::{FileHash, Loader};
 use crate::util::decode_mac_roman;
 
@@ -379,7 +379,7 @@ impl FaceMetrics {
             VerticalFontMetric::XHeight => self.x_height.resolve(size),
             VerticalFontMetric::Baseline => Length::zero(),
             VerticalFontMetric::Descender => self.descender.resolve(size),
-            VerticalFontMetric::Linear(v) => v.resolve(size),
+            VerticalFontMetric::Relative(v) => v.resolve(size),
         }
     }
 }
@@ -415,7 +415,7 @@ pub enum VerticalFontMetric {
     Descender,
     /// An font-size dependent distance from the baseline (positive goes up, negative
     /// down).
-    Linear(Linear),
+    Relative(Relative),
 }
 
 /// Properties of a single font face.

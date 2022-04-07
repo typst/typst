@@ -17,7 +17,7 @@ impl Em {
         Self(Scalar(1.0))
     }
 
-    /// Create an font-relative length.
+    /// Create a font-relative length.
     pub const fn new(em: f64) -> Self {
         Self(Scalar(em))
     }

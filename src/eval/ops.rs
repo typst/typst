@@ -34,9 +34,9 @@ pub fn pos(value: Value) -> StrResult<Value> {
         Float(v) => Float(v),
         Length(v) => Length(v),
         Angle(v) => Angle(v),
+        Ratio(v) => Ratio(v),
         Relative(v) => Relative(v),
-        Linear(v) => Linear(v),
-        Fractional(v) => Fractional(v),
+        Fraction(v) => Fraction(v),
         v => mismatch!("cannot apply '+' to {}", v),
     })
 }
@@ -48,9 +48,9 @@ pub fn neg(value: Value) -> StrResult<Value> {
         Float(v) => Float(-v),
         Length(v) => Length(-v),
         Angle(v) => Angle(-v),
+        Ratio(v) => Ratio(-v),
         Relative(v) => Relative(-v),
-        Linear(v) => Linear(-v),
-        Fractional(v) => Fractional(-v),
+        Fraction(v) => Fraction(-v),
         v => mismatch!("cannot apply '-' to {}", v),
     })
 }
@@ -66,18 +66,18 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Angle(a), Angle(b)) => Angle(a + b),
 
         (Length(a), Length(b)) => Length(a + b),
-        (Length(a), Relative(b)) => Linear(a + b),
-        (Length(a), Linear(b)) => Linear(a + b),
+        (Length(a), Ratio(b)) => Relative(a + b),
+        (Length(a), Relative(b)) => Relative(a + b),
 
-        (Relative(a), Length(b)) => Linear(a + b),
+        (Ratio(a), Length(b)) => Relative(a + b),
+        (Ratio(a), Ratio(b)) => Ratio(a + b),
+        (Ratio(a), Relative(b)) => Relative(a + b),
+
+        (Relative(a), Length(b)) => Relative(a + b),
+        (Relative(a), Ratio(b)) => Relative(a + b),
         (Relative(a), Relative(b)) => Relative(a + b),
-        (Relative(a), Linear(b)) => Linear(a + b),
 
-        (Linear(a), Length(b)) => Linear(a + b),
-        (Linear(a), Relative(b)) => Linear(a + b),
-        (Linear(a), Linear(b)) => Linear(a + b),
-
-        (Fractional(a), Fractional(b)) => Fractional(a + b),
+        (Fraction(a), Fraction(b)) => Fraction(a + b),
 
         (Str(a), Str(b)) => Str(a + b),
 
@@ -123,18 +123,18 @@ pub fn sub(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Angle(a), Angle(b)) => Angle(a - b),
 
         (Length(a), Length(b)) => Length(a - b),
-        (Length(a), Relative(b)) => Linear(a - b),
-        (Length(a), Linear(b)) => Linear(a - b),
+        (Length(a), Ratio(b)) => Relative(a - b),
+        (Length(a), Relative(b)) => Relative(a - b),
 
-        (Relative(a), Length(b)) => Linear(a - b),
+        (Ratio(a), Length(b)) => Relative(a - b),
+        (Ratio(a), Ratio(b)) => Ratio(a - b),
+        (Ratio(a), Relative(b)) => Relative(a - b),
+
+        (Relative(a), Length(b)) => Relative(a - b),
+        (Relative(a), Ratio(b)) => Relative(a - b),
         (Relative(a), Relative(b)) => Relative(a - b),
-        (Relative(a), Linear(b)) => Linear(a - b),
 
-        (Linear(a), Length(b)) => Linear(a - b),
-        (Linear(a), Relative(b)) => Linear(a - b),
-        (Linear(a), Linear(b)) => Linear(a - b),
-
-        (Fractional(a), Fractional(b)) => Fractional(a - b),
+        (Fraction(a), Fraction(b)) => Fraction(a - b),
 
         (a, b) => mismatch!("cannot subtract {1} from {0}", a, b),
     })
@@ -158,20 +158,20 @@ pub fn mul(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Int(a), Angle(b)) => Angle(a as f64 * b),
         (Float(a), Angle(b)) => Angle(a * b),
 
+        (Ratio(a), Int(b)) => Ratio(a * b as f64),
+        (Ratio(a), Float(b)) => Ratio(a * b),
+        (Float(a), Ratio(b)) => Ratio(a * b),
+        (Int(a), Ratio(b)) => Ratio(a as f64 * b),
+
         (Relative(a), Int(b)) => Relative(a * b as f64),
         (Relative(a), Float(b)) => Relative(a * b),
-        (Float(a), Relative(b)) => Relative(a * b),
         (Int(a), Relative(b)) => Relative(a as f64 * b),
+        (Float(a), Relative(b)) => Relative(a * b),
 
-        (Linear(a), Int(b)) => Linear(a * b as f64),
-        (Linear(a), Float(b)) => Linear(a * b),
-        (Int(a), Linear(b)) => Linear(a as f64 * b),
-        (Float(a), Linear(b)) => Linear(a * b),
-
-        (Float(a), Fractional(b)) => Fractional(a * b),
-        (Fractional(a), Int(b)) => Fractional(a * b as f64),
-        (Fractional(a), Float(b)) => Fractional(a * b),
-        (Int(a), Fractional(b)) => Fractional(a as f64 * b),
+        (Float(a), Fraction(b)) => Fraction(a * b),
+        (Fraction(a), Int(b)) => Fraction(a * b as f64),
+        (Fraction(a), Float(b)) => Fraction(a * b),
+        (Int(a), Fraction(b)) => Fraction(a as f64 * b),
 
         (Str(a), Int(b)) => Str(StrExt::repeat(&a, b)?),
         (Int(a), Str(b)) => Str(StrExt::repeat(&b, a)?),
@@ -200,16 +200,16 @@ pub fn div(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Angle(a), Float(b)) => Angle(a / b),
         (Angle(a), Angle(b)) => Float(a / b),
 
+        (Ratio(a), Int(b)) => Ratio(a / b as f64),
+        (Ratio(a), Float(b)) => Ratio(a / b),
+        (Ratio(a), Ratio(b)) => Float(a / b),
+
         (Relative(a), Int(b)) => Relative(a / b as f64),
         (Relative(a), Float(b)) => Relative(a / b),
-        (Relative(a), Relative(b)) => Float(a / b),
 
-        (Linear(a), Int(b)) => Linear(a / b as f64),
-        (Linear(a), Float(b)) => Linear(a / b),
-
-        (Fractional(a), Int(b)) => Fractional(a / b as f64),
-        (Fractional(a), Float(b)) => Fractional(a / b),
-        (Fractional(a), Fractional(b)) => Float(a / b),
+        (Fraction(a), Int(b)) => Fraction(a / b as f64),
+        (Fraction(a), Float(b)) => Fraction(a / b),
+        (Fraction(a), Fraction(b)) => Float(a / b),
 
         (a, b) => mismatch!("cannot divide {} by {}", a, b),
     })
@@ -278,9 +278,9 @@ pub fn equal(lhs: &Value, rhs: &Value) -> bool {
         (Float(a), Float(b)) => a == b,
         (Length(a), Length(b)) => a == b,
         (Angle(a), Angle(b)) => a == b,
+        (Ratio(a), Ratio(b)) => a == b,
         (Relative(a), Relative(b)) => a == b,
-        (Linear(a), Linear(b)) => a == b,
-        (Fractional(a), Fractional(b)) => a == b,
+        (Fraction(a), Fraction(b)) => a == b,
         (Color(a), Color(b)) => a == b,
         (Str(a), Str(b)) => a == b,
         (Content(a), Content(b)) => a == b,
@@ -292,10 +292,10 @@ pub fn equal(lhs: &Value, rhs: &Value) -> bool {
         // Some technically different things should compare equal.
         (&Int(a), &Float(b)) => a as f64 == b,
         (&Float(a), &Int(b)) => a == b as f64,
-        (&Length(a), &Linear(b)) => a == b.abs && b.rel.is_zero(),
-        (&Relative(a), &Linear(b)) => a == b.rel && b.abs.is_zero(),
-        (&Linear(a), &Length(b)) => a.abs == b && a.rel.is_zero(),
-        (&Linear(a), &Relative(b)) => a.rel == b && a.abs.is_zero(),
+        (&Length(a), &Relative(b)) => a == b.abs && b.rel.is_zero(),
+        (&Ratio(a), &Relative(b)) => a == b.rel && b.abs.is_zero(),
+        (&Relative(a), &Length(b)) => a.abs == b && a.rel.is_zero(),
+        (&Relative(a), &Ratio(b)) => a.rel == b && a.abs.is_zero(),
 
         _ => false,
     }
@@ -309,17 +309,17 @@ pub fn compare(lhs: &Value, rhs: &Value) -> Option<Ordering> {
         (Float(a), Float(b)) => a.partial_cmp(b),
         (Angle(a), Angle(b)) => a.partial_cmp(b),
         (Length(a), Length(b)) => a.partial_cmp(b),
-        (Relative(a), Relative(b)) => a.partial_cmp(b),
-        (Fractional(a), Fractional(b)) => a.partial_cmp(b),
+        (Ratio(a), Ratio(b)) => a.partial_cmp(b),
+        (Fraction(a), Fraction(b)) => a.partial_cmp(b),
         (Str(a), Str(b)) => a.partial_cmp(b),
 
         // Some technically different things should be comparable.
         (&Int(a), &Float(b)) => (a as f64).partial_cmp(&b),
         (&Float(a), &Int(b)) => a.partial_cmp(&(b as f64)),
-        (&Length(a), &Linear(b)) if b.rel.is_zero() => a.partial_cmp(&b.abs),
-        (&Relative(a), &Linear(b)) if b.abs.is_zero() => a.partial_cmp(&b.rel),
-        (&Linear(a), &Length(b)) if a.rel.is_zero() => a.abs.partial_cmp(&b),
-        (&Linear(a), &Relative(b)) if a.abs.is_zero() => a.rel.partial_cmp(&b),
+        (&Length(a), &Relative(b)) if b.rel.is_zero() => a.partial_cmp(&b.abs),
+        (&Ratio(a), &Relative(b)) if b.abs.is_zero() => a.partial_cmp(&b.rel),
+        (&Relative(a), &Length(b)) if a.rel.is_zero() => a.abs.partial_cmp(&b),
+        (&Relative(a), &Ratio(b)) if a.abs.is_zero() => a.rel.partial_cmp(&b),
 
         _ => Option::None,
     }

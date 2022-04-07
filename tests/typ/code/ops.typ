@@ -63,14 +63,14 @@
     test(v + v, 2.0 * v)
   }
 
-  // Linears cannot be divided by themselves.
+  // Relative lengths cannot be divided by themselves.
   if type(v) != "relative length" {
     test(v / v, 1.0)
     test(v / v == 1, true)
   }
 }
 
-// Make sure length, relative and linear
+// Make sure length, ratio and relative length
 // - can all be added to / subtracted from each other,
 // - multiplied with integers and floats,
 // - divided by floats.

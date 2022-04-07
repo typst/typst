@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use super::{ops, Args, Array, Content, Context, Dict, Func, Layout, StrExt};
 use crate::diag::{with_alternative, At, StrResult, TypResult};
-use crate::geom::{Angle, Color, Fractional, Length, Linear, Relative, RgbaColor};
+use crate::geom::{Angle, Color, Fraction, Length, Ratio, Relative, RgbaColor};
 use crate::library::text::RawNode;
 use crate::syntax::{Span, Spanned};
 use crate::util::EcoString;
@@ -28,12 +28,12 @@ pub enum Value {
     Length(Length),
     /// An angle: `1.5rad`, `90deg`.
     Angle(Angle),
-    /// A relative value: `50%`.
+    /// A ratio: `50%`.
+    Ratio(Ratio),
+    /// A relative length, combination of a ratio and a length: `20% + 5cm`.
     Relative(Relative),
-    /// A combination of an absolute length and a relative value: `20% + 5cm`.
-    Linear(Linear),
-    /// A fractional value: `1fr`.
-    Fractional(Fractional),
+    /// A fraction: `1fr`.
+    Fraction(Fraction),
     /// A color value: `#f79143ff`.
     Color(Color),
     /// A string: `"string"`.
@@ -79,9 +79,9 @@ impl Value {
             Self::Float(_) => f64::TYPE_NAME,
             Self::Length(_) => Length::TYPE_NAME,
             Self::Angle(_) => Angle::TYPE_NAME,
+            Self::Ratio(_) => Ratio::TYPE_NAME,
             Self::Relative(_) => Relative::TYPE_NAME,
-            Self::Linear(_) => Linear::TYPE_NAME,
-            Self::Fractional(_) => Fractional::TYPE_NAME,
+            Self::Fraction(_) => Fraction::TYPE_NAME,
             Self::Color(_) => Color::TYPE_NAME,
             Self::Str(_) => EcoString::TYPE_NAME,
             Self::Content(_) => Content::TYPE_NAME,
@@ -255,9 +255,9 @@ impl Debug for Value {
             Self::Float(v) => Debug::fmt(v, f),
             Self::Length(v) => Debug::fmt(v, f),
             Self::Angle(v) => Debug::fmt(v, f),
+            Self::Ratio(v) => Debug::fmt(v, f),
             Self::Relative(v) => Debug::fmt(v, f),
-            Self::Linear(v) => Debug::fmt(v, f),
-            Self::Fractional(v) => Debug::fmt(v, f),
+            Self::Fraction(v) => Debug::fmt(v, f),
             Self::Color(v) => Debug::fmt(v, f),
             Self::Str(v) => Debug::fmt(v, f),
             Self::Content(_) => f.pad("<content>"),
@@ -293,9 +293,9 @@ impl Hash for Value {
             Self::Float(v) => v.to_bits().hash(state),
             Self::Length(v) => v.hash(state),
             Self::Angle(v) => v.hash(state),
+            Self::Ratio(v) => v.hash(state),
             Self::Relative(v) => v.hash(state),
-            Self::Linear(v) => v.hash(state),
-            Self::Fractional(v) => v.hash(state),
+            Self::Fraction(v) => v.hash(state),
             Self::Color(v) => v.hash(state),
             Self::Str(v) => v.hash(state),
             Self::Content(v) => v.hash(state),
@@ -548,9 +548,9 @@ primitive! { i64: "integer", Int }
 primitive! { f64: "float", Float, Int(v) => v as f64 }
 primitive! { Length: "length", Length }
 primitive! { Angle: "angle", Angle }
-primitive! { Relative: "relative", Relative }
-primitive! { Linear: "relative length", Linear, Length(v) => v.into(), Relative(v) => v.into() }
-primitive! { Fractional: "fractional length", Fractional }
+primitive! { Ratio: "ratio", Ratio }
+primitive! { Relative: "relative length", Relative, Length(v) => v.into(), Ratio(v) => v.into() }
+primitive! { Fraction: "fraction", Fraction }
 primitive! { Color: "color", Color }
 primitive! { EcoString: "string", Str }
 primitive! { Content: "content", Content, None => Content::new() }
@@ -673,9 +673,9 @@ mod tests {
         test(3.14, "3.14");
         test(Length::pt(5.5), "5.5pt");
         test(Angle::deg(90.0), "90deg");
-        test(Relative::one() / 2.0, "50%");
-        test(Relative::new(0.3) + Length::cm(2.0), "30% + 56.69pt");
-        test(Fractional::one() * 7.55, "7.55fr");
+        test(Ratio::one() / 2.0, "50%");
+        test(Ratio::new(0.3) + Length::cm(2.0), "30% + 56.69pt");
+        test(Fraction::one() * 7.55, "7.55fr");
         test(Color::Rgba(RgbaColor::new(1, 1, 1, 0xff)), "#010101");
 
         // Collections.

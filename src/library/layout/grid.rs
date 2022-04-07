@@ -54,22 +54,24 @@ impl Layout for GridNode {
 /// Defines how to size a grid cell along an axis.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum TrackSizing {
-    /// Fit the cell to its contents.
+    /// A track that fits its cell's contents.
     Auto,
-    /// A length stated in absolute values and/or relative to the parent's size.
-    Linear(Linear),
-    /// A length that is the fraction of the remaining free space in the parent.
-    Fractional(Fractional),
+    /// A track size specified in absolute terms and relative to the parent's
+    /// size.
+    Relative(Relative),
+    /// A track size specified as a fraction of the remaining free space in the
+    /// parent.
+    Fractional(Fraction),
 }
 
 castable! {
     Vec<TrackSizing>,
-    Expected: "integer or (auto, linear, fractional, or array thereof)",
+    Expected: "integer, auto, relative length, fraction, or array of the latter three)",
     Value::Auto => vec![TrackSizing::Auto],
-    Value::Length(v) => vec![TrackSizing::Linear(v.into())],
-    Value::Relative(v) => vec![TrackSizing::Linear(v.into())],
-    Value::Linear(v) => vec![TrackSizing::Linear(v)],
-    Value::Fractional(v) => vec![TrackSizing::Fractional(v)],
+    Value::Length(v) => vec![TrackSizing::Relative(v.into())],
+    Value::Ratio(v) => vec![TrackSizing::Relative(v.into())],
+    Value::Relative(v) => vec![TrackSizing::Relative(v)],
+    Value::Fraction(v) => vec![TrackSizing::Fractional(v)],
     Value::Int(v) => vec![TrackSizing::Auto; Value::Int(v).cast::<NonZeroUsize>()?.get()],
     Value::Array(values) => values
         .into_iter()
@@ -79,12 +81,12 @@ castable! {
 
 castable! {
     TrackSizing,
-    Expected: "auto, linear, or fractional",
+    Expected: "auto, relative length, or fraction",
     Value::Auto => Self::Auto,
-    Value::Length(v) => Self::Linear(v.into()),
-    Value::Relative(v) => Self::Linear(v.into()),
-    Value::Linear(v) => Self::Linear(v),
-    Value::Fractional(v) => Self::Fractional(v),
+    Value::Length(v) => Self::Relative(v.into()),
+    Value::Ratio(v) => Self::Relative(v.into()),
+    Value::Relative(v) => Self::Relative(v),
+    Value::Fraction(v) => Self::Fractional(v),
 }
 
 /// Performs grid layout.
@@ -108,19 +110,19 @@ pub struct GridLayouter<'a> {
     /// The used-up size of the current region. The horizontal size is
     /// determined once after columns are resolved and not touched again.
     used: Size,
-    /// The sum of fractional ratios in the current region.
-    fr: Fractional,
+    /// The sum of fractions in the current region.
+    fr: Fraction,
     /// Frames for finished regions.
     finished: Vec<Arc<Frame>>,
 }
 
-/// Produced by initial row layout, auto and linear rows are already finished,
+/// Produced by initial row layout, auto and relative rows are already finished,
 /// fractional rows not yet.
 enum Row {
-    /// Finished row frame of auto or linear row.
+    /// Finished row frame of auto or relative row.
     Frame(Frame),
-    /// Ratio of a fractional row and y index of the track.
-    Fr(Fractional, usize),
+    /// Fractional row with y index.
+    Fr(Fraction, usize),
 }
 
 impl<'a> GridLayouter<'a> {
@@ -150,7 +152,7 @@ impl<'a> GridLayouter<'a> {
         };
 
         let auto = TrackSizing::Auto;
-        let zero = TrackSizing::Linear(Linear::zero());
+        let zero = TrackSizing::Relative(Relative::zero());
         let get_or = |tracks: &[_], idx, default| {
             tracks.get(idx).or(tracks.last()).copied().unwrap_or(default)
         };
@@ -190,7 +192,7 @@ impl<'a> GridLayouter<'a> {
             lrows,
             full,
             used: Size::zero(),
-            fr: Fractional::zero(),
+            fr: Fraction::zero(),
             finished: vec![],
         }
     }
@@ -208,7 +210,7 @@ impl<'a> GridLayouter<'a> {
 
             match self.rows[y] {
                 TrackSizing::Auto => self.layout_auto_row(ctx, y)?,
-                TrackSizing::Linear(v) => self.layout_linear_row(ctx, v, y)?,
+                TrackSizing::Relative(v) => self.layout_relative_row(ctx, v, y)?,
                 TrackSizing::Fractional(v) => {
                     self.lrows.push(Row::Fr(v, y));
                     self.fr += v;
@@ -222,28 +224,28 @@ impl<'a> GridLayouter<'a> {
 
     /// Determine all column sizes.
     fn measure_columns(&mut self, ctx: &mut Context) -> TypResult<()> {
-        // Sum of sizes of resolved linear tracks.
-        let mut linear = Length::zero();
+        // Sum of sizes of resolved relative tracks.
+        let mut rel = Length::zero();
 
         // Sum of fractions of all fractional tracks.
-        let mut fr = Fractional::zero();
+        let mut fr = Fraction::zero();
 
-        // Resolve the size of all linear columns and compute the sum of all
+        // Resolve the size of all relative columns and compute the sum of all
         // fractional tracks.
         for (&col, rcol) in self.cols.iter().zip(&mut self.rcols) {
             match col {
                 TrackSizing::Auto => {}
-                TrackSizing::Linear(v) => {
+                TrackSizing::Relative(v) => {
                     let resolved = v.resolve(self.regions.base.x);
                     *rcol = resolved;
-                    linear += resolved;
+                    rel += resolved;
                 }
                 TrackSizing::Fractional(v) => fr += v,
             }
         }
 
         // Size that is not used by fixed-size columns.
-        let available = self.regions.first.x - linear;
+        let available = self.regions.first.x - rel;
         if available >= Length::zero() {
             // Determine size of auto columns.
             let (auto, count) = self.measure_auto_columns(ctx, available)?;
@@ -289,10 +291,10 @@ impl<'a> GridLayouter<'a> {
                     let mut pod =
                         Regions::one(size, self.regions.base, Spec::splat(false));
 
-                    // For linear rows, we can already resolve the correct
+                    // For relative rows, we can already resolve the correct
                     // base, for auto it's already correct and for fr we could
                     // only guess anyway.
-                    if let TrackSizing::Linear(v) = self.rows[y] {
+                    if let TrackSizing::Relative(v) = self.rows[y] {
                         pod.base.y = v.resolve(self.regions.base.y);
                     }
 
@@ -310,7 +312,7 @@ impl<'a> GridLayouter<'a> {
     }
 
     /// Distribute remaining space to fractional columns.
-    fn grow_fractional_columns(&mut self, remaining: Length, fr: Fractional) {
+    fn grow_fractional_columns(&mut self, remaining: Length, fr: Fraction) {
         for (&col, rcol) in self.cols.iter().zip(&mut self.rcols) {
             if let TrackSizing::Fractional(v) = col {
                 *rcol = v.resolve(fr, remaining);
@@ -415,12 +417,12 @@ impl<'a> GridLayouter<'a> {
         Ok(())
     }
 
-    /// Layout a row with linear height. Such a row cannot break across multiple
-    /// regions, but it may force a region break.
-    fn layout_linear_row(
+    /// Layout a row with relative height. Such a row cannot break across
+    /// multiple regions, but it may force a region break.
+    fn layout_relative_row(
         &mut self,
         ctx: &mut Context,
-        v: Linear,
+        v: Relative,
         y: usize,
     ) -> TypResult<()> {
         let resolved = v.resolve(self.regions.base.y);
@@ -457,7 +459,7 @@ impl<'a> GridLayouter<'a> {
                 let size = Size::new(rcol, height);
 
                 // Set the base to the region's base for auto rows and to the
-                // size for linear and fractional rows.
+                // size for relative and fractional rows.
                 let base = Spec::new(self.cols[x], self.rows[y])
                     .map(|s| s == TrackSizing::Auto)
                     .select(self.regions.base, size);
@@ -555,7 +557,7 @@ impl<'a> GridLayouter<'a> {
         self.regions.next();
         self.full = self.regions.first.y;
         self.used.y = Length::zero();
-        self.fr = Fractional::zero();
+        self.fr = Fraction::zero();
 
         Ok(())
     }

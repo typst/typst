@@ -42,11 +42,11 @@ impl ParNode {
     /// will will be hyphenated if and only if justification is enabled.
     pub const HYPHENATE: Smart<bool> = Smart::Auto;
     /// The spacing between lines (dependent on scaled font size).
-    pub const LEADING: Linear = Relative::new(0.65).into();
+    pub const LEADING: Relative = Ratio::new(0.65).into();
     /// The extra spacing between paragraphs (dependent on scaled font size).
-    pub const SPACING: Linear = Relative::new(0.55).into();
+    pub const SPACING: Relative = Ratio::new(0.55).into();
     /// The indent the first line of a consecutive paragraph should have.
-    pub const INDENT: Linear = Linear::zero();
+    pub const INDENT: Relative = Relative::zero();
 
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         // The paragraph constructor is special: It doesn't create a paragraph
@@ -249,7 +249,7 @@ enum ParItem<'a> {
     /// Absolute spacing between other items.
     Absolute(Length),
     /// Fractional spacing between other items.
-    Fractional(Fractional),
+    Fractional(Fraction),
     /// A shaped text run with consistent direction.
     Text(ShapedText<'a>),
     /// A layouted child node.
@@ -285,8 +285,8 @@ struct Line<'a> {
     size: Size,
     /// The baseline of the line.
     baseline: Length,
-    /// The sum of fractional ratios in the line.
-    fr: Fractional,
+    /// The sum of fractions in the line.
+    fr: Fraction,
     /// Whether the line ends at a mandatory break.
     mandatory: bool,
     /// Whether the line ends with a hyphen or dash, either naturally or through
@@ -370,7 +370,7 @@ fn prepare<'a>(
                 }
             }
             ParChild::Spacing(spacing) => match *spacing {
-                Spacing::Linear(v) => {
+                Spacing::Relative(v) => {
                     let resolved = v.resolve(regions.base.x);
                     items.push(ParItem::Absolute(resolved));
                     ranges.push(range);
@@ -731,7 +731,7 @@ fn line<'a>(
     let mut width = Length::zero();
     let mut top = Length::zero();
     let mut bottom = Length::zero();
-    let mut fr = Fractional::zero();
+    let mut fr = Fraction::zero();
 
     // Measure the size of the line.
     for item in first.iter().chain(items).chain(&last) {

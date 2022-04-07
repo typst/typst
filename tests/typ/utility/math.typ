@@ -62,7 +62,7 @@
 #mod(3.0, 0.0)
 
 ---
-// Error: 6-16 cannot take absolute value of a linear
+// Error: 6-16 cannot take absolute value of a relative length
 #abs(10pt + 50%)
 
 ---

@@ -23,10 +23,10 @@ impl VNode {
 /// Kinds of spacing.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Spacing {
-    /// A length stated in absolute values and/or relative to the parent's size.
-    Linear(Linear),
-    /// A length that is the fraction of the remaining free space in the parent.
-    Fractional(Fractional),
+    /// Spacing specified in absolute terms and relative to the parent's size.
+    Relative(Relative),
+    /// Spacing specified as a fraction of the remaining free space in the parent.
+    Fractional(Fraction),
 }
 
 impl Spacing {
@@ -38,15 +38,15 @@ impl Spacing {
 
 impl From<Length> for Spacing {
     fn from(length: Length) -> Self {
-        Self::Linear(length.into())
+        Self::Relative(length.into())
     }
 }
 
 castable! {
     Spacing,
-    Expected: "linear or fractional",
-    Value::Length(v) => Self::Linear(v.into()),
-    Value::Relative(v) => Self::Linear(v.into()),
-    Value::Linear(v) => Self::Linear(v),
-    Value::Fractional(v) => Self::Fractional(v),
+    Expected: "relative length or fraction",
+    Value::Length(v) => Self::Relative(v.into()),
+    Value::Ratio(v) => Self::Relative(v.into()),
+    Value::Relative(v) => Self::Relative(v),
+    Value::Fraction(v) => Self::Fractional(v),
 }

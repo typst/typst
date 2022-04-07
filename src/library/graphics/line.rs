@@ -3,24 +3,24 @@ use crate::library::prelude::*;
 /// Display a line without affecting the layout.
 #[derive(Debug, Hash)]
 pub struct LineNode {
-    origin: Spec<Linear>,
-    delta: Spec<Linear>,
+    origin: Spec<Relative>,
+    delta: Spec<Relative>,
 }
 
 #[node]
 impl LineNode {
-    /// How the stroke the line.
+    /// How to stroke the line.
     pub const STROKE: Paint = Color::BLACK.into();
     /// The line's thickness.
     pub const THICKNESS: Length = Length::pt(1.0);
 
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
-        let origin = args.named::<Spec<Linear>>("origin")?.unwrap_or_default();
-        let delta = match args.named::<Spec<Linear>>("to")? {
+        let origin = args.named::<Spec<Relative>>("origin")?.unwrap_or_default();
+        let delta = match args.named::<Spec<Relative>>("to")? {
             Some(to) => to.zip(origin).map(|(to, from)| to - from),
             None => {
                 let length =
-                    args.named::<Linear>("length")?.unwrap_or(Length::cm(1.0).into());
+                    args.named::<Relative>("length")?.unwrap_or(Length::cm(1.0).into());
                 let angle = args.named::<Angle>("angle")?.unwrap_or_default();
 
                 let x = angle.cos() * length;
@@ -48,9 +48,9 @@ impl Layout for LineNode {
         });
 
         let resolved_origin =
-            self.origin.zip(regions.base).map(|(l, b)| Linear::resolve(l, b));
+            self.origin.zip(regions.base).map(|(l, b)| Relative::resolve(l, b));
         let resolved_delta =
-            self.delta.zip(regions.base).map(|(l, b)| Linear::resolve(l, b));
+            self.delta.zip(regions.base).map(|(l, b)| Relative::resolve(l, b));
 
         let geometry = Geometry::Line(resolved_delta.to_point());
         let shape = Shape { geometry, fill: None, stroke };

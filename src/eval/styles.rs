@@ -270,7 +270,7 @@ pub trait Key<'a>: 'static {
     /// from a style chain. For example, this is [`bool`] for the
     /// [`STRONG`](TextNode::STRONG) property. For non-copy, non-folding
     /// properties this is a reference type.
-    type Output: 'a;
+    type Output;
 
     /// The name of the property, used for debug printing.
     const NAME: &'static str;

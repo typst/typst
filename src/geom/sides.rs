@@ -43,8 +43,8 @@ where
     }
 }
 
-impl Sides<Linear> {
-    /// Resolve the linear sides relative to the given `size`.
+impl Sides<Relative> {
+    /// Resolve the sides relative to the given `size`.
     pub fn resolve(self, size: Size) -> Sides<Length> {
         Sides {
             left: self.left.resolve(size.x),

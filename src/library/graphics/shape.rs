@@ -23,17 +23,17 @@ pub type EllipseNode = ShapeNode<ELLIPSE>;
 impl<const S: ShapeKind> ShapeNode<S> {
     /// How to fill the shape.
     pub const FILL: Option<Paint> = None;
-    /// How the stroke the shape.
+    /// How to stroke the shape.
     pub const STROKE: Smart<Option<Paint>> = Smart::Auto;
     /// The stroke's thickness.
     pub const THICKNESS: Length = Length::pt(1.0);
     /// How much to pad the shape's content.
-    pub const PADDING: Linear = Linear::zero();
+    pub const PADDING: Relative = Relative::zero();
 
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         let size = match S {
-            SQUARE => args.named::<Length>("size")?.map(Linear::from),
-            CIRCLE => args.named::<Length>("radius")?.map(|r| 2.0 * Linear::from(r)),
+            SQUARE => args.named::<Length>("size")?.map(Relative::from),
+            CIRCLE => args.named::<Length>("radius")?.map(|r| 2.0 * Relative::from(r)),
             _ => None,
         };
 
@@ -64,7 +64,7 @@ impl<const S: ShapeKind> Layout for ShapeNode<S> {
         if let Some(child) = &self.0 {
             let mut padding = styles.get(Self::PADDING);
             if is_round(S) {
-                padding.rel += Relative::new(0.5 - SQRT_2 / 4.0);
+                padding.rel += Ratio::new(0.5 - SQRT_2 / 4.0);
             }
 
             // Pad the child.

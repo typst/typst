@@ -37,8 +37,8 @@ impl<const T: TransformKind> TransformNode<T> {
             }
             SCALE | _ => {
                 let all = args.find()?;
-                let sx = args.named("x")?.or(all).unwrap_or(Relative::one());
-                let sy = args.named("y")?.or(all).unwrap_or(Relative::one());
+                let sx = args.named("x")?.or(all).unwrap_or(Ratio::one());
+                let sy = args.named("y")?.or(all).unwrap_or(Ratio::one());
                 Transform::scale(sx, sy)
             }
         };

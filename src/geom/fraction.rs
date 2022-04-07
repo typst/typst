@@ -1,41 +1,41 @@
 use super::*;
 
-/// A fractional length.
+/// A fraction of remaining space.
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct Fractional(Scalar);
+pub struct Fraction(Scalar);
 
-impl Fractional {
+impl Fraction {
     /// Takes up zero space: `0fr`.
     pub const fn zero() -> Self {
         Self(Scalar(0.0))
     }
 
-    /// Takes up as much space as all other items with this fractional size: `1fr`.
+    /// Takes up as much space as all other items with this fraction: `1fr`.
     pub const fn one() -> Self {
         Self(Scalar(1.0))
     }
 
-    /// Create a new fractional value.
+    /// Create a new fraction.
     pub const fn new(ratio: f64) -> Self {
         Self(Scalar(ratio))
     }
 
-    /// Get the underlying ratio.
+    /// Get the underlying number.
     pub const fn get(self) -> f64 {
         (self.0).0
     }
 
-    /// Whether the ratio is zero.
+    /// Whether the fraction is zero.
     pub fn is_zero(self) -> bool {
         self.0 == 0.0
     }
 
-    /// The absolute value of the this fractional.
+    /// The absolute value of the this fraction.
     pub fn abs(self) -> Self {
         Self::new(self.get().abs())
     }
 
-    /// Resolve this fractionals share in the remaining space.
+    /// Resolve this fraction's share in the remaining space.
     pub fn resolve(self, total: Self, remaining: Length) -> Length {
         let ratio = self / total;
         if ratio.is_finite() && remaining.is_finite() {
@@ -46,13 +46,13 @@ impl Fractional {
     }
 }
 
-impl Debug for Fractional {
+impl Debug for Fraction {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}fr", round_2(self.get()))
     }
 }
 
-impl Neg for Fractional {
+impl Neg for Fraction {
     type Output = Self;
 
     fn neg(self) -> Self {
@@ -60,7 +60,7 @@ impl Neg for Fractional {
     }
 }
 
-impl Add for Fractional {
+impl Add for Fraction {
     type Output = Self;
 
     fn add(self, other: Self) -> Self {
@@ -68,9 +68,9 @@ impl Add for Fractional {
     }
 }
 
-sub_impl!(Fractional - Fractional -> Fractional);
+sub_impl!(Fraction - Fraction -> Fraction);
 
-impl Mul<f64> for Fractional {
+impl Mul<f64> for Fraction {
     type Output = Self;
 
     fn mul(self, other: f64) -> Self {
@@ -78,15 +78,15 @@ impl Mul<f64> for Fractional {
     }
 }
 
-impl Mul<Fractional> for f64 {
-    type Output = Fractional;
+impl Mul<Fraction> for f64 {
+    type Output = Fraction;
 
-    fn mul(self, other: Fractional) -> Fractional {
+    fn mul(self, other: Fraction) -> Fraction {
         other * self
     }
 }
 
-impl Div<f64> for Fractional {
+impl Div<f64> for Fraction {
     type Output = Self;
 
     fn div(self, other: f64) -> Self {
@@ -94,7 +94,7 @@ impl Div<f64> for Fractional {
     }
 }
 
-impl Div for Fractional {
+impl Div for Fraction {
     type Output = f64;
 
     fn div(self, other: Self) -> f64 {
@@ -102,7 +102,7 @@ impl Div for Fractional {
     }
 }
 
-assign_impl!(Fractional += Fractional);
-assign_impl!(Fractional -= Fractional);
-assign_impl!(Fractional *= f64);
-assign_impl!(Fractional /= f64);
+assign_impl!(Fraction += Fraction);
+assign_impl!(Fraction -= Fraction);
+assign_impl!(Fraction *= f64);
+assign_impl!(Fraction /= f64);

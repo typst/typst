@@ -16,13 +16,13 @@ impl PageNode {
     /// Whether the page is flipped into landscape orientation.
     pub const FLIPPED: bool = false;
     /// The left margin.
-    pub const LEFT: Smart<Linear> = Smart::Auto;
+    pub const LEFT: Smart<Relative> = Smart::Auto;
     /// The right margin.
-    pub const RIGHT: Smart<Linear> = Smart::Auto;
+    pub const RIGHT: Smart<Relative> = Smart::Auto;
     /// The top margin.
-    pub const TOP: Smart<Linear> = Smart::Auto;
+    pub const TOP: Smart<Relative> = Smart::Auto;
     /// The bottom margin.
-    pub const BOTTOM: Smart<Linear> = Smart::Auto;
+    pub const BOTTOM: Smart<Relative> = Smart::Auto;
     /// The page's background color.
     pub const FILL: Option<Paint> = None;
     /// How many columns the page has.
@@ -90,7 +90,7 @@ impl PageNode {
         }
 
         // Determine the margins.
-        let default = Linear::from(0.1190 * min);
+        let default = Relative::from(0.1190 * min);
         let padding = Sides {
             left: styles.get(Self::LEFT).unwrap_or(default),
             right: styles.get(Self::RIGHT).unwrap_or(default),

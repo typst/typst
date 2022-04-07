@@ -15,12 +15,12 @@ pub fn rgb(_: &mut Context, args: &mut Args) -> TypResult<Value> {
 
             castable! {
                 Component,
-                Expected: "integer or relative",
+                Expected: "integer or ratio",
                 Value::Int(v) => match v {
                     0 ..= 255 => Self(v as u8),
                     _ => Err("must be between 0 and 255")?,
                 },
-                Value::Relative(v) => if (0.0 ..= 1.0).contains(&v.get()) {
+                Value::Ratio(v) => if (0.0 ..= 1.0).contains(&v.get()) {
                     Self((v.get() * 255.0).round() as u8)
                 } else {
                     Err("must be between 0% and 100%")?
@@ -42,8 +42,8 @@ pub fn cmyk(_: &mut Context, args: &mut Args) -> TypResult<Value> {
 
     castable! {
         Component,
-        Expected: "relative",
-        Value::Relative(v) => if (0.0 ..= 1.0).contains(&v.get()) {
+        Expected: "ratio",
+        Value::Ratio(v) => if (0.0 ..= 1.0).contains(&v.get()) {
             Self((v.get() * 255.0).round() as u8)
         } else {
             Err("must be between 0% and 100%")?

@@ -41,7 +41,7 @@ use parking_lot::{MappedRwLockWriteGuard, RwLockWriteGuard};
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::diag::{At, StrResult, Trace, Tracepoint, TypResult};
-use crate::geom::{Angle, Fractional, Length, Relative};
+use crate::geom::{Angle, Fraction, Length, Ratio};
 use crate::library;
 use crate::syntax::ast::*;
 use crate::syntax::{Span, Spanned};
@@ -245,8 +245,8 @@ impl Eval for Lit {
             LitKind::Float(v) => Value::Float(v),
             LitKind::Length(v, unit) => Value::Length(Length::with_unit(v, unit)),
             LitKind::Angle(v, unit) => Value::Angle(Angle::with_unit(v, unit)),
-            LitKind::Percent(v) => Value::Relative(Relative::new(v / 100.0)),
-            LitKind::Fractional(v) => Value::Fractional(Fractional::new(v)),
+            LitKind::Percent(v) => Value::Ratio(Ratio::new(v / 100.0)),
+            LitKind::Fractional(v) => Value::Fraction(Fraction::new(v)),
             LitKind::Str(ref v) => Value::Str(v.clone()),
         })
     }

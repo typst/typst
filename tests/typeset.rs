@@ -528,7 +528,7 @@ fn render_links(
     }
 }
 
-/// This is an Linear-feedback shift register using XOR as its shifting
+/// This is a Linear-feedback shift register using XOR as its shifting
 /// function. It can be used as PRNG.
 struct LinearShift(u64);
 

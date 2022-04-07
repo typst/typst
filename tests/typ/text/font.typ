@@ -64,7 +64,7 @@ Emoji: 🐪, 🌋, 🏞
 #set text(style: "bold", weight: "thin")
 
 ---
-// Error: 21-23 expected linear or string, found array
+// Error: 21-23 expected string or relative length, found array
 #set text(top-edge: ())
 
 ---

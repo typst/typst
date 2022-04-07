@@ -8,7 +8,7 @@ use std::sync::Arc;
 use super::{Barrier, StyleChain};
 use crate::diag::TypResult;
 use crate::frame::{Element, Frame, Geometry, Shape, Stroke};
-use crate::geom::{Align, Length, Linear, Paint, Point, Sides, Size, Spec, Transform};
+use crate::geom::{Align, Length, Paint, Point, Relative, Sides, Size, Spec, Transform};
 use crate::library::graphics::MoveNode;
 use crate::library::layout::{AlignNode, PadNode};
 use crate::util::Prehashed;
@@ -161,7 +161,7 @@ impl LayoutNode {
     }
 
     /// Force a size for this node.
-    pub fn sized(self, sizing: Spec<Option<Linear>>) -> Self {
+    pub fn sized(self, sizing: Spec<Option<Relative>>) -> Self {
         if sizing.any(Option::is_some) {
             SizedNode { sizing, child: self }.pack()
         } else {
@@ -189,7 +189,7 @@ impl LayoutNode {
     }
 
     /// Pad this node at the sides.
-    pub fn padded(self, padding: Sides<Linear>) -> Self {
+    pub fn padded(self, padding: Sides<Relative>) -> Self {
         if !padding.left.is_zero()
             || !padding.top.is_zero()
             || !padding.right.is_zero()
@@ -292,7 +292,7 @@ impl Layout for EmptyNode {
 #[derive(Debug, Hash)]
 struct SizedNode {
     /// How to size the node horizontally and vertically.
-    sizing: Spec<Option<Linear>>,
+    sizing: Spec<Option<Relative>>,
     /// The node to be sized.
     child: LayoutNode,
 }
@@ -314,7 +314,7 @@ impl Layout for SizedNode {
                 .unwrap_or(regions.first);
 
             // Select the appropriate base and expansion for the child depending
-            // on whether it is automatically or linearly sized.
+            // on whether it is automatically or relatively sized.
             let is_auto = self.sizing.map_is_none();
             let base = is_auto.select(regions.base, size);
             let expand = regions.expand | !is_auto;

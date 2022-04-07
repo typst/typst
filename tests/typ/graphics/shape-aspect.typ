@@ -42,5 +42,5 @@
 ---
 // Size cannot be relative because we wouldn't know
 // relative to which axis.
-// Error: 15-18 expected length, found relative
+// Error: 15-18 expected length, found ratio
 #square(size: 50%)

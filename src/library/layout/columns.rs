@@ -14,7 +14,7 @@ pub struct ColumnsNode {
 #[node]
 impl ColumnsNode {
     /// The size of the gutter space between each column.
-    pub const GUTTER: Linear = Relative::new(0.04).into();
+    pub const GUTTER: Relative = Ratio::new(0.04).into();
 
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         Ok(Content::block(Self {

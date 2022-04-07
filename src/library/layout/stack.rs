@@ -76,11 +76,11 @@ impl Debug for StackChild {
 
 castable! {
     StackChild,
-    Expected: "linear, fractional or content",
-    Value::Length(v) => Self::Spacing(Spacing::Linear(v.into())),
-    Value::Relative(v) => Self::Spacing(Spacing::Linear(v.into())),
-    Value::Linear(v) => Self::Spacing(Spacing::Linear(v)),
-    Value::Fractional(v) => Self::Spacing(Spacing::Fractional(v)),
+    Expected: "relative length, fraction, or content",
+    Value::Length(v) => Self::Spacing(Spacing::Relative(v.into())),
+    Value::Ratio(v) => Self::Spacing(Spacing::Relative(v.into())),
+    Value::Relative(v) => Self::Spacing(Spacing::Relative(v)),
+    Value::Fraction(v) => Self::Spacing(Spacing::Fractional(v)),
     Value::Content(v) => Self::Node(v.pack()),
 }
 
@@ -98,8 +98,8 @@ pub struct StackLayouter {
     full: Size,
     /// The generic size used by the frames for the current region.
     used: Gen<Length>,
-    /// The sum of fractional ratios in the current region.
-    fr: Fractional,
+    /// The sum of fractions in the current region.
+    fr: Fraction,
     /// Already layouted items whose exact positions are not yet known due to
     /// fractional spacing.
     items: Vec<StackItem>,
@@ -112,7 +112,7 @@ enum StackItem {
     /// Absolute spacing between other items.
     Absolute(Length),
     /// Fractional spacing between other items.
-    Fractional(Fractional),
+    Fractional(Fraction),
     /// A frame for a layouted child node.
     Frame(Arc<Frame>, Align),
 }
@@ -135,7 +135,7 @@ impl StackLayouter {
             expand,
             full,
             used: Gen::zero(),
-            fr: Fractional::zero(),
+            fr: Fraction::zero(),
             items: vec![],
             finished: vec![],
         }
@@ -144,8 +144,8 @@ impl StackLayouter {
     /// Add spacing along the spacing direction.
     pub fn layout_spacing(&mut self, spacing: Spacing) {
         match spacing {
-            Spacing::Linear(v) => {
-                // Resolve the linear and limit it to the remaining space.
+            Spacing::Relative(v) => {
+                // Resolve the spacing and limit it to the remaining space.
                 let resolved = v.resolve(self.regions.base.get(self.axis));
                 let remaining = self.regions.first.get_mut(self.axis);
                 let limited = resolved.min(*remaining);
@@ -247,7 +247,7 @@ impl StackLayouter {
         self.regions.next();
         self.full = self.regions.first;
         self.used = Gen::zero();
-        self.fr = Fractional::zero();
+        self.fr = Fraction::zero();
         self.finished.push(Arc::new(output));
     }
 

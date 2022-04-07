@@ -1,7 +1,7 @@
 // Test relative sizing inside grids.
 
 ---
-// Test that auto and linear columns use the correct base.
+// Test that auto and relative columns use the correct base.
 #grid(
   columns: (auto, 60%),
   rows: (auto, auto),

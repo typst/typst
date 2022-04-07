@@ -3,10 +3,10 @@ use super::*;
 /// A scale-skew-translate transformation.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Transform {
-    pub sx: Relative,
-    pub ky: Relative,
-    pub kx: Relative,
-    pub sy: Relative,
+    pub sx: Ratio,
+    pub ky: Ratio,
+    pub kx: Ratio,
+    pub sy: Ratio,
     pub tx: Length,
     pub ty: Length,
 }
@@ -15,10 +15,10 @@ impl Transform {
     /// The identity transformation.
     pub const fn identity() -> Self {
         Self {
-            sx: Relative::one(),
-            ky: Relative::zero(),
-            kx: Relative::zero(),
-            sy: Relative::one(),
+            sx: Ratio::one(),
+            ky: Ratio::zero(),
+            kx: Ratio::zero(),
+            sy: Ratio::one(),
             tx: Length::zero(),
             ty: Length::zero(),
         }
@@ -30,14 +30,14 @@ impl Transform {
     }
 
     /// A scaling transform.
-    pub const fn scale(sx: Relative, sy: Relative) -> Self {
+    pub const fn scale(sx: Ratio, sy: Ratio) -> Self {
         Self { sx, sy, ..Self::identity() }
     }
 
     /// A rotation transform.
     pub fn rotation(angle: Angle) -> Self {
-        let cos = Relative::new(angle.cos());
-        let sin = Relative::new(angle.sin());
+        let cos = Ratio::new(angle.cos());
+        let sin = Ratio::new(angle.sin());
         Self {
             sx: cos,
             ky: sin,
