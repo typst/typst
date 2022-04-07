@@ -15,6 +15,16 @@ impl Length {
         Self(Scalar(f64::INFINITY))
     }
 
+    /// Create a length from a number of raw units.
+    pub const fn raw(raw: f64) -> Self {
+        Self(Scalar(raw))
+    }
+
+    /// Create a length from a value in a unit.
+    pub fn with_unit(val: f64, unit: LengthUnit) -> Self {
+        Self(Scalar(val * unit.raw_scale()))
+    }
+
     /// Create a length from a number of points.
     pub fn pt(pt: f64) -> Self {
         Self::with_unit(pt, LengthUnit::Pt)
@@ -35,9 +45,14 @@ impl Length {
         Self::with_unit(inches, LengthUnit::In)
     }
 
-    /// Create a length from a number of raw units.
-    pub const fn raw(raw: f64) -> Self {
-        Self(Scalar(raw))
+    /// Get the value of this length in raw units.
+    pub const fn to_raw(self) -> f64 {
+        (self.0).0
+    }
+
+    /// Get the value of this length in unit.
+    pub fn to_unit(self, unit: LengthUnit) -> f64 {
+        self.to_raw() / unit.raw_scale()
     }
 
     /// Convert this to a number of points.
@@ -58,36 +73,6 @@ impl Length {
     /// Convert this to a number of inches.
     pub fn to_inches(self) -> f64 {
         self.to_unit(LengthUnit::In)
-    }
-
-    /// Get the value of this length in raw units.
-    pub const fn to_raw(self) -> f64 {
-        (self.0).0
-    }
-
-    /// Create a length from a value in a unit.
-    pub fn with_unit(val: f64, unit: LengthUnit) -> Self {
-        Self(Scalar(val * unit.raw_scale()))
-    }
-
-    /// Get the value of this length in unit.
-    pub fn to_unit(self, unit: LengthUnit) -> f64 {
-        self.to_raw() / unit.raw_scale()
-    }
-
-    /// Whether the length is zero.
-    pub fn is_zero(self) -> bool {
-        self.to_raw() == 0.0
-    }
-
-    /// Whether the length is finite.
-    pub fn is_finite(self) -> bool {
-        self.to_raw().is_finite()
-    }
-
-    /// Whether the length is infinite.
-    pub fn is_infinite(self) -> bool {
-        self.to_raw().is_infinite()
     }
 
     /// The absolute value of the this length.
@@ -134,6 +119,16 @@ impl Length {
         } else {
             Self::zero()
         }
+    }
+}
+
+impl Numeric for Length {
+    fn zero() -> Self {
+        Self::zero()
+    }
+
+    fn is_finite(self) -> bool {
+        self.0.is_finite()
     }
 }
 

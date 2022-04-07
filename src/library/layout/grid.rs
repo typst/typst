@@ -58,7 +58,7 @@ pub enum TrackSizing {
     Auto,
     /// A track size specified in absolute terms and relative to the parent's
     /// size.
-    Relative(Relative),
+    Relative(Relative<Length>),
     /// A track size specified as a fraction of the remaining free space in the
     /// parent.
     Fractional(Fraction),
@@ -422,7 +422,7 @@ impl<'a> GridLayouter<'a> {
     fn layout_relative_row(
         &mut self,
         ctx: &mut Context,
-        v: Relative,
+        v: Relative<Length>,
         y: usize,
     ) -> TypResult<()> {
         let resolved = v.resolve(self.regions.base.y);

@@ -167,16 +167,13 @@ castable! {
 }
 
 castable! {
-    Spec<Relative>,
+    Spec<Relative<Length>>,
     Expected: "array of two relative lengths",
     Value::Array(array) => {
-        match array.as_slice() {
-            [a, b] => {
-                let a = a.clone().cast::<Relative>()?;
-                let b = b.clone().cast::<Relative>()?;
-                Spec::new(a, b)
-            },
-            _ => return Err("point array must contain exactly two entries".to_string()),
+        let mut iter = array.into_iter();
+        match (iter.next(), iter.next(), iter.next()) {
+            (Some(a), Some(b), None) => Spec::new(a.cast()?, b.cast()?),
+            _ => Err("point array must contain exactly two entries")?,
         }
     },
 }

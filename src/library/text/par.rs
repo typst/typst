@@ -42,11 +42,11 @@ impl ParNode {
     /// will will be hyphenated if and only if justification is enabled.
     pub const HYPHENATE: Smart<bool> = Smart::Auto;
     /// The spacing between lines (dependent on scaled font size).
-    pub const LEADING: Relative = Ratio::new(0.65).into();
+    pub const LEADING: Relative<Length> = Ratio::new(0.65).into();
     /// The extra spacing between paragraphs (dependent on scaled font size).
-    pub const SPACING: Relative = Ratio::new(0.55).into();
+    pub const SPACING: Relative<Length> = Ratio::new(0.55).into();
     /// The indent the first line of a consecutive paragraph should have.
-    pub const INDENT: Relative = Relative::zero();
+    pub const INDENT: Relative<Length> = Relative::zero();
 
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         // The paragraph constructor is special: It doesn't create a paragraph

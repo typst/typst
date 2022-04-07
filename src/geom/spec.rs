@@ -201,7 +201,7 @@ pub type Size = Spec<Length>;
 
 impl Size {
     /// The zero value.
-    pub fn zero() -> Self {
+    pub const fn zero() -> Self {
         Self { x: Length::zero(), y: Length::zero() }
     }
 
@@ -210,24 +210,19 @@ impl Size {
         self.x.fits(other.x) && self.y.fits(other.y)
     }
 
-    /// Whether both components are zero.
-    pub fn is_zero(self) -> bool {
-        self.x.is_zero() && self.y.is_zero()
-    }
-
-    /// Whether both components are finite.
-    pub fn is_finite(self) -> bool {
-        self.x.is_finite() && self.y.is_finite()
-    }
-
-    /// Whether any of the two components is infinite.
-    pub fn is_infinite(self) -> bool {
-        self.x.is_infinite() || self.y.is_infinite()
-    }
-
     /// Convert to a point.
     pub fn to_point(self) -> Point {
         Point::new(self.x, self.y)
+    }
+}
+
+impl Numeric for Size {
+    fn zero() -> Self {
+        Self::zero()
+    }
+
+    fn is_finite(self) -> bool {
+        self.x.is_finite() && self.y.is_finite()
     }
 }
 

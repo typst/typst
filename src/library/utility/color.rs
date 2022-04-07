@@ -8,7 +8,7 @@ pub fn rgb(_: &mut Context, args: &mut Args) -> TypResult<Value> {
         if let Some(string) = args.find::<Spanned<EcoString>>()? {
             match RgbaColor::from_str(&string.v) {
                 Ok(color) => color,
-                Err(_) => bail!(string.span, "invalid hex string"),
+                Err(msg) => bail!(string.span, msg),
             }
         } else {
             struct Component(u8);

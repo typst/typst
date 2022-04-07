@@ -8,7 +8,9 @@ use std::sync::Arc;
 use super::{Barrier, StyleChain};
 use crate::diag::TypResult;
 use crate::frame::{Element, Frame, Geometry, Shape, Stroke};
-use crate::geom::{Align, Length, Paint, Point, Relative, Sides, Size, Spec, Transform};
+use crate::geom::{
+    Align, Length, Numeric, Paint, Point, Relative, Sides, Size, Spec, Transform,
+};
 use crate::library::graphics::MoveNode;
 use crate::library::layout::{AlignNode, PadNode};
 use crate::util::Prehashed;
@@ -161,7 +163,7 @@ impl LayoutNode {
     }
 
     /// Force a size for this node.
-    pub fn sized(self, sizing: Spec<Option<Relative>>) -> Self {
+    pub fn sized(self, sizing: Spec<Option<Relative<Length>>>) -> Self {
         if sizing.any(Option::is_some) {
             SizedNode { sizing, child: self }.pack()
         } else {
@@ -189,7 +191,7 @@ impl LayoutNode {
     }
 
     /// Pad this node at the sides.
-    pub fn padded(self, padding: Sides<Relative>) -> Self {
+    pub fn padded(self, padding: Sides<Relative<Length>>) -> Self {
         if !padding.left.is_zero()
             || !padding.top.is_zero()
             || !padding.right.is_zero()
@@ -205,7 +207,7 @@ impl LayoutNode {
     pub fn moved(self, offset: Point) -> Self {
         if !offset.is_zero() {
             MoveNode {
-                transform: Transform::translation(offset.x, offset.y),
+                transform: Transform::translate(offset.x, offset.y),
                 child: self,
             }
             .pack()
@@ -292,7 +294,7 @@ impl Layout for EmptyNode {
 #[derive(Debug, Hash)]
 struct SizedNode {
     /// How to size the node horizontally and vertically.
-    sizing: Spec<Option<Relative>>,
+    sizing: Spec<Option<Relative<Length>>>,
     /// The node to be sized.
     child: LayoutNode,
 }

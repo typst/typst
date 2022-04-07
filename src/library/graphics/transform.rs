@@ -29,11 +29,11 @@ impl<const T: TransformKind> TransformNode<T> {
             MOVE => {
                 let tx = args.named("x")?.unwrap_or_default();
                 let ty = args.named("y")?.unwrap_or_default();
-                Transform::translation(tx, ty)
+                Transform::translate(tx, ty)
             }
             ROTATE => {
                 let angle = args.named_or_find("angle")?.unwrap_or_default();
-                Transform::rotation(angle)
+                Transform::rotate(angle)
             }
             SCALE | _ => {
                 let all = args.find()?;
@@ -62,9 +62,9 @@ impl<const T: TransformKind> Layout for TransformNode<T> {
 
         for frame in &mut frames {
             let Spec { x, y } = origin.zip(frame.size).map(|(o, s)| o.resolve(s));
-            let transform = Transform::translation(x, y)
+            let transform = Transform::translate(x, y)
                 .pre_concat(self.transform)
-                .pre_concat(Transform::translation(-x, -y));
+                .pre_concat(Transform::translate(-x, -y));
 
             Arc::make_mut(frame).transform(transform);
         }

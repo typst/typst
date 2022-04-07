@@ -16,13 +16,13 @@ impl PageNode {
     /// Whether the page is flipped into landscape orientation.
     pub const FLIPPED: bool = false;
     /// The left margin.
-    pub const LEFT: Smart<Relative> = Smart::Auto;
+    pub const LEFT: Smart<Relative<Length>> = Smart::Auto;
     /// The right margin.
-    pub const RIGHT: Smart<Relative> = Smart::Auto;
+    pub const RIGHT: Smart<Relative<Length>> = Smart::Auto;
     /// The top margin.
-    pub const TOP: Smart<Relative> = Smart::Auto;
+    pub const TOP: Smart<Relative<Length>> = Smart::Auto;
     /// The bottom margin.
-    pub const BOTTOM: Smart<Relative> = Smart::Auto;
+    pub const BOTTOM: Smart<Relative<Length>> = Smart::Auto;
     /// The page's background color.
     pub const FILL: Option<Paint> = None;
     /// How many columns the page has.
@@ -85,7 +85,7 @@ impl PageNode {
         }
 
         let mut min = width.min(height);
-        if min.is_infinite() {
+        if !min.is_finite() {
             min = Paper::A4.width();
         }
 
@@ -115,7 +115,7 @@ impl PageNode {
         }
 
         // Layout the child.
-        let regions = Regions::repeat(size, size, size.map(Length::is_finite));
+        let regions = Regions::repeat(size, size, size.map(Numeric::is_finite));
         let mut frames = child.layout(ctx, &regions, styles)?;
 
         let header = styles.get(Self::HEADER);
@@ -133,7 +133,7 @@ impl PageNode {
                     let pos = Point::new(padding.left, y);
                     let w = size.x - padding.left - padding.right;
                     let area = Size::new(w, h);
-                    let pod = Regions::one(area, area, area.map(Length::is_finite));
+                    let pod = Regions::one(area, area, area.map(Numeric::is_finite));
                     let sub = Layout::layout(&content, ctx, &pod, styles)?.remove(0);
                     Arc::make_mut(frame).push_frame(pos, sub);
                 }

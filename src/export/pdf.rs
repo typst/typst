@@ -17,7 +17,7 @@ use ttf_parser::{name_id, GlyphId, Tag};
 use super::subset::subset;
 use crate::font::{find_name, FaceId, FontStore};
 use crate::frame::{Element, Frame, Geometry, Group, Shape, Stroke, Text};
-use crate::geom::{self, Color, Em, Length, Paint, Point, Size, Transform};
+use crate::geom::{self, Color, Em, Length, Numeric, Paint, Point, Size, Transform};
 use crate::image::{Image, ImageId, ImageStore, RasterImage};
 use crate::Context;
 
@@ -423,7 +423,7 @@ impl<'a> PageExporter<'a> {
     }
 
     fn write_group(&mut self, pos: Point, group: &Group) {
-        let translation = Transform::translation(pos.x, pos.y);
+        let translation = Transform::translate(pos.x, pos.y);
 
         self.save_state();
         self.transform(translation.pre_concat(group.transform));

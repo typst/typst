@@ -20,7 +20,7 @@
 #test(rgb(-30, 15, 50))
 
 ---
-// Error: 6-11 invalid hex string
+// Error: 6-11 string contains non-hexadecimal letters
 #rgb("lol")
 
 ---

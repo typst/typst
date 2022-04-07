@@ -31,7 +31,7 @@ pub enum Value {
     /// A ratio: `50%`.
     Ratio(Ratio),
     /// A relative length, combination of a ratio and a length: `20% + 5cm`.
-    Relative(Relative),
+    Relative(Relative<Length>),
     /// A fraction: `1fr`.
     Fraction(Fraction),
     /// A color value: `#f79143ff`.
@@ -549,7 +549,7 @@ primitive! { f64: "float", Float, Int(v) => v as f64 }
 primitive! { Length: "length", Length }
 primitive! { Angle: "angle", Angle }
 primitive! { Ratio: "ratio", Ratio }
-primitive! { Relative: "relative length", Relative, Length(v) => v.into(), Ratio(v) => v.into() }
+primitive! { Relative<Length>: "relative length", Relative, Length(v) => v.into(), Ratio(v) => v.into() }
 primitive! { Fraction: "fraction", Fraction }
 primitive! { Color: "color", Color }
 primitive! { EcoString: "string", Str }

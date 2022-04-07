@@ -35,17 +35,22 @@ impl Point {
         Self { x: Length::zero(), y }
     }
 
-    /// Whether both components are zero.
-    pub fn is_zero(self) -> bool {
-        self.x.is_zero() && self.y.is_zero()
+    /// Transform the point with the given transformation.
+    pub fn transform(self, ts: Transform) -> Self {
+        Self::new(
+            ts.sx.resolve(self.x) + ts.kx.resolve(self.y) + ts.tx,
+            ts.ky.resolve(self.x) + ts.sy.resolve(self.y) + ts.ty,
+        )
+    }
+}
+
+impl Numeric for Point {
+    fn zero() -> Self {
+        Self::zero()
     }
 
-    /// Transform the point with the given transformation.
-    pub fn transform(self, transform: Transform) -> Self {
-        Self::new(
-            transform.sx.resolve(self.x) + transform.kx.resolve(self.y) + transform.tx,
-            transform.ky.resolve(self.x) + transform.sy.resolve(self.y) + transform.ty,
-        )
+    fn is_finite(self) -> bool {
+        self.x.is_finite() && self.y.is_finite()
     }
 }
 

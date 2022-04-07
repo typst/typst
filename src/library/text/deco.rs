@@ -26,13 +26,13 @@ impl<const L: DecoLine> DecoNode<L> {
     /// Thickness of the line's strokes (dependent on scaled font size), read
     /// from the font tables if `None`.
     #[property(shorthand)]
-    pub const THICKNESS: Option<Relative> = None;
+    pub const THICKNESS: Option<Relative<Length>> = None;
     /// Position of the line relative to the baseline (dependent on scaled font
     /// size), read from the font tables if `None`.
-    pub const OFFSET: Option<Relative> = None;
+    pub const OFFSET: Option<Relative<Length>> = None;
     /// Amount that the line will be longer or shorter than its associated text
     /// (dependent on scaled font size).
-    pub const EXTENT: Relative = Relative::zero();
+    pub const EXTENT: Relative<Length> = Relative::zero();
     /// Whether the line skips sections in which it would collide
     /// with the glyphs. Does not apply to strikethrough.
     pub const EVADE: bool = true;
@@ -66,9 +66,9 @@ impl<const L: DecoLine> Show for DecoNode<L> {
 pub struct Decoration {
     pub line: DecoLine,
     pub stroke: Option<Paint>,
-    pub thickness: Option<Relative>,
-    pub offset: Option<Relative>,
-    pub extent: Relative,
+    pub thickness: Option<Relative<Length>>,
+    pub offset: Option<Relative<Length>>,
+    pub extent: Relative<Length>,
     pub evade: bool,
 }
 

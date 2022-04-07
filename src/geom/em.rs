@@ -32,19 +32,24 @@ impl Em {
         Self(Scalar(length / font_size))
     }
 
-    /// Convert to a length at the given font size.
-    pub fn resolve(self, font_size: Length) -> Length {
-        self.get() * font_size
-    }
-
     /// The number of em units.
     pub const fn get(self) -> f64 {
         (self.0).0
     }
 
-    /// Whether the length is zero.
-    pub fn is_zero(self) -> bool {
-        self.0 == 0.0
+    /// Convert to a length at the given font size.
+    pub fn resolve(self, font_size: Length) -> Length {
+        self.get() * font_size
+    }
+}
+
+impl Numeric for Em {
+    fn zero() -> Self {
+        Self::zero()
+    }
+
+    fn is_finite(self) -> bool {
+        self.0.is_finite()
     }
 }
 

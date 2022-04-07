@@ -25,11 +25,6 @@ impl Fraction {
         (self.0).0
     }
 
-    /// Whether the fraction is zero.
-    pub fn is_zero(self) -> bool {
-        self.0 == 0.0
-    }
-
     /// The absolute value of the this fraction.
     pub fn abs(self) -> Self {
         Self::new(self.get().abs())
@@ -43,6 +38,16 @@ impl Fraction {
         } else {
             Length::zero()
         }
+    }
+}
+
+impl Numeric for Fraction {
+    fn zero() -> Self {
+        Self::zero()
+    }
+
+    fn is_finite(self) -> bool {
+        self.0.is_finite()
     }
 }
 

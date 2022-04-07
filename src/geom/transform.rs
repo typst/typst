@@ -24,18 +24,18 @@ impl Transform {
         }
     }
 
-    /// A translation transform.
-    pub const fn translation(tx: Length, ty: Length) -> Self {
+    /// A translate transform.
+    pub const fn translate(tx: Length, ty: Length) -> Self {
         Self { tx, ty, ..Self::identity() }
     }
 
-    /// A scaling transform.
+    /// A scale transform.
     pub const fn scale(sx: Ratio, sy: Ratio) -> Self {
         Self { sx, sy, ..Self::identity() }
     }
 
-    /// A rotation transform.
-    pub fn rotation(angle: Angle) -> Self {
+    /// A rotate transform.
+    pub fn rotate(angle: Angle) -> Self {
         let cos = Ratio::new(angle.cos());
         let sin = Ratio::new(angle.sin());
         Self {

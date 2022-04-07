@@ -14,7 +14,7 @@ pub struct ColumnsNode {
 #[node]
 impl ColumnsNode {
     /// The size of the gutter space between each column.
-    pub const GUTTER: Relative = Ratio::new(0.04).into();
+    pub const GUTTER: Relative<Length> = Ratio::new(0.04).into();
 
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         Ok(Content::block(Self {
@@ -33,7 +33,7 @@ impl Layout for ColumnsNode {
     ) -> TypResult<Vec<Arc<Frame>>> {
         // Separating the infinite space into infinite columns does not make
         // much sense.
-        if regions.first.x.is_infinite() {
+        if !regions.first.x.is_finite() {
             return self.child.layout(ctx, regions, styles);
         }
 

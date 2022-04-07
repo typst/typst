@@ -6,6 +6,16 @@ use super::*;
 #[derive(Default, Copy, Clone)]
 pub struct Scalar(pub f64);
 
+impl Numeric for Scalar {
+    fn zero() -> Self {
+        Self(0.0)
+    }
+
+    fn is_finite(self) -> bool {
+        self.0.is_finite()
+    }
+}
+
 impl From<f64> for Scalar {
     fn from(float: f64) -> Self {
         Self(float)

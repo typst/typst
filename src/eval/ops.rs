@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 
 use super::{Dynamic, StrExt, Value};
 use crate::diag::StrResult;
-use crate::geom::{Align, Spec, SpecAxis};
+use crate::geom::{Align, Numeric, Spec, SpecAxis};
 use Value::*;
 
 /// Bail with a type mismatch error.
@@ -66,12 +66,12 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Angle(a), Angle(b)) => Angle(a + b),
 
         (Length(a), Length(b)) => Length(a + b),
-        (Length(a), Ratio(b)) => Relative(a + b),
-        (Length(a), Relative(b)) => Relative(a + b),
+        (Length(a), Ratio(b)) => Relative(b + a),
+        (Length(a), Relative(b)) => Relative(b + a),
 
         (Ratio(a), Length(b)) => Relative(a + b),
         (Ratio(a), Ratio(b)) => Ratio(a + b),
-        (Ratio(a), Relative(b)) => Relative(a + b),
+        (Ratio(a), Relative(b)) => Relative(b + a),
 
         (Relative(a), Length(b)) => Relative(a + b),
         (Relative(a), Ratio(b)) => Relative(a + b),
@@ -123,15 +123,15 @@ pub fn sub(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Angle(a), Angle(b)) => Angle(a - b),
 
         (Length(a), Length(b)) => Length(a - b),
-        (Length(a), Ratio(b)) => Relative(a - b),
-        (Length(a), Relative(b)) => Relative(a - b),
+        (Length(a), Ratio(b)) => Relative(-b + a),
+        (Length(a), Relative(b)) => Relative(-b + a),
 
-        (Ratio(a), Length(b)) => Relative(a - b),
+        (Ratio(a), Length(b)) => Relative(a + -b),
         (Ratio(a), Ratio(b)) => Ratio(a - b),
-        (Ratio(a), Relative(b)) => Relative(a - b),
+        (Ratio(a), Relative(b)) => Relative(-b + a),
 
-        (Relative(a), Length(b)) => Relative(a - b),
-        (Relative(a), Ratio(b)) => Relative(a - b),
+        (Relative(a), Length(b)) => Relative(a + -b),
+        (Relative(a), Ratio(b)) => Relative(a + -b),
         (Relative(a), Relative(b)) => Relative(a - b),
 
         (Fraction(a), Fraction(b)) => Fraction(a - b),

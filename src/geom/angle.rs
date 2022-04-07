@@ -10,6 +10,16 @@ impl Angle {
         Self(Scalar(0.0))
     }
 
+    /// Create an angle from a number of raw units.
+    pub const fn raw(raw: f64) -> Self {
+        Self(Scalar(raw))
+    }
+
+    /// Create an angle from a value in a unit.
+    pub fn with_unit(val: f64, unit: AngularUnit) -> Self {
+        Self(Scalar(val * unit.raw_scale()))
+    }
+
     /// Create an angle from a number of radians.
     pub fn rad(rad: f64) -> Self {
         Self::with_unit(rad, AngularUnit::Rad)
@@ -20,9 +30,14 @@ impl Angle {
         Self::with_unit(deg, AngularUnit::Deg)
     }
 
-    /// Create an angle from a number of raw units.
-    pub const fn raw(raw: f64) -> Self {
-        Self(Scalar(raw))
+    /// Get the value of this angle in raw units.
+    pub const fn to_raw(self) -> f64 {
+        (self.0).0
+    }
+
+    /// Get the value of this length in unit.
+    pub fn to_unit(self, unit: AngularUnit) -> f64 {
+        self.to_raw() / unit.raw_scale()
     }
 
     /// Convert this to a number of radians.
@@ -35,9 +50,9 @@ impl Angle {
         self.to_unit(AngularUnit::Deg)
     }
 
-    /// Get the value of this angle in raw units.
-    pub const fn to_raw(self) -> f64 {
-        (self.0).0
+    /// The absolute value of the this angle.
+    pub fn abs(self) -> Self {
+        Self::raw(self.to_raw().abs())
     }
 
     /// Get the sine of this angle in radians.
@@ -49,20 +64,15 @@ impl Angle {
     pub fn cos(self) -> f64 {
         self.to_rad().cos()
     }
+}
 
-    /// Create an angle from a value in a unit.
-    pub fn with_unit(val: f64, unit: AngularUnit) -> Self {
-        Self(Scalar(val * unit.raw_scale()))
+impl Numeric for Angle {
+    fn zero() -> Self {
+        Self::zero()
     }
 
-    /// Get the value of this length in unit.
-    pub fn to_unit(self, unit: AngularUnit) -> f64 {
-        self.to_raw() / unit.raw_scale()
-    }
-
-    /// The absolute value of the this angle.
-    pub fn abs(self) -> Self {
-        Self::raw(self.to_raw().abs())
+    fn is_finite(self) -> bool {
+        self.0.is_finite()
     }
 }
 
@@ -132,6 +142,7 @@ impl Sum for Angle {
         Self(iter.map(|s| s.0).sum())
     }
 }
+
 /// Different units of angular measurement.
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub enum AngularUnit {

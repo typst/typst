@@ -3,8 +3,10 @@ use crate::library::prelude::*;
 /// Display a line without affecting the layout.
 #[derive(Debug, Hash)]
 pub struct LineNode {
-    origin: Spec<Relative>,
-    delta: Spec<Relative>,
+    /// Where the line starts.
+    origin: Spec<Relative<Length>>,
+    /// The offset from the `origin` where the line ends.
+    delta: Spec<Relative<Length>>,
 }
 
 #[node]
@@ -15,14 +17,15 @@ impl LineNode {
     pub const THICKNESS: Length = Length::pt(1.0);
 
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
-        let origin = args.named::<Spec<Relative>>("origin")?.unwrap_or_default();
-        let delta = match args.named::<Spec<Relative>>("to")? {
+        let origin = args.named("origin")?.unwrap_or_default();
+        let delta = match args.named::<Spec<Relative<Length>>>("to")? {
             Some(to) => to.zip(origin).map(|(to, from)| to - from),
             None => {
-                let length =
-                    args.named::<Relative>("length")?.unwrap_or(Length::cm(1.0).into());
-                let angle = args.named::<Angle>("angle")?.unwrap_or_default();
+                let length = args
+                    .named::<Relative<Length>>("length")?
+                    .unwrap_or(Length::cm(1.0).into());
 
+                let angle = args.named::<Angle>("angle")?.unwrap_or_default();
                 let x = angle.cos() * length;
                 let y = angle.sin() * length;
 

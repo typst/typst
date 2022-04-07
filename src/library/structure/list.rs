@@ -34,11 +34,11 @@ impl<const L: ListKind> ListNode<L> {
     #[property(referenced)]
     pub const LABEL: Label = Label::Default;
     /// The spacing between the list items of a non-wide list.
-    pub const SPACING: Relative = Relative::zero();
+    pub const SPACING: Relative<Length> = Relative::zero();
     /// The indentation of each item's label.
-    pub const INDENT: Relative = Ratio::new(0.0).into();
+    pub const INDENT: Relative<Length> = Ratio::new(0.0).into();
     /// The space between the label and the body of each item.
-    pub const BODY_INDENT: Relative = Ratio::new(0.5).into();
+    pub const BODY_INDENT: Relative<Length> = Ratio::new(0.5).into();
     /// The extra padding above the list.
     pub const ABOVE: Length = Length::zero();
     /// The extra padding below the list.

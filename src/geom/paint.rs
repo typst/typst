@@ -1,4 +1,3 @@
-use std::fmt::Display;
 use std::str::FromStr;
 
 use syntect::highlighting::Color as SynColor;
@@ -103,7 +102,7 @@ impl RgbaColor {
 }
 
 impl FromStr for RgbaColor {
-    type Err = RgbaError;
+    type Err = &'static str;
 
     /// Constructs a new color from hex strings like the following:
     /// - `#aef` (shorthand, with leading hashtag),
@@ -113,8 +112,8 @@ impl FromStr for RgbaColor {
     /// The hashtag is optional and both lower and upper case are fine.
     fn from_str(hex_str: &str) -> Result<Self, Self::Err> {
         let hex_str = hex_str.strip_prefix('#').unwrap_or(hex_str);
-        if !hex_str.is_ascii() {
-            return Err(RgbaError);
+        if hex_str.chars().any(|c| !c.is_ascii_hexdigit()) {
+            return Err("string contains non-hexadecimal letters");
         }
 
         let len = hex_str.len();
@@ -123,7 +122,7 @@ impl FromStr for RgbaColor {
         let alpha = len == 4 || len == 8;
 
         if !long && !short {
-            return Err(RgbaError);
+            return Err("string has wrong length");
         }
 
         let mut values: [u8; 4] = [255; 4];
@@ -133,7 +132,7 @@ impl FromStr for RgbaColor {
             let pos = elem * item_len;
 
             let item = &hex_str[pos .. (pos + item_len)];
-            values[elem] = u8::from_str_radix(item, 16).map_err(|_| RgbaError)?;
+            values[elem] = u8::from_str_radix(item, 16).unwrap();
 
             if short {
                 // Duplicate number for shorthand notation, i.e. `a` -> `aa`
@@ -168,18 +167,6 @@ impl Debug for RgbaColor {
         Ok(())
     }
 }
-
-/// The error when parsing an [`RgbaColor`] from a string fails.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct RgbaError;
-
-impl Display for RgbaError {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad("invalid hex string")
-    }
-}
-
-impl std::error::Error for RgbaError {}
 
 /// An 8-bit CMYK color.
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
@@ -268,13 +255,14 @@ mod tests {
     #[test]
     fn test_parse_invalid_colors() {
         #[track_caller]
-        fn test(hex: &str) {
-            assert_eq!(RgbaColor::from_str(hex), Err(RgbaError));
+        fn test(hex: &str, message: &str) {
+            assert_eq!(RgbaColor::from_str(hex), Err(message));
         }
 
-        test("12345");
-        test("a5");
-        test("14B2AH");
-        test("f075ff011");
+        test("a5", "string has wrong length");
+        test("12345", "string has wrong length");
+        test("f075ff011", "string has wrong length");
+        test("hmmm", "string contains non-hexadecimal letters");
+        test("14B2AH", "string contains non-hexadecimal letters");
     }
 }

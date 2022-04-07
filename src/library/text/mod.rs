@@ -188,7 +188,7 @@ castable! {
 
 /// The size of text.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct FontSize(pub Relative);
+pub struct FontSize(pub Relative<Length>);
 
 impl Fold for FontSize {
     type Output = Length;

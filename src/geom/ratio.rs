@@ -28,16 +28,6 @@ impl Ratio {
         (self.0).0
     }
 
-    /// Resolve this relative to the given `length`.
-    pub fn resolve(self, length: Length) -> Length {
-        // We don't want NaNs.
-        if length.is_infinite() {
-            Length::zero()
-        } else {
-            self.get() * length
-        }
-    }
-
     /// Whether the ratio is zero.
     pub fn is_zero(self) -> bool {
         self.0 == 0.0
@@ -51,6 +41,12 @@ impl Ratio {
     /// The absolute value of the this ratio.
     pub fn abs(self) -> Self {
         Self::new(self.get().abs())
+    }
+
+    /// Resolve this relative to the given `whole`.
+    pub fn resolve<T: Numeric>(self, whole: T) -> T {
+        let resolved = whole * self.get();
+        if resolved.is_finite() { resolved } else { T::zero() }
     }
 }
 

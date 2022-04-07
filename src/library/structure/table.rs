@@ -23,7 +23,7 @@ impl TableNode {
     /// The stroke's thickness.
     pub const THICKNESS: Length = Length::pt(1.0);
     /// How much to pad the cells's content.
-    pub const PADDING: Relative = Length::pt(5.0).into();
+    pub const PADDING: Relative<Length> = Length::pt(5.0).into();
 
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         let columns = args.named("columns")?.unwrap_or_default();

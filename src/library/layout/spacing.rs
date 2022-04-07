@@ -24,7 +24,7 @@ impl VNode {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Spacing {
     /// Spacing specified in absolute terms and relative to the parent's size.
-    Relative(Relative),
+    Relative(Relative<Length>),
     /// Spacing specified as a fraction of the remaining free space in the parent.
     Fractional(Fraction),
 }

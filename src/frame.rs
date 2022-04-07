@@ -4,7 +4,9 @@ use std::fmt::{self, Debug, Formatter};
 use std::sync::Arc;
 
 use crate::font::FaceId;
-use crate::geom::{Align, Em, Length, Paint, Path, Point, Size, Spec, Transform};
+use crate::geom::{
+    Align, Em, Length, Numeric, Paint, Path, Point, Size, Spec, Transform,
+};
 use crate::image::ImageId;
 
 /// A finished layout with elements at fixed positions.

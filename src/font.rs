@@ -415,7 +415,7 @@ pub enum VerticalFontMetric {
     Descender,
     /// An font-size dependent distance from the baseline (positive goes up, negative
     /// down).
-    Relative(Relative),
+    Relative(Relative<Length>),
 }
 
 /// Properties of a single font face.

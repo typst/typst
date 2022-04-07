@@ -28,7 +28,7 @@ impl<const S: ShapeKind> ShapeNode<S> {
     /// The stroke's thickness.
     pub const THICKNESS: Length = Length::pt(1.0);
     /// How much to pad the shape's content.
-    pub const PADDING: Relative = Relative::zero();
+    pub const PADDING: Relative<Length> = Relative::zero();
 
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         let size = match S {

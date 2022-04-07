@@ -60,6 +60,30 @@ pub trait Get<Index> {
     }
 }
 
+/// A numeric type.
+pub trait Numeric:
+    Sized
+    + Debug
+    + Copy
+    + PartialEq
+    + Neg<Output = Self>
+    + Add<Output = Self>
+    + Sub<Output = Self>
+    + Mul<f64, Output = Self>
+    + Div<f64, Output = Self>
+{
+    /// The identity element.
+    fn zero() -> Self;
+
+    /// Whether `self` is the identity element.
+    fn is_zero(self) -> bool {
+        self == Self::zero()
+    }
+
+    /// Whether `self` contains only finite parts.
+    fn is_finite(self) -> bool;
+}
+
 /// Round a float to two decimal places.
 fn round_2(value: f64) -> f64 {
     (value * 100.0).round() / 100.0

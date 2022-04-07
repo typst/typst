@@ -43,7 +43,7 @@ where
     }
 }
 
-impl Sides<Relative> {
+impl Sides<Relative<Length>> {
     /// Resolve the sides relative to the given `size`.
     pub fn resolve(self, size: Size) -> Sides<Length> {
         Sides {
