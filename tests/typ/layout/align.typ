@@ -14,11 +14,24 @@
 ))
 
 ---
+// Test that multiple paragraphs in subflow also respect alignment.
 #align(center)[
   Lorem Ipsum
 
   Dolor
 ]
+
+---
+// Test start and end alignment.
+#rotate(-30deg, origin: end + horizon)[Hello]
+
+#set par(lang: "de")
+#align(start)[Start]
+#align(end)[Ende]
+
+#set par(lang: "ar")
+#align(start)[يبدأ]
+#align(end)[نهاية]
 
 ---
 // Ref: false

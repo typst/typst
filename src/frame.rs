@@ -79,8 +79,8 @@ impl Frame {
     pub fn resize(&mut self, target: Size, aligns: Spec<Align>) {
         if self.size != target {
             let offset = Point::new(
-                aligns.x.resolve(target.x - self.size.x),
-                aligns.y.resolve(target.y - self.size.y),
+                aligns.x.position(target.x - self.size.x),
+                aligns.y.position(target.y - self.size.y),
             );
             self.size = target;
             self.translate(offset);

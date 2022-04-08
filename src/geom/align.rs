@@ -45,7 +45,7 @@ impl Align {
     }
 
     /// Returns the position of this alignment in the given length.
-    pub fn resolve(self, length: Length) -> Length {
+    pub fn position(self, length: Length) -> Length {
         match self {
             Self::Left | Self::Top => Length::zero(),
             Self::Center | Self::Horizon => length / 2.0,

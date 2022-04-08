@@ -5,7 +5,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::sync::Arc;
 
-use super::{Barrier, StyleChain};
+use super::{Barrier, RawAlign, StyleChain};
 use crate::diag::TypResult;
 use crate::frame::{Element, Frame, Geometry, Shape, Stroke};
 use crate::geom::{
@@ -182,7 +182,7 @@ impl LayoutNode {
     }
 
     /// Set alignments for this node.
-    pub fn aligned(self, aligns: Spec<Option<Align>>) -> Self {
+    pub fn aligned(self, aligns: Spec<Option<RawAlign>>) -> Self {
         if aligns.any(Option::is_some) {
             AlignNode { aligns, child: self }.pack()
         } else {

@@ -5,7 +5,7 @@ use crate::library::text::ParNode;
 #[derive(Debug, Hash)]
 pub struct AlignNode {
     /// How to align the node horizontally and vertically.
-    pub aligns: Spec<Option<Align>>,
+    pub aligns: Spec<Option<RawAlign>>,
     /// The node to be aligned.
     pub child: LayoutNode,
 }
@@ -42,30 +42,14 @@ impl Layout for AlignNode {
             // Align in the target size. The target size depends on whether we
             // should expand.
             let target = regions.expand.select(region, frame.size);
-            let default = Spec::new(Align::Left, Align::Top);
-            let aligns = self.aligns.unwrap_or(default);
+            let aligns = self
+                .aligns
+                .map(|align| align.resolve(styles))
+                .unwrap_or(Spec::new(Align::Left, Align::Top));
+
             Arc::make_mut(frame).resize(target, aligns);
         }
 
         Ok(frames)
     }
-}
-
-dynamic! {
-    Align: "alignment",
-}
-
-dynamic! {
-    Spec<Align>: "2d alignment",
-}
-
-castable! {
-    Spec<Option<Align>>,
-    Expected: "1d or 2d alignment",
-    @align: Align => {
-        let mut aligns = Spec::default();
-        aligns.set(align.axis(), Some(*align));
-        aligns
-    },
-    @aligns: Spec<Align> => aligns.map(Some),
 }

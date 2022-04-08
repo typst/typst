@@ -33,7 +33,8 @@ impl ParNode {
     /// The direction for text and inline objects.
     pub const DIR: Dir = Dir::LTR;
     /// How to align text and inline objects in their line.
-    pub const ALIGN: Align = Align::Left;
+    #[property(resolve)]
+    pub const ALIGN: RawAlign = RawAlign::Start;
     /// Whether to justify text in its line.
     pub const JUSTIFY: bool = false;
     /// How to determine line breaks.
@@ -74,15 +75,13 @@ impl ParNode {
             dir = Some(v);
         }
 
-        let align =
-            if let Some(Spanned { v, span }) = args.named::<Spanned<Align>>("align")? {
-                if v.axis() != SpecAxis::Horizontal {
-                    bail!(span, "must be horizontal");
-                }
-                Some(v)
-            } else {
-                dir.map(|dir| dir.start().into())
-            };
+        let mut align = None;
+        if let Some(Spanned { v, span }) = args.named::<Spanned<RawAlign>>("align")? {
+            if v.axis() != SpecAxis::Horizontal {
+                bail!(span, "must be horizontal");
+            }
+            align = Some(v);
+        };
 
         styles.set_opt(Self::LANG, lang);
         styles.set_opt(Self::DIR, dir);
@@ -880,7 +879,7 @@ fn commit(
     // Construct the line's frame from left to right.
     for item in reordered {
         let mut position = |frame: Frame| {
-            let x = offset + align.resolve(remaining);
+            let x = offset + align.position(remaining);
             let y = line.baseline - frame.baseline();
             offset += frame.size.x;
             output.merge_frame(Point::new(x, y), frame);

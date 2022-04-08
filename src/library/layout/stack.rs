@@ -175,6 +175,7 @@ impl StackLayouter {
         let align = node
             .downcast::<AlignNode>()
             .and_then(|node| node.aligns.get(self.axis))
+            .map(|align| align.resolve(styles))
             .unwrap_or(self.dir.start().into());
 
         let frames = node.layout(ctx, &self.regions, styles)?;
@@ -229,7 +230,7 @@ impl StackLayouter {
                     // Align along the block axis.
                     let parent = size.get(self.axis);
                     let child = frame.size.get(self.axis);
-                    let block = ruler.resolve(parent - self.used.main)
+                    let block = ruler.position(parent - self.used.main)
                         + if self.dir.is_positive() {
                             cursor
                         } else {

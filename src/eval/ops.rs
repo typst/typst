@@ -1,8 +1,8 @@
 use std::cmp::Ordering;
 
-use super::{Dynamic, StrExt, Value};
+use super::{Dynamic, RawAlign, StrExt, Value};
 use crate::diag::StrResult;
-use crate::geom::{Align, Numeric, Spec, SpecAxis};
+use crate::geom::{Numeric, Spec, SpecAxis};
 use Value::*;
 
 /// Bail with a type mismatch error.
@@ -94,7 +94,7 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
             if let (Dyn(a), Dyn(b)) = (&a, &b) {
                 // 1D alignments can be summed into 2D alignments.
                 if let (Some(&a), Some(&b)) =
-                    (a.downcast::<Align>(), b.downcast::<Align>())
+                    (a.downcast::<RawAlign>(), b.downcast::<RawAlign>())
                 {
                     return if a.axis() != b.axis() {
                         Ok(Dyn(Dynamic::new(match a.axis() {

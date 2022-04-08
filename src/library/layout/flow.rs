@@ -189,6 +189,7 @@ impl FlowLayouter {
             // Vertical align node alignment is respected by the flow node.
             node.downcast::<AlignNode>()
                 .and_then(|aligned| aligned.aligns.y)
+                .map(|align| align.resolve(styles))
                 .unwrap_or(Align::Top),
         );
 
@@ -238,8 +239,8 @@ impl FlowLayouter {
                 }
                 FlowItem::Frame(frame, aligns) => {
                     ruler = ruler.max(aligns.y);
-                    let x = aligns.x.resolve(size.x - frame.size.x);
-                    let y = offset + ruler.resolve(size.y - self.used.y);
+                    let x = aligns.x.position(size.x - frame.size.x);
+                    let y = offset + ruler.position(size.y - self.used.y);
                     let pos = Point::new(x, y);
                     offset += frame.size.y;
                     output.push_frame(pos, frame);

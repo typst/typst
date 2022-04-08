@@ -22,7 +22,8 @@ pub type ScaleNode = TransformNode<SCALE>;
 #[node]
 impl<const T: TransformKind> TransformNode<T> {
     /// The origin of the transformation.
-    pub const ORIGIN: Spec<Option<Align>> = Spec::default();
+    #[property(resolve)]
+    pub const ORIGIN: Spec<Option<RawAlign>> = Spec::default();
 
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         let transform = match T {
@@ -61,7 +62,7 @@ impl<const T: TransformKind> Layout for TransformNode<T> {
         let mut frames = self.child.layout(ctx, regions, styles)?;
 
         for frame in &mut frames {
-            let Spec { x, y } = origin.zip(frame.size).map(|(o, s)| o.resolve(s));
+            let Spec { x, y } = origin.zip(frame.size).map(|(o, s)| o.position(s));
             let transform = Transform::translate(x, y)
                 .pre_concat(self.transform)
                 .pre_concat(Transform::translate(-x, -y));
