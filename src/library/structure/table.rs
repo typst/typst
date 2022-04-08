@@ -19,10 +19,8 @@ impl TableNode {
     /// The secondary cell fill color.
     pub const SECONDARY: Option<Paint> = None;
     /// How to stroke the cells.
-    pub const STROKE: Option<Paint> = Some(Color::BLACK.into());
-    /// The stroke's thickness.
-    #[property(resolve)]
-    pub const THICKNESS: RawLength = Length::pt(1.0).into();
+    #[property(resolve, fold)]
+    pub const STROKE: Option<RawStroke> = Some(RawStroke::default());
     /// How much to pad the cells's content.
     pub const PADDING: Relative<RawLength> = Length::pt(5.0).into();
 
@@ -48,7 +46,6 @@ impl TableNode {
         styles.set_opt(Self::PRIMARY, args.named("primary")?.or(fill));
         styles.set_opt(Self::SECONDARY, args.named("secondary")?.or(fill));
         styles.set_opt(Self::STROKE, args.named("stroke")?);
-        styles.set_opt(Self::THICKNESS, args.named("thickness")?);
         styles.set_opt(Self::PADDING, args.named("padding")?);
         Ok(styles)
     }
@@ -63,8 +60,7 @@ impl Show for TableNode {
 
         let primary = styles.get(Self::PRIMARY);
         let secondary = styles.get(Self::SECONDARY);
-        let thickness = styles.get(Self::THICKNESS);
-        let stroke = styles.get(Self::STROKE).map(|paint| Stroke { paint, thickness });
+        let stroke = styles.get(Self::STROKE).map(RawStroke::unwrap_or_default);
         let padding = styles.get(Self::PADDING);
 
         let cols = self.tracks.x.len().max(1);

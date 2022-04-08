@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use crate::font::FaceId;
 use crate::geom::{
-    Align, Em, Length, Numeric, Paint, Path, Point, Size, Spec, Transform,
+    Align, Em, Length, Numeric, Paint, Path, Point, Size, Spec, Stroke, Transform,
 };
 use crate::image::ImageId;
 
@@ -223,22 +223,6 @@ pub struct Shape {
     pub stroke: Option<Stroke>,
 }
 
-impl Shape {
-    /// Create a filled shape without a stroke.
-    pub fn filled(geometry: Geometry, fill: Paint) -> Self {
-        Self { geometry, fill: Some(fill), stroke: None }
-    }
-
-    /// Create a stroked shape without a fill.
-    pub fn stroked(geometry: Geometry, stroke: Stroke) -> Self {
-        Self {
-            geometry,
-            fill: None,
-            stroke: Some(stroke),
-        }
-    }
-}
-
 /// A shape's geometry.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Geometry {
@@ -252,11 +236,22 @@ pub enum Geometry {
     Path(Path),
 }
 
-/// A stroke of a geometric shape.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct Stroke {
-    /// The stroke's paint.
-    pub paint: Paint,
-    /// The stroke's thickness.
-    pub thickness: Length,
+impl Geometry {
+    /// Fill the geometry without a stroke.
+    pub fn filled(self, fill: Paint) -> Shape {
+        Shape {
+            geometry: self,
+            fill: Some(fill),
+            stroke: None,
+        }
+    }
+
+    /// Stroke the geometry without a fill.
+    pub fn stroked(self, stroke: Stroke) -> Shape {
+        Shape {
+            geometry: self,
+            fill: None,
+            stroke: Some(stroke),
+        }
+    }
 }

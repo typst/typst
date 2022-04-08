@@ -20,12 +20,10 @@ pub type OverlineNode = DecoNode<OVERLINE>;
 
 #[node(showable)]
 impl<const L: DecoLine> DecoNode<L> {
-    /// Stroke color of the line, defaults to the text color if `None`.
-    #[property(shorthand)]
-    pub const STROKE: Option<Paint> = None;
-    /// Thickness of the line's strokes, read from the font tables if `auto`.
-    #[property(shorthand, resolve)]
-    pub const THICKNESS: Smart<RawLength> = Smart::Auto;
+    /// How to stroke the line. The text color and thickness read from the font
+    /// tables if `auto`.
+    #[property(shorthand, resolve, fold)]
+    pub const STROKE: Smart<RawStroke> = Smart::Auto;
     /// Position of the line relative to the baseline, read from the font tables
     /// if `auto`.
     #[property(resolve)]
@@ -49,8 +47,7 @@ impl<const L: DecoLine> Show for DecoNode<L> {
             .unwrap_or_else(|| {
                 self.0.clone().styled(TextNode::DECO, Decoration {
                     line: L,
-                    stroke: styles.get(Self::STROKE),
-                    thickness: styles.get(Self::THICKNESS),
+                    stroke: styles.get(Self::STROKE).unwrap_or_default(),
                     offset: styles.get(Self::OFFSET),
                     extent: styles.get(Self::EXTENT),
                     evade: styles.get(Self::EVADE),
@@ -65,8 +62,7 @@ impl<const L: DecoLine> Show for DecoNode<L> {
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Decoration {
     pub line: DecoLine,
-    pub stroke: Option<Paint>,
-    pub thickness: Smart<Length>,
+    pub stroke: RawStroke<Length>,
     pub offset: Smart<Length>,
     pub extent: Length,
     pub evade: bool,
@@ -103,11 +99,10 @@ pub fn decorate(
 
     let evade = deco.evade && deco.line != STRIKETHROUGH;
     let offset = deco.offset.unwrap_or(-metrics.position.at(text.size));
-
-    let stroke = Stroke {
-        paint: deco.stroke.unwrap_or(text.fill),
-        thickness: deco.thickness.unwrap_or(metrics.thickness.at(text.size)),
-    };
+    let stroke = deco.stroke.unwrap_or(Stroke {
+        paint: text.fill,
+        thickness: metrics.thickness.at(text.size),
+    });
 
     let gap_padding = 0.08 * text.size;
     let min_width = 0.162 * text.size;
@@ -120,7 +115,7 @@ pub fn decorate(
         let target = Point::new(to - from, Length::zero());
 
         if target.x >= min_width || !evade {
-            let shape = Shape::stroked(Geometry::Line(target), stroke);
+            let shape = Geometry::Line(target).stroked(stroke);
             frame.push(origin, Element::Shape(shape));
         }
     };

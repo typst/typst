@@ -9,7 +9,7 @@
 // Test auto sizing.
 
 Auto-sized circle. \
-#circle(fill: rgb("eb5278"), stroke: black, thickness: 2pt,
+#circle(fill: rgb("eb5278"), stroke: 2pt + black,
   align(center + horizon)[But, soft!]
 )
 

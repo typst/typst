@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 
-use super::{Dynamic, RawAlign, StrExt, Value};
+use super::{Dynamic, RawAlign, RawStroke, Smart, StrExt, Value};
 use crate::diag::StrResult;
 use crate::geom::{Numeric, Spec, SpecAxis};
 use Value::*;
@@ -90,25 +90,32 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Array(a), Array(b)) => Array(a + b),
         (Dict(a), Dict(b)) => Dict(a + b),
 
-        (a, b) => {
-            if let (Dyn(a), Dyn(b)) = (&a, &b) {
-                // 1D alignments can be summed into 2D alignments.
-                if let (Some(&a), Some(&b)) =
-                    (a.downcast::<RawAlign>(), b.downcast::<RawAlign>())
-                {
-                    return if a.axis() != b.axis() {
-                        Ok(Dyn(Dynamic::new(match a.axis() {
-                            SpecAxis::Horizontal => Spec { x: a, y: b },
-                            SpecAxis::Vertical => Spec { x: b, y: a },
-                        })))
-                    } else {
-                        Err(format!("cannot add two {:?} alignments", a.axis()))
-                    };
-                }
-            }
-
-            mismatch!("cannot add {} and {}", a, b);
+        (Color(color), Length(thickness)) | (Length(thickness), Color(color)) => {
+            Dyn(Dynamic::new(RawStroke {
+                paint: Smart::Custom(color.into()),
+                thickness: Smart::Custom(thickness),
+            }))
         }
+
+        (Dyn(a), Dyn(b)) => {
+            // 1D alignments can be summed into 2D alignments.
+            if let (Some(&a), Some(&b)) =
+                (a.downcast::<RawAlign>(), b.downcast::<RawAlign>())
+            {
+                if a.axis() != b.axis() {
+                    Dyn(Dynamic::new(match a.axis() {
+                        SpecAxis::Horizontal => Spec { x: a, y: b },
+                        SpecAxis::Vertical => Spec { x: b, y: a },
+                    }))
+                } else {
+                    return Err(format!("cannot add two {:?} alignments", a.axis()));
+                }
+            } else {
+                mismatch!("cannot add {} and {}", a, b);
+            }
+        }
+
+        (a, b) => mismatch!("cannot add {} and {}", a, b),
     })
 }
 

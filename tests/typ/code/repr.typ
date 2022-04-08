@@ -1,17 +1,8 @@
 // Test representation of values in the document.
 
 ---
-// Variables.
-#let name = "Typst"
-#let ke-bab = "Kebab!"
-#let α = "Alpha"
-
-{name} \
-{ke-bab} \
-{α}
-
----
 // Literal values.
+{auto} \
 {none} (empty) \
 {true} \
 {false}
@@ -27,29 +18,30 @@
 {4.5cm} \
 {12e1pt} \
 {2.5rad} \
-{45deg}
+{45deg} \
+{1.7em} \
+{1cm + 0em} \
+{2em + 10pt} \
+{2.3fr}
 
 ---
 // Colors.
-#rgb("f7a20500")
+#rgb("f7a20500") \
+{2pt + rgb("f7a20500")}
 
 ---
 // Strings and escaping.
-{"hi"} \
-{"a\n[]\"\u{1F680}string"}
+#repr("hi") \
+#repr("a\n[]\"\u{1F680}string")
 
 ---
 // Content.
-{[*{"H" + "i"} there*]}
+#repr[*{"H" + "i"} there*]
 
 ---
 // Functions
 #let f(x) = x
 
-{rect} \
+{() => none} \
 {f} \
-{() => none}
-
----
-// When using the `repr` function it's not in monospace.
-#repr(23deg)
+{rect}

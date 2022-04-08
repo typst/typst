@@ -7,8 +7,8 @@ use tiny_skia as sk;
 use ttf_parser::{GlyphId, OutlineBuilder};
 use usvg::FitTo;
 
-use crate::frame::{Element, Frame, Geometry, Group, Shape, Stroke, Text};
-use crate::geom::{self, Length, Paint, PathElement, Size, Transform};
+use crate::frame::{Element, Frame, Geometry, Group, Shape, Text};
+use crate::geom::{self, Length, Paint, PathElement, Size, Stroke, Transform};
 use crate::image::{Image, RasterImage, Svg};
 use crate::Context;
 

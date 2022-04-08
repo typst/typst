@@ -10,7 +10,7 @@ pub use typst_macros::node;
 pub use crate::diag::{with_alternative, At, Error, StrResult, TypError, TypResult};
 pub use crate::eval::{
     Arg, Args, Array, Cast, Content, Dict, Fold, Func, Key, Layout, LayoutNode, Merge,
-    Node, RawAlign, RawLength, Regions, Resolve, Scope, Show, ShowNode, Smart,
+    Node, RawAlign, RawLength, RawStroke, Regions, Resolve, Scope, Show, ShowNode, Smart,
     StyleChain, StyleMap, StyleVec, Value,
 };
 pub use crate::frame::*;

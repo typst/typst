@@ -37,7 +37,7 @@
   ]
 ]
 
-#align(center, grid(columns: (1fr,) * 3, ..((star(20pt, thickness: .5pt),) * 9)))
+#align(center, grid(columns: (1fr,) * 3, ..((star(20pt, stroke: 0.5pt),) * 9)))
 
 ---
 // Test errors.

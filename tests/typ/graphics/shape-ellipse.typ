@@ -17,7 +17,7 @@ Rect in ellipse in fixed rect. \
 )
 
 Auto-sized ellipse. \
-#ellipse(fill: conifer, stroke: forest, thickness: 3pt, padding: 3pt)[
+#ellipse(fill: conifer, stroke: 3pt + forest, padding: 3pt)[
   #set text(8pt)
   But, soft! what light through yonder window breaks?
 ]

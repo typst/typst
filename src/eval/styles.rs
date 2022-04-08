@@ -287,15 +287,6 @@ pub trait Key<'a>: 'static {
     ) -> Self::Output;
 }
 
-/// A property that is folded to determine its final value.
-pub trait Fold {
-    /// The type of the folded output.
-    type Output;
-
-    /// Fold this inner value with an outer folded value.
-    fn fold(self, outer: Self::Output) -> Self::Output;
-}
-
 /// A property that is resolved with other properties from the style chain.
 pub trait Resolve {
     /// The type of the resolved output.
@@ -351,6 +342,39 @@ where
 
     fn resolve(self, styles: StyleChain) -> Self::Output {
         self.map(|abs| abs.resolve(styles))
+    }
+}
+
+/// A property that is folded to determine its final value.
+pub trait Fold {
+    /// The type of the folded output.
+    type Output;
+
+    /// Fold this inner value with an outer folded value.
+    fn fold(self, outer: Self::Output) -> Self::Output;
+}
+
+impl<T> Fold for Option<T>
+where
+    T: Fold,
+    T::Output: Default,
+{
+    type Output = Option<T::Output>;
+
+    fn fold(self, outer: Self::Output) -> Self::Output {
+        self.map(|inner| inner.fold(outer.unwrap_or_default()))
+    }
+}
+
+impl<T> Fold for Smart<T>
+where
+    T: Fold,
+    T::Output: Default,
+{
+    type Output = Smart<T::Output>;
+
+    fn fold(self, outer: Self::Output) -> Self::Output {
+        self.map(|inner| inner.fold(outer.unwrap_or_default()))
     }
 }
 
@@ -472,7 +496,7 @@ impl<'a> StyleChain<'a> {
     /// Get the output value of a style property.
     ///
     /// Returns the property's default value if no map in the chain contains an
-    /// entry for it. Also takes care of folding and resolving and returns
+    /// entry for it. Also takes care of resolving and folding and returns
     /// references where applicable.
     pub fn get<K: Key<'a>>(self, key: K) -> K::Output {
         K::get(self, self.values(key))

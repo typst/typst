@@ -7,8 +7,8 @@ use std::sync::Arc;
 
 use super::{Barrier, RawAlign, RawLength, Resolve, StyleChain};
 use crate::diag::TypResult;
-use crate::frame::{Element, Frame, Geometry, Shape, Stroke};
-use crate::geom::{Align, Length, Paint, Point, Relative, Sides, Size, Spec};
+use crate::frame::{Element, Frame, Geometry};
+use crate::geom::{Align, Length, Paint, Point, Relative, Sides, Size, Spec, Stroke};
 use crate::library::graphics::MoveNode;
 use crate::library::layout::{AlignNode, PadNode};
 use crate::util::Prehashed;
@@ -349,7 +349,7 @@ impl Layout for FillNode {
     ) -> TypResult<Vec<Arc<Frame>>> {
         let mut frames = self.child.layout(ctx, regions, styles)?;
         for frame in &mut frames {
-            let shape = Shape::filled(Geometry::Rect(frame.size), self.fill);
+            let shape = Geometry::Rect(frame.size).filled(self.fill);
             Arc::make_mut(frame).prepend(Point::zero(), Element::Shape(shape));
         }
         Ok(frames)
@@ -374,7 +374,7 @@ impl Layout for StrokeNode {
     ) -> TypResult<Vec<Arc<Frame>>> {
         let mut frames = self.child.layout(ctx, regions, styles)?;
         for frame in &mut frames {
-            let shape = Shape::stroked(Geometry::Rect(frame.size), self.stroke);
+            let shape = Geometry::Rect(frame.size).stroked(self.stroke);
             Arc::make_mut(frame).prepend(Point::zero(), Element::Shape(shape));
         }
         Ok(frames)

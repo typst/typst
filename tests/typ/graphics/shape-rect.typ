@@ -14,8 +14,7 @@
 #block(rect(
   height: 15pt,
   fill: rgb("46b3c2"),
-  stroke: rgb("234994"),
-  thickness: 2pt,
+  stroke: 2pt + rgb("234994"),
 ))
 
 // Fixed width, text height.

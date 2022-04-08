@@ -12,10 +12,8 @@ pub struct LineNode {
 #[node]
 impl LineNode {
     /// How to stroke the line.
-    pub const STROKE: Paint = Color::BLACK.into();
-    /// The line's thickness.
-    #[property(resolve)]
-    pub const THICKNESS: RawLength = Length::pt(1.0).into();
+    #[property(resolve, fold)]
+    pub const STROKE: RawStroke = RawStroke::default();
 
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         let origin = args.named("origin")?.unwrap_or_default();
@@ -46,11 +44,7 @@ impl Layout for LineNode {
         regions: &Regions,
         styles: StyleChain,
     ) -> TypResult<Vec<Arc<Frame>>> {
-        let thickness = styles.get(Self::THICKNESS);
-        let stroke = Some(Stroke {
-            paint: styles.get(Self::STROKE),
-            thickness,
-        });
+        let stroke = styles.get(Self::STROKE).unwrap_or_default();
 
         let origin = self
             .origin
@@ -64,11 +58,10 @@ impl Layout for LineNode {
             .zip(regions.base)
             .map(|(l, b)| l.relative_to(b));
 
-        let geometry = Geometry::Line(delta.to_point());
-        let shape = Shape { geometry, fill: None, stroke };
-
         let target = regions.expand.select(regions.first, Size::zero());
         let mut frame = Frame::new(target);
+
+        let shape = Geometry::Line(delta.to_point()).stroked(stroke);
         frame.push(origin.to_point(), Element::Shape(shape));
 
         Ok(vec![Arc::new(frame)])

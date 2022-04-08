@@ -24,10 +24,8 @@ impl<const S: ShapeKind> ShapeNode<S> {
     /// How to fill the shape.
     pub const FILL: Option<Paint> = None;
     /// How to stroke the shape.
-    pub const STROKE: Smart<Option<Paint>> = Smart::Auto;
-    /// The stroke's thickness.
-    #[property(resolve)]
-    pub const THICKNESS: RawLength = Length::pt(1.0).into();
+    #[property(resolve, fold)]
+    pub const STROKE: Smart<Option<RawStroke>> = Smart::Auto;
     /// How much to pad the shape's content.
     pub const PADDING: Relative<RawLength> = Relative::zero();
 
@@ -115,11 +113,10 @@ impl<const S: ShapeKind> Layout for ShapeNode<S> {
 
         // Add fill and/or stroke.
         let fill = styles.get(Self::FILL);
-        let thickness = styles.get(Self::THICKNESS);
-        let stroke = styles
-            .get(Self::STROKE)
-            .unwrap_or(fill.is_none().then(|| Color::BLACK.into()))
-            .map(|paint| Stroke { paint, thickness });
+        let stroke = match styles.get(Self::STROKE) {
+            Smart::Auto => fill.is_none().then(Stroke::default),
+            Smart::Custom(stroke) => stroke.map(RawStroke::unwrap_or_default),
+        };
 
         if fill.is_some() || stroke.is_some() {
             let geometry = if is_round(S) {

@@ -5,7 +5,7 @@ use syntect::highlighting::Color as SynColor;
 use super::*;
 
 /// How a fill or stroke should be painted.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Paint {
     /// A solid color.
     Solid(Color),
@@ -17,6 +17,14 @@ where
 {
     fn from(t: T) -> Self {
         Self::Solid(t.into())
+    }
+}
+
+impl Debug for Paint {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Self::Solid(color) => color.fmt(f),
+        }
     }
 }
 
@@ -231,6 +239,24 @@ impl Debug for CmykColor {
 impl From<CmykColor> for Color {
     fn from(cmyk: CmykColor) -> Self {
         Self::Cmyk(cmyk)
+    }
+}
+
+/// A stroke of a geometric shape.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct Stroke {
+    /// The stroke's paint.
+    pub paint: Paint,
+    /// The stroke's thickness.
+    pub thickness: Length,
+}
+
+impl Default for Stroke {
+    fn default() -> Self {
+        Self {
+            paint: Paint::Solid(Color::BLACK.into()),
+            thickness: Length::pt(1.0),
+        }
     }
 }
 

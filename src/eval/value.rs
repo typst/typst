@@ -2,11 +2,16 @@ use std::any::Any;
 use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
+use std::num::NonZeroUsize;
 use std::sync::Arc;
 
-use super::{ops, Args, Array, Content, Context, Dict, Func, Layout, RawLength, StrExt};
+use super::{
+    ops, Args, Array, Content, Context, Dict, Func, Layout, LayoutNode, RawLength, StrExt,
+};
 use crate::diag::{with_alternative, At, StrResult, TypResult};
-use crate::geom::{Angle, Color, Em, Fraction, Length, Ratio, Relative, RgbaColor};
+use crate::geom::{
+    Angle, Color, Dir, Em, Fraction, Length, Paint, Ratio, Relative, RgbaColor,
+};
 use crate::library::text::RawNode;
 use crate::syntax::{Span, Spanned};
 use crate::util::EcoString;
@@ -526,7 +531,7 @@ macro_rules! castable {
         $(@$dyn_in:ident: $dyn_type:ty => $dyn_out:expr,)*
     ) => {
         impl $crate::eval::Cast<$crate::eval::Value> for $type {
-            fn is(value: &Value) -> bool {
+            fn is(value: &$crate::eval::Value) -> bool {
                 #[allow(unused_variables)]
                 match value {
                     $($pattern => true,)*
@@ -637,6 +642,14 @@ impl<T> Smart<T> {
         }
     }
 
+    /// Keeps `self` if it contains a custom value, otherwise returns `other`.
+    pub fn or(self, other: Smart<T>) -> Self {
+        match self {
+            Self::Custom(x) => Self::Custom(x),
+            Self::Auto => other,
+        }
+    }
+
     /// Returns the contained custom value or a provided default value.
     pub fn unwrap_or(self, default: T) -> T {
         match self {
@@ -654,6 +667,14 @@ impl<T> Smart<T> {
             Self::Auto => f(),
             Self::Custom(x) => x,
         }
+    }
+
+    /// Returns the contained custom value or the default value.
+    pub fn unwrap_or_default(self) -> T
+    where
+        T: Default,
+    {
+        self.unwrap_or_else(T::default)
     }
 }
 
@@ -676,6 +697,49 @@ impl<T: Cast> Cast for Smart<T> {
                 .map_err(|msg| with_alternative(msg, "auto")),
         }
     }
+}
+
+dynamic! {
+    Dir: "direction",
+}
+
+castable! {
+    usize,
+    Expected: "non-negative integer",
+    Value::Int(int) => int.try_into().map_err(|_| {
+        if int < 0 {
+            "must be at least zero"
+        } else {
+            "number too large"
+        }
+    })?,
+}
+
+castable! {
+    NonZeroUsize,
+    Expected: "positive integer",
+    Value::Int(int) => Value::Int(int)
+        .cast::<usize>()?
+        .try_into()
+        .map_err(|_| "must be positive")?,
+}
+
+castable! {
+    Paint,
+    Expected: "color",
+    Value::Color(color) => Paint::Solid(color),
+}
+
+castable! {
+    String,
+    Expected: "string",
+    Value::Str(string) => string.into(),
+}
+
+castable! {
+    LayoutNode,
+    Expected: "content",
+    Value::Content(content) => content.pack(),
 }
 
 #[cfg(test)]

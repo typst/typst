@@ -1,8 +1,11 @@
+use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
 use std::ops::{Add, Div, Mul, Neg};
 
-use super::{Resolve, StyleChain};
-use crate::geom::{Align, Em, Length, Numeric, Relative, SpecAxis};
+use super::{Fold, Resolve, Smart, StyleChain, Value};
+use crate::geom::{
+    Align, Em, Get, Length, Numeric, Paint, Relative, Spec, SpecAxis, Stroke,
+};
 use crate::library::text::{ParNode, TextNode};
 
 /// The unresolved alignment representation.
@@ -49,6 +52,101 @@ impl Debug for RawAlign {
     }
 }
 
+dynamic! {
+    RawAlign: "alignment",
+}
+
+dynamic! {
+    Spec<RawAlign>: "2d alignment",
+}
+
+castable! {
+    Spec<Option<RawAlign>>,
+    Expected: "1d or 2d alignment",
+    @align: RawAlign => {
+        let mut aligns = Spec::default();
+        aligns.set(align.axis(), Some(*align));
+        aligns
+    },
+    @aligns: Spec<RawAlign> => aligns.map(Some),
+}
+
+/// The unresolved stroke representation.
+///
+/// In this representation, both fields are optional so that you can pass either
+/// just a paint (`red`), just a thickness (`0.1em`) or both (`2pt + red`) where
+/// this is expected.
+#[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct RawStroke<T = RawLength> {
+    /// The stroke's paint.
+    pub paint: Smart<Paint>,
+    /// The stroke's thickness.
+    pub thickness: Smart<T>,
+}
+
+impl RawStroke<Length> {
+    /// Unpack the stroke, filling missing fields with `default`.
+    pub fn unwrap_or(self, default: Stroke) -> Stroke {
+        Stroke {
+            paint: self.paint.unwrap_or(default.paint),
+            thickness: self.thickness.unwrap_or(default.thickness),
+        }
+    }
+
+    /// Unpack the stroke, filling missing fields with the default values.
+    pub fn unwrap_or_default(self) -> Stroke {
+        self.unwrap_or(Stroke::default())
+    }
+}
+
+impl Resolve for RawStroke {
+    type Output = RawStroke<Length>;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        RawStroke {
+            paint: self.paint,
+            thickness: self.thickness.resolve(styles),
+        }
+    }
+}
+
+// This faciliates RawStroke => Stroke.
+impl Fold for RawStroke<Length> {
+    type Output = Self;
+
+    fn fold(self, outer: Self::Output) -> Self::Output {
+        Self {
+            paint: self.paint.or(outer.paint),
+            thickness: self.thickness.or(outer.thickness),
+        }
+    }
+}
+
+impl<T: Debug> Debug for RawStroke<T> {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match (self.paint, &self.thickness) {
+            (Smart::Custom(paint), Smart::Custom(thickness)) => {
+                write!(f, "{thickness:?} + {paint:?}")
+            }
+            (Smart::Custom(paint), Smart::Auto) => paint.fmt(f),
+            (Smart::Auto, Smart::Custom(thickness)) => thickness.fmt(f),
+            (Smart::Auto, Smart::Auto) => f.pad("<stroke>"),
+        }
+    }
+}
+
+dynamic! {
+    RawStroke: "stroke",
+    Value::Length(thickness) => Self {
+        paint: Smart::Auto,
+        thickness: Smart::Custom(thickness),
+    },
+    Value::Color(color) => Self {
+        paint: Smart::Custom(color.into()),
+        thickness: Smart::Auto,
+    },
+}
+
 /// The unresolved length representation.
 ///
 /// Currently supports absolute and em units, but support could quite easily be
@@ -56,7 +154,7 @@ impl Debug for RawAlign {
 /// Probably, it would be a good idea to then move to an enum representation
 /// that has a small footprint and allocates for the rare case that units are
 /// mixed.
-#[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct RawLength {
     /// The absolute part.
     pub length: Length,
@@ -101,6 +199,26 @@ impl Resolve for RawLength {
     }
 }
 
+impl Numeric for RawLength {
+    fn zero() -> Self {
+        Self::zero()
+    }
+
+    fn is_finite(self) -> bool {
+        self.length.is_finite() && self.em.is_finite()
+    }
+}
+
+impl PartialOrd for RawLength {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        if self.em.is_zero() && other.em.is_zero() {
+            self.length.partial_cmp(&other.length)
+        } else {
+            None
+        }
+    }
+}
+
 impl From<Length> for RawLength {
     fn from(length: Length) -> Self {
         Self { length, em: Em::zero() }
@@ -116,16 +234,6 @@ impl From<Em> for RawLength {
 impl From<Length> for Relative<RawLength> {
     fn from(length: Length) -> Self {
         Relative::from(RawLength::from(length))
-    }
-}
-
-impl Numeric for RawLength {
-    fn zero() -> Self {
-        Self::zero()
-    }
-
-    fn is_finite(self) -> bool {
-        self.length.is_finite() && self.em.is_finite()
     }
 }
 
