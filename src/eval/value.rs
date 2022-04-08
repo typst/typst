@@ -590,6 +590,19 @@ impl<T: Cast> Cast<Spanned<Value>> for Spanned<T> {
     }
 }
 
+impl<T: Cast> Cast for Option<T> {
+    fn is(value: &Value) -> bool {
+        matches!(value, Value::None) || T::is(value)
+    }
+
+    fn cast(value: Value) -> StrResult<Self> {
+        match value {
+            Value::None => Ok(None),
+            v => T::cast(v).map(Some).map_err(|msg| with_alternative(msg, "none")),
+        }
+    }
+}
+
 /// A value that can be automatically determined.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum Smart<T> {
@@ -601,6 +614,17 @@ pub enum Smart<T> {
 }
 
 impl<T> Smart<T> {
+    /// Map the contained custom value with `f`.
+    pub fn map<F, U>(self, f: F) -> Smart<U>
+    where
+        F: FnOnce(T) -> U,
+    {
+        match self {
+            Self::Auto => Smart::Auto,
+            Self::Custom(x) => Smart::Custom(f(x)),
+        }
+    }
+
     /// Returns the contained custom value or a provided default value.
     pub fn unwrap_or(self, default: T) -> T {
         match self {
@@ -624,19 +648,6 @@ impl<T> Smart<T> {
 impl<T> Default for Smart<T> {
     fn default() -> Self {
         Self::Auto
-    }
-}
-
-impl<T: Cast> Cast for Option<T> {
-    fn is(value: &Value) -> bool {
-        matches!(value, Value::None) || T::is(value)
-    }
-
-    fn cast(value: Value) -> StrResult<Self> {
-        match value {
-            Value::None => Ok(None),
-            v => T::cast(v).map(Some).map_err(|msg| with_alternative(msg, "none")),
-        }
     }
 }
 

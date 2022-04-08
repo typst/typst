@@ -34,6 +34,15 @@ impl<T: Numeric> Relative<T> {
     pub fn resolve(self, whole: T) -> T {
         self.rel.resolve(whole) + self.abs
     }
+
+    /// Map the absolute part with `f`.
+    pub fn map<F, U>(self, f: F) -> Relative<U>
+    where
+        F: FnOnce(T) -> U,
+        U: Numeric,
+    {
+        Relative { rel: self.rel, abs: f(self.abs) }
+    }
 }
 
 impl<T: Numeric> Debug for Relative<T> {

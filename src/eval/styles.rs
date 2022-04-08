@@ -4,8 +4,9 @@ use std::hash::Hash;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use super::{Args, Content, Func, Layout, Node, Span, Value};
+use super::{Args, Content, Func, Layout, Node, Smart, Span, Value};
 use crate::diag::{At, TypResult};
+use crate::geom::{Numeric, Relative, Sides, Spec};
 use crate::library::layout::PageNode;
 use crate::library::text::{FontFamily, ParNode, TextNode};
 use crate::util::Prehashed;
@@ -280,7 +281,10 @@ pub trait Key<'a>: 'static {
 
     /// Compute an output value from a sequence of values belong to this key,
     /// folding if necessary.
-    fn get(values: impl Iterator<Item = &'a Self::Value>) -> Self::Output;
+    fn get(
+        chain: StyleChain<'a>,
+        values: impl Iterator<Item = &'a Self::Value>,
+    ) -> Self::Output;
 }
 
 /// A property that is folded to determine its final value.
@@ -290,6 +294,64 @@ pub trait Fold {
 
     /// Fold this inner value with an outer folded value.
     fn fold(self, outer: Self::Output) -> Self::Output;
+}
+
+/// A property that is resolved with other properties from the style chain.
+pub trait Resolve {
+    /// The type of the resolved output.
+    type Output;
+
+    /// Resolve the value using the style chain.
+    fn resolve(self, styles: StyleChain) -> Self::Output;
+}
+
+impl<T: Resolve> Resolve for Option<T> {
+    type Output = Option<T::Output>;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        self.map(|v| v.resolve(styles))
+    }
+}
+
+impl<T: Resolve> Resolve for Smart<T> {
+    type Output = Smart<T::Output>;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        self.map(|v| v.resolve(styles))
+    }
+}
+
+impl<T: Resolve> Resolve for Spec<T> {
+    type Output = Spec<T::Output>;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        self.map(|v| v.resolve(styles))
+    }
+}
+
+impl<T: Resolve> Resolve for Sides<T> {
+    type Output = Sides<T::Output>;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        Sides {
+            left: self.left.resolve(styles),
+            right: self.right.resolve(styles),
+            top: self.top.resolve(styles),
+            bottom: self.bottom.resolve(styles),
+        }
+    }
+}
+
+impl<T> Resolve for Relative<T>
+where
+    T: Resolve + Numeric,
+    <T as Resolve>::Output: Numeric,
+{
+    type Output = Relative<<T as Resolve>::Output>;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        self.map(|abs| abs.resolve(styles))
+    }
 }
 
 /// A show rule recipe.
@@ -410,10 +472,10 @@ impl<'a> StyleChain<'a> {
     /// Get the output value of a style property.
     ///
     /// Returns the property's default value if no map in the chain contains an
-    /// entry for it. Also takes care of folding and returns references where
-    /// applicable.
+    /// entry for it. Also takes care of folding and resolving and returns
+    /// references where applicable.
     pub fn get<K: Key<'a>>(self, key: K) -> K::Output {
-        K::get(self.values(key))
+        K::get(self, self.values(key))
     }
 
     /// Execute and return the result of a user recipe for a node if there is

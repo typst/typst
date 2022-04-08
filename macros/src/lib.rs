@@ -153,10 +153,12 @@ fn process_const(
     // The type of the property's value is what the user of our macro wrote
     // as type of the const ...
     let value_ty = &item.ty;
-    let output_ty = if property.fold {
-        parse_quote!(<#value_ty as eval::Fold>::Output)
-    } else if property.referenced {
+    let output_ty = if property.referenced {
         parse_quote!(&'a #value_ty)
+    } else if property.fold {
+        parse_quote!(<#value_ty as eval::Fold>::Output)
+    } else if property.resolve {
+        parse_quote!(<#value_ty as eval::Resolve>::Output)
     } else {
         value_ty.clone()
     };
@@ -191,9 +193,14 @@ fn process_const(
     } else if property.fold {
         get = quote! {
             match values.next().cloned() {
-                Some(inner) => eval::Fold::fold(inner, Self::get(values)),
+                Some(inner) => eval::Fold::fold(inner, Self::get(chain, values)),
                 None => #default,
             }
+        };
+    } else if property.resolve {
+        get = quote! {
+            let value = values.next().cloned().unwrap_or(#default);
+            eval::Resolve::resolve(value, chain)
         };
     } else {
         get = quote! {
@@ -227,13 +234,17 @@ fn process_const(
             impl<'a, #params> eval::Key<'a> for #key {
                 type Value = #value_ty;
                 type Output = #output_ty;
+
                 const NAME: &'static str = #name;
 
                 fn node() -> TypeId {
                     TypeId::of::<#self_ty>()
                 }
 
-                fn get(mut values: impl Iterator<Item = &'a Self::Value>) -> Self::Output {
+                fn get(
+                    chain: StyleChain<'a>,
+                    mut values: impl Iterator<Item = &'a Self::Value>,
+                ) -> Self::Output {
                     #get
                 }
             }
@@ -257,6 +268,7 @@ struct Property {
     shorthand: bool,
     variadic: bool,
     fold: bool,
+    resolve: bool,
 }
 
 /// Parse a style property attribute.
@@ -268,6 +280,7 @@ fn parse_property(item: &mut syn::ImplItemConst) -> Result<Property> {
         shorthand: false,
         variadic: false,
         fold: false,
+        resolve: false,
     };
 
     if let Some(idx) = item
@@ -284,6 +297,7 @@ fn parse_property(item: &mut syn::ImplItemConst) -> Result<Property> {
                     "referenced" => property.referenced = true,
                     "variadic" => property.variadic = true,
                     "fold" => property.fold = true,
+                    "resolve" => property.resolve = true,
                     _ => return Err(Error::new(ident.span(), "invalid attribute")),
                 },
                 TokenTree::Punct(_) => {}
@@ -300,10 +314,10 @@ fn parse_property(item: &mut syn::ImplItemConst) -> Result<Property> {
         ));
     }
 
-    if property.referenced && property.fold {
+    if property.referenced as u8 + property.fold as u8 + property.resolve as u8 > 1 {
         return Err(Error::new(
             span,
-            "referenced and fold are mutually exclusive",
+            "referenced, fold and resolve are mutually exclusive",
         ));
     }
 
