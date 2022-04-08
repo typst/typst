@@ -10,19 +10,21 @@ pub struct PageNode(pub LayoutNode);
 #[node]
 impl PageNode {
     /// The unflipped width of the page.
-    pub const WIDTH: Smart<Length> = Smart::Custom(Paper::A4.width());
+    #[property(resolve)]
+    pub const WIDTH: Smart<RawLength> = Smart::Custom(Paper::A4.width().into());
     /// The unflipped height of the page.
-    pub const HEIGHT: Smart<Length> = Smart::Custom(Paper::A4.height());
+    #[property(resolve)]
+    pub const HEIGHT: Smart<RawLength> = Smart::Custom(Paper::A4.height().into());
     /// Whether the page is flipped into landscape orientation.
     pub const FLIPPED: bool = false;
     /// The left margin.
-    pub const LEFT: Smart<Relative<Length>> = Smart::Auto;
+    pub const LEFT: Smart<Relative<RawLength>> = Smart::Auto;
     /// The right margin.
-    pub const RIGHT: Smart<Relative<Length>> = Smart::Auto;
+    pub const RIGHT: Smart<Relative<RawLength>> = Smart::Auto;
     /// The top margin.
-    pub const TOP: Smart<Relative<Length>> = Smart::Auto;
+    pub const TOP: Smart<Relative<RawLength>> = Smart::Auto;
     /// The bottom margin.
-    pub const BOTTOM: Smart<Relative<Length>> = Smart::Auto;
+    pub const BOTTOM: Smart<Relative<RawLength>> = Smart::Auto;
     /// The page's background color.
     pub const FILL: Option<Paint> = None;
     /// How many columns the page has.
@@ -42,8 +44,8 @@ impl PageNode {
         let mut styles = StyleMap::new();
 
         if let Some(paper) = args.named_or_find::<Paper>("paper")? {
-            styles.set(Self::WIDTH, Smart::Custom(paper.width()));
-            styles.set(Self::HEIGHT, Smart::Custom(paper.height()));
+            styles.set(Self::WIDTH, Smart::Custom(paper.width().into()));
+            styles.set(Self::HEIGHT, Smart::Custom(paper.height().into()));
         }
 
         styles.set_opt(Self::WIDTH, args.named("width")?);
@@ -115,7 +117,7 @@ impl PageNode {
         }
 
         // Layout the child.
-        let regions = Regions::repeat(size, size, size.map(Numeric::is_finite));
+        let regions = Regions::repeat(size, size, size.map(Length::is_finite));
         let mut frames = child.layout(ctx, &regions, styles)?;
 
         let header = styles.get(Self::HEADER);
@@ -124,7 +126,7 @@ impl PageNode {
         // Realize header and footer.
         for frame in &mut frames {
             let size = frame.size;
-            let padding = padding.resolve(size);
+            let padding = padding.resolve(styles).relative_to(size);
             for (y, h, marginal) in [
                 (Length::zero(), padding.top, header),
                 (size.y - padding.bottom, padding.bottom, footer),
@@ -133,7 +135,7 @@ impl PageNode {
                     let pos = Point::new(padding.left, y);
                     let w = size.x - padding.left - padding.right;
                     let area = Size::new(w, h);
-                    let pod = Regions::one(area, area, area.map(Numeric::is_finite));
+                    let pod = Regions::one(area, area, area.map(Length::is_finite));
                     let sub = Layout::layout(&content, ctx, &pod, styles)?.remove(0);
                     Arc::make_mut(frame).push_frame(pos, sub);
                 }

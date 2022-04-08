@@ -150,8 +150,8 @@ pub fn mul(lhs: Value, rhs: Value) -> StrResult<Value> {
 
         (Length(a), Int(b)) => Length(a * b as f64),
         (Length(a), Float(b)) => Length(a * b),
-        (Int(a), Length(b)) => Length(a as f64 * b),
-        (Float(a), Length(b)) => Length(a * b),
+        (Int(a), Length(b)) => Length(b * a as f64),
+        (Float(a), Length(b)) => Length(b * a),
 
         (Angle(a), Int(b)) => Angle(a * b as f64),
         (Angle(a), Float(b)) => Angle(a * b),
@@ -194,7 +194,6 @@ pub fn div(lhs: Value, rhs: Value) -> StrResult<Value> {
 
         (Length(a), Int(b)) => Length(a / b as f64),
         (Length(a), Float(b)) => Length(a / b),
-        (Length(a), Length(b)) => Float(a / b),
 
         (Angle(a), Int(b)) => Angle(a / b as f64),
         (Angle(a), Float(b)) => Angle(a / b),

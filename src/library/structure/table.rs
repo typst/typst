@@ -21,9 +21,10 @@ impl TableNode {
     /// How to stroke the cells.
     pub const STROKE: Option<Paint> = Some(Color::BLACK.into());
     /// The stroke's thickness.
-    pub const THICKNESS: Length = Length::pt(1.0);
+    #[property(resolve)]
+    pub const THICKNESS: RawLength = Length::pt(1.0).into();
     /// How much to pad the cells's content.
-    pub const PADDING: Relative<Length> = Length::pt(5.0).into();
+    pub const PADDING: Relative<RawLength> = Length::pt(5.0).into();
 
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         let columns = args.named("columns")?.unwrap_or_default();

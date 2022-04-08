@@ -1,6 +1,6 @@
 use crate::library::layout::{GridNode, TrackSizing};
 use crate::library::prelude::*;
-use crate::library::text::{ParNode, TextNode};
+use crate::library::text::ParNode;
 use crate::library::utility::Numbering;
 use crate::parse::Scanner;
 
@@ -34,15 +34,20 @@ impl<const L: ListKind> ListNode<L> {
     #[property(referenced)]
     pub const LABEL: Label = Label::Default;
     /// The spacing between the list items of a non-wide list.
-    pub const SPACING: Relative<Length> = Relative::zero();
+    #[property(resolve)]
+    pub const SPACING: RawLength = RawLength::zero();
     /// The indentation of each item's label.
-    pub const INDENT: Relative<Length> = Ratio::new(0.0).into();
+    #[property(resolve)]
+    pub const INDENT: RawLength = RawLength::zero();
     /// The space between the label and the body of each item.
-    pub const BODY_INDENT: Relative<Length> = Ratio::new(0.5).into();
+    #[property(resolve)]
+    pub const BODY_INDENT: RawLength = Em::new(0.5).into();
     /// The extra padding above the list.
-    pub const ABOVE: Length = Length::zero();
+    #[property(resolve)]
+    pub const ABOVE: RawLength = RawLength::zero();
     /// The extra padding below the list.
-    pub const BELOW: Length = Length::zero();
+    #[property(resolve)]
+    pub const BELOW: RawLength = RawLength::zero();
 
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         Ok(Content::show(Self {
@@ -77,7 +82,6 @@ impl<const L: ListKind> Show for ListNode<L> {
                 number += 1;
             }
 
-            let em = styles.get(TextNode::SIZE);
             let leading = styles.get(ParNode::LEADING);
             let spacing = if self.wide {
                 styles.get(ParNode::SPACING)
@@ -85,9 +89,9 @@ impl<const L: ListKind> Show for ListNode<L> {
                 styles.get(Self::SPACING)
             };
 
-            let gutter = (leading + spacing).resolve(em);
-            let indent = styles.get(Self::INDENT).resolve(em);
-            let body_indent = styles.get(Self::BODY_INDENT).resolve(em);
+            let gutter = leading + spacing;
+            let indent = styles.get(Self::INDENT);
+            let body_indent = styles.get(Self::BODY_INDENT);
 
             Content::block(GridNode {
                 tracks: Spec::with_x(vec![

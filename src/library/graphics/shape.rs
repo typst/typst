@@ -26,14 +26,15 @@ impl<const S: ShapeKind> ShapeNode<S> {
     /// How to stroke the shape.
     pub const STROKE: Smart<Option<Paint>> = Smart::Auto;
     /// The stroke's thickness.
-    pub const THICKNESS: Length = Length::pt(1.0);
+    #[property(resolve)]
+    pub const THICKNESS: RawLength = Length::pt(1.0).into();
     /// How much to pad the shape's content.
-    pub const PADDING: Relative<Length> = Relative::zero();
+    pub const PADDING: Relative<RawLength> = Relative::zero();
 
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         let size = match S {
-            SQUARE => args.named::<Length>("size")?.map(Relative::from),
-            CIRCLE => args.named::<Length>("radius")?.map(|r| 2.0 * Relative::from(r)),
+            SQUARE => args.named::<RawLength>("size")?.map(Relative::from),
+            CIRCLE => args.named::<RawLength>("radius")?.map(|r| 2.0 * Relative::from(r)),
             _ => None,
         };
 

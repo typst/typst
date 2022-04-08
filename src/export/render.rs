@@ -117,14 +117,14 @@ fn render_text(
     let mut x = 0.0;
     for glyph in &text.glyphs {
         let id = GlyphId(glyph.id);
-        let offset = x + glyph.x_offset.resolve(text.size).to_f32();
+        let offset = x + glyph.x_offset.at(text.size).to_f32();
         let ts = ts.pre_translate(offset, 0.0);
 
         render_svg_glyph(canvas, ts, mask, ctx, text, id)
             .or_else(|| render_bitmap_glyph(canvas, ts, mask, ctx, text, id))
             .or_else(|| render_outline_glyph(canvas, ts, mask, ctx, text, id));
 
-        x += glyph.x_advance.resolve(text.size).to_f32();
+        x += glyph.x_advance.at(text.size).to_f32();
     }
 }
 

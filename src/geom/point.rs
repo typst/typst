@@ -38,8 +38,8 @@ impl Point {
     /// Transform the point with the given transformation.
     pub fn transform(self, ts: Transform) -> Self {
         Self::new(
-            ts.sx.resolve(self.x) + ts.kx.resolve(self.y) + ts.tx,
-            ts.ky.resolve(self.x) + ts.sy.resolve(self.y) + ts.ty,
+            ts.sx.of(self.x) + ts.kx.of(self.y) + ts.tx,
+            ts.ky.of(self.x) + ts.sy.of(self.y) + ts.ty,
         )
     }
 }

@@ -59,8 +59,8 @@ impl Transform {
             ky: self.ky * prev.sx + self.sy * prev.ky,
             kx: self.sx * prev.kx + self.kx * prev.sy,
             sy: self.ky * prev.kx + self.sy * prev.sy,
-            tx: self.sx.resolve(prev.tx) + self.kx.resolve(prev.ty) + self.tx,
-            ty: self.ky.resolve(prev.tx) + self.sy.resolve(prev.ty) + self.ty,
+            tx: self.sx.of(prev.tx) + self.kx.of(prev.ty) + self.tx,
+            ty: self.ky.of(prev.tx) + self.sy.of(prev.ty) + self.ty,
         }
     }
 }

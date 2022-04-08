@@ -19,11 +19,11 @@
 #overline(underline[Running amongst the wolves.])
 
 ---
-#let redact = strike.with(10pt, extent: 5%)
+#let redact = strike.with(10pt, extent: 0.05em)
 #let highlight = strike.with(
   stroke: rgb("abcdef88"),
   thickness: 10pt,
-  extent: 5%,
+  extent: 0.05em,
 )
 
 // Abuse thickness and transparency for redacting and highlighting stuff.

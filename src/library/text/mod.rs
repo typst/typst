@@ -16,7 +16,9 @@ use std::borrow::Cow;
 
 use ttf_parser::Tag;
 
-use crate::font::{Face, FontStretch, FontStyle, FontWeight, VerticalFontMetric};
+use crate::font::{
+    Face, FaceMetrics, FontStretch, FontStyle, FontWeight, VerticalFontMetric,
+};
 use crate::library::prelude::*;
 use crate::util::EcoString;
 
@@ -39,23 +41,25 @@ impl TextNode {
     pub const WEIGHT: FontWeight = FontWeight::REGULAR;
     /// The width of the glyphs.
     pub const STRETCH: FontStretch = FontStretch::NORMAL;
+
     /// The size of the glyphs.
     #[property(shorthand, fold)]
-    pub const SIZE: FontSize = Length::pt(11.0);
+    pub const SIZE: TextSize = Length::pt(11.0);
     /// The glyph fill color.
     #[property(shorthand)]
     pub const FILL: Paint = Color::BLACK.into();
-
     /// The amount of space that should be added between characters.
-    pub const TRACKING: Em = Em::zero();
-    /// The ratio by which spaces should be stretched.
-    pub const SPACING: Ratio = Ratio::one();
+    #[property(resolve)]
+    pub const TRACKING: RawLength = RawLength::zero();
+    /// The width of spaces relative to the default space width.
+    #[property(resolve)]
+    pub const SPACING: Relative<RawLength> = Relative::one();
     /// Whether glyphs can hang over into the margin.
     pub const OVERHANG: bool = true;
     /// The top end of the text bounding box.
-    pub const TOP_EDGE: VerticalFontMetric = VerticalFontMetric::CapHeight;
+    pub const TOP_EDGE: TextEdge = TextEdge::Metric(VerticalFontMetric::CapHeight);
     /// The bottom end of the text bounding box.
-    pub const BOTTOM_EDGE: VerticalFontMetric = VerticalFontMetric::Baseline;
+    pub const BOTTOM_EDGE: TextEdge = TextEdge::Metric(VerticalFontMetric::Baseline);
 
     /// Whether to apply kerning ("kern").
     pub const KERNING: bool = true;
@@ -188,44 +192,53 @@ castable! {
 
 /// The size of text.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct FontSize(pub Relative<Length>);
+pub struct TextSize(pub RawLength);
 
-impl Fold for FontSize {
+impl Fold for TextSize {
     type Output = Length;
 
     fn fold(self, outer: Self::Output) -> Self::Output {
-        self.0.rel.resolve(outer) + self.0.abs
+        self.0.em.at(outer) + self.0.length
     }
 }
 
 castable! {
-    FontSize,
-    Expected: "relative length",
-    Value::Length(v) => Self(v.into()),
-    Value::Ratio(v) => Self(v.into()),
-    Value::Relative(v) => Self(v),
+    TextSize,
+    Expected: "length",
+    Value::Length(v) => Self(v),
+}
+
+/// Specifies the bottom or top edge of text.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum TextEdge {
+    /// An edge specified using one of the well-known font metrics.
+    Metric(VerticalFontMetric),
+    /// An edge specified as a length.
+    Length(RawLength),
+}
+
+impl TextEdge {
+    /// Resolve the value of the text edge given a font face.
+    pub fn resolve(self, styles: StyleChain, metrics: &FaceMetrics) -> Length {
+        match self {
+            Self::Metric(metric) => metrics.vertical(metric).resolve(styles),
+            Self::Length(length) => length.resolve(styles),
+        }
+    }
 }
 
 castable! {
-    Em,
-    Expected: "float",
-    Value::Float(v) => Self::new(v),
-}
-
-castable! {
-    VerticalFontMetric,
-    Expected: "string or relative length",
-    Value::Length(v) => Self::Relative(v.into()),
-    Value::Ratio(v) => Self::Relative(v.into()),
-    Value::Relative(v) => Self::Relative(v),
-    Value::Str(string) => match string.as_str() {
-        "ascender" => Self::Ascender,
-        "cap-height" => Self::CapHeight,
-        "x-height" => Self::XHeight,
-        "baseline" => Self::Baseline,
-        "descender" => Self::Descender,
+    TextEdge,
+    Expected: "string or length",
+    Value::Length(v) => Self::Length(v),
+    Value::Str(string) => Self::Metric(match string.as_str() {
+        "ascender" => VerticalFontMetric::Ascender,
+        "cap-height" => VerticalFontMetric::CapHeight,
+        "x-height" => VerticalFontMetric::XHeight,
+        "baseline" => VerticalFontMetric::Baseline,
+        "descender" => VerticalFontMetric::Descender,
         _ => Err("unknown font metric")?,
-    },
+    }),
 }
 
 /// A stylistic set in a font face.

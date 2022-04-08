@@ -5,7 +5,7 @@
 use std::ops::Deref;
 
 use super::{Green, GreenData, NodeKind, RedNode, RedRef, Span};
-use crate::geom::{AngularUnit, LengthUnit};
+use crate::geom::{AngleUnit, LengthUnit};
 use crate::util::EcoString;
 
 /// A typed AST node.
@@ -352,10 +352,7 @@ node! {
        | NodeKind::Bool(_)
        | NodeKind::Int(_)
        | NodeKind::Float(_)
-       | NodeKind::Length(_, _)
-       | NodeKind::Angle(_, _)
-       | NodeKind::Percentage(_)
-       | NodeKind::Fraction(_)
+       | NodeKind::Numeric(_, _)
        | NodeKind::Str(_)
 }
 
@@ -368,10 +365,7 @@ impl Lit {
             NodeKind::Bool(v) => LitKind::Bool(v),
             NodeKind::Int(v) => LitKind::Int(v),
             NodeKind::Float(v) => LitKind::Float(v),
-            NodeKind::Length(v, unit) => LitKind::Length(v, unit),
-            NodeKind::Angle(v, unit) => LitKind::Angle(v, unit),
-            NodeKind::Percentage(v) => LitKind::Percent(v),
-            NodeKind::Fraction(v) => LitKind::Fractional(v),
+            NodeKind::Numeric(v, unit) => LitKind::Numeric(v, unit),
             NodeKind::Str(ref v) => LitKind::Str(v.clone()),
             _ => panic!("literal is of wrong kind"),
         }
@@ -391,19 +385,25 @@ pub enum LitKind {
     Int(i64),
     /// A floating-point literal: `1.2`, `10e-4`.
     Float(f64),
-    /// A length literal: `12pt`, `3cm`.
-    Length(f64, LengthUnit),
-    /// An angle literal:  `1.5rad`, `90deg`.
-    Angle(f64, AngularUnit),
-    /// A percent literal: `50%`.
-    ///
-    /// _Note_: `50%` is stored as `50.0` here, but as `0.5` in the
-    /// corresponding [value](crate::geom::Relative).
-    Percent(f64),
-    /// A fraction unit literal: `1fr`.
-    Fractional(f64),
+    /// A numeric literal with a unit: `12pt`, `3cm`, `2em`, `90deg`, `50%`.
+    Numeric(f64, Unit),
     /// A string literal: `"hello!"`.
     Str(EcoString),
+}
+
+/// Unit of a numeric value.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum Unit {
+    /// An absolute length unit.
+    Length(LengthUnit),
+    /// An angular unit.
+    Angle(AngleUnit),
+    /// Font-relative: `1em` is the same as the font size.
+    Em,
+    /// Fractions: `fr`.
+    Fr,
+    /// Percentage: `%`.
+    Percent,
 }
 
 node! {

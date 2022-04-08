@@ -5,12 +5,10 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::sync::Arc;
 
-use super::{Barrier, RawAlign, StyleChain};
+use super::{Barrier, RawAlign, RawLength, Resolve, StyleChain};
 use crate::diag::TypResult;
 use crate::frame::{Element, Frame, Geometry, Shape, Stroke};
-use crate::geom::{
-    Align, Length, Numeric, Paint, Point, Relative, Sides, Size, Spec, Transform,
-};
+use crate::geom::{Align, Length, Paint, Point, Relative, Sides, Size, Spec};
 use crate::library::graphics::MoveNode;
 use crate::library::layout::{AlignNode, PadNode};
 use crate::util::Prehashed;
@@ -163,7 +161,7 @@ impl LayoutNode {
     }
 
     /// Force a size for this node.
-    pub fn sized(self, sizing: Spec<Option<Relative<Length>>>) -> Self {
+    pub fn sized(self, sizing: Spec<Option<Relative<RawLength>>>) -> Self {
         if sizing.any(Option::is_some) {
             SizedNode { sizing, child: self }.pack()
         } else {
@@ -191,7 +189,7 @@ impl LayoutNode {
     }
 
     /// Pad this node at the sides.
-    pub fn padded(self, padding: Sides<Relative<Length>>) -> Self {
+    pub fn padded(self, padding: Sides<Relative<RawLength>>) -> Self {
         if !padding.left.is_zero()
             || !padding.top.is_zero()
             || !padding.right.is_zero()
@@ -204,13 +202,9 @@ impl LayoutNode {
     }
 
     /// Transform this node's contents without affecting layout.
-    pub fn moved(self, offset: Point) -> Self {
-        if !offset.is_zero() {
-            MoveNode {
-                transform: Transform::translate(offset.x, offset.y),
-                child: self,
-            }
-            .pack()
+    pub fn moved(self, delta: Spec<Relative<RawLength>>) -> Self {
+        if delta.any(|r| !r.is_zero()) {
+            MoveNode { delta, child: self }.pack()
         } else {
             self
         }
@@ -294,7 +288,7 @@ impl Layout for EmptyNode {
 #[derive(Debug, Hash)]
 struct SizedNode {
     /// How to size the node horizontally and vertically.
-    sizing: Spec<Option<Relative<Length>>>,
+    sizing: Spec<Option<Relative<RawLength>>>,
     /// The node to be sized.
     child: LayoutNode,
 }
@@ -311,8 +305,9 @@ impl Layout for SizedNode {
             // Resolve the sizing to a concrete size.
             let size = self
                 .sizing
+                .resolve(styles)
                 .zip(regions.base)
-                .map(|(s, b)| s.map(|v| v.resolve(b)))
+                .map(|(s, b)| s.map(|v| v.relative_to(b)))
                 .unwrap_or(regions.first);
 
             // Select the appropriate base and expansion for the child depending

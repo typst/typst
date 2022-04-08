@@ -44,13 +44,13 @@ where
 }
 
 impl Sides<Relative<Length>> {
-    /// Resolve the sides relative to the given `size`.
-    pub fn resolve(self, size: Size) -> Sides<Length> {
+    /// Evaluate the sides relative to the given `size`.
+    pub fn relative_to(self, size: Size) -> Sides<Length> {
         Sides {
-            left: self.left.resolve(size.x),
-            top: self.top.resolve(size.y),
-            right: self.right.resolve(size.x),
-            bottom: self.bottom.resolve(size.y),
+            left: self.left.relative_to(size.x),
+            top: self.top.relative_to(size.y),
+            right: self.right.relative_to(size.x),
+            bottom: self.bottom.relative_to(size.y),
         }
     }
 }

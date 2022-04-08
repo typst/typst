@@ -30,8 +30,8 @@ impl Fraction {
         Self::new(self.get().abs())
     }
 
-    /// Resolve this fraction's share in the remaining space.
-    pub fn resolve(self, total: Self, remaining: Length) -> Length {
+    /// Determine this fraction's share in the remaining space.
+    pub fn share(self, total: Self, remaining: Length) -> Length {
         let ratio = self / total;
         if ratio.is_finite() && remaining.is_finite() {
             ratio * remaining

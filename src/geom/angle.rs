@@ -16,18 +16,18 @@ impl Angle {
     }
 
     /// Create an angle from a value in a unit.
-    pub fn with_unit(val: f64, unit: AngularUnit) -> Self {
+    pub fn with_unit(val: f64, unit: AngleUnit) -> Self {
         Self(Scalar(val * unit.raw_scale()))
     }
 
     /// Create an angle from a number of radians.
     pub fn rad(rad: f64) -> Self {
-        Self::with_unit(rad, AngularUnit::Rad)
+        Self::with_unit(rad, AngleUnit::Rad)
     }
 
     /// Create an angle from a number of degrees.
     pub fn deg(deg: f64) -> Self {
-        Self::with_unit(deg, AngularUnit::Deg)
+        Self::with_unit(deg, AngleUnit::Deg)
     }
 
     /// Get the value of this angle in raw units.
@@ -36,18 +36,18 @@ impl Angle {
     }
 
     /// Get the value of this length in unit.
-    pub fn to_unit(self, unit: AngularUnit) -> f64 {
+    pub fn to_unit(self, unit: AngleUnit) -> f64 {
         self.to_raw() / unit.raw_scale()
     }
 
     /// Convert this to a number of radians.
     pub fn to_rad(self) -> f64 {
-        self.to_unit(AngularUnit::Rad)
+        self.to_unit(AngleUnit::Rad)
     }
 
     /// Convert this to a number of degrees.
     pub fn to_deg(self) -> f64 {
-        self.to_unit(AngularUnit::Deg)
+        self.to_unit(AngleUnit::Deg)
     }
 
     /// The absolute value of the this angle.
@@ -145,14 +145,14 @@ impl Sum for Angle {
 
 /// Different units of angular measurement.
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
-pub enum AngularUnit {
+pub enum AngleUnit {
     /// Radians.
     Rad,
     /// Degrees.
     Deg,
 }
 
-impl AngularUnit {
+impl AngleUnit {
     /// How many raw units correspond to a value of `1.0` in this unit.
     fn raw_scale(self) -> f64 {
         match self {
@@ -162,7 +162,7 @@ impl AngularUnit {
     }
 }
 
-impl Debug for AngularUnit {
+impl Debug for AngleUnit {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.pad(match self {
             Self::Rad => "rad",

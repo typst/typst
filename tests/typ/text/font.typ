@@ -3,8 +3,8 @@
 ---
 // Set same font size in three different ways.
 #text(20pt)[A]
-#text(200%)[A]
-#text(size: 15pt + 50%)[A]
+#text(2em)[A]
+#text(size: 15pt + 0.5em)[A]
 
 // Do nothing.
 #text()[Normal]
@@ -39,37 +39,12 @@ Emoji: 🐪, 🌋, 🏞
 2π = 𝛼 + 𝛽. ✅
 
 ---
-// Test top and bottom edge.
-#set page(width: 150pt)
-#set text(size: 8pt)
-
-#let try(top, bottom) = rect(fill: conifer)[
-  #set text("IBM Plex Mono", top-edge: top, bottom-edge: bottom)
-  From #top to #bottom
-]
-
-#try("ascender", "descender")
-#try("ascender", "baseline")
-#try("cap-height", "baseline")
-#try("x-height", "baseline")
-#try(4pt, -2pt)
-#try(1pt + 27%, -18%)
-
----
 // Error: 11-16 unexpected argument
 #set text(false)
 
 ---
 // Error: 18-24 expected "normal", "italic" or "oblique"
 #set text(style: "bold", weight: "thin")
-
----
-// Error: 21-23 expected string or relative length, found array
-#set text(top-edge: ())
-
----
-// Error: 21-23 unknown font metric
-#set text(top-edge: "")
 
 ---
 // Error: 23-27 unexpected argument

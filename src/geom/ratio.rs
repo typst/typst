@@ -3,7 +3,7 @@ use super::*;
 /// A ratio of a whole.
 ///
 /// _Note_: `50%` is represented as `0.5` here, but stored as `50.0` in the
-/// corresponding [literal](crate::syntax::ast::LitKind::Percent).
+/// corresponding [literal](crate::syntax::ast::LitKind::Numeric).
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Ratio(Scalar);
 
@@ -38,13 +38,13 @@ impl Ratio {
         self.0 == 1.0
     }
 
-    /// The absolute value of the this ratio.
+    /// The absolute value of this ratio.
     pub fn abs(self) -> Self {
         Self::new(self.get().abs())
     }
 
-    /// Resolve this relative to the given `whole`.
-    pub fn resolve<T: Numeric>(self, whole: T) -> T {
+    /// Return the ratio of the given `whole`.
+    pub fn of<T: Numeric>(self, whole: T) -> T {
         let resolved = whole * self.get();
         if resolved.is_finite() { resolved } else { T::zero() }
     }

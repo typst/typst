@@ -4,8 +4,8 @@ use super::{
     is_id_continue, is_id_start, is_newline, resolve_hex, resolve_raw, resolve_string,
     Scanner,
 };
-use crate::geom::{AngularUnit, LengthUnit};
-use crate::syntax::ast::{MathNode, RawNode};
+use crate::geom::{AngleUnit, LengthUnit};
+use crate::syntax::ast::{MathNode, RawNode, Unit};
 use crate::syntax::{ErrorPos, NodeKind};
 use crate::util::EcoString;
 
@@ -462,7 +462,8 @@ impl<'s> Tokens<'s> {
         }
 
         // Read the exponent.
-        if self.s.eat_if('e') || self.s.eat_if('E') {
+        let em = self.s.rest().starts_with("em");
+        if !em && self.s.eat_if('e') || self.s.eat_if('E') {
             let _ = self.s.eat_if('+') || self.s.eat_if('-');
             self.s.eat_while(|c| c.is_ascii_digit());
         }
@@ -487,14 +488,15 @@ impl<'s> Tokens<'s> {
         if let Ok(f) = number.parse::<f64>() {
             match suffix {
                 "" => NodeKind::Float(f),
-                "%" => NodeKind::Percentage(f),
-                "fr" => NodeKind::Fraction(f),
-                "pt" => NodeKind::Length(f, LengthUnit::Pt),
-                "mm" => NodeKind::Length(f, LengthUnit::Mm),
-                "cm" => NodeKind::Length(f, LengthUnit::Cm),
-                "in" => NodeKind::Length(f, LengthUnit::In),
-                "deg" => NodeKind::Angle(f, AngularUnit::Deg),
-                "rad" => NodeKind::Angle(f, AngularUnit::Rad),
+                "pt" => NodeKind::Numeric(f, Unit::Length(LengthUnit::Pt)),
+                "mm" => NodeKind::Numeric(f, Unit::Length(LengthUnit::Mm)),
+                "cm" => NodeKind::Numeric(f, Unit::Length(LengthUnit::Cm)),
+                "in" => NodeKind::Numeric(f, Unit::Length(LengthUnit::In)),
+                "deg" => NodeKind::Numeric(f, Unit::Angle(AngleUnit::Deg)),
+                "rad" => NodeKind::Numeric(f, Unit::Angle(AngleUnit::Rad)),
+                "em" => NodeKind::Numeric(f, Unit::Em),
+                "fr" => NodeKind::Numeric(f, Unit::Fr),
+                "%" => NodeKind::Numeric(f, Unit::Percent),
                 _ => NodeKind::Unknown(all.into()),
             }
         } else {
@@ -1017,19 +1019,20 @@ mod tests {
         // Combined integers and floats.
         let nums = ints.iter().map(|&(k, v)| (k, v as f64)).chain(floats);
 
-        let suffixes = [
-            ("%", Percentage as fn(f64) -> NodeKind),
-            ("fr", Fraction as fn(f64) -> NodeKind),
-            ("mm", |x| Length(x, LengthUnit::Mm)),
-            ("pt", |x| Length(x, LengthUnit::Pt)),
-            ("cm", |x| Length(x, LengthUnit::Cm)),
-            ("in", |x| Length(x, LengthUnit::In)),
-            ("rad", |x| Angle(x, AngularUnit::Rad)),
-            ("deg", |x| Angle(x, AngularUnit::Deg)),
+        let suffixes: &[(&str, fn(f64) -> NodeKind)] = &[
+            ("mm", |x| Numeric(x, Unit::Length(LengthUnit::Mm))),
+            ("pt", |x| Numeric(x, Unit::Length(LengthUnit::Pt))),
+            ("cm", |x| Numeric(x, Unit::Length(LengthUnit::Cm))),
+            ("in", |x| Numeric(x, Unit::Length(LengthUnit::In))),
+            ("rad", |x| Numeric(x, Unit::Angle(AngleUnit::Rad))),
+            ("deg", |x| Numeric(x, Unit::Angle(AngleUnit::Deg))),
+            ("em", |x| Numeric(x, Unit::Em)),
+            ("fr", |x| Numeric(x, Unit::Fr)),
+            ("%", |x| Numeric(x, Unit::Percent)),
         ];
 
         // Numeric types.
-        for &(suffix, build) in &suffixes {
+        for &(suffix, build) in suffixes {
             for (s, v) in nums.clone() {
                 t!(Code[" /"]: format!("{}{}", s, suffix) => build(v));
             }
@@ -1112,6 +1115,6 @@ mod tests {
         // Test invalid number suffixes.
         t!(Code[" /"]: "1foo" => Invalid("1foo"));
         t!(Code: "1p%"        => Invalid("1p"), Invalid("%"));
-        t!(Code: "1%%"        => Percentage(1.0), Invalid("%"));
+        t!(Code: "1%%"        => Numeric(1.0, Unit::Percent), Invalid("%"));
     }
 }

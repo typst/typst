@@ -3,11 +3,11 @@
 #set page("a8", footer: p => v(-5pt) + align(right, [#p]))
 
 #let i = 1
-#set heading(size: 100%)
+#set heading(size: 1em)
 #show heading(level, body) as {
   if level == 1 {
     v(10pt)
-    underline(text(150%, blue)[{i}. #body])
+    underline(text(1.5em, blue)[{i}. #body])
     i += 1
   } else {
     text(red, body)
@@ -29,7 +29,7 @@ Some more text.
 Another text.
 
 ---
-#set heading(size: 100%, strong: false, block: false)
+#set heading(size: 1em, strong: false, block: false)
 #show heading(a, b) as [B]
 A [= Heading] C
 

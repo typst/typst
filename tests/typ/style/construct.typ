@@ -22,7 +22,7 @@
 ---
 // The inner rectangle should also be yellow here.
 // (and therefore invisible)
-[#set rect(fill: yellow);#text(100%, rect(padding: 5pt, rect()))]
+[#set rect(fill: yellow);#text(1em, rect(padding: 5pt, rect()))]
 
 ---
 // The inner rectangle should not be yellow here.
@@ -30,4 +30,4 @@ A #rect(fill: yellow, padding: 5pt, rect()) B
 
 ---
 // The inner list should not be indented extra.
-[#set text(100%);#list(indent: 20pt, list[A])]
+[#set text(1em);#list(indent: 20pt, list[A])]

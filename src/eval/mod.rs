@@ -43,7 +43,7 @@ use parking_lot::{MappedRwLockWriteGuard, RwLockWriteGuard};
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::diag::{At, StrResult, Trace, Tracepoint, TypResult};
-use crate::geom::{Angle, Fraction, Length, Ratio};
+use crate::geom::{Angle, Em, Fraction, Length, Ratio};
 use crate::library;
 use crate::syntax::ast::*;
 use crate::syntax::{Span, Spanned};
@@ -245,10 +245,13 @@ impl Eval for Lit {
             LitKind::Bool(v) => Value::Bool(v),
             LitKind::Int(v) => Value::Int(v),
             LitKind::Float(v) => Value::Float(v),
-            LitKind::Length(v, unit) => Value::Length(Length::with_unit(v, unit)),
-            LitKind::Angle(v, unit) => Value::Angle(Angle::with_unit(v, unit)),
-            LitKind::Percent(v) => Value::Ratio(Ratio::new(v / 100.0)),
-            LitKind::Fractional(v) => Value::Fraction(Fraction::new(v)),
+            LitKind::Numeric(v, unit) => match unit {
+                Unit::Length(unit) => Length::with_unit(v, unit).into(),
+                Unit::Angle(unit) => Angle::with_unit(v, unit).into(),
+                Unit::Em => Em::new(v).into(),
+                Unit::Fr => Fraction::new(v).into(),
+                Unit::Percent => Ratio::new(v / 100.0).into(),
+            },
             LitKind::Str(ref v) => Value::Str(v.clone()),
         })
     }
@@ -735,7 +738,7 @@ impl Eval for IncludeExpr {
 /// Process an import of a module relative to the current location.
 fn import(ctx: &mut Context, path: &str, span: Span) -> TypResult<Module> {
     // Load the source file.
-    let full = ctx.resolve(path);
+    let full = ctx.complete_path(path);
     let id = ctx.sources.load(&full).map_err(|err| match err.kind() {
         std::io::ErrorKind::NotFound => error!(span, "file not found"),
         _ => error!(span, "failed to load source file ({})", err),

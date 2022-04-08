@@ -1,4 +1,4 @@
 // Test text baseline.
 
 ---
-Hi #text(150%)[You], #text(75%)[how are you?]
+Hi #text(1.5em)[You], #text(0.75em)[how are you?]

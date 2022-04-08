@@ -13,7 +13,7 @@ use typst::eval::{Smart, StyleMap, Value};
 use typst::frame::{Element, Frame};
 use typst::geom::{Length, RgbaColor};
 use typst::library::layout::PageNode;
-use typst::library::text::{FontSize, TextNode};
+use typst::library::text::{TextNode, TextSize};
 use typst::loading::FsLoader;
 use typst::parse::Scanner;
 use typst::source::SourceFile;
@@ -61,13 +61,13 @@ fn main() {
     // exactly 100pt wide. Page height is unbounded and font size is 10pt so
     // that it multiplies to nice round numbers.
     let mut styles = StyleMap::new();
-    styles.set(PageNode::WIDTH, Smart::Custom(Length::pt(120.0)));
+    styles.set(PageNode::WIDTH, Smart::Custom(Length::pt(120.0).into()));
     styles.set(PageNode::HEIGHT, Smart::Auto);
     styles.set(PageNode::LEFT, Smart::Custom(Length::pt(10.0).into()));
     styles.set(PageNode::TOP, Smart::Custom(Length::pt(10.0).into()));
     styles.set(PageNode::RIGHT, Smart::Custom(Length::pt(10.0).into()));
     styles.set(PageNode::BOTTOM, Smart::Custom(Length::pt(10.0).into()));
-    styles.set(TextNode::SIZE, FontSize(Length::pt(10.0).into()));
+    styles.set(TextNode::SIZE, TextSize(Length::pt(10.0).into()));
 
     // Hook up an assert function into the global scope.
     let mut std = typst::library::new();

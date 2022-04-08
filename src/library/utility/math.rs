@@ -37,12 +37,11 @@ pub fn abs(_: &mut Context, args: &mut Args) -> TypResult<Value> {
     Ok(match v {
         Value::Int(v) => Value::Int(v.abs()),
         Value::Float(v) => Value::Float(v.abs()),
-        Value::Length(v) => Value::Length(v.abs()),
         Value::Angle(v) => Value::Angle(v.abs()),
         Value::Ratio(v) => Value::Ratio(v.abs()),
         Value::Fraction(v) => Value::Fraction(v.abs()),
-        Value::Relative(_) => {
-            bail!(span, "cannot take absolute value of a relative length")
+        Value::Length(_) | Value::Relative(_) => {
+            bail!(span, "cannot take absolute value of a length")
         }
         v => bail!(span, "expected numeric value, found {}", v.type_name()),
     })

@@ -4,9 +4,9 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use super::{ops, Args, Array, Content, Context, Dict, Func, Layout, StrExt};
+use super::{ops, Args, Array, Content, Context, Dict, Func, Layout, RawLength, StrExt};
 use crate::diag::{with_alternative, At, StrResult, TypResult};
-use crate::geom::{Angle, Color, Fraction, Length, Ratio, Relative, RgbaColor};
+use crate::geom::{Angle, Color, Em, Fraction, Length, Ratio, Relative, RgbaColor};
 use crate::library::text::RawNode;
 use crate::syntax::{Span, Spanned};
 use crate::util::EcoString;
@@ -25,13 +25,13 @@ pub enum Value {
     /// A floating-point number: `1.2`, `10e-4`.
     Float(f64),
     /// A length: `12pt`, `3cm`.
-    Length(Length),
+    Length(RawLength),
     /// An angle: `1.5rad`, `90deg`.
     Angle(Angle),
     /// A ratio: `50%`.
     Ratio(Ratio),
     /// A relative length, combination of a ratio and a length: `20% + 5cm`.
-    Relative(Relative<Length>),
+    Relative(Relative<RawLength>),
     /// A fraction: `1fr`.
     Fraction(Fraction),
     /// A color value: `#f79143ff`.
@@ -77,10 +77,10 @@ impl Value {
             Self::Bool(_) => bool::TYPE_NAME,
             Self::Int(_) => i64::TYPE_NAME,
             Self::Float(_) => f64::TYPE_NAME,
-            Self::Length(_) => Length::TYPE_NAME,
+            Self::Length(_) => RawLength::TYPE_NAME,
             Self::Angle(_) => Angle::TYPE_NAME,
             Self::Ratio(_) => Ratio::TYPE_NAME,
-            Self::Relative(_) => Relative::TYPE_NAME,
+            Self::Relative(_) => Relative::<RawLength>::TYPE_NAME,
             Self::Fraction(_) => Fraction::TYPE_NAME,
             Self::Color(_) => Color::TYPE_NAME,
             Self::Str(_) => EcoString::TYPE_NAME,
@@ -320,6 +320,18 @@ impl From<usize> for Value {
     }
 }
 
+impl From<Length> for Value {
+    fn from(v: Length) -> Self {
+        Self::Length(v.into())
+    }
+}
+
+impl From<Em> for Value {
+    fn from(v: Em) -> Self {
+        Self::Length(v.into())
+    }
+}
+
 impl From<RgbaColor> for Value {
     fn from(v: RgbaColor) -> Self {
         Self::Color(v.into())
@@ -546,10 +558,10 @@ macro_rules! castable {
 primitive! { bool: "boolean", Bool }
 primitive! { i64: "integer", Int }
 primitive! { f64: "float", Float, Int(v) => v as f64 }
-primitive! { Length: "length", Length }
+primitive! { RawLength: "length", Length }
 primitive! { Angle: "angle", Angle }
 primitive! { Ratio: "ratio", Ratio }
-primitive! { Relative<Length>: "relative length", Relative, Length(v) => v.into(), Ratio(v) => v.into() }
+primitive! { Relative<RawLength>:  "relative length", Relative, Length(v) => v.into(), Ratio(v) => v.into() }
 primitive! { Fraction: "fraction", Fraction }
 primitive! { Color: "color", Color }
 primitive! { EcoString: "string", Str }
@@ -685,7 +697,10 @@ mod tests {
         test(Length::pt(5.5), "5.5pt");
         test(Angle::deg(90.0), "90deg");
         test(Ratio::one() / 2.0, "50%");
-        test(Ratio::new(0.3) + Length::cm(2.0), "30% + 56.69pt");
+        test(
+            Ratio::new(0.3) + RawLength::from(Length::cm(2.0)),
+            "30% + 56.69pt",
+        );
         test(Fraction::one() * 7.55, "7.55fr");
         test(Color::Rgba(RgbaColor::new(1, 1, 1, 0xff)), "#010101");
 

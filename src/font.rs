@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use ttf_parser::{name_id, GlyphId, PlatformId, Tag};
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::geom::{Em, Length, Relative};
+use crate::geom::Em;
 use crate::loading::{FileHash, Loader};
 use crate::util::decode_mac_roman;
 
@@ -372,14 +372,13 @@ impl FaceMetrics {
     }
 
     /// Look up a vertical metric at the given font size.
-    pub fn vertical(&self, metric: VerticalFontMetric, size: Length) -> Length {
+    pub fn vertical(&self, metric: VerticalFontMetric) -> Em {
         match metric {
-            VerticalFontMetric::Ascender => self.ascender.resolve(size),
-            VerticalFontMetric::CapHeight => self.cap_height.resolve(size),
-            VerticalFontMetric::XHeight => self.x_height.resolve(size),
-            VerticalFontMetric::Baseline => Length::zero(),
-            VerticalFontMetric::Descender => self.descender.resolve(size),
-            VerticalFontMetric::Relative(v) => v.resolve(size),
+            VerticalFontMetric::Ascender => self.ascender,
+            VerticalFontMetric::CapHeight => self.cap_height,
+            VerticalFontMetric::XHeight => self.x_height,
+            VerticalFontMetric::Baseline => Em::zero(),
+            VerticalFontMetric::Descender => self.descender,
         }
     }
 }
@@ -413,9 +412,6 @@ pub enum VerticalFontMetric {
     /// Corresponds to the typographic descender from the `OS/2` table if
     /// present and falls back to the descender from the `hhea` table otherwise.
     Descender,
-    /// An font-size dependent distance from the baseline (positive goes up, negative
-    /// down).
-    Relative(Relative<Length>),
 }
 
 /// Properties of a single font face.

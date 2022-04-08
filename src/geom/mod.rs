@@ -72,15 +72,15 @@ pub trait Numeric:
     + Mul<f64, Output = Self>
     + Div<f64, Output = Self>
 {
-    /// The identity element.
+    /// The identity element for addition.
     fn zero() -> Self;
 
-    /// Whether `self` is the identity element.
+    /// Whether `self` is zero.
     fn is_zero(self) -> bool {
         self == Self::zero()
     }
 
-    /// Whether `self` contains only finite parts.
+    /// Whether `self` consists only of finite parts.
     fn is_finite(self) -> bool;
 }
 

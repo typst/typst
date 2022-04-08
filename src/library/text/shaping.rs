@@ -132,7 +132,7 @@ impl<'a> ShapedText<'a> {
             .filter(|g| g.is_justifiable())
             .map(|g| g.x_advance)
             .sum::<Em>()
-            .resolve(self.styles.get(TextNode::SIZE))
+            .at(self.styles.get(TextNode::SIZE))
     }
 
     /// Reshape a range of the shaped text, reusing information from this
@@ -168,7 +168,7 @@ impl<'a> ShapedText<'a> {
             let glyph_id = ttf.glyph_index('-')?;
             let x_advance = face.to_em(ttf.glyph_hor_advance(glyph_id)?);
             let cluster = self.glyphs.last().map(|g| g.cluster).unwrap_or_default();
-            self.size.x += x_advance.resolve(size);
+            self.size.x += x_advance.at(size);
             self.glyphs.to_mut().push(ShapedGlyph {
                 face_id,
                 glyph_id: glyph_id.0,
@@ -443,8 +443,10 @@ fn shape_tofus(ctx: &mut ShapingContext, base: usize, text: &str, face_id: FaceI
 
 /// Apply tracking and spacing to a slice of shaped glyphs.
 fn track_and_space(ctx: &mut ShapingContext) {
-    let tracking = ctx.styles.get(TextNode::TRACKING);
-    let spacing = ctx.styles.get(TextNode::SPACING);
+    let em = ctx.styles.get(TextNode::SIZE);
+    let tracking = Em::from_length(ctx.styles.get(TextNode::TRACKING), em);
+    let spacing = ctx.styles.get(TextNode::SPACING).map(|abs| Em::from_length(abs, em));
+
     if tracking.is_zero() && spacing.is_one() {
         return;
     }
@@ -452,7 +454,7 @@ fn track_and_space(ctx: &mut ShapingContext) {
     let mut glyphs = ctx.glyphs.iter_mut().peekable();
     while let Some(glyph) = glyphs.next() {
         if glyph.is_space() {
-            glyph.x_advance *= spacing.get();
+            glyph.x_advance = spacing.relative_to(glyph.x_advance);
         }
 
         if glyphs.peek().map_or(false, |next| glyph.cluster != next.cluster) {
@@ -479,8 +481,8 @@ fn measure(
     // Expand top and bottom by reading the face's vertical metrics.
     let mut expand = |face: &Face| {
         let metrics = face.metrics();
-        top.set_max(metrics.vertical(top_edge, size));
-        bottom.set_max(-metrics.vertical(bottom_edge, size));
+        top.set_max(top_edge.resolve(styles, metrics));
+        bottom.set_max(-bottom_edge.resolve(styles, metrics));
     };
 
     if glyphs.is_empty() {
@@ -499,7 +501,7 @@ fn measure(
             expand(face);
 
             for glyph in group {
-                width += glyph.x_advance.resolve(size);
+                width += glyph.x_advance.at(size);
             }
         }
     }

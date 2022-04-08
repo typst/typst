@@ -42,12 +42,15 @@ impl ParNode {
     /// Whether to hyphenate text to improve line breaking. When `auto`, words
     /// will will be hyphenated if and only if justification is enabled.
     pub const HYPHENATE: Smart<bool> = Smart::Auto;
-    /// The spacing between lines (dependent on scaled font size).
-    pub const LEADING: Relative<Length> = Ratio::new(0.65).into();
-    /// The extra spacing between paragraphs (dependent on scaled font size).
-    pub const SPACING: Relative<Length> = Ratio::new(0.55).into();
+    /// The spacing between lines.
+    #[property(resolve)]
+    pub const LEADING: RawLength = Em::new(0.65).into();
+    /// The extra spacing between paragraphs.
+    #[property(resolve)]
+    pub const SPACING: RawLength = Em::new(0.55).into();
     /// The indent the first line of a consecutive paragraph should have.
-    pub const INDENT: Relative<Length> = Relative::zero();
+    #[property(resolve)]
+    pub const INDENT: RawLength = RawLength::zero();
 
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         // The paragraph constructor is special: It doesn't create a paragraph
@@ -370,7 +373,7 @@ fn prepare<'a>(
             }
             ParChild::Spacing(spacing) => match *spacing {
                 Spacing::Relative(v) => {
-                    let resolved = v.resolve(regions.base.x);
+                    let resolved = v.resolve(styles).relative_to(regions.base.x);
                     items.push(ParItem::Absolute(resolved));
                     ranges.push(range);
                 }
@@ -772,8 +775,7 @@ fn stack(
     regions: &Regions,
     styles: StyleChain,
 ) -> Vec<Arc<Frame>> {
-    let em = styles.get(TextNode::SIZE);
-    let leading = styles.get(ParNode::LEADING).resolve(em);
+    let leading = styles.get(ParNode::LEADING);
     let align = styles.get(ParNode::ALIGN);
     let justify = styles.get(ParNode::JUSTIFY);
 
@@ -837,7 +839,7 @@ fn commit(
             if text.styles.get(TextNode::OVERHANG) {
                 let start = text.dir.is_positive();
                 let em = text.styles.get(TextNode::SIZE);
-                let amount = overhang(glyph.c, start) * glyph.x_advance.resolve(em);
+                let amount = overhang(glyph.c, start) * glyph.x_advance.at(em);
                 offset -= amount;
                 remaining += amount;
             }
@@ -852,7 +854,7 @@ fn commit(
             {
                 let start = !text.dir.is_positive();
                 let em = text.styles.get(TextNode::SIZE);
-                let amount = overhang(glyph.c, start) * glyph.x_advance.resolve(em);
+                let amount = overhang(glyph.c, start) * glyph.x_advance.at(em);
                 remaining += amount;
             }
         }
@@ -887,7 +889,7 @@ fn commit(
 
         match item {
             ParItem::Absolute(v) => offset += *v,
-            ParItem::Fractional(v) => offset += v.resolve(line.fr, remaining),
+            ParItem::Fractional(v) => offset += v.share(line.fr, remaining),
             ParItem::Text(shaped) => position(shaped.build(fonts, justification)),
             ParItem::Frame(frame) => position(frame.clone()),
         }

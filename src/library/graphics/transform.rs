@@ -1,6 +1,46 @@
 use crate::geom::Transform;
 use crate::library::prelude::*;
 
+/// Move a node without affecting layout.
+#[derive(Debug, Hash)]
+pub struct MoveNode {
+    /// The offset by which to move the node.
+    pub delta: Spec<Relative<RawLength>>,
+    /// The node whose contents should be moved.
+    pub child: LayoutNode,
+}
+
+#[node]
+impl MoveNode {
+    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
+        let dx = args.named("x")?.unwrap_or_default();
+        let dy = args.named("y")?.unwrap_or_default();
+        Ok(Content::inline(Self {
+            delta: Spec::new(dx, dy),
+            child: args.expect("body")?,
+        }))
+    }
+}
+
+impl Layout for MoveNode {
+    fn layout(
+        &self,
+        ctx: &mut Context,
+        regions: &Regions,
+        styles: StyleChain,
+    ) -> TypResult<Vec<Arc<Frame>>> {
+        let mut frames = self.child.layout(ctx, regions, styles)?;
+
+        let delta = self.delta.resolve(styles);
+        for frame in &mut frames {
+            let delta = delta.zip(frame.size).map(|(d, s)| d.relative_to(s));
+            Arc::make_mut(frame).translate(delta.to_point());
+        }
+
+        Ok(frames)
+    }
+}
+
 /// Transform a node without affecting layout.
 #[derive(Debug, Hash)]
 pub struct TransformNode<const T: TransformKind> {
@@ -10,13 +50,10 @@ pub struct TransformNode<const T: TransformKind> {
     pub child: LayoutNode,
 }
 
-/// Transform a node by translating it without affecting layout.
-pub type MoveNode = TransformNode<MOVE>;
-
-/// Transform a node by rotating it without affecting layout.
+/// Rotate a node without affecting layout.
 pub type RotateNode = TransformNode<ROTATE>;
 
-/// Transform a node by scaling it without affecting layout.
+/// Scale a node without affecting layout.
 pub type ScaleNode = TransformNode<SCALE>;
 
 #[node]
@@ -27,11 +64,6 @@ impl<const T: TransformKind> TransformNode<T> {
 
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         let transform = match T {
-            MOVE => {
-                let tx = args.named("x")?.unwrap_or_default();
-                let ty = args.named("y")?.unwrap_or_default();
-                Transform::translate(tx, ty)
-            }
             ROTATE => {
                 let angle = args.named_or_find("angle")?.unwrap_or_default();
                 Transform::rotate(angle)
@@ -76,9 +108,6 @@ impl<const T: TransformKind> Layout for TransformNode<T> {
 
 /// Kinds of transformations.
 pub type TransformKind = usize;
-
-/// A translation on the X and Y axes.
-const MOVE: TransformKind = 0;
 
 /// A rotational transformation.
 const ROTATE: TransformKind = 1;

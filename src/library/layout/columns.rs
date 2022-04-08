@@ -14,7 +14,8 @@ pub struct ColumnsNode {
 #[node]
 impl ColumnsNode {
     /// The size of the gutter space between each column.
-    pub const GUTTER: Relative<Length> = Ratio::new(0.04).into();
+    #[property(resolve)]
+    pub const GUTTER: Relative<RawLength> = Ratio::new(0.04).into();
 
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         Ok(Content::block(Self {
@@ -39,7 +40,7 @@ impl Layout for ColumnsNode {
 
         // Determine the width of the gutter and each column.
         let columns = self.columns.get();
-        let gutter = styles.get(Self::GUTTER).resolve(regions.base.x);
+        let gutter = styles.get(Self::GUTTER).relative_to(regions.base.x);
         let width = (regions.first.x - gutter * (columns - 1) as f64) / columns as f64;
 
         // Create the pod regions.

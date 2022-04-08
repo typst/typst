@@ -34,13 +34,14 @@
 #[macro_use]
 pub mod util;
 #[macro_use]
+pub mod geom;
+#[macro_use]
 pub mod diag;
 #[macro_use]
 pub mod eval;
 pub mod export;
 pub mod font;
 pub mod frame;
-pub mod geom;
 pub mod image;
 pub mod library;
 pub mod loading;
@@ -163,7 +164,7 @@ impl Context {
 
     /// Resolve a user-entered path (relative to the current evaluation
     /// location) to be relative to the compilation environment's root.
-    pub fn resolve(&self, path: &str) -> PathBuf {
+    pub fn complete_path(&self, path: &str) -> PathBuf {
         if let Some(&id) = self.route.last() {
             if let Some(dir) = self.sources.get(id).path().parent() {
                 return dir.join(path);

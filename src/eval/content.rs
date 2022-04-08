@@ -456,7 +456,7 @@ impl<'a> Builder<'a> {
                     })
                     .unwrap_or_default()
             {
-                par.push_front(ParChild::Spacing(Spacing::Relative(indent)))
+                par.push_front(ParChild::Spacing(indent.into()));
             }
 
             let node = ParNode(par).pack();

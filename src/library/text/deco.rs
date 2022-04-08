@@ -23,16 +23,16 @@ impl<const L: DecoLine> DecoNode<L> {
     /// Stroke color of the line, defaults to the text color if `None`.
     #[property(shorthand)]
     pub const STROKE: Option<Paint> = None;
-    /// Thickness of the line's strokes (dependent on scaled font size), read
-    /// from the font tables if `None`.
-    #[property(shorthand)]
-    pub const THICKNESS: Option<Relative<Length>> = None;
-    /// Position of the line relative to the baseline (dependent on scaled font
-    /// size), read from the font tables if `None`.
-    pub const OFFSET: Option<Relative<Length>> = None;
-    /// Amount that the line will be longer or shorter than its associated text
-    /// (dependent on scaled font size).
-    pub const EXTENT: Relative<Length> = Relative::zero();
+    /// Thickness of the line's strokes, read from the font tables if `auto`.
+    #[property(shorthand, resolve)]
+    pub const THICKNESS: Smart<RawLength> = Smart::Auto;
+    /// Position of the line relative to the baseline, read from the font tables
+    /// if `auto`.
+    #[property(resolve)]
+    pub const OFFSET: Smart<RawLength> = Smart::Auto;
+    /// Amount that the line will be longer or shorter than its associated text.
+    #[property(resolve)]
+    pub const EXTENT: RawLength = RawLength::zero();
     /// Whether the line skips sections in which it would collide
     /// with the glyphs. Does not apply to strikethrough.
     pub const EVADE: bool = true;
@@ -66,9 +66,9 @@ impl<const L: DecoLine> Show for DecoNode<L> {
 pub struct Decoration {
     pub line: DecoLine,
     pub stroke: Option<Paint>,
-    pub thickness: Option<Relative<Length>>,
-    pub offset: Option<Relative<Length>>,
-    pub extent: Relative<Length>,
+    pub thickness: Smart<Length>,
+    pub offset: Smart<Length>,
+    pub extent: Length,
     pub evade: bool,
 }
 
@@ -102,25 +102,18 @@ pub fn decorate(
     };
 
     let evade = deco.evade && deco.line != STRIKETHROUGH;
-    let extent = deco.extent.resolve(text.size);
-    let offset = deco
-        .offset
-        .map(|s| s.resolve(text.size))
-        .unwrap_or(-metrics.position.resolve(text.size));
+    let offset = deco.offset.unwrap_or(-metrics.position.at(text.size));
 
     let stroke = Stroke {
         paint: deco.stroke.unwrap_or(text.fill),
-        thickness: deco
-            .thickness
-            .map(|s| s.resolve(text.size))
-            .unwrap_or(metrics.thickness.resolve(text.size)),
+        thickness: deco.thickness.unwrap_or(metrics.thickness.at(text.size)),
     };
 
     let gap_padding = 0.08 * text.size;
     let min_width = 0.162 * text.size;
 
-    let mut start = pos.x - extent;
-    let end = pos.x + (width + 2.0 * extent);
+    let mut start = pos.x - deco.extent;
+    let end = pos.x + (width + 2.0 * deco.extent);
 
     let mut push_segment = |from: Length, to: Length| {
         let origin = Point::new(from, pos.y + offset);
@@ -146,20 +139,20 @@ pub fn decorate(
     let mut intersections = vec![];
 
     for glyph in text.glyphs.iter() {
-        let dx = glyph.x_offset.resolve(text.size) + x;
+        let dx = glyph.x_offset.at(text.size) + x;
         let mut builder =
             BezPathBuilder::new(face_metrics.units_per_em, text.size, dx.to_raw());
 
         let bbox = face.ttf().outline_glyph(GlyphId(glyph.id), &mut builder);
         let path = builder.finish();
 
-        x += glyph.x_advance.resolve(text.size);
+        x += glyph.x_advance.at(text.size);
 
         // Only do the costly segments intersection test if the line
         // intersects the bounding box.
         if bbox.map_or(false, |bbox| {
-            let y_min = -face.to_em(bbox.y_max).resolve(text.size);
-            let y_max = -face.to_em(bbox.y_min).resolve(text.size);
+            let y_min = -face.to_em(bbox.y_max).at(text.size);
+            let y_max = -face.to_em(bbox.y_min).at(text.size);
 
             offset >= y_min && offset <= y_max
         }) {
@@ -225,7 +218,7 @@ impl BezPathBuilder {
     }
 
     fn s(&self, v: f32) -> f64 {
-        Em::from_units(v, self.units_per_em).resolve(self.font_size).to_raw()
+        Em::from_units(v, self.units_per_em).at(self.font_size).to_raw()
     }
 }
 

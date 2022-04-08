@@ -4,7 +4,7 @@ use crate::library::prelude::*;
 #[derive(Debug, Hash)]
 pub struct PadNode {
     /// The amount of padding.
-    pub padding: Sides<Relative<Length>>,
+    pub padding: Sides<Relative<RawLength>>,
     /// The child node whose sides to pad.
     pub child: LayoutNode,
 }
@@ -33,14 +33,15 @@ impl Layout for PadNode {
         styles: StyleChain,
     ) -> TypResult<Vec<Arc<Frame>>> {
         // Layout child into padded regions.
-        let pod = regions.map(|size| shrink(size, self.padding));
+        let padding = self.padding.resolve(styles);
+        let pod = regions.map(|size| shrink(size, padding));
         let mut frames = self.child.layout(ctx, &pod, styles)?;
 
         for frame in &mut frames {
             // Apply the padding inversely such that the grown size padded
             // yields the frame's size.
-            let padded = grow(frame.size, self.padding);
-            let padding = self.padding.resolve(padded);
+            let padded = grow(frame.size, padding);
+            let padding = padding.relative_to(padded);
             let offset = Point::new(padding.left, padding.top);
 
             // Grow the frame and translate everything in the frame inwards.
@@ -55,7 +56,7 @@ impl Layout for PadNode {
 
 /// Shrink a size by padding relative to the size itself.
 fn shrink(size: Size, padding: Sides<Relative<Length>>) -> Size {
-    size - padding.resolve(size).sum_by_axis()
+    size - padding.relative_to(size).sum_by_axis()
 }
 
 /// Grow a size by padding relative to the grown size.

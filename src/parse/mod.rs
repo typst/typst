@@ -478,10 +478,7 @@ fn literal(p: &mut Parser) -> bool {
             | NodeKind::Int(_)
             | NodeKind::Float(_)
             | NodeKind::Bool(_)
-            | NodeKind::Fraction(_)
-            | NodeKind::Length(_, _)
-            | NodeKind::Angle(_, _)
-            | NodeKind::Percentage(_)
+            | NodeKind::Numeric(_, _)
             | NodeKind::Str(_),
         ) => {
             p.eat();

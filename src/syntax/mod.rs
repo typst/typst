@@ -12,9 +12,8 @@ use std::sync::Arc;
 pub use highlight::*;
 pub use span::*;
 
-use self::ast::{MathNode, RawNode, TypedNode};
+use self::ast::{MathNode, RawNode, TypedNode, Unit};
 use crate::diag::Error;
-use crate::geom::{AngularUnit, LengthUnit};
 use crate::parse::TokenMode;
 use crate::source::SourceId;
 use crate::util::EcoString;
@@ -629,17 +628,8 @@ pub enum NodeKind {
     Int(i64),
     /// A floating-point number: `1.2`, `10e-4`.
     Float(f64),
-    /// A length: `12pt`, `3cm`.
-    Length(f64, LengthUnit),
-    /// An angle: `90deg`.
-    Angle(f64, AngularUnit),
-    /// A percentage: `50%`.
-    ///
-    /// _Note_: `50%` is stored as `50.0` here, as in the corresponding
-    /// [literal](ast::LitKind::Percent).
-    Percentage(f64),
-    /// A fraction unit: `3fr`.
-    Fraction(f64),
+    /// A numeric value with a unit: `12pt`, `3cm`, `2em`, `90deg`, `50%`.
+    Numeric(f64, Unit),
     /// A quoted string: `"..."`.
     Str(EcoString),
     /// A code block: `{ let x = 1; x + 2 }`.
@@ -886,10 +876,7 @@ impl NodeKind {
             Self::Bool(_) => "boolean",
             Self::Int(_) => "integer",
             Self::Float(_) => "float",
-            Self::Length(_, _) => "length",
-            Self::Angle(_, _) => "angle",
-            Self::Percentage(_) => "percentage",
-            Self::Fraction(_) => "`fr` value",
+            Self::Numeric(_, _) => "numeric value",
             Self::Str(_) => "string",
             Self::CodeBlock => "code block",
             Self::ContentBlock => "content block",
@@ -1010,10 +997,7 @@ impl Hash for NodeKind {
             Self::Bool(v) => v.hash(state),
             Self::Int(v) => v.hash(state),
             Self::Float(v) => v.to_bits().hash(state),
-            Self::Length(v, u) => (v.to_bits(), u).hash(state),
-            Self::Angle(v, u) => (v.to_bits(), u).hash(state),
-            Self::Percentage(v) => v.to_bits().hash(state),
-            Self::Fraction(v) => v.to_bits().hash(state),
+            Self::Numeric(v, u) => (v.to_bits(), u).hash(state),
             Self::Str(v) => v.hash(state),
             Self::CodeBlock => {}
             Self::ContentBlock => {}

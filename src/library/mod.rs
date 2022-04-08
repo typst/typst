@@ -186,15 +186,3 @@ castable! {
     Expected: "content",
     Value::Content(content) => content.pack(),
 }
-
-castable! {
-    Spec<Relative<Length>>,
-    Expected: "array of two relative lengths",
-    Value::Array(array) => {
-        let mut iter = array.into_iter();
-        match (iter.next(), iter.next(), iter.next()) {
-            (Some(a), Some(b), None) => Spec::new(a.cast()?, b.cast()?),
-            _ => Err("point array must contain exactly two entries")?,
-        }
-    },
-}

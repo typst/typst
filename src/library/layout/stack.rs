@@ -30,7 +30,7 @@ impl Layout for StackNode {
         regions: &Regions,
         styles: StyleChain,
     ) -> TypResult<Vec<Arc<Frame>>> {
-        let mut layouter = StackLayouter::new(self.dir, regions);
+        let mut layouter = StackLayouter::new(self.dir, regions, styles);
 
         // Spacing to insert before the next node.
         let mut deferred = None;
@@ -85,13 +85,15 @@ castable! {
 }
 
 /// Performs stack layout.
-pub struct StackLayouter {
+pub struct StackLayouter<'a> {
     /// The stacking direction.
     dir: Dir,
     /// The axis of the stacking direction.
     axis: SpecAxis,
     /// The regions to layout children into.
     regions: Regions,
+    /// The inherited styles.
+    styles: StyleChain<'a>,
     /// Whether the stack itself should expand to fill the region.
     expand: Spec<bool>,
     /// The full size of the current region that was available at the start.
@@ -117,9 +119,9 @@ enum StackItem {
     Frame(Arc<Frame>, Align),
 }
 
-impl StackLayouter {
+impl<'a> StackLayouter<'a> {
     /// Create a new stack layouter.
-    pub fn new(dir: Dir, regions: &Regions) -> Self {
+    pub fn new(dir: Dir, regions: &Regions, styles: StyleChain<'a>) -> Self {
         let axis = dir.axis();
         let expand = regions.expand;
         let full = regions.first;
@@ -132,6 +134,7 @@ impl StackLayouter {
             dir,
             axis,
             regions,
+            styles,
             expand,
             full,
             used: Gen::zero(),
@@ -146,7 +149,8 @@ impl StackLayouter {
         match spacing {
             Spacing::Relative(v) => {
                 // Resolve the spacing and limit it to the remaining space.
-                let resolved = v.resolve(self.regions.base.get(self.axis));
+                let resolved =
+                    v.resolve(self.styles).relative_to(self.regions.base.get(self.axis));
                 let remaining = self.regions.first.get_mut(self.axis);
                 let limited = resolved.min(*remaining);
                 *remaining -= limited;
@@ -219,7 +223,7 @@ impl StackLayouter {
         for item in self.items.drain(..) {
             match item {
                 StackItem::Absolute(v) => cursor += v,
-                StackItem::Fractional(v) => cursor += v.resolve(self.fr, remaining),
+                StackItem::Fractional(v) => cursor += v.share(self.fr, remaining),
                 StackItem::Frame(frame, align) => {
                     if self.dir.is_positive() {
                         ruler = ruler.max(align);

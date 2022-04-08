@@ -63,8 +63,8 @@
     test(v + v, 2.0 * v)
   }
 
-  // Relative lengths cannot be divided by themselves.
-  if type(v) != "relative length" {
+  // Lengths cannot be divided by themselves.
+  if "length" not in type(v) {
     test(v / v, 1.0)
     test(v / v == 1, true)
   }

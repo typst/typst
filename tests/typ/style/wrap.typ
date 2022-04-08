@@ -2,10 +2,10 @@
 
 ---
 #set page(height: 130pt)
-#set text(70%)
+#set text(0.7em)
 
 #align(center)[
-  #text(130%)[*Essay on typography*] \
+  #text(1.3em)[*Essay on typography*] \
   T. Ypst
 ]
 
@@ -20,7 +20,7 @@ A [_B #wrap c in [*#c*]; C_] D
 
 ---
 // Test wrap style precedence.
-#set text(fill: eastern, size: 150%)
+#set text(fill: eastern, size: 1.5em)
 #wrap body in text(fill: forest, body)
 Forest
 

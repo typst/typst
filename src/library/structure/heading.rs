@@ -1,5 +1,5 @@
 use crate::library::prelude::*;
-use crate::library::text::{FontFamily, FontSize, TextNode, Toggle};
+use crate::library::text::{FontFamily, TextNode, TextSize, Toggle};
 
 /// A section heading.
 #[derive(Debug, Hash)]
@@ -21,9 +21,9 @@ impl HeadingNode {
     pub const FILL: Leveled<Smart<Paint>> = Leveled::Value(Smart::Auto);
     /// The size of text in the heading.
     #[property(referenced)]
-    pub const SIZE: Leveled<FontSize> = Leveled::Mapping(|level| {
+    pub const SIZE: Leveled<TextSize> = Leveled::Mapping(|level| {
         let upscale = (1.6 - 0.1 * level as f64).max(0.75);
-        FontSize(Ratio::new(upscale).into())
+        TextSize(Em::new(upscale).into())
     });
     /// Whether text in the heading is strengthend.
     #[property(referenced)]
@@ -36,10 +36,10 @@ impl HeadingNode {
     pub const UNDERLINE: Leveled<bool> = Leveled::Value(false);
     /// The extra padding above the heading.
     #[property(referenced)]
-    pub const ABOVE: Leveled<Length> = Leveled::Value(Length::zero());
+    pub const ABOVE: Leveled<RawLength> = Leveled::Value(Length::zero().into());
     /// The extra padding below the heading.
     #[property(referenced)]
-    pub const BELOW: Leveled<Length> = Leveled::Value(Length::zero());
+    pub const BELOW: Leveled<RawLength> = Leveled::Value(Length::zero().into());
     /// Whether the heading is block-level.
     #[property(referenced)]
     pub const BLOCK: Leveled<bool> = Leveled::Value(true);
@@ -95,14 +95,14 @@ impl Show for HeadingNode {
 
         let above = resolve!(Self::ABOVE);
         if !above.is_zero() {
-            seq.push(Content::Vertical(above.into()));
+            seq.push(Content::Vertical(above.resolve(styles).into()));
         }
 
         seq.push(body);
 
         let below = resolve!(Self::BELOW);
         if !below.is_zero() {
-            seq.push(Content::Vertical(below.into()));
+            seq.push(Content::Vertical(below.resolve(styles).into()));
         }
 
         let mut content = Content::sequence(seq).styled_with_map(map);

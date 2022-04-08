@@ -29,7 +29,12 @@ impl Em {
 
     /// Create an em length from a length at the given font size.
     pub fn from_length(length: Length, font_size: Length) -> Self {
-        Self(Scalar(length / font_size))
+        let result = length / font_size;
+        if result.is_finite() {
+            Self(Scalar(result))
+        } else {
+            Self::zero()
+        }
     }
 
     /// The number of em units.
@@ -38,8 +43,9 @@ impl Em {
     }
 
     /// Convert to a length at the given font size.
-    pub fn resolve(self, font_size: Length) -> Length {
-        self.get() * font_size
+    pub fn at(self, font_size: Length) -> Length {
+        let resolved = font_size * self.get();
+        if resolved.is_finite() { resolved } else { Length::zero() }
     }
 }
 

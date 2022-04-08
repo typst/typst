@@ -8,12 +8,12 @@ pub struct PlaceNode(pub LayoutNode);
 #[node]
 impl PlaceNode {
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
-        let tx = args.named("dx")?.unwrap_or_default();
-        let ty = args.named("dy")?.unwrap_or_default();
         let aligns = args.find()?.unwrap_or(Spec::with_x(Some(RawAlign::Start)));
+        let dx = args.named("dx")?.unwrap_or_default();
+        let dy = args.named("dy")?.unwrap_or_default();
         let body: LayoutNode = args.expect("body")?;
         Ok(Content::block(Self(
-            body.moved(Point::new(tx, ty)).aligned(aligns),
+            body.moved(Spec::new(dx, dy)).aligned(aligns),
         )))
     }
 }

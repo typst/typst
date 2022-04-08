@@ -197,7 +197,7 @@ pub struct Text {
 impl Text {
     /// The width of the text run.
     pub fn width(&self) -> Length {
-        self.glyphs.iter().map(|g| g.x_advance.resolve(self.size)).sum()
+        self.glyphs.iter().map(|g| g.x_advance.at(self.size)).sum()
     }
 }
 

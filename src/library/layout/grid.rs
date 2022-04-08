@@ -58,7 +58,7 @@ pub enum TrackSizing {
     Auto,
     /// A track size specified in absolute terms and relative to the parent's
     /// size.
-    Relative(Relative<Length>),
+    Relative(Relative<RawLength>),
     /// A track size specified as a fraction of the remaining free space in the
     /// parent.
     Fractional(Fraction),
@@ -236,7 +236,8 @@ impl<'a> GridLayouter<'a> {
             match col {
                 TrackSizing::Auto => {}
                 TrackSizing::Relative(v) => {
-                    let resolved = v.resolve(self.regions.base.x);
+                    let resolved =
+                        v.resolve(self.styles).relative_to(self.regions.base.x);
                     *rcol = resolved;
                     rel += resolved;
                 }
@@ -295,7 +296,8 @@ impl<'a> GridLayouter<'a> {
                     // base, for auto it's already correct and for fr we could
                     // only guess anyway.
                     if let TrackSizing::Relative(v) = self.rows[y] {
-                        pod.base.y = v.resolve(self.regions.base.y);
+                        pod.base.y =
+                            v.resolve(self.styles).relative_to(self.regions.base.y);
                     }
 
                     let frame = node.layout(ctx, &pod, self.styles)?.remove(0);
@@ -315,7 +317,7 @@ impl<'a> GridLayouter<'a> {
     fn grow_fractional_columns(&mut self, remaining: Length, fr: Fraction) {
         for (&col, rcol) in self.cols.iter().zip(&mut self.rcols) {
             if let TrackSizing::Fractional(v) = col {
-                *rcol = v.resolve(fr, remaining);
+                *rcol = v.share(fr, remaining);
             }
         }
     }
@@ -422,10 +424,10 @@ impl<'a> GridLayouter<'a> {
     fn layout_relative_row(
         &mut self,
         ctx: &mut Context,
-        v: Relative<Length>,
+        v: Relative<RawLength>,
         y: usize,
     ) -> TypResult<()> {
-        let resolved = v.resolve(self.regions.base.y);
+        let resolved = v.resolve(self.styles).relative_to(self.regions.base.y);
         let frame = self.layout_single_row(ctx, resolved, y)?;
 
         // Skip to fitting region.
@@ -543,7 +545,7 @@ impl<'a> GridLayouter<'a> {
                 Row::Frame(frame) => frame,
                 Row::Fr(v, y) => {
                     let remaining = self.full - self.used.y;
-                    let height = v.resolve(self.fr, remaining);
+                    let height = v.share(self.fr, remaining);
                     self.layout_single_row(ctx, height, y)?
                 }
             };

@@ -5,7 +5,7 @@
   header: align(horizon, {
     text(eastern)[*Typst*]
     h(1fr)
-    text(80%)[_Chapter 1_]
+    text(0.8em)[_Chapter 1_]
   }),
   footer: page => v(5pt) + align(center)[\~ #page \~],
 )

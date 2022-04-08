@@ -1,6 +1,6 @@
 use super::{AlignNode, PlaceNode, Spacing};
 use crate::library::prelude::*;
-use crate::library::text::{ParNode, TextNode};
+use crate::library::text::ParNode;
 
 /// Arrange spacing, paragraphs and other block-level nodes into a flow.
 ///
@@ -37,22 +37,20 @@ impl Layout for FlowNode {
             let styles = map.chain(&styles);
             match child {
                 FlowChild::Leading => {
-                    let em = styles.get(TextNode::SIZE);
-                    let amount = styles.get(ParNode::LEADING).resolve(em);
-                    layouter.layout_spacing(amount.into());
+                    let amount = styles.get(ParNode::LEADING);
+                    layouter.layout_spacing(amount.into(), styles);
                 }
                 FlowChild::Parbreak => {
-                    let em = styles.get(TextNode::SIZE);
                     let leading = styles.get(ParNode::LEADING);
                     let spacing = styles.get(ParNode::SPACING);
-                    let amount = (leading + spacing).resolve(em);
-                    layouter.layout_spacing(amount.into());
+                    let amount = leading + spacing;
+                    layouter.layout_spacing(amount.into(), styles);
                 }
                 FlowChild::Colbreak => {
                     layouter.finish_region();
                 }
                 FlowChild::Spacing(kind) => {
-                    layouter.layout_spacing(*kind);
+                    layouter.layout_spacing(*kind, styles);
                 }
                 FlowChild::Node(ref node) => {
                     layouter.layout_node(ctx, node, styles)?;
@@ -142,11 +140,11 @@ impl FlowLayouter {
     }
 
     /// Layout spacing.
-    pub fn layout_spacing(&mut self, spacing: Spacing) {
+    pub fn layout_spacing(&mut self, spacing: Spacing, styles: StyleChain) {
         match spacing {
             Spacing::Relative(v) => {
                 // Resolve the spacing and limit it to the remaining space.
-                let resolved = v.resolve(self.full.y);
+                let resolved = v.resolve(styles).relative_to(self.full.y);
                 let limited = resolved.min(self.regions.first.y);
                 self.regions.first.y -= limited;
                 self.used.y += limited;
@@ -235,7 +233,7 @@ impl FlowLayouter {
                     offset += v;
                 }
                 FlowItem::Fractional(v) => {
-                    offset += v.resolve(self.fr, remaining);
+                    offset += v.share(self.fr, remaining);
                 }
                 FlowItem::Frame(frame, aligns) => {
                     ruler = ruler.max(aligns.y);

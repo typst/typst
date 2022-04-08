@@ -27,12 +27,17 @@ impl<T: Numeric> Relative<T> {
 
     /// Whether both parts are zero.
     pub fn is_zero(self) -> bool {
-        self.rel.is_zero() && self.abs.is_zero()
+        self.rel.is_zero() && self.abs == T::zero()
     }
 
-    /// Resolve this relative to the given `whole`.
-    pub fn resolve(self, whole: T) -> T {
-        self.rel.resolve(whole) + self.abs
+    /// Whether the relative part is one and the absolute part is zero.
+    pub fn is_one(self) -> bool {
+        self.rel.is_one() && self.abs == T::zero()
+    }
+
+    /// Evaluate this relative to the given `whole`.
+    pub fn relative_to(self, whole: T) -> T {
+        self.rel.of(whole) + self.abs
     }
 
     /// Map the absolute part with `f`.
@@ -120,27 +125,31 @@ impl<T: Numeric> Div<f64> for Relative<T> {
     }
 }
 
-impl<T: Numeric> AddAssign for Relative<T> {
+impl<T: Numeric + AddAssign> AddAssign for Relative<T> {
     fn add_assign(&mut self, other: Self) {
-        *self = *self + other;
+        self.rel += other.rel;
+        self.abs += other.abs;
     }
 }
 
-impl<T: Numeric> SubAssign for Relative<T> {
+impl<T: Numeric + SubAssign> SubAssign for Relative<T> {
     fn sub_assign(&mut self, other: Self) {
-        *self = *self - other;
+        self.rel -= other.rel;
+        self.abs -= other.abs;
     }
 }
 
-impl<T: Numeric> MulAssign<f64> for Relative<T> {
+impl<T: Numeric + MulAssign<f64>> MulAssign<f64> for Relative<T> {
     fn mul_assign(&mut self, other: f64) {
-        *self = *self * other;
+        self.rel *= other;
+        self.abs *= other;
     }
 }
 
-impl<T: Numeric> DivAssign<f64> for Relative<T> {
+impl<T: Numeric + DivAssign<f64>> DivAssign<f64> for Relative<T> {
     fn div_assign(&mut self, other: f64) {
-        *self = *self * other;
+        self.rel /= other;
+        self.abs /= other;
     }
 }
 
