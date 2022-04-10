@@ -20,10 +20,12 @@ pub struct ShapedText<'a> {
     pub dir: Dir,
     /// The text's style properties.
     pub styles: StyleChain<'a>,
-    /// The size of the text's bounding box.
-    pub size: Size,
-    /// The baseline from the top of the frame.
-    pub baseline: Length,
+    /// The font variant.
+    pub variant: FontVariant,
+    /// The font size.
+    pub size: Length,
+    /// The width of the text's bounding box.
+    pub width: Length,
     /// The shaped glyphs.
     pub glyphs: Cow<'a, [ShapedGlyph]>,
 }
@@ -74,15 +76,17 @@ impl<'a> ShapedText<'a> {
     ///
     /// The `justification` defines how much extra advance width each
     /// [justifiable glyph](ShapedGlyph::is_justifiable) will get.
-    pub fn build(&self, fonts: &FontStore, justification: Length) -> Frame {
+    pub fn build(&self, fonts: &mut FontStore, justification: Length) -> Frame {
+        let (top, bottom) = self.measure(fonts);
+        let size = Size::new(self.width, top + bottom);
+
         let mut offset = Length::zero();
-        let mut frame = Frame::new(self.size);
-        frame.baseline = Some(self.baseline);
+        let mut frame = Frame::new(size);
+        frame.baseline = Some(top);
 
         for (face_id, group) in self.glyphs.as_ref().group_by_key(|g| g.face_id) {
-            let pos = Point::new(offset, self.baseline);
+            let pos = Point::new(offset, top);
 
-            let size = self.styles.get(TextNode::SIZE);
             let fill = self.styles.get(TextNode::FILL);
             let glyphs = group
                 .iter()
@@ -91,7 +95,7 @@ impl<'a> ShapedText<'a> {
                     x_advance: glyph.x_advance
                         + if glyph.is_justifiable() {
                             frame.size.x += justification;
-                            Em::from_length(justification, size)
+                            Em::from_length(justification, self.size)
                         } else {
                             Em::zero()
                         },
@@ -99,7 +103,7 @@ impl<'a> ShapedText<'a> {
                 })
                 .collect();
 
-            let text = Text { face_id, size, fill, glyphs };
+            let text = Text { face_id, size: self.size, fill, glyphs };
             let text_layer = frame.layer();
             let width = text.width();
 
@@ -120,6 +124,40 @@ impl<'a> ShapedText<'a> {
         frame
     }
 
+    /// Measure the top and bottom extent of a this text.
+    fn measure(&self, fonts: &mut FontStore) -> (Length, Length) {
+        let mut top = Length::zero();
+        let mut bottom = Length::zero();
+
+        let top_edge = self.styles.get(TextNode::TOP_EDGE);
+        let bottom_edge = self.styles.get(TextNode::BOTTOM_EDGE);
+
+        // Expand top and bottom by reading the face's vertical metrics.
+        let mut expand = |face: &Face| {
+            let metrics = face.metrics();
+            top.set_max(top_edge.resolve(self.styles, metrics));
+            bottom.set_max(-bottom_edge.resolve(self.styles, metrics));
+        };
+
+        if self.glyphs.is_empty() {
+            // When there are no glyphs, we just use the vertical metrics of the
+            // first available font.
+            for family in families(self.styles) {
+                if let Some(face_id) = fonts.select(family, self.variant) {
+                    expand(fonts.get(face_id));
+                    break;
+                }
+            }
+        } else {
+            for (face_id, _) in self.glyphs.group_by_key(|g| g.face_id) {
+                let face = fonts.get(face_id);
+                expand(face);
+            }
+        }
+
+        (top, bottom)
+    }
+
     /// How many justifiable glyphs the text contains.
     pub fn justifiables(&self) -> usize {
         self.glyphs.iter().filter(|g| g.is_justifiable()).count()
@@ -132,7 +170,7 @@ impl<'a> ShapedText<'a> {
             .filter(|g| g.is_justifiable())
             .map(|g| g.x_advance)
             .sum::<Em>()
-            .at(self.styles.get(TextNode::SIZE))
+            .at(self.size)
     }
 
     /// Reshape a range of the shaped text, reusing information from this
@@ -143,13 +181,13 @@ impl<'a> ShapedText<'a> {
         text_range: Range<usize>,
     ) -> ShapedText<'a> {
         if let Some(glyphs) = self.slice_safe_to_break(text_range.clone()) {
-            let (size, baseline) = measure(fonts, &glyphs, self.styles);
             Self {
                 text: Cow::Borrowed(&self.text[text_range]),
                 dir: self.dir,
                 styles: self.styles,
-                size,
-                baseline,
+                size: self.size,
+                variant: self.variant,
+                width: glyphs.iter().map(|g| g.x_advance).sum::<Em>().at(self.size),
                 glyphs: Cow::Borrowed(glyphs),
             }
         } else {
@@ -159,16 +197,14 @@ impl<'a> ShapedText<'a> {
 
     /// Push a hyphen to end of the text.
     pub fn push_hyphen(&mut self, fonts: &mut FontStore) {
-        let size = self.styles.get(TextNode::SIZE);
-        let variant = variant(self.styles);
         families(self.styles).find_map(|family| {
-            let face_id = fonts.select(family, variant)?;
+            let face_id = fonts.select(family, self.variant)?;
             let face = fonts.get(face_id);
             let ttf = face.ttf();
             let glyph_id = ttf.glyph_index('-')?;
             let x_advance = face.to_em(ttf.glyph_hor_advance(glyph_id)?);
             let cluster = self.glyphs.last().map(|g| g.cluster).unwrap_or_default();
-            self.size.x += x_advance.at(size);
+            self.width += x_advance.at(self.size);
             self.glyphs.to_mut().push(ShapedGlyph {
                 face_id,
                 glyph_id: glyph_id.0,
@@ -247,6 +283,7 @@ struct ShapingContext<'a> {
     glyphs: Vec<ShapedGlyph>,
     used: Vec<FaceId>,
     styles: StyleChain<'a>,
+    size: Length,
     variant: FontVariant,
     tags: Vec<rustybuzz::Feature>,
     fallback: bool,
@@ -260,6 +297,7 @@ pub fn shape<'a>(
     styles: StyleChain<'a>,
     dir: Dir,
 ) -> ShapedText<'a> {
+    let size = styles.get(TextNode::SIZE);
     let text = match styles.get(TextNode::CASE) {
         Some(case) => Cow::Owned(case.apply(text)),
         None => Cow::Borrowed(text),
@@ -267,6 +305,7 @@ pub fn shape<'a>(
 
     let mut ctx = ShapingContext {
         fonts,
+        size,
         glyphs: vec![],
         used: vec![],
         styles,
@@ -282,14 +321,13 @@ pub fn shape<'a>(
 
     track_and_space(&mut ctx);
 
-    let (size, baseline) = measure(ctx.fonts, &ctx.glyphs, styles);
-
     ShapedText {
         text,
         dir,
         styles,
+        variant: ctx.variant,
         size,
-        baseline,
+        width: ctx.glyphs.iter().map(|g| g.x_advance).sum::<Em>().at(size),
         glyphs: Cow::Owned(ctx.glyphs),
     }
 }
@@ -443,9 +481,11 @@ fn shape_tofus(ctx: &mut ShapingContext, base: usize, text: &str, face_id: FaceI
 
 /// Apply tracking and spacing to a slice of shaped glyphs.
 fn track_and_space(ctx: &mut ShapingContext) {
-    let em = ctx.styles.get(TextNode::SIZE);
-    let tracking = Em::from_length(ctx.styles.get(TextNode::TRACKING), em);
-    let spacing = ctx.styles.get(TextNode::SPACING).map(|abs| Em::from_length(abs, em));
+    let tracking = Em::from_length(ctx.styles.get(TextNode::TRACKING), ctx.size);
+    let spacing = ctx
+        .styles
+        .get(TextNode::SPACING)
+        .map(|abs| Em::from_length(abs, ctx.size));
 
     if tracking.is_zero() && spacing.is_one() {
         return;
@@ -461,52 +501,6 @@ fn track_and_space(ctx: &mut ShapingContext) {
             glyph.x_advance += tracking;
         }
     }
-}
-
-/// Measure the size and baseline of a run of shaped glyphs with the given
-/// properties.
-fn measure(
-    fonts: &mut FontStore,
-    glyphs: &[ShapedGlyph],
-    styles: StyleChain,
-) -> (Size, Length) {
-    let mut width = Length::zero();
-    let mut top = Length::zero();
-    let mut bottom = Length::zero();
-
-    let size = styles.get(TextNode::SIZE);
-    let top_edge = styles.get(TextNode::TOP_EDGE);
-    let bottom_edge = styles.get(TextNode::BOTTOM_EDGE);
-
-    // Expand top and bottom by reading the face's vertical metrics.
-    let mut expand = |face: &Face| {
-        let metrics = face.metrics();
-        top.set_max(top_edge.resolve(styles, metrics));
-        bottom.set_max(-bottom_edge.resolve(styles, metrics));
-    };
-
-    if glyphs.is_empty() {
-        // When there are no glyphs, we just use the vertical metrics of the
-        // first available font.
-        let variant = variant(styles);
-        for family in families(styles) {
-            if let Some(face_id) = fonts.select(family, variant) {
-                expand(fonts.get(face_id));
-                break;
-            }
-        }
-    } else {
-        for (face_id, group) in glyphs.group_by_key(|g| g.face_id) {
-            let face = fonts.get(face_id);
-            expand(face);
-
-            for glyph in group {
-                width += glyph.x_advance.at(size);
-            }
-        }
-    }
-
-    (Size::new(width, top + bottom), top)
 }
 
 /// Resolve the font variant with `STRONG` and `EMPH` factored in.

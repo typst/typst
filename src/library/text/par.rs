@@ -104,7 +104,7 @@ impl Layout for ParNode {
         let lines = linebreak(&p, &mut ctx.fonts, regions.first.x);
 
         // Stack the lines into one frame per region.
-        Ok(stack(&lines, &ctx.fonts, regions, styles))
+        Ok(stack(&lines, &mut ctx.fonts, regions, styles))
     }
 }
 
@@ -300,10 +300,8 @@ struct Line<'a> {
     /// and `last` aren't trimmed to the line, but it doesn't matter because
     /// we're just checking which range an index falls into.
     ranges: &'a [Range],
-    /// The size of the line.
-    size: Size,
-    /// The baseline of the line.
-    baseline: Length,
+    /// The width of the line.
+    width: Length,
     /// The sum of fractions in the line.
     fr: Fraction,
     /// Whether the line ends at a mandatory break.
@@ -457,7 +455,7 @@ fn linebreak_simple<'a>(
         // If the line doesn't fit anymore, we push the last fitting attempt
         // into the stack and rebuild the line from its end. The resulting
         // line cannot be broken up further.
-        if !width.fits(attempt.size.x) {
+        if !width.fits(attempt.width) {
             if let Some((last_attempt, last_end)) = last.take() {
                 lines.push(last_attempt);
                 start = last_end;
@@ -468,7 +466,7 @@ fn linebreak_simple<'a>(
         // Finish the current line if there is a mandatory line break (i.e.
         // due to "\n") or if the line doesn't fit horizontally already
         // since then no shorter line will be possible.
-        if mandatory || !width.fits(attempt.size.x) {
+        if mandatory || !width.fits(attempt.width) {
             lines.push(attempt);
             start = end;
             last = None;
@@ -547,7 +545,7 @@ fn linebreak_optimized<'a>(
 
             // Determine how much the line's spaces would need to be stretched
             // to make it the desired width.
-            let delta = width - attempt.size.x;
+            let delta = width - attempt.width;
             let mut ratio = delta / attempt.stretch();
             if ratio.is_infinite() {
                 ratio = delta / (em / 2.0);
@@ -796,8 +794,6 @@ fn line<'a>(
     }
 
     let mut width = Length::zero();
-    let mut top = Length::zero();
-    let mut bottom = Length::zero();
     let mut fr = Fraction::zero();
 
     // Measure the size of the line.
@@ -805,16 +801,8 @@ fn line<'a>(
         match item {
             ParItem::Absolute(v) => width += *v,
             ParItem::Fractional(v) => fr += *v,
-            ParItem::Text(shaped) => {
-                width += shaped.size.x;
-                top.set_max(shaped.baseline);
-                bottom.set_max(shaped.size.y - shaped.baseline);
-            }
-            ParItem::Frame(frame) => {
-                width += frame.size.x;
-                top.set_max(frame.baseline());
-                bottom.set_max(frame.size.y - frame.baseline());
-            }
+            ParItem::Text(shaped) => width += shaped.width,
+            ParItem::Frame(frame) => width += frame.size.x,
         }
     }
 
@@ -825,8 +813,7 @@ fn line<'a>(
         items,
         last,
         ranges: &p.ranges[first_idx ..= last_idx],
-        size: Size::new(width, top + bottom),
-        baseline: top,
+        width,
         fr,
         mandatory,
         dash,
@@ -836,7 +823,7 @@ fn line<'a>(
 /// Combine layouted lines into one frame per region.
 fn stack(
     lines: &[Line],
-    fonts: &FontStore,
+    fonts: &mut FontStore,
     regions: &Regions,
     styles: StyleChain,
 ) -> Vec<Arc<Frame>> {
@@ -848,7 +835,7 @@ fn stack(
     // should expand or there's fractional spacing, fit-to-width otherwise.
     let mut width = regions.first.x;
     if !regions.expand.x && lines.iter().all(|line| line.fr.is_zero()) {
-        width = lines.iter().map(|line| line.size.x).max().unwrap_or_default();
+        width = lines.iter().map(|line| line.width).max().unwrap_or_default();
     }
 
     // State for final frame building.
@@ -859,7 +846,10 @@ fn stack(
 
     // Stack the lines into one frame per region.
     for line in lines {
-        while !regions.first.y.fits(line.size.y) && !regions.in_last() {
+        let frame = commit(line, fonts, width, align, justify);
+        let height = frame.size.y;
+
+        while !regions.first.y.fits(height) && !regions.in_last() {
             finished.push(Arc::new(output));
             output = Frame::new(Size::with_x(width));
             regions.next();
@@ -870,12 +860,11 @@ fn stack(
             output.size.y += leading;
         }
 
-        let frame = commit(line, fonts, width, align, justify);
         let pos = Point::with_y(output.size.y);
-        output.size.y += frame.size.y;
+        output.size.y += height;
         output.merge_frame(pos, frame);
 
-        regions.first.y -= line.size.y + leading;
+        regions.first.y -= height + leading;
         first = false;
     }
 
@@ -886,13 +875,12 @@ fn stack(
 /// Commit to a line and build its frame.
 fn commit(
     line: &Line,
-    fonts: &FontStore,
+    fonts: &mut FontStore,
     width: Length,
     align: Align,
     justify: bool,
 ) -> Frame {
-    let size = Size::new(width, line.size.y);
-    let mut remaining = width - line.size.x;
+    let mut remaining = width - line.width;
     let mut offset = Length::zero();
 
     // Reorder the line from logical to visual order.
@@ -903,8 +891,7 @@ fn commit(
         if let Some(glyph) = text.glyphs.first() {
             if text.styles.get(TextNode::OVERHANG) {
                 let start = text.dir.is_positive();
-                let em = text.styles.get(TextNode::SIZE);
-                let amount = overhang(glyph.c, start) * glyph.x_advance.at(em);
+                let amount = overhang(glyph.c, start) * glyph.x_advance.at(text.size);
                 offset -= amount;
                 remaining += amount;
             }
@@ -918,8 +905,7 @@ fn commit(
                 && (reordered.len() > 1 || text.glyphs.len() > 1)
             {
                 let start = !text.dir.is_positive();
-                let em = text.styles.get(TextNode::SIZE);
-                let amount = overhang(glyph.c, start) * glyph.x_advance.at(em);
+                let amount = overhang(glyph.c, start) * glyph.x_advance.at(text.size);
                 remaining += amount;
             }
         }
@@ -940,24 +926,41 @@ fn commit(
         }
     }
 
-    let mut output = Frame::new(size);
-    output.baseline = Some(line.baseline);
+    let mut top = Length::zero();
+    let mut bottom = Length::zero();
 
-    // Construct the line's frame from left to right.
+    // Build the frames and determine the height and baseline.
+    let mut frames = vec![];
     for item in reordered {
-        let mut position = |frame: Frame| {
-            let x = offset + align.position(remaining);
-            let y = line.baseline - frame.baseline();
-            offset += frame.size.x;
-            output.merge_frame(Point::new(x, y), frame);
+        let frame = match item {
+            ParItem::Absolute(v) => {
+                offset += *v;
+                continue;
+            }
+            ParItem::Fractional(v) => {
+                offset += v.share(line.fr, remaining);
+                continue;
+            }
+            ParItem::Text(shaped) => shaped.build(fonts, justification),
+            ParItem::Frame(frame) => frame.clone(),
         };
 
-        match item {
-            ParItem::Absolute(v) => offset += *v,
-            ParItem::Fractional(v) => offset += v.share(line.fr, remaining),
-            ParItem::Text(shaped) => position(shaped.build(fonts, justification)),
-            ParItem::Frame(frame) => position(frame.clone()),
-        }
+        let width = frame.size.x;
+        top.set_max(frame.baseline());
+        bottom.set_max(frame.size.y - frame.baseline());
+        frames.push((offset, frame));
+        offset += width;
+    }
+
+    let size = Size::new(width, top + bottom);
+    let mut output = Frame::new(size);
+    output.baseline = Some(top);
+
+    // Construct the line's frame.
+    for (offset, frame) in frames {
+        let x = offset + align.position(remaining);
+        let y = top - frame.baseline();
+        output.merge_frame(Point::new(x, y), frame);
     }
 
     output
