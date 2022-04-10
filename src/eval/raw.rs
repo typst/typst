@@ -6,7 +6,7 @@ use super::{Fold, Resolve, Smart, StyleChain, Value};
 use crate::geom::{
     Align, Em, Get, Length, Numeric, Paint, Relative, Spec, SpecAxis, Stroke,
 };
-use crate::library::text::{ParNode, TextNode};
+use crate::library::text::TextNode;
 
 /// The unresolved alignment representation.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -23,7 +23,7 @@ impl Resolve for RawAlign {
     type Output = Align;
 
     fn resolve(self, styles: StyleChain) -> Self::Output {
-        let dir = styles.get(ParNode::DIR);
+        let dir = styles.get(TextNode::DIR);
         match self {
             Self::Start => dir.start().into(),
             Self::End => dir.end().into(),

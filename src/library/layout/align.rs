@@ -1,5 +1,5 @@
 use crate::library::prelude::*;
-use crate::library::text::ParNode;
+use crate::library::text::{HorizontalAlign, ParNode};
 
 /// Align a node along the layouting axes.
 #[derive(Debug, Hash)]
@@ -33,7 +33,7 @@ impl Layout for AlignNode {
         // Align paragraphs inside the child.
         let mut passed = StyleMap::new();
         if let Some(align) = self.aligns.x {
-            passed.set(ParNode::ALIGN, align);
+            passed.set(ParNode::ALIGN, HorizontalAlign(align));
         }
 
         // Layout the child.

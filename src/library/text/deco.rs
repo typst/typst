@@ -24,6 +24,7 @@ impl<const L: DecoLine> DecoNode<L> {
     /// tables if `auto`.
     #[property(shorthand, resolve, fold)]
     pub const STROKE: Smart<RawStroke> = Smart::Auto;
+
     /// Position of the line relative to the baseline, read from the font tables
     /// if `auto`.
     #[property(resolve)]
@@ -31,6 +32,7 @@ impl<const L: DecoLine> DecoNode<L> {
     /// Amount that the line will be longer or shorter than its associated text.
     #[property(resolve)]
     pub const EXTENT: RawLength = RawLength::zero();
+
     /// Whether the line skips sections in which it would collide
     /// with the glyphs. Does not apply to strikethrough.
     pub const EVADE: bool = true;

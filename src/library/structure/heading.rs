@@ -25,6 +25,7 @@ impl HeadingNode {
         let upscale = (1.6 - 0.1 * level as f64).max(0.75);
         TextSize(Em::new(upscale).into())
     });
+
     /// Whether text in the heading is strengthend.
     #[property(referenced)]
     pub const STRONG: Leveled<bool> = Leveled::Value(true);
@@ -34,12 +35,14 @@ impl HeadingNode {
     /// Whether the heading is underlined.
     #[property(referenced)]
     pub const UNDERLINE: Leveled<bool> = Leveled::Value(false);
+
     /// The extra padding above the heading.
     #[property(referenced)]
     pub const ABOVE: Leveled<RawLength> = Leveled::Value(Length::zero().into());
     /// The extra padding below the heading.
     #[property(referenced)]
     pub const BELOW: Leveled<RawLength> = Leveled::Value(Length::zero().into());
+
     /// Whether the heading is block-level.
     #[property(referenced)]
     pub const BLOCK: Leveled<bool> = Leveled::Value(true);

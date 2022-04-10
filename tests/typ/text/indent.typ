@@ -19,8 +19,8 @@ starts a paragraph without indent.
 
   Except if you have another paragraph in them.
 
-#set text(8pt, "Noto Sans Arabic", "IBM Plex Sans")
-#set par(lang: "ar", leading: 8pt)
+#set text(8pt, lang: "ar", "Noto Sans Arabic", "IBM Plex Sans")
+#set par(leading: 8pt)
 
 = Arabic
 دع النص يمطر عليك

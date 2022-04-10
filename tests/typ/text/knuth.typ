@@ -1,6 +1,6 @@
 #set page(width: auto, height: auto)
-#set par(lang: "en", leading: 4pt, justify: true)
-#set text(family: "Latin Modern Roman")
+#set par(leading: 4pt, justify: true)
+#set text(lang: "en", family: "Latin Modern Roman")
 
 #let story = [
   In olden times when wishing still helped one, there lived a king whose
@@ -16,7 +16,7 @@
 #let column(title, linebreaks, hyphenate) = {
   rect(width: 132pt, fill: rgb("eee"))[
     #strong(title)
-    #par(linebreaks: linebreaks, hyphenate: hyphenate, story)
+    #par(linebreaks: linebreaks, text(hyphenate: hyphenate, story))
   ]
 }
 

@@ -26,6 +26,7 @@ impl<const S: ShapeKind> ShapeNode<S> {
     /// How to stroke the shape.
     #[property(resolve, fold)]
     pub const STROKE: Smart<Option<RawStroke>> = Smart::Auto;
+
     /// How much to pad the shape's content.
     pub const PADDING: Relative<RawLength> = Relative::zero();
 

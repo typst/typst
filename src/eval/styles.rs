@@ -66,6 +66,14 @@ impl StyleMap {
         self.0.push(Entry::Recipe(Recipe::new::<T>(func, span)));
     }
 
+    /// Whether the map contains a style property for the given key.
+    pub fn contains<'a, K: Key<'a>>(&self, _: K) -> bool {
+        self.0
+            .iter()
+            .filter_map(|entry| entry.property())
+            .any(|property| property.key == TypeId::of::<K>())
+    }
+
     /// Make `self` the first link of the `tail` chain.
     ///
     /// The resulting style chain contains styles from `self` as well as
@@ -261,7 +269,7 @@ where
 ///
 /// This trait is not intended to be implemented manually, but rather through
 /// the `#[node]` proc-macro.
-pub trait Key<'a>: 'static {
+pub trait Key<'a>: Copy + 'static {
     /// The unfolded type which this property is stored as in a style map. For
     /// example, this is [`Toggle`](crate::geom::Length) for the
     /// [`STRONG`](TextNode::STRONG) property.
@@ -678,6 +686,15 @@ impl<T> StyleVec<T> {
     /// Number of items in the sequence.
     pub fn len(&self) -> usize {
         self.items.len()
+    }
+
+    /// Iterate over the contained maps. Note that zipping this with `items()`
+    /// does not yield the same result as calling `iter()` because this method
+    /// only returns maps once that are shared by consecutive items. This method
+    /// is designed for use cases where you want to check, for example, whether
+    /// any of the maps fulfills a specific property.
+    pub fn maps(&self) -> impl Iterator<Item = &StyleMap> {
+        self.maps.iter().map(|(map, _)| map)
     }
 
     /// Iterate over the contained items.

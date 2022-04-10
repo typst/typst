@@ -33,6 +33,7 @@ impl<const L: ListKind> ListNode<L> {
     /// How the list is labelled.
     #[property(referenced)]
     pub const LABEL: Label = Label::Default;
+
     /// The spacing between the list items of a non-wide list.
     #[property(resolve)]
     pub const SPACING: RawLength = RawLength::zero();
@@ -42,6 +43,7 @@ impl<const L: ListKind> ListNode<L> {
     /// The space between the label and the body of each item.
     #[property(resolve)]
     pub const BODY_INDENT: RawLength = Em::new(0.5).into();
+
     /// The extra padding above the list.
     #[property(resolve)]
     pub const ABOVE: RawLength = RawLength::zero();
@@ -137,7 +139,7 @@ pub const UNORDERED: ListKind = 0;
 /// Ordered list labelling style.
 pub const ORDERED: ListKind = 1;
 
-/// Either content or a closure mapping to content.
+/// How to label a list or enumeration.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum Label {
     /// The default labelling.

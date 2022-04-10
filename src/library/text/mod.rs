@@ -61,6 +61,18 @@ impl TextNode {
     /// The bottom end of the text bounding box.
     pub const BOTTOM_EDGE: TextEdge = TextEdge::Metric(VerticalFontMetric::Baseline);
 
+    /// An ISO 639-1 language code.
+    #[property(referenced)]
+    pub const LANG: Option<Lang> = None;
+    /// The direction for text and inline objects. When `auto`, the direction is
+    /// automatically inferred from the language.
+    #[property(resolve)]
+    pub const DIR: Smart<HorizontalDir> = Smart::Auto;
+    /// Whether to hyphenate text to improve line breaking. When `auto`, words
+    /// will will be hyphenated if and only if justification is enabled.
+    #[property(resolve)]
+    pub const HYPHENATE: Smart<Hyphenate> = Smart::Auto;
+
     /// Whether to apply kerning ("kern").
     pub const KERNING: bool = true;
     /// Whether small capital glyphs should be used. ("smcp")
@@ -239,6 +251,80 @@ castable! {
         "descender" => VerticalFontMetric::Descender,
         _ => Err("unknown font metric")?,
     }),
+}
+
+/// A natural language.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct Lang(EcoString);
+
+impl Lang {
+    /// The default direction for the language.
+    pub fn dir(&self) -> Dir {
+        match self.0.as_str() {
+            "ar" | "dv" | "fa" | "he" | "ks" | "pa" | "ps" | "sd" | "ug" | "ur"
+            | "yi" => Dir::RTL,
+            _ => Dir::LTR,
+        }
+    }
+
+    /// Return the language code as a string slice.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+castable! {
+    Lang,
+    Expected: "string",
+    Value::Str(string) => Self(string.to_lowercase()),
+}
+
+/// The direction of text and inline objects in their line.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct HorizontalDir(pub Dir);
+
+castable! {
+    HorizontalDir,
+    Expected: "direction",
+    @dir: Dir => match dir.axis() {
+        SpecAxis::Horizontal => Self(*dir),
+        SpecAxis::Vertical => Err("must be horizontal")?,
+    },
+}
+
+impl Resolve for Smart<HorizontalDir> {
+    type Output = Dir;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        match self {
+            Smart::Auto => match styles.get(TextNode::LANG) {
+                Some(lang) => lang.dir(),
+                None => Dir::LTR,
+            },
+            Smart::Custom(dir) => dir.0,
+        }
+    }
+}
+
+/// Whether to hyphenate text.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct Hyphenate(pub bool);
+
+castable! {
+    Hyphenate,
+    Expected: "boolean",
+    Value::Bool(v) => Self(v),
+}
+
+impl Resolve for Smart<Hyphenate> {
+    type Output = bool;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        match self {
+            Smart::Auto => styles.get(ParNode::JUSTIFY),
+            Smart::Custom(v) => v.0,
+        }
+    }
 }
 
 /// A stylistic set in a font face.

@@ -21,6 +21,7 @@ impl TableNode {
     /// How to stroke the cells.
     #[property(resolve, fold)]
     pub const STROKE: Option<RawStroke> = Some(RawStroke::default());
+
     /// How much to pad the cells's content.
     pub const PADDING: Relative<RawLength> = Length::pt(5.0).into();
 

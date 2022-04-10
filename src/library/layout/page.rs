@@ -17,6 +17,7 @@ impl PageNode {
     pub const HEIGHT: Smart<RawLength> = Smart::Custom(Paper::A4.height().into());
     /// Whether the page is flipped into landscape orientation.
     pub const FLIPPED: bool = false;
+
     /// The left margin.
     pub const LEFT: Smart<Relative<RawLength>> = Smart::Auto;
     /// The right margin.
@@ -25,10 +26,12 @@ impl PageNode {
     pub const TOP: Smart<Relative<RawLength>> = Smart::Auto;
     /// The bottom margin.
     pub const BOTTOM: Smart<Relative<RawLength>> = Smart::Auto;
-    /// The page's background color.
-    pub const FILL: Option<Paint> = None;
+
     /// How many columns the page has.
     pub const COLUMNS: NonZeroUsize = NonZeroUsize::new(1).unwrap();
+    /// The page's background color.
+    pub const FILL: Option<Paint> = None;
+
     /// The page's header.
     #[property(referenced)]
     pub const HEADER: Marginal = Marginal::None;

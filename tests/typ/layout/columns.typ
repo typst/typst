@@ -3,9 +3,8 @@
 ---
 // Test normal operation and RTL directions.
 #set page(height: 3.25cm, width: 7.05cm, columns: 2)
+#set text(lang: "ar", "Noto Sans Arabic", "IBM Plex Serif")
 #set columns(gutter: 30pt)
-#set text("Noto Sans Arabic", "IBM Plex Serif")
-#set par(lang: "ar")
 
 #rect(fill: conifer, height: 8pt, width: 6pt) وتحفيز
 العديد من التفاعلات الكيميائية. (DNA) من أهم الأحماض النووية التي تُشكِّل

@@ -23,8 +23,7 @@ A#box["]B
 ‹Book quotes are even smarter.› \
 
 ---
-#set par(lang: "ar")
-#set text("Noto Sans Arabic", "IBM Plex Sans")
+#set text(lang: "ar", "Noto Sans Arabic", "IBM Plex Sans")
 "المطر هو الحياة" \
 المطر هو الحياة
 

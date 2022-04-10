@@ -1,5 +1,5 @@
 use crate::library::prelude::*;
-use crate::library::text::ParNode;
+use crate::library::text::TextNode;
 
 /// Separate a region into multiple equally sized columns.
 #[derive(Debug, Hash)]
@@ -59,7 +59,7 @@ impl Layout for ColumnsNode {
         // Layout the children.
         let mut frames = self.child.layout(ctx, &pod, styles)?.into_iter();
 
-        let dir = styles.get(ParNode::DIR);
+        let dir = styles.get(TextNode::DIR);
         let total_regions = (frames.len() as f32 / columns as f32).ceil() as usize;
         let mut finished = vec![];
 

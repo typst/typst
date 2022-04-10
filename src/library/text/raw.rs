@@ -3,7 +3,7 @@ use syntect::easy::HighlightLines;
 use syntect::highlighting::{FontStyle, Highlighter, Style, Theme, ThemeSet};
 use syntect::parsing::SyntaxSet;
 
-use super::{FontFamily, TextNode, Toggle};
+use super::{FontFamily, Hyphenate, TextNode, Toggle};
 use crate::library::prelude::*;
 use crate::source::SourceId;
 use crate::syntax::{self, RedNode};
@@ -29,6 +29,7 @@ impl RawNode {
     /// The raw text's font family. Just the normal text family if `none`.
     #[property(referenced)]
     pub const FAMILY: Smart<FontFamily> = Smart::Custom(FontFamily::new("IBM Plex Mono"));
+
     /// The language to syntax-highlight in.
     #[property(referenced)]
     pub const LANG: Option<EcoString> = None;
@@ -97,6 +98,9 @@ impl Show for RawNode {
         };
 
         let mut map = StyleMap::new();
+        map.set(TextNode::OVERHANG, false);
+        map.set(TextNode::HYPHENATE, Smart::Custom(Hyphenate(false)));
+
         if let Smart::Custom(family) = styles.get(Self::FAMILY) {
             map.set_family(family.clone(), styles);
         }

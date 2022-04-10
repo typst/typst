@@ -1,10 +1,9 @@
 use std::sync::Arc;
 
-use either::Either;
 use unicode_bidi::{BidiInfo, Level};
 use xi_unicode::LineBreakIterator;
 
-use super::{shape, ShapedText, TextNode};
+use super::{shape, Lang, ShapedText, TextNode};
 use crate::font::FontStore;
 use crate::library::layout::Spacing;
 use crate::library::prelude::*;
@@ -27,21 +26,6 @@ pub enum ParChild {
 
 #[node]
 impl ParNode {
-    /// An ISO 639-1 language code.
-    #[property(referenced)]
-    pub const LANG: Option<EcoString> = None;
-    /// The direction for text and inline objects.
-    pub const DIR: Dir = Dir::LTR;
-    /// How to align text and inline objects in their line.
-    #[property(resolve)]
-    pub const ALIGN: RawAlign = RawAlign::Start;
-    /// Whether to justify text in its line.
-    pub const JUSTIFY: bool = false;
-    /// How to determine line breaks.
-    pub const LINEBREAKS: Smart<Linebreaks> = Smart::Auto;
-    /// Whether to hyphenate text to improve line breaking. When `auto`, words
-    /// will will be hyphenated if and only if justification is enabled.
-    pub const HYPHENATE: Smart<bool> = Smart::Auto;
     /// The spacing between lines.
     #[property(resolve)]
     pub const LEADING: RawLength = Em::new(0.65).into();
@@ -52,51 +36,21 @@ impl ParNode {
     #[property(resolve)]
     pub const INDENT: RawLength = RawLength::zero();
 
+    /// How to align text and inline objects in their line.
+    #[property(resolve)]
+    pub const ALIGN: HorizontalAlign = HorizontalAlign(RawAlign::Start);
+    /// Whether to justify text in its line.
+    pub const JUSTIFY: bool = false;
+    /// How to determine line breaks.
+    #[property(resolve)]
+    pub const LINEBREAKS: Smart<Linebreaks> = Smart::Auto;
+
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         // The paragraph constructor is special: It doesn't create a paragraph
         // since that happens automatically through markup. Instead, it just
         // lifts the passed body to the block level so that it won't merge with
         // adjacent stuff and it styles the contained paragraphs.
         Ok(Content::Block(args.expect("body")?))
-    }
-
-    fn set(args: &mut Args) -> TypResult<StyleMap> {
-        let mut styles = StyleMap::new();
-
-        let lang = args.named::<Option<EcoString>>("lang")?;
-        let mut dir =
-            lang.clone().flatten().map(|iso| match iso.to_lowercase().as_str() {
-                "ar" | "dv" | "fa" | "he" | "ks" | "pa" | "ps" | "sd" | "ug" | "ur"
-                | "yi" => Dir::RTL,
-                _ => Dir::LTR,
-            });
-
-        if let Some(Spanned { v, span }) = args.named::<Spanned<Dir>>("dir")? {
-            if v.axis() != SpecAxis::Horizontal {
-                bail!(span, "must be horizontal");
-            }
-            dir = Some(v);
-        }
-
-        let mut align = None;
-        if let Some(Spanned { v, span }) = args.named::<Spanned<RawAlign>>("align")? {
-            if v.axis() != SpecAxis::Horizontal {
-                bail!(span, "must be horizontal");
-            }
-            align = Some(v);
-        };
-
-        styles.set_opt(Self::LANG, lang);
-        styles.set_opt(Self::DIR, dir);
-        styles.set_opt(Self::ALIGN, align);
-        styles.set_opt(Self::JUSTIFY, args.named("justify")?);
-        styles.set_opt(Self::LINEBREAKS, args.named("linebreaks")?);
-        styles.set_opt(Self::HYPHENATE, args.named("hyphenate")?);
-        styles.set_opt(Self::LEADING, args.named("leading")?);
-        styles.set_opt(Self::SPACING, args.named("spacing")?);
-        styles.set_opt(Self::INDENT, args.named("indent")?);
-
-        Ok(styles)
     }
 }
 
@@ -147,7 +101,7 @@ impl Layout for ParNode {
         let p = prepare(ctx, self, &text, regions, &styles)?;
 
         // Break the paragraph into lines.
-        let lines = linebreak(&p, &mut ctx.fonts, regions.first.x, styles);
+        let lines = linebreak(&p, &mut ctx.fonts, regions.first.x);
 
         // Stack the lines into one frame per region.
         Ok(stack(&lines, &ctx.fonts, regions, styles))
@@ -182,6 +136,27 @@ impl Merge for ParChild {
     }
 }
 
+/// A horizontal alignment.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct HorizontalAlign(pub RawAlign);
+
+castable! {
+    HorizontalAlign,
+    Expected: "alignment",
+    @align: RawAlign => match align.axis() {
+        SpecAxis::Horizontal => Self(*align),
+        SpecAxis::Vertical => Err("must be horizontal")?,
+    },
+}
+
+impl Resolve for HorizontalAlign {
+    type Output = Align;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        self.0.resolve(styles)
+    }
+}
+
 /// How to determine line breaks in a paragraph.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Linebreaks {
@@ -199,6 +174,20 @@ castable! {
         "optimized" => Self::Optimized,
         _ => Err(r#"expected "simple" or "optimized""#)?,
     },
+}
+
+impl Resolve for Smart<Linebreaks> {
+    type Output = Linebreaks;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        self.unwrap_or_else(|| {
+            if styles.get(ParNode::JUSTIFY) {
+                Linebreaks::Optimized
+            } else {
+                Linebreaks::Simple
+            }
+        })
+    }
 }
 
 /// A paragraph break.
@@ -233,16 +222,34 @@ type Range = std::ops::Range<usize>;
 struct Preparation<'a> {
     /// Bidirectional text embedding levels for the paragraph.
     bidi: BidiInfo<'a>,
+    /// The paragraph's children.
+    children: &'a StyleVec<ParChild>,
     /// Spacing, separated text runs and layouted nodes.
     items: Vec<ParItem<'a>>,
     /// The ranges of the items in `bidi.text`.
     ranges: Vec<Range>,
+    /// The shared styles.
+    styles: StyleChain<'a>,
 }
 
-impl Preparation<'_> {
+impl<'a> Preparation<'a> {
+    /// Find the item whose range contains the `text_offset`.
+    fn find(&self, text_offset: usize) -> Option<&ParItem<'a>> {
+        self.find_idx(text_offset).map(|idx| &self.items[idx])
+    }
+
     /// Find the index of the item whose range contains the `text_offset`.
-    fn find(&self, text_offset: usize) -> Option<usize> {
+    fn find_idx(&self, text_offset: usize) -> Option<usize> {
         self.ranges.binary_search_by(|r| r.locate(text_offset)).ok()
+    }
+
+    /// Get a style property, but only if it is the same for all children of the
+    /// paragraph.
+    fn get_shared<K: Key<'a>>(&self, key: K) -> Option<K::Output> {
+        self.children
+            .maps()
+            .all(|map| !map.contains(key))
+            .then(|| self.styles.get(key))
     }
 }
 
@@ -256,6 +263,16 @@ enum ParItem<'a> {
     Text(ShapedText<'a>),
     /// A layouted child node.
     Frame(Frame),
+}
+
+impl<'a> ParItem<'a> {
+    /// If this a text item, return it.
+    fn text(&self) -> Option<&ShapedText<'a>> {
+        match self {
+            Self::Text(shaped) => Some(shaped),
+            _ => None,
+        }
+    }
 }
 
 /// A layouted line, consisting of a sequence of layouted paragraph items that
@@ -315,10 +332,8 @@ impl<'a> Line<'a> {
     // How many justifiable glyphs the line contains.
     fn justifiables(&self) -> usize {
         let mut count = 0;
-        for item in self.items() {
-            if let ParItem::Text(shaped) = item {
-                count += shaped.justifiables();
-            }
+        for shaped in self.items().filter_map(ParItem::text) {
+            count += shaped.justifiables();
         }
         count
     }
@@ -326,10 +341,8 @@ impl<'a> Line<'a> {
     /// How much of the line is stretchable spaces.
     fn stretch(&self) -> Length {
         let mut stretch = Length::zero();
-        for item in self.items() {
-            if let ParItem::Text(shaped) = item {
-                stretch += shaped.stretch();
-            }
+        for shaped in self.items().filter_map(ParItem::text) {
+            stretch += shaped.stretch();
         }
         stretch
     }
@@ -344,7 +357,7 @@ fn prepare<'a>(
     regions: &Regions,
     styles: &'a StyleChain,
 ) -> TypResult<Preparation<'a>> {
-    let bidi = BidiInfo::new(&text, match styles.get(ParNode::DIR) {
+    let bidi = BidiInfo::new(&text, match styles.get(TextNode::DIR) {
         Dir::LTR => Some(Level::ltr()),
         Dir::RTL => Some(Level::rtl()),
         _ => None,
@@ -358,7 +371,7 @@ fn prepare<'a>(
         let styles = map.chain(styles);
         match child {
             ParChild::Text(_) => {
-                // TODO: Also split by language and script.
+                // TODO: Also split by language.
                 let mut cursor = range.start;
                 for (level, count) in bidi.levels[range].group() {
                     let start = cursor;
@@ -402,7 +415,13 @@ fn prepare<'a>(
         }
     }
 
-    Ok(Preparation { bidi, items, ranges })
+    Ok(Preparation {
+        bidi,
+        children: &par.0,
+        items,
+        ranges,
+        styles: *styles,
+    })
 }
 
 /// Find suitable linebreaks.
@@ -410,22 +429,13 @@ fn linebreak<'a>(
     p: &'a Preparation<'a>,
     fonts: &mut FontStore,
     width: Length,
-    styles: StyleChain,
 ) -> Vec<Line<'a>> {
-    let breaks = styles.get(ParNode::LINEBREAKS).unwrap_or_else(|| {
-        if styles.get(ParNode::JUSTIFY) {
-            Linebreaks::Optimized
-        } else {
-            Linebreaks::Simple
-        }
-    });
-
-    let breaker = match breaks {
+    let breaker = match p.styles.get(ParNode::LINEBREAKS) {
         Linebreaks::Simple => linebreak_simple,
         Linebreaks::Optimized => linebreak_optimized,
     };
 
-    breaker(p, fonts, width, styles)
+    breaker(p, fonts, width)
 }
 
 /// Perform line breaking in simple first-fit style. This means that we build
@@ -435,13 +445,12 @@ fn linebreak_simple<'a>(
     p: &'a Preparation<'a>,
     fonts: &mut FontStore,
     width: Length,
-    styles: StyleChain,
 ) -> Vec<Line<'a>> {
     let mut lines = vec![];
     let mut start = 0;
     let mut last = None;
 
-    for (end, mandatory, hyphen) in breakpoints(&p.bidi.text, styles) {
+    for (end, mandatory, hyphen) in breakpoints(p) {
         // Compute the line and its size.
         let mut attempt = line(p, fonts, start .. end, mandatory, hyphen);
 
@@ -496,7 +505,6 @@ fn linebreak_optimized<'a>(
     p: &'a Preparation<'a>,
     fonts: &mut FontStore,
     width: Length,
-    styles: StyleChain,
 ) -> Vec<Line<'a>> {
     /// The cost of a line or paragraph layout.
     type Cost = f64;
@@ -515,8 +523,8 @@ fn linebreak_optimized<'a>(
     const MIN_COST: Cost = -MAX_COST;
     const MIN_RATIO: f64 = -0.15;
 
-    let em = styles.get(TextNode::SIZE);
-    let justify = styles.get(ParNode::JUSTIFY);
+    let em = p.styles.get(TextNode::SIZE);
+    let justify = p.styles.get(ParNode::JUSTIFY);
 
     // Dynamic programming table.
     let mut active = 0;
@@ -526,7 +534,7 @@ fn linebreak_optimized<'a>(
         line: line(p, fonts, 0 .. 0, false, false),
     }];
 
-    for (end, mandatory, hyphen) in breakpoints(&p.bidi.text, styles) {
+    for (end, mandatory, hyphen) in breakpoints(p) {
         let k = table.len();
         let eof = end == p.bidi.text.len();
         let mut best: Option<Entry> = None;
@@ -611,47 +619,104 @@ fn linebreak_optimized<'a>(
 /// Returns for each breakpoint the text index, whether the break is mandatory
 /// (after `\n`) and whether a hyphen is required (when breaking inside of a
 /// word).
-fn breakpoints<'a>(
-    text: &'a str,
-    styles: StyleChain,
-) -> impl Iterator<Item = (usize, bool, bool)> + 'a {
-    let mut lang = None;
-    if styles.get(ParNode::HYPHENATE).unwrap_or(styles.get(ParNode::JUSTIFY)) {
-        lang = styles
-            .get(ParNode::LANG)
-            .as_ref()
-            .and_then(|iso| iso.as_bytes().try_into().ok())
-            .and_then(hypher::Lang::from_iso);
+fn breakpoints<'a>(p: &'a Preparation) -> impl Iterator<Item = (usize, bool, bool)> + 'a {
+    Breakpoints {
+        p,
+        linebreaks: LineBreakIterator::new(p.bidi.text),
+        syllables: None,
+        offset: 0,
+        suffix: 0,
+        end: 0,
+        mandatory: false,
+        hyphenate: p.get_shared(TextNode::HYPHENATE),
+        lang: p.get_shared(TextNode::LANG).map(Option::as_ref),
+    }
+}
+
+/// An iterator over the line break opportunities in a text.
+struct Breakpoints<'a> {
+    /// The paragraph's items.
+    p: &'a Preparation<'a>,
+    /// The inner iterator over the unicode line break opportunities.
+    linebreaks: LineBreakIterator<'a>,
+    /// Iterator over syllables of the current word.
+    syllables: Option<hypher::Syllables<'a>>,
+    /// The current text offset.
+    offset: usize,
+    /// The trimmed end of the current word.
+    suffix: usize,
+    /// The untrimmed end of the current word.
+    end: usize,
+    /// Whether the break after the current word is mandatory.
+    mandatory: bool,
+    /// Whether to hyphenate if it's the same for all children.
+    hyphenate: Option<bool>,
+    /// The text language if it's the same for all children.
+    lang: Option<Option<&'a Lang>>,
+}
+
+impl Iterator for Breakpoints<'_> {
+    type Item = (usize, bool, bool);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // If we're currently in a hyphenated "word", process the next syllable.
+        if let Some(syllable) = self.syllables.as_mut().and_then(Iterator::next) {
+            self.offset += syllable.len();
+            if self.offset == self.suffix {
+                self.offset = self.end;
+            }
+
+            // Filter out hyphenation opportunities where hyphenation was
+            // actually disabled.
+            let hyphen = self.offset < self.end;
+            if hyphen && !self.hyphenate_at(self.offset) {
+                return self.next();
+            }
+
+            return Some((self.offset, self.mandatory && !hyphen, hyphen));
+        }
+
+        // Get the next "word".
+        (self.end, self.mandatory) = self.linebreaks.next()?;
+
+        // Hyphenate the next word.
+        if self.hyphenate != Some(false) {
+            if let Some(lang) = self.lang_at(self.offset) {
+                let word = &self.p.bidi.text[self.offset .. self.end];
+                let trimmed = word.trim_end_matches(|c: char| !c.is_alphabetic());
+                if !trimmed.is_empty() {
+                    self.suffix = self.offset + trimmed.len();
+                    self.syllables = Some(hypher::hyphenate(trimmed, lang));
+                    return self.next();
+                }
+            }
+        }
+
+        self.offset = self.end;
+        Some((self.end, self.mandatory, false))
+    }
+}
+
+impl Breakpoints<'_> {
+    /// Whether hyphenation is enabled at the given offset.
+    fn hyphenate_at(&self, offset: usize) -> bool {
+        self.hyphenate
+            .or_else(|| {
+                let shaped = self.p.find(offset)?.text()?;
+                Some(shaped.styles.get(TextNode::HYPHENATE))
+            })
+            .unwrap_or(false)
     }
 
-    let breaks = LineBreakIterator::new(text);
-    let mut last = 0;
+    /// The text language at the given offset.
+    fn lang_at(&self, offset: usize) -> Option<hypher::Lang> {
+        let lang = self.lang.unwrap_or_else(|| {
+            let shaped = self.p.find(offset)?.text()?;
+            shaped.styles.get(TextNode::LANG).as_ref()
+        })?;
 
-    if let Some(lang) = lang {
-        Either::Left(breaks.flat_map(move |(end, mandatory)| {
-            // We don't want to confuse the hyphenator with trailing
-            // punctuation, so we trim it. And if that makes the word empty, we
-            // need to return the single breakpoint manually because hypher
-            // would eat it.
-            let word = &text[last .. end];
-            let trimmed = word.trim_end_matches(|c: char| !c.is_alphabetic());
-            let suffix = last + trimmed.len();
-            let mut start = std::mem::replace(&mut last, end);
-            if trimmed.is_empty() {
-                Either::Left([(end, mandatory, false)].into_iter())
-            } else {
-                Either::Right(hypher::hyphenate(trimmed, lang).map(move |syllable| {
-                    start += syllable.len();
-                    if start == suffix {
-                        start = end;
-                    }
-                    let hyphen = start < end;
-                    (start, mandatory && !hyphen, hyphen)
-                }))
-            }
-        }))
-    } else {
-        Either::Right(breaks.map(|(e, m)| (e, m, false)))
+        let bytes = lang.as_str().as_bytes().try_into().ok()?;
+        hypher::Lang::from_iso(bytes)
     }
 }
 
@@ -664,11 +729,11 @@ fn line<'a>(
     hyphen: bool,
 ) -> Line<'a> {
     // Find the items which bound the text range.
-    let last_idx = p.find(range.end.saturating_sub(1)).unwrap();
+    let last_idx = p.find_idx(range.end.saturating_sub(1)).unwrap();
     let first_idx = if range.is_empty() {
         last_idx
     } else {
-        p.find(range.start).unwrap()
+        p.find_idx(range.start).unwrap()
     };
 
     // Slice out the relevant items.
