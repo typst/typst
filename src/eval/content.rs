@@ -28,7 +28,7 @@ use crate::util::EcoString;
 /// 1. A `Styled` node attaches a style map to other content. For example, a
 ///    single bold word could be represented as a `Styled(Text("Hello"),
 ///    [TextNode::STRONG: true])` node.
-
+///
 /// 2. A `Sequence` node content combines other arbitrary content and is the
 ///    representation of a "flow" of other nodes. So, when you write `[Hi] +
 ///    [you]` in Typst, this type's [`Add`] implementation is invoked and the
@@ -175,9 +175,83 @@ impl Content {
     }
 }
 
+impl Layout for Content {
+    fn layout(
+        &self,
+        ctx: &mut Context,
+        regions: &Regions,
+        styles: StyleChain,
+    ) -> TypResult<Vec<Arc<Frame>>> {
+        let sya = Arena::new();
+        let tpa = Arena::new();
+
+        let mut builder = Builder::new(&sya, &tpa, false);
+        builder.process(ctx, self, styles)?;
+        builder.finish(ctx, styles)?;
+
+        let (flow, shared) = builder.flow.finish();
+        FlowNode(flow).layout(ctx, regions, shared)
+    }
+
+    fn pack(self) -> LayoutNode {
+        match self {
+            Content::Block(node) => node,
+            other => LayoutNode::new(other),
+        }
+    }
+}
+
 impl Default for Content {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl Debug for Content {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Self::Space => f.pad("Space"),
+            Self::Linebreak => f.pad("Linebreak"),
+            Self::Horizontal(kind) => write!(f, "Horizontal({kind:?})"),
+            Self::Text(text) => write!(f, "Text({text:?})"),
+            Self::Inline(node) => {
+                f.write_str("Inline(")?;
+                node.fmt(f)?;
+                f.write_str(")")
+            }
+            Self::Parbreak => f.pad("Parbreak"),
+            Self::Colbreak => f.pad("Colbreak"),
+            Self::Vertical(kind) => write!(f, "Vertical({kind:?})"),
+            Self::Block(node) => {
+                f.write_str("Block(")?;
+                node.fmt(f)?;
+                f.write_str(")")
+            }
+            Self::List(item) => {
+                f.write_str("- ")?;
+                item.body.fmt(f)
+            }
+            Self::Enum(item) => {
+                if let Some(number) = item.number {
+                    write!(f, "{}", number)?;
+                }
+                f.write_str(". ")?;
+                item.body.fmt(f)
+            }
+            Self::Pagebreak => f.pad("Pagebreak"),
+            Self::Page(page) => page.fmt(f),
+            Self::Show(node) => {
+                f.write_str("Show(")?;
+                node.fmt(f)?;
+                f.write_str(")")
+            }
+            Self::Styled(styled) => {
+                let (sub, map) = styled.as_ref();
+                map.fmt(f)?;
+                sub.fmt(f)
+            }
+            Self::Sequence(seq) => f.debug_list().entries(seq.iter()).finish(),
+        }
     }
 }
 
@@ -219,32 +293,6 @@ impl Sum for Content {
     }
 }
 
-impl Layout for Content {
-    fn layout(
-        &self,
-        ctx: &mut Context,
-        regions: &Regions,
-        styles: StyleChain,
-    ) -> TypResult<Vec<Arc<Frame>>> {
-        let sya = Arena::new();
-        let tpa = Arena::new();
-
-        let mut builder = Builder::new(&sya, &tpa, false);
-        builder.process(ctx, self, styles)?;
-        builder.finish(ctx, styles)?;
-
-        let (flow, shared) = builder.flow.finish();
-        FlowNode(flow).layout(ctx, regions, shared)
-    }
-
-    fn pack(self) -> LayoutNode {
-        match self {
-            Content::Block(node) => node,
-            other => LayoutNode::new(other),
-        }
-    }
-}
-
 /// Builds a flow or page nodes from content.
 struct Builder<'a> {
     /// An arena where intermediate style chains are stored.
@@ -261,6 +309,15 @@ struct Builder<'a> {
     par: CollapsingBuilder<'a, ParChild>,
     /// Whether to keep the next page even if it is empty.
     keep_next: bool,
+}
+
+/// Builds an unordered or ordered list from items.
+struct ListBuilder<'a> {
+    styles: StyleChain<'a>,
+    kind: ListKind,
+    items: Vec<ListItem>,
+    wide: bool,
+    staged: Vec<(&'a Content, StyleChain<'a>)>,
 }
 
 impl<'a> Builder<'a> {
@@ -511,62 +568,5 @@ impl<'a> Builder<'a> {
     /// Finish everything.
     fn finish(&mut self, ctx: &mut Context, styles: StyleChain<'a>) -> TypResult<()> {
         self.finish_page(ctx, true, false, styles)
-    }
-}
-
-/// Builds an unordered or ordered list from items.
-struct ListBuilder<'a> {
-    styles: StyleChain<'a>,
-    kind: ListKind,
-    items: Vec<ListItem>,
-    wide: bool,
-    staged: Vec<(&'a Content, StyleChain<'a>)>,
-}
-
-impl Debug for Content {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            Self::Space => f.pad("Space"),
-            Self::Linebreak => f.pad("Linebreak"),
-            Self::Horizontal(kind) => write!(f, "Horizontal({kind:?})"),
-            Self::Text(text) => write!(f, "Text({text:?})"),
-            Self::Inline(node) => {
-                f.write_str("Inline(")?;
-                node.fmt(f)?;
-                f.write_str(")")
-            }
-            Self::Parbreak => f.pad("Parbreak"),
-            Self::Colbreak => f.pad("Colbreak"),
-            Self::Vertical(kind) => write!(f, "Vertical({kind:?})"),
-            Self::Block(node) => {
-                f.write_str("Block(")?;
-                node.fmt(f)?;
-                f.write_str(")")
-            }
-            Self::List(item) => {
-                f.write_str("- ")?;
-                item.body.fmt(f)
-            }
-            Self::Enum(item) => {
-                if let Some(number) = item.number {
-                    write!(f, "{}", number)?;
-                }
-                f.write_str(". ")?;
-                item.body.fmt(f)
-            }
-            Self::Pagebreak => f.pad("Pagebreak"),
-            Self::Page(page) => page.fmt(f),
-            Self::Show(node) => {
-                f.write_str("Show(")?;
-                node.fmt(f)?;
-                f.write_str(")")
-            }
-            Self::Styled(styled) => {
-                let (sub, map) = styled.as_ref();
-                map.fmt(f)?;
-                sub.fmt(f)
-            }
-            Self::Sequence(seq) => f.debug_list().entries(seq.iter()).finish(),
-        }
     }
 }
