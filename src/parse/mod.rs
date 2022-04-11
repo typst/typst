@@ -12,6 +12,7 @@ pub use resolve::*;
 pub use scanner::*;
 pub use tokens::*;
 
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use crate::syntax::ast::{Associativity, BinOp, UnOp};
@@ -648,9 +649,20 @@ fn array(p: &mut Parser, marker: Marker) {
 /// Convert a collection into a dictionary, producing errors for anything other
 /// than named pairs.
 fn dict(p: &mut Parser, marker: Marker) {
+    let mut used = HashSet::new();
     marker.filter_children(p, |x| match x.kind() {
         kind if kind.is_paren() => Ok(()),
-        NodeKind::Named | NodeKind::Comma | NodeKind::Colon | NodeKind::Spread => Ok(()),
+        NodeKind::Named => {
+            if let Some(NodeKind::Ident(ident)) =
+                x.children().first().map(|child| child.kind())
+            {
+                if !used.insert(ident.clone()) {
+                    return Err("pair has duplicate key");
+                }
+            }
+            Ok(())
+        }
+        NodeKind::Comma | NodeKind::Colon | NodeKind::Spread => Ok(()),
         _ => Err("expected named pair, found expression"),
     });
     marker.end(p, NodeKind::DictExpr);
@@ -729,9 +741,24 @@ fn args(p: &mut Parser, direct: bool, brackets: bool) -> ParseResult {
 
     p.perform(NodeKind::CallArgs, |p| {
         if p.at(&NodeKind::LeftParen) {
+            let marker = p.marker();
             p.start_group(Group::Paren);
             collection(p);
             p.end_group();
+
+            let mut used = HashSet::new();
+            marker.filter_children(p, |x| {
+                if x.kind() == &NodeKind::Named {
+                    if let Some(NodeKind::Ident(ident)) =
+                        x.children().first().map(|child| child.kind())
+                    {
+                        if !used.insert(ident.clone()) {
+                            return Err("duplicate argument");
+                        }
+                    }
+                }
+                Ok(())
+            });
         }
 
         while brackets && p.peek_direct() == Some(&NodeKind::LeftBracket) {

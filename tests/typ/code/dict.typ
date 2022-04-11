@@ -36,6 +36,10 @@
 }
 
 ---
+// Error: 24-32 pair has duplicate key
+{(first: 1, second: 2, first: 3)}
+
+---
 // Simple expression after already being identified as a dictionary.
 // Error: 9-10 expected named pair, found expression
 {(a: 1, b)}

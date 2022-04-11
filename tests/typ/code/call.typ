@@ -45,6 +45,10 @@
 }
 
 ---
+// Error: 28-47 duplicate argument
+#set text(family: "Arial", family: "Helvetica")
+
+---
 // Error: 2-6 expected callable or collection, found boolean
 {true()}
 

@@ -452,9 +452,9 @@ impl Marker {
     }
 
     /// Wrap all children that do not fulfill the predicate in error nodes.
-    pub fn filter_children<F>(self, p: &mut Parser, f: F)
+    pub fn filter_children<F>(self, p: &mut Parser, mut f: F)
     where
-        F: Fn(&Green) -> Result<(), &'static str>,
+        F: FnMut(&Green) -> Result<(), &'static str>,
     {
         for child in &mut p.children[self.0 ..] {
             // Don't expose errors.
