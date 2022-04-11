@@ -31,19 +31,31 @@
 
 ---
 // Test rvalue out of bounds.
-{
-  let array = (1, 2, 3)
-  // Error: 3-11 array index out of bounds (index: 5, len: 3)
-  array(5)
-}
+// Error: 2-14 array index out of bounds (index: 5, len: 3)
+{(1, 2, 3)(5)}
 
 ---
 // Test lvalue out of bounds.
 {
   let array = (1, 2, 3)
-  // Error: 3-12 array index out of bounds (index: -1, len: 3)
-  array(-1) = 5
+  // Error: 3-11 array index out of bounds (index: 3, len: 3)
+  array(3) = 5
 }
+
+---
+// Test negative indices.
+{
+  let array = (1, 2, 3, 4)
+  test(array(0), 1)
+  test(array(-1), 4)
+  test(array(-2), 3)
+  test(array(-3), 2)
+  test(array(-4), 1)
+}
+
+---
+// Error: 2-15 array index out of bounds (index: -4, len: 3)
+{(1, 2, 3)(-4)}
 
 ---
 // Test non-collection indexing.

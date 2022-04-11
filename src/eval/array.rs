@@ -48,8 +48,7 @@ impl Array {
 
     /// Borrow the value at the given index.
     pub fn get(&self, index: i64) -> StrResult<&Value> {
-        usize::try_from(index)
-            .ok()
+        self.locate(index)
             .and_then(|i| self.0.get(i))
             .ok_or_else(|| out_of_bounds(index, self.len()))
     }
@@ -57,8 +56,7 @@ impl Array {
     /// Mutably borrow the value at the given index.
     pub fn get_mut(&mut self, index: i64) -> StrResult<&mut Value> {
         let len = self.len();
-        usize::try_from(index)
-            .ok()
+        self.locate(index)
             .and_then(move |i| Arc::make_mut(&mut self.0).get_mut(i))
             .ok_or_else(|| out_of_bounds(index, len))
     }
@@ -77,8 +75,8 @@ impl Array {
     /// Insert a value at the specified index.
     pub fn insert(&mut self, index: i64, value: Value) -> StrResult<()> {
         let len = self.len();
-        let i = usize::try_from(index)
-            .ok()
+        let i = self
+            .locate(index)
             .filter(|&i| i <= self.0.len())
             .ok_or_else(|| out_of_bounds(index, len))?;
 
@@ -89,8 +87,8 @@ impl Array {
     /// Remove and return the value at the specified index.
     pub fn remove(&mut self, index: i64) -> StrResult<()> {
         let len = self.len();
-        let i = usize::try_from(index)
-            .ok()
+        let i = self
+            .locate(index)
             .filter(|&i| i < self.0.len())
             .ok_or_else(|| out_of_bounds(index, len))?;
 
@@ -106,16 +104,17 @@ impl Array {
     /// Extract a contigous subregion of the array.
     pub fn slice(&self, start: i64, end: Option<i64>) -> StrResult<Self> {
         let len = self.len();
-        let start = usize::try_from(start)
-            .ok()
+        let start = self
+            .locate(start)
             .filter(|&start| start <= self.0.len())
             .ok_or_else(|| out_of_bounds(start, len))?;
 
         let end = end.unwrap_or(self.len());
-        let end = usize::try_from(end)
-            .ok()
+        let end = self
+            .locate(end)
             .filter(|&end| end <= self.0.len())
-            .ok_or_else(|| out_of_bounds(end, len))?;
+            .ok_or_else(|| out_of_bounds(end, len))?
+            .max(start);
 
         Ok(Self::from_vec(self.0[start .. end].to_vec()))
     }
@@ -225,10 +224,19 @@ impl Array {
         self.0.as_slice()
     }
 
-
     /// Iterate over references to the contained values.
     pub fn iter(&self) -> std::slice::Iter<Value> {
         self.0.iter()
+    }
+
+    /// Resolve an index.
+    fn locate(&self, index: i64) -> Option<usize> {
+        usize::try_from(if index >= 0 {
+            index
+        } else {
+            self.len().checked_add(index)?
+        })
+        .ok()
     }
 }
 

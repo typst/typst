@@ -38,10 +38,18 @@
 #test((1, 2, 3, 4).slice(2), (3, 4))
 #test(range(10).slice(2, 6), (2, 3, 4, 5))
 #test(range(10).slice(4, count: 3), (4, 5, 6))
+#test((1, 2, 3).slice(2, -2), ())
+#test((1, 2, 3).slice(-2, 2), (2,))
+#test((1, 2, 3).slice(-3, 2), (1, 2))
+#test("ABCD".split("").slice(1, -1).join("-"), "A-B-C-D")
 
 ---
 // Error: 3-31 array index out of bounds (index: 12, len: 10)
 { range(10).slice(9, count: 3) }
+
+---
+// Error: 3-25 array index out of bounds (index: -4, len: 3)
+{ (1, 2, 3).slice(0, -4) }
 
 ---
 // Error: 2:17-2:19 missing argument: index
