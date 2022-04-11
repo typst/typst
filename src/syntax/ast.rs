@@ -447,8 +447,33 @@ node! {
 
 impl ArrayExpr {
     /// The array items.
-    pub fn items(&self) -> impl Iterator<Item = Expr> + '_ {
+    pub fn items(&self) -> impl Iterator<Item = ArrayItem> + '_ {
         self.0.children().filter_map(RedRef::cast)
+    }
+}
+
+/// An item in an array expresssion.
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub enum ArrayItem {
+    /// A simple value: `12`.
+    Pos(Expr),
+    /// A spreaded value: `..things`.
+    Spread(Expr),
+}
+
+impl TypedNode for ArrayItem {
+    fn from_red(node: RedRef) -> Option<Self> {
+        match node.kind() {
+            NodeKind::Spread => node.cast_first_child().map(Self::Spread),
+            _ => node.cast().map(Self::Pos),
+        }
+    }
+
+    fn as_red(&self) -> RedRef<'_> {
+        match self {
+            Self::Pos(v) => v.as_red(),
+            Self::Spread(v) => v.as_red(),
+        }
     }
 }
 
@@ -459,8 +484,34 @@ node! {
 
 impl DictExpr {
     /// The named dictionary items.
-    pub fn items(&self) -> impl Iterator<Item = Named> + '_ {
+    pub fn items(&self) -> impl Iterator<Item = DictItem> + '_ {
         self.0.children().filter_map(RedRef::cast)
+    }
+}
+
+/// An item in an dictionary expresssion.
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub enum DictItem {
+    /// A simple named pair: `12`.
+    Named(Named),
+    /// A spreaded value: `..things`.
+    Spread(Expr),
+}
+
+impl TypedNode for DictItem {
+    fn from_red(node: RedRef) -> Option<Self> {
+        match node.kind() {
+            NodeKind::Named => node.cast().map(Self::Named),
+            NodeKind::Spread => node.cast_first_child().map(Self::Spread),
+            _ => None,
+        }
+    }
+
+    fn as_red(&self) -> RedRef<'_> {
+        match self {
+            Self::Named(v) => v.as_red(),
+            Self::Spread(v) => v.as_red(),
+        }
     }
 }
 
@@ -801,9 +852,9 @@ pub enum CallArg {
 impl TypedNode for CallArg {
     fn from_red(node: RedRef) -> Option<Self> {
         match node.kind() {
-            NodeKind::Named => node.cast().map(CallArg::Named),
-            NodeKind::Spread => node.cast_first_child().map(CallArg::Spread),
-            _ => node.cast().map(CallArg::Pos),
+            NodeKind::Named => node.cast().map(Self::Named),
+            NodeKind::Spread => node.cast_first_child().map(Self::Spread),
+            _ => node.cast().map(Self::Pos),
         }
     }
 
@@ -812,17 +863,6 @@ impl TypedNode for CallArg {
             Self::Pos(v) => v.as_red(),
             Self::Named(v) => v.as_red(),
             Self::Spread(v) => v.as_red(),
-        }
-    }
-}
-
-impl CallArg {
-    /// The name of this argument.
-    pub fn span(&self) -> Span {
-        match self {
-            Self::Pos(expr) => expr.span(),
-            Self::Named(named) => named.span(),
-            Self::Spread(expr) => expr.span(),
         }
     }
 }
@@ -870,9 +910,9 @@ pub enum ClosureParam {
 impl TypedNode for ClosureParam {
     fn from_red(node: RedRef) -> Option<Self> {
         match node.kind() {
-            NodeKind::Ident(_) => node.cast().map(ClosureParam::Pos),
-            NodeKind::Named => node.cast().map(ClosureParam::Named),
-            NodeKind::Spread => node.cast_first_child().map(ClosureParam::Sink),
+            NodeKind::Ident(_) => node.cast().map(Self::Pos),
+            NodeKind::Named => node.cast().map(Self::Named),
+            NodeKind::Spread => node.cast_first_child().map(Self::Sink),
             _ => None,
         }
     }

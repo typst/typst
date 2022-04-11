@@ -39,6 +39,8 @@ pub use show::*;
 pub use styles::*;
 pub use value::*;
 
+use std::collections::BTreeMap;
+
 use parking_lot::{MappedRwLockWriteGuard, RwLockWriteGuard};
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -307,7 +309,21 @@ impl Eval for ArrayExpr {
     type Output = Array;
 
     fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> EvalResult<Self::Output> {
-        self.items().map(|expr| expr.eval(ctx, scp)).collect()
+        let items = self.items();
+
+        let mut vec = Vec::with_capacity(items.size_hint().0);
+        for item in items {
+            match item {
+                ArrayItem::Pos(expr) => vec.push(expr.eval(ctx, scp)?),
+                ArrayItem::Spread(expr) => match expr.eval(ctx, scp)? {
+                    Value::None => {}
+                    Value::Array(array) => vec.extend(array.into_iter()),
+                    v => bail!(expr.span(), "cannot spread {} into array", v.type_name()),
+                },
+            }
+        }
+
+        Ok(Array::from_vec(vec))
     }
 }
 
@@ -315,9 +331,26 @@ impl Eval for DictExpr {
     type Output = Dict;
 
     fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> EvalResult<Self::Output> {
-        self.items()
-            .map(|x| Ok((x.name().take(), x.expr().eval(ctx, scp)?)))
-            .collect()
+        let mut map = BTreeMap::new();
+
+        for item in self.items() {
+            match item {
+                DictItem::Named(named) => {
+                    map.insert(named.name().take(), named.expr().eval(ctx, scp)?);
+                }
+                DictItem::Spread(expr) => match expr.eval(ctx, scp)? {
+                    Value::None => {}
+                    Value::Dict(dict) => map.extend(dict.into_iter()),
+                    v => bail!(
+                        expr.span(),
+                        "cannot spread {} into dictionary",
+                        v.type_name()
+                    ),
+                },
+            }
+        }
+
+        Ok(Dict::from_map(map))
     }
 }
 

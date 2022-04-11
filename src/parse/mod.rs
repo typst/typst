@@ -516,7 +516,7 @@ fn parenthesized(p: &mut Parser, atomic: bool) -> ParseResult {
     let kind = collection(p).0;
     p.end_group();
 
-    // Leading colon makes this a (empty) dictionary.
+    // Leading colon makes this a dictionary.
     if colon {
         dict(p, marker);
         return Ok(());
@@ -556,21 +556,23 @@ enum CollectionKind {
 /// Returns the length of the collection and whether the literal contained any
 /// commas.
 fn collection(p: &mut Parser) -> (CollectionKind, usize) {
-    let mut kind = CollectionKind::Positional;
+    let mut kind = None;
     let mut items = 0;
     let mut can_group = true;
-    let mut error = false;
     let mut missing_coma: Option<Marker> = None;
 
     while !p.eof() {
         if let Ok(item_kind) = item(p) {
-            if items == 0 && item_kind == NodeKind::Named {
-                kind = CollectionKind::Named;
-                can_group = false;
-            }
-
-            if item_kind == NodeKind::Spread {
-                can_group = false;
+            match item_kind {
+                NodeKind::Spread => can_group = false,
+                NodeKind::Named if kind.is_none() => {
+                    kind = Some(CollectionKind::Named);
+                    can_group = false;
+                }
+                _ if kind.is_none() => {
+                    kind = Some(CollectionKind::Positional);
+                }
+                _ => {}
             }
 
             items += 1;
@@ -589,13 +591,15 @@ fn collection(p: &mut Parser) -> (CollectionKind, usize) {
                 missing_coma = Some(p.trivia_start());
             }
         } else {
-            error = true;
+            kind = Some(CollectionKind::Group);
         }
     }
 
-    if error || (can_group && items == 1) {
-        kind = CollectionKind::Group;
-    }
+    let kind = if can_group && items == 1 {
+        CollectionKind::Group
+    } else {
+        kind.unwrap_or(CollectionKind::Positional)
+    };
 
     (kind, items)
 }
@@ -636,7 +640,6 @@ fn item(p: &mut Parser) -> ParseResult<NodeKind> {
 fn array(p: &mut Parser, marker: Marker) {
     marker.filter_children(p, |x| match x.kind() {
         NodeKind::Named => Err("expected expression, found named pair"),
-        NodeKind::Spread => Err("spreading is not allowed here"),
         _ => Ok(()),
     });
     marker.end(p, NodeKind::ArrayExpr);
@@ -647,8 +650,7 @@ fn array(p: &mut Parser, marker: Marker) {
 fn dict(p: &mut Parser, marker: Marker) {
     marker.filter_children(p, |x| match x.kind() {
         kind if kind.is_paren() => Ok(()),
-        NodeKind::Named | NodeKind::Comma | NodeKind::Colon => Ok(()),
-        NodeKind::Spread => Err("spreading is not allowed here"),
+        NodeKind::Named | NodeKind::Comma | NodeKind::Colon | NodeKind::Spread => Ok(()),
         _ => Err("expected named pair, found expression"),
     });
     marker.end(p, NodeKind::DictExpr);

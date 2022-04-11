@@ -70,9 +70,26 @@
 #let f(..a, ..b) = none
 
 ---
-// Error: 3-6 spreading is not allowed here
-{(..x)}
+// Test spreading into array and dictionary.
+{
+  let l = (1, 2, 3)
+  let r = (5, 6, 7)
+  test((..l, 4, ..r), range(1, 8))
+  test((..none), ())
+}
+
+{
+  let x = (a: 1)
+  let y = (b: 2)
+  let z = (a: 3)
+  test((:..x, ..y, ..z), (a: 3, b: 2))
+  test((..(a: 1), b: 2), (a: 1, b: 2))
+}
 
 ---
-// Error: 9-17 spreading is not allowed here
-{(1, 2, ..(1, 2))}
+// Error: 11-17 cannot spread dictionary into array
+{(1, 2, ..(a: 1))}
+
+---
+// Error: 5-11 cannot spread array into dictionary
+{(..(1, 2), a: 1)}
