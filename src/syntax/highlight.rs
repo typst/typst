@@ -195,7 +195,6 @@ impl Category {
             NodeKind::Markup(_) => None,
             NodeKind::Space(_) => None,
             NodeKind::Text(_) => None,
-            NodeKind::TextInLine(_) => None,
             NodeKind::List => None,
             NodeKind::Enum => None,
             NodeKind::CodeBlock => None,

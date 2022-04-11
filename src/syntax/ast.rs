@@ -63,9 +63,7 @@ impl Markup {
             NodeKind::Space(2 ..) => Some(MarkupNode::Parbreak),
             NodeKind::Space(_) => Some(MarkupNode::Space),
             NodeKind::Linebreak => Some(MarkupNode::Linebreak),
-            NodeKind::Text(s) | NodeKind::TextInLine(s) => {
-                Some(MarkupNode::Text(s.clone()))
-            }
+            NodeKind::Text(s) => Some(MarkupNode::Text(s.clone())),
             NodeKind::Escape(c) => Some(MarkupNode::Text((*c).into())),
             NodeKind::NonBreakingSpace => Some(MarkupNode::Text('\u{00A0}'.into())),
             NodeKind::EnDash => Some(MarkupNode::Text('\u{2013}'.into())),

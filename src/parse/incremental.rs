@@ -45,12 +45,14 @@ impl Reparser<'_> {
     ) -> Option<Range<usize>> {
         let child_mode = green.kind().only_in_mode().unwrap_or(TokenMode::Code);
         let original_count = green.children().len();
+        let original_offset = offset;
 
         let mut search = SearchState::default();
         let mut ahead_nontrivia = None;
 
         // Whether the first node that should be replaced is at start.
         let mut at_start = true;
+
         // Whether the last searched child is the outermost child.
         let mut child_outermost = false;
 
@@ -77,8 +79,12 @@ impl Reparser<'_> {
                     } else if child_span.contains(&self.replace_range.start) {
                         search = SearchState::Inside(pos);
                     } else {
-                        if (!child.kind().is_space()
-                            && child.kind() != &NodeKind::Semicolon)
+                        // We look only for non spaces, non-semicolon and also
+                        // reject text that points to the special case for URL
+                        // evasion and line comments.
+                        if !child.kind().is_space()
+                            && child.kind() != &NodeKind::Semicolon
+                            && child.kind() != &NodeKind::Text('/'.into())
                             && (ahead_nontrivia.is_none()
                                 || self.replace_range.start > child_span.end)
                         {
@@ -173,6 +179,8 @@ impl Reparser<'_> {
                 start = ahead;
                 at_start = ahead_at_start;
             }
+        } else {
+            start = GreenPos { idx: 0, offset: original_offset };
         }
 
         let superseded_span =
@@ -350,6 +358,7 @@ mod tests {
         test("#for", 4 .. 4, "//", 0 .. 6);
         test("a\n#let \nb", 7 .. 7, "i", 2 .. 9);
         test("a\n#for i \nb", 9 .. 9, "in", 2 .. 12);
+        test("a~https://fun/html", 13..14, "n", 2..18);
     }
 
     #[test]
@@ -365,6 +374,8 @@ mod tests {
         test("hey  #myfriend", 4 .. 4, "\\", 3 .. 6);
         test("= foo\nbar\n - a\n - b", 6 .. 9, "", 0 .. 11);
         test("= foo\n  bar\n  baz", 6 .. 8, "", 0 .. 9);
+        test(" // hi", 1 .. 1, " ", 0 .. 7);
+        test("- \nA", 2..3, "", 0..3);
     }
 
     #[test]

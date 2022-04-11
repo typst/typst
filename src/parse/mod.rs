@@ -282,7 +282,7 @@ fn heading(p: &mut Parser, at_start: bool) {
         marker.end(p, NodeKind::Heading);
     } else {
         let text = p.get(current_start .. p.prev_end()).into();
-        marker.convert(p, NodeKind::TextInLine(text));
+        marker.convert(p, NodeKind::Text(text));
     }
 }
 
@@ -297,7 +297,7 @@ fn list_node(p: &mut Parser, at_start: bool) {
         markup_indented(p, column);
         marker.end(p, NodeKind::List);
     } else {
-        marker.convert(p, NodeKind::TextInLine(text));
+        marker.convert(p, NodeKind::Text(text));
     }
 }
 
@@ -312,7 +312,7 @@ fn enum_node(p: &mut Parser, at_start: bool) {
         markup_indented(p, column);
         marker.end(p, NodeKind::Enum);
     } else {
-        marker.convert(p, NodeKind::TextInLine(text));
+        marker.convert(p, NodeKind::Text(text));
     }
 }
 

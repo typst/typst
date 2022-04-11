@@ -590,8 +590,6 @@ pub enum NodeKind {
     Linebreak,
     /// A consecutive non-markup string.
     Text(EcoString),
-    /// A text node that cannot appear at the beginning of a source line.
-    TextInLine(EcoString),
     /// A non-breaking space: `~`.
     NonBreakingSpace,
     /// An en-dash: `--`.
@@ -757,6 +755,7 @@ impl NodeKind {
     pub fn only_at_start(&self) -> bool {
         match self {
             Self::Heading | Self::Enum | Self::List => true,
+            Self::Text(t) => t == "-" || t.ends_with('.'),
             _ => false,
         }
     }
@@ -767,7 +766,6 @@ impl NodeKind {
             Self::Markup(_)
             | Self::Linebreak
             | Self::Text(_)
-            | Self::TextInLine(_)
             | Self::NonBreakingSpace
             | Self::EnDash
             | Self::EmDash
@@ -859,7 +857,7 @@ impl NodeKind {
             Self::Space(2 ..) => "paragraph break",
             Self::Space(_) => "space",
             Self::Linebreak => "forced linebreak",
-            Self::Text(_) | Self::TextInLine(_) => "text",
+            Self::Text(_) => "text",
             Self::NonBreakingSpace => "non-breaking space",
             Self::EnDash => "en dash",
             Self::EmDash => "em dash",
@@ -980,7 +978,6 @@ impl Hash for NodeKind {
             Self::Space(n) => n.hash(state),
             Self::Linebreak => {}
             Self::Text(s) => s.hash(state),
-            Self::TextInLine(s) => s.hash(state),
             Self::NonBreakingSpace => {}
             Self::EnDash => {}
             Self::EmDash => {}
