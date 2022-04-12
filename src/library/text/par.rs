@@ -1,13 +1,14 @@
 use std::sync::Arc;
 
 use unicode_bidi::{BidiInfo, Level};
+use unicode_script::{Script, UnicodeScript};
 use xi_unicode::LineBreakIterator;
 
 use super::{shape, Lang, ShapedText, TextNode};
 use crate::font::FontStore;
 use crate::library::layout::Spacing;
 use crate::library::prelude::*;
-use crate::util::{ArcExt, EcoString, SliceExt};
+use crate::util::{ArcExt, EcoString};
 
 /// Arrange text, spacing and inline-level nodes into a paragraph.
 #[derive(Hash)]
@@ -437,23 +438,46 @@ fn prepare<'a>(
         _ => None,
     });
 
-    let mut items = vec![];
     let mut cursor = 0;
+    let mut items = vec![];
 
     // Layout the children and collect them into items.
     for (segment, styles) in segments {
+        let end = cursor + segment.len();
         match segment {
-            Segment::Text(len) => {
-                // TODO: Also split by script.
-                let mut start = cursor;
-                for (level, count) in bidi.levels[cursor .. cursor + len].group() {
-                    let end = start + count;
-                    let text = &bidi.text[start .. end];
+            Segment::Text(_) => {
+                let mut process = |text, level: Level| {
                     let dir = if level.is_ltr() { Dir::LTR } else { Dir::RTL };
                     let shaped = shape(&mut ctx.fonts, text, styles, dir);
                     items.push(Item::Text(shaped));
-                    start = end;
+                };
+
+                let mut prev_level = Level::ltr();
+                let mut prev_script = Script::Unknown;
+
+                // Group by embedding level and script.
+                for i in cursor .. end {
+                    if !text.is_char_boundary(i) {
+                        continue;
+                    }
+
+                    let level = bidi.levels[i];
+                    let script =
+                        text[i ..].chars().next().map_or(Script::Unknown, |c| c.script());
+
+                    if level != prev_level || !is_compatible(script, prev_script) {
+                        if cursor < i {
+                            process(&text[cursor .. i], prev_level);
+                        }
+                        cursor = i;
+                        prev_level = level;
+                        prev_script = script;
+                    } else if is_generic_script(prev_script) {
+                        prev_script = script;
+                    }
                 }
+
+                process(&text[cursor .. end], prev_level);
             }
             Segment::Spacing(spacing) => match spacing {
                 Spacing::Relative(v) => {
@@ -482,10 +506,20 @@ fn prepare<'a>(
             }
         }
 
-        cursor += segment.len();
+        cursor = end;
     }
 
     Ok(Preparation { bidi, items, styles, children: &par.0 })
+}
+
+/// Whether this is not a specific script.
+fn is_generic_script(script: Script) -> bool {
+    matches!(script, Script::Unknown | Script::Common | Script::Inherited)
+}
+
+/// Whether these script can be part of the same shape run.
+fn is_compatible(a: Script, b: Script) -> bool {
+    is_generic_script(a) || is_generic_script(b) || a == b
 }
 
 /// Find suitable linebreaks.

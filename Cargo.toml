@@ -30,6 +30,7 @@ rustybuzz = "0.4"
 unicode-bidi = "0.3.5"
 unicode-segmentation = "1"
 unicode-xid = "0.2"
+unicode-script = "0.5"
 xi-unicode = "0.3"
 
 # Raster and vector graphics handling

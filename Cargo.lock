@@ -873,6 +873,7 @@ dependencies = [
  "typed-arena",
  "typst-macros",
  "unicode-bidi",
+ "unicode-script",
  "unicode-segmentation",
  "unicode-xid",
  "usvg",
