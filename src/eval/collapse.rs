@@ -15,7 +15,7 @@ enum Last {
     Supportive,
 }
 
-impl<'a, T: Merge> CollapsingBuilder<'a, T> {
+impl<'a, T> CollapsingBuilder<'a, T> {
     /// Create a new style-vec builder.
     pub fn new() -> Self {
         Self {
@@ -82,45 +82,19 @@ impl<'a, T: Merge> CollapsingBuilder<'a, T> {
     fn flush(&mut self, supportive: bool) {
         for (item, styles, strength) in self.staged.drain(..) {
             if supportive || strength.is_none() {
-                push_merging(&mut self.builder, item, styles);
+                self.builder.push(item, styles);
             }
         }
     }
 
     /// Push a new item into the style vector.
     fn push(&mut self, item: T, styles: StyleChain<'a>) {
-        push_merging(&mut self.builder, item, styles);
+        self.builder.push(item, styles);
     }
 }
 
-/// Push an item into a style-vec builder, trying to merging it with the
-/// previous item.
-fn push_merging<'a, T: Merge>(
-    builder: &mut StyleVecBuilder<'a, T>,
-    item: T,
-    styles: StyleChain<'a>,
-) {
-    if let Some((prev_item, prev_styles)) = builder.last_mut() {
-        if styles == prev_styles {
-            if prev_item.merge(&item) {
-                return;
-            }
-        }
-    }
-
-    builder.push(item, styles);
-}
-
-impl<'a, T: Merge> Default for CollapsingBuilder<'a, T> {
+impl<'a, T> Default for CollapsingBuilder<'a, T> {
     fn default() -> Self {
         Self::new()
     }
-}
-
-/// Defines if and how to merge two adjacent items in a [`CollapsingBuilder`].
-pub trait Merge {
-    /// Try to merge the items, returning whether they were merged.
-    ///
-    /// Defaults to not merging.
-    fn merge(&mut self, next: &Self) -> bool;
 }

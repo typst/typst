@@ -62,12 +62,6 @@ impl Layout for FlowNode {
     }
 }
 
-impl Merge for FlowChild {
-    fn merge(&mut self, _: &Self) -> bool {
-        false
-    }
-}
-
 impl Debug for FlowNode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.write_str("Flow ")?;

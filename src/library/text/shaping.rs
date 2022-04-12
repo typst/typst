@@ -15,7 +15,7 @@ use crate::util::SliceExt;
 #[derive(Debug, Clone)]
 pub struct ShapedText<'a> {
     /// The text that was shaped.
-    pub text: Cow<'a, str>,
+    pub text: &'a str,
     /// The text direction.
     pub dir: Dir,
     /// The text's style properties.
@@ -182,7 +182,7 @@ impl<'a> ShapedText<'a> {
     ) -> ShapedText<'a> {
         if let Some(glyphs) = self.slice_safe_to_break(text_range.clone()) {
             Self {
-                text: Cow::Borrowed(&self.text[text_range]),
+                text: &self.text[text_range],
                 dir: self.dir,
                 styles: self.styles,
                 size: self.size,
@@ -298,10 +298,6 @@ pub fn shape<'a>(
     dir: Dir,
 ) -> ShapedText<'a> {
     let size = styles.get(TextNode::SIZE);
-    let text = match styles.get(TextNode::CASE) {
-        Some(case) => Cow::Owned(case.apply(text)),
-        None => Cow::Borrowed(text),
-    };
 
     let mut ctx = ShapingContext {
         fonts,

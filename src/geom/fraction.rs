@@ -111,3 +111,9 @@ assign_impl!(Fraction += Fraction);
 assign_impl!(Fraction -= Fraction);
 assign_impl!(Fraction *= f64);
 assign_impl!(Fraction /= f64);
+
+impl Sum for Fraction {
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        Self(iter.map(|s| s.0).sum())
+    }
+}
