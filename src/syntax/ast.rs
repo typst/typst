@@ -68,6 +68,7 @@ impl Markup {
             NodeKind::NonBreakingSpace => Some(MarkupNode::Text('\u{00A0}'.into())),
             NodeKind::EnDash => Some(MarkupNode::Text('\u{2013}'.into())),
             NodeKind::EmDash => Some(MarkupNode::Text('\u{2014}'.into())),
+            NodeKind::Quote(d) => Some(MarkupNode::Quote(*d)),
             NodeKind::Strong => node.cast().map(MarkupNode::Strong),
             NodeKind::Emph => node.cast().map(MarkupNode::Emph),
             NodeKind::Raw(raw) => Some(MarkupNode::Raw(raw.as_ref().clone())),
@@ -91,6 +92,8 @@ pub enum MarkupNode {
     Parbreak,
     /// Plain text.
     Text(EcoString),
+    /// A smart quote: `'` (`false`) or `"` (true).
+    Quote(bool),
     /// Strong content: `*Strong*`.
     Strong(StrongNode),
     /// Emphasized content: `_Emphasized_`.

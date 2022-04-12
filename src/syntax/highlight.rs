@@ -130,6 +130,7 @@ impl Category {
             NodeKind::NonBreakingSpace => Some(Category::Shortcut),
             NodeKind::EnDash => Some(Category::Shortcut),
             NodeKind::EmDash => Some(Category::Shortcut),
+            NodeKind::Quote(_) => Some(Category::Shortcut),
             NodeKind::Escape(_) => Some(Category::Escape),
             NodeKind::Not => Some(Category::Keyword),
             NodeKind::And => Some(Category::Keyword),

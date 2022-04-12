@@ -111,6 +111,7 @@ impl Eval for MarkupNode {
             Self::Linebreak => Content::Linebreak,
             Self::Parbreak => Content::Parbreak,
             Self::Text(text) => Content::Text(text.clone()),
+            Self::Quote(double) => Content::Quote(*double),
             Self::Strong(strong) => strong.eval(ctx, scp)?,
             Self::Emph(emph) => emph.eval(ctx, scp)?,
             Self::Raw(raw) => raw.eval(ctx, scp)?,

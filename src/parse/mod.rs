@@ -215,6 +215,7 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
         | NodeKind::NonBreakingSpace
         | NodeKind::EnDash
         | NodeKind::EmDash
+        | NodeKind::Quote(_)
         | NodeKind::Linebreak
         | NodeKind::Raw(_)
         | NodeKind::Math(_)

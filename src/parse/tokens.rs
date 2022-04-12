@@ -143,11 +143,13 @@ impl<'s> Tokens<'s> {
 
             // Markup.
             '~' => NodeKind::NonBreakingSpace,
+            '-' => self.hyph(),
+            '\'' => NodeKind::Quote(false),
+            '"' => NodeKind::Quote(true),
             '*' if !self.in_word() => NodeKind::Star,
             '_' if !self.in_word() => NodeKind::Underscore,
             '`' => self.raw(),
             '$' => self.math(),
-            '-' => self.hyph(),
             '=' => NodeKind::Eq,
             c if c == '.' || c.is_ascii_digit() => self.numbering(start, c),
 
@@ -220,7 +222,7 @@ impl<'s> Tokens<'s> {
             // Comments, parentheses, code.
             '/' | '[' | ']' | '{' | '}' | '#' |
             // Markup
-            '~' | '*' | '_' | '`' | '$' | '-' | '\\'
+            '~' | '\'' | '"' | '*' | '_' | '`' | '$' | '-' | '\\'
         };
 
         loop {
@@ -269,8 +271,8 @@ impl<'s> Tokens<'s> {
                 // Parenthesis and hashtag.
                 '[' | ']' | '{' | '}' | '#' |
                 // Markup.
-                '~' | '*' | '_' | '`' | '$' | '=' | '-' | '.'  => {
-                    self.s.eat_assert(c);
+                '~' | '\'' | '"' | '*' | '_' | '`' | '$' | '=' | '-' | '.' => {
+                    self.s.eat_assert(c) ;
                     NodeKind::Escape(c)
                 }
                 'u' if self.s.rest().starts_with("u{") => {
@@ -789,7 +791,7 @@ mod tests {
         t!(Markup[" /"]: "hello-world" => Text("hello"), Minus, Text("world"));
 
         // Test code symbols in text.
-        t!(Markup[" /"]: "a():\"b" => Text("a():\"b"));
+        t!(Markup[" /"]: "a():\"b" => Text("a():"), Quote(true), Text("b"));
         t!(Markup[" /"]: ";:,|/+"  => Text(";:,|"), Text("/+"));
         t!(Markup[" /"]: "=-a"     => Eq, Minus, Text("a"));
         t!(Markup[" "]: "#123"     => Text("#"), Text("123"));
@@ -812,6 +814,8 @@ mod tests {
         t!(Markup: r"\_" => Escape('_'));
         t!(Markup: r"\=" => Escape('='));
         t!(Markup: r"\~" => Escape('~'));
+        t!(Markup: r"\'" => Escape('\''));
+        t!(Markup: r#"\""# => Escape('"'));
         t!(Markup: r"\`" => Escape('`'));
         t!(Markup: r"\$" => Escape('$'));
         t!(Markup: r"\#" => Escape('#'));
@@ -820,7 +824,6 @@ mod tests {
         t!(Markup[" /"]: r"\a"   => Text(r"\"), Text("a"));
         t!(Markup[" /"]: r"\u"   => Text(r"\"), Text("u"));
         t!(Markup[" /"]: r"\1"   => Text(r"\"), Text("1"));
-        t!(Markup[" /"]: r#"\""# => Text(r"\"), Text("\""));
 
         // Test basic unicode escapes.
         t!(Markup: r"\u{}"     => Error(Full, "invalid unicode escape sequence"));

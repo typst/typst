@@ -45,6 +45,8 @@ pub enum Content {
     Horizontal(Spacing),
     /// Plain text.
     Text(EcoString),
+    /// A smart quote, may be single (`false`) or double (`true`).
+    Quote(bool),
     /// An inline-level node.
     Inline(LayoutNode),
     /// A paragraph break.
@@ -214,6 +216,7 @@ impl Debug for Content {
             Self::Linebreak => f.pad("Linebreak"),
             Self::Horizontal(kind) => write!(f, "Horizontal({kind:?})"),
             Self::Text(text) => write!(f, "Text({text:?})"),
+            Self::Quote(double) => write!(f, "Quote({double:?})"),
             Self::Inline(node) => {
                 f.write_str("Inline(")?;
                 node.fmt(f)?;
@@ -384,6 +387,9 @@ impl<'a> Builder<'a> {
                     self.par.ignorant(child, styles);
                 }
             }
+            Content::Quote(double) => {
+                self.par.supportive(ParChild::Quote(*double), styles);
+            }
             Content::Text(text) => {
                 self.par.supportive(ParChild::Text(text.clone()), styles);
             }
@@ -496,7 +502,7 @@ impl<'a> Builder<'a> {
                     .items()
                     .find_map(|child| match child {
                         ParChild::Spacing(_) => None,
-                        ParChild::Text(_) => Some(true),
+                        ParChild::Text(_) | ParChild::Quote(_) => Some(true),
                         ParChild::Node(_) => Some(false),
                     })
                     .unwrap_or_default()

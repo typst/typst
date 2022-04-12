@@ -19,6 +19,8 @@ pub struct ParNode(pub StyleVec<ParChild>);
 pub enum ParChild {
     /// A chunk of text.
     Text(EcoString),
+    /// A smart quote, may be single (`false`) or double (`true`).
+    Quote(bool),
     /// Horizontal spacing between other children.
     Spacing(Spacing),
     /// An arbitrary inline-level node.
@@ -89,6 +91,7 @@ impl Debug for ParChild {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::Text(text) => write!(f, "Text({:?})", text),
+            Self::Quote(double) => write!(f, "Quote({})", double),
             Self::Spacing(kind) => write!(f, "{:?}", kind),
             Self::Node(node) => node.fmt(f),
         }
@@ -395,6 +398,11 @@ fn collect<'a>(
                 } else {
                     full.push_str(text);
                 }
+                Segment::Text(full.len() - prev)
+            }
+            ParChild::Quote(double) => {
+                let prev = full.len();
+                full.push(if *double { '"' } else { '\'' });
                 Segment::Text(full.len() - prev)
             }
             ParChild::Spacing(spacing) => {

@@ -596,6 +596,8 @@ pub enum NodeKind {
     EnDash,
     /// An em-dash: `---`.
     EmDash,
+    /// A smart quote: `'` (`false`) or `"` (true).
+    Quote(bool),
     /// A slash and the letter "u" followed by a hexadecimal unicode entity
     /// enclosed in curly braces: `\u{1F5FA}`.
     Escape(char),
@@ -769,6 +771,7 @@ impl NodeKind {
             | Self::NonBreakingSpace
             | Self::EnDash
             | Self::EmDash
+            | Self::Quote(_)
             | Self::Escape(_)
             | Self::Strong
             | Self::Emph
@@ -861,6 +864,8 @@ impl NodeKind {
             Self::NonBreakingSpace => "non-breaking space",
             Self::EnDash => "en dash",
             Self::EmDash => "em dash",
+            Self::Quote(false) => "single quote",
+            Self::Quote(true) => "double quote",
             Self::Escape(_) => "escape sequence",
             Self::Strong => "strong content",
             Self::Emph => "emphasized content",
@@ -981,6 +986,7 @@ impl Hash for NodeKind {
             Self::NonBreakingSpace => {}
             Self::EnDash => {}
             Self::EmDash => {}
+            Self::Quote(d) => d.hash(state),
             Self::Escape(c) => c.hash(state),
             Self::Strong => {}
             Self::Emph => {}
