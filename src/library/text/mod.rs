@@ -3,12 +3,14 @@
 mod deco;
 mod link;
 mod par;
+mod quotes;
 mod raw;
 mod shaping;
 
 pub use deco::*;
 pub use link::*;
 pub use par::*;
+pub use quotes::*;
 pub use raw::*;
 pub use shaping::*;
 
@@ -72,6 +74,8 @@ impl TextNode {
     /// will will be hyphenated if and only if justification is enabled.
     #[property(resolve)]
     pub const HYPHENATE: Smart<Hyphenate> = Smart::Auto;
+    /// Whether to apply smart quotes.
+    pub const SMART_QUOTES: bool = true;
 
     /// Whether to apply kerning ("kern").
     pub const KERNING: bool = true;

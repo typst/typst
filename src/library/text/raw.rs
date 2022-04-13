@@ -100,6 +100,7 @@ impl Show for RawNode {
         let mut map = StyleMap::new();
         map.set(TextNode::OVERHANG, false);
         map.set(TextNode::HYPHENATE, Smart::Custom(Hyphenate(false)));
+        map.set(TextNode::SMART_QUOTES, false);
 
         if let Smart::Custom(family) = styles.get(Self::FAMILY) {
             map.set_family(family.clone(), styles);

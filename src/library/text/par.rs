@@ -4,7 +4,7 @@ use unicode_bidi::{BidiInfo, Level};
 use unicode_script::{Script, UnicodeScript};
 use xi_unicode::LineBreakIterator;
 
-use super::{shape, Lang, ShapedText, TextNode};
+use super::{shape, Lang, Quoter, Quotes, ShapedText, TextNode};
 use crate::font::FontStore;
 use crate::library::layout::Spacing;
 use crate::library::prelude::*;
@@ -386,9 +386,11 @@ fn collect<'a>(
     styles: &'a StyleChain<'a>,
 ) -> (String, Vec<(Segment<'a>, StyleChain<'a>)>) {
     let mut full = String::new();
+    let mut quoter = Quoter::new();
     let mut segments = vec![];
+    let mut iter = par.0.iter().peekable();
 
-    for (child, map) in par.0.iter() {
+    while let Some((child, map)) = iter.next() {
         let styles = map.chain(&styles);
         let segment = match child {
             ParChild::Text(text) => {
@@ -402,7 +404,25 @@ fn collect<'a>(
             }
             ParChild::Quote(double) => {
                 let prev = full.len();
-                full.push(if *double { '"' } else { '\'' });
+                if styles.get(TextNode::SMART_QUOTES) {
+                    // TODO: Also get region.
+                    let lang = styles.get(TextNode::LANG);
+                    let quotes = lang
+                        .as_ref()
+                        .map(|lang| Quotes::from_lang(lang.as_str(), ""))
+                        .unwrap_or_default();
+
+                    let peeked = iter.peek().and_then(|(child, _)| match child {
+                        ParChild::Text(text) => text.chars().next(),
+                        ParChild::Quote(_) => Some('"'),
+                        ParChild::Spacing(_) => Some(SPACING_REPLACE),
+                        ParChild::Node(_) => Some(NODE_REPLACE),
+                    });
+
+                    full.push_str(quoter.quote(&quotes, *double, peeked));
+                } else {
+                    full.push(if *double { '"' } else { '\'' });
+                }
                 Segment::Text(full.len() - prev)
             }
             ParChild::Spacing(spacing) => {
@@ -414,6 +434,10 @@ fn collect<'a>(
                 Segment::Node(node)
             }
         };
+
+        if let Some(last) = full.chars().last() {
+            quoter.last(last);
+        }
 
         if let (Some((Segment::Text(last_len), last_styles)), Segment::Text(len)) =
             (segments.last_mut(), segment)
