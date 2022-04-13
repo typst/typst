@@ -824,6 +824,19 @@ fn line<'a>(
     mandatory: bool,
     hyphen: bool,
 ) -> Line<'a> {
+    if range.is_empty() {
+        return Line {
+            bidi: &p.bidi,
+            range,
+            first: None,
+            items: &[],
+            last: None,
+            width: Length::zero(),
+            mandatory,
+            dash: false,
+        };
+    }
+
     // Find the last item.
     let (last_idx, last_offset) =
         p.find_idx_and_offset(range.end.saturating_sub(1)).unwrap();
