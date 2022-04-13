@@ -4,7 +4,7 @@
 // Test hanging punctuation.
 #set page(width: 130pt, margins: 15pt)
 #set par(justify: true, linebreaks: "simple")
-#set text(lang: "en", size: 9pt)
+#set text(size: 9pt)
 #rect(fill: rgb(repr(teal) + "00"), width: 100%)[
   This is a little bit of text that builds up to
   hang-ing hyphens and dash---es and then, you know,

@@ -408,11 +408,7 @@ fn collect<'a>(
                 if styles.get(TextNode::SMART_QUOTES) {
                     // TODO: Also get region.
                     let lang = styles.get(TextNode::LANG);
-                    let quotes = lang
-                        .as_ref()
-                        .map(|lang| Quotes::from_lang(lang.as_str(), ""))
-                        .unwrap_or_default();
-
+                    let quotes = Quotes::from_lang(lang.as_str(), "");
                     let peeked = iter.peek().and_then(|(child, _)| match child {
                         ParChild::Text(text) => text.chars().next(),
                         ParChild::Quote(_) => Some('"'),
@@ -750,7 +746,7 @@ fn breakpoints<'a>(p: &'a Preparation) -> Breakpoints<'a> {
         end: 0,
         mandatory: false,
         hyphenate: p.get_shared(TextNode::HYPHENATE),
-        lang: p.get_shared(TextNode::LANG).map(Option::as_ref),
+        lang: p.get_shared(TextNode::LANG),
     }
 }
 
@@ -773,7 +769,7 @@ struct Breakpoints<'a> {
     /// Whether to hyphenate if it's the same for all children.
     hyphenate: Option<bool>,
     /// The text language if it's the same for all children.
-    lang: Option<Option<&'a Lang>>,
+    lang: Option<Lang>,
 }
 
 impl Iterator for Breakpoints<'_> {
@@ -831,9 +827,9 @@ impl Breakpoints<'_> {
 
     /// The text language at the given offset.
     fn lang_at(&self, offset: usize) -> Option<hypher::Lang> {
-        let lang = self.lang.unwrap_or_else(|| {
+        let lang = self.lang.or_else(|| {
             let shaped = self.p.find(offset)?.text()?;
-            shaped.styles.get(TextNode::LANG).as_ref()
+            Some(shaped.styles.get(TextNode::LANG))
         })?;
 
         let bytes = lang.as_str().as_bytes().try_into().ok()?;

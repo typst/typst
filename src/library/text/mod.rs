@@ -1,6 +1,7 @@
 //! Text handling and paragraph layout.
 
 mod deco;
+mod lang;
 mod link;
 mod par;
 mod quotes;
@@ -8,6 +9,7 @@ mod raw;
 mod shaping;
 
 pub use deco::*;
+pub use lang::*;
 pub use link::*;
 pub use par::*;
 pub use quotes::*;
@@ -64,8 +66,7 @@ impl TextNode {
     pub const BOTTOM_EDGE: TextEdge = TextEdge::Metric(VerticalFontMetric::Baseline);
 
     /// An ISO 639-1 language code.
-    #[property(referenced)]
-    pub const LANG: Option<Lang> = None;
+    pub const LANG: Lang = Lang::ENGLISH;
     /// The direction for text and inline objects. When `auto`, the direction is
     /// automatically inferred from the language.
     #[property(resolve)]
@@ -257,32 +258,6 @@ castable! {
     }),
 }
 
-/// A natural language.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct Lang(EcoString);
-
-impl Lang {
-    /// The default direction for the language.
-    pub fn dir(&self) -> Dir {
-        match self.0.as_str() {
-            "ar" | "dv" | "fa" | "he" | "ks" | "pa" | "ps" | "sd" | "ug" | "ur"
-            | "yi" => Dir::RTL,
-            _ => Dir::LTR,
-        }
-    }
-
-    /// Return the language code as a string slice.
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-castable! {
-    Lang,
-    Expected: "string",
-    Value::Str(string) => Self(string.to_lowercase()),
-}
-
 /// The direction of text and inline objects in their line.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct HorizontalDir(pub Dir);
@@ -301,10 +276,7 @@ impl Resolve for Smart<HorizontalDir> {
 
     fn resolve(self, styles: StyleChain) -> Self::Output {
         match self {
-            Smart::Auto => match styles.get(TextNode::LANG) {
-                Some(lang) => lang.dir(),
-                None => Dir::LTR,
-            },
+            Smart::Auto => styles.get(TextNode::LANG).dir(),
             Smart::Custom(dir) => dir.0,
         }
     }

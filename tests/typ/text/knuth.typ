@@ -1,6 +1,6 @@
 #set page(width: auto, height: auto)
 #set par(leading: 4pt, justify: true)
-#set text(lang: "en", family: "Latin Modern Roman")
+#set text(family: "Latin Modern Roman")
 
 #let story = [
   In olden times when wishing still helped one, there lived a king whose

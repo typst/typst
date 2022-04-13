@@ -24,12 +24,10 @@
 
 ---
 // Test single pair of quotes.
-#set text(lang: "en")
 ""
 
 ---
 // Test sentences with numbers and apostrophes.
-#set text(lang: "en")
 The 5'11" 'quick' brown fox jumps over the "lazy" dog's ear.
 
 He said "I'm a big fella."
@@ -40,7 +38,6 @@ The 5\'11\" 'quick\' brown fox jumps over the \"lazy" dog\'s ear.
 
 ---
 // Test turning smart quotes off.
-#set text(lang: "en")
 He's told some books contain questionable "example text".
 
 #set text(smart-quotes: false)
@@ -48,7 +45,6 @@ He's told some books contain questionable "example text".
 
 ---
 // Test changing properties within text.
-#set text(lang: "en")
 "She suddenly started speaking french: #text(lang: "fr")['Je suis une banane.']" Roman told me.
 
 Some people's thought on this would be #text(smart-quotes: false)["strange."]

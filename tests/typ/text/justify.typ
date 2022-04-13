@@ -1,7 +1,6 @@
 
 ---
 #set page(width: 180pt)
-#set text(lang: "en")
 #set par(
   justify: true,
   indent: 14pt,
