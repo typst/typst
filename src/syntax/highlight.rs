@@ -94,7 +94,7 @@ pub enum Category {
     String,
     /// A function.
     Function,
-    /// A variable.
+    /// An interpolated variable in markup.
     Variable,
     /// An invalid node.
     Invalid,
@@ -130,7 +130,6 @@ impl Category {
             NodeKind::NonBreakingSpace => Some(Category::Shortcut),
             NodeKind::EnDash => Some(Category::Shortcut),
             NodeKind::EmDash => Some(Category::Shortcut),
-            NodeKind::Quote(_) => Some(Category::Shortcut),
             NodeKind::Escape(_) => Some(Category::Escape),
             NodeKind::Not => Some(Category::Keyword),
             NodeKind::And => Some(Category::Keyword),
@@ -183,7 +182,8 @@ impl Category {
                 NodeKind::ShowExpr => Some(Category::Function),
                 NodeKind::FuncCall => Some(Category::Function),
                 NodeKind::MethodCall if i > 0 => Some(Category::Function),
-                _ => Some(Category::Variable),
+                NodeKind::Markup(_) => Some(Category::Variable),
+                _ => None,
             },
             NodeKind::Bool(_) => Some(Category::Bool),
             NodeKind::Int(_) => Some(Category::Number),
@@ -196,6 +196,7 @@ impl Category {
             NodeKind::Markup(_) => None,
             NodeKind::Space(_) => None,
             NodeKind::Text(_) => None,
+            NodeKind::Quote(_) => None,
             NodeKind::List => None,
             NodeKind::Enum => None,
             NodeKind::CodeBlock => None,
@@ -281,7 +282,6 @@ mod tests {
         test("#f(x + 1)", &[
             (0 .. 2, Function),
             (2 .. 3, Bracket),
-            (3 .. 4, Variable),
             (5 .. 6, Operator),
             (7 .. 8, Number),
             (8 .. 9, Bracket),
@@ -291,10 +291,8 @@ mod tests {
             (0 .. 4, Keyword),
             (5 .. 6, Function),
             (6 .. 7, Bracket),
-            (7 .. 8, Variable),
             (8 .. 9, Bracket),
             (10 .. 11, Operator),
-            (12 .. 13, Variable),
         ]);
     }
 }
