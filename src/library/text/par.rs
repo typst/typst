@@ -406,9 +406,9 @@ fn collect<'a>(
             ParChild::Quote(double) => {
                 let prev = full.len();
                 if styles.get(TextNode::SMART_QUOTES) {
-                    // TODO: Also get region.
                     let lang = styles.get(TextNode::LANG);
-                    let quotes = Quotes::from_lang(lang.as_str(), "");
+                    let region = styles.get(TextNode::REGION);
+                    let quotes = Quotes::from_lang(lang, region);
                     let peeked = iter.peek().and_then(|(child, _)| match child {
                         ParChild::Text(text) => text.chars().next(),
                         ParChild::Quote(_) => Some('"'),

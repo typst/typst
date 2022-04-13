@@ -1,4 +1,5 @@
 use std::ops::Range;
+use std::str::FromStr;
 
 use rustybuzz::{Feature, UnicodeBuffer};
 
@@ -372,6 +373,7 @@ fn shape_segment<'a>(
     // Fill the buffer with our text.
     let mut buffer = UnicodeBuffer::new();
     buffer.push_str(text);
+    buffer.set_language(language(ctx.styles));
     buffer.set_direction(match ctx.dir {
         Dir::LTR => rustybuzz::Direction::LeftToRight,
         Dir::RTL => rustybuzz::Direction::RightToLeft,
@@ -612,4 +614,15 @@ fn tags(styles: StyleChain) -> Vec<Feature> {
     }
 
     tags
+}
+
+/// Process the language and and region of a style chain into a
+/// rustybuzz-compatible BCP 47 language.
+fn language(styles: StyleChain) -> rustybuzz::Language {
+    let mut bcp: EcoString = styles.get(TextNode::LANG).as_str().into();
+    if let Some(region) = styles.get(TextNode::REGION) {
+        bcp.push('-');
+        bcp.push_str(region.as_str());
+    }
+    rustybuzz::Language::from_str(&bcp).unwrap()
 }

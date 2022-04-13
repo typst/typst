@@ -1,7 +1,7 @@
 // Test smart quotes.
 
 ---
-#set page(width: 200pt)
+#set page(width: 250pt)
 
 // Test simple quotations in various languages.
 #set text(lang: "en")
@@ -10,7 +10,10 @@
 #set text(lang: "de")
 "Das Pferd frisst keinen Gurkensalat" war der erste jemals am 'Fernsprecher' gesagte Satz.
 
-#set text(lang: "fr")
+#set text(lang: "de", region: "CH")
+"Das Pferd frisst keinen Gurkensalat" war der erste jemals am 'Fernsprecher' gesagte Satz.
+
+#set text(lang: "fr", region: none)
 "Le cheval ne mange pas de salade de concombres" est la première phrase jamais prononcée au 'téléphone'.
 
 #set text(lang: "fi")

@@ -1,3 +1,4 @@
+use super::{Lang, Region};
 use crate::parse::is_newline;
 
 /// State machine for smart quote subtitution.
@@ -91,9 +92,10 @@ impl<'s> Quotes<'s> {
     /// Norwegian.
     ///
     /// For unknown languages, the English quotes are used.
-    pub fn from_lang(language: &str, region: &str) -> Self {
-        let (single_open, single_close, double_open, double_close) = match language {
-            "de" if matches!(region, "CH" | "LI") => ("‹", "›", "«", "»"),
+    pub fn from_lang(lang: Lang, region: Option<Region>) -> Self {
+        let region = region.as_ref().map(Region::as_str);
+        let (single_open, single_close, double_open, double_close) = match lang.as_str() {
+            "de" if matches!(region, Some("CH" | "LI")) => ("‹", "›", "«", "»"),
             "cs" | "da" | "de" | "et" | "is" | "lt" | "lv" | "sk" | "sl" => {
                 ("‚", "‘", "„", "“")
             }

@@ -65,8 +65,10 @@ impl TextNode {
     /// The bottom end of the text bounding box.
     pub const BOTTOM_EDGE: TextEdge = TextEdge::Metric(VerticalFontMetric::Baseline);
 
-    /// An ISO 639-1 language code.
+    /// An ISO 639-1/2/3 language code.
     pub const LANG: Lang = Lang::ENGLISH;
+    /// An ISO 3166-1 alpha-2 region code.
+    pub const REGION: Option<Region> = None;
     /// The direction for text and inline objects. When `auto`, the direction is
     /// automatically inferred from the language.
     #[property(resolve)]
