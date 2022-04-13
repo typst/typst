@@ -84,7 +84,7 @@ impl Show for RawNode {
             let mut highlighter = HighlightLines::new(syntax, &THEME);
             for (i, line) in self.text.lines().enumerate() {
                 if i != 0 {
-                    seq.push(Content::Linebreak);
+                    seq.push(Content::Linebreak(false));
                 }
 
                 for (style, piece) in highlighter.highlight(line, &SYNTAXES) {

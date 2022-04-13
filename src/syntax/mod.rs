@@ -586,12 +586,15 @@ pub enum NodeKind {
     Markup(usize),
     /// One or more whitespace characters.
     Space(usize),
-    /// A forced line break: `\`.
-    Linebreak,
     /// A consecutive non-markup string.
     Text(EcoString),
+    /// A forced line break. If soft (`\`, `true`), the preceding line can still
+    /// be justified, if hard (`\+`, `false`) not.
+    Linebreak(bool),
     /// A non-breaking space: `~`.
     NonBreakingSpace,
+    /// A soft hyphen: `-?`.
+    Shy,
     /// An en-dash: `--`.
     EnDash,
     /// An em-dash: `---`.
@@ -766,7 +769,7 @@ impl NodeKind {
     pub fn only_in_mode(&self) -> Option<TokenMode> {
         match self {
             Self::Markup(_)
-            | Self::Linebreak
+            | Self::Linebreak(_)
             | Self::Text(_)
             | Self::NonBreakingSpace
             | Self::EnDash
@@ -859,9 +862,11 @@ impl NodeKind {
             Self::Markup(_) => "markup",
             Self::Space(2 ..) => "paragraph break",
             Self::Space(_) => "space",
-            Self::Linebreak => "forced linebreak",
+            Self::Linebreak(false) => "hard linebreak",
+            Self::Linebreak(true) => "soft linebreak",
             Self::Text(_) => "text",
             Self::NonBreakingSpace => "non-breaking space",
+            Self::Shy => "soft hyphen",
             Self::EnDash => "en dash",
             Self::EmDash => "em dash",
             Self::Quote(false) => "single quote",
@@ -981,9 +986,10 @@ impl Hash for NodeKind {
             Self::From => {}
             Self::Markup(c) => c.hash(state),
             Self::Space(n) => n.hash(state),
-            Self::Linebreak => {}
+            Self::Linebreak(s) => s.hash(state),
             Self::Text(s) => s.hash(state),
             Self::NonBreakingSpace => {}
+            Self::Shy => {}
             Self::EnDash => {}
             Self::EmDash => {}
             Self::Quote(d) => d.hash(state),

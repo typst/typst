@@ -264,42 +264,52 @@ impl<'s> Tokens<'s> {
     }
 
     fn backslash(&mut self) -> NodeKind {
-        match self.s.peek() {
-            Some(c) => match c {
-                // Backslash and comments.
-                '\\' | '/' |
-                // Parenthesis and hashtag.
-                '[' | ']' | '{' | '}' | '#' |
-                // Markup.
-                '~' | '\'' | '"' | '*' | '_' | '`' | '$' | '=' | '-' | '.' => {
-                    self.s.eat_assert(c) ;
-                    NodeKind::Escape(c)
-                }
-                'u' if self.s.rest().starts_with("u{") => {
-                    self.s.eat_assert('u');
-                    self.s.eat_assert('{');
-                    let sequence = self.s.eat_while(|c| c.is_ascii_alphanumeric());
-                    if self.s.eat_if('}') {
-                        if let Some(c) = resolve_hex(sequence) {
-                            NodeKind::Escape(c)
-                        } else {
-                            NodeKind::Error(
-                                ErrorPos::Full,
-                                "invalid unicode escape sequence".into(),
-                            )
-                        }
+        let c = match self.s.peek() {
+            Some(c) => c,
+            None => return NodeKind::Linebreak(false),
+        };
+
+        match c {
+            // Backslash and comments.
+            '\\' | '/' |
+            // Parenthesis and hashtag.
+            '[' | ']' | '{' | '}' | '#' |
+            // Markup.
+            '~' | '\'' | '"' | '*' | '_' | '`' | '$' | '=' | '-' | '.' => {
+                self.s.eat_assert(c) ;
+                NodeKind::Escape(c)
+            }
+            'u' if self.s.rest().starts_with("u{") => {
+                self.s.eat_assert('u');
+                self.s.eat_assert('{');
+                let sequence = self.s.eat_while(|c| c.is_ascii_alphanumeric());
+                if self.s.eat_if('}') {
+                    if let Some(c) = resolve_hex(sequence) {
+                        NodeKind::Escape(c)
                     } else {
-                        self.terminated = false;
                         NodeKind::Error(
-                            ErrorPos::End,
-                            "expected closing brace".into(),
+                            ErrorPos::Full,
+                            "invalid unicode escape sequence".into(),
                         )
                     }
+                } else {
+                    self.terminated = false;
+                    NodeKind::Error(
+                        ErrorPos::End,
+                        "expected closing brace".into(),
+                    )
                 }
-                c if c.is_whitespace() => NodeKind::Linebreak,
-                _ => NodeKind::Text('\\'.into()),
-            },
-            None => NodeKind::Linebreak,
+            }
+
+            // Linebreaks.
+            c if c.is_whitespace() => NodeKind::Linebreak(false),
+            '+' => {
+                self.s.eat_assert(c);
+                NodeKind::Linebreak(true)
+            }
+
+            // Just the backslash.
+            _ => NodeKind::Text('\\'.into()),
         }
     }
 
@@ -323,6 +333,8 @@ impl<'s> Tokens<'s> {
             } else {
                 NodeKind::EnDash
             }
+        } else if self.s.eat_if('?') {
+            NodeKind::Shy
         } else {
             NodeKind::Minus
         }
@@ -845,8 +857,10 @@ mod tests {
         t!(Markup: "_"          => Underscore);
         t!(Markup[""]: "==="    => Eq, Eq, Eq);
         t!(Markup["a1/"]: "= "  => Eq, Space(0));
+        t!(Markup[" "]: r"\"    => Linebreak(false));
+        t!(Markup[" "]: r"\+"   => Linebreak(true));
         t!(Markup: "~"          => NonBreakingSpace);
-        t!(Markup[" "]: r"\"    => Linebreak);
+        t!(Markup["a1/"]: "-?"  => Shy);
         t!(Markup["a "]: r"a--" => Text("a"), EnDash);
         t!(Markup["a1/"]: "- "  => Minus, Space(0));
         t!(Markup[" "]: "."     => EnumNumbering(None));

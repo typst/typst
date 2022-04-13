@@ -213,10 +213,11 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
         // Text and markup.
         NodeKind::Text(_)
         | NodeKind::NonBreakingSpace
+        | NodeKind::Shy
         | NodeKind::EnDash
         | NodeKind::EmDash
         | NodeKind::Quote(_)
-        | NodeKind::Linebreak
+        | NodeKind::Linebreak(_)
         | NodeKind::Raw(_)
         | NodeKind::Math(_)
         | NodeKind::Escape(_) => {

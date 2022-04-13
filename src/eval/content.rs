@@ -39,8 +39,9 @@ use crate::util::EcoString;
 pub enum Content {
     /// A word space.
     Space,
-    /// A line break.
-    Linebreak,
+    /// A forced line break. If soft (`true`), the preceding line can still be
+    /// justified, if hard (`false`) not.
+    Linebreak(bool),
     /// Horizontal spacing.
     Horizontal(Spacing),
     /// Plain text.
@@ -213,10 +214,10 @@ impl Debug for Content {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::Space => f.pad("Space"),
-            Self::Linebreak => f.pad("Linebreak"),
+            Self::Linebreak(soft) => write!(f, "Linebreak({soft})"),
             Self::Horizontal(kind) => write!(f, "Horizontal({kind:?})"),
             Self::Text(text) => write!(f, "Text({text:?})"),
-            Self::Quote(double) => write!(f, "Quote({double:?})"),
+            Self::Quote(double) => write!(f, "Quote({double})"),
             Self::Inline(node) => {
                 f.write_str("Inline(")?;
                 node.fmt(f)?;
@@ -376,8 +377,9 @@ impl<'a> Builder<'a> {
             Content::Space => {
                 self.par.weak(ParChild::Text(' '.into()), 0, styles);
             }
-            Content::Linebreak => {
-                self.par.destructive(ParChild::Text('\n'.into()), styles);
+            Content::Linebreak(soft) => {
+                let c = if *soft { '\u{2028}' } else { '\n' };
+                self.par.destructive(ParChild::Text(c.into()), styles);
             }
             Content::Horizontal(kind) => {
                 let child = ParChild::Spacing(*kind);

@@ -31,6 +31,16 @@ Welcome to wo#text(hyphenate: true)[nd]erful experiences. \
 It's a #emph[Tree]beard.
 
 ---
+// Test shy hyphens.
+#set text(lang: "de", hyphenate: true)
+#grid(
+  columns: 2 * (20pt,),
+  gutter: 20pt,
+  [Barankauf],
+  [Bar-?ankauf],
+)
+
+---
 // This sequence would confuse hypher if we passed trailing / leading
 // punctuation instead of just the words. So this tests that we don't
 // do that. The test passes if there's just one hyphenation between

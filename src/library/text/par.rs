@@ -167,8 +167,9 @@ pub struct LinebreakNode;
 
 #[node]
 impl LinebreakNode {
-    fn construct(_: &mut Context, _: &mut Args) -> TypResult<Content> {
-        Ok(Content::Linebreak)
+    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
+        let soft = args.named("soft")?.unwrap_or(false);
+        Ok(Content::Linebreak(soft))
     }
 }
 
@@ -315,8 +316,8 @@ struct Line<'a> {
     last: Option<Item<'a>>,
     /// The width of the line.
     width: Length,
-    /// Whether the line ends at a mandatory break.
-    mandatory: bool,
+    /// Whether the line is allowed to be justified.
+    justify: bool,
     /// Whether the line ends with a hyphen or dash, either naturally or through
     /// hyphenation.
     dash: bool,
@@ -856,7 +857,7 @@ fn line<'a>(
             items: &[],
             last: None,
             width: Length::zero(),
-            mandatory,
+            justify: !mandatory,
             dash: false,
         };
     }
@@ -879,15 +880,18 @@ fn line<'a>(
     // Reshape the last item if it's split in half.
     let mut last = None;
     let mut dash = false;
+    let mut justify = !mandatory;
     if let Some((Item::Text(shaped), before)) = items.split_last() {
         // Compute the range we want to shape, trimming whitespace at the
         // end of the line.
         let base = last_offset;
         let start = range.start.max(last_offset);
         let end = range.end;
-        let trimmed = p.bidi.text[start .. end].trim_end();
+        let text = &p.bidi.text[start .. end];
+        let trimmed = text.trim_end();
         let shy = trimmed.ends_with('\u{ad}');
         dash = hyphen || shy || trimmed.ends_with(['-', '–', '—']);
+        justify |= text.ends_with('\u{2028}');
 
         // Usually, we don't want to shape an empty string because:
         // - We don't want the height of trimmed whitespace in a different
@@ -947,7 +951,7 @@ fn line<'a>(
         items,
         last,
         width,
-        mandatory,
+        justify,
         dash,
     }
 }
@@ -1050,7 +1054,7 @@ fn commit(
     let mut justification = Length::zero();
     if remaining < Length::zero()
         || (justify
-            && !line.mandatory
+            && line.justify
             && line.range.end < line.bidi.text.len()
             && fr.is_zero())
     {

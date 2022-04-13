@@ -26,3 +26,8 @@ Two consecutive \ \ breaks and three \ \ \ more.
 ---
 // Test forcing an empty trailing line.
 Trailing break \ \
+
+---
+// Test soft breaks.
+#set par(justify: true)
+With a soft \+ break you can force a break without breaking justification.

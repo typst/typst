@@ -108,8 +108,8 @@ impl Eval for MarkupNode {
     fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> EvalResult<Self::Output> {
         Ok(match self {
             Self::Space => Content::Space,
-            Self::Linebreak => Content::Linebreak,
             Self::Parbreak => Content::Parbreak,
+            Self::Linebreak(soft) => Content::Linebreak(*soft),
             Self::Text(text) => Content::Text(text.clone()),
             Self::Quote(double) => Content::Quote(*double),
             Self::Strong(strong) => strong.eval(ctx, scp)?,
