@@ -497,16 +497,6 @@ fn prepare<'a>(
                 }
             },
             Segment::Node(node) => {
-                // Prevent margin overhang in the inline node except if there's
-                // just this one.
-                let local;
-                let styles = if par.0.len() != 1 {
-                    local = StyleMap::with(TextNode::OVERHANG, false);
-                    local.chain(&styles)
-                } else {
-                    styles
-                };
-
                 let size = Size::new(regions.first.x, regions.base.y);
                 let pod = Regions::one(size, regions.base, Spec::splat(false));
                 let frame = node.layout(ctx, &pod, styles)?.remove(0);
@@ -994,9 +984,11 @@ fn commit(
     // Handle hanging punctuation to the left.
     if let Some(Item::Text(text)) = reordered.first() {
         if let Some(glyph) = text.glyphs.first() {
-            if text.styles.get(TextNode::OVERHANG) {
-                let start = text.dir.is_positive();
-                let amount = overhang(glyph.c, start) * glyph.x_advance.at(text.size);
+            if !text.dir.is_positive()
+                && text.styles.get(TextNode::OVERHANG)
+                && (reordered.len() > 1 || text.glyphs.len() > 1)
+            {
+                let amount = overhang(glyph.c) * glyph.x_advance.at(text.size);
                 offset -= amount;
                 remaining += amount;
             }
@@ -1006,11 +998,11 @@ fn commit(
     // Handle hanging punctuation to the right.
     if let Some(Item::Text(text)) = reordered.last() {
         if let Some(glyph) = text.glyphs.last() {
-            if text.styles.get(TextNode::OVERHANG)
+            if text.dir.is_positive()
+                && text.styles.get(TextNode::OVERHANG)
                 && (reordered.len() > 1 || text.glyphs.len() > 1)
             {
-                let start = !text.dir.is_positive();
-                let amount = overhang(glyph.c, start) * glyph.x_advance.at(text.size);
+                let amount = overhang(glyph.c) * glyph.x_advance.at(text.size);
                 remaining += amount;
             }
         }
@@ -1110,24 +1102,19 @@ fn reorder<'a>(line: &'a Line<'a>) -> Vec<&'a Item<'a>> {
     reordered
 }
 
-/// How much a character should hang into the margin.
+/// How much a character should hang into the end margin.
 ///
-/// For selection of overhang characters, see also:
+/// For more discussion, see:
 /// https://recoveringphysicist.com/21/
-fn overhang(c: char, start: bool) -> f64 {
+fn overhang(c: char) -> f64 {
     match c {
-        '“' | '”' | '„' | '‟' | '"' if start => 1.0,
-        '‘' | '’' | '‚' | '‛' | '\'' if start => 1.0,
+        // Dashes.
+        '–' | '—' => 0.2,
+        '-' => 0.55,
 
-        '“' | '”' | '„' | '‟' | '"' if !start => 0.6,
-        '‘' | '’' | '‚' | '‛' | '\'' if !start => 0.6,
-        '–' | '—' if !start => 0.2,
-        '-' if !start => 0.55,
-
+        // Punctuation.
         '.' | ',' => 0.8,
         ':' | ';' => 0.3,
-        '«' | '»' => 0.2,
-        '‹' | '›' => 0.4,
 
         // Arabic and Ideographic
         '\u{60C}' | '\u{6D4}' => 0.4,

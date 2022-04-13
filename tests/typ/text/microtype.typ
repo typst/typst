@@ -1,34 +1,23 @@
 // Test micro-typographical shenanigans.
 
 ---
-// Test that overhang is off by default in boxes.
-A#box["]B
+// Test hanging punctuation.
+#set page(width: 130pt, margins: 15pt)
+#set par(justify: true, linebreaks: "simple")
+#set text(lang: "en", size: 9pt)
+#rect(fill: rgb(repr(teal) + "00"), width: 100%)[
+  This is a little bit of text that builds up to
+  hang-ing hyphens and dash---es and then, you know,
+  some punctuation in the margin.
+]
 
----
-// Test justified quotes.
-#set par(justify: true)
-“A quote that hangs a bit into the margin.” \
-  --- somebody
-
----
-// Test fancy quotes in the left margin.
-#set par(align: right)
-»Book quotes are even smarter.« \
-›Book quotes are even smarter.‹ \
-
----
-// Test fancy quotes in the right margin.
-#set par(align: left)
-«Book quotes are even smarter.» \
-‹Book quotes are even smarter.› \
-
----
-#set text(lang: "ar", "Noto Sans Arabic", "IBM Plex Sans")
-"المطر هو الحياة" \
-المطر هو الحياة
+// Test hanging punctuation with RTL.
+#set text(lang: "he")
+בנייה נכונה של משפטים ארוכים דורשת ידע בשפה. אז בואו נדבר על מזג האוויר.
 
 ---
 // Test that lone punctuation doesn't overhang into the margin.
 #set page(margins: 0pt)
-#set par(align: right)
+#set par(align: end)
+#set text(dir: rtl)
 :
