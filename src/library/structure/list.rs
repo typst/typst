@@ -53,7 +53,7 @@ impl<const L: ListKind> ListNode<L> {
 
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         Ok(Content::show(Self {
-            start: args.named("start")?.unwrap_or(0),
+            start: args.named("start")?.unwrap_or(1),
             wide: args.named("wide")?.unwrap_or(false),
             items: args
                 .all()?

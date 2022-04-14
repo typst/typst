@@ -1,9 +1,7 @@
 // Test enums.
 
 ---
-. Embrace
-. Extend
-. Extinguish
+#enum[Embrace][Extend][Extinguish]
 
 ---
 1. First.

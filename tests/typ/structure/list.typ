@@ -2,9 +2,7 @@
 
 ---
 _Shopping list_
-- Apples
-- Potatoes
-- Juice
+#list[Apples][Potatoes][Juice]
 
 ---
 Tightly
