@@ -69,6 +69,7 @@ impl Markup {
             NodeKind::Shy => Some(MarkupNode::Text('\u{00AD}'.into())),
             NodeKind::EnDash => Some(MarkupNode::Text('\u{2013}'.into())),
             NodeKind::EmDash => Some(MarkupNode::Text('\u{2014}'.into())),
+            NodeKind::Ellipsis => Some(MarkupNode::Text('\u{2026}'.into())),
             NodeKind::Quote(d) => Some(MarkupNode::Quote(*d)),
             NodeKind::Strong => node.cast().map(MarkupNode::Strong),
             NodeKind::Emph => node.cast().map(MarkupNode::Emph),

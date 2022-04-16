@@ -140,6 +140,7 @@ impl<'s> Tokens<'s> {
             // Markup.
             '~' => NodeKind::NonBreakingSpace,
             '-' => self.hyph(),
+            '.' if self.s.eat_if("..") => NodeKind::Ellipsis,
             '\'' => NodeKind::Quote(false),
             '"' => NodeKind::Quote(true),
             '*' if !self.in_word() => NodeKind::Star,
@@ -216,7 +217,7 @@ impl<'s> Tokens<'s> {
             // Comments, parentheses, code.
             '/' | '[' | ']' | '{' | '}' | '#' |
             // Markup
-            '~' | '\'' | '"' | '*' | '_' | '`' | '$' | '-' | '\\'
+            '~' | '-' | '.' | '\'' | '"' | '*' | '_' | '`' | '$' | '\\'
         };
 
         loop {
@@ -224,12 +225,17 @@ impl<'s> Tokens<'s> {
                 TABLE.get(c as usize).copied().unwrap_or_else(|| c.is_whitespace())
             });
 
+            // Allow a single space, optionally preceded by . or - if something
+            // alphanumeric follows directly. This leads to less text nodes,
+            // which is good for performance.
             let mut s = self.s;
-            if !(s.eat_if(' ') && s.at(char::is_alphanumeric)) {
+            s.eat_if(['.', '-']);
+            s.eat_if(' ');
+            if !s.at(char::is_alphanumeric) {
                 break;
             }
 
-            self.s.eat();
+            self.s = s;
         }
 
         NodeKind::Text(self.s.from(start).into())
@@ -831,7 +837,7 @@ mod tests {
     fn test_tokenize_text() {
         // Test basic text.
         t!(Markup[" /"]: "hello"       => Text("hello"));
-        t!(Markup[" /"]: "hello-world" => Text("hello"), Minus, Text("world"));
+        t!(Markup[" /"]: "hello-world" => Text("hello-world"));
 
         // Test code symbols in text.
         t!(Markup[" /"]: "a():\"b" => Text("a():"), Quote(true), Text("b"));
@@ -897,7 +903,7 @@ mod tests {
         t!(Markup[" "]: "."     => EnumNumbering(None));
         t!(Markup[" "]: "1."    => EnumNumbering(Some(1)));
         t!(Markup[" "]: "1.a"   => EnumNumbering(Some(1)), Text("a"));
-        t!(Markup[" /"]: "a1."  => Text("a1."));
+        t!(Markup[" /"]: "a1."  => Text("a1"), EnumNumbering(None));
     }
 
     #[test]
