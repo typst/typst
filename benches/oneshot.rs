@@ -1,9 +1,10 @@
 use std::path::Path;
 
 use iai::{black_box, main, Iai};
+use unscanny::Scanner;
 
 use typst::loading::MemLoader;
-use typst::parse::{parse, Scanner, TokenMode, Tokens};
+use typst::parse::{parse, TokenMode, Tokens};
 use typst::source::SourceId;
 use typst::Context;
 

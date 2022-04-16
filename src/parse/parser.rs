@@ -1,6 +1,6 @@
-use core::slice::SliceIndex;
 use std::fmt::{self, Display, Formatter};
 use std::mem;
+use std::ops::Range;
 
 use super::{TokenMode, Tokens};
 use crate::syntax::{ErrorPos, Green, GreenData, GreenNode, NodeKind};
@@ -116,7 +116,7 @@ impl<'s> Parser<'s> {
             _ => false,
         };
 
-        self.prev_end = self.tokens.index();
+        self.prev_end = self.tokens.cursor();
         self.bump();
 
         if self.tokens.mode() == TokenMode::Code {
@@ -186,15 +186,12 @@ impl<'s> Parser<'s> {
 
     /// Peek at the source of the current token.
     pub fn peek_src(&self) -> &'s str {
-        self.tokens.scanner().get(self.current_start() .. self.current_end())
+        self.get(self.current_start() .. self.current_end())
     }
 
     /// Obtain a range of the source code.
-    pub fn get<I>(&self, index: I) -> &'s str
-    where
-        I: SliceIndex<str, Output = str>,
-    {
-        self.tokens.scanner().get(index)
+    pub fn get(&self, range: Range<usize>) -> &'s str {
+        self.tokens.scanner().get(range)
     }
 
     /// The byte index at which the last non-trivia token ended.
@@ -209,7 +206,7 @@ impl<'s> Parser<'s> {
 
     /// The byte index at which the current token ends.
     pub fn current_end(&self) -> usize {
-        self.tokens.index()
+        self.tokens.cursor()
     }
 
     /// Determine the column index for the given byte index.
@@ -294,8 +291,8 @@ impl<'s> Parser<'s> {
             }
 
             self.tokens.jump(target);
-            self.prev_end = self.tokens.index();
-            self.current_start = self.tokens.index();
+            self.prev_end = self.tokens.cursor();
+            self.current_start = self.tokens.cursor();
             self.current = self.tokens.next();
         }
 
@@ -311,9 +308,9 @@ impl<'s> Parser<'s> {
     /// handling.
     fn bump(&mut self) {
         let kind = self.current.take().unwrap();
-        let len = self.tokens.index() - self.current_start;
+        let len = self.tokens.cursor() - self.current_start;
         self.children.push(GreenData::new(kind, len).into());
-        self.current_start = self.tokens.index();
+        self.current_start = self.tokens.cursor();
         self.current = self.tokens.next();
     }
 

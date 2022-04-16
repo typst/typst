@@ -6,9 +6,11 @@ use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use unscanny::Scanner;
+
 use crate::diag::TypResult;
 use crate::loading::{FileHash, Loader};
-use crate::parse::{is_newline, parse, Reparser, Scanner};
+use crate::parse::{is_newline, parse, Reparser};
 use crate::syntax::ast::Markup;
 use crate::syntax::{self, Category, GreenNode, RedNode};
 use crate::util::{PathExt, StrExt};
@@ -382,12 +384,12 @@ impl Line {
         let mut utf16_idx = utf16_offset;
 
         std::iter::from_fn(move || {
-            s.eat_until(|c| {
+            s.eat_until(|c: char| {
                 utf16_idx += c.len_utf16();
                 is_newline(c)
             });
 
-            if s.eof() {
+            if s.done() {
                 return None;
             }
 
@@ -396,7 +398,7 @@ impl Line {
             }
 
             Some(Line {
-                byte_idx: byte_offset + s.index(),
+                byte_idx: byte_offset + s.cursor(),
                 utf16_idx,
             })
         })

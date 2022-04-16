@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
-use super::{
-    is_id_continue, is_id_start, is_newline, resolve_hex, resolve_raw, resolve_string,
-    Scanner,
-};
+use unicode_xid::UnicodeXID;
+use unscanny::Scanner;
+
+use super::{resolve_hex, resolve_raw, resolve_string};
 use crate::geom::{AngleUnit, LengthUnit};
 use crate::syntax::ast::{MathNode, RawNode, Unit};
 use crate::syntax::{ErrorPos, NodeKind};
@@ -65,13 +65,11 @@ impl<'s> Tokens<'s> {
     /// The index in the string at which the last token ends and next token
     /// will start.
     #[inline]
-    pub fn index(&self) -> usize {
-        self.s.index()
+    pub fn cursor(&self) -> usize {
+        self.s.cursor()
     }
 
     /// Jump to the given index in the string.
-    ///
-    /// You need to know the correct column.
     #[inline]
     pub fn jump(&mut self, index: usize) {
         self.s.jump(index);
@@ -92,7 +90,7 @@ impl<'s> Tokens<'s> {
     /// The column index of a given index in the source string.
     #[inline]
     pub fn column(&self, index: usize) -> usize {
-        column(self.s.src(), index, self.column_offset)
+        column(self.s.string(), index, self.column_offset)
     }
 }
 
@@ -102,7 +100,7 @@ impl<'s> Iterator for Tokens<'s> {
     /// Parse the next token in the source code.
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        let start = self.s.index();
+        let start = self.s.cursor();
         let c = self.s.eat()?;
         Some(match c {
             // Blocks.
@@ -112,15 +110,13 @@ impl<'s> Iterator for Tokens<'s> {
             ']' => NodeKind::RightBracket,
 
             // Whitespace.
-            ' ' if self.s.check_or(true, |c| !c.is_whitespace()) => NodeKind::Space(0),
+            ' ' if self.s.done() || !self.s.at(char::is_whitespace) => NodeKind::Space(0),
             c if c.is_whitespace() => self.whitespace(),
 
             // Comments with special case for URLs.
             '/' if self.s.eat_if('*') => self.block_comment(),
             '/' if !self.maybe_in_url() && self.s.eat_if('/') => self.line_comment(),
-            '*' if self.s.eat_if('/') => {
-                NodeKind::Unknown(self.s.eaten_from(start).into())
-            }
+            '*' if self.s.eat_if('/') => NodeKind::Unknown(self.s.from(start).into()),
 
             // Other things.
             _ => match self.mode {
@@ -187,22 +183,20 @@ impl<'s> Tokens<'s> {
             '=' => NodeKind::Eq,
             '<' => NodeKind::Lt,
             '>' => NodeKind::Gt,
-            '.' if self.s.check_or(true, |n| !n.is_ascii_digit()) => NodeKind::Dot,
+            '.' if self.s.done() || !self.s.at(char::is_ascii_digit) => NodeKind::Dot,
 
             // Identifiers.
             c if is_id_start(c) => self.ident(start),
 
             // Numbers.
-            c if c.is_ascii_digit()
-                || (c == '.' && self.s.check_or(false, |n| n.is_ascii_digit())) =>
-            {
+            c if c.is_ascii_digit() || (c == '.' && self.s.at(char::is_ascii_digit)) => {
                 self.number(start, c)
             }
 
             // Strings.
             '"' => self.string(),
 
-            _ => NodeKind::Unknown(self.s.eaten_from(start).into()),
+            _ => NodeKind::Unknown(self.s.from(start).into()),
         }
     }
 
@@ -226,19 +220,19 @@ impl<'s> Tokens<'s> {
         };
 
         loop {
-            self.s.eat_until(|c| {
+            self.s.eat_until(|c: char| {
                 TABLE.get(c as usize).copied().unwrap_or_else(|| c.is_whitespace())
             });
 
             let mut s = self.s;
-            if !(s.eat_if(' ') && s.check_or(false, char::is_alphanumeric)) {
+            if !(s.eat_if(' ') && s.at(char::is_alphanumeric)) {
                 break;
             }
 
             self.s.eat();
         }
 
-        NodeKind::Text(self.s.eaten_from(start).into())
+        NodeKind::Text(self.s.from(start).into())
     }
 
     fn whitespace(&mut self) -> NodeKind {
@@ -276,13 +270,11 @@ impl<'s> Tokens<'s> {
             '[' | ']' | '{' | '}' | '#' |
             // Markup.
             '~' | '\'' | '"' | '*' | '_' | '`' | '$' | '=' | '-' | '.' => {
-                self.s.eat_assert(c) ;
+                self.s.expect(c);
                 NodeKind::Escape(c)
             }
-            'u' if self.s.rest().starts_with("u{") => {
-                self.s.eat_assert('u');
-                self.s.eat_assert('{');
-                let sequence = self.s.eat_while(|c| c.is_ascii_alphanumeric());
+            'u' if self.s.eat_if("u{") => {
+                let sequence = self.s.eat_while(char::is_ascii_alphanumeric);
                 if self.s.eat_if('}') {
                     if let Some(c) = resolve_hex(sequence) {
                         NodeKind::Escape(c)
@@ -304,7 +296,7 @@ impl<'s> Tokens<'s> {
             // Linebreaks.
             c if c.is_whitespace() => NodeKind::Linebreak(false),
             '+' => {
-                self.s.eat_assert(c);
+                self.s.expect(c);
                 NodeKind::Linebreak(true)
             }
 
@@ -315,7 +307,7 @@ impl<'s> Tokens<'s> {
 
     #[inline]
     fn hash(&mut self) -> NodeKind {
-        if self.s.check_or(false, is_id_start) {
+        if self.s.at(is_id_start) {
             let read = self.s.eat_while(is_id_continue);
             match keyword(read) {
                 Some(keyword) => keyword,
@@ -342,10 +334,10 @@ impl<'s> Tokens<'s> {
 
     fn numbering(&mut self, start: usize, c: char) -> NodeKind {
         let number = if c != '.' {
-            self.s.eat_while(|c| c.is_ascii_digit());
-            let read = self.s.eaten_from(start);
+            self.s.eat_while(char::is_ascii_digit);
+            let read = self.s.from(start);
             if !self.s.eat_if('.') {
-                return NodeKind::Text(self.s.eaten_from(start).into());
+                return NodeKind::Text(self.s.from(start).into());
             }
             read.parse().ok()
         } else {
@@ -356,7 +348,7 @@ impl<'s> Tokens<'s> {
     }
 
     fn raw(&mut self) -> NodeKind {
-        let column = self.column(self.s.index() - 1);
+        let column = self.column(self.s.cursor() - 1);
 
         let mut backticks = 1;
         while self.s.eat_if('`') {
@@ -372,7 +364,7 @@ impl<'s> Tokens<'s> {
             }));
         }
 
-        let start = self.s.index();
+        let start = self.s.cursor();
 
         let mut found = 0;
         while found < backticks {
@@ -384,7 +376,7 @@ impl<'s> Tokens<'s> {
         }
 
         if found == backticks {
-            let end = self.s.index() - found as usize;
+            let end = self.s.cursor() - found as usize;
             NodeKind::Raw(Arc::new(resolve_raw(
                 column,
                 backticks,
@@ -412,7 +404,7 @@ impl<'s> Tokens<'s> {
             display = true;
         }
 
-        let start = self.s.index();
+        let start = self.s.cursor();
 
         let mut escaped = false;
         let mut dollar = !display;
@@ -429,7 +421,7 @@ impl<'s> Tokens<'s> {
             }
         };
 
-        let end = self.s.index()
+        let end = self.s.cursor()
             - match (terminated, display) {
                 (false, _) => 0,
                 (true, false) => 1,
@@ -456,7 +448,7 @@ impl<'s> Tokens<'s> {
 
     fn ident(&mut self, start: usize) -> NodeKind {
         self.s.eat_while(is_id_continue);
-        match self.s.eaten_from(start) {
+        match self.s.from(start) {
             "none" => NodeKind::None,
             "auto" => NodeKind::Auto,
             "true" => NodeKind::Bool(true),
@@ -467,30 +459,29 @@ impl<'s> Tokens<'s> {
 
     fn number(&mut self, start: usize, c: char) -> NodeKind {
         // Read the first part (integer or fractional depending on `first`).
-        self.s.eat_while(|c| c.is_ascii_digit());
+        self.s.eat_while(char::is_ascii_digit);
 
         // Read the fractional part if not already done.
         // Make sure not to confuse a range for the decimal separator.
-        if c != '.' && !self.s.rest().starts_with("..") && self.s.eat_if('.') {
-            self.s.eat_while(|c| c.is_ascii_digit());
+        if c != '.' && !self.s.at("..") && self.s.eat_if('.') {
+            self.s.eat_while(char::is_ascii_digit);
         }
 
         // Read the exponent.
-        let em = self.s.rest().starts_with("em");
-        if !em && self.s.eat_if('e') || self.s.eat_if('E') {
-            let _ = self.s.eat_if('+') || self.s.eat_if('-');
-            self.s.eat_while(|c| c.is_ascii_digit());
+        if !self.s.at("em") && self.s.eat_if(['e', 'E']) {
+            self.s.eat_if(['+', '-']);
+            self.s.eat_while(char::is_ascii_digit);
         }
 
         // Read the suffix.
-        let suffix_start = self.s.index();
+        let suffix_start = self.s.cursor();
         if !self.s.eat_if('%') {
-            self.s.eat_while(|c| c.is_ascii_alphanumeric());
+            self.s.eat_while(char::is_ascii_alphanumeric);
         }
 
         let number = self.s.get(start .. suffix_start);
-        let suffix = self.s.eaten_from(suffix_start);
-        let all = self.s.eaten_from(start);
+        let suffix = self.s.from(suffix_start);
+        let all = self.s.from(start);
 
         // Find out whether it is a simple number.
         if suffix.is_empty() {
@@ -575,13 +566,13 @@ impl<'s> Tokens<'s> {
 
     fn in_word(&self) -> bool {
         let alphanumeric = |c: Option<char>| c.map_or(false, |c| c.is_alphanumeric());
-        let prev = self.s.prev(1);
+        let prev = self.s.scout(-2);
         let next = self.s.peek();
         alphanumeric(prev) && alphanumeric(next)
     }
 
     fn maybe_in_url(&self) -> bool {
-        self.mode == TokenMode::Markup && self.s.eaten().ends_with(":/")
+        self.mode == TokenMode::Markup && self.s.before().ends_with(":/")
     }
 }
 
@@ -610,7 +601,8 @@ fn keyword(ident: &str) -> Option<NodeKind> {
     })
 }
 
-/// The column index of a given index in the source string, given a column offset for the first line.
+/// The column index of a given index in the source string, given a column
+/// offset for the first line.
 #[inline]
 fn column(string: &str, index: usize, offset: usize) -> usize {
     let mut apply_offset = false;
@@ -632,6 +624,45 @@ fn column(string: &str, index: usize, offset: usize) -> usize {
     }
 
     if apply_offset { res + offset } else { res }
+}
+
+/// Whether this character denotes a newline.
+#[inline]
+pub fn is_newline(character: char) -> bool {
+    matches!(
+        character,
+        // Line Feed, Vertical Tab, Form Feed, Carriage Return.
+        '\n' | '\x0B' | '\x0C' | '\r' |
+        // Next Line, Line Separator, Paragraph Separator.
+        '\u{0085}' | '\u{2028}' | '\u{2029}'
+    )
+}
+
+/// Whether a string is a valid unicode identifier.
+///
+/// In addition to what is specified in the [Unicode Standard][uax31], we allow:
+/// - `_` as a starting character,
+/// - `_` and `-` as continuing characters.
+///
+/// [uax31]: http://www.unicode.org/reports/tr31/
+#[inline]
+pub fn is_ident(string: &str) -> bool {
+    let mut chars = string.chars();
+    chars
+        .next()
+        .map_or(false, |c| is_id_start(c) && chars.all(is_id_continue))
+}
+
+/// Whether a character can start an identifier.
+#[inline]
+pub fn is_id_start(c: char) -> bool {
+    c.is_xid_start() || c == '_'
+}
+
+/// Whether a character can continue an identifier.
+#[inline]
+pub fn is_id_continue(c: char) -> bool {
+    c.is_xid_continue() || c == '_' || c == '-'
 }
 
 #[cfg(test)]

@@ -876,6 +876,7 @@ dependencies = [
  "unicode-script",
  "unicode-segmentation",
  "unicode-xid",
+ "unscanny",
  "usvg",
  "walkdir",
  "xi-unicode",
@@ -937,6 +938,11 @@ name = "unicode-xid"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ccb82d61f80a663efe1f787a51b16b5a51e3314d6ac365b08639f52387b33f3"
+
+[[package]]
+name = "unscanny"
+version = "0.1.0"
+source = "git+https://github.com/typst/unscanny#c943791649841388803b7ca873ce72683903fd39"
 
 [[package]]
 name = "usvg"

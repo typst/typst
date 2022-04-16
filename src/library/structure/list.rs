@@ -1,8 +1,9 @@
+use unscanny::Scanner;
+
 use crate::library::layout::{GridNode, TrackSizing};
 use crate::library::prelude::*;
 use crate::library::text::ParNode;
 use crate::library::utility::Numbering;
-use crate::parse::Scanner;
 
 /// An unordered (bulleted) or ordered (numbered) list.
 #[derive(Debug, Hash)]
@@ -190,7 +191,7 @@ impl Cast<Spanned<Value>> for Label {
                 let mut s = Scanner::new(&pattern);
                 let mut prefix;
                 let numbering = loop {
-                    prefix = s.eaten();
+                    prefix = s.before();
                     match s.eat().map(|c| c.to_ascii_lowercase()) {
                         Some('1') => break Numbering::Arabic,
                         Some('a') => break Numbering::Letter,
@@ -200,8 +201,8 @@ impl Cast<Spanned<Value>> for Label {
                         None => Err("invalid pattern")?,
                     }
                 };
-                let upper = s.prev(0).map_or(false, char::is_uppercase);
-                let suffix = s.rest().into();
+                let upper = s.scout(-1).map_or(false, char::is_uppercase);
+                let suffix = s.after().into();
                 Ok(Self::Pattern(prefix.into(), numbering, upper, suffix))
             }
             Value::Content(v) => Ok(Self::Content(v)),

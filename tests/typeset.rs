@@ -6,6 +6,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use tiny_skia as sk;
+use unscanny::Scanner;
 use walkdir::WalkDir;
 
 use typst::diag::Error;
@@ -15,7 +16,6 @@ use typst::geom::{Length, RgbaColor};
 use typst::library::layout::PageNode;
 use typst::library::text::{TextNode, TextSize};
 use typst::loading::FsLoader;
-use typst::parse::Scanner;
 use typst::source::SourceFile;
 use typst::syntax::Span;
 use typst::{bail, Context};
@@ -329,7 +329,7 @@ fn parse_metadata(source: &SourceFile) -> (Option<bool>, Vec<Error>) {
         };
 
         fn num(s: &mut Scanner) -> usize {
-            s.eat_while(|c| c.is_numeric()).parse().unwrap()
+            s.eat_while(char::is_numeric).parse().unwrap()
         }
 
         let comments =
@@ -348,7 +348,7 @@ fn parse_metadata(source: &SourceFile) -> (Option<bool>, Vec<Error>) {
         let end = if s.eat_if('-') { pos(&mut s) } else { start };
         let span = Span::new(source.id(), start, end);
 
-        errors.push(Error::new(span, s.rest().trim()));
+        errors.push(Error::new(span, s.after().trim()));
     }
 
     (compare_ref, errors)

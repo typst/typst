@@ -1,4 +1,6 @@
-use super::{is_ident, is_newline, Scanner};
+use unscanny::Scanner;
+
+use super::{is_ident, is_newline};
 use crate::syntax::ast::RawNode;
 use crate::util::EcoString;
 
@@ -13,7 +15,7 @@ pub fn resolve_string(string: &str) -> EcoString {
             continue;
         }
 
-        let start = s.last_index();
+        let start = s.locate(-1);
         match s.eat() {
             Some('\\') => out.push('\\'),
             Some('"') => out.push('"'),
@@ -22,17 +24,17 @@ pub fn resolve_string(string: &str) -> EcoString {
             Some('t') => out.push('\t'),
             Some('u') if s.eat_if('{') => {
                 // TODO: Feedback if closing brace is missing.
-                let sequence = s.eat_while(|c| c.is_ascii_hexdigit());
+                let sequence = s.eat_while(char::is_ascii_hexdigit);
                 let _terminated = s.eat_if('}');
 
                 match resolve_hex(sequence) {
                     Some(c) => out.push(c),
-                    None => out.push_str(s.eaten_from(start)),
+                    None => out.push_str(s.from(start)),
                 }
             }
 
             // TODO: Feedback about invalid escape sequence.
-            _ => out.push_str(s.eaten_from(start)),
+            _ => out.push_str(s.from(start)),
         }
     }
 
@@ -68,8 +70,8 @@ pub fn resolve_raw(column: usize, backticks: usize, text: &str) -> RawNode {
 fn split_at_lang_tag(raw: &str) -> (&str, &str) {
     let mut s = Scanner::new(raw);
     (
-        s.eat_until(|c| c == '`' || c.is_whitespace() || is_newline(c)),
-        s.rest(),
+        s.eat_until(|c: char| c == '`' || c.is_whitespace() || is_newline(c)),
+        s.after(),
     )
 }
 
@@ -129,9 +131,9 @@ fn split_lines(text: &str) -> Vec<&str> {
             }
 
             lines.push(&text[start .. end]);
-            start = s.index();
+            start = s.cursor();
         }
-        end = s.index();
+        end = s.cursor();
     }
 
     lines.push(&text[start ..]);
