@@ -148,6 +148,20 @@ impl<T: Into<Self>> DivAssign<T> for Scalar {
     }
 }
 
+impl<T: Into<Self>> Rem<T> for Scalar {
+    type Output = Self;
+
+    fn rem(self, rhs: T) -> Self::Output {
+        Self(self.0 % rhs.into().0)
+    }
+}
+
+impl<T: Into<Self>> RemAssign<T> for Scalar {
+    fn rem_assign(&mut self, rhs: T) {
+        self.0 %= rhs.into().0;
+    }
+}
+
 impl Sum for Scalar {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
         Self(iter.map(|s| s.0).sum())

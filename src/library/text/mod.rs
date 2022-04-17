@@ -6,6 +6,7 @@ mod link;
 mod par;
 mod quotes;
 mod raw;
+mod repeat;
 mod shaping;
 
 pub use deco::*;
@@ -14,6 +15,7 @@ pub use link::*;
 pub use par::*;
 pub use quotes::*;
 pub use raw::*;
+pub use repeat::*;
 pub use shaping::*;
 
 use std::borrow::Cow;

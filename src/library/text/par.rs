@@ -4,7 +4,7 @@ use unicode_bidi::{BidiInfo, Level};
 use unicode_script::{Script, UnicodeScript};
 use xi_unicode::LineBreakIterator;
 
-use super::{shape, Lang, Quoter, Quotes, ShapedText, TextNode};
+use super::{shape, Lang, Quoter, Quotes, RepeatNode, ShapedText, TextNode};
 use crate::font::FontStore;
 use crate::library::layout::Spacing;
 use crate::library::prelude::*;
@@ -76,7 +76,7 @@ impl Layout for ParNode {
         let lines = linebreak(&p, &mut ctx.fonts, regions.first.x);
 
         // Stack the lines into one frame per region.
-        Ok(stack(&lines, &mut ctx.fonts, regions, styles))
+        stack(ctx, &lines, regions, styles)
     }
 }
 
@@ -262,6 +262,8 @@ enum Item<'a> {
     Fractional(Fraction),
     /// A layouted child node.
     Frame(Frame),
+    /// A repeating node.
+    Repeat(&'a RepeatNode),
 }
 
 impl<'a> Item<'a> {
@@ -278,7 +280,7 @@ impl<'a> Item<'a> {
         match self {
             Self::Text(shaped) => shaped.text.len(),
             Self::Absolute(_) | Self::Fractional(_) => SPACING_REPLACE.len_utf8(),
-            Self::Frame(_) => NODE_REPLACE.len_utf8(),
+            Self::Frame(_) | Self::Repeat(_) => NODE_REPLACE.len_utf8(),
         }
     }
 
@@ -287,7 +289,7 @@ impl<'a> Item<'a> {
         match self {
             Item::Text(shaped) => shaped.width,
             Item::Absolute(v) => *v,
-            Item::Fractional(_) => Length::zero(),
+            Item::Fractional(_) | Self::Repeat(_) => Length::zero(),
             Item::Frame(frame) => frame.size.x,
         }
     }
@@ -374,6 +376,7 @@ impl<'a> Line<'a> {
         self.items()
             .filter_map(|item| match item {
                 Item::Fractional(fr) => Some(*fr),
+                Item::Repeat(_) => Some(Fraction::one()),
                 _ => None,
             })
             .sum()
@@ -518,10 +521,14 @@ fn prepare<'a>(
                 }
             },
             Segment::Node(node) => {
-                let size = Size::new(regions.first.x, regions.base.y);
-                let pod = Regions::one(size, regions.base, Spec::splat(false));
-                let frame = node.layout(ctx, &pod, styles)?.remove(0);
-                items.push(Item::Frame(Arc::take(frame)));
+                if let Some(repeat) = node.downcast() {
+                    items.push(Item::Repeat(repeat));
+                } else {
+                    let size = Size::new(regions.first.x, regions.base.y);
+                    let pod = Regions::one(size, regions.base, Spec::splat(false));
+                    let frame = node.layout(ctx, &pod, styles)?.remove(0);
+                    items.push(Item::Frame(Arc::take(frame)));
+                }
             }
         }
 
@@ -954,11 +961,11 @@ fn line<'a>(
 
 /// Combine layouted lines into one frame per region.
 fn stack(
+    ctx: &mut Context,
     lines: &[Line],
-    fonts: &mut FontStore,
     regions: &Regions,
     styles: StyleChain,
-) -> Vec<Arc<Frame>> {
+) -> TypResult<Vec<Arc<Frame>>> {
     let leading = styles.get(ParNode::LEADING);
     let align = styles.get(ParNode::ALIGN);
     let justify = styles.get(ParNode::JUSTIFY);
@@ -978,7 +985,7 @@ fn stack(
 
     // Stack the lines into one frame per region.
     for line in lines {
-        let frame = commit(line, fonts, width, align, justify);
+        let frame = commit(ctx, line, &regions, width, styles, align, justify)?;
         let height = frame.size.y;
 
         while !regions.first.y.fits(height) && !regions.in_last() {
@@ -1001,17 +1008,19 @@ fn stack(
     }
 
     finished.push(Arc::new(output));
-    finished
+    Ok(finished)
 }
 
 /// Commit to a line and build its frame.
 fn commit(
+    ctx: &mut Context,
     line: &Line,
-    fonts: &mut FontStore,
+    regions: &Regions,
     width: Length,
+    styles: StyleChain,
     align: Align,
     justify: bool,
-) -> Frame {
+) -> TypResult<Frame> {
     let mut remaining = width - line.width;
     let mut offset = Length::zero();
 
@@ -1067,24 +1076,44 @@ fn commit(
     // Build the frames and determine the height and baseline.
     let mut frames = vec![];
     for item in reordered {
-        let frame = match item {
+        let mut push = |offset: &mut Length, frame: Frame| {
+            let width = frame.size.x;
+            top.set_max(frame.baseline());
+            bottom.set_max(frame.size.y - frame.baseline());
+            frames.push((*offset, frame));
+            *offset += width;
+        };
+
+        match item {
             Item::Absolute(v) => {
                 offset += *v;
-                continue;
             }
             Item::Fractional(v) => {
                 offset += v.share(fr, remaining);
-                continue;
             }
-            Item::Text(shaped) => shaped.build(fonts, justification),
-            Item::Frame(frame) => frame.clone(),
-        };
-
-        let width = frame.size.x;
-        top.set_max(frame.baseline());
-        bottom.set_max(frame.size.y - frame.baseline());
-        frames.push((offset, frame));
-        offset += width;
+            Item::Text(shaped) => {
+                push(&mut offset, shaped.build(&mut ctx.fonts, justification));
+            }
+            Item::Frame(frame) => {
+                push(&mut offset, frame.clone());
+            }
+            Item::Repeat(node) => {
+                let before = offset;
+                let width = Fraction::one().share(fr, remaining);
+                let size = Size::new(width, regions.base.y);
+                let pod = Regions::one(size, regions.base, Spec::new(false, false));
+                let frame = node.layout(ctx, &pod, styles)?.remove(0);
+                let count = (width / frame.size.x).floor();
+                let apart = (width % frame.size.x) / (count - 1.0);
+                if frame.size.x > Length::zero() {
+                    for _ in 0 .. (count as usize).min(1000) {
+                        push(&mut offset, frame.as_ref().clone());
+                        offset += apart;
+                    }
+                }
+                offset = before + width;
+            }
+        }
     }
 
     let size = Size::new(width, top + bottom);
@@ -1098,7 +1127,7 @@ fn commit(
         output.merge_frame(Point::new(x, y), frame);
     }
 
-    output
+    Ok(output)
 }
 
 /// Return a line's items in visual order.

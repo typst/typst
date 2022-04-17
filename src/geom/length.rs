@@ -193,6 +193,14 @@ assign_impl!(Length -= Length);
 assign_impl!(Length *= f64);
 assign_impl!(Length /= f64);
 
+impl Rem for Length {
+    type Output = Self;
+
+    fn rem(self, other: Self) -> Self::Output {
+        Self(self.0 % other.0)
+    }
+}
+
 impl Sum for Length {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
         Self(iter.map(|s| s.0).sum())

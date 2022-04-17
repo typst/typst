@@ -29,6 +29,7 @@ pub fn new() -> Scope {
     std.def_node::<text::StrikethroughNode>("strike");
     std.def_node::<text::OverlineNode>("overline");
     std.def_node::<text::LinkNode>("link");
+    std.def_node::<text::RepeatNode>("repeat");
 
     // Structure.
     std.def_node::<structure::HeadingNode>("heading");
