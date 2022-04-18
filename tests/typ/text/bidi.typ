@@ -46,6 +46,10 @@ Lריווח #h(1cm) R
 קרנפיםRh#image("../../res/rhino.png", height: 11pt)inoחיים
 
 ---
+// Test whether L1 whitespace resetting destroys stuff.
+الغالب #h(70pt) ن{" "}ة
+
+---
 // Test setting a vertical direction.
 // Ref: false
 

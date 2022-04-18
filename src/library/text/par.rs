@@ -199,23 +199,46 @@ struct Preparation<'a> {
 }
 
 impl<'a> Preparation<'a> {
-    /// Find the item which is at the `text_offset`.
+    /// Find the item that contains the given `text_offset`.
     fn find(&self, text_offset: usize) -> Option<&Item<'a>> {
-        self.find_idx_and_offset(text_offset).map(|(idx, _)| &self.items[idx])
-    }
-
-    /// Find the index and text offset of the item which is at the
-    /// `text_offset`.
-    fn find_idx_and_offset(&self, text_offset: usize) -> Option<(usize, usize)> {
         let mut cursor = 0;
-        for (idx, item) in self.items.iter().enumerate() {
+        for item in &self.items {
             let end = cursor + item.len();
             if (cursor .. end).contains(&text_offset) {
-                return Some((idx, cursor));
+                return Some(item);
             }
             cursor = end;
         }
         None
+    }
+
+    /// Return the items that intersect the given `text_range`.
+    ///
+    /// Returns the expanded range around the items and the items.
+    fn slice(&self, text_range: Range) -> (Range, &[Item<'a>]) {
+        let mut cursor = 0;
+        let mut start = 0;
+        let mut end = 0;
+        let mut expanded = text_range.clone();
+
+        for (i, item) in self.items.iter().enumerate() {
+            if cursor <= text_range.start {
+                start = i;
+                expanded.start = cursor;
+            }
+
+            let len = item.len();
+            if cursor < text_range.end || cursor + len <= text_range.end {
+                end = i + 1;
+                expanded.end = cursor + len;
+            } else {
+                break;
+            }
+
+            cursor += len;
+        }
+
+        (expanded, &self.items[start .. end])
     }
 
     /// Get a style property, but only if it is the same for all children of the
@@ -307,12 +330,14 @@ impl<'a> Item<'a> {
 struct Line<'a> {
     /// Bidi information about the paragraph.
     bidi: &'a BidiInfo<'a>,
-    /// The (untrimmed) range the line spans in the paragraph.
-    range: Range,
+    /// The trimmed range the line spans in the paragraph.
+    trimmed: Range,
+    /// The untrimmed end where the line ends.
+    end: usize,
     /// A reshaped text item if the line sliced up a text item at the start.
     first: Option<Item<'a>>,
-    /// Middle items which don't need to be reprocessed.
-    items: &'a [Item<'a>],
+    /// Inner items which don't need to be reprocessed.
+    inner: &'a [Item<'a>],
     /// A reshaped text item if the line sliced up a text item at the end. If
     /// there is only one text item, this takes precedence over `first`.
     last: Option<Item<'a>>,
@@ -328,29 +353,31 @@ struct Line<'a> {
 impl<'a> Line<'a> {
     /// Iterate over the line's items.
     fn items(&self) -> impl Iterator<Item = &Item<'a>> {
-        self.first.iter().chain(self.items).chain(&self.last)
+        self.first.iter().chain(self.inner).chain(&self.last)
     }
 
-    /// Get the item at the index.
-    fn get(&self, index: usize) -> Option<&Item<'a>> {
-        self.items().nth(index)
-    }
+    /// Return items that intersect the given `text_range`.
+    fn slice(&self, text_range: Range) -> impl Iterator<Item = &Item<'a>> {
+        let mut cursor = self.trimmed.start;
+        let mut start = 0;
+        let mut end = 0;
 
-    /// Find the index of the item whose range contains the `text_offset`.
-    fn find(&self, text_offset: usize) -> usize {
-        let mut idx = 0;
-        let mut cursor = self.range.start;
-
-        for item in self.items() {
-            let end = cursor + item.len();
-            if (cursor .. end).contains(&text_offset) {
-                return idx;
+        for (i, item) in self.items().enumerate() {
+            if cursor <= text_range.start {
+                start = i;
             }
-            cursor = end;
-            idx += 1;
+
+            let len = item.len();
+            if cursor < text_range.end || cursor + len <= text_range.end {
+                end = i + 1;
+            } else {
+                break;
+            }
+
+            cursor += len;
         }
 
-        idx.saturating_sub(1)
+        self.items().skip(start).take(end - start)
     }
 
     // How many justifiable glyphs the line contains.
@@ -664,7 +691,7 @@ fn linebreak_optimized<'a>(
         // Find the optimal predecessor.
         for (i, pred) in table.iter_mut().enumerate().skip(active) {
             // Layout the line.
-            let start = pred.line.range.end;
+            let start = pred.line.end;
             let attempt = line(p, fonts, start .. end, mandatory, hyphen);
 
             // Determine how much the line's spaces would need to be stretched
@@ -848,16 +875,17 @@ impl Breakpoints<'_> {
 fn line<'a>(
     p: &'a Preparation,
     fonts: &mut FontStore,
-    range: Range,
+    mut range: Range,
     mandatory: bool,
     hyphen: bool,
 ) -> Line<'a> {
     if range.is_empty() {
         return Line {
             bidi: &p.bidi,
-            range,
+            end: range.end,
+            trimmed: range,
             first: None,
-            items: &[],
+            inner: &[],
             last: None,
             width: Length::zero(),
             justify: !mandatory,
@@ -865,33 +893,25 @@ fn line<'a>(
         };
     }
 
-    // Find the last item.
-    let (last_idx, last_offset) =
-        p.find_idx_and_offset(range.end.saturating_sub(1)).unwrap();
-
-    // Find the first item.
-    let (first_idx, first_offset) = if range.is_empty() {
-        (last_idx, last_offset)
-    } else {
-        p.find_idx_and_offset(range.start).unwrap()
-    };
-
     // Slice out the relevant items.
-    let mut items = &p.items[first_idx ..= last_idx];
+    let end = range.end;
+    let (expanded, mut inner) = p.slice(range.clone());
     let mut width = Length::zero();
 
-    // Reshape the last item if it's split in half.
+    // Reshape the last item if it's split in half or hyphenated.
     let mut last = None;
     let mut dash = false;
     let mut justify = !mandatory;
-    if let Some((Item::Text(shaped), before)) = items.split_last() {
+    if let Some((Item::Text(shaped), before)) = inner.split_last() {
         // Compute the range we want to shape, trimming whitespace at the
         // end of the line.
-        let base = last_offset;
-        let start = range.start.max(last_offset);
-        let end = range.end;
-        let text = &p.bidi.text[start .. end];
+        let base = expanded.end - shaped.text.len();
+        let start = range.start.max(base);
+        let text = &p.bidi.text[start .. range.end];
         let trimmed = text.trim_end();
+        range.end = start + trimmed.len();
+
+        // Deal with hyphens, dashes and justification.
         let shy = trimmed.ends_with('\u{ad}');
         dash = hyphen || shy || trimmed.ends_with(['-', '–', '—']);
         justify |= text.ends_with('\u{2028}');
@@ -905,10 +925,9 @@ fn line<'a>(
         // need the shaped empty string to make the line the appropriate
         // height. That is the case exactly if the string is empty and there
         // are no other items in the line.
-        if hyphen || trimmed.len() < shaped.text.len() {
-            if hyphen || !trimmed.is_empty() || before.is_empty() {
-                let end = start + trimmed.len();
-                let shifted = start - base .. end - base;
+        if hyphen || start + shaped.text.len() > range.end {
+            if hyphen || start < range.end || before.is_empty() {
+                let shifted = start - base .. range.end - base;
                 let mut reshaped = shaped.reshape(fonts, shifted);
                 if hyphen || shy {
                     reshaped.push_hyphen(fonts);
@@ -917,41 +936,41 @@ fn line<'a>(
                 last = Some(Item::Text(reshaped));
             }
 
-            items = before;
+            inner = before;
         }
     }
 
     // Reshape the start item if it's split in half.
     let mut first = None;
-    if let Some((Item::Text(shaped), after)) = items.split_first() {
+    if let Some((Item::Text(shaped), after)) = inner.split_first() {
         // Compute the range we want to shape.
-        let base = first_offset;
-        let start = range.start;
-        let end = range.end.min(first_offset + shaped.text.len());
+        let base = expanded.start;
+        let end = range.end.min(base + shaped.text.len());
 
         // Reshape if necessary.
-        if end - start < shaped.text.len() {
-            if start < end {
-                let shifted = start - base .. end - base;
+        if range.start + shaped.text.len() > end {
+            if range.start < end {
+                let shifted = range.start - base .. end - base;
                 let reshaped = shaped.reshape(fonts, shifted);
                 width += reshaped.width;
                 first = Some(Item::Text(reshaped));
             }
 
-            items = after;
+            inner = after;
         }
     }
 
     // Measure the inner items.
-    for item in items {
+    for item in inner {
         width += item.width();
     }
 
     Line {
         bidi: &p.bidi,
-        range,
+        trimmed: range,
+        end,
         first,
-        items,
+        inner,
         last,
         width,
         justify,
@@ -1058,10 +1077,7 @@ fn commit(
     let fr = line.fr();
     let mut justification = Length::zero();
     if remaining < Length::zero()
-        || (justify
-            && line.justify
-            && line.range.end < line.bidi.text.len()
-            && fr.is_zero())
+        || (justify && line.justify && line.end < line.bidi.text.len() && fr.is_zero())
     {
         let justifiables = line.justifiables();
         if justifiables > 0 {
@@ -1104,7 +1120,11 @@ fn commit(
                 let pod = Regions::one(size, regions.base, Spec::new(false, false));
                 let frame = node.layout(ctx, &pod, styles)?.remove(0);
                 let count = (width / frame.size.x).floor();
-                let apart = (width % frame.size.x) / (count - 1.0);
+                let remaining = width % frame.size.x;
+                let apart = remaining / (count - 1.0);
+                if count == 1.0 {
+                    offset += align.position(remaining);
+                }
                 if frame.size.x > Length::zero() {
                     for _ in 0 .. (count as usize).min(1000) {
                         push(&mut offset, frame.as_ref().clone());
@@ -1114,6 +1134,11 @@ fn commit(
                 offset = before + width;
             }
         }
+    }
+
+    // Remaining space is distributed now.
+    if !fr.is_zero() {
+        remaining = Length::zero();
     }
 
     let size = Size::new(width, top + bottom);
@@ -1131,12 +1156,12 @@ fn commit(
 }
 
 /// Return a line's items in visual order.
-fn reorder<'a>(line: &'a Line<'a>) -> Vec<&'a Item<'a>> {
+fn reorder<'a>(line: &'a Line<'a>) -> Vec<&Item<'a>> {
     let mut reordered = vec![];
 
     // The bidi crate doesn't like empty lines.
-    if line.range.is_empty() {
-        return reordered;
+    if line.trimmed.is_empty() {
+        return line.slice(line.trimmed.clone()).collect();
     }
 
     // Find the paragraph that contains the line.
@@ -1144,24 +1169,25 @@ fn reorder<'a>(line: &'a Line<'a>) -> Vec<&'a Item<'a>> {
         .bidi
         .paragraphs
         .iter()
-        .find(|para| para.range.contains(&line.range.start))
+        .find(|para| para.range.contains(&line.trimmed.start))
         .unwrap();
 
     // Compute the reordered ranges in visual order (left to right).
-    let (levels, runs) = line.bidi.visual_runs(para, line.range.clone());
+    let (levels, runs) = line.bidi.visual_runs(para, line.trimmed.clone());
 
     // Collect the reordered items.
     for run in runs {
-        let first_idx = line.find(run.start);
-        let last_idx = line.find(run.end - 1);
-        let range = first_idx ..= last_idx;
+        // Skip reset L1 runs because handling them would require reshaping
+        // again in some cases.
+        if line.bidi.levels[run.start] != levels[run.start] {
+            continue;
+        }
 
-        // Provide the items forwards or backwards depending on the run's
-        // direction.
-        if levels[run.start].is_ltr() {
-            reordered.extend(range.filter_map(|i| line.get(i)));
-        } else {
-            reordered.extend(range.rev().filter_map(|i| line.get(i)));
+        let prev = reordered.len();
+        reordered.extend(line.slice(run.clone()));
+
+        if levels[run.start].is_rtl() {
+            reordered[prev ..].reverse();
         }
     }
 

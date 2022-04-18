@@ -21,7 +21,14 @@ Add #h(10pt) #h(10pt) up
 // Test spacing collapsing before spacing.
 #set par(align: right)
 A #h(0pt) B #h(0pt) \
-A B
+A B \
+A #h(-1fr) B
+
+---
+// Test RTL spacing.
+#set text(dir: rtl)
+A #h(10pt) B \
+A #h(1fr) B
 
 ---
 // Missing spacing.
