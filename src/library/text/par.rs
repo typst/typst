@@ -76,7 +76,7 @@ impl Layout for ParNode {
         let lines = linebreak(&p, &mut ctx.fonts, regions.first.x);
 
         // Stack the lines into one frame per region.
-        stack(ctx, &lines, regions, styles)
+        stack(&p, ctx, &lines, regions)
     }
 }
 
@@ -194,8 +194,16 @@ struct Preparation<'a> {
     items: Vec<Item<'a>>,
     /// The styles shared by all children.
     styles: StyleChain<'a>,
-    /// The paragraph's children.
-    children: &'a StyleVec<ParChild>,
+    /// Whether to hyphenate if it's the same for all children.
+    hyphenate: Option<bool>,
+    /// The text language if it's the same for all children.
+    lang: Option<Lang>,
+    /// The resolved leading between lines.
+    leading: Length,
+    /// The paragraph's resolved alignment.
+    align: Align,
+    /// Whether to justify the paragraph.
+    justify: bool,
 }
 
 impl<'a> Preparation<'a> {
@@ -240,15 +248,6 @@ impl<'a> Preparation<'a> {
 
         (expanded, &self.items[start .. end])
     }
-
-    /// Get a style property, but only if it is the same for all children of the
-    /// paragraph.
-    fn get_shared<K: Key<'a>>(&self, key: K) -> Option<K::Output> {
-        self.children
-            .maps()
-            .all(|map| !map.contains(key))
-            .then(|| self.styles.get(key))
-    }
 }
 
 /// A segment of one or multiple collapsed children.
@@ -286,7 +285,7 @@ enum Item<'a> {
     /// A layouted child node.
     Frame(Frame),
     /// A repeating node.
-    Repeat(&'a RepeatNode),
+    Repeat(&'a RepeatNode, StyleChain<'a>),
 }
 
 impl<'a> Item<'a> {
@@ -303,7 +302,7 @@ impl<'a> Item<'a> {
         match self {
             Self::Text(shaped) => shaped.text.len(),
             Self::Absolute(_) | Self::Fractional(_) => SPACING_REPLACE.len_utf8(),
-            Self::Frame(_) | Self::Repeat(_) => NODE_REPLACE.len_utf8(),
+            Self::Frame(_) | Self::Repeat(_, _) => NODE_REPLACE.len_utf8(),
         }
     }
 
@@ -312,7 +311,7 @@ impl<'a> Item<'a> {
         match self {
             Item::Text(shaped) => shaped.width,
             Item::Absolute(v) => *v,
-            Item::Fractional(_) | Self::Repeat(_) => Length::zero(),
+            Item::Fractional(_) | Self::Repeat(_, _) => Length::zero(),
             Item::Frame(frame) => frame.size.x,
         }
     }
@@ -403,7 +402,7 @@ impl<'a> Line<'a> {
         self.items()
             .filter_map(|item| match item {
                 Item::Fractional(fr) => Some(*fr),
-                Item::Repeat(_) => Some(Fraction::one()),
+                Item::Repeat(_, _) => Some(Fraction::one()),
                 _ => None,
             })
             .sum()
@@ -505,38 +504,7 @@ fn prepare<'a>(
         let end = cursor + segment.len();
         match segment {
             Segment::Text(_) => {
-                let mut process = |text, level: Level| {
-                    let dir = if level.is_ltr() { Dir::LTR } else { Dir::RTL };
-                    let shaped = shape(&mut ctx.fonts, text, styles, dir);
-                    items.push(Item::Text(shaped));
-                };
-
-                let mut prev_level = Level::ltr();
-                let mut prev_script = Script::Unknown;
-
-                // Group by embedding level and script.
-                for i in cursor .. end {
-                    if !text.is_char_boundary(i) {
-                        continue;
-                    }
-
-                    let level = bidi.levels[i];
-                    let script =
-                        text[i ..].chars().next().map_or(Script::Unknown, |c| c.script());
-
-                    if level != prev_level || !is_compatible(script, prev_script) {
-                        if cursor < i {
-                            process(&text[cursor .. i], prev_level);
-                        }
-                        cursor = i;
-                        prev_level = level;
-                        prev_script = script;
-                    } else if is_generic_script(prev_script) {
-                        prev_script = script;
-                    }
-                }
-
-                process(&text[cursor .. end], prev_level);
+                shape_range(&mut items, &mut ctx.fonts, &bidi, cursor .. end, styles);
             }
             Segment::Spacing(spacing) => match spacing {
                 Spacing::Relative(v) => {
@@ -549,7 +517,7 @@ fn prepare<'a>(
             },
             Segment::Node(node) => {
                 if let Some(repeat) = node.downcast() {
-                    items.push(Item::Repeat(repeat));
+                    items.push(Item::Repeat(repeat, styles));
                 } else {
                     let size = Size::new(regions.first.x, regions.base.y);
                     let pod = Regions::one(size, regions.base, Spec::splat(false));
@@ -562,7 +530,60 @@ fn prepare<'a>(
         cursor = end;
     }
 
-    Ok(Preparation { bidi, items, styles, children: &par.0 })
+    Ok(Preparation {
+        bidi,
+        items,
+        styles,
+        hyphenate: shared_get(styles, &par.0, TextNode::HYPHENATE),
+        lang: shared_get(styles, &par.0, TextNode::LANG),
+        leading: styles.get(ParNode::LEADING),
+        align: styles.get(ParNode::ALIGN),
+        justify: styles.get(ParNode::JUSTIFY),
+    })
+}
+
+/// Group a range of text by BiDi level and script, shape the runs and generate
+/// items for them.
+fn shape_range<'a>(
+    items: &mut Vec<Item<'a>>,
+    fonts: &mut FontStore,
+    bidi: &BidiInfo<'a>,
+    range: Range,
+    styles: StyleChain<'a>,
+) {
+    let mut process = |text, level: Level| {
+        let dir = if level.is_ltr() { Dir::LTR } else { Dir::RTL };
+        let shaped = shape(fonts, text, styles, dir);
+        items.push(Item::Text(shaped));
+    };
+
+    let mut prev_level = Level::ltr();
+    let mut prev_script = Script::Unknown;
+    let mut cursor = range.start;
+
+    // Group by embedding level and script.
+    for i in cursor .. range.end {
+        if !bidi.text.is_char_boundary(i) {
+            continue;
+        }
+
+        let level = bidi.levels[i];
+        let script =
+            bidi.text[i ..].chars().next().map_or(Script::Unknown, |c| c.script());
+
+        if level != prev_level || !is_compatible(script, prev_script) {
+            if cursor < i {
+                process(&bidi.text[cursor .. i], prev_level);
+            }
+            cursor = i;
+            prev_level = level;
+            prev_script = script;
+        } else if is_generic_script(prev_script) {
+            prev_script = script;
+        }
+    }
+
+    process(&bidi.text[cursor .. range.end], prev_level);
 }
 
 /// Whether this is not a specific script.
@@ -573,6 +594,16 @@ fn is_generic_script(script: Script) -> bool {
 /// Whether these script can be part of the same shape run.
 fn is_compatible(a: Script, b: Script) -> bool {
     is_generic_script(a) || is_generic_script(b) || a == b
+}
+
+/// Get a style property, but only if it is the same for all children of the
+/// paragraph.
+fn shared_get<'a, K: Key<'a>>(
+    styles: StyleChain<'a>,
+    children: &StyleVec<ParChild>,
+    key: K,
+) -> Option<K::Output> {
+    children.maps().all(|map| !map.contains(key)).then(|| styles.get(key))
 }
 
 /// Find suitable linebreaks.
@@ -672,9 +703,6 @@ fn linebreak_optimized<'a>(
     const MIN_COST: Cost = -MAX_COST;
     const MIN_RATIO: f64 = -0.15;
 
-    let em = p.styles.get(TextNode::SIZE);
-    let justify = p.styles.get(ParNode::JUSTIFY);
-
     // Dynamic programming table.
     let mut active = 0;
     let mut table = vec![Entry {
@@ -682,6 +710,8 @@ fn linebreak_optimized<'a>(
         total: 0.0,
         line: line(p, fonts, 0 .. 0, false, false),
     }];
+
+    let em = p.styles.get(TextNode::SIZE);
 
     for (end, mandatory, hyphen) in breakpoints(p) {
         let k = table.len();
@@ -706,7 +736,7 @@ fn linebreak_optimized<'a>(
             ratio = ratio.min(10.0);
 
             // Determine the cost of the line.
-            let mut cost = if ratio < if justify { MIN_RATIO } else { 0.0 } {
+            let mut cost = if ratio < if p.justify { MIN_RATIO } else { 0.0 } {
                 // The line is overfull. This is the case if
                 // - justification is on, but we'd need to shrink to much
                 // - justification is off and the line just doesn't fit
@@ -779,8 +809,6 @@ fn breakpoints<'a>(p: &'a Preparation) -> Breakpoints<'a> {
         suffix: 0,
         end: 0,
         mandatory: false,
-        hyphenate: p.get_shared(TextNode::HYPHENATE),
-        lang: p.get_shared(TextNode::LANG),
     }
 }
 
@@ -800,10 +828,6 @@ struct Breakpoints<'a> {
     end: usize,
     /// Whether the break after the current word is mandatory.
     mandatory: bool,
-    /// Whether to hyphenate if it's the same for all children.
-    hyphenate: Option<bool>,
-    /// The text language if it's the same for all children.
-    lang: Option<Lang>,
 }
 
 impl Iterator for Breakpoints<'_> {
@@ -820,7 +844,7 @@ impl Iterator for Breakpoints<'_> {
             // Filter out hyphenation opportunities where hyphenation was
             // actually disabled.
             let hyphen = self.offset < self.end;
-            if hyphen && !self.hyphenate_at(self.offset) {
+            if hyphen && !self.hyphenate(self.offset) {
                 return self.next();
             }
 
@@ -831,8 +855,8 @@ impl Iterator for Breakpoints<'_> {
         (self.end, self.mandatory) = self.linebreaks.next()?;
 
         // Hyphenate the next word.
-        if self.hyphenate != Some(false) {
-            if let Some(lang) = self.lang_at(self.offset) {
+        if self.p.hyphenate != Some(false) {
+            if let Some(lang) = self.lang(self.offset) {
                 let word = &self.p.bidi.text[self.offset .. self.end];
                 let trimmed = word.trim_end_matches(|c: char| !c.is_alphabetic());
                 if !trimmed.is_empty() {
@@ -850,8 +874,9 @@ impl Iterator for Breakpoints<'_> {
 
 impl Breakpoints<'_> {
     /// Whether hyphenation is enabled at the given offset.
-    fn hyphenate_at(&self, offset: usize) -> bool {
-        self.hyphenate
+    fn hyphenate(&self, offset: usize) -> bool {
+        self.p
+            .hyphenate
             .or_else(|| {
                 let shaped = self.p.find(offset)?.text()?;
                 Some(shaped.styles.get(TextNode::HYPHENATE))
@@ -860,8 +885,8 @@ impl Breakpoints<'_> {
     }
 
     /// The text language at the given offset.
-    fn lang_at(&self, offset: usize) -> Option<hypher::Lang> {
-        let lang = self.lang.or_else(|| {
+    fn lang(&self, offset: usize) -> Option<hypher::Lang> {
+        let lang = self.p.lang.or_else(|| {
             let shaped = self.p.find(offset)?.text()?;
             Some(shaped.styles.get(TextNode::LANG))
         })?;
@@ -980,15 +1005,11 @@ fn line<'a>(
 
 /// Combine layouted lines into one frame per region.
 fn stack(
+    p: &Preparation,
     ctx: &mut Context,
     lines: &[Line],
     regions: &Regions,
-    styles: StyleChain,
 ) -> TypResult<Vec<Arc<Frame>>> {
-    let leading = styles.get(ParNode::LEADING);
-    let align = styles.get(ParNode::ALIGN);
-    let justify = styles.get(ParNode::JUSTIFY);
-
     // Determine the paragraph's width: Full width of the region if we
     // should expand or there's fractional spacing, fit-to-width otherwise.
     let mut width = regions.first.x;
@@ -1004,7 +1025,7 @@ fn stack(
 
     // Stack the lines into one frame per region.
     for line in lines {
-        let frame = commit(ctx, line, &regions, width, styles, align, justify)?;
+        let frame = commit(p, ctx, line, &regions, width)?;
         let height = frame.size.y;
 
         while !regions.first.y.fits(height) && !regions.in_last() {
@@ -1015,14 +1036,14 @@ fn stack(
         }
 
         if !first {
-            output.size.y += leading;
+            output.size.y += p.leading;
         }
 
         let pos = Point::with_y(output.size.y);
         output.size.y += height;
         output.merge_frame(pos, frame);
 
-        regions.first.y -= height + leading;
+        regions.first.y -= height + p.leading;
         first = false;
     }
 
@@ -1032,13 +1053,11 @@ fn stack(
 
 /// Commit to a line and build its frame.
 fn commit(
+    p: &Preparation,
     ctx: &mut Context,
     line: &Line,
     regions: &Regions,
     width: Length,
-    styles: StyleChain,
-    align: Align,
-    justify: bool,
 ) -> TypResult<Frame> {
     let mut remaining = width - line.width;
     let mut offset = Length::zero();
@@ -1077,7 +1096,7 @@ fn commit(
     let fr = line.fr();
     let mut justification = Length::zero();
     if remaining < Length::zero()
-        || (justify && line.justify && line.end < line.bidi.text.len() && fr.is_zero())
+        || (p.justify && line.justify && line.end < line.bidi.text.len() && fr.is_zero())
     {
         let justifiables = line.justifiables();
         if justifiables > 0 {
@@ -1113,17 +1132,17 @@ fn commit(
             Item::Frame(frame) => {
                 push(&mut offset, frame.clone());
             }
-            Item::Repeat(node) => {
+            Item::Repeat(node, styles) => {
                 let before = offset;
                 let width = Fraction::one().share(fr, remaining);
                 let size = Size::new(width, regions.base.y);
                 let pod = Regions::one(size, regions.base, Spec::new(false, false));
-                let frame = node.layout(ctx, &pod, styles)?.remove(0);
+                let frame = node.layout(ctx, &pod, *styles)?.remove(0);
                 let count = (width / frame.size.x).floor();
                 let remaining = width % frame.size.x;
                 let apart = remaining / (count - 1.0);
                 if count == 1.0 {
-                    offset += align.position(remaining);
+                    offset += p.align.position(remaining);
                 }
                 if frame.size.x > Length::zero() {
                     for _ in 0 .. (count as usize).min(1000) {
@@ -1147,7 +1166,7 @@ fn commit(
 
     // Construct the line's frame.
     for (offset, frame) in frames {
-        let x = offset + align.position(remaining);
+        let x = offset + p.align.position(remaining);
         let y = top - frame.baseline();
         output.merge_frame(Point::new(x, y), frame);
     }
