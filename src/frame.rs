@@ -1,6 +1,6 @@
 //! Finished layouts.
 
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::{self, Debug, Formatter, Write};
 use std::sync::Arc;
 
 use crate::font::FaceId;
@@ -8,6 +8,7 @@ use crate::geom::{
     Align, Em, Length, Numeric, Paint, Path, Point, Size, Spec, Stroke, Transform,
 };
 use crate::image::ImageId;
+use crate::util::{EcoString, MaybeShared};
 
 /// A finished layout with elements at fixed positions.
 #[derive(Default, Clone, Eq, PartialEq)]
@@ -57,20 +58,15 @@ impl Frame {
         self.elements.insert(layer, (pos, element));
     }
 
-    /// Add a group element.
-    pub fn push_frame(&mut self, pos: Point, frame: Arc<Self>) {
-        self.elements.push((pos, Element::Group(Group::new(frame))));
-    }
-
-    /// Add all elements of another frame, placing them relative to the given
-    /// position.
-    pub fn merge_frame(&mut self, pos: Point, subframe: Self) {
-        if pos == Point::zero() && self.elements.is_empty() {
-            self.elements = subframe.elements;
+    /// Add a frame.
+    ///
+    /// Automatically decides whether to inline the frame or to include it as a
+    /// group based on the number of elements in the frame.
+    pub fn push_frame(&mut self, pos: Point, frame: impl FrameRepr) {
+        if self.elements.is_empty() || frame.as_ref().elements.len() <= 5 {
+            frame.inline(self, pos);
         } else {
-            for (subpos, child) in subframe.elements {
-                self.elements.push((pos + subpos, child));
-            }
+            self.elements.push((pos, Element::Group(Group::new(frame.share()))));
         }
     }
 
@@ -122,30 +118,86 @@ impl Frame {
     }
 
     /// Link the whole frame to a resource.
-    pub fn link(&mut self, url: impl Into<String>) {
-        self.push(Point::zero(), Element::Link(url.into(), self.size));
+    pub fn link(&mut self, url: EcoString) {
+        self.push(Point::zero(), Element::Link(url, self.size));
     }
 }
 
 impl Debug for Frame {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.debug_struct("Frame")
-            .field("size", &self.size)
-            .field("baseline", &self.baseline)
-            .field(
-                "children",
-                &crate::util::debug(|f| {
-                    f.debug_map()
-                        .entries(self.elements.iter().map(|(k, v)| (k, v)))
-                        .finish()
-                }),
-            )
+        f.debug_list()
+            .entries(self.elements.iter().map(|(_, element)| element))
             .finish()
     }
 }
 
+impl AsRef<Frame> for Frame {
+    fn as_ref(&self) -> &Frame {
+        self
+    }
+}
+
+/// A representational form of a frame (owned, shared or maybe shared).
+pub trait FrameRepr: AsRef<Frame> {
+    /// Transform into a shared representation.
+    fn share(self) -> Arc<Frame>;
+
+    /// Inline `self` into the sink frame.
+    fn inline(self, sink: &mut Frame, offset: Point);
+}
+
+impl FrameRepr for Frame {
+    fn share(self) -> Arc<Frame> {
+        Arc::new(self)
+    }
+
+    fn inline(self, sink: &mut Frame, offset: Point) {
+        if offset.is_zero() {
+            if sink.elements.is_empty() {
+                sink.elements = self.elements;
+            } else {
+                sink.elements.extend(self.elements);
+            }
+        } else {
+            sink.elements
+                .extend(self.elements.into_iter().map(|(p, e)| (p + offset, e)));
+        }
+    }
+}
+
+impl FrameRepr for Arc<Frame> {
+    fn share(self) -> Arc<Frame> {
+        self
+    }
+
+    fn inline(self, sink: &mut Frame, offset: Point) {
+        match Arc::try_unwrap(self) {
+            Ok(frame) => frame.inline(sink, offset),
+            Err(rc) => sink
+                .elements
+                .extend(rc.elements.iter().cloned().map(|(p, e)| (p + offset, e))),
+        }
+    }
+}
+
+impl FrameRepr for MaybeShared<Frame> {
+    fn share(self) -> Arc<Frame> {
+        match self {
+            Self::Owned(owned) => owned.share(),
+            Self::Shared(shared) => shared.share(),
+        }
+    }
+
+    fn inline(self, sink: &mut Frame, offset: Point) {
+        match self {
+            Self::Owned(owned) => owned.inline(sink, offset),
+            Self::Shared(shared) => shared.inline(sink, offset),
+        }
+    }
+}
+
 /// The building block frames are composed of.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub enum Element {
     /// A group of elements.
     Group(Group),
@@ -156,11 +208,23 @@ pub enum Element {
     /// An image and its size.
     Image(ImageId, Size),
     /// A link to an external resource and its trigger region.
-    Link(String, Size),
+    Link(EcoString, Size),
+}
+
+impl Debug for Element {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Self::Group(group) => group.fmt(f),
+            Self::Text(text) => write!(f, "{text:?}"),
+            Self::Shape(shape) => write!(f, "{shape:?}"),
+            Self::Image(image, _) => write!(f, "{image:?}"),
+            Self::Link(url, _) => write!(f, "Link({url:?})"),
+        }
+    }
 }
 
 /// A group of elements with optional clipping.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct Group {
     /// The group's frame.
     pub frame: Arc<Frame>,
@@ -181,8 +245,15 @@ impl Group {
     }
 }
 
+impl Debug for Group {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.write_str("Group ")?;
+        self.frame.fmt(f)
+    }
+}
+
 /// A run of shaped text.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct Text {
     /// The font face the glyphs are contained in.
     pub face_id: FaceId,
@@ -201,6 +272,19 @@ impl Text {
     }
 }
 
+impl Debug for Text {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        // This is only a rough approxmiation of the source text.
+        f.write_str("Text(\"")?;
+        for glyph in &self.glyphs {
+            for c in glyph.c.escape_debug() {
+                f.write_char(c)?;
+            }
+        }
+        f.write_str("\")")
+    }
+}
+
 /// A glyph in a run of shaped text.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Glyph {
@@ -210,6 +294,8 @@ pub struct Glyph {
     pub x_advance: Em,
     /// The horizontal offset of the glyph.
     pub x_offset: Em,
+    /// The first character of the glyph's cluster.
+    pub c: char,
 }
 
 /// A geometric shape with optional fill and stroke.

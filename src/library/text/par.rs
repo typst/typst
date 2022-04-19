@@ -8,7 +8,7 @@ use super::{shape, Lang, Quoter, Quotes, RepeatNode, ShapedText, TextNode};
 use crate::font::FontStore;
 use crate::library::layout::Spacing;
 use crate::library::prelude::*;
-use crate::util::{ArcExt, EcoString};
+use crate::util::{EcoString, MaybeShared};
 
 /// Arrange text, spacing and inline-level nodes into a paragraph.
 #[derive(Hash)]
@@ -283,7 +283,7 @@ enum Item<'a> {
     /// Fractional spacing between other items.
     Fractional(Fraction),
     /// A layouted child node.
-    Frame(Frame),
+    Frame(Arc<Frame>),
     /// A repeating node.
     Repeat(&'a RepeatNode, StyleChain<'a>),
 }
@@ -522,7 +522,7 @@ fn prepare<'a>(
                     let size = Size::new(regions.first.x, regions.base.y);
                     let pod = Regions::one(size, regions.base, Spec::splat(false));
                     let frame = node.layout(ctx, &pod, styles)?.remove(0);
-                    items.push(Item::Frame(Arc::take(frame)));
+                    items.push(Item::Frame(frame));
                 }
             }
         }
@@ -1041,7 +1041,7 @@ fn stack(
 
         let pos = Point::with_y(output.size.y);
         output.size.y += height;
-        output.merge_frame(pos, frame);
+        output.push_frame(pos, frame);
 
         regions.first.y -= height + p.leading;
         first = false;
@@ -1111,7 +1111,7 @@ fn commit(
     // Build the frames and determine the height and baseline.
     let mut frames = vec![];
     for item in reordered {
-        let mut push = |offset: &mut Length, frame: Frame| {
+        let mut push = |offset: &mut Length, frame: MaybeShared<Frame>| {
             let width = frame.size.x;
             top.set_max(frame.baseline());
             bottom.set_max(frame.size.y - frame.baseline());
@@ -1127,10 +1127,11 @@ fn commit(
                 offset += v.share(fr, remaining);
             }
             Item::Text(shaped) => {
-                push(&mut offset, shaped.build(&mut ctx.fonts, justification));
+                let frame = shaped.build(&mut ctx.fonts, justification);
+                push(&mut offset, MaybeShared::Owned(frame));
             }
             Item::Frame(frame) => {
-                push(&mut offset, frame.clone());
+                push(&mut offset, MaybeShared::Shared(frame.clone()));
             }
             Item::Repeat(node, styles) => {
                 let before = offset;
@@ -1146,7 +1147,7 @@ fn commit(
                 }
                 if frame.size.x > Length::zero() {
                     for _ in 0 .. (count as usize).min(1000) {
-                        push(&mut offset, frame.as_ref().clone());
+                        push(&mut offset, MaybeShared::Shared(frame.clone()));
                         offset += apart;
                     }
                 }
@@ -1168,7 +1169,7 @@ fn commit(
     for (offset, frame) in frames {
         let x = offset + p.align.position(remaining);
         let y = top - frame.baseline();
-        output.merge_frame(Point::new(x, y), frame);
+        output.push_frame(Point::new(x, y), frame);
     }
 
     Ok(output)

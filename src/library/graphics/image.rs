@@ -83,7 +83,7 @@ impl Layout for ImageNode {
 
         // Apply link if it exists.
         if let Some(url) = styles.get(TextNode::LINK) {
-            frame.link(url);
+            frame.link(url.clone());
         }
 
         Ok(vec![Arc::new(frame)])

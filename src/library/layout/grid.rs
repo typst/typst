@@ -551,7 +551,7 @@ impl<'a> GridLayouter<'a> {
             };
 
             let height = frame.size.y;
-            output.merge_frame(pos, frame);
+            output.push_frame(pos, frame);
             pos.y += height;
         }
 

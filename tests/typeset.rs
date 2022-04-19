@@ -101,7 +101,7 @@ fn main() {
             &png_path,
             &ref_path,
             pdf_path.as_deref(),
-            args.syntax,
+            &args.print,
         ) as usize;
     }
 
@@ -114,19 +114,27 @@ fn main() {
     }
 }
 
+/// Parsed command line arguments.
 struct Args {
     filter: Vec<String>,
     exact: bool,
-    syntax: bool,
     pdf: bool,
+    print: PrintConfig,
+}
+
+/// Which things to print out for debugging.
+#[derive(Default, Copy, Clone, Eq, PartialEq)]
+struct PrintConfig {
+    syntax: bool,
+    frames: bool,
 }
 
 impl Args {
     fn new(args: impl Iterator<Item = String>) -> Self {
         let mut filter = Vec::new();
         let mut exact = false;
-        let mut syntax = false;
         let mut pdf = false;
+        let mut print = PrintConfig::default();
 
         for arg in args {
             match arg.as_str() {
@@ -136,14 +144,16 @@ impl Args {
                 "--exact" => exact = true,
                 // Generate PDFs.
                 "--pdf" => pdf = true,
-                // Debug print the layout trees.
-                "--syntax" => syntax = true,
+                // Debug print the syntax trees.
+                "--syntax" => print.syntax = true,
+                // Debug print the frames.
+                "--frames" => print.frames = true,
                 // Everything else is a file filter.
                 _ => filter.push(arg),
             }
         }
 
-        Self { filter, pdf, syntax, exact }
+        Self { filter, exact, pdf, print }
     }
 
     fn matches(&self, path: &Path) -> bool {
@@ -163,7 +173,7 @@ fn test(
     png_path: &Path,
     ref_path: &Path,
     pdf_path: Option<&Path>,
-    syntax: bool,
+    print: &PrintConfig,
 ) -> bool {
     let name = src_path.strip_prefix(TYP_DIR).unwrap_or(src_path);
     println!("Testing {}", name.display());
@@ -199,7 +209,7 @@ fn test(
                 i,
                 compare_ref,
                 line,
-                syntax,
+                print,
                 &mut rng,
             );
             ok &= part_ok;
@@ -217,12 +227,25 @@ fn test(
             fs::write(pdf_path, pdf_data).unwrap();
         }
 
+        if print.frames {
+            for frame in &frames {
+                println!("Frame: {:#?}", frame);
+            }
+        }
+
         let canvas = render(ctx, &frames);
         fs::create_dir_all(&png_path.parent().unwrap()).unwrap();
         canvas.save_png(png_path).unwrap();
 
         if let Ok(ref_pixmap) = sk::Pixmap::load_png(ref_path) {
-            if canvas != ref_pixmap {
+            if canvas.width() != ref_pixmap.width()
+                || canvas.height() != ref_pixmap.height()
+                || canvas
+                    .data()
+                    .iter()
+                    .zip(ref_pixmap.data())
+                    .any(|(&a, &b)| a.abs_diff(b) > 2)
+            {
                 println!("  Does not match reference image. ❌");
                 ok = false;
             }
@@ -233,7 +256,7 @@ fn test(
     }
 
     if ok {
-        if !syntax {
+        if *print == PrintConfig::default() {
             print!("\x1b[1A");
         }
         println!("Testing {} ✔", name.display());
@@ -249,14 +272,14 @@ fn test_part(
     i: usize,
     compare_ref: bool,
     line: usize,
-    syntax: bool,
+    print: &PrintConfig,
     rng: &mut LinearShift,
 ) -> (bool, bool, Vec<Arc<Frame>>) {
     let mut ok = true;
 
     let id = ctx.sources.provide(src_path, src);
     let source = ctx.sources.get(id);
-    if syntax {
+    if print.syntax {
         println!("Syntax Tree: {:#?}", source.root())
     }
 

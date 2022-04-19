@@ -100,6 +100,7 @@ impl<'a> ShapedText<'a> {
                             Em::zero()
                         },
                     x_offset: glyph.x_offset,
+                    c: glyph.c,
                 })
                 .collect();
 
@@ -118,7 +119,7 @@ impl<'a> ShapedText<'a> {
 
         // Apply link if it exists.
         if let Some(url) = self.styles.get(TextNode::LINK) {
-            frame.link(url);
+            frame.link(url.clone());
         }
 
         frame

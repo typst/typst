@@ -132,7 +132,7 @@ impl<const S: ShapeKind> Layout for ShapeNode<S> {
 
         // Apply link if it exists.
         if let Some(url) = styles.get(TextNode::LINK) {
-            frame.link(url);
+            frame.link(url.clone());
         }
 
         Ok(frames)

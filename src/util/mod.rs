@@ -11,7 +11,7 @@ pub use prehashed::Prehashed;
 
 use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
-use std::ops::Range;
+use std::ops::{Deref, Range};
 use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 
@@ -97,6 +97,31 @@ where
         match Arc::try_unwrap(self) {
             Ok(v) => v,
             Err(rc) => (*rc).clone(),
+        }
+    }
+}
+
+/// Either owned or shared.
+pub enum MaybeShared<T> {
+    /// Owned data.
+    Owned(T),
+    /// Shared data.
+    Shared(Arc<T>),
+}
+
+impl<T> AsRef<T> for MaybeShared<T> {
+    fn as_ref(&self) -> &T {
+        self
+    }
+}
+
+impl<T> Deref for MaybeShared<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            Self::Owned(owned) => owned,
+            Self::Shared(shared) => shared,
         }
     }
 }
