@@ -215,6 +215,7 @@ impl Eval for Expr {
             Self::Array(v) => v.eval(ctx, scp).map(Value::Array),
             Self::Dict(v) => v.eval(ctx, scp).map(Value::Dict),
             Self::Group(v) => v.eval(ctx, scp),
+            Self::FieldAccess(v) => v.eval(ctx, scp),
             Self::FuncCall(v) => v.eval(ctx, scp),
             Self::MethodCall(v) => v.eval(ctx, scp),
             Self::Closure(v) => v.eval(ctx, scp),
@@ -434,6 +435,23 @@ impl BinaryExpr {
     }
 }
 
+impl Eval for FieldAccess {
+    type Output = Value;
+
+    fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> EvalResult<Self::Output> {
+        let object = self.object().eval(ctx, scp)?;
+        Ok(match object {
+            Value::Dict(dict) => dict.get(self.field().take()).at(self.span())?.clone(),
+
+            v => bail!(
+                self.object().span(),
+                "cannot access field on {}",
+                v.type_name()
+            ),
+        })
+    }
+}
+
 impl Eval for FuncCall {
     type Output = Value;
 
@@ -442,14 +460,8 @@ impl Eval for FuncCall {
         let args = self.args().eval(ctx, scp)?;
 
         Ok(match callee {
-            Value::Array(array) => {
-                array.get(args.into_index()?).map(Value::clone).at(self.span())?
-            }
-
-            Value::Dict(dict) => {
-                dict.get(args.into_key()?).map(Value::clone).at(self.span())?
-            }
-
+            Value::Array(array) => array.get(args.into_index()?).at(self.span())?.clone(),
+            Value::Dict(dict) => dict.get(args.into_key()?).at(self.span())?.clone(),
             Value::Func(func) => {
                 let point = || Tracepoint::Call(func.name().map(ToString::to_string));
                 func.call(ctx, args).trace(point, self.span())?

@@ -237,6 +237,8 @@ pub enum Expr {
     Unary(UnaryExpr),
     /// A binary operation: `a + b`.
     Binary(BinaryExpr),
+    /// A field access: `properties.age`.
+    FieldAccess(FieldAccess),
     /// An invocation of a function: `f(x, y)`.
     FuncCall(FuncCall),
     /// An invocation of a method: `array.push(v)`.
@@ -280,6 +282,7 @@ impl TypedNode for Expr {
             NodeKind::DictExpr => node.cast().map(Self::Dict),
             NodeKind::UnaryExpr => node.cast().map(Self::Unary),
             NodeKind::BinaryExpr => node.cast().map(Self::Binary),
+            NodeKind::FieldAccess => node.cast().map(Self::FieldAccess),
             NodeKind::FuncCall => node.cast().map(Self::FuncCall),
             NodeKind::MethodCall => node.cast().map(Self::MethodCall),
             NodeKind::ClosureExpr => node.cast().map(Self::Closure),
@@ -310,6 +313,7 @@ impl TypedNode for Expr {
             Self::Group(v) => v.as_red(),
             Self::Unary(v) => v.as_red(),
             Self::Binary(v) => v.as_red(),
+            Self::FieldAccess(v) => v.as_red(),
             Self::FuncCall(v) => v.as_red(),
             Self::MethodCall(v) => v.as_red(),
             Self::Closure(v) => v.as_red(),
@@ -787,6 +791,23 @@ pub enum Associativity {
     Left,
     /// Right-associative: `a = b = c` is equivalent to `a = (b = c)`.
     Right,
+}
+
+node! {
+    /// A field access: `properties.age`.
+    FieldAccess: FieldAccess
+}
+
+impl FieldAccess {
+    /// The object with the field.
+    pub fn object(&self) -> Expr {
+        self.0.cast_first_child().expect("field access is missing object")
+    }
+
+    /// The name of the field.
+    pub fn field(&self) -> Ident {
+        self.0.cast_last_child().expect("field access call is missing name")
+    }
 }
 
 node! {

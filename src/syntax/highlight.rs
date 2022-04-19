@@ -209,6 +209,7 @@ impl Category {
             NodeKind::Named => None,
             NodeKind::UnaryExpr => None,
             NodeKind::BinaryExpr => None,
+            NodeKind::FieldAccess => None,
             NodeKind::FuncCall => None,
             NodeKind::MethodCall => None,
             NodeKind::CallArgs => None,

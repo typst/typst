@@ -368,10 +368,9 @@ fn expr_prec(p: &mut Parser, atomic: bool, min_prec: usize) -> ParseResult {
     };
 
     loop {
-        // Exclamation mark, parenthesis or bracket means this is a function
-        // call.
+        // Parenthesis or bracket means this is a function call.
         if let Some(NodeKind::LeftParen | NodeKind::LeftBracket) = p.peek_direct() {
-            func_call(p, marker)?;
+            marker.perform(p, NodeKind::FuncCall, |p| args(p, true, true))?;
             continue;
         }
 
@@ -379,8 +378,14 @@ fn expr_prec(p: &mut Parser, atomic: bool, min_prec: usize) -> ParseResult {
             break;
         }
 
-        if p.at(&NodeKind::Dot) {
-            method_call(p, marker)?;
+        // Method call or field access.
+        if p.eat_if(&NodeKind::Dot) {
+            ident(p)?;
+            if let Some(NodeKind::LeftParen | NodeKind::LeftBracket) = p.peek_direct() {
+                marker.perform(p, NodeKind::MethodCall, |p| args(p, true, true))?;
+            } else {
+                marker.end(p, NodeKind::FieldAccess);
+            }
             continue;
         }
 
@@ -713,20 +718,6 @@ fn content_block(p: &mut Parser) {
         markup(p, true);
         p.end_group();
     });
-}
-
-/// Parse a function call.
-fn func_call(p: &mut Parser, callee: Marker) -> ParseResult {
-    callee.perform(p, NodeKind::FuncCall, |p| args(p, true, true))
-}
-
-/// Parse a method call.
-fn method_call(p: &mut Parser, marker: Marker) -> ParseResult {
-    marker.perform(p, NodeKind::MethodCall, |p| {
-        p.eat_assert(&NodeKind::Dot);
-        ident(p)?;
-        args(p, true, true)
-    })
 }
 
 /// Parse the arguments to a function call.

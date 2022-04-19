@@ -653,6 +653,8 @@ pub enum NodeKind {
     UnaryExpr,
     /// A binary operation: `a + b`.
     BinaryExpr,
+    /// A field access: `properties.age`.
+    FieldAccess,
     /// An invocation of a function: `f(x, y)`.
     FuncCall,
     /// An invocation of a method: `array.push(v)`.
@@ -898,6 +900,7 @@ impl NodeKind {
             Self::Named => "named argument",
             Self::UnaryExpr => "unary expression",
             Self::BinaryExpr => "binary expression",
+            Self::FieldAccess => "field access",
             Self::FuncCall => "function call",
             Self::MethodCall => "method call",
             Self::CallArgs => "call arguments",
@@ -1021,6 +1024,7 @@ impl Hash for NodeKind {
             Self::Named => {}
             Self::UnaryExpr => {}
             Self::BinaryExpr => {}
+            Self::FieldAccess => {}
             Self::FuncCall => {}
             Self::MethodCall => {}
             Self::CallArgs => {}
