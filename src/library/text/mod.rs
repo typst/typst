@@ -471,10 +471,17 @@ impl StrongNode {
 }
 
 impl Show for StrongNode {
-    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content> {
-        Ok(styles
-            .show::<Self, _>(ctx, [Value::Content(self.0.clone())])?
-            .unwrap_or_else(|| self.0.clone().styled(TextNode::STRONG, Toggle)))
+    fn encode(&self) -> Dict {
+        dict! { "body" => Value::Content(self.0.clone()) }
+    }
+
+    fn show(
+        &self,
+        _: &mut Context,
+        _: StyleChain,
+        realized: Option<Content>,
+    ) -> TypResult<Content> {
+        Ok(realized.unwrap_or_else(|| self.0.clone().styled(TextNode::STRONG, Toggle)))
     }
 }
 
@@ -490,9 +497,16 @@ impl EmphNode {
 }
 
 impl Show for EmphNode {
-    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content> {
-        Ok(styles
-            .show::<Self, _>(ctx, [Value::Content(self.0.clone())])?
-            .unwrap_or_else(|| self.0.clone().styled(TextNode::EMPH, Toggle)))
+    fn encode(&self) -> Dict {
+        dict! { "body" => Value::Content(self.0.clone()) }
+    }
+
+    fn show(
+        &self,
+        _: &mut Context,
+        _: StyleChain,
+        realized: Option<Content>,
+    ) -> TypResult<Content> {
+        Ok(realized.unwrap_or_else(|| self.0.clone().styled(TextNode::EMPH, Toggle)))
     }
 }

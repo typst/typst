@@ -4,7 +4,7 @@ use std::hash::Hash;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use super::{Args, Content, Func, Layout, Node, Smart, Span, Value};
+use super::{Args, Content, Func, Layout, Node, Show, ShowNode, Smart, Span, Value};
 use crate::diag::{At, TypResult};
 use crate::geom::{Numeric, Relative, Sides, Spec};
 use crate::library::layout::PageNode;
@@ -510,19 +510,20 @@ impl<'a> StyleChain<'a> {
         K::get(self, self.values(key))
     }
 
-    /// Execute and return the result of a user recipe for a node if there is
-    /// any.
-    pub fn show<T, I>(self, ctx: &mut Context, values: I) -> TypResult<Option<Content>>
-    where
-        T: Node,
-        I: IntoIterator<Item = Value>,
-    {
+    /// Realize a node with a user recipe.
+    pub fn realize(
+        self,
+        ctx: &mut Context,
+        node: &ShowNode,
+    ) -> TypResult<Option<Content>> {
+        let id = node.id();
         if let Some(recipe) = self
             .entries()
             .filter_map(Entry::recipe)
-            .find(|recipe| recipe.node == TypeId::of::<T>())
+            .find(|recipe| recipe.node == id)
         {
-            let args = Args::from_values(recipe.span, values);
+            let dict = node.encode();
+            let args = Args::from_values(recipe.span, [Value::Dict(dict)]);
             Ok(Some(recipe.func.call(ctx, args)?.cast().at(recipe.span)?))
         } else {
             Ok(None)

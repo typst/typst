@@ -56,21 +56,26 @@ impl HeadingNode {
 }
 
 impl Show for HeadingNode {
-    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content> {
+    fn encode(&self) -> Dict {
+        dict! {
+            "level" => Value::Int(self.level as i64),
+            "body" => Value::Content(self.body.clone()),
+        }
+    }
+
+    fn show(
+        &self,
+        ctx: &mut Context,
+        styles: StyleChain,
+        realized: Option<Content>,
+    ) -> TypResult<Content> {
         macro_rules! resolve {
             ($key:expr) => {
                 styles.get($key).resolve(ctx, self.level)?
             };
         }
 
-        let args = [
-            Value::Int(self.level as i64),
-            Value::Content(self.body.clone()),
-        ];
-
-        let mut body = styles
-            .show::<Self, _>(ctx, args)?
-            .unwrap_or_else(|| self.body.clone());
+        let mut body = realized.unwrap_or_else(|| self.body.clone());
 
         let mut map = StyleMap::new();
         map.set(TextNode::SIZE, resolve!(Self::SIZE));

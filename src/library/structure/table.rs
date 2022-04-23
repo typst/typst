@@ -9,7 +9,7 @@ pub struct TableNode {
     /// Defines sizing of gutter rows and columns between content.
     pub gutter: Spec<Vec<TrackSizing>>,
     /// The nodes to be arranged in the table.
-    pub children: Vec<Content>,
+    pub cells: Vec<Content>,
 }
 
 #[node(showable)]
@@ -37,7 +37,7 @@ impl TableNode {
                 column_gutter.unwrap_or_else(|| base_gutter.clone()),
                 row_gutter.unwrap_or(base_gutter),
             ),
-            children: args.all()?,
+            cells: args.all()?,
         }))
     }
 
@@ -53,9 +53,24 @@ impl TableNode {
 }
 
 impl Show for TableNode {
-    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content> {
-        let args = self.children.iter().map(|child| Value::Content(child.clone()));
-        if let Some(content) = styles.show::<Self, _>(ctx, args)? {
+    fn encode(&self) -> Dict {
+        dict! {
+            "cells" => Value::Array(
+                self.cells
+                    .iter()
+                    .map(|cell| Value::Content(cell.clone()))
+                    .collect()
+            ),
+        }
+    }
+
+    fn show(
+        &self,
+        _: &mut Context,
+        styles: StyleChain,
+        realized: Option<Content>,
+    ) -> TypResult<Content> {
+        if let Some(content) = realized {
             return Ok(content);
         }
 
@@ -65,8 +80,8 @@ impl Show for TableNode {
         let padding = styles.get(Self::PADDING);
 
         let cols = self.tracks.x.len().max(1);
-        let children = self
-            .children
+        let cells = self
+            .cells
             .iter()
             .cloned()
             .enumerate()
@@ -90,7 +105,7 @@ impl Show for TableNode {
         Ok(Content::block(GridNode {
             tracks: self.tracks.clone(),
             gutter: self.gutter.clone(),
-            children,
+            cells,
         }))
     }
 }

@@ -28,24 +28,31 @@ impl LinkNode {
 }
 
 impl Show for LinkNode {
-    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content> {
-        let args = [Value::Str(self.url.clone()), match &self.body {
-            Some(body) => Value::Content(body.clone()),
-            None => Value::None,
-        }];
+    fn encode(&self) -> Dict {
+        dict! {
+            "url" => Value::Str(self.url.clone()),
+            "body" => match &self.body {
+                Some(body) => Value::Content(body.clone()),
+                None => Value::None,
+            },
+        }
+    }
 
-        let mut body = styles
-            .show::<Self, _>(ctx, args)?
-            .or_else(|| self.body.clone())
-            .unwrap_or_else(|| {
-                let url = &self.url;
-                let mut text = url.as_str();
-                for prefix in ["mailto:", "tel:"] {
-                    text = text.trim_start_matches(prefix);
-                }
-                let shorter = text.len() < url.len();
-                Content::Text(if shorter { text.into() } else { url.clone() })
-            });
+    fn show(
+        &self,
+        _: &mut Context,
+        styles: StyleChain,
+        realized: Option<Content>,
+    ) -> TypResult<Content> {
+        let mut body = realized.or_else(|| self.body.clone()).unwrap_or_else(|| {
+            let url = &self.url;
+            let mut text = url.as_str();
+            for prefix in ["mailto:", "tel:"] {
+                text = text.trim_start_matches(prefix);
+            }
+            let shorter = text.len() < url.len();
+            Content::Text(if shorter { text.into() } else { url.clone() })
+        });
 
         let mut map = StyleMap::new();
         map.set(TextNode::LINK, Some(self.url.clone()));

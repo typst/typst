@@ -178,13 +178,21 @@ impl Category {
             NodeKind::None => Some(Category::None),
             NodeKind::Auto => Some(Category::Auto),
             NodeKind::Ident(_) => match parent.kind() {
-                NodeKind::Named => None,
-                NodeKind::ClosureExpr if i == 0 => Some(Category::Function),
-                NodeKind::SetExpr => Some(Category::Function),
-                NodeKind::ShowExpr => Some(Category::Function),
+                NodeKind::Markup(_) => Some(Category::Variable),
                 NodeKind::FuncCall => Some(Category::Function),
                 NodeKind::MethodCall if i > 0 => Some(Category::Function),
-                NodeKind::Markup(_) => Some(Category::Variable),
+                NodeKind::ClosureExpr if i == 0 => Some(Category::Function),
+                NodeKind::SetExpr => Some(Category::Function),
+                NodeKind::ShowExpr
+                    if parent
+                        .children()
+                        .filter(|c| matches!(c.kind(), NodeKind::Ident(_)))
+                        .map(RedRef::span)
+                        .nth(1)
+                        .map_or(false, |span| span == child.span()) =>
+                {
+                    Some(Category::Function)
+                }
                 _ => None,
             },
             NodeKind::Bool(_) => Some(Category::Bool),

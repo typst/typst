@@ -43,7 +43,19 @@ impl RawNode {
 }
 
 impl Show for RawNode {
-    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content> {
+    fn encode(&self) -> Dict {
+        dict! {
+            "text" => Value::Str(self.text.clone()),
+            "block" => Value::Bool(self.block)
+        }
+    }
+
+    fn show(
+        &self,
+        _: &mut Context,
+        styles: StyleChain,
+        realized: Option<Content>,
+    ) -> TypResult<Content> {
         let lang = styles.get(Self::LANG).as_ref();
         let foreground = THEME
             .settings
@@ -52,16 +64,7 @@ impl Show for RawNode {
             .unwrap_or(Color::BLACK)
             .into();
 
-        let args = [
-            Value::Str(self.text.clone()),
-            match lang {
-                Some(lang) => Value::Str(lang.clone()),
-                None => Value::None,
-            },
-            Value::Bool(self.block),
-        ];
-
-        let mut content = if let Some(content) = styles.show::<Self, _>(ctx, args)? {
+        let mut content = if let Some(content) = realized {
             content
         } else if matches!(
             lang.map(|s| s.to_lowercase()).as_deref(),

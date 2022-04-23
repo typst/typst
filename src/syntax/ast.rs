@@ -249,7 +249,7 @@ pub enum Expr {
     Let(LetExpr),
     /// A set expression: `set text(...)`.
     Set(SetExpr),
-    /// A show expression: `show heading(body) as [*{body}*]`.
+    /// A show expression: `show node: heading as [*{nody.body}*]`.
     Show(ShowExpr),
     /// A wrap expression: `wrap body in columns(2, body)`.
     Wrap(WrapExpr),
@@ -999,19 +999,28 @@ impl SetExpr {
 }
 
 node! {
-    /// A show expression: `show heading(body) as [*{body}*]`.
+    /// A show expression: `show node: heading as [*{nody.body}*]`.
     ShowExpr
 }
 
 impl ShowExpr {
-    /// The function to customize with this show rule.
-    pub fn target(&self) -> Ident {
-        self.0.cast_first_child().expect("show rule is missing target")
+    /// The binding to assign to.
+    pub fn binding(&self) -> Ident {
+        self.0.cast_first_child().expect("show rule is missing binding")
     }
 
-    /// The closure that defines the rule.
-    pub fn recipe(&self) -> ClosureExpr {
-        self.0.cast_last_child().expect("show rule is missing closure")
+    /// The function to customize with this show rule.
+    pub fn target(&self) -> Ident {
+        self.0
+            .children()
+            .filter_map(RedRef::cast)
+            .nth(1)
+            .expect("show rule is missing target")
+    }
+
+    /// The expression that realizes the node.
+    pub fn body(&self) -> Expr {
+        self.0.cast_last_child().expect("show rule is missing body")
     }
 }
 

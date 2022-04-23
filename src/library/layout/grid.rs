@@ -8,7 +8,7 @@ pub struct GridNode {
     /// Defines sizing of gutter rows and columns between content.
     pub gutter: Spec<Vec<TrackSizing>>,
     /// The nodes to be arranged in a grid.
-    pub children: Vec<LayoutNode>,
+    pub cells: Vec<LayoutNode>,
 }
 
 #[node]
@@ -25,7 +25,7 @@ impl GridNode {
                 column_gutter.unwrap_or_else(|| base_gutter.clone()),
                 row_gutter.unwrap_or(base_gutter),
             ),
-            children: args.all()?,
+            cells: args.all()?,
         }))
     }
 }
@@ -41,7 +41,7 @@ impl Layout for GridNode {
         let layouter = GridLayouter::new(
             self.tracks.as_deref(),
             self.gutter.as_deref(),
-            &self.children,
+            &self.cells,
             regions,
             styles,
         );

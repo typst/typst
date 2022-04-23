@@ -624,13 +624,30 @@ impl Eval for ShowExpr {
     type Output = StyleMap;
 
     fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> EvalResult<Self::Output> {
+        // Evaluate the target function.
         let target = self.target();
         let target_span = target.span();
         let target = target.eval(ctx, scp)?.cast::<Func>().at(target_span)?;
-        let recipe = self.recipe();
-        let recipe_span = recipe.span();
-        let recipe = recipe.eval(ctx, scp)?.cast::<Func>().at(recipe_span)?;
-        Ok(target.show(recipe, recipe_span).at(target_span)?)
+
+        // Collect captured variables.
+        let captured = {
+            let mut visitor = CapturesVisitor::new(scp);
+            visitor.visit(self.as_red());
+            visitor.finish()
+        };
+
+        // Define the recipe function.
+        let body = self.body();
+        let body_span = body.span();
+        let recipe = Func::from_closure(Closure {
+            name: None,
+            captured,
+            params: vec![(self.binding().take(), None)],
+            sink: None,
+            body,
+        });
+
+        Ok(target.show(recipe, body_span).at(target_span)?)
     }
 }
 

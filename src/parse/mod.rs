@@ -809,19 +809,10 @@ fn show_expr(p: &mut Parser) -> ParseResult {
     p.perform(NodeKind::ShowExpr, |p| {
         p.eat_assert(&NodeKind::Show);
         ident(p)?;
-        if !p.at(&NodeKind::LeftParen) {
-            p.expected_found("parameter list");
-            return Err(ParseError);
-        }
-        p.perform(NodeKind::ClosureExpr, |p| {
-            let marker = p.marker();
-            p.start_group(Group::Paren);
-            collection(p);
-            p.end_group();
-            params(p, marker);
-            p.eat_expect(&NodeKind::As)?;
-            expr(p)
-        })
+        p.eat_expect(&NodeKind::Colon)?;
+        ident(p)?;
+        p.eat_expect(&NodeKind::As)?;
+        expr(p)
     })
 }
 

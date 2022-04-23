@@ -28,11 +28,21 @@ impl MathNode {
 }
 
 impl Show for MathNode {
-    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content> {
-        let args = [Value::Str(self.formula.clone()), Value::Bool(self.display)];
-        let mut content = styles
-            .show::<Self, _>(ctx, args)?
-            .unwrap_or_else(|| Content::Text(self.formula.trim().into()));
+    fn encode(&self) -> Dict {
+        dict! {
+            "formula" => Value::Str(self.formula.clone()),
+            "display" => Value::Bool(self.display)
+        }
+    }
+
+    fn show(
+        &self,
+        _: &mut Context,
+        styles: StyleChain,
+        realized: Option<Content>,
+    ) -> TypResult<Content> {
+        let mut content =
+            realized.unwrap_or_else(|| Content::Text(self.formula.trim().into()));
 
         let mut map = StyleMap::new();
         if let Smart::Custom(family) = styles.get(Self::FAMILY) {

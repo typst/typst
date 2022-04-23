@@ -671,7 +671,7 @@ pub enum NodeKind {
     LetExpr,
     /// A set expression: `set text(...)`.
     SetExpr,
-    /// A show expression: `show heading(body) as [*{body}*]`.
+    /// A show expression: `show node: heading as [*{nody.body}*]`.
     ShowExpr,
     /// A wrap expression: `wrap body in columns(2, body)`.
     WrapExpr,

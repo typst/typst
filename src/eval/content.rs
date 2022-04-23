@@ -320,7 +320,7 @@ struct ListBuilder<'a> {
     styles: StyleChain<'a>,
     kind: ListKind,
     items: Vec<ListItem>,
-    wide: bool,
+    tight: bool,
     staged: Vec<(&'a Content, StyleChain<'a>)>,
 }
 
@@ -356,15 +356,15 @@ impl<'a> Builder<'a> {
                     return Ok(());
                 }
                 Content::List(item) if builder.kind == UNORDERED => {
-                    builder.wide |=
-                        builder.staged.iter().any(|&(t, _)| *t == Content::Parbreak);
+                    builder.tight &=
+                        builder.staged.iter().all(|&(t, _)| *t != Content::Parbreak);
                     builder.staged.clear();
                     builder.items.push(item.clone());
                     return Ok(());
                 }
                 Content::Enum(item) if builder.kind == ORDERED => {
-                    builder.wide |=
-                        builder.staged.iter().any(|&(t, _)| *t == Content::Parbreak);
+                    builder.tight &=
+                        builder.staged.iter().all(|&(t, _)| *t != Content::Parbreak);
                     builder.staged.clear();
                     builder.items.push(item.clone());
                     return Ok(());
@@ -430,7 +430,7 @@ impl<'a> Builder<'a> {
                     styles,
                     kind: UNORDERED,
                     items: vec![item.clone()],
-                    wide: false,
+                    tight: true,
                     staged: vec![],
                 });
             }
@@ -439,7 +439,7 @@ impl<'a> Builder<'a> {
                     styles,
                     kind: ORDERED,
                     items: vec![item.clone()],
-                    wide: false,
+                    tight: true,
                     staged: vec![],
                 });
             }
@@ -454,7 +454,8 @@ impl<'a> Builder<'a> {
             }
             Content::Show(node) => {
                 let id = node.id();
-                let content = node.show(ctx, styles)?;
+                let realized = styles.realize(ctx, node)?;
+                let content = node.show(ctx, styles, realized)?;
                 let stored = self.tpa.alloc(content);
                 self.process(ctx, stored, styles.unscoped(id))?;
             }
@@ -532,14 +533,14 @@ impl<'a> Builder<'a> {
 
     /// Finish the currently built list.
     fn finish_list(&mut self, ctx: &mut Context) -> TypResult<()> {
-        let ListBuilder { styles, kind, items, wide, staged } = match self.list.take() {
+        let ListBuilder { styles, kind, items, tight, staged } = match self.list.take() {
             Some(list) => list,
             None => return Ok(()),
         };
 
         let content = match kind {
-            UNORDERED => Content::show(ListNode::<UNORDERED> { start: 1, wide, items }),
-            ORDERED | _ => Content::show(ListNode::<ORDERED> { start: 1, wide, items }),
+            UNORDERED => Content::show(ListNode::<UNORDERED> { start: 1, tight, items }),
+            ORDERED | _ => Content::show(ListNode::<ORDERED> { start: 1, tight, items }),
         };
 
         let stored = self.tpa.alloc(content);

@@ -10,9 +10,9 @@ use crate::library::utility::Numbering;
 pub struct ListNode<const L: ListKind = UNORDERED> {
     /// Where the list starts.
     pub start: usize,
-    /// If true, there is paragraph spacing between the items, if false
+    /// If false, there is paragraph spacing between the items, if true
     /// there is list spacing between the items.
-    pub wide: bool,
+    pub tight: bool,
     /// The individual bulleted or numbered items.
     pub items: Vec<ListItem>,
 }
@@ -55,7 +55,7 @@ impl<const L: ListKind> ListNode<L> {
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         Ok(Content::show(Self {
             start: args.named("start")?.unwrap_or(1),
-            wide: args.named("wide")?.unwrap_or(false),
+            tight: args.named("tight")?.unwrap_or(true),
             items: args
                 .all()?
                 .into_iter()
@@ -66,30 +66,47 @@ impl<const L: ListKind> ListNode<L> {
 }
 
 impl<const L: ListKind> Show for ListNode<L> {
-    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content> {
-        let args = self.items.iter().map(|item| Value::Content((*item.body).clone()));
-        let content = if let Some(content) = styles.show::<Self, _>(ctx, args)? {
+    fn encode(&self) -> Dict {
+        dict! {
+            "start" => Value::Int(self.start as i64),
+            "tight" => Value::Bool(self.tight),
+            "items" => Value::Array(
+                self.items
+                    .iter()
+                    .map(|item| Value::Content((*item.body).clone()))
+                    .collect()
+            ),
+        }
+    }
+
+    fn show(
+        &self,
+        ctx: &mut Context,
+        styles: StyleChain,
+        realized: Option<Content>,
+    ) -> TypResult<Content> {
+        let content = if let Some(content) = realized {
             content
         } else {
-            let mut children = vec![];
+            let mut cells = vec![];
             let mut number = self.start;
 
             let label = styles.get(Self::LABEL);
 
             for item in &self.items {
                 number = item.number.unwrap_or(number);
-                children.push(LayoutNode::default());
-                children.push(label.resolve(ctx, L, number)?.pack());
-                children.push(LayoutNode::default());
-                children.push((*item.body).clone().pack());
+                cells.push(LayoutNode::default());
+                cells.push(label.resolve(ctx, L, number)?.pack());
+                cells.push(LayoutNode::default());
+                cells.push((*item.body).clone().pack());
                 number += 1;
             }
 
             let leading = styles.get(ParNode::LEADING);
-            let spacing = if self.wide {
-                styles.get(ParNode::SPACING)
-            } else {
+            let spacing = if self.tight {
                 styles.get(Self::SPACING)
+            } else {
+                styles.get(ParNode::SPACING)
             };
 
             let gutter = leading + spacing;
@@ -104,7 +121,7 @@ impl<const L: ListKind> Show for ListNode<L> {
                     TrackSizing::Auto,
                 ]),
                 gutter: Spec::with_y(vec![TrackSizing::Relative(gutter.into())]),
-                children,
+                cells,
             })
         };
 
@@ -127,7 +144,7 @@ impl<const L: ListKind> Show for ListNode<L> {
 
 impl<const L: ListKind> From<ListItem> for ListNode<L> {
     fn from(item: ListItem) -> Self {
-        Self { items: vec![item], wide: false, start: 1 }
+        Self { items: vec![item], tight: true, start: 1 }
     }
 }
 

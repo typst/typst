@@ -43,18 +43,25 @@ impl<const L: DecoLine> DecoNode<L> {
 }
 
 impl<const L: DecoLine> Show for DecoNode<L> {
-    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content> {
-        Ok(styles
-            .show::<Self, _>(ctx, [Value::Content(self.0.clone())])?
-            .unwrap_or_else(|| {
-                self.0.clone().styled(TextNode::DECO, Decoration {
-                    line: L,
-                    stroke: styles.get(Self::STROKE).unwrap_or_default(),
-                    offset: styles.get(Self::OFFSET),
-                    extent: styles.get(Self::EXTENT),
-                    evade: styles.get(Self::EVADE),
-                })
-            }))
+    fn encode(&self) -> Dict {
+        dict! { "body" => Value::Content(self.0.clone()) }
+    }
+
+    fn show(
+        &self,
+        _: &mut Context,
+        styles: StyleChain,
+        realized: Option<Content>,
+    ) -> TypResult<Content> {
+        Ok(realized.unwrap_or_else(|| {
+            self.0.clone().styled(TextNode::DECO, Decoration {
+                line: L,
+                stroke: styles.get(Self::STROKE).unwrap_or_default(),
+                offset: styles.get(Self::OFFSET),
+                extent: styles.get(Self::EXTENT),
+                evade: styles.get(Self::EVADE),
+            })
+        }))
     }
 }
 

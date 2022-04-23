@@ -110,7 +110,6 @@ impl Resolve for RawStroke {
     }
 }
 
-// This faciliates RawStroke => Stroke.
 impl Fold for RawStroke<Length> {
     type Output = Self;
 

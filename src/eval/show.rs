@@ -3,15 +3,24 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::sync::Arc;
 
-use super::{Content, StyleChain};
+use super::{Content, Dict, StyleChain};
 use crate::diag::TypResult;
 use crate::util::Prehashed;
 use crate::Context;
 
 /// A node that can be realized given some styles.
 pub trait Show: 'static {
-    /// Realize this node in the given styles.
-    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content>;
+    /// Encode this node into a dictionary.
+    fn encode(&self) -> Dict;
+
+    /// Show this node in the given styles and optionally given the realization
+    /// of a show rule.
+    fn show(
+        &self,
+        ctx: &mut Context,
+        styles: StyleChain,
+        realized: Option<Content>,
+    ) -> TypResult<Content>;
 
     /// Convert to a packed show node.
     fn pack(self) -> ShowNode
@@ -42,8 +51,17 @@ impl ShowNode {
 }
 
 impl Show for ShowNode {
-    fn show(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content> {
-        self.0.show(ctx, styles)
+    fn encode(&self) -> Dict {
+        self.0.encode()
+    }
+
+    fn show(
+        &self,
+        ctx: &mut Context,
+        styles: StyleChain,
+        realized: Option<Content>,
+    ) -> TypResult<Content> {
+        self.0.show(ctx, styles, realized)
     }
 
     fn pack(self) -> ShowNode {
