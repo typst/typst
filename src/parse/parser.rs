@@ -20,7 +20,7 @@ pub struct Parser<'s> {
     /// The stack of open groups.
     groups: Vec<GroupEntry>,
     /// The children of the currently built node.
-    pub children: Vec<Green>,
+    children: Vec<Green>,
     /// Whether the last group was not correctly terminated.
     unterminated_group: bool,
     /// Whether a group terminator was found, that did not close a group.
@@ -52,13 +52,14 @@ impl<'s> Parser<'s> {
         }
     }
 
-    /// End the parsing process and return the last child.
+    /// End the parsing process and return the parsed children.
     pub fn finish(self) -> Vec<Green> {
         self.children
     }
 
-    /// End the parsing process and return multiple children and whether the
-    /// last token was terminated.
+    /// End the parsing process and return the parsed children and whether the
+    /// last token was terminated if all groups were terminated correctly or
+    /// `None` otherwise.
     pub fn consume(self) -> Option<(Vec<Green>, bool)> {
         self.terminated().then(|| (self.children, self.tokens.terminated()))
     }
@@ -130,28 +131,12 @@ impl<'s> Parser<'s> {
     }
 
     /// Eat if the current token it is the given one.
-    pub fn eat_if(&mut self, t: &NodeKind) -> bool {
-        let at = self.at(t);
+    pub fn eat_if(&mut self, kind: NodeKind) -> bool {
+        let at = self.at(kind);
         if at {
             self.eat();
         }
         at
-    }
-
-    /// Eat if the current token is the given one and produce an error if not.
-    pub fn eat_expect(&mut self, t: &NodeKind) -> ParseResult {
-        let eaten = self.eat_if(t);
-        if !eaten {
-            self.expected(t.as_str());
-        }
-        if eaten { Ok(()) } else { Err(ParseError) }
-    }
-
-    /// Eat, debug-asserting that the token is the given one.
-    #[track_caller]
-    pub fn eat_assert(&mut self, t: &NodeKind) {
-        debug_assert_eq!(self.peek(), Some(t));
-        self.eat();
     }
 
     /// Eat tokens while the condition is true.
@@ -164,9 +149,28 @@ impl<'s> Parser<'s> {
         }
     }
 
+    /// Eat if the current token is the given one and produce an error if not.
+    pub fn expect(&mut self, kind: NodeKind) -> ParseResult {
+        let at = self.peek() == Some(&kind);
+        if at {
+            self.eat();
+            Ok(())
+        } else {
+            self.expected(kind.as_str());
+            Err(ParseError)
+        }
+    }
+
+    /// Eat, debug-asserting that the token is the given one.
+    #[track_caller]
+    pub fn assert(&mut self, kind: NodeKind) {
+        debug_assert_eq!(self.peek(), Some(&kind));
+        self.eat();
+    }
+
     /// Whether the current token is of the given type.
-    pub fn at(&self, kind: &NodeKind) -> bool {
-        self.peek() == Some(kind)
+    pub fn at(&self, kind: NodeKind) -> bool {
+        self.peek() == Some(&kind)
     }
 
     /// Peek at the current token without consuming it.
@@ -230,11 +234,11 @@ impl<'s> Parser<'s> {
         });
 
         match kind {
-            Group::Brace => self.eat_assert(&NodeKind::LeftBrace),
-            Group::Bracket => self.eat_assert(&NodeKind::LeftBracket),
-            Group::Paren => self.eat_assert(&NodeKind::LeftParen),
-            Group::Strong => self.eat_assert(&NodeKind::Star),
-            Group::Emph => self.eat_assert(&NodeKind::Underscore),
+            Group::Brace => self.assert(NodeKind::LeftBrace),
+            Group::Bracket => self.assert(NodeKind::LeftBracket),
+            Group::Paren => self.assert(NodeKind::LeftParen),
+            Group::Strong => self.assert(NodeKind::Star),
+            Group::Emph => self.assert(NodeKind::Underscore),
             Group::Expr => self.repeek(),
             Group::Imports => self.repeek(),
         }
@@ -411,13 +415,18 @@ impl Parser<'_> {
     }
 }
 
-/// A marker that indicates where a node may start.
+/// Marks a location in a parser's child list.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Marker(usize);
 
 impl Marker {
+    /// Peek at the child directly before the marker.
+    pub fn before<'a>(self, p: &'a Parser) -> Option<&'a Green> {
+        p.children.get(self.0.checked_sub(1)?)
+    }
+
     /// Peek at the child directly after the marker.
-    pub fn peek<'a>(self, p: &'a Parser) -> Option<&'a Green> {
+    pub fn after<'a>(self, p: &'a Parser) -> Option<&'a Green> {
         p.children.get(self.0)
     }
 

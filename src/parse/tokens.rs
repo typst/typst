@@ -3,7 +3,7 @@ use std::sync::Arc;
 use unicode_xid::UnicodeXID;
 use unscanny::Scanner;
 
-use super::{resolve_hex, resolve_raw, resolve_string};
+use super::resolve::{resolve_hex, resolve_raw, resolve_string};
 use crate::geom::{AngleUnit, LengthUnit};
 use crate::syntax::ast::{MathNode, RawNode, Unit};
 use crate::syntax::{ErrorPos, NodeKind};
@@ -311,7 +311,6 @@ impl<'s> Tokens<'s> {
         }
     }
 
-    #[inline]
     fn hash(&mut self) -> NodeKind {
         if self.s.at(is_id_start) {
             let read = self.s.eat_while(is_id_continue);
@@ -661,13 +660,13 @@ pub fn is_ident(string: &str) -> bool {
 
 /// Whether a character can start an identifier.
 #[inline]
-pub fn is_id_start(c: char) -> bool {
+fn is_id_start(c: char) -> bool {
     c.is_xid_start() || c == '_'
 }
 
 /// Whether a character can continue an identifier.
 #[inline]
-pub fn is_id_continue(c: char) -> bool {
+fn is_id_continue(c: char) -> bool {
     c.is_xid_continue() || c == '_' || c == '-'
 }
 

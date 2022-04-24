@@ -8,35 +8,41 @@ use super::{
     reparse_markup_elements, TokenMode,
 };
 
+/// Refresh the given green node with as little parsing as possible.
+///
+/// Takes the new source, the range in the old source that was replaced and the
+/// length of the replacement.
+///
+/// Returns the range in the new source that was ultimately reparsed.
+pub fn reparse(
+    green: &mut Arc<GreenNode>,
+    src: &str,
+    replaced: Range<usize>,
+    replacement_len: usize,
+) -> Range<usize> {
+    Reparser { src, replaced, replacement_len }
+        .reparse_step(Arc::make_mut(green), 0, true)
+        .unwrap_or_else(|| {
+            *green = parse(src);
+            0 .. src.len()
+        })
+}
+
 /// Allows partial refreshs of the [`Green`] node tree.
 ///
 /// This struct holds a description of a change. Its methods can be used to try
 /// and apply the change to a green tree.
-pub struct Reparser<'a> {
+struct Reparser<'a> {
     /// The new source code, with the change applied.
     src: &'a str,
     /// Which range in the old source file was changed.
-    replace_range: Range<usize>,
-    /// How many characters replaced the text in `replace_range`.
-    replace_len: usize,
-}
-
-impl<'a> Reparser<'a> {
-    /// Create a new reparser.
-    pub fn new(src: &'a str, replace_range: Range<usize>, replace_len: usize) -> Self {
-        Self { src, replace_range, replace_len }
-    }
+    replaced: Range<usize>,
+    /// How many characters replaced the text in `replaced`.
+    replacement_len: usize,
 }
 
 impl Reparser<'_> {
-    /// Find the innermost child that is incremental safe.
-    pub fn reparse(&self, green: &mut Arc<GreenNode>) -> Range<usize> {
-        self.reparse_step(Arc::make_mut(green), 0, true).unwrap_or_else(|| {
-            *green = parse(self.src);
-            0 .. self.src.len()
-        })
-    }
-
+    /// Try to reparse inside the given node.
     fn reparse_step(
         &self,
         green: &mut GreenNode,
@@ -64,19 +70,19 @@ impl Reparser<'_> {
             match search {
                 SearchState::NoneFound => {
                     // The edit is contained within the span of the current element.
-                    if child_span.contains(&self.replace_range.start)
-                        && child_span.end >= self.replace_range.end
+                    if child_span.contains(&self.replaced.start)
+                        && child_span.end >= self.replaced.end
                     {
                         // In Markup mode, we want to consider a non-whitespace
                         // neighbor if the edit is on the node boundary.
-                        search = if child_span.end == self.replace_range.end
+                        search = if child_span.end == self.replaced.end
                             && child_mode == TokenMode::Markup
                         {
                             SearchState::RequireNonTrivia(pos)
                         } else {
                             SearchState::Contained(pos)
                         };
-                    } else if child_span.contains(&self.replace_range.start) {
+                    } else if child_span.contains(&self.replaced.start) {
                         search = SearchState::Inside(pos);
                     } else {
                         // We look only for non spaces, non-semicolon and also
@@ -86,7 +92,7 @@ impl Reparser<'_> {
                             && child.kind() != &NodeKind::Semicolon
                             && child.kind() != &NodeKind::Text('/'.into())
                             && (ahead_nontrivia.is_none()
-                                || self.replace_range.start > child_span.end)
+                                || self.replaced.start > child_span.end)
                         {
                             ahead_nontrivia = Some((pos, at_start));
                         }
@@ -94,9 +100,9 @@ impl Reparser<'_> {
                     }
                 }
                 SearchState::Inside(start) => {
-                    if child_span.end == self.replace_range.end {
+                    if child_span.end == self.replaced.end {
                         search = SearchState::RequireNonTrivia(start);
-                    } else if child_span.end > self.replace_range.end {
+                    } else if child_span.end > self.replaced.end {
                         search = SearchState::SpanFound(start, pos);
                     }
                 }
@@ -172,7 +178,7 @@ impl Reparser<'_> {
         if let Some((ahead, ahead_at_start)) = ahead_nontrivia {
             let ahead_kind = green.children()[ahead.idx].kind();
 
-            if start.offset == self.replace_range.start
+            if start.offset == self.replaced.start
                 || ahead_kind.only_at_start()
                 || ahead_kind.only_in_mode() != Some(TokenMode::Markup)
             {
@@ -206,7 +212,7 @@ impl Reparser<'_> {
         let superseded_start = superseded_idx.start;
 
         let differential: isize =
-            self.replace_len as isize - self.replace_range.len() as isize;
+            self.replacement_len as isize - self.replaced.len() as isize;
         let newborn_end = (superseded_span.end as isize + differential) as usize;
         let newborn_span = superseded_span.start .. newborn_end;
 
@@ -251,11 +257,12 @@ impl Reparser<'_> {
     }
 }
 
-/// The position of a green node in terms of its string offset and index within
-/// the parent node.
+/// The position of a green node.
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct GreenPos {
+    /// The index in the parent node.
     idx: usize,
+    /// The byte offset in the string.
     offset: usize,
 }
 

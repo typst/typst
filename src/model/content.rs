@@ -154,7 +154,7 @@ impl Content {
         Self::show(DecoNode::<UNDERLINE>(self))
     }
 
-    /// Return a node that is spaced apart at top and bottom.
+    /// Add vertical spacing above and below the node.
     pub fn spaced(self, above: Length, below: Length) -> Self {
         if above.is_zero() && below.is_zero() {
             return self;

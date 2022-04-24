@@ -10,7 +10,7 @@ use unscanny::Scanner;
 
 use crate::diag::TypResult;
 use crate::loading::{FileHash, Loader};
-use crate::parse::{is_newline, parse, Reparser};
+use crate::parse::{is_newline, parse, reparse};
 use crate::syntax::ast::Markup;
 use crate::syntax::{self, Category, GreenNode, RedNode};
 use crate::util::{PathExt, StrExt};
@@ -228,8 +228,7 @@ impl SourceFile {
     /// Edit the source file by replacing the given range and increase the
     /// revision number.
     ///
-    /// Returns the range of the section in the new source that was ultimately
-    /// reparsed.
+    /// Returns the range in the new source that was ultimately reparsed.
     ///
     /// The method panics if the `replace` range is out of bounds.
     pub fn edit(&mut self, replace: Range<usize>, with: &str) -> Range<usize> {
@@ -256,7 +255,7 @@ impl SourceFile {
         ));
 
         // Incrementally reparse the replaced range.
-        Reparser::new(&self.src, replace, with.len()).reparse(&mut self.root)
+        reparse(&mut self.root, &self.src, replace, with.len())
     }
 
     /// Provide highlighting categories for the given range of the source file.
