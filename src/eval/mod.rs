@@ -15,8 +15,9 @@ mod content;
 mod control;
 mod func;
 mod layout;
+pub mod methods;
 mod module;
-mod ops;
+pub mod ops;
 mod raw;
 mod scope;
 mod show;
@@ -484,15 +485,15 @@ impl Eval for MethodCall {
         let method = self.method();
         let point = || Tracepoint::Call(Some(method.to_string()));
 
-        Ok(if Value::is_mutable_method(&method) {
+        Ok(if methods::is_mutating(&method) {
             let args = self.args().eval(ctx, scp)?;
-            let mut receiver = self.receiver().access(ctx, scp)?;
-            receiver.call_mut(ctx, &method, span, args).trace(point, span)?;
+            let mut value = self.receiver().access(ctx, scp)?;
+            methods::call_mut(ctx, &mut value, &method, args, span).trace(point, span)?;
             Value::None
         } else {
-            let receiver = self.receiver().eval(ctx, scp)?;
+            let value = self.receiver().eval(ctx, scp)?;
             let args = self.args().eval(ctx, scp)?;
-            receiver.call(ctx, &method, span, args).trace(point, span)?
+            methods::call(ctx, value, &method, args, span).trace(point, span)?
         })
     }
 }

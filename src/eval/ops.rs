@@ -1,3 +1,5 @@
+//! Operations on values.
+
 use std::cmp::Ordering;
 
 use super::{Dynamic, RawAlign, RawStroke, Smart, StrExt, Value};
