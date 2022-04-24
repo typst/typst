@@ -588,8 +588,8 @@ pub enum NodeKind {
     Space(usize),
     /// A consecutive non-markup string.
     Text(EcoString),
-    /// A forced line break. If soft (`\`, `true`), the preceding line can still
-    /// be justified, if hard (`\+`, `false`) not.
+    /// A forced line break. If `true` (`\`), the preceding line can still be
+    /// justified, if `false` (`\+`) not.
     Linebreak(bool),
     /// A non-breaking space: `~`.
     NonBreakingSpace,
@@ -867,8 +867,8 @@ impl NodeKind {
             Self::Markup(_) => "markup",
             Self::Space(2 ..) => "paragraph break",
             Self::Space(_) => "space",
-            Self::Linebreak(false) => "hard linebreak",
-            Self::Linebreak(true) => "soft linebreak",
+            Self::Linebreak(false) => "linebreak",
+            Self::Linebreak(true) => "justified linebreak",
             Self::Text(_) => "text",
             Self::NonBreakingSpace => "non-breaking space",
             Self::Shy => "soft hyphen",

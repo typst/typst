@@ -62,7 +62,7 @@ impl Markup {
         self.0.children().filter_map(|node| match node.kind() {
             NodeKind::Space(2 ..) => Some(MarkupNode::Parbreak),
             NodeKind::Space(_) => Some(MarkupNode::Space),
-            NodeKind::Linebreak(s) => Some(MarkupNode::Linebreak(*s)),
+            NodeKind::Linebreak(j) => Some(MarkupNode::Linebreak(*j)),
             NodeKind::Text(s) => Some(MarkupNode::Text(s.clone())),
             NodeKind::Escape(c) => Some(MarkupNode::Text((*c).into())),
             NodeKind::NonBreakingSpace => Some(MarkupNode::Text('\u{00A0}'.into())),
@@ -88,8 +88,8 @@ impl Markup {
 pub enum MarkupNode {
     /// Whitespace containing less than two newlines.
     Space,
-    /// A forced line break. If soft (`\`, `true`), the preceding line can still
-    /// be justified, if hard (`\+`, `false`) not.
+    /// A forced line break. If `true` (`\`), the preceding line can still be
+    /// justified, if `false` (`\+`) not.
     Linebreak(bool),
     /// A paragraph break: Two or more newlines.
     Parbreak,

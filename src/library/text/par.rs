@@ -168,8 +168,8 @@ pub struct LinebreakNode;
 #[node]
 impl LinebreakNode {
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
-        let soft = args.named("soft")?.unwrap_or(false);
-        Ok(Content::Linebreak(soft))
+        let justified = args.named("justified")?.unwrap_or(false);
+        Ok(Content::Linebreak(justified))
     }
 }
 
