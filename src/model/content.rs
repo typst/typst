@@ -63,7 +63,7 @@ pub enum Content {
     /// An item in an ordered list.
     Enum(ListItem),
     /// A page break.
-    Pagebreak,
+    Pagebreak(bool),
     /// A page node.
     Page(PageNode),
     /// A node that can be realized with styles.
@@ -262,7 +262,7 @@ impl Debug for Content {
                 f.write_str(". ")?;
                 item.body.fmt(f)
             }
-            Self::Pagebreak => f.pad("Pagebreak"),
+            Self::Pagebreak(soft) => write!(f, "Pagebreak({soft})"),
             Self::Page(page) => page.fmt(f),
             Self::Show(node) => {
                 f.write_str("Show(")?;
@@ -463,8 +463,8 @@ impl<'a> Builder<'a> {
                     staged: vec![],
                 });
             }
-            Content::Pagebreak => {
-                self.finish_page(ctx, true, true, styles)?;
+            Content::Pagebreak(soft) => {
+                self.finish_page(ctx, !soft, !soft, styles)?;
             }
             Content::Page(page) => {
                 self.finish_page(ctx, false, false, styles)?;
