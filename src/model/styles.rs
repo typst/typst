@@ -1,17 +1,17 @@
-use std::any::{Any, TypeId};
+use std::any::Any;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use super::{Content, Layout, Show, ShowNode};
+use super::{Content, Show, ShowNode};
 use crate::diag::{At, TypResult};
 use crate::eval::{Args, Func, Node, Smart, Value};
 use crate::geom::{Numeric, Relative, Sides, Spec};
 use crate::library::layout::PageNode;
 use crate::library::text::{FontFamily, ParNode, TextNode};
 use crate::syntax::Span;
-use crate::util::Prehashed;
+use crate::util::{Prehashed, ReadableTypeId};
 use crate::Context;
 
 /// A map of style properties.
@@ -73,7 +73,7 @@ impl StyleMap {
         self.0
             .iter()
             .filter_map(|entry| entry.property())
-            .any(|property| property.key == TypeId::of::<K>())
+            .any(|property| property.key == KeyId::of::<K>())
     }
 
     /// Make `self` the first link of the `tail` chain.
@@ -141,13 +141,42 @@ impl Debug for StyleMap {
     }
 }
 
+/// A stack-allocated slot for a single style property or barrier.
+pub struct StyleSlot(Entry);
+
+impl StyleSlot {
+    /// Make this slot the first link of the `tail` chain.
+    pub fn chain<'a>(&'a self, tail: &'a StyleChain) -> StyleChain<'a> {
+        if let Entry::Barrier(barrier) = &self.0 {
+            if !tail
+                .entries()
+                .filter_map(Entry::property)
+                .any(|p| p.scoped && p.node == barrier.0)
+            {
+                return *tail;
+            }
+        }
+
+        StyleChain {
+            head: std::slice::from_ref(&self.0),
+            tail: Some(tail),
+        }
+    }
+}
+
+impl From<Barrier> for StyleSlot {
+    fn from(barrier: Barrier) -> Self {
+        Self(Entry::Barrier(barrier))
+    }
+}
+
 /// An entry for a single style property, recipe or barrier.
 #[derive(Clone, PartialEq, Hash)]
 enum Entry {
     /// A style property originating from a set rule or constructor.
     Property(Property),
     /// A barrier for scoped styles.
-    Barrier(TypeId, &'static str),
+    Barrier(Barrier),
     /// A show rule recipe.
     Recipe(Recipe),
 }
@@ -176,20 +205,55 @@ impl Debug for Entry {
         match self {
             Self::Property(property) => property.fmt(f)?,
             Self::Recipe(recipe) => recipe.fmt(f)?,
-            Self::Barrier(_, name) => write!(f, "Barrier for {name}")?,
+            Self::Barrier(barrier) => barrier.fmt(f)?,
         }
         f.write_str("]")
+    }
+}
+
+/// A unique identifier for a node.
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+pub struct NodeId(ReadableTypeId);
+
+impl NodeId {
+    /// The id of the given node.
+    pub fn of<T: 'static>() -> Self {
+        Self(ReadableTypeId::of::<T>())
+    }
+}
+
+impl Debug for NodeId {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+/// A unique identifier for a property key.
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+pub struct KeyId(ReadableTypeId);
+
+impl KeyId {
+    /// The id of the given key.
+    pub fn of<'a, T: Key<'a>>() -> Self {
+        Self(ReadableTypeId::of::<T>())
+    }
+}
+
+impl Debug for KeyId {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        self.0.fmt(f)
     }
 }
 
 /// A style property originating from a set rule or constructor.
 #[derive(Clone, Hash)]
 struct Property {
-    /// The type id of the property's [key](Key).
-    key: TypeId,
-    /// The type id of the node the property belongs to.
-    node: TypeId,
+    /// The id of the property's [key](Key).
+    key: KeyId,
+    /// The id of the node the property belongs to.
+    node: NodeId,
     /// The name of the property.
+    #[cfg(debug_assertions)]
     name: &'static str,
     /// The property's value.
     value: Arc<Prehashed<dyn Bounds>>,
@@ -202,8 +266,9 @@ impl Property {
     /// Create a new property from a key-value pair.
     fn new<'a, K: Key<'a>>(_: K, value: K::Value) -> Self {
         Self {
-            key: TypeId::of::<K>(),
+            key: KeyId::of::<K>(),
             node: K::node(),
+            #[cfg(debug_assertions)]
             name: K::NAME,
             value: Arc::new(Prehashed::new(value)),
             scoped: false,
@@ -223,7 +288,7 @@ impl Property {
 
     /// Access the property's value if it is of the given key.
     fn downcast<'a, K: Key<'a>>(&'a self) -> Option<&'a K::Value> {
-        if self.key == TypeId::of::<K>() {
+        if self.key == KeyId::of::<K>() {
             (**self.value).as_any().downcast_ref()
         } else {
             None
@@ -232,13 +297,15 @@ impl Property {
 
     /// Whether this property belongs to the node `T`.
     fn is_of<T: Node>(&self) -> bool {
-        self.node == TypeId::of::<T>()
+        self.node == NodeId::of::<T>()
     }
 }
 
 impl Debug for Property {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{} = {:?}", self.name, self.value)?;
+        #[cfg(debug_assertions)]
+        write!(f, "{} = ", self.name)?;
+        write!(f, "{:?}", self.value)?;
         if self.scoped {
             write!(f, " [scoped]")?;
         }
@@ -286,8 +353,8 @@ pub trait Key<'a>: Copy + 'static {
     /// The name of the property, used for debug printing.
     const NAME: &'static str;
 
-    /// The type id of the node this property belongs to.
-    fn node() -> TypeId;
+    /// The ids of the key and of the node the key belongs to.
+    fn node() -> NodeId;
 
     /// Compute an output value from a sequence of values belong to this key,
     /// folding if necessary.
@@ -388,13 +455,32 @@ where
     }
 }
 
+/// A scoped property barrier.
+///
+/// Barriers interact with [scoped](StyleMap::scoped) styles: A scoped style
+/// can still be read through a single barrier (the one of the node it
+/// _should_ apply to), but a second barrier will make it invisible.
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+pub struct Barrier(NodeId);
+
+impl Barrier {
+    /// Create a new barrier for the given node.
+    pub fn new(node: NodeId) -> Self {
+        Self(node)
+    }
+}
+
+impl Debug for Barrier {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "Barrier for {:?}", self.0)
+    }
+}
+
 /// A show rule recipe.
 #[derive(Clone, PartialEq, Hash)]
 struct Recipe {
     /// The affected node.
-    node: TypeId,
-    /// The name of the affected node.
-    name: &'static str,
+    node: NodeId,
     /// The function that defines the recipe.
     func: Func,
     /// The span to report all erros with.
@@ -404,67 +490,13 @@ struct Recipe {
 impl Recipe {
     /// Create a new recipe for the node `T`.
     fn new<T: Node>(func: Func, span: Span) -> Self {
-        Self {
-            node: TypeId::of::<T>(),
-            name: std::any::type_name::<T>(),
-            func,
-            span,
-        }
+        Self { node: NodeId::of::<T>(), func, span }
     }
 }
 
 impl Debug for Recipe {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "Recipe for {} from {:?}", self.name, self.span)
-    }
-}
-
-/// A style chain barrier.
-///
-/// Barriers interact with [scoped](StyleMap::scoped) styles: A scoped style
-/// can still be read through a single barrier (the one of the node it
-/// _should_ apply to), but a second barrier will make it invisible.
-#[derive(Clone, PartialEq, Hash)]
-pub struct Barrier(Entry);
-
-impl Barrier {
-    /// Create a new barrier for the layout node `T`.
-    pub fn new<T: Layout>() -> Self {
-        Self(Entry::Barrier(
-            TypeId::of::<T>(),
-            std::any::type_name::<T>(),
-        ))
-    }
-
-    /// Make this barrier the first link of the `tail` chain.
-    pub fn chain<'a>(&'a self, tail: &'a StyleChain) -> StyleChain<'a> {
-        // We have to store a full `Entry` enum inside the barrier because
-        // otherwise the `slice::from_ref` trick below won't work.
-        // Unfortunately, that also means we have to somehow extract the id
-        // here.
-        let id = match self.0 {
-            Entry::Barrier(id, _) => id,
-            _ => unreachable!(),
-        };
-
-        if tail
-            .entries()
-            .filter_map(Entry::property)
-            .any(|p| p.scoped && p.node == id)
-        {
-            StyleChain {
-                head: std::slice::from_ref(&self.0),
-                tail: Some(tail),
-            }
-        } else {
-            *tail
-        }
-    }
-}
-
-impl Debug for Barrier {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        self.0.fmt(f)
+        write!(f, "Recipe for {:?} from {:?}", self.node, self.span)
     }
 }
 
@@ -536,7 +568,7 @@ impl<'a> StyleChain<'a> {
 impl<'a> StyleChain<'a> {
     /// Return the chain, but without the trailing scoped property for the given
     /// `node`. This is a 90% hack fix for show node constructor scoping.
-    pub(super) fn unscoped(mut self, node: TypeId) -> Self {
+    pub(super) fn unscoped(mut self, node: NodeId) -> Self {
         while self
             .head
             .last()
@@ -626,8 +658,8 @@ impl<'a, K: Key<'a>> Iterator for Values<'a, K> {
                         }
                     }
                 }
-                Entry::Barrier(id, _) => {
-                    self.depth += (*id == K::node()) as usize;
+                Entry::Barrier(barrier) => {
+                    self.depth += (barrier.0 == K::node()) as usize;
                 }
                 Entry::Recipe(_) => {}
             }

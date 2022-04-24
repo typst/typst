@@ -9,6 +9,7 @@ pub use eco_string::EcoString;
 pub use mac_roman::decode_mac_roman;
 pub use prehashed::Prehashed;
 
+use std::any::TypeId;
 use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
 use std::ops::{Deref, Range};
@@ -34,7 +35,61 @@ where
     Wrapper(f)
 }
 
-/// Additional methods for strings.
+/// An alternative type id that prints as something readable in debug mode.
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+pub struct ReadableTypeId {
+    id: TypeId,
+    #[cfg(debug_assertions)]
+    name: &'static str,
+}
+
+impl ReadableTypeId {
+    /// The type id of the given type.
+    pub fn of<T: 'static>() -> Self {
+        Self {
+            id: TypeId::of::<T>(),
+            #[cfg(debug_assertions)]
+            name: std::any::type_name::<T>(),
+        }
+    }
+}
+
+impl Debug for ReadableTypeId {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        #[cfg(debug_assertions)]
+        f.pad(self.name)?;
+        #[cfg(not(debug_assertions))]
+        f.pad("ReadableTypeId")?;
+        Ok(())
+    }
+}
+
+/// Either owned or shared.
+pub enum MaybeShared<T> {
+    /// Owned data.
+    Owned(T),
+    /// Shared data.
+    Shared(Arc<T>),
+}
+
+impl<T> AsRef<T> for MaybeShared<T> {
+    fn as_ref(&self) -> &T {
+        self
+    }
+}
+
+impl<T> Deref for MaybeShared<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            Self::Owned(owned) => owned,
+            Self::Shared(shared) => shared,
+        }
+    }
+}
+
+/// Extra methods for [`str`].
 pub trait StrExt {
     /// The number of code units this string would use if it was encoded in
     /// UTF16. This runs in linear time.
@@ -47,7 +102,7 @@ impl StrExt for str {
     }
 }
 
-/// Additional methods for options.
+/// Extra methods for [`Option<T>`].
 pub trait OptionExt<T> {
     /// Sets `other` as the value if `self` is `None` or if it contains a value
     /// larger than `other`.
@@ -82,7 +137,7 @@ impl<T> OptionExt<T> for Option<T> {
     }
 }
 
-/// Additional methods for reference-counted pointers.
+/// Extra methods for [`Arc`].
 pub trait ArcExt<T> {
     /// Takes the inner value if there is exactly one strong reference and
     /// clones it otherwise.
@@ -101,32 +156,7 @@ where
     }
 }
 
-/// Either owned or shared.
-pub enum MaybeShared<T> {
-    /// Owned data.
-    Owned(T),
-    /// Shared data.
-    Shared(Arc<T>),
-}
-
-impl<T> AsRef<T> for MaybeShared<T> {
-    fn as_ref(&self) -> &T {
-        self
-    }
-}
-
-impl<T> Deref for MaybeShared<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        match self {
-            Self::Owned(owned) => owned,
-            Self::Shared(shared) => shared,
-        }
-    }
-}
-
-/// Additional methods for slices.
+/// Extra methods for `[T]`.
 pub trait SliceExt<T> {
     /// Split a slice into consecutive runs with the same key and yield for
     /// each such run the key and the slice of elements with that key.
@@ -165,7 +195,7 @@ where
     }
 }
 
-/// Additional methods for [`Range<usize>`].
+/// Extra methods for [`Range<usize>`].
 pub trait RangeExt {
     /// Locate a position relative to a range.
     ///
@@ -193,7 +223,7 @@ impl RangeExt for Range<usize> {
     }
 }
 
-/// Additional methods for [`Path`].
+/// Extra methods for [`Path`].
 pub trait PathExt {
     /// Lexically normalize a path.
     fn normalize(&self) -> PathBuf;

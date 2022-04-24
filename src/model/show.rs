@@ -1,9 +1,8 @@
-use std::any::{Any, TypeId};
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::sync::Arc;
 
-use super::{Content, StyleChain};
+use super::{Content, NodeId, StyleChain};
 use crate::diag::TypResult;
 use crate::eval::Dict;
 use crate::util::Prehashed;
@@ -57,9 +56,9 @@ impl ShowNode {
         Self(Arc::new(Prehashed::new(node)))
     }
 
-    /// The type id of this node.
-    pub fn id(&self) -> TypeId {
-        self.0.as_any().type_id()
+    /// The id of this node.
+    pub fn id(&self) -> NodeId {
+        (**self.0).node_id()
     }
 }
 
@@ -99,14 +98,14 @@ impl PartialEq for ShowNode {
 }
 
 trait Bounds: Show + Debug + Sync + Send + 'static {
-    fn as_any(&self) -> &dyn Any;
+    fn node_id(&self) -> NodeId;
 }
 
 impl<T> Bounds for T
 where
     T: Show + Debug + Hash + Sync + Send + 'static,
 {
-    fn as_any(&self) -> &dyn Any {
-        self
+    fn node_id(&self) -> NodeId {
+        NodeId::of::<Self>()
     }
 }

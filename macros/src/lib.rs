@@ -249,12 +249,12 @@ fn process_const(
 
                 const NAME: &'static str = #name;
 
-                fn node() -> TypeId {
-                    TypeId::of::<#self_ty>()
+                fn node() -> model::NodeId {
+                    model::NodeId::of::<#self_ty>()
                 }
 
                 fn get(
-                    chain: StyleChain<'a>,
+                    chain: model::StyleChain<'a>,
                     mut values: impl Iterator<Item = &'a Self::Value>,
                 ) -> Self::Output {
                     #get

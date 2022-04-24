@@ -5,7 +5,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::sync::Arc;
 
-use super::{Barrier, Resolve, StyleChain};
+use super::{Barrier, NodeId, Resolve, StyleChain, StyleSlot};
 use crate::diag::TypResult;
 use crate::eval::{RawAlign, RawLength};
 use crate::frame::{Element, Frame, Geometry};
@@ -148,9 +148,9 @@ impl LayoutNode {
         (**self.0).as_any().is::<T>()
     }
 
-    /// A barrier for the node.
-    pub fn barrier(&self) -> Barrier {
-        (**self.0).barrier()
+    /// The id of this node.
+    pub fn id(&self) -> NodeId {
+        (**self.0).node_id()
     }
 
     /// Try to downcast to a specific layout node.
@@ -220,7 +220,8 @@ impl Layout for LayoutNode {
         styles: StyleChain,
     ) -> TypResult<Vec<Arc<Frame>>> {
         ctx.query((self, regions, styles), |ctx, (node, regions, styles)| {
-            node.0.layout(ctx, regions, node.barrier().chain(&styles))
+            let slot = StyleSlot::from(Barrier::new(node.id()));
+            node.0.layout(ctx, regions, slot.chain(&styles))
         })
         .clone()
     }
@@ -250,7 +251,7 @@ impl PartialEq for LayoutNode {
 
 trait Bounds: Layout + Debug + Sync + Send + 'static {
     fn as_any(&self) -> &dyn Any;
-    fn barrier(&self) -> Barrier;
+    fn node_id(&self) -> NodeId;
 }
 
 impl<T> Bounds for T
@@ -261,8 +262,8 @@ where
         self
     }
 
-    fn barrier(&self) -> Barrier {
-        Barrier::new::<T>()
+    fn node_id(&self) -> NodeId {
+        NodeId::of::<Self>()
     }
 }
 
