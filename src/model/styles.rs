@@ -4,11 +4,13 @@ use std::hash::Hash;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use super::{Args, Content, Func, Layout, Node, Show, ShowNode, Smart, Span, Value};
+use super::{Content, Layout, Show, ShowNode};
 use crate::diag::{At, TypResult};
+use crate::eval::{Args, Func, Node, Smart, Value};
 use crate::geom::{Numeric, Relative, Sides, Spec};
 use crate::library::layout::PageNode;
 use crate::library::text::{FontFamily, ParNode, TextNode};
+use crate::syntax::Span;
 use crate::util::Prehashed;
 use crate::Context;
 

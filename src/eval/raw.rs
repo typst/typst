@@ -2,11 +2,12 @@ use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
 use std::ops::{Add, Div, Mul, Neg};
 
-use super::{Fold, Resolve, Smart, StyleChain, Value};
+use super::{Smart, Value};
 use crate::geom::{
     Align, Em, Get, Length, Numeric, Paint, Relative, Spec, SpecAxis, Stroke,
 };
 use crate::library::text::TextNode;
+use crate::model::{Fold, Resolve, StyleChain};
 
 /// The unresolved alignment representation.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]

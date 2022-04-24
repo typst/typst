@@ -6,38 +6,28 @@ mod array;
 mod dict;
 #[macro_use]
 mod value;
-#[macro_use]
-mod styles;
+
 mod args;
 mod capture;
-mod collapse;
-mod content;
 mod control;
 mod func;
-mod layout;
 pub mod methods;
 mod module;
 pub mod ops;
 mod raw;
 mod scope;
-mod show;
 mod str;
 
 pub use self::str::*;
 pub use args::*;
 pub use array::*;
 pub use capture::*;
-pub use collapse::*;
-pub use content::*;
 pub use control::*;
 pub use dict::*;
 pub use func::*;
-pub use layout::*;
 pub use module::*;
 pub use raw::*;
 pub use scope::*;
-pub use show::*;
-pub use styles::*;
 pub use value::*;
 
 use std::collections::BTreeMap;
@@ -48,6 +38,7 @@ use unicode_segmentation::UnicodeSegmentation;
 use crate::diag::{At, StrResult, Trace, Tracepoint, TypResult};
 use crate::geom::{Angle, Em, Fraction, Length, Ratio};
 use crate::library;
+use crate::model::{Content, StyleMap};
 use crate::syntax::ast::*;
 use crate::syntax::{Span, Spanned};
 use crate::util::EcoString;

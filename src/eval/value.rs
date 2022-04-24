@@ -5,12 +5,13 @@ use std::hash::{Hash, Hasher};
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 
-use super::{ops, Args, Array, Content, Dict, Func, Layout, LayoutNode, RawLength};
+use super::{ops, Args, Array, Dict, Func, RawLength};
 use crate::diag::{with_alternative, StrResult};
 use crate::geom::{
     Angle, Color, Dir, Em, Fraction, Length, Paint, Ratio, Relative, RgbaColor,
 };
 use crate::library::text::RawNode;
+use crate::model::{Content, Layout, LayoutNode};
 use crate::syntax::Spanned;
 use crate::util::EcoString;
 

@@ -3,8 +3,9 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::sync::Arc;
 
-use super::{Content, Dict, StyleChain};
+use super::{Content, StyleChain};
 use crate::diag::TypResult;
+use crate::eval::Dict;
 use crate::util::Prehashed;
 use crate::Context;
 

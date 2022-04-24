@@ -7,8 +7,8 @@
 //!   provided in the [AST] module.
 //! - **Evaluation:** The next step is to [evaluate] the markup. This produces a
 //!   [module], consisting of a scope of values that were exported by the code
-//!   and [content], a hierarchical, styled representation with the contents
-//!   of the module. The nodes of this tree are well structured and
+//!   and [content], a hierarchical, styled representation with the contents of
+//!   the module. The nodes of the content tree are well structured and
 //!   order-independent and thus much better suited for layouting than the raw
 //!   markup.
 //! - **Layouting:** Next, the tree is [layouted] into a portable version of the
@@ -23,8 +23,8 @@
 //! [AST]: syntax::ast
 //! [evaluate]: eval::Eval
 //! [module]: eval::Module
-//! [content]: eval::Content
-//! [layouted]: eval::Content::layout
+//! [content]: model::Content
+//! [layouted]: model::Content::layout
 //! [PDF]: export::pdf
 
 #![allow(clippy::len_without_is_empty)]
@@ -45,6 +45,7 @@ pub mod frame;
 pub mod image;
 pub mod library;
 pub mod loading;
+pub mod model;
 pub mod parse;
 pub mod source;
 pub mod syntax;
@@ -57,11 +58,12 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use crate::diag::TypResult;
-use crate::eval::{Eval, Module, Scope, Scopes, StyleMap};
+use crate::eval::{Eval, Module, Scope, Scopes};
 use crate::font::FontStore;
 use crate::frame::Frame;
 use crate::image::ImageStore;
 use crate::loading::Loader;
+use crate::model::StyleMap;
 use crate::source::{SourceId, SourceStore};
 
 /// The core context which holds the loader, configuration and cached artifacts.

@@ -9,12 +9,15 @@ pub use typst_macros::node;
 
 pub use crate::diag::{with_alternative, At, Error, StrResult, TypError, TypResult};
 pub use crate::eval::{
-    Arg, Args, Array, Cast, Content, Dict, Fold, Func, Key, Layout, LayoutNode, Node,
-    RawAlign, RawLength, RawStroke, Regions, Resolve, Scope, Show, ShowNode, Smart,
-    StyleChain, StyleMap, StyleVec, Value,
+    Arg, Args, Array, Cast, Dict, Func, Node, RawAlign, RawLength, RawStroke, Scope,
+    Smart, Value,
 };
 pub use crate::frame::*;
 pub use crate::geom::*;
+pub use crate::model::{
+    Content, Fold, Key, Layout, LayoutNode, Regions, Resolve, Show, ShowNode, StyleChain,
+    StyleMap, StyleVec,
+};
 pub use crate::syntax::{Span, Spanned};
 pub use crate::util::{EcoString, OptionExt};
 pub use crate::Context;

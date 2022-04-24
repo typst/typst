@@ -5,8 +5,9 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::sync::Arc;
 
-use super::{Barrier, RawAlign, RawLength, Resolve, StyleChain};
+use super::{Barrier, Resolve, StyleChain};
 use crate::diag::TypResult;
+use crate::eval::{RawAlign, RawLength};
 use crate::frame::{Element, Frame, Geometry};
 use crate::geom::{Align, Length, Paint, Point, Relative, Sides, Size, Spec, Stroke};
 use crate::library::graphics::MoveNode;

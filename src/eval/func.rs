@@ -2,8 +2,9 @@ use std::fmt::{self, Debug, Formatter, Write};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use super::{Args, Content, Control, Eval, Scope, Scopes, StyleMap, Value};
+use super::{Args, Control, Eval, Scope, Scopes, Value};
 use crate::diag::{StrResult, TypResult};
+use crate::model::{Content, StyleMap};
 use crate::syntax::ast::Expr;
 use crate::syntax::Span;
 use crate::util::EcoString;

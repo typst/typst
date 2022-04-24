@@ -1,4 +1,5 @@
-use super::{Content, Scope};
+use super::Scope;
+use crate::model::Content;
 use crate::source::{SourceId, SourceStore};
 
 /// An evaluated module, ready for importing or layouting.

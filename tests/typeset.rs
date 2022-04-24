@@ -10,12 +10,13 @@ use unscanny::Scanner;
 use walkdir::WalkDir;
 
 use typst::diag::Error;
-use typst::eval::{Smart, StyleMap, Value};
+use typst::eval::{Smart, Value};
 use typst::frame::{Element, Frame};
 use typst::geom::{Length, RgbaColor};
 use typst::library::layout::PageNode;
 use typst::library::text::{TextNode, TextSize};
 use typst::loading::FsLoader;
+use typst::model::StyleMap;
 use typst::source::SourceFile;
 use typst::syntax::Span;
 use typst::{bail, Context};

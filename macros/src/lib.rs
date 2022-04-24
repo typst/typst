@@ -100,7 +100,7 @@ fn expand(stream: TokenStream2, mut impl_block: syn::ItemImpl) -> Result<TokenSt
             use std::any::TypeId;
             use std::marker::PhantomData;
             use once_cell::sync::Lazy;
-            use crate::eval;
+            use crate::{eval, model};
             use super::*;
 
             #impl_block
@@ -156,11 +156,11 @@ fn process_const(
     let output_ty = if property.referenced {
         parse_quote!(&'a #value_ty)
     } else if property.fold && property.resolve {
-        parse_quote!(<<#value_ty as eval::Resolve>::Output as eval::Fold>::Output)
+        parse_quote!(<<#value_ty as model::Resolve>::Output as model::Fold>::Output)
     } else if property.fold {
-        parse_quote!(<#value_ty as eval::Fold>::Output)
+        parse_quote!(<#value_ty as model::Fold>::Output)
     } else if property.resolve {
-        parse_quote!(<#value_ty as eval::Resolve>::Output)
+        parse_quote!(<#value_ty as model::Resolve>::Output)
     } else {
         value_ty.clone()
     };
@@ -195,8 +195,8 @@ fn process_const(
     } else if property.resolve && property.fold {
         get = quote! {
             match values.next().cloned() {
-                Some(value) => eval::Fold::fold(
-                    eval::Resolve::resolve(value, chain),
+                Some(value) => model::Fold::fold(
+                    model::Resolve::resolve(value, chain),
                     Self::get(chain, values),
                 ),
                 None => #default,
@@ -205,12 +205,12 @@ fn process_const(
     } else if property.resolve {
         get = quote! {
             let value = values.next().cloned().unwrap_or(#default);
-            eval::Resolve::resolve(value, chain)
+            model::Resolve::resolve(value, chain)
         };
     } else if property.fold {
         get = quote! {
             match values.next().cloned() {
-                Some(value) => eval::Fold::fold(value, Self::get(chain, values)),
+                Some(value) => model::Fold::fold(value, Self::get(chain, values)),
                 None => #default,
             }
         };
@@ -243,7 +243,7 @@ fn process_const(
                 }
             }
 
-            impl<'a, #params> eval::Key<'a> for #key {
+            impl<'a, #params> model::Key<'a> for #key {
                 type Value = #value_ty;
                 type Output = #output_ty;
 
