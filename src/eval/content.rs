@@ -104,6 +104,23 @@ impl Content {
         Self::Show(node.pack())
     }
 
+    /// Create a new sequence nodes from multiples nodes.
+    pub fn sequence(seq: Vec<Self>) -> Self {
+        if seq.len() == 1 {
+            seq.into_iter().next().unwrap()
+        } else {
+            Self::Sequence(Arc::new(seq))
+        }
+    }
+
+    /// Repeat this content `n` times.
+    pub fn repeat(&self, n: i64) -> StrResult<Self> {
+        let count = usize::try_from(n)
+            .map_err(|_| format!("cannot repeat this content {} times", n))?;
+
+        Ok(Self::sequence(vec![self.clone(); count]))
+    }
+
     /// Style this content with a single style property.
     pub fn styled<'k, K: Key<'k>>(mut self, key: K, value: K::Value) -> Self {
         if let Self::Styled(styled) = &mut self {
@@ -137,21 +154,24 @@ impl Content {
         Self::show(DecoNode::<UNDERLINE>(self))
     }
 
-    /// Create a new sequence nodes from multiples nodes.
-    pub fn sequence(seq: Vec<Self>) -> Self {
-        if seq.len() == 1 {
-            seq.into_iter().next().unwrap()
-        } else {
-            Self::Sequence(Arc::new(seq))
+    /// Return a node that is spaced apart at top and bottom.
+    pub fn spaced(self, above: Length, below: Length) -> Self {
+        if above.is_zero() && below.is_zero() {
+            return self;
         }
-    }
 
-    /// Repeat this content `n` times.
-    pub fn repeat(&self, n: i64) -> StrResult<Self> {
-        let count = usize::try_from(n)
-            .map_err(|_| format!("cannot repeat this content {} times", n))?;
+        let mut seq = vec![];
+        if !above.is_zero() {
+            seq.push(Content::Vertical(above.into()));
+        }
 
-        Ok(Self::sequence(vec![self.clone(); count]))
+        seq.push(self);
+
+        if !below.is_zero() {
+            seq.push(Content::Vertical(below.into()));
+        }
+
+        Self::sequence(seq)
     }
 
     /// Layout this content into a collection of pages.
@@ -454,8 +474,11 @@ impl<'a> Builder<'a> {
             }
             Content::Show(node) => {
                 let id = node.id();
-                let realized = styles.realize(ctx, node)?;
-                let content = node.show(ctx, styles, realized)?;
+                let realized = match styles.realize(ctx, node)? {
+                    Some(content) => content,
+                    None => node.realize(ctx, styles)?,
+                };
+                let content = node.finalize(ctx, styles, realized)?;
                 let stored = self.tpa.alloc(content);
                 self.process(ctx, stored, styles.unscoped(id))?;
             }

@@ -38,13 +38,8 @@ impl Show for LinkNode {
         }
     }
 
-    fn show(
-        &self,
-        _: &mut Context,
-        styles: StyleChain,
-        realized: Option<Content>,
-    ) -> TypResult<Content> {
-        let mut body = realized.or_else(|| self.body.clone()).unwrap_or_else(|| {
+    fn realize(&self, _: &mut Context, _: StyleChain) -> TypResult<Content> {
+        Ok(self.body.clone().unwrap_or_else(|| {
             let url = &self.url;
             let mut text = url.as_str();
             for prefix in ["mailto:", "tel:"] {
@@ -52,8 +47,15 @@ impl Show for LinkNode {
             }
             let shorter = text.len() < url.len();
             Content::Text(if shorter { text.into() } else { url.clone() })
-        });
+        }))
+    }
 
+    fn finalize(
+        &self,
+        _: &mut Context,
+        styles: StyleChain,
+        mut realized: Content,
+    ) -> TypResult<Content> {
         let mut map = StyleMap::new();
         map.set(TextNode::LINK, Some(self.url.clone()));
 
@@ -62,9 +64,9 @@ impl Show for LinkNode {
         }
 
         if styles.get(Self::UNDERLINE) {
-            body = body.underlined();
+            realized = realized.underlined();
         }
 
-        Ok(body.styled_with_map(map))
+        Ok(realized.styled_with_map(map))
     }
 }

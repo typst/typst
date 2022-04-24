@@ -79,66 +79,51 @@ impl<const L: ListKind> Show for ListNode<L> {
         }
     }
 
-    fn show(
-        &self,
-        ctx: &mut Context,
-        styles: StyleChain,
-        realized: Option<Content>,
-    ) -> TypResult<Content> {
-        let content = if let Some(content) = realized {
-            content
+    fn realize(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content> {
+        let mut cells = vec![];
+        let mut number = self.start;
+
+        let label = styles.get(Self::LABEL);
+
+        for item in &self.items {
+            number = item.number.unwrap_or(number);
+            cells.push(LayoutNode::default());
+            cells.push(label.resolve(ctx, L, number)?.pack());
+            cells.push(LayoutNode::default());
+            cells.push((*item.body).clone().pack());
+            number += 1;
+        }
+
+        let leading = styles.get(ParNode::LEADING);
+        let spacing = if self.tight {
+            styles.get(Self::SPACING)
         } else {
-            let mut cells = vec![];
-            let mut number = self.start;
-
-            let label = styles.get(Self::LABEL);
-
-            for item in &self.items {
-                number = item.number.unwrap_or(number);
-                cells.push(LayoutNode::default());
-                cells.push(label.resolve(ctx, L, number)?.pack());
-                cells.push(LayoutNode::default());
-                cells.push((*item.body).clone().pack());
-                number += 1;
-            }
-
-            let leading = styles.get(ParNode::LEADING);
-            let spacing = if self.tight {
-                styles.get(Self::SPACING)
-            } else {
-                styles.get(ParNode::SPACING)
-            };
-
-            let gutter = leading + spacing;
-            let indent = styles.get(Self::INDENT);
-            let body_indent = styles.get(Self::BODY_INDENT);
-
-            Content::block(GridNode {
-                tracks: Spec::with_x(vec![
-                    TrackSizing::Relative(indent.into()),
-                    TrackSizing::Auto,
-                    TrackSizing::Relative(body_indent.into()),
-                    TrackSizing::Auto,
-                ]),
-                gutter: Spec::with_y(vec![TrackSizing::Relative(gutter.into())]),
-                cells,
-            })
+            styles.get(ParNode::SPACING)
         };
 
-        let mut seq = vec![];
-        let above = styles.get(Self::ABOVE);
-        if !above.is_zero() {
-            seq.push(Content::Vertical(above.into()));
-        }
+        let gutter = leading + spacing;
+        let indent = styles.get(Self::INDENT);
+        let body_indent = styles.get(Self::BODY_INDENT);
 
-        seq.push(content);
+        Ok(Content::block(GridNode {
+            tracks: Spec::with_x(vec![
+                TrackSizing::Relative(indent.into()),
+                TrackSizing::Auto,
+                TrackSizing::Relative(body_indent.into()),
+                TrackSizing::Auto,
+            ]),
+            gutter: Spec::with_y(vec![TrackSizing::Relative(gutter.into())]),
+            cells,
+        }))
+    }
 
-        let below = styles.get(Self::BELOW);
-        if !below.is_zero() {
-            seq.push(Content::Vertical(below.into()));
-        }
-
-        Ok(Content::sequence(seq))
+    fn finalize(
+        &self,
+        _: &mut Context,
+        styles: StyleChain,
+        realized: Content,
+    ) -> TypResult<Content> {
+        Ok(realized.spaced(styles.get(Self::ABOVE), styles.get(Self::BELOW)))
     }
 }
 

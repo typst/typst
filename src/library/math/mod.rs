@@ -35,26 +35,27 @@ impl Show for MathNode {
         }
     }
 
-    fn show(
+    fn realize(&self, _: &mut Context, _: StyleChain) -> TypResult<Content> {
+        Ok(Content::Text(self.formula.trim().into()))
+    }
+
+    fn finalize(
         &self,
         _: &mut Context,
         styles: StyleChain,
-        realized: Option<Content>,
+        mut realized: Content,
     ) -> TypResult<Content> {
-        let mut content =
-            realized.unwrap_or_else(|| Content::Text(self.formula.trim().into()));
-
         let mut map = StyleMap::new();
         if let Smart::Custom(family) = styles.get(Self::FAMILY) {
             map.set_family(family.clone(), styles);
         }
 
-        content = content.styled_with_map(map);
+        realized = realized.styled_with_map(map);
 
         if self.display {
-            content = Content::Block(content.pack());
+            realized = Content::block(realized);
         }
 
-        Ok(content)
+        Ok(realized)
     }
 }

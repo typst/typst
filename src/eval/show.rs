@@ -13,14 +13,26 @@ pub trait Show: 'static {
     /// Encode this node into a dictionary.
     fn encode(&self) -> Dict;
 
-    /// Show this node in the given styles and optionally given the realization
-    /// of a show rule.
-    fn show(
+    /// The base recipe for this node that is executed if there is no
+    /// user-defined show rule.
+    fn realize(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content>;
+
+    /// Finalize this node given the realization of a base or user recipe. Use
+    /// this for effects that should work even in the face of a user-defined
+    /// show rule, for example:
+    /// - Application of general settable properties
+    /// - Attaching things like semantics to a heading
+    ///
+    /// Defaults to just the realized content.
+    #[allow(unused_variables)]
+    fn finalize(
         &self,
         ctx: &mut Context,
         styles: StyleChain,
-        realized: Option<Content>,
-    ) -> TypResult<Content>;
+        realized: Content,
+    ) -> TypResult<Content> {
+        Ok(realized)
+    }
 
     /// Convert to a packed show node.
     fn pack(self) -> ShowNode
@@ -55,13 +67,17 @@ impl Show for ShowNode {
         self.0.encode()
     }
 
-    fn show(
+    fn realize(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content> {
+        self.0.realize(ctx, styles)
+    }
+
+    fn finalize(
         &self,
         ctx: &mut Context,
         styles: StyleChain,
-        realized: Option<Content>,
+        realized: Content,
     ) -> TypResult<Content> {
-        self.0.show(ctx, styles, realized)
+        self.0.finalize(ctx, styles, realized)
     }
 
     fn pack(self) -> ShowNode {

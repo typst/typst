@@ -64,16 +64,7 @@ impl Show for TableNode {
         }
     }
 
-    fn show(
-        &self,
-        _: &mut Context,
-        styles: StyleChain,
-        realized: Option<Content>,
-    ) -> TypResult<Content> {
-        if let Some(content) = realized {
-            return Ok(content);
-        }
-
+    fn realize(&self, _: &mut Context, styles: StyleChain) -> TypResult<Content> {
         let primary = styles.get(Self::PRIMARY);
         let secondary = styles.get(Self::SECONDARY);
         let stroke = styles.get(Self::STROKE).map(RawStroke::unwrap_or_default);

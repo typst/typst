@@ -50,12 +50,7 @@ impl Show for RawNode {
         }
     }
 
-    fn show(
-        &self,
-        _: &mut Context,
-        styles: StyleChain,
-        realized: Option<Content>,
-    ) -> TypResult<Content> {
+    fn realize(&self, _: &mut Context, styles: StyleChain) -> TypResult<Content> {
         let lang = styles.get(Self::LANG).as_ref();
         let foreground = THEME
             .settings
@@ -64,9 +59,7 @@ impl Show for RawNode {
             .unwrap_or(Color::BLACK)
             .into();
 
-        let mut content = if let Some(content) = realized {
-            content
-        } else if matches!(
+        if matches!(
             lang.map(|s| s.to_lowercase()).as_deref(),
             Some("typ" | "typst")
         ) {
@@ -79,7 +72,7 @@ impl Show for RawNode {
                 seq.push(styled(&self.text[range], foreground, style));
             });
 
-            Content::sequence(seq)
+            Ok(Content::sequence(seq))
         } else if let Some(syntax) =
             lang.and_then(|token| SYNTAXES.find_syntax_by_token(&token))
         {
@@ -95,11 +88,18 @@ impl Show for RawNode {
                 }
             }
 
-            Content::sequence(seq)
+            Ok(Content::sequence(seq))
         } else {
-            Content::Text(self.text.clone())
-        };
+            Ok(Content::Text(self.text.clone()))
+        }
+    }
 
+    fn finalize(
+        &self,
+        _: &mut Context,
+        styles: StyleChain,
+        mut realized: Content,
+    ) -> TypResult<Content> {
         let mut map = StyleMap::new();
         map.set(TextNode::OVERHANG, false);
         map.set(TextNode::HYPHENATE, Smart::Custom(Hyphenate(false)));
@@ -109,13 +109,13 @@ impl Show for RawNode {
             map.set_family(family.clone(), styles);
         }
 
-        content = content.styled_with_map(map);
+        realized = realized.styled_with_map(map);
 
         if self.block {
-            content = Content::Block(content.pack());
+            realized = Content::block(realized);
         }
 
-        Ok(content)
+        Ok(realized)
     }
 }
 

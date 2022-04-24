@@ -63,19 +63,21 @@ impl Show for HeadingNode {
         }
     }
 
-    fn show(
+    fn realize(&self, _: &mut Context, _: StyleChain) -> TypResult<Content> {
+        Ok(self.body.clone())
+    }
+
+    fn finalize(
         &self,
         ctx: &mut Context,
         styles: StyleChain,
-        realized: Option<Content>,
+        mut realized: Content,
     ) -> TypResult<Content> {
         macro_rules! resolve {
             ($key:expr) => {
                 styles.get($key).resolve(ctx, self.level)?
             };
         }
-
-        let mut body = realized.unwrap_or_else(|| self.body.clone());
 
         let mut map = StyleMap::new();
         map.set(TextNode::SIZE, resolve!(Self::SIZE));
@@ -96,30 +98,22 @@ impl Show for HeadingNode {
             map.set(TextNode::EMPH, Toggle);
         }
 
-        let mut seq = vec![];
         if resolve!(Self::UNDERLINE) {
-            body = body.underlined();
+            realized = realized.underlined();
         }
 
-        let above = resolve!(Self::ABOVE);
-        if !above.is_zero() {
-            seq.push(Content::Vertical(above.resolve(styles).into()));
-        }
-
-        seq.push(body);
-
-        let below = resolve!(Self::BELOW);
-        if !below.is_zero() {
-            seq.push(Content::Vertical(below.resolve(styles).into()));
-        }
-
-        let mut content = Content::sequence(seq).styled_with_map(map);
+        realized = realized.styled_with_map(map);
 
         if resolve!(Self::BLOCK) {
-            content = Content::block(content);
+            realized = Content::block(realized);
         }
 
-        Ok(content)
+        realized = realized.spaced(
+            resolve!(Self::ABOVE).resolve(styles),
+            resolve!(Self::BELOW).resolve(styles),
+        );
+
+        Ok(realized)
     }
 }
 

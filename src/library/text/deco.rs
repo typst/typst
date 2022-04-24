@@ -47,20 +47,13 @@ impl<const L: DecoLine> Show for DecoNode<L> {
         dict! { "body" => Value::Content(self.0.clone()) }
     }
 
-    fn show(
-        &self,
-        _: &mut Context,
-        styles: StyleChain,
-        realized: Option<Content>,
-    ) -> TypResult<Content> {
-        Ok(realized.unwrap_or_else(|| {
-            self.0.clone().styled(TextNode::DECO, Decoration {
-                line: L,
-                stroke: styles.get(Self::STROKE).unwrap_or_default(),
-                offset: styles.get(Self::OFFSET),
-                extent: styles.get(Self::EXTENT),
-                evade: styles.get(Self::EVADE),
-            })
+    fn realize(&self, _: &mut Context, styles: StyleChain) -> TypResult<Content> {
+        Ok(self.0.clone().styled(TextNode::DECO, Decoration {
+            line: L,
+            stroke: styles.get(Self::STROKE).unwrap_or_default(),
+            offset: styles.get(Self::OFFSET),
+            extent: styles.get(Self::EXTENT),
+            evade: styles.get(Self::EVADE),
         }))
     }
 }
