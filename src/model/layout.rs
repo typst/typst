@@ -5,7 +5,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::sync::Arc;
 
-use super::{Barrier, NodeId, Resolve, StyleChain, StyleSlot};
+use super::{Barrier, NodeId, Resolve, StyleChain, StyleEntry};
 use crate::diag::TypResult;
 use crate::eval::{RawAlign, RawLength};
 use crate::frame::{Element, Frame, Geometry};
@@ -220,8 +220,8 @@ impl Layout for LayoutNode {
         styles: StyleChain,
     ) -> TypResult<Vec<Arc<Frame>>> {
         ctx.query((self, regions, styles), |ctx, (node, regions, styles)| {
-            let slot = StyleSlot::from(Barrier::new(node.id()));
-            node.0.layout(ctx, regions, slot.chain(&styles))
+            let entry = StyleEntry::Barrier(Barrier::new(node.id()));
+            node.0.layout(ctx, regions, entry.chain(&styles))
         })
         .clone()
     }

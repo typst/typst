@@ -2,8 +2,12 @@ use super::{StyleChain, StyleVec, StyleVecBuilder};
 
 /// A wrapper around a [`StyleVecBuilder`] that allows to collapse items.
 pub struct CollapsingBuilder<'a, T> {
+    /// The internal builder.
     builder: StyleVecBuilder<'a, T>,
+    /// Staged weak and ignorant items that we can't yet commit to the builder.
+    /// The option is `Some(_)` for weak items and `None` for ignorant items.
     staged: Vec<(T, StyleChain<'a>, Option<u8>)>,
+    /// What the last non-ignorant item was.
     last: Last,
 }
 
@@ -51,14 +55,14 @@ impl<'a, T> CollapsingBuilder<'a, T> {
     /// Forces nearby weak items to collapse.
     pub fn destructive(&mut self, item: T, styles: StyleChain<'a>) {
         self.flush(false);
-        self.push(item, styles);
+        self.builder.push(item, styles);
         self.last = Last::Destructive;
     }
 
     /// Allows nearby weak items to exist.
     pub fn supportive(&mut self, item: T, styles: StyleChain<'a>) {
         self.flush(true);
-        self.push(item, styles);
+        self.builder.push(item, styles);
         self.last = Last::Supportive;
     }
 
@@ -78,18 +82,14 @@ impl<'a, T> CollapsingBuilder<'a, T> {
         self.builder.finish()
     }
 
-    /// Push the staged items, filtering out weak items if `supportive` is false.
+    /// Push the staged items, filtering out weak items if `supportive` is
+    /// false.
     fn flush(&mut self, supportive: bool) {
         for (item, styles, strength) in self.staged.drain(..) {
             if supportive || strength.is_none() {
                 self.builder.push(item, styles);
             }
         }
-    }
-
-    /// Push a new item into the style vector.
-    fn push(&mut self, item: T, styles: StyleChain<'a>) {
-        self.builder.push(item, styles);
     }
 }
 

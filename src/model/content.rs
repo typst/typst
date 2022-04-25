@@ -238,19 +238,11 @@ impl Debug for Content {
             Self::Horizontal(kind) => write!(f, "Horizontal({kind:?})"),
             Self::Text(text) => write!(f, "Text({text:?})"),
             Self::Quote(double) => write!(f, "Quote({double})"),
-            Self::Inline(node) => {
-                f.write_str("Inline(")?;
-                node.fmt(f)?;
-                f.write_str(")")
-            }
+            Self::Inline(node) => node.fmt(f),
             Self::Parbreak => f.pad("Parbreak"),
             Self::Colbreak => f.pad("Colbreak"),
             Self::Vertical(kind) => write!(f, "Vertical({kind:?})"),
-            Self::Block(node) => {
-                f.write_str("Block(")?;
-                node.fmt(f)?;
-                f.write_str(")")
-            }
+            Self::Block(node) => node.fmt(f),
             Self::List(item) => {
                 f.write_str("- ")?;
                 item.body.fmt(f)
@@ -264,11 +256,7 @@ impl Debug for Content {
             }
             Self::Pagebreak(soft) => write!(f, "Pagebreak({soft})"),
             Self::Page(page) => page.fmt(f),
-            Self::Show(node) => {
-                f.write_str("Show(")?;
-                node.fmt(f)?;
-                f.write_str(")")
-            }
+            Self::Show(node) => node.fmt(f),
             Self::Styled(styled) => {
                 let (sub, map) = styled.as_ref();
                 map.fmt(f)?;

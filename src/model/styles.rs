@@ -16,7 +16,7 @@ use crate::Context;
 
 /// A map of style properties.
 #[derive(Default, Clone, PartialEq, Hash)]
-pub struct StyleMap(Vec<Entry>);
+pub struct StyleMap(Vec<StyleEntry>);
 
 impl StyleMap {
     /// Create a new, empty style map.
@@ -27,6 +27,11 @@ impl StyleMap {
     /// Whether this map contains no styles.
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
+    }
+
+    /// Push an arbitary style entry.
+    pub fn push(&mut self, style: StyleEntry) {
+        self.0.push(style);
     }
 
     /// Create a style map from a single property-value pair.
@@ -42,7 +47,7 @@ impl StyleMap {
     /// style map, `self` contributes the outer values and `value` is the inner
     /// one.
     pub fn set<'a, K: Key<'a>>(&mut self, key: K, value: K::Value) {
-        self.0.push(Entry::Property(Property::new(key, value)));
+        self.push(StyleEntry::Property(Property::new(key, value)));
     }
 
     /// Set an inner value for a style property if it is `Some(_)`.
@@ -65,7 +70,7 @@ impl StyleMap {
 
     /// Set a show rule recipe for a node.
     pub fn set_recipe<T: Node>(&mut self, func: Func, span: Span) {
-        self.0.push(Entry::Recipe(Recipe::new::<T>(func, span)));
+        self.push(StyleEntry::Recipe(Recipe::new::<T>(func, span)));
     }
 
     /// Whether the map contains a style property for the given key.
@@ -98,7 +103,7 @@ impl StyleMap {
     /// Like [`chain`](Self::chain) or [`apply_map`](Self::apply_map), but with
     /// only a single property.
     pub fn apply<'a, K: Key<'a>>(&mut self, key: K, value: K::Value) {
-        self.0.insert(0, Entry::Property(Property::new(key, value)));
+        self.0.insert(0, StyleEntry::Property(Property::new(key, value)));
     }
 
     /// Apply styles from `tail` in-place. The resulting style map is equivalent
@@ -115,7 +120,7 @@ impl StyleMap {
     /// not its children, too. This is used by [constructors](Node::construct).
     pub fn scoped(mut self) -> Self {
         for entry in &mut self.0 {
-            if let Entry::Property(property) = entry {
+            if let StyleEntry::Property(property) = entry {
                 property.scoped = true;
             }
         }
@@ -132,82 +137,18 @@ impl StyleMap {
     }
 }
 
+impl From<StyleEntry> for StyleMap {
+    fn from(entry: StyleEntry) -> Self {
+        Self(vec![entry])
+    }
+}
+
 impl Debug for StyleMap {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         for entry in self.0.iter().rev() {
             writeln!(f, "{:?}", entry)?;
         }
         Ok(())
-    }
-}
-
-/// A stack-allocated slot for a single style property or barrier.
-pub struct StyleSlot(Entry);
-
-impl StyleSlot {
-    /// Make this slot the first link of the `tail` chain.
-    pub fn chain<'a>(&'a self, tail: &'a StyleChain) -> StyleChain<'a> {
-        if let Entry::Barrier(barrier) = &self.0 {
-            if !tail
-                .entries()
-                .filter_map(Entry::property)
-                .any(|p| p.scoped && p.node == barrier.0)
-            {
-                return *tail;
-            }
-        }
-
-        StyleChain {
-            head: std::slice::from_ref(&self.0),
-            tail: Some(tail),
-        }
-    }
-}
-
-impl From<Barrier> for StyleSlot {
-    fn from(barrier: Barrier) -> Self {
-        Self(Entry::Barrier(barrier))
-    }
-}
-
-/// An entry for a single style property, recipe or barrier.
-#[derive(Clone, PartialEq, Hash)]
-enum Entry {
-    /// A style property originating from a set rule or constructor.
-    Property(Property),
-    /// A barrier for scoped styles.
-    Barrier(Barrier),
-    /// A show rule recipe.
-    Recipe(Recipe),
-}
-
-impl Entry {
-    /// If this is a property, return it.
-    fn property(&self) -> Option<&Property> {
-        match self {
-            Self::Property(property) => Some(property),
-            _ => None,
-        }
-    }
-
-    /// If this is a recipe, return it.
-    fn recipe(&self) -> Option<&Recipe> {
-        match self {
-            Self::Recipe(recipe) => Some(recipe),
-            _ => None,
-        }
-    }
-}
-
-impl Debug for Entry {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_str("#[")?;
-        match self {
-            Self::Property(property) => property.fmt(f)?,
-            Self::Recipe(recipe) => recipe.fmt(f)?,
-            Self::Barrier(barrier) => barrier.fmt(f)?,
-        }
-        f.write_str("]")
     }
 }
 
@@ -245,9 +186,68 @@ impl Debug for KeyId {
     }
 }
 
+/// An entry for a single style property, recipe or barrier.
+#[derive(Clone, PartialEq, Hash)]
+pub enum StyleEntry {
+    /// A style property originating from a set rule or constructor.
+    Property(Property),
+    /// A barrier for scoped styles.
+    Barrier(Barrier),
+    /// A show rule recipe.
+    Recipe(Recipe),
+}
+
+impl StyleEntry {
+    /// If this is a property, return it.
+    pub fn property(&self) -> Option<&Property> {
+        match self {
+            Self::Property(property) => Some(property),
+            _ => None,
+        }
+    }
+
+    /// If this is a recipe, return it.
+    pub fn recipe(&self) -> Option<&Recipe> {
+        match self {
+            Self::Recipe(recipe) => Some(recipe),
+            _ => None,
+        }
+    }
+
+    /// Make this style the first link of the `tail` chain.
+    pub fn chain<'a>(&'a self, tail: &'a StyleChain) -> StyleChain<'a> {
+        if let StyleEntry::Barrier(barrier) = self {
+            if !tail
+                .entries()
+                .filter_map(StyleEntry::property)
+                .any(|p| p.scoped && p.node == barrier.0)
+            {
+                return *tail;
+            }
+        }
+
+        StyleChain {
+            head: std::slice::from_ref(self),
+            tail: Some(tail),
+        }
+    }
+}
+
+impl Debug for StyleEntry {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.write_str("#[")?;
+        match self {
+            Self::Property(property) => property.fmt(f)?,
+            Self::Recipe(recipe) => recipe.fmt(f)?,
+            Self::Barrier(barrier) => barrier.fmt(f)?,
+        }
+        f.write_str("]")
+    }
+}
+
 /// A style property originating from a set rule or constructor.
 #[derive(Clone, Hash)]
-struct Property {
+pub struct Property {
     /// The id of the property's [key](Key).
     key: KeyId,
     /// The id of the node the property belongs to.
@@ -264,7 +264,7 @@ struct Property {
 
 impl Property {
     /// Create a new property from a key-value pair.
-    fn new<'a, K: Key<'a>>(_: K, value: K::Value) -> Self {
+    pub fn new<'a, K: Key<'a>>(_: K, value: K::Value) -> Self {
         Self {
             key: KeyId::of::<K>(),
             node: K::node(),
@@ -276,7 +276,7 @@ impl Property {
     }
 
     /// What kind of structure the property interrupts.
-    fn interruption(&self) -> Option<Interruption> {
+    pub fn interruption(&self) -> Option<Interruption> {
         if self.is_of::<PageNode>() {
             Some(Interruption::Page)
         } else if self.is_of::<ParNode>() {
@@ -287,7 +287,7 @@ impl Property {
     }
 
     /// Access the property's value if it is of the given key.
-    fn downcast<'a, K: Key<'a>>(&'a self) -> Option<&'a K::Value> {
+    pub fn downcast<'a, K: Key<'a>>(&'a self) -> Option<&'a K::Value> {
         if self.key == KeyId::of::<K>() {
             (**self.value).as_any().downcast_ref()
         } else {
@@ -296,7 +296,7 @@ impl Property {
     }
 
     /// Whether this property belongs to the node `T`.
-    fn is_of<T: Node>(&self) -> bool {
+    pub fn is_of<T: 'static>(&self) -> bool {
         self.node == NodeId::of::<T>()
     }
 }
@@ -478,7 +478,7 @@ impl Debug for Barrier {
 
 /// A show rule recipe.
 #[derive(Clone, PartialEq, Hash)]
-struct Recipe {
+pub struct Recipe {
     /// The affected node.
     node: NodeId,
     /// The function that defines the recipe.
@@ -489,7 +489,7 @@ struct Recipe {
 
 impl Recipe {
     /// Create a new recipe for the node `T`.
-    fn new<T: Node>(func: Func, span: Span) -> Self {
+    pub fn new<T: Node>(func: Func, span: Span) -> Self {
         Self { node: NodeId::of::<T>(), func, span }
     }
 }
@@ -519,7 +519,7 @@ pub enum Interruption {
 #[derive(Default, Clone, Copy, Hash)]
 pub struct StyleChain<'a> {
     /// The first link of this chain.
-    head: &'a [Entry],
+    head: &'a [StyleEntry],
     /// The remaining links in the chain.
     tail: Option<&'a Self>,
 }
@@ -553,7 +553,7 @@ impl<'a> StyleChain<'a> {
         let id = node.id();
         if let Some(recipe) = self
             .entries()
-            .filter_map(Entry::recipe)
+            .filter_map(StyleEntry::recipe)
             .find(|recipe| recipe.node == id)
         {
             let dict = node.encode();
@@ -563,16 +563,14 @@ impl<'a> StyleChain<'a> {
             Ok(None)
         }
     }
-}
 
-impl<'a> StyleChain<'a> {
-    /// Return the chain, but without the trailing scoped property for the given
-    /// `node`. This is a 90% hack fix for show node constructor scoping.
-    pub(super) fn unscoped(mut self, node: NodeId) -> Self {
+    /// Return the chain, but without trailing scoped properties for the given
+    /// `node`.
+    pub fn unscoped(mut self, node: NodeId) -> Self {
         while self
             .head
             .last()
-            .and_then(Entry::property)
+            .and_then(StyleEntry::property)
             .map_or(false, |p| p.scoped && p.node == node)
         {
             let len = self.head.len();
@@ -651,17 +649,17 @@ impl<'a, K: Key<'a>> Iterator for Values<'a, K> {
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(entry) = self.entries.next() {
             match entry {
-                Entry::Property(property) => {
+                StyleEntry::Property(property) => {
                     if let Some(value) = property.downcast::<K>() {
                         if !property.scoped || self.depth <= 1 {
                             return Some(value);
                         }
                     }
                 }
-                Entry::Barrier(barrier) => {
+                StyleEntry::Barrier(barrier) => {
                     self.depth += (barrier.0 == K::node()) as usize;
                 }
-                Entry::Recipe(_) => {}
+                StyleEntry::Recipe(_) => {}
             }
         }
 
@@ -671,12 +669,12 @@ impl<'a, K: Key<'a>> Iterator for Values<'a, K> {
 
 /// An iterator over the entries in a style chain.
 struct Entries<'a> {
-    inner: std::slice::Iter<'a, Entry>,
+    inner: std::slice::Iter<'a, StyleEntry>,
     links: Links<'a>,
 }
 
 impl<'a> Iterator for Entries<'a> {
-    type Item = &'a Entry;
+    type Item = &'a StyleEntry;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -696,7 +694,7 @@ impl<'a> Iterator for Entries<'a> {
 struct Links<'a>(Option<StyleChain<'a>>);
 
 impl<'a> Iterator for Links<'a> {
-    type Item = &'a [Entry];
+    type Item = &'a [StyleEntry];
 
     fn next(&mut self) -> Option<Self::Item> {
         let StyleChain { head, tail } = self.0?;
