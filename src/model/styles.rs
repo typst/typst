@@ -1,6 +1,7 @@
 use std::any::Any;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
+use std::iter;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
@@ -9,6 +10,7 @@ use crate::diag::{At, TypResult};
 use crate::eval::{Args, Func, Node, Smart, Value};
 use crate::geom::{Numeric, Relative, Sides, Spec};
 use crate::library::layout::PageNode;
+use crate::library::structure::{EnumNode, ListNode};
 use crate::library::text::{FontFamily, ParNode, TextNode};
 use crate::syntax::Span;
 use crate::util::{Prehashed, ReadableTypeId};
@@ -62,7 +64,7 @@ impl StyleMap {
     pub fn set_family(&mut self, preferred: FontFamily, existing: StyleChain) {
         self.set(
             TextNode::FAMILY,
-            std::iter::once(preferred)
+            iter::once(preferred)
                 .chain(existing.get(TextNode::FAMILY).iter().cloned())
                 .collect(),
         );
@@ -281,6 +283,8 @@ impl Property {
             Some(Interruption::Page)
         } else if self.is_of::<ParNode>() {
             Some(Interruption::Par)
+        } else if self.is_of::<ListNode>() || self.is_of::<EnumNode>() {
+            Some(Interruption::List)
         } else {
             None
         }
@@ -503,6 +507,8 @@ impl Debug for Recipe {
 /// Determines whether a style could interrupt some composable structure.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum Interruption {
+    /// The style forces a list break.
+    List,
     /// The style forces a paragraph break.
     Par,
     /// The style forces a page break.
@@ -721,6 +727,17 @@ impl<T> StyleVec<T> {
         self.items.len()
     }
 
+    /// Insert an element in the front. The element will share the style of the
+    /// current first element.
+    ///
+    /// This method has no effect if the vector is empty.
+    pub fn push_front(&mut self, item: T) {
+        if !self.maps.is_empty() {
+            self.items.insert(0, item);
+            self.maps[0].1 += 1;
+        }
+    }
+
     /// Iterate over the contained maps. Note that zipping this with `items()`
     /// does not yield the same result as calling `iter()` because this method
     /// only returns maps once that are shared by consecutive items. This method
@@ -735,30 +752,27 @@ impl<T> StyleVec<T> {
         self.items.iter()
     }
 
-    /// Iterate over the contained items and associated style maps.
+    /// Iterate over references to the contained items and associated style maps.
     pub fn iter(&self) -> impl Iterator<Item = (&T, &StyleMap)> + '_ {
-        let styles = self
-            .maps
-            .iter()
-            .flat_map(|(map, count)| std::iter::repeat(map).take(*count));
-        self.items().zip(styles)
-    }
-
-    /// Insert an element in the front. The element will share the style of the
-    /// current first element.
-    ///
-    /// This method has no effect if the vector is empty.
-    pub fn push_front(&mut self, item: T) {
-        if !self.maps.is_empty() {
-            self.items.insert(0, item);
-            self.maps[0].1 += 1;
-        }
+        self.items().zip(
+            self.maps
+                .iter()
+                .flat_map(|(map, count)| iter::repeat(map).take(*count)),
+        )
     }
 }
 
 impl<T> Default for StyleVec<T> {
     fn default() -> Self {
         Self { items: vec![], maps: vec![] }
+    }
+}
+
+impl<T> FromIterator<T> for StyleVec<T> {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        let items: Vec<_> = iter.into_iter().collect();
+        let maps = vec![(StyleMap::new(), items.len())];
+        Self { items, maps }
     }
 }
 
@@ -787,6 +801,11 @@ impl<'a, T> StyleVecBuilder<'a, T> {
         Self { items: vec![], chains: vec![] }
     }
 
+    /// Whether the builder is empty.
+    pub fn is_empty(&self) -> bool {
+        self.items.is_empty()
+    }
+
     /// Push a new item into the style vector.
     pub fn push(&mut self, item: T, styles: StyleChain<'a>) {
         self.items.push(item);
@@ -799,13 +818,6 @@ impl<'a, T> StyleVecBuilder<'a, T> {
         }
 
         self.chains.push((styles, 1));
-    }
-
-    /// Access the last item mutably and its chain by value.
-    pub fn last_mut(&mut self) -> Option<(&mut T, StyleChain<'a>)> {
-        let item = self.items.last_mut()?;
-        let chain = self.chains.last()?.0;
-        Some((item, chain))
     }
 
     /// Iterate over the contained items.

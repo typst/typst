@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::iter::Sum;
+use std::mem;
 use std::ops::{Add, AddAssign};
 
 use typed_arena::Arena;
@@ -12,7 +13,7 @@ use super::{
 use crate::diag::StrResult;
 use crate::library::layout::{FlowChild, FlowNode, PageNode, PlaceNode, Spacing};
 use crate::library::prelude::*;
-use crate::library::structure::{ListItem, ListKind, ListNode, ORDERED, UNORDERED};
+use crate::library::structure::{DocNode, ListItem, ListNode, ORDERED, UNORDERED};
 use crate::library::text::{DecoNode, ParChild, ParNode, UNDERLINE};
 use crate::util::EcoString;
 
@@ -58,10 +59,8 @@ pub enum Content {
     Vertical(Spacing),
     /// A block-level node.
     Block(LayoutNode),
-    /// An item in an unordered list.
-    List(ListItem),
-    /// An item in an ordered list.
-    Enum(ListItem),
+    /// A list / enum item.
+    Item(ListItem),
     /// A page break.
     Pagebreak(bool),
     /// A page node.
@@ -176,25 +175,15 @@ impl Content {
 
     /// Layout this content into a collection of pages.
     pub fn layout(&self, ctx: &mut Context) -> TypResult<Vec<Arc<Frame>>> {
-        let sya = Arena::new();
-        let tpa = Arena::new();
+        let copy = ctx.styles.clone();
+        let styles = StyleChain::with_root(&copy);
+        let scratch = Scratch::default();
 
-        let styles = ctx.styles.clone();
-        let styles = StyleChain::with_root(&styles);
+        let mut builder = Builder::new(ctx, &scratch, true);
+        builder.accept(self, styles)?;
 
-        let mut builder = Builder::new(&sya, &tpa, true);
-        builder.process(ctx, self, styles)?;
-        builder.finish(ctx, styles)?;
-
-        let mut frames = vec![];
-        let (pages, shared) = builder.pages.unwrap().finish();
-
-        for (page, map) in pages.iter() {
-            let number = 1 + frames.len();
-            frames.extend(page.layout(ctx, number, map.chain(&shared))?);
-        }
-
-        Ok(frames)
+        let (doc, shared) = builder.into_doc(styles)?;
+        doc.layout(ctx, shared)
     }
 }
 
@@ -205,15 +194,11 @@ impl Layout for Content {
         regions: &Regions,
         styles: StyleChain,
     ) -> TypResult<Vec<Arc<Frame>>> {
-        let sya = Arena::new();
-        let tpa = Arena::new();
-
-        let mut builder = Builder::new(&sya, &tpa, false);
-        builder.process(ctx, self, styles)?;
-        builder.finish(ctx, styles)?;
-
-        let (flow, shared) = builder.flow.finish();
-        FlowNode(flow).layout(ctx, regions, shared)
+        let scratch = Scratch::default();
+        let mut builder = Builder::new(ctx, &scratch, false);
+        builder.accept(self, styles)?;
+        let (flow, shared) = builder.into_flow(styles)?;
+        flow.layout(ctx, regions, shared)
     }
 
     fn pack(self) -> LayoutNode {
@@ -243,17 +228,7 @@ impl Debug for Content {
             Self::Colbreak => f.pad("Colbreak"),
             Self::Vertical(kind) => write!(f, "Vertical({kind:?})"),
             Self::Block(node) => node.fmt(f),
-            Self::List(item) => {
-                f.write_str("- ")?;
-                item.body.fmt(f)
-            }
-            Self::Enum(item) => {
-                if let Some(number) = item.number {
-                    write!(f, "{}", number)?;
-                }
-                f.write_str(". ")?;
-                item.body.fmt(f)
-            }
+            Self::Item(item) => item.fmt(f),
             Self::Pagebreak(soft) => write!(f, "Pagebreak({soft})"),
             Self::Page(page) => page.fmt(f),
             Self::Show(node) => node.fmt(f),
@@ -305,288 +280,400 @@ impl Sum for Content {
     }
 }
 
-/// Builds a flow or page nodes from content.
-struct Builder<'a> {
+/// Builds a document or a flow node from content.
+struct Builder<'a, 'ctx> {
+    /// The core context.
+    ctx: &'ctx mut Context,
+    /// Scratch arenas for building.
+    scratch: &'a Scratch<'a>,
+    /// The current document building state.
+    doc: Option<DocBuilder<'a>>,
+    /// The current flow building state.
+    flow: FlowBuilder<'a>,
+    /// The current paragraph building state.
+    par: ParBuilder<'a>,
+    /// The current list building state.
+    list: ListBuilder<'a>,
+}
+
+/// Temporary storage arenas for building.
+#[derive(Default)]
+struct Scratch<'a> {
     /// An arena where intermediate style chains are stored.
-    sya: &'a Arena<StyleChain<'a>>,
+    styles: Arena<StyleChain<'a>>,
     /// An arena where intermediate content resulting from show rules is stored.
-    tpa: &'a Arena<Content>,
-    /// The already built page runs.
-    pages: Option<StyleVecBuilder<'a, PageNode>>,
-    /// The currently built list.
-    list: Option<ListBuilder<'a>>,
-    /// The currently built flow.
-    flow: CollapsingBuilder<'a, FlowChild>,
-    /// The currently built paragraph.
-    par: CollapsingBuilder<'a, ParChild>,
-    /// Whether to keep the next page even if it is empty.
-    keep_next: bool,
+    templates: Arena<Content>,
 }
 
-/// Builds an unordered or ordered list from items.
-struct ListBuilder<'a> {
-    styles: StyleChain<'a>,
-    kind: ListKind,
-    items: Vec<ListItem>,
-    tight: bool,
-    staged: Vec<(&'a Content, StyleChain<'a>)>,
-}
-
-impl<'a> Builder<'a> {
-    /// Prepare the builder.
-    fn new(sya: &'a Arena<StyleChain<'a>>, tpa: &'a Arena<Content>, top: bool) -> Self {
+impl<'a, 'ctx> Builder<'a, 'ctx> {
+    fn new(ctx: &'ctx mut Context, scratch: &'a Scratch<'a>, top: bool) -> Self {
         Self {
-            sya,
-            tpa,
-            pages: top.then(|| StyleVecBuilder::new()),
-            flow: CollapsingBuilder::new(),
-            list: None,
-            par: CollapsingBuilder::new(),
-            keep_next: true,
+            ctx,
+            scratch,
+            doc: top.then(|| DocBuilder::default()),
+            flow: FlowBuilder::default(),
+            par: ParBuilder::default(),
+            list: ListBuilder::default(),
         }
     }
 
-    /// Process content.
-    fn process(
-        &mut self,
-        ctx: &mut Context,
-        content: &'a Content,
+    fn into_doc(
+        mut self,
         styles: StyleChain<'a>,
-    ) -> TypResult<()> {
-        if let Some(builder) = &mut self.list {
-            match content {
-                Content::Space => {
-                    builder.staged.push((content, styles));
-                    return Ok(());
-                }
-                Content::Parbreak => {
-                    builder.staged.push((content, styles));
-                    return Ok(());
-                }
-                Content::List(item) if builder.kind == UNORDERED => {
-                    builder.tight &=
-                        builder.staged.iter().all(|&(t, _)| *t != Content::Parbreak);
-                    builder.staged.clear();
-                    builder.items.push(item.clone());
-                    return Ok(());
-                }
-                Content::Enum(item) if builder.kind == ORDERED => {
-                    builder.tight &=
-                        builder.staged.iter().all(|&(t, _)| *t != Content::Parbreak);
-                    builder.staged.clear();
-                    builder.items.push(item.clone());
-                    return Ok(());
-                }
-                _ => self.finish_list(ctx)?,
-            }
+    ) -> TypResult<(DocNode, StyleChain<'a>)> {
+        self.interrupt(Interruption::Page, styles, true)?;
+        let (pages, shared) = self.doc.unwrap().pages.finish();
+        Ok((DocNode(pages), shared))
+    }
+
+    fn into_flow(
+        mut self,
+        styles: StyleChain<'a>,
+    ) -> TypResult<(FlowNode, StyleChain<'a>)> {
+        self.interrupt(Interruption::Par, styles, false)?;
+        let (children, shared) = self.flow.0.finish();
+        Ok((FlowNode(children), shared))
+    }
+
+    fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) -> TypResult<()> {
+        // Handle special content kinds.
+        match content {
+            Content::Show(node) => return self.show(node, styles),
+            Content::Styled(styled) => return self.styled(styled, styles),
+            Content::Sequence(seq) => return self.sequence(seq, styles),
+            _ => {}
         }
 
-        match content {
-            Content::Space => {
-                self.par.weak(ParChild::Text(' '.into()), 0, styles);
-            }
-            Content::Linebreak(justified) => {
-                let c = if *justified { '\u{2028}' } else { '\n' };
-                self.par.destructive(ParChild::Text(c.into()), styles);
-            }
-            Content::Horizontal(kind) => {
-                let child = ParChild::Spacing(*kind);
-                if kind.is_fractional() {
-                    self.par.destructive(child, styles);
-                } else {
-                    self.par.ignorant(child, styles);
-                }
-            }
-            Content::Quote(double) => {
-                self.par.supportive(ParChild::Quote(*double), styles);
-            }
-            Content::Text(text) => {
-                self.par.supportive(ParChild::Text(text.clone()), styles);
-            }
-            Content::Inline(node) => {
-                self.par.supportive(ParChild::Node(node.clone()), styles);
-            }
-            Content::Parbreak => {
-                self.finish_par(styles);
-                self.flow.weak(FlowChild::Parbreak, 1, styles);
-            }
-            Content::Colbreak => {
-                self.finish_par(styles);
-                self.flow.destructive(FlowChild::Colbreak, styles);
-            }
-            Content::Vertical(kind) => {
-                self.finish_par(styles);
-                let child = FlowChild::Spacing(*kind);
-                if kind.is_fractional() {
-                    self.flow.destructive(child, styles);
-                } else {
-                    self.flow.ignorant(child, styles);
-                }
-            }
-            Content::Block(node) => {
-                self.finish_par(styles);
-                let child = FlowChild::Node(node.clone());
-                if node.is::<PlaceNode>() {
-                    self.flow.ignorant(child, styles);
-                } else {
-                    self.flow.supportive(child, styles);
-                }
-                self.finish_par(styles);
-            }
-            Content::List(item) => {
-                self.list = Some(ListBuilder {
-                    styles,
-                    kind: UNORDERED,
-                    items: vec![item.clone()],
-                    tight: true,
-                    staged: vec![],
-                });
-            }
-            Content::Enum(item) => {
-                self.list = Some(ListBuilder {
-                    styles,
-                    kind: ORDERED,
-                    items: vec![item.clone()],
-                    tight: true,
-                    staged: vec![],
-                });
-            }
-            Content::Pagebreak(soft) => {
-                self.finish_page(ctx, !soft, !soft, styles)?;
-            }
-            Content::Page(page) => {
-                self.finish_page(ctx, false, false, styles)?;
-                if let Some(pages) = &mut self.pages {
-                    pages.push(page.clone(), styles);
-                }
-            }
-            Content::Show(node) => {
-                let id = node.id();
-                let realized = match styles.realize(ctx, node)? {
-                    Some(content) => content,
-                    None => node.realize(ctx, styles)?,
-                };
-                let content = node.finalize(ctx, styles, realized)?;
-                let stored = self.tpa.alloc(content);
-                self.process(ctx, stored, styles.unscoped(id))?;
-            }
-            Content::Styled(styled) => {
-                let (sub, map) = styled.as_ref();
-                let stored = self.sya.alloc(styles);
-                let styles = map.chain(stored);
+        if self.list.accept(content, styles) {
+            return Ok(());
+        }
 
-                let interruption = map.interruption();
-                match interruption {
-                    Some(Interruption::Page) => {
-                        self.finish_page(ctx, false, true, styles)?
-                    }
-                    Some(Interruption::Par) => self.finish_par(styles),
-                    None => {}
-                }
+        self.interrupt(Interruption::List, styles, false)?;
 
-                self.process(ctx, sub, styles)?;
+        if self.par.accept(content, styles) {
+            return Ok(());
+        }
 
-                match interruption {
-                    Some(Interruption::Page) => {
-                        self.finish_page(ctx, true, false, styles)?
-                    }
-                    Some(Interruption::Par) => self.finish_par(styles),
-                    None => {}
-                }
+        self.interrupt(Interruption::Par, styles, false)?;
+
+        if self.flow.accept(content, styles) {
+            return Ok(());
+        }
+
+        let keep = matches!(content, Content::Pagebreak(false));
+        self.interrupt(Interruption::Page, styles, keep)?;
+
+        if let Some(doc) = &mut self.doc {
+            doc.accept(content, styles);
+        }
+
+        // We might want to issue a warning or error for content that wasn't
+        // handled (e.g. a pagebreak in a flow building process). However, we
+        // don't have the spans here at the moment.
+        Ok(())
+    }
+
+    fn show(&mut self, node: &ShowNode, styles: StyleChain<'a>) -> TypResult<()> {
+        let id = node.id();
+        let realized = match styles.realize(self.ctx, node)? {
+            Some(content) => content,
+            None => node.realize(self.ctx, styles)?,
+        };
+
+        let content = node.finalize(self.ctx, styles, realized)?;
+        let stored = self.scratch.templates.alloc(content);
+        self.accept(stored, styles.unscoped(id))
+    }
+
+    fn styled(
+        &mut self,
+        (content, map): &'a (Content, StyleMap),
+        styles: StyleChain<'a>,
+    ) -> TypResult<()> {
+        let stored = self.scratch.styles.alloc(styles);
+        let styles = map.chain(stored);
+        let intr = map.interruption();
+
+        if let Some(intr) = intr {
+            self.interrupt(intr, styles, false)?;
+        }
+
+        self.accept(content, styles)?;
+
+        if let Some(intr) = intr {
+            self.interrupt(intr, styles, true)?;
+        }
+
+        Ok(())
+    }
+
+    fn interrupt(
+        &mut self,
+        intr: Interruption,
+        styles: StyleChain<'a>,
+        keep: bool,
+    ) -> TypResult<()> {
+        if intr >= Interruption::List && !self.list.is_empty() {
+            mem::take(&mut self.list).finish(self)?;
+        }
+
+        if intr >= Interruption::Par {
+            if !self.par.is_empty() {
+                self.flow.0.weak(FlowChild::Leading, 0, styles);
+                mem::take(&mut self.par).finish(self);
             }
-            Content::Sequence(seq) => {
-                for sub in seq.iter() {
-                    self.process(ctx, sub, styles)?;
+            self.flow.0.weak(FlowChild::Leading, 0, styles);
+        }
+
+        if intr >= Interruption::Page {
+            if let Some(doc) = &mut self.doc {
+                if !self.flow.is_empty() || (doc.keep_next && keep) {
+                    mem::take(&mut self.flow).finish(doc, styles);
                 }
+                doc.keep_next = !keep;
             }
         }
 
         Ok(())
     }
 
-    /// Finish the currently built paragraph.
-    fn finish_par(&mut self, styles: StyleChain<'a>) {
-        let (mut par, shared) = std::mem::take(&mut self.par).finish();
-        if !par.is_empty() {
-            // Paragraph indent should only apply if the paragraph starts with
-            // text and follows directly after another paragraph.
-            let indent = shared.get(ParNode::INDENT);
-            if !indent.is_zero()
-                && par
-                    .items()
-                    .find_map(|child| match child {
-                        ParChild::Spacing(_) => None,
-                        ParChild::Text(_) | ParChild::Quote(_) => Some(true),
-                        ParChild::Node(_) => Some(false),
-                    })
-                    .unwrap_or_default()
-                && self
-                    .flow
-                    .items()
-                    .rev()
-                    .find_map(|child| match child {
-                        FlowChild::Leading => None,
-                        FlowChild::Parbreak => None,
-                        FlowChild::Node(node) => Some(node.is::<ParNode>()),
-                        FlowChild::Spacing(_) => Some(false),
-                        FlowChild::Colbreak => Some(false),
-                    })
-                    .unwrap_or_default()
-            {
-                par.push_front(ParChild::Spacing(indent.into()));
-            }
-
-            let node = ParNode(par).pack();
-            self.flow.supportive(FlowChild::Node(node), shared);
+    fn sequence(&mut self, seq: &'a [Content], styles: StyleChain<'a>) -> TypResult<()> {
+        for content in seq {
+            self.accept(content, styles)?;
         }
-        self.flow.weak(FlowChild::Leading, 0, styles);
+        Ok(())
+    }
+}
+
+/// Accepts pagebreaks and pages.
+struct DocBuilder<'a> {
+    /// The page runs built so far.
+    pages: StyleVecBuilder<'a, PageNode>,
+    /// Whether to keep a following page even if it is empty.
+    keep_next: bool,
+}
+
+impl<'a> DocBuilder<'a> {
+    fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) {
+        match content {
+            Content::Pagebreak(soft) => {
+                self.keep_next = !soft;
+            }
+            Content::Page(page) => {
+                self.pages.push(page.clone(), styles);
+                self.keep_next = false;
+            }
+            _ => {}
+        }
+    }
+}
+
+impl Default for DocBuilder<'_> {
+    fn default() -> Self {
+        Self {
+            pages: StyleVecBuilder::new(),
+            keep_next: true,
+        }
+    }
+}
+
+/// Accepts flow content.
+#[derive(Default)]
+struct FlowBuilder<'a>(CollapsingBuilder<'a, FlowChild>);
+
+impl<'a> FlowBuilder<'a> {
+    fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) -> bool {
+        match content {
+            Content::Parbreak => {
+                self.0.weak(FlowChild::Parbreak, 1, styles);
+            }
+            Content::Colbreak => {
+                self.0.destructive(FlowChild::Colbreak, styles);
+            }
+            Content::Vertical(kind) => {
+                let child = FlowChild::Spacing(*kind);
+                if kind.is_fractional() {
+                    self.0.destructive(child, styles);
+                } else {
+                    self.0.ignorant(child, styles);
+                }
+            }
+            Content::Block(node) => {
+                let child = FlowChild::Node(node.clone());
+                if node.is::<PlaceNode>() {
+                    self.0.ignorant(child, styles);
+                } else {
+                    self.0.supportive(child, styles);
+                }
+            }
+            _ => return false,
+        }
+
+        true
     }
 
-    /// Finish the currently built list.
-    fn finish_list(&mut self, ctx: &mut Context) -> TypResult<()> {
-        let ListBuilder { styles, kind, items, tight, staged } = match self.list.take() {
-            Some(list) => list,
+    fn finish(self, doc: &mut DocBuilder<'a>, styles: StyleChain<'a>) {
+        let (flow, shared) = self.0.finish();
+        let styles = if flow.is_empty() { styles } else { shared };
+        let node = PageNode(FlowNode(flow).pack());
+        doc.pages.push(node, styles);
+    }
+
+    fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
+/// Accepts paragraph content.
+#[derive(Default)]
+struct ParBuilder<'a>(CollapsingBuilder<'a, ParChild>);
+
+impl<'a> ParBuilder<'a> {
+    fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) -> bool {
+        match content {
+            Content::Space => {
+                self.0.weak(ParChild::Text(' '.into()), 0, styles);
+            }
+            Content::Linebreak(justified) => {
+                let c = if *justified { '\u{2028}' } else { '\n' };
+                self.0.destructive(ParChild::Text(c.into()), styles);
+            }
+            Content::Horizontal(kind) => {
+                let child = ParChild::Spacing(*kind);
+                if kind.is_fractional() {
+                    self.0.destructive(child, styles);
+                } else {
+                    self.0.ignorant(child, styles);
+                }
+            }
+            Content::Quote(double) => {
+                self.0.supportive(ParChild::Quote(*double), styles);
+            }
+            Content::Text(text) => {
+                self.0.supportive(ParChild::Text(text.clone()), styles);
+            }
+            Content::Inline(node) => {
+                self.0.supportive(ParChild::Node(node.clone()), styles);
+            }
+            _ => return false,
+        }
+
+        true
+    }
+
+    fn finish(self, parent: &mut Builder<'a, '_>) {
+        let (mut children, shared) = self.0.finish();
+        if children.is_empty() {
+            return;
+        }
+
+        // Paragraph indent should only apply if the paragraph starts with
+        // text and follows directly after another paragraph.
+        let indent = shared.get(ParNode::INDENT);
+        if !indent.is_zero()
+            && children
+                .items()
+                .find_map(|child| match child {
+                    ParChild::Spacing(_) => None,
+                    ParChild::Text(_) | ParChild::Quote(_) => Some(true),
+                    ParChild::Node(_) => Some(false),
+                })
+                .unwrap_or_default()
+            && parent
+                .flow
+                .0
+                .items()
+                .rev()
+                .find_map(|child| match child {
+                    FlowChild::Leading => None,
+                    FlowChild::Parbreak => None,
+                    FlowChild::Node(node) => Some(node.is::<ParNode>()),
+                    FlowChild::Spacing(_) => Some(false),
+                    FlowChild::Colbreak => Some(false),
+                })
+                .unwrap_or_default()
+        {
+            children.push_front(ParChild::Spacing(indent.into()));
+        }
+
+        let node = ParNode(children).pack();
+        parent.flow.0.supportive(FlowChild::Node(node), shared);
+    }
+
+    fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
+/// Accepts list / enum items, spaces, paragraph breaks.
+struct ListBuilder<'a> {
+    /// The list items collected so far.
+    items: StyleVecBuilder<'a, ListItem>,
+    /// Whether the list contains no paragraph breaks.
+    tight: bool,
+    /// Trailing content for which it is unclear whether it is part of the list.
+    staged: Vec<(&'a Content, StyleChain<'a>)>,
+}
+
+impl<'a> ListBuilder<'a> {
+    fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) -> bool {
+        match content {
+            Content::Space if !self.items.is_empty() => {
+                self.staged.push((content, styles));
+            }
+            Content::Parbreak if !self.items.is_empty() => {
+                self.staged.push((content, styles));
+            }
+            Content::Item(item)
+                if self
+                    .items
+                    .items()
+                    .next()
+                    .map_or(true, |first| item.kind == first.kind) =>
+            {
+                self.items.push(item.clone(), styles);
+                self.tight &= self.staged.drain(..).all(|(t, _)| *t != Content::Parbreak);
+            }
+            _ => return false,
+        }
+
+        true
+    }
+
+    fn finish(self, parent: &mut Builder<'a, '_>) -> TypResult<()> {
+        let (items, shared) = self.items.finish();
+        let kind = match items.items().next() {
+            Some(item) => item.kind,
             None => return Ok(()),
         };
 
+        let tight = self.tight;
         let content = match kind {
             UNORDERED => Content::show(ListNode::<UNORDERED> { start: 1, tight, items }),
             ORDERED | _ => Content::show(ListNode::<ORDERED> { start: 1, tight, items }),
         };
 
-        let stored = self.tpa.alloc(content);
-        self.process(ctx, stored, styles)?;
-        for (content, styles) in staged {
-            self.process(ctx, content, styles)?;
+        let stored = parent.scratch.templates.alloc(content);
+        parent.accept(stored, shared)?;
+
+        for (content, styles) in self.staged {
+            parent.accept(content, styles)?;
         }
 
         Ok(())
     }
 
-    /// Finish the currently built page run.
-    fn finish_page(
-        &mut self,
-        ctx: &mut Context,
-        keep_last: bool,
-        keep_next: bool,
-        styles: StyleChain<'a>,
-    ) -> TypResult<()> {
-        self.finish_list(ctx)?;
-        self.finish_par(styles);
-        if let Some(pages) = &mut self.pages {
-            let (flow, shared) = std::mem::take(&mut self.flow).finish();
-            if !flow.is_empty() || (keep_last && self.keep_next) {
-                let styles = if flow.is_empty() { styles } else { shared };
-                let node = PageNode(FlowNode(flow).pack());
-                pages.push(node, styles);
-            }
-        }
-        self.keep_next = keep_next;
-        Ok(())
+    fn is_empty(&self) -> bool {
+        self.items.is_empty()
     }
+}
 
-    /// Finish everything.
-    fn finish(&mut self, ctx: &mut Context, styles: StyleChain<'a>) -> TypResult<()> {
-        self.finish_page(ctx, true, false, styles)
+impl Default for ListBuilder<'_> {
+    fn default() -> Self {
+        Self {
+            items: StyleVecBuilder::default(),
+            tight: true,
+            staged: vec![],
+        }
     }
 }

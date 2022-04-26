@@ -1,3 +1,5 @@
+use std::fmt::Write;
+
 use unscanny::Scanner;
 
 use crate::library::layout::{GridNode, TrackSizing};
@@ -14,12 +16,14 @@ pub struct ListNode<const L: ListKind = UNORDERED> {
     /// there is list spacing between the items.
     pub tight: bool,
     /// The individual bulleted or numbered items.
-    pub items: Vec<ListItem>,
+    pub items: StyleVec<ListItem>,
 }
 
 /// An item in a list.
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Clone, PartialEq, Hash)]
 pub struct ListItem {
+    /// The kind of item.
+    pub kind: ListKind,
     /// The number of the item.
     pub number: Option<usize>,
     /// The node that produces the item's body.
@@ -59,7 +63,11 @@ impl<const L: ListKind> ListNode<L> {
             items: args
                 .all()?
                 .into_iter()
-                .map(|body| ListItem { number: None, body: Box::new(body) })
+                .map(|body| ListItem {
+                    kind: L,
+                    number: None,
+                    body: Box::new(body),
+                })
                 .collect(),
         }))
     }
@@ -72,7 +80,7 @@ impl<const L: ListKind> Show for ListNode<L> {
             "tight" => Value::Bool(self.tight),
             "items" => Value::Array(
                 self.items
-                    .iter()
+                    .items()
                     .map(|item| Value::Content((*item.body).clone()))
                     .collect()
             ),
@@ -85,12 +93,13 @@ impl<const L: ListKind> Show for ListNode<L> {
 
         let label = styles.get(Self::LABEL);
 
-        for item in &self.items {
+        for (item, map) in self.items.iter() {
             number = item.number.unwrap_or(number);
             cells.push(LayoutNode::default());
-            cells.push(label.resolve(ctx, L, number)?.pack());
+            cells
+                .push(label.resolve(ctx, L, number)?.styled_with_map(map.clone()).pack());
             cells.push(LayoutNode::default());
-            cells.push((*item.body).clone().pack());
+            cells.push((*item.body).clone().styled_with_map(map.clone()).pack());
             number += 1;
         }
 
@@ -127,9 +136,18 @@ impl<const L: ListKind> Show for ListNode<L> {
     }
 }
 
-impl<const L: ListKind> From<ListItem> for ListNode<L> {
-    fn from(item: ListItem) -> Self {
-        Self { items: vec![item], tight: true, start: 1 }
+impl Debug for ListItem {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        if self.kind == UNORDERED {
+            f.write_char('-')?;
+        } else {
+            if let Some(number) = self.number {
+                write!(f, "{}", number)?;
+            }
+            f.write_char('.')?;
+        }
+        f.write_char(' ')?;
+        self.body.fmt(f)
     }
 }
 

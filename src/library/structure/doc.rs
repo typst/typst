@@ -1,0 +1,29 @@
+use crate::library::layout::PageNode;
+use crate::library::prelude::*;
+
+/// A sequence of page runs.
+#[derive(Hash)]
+pub struct DocNode(pub StyleVec<PageNode>);
+
+impl DocNode {
+    /// Layout the document into a sequence of frames, one per page.
+    pub fn layout(
+        &self,
+        ctx: &mut Context,
+        styles: StyleChain,
+    ) -> TypResult<Vec<Arc<Frame>>> {
+        let mut frames = vec![];
+        for (page, map) in self.0.iter() {
+            let number = 1 + frames.len();
+            frames.extend(page.layout(ctx, number, map.chain(&styles))?);
+        }
+        Ok(frames)
+    }
+}
+
+impl Debug for DocNode {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.write_str("Doc ")?;
+        self.0.fmt(f)
+    }
+}

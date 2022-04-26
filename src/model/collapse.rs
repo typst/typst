@@ -29,6 +29,11 @@ impl<'a, T> CollapsingBuilder<'a, T> {
         }
     }
 
+    /// Whether the builder is empty.
+    pub fn is_empty(&self) -> bool {
+        self.builder.is_empty() && self.staged.is_empty()
+    }
+
     /// Can only exist when there is at least one supportive item to its left
     /// and to its right, with no destructive items or weak items in between to
     /// its left and no destructive items in between to its right. There may be

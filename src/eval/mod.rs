@@ -177,7 +177,8 @@ impl Eval for ListNode {
     type Output = Content;
 
     fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> EvalResult<Self::Output> {
-        Ok(Content::List(library::structure::ListItem {
+        Ok(Content::Item(library::structure::ListItem {
+            kind: library::structure::UNORDERED,
             number: None,
             body: Box::new(self.body().eval(ctx, scp)?),
         }))
@@ -188,7 +189,8 @@ impl Eval for EnumNode {
     type Output = Content;
 
     fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> EvalResult<Self::Output> {
-        Ok(Content::Enum(library::structure::ListItem {
+        Ok(Content::Item(library::structure::ListItem {
+            kind: library::structure::ORDERED,
             number: self.number(),
             body: Box::new(self.body().eval(ctx, scp)?),
         }))

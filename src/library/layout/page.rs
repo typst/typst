@@ -4,7 +4,7 @@ use super::ColumnsNode;
 use crate::library::prelude::*;
 
 /// Layouts its child onto one or multiple pages.
-#[derive(Clone, PartialEq, Hash)]
+#[derive(PartialEq, Clone, Hash)]
 pub struct PageNode(pub LayoutNode);
 
 #[node]
