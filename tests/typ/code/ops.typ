@@ -151,6 +151,8 @@
 #test(45deg < 1rad, true)
 #test(10% < 20%, true)
 #test(50% < 40% + 0pt, false)
+#test(40% + 0pt < 50% + 0pt, true)
+#test(1em < 2em, true)
 
 ---
 // Test assignment operators.

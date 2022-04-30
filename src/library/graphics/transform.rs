@@ -13,8 +13,8 @@ pub struct MoveNode {
 #[node]
 impl MoveNode {
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
-        let dx = args.named("x")?.unwrap_or_default();
-        let dy = args.named("y")?.unwrap_or_default();
+        let dx = args.named("dx")?.unwrap_or_default();
+        let dy = args.named("dy")?.unwrap_or_default();
         Ok(Content::inline(Self {
             delta: Spec::new(dx, dy),
             child: args.expect("body")?,

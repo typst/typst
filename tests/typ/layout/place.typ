@@ -16,13 +16,13 @@ the line breaks still had to be inserted manually.
   place(right, dy: 1.5pt)[ABC],
   rect(fill: conifer, height: 10pt, width: 80%),
   rect(fill: forest, height: 10pt, width: 100%),
+  10pt,
+  block[
+    #place(center, dx: -7pt, dy: -5pt)[Hello]
+    #place(center, dx: 7pt, dy: 5pt)[Hello]
+    Hello #h(1fr) Hello
+  ]
 )
-
-#block[
-  #place(center, dx: -7pt, dy: -5pt)[Hello]
-  #place(center, dx: 7pt, dy: 5pt)[Hello]
-  Hello #h(1fr) Hello
-]
 
 ---
 // Test how the placed node interacts with paragraph spacing around it.

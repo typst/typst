@@ -1,4 +1,4 @@
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::{self, Debug, Formatter, Write};
 use std::hash::Hash;
 use std::sync::Arc;
 
@@ -87,7 +87,9 @@ impl Show for ShowNode {
 
 impl Debug for ShowNode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        self.0.fmt(f)
+        f.write_str("Show(")?;
+        self.0.fmt(f)?;
+        f.write_char(')')
     }
 }
 

@@ -68,6 +68,18 @@ impl<T: Numeric> From<Ratio> for Relative<T> {
     }
 }
 
+impl<T: Numeric + PartialOrd> PartialOrd for Relative<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        if self.rel.is_zero() && other.rel.is_zero() {
+            self.abs.partial_cmp(&other.abs)
+        } else if self.abs.is_zero() && other.abs.is_zero() {
+            self.rel.partial_cmp(&other.rel)
+        } else {
+            None
+        }
+    }
+}
+
 impl<T: Numeric> Neg for Relative<T> {
     type Output = Self;
 

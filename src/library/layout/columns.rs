@@ -106,7 +106,8 @@ pub struct ColbreakNode;
 
 #[node]
 impl ColbreakNode {
-    fn construct(_: &mut Context, _: &mut Args) -> TypResult<Content> {
-        Ok(Content::Colbreak)
+    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
+        let weak = args.named("weak")?.unwrap_or(false);
+        Ok(Content::Colbreak { weak })
     }
 }

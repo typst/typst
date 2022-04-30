@@ -1,3 +1,4 @@
+use crate::library::layout::BlockSpacing;
 use crate::library::prelude::*;
 use crate::library::text::{FontFamily, TextNode, TextSize, Toggle};
 
@@ -6,7 +7,7 @@ use crate::library::text::{FontFamily, TextNode, TextSize, Toggle};
 pub struct HeadingNode {
     /// The logical nesting depth of the section, starting from one. In the
     /// default style, this controls the text size of the heading.
-    pub level: usize,
+    pub level: NonZeroUsize,
     /// The heading's contents.
     pub body: Content,
 }
@@ -22,8 +23,12 @@ impl HeadingNode {
     /// The size of text in the heading.
     #[property(referenced)]
     pub const SIZE: Leveled<TextSize> = Leveled::Mapping(|level| {
-        let upscale = (1.6 - 0.1 * level as f64).max(0.75);
-        TextSize(Em::new(upscale).into())
+        let size = match level.get() {
+            1 => 1.4,
+            2 => 1.2,
+            _ => 1.0,
+        };
+        TextSize(Em::new(size).into())
     });
 
     /// Whether text in the heading is strengthend.
@@ -36,21 +41,24 @@ impl HeadingNode {
     #[property(referenced)]
     pub const UNDERLINE: Leveled<bool> = Leveled::Value(false);
 
-    /// The extra padding above the heading.
-    #[property(referenced)]
-    pub const ABOVE: Leveled<RawLength> = Leveled::Value(Length::zero().into());
-    /// The extra padding below the heading.
-    #[property(referenced)]
-    pub const BELOW: Leveled<RawLength> = Leveled::Value(Length::zero().into());
-
-    /// Whether the heading is block-level.
-    #[property(referenced)]
-    pub const BLOCK: Leveled<bool> = Leveled::Value(true);
+    /// The spacing above the heading.
+    #[property(referenced, shorthand(around))]
+    pub const ABOVE: Leveled<Option<BlockSpacing>> = Leveled::Mapping(|level| {
+        let ratio = match level.get() {
+            1 => 1.5,
+            _ => 1.2,
+        };
+        Some(Ratio::new(ratio).into())
+    });
+    /// The spacing below the heading.
+    #[property(referenced, shorthand(around))]
+    pub const BELOW: Leveled<Option<BlockSpacing>> =
+        Leveled::Value(Some(Ratio::new(0.55).into()));
 
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         Ok(Content::show(Self {
             body: args.expect("body")?,
-            level: args.named("level")?.unwrap_or(1),
+            level: args.named("level")?.unwrap_or(NonZeroUsize::new(1).unwrap()),
         }))
     }
 }
@@ -58,13 +66,13 @@ impl HeadingNode {
 impl Show for HeadingNode {
     fn encode(&self) -> Dict {
         dict! {
-            "level" => Value::Int(self.level as i64),
+            "level" => Value::Int(self.level.get() as i64),
             "body" => Value::Content(self.body.clone()),
         }
     }
 
     fn realize(&self, _: &mut Context, _: StyleChain) -> TypResult<Content> {
-        Ok(self.body.clone())
+        Ok(Content::block(self.body.clone()))
     }
 
     fn finalize(
@@ -103,11 +111,6 @@ impl Show for HeadingNode {
         }
 
         realized = realized.styled_with_map(map);
-
-        if resolve!(Self::BLOCK) {
-            realized = Content::block(realized);
-        }
-
         realized = realized.spaced(
             resolve!(Self::ABOVE).resolve(styles),
             resolve!(Self::BELOW).resolve(styles),
@@ -123,19 +126,19 @@ pub enum Leveled<T> {
     /// A bare value.
     Value(T),
     /// A simple mapping from a heading level to a value.
-    Mapping(fn(usize) -> T),
+    Mapping(fn(NonZeroUsize) -> T),
     /// A closure mapping from a heading level to a value.
     Func(Func, Span),
 }
 
 impl<T: Cast + Clone> Leveled<T> {
     /// Resolve the value based on the level.
-    pub fn resolve(&self, ctx: &mut Context, level: usize) -> TypResult<T> {
+    pub fn resolve(&self, ctx: &mut Context, level: NonZeroUsize) -> TypResult<T> {
         Ok(match self {
             Self::Value(value) => value.clone(),
             Self::Mapping(mapping) => mapping(level),
             Self::Func(func, span) => {
-                let args = Args::from_values(*span, [Value::Int(level as i64)]);
+                let args = Args::from_values(*span, [Value::Int(level.get() as i64)]);
                 func.call(ctx, args)?.cast().at(*span)?
             }
         })

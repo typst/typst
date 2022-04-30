@@ -213,6 +213,8 @@ impl PartialOrd for RawLength {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         if self.em.is_zero() && other.em.is_zero() {
             self.length.partial_cmp(&other.length)
+        } else if self.length.is_zero() && other.length.is_zero() {
+            self.em.partial_cmp(&other.em)
         } else {
             None
         }

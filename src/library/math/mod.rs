@@ -1,5 +1,6 @@
 //! Mathematical formulas.
 
+use crate::library::layout::BlockSpacing;
 use crate::library::prelude::*;
 use crate::library::text::FontFamily;
 
@@ -19,6 +20,13 @@ impl MathNode {
     pub const FAMILY: Smart<FontFamily> =
         Smart::Custom(FontFamily::new("Latin Modern Math"));
 
+    /// The spacing above display math.
+    #[property(resolve, shorthand(around))]
+    pub const ABOVE: Option<BlockSpacing> = Some(Ratio::one().into());
+    /// The spacing below display math.
+    #[property(resolve, shorthand(around))]
+    pub const BELOW: Option<BlockSpacing> = Some(Ratio::one().into());
+
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         Ok(Content::show(Self {
             formula: args.expect("formula")?,
@@ -36,7 +44,11 @@ impl Show for MathNode {
     }
 
     fn realize(&self, _: &mut Context, _: StyleChain) -> TypResult<Content> {
-        Ok(Content::Text(self.formula.trim().into()))
+        let mut realized = Content::Text(self.formula.trim().into());
+        if self.display {
+            realized = Content::block(realized);
+        }
+        Ok(realized)
     }
 
     fn finalize(
@@ -50,12 +62,10 @@ impl Show for MathNode {
             map.set_family(family.clone(), styles);
         }
 
-        realized = realized.styled_with_map(map);
-
         if self.display {
-            realized = Content::block(realized);
+            realized = realized.spaced(styles.get(Self::ABOVE), styles.get(Self::BELOW));
         }
 
-        Ok(realized)
+        Ok(realized.styled_with_map(map))
     }
 }

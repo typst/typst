@@ -214,8 +214,8 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
         | NodeKind::EnDash
         | NodeKind::EmDash
         | NodeKind::Ellipsis
-        | NodeKind::Quote(_)
-        | NodeKind::Linebreak(_)
+        | NodeKind::Quote { .. }
+        | NodeKind::Linebreak { .. }
         | NodeKind::Raw(_)
         | NodeKind::Math(_)
         | NodeKind::Escape(_) => {

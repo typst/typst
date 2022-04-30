@@ -3,6 +3,7 @@
 ---
 #set heading(
   size: 10pt,
+  around: 0.65em,
   fill: lvl => if even(lvl) { red } else { blue },
 )
 

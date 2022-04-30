@@ -408,12 +408,25 @@ macro_rules! dynamic {
 
 /// Make a type castable from a value.
 macro_rules! castable {
+    ($type:ty: $inner:ty) => {
+        impl $crate::eval::Cast<$crate::eval::Value> for $type {
+            fn is(value: &$crate::eval::Value) -> bool {
+                <$inner>::is(value)
+            }
+
+            fn cast(value: $crate::eval::Value) -> $crate::diag::StrResult<Self> {
+                <$inner>::cast(value).map(Self)
+            }
+        }
+    };
+
     (
         $type:ty,
         Expected: $expected:expr,
         $($pattern:pat => $out:expr,)*
         $(@$dyn_in:ident: $dyn_type:ty => $dyn_out:expr,)*
     ) => {
+        #[allow(unreachable_patterns)]
         impl $crate::eval::Cast<$crate::eval::Value> for $type {
             fn is(value: &$crate::eval::Value) -> bool {
                 #[allow(unused_variables)]
@@ -602,10 +615,14 @@ castable! {
 castable! {
     NonZeroUsize,
     Expected: "positive integer",
-    Value::Int(int) => Value::Int(int)
-        .cast::<usize>()?
+    Value::Int(int) => int
         .try_into()
-        .map_err(|_| "must be positive")?,
+        .and_then(|int: usize| int.try_into())
+        .map_err(|_| if int <= 0 {
+            "must be positive"
+        } else {
+            "number too large"
+        })?,
 }
 
 castable! {

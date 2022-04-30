@@ -13,14 +13,14 @@
 #pagebreak()
 
 ---
-// Two text bodies separated with and surrounded by soft pagebreaks.
+// Two text bodies separated with and surrounded by weak pagebreaks.
 // Should result in two aqua-colored pages.
 #set page(fill: aqua)
-#pagebreak(soft: true)
+#pagebreak(weak: true)
 First
-#pagebreak(soft: true)
+#pagebreak(weak: true)
 Second
-#pagebreak(soft: true)
+#pagebreak(weak: true)
 
 ---
 // Test a combination of pagebreaks, styled pages and pages with bodies.
@@ -34,12 +34,12 @@ Third
 Fif[#set page();th]
 
 ---
-// Test hard and soft pagebreak followed by page with body.
+// Test hard and weak pagebreak followed by page with body.
 // Should result in three navy-colored pages.
 #set page(fill: navy)
 #set text(fill: white)
 First
 #pagebreak()
 #page[Second]
-#pagebreak(soft: true)
+#pagebreak(weak: true)
 #page[Third]

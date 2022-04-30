@@ -1,7 +1,7 @@
 //! Layouting infrastructure.
 
 use std::any::Any;
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::{self, Debug, Formatter, Write};
 use std::hash::Hash;
 use std::sync::Arc;
 
@@ -239,7 +239,9 @@ impl Default for LayoutNode {
 
 impl Debug for LayoutNode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        self.0.fmt(f)
+        f.write_str("Layout(")?;
+        self.0.fmt(f)?;
+        f.write_char(')')
     }
 }
 

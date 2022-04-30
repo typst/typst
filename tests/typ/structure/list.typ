@@ -2,21 +2,16 @@
 
 ---
 _Shopping list_
-#list[Apples][Potatoes][Juice]
-
----
-Tightly
-- surrounded
-- by two
-paragraphs.
+#list(attached: true)[Apples][Potatoes][Juice]
 
 ---
 - First level.
 
   - Second level.
-
     There are multiple paragraphs.
+
     - Third level.
+
     Still the same bullet point.
 
   - Still level 2.

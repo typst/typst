@@ -223,11 +223,7 @@ impl Fold for TextSize {
     }
 }
 
-castable! {
-    TextSize,
-    Expected: "length",
-    Value::Length(v) => Self(v),
-}
+castable!(TextSize: RawLength);
 
 /// Specifies the bottom or top edge of text.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
@@ -290,11 +286,7 @@ impl Resolve for Smart<HorizontalDir> {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Hyphenate(pub bool);
 
-castable! {
-    Hyphenate,
-    Expected: "boolean",
-    Value::Bool(v) => Self(v),
-}
+castable!(Hyphenate: bool);
 
 impl Resolve for Smart<Hyphenate> {
     type Output = bool;

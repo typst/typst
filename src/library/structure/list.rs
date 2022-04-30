@@ -2,7 +2,7 @@ use std::fmt::Write;
 
 use unscanny::Scanner;
 
-use crate::library::layout::{GridNode, TrackSizing};
+use crate::library::layout::{BlockSpacing, GridNode, TrackSizing};
 use crate::library::prelude::*;
 use crate::library::text::ParNode;
 use crate::library::utility::Numbering;
@@ -12,9 +12,10 @@ use crate::library::utility::Numbering;
 pub struct ListNode<const L: ListKind = UNORDERED> {
     /// Where the list starts.
     pub start: usize,
-    /// If false, there is paragraph spacing between the items, if true
-    /// there is list spacing between the items.
+    /// If true, the items are separated by leading instead of list spacing.
     pub tight: bool,
+    /// If true, the spacing above the list is leading instead of above spacing.
+    pub attached: bool,
     /// The individual bulleted or numbered items.
     pub items: StyleVec<ListItem>,
 }
@@ -38,10 +39,6 @@ impl<const L: ListKind> ListNode<L> {
     /// How the list is labelled.
     #[property(referenced)]
     pub const LABEL: Label = Label::Default;
-
-    /// The spacing between the list items of a non-wide list.
-    #[property(resolve)]
-    pub const SPACING: RawLength = RawLength::zero();
     /// The indentation of each item's label.
     #[property(resolve)]
     pub const INDENT: RawLength = RawLength::zero();
@@ -49,17 +46,21 @@ impl<const L: ListKind> ListNode<L> {
     #[property(resolve)]
     pub const BODY_INDENT: RawLength = Em::new(0.5).into();
 
-    /// The extra padding above the list.
+    /// The spacing above the list.
+    #[property(resolve, shorthand(around))]
+    pub const ABOVE: Option<BlockSpacing> = Some(Ratio::one().into());
+    /// The spacing below the list.
+    #[property(resolve, shorthand(around))]
+    pub const BELOW: Option<BlockSpacing> = Some(Ratio::one().into());
+    /// The spacing between the items of a wide (non-tight) list.
     #[property(resolve)]
-    pub const ABOVE: RawLength = RawLength::zero();
-    /// The extra padding below the list.
-    #[property(resolve)]
-    pub const BELOW: RawLength = RawLength::zero();
+    pub const SPACING: BlockSpacing = Ratio::one().into();
 
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         Ok(Content::show(Self {
             start: args.named("start")?.unwrap_or(1),
             tight: args.named("tight")?.unwrap_or(true),
+            attached: args.named("attached")?.unwrap_or(false),
             items: args
                 .all()?
                 .into_iter()
@@ -78,6 +79,7 @@ impl<const L: ListKind> Show for ListNode<L> {
         dict! {
             "start" => Value::Int(self.start as i64),
             "tight" => Value::Bool(self.tight),
+            "attached" => Value::Bool(self.attached),
             "items" => Value::Array(
                 self.items
                     .items()
@@ -103,14 +105,12 @@ impl<const L: ListKind> Show for ListNode<L> {
             number += 1;
         }
 
-        let leading = styles.get(ParNode::LEADING);
-        let spacing = if self.tight {
-            styles.get(Self::SPACING)
+        let gutter = if self.tight {
+            styles.get(ParNode::LEADING)
         } else {
-            styles.get(ParNode::SPACING)
+            styles.get(Self::SPACING)
         };
 
-        let gutter = leading + spacing;
         let indent = styles.get(Self::INDENT);
         let body_indent = styles.get(Self::BODY_INDENT);
 
@@ -132,7 +132,19 @@ impl<const L: ListKind> Show for ListNode<L> {
         styles: StyleChain,
         realized: Content,
     ) -> TypResult<Content> {
-        Ok(realized.spaced(styles.get(Self::ABOVE), styles.get(Self::BELOW)))
+        let mut above = styles.get(Self::ABOVE);
+        let mut below = styles.get(Self::BELOW);
+
+        if self.attached {
+            if above.is_some() {
+                above = Some(styles.get(ParNode::LEADING));
+            }
+            if below.is_some() {
+                below = Some(styles.get(ParNode::SPACING));
+            }
+        }
+
+        Ok(realized.spaced(above, below))
     }
 }
 

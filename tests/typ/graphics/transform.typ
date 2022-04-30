@@ -6,7 +6,7 @@
 #let tex = [{
   [T]
   h(-0.14 * size)
-  move(y: 0.22 * size)[E]
+  move(dy: 0.22 * size)[E]
   h(-0.12 * size)
   [X]
 }]
@@ -14,11 +14,11 @@
 #let xetex = {
   [X]
   h(-0.14 * size)
-  scale(x: -100%, move(y: 0.26 * size)[E])
+  scale(x: -100%, move(dy: 0.26 * size)[E])
   h(-0.14 * size)
   [T]
   h(-0.14 * size)
-  move(y: 0.26 * size)[E]
+  move(dy: 0.26 * size)[E]
   h(-0.12 * size)
   [X]
 }

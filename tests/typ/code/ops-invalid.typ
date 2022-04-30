@@ -30,6 +30,10 @@
 {30% + 1pt <= 40%}
 
 ---
+// Error: 2-13 cannot apply '<=' to length and length
+{1em <= 10pt}
+
+---
 // Special messages for +, -, * and /.
 // Error: 03-10 cannot add integer and string
 {(1 + "2", 40% - 1)}

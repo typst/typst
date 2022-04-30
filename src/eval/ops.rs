@@ -316,9 +316,10 @@ pub fn compare(lhs: &Value, rhs: &Value) -> Option<Ordering> {
         (Bool(a), Bool(b)) => a.partial_cmp(b),
         (Int(a), Int(b)) => a.partial_cmp(b),
         (Float(a), Float(b)) => a.partial_cmp(b),
-        (Angle(a), Angle(b)) => a.partial_cmp(b),
         (Length(a), Length(b)) => a.partial_cmp(b),
+        (Angle(a), Angle(b)) => a.partial_cmp(b),
         (Ratio(a), Ratio(b)) => a.partial_cmp(b),
+        (Relative(a), Relative(b)) => a.partial_cmp(b),
         (Fraction(a), Fraction(b)) => a.partial_cmp(b),
         (Str(a), Str(b)) => a.partial_cmp(b),
 

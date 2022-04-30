@@ -101,9 +101,9 @@ impl Eval for MarkupNode {
         Ok(match self {
             Self::Space => Content::Space,
             Self::Parbreak => Content::Parbreak,
-            Self::Linebreak(justified) => Content::Linebreak(*justified),
+            &Self::Linebreak { justified } => Content::Linebreak { justified },
             Self::Text(text) => Content::Text(text.clone()),
-            Self::Quote(double) => Content::Quote(*double),
+            &Self::Quote { double } => Content::Quote { double },
             Self::Strong(strong) => strong.eval(ctx, scp)?,
             Self::Emph(emph) => emph.eval(ctx, scp)?,
             Self::Raw(raw) => raw.eval(ctx, scp)?,

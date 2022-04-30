@@ -2,6 +2,7 @@
 //!
 //! The AST is rooted in the [`Markup`] node.
 
+use std::num::NonZeroUsize;
 use std::ops::Deref;
 
 use super::{Green, GreenData, NodeKind, RedNode, RedRef, Span};
@@ -62,7 +63,9 @@ impl Markup {
         self.0.children().filter_map(|node| match node.kind() {
             NodeKind::Space(2 ..) => Some(MarkupNode::Parbreak),
             NodeKind::Space(_) => Some(MarkupNode::Space),
-            NodeKind::Linebreak(j) => Some(MarkupNode::Linebreak(*j)),
+            &NodeKind::Linebreak { justified } => {
+                Some(MarkupNode::Linebreak { justified })
+            }
             NodeKind::Text(s) => Some(MarkupNode::Text(s.clone())),
             NodeKind::Escape(c) => Some(MarkupNode::Text((*c).into())),
             NodeKind::NonBreakingSpace => Some(MarkupNode::Text('\u{00A0}'.into())),
@@ -70,7 +73,7 @@ impl Markup {
             NodeKind::EnDash => Some(MarkupNode::Text('\u{2013}'.into())),
             NodeKind::EmDash => Some(MarkupNode::Text('\u{2014}'.into())),
             NodeKind::Ellipsis => Some(MarkupNode::Text('\u{2026}'.into())),
-            NodeKind::Quote(d) => Some(MarkupNode::Quote(*d)),
+            &NodeKind::Quote { double } => Some(MarkupNode::Quote { double }),
             NodeKind::Strong => node.cast().map(MarkupNode::Strong),
             NodeKind::Emph => node.cast().map(MarkupNode::Emph),
             NodeKind::Raw(raw) => Some(MarkupNode::Raw(raw.as_ref().clone())),
@@ -88,15 +91,14 @@ impl Markup {
 pub enum MarkupNode {
     /// Whitespace containing less than two newlines.
     Space,
-    /// A forced line break. If `true` (`\`), the preceding line can still be
-    /// justified, if `false` (`\+`) not.
-    Linebreak(bool),
+    /// A forced line break: `\` or `\+` if justified.
+    Linebreak { justified: bool },
     /// A paragraph break: Two or more newlines.
     Parbreak,
     /// Plain text.
     Text(EcoString),
-    /// A smart quote: `'` (`false`) or `"` (true).
-    Quote(bool),
+    /// A smart quote: `'` or `"`.
+    Quote { double: bool },
     /// Strong content: `*Strong*`.
     Strong(StrongNode),
     /// Emphasized content: `_Emphasized_`.
@@ -176,8 +178,13 @@ impl HeadingNode {
     }
 
     /// The section depth (numer of equals signs).
-    pub fn level(&self) -> usize {
-        self.0.children().filter(|n| n.kind() == &NodeKind::Eq).count()
+    pub fn level(&self) -> NonZeroUsize {
+        self.0
+            .children()
+            .filter(|n| n.kind() == &NodeKind::Eq)
+            .count()
+            .try_into()
+            .expect("heading is missing equals sign")
     }
 }
 

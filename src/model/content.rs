@@ -40,29 +40,32 @@ use crate::util::EcoString;
 pub enum Content {
     /// A word space.
     Space,
-    /// A forced line break. If `true`, the preceding line can still be
-    /// justified, if `false` not.
-    Linebreak(bool),
+    /// A forced line break.
+    Linebreak { justified: bool },
     /// Horizontal spacing.
-    Horizontal(Spacing),
+    Horizontal { amount: Spacing, weak: bool },
     /// Plain text.
     Text(EcoString),
-    /// A smart quote, may be single (`false`) or double (`true`).
-    Quote(bool),
+    /// A smart quote.
+    Quote { double: bool },
     /// An inline-level node.
     Inline(LayoutNode),
     /// A paragraph break.
     Parbreak,
     /// A column break.
-    Colbreak,
+    Colbreak { weak: bool },
     /// Vertical spacing.
-    Vertical(Spacing),
+    Vertical {
+        amount: Spacing,
+        weak: bool,
+        generated: bool,
+    },
     /// A block-level node.
     Block(LayoutNode),
     /// A list / enum item.
     Item(ListItem),
     /// A page break.
-    Pagebreak(bool),
+    Pagebreak { weak: bool },
     /// A page node.
     Page(PageNode),
     /// A node that can be realized with styles.
@@ -153,21 +156,28 @@ impl Content {
         Self::show(DecoNode::<UNDERLINE>(self))
     }
 
-    /// Add vertical spacing above and below the node.
-    pub fn spaced(self, above: Length, below: Length) -> Self {
-        if above.is_zero() && below.is_zero() {
+    /// Add weak vertical spacing above and below the node.
+    pub fn spaced(self, above: Option<Length>, below: Option<Length>) -> Self {
+        if above.is_none() && below.is_none() {
             return self;
         }
 
         let mut seq = vec![];
-        if !above.is_zero() {
-            seq.push(Content::Vertical(above.into()));
+        if let Some(above) = above {
+            seq.push(Content::Vertical {
+                amount: above.into(),
+                weak: true,
+                generated: true,
+            });
         }
 
         seq.push(self);
-
-        if !below.is_zero() {
-            seq.push(Content::Vertical(below.into()));
+        if let Some(below) = below {
+            seq.push(Content::Vertical {
+                amount: below.into(),
+                weak: true,
+                generated: true,
+            });
         }
 
         Self::sequence(seq)
@@ -219,17 +229,21 @@ impl Debug for Content {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::Space => f.pad("Space"),
-            Self::Linebreak(justified) => write!(f, "Linebreak({justified})"),
-            Self::Horizontal(kind) => write!(f, "Horizontal({kind:?})"),
+            Self::Linebreak { justified } => write!(f, "Linebreak({justified})"),
+            Self::Horizontal { amount, weak } => {
+                write!(f, "Horizontal({amount:?}, {weak})")
+            }
             Self::Text(text) => write!(f, "Text({text:?})"),
-            Self::Quote(double) => write!(f, "Quote({double})"),
+            Self::Quote { double } => write!(f, "Quote({double})"),
             Self::Inline(node) => node.fmt(f),
             Self::Parbreak => f.pad("Parbreak"),
-            Self::Colbreak => f.pad("Colbreak"),
-            Self::Vertical(kind) => write!(f, "Vertical({kind:?})"),
+            Self::Colbreak { weak } => write!(f, "Colbreak({weak})"),
+            Self::Vertical { amount, weak, generated } => {
+                write!(f, "Vertical({amount:?}, {weak}, {generated})")
+            }
             Self::Block(node) => node.fmt(f),
             Self::Item(item) => item.fmt(f),
-            Self::Pagebreak(soft) => write!(f, "Pagebreak({soft})"),
+            Self::Pagebreak { weak } => write!(f, "Pagebreak({weak})"),
             Self::Page(page) => page.fmt(f),
             Self::Show(node) => node.fmt(f),
             Self::Styled(styled) => {
@@ -360,7 +374,7 @@ impl<'a, 'ctx> Builder<'a, 'ctx> {
             return Ok(());
         }
 
-        let keep = matches!(content, Content::Pagebreak(false));
+        let keep = matches!(content, Content::Pagebreak { weak: false });
         self.interrupt(Interruption::Page, styles, keep)?;
 
         if let Some(doc) = &mut self.doc {
@@ -419,10 +433,8 @@ impl<'a, 'ctx> Builder<'a, 'ctx> {
 
         if intr >= Interruption::Par {
             if !self.par.is_empty() {
-                self.flow.0.weak(FlowChild::Leading, 0, styles);
                 mem::take(&mut self.par).finish(self);
             }
-            self.flow.0.weak(FlowChild::Leading, 0, styles);
         }
 
         if intr >= Interruption::Page {
@@ -456,8 +468,8 @@ struct DocBuilder<'a> {
 impl<'a> DocBuilder<'a> {
     fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) {
         match content {
-            Content::Pagebreak(soft) => {
-                self.keep_next = !soft;
+            Content::Pagebreak { weak } => {
+                self.keep_next = !weak;
             }
             Content::Page(page) => {
                 self.pages.push(page.clone(), styles);
@@ -483,16 +495,31 @@ struct FlowBuilder<'a>(CollapsingBuilder<'a, FlowChild>);
 
 impl<'a> FlowBuilder<'a> {
     fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) -> bool {
+        // Weak flow elements:
+        // Weakness | Element
+        //    0     | weak colbreak
+        //    1     | weak fractional spacing
+        //    2     | weak spacing
+        //    3     | generated weak spacing
+        //    4     | generated weak fractional spacing
+        //    5     | par spacing
+
         match content {
-            Content::Parbreak => {
-                self.0.weak(FlowChild::Parbreak, 1, styles);
+            Content::Parbreak => {}
+            Content::Colbreak { weak } => {
+                if *weak {
+                    self.0.weak(FlowChild::Colbreak, styles, 0);
+                } else {
+                    self.0.destructive(FlowChild::Colbreak, styles);
+                }
             }
-            Content::Colbreak => {
-                self.0.destructive(FlowChild::Colbreak, styles);
-            }
-            Content::Vertical(kind) => {
-                let child = FlowChild::Spacing(*kind);
-                if kind.is_fractional() {
+            &Content::Vertical { amount, weak, generated } => {
+                let child = FlowChild::Spacing(amount);
+                let frac = amount.is_fractional();
+                if weak {
+                    let weakness = 1 + u8::from(frac) + 2 * u8::from(generated);
+                    self.0.weak(child, styles, weakness);
+                } else if frac {
                     self.0.destructive(child, styles);
                 } else {
                     self.0.ignorant(child, styles);
@@ -510,6 +537,18 @@ impl<'a> FlowBuilder<'a> {
         }
 
         true
+    }
+
+    fn par(&mut self, par: ParNode, styles: StyleChain<'a>, indent: bool) {
+        let amount = if indent && !styles.get(ParNode::SPACING_AND_INDENT) {
+            styles.get(ParNode::LEADING).into()
+        } else {
+            styles.get(ParNode::SPACING).into()
+        };
+
+        self.0.weak(FlowChild::Spacing(amount), styles, 5);
+        self.0.supportive(FlowChild::Node(par.pack()), styles);
+        self.0.weak(FlowChild::Spacing(amount), styles, 5);
     }
 
     fn finish(self, doc: &mut DocBuilder<'a>, styles: StyleChain<'a>) {
@@ -530,24 +569,34 @@ struct ParBuilder<'a>(CollapsingBuilder<'a, ParChild>);
 
 impl<'a> ParBuilder<'a> {
     fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) -> bool {
+        // Weak par elements:
+        // Weakness | Element
+        //    0     | weak fractional spacing
+        //    1     | weak spacing
+        //    2     | space
+
         match content {
             Content::Space => {
-                self.0.weak(ParChild::Text(' '.into()), 0, styles);
+                self.0.weak(ParChild::Text(' '.into()), styles, 2);
             }
-            Content::Linebreak(justified) => {
-                let c = if *justified { '\u{2028}' } else { '\n' };
+            &Content::Linebreak { justified } => {
+                let c = if justified { '\u{2028}' } else { '\n' };
                 self.0.destructive(ParChild::Text(c.into()), styles);
             }
-            Content::Horizontal(kind) => {
-                let child = ParChild::Spacing(*kind);
-                if kind.is_fractional() {
+            &Content::Horizontal { amount, weak } => {
+                let child = ParChild::Spacing(amount);
+                let frac = amount.is_fractional();
+                if weak {
+                    let weakness = u8::from(!frac);
+                    self.0.weak(child, styles, weakness);
+                } else if frac {
                     self.0.destructive(child, styles);
                 } else {
                     self.0.ignorant(child, styles);
                 }
             }
-            Content::Quote(double) => {
-                self.0.supportive(ParChild::Quote(*double), styles);
+            &Content::Quote { double } => {
+                self.0.supportive(ParChild::Quote { double }, styles);
             }
             Content::Text(text) => {
                 self.0.supportive(ParChild::Text(text.clone()), styles);
@@ -575,7 +624,7 @@ impl<'a> ParBuilder<'a> {
                 .items()
                 .find_map(|child| match child {
                     ParChild::Spacing(_) => None,
-                    ParChild::Text(_) | ParChild::Quote(_) => Some(true),
+                    ParChild::Text(_) | ParChild::Quote { .. } => Some(true),
                     ParChild::Node(_) => Some(false),
                 })
                 .unwrap_or_default()
@@ -585,10 +634,8 @@ impl<'a> ParBuilder<'a> {
                 .items()
                 .rev()
                 .find_map(|child| match child {
-                    FlowChild::Leading => None,
-                    FlowChild::Parbreak => None,
+                    FlowChild::Spacing(_) => None,
                     FlowChild::Node(node) => Some(node.is::<ParNode>()),
-                    FlowChild::Spacing(_) => Some(false),
                     FlowChild::Colbreak => Some(false),
                 })
                 .unwrap_or_default()
@@ -596,8 +643,7 @@ impl<'a> ParBuilder<'a> {
             children.push_front(ParChild::Spacing(indent.into()));
         }
 
-        let node = ParNode(children).pack();
-        parent.flow.0.supportive(FlowChild::Node(node), shared);
+        parent.flow.par(ParNode(children), shared, !indent.is_zero());
     }
 
     fn is_empty(&self) -> bool {
@@ -611,19 +657,24 @@ struct ListBuilder<'a> {
     items: StyleVecBuilder<'a, ListItem>,
     /// Whether the list contains no paragraph breaks.
     tight: bool,
+    /// Whether the list can be attached.
+    attachable: bool,
     /// Trailing content for which it is unclear whether it is part of the list.
     staged: Vec<(&'a Content, StyleChain<'a>)>,
 }
 
 impl<'a> ListBuilder<'a> {
     fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) -> bool {
+        if self.items.is_empty() {
+            match content {
+                Content::Space => {}
+                Content::Item(_) => {}
+                Content::Parbreak => self.attachable = false,
+                _ => self.attachable = true,
+            }
+        }
+
         match content {
-            Content::Space if !self.items.is_empty() => {
-                self.staged.push((content, styles));
-            }
-            Content::Parbreak if !self.items.is_empty() => {
-                self.staged.push((content, styles));
-            }
             Content::Item(item)
                 if self
                     .items
@@ -633,6 +684,9 @@ impl<'a> ListBuilder<'a> {
             {
                 self.items.push(item.clone(), styles);
                 self.tight &= self.staged.drain(..).all(|(t, _)| *t != Content::Parbreak);
+            }
+            Content::Space | Content::Parbreak if !self.items.is_empty() => {
+                self.staged.push((content, styles));
             }
             _ => return false,
         }
@@ -647,10 +701,17 @@ impl<'a> ListBuilder<'a> {
             None => return Ok(()),
         };
 
+        let start = 1;
         let tight = self.tight;
+        let attached = tight && self.attachable;
+
         let content = match kind {
-            UNORDERED => Content::show(ListNode::<UNORDERED> { start: 1, tight, items }),
-            ORDERED | _ => Content::show(ListNode::<ORDERED> { start: 1, tight, items }),
+            UNORDERED => {
+                Content::show(ListNode::<UNORDERED> { start, tight, attached, items })
+            }
+            ORDERED | _ => {
+                Content::show(ListNode::<ORDERED> { start, tight, attached, items })
+            }
         };
 
         let stored = parent.scratch.templates.alloc(content);
@@ -659,6 +720,8 @@ impl<'a> ListBuilder<'a> {
         for (content, styles) in self.staged {
             parent.accept(content, styles)?;
         }
+
+        parent.list.attachable = true;
 
         Ok(())
     }
@@ -673,6 +736,7 @@ impl Default for ListBuilder<'_> {
         Self {
             items: StyleVecBuilder::default(),
             tight: true,
+            attachable: true,
             staged: vec![],
         }
     }

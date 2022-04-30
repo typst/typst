@@ -165,8 +165,8 @@ pub struct PagebreakNode;
 #[node]
 impl PagebreakNode {
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
-        let soft = args.named("soft")?.unwrap_or(false);
-        Ok(Content::Pagebreak(soft))
+        let weak = args.named("weak")?.unwrap_or(false);
+        Ok(Content::Pagebreak { weak })
     }
 }
 

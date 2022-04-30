@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::sync::Arc;
 
 use unicode_bidi::{BidiInfo, Level};
@@ -15,12 +16,12 @@ use crate::util::{EcoString, MaybeShared};
 pub struct ParNode(pub StyleVec<ParChild>);
 
 /// A uniformly styled atomic piece of a paragraph.
-#[derive(Hash)]
+#[derive(Hash, PartialEq)]
 pub enum ParChild {
     /// A chunk of text.
     Text(EcoString),
-    /// A smart quote, may be single (`false`) or double (`true`).
-    Quote(bool),
+    /// A single or double smart quote.
+    Quote { double: bool },
     /// Horizontal spacing between other children.
     Spacing(Spacing),
     /// An arbitrary inline-level node.
@@ -34,10 +35,12 @@ impl ParNode {
     pub const LEADING: RawLength = Em::new(0.65).into();
     /// The extra spacing between paragraphs.
     #[property(resolve)]
-    pub const SPACING: RawLength = Em::new(0.55).into();
+    pub const SPACING: RawLength = Em::new(1.2).into();
     /// The indent the first line of a consecutive paragraph should have.
     #[property(resolve)]
     pub const INDENT: RawLength = RawLength::zero();
+    /// Whether to allow paragraph spacing when there is paragraph indent.
+    pub const SPACING_AND_INDENT: bool = false;
 
     /// How to align text and inline objects in their line.
     #[property(resolve)]
@@ -50,10 +53,13 @@ impl ParNode {
 
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         // The paragraph constructor is special: It doesn't create a paragraph
-        // since that happens automatically through markup. Instead, it just
-        // lifts the passed body to the block level so that it won't merge with
-        // adjacent stuff and it styles the contained paragraphs.
-        Ok(Content::Block(args.expect("body")?))
+        // node. Instead, it just ensures that the passed content lives is in a
+        // separate paragraph and styles it.
+        Ok(Content::sequence(vec![
+            Content::Parbreak,
+            args.expect("body")?,
+            Content::Parbreak,
+        ]))
     }
 }
 
@@ -91,9 +97,18 @@ impl Debug for ParChild {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::Text(text) => write!(f, "Text({:?})", text),
-            Self::Quote(double) => write!(f, "Quote({})", double),
+            Self::Quote { double } => write!(f, "Quote({double})"),
             Self::Spacing(kind) => write!(f, "{:?}", kind),
             Self::Node(node) => node.fmt(f),
+        }
+    }
+}
+
+impl PartialOrd for ParChild {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        match (self, other) {
+            (Self::Spacing(a), Self::Spacing(b)) => a.partial_cmp(b),
+            _ => None,
         }
     }
 }
@@ -169,7 +184,7 @@ pub struct LinebreakNode;
 impl LinebreakNode {
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         let justified = args.named("justified")?.unwrap_or(false);
-        Ok(Content::Linebreak(justified))
+        Ok(Content::Linebreak { justified })
     }
 }
 
@@ -432,7 +447,7 @@ fn collect<'a>(
                 }
                 Segment::Text(full.len() - prev)
             }
-            ParChild::Quote(double) => {
+            ParChild::Quote { double } => {
                 let prev = full.len();
                 if styles.get(TextNode::SMART_QUOTES) {
                     let lang = styles.get(TextNode::LANG);
@@ -440,7 +455,7 @@ fn collect<'a>(
                     let quotes = Quotes::from_lang(lang, region);
                     let peeked = iter.peek().and_then(|(child, _)| match child {
                         ParChild::Text(text) => text.chars().next(),
-                        ParChild::Quote(_) => Some('"'),
+                        ParChild::Quote { .. } => Some('"'),
                         ParChild::Spacing(_) => Some(SPACING_REPLACE),
                         ParChild::Node(_) => Some(NODE_REPLACE),
                     });

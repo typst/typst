@@ -1,4 +1,4 @@
-use crate::library::layout::{GridNode, TrackSizing};
+use crate::library::layout::{BlockSpacing, GridNode, TrackSizing};
 use crate::library::prelude::*;
 
 /// A table of items.
@@ -15,15 +15,23 @@ pub struct TableNode {
 #[node(showable)]
 impl TableNode {
     /// The primary cell fill color.
+    #[property(shorthand(fill))]
     pub const PRIMARY: Option<Paint> = None;
     /// The secondary cell fill color.
+    #[property(shorthand(fill))]
     pub const SECONDARY: Option<Paint> = None;
     /// How to stroke the cells.
     #[property(resolve, fold)]
     pub const STROKE: Option<RawStroke> = Some(RawStroke::default());
-
     /// How much to pad the cells's content.
     pub const PADDING: Relative<RawLength> = Length::pt(5.0).into();
+
+    /// The spacing above the table.
+    #[property(resolve, shorthand(around))]
+    pub const ABOVE: Option<BlockSpacing> = Some(Ratio::one().into());
+    /// The spacing below the table.
+    #[property(resolve, shorthand(around))]
+    pub const BELOW: Option<BlockSpacing> = Some(Ratio::one().into());
 
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         let columns = args.named("columns")?.unwrap_or_default();
@@ -39,16 +47,6 @@ impl TableNode {
             ),
             cells: args.all()?,
         }))
-    }
-
-    fn set(args: &mut Args) -> TypResult<StyleMap> {
-        let mut styles = StyleMap::new();
-        let fill = args.named("fill")?;
-        styles.set_opt(Self::PRIMARY, args.named("primary")?.or(fill));
-        styles.set_opt(Self::SECONDARY, args.named("secondary")?.or(fill));
-        styles.set_opt(Self::STROKE, args.named("stroke")?);
-        styles.set_opt(Self::PADDING, args.named("padding")?);
-        Ok(styles)
     }
 }
 
@@ -98,5 +96,14 @@ impl Show for TableNode {
             gutter: self.gutter.clone(),
             cells,
         }))
+    }
+
+    fn finalize(
+        &self,
+        _: &mut Context,
+        styles: StyleChain,
+        realized: Content,
+    ) -> TypResult<Content> {
+        Ok(realized.spaced(styles.get(Self::ABOVE), styles.get(Self::BELOW)))
     }
 }

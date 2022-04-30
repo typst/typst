@@ -588,9 +588,8 @@ pub enum NodeKind {
     Space(usize),
     /// A consecutive non-markup string.
     Text(EcoString),
-    /// A forced line break. If `true` (`\`), the preceding line can still be
-    /// justified, if `false` (`\+`) not.
-    Linebreak(bool),
+    /// A forced line break: `\` or `\+` if justified.
+    Linebreak { justified: bool },
     /// A non-breaking space: `~`.
     NonBreakingSpace,
     /// A soft hyphen: `-?`.
@@ -601,8 +600,8 @@ pub enum NodeKind {
     EmDash,
     /// An ellipsis: `...`.
     Ellipsis,
-    /// A smart quote: `'` (`false`) or `"` (true).
-    Quote(bool),
+    /// A smart quote: `'` or `"`.
+    Quote { double: bool },
     /// A slash and the letter "u" followed by a hexadecimal unicode entity
     /// enclosed in curly braces: `\u{1F5FA}`.
     Escape(char),
@@ -773,13 +772,13 @@ impl NodeKind {
     pub fn only_in_mode(&self) -> Option<TokenMode> {
         match self {
             Self::Markup(_)
-            | Self::Linebreak(_)
+            | Self::Linebreak { .. }
             | Self::Text(_)
             | Self::NonBreakingSpace
             | Self::EnDash
             | Self::EmDash
             | Self::Ellipsis
-            | Self::Quote(_)
+            | Self::Quote { .. }
             | Self::Escape(_)
             | Self::Strong
             | Self::Emph
@@ -867,16 +866,16 @@ impl NodeKind {
             Self::Markup(_) => "markup",
             Self::Space(2 ..) => "paragraph break",
             Self::Space(_) => "space",
-            Self::Linebreak(false) => "linebreak",
-            Self::Linebreak(true) => "justified linebreak",
+            Self::Linebreak { justified: false } => "linebreak",
+            Self::Linebreak { justified: true } => "justified linebreak",
             Self::Text(_) => "text",
             Self::NonBreakingSpace => "non-breaking space",
             Self::Shy => "soft hyphen",
             Self::EnDash => "en dash",
             Self::EmDash => "em dash",
             Self::Ellipsis => "ellipsis",
-            Self::Quote(false) => "single quote",
-            Self::Quote(true) => "double quote",
+            Self::Quote { double: false } => "single quote",
+            Self::Quote { double: true } => "double quote",
             Self::Escape(_) => "escape sequence",
             Self::Strong => "strong content",
             Self::Emph => "emphasized content",
@@ -993,14 +992,14 @@ impl Hash for NodeKind {
             Self::From => {}
             Self::Markup(c) => c.hash(state),
             Self::Space(n) => n.hash(state),
-            Self::Linebreak(s) => s.hash(state),
+            Self::Linebreak { justified } => justified.hash(state),
             Self::Text(s) => s.hash(state),
             Self::NonBreakingSpace => {}
             Self::Shy => {}
             Self::EnDash => {}
             Self::EmDash => {}
             Self::Ellipsis => {}
-            Self::Quote(d) => d.hash(state),
+            Self::Quote { double } => double.hash(state),
             Self::Escape(c) => c.hash(state),
             Self::Strong => {}
             Self::Emph => {}

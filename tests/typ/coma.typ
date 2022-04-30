@@ -6,10 +6,11 @@ Sekretariat MA \
 Dr. Max Mustermann \
 Ola Nordmann, John Doe
 
-#v(2mm)
+#v(3mm)
 #align(center)[
-  ==== 3. Übungsblatt Computerorientierte Mathematik II #v(1mm)
-  *Abgabe: 03.05.2019* (bis 10:10 Uhr in MA 001) #v(1mm)
+  #set par(leading: 3mm)
+  #text(1.2em)[*3. Übungsblatt Computerorientierte Mathematik II*] \
+  *Abgabe: 03.05.2019* (bis 10:10 Uhr in MA 001) \
   *Alle Antworten sind zu beweisen.*
 ]
 

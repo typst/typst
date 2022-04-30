@@ -141,8 +141,8 @@ impl<'s> Tokens<'s> {
             '~' => NodeKind::NonBreakingSpace,
             '-' => self.hyph(),
             '.' if self.s.eat_if("..") => NodeKind::Ellipsis,
-            '\'' => NodeKind::Quote(false),
-            '"' => NodeKind::Quote(true),
+            '\'' => NodeKind::Quote { double: false },
+            '"' => NodeKind::Quote { double: true },
             '*' if !self.in_word() => NodeKind::Star,
             '_' if !self.in_word() => NodeKind::Underscore,
             '`' => self.raw(),
@@ -266,7 +266,7 @@ impl<'s> Tokens<'s> {
     fn backslash(&mut self) -> NodeKind {
         let c = match self.s.peek() {
             Some(c) => c,
-            None => return NodeKind::Linebreak(false),
+            None => return NodeKind::Linebreak { justified: false },
         };
 
         match c {
@@ -300,10 +300,10 @@ impl<'s> Tokens<'s> {
             }
 
             // Linebreaks.
-            c if c.is_whitespace() => NodeKind::Linebreak(false),
+            c if c.is_whitespace() => NodeKind::Linebreak { justified: false },
             '+' => {
                 self.s.expect(c);
-                NodeKind::Linebreak(true)
+                NodeKind::Linebreak { justified: true }
             }
 
             // Just the backslash.
@@ -839,7 +839,7 @@ mod tests {
         t!(Markup[" /"]: "hello-world" => Text("hello-world"));
 
         // Test code symbols in text.
-        t!(Markup[" /"]: "a():\"b" => Text("a():"), Quote(true), Text("b"));
+        t!(Markup[" /"]: "a():\"b" => Text("a():"), Quote { double: true }, Text("b"));
         t!(Markup[" /"]: ";:,|/+"  => Text(";:,|"), Text("/+"));
         t!(Markup[" /"]: "=-a"     => Eq, Minus, Text("a"));
         t!(Markup[" "]: "#123"     => Text("#"), Text("123"));
@@ -893,8 +893,8 @@ mod tests {
         t!(Markup: "_"          => Underscore);
         t!(Markup[""]: "==="    => Eq, Eq, Eq);
         t!(Markup["a1/"]: "= "  => Eq, Space(0));
-        t!(Markup[" "]: r"\"    => Linebreak(false));
-        t!(Markup[" "]: r"\+"   => Linebreak(true));
+        t!(Markup[" "]: r"\"    => Linebreak { justified: false });
+        t!(Markup[" "]: r"\+"   => Linebreak { justified: true });
         t!(Markup: "~"          => NonBreakingSpace);
         t!(Markup["a1/"]: "-?"  => Shy);
         t!(Markup["a "]: r"a--" => Text("a"), EnDash);

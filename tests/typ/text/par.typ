@@ -6,35 +6,44 @@
 To the right! Where the sunlight peeks behind the mountain.
 
 ---
-// Test that explicit paragraph break respects active styles.
-#set par(spacing: 0pt)
-[#set par(spacing: 100pt);First]
-
-[#set par(spacing: 100pt);Second]
-#set par(spacing: 13.5pt)
-
-Third
-
----
-// Test that paragraph spacing uses correct set rule.
-Hello
-
-#set par(spacing: 100pt)
-World
-#set par(spacing: 0pt, leading: 0pt)
-
-You
-
----
-// Test that paragraphs break due to incompatibility has correct spacing.
-A #set par(spacing: 0pt, leading: 0pt); B #parbreak() C
-
----
-// Test weird metrics.
-#set par(spacing: 1em, leading: 0pt)
+// Test changing leading and spacing.
+#set par(spacing: 1em, leading: 2pt)
 But, soft! what light through yonder window breaks?
 
 It is the east, and Juliet is the sun.
+
+---
+// Test that largest paragraph spacing wins.
+#set par(spacing: 2.5pt)
+[#set par(spacing: 15pt);First]
+[#set par(spacing: 7.5pt);Second]
+Third
+
+Fourth
+
+---
+// Test that paragraph spacing loses against block spacing.
+#set par(spacing: 100pt)
+#set table(around: 5pt)
+Hello
+#table(columns: 4, secondary: silver)[A][B][C][D]
+
+---
+// While we're at it, test the larger block spacing wins.
+#set raw(around: 15pt)
+#set math(around: 7.5pt)
+#set list(around: 2.5pt)
+#set par(spacing: 0pt)
+
+```rust
+fn main() {}
+```
+
+$[ x + y = z ]$
+
+- List
+
+Paragraph
 
 ---
 // Error: 17-20 must be horizontal

@@ -13,9 +13,15 @@ pub struct AlignNode {
 #[node]
 impl AlignNode {
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
-        let aligns: Spec<_> = args.find()?.unwrap_or_default();
-        let body: LayoutNode = args.expect("body")?;
-        Ok(Content::block(body.aligned(aligns)))
+        let aligns: Spec<Option<RawAlign>> = args.find()?.unwrap_or_default();
+        let body: Content = args.expect("body")?;
+        Ok(match (body, aligns) {
+            (Content::Block(node), _) => Content::Block(node.aligned(aligns)),
+            (other, Spec { x: Some(x), y: None }) => {
+                other.styled(ParNode::ALIGN, HorizontalAlign(x))
+            }
+            (other, _) => Content::Block(other.pack().aligned(aligns)),
+        })
     }
 }
 

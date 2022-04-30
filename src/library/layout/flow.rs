@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use super::{AlignNode, PlaceNode, Spacing};
 use crate::library::prelude::*;
 use crate::library::text::ParNode;
@@ -10,18 +12,14 @@ use crate::library::text::ParNode;
 pub struct FlowNode(pub StyleVec<FlowChild>);
 
 /// A child of a flow node.
-#[derive(Hash)]
+#[derive(Hash, PartialEq)]
 pub enum FlowChild {
-    /// Leading between other children.
-    Leading,
-    /// A paragraph / block break.
-    Parbreak,
-    /// A column / region break.
-    Colbreak,
     /// Vertical spacing between other children.
     Spacing(Spacing),
     /// An arbitrary block-level node.
     Node(LayoutNode),
+    /// A column / region break.
+    Colbreak,
 }
 
 impl Layout for FlowNode {
@@ -36,24 +34,14 @@ impl Layout for FlowNode {
         for (child, map) in self.0.iter() {
             let styles = map.chain(&styles);
             match child {
-                FlowChild::Leading => {
-                    let amount = styles.get(ParNode::LEADING);
-                    layouter.layout_spacing(amount.into(), styles);
-                }
-                FlowChild::Parbreak => {
-                    let leading = styles.get(ParNode::LEADING);
-                    let spacing = styles.get(ParNode::SPACING);
-                    let amount = leading + spacing;
-                    layouter.layout_spacing(amount.into(), styles);
-                }
-                FlowChild::Colbreak => {
-                    layouter.finish_region();
-                }
                 FlowChild::Spacing(kind) => {
                     layouter.layout_spacing(*kind, styles);
                 }
                 FlowChild::Node(ref node) => {
                     layouter.layout_node(ctx, node, styles)?;
+                }
+                FlowChild::Colbreak => {
+                    layouter.finish_region();
                 }
             }
         }
@@ -72,11 +60,18 @@ impl Debug for FlowNode {
 impl Debug for FlowChild {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Self::Leading => f.pad("Leading"),
-            Self::Parbreak => f.pad("Parbreak"),
-            Self::Colbreak => f.pad("Colbreak"),
             Self::Spacing(kind) => write!(f, "{:?}", kind),
             Self::Node(node) => node.fmt(f),
+            Self::Colbreak => f.pad("Colbreak"),
+        }
+    }
+}
+
+impl PartialOrd for FlowChild {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        match (self, other) {
+            (Self::Spacing(a), Self::Spacing(b)) => a.partial_cmp(b),
+            _ => None,
         }
     }
 }

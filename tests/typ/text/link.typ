@@ -25,11 +25,11 @@ You could also make the
 #set page(height: 60pt)
 #set link(underline: false)
 #let mylink = link("https://typst.app/")[LINK]
-My cool #move(x: 0.7cm, y: 0.7cm, rotate(10deg, scale(200%, mylink)))
+My cool #move(dx: 0.7cm, dy: 0.7cm, rotate(10deg, scale(200%, mylink)))
 
 ---
 // Link containing a block.
 #link("https://example.com/", underline: false, block[
   My cool rhino
-  #move(x: 10pt, image("../../res/rhino.png", width: 1cm))
+  #move(dx: 10pt, image("../../res/rhino.png", width: 1cm))
 ])

@@ -2,14 +2,14 @@
 
 ---
 // Test basic call.
-#lipsum(19)
+#lorem(19)
 
 ---
 // Test custom paragraphs with user code.
 #set text(8pt)
 
 {
-  let sentences = lipsum(59)
+  let sentences = lorem(59)
     .split(".")
     .filter(s => s != "")
     .map(s => s + ".")
@@ -28,5 +28,5 @@
 }
 
 ---
-// Error: 8-10 missing argument: number of words
-#lipsum()
+// Error: 7-9 missing argument: number of words
+#lorem()

@@ -4,6 +4,7 @@ use syntect::highlighting::{FontStyle, Highlighter, Style, Theme, ThemeSet};
 use syntect::parsing::SyntaxSet;
 
 use super::{FontFamily, Hyphenate, TextNode, Toggle};
+use crate::library::layout::BlockSpacing;
 use crate::library::prelude::*;
 use crate::source::SourceId;
 use crate::syntax::{self, RedNode};
@@ -26,13 +27,20 @@ pub struct RawNode {
 
 #[node(showable)]
 impl RawNode {
+    /// The language to syntax-highlight in.
+    #[property(referenced)]
+    pub const LANG: Option<EcoString> = None;
+
     /// The raw text's font family. Just the normal text family if `none`.
     #[property(referenced)]
     pub const FAMILY: Smart<FontFamily> = Smart::Custom(FontFamily::new("IBM Plex Mono"));
 
-    /// The language to syntax-highlight in.
-    #[property(referenced)]
-    pub const LANG: Option<EcoString> = None;
+    /// The spacing above block-level raw.
+    #[property(resolve, shorthand(around))]
+    pub const ABOVE: Option<BlockSpacing> = Some(Ratio::one().into());
+    /// The spacing below block-level raw.
+    #[property(resolve, shorthand(around))]
+    pub const BELOW: Option<BlockSpacing> = Some(Ratio::one().into());
 
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         Ok(Content::show(Self {
@@ -59,7 +67,7 @@ impl Show for RawNode {
             .unwrap_or(Color::BLACK)
             .into();
 
-        if matches!(
+        let mut realized = if matches!(
             lang.map(|s| s.to_lowercase()).as_deref(),
             Some("typ" | "typst")
         ) {
@@ -72,7 +80,7 @@ impl Show for RawNode {
                 seq.push(styled(&self.text[range], foreground, style));
             });
 
-            Ok(Content::sequence(seq))
+            Content::sequence(seq)
         } else if let Some(syntax) =
             lang.and_then(|token| SYNTAXES.find_syntax_by_token(&token))
         {
@@ -80,7 +88,7 @@ impl Show for RawNode {
             let mut highlighter = HighlightLines::new(syntax, &THEME);
             for (i, line) in self.text.lines().enumerate() {
                 if i != 0 {
-                    seq.push(Content::Linebreak(false));
+                    seq.push(Content::Linebreak { justified: false });
                 }
 
                 for (style, piece) in highlighter.highlight(line, &SYNTAXES) {
@@ -88,10 +96,16 @@ impl Show for RawNode {
                 }
             }
 
-            Ok(Content::sequence(seq))
+            Content::sequence(seq)
         } else {
-            Ok(Content::Text(self.text.clone()))
+            Content::Text(self.text.clone())
+        };
+
+        if self.block {
+            realized = Content::block(realized);
         }
+
+        Ok(realized)
     }
 
     fn finalize(
@@ -109,13 +123,11 @@ impl Show for RawNode {
             map.set_family(family.clone(), styles);
         }
 
-        realized = realized.styled_with_map(map);
-
         if self.block {
-            realized = Content::block(realized);
+            realized = realized.spaced(styles.get(Self::ABOVE), styles.get(Self::BELOW));
         }
 
-        Ok(realized)
+        Ok(realized.styled_with_map(map))
     }
 }
 

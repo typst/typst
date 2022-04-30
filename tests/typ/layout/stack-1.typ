@@ -19,24 +19,16 @@
 #stack(dir: btt, ..items)
 
 ---
-// Test RTL alignment.
-#set page(width: 50pt, margins: 5pt)
-#set text(8pt)
-#stack(dir: rtl,
-  align(center, [A]),
-  align(left, [B]),
-  [C],
-)
-
----
 // Test spacing.
 #set page(width: 50pt, margins: 0pt)
-#set par(leading: 5pt)
 
 #let x = square(size: 10pt, fill: eastern)
-#stack(dir: rtl, spacing: 5pt, x, x, x)
-#stack(dir: ltr, x, 20%, x, 20%, x)
-#stack(dir: ltr, spacing: 5pt, x, x, 7pt, 3pt, x)
+#stack(
+  spacing: 5pt,
+  stack(dir: rtl, spacing: 5pt, x, x, x),
+  stack(dir: ltr, x, 20%, x, 20%, x),
+  stack(dir: ltr, spacing: 5pt, x, x, 7pt, 3pt, x),
+)
 
 ---
 // Test overflow.
@@ -45,3 +37,15 @@
   rect(width: 40pt, height: 20pt, fill: conifer),
   rect(width: 30pt, height: 13pt, fill: forest),
 ))
+
+---
+// Test aligning things in RTL stack with align function & fr units.
+#set page(width: 50pt, margins: 5pt)
+#set text(8pt)
+#stack(dir: rtl, 1fr, [A], 1fr, [B], [C])
+#v(5pt)
+#stack(dir: rtl,
+  align(center, [A]),
+  align(left, [B]),
+  [C],
+)

@@ -39,7 +39,8 @@
 // Test label closure.
 #enum(
    start: 4,
-   spacing: -3pt,
+   spacing: 0.65em - 3pt,
+   tight: false,
    label: n => text(fill: (red, green, blue)(mod(n, 3)), [#upper(letter(n))]),
    [Red], [Green], [Blue],
 )

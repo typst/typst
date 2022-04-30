@@ -1,14 +1,13 @@
 // Test headings.
 
 ---
-// Different number of hashtags.
+// Different number of equals signs.
 
-// Valid levels.
 = Level 1
-=== Level 2
-====== Level 6
+== Level 2
+=== Level 3
 
-// At some point, it should stop shrinking.
+// After three, it stops shrinking.
 =========== Level 11
 
 ---

@@ -1,8 +1,8 @@
 // Test the `h` and `v` functions.
 
 ---
-// Linebreak and v(0pt) are equivalent.
-#box[A \ B] #box[A #v(0pt) B]
+// Linebreak and leading-sized weak spacing are equivalent.
+#box[A \ B] #box[A #v(0.65em, weak: true) B]
 
 // Eating up soft spacing.
 Inv#h(0pt)isible

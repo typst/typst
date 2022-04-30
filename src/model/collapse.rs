@@ -35,26 +35,37 @@ impl<'a, T> CollapsingBuilder<'a, T> {
     }
 
     /// Can only exist when there is at least one supportive item to its left
-    /// and to its right, with no destructive items or weak items in between to
-    /// its left and no destructive items in between to its right. There may be
+    /// and to its right, with no destructive items in between. There may be
     /// ignorant items in between in both directions.
-    pub fn weak(&mut self, item: T, strength: u8, styles: StyleChain<'a>) {
-        if self.last != Last::Destructive {
-            if self.last == Last::Weak {
-                if let Some(i) = self
-                    .staged
-                    .iter()
-                    .position(|(.., prev)| prev.map_or(false, |p| p < strength))
-                {
-                    self.staged.remove(i);
-                } else {
-                    return;
-                }
-            }
-
-            self.staged.push((item, styles, Some(strength)));
-            self.last = Last::Weak;
+    ///
+    /// Between weak items, there may be at least one per layer and among the
+    /// candidates the strongest one (smallest `weakness`) wins. When tied,
+    /// the one that compares larger through `PartialOrd` wins.
+    pub fn weak(&mut self, item: T, styles: StyleChain<'a>, weakness: u8)
+    where
+        T: PartialOrd,
+    {
+        if self.last == Last::Destructive {
+            return;
         }
+
+        if self.last == Last::Weak {
+            if let Some(i) =
+                self.staged.iter().position(|(prev_item, _, prev_weakness)| {
+                    prev_weakness.map_or(false, |prev_weakness| {
+                        weakness < prev_weakness
+                            || (weakness == prev_weakness && item > *prev_item)
+                    })
+                })
+            {
+                self.staged.remove(i);
+            } else {
+                return;
+            }
+        }
+
+        self.staged.push((item, styles, Some(weakness)));
+        self.last = Last::Weak;
     }
 
     /// Forces nearby weak items to collapse.
@@ -90,8 +101,8 @@ impl<'a, T> CollapsingBuilder<'a, T> {
     /// Push the staged items, filtering out weak items if `supportive` is
     /// false.
     fn flush(&mut self, supportive: bool) {
-        for (item, styles, strength) in self.staged.drain(..) {
-            if supportive || strength.is_none() {
+        for (item, styles, meta) in self.staged.drain(..) {
+            if supportive || meta.is_none() {
                 self.builder.push(item, styles);
             }
         }
@@ -101,5 +112,66 @@ impl<'a, T> CollapsingBuilder<'a, T> {
 impl<'a, T> Default for CollapsingBuilder<'a, T> {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::library::layout::FlowChild;
+    use crate::library::prelude::*;
+
+    #[track_caller]
+    fn test<T>(builder: CollapsingBuilder<T>, expected: &[T])
+    where
+        T: Debug + PartialEq,
+    {
+        let result = builder.finish().0;
+        let items: Vec<_> = result.items().collect();
+        let expected: Vec<_> = expected.iter().collect();
+        assert_eq!(items, expected);
+    }
+
+    fn node() -> FlowChild {
+        FlowChild::Node(Content::Text("Hi".into()).pack())
+    }
+
+    fn abs(pt: f64) -> FlowChild {
+        FlowChild::Spacing(Length::pt(pt).into())
+    }
+
+    #[test]
+    fn test_collapsing_weak() {
+        let mut builder = CollapsingBuilder::new();
+        let styles = StyleChain::default();
+        builder.weak(FlowChild::Colbreak, styles, 0);
+        builder.supportive(node(), styles);
+        builder.weak(abs(10.0), styles, 0);
+        builder.ignorant(FlowChild::Colbreak, styles);
+        builder.weak(abs(20.0), styles, 0);
+        builder.supportive(node(), styles);
+        builder.weak(abs(10.0), styles, 0);
+        builder.weak(abs(20.0), styles, 1);
+        builder.supportive(node(), styles);
+        test(builder, &[
+            node(),
+            FlowChild::Colbreak,
+            abs(20.0),
+            node(),
+            abs(10.0),
+            node(),
+        ]);
+    }
+
+    #[test]
+    fn test_collapsing_destructive() {
+        let mut builder = CollapsingBuilder::new();
+        let styles = StyleChain::default();
+        builder.supportive(node(), styles);
+        builder.weak(abs(10.0), styles, 0);
+        builder.destructive(FlowChild::Colbreak, styles);
+        builder.weak(abs(20.0), styles, 0);
+        builder.supportive(node(), styles);
+        test(builder, &[node(), FlowChild::Colbreak, node()]);
     }
 }

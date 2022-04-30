@@ -6,17 +6,17 @@
 
 ---
 // Typst syntax inside.
-`#let x = 1` \
-`#f(1)`
+```typ #let x = 1``` \
+```typ #f(1)```
 
 ---
 // Multiline block splits paragraphs.
 
-First
+Text
+```rust
+fn code() {}
 ```
-Second
-```
-Third
+Text
 
 ---
 // Lots of backticks inside.

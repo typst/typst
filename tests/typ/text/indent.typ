@@ -1,7 +1,7 @@
 // Test paragraph indent.
 
 ---
-#set par(indent: 12pt, leading: 5pt, spacing: 0pt)
+#set par(indent: 12pt, leading: 5pt)
 #set heading(size: 10pt, above: 8pt)
 
 The first paragraph has no indent.
@@ -26,3 +26,11 @@ starts a paragraph without indent.
 دع النص يمطر عليك
 
 ثم يصبح النص رطبًا وقابل للطرق ويبدو المستند رائعًا.
+
+
+---
+// This is madness.
+#set par(indent: 12pt, spacing-and-indent: true)
+Why would anybody ever ...
+
+... want spacing and indent?

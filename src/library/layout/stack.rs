@@ -1,5 +1,6 @@
 use super::{AlignNode, Spacing};
 use crate::library::prelude::*;
+use crate::library::text::ParNode;
 
 /// Arrange nodes and spacing along an axis.
 #[derive(Debug, Hash)]
@@ -180,7 +181,16 @@ impl<'a> StackLayouter<'a> {
             .downcast::<AlignNode>()
             .and_then(|node| node.aligns.get(self.axis))
             .map(|align| align.resolve(styles))
-            .unwrap_or(self.dir.start().into());
+            .unwrap_or_else(|| {
+                if let Some(Content::Styled(styled)) = node.downcast::<Content>() {
+                    let map = &styled.1;
+                    if map.contains(ParNode::ALIGN) {
+                        return StyleChain::with_root(&styled.1).get(ParNode::ALIGN);
+                    }
+                }
+
+                self.dir.start().into()
+            });
 
         let frames = node.layout(ctx, &self.regions, styles)?;
         let len = frames.len();

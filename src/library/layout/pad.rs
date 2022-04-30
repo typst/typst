@@ -13,12 +13,12 @@ pub struct PadNode {
 impl PadNode {
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         let all = args.find()?;
-        let hor = args.named("horizontal")?;
-        let ver = args.named("vertical")?;
-        let left = args.named("left")?.or(hor).or(all).unwrap_or_default();
-        let top = args.named("top")?.or(ver).or(all).unwrap_or_default();
-        let right = args.named("right")?.or(hor).or(all).unwrap_or_default();
-        let bottom = args.named("bottom")?.or(ver).or(all).unwrap_or_default();
+        let x = args.named("x")?;
+        let y = args.named("y")?;
+        let left = args.named("left")?.or(x).or(all).unwrap_or_default();
+        let top = args.named("top")?.or(y).or(all).unwrap_or_default();
+        let right = args.named("right")?.or(x).or(all).unwrap_or_default();
+        let bottom = args.named("bottom")?.or(y).or(all).unwrap_or_default();
         let body: LayoutNode = args.expect("body")?;
         let padding = Sides::new(left, top, right, bottom);
         Ok(Content::block(body.padded(padding)))

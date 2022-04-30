@@ -29,7 +29,7 @@ Some more text.
 Another text.
 
 ---
-#set heading(size: 1em, strong: false, block: false)
+#set heading(size: 1em, strong: false, around: none)
 #show _: heading as [B]
 A [= Heading] C
 

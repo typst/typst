@@ -1,4 +1,7 @@
+use std::cmp::Ordering;
+
 use crate::library::prelude::*;
+use crate::library::text::ParNode;
 
 /// Horizontal spacing.
 pub struct HNode;
@@ -6,7 +9,9 @@ pub struct HNode;
 #[node]
 impl HNode {
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
-        Ok(Content::Horizontal(args.expect("spacing")?))
+        let amount = args.expect("spacing")?;
+        let weak = args.named("weak")?.unwrap_or(false);
+        Ok(Content::Horizontal { amount, weak })
     }
 }
 
@@ -16,7 +21,9 @@ pub struct VNode;
 #[node]
 impl VNode {
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
-        Ok(Content::Vertical(args.expect("spacing")?))
+        let amount = args.expect("spacing")?;
+        let weak = args.named("weak")?.unwrap_or(false);
+        Ok(Content::Vertical { amount, weak, generated: false })
     }
 }
 
@@ -25,7 +32,8 @@ impl VNode {
 pub enum Spacing {
     /// Spacing specified in absolute terms and relative to the parent's size.
     Relative(Relative<RawLength>),
-    /// Spacing specified as a fraction of the remaining free space in the parent.
+    /// Spacing specified as a fraction of the remaining free space in the
+    /// parent.
     Fractional(Fraction),
 }
 
@@ -42,6 +50,16 @@ impl From<Length> for Spacing {
     }
 }
 
+impl PartialOrd for Spacing {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        match (self, other) {
+            (Self::Relative(a), Self::Relative(b)) => a.partial_cmp(b),
+            (Self::Fractional(a), Self::Fractional(b)) => a.partial_cmp(b),
+            _ => None,
+        }
+    }
+}
+
 castable! {
     Spacing,
     Expected: "relative length or fraction",
@@ -49,4 +67,25 @@ castable! {
     Value::Ratio(v) => Self::Relative(v.into()),
     Value::Relative(v) => Self::Relative(v),
     Value::Fraction(v) => Self::Fractional(v),
+}
+
+/// Spacing around and between block-level nodes, relative to paragraph spacing.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct BlockSpacing(Relative<RawLength>);
+
+castable!(BlockSpacing: Relative<RawLength>);
+
+impl Resolve for BlockSpacing {
+    type Output = Length;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        let whole = styles.get(ParNode::SPACING);
+        self.0.resolve(styles).relative_to(whole)
+    }
+}
+
+impl From<Ratio> for BlockSpacing {
+    fn from(ratio: Ratio) -> Self {
+        Self(ratio.into())
+    }
 }
