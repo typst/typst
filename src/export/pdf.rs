@@ -16,9 +16,9 @@ use ttf_parser::{name_id, GlyphId, Tag};
 
 use super::subset::subset;
 use crate::font::{find_name, FaceId, FontStore};
-use crate::frame::{Element, Frame, Geometry, Group, Shape, Text};
+use crate::frame::{rect_path, rect_paths, Element, Frame, Geometry, Group, Shape, Text};
 use crate::geom::{
-    self, Color, Em, Length, Numeric, Paint, Point, Size, Stroke, Transform,
+    self, Color, Em, Length, Numeric, Paint, Point, Sides, Size, Stroke, Transform,
 };
 use crate::image::{Image, ImageId, ImageStore, RasterImage};
 use crate::Context;
@@ -499,16 +499,16 @@ impl<'a> PageExporter<'a> {
     }
 
     fn write_shape(&mut self, x: f32, y: f32, shape: &Shape) {
-        if shape.fill.is_none() && shape.stroke.is_none() {
+        if shape.fill.is_none() && shape.stroke.iter().all(Option::is_none) {
             return;
         }
 
         match shape.geometry {
-            Geometry::Rect(size) => {
+            Geometry::Rect(size, radius) => {
                 let w = size.x.to_f32();
                 let h = size.y.to_f32();
                 if w > 0.0 && h > 0.0 {
-                    self.content.rect(x, y, w, h);
+                    self.write_path(x, y, &rect_path(size, radius));
                 }
             }
             Geometry::Ellipse(size) => {
@@ -530,16 +530,37 @@ impl<'a> PageExporter<'a> {
             self.set_fill(fill);
         }
 
-        if let Some(stroke) = shape.stroke {
-            self.set_stroke(stroke);
+        // The stroke does not exist or is non-uniform.
+        let mut use_stroke = false;
+        if shape.stroke.is_uniform() || !matches!(shape.geometry, Geometry::Rect(_, _)) {
+            if let Some(stroke) = shape.stroke.top {
+                self.set_stroke(stroke);
+                use_stroke = true;
+            }
         }
 
-        match (shape.fill, shape.stroke) {
-            (None, None) => unreachable!(),
-            (Some(_), None) => self.content.fill_nonzero(),
-            (None, Some(_)) => self.content.stroke(),
-            (Some(_), Some(_)) => self.content.fill_nonzero_and_stroke(),
+        match (shape.fill, use_stroke) {
+            (None, false) => self.content.end_path(),
+            (Some(_), false) => self.content.fill_nonzero(),
+            (None, true) => self.content.stroke(),
+            (Some(_), true) => self.content.fill_nonzero_and_stroke(),
         };
+
+        if let Geometry::Rect(size, radius) = shape.geometry {
+            if !use_stroke {
+                for (path, stroke) in rect_paths(size, radius, Some(shape.stroke)) {
+                    if let Some(stroke) = stroke {
+                        self.write_shape(x, y, &Shape {
+                            geometry: Geometry::Path(path),
+                            fill: None,
+                            stroke: Sides::splat(Some(stroke)),
+                        });
+                    } else {
+                        continue;
+                    }
+                }
+            }
+        }
     }
 
     fn write_path(&mut self, x: f32, y: f32, path: &geom::Path) {

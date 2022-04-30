@@ -1,11 +1,13 @@
 //! Finished layouts.
 
 use std::fmt::{self, Debug, Formatter, Write};
+use std::mem;
 use std::sync::Arc;
 
 use crate::font::FaceId;
 use crate::geom::{
-    Align, Em, Length, Numeric, Paint, Path, Point, Size, Spec, Stroke, Transform,
+    Align, Angle, Em, Get, Length, Numeric, Paint, Path, Point, Side, Sides, Size, Spec,
+    Stroke, Transform,
 };
 use crate::image::ImageId;
 use crate::util::{EcoString, MaybeShared};
@@ -306,7 +308,7 @@ pub struct Shape {
     /// The shape's background fill.
     pub fill: Option<Paint>,
     /// The shape's border stroke.
-    pub stroke: Option<Stroke>,
+    pub stroke: Sides<Option<Stroke>>,
 }
 
 /// A shape's geometry.
@@ -314,8 +316,8 @@ pub struct Shape {
 pub enum Geometry {
     /// A line to a point (relative to its position).
     Line(Point),
-    /// A rectangle with its origin in the topleft corner.
-    Rect(Size),
+    /// A rectangle with its origin in the topleft corner and a border radius.
+    Rect(Size, Sides<Length>),
     /// A ellipse with its origin in the topleft corner.
     Ellipse(Size),
     /// A bezier path.
@@ -328,7 +330,7 @@ impl Geometry {
         Shape {
             geometry: self,
             fill: Some(fill),
-            stroke: None,
+            stroke: Sides::splat(None),
         }
     }
 
@@ -337,7 +339,170 @@ impl Geometry {
         Shape {
             geometry: self,
             fill: None,
-            stroke: Some(stroke),
+            stroke: Sides::splat(Some(stroke)),
         }
     }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+enum Connection {
+    None,
+    Left,
+    Right,
+    Both,
+}
+
+impl Connection {
+    pub fn advance(self, right: bool) -> Self {
+        match self {
+            Self::Right | Self::Both => {
+                if right {
+                    Self::Both
+                } else {
+                    Self::Left
+                }
+            }
+            Self::Left | Self::None => {
+                if right {
+                    Self::Right
+                } else {
+                    Self::None
+                }
+            }
+        }
+    }
+
+    fn left(self) -> bool {
+        matches!(self, Self::Left | Self::Both)
+    }
+
+    fn right(self) -> bool {
+        matches!(self, Self::Right | Self::Both)
+    }
+}
+
+/// Draws one side of the rounded rectangle. Will always draw the left arc. The
+/// right arc will be drawn halfway iff there is no connection.
+fn draw_side(
+    path: &mut Path,
+    side: Side,
+    size: Size,
+    radius_left: Length,
+    radius_right: Length,
+    connection: Connection,
+) {
+    let reversed = |angle: Angle, radius, rotate, mirror_x, mirror_y| {
+        let [a, b, c, d] = angle.bezier_arc(radius, rotate, mirror_x, mirror_y);
+        [d, c, b, a]
+    };
+
+    let angle_left = Angle::deg(if connection.left() { 90.0 } else { 45.0 });
+    let angle_right = Angle::deg(if connection.right() { 90.0 } else { 45.0 });
+
+    let (arc1, arc2) = match side {
+        Side::Top => {
+            let arc1 = reversed(angle_left, radius_left, true, true, false)
+                .map(|x| x + Point::with_x(radius_left));
+            let arc2 = (-angle_right)
+                .bezier_arc(radius_right, true, true, false)
+                .map(|x| x + Point::with_x(size.x - radius_right));
+
+            (arc1, arc2)
+        }
+        Side::Right => {
+            let arc1 = reversed(-angle_left, radius_left, false, false, false)
+                .map(|x| x + Point::new(size.x, radius_left));
+
+            let arc2 = angle_right
+                .bezier_arc(radius_right, false, false, false)
+                .map(|x| x + Point::new(size.x, size.y - radius_right));
+
+            (arc1, arc2)
+        }
+        Side::Bottom => {
+            let arc1 = reversed(-angle_left, radius_left, true, false, false)
+                .map(|x| x + Point::new(size.x - radius_left, size.y));
+
+            let arc2 = angle_right
+                .bezier_arc(radius_right, true, false, false)
+                .map(|x| x + Point::new(radius_right, size.y));
+
+            (arc1, arc2)
+        }
+        Side::Left => {
+            let arc1 = reversed(angle_left, radius_left, false, false, true)
+                .map(|x| x + Point::with_y(size.y - radius_left));
+
+            let arc2 = (-angle_right)
+                .bezier_arc(radius_right, false, false, true)
+                .map(|x| x + Point::with_y(radius_right));
+
+            (arc1, arc2)
+        }
+    };
+
+    if !connection.left() {
+        path.move_to(if radius_left.is_zero() { arc1[3] } else { arc1[0] });
+    }
+
+    if !radius_left.is_zero() {
+        path.cubic_to(arc1[1], arc1[2], arc1[3]);
+    }
+
+    path.line_to(arc2[0]);
+
+    if !connection.right() && !radius_right.is_zero() {
+        path.cubic_to(arc2[1], arc2[2], arc2[3]);
+    }
+}
+
+pub fn rect_paths(
+    size: Size,
+    radius: Sides<Length>,
+    strokes: Option<Sides<Option<Stroke>>>,
+) -> Vec<(Path, Option<Stroke>)> {
+    let strokes = strokes.unwrap_or_else(|| Sides::splat(None));
+    let mut res = vec![];
+
+    let mut connection = Connection::None;
+    let mut path = Path::new();
+    let sides = [Side::Top, Side::Right, Side::Bottom, Side::Left];
+    let mut always_continuous = true;
+
+    let radius = [
+        radius.left,
+        radius.top,
+        radius.right,
+        radius.bottom,
+        radius.left,
+    ];
+
+    for (side, radius) in sides.into_iter().zip(radius.windows(2)) {
+        let stroke_continuity = strokes.get(side) == strokes.get(side.clockwise());
+        connection = connection.advance(stroke_continuity && side != Side::Left);
+        always_continuous &= stroke_continuity;
+
+        draw_side(&mut path, side, size, radius[0], radius[1], connection);
+
+        if !stroke_continuity {
+            res.push((mem::take(&mut path), strokes.get(side)));
+        }
+    }
+
+    if always_continuous {
+        path.close_path();
+    }
+
+    if !path.0.is_empty() {
+        res.push((path, strokes.left));
+    }
+
+    res
+}
+
+pub fn rect_path(size: Size, radius: Sides<Length>) -> Path {
+    let mut paths = rect_paths(size, radius, None);
+    assert_eq!(paths.len(), 1);
+
+    paths.pop().unwrap().0
 }

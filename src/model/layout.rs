@@ -353,7 +353,8 @@ impl Layout for FillNode {
     ) -> TypResult<Vec<Arc<Frame>>> {
         let mut frames = self.child.layout(ctx, regions, styles)?;
         for frame in &mut frames {
-            let shape = Geometry::Rect(frame.size).filled(self.fill);
+            let shape = Geometry::Rect(frame.size, Sides::splat(Length::zero()))
+                .filled(self.fill);
             Arc::make_mut(frame).prepend(Point::zero(), Element::Shape(shape));
         }
         Ok(frames)
@@ -378,7 +379,8 @@ impl Layout for StrokeNode {
     ) -> TypResult<Vec<Arc<Frame>>> {
         let mut frames = self.child.layout(ctx, regions, styles)?;
         for frame in &mut frames {
-            let shape = Geometry::Rect(frame.size).stroked(self.stroke);
+            let shape = Geometry::Rect(frame.size, Sides::splat(Length::zero()))
+                .stroked(self.stroke);
             Arc::make_mut(frame).prepend(Point::zero(), Element::Shape(shape));
         }
         Ok(frames)

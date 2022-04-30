@@ -459,6 +459,22 @@ where
     }
 }
 
+impl<T> Fold for Sides<Option<T>>
+where
+    T: Default,
+{
+    type Output = Sides<T>;
+
+    fn fold(self, outer: Self::Output) -> Self::Output {
+        Sides {
+            left: self.left.unwrap_or(outer.left),
+            right: self.right.unwrap_or(outer.right),
+            top: self.top.unwrap_or(outer.top),
+            bottom: self.bottom.unwrap_or(outer.bottom),
+        }
+    }
+}
+
 /// A scoped property barrier.
 ///
 /// Barriers interact with [scoped](StyleMap::scoped) styles: A scoped style

@@ -24,6 +24,30 @@ impl Transform {
         }
     }
 
+    /// Transform by mirroring along the x-axis.
+    pub fn mirror_x() -> Self {
+        Self {
+            sx: Ratio::one(),
+            ky: Ratio::zero(),
+            kx: Ratio::zero(),
+            sy: -Ratio::one(),
+            tx: Length::zero(),
+            ty: Length::zero(),
+        }
+    }
+
+    /// Transform by mirroring along the y-axis.
+    pub fn mirror_y() -> Self {
+        Self {
+            sx: -Ratio::one(),
+            ky: Ratio::zero(),
+            kx: Ratio::zero(),
+            sy: Ratio::one(),
+            tx: Length::zero(),
+            ty: Length::zero(),
+        }
+    }
+
     /// A translate transform.
     pub const fn translate(tx: Length, ty: Length) -> Self {
         Self { tx, ty, ..Self::identity() }

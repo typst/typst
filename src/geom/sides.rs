@@ -31,6 +31,32 @@ impl<T> Sides<T> {
             bottom: value,
         }
     }
+
+    /// Maps the individual fields with `f`.
+    pub fn map<F, U>(self, mut f: F) -> Sides<U>
+    where
+        F: FnMut(T) -> U,
+    {
+        Sides {
+            left: f(self.left),
+            top: f(self.top),
+            right: f(self.right),
+            bottom: f(self.bottom),
+        }
+    }
+
+    /// Returns an iterator over the sides.
+    pub fn iter(&self) -> impl Iterator<Item = &T> {
+        [&self.left, &self.top, &self.right, &self.bottom].into_iter()
+    }
+
+    /// Returns whether all sides are equal.
+    pub fn is_uniform(&self) -> bool
+    where
+        T: PartialEq,
+    {
+        self.left == self.top && self.top == self.right && self.right == self.bottom
+    }
 }
 
 impl<T> Sides<T>
@@ -98,6 +124,26 @@ impl Side {
             Self::Top => Self::Bottom,
             Self::Right => Self::Left,
             Self::Bottom => Self::Top,
+        }
+    }
+
+    /// The next side, clockwise.
+    pub fn clockwise(self) -> Self {
+        match self {
+            Self::Left => Self::Top,
+            Self::Top => Self::Right,
+            Self::Right => Self::Bottom,
+            Self::Bottom => Self::Left,
+        }
+    }
+
+    /// The next side, counter-clockwise.
+    pub fn counter_clockwise(self) -> Self {
+        match self {
+            Self::Left => Self::Bottom,
+            Self::Top => Self::Left,
+            Self::Right => Self::Top,
+            Self::Bottom => Self::Right,
         }
     }
 }

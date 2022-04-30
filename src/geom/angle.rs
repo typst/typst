@@ -64,6 +64,51 @@ impl Angle {
     pub fn cos(self) -> f64 {
         self.to_rad().cos()
     }
+
+    /// Get the control points for a bezier curve that describes a circular arc
+    /// of this angle with the given radius.
+    pub fn bezier_arc(
+        self,
+        radius: Length,
+        rotate: bool,
+        mirror_x: bool,
+        mirror_y: bool,
+    ) -> [Point; 4] {
+        let end = Point::new(self.cos() * radius - radius, self.sin() * radius);
+        let center = Point::new(-radius, Length::zero());
+
+        let mut ts = if mirror_y {
+            Transform::mirror_y()
+        } else {
+            Transform::identity()
+        };
+
+        if mirror_x {
+            ts = ts.pre_concat(Transform::mirror_x());
+        }
+
+        if rotate {
+            ts = ts.pre_concat(Transform::rotate(Angle::deg(90.0)));
+        }
+
+        let a = center * -1.0;
+        let b = end - center;
+
+        let q1 = a.x.to_raw() * a.x.to_raw() + a.y.to_raw() * a.y.to_raw();
+        let q2 = q1 + a.x.to_raw() * b.x.to_raw() + a.y.to_raw() * b.y.to_raw();
+        let k2 = (4.0 / 3.0) * ((2.0 * q1 * q2).sqrt() - q2)
+            / (a.x.to_raw() * b.y.to_raw() - a.y.to_raw() * b.x.to_raw());
+
+        let control_1 = Point::new(center.x + a.x - k2 * a.y, center.y + a.y + k2 * a.x);
+        let control_2 = Point::new(center.x + b.x + k2 * b.y, center.y + b.y - k2 * b.x);
+
+        [
+            Point::zero(),
+            control_1.transform(ts),
+            control_2.transform(ts),
+            end.transform(ts),
+        ]
+    }
 }
 
 impl Numeric for Angle {
