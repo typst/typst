@@ -8,7 +8,7 @@ use std::sync::Arc;
 use super::{Content, Show, ShowNode};
 use crate::diag::{At, TypResult};
 use crate::eval::{Args, Func, Node, Smart, Value};
-use crate::geom::{Numeric, Relative, Sides, Spec};
+use crate::geom::{Length, Numeric, Relative, Sides, Spec};
 use crate::library::layout::PageNode;
 use crate::library::structure::{EnumNode, ListNode};
 use crate::library::text::{FontFamily, ParNode, TextNode};
@@ -459,17 +459,30 @@ where
     }
 }
 
-impl<T> Fold for Sides<Option<T>>
+impl<T> Fold for Sides<T>
 where
-    T: Default,
+    T: Fold,
 {
-    type Output = Sides<T>;
+    type Output = Sides<T::Output>;
+
+    fn fold(self, outer: Self::Output) -> Self::Output {
+        Sides {
+            left: self.left.fold(outer.left),
+            top: self.top.fold(outer.top),
+            right: self.right.fold(outer.right),
+            bottom: self.bottom.fold(outer.bottom),
+        }
+    }
+}
+
+impl Fold for Sides<Option<Relative<Length>>> {
+    type Output = Sides<Relative<Length>>;
 
     fn fold(self, outer: Self::Output) -> Self::Output {
         Sides {
             left: self.left.unwrap_or(outer.left),
-            right: self.right.unwrap_or(outer.right),
             top: self.top.unwrap_or(outer.top),
+            right: self.right.unwrap_or(outer.right),
             bottom: self.bottom.unwrap_or(outer.bottom),
         }
     }

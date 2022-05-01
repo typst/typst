@@ -478,7 +478,7 @@ pub fn rect_paths(
     ];
 
     for (side, radius) in sides.into_iter().zip(radius.windows(2)) {
-        let stroke_continuity = strokes.get(side) == strokes.get(side.clockwise());
+        let stroke_continuity = strokes.get(side) == strokes.get(side.next_cw());
         connection = connection.advance(stroke_continuity && side != Side::Left);
         always_continuous &= stroke_continuity;
 

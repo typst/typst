@@ -8,7 +8,7 @@
 #set page(width: 150pt)
 
 // Fit to text.
-#rect(fill: conifer, padding: 3pt)[Textbox]
+#rect(fill: conifer, inset: 3pt)[Textbox]
 
 // Empty with fixed width and height.
 #block(rect(
@@ -18,7 +18,7 @@
 ))
 
 // Fixed width, text height.
-#rect(width: 2cm, fill: rgb("9650d6"), padding: 5pt)[Fixed and padded]
+#rect(width: 2cm, fill: rgb("9650d6"), inset: 5pt)[Fixed and padded]
 
 // Page width, fixed height.
 #rect(height: 1cm, width: 100%, fill: rgb("734ced"))[Topleft]

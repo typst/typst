@@ -16,17 +16,17 @@
 // but the B should be center-aligned.
 #set par(align: center)
 #par(align: right)[
-  A #rect(width: 2cm, fill: conifer, padding: 4pt)[B]
+  A #rect(width: 2cm, fill: conifer, inset: 4pt)[B]
 ]
 
 ---
 // The inner rectangle should also be yellow here.
 // (and therefore invisible)
-[#set rect(fill: yellow);#text(1em, rect(padding: 5pt, rect()))]
+[#set rect(fill: yellow);#text(1em, rect(inset: 5pt, rect()))]
 
 ---
 // The inner rectangle should not be yellow here.
-A #rect(fill: yellow, padding: 5pt, rect()) B
+A #rect(fill: yellow, inset: 5pt, rect()) B
 
 ---
 // The inner list should not be indented extra.

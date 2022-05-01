@@ -7,7 +7,7 @@
 
 ---
 // Test auto-sized square.
-#square(fill: eastern, padding: 5pt)[
+#square(fill: eastern, inset: 5pt)[
   #set text(fill: white, weight: "bold")
   Typst
 ]

@@ -102,6 +102,7 @@ castable! {
         }
     },
     Value::Length(l) => Sides::splat(Some(l.into())),
+    Value::Ratio(r) => Sides::splat(Some(r.into())),
     Value::Relative(r) => Sides::splat(Some(r)),
 }
 
@@ -117,40 +118,44 @@ impl<const S: ShapeKind> Layout for AngularNode<S> {
             let inset = styles.get(Self::INSET);
 
             // Pad the child.
-            let child = child
-                .clone()
-                .padded(inset.map(|side| side.map(|abs| RawLength::from(abs))));
+            let child = child.clone().padded(inset.map(|side| side.map(RawLength::from)));
 
             let mut pod = Regions::one(regions.first, regions.base, regions.expand);
             frames = child.layout(ctx, &pod, styles)?;
 
             // Relayout with full expansion into square region to make sure
             // the result is really a square or circle.
-            let length = if regions.expand.x || regions.expand.y {
-                let target = regions.expand.select(regions.first, Size::zero());
-                target.x.max(target.y)
-            } else {
-                let size = frames[0].size;
-                let desired = size.x.max(size.y);
-                desired.min(regions.first.x).min(regions.first.y)
-            };
+            if is_quadratic(S) {
+                let length = if regions.expand.x || regions.expand.y {
+                    let target = regions.expand.select(regions.first, Size::zero());
+                    target.x.max(target.y)
+                } else {
+                    let size = frames[0].size;
+                    let desired = size.x.max(size.y);
+                    desired.min(regions.first.x).min(regions.first.y)
+                };
 
-            pod.first = Size::splat(length);
-            pod.expand = Spec::splat(true);
-            frames = child.layout(ctx, &pod, styles)?;
+                pod.first = Size::splat(length);
+                pod.expand = Spec::splat(true);
+                frames = child.layout(ctx, &pod, styles)?;
+            }
         } else {
             // The default size that a shape takes on if it has no child and
             // enough space.
             let mut size =
                 Size::new(Length::pt(45.0), Length::pt(30.0)).min(regions.first);
 
-            let length = if regions.expand.x || regions.expand.y {
-                let target = regions.expand.select(regions.first, Size::zero());
-                target.x.max(target.y)
+            if is_quadratic(S) {
+                let length = if regions.expand.x || regions.expand.y {
+                    let target = regions.expand.select(regions.first, Size::zero());
+                    target.x.max(target.y)
+                } else {
+                    size.x.min(size.y)
+                };
+                size = Size::splat(length);
             } else {
-                size.x.min(size.y)
-            };
-            size = Size::splat(length);
+                size = regions.expand.select(regions.first, size);
+            }
 
             frames = vec![Arc::new(Frame::new(size))];
         }
@@ -162,27 +167,38 @@ impl<const S: ShapeKind> Layout for AngularNode<S> {
         let stroke = match styles.get(Self::STROKE) {
             Smart::Auto if fill.is_none() => Sides::splat(Some(Stroke::default())),
             Smart::Auto => Sides::splat(None),
-            Smart::Custom(strokes) => strokes.map(|s| Some(s.unwrap_or_default())),
+            Smart::Custom(strokes) => strokes.map(|s| s.map(|s| s.unwrap_or_default())),
         };
 
-        let radius = {
-            let radius = styles.get(Self::RADIUS);
-
-            Sides {
-                left: radius.left.relative_to(frame.size.x / 2.0),
-                top: radius.top.relative_to(frame.size.y / 2.0),
-                right: radius.right.relative_to(frame.size.x / 2.0),
-                bottom: radius.bottom.relative_to(frame.size.y / 2.0),
-            }
+        let outset = styles.get(Self::OUTSET);
+        let outset = Sides {
+            left: outset.left.relative_to(frame.size.x),
+            top: outset.top.relative_to(frame.size.y),
+            right: outset.right.relative_to(frame.size.x),
+            bottom: outset.bottom.relative_to(frame.size.y),
         };
+
+        let size = Spec::new(
+            frame.size.x + outset.left + outset.right,
+            frame.size.y + outset.top + outset.bottom,
+        );
+
+        let radius = styles.get(Self::RADIUS);
+        let radius = Sides {
+            left: radius.left.relative_to(size.x / 2.0),
+            top: radius.top.relative_to(size.y / 2.0),
+            right: radius.right.relative_to(size.x / 2.0),
+            bottom: radius.bottom.relative_to(size.y / 2.0),
+        };
+
 
         if fill.is_some() || stroke.iter().any(Option::is_some) {
             let shape = Shape {
-                geometry: Geometry::Rect(frame.size, radius),
+                geometry: Geometry::Rect(size, radius),
                 fill,
                 stroke,
             };
-            frame.prepend(Point::zero(), Element::Shape(shape));
+            frame.prepend(Point::new(-outset.left, -outset.top), Element::Shape(shape));
         }
 
         // Apply link if it exists.
@@ -208,3 +224,13 @@ const CIRCLE: ShapeKind = 2;
 
 /// A curve around two focal points.
 const ELLIPSE: ShapeKind = 3;
+
+/// Whether a shape kind is curvy.
+fn is_round(kind: ShapeKind) -> bool {
+    matches!(kind, CIRCLE | ELLIPSE)
+}
+
+/// Whether a shape kind has equal side length.
+fn is_quadratic(kind: ShapeKind) -> bool {
+    matches!(kind, SQUARE | CIRCLE)
+}

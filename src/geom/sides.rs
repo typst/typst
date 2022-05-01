@@ -128,7 +128,7 @@ impl Side {
     }
 
     /// The next side, clockwise.
-    pub fn clockwise(self) -> Self {
+    pub fn next_cw(self) -> Self {
         match self {
             Self::Left => Self::Top,
             Self::Top => Self::Right,
@@ -138,7 +138,7 @@ impl Side {
     }
 
     /// The next side, counter-clockwise.
-    pub fn counter_clockwise(self) -> Self {
+    pub fn next_ccw(self) -> Self {
         match self {
             Self::Left => Self::Bottom,
             Self::Top => Self::Left,
