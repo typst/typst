@@ -18,14 +18,9 @@ impl PageNode {
     /// Whether the page is flipped into landscape orientation.
     pub const FLIPPED: bool = false;
 
-    /// The left margin.
-    pub const LEFT: Smart<Relative<RawLength>> = Smart::Auto;
-    /// The right margin.
-    pub const RIGHT: Smart<Relative<RawLength>> = Smart::Auto;
-    /// The top margin.
-    pub const TOP: Smart<Relative<RawLength>> = Smart::Auto;
-    /// The bottom margin.
-    pub const BOTTOM: Smart<Relative<RawLength>> = Smart::Auto;
+    /// The page margin.
+    #[property(fold)]
+    pub const MARGINS: Sides<Smart<Relative<RawLength>>> = Sides::splat(Smart::Auto);
 
     /// How many columns the page has.
     pub const COLUMNS: NonZeroUsize = NonZeroUsize::new(1).unwrap();
@@ -54,13 +49,7 @@ impl PageNode {
         styles.set_opt(Self::WIDTH, args.named("width")?);
         styles.set_opt(Self::HEIGHT, args.named("height")?);
 
-        let all = args.named("margins")?;
-        let hor = args.named("horizontal")?;
-        let ver = args.named("vertical")?;
-        styles.set_opt(Self::LEFT, args.named("left")?.or(hor).or(all));
-        styles.set_opt(Self::TOP, args.named("top")?.or(ver).or(all));
-        styles.set_opt(Self::RIGHT, args.named("right")?.or(hor).or(all));
-        styles.set_opt(Self::BOTTOM, args.named("bottom")?.or(ver).or(all));
+        styles.set_opt(Self::MARGINS, args.named("margins")?);
 
         styles.set_opt(Self::FLIPPED, args.named("flipped")?);
         styles.set_opt(Self::FILL, args.named("fill")?);
@@ -96,12 +85,7 @@ impl PageNode {
 
         // Determine the margins.
         let default = Relative::from(0.1190 * min);
-        let padding = Sides {
-            left: styles.get(Self::LEFT).unwrap_or(default),
-            right: styles.get(Self::RIGHT).unwrap_or(default),
-            top: styles.get(Self::TOP).unwrap_or(default),
-            bottom: styles.get(Self::BOTTOM).unwrap_or(default),
-        };
+        let padding = styles.get(Self::MARGINS).map(|side| side.unwrap_or(default));
 
         let mut child = self.0.clone();
 

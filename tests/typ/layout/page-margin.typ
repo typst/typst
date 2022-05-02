@@ -11,10 +11,10 @@
 ---
 // Set individual margins.
 #set page(height: 40pt)
-[#set page(left: 0pt); #align(left)[Left]]
-[#set page(right: 0pt); #align(right)[Right]]
-[#set page(top: 0pt); #align(top)[Top]]
-[#set page(bottom: 0pt); #align(bottom)[Bottom]]
+[#set page(margins: (left: 0pt,)); #align(left)[Left]]
+[#set page(margins: (right: 0pt,)); #align(right)[Right]]
+[#set page(margins: (top: 0pt,)); #align(top)[Top]]
+[#set page(margins: (bottom: 0pt,)); #align(bottom)[Bottom]]
 
 // Ensure that specific margins override general margins.
-[#set page(margins: 0pt, left: 20pt); Overriden]
+[#set page(margins: (rest: 0pt, left: 20pt)); Overriden]

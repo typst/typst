@@ -12,7 +12,7 @@ use walkdir::WalkDir;
 use typst::diag::Error;
 use typst::eval::{Smart, Value};
 use typst::frame::{Element, Frame};
-use typst::geom::{Length, RgbaColor};
+use typst::geom::{Length, RgbaColor, Sides};
 use typst::library::layout::PageNode;
 use typst::library::text::{TextNode, TextSize};
 use typst::loading::FsLoader;
@@ -64,10 +64,10 @@ fn main() {
     let mut styles = StyleMap::new();
     styles.set(PageNode::WIDTH, Smart::Custom(Length::pt(120.0).into()));
     styles.set(PageNode::HEIGHT, Smart::Auto);
-    styles.set(PageNode::LEFT, Smart::Custom(Length::pt(10.0).into()));
-    styles.set(PageNode::TOP, Smart::Custom(Length::pt(10.0).into()));
-    styles.set(PageNode::RIGHT, Smart::Custom(Length::pt(10.0).into()));
-    styles.set(PageNode::BOTTOM, Smart::Custom(Length::pt(10.0).into()));
+    styles.set(
+        PageNode::MARGINS,
+        Sides::splat(Smart::Custom(Length::pt(10.0).into())),
+    );
     styles.set(TextNode::SIZE, TextSize(Length::pt(10.0).into()));
 
     // Hook up an assert function into the global scope.

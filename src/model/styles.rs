@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use super::{Content, Show, ShowNode};
 use crate::diag::{At, TypResult};
-use crate::eval::{Args, Func, Node, Smart, Value};
+use crate::eval::{Args, Func, Node, RawLength, Smart, Value};
 use crate::geom::{Length, Numeric, Relative, Sides, Spec};
 use crate::library::layout::PageNode;
 use crate::library::structure::{EnumNode, ListNode};
@@ -484,6 +484,19 @@ impl Fold for Sides<Option<Relative<Length>>> {
             top: self.top.unwrap_or(outer.top),
             right: self.right.unwrap_or(outer.right),
             bottom: self.bottom.unwrap_or(outer.bottom),
+        }
+    }
+}
+
+impl Fold for Sides<Smart<Relative<RawLength>>> {
+    type Output = Sides<Smart<Relative<RawLength>>>;
+
+    fn fold(self, outer: Self::Output) -> Self::Output {
+        Sides {
+            left: self.left.or(outer.left),
+            top: self.top.or(outer.top),
+            right: self.right.or(outer.right),
+            bottom: self.bottom.or(outer.bottom),
         }
     }
 }
