@@ -8,7 +8,7 @@ use std::sync::Arc;
 use super::{ops, Args, Array, Dict, Func, RawLength};
 use crate::diag::{with_alternative, StrResult};
 use crate::geom::{
-    Angle, Color, Dir, Em, Fraction, Length, Paint, Ratio, Relative, RgbaColor,
+    Angle, Color, Dir, Em, Fraction, Length, Paint, Ratio, Relative, RgbaColor, Sides,
 };
 use crate::library::text::RawNode;
 use crate::model::{Content, Layout, LayoutNode};
@@ -592,6 +592,44 @@ impl<T: Cast> Cast for Smart<T> {
             v => T::cast(v)
                 .map(Self::Custom)
                 .map_err(|msg| with_alternative(msg, "auto")),
+        }
+    }
+}
+
+impl<T: Cast + Default + Clone> Cast for Sides<T> {
+    fn is(value: &Value) -> bool {
+        matches!(value, Value::Dict(_)) || T::is(value)
+    }
+
+    fn cast(value: Value) -> StrResult<Self> {
+        match value {
+            Value::Dict(dict) => {
+                for (key, _) in &dict {
+                    if !matches!(
+                        key.as_str(),
+                        "left" | "top" | "right" | "bottom" | "x" | "y" | "rest"
+                    ) {
+                        return Err(format!("unexpected key {key:?}"));
+                    }
+                }
+
+                let sides = Sides {
+                    left: dict.get("left".into()).or_else(|_| dict.get("x".into())),
+                    top: dict.get("top".into()).or_else(|_| dict.get("y".into())),
+                    right: dict.get("right".into()).or_else(|_| dict.get("x".into())),
+                    bottom: dict.get("bottom".into()).or_else(|_| dict.get("y".into())),
+                }
+                .map(|side| {
+                    side.or_else(|_| dict.get("rest".into()))
+                        .and_then(|v| T::cast(v.clone()))
+                        .unwrap_or_default()
+                });
+
+                Ok(sides)
+            }
+            v => T::cast(v)
+                .map(Sides::splat)
+                .map_err(|msg| with_alternative(msg, "dictionary")),
         }
     }
 }

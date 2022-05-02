@@ -5,26 +5,22 @@ use crate::library::text::TextNode;
 
 /// Place a node into a sizable and fillable shape.
 #[derive(Debug, Hash)]
-pub struct AngularNode<const S: ShapeKind>(pub Option<LayoutNode>);
+pub struct ShapeNode<const S: ShapeKind>(pub Option<LayoutNode>);
 
 /// Place a node into a square.
-pub type SquareNode = AngularNode<SQUARE>;
+pub type SquareNode = ShapeNode<SQUARE>;
 
 /// Place a node into a rectangle.
-pub type RectNode = AngularNode<RECT>;
+pub type RectNode = ShapeNode<RECT>;
 
-// /// Place a node into a sizable and fillable shape.
-// #[derive(Debug, Hash)]
-// pub struct RoundNode<const S: ShapeKind>(pub Option<LayoutNode>);
+/// Place a node into a circle.
+pub type CircleNode = ShapeNode<CIRCLE>;
 
-// /// Place a node into a circle.
-// pub type CircleNode = RoundNode<CIRCLE>;
-
-// /// Place a node into an ellipse.
-// pub type EllipseNode = RoundNode<ELLIPSE>;
+/// Place a node into an ellipse.
+pub type EllipseNode = ShapeNode<ELLIPSE>;
 
 #[node]
-impl<const S: ShapeKind> AngularNode<S> {
+impl<const S: ShapeKind> ShapeNode<S> {
     /// How to fill the shape.
     pub const FILL: Option<Paint> = None;
     /// How to stroke the shape.
@@ -44,7 +40,11 @@ impl<const S: ShapeKind> AngularNode<S> {
     pub const RADIUS: Sides<Option<Relative<RawLength>>> = Sides::splat(Relative::zero());
 
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
-        let size = args.named::<RawLength>("size")?.map(Relative::from);
+        let size = match S {
+            SQUARE => args.named::<RawLength>("size")?.map(Relative::from),
+            CIRCLE => args.named::<RawLength>("radius")?.map(|r| 2.0 * Relative::from(r)),
+            _ => None,
+        };
 
         let width = match size {
             None => args.named("width")?,
@@ -60,53 +60,33 @@ impl<const S: ShapeKind> AngularNode<S> {
             Self(args.find()?).pack().sized(Spec::new(width, height)),
         ))
     }
-}
 
-castable! {
-    Sides<Option<RawStroke>>,
-    Expected: "stroke, dictionary with strokes for each side",
-    Value::None => {
-        Sides::splat(None)
-    },
-    Value::Dict(values) => {
-        let get = |name: &str| values.get(name.into()).and_then(|v| v.clone().cast()).unwrap_or(None);
-        Sides {
-            top: get("top"),
-            right: get("right"),
-            bottom: get("bottom"),
-            left: get("left"),
+    fn set(args: &mut Args) -> TypResult<StyleMap> {
+        let mut styles = StyleMap::new();
+        styles.set_opt(Self::FILL, args.named("fill")?);
+
+        if is_round(S) {
+            styles.set_opt(
+                Self::STROKE,
+                args.named::<Smart<Option<RawStroke>>>("stroke")?
+                    .map(|some| some.map(Sides::splat)),
+            );
+        } else {
+            styles.set_opt(Self::STROKE, args.named("stroke")?);
         }
-    },
-    Value::Length(thickness) => Sides::splat(Some(RawStroke {
-        paint: Smart::Auto,
-        thickness: Smart::Custom(thickness),
-    })),
-    Value::Color(color) => Sides::splat(Some(RawStroke {
-        paint: Smart::Custom(color.into()),
-        thickness: Smart::Auto,
-    })),
-    @stroke: RawStroke => Sides::splat(Some(*stroke)),
-}
 
-castable! {
-    Sides<Option<Relative<RawLength>>>,
-    Expected: "length or dictionary of lengths for each side",
-    Value::None => Sides::splat(None),
-    Value::Dict(values) => {
-        let get = |name: &str| values.get(name.into()).and_then(|v| v.clone().cast()).unwrap_or(None);
-        Sides {
-            top: get("top"),
-            right: get("right"),
-            bottom: get("bottom"),
-            left: get("left"),
+        styles.set_opt(Self::INSET, args.named("inset")?);
+        styles.set_opt(Self::OUTSET, args.named("outset")?);
+
+        if S != CIRCLE {
+            styles.set_opt(Self::RADIUS, args.named("radius")?);
         }
-    },
-    Value::Length(l) => Sides::splat(Some(l.into())),
-    Value::Ratio(r) => Sides::splat(Some(r.into())),
-    Value::Relative(r) => Sides::splat(Some(r)),
+
+        Ok(styles)
+    }
 }
 
-impl<const S: ShapeKind> Layout for AngularNode<S> {
+impl<const S: ShapeKind> Layout for ShapeNode<S> {
     fn layout(
         &self,
         ctx: &mut Context,
@@ -115,7 +95,13 @@ impl<const S: ShapeKind> Layout for AngularNode<S> {
     ) -> TypResult<Vec<Arc<Frame>>> {
         let mut frames;
         if let Some(child) = &self.0 {
-            let inset = styles.get(Self::INSET);
+            let mut inset = styles.get(Self::INSET);
+            if is_round(S) {
+                inset = inset.map(|mut side| {
+                    side.rel += Ratio::new(0.5 - SQRT_2 / 4.0);
+                    side
+                });
+            }
 
             // Pad the child.
             let child = child.clone().padded(inset.map(|side| side.map(RawLength::from)));
@@ -164,10 +150,12 @@ impl<const S: ShapeKind> Layout for AngularNode<S> {
 
         // Add fill and/or stroke.
         let fill = styles.get(Self::FILL);
-        let stroke = match styles.get(Self::STROKE) {
+        let mut stroke = match styles.get(Self::STROKE) {
             Smart::Auto if fill.is_none() => Sides::splat(Some(Stroke::default())),
             Smart::Auto => Sides::splat(None),
-            Smart::Custom(strokes) => strokes.map(|s| s.map(|s| s.unwrap_or_default())),
+            Smart::Custom(strokes) => {
+                strokes.map(|s| s.map(RawStroke::unwrap_or_default))
+            }
         };
 
         let outset = styles.get(Self::OUTSET);
@@ -191,13 +179,14 @@ impl<const S: ShapeKind> Layout for AngularNode<S> {
             bottom: radius.bottom.relative_to(size.y / 2.0),
         };
 
-
-        if fill.is_some() || stroke.iter().any(Option::is_some) {
-            let shape = Shape {
-                geometry: Geometry::Rect(size, radius),
-                fill,
-                stroke,
+        if fill.is_some() || (stroke.iter().any(Option::is_some) && stroke.is_uniform()) {
+            let geometry = if is_round(S) {
+                Geometry::Ellipse(size)
+            } else {
+                Geometry::Rect(size, radius)
             };
+
+            let shape = Shape { geometry, fill, stroke };
             frame.prepend(Point::new(-outset.left, -outset.top), Element::Shape(shape));
         }
 
