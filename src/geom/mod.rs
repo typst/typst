@@ -13,6 +13,7 @@ mod paint;
 mod path;
 mod point;
 mod ratio;
+mod rect;
 mod relative;
 mod scalar;
 mod sides;
@@ -30,6 +31,7 @@ pub use paint::*;
 pub use path::*;
 pub use point::*;
 pub use ratio::*;
+pub use rect::*;
 pub use relative::*;
 pub use scalar::*;
 pub use sides::*;
@@ -57,6 +59,50 @@ pub trait Get<Index> {
     /// Convenience method for setting a component.
     fn set(&mut self, index: Index, component: Self::Component) {
         *self.get_mut(index) = component;
+    }
+}
+
+/// A geometric shape with optional fill and stroke.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct Shape {
+    /// The shape's geometry.
+    pub geometry: Geometry,
+    /// The shape's background fill.
+    pub fill: Option<Paint>,
+    /// The shape's border stroke.
+    pub stroke: Option<Stroke>,
+}
+
+/// A shape's geometry.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum Geometry {
+    /// A line to a point (relative to its position).
+    Line(Point),
+    /// A rectangle with its origin in the topleft corner.
+    Rect(Size),
+    /// A ellipse with its origin in the topleft corner.
+    Ellipse(Size),
+    /// A bezier path.
+    Path(Path),
+}
+
+impl Geometry {
+    /// Fill the geometry without a stroke.
+    pub fn filled(self, fill: Paint) -> Shape {
+        Shape {
+            geometry: self,
+            fill: Some(fill),
+            stroke: None,
+        }
+    }
+
+    /// Stroke the geometry without a fill.
+    pub fn stroked(self, stroke: Stroke) -> Shape {
+        Shape {
+            geometry: self,
+            fill: None,
+            stroke: Some(stroke),
+        }
     }
 }
 

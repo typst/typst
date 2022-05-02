@@ -150,7 +150,7 @@ impl<const S: ShapeKind> Layout for ShapeNode<S> {
 
         // Add fill and/or stroke.
         let fill = styles.get(Self::FILL);
-        let mut stroke = match styles.get(Self::STROKE) {
+        let stroke = match styles.get(Self::STROKE) {
             Smart::Auto if fill.is_none() => Sides::splat(Some(Stroke::default())),
             Smart::Auto => Sides::splat(None),
             Smart::Custom(strokes) => {
@@ -179,15 +179,23 @@ impl<const S: ShapeKind> Layout for ShapeNode<S> {
             bottom: radius.bottom.relative_to(size.y / 2.0),
         };
 
-        if fill.is_some() || (stroke.iter().any(Option::is_some) && stroke.is_uniform()) {
-            let geometry = if is_round(S) {
-                Geometry::Ellipse(size)
-            } else {
-                Geometry::Rect(size, radius)
-            };
+        let pos = Point::new(-outset.left, -outset.top);
 
-            let shape = Shape { geometry, fill, stroke };
-            frame.prepend(Point::new(-outset.left, -outset.top), Element::Shape(shape));
+        if fill.is_some() || stroke.iter().any(Option::is_some) {
+            if is_round(S) {
+                let shape = Shape {
+                    geometry: Geometry::Ellipse(size),
+                    fill,
+                    stroke: stroke.left,
+                };
+                frame.prepend(pos, Element::Shape(shape));
+            } else {
+                for shape in
+                    Rect::new(size, radius).shapes(fill, stroke).into_iter().rev()
+                {
+                    frame.prepend(pos, Element::Shape(shape));
+                }
+            }
         }
 
         // Apply link if it exists.

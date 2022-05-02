@@ -7,10 +7,11 @@ use tiny_skia as sk;
 use ttf_parser::{GlyphId, OutlineBuilder};
 use usvg::FitTo;
 
-use crate::frame::{Element, Frame, Geometry, Group, Shape, Text};
-use crate::geom::{self, Length, Paint, PathElement, Sides, Size, Stroke, Transform};
+use crate::frame::{Element, Frame, Group, Text};
+use crate::geom::{
+    self, Geometry, Length, Paint, PathElement, Shape, Size, Stroke, Transform,
+};
 use crate::image::{Image, RasterImage, Svg};
-use crate::library::prelude::{rect_path, rect_paths};
 use crate::Context;
 
 /// Export a frame into a rendered image.
@@ -299,7 +300,12 @@ fn render_shape(
     shape: &Shape,
 ) -> Option<()> {
     let path = match shape.geometry {
-        Geometry::Rect(size, radius) => convert_path(&rect_path(size, radius))?,
+        Geometry::Rect(size) => {
+            let w = size.x.to_f32();
+            let h = size.y.to_f32();
+            let rect = sk::Rect::from_xywh(0.0, 0.0, w, h)?;
+            sk::PathBuilder::from_rect(rect)
+        }
         Geometry::Ellipse(size) => convert_path(&geom::Path::ellipse(size))?,
         Geometry::Line(target) => {
             let mut builder = sk::PathBuilder::new();
@@ -311,7 +317,7 @@ fn render_shape(
 
     if let Some(fill) = shape.fill {
         let mut paint: sk::Paint = fill.into();
-        if matches!(shape.geometry, Geometry::Rect(_, _)) {
+        if matches!(shape.geometry, Geometry::Rect(_)) {
             paint.anti_alias = false;
         }
 
@@ -319,27 +325,11 @@ fn render_shape(
         canvas.fill_path(&path, &paint, rule, ts, mask);
     }
 
-    if shape.stroke.is_uniform() || !matches!(shape.geometry, Geometry::Rect(_, _)) {
-        if let Some(Stroke { paint, thickness }) = shape.stroke.top {
-            let paint = paint.into();
-            let mut stroke = sk::Stroke::default();
-            stroke.width = thickness.to_f32();
-            canvas.stroke_path(&path, &paint, &stroke, ts, mask);
-        }
-    } else {
-        if let Geometry::Rect(size, radius) = shape.geometry {
-            for (path, stroke) in rect_paths(size, radius, Some(shape.stroke)) {
-                if let Some(stroke) = stroke {
-                    render_shape(canvas, ts, mask, &Shape {
-                        geometry: Geometry::Path(path),
-                        fill: None,
-                        stroke: Sides::splat(Some(stroke)),
-                    })?;
-                } else {
-                    continue;
-                }
-            }
-        }
+    if let Some(Stroke { paint, thickness }) = shape.stroke {
+        let paint = paint.into();
+        let mut stroke = sk::Stroke::default();
+        stroke.width = thickness.to_f32();
+        canvas.stroke_path(&path, &paint, &stroke, ts, mask);
     }
 
     Some(())
