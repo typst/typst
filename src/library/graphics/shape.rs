@@ -171,13 +171,9 @@ impl<const S: ShapeKind> Layout for ShapeNode<S> {
             frame.size.y + outset.top + outset.bottom,
         );
 
-        let radius = styles.get(Self::RADIUS);
-        let radius = Sides {
-            left: radius.left.relative_to(size.x / 2.0),
-            top: radius.top.relative_to(size.y / 2.0),
-            right: radius.right.relative_to(size.x / 2.0),
-            bottom: radius.bottom.relative_to(size.y / 2.0),
-        };
+        let radius = styles
+            .get(Self::RADIUS)
+            .map(|side| side.relative_to(size.x.min(size.y) / 2.0));
 
         let pos = Point::new(-outset.left, -outset.top);
 

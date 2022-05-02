@@ -28,7 +28,7 @@ impl Rect {
             res.push(Shape {
                 geometry: self.fill_geometry(),
                 fill,
-                stroke: stroke.left,
+                stroke: stroke.is_uniform().then(|| stroke.top).flatten(),
             });
         }
 
@@ -174,6 +174,8 @@ fn draw_side(
     }
 }
 
+/// A state machine that indicates which sides of the border strokes in a 2D
+/// polygon are connected to their neighboring sides.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 enum Connection {
     None,
@@ -183,6 +185,9 @@ enum Connection {
 }
 
 impl Connection {
+    /// Advance to the next clockwise side of the polygon. The argument
+    /// indicates whether the border is connected on the right side of the next
+    /// edge.
     pub fn advance(self, right: bool) -> Self {
         match self {
             Self::Right | Self::Both => {
@@ -202,10 +207,12 @@ impl Connection {
         }
     }
 
+    /// Whether there is a connection on the left.
     fn left(self) -> bool {
         matches!(self, Self::Left | Self::Both)
     }
 
+    /// Whether there is a connection on the right.
     fn right(self) -> bool {
         matches!(self, Self::Right | Self::Both)
     }

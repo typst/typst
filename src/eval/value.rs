@@ -596,7 +596,10 @@ impl<T: Cast> Cast for Smart<T> {
     }
 }
 
-impl<T: Cast + Default + Clone> Cast for Sides<T> {
+impl<T> Cast for Sides<T>
+where
+    T: Cast + Default + Clone,
+{
     fn is(value: &Value) -> bool {
         matches!(value, Value::Dict(_)) || T::is(value)
     }

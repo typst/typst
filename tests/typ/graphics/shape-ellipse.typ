@@ -21,3 +21,6 @@ Auto-sized ellipse. \
   #set text(8pt)
   But, soft! what light through yonder window breaks?
 ]
+
+
+An inline #ellipse(width: 8pt, height: 6pt, outset: (top: 3pt, rest: 5.5pt)) ellipse.
