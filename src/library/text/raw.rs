@@ -51,6 +51,10 @@ impl RawNode {
 }
 
 impl Show for RawNode {
+    fn unguard(&self, _: Selector) -> ShowNode {
+        Self { text: self.text.clone(), ..*self }.pack()
+    }
+
     fn encode(&self) -> Dict {
         dict! {
             "text" => Value::Str(self.text.clone()),

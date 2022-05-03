@@ -15,8 +15,8 @@ pub use crate::eval::{
 pub use crate::frame::*;
 pub use crate::geom::*;
 pub use crate::model::{
-    Content, Fold, Key, Layout, LayoutNode, Regions, Resolve, Show, ShowNode, StyleChain,
-    StyleMap, StyleVec,
+    Content, Fold, Key, Layout, LayoutNode, Regions, Resolve, Selector, Show, ShowNode,
+    StyleChain, StyleMap, StyleVec,
 };
 pub use crate::syntax::{Span, Spanned};
 pub use crate::util::{EcoString, OptionExt};

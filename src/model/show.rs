@@ -2,7 +2,7 @@ use std::fmt::{self, Debug, Formatter, Write};
 use std::hash::Hash;
 use std::sync::Arc;
 
-use super::{Content, NodeId, StyleChain};
+use super::{Content, NodeId, Selector, StyleChain};
 use crate::diag::TypResult;
 use crate::eval::Dict;
 use crate::util::Prehashed;
@@ -10,6 +10,9 @@ use crate::Context;
 
 /// A node that can be realized given some styles.
 pub trait Show: 'static {
+    /// Unguard nested content against recursive show rules.
+    fn unguard(&self, sel: Selector) -> ShowNode;
+
     /// Encode this node into a dictionary.
     fn encode(&self) -> Dict;
 
@@ -63,6 +66,10 @@ impl ShowNode {
 }
 
 impl Show for ShowNode {
+    fn unguard(&self, sel: Selector) -> ShowNode {
+        self.0.unguard(sel)
+    }
+
     fn encode(&self) -> Dict {
         self.0.encode()
     }

@@ -36,11 +36,15 @@ impl<const L: DecoLine> DecoNode<L> {
     pub const EVADE: bool = true;
 
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
-        Ok(Content::show(Self(args.expect::<Content>("body")?)))
+        Ok(Content::show(Self(args.expect("body")?)))
     }
 }
 
 impl<const L: DecoLine> Show for DecoNode<L> {
+    fn unguard(&self, sel: Selector) -> ShowNode {
+        Self(self.0.unguard(sel)).pack()
+    }
+
     fn encode(&self) -> Dict {
         dict! { "body" => Value::Content(self.0.clone()) }
     }

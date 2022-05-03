@@ -91,8 +91,10 @@ impl<'a> CapturesVisitor<'a> {
             // A show rule contains a binding, but that binding is only active
             // after the target has been evaluated.
             Some(Expr::Show(show)) => {
-                self.visit(show.target().as_red());
-                self.bind(show.binding());
+                self.visit(show.pattern().as_red());
+                if let Some(binding) = show.binding() {
+                    self.bind(binding);
+                }
                 self.visit(show.body().as_red());
             }
 

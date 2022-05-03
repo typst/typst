@@ -28,6 +28,14 @@ impl LinkNode {
 }
 
 impl Show for LinkNode {
+    fn unguard(&self, sel: Selector) -> ShowNode {
+        Self {
+            url: self.url.clone(),
+            body: self.body.as_ref().map(|body| body.unguard(sel)),
+        }
+        .pack()
+    }
+
     fn encode(&self) -> Dict {
         dict! {
             "url" => Value::Str(self.url.clone()),

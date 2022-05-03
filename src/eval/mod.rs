@@ -38,7 +38,7 @@ use unicode_segmentation::UnicodeSegmentation;
 use crate::diag::{At, StrResult, Trace, Tracepoint, TypResult};
 use crate::geom::{Angle, Em, Fraction, Length, Ratio};
 use crate::library;
-use crate::model::{Content, StyleMap};
+use crate::model::{Content, Pattern, Recipe, StyleEntry, StyleMap};
 use crate::syntax::ast::*;
 use crate::syntax::{Span, Spanned};
 use crate::util::EcoString;
@@ -79,8 +79,9 @@ fn eval_markup(
                 eval_markup(ctx, scp, nodes)?.styled_with_map(styles)
             }
             MarkupNode::Expr(Expr::Show(show)) => {
-                let styles = show.eval(ctx, scp)?;
-                eval_markup(ctx, scp, nodes)?.styled_with_map(styles)
+                let recipe = show.eval(ctx, scp)?;
+                eval_markup(ctx, scp, nodes)?
+                    .styled_with_entry(StyleEntry::Recipe(recipe).into())
             }
             MarkupNode::Expr(Expr::Wrap(wrap)) => {
                 let tail = eval_markup(ctx, scp, nodes)?;
@@ -434,8 +435,17 @@ impl Eval for FieldAccess {
 
     fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> EvalResult<Self::Output> {
         let object = self.object().eval(ctx, scp)?;
+        let span = self.field().span();
+        let field = self.field().take();
+
         Ok(match object {
-            Value::Dict(dict) => dict.get(self.field().take()).at(self.span())?.clone(),
+            Value::Dict(dict) => dict.get(&field).at(span)?.clone(),
+
+            Value::Content(Content::Show(_, Some(dict))) => dict
+                .get(&field)
+                .map_err(|_| format!("unknown field {field:?}"))
+                .at(span)?
+                .clone(),
 
             v => bail!(
                 self.object().span(),
@@ -455,7 +465,7 @@ impl Eval for FuncCall {
 
         Ok(match callee {
             Value::Array(array) => array.get(args.into_index()?).at(self.span())?.clone(),
-            Value::Dict(dict) => dict.get(args.into_key()?).at(self.span())?.clone(),
+            Value::Dict(dict) => dict.get(&args.into_key()?).at(self.span())?.clone(),
             Value::Func(func) => {
                 let point = || Tracepoint::Call(func.name().map(ToString::to_string));
                 func.call(ctx, args).trace(point, self.span())?
@@ -615,13 +625,12 @@ impl Eval for SetExpr {
 }
 
 impl Eval for ShowExpr {
-    type Output = StyleMap;
+    type Output = Recipe;
 
     fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> EvalResult<Self::Output> {
         // Evaluate the target function.
-        let target = self.target();
-        let target_span = target.span();
-        let target = target.eval(ctx, scp)?.cast::<Func>().at(target_span)?;
+        let pattern = self.pattern();
+        let pattern = pattern.eval(ctx, scp)?.cast::<Pattern>().at(pattern.span())?;
 
         // Collect captured variables.
         let captured = {
@@ -630,18 +639,24 @@ impl Eval for ShowExpr {
             visitor.finish()
         };
 
+        // Define parameters.
+        let mut params = vec![];
+        if let Some(binding) = self.binding() {
+            params.push((binding.take(), None));
+        }
+
         // Define the recipe function.
         let body = self.body();
-        let body_span = body.span();
-        let recipe = Func::from_closure(Closure {
+        let span = body.span();
+        let func = Func::from_closure(Closure {
             name: None,
             captured,
-            params: vec![(self.binding().take(), None)],
+            params,
             sink: None,
             body,
         });
 
-        Ok(target.show(recipe, body_span).at(target_span)?)
+        Ok(Recipe { pattern, func, span })
     }
 }
 

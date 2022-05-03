@@ -52,7 +52,11 @@ impl<T: Numeric> Relative<T> {
 
 impl<T: Numeric> Debug for Relative<T> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{:?} + {:?}", self.rel, self.abs)
+        match (self.rel.is_zero(), self.abs.is_zero()) {
+            (false, false) => write!(f, "{:?} + {:?}", self.rel, self.abs),
+            (false, true) => self.rel.fmt(f),
+            (true, _) => self.abs.fmt(f),
+        }
     }
 }
 

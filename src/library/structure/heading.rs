@@ -64,6 +64,10 @@ impl HeadingNode {
 }
 
 impl Show for HeadingNode {
+    fn unguard(&self, sel: Selector) -> ShowNode {
+        Self { body: self.body.unguard(sel), ..*self }.pack()
+    }
+
     fn encode(&self) -> Dict {
         dict! {
             "level" => Value::Int(self.level.get() as i64),

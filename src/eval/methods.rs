@@ -96,7 +96,7 @@ pub fn call_mut(
         },
 
         Value::Dict(dict) => match method {
-            "remove" => dict.remove(args.expect("key")?).at(span)?,
+            "remove" => dict.remove(&args.expect("key")?).at(span)?,
             _ => missing()?,
         },
 

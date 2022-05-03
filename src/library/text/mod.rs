@@ -463,6 +463,10 @@ impl StrongNode {
 }
 
 impl Show for StrongNode {
+    fn unguard(&self, sel: Selector) -> ShowNode {
+        Self(self.0.unguard(sel)).pack()
+    }
+
     fn encode(&self) -> Dict {
         dict! { "body" => Value::Content(self.0.clone()) }
     }
@@ -484,6 +488,10 @@ impl EmphNode {
 }
 
 impl Show for EmphNode {
+    fn unguard(&self, sel: Selector) -> ShowNode {
+        Self(self.0.unguard(sel)).pack()
+    }
+
     fn encode(&self) -> Dict {
         dict! { "body" => Value::Content(self.0.clone()) }
     }

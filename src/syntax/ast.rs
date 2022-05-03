@@ -1012,17 +1012,21 @@ node! {
 
 impl ShowExpr {
     /// The binding to assign to.
-    pub fn binding(&self) -> Ident {
-        self.0.cast_first_child().expect("show rule is missing binding")
+    pub fn binding(&self) -> Option<Ident> {
+        let mut children = self.0.children();
+        children
+            .find_map(RedRef::cast)
+            .filter(|_| children.any(|child| child.kind() == &NodeKind::Colon))
     }
 
-    /// The function to customize with this show rule.
-    pub fn target(&self) -> Ident {
+    /// The pattern that this rule matches.
+    pub fn pattern(&self) -> Expr {
         self.0
             .children()
-            .filter_map(RedRef::cast)
-            .nth(1)
-            .expect("show rule is missing target")
+            .rev()
+            .skip_while(|child| child.kind() != &NodeKind::As)
+            .find_map(RedRef::cast)
+            .expect("show rule is missing pattern")
     }
 
     /// The expression that realizes the node.

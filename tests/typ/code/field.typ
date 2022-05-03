@@ -12,7 +12,7 @@
 }
 
 ---
-// Error: 2-13 dictionary does not contain key: "invalid"
+// Error: 6-13 dictionary does not contain key: "invalid"
 {(:).invalid}
 
 ---

@@ -36,6 +36,10 @@ impl MathNode {
 }
 
 impl Show for MathNode {
+    fn unguard(&self, _: Selector) -> ShowNode {
+        Self { formula: self.formula.clone(), ..*self }.pack()
+    }
+
     fn encode(&self) -> Dict {
         dict! {
             "formula" => Value::Str(self.formula.clone()),

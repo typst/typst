@@ -7,8 +7,8 @@ use std::ops::{Add, AddAssign};
 use typed_arena::Arena;
 
 use super::{
-    CollapsingBuilder, Interruption, Key, Layout, LayoutNode, Show, ShowNode, StyleMap,
-    StyleVecBuilder,
+    CollapsingBuilder, Interruption, Key, Layout, LayoutNode, Property, Show, ShowNode,
+    StyleEntry, StyleMap, StyleVecBuilder, Target,
 };
 use crate::diag::StrResult;
 use crate::library::layout::{FlowChild, FlowNode, PageNode, PlaceNode, Spacing};
@@ -38,6 +38,8 @@ use crate::util::EcoString;
 ///    sequences.
 #[derive(PartialEq, Clone, Hash)]
 pub enum Content {
+    /// Empty content.
+    Empty,
     /// A word space.
     Space,
     /// A forced line break.
@@ -68,8 +70,9 @@ pub enum Content {
     Pagebreak { weak: bool },
     /// A page node.
     Page(PageNode),
-    /// A node that can be realized with styles.
-    Show(ShowNode),
+    /// A node that can be realized with styles, optionally with attached
+    /// properties.
+    Show(ShowNode, Option<Dict>),
     /// Content with attached styles.
     Styled(Arc<(Self, StyleMap)>),
     /// A sequence of multiple nodes.
@@ -79,7 +82,7 @@ pub enum Content {
 impl Content {
     /// Create empty content.
     pub fn new() -> Self {
-        Self::sequence(vec![])
+        Self::Empty
     }
 
     /// Create content from an inline-level node.
@@ -103,15 +106,15 @@ impl Content {
     where
         T: Show + Debug + Hash + Sync + Send + 'static,
     {
-        Self::Show(node.pack())
+        Self::Show(node.pack(), None)
     }
 
     /// Create a new sequence nodes from multiples nodes.
     pub fn sequence(seq: Vec<Self>) -> Self {
-        if seq.len() == 1 {
-            seq.into_iter().next().unwrap()
-        } else {
-            Self::Sequence(Arc::new(seq))
+        match seq.as_slice() {
+            [] => Self::Empty,
+            [_] => seq.into_iter().next().unwrap(),
+            _ => Self::Sequence(Arc::new(seq)),
         }
     }
 
@@ -124,15 +127,20 @@ impl Content {
     }
 
     /// Style this content with a single style property.
-    pub fn styled<'k, K: Key<'k>>(mut self, key: K, value: K::Value) -> Self {
+    pub fn styled<'k, K: Key<'k>>(self, key: K, value: K::Value) -> Self {
+        self.styled_with_entry(StyleEntry::Property(Property::new(key, value)))
+    }
+
+    /// Style this content with a style entry.
+    pub fn styled_with_entry(mut self, entry: StyleEntry) -> Self {
         if let Self::Styled(styled) = &mut self {
             if let Some((_, map)) = Arc::get_mut(styled) {
-                map.apply(key, value);
+                map.apply(entry);
                 return self;
             }
         }
 
-        Self::Styled(Arc::new((self, StyleMap::with(key, value))))
+        Self::Styled(Arc::new((self, entry.into())))
     }
 
     /// Style this content with a full style map.
@@ -149,6 +157,11 @@ impl Content {
         }
 
         Self::Styled(Arc::new((self, styles)))
+    }
+
+    /// Reenable the show rule identified by the selector.
+    pub fn unguard(&self, sel: Selector) -> Self {
+        self.clone().styled_with_entry(StyleEntry::Unguard(sel))
     }
 
     /// Underline this content.
@@ -228,6 +241,7 @@ impl Default for Content {
 impl Debug for Content {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
+            Self::Empty => f.pad("Empty"),
             Self::Space => f.pad("Space"),
             Self::Linebreak { justified } => write!(f, "Linebreak({justified})"),
             Self::Horizontal { amount, weak } => {
@@ -245,7 +259,7 @@ impl Debug for Content {
             Self::Item(item) => item.fmt(f),
             Self::Pagebreak { weak } => write!(f, "Pagebreak({weak})"),
             Self::Page(page) => page.fmt(f),
-            Self::Show(node) => node.fmt(f),
+            Self::Show(node, _) => node.fmt(f),
             Self::Styled(styled) => {
                 let (sub, map) = styled.as_ref();
                 map.fmt(f)?;
@@ -261,6 +275,8 @@ impl Add for Content {
 
     fn add(self, rhs: Self) -> Self::Output {
         Self::Sequence(match (self, rhs) {
+            (Self::Empty, rhs) => return rhs,
+            (lhs, Self::Empty) => return lhs,
             (Self::Sequence(mut lhs), Self::Sequence(rhs)) => {
                 let mutable = Arc::make_mut(&mut lhs);
                 match Arc::try_unwrap(rhs) {
@@ -352,7 +368,8 @@ impl<'a, 'ctx> Builder<'a, 'ctx> {
     fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) -> TypResult<()> {
         // Handle special content kinds.
         match content {
-            Content::Show(node) => return self.show(node, styles),
+            Content::Empty => return Ok(()),
+            Content::Show(node, _) => return self.show(node, styles),
             Content::Styled(styled) => return self.styled(styled, styles),
             Content::Sequence(seq) => return self.sequence(seq, styles),
             _ => {}
@@ -388,15 +405,11 @@ impl<'a, 'ctx> Builder<'a, 'ctx> {
     }
 
     fn show(&mut self, node: &ShowNode, styles: StyleChain<'a>) -> TypResult<()> {
-        let id = node.id();
-        let realized = match styles.realize(self.ctx, node)? {
-            Some(content) => content,
-            None => node.realize(self.ctx, styles)?,
-        };
-
-        let content = node.finalize(self.ctx, styles, realized)?;
-        let stored = self.scratch.templates.alloc(content);
-        self.accept(stored, styles.unscoped(id))
+        if let Some(realized) = styles.apply(self.ctx, Target::Node(node))? {
+            let stored = self.scratch.templates.alloc(realized);
+            self.accept(stored, styles.unscoped(node.id()))?;
+        }
+        Ok(())
     }
 
     fn styled(

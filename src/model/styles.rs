@@ -3,11 +3,9 @@ use std::hash::Hash;
 use std::iter;
 use std::marker::PhantomData;
 
-use super::{Barrier, Content, Key, Property, Recipe, Show, ShowNode};
-use crate::diag::{At, TypResult};
-use crate::eval::{Args, Func, Node, Value};
+use super::{Barrier, Content, Key, Property, Recipe, Selector, Show, Target};
+use crate::diag::TypResult;
 use crate::library::text::{FontFamily, TextNode};
-use crate::syntax::Span;
 use crate::util::ReadableTypeId;
 use crate::Context;
 
@@ -65,11 +63,6 @@ impl StyleMap {
         );
     }
 
-    /// Set a show rule recipe for a node.
-    pub fn set_recipe<T: Node>(&mut self, func: Func, span: Span) {
-        self.push(StyleEntry::Recipe(Recipe::new::<T>(func, span)));
-    }
-
     /// Whether the map contains a style property for the given key.
     pub fn contains<'a, K: Key<'a>>(&self, _: K) -> bool {
         self.0
@@ -91,16 +84,12 @@ impl StyleMap {
         }
     }
 
-    /// Set an outer value for a style property.
-    ///
-    /// If the property needs folding and the value is already contained in the
-    /// style map, `self` contributes the inner values and `value` is the outer
-    /// one.
+    /// Set an outer style property.
     ///
     /// Like [`chain`](Self::chain) or [`apply_map`](Self::apply_map), but with
-    /// only a single property.
-    pub fn apply<'a, K: Key<'a>>(&mut self, key: K, value: K::Value) {
-        self.0.insert(0, StyleEntry::Property(Property::new(key, value)));
+    /// only a entry.
+    pub fn apply(&mut self, entry: StyleEntry) {
+        self.0.insert(0, entry);
     }
 
     /// Apply styles from `tail` in-place. The resulting style map is equivalent
@@ -126,11 +115,7 @@ impl StyleMap {
 
     /// The highest-level kind of of structure the map interrupts.
     pub fn interruption(&self) -> Option<Interruption> {
-        self.0
-            .iter()
-            .filter_map(|entry| entry.property())
-            .filter_map(|property| property.interruption())
-            .max()
+        self.0.iter().filter_map(|entry| entry.interruption()).max()
     }
 }
 
@@ -182,29 +167,17 @@ pub enum Interruption {
 pub enum StyleEntry {
     /// A style property originating from a set rule or constructor.
     Property(Property),
-    /// A barrier for scoped styles.
-    Barrier(Barrier),
     /// A show rule recipe.
     Recipe(Recipe),
+    /// A barrier for scoped styles.
+    Barrier(Barrier),
+    /// Guards against recursive show rules.
+    Guard(Selector),
+    /// Allows recursive show rules again.
+    Unguard(Selector),
 }
 
 impl StyleEntry {
-    /// If this is a property, return it.
-    pub fn property(&self) -> Option<&Property> {
-        match self {
-            Self::Property(property) => Some(property),
-            _ => None,
-        }
-    }
-
-    /// If this is a recipe, return it.
-    pub fn recipe(&self) -> Option<&Recipe> {
-        match self {
-            Self::Recipe(recipe) => Some(recipe),
-            _ => None,
-        }
-    }
-
     /// Make this style the first link of the `tail` chain.
     pub fn chain<'a>(&'a self, tail: &'a StyleChain) -> StyleChain<'a> {
         if let StyleEntry::Barrier(barrier) = self {
@@ -222,6 +195,31 @@ impl StyleEntry {
             tail: Some(tail),
         }
     }
+
+    /// If this is a property, return it.
+    pub fn property(&self) -> Option<&Property> {
+        match self {
+            Self::Property(property) => Some(property),
+            _ => None,
+        }
+    }
+
+    /// If this is a recipe, return it.
+    pub fn recipe(&self) -> Option<&Recipe> {
+        match self {
+            Self::Recipe(recipe) => Some(recipe),
+            _ => None,
+        }
+    }
+
+    /// The highest-level kind of of structure the entry interrupts.
+    pub fn interruption(&self) -> Option<Interruption> {
+        match self {
+            Self::Property(property) => property.interruption(),
+            Self::Recipe(recipe) => recipe.interruption(),
+            _ => None,
+        }
+    }
 }
 
 impl Debug for StyleEntry {
@@ -231,6 +229,8 @@ impl Debug for StyleEntry {
             Self::Property(property) => property.fmt(f)?,
             Self::Recipe(recipe) => recipe.fmt(f)?,
             Self::Barrier(barrier) => barrier.fmt(f)?,
+            Self::Guard(sel) => write!(f, "Guard against {sel:?}")?,
+            Self::Unguard(sel) => write!(f, "Unguard against {sel:?}")?,
         }
         f.write_str("]")
     }
@@ -262,35 +262,6 @@ impl<'a> StyleChain<'a> {
         Self { head: &root.0, tail: None }
     }
 
-    /// Get the output value of a style property.
-    ///
-    /// Returns the property's default value if no map in the chain contains an
-    /// entry for it. Also takes care of resolving and folding and returns
-    /// references where applicable.
-    pub fn get<K: Key<'a>>(self, key: K) -> K::Output {
-        K::get(self, self.values(key))
-    }
-
-    /// Realize a node with a user recipe.
-    pub fn realize(
-        self,
-        ctx: &mut Context,
-        node: &ShowNode,
-    ) -> TypResult<Option<Content>> {
-        let id = node.id();
-        if let Some(recipe) = self
-            .entries()
-            .filter_map(StyleEntry::recipe)
-            .find(|recipe| recipe.node == id)
-        {
-            let dict = node.encode();
-            let args = Args::from_values(recipe.span, [Value::Dict(dict)]);
-            Ok(Some(recipe.func.call(ctx, args)?.cast().at(recipe.span)?))
-        } else {
-            Ok(None)
-        }
-    }
-
     /// Return the chain, but without trailing scoped properties for the given
     /// `node`.
     pub fn unscoped(mut self, node: NodeId) -> Self {
@@ -304,6 +275,80 @@ impl<'a> StyleChain<'a> {
             self.head = &self.head[.. len - 1]
         }
         self
+    }
+
+    /// Get the output value of a style property.
+    ///
+    /// Returns the property's default value if no map in the chain contains an
+    /// entry for it. Also takes care of resolving and folding and returns
+    /// references where applicable.
+    pub fn get<K: Key<'a>>(self, key: K) -> K::Output {
+        K::get(self, self.values(key))
+    }
+
+    /// Apply show recipes in this style chain to a target.
+    pub fn apply(self, ctx: &mut Context, target: Target) -> TypResult<Option<Content>> {
+        // Find out how many recipes there any and whether any of their patterns
+        // match.
+        let mut n = 0;
+        let mut any = true;
+        for recipe in self.entries().filter_map(StyleEntry::recipe) {
+            n += 1;
+            any |= recipe.applicable(target);
+        }
+
+        // Find an applicable recipe.
+        let mut realized = None;
+        let mut guarded = false;
+        if any {
+            for recipe in self.entries().filter_map(StyleEntry::recipe) {
+                if recipe.applicable(target) {
+                    let sel = Selector::Nth(n);
+                    if self.guarded(sel) {
+                        guarded = true;
+                    } else if let Some(content) = recipe.apply(ctx, sel, target)? {
+                        realized = Some(content);
+                        break;
+                    }
+                }
+                n -= 1;
+            }
+        }
+
+        if let Target::Node(node) = target {
+            // Realize if there was no matching recipe.
+            if realized.is_none() {
+                let sel = Selector::Base(node.id());
+                if self.guarded(sel) {
+                    guarded = true;
+                } else {
+                    let content = node.unguard(sel).realize(ctx, self)?;
+                    realized = Some(content.styled_with_entry(StyleEntry::Guard(sel)));
+                }
+            }
+
+            // Finalize only if guarding didn't stop any recipe.
+            if !guarded {
+                if let Some(content) = realized {
+                    realized = Some(node.finalize(ctx, self, content)?);
+                }
+            }
+        }
+
+        Ok(realized)
+    }
+
+    /// Whether the recipe identified by the selector is guarded.
+    fn guarded(&self, sel: Selector) -> bool {
+        for entry in self.entries() {
+            match *entry {
+                StyleEntry::Guard(s) if s == sel => return true,
+                StyleEntry::Unguard(s) if s == sel => return false,
+                _ => {}
+            }
+        }
+
+        false
     }
 
     /// Remove the last link from the chain.
@@ -386,7 +431,7 @@ impl<'a, K: Key<'a>> Iterator for Values<'a, K> {
                 StyleEntry::Barrier(barrier) => {
                     self.depth += barrier.is_for(K::node()) as usize;
                 }
-                StyleEntry::Recipe(_) => {}
+                _ => {}
             }
         }
 
@@ -459,18 +504,29 @@ impl<T> StyleVec<T> {
         }
     }
 
-    /// Iterate over the contained maps. Note that zipping this with `items()`
-    /// does not yield the same result as calling `iter()` because this method
-    /// only returns maps once that are shared by consecutive items. This method
-    /// is designed for use cases where you want to check, for example, whether
-    /// any of the maps fulfills a specific property.
-    pub fn maps(&self) -> impl Iterator<Item = &StyleMap> {
-        self.maps.iter().map(|(map, _)| map)
+    /// Map the contained items.
+    pub fn map<F, U>(&self, f: F) -> StyleVec<U>
+    where
+        F: FnMut(&T) -> U,
+    {
+        StyleVec {
+            items: self.items.iter().map(f).collect(),
+            maps: self.maps.clone(),
+        }
     }
 
     /// Iterate over the contained items.
     pub fn items(&self) -> std::slice::Iter<'_, T> {
         self.items.iter()
+    }
+
+    /// Iterate over the contained maps. Note that zipping this with `items()`
+    /// does not yield the same result as calling `iter()` because this method
+    /// only returns maps once that are shared by consecutive items. This method
+    /// is designed for use cases where you want to check, for example, whether
+    /// any of the maps fulfills a specific property.
+    pub fn styles(&self) -> impl Iterator<Item = &StyleMap> {
+        self.maps.iter().map(|(map, _)| map)
     }
 
     /// Iterate over references to the contained items and associated style maps.

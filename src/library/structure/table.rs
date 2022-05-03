@@ -51,6 +51,15 @@ impl TableNode {
 }
 
 impl Show for TableNode {
+    fn unguard(&self, sel: Selector) -> ShowNode {
+        Self {
+            tracks: self.tracks.clone(),
+            gutter: self.gutter.clone(),
+            cells: self.cells.iter().map(|cell| cell.unguard(sel)).collect(),
+        }
+        .pack()
+    }
+
     fn encode(&self) -> Dict {
         dict! {
             "cells" => Value::Array(

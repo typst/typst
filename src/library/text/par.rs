@@ -618,7 +618,10 @@ fn shared_get<'a, K: Key<'a>>(
     children: &StyleVec<ParChild>,
     key: K,
 ) -> Option<K::Output> {
-    children.maps().all(|map| !map.contains(key)).then(|| styles.get(key))
+    children
+        .styles()
+        .all(|map| !map.contains(key))
+        .then(|| styles.get(key))
 }
 
 /// Find suitable linebreaks.

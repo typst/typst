@@ -46,8 +46,8 @@ impl Dict {
     }
 
     /// Borrow the value the given `key` maps to.
-    pub fn get(&self, key: EcoString) -> StrResult<&Value> {
-        self.0.get(&key).ok_or_else(|| missing_key(&key))
+    pub fn get(&self, key: &EcoString) -> StrResult<&Value> {
+        self.0.get(key).ok_or_else(|| missing_key(key))
     }
 
     /// Mutably borrow the value the given `key` maps to.
@@ -59,7 +59,7 @@ impl Dict {
     }
 
     /// Whether the dictionary contains a specific key.
-    pub fn contains(&self, key: &str) -> bool {
+    pub fn contains(&self, key: &EcoString) -> bool {
         self.0.contains_key(key)
     }
 
@@ -69,10 +69,10 @@ impl Dict {
     }
 
     /// Remove a mapping by `key`.
-    pub fn remove(&mut self, key: EcoString) -> StrResult<()> {
-        match Arc::make_mut(&mut self.0).remove(&key) {
+    pub fn remove(&mut self, key: &EcoString) -> StrResult<()> {
+        match Arc::make_mut(&mut self.0).remove(key) {
             Some(_) => Ok(()),
-            None => Err(missing_key(&key)),
+            None => Err(missing_key(key)),
         }
     }
 

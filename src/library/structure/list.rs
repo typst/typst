@@ -75,6 +75,17 @@ impl<const L: ListKind> ListNode<L> {
 }
 
 impl<const L: ListKind> Show for ListNode<L> {
+    fn unguard(&self, sel: Selector) -> ShowNode {
+        Self {
+            items: self.items.map(|item| ListItem {
+                body: Box::new(item.body.unguard(sel)),
+                ..*item
+            }),
+            ..*self
+        }
+        .pack()
+    }
+
     fn encode(&self) -> Dict {
         dict! {
             "start" => Value::Int(self.start as i64),
@@ -83,7 +94,7 @@ impl<const L: ListKind> Show for ListNode<L> {
             "items" => Value::Array(
                 self.items
                     .items()
-                    .map(|item| Value::Content((*item.body).clone()))
+                    .map(|item| Value::Content(item.body.as_ref().clone()))
                     .collect()
             ),
         }

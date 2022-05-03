@@ -4,9 +4,8 @@ use std::sync::Arc;
 
 use super::{Args, Control, Eval, Scope, Scopes, Value};
 use crate::diag::{StrResult, TypResult};
-use crate::model::{Content, StyleMap};
+use crate::model::{Content, NodeId, StyleMap};
 use crate::syntax::ast::Expr;
-use crate::syntax::Span;
 use crate::util::EcoString;
 use crate::Context;
 
@@ -35,7 +34,7 @@ impl Func {
             name,
             func,
             set: None,
-            show: None,
+            node: None,
         })))
     }
 
@@ -49,15 +48,7 @@ impl Func {
                 Ok(Value::Content(content.styled_with_map(styles.scoped())))
             },
             set: Some(T::set),
-            show: if T::SHOWABLE {
-                Some(|recipe, span| {
-                    let mut styles = StyleMap::new();
-                    styles.set_recipe::<T>(recipe, span);
-                    styles
-                })
-            } else {
-                None
-            },
+            node: T::SHOWABLE.then(|| NodeId::of::<T>()),
         })))
     }
 
@@ -80,7 +71,20 @@ impl Func {
         }
     }
 
-    /// Call the function with a virtual machine and arguments.
+    /// The number of positional arguments this function takes, if known.
+    pub fn argc(&self) -> Option<usize> {
+        match self.0.as_ref() {
+            Repr::Closure(closure) => Some(
+                closure.params.iter().filter(|(_, default)| default.is_none()).count(),
+            ),
+            Repr::With(wrapped, applied) => Some(wrapped.argc()?.saturating_sub(
+                applied.items.iter().filter(|arg| arg.name.is_none()).count(),
+            )),
+            _ => None,
+        }
+    }
+
+    /// Call the function with the given arguments.
     pub fn call(&self, ctx: &mut Context, mut args: Args) -> TypResult<Value> {
         let value = match self.0.as_ref() {
             Repr::Native(native) => (native.func)(ctx, &mut args)?,
@@ -104,10 +108,10 @@ impl Func {
         Ok(styles)
     }
 
-    /// Execute the function's show rule.
-    pub fn show(&self, recipe: Func, span: Span) -> StrResult<StyleMap> {
+    /// The id of the node to customize with this function's show rule.
+    pub fn node(&self) -> StrResult<NodeId> {
         match self.0.as_ref() {
-            Repr::Native(Native { show: Some(show), .. }) => Ok(show(recipe, span)),
+            Repr::Native(Native { node: Some(id), .. }) => Ok(*id),
             _ => Err("this function cannot be customized with show")?,
         }
     }
@@ -138,8 +142,8 @@ struct Native {
     pub func: fn(&mut Context, &mut Args) -> TypResult<Value>,
     /// The set rule.
     pub set: Option<fn(&mut Args) -> TypResult<StyleMap>>,
-    /// The show rule.
-    pub show: Option<fn(Func, Span) -> StyleMap>,
+    /// The id of the node to customize with this function's show rule.
+    pub node: Option<NodeId>,
 }
 
 impl Hash for Native {
@@ -147,7 +151,7 @@ impl Hash for Native {
         self.name.hash(state);
         (self.func as usize).hash(state);
         self.set.map(|set| set as usize).hash(state);
-        self.show.map(|show| show as usize).hash(state);
+        self.node.hash(state);
     }
 }
 

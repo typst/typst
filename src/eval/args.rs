@@ -26,19 +26,22 @@ pub struct Arg {
 }
 
 impl Args {
+    /// Create empty arguments from a span.
+    pub fn new(span: Span) -> Self {
+        Self { span, items: vec![] }
+    }
+
     /// Create positional arguments from a span and values.
     pub fn from_values(span: Span, values: impl IntoIterator<Item = Value>) -> Self {
-        Self {
-            span,
-            items: values
-                .into_iter()
-                .map(|value| Arg {
-                    span,
-                    name: None,
-                    value: Spanned::new(value, span),
-                })
-                .collect(),
-        }
+        let items = values
+            .into_iter()
+            .map(|value| Arg {
+                span,
+                name: None,
+                value: Spanned::new(value, span),
+            })
+            .collect();
+        Self { span, items }
     }
 
     /// Consume and cast the first positional argument.

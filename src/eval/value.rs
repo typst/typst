@@ -11,7 +11,7 @@ use crate::geom::{
     Angle, Color, Dir, Em, Fraction, Length, Paint, Ratio, Relative, RgbaColor, Sides,
 };
 use crate::library::text::RawNode;
-use crate::model::{Content, Layout, LayoutNode};
+use crate::model::{Content, Layout, LayoutNode, Pattern};
 use crate::syntax::Spanned;
 use crate::util::EcoString;
 
@@ -617,13 +617,13 @@ where
                 }
 
                 let sides = Sides {
-                    left: dict.get("left".into()).or_else(|_| dict.get("x".into())),
-                    top: dict.get("top".into()).or_else(|_| dict.get("y".into())),
-                    right: dict.get("right".into()).or_else(|_| dict.get("x".into())),
-                    bottom: dict.get("bottom".into()).or_else(|_| dict.get("y".into())),
+                    left: dict.get(&"left".into()).or_else(|_| dict.get(&"x".into())),
+                    top: dict.get(&"top".into()).or_else(|_| dict.get(&"y".into())),
+                    right: dict.get(&"right".into()).or_else(|_| dict.get(&"x".into())),
+                    bottom: dict.get(&"bottom".into()).or_else(|_| dict.get(&"y".into())),
                 }
                 .map(|side| {
-                    side.or_else(|_| dict.get("rest".into()))
+                    side.or_else(|_| dict.get(&"rest".into()))
                         .and_then(|v| T::cast(v.clone()))
                         .unwrap_or_default()
                 });
@@ -682,6 +682,12 @@ castable! {
     LayoutNode,
     Expected: "content",
     Value::Content(content) => content.pack(),
+}
+
+castable! {
+    Pattern,
+    Expected: "function",
+    Value::Func(func) => Pattern::Node(func.node()?),
 }
 
 #[cfg(test)]

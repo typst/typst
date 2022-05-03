@@ -807,9 +807,15 @@ fn set_expr(p: &mut Parser) -> ParseResult {
 fn show_expr(p: &mut Parser) -> ParseResult {
     p.perform(NodeKind::ShowExpr, |p| {
         p.assert(NodeKind::Show);
-        ident(p)?;
-        p.expect(NodeKind::Colon)?;
-        ident(p)?;
+        let marker = p.marker();
+        expr(p)?;
+        if p.eat_if(NodeKind::Colon) {
+            marker.filter_children(p, |child| match child.kind() {
+                NodeKind::Ident(_) | NodeKind::Colon => Ok(()),
+                _ => Err("expected identifier"),
+            });
+            expr(p)?;
+        }
         p.expect(NodeKind::As)?;
         expr(p)
     })
