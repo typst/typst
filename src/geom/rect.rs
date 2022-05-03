@@ -112,51 +112,44 @@ fn draw_side(
     radius_right: Length,
     connection: Connection,
 ) {
-    let reversed = |angle: Angle, radius, rotate, mirror_x, mirror_y| {
-        let [a, b, c, d] = bezier_arc(angle, radius, rotate, mirror_x, mirror_y);
-        [d, c, b, a]
-    };
-
     let angle_left = Angle::deg(if connection.prev { 90.0 } else { 45.0 });
     let angle_right = Angle::deg(if connection.next { 90.0 } else { 45.0 });
 
-    let (arc1, arc2) = match side {
-        Side::Top => {
-            let arc1 = reversed(angle_left, radius_left, true, true, false)
-                .map(|x| x + Point::with_x(radius_left));
-            let arc2 = bezier_arc(-angle_right, radius_right, true, true, false)
-                .map(|x| x + Point::with_x(size.x - radius_right));
+    let length = size.get(side.axis());
 
-            (arc1, arc2)
-        }
-        Side::Right => {
-            let arc1 = reversed(-angle_left, radius_left, false, false, false)
-                .map(|x| x + Point::new(size.x, radius_left));
+    // The arcs for a border of the rectangle along the x-axis, starting at (0,0).
+    let p1 = Point::with_x(radius_left);
+    let mut arc1 = bezier_arc(
+        p1 + Point::new(
+            -angle_left.sin() * radius_left,
+            (1.0 - angle_left.cos()) * radius_left,
+        ),
+        Point::new(radius_left, radius_left),
+        p1,
+    );
 
-            let arc2 = bezier_arc(angle_right, radius_right, false, false, false)
-                .map(|x| x + Point::new(size.x, size.y - radius_right));
+    let p2 = Point::with_x(length - radius_right);
+    let mut arc2 = bezier_arc(
+        p2,
+        Point::new(length - radius_right, radius_right),
+        p2 + Point::new(
+            angle_right.sin() * radius_right,
+            (1.0 - angle_right.cos()) * radius_right,
+        ),
+    );
 
-            (arc1, arc2)
-        }
-        Side::Bottom => {
-            let arc1 = reversed(-angle_left, radius_left, true, false, false)
-                .map(|x| x + Point::new(size.x - radius_left, size.y));
-
-            let arc2 = bezier_arc(angle_right, radius_right, true, false, false)
-                .map(|x| x + Point::new(radius_right, size.y));
-
-            (arc1, arc2)
-        }
-        Side::Left => {
-            let arc1 = reversed(angle_left, radius_left, false, false, true)
-                .map(|x| x + Point::with_y(size.y - radius_left));
-
-            let arc2 = bezier_arc(-angle_right, radius_right, false, false, true)
-                .map(|x| x + Point::with_y(radius_right));
-
-            (arc1, arc2)
-        }
+    let transform = match side {
+        Side::Left => Transform::rotate(Angle::deg(-90.0))
+            .post_concat(Transform::translate(Length::zero(), size.y)),
+        Side::Bottom => Transform::rotate(Angle::deg(180.0))
+            .post_concat(Transform::translate(size.x, size.y)),
+        Side::Right => Transform::rotate(Angle::deg(90.0))
+            .post_concat(Transform::translate(size.x, Length::zero())),
+        _ => Transform::identity(),
     };
+
+    arc1 = arc1.map(|x| x.transform(transform));
+    arc2 = arc2.map(|x| x.transform(transform));
 
     if !connection.prev {
         path.move_to(if radius_left.is_zero() { arc1[3] } else { arc1[0] });

@@ -24,16 +24,6 @@ impl Transform {
         }
     }
 
-    /// Transform by mirroring along the x-axis.
-    pub fn mirror_x() -> Self {
-        Self::scale(Ratio::one(), -Ratio::one())
-    }
-
-    /// Transform by mirroring along the y-axis.
-    pub fn mirror_y() -> Self {
-        Self::scale(-Ratio::one(), Ratio::one())
-    }
-
     /// A translate transform.
     pub const fn translate(tx: Length, ty: Length) -> Self {
         Self { tx, ty, ..Self::identity() }
@@ -63,7 +53,7 @@ impl Transform {
     }
 
     /// Pre-concatenate another transformation.
-    pub fn pre_concat(&self, prev: Self) -> Self {
+    pub fn pre_concat(self, prev: Self) -> Self {
         Transform {
             sx: self.sx * prev.sx + self.kx * prev.ky,
             ky: self.ky * prev.sx + self.sy * prev.ky,
@@ -72,6 +62,11 @@ impl Transform {
             tx: self.sx.of(prev.tx) + self.kx.of(prev.ty) + self.tx,
             ty: self.ky.of(prev.tx) + self.sy.of(prev.ty) + self.ty,
         }
+    }
+
+    /// Post-concatenate another transformation.
+    pub fn post_concat(self, next: Self) -> Self {
+        next.pre_concat(self)
     }
 }
 

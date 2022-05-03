@@ -72,33 +72,12 @@ impl Path {
     }
 }
 
-/// Get the control points for a bezier curve that describes a circular arc
-/// of this angle with the given radius.
-pub fn bezier_arc(
-    angle: Angle,
-    radius: Length,
-    rotate: bool,
-    mirror_x: bool,
-    mirror_y: bool,
-) -> [Point; 4] {
-    let end = Point::new(angle.cos() * radius - radius, angle.sin() * radius);
-    let center = Point::new(-radius, Length::zero());
-
-    let mut ts = if mirror_y {
-        Transform::mirror_y()
-    } else {
-        Transform::identity()
-    };
-
-    if mirror_x {
-        ts = ts.pre_concat(Transform::mirror_x());
-    }
-
-    if rotate {
-        ts = ts.pre_concat(Transform::rotate(Angle::deg(90.0)));
-    }
-
-    let a = center * -1.0;
+/// Get the control points for a bezier curve that describes a circular arc for
+/// a start point, an end point and a center of the circle whose arc connects
+/// the two.
+pub fn bezier_arc(start: Point, center: Point, end: Point) -> [Point; 4] {
+    // https://stackoverflow.com/a/44829356/1567835
+    let a = start - center;
     let b = end - center;
 
     let q1 = a.x.to_raw() * a.x.to_raw() + a.y.to_raw() * a.y.to_raw();
@@ -109,10 +88,5 @@ pub fn bezier_arc(
     let control_1 = Point::new(center.x + a.x - k2 * a.y, center.y + a.y + k2 * a.x);
     let control_2 = Point::new(center.x + b.x + k2 * b.y, center.y + b.y - k2 * b.x);
 
-    [
-        Point::zero(),
-        control_1.transform(ts),
-        control_2.transform(ts),
-        end.transform(ts),
-    ]
+    [start, control_1, control_2, end]
 }

@@ -159,4 +159,12 @@ impl Side {
             Self::Bottom => Self::Right,
         }
     }
+
+    /// Return the corresponding axis.
+    pub fn axis(self) -> SpecAxis {
+        match self {
+            Self::Left | Self::Right => SpecAxis::Vertical,
+            Self::Top | Self::Bottom => SpecAxis::Horizontal,
+        }
+    }
 }
