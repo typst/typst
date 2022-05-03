@@ -63,5 +63,9 @@ Another text.
 #show _: upper as {}
 
 ---
+// Error: 7-10 expected function, string or regular expression, found color
+#show red as []
+
+---
 // Error: 2-16 set, show and wrap are only allowed directly in markup
 {show list as a}

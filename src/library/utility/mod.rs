@@ -1,11 +1,9 @@
 //! Computational utility functions.
 
-mod blind;
 mod color;
 mod math;
 mod string;
 
-pub use blind::*;
 pub use color::*;
 pub use math::*;
 pub use string::*;

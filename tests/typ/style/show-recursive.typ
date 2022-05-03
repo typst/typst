@@ -43,7 +43,7 @@
 
 ---
 // Test multi-recursion with nested lists.
-#set rect(padding: 2pt)
+#set rect(inset: 2pt)
 #show v: list as rect(stroke: blue, v)
 #show v: list as rect(stroke: red, v)
 

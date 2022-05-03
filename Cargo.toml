@@ -23,6 +23,7 @@ serde = { version = "1", features = ["derive"] }
 typed-arena = "2"
 parking_lot = "0.12"
 unscanny = { git = "https://github.com/typst/unscanny" }
+regex = "1"
 
 # Text and font handling
 hypher = "0.1"

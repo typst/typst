@@ -366,12 +366,19 @@ impl<'a, 'ctx> Builder<'a, 'ctx> {
     }
 
     fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) -> TypResult<()> {
-        // Handle special content kinds.
         match content {
             Content::Empty => return Ok(()),
+            Content::Text(text) => {
+                if let Some(realized) = styles.apply(self.ctx, Target::Text(text))? {
+                    let stored = self.scratch.templates.alloc(realized);
+                    return self.accept(stored, styles);
+                }
+            }
+
             Content::Show(node, _) => return self.show(node, styles),
             Content::Styled(styled) => return self.styled(styled, styles),
             Content::Sequence(seq) => return self.sequence(seq, styles),
+
             _ => {}
         }
 

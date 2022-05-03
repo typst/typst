@@ -2,7 +2,7 @@ use std::fmt::{self, Debug, Formatter};
 
 use super::{Content, Interruption, NodeId, Show, ShowNode, StyleEntry};
 use crate::diag::{At, TypResult};
-use crate::eval::{Args, Func, Value};
+use crate::eval::{Args, Func, Regex, Value};
 use crate::library::structure::{EnumNode, ListNode};
 use crate::syntax::Span;
 use crate::Context;
@@ -23,6 +23,7 @@ impl Recipe {
     pub fn applicable(&self, target: Target) -> bool {
         match (&self.pattern, target) {
             (Pattern::Node(id), Target::Node(node)) => *id == node.id(),
+            (Pattern::Regex(_), Target::Text(_)) => true,
             _ => false,
         }
     }
@@ -41,6 +42,31 @@ impl Recipe {
                     let dict = node.encode();
                     Value::Content(Content::Show(node, Some(dict)))
                 })?
+            }
+
+            (Target::Text(text), Pattern::Regex(regex)) => {
+                let mut result = vec![];
+                let mut cursor = 0;
+
+                for mat in regex.find_iter(text) {
+                    let start = mat.start();
+                    if cursor < start {
+                        result.push(Content::Text(text[cursor .. start].into()));
+                    }
+
+                    result.push(self.call(ctx, || Value::Str(mat.as_str().into()))?);
+                    cursor = mat.end();
+                }
+
+                if result.is_empty() {
+                    return Ok(None);
+                }
+
+                if cursor < text.len() {
+                    result.push(Content::Text(text[cursor ..].into()));
+                }
+
+                Content::sequence(result)
             }
 
             _ => return Ok(None),
@@ -86,6 +112,15 @@ impl Debug for Recipe {
 pub enum Pattern {
     /// Defines the appearence of some node.
     Node(NodeId),
+    /// Defines text to be replaced.
+    Regex(Regex),
+}
+
+impl Pattern {
+    /// Define a simple text replacement pattern.
+    pub fn text(text: &str) -> Self {
+        Self::Regex(Regex::new(&regex::escape(text)).unwrap())
+    }
 }
 
 /// A target for a show rule recipe.
@@ -93,6 +128,8 @@ pub enum Pattern {
 pub enum Target<'a> {
     /// A showable node.
     Node(&'a ShowNode),
+    /// A slice of text.
+    Text(&'a str),
 }
 
 /// Identifies a show rule recipe.

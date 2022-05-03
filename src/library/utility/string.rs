@@ -1,3 +1,6 @@
+use lipsum::lipsum_from_seed;
+
+use crate::eval::Regex;
 use crate::library::prelude::*;
 use crate::library::text::{Case, TextNode};
 
@@ -35,6 +38,18 @@ fn case(case: Case, args: &mut Args) -> TypResult<Value> {
         Value::Content(v) => Value::Content(v.styled(TextNode::CASE, Some(case))),
         v => bail!(span, "expected string or content, found {}", v.type_name()),
     })
+}
+
+/// Create blind text.
+pub fn lorem(_: &mut Context, args: &mut Args) -> TypResult<Value> {
+    let words: usize = args.expect("number of words")?;
+    Ok(Value::Str(lipsum_from_seed(words, 97).into()))
+}
+
+/// Create a regular expression.
+pub fn regex(_: &mut Context, args: &mut Args) -> TypResult<Value> {
+    let Spanned { v, span } = args.expect::<Spanned<EcoString>>("regular expression")?;
+    Ok(Regex::new(&v).at(span)?.into())
 }
 
 /// Converts an integer into one or multiple letters.

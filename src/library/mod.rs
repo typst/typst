@@ -83,6 +83,7 @@ pub fn new() -> Scope {
     std.def_fn("cmyk", utility::cmyk);
     std.def_fn("repr", utility::repr);
     std.def_fn("str", utility::str);
+    std.def_fn("regex", utility::regex);
     std.def_fn("lower", utility::lower);
     std.def_fn("upper", utility::upper);
     std.def_fn("letter", utility::letter);

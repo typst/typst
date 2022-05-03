@@ -1,8 +1,9 @@
 //! Methods on values.
 
-use super::{Args, StrExt, Value};
+use super::{Args, Regex, StrExt, Value};
 use crate::diag::{At, TypResult};
 use crate::syntax::Span;
+use crate::util::EcoString;
 use crate::Context;
 
 /// Call a method on a value.
@@ -65,6 +66,19 @@ pub fn call(
             "named" => Value::Dict(args.to_named()),
             _ => missing()?,
         },
+
+        Value::Dyn(dynamic) => {
+            if let Some(regex) = dynamic.downcast::<Regex>() {
+                match method {
+                    "matches" => {
+                        Value::Bool(regex.matches(&args.expect::<EcoString>("text")?))
+                    }
+                    _ => missing()?,
+                }
+            } else {
+                missing()?
+            }
+        }
 
         _ => missing()?,
     };

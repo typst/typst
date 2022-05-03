@@ -5,7 +5,7 @@ use std::hash::{Hash, Hasher};
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 
-use super::{ops, Args, Array, Dict, Func, RawLength};
+use super::{ops, Args, Array, Dict, Func, RawLength, Regex};
 use crate::diag::{with_alternative, StrResult};
 use crate::geom::{
     Angle, Color, Dir, Em, Fraction, Length, Paint, Ratio, Relative, RgbaColor, Sides,
@@ -641,6 +641,10 @@ dynamic! {
     Dir: "direction",
 }
 
+dynamic! {
+    Regex: "regular expression",
+}
+
 castable! {
     usize,
     Expected: "non-negative integer",
@@ -686,8 +690,10 @@ castable! {
 
 castable! {
     Pattern,
-    Expected: "function",
+    Expected: "function, string or regular expression",
     Value::Func(func) => Pattern::Node(func.node()?),
+    Value::Str(text) => Pattern::text(&text),
+    @regex: Regex => Pattern::Regex(regex.clone()),
 }
 
 #[cfg(test)]

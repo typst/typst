@@ -1,3 +1,7 @@
+use std::fmt::{self, Debug, Formatter};
+use std::hash::{Hash, Hasher};
+use std::ops::Deref;
+
 use super::{Array, Value};
 use crate::diag::StrResult;
 use crate::util::EcoString;
@@ -33,5 +37,47 @@ impl StrExt for EcoString {
                 .map(|s| Value::Str(s.into()))
                 .collect()
         }
+    }
+}
+
+/// A regular expression.
+#[derive(Clone)]
+pub struct Regex(regex::Regex);
+
+impl Regex {
+    /// Create a new regex.
+    pub fn new(re: &str) -> StrResult<Self> {
+        regex::Regex::new(re).map(Self).map_err(|err| err.to_string())
+    }
+
+    /// Whether the regex matches the given `text`.
+    pub fn matches(&self, text: &str) -> bool {
+        self.0.is_match(text)
+    }
+}
+
+impl Deref for Regex {
+    type Target = regex::Regex;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Debug for Regex {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "regex({:?})", self.0.as_str())
+    }
+}
+
+impl PartialEq for Regex {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.as_str() == other.0.as_str()
+    }
+}
+
+impl Hash for Regex {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.as_str().hash(state);
     }
 }

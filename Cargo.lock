@@ -902,6 +902,7 @@ dependencies = [
  "pdf-writer",
  "pico-args",
  "pixglyph",
+ "regex",
  "resvg",
  "roxmltree",
  "rustybuzz",

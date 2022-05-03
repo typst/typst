@@ -41,16 +41,16 @@
 
 ---
 // Outset padding.
+#set raw(lang: "rust")
 #show node: raw as [
-  #set text("IBM Plex Mono", 8pt)
-  #h(.7em, weak: true)
-  #rect(radius: 3pt, outset: (y: 3pt, x: 2.5pt), fill: rgb(239, 241, 243))[{node.text}]
-  #h(.7em, weak: true)
+  #set text(8pt)
+  #h(5.6pt, weak: true)
+  #rect(radius: 3pt, outset: (y: 3pt, x: 2.5pt), fill: rgb(239, 241, 243), node)
+  #h(5.6pt, weak: true)
 ]
 
-Use the `*const ptr` pointer.
+Use the `*const T` pointer or the `&mut T` reference.
 
 ---
 // Error: 15-38 unexpected key "cake"
 #rect(radius: (left: 10pt, cake: 5pt))
-
