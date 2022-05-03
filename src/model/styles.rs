@@ -466,12 +466,7 @@ where
     type Output = Sides<T::Output>;
 
     fn fold(self, outer: Self::Output) -> Self::Output {
-        Sides {
-            left: self.left.fold(outer.left),
-            top: self.top.fold(outer.top),
-            right: self.right.fold(outer.right),
-            bottom: self.bottom.fold(outer.bottom),
-        }
+        self.zip(outer, |inner, outer, _| inner.fold(outer))
     }
 }
 
@@ -479,25 +474,15 @@ impl Fold for Sides<Option<Relative<Length>>> {
     type Output = Sides<Relative<Length>>;
 
     fn fold(self, outer: Self::Output) -> Self::Output {
-        Sides {
-            left: self.left.unwrap_or(outer.left),
-            top: self.top.unwrap_or(outer.top),
-            right: self.right.unwrap_or(outer.right),
-            bottom: self.bottom.unwrap_or(outer.bottom),
-        }
+        self.zip(outer, |inner, outer, _| inner.unwrap_or(outer))
     }
 }
 
-impl Fold for Sides<Smart<Relative<RawLength>>> {
+impl Fold for Sides<Option<Smart<Relative<RawLength>>>> {
     type Output = Sides<Smart<Relative<RawLength>>>;
 
     fn fold(self, outer: Self::Output) -> Self::Output {
-        Sides {
-            left: self.left.or(outer.left),
-            top: self.top.or(outer.top),
-            right: self.right.or(outer.right),
-            bottom: self.bottom.or(outer.bottom),
-        }
+        self.zip(outer, |inner, outer, _| inner.unwrap_or(outer))
     }
 }
 

@@ -45,6 +45,19 @@ impl<T> Sides<T> {
         }
     }
 
+    /// Zip two instances into an instance.
+    pub fn zip<F, V, W>(self, other: Sides<V>, mut f: F) -> Sides<W>
+    where
+        F: FnMut(T, V, Side) -> W,
+    {
+        Sides {
+            left: f(self.left, other.left, Side::Left),
+            top: f(self.top, other.top, Side::Top),
+            right: f(self.right, other.right, Side::Right),
+            bottom: f(self.bottom, other.bottom, Side::Bottom),
+        }
+    }
+
     /// Returns an iterator over the sides.
     pub fn iter(&self) -> impl Iterator<Item = &T> {
         [&self.left, &self.top, &self.right, &self.bottom].into_iter()

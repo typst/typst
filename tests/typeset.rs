@@ -66,7 +66,7 @@ fn main() {
     styles.set(PageNode::HEIGHT, Smart::Auto);
     styles.set(
         PageNode::MARGINS,
-        Sides::splat(Smart::Custom(Length::pt(10.0).into())),
+        Sides::splat(Some(Smart::Custom(Length::pt(10.0).into()))),
     );
     styles.set(TextNode::SIZE, TextSize(Length::pt(10.0).into()));
 

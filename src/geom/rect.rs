@@ -3,7 +3,7 @@ use super::*;
 use std::mem;
 
 /// A rectangle with rounded corners.
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Rect {
     size: Size,
     radius: Sides<Length>,
@@ -19,7 +19,7 @@ impl Rect {
     /// in the foreground. The function will output multiple items if the stroke
     /// properties differ by side.
     pub fn shapes(
-        &self,
+        self,
         fill: Option<Paint>,
         stroke: Sides<Option<Stroke>>,
     ) -> Vec<Shape> {
@@ -28,48 +28,64 @@ impl Rect {
             res.push(Shape {
                 geometry: self.fill_geometry(),
                 fill,
-                stroke: stroke.is_uniform().then(|| stroke.top).flatten(),
+                stroke: if stroke.is_uniform() { stroke.top } else { None },
             });
         }
 
         if !stroke.is_uniform() {
-            for (path, stroke) in self.stroke_segments(Some(stroke)) {
-                if !stroke.is_some() {
-                    continue;
+            for (path, stroke) in self.stroke_segments(stroke) {
+                if stroke.is_some() {
+                    res.push(Shape {
+                        geometry: Geometry::Path(path),
+                        fill: None,
+                        stroke,
+                    });
                 }
-                res.push(Shape {
-                    geometry: Geometry::Path(path),
-                    fill: None,
-                    stroke,
-                });
             }
         }
 
         res
     }
 
+    /// Output the shape of the rectangle as a path or primitive rectangle,
+    /// depending on whether it is rounded.
+    fn fill_geometry(self) -> Geometry {
+        if self.radius.iter().copied().all(Length::is_zero) {
+            Geometry::Rect(self.size)
+        } else {
+            let mut paths = self.stroke_segments(Sides::splat(None));
+            assert_eq!(paths.len(), 1);
+
+            Geometry::Path(paths.pop().unwrap().0)
+        }
+    }
+
     /// Output the minimum number of paths along the rectangles border.
     fn stroke_segments(
-        &self,
-        strokes: Option<Sides<Option<Stroke>>>,
+        self,
+        strokes: Sides<Option<Stroke>>,
     ) -> Vec<(Path, Option<Stroke>)> {
-        let strokes = strokes.unwrap_or_else(|| Sides::splat(None));
         let mut res = vec![];
 
-        let mut connection = Connection::None;
+        let mut connection = Connection::default();
         let mut path = Path::new();
         let mut always_continuous = true;
 
         for side in [Side::Top, Side::Right, Side::Bottom, Side::Left] {
-            let radius = [self.radius.get(side.next_ccw()), self.radius.get(side)];
+            let is_continuous = strokes.get(side) == strokes.get(side.next_cw());
+            connection = connection.advance(is_continuous && side != Side::Left);
+            always_continuous &= is_continuous;
 
-            let stroke_continuity = strokes.get(side) == strokes.get(side.next_cw());
-            connection = connection.advance(stroke_continuity && side != Side::Left);
-            always_continuous &= stroke_continuity;
+            draw_side(
+                &mut path,
+                side,
+                self.size,
+                self.radius.get(side.next_ccw()),
+                self.radius.get(side),
+                connection,
+            );
 
-            draw_side(&mut path, side, self.size, radius[0], radius[1], connection);
-
-            if !stroke_continuity {
+            if !is_continuous {
                 res.push((mem::take(&mut path), strokes.get(side)));
             }
         }
@@ -84,19 +100,6 @@ impl Rect {
 
         res
     }
-
-    /// Output the shape of the rectangle as a path or primitive rectangle,
-    /// depending on whether it is rounded.
-    fn fill_geometry(&self) -> Geometry {
-        if self.radius.iter().copied().all(Length::is_zero) {
-            Geometry::Rect(self.size)
-        } else {
-            let mut paths = self.stroke_segments(None);
-            assert_eq!(paths.len(), 1);
-
-            Geometry::Path(paths.pop().unwrap().0)
-        }
-    }
 }
 
 /// Draws one side of the rounded rectangle. Will always draw the left arc. The
@@ -110,19 +113,18 @@ fn draw_side(
     connection: Connection,
 ) {
     let reversed = |angle: Angle, radius, rotate, mirror_x, mirror_y| {
-        let [a, b, c, d] = angle.bezier_arc(radius, rotate, mirror_x, mirror_y);
+        let [a, b, c, d] = bezier_arc(angle, radius, rotate, mirror_x, mirror_y);
         [d, c, b, a]
     };
 
-    let angle_left = Angle::deg(if connection.left() { 90.0 } else { 45.0 });
-    let angle_right = Angle::deg(if connection.right() { 90.0 } else { 45.0 });
+    let angle_left = Angle::deg(if connection.prev { 90.0 } else { 45.0 });
+    let angle_right = Angle::deg(if connection.next { 90.0 } else { 45.0 });
 
     let (arc1, arc2) = match side {
         Side::Top => {
             let arc1 = reversed(angle_left, radius_left, true, true, false)
                 .map(|x| x + Point::with_x(radius_left));
-            let arc2 = (-angle_right)
-                .bezier_arc(radius_right, true, true, false)
+            let arc2 = bezier_arc(-angle_right, radius_right, true, true, false)
                 .map(|x| x + Point::with_x(size.x - radius_right));
 
             (arc1, arc2)
@@ -131,8 +133,7 @@ fn draw_side(
             let arc1 = reversed(-angle_left, radius_left, false, false, false)
                 .map(|x| x + Point::new(size.x, radius_left));
 
-            let arc2 = angle_right
-                .bezier_arc(radius_right, false, false, false)
+            let arc2 = bezier_arc(angle_right, radius_right, false, false, false)
                 .map(|x| x + Point::new(size.x, size.y - radius_right));
 
             (arc1, arc2)
@@ -141,8 +142,7 @@ fn draw_side(
             let arc1 = reversed(-angle_left, radius_left, true, false, false)
                 .map(|x| x + Point::new(size.x - radius_left, size.y));
 
-            let arc2 = angle_right
-                .bezier_arc(radius_right, true, false, false)
+            let arc2 = bezier_arc(angle_right, radius_right, true, false, false)
                 .map(|x| x + Point::new(radius_right, size.y));
 
             (arc1, arc2)
@@ -151,15 +151,14 @@ fn draw_side(
             let arc1 = reversed(angle_left, radius_left, false, false, true)
                 .map(|x| x + Point::with_y(size.y - radius_left));
 
-            let arc2 = (-angle_right)
-                .bezier_arc(radius_right, false, false, true)
+            let arc2 = bezier_arc(-angle_right, radius_right, false, false, true)
                 .map(|x| x + Point::with_y(radius_right));
 
             (arc1, arc2)
         }
     };
 
-    if !connection.left() {
+    if !connection.prev {
         path.move_to(if radius_left.is_zero() { arc1[3] } else { arc1[0] });
     }
 
@@ -169,51 +168,24 @@ fn draw_side(
 
     path.line_to(arc2[0]);
 
-    if !connection.right() && !radius_right.is_zero() {
+    if !connection.next && !radius_right.is_zero() {
         path.cubic_to(arc2[1], arc2[2], arc2[3]);
     }
 }
 
 /// A state machine that indicates which sides of the border strokes in a 2D
 /// polygon are connected to their neighboring sides.
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-enum Connection {
-    None,
-    Left,
-    Right,
-    Both,
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
+struct Connection {
+    prev: bool,
+    next: bool,
 }
 
 impl Connection {
     /// Advance to the next clockwise side of the polygon. The argument
     /// indicates whether the border is connected on the right side of the next
     /// edge.
-    pub fn advance(self, right: bool) -> Self {
-        match self {
-            Self::Right | Self::Both => {
-                if right {
-                    Self::Both
-                } else {
-                    Self::Left
-                }
-            }
-            Self::Left | Self::None => {
-                if right {
-                    Self::Right
-                } else {
-                    Self::None
-                }
-            }
-        }
-    }
-
-    /// Whether there is a connection on the left.
-    fn left(self) -> bool {
-        matches!(self, Self::Left | Self::Both)
-    }
-
-    /// Whether there is a connection on the right.
-    fn right(self) -> bool {
-        matches!(self, Self::Right | Self::Both)
+    pub fn advance(self, next: bool) -> Self {
+        Self { prev: self.next, next }
     }
 }

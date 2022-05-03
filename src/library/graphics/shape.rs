@@ -78,7 +78,7 @@ impl<const S: ShapeKind> ShapeNode<S> {
         styles.set_opt(Self::INSET, args.named("inset")?);
         styles.set_opt(Self::OUTSET, args.named("outset")?);
 
-        if S != CIRCLE {
+        if !is_round(S) {
             styles.set_opt(Self::RADIUS, args.named("radius")?);
         }
 
@@ -97,10 +97,7 @@ impl<const S: ShapeKind> Layout for ShapeNode<S> {
         if let Some(child) = &self.0 {
             let mut inset = styles.get(Self::INSET);
             if is_round(S) {
-                inset = inset.map(|mut side| {
-                    side.rel += Ratio::new(0.5 - SQRT_2 / 4.0);
-                    side
-                });
+                inset = inset.map(|side| side + Ratio::new(0.5 - SQRT_2 / 4.0));
             }
 
             // Pad the child.
@@ -158,18 +155,8 @@ impl<const S: ShapeKind> Layout for ShapeNode<S> {
             }
         };
 
-        let outset = styles.get(Self::OUTSET);
-        let outset = Sides {
-            left: outset.left.relative_to(frame.size.x),
-            top: outset.top.relative_to(frame.size.y),
-            right: outset.right.relative_to(frame.size.x),
-            bottom: outset.bottom.relative_to(frame.size.y),
-        };
-
-        let size = Spec::new(
-            frame.size.x + outset.left + outset.right,
-            frame.size.y + outset.top + outset.bottom,
-        );
+        let outset = styles.get(Self::OUTSET).relative_to(frame.size);
+        let size = frame.size + outset.sum_by_axis();
 
         let radius = styles
             .get(Self::RADIUS)
@@ -186,11 +173,12 @@ impl<const S: ShapeKind> Layout for ShapeNode<S> {
                 };
                 frame.prepend(pos, Element::Shape(shape));
             } else {
-                for shape in
-                    Rect::new(size, radius).shapes(fill, stroke).into_iter().rev()
-                {
-                    frame.prepend(pos, Element::Shape(shape));
-                }
+                frame.prepend_multiple(
+                    Rect::new(size, radius)
+                        .shapes(fill, stroke)
+                        .into_iter()
+                        .map(|x| (pos, Element::Shape(x))),
+                )
             }
         }
 

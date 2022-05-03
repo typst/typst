@@ -35,20 +35,20 @@
 
 // Different strokes.
 [
-  #set rect(stroke: (right: red,))
+  #set rect(stroke: (right: red))
   #rect(width: 100%, fill: lime, stroke: (x: 5pt, y: 1pt))
 ]
 
 ---
 // Outset padding.
-#let inline-code(body) = [
+#show node: raw as [
   #set text("IBM Plex Mono", 8pt)
   #h(.7em, weak: true)
-  #rect(radius: 3pt, outset: (y: 3pt, x: 2.5pt), fill: rgb(239, 241, 243), body)
+  #rect(radius: 3pt, outset: (y: 3pt, x: 2.5pt), fill: rgb(239, 241, 243))[{node.text}]
   #h(.7em, weak: true)
 ]
 
-Use the #inline-code[\*const ptr] pointer.
+Use the `*const ptr` pointer.
 
 ---
 // Error: 15-38 unexpected key "cake"

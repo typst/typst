@@ -20,7 +20,8 @@ impl PageNode {
 
     /// The page margin.
     #[property(fold)]
-    pub const MARGINS: Sides<Smart<Relative<RawLength>>> = Sides::splat(Smart::Auto);
+    pub const MARGINS: Sides<Option<Smart<Relative<RawLength>>>> =
+        Sides::splat(Smart::Auto);
 
     /// How many columns the page has.
     pub const COLUMNS: NonZeroUsize = NonZeroUsize::new(1).unwrap();
@@ -48,9 +49,7 @@ impl PageNode {
 
         styles.set_opt(Self::WIDTH, args.named("width")?);
         styles.set_opt(Self::HEIGHT, args.named("height")?);
-
         styles.set_opt(Self::MARGINS, args.named("margins")?);
-
         styles.set_opt(Self::FLIPPED, args.named("flipped")?);
         styles.set_opt(Self::FILL, args.named("fill")?);
         styles.set_opt(Self::COLUMNS, args.named("columns")?);

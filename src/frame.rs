@@ -40,6 +40,14 @@ impl Frame {
         self.elements.insert(0, (pos, element));
     }
 
+    /// Add multiple elements at a position in the background.
+    pub fn prepend_multiple<I>(&mut self, insert: I)
+    where
+        I: IntoIterator<Item = (Point, Element)>,
+    {
+        self.elements.splice(0 .. 0, insert);
+    }
+
     /// Add an element at a position in the foreground.
     pub fn push(&mut self, pos: Point, element: Element) {
         self.elements.push((pos, element));
