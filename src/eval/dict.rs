@@ -117,7 +117,7 @@ impl Dict {
 /// The missing key access error message.
 #[cold]
 fn missing_key(key: &EcoString) -> String {
-    format!("dictionary does not contain key: {:?}", key)
+    format!("dictionary does not contain key {:?}", key)
 }
 
 impl Debug for Dict {

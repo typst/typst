@@ -23,7 +23,7 @@
 // Test rvalue missing key.
 {
   let dict = (a: 1, b: 2)
-  // Error: 11-20 dictionary does not contain key: "c"
+  // Error: 11-20 dictionary does not contain key "c"
   let x = dict("c")
 }
 
