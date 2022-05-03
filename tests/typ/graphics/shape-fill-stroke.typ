@@ -38,3 +38,13 @@
 #sq(stroke: blue)
 #sq(fill: teal, stroke: blue)
 #sq(fill: teal, stroke: 2pt + blue)
+
+---
+// Test stroke composition.
+#set square(stroke: 4pt)
+#set text("Roboto")
+#square(
+  stroke: (left: red, top: yellow, right: green, bottom: blue),
+  radius: 100%, align(center+horizon)[*G*],
+  inset: 8pt
+)

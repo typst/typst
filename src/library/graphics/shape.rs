@@ -25,9 +25,19 @@ impl<const S: ShapeKind> ShapeNode<S> {
     pub const FILL: Option<Paint> = None;
     /// How to stroke the shape.
     #[property(resolve, fold)]
-    pub const STROKE: Smart<Option<RawStroke>> = Smart::Auto;
+    pub const STROKE: Smart<Sides<Option<RawStroke>>> = Smart::Auto;
+
     /// How much to pad the shape's content.
-    pub const PADDING: Relative<RawLength> = Relative::zero();
+    #[property(resolve, fold)]
+    pub const INSET: Sides<Option<Relative<RawLength>>> = Sides::splat(Relative::zero());
+
+    /// How much to extend the shape's dimensions beyond the allocated space.
+    #[property(resolve, fold)]
+    pub const OUTSET: Sides<Option<Relative<RawLength>>> = Sides::splat(Relative::zero());
+
+    /// How much to round the shape's corners.
+    #[property(resolve, fold)]
+    pub const RADIUS: Sides<Option<Relative<RawLength>>> = Sides::splat(Relative::zero());
 
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         let size = match S {
@@ -50,6 +60,30 @@ impl<const S: ShapeKind> ShapeNode<S> {
             Self(args.find()?).pack().sized(Spec::new(width, height)),
         ))
     }
+
+    fn set(args: &mut Args) -> TypResult<StyleMap> {
+        let mut styles = StyleMap::new();
+        styles.set_opt(Self::FILL, args.named("fill")?);
+
+        if is_round(S) {
+            styles.set_opt(
+                Self::STROKE,
+                args.named::<Smart<Option<RawStroke>>>("stroke")?
+                    .map(|some| some.map(Sides::splat)),
+            );
+        } else {
+            styles.set_opt(Self::STROKE, args.named("stroke")?);
+        }
+
+        styles.set_opt(Self::INSET, args.named("inset")?);
+        styles.set_opt(Self::OUTSET, args.named("outset")?);
+
+        if !is_round(S) {
+            styles.set_opt(Self::RADIUS, args.named("radius")?);
+        }
+
+        Ok(styles)
+    }
 }
 
 impl<const S: ShapeKind> Layout for ShapeNode<S> {
@@ -61,13 +95,13 @@ impl<const S: ShapeKind> Layout for ShapeNode<S> {
     ) -> TypResult<Vec<Arc<Frame>>> {
         let mut frames;
         if let Some(child) = &self.0 {
-            let mut padding = styles.get(Self::PADDING);
+            let mut inset = styles.get(Self::INSET);
             if is_round(S) {
-                padding.rel += Ratio::new(0.5 - SQRT_2 / 4.0);
+                inset = inset.map(|side| side + Ratio::new(0.5 - SQRT_2 / 4.0));
             }
 
             // Pad the child.
-            let child = child.clone().padded(Sides::splat(padding));
+            let child = child.clone().padded(inset.map(|side| side.map(RawLength::from)));
 
             let mut pod = Regions::one(regions.first, regions.base, regions.expand);
             frames = child.layout(ctx, &pod, styles)?;
@@ -114,19 +148,38 @@ impl<const S: ShapeKind> Layout for ShapeNode<S> {
         // Add fill and/or stroke.
         let fill = styles.get(Self::FILL);
         let stroke = match styles.get(Self::STROKE) {
-            Smart::Auto => fill.is_none().then(Stroke::default),
-            Smart::Custom(stroke) => stroke.map(RawStroke::unwrap_or_default),
+            Smart::Auto if fill.is_none() => Sides::splat(Some(Stroke::default())),
+            Smart::Auto => Sides::splat(None),
+            Smart::Custom(strokes) => {
+                strokes.map(|s| s.map(RawStroke::unwrap_or_default))
+            }
         };
 
-        if fill.is_some() || stroke.is_some() {
-            let geometry = if is_round(S) {
-                Geometry::Ellipse(frame.size)
-            } else {
-                Geometry::Rect(frame.size)
-            };
+        let outset = styles.get(Self::OUTSET).relative_to(frame.size);
+        let size = frame.size + outset.sum_by_axis();
 
-            let shape = Shape { geometry, fill, stroke };
-            frame.prepend(Point::zero(), Element::Shape(shape));
+        let radius = styles
+            .get(Self::RADIUS)
+            .map(|side| side.relative_to(size.x.min(size.y) / 2.0));
+
+        let pos = Point::new(-outset.left, -outset.top);
+
+        if fill.is_some() || stroke.iter().any(Option::is_some) {
+            if is_round(S) {
+                let shape = Shape {
+                    geometry: Geometry::Ellipse(size),
+                    fill,
+                    stroke: stroke.left,
+                };
+                frame.prepend(pos, Element::Shape(shape));
+            } else {
+                frame.prepend_multiple(
+                    Rect::new(size, radius)
+                        .shapes(fill, stroke)
+                        .into_iter()
+                        .map(|x| (pos, Element::Shape(x))),
+                )
+            }
         }
 
         // Apply link if it exists.

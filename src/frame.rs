@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use crate::font::FaceId;
 use crate::geom::{
-    Align, Em, Length, Numeric, Paint, Path, Point, Size, Spec, Stroke, Transform,
+    Align, Em, Length, Numeric, Paint, Point, Shape, Size, Spec, Transform,
 };
 use crate::image::ImageId;
 use crate::util::{EcoString, MaybeShared};
@@ -38,6 +38,14 @@ impl Frame {
     /// Add an element at a position in the background.
     pub fn prepend(&mut self, pos: Point, element: Element) {
         self.elements.insert(0, (pos, element));
+    }
+
+    /// Add multiple elements at a position in the background.
+    pub fn prepend_multiple<I>(&mut self, insert: I)
+    where
+        I: IntoIterator<Item = (Point, Element)>,
+    {
+        self.elements.splice(0 .. 0, insert);
     }
 
     /// Add an element at a position in the foreground.
@@ -296,48 +304,4 @@ pub struct Glyph {
     pub x_offset: Em,
     /// The first character of the glyph's cluster.
     pub c: char,
-}
-
-/// A geometric shape with optional fill and stroke.
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct Shape {
-    /// The shape's geometry.
-    pub geometry: Geometry,
-    /// The shape's background fill.
-    pub fill: Option<Paint>,
-    /// The shape's border stroke.
-    pub stroke: Option<Stroke>,
-}
-
-/// A shape's geometry.
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub enum Geometry {
-    /// A line to a point (relative to its position).
-    Line(Point),
-    /// A rectangle with its origin in the topleft corner.
-    Rect(Size),
-    /// A ellipse with its origin in the topleft corner.
-    Ellipse(Size),
-    /// A bezier path.
-    Path(Path),
-}
-
-impl Geometry {
-    /// Fill the geometry without a stroke.
-    pub fn filled(self, fill: Paint) -> Shape {
-        Shape {
-            geometry: self,
-            fill: Some(fill),
-            stroke: None,
-        }
-    }
-
-    /// Stroke the geometry without a fill.
-    pub fn stroked(self, stroke: Stroke) -> Shape {
-        Shape {
-            geometry: self,
-            fill: None,
-            stroke: Some(stroke),
-        }
-    }
 }

@@ -7,8 +7,8 @@ use std::sync::Arc;
 
 use super::{Content, Show, ShowNode};
 use crate::diag::{At, TypResult};
-use crate::eval::{Args, Func, Node, Smart, Value};
-use crate::geom::{Numeric, Relative, Sides, Spec};
+use crate::eval::{Args, Func, Node, RawLength, Smart, Value};
+use crate::geom::{Length, Numeric, Relative, Sides, Spec};
 use crate::library::layout::PageNode;
 use crate::library::structure::{EnumNode, ListNode};
 use crate::library::text::{FontFamily, ParNode, TextNode};
@@ -456,6 +456,33 @@ where
 
     fn fold(self, outer: Self::Output) -> Self::Output {
         self.map(|inner| inner.fold(outer.unwrap_or_default()))
+    }
+}
+
+impl<T> Fold for Sides<T>
+where
+    T: Fold,
+{
+    type Output = Sides<T::Output>;
+
+    fn fold(self, outer: Self::Output) -> Self::Output {
+        self.zip(outer, |inner, outer, _| inner.fold(outer))
+    }
+}
+
+impl Fold for Sides<Option<Relative<Length>>> {
+    type Output = Sides<Relative<Length>>;
+
+    fn fold(self, outer: Self::Output) -> Self::Output {
+        self.zip(outer, |inner, outer, _| inner.unwrap_or(outer))
+    }
+}
+
+impl Fold for Sides<Option<Smart<Relative<RawLength>>>> {
+    type Output = Sides<Smart<Relative<RawLength>>>;
+
+    fn fold(self, outer: Self::Output) -> Self::Output {
+        self.zip(outer, |inner, outer, _| inner.unwrap_or(outer))
     }
 }
 

@@ -71,3 +71,22 @@ impl Path {
         self.0.push(PathElement::ClosePath);
     }
 }
+
+/// Get the control points for a bezier curve that describes a circular arc for
+/// a start point, an end point and a center of the circle whose arc connects
+/// the two.
+pub fn bezier_arc(start: Point, center: Point, end: Point) -> [Point; 4] {
+    // https://stackoverflow.com/a/44829356/1567835
+    let a = start - center;
+    let b = end - center;
+
+    let q1 = a.x.to_raw() * a.x.to_raw() + a.y.to_raw() * a.y.to_raw();
+    let q2 = q1 + a.x.to_raw() * b.x.to_raw() + a.y.to_raw() * b.y.to_raw();
+    let k2 = (4.0 / 3.0) * ((2.0 * q1 * q2).sqrt() - q2)
+        / (a.x.to_raw() * b.y.to_raw() - a.y.to_raw() * b.x.to_raw());
+
+    let control_1 = Point::new(center.x + a.x - k2 * a.y, center.y + a.y + k2 * a.x);
+    let control_2 = Point::new(center.x + b.x + k2 * b.y, center.y + b.y - k2 * b.x);
+
+    [start, control_1, control_2, end]
+}

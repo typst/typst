@@ -16,7 +16,7 @@
 // Test the `columns` function.
 #set page(width: auto)
 
-#rect(width: 180pt, height: 100pt, padding: 8pt, columns(2, [
+#rect(width: 180pt, height: 100pt, inset: 8pt, columns(2, [
     A special plight has befallen our document.
     Columns in text boxes reigned down unto the soil
     to waste a year's crop of rich layouts.
@@ -40,7 +40,7 @@ a page for a test but it does get the job done.
 // Test the expansion behavior.
 #set page(height: 2.5cm, width: 7.05cm)
 
-#rect(padding: 6pt, columns(2, [
+#rect(inset: 6pt, columns(2, [
     ABC \
     BCD
     #colbreak()
@@ -73,7 +73,7 @@ D
 // Test an empty second column.
 #set page(width: 7.05cm, columns: 2)
 
-#rect(width: 100%, padding: 3pt)[So there isn't anything in the second column?]
+#rect(width: 100%, inset: 3pt)[So there isn't anything in the second column?]
 
 ---
 // Test columns when one of them is empty.

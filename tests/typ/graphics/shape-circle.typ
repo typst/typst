@@ -16,13 +16,13 @@ Auto-sized circle. \
 Center-aligned rect in auto-sized circle.
 #circle(fill: forest, stroke: conifer,
   align(center + horizon,
-    rect(fill: conifer, padding: 5pt)[But, soft!]
+    rect(fill: conifer, inset: 5pt)[But, soft!]
   )
 )
 
 Rect in auto-sized circle. \
 #circle(fill: forest,
-  rect(fill: conifer, stroke: white, padding: 4pt)[
+  rect(fill: conifer, stroke: white, inset: 4pt)[
     #set text(8pt)
     But, soft! what light through yonder window breaks?
   ]

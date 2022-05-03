@@ -16,9 +16,10 @@ use ttf_parser::{name_id, GlyphId, Tag};
 
 use super::subset::subset;
 use crate::font::{find_name, FaceId, FontStore};
-use crate::frame::{Element, Frame, Geometry, Group, Shape, Text};
+use crate::frame::{Element, Frame, Group, Text};
 use crate::geom::{
-    self, Color, Em, Length, Numeric, Paint, Point, Size, Stroke, Transform,
+    self, Color, Em, Geometry, Length, Numeric, Paint, Point, Shape, Size, Stroke,
+    Transform,
 };
 use crate::image::{Image, ImageId, ImageStore, RasterImage};
 use crate::Context;

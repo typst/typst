@@ -8,8 +8,10 @@ use std::sync::Arc;
 use super::{Barrier, NodeId, Resolve, StyleChain, StyleEntry};
 use crate::diag::TypResult;
 use crate::eval::{RawAlign, RawLength};
-use crate::frame::{Element, Frame, Geometry};
-use crate::geom::{Align, Length, Paint, Point, Relative, Sides, Size, Spec, Stroke};
+use crate::frame::{Element, Frame};
+use crate::geom::{
+    Align, Geometry, Length, Paint, Point, Relative, Sides, Size, Spec, Stroke,
+};
 use crate::library::graphics::MoveNode;
 use crate::library::layout::{AlignNode, PadNode};
 use crate::util::Prehashed;

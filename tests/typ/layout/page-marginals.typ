@@ -1,7 +1,6 @@
 #set page(
   paper: "a8",
-  margins: 30pt,
-  horizontal: 15pt,
+  margins: (x: 15pt, y: 30pt),
   header: align(horizon, {
     text(eastern)[*Typst*]
     h(1fr)
@@ -18,5 +17,5 @@ do wear it; cast it off. It is my lady, O, it is my love! O, that she knew she
 were! She speaks yet she says nothing: what of that? Her eye discourses; I will
 answer it.
 
-#set page(header: none, height: auto, top: 15pt, bottom: 25pt)
+#set page(header: none, height: auto, margins: (top: 15pt, bottom: 25pt))
 The END.

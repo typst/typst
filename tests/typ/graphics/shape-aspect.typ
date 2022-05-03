@@ -11,7 +11,7 @@
 ---
 // Test alignment in automatically sized square and circle.
 #set text(8pt)
-#square(padding: 4pt)[
+#square(inset: 4pt)[
   Hey there, #align(center + bottom, rotate(180deg, [you!]))
 ]
 #circle(align(center + horizon, [Hey.]))

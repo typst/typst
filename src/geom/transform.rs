@@ -53,7 +53,7 @@ impl Transform {
     }
 
     /// Pre-concatenate another transformation.
-    pub fn pre_concat(&self, prev: Self) -> Self {
+    pub fn pre_concat(self, prev: Self) -> Self {
         Transform {
             sx: self.sx * prev.sx + self.kx * prev.ky,
             ky: self.ky * prev.sx + self.sy * prev.ky,
@@ -62,6 +62,11 @@ impl Transform {
             tx: self.sx.of(prev.tx) + self.kx.of(prev.ty) + self.tx,
             ty: self.ky.of(prev.tx) + self.sy.of(prev.ty) + self.ty,
         }
+    }
+
+    /// Post-concatenate another transformation.
+    pub fn post_concat(self, next: Self) -> Self {
+        next.pre_concat(self)
     }
 }
 
