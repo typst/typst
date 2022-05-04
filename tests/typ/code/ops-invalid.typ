@@ -39,6 +39,26 @@
 {(1 + "2", 40% - 1)}
 
 ---
+// Error: 14-22 cannot add integer and string
+{ let x = 1; x += "2" }
+
+---
+// Error: 3-12 cannot divide ratio by length
+{ 10% / 5pt }
+
+---
+// Error: 3-12 cannot divide these two lengths
+{ 1em / 5pt }
+
+---
+// Error: 3-19 cannot divide relative length by ratio
+{ (10% + 1pt) / 5% }
+
+---
+// Error: 3-28 cannot divide these two relative lengths
+{ (10% + 1pt) / (20% + 1pt) }
+
+---
 // Error: 12-19 cannot subtract integer from ratio
 {(1234567, 40% - 1)}
 
@@ -63,10 +83,6 @@
   // Error: 4-18 cannot repeat this string 4611686018427387904 times
   {x * "abcdefgh"}
 }
-
----
-// Error: 14-22 cannot add integer and string
-{ let x = 1; x += "2" }
 
 ---
 // Error: 3-6 cannot mutate a temporary value

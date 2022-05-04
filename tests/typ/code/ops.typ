@@ -48,7 +48,15 @@
 #test({ let x; x = 1 + 4*5 >= 21 and { x = "a"; x + "b" == "ab" }; x }, true)
 
 // Mathematical identities.
-#let nums = (1, 3.14, 12pt, 45deg, 90%, 13% + 10pt)
+#let nums = (
+  1, 3.14,
+  12pt, 3em, 12pt + 3em,
+  45deg,
+  90%,
+  13% + 10pt, 5% + 1em + 3pt,
+  2.3fr,
+)
+
 #for v in nums {
   // Test plus and minus.
   test(v + v - v, v)
@@ -63,18 +71,16 @@
     test(v + v, 2.0 * v)
   }
 
-  // Lengths cannot be divided by themselves.
-  if "length" not in type(v) {
+  if "relative" not in type(v) and ("pt" not in repr(v) or "em" not in repr(v)) {
     test(v / v, 1.0)
-    test(v / v == 1, true)
   }
 }
 
 // Make sure length, ratio and relative length
 // - can all be added to / subtracted from each other,
 // - multiplied with integers and floats,
-// - divided by floats.
-#let dims = (10pt, 30%, 50% + 3cm)
+// - divided by integers and floats.
+#let dims = (10pt, 1em, 10pt + 1em, 30%, 50% + 3cm, 40% + 2em + 1cm)
 #for a in dims {
   for b in dims {
     test(type(a + b), type(a - b))
@@ -84,6 +90,15 @@
     test(type(a * b), type(a))
     test(type(b * a), type(a))
     test(type(a / b), type(a))
+  }
+}
+
+// Test division of different numeric types with zero components.
+#for a in (0pt, 0em, 0%) {
+  for b in (10pt, 10em, 10%) {
+    test((2 * b) / b, 2)
+    test((a + b * 2) / b, 2)
+    test(b / (b * 2 + a), 0.5)
   }
 }
 

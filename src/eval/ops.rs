@@ -2,9 +2,9 @@
 
 use std::cmp::Ordering;
 
-use super::{Dynamic, RawAlign, RawStroke, Smart, StrExt, Value};
+use super::{Dynamic, RawAlign, RawLength, RawStroke, Smart, StrExt, Value};
 use crate::diag::StrResult;
-use crate::geom::{Numeric, Spec, SpecAxis};
+use crate::geom::{Numeric, Relative, Spec, SpecAxis};
 use crate::model;
 use Value::*;
 
@@ -204,6 +204,8 @@ pub fn div(lhs: Value, rhs: Value) -> StrResult<Value> {
 
         (Length(a), Int(b)) => Length(a / b as f64),
         (Length(a), Float(b)) => Length(a / b),
+        (Length(a), Length(b)) => Float(div_length(a, b)?),
+        (Length(a), Relative(b)) if b.rel.is_zero() => Float(div_length(a, b.abs)?),
 
         (Angle(a), Int(b)) => Angle(a / b as f64),
         (Angle(a), Float(b)) => Angle(a / b),
@@ -212,9 +214,13 @@ pub fn div(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Ratio(a), Int(b)) => Ratio(a / b as f64),
         (Ratio(a), Float(b)) => Ratio(a / b),
         (Ratio(a), Ratio(b)) => Float(a / b),
+        (Ratio(a), Relative(b)) if b.abs.is_zero() => Float(a / b.rel),
 
         (Relative(a), Int(b)) => Relative(a / b as f64),
         (Relative(a), Float(b)) => Relative(a / b),
+        (Relative(a), Length(b)) if a.rel.is_zero() => Float(div_length(a.abs, b)?),
+        (Relative(a), Ratio(b)) if a.abs.is_zero() => Float(a.rel / b),
+        (Relative(a), Relative(b)) => Float(div_relative(a, b)?),
 
         (Fraction(a), Int(b)) => Fraction(a / b as f64),
         (Fraction(a), Float(b)) => Fraction(a / b),
@@ -222,6 +228,28 @@ pub fn div(lhs: Value, rhs: Value) -> StrResult<Value> {
 
         (a, b) => mismatch!("cannot divide {} by {}", a, b),
     })
+}
+
+/// Try to divide two lengths.
+fn div_length(a: RawLength, b: RawLength) -> StrResult<f64> {
+    if a.length.is_zero() && b.length.is_zero() {
+        Ok(a.em / b.em)
+    } else if a.em.is_zero() && b.em.is_zero() {
+        Ok(a.length / b.length)
+    } else {
+        return Err("cannot divide these two lengths".into());
+    }
+}
+
+/// Try to divide two relative lengths.
+fn div_relative(a: Relative<RawLength>, b: Relative<RawLength>) -> StrResult<f64> {
+    if a.rel.is_zero() && b.rel.is_zero() {
+        div_length(a.abs, b.abs)
+    } else if a.abs.is_zero() && b.abs.is_zero() {
+        Ok(a.rel / b.rel)
+    } else {
+        return Err("cannot divide these two relative lengths".into());
+    }
 }
 
 /// Compute the logical "not" of a value.
