@@ -1,6 +1,12 @@
 // Test headings.
 
 ---
+#show node: heading as text(blue, node.body)
+
+=
+No heading
+
+---
 // Different number of equals signs.
 
 = Level 1

@@ -285,7 +285,7 @@ fn heading(p: &mut Parser, at_start: bool) {
     while p.eat_if(NodeKind::Eq) {}
 
     if at_start && p.peek().map_or(true, |kind| kind.is_space()) {
-        p.eat_while(|kind| kind.is_space());
+        p.eat_while(|kind| kind == &NodeKind::Space(0));
         markup_line(p);
         marker.end(p, NodeKind::Heading);
     } else {
