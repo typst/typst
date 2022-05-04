@@ -648,6 +648,8 @@ pub enum NodeKind {
     DictExpr,
     /// A named pair: `thickness: 3pt`.
     Named,
+    /// A keyed pair: `"spaced key": true`.
+    Keyed,
     /// A unary operation: `-x`.
     UnaryExpr,
     /// A binary operation: `a + b`.
@@ -896,7 +898,8 @@ impl NodeKind {
             Self::GroupExpr => "group",
             Self::ArrayExpr => "array",
             Self::DictExpr => "dictionary",
-            Self::Named => "named argument",
+            Self::Named => "named pair",
+            Self::Keyed => "keyed pair",
             Self::UnaryExpr => "unary expression",
             Self::BinaryExpr => "binary expression",
             Self::FieldAccess => "field access",
@@ -1021,6 +1024,7 @@ impl Hash for NodeKind {
             Self::ArrayExpr => {}
             Self::DictExpr => {}
             Self::Named => {}
+            Self::Keyed => {}
             Self::UnaryExpr => {}
             Self::BinaryExpr => {}
             Self::FieldAccess => {}

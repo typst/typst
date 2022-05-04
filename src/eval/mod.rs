@@ -335,6 +335,9 @@ impl Eval for DictExpr {
                 DictItem::Named(named) => {
                     map.insert(named.name().take(), named.expr().eval(ctx, scp)?);
                 }
+                DictItem::Keyed(keyed) => {
+                    map.insert(keyed.key(), keyed.expr().eval(ctx, scp)?);
+                }
                 DictItem::Spread(expr) => match expr.eval(ctx, scp)? {
                     Value::None => {}
                     Value::Dict(dict) => map.extend(dict.into_iter()),

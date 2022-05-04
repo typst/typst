@@ -86,6 +86,9 @@
 // Error: 7-8 expected identifier
 #func(1:2)
 
+// Error: 7-12 expected identifier
+#func("abc":2)
+
 // Error: 7-10 expected identifier
 {func((x):1)}
 

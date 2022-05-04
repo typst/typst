@@ -143,3 +143,15 @@
   // Error: 23-35 unexpected argument
   test(greet("Typst", whatever: 10))
 }
+
+---
+// Error: 6-16 expected identifier, named pair or argument sink
+{(a, "named": b) => none}
+
+---
+// Error: 10-15 expected identifier
+#let foo("key": b) = key
+
+---
+// Error: 10-14 expected identifier
+#let foo(none: b) = key

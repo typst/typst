@@ -472,7 +472,7 @@ impl ArrayExpr {
 /// An item in an array expresssion.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum ArrayItem {
-    /// A simple value: `12`.
+    /// A bare value: `12`.
     Pos(Expr),
     /// A spreaded value: `..things`.
     Spread(Expr),
@@ -509,8 +509,10 @@ impl DictExpr {
 /// An item in an dictionary expresssion.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum DictItem {
-    /// A simple named pair: `12`.
+    /// A named pair: `thickness: 3pt`.
     Named(Named),
+    /// A keyed pair: `"spaced key": true`.
+    Keyed(Keyed),
     /// A spreaded value: `..things`.
     Spread(Expr),
 }
@@ -519,6 +521,7 @@ impl TypedNode for DictItem {
     fn from_red(node: RedRef) -> Option<Self> {
         match node.kind() {
             NodeKind::Named => node.cast().map(Self::Named),
+            NodeKind::Keyed => node.cast().map(Self::Keyed),
             NodeKind::Spread => node.cast_first_child().map(Self::Spread),
             _ => None,
         }
@@ -527,25 +530,49 @@ impl TypedNode for DictItem {
     fn as_red(&self) -> RedRef<'_> {
         match self {
             Self::Named(v) => v.as_red(),
+            Self::Keyed(v) => v.as_red(),
             Self::Spread(v) => v.as_red(),
         }
     }
 }
 
 node! {
-    /// A pair of a name and an expression: `pattern: dashed`.
+    /// A pair of a name and an expression: `thickness: 3pt`.
     Named
 }
 
 impl Named {
-    /// The name: `pattern`.
+    /// The name: `thickness`.
     pub fn name(&self) -> Ident {
         self.0.cast_first_child().expect("named pair is missing name")
     }
 
-    /// The right-hand side of the pair: `dashed`.
+    /// The right-hand side of the pair: `3pt`.
     pub fn expr(&self) -> Expr {
         self.0.cast_last_child().expect("named pair is missing expression")
+    }
+}
+
+node! {
+    /// A pair of a string key and an expression: `"spaced key": true`.
+    Keyed
+}
+
+impl Keyed {
+    /// The key: `"spaced key"`.
+    pub fn key(&self) -> EcoString {
+        self.0
+            .children()
+            .find_map(|node| match node.kind() {
+                NodeKind::Str(key) => Some(key.clone()),
+                _ => None,
+            })
+            .expect("keyed pair is missing key")
+    }
+
+    /// The right-hand side of the pair: `true`.
+    pub fn expr(&self) -> Expr {
+        self.0.cast_last_child().expect("keyed pair is missing expression")
     }
 }
 

@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use super::{Args, Array, Func, Value};
 use crate::diag::{StrResult, TypResult};
+use crate::parse::is_ident;
 use crate::syntax::Spanned;
 use crate::util::{ArcExt, EcoString};
 use crate::Context;
@@ -127,7 +128,11 @@ impl Debug for Dict {
             f.write_char(':')?;
         }
         for (i, (key, value)) in self.iter().enumerate() {
-            f.write_str(key)?;
+            if is_ident(key) {
+                f.write_str(key)?;
+            } else {
+                write!(f, "{key:?}")?;
+            }
             f.write_str(": ")?;
             value.fmt(f)?;
             if i + 1 < self.0.len() {

@@ -62,7 +62,7 @@
 #min(.."nope")
 
 ---
-// Error: 8-14 expected identifier
+// Error: 8-14 expected identifier, named pair or argument sink
 #let f(..true) = none
 
 ---

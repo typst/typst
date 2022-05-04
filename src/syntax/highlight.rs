@@ -215,6 +215,7 @@ impl Category {
             NodeKind::ArrayExpr => None,
             NodeKind::DictExpr => None,
             NodeKind::Named => None,
+            NodeKind::Keyed => None,
             NodeKind::UnaryExpr => None,
             NodeKind::BinaryExpr => None,
             NodeKind::FieldAccess => None,

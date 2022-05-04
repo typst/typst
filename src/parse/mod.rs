@@ -526,7 +526,7 @@ fn parenthesized(p: &mut Parser, atomic: bool) -> ParseResult {
 
     p.start_group(Group::Paren);
     let colon = p.eat_if(NodeKind::Colon);
-    let kind = collection(p).0;
+    let kind = collection(p, true).0;
     p.end_group();
 
     // Leading colon makes this a dictionary.
@@ -568,14 +568,14 @@ enum CollectionKind {
 ///
 /// Returns the length of the collection and whether the literal contained any
 /// commas.
-fn collection(p: &mut Parser) -> (CollectionKind, usize) {
+fn collection(p: &mut Parser, keyed: bool) -> (CollectionKind, usize) {
     let mut kind = None;
     let mut items = 0;
     let mut can_group = true;
     let mut missing_coma: Option<Marker> = None;
 
     while !p.eof() {
-        if let Ok(item_kind) = item(p) {
+        if let Ok(item_kind) = item(p, keyed) {
             match item_kind {
                 NodeKind::Spread => can_group = false,
                 NodeKind::Named if kind.is_none() => {
@@ -619,7 +619,7 @@ fn collection(p: &mut Parser) -> (CollectionKind, usize) {
 
 /// Parse an expression or a named pair, returning whether it's a spread or a
 /// named pair.
-fn item(p: &mut Parser) -> ParseResult<NodeKind> {
+fn item(p: &mut Parser, keyed: bool) -> ParseResult<NodeKind> {
     let marker = p.marker();
     if p.eat_if(NodeKind::Dots) {
         marker.perform(p, NodeKind::Spread, expr)?;
@@ -629,18 +629,27 @@ fn item(p: &mut Parser) -> ParseResult<NodeKind> {
     expr(p)?;
 
     if p.at(NodeKind::Colon) {
-        marker.perform(p, NodeKind::Named, |p| {
-            if let Some(NodeKind::Ident(_)) = marker.after(p).map(|c| c.kind()) {
+        match marker.after(p).map(|c| c.kind()) {
+            Some(NodeKind::Ident(_)) => {
                 p.eat();
-                expr(p)
-            } else {
-                let error = NodeKind::Error(ErrorPos::Full, "expected identifier".into());
+                marker.perform(p, NodeKind::Named, expr)?;
+            }
+            Some(NodeKind::Str(_)) if keyed => {
+                p.eat();
+                marker.perform(p, NodeKind::Keyed, expr)?;
+            }
+            _ => {
+                let mut msg = EcoString::from("expected identifier");
+                if keyed {
+                    msg.push_str(" or string");
+                }
+                let error = NodeKind::Error(ErrorPos::Full, msg);
                 marker.end(p, error);
                 p.eat();
-                expr(p).ok();
-                Err(ParseError)
+                marker.perform(p, NodeKind::Named, expr).ok();
+                return Err(ParseError);
             }
-        })?;
+        }
 
         Ok(NodeKind::Named)
     } else {
@@ -653,6 +662,7 @@ fn item(p: &mut Parser) -> ParseResult<NodeKind> {
 fn array(p: &mut Parser, marker: Marker) {
     marker.filter_children(p, |x| match x.kind() {
         NodeKind::Named => Err("expected expression, found named pair"),
+        NodeKind::Keyed => Err("expected expression, found keyed pair"),
         _ => Ok(()),
     });
     marker.end(p, NodeKind::ArrayExpr);
@@ -664,18 +674,18 @@ fn dict(p: &mut Parser, marker: Marker) {
     let mut used = HashSet::new();
     marker.filter_children(p, |x| match x.kind() {
         kind if kind.is_paren() => Ok(()),
-        NodeKind::Named => {
-            if let Some(NodeKind::Ident(ident)) =
+        NodeKind::Named | NodeKind::Keyed => {
+            if let Some(NodeKind::Ident(key) | NodeKind::Str(key)) =
                 x.children().first().map(|child| child.kind())
             {
-                if !used.insert(ident.clone()) {
+                if !used.insert(key.clone()) {
                     return Err("pair has duplicate key");
                 }
             }
             Ok(())
         }
-        NodeKind::Comma | NodeKind::Colon | NodeKind::Spread => Ok(()),
-        _ => Err("expected named pair, found expression"),
+        NodeKind::Spread | NodeKind::Comma | NodeKind::Colon => Ok(()),
+        _ => Err("expected named or keyed pair, found expression"),
     });
     marker.end(p, NodeKind::DictExpr);
 }
@@ -685,7 +695,7 @@ fn dict(p: &mut Parser, marker: Marker) {
 fn params(p: &mut Parser, marker: Marker) {
     marker.filter_children(p, |x| match x.kind() {
         kind if kind.is_paren() => Ok(()),
-        NodeKind::Named | NodeKind::Comma | NodeKind::Ident(_) => Ok(()),
+        NodeKind::Named | NodeKind::Ident(_) | NodeKind::Comma => Ok(()),
         NodeKind::Spread
             if matches!(
                 x.children().last().map(|child| child.kind()),
@@ -694,7 +704,7 @@ fn params(p: &mut Parser, marker: Marker) {
         {
             Ok(())
         }
-        _ => Err("expected identifier"),
+        _ => Err("expected identifier, named pair or argument sink"),
     });
     marker.end(p, NodeKind::ClosureParams);
 }
@@ -746,12 +756,12 @@ fn args(p: &mut Parser, direct: bool, brackets: bool) -> ParseResult {
         if p.at(NodeKind::LeftParen) {
             let marker = p.marker();
             p.start_group(Group::Paren);
-            collection(p);
+            collection(p, false);
             p.end_group();
 
             let mut used = HashSet::new();
-            marker.filter_children(p, |x| {
-                if x.kind() == &NodeKind::Named {
+            marker.filter_children(p, |x| match x.kind() {
+                NodeKind::Named => {
                     if let Some(NodeKind::Ident(ident)) =
                         x.children().first().map(|child| child.kind())
                     {
@@ -759,8 +769,9 @@ fn args(p: &mut Parser, direct: bool, brackets: bool) -> ParseResult {
                             return Err("duplicate argument");
                         }
                     }
+                    Ok(())
                 }
-                Ok(())
+                _ => Ok(()),
             });
         }
 
@@ -785,7 +796,7 @@ fn let_expr(p: &mut Parser) -> ParseResult {
         if has_params {
             let marker = p.marker();
             p.start_group(Group::Paren);
-            collection(p);
+            collection(p, false);
             p.end_group();
             params(p, marker);
         }
@@ -904,7 +915,7 @@ fn import_expr(p: &mut Parser) -> ParseResult {
             p.perform(NodeKind::ImportItems, |p| {
                 p.start_group(Group::Imports);
                 let marker = p.marker();
-                let items = collection(p).1;
+                let items = collection(p, false).1;
                 if items == 0 {
                     p.expected("import items");
                 }

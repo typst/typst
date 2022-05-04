@@ -115,3 +115,7 @@ This is never reached.
 // Should output `, a from "target.typ"`.
 // Error: 10 expected keyword `from`
 #import *, a from "target.typ"
+
+---
+// Error: 9-13 expected identifier
+#import a: 1 from ""

@@ -7,8 +7,12 @@
 // Empty
 {(:)}
 
-// Two pairs.
-{(a1: 1, a2: 2)}
+// Two pairs and string key.
+#let dict = (normal: 1, "spaced key": 2)
+#dict
+
+#test(dict.normal, 1)
+#test(dict("spaced key"), 2)
 
 ---
 // Test lvalue and rvalue access.
@@ -40,13 +44,17 @@
 {(first: 1, second: 2, first: 3)}
 
 ---
+// Error: 17-23 pair has duplicate key
+{(a: 1, "b": 2, "a": 3)}
+
+---
 // Simple expression after already being identified as a dictionary.
-// Error: 9-10 expected named pair, found expression
+// Error: 9-10 expected named or keyed pair, found expression
 {(a: 1, b)}
 
 // Identified as dictionary due to initial colon.
-// Error: 4-5 expected named pair, found expression
+// Error: 4-5 expected named or keyed pair, found expression
 // Error: 5 expected comma
-// Error: 12-16 expected identifier
+// Error: 12-16 expected identifier or string
 // Error: 17-18 expected expression, found colon
 {(:1 b:"", true::)}
