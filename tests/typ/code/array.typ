@@ -4,6 +4,8 @@
 ---
 // Ref: true
 
+#set page(width: 150pt)
+
 // Empty.
 {()}
 

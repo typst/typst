@@ -5,7 +5,7 @@
 #set page(width: 130pt, margins: 15pt)
 #set par(justify: true, linebreaks: "simple")
 #set text(size: 9pt)
-#rect(fill: rgb(repr(teal) + "00"), width: 100%)[
+#rect(fill: rgb(0, 0, 0, 0), width: 100%)[
   This is a little bit of text that builds up to
   hang-ing hyphens and dash---es and then, you know,
   some punctuation in the margin.

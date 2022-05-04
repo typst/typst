@@ -179,7 +179,7 @@
           "patterns": [{ "include": "#arguments" }]
         },
         {
-          "name": "variable.interpolated.typst",
+          "name": "entity.other.interpolated.typst",
           "match": "(#)[[:alpha:]_][[:alnum:]_-]*",
           "captures": { "1": { "name": "punctuation.definition.variable.typst" } }
         }

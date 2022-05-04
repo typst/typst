@@ -13,7 +13,6 @@
 #f(1)[2](3)
 
 // Don't parse this as a function.
-// Should output `<function test> (it)`.
 #test (it)
 
 #let f(body) = body

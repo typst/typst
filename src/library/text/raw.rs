@@ -1,20 +1,17 @@
+use std::sync::Arc;
+
 use once_cell::sync::Lazy;
 use syntect::easy::HighlightLines;
-use syntect::highlighting::{FontStyle, Highlighter, Style, Theme, ThemeSet};
+use syntect::highlighting::{
+    Color, FontStyle, Highlighter, Style, StyleModifier, Theme, ThemeItem, ThemeSettings,
+};
 use syntect::parsing::SyntaxSet;
 
 use super::{FontFamily, Hyphenate, TextNode, Toggle};
 use crate::library::layout::BlockSpacing;
 use crate::library::prelude::*;
 use crate::source::SourceId;
-use crate::syntax::{self, RedNode};
-
-/// The lazily-loaded theme used for syntax highlighting.
-static THEME: Lazy<Theme> =
-    Lazy::new(|| ThemeSet::load_defaults().themes.remove("InspiredGitHub").unwrap());
-
-/// The lazily-loaded syntect syntax definitions.
-static SYNTAXES: Lazy<SyntaxSet> = Lazy::new(|| SyntaxSet::load_defaults_newlines());
+use crate::syntax::{self, GreenNode, NodeKind, RedNode};
 
 /// Monospaced text with optional syntax highlighting.
 #[derive(Debug, Hash)]
@@ -63,7 +60,7 @@ impl Show for RawNode {
     }
 
     fn realize(&self, _: &mut Context, styles: StyleChain) -> TypResult<Content> {
-        let lang = styles.get(Self::LANG).as_ref();
+        let lang = styles.get(Self::LANG).as_ref().map(|s| s.to_lowercase());
         let foreground = THEME
             .settings
             .foreground
@@ -71,15 +68,19 @@ impl Show for RawNode {
             .unwrap_or(Color::BLACK)
             .into();
 
-        let mut realized = if matches!(
-            lang.map(|s| s.to_lowercase()).as_deref(),
-            Some("typ" | "typst")
-        ) {
-            let mut seq = vec![];
-            let green = crate::parse::parse(&self.text);
-            let red = RedNode::from_root(green, SourceId::from_raw(0));
+        let mut realized = if matches!(lang.as_deref(), Some("typ" | "typst" | "typc")) {
+            let root = match lang.as_deref() {
+                Some("typc") => {
+                    let children = crate::parse::parse_code(&self.text);
+                    Arc::new(GreenNode::with_children(NodeKind::CodeBlock, children))
+                }
+                _ => crate::parse::parse(&self.text),
+            };
+
+            let red = RedNode::from_root(root, SourceId::from_raw(0));
             let highlighter = Highlighter::new(&THEME);
 
+            let mut seq = vec![];
             syntax::highlight_syntect(red.as_ref(), &highlighter, &mut |range, style| {
                 seq.push(styled(&self.text[range], foreground, style));
             });
@@ -158,4 +159,45 @@ fn styled(piece: &str, foreground: Paint, style: Style) -> Content {
     }
 
     body.styled_with_map(styles)
+}
+
+/// The lazily-loaded syntect syntax definitions.
+static SYNTAXES: Lazy<SyntaxSet> = Lazy::new(|| SyntaxSet::load_defaults_newlines());
+
+/// The lazily-loaded theme used for syntax highlighting.
+#[rustfmt::skip]
+static THEME: Lazy<Theme> = Lazy::new(|| Theme {
+    name: Some("Typst Light".into()),
+    author: Some("The Typst Project Developers".into()),
+    settings: ThemeSettings::default(),
+    scopes: vec![
+        item("markup.bold", None, Some(FontStyle::BOLD)),
+        item("markup.italic", None, Some(FontStyle::ITALIC)),
+        item("markup.heading, entity.name.section", None, Some(FontStyle::BOLD)),
+        item("markup.raw", Some("#818181"), None),
+        item("markup.list", Some("#8b41b1"), None),
+        item("comment", Some("#8a8a8a"), None),
+        item("keyword, constant.language, variable.language", Some("#d73a49"), None),
+        item("storage.type, storage.modifier", Some("#d73a49"), None),
+        item("entity.other", Some("#8b41b1"), None),
+        item("entity.name, variable.function, support", Some("#4b69c6"), None),
+        item("support.macro", Some("#16718d"), None),
+        item("meta.annotation", Some("#301414"), None),
+        item("constant", Some("#b60157"), None),
+        item("string", Some("#298e0d"), None),
+        item("punctuation.shortcut", Some("#1d6c76"), None),
+        item("constant.character.escape", Some("#1d6c76"), None),
+    ],
+});
+
+/// Create a syntect theme item.
+fn item(scope: &str, color: Option<&str>, font_style: Option<FontStyle>) -> ThemeItem {
+    ThemeItem {
+        scope: scope.parse().unwrap(),
+        style: StyleModifier {
+            foreground: color.map(|s| s.parse().unwrap()),
+            background: None,
+            font_style,
+        },
+    }
 }

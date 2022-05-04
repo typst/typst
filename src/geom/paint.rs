@@ -154,7 +154,7 @@ impl FromStr for RgbaColor {
 
 impl From<SynColor> for RgbaColor {
     fn from(color: SynColor) -> Self {
-        Self::new(color.r, color.b, color.g, color.a)
+        Self::new(color.r, color.g, color.b, color.a)
     }
 }
 
@@ -167,10 +167,11 @@ impl Debug for RgbaColor {
                 self.r, self.g, self.b, self.a,
             )?;
         } else {
-            write!(f, "#{:02x}{:02x}{:02x}", self.r, self.g, self.b)?;
+            write!(f, "rgb(\"#{:02x}{:02x}{:02x}", self.r, self.g, self.b)?;
             if self.a != 255 {
                 write!(f, "{:02x}", self.a)?;
             }
+            write!(f, "\")")?;
         }
         Ok(())
     }

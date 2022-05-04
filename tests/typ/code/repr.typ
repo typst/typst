@@ -25,23 +25,24 @@
 {2.3fr}
 
 ---
-// Colors.
-#rgb("f7a20500") \
-{2pt + rgb("f7a20500")}
+// Colors and strokes.
+#set text(0.8em)
+#rgb("f7a205") \
+{2pt + rgb("f7a205")}
 
 ---
 // Strings and escaping.
-#repr("hi") \
+#raw(repr("hi"), lang: "typc") \
 #repr("a\n[]\"\u{1F680}string")
 
 ---
 // Content.
-#repr[*{"H" + "i"} there*]
+#raw(repr[*{"H" + "i"} there*])
 
 ---
 // Functions
 #let f(x) = x
 
-{() => none} \
 {f} \
-{rect}
+{rect} \
+{() => none} \

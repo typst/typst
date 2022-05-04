@@ -95,7 +95,7 @@ pub enum Category {
     /// A function.
     Function,
     /// An interpolated variable in markup.
-    Variable,
+    Interpolated,
     /// An invalid node.
     Invalid,
 }
@@ -178,7 +178,7 @@ impl Category {
             NodeKind::None => Some(Category::None),
             NodeKind::Auto => Some(Category::Auto),
             NodeKind::Ident(_) => match parent.kind() {
-                NodeKind::Markup(_) => Some(Category::Variable),
+                NodeKind::Markup(_) => Some(Category::Interpolated),
                 NodeKind::FuncCall => Some(Category::Function),
                 NodeKind::MethodCall if i > 0 => Some(Category::Function),
                 NodeKind::ClosureExpr if i == 0 => Some(Category::Function),
@@ -263,7 +263,7 @@ impl Category {
             Self::Number => "constant.numeric.typst",
             Self::String => "string.quoted.double.typst",
             Self::Function => "entity.name.function.typst",
-            Self::Variable => "variable.parameter.typst",
+            Self::Interpolated => "entity.other.interpolated.typst",
             Self::Invalid => "invalid.typst",
         }
     }

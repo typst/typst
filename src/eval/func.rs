@@ -1,4 +1,4 @@
-use std::fmt::{self, Debug, Formatter, Write};
+use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
@@ -119,12 +119,10 @@ impl Func {
 
 impl Debug for Func {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_str("<function")?;
-        if let Some(name) = self.name() {
-            f.write_char(' ')?;
-            f.write_str(name)?;
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => f.write_str("(..) => {..}"),
         }
-        f.write_char('>')
     }
 }
 

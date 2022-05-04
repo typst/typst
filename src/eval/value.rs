@@ -122,8 +122,9 @@ impl Value {
             Value::Content(v) => v,
 
             // For values which can't be shown "naturally", we return the raw
-            // representation.
-            v => Content::show(RawNode { text: v.repr(), block: false }),
+            // representation with typst code syntax highlighting.
+            v => Content::show(RawNode { text: v.repr(), block: false })
+                .styled(RawNode::LANG, Some("typc".into())),
         }
     }
 }
@@ -149,7 +150,7 @@ impl Debug for Value {
             Self::Fraction(v) => Debug::fmt(v, f),
             Self::Color(v) => Debug::fmt(v, f),
             Self::Str(v) => Debug::fmt(v, f),
-            Self::Content(_) => f.pad("<content>"),
+            Self::Content(_) => f.pad("[...]"),
             Self::Array(v) => Debug::fmt(v, f),
             Self::Dict(v) => Debug::fmt(v, f),
             Self::Func(v) => Debug::fmt(v, f),
@@ -720,7 +721,10 @@ mod tests {
             "30% + 56.69pt",
         );
         test(Fraction::one() * 7.55, "7.55fr");
-        test(Color::Rgba(RgbaColor::new(1, 1, 1, 0xff)), "#010101");
+        test(
+            Color::Rgba(RgbaColor::new(1, 1, 1, 0xff)),
+            "rgb(\"#010101\")",
+        );
 
         // Collections.
         test("hello", r#""hello""#);
@@ -734,13 +738,9 @@ mod tests {
         test(dict!["one" => 1], "(one: 1)");
         test(dict!["two" => false, "one" => 1], "(one: 1, two: false)");
 
-        // Functions.
-        test(
-            Func::from_fn("nil", |_, _| Ok(Value::None)),
-            "<function nil>",
-        );
-
-        // Dynamics.
+        // Functions, content and dynamics.
+        test(Content::Text("a".into()), "[...]");
+        test(Func::from_fn("nil", |_, _| Ok(Value::None)), "nil");
         test(Dynamic::new(1), "1");
     }
 }

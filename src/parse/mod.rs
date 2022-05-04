@@ -26,6 +26,13 @@ pub fn parse(src: &str) -> Arc<GreenNode> {
     }
 }
 
+/// Parse code directly, only used for syntax highlighting.
+pub fn parse_code(src: &str) -> Vec<Green> {
+    let mut p = Parser::new(src, TokenMode::Code);
+    code(&mut p);
+    p.finish()
+}
+
 /// Reparse a code block.
 ///
 /// Returns `Some` if all of the input was consumed.
@@ -696,18 +703,23 @@ fn params(p: &mut Parser, marker: Marker) {
 fn code_block(p: &mut Parser) {
     p.perform(NodeKind::CodeBlock, |p| {
         p.start_group(Group::Brace);
-        while !p.eof() {
-            p.start_group(Group::Expr);
-            if expr(p).is_ok() && !p.eof() {
-                p.expected("semicolon or line break");
-            }
-            p.end_group();
-
-            // Forcefully skip over newlines since the group's contents can't.
-            p.eat_while(|t| matches!(t, NodeKind::Space(_)));
-        }
+        code(p);
         p.end_group();
     });
+}
+
+/// Parse expressions.
+fn code(p: &mut Parser) {
+    while !p.eof() {
+        p.start_group(Group::Expr);
+        if expr(p).is_ok() && !p.eof() {
+            p.expected("semicolon or line break");
+        }
+        p.end_group();
+
+        // Forcefully skip over newlines since the group's contents can't.
+        p.eat_while(|t| matches!(t, NodeKind::Space(_)));
+    }
 }
 
 // Parse a content block: `[...]`.
