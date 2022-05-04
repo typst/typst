@@ -49,12 +49,12 @@
 
 ---
 // Simple expression after already being identified as a dictionary.
-// Error: 9-10 expected named or keyed pair, found expression
+// Error: 9-10 expected named or keyed pair, found identifier
 {(a: 1, b)}
 
 // Identified as dictionary due to initial colon.
-// Error: 4-5 expected named or keyed pair, found expression
+// Error: 4-5 expected named or keyed pair, found integer
 // Error: 5 expected comma
-// Error: 12-16 expected identifier or string
+// Error: 12-16 expected identifier or string, found boolean
 // Error: 17-18 expected expression, found colon
 {(:1 b:"", true::)}

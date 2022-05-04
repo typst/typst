@@ -604,6 +604,7 @@ fn collection(p: &mut Parser, keyed: bool) -> (CollectionKind, usize) {
                 missing_coma = Some(p.trivia_start());
             }
         } else {
+            p.eat_if(NodeKind::Comma);
             kind = Some(CollectionKind::Group);
         }
     }
@@ -638,10 +639,14 @@ fn item(p: &mut Parser, keyed: bool) -> ParseResult<NodeKind> {
                 p.eat();
                 marker.perform(p, NodeKind::Keyed, expr)?;
             }
-            _ => {
+            kind => {
                 let mut msg = EcoString::from("expected identifier");
                 if keyed {
                     msg.push_str(" or string");
+                }
+                if let Some(kind) = kind {
+                    msg.push_str(", found ");
+                    msg.push_str(kind.as_str());
                 }
                 let error = NodeKind::Error(ErrorPos::Full, msg);
                 marker.end(p, error);
@@ -661,8 +666,7 @@ fn item(p: &mut Parser, keyed: bool) -> ParseResult<NodeKind> {
 /// expressions.
 fn array(p: &mut Parser, marker: Marker) {
     marker.filter_children(p, |x| match x.kind() {
-        NodeKind::Named => Err("expected expression, found named pair"),
-        NodeKind::Keyed => Err("expected expression, found keyed pair"),
+        NodeKind::Named | NodeKind::Keyed => Err("expected expression"),
         _ => Ok(()),
     });
     marker.end(p, NodeKind::ArrayExpr);
@@ -685,7 +689,7 @@ fn dict(p: &mut Parser, marker: Marker) {
             Ok(())
         }
         NodeKind::Spread | NodeKind::Comma | NodeKind::Colon => Ok(()),
-        _ => Err("expected named or keyed pair, found expression"),
+        _ => Err("expected named or keyed pair"),
     });
     marker.end(p, NodeKind::DictExpr);
 }

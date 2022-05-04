@@ -145,13 +145,13 @@
 }
 
 ---
-// Error: 6-16 expected identifier, named pair or argument sink
+// Error: 6-16 expected identifier, named pair or argument sink, found keyed pair
 {(a, "named": b) => none}
 
 ---
-// Error: 10-15 expected identifier
+// Error: 10-15 expected identifier, found string
 #let foo("key": b) = key
 
 ---
-// Error: 10-14 expected identifier
+// Error: 10-14 expected identifier, found `none`
 #let foo(none: b) = key

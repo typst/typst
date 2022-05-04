@@ -71,11 +71,11 @@ This is never reached.
 // Error: 8 expected keyword `from`
 #import
 
-// Error: 9-19 expected identifier
+// Error: 9-19 expected identifier, found string
 // Error: 19 expected keyword `from`
 #import "file.typ"
 
-// Error: 16-19 expected identifier
+// Error: 16-19 expected identifier, found string
 // Error: 22 expected keyword `from`
 #import afrom, "b", c
 
@@ -108,7 +108,6 @@ This is never reached.
 
 // A star in the list.
 // Error: 12-13 expected expression, found star
-// Error: 13-14 expected expression, found comma
 #import a, *, b from "target.typ"
 
 // An item after a star.
@@ -117,5 +116,5 @@ This is never reached.
 #import *, a from "target.typ"
 
 ---
-// Error: 9-13 expected identifier
+// Error: 9-13 expected identifier, found named pair
 #import a: 1 from ""

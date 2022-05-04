@@ -662,7 +662,7 @@ pub enum NodeKind {
     MethodCall,
     /// A function call's argument list: `(x, y)`.
     CallArgs,
-    /// Spreaded arguments or a parameter sink: `..x`.
+    /// Spreaded arguments or a argument sink: `..x`.
     Spread,
     /// A closure expression: `(x, y) => z`.
     ClosureExpr,
@@ -906,7 +906,7 @@ impl NodeKind {
             Self::FuncCall => "function call",
             Self::MethodCall => "method call",
             Self::CallArgs => "call arguments",
-            Self::Spread => "parameter sink",
+            Self::Spread => "spread",
             Self::ClosureExpr => "closure",
             Self::ClosureParams => "closure parameters",
             Self::LetExpr => "`let` expression",

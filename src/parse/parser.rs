@@ -4,6 +4,7 @@ use std::ops::Range;
 
 use super::{TokenMode, Tokens};
 use crate::syntax::{ErrorPos, Green, GreenData, GreenNode, NodeKind};
+use crate::util::EcoString;
 
 /// A convenient token-based parser.
 pub struct Parser<'s> {
@@ -474,7 +475,12 @@ impl Marker {
             }
 
             if let Err(msg) = f(child) {
-                let error = NodeKind::Error(ErrorPos::Full, msg.into());
+                let mut msg = EcoString::from(msg);
+                if msg.starts_with("expected") {
+                    msg.push_str(", found ");
+                    msg.push_str(child.kind().as_str());
+                }
+                let error = NodeKind::Error(ErrorPos::Full, msg);
                 let inner = mem::take(child);
                 *child = GreenNode::with_child(error, inner).into();
             }

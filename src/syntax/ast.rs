@@ -964,7 +964,7 @@ pub enum ClosureParam {
     Pos(Ident),
     /// A named parameter with a default value: `draw: false`.
     Named(Named),
-    /// A parameter sink: `..args`.
+    /// An argument sink: `..args`.
     Sink(Ident),
 }
 
