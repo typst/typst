@@ -8,7 +8,7 @@
 ---
 // Test smallcaps.
 #set text("Roboto")
-#text(smallcaps: true)[Smallcaps]
+#smallcaps[Smallcaps]
 
 ---
 // Test alternates and stylistic sets.

@@ -84,8 +84,6 @@ impl TextNode {
 
     /// Whether to apply kerning ("kern").
     pub const KERNING: bool = true;
-    /// Whether small capital glyphs should be used. ("smcp")
-    pub const SMALLCAPS: bool = false;
     /// Whether to apply stylistic alternates. ("salt")
     pub const ALTERNATES: bool = false;
     /// Which stylistic set to apply. ("ss01" - "ss20")
@@ -119,6 +117,9 @@ impl TextNode {
     /// A case transformation that should be applied to the text.
     #[property(hidden)]
     pub const CASE: Option<Case> = None;
+    /// Whether small capital glyphs should be used. ("smcp")
+    #[property(hidden)]
+    pub const SMALLCAPS: bool = false;
     /// An URL the text should link to.
     #[property(hidden, referenced)]
     pub const LINK: Option<EcoString> = None;
@@ -411,6 +412,26 @@ impl Fold for Vec<(Tag, u32)> {
     }
 }
 
+/// Convert text to lowercase.
+pub fn lower(_: &mut Context, args: &mut Args) -> TypResult<Value> {
+    case(Case::Lower, args)
+}
+
+/// Convert text to uppercase.
+pub fn upper(_: &mut Context, args: &mut Args) -> TypResult<Value> {
+    case(Case::Upper, args)
+}
+
+/// Change the case of text.
+fn case(case: Case, args: &mut Args) -> TypResult<Value> {
+    let Spanned { v, span } = args.expect("string or content")?;
+    Ok(match v {
+        Value::Str(v) => Value::Str(case.apply(&v).into()),
+        Value::Content(v) => Value::Content(v.styled(TextNode::CASE, Some(case))),
+        v => bail!(span, "expected string or content, found {}", v.type_name()),
+    })
+}
+
 /// A case transformation on text.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Case {
@@ -428,6 +449,12 @@ impl Case {
             Self::Lower => text.to_lowercase(),
         }
     }
+}
+
+/// Display text in small capitals.
+pub fn smallcaps(_: &mut Context, args: &mut Args) -> TypResult<Value> {
+    let body: Content = args.expect("content")?;
+    Ok(Value::Content(body.styled(TextNode::SMALLCAPS, true)))
 }
 
 /// A toggle that turns on and off alternatingly if folded.

@@ -2,7 +2,6 @@ use lipsum::lipsum_from_seed;
 
 use crate::eval::Regex;
 use crate::library::prelude::*;
-use crate::library::text::{Case, TextNode};
 
 /// The string representation of a value.
 pub fn repr(_: &mut Context, args: &mut Args) -> TypResult<Value> {
@@ -18,26 +17,6 @@ pub fn str(_: &mut Context, args: &mut Args) -> TypResult<Value> {
         Value::Str(v) => v,
         v => bail!(span, "cannot convert {} to string", v.type_name()),
     }))
-}
-
-/// Convert a string to lowercase.
-pub fn lower(_: &mut Context, args: &mut Args) -> TypResult<Value> {
-    case(Case::Lower, args)
-}
-
-/// Convert a string to uppercase.
-pub fn upper(_: &mut Context, args: &mut Args) -> TypResult<Value> {
-    case(Case::Upper, args)
-}
-
-/// Change the case of a string or content.
-fn case(case: Case, args: &mut Args) -> TypResult<Value> {
-    let Spanned { v, span } = args.expect("string or content")?;
-    Ok(match v {
-        Value::Str(v) => Value::Str(case.apply(&v).into()),
-        Value::Content(v) => Value::Content(v.styled(TextNode::CASE, Some(case))),
-        v => bail!(span, "expected string or content, found {}", v.type_name()),
-    })
 }
 
 /// Create blind text.

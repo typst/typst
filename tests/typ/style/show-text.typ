@@ -3,7 +3,7 @@
 ---
 // Test classic example.
 #set text("Roboto")
-#show phrase: "Der Spiegel" as text(smallcaps: true, [#phrase])
+#show phrase: "Der Spiegel" as smallcaps[#phrase]
 Die Zeitung Der Spiegel existiert.
 
 ---
