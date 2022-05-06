@@ -24,19 +24,17 @@ impl<const S: ShapeKind> ShapeNode<S> {
     /// How to fill the shape.
     pub const FILL: Option<Paint> = None;
     /// How to stroke the shape.
-    #[property(resolve, fold)]
+    #[property(skip, resolve, fold)]
     pub const STROKE: Smart<Sides<Option<RawStroke>>> = Smart::Auto;
 
     /// How much to pad the shape's content.
     #[property(resolve, fold)]
     pub const INSET: Sides<Option<Relative<RawLength>>> = Sides::splat(Relative::zero());
-
     /// How much to extend the shape's dimensions beyond the allocated space.
     #[property(resolve, fold)]
     pub const OUTSET: Sides<Option<Relative<RawLength>>> = Sides::splat(Relative::zero());
-
     /// How much to round the shape's corners.
-    #[property(resolve, fold)]
+    #[property(skip, resolve, fold)]
     pub const RADIUS: Sides<Option<Relative<RawLength>>> = Sides::splat(Relative::zero());
 
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
@@ -57,14 +55,11 @@ impl<const S: ShapeKind> ShapeNode<S> {
         };
 
         Ok(Content::inline(
-            Self(args.find()?).pack().sized(Spec::new(width, height)),
+            Self(args.eat()?).pack().sized(Spec::new(width, height)),
         ))
     }
 
-    fn set(args: &mut Args) -> TypResult<StyleMap> {
-        let mut styles = StyleMap::new();
-        styles.set_opt(Self::FILL, args.named("fill")?);
-
+    fn set(...) {
         if is_round(S) {
             styles.set_opt(
                 Self::STROKE,
@@ -73,16 +68,8 @@ impl<const S: ShapeKind> ShapeNode<S> {
             );
         } else {
             styles.set_opt(Self::STROKE, args.named("stroke")?);
-        }
-
-        styles.set_opt(Self::INSET, args.named("inset")?);
-        styles.set_opt(Self::OUTSET, args.named("outset")?);
-
-        if !is_round(S) {
             styles.set_opt(Self::RADIUS, args.named("radius")?);
         }
-
-        Ok(styles)
     }
 }
 

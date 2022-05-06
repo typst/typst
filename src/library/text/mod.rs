@@ -35,7 +35,7 @@ pub struct TextNode;
 #[node]
 impl TextNode {
     /// A prioritized sequence of font families.
-    #[property(referenced, variadic)]
+    #[property(skip, referenced)]
     pub const FAMILY: Vec<FontFamily> = vec![FontFamily::new("IBM Plex Sans")];
     /// Whether to allow font fallback when the primary font list contains no
     /// match.
@@ -109,22 +109,22 @@ impl TextNode {
     pub const FEATURES: Vec<(Tag, u32)> = vec![];
 
     /// Whether the font weight should be increased by 300.
-    #[property(hidden, fold)]
+    #[property(skip, fold)]
     pub const STRONG: Toggle = false;
     /// Whether the the font style should be inverted.
-    #[property(hidden, fold)]
+    #[property(skip, fold)]
     pub const EMPH: Toggle = false;
     /// A case transformation that should be applied to the text.
-    #[property(hidden)]
+    #[property(skip)]
     pub const CASE: Option<Case> = None;
     /// Whether small capital glyphs should be used. ("smcp")
-    #[property(hidden)]
+    #[property(skip)]
     pub const SMALLCAPS: bool = false;
     /// An URL the text should link to.
-    #[property(hidden, referenced)]
+    #[property(skip, referenced)]
     pub const LINK: Option<EcoString> = None;
     /// Decorative lines.
-    #[property(hidden, fold)]
+    #[property(skip, fold)]
     pub const DECO: Decoration = vec![];
 
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
@@ -132,6 +132,36 @@ impl TextNode {
         // Instead, it leaves the passed argument structurally unchanged, but
         // styles all text in it.
         args.expect("body")
+    }
+
+    fn set(...) {
+        if let Some(family) = args.named("family")? {
+            styles.set(Self::FAMILY, family);
+        } else {
+            let mut count = 0;
+            let mut content = false;
+            for item in args.items.iter().filter(|item| item.name.is_none()) {
+                if EcoString::is(&item.value) {
+                    count += 1;
+                } else if Content::is(&item.value) {
+                    content = true;
+                }
+            }
+
+            // Skip the final string if it's needed as the body.
+            if constructor && !content && count > 0 {
+                count -= 1;
+            }
+
+            if count > 0 {
+                let mut list = Vec::with_capacity(count);
+                for _ in 0 .. count {
+                    list.push(args.find()?.unwrap());
+                }
+
+                styles.set(Self::FAMILY, list);
+            }
+        }
     }
 }
 

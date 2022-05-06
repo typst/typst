@@ -49,8 +49,8 @@ Some more text.
 Another text.
 
 ---
-// Error: 18-22 expected content, found string
-#show heading as "hi"
+// Error: 18-22 expected content, found integer
+#show heading as 1234
 = Heading
 
 ---

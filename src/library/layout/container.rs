@@ -8,7 +8,7 @@ impl BoxNode {
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         let width = args.named("width")?;
         let height = args.named("height")?;
-        let body: LayoutNode = args.find()?.unwrap_or_default();
+        let body: LayoutNode = args.eat()?.unwrap_or_default();
         Ok(Content::inline(body.sized(Spec::new(width, height))))
     }
 }
@@ -19,6 +19,6 @@ pub struct BlockNode;
 #[node]
 impl BlockNode {
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
-        Ok(Content::Block(args.find()?.unwrap_or_default()))
+        Ok(Content::Block(args.eat()?.unwrap_or_default()))
     }
 }

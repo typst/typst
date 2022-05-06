@@ -39,24 +39,11 @@ impl PageNode {
         Ok(Content::Page(Self(args.expect("body")?)))
     }
 
-    fn set(args: &mut Args) -> TypResult<StyleMap> {
-        let mut styles = StyleMap::new();
-
+    fn set(...) {
         if let Some(paper) = args.named_or_find::<Paper>("paper")? {
             styles.set(Self::WIDTH, Smart::Custom(paper.width().into()));
             styles.set(Self::HEIGHT, Smart::Custom(paper.height().into()));
         }
-
-        styles.set_opt(Self::WIDTH, args.named("width")?);
-        styles.set_opt(Self::HEIGHT, args.named("height")?);
-        styles.set_opt(Self::MARGINS, args.named("margins")?);
-        styles.set_opt(Self::FLIPPED, args.named("flipped")?);
-        styles.set_opt(Self::FILL, args.named("fill")?);
-        styles.set_opt(Self::COLUMNS, args.named("columns")?);
-        styles.set_opt(Self::HEADER, args.named("header")?);
-        styles.set_opt(Self::FOOTER, args.named("footer")?);
-
-        Ok(styles)
     }
 }
 

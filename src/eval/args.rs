@@ -44,20 +44,6 @@ impl Args {
         Self { span, items }
     }
 
-    /// Consume and cast the first positional argument.
-    ///
-    /// Returns a `missing argument: {what}` error if no positional argument is
-    /// left.
-    pub fn expect<T>(&mut self, what: &str) -> TypResult<T>
-    where
-        T: Cast<Spanned<Value>>,
-    {
-        match self.eat()? {
-            Some(v) => Ok(v),
-            None => bail!(self.span, "missing argument: {}", what),
-        }
-    }
-
     /// Consume and cast the first positional argument if there is one.
     pub fn eat<T>(&mut self) -> TypResult<Option<T>>
     where
@@ -71,6 +57,20 @@ impl Args {
             }
         }
         Ok(None)
+    }
+
+    /// Consume and cast the first positional argument.
+    ///
+    /// Returns a `missing argument: {what}` error if no positional argument is
+    /// left.
+    pub fn expect<T>(&mut self, what: &str) -> TypResult<T>
+    where
+        T: Cast<Spanned<Value>>,
+    {
+        match self.eat()? {
+            Some(v) => Ok(v),
+            None => bail!(self.span, "missing argument: {}", what),
+        }
     }
 
     /// Find and consume the first castable positional argument.

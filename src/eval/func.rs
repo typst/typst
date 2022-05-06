@@ -43,11 +43,11 @@ impl Func {
         Self(Arc::new(Repr::Native(Native {
             name,
             func: |ctx, args| {
-                let styles = T::set(args)?;
+                let styles = T::set(args, true)?;
                 let content = T::construct(ctx, args)?;
                 Ok(Value::Content(content.styled_with_map(styles.scoped())))
             },
-            set: Some(T::set),
+            set: Some(|args| T::set(args, false)),
             node: T::SHOWABLE.then(|| NodeId::of::<T>()),
         })))
     }
@@ -165,7 +165,10 @@ pub trait Node: 'static {
     fn construct(ctx: &mut Context, args: &mut Args) -> TypResult<Content>;
 
     /// Parse the arguments into style properties for this node.
-    fn set(args: &mut Args) -> TypResult<StyleMap>;
+    ///
+    /// When `constructor` is true, [`construct`](Self::construct) will run
+    /// after this invocation of `set`.
+    fn set(args: &mut Args, constructor: bool) -> TypResult<StyleMap>;
 }
 
 /// A user-defined closure.

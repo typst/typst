@@ -53,8 +53,7 @@ fn expand(stream: TokenStream2, mut impl_block: syn::ItemImpl) -> Result<TokenSt
     let construct =
         construct.ok_or_else(|| Error::new(impl_block.span(), "missing constructor"))?;
 
-    let set = set.unwrap_or_else(|| generate_set(&properties));
-
+    let set = generate_set(&properties, set);
     let showable = match stream.to_string().as_str() {
         "" => false,
         "showable" => true,
@@ -244,10 +243,9 @@ fn process_const(
 /// A style property.
 struct Property {
     name: Ident,
-    hidden: bool,
+    skip: bool,
     referenced: bool,
     shorthand: Option<Shorthand>,
-    variadic: bool,
     resolve: bool,
     fold: bool,
 }
@@ -261,10 +259,9 @@ enum Shorthand {
 fn parse_property(item: &mut syn::ImplItemConst) -> Result<Property> {
     let mut property = Property {
         name: item.ident.clone(),
-        hidden: false,
-        referenced: false,
+        skip: false,
         shorthand: None,
-        variadic: false,
+        referenced: false,
         resolve: false,
         fold: false,
     };
@@ -279,7 +276,7 @@ fn parse_property(item: &mut syn::ImplItemConst) -> Result<Property> {
         while let Some(token) = stream.next() {
             match token {
                 TokenTree::Ident(ident) => match ident.to_string().as_str() {
-                    "hidden" => property.hidden = true,
+                    "skip" => property.skip = true,
                     "shorthand" => {
                         let short = if let Some(TokenTree::Group(group)) = stream.peek() {
                             let span = group.span();
@@ -296,7 +293,6 @@ fn parse_property(item: &mut syn::ImplItemConst) -> Result<Property> {
                         property.shorthand = Some(short);
                     }
                     "referenced" => property.referenced = true,
-                    "variadic" => property.variadic = true,
                     "resolve" => property.resolve = true,
                     "fold" => property.fold = true,
                     _ => return Err(Error::new(ident.span(), "invalid attribute")),
@@ -308,10 +304,10 @@ fn parse_property(item: &mut syn::ImplItemConst) -> Result<Property> {
     }
 
     let span = property.name.span();
-    if property.shorthand.is_some() && property.variadic {
+    if property.skip && property.shorthand.is_some() {
         return Err(Error::new(
             span,
-            "shorthand and variadic are mutually exclusive",
+            "skip and shorthand are mutually exclusive",
         ));
     }
 
@@ -326,26 +322,24 @@ fn parse_property(item: &mut syn::ImplItemConst) -> Result<Property> {
 }
 
 /// Auto-generate a `set` function from properties.
-fn generate_set(properties: &[Property]) -> syn::ImplItemMethod {
+fn generate_set(
+    properties: &[Property],
+    user: Option<syn::ImplItemMethod>,
+) -> syn::ImplItemMethod {
+    let user = user.map(|method| {
+        let block = &method.block;
+        quote! { (|| -> TypResult<()> { #block; Ok(()) } )()?; }
+    });
+
     let mut shorthands = vec![];
     let sets: Vec<_> = properties
         .iter()
-        .filter(|p| !p.hidden)
+        .filter(|p| !p.skip)
         .map(|property| {
             let name = &property.name;
             let string = name.to_string().replace("_", "-").to_lowercase();
 
-            let value = if property.variadic {
-                quote! {
-                    match args.named(#string)? {
-                        Some(value) => value,
-                        None => {
-                            let list: Vec<_> = args.all()?;
-                            (!list.is_empty()).then(|| list)
-                        }
-                    }
-                }
-            } else if let Some(short) = &property.shorthand {
+            let value = if let Some(short) = &property.shorthand {
                 match short {
                     Shorthand::Positional => quote! { args.named_or_find(#string)? },
                     Shorthand::Named(named) => {
@@ -356,7 +350,6 @@ fn generate_set(properties: &[Property]) -> syn::ImplItemMethod {
             } else {
                 quote! { args.named(#string)? }
             };
-
 
             quote! { styles.set_opt(Self::#name, #value); }
         })
@@ -371,8 +364,9 @@ fn generate_set(properties: &[Property]) -> syn::ImplItemMethod {
     });
 
     parse_quote! {
-        fn set(args: &mut Args) -> TypResult<StyleMap> {
+        fn set(args: &mut Args, constructor: bool) -> TypResult<StyleMap> {
             let mut styles = StyleMap::new();
+            #user
             #(#bindings)*
             #(#sets)*
             Ok(styles)

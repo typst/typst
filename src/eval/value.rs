@@ -464,11 +464,19 @@ primitive! { f64: "float", Float, Int(v) => v as f64 }
 primitive! { RawLength: "length", Length }
 primitive! { Angle: "angle", Angle }
 primitive! { Ratio: "ratio", Ratio }
-primitive! { Relative<RawLength>:  "relative length", Relative, Length(v) => v.into(), Ratio(v) => v.into() }
+primitive! { Relative<RawLength>:  "relative length",
+    Relative,
+    Length(v) => v.into(),
+    Ratio(v) => v.into()
+}
 primitive! { Fraction: "fraction", Fraction }
 primitive! { Color: "color", Color }
 primitive! { EcoString: "string", Str }
-primitive! { Content: "content", Content, None => Content::new() }
+primitive! { Content: "content",
+    Content,
+    None => Content::new(),
+    Str(text) => Content::Text(text)
+}
 primitive! { Array: "array", Array }
 primitive! { Dict: "dictionary", Dict }
 primitive! { Func: "function", Func }

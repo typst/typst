@@ -39,6 +39,14 @@ Emoji: 🐪, 🌋, 🏞
 2π = 𝛼 + 𝛽. ✅
 
 ---
+// Test string body.
+#text("Text") \
+#text(red, "Text") \
+#text("Ubuntu", blue, "Text") \
+#text([Text], teal, "IBM Plex Serif") \
+#text(forest, "Latin Modern Roman", [Text]) \
+
+---
 // Error: 11-16 unexpected argument
 #set text(false)
 

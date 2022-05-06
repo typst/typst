@@ -22,7 +22,7 @@ impl LinkNode {
     fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
         Ok(Content::show(Self {
             url: args.expect::<EcoString>("url")?,
-            body: args.find()?,
+            body: args.eat()?,
         }))
     }
 }
