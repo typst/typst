@@ -127,13 +127,11 @@ impl<'a> PdfExporter<'a> {
             };
 
             // Write the CID font referencing the font descriptor.
-            self.writer
-                .cid_font(cid_ref)
-                .subtype(subtype)
+            let mut cid = self.writer.cid_font(cid_ref);
+            cid.subtype(subtype)
                 .base_font(base_font)
                 .system_info(system_info)
                 .font_descriptor(descriptor_ref)
-                .cid_to_gid_map_predefined(Name(b"Identity"))
                 .widths()
                 .consecutive(0, {
                     let num_glyphs = ttf.number_of_glyphs();
@@ -142,6 +140,12 @@ impl<'a> PdfExporter<'a> {
                         face.to_em(x).to_font_units()
                     })
                 });
+
+            if subtype == CidFontType::Type2 {
+                cid.cid_to_gid_map_predefined(Name(b"Identity"));
+            }
+
+            cid.finish();
 
             let mut flags = FontFlags::empty();
             flags.set(FontFlags::SERIF, postscript_name.contains("Serif"));
@@ -165,8 +169,8 @@ impl<'a> PdfExporter<'a> {
             let stem_v = 10.0 + 0.244 * (f32::from(ttf.weight().to_number()) - 50.0);
 
             // Write the font descriptor (contains metrics about the font).
-            self.writer
-                .font_descriptor(descriptor_ref)
+            let mut font_descriptor = self.writer.font_descriptor(descriptor_ref);
+            font_descriptor
                 .name(base_font)
                 .flags(flags)
                 .bbox(bbox)
@@ -174,8 +178,14 @@ impl<'a> PdfExporter<'a> {
                 .ascent(ascender)
                 .descent(descender)
                 .cap_height(cap_height)
-                .stem_v(stem_v)
-                .font_file2(data_ref);
+                .stem_v(stem_v);
+
+            match subtype {
+                CidFontType::Type0 => font_descriptor.font_file3(data_ref),
+                CidFontType::Type2 => font_descriptor.font_file2(data_ref),
+            };
+
+            font_descriptor.finish();
 
             // Compute a reverse mapping from glyphs to unicode.
             let cmap = {
@@ -210,10 +220,14 @@ impl<'a> PdfExporter<'a> {
             // Subset and write the face's bytes.
             let buffer = face.buffer();
             let subsetted = subset(buffer, face.index(), glyphs);
-            let data = subsetted.as_deref().unwrap_or(buffer);
-            self.writer
-                .stream(data_ref, &deflate(data))
-                .filter(Filter::FlateDecode);
+            let data = deflate(subsetted.as_deref().unwrap_or(buffer));
+            let mut font_stream = self.writer.stream(data_ref, &data);
+
+            if subtype == CidFontType::Type0 {
+                font_stream.pair(Name(b"Subtype"), Name(b"CIDFontType0C"));
+            }
+
+            font_stream.filter(Filter::FlateDecode).finish();
         }
     }
 
