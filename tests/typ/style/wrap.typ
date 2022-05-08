@@ -25,5 +25,12 @@ A [_B #wrap c in [*#c*]; C_] D
 Forest
 
 ---
-// Error: 6-17 set, show and wrap are only allowed directly in markup
-{1 + wrap x in y}
+{
+  // Error: 3-24 expected remaining block to yield content, found integer
+  wrap body in 2 * body
+  2
+}
+
+---
+// Error: 4-18 wrap is only allowed directly in code and content blocks
+{ (wrap body in 2) * body }

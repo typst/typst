@@ -27,5 +27,15 @@ Hello *{x}*
 #text(fill: forest, x)
 
 ---
-// Error: 2-10 set, show and wrap are only allowed directly in markup
-{set f(x)}
+// Test that scoping works as expected.
+{
+  if true {
+    set text(blue)
+    [Blue ]
+  }
+  [Not blue]
+}
+
+---
+// Error: 11-25 set is only allowed directly in code and content blocks
+{ let x = set text(blue) }

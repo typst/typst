@@ -3,7 +3,7 @@ use std::fmt::{self, Debug, Formatter, Write};
 use std::ops::{Add, AddAssign};
 use std::sync::Arc;
 
-use super::{Args, Func, Value};
+use super::{ops, Args, Func, Value};
 use crate::diag::{At, StrResult, TypResult};
 use crate::syntax::Spanned;
 use crate::util::ArcExt;
@@ -171,18 +171,14 @@ impl Array {
         let mut result = Value::None;
         for (i, value) in self.iter().cloned().enumerate() {
             if i > 0 {
-                if i + 1 == len {
-                    if let Some(last) = last.take() {
-                        result = result.join(last)?;
-                    } else {
-                        result = result.join(sep.clone())?;
-                    }
+                if i + 1 == len && last.is_some() {
+                    result = ops::join(result, last.take().unwrap())?;
                 } else {
-                    result = result.join(sep.clone())?;
+                    result = ops::join(result, sep.clone())?;
                 }
             }
 
-            result = result.join(value)?;
+            result = ops::join(result, value)?;
         }
 
         Ok(result)

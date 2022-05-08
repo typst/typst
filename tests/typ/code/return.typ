@@ -35,10 +35,7 @@
 
 #let f(text, caption: none) = {
   text
-  if caption == none {
-    [\.]
-    return
-  }
+  if caption == none [\.#return]
   [, ]
   emph(caption)
   [\.]
@@ -55,3 +52,33 @@
   // Error: 3-9 cannot return outside of function
   return
 }
+
+---
+// Test that the expression is evaluated to the end.
+#let y = 1
+#let identity(x, ..rest) = x
+#let f(x) = {
+  identity(
+    ..return,
+    x + 1,
+    y = 2,
+  )
+  "nope"
+}
+
+#test(f(1), 2)
+#test(y, 2)
+
+---
+// Test value return from content.
+#let x = 3
+#let f() = [
+  Hello 😀
+  { x = 1 }
+  #return "nope"
+  { x = 2 }
+  World
+]
+
+#test(f(), "nope")
+#test(x, 1)

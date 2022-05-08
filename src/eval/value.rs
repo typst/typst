@@ -102,11 +102,6 @@ impl Value {
         T::cast(self)
     }
 
-    /// Join the value with another value.
-    pub fn join(self, rhs: Self) -> StrResult<Self> {
-        ops::join(self, rhs)
-    }
-
     /// Return the debug representation of the value.
     pub fn repr(&self) -> EcoString {
         format_eco!("{:?}", self)

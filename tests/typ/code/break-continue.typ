@@ -66,13 +66,28 @@
 
 ---
 // Test break outside of loop.
-
 #let f() = {
   // Error: 3-8 cannot break outside of loop
   break
 }
 
-#f()
+#for i in range(1) {
+  f()
+}
+
+---
+// Test break in function call.
+#let identity(x) = x
+#let out = for i in range(5) {
+  "A"
+  identity({
+    "B"
+    break
+  })
+  "C"
+}
+
+#test(out, "AB")
 
 ---
 // Test continue outside of loop.
@@ -81,5 +96,41 @@
 #let x = { continue }
 
 ---
-// Error: 1-10 unexpected keyword `continue`
+// Error: 1-10 cannot continue outside of loop
 #continue
+
+---
+// Ref: true
+// Should output `Hello World 🌎`.
+#for _ in range(10) {
+  [Hello ]
+  [World {
+    [🌎]
+    break
+  }]
+}
+
+---
+// Ref: true
+// Should output `Some` in red, `Some` in blue and `Last` in green.
+// Everything should be in smallcaps.
+#for color in (red, blue, green, yellow) [
+  #set text("Roboto")
+  #wrap body in text(fill: color, body)
+  #smallcaps(if color != green [
+    Some
+  ] else [
+    Last
+    #break
+  ])
+]
+
+---
+// Ref: true
+// Test break in set rule.
+// Should output `Hi` in blue.
+#for i in range(10) {
+  [Hello]
+  set text(blue, ..break)
+  [Not happening]
+}

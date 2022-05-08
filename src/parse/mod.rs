@@ -246,7 +246,10 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
         | NodeKind::While
         | NodeKind::For
         | NodeKind::Import
-        | NodeKind::Include => markup_expr(p),
+        | NodeKind::Include
+        | NodeKind::Break
+        | NodeKind::Continue
+        | NodeKind::Return => markup_expr(p),
 
         // Code and content block.
         NodeKind::LeftBrace => code_block(p),
@@ -965,7 +968,7 @@ fn continue_expr(p: &mut Parser) -> ParseResult {
 fn return_expr(p: &mut Parser) -> ParseResult {
     p.perform(NodeKind::ReturnExpr, |p| {
         p.assert(NodeKind::Return);
-        if !p.eof() {
+        if !p.at(NodeKind::Comma) && !p.eof() {
             expr(p)?;
         }
         Ok(())

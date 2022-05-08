@@ -49,6 +49,33 @@ Some more text.
 Another text.
 
 ---
+// Test set and show in code blocks.
+#show node: heading as {
+  set text(red)
+  show "ding" as [🛎]
+  node.body
+}
+
+= Heading
+
+---
+// Test that scoping works as expected.
+{
+  let world = [ World ]
+  show c: "W" as strong(c)
+  world
+  {
+    set text(blue)
+    wrap it in {
+      show "o" as "Ø"
+      it
+    }
+    world
+  }
+  world
+}
+
+---
 // Error: 18-22 expected content, found integer
 #show heading as 1234
 = Heading
@@ -67,5 +94,5 @@ Another text.
 #show red as []
 
 ---
-// Error: 2-16 set, show and wrap are only allowed directly in markup
-{show list as a}
+// Error: 7-27 show is only allowed directly in code and content blocks
+{ 1 + show heading as none }

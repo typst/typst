@@ -2,7 +2,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use super::{Args, Control, Eval, Scope, Scopes, Value};
+use super::{Args, Eval, Flow, Scope, Scopes, Value};
 use crate::diag::{StrResult, TypResult};
 use crate::model::{Content, NodeId, StyleMap};
 use crate::syntax::ast::Expr;
@@ -210,11 +210,19 @@ impl Closure {
             scp.top.def_mut(sink, args.take());
         }
 
+        // Backup the old control flow state.
+        let prev_flow = ctx.flow.take();
+
         // Evaluate the body.
-        let value = match self.body.eval(ctx, &mut scp) {
-            Err(Control::Return(value, _, _)) => value,
-            other => other?,
-        };
+        let mut value = self.body.eval(ctx, &mut scp)?;
+
+        // Handle control flow.
+        match std::mem::replace(&mut ctx.flow, prev_flow) {
+            Some(Flow::Return(_, Some(explicit))) => value = explicit,
+            Some(Flow::Return(_, None)) => {}
+            Some(flow) => return Err(flow.forbidden())?,
+            None => {}
+        }
 
         Ok(value)
     }

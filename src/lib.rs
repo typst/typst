@@ -58,7 +58,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use crate::diag::TypResult;
-use crate::eval::{Eval, Module, Scope, Scopes};
+use crate::eval::{Eval, Flow, Module, Scope, Scopes};
 use crate::font::FontStore;
 use crate::frame::Frame;
 use crate::image::ImageStore;
@@ -88,6 +88,8 @@ pub struct Context {
     route: Vec<SourceId>,
     /// The dependencies of the current evaluation process.
     deps: Vec<(SourceId, usize)>,
+    /// A control flow event that is currently happening.
+    flow: Option<Flow>,
 }
 
 impl Context {
@@ -145,9 +147,15 @@ impl Context {
         let content = ast.eval(self, &mut scp);
         self.route.pop().unwrap();
         let deps = std::mem::replace(&mut self.deps, prev);
+        let flow = self.flow.take();
 
         // Assemble the module.
         let module = Module { scope: scp.top, content: content?, deps };
+
+        // Handle unhandled flow.
+        if let Some(flow) = flow {
+            return Err(flow.forbidden());
+        }
 
         // Save the evaluated module.
         self.modules.insert(id, module.clone());
@@ -213,6 +221,7 @@ impl ContextBuilder {
             cache: HashMap::new(),
             route: vec![],
             deps: vec![],
+            flow: None,
         }
     }
 }
