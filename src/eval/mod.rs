@@ -1000,8 +1000,9 @@ impl Access for Expr {
         scp: &'a mut Scopes,
     ) -> TypResult<Location<'a>> {
         match self {
-            Expr::Ident(ident) => ident.access(ctx, scp),
-            Expr::FuncCall(call) => call.access(ctx, scp),
+            Expr::Ident(v) => v.access(ctx, scp),
+            Expr::FieldAccess(v) => v.access(ctx, scp),
+            Expr::FuncCall(v) => v.access(ctx, scp),
             _ => bail!(self.span(), "cannot mutate a temporary value"),
         }
     }
@@ -1020,6 +1021,26 @@ impl Access for Ident {
             },
             None => bail!(self.span(), "unknown variable"),
         }
+    }
+}
+
+impl Access for FieldAccess {
+    fn access<'a>(
+        &self,
+        ctx: &mut Context,
+        scp: &'a mut Scopes,
+    ) -> TypResult<Location<'a>> {
+        let guard = self.object().access(ctx, scp)?;
+        try_map(guard, |value| {
+            Ok(match value {
+                Value::Dict(dict) => dict.get_mut(self.field().take()),
+                v => bail!(
+                    self.object().span(),
+                    "expected dictionary, found {}",
+                    v.type_name(),
+                ),
+            })
+        })
     }
 }
 

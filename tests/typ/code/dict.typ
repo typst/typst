@@ -17,10 +17,14 @@
 ---
 // Test lvalue and rvalue access.
 {
-  let dict = (a: 1, b: 1)
-  dict("b") += 1
-  dict("c") = 3
-  test(dict, (a: 1, b: 2, c: 3))
+  let dict = (a: 1, "b b": 1)
+  dict("b b") += 1
+  dict.state = (ok: true, err: false)
+  test(dict, (a: 1, "b b": 2, state: (ok: true, err: false)))
+  test(dict.state.ok, true)
+  dict("state").ok = false
+  test(dict.state.ok, false)
+  test(dict.state.err, false)
 }
 
 ---
@@ -58,3 +62,14 @@
 // Error: 12-16 expected identifier or string, found boolean
 // Error: 17-18 expected expression, found colon
 {(:1 b:"", true::)}
+
+---
+// Error: 3-15 cannot mutate a temporary value
+{ (key: value).other = "some" }
+
+---
+{
+  let object = none
+  // Error: 3-9 expected dictionary, found none
+  object.property = "value"
+}
