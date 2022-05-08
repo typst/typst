@@ -109,7 +109,7 @@ impl<'a> Subsetter<'a> {
         for (tag, data) in &mut self.tables {
             if *tag == HEAD {
                 // Zero out checksum field in head table.
-                data.to_mut()[8 .. 12].copy_from_slice(&[0; 4]);
+                data.to_mut()[8 .. 12].fill(0);
                 checksum_adjustment_offset = Some(offset + 8);
             }
 
@@ -121,15 +121,20 @@ impl<'a> Subsetter<'a> {
                 length: len as u32,
             });
 
-            // Account for the padding to 4 bytes.
-            offset += len + len % 4;
+            // Increase offset, plus padding zeros to align to 4 bytes.
+            offset += len;
+            while offset % 4 != 0 {
+                offset += 1;
+            }
         }
 
         // Write tables.
         for (_, data) in &self.tables {
             // Write data plus padding zeros to align to 4 bytes.
             w.extend(data.as_ref());
-            w.extend(iter::repeat(0).take(data.len() % 4));
+            while w.len() % 4 != 0 {
+                w.push(0);
+            }
         }
 
         // Write checksumAdjustment field in head table.
@@ -210,8 +215,9 @@ const LOCA: Tag = Tag::from_bytes(b"loca");
 const GLYF: Tag = Tag::from_bytes(b"glyf");
 const CFF1: Tag = Tag::from_bytes(b"CFF ");
 
-/// Calculate a checksum over the sliced data as sum of u32's. The data length
-/// must be a multiple of four.
+/// Calculate a checksum over the sliced data as a sum of u32s. If the data
+/// length is not a multiple of four, it is treated as if padded with zero to a
+/// length that is a multiple of four.
 fn checksum(data: &[u8]) -> u32 {
     let mut sum = 0u32;
     for chunk in data.chunks(4) {
