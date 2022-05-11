@@ -8,6 +8,7 @@ use crate::geom::{
     Align, Em, Length, Numeric, Paint, Point, Shape, Size, Spec, Transform,
 };
 use crate::image::ImageId;
+use crate::library::text::Lang;
 use crate::util::{EcoString, MaybeShared};
 
 /// A finished layout with elements at fixed positions.
@@ -269,6 +270,8 @@ pub struct Text {
     pub size: Length,
     /// Glyph color.
     pub fill: Paint,
+    /// The natural language of the text.
+    pub lang: Lang,
     /// The glyphs.
     pub glyphs: Vec<Glyph>,
 }

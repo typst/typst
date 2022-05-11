@@ -7,8 +7,8 @@ use std::sync::Arc;
 
 use image::{DynamicImage, GenericImageView, ImageFormat, ImageResult, Rgba};
 use pdf_writer::types::{
-    ActionType, AnnotationType, CidFontType, ColorSpaceOperand, FontFlags, SystemInfo,
-    UnicodeCmap,
+    ActionType, AnnotationType, CidFontType, ColorSpaceOperand, Direction, FontFlags,
+    SystemInfo, UnicodeCmap,
 };
 use pdf_writer::writers::ColorSpace;
 use pdf_writer::{Content, Filter, Finish, Name, PdfWriter, Rect, Ref, Str, TextStr};
@@ -18,10 +18,11 @@ use super::subset::subset;
 use crate::font::{find_name, FaceId, FontStore};
 use crate::frame::{Element, Frame, Group, Text};
 use crate::geom::{
-    self, Color, Em, Geometry, Length, Numeric, Paint, Point, Shape, Size, Stroke,
+    self, Color, Dir, Em, Geometry, Length, Numeric, Paint, Point, Shape, Size, Stroke,
     Transform,
 };
 use crate::image::{Image, ImageId, ImageStore, RasterImage};
+use crate::library::text::Lang;
 use crate::Context;
 
 /// Export a collection of frames into a PDF file.
@@ -303,6 +304,7 @@ impl<'a> PdfExporter<'a> {
 
         // The page objects (non-root nodes in the page tree).
         let mut page_refs = vec![];
+        let mut languages = HashMap::new();
         for page in self.pages {
             let page_id = self.alloc.bump();
             let content_id = self.alloc.bump();
@@ -329,6 +331,13 @@ impl<'a> PdfExporter<'a> {
 
             annotations.finish();
             page_writer.finish();
+
+            for (lang, count) in page.languages {
+                languages
+                    .entry(lang)
+                    .and_modify(|x| *x += count)
+                    .or_insert_with(|| count);
+            }
 
             self.writer
                 .stream(content_id, &deflate(&page.content.finish()))
@@ -359,9 +368,28 @@ impl<'a> PdfExporter<'a> {
         resources.finish();
         pages.finish();
 
+        let lang = languages
+            .into_iter()
+            .max_by(|(_, v1), (_, v2)| v1.cmp(v2))
+            .map(|(k, _)| k);
+
+        let dir = if lang.map(Lang::dir) == Some(Dir::RTL) {
+            Direction::R2L
+        } else {
+            Direction::L2R
+        };
+
         // Write the document information, catalog and wrap it up!
         self.writer.document_info(self.alloc.bump()).creator(TextStr("Typst"));
-        self.writer.catalog(self.alloc.bump()).pages(page_tree_ref);
+        let mut catalog = self.writer.catalog(self.alloc.bump());
+        catalog.pages(page_tree_ref);
+        catalog.viewer_preferences().direction(dir);
+
+        if let Some(lang) = lang {
+            catalog.lang(TextStr(lang.as_str()));
+        }
+
+        catalog.finish();
         self.writer.finish()
     }
 }
@@ -372,6 +400,7 @@ struct PageExporter<'a> {
     font_map: &'a mut Remapper<FaceId>,
     image_map: &'a mut Remapper<ImageId>,
     glyphs: &'a mut HashMap<FaceId, HashSet<u16>>,
+    languages: HashMap<Lang, usize>,
     bottom: f32,
     content: Content,
     links: Vec<(String, Rect)>,
@@ -384,6 +413,7 @@ struct Page {
     size: Size,
     content: Content,
     links: Vec<(String, Rect)>,
+    languages: HashMap<Lang, usize>,
 }
 
 /// A simulated graphics state used to deduplicate graphics state changes and
@@ -403,6 +433,7 @@ impl<'a> PageExporter<'a> {
             font_map: &mut exporter.face_map,
             image_map: &mut exporter.image_map,
             glyphs: &mut exporter.glyph_sets,
+            languages: HashMap::new(),
             bottom: 0.0,
             content: Content::new(),
             links: vec![],
@@ -422,6 +453,7 @@ impl<'a> PageExporter<'a> {
             size: frame.size,
             content: self.content,
             links: self.links,
+            languages: self.languages,
         }
     }
 
@@ -507,6 +539,11 @@ impl<'a> PageExporter<'a> {
         if !encoded.is_empty() {
             items.show(Str(&encoded));
         }
+
+        self.languages
+            .entry(text.lang)
+            .and_modify(|x| *x += text.glyphs.len())
+            .or_insert_with(|| text.glyphs.len());
 
         items.finish();
         positioned.finish();

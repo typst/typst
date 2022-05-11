@@ -104,7 +104,13 @@ impl<'a> ShapedText<'a> {
                 })
                 .collect();
 
-            let text = Text { face_id, size: self.size, fill, glyphs };
+            let text = Text {
+                face_id,
+                size: self.size,
+                lang: self.styles.get(TextNode::LANG),
+                fill,
+                glyphs,
+            };
             let text_layer = frame.layer();
             let width = text.width();
 
