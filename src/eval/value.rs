@@ -689,6 +689,8 @@ castable! {
 castable! {
     LayoutNode,
     Expected: "content",
+    Value::None => Self::default(),
+    Value::Str(text) => Content::Text(text).pack(),
     Value::Content(content) => content.pack(),
 }
 
