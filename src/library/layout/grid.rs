@@ -362,6 +362,7 @@ impl<'a> GridLayouter<'a> {
             if let Some(node) = self.cell(x, y) {
                 let mut pod = self.regions.clone();
                 pod.first.x = rcol;
+                pod.base.x = rcol;
 
                 // All widths should be `rcol` except the base for auto columns.
                 if self.cols[x] == TrackSizing::Auto {
@@ -500,6 +501,7 @@ impl<'a> GridLayouter<'a> {
         for (x, &rcol) in self.rcols.iter().enumerate() {
             if let Some(node) = self.cell(x, y) {
                 pod.first.x = rcol;
+                pod.base.x = rcol;
 
                 // All widths should be `rcol` except the base for auto columns.
                 if self.cols[x] == TrackSizing::Auto {
