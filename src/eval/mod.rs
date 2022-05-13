@@ -111,6 +111,7 @@ fn eval_markup(
     scp: &mut Scopes,
     nodes: &mut impl Iterator<Item = MarkupNode>,
 ) -> TypResult<Content> {
+    let flow = ctx.flow.take();
     let mut seq = Vec::with_capacity(nodes.size_hint().1.unwrap_or_default());
 
     while let Some(node) = nodes.next() {
@@ -144,6 +145,10 @@ fn eval_markup(
         if ctx.flow.is_some() {
             break;
         }
+    }
+
+    if flow.is_some() {
+        ctx.flow = flow;
     }
 
     Ok(Content::sequence(seq))
@@ -343,6 +348,7 @@ fn eval_code(
     scp: &mut Scopes,
     exprs: &mut impl Iterator<Item = Expr>,
 ) -> TypResult<Value> {
+    let flow = ctx.flow.take();
     let mut output = Value::None;
 
     while let Some(expr) = exprs.next() {
@@ -381,6 +387,10 @@ fn eval_code(
         if ctx.flow.is_some() {
             break;
         }
+    }
+
+    if flow.is_some() {
+        ctx.flow = flow;
     }
 
     Ok(output)
@@ -785,6 +795,7 @@ impl Eval for WhileExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> TypResult<Self::Output> {
+        let flow = ctx.flow.take();
         let mut output = Value::None;
 
         let condition = self.condition();
@@ -804,6 +815,10 @@ impl Eval for WhileExpr {
             }
         }
 
+        if flow.is_some() {
+            ctx.flow = flow;
+        }
+
         Ok(output)
     }
 }
@@ -812,11 +827,12 @@ impl Eval for ForExpr {
     type Output = Value;
 
     fn eval(&self, ctx: &mut Context, scp: &mut Scopes) -> TypResult<Self::Output> {
+        let flow = ctx.flow.take();
+        let mut output = Value::None;
+        scp.enter();
+
         macro_rules! iter {
             (for ($($binding:ident => $value:ident),*) in $iter:expr) => {{
-                let mut output = Value::None;
-                scp.enter();
-
                 #[allow(unused_parens)]
                 for ($($value),*) in $iter {
                     $(scp.top.def_mut(&$binding, $value);)*
@@ -836,8 +852,6 @@ impl Eval for ForExpr {
                     }
                 }
 
-                scp.exit();
-                return Ok(output);
             }};
         }
 
@@ -878,6 +892,13 @@ impl Eval for ForExpr {
                 bail!(self.iter().span(), "cannot loop over {}", iter.type_name());
             }
         }
+
+        if flow.is_some() {
+            ctx.flow = flow;
+        }
+
+        scp.exit();
+        Ok(output)
     }
 }
 
