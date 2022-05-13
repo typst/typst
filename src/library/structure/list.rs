@@ -217,7 +217,7 @@ impl Label {
             Self::Content(content) => content.clone(),
             Self::Func(func, span) => {
                 let args = Args::from_values(*span, [Value::Int(number as i64)]);
-                func.call(ctx, args)?.cast().at(*span)?
+                func.call(ctx, args)?.display()
             }
         })
     }

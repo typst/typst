@@ -76,7 +76,6 @@ Another text.
 }
 
 ---
-// Error: 18-22 expected content, found integer
 #show heading as 1234
 = Heading
 

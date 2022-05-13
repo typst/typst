@@ -354,7 +354,7 @@ fn eval_code(
                     break;
                 }
 
-                let tail = to_content(eval_code(ctx, scp, exprs)?).at(span)?;
+                let tail = eval_code(ctx, scp, exprs)?.display();
                 Value::Content(tail.styled_with_map(styles))
             }
             Expr::Show(show) => {
@@ -364,12 +364,12 @@ fn eval_code(
                     break;
                 }
 
-                let tail = to_content(eval_code(ctx, scp, exprs)?).at(span)?;
+                let tail = eval_code(ctx, scp, exprs)?.display();
                 Value::Content(tail.styled_with_entry(entry))
             }
             Expr::Wrap(wrap) => {
-                let tail = to_content(eval_code(ctx, scp, exprs)?).at(span)?;
-                scp.top.def_mut(wrap.binding().take(), Value::Content(tail));
+                let tail = eval_code(ctx, scp, exprs)?;
+                scp.top.def_mut(wrap.binding().take(), tail);
                 wrap.body().eval(ctx, scp)?
             }
 
@@ -384,14 +384,6 @@ fn eval_code(
     }
 
     Ok(output)
-}
-
-/// Extract content from a value.
-fn to_content(value: Value) -> StrResult<Content> {
-    let ty = value.type_name();
-    value
-        .cast()
-        .map_err(|_| format!("expected remaining block to yield content, found {ty}"))
 }
 
 impl Eval for ContentBlock {

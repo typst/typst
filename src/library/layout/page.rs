@@ -159,7 +159,7 @@ impl Marginal {
             Self::Content(content) => Some(content.clone()),
             Self::Func(func, span) => {
                 let args = Args::from_values(*span, [Value::Int(page as i64)]);
-                func.call(ctx, args)?.cast().at(*span)?
+                Some(func.call(ctx, args)?.display())
             }
         })
     }

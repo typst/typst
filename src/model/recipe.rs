@@ -1,7 +1,7 @@
 use std::fmt::{self, Debug, Formatter};
 
 use super::{Content, Interruption, NodeId, Show, ShowNode, StyleChain, StyleEntry};
-use crate::diag::{At, TypResult};
+use crate::diag::TypResult;
 use crate::eval::{Args, Func, Regex, Value};
 use crate::library::structure::{EnumNode, ListNode};
 use crate::syntax::Span;
@@ -87,7 +87,7 @@ impl Recipe {
             Args::from_values(self.span, [arg()])
         };
 
-        self.func.call(ctx, args)?.cast().at(self.span)
+        Ok(self.func.call(ctx, args)?.display())
     }
 
     /// What kind of structure the property interrupts.

@@ -46,6 +46,11 @@
 )
 
 ---
+#set enum(label: n => n > 1)
+. A
+. B
+
+---
 // Lone dot is not a list.
 .
 
@@ -56,8 +61,3 @@
 ---
 // Error: 18-24 invalid pattern
 #set enum(label: "(())")
-
----
-// Error: 18-28 expected content, found boolean
-#set enum(label: n => false)
-. A

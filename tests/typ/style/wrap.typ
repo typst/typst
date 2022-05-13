@@ -25,8 +25,8 @@ A [_B #wrap c in [*#c*]; C_] D
 Forest
 
 ---
+// Ok, whatever.
 {
-  // Error: 3-24 expected remaining block to yield content, found integer
   wrap body in 2 * body
   2
 }
