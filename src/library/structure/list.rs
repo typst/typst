@@ -86,7 +86,7 @@ impl<const L: ListKind> Show for ListNode<L> {
         .pack()
     }
 
-    fn encode(&self) -> Dict {
+    fn encode(&self, _: StyleChain) -> Dict {
         dict! {
             "start" => Value::Int(self.start as i64),
             "tight" => Value::Bool(self.tight),

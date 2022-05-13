@@ -45,7 +45,7 @@ impl<const L: DecoLine> Show for DecoNode<L> {
         Self(self.0.unguard(sel)).pack()
     }
 
-    fn encode(&self) -> Dict {
+    fn encode(&self, _: StyleChain) -> Dict {
         dict! { "body" => Value::Content(self.0.clone()) }
     }
 

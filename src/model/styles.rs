@@ -306,7 +306,7 @@ impl<'a> StyleChain<'a> {
                     let sel = Selector::Nth(n);
                     if self.guarded(sel) {
                         guarded = true;
-                    } else if let Some(content) = recipe.apply(ctx, sel, target)? {
+                    } else if let Some(content) = recipe.apply(ctx, self, sel, target)? {
                         realized = Some(content);
                         break;
                     }

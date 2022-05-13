@@ -68,7 +68,7 @@ impl Show for HeadingNode {
         Self { body: self.body.unguard(sel), ..*self }.pack()
     }
 
-    fn encode(&self) -> Dict {
+    fn encode(&self, _: StyleChain) -> Dict {
         dict! {
             "level" => Value::Int(self.level.get() as i64),
             "body" => Value::Content(self.body.clone()),

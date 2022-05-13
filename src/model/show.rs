@@ -14,7 +14,7 @@ pub trait Show: 'static {
     fn unguard(&self, sel: Selector) -> ShowNode;
 
     /// Encode this node into a dictionary.
-    fn encode(&self) -> Dict;
+    fn encode(&self, styles: StyleChain) -> Dict;
 
     /// The base recipe for this node that is executed if there is no
     /// user-defined show rule.
@@ -70,8 +70,8 @@ impl Show for ShowNode {
         self.0.unguard(sel)
     }
 
-    fn encode(&self) -> Dict {
-        self.0.encode()
+    fn encode(&self, styles: StyleChain) -> Dict {
+        self.0.encode(styles)
     }
 
     fn realize(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content> {

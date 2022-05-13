@@ -60,7 +60,7 @@ impl Show for TableNode {
         .pack()
     }
 
-    fn encode(&self) -> Dict {
+    fn encode(&self, _: StyleChain) -> Dict {
         dict! {
             "cells" => Value::Array(
                 self.cells

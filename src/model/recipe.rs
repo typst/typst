@@ -1,6 +1,6 @@
 use std::fmt::{self, Debug, Formatter};
 
-use super::{Content, Interruption, NodeId, Show, ShowNode, StyleEntry};
+use super::{Content, Interruption, NodeId, Show, ShowNode, StyleChain, StyleEntry};
 use crate::diag::{At, TypResult};
 use crate::eval::{Args, Func, Regex, Value};
 use crate::library::structure::{EnumNode, ListNode};
@@ -32,6 +32,7 @@ impl Recipe {
     pub fn apply(
         &self,
         ctx: &mut Context,
+        styles: StyleChain,
         sel: Selector,
         target: Target,
     ) -> TypResult<Option<Content>> {
@@ -39,7 +40,7 @@ impl Recipe {
             (Target::Node(node), &Pattern::Node(id)) if node.id() == id => {
                 let node = node.unguard(sel);
                 self.call(ctx, || {
-                    let dict = node.encode();
+                    let dict = node.encode(styles);
                     Value::Content(Content::Show(node, Some(dict)))
                 })?
             }

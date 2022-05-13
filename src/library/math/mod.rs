@@ -40,7 +40,7 @@ impl Show for MathNode {
         Self { formula: self.formula.clone(), ..*self }.pack()
     }
 
-    fn encode(&self) -> Dict {
+    fn encode(&self, _: StyleChain) -> Dict {
         dict! {
             "formula" => Value::Str(self.formula.clone()),
             "display" => Value::Bool(self.display)

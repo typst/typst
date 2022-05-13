@@ -36,7 +36,7 @@ impl Show for LinkNode {
         .pack()
     }
 
-    fn encode(&self) -> Dict {
+    fn encode(&self, _: StyleChain) -> Dict {
         dict! {
             "url" => Value::Str(self.url.clone()),
             "body" => match &self.body {

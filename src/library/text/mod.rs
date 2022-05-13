@@ -524,7 +524,7 @@ impl Show for StrongNode {
         Self(self.0.unguard(sel)).pack()
     }
 
-    fn encode(&self) -> Dict {
+    fn encode(&self, _: StyleChain) -> Dict {
         dict! { "body" => Value::Content(self.0.clone()) }
     }
 
@@ -549,7 +549,7 @@ impl Show for EmphNode {
         Self(self.0.unguard(sel)).pack()
     }
 
-    fn encode(&self) -> Dict {
+    fn encode(&self, _: StyleChain) -> Dict {
         dict! { "body" => Value::Content(self.0.clone()) }
     }
 
