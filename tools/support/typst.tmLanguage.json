@@ -4,15 +4,20 @@
     { "include": "#markup" }
   ],
   "repository": {
-    "common": {
+    "blockcomment": {
       "patterns": [
         {
           "name": "comment.block.typst",
           "begin": "/\\*",
           "end": "\\*/",
           "captures": { "0": { "name": "punctuation.definition.comment.typst" } },
-          "patterns": [{ "include": "$self" }]
-        },
+          "patterns": [{ "include": "#blockcomment" }]
+        }
+      ]
+    },
+    "common": {
+      "patterns": [
+        { "include": "#blockcomment" },
         {
           "name": "meta.block.code.typst",
           "begin": "{",
