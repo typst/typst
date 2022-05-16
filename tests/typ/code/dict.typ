@@ -39,8 +39,8 @@
 // Missing lvalue is automatically none-initialized.
 {
   let dict = (:)
-  // Error: 3-17 cannot add none and integer
   dict("b") += 1
+  test(dict, (b: 1))
 }
 
 ---

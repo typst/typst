@@ -61,6 +61,9 @@ pub fn neg(value: Value) -> StrResult<Value> {
 /// Compute the sum of two values.
 pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
     Ok(match (lhs, rhs) {
+        (a, None) => a,
+        (None, b) => b,
+
         (Int(a), Int(b)) => Int(a + b),
         (Int(a), Float(b)) => Float(a as f64 + b),
         (Float(a), Int(b)) => Float(a + b as f64),
@@ -83,9 +86,6 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Fraction(a), Fraction(b)) => Fraction(a + b),
 
         (Str(a), Str(b)) => Str(a + b),
-
-        (Content(a), None) => Content(a),
-        (None, Content(b)) => Content(b),
         (Content(a), Content(b)) => Content(a + b),
         (Content(a), Str(b)) => Content(a + model::Content::Text(b)),
         (Str(a), Content(b)) => Content(model::Content::Text(a) + b),
