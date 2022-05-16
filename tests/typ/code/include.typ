@@ -6,7 +6,7 @@
 = Document
 
 // Include a file
-#include "importable/chap1.typ"
+#include "/typ/code/importable/chap1.typ"
 
 // Expression as a file name.
 #let chap2 = include "import" + "able/chap" + "2.typ"
@@ -16,7 +16,7 @@
 
 ---
 {
-  // Error: 19-41 file not found
+  // Error: 19-41 file not found (searched at typ/code/importable/chap3.typ)
   let x = include "importable/chap3.typ"
 }
 

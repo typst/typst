@@ -5,6 +5,7 @@ use std::sync::Arc;
 use super::{Args, Eval, Flow, Scope, Scopes, Value};
 use crate::diag::{StrResult, TypResult};
 use crate::model::{Content, NodeId, StyleMap};
+use crate::source::SourceId;
 use crate::syntax::ast::Expr;
 use crate::util::EcoString;
 use crate::Context;
@@ -174,6 +175,8 @@ pub trait Node: 'static {
 /// A user-defined closure.
 #[derive(Hash)]
 pub struct Closure {
+    /// The location where the closure was defined.
+    pub location: Option<SourceId>,
     /// The name of the closure.
     pub name: Option<EcoString>,
     /// Captured values from outer scopes.
@@ -212,18 +215,28 @@ impl Closure {
 
         // Backup the old control flow state.
         let prev_flow = ctx.flow.take();
+        let detached = ctx.route.is_empty();
+        if detached {
+            ctx.route = self.location.into_iter().collect();
+        }
 
         // Evaluate the body.
-        let mut value = self.body.eval(ctx, &mut scp)?;
+        let result = self.body.eval(ctx, &mut scp);
+
+        // Restore the old control flow state.
+        let flow = std::mem::replace(&mut ctx.flow, prev_flow);
+        if detached {
+            ctx.route.clear();
+        }
 
         // Handle control flow.
-        match std::mem::replace(&mut ctx.flow, prev_flow) {
-            Some(Flow::Return(_, Some(explicit))) => value = explicit,
+        match flow {
+            Some(Flow::Return(_, Some(explicit))) => return Ok(explicit),
             Some(Flow::Return(_, None)) => {}
             Some(flow) => return Err(flow.forbidden())?,
             None => {}
         }
 
-        Ok(value)
+        result
     }
 }

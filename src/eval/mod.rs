@@ -707,6 +707,7 @@ impl Eval for ClosureExpr {
 
         // Define the actual function.
         Ok(Value::Func(Func::from_closure(Closure {
+            location: ctx.route.last().copied(),
             name,
             captured,
             params,
@@ -765,6 +766,7 @@ impl Eval for ShowExpr {
         let body = self.body();
         let span = body.span();
         let func = Func::from_closure(Closure {
+            location: ctx.route.last().copied(),
             name: None,
             captured,
             params,
@@ -945,9 +947,11 @@ impl Eval for IncludeExpr {
 /// Process an import of a module relative to the current location.
 fn import(ctx: &mut Context, path: &str, span: Span) -> TypResult<Module> {
     // Load the source file.
-    let full = ctx.complete_path(path);
+    let full = ctx.locate(&path).at(span)?;
     let id = ctx.sources.load(&full).map_err(|err| match err.kind() {
-        std::io::ErrorKind::NotFound => error!(span, "file not found"),
+        std::io::ErrorKind::NotFound => {
+            error!(span, "file not found (searched at {})", full.display())
+        }
         _ => error!(span, "failed to load source file ({})", err),
     })?;
 

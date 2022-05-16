@@ -38,11 +38,11 @@
 #import a, c, from "target.typ"
 
 ---
-// Error: 19-21 file not found
+// Error: 19-21 file not found (searched at typ/code)
 #import name from ""
 
 ---
-// Error: 16-27 file not found
+// Error: 16-27 file not found (searched at typ/code/lib/0.2.1)
 #import * from "lib/0.2.1"
 
 ---

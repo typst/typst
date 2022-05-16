@@ -8,10 +8,10 @@ The first paragraph has no indent.
 
 But the second one does.
 
-#image("../../res/tiger.jpg", height: 6pt)
+#image("/res/tiger.jpg", height: 6pt)
 starts a paragraph without indent.
 
-#align(center, image("../../res/rhino.png", width: 1cm))
+#align(center, image("/res/rhino.png", width: 1cm))
 
 = Headings
 - And lists.

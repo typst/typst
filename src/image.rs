@@ -48,7 +48,8 @@ impl ImageStore {
         }
     }
 
-    /// Load and decode an image file from a path.
+    /// Load and decode an image file from a path relative to the compilation
+    /// environment's root.
     pub fn load(&mut self, path: &Path) -> io::Result<ImageId> {
         let hash = self.loader.resolve(path)?;
         Ok(*match self.files.entry(hash) {

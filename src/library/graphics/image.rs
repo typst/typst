@@ -12,11 +12,15 @@ impl ImageNode {
     pub const FIT: ImageFit = ImageFit::Cover;
 
     fn construct(ctx: &mut Context, args: &mut Args) -> TypResult<Content> {
-        let path = args.expect::<Spanned<EcoString>>("path to image file")?;
-        let full = ctx.complete_path(&path.v);
+        let Spanned { v: path, span } =
+            args.expect::<Spanned<EcoString>>("path to image file")?;
+
+        let full = ctx.locate(&path).at(span)?;
         let id = ctx.images.load(&full).map_err(|err| match err.kind() {
-            std::io::ErrorKind::NotFound => error!(path.span, "file not found"),
-            _ => error!(path.span, "failed to load image ({})", err),
+            std::io::ErrorKind::NotFound => {
+                error!(span, "file not found (searched at {})", full.display())
+            }
+            _ => error!(span, "failed to load image ({})", err),
         })?;
 
         let width = args.named("width")?;

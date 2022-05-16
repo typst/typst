@@ -56,3 +56,10 @@ Rust is memory-safe and blazingly fast. Let's rewrite everything in rust.
 
 World
 - World
+
+---
+// Test absolute path in layout phase.
+
+#show "GRAPH" as image("/res/graph.png")
+
+The GRAPH has nodes.

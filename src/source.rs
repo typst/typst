@@ -54,7 +54,8 @@ impl SourceStore {
         }
     }
 
-    /// Load a source file from a path using the `loader`.
+    /// Load a source file from a path relative to the compilation environment's
+    /// root.
     ///
     /// If there already exists a source file for this path, it is
     /// [replaced](SourceFile::replace).

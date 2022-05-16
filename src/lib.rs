@@ -57,7 +57,7 @@ use std::hash::Hash;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use crate::diag::TypResult;
+use crate::diag::{StrResult, TypResult};
 use crate::eval::{Eval, Flow, Module, Scope, Scopes};
 use crate::font::FontStore;
 use crate::frame::Frame;
@@ -65,6 +65,7 @@ use crate::image::ImageStore;
 use crate::loading::Loader;
 use crate::model::StyleMap;
 use crate::source::{SourceId, SourceStore};
+use crate::util::PathExt;
 
 /// The core context which holds the loader, configuration and cached artifacts.
 pub struct Context {
@@ -76,6 +77,8 @@ pub struct Context {
     pub fonts: FontStore,
     /// Stores decoded images.
     pub images: ImageStore,
+    /// The compilation root.
+    root: PathBuf,
     /// The standard library scope.
     std: Arc<Scope>,
     /// The default styles.
@@ -172,63 +175,70 @@ impl Context {
         self.evaluate(id)?.content.layout(self)
     }
 
-    /// Resolve a user-entered path (relative to the current evaluation
-    /// location) to be relative to the compilation environment's root.
-    pub fn complete_path(&self, path: &str) -> PathBuf {
+    /// Resolve a user-entered path to be relative to the compilation
+    /// environment's root.
+    pub fn locate(&self, path: &str) -> StrResult<PathBuf> {
         if let Some(&id) = self.route.last() {
+            if let Some(path) = path.strip_prefix('/') {
+                return Ok(self.root.join(path).normalize());
+            }
+
             if let Some(dir) = self.sources.get(id).path().parent() {
-                return dir.join(path);
+                return Ok(dir.join(path).normalize());
             }
         }
 
-        path.into()
+        return Err("cannot access file system from here".into());
     }
 }
 
 /// A builder for a [`Context`].
 ///
 /// This struct is created by [`Context::builder`].
+#[derive(Default)]
 pub struct ContextBuilder {
+    root: PathBuf,
     std: Option<Arc<Scope>>,
     styles: Option<Arc<StyleMap>>,
 }
 
 impl ContextBuilder {
+    /// The compilation root, relative to which absolute paths are.
+    pub fn root(&mut self, root: impl Into<PathBuf>) -> &mut Self {
+        self.root = root.into();
+        self
+    }
+
     /// The scope containing definitions that are available everywhere
     /// (the standard library).
-    pub fn std(mut self, std: impl Into<Arc<Scope>>) -> Self {
+    pub fn std(&mut self, std: impl Into<Arc<Scope>>) -> &mut Self {
         self.std = Some(std.into());
         self
     }
 
     /// The default properties for page size, font selection and so on.
-    pub fn styles(mut self, styles: impl Into<Arc<StyleMap>>) -> Self {
+    pub fn styles(&mut self, styles: impl Into<Arc<StyleMap>>) -> &mut Self {
         self.styles = Some(styles.into());
         self
     }
 
     /// Finish building the context by providing the `loader` used to load
     /// fonts, images, source files and other resources.
-    pub fn build(self, loader: Arc<dyn Loader>) -> Context {
+    pub fn build(&self, loader: Arc<dyn Loader>) -> Context {
         Context {
             sources: SourceStore::new(Arc::clone(&loader)),
             fonts: FontStore::new(Arc::clone(&loader)),
             images: ImageStore::new(Arc::clone(&loader)),
             loader,
-            std: self.std.unwrap_or_else(|| Arc::new(library::new())),
-            styles: self.styles.unwrap_or_default(),
+            root: self.root.clone(),
+            std: self.std.clone().unwrap_or_else(|| Arc::new(library::new())),
+            styles: self.styles.clone().unwrap_or_default(),
             modules: HashMap::new(),
             cache: HashMap::new(),
             route: vec![],
             deps: vec![],
             flow: None,
         }
-    }
-}
-
-impl Default for ContextBuilder {
-    fn default() -> Self {
-        Self { std: None, styles: None }
     }
 }
 

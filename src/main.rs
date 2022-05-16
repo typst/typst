@@ -22,9 +22,10 @@ USAGE:
 
 OPTIONS:
   -h, --help     Print this help
+  --root <dir>   Configure the root for absolute paths
 
 ARGS:
-  <input.typ>    Path input Typst file
+  <input.typ>    Path to input Typst file
   [output.pdf]   Path to output PDF
 ";
 
@@ -44,9 +45,17 @@ fn main() {
 fn try_main(args: Args) -> Result<(), String> {
     // Create a loader for fonts and files.
     let mut loader = FsLoader::new();
+    let mut builder = Context::builder();
+    if let Some(root) = &args.root {
+        builder.root(root);
+    }
 
     // Search for fonts in the project directory.
     if let Some(dir) = args.input.parent() {
+        if args.root.is_none() {
+            builder.root(dir);
+        }
+
         if dir.as_os_str().is_empty() {
             // Just a filename, so directory is current directory.
             loader.search_path(".");
@@ -60,7 +69,7 @@ fn try_main(args: Args) -> Result<(), String> {
 
     // Create the context which holds loaded source files, fonts, images and
     // cached artifacts.
-    let mut ctx = Context::new(loader.wrap());
+    let mut ctx = builder.build(loader.wrap());
 
     // Ensure that the source file is not overwritten.
     if is_same_file(&args.input, &args.output).unwrap_or(false) {
@@ -94,6 +103,7 @@ fn try_main(args: Args) -> Result<(), String> {
 struct Args {
     input: PathBuf,
     output: PathBuf,
+    root: Option<PathBuf>,
 }
 
 /// Parse command line arguments.
@@ -104,7 +114,8 @@ fn parse_args() -> Result<Args, String> {
         std::process::exit(0);
     }
 
-    let input = args.free_from_str::<PathBuf>().map_err(|_| "missing input file")?;
+    let root = args.opt_value_from_str("--root").map_err(|_| "malformed root")?;
+    let input: PathBuf = args.free_from_str().map_err(|_| "missing input file")?;
     let output = match args.opt_free_from_str().ok().flatten() {
         Some(output) => output,
         None => {
@@ -118,7 +129,7 @@ fn parse_args() -> Result<Args, String> {
         Err("too many arguments")?;
     }
 
-    Ok(Args { input, output })
+    Ok(Args { input, output, root })
 }
 
 /// Print an application-level error (independent from a source file).
