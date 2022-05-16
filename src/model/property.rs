@@ -131,13 +131,13 @@ impl Debug for KeyId {
 pub trait Key<'a>: Copy + 'static {
     /// The unfolded type which this property is stored as in a style map. For
     /// example, this is [`Toggle`](crate::geom::Length) for the
-    /// [`STRONG`](TextNode::STRONG) property.
+    /// [`STRONG`](crate::library::text::TextNode::STRONG) property.
     type Value: Debug + Clone + Hash + Sync + Send + 'static;
 
     /// The folded type of value that is returned when reading this property
     /// from a style chain. For example, this is [`bool`] for the
-    /// [`STRONG`](TextNode::STRONG) property. For non-copy, non-folding
-    /// properties this is a reference type.
+    /// [`STRONG`](crate::library::text::TextNode::STRONG) property. For
+    /// non-copy, non-folding properties this is a reference type.
     type Output;
 
     /// The name of the property, used for debug printing.
@@ -274,8 +274,8 @@ impl Fold for Sides<Option<Smart<Relative<RawLength>>>> {
 
 /// A scoped property barrier.
 ///
-/// Barriers interact with [scoped](StyleMap::scoped) styles: A scoped style
-/// can still be read through a single barrier (the one of the node it
+/// Barriers interact with [scoped](super::StyleMap::scoped) styles: A scoped
+/// style can still be read through a single barrier (the one of the node it
 /// _should_ apply to), but a second barrier will make it invisible.
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Barrier(NodeId);

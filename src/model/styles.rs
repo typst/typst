@@ -103,7 +103,8 @@ impl StyleMap {
 
     /// Mark all contained properties as _scoped_. This means that they only
     /// apply to the first descendant node (of their type) in the hierarchy and
-    /// not its children, too. This is used by [constructors](Node::construct).
+    /// not its children, too. This is used by
+    /// [constructors](crate::eval::Node::construct).
     pub fn scoped(mut self) -> Self {
         for entry in &mut self.0 {
             if let StyleEntry::Property(property) = entry {

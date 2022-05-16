@@ -12,7 +12,7 @@ use crate::diag::TypResult;
 use crate::loading::{FileHash, Loader};
 use crate::parse::{is_newline, parse, reparse};
 use crate::syntax::ast::Markup;
-use crate::syntax::{self, Category, GreenNode, RedNode};
+use crate::syntax::{self, Category, GreenNode, RedNode, Span};
 use crate::util::{PathExt, StrExt};
 
 #[cfg(feature = "codespan-reporting")]
@@ -23,6 +23,11 @@ use codespan_reporting::files::{self, Files};
 pub struct SourceId(u32);
 
 impl SourceId {
+    /// Create a new source id for a file that is not part of a store.
+    pub const fn detached() -> Self {
+        Self(u32::MAX)
+    }
+
     /// Create a source id from the raw underlying value.
     ///
     /// This should only be called with values returned by
@@ -165,7 +170,12 @@ impl SourceFile {
 
     /// Create a source file without a real id and path, usually for testing.
     pub fn detached(src: impl Into<String>) -> Self {
-        Self::new(SourceId(0), Path::new(""), src.into())
+        Self::new(SourceId::detached(), Path::new(""), src.into())
+    }
+
+    /// Set a synthetic span for all nodes in this file.
+    pub fn synthesize(&mut self, span: Span) {
+        Arc::make_mut(&mut self.root).synthesize(Arc::new(span));
     }
 
     /// The root node of the file's untyped green tree.

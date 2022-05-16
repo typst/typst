@@ -54,6 +54,7 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::fmt::{self, Display, Formatter};
 use std::hash::Hash;
+use std::mem;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -141,24 +142,25 @@ impl Context {
         let source = self.sources.get(id);
         let ast = source.ast()?;
 
-        let std = self.std.clone();
-        let mut scp = Scopes::new(Some(&std));
+        // Save the old context.
+        let prev_flow = self.flow.take();
+        let prev_deps = mem::replace(&mut self.deps, vec![(id, source.rev())]);
+        self.route.push(id);
 
         // Evaluate the module.
-        let prev = std::mem::replace(&mut self.deps, vec![(id, source.rev())]);
-        self.route.push(id);
-        let content = ast.eval(self, &mut scp);
+        let std = self.std.clone();
+        let mut scp = Scopes::new(Some(&std));
+        let result = ast.eval(self, &mut scp);
+
+        // Restore the old context and handle control flow.
         self.route.pop().unwrap();
-        let deps = std::mem::replace(&mut self.deps, prev);
-        let flow = self.flow.take();
-
-        // Assemble the module.
-        let module = Module { scope: scp.top, content: content?, deps };
-
-        // Handle unhandled flow.
-        if let Some(flow) = flow {
+        let deps = mem::replace(&mut self.deps, prev_deps);
+        if let Some(flow) = mem::replace(&mut self.flow, prev_flow) {
             return Err(flow.forbidden());
         }
+
+        // Assemble the module.
+        let module = Module { scope: scp.top, content: result?, deps };
 
         // Save the evaluated module.
         self.modules.insert(id, module.clone());

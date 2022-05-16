@@ -81,6 +81,14 @@ impl Green {
             Self::Token(data) => data.kind = kind,
         }
     }
+
+    /// Set a synthetic span for the node and all its children.
+    pub fn synthesize(&mut self, span: Arc<Span>) {
+        match self {
+            Green::Node(n) => Arc::make_mut(n).synthesize(span),
+            Green::Token(t) => t.synthesize(span),
+        }
+    }
 }
 
 impl Default for Green {
@@ -151,6 +159,14 @@ impl GreenNode {
         self.data().len()
     }
 
+    /// Set a synthetic span for the node and all its children.
+    pub fn synthesize(&mut self, span: Arc<Span>) {
+        self.data.synthesize(span.clone());
+        for child in &mut self.children {
+            child.synthesize(span.clone());
+        }
+    }
+
     /// The node's children, mutably.
     pub(crate) fn children_mut(&mut self) -> &mut [Green] {
         &mut self.children
@@ -214,12 +230,14 @@ pub struct GreenData {
     kind: NodeKind,
     /// The byte length of the node in the source.
     len: usize,
+    /// A synthetic span for the node, usually this is `None`.
+    span: Option<Arc<Span>>,
 }
 
 impl GreenData {
     /// Create new node metadata.
     pub fn new(kind: NodeKind, len: usize) -> Self {
-        Self { len, kind }
+        Self { len, kind, span: None }
     }
 
     /// The type of the node.
@@ -230,6 +248,11 @@ impl GreenData {
     /// The length of the node.
     pub fn len(&self) -> usize {
         self.len
+    }
+
+    /// Set a synthetic span for the node.
+    pub fn synthesize(&mut self, span: Arc<Span>) {
+        self.span = Some(span)
     }
 }
 
@@ -268,6 +291,11 @@ impl RedNode {
             offset: self.offset,
             green: &self.green,
         }
+    }
+
+    /// The node's metadata.
+    pub fn data(&self) -> &GreenData {
+        self.as_ref().data()
     }
 
     /// The type of the node.
@@ -340,6 +368,11 @@ impl<'a> RedRef<'a> {
         }
     }
 
+    /// The node's metadata.
+    pub fn data(self) -> &'a GreenData {
+        self.green.data()
+    }
+
     /// The type of the node.
     pub fn kind(self) -> &'a NodeKind {
         self.green.kind()
@@ -352,7 +385,10 @@ impl<'a> RedRef<'a> {
 
     /// The span of the node.
     pub fn span(self) -> Span {
-        Span::new(self.id, self.offset, self.offset + self.green.len())
+        match self.data().span.as_deref() {
+            Some(&span) => span,
+            None => Span::new(self.id, self.offset, self.offset + self.len()),
+        }
     }
 
     /// Whether the node is a leaf node.
@@ -368,11 +404,14 @@ impl<'a> RedRef<'a> {
 
         match self.kind() {
             NodeKind::Error(pos, msg) => {
-                let span = match pos {
-                    ErrorPos::Start => self.span().at_start(),
-                    ErrorPos::Full => self.span(),
-                    ErrorPos::End => self.span().at_end(),
-                };
+                let mut span = self.span();
+                if self.data().span.is_none() {
+                    span = match pos {
+                        ErrorPos::Start => span.at_start(),
+                        ErrorPos::Full => span,
+                        ErrorPos::End => span.at_end(),
+                    };
+                }
 
                 vec![Error::new(span, msg.to_string())]
             }

@@ -73,6 +73,7 @@ pub fn new() -> Scope {
     // Utility.
     std.def_fn("type", utility::type_);
     std.def_fn("assert", utility::assert);
+    std.def_fn("eval", utility::eval);
     std.def_fn("int", utility::int);
     std.def_fn("float", utility::float);
     std.def_fn("abs", utility::abs);
