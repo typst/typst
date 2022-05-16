@@ -2,7 +2,7 @@
 
 ---
 #set page(height: 70pt)
-#set table(primary: rgb("aaa"), secondary: none)
+#set table(fill: (x, y) => if even(x + y) { rgb("aaa") })
 
 #table(
   columns: (1fr,) * 3,
@@ -16,3 +16,7 @@
 ---
 // Ref: false
 #table()
+
+---
+// Error: 14-19 expected color or none or function, found string
+#table(fill: "hey")

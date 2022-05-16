@@ -14,12 +14,9 @@ pub struct TableNode {
 
 #[node(showable)]
 impl TableNode {
-    /// The primary cell fill color.
-    #[property(shorthand(fill))]
-    pub const PRIMARY: Option<Paint> = None;
-    /// The secondary cell fill color.
-    #[property(shorthand(fill))]
-    pub const SECONDARY: Option<Paint> = None;
+    /// How to fill the cells.
+    #[property(referenced)]
+    pub const FILL: Celled<Option<Paint>> = Celled::Value(None);
     /// How to stroke the cells.
     #[property(resolve, fold)]
     pub const STROKE: Option<RawStroke> = Some(RawStroke::default());
@@ -71,9 +68,8 @@ impl Show for TableNode {
         }
     }
 
-    fn realize(&self, _: &mut Context, styles: StyleChain) -> TypResult<Content> {
-        let primary = styles.get(Self::PRIMARY);
-        let secondary = styles.get(Self::SECONDARY);
+    fn realize(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content> {
+        let fill = styles.get(Self::FILL);
         let stroke = styles.get(Self::STROKE).map(RawStroke::unwrap_or_default);
         let padding = styles.get(Self::PADDING);
 
@@ -92,13 +88,13 @@ impl Show for TableNode {
 
                 let x = i % cols;
                 let y = i / cols;
-                if let Some(fill) = [primary, secondary][(x + y) % 2] {
+                if let Some(fill) = fill.resolve(ctx, x, y)? {
                     child = child.filled(fill);
                 }
 
-                child
+                Ok(child)
             })
-            .collect();
+            .collect::<TypResult<_>>()?;
 
         Ok(Content::block(GridNode {
             tracks: self.tracks.clone(),
@@ -114,5 +110,45 @@ impl Show for TableNode {
         realized: Content,
     ) -> TypResult<Content> {
         Ok(realized.spaced(styles.get(Self::ABOVE), styles.get(Self::BELOW)))
+    }
+}
+
+/// A value that can be configured per cell.
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub enum Celled<T> {
+    /// A bare value, the same for all cells.
+    Value(T),
+    /// A closure mapping from cell coordinates to a value.
+    Func(Func, Span),
+}
+
+impl<T: Cast + Clone> Celled<T> {
+    /// Resolve the value based on the cell position.
+    pub fn resolve(&self, ctx: &mut Context, x: usize, y: usize) -> TypResult<T> {
+        Ok(match self {
+            Self::Value(value) => value.clone(),
+            Self::Func(func, span) => {
+                let args = Args::from_values(*span, [
+                    Value::Int(x as i64),
+                    Value::Int(y as i64),
+                ]);
+                func.call(ctx, args)?.cast().at(*span)?
+            }
+        })
+    }
+}
+
+impl<T: Cast> Cast<Spanned<Value>> for Celled<T> {
+    fn is(value: &Spanned<Value>) -> bool {
+        matches!(&value.v, Value::Func(_)) || T::is(&value.v)
+    }
+
+    fn cast(value: Spanned<Value>) -> StrResult<Self> {
+        match value.v {
+            Value::Func(v) => Ok(Self::Func(v, value.span)),
+            v => T::cast(v)
+                .map(Self::Value)
+                .map_err(|msg| with_alternative(msg, "function")),
+        }
     }
 }

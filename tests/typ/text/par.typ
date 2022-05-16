@@ -26,7 +26,7 @@ Fourth
 #set par(spacing: 100pt)
 #set table(around: 5pt)
 Hello
-#table(columns: 4, secondary: silver)[A][B][C][D]
+#table(columns: 4, fill: (x, y) => if odd(x + y) { silver })[A][B][C][D]
 
 ---
 // While we're at it, test the larger block spacing wins.
