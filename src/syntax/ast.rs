@@ -5,7 +5,7 @@
 use std::num::NonZeroUsize;
 use std::ops::Deref;
 
-use super::{Green, GreenData, NodeKind, RedNode, RedRef, Span};
+use super::{Green, GreenData, NodeKind, RedNode, RedRef, Span, Spanned};
 use crate::geom::{AngleUnit, LengthUnit};
 use crate::util::EcoString;
 
@@ -77,7 +77,7 @@ impl Markup {
             NodeKind::Strong => node.cast().map(MarkupNode::Strong),
             NodeKind::Emph => node.cast().map(MarkupNode::Emph),
             NodeKind::Raw(raw) => Some(MarkupNode::Raw(raw.as_ref().clone())),
-            NodeKind::Math(math) => Some(MarkupNode::Math(math.as_ref().clone())),
+            NodeKind::Math(math) => Some(MarkupNode::Math(Spanned::new(math.as_ref().clone(), node.span()))),
             NodeKind::Heading => node.cast().map(MarkupNode::Heading),
             NodeKind::List => node.cast().map(MarkupNode::List),
             NodeKind::Enum => node.cast().map(MarkupNode::Enum),
@@ -106,7 +106,7 @@ pub enum MarkupNode {
     /// A raw block with optional syntax highlighting: `` `...` ``.
     Raw(RawNode),
     /// A math formula: `$a^2 = b^2 + c^2$`.
-    Math(MathNode),
+    Math(Spanned<MathNode>),
     /// A section heading: `= Introduction`.
     Heading(HeadingNode),
     /// An item in an unordered list: `- ...`.

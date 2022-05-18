@@ -1,14 +1,17 @@
 //! Mathematical formulas.
 
+mod rex;
+
 use crate::library::layout::BlockSpacing;
 use crate::library::prelude::*;
 use crate::library::text::FontFamily;
+use crate::syntax::Spanned;
 
 /// A mathematical formula.
 #[derive(Debug, Hash)]
 pub struct MathNode {
     /// The formula.
-    pub formula: EcoString,
+    pub formula: Spanned<EcoString>,
     /// Whether the formula is display-level.
     pub display: bool,
 }
@@ -40,17 +43,23 @@ impl Show for MathNode {
 
     fn encode(&self, _: StyleChain) -> Dict {
         dict! {
-            "formula" => Value::Str(self.formula.clone()),
+            "formula" => Value::Str(self.formula.v.clone()),
             "display" => Value::Bool(self.display)
         }
     }
 
-    fn realize(&self, _: &mut Context, _: StyleChain) -> TypResult<Content> {
-        let mut realized = Content::Text(self.formula.trim().into());
-        if self.display {
-            realized = Content::block(realized);
-        }
-        Ok(realized)
+    fn realize(&self, _: &mut Context, styles: StyleChain) -> TypResult<Content> {
+        let node = self::rex::RexNode {
+            tex: self.formula.clone(),
+            display: self.display,
+            family: styles.get(Self::FAMILY).clone(),
+        };
+
+        Ok(if self.display {
+            Content::block(node)
+        } else {
+            Content::inline(node)
+        })
     }
 
     fn finalize(

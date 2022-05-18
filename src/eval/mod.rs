@@ -211,13 +211,13 @@ impl Eval for RawNode {
     }
 }
 
-impl Eval for MathNode {
+impl Eval for Spanned<MathNode> {
     type Output = Content;
 
     fn eval(&self, _: &mut Context, _: &mut Scopes) -> TypResult<Self::Output> {
         Ok(Content::show(library::math::MathNode {
-            formula: self.formula.clone(),
-            display: self.display,
+            formula: self.clone().map(|math| math.formula),
+            display: self.v.display,
         }))
     }
 }

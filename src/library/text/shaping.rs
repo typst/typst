@@ -510,7 +510,7 @@ fn track_and_space(ctx: &mut ShapingContext) {
 }
 
 /// Resolve the font variant with `STRONG` and `EMPH` factored in.
-fn variant(styles: StyleChain) -> FontVariant {
+pub fn variant(styles: StyleChain) -> FontVariant {
     let mut variant = FontVariant::new(
         styles.get(TextNode::STYLE),
         styles.get(TextNode::WEIGHT),
