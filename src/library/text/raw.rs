@@ -27,11 +27,9 @@ impl RawNode {
     /// The language to syntax-highlight in.
     #[property(referenced)]
     pub const LANG: Option<EcoString> = None;
-
-    /// The raw text's font family. Just the normal text family if `none`.
+    /// The raw text's font family.
     #[property(referenced)]
-    pub const FAMILY: Smart<FontFamily> = Smart::Custom(FontFamily::new("IBM Plex Mono"));
-
+    pub const FAMILY: FontFamily = FontFamily::new("IBM Plex Mono");
     /// The spacing above block-level raw.
     #[property(resolve, shorthand(around))]
     pub const ABOVE: Option<BlockSpacing> = Some(Ratio::one().into());
@@ -124,13 +122,10 @@ impl Show for RawNode {
         mut realized: Content,
     ) -> TypResult<Content> {
         let mut map = StyleMap::new();
+        map.set_family(styles.get(Self::FAMILY).clone(), styles);
         map.set(TextNode::OVERHANG, false);
         map.set(TextNode::HYPHENATE, Smart::Custom(Hyphenate(false)));
         map.set(TextNode::SMART_QUOTES, false);
-
-        if let Smart::Custom(family) = styles.get(Self::FAMILY) {
-            map.set_family(family.clone(), styles);
-        }
 
         if self.block {
             realized = realized.spaced(styles.get(Self::ABOVE), styles.get(Self::BELOW));

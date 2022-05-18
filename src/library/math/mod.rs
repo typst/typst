@@ -15,11 +15,9 @@ pub struct MathNode {
 
 #[node(showable)]
 impl MathNode {
-    /// The raw text's font family. Just the normal text family if `auto`.
+    /// The math font family.
     #[property(referenced)]
-    pub const FAMILY: Smart<FontFamily> =
-        Smart::Custom(FontFamily::new("Latin Modern Math"));
-
+    pub const FAMILY: FontFamily = FontFamily::new("Latin Modern Math");
     /// The spacing above display math.
     #[property(resolve, shorthand(around))]
     pub const ABOVE: Option<BlockSpacing> = Some(Ratio::one().into());
@@ -62,9 +60,7 @@ impl Show for MathNode {
         mut realized: Content,
     ) -> TypResult<Content> {
         let mut map = StyleMap::new();
-        if let Smart::Custom(family) = styles.get(Self::FAMILY) {
-            map.set_family(family.clone(), styles);
-        }
+        map.set_family(styles.get(Self::FAMILY).clone(), styles);
 
         if self.display {
             realized = realized.spaced(styles.get(Self::ABOVE), styles.get(Self::BELOW));
