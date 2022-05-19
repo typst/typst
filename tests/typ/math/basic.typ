@@ -12,6 +12,10 @@ Prove by induction:
 $[ \sum_{k=0}^n k = \frac{n(n+1)}{2} ]$
 
 ---
+// Test that blackboard style looks nice.
+$[ f: \mathbb{N} \rightarrow \mathbb{R} ]$
+
+---
 // Error: 1-10 expected '}' found EOF
 $\sqrt{x$
 

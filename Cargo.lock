@@ -862,7 +862,7 @@ dependencies = [
 [[package]]
 name = "rex"
 version = "0.1.2"
-source = "git+https://github.com/laurmaedje/ReX#b44e59bfa68cc4b0288bd2be80e093ed3b279af5"
+source = "git+https://github.com/laurmaedje/ReX#7362b0cbb229211d6206198d80382a9b23eda993"
 dependencies = [
  "font",
  "unicode-math",

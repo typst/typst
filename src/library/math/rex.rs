@@ -1,8 +1,8 @@
+use rex::error::{Error, LayoutError};
 use rex::font::{FontContext, MathFont};
 use rex::layout::{LayoutSettings, Style};
 use rex::parser::color::RGBA;
 use rex::render::{Backend, Cursor, Renderer};
-use rex::error::{Error, LayoutError};
 
 use crate::font::FaceId;
 use crate::library::prelude::*;
@@ -27,30 +27,33 @@ impl Layout for RexNode {
         styles: StyleChain,
     ) -> TypResult<Vec<Arc<Frame>>> {
         // Load the font.
-        let face_id = match ctx.fonts.select(self.family.as_str(), variant(styles)) {
-            Some(id) => id,
-            None => return Ok(vec![]),
-        };
+        let span = self.tex.span;
+        let face_id = ctx
+            .fonts
+            .select(self.family.as_str(), variant(styles))
+            .ok_or("failed to find math font")
+            .at(span)?;
 
         // Prepare the font.
         let data = ctx.fonts.get(face_id).buffer();
-        let font = match MathFont::parse(data) {
-            Ok(font) => font,
-            Err(_) => return Ok(vec![]),
-        };
+        let font = MathFont::parse(data)
+            .map_err(|_| "failed to parse math font")
+            .at(span)?;
+
+        let ctx = FontContext::new(&font).ok_or("failed to parse math font").at(span)?;
 
         // Layout the formula.
-        let ctx = FontContext::new(&font);
         let em = styles.get(TextNode::SIZE);
         let style = if self.display { Style::Display } else { Style::Text };
         let settings = LayoutSettings::new(&ctx, em.to_pt(), style);
         let renderer = Renderer::new();
-        let layout = renderer.layout(&self.tex.v, settings)
+        let layout = renderer
+            .layout(&self.tex.v, settings)
             .map_err(|err| match err {
                 Error::Parse(err) => err.to_string(),
                 Error::Layout(LayoutError::Font(err)) => err.to_string(),
             })
-            .at(self.tex.span)?;
+            .at(span)?;
 
         // Determine the metrics.
         let (x0, y0, x1, y1) = renderer.size(&layout);

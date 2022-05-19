@@ -460,6 +460,8 @@ The GUST Font License Version 1.0 applies to:
 * Latin Modern fonts in fonts/LatinModern*.otf
   (http://www.gust.org.pl/projects/e-foundry/lm-math)
 
+* NewComputerModern fonts in fonts/NewCM*.otf
+
 % This is version 1.0, dated 22 June 2009, of the GUST Font License.
 % (GUST is the Polish TeX Users Group, http://www.gust.org.pl)
 %

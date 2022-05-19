@@ -24,9 +24,6 @@
 // Emoji.
 Emoji: 🐪, 🌋, 🏞
 
-// Math.
-#text("Latin Modern Math")[∫ 𝛼 + 3𝛽 d𝑡]
-
 // Colors.
 [
   #set text(fill: eastern)
@@ -34,7 +31,7 @@ Emoji: 🐪, 🌋, 🏞
 ]
 
 // Disable font fallback beyond the user-specified list.
-// Without disabling, Latin Modern Math would come to the rescue.
+// Without disabling, NewComputerModernMath would come to the rescue.
 #set text("PT Sans", "Twitter Color Emoji", fallback: false)
 2π = 𝛼 + 𝛽. ✅
 

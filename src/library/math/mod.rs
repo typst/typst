@@ -20,7 +20,7 @@ pub struct MathNode {
 impl MathNode {
     /// The math font family.
     #[property(referenced)]
-    pub const FAMILY: FontFamily = FontFamily::new("Latin Modern Math");
+    pub const FAMILY: FontFamily = FontFamily::new("NewComputerModernMath");
     /// The spacing above display math.
     #[property(resolve, shorthand(around))]
     pub const ABOVE: Option<BlockSpacing> = Some(Ratio::one().into());
