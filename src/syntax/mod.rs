@@ -14,7 +14,6 @@ pub use span::*;
 
 use self::ast::{MathNode, RawNode, TypedNode, Unit};
 use crate::diag::Error;
-use crate::parse::TokenMode;
 use crate::source::SourceId;
 use crate::util::EcoString;
 
@@ -809,47 +808,28 @@ impl NodeKind {
         }
     }
 
-    /// Which mode this node can appear in, in both if `None`.
-    pub fn only_in_mode(&self) -> Option<TokenMode> {
-        match self {
-            Self::Markup(_)
-            | Self::Linebreak { .. }
-            | Self::Text(_)
-            | Self::NonBreakingSpace
-            | Self::EnDash
-            | Self::EmDash
-            | Self::Ellipsis
-            | Self::Quote { .. }
-            | Self::Escape(_)
-            | Self::Strong
-            | Self::Emph
-            | Self::Heading
-            | Self::Enum
-            | Self::EnumNumbering(_)
-            | Self::List
-            | Self::Raw(_)
-            | Self::Math(_) => Some(TokenMode::Markup),
-            Self::ContentBlock
-            | Self::Space(_)
-            | Self::Ident(_)
-            | Self::CodeBlock
-            | Self::LetExpr
-            | Self::SetExpr
-            | Self::ShowExpr
-            | Self::WrapExpr
-            | Self::IfExpr
-            | Self::WhileExpr
-            | Self::ForExpr
-            | Self::ImportExpr
-            | Self::FuncCall
-            | Self::IncludeExpr
-            | Self::LineComment
-            | Self::BlockComment
-            | Self::Error(_, _)
-            | Self::Minus
-            | Self::Eq => None,
-            _ => Some(TokenMode::Code),
-        }
+    /// Whether this is a node that only appears in markup.
+    pub fn only_in_markup(&self) -> bool {
+        matches!(
+            self,
+            Self::Text(_)
+                | Self::Linebreak { .. }
+                | Self::NonBreakingSpace
+                | Self::Shy
+                | Self::EnDash
+                | Self::EmDash
+                | Self::Ellipsis
+                | Self::Quote { .. }
+                | Self::Escape(_)
+                | Self::Strong
+                | Self::Emph
+                | Self::Raw(_)
+                | Self::Math(_)
+                | Self::Heading
+                | Self::List
+                | Self::Enum
+                | Self::EnumNumbering(_)
+        )
     }
 
     /// A human-readable name for the kind.

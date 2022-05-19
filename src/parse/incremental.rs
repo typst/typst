@@ -4,8 +4,7 @@ use std::sync::Arc;
 use crate::syntax::{Green, GreenNode, NodeKind};
 
 use super::{
-    is_newline, parse, reparse_code_block, reparse_content_block,
-    reparse_markup_elements, TokenMode,
+    is_newline, parse, reparse_code_block, reparse_content_block, reparse_markup_elements,
 };
 
 /// Refresh the given green node with as little parsing as possible.
@@ -49,7 +48,7 @@ impl Reparser<'_> {
         mut offset: usize,
         outermost: bool,
     ) -> Option<Range<usize>> {
-        let child_mode = green.kind().only_in_mode().unwrap_or(TokenMode::Code);
+        let is_markup = matches!(green.kind(), NodeKind::Markup(_));
         let original_count = green.children().len();
         let original_offset = offset;
 
@@ -75,9 +74,7 @@ impl Reparser<'_> {
                     {
                         // In Markup mode, we want to consider a non-whitespace
                         // neighbor if the edit is on the node boundary.
-                        search = if child_span.end == self.replaced.end
-                            && child_mode == TokenMode::Markup
-                        {
+                        search = if is_markup && child_span.end == self.replaced.end {
                             SearchState::RequireNonTrivia(pos)
                         } else {
                             SearchState::Contained(pos)
@@ -180,7 +177,7 @@ impl Reparser<'_> {
 
             if start.offset == self.replaced.start
                 || ahead_kind.only_at_start()
-                || ahead_kind.only_in_mode() != Some(TokenMode::Markup)
+                || !ahead_kind.only_in_markup()
             {
                 start = ahead;
                 at_start = ahead_at_start;
