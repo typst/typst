@@ -7,7 +7,7 @@ use syntect::highlighting::{
 };
 use syntect::parsing::SyntaxSet;
 
-use super::{FontFamily, Hyphenate, TextNode, Toggle};
+use super::{FontFamily, Hyphenate, TextNode};
 use crate::library::layout::BlockSpacing;
 use crate::library::prelude::*;
 use crate::source::SourceId;
@@ -137,27 +137,26 @@ impl Show for RawNode {
 
 /// Style a piece of text with a syntect style.
 fn styled(piece: &str, foreground: Paint, style: Style) -> Content {
-    let mut styles = StyleMap::new();
     let mut body = Content::Text(piece.into());
 
     let paint = style.foreground.into();
     if paint != foreground {
-        styles.set(TextNode::FILL, paint);
+        body = body.styled(TextNode::FILL, paint);
     }
 
     if style.font_style.contains(FontStyle::BOLD) {
-        styles.set(TextNode::STRONG, Toggle);
+        body = body.strong();
     }
 
     if style.font_style.contains(FontStyle::ITALIC) {
-        styles.set(TextNode::EMPH, Toggle);
+        body = body.emph();
     }
 
     if style.font_style.contains(FontStyle::UNDERLINE) {
         body = body.underlined();
     }
 
-    body.styled_with_map(styles)
+    body
 }
 
 /// The lazily-loaded syntect syntax definitions.

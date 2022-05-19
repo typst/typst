@@ -110,10 +110,10 @@ impl TextNode {
 
     /// Whether the font weight should be increased by 300.
     #[property(skip, fold)]
-    pub const STRONG: Toggle = false;
+    pub const BOLD: Toggle = false;
     /// Whether the the font style should be inverted.
     #[property(skip, fold)]
-    pub const EMPH: Toggle = false;
+    pub const ITALIC: Toggle = false;
     /// A case transformation that should be applied to the text.
     #[property(skip)]
     pub const CASE: Option<Case> = None;
@@ -508,7 +508,7 @@ impl Fold for Decoration {
     }
 }
 
-/// Strong text, rendered in boldface.
+/// Strong text, rendered in boldface by default.
 #[derive(Debug, Hash)]
 pub struct StrongNode(pub Content);
 
@@ -529,11 +529,11 @@ impl Show for StrongNode {
     }
 
     fn realize(&self, _: &mut Context, _: StyleChain) -> TypResult<Content> {
-        Ok(self.0.clone().styled(TextNode::STRONG, Toggle))
+        Ok(self.0.clone().styled(TextNode::BOLD, Toggle))
     }
 }
 
-/// Emphasized text, rendered with an italic face.
+/// Emphasized text, rendered with an italic face by default.
 #[derive(Debug, Hash)]
 pub struct EmphNode(pub Content);
 
@@ -554,6 +554,6 @@ impl Show for EmphNode {
     }
 
     fn realize(&self, _: &mut Context, _: StyleChain) -> TypResult<Content> {
-        Ok(self.0.clone().styled(TextNode::EMPH, Toggle))
+        Ok(self.0.clone().styled(TextNode::ITALIC, Toggle))
     }
 }

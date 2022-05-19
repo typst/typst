@@ -517,11 +517,11 @@ pub fn variant(styles: StyleChain) -> FontVariant {
         styles.get(TextNode::STRETCH),
     );
 
-    if styles.get(TextNode::STRONG) {
+    if styles.get(TextNode::BOLD) {
         variant.weight = variant.weight.thicken(300);
     }
 
-    if styles.get(TextNode::EMPH) {
+    if styles.get(TextNode::ITALIC) {
         variant.style = match variant.style {
             FontStyle::Normal => FontStyle::Italic,
             FontStyle::Italic => FontStyle::Normal,

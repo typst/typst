@@ -14,7 +14,9 @@ use crate::diag::StrResult;
 use crate::library::layout::{FlowChild, FlowNode, PageNode, PlaceNode, Spacing};
 use crate::library::prelude::*;
 use crate::library::structure::{DocNode, ListItem, ListNode, ORDERED, UNORDERED};
-use crate::library::text::{DecoNode, ParChild, ParNode, UNDERLINE};
+use crate::library::text::{
+    DecoNode, EmphNode, ParChild, ParNode, StrongNode, UNDERLINE,
+};
 use crate::util::EcoString;
 
 /// Composable representation of styled content.
@@ -162,6 +164,16 @@ impl Content {
     /// Reenable the show rule identified by the selector.
     pub fn unguard(&self, sel: Selector) -> Self {
         self.clone().styled_with_entry(StyleEntry::Unguard(sel))
+    }
+
+    /// Make this content strong.
+    pub fn strong(self) -> Self {
+        Self::show(StrongNode(self))
+    }
+
+    /// Make this content emphasized.
+    pub fn emph(self) -> Self {
+        Self::show(EmphNode(self))
     }
 
     /// Underline this content.

@@ -1,6 +1,6 @@
 use crate::library::layout::BlockSpacing;
 use crate::library::prelude::*;
-use crate::library::text::{FontFamily, TextNode, TextSize, Toggle};
+use crate::library::text::{FontFamily, TextNode, TextSize};
 
 /// A section heading.
 #[derive(Debug, Hash)]
@@ -103,11 +103,11 @@ impl Show for HeadingNode {
         }
 
         if resolve!(Self::STRONG) {
-            map.set(TextNode::STRONG, Toggle);
+            realized = realized.strong();
         }
 
         if resolve!(Self::EMPH) {
-            map.set(TextNode::EMPH, Toggle);
+            realized = realized.emph();
         }
 
         if resolve!(Self::UNDERLINE) {

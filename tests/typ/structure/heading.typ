@@ -46,6 +46,8 @@ multiline.
 = Heading
 
 #set heading(family: "Roboto", fill: eastern)
+#show it: heading as it.body
+#show it: strong as it.body + [!]
 
 ===== Heading 🌍
 #heading(level: 5)[Heading]
