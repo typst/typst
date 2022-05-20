@@ -6,6 +6,7 @@ use unscanny::Scanner;
 use typst::loading::MemLoader;
 use typst::parse::{parse, TokenMode, Tokens};
 use typst::source::SourceId;
+use typst::syntax::highlight_node;
 use typst::Context;
 
 const SRC: &str = include_str!("bench.typ");
@@ -70,7 +71,13 @@ fn bench_edit(iai: &mut Iai) {
 fn bench_highlight(iai: &mut Iai) {
     let (ctx, id) = context();
     let source = ctx.sources.get(id);
-    iai.run(|| source.highlight(0 .. source.len_bytes(), |_, _| {}));
+    iai.run(|| {
+        highlight_node(
+            source.red().as_ref(),
+            0 .. source.len_bytes(),
+            &mut |_, _| {},
+        )
+    });
 }
 
 fn bench_eval(iai: &mut Iai) {

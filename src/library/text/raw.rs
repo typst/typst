@@ -1,17 +1,15 @@
-use std::sync::Arc;
-
 use once_cell::sync::Lazy;
 use syntect::easy::HighlightLines;
 use syntect::highlighting::{
-    Color, FontStyle, Highlighter, Style, StyleModifier, Theme, ThemeItem, ThemeSettings,
+    Color, FontStyle, Style, StyleModifier, Theme, ThemeItem, ThemeSettings,
 };
 use syntect::parsing::SyntaxSet;
 
 use super::{FontFamily, Hyphenate, TextNode};
 use crate::library::layout::BlockSpacing;
 use crate::library::prelude::*;
-use crate::source::SourceId;
-use crate::syntax::{self, GreenNode, NodeKind, RedNode};
+use crate::parse::TokenMode;
+use crate::syntax;
 
 /// Monospaced text with optional syntax highlighting.
 #[derive(Debug, Hash)]
@@ -71,20 +69,14 @@ impl Show for RawNode {
             .into();
 
         let mut realized = if matches!(lang.as_deref(), Some("typ" | "typst" | "typc")) {
-            let root = match lang.as_deref() {
-                Some("typc") => {
-                    let children = crate::parse::parse_code(&self.text);
-                    Arc::new(GreenNode::with_children(NodeKind::CodeBlock, children))
-                }
-                _ => crate::parse::parse(&self.text),
+            let mode = match lang.as_deref() {
+                Some("typc") => TokenMode::Code,
+                _ => TokenMode::Markup,
             };
 
-            let red = RedNode::from_root(root, SourceId::from_raw(0));
-            let highlighter = Highlighter::new(&THEME);
-
             let mut seq = vec![];
-            syntax::highlight_syntect(red.as_ref(), &highlighter, &mut |range, style| {
-                seq.push(styled(&self.text[range], foreground, style));
+            syntax::highlight_themed(&self.text, mode, &THEME, &mut |piece, style| {
+                seq.push(styled(piece, foreground, style));
             });
 
             Content::sequence(seq)
@@ -159,12 +151,12 @@ fn styled(piece: &str, foreground: Paint, style: Style) -> Content {
     body
 }
 
-/// The lazily-loaded syntect syntax definitions.
+/// The syntect syntax definitions.
 static SYNTAXES: Lazy<SyntaxSet> = Lazy::new(|| SyntaxSet::load_defaults_newlines());
 
-/// The lazily-loaded theme used for syntax highlighting.
+/// The default theme used for syntax highlighting.
 #[rustfmt::skip]
-static THEME: Lazy<Theme> = Lazy::new(|| Theme {
+pub static THEME: Lazy<Theme> = Lazy::new(|| Theme {
     name: Some("Typst Light".into()),
     author: Some("The Typst Project Developers".into()),
     settings: ThemeSettings::default(),

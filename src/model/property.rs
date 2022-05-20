@@ -131,13 +131,13 @@ impl Debug for KeyId {
 pub trait Key<'a>: Copy + 'static {
     /// The unfolded type which this property is stored as in a style map. For
     /// example, this is [`Toggle`](crate::geom::Length) for the
-    /// [`STRONG`](crate::library::text::TextNode::STRONG) property.
+    /// [`BOLD`](crate::library::text::TextNode::BOLD) property.
     type Value: Debug + Clone + Hash + Sync + Send + 'static;
 
     /// The folded type of value that is returned when reading this property
     /// from a style chain. For example, this is [`bool`] for the
-    /// [`STRONG`](crate::library::text::TextNode::STRONG) property. For
-    /// non-copy, non-folding properties this is a reference type.
+    /// [`BOLD`](crate::library::text::TextNode::BOLD) property. For non-copy,
+    /// non-folding properties this is a reference type.
     type Output;
 
     /// The name of the property, used for debug printing.

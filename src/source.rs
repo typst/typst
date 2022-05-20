@@ -12,7 +12,7 @@ use crate::diag::TypResult;
 use crate::loading::{FileHash, Loader};
 use crate::parse::{is_newline, parse, reparse};
 use crate::syntax::ast::Markup;
-use crate::syntax::{self, Category, GreenNode, RedNode, Span};
+use crate::syntax::{GreenNode, RedNode, Span};
 use crate::util::{PathExt, StrExt};
 
 #[cfg(feature = "codespan-reporting")]
@@ -267,14 +267,6 @@ impl SourceFile {
 
         // Incrementally reparse the replaced range.
         reparse(&mut self.root, &self.src, replace, with.len())
-    }
-
-    /// Provide highlighting categories for the given range of the source file.
-    pub fn highlight<F>(&self, range: Range<usize>, mut f: F)
-    where
-        F: FnMut(Range<usize>, Category),
-    {
-        syntax::highlight(self.red().as_ref(), range, &mut f)
     }
 
     /// Get the length of the file in bytes.

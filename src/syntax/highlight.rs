@@ -1,13 +1,17 @@
+use std::fmt::Write;
 use std::ops::Range;
+use std::sync::Arc;
 
-use syntect::highlighting::{Highlighter, Style};
+use syntect::highlighting::{Color, FontStyle, Highlighter, Style, Theme};
 use syntect::parsing::Scope;
 
-use super::{NodeKind, RedRef};
+use super::{GreenNode, NodeKind, RedNode, RedRef};
+use crate::parse::TokenMode;
+use crate::source::SourceId;
 
-/// Provide highlighting categories for the children of a node that fall into a
-/// range.
-pub fn highlight<F>(node: RedRef, range: Range<usize>, f: &mut F)
+/// Provide highlighting categories for the descendants of a node that fall into
+/// a range.
+pub fn highlight_node<F>(node: RedRef, range: Range<usize>, f: &mut F)
 where
     F: FnMut(Range<usize>, Category),
 {
@@ -17,30 +21,45 @@ where
             if let Some(category) = Category::determine(child, node, i) {
                 f(span.to_range(), category);
             }
-            highlight(child, range.clone(), f);
+            highlight_node(child, range.clone(), f);
         }
     }
 }
 
-/// Provide syntect highlighting styles for the children of a node.
-pub fn highlight_syntect<F>(node: RedRef, highlighter: &Highlighter, f: &mut F)
+/// Highlight source text in a theme by calling `f` with each consecutive piece
+/// and its style.
+pub fn highlight_themed<F>(text: &str, mode: TokenMode, theme: &Theme, f: &mut F)
 where
-    F: FnMut(Range<usize>, Style),
+    F: FnMut(&str, Style),
 {
-    highlight_syntect_impl(node, vec![], highlighter, f)
+    let root = match mode {
+        TokenMode::Markup => crate::parse::parse(text),
+        TokenMode::Code => {
+            let children = crate::parse::parse_code(text);
+            Arc::new(GreenNode::with_children(NodeKind::CodeBlock, children))
+        }
+    };
+
+    let root = RedNode::from_root(root, SourceId::from_raw(0));
+    let highlighter = Highlighter::new(&theme);
+
+    highlight_themed_impl(text, root.as_ref(), vec![], &highlighter, f);
 }
 
 /// Recursive implementation for returning syntect styles.
-fn highlight_syntect_impl<F>(
+fn highlight_themed_impl<F>(
+    text: &str,
     node: RedRef,
     scopes: Vec<Scope>,
     highlighter: &Highlighter,
     f: &mut F,
 ) where
-    F: FnMut(Range<usize>, Style),
+    F: FnMut(&str, Style),
 {
-    if node.children().size_hint().0 == 0 {
-        f(node.span().to_range(), highlighter.style_for_stack(&scopes));
+    if node.children().len() == 0 {
+        let piece = &text[node.span().to_range()];
+        let style = highlighter.style_for_stack(&scopes);
+        f(piece, style);
         return;
     }
 
@@ -49,8 +68,64 @@ fn highlight_syntect_impl<F>(
         if let Some(category) = Category::determine(child, node, i) {
             scopes.push(Scope::new(category.tm_scope()).unwrap())
         }
-        highlight_syntect_impl(child, scopes, highlighter, f);
+        highlight_themed_impl(text, child, scopes, highlighter, f);
     }
+}
+
+/// Highlight source text into a standalone HTML document.
+pub fn highlight_html(text: &str, mode: TokenMode, theme: &Theme) -> String {
+    let mut buf = String::new();
+    buf.push_str("<!DOCTYPE html>\n");
+    buf.push_str("<html>\n");
+    buf.push_str("<head>\n");
+    buf.push_str("  <meta charset=\"utf-8\">\n");
+    buf.push_str("</head>\n");
+    buf.push_str("<body>\n");
+    buf.push_str(&highlight_pre(text, mode, theme));
+    buf.push_str("\n</body>\n");
+    buf.push_str("</html>\n");
+    buf
+}
+
+/// Highlight source text into an HTML pre element.
+pub fn highlight_pre(text: &str, mode: TokenMode, theme: &Theme) -> String {
+    let mut buf = String::new();
+    buf.push_str("<pre>\n");
+
+    highlight_themed(text, mode, theme, &mut |piece, style| {
+        let styled = style != Style::default();
+        if styled {
+            buf.push_str("<span style=\"");
+
+            if style.foreground != Color::BLACK {
+                let Color { r, g, b, a } = style.foreground;
+                write!(buf, "color: #{r:02x}{g:02x}{b:02x}{a:02x};").unwrap();
+            }
+
+            if style.font_style.contains(FontStyle::BOLD) {
+                buf.push_str("font-weight:bold");
+            }
+
+            if style.font_style.contains(FontStyle::ITALIC) {
+                buf.push_str("font-style:italic");
+            }
+
+            if style.font_style.contains(FontStyle::UNDERLINE) {
+                buf.push_str("text-decoration:underline;")
+            }
+
+            buf.push_str("\">");
+        }
+
+        buf.push_str(piece);
+
+        if styled {
+            buf.push_str("</span>");
+        }
+    });
+
+    buf.push_str("\n</pre>");
+    buf
 }
 
 /// The syntax highlighting category of a node.
@@ -283,7 +358,8 @@ mod tests {
         fn test(src: &str, goal: &[(Range<usize>, Category)]) {
             let mut vec = vec![];
             let source = SourceFile::detached(src);
-            source.highlight(0 .. src.len(), |range, category| {
+            let full = 0 .. src.len();
+            highlight_node(source.red().as_ref(), full, &mut |range, category| {
                 vec.push((range, category));
             });
             assert_eq!(vec, goal);
