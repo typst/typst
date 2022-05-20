@@ -173,6 +173,7 @@ impl Cast<Spanned<Value>> for Marginal {
     fn cast(value: Spanned<Value>) -> StrResult<Self> {
         match value.v {
             Value::None => Ok(Self::None),
+            Value::Str(v) => Ok(Self::Content(Content::Text(v))),
             Value::Content(v) => Ok(Self::Content(v)),
             Value::Func(v) => Ok(Self::Func(v, value.span)),
             _ => Err("expected none, content or function")?,
