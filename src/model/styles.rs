@@ -263,21 +263,6 @@ impl<'a> StyleChain<'a> {
         Self { head: &root.0, tail: None }
     }
 
-    /// Return the chain, but without trailing scoped properties for the given
-    /// `node`.
-    pub fn unscoped(mut self, node: NodeId) -> Self {
-        while self
-            .head
-            .last()
-            .and_then(StyleEntry::property)
-            .map_or(false, |p| p.scoped && p.node == node)
-        {
-            let len = self.head.len();
-            self.head = &self.head[.. len - 1]
-        }
-        self
-    }
-
     /// Get the output value of a style property.
     ///
     /// Returns the property's default value if no map in the chain contains an

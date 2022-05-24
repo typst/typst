@@ -7,8 +7,8 @@ use std::ops::{Add, AddAssign};
 use typed_arena::Arena;
 
 use super::{
-    CollapsingBuilder, Interruption, Key, Layout, LayoutNode, Property, Show, ShowNode,
-    StyleEntry, StyleMap, StyleVecBuilder, Target,
+    Barrier, CollapsingBuilder, Interruption, Key, Layout, LayoutNode, Property, Show,
+    ShowNode, StyleEntry, StyleMap, StyleVecBuilder, Target,
 };
 use crate::diag::StrResult;
 use crate::library::layout::{FlowChild, FlowNode, PageNode, PlaceNode, Spacing};
@@ -424,9 +424,14 @@ impl<'a, 'ctx> Builder<'a, 'ctx> {
     }
 
     fn show(&mut self, node: &ShowNode, styles: StyleChain<'a>) -> TypResult<()> {
-        if let Some(realized) = styles.apply(self.ctx, Target::Node(node))? {
+        if let Some(mut realized) = styles.apply(self.ctx, Target::Node(node))? {
+            let mut map = StyleMap::new();
+            let barrier = Barrier::new(node.id());
+            map.push(StyleEntry::Barrier(barrier));
+            map.push(StyleEntry::Barrier(barrier));
+            realized = realized.styled_with_map(map);
             let stored = self.scratch.templates.alloc(realized);
-            self.accept(stored, styles.unscoped(node.id()))?;
+            self.accept(stored, styles)?;
         }
         Ok(())
     }
