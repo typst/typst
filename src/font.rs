@@ -6,6 +6,8 @@ use std::fmt::{self, Debug, Formatter};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use once_cell::sync::OnceCell;
+use rex::font::MathFont;
 use serde::{Deserialize, Serialize};
 use ttf_parser::{name_id, GlyphId, PlatformId, Tag};
 use unicode_segmentation::UnicodeSegmentation;
@@ -246,6 +248,8 @@ pub struct Face {
     ttf: rustybuzz::Face<'static>,
     /// The faces metrics.
     metrics: FaceMetrics,
+    /// The parsed ReX math font.
+    math: OnceCell<Option<MathFont>>,
 }
 
 impl Face {
@@ -263,7 +267,13 @@ impl Face {
         let ttf = rustybuzz::Face::from_slice(slice, index)?;
         let metrics = FaceMetrics::from_ttf(&ttf);
 
-        Some(Self { buffer, index, ttf, metrics })
+        Some(Self {
+            buffer,
+            index,
+            ttf,
+            metrics,
+            math: OnceCell::new(),
+        })
     }
 
     /// The underlying buffer.
@@ -291,6 +301,11 @@ impl Face {
     /// Access the face's metrics.
     pub fn metrics(&self) -> &FaceMetrics {
         &self.metrics
+    }
+
+    /// Access the math font, if any.
+    pub fn math(&self) -> Option<&MathFont> {
+        self.math.get_or_init(|| MathFont::parse(self.buffer()).ok()).as_ref()
     }
 
     /// Convert from font units to an em length.

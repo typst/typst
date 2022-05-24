@@ -35,12 +35,12 @@ impl Layout for RexNode {
             .at(span)?;
 
         // Prepare the font.
-        let data = ctx.fonts.get(face_id).buffer();
-        let font = MathFont::parse(data)
-            .map_err(|_| "failed to parse math font")
+        let face = ctx.fonts.get(face_id);
+        let ctx = face
+            .math()
+            .and_then(FontContext::new)
+            .ok_or("font is not suitable for math")
             .at(span)?;
-
-        let ctx = FontContext::new(&font).ok_or("failed to parse math font").at(span)?;
 
         // Layout the formula.
         let em = styles.get(TextNode::SIZE);
