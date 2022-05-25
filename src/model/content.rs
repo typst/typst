@@ -210,7 +210,7 @@ impl Content {
 
     /// Layout this content into a collection of pages.
     pub fn layout(&self, ctx: &mut Context) -> TypResult<Vec<Arc<Frame>>> {
-        let copy = ctx.styles.clone();
+        let copy = ctx.config.styles.clone();
         let styles = StyleChain::with_root(&copy);
         let scratch = Scratch::default();
 

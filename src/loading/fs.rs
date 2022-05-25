@@ -1,7 +1,6 @@
 use std::fs::{self, File};
 use std::io;
 use std::path::Path;
-use std::sync::Arc;
 
 use memmap2::Mmap;
 use same_file::Handle;
@@ -33,12 +32,6 @@ impl FsLoader {
     pub fn with_path(mut self, dir: impl AsRef<Path>) -> Self {
         self.search_path(dir);
         self
-    }
-
-    /// Builder-style method to wrap the loader in an [`Arc`] to make it usable
-    /// with the [`Context`](crate::Context).
-    pub fn wrap(self) -> Arc<Self> {
-        Arc::new(self)
     }
 
     /// Search for fonts in the operating system's font directories.

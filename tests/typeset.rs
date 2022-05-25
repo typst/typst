@@ -19,7 +19,7 @@ use typst::loading::FsLoader;
 use typst::model::StyleMap;
 use typst::source::SourceFile;
 use typst::syntax::Span;
-use typst::{bail, Context};
+use typst::{bail, Config, Context};
 
 const TYP_DIR: &str = "./typ";
 const REF_DIR: &str = "./ref";
@@ -84,8 +84,9 @@ fn main() {
     });
 
     // Create loader and context.
-    let loader = FsLoader::new().with_path(FONT_DIR).wrap();
-    let mut ctx = Context::builder().std(std).styles(styles).build(loader);
+    let loader = FsLoader::new().with_path(FONT_DIR);
+    let config = Config::builder().std(std).styles(styles).build();
+    let mut ctx = Context::new(Arc::new(loader), config);
 
     // Run all the tests.
     let mut ok = 0;

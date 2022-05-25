@@ -59,6 +59,16 @@ impl SourceStore {
         }
     }
 
+    /// Get a reference to a loaded source file.
+    ///
+    /// This panics if no source file with this `id` exists. This function
+    /// should only be called with ids returned by this store's
+    /// [`load()`](Self::load) and [`provide()`](Self::provide) methods.
+    #[track_caller]
+    pub fn get(&self, id: SourceId) -> &SourceFile {
+        &self.sources[id.0 as usize]
+    }
+
     /// Load a source file from a path relative to the compilation environment's
     /// root.
     ///
@@ -107,14 +117,6 @@ impl SourceStore {
         }
 
         id
-    }
-
-    /// Get a reference to a loaded source file.
-    ///
-    /// This panics if no source file with this `id` exists.
-    #[track_caller]
-    pub fn get(&self, id: SourceId) -> &SourceFile {
-        &self.sources[id.0 as usize]
     }
 
     /// Fully [replace](SourceFile::replace) the source text of a file.

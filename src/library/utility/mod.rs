@@ -42,7 +42,7 @@ pub fn eval(ctx: &mut Context, args: &mut Args) -> TypResult<Value> {
     let prev_route = mem::take(&mut ctx.route);
 
     // Evaluate the source.
-    let std = ctx.std.clone();
+    let std = ctx.config.std.clone();
     let mut scp = Scopes::new(Some(&std));
     let result = ast.eval(ctx, &mut scp);
 

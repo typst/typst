@@ -1,4 +1,5 @@
 use std::path::Path;
+use std::sync::Arc;
 
 use iai::{black_box, main, Iai};
 use unscanny::Scanner;
@@ -7,14 +8,14 @@ use typst::loading::MemLoader;
 use typst::parse::{parse, TokenMode, Tokens};
 use typst::source::SourceId;
 use typst::syntax::highlight_node;
-use typst::Context;
+use typst::{Config, Context};
 
 const SRC: &str = include_str!("bench.typ");
 const FONT: &[u8] = include_bytes!("../fonts/IBMPlexSans-Regular.ttf");
 
 fn context() -> (Context, SourceId) {
-    let loader = MemLoader::new().with(Path::new("font.ttf"), FONT).wrap();
-    let mut ctx = Context::new(loader);
+    let loader = MemLoader::new().with(Path::new("font.ttf"), FONT);
+    let mut ctx = Context::new(Arc::new(loader), Config::default());
     let id = ctx.sources.provide(Path::new("src.typ"), SRC.to_string());
     (ctx, id)
 }

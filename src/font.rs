@@ -73,6 +73,32 @@ impl FontStore {
         }
     }
 
+    /// An ordered iterator over all font families this loader knows and details
+    /// about the faces that are part of them.
+    pub fn families(
+        &self,
+    ) -> impl Iterator<Item = (&str, impl Iterator<Item = &FaceInfo>)> + '_ {
+        // Since the keys are lowercased, we instead use the family field of the
+        // first face's info.
+        let faces = self.loader.faces();
+        self.families.values().map(|ids| {
+            let family = faces[ids[0].0 as usize].family.as_str();
+            let infos = ids.iter().map(|&id| &faces[id.0 as usize]);
+            (family, infos)
+        })
+    }
+
+    /// Get a reference to a loaded face.
+    ///
+    /// This panics if the face with this `id` was not loaded. This function
+    /// should only be called with ids returned by this store's
+    /// [`select()`](Self::select) and
+    /// [`select_fallback()`](Self::select_fallback) methods.
+    #[track_caller]
+    pub fn get(&self, id: FaceId) -> &Face {
+        self.faces[id.0 as usize].as_ref().expect("font face was not loaded")
+    }
+
     /// Try to find and load a font face from the given `family` that matches
     /// the given `variant` as closely as possible.
     pub fn select(&mut self, family: &str, variant: FontVariant) -> Option<FaceId> {
@@ -199,32 +225,6 @@ impl FontStore {
         self.failed[idx] = false;
 
         Some(id)
-    }
-
-    /// Get a reference to a loaded face.
-    ///
-    /// This panics if the face with this `id` was not loaded. This function
-    /// should only be called with ids returned by this store's
-    /// [`select()`](Self::select) and
-    /// [`select_fallback()`](Self::select_fallback) methods.
-    #[track_caller]
-    pub fn get(&self, id: FaceId) -> &Face {
-        self.faces[id.0 as usize].as_ref().expect("font face was not loaded")
-    }
-
-    /// An ordered iterator over all font families this loader knows and details
-    /// about the faces that are part of them.
-    pub fn families(
-        &self,
-    ) -> impl Iterator<Item = (&str, impl Iterator<Item = &FaceInfo>)> + '_ {
-        // Since the keys are lowercased, we instead use the family field of the
-        // first face's info.
-        let faces = self.loader.faces();
-        self.families.values().map(|ids| {
-            let family = faces[ids[0].0 as usize].family.as_str();
-            let infos = ids.iter().map(|&id| &faces[id.0 as usize]);
-            (family, infos)
-        })
     }
 }
 

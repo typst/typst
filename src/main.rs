@@ -2,9 +2,10 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process;
+use std::sync::Arc;
 
 use codespan_reporting::diagnostic::{Diagnostic, Label};
-use codespan_reporting::term::{self, termcolor, Config, Styles};
+use codespan_reporting::term::{self, termcolor};
 use pico_args::Arguments;
 use same_file::is_same_file;
 use termcolor::{ColorChoice, StandardStream, WriteColor};
@@ -17,7 +18,7 @@ use typst::loading::FsLoader;
 use typst::parse::TokenMode;
 use typst::source::SourceStore;
 use typst::syntax;
-use typst::Context;
+use typst::{Config, Context};
 
 /// What to do.
 enum Command {
@@ -172,7 +173,7 @@ fn print_help(help: &'static str) {
 /// Print an application-level error (independent from a source file).
 fn print_error(msg: &str) -> io::Result<()> {
     let mut w = StandardStream::stderr(ColorChoice::Always);
-    let styles = Styles::default();
+    let styles = term::Styles::default();
 
     w.set_color(&styles.header_error)?;
     write!(w, "error")?;
@@ -192,11 +193,11 @@ fn dispatch(command: Command) -> StrResult<()> {
 
 /// Execute a typesetting command.
 fn typeset(command: TypesetCommand) -> StrResult<()> {
-    let mut builder = Context::builder();
+    let mut config = Config::builder();
     if let Some(root) = &command.root {
-        builder.root(root);
+        config.root(root);
     } else if let Some(dir) = command.input.parent() {
-        builder.root(dir);
+        config.root(dir);
     }
 
     // Create a loader for fonts and files.
@@ -204,7 +205,7 @@ fn typeset(command: TypesetCommand) -> StrResult<()> {
 
     // Create the context which holds loaded source files, fonts, images and
     // cached artifacts.
-    let mut ctx = builder.build(loader.wrap());
+    let mut ctx = Context::new(Arc::new(loader), config.build());
 
     // Load the source file.
     let id = ctx
@@ -236,7 +237,7 @@ fn print_diagnostics(
     errors: Vec<Error>,
 ) -> Result<(), codespan_reporting::files::Error> {
     let mut w = StandardStream::stderr(ColorChoice::Always);
-    let config = Config { tab_width: 2, ..Default::default() };
+    let config = term::Config { tab_width: 2, ..Default::default() };
 
     for error in errors {
         // The main diagnostic.
@@ -274,7 +275,7 @@ fn highlight(command: HighlightCommand) -> StrResult<()> {
 /// Execute a font listing command.
 fn fonts(command: FontsCommand) -> StrResult<()> {
     let loader = FsLoader::new().with_system();
-    let fonts = FontStore::new(loader.wrap());
+    let fonts = FontStore::new(Arc::new(loader));
 
     for (name, infos) in fonts.families() {
         println!("{name}");

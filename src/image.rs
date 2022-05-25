@@ -48,6 +48,16 @@ impl ImageStore {
         }
     }
 
+    /// Get a reference to a loaded image.
+    ///
+    /// This panics if no image with this `id` was loaded. This function should
+    /// only be called with ids returned by this store's [`load()`](Self::load)
+    /// method.
+    #[track_caller]
+    pub fn get(&self, id: ImageId) -> &Image {
+        &self.images[id.0 as usize]
+    }
+
     /// Load and decode an image file from a path relative to the compilation
     /// environment's root.
     pub fn load(&mut self, path: &Path) -> io::Result<ImageId> {
@@ -63,16 +73,6 @@ impl ImageStore {
                 entry.insert(id)
             }
         })
-    }
-
-    /// Get a reference to a loaded image.
-    ///
-    /// This panics if no image with this `id` was loaded. This function should
-    /// only be called with ids returned by this store's [`load()`](Self::load)
-    /// method.
-    #[track_caller]
-    pub fn get(&self, id: ImageId) -> &Image {
-        &self.images[id.0 as usize]
     }
 }
 

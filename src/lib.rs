@@ -66,22 +66,16 @@ use crate::model::StyleMap;
 use crate::source::{SourceId, SourceStore};
 use crate::util::PathExt;
 
-/// The core context which holds the loader, stores, and configuration.
+/// The core context which holds the configuration and stores.
 pub struct Context {
-    /// The loader the context was created with.
-    pub loader: Arc<dyn Loader>,
     /// Stores loaded source files.
     pub sources: SourceStore,
     /// Stores parsed font faces.
     pub fonts: FontStore,
     /// Stores decoded images.
     pub images: ImageStore,
-    /// The compilation root.
-    root: PathBuf,
-    /// The standard library scope.
-    std: Arc<Scope>,
-    /// The default styles.
-    styles: Arc<StyleMap>,
+    /// The context's configuration.
+    pub config: Config,
     /// Cached modules.
     modules: HashMap<SourceId, Module>,
     /// The stack of imported files that led to evaluation of the current file.
@@ -93,24 +87,18 @@ pub struct Context {
 }
 
 impl Context {
-    /// Create a new context with the default settings.
-    pub fn new(loader: Arc<dyn Loader>) -> Self {
-        Self::builder().build(loader)
-    }
-
-    /// Create a new context with advanced settings.
-    pub fn builder() -> ContextBuilder {
-        ContextBuilder::default()
-    }
-
-    /// A read-only reference to the standard library scope.
-    pub fn std(&self) -> &Scope {
-        &self.std
-    }
-
-    /// A read-only reference to the styles.
-    pub fn styles(&self) -> &StyleMap {
-        &self.styles
+    /// Create a new context.
+    pub fn new(loader: Arc<dyn Loader>, config: Config) -> Self {
+        Self {
+            sources: SourceStore::new(Arc::clone(&loader)),
+            fonts: FontStore::new(Arc::clone(&loader)),
+            images: ImageStore::new(loader),
+            config,
+            modules: HashMap::new(),
+            route: vec![],
+            deps: vec![],
+            flow: None,
+        }
     }
 
     /// Evaluate a source file and return the resulting module.
@@ -144,7 +132,7 @@ impl Context {
         self.route.push(id);
 
         // Evaluate the module.
-        let std = self.std.clone();
+        let std = self.config.std.clone();
         let mut scp = Scopes::new(Some(&std));
         let result = ast.eval(self, &mut scp);
 
@@ -175,10 +163,10 @@ impl Context {
 
     /// Resolve a user-entered path to be relative to the compilation
     /// environment's root.
-    pub fn locate(&self, path: &str) -> StrResult<PathBuf> {
+    fn locate(&self, path: &str) -> StrResult<PathBuf> {
         if let Some(&id) = self.route.last() {
             if let Some(path) = path.strip_prefix('/') {
-                return Ok(self.root.join(path).normalize());
+                return Ok(self.config.root.join(path).normalize());
             }
 
             if let Some(dir) = self.sources.get(id).path().parent() {
@@ -190,51 +178,70 @@ impl Context {
     }
 }
 
-/// A builder for a [`Context`].
+/// Compilation configuration.
+pub struct Config {
+    /// The compilation root.
+    pub root: PathBuf,
+    /// The standard library scope.
+    pub std: Arc<Scope>,
+    /// The default styles.
+    pub styles: Arc<StyleMap>,
+}
+
+impl Config {
+    /// Create a new configuration builder.
+    pub fn builder() -> ConfigBuilder {
+        ConfigBuilder::default()
+    }
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self::builder().build()
+    }
+}
+
+/// A builder for a [`Config`].
 ///
-/// This struct is created by [`Context::builder`].
-#[derive(Default)]
-pub struct ContextBuilder {
+/// This struct is created by [`Config::builder`].
+#[derive(Debug, Default, Clone)]
+pub struct ConfigBuilder {
     root: PathBuf,
     std: Option<Arc<Scope>>,
     styles: Option<Arc<StyleMap>>,
 }
 
-impl ContextBuilder {
+impl ConfigBuilder {
     /// The compilation root, relative to which absolute paths are.
+    ///
+    /// Default: Empty path.
     pub fn root(&mut self, root: impl Into<PathBuf>) -> &mut Self {
         self.root = root.into();
         self
     }
 
-    /// The scope containing definitions that are available everywhere
-    /// (the standard library).
+    /// The scope containing definitions that are available everywhere.
+    ///
+    /// Default: Typst's standard library.
     pub fn std(&mut self, std: impl Into<Arc<Scope>>) -> &mut Self {
         self.std = Some(std.into());
         self
     }
 
     /// The default properties for page size, font selection and so on.
+    ///
+    /// Default: Empty style map.
     pub fn styles(&mut self, styles: impl Into<Arc<StyleMap>>) -> &mut Self {
         self.styles = Some(styles.into());
         self
     }
 
-    /// Finish building the context by providing the `loader` used to load
-    /// fonts, images, source files and other resources.
-    pub fn build(&self, loader: Arc<dyn Loader>) -> Context {
-        Context {
-            sources: SourceStore::new(Arc::clone(&loader)),
-            fonts: FontStore::new(Arc::clone(&loader)),
-            images: ImageStore::new(Arc::clone(&loader)),
-            loader,
+    /// Finish building the configuration.
+    pub fn build(&self) -> Config {
+        Config {
             root: self.root.clone(),
             std: self.std.clone().unwrap_or_else(|| Arc::new(library::new())),
             styles: self.styles.clone().unwrap_or_default(),
-            modules: HashMap::new(),
-            route: vec![],
-            deps: vec![],
-            flow: None,
         }
     }
 }
