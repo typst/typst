@@ -14,6 +14,7 @@ use crate::geom::{
 };
 use crate::library::graphics::MoveNode;
 use crate::library::layout::{AlignNode, PadNode};
+use crate::query::query;
 use crate::util::Prehashed;
 use crate::Context;
 
@@ -221,11 +222,13 @@ impl Layout for LayoutNode {
         regions: &Regions,
         styles: StyleChain,
     ) -> TypResult<Vec<Arc<Frame>>> {
-        ctx.query((self, regions, styles), |ctx, (node, regions, styles)| {
-            let entry = StyleEntry::Barrier(Barrier::new(node.id()));
-            node.0.layout(ctx, regions, entry.chain(&styles))
-        })
-        .clone()
+        query(
+            (self, ctx, regions, styles),
+            |(node, ctx, regions, styles)| {
+                let entry = StyleEntry::Barrier(Barrier::new(node.id()));
+                node.0.layout(ctx, regions, entry.chain(&styles))
+            },
+        )
     }
 
     fn pack(self) -> LayoutNode {
