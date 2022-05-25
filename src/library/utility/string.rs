@@ -116,7 +116,7 @@ impl Numbering {
     }
 }
 
-static ROMANS: &'static [(&'static str, usize)] = &[
+const ROMANS: &[(&str, usize)] = &[
     ("M̅", 1000000),
     ("D̅", 500000),
     ("C̅", 100000),
@@ -139,4 +139,4 @@ static ROMANS: &'static [(&'static str, usize)] = &[
     ("I", 1),
 ];
 
-static SYMBOLS: &'static [char] = &['*', '†', '‡', '§', '‖', '¶'];
+const SYMBOLS: &[char] = &['*', '†', '‡', '§', '‖', '¶'];

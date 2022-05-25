@@ -259,7 +259,7 @@ impl Face {
         // - The slices's location is stable in memory:
         //   - We don't move the underlying vector
         //   - Nobody else can move it since we have a strong ref to the `Arc`.
-        // - The internal static lifetime is not leaked because its rewritten
+        // - The internal 'static lifetime is not leaked because its rewritten
         //   to the self-lifetime in `ttf()`.
         let slice: &'static [u8] =
             unsafe { std::slice::from_raw_parts(buffer.as_ptr(), buffer.len()) };
