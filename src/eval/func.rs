@@ -230,6 +230,7 @@ impl Closure {
         // Evaluate the body.
         let mut sub = Machine::new(vm.ctx, route, scopes);
         let result = self.body.eval(&mut sub);
+        vm.deps.extend(sub.deps);
 
         // Handle control flow.
         match sub.flow {

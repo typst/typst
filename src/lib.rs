@@ -76,30 +76,27 @@ pub fn typeset(ctx: &mut Context, id: SourceId) -> TypResult<Vec<Arc<Frame>>> {
 
 /// The core context which holds the configuration and stores.
 pub struct Context {
+    /// The context's configuration.
+    pub config: Config,
     /// Stores loaded source files.
     pub sources: SourceStore,
     /// Stores parsed font faces.
     pub fonts: FontStore,
     /// Stores decoded images.
     pub images: ImageStore,
-    /// The context's configuration.
-    pub config: Config,
-    /// Cached modules.
-    modules: HashMap<SourceId, Module>,
-    /// The dependencies of the current evaluation process.
-    deps: Vec<(SourceId, usize)>,
+    /// Stores evaluated modules.
+    pub modules: HashMap<SourceId, Module>,
 }
 
 impl Context {
     /// Create a new context.
     pub fn new(loader: Arc<dyn Loader>, config: Config) -> Self {
         Self {
+            config,
             sources: SourceStore::new(Arc::clone(&loader)),
             fonts: FontStore::new(Arc::clone(&loader)),
             images: ImageStore::new(loader),
-            config,
             modules: HashMap::new(),
-            deps: vec![],
         }
     }
 }

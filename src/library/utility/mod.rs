@@ -39,6 +39,7 @@ pub fn eval(vm: &mut Machine, args: &mut Args) -> TypResult<Value> {
     let scopes = Scopes::new(Some(&std));
     let mut sub = Machine::new(vm.ctx, vec![], scopes);
     let result = ast.eval(&mut sub);
+    assert!(vm.deps.is_empty());
 
     // Handle control flow.
     if let Some(flow) = sub.flow {

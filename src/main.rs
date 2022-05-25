@@ -11,13 +11,11 @@ use same_file::is_same_file;
 use termcolor::{ColorChoice, StandardStream, WriteColor};
 
 use typst::diag::{Error, StrResult};
-use typst::export;
 use typst::font::{FaceInfo, FontStore};
 use typst::library::text::THEME;
 use typst::loading::FsLoader;
 use typst::parse::TokenMode;
 use typst::source::SourceStore;
-use typst::syntax;
 use typst::{Config, Context};
 
 /// What to do.
@@ -217,7 +215,7 @@ fn typeset(command: TypesetCommand) -> StrResult<()> {
     match typst::typeset(&mut ctx, id) {
         // Export the PDF.
         Ok(frames) => {
-            let buffer = export::pdf(&ctx, &frames);
+            let buffer = typst::export::pdf(&ctx, &frames);
             fs::write(&command.output, buffer).map_err(|_| "failed to write PDF file")?;
         }
 
@@ -266,7 +264,7 @@ fn highlight(command: HighlightCommand) -> StrResult<()> {
     let input = std::fs::read_to_string(&command.input)
         .map_err(|_| "failed to load source file")?;
 
-    let html = syntax::highlight_html(&input, TokenMode::Markup, &THEME);
+    let html = typst::syntax::highlight_html(&input, TokenMode::Markup, &THEME);
     fs::write(&command.output, html).map_err(|_| "failed to write HTML file")?;
 
     Ok(())

@@ -73,28 +73,26 @@ pub fn evaluate(
     // Parse the file.
     let source = ctx.sources.get(id);
     let ast = source.ast()?;
-
-    // Save the old dependencies.
-    let prev_deps = std::mem::replace(&mut ctx.deps, vec![(id, source.rev())]);
+    let rev = source.rev();
 
     // Evaluate the module.
     let std = ctx.config.std.clone();
     let scopes = Scopes::new(Some(&std));
     let mut vm = Machine::new(ctx, route, scopes);
     let result = ast.eval(&mut vm);
-    let scope = vm.scopes.top;
-    let flow = vm.flow;
-
-    // Restore the and dependencies.
-    let deps = std::mem::replace(&mut ctx.deps, prev_deps);
+    vm.deps.push((id, rev));
 
     // Handle control flow.
-    if let Some(flow) = flow {
+    if let Some(flow) = vm.flow {
         return Err(flow.forbidden());
     }
 
     // Assemble the module.
-    let module = Module { scope, content: result?, deps };
+    let module = Module {
+        scope: vm.scopes.top,
+        content: result?,
+        deps: vm.deps,
+    };
 
     // Save the evaluated module.
     ctx.modules.insert(id, module.clone());
@@ -987,7 +985,8 @@ fn import(vm: &mut Machine, path: &str, span: Span) -> TypResult<Module> {
     // Evaluate the file.
     let route = vm.route.clone();
     let module = evaluate(vm.ctx, id, route).trace(|| Tracepoint::Import, span)?;
-    vm.ctx.deps.extend(module.deps.iter().cloned());
+    vm.deps.extend(module.deps.iter().cloned());
+
     Ok(module)
 }
 

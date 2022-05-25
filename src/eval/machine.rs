@@ -13,6 +13,8 @@ pub struct Machine<'a> {
     pub ctx: &'a mut Context,
     /// The route of source ids at which the machine is located.
     pub route: Vec<SourceId>,
+    /// The dependencies of the current evaluation process.
+    pub deps: Vec<(SourceId, usize)>,
     /// The stack of scopes.
     pub scopes: Scopes<'a>,
     /// A control flow event that is currently happening.
@@ -22,7 +24,13 @@ pub struct Machine<'a> {
 impl<'a> Machine<'a> {
     /// Create a new virtual machine.
     pub fn new(ctx: &'a mut Context, route: Vec<SourceId>, scopes: Scopes<'a>) -> Self {
-        Self { ctx, route, scopes, flow: None }
+        Self {
+            ctx,
+            route,
+            deps: vec![],
+            scopes,
+            flow: None,
+        }
     }
 
     /// Resolve a user-entered path to be relative to the compilation

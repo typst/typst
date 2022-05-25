@@ -4,7 +4,6 @@ use std::sync::Arc;
 use iai::{black_box, main, Iai};
 use unscanny::Scanner;
 
-use typst::eval::evaluate;
 use typst::loading::MemLoader;
 use typst::parse::{TokenMode, Tokens};
 use typst::source::SourceId;
@@ -88,7 +87,7 @@ fn bench_eval(iai: &mut Iai) {
 
 fn bench_layout(iai: &mut Iai) {
     let (mut ctx, id) = context();
-    let module = evaluate(&mut ctx, id, vec![]).unwrap();
+    let module = typst::eval::evaluate(&mut ctx, id, vec![]).unwrap();
     iai.run(|| typst::model::layout(&mut ctx, &module.content));
 }
 
