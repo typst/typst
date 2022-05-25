@@ -57,7 +57,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use crate::diag::{StrResult, TypResult};
-use crate::eval::{Eval, Flow, Module, Scope, Scopes};
+use crate::eval::{Eval, Machine, Module, Scope, Scopes};
 use crate::font::FontStore;
 use crate::frame::Frame;
 use crate::image::ImageStore;
@@ -82,8 +82,6 @@ pub struct Context {
     route: Vec<SourceId>,
     /// The dependencies of the current evaluation process.
     deps: Vec<(SourceId, usize)>,
-    /// A control flow event that is currently happening.
-    flow: Option<Flow>,
 }
 
 impl Context {
@@ -97,7 +95,6 @@ impl Context {
             modules: HashMap::new(),
             route: vec![],
             deps: vec![],
-            flow: None,
         }
     }
 
@@ -126,25 +123,29 @@ impl Context {
         let source = self.sources.get(id);
         let ast = source.ast()?;
 
-        // Save the old context.
-        let prev_flow = self.flow.take();
+        // Save the old dependencies and update the route.
         let prev_deps = mem::replace(&mut self.deps, vec![(id, source.rev())]);
         self.route.push(id);
 
         // Evaluate the module.
         let std = self.config.std.clone();
-        let mut scp = Scopes::new(Some(&std));
-        let result = ast.eval(self, &mut scp);
+        let scopes = Scopes::new(Some(&std));
+        let mut vm = Machine::new(self, scopes);
+        let result = ast.eval(&mut vm);
+        let scope = vm.scopes.top;
+        let flow = vm.flow;
 
-        // Restore the old context and handle control flow.
+        // Restore the old route and dependencies.
         self.route.pop().unwrap();
         let deps = mem::replace(&mut self.deps, prev_deps);
-        if let Some(flow) = mem::replace(&mut self.flow, prev_flow) {
+
+        // Handle control flow.
+        if let Some(flow) = flow {
             return Err(flow.forbidden());
         }
 
         // Assemble the module.
-        let module = Module { scope: scp.top, content: result?, deps };
+        let module = Module { scope, content: result?, deps };
 
         // Save the evaluated module.
         self.modules.insert(id, module.clone());

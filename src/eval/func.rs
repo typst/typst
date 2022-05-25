@@ -2,7 +2,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use super::{Args, Eval, Flow, Scope, Scopes, Value};
+use super::{Args, Eval, Flow, Machine, Scope, Scopes, Value};
 use crate::diag::{StrResult, TypResult};
 use crate::model::{Content, NodeId, StyleMap};
 use crate::source::SourceId;
@@ -195,12 +195,12 @@ impl Closure {
     pub fn call(&self, ctx: &mut Context, args: &mut Args) -> TypResult<Value> {
         // Don't leak the scopes from the call site. Instead, we use the
         // scope of captured variables we collected earlier.
-        let mut scp = Scopes::new(None);
-        scp.top = self.captured.clone();
+        let mut scopes = Scopes::new(None);
+        scopes.top = self.captured.clone();
 
         // Parse the arguments according to the parameter list.
         for (param, default) in &self.params {
-            scp.top.def_mut(param, match default {
+            scopes.top.def_mut(param, match default {
                 None => args.expect::<Value>(param)?,
                 Some(default) => {
                     args.named::<Value>(param)?.unwrap_or_else(|| default.clone())
@@ -210,21 +210,21 @@ impl Closure {
 
         // Put the remaining arguments into the sink.
         if let Some(sink) = &self.sink {
-            scp.top.def_mut(sink, args.take());
+            scopes.top.def_mut(sink, args.take());
         }
 
-        // Backup the old control flow state.
-        let prev_flow = ctx.flow.take();
+        // Set the new route if we are detached.
         let detached = ctx.route.is_empty();
         if detached {
             ctx.route = self.location.into_iter().collect();
         }
 
         // Evaluate the body.
-        let result = self.body.eval(ctx, &mut scp);
+        let mut vm = Machine::new(ctx, scopes);
+        let result = self.body.eval(&mut vm);
+        let flow = vm.flow;
 
-        // Restore the old control flow state.
-        let flow = std::mem::replace(&mut ctx.flow, prev_flow);
+        // Restore the old route.
         if detached {
             ctx.route.clear();
         }

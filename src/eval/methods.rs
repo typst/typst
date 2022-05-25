@@ -89,7 +89,6 @@ pub fn call(
 
 /// Call a mutating method on a value.
 pub fn call_mut(
-    _: &mut Context,
     value: &mut Value,
     method: &str,
     mut args: Args,

@@ -175,9 +175,12 @@ impl SourceFile {
         Self::new(SourceId::detached(), Path::new(""), src.into())
     }
 
-    /// Set a synthetic span for all nodes in this file.
-    pub fn synthesize(&mut self, span: Span) {
-        Arc::make_mut(&mut self.root).synthesize(Arc::new(span));
+    /// Create a source file with the same synthetic span for all nodes.
+    pub fn synthesized(src: impl Into<String>, span: Span) -> Self {
+        let mut file = Self::detached(src);
+        Arc::make_mut(&mut file.root).synthesize(Arc::new(span));
+        file.id = span.source;
+        file
     }
 
     /// The root node of the file's untyped green tree.
