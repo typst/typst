@@ -43,13 +43,63 @@ use crate::syntax::{Span, Spanned};
 use crate::util::EcoString;
 use crate::Context;
 
-/// Evaluate an expression.
-pub trait Eval {
-    /// The output of evaluating the expression.
-    type Output;
+/// Evaluate a source file and return the resulting module.
+///
+/// Returns either a module containing a scope with top-level bindings and
+/// layoutable contents or diagnostics in the form of a vector of error
+/// messages with file and span information.
+pub fn evaluate(
+    ctx: &mut Context,
+    id: SourceId,
+    mut route: Vec<SourceId>,
+) -> TypResult<Module> {
+    // Prevent cyclic evaluation.
+    if route.contains(&id) {
+        let path = ctx.sources.get(id).path().display();
+        panic!("Tried to cyclicly evaluate {}", path);
+    }
 
-    /// Evaluate the expression to the output value.
-    fn eval(&self, vm: &mut Machine) -> TypResult<Self::Output>;
+    // Check whether the module was already evaluated.
+    if let Some(module) = ctx.modules.get(&id) {
+        if module.valid(&ctx.sources) {
+            return Ok(module.clone());
+        } else {
+            ctx.modules.remove(&id);
+        }
+    }
+
+    route.push(id);
+
+    // Parse the file.
+    let source = ctx.sources.get(id);
+    let ast = source.ast()?;
+
+    // Save the old dependencies.
+    let prev_deps = std::mem::replace(&mut ctx.deps, vec![(id, source.rev())]);
+
+    // Evaluate the module.
+    let std = ctx.config.std.clone();
+    let scopes = Scopes::new(Some(&std));
+    let mut vm = Machine::new(ctx, route, scopes);
+    let result = ast.eval(&mut vm);
+    let scope = vm.scopes.top;
+    let flow = vm.flow;
+
+    // Restore the and dependencies.
+    let deps = std::mem::replace(&mut ctx.deps, prev_deps);
+
+    // Handle control flow.
+    if let Some(flow) = flow {
+        return Err(flow.forbidden());
+    }
+
+    // Assemble the module.
+    let module = Module { scope, content: result?, deps };
+
+    // Save the evaluated module.
+    ctx.modules.insert(id, module.clone());
+
+    Ok(module)
 }
 
 /// An evaluated module, ready for importing or layouting.
@@ -68,6 +118,15 @@ impl Module {
     pub fn valid(&self, sources: &SourceStore) -> bool {
         self.deps.iter().all(|&(id, rev)| rev == sources.get(id).rev())
     }
+}
+
+/// Evaluate an expression.
+pub trait Eval {
+    /// The output of evaluating the expression.
+    type Output;
+
+    /// Evaluate the expression to the output value.
+    fn eval(&self, vm: &mut Machine) -> TypResult<Self::Output>;
 }
 
 impl Eval for Markup {
@@ -553,7 +612,7 @@ impl Eval for FuncCall {
             Value::Dict(dict) => dict.get(&args.into_key()?).at(self.span())?.clone(),
             Value::Func(func) => {
                 let point = || Tracepoint::Call(func.name().map(ToString::to_string));
-                func.call(vm.ctx, args).trace(point, self.span())?
+                func.call(vm, args).trace(point, self.span())?
             }
 
             v => bail!(
@@ -581,7 +640,7 @@ impl Eval for MethodCall {
         } else {
             let value = self.receiver().eval(vm)?;
             let args = self.args().eval(vm)?;
-            methods::call(vm.ctx, value, &method, args, span).trace(point, span)?
+            methods::call(vm, value, &method, args, span).trace(point, span)?
         })
     }
 }
@@ -672,7 +731,7 @@ impl Eval for ClosureExpr {
 
         // Define the actual function.
         Ok(Value::Func(Func::from_closure(Closure {
-            location: vm.ctx.route.last().copied(),
+            location: vm.route.last().copied(),
             name,
             captured,
             params,
@@ -731,7 +790,7 @@ impl Eval for ShowExpr {
         let body = self.body();
         let span = body.span();
         let func = Func::from_closure(Closure {
-            location: vm.ctx.route.last().copied(),
+            location: vm.route.last().copied(),
             name: None,
             captured,
             params,
@@ -875,7 +934,7 @@ impl Eval for ImportExpr {
     fn eval(&self, vm: &mut Machine) -> TypResult<Self::Output> {
         let span = self.path().span();
         let path = self.path().eval(vm)?.cast::<EcoString>().at(span)?;
-        let module = import(vm.ctx, &path, span)?;
+        let module = import(vm, &path, span)?;
 
         match self.imports() {
             Imports::Wildcard => {
@@ -904,16 +963,16 @@ impl Eval for IncludeExpr {
     fn eval(&self, vm: &mut Machine) -> TypResult<Self::Output> {
         let span = self.path().span();
         let path = self.path().eval(vm)?.cast::<EcoString>().at(span)?;
-        let module = import(vm.ctx, &path, span)?;
+        let module = import(vm, &path, span)?;
         Ok(module.content.clone())
     }
 }
 
 /// Process an import of a module relative to the current location.
-fn import(ctx: &mut Context, path: &str, span: Span) -> TypResult<Module> {
+fn import(vm: &mut Machine, path: &str, span: Span) -> TypResult<Module> {
     // Load the source file.
-    let full = ctx.locate(&path).at(span)?;
-    let id = ctx.sources.load(&full).map_err(|err| match err.kind() {
+    let full = vm.locate(&path).at(span)?;
+    let id = vm.ctx.sources.load(&full).map_err(|err| match err.kind() {
         std::io::ErrorKind::NotFound => {
             error!(span, "file not found (searched at {})", full.display())
         }
@@ -921,13 +980,14 @@ fn import(ctx: &mut Context, path: &str, span: Span) -> TypResult<Module> {
     })?;
 
     // Prevent cyclic importing.
-    if ctx.route.contains(&id) {
+    if vm.route.contains(&id) {
         bail!(span, "cyclic import");
     }
 
     // Evaluate the file.
-    let module = ctx.evaluate(id).trace(|| Tracepoint::Import, span)?;
-    ctx.deps.extend(module.deps.iter().cloned());
+    let route = vm.route.clone();
+    let module = evaluate(vm.ctx, id, route).trace(|| Tracepoint::Import, span)?;
+    vm.ctx.deps.extend(module.deps.iter().cloned());
     Ok(module)
 }
 

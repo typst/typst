@@ -12,7 +12,7 @@ pub struct MoveNode {
 
 #[node]
 impl MoveNode {
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
         let dx = args.named("dx")?.unwrap_or_default();
         let dy = args.named("dy")?.unwrap_or_default();
         Ok(Content::inline(Self {
@@ -62,7 +62,7 @@ impl<const T: TransformKind> TransformNode<T> {
     #[property(resolve)]
     pub const ORIGIN: Spec<Option<RawAlign>> = Spec::default();
 
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
         let transform = match T {
             ROTATE => {
                 let angle = args.named_or_find("angle")?.unwrap_or_default();

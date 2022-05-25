@@ -214,7 +214,7 @@ fn typeset(command: TypesetCommand) -> StrResult<()> {
         .map_err(|_| "failed to load source file")?;
 
     // Typeset.
-    match ctx.typeset(id) {
+    match typst::typeset(&mut ctx, id) {
         // Export the PDF.
         Ok(frames) => {
             let buffer = export::pdf(&ctx, &frames);

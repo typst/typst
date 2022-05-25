@@ -35,7 +35,7 @@ impl PageNode {
     #[property(referenced)]
     pub const FOOTER: Marginal = Marginal::None;
 
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
         Ok(Content::Page(Self(args.expect("body")?)))
     }
 
@@ -109,7 +109,7 @@ impl PageNode {
                     let w = size.x - padding.left - padding.right;
                     let area = Size::new(w, h);
                     let pod = Regions::one(area, area, area.map(Length::is_finite));
-                    let sub = Layout::layout(&content, ctx, &pod, styles)?.remove(0);
+                    let sub = content.layout(ctx, &pod, styles)?.remove(0);
                     Arc::make_mut(frame).push_frame(pos, sub);
                 }
             }
@@ -134,7 +134,7 @@ pub struct PagebreakNode;
 
 #[node]
 impl PagebreakNode {
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
         let weak = args.named("weak")?.unwrap_or(false);
         Ok(Content::Pagebreak { weak })
     }
@@ -158,8 +158,8 @@ impl Marginal {
             Self::None => None,
             Self::Content(content) => Some(content.clone()),
             Self::Func(func, span) => {
-                let args = Args::from_values(*span, [Value::Int(page as i64)]);
-                Some(func.call(ctx, args)?.display())
+                let args = Args::new(*span, [Value::Int(page as i64)]);
+                Some(func.call_detached(ctx, args)?.display())
             }
         })
     }

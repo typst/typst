@@ -15,7 +15,7 @@ impl LineNode {
     #[property(resolve, fold)]
     pub const STROKE: RawStroke = RawStroke::default();
 
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
         let origin = args.named("origin")?.unwrap_or_default();
 
         let delta = match args.named::<Spec<Relative<RawLength>>>("to")? {

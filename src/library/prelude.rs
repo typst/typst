@@ -9,8 +9,8 @@ pub use typst_macros::node;
 
 pub use crate::diag::{with_alternative, At, Error, StrResult, TypError, TypResult};
 pub use crate::eval::{
-    Arg, Args, Array, Cast, Dict, Func, Node, RawAlign, RawLength, RawStroke, Scope,
-    Smart, Value,
+    Arg, Args, Array, Cast, Dict, Func, Machine, Node, RawAlign, RawLength, RawStroke,
+    Scope, Smart, Value,
 };
 pub use crate::frame::*;
 pub use crate::geom::*;

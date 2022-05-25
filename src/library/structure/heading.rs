@@ -55,7 +55,7 @@ impl HeadingNode {
     pub const BELOW: Leveled<Option<BlockSpacing>> =
         Leveled::Value(Some(Ratio::new(0.55).into()));
 
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
         Ok(Content::show(Self {
             body: args.expect("body")?,
             level: args.named("level")?.unwrap_or(NonZeroUsize::new(1).unwrap()),
@@ -142,8 +142,8 @@ impl<T: Cast + Clone> Leveled<T> {
             Self::Value(value) => value.clone(),
             Self::Mapping(mapping) => mapping(level),
             Self::Func(func, span) => {
-                let args = Args::from_values(*span, [Value::Int(level.get() as i64)]);
-                func.call(ctx, args)?.cast().at(*span)?
+                let args = Args::new(*span, [Value::Int(level.get() as i64)]);
+                func.call_detached(ctx, args)?.cast().at(*span)?
             }
         })
     }

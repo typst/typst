@@ -13,7 +13,7 @@ pub struct GridNode {
 
 #[node]
 impl GridNode {
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
         let columns = args.named("columns")?.unwrap_or_default();
         let rows = args.named("rows")?.unwrap_or_default();
         let base_gutter: Vec<TrackSizing> = args.named("gutter")?.unwrap_or_default();

@@ -6,7 +6,7 @@ pub struct RepeatNode(pub LayoutNode);
 
 #[node]
 impl RepeatNode {
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
         Ok(Content::inline(Self(args.expect("body")?)))
     }
 }

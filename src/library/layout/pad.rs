@@ -11,7 +11,7 @@ pub struct PadNode {
 
 #[node]
 impl PadNode {
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
         let all = args.named("rest")?.or(args.find()?);
         let x = args.named("x")?;
         let y = args.named("y")?;

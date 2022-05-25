@@ -11,12 +11,12 @@ impl ImageNode {
     /// How the image should adjust itself to a given area.
     pub const FIT: ImageFit = ImageFit::Cover;
 
-    fn construct(ctx: &mut Context, args: &mut Args) -> TypResult<Content> {
+    fn construct(vm: &mut Machine, args: &mut Args) -> TypResult<Content> {
         let Spanned { v: path, span } =
             args.expect::<Spanned<EcoString>>("path to image file")?;
 
-        let full = ctx.locate(&path).at(span)?;
-        let id = ctx.images.load(&full).map_err(|err| match err.kind() {
+        let full = vm.locate(&path).at(span)?;
+        let id = vm.ctx.images.load(&full).map_err(|err| match err.kind() {
             std::io::ErrorKind::NotFound => {
                 error!(span, "file not found (searched at {})", full.display())
             }

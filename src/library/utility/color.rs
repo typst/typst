@@ -3,7 +3,7 @@ use std::str::FromStr;
 use crate::library::prelude::*;
 
 /// Create an RGB(A) color.
-pub fn rgb(_: &mut Context, args: &mut Args) -> TypResult<Value> {
+pub fn rgb(_: &mut Machine, args: &mut Args) -> TypResult<Value> {
     Ok(Value::from(
         if let Some(string) = args.find::<Spanned<EcoString>>()? {
             match RgbaColor::from_str(&string.v) {
@@ -37,7 +37,7 @@ pub fn rgb(_: &mut Context, args: &mut Args) -> TypResult<Value> {
 }
 
 /// Create a CMYK color.
-pub fn cmyk(_: &mut Context, args: &mut Args) -> TypResult<Value> {
+pub fn cmyk(_: &mut Machine, args: &mut Args) -> TypResult<Value> {
     struct Component(u8);
 
     castable! {

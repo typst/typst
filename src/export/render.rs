@@ -23,7 +23,7 @@ use crate::Context;
 /// In addition to the frame, you need to pass in the context used during
 /// compilation so that fonts and images can be rendered and rendering artifacts
 /// can be cached.
-pub fn render(ctx: &mut Context, frame: &Frame, pixel_per_pt: f32) -> sk::Pixmap {
+pub fn render(ctx: &Context, frame: &Frame, pixel_per_pt: f32) -> sk::Pixmap {
     let pxw = (pixel_per_pt * frame.size.x.to_f32()).round().max(1.0) as u32;
     let pxh = (pixel_per_pt * frame.size.y.to_f32()).round().max(1.0) as u32;
 
@@ -41,7 +41,7 @@ fn render_frame(
     canvas: &mut sk::Pixmap,
     ts: sk::Transform,
     mask: Option<&sk::ClipMask>,
-    ctx: &mut Context,
+    ctx: &Context,
     frame: &Frame,
 ) {
     for (pos, element) in &frame.elements {
@@ -72,7 +72,7 @@ fn render_group(
     canvas: &mut sk::Pixmap,
     ts: sk::Transform,
     mask: Option<&sk::ClipMask>,
-    ctx: &mut Context,
+    ctx: &Context,
     group: &Group,
 ) {
     let ts = ts.pre_concat(group.transform.into());
@@ -114,7 +114,7 @@ fn render_text(
     canvas: &mut sk::Pixmap,
     ts: sk::Transform,
     mask: Option<&sk::ClipMask>,
-    ctx: &mut Context,
+    ctx: &Context,
     text: &Text,
 ) {
     let mut x = 0.0;
@@ -136,7 +136,7 @@ fn render_svg_glyph(
     canvas: &mut sk::Pixmap,
     ts: sk::Transform,
     _: Option<&sk::ClipMask>,
-    ctx: &mut Context,
+    ctx: &Context,
     text: &Text,
     id: GlyphId,
 ) -> Option<()> {
@@ -187,7 +187,7 @@ fn render_bitmap_glyph(
     canvas: &mut sk::Pixmap,
     ts: sk::Transform,
     mask: Option<&sk::ClipMask>,
-    ctx: &mut Context,
+    ctx: &Context,
     text: &Text,
     id: GlyphId,
 ) -> Option<()> {
@@ -213,7 +213,7 @@ fn render_outline_glyph(
     canvas: &mut sk::Pixmap,
     ts: sk::Transform,
     mask: Option<&sk::ClipMask>,
-    ctx: &mut Context,
+    ctx: &Context,
     text: &Text,
     id: GlyphId,
 ) -> Option<()> {

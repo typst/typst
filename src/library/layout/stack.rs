@@ -15,7 +15,7 @@ pub struct StackNode {
 
 #[node]
 impl StackNode {
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
         Ok(Content::block(Self {
             dir: args.named("dir")?.unwrap_or(Dir::TTB),
             spacing: args.named("spacing")?,

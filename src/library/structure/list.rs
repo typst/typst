@@ -56,7 +56,7 @@ impl<const L: ListKind> ListNode<L> {
     #[property(resolve)]
     pub const SPACING: BlockSpacing = Ratio::one().into();
 
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
         Ok(Content::show(Self {
             start: args.named("start")?.unwrap_or(1),
             tight: args.named("tight")?.unwrap_or(true),
@@ -216,8 +216,8 @@ impl Label {
             }
             Self::Content(content) => content.clone(),
             Self::Func(func, span) => {
-                let args = Args::from_values(*span, [Value::Int(number as i64)]);
-                func.call(ctx, args)?.display()
+                let args = Args::new(*span, [Value::Int(number as i64)]);
+                func.call_detached(ctx, args)?.display()
             }
         })
     }

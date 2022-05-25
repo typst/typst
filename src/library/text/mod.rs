@@ -127,7 +127,7 @@ impl TextNode {
     #[property(skip, fold)]
     pub const DECO: Decoration = vec![];
 
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
         // The text constructor is special: It doesn't create a text node.
         // Instead, it leaves the passed argument structurally unchanged, but
         // styles all text in it.
@@ -443,12 +443,12 @@ impl Fold for Vec<(Tag, u32)> {
 }
 
 /// Convert text to lowercase.
-pub fn lower(_: &mut Context, args: &mut Args) -> TypResult<Value> {
+pub fn lower(_: &mut Machine, args: &mut Args) -> TypResult<Value> {
     case(Case::Lower, args)
 }
 
 /// Convert text to uppercase.
-pub fn upper(_: &mut Context, args: &mut Args) -> TypResult<Value> {
+pub fn upper(_: &mut Machine, args: &mut Args) -> TypResult<Value> {
     case(Case::Upper, args)
 }
 
@@ -482,7 +482,7 @@ impl Case {
 }
 
 /// Display text in small capitals.
-pub fn smallcaps(_: &mut Context, args: &mut Args) -> TypResult<Value> {
+pub fn smallcaps(_: &mut Machine, args: &mut Args) -> TypResult<Value> {
     let body: Content = args.expect("content")?;
     Ok(Value::Content(body.styled(TextNode::SMALLCAPS, true)))
 }
@@ -514,7 +514,7 @@ pub struct StrongNode(pub Content);
 
 #[node(showable)]
 impl StrongNode {
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
         Ok(Content::show(Self(args.expect("body")?)))
     }
 }
@@ -539,7 +539,7 @@ pub struct EmphNode(pub Content);
 
 #[node(showable)]
 impl EmphNode {
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
         Ok(Content::show(Self(args.expect("body")?)))
     }
 }

@@ -6,10 +6,9 @@ use std::sync::Arc;
 
 use parking_lot::RwLock;
 
-use super::{Args, Func, Node, Value};
+use super::{Args, Func, Machine, Node, Value};
 use crate::diag::TypResult;
 use crate::util::EcoString;
-use crate::Context;
 
 /// A slot where a variable is stored.
 pub type Slot = Arc<RwLock<Value>>;
@@ -89,7 +88,7 @@ impl Scope {
     pub fn def_fn(
         &mut self,
         name: &'static str,
-        func: fn(&mut Context, &mut Args) -> TypResult<Value>,
+        func: fn(&mut Machine, &mut Args) -> TypResult<Value>,
     ) {
         self.def_const(name, Func::from_fn(name, func));
     }

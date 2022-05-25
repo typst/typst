@@ -19,6 +19,19 @@ use crate::library::text::{
 };
 use crate::util::EcoString;
 
+/// Layout content into a collection of pages.
+pub fn layout(ctx: &mut Context, content: &Content) -> TypResult<Vec<Arc<Frame>>> {
+    let copy = ctx.config.styles.clone();
+    let styles = StyleChain::with_root(&copy);
+    let scratch = Scratch::default();
+
+    let mut builder = Builder::new(ctx, &scratch, true);
+    builder.accept(content, styles)?;
+
+    let (doc, shared) = builder.into_doc(styles)?;
+    doc.layout(ctx, shared)
+}
+
 /// Composable representation of styled content.
 ///
 /// This results from:
@@ -206,19 +219,6 @@ impl Content {
         }
 
         Self::sequence(seq)
-    }
-
-    /// Layout this content into a collection of pages.
-    pub fn layout(&self, ctx: &mut Context) -> TypResult<Vec<Arc<Frame>>> {
-        let copy = ctx.config.styles.clone();
-        let styles = StyleChain::with_root(&copy);
-        let scratch = Scratch::default();
-
-        let mut builder = Builder::new(ctx, &scratch, true);
-        builder.accept(self, styles)?;
-
-        let (doc, shared) = builder.into_doc(styles)?;
-        doc.layout(ctx, shared)
     }
 }
 

@@ -37,7 +37,7 @@ impl<const S: ShapeKind> ShapeNode<S> {
     #[property(skip, resolve, fold)]
     pub const RADIUS: Sides<Option<Relative<RawLength>>> = Sides::splat(Relative::zero());
 
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
         let size = match S {
             SQUARE => args.named::<RawLength>("size")?.map(Relative::from),
             CIRCLE => args.named::<RawLength>("radius")?.map(|r| 2.0 * Relative::from(r)),

@@ -12,7 +12,7 @@ pub struct AlignNode {
 
 #[node]
 impl AlignNode {
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
         let aligns: Spec<Option<RawAlign>> = args.find()?.unwrap_or_default();
         let body: Content = args.expect("body")?;
         Ok(match (body, aligns) {

@@ -35,7 +35,7 @@ impl RawNode {
     #[property(resolve, shorthand(around))]
     pub const BELOW: Option<BlockSpacing> = Some(Ratio::one().into());
 
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
         Ok(Content::show(Self {
             text: args.expect("text")?,
             block: args.named("block")?.unwrap_or(false),

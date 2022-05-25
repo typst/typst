@@ -1,14 +1,13 @@
 //! Methods on values.
 
-use super::{Args, Regex, StrExt, Value};
+use super::{Args, Machine, Regex, StrExt, Value};
 use crate::diag::{At, TypResult};
 use crate::syntax::Span;
 use crate::util::EcoString;
-use crate::Context;
 
 /// Call a method on a value.
 pub fn call(
-    ctx: &mut Context,
+    vm: &mut Machine,
     value: Value,
     method: &str,
     mut args: Args,
@@ -35,8 +34,8 @@ pub fn call(
                 }
                 Value::Array(array.slice(start, end).at(span)?)
             }
-            "map" => Value::Array(array.map(ctx, args.expect("function")?)?),
-            "filter" => Value::Array(array.filter(ctx, args.expect("function")?)?),
+            "map" => Value::Array(array.map(vm, args.expect("function")?)?),
+            "filter" => Value::Array(array.filter(vm, args.expect("function")?)?),
             "flatten" => Value::Array(array.flatten()),
             "find" => array.find(args.expect("value")?).map_or(Value::None, Value::Int),
             "join" => {
@@ -52,7 +51,7 @@ pub fn call(
             "len" => Value::Int(dict.len()),
             "keys" => Value::Array(dict.keys()),
             "values" => Value::Array(dict.values()),
-            "pairs" => Value::Array(dict.map(ctx, args.expect("function")?)?),
+            "pairs" => Value::Array(dict.map(vm, args.expect("function")?)?),
             _ => missing()?,
         },
 

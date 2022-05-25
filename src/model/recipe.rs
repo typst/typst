@@ -82,12 +82,12 @@ impl Recipe {
         F: FnOnce() -> Value,
     {
         let args = if self.func.argc() == Some(0) {
-            Args::new(self.span)
+            Args::new(self.span, [])
         } else {
-            Args::from_values(self.span, [arg()])
+            Args::new(self.span, [arg()])
         };
 
-        Ok(self.func.call(ctx, args)?.display())
+        Ok(self.func.call_detached(ctx, args)?.display())
     }
 
     /// What kind of structure the property interrupts.

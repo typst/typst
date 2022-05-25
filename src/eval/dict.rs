@@ -3,12 +3,11 @@ use std::fmt::{self, Debug, Formatter, Write};
 use std::ops::{Add, AddAssign};
 use std::sync::Arc;
 
-use super::{Args, Array, Func, Value};
+use super::{Args, Array, Func, Machine, Value};
 use crate::diag::{StrResult, TypResult};
 use crate::parse::is_ident;
 use crate::syntax::Spanned;
 use crate::util::{ArcExt, EcoString};
-use crate::Context;
 
 /// Create a new [`Dict`] from key-value pairs.
 #[allow(unused_macros)]
@@ -97,14 +96,12 @@ impl Dict {
     }
 
     /// Transform each pair in the array with a function.
-    pub fn map(&self, ctx: &mut Context, f: Spanned<Func>) -> TypResult<Array> {
+    pub fn map(&self, vm: &mut Machine, f: Spanned<Func>) -> TypResult<Array> {
         Ok(self
             .iter()
             .map(|(key, value)| {
-                f.v.call(
-                    ctx,
-                    Args::from_values(f.span, [Value::Str(key.clone()), value.clone()]),
-                )
+                let args = Args::new(f.span, [Value::Str(key.clone()), value.clone()]);
+                f.v.call(vm, args)
             })
             .collect::<TypResult<_>>()?)
     }

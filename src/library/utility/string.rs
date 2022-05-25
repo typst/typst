@@ -4,12 +4,12 @@ use crate::eval::Regex;
 use crate::library::prelude::*;
 
 /// The string representation of a value.
-pub fn repr(_: &mut Context, args: &mut Args) -> TypResult<Value> {
+pub fn repr(_: &mut Machine, args: &mut Args) -> TypResult<Value> {
     Ok(args.expect::<Value>("value")?.repr().into())
 }
 
 /// Cconvert a value to a string.
-pub fn str(_: &mut Context, args: &mut Args) -> TypResult<Value> {
+pub fn str(_: &mut Machine, args: &mut Args) -> TypResult<Value> {
     let Spanned { v, span } = args.expect("value")?;
     Ok(Value::Str(match v {
         Value::Int(v) => format_eco!("{}", v),
@@ -20,29 +20,29 @@ pub fn str(_: &mut Context, args: &mut Args) -> TypResult<Value> {
 }
 
 /// Create blind text.
-pub fn lorem(_: &mut Context, args: &mut Args) -> TypResult<Value> {
+pub fn lorem(_: &mut Machine, args: &mut Args) -> TypResult<Value> {
     let words: usize = args.expect("number of words")?;
     Ok(Value::Str(lipsum_from_seed(words, 97).into()))
 }
 
 /// Create a regular expression.
-pub fn regex(_: &mut Context, args: &mut Args) -> TypResult<Value> {
+pub fn regex(_: &mut Machine, args: &mut Args) -> TypResult<Value> {
     let Spanned { v, span } = args.expect::<Spanned<EcoString>>("regular expression")?;
     Ok(Regex::new(&v).at(span)?.into())
 }
 
 /// Converts an integer into one or multiple letters.
-pub fn letter(_: &mut Context, args: &mut Args) -> TypResult<Value> {
+pub fn letter(_: &mut Machine, args: &mut Args) -> TypResult<Value> {
     convert(Numbering::Letter, args)
 }
 
 /// Converts an integer into a roman numeral.
-pub fn roman(_: &mut Context, args: &mut Args) -> TypResult<Value> {
+pub fn roman(_: &mut Machine, args: &mut Args) -> TypResult<Value> {
     convert(Numbering::Roman, args)
 }
 
 /// Convert a number into a symbol.
-pub fn symbol(_: &mut Context, args: &mut Args) -> TypResult<Value> {
+pub fn symbol(_: &mut Machine, args: &mut Args) -> TypResult<Value> {
     convert(Numbering::Symbol, args)
 }
 

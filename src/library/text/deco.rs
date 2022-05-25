@@ -35,7 +35,7 @@ impl<const L: DecoLine> DecoNode<L> {
     /// with the glyphs. Does not apply to strikethrough.
     pub const EVADE: bool = true;
 
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
         Ok(Content::show(Self(args.expect("body")?)))
     }
 }

@@ -51,7 +51,7 @@ impl ParNode {
     #[property(resolve)]
     pub const LINEBREAKS: Smart<Linebreaks> = Smart::Auto;
 
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
         // The paragraph constructor is special: It doesn't create a paragraph
         // node. Instead, it just ensures that the passed content lives is in a
         // separate paragraph and styles it.
@@ -172,7 +172,7 @@ pub struct ParbreakNode;
 
 #[node]
 impl ParbreakNode {
-    fn construct(_: &mut Context, _: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Machine, _: &mut Args) -> TypResult<Content> {
         Ok(Content::Parbreak)
     }
 }
@@ -182,7 +182,7 @@ pub struct LinebreakNode;
 
 #[node]
 impl LinebreakNode {
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
         let justified = args.named("justified")?.unwrap_or(false);
         Ok(Content::Linebreak { justified })
     }

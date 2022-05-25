@@ -290,7 +290,7 @@ fn test_part(
 
     ok &= test_reparse(ctx.sources.get(id).src(), i, rng);
 
-    let (mut frames, mut errors) = match ctx.typeset(id) {
+    let (mut frames, mut errors) = match typst::typeset(ctx, id) {
         Ok(frames) => (frames, vec![]),
         Err(errors) => (vec![], *errors),
     };

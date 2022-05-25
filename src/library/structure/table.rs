@@ -30,7 +30,7 @@ impl TableNode {
     #[property(resolve, shorthand(around))]
     pub const BELOW: Option<BlockSpacing> = Some(Ratio::one().into());
 
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
         let columns = args.named("columns")?.unwrap_or_default();
         let rows = args.named("rows")?.unwrap_or_default();
         let base_gutter: Vec<TrackSizing> = args.named("gutter")?.unwrap_or_default();
@@ -128,11 +128,8 @@ impl<T: Cast + Clone> Celled<T> {
         Ok(match self {
             Self::Value(value) => value.clone(),
             Self::Func(func, span) => {
-                let args = Args::from_values(*span, [
-                    Value::Int(x as i64),
-                    Value::Int(y as i64),
-                ]);
-                func.call(ctx, args)?.cast().at(*span)?
+                let args = Args::new(*span, [Value::Int(x as i64), Value::Int(y as i64)]);
+                func.call_detached(ctx, args)?.cast().at(*span)?
             }
         })
     }

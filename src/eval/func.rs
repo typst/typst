@@ -29,7 +29,7 @@ impl Func {
     /// Create a new function from a native rust function.
     pub fn from_fn(
         name: &'static str,
-        func: fn(&mut Context, &mut Args) -> TypResult<Value>,
+        func: fn(&mut Machine, &mut Args) -> TypResult<Value>,
     ) -> Self {
         Self(Arc::new(Repr::Native(Native {
             name,
@@ -86,17 +86,23 @@ impl Func {
     }
 
     /// Call the function with the given arguments.
-    pub fn call(&self, ctx: &mut Context, mut args: Args) -> TypResult<Value> {
+    pub fn call(&self, vm: &mut Machine, mut args: Args) -> TypResult<Value> {
         let value = match self.0.as_ref() {
-            Repr::Native(native) => (native.func)(ctx, &mut args)?,
-            Repr::Closure(closure) => closure.call(ctx, &mut args)?,
+            Repr::Native(native) => (native.func)(vm, &mut args)?,
+            Repr::Closure(closure) => closure.call(vm, &mut args)?,
             Repr::With(wrapped, applied) => {
                 args.items.splice(.. 0, applied.items.iter().cloned());
-                return wrapped.call(ctx, args);
+                return wrapped.call(vm, args);
             }
         };
         args.finish()?;
         Ok(value)
+    }
+
+    /// Call the function without an existing virtual machine.
+    pub fn call_detached(&self, ctx: &mut Context, args: Args) -> TypResult<Value> {
+        let mut vm = Machine::new(ctx, vec![], Scopes::new(None));
+        self.call(&mut vm, args)
     }
 
     /// Execute the function's set rule.
@@ -138,7 +144,7 @@ struct Native {
     /// The name of the function.
     pub name: &'static str,
     /// The function pointer.
-    pub func: fn(&mut Context, &mut Args) -> TypResult<Value>,
+    pub func: fn(&mut Machine, &mut Args) -> TypResult<Value>,
     /// The set rule.
     pub set: Option<fn(&mut Args) -> TypResult<StyleMap>>,
     /// The id of the node to customize with this function's show rule.
@@ -163,7 +169,7 @@ pub trait Node: 'static {
     ///
     /// This is passed only the arguments that remain after execution of the
     /// node's set rule.
-    fn construct(ctx: &mut Context, args: &mut Args) -> TypResult<Content>;
+    fn construct(vm: &mut Machine, args: &mut Args) -> TypResult<Content>;
 
     /// Parse the arguments into style properties for this node.
     ///
@@ -192,7 +198,7 @@ pub struct Closure {
 
 impl Closure {
     /// Call the function in the context with the arguments.
-    pub fn call(&self, ctx: &mut Context, args: &mut Args) -> TypResult<Value> {
+    pub fn call(&self, vm: &mut Machine, args: &mut Args) -> TypResult<Value> {
         // Don't leak the scopes from the call site. Instead, we use the
         // scope of captured variables we collected earlier.
         let mut scopes = Scopes::new(None);
@@ -213,24 +219,20 @@ impl Closure {
             scopes.top.def_mut(sink, args.take());
         }
 
-        // Set the new route if we are detached.
-        let detached = ctx.route.is_empty();
-        if detached {
-            ctx.route = self.location.into_iter().collect();
-        }
+        // Determine the route inside the closure.
+        let detached = vm.route.is_empty();
+        let route = if detached {
+            self.location.into_iter().collect()
+        } else {
+            vm.route.clone()
+        };
 
         // Evaluate the body.
-        let mut vm = Machine::new(ctx, scopes);
-        let result = self.body.eval(&mut vm);
-        let flow = vm.flow;
-
-        // Restore the old route.
-        if detached {
-            ctx.route.clear();
-        }
+        let mut sub = Machine::new(vm.ctx, route, scopes);
+        let result = self.body.eval(&mut sub);
 
         // Handle control flow.
-        match flow {
+        match sub.flow {
             Some(Flow::Return(_, Some(explicit))) => return Ok(explicit),
             Some(Flow::Return(_, None)) => {}
             Some(flow) => return Err(flow.forbidden())?,

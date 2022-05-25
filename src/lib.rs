@@ -21,10 +21,10 @@
 //! [parsed]: parse::parse
 //! [green tree]: syntax::GreenNode
 //! [AST]: syntax::ast
-//! [evaluate]: eval::Eval
+//! [evaluate]: eval::evaluate
 //! [module]: eval::Module
 //! [content]: model::Content
-//! [layouted]: model::Content::layout
+//! [layouted]: model::layout
 //! [PDF]: export::pdf
 
 #![allow(clippy::len_without_is_empty)]
@@ -52,19 +52,27 @@ pub mod source;
 pub mod syntax;
 
 use std::collections::HashMap;
-use std::mem;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use crate::diag::{StrResult, TypResult};
-use crate::eval::{Eval, Machine, Module, Scope, Scopes};
+use crate::diag::TypResult;
+use crate::eval::{Module, Scope};
 use crate::font::FontStore;
 use crate::frame::Frame;
 use crate::image::ImageStore;
 use crate::loading::Loader;
 use crate::model::StyleMap;
 use crate::source::{SourceId, SourceStore};
-use crate::util::PathExt;
+
+/// Typeset a source file into a collection of layouted frames.
+///
+/// Returns either a vector of frames representing individual pages or
+/// diagnostics in the form of a vector of error message with file and span
+/// information.
+pub fn typeset(ctx: &mut Context, id: SourceId) -> TypResult<Vec<Arc<Frame>>> {
+    let module = eval::evaluate(ctx, id, vec![])?;
+    model::layout(ctx, &module.content)
+}
 
 /// The core context which holds the configuration and stores.
 pub struct Context {
@@ -78,8 +86,6 @@ pub struct Context {
     pub config: Config,
     /// Cached modules.
     modules: HashMap<SourceId, Module>,
-    /// The stack of imported files that led to evaluation of the current file.
-    route: Vec<SourceId>,
     /// The dependencies of the current evaluation process.
     deps: Vec<(SourceId, usize)>,
 }
@@ -93,89 +99,8 @@ impl Context {
             images: ImageStore::new(loader),
             config,
             modules: HashMap::new(),
-            route: vec![],
             deps: vec![],
         }
-    }
-
-    /// Evaluate a source file and return the resulting module.
-    ///
-    /// Returns either a module containing a scope with top-level bindings and
-    /// layoutable contents or diagnostics in the form of a vector of error
-    /// messages with file and span information.
-    pub fn evaluate(&mut self, id: SourceId) -> TypResult<Module> {
-        // Prevent cyclic evaluation.
-        if self.route.contains(&id) {
-            let path = self.sources.get(id).path().display();
-            panic!("Tried to cyclicly evaluate {}", path);
-        }
-
-        // Check whether the module was already evaluated.
-        if let Some(module) = self.modules.get(&id) {
-            if module.valid(&self.sources) {
-                return Ok(module.clone());
-            } else {
-                self.modules.remove(&id);
-            }
-        }
-
-        // Parse the file.
-        let source = self.sources.get(id);
-        let ast = source.ast()?;
-
-        // Save the old dependencies and update the route.
-        let prev_deps = mem::replace(&mut self.deps, vec![(id, source.rev())]);
-        self.route.push(id);
-
-        // Evaluate the module.
-        let std = self.config.std.clone();
-        let scopes = Scopes::new(Some(&std));
-        let mut vm = Machine::new(self, scopes);
-        let result = ast.eval(&mut vm);
-        let scope = vm.scopes.top;
-        let flow = vm.flow;
-
-        // Restore the old route and dependencies.
-        self.route.pop().unwrap();
-        let deps = mem::replace(&mut self.deps, prev_deps);
-
-        // Handle control flow.
-        if let Some(flow) = flow {
-            return Err(flow.forbidden());
-        }
-
-        // Assemble the module.
-        let module = Module { scope, content: result?, deps };
-
-        // Save the evaluated module.
-        self.modules.insert(id, module.clone());
-
-        Ok(module)
-    }
-
-    /// Typeset a source file into a collection of layouted frames.
-    ///
-    /// Returns either a vector of frames representing individual pages or
-    /// diagnostics in the form of a vector of error message with file and span
-    /// information.
-    pub fn typeset(&mut self, id: SourceId) -> TypResult<Vec<Arc<Frame>>> {
-        self.evaluate(id)?.content.layout(self)
-    }
-
-    /// Resolve a user-entered path to be relative to the compilation
-    /// environment's root.
-    fn locate(&self, path: &str) -> StrResult<PathBuf> {
-        if let Some(&id) = self.route.last() {
-            if let Some(path) = path.strip_prefix('/') {
-                return Ok(self.config.root.join(path).normalize());
-            }
-
-            if let Some(dir) = self.sources.get(id).path().parent() {
-                return Ok(dir.join(path).normalize());
-            }
-        }
-
-        return Err("cannot access file system from here".into());
     }
 }
 

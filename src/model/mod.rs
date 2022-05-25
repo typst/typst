@@ -1,4 +1,4 @@
-//! Structured representation of styled content.
+//! Styled and structured representation of layoutable content.
 
 #[macro_use]
 mod styles;

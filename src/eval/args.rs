@@ -26,13 +26,8 @@ pub struct Arg {
 }
 
 impl Args {
-    /// Create empty arguments from a span.
-    pub fn new(span: Span) -> Self {
-        Self { span, items: vec![] }
-    }
-
     /// Create positional arguments from a span and values.
-    pub fn from_values(span: Span, values: impl IntoIterator<Item = Value>) -> Self {
+    pub fn new(span: Span, values: impl IntoIterator<Item = Value>) -> Self {
         let items = values
             .into_iter()
             .map(|value| Arg {

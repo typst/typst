@@ -19,7 +19,7 @@ impl LinkNode {
     /// Whether to underline link.
     pub const UNDERLINE: bool = true;
 
-    fn construct(_: &mut Context, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
         Ok(Content::show(Self {
             url: args.expect::<EcoString>("url")?,
             body: args.eat()?,

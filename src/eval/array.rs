@@ -3,11 +3,10 @@ use std::fmt::{self, Debug, Formatter, Write};
 use std::ops::{Add, AddAssign};
 use std::sync::Arc;
 
-use super::{ops, Args, Func, Value};
+use super::{ops, Args, Func, Machine, Value};
 use crate::diag::{At, StrResult, TypResult};
 use crate::syntax::Spanned;
 use crate::util::ArcExt;
-use crate::Context;
 
 /// Create a new [`Array`] from values.
 #[allow(unused_macros)]
@@ -120,21 +119,21 @@ impl Array {
     }
 
     /// Transform each item in the array with a function.
-    pub fn map(&self, ctx: &mut Context, f: Spanned<Func>) -> TypResult<Self> {
+    pub fn map(&self, vm: &mut Machine, f: Spanned<Func>) -> TypResult<Self> {
         Ok(self
             .iter()
             .cloned()
-            .map(|item| f.v.call(ctx, Args::from_values(f.span, [item])))
+            .map(|item| f.v.call(vm, Args::new(f.span, [item])))
             .collect::<TypResult<_>>()?)
     }
 
     /// Return a new array with only those elements for which the function
     /// return true.
-    pub fn filter(&self, ctx: &mut Context, f: Spanned<Func>) -> TypResult<Self> {
+    pub fn filter(&self, vm: &mut Machine, f: Spanned<Func>) -> TypResult<Self> {
         let mut kept = vec![];
         for item in self.iter() {
             if f.v
-                .call(ctx, Args::from_values(f.span, [item.clone()]))?
+                .call(vm, Args::new(f.span, [item.clone()]))?
                 .cast::<bool>()
                 .at(f.span)?
             {
