@@ -45,9 +45,9 @@ pub mod frame;
 pub mod image;
 pub mod library;
 pub mod loading;
+pub mod memo;
 pub mod model;
 pub mod parse;
-pub mod query;
 pub mod source;
 pub mod syntax;
 

@@ -12,7 +12,6 @@ use crate::geom::{
     self, Geometry, Length, Paint, PathElement, Shape, Size, Stroke, Transform,
 };
 use crate::image::{Image, RasterImage, Svg};
-use crate::query::query_ref;
 use crate::Context;
 
 /// Export a frame into a rendered image.
@@ -244,7 +243,7 @@ fn render_outline_glyph(
     // Rasterize the glyph with `pixglyph`.
     // Try to retrieve a prepared glyph or prepare it from scratch if it
     // doesn't exist, yet.
-    let bitmap = query_ref(
+    let bitmap = crate::memo::memoized_ref(
         (&ctx.fonts, text.face_id, id),
         |(fonts, face_id, id)| pixglyph::Glyph::load(fonts.get(face_id).ttf(), id),
         |glyph| glyph.as_ref().map(|g| g.rasterize(ts.tx, ts.ty, ppem)),

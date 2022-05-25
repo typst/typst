@@ -26,6 +26,7 @@ pub use func::*;
 pub use machine::*;
 pub use raw::*;
 pub use scope::*;
+pub use typst_macros::node;
 pub use value::*;
 
 use std::collections::BTreeMap;

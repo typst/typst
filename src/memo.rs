@@ -1,4 +1,4 @@
-//! Query caching.
+//! Function memoization.
 
 use std::any::Any;
 use std::cell::RefCell;
@@ -7,7 +7,7 @@ use std::fmt::{self, Display, Formatter};
 use std::hash::Hash;
 
 thread_local! {
-    /// The thread-local query cache.
+    /// The thread-local cache.
     static CACHE: RefCell<Cache> = RefCell::default();
 }
 
@@ -22,37 +22,39 @@ where
     CACHE.with(|cell| f(&mut cell.borrow_mut()))
 }
 
-/// An entry in the query cache.
+/// An entry in the cache.
 struct CacheEntry {
-    /// The query's results.
+    /// The memoized function's result.
     data: Box<dyn Any>,
     /// How many evictions have passed since the entry has been last used.
     age: usize,
 }
 
-/// Execute a query.
+/// Execute a memoized function call.
 ///
-/// This hashes all inputs to the query and then either returns a cached version
-/// from the thread-local query cache or executes the query and saves a copy of
-/// the results in the cache.
+/// This hashes all inputs to the function and then either returns a cached
+/// version from the thread-local cache or executes the function and saves a
+/// copy of the results in the cache.
 ///
 /// Note that `f` must be a pure function.
-pub fn query<I, O>(input: I, f: fn(input: I) -> O) -> O
+pub fn memoized<I, O>(input: I, f: fn(input: I) -> O) -> O
 where
     I: Hash,
     O: Clone + 'static,
 {
-    query_ref(input, f, Clone::clone)
+    memoized_ref(input, f, Clone::clone)
 }
 
-/// Execute a query and then call a function with a reference to the result.
+/// Execute a function and then call another function with a reference to the
+/// result.
 ///
-/// This hashes all inputs to the query and then either call `g` with a cached
-/// version from the thread-local query cache or executes the query, calls `g`
-/// with the fresh version and saves  the result in the cache.
+/// This hashes all inputs to the function and then either
+/// - calls `g` with a cached version from the thread-local cache,
+/// - or executes `f`, calls `g` with the fresh version and saves the result in
+///   the cache.
 ///
 /// Note that `f` must be a pure function, while `g` does not need to be pure.
-pub fn query_ref<I, O, G, R>(input: I, f: fn(input: I) -> O, g: G) -> R
+pub fn memoized_ref<I, O, G, R>(input: I, f: fn(input: I) -> O, g: G) -> R
 where
     I: Hash,
     O: 'static,
@@ -74,7 +76,7 @@ where
     })
 }
 
-/// Garbage-collect the thread-local query cache.
+/// Garbage-collect the thread-local cache.
 ///
 /// This deletes elements which haven't been used in a while and returns details
 /// about the eviction.

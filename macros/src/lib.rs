@@ -8,6 +8,7 @@ use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::{Error, Ident, Result};
 
+/// Turn a struct into a node / a function with settable properties.
 #[proc_macro_attribute]
 pub fn node(stream: TokenStream, item: TokenStream) -> TokenStream {
     let impl_block = syn::parse_macro_input!(item as syn::ItemImpl);
