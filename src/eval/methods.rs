@@ -77,7 +77,16 @@ pub fn call(
             }
             "entry" => {
                 if let Some(group) = dynamic.downcast::<Group>() {
-                    Value::Content(Content::Locate(group.entry(args.expect("recipe")?)))
+                    Value::Content(Content::Locate(
+                        group.entry(args.expect("recipe")?, args.named("value")?),
+                    ))
+                } else {
+                    missing()?
+                }
+            }
+            "all" => {
+                if let Some(group) = dynamic.downcast::<Group>() {
+                    Value::Content(Content::Locate(group.all(args.expect("recipe")?)))
                 } else {
                     missing()?
                 }

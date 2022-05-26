@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use super::Content;
 use crate::diag::TypResult;
-use crate::eval::{Args, Dict, Func, Value};
+use crate::eval::{Args, Array, Dict, Func, Value};
 use crate::frame::{Element, Frame};
 use crate::geom::{Point, Transform};
 use crate::syntax::Spanned;
@@ -21,8 +21,13 @@ impl Group {
     }
 
     /// Add an entry to the group.
-    pub fn entry(&self, recipe: Spanned<Func>) -> LocateNode {
-        LocateNode { recipe, group: Some(self.clone()) }
+    pub fn entry(&self, recipe: Spanned<Func>, value: Option<Value>) -> LocateNode {
+        LocateNode::entry(self.clone(), recipe, value)
+    }
+
+    /// Do something with all entries of a group.
+    pub fn all(&self, recipe: Spanned<Func>) -> LocateNode {
+        LocateNode::all(self.clone(), recipe)
     }
 }
 
@@ -32,54 +37,111 @@ impl Debug for Group {
     }
 }
 
-/// A node that can realize itself with its own location.
+/// A node that can be realized with pinned document locations.
 #[derive(Debug, Clone, PartialEq, Hash)]
-pub struct LocateNode {
-    recipe: Spanned<Func>,
-    group: Option<Group>,
-}
+pub struct LocateNode(Arc<Repr>);
 
 impl LocateNode {
-    /// Create a new locate node.
-    pub fn new(recipe: Spanned<Func>) -> Self {
-        Self { recipe, group: None }
+    /// Create a new locatable single node.
+    pub fn single(recipe: Spanned<Func>) -> Self {
+        Self(Arc::new(Repr::Single(SingleNode(recipe))))
+    }
+
+    /// Create a new locatable group entry node.
+    pub fn entry(group: Group, recipe: Spanned<Func>, value: Option<Value>) -> Self {
+        Self(Arc::new(Repr::Entry(EntryNode { group, recipe, value })))
+    }
+
+    /// Create a new all node with access to a group's members.
+    pub fn all(group: Group, recipe: Spanned<Func>) -> Self {
+        Self(Arc::new(Repr::All(AllNode { group, recipe })))
     }
 
     /// Realize the node.
     pub fn realize(&self, ctx: &mut Context) -> TypResult<Content> {
+        match self.0.as_ref() {
+            Repr::Single(single) => single.realize(ctx),
+            Repr::Entry(entry) => entry.realize(ctx),
+            Repr::All(all) => all.realize(ctx),
+        }
+    }
+}
+
+/// The different kinds of locate nodes.
+#[derive(Debug, Clone, PartialEq, Hash)]
+enum Repr {
+    /// A single `locate(me => ...)`.
+    Single(SingleNode),
+    /// A locatable group entry.
+    Entry(EntryNode),
+    /// A recipe for all entries of a group.
+    All(AllNode),
+}
+
+/// A solo locatable node.
+#[derive(Debug, Clone, PartialEq, Hash)]
+struct SingleNode(Spanned<Func>);
+
+impl SingleNode {
+    fn realize(&self, ctx: &mut Context) -> TypResult<Content> {
         let idx = ctx.pins.cursor();
-        let pin = ctx.pins.next(self.group.clone());
+        let pin = ctx.pins.next(None, None);
+        let dict = pin.encode(None);
+        let args = Args::new(self.0.span, [Value::Dict(dict)]);
+        Ok(Content::Pin(idx) + self.0.v.call_detached(ctx, args)?.display())
+    }
+}
+
+/// A group node which can interact with its peer's details.
+#[derive(Debug, Clone, PartialEq, Hash)]
+struct EntryNode {
+    /// Which group the node belongs to, if any.
+    group: Group,
+    /// The recipe to execute.
+    recipe: Spanned<Func>,
+    /// An arbitrary attached value.
+    value: Option<Value>,
+}
+
+impl EntryNode {
+    fn realize(&self, ctx: &mut Context) -> TypResult<Content> {
+        let idx = ctx.pins.cursor();
+        let pin = ctx.pins.next(Some(self.group.clone()), self.value.clone());
 
         // Determine the index among the peers.
-        let index = self.group.as_ref().map(|_| {
-            ctx.pins
-                .iter()
-                .filter(|other| {
-                    other.group == self.group && other.loc.flow < pin.loc.flow
-                })
-                .count()
-        });
+        let index = ctx
+            .pins
+            .iter()
+            .filter(|other| other.is_in(&self.group) && other.loc.flow < pin.loc.flow)
+            .count();
 
-        let dict = pin.encode(index);
+        let dict = pin.encode(Some(index));
         let mut args = Args::new(self.recipe.span, [Value::Dict(dict)]);
 
         // Collect all members if requested.
-        if self.group.is_some() && self.recipe.v.argc() == Some(2) {
-            let mut all: Vec<_> =
-                ctx.pins.iter().filter(|other| other.group == self.group).collect();
-
-            all.sort_by_key(|pin| pin.loc.flow);
-
-            let array = all
-                .iter()
-                .enumerate()
-                .map(|(index, member)| Value::Dict(member.encode(Some(index))))
-                .collect();
-
-            args.push(self.recipe.span, Value::Array(array))
+        if self.recipe.v.argc() == Some(2) {
+            let all = ctx.pins.encode_group(&self.group);
+            args.push(self.recipe.span, Value::Array(all))
         }
 
         Ok(Content::Pin(idx) + self.recipe.v.call_detached(ctx, args)?.display())
+    }
+}
+
+/// A node with access to the group's members without being one itself.
+#[derive(Debug, Clone, PartialEq, Hash)]
+struct AllNode {
+    /// Which group.
+    group: Group,
+    /// The recipe to execute.
+    recipe: Spanned<Func>,
+}
+
+impl AllNode {
+    fn realize(&self, ctx: &mut Context) -> TypResult<Content> {
+        let all = ctx.pins.encode_group(&self.group);
+        let args = Args::new(self.recipe.span, [Value::Array(all)]);
+        Ok(self.recipe.v.call_detached(ctx, args)?.display())
     }
 }
 
@@ -92,43 +154,6 @@ pub struct PinBoard {
     cursor: usize,
     /// If larger than zero, the board is frozen.
     frozen: usize,
-}
-
-/// A document pin.
-#[derive(Debug, Default, Clone, PartialEq, Hash)]
-pub struct Pin {
-    /// The physical location of the pin in the document.
-    loc: Location,
-    /// The group the pin belongs to, if any.
-    group: Option<Group>,
-}
-
-impl Pin {
-    /// Encode into a user-facing dictionary.
-    fn encode(&self, index: Option<usize>) -> Dict {
-        let mut dict = dict! {
-            "page" => Value::Int(self.loc.page as i64),
-            "x" => Value::Length(self.loc.pos.x.into()),
-            "y" => Value::Length(self.loc.pos.y.into()),
-        };
-
-        if let Some(index) = index {
-            dict.insert("index".into(), Value::Int(index as i64));
-        }
-
-        dict
-    }
-}
-
-/// A physical location in a document.
-#[derive(Debug, Default, Copy, Clone, PartialEq, Hash)]
-pub struct Location {
-    /// The page, starting at 1.
-    pub page: usize,
-    /// The exact coordinates on the page (from the top left, as usual).
-    pub pos: Point,
-    /// The flow index.
-    pub flow: usize,
 }
 
 impl PinBoard {
@@ -158,15 +183,18 @@ impl PinBoard {
     }
 
     /// Access the next pin.
-    pub fn next(&mut self, group: Option<Group>) -> Pin {
+    pub fn next(&mut self, group: Option<Group>, value: Option<Value>) -> Pin {
         if self.frozen > 0 {
             return Pin::default();
         }
 
         let cursor = self.cursor;
         self.jump(self.cursor + 1);
-        self.pins[cursor].group = group;
-        self.pins[cursor].clone()
+
+        let pin = &mut self.pins[cursor];
+        pin.group = group;
+        pin.value = value;
+        pin.clone()
     }
 
     /// The current cursor.
@@ -210,6 +238,16 @@ impl PinBoard {
     pub fn resolved(&self, prev: &Self) -> usize {
         self.pins.iter().zip(&prev.pins).filter(|(a, b)| a == b).count()
     }
+
+    /// Encode a group into a user-facing array.
+    pub fn encode_group(&self, group: &Group) -> Array {
+        let mut all: Vec<_> = self.iter().filter(|other| other.is_in(group)).collect();
+        all.sort_by_key(|pin| pin.loc.flow);
+        all.iter()
+            .enumerate()
+            .map(|(index, member)| Value::Dict(member.encode(Some(index))))
+            .collect()
+    }
 }
 
 /// Locate all pins in a frame.
@@ -240,4 +278,52 @@ fn locate_impl(
             _ => {}
         }
     }
+}
+
+/// A document pin.
+#[derive(Debug, Default, Clone, PartialEq, Hash)]
+pub struct Pin {
+    /// The physical location of the pin in the document.
+    loc: Location,
+    /// The group the pin belongs to, if any.
+    group: Option<Group>,
+    /// An arbitrary attached value.
+    value: Option<Value>,
+}
+
+impl Pin {
+    /// Whether the pin is part of the given group.
+    fn is_in(&self, group: &Group) -> bool {
+        self.group.as_ref() == Some(group)
+    }
+
+    /// Encode into a user-facing dictionary.
+    fn encode(&self, index: Option<usize>) -> Dict {
+        let mut dict = dict! {
+            "page" => Value::Int(self.loc.page as i64),
+            "x" => Value::Length(self.loc.pos.x.into()),
+            "y" => Value::Length(self.loc.pos.y.into()),
+        };
+
+        if let Some(value) = &self.value {
+            dict.insert("value".into(), value.clone());
+        }
+
+        if let Some(index) = index {
+            dict.insert("index".into(), Value::Int(index as i64));
+        }
+
+        dict
+    }
+}
+
+/// A physical location in a document.
+#[derive(Debug, Default, Copy, Clone, PartialEq, Hash)]
+pub struct Location {
+    /// The page, starting at 1.
+    pub page: usize,
+    /// The exact coordinates on the page (from the top left, as usual).
+    pub pos: Point,
+    /// The flow index.
+    pub flow: usize,
 }
