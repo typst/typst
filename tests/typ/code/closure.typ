@@ -31,7 +31,7 @@
 ---
 // Capture environment.
 {
-  let mark = "?"
+  let mark = "!"
   let greet = {
     let hi = "Hi"
     name => {
@@ -39,9 +39,10 @@
     }
   }
 
-  test(greet("Typst"), "Hi, Typst?")
+  test(greet("Typst"), "Hi, Typst!")
 
-  mark = "!"
+  // Changing the captured variable after the closure definition has no effect.
+  mark = "?"
   test(greet("Typst"), "Hi, Typst!")
 }
 
@@ -71,12 +72,12 @@
 // For loop bindings.
 {
   let v = (1, 2, 3)
-  let s = 0
   let f() = {
+    let s = 0
     for v in v { s += v }
+    s
   }
-  f()
-  test(s, 6)
+  test(f(), 6)
 }
 
 ---

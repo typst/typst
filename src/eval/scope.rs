@@ -1,17 +1,10 @@
 use std::collections::BTreeMap;
 use std::fmt::{self, Debug, Formatter};
-use std::hash::{Hash, Hasher};
-use std::iter;
-use std::sync::Arc;
-
-use parking_lot::RwLock;
+use std::hash::Hash;
 
 use super::{Args, Func, Machine, Node, Value};
-use crate::diag::TypResult;
+use crate::diag::{StrResult, TypResult};
 use crate::util::EcoString;
-
-/// A slot where a variable is stored.
-pub type Slot = Arc<RwLock<Value>>;
 
 /// A stack of scopes.
 #[derive(Debug, Default, Clone)]
@@ -42,21 +35,33 @@ impl<'a> Scopes<'a> {
         self.top = self.scopes.pop().expect("no pushed scope");
     }
 
-    /// Look up the slot of a variable.
-    pub fn get(&self, var: &str) -> Option<&Slot> {
-        iter::once(&self.top)
+    /// Try to access a variable immutably.
+    pub fn get(&self, var: &str) -> StrResult<&Value> {
+        Ok(std::iter::once(&self.top)
             .chain(self.scopes.iter().rev())
             .chain(self.base.into_iter())
             .find_map(|scope| scope.get(var))
+            .ok_or("unknown variable")?)
+    }
+
+    /// Try to access a variable mutably.
+    pub fn get_mut(&mut self, var: &str) -> StrResult<&mut Value> {
+        std::iter::once(&mut self.top)
+            .chain(&mut self.scopes.iter_mut().rev())
+            .find_map(|scope| scope.get_mut(var))
+            .ok_or_else(|| {
+                if self.base.map_or(false, |base| base.get(var).is_some()) {
+                    "cannot mutate a constant"
+                } else {
+                    "unknown variable"
+                }
+            })?
     }
 }
 
-/// A map from variable names to variable slots.
-#[derive(Default, Clone)]
-pub struct Scope {
-    /// The mapping from names to slots.
-    values: BTreeMap<EcoString, Slot>,
-}
+/// A map from binding names to values.
+#[derive(Default, Clone, Hash)]
+pub struct Scope(BTreeMap<EcoString, Slot>);
 
 impl Scope {
     /// Create a new empty scope.
@@ -64,24 +69,9 @@ impl Scope {
         Self::default()
     }
 
-    /// Define a constant variable with a value.
-    pub fn def_const(&mut self, var: impl Into<EcoString>, value: impl Into<Value>) {
-        let cell = RwLock::new(value.into());
-
-        // Make it impossible to write to this value again.
-        std::mem::forget(cell.read());
-
-        self.values.insert(var.into(), Arc::new(cell));
-    }
-
-    /// Define a mutable variable with a value.
-    pub fn def_mut(&mut self, var: impl Into<EcoString>, value: impl Into<Value>) {
-        self.values.insert(var.into(), Arc::new(RwLock::new(value.into())));
-    }
-
-    /// Define a variable with a slot.
-    pub fn def_slot(&mut self, var: impl Into<EcoString>, slot: Slot) {
-        self.values.insert(var.into(), slot);
+    /// Bind a value to a name.
+    pub fn define(&mut self, name: impl Into<EcoString>, value: impl Into<Value>) {
+        self.0.insert(name.into(), Slot::new(value.into(), Kind::Normal));
     }
 
     /// Define a function through a native rust function.
@@ -90,32 +80,36 @@ impl Scope {
         name: &'static str,
         func: fn(&mut Machine, &mut Args) -> TypResult<Value>,
     ) {
-        self.def_const(name, Func::from_fn(name, func));
+        self.define(name, Func::from_fn(name, func));
     }
 
     /// Define a function through a native rust node.
     pub fn def_node<T: Node>(&mut self, name: &'static str) {
-        self.def_const(name, Func::from_node::<T>(name));
+        self.define(name, Func::from_node::<T>(name));
     }
 
-    /// Look up the value of a variable.
-    pub fn get(&self, var: &str) -> Option<&Slot> {
-        self.values.get(var)
+    /// Define a captured, immutable binding.
+    pub fn define_captured(
+        &mut self,
+        var: impl Into<EcoString>,
+        value: impl Into<Value>,
+    ) {
+        self.0.insert(var.into(), Slot::new(value.into(), Kind::Captured));
+    }
+
+    /// Try to access a variable immutably.
+    pub fn get(&self, var: &str) -> Option<&Value> {
+        self.0.get(var).map(Slot::read)
+    }
+
+    /// Try to access a variable mutably.
+    pub fn get_mut(&mut self, var: &str) -> Option<StrResult<&mut Value>> {
+        self.0.get_mut(var).map(Slot::write)
     }
 
     /// Iterate over all definitions.
-    pub fn iter(&self) -> impl Iterator<Item = (&str, &Slot)> {
-        self.values.iter().map(|(k, v)| (k.as_str(), v))
-    }
-}
-
-impl Hash for Scope {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.values.len().hash(state);
-        for (name, value) in self.values.iter() {
-            name.hash(state);
-            value.read().hash(state);
-        }
+    pub fn iter(&self) -> impl Iterator<Item = (&str, &Value)> {
+        self.0.iter().map(|(k, v)| (k.as_str(), v.read()))
     }
 }
 
@@ -123,7 +117,45 @@ impl Debug for Scope {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.write_str("Scope ")?;
         f.debug_map()
-            .entries(self.values.iter().map(|(k, v)| (k, v.read())))
+            .entries(self.0.iter().map(|(k, v)| (k, v.read())))
             .finish()
+    }
+}
+
+/// A slot where a variable is stored.
+#[derive(Clone, Hash)]
+struct Slot {
+    /// The stored value.
+    value: Value,
+    /// The kind of slot, determines how the value can be accessed.
+    kind: Kind,
+}
+
+/// The different kinds of slots.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+enum Kind {
+    /// A normal, mutable binding.
+    Normal,
+    /// A captured copy of another variable.
+    Captured,
+}
+
+impl Slot {
+    /// Create a new constant slot.
+    fn new(value: Value, kind: Kind) -> Self {
+        Self { value, kind }
+    }
+
+    /// Read the variable.
+    fn read(&self) -> &Value {
+        &self.value
+    }
+
+    /// Try to write to the variable.
+    fn write(&mut self) -> StrResult<&mut Value> {
+        match self.kind {
+            Kind::Normal => Ok(&mut self.value),
+            Kind::Captured => Err("cannot mutate a captured variable")?,
+        }
     }
 }

@@ -55,30 +55,28 @@
 
 ---
 // Test that the expression is evaluated to the end.
-#let y = 1
-#let identity(x, ..rest) = x
-#let f(x) = {
-  identity(
-    ..return,
-    x + 1,
-    y = 2,
-  )
+#let sum(..args) = {
+  let s = 0
+  for v in args.positional() {
+    s += v
+  }
+  s
+}
+
+#let f() = {
+  sum(..return, 1, 2, 3)
   "nope"
 }
 
-#test(f(1), 2)
-#test(y, 2)
+#test(f(), 6)
 
 ---
 // Test value return from content.
 #let x = 3
 #let f() = [
   Hello 😀
-  { x = 1 }
   #return "nope"
-  { x = 2 }
   World
 ]
 
 #test(f(), "nope")
-#test(x, 1)

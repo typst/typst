@@ -96,38 +96,38 @@ pub fn new() -> Scope {
     std.def_fn("lorem", utility::lorem);
 
     // Predefined colors.
-    std.def_const("black", Color::BLACK);
-    std.def_const("gray", Color::GRAY);
-    std.def_const("silver", Color::SILVER);
-    std.def_const("white", Color::WHITE);
-    std.def_const("navy", Color::NAVY);
-    std.def_const("blue", Color::BLUE);
-    std.def_const("aqua", Color::AQUA);
-    std.def_const("teal", Color::TEAL);
-    std.def_const("eastern", Color::EASTERN);
-    std.def_const("purple", Color::PURPLE);
-    std.def_const("fuchsia", Color::FUCHSIA);
-    std.def_const("maroon", Color::MAROON);
-    std.def_const("red", Color::RED);
-    std.def_const("orange", Color::ORANGE);
-    std.def_const("yellow", Color::YELLOW);
-    std.def_const("olive", Color::OLIVE);
-    std.def_const("green", Color::GREEN);
-    std.def_const("lime", Color::LIME);
+    std.define("black", Color::BLACK);
+    std.define("gray", Color::GRAY);
+    std.define("silver", Color::SILVER);
+    std.define("white", Color::WHITE);
+    std.define("navy", Color::NAVY);
+    std.define("blue", Color::BLUE);
+    std.define("aqua", Color::AQUA);
+    std.define("teal", Color::TEAL);
+    std.define("eastern", Color::EASTERN);
+    std.define("purple", Color::PURPLE);
+    std.define("fuchsia", Color::FUCHSIA);
+    std.define("maroon", Color::MAROON);
+    std.define("red", Color::RED);
+    std.define("orange", Color::ORANGE);
+    std.define("yellow", Color::YELLOW);
+    std.define("olive", Color::OLIVE);
+    std.define("green", Color::GREEN);
+    std.define("lime", Color::LIME);
 
     // Other constants.
-    std.def_const("ltr", Dir::LTR);
-    std.def_const("rtl", Dir::RTL);
-    std.def_const("ttb", Dir::TTB);
-    std.def_const("btt", Dir::BTT);
-    std.def_const("start", RawAlign::Start);
-    std.def_const("end", RawAlign::End);
-    std.def_const("left", RawAlign::Specific(Align::Left));
-    std.def_const("center", RawAlign::Specific(Align::Center));
-    std.def_const("right", RawAlign::Specific(Align::Right));
-    std.def_const("top", RawAlign::Specific(Align::Top));
-    std.def_const("horizon", RawAlign::Specific(Align::Horizon));
-    std.def_const("bottom", RawAlign::Specific(Align::Bottom));
+    std.define("ltr", Dir::LTR);
+    std.define("rtl", Dir::RTL);
+    std.define("ttb", Dir::TTB);
+    std.define("btt", Dir::BTT);
+    std.define("start", RawAlign::Start);
+    std.define("end", RawAlign::End);
+    std.define("left", RawAlign::Specific(Align::Left));
+    std.define("center", RawAlign::Specific(Align::Center));
+    std.define("right", RawAlign::Specific(Align::Right));
+    std.define("top", RawAlign::Specific(Align::Top));
+    std.define("horizon", RawAlign::Specific(Align::Horizon));
+    std.define("bottom", RawAlign::Specific(Align::Bottom));
 
     std
 }

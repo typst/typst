@@ -7,13 +7,14 @@
   30pt, 50%, 20pt, 100%,
 )
 
-#let shaded = {
-  let v = 0%
-  let next() = { v += 10%; rgb(v, v, v) }
-  w => rect(width: w, height: 10pt, fill: next())
+#let shaded(i, w) = {
+  let v = (i + 1) * 10%
+  rect(width: w, height: 10pt, fill: rgb(v, v, v))
 }
 
-#let items = for w in widths { (align(right, shaded(w)),) }
+#let items = for i, w in widths {
+  (align(right, shaded(i, w)),)
+}
 
 #set page(width: 50pt, margins: 0pt)
 #stack(dir: btt, ..items)

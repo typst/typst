@@ -23,16 +23,14 @@
 }
 
 ---
-// Test storing arguments in a variable.
+// Test doing things with arguments.
 {
-  let args
-  let save(..sink) = {
-    args = sink
+  let save(..args) = {
+    test(type(args), "arguments")
+    test(repr(args), "(1, 2, three: true)")
   }
 
   save(1, 2, three: true)
-  test(type(args), "arguments")
-  test(repr(args), "(1, 2, three: true)")
 }
 
 ---
