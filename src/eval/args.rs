@@ -39,6 +39,15 @@ impl Args {
         Self { span, items }
     }
 
+    /// Push a positional argument.
+    pub fn push(&mut self, span: Span, value: Value) {
+        self.items.push(Arg {
+            span: self.span,
+            name: None,
+            value: Spanned::new(value, span),
+        })
+    }
+
     /// Consume and cast the first positional argument if there is one.
     pub fn eat<T>(&mut self) -> TypResult<Option<T>>
     where

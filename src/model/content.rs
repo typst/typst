@@ -44,6 +44,8 @@ pub fn layout(ctx: &mut Context, content: &Content) -> TypResult<Vec<Arc<Frame>>
         }
     }
 
+    // println!("Took {pass} passes");
+
     Ok(frames)
 }
 

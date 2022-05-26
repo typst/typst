@@ -2,7 +2,7 @@
 
 use std::cmp::Ordering;
 
-use super::{Dynamic, RawAlign, RawLength, RawStroke, Smart, StrExt, Value};
+use super::{RawAlign, RawLength, RawStroke, Smart, StrExt, Value};
 use crate::diag::StrResult;
 use crate::geom::{Numeric, Relative, Spec, SpecAxis};
 use crate::model;
@@ -94,10 +94,10 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Dict(a), Dict(b)) => Dict(a + b),
 
         (Color(color), Length(thickness)) | (Length(thickness), Color(color)) => {
-            Dyn(Dynamic::new(RawStroke {
+            Value::dynamic(RawStroke {
                 paint: Smart::Custom(color.into()),
                 thickness: Smart::Custom(thickness),
-            }))
+            })
         }
 
         (Dyn(a), Dyn(b)) => {
@@ -106,10 +106,10 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
                 (a.downcast::<RawAlign>(), b.downcast::<RawAlign>())
             {
                 if a.axis() != b.axis() {
-                    Dyn(Dynamic::new(match a.axis() {
+                    Value::dynamic(match a.axis() {
                         SpecAxis::Horizontal => Spec { x: a, y: b },
                         SpecAxis::Vertical => Spec { x: b, y: a },
-                    }))
+                    })
                 } else {
                     return Err(format!("cannot add two {:?} alignments", a.axis()));
                 }

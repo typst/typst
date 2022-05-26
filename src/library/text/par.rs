@@ -194,10 +194,11 @@ impl LinebreakNode {
 /// Range of a substring of text.
 type Range = std::ops::Range<usize>;
 
-// The characters by which spacing and nodes are replaced in the paragraph's
-// full text.
-const SPACING_REPLACE: char = ' ';
-const NODE_REPLACE: char = '\u{FFFC}';
+// The characters by which spacing, nodes and pins are replaced in the
+// paragraph's full text.
+const SPACING_REPLACE: char = ' '; // Space
+const NODE_REPLACE: char = '\u{FFFC}'; // Object Replacement Character
+const PIN_REPLACE: char = '\u{200D}'; // Zero Width Joiner
 
 /// A paragraph representation in which children are already layouted and text
 /// is already preshaped.
@@ -287,8 +288,9 @@ impl Segment<'_> {
     fn len(&self) -> usize {
         match *self {
             Self::Text(len) => len,
-            Self::Spacing(_) | Self::Pin(_) => SPACING_REPLACE.len_utf8(),
+            Self::Spacing(_) => SPACING_REPLACE.len_utf8(),
             Self::Node(_) => NODE_REPLACE.len_utf8(),
+            Self::Pin(_) => PIN_REPLACE.len_utf8(),
         }
     }
 }
@@ -323,10 +325,9 @@ impl<'a> Item<'a> {
     fn len(&self) -> usize {
         match self {
             Self::Text(shaped) => shaped.text.len(),
-            Self::Absolute(_) | Self::Fractional(_) | Self::Pin(_) => {
-                SPACING_REPLACE.len_utf8()
-            }
+            Self::Absolute(_) | Self::Fractional(_) => SPACING_REPLACE.len_utf8(),
             Self::Frame(_) | Self::Repeat(_, _) => NODE_REPLACE.len_utf8(),
+            Self::Pin(_) => PIN_REPLACE.len_utf8(),
         }
     }
 
@@ -465,8 +466,9 @@ fn collect<'a>(
                     let peeked = iter.peek().and_then(|(child, _)| match child {
                         ParChild::Text(text) => text.chars().next(),
                         ParChild::Quote { .. } => Some('"'),
-                        ParChild::Spacing(_) | ParChild::Pin(_) => Some(SPACING_REPLACE),
+                        ParChild::Spacing(_) => Some(SPACING_REPLACE),
                         ParChild::Node(_) => Some(NODE_REPLACE),
+                        ParChild::Pin(_) => Some(PIN_REPLACE),
                     });
 
                     full.push_str(quoter.quote(&quotes, double, peeked));
@@ -484,7 +486,7 @@ fn collect<'a>(
                 Segment::Node(node)
             }
             &ParChild::Pin(idx) => {
-                full.push(SPACING_REPLACE);
+                full.push(PIN_REPLACE);
                 Segment::Pin(idx)
             }
         };

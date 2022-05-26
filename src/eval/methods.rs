@@ -2,6 +2,7 @@
 
 use super::{Args, Machine, Regex, StrExt, Value};
 use crate::diag::{At, TypResult};
+use crate::model::{Content, Group};
 use crate::syntax::Span;
 use crate::util::EcoString;
 
@@ -66,18 +67,23 @@ pub fn call(
             _ => missing()?,
         },
 
-        Value::Dyn(dynamic) => {
-            if let Some(regex) = dynamic.downcast::<Regex>() {
-                match method {
-                    "matches" => {
-                        Value::Bool(regex.matches(&args.expect::<EcoString>("text")?))
-                    }
-                    _ => missing()?,
+        Value::Dyn(dynamic) => match method {
+            "matches" => {
+                if let Some(regex) = dynamic.downcast::<Regex>() {
+                    Value::Bool(regex.matches(&args.expect::<EcoString>("text")?))
+                } else {
+                    missing()?
                 }
-            } else {
-                missing()?
             }
-        }
+            "entry" => {
+                if let Some(group) = dynamic.downcast::<Group>() {
+                    Value::Content(Content::Locate(group.entry(args.expect("recipe")?)))
+                } else {
+                    missing()?
+                }
+            }
+            _ => missing()?,
+        },
 
         _ => missing()?,
     };

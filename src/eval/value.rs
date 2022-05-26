@@ -11,7 +11,7 @@ use crate::geom::{
     Angle, Color, Dir, Em, Fraction, Length, Paint, Ratio, Relative, RgbaColor, Sides,
 };
 use crate::library::text::RawNode;
-use crate::model::{Content, Layout, LayoutNode, Pattern};
+use crate::model::{Content, Group, Layout, LayoutNode, Pattern};
 use crate::syntax::Spanned;
 use crate::util::EcoString;
 
@@ -71,6 +71,14 @@ impl Value {
         T: Layout + Debug + Hash + Sync + Send + 'static,
     {
         Self::Content(Content::block(node))
+    }
+
+    /// Create a new dynamic value.
+    pub fn dynamic<T>(any: T) -> Self
+    where
+        T: Type + Debug + PartialEq + Hash + Sync + Send + 'static,
+    {
+        Self::Dyn(Dynamic::new(any))
     }
 
     /// The name of the stored value's type.
@@ -651,6 +659,10 @@ dynamic! {
 
 dynamic! {
     Regex: "regular expression",
+}
+
+dynamic! {
+    Group: "group",
 }
 
 castable! {

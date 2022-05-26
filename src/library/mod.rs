@@ -54,6 +54,8 @@ pub fn new() -> Scope {
     std.def_node::<layout::ColumnsNode>("columns");
     std.def_node::<layout::ColbreakNode>("colbreak");
     std.def_node::<layout::PlaceNode>("place");
+    std.def_fn("locate", layout::locate);
+    std.def_fn("group", layout::group);
 
     // Graphics.
     std.def_node::<graphics::ImageNode>("image");
@@ -92,7 +94,6 @@ pub fn new() -> Scope {
     std.def_fn("roman", utility::roman);
     std.def_fn("symbol", utility::symbol);
     std.def_fn("lorem", utility::lorem);
-    std.def_fn("locate", utility::locate);
 
     // Predefined colors.
     std.def_const("black", Color::BLACK);
