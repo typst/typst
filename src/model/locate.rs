@@ -52,7 +52,7 @@ impl LocateNode {
         Self(Arc::new(Repr::Entry(EntryNode { group, recipe, value })))
     }
 
-    /// Create a new all node with access to a group's members.
+    /// Create a new node with access to a group's members.
     pub fn all(group: Group, recipe: Spanned<Func>) -> Self {
         Self(Arc::new(Repr::All(AllNode { group, recipe })))
     }
@@ -78,7 +78,7 @@ enum Repr {
     All(AllNode),
 }
 
-/// A solo locatable node.
+/// An ungrouped locatable node.
 #[derive(Debug, Clone, PartialEq, Hash)]
 struct SingleNode(Spanned<Func>);
 
@@ -92,10 +92,10 @@ impl SingleNode {
     }
 }
 
-/// A group node which can interact with its peer's details.
+/// A locatable grouped node which can interact with its peers' details.
 #[derive(Debug, Clone, PartialEq, Hash)]
 struct EntryNode {
-    /// Which group the node belongs to, if any.
+    /// Which group the node belongs to.
     group: Group,
     /// The recipe to execute.
     recipe: Spanned<Func>,
@@ -112,13 +112,14 @@ impl EntryNode {
         let index = ctx
             .pins
             .iter()
-            .filter(|other| other.is_in(&self.group) && other.loc.flow < pin.loc.flow)
+            .filter(|other| other.is_in(&self.group) && other.flow < pin.flow)
             .count();
 
+        // Prepare first argument.
         let dict = pin.encode(Some(index));
         let mut args = Args::new(self.recipe.span, [Value::Dict(dict)]);
 
-        // Collect all members if requested.
+        // Collect all group members if second argument is requested.
         if self.recipe.v.argc() == Some(2) {
             let all = ctx.pins.encode_group(&self.group);
             args.push(self.recipe.span, Value::Array(all))
@@ -128,10 +129,10 @@ impl EntryNode {
     }
 }
 
-/// A node with access to the group's members without being one itself.
+/// A node with access to a group's members.
 #[derive(Debug, Clone, PartialEq, Hash)]
 struct AllNode {
-    /// Which group.
+    /// Which group the node has access to.
     group: Group,
     /// The recipe to execute.
     recipe: Spanned<Func>,
@@ -145,56 +146,22 @@ impl AllNode {
     }
 }
 
-/// Manages pins.
+/// Manages document pins.
 #[derive(Debug, Clone, Hash)]
 pub struct PinBoard {
     /// All currently active pins.
-    pins: Vec<Pin>,
-    /// The index of the next pin in order.
+    list: Vec<Pin>,
+    /// The index of the next pin, in order.
     cursor: usize,
-    /// If larger than zero, the board is frozen.
+    /// If larger than zero, the board is frozen and the cursor will not be
+    /// advanced. This is used to disable pinning during measure-only layouting.
     frozen: usize,
 }
 
 impl PinBoard {
     /// Create an empty pin board.
     pub fn new() -> Self {
-        Self { pins: vec![], cursor: 0, frozen: 0 }
-    }
-
-    /// The number of pins on the board.
-    pub fn len(&self) -> usize {
-        self.pins.len()
-    }
-
-    /// Iterate over all pins on the board.
-    pub fn iter(&self) -> std::slice::Iter<Pin> {
-        self.pins.iter()
-    }
-
-    /// Freeze the board to prevent modifications.
-    pub fn freeze(&mut self) {
-        self.frozen += 1;
-    }
-
-    /// Freeze the board to prevent modifications.
-    pub fn unfreeze(&mut self) {
-        self.frozen -= 1;
-    }
-
-    /// Access the next pin.
-    pub fn next(&mut self, group: Option<Group>, value: Option<Value>) -> Pin {
-        if self.frozen > 0 {
-            return Pin::default();
-        }
-
-        let cursor = self.cursor;
-        self.jump(self.cursor + 1);
-
-        let pin = &mut self.pins[cursor];
-        pin.group = group;
-        pin.value = value;
-        pin.clone()
+        Self { list: vec![], cursor: 0, frozen: 0 }
     }
 
     /// The current cursor.
@@ -209,14 +176,24 @@ impl PinBoard {
         }
 
         self.cursor = cursor;
-        if cursor >= self.pins.len() {
-            self.pins.resize(cursor, Pin::default());
+        if cursor >= self.list.len() {
+            self.list.resize(cursor, Pin::default());
         }
+    }
+
+    /// Freeze the board to prevent modifications.
+    pub fn freeze(&mut self) {
+        self.frozen += 1;
+    }
+
+    /// Freeze the board to prevent modifications.
+    pub fn unfreeze(&mut self) {
+        self.frozen -= 1;
     }
 
     /// Reset the cursor and remove all unused pins.
     pub fn reset(&mut self) {
-        self.pins.truncate(self.cursor);
+        self.list.truncate(self.cursor);
         self.cursor = 0;
     }
 
@@ -224,8 +201,8 @@ impl PinBoard {
     pub fn locate(&mut self, frames: &[Arc<Frame>]) {
         let mut flow = 0;
         for (i, frame) in frames.iter().enumerate() {
-            locate_impl(
-                &mut self.pins,
+            locate_in_frame(
+                &mut self.list,
                 &mut flow,
                 1 + i,
                 frame,
@@ -234,15 +211,35 @@ impl PinBoard {
         }
     }
 
-    /// How many pins are resolved in comparison to an earlier snapshot.
-    pub fn resolved(&self, prev: &Self) -> usize {
-        self.pins.iter().zip(&prev.pins).filter(|(a, b)| a == b).count()
+    /// How many pins are unresolved in comparison to an earlier snapshot.
+    pub fn unresolved(&self, prev: &Self) -> usize {
+        self.list.len() - self.list.iter().zip(&prev.list).filter(|(a, b)| a == b).count()
+    }
+
+    /// Access the next pin.
+    fn next(&mut self, group: Option<Group>, value: Option<Value>) -> Pin {
+        if self.frozen > 0 {
+            return Pin::default();
+        }
+
+        let cursor = self.cursor;
+        self.jump(self.cursor + 1);
+
+        let pin = &mut self.list[cursor];
+        pin.group = group;
+        pin.value = value;
+        pin.clone()
+    }
+
+    /// Iterate over all pins on the board.
+    fn iter(&self) -> std::slice::Iter<Pin> {
+        self.list.iter()
     }
 
     /// Encode a group into a user-facing array.
-    pub fn encode_group(&self, group: &Group) -> Array {
+    fn encode_group(&self, group: &Group) -> Array {
         let mut all: Vec<_> = self.iter().filter(|other| other.is_in(group)).collect();
-        all.sort_by_key(|pin| pin.loc.flow);
+        all.sort_by_key(|pin| pin.flow);
         all.iter()
             .enumerate()
             .map(|(index, member)| Value::Dict(member.encode(Some(index))))
@@ -251,7 +248,7 @@ impl PinBoard {
 }
 
 /// Locate all pins in a frame.
-fn locate_impl(
+fn locate_in_frame(
     pins: &mut [Pin],
     flow: &mut usize,
     page: usize,
@@ -264,14 +261,14 @@ fn locate_impl(
                 let ts = ts
                     .pre_concat(Transform::translate(pos.x, pos.y))
                     .pre_concat(group.transform);
-                locate_impl(pins, flow, page, &group.frame, ts);
+                locate_in_frame(pins, flow, page, &group.frame, ts);
             }
 
             Element::Pin(idx) => {
-                let loc = &mut pins[*idx].loc;
-                loc.page = page;
-                loc.pos = pos.transform(ts);
-                loc.flow = *flow;
+                let pin = &mut pins[*idx];
+                pin.loc.page = page;
+                pin.loc.pos = pos.transform(ts);
+                pin.flow = *flow;
                 *flow += 1;
             }
 
@@ -282,9 +279,11 @@ fn locate_impl(
 
 /// A document pin.
 #[derive(Debug, Default, Clone, PartialEq, Hash)]
-pub struct Pin {
+struct Pin {
     /// The physical location of the pin in the document.
     loc: Location,
+    /// The flow index.
+    flow: usize,
     /// The group the pin belongs to, if any.
     group: Option<Group>,
     /// An arbitrary attached value.
@@ -299,11 +298,7 @@ impl Pin {
 
     /// Encode into a user-facing dictionary.
     fn encode(&self, index: Option<usize>) -> Dict {
-        let mut dict = dict! {
-            "page" => Value::Int(self.loc.page as i64),
-            "x" => Value::Length(self.loc.pos.x.into()),
-            "y" => Value::Length(self.loc.pos.y.into()),
-        };
+        let mut dict = self.loc.encode();
 
         if let Some(value) = &self.value {
             dict.insert("value".into(), value.clone());
@@ -319,11 +314,20 @@ impl Pin {
 
 /// A physical location in a document.
 #[derive(Debug, Default, Copy, Clone, PartialEq, Hash)]
-pub struct Location {
+struct Location {
     /// The page, starting at 1.
-    pub page: usize,
+    page: usize,
     /// The exact coordinates on the page (from the top left, as usual).
-    pub pos: Point,
-    /// The flow index.
-    pub flow: usize,
+    pos: Point,
+}
+
+impl Location {
+    /// Encode into a user-facing dictionary.
+    fn encode(&self) -> Dict {
+        dict! {
+            "page" => Value::Int(self.page as i64),
+            "x" => Value::Length(self.pos.x.into()),
+            "y" => Value::Length(self.pos.y.into()),
+        }
+    }
 }

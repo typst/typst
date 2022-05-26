@@ -35,16 +35,12 @@ pub fn layout(ctx: &mut Context, content: &Content) -> TypResult<Vec<Arc<Frame>>
 
         ctx.pins.locate(&frames);
 
-        let count = ctx.pins.len();
-        let resolved = ctx.pins.resolved(&prev);
-
         // Quit if we're done or if we've had five passes.
-        if resolved == count || pass >= 5 {
+        let unresolved = ctx.pins.unresolved(&prev);
+        if unresolved == 0 || pass >= 5 {
             break;
         }
     }
-
-    // println!("Took {pass} passes");
 
     Ok(frames)
 }
