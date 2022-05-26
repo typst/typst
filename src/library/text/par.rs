@@ -26,6 +26,8 @@ pub enum ParChild {
     Spacing(Spacing),
     /// An arbitrary inline-level node.
     Node(LayoutNode),
+    /// A pin identified by index.
+    Pin(usize),
 }
 
 #[node]
@@ -100,6 +102,7 @@ impl Debug for ParChild {
             Self::Quote { double } => write!(f, "Quote({double})"),
             Self::Spacing(kind) => write!(f, "{:?}", kind),
             Self::Node(node) => node.fmt(f),
+            Self::Pin(idx) => write!(f, "Pin({idx})"),
         }
     }
 }
@@ -275,6 +278,8 @@ enum Segment<'a> {
     Spacing(Spacing),
     /// An arbitrary inline-level layout node.
     Node(&'a LayoutNode),
+    /// A pin identified by index.
+    Pin(usize),
 }
 
 impl Segment<'_> {
@@ -282,7 +287,7 @@ impl Segment<'_> {
     fn len(&self) -> usize {
         match *self {
             Self::Text(len) => len,
-            Self::Spacing(_) => SPACING_REPLACE.len_utf8(),
+            Self::Spacing(_) | Self::Pin(_) => SPACING_REPLACE.len_utf8(),
             Self::Node(_) => NODE_REPLACE.len_utf8(),
         }
     }
@@ -301,6 +306,8 @@ enum Item<'a> {
     Frame(Arc<Frame>),
     /// A repeating node.
     Repeat(&'a RepeatNode, StyleChain<'a>),
+    /// A pin identified by index.
+    Pin(usize),
 }
 
 impl<'a> Item<'a> {
@@ -316,7 +323,9 @@ impl<'a> Item<'a> {
     fn len(&self) -> usize {
         match self {
             Self::Text(shaped) => shaped.text.len(),
-            Self::Absolute(_) | Self::Fractional(_) => SPACING_REPLACE.len_utf8(),
+            Self::Absolute(_) | Self::Fractional(_) | Self::Pin(_) => {
+                SPACING_REPLACE.len_utf8()
+            }
             Self::Frame(_) | Self::Repeat(_, _) => NODE_REPLACE.len_utf8(),
         }
     }
@@ -324,10 +333,10 @@ impl<'a> Item<'a> {
     /// The natural width of the item.
     fn width(&self) -> Length {
         match self {
-            Item::Text(shaped) => shaped.width,
-            Item::Absolute(v) => *v,
-            Item::Fractional(_) | Self::Repeat(_, _) => Length::zero(),
-            Item::Frame(frame) => frame.size.x,
+            Self::Text(shaped) => shaped.width,
+            Self::Absolute(v) => *v,
+            Self::Frame(frame) => frame.size.x,
+            Self::Fractional(_) | Self::Repeat(_, _) | Self::Pin(_) => Length::zero(),
         }
     }
 }
@@ -447,7 +456,7 @@ fn collect<'a>(
                 }
                 Segment::Text(full.len() - prev)
             }
-            ParChild::Quote { double } => {
+            &ParChild::Quote { double } => {
                 let prev = full.len();
                 if styles.get(TextNode::SMART_QUOTES) {
                     let lang = styles.get(TextNode::LANG);
@@ -456,23 +465,27 @@ fn collect<'a>(
                     let peeked = iter.peek().and_then(|(child, _)| match child {
                         ParChild::Text(text) => text.chars().next(),
                         ParChild::Quote { .. } => Some('"'),
-                        ParChild::Spacing(_) => Some(SPACING_REPLACE),
+                        ParChild::Spacing(_) | ParChild::Pin(_) => Some(SPACING_REPLACE),
                         ParChild::Node(_) => Some(NODE_REPLACE),
                     });
 
-                    full.push_str(quoter.quote(&quotes, *double, peeked));
+                    full.push_str(quoter.quote(&quotes, double, peeked));
                 } else {
-                    full.push(if *double { '"' } else { '\'' });
+                    full.push(if double { '"' } else { '\'' });
                 }
                 Segment::Text(full.len() - prev)
             }
-            ParChild::Spacing(spacing) => {
+            &ParChild::Spacing(spacing) => {
                 full.push(SPACING_REPLACE);
-                Segment::Spacing(*spacing)
+                Segment::Spacing(spacing)
             }
             ParChild::Node(node) => {
                 full.push(NODE_REPLACE);
                 Segment::Node(node)
+            }
+            &ParChild::Pin(idx) => {
+                full.push(SPACING_REPLACE);
+                Segment::Pin(idx)
             }
         };
 
@@ -540,6 +553,7 @@ fn prepare<'a>(
                     items.push(Item::Frame(frame));
                 }
             }
+            Segment::Pin(idx) => items.push(Item::Pin(idx)),
         }
 
         cursor = end;
@@ -1170,6 +1184,11 @@ fn commit(
                     }
                 }
                 offset = before + width;
+            }
+            Item::Pin(idx) => {
+                let mut frame = Frame::new(Size::zero());
+                frame.push(Point::zero(), Element::Pin(*idx));
+                push(&mut offset, MaybeShared::Owned(frame));
             }
         }
     }

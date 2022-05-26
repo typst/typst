@@ -218,6 +218,8 @@ pub enum Element {
     Image(ImageId, Size),
     /// A link to an external resource and its trigger region.
     Link(Destination, Size),
+    /// A pin identified by index.
+    Pin(usize),
 }
 
 impl Debug for Element {
@@ -227,7 +229,8 @@ impl Debug for Element {
             Self::Text(text) => write!(f, "{text:?}"),
             Self::Shape(shape) => write!(f, "{shape:?}"),
             Self::Image(image, _) => write!(f, "{image:?}"),
-            Self::Link(target, _) => write!(f, "Link({target:?})"),
+            Self::Link(dest, _) => write!(f, "Link({dest:?})"),
+            Self::Pin(idx) => write!(f, "Pin({idx})"),
         }
     }
 }

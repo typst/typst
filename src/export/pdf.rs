@@ -490,6 +490,7 @@ impl<'a> PageExporter<'a> {
                 Element::Shape(ref shape) => self.write_shape(x, y, shape),
                 Element::Image(id, size) => self.write_image(x, y, id, size),
                 Element::Link(ref dest, size) => self.write_link(pos, dest, size),
+                Element::Pin(_) => {}
             }
         }
     }

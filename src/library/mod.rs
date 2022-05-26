@@ -92,6 +92,7 @@ pub fn new() -> Scope {
     std.def_fn("roman", utility::roman);
     std.def_fn("symbol", utility::symbol);
     std.def_fn("lorem", utility::lorem);
+    std.def_fn("locate", utility::locate);
 
     // Predefined colors.
     std.def_const("black", Color::BLACK);

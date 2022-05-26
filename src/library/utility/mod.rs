@@ -1,10 +1,12 @@
 //! Computational utility functions.
 
 mod color;
+mod locate;
 mod math;
 mod string;
 
 pub use color::*;
+pub use locate::*;
 pub use math::*;
 pub use string::*;
 

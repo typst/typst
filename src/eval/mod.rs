@@ -797,7 +797,7 @@ impl Eval for ShowExpr {
             body,
         });
 
-        Ok(Recipe { pattern, func, span })
+        Ok(Recipe { pattern, func: Spanned::new(func, span) })
     }
 }
 

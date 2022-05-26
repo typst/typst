@@ -4,7 +4,7 @@ use super::{Content, Interruption, NodeId, Show, ShowNode, StyleChain, StyleEntr
 use crate::diag::TypResult;
 use crate::eval::{Args, Func, Regex, Value};
 use crate::library::structure::{EnumNode, ListNode};
-use crate::syntax::Span;
+use crate::syntax::Spanned;
 use crate::Context;
 
 /// A show rule recipe.
@@ -13,9 +13,7 @@ pub struct Recipe {
     /// The patterns to customize.
     pub pattern: Pattern,
     /// The function that defines the recipe.
-    pub func: Func,
-    /// The span to report all erros with.
-    pub span: Span,
+    pub func: Spanned<Func>,
 }
 
 impl Recipe {
@@ -81,13 +79,13 @@ impl Recipe {
     where
         F: FnOnce() -> Value,
     {
-        let args = if self.func.argc() == Some(0) {
-            Args::new(self.span, [])
+        let args = if self.func.v.argc() == Some(0) {
+            Args::new(self.func.span, [])
         } else {
-            Args::new(self.span, [arg()])
+            Args::new(self.func.span, [arg()])
         };
 
-        Ok(self.func.call_detached(ctx, args)?.display())
+        Ok(self.func.v.call_detached(ctx, args)?.display())
     }
 
     /// What kind of structure the property interrupts.
@@ -104,7 +102,11 @@ impl Recipe {
 
 impl Debug for Recipe {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "Recipe matching {:?} from {:?}", self.pattern, self.span)
+        write!(
+            f,
+            "Recipe matching {:?} from {:?}",
+            self.pattern, self.func.span
+        )
     }
 }
 
