@@ -20,6 +20,11 @@ A B C \
 D
 
 ---
+// Test forced justification with justified break.
+A B C \+
+D E F \+
+
+---
 // Test that justificating chinese text is at least a bit sensible.
 #set page(width: 200pt)
 #set par(justify: true)

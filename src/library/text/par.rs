@@ -770,7 +770,7 @@ fn linebreak_optimized<'a>(
             ratio = ratio.min(10.0);
 
             // Determine the cost of the line.
-            let mut cost = if ratio < if p.justify { MIN_RATIO } else { 0.0 } {
+            let mut cost = if ratio < if attempt.justify { MIN_RATIO } else { 0.0 } {
                 // The line is overfull. This is the case if
                 // - justification is on, but we'd need to shrink to much
                 // - justification is off and the line just doesn't fit
@@ -938,29 +938,30 @@ fn line<'a>(
     mandatory: bool,
     hyphen: bool,
 ) -> Line<'a> {
+    let end = range.end;
+    let mut justify = p.justify && end < p.bidi.text.len() && !mandatory;
+
     if range.is_empty() {
         return Line {
             bidi: &p.bidi,
-            end: range.end,
+            end,
             trimmed: range,
             first: None,
             inner: &[],
             last: None,
             width: Length::zero(),
-            justify: !mandatory,
+            justify,
             dash: false,
         };
     }
 
     // Slice out the relevant items.
-    let end = range.end;
     let (expanded, mut inner) = p.slice(range.clone());
     let mut width = Length::zero();
 
     // Reshape the last item if it's split in half or hyphenated.
     let mut last = None;
     let mut dash = false;
-    let mut justify = !mandatory;
     if let Some((Item::Text(shaped), before)) = inner.split_last() {
         // Compute the range we want to shape, trimming whitespace at the
         // end of the line.
@@ -1129,9 +1130,7 @@ fn commit(
     // Determine how much to justify each space.
     let fr = line.fr();
     let mut justification = Length::zero();
-    if remaining < Length::zero()
-        || (p.justify && line.justify && line.end < line.bidi.text.len() && fr.is_zero())
-    {
+    if remaining < Length::zero() || (line.justify && fr.is_zero()) {
         let justifiables = line.justifiables();
         if justifiables > 0 {
             justification = remaining / justifiables as f64;
