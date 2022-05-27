@@ -85,7 +85,7 @@ struct SingleNode(Spanned<Func>);
 impl SingleNode {
     fn realize(&self, ctx: &mut Context) -> TypResult<Content> {
         let idx = ctx.pins.cursor();
-        let pin = ctx.pins.next(None, None);
+        let pin = ctx.pins.get_or_create(None, None);
         let dict = pin.encode(None);
         let args = Args::new(self.0.span, [Value::Dict(dict)]);
         Ok(Content::Pin(idx) + self.0.v.call_detached(ctx, args)?.display())
@@ -106,7 +106,7 @@ struct EntryNode {
 impl EntryNode {
     fn realize(&self, ctx: &mut Context) -> TypResult<Content> {
         let idx = ctx.pins.cursor();
-        let pin = ctx.pins.next(Some(self.group.clone()), self.value.clone());
+        let pin = ctx.pins.get_or_create(Some(self.group.clone()), self.value.clone());
 
         // Determine the index among the peers.
         let index = ctx
@@ -231,8 +231,8 @@ impl PinBoard {
         self.list.len() - self.list.iter().zip(&prev.list).filter(|(a, b)| a == b).count()
     }
 
-    /// Access the next pin.
-    fn next(&mut self, group: Option<Group>, value: Option<Value>) -> Pin {
+    /// Access or create the next pin.
+    fn get_or_create(&mut self, group: Option<Group>, value: Option<Value>) -> Pin {
         if self.frozen() {
             return Pin::default();
         }

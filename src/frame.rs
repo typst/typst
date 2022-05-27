@@ -219,7 +219,8 @@ pub enum Element {
     Image(ImageId, Size),
     /// A link to an external resource and its trigger region.
     Link(Destination, Size),
-    /// A pin identified by index.
+    /// A pin identified by index. This is used to find elements on the pages
+    /// and use their location in formatting. Exporters can just ignore it.
     Pin(usize),
 }
 
