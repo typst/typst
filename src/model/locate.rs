@@ -169,15 +169,17 @@ impl PinBoard {
         self.cursor
     }
 
-    /// Set the current cursor.
-    pub fn jump(&mut self, cursor: usize) {
-        if self.frozen > 0 {
-            return;
-        }
+    /// All pins from `prev` to the current cursor.
+    pub fn from(&self, prev: usize) -> Vec<Pin> {
+        self.list[prev .. self.cursor].to_vec()
+    }
 
-        self.cursor = cursor;
-        if cursor >= self.list.len() {
-            self.list.resize(cursor, Pin::default());
+    /// Add the given pins at the given location and set the cursor behind them.
+    pub fn replay(&mut self, at: usize, pins: Vec<Pin>) {
+        if !self.frozen() {
+            self.cursor = at + pins.len();
+            let end = self.cursor.min(self.list.len());
+            self.list.splice(at .. end, pins);
         }
     }
 
@@ -189,6 +191,11 @@ impl PinBoard {
     /// Freeze the board to prevent modifications.
     pub fn unfreeze(&mut self) {
         self.frozen -= 1;
+    }
+
+    /// Whether the board is currently frozen.
+    pub fn frozen(&self) -> bool {
+        self.frozen > 0
     }
 
     /// Reset the cursor and remove all unused pins.
@@ -218,12 +225,15 @@ impl PinBoard {
 
     /// Access the next pin.
     fn next(&mut self, group: Option<Group>, value: Option<Value>) -> Pin {
-        if self.frozen > 0 {
+        if self.frozen() {
             return Pin::default();
         }
 
         let cursor = self.cursor;
-        self.jump(self.cursor + 1);
+        self.cursor += 1;
+        if self.cursor >= self.list.len() {
+            self.list.resize(self.cursor, Pin::default());
+        }
 
         let pin = &mut self.list[cursor];
         pin.group = group;
@@ -279,7 +289,7 @@ fn locate_in_frame(
 
 /// A document pin.
 #[derive(Debug, Default, Clone, PartialEq, Hash)]
-struct Pin {
+pub struct Pin {
     /// The physical location of the pin in the document.
     loc: Location,
     /// The flow index.
