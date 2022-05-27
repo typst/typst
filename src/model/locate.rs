@@ -112,7 +112,15 @@ impl EntryNode {
         let index = ctx
             .pins
             .iter()
-            .filter(|other| other.is_in(&self.group) && other.flow < pin.flow)
+            .enumerate()
+            .filter(|&(k, other)| {
+                other.is_in(&self.group)
+                    && if k < idx {
+                        other.flow <= pin.flow
+                    } else {
+                        other.flow < pin.flow
+                    }
+            })
             .count();
 
         // Prepare first argument.
@@ -248,7 +256,7 @@ impl PinBoard {
 
     /// Encode a group into a user-facing array.
     fn encode_group(&self, group: &Group) -> Array {
-        let mut all: Vec<_> = self.iter().filter(|other| other.is_in(group)).collect();
+        let mut all: Vec<_> = self.iter().filter(|pin| pin.is_in(group)).collect();
         all.sort_by_key(|pin| pin.flow);
         all.iter()
             .enumerate()

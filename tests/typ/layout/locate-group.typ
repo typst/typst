@@ -41,3 +41,22 @@
 ))}
 
 As shown in #cite("abc") and #cite("def") and #cite("abc") ...
+
+---
+// Test that `all` contains `me`.
+// Ref: false
+#show it: heading as group("headings").entry(
+  (me, all) => {
+    let last
+    for prev in all {
+      last = prev
+      if prev.index == me.index {
+        break
+      }
+    }
+    assert(last == me)
+  }
+)
+
+= A
+== B
