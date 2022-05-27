@@ -4,7 +4,7 @@ use std::sync::Arc;
 use super::Content;
 use crate::diag::TypResult;
 use crate::eval::{Args, Array, Dict, Func, Value};
-use crate::frame::{Element, Frame};
+use crate::frame::{Element, Frame, Location};
 use crate::geom::{Point, Transform};
 use crate::syntax::Spanned;
 use crate::util::EcoString;
@@ -296,7 +296,7 @@ fn locate_in_frame(
 }
 
 /// A document pin.
-#[derive(Debug, Default, Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub struct Pin {
     /// The physical location of the pin in the document.
     loc: Location,
@@ -330,22 +330,13 @@ impl Pin {
     }
 }
 
-/// A physical location in a document.
-#[derive(Debug, Default, Copy, Clone, PartialEq, Hash)]
-struct Location {
-    /// The page, starting at 1.
-    page: usize,
-    /// The exact coordinates on the page (from the top left, as usual).
-    pos: Point,
-}
-
-impl Location {
-    /// Encode into a user-facing dictionary.
-    fn encode(&self) -> Dict {
-        dict! {
-            "page" => Value::Int(self.page as i64),
-            "x" => Value::Length(self.pos.x.into()),
-            "y" => Value::Length(self.pos.y.into()),
+impl Default for Pin {
+    fn default() -> Self {
+        Self {
+            loc: Location { page: 0, pos: Point::zero() },
+            flow: 0,
+            group: None,
+            value: None,
         }
     }
 }
