@@ -1,6 +1,5 @@
 use super::TextNode;
 use crate::library::prelude::*;
-use crate::util::EcoString;
 
 /// Link text and other elements to an URL.
 #[derive(Debug, Hash)]
@@ -24,7 +23,7 @@ impl LinkNode {
             let dest = args.expect::<Destination>("destination")?;
             let body = match dest {
                 Destination::Url(_) => args.eat()?,
-                Destination::Internal(_, _) => Some(args.expect("body")?),
+                Destination::Internal(_) => Some(args.expect("body")?),
             };
             Self { dest, body }
         }))
@@ -36,10 +35,10 @@ castable! {
     Expected: "string or dictionary with `page`, `x`, and `y` keys",
     Value::Str(string) => Self::Url(string),
     Value::Dict(dict) => {
-        let page: i64 = dict.get(&EcoString::from_str("page"))?.clone().cast()?;
-        let x: RawLength = dict.get(&EcoString::from_str("x"))?.clone().cast()?;
-        let y: RawLength = dict.get(&EcoString::from_str("y"))?.clone().cast()?;
-        Self::Internal(page as usize, Point::new(x.length, y.length))
+        let page: i64 = dict.get(&"page".into())?.clone().cast()?;
+        let x: RawLength = dict.get(&"x".into())?.clone().cast()?;
+        let y: RawLength = dict.get(&"y".into())?.clone().cast()?;
+        Self::Internal(Location { page: page as usize, pos: Point::new(x.length, y.length) })
     },
 }
 
@@ -56,11 +55,7 @@ impl Show for LinkNode {
         dict! {
             "url" => match &self.dest {
                 Destination::Url(url) => Value::Str(url.clone()),
-                Destination::Internal(page, point) => Value::Dict(dict!{
-                    "page" => Value::Int(*page as i64),
-                    "x" => Value::Length(point.x.into()),
-                    "y" => Value::Length(point.y.into()),
-                }),
+                Destination::Internal(loc) => Value::Dict(loc.encode()),
             },
             "body" => match &self.body {
                 Some(body) => Value::Content(body.clone()),
@@ -79,7 +74,7 @@ impl Show for LinkNode {
                 let shorter = text.len() < url.len();
                 Content::Text(if shorter { text.into() } else { url.clone() })
             }
-            Destination::Internal(_, _) => panic!("missing body"),
+            Destination::Internal(_) => Content::Empty,
         }))
     }
 
@@ -99,7 +94,7 @@ impl Show for LinkNode {
         if match styles.get(Self::UNDERLINE) {
             Smart::Auto => match &self.dest {
                 Destination::Url(_) => true,
-                Destination::Internal(_, _) => false,
+                Destination::Internal(_) => false,
             },
             Smart::Custom(underline) => underline,
         } {

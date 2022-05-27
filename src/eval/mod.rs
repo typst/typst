@@ -31,7 +31,6 @@ pub use value::*;
 
 use std::collections::BTreeMap;
 
-use parking_lot::{MappedRwLockWriteGuard, RwLockWriteGuard};
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::diag::{At, StrResult, Trace, Tracepoint, TypResult};
@@ -165,7 +164,7 @@ fn eval_markup(
             }
             MarkupNode::Expr(Expr::Wrap(wrap)) => {
                 let tail = eval_markup(vm, nodes)?;
-                vm.scopes.top.def_mut(wrap.binding().take(), tail);
+                vm.scopes.top.define(wrap.binding().take(), tail);
                 wrap.body().eval(vm)?.display()
             }
 
@@ -354,10 +353,7 @@ impl Eval for Ident {
     type Output = Value;
 
     fn eval(&self, vm: &mut Machine) -> TypResult<Self::Output> {
-        match vm.scopes.get(self) {
-            Some(slot) => Ok(slot.read().clone()),
-            None => bail!(self.span(), "unknown variable"),
-        }
+        vm.scopes.get(self).cloned().at(self.span())
     }
 }
 
@@ -404,7 +400,7 @@ fn eval_code(
             }
             Expr::Wrap(wrap) => {
                 let tail = eval_code(vm, exprs)?;
-                vm.scopes.top.def_mut(wrap.binding().take(), tail);
+                vm.scopes.top.define(wrap.binding().take(), tail);
                 wrap.body().eval(vm)?
             }
 
@@ -565,8 +561,7 @@ impl BinaryExpr {
         op: fn(Value, Value) -> StrResult<Value>,
     ) -> TypResult<Value> {
         let rhs = self.rhs().eval(vm)?;
-        let lhs = self.lhs();
-        let mut location = lhs.access(vm)?;
+        let location = self.lhs().access(vm)?;
         let lhs = std::mem::take(&mut *location);
         *location = op(lhs, rhs).at(self.span())?;
         Ok(Value::None)
@@ -748,7 +743,7 @@ impl Eval for LetExpr {
             Some(expr) => expr.eval(vm)?,
             None => Value::None,
         };
-        vm.scopes.top.def_mut(self.binding().take(), value);
+        vm.scopes.top.define(self.binding().take(), value);
         Ok(Value::None)
     }
 }
@@ -797,7 +792,7 @@ impl Eval for ShowExpr {
             body,
         });
 
-        Ok(Recipe { pattern, func, span })
+        Ok(Recipe { pattern, func: Spanned::new(func, span) })
     }
 }
 
@@ -860,7 +855,7 @@ impl Eval for ForExpr {
             (for ($($binding:ident => $value:ident),*) in $iter:expr) => {{
                 #[allow(unused_parens)]
                 for ($($value),*) in $iter {
-                    $(vm.scopes.top.def_mut(&$binding, $value);)*
+                    $(vm.scopes.top.define(&$binding, $value);)*
 
                     let body = self.body();
                     let value = body.eval(vm)?;
@@ -937,14 +932,14 @@ impl Eval for ImportExpr {
 
         match self.imports() {
             Imports::Wildcard => {
-                for (var, slot) in module.scope.iter() {
-                    vm.scopes.top.def_mut(var, slot.read().clone());
+                for (var, value) in module.scope.iter() {
+                    vm.scopes.top.define(var, value.clone());
                 }
             }
             Imports::Items(idents) => {
                 for ident in idents {
-                    if let Some(slot) = module.scope.get(&ident) {
-                        vm.scopes.top.def_mut(ident.take(), slot.read().clone());
+                    if let Some(value) = module.scope.get(&ident) {
+                        vm.scopes.top.define(ident.take(), value.clone());
                     } else {
                         bail!(ident.span(), "unresolved import");
                     }
@@ -1028,11 +1023,11 @@ impl Eval for ReturnExpr {
 /// Access an expression mutably.
 pub trait Access {
     /// Access the value.
-    fn access<'a>(&self, vm: &'a mut Machine) -> TypResult<Location<'a>>;
+    fn access<'a>(&self, vm: &'a mut Machine) -> TypResult<&'a mut Value>;
 }
 
 impl Access for Expr {
-    fn access<'a>(&self, vm: &'a mut Machine) -> TypResult<Location<'a>> {
+    fn access<'a>(&self, vm: &'a mut Machine) -> TypResult<&'a mut Value> {
         match self {
             Expr::Ident(v) => v.access(vm),
             Expr::FieldAccess(v) => v.access(vm),
@@ -1043,68 +1038,35 @@ impl Access for Expr {
 }
 
 impl Access for Ident {
-    fn access<'a>(&self, vm: &'a mut Machine) -> TypResult<Location<'a>> {
-        match vm.scopes.get(self) {
-            Some(slot) => match slot.try_write() {
-                Some(guard) => Ok(RwLockWriteGuard::map(guard, |v| v)),
-                None => bail!(self.span(), "cannot mutate a constant"),
-            },
-            None => bail!(self.span(), "unknown variable"),
-        }
+    fn access<'a>(&self, vm: &'a mut Machine) -> TypResult<&'a mut Value> {
+        vm.scopes.get_mut(self).at(self.span())
     }
 }
 
 impl Access for FieldAccess {
-    fn access<'a>(&self, vm: &'a mut Machine) -> TypResult<Location<'a>> {
-        let guard = self.object().access(vm)?;
-        try_map(guard, |value| {
-            Ok(match value {
-                Value::Dict(dict) => dict.get_mut(self.field().take()),
-                v => bail!(
-                    self.object().span(),
-                    "expected dictionary, found {}",
-                    v.type_name(),
-                ),
-            })
+    fn access<'a>(&self, vm: &'a mut Machine) -> TypResult<&'a mut Value> {
+        Ok(match self.object().access(vm)? {
+            Value::Dict(dict) => dict.get_mut(self.field().take()),
+            v => bail!(
+                self.object().span(),
+                "expected dictionary, found {}",
+                v.type_name(),
+            ),
         })
     }
 }
 
 impl Access for FuncCall {
-    fn access<'a>(&self, vm: &'a mut Machine) -> TypResult<Location<'a>> {
+    fn access<'a>(&self, vm: &'a mut Machine) -> TypResult<&'a mut Value> {
         let args = self.args().eval(vm)?;
-        let guard = self.callee().access(vm)?;
-        try_map(guard, |value| {
-            Ok(match value {
-                Value::Array(array) => {
-                    array.get_mut(args.into_index()?).at(self.span())?
-                }
-                Value::Dict(dict) => dict.get_mut(args.into_key()?),
-                v => bail!(
-                    self.callee().span(),
-                    "expected collection, found {}",
-                    v.type_name(),
-                ),
-            })
+        Ok(match self.callee().access(vm)? {
+            Value::Array(array) => array.get_mut(args.into_index()?).at(self.span())?,
+            Value::Dict(dict) => dict.get_mut(args.into_key()?),
+            v => bail!(
+                self.callee().span(),
+                "expected collection, found {}",
+                v.type_name(),
+            ),
         })
     }
-}
-
-/// A mutable location.
-type Location<'a> = MappedRwLockWriteGuard<'a, Value>;
-
-/// Map a reader-writer lock with a function.
-fn try_map<F>(location: Location, f: F) -> TypResult<Location>
-where
-    F: FnOnce(&mut Value) -> TypResult<&mut Value>,
-{
-    let mut error = None;
-    MappedRwLockWriteGuard::try_map(location, |value| match f(value) {
-        Ok(value) => Some(value),
-        Err(err) => {
-            error = Some(err);
-            None
-        }
-    })
-    .map_err(|_| error.unwrap())
 }

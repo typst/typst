@@ -70,16 +70,27 @@ fn main() {
     );
     styles.set(TextNode::SIZE, TextSize(Length::pt(10.0).into()));
 
-    // Hook up an assert function into the global scope.
+    // Hook up helpers into the global scope.
     let mut std = typst::library::new();
-    std.def_const("conifer", RgbaColor::new(0x9f, 0xEB, 0x52, 0xFF));
-    std.def_const("forest", RgbaColor::new(0x43, 0xA1, 0x27, 0xFF));
+    std.define("conifer", RgbaColor::new(0x9f, 0xEB, 0x52, 0xFF));
+    std.define("forest", RgbaColor::new(0x43, 0xA1, 0x27, 0xFF));
     std.def_fn("test", move |_, args| {
         let lhs = args.expect::<Value>("left-hand side")?;
         let rhs = args.expect::<Value>("right-hand side")?;
         if lhs != rhs {
             bail!(args.span, "Assertion failed: {:?} != {:?}", lhs, rhs,);
         }
+        Ok(Value::None)
+    });
+    std.def_fn("print", move |_, args| {
+        print!("> ");
+        for (i, value) in args.all::<Value>()?.into_iter().enumerate() {
+            if i > 0 {
+                print!(", ")
+            }
+            print!("{value:?}");
+        }
+        println!();
         Ok(Value::None)
     });
 

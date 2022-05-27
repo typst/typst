@@ -206,7 +206,7 @@ impl Closure {
 
         // Parse the arguments according to the parameter list.
         for (param, default) in &self.params {
-            scopes.top.def_mut(param, match default {
+            scopes.top.define(param, match default {
                 None => args.expect::<Value>(param)?,
                 Some(default) => {
                     args.named::<Value>(param)?.unwrap_or_else(|| default.clone())
@@ -216,7 +216,7 @@ impl Closure {
 
         // Put the remaining arguments into the sink.
         if let Some(sink) = &self.sink {
-            scopes.top.def_mut(sink, args.take());
+            scopes.top.define(sink, args.take());
         }
 
         // Determine the route inside the closure.

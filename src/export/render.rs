@@ -62,6 +62,7 @@ fn render_frame(
                 render_image(canvas, ts, mask, ctx.images.get(id), size);
             }
             Element::Link(_, _) => {}
+            Element::Pin(_) => {}
         }
     }
 }

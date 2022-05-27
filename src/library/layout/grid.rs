@@ -204,7 +204,9 @@ impl<'a> GridLayouter<'a> {
 
     /// Determines the columns sizes and then layouts the grid row-by-row.
     pub fn layout(mut self) -> TypResult<Vec<Arc<Frame>>> {
+        self.ctx.pins.freeze();
         self.measure_columns()?;
+        self.ctx.pins.unfreeze();
 
         for y in 0 .. self.rows.len() {
             // Skip to next region if current one is full, but only for content
@@ -370,10 +372,12 @@ impl<'a> GridLayouter<'a> {
                     pod.base.x = self.regions.base.x;
                 }
 
+                self.ctx.pins.freeze();
                 let mut sizes = node
                     .layout(self.ctx, &pod, self.styles)?
                     .into_iter()
                     .map(|frame| frame.size.y);
+                self.ctx.pins.unfreeze();
 
                 // For each region, we want to know the maximum height any
                 // column requires.

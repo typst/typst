@@ -4,7 +4,7 @@ use std::any::Any;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::{self, Display, Formatter};
-use std::hash::Hash;
+use std::hash::{Hash, Hasher};
 
 thread_local! {
     /// The thread-local cache.
@@ -60,7 +60,7 @@ where
     O: 'static,
     G: Fn(&O) -> R,
 {
-    let hash = fxhash::hash64(&input);
+    let hash = fxhash::hash64(&(f, &input));
     let result = with(|cache| {
         let entry = cache.get_mut(&hash)?;
         entry.age = 0;
@@ -111,13 +111,13 @@ impl Display for Eviction {
 }
 
 // These impls are temporary and incorrect.
-macro_rules! skip {
-    ($ty:ty) => {
-        impl Hash for $ty {
-            fn hash<H: std::hash::Hasher>(&self, _: &mut H) {}
-        }
-    };
+
+impl Hash for crate::font::FontStore {
+    fn hash<H: Hasher>(&self, _: &mut H) {}
 }
 
-skip!(crate::font::FontStore);
-skip!(crate::Context);
+impl Hash for crate::Context {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.pins.hash(state);
+    }
+}

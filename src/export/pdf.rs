@@ -333,14 +333,14 @@ impl<'a> PdfExporter<'a> {
                             .action_type(ActionType::Uri)
                             .uri(Str(uri.as_str().as_bytes()));
                     }
-                    Destination::Internal(page, point) => {
-                        let page = page - 1;
-                        let height = page_heights[page];
+                    Destination::Internal(loc) => {
+                        let index = loc.page - 1;
+                        let height = page_heights[index];
                         link.action()
                             .action_type(ActionType::GoTo)
                             .destination_direct()
-                            .page(page_refs[page])
-                            .xyz(point.x.to_f32(), height - point.y.to_f32(), None);
+                            .page(page_refs[index])
+                            .xyz(loc.pos.x.to_f32(), height - loc.pos.y.to_f32(), None);
                     }
                 }
             }
@@ -490,6 +490,7 @@ impl<'a> PageExporter<'a> {
                 Element::Shape(ref shape) => self.write_shape(x, y, shape),
                 Element::Image(id, size) => self.write_image(x, y, id, size),
                 Element::Link(ref dest, size) => self.write_link(pos, dest, size),
+                Element::Pin(_) => {}
             }
         }
     }

@@ -61,7 +61,7 @@ use crate::font::FontStore;
 use crate::frame::Frame;
 use crate::image::ImageStore;
 use crate::loading::Loader;
-use crate::model::StyleMap;
+use crate::model::{PinBoard, StyleMap};
 use crate::source::{SourceId, SourceStore};
 
 /// Typeset a source file into a collection of layouted frames.
@@ -76,27 +76,30 @@ pub fn typeset(ctx: &mut Context, id: SourceId) -> TypResult<Vec<Arc<Frame>>> {
 
 /// The core context which holds the configuration and stores.
 pub struct Context {
-    /// The context's configuration.
-    pub config: Config,
     /// Stores loaded source files.
     pub sources: SourceStore,
     /// Stores parsed font faces.
     pub fonts: FontStore,
     /// Stores decoded images.
     pub images: ImageStore,
+    /// The context's configuration.
+    config: Config,
     /// Stores evaluated modules.
-    pub modules: HashMap<SourceId, Module>,
+    modules: HashMap<SourceId, Module>,
+    /// Stores document pins.
+    pins: PinBoard,
 }
 
 impl Context {
     /// Create a new context.
     pub fn new(loader: Arc<dyn Loader>, config: Config) -> Self {
         Self {
-            config,
             sources: SourceStore::new(Arc::clone(&loader)),
             fonts: FontStore::new(Arc::clone(&loader)),
             images: ImageStore::new(loader),
+            config,
             modules: HashMap::new(),
+            pins: PinBoard::new(),
         }
     }
 }

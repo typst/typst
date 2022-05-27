@@ -221,13 +221,20 @@ impl Layout for LayoutNode {
         regions: &Regions,
         styles: StyleChain,
     ) -> TypResult<Vec<Arc<Frame>>> {
-        crate::memo::memoized(
-            (self, ctx, regions, styles),
+        let (result, at, pins) = crate::memo::memoized(
+            (self, &mut *ctx, regions, styles),
             |(node, ctx, regions, styles)| {
+                let at = ctx.pins.cursor();
                 let entry = StyleEntry::Barrier(Barrier::new(node.id()));
-                node.0.layout(ctx, regions, entry.chain(&styles))
+                let result = node.0.layout(ctx, regions, entry.chain(&styles));
+                (result, at, ctx.pins.from(at))
             },
-        )
+        );
+
+        // Replay the side effect in case of caching. This should currently be
+        // more or less the only relevant side effect on the context.
+        ctx.pins.replay(at, pins);
+        result
     }
 
     fn pack(self) -> LayoutNode {

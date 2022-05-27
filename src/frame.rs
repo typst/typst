@@ -3,6 +3,7 @@
 use std::fmt::{self, Debug, Formatter, Write};
 use std::sync::Arc;
 
+use crate::eval::{Dict, Value};
 use crate::font::FaceId;
 use crate::geom::{
     Align, Em, Length, Numeric, Paint, Point, Shape, Size, Spec, Transform,
@@ -218,6 +219,9 @@ pub enum Element {
     Image(ImageId, Size),
     /// A link to an external resource and its trigger region.
     Link(Destination, Size),
+    /// A pin identified by index. This is used to find elements on the pages
+    /// and use their location in formatting. Exporters can just ignore it.
+    Pin(usize),
 }
 
 impl Debug for Element {
@@ -227,7 +231,8 @@ impl Debug for Element {
             Self::Text(text) => write!(f, "{text:?}"),
             Self::Shape(shape) => write!(f, "{shape:?}"),
             Self::Image(image, _) => write!(f, "{image:?}"),
-            Self::Link(target, _) => write!(f, "Link({target:?})"),
+            Self::Link(dest, _) => write!(f, "Link({dest:?})"),
+            Self::Pin(idx) => write!(f, "Pin({idx})"),
         }
     }
 }
@@ -310,21 +315,30 @@ pub struct Glyph {
 }
 
 /// A link destination.
-#[derive(Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum Destination {
     /// A link to a point on a page.
-    Internal(usize, Point),
+    Internal(Location),
     /// A link to a URL.
     Url(EcoString),
 }
 
-impl Debug for Destination {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            Self::Internal(page, point) => {
-                write!(f, "Internal(Page {}, {:?})", page, point)
-            }
-            Self::Url(url) => write!(f, "Url({})", url),
+/// A physical location in a document.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct Location {
+    /// The page, starting at 1.
+    pub page: usize,
+    /// The exact coordinates on the page (from the top left, as usual).
+    pub pos: Point,
+}
+
+impl Location {
+    /// Encode into a user-facing dictionary.
+    pub fn encode(&self) -> Dict {
+        dict! {
+            "page" => Value::Int(self.page as i64),
+            "x" => Value::Length(self.pos.x.into()),
+            "y" => Value::Length(self.pos.y.into()),
         }
     }
 }

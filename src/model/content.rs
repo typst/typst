@@ -7,8 +7,8 @@ use std::ops::{Add, AddAssign};
 use typed_arena::Arena;
 
 use super::{
-    Barrier, CollapsingBuilder, Interruption, Key, Layout, LayoutNode, Property, Show,
-    ShowNode, StyleEntry, StyleMap, StyleVecBuilder, Target,
+    Barrier, CollapsingBuilder, Interruption, Key, Layout, LayoutNode, LocateNode,
+    Property, Show, ShowNode, StyleEntry, StyleMap, StyleVecBuilder, Target,
 };
 use crate::diag::StrResult;
 use crate::library::layout::{FlowChild, FlowNode, PageNode, PlaceNode, Spacing};
@@ -20,7 +20,33 @@ use crate::library::text::{
 use crate::util::EcoString;
 
 /// Layout content into a collection of pages.
+///
+/// Relayouts until all pinned locations are converged.
 pub fn layout(ctx: &mut Context, content: &Content) -> TypResult<Vec<Arc<Frame>>> {
+    let mut pass = 0;
+    let mut frames;
+
+    loop {
+        let prev = ctx.pins.clone();
+        let result = layout_once(ctx, content);
+        ctx.pins.reset();
+        frames = result?;
+        pass += 1;
+
+        ctx.pins.locate(&frames);
+
+        // Quit if we're done or if we've had five passes.
+        let unresolved = ctx.pins.unresolved(&prev);
+        if unresolved == 0 || pass >= 5 {
+            break;
+        }
+    }
+
+    Ok(frames)
+}
+
+/// Layout content into a collection of pages once.
+fn layout_once(ctx: &mut Context, content: &Content) -> TypResult<Vec<Arc<Frame>>> {
     let copy = ctx.config.styles.clone();
     let styles = StyleChain::with_root(&copy);
     let scratch = Scratch::default();
@@ -88,6 +114,10 @@ pub enum Content {
     /// A node that can be realized with styles, optionally with attached
     /// properties.
     Show(ShowNode, Option<Dict>),
+    /// A node that can be realized with its location on the page.
+    Locate(LocateNode),
+    /// A pin identified by index.
+    Pin(usize),
     /// Content with attached styles.
     Styled(Arc<(Self, StyleMap)>),
     /// A sequence of multiple nodes.
@@ -272,6 +302,8 @@ impl Debug for Content {
             Self::Pagebreak { weak } => write!(f, "Pagebreak({weak})"),
             Self::Page(page) => page.fmt(f),
             Self::Show(node, _) => node.fmt(f),
+            Self::Locate(node) => node.fmt(f),
+            Self::Pin(idx) => write!(f, "Pin({idx})"),
             Self::Styled(styled) => {
                 let (sub, map) = styled.as_ref();
                 map.fmt(f)?;
@@ -388,6 +420,7 @@ impl<'a, 'ctx> Builder<'a, 'ctx> {
             }
 
             Content::Show(node, _) => return self.show(node, styles),
+            Content::Locate(node) => return self.locate(node, styles),
             Content::Styled(styled) => return self.styled(styled, styles),
             Content::Sequence(seq) => return self.sequence(seq, styles),
 
@@ -434,6 +467,12 @@ impl<'a, 'ctx> Builder<'a, 'ctx> {
             self.accept(stored, styles)?;
         }
         Ok(())
+    }
+
+    fn locate(&mut self, node: &LocateNode, styles: StyleChain<'a>) -> TypResult<()> {
+        let realized = node.realize(self.ctx)?;
+        let stored = self.scratch.templates.alloc(realized);
+        self.accept(stored, styles)
     }
 
     fn styled(
@@ -641,6 +680,9 @@ impl<'a> ParBuilder<'a> {
             Content::Inline(node) => {
                 self.0.supportive(ParChild::Node(node.clone()), styles);
             }
+            &Content::Pin(idx) => {
+                self.0.ignorant(ParChild::Pin(idx), styles);
+            }
             _ => return false,
         }
 
@@ -660,7 +702,7 @@ impl<'a> ParBuilder<'a> {
             && children
                 .items()
                 .find_map(|child| match child {
-                    ParChild::Spacing(_) => None,
+                    ParChild::Spacing(_) | ParChild::Pin(_) => None,
                     ParChild::Text(_) | ParChild::Quote { .. } => Some(true),
                     ParChild::Node(_) => Some(false),
                 })

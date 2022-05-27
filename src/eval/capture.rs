@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use super::{Scope, Scopes, Value};
 use crate::syntax::ast::{ClosureParam, Expr, Ident, Imports, TypedNode};
 use crate::syntax::RedRef;
@@ -28,14 +26,14 @@ impl<'a> CapturesVisitor<'a> {
 
     /// Bind a new internal variable.
     pub fn bind(&mut self, ident: Ident) {
-        self.internal.top.def_mut(ident.take(), Value::None);
+        self.internal.top.define(ident.take(), Value::None);
     }
 
     /// Capture a variable if it isn't internal.
     pub fn capture(&mut self, ident: Ident) {
-        if self.internal.get(&ident).is_none() {
-            if let Some(slot) = self.external.get(&ident) {
-                self.captures.def_slot(ident.take(), Arc::clone(slot));
+        if self.internal.get(&ident).is_err() {
+            if let Ok(value) = self.external.get(&ident) {
+                self.captures.define_captured(ident.take(), value.clone());
             }
         }
     }
@@ -145,9 +143,9 @@ mod tests {
         let red = RedNode::from_root(green, SourceId::from_raw(0));
 
         let mut scopes = Scopes::new(None);
-        scopes.top.def_const("x", 0);
-        scopes.top.def_const("y", 0);
-        scopes.top.def_const("z", 0);
+        scopes.top.define("x", 0);
+        scopes.top.define("y", 0);
+        scopes.top.define("z", 0);
 
         let mut visitor = CapturesVisitor::new(&scopes);
         visitor.visit(red.as_ref());
