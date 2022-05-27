@@ -16,10 +16,10 @@ use ttf_parser::{name_id, GlyphId, Tag};
 
 use super::subset::subset;
 use crate::font::{find_name, FaceId, FontStore};
-use crate::frame::{Element, Frame, Group, Text};
+use crate::frame::{Destination, Element, Frame, Group, Text};
 use crate::geom::{
-    self, Color, Dir, Em, Geometry, Length, Numeric, Paint, Point, Shape, Size, Stroke,
-    Transform,
+    self, Color, Dir, Em, Geometry, Length, Numeric, Paint, Point, Ratio, Shape, Size,
+    Stroke, Transform,
 };
 use crate::image::{Image, ImageId, ImageStore, RasterImage};
 use crate::library::text::Lang;
@@ -304,13 +304,18 @@ impl<'a> PdfExporter<'a> {
 
         // The page objects (non-root nodes in the page tree).
         let mut page_refs = vec![];
-        let mut languages = HashMap::new();
-        for page in self.pages {
+        let mut page_heights = vec![];
+        for page in &self.pages {
             let page_id = self.alloc.bump();
-            let content_id = self.alloc.bump();
             page_refs.push(page_id);
+            page_heights.push(page.size.y.to_f32());
+        }
 
-            let mut page_writer = self.writer.page(page_id);
+        let mut languages = HashMap::new();
+        for (page, page_id) in self.pages.into_iter().zip(page_refs.iter()) {
+            let content_id = self.alloc.bump();
+
+            let mut page_writer = self.writer.page(*page_id);
             page_writer.parent(page_tree_ref);
 
             let w = page.size.x.to_f32();
@@ -319,14 +324,25 @@ impl<'a> PdfExporter<'a> {
             page_writer.contents(content_id);
 
             let mut annotations = page_writer.annotations();
-            for (url, rect) in page.links {
-                annotations
-                    .push()
-                    .subtype(AnnotationType::Link)
-                    .rect(rect)
-                    .action()
-                    .action_type(ActionType::Uri)
-                    .uri(Str(url.as_bytes()));
+            for (dest, rect) in page.links {
+                let mut link = annotations.push();
+                link.subtype(AnnotationType::Link).rect(rect);
+                match dest {
+                    Destination::Url(uri) => {
+                        link.action()
+                            .action_type(ActionType::Uri)
+                            .uri(Str(uri.as_str().as_bytes()));
+                    }
+                    Destination::Internal(page, point) => {
+                        let page = page - 1;
+                        let height = page_heights[page];
+                        link.action()
+                            .action_type(ActionType::GoTo)
+                            .destination_direct()
+                            .page(page_refs[page])
+                            .xyz(point.x.to_f32(), height - point.y.to_f32(), None);
+                    }
+                }
             }
 
             annotations.finish();
@@ -403,7 +419,7 @@ struct PageExporter<'a> {
     languages: HashMap<Lang, usize>,
     bottom: f32,
     content: Content,
-    links: Vec<(String, Rect)>,
+    links: Vec<(Destination, Rect)>,
     state: State,
     saves: Vec<State>,
 }
@@ -412,7 +428,7 @@ struct PageExporter<'a> {
 struct Page {
     size: Size,
     content: Content,
-    links: Vec<(String, Rect)>,
+    links: Vec<(Destination, Rect)>,
     languages: HashMap<Lang, usize>,
 }
 
@@ -445,7 +461,14 @@ impl<'a> PageExporter<'a> {
     fn export(mut self, frame: &Frame) -> Page {
         // Make the coordinate system start at the top-left.
         self.bottom = frame.size.y.to_f32();
-        self.content.transform([1.0, 0.0, 0.0, -1.0, 0.0, self.bottom]);
+        self.transform(Transform {
+            sx: Ratio::one(),
+            ky: Ratio::zero(),
+            kx: Ratio::zero(),
+            sy: Ratio::new(-1.0),
+            tx: Length::zero(),
+            ty: frame.size.y,
+        });
         self.content.set_fill_color_space(ColorSpaceOperand::Named(SRGB));
         self.content.set_stroke_color_space(ColorSpaceOperand::Named(SRGB));
         self.write_frame(frame);
@@ -466,7 +489,7 @@ impl<'a> PageExporter<'a> {
                 Element::Text(ref text) => self.write_text(x, y, text),
                 Element::Shape(ref shape) => self.write_shape(x, y, shape),
                 Element::Image(id, size) => self.write_image(x, y, id, size),
-                Element::Link(ref url, size) => self.write_link(pos, url, size),
+                Element::Link(ref dest, size) => self.write_link(pos, dest, size),
             }
         }
     }
@@ -627,7 +650,7 @@ impl<'a> PageExporter<'a> {
         self.content.restore_state();
     }
 
-    fn write_link(&mut self, pos: Point, url: &str, size: Size) {
+    fn write_link(&mut self, pos: Point, dest: &Destination, size: Size) {
         let mut min_x = Length::inf();
         let mut min_y = Length::inf();
         let mut max_x = -Length::inf();
@@ -649,10 +672,11 @@ impl<'a> PageExporter<'a> {
 
         let x1 = min_x.to_f32();
         let x2 = max_x.to_f32();
-        let y1 = self.bottom - max_y.to_f32();
-        let y2 = self.bottom - min_y.to_f32();
+        let y1 = max_y.to_f32();
+        let y2 = min_y.to_f32();
         let rect = Rect::new(x1, y1, x2, y2);
-        self.links.push((url.to_string(), rect));
+
+        self.links.push((dest.clone(), rect));
     }
 
     fn save_state(&mut self) {

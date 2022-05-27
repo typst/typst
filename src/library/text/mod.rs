@@ -122,7 +122,7 @@ impl TextNode {
     pub const SMALLCAPS: bool = false;
     /// An URL the text should link to.
     #[property(skip, referenced)]
-    pub const LINK: Option<EcoString> = None;
+    pub const LINK: Option<Destination> = None;
     /// Decorative lines.
     #[property(skip, fold)]
     pub const DECO: Decoration = vec![];

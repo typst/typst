@@ -33,3 +33,7 @@ My cool #move(dx: 0.7cm, dy: 0.7cm, rotate(10deg, scale(200%, mylink)))
   My cool rhino
   #move(dx: 10pt, image("/res/rhino.png", width: 1cm))
 ])
+
+---
+// Link to page one.
+#link((page: 1, x: 10pt, y: 20pt))[Back to the start]

@@ -634,9 +634,13 @@ where
 
                 Ok(sides)
             }
-            v => T::cast(v)
-                .map(Sides::splat)
-                .map_err(|msg| with_alternative(msg, "dictionary")),
+            v => T::cast(v).map(Sides::splat).map_err(|msg| {
+                with_alternative(
+                    msg,
+                    "dictionary with any of `left`, `top`, `right`, `bottom`,\
+                     `x`, `y`, or `rest` as keys",
+                )
+            }),
         }
     }
 }

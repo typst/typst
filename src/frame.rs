@@ -127,8 +127,8 @@ impl Frame {
     }
 
     /// Link the whole frame to a resource.
-    pub fn link(&mut self, url: EcoString) {
-        self.push(Point::zero(), Element::Link(url, self.size));
+    pub fn link(&mut self, dest: Destination) {
+        self.push(Point::zero(), Element::Link(dest, self.size));
     }
 }
 
@@ -217,7 +217,7 @@ pub enum Element {
     /// An image and its size.
     Image(ImageId, Size),
     /// A link to an external resource and its trigger region.
-    Link(EcoString, Size),
+    Link(Destination, Size),
 }
 
 impl Debug for Element {
@@ -227,7 +227,7 @@ impl Debug for Element {
             Self::Text(text) => write!(f, "{text:?}"),
             Self::Shape(shape) => write!(f, "{shape:?}"),
             Self::Image(image, _) => write!(f, "{image:?}"),
-            Self::Link(url, _) => write!(f, "Link({url:?})"),
+            Self::Link(target, _) => write!(f, "Link({target:?})"),
         }
     }
 }
@@ -307,4 +307,24 @@ pub struct Glyph {
     pub x_offset: Em,
     /// The first character of the glyph's cluster.
     pub c: char,
+}
+
+/// A link destination.
+#[derive(Clone, Eq, PartialEq, Hash)]
+pub enum Destination {
+    /// A link to a point on a page.
+    Internal(usize, Point),
+    /// A link to a URL.
+    Url(EcoString),
+}
+
+impl Debug for Destination {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Self::Internal(page, point) => {
+                write!(f, "Internal(Page {}, {:?})", page, point)
+            }
+            Self::Url(url) => write!(f, "Url({})", url),
+        }
+    }
 }
