@@ -31,6 +31,8 @@ impl Debug for Paint {
 /// A color in a dynamic format.
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Color {
+    /// An 8-bit luma color.
+    Luma(LumaColor),
     /// An 8-bit RGBA color.
     Rgba(RgbaColor),
     /// An 8-bit CMYK color.
@@ -60,6 +62,7 @@ impl Color {
     /// Convert this color to RGBA.
     pub fn to_rgba(self) -> RgbaColor {
         match self {
+            Self::Luma(luma) => luma.to_rgba(),
             Self::Rgba(rgba) => rgba,
             Self::Cmyk(cmyk) => cmyk.to_rgba(),
         }
@@ -69,18 +72,48 @@ impl Color {
 impl Debug for Color {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
+            Self::Luma(c) => Debug::fmt(c, f),
             Self::Rgba(c) => Debug::fmt(c, f),
             Self::Cmyk(c) => Debug::fmt(c, f),
         }
     }
 }
 
-impl<T> From<T> for Color
-where
-    T: Into<RgbaColor>,
-{
-    fn from(rgba: T) -> Self {
-        Self::Rgba(rgba.into())
+/// An 8-bit Luma color.
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+pub struct LumaColor(pub u8);
+
+impl LumaColor {
+    /// Construct a new luma color.
+    pub const fn new(luma: u8) -> Self {
+        Self(luma)
+    }
+
+    /// Convert to an opque RGBA color.
+    pub const fn to_rgba(self) -> RgbaColor {
+        RgbaColor::new(self.0, self.0, self.0, 255)
+    }
+
+    /// Convert to CMYK as a fraction of true black.
+    pub fn to_cmyk(self) -> CmykColor {
+        CmykColor::new(
+            (self.0 as f64 * 0.75) as u8,
+            (self.0 as f64 * 0.68) as u8,
+            (self.0 as f64 * 0.67) as u8,
+            (self.0 as f64 * 0.90) as u8,
+        )
+    }
+}
+
+impl Debug for LumaColor {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "luma({})", self.0)
+    }
+}
+
+impl From<LumaColor> for Color {
+    fn from(luma: LumaColor) -> Self {
+        Self::Luma(luma)
     }
 }
 
@@ -101,11 +134,6 @@ impl RgbaColor {
     /// Construct a new RGBA color.
     pub const fn new(r: u8, g: u8, b: u8, a: u8) -> Self {
         Self { r, g, b, a }
-    }
-
-    /// Construct a new, opaque gray color.
-    pub const fn gray(luma: u8) -> Self {
-        Self::new(luma, luma, luma, 255)
     }
 }
 
@@ -161,11 +189,7 @@ impl From<SynColor> for RgbaColor {
 impl Debug for RgbaColor {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         if f.alternate() {
-            write!(
-                f,
-                "rgba({:02}, {:02}, {:02}, {:02})",
-                self.r, self.g, self.b, self.a,
-            )?;
+            write!(f, "rgba({}, {}, {}, {})", self.r, self.g, self.b, self.a,)?;
         } else {
             write!(f, "rgb(\"#{:02x}{:02x}{:02x}", self.r, self.g, self.b)?;
             if self.a != 255 {
@@ -174,6 +198,15 @@ impl Debug for RgbaColor {
             write!(f, "\")")?;
         }
         Ok(())
+    }
+}
+
+impl<T> From<T> for Color
+where
+    T: Into<RgbaColor>,
+{
+    fn from(rgba: T) -> Self {
+        Self::Rgba(rgba.into())
     }
 }
 
@@ -194,16 +227,6 @@ impl CmykColor {
     /// Construct a new CMYK color.
     pub const fn new(c: u8, m: u8, y: u8, k: u8) -> Self {
         Self { c, m, y, k }
-    }
-
-    /// Construct a new, opaque gray color as a fraction of true black.
-    pub fn gray(luma: u8) -> Self {
-        Self::new(
-            (luma as f64 * 0.75) as u8,
-            (luma as f64 * 0.68) as u8,
-            (luma as f64 * 0.67) as u8,
-            (luma as f64 * 0.90) as u8,
-        )
     }
 
     /// Convert this color to RGBA.

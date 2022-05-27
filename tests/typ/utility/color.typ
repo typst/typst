@@ -9,6 +9,12 @@
 #test(rgb(255, 0, 0, 50%), rgb("ff000080"))
 
 ---
+// Test gray color conversion.
+// Ref: true
+#rect(fill: luma(0))
+#rect(fill: luma(80%))
+
+---
 // Test CMYK color conversion.
 // Ref: true
 #rect(fill: cmyk(69%, 11%, 69%, 41%))

@@ -36,8 +36,9 @@ pub fn pdf(ctx: &Context, frames: &[Arc<Frame>]) -> Vec<u8> {
     PdfExporter::new(ctx).export(frames)
 }
 
-/// Identifies the sRGB color space definition.
+/// Identifies the color space definitions.
 const SRGB: Name<'static> = Name(b"sRGB");
+const SRGB_GRAY: Name<'static> = Name(b"sRGBGray");
 
 /// An exporter for a whole PDF document.
 struct PdfExporter<'a> {
@@ -365,6 +366,11 @@ impl<'a> PdfExporter<'a> {
 
         let mut resources = pages.resources();
         resources.color_spaces().insert(SRGB).start::<ColorSpace>().srgb();
+        resources
+            .color_spaces()
+            .insert(SRGB_GRAY)
+            .start::<ColorSpace>()
+            .srgb_gray();
 
         let mut fonts = resources.fonts();
         for (font_ref, f) in self.face_map.pdf_indices(&self.face_refs) {
@@ -437,9 +443,11 @@ struct Page {
 #[derive(Debug, Default, Clone)]
 struct State {
     transform: Transform,
-    fill: Option<Paint>,
-    stroke: Option<Stroke>,
     font: Option<(FaceId, Length)>,
+    fill: Option<Paint>,
+    fill_space: Option<Name<'static>>,
+    stroke: Option<Stroke>,
+    stroke_space: Option<Name<'static>>,
 }
 
 impl<'a> PageExporter<'a> {
@@ -469,8 +477,6 @@ impl<'a> PageExporter<'a> {
             tx: Length::zero(),
             ty: frame.size.y,
         });
-        self.content.set_fill_color_space(ColorSpaceOperand::Named(SRGB));
-        self.content.set_stroke_color_space(ColorSpaceOperand::Named(SRGB));
         self.write_frame(frame);
         Page {
             size: frame.size,
@@ -708,6 +714,7 @@ impl<'a> PageExporter<'a> {
             self.font_map.insert(face_id);
             let name = format_eco!("F{}", self.font_map.map(face_id));
             self.content.set_font(Name(name.as_bytes()), size.to_f32());
+            self.state.font = Some((face_id, size));
         }
     }
 
@@ -716,13 +723,26 @@ impl<'a> PageExporter<'a> {
             let f = |c| c as f32 / 255.0;
             let Paint::Solid(color) = fill;
             match color {
+                Color::Luma(c) => {
+                    self.set_fill_color_space(SRGB_GRAY);
+                    self.content.set_fill_gray(f(c.0));
+                }
                 Color::Rgba(c) => {
+                    self.set_fill_color_space(SRGB);
                     self.content.set_fill_color([f(c.r), f(c.g), f(c.b)]);
                 }
                 Color::Cmyk(c) => {
                     self.content.set_fill_cmyk(f(c.c), f(c.m), f(c.y), f(c.k));
                 }
             }
+            self.state.fill = Some(fill);
+        }
+    }
+
+    fn set_fill_color_space(&mut self, space: Name<'static>) {
+        if self.state.fill_space != Some(space) {
+            self.content.set_fill_color_space(ColorSpaceOperand::Named(space));
+            self.state.fill_space = Some(space);
         }
     }
 
@@ -731,7 +751,12 @@ impl<'a> PageExporter<'a> {
             let f = |c| c as f32 / 255.0;
             let Paint::Solid(color) = stroke.paint;
             match color {
+                Color::Luma(c) => {
+                    self.set_stroke_color_space(SRGB_GRAY);
+                    self.content.set_stroke_gray(f(c.0));
+                }
                 Color::Rgba(c) => {
+                    self.set_stroke_color_space(SRGB);
                     self.content.set_stroke_color([f(c.r), f(c.g), f(c.b)]);
                 }
                 Color::Cmyk(c) => {
@@ -740,6 +765,14 @@ impl<'a> PageExporter<'a> {
             }
 
             self.content.set_line_width(stroke.thickness.to_f32());
+            self.state.stroke = Some(stroke);
+        }
+    }
+
+    fn set_stroke_color_space(&mut self, space: Name<'static>) {
+        if self.state.stroke_space != Some(space) {
+            self.content.set_stroke_color_space(ColorSpaceOperand::Named(space));
+            self.state.stroke_space = Some(space);
         }
     }
 }
