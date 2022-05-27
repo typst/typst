@@ -37,6 +37,34 @@ impl Frame {
         self.baseline.unwrap_or(self.size.y)
     }
 
+    /// The layer the next item will be added on. This corresponds to the number
+    /// of elements in the frame.
+    pub fn layer(&self) -> usize {
+        self.elements.len()
+    }
+
+    /// Whether the frame has comparatively few elements.
+    pub fn is_light(&self) -> bool {
+        self.elements.len() <= 5
+    }
+
+    /// Add an element at a position in the foreground.
+    pub fn push(&mut self, pos: Point, element: Element) {
+        self.elements.push((pos, element));
+    }
+
+    /// Add a frame.
+    ///
+    /// Automatically decides whether to inline the frame or to include it as a
+    /// group based on the number of elements in the frame.
+    pub fn push_frame(&mut self, pos: Point, frame: impl FrameRepr) {
+        if self.elements.is_empty() || frame.as_ref().is_light() {
+            frame.inline(self, self.layer(), pos);
+        } else {
+            self.elements.push((pos, Element::Group(Group::new(frame.share()))));
+        }
+    }
+
     /// Add an element at a position in the background.
     pub fn prepend(&mut self, pos: Point, element: Element) {
         self.elements.insert(0, (pos, element));
@@ -50,15 +78,14 @@ impl Frame {
         self.elements.splice(0 .. 0, insert);
     }
 
-    /// Add an element at a position in the foreground.
-    pub fn push(&mut self, pos: Point, element: Element) {
-        self.elements.push((pos, element));
-    }
-
-    /// The layer the next item will be added on. This corresponds to the number
-    /// of elements in the frame.
-    pub fn layer(&self) -> usize {
-        self.elements.len()
+    /// Add a frame at a position in the background.
+    pub fn prepend_frame(&mut self, pos: Point, frame: impl FrameRepr) {
+        if self.elements.is_empty() || frame.as_ref().is_light() {
+            frame.inline(self, 0, pos);
+        } else {
+            self.elements
+                .insert(0, (pos, Element::Group(Group::new(frame.share()))));
+        }
     }
 
     /// Insert an element at the given layer in the frame.
@@ -66,18 +93,6 @@ impl Frame {
     /// This panics if the layer is greater than the number of layers present.
     pub fn insert(&mut self, layer: usize, pos: Point, element: Element) {
         self.elements.insert(layer, (pos, element));
-    }
-
-    /// Add a frame.
-    ///
-    /// Automatically decides whether to inline the frame or to include it as a
-    /// group based on the number of elements in the frame.
-    pub fn push_frame(&mut self, pos: Point, frame: impl FrameRepr) {
-        if self.elements.is_empty() || frame.as_ref().elements.len() <= 5 {
-            frame.inline(self, pos);
-        } else {
-            self.elements.push((pos, Element::Group(Group::new(frame.share()))));
-        }
     }
 
     /// Resize the frame to a new size, distributing new space according to the
@@ -153,7 +168,7 @@ pub trait FrameRepr: AsRef<Frame> {
     fn share(self) -> Arc<Frame>;
 
     /// Inline `self` into the sink frame.
-    fn inline(self, sink: &mut Frame, offset: Point);
+    fn inline(self, sink: &mut Frame, layer: usize, offset: Point);
 }
 
 impl FrameRepr for Frame {
@@ -161,16 +176,18 @@ impl FrameRepr for Frame {
         Arc::new(self)
     }
 
-    fn inline(self, sink: &mut Frame, offset: Point) {
+    fn inline(self, sink: &mut Frame, layer: usize, offset: Point) {
         if offset.is_zero() {
             if sink.elements.is_empty() {
                 sink.elements = self.elements;
             } else {
-                sink.elements.extend(self.elements);
+                sink.elements.splice(layer .. layer, self.elements);
             }
         } else {
-            sink.elements
-                .extend(self.elements.into_iter().map(|(p, e)| (p + offset, e)));
+            sink.elements.splice(
+                layer .. layer,
+                self.elements.into_iter().map(|(p, e)| (p + offset, e)),
+            );
         }
     }
 }
@@ -180,12 +197,15 @@ impl FrameRepr for Arc<Frame> {
         self
     }
 
-    fn inline(self, sink: &mut Frame, offset: Point) {
+    fn inline(self, sink: &mut Frame, layer: usize, offset: Point) {
         match Arc::try_unwrap(self) {
-            Ok(frame) => frame.inline(sink, offset),
-            Err(rc) => sink
-                .elements
-                .extend(rc.elements.iter().cloned().map(|(p, e)| (p + offset, e))),
+            Ok(frame) => frame.inline(sink, layer, offset),
+            Err(rc) => {
+                sink.elements.splice(
+                    layer .. layer,
+                    rc.elements.iter().cloned().map(|(p, e)| (p + offset, e)),
+                );
+            }
         }
     }
 }
@@ -198,10 +218,10 @@ impl FrameRepr for MaybeShared<Frame> {
         }
     }
 
-    fn inline(self, sink: &mut Frame, offset: Point) {
+    fn inline(self, sink: &mut Frame, layer: usize, offset: Point) {
         match self {
-            Self::Owned(owned) => owned.inline(sink, offset),
-            Self::Shared(shared) => shared.inline(sink, offset),
+            Self::Owned(owned) => owned.inline(sink, layer, offset),
+            Self::Shared(shared) => shared.inline(sink, layer, offset),
         }
     }
 }

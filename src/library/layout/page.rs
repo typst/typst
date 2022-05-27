@@ -34,6 +34,12 @@ impl PageNode {
     /// The page's footer.
     #[property(referenced)]
     pub const FOOTER: Marginal = Marginal::None;
+    /// Content in the page's background.
+    #[property(referenced)]
+    pub const BACKGROUND: Marginal = Marginal::None;
+    /// Content in the page's foreground.
+    #[property(referenced)]
+    pub const FOREGROUND: Marginal = Marginal::None;
 
     fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
         Ok(Content::Page(Self(args.expect("body")?)))
@@ -95,22 +101,29 @@ impl PageNode {
 
         let header = styles.get(Self::HEADER);
         let footer = styles.get(Self::FOOTER);
+        let foreground = styles.get(Self::FOREGROUND);
+        let background = styles.get(Self::BACKGROUND);
 
-        // Realize header and footer.
+        // Realize overlays.
         for frame in &mut frames {
             let size = frame.size;
-            let padding = padding.resolve(styles).relative_to(size);
-            for (y, h, marginal) in [
-                (Length::zero(), padding.top, header),
-                (size.y - padding.bottom, padding.bottom, footer),
+            let pad = padding.resolve(styles).relative_to(size);
+            let pw = size.x - pad.left - pad.right;
+            let py = size.y - pad.bottom;
+            for (marginal, pos, area) in [
+                (header, Point::with_x(pad.left), Size::new(pw, pad.top)),
+                (footer, Point::new(pad.left, py), Size::new(pw, pad.bottom)),
+                (foreground, Point::zero(), size),
+                (background, Point::zero(), size),
             ] {
                 if let Some(content) = marginal.resolve(ctx, page)? {
-                    let pos = Point::new(padding.left, y);
-                    let w = size.x - padding.left - padding.right;
-                    let area = Size::new(w, h);
-                    let pod = Regions::one(area, area, area.map(Length::is_finite));
+                    let pod = Regions::one(area, area, Spec::splat(true));
                     let sub = content.layout(ctx, &pod, styles)?.remove(0);
-                    Arc::make_mut(frame).push_frame(pos, sub);
+                    if std::ptr::eq(marginal, background) {
+                        Arc::make_mut(frame).prepend_frame(pos, sub);
+                    } else {
+                        Arc::make_mut(frame).push_frame(pos, sub);
+                    }
                 }
             }
 
@@ -140,7 +153,7 @@ impl PagebreakNode {
     }
 }
 
-/// A header or footer definition.
+/// A header, footer, foreground or background definition.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum Marginal {
     /// Nothing,
