@@ -3,9 +3,9 @@ use std::fmt::{self, Debug, Formatter, Write};
 use std::ops::{Add, AddAssign};
 use std::sync::Arc;
 
-use super::{ops, Args, Func, Machine, Value};
+use super::{ops, Args, Cast, Func, Machine, Value};
 use crate::diag::{At, StrResult, TypResult};
-use crate::syntax::Spanned;
+use crate::syntax::{Span, Spanned};
 use crate::util::ArcExt;
 
 /// Create a new [`Array`] from values.
@@ -120,10 +120,19 @@ impl Array {
 
     /// Transform each item in the array with a function.
     pub fn map(&self, vm: &mut Machine, f: Spanned<Func>) -> TypResult<Self> {
+        let enumerate = f.v.argc() == Some(2);
         Ok(self
             .iter()
             .cloned()
-            .map(|item| f.v.call(vm, Args::new(f.span, [item])))
+            .enumerate()
+            .map(|(i, item)| {
+                let mut args = Args::new(f.span, []);
+                if enumerate {
+                    args.push(f.span, Value::Int(i as i64));
+                }
+                args.push(f.span, item);
+                f.v.call(vm, args)
+            })
             .collect::<TypResult<_>>()?)
     }
 
@@ -157,8 +166,14 @@ impl Array {
     }
 
     /// Return the index of the element if it is part of the array.
-    pub fn find(&self, value: Value) -> Option<i64> {
-        self.0.iter().position(|x| *x == value).map(|i| i as i64)
+    pub fn find(&self, vm: &mut Machine, target: Target) -> TypResult<Option<i64>> {
+        for (i, item) in self.iter().enumerate() {
+            if target.matches(vm, item)? {
+                return Ok(Some(i as i64));
+            }
+        }
+
+        Ok(None)
     }
 
     /// Join all values in the array, optionally with separator and last
@@ -302,5 +317,39 @@ impl<'a> IntoIterator for &'a Array {
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
+    }
+}
+
+/// Something that can be found.
+pub enum Target {
+    /// A bare value.
+    Value(Value),
+    /// A function that returns a boolean.
+    Func(Func, Span),
+}
+
+impl Target {
+    /// Whether the value is the search target.
+    pub fn matches(&self, vm: &mut Machine, other: &Value) -> TypResult<bool> {
+        match self {
+            Self::Value(value) => Ok(value == other),
+            Self::Func(f, span) => f
+                .call(vm, Args::new(*span, [other.clone()]))?
+                .cast::<bool>()
+                .at(*span),
+        }
+    }
+}
+
+impl Cast<Spanned<Value>> for Target {
+    fn is(_: &Spanned<Value>) -> bool {
+        true
+    }
+
+    fn cast(value: Spanned<Value>) -> StrResult<Self> {
+        Ok(match value.v {
+            Value::Func(v) => Self::Func(v, value.span),
+            v => Self::Value(v),
+        })
     }
 }

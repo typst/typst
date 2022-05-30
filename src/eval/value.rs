@@ -713,9 +713,9 @@ castable! {
 castable! {
     Pattern,
     Expected: "function, string or regular expression",
-    Value::Func(func) => Pattern::Node(func.node()?),
-    Value::Str(text) => Pattern::text(&text),
-    @regex: Regex => Pattern::Regex(regex.clone()),
+    Value::Func(func) => Self::Node(func.node()?),
+    Value::Str(text) => Self::text(&text),
+    @regex: Regex => Self::Regex(regex.clone()),
 }
 
 #[cfg(test)]

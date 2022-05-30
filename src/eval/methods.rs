@@ -38,7 +38,9 @@ pub fn call(
             "map" => Value::Array(array.map(vm, args.expect("function")?)?),
             "filter" => Value::Array(array.filter(vm, args.expect("function")?)?),
             "flatten" => Value::Array(array.flatten()),
-            "find" => array.find(args.expect("value")?).map_or(Value::None, Value::Int),
+            "find" => array
+                .find(vm, args.expect("value or function")?)?
+                .map_or(Value::None, Value::Int),
             "join" => {
                 let sep = args.eat()?;
                 let last = args.named("last")?;

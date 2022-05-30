@@ -32,6 +32,7 @@
 // Test the `find` method.
 #test(("Hi", "❤️", "Love").find("❤️"), 1)
 #test(("Bye", "💘", "Apart").find("❤️"), none)
+#test(("A", "B", "CDEF", "G").find(v => v.len() > 2), 2)
 
 ---
 // Test the `slice` method.
