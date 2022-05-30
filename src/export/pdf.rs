@@ -226,7 +226,7 @@ impl<'a> PdfExporter<'a> {
             let mut font_stream = self.writer.stream(data_ref, &data);
 
             if subtype == CidFontType::Type0 {
-                font_stream.pair(Name(b"Subtype"), Name(b"CIDFontType0C"));
+                font_stream.pair(Name(b"Subtype"), Name(b"OpenType"));
             }
 
             font_stream.filter(Filter::FlateDecode).finish();
