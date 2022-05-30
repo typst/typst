@@ -37,8 +37,8 @@ pub fn pdf(ctx: &Context, frames: &[Arc<Frame>]) -> Vec<u8> {
 }
 
 /// Identifies the color space definitions.
-const SRGB: Name<'static> = Name(b"sRGB");
-const SRGB_GRAY: Name<'static> = Name(b"sRGBGray");
+const SRGB: Name<'static> = Name(b"srgb");
+const SRGB_GRAY: Name<'static> = Name(b"srgbgray");
 
 /// An exporter for a whole PDF document.
 struct PdfExporter<'a> {
@@ -365,12 +365,10 @@ impl<'a> PdfExporter<'a> {
         pages.count(page_refs.len() as i32).kids(page_refs);
 
         let mut resources = pages.resources();
-        resources.color_spaces().insert(SRGB).start::<ColorSpace>().srgb();
-        resources
-            .color_spaces()
-            .insert(SRGB_GRAY)
-            .start::<ColorSpace>()
-            .srgb_gray();
+        let mut spaces = resources.color_spaces();
+        spaces.insert(SRGB).start::<ColorSpace>().srgb();
+        spaces.insert(SRGB_GRAY).start::<ColorSpace>().srgb_gray();
+        spaces.finish();
 
         let mut fonts = resources.fonts();
         for (font_ref, f) in self.face_map.pdf_indices(&self.face_refs) {
