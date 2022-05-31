@@ -1,4 +1,6 @@
+use std::cell::Cell;
 use std::fmt::{self, Debug, Formatter};
+use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use super::Content;
@@ -6,6 +8,7 @@ use crate::diag::TypResult;
 use crate::eval::{Args, Array, Dict, Func, Value};
 use crate::frame::{Element, Frame, Location};
 use crate::geom::{Point, Transform};
+use crate::memo::Track;
 use crate::syntax::Spanned;
 use crate::util::EcoString;
 use crate::Context;
@@ -84,7 +87,7 @@ struct SingleNode(Spanned<Func>);
 
 impl SingleNode {
     fn realize(&self, ctx: &mut Context) -> TypResult<Content> {
-        let idx = ctx.pins.cursor();
+        let idx = ctx.pins.cursor;
         let pin = ctx.pins.get_or_create(None, None);
         let dict = pin.encode(None);
         let args = Args::new(self.0.span, [Value::Dict(dict)]);
@@ -105,7 +108,7 @@ struct EntryNode {
 
 impl EntryNode {
     fn realize(&self, ctx: &mut Context) -> TypResult<Content> {
-        let idx = ctx.pins.cursor();
+        let idx = ctx.pins.cursor;
         let pin = ctx.pins.get_or_create(Some(self.group.clone()), self.value.clone());
 
         // Determine the index among the peers.
@@ -155,7 +158,7 @@ impl AllNode {
 }
 
 /// Manages document pins.
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone)]
 pub struct PinBoard {
     /// All currently active pins.
     list: Vec<Pin>,
@@ -164,14 +167,63 @@ pub struct PinBoard {
     /// If larger than zero, the board is frozen and the cursor will not be
     /// advanced. This is used to disable pinning during measure-only layouting.
     frozen: usize,
+    /// Whether the board was accessed.
+    pub(super) dirty: Cell<bool>,
 }
 
 impl PinBoard {
     /// Create an empty pin board.
     pub fn new() -> Self {
-        Self { list: vec![], cursor: 0, frozen: 0 }
+        Self {
+            list: vec![],
+            cursor: 0,
+            frozen: 0,
+            dirty: Cell::new(false),
+        }
+    }
+}
+
+/// Internal methods for implementation of locatable nodes.
+impl PinBoard {
+    /// Access or create the next pin.
+    fn get_or_create(&mut self, group: Option<Group>, value: Option<Value>) -> Pin {
+        self.dirty.set(true);
+        if self.frozen() {
+            return Pin::default();
+        }
+
+        let cursor = self.cursor;
+        self.cursor += 1;
+        if self.cursor >= self.list.len() {
+            self.list.resize(self.cursor, Pin::default());
+        }
+
+        let pin = &mut self.list[cursor];
+        pin.group = group;
+        pin.value = value;
+        pin.clone()
     }
 
+    /// Encode a group into a user-facing array.
+    fn encode_group(&self, group: &Group) -> Array {
+        self.dirty.set(true);
+        let mut all: Vec<_> = self.iter().filter(|pin| pin.is_in(group)).collect();
+        all.sort_by_key(|pin| pin.flow);
+        all.iter()
+            .enumerate()
+            .map(|(index, member)| Value::Dict(member.encode(Some(index))))
+            .collect()
+    }
+
+    /// Iterate over all pins on the board.
+    fn iter(&self) -> std::slice::Iter<Pin> {
+        self.dirty.set(true);
+        self.list.iter()
+    }
+}
+
+/// Caching related methods.
+impl PinBoard {
     /// The current cursor.
     pub fn cursor(&self) -> usize {
         self.cursor
@@ -190,7 +242,10 @@ impl PinBoard {
             self.list.splice(at .. end, pins);
         }
     }
+}
 
+/// Control methods that are called during layout.
+impl PinBoard {
     /// Freeze the board to prevent modifications.
     pub fn freeze(&mut self) {
         self.frozen += 1;
@@ -205,11 +260,15 @@ impl PinBoard {
     pub fn frozen(&self) -> bool {
         self.frozen > 0
     }
+}
 
+/// Methods that are called in between layout passes.
+impl PinBoard {
     /// Reset the cursor and remove all unused pins.
     pub fn reset(&mut self) {
         self.list.truncate(self.cursor);
         self.cursor = 0;
+        self.dirty.set(false);
     }
 
     /// Locate all pins in the frames.
@@ -229,39 +288,6 @@ impl PinBoard {
     /// How many pins are unresolved in comparison to an earlier snapshot.
     pub fn unresolved(&self, prev: &Self) -> usize {
         self.list.len() - self.list.iter().zip(&prev.list).filter(|(a, b)| a == b).count()
-    }
-
-    /// Access or create the next pin.
-    fn get_or_create(&mut self, group: Option<Group>, value: Option<Value>) -> Pin {
-        if self.frozen() {
-            return Pin::default();
-        }
-
-        let cursor = self.cursor;
-        self.cursor += 1;
-        if self.cursor >= self.list.len() {
-            self.list.resize(self.cursor, Pin::default());
-        }
-
-        let pin = &mut self.list[cursor];
-        pin.group = group;
-        pin.value = value;
-        pin.clone()
-    }
-
-    /// Iterate over all pins on the board.
-    fn iter(&self) -> std::slice::Iter<Pin> {
-        self.list.iter()
-    }
-
-    /// Encode a group into a user-facing array.
-    fn encode_group(&self, group: &Group) -> Array {
-        let mut all: Vec<_> = self.iter().filter(|pin| pin.is_in(group)).collect();
-        all.sort_by_key(|pin| pin.flow);
-        all.iter()
-            .enumerate()
-            .map(|(index, member)| Value::Dict(member.encode(Some(index))))
-            .collect()
     }
 }
 
@@ -291,6 +317,31 @@ fn locate_in_frame(
             }
 
             _ => {}
+        }
+    }
+}
+
+impl Hash for PinBoard {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.list.hash(state);
+        self.cursor.hash(state);
+        self.frozen.hash(state);
+    }
+}
+
+/// Describes pin usage.
+#[derive(Debug, Copy, Clone)]
+pub struct PinConstraint(pub Option<u64>);
+
+impl Track for PinBoard {
+    type Constraint = PinConstraint;
+
+    fn key<H: Hasher>(&self, _: &mut H) {}
+
+    fn matches(&self, constraint: &Self::Constraint) -> bool {
+        match constraint.0 {
+            Some(hash) => fxhash::hash64(self) == hash,
+            None => true,
         }
     }
 }

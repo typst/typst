@@ -394,6 +394,8 @@ impl PartialEq for StyleChain<'_> {
     }
 }
 
+impl_track_hash!(StyleChain<'_>);
+
 /// An iterator over the values in a style chain.
 struct Values<'a, K> {
     entries: Entries<'a>,

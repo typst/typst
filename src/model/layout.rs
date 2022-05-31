@@ -5,7 +5,7 @@ use std::fmt::{self, Debug, Formatter, Write};
 use std::hash::Hash;
 use std::sync::Arc;
 
-use super::{Barrier, NodeId, Resolve, StyleChain, StyleEntry};
+use super::{Barrier, NodeId, PinConstraint, Resolve, StyleChain, StyleEntry};
 use crate::diag::TypResult;
 use crate::eval::{RawAlign, RawLength};
 use crate::frame::{Element, Frame};
@@ -132,6 +132,8 @@ impl Regions {
     }
 }
 
+impl_track_hash!(Regions);
+
 /// A type-erased layouting node with a precomputed hash.
 #[derive(Clone, Hash)]
 pub struct LayoutNode(Arc<Prehashed<dyn Bounds>>);
@@ -221,19 +223,32 @@ impl Layout for LayoutNode {
         regions: &Regions,
         styles: StyleChain,
     ) -> TypResult<Vec<Arc<Frame>>> {
-        let (result, at, pins) = crate::memo::memoized(
+        let prev = ctx.pins.dirty.replace(false);
+
+        let (result, at, fresh, dirty) = crate::memo::memoized(
             (self, &mut *ctx, regions, styles),
             |(node, ctx, regions, styles)| {
+                let hash = fxhash::hash64(&ctx.pins);
                 let at = ctx.pins.cursor();
+
                 let entry = StyleEntry::Barrier(Barrier::new(node.id()));
                 let result = node.0.layout(ctx, regions, entry.chain(&styles));
-                (result, at, ctx.pins.from(at))
+
+                let fresh = ctx.pins.from(at);
+                let dirty = ctx.pins.dirty.get();
+                let constraint = PinConstraint(dirty.then(|| hash));
+                ((result, at, fresh, dirty), ((), constraint, (), ()))
             },
         );
 
+        ctx.pins.dirty.replace(prev || dirty);
+
         // Replay the side effect in case of caching. This should currently be
         // more or less the only relevant side effect on the context.
-        ctx.pins.replay(at, pins);
+        if dirty {
+            ctx.pins.replay(at, fresh);
+        }
+
         result
     }
 
@@ -241,6 +256,8 @@ impl Layout for LayoutNode {
         self
     }
 }
+
+impl_track_hash!(LayoutNode);
 
 impl Default for LayoutNode {
     fn default() -> Self {
