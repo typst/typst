@@ -58,26 +58,37 @@ impl<T: Debug> Debug for Spanned<T> {
 pub struct Span(NonZeroU64);
 
 impl Span {
+    // Number of bits for and minimum and maximum numbers assigned to nodes.
+    const BITS: usize = 48;
+    const DETACHED: u64 = 1;
+    pub(crate) const MIN_NUMBER: u64 = 2;
+    pub(crate) const MAX_NUMBER: u64 = (1 << Self::BITS) - 1;
+
     /// Create a new span from a source id and a unique number.
     pub const fn new(id: SourceId, number: u64) -> Self {
-        assert!(number > 0 && number < (1 << 48));
-        let bits = ((id.into_raw() as u64) << 48) | number;
-        Self(nonzero(bits))
+        assert!(number >= Self::MIN_NUMBER && number <= Self::MAX_NUMBER);
+        let bits = ((id.into_raw() as u64) << Self::BITS) | number;
+        Self(convert(bits))
     }
 
     /// A node that does not belong to any source file.
     pub const fn detached() -> Self {
-        Self(nonzero(1))
+        Self(convert(Self::DETACHED))
     }
 
     /// The id of the source file the span points into.
     pub const fn source(self) -> SourceId {
-        SourceId::from_raw((self.0.get() >> 48) as u16)
+        SourceId::from_raw((self.0.get() >> Self::BITS) as u16)
+    }
+
+    /// The unique number of the span within the source file.
+    pub const fn number(self) -> u64 {
+        self.0.get() & Self::MAX_NUMBER
     }
 }
 
 /// Convert to a non zero u64.
-const fn nonzero(v: u64) -> NonZeroU64 {
+const fn convert(v: u64) -> NonZeroU64 {
     match NonZeroU64::new(v) {
         Some(v) => v,
         None => unreachable!(),

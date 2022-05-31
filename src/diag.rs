@@ -1,6 +1,7 @@
 //! Diagnostics.
 
 use std::fmt::{self, Display, Formatter};
+use std::ops::Range;
 
 use crate::syntax::{Span, Spanned};
 
@@ -67,6 +68,17 @@ pub enum ErrorPos {
     Full,
     /// At the end of the node.
     End,
+}
+
+impl ErrorPos {
+    /// Apply this to a node's byte range.
+    pub fn apply(self, range: Range<usize>) -> Range<usize> {
+        match self {
+            ErrorPos::Start => range.start .. range.start,
+            ErrorPos::Full => range,
+            ErrorPos::End => range.end .. range.end,
+        }
+    }
 }
 
 /// A part of an error's [trace](Error::trace).

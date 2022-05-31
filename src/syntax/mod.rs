@@ -62,7 +62,9 @@ impl SyntaxNode {
     pub fn range(&self, span: Span, offset: usize) -> Option<Range<usize>> {
         match self {
             SyntaxNode::Inner(inner) => inner.range(span, offset),
-            SyntaxNode::Leaf(leaf) => leaf.range(span, offset),
+            SyntaxNode::Leaf(leaf) => {
+                (span == leaf.span).then(|| offset .. offset + self.len())
+            }
         }
     }
 
@@ -242,13 +244,30 @@ impl InnerNode {
 
     /// If the span points into this node, convert it to a byte range.
     pub fn range(&self, span: Span, mut offset: usize) -> Option<Range<usize>> {
-        if let Some(range) = self.data.range(span, offset) {
-            return Some(range);
+        // Check whether we found it.
+        if self.data.span == span {
+            return Some(offset .. offset + self.len());
         }
 
-        for child in &self.children {
-            if let Some(range) = child.range(span, offset) {
-                return Some(range);
+        // The parent of a subtree has a smaller span number than all of its
+        // descendants. Therefore, we can bail out early if the target span's
+        // number is smaller than our number.
+        if span.number() < self.span().number() {
+            return None;
+        }
+
+        let mut children = self.children.iter().peekable();
+        while let Some(child) = children.next() {
+            // Every node in this child's subtree has a smaller span number than
+            // the next sibling. Therefore we only need to recurse if the next
+            // sibling's span number is larger than the target span's number.
+            if children
+                .peek()
+                .map_or(true, |next| next.span().number() > span.number())
+            {
+                if let Some(range) = child.range(span, offset) {
+                    return Some(range);
+                }
             }
 
             offset += child.len();
@@ -386,11 +405,6 @@ impl NodeData {
     /// The node's span.
     pub fn span(&self) -> Span {
         self.span
-    }
-
-    /// If the span points into this node, convert it to a byte range.
-    pub fn range(&self, span: Span, offset: usize) -> Option<Range<usize>> {
-        (self.span == span).then(|| offset .. offset + self.len())
     }
 
     /// Assign spans to each node.

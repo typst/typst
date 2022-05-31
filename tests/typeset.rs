@@ -9,7 +9,6 @@ use tiny_skia as sk;
 use unscanny::Scanner;
 use walkdir::WalkDir;
 
-use typst::diag::ErrorPos;
 use typst::eval::{Smart, Value};
 use typst::frame::{Element, Frame};
 use typst::geom::{Length, RgbaColor, Sides};
@@ -18,6 +17,7 @@ use typst::library::text::{TextNode, TextSize};
 use typst::loading::FsLoader;
 use typst::model::StyleMap;
 use typst::source::SourceFile;
+use typst::syntax::SyntaxNode;
 use typst::{bail, Config, Context};
 
 const TYP_DIR: &str = "./typ";
@@ -295,6 +295,8 @@ fn test_part(
         println!("Syntax Tree: {:#?}", source.root())
     }
 
+    test_spans(source.root());
+
     let (local_compare_ref, mut ref_errors) = parse_metadata(&source);
     let compare_ref = local_compare_ref.unwrap_or(compare_ref);
 
@@ -316,12 +318,7 @@ fn test_part(
         .into_iter()
         .filter(|error| error.span.source() == id)
         .map(|error| {
-            let mut range = ctx.sources.range(error.span);
-            match error.pos {
-                ErrorPos::Start => range.end = range.start,
-                ErrorPos::Full => {}
-                ErrorPos::End => range.start = range.end,
-            }
+            let range = error.pos.apply(ctx.sources.range(error.span));
             (range, error.message)
         })
         .collect();
@@ -461,8 +458,8 @@ fn test_reparse(src: &str, i: usize, rng: &mut LinearShift) -> bool {
         incr_source.edit(replace.clone(), with);
 
         let edited_src = incr_source.src();
-        let ref_source = SourceFile::detached(edited_src);
         let incr_root = incr_source.root();
+        let ref_source = SourceFile::detached(edited_src);
         let ref_root = ref_source.root();
         let same = incr_root == ref_root;
         if !same {
@@ -474,6 +471,9 @@ fn test_reparse(src: &str, i: usize, rng: &mut LinearShift) -> bool {
             println!("    Found incremental tree:\n{incr_root:#?}");
             println!("Full source ({}):\n\"{edited_src:?}\"", edited_src.len());
         }
+
+        test_spans(ref_root);
+        test_spans(incr_root);
 
         same
     };
@@ -503,6 +503,21 @@ fn test_reparse(src: &str, i: usize, rng: &mut LinearShift) -> bool {
     ok &= apply(start .. start, supplement);
 
     ok
+}
+
+/// Ensure that all spans are properly ordered (and therefore unique).
+fn test_spans(root: &SyntaxNode) {
+    test_spans_impl(root, 0 .. u64::MAX);
+}
+
+fn test_spans_impl(root: &SyntaxNode, within: Range<u64>) {
+    assert!(within.contains(&root.span().number()), "wrong span order");
+    let start = root.span().number() + 1;
+    let mut children = root.children().peekable();
+    while let Some(child) = children.next() {
+        let end = children.peek().map_or(within.end, |next| next.span().number());
+        test_spans_impl(child, start .. end);
+    }
 }
 
 /// Draw all frames into one image with padding in between.
