@@ -35,13 +35,6 @@ fi vs. #text(ligatures: false)[No fi]
 #text(number-width: "tabular")[0123456789]
 
 ---
-// Test number position.
-#set text("IBM Plex Sans")
-#text(number-position: "normal")[C2H4] \
-#text(number-position: "subscript")[C2H4] \
-#text(number-position: "superscript")[C2H4]
-
----
 // Test extra number stuff.
 #set text("IBM Plex Sans")
 0 vs. #text(slashed-zero: true)[0] \
@@ -64,10 +57,6 @@ fi vs. #text(features: (liga: 0))[No fi]
 ---
 // Error: 24-25 expected string or auto, found integer
 #set text(number-type: 2)
-
----
-// Error: 24-35 expected "lining" or "old-style"
-#set text(number-type: "different")
 
 ---
 // Error: 21-26 expected array of strings or dictionary mapping tags to integers, found boolean
