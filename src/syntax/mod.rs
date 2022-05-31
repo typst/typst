@@ -14,24 +14,23 @@ pub use span::*;
 
 use self::ast::{MathNode, RawNode, TypedNode, Unit};
 use crate::diag::Error;
-use crate::source::SourceId;
 use crate::util::EcoString;
 
-/// An inner or leaf node in the untyped green tree.
+/// An inner or leaf node in the untyped syntax tree.
 #[derive(Clone, PartialEq, Hash)]
-pub enum Green {
+pub enum SyntaxNode {
     /// A reference-counted inner node.
-    Node(Arc<GreenNode>),
-    /// A terminal, owned token.
-    Token(GreenData),
+    Inner(Arc<InnerNode>),
+    /// A leaf token.
+    Leaf(NodeData),
 }
 
-impl Green {
+impl SyntaxNode {
     /// Returns the metadata of the node.
-    fn data(&self) -> &GreenData {
+    pub fn data(&self) -> &NodeData {
         match self {
-            Green::Node(n) => &n.data,
-            Green::Token(t) => t,
+            SyntaxNode::Inner(n) => &n.data,
+            SyntaxNode::Leaf(t) => t,
         }
     }
 
@@ -45,106 +44,146 @@ impl Green {
         self.data().len()
     }
 
-    /// Whether the node or its children contain an error.
-    pub fn erroneous(&self) -> bool {
-        match self {
-            Self::Node(node) => node.erroneous,
-            Self::Token(data) => data.kind.is_error(),
-        }
+    /// The span of the node.
+    pub fn span(&self) -> Span {
+        todo!()
     }
 
     /// The node's children.
-    pub fn children(&self) -> &[Green] {
+    pub fn children(&self) -> std::slice::Iter<'_, SyntaxNode> {
         match self {
-            Green::Node(n) => n.children(),
-            Green::Token(_) => &[],
+            SyntaxNode::Inner(n) => n.children(),
+            SyntaxNode::Leaf(_) => [].iter(),
         }
     }
 
-    /// Whether the node is a leaf node in the green tree.
-    pub fn is_leaf(&self) -> bool {
-        match self {
-            Green::Node(n) => n.children().is_empty(),
-            Green::Token(_) => true,
+    /// Returns all leaf descendants of this node (may include itself).
+    ///
+    /// This method is slow and only intended for testing.
+    pub fn leafs(&self) -> Vec<Self> {
+        if match self {
+            SyntaxNode::Inner(n) => n.children().len() == 0,
+            SyntaxNode::Leaf(_) => true,
+        } {
+            vec![self.clone()]
+        } else {
+            self.children().flat_map(Self::leafs).collect()
         }
+    }
+
+    /// Whether the node or its children contain an error.
+    pub fn erroneous(&self) -> bool {
+        match self {
+            Self::Inner(node) => node.erroneous,
+            Self::Leaf(data) => data.kind.is_error(),
+        }
+    }
+
+    /// The error messages for this node and its descendants.
+    pub fn errors(&self) -> Vec<Error> {
+        if !self.erroneous() {
+            return vec![];
+        }
+
+        match self.kind() {
+            NodeKind::Error(..) => todo!(),
+            _ => self
+                .children()
+                .filter(|node| node.erroneous())
+                .flat_map(|node| node.errors())
+                .collect(),
+        }
+    }
+
+    /// Convert the node to a typed AST node.
+    pub fn cast<T>(&self) -> Option<T>
+    where
+        T: TypedNode,
+    {
+        T::from_untyped(self)
+    }
+
+    /// Get the first child that can cast to some AST type.
+    pub fn cast_first_child<T: TypedNode>(&self) -> Option<T> {
+        self.children().find_map(Self::cast)
+    }
+
+    /// Get the last child that can cast to some AST type.
+    pub fn cast_last_child<T: TypedNode>(&self) -> Option<T> {
+        self.children().rev().find_map(Self::cast)
     }
 
     /// Change the type of the node.
     pub fn convert(&mut self, kind: NodeKind) {
         match self {
-            Self::Node(node) => {
+            Self::Inner(node) => {
                 let node = Arc::make_mut(node);
                 node.erroneous |= kind.is_error();
                 node.data.kind = kind;
             }
-            Self::Token(data) => data.kind = kind,
+            Self::Leaf(data) => data.kind = kind,
         }
     }
 
     /// Set a synthetic span for the node and all its children.
     pub fn synthesize(&mut self, span: Arc<Span>) {
         match self {
-            Green::Node(n) => Arc::make_mut(n).synthesize(span),
-            Green::Token(t) => t.synthesize(span),
+            SyntaxNode::Inner(n) => Arc::make_mut(n).synthesize(span),
+            SyntaxNode::Leaf(t) => t.synthesize(span),
         }
     }
 }
 
-impl Default for Green {
+impl Default for SyntaxNode {
     fn default() -> Self {
-        Self::Token(GreenData::new(NodeKind::None, 0))
+        Self::Leaf(NodeData::new(NodeKind::None, 0))
     }
 }
 
-impl Debug for Green {
+impl Debug for SyntaxNode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Self::Node(node) => node.fmt(f),
-            Self::Token(token) => token.fmt(f),
+            Self::Inner(node) => node.fmt(f),
+            Self::Leaf(token) => token.fmt(f),
         }
     }
 }
 
-/// An inner node in the untyped green tree.
+/// An inner node in the untyped syntax tree.
 #[derive(Clone, PartialEq, Hash)]
-pub struct GreenNode {
+pub struct InnerNode {
     /// Node metadata.
-    data: GreenData,
+    data: NodeData,
     /// This node's children, losslessly make up this node.
-    children: Vec<Green>,
+    children: Vec<SyntaxNode>,
     /// Whether this node or any of its children are erroneous.
     erroneous: bool,
 }
 
-impl GreenNode {
+impl InnerNode {
     /// Creates a new node with the given kind and a single child.
-    pub fn with_child(kind: NodeKind, child: impl Into<Green>) -> Self {
+    pub fn with_child(kind: NodeKind, child: impl Into<SyntaxNode>) -> Self {
         Self::with_children(kind, vec![child.into()])
     }
 
     /// Creates a new node with the given kind and children.
-    pub fn with_children(kind: NodeKind, children: Vec<Green>) -> Self {
+    pub fn with_children(kind: NodeKind, children: Vec<SyntaxNode>) -> Self {
         let mut erroneous = kind.is_error();
         let len = children
             .iter()
             .inspect(|c| erroneous |= c.erroneous())
-            .map(Green::len)
+            .map(SyntaxNode::len)
             .sum();
 
         Self {
-            data: GreenData::new(kind, len),
+            data: NodeData::new(kind, len),
             children,
             erroneous,
         }
     }
 
-    /// The node's children.
-    pub fn children(&self) -> &[Green] {
-        &self.children
-    }
-
     /// The node's metadata.
-    fn data(&self) -> &GreenData {
+    pub fn data(&self) -> &NodeData {
         &self.data
     }
 
@@ -158,6 +197,11 @@ impl GreenNode {
         self.data().len()
     }
 
+    /// The node's children.
+    pub fn children(&self) -> std::slice::Iter<'_, SyntaxNode> {
+        self.children.iter()
+    }
+
     /// Set a synthetic span for the node and all its children.
     pub fn synthesize(&mut self, span: Arc<Span>) {
         self.data.synthesize(span.clone());
@@ -167,7 +211,7 @@ impl GreenNode {
     }
 
     /// The node's children, mutably.
-    pub(crate) fn children_mut(&mut self) -> &mut [Green] {
+    pub(crate) fn children_mut(&mut self) -> &mut [SyntaxNode] {
         &mut self.children
     }
 
@@ -175,42 +219,44 @@ impl GreenNode {
     pub(crate) fn replace_children(
         &mut self,
         range: Range<usize>,
-        replacement: Vec<Green>,
+        replacement: Vec<SyntaxNode>,
     ) {
         let superseded = &self.children[range.clone()];
-        let superseded_len: usize = superseded.iter().map(Green::len).sum();
-        let replacement_len: usize = replacement.iter().map(Green::len).sum();
+        let superseded_len: usize = superseded.iter().map(SyntaxNode::len).sum();
+        let replacement_len: usize = replacement.iter().map(SyntaxNode::len).sum();
 
         // If we're erroneous, but not due to the superseded range, then we will
         // still be erroneous after the replacement.
-        let still_erroneous = self.erroneous && !superseded.iter().any(Green::erroneous);
+        let still_erroneous =
+            self.erroneous && !superseded.iter().any(SyntaxNode::erroneous);
 
         self.children.splice(range, replacement);
         self.data.len = self.data.len + replacement_len - superseded_len;
-        self.erroneous = still_erroneous || self.children.iter().any(Green::erroneous);
+        self.erroneous =
+            still_erroneous || self.children.iter().any(SyntaxNode::erroneous);
     }
 
     /// Update the length of this node given the old and new length of
     /// replaced children.
     pub(crate) fn update_parent(&mut self, new_len: usize, old_len: usize) {
         self.data.len = self.data.len() + new_len - old_len;
-        self.erroneous = self.children.iter().any(Green::erroneous);
+        self.erroneous = self.children.iter().any(SyntaxNode::erroneous);
     }
 }
 
-impl From<GreenNode> for Green {
-    fn from(node: GreenNode) -> Self {
+impl From<InnerNode> for SyntaxNode {
+    fn from(node: InnerNode) -> Self {
         Arc::new(node).into()
     }
 }
 
-impl From<Arc<GreenNode>> for Green {
-    fn from(node: Arc<GreenNode>) -> Self {
-        Self::Node(node)
+impl From<Arc<InnerNode>> for SyntaxNode {
+    fn from(node: Arc<InnerNode>) -> Self {
+        Self::Inner(node)
     }
 }
 
-impl Debug for GreenNode {
+impl Debug for InnerNode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         self.data.fmt(f)?;
         if !self.children.is_empty() {
@@ -223,20 +269,18 @@ impl Debug for GreenNode {
 
 /// Data shared between inner and leaf nodes.
 #[derive(Clone, PartialEq, Hash)]
-pub struct GreenData {
+pub struct NodeData {
     /// What kind of node this is (each kind would have its own struct in a
     /// strongly typed AST).
     kind: NodeKind,
     /// The byte length of the node in the source.
     len: usize,
-    /// A synthetic span for the node, usually this is `None`.
-    span: Option<Arc<Span>>,
 }
 
-impl GreenData {
+impl NodeData {
     /// Create new node metadata.
     pub fn new(kind: NodeKind, len: usize) -> Self {
-        Self { len, kind, span: None }
+        Self { len, kind }
     }
 
     /// The type of the node.
@@ -250,271 +294,26 @@ impl GreenData {
     }
 
     /// Set a synthetic span for the node.
-    pub fn synthesize(&mut self, span: Arc<Span>) {
-        self.span = Some(span)
+    pub fn synthesize(&mut self, _: Arc<Span>) {
+        todo!()
     }
 }
 
-impl From<GreenData> for Green {
-    fn from(token: GreenData) -> Self {
-        Self::Token(token)
+impl From<NodeData> for SyntaxNode {
+    fn from(token: NodeData) -> Self {
+        Self::Leaf(token)
     }
 }
 
-impl Debug for GreenData {
+impl Debug for NodeData {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{:?}: {}", self.kind, self.len)
     }
 }
 
-/// A owned wrapper for a green node with span information.
-///
-/// Owned variant of [`RedRef`]. Can be [cast](Self::cast) to an AST node.
-#[derive(Clone, PartialEq, Hash)]
-pub struct RedNode {
-    id: SourceId,
-    offset: usize,
-    green: Green,
-}
-
-impl RedNode {
-    /// Create a new red node from a root [`GreenNode`].
-    pub fn from_root(root: Arc<GreenNode>, id: SourceId) -> Self {
-        Self { id, offset: 0, green: root.into() }
-    }
-
-    /// Convert to a borrowed representation.
-    pub fn as_ref(&self) -> RedRef<'_> {
-        RedRef {
-            id: self.id,
-            offset: self.offset,
-            green: &self.green,
-        }
-    }
-
-    /// The node's metadata.
-    pub fn data(&self) -> &GreenData {
-        self.as_ref().data()
-    }
-
-    /// The type of the node.
-    pub fn kind(&self) -> &NodeKind {
-        self.as_ref().kind()
-    }
-
-    /// The length of the node.
-    pub fn len(&self) -> usize {
-        self.as_ref().len()
-    }
-
-    /// The span of the node.
-    pub fn span(&self) -> Span {
-        self.as_ref().span()
-    }
-
-    /// The error messages for this node and its descendants.
-    pub fn errors(&self) -> Vec<Error> {
-        self.as_ref().errors()
-    }
-
-    /// Convert the node to a typed AST node.
-    pub fn cast<T>(self) -> Option<T>
-    where
-        T: TypedNode,
-    {
-        self.as_ref().cast()
-    }
-
-    /// The children of the node.
-    pub fn children(&self) -> Children<'_> {
-        self.as_ref().children()
-    }
-
-    /// Get the first child that can cast to some AST type.
-    pub fn cast_first_child<T: TypedNode>(&self) -> Option<T> {
-        self.as_ref().cast_first_child()
-    }
-
-    /// Get the last child that can cast to some AST type.
-    pub fn cast_last_child<T: TypedNode>(&self) -> Option<T> {
-        self.as_ref().cast_last_child()
-    }
-}
-
-impl Debug for RedNode {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        self.as_ref().fmt(f)
-    }
-}
-
-/// A borrowed wrapper for a [`GreenNode`] with span information.
-///
-/// Borrowed variant of [`RedNode`]. Can be [cast](Self::cast) to an AST node.
-#[derive(Copy, Clone, PartialEq, Hash)]
-pub struct RedRef<'a> {
-    id: SourceId,
-    offset: usize,
-    green: &'a Green,
-}
-
-impl<'a> RedRef<'a> {
-    /// Convert to an owned representation.
-    pub fn own(self) -> RedNode {
-        RedNode {
-            id: self.id,
-            offset: self.offset,
-            green: self.green.clone(),
-        }
-    }
-
-    /// The node's metadata.
-    pub fn data(self) -> &'a GreenData {
-        self.green.data()
-    }
-
-    /// The type of the node.
-    pub fn kind(self) -> &'a NodeKind {
-        self.green.kind()
-    }
-
-    /// The length of the node.
-    pub fn len(self) -> usize {
-        self.green.len()
-    }
-
-    /// The span of the node.
-    pub fn span(self) -> Span {
-        match self.data().span.as_deref() {
-            Some(&span) => span,
-            None => Span::new(self.id, self.offset, self.offset + self.len()),
-        }
-    }
-
-    /// Whether the node is a leaf node.
-    pub fn is_leaf(self) -> bool {
-        self.green.is_leaf()
-    }
-
-    /// The error messages for this node and its descendants.
-    pub fn errors(self) -> Vec<Error> {
-        if !self.green.erroneous() {
-            return vec![];
-        }
-
-        match self.kind() {
-            NodeKind::Error(pos, msg) => {
-                let mut span = self.span();
-                if self.data().span.is_none() {
-                    span = match pos {
-                        ErrorPos::Start => span.at_start(),
-                        ErrorPos::Full => span,
-                        ErrorPos::End => span.at_end(),
-                    };
-                }
-
-                vec![Error::new(span, msg.to_string())]
-            }
-            _ => self
-                .children()
-                .filter(|red| red.green.erroneous())
-                .flat_map(|red| red.errors())
-                .collect(),
-        }
-    }
-
-    /// Returns all leaf descendants of this node (may include itself).
-    pub fn leafs(self) -> Vec<Self> {
-        if self.is_leaf() {
-            vec![self]
-        } else {
-            self.children().flat_map(Self::leafs).collect()
-        }
-    }
-
-    /// Convert the node to a typed AST node.
-    pub fn cast<T>(self) -> Option<T>
-    where
-        T: TypedNode,
-    {
-        T::from_red(self)
-    }
-
-    /// The node's children.
-    pub fn children(self) -> Children<'a> {
-        let children = match &self.green {
-            Green::Node(node) => node.children(),
-            Green::Token(_) => &[],
-        };
-
-        Children {
-            id: self.id,
-            iter: children.iter(),
-            front: self.offset,
-            back: self.offset + self.len(),
-        }
-    }
-
-    /// Get the first child that can cast to some AST type.
-    pub fn cast_first_child<T: TypedNode>(self) -> Option<T> {
-        self.children().find_map(RedRef::cast)
-    }
-
-    /// Get the last child that can cast to some AST type.
-    pub fn cast_last_child<T: TypedNode>(self) -> Option<T> {
-        self.children().rev().find_map(RedRef::cast)
-    }
-}
-
-impl Debug for RedRef<'_> {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{:?}: {:?}", self.kind(), self.span())?;
-        let mut children = self.children().peekable();
-        if children.peek().is_some() {
-            f.write_str(" ")?;
-            f.debug_list().entries(children.map(RedRef::own)).finish()?;
-        }
-        Ok(())
-    }
-}
-
-/// An iterator over the children of a red node.
-pub struct Children<'a> {
-    id: SourceId,
-    iter: std::slice::Iter<'a, Green>,
-    front: usize,
-    back: usize,
-}
-
-impl<'a> Iterator for Children<'a> {
-    type Item = RedRef<'a>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().map(|green| {
-            let offset = self.front;
-            self.front += green.len();
-            RedRef { id: self.id, offset, green }
-        })
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        self.iter.size_hint()
-    }
-}
-
-impl DoubleEndedIterator for Children<'_> {
-    fn next_back(&mut self) -> Option<Self::Item> {
-        self.iter.next_back().map(|green| {
-            self.back -= green.len();
-            RedRef { id: self.id, offset: self.back, green }
-        })
-    }
-}
-
-impl ExactSizeIterator for Children<'_> {}
-
 /// All syntactical building blocks that can be part of a Typst document.
 ///
-/// Can be emitted as a token by the tokenizer or as part of a green node by
+/// Can be emitted as a token by the tokenizer or as part of a syntax node by
 /// the parser.
 #[derive(Debug, Clone, PartialEq)]
 pub enum NodeKind {

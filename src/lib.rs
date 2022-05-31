@@ -2,9 +2,9 @@
 //!
 //! # Steps
 //! - **Parsing:** The parsing step first transforms a plain string into an
-//!   [iterator of tokens][tokens]. This token stream is [parsed] into a [green
-//!   tree]. The green tree itself is untyped, but a typed layer over it is
-//!   provided in the [AST] module.
+//!   [iterator of tokens][tokens]. This token stream is [parsed] into a [syntax
+//!   tree]. The tree itself is untyped, but a typed layer over it is provided
+//!   in the [AST] module.
 //! - **Evaluation:** The next step is to [evaluate] the markup. This produces a
 //!   [module], consisting of a scope of values that were exported by the code
 //!   and [content], a hierarchical, styled representation with the contents of
@@ -19,7 +19,7 @@
 //!
 //! [tokens]: parse::Tokens
 //! [parsed]: parse::parse
-//! [green tree]: syntax::GreenNode
+//! [syntax tree]: syntax::SyntaxNode
 //! [AST]: syntax::ast
 //! [evaluate]: eval::evaluate
 //! [module]: eval::Module

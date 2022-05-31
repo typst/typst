@@ -1,36 +1,39 @@
 use std::ops::Range;
 use std::sync::Arc;
 
-use crate::syntax::{Green, GreenNode, NodeKind};
+use crate::syntax::{InnerNode, NodeKind, SyntaxNode};
 
 use super::{
     is_newline, parse, reparse_code_block, reparse_content_block, reparse_markup_elements,
 };
 
-/// Refresh the given green node with as little parsing as possible.
+/// Refresh the given syntax node with as little parsing as possible.
 ///
 /// Takes the new source, the range in the old source that was replaced and the
 /// length of the replacement.
 ///
 /// Returns the range in the new source that was ultimately reparsed.
 pub fn reparse(
-    green: &mut Arc<GreenNode>,
+    root: &mut SyntaxNode,
     src: &str,
     replaced: Range<usize>,
     replacement_len: usize,
 ) -> Range<usize> {
-    Reparser { src, replaced, replacement_len }
-        .reparse_step(Arc::make_mut(green), 0, true)
-        .unwrap_or_else(|| {
-            *green = parse(src);
-            0 .. src.len()
-        })
+    if let SyntaxNode::Inner(inner) = root {
+        let reparser = Reparser { src, replaced, replacement_len };
+        if let Some(range) = reparser.reparse_step(Arc::make_mut(inner), 0, true) {
+            return range;
+        }
+    }
+
+    *root = parse(src);
+    0 .. src.len()
 }
 
-/// Allows partial refreshs of the [`Green`] node tree.
+/// Allows partial refreshs of the syntax tree.
 ///
 /// This struct holds a description of a change. Its methods can be used to try
-/// and apply the change to a green tree.
+/// and apply the change to a syntax tree.
 struct Reparser<'a> {
     /// The new source code, with the change applied.
     src: &'a str,
@@ -44,12 +47,12 @@ impl Reparser<'_> {
     /// Try to reparse inside the given node.
     fn reparse_step(
         &self,
-        green: &mut GreenNode,
+        node: &mut InnerNode,
         mut offset: usize,
         outermost: bool,
     ) -> Option<Range<usize>> {
-        let is_markup = matches!(green.kind(), NodeKind::Markup(_));
-        let original_count = green.children().len();
+        let is_markup = matches!(node.kind(), NodeKind::Markup(_));
+        let original_count = node.children().len();
         let original_offset = offset;
 
         let mut search = SearchState::default();
@@ -62,8 +65,8 @@ impl Reparser<'_> {
         let mut child_outermost = false;
 
         // Find the the first child in the range of children to reparse.
-        for (i, child) in green.children().iter().enumerate() {
-            let pos = GreenPos { idx: i, offset };
+        for (i, child) in node.children().enumerate() {
+            let pos = NodePos { idx: i, offset };
             let child_span = offset .. offset + child.len();
 
             match search {
@@ -122,24 +125,24 @@ impl Reparser<'_> {
         // If we were looking for a non-whitespace element and hit the end of
         // the file here, we instead use EOF as the end of the span.
         if let SearchState::RequireNonTrivia(start) = search {
-            search = SearchState::SpanFound(start, GreenPos {
-                idx: green.children().len() - 1,
-                offset: offset - green.children().last().unwrap().len(),
+            search = SearchState::SpanFound(start, NodePos {
+                idx: node.children().len() - 1,
+                offset: offset - node.children().last().unwrap().len(),
             })
         }
 
         if let SearchState::Contained(pos) = search {
-            let child = &mut green.children_mut()[pos.idx];
+            let child = &mut node.children_mut()[pos.idx];
             let prev_len = child.len();
 
             if let Some(range) = match child {
-                Green::Node(node) => {
+                SyntaxNode::Inner(node) => {
                     self.reparse_step(Arc::make_mut(node), pos.offset, child_outermost)
                 }
-                Green::Token(_) => None,
+                SyntaxNode::Leaf(_) => None,
             } {
                 let new_len = child.len();
-                green.update_parent(new_len, prev_len);
+                node.update_parent(new_len, prev_len);
                 return Some(range);
             }
 
@@ -154,7 +157,7 @@ impl Reparser<'_> {
             // treat it as a markup element.
             if let Some(func) = func {
                 if let Some(result) = self.replace(
-                    green,
+                    node,
                     func,
                     pos.idx .. pos.idx + 1,
                     superseded_span,
@@ -166,14 +169,14 @@ impl Reparser<'_> {
         }
 
         // Save the current indent if this is a markup node and stop otherwise.
-        let indent = match green.kind() {
+        let indent = match node.kind() {
             NodeKind::Markup(n) => *n,
             _ => return None,
         };
 
         let (mut start, end) = search.done()?;
         if let Some((ahead, ahead_at_start)) = ahead_nontrivia {
-            let ahead_kind = green.children()[ahead.idx].kind();
+            let ahead_kind = node.children().as_slice()[ahead.idx].kind();
 
             if start.offset == self.replaced.start
                 || ahead_kind.only_at_start()
@@ -183,14 +186,14 @@ impl Reparser<'_> {
                 at_start = ahead_at_start;
             }
         } else {
-            start = GreenPos { idx: 0, offset: original_offset };
+            start = NodePos { idx: 0, offset: original_offset };
         }
 
         let superseded_span =
-            start.offset .. end.offset + green.children()[end.idx].len();
+            start.offset .. end.offset + node.children().as_slice()[end.idx].len();
 
         self.replace(
-            green,
+            node,
             ReparseMode::MarkupElements(at_start, indent),
             start.idx .. end.idx + 1,
             superseded_span,
@@ -200,7 +203,7 @@ impl Reparser<'_> {
 
     fn replace(
         &self,
-        green: &mut GreenNode,
+        node: &mut InnerNode,
         mode: ReparseMode,
         superseded_idx: Range<usize>,
         superseded_span: Range<usize>,
@@ -237,7 +240,7 @@ impl Reparser<'_> {
                 &self.src[newborn_span.start ..],
                 newborn_span.len(),
                 differential,
-                &green.children()[superseded_start ..],
+                &node.children().as_slice()[superseded_start ..],
                 at_start,
                 indent,
             ),
@@ -249,14 +252,14 @@ impl Reparser<'_> {
             return None;
         }
 
-        green.replace_children(superseded_start .. superseded_start + amount, newborns);
+        node.replace_children(superseded_start .. superseded_start + amount, newborns);
         Some(newborn_span)
     }
 }
 
-/// The position of a green node.
+/// The position of a syntax node.
 #[derive(Clone, Copy, Debug, PartialEq)]
-struct GreenPos {
+struct NodePos {
     /// The index in the parent node.
     idx: usize,
     /// The byte offset in the string.
@@ -272,15 +275,15 @@ enum SearchState {
     NoneFound,
     /// The search has concluded by finding a node that fully contains the
     /// modifications.
-    Contained(GreenPos),
+    Contained(NodePos),
     /// The search has found the start of the modified nodes.
-    Inside(GreenPos),
+    Inside(NodePos),
     /// The search has found the end of the modified nodes but the change
     /// touched its boundries so another non-trivia node is needed.
-    RequireNonTrivia(GreenPos),
+    RequireNonTrivia(NodePos),
     /// The search has concluded by finding a start and an end index for nodes
     /// with a pending reparse.
-    SpanFound(GreenPos, GreenPos),
+    SpanFound(NodePos, NodePos),
 }
 
 impl Default for SearchState {
@@ -290,7 +293,7 @@ impl Default for SearchState {
 }
 
 impl SearchState {
-    fn done(self) -> Option<(GreenPos, GreenPos)> {
+    fn done(self) -> Option<(NodePos, NodePos)> {
         match self {
             Self::NoneFound => None,
             Self::Contained(s) => Some((s, s)),

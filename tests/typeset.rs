@@ -487,8 +487,7 @@ fn test_reparse(src: &str, i: usize, rng: &mut LinearShift) -> bool {
         ok &= apply(start .. end, supplement);
     }
 
-    let red = SourceFile::detached(src).red();
-    let leafs = red.as_ref().leafs();
+    let leafs = typst::parse::parse(src).leafs();
     let leaf_start = leafs[pick(0 .. leafs.len())].span().start;
     let supplement = supplements[pick(0 .. supplements.len())];
     ok &= apply(leaf_start .. leaf_start, supplement);

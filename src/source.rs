@@ -12,7 +12,7 @@ use crate::diag::TypResult;
 use crate::loading::{FileHash, Loader};
 use crate::parse::{is_newline, parse, reparse};
 use crate::syntax::ast::Markup;
-use crate::syntax::{GreenNode, RedNode, Span};
+use crate::syntax::{Span, SyntaxNode};
 use crate::util::{PathExt, StrExt};
 
 #[cfg(feature = "codespan-reporting")]
@@ -151,7 +151,7 @@ pub struct SourceFile {
     path: PathBuf,
     src: String,
     lines: Vec<Line>,
-    root: Arc<GreenNode>,
+    root: SyntaxNode,
     rev: usize,
 }
 
@@ -178,27 +178,21 @@ impl SourceFile {
     /// Create a source file with the same synthetic span for all nodes.
     pub fn synthesized(src: impl Into<String>, span: Span) -> Self {
         let mut file = Self::detached(src);
-        Arc::make_mut(&mut file.root).synthesize(Arc::new(span));
+        file.root.synthesize(Arc::new(span));
         file.id = span.source;
         file
     }
 
-    /// The root node of the file's untyped green tree.
-    pub fn root(&self) -> &Arc<GreenNode> {
+    /// The root node of the file's untyped syntax tree.
+    pub fn root(&self) -> &SyntaxNode {
         &self.root
-    }
-
-    /// The root red node of the file's untyped red tree.
-    pub fn red(&self) -> RedNode {
-        RedNode::from_root(self.root.clone(), self.id)
     }
 
     /// The root node of the file's typed abstract syntax tree.
     pub fn ast(&self) -> TypResult<Markup> {
-        let red = self.red();
-        let errors = red.errors();
+        let errors = self.root.errors();
         if errors.is_empty() {
-            Ok(red.cast().unwrap())
+            Ok(self.root.cast().unwrap())
         } else {
             Err(Box::new(errors))
         }

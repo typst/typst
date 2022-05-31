@@ -1,6 +1,6 @@
 use super::{Scope, Scopes, Value};
 use crate::syntax::ast::{ClosureParam, Expr, Ident, Imports, TypedNode};
-use crate::syntax::RedRef;
+use crate::syntax::SyntaxNode;
 
 /// A visitor that captures variable slots.
 pub struct CapturesVisitor<'a> {
@@ -39,7 +39,7 @@ impl<'a> CapturesVisitor<'a> {
     }
 
     /// Visit any node and collect all captured variables.
-    pub fn visit(&mut self, node: RedRef) {
+    pub fn visit(&mut self, node: &SyntaxNode) {
         match node.cast() {
             // Every identifier is a potential variable that we need to capture.
             // Identifiers that shouldn't count as captures because they
@@ -62,7 +62,7 @@ impl<'a> CapturesVisitor<'a> {
             Some(Expr::Closure(expr)) => {
                 for param in expr.params() {
                     if let ClosureParam::Named(named) = param {
-                        self.visit(named.expr().as_red());
+                        self.visit(named.expr().as_untyped());
                     }
                 }
 
@@ -74,14 +74,14 @@ impl<'a> CapturesVisitor<'a> {
                     }
                 }
 
-                self.visit(expr.body().as_red());
+                self.visit(expr.body().as_untyped());
             }
 
             // A let expression contains a binding, but that binding is only
             // active after the body is evaluated.
             Some(Expr::Let(expr)) => {
                 if let Some(init) = expr.init() {
-                    self.visit(init.as_red());
+                    self.visit(init.as_untyped());
                 }
                 self.bind(expr.binding());
             }
@@ -89,30 +89,30 @@ impl<'a> CapturesVisitor<'a> {
             // A show rule contains a binding, but that binding is only active
             // after the target has been evaluated.
             Some(Expr::Show(show)) => {
-                self.visit(show.pattern().as_red());
+                self.visit(show.pattern().as_untyped());
                 if let Some(binding) = show.binding() {
                     self.bind(binding);
                 }
-                self.visit(show.body().as_red());
+                self.visit(show.body().as_untyped());
             }
 
             // A for loop contains one or two bindings in its pattern. These are
             // active after the iterable is evaluated but before the body is
             // evaluated.
             Some(Expr::For(expr)) => {
-                self.visit(expr.iter().as_red());
+                self.visit(expr.iter().as_untyped());
                 let pattern = expr.pattern();
                 if let Some(key) = pattern.key() {
                     self.bind(key);
                 }
                 self.bind(pattern.value());
-                self.visit(expr.body().as_red());
+                self.visit(expr.body().as_untyped());
             }
 
             // An import contains items, but these are active only after the
             // path is evaluated.
             Some(Expr::Import(expr)) => {
-                self.visit(expr.path().as_red());
+                self.visit(expr.path().as_untyped());
                 if let Imports::Items(items) = expr.imports() {
                     for item in items {
                         self.bind(item);
@@ -134,21 +134,17 @@ impl<'a> CapturesVisitor<'a> {
 mod tests {
     use super::*;
     use crate::parse::parse;
-    use crate::source::SourceId;
-    use crate::syntax::RedNode;
 
     #[track_caller]
     fn test(src: &str, result: &[&str]) {
-        let green = parse(src);
-        let red = RedNode::from_root(green, SourceId::from_raw(0));
-
         let mut scopes = Scopes::new(None);
         scopes.top.define("x", 0);
         scopes.top.define("y", 0);
         scopes.top.define("z", 0);
 
         let mut visitor = CapturesVisitor::new(&scopes);
-        visitor.visit(red.as_ref());
+        let root = parse(src);
+        visitor.visit(&root);
 
         let captures = visitor.finish();
         let mut names: Vec<_> = captures.iter().map(|(k, _)| k).collect();

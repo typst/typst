@@ -10,24 +10,20 @@ pub use parser::*;
 pub use tokens::*;
 
 use std::collections::HashSet;
-use std::sync::Arc;
 
 use crate::syntax::ast::{Associativity, BinOp, UnOp};
-use crate::syntax::{ErrorPos, Green, GreenNode, NodeKind};
+use crate::syntax::{ErrorPos, NodeKind, SyntaxNode};
 use crate::util::EcoString;
 
 /// Parse a source file.
-pub fn parse(src: &str) -> Arc<GreenNode> {
+pub fn parse(src: &str) -> SyntaxNode {
     let mut p = Parser::new(src, TokenMode::Markup);
     markup(&mut p, true);
-    match p.finish().into_iter().next() {
-        Some(Green::Node(node)) => node,
-        _ => unreachable!(),
-    }
+    p.finish().into_iter().next().unwrap()
 }
 
 /// Parse code directly, only used for syntax highlighting.
-pub fn parse_code(src: &str) -> Vec<Green> {
+pub fn parse_code(src: &str) -> Vec<SyntaxNode> {
     let mut p = Parser::new(src, TokenMode::Code);
     code(&mut p);
     p.finish()
@@ -40,7 +36,7 @@ fn reparse_code_block(
     prefix: &str,
     src: &str,
     end_pos: usize,
-) -> Option<(Vec<Green>, bool, usize)> {
+) -> Option<(Vec<SyntaxNode>, bool, usize)> {
     let mut p = Parser::with_prefix(prefix, src, TokenMode::Code);
     if !p.at(NodeKind::LeftBrace) {
         return None;
@@ -48,8 +44,8 @@ fn reparse_code_block(
 
     code_block(&mut p);
 
-    let (mut green, terminated) = p.consume()?;
-    let first = green.remove(0);
+    let (mut node, terminated) = p.consume()?;
+    let first = node.remove(0);
     if first.len() != end_pos {
         return None;
     }
@@ -64,7 +60,7 @@ fn reparse_content_block(
     prefix: &str,
     src: &str,
     end_pos: usize,
-) -> Option<(Vec<Green>, bool, usize)> {
+) -> Option<(Vec<SyntaxNode>, bool, usize)> {
     let mut p = Parser::with_prefix(prefix, src, TokenMode::Code);
     if !p.at(NodeKind::LeftBracket) {
         return None;
@@ -72,8 +68,8 @@ fn reparse_content_block(
 
     content_block(&mut p);
 
-    let (mut green, terminated) = p.consume()?;
-    let first = green.remove(0);
+    let (mut node, terminated) = p.consume()?;
+    let first = node.remove(0);
     if first.len() != end_pos {
         return None;
     }
@@ -89,13 +85,13 @@ fn reparse_markup_elements(
     src: &str,
     end_pos: usize,
     differential: isize,
-    reference: &[Green],
+    reference: &[SyntaxNode],
     mut at_start: bool,
     column: usize,
-) -> Option<(Vec<Green>, bool, usize)> {
+) -> Option<(Vec<SyntaxNode>, bool, usize)> {
     let mut p = Parser::with_prefix(prefix, src, TokenMode::Markup);
 
-    let mut node: Option<&Green> = None;
+    let mut node: Option<&SyntaxNode> = None;
     let mut iter = reference.iter();
     let mut offset = differential;
     let mut replaced = 0;
@@ -683,7 +679,7 @@ fn dict(p: &mut Parser, marker: Marker) {
         kind if kind.is_paren() => Ok(()),
         NodeKind::Named | NodeKind::Keyed => {
             if let Some(NodeKind::Ident(key) | NodeKind::Str(key)) =
-                x.children().first().map(|child| child.kind())
+                x.children().next().map(|child| child.kind())
             {
                 if !used.insert(key.clone()) {
                     return Err("pair has duplicate key");
@@ -770,7 +766,7 @@ fn args(p: &mut Parser, direct: bool, brackets: bool) -> ParseResult {
             marker.filter_children(p, |x| match x.kind() {
                 NodeKind::Named => {
                     if let Some(NodeKind::Ident(ident)) =
-                        x.children().first().map(|child| child.kind())
+                        x.children().next().map(|child| child.kind())
                     {
                         if !used.insert(ident.clone()) {
                             return Err("duplicate argument");
