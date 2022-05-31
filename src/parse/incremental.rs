@@ -134,6 +134,7 @@ impl Reparser<'_> {
         if let SearchState::Contained(pos) = search {
             let child = &mut node.children_mut()[pos.idx];
             let prev_len = child.len();
+            let prev_count = child.count();
 
             if let Some(range) = match child {
                 SyntaxNode::Inner(node) => {
@@ -142,7 +143,8 @@ impl Reparser<'_> {
                 SyntaxNode::Leaf(_) => None,
             } {
                 let new_len = child.len();
-                node.update_parent(new_len, prev_len);
+                let new_count = child.count();
+                node.update_parent(prev_len, new_len, prev_count, new_count);
                 return Some(range);
             }
 

@@ -240,7 +240,7 @@ fn print_diagnostics(
     for error in errors {
         // The main diagnostic.
         let diag = Diagnostic::error().with_message(error.message).with_labels(vec![
-            Label::primary(error.span.source, error.span.to_range()),
+            Label::primary(error.span.source(), sources.range(error.span)),
         ]);
 
         term::emit(&mut w, &config, sources, &diag)?;
@@ -249,7 +249,7 @@ fn print_diagnostics(
         for point in error.trace {
             let message = point.v.to_string();
             let help = Diagnostic::help().with_message(message).with_labels(vec![
-                Label::primary(point.span.source, point.span.to_range()),
+                Label::primary(point.span.source(), sources.range(point.span)),
             ]);
 
             term::emit(&mut w, &config, sources, &help)?;

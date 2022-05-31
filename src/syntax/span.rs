@@ -1,8 +1,7 @@
-use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
-use std::ops::Range;
+use std::num::NonZeroU64;
 
-use crate::source::SourceId;
+use crate::syntax::SourceId;
 
 /// A value with the span it corresponds to in the source code.
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
@@ -35,122 +34,52 @@ impl<T> Spanned<T> {
 
 impl<T: Debug> Debug for Spanned<T> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        self.v.fmt(f)?;
-        if f.alternate() {
-            f.write_str(" <")?;
-            self.span.fmt(f)?;
-            f.write_str(">")?;
-        }
-        Ok(())
+        self.v.fmt(f)
     }
 }
 
-/// Bounds of a slice of source code.
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
-pub struct Span {
-    /// The id of the source file.
-    pub source: SourceId,
-    /// The inclusive start position.
-    pub start: usize,
-    /// The inclusive end position.
-    pub end: usize,
-}
+/// A unique identifier for a syntax node.
+///
+/// This is used throughout the compiler to track which source section an error
+/// or element stems from. Can be mapped back to a source id + byte range for
+/// user facing display.
+///
+/// Node ids are ordered in the tree to enable quickly finding the node with
+/// some id:
+/// - The id of a parent is always smaller than the ids of any of its children.
+/// - The id of a node is always greater than any id in the subtrees of any left
+///   sibling and smaller than any id the subtrees of any right sibling.
+///
+/// Node ids stay mostly stable, even for nodes behind an insertion. This is not
+/// true for simple spans/ranges as they shift. Node ids can be used as inputs
+/// to memoized functions without hurting cache performance when text is
+/// inserted somewhere in the document other than the end.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct Span(NonZeroU64);
 
 impl Span {
-    /// Create a new span from start and end positions.
-    pub fn new(source: SourceId, start: usize, end: usize) -> Self {
-        Self { source, start, end }
+    /// Create a new span from a source id and a unique number.
+    pub const fn new(id: SourceId, number: u64) -> Self {
+        assert!(number > 0 && number < (1 << 48));
+        let bits = ((id.into_raw() as u64) << 48) | number;
+        Self(nonzero(bits))
     }
 
-    /// Create a span including just a single position.
-    pub fn at(source: SourceId, pos: usize) -> Self {
-        Self::new(source, pos, pos)
+    /// A node that does not belong to any source file.
+    pub const fn detached() -> Self {
+        Self(nonzero(1))
     }
 
-    /// Create a span without real location information, usually for testing.
-    pub fn detached() -> Self {
-        Self {
-            source: SourceId::from_raw(0),
-            start: 0,
-            end: 0,
-        }
-    }
-
-    /// Create a span with a different start position.
-    pub fn with_start(self, start: usize) -> Self {
-        Self { start, ..self }
-    }
-
-    /// Create a span with a different end position.
-    pub fn with_end(self, end: usize) -> Self {
-        Self { end, ..self }
-    }
-
-    /// Whether the span is a single point.
-    pub fn is_empty(self) -> bool {
-        self.start == self.end
-    }
-
-    /// The byte length of the spanned region.
-    pub fn len(self) -> usize {
-        self.end - self.start
-    }
-
-    /// A new span at the position of this span's start.
-    pub fn at_start(&self) -> Span {
-        Self::at(self.source, self.start)
-    }
-
-    /// A new span at the position of this span's end.
-    pub fn at_end(&self) -> Span {
-        Self::at(self.source, self.end)
-    }
-
-    /// Create a new span with the earlier start and later end position.
-    ///
-    /// This panics if the spans come from different files.
-    pub fn join(self, other: Self) -> Self {
-        debug_assert_eq!(self.source, other.source);
-        Self {
-            source: self.source,
-            start: self.start.min(other.start),
-            end: self.end.max(other.end),
-        }
-    }
-
-    /// Expand a span by merging it with another span.
-    pub fn expand(&mut self, other: Self) {
-        *self = self.join(other)
-    }
-
-    /// Test whether a position is within the span.
-    pub fn contains(&self, pos: usize) -> bool {
-        self.start <= pos && self.end >= pos
-    }
-
-    /// Test whether one span complete contains the other span.
-    pub fn surrounds(self, other: Self) -> bool {
-        self.source == other.source && self.start <= other.start && self.end >= other.end
-    }
-
-    /// Convert to a `Range<usize>` for indexing.
-    pub fn to_range(self) -> Range<usize> {
-        self.start .. self.end
+    /// The id of the source file the span points into.
+    pub const fn source(self) -> SourceId {
+        SourceId::from_raw((self.0.get() >> 48) as u16)
     }
 }
 
-impl Debug for Span {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{:?}-{:?}", self.start, self.end)
-    }
-}
-
-impl PartialOrd for Span {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        if self.source == other.source {
-            Some(self.start.cmp(&other.start).then(self.end.cmp(&other.end)))
-        } else {
-            None
-        }
+/// Convert to a non zero u64.
+const fn nonzero(v: u64) -> NonZeroU64 {
+    match NonZeroU64::new(v) {
+        Some(v) => v,
+        None => unreachable!(),
     }
 }

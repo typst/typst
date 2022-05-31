@@ -11,8 +11,9 @@ pub use tokens::*;
 
 use std::collections::HashSet;
 
+use crate::diag::ErrorPos;
 use crate::syntax::ast::{Associativity, BinOp, UnOp};
-use crate::syntax::{ErrorPos, NodeKind, SyntaxNode};
+use crate::syntax::{NodeKind, SyntaxNode};
 use crate::util::EcoString;
 
 /// Parse a source file.

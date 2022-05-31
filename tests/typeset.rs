@@ -9,7 +9,7 @@ use tiny_skia as sk;
 use unscanny::Scanner;
 use walkdir::WalkDir;
 
-use typst::diag::Error;
+use typst::diag::ErrorPos;
 use typst::eval::{Smart, Value};
 use typst::frame::{Element, Frame};
 use typst::geom::{Length, RgbaColor, Sides};
@@ -18,7 +18,6 @@ use typst::library::text::{TextNode, TextSize};
 use typst::loading::FsLoader;
 use typst::model::StyleMap;
 use typst::source::SourceFile;
-use typst::syntax::Span;
 use typst::{bail, Config, Context};
 
 const TYP_DIR: &str = "./typ";
@@ -301,7 +300,7 @@ fn test_part(
 
     ok &= test_reparse(ctx.sources.get(id).src(), i, rng);
 
-    let (mut frames, mut errors) = match typst::typeset(ctx, id) {
+    let (mut frames, errors) = match typst::typeset(ctx, id) {
         Ok(frames) => (frames, vec![]),
         Err(errors) => (vec![], *errors),
     };
@@ -311,15 +310,24 @@ fn test_part(
         frames.clear();
     }
 
-    // TODO: Also handle errors from other files.
-    errors.retain(|error| error.span.source == id);
-    for error in &mut errors {
-        error.trace.clear();
-    }
+    // Map errors to range and message format, discard traces and errors from
+    // other files.
+    let mut errors: Vec<_> = errors
+        .into_iter()
+        .filter(|error| error.span.source() == id)
+        .map(|error| {
+            let mut range = ctx.sources.range(error.span);
+            match error.pos {
+                ErrorPos::Start => range.end = range.start,
+                ErrorPos::Full => {}
+                ErrorPos::End => range.start = range.end,
+            }
+            (range, error.message)
+        })
+        .collect();
 
-    // The comparison never fails since all spans are from the same source file.
-    ref_errors.sort_by(|a, b| a.span.partial_cmp(&b.span).unwrap());
-    errors.sort_by(|a, b| a.span.partial_cmp(&b.span).unwrap());
+    errors.sort_by_key(|error| error.0.start);
+    ref_errors.sort_by_key(|error| error.0.start);
 
     if errors != ref_errors {
         println!("  Subtest {i} does not match expected errors. ❌");
@@ -327,7 +335,7 @@ fn test_part(
 
         let source = ctx.sources.get(id);
         for error in errors.iter() {
-            if error.span.source == id && !ref_errors.contains(error) {
+            if !ref_errors.contains(error) {
                 print!("    Not annotated | ");
                 print_error(&source, line, error);
             }
@@ -344,7 +352,7 @@ fn test_part(
     (ok, compare_ref, frames)
 }
 
-fn parse_metadata(source: &SourceFile) -> (Option<bool>, Vec<Error>) {
+fn parse_metadata(source: &SourceFile) -> (Option<bool>, Vec<(Range<usize>, String)>) {
     let mut compare_ref = None;
     let mut errors = vec![];
 
@@ -382,23 +390,24 @@ fn parse_metadata(source: &SourceFile) -> (Option<bool>, Vec<Error>) {
         let mut s = Scanner::new(rest);
         let start = pos(&mut s);
         let end = if s.eat_if('-') { pos(&mut s) } else { start };
-        let span = Span::new(source.id(), start, end);
+        let range = start .. end;
 
-        errors.push(Error::new(span, s.after().trim()));
+        errors.push((range, s.after().trim().to_string()));
     }
 
     (compare_ref, errors)
 }
 
-fn print_error(source: &SourceFile, line: usize, error: &Error) {
-    let start_line = 1 + line + source.byte_to_line(error.span.start).unwrap();
-    let start_col = 1 + source.byte_to_column(error.span.start).unwrap();
-    let end_line = 1 + line + source.byte_to_line(error.span.end).unwrap();
-    let end_col = 1 + source.byte_to_column(error.span.end).unwrap();
-    println!(
-        "Error: {start_line}:{start_col}-{end_line}:{end_col}: {}",
-        error.message,
-    );
+fn print_error(
+    source: &SourceFile,
+    line: usize,
+    (range, message): &(Range<usize>, String),
+) {
+    let start_line = 1 + line + source.byte_to_line(range.start).unwrap();
+    let start_col = 1 + source.byte_to_column(range.start).unwrap();
+    let end_line = 1 + line + source.byte_to_line(range.end).unwrap();
+    let end_col = 1 + source.byte_to_column(range.end).unwrap();
+    println!("Error: {start_line}:{start_col}-{end_line}:{end_col}: {message}");
 }
 
 /// Pseudorandomly edit the source file and test whether a reparse produces the
@@ -487,10 +496,11 @@ fn test_reparse(src: &str, i: usize, rng: &mut LinearShift) -> bool {
         ok &= apply(start .. end, supplement);
     }
 
-    let leafs = typst::parse::parse(src).leafs();
-    let leaf_start = leafs[pick(0 .. leafs.len())].span().start;
+    let source = SourceFile::detached(src);
+    let leafs = source.root().leafs();
+    let start = source.range(leafs[pick(0 .. leafs.len())].span()).start;
     let supplement = supplements[pick(0 .. supplements.len())];
-    ok &= apply(leaf_start .. leaf_start, supplement);
+    ok &= apply(start .. start, supplement);
 
     ok
 }

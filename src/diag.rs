@@ -36,8 +36,10 @@ pub type StrResult<T> = Result<T, String>;
 /// An error in a source file.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Error {
-    /// The erroneous location in the source code.
+    /// The erroneous node in the source code.
     pub span: Span,
+    /// Where in the node the error should be annotated.
+    pub pos: ErrorPos,
     /// A diagnostic message describing the problem.
     pub message: String,
     /// The trace of function calls leading to the error.
@@ -49,10 +51,22 @@ impl Error {
     pub fn new(span: Span, message: impl Into<String>) -> Self {
         Self {
             span,
+            pos: ErrorPos::Full,
             trace: vec![],
             message: message.into(),
         }
     }
+}
+
+/// Where in a node an error should be annotated.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum ErrorPos {
+    /// At the start of the node.
+    Start,
+    /// Over the full width of the node.
+    Full,
+    /// At the end of the node.
+    End,
 }
 
 /// A part of an error's [trace](Error::trace).
@@ -110,9 +124,7 @@ impl<T> Trace<T> for TypResult<T> {
     {
         self.map_err(|mut errors| {
             for error in errors.iter_mut() {
-                if !span.surrounds(error.span) {
-                    error.trace.push(Spanned::new(make_point(), span));
-                }
+                error.trace.push(Spanned::new(make_point(), span));
             }
             errors
         })

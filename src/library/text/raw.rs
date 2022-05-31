@@ -75,7 +75,7 @@ impl Show for RawNode {
             };
 
             let mut seq = vec![];
-            syntax::highlight_themed(&self.text, mode, &THEME, &mut |piece, style| {
+            syntax::highlight_themed(&self.text, mode, &THEME, |piece, style| {
                 seq.push(styled(piece, foreground, style));
             });
 

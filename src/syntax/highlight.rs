@@ -10,24 +10,38 @@ use crate::parse::TokenMode;
 
 /// Provide highlighting categories for the descendants of a node that fall into
 /// a range.
-pub fn highlight_node<F>(node: &SyntaxNode, range: Range<usize>, f: &mut F)
+pub fn highlight_node<F>(root: &SyntaxNode, range: Range<usize>, mut f: F)
 where
     F: FnMut(Range<usize>, Category),
 {
+    highlight_node_impl(0, root, range, &mut f)
+}
+
+/// Provide highlighting categories for the descendants of a node that fall into
+/// a range.
+pub fn highlight_node_impl<F>(
+    mut offset: usize,
+    node: &SyntaxNode,
+    range: Range<usize>,
+    f: &mut F,
+) where
+    F: FnMut(Range<usize>, Category),
+{
     for (i, child) in node.children().enumerate() {
-        let span = child.span();
+        let span = offset .. offset + child.len();
         if range.start <= span.end && range.end >= span.start {
             if let Some(category) = Category::determine(child, node, i) {
-                f(span.to_range(), category);
+                f(span, category);
             }
-            highlight_node(child, range.clone(), f);
+            highlight_node_impl(offset, child, range.clone(), f);
         }
+        offset += child.len();
     }
 }
 
 /// Highlight source text in a theme by calling `f` with each consecutive piece
 /// and its style.
-pub fn highlight_themed<F>(text: &str, mode: TokenMode, theme: &Theme, f: &mut F)
+pub fn highlight_themed<F>(text: &str, mode: TokenMode, theme: &Theme, mut f: F)
 where
     F: FnMut(&str, Style),
 {
@@ -43,12 +57,13 @@ where
     };
 
     let highlighter = Highlighter::new(&theme);
-    highlight_themed_impl(text, &root, vec![], &highlighter, f);
+    highlight_themed_impl(text, 0, &root, vec![], &highlighter, &mut f);
 }
 
 /// Recursive implementation for returning syntect styles.
 fn highlight_themed_impl<F>(
     text: &str,
+    mut offset: usize,
     node: &SyntaxNode,
     scopes: Vec<Scope>,
     highlighter: &Highlighter,
@@ -57,7 +72,7 @@ fn highlight_themed_impl<F>(
     F: FnMut(&str, Style),
 {
     if node.children().len() == 0 {
-        let piece = &text[node.span().to_range()];
+        let piece = &text[offset .. offset + node.len()];
         let style = highlighter.style_for_stack(&scopes);
         f(piece, style);
         return;
@@ -68,7 +83,8 @@ fn highlight_themed_impl<F>(
         if let Some(category) = Category::determine(child, node, i) {
             scopes.push(Scope::new(category.tm_scope()).unwrap())
         }
-        highlight_themed_impl(text, child, scopes, highlighter, f);
+        highlight_themed_impl(text, offset, child, scopes, highlighter, f);
+        offset += child.len();
     }
 }
 
@@ -92,7 +108,7 @@ pub fn highlight_pre(text: &str, mode: TokenMode, theme: &Theme) -> String {
     let mut buf = String::new();
     buf.push_str("<pre>\n");
 
-    highlight_themed(text, mode, theme, &mut |piece, style| {
+    highlight_themed(text, mode, theme, |piece, style| {
         let styled = style != Style::default();
         if styled {
             buf.push_str("<span style=\"");
