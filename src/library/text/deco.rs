@@ -90,6 +90,7 @@ pub fn decorate(
     deco: &Decoration,
     fonts: &FontStore,
     text: &Text,
+    shift: Length,
     pos: Point,
     width: Length,
 ) {
@@ -102,7 +103,7 @@ pub fn decorate(
     };
 
     let evade = deco.evade && deco.line != STRIKETHROUGH;
-    let offset = deco.offset.unwrap_or(-metrics.position.at(text.size));
+    let offset = deco.offset.unwrap_or(-metrics.position.at(text.size)) - shift;
     let stroke = deco.stroke.unwrap_or(Stroke {
         paint: text.fill,
         thickness: metrics.thickness.at(text.size),

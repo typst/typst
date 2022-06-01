@@ -86,12 +86,17 @@ impl<'a> ShapedText<'a> {
         let mut frame = Frame::new(size);
         frame.baseline = Some(top);
 
+        let shift = self.styles.get(TextNode::BASELINE);
+        let lang = self.styles.get(TextNode::LANG);
+        let decos = self.styles.get(TextNode::DECO);
+        let fill = self.styles.get(TextNode::FILL);
+        let link = self.styles.get(TextNode::LINK);
+
         for ((face_id, y_offset), group) in
             self.glyphs.as_ref().group_by_key(|g| (g.face_id, g.y_offset))
         {
-            let pos = Point::new(offset, top + y_offset.at(self.size));
+            let pos = Point::new(offset, top + shift + y_offset.at(self.size));
 
-            let fill = self.styles.get(TextNode::FILL);
             let glyphs = group
                 .iter()
                 .map(|glyph| Glyph {
@@ -111,7 +116,7 @@ impl<'a> ShapedText<'a> {
             let text = Text {
                 face_id,
                 size: self.size,
-                lang: self.styles.get(TextNode::LANG),
+                lang,
                 fill,
                 glyphs,
             };
@@ -119,8 +124,8 @@ impl<'a> ShapedText<'a> {
             let width = text.width();
 
             // Apply line decorations.
-            for deco in self.styles.get(TextNode::DECO) {
-                decorate(&mut frame, &deco, fonts, &text, pos, width);
+            for deco in &decos {
+                decorate(&mut frame, &deco, fonts, &text, shift, pos, width);
             }
 
             frame.insert(text_layer, pos, Element::Text(text));
@@ -128,8 +133,8 @@ impl<'a> ShapedText<'a> {
         }
 
         // Apply link if it exists.
-        if let Some(url) = self.styles.get(TextNode::LINK) {
-            frame.link(url.clone());
+        if let Some(dest) = link {
+            frame.link(dest.clone());
         }
 
         frame
@@ -408,8 +413,6 @@ fn shape_segment<'a>(
         let cluster = info.cluster as usize;
 
         if info.glyph_id != 0 {
-            let baseline_shift = ctx.styles.get(TextNode::BASELINE);
-
             // Add the glyph to the shaped output.
             // TODO: Don't ignore y_advance.
             ctx.glyphs.push(ShapedGlyph {
@@ -417,8 +420,7 @@ fn shape_segment<'a>(
                 glyph_id: info.glyph_id as u16,
                 x_advance: face.to_em(pos[i].x_advance),
                 x_offset: face.to_em(pos[i].x_offset),
-                y_offset: face.to_em(pos[i].y_offset)
-                    + Em::from_length(baseline_shift, ctx.size),
+                y_offset: face.to_em(pos[i].y_offset),
                 cluster: base + cluster,
                 safe_to_break: !info.unsafe_to_break(),
                 c: text[cluster ..].chars().next().unwrap(),

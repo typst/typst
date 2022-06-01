@@ -17,7 +17,7 @@ pub type SuperNode = ShiftNode<SUPERSCRIPT>;
 /// Shift the text into subscript.
 pub type SubNode = ShiftNode<SUBSCRIPT>;
 
-#[node(showable)]
+#[node]
 impl<const S: ScriptKind> ShiftNode<S> {
     /// Whether to prefer the dedicated sub- and superscript characters of the font.
     pub const TYPOGRAPHIC: bool = true;
@@ -33,8 +33,8 @@ impl<const S: ScriptKind> ShiftNode<S> {
 }
 
 impl<const S: ScriptKind> Show for ShiftNode<S> {
-    fn unguard(&self, sel: Selector) -> ShowNode {
-        Self(self.0.unguard(sel)).pack()
+    fn unguard(&self, _: Selector) -> ShowNode {
+        Self(self.0.clone()).pack()
     }
 
     fn encode(&self, _: StyleChain) -> Dict {
@@ -43,9 +43,9 @@ impl<const S: ScriptKind> Show for ShiftNode<S> {
 
     fn realize(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content> {
         let mut transformed = None;
-        if styles.get(ShiftNode::<S>::TYPOGRAPHIC) {
+        if styles.get(Self::TYPOGRAPHIC) {
             if let Some(text) = search_text(&self.0, S) {
-                if check_str_in_family(&mut ctx.fonts, &text, styles) {
+                if is_shapable(&mut ctx.fonts, &text, styles) {
                     transformed = Some(Content::Text(text));
                 }
             }
@@ -53,8 +53,8 @@ impl<const S: ScriptKind> Show for ShiftNode<S> {
 
         Ok(transformed.unwrap_or_else(|| {
             let mut map = StyleMap::new();
-            map.set(TextNode::BASELINE, styles.get(ShiftNode::<S>::BASELINE));
-            map.set(TextNode::SIZE, styles.get(ShiftNode::<S>::SIZE));
+            map.set(TextNode::BASELINE, styles.get(Self::BASELINE));
+            map.set(TextNode::SIZE, styles.get(Self::SIZE));
             self.0.clone().styled_with_map(map)
         }))
     }
@@ -73,9 +73,8 @@ fn search_text(content: &Content, mode: ScriptKind) -> Option<EcoString> {
             }
             None
         }
-        Content::Space => Some(EcoString::from(" ")),
+        Content::Space => Some(' '.into()),
         Content::Empty => Some(EcoString::new()),
-        Content::Styled(arc) => search_text(&arc.0, mode),
         Content::Sequence(seq) => {
             let mut full = EcoString::new();
             for item in seq.iter() {
@@ -92,11 +91,10 @@ fn search_text(content: &Content, mode: ScriptKind) -> Option<EcoString> {
 
 /// Checks whether the first retrievable family contains all code points of the
 /// given string.
-fn check_str_in_family(fonts: &mut FontStore, text: &str, styles: StyleChain) -> bool {
+fn is_shapable(fonts: &mut FontStore, text: &str, styles: StyleChain) -> bool {
     for family in styles.get(TextNode::FAMILY).iter() {
         if let Some(face_id) = fonts.select(family.as_str(), variant(styles)) {
-            let face = fonts.get(face_id);
-            let ttf = face.ttf();
+            let ttf = fonts.get(face_id).ttf();
             return text.chars().all(|c| ttf.glyph_index(c).is_some());
         }
     }
@@ -110,8 +108,7 @@ fn convert_script(text: &str, mode: ScriptKind) -> Option<EcoString> {
     let mut result = EcoString::with_capacity(text.len());
     let converter = match mode {
         SUPERSCRIPT => to_superscript_codepoint,
-        SUBSCRIPT => to_subscript_codepoint,
-        _ => panic!("unknown script kind"),
+        SUBSCRIPT | _ => to_subscript_codepoint,
     };
 
     for c in text.chars() {

@@ -555,10 +555,7 @@ fn prepare<'a>(
                     let shift = styles.get(TextNode::BASELINE);
 
                     if !shift.is_zero() {
-                        Arc::make_mut(&mut frame).baseline = Some(
-                            frame.baseline.unwrap_or(frame.size.y)
-                                - styles.get(TextNode::BASELINE),
-                        );
+                        Arc::make_mut(&mut frame).translate(Point::with_y(shift));
                     }
 
                     items.push(Item::Frame(frame));
