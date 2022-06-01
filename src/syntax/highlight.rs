@@ -5,30 +5,43 @@ use std::sync::Arc;
 use syntect::highlighting::{Color, FontStyle, Highlighter, Style, Theme};
 use syntect::parsing::Scope;
 
-use super::{GreenNode, NodeKind, RedNode, RedRef};
+use super::{InnerNode, NodeKind, SyntaxNode};
 use crate::parse::TokenMode;
-use crate::source::SourceId;
 
 /// Provide highlighting categories for the descendants of a node that fall into
 /// a range.
-pub fn highlight_node<F>(node: RedRef, range: Range<usize>, f: &mut F)
+pub fn highlight_node<F>(root: &SyntaxNode, range: Range<usize>, mut f: F)
 where
     F: FnMut(Range<usize>, Category),
 {
+    highlight_node_impl(0, root, range, &mut f)
+}
+
+/// Provide highlighting categories for the descendants of a node that fall into
+/// a range.
+pub fn highlight_node_impl<F>(
+    mut offset: usize,
+    node: &SyntaxNode,
+    range: Range<usize>,
+    f: &mut F,
+) where
+    F: FnMut(Range<usize>, Category),
+{
     for (i, child) in node.children().enumerate() {
-        let span = child.span();
+        let span = offset .. offset + child.len();
         if range.start <= span.end && range.end >= span.start {
             if let Some(category) = Category::determine(child, node, i) {
-                f(span.to_range(), category);
+                f(span, category);
             }
-            highlight_node(child, range.clone(), f);
+            highlight_node_impl(offset, child, range.clone(), f);
         }
+        offset += child.len();
     }
 }
 
 /// Highlight source text in a theme by calling `f` with each consecutive piece
 /// and its style.
-pub fn highlight_themed<F>(text: &str, mode: TokenMode, theme: &Theme, f: &mut F)
+pub fn highlight_themed<F>(text: &str, mode: TokenMode, theme: &Theme, mut f: F)
 where
     F: FnMut(&str, Style),
 {
@@ -36,20 +49,22 @@ where
         TokenMode::Markup => crate::parse::parse(text),
         TokenMode::Code => {
             let children = crate::parse::parse_code(text);
-            Arc::new(GreenNode::with_children(NodeKind::CodeBlock, children))
+            SyntaxNode::Inner(Arc::new(InnerNode::with_children(
+                NodeKind::CodeBlock,
+                children,
+            )))
         }
     };
 
-    let root = RedNode::from_root(root, SourceId::from_raw(0));
     let highlighter = Highlighter::new(&theme);
-
-    highlight_themed_impl(text, root.as_ref(), vec![], &highlighter, f);
+    highlight_themed_impl(text, 0, &root, vec![], &highlighter, &mut f);
 }
 
 /// Recursive implementation for returning syntect styles.
 fn highlight_themed_impl<F>(
     text: &str,
-    node: RedRef,
+    mut offset: usize,
+    node: &SyntaxNode,
     scopes: Vec<Scope>,
     highlighter: &Highlighter,
     f: &mut F,
@@ -57,7 +72,7 @@ fn highlight_themed_impl<F>(
     F: FnMut(&str, Style),
 {
     if node.children().len() == 0 {
-        let piece = &text[node.span().to_range()];
+        let piece = &text[offset .. offset + node.len()];
         let style = highlighter.style_for_stack(&scopes);
         f(piece, style);
         return;
@@ -68,7 +83,8 @@ fn highlight_themed_impl<F>(
         if let Some(category) = Category::determine(child, node, i) {
             scopes.push(Scope::new(category.tm_scope()).unwrap())
         }
-        highlight_themed_impl(text, child, scopes, highlighter, f);
+        highlight_themed_impl(text, offset, child, scopes, highlighter, f);
+        offset += child.len();
     }
 }
 
@@ -92,7 +108,7 @@ pub fn highlight_pre(text: &str, mode: TokenMode, theme: &Theme) -> String {
     let mut buf = String::new();
     buf.push_str("<pre>\n");
 
-    highlight_themed(text, mode, theme, &mut |piece, style| {
+    highlight_themed(text, mode, theme, |piece, style| {
         let styled = style != Style::default();
         if styled {
             buf.push_str("<span style=\"");
@@ -178,7 +194,11 @@ pub enum Category {
 impl Category {
     /// Determine the highlighting category of a node given its parent and its
     /// index in its siblings.
-    pub fn determine(child: RedRef, parent: RedRef, i: usize) -> Option<Category> {
+    pub fn determine(
+        child: &SyntaxNode,
+        parent: &SyntaxNode,
+        i: usize,
+    ) -> Option<Category> {
         match child.kind() {
             NodeKind::LeftBrace => Some(Category::Bracket),
             NodeKind::RightBrace => Some(Category::Bracket),
@@ -262,7 +282,7 @@ impl Category {
                     if parent
                         .children()
                         .filter(|c| matches!(c.kind(), NodeKind::Ident(_)))
-                        .map(RedRef::span)
+                        .map(SyntaxNode::span)
                         .nth(1)
                         .map_or(false, |span| span == child.span()) =>
                 {
@@ -359,7 +379,7 @@ mod tests {
             let mut vec = vec![];
             let source = SourceFile::detached(src);
             let full = 0 .. src.len();
-            highlight_node(source.red().as_ref(), full, &mut |range, category| {
+            highlight_node(source.root(), full, &mut |range, category| {
                 vec.push((range, category));
             });
             assert_eq!(vec, goal);

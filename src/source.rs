@@ -12,7 +12,7 @@ use crate::diag::TypResult;
 use crate::loading::{FileHash, Loader};
 use crate::parse::{is_newline, parse, reparse};
 use crate::syntax::ast::Markup;
-use crate::syntax::{GreenNode, RedNode, Span};
+use crate::syntax::{Span, SyntaxNode};
 use crate::util::{PathExt, StrExt};
 
 #[cfg(feature = "codespan-reporting")]
@@ -20,24 +20,24 @@ use codespan_reporting::files::{self, Files};
 
 /// A unique identifier for a loaded source file.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct SourceId(u32);
+pub struct SourceId(u16);
 
 impl SourceId {
     /// Create a new source id for a file that is not part of a store.
     pub const fn detached() -> Self {
-        Self(u32::MAX)
+        Self(u16::MAX)
     }
 
     /// Create a source id from the raw underlying value.
     ///
     /// This should only be called with values returned by
     /// [`into_raw`](Self::into_raw).
-    pub const fn from_raw(v: u32) -> Self {
+    pub const fn from_raw(v: u16) -> Self {
         Self(v)
     }
 
     /// Convert into the raw underlying value.
-    pub const fn into_raw(self) -> u32 {
+    pub const fn into_raw(self) -> u16 {
         self.0
     }
 }
@@ -108,7 +108,7 @@ impl SourceStore {
         }
 
         // No existing file yet.
-        let id = SourceId(self.sources.len() as u32);
+        let id = SourceId(self.sources.len() as u16);
         self.sources.push(SourceFile::new(id, path, src));
 
         // Register in file map if the path was known to the loader.
@@ -140,6 +140,14 @@ impl SourceStore {
     ) -> Range<usize> {
         self.sources[id.0 as usize].edit(replace, with)
     }
+
+    /// Map a span that points into a [file](SourceFile::range) stored in this
+    /// source store to a byte range.
+    ///
+    /// Panics if the span does not point into this source store.
+    pub fn range(&self, span: Span) -> Range<usize> {
+        self.get(span.source()).range(span)
+    }
 }
 
 /// A single source file.
@@ -151,7 +159,7 @@ pub struct SourceFile {
     path: PathBuf,
     src: String,
     lines: Vec<Line>,
-    root: Arc<GreenNode>,
+    root: SyntaxNode,
     rev: usize,
 }
 
@@ -160,10 +168,14 @@ impl SourceFile {
     pub fn new(id: SourceId, path: &Path, src: String) -> Self {
         let mut lines = vec![Line { byte_idx: 0, utf16_idx: 0 }];
         lines.extend(Line::iter(0, 0, &src));
+
+        let mut root = parse(&src);
+        root.numberize(id, Span::FULL).unwrap();
+
         Self {
             id,
             path: path.normalize(),
-            root: parse(&src),
+            root,
             src,
             lines,
             rev: 0,
@@ -178,27 +190,21 @@ impl SourceFile {
     /// Create a source file with the same synthetic span for all nodes.
     pub fn synthesized(src: impl Into<String>, span: Span) -> Self {
         let mut file = Self::detached(src);
-        Arc::make_mut(&mut file.root).synthesize(Arc::new(span));
-        file.id = span.source;
+        file.root.synthesize(span);
+        file.id = span.source();
         file
     }
 
-    /// The root node of the file's untyped green tree.
-    pub fn root(&self) -> &Arc<GreenNode> {
+    /// The root node of the file's untyped syntax tree.
+    pub fn root(&self) -> &SyntaxNode {
         &self.root
-    }
-
-    /// The root red node of the file's untyped red tree.
-    pub fn red(&self) -> RedNode {
-        RedNode::from_root(self.root.clone(), self.id)
     }
 
     /// The root node of the file's typed abstract syntax tree.
     pub fn ast(&self) -> TypResult<Markup> {
-        let red = self.red();
-        let errors = red.errors();
+        let errors = self.root.errors();
         if errors.is_empty() {
-            Ok(red.cast().unwrap())
+            Ok(self.root.cast().unwrap())
         } else {
             Err(Box::new(errors))
         }
@@ -238,6 +244,7 @@ impl SourceFile {
         self.lines = vec![Line { byte_idx: 0, utf16_idx: 0 }];
         self.lines.extend(Line::iter(0, 0, &self.src));
         self.root = parse(&self.src);
+        self.root.numberize(self.id(), Span::FULL).unwrap();
         self.rev = self.rev.wrapping_add(1);
     }
 
@@ -288,6 +295,15 @@ impl SourceFile {
     /// Get the length of the file in lines.
     pub fn len_lines(&self) -> usize {
         self.lines.len()
+    }
+
+    /// Map a span that points into this source file to a byte range.
+    ///
+    /// Panics if the span does not point into this source file.
+    pub fn range(&self, span: Span) -> Range<usize> {
+        self.root
+            .range(span, 0)
+            .expect("span does not point into this source file")
     }
 
     /// Return the index of the UTF-16 code unit at the byte index.

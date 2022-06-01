@@ -1,25 +1,25 @@
-//! A typed layer over the red-green tree.
+//! A typed layer over the untyped syntax tree.
 //!
 //! The AST is rooted in the [`Markup`] node.
 
 use std::num::NonZeroUsize;
 use std::ops::Deref;
 
-use super::{Green, GreenData, NodeKind, RedNode, RedRef, Span, Spanned};
+use super::{NodeData, NodeKind, Span, Spanned, SyntaxNode};
 use crate::geom::{AngleUnit, LengthUnit};
 use crate::util::EcoString;
 
 /// A typed AST node.
 pub trait TypedNode: Sized {
-    /// Convert from a red node to a typed node.
-    fn from_red(value: RedRef) -> Option<Self>;
+    /// Convert a node into its typed variant.
+    fn from_untyped(node: &SyntaxNode) -> Option<Self>;
 
-    /// A reference to the underlying red node.
-    fn as_red(&self) -> RedRef<'_>;
+    /// A reference to the underlying syntax node.
+    fn as_untyped(&self) -> &SyntaxNode;
 
     /// The source code location.
     fn span(&self) -> Span {
-        self.as_red().span()
+        self.as_untyped().span()
     }
 }
 
@@ -34,19 +34,19 @@ macro_rules! node {
         #[derive(Debug, Clone, PartialEq, Hash)]
         #[repr(transparent)]
         $(#[$attr])*
-        pub struct $name(RedNode);
+        pub struct $name(SyntaxNode);
 
         impl TypedNode for $name {
-            fn from_red(node: RedRef) -> Option<Self> {
+            fn from_untyped(node: &SyntaxNode) -> Option<Self> {
                 if matches!(node.kind(), $variants) {
-                    Some(Self(node.own()))
+                    Some(Self(node.clone()))
                 } else {
                     None
                 }
             }
 
-            fn as_red(&self) -> RedRef<'_> {
-                self.0.as_ref()
+            fn as_untyped(&self) -> &SyntaxNode {
+                &self.0
             }
         }
     };
@@ -77,7 +77,10 @@ impl Markup {
             NodeKind::Strong => node.cast().map(MarkupNode::Strong),
             NodeKind::Emph => node.cast().map(MarkupNode::Emph),
             NodeKind::Raw(raw) => Some(MarkupNode::Raw(raw.as_ref().clone())),
-            NodeKind::Math(math) => Some(MarkupNode::Math(Spanned::new(math.as_ref().clone(), node.span()))),
+            NodeKind::Math(math) => Some(MarkupNode::Math(Spanned::new(
+                math.as_ref().clone(),
+                node.span(),
+            ))),
             NodeKind::Heading => node.cast().map(MarkupNode::Heading),
             NodeKind::List => node.cast().map(MarkupNode::List),
             NodeKind::Enum => node.cast().map(MarkupNode::Enum),
@@ -279,7 +282,7 @@ pub enum Expr {
 }
 
 impl TypedNode for Expr {
-    fn from_red(node: RedRef) -> Option<Self> {
+    fn from_untyped(node: &SyntaxNode) -> Option<Self> {
         match node.kind() {
             NodeKind::Ident(_) => node.cast().map(Self::Ident),
             NodeKind::CodeBlock => node.cast().map(Self::Code),
@@ -309,33 +312,33 @@ impl TypedNode for Expr {
         }
     }
 
-    fn as_red(&self) -> RedRef<'_> {
+    fn as_untyped(&self) -> &SyntaxNode {
         match self {
-            Self::Lit(v) => v.as_red(),
-            Self::Code(v) => v.as_red(),
-            Self::Content(v) => v.as_red(),
-            Self::Ident(v) => v.as_red(),
-            Self::Array(v) => v.as_red(),
-            Self::Dict(v) => v.as_red(),
-            Self::Group(v) => v.as_red(),
-            Self::Unary(v) => v.as_red(),
-            Self::Binary(v) => v.as_red(),
-            Self::FieldAccess(v) => v.as_red(),
-            Self::FuncCall(v) => v.as_red(),
-            Self::MethodCall(v) => v.as_red(),
-            Self::Closure(v) => v.as_red(),
-            Self::Let(v) => v.as_red(),
-            Self::Set(v) => v.as_red(),
-            Self::Show(v) => v.as_red(),
-            Self::Wrap(v) => v.as_red(),
-            Self::If(v) => v.as_red(),
-            Self::While(v) => v.as_red(),
-            Self::For(v) => v.as_red(),
-            Self::Import(v) => v.as_red(),
-            Self::Include(v) => v.as_red(),
-            Self::Break(v) => v.as_red(),
-            Self::Continue(v) => v.as_red(),
-            Self::Return(v) => v.as_red(),
+            Self::Lit(v) => v.as_untyped(),
+            Self::Code(v) => v.as_untyped(),
+            Self::Content(v) => v.as_untyped(),
+            Self::Ident(v) => v.as_untyped(),
+            Self::Array(v) => v.as_untyped(),
+            Self::Dict(v) => v.as_untyped(),
+            Self::Group(v) => v.as_untyped(),
+            Self::Unary(v) => v.as_untyped(),
+            Self::Binary(v) => v.as_untyped(),
+            Self::FieldAccess(v) => v.as_untyped(),
+            Self::FuncCall(v) => v.as_untyped(),
+            Self::MethodCall(v) => v.as_untyped(),
+            Self::Closure(v) => v.as_untyped(),
+            Self::Let(v) => v.as_untyped(),
+            Self::Set(v) => v.as_untyped(),
+            Self::Show(v) => v.as_untyped(),
+            Self::Wrap(v) => v.as_untyped(),
+            Self::If(v) => v.as_untyped(),
+            Self::While(v) => v.as_untyped(),
+            Self::For(v) => v.as_untyped(),
+            Self::Import(v) => v.as_untyped(),
+            Self::Include(v) => v.as_untyped(),
+            Self::Break(v) => v.as_untyped(),
+            Self::Continue(v) => v.as_untyped(),
+            Self::Return(v) => v.as_untyped(),
         }
     }
 }
@@ -429,7 +432,7 @@ node! {
 impl CodeBlock {
     /// The list of expressions contained in the block.
     pub fn exprs(&self) -> impl Iterator<Item = Expr> + '_ {
-        self.0.children().filter_map(RedRef::cast)
+        self.0.children().filter_map(SyntaxNode::cast)
     }
 }
 
@@ -465,7 +468,7 @@ node! {
 impl ArrayExpr {
     /// The array items.
     pub fn items(&self) -> impl Iterator<Item = ArrayItem> + '_ {
-        self.0.children().filter_map(RedRef::cast)
+        self.0.children().filter_map(SyntaxNode::cast)
     }
 }
 
@@ -479,17 +482,17 @@ pub enum ArrayItem {
 }
 
 impl TypedNode for ArrayItem {
-    fn from_red(node: RedRef) -> Option<Self> {
+    fn from_untyped(node: &SyntaxNode) -> Option<Self> {
         match node.kind() {
             NodeKind::Spread => node.cast_first_child().map(Self::Spread),
             _ => node.cast().map(Self::Pos),
         }
     }
 
-    fn as_red(&self) -> RedRef<'_> {
+    fn as_untyped(&self) -> &SyntaxNode {
         match self {
-            Self::Pos(v) => v.as_red(),
-            Self::Spread(v) => v.as_red(),
+            Self::Pos(v) => v.as_untyped(),
+            Self::Spread(v) => v.as_untyped(),
         }
     }
 }
@@ -502,7 +505,7 @@ node! {
 impl DictExpr {
     /// The named dictionary items.
     pub fn items(&self) -> impl Iterator<Item = DictItem> + '_ {
-        self.0.children().filter_map(RedRef::cast)
+        self.0.children().filter_map(SyntaxNode::cast)
     }
 }
 
@@ -518,7 +521,7 @@ pub enum DictItem {
 }
 
 impl TypedNode for DictItem {
-    fn from_red(node: RedRef) -> Option<Self> {
+    fn from_untyped(node: &SyntaxNode) -> Option<Self> {
         match node.kind() {
             NodeKind::Named => node.cast().map(Self::Named),
             NodeKind::Keyed => node.cast().map(Self::Keyed),
@@ -527,11 +530,11 @@ impl TypedNode for DictItem {
         }
     }
 
-    fn as_red(&self) -> RedRef<'_> {
+    fn as_untyped(&self) -> &SyntaxNode {
         match self {
-            Self::Named(v) => v.as_red(),
-            Self::Keyed(v) => v.as_red(),
-            Self::Spread(v) => v.as_red(),
+            Self::Named(v) => v.as_untyped(),
+            Self::Keyed(v) => v.as_untyped(),
+            Self::Spread(v) => v.as_untyped(),
         }
     }
 }
@@ -895,7 +898,7 @@ node! {
 impl CallArgs {
     /// The positional and named arguments.
     pub fn items(&self) -> impl Iterator<Item = CallArg> + '_ {
-        self.0.children().filter_map(RedRef::cast)
+        self.0.children().filter_map(SyntaxNode::cast)
     }
 }
 
@@ -911,7 +914,7 @@ pub enum CallArg {
 }
 
 impl TypedNode for CallArg {
-    fn from_red(node: RedRef) -> Option<Self> {
+    fn from_untyped(node: &SyntaxNode) -> Option<Self> {
         match node.kind() {
             NodeKind::Named => node.cast().map(Self::Named),
             NodeKind::Spread => node.cast_first_child().map(Self::Spread),
@@ -919,11 +922,11 @@ impl TypedNode for CallArg {
         }
     }
 
-    fn as_red(&self) -> RedRef<'_> {
+    fn as_untyped(&self) -> &SyntaxNode {
         match self {
-            Self::Pos(v) => v.as_red(),
-            Self::Named(v) => v.as_red(),
-            Self::Spread(v) => v.as_red(),
+            Self::Pos(v) => v.as_untyped(),
+            Self::Named(v) => v.as_untyped(),
+            Self::Spread(v) => v.as_untyped(),
         }
     }
 }
@@ -948,7 +951,7 @@ impl ClosureExpr {
             .find(|x| x.kind() == &NodeKind::ClosureParams)
             .expect("closure is missing parameter list")
             .children()
-            .filter_map(RedRef::cast)
+            .filter_map(SyntaxNode::cast)
     }
 
     /// The body of the closure.
@@ -969,7 +972,7 @@ pub enum ClosureParam {
 }
 
 impl TypedNode for ClosureParam {
-    fn from_red(node: RedRef) -> Option<Self> {
+    fn from_untyped(node: &SyntaxNode) -> Option<Self> {
         match node.kind() {
             NodeKind::Ident(_) => node.cast().map(Self::Pos),
             NodeKind::Named => node.cast().map(Self::Named),
@@ -978,11 +981,11 @@ impl TypedNode for ClosureParam {
         }
     }
 
-    fn as_red(&self) -> RedRef<'_> {
+    fn as_untyped(&self) -> &SyntaxNode {
         match self {
-            Self::Pos(v) => v.as_red(),
-            Self::Named(v) => v.as_red(),
-            Self::Sink(v) => v.as_red(),
+            Self::Pos(v) => v.as_untyped(),
+            Self::Named(v) => v.as_untyped(),
+            Self::Sink(v) => v.as_untyped(),
         }
     }
 }
@@ -1007,7 +1010,7 @@ impl LetExpr {
     /// The expression the binding is initialized with.
     pub fn init(&self) -> Option<Expr> {
         if self.0.cast_first_child::<Ident>().is_some() {
-            self.0.children().filter_map(RedRef::cast).nth(1)
+            self.0.children().filter_map(SyntaxNode::cast).nth(1)
         } else {
             // This is a let .. with expression.
             self.0.cast_first_child()
@@ -1042,7 +1045,7 @@ impl ShowExpr {
     pub fn binding(&self) -> Option<Ident> {
         let mut children = self.0.children();
         children
-            .find_map(RedRef::cast)
+            .find_map(SyntaxNode::cast)
             .filter(|_| children.any(|child| child.kind() == &NodeKind::Colon))
     }
 
@@ -1052,7 +1055,7 @@ impl ShowExpr {
             .children()
             .rev()
             .skip_while(|child| child.kind() != &NodeKind::As)
-            .find_map(RedRef::cast)
+            .find_map(SyntaxNode::cast)
             .expect("show rule is missing pattern")
     }
 
@@ -1094,14 +1097,14 @@ impl IfExpr {
     pub fn if_body(&self) -> Expr {
         self.0
             .children()
-            .filter_map(RedRef::cast)
+            .filter_map(SyntaxNode::cast)
             .nth(1)
             .expect("if expression is missing body")
     }
 
     /// The expression to evaluate if the condition is false.
     pub fn else_body(&self) -> Option<Expr> {
-        self.0.children().filter_map(RedRef::cast).nth(2)
+        self.0.children().filter_map(SyntaxNode::cast).nth(2)
     }
 }
 
@@ -1152,7 +1155,7 @@ node! {
 impl ForPattern {
     /// The key part of the pattern: index for arrays, name for dictionaries.
     pub fn key(&self) -> Option<Ident> {
-        let mut children = self.0.children().filter_map(RedRef::cast);
+        let mut children = self.0.children().filter_map(SyntaxNode::cast);
         let key = children.next();
         if children.next().is_some() { key } else { None }
     }
@@ -1176,7 +1179,7 @@ impl ImportExpr {
             .find_map(|node| match node.kind() {
                 NodeKind::Star => Some(Imports::Wildcard),
                 NodeKind::ImportItems => {
-                    let items = node.children().filter_map(RedRef::cast).collect();
+                    let items = node.children().filter_map(SyntaxNode::cast).collect();
                     Some(Imports::Items(items))
                 }
                 _ => None,
@@ -1241,8 +1244,8 @@ node! {
 impl Ident {
     /// Take out the contained [`EcoString`].
     pub fn take(self) -> EcoString {
-        match self.0.green {
-            Green::Token(GreenData { kind: NodeKind::Ident(id), .. }) => id,
+        match self.0 {
+            SyntaxNode::Leaf(NodeData { kind: NodeKind::Ident(id), .. }) => id,
             _ => panic!("identifier is of wrong kind"),
         }
     }
@@ -1252,8 +1255,8 @@ impl Deref for Ident {
     type Target = str;
 
     fn deref(&self) -> &Self::Target {
-        match &self.0.green {
-            Green::Token(GreenData { kind: NodeKind::Ident(id), .. }) => id,
+        match &self.0 {
+            SyntaxNode::Leaf(NodeData { kind: NodeKind::Ident(id), .. }) => id,
             _ => panic!("identifier is of wrong kind"),
         }
     }

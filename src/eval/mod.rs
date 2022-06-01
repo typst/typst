@@ -698,7 +698,7 @@ impl Eval for ClosureExpr {
         // Collect captured variables.
         let captured = {
             let mut visitor = CapturesVisitor::new(&vm.scopes);
-            visitor.visit(self.as_red());
+            visitor.visit(self.as_untyped());
             visitor.finish()
         };
 
@@ -770,7 +770,7 @@ impl Eval for ShowExpr {
         // Collect captured variables.
         let captured = {
             let mut visitor = CapturesVisitor::new(&vm.scopes);
-            visitor.visit(self.as_red());
+            visitor.visit(self.as_untyped());
             visitor.finish()
         };
 

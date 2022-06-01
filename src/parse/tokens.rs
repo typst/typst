@@ -4,9 +4,10 @@ use unicode_xid::UnicodeXID;
 use unscanny::Scanner;
 
 use super::resolve::{resolve_hex, resolve_raw, resolve_string};
+use crate::diag::ErrorPos;
 use crate::geom::{AngleUnit, LengthUnit};
 use crate::syntax::ast::{MathNode, RawNode, Unit};
-use crate::syntax::{ErrorPos, NodeKind};
+use crate::syntax::NodeKind;
 use crate::util::EcoString;
 
 /// An iterator over the tokens of a string of source code.

@@ -73,7 +73,7 @@ fn bench_highlight(iai: &mut Iai) {
     let source = ctx.sources.get(id);
     iai.run(|| {
         typst::syntax::highlight_node(
-            source.red().as_ref(),
+            source.root(),
             0 .. source.len_bytes(),
             &mut |_, _| {},
         )

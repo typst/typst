@@ -3,7 +3,8 @@ use std::mem;
 use std::ops::Range;
 
 use super::{TokenMode, Tokens};
-use crate::syntax::{ErrorPos, Green, GreenData, GreenNode, NodeKind};
+use crate::diag::ErrorPos;
+use crate::syntax::{InnerNode, NodeData, NodeKind, SyntaxNode};
 use crate::util::EcoString;
 
 /// A convenient token-based parser.
@@ -21,7 +22,7 @@ pub struct Parser<'s> {
     /// The stack of open groups.
     groups: Vec<GroupEntry>,
     /// The children of the currently built node.
-    children: Vec<Green>,
+    children: Vec<SyntaxNode>,
     /// Whether the last group was not correctly terminated.
     unterminated_group: bool,
     /// Whether a group terminator was found, that did not close a group.
@@ -54,14 +55,14 @@ impl<'s> Parser<'s> {
     }
 
     /// End the parsing process and return the parsed children.
-    pub fn finish(self) -> Vec<Green> {
+    pub fn finish(self) -> Vec<SyntaxNode> {
         self.children
     }
 
     /// End the parsing process and return the parsed children and whether the
     /// last token was terminated if all groups were terminated correctly or
     /// `None` otherwise.
-    pub fn consume(self) -> Option<(Vec<Green>, bool)> {
+    pub fn consume(self) -> Option<(Vec<SyntaxNode>, bool)> {
         self.terminated().then(|| (self.children, self.tokens.terminated()))
     }
 
@@ -94,11 +95,11 @@ impl<'s> Parser<'s> {
         if self.tokens.mode() == TokenMode::Code {
             // Trailing trivia should not be wrapped into the new node.
             let idx = self.children.len();
-            self.children.push(Green::default());
+            self.children.push(SyntaxNode::default());
             self.children.extend(children.drain(until.0 ..));
-            self.children[idx] = GreenNode::with_children(kind, children).into();
+            self.children[idx] = InnerNode::with_children(kind, children).into();
         } else {
-            self.children.push(GreenNode::with_children(kind, children).into());
+            self.children.push(InnerNode::with_children(kind, children).into());
         }
 
         output
@@ -291,7 +292,7 @@ impl<'s> Parser<'s> {
             if group_mode == TokenMode::Code {
                 let start = self.trivia_start().0;
                 target = self.current_start
-                    - self.children[start ..].iter().map(Green::len).sum::<usize>();
+                    - self.children[start ..].iter().map(SyntaxNode::len).sum::<usize>();
                 self.children.truncate(start);
             }
 
@@ -314,7 +315,7 @@ impl<'s> Parser<'s> {
     fn bump(&mut self) {
         let kind = self.current.take().unwrap();
         let len = self.tokens.cursor() - self.current_start;
-        self.children.push(GreenData::new(kind, len).into());
+        self.children.push(NodeData::new(kind, len).into());
         self.current_start = self.tokens.cursor();
         self.current = self.tokens.next();
     }
@@ -399,7 +400,7 @@ impl Parser<'_> {
     pub fn expected_at(&mut self, marker: Marker, what: &str) {
         let msg = format_eco!("expected {}", what);
         let error = NodeKind::Error(ErrorPos::Full, msg);
-        self.children.insert(marker.0, GreenData::new(error, 0).into());
+        self.children.insert(marker.0, NodeData::new(error, 0).into());
     }
 
     /// Eat the current token and add an error that it is not the expected
@@ -422,12 +423,12 @@ pub struct Marker(usize);
 
 impl Marker {
     /// Peek at the child directly before the marker.
-    pub fn before<'a>(self, p: &'a Parser) -> Option<&'a Green> {
+    pub fn before<'a>(self, p: &'a Parser) -> Option<&'a SyntaxNode> {
         p.children.get(self.0.checked_sub(1)?)
     }
 
     /// Peek at the child directly after the marker.
-    pub fn after<'a>(self, p: &'a Parser) -> Option<&'a Green> {
+    pub fn after<'a>(self, p: &'a Parser) -> Option<&'a SyntaxNode> {
         p.children.get(self.0)
     }
 
@@ -455,13 +456,13 @@ impl Marker {
         let until = p.trivia_start();
         let children = p.children.drain(self.0 .. until.0).collect();
         p.children
-            .insert(self.0, GreenNode::with_children(kind, children).into());
+            .insert(self.0, InnerNode::with_children(kind, children).into());
     }
 
     /// Wrap all children that do not fulfill the predicate in error nodes.
     pub fn filter_children<F>(self, p: &mut Parser, mut f: F)
     where
-        F: FnMut(&Green) -> Result<(), &'static str>,
+        F: FnMut(&SyntaxNode) -> Result<(), &'static str>,
     {
         for child in &mut p.children[self.0 ..] {
             // Don't expose errors.
@@ -482,7 +483,7 @@ impl Marker {
                 }
                 let error = NodeKind::Error(ErrorPos::Full, msg);
                 let inner = mem::take(child);
-                *child = GreenNode::with_child(error, inner).into();
+                *child = InnerNode::with_child(error, inner).into();
             }
         }
     }
