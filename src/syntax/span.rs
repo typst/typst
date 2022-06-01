@@ -42,42 +42,47 @@ impl<T: Debug> Debug for Spanned<T> {
 /// A unique identifier for a syntax node.
 ///
 /// This is used throughout the compiler to track which source section an error
-/// or element stems from. Can be mapped back to a source id + byte range for
-/// user facing display.
+/// or element stems from. Can be [mapped back](crate::source::SourceStore::range)
+/// to a source id + byte range for user facing display.
 ///
-/// Node ids are ordered in the tree to enable quickly finding the node with
+/// Span ids are ordered in the tree to enable quickly finding the node with
 /// some id:
 /// - The id of a parent is always smaller than the ids of any of its children.
 /// - The id of a node is always greater than any id in the subtrees of any left
-///   sibling and smaller than any id the subtrees of any right sibling.
+///   sibling and smaller than any id in the subtrees of any right sibling.
 ///
-/// Node ids stay mostly stable, even for nodes behind an insertion. This is not
-/// true for simple spans/ranges as they shift. Node ids can be used as inputs
-/// to memoized functions without hurting cache performance when text is
-/// inserted somewhere in the document other than the end.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+/// The internal ids of spans stay mostly stable, even for nodes behind an
+/// insertion. This is not true for simple ranges as they shift. Spans can be
+/// used as inputs to memoized functions without hurting cache performance when
+/// text is inserted somewhere in the document other than the end.
+///
+/// This type takes 8 bytes and is null-optimized (i.e. `Option<Span>` also
+/// takes 8 bytes).
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Span(NonZeroU64);
 
 impl Span {
-    // Number of bits for and minimum and maximum numbers assigned to nodes.
+    // Number of bits for and minimum and maximum numbers assignable to spans.
     const BITS: usize = 48;
     const DETACHED: u64 = 1;
     const MIN: u64 = 2;
     const MAX: u64 = (1 << Self::BITS) - 1;
 
-    // The root numbering range.
+    /// The full range of numbers available to spans.
     pub const FULL: Range<u64> = Self::MIN .. Self::MAX + 1;
 
     /// Create a new span from a source id and a unique number.
-    pub fn new(id: SourceId, number: u64) -> Self {
-        assert!(number >= Self::MIN && number <= Self::MAX, "{number}");
+    ///
+    /// Panics if the `number` is not contained in `FULL`.
+    pub const fn new(id: SourceId, number: u64) -> Self {
+        assert!(number >= Self::MIN && number <= Self::MAX);
         let bits = ((id.into_raw() as u64) << Self::BITS) | number;
-        Self(convert(bits))
+        Self(to_non_zero(bits))
     }
 
-    /// A node that does not belong to any source file.
+    /// A span that does not point into any source file.
     pub const fn detached() -> Self {
-        Self(convert(Self::DETACHED))
+        Self(to_non_zero(Self::DETACHED))
     }
 
     /// The id of the source file the span points into.
@@ -92,7 +97,7 @@ impl Span {
 }
 
 /// Convert to a non zero u64.
-const fn convert(v: u64) -> NonZeroU64 {
+const fn to_non_zero(v: u64) -> NonZeroU64 {
     match NonZeroU64::new(v) {
         Some(v) => v,
         None => unreachable!(),

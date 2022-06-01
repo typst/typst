@@ -141,7 +141,8 @@ impl SourceStore {
         self.sources[id.0 as usize].edit(replace, with)
     }
 
-    /// Map a span that points into this source store to a byte range.
+    /// Map a span that points into a [file](SourceFile::range) stored in this
+    /// source store to a byte range.
     ///
     /// Panics if the span does not point into this source store.
     pub fn range(&self, span: Span) -> Range<usize> {

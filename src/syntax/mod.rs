@@ -122,7 +122,7 @@ impl SyntaxNode {
         }
     }
 
-    /// Set a synthetic node id for the node and all its descendants.
+    /// Set a synthetic span for the node and all its descendants.
     pub fn synthesize(&mut self, span: Span) {
         match self {
             Self::Inner(inner) => Arc::make_mut(inner).synthesize(span),
@@ -258,7 +258,7 @@ impl InnerNode {
         self.children.iter()
     }
 
-    /// Set a synthetic node id for the node and all its descendants.
+    /// Set a synthetic span for the node and all its descendants.
     pub fn synthesize(&mut self, span: Span) {
         self.data.synthesize(span);
         for child in &mut self.children {
@@ -266,13 +266,15 @@ impl InnerNode {
         }
     }
 
-    /// Assign spans to this subtree or some a range of children.
+    /// Assign span numbers `within` an interval to this node's subtree or just
+    /// a `range` of its children.
     pub fn numberize(
         &mut self,
         id: SourceId,
         range: Option<Range<usize>>,
         within: Range<u64>,
     ) -> NumberingResult {
+        // Determine how many nodes we will number.
         let descendants = match &range {
             Some(range) if range.is_empty() => return Ok(()),
             Some(range) => self.children[range.clone()]
@@ -282,6 +284,9 @@ impl InnerNode {
             None => self.descendants,
         };
 
+        // Determine the distance between two neighbouring assigned numbers. If
+        // possible, we try to fit all numbers into the left half of `within`
+        // so that there is space for future insertions.
         let space = within.end - within.start;
         let mut stride = space / (2 * descendants as u64);
         if stride == 0 {
@@ -291,6 +296,7 @@ impl InnerNode {
             }
         }
 
+        // Number this node itself.
         let mut start = within.start;
         if range.is_none() {
             let end = start + stride;
@@ -299,6 +305,7 @@ impl InnerNode {
             start = end;
         }
 
+        // Number the children.
         let len = self.children.len();
         for child in &mut self.children[range.unwrap_or(0 .. len)] {
             let end = start + child.descendants() as u64 * stride;
@@ -309,7 +316,7 @@ impl InnerNode {
         Ok(())
     }
 
-    /// The maximum assigned number in this subtree.
+    /// The upper bound of assigned numbers in this subtree.
     pub fn upper(&self) -> u64 {
         self.upper
     }
@@ -387,39 +394,44 @@ impl InnerNode {
         self.children.splice(range.clone(), replacement);
         range.end = range.start + replacement_count;
 
-        // Renumber the new children. Retries until it works taking
+        // Renumber the new children. Retries until it works, taking
         // exponentially more children into account.
-        let max_left = range.start;
-        let max_right = self.children.len() - range.end;
         let mut left = 0;
         let mut right = 0;
+        let max_left = range.start;
+        let max_right = self.children.len() - range.end;
         loop {
             let renumber = range.start - left .. range.end + right;
 
-            // The minimum assignable number is the upper bound of the node
-            // right before the to-be-renumbered children (or the number after
-            // this inner node's span if renumbering starts at the first child).
+            // The minimum assignable number is either
+            // - the upper bound of the node right before the to-be-renumbered
+            //   children,
+            // - or this inner node's span number plus one if renumbering starts
+            //   at the first child.
             let start_number = renumber
                 .start
                 .checked_sub(1)
                 .and_then(|i| self.children.get(i))
                 .map_or(self.span().number() + 1, |child| child.upper());
 
-            // The upper bound of the is the span of the first child after the to-be-renumbered children
-            // or this node's upper bound.
+            // The upper bound for renumbering is either
+            // - the span number of the first child after the to-be-renumbered
+            //   children,
+            // - or this node's upper bound if renumbering ends behind the last
+            //   child.
             let end_number = self
                 .children
                 .get(renumber.end)
                 .map_or(self.upper(), |next| next.span().number());
 
-            // Try to renumber within the number range.
+            // Try to renumber.
             let within = start_number .. end_number;
             let id = self.span().source();
             if self.numberize(id, Some(renumber), within).is_ok() {
                 return Ok(());
             }
 
-            // Doesn't even work with all children, so we give up.
+            // If it didn't even work with all children, we give up.
             if left == max_left && right == max_right {
                 return Err(Unnumberable);
             }
@@ -430,8 +442,8 @@ impl InnerNode {
         }
     }
 
-    /// Update the length of this node given the old and new length of
-    /// replaced children.
+    /// Update the this node given after changes were made to one of its
+    /// children.
     pub(crate) fn update_parent(
         &mut self,
         prev_len: usize,
