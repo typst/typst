@@ -59,7 +59,7 @@ impl Reparser<'_> {
         let original_offset = offset;
 
         let mut search = SearchState::default();
-        let mut ahead_nontrivia = AheadKind::None;
+        let mut ahead: Option<Ahead> = None;
 
         // Whether the first node that should be replaced is at start.
         let mut at_start = true;
@@ -95,9 +95,11 @@ impl Reparser<'_> {
                         search = SearchState::SpanFound(pos, pos);
                     } else {
                         // Update compulsary state of `ahead_nontrivia`.
-                        match child.kind() {
-                            NodeKind::Space(n) if n > &1 => ahead_nontrivia.newline(),
-                            _ => {}
+                        if let Some(ahead_nontrivia) = ahead.as_mut() {
+                            match child.kind() {
+                                NodeKind::Space(n) if n > &0 => ahead_nontrivia.newline(),
+                                _ => {}
+                            }
                         }
 
                         // We look only for non spaces, non-semicolon and also
@@ -106,15 +108,14 @@ impl Reparser<'_> {
                         if !child.kind().is_space()
                             && child.kind() != &NodeKind::Semicolon
                             && child.kind() != &NodeKind::Text('/'.into())
-                            && (ahead_nontrivia.is_none()
-                                || self.replaced.start > child_span.end)
-                            && !ahead_nontrivia.is_compulsory()
+                            && (ahead.is_none() || self.replaced.start > child_span.end)
+                            && !ahead.map_or(false, Ahead::is_compulsory)
                         {
-                            ahead_nontrivia = if child.kind().is_unbounded() {
-                                AheadKind::Unbounded(pos, at_start, true)
-                            } else {
-                                AheadKind::Normal(pos, at_start)
-                            };
+                            ahead = Some(Ahead::new(
+                                pos,
+                                at_start,
+                                child.kind().is_bounded(),
+                            ));
                         }
 
                         at_start = child.kind().is_at_start(at_start);
@@ -154,13 +155,7 @@ impl Reparser<'_> {
         if let SearchState::Contained(pos) = search {
             // Do not allow replacement of elements inside of constructs whose
             // opening and closing brackets look the same.
-            let safe_inside = match node.kind() {
-                NodeKind::Emph
-                | NodeKind::Strong
-                | NodeKind::Raw(_)
-                | NodeKind::Math(_) => false,
-                _ => true,
-            };
+            let safe_inside = node.kind().is_bounded();
 
             let child = &mut node.children_mut()[pos.idx];
             let prev_len = child.len();
@@ -211,15 +206,10 @@ impl Reparser<'_> {
         };
 
         let (mut start, end) = search.done()?;
-        if let Some((ahead, ahead_at_start)) = ahead_nontrivia.data() {
-            let ahead_kind = node.children().as_slice()[ahead.idx].kind();
-
-            if start.offset == self.replaced.start
-                || ahead_kind.only_at_start()
-                || ahead_nontrivia.is_compulsory()
-            {
-                start = ahead;
-                at_start = ahead_at_start;
+        if let Some(ahead) = ahead {
+            if start.offset == self.replaced.start || ahead.is_compulsory() {
+                start = ahead.pos;
+                at_start = ahead.at_start;
             }
         } else {
             start = NodePos { idx: 0, offset: original_offset };
@@ -342,46 +332,46 @@ impl SearchState {
     }
 }
 
-/// What kind of ahead element is found at the moment, with an index and whether it is `at_start`
+/// An ahead element with an index and whether it is `at_start`.
 #[derive(Clone, Copy, Debug, PartialEq)]
-enum AheadKind {
-    /// No non-trivia child has been found yet.
-    None,
-    /// A normal non-trivia child has been found.
-    Normal(NodePos, bool),
-    /// An unbounded child has been found. The last bool indicates whether it was on
-    /// the current line, in which case adding it to the reparsing range is
-    /// compulsory.
-    Unbounded(NodePos, bool, bool),
+struct Ahead {
+    pos: NodePos,
+    at_start: bool,
+    kind: AheadKind,
 }
 
-impl AheadKind {
-    fn newline(&mut self) {
-        match self {
-            Self::Unbounded(_, _, current_line) => {
-                *current_line = false;
-            }
-            _ => {}
+/// The kind of ahead element.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum AheadKind {
+    /// A normal non-trivia child has been found.
+    Normal,
+    /// An unbounded child has been found. The boolean indicates whether it was
+    /// on the current line, in which case adding it to the reparsing range is
+    /// compulsory.
+    Unbounded(bool),
+}
+
+impl Ahead {
+    fn new(pos: NodePos, at_start: bool, bounded: bool) -> Self {
+        Self {
+            pos,
+            at_start,
+            kind: if bounded {
+                AheadKind::Normal
+            } else {
+                AheadKind::Unbounded(true)
+            },
         }
     }
 
-    fn data(self) -> Option<(NodePos, bool)> {
-        match self {
-            Self::None => None,
-            Self::Normal(pos, at_start) => Some((pos, at_start)),
-            Self::Unbounded(pos, at_start, _) => Some((pos, at_start)),
+    fn newline(&mut self) {
+        if let AheadKind::Unbounded(current_line) = &mut self.kind {
+            *current_line = false;
         }
     }
 
     fn is_compulsory(self) -> bool {
-        match self {
-            Self::None | Self::Normal(_, _) => false,
-            Self::Unbounded(_, _, current_line) => current_line,
-        }
-    }
-
-    fn is_none(self) -> bool {
-        matches!(self, Self::None)
+        matches!(self.kind, AheadKind::Unbounded(true))
     }
 }
 
@@ -420,6 +410,9 @@ mod tests {
         test("", 0..0, "do it", 0..5);
         test("a d e", 1 .. 3, " b c d", 0 .. 9);
         test("*~ *", 2..2, "*", 0..5);
+        test("_1_\n2a\n3", 5..5, "4", 0..7);
+        test("_1_\n2a\n3~", 8..8, "4", 5..10);
+        test("_1_ 2 3a\n4", 7..7, "5", 0..9);
         test("* {1+2} *", 5..6, "3", 2..7);
         test("a #f() e", 1 .. 6, " b c d", 0 .. 9);
         test("a\nb\nc\nd\ne\n", 5 .. 5, "c", 2 .. 7);
@@ -427,7 +420,7 @@ mod tests {
         test("a\nb\nc *hel a b lo* d\nd\ne", 13..13, "c ", 6..20);
         test("~~ {a} ~~", 4 .. 5, "b", 3 .. 6);
         test("{(0, 1, 2)}", 5 .. 6, "11pt", 0..14);
-        test("\n= A heading", 4 .. 4, "n evocative", 3 .. 23);
+        test("\n= A heading", 4 .. 4, "n evocative", 0 .. 23);
         test("for~your~thing", 9 .. 9, "a", 4 .. 15);
         test("a your thing a", 6 .. 7, "a", 0 .. 14);
         test("{call(); abc}", 7 .. 7, "[]", 0 .. 15);

@@ -841,25 +841,25 @@ impl NodeKind {
         }
     }
 
-    /// Whether this is a node that is not clearly delimited by a character and
-    /// may appear in markup.
-    pub fn is_unbounded(&self) -> bool {
-        matches!(
-            self,
-            Self::Strong
-                | Self::Emph
-                | Self::Raw(_)
-                | Self::Math(_)
-                | Self::LetExpr
-                | Self::SetExpr
-                | Self::ShowExpr
-                | Self::WrapExpr
-                | Self::IfExpr
-                | Self::WhileExpr
-                | Self::ForExpr
-                | Self::IncludeExpr
-                | Self::ImportExpr
-        )
+    /// Whether this is a node that is clearly delimited by a character and may
+    /// appear in markup.
+    pub fn is_bounded(&self) -> bool {
+        match self {
+            Self::CodeBlock
+            | Self::ContentBlock
+            | Self::Linebreak { .. }
+            | Self::NonBreakingSpace
+            | Self::Shy
+            | Self::EnDash
+            | Self::EmDash
+            | Self::Ellipsis
+            | Self::Quote { .. }
+            | Self::BlockComment
+            | Self::Space(_)
+            | Self::Escape(_) => true,
+            Self::Text(t) => t != "-" && !t.ends_with('.'),
+            _ => false,
+        }
     }
 
     /// A human-readable name for the kind.
