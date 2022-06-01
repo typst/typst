@@ -1,5 +1,6 @@
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::{self, Debug, Display, Formatter};
 use std::num::NonZeroU64;
+use std::ops::Range;
 
 use crate::syntax::SourceId;
 
@@ -61,12 +62,15 @@ impl Span {
     // Number of bits for and minimum and maximum numbers assigned to nodes.
     const BITS: usize = 48;
     const DETACHED: u64 = 1;
-    pub(crate) const MIN_NUMBER: u64 = 2;
-    pub(crate) const MAX_NUMBER: u64 = (1 << Self::BITS) - 1;
+    const MIN: u64 = 2;
+    const MAX: u64 = (1 << Self::BITS) - 1;
+
+    // The root numbering range.
+    pub const FULL: Range<u64> = Self::MIN .. Self::MAX + 1;
 
     /// Create a new span from a source id and a unique number.
-    pub const fn new(id: SourceId, number: u64) -> Self {
-        assert!(number >= Self::MIN_NUMBER && number <= Self::MAX_NUMBER);
+    pub fn new(id: SourceId, number: u64) -> Self {
+        assert!(number >= Self::MIN && number <= Self::MAX, "{number}");
         let bits = ((id.into_raw() as u64) << Self::BITS) | number;
         Self(convert(bits))
     }
@@ -83,7 +87,7 @@ impl Span {
 
     /// The unique number of the span within the source file.
     pub const fn number(self) -> u64 {
-        self.0.get() & Self::MAX_NUMBER
+        self.0.get() & ((1 << Self::BITS) - 1)
     }
 }
 
@@ -94,3 +98,18 @@ const fn convert(v: u64) -> NonZeroU64 {
         None => unreachable!(),
     }
 }
+
+/// Result of numbering a node within an interval.
+pub type NumberingResult = Result<(), Unnumberable>;
+
+/// Indicates that a node cannot be numbered within a given interval.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct Unnumberable;
+
+impl Display for Unnumberable {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.pad("cannot number within this interval")
+    }
+}
+
+impl std::error::Error for Unnumberable {}

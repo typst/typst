@@ -169,7 +169,7 @@ impl SourceFile {
         lines.extend(Line::iter(0, 0, &src));
 
         let mut root = parse(&src);
-        root.number(id, Span::MIN_NUMBER);
+        root.numberize(id, Span::FULL).unwrap();
 
         Self {
             id,
@@ -243,7 +243,7 @@ impl SourceFile {
         self.lines = vec![Line { byte_idx: 0, utf16_idx: 0 }];
         self.lines.extend(Line::iter(0, 0, &self.src));
         self.root = parse(&self.src);
-        self.root.number(self.id(), Span::MIN_NUMBER);
+        self.root.numberize(self.id(), Span::FULL).unwrap();
         self.rev = self.rev.wrapping_add(1);
     }
 
@@ -277,9 +277,7 @@ impl SourceFile {
         ));
 
         // Incrementally reparse the replaced range.
-        let range = reparse(&mut self.root, &self.src, replace, with.len());
-        self.root.number(self.id(), Span::MIN_NUMBER);
-        range
+        reparse(&mut self.root, &self.src, replace, with.len())
     }
 
     /// Get the length of the file in bytes.

@@ -1,7 +1,7 @@
 use std::ops::Range;
 use std::sync::Arc;
 
-use crate::syntax::{InnerNode, NodeKind, SyntaxNode};
+use crate::syntax::{InnerNode, NodeKind, Span, SyntaxNode};
 
 use super::{
     is_newline, parse, reparse_code_block, reparse_content_block, reparse_markup_elements,
@@ -26,7 +26,9 @@ pub fn reparse(
         }
     }
 
+    let id = root.span().source();
     *root = parse(src);
+    root.numberize(id, Span::FULL).unwrap();
     0 .. src.len()
 }
 
@@ -139,7 +141,7 @@ impl Reparser<'_> {
         if let SearchState::Contained(pos) = search {
             let child = &mut node.children_mut()[pos.idx];
             let prev_len = child.len();
-            let prev_count = child.count();
+            let prev_descendants = child.descendants();
 
             if let Some(range) = match child {
                 SyntaxNode::Inner(node) => {
@@ -148,8 +150,8 @@ impl Reparser<'_> {
                 SyntaxNode::Leaf(_) => None,
             } {
                 let new_len = child.len();
-                let new_count = child.count();
-                node.update_parent(prev_len, new_len, prev_count, new_count);
+                let new_descendants = child.descendants();
+                node.update_parent(prev_len, new_len, prev_descendants, new_descendants);
                 return Some(range);
             }
 
@@ -259,7 +261,9 @@ impl Reparser<'_> {
             return None;
         }
 
-        node.replace_children(superseded_start .. superseded_start + amount, newborns);
+        node.replace_children(superseded_start .. superseded_start + amount, newborns)
+            .ok()?;
+
         Some(newborn_span)
     }
 }

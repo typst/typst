@@ -30,8 +30,8 @@ impl SyntaxNode {
     /// Returns the metadata of the node.
     pub fn data(&self) -> &NodeData {
         match self {
-            SyntaxNode::Inner(inner) => &inner.data,
-            SyntaxNode::Leaf(leaf) => leaf,
+            Self::Inner(inner) => &inner.data,
+            Self::Leaf(leaf) => leaf,
         }
     }
 
@@ -46,10 +46,10 @@ impl SyntaxNode {
     }
 
     /// The number of descendants, including the node itself.
-    pub fn count(&self) -> usize {
+    pub fn descendants(&self) -> usize {
         match self {
-            SyntaxNode::Inner(inner) => inner.count(),
-            SyntaxNode::Leaf(_) => 1,
+            Self::Inner(inner) => inner.descendants(),
+            Self::Leaf(_) => 1,
         }
     }
 
@@ -58,35 +58,11 @@ impl SyntaxNode {
         self.data().span()
     }
 
-    /// If the span points into this node, convert it to a byte range.
-    pub fn range(&self, span: Span, offset: usize) -> Option<Range<usize>> {
-        match self {
-            SyntaxNode::Inner(inner) => inner.range(span, offset),
-            SyntaxNode::Leaf(leaf) => {
-                (span == leaf.span).then(|| offset .. offset + self.len())
-            }
-        }
-    }
-
     /// The node's children.
     pub fn children(&self) -> std::slice::Iter<'_, SyntaxNode> {
         match self {
-            SyntaxNode::Inner(inner) => inner.children(),
-            SyntaxNode::Leaf(_) => [].iter(),
-        }
-    }
-
-    /// Returns all leaf descendants of this node (may include itself).
-    ///
-    /// This method is slow and only intended for testing.
-    pub fn leafs(&self) -> Vec<Self> {
-        if match self {
-            SyntaxNode::Inner(inner) => inner.children().len() == 0,
-            SyntaxNode::Leaf(_) => true,
-        } {
-            vec![self.clone()]
-        } else {
-            self.children().flat_map(Self::leafs).collect()
+            Self::Inner(inner) => inner.children(),
+            Self::Leaf(_) => [].iter(),
         }
     }
 
@@ -146,19 +122,51 @@ impl SyntaxNode {
         }
     }
 
-    /// Assign spans to each node.
-    pub fn number(&mut self, id: SourceId, from: u64) {
-        match self {
-            SyntaxNode::Inner(inner) => Arc::make_mut(inner).number(id, from),
-            SyntaxNode::Leaf(leaf) => leaf.number(id, from),
-        }
-    }
-
     /// Set a synthetic node id for the node and all its descendants.
     pub fn synthesize(&mut self, span: Span) {
         match self {
-            SyntaxNode::Inner(inner) => Arc::make_mut(inner).synthesize(span),
-            SyntaxNode::Leaf(leaf) => leaf.synthesize(span),
+            Self::Inner(inner) => Arc::make_mut(inner).synthesize(span),
+            Self::Leaf(leaf) => leaf.synthesize(span),
+        }
+    }
+
+    /// Assign spans to each node.
+    pub fn numberize(&mut self, id: SourceId, within: Range<u64>) -> NumberingResult {
+        match self {
+            Self::Inner(inner) => Arc::make_mut(inner).numberize(id, None, within),
+            Self::Leaf(leaf) => leaf.numberize(id, within),
+        }
+    }
+
+    /// The upper bound of assigned numbers in this subtree.
+    pub fn upper(&self) -> u64 {
+        match self {
+            Self::Inner(inner) => inner.upper(),
+            Self::Leaf(leaf) => leaf.span().number() + 1,
+        }
+    }
+
+    /// If the span points into this node, convert it to a byte range.
+    pub fn range(&self, span: Span, offset: usize) -> Option<Range<usize>> {
+        match self {
+            Self::Inner(inner) => inner.range(span, offset),
+            Self::Leaf(leaf) => {
+                (span == leaf.span).then(|| offset .. offset + self.len())
+            }
+        }
+    }
+
+    /// Returns all leaf descendants of this node (may include itself).
+    ///
+    /// This method is slow and only intended for testing.
+    pub fn leafs(&self) -> Vec<Self> {
+        if match self {
+            Self::Inner(inner) => inner.children.is_empty(),
+            Self::Leaf(_) => true,
+        } {
+            vec![self.clone()]
+        } else {
+            self.children().flat_map(Self::leafs).collect()
         }
     }
 }
@@ -179,14 +187,16 @@ impl Debug for SyntaxNode {
 }
 
 /// An inner node in the untyped syntax tree.
-#[derive(Clone, PartialEq, Hash)]
+#[derive(Clone, Hash)]
 pub struct InnerNode {
     /// Node metadata.
     data: NodeData,
     /// The number of nodes in the whole subtree, including this node.
-    count: usize,
+    descendants: usize,
     /// Whether this node or any of its children are erroneous.
     erroneous: bool,
+    /// The upper bound of this node's numbering range.
+    upper: u64,
     /// This node's children, losslessly make up this node.
     children: Vec<SyntaxNode>,
 }
@@ -200,19 +210,20 @@ impl InnerNode {
     /// Creates a new node with the given kind and children.
     pub fn with_children(kind: NodeKind, children: Vec<SyntaxNode>) -> Self {
         let mut len = 0;
-        let mut count = 1;
+        let mut descendants = 1;
         let mut erroneous = kind.is_error();
 
         for child in &children {
             len += child.len();
-            count += child.count();
+            descendants += child.descendants();
             erroneous |= child.erroneous();
         }
 
         Self {
             data: NodeData::new(kind, len),
-            count,
+            descendants,
             erroneous,
+            upper: 0,
             children,
         }
     }
@@ -238,8 +249,69 @@ impl InnerNode {
     }
 
     /// The number of descendants, including the node itself.
-    pub fn count(&self) -> usize {
-        self.count
+    pub fn descendants(&self) -> usize {
+        self.descendants
+    }
+
+    /// The node's children.
+    pub fn children(&self) -> std::slice::Iter<'_, SyntaxNode> {
+        self.children.iter()
+    }
+
+    /// Set a synthetic node id for the node and all its descendants.
+    pub fn synthesize(&mut self, span: Span) {
+        self.data.synthesize(span);
+        for child in &mut self.children {
+            child.synthesize(span);
+        }
+    }
+
+    /// Assign spans to this subtree or some a range of children.
+    pub fn numberize(
+        &mut self,
+        id: SourceId,
+        range: Option<Range<usize>>,
+        within: Range<u64>,
+    ) -> NumberingResult {
+        let descendants = match &range {
+            Some(range) if range.is_empty() => return Ok(()),
+            Some(range) => self.children[range.clone()]
+                .iter()
+                .map(SyntaxNode::descendants)
+                .sum::<usize>(),
+            None => self.descendants,
+        };
+
+        let space = within.end - within.start;
+        let mut stride = space / (2 * descendants as u64);
+        if stride == 0 {
+            stride = space / self.descendants as u64;
+            if stride == 0 {
+                return Err(Unnumberable);
+            }
+        }
+
+        let mut start = within.start;
+        if range.is_none() {
+            let end = start + stride;
+            self.data.numberize(id, start .. end)?;
+            self.upper = within.end;
+            start = end;
+        }
+
+        let len = self.children.len();
+        for child in &mut self.children[range.unwrap_or(0 .. len)] {
+            let end = start + child.descendants() as u64 * stride;
+            child.numberize(id, start .. end)?;
+            start = end;
+        }
+
+        Ok(())
+    }
+
+    /// The maximum assigned number in this subtree.
+    pub fn upper(&self) -> u64 {
+        self.upper
     }
 
     /// If the span points into this node, convert it to a byte range.
@@ -276,41 +348,19 @@ impl InnerNode {
         None
     }
 
-    /// The node's children.
-    pub fn children(&self) -> std::slice::Iter<'_, SyntaxNode> {
-        self.children.iter()
-    }
-
-    /// Assign spans to each node.
-    pub fn number(&mut self, id: SourceId, mut from: u64) {
-        self.data.number(id, from);
-        from += 1;
-
-        for child in &mut self.children {
-            child.number(id, from);
-            from += child.count() as u64;
-        }
-    }
-
-    /// Set a synthetic node id for the node and all its descendants.
-    pub fn synthesize(&mut self, span: Span) {
-        self.data.synthesize(span);
-        for child in &mut self.children {
-            child.synthesize(span);
-        }
-    }
-
     /// The node's children, mutably.
     pub(crate) fn children_mut(&mut self) -> &mut [SyntaxNode] {
         &mut self.children
     }
 
     /// Replaces a range of children with some replacement.
+    ///
+    /// May have mutated the children if it returns `Err(_)`.
     pub(crate) fn replace_children(
         &mut self,
-        range: Range<usize>,
+        mut range: Range<usize>,
         replacement: Vec<SyntaxNode>,
-    ) {
+    ) -> NumberingResult {
         let superseded = &self.children[range.clone()];
 
         // Compute the new byte length.
@@ -318,10 +368,10 @@ impl InnerNode {
             + replacement.iter().map(SyntaxNode::len).sum::<usize>()
             - superseded.iter().map(SyntaxNode::len).sum::<usize>();
 
-        // Compute the new descendant count.
-        self.count = self.count
-            + replacement.iter().map(SyntaxNode::count).sum::<usize>()
-            - superseded.iter().map(SyntaxNode::count).sum::<usize>();
+        // Compute the new number of descendants.
+        self.descendants = self.descendants
+            + replacement.iter().map(SyntaxNode::descendants).sum::<usize>()
+            - superseded.iter().map(SyntaxNode::descendants).sum::<usize>();
 
         // Determine whether we're still erroneous after the replacement. That's
         // the case if
@@ -329,11 +379,55 @@ impl InnerNode {
         // - or if we were erroneous before due to a non-superseded node.
         self.erroneous = replacement.iter().any(SyntaxNode::erroneous)
             || (self.erroneous
-                && (self.children[.. range.start].iter().any(SyntaxNode::erroneous)
-                    || self.children[range.end ..].iter().any(SyntaxNode::erroneous)));
+                && (self.children[.. range.start].iter().any(SyntaxNode::erroneous))
+                || self.children[range.end ..].iter().any(SyntaxNode::erroneous));
 
         // Perform the replacement.
-        self.children.splice(range, replacement);
+        let replacement_count = replacement.len();
+        self.children.splice(range.clone(), replacement);
+        range.end = range.start + replacement_count;
+
+        // Renumber the new children. Retries until it works taking
+        // exponentially more children into account.
+        let max_left = range.start;
+        let max_right = self.children.len() - range.end;
+        let mut left = 0;
+        let mut right = 0;
+        loop {
+            let renumber = range.start - left .. range.end + right;
+
+            // The minimum assignable number is the upper bound of the node
+            // right before the to-be-renumbered children (or the number after
+            // this inner node's span if renumbering starts at the first child).
+            let start_number = renumber
+                .start
+                .checked_sub(1)
+                .and_then(|i| self.children.get(i))
+                .map_or(self.span().number() + 1, |child| child.upper());
+
+            // The upper bound of the is the span of the first child after the to-be-renumbered children
+            // or this node's upper bound.
+            let end_number = self
+                .children
+                .get(renumber.end)
+                .map_or(self.upper(), |next| next.span().number());
+
+            // Try to renumber within the number range.
+            let within = start_number .. end_number;
+            let id = self.span().source();
+            if self.numberize(id, Some(renumber), within).is_ok() {
+                return Ok(());
+            }
+
+            // Doesn't even work with all children, so we give up.
+            if left == max_left && right == max_right {
+                return Err(Unnumberable);
+            }
+
+            // Exponential expansion to both sides.
+            left = (left + 1).next_power_of_two().min(max_left);
+            right = (right + 1).next_power_of_two().min(max_right);
+        }
     }
 
     /// Update the length of this node given the old and new length of
@@ -342,11 +436,11 @@ impl InnerNode {
         &mut self,
         prev_len: usize,
         new_len: usize,
-        prev_count: usize,
-        new_count: usize,
+        prev_descendants: usize,
+        new_descendants: usize,
     ) {
         self.data.len = self.data.len + new_len - prev_len;
-        self.count = self.count + new_count - prev_count;
+        self.descendants = self.descendants + new_descendants - prev_descendants;
         self.erroneous = self.children.iter().any(SyntaxNode::erroneous);
     }
 }
@@ -371,6 +465,15 @@ impl Debug for InnerNode {
             f.debug_list().entries(&self.children).finish()?;
         }
         Ok(())
+    }
+}
+
+impl PartialEq for InnerNode {
+    fn eq(&self, other: &Self) -> bool {
+        self.data == other.data
+            && self.descendants == other.descendants
+            && self.erroneous == other.erroneous
+            && self.children == other.children
     }
 }
 
@@ -407,14 +510,19 @@ impl NodeData {
         self.span
     }
 
-    /// Assign spans to each node.
-    pub fn number(&mut self, id: SourceId, from: u64) {
-        self.span = Span::new(id, from);
-    }
-
     /// Set a synthetic span for the node.
     pub fn synthesize(&mut self, span: Span) {
         self.span = span;
+    }
+
+    /// Assign a span to the node.
+    pub fn numberize(&mut self, id: SourceId, within: Range<u64>) -> NumberingResult {
+        if within.start < within.end {
+            self.span = Span::new(id, (within.start + within.end) / 2);
+            Ok(())
+        } else {
+            Err(Unnumberable)
+        }
     }
 }
 

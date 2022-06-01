@@ -295,11 +295,10 @@ fn test_part(
         println!("Syntax Tree: {:#?}", source.root())
     }
 
-    test_spans(source.root());
-
     let (local_compare_ref, mut ref_errors) = parse_metadata(&source);
     let compare_ref = local_compare_ref.unwrap_or(compare_ref);
 
+    ok &= test_spans(source.root());
     ok &= test_reparse(ctx.sources.get(id).src(), i, rng);
 
     let (mut frames, errors) = match typst::typeset(ctx, id) {
@@ -461,21 +460,23 @@ fn test_reparse(src: &str, i: usize, rng: &mut LinearShift) -> bool {
         let incr_root = incr_source.root();
         let ref_source = SourceFile::detached(edited_src);
         let ref_root = ref_source.root();
-        let same = incr_root == ref_root;
-        if !same {
+        let mut ok = incr_root == ref_root;
+        if !ok {
             println!(
                 "    Subtest {i} reparse differs from clean parse when inserting '{with}' at {}-{} ❌\n",
                 replace.start, replace.end,
             );
             println!("    Expected reference tree:\n{ref_root:#?}\n");
             println!("    Found incremental tree:\n{incr_root:#?}");
-            println!("Full source ({}):\n\"{edited_src:?}\"", edited_src.len());
+            println!(
+                "    Full source ({}):\n\"{edited_src:?}\"",
+                edited_src.len()
+            );
         }
 
-        test_spans(ref_root);
-        test_spans(incr_root);
-
-        same
+        ok &= test_spans(ref_root);
+        ok &= test_spans(incr_root);
+        ok
     };
 
     let mut pick = |range: Range<usize>| {
@@ -506,18 +507,31 @@ fn test_reparse(src: &str, i: usize, rng: &mut LinearShift) -> bool {
 }
 
 /// Ensure that all spans are properly ordered (and therefore unique).
-fn test_spans(root: &SyntaxNode) {
-    test_spans_impl(root, 0 .. u64::MAX);
+#[track_caller]
+fn test_spans(root: &SyntaxNode) -> bool {
+    test_spans_impl(root, 0 .. u64::MAX)
 }
 
-fn test_spans_impl(root: &SyntaxNode, within: Range<u64>) {
-    assert!(within.contains(&root.span().number()), "wrong span order");
-    let start = root.span().number() + 1;
-    let mut children = root.children().peekable();
+#[track_caller]
+fn test_spans_impl(node: &SyntaxNode, within: Range<u64>) -> bool {
+    if !within.contains(&node.span().number()) {
+        eprintln!("    Node: {node:#?}");
+        eprintln!(
+            "    Wrong span order: {} not in {within:?} ❌",
+            node.span().number(),
+        );
+    }
+
+    let start = node.span().number() + 1;
+    let mut children = node.children().peekable();
     while let Some(child) = children.next() {
         let end = children.peek().map_or(within.end, |next| next.span().number());
-        test_spans_impl(child, start .. end);
+        if !test_spans_impl(child, start .. end) {
+            return false;
+        }
     }
+
+    true
 }
 
 /// Draw all frames into one image with padding in between.
