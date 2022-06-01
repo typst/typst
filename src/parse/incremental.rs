@@ -21,7 +21,7 @@ pub fn reparse(
 ) -> Range<usize> {
     if let SyntaxNode::Inner(inner) = root {
         let reparser = Reparser { src, replaced, replacement_len };
-        if let Some(range) = reparser.reparse_step(Arc::make_mut(inner), 0, true) {
+        if let Some(range) = reparser.reparse_step(Arc::make_mut(inner), 0, true, true) {
             return range;
         }
     }
@@ -52,13 +52,14 @@ impl Reparser<'_> {
         node: &mut InnerNode,
         mut offset: usize,
         outermost: bool,
+        safe_to_replace: bool,
     ) -> Option<Range<usize>> {
         let is_markup = matches!(node.kind(), NodeKind::Markup(_));
         let original_count = node.children().len();
         let original_offset = offset;
 
         let mut search = SearchState::default();
-        let mut ahead_nontrivia = None;
+        let mut ahead_nontrivia = AheadKind::None;
 
         // Whether the first node that should be replaced is at start.
         let mut at_start = true;
@@ -93,6 +94,12 @@ impl Reparser<'_> {
                     {
                         search = SearchState::SpanFound(pos, pos);
                     } else {
+                        // Update compulsary state of `ahead_nontrivia`.
+                        match child.kind() {
+                            NodeKind::Space(n) if n > &1 => ahead_nontrivia.newline(),
+                            _ => {}
+                        }
+
                         // We look only for non spaces, non-semicolon and also
                         // reject text that points to the special case for URL
                         // evasion and line comments.
@@ -101,9 +108,15 @@ impl Reparser<'_> {
                             && child.kind() != &NodeKind::Text('/'.into())
                             && (ahead_nontrivia.is_none()
                                 || self.replaced.start > child_span.end)
+                            && !ahead_nontrivia.is_compulsory()
                         {
-                            ahead_nontrivia = Some((pos, at_start));
+                            ahead_nontrivia = if child.kind().is_unbounded() {
+                                AheadKind::Unbounded(pos, at_start, true)
+                            } else {
+                                AheadKind::Normal(pos, at_start)
+                            };
                         }
+
                         at_start = child.kind().is_at_start(at_start);
                     }
                 }
@@ -139,14 +152,27 @@ impl Reparser<'_> {
         }
 
         if let SearchState::Contained(pos) = search {
+            // Do not allow replacement of elements inside of constructs whose
+            // opening and closing brackets look the same.
+            let safe_inside = match node.kind() {
+                NodeKind::Emph
+                | NodeKind::Strong
+                | NodeKind::Raw(_)
+                | NodeKind::Math(_) => false,
+                _ => true,
+            };
+
             let child = &mut node.children_mut()[pos.idx];
             let prev_len = child.len();
             let prev_descendants = child.descendants();
 
             if let Some(range) = match child {
-                SyntaxNode::Inner(node) => {
-                    self.reparse_step(Arc::make_mut(node), pos.offset, child_outermost)
-                }
+                SyntaxNode::Inner(node) => self.reparse_step(
+                    Arc::make_mut(node),
+                    pos.offset,
+                    child_outermost,
+                    safe_inside,
+                ),
                 SyntaxNode::Leaf(_) => None,
             } {
                 let new_len = child.len();
@@ -177,19 +203,20 @@ impl Reparser<'_> {
             }
         }
 
-        // Save the current indent if this is a markup node and stop otherwise.
+        // Make sure this is a markup node and that we may replace. If so, save
+        // the current indent.
         let indent = match node.kind() {
-            NodeKind::Markup(n) => *n,
+            NodeKind::Markup(n) if safe_to_replace => *n,
             _ => return None,
         };
 
         let (mut start, end) = search.done()?;
-        if let Some((ahead, ahead_at_start)) = ahead_nontrivia {
+        if let Some((ahead, ahead_at_start)) = ahead_nontrivia.data() {
             let ahead_kind = node.children().as_slice()[ahead.idx].kind();
 
             if start.offset == self.replaced.start
                 || ahead_kind.only_at_start()
-                || !ahead_kind.only_in_markup()
+                || ahead_nontrivia.is_compulsory()
             {
                 start = ahead;
                 at_start = ahead_at_start;
@@ -315,6 +342,49 @@ impl SearchState {
     }
 }
 
+/// What kind of ahead element is found at the moment, with an index and whether it is `at_start`
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum AheadKind {
+    /// No non-trivia child has been found yet.
+    None,
+    /// A normal non-trivia child has been found.
+    Normal(NodePos, bool),
+    /// An unbounded child has been found. The last bool indicates whether it was on
+    /// the current line, in which case adding it to the reparsing range is
+    /// compulsory.
+    Unbounded(NodePos, bool, bool),
+}
+
+impl AheadKind {
+    fn newline(&mut self) {
+        match self {
+            Self::Unbounded(_, _, current_line) => {
+                *current_line = false;
+            }
+            _ => {}
+        }
+    }
+
+    fn data(self) -> Option<(NodePos, bool)> {
+        match self {
+            Self::None => None,
+            Self::Normal(pos, at_start) => Some((pos, at_start)),
+            Self::Unbounded(pos, at_start, _) => Some((pos, at_start)),
+        }
+    }
+
+    fn is_compulsory(self) -> bool {
+        match self {
+            Self::None | Self::Normal(_, _) => false,
+            Self::Unbounded(_, _, current_line) => current_line,
+        }
+    }
+
+    fn is_none(self) -> bool {
+        matches!(self, Self::None)
+    }
+}
+
 /// Which reparse function to choose for a span of elements.
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum ReparseMode {
@@ -349,6 +419,8 @@ mod tests {
         test("some content", 0..12, "", 0..0);
         test("", 0..0, "do it", 0..5);
         test("a d e", 1 .. 3, " b c d", 0 .. 9);
+        test("*~ *", 2..2, "*", 0..5);
+        test("* {1+2} *", 5..6, "3", 2..7);
         test("a #f() e", 1 .. 6, " b c d", 0 .. 9);
         test("a\nb\nc\nd\ne\n", 5 .. 5, "c", 2 .. 7);
         test("a\n\nb\n\nc\n\nd\n\ne\n", 7 .. 7, "c", 3 .. 10);
@@ -374,6 +446,7 @@ mod tests {
         test(r#"a ```typst hello``` b"#, 16 .. 17, "", 2 .. 18);
         test(r#"a ```typst hello```"#, 16 .. 17, "", 2 .. 18);
         test("#for", 4 .. 4, "//", 0 .. 6);
+        test("#show a: f as b..", 16..16, "c", 0..18);
         test("a\n#let \nb", 7 .. 7, "i", 2 .. 9);
         test("a\n#for i \nb", 9 .. 9, "in", 2 .. 12);
         test("a~https://fun/html", 13..14, "n", 2..18);
@@ -387,7 +460,7 @@ mod tests {
         test("x = y", 1 .. 1, " + y\n", 0 .. 7);
         test("abc\n= a heading\njoke", 3 .. 4, "\nmore\n\n", 0 .. 21);
         test("abc\n= a heading\njoke", 3 .. 4, "\nnot ", 0 .. 19);
-        test("#let x = (1, 2 + ;~ Five\r\n\r", 20 .. 23, "2.", 18 .. 23);
+        test("#let x = (1, 2 + ;~ Five\r\n\r", 20 .. 23, "2.", 0 .. 23);
         test("hey #myfriend", 4 .. 4, "\\", 0 .. 14);
         test("hey  #myfriend", 4 .. 4, "\\", 3 .. 6);
         test("= foo\nbar\n - a\n - b", 6 .. 9, "", 0 .. 11);

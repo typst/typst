@@ -841,27 +841,24 @@ impl NodeKind {
         }
     }
 
-    /// Whether this is a node that only appears in markup.
-    pub fn only_in_markup(&self) -> bool {
+    /// Whether this is a node that is not clearly delimited by a character and
+    /// may appear in markup.
+    pub fn is_unbounded(&self) -> bool {
         matches!(
             self,
-            Self::Text(_)
-                | Self::Linebreak { .. }
-                | Self::NonBreakingSpace
-                | Self::Shy
-                | Self::EnDash
-                | Self::EmDash
-                | Self::Ellipsis
-                | Self::Quote { .. }
-                | Self::Escape(_)
-                | Self::Strong
+            Self::Strong
                 | Self::Emph
                 | Self::Raw(_)
                 | Self::Math(_)
-                | Self::Heading
-                | Self::List
-                | Self::Enum
-                | Self::EnumNumbering(_)
+                | Self::LetExpr
+                | Self::SetExpr
+                | Self::ShowExpr
+                | Self::WrapExpr
+                | Self::IfExpr
+                | Self::WhileExpr
+                | Self::ForExpr
+                | Self::IncludeExpr
+                | Self::ImportExpr
         )
     }
 
