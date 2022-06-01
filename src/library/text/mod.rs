@@ -8,6 +8,7 @@ mod quotes;
 mod raw;
 mod repeat;
 mod shaping;
+mod shift;
 
 pub use deco::*;
 pub use lang::*;
@@ -17,6 +18,7 @@ pub use quotes::*;
 pub use raw::*;
 pub use repeat::*;
 pub use shaping::*;
+pub use shift::*;
 
 use std::borrow::Cow;
 
@@ -60,6 +62,9 @@ impl TextNode {
     /// The width of spaces relative to the default space width.
     #[property(resolve)]
     pub const SPACING: Relative<RawLength> = Relative::one();
+    /// The offset of the baseline.
+    #[property(resolve)]
+    pub const BASELINE: RawLength = RawLength::zero();
     /// Whether glyphs can hang over into the margin.
     pub const OVERHANG: bool = true;
     /// The top end of the text bounding box.
@@ -98,8 +103,6 @@ impl TextNode {
     pub const NUMBER_TYPE: Smart<NumberType> = Smart::Auto;
     /// The width of numbers / figures.
     pub const NUMBER_WIDTH: Smart<NumberWidth> = Smart::Auto;
-    /// How to position numbers.
-    pub const NUMBER_POSITION: NumberPosition = NumberPosition::Normal;
     /// Whether to have a slash through the zero glyph. ("zero")
     pub const SLASHED_ZERO: bool = false;
     /// Whether to convert fractions. ("frac")

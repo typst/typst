@@ -41,6 +41,8 @@ pub struct ShapedGlyph {
     pub x_advance: Em,
     /// The horizontal offset of the glyph.
     pub x_offset: Em,
+    /// The vertical offset of the glyph.
+    pub y_offset: Em,
     /// A value that is the same for all glyphs belong to one cluster.
     pub cluster: usize,
     /// Whether splitting the shaping result before this glyph would yield the
@@ -84,10 +86,17 @@ impl<'a> ShapedText<'a> {
         let mut frame = Frame::new(size);
         frame.baseline = Some(top);
 
-        for (face_id, group) in self.glyphs.as_ref().group_by_key(|g| g.face_id) {
-            let pos = Point::new(offset, top);
+        let shift = self.styles.get(TextNode::BASELINE);
+        let lang = self.styles.get(TextNode::LANG);
+        let decos = self.styles.get(TextNode::DECO);
+        let fill = self.styles.get(TextNode::FILL);
+        let link = self.styles.get(TextNode::LINK);
 
-            let fill = self.styles.get(TextNode::FILL);
+        for ((face_id, y_offset), group) in
+            self.glyphs.as_ref().group_by_key(|g| (g.face_id, g.y_offset))
+        {
+            let pos = Point::new(offset, top + shift + y_offset.at(self.size));
+
             let glyphs = group
                 .iter()
                 .map(|glyph| Glyph {
@@ -107,7 +116,7 @@ impl<'a> ShapedText<'a> {
             let text = Text {
                 face_id,
                 size: self.size,
-                lang: self.styles.get(TextNode::LANG),
+                lang,
                 fill,
                 glyphs,
             };
@@ -115,8 +124,8 @@ impl<'a> ShapedText<'a> {
             let width = text.width();
 
             // Apply line decorations.
-            for deco in self.styles.get(TextNode::DECO) {
-                decorate(&mut frame, &deco, fonts, &text, pos, width);
+            for deco in &decos {
+                decorate(&mut frame, &deco, fonts, &text, shift, pos, width);
             }
 
             frame.insert(text_layer, pos, Element::Text(text));
@@ -124,8 +133,8 @@ impl<'a> ShapedText<'a> {
         }
 
         // Apply link if it exists.
-        if let Some(url) = self.styles.get(TextNode::LINK) {
-            frame.link(url.clone());
+        if let Some(dest) = link {
+            frame.link(dest.clone());
         }
 
         frame
@@ -212,11 +221,14 @@ impl<'a> ShapedText<'a> {
             let x_advance = face.to_em(ttf.glyph_hor_advance(glyph_id)?);
             let cluster = self.glyphs.last().map(|g| g.cluster).unwrap_or_default();
             self.width += x_advance.at(self.size);
+            let baseline_shift = self.styles.get(TextNode::BASELINE);
+
             self.glyphs.to_mut().push(ShapedGlyph {
                 face_id,
                 glyph_id: glyph_id.0,
                 x_advance,
                 x_offset: Em::zero(),
+                y_offset: Em::from_length(baseline_shift, self.size),
                 cluster,
                 safe_to_break: true,
                 c: '-',
@@ -402,12 +414,13 @@ fn shape_segment<'a>(
 
         if info.glyph_id != 0 {
             // Add the glyph to the shaped output.
-            // TODO: Don't ignore y_advance and y_offset.
+            // TODO: Don't ignore y_advance.
             ctx.glyphs.push(ShapedGlyph {
                 face_id,
                 glyph_id: info.glyph_id as u16,
                 x_advance: face.to_em(pos[i].x_advance),
                 x_offset: face.to_em(pos[i].x_offset),
+                y_offset: face.to_em(pos[i].y_offset),
                 cluster: base + cluster,
                 safe_to_break: !info.unsafe_to_break(),
                 c: text[cluster ..].chars().next().unwrap(),
@@ -478,6 +491,7 @@ fn shape_tofus(ctx: &mut ShapingContext, base: usize, text: &str, face_id: FaceI
             glyph_id: 0,
             x_advance,
             x_offset: Em::zero(),
+            y_offset: Em::from_length(ctx.styles.get(TextNode::BASELINE), ctx.size),
             cluster: base + cluster,
             safe_to_break: true,
             c,
@@ -600,12 +614,6 @@ fn tags(styles: StyleChain) -> Vec<Feature> {
         Smart::Auto => {}
         Smart::Custom(NumberWidth::Proportional) => feat(b"pnum", 1),
         Smart::Custom(NumberWidth::Tabular) => feat(b"tnum", 1),
-    }
-
-    match styles.get(TextNode::NUMBER_POSITION) {
-        NumberPosition::Normal => {}
-        NumberPosition::Subscript => feat(b"subs", 1),
-        NumberPosition::Superscript => feat(b"sups", 1),
     }
 
     if styles.get(TextNode::SLASHED_ZERO) {

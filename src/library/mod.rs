@@ -28,6 +28,8 @@ pub fn new() -> Scope {
     std.def_node::<text::UnderlineNode>("underline");
     std.def_node::<text::StrikethroughNode>("strike");
     std.def_node::<text::OverlineNode>("overline");
+    std.def_node::<text::SuperNode>("super");
+    std.def_node::<text::SubNode>("sub");
     std.def_node::<text::LinkNode>("link");
     std.def_node::<text::RepeatNode>("repeat");
     std.def_fn("lower", text::lower);

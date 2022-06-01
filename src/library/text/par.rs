@@ -551,7 +551,13 @@ fn prepare<'a>(
                 } else {
                     let size = Size::new(regions.first.x, regions.base.y);
                     let pod = Regions::one(size, regions.base, Spec::splat(false));
-                    let frame = node.layout(ctx, &pod, styles)?.remove(0);
+                    let mut frame = node.layout(ctx, &pod, styles)?.remove(0);
+                    let shift = styles.get(TextNode::BASELINE);
+
+                    if !shift.is_zero() {
+                        Arc::make_mut(&mut frame).translate(Point::with_y(shift));
+                    }
+
                     items.push(Item::Frame(frame));
                 }
             }

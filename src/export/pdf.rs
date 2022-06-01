@@ -521,16 +521,17 @@ impl<'a> PageExporter<'a> {
     }
 
     fn write_text(&mut self, x: f32, y: f32, text: &Text) {
+        *self.languages.entry(text.lang).or_insert(0) += text.glyphs.len();
         self.glyphs
             .entry(text.face_id)
             .or_default()
             .extend(text.glyphs.iter().map(|g| g.id));
 
-        self.content.begin_text();
-        self.set_font(text.face_id, text.size);
-        self.set_fill(text.fill);
-
         let face = self.fonts.get(text.face_id);
+
+        self.set_fill(text.fill);
+        self.set_font(text.face_id, text.size);
+        self.content.begin_text();
 
         // Position the text.
         self.content.set_text_matrix([1.0, 0.0, 0.0, -1.0, x, y]);
@@ -568,11 +569,6 @@ impl<'a> PageExporter<'a> {
             items.show(Str(&encoded));
         }
 
-        self.languages
-            .entry(text.lang)
-            .and_modify(|x| *x += text.glyphs.len())
-            .or_insert_with(|| text.glyphs.len());
-
         items.finish();
         positioned.finish();
         self.content.end_text();
@@ -581,6 +577,14 @@ impl<'a> PageExporter<'a> {
     fn write_shape(&mut self, x: f32, y: f32, shape: &Shape) {
         if shape.fill.is_none() && shape.stroke.is_none() {
             return;
+        }
+
+        if let Some(fill) = shape.fill {
+            self.set_fill(fill);
+        }
+
+        if let Some(stroke) = shape.stroke {
+            self.set_stroke(stroke);
         }
 
         match shape.geometry {
@@ -604,14 +608,6 @@ impl<'a> PageExporter<'a> {
             Geometry::Path(ref path) => {
                 self.write_path(x, y, path);
             }
-        }
-
-        if let Some(fill) = shape.fill {
-            self.set_fill(fill);
-        }
-
-        if let Some(stroke) = shape.stroke {
-            self.set_stroke(stroke);
         }
 
         match (shape.fill, shape.stroke) {
