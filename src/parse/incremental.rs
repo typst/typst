@@ -68,6 +68,7 @@ impl Reparser<'_> {
         for (i, child) in node.children().enumerate() {
             let pos = NodePos { idx: i, offset };
             let child_span = offset .. offset + child.len();
+            child_outermost = outermost && i + 1 == original_count;
 
             match search {
                 SearchState::NoneFound => {
@@ -84,6 +85,11 @@ impl Reparser<'_> {
                         };
                     } else if child_span.contains(&self.replaced.start) {
                         search = SearchState::Inside(pos);
+                    } else if child_span.end == self.replaced.start
+                        && self.replaced.start == self.replaced.end
+                        && child_outermost
+                    {
+                        search = SearchState::SpanFound(pos, pos);
                     } else {
                         // We look only for non spaces, non-semicolon and also
                         // reject text that points to the special case for URL
@@ -115,7 +121,6 @@ impl Reparser<'_> {
             }
 
             offset += child.len();
-            child_outermost = outermost && i + 1 == original_count;
 
             if search.done().is_some() {
                 break;
@@ -346,7 +351,7 @@ mod tests {
         test("a\nb\nc *hel a b lo* d\nd\ne", 13..13, "c ", 6..20);
         test("~~ {a} ~~", 4 .. 5, "b", 3 .. 6);
         test("{(0, 1, 2)}", 5 .. 6, "11pt", 0..14);
-        test("\n= A heading", 3 .. 3, "n evocative", 3 .. 23);
+        test("\n= A heading", 4 .. 4, "n evocative", 3 .. 23);
         test("for~your~thing", 9 .. 9, "a", 4 .. 15);
         test("a your thing a", 6 .. 7, "a", 0 .. 14);
         test("{call(); abc}", 7 .. 7, "[]", 0 .. 15);

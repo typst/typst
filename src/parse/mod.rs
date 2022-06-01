@@ -107,7 +107,7 @@ fn reparse_markup_elements(
 
         markup_node(&mut p, &mut at_start);
 
-        if p.prev_end() < end_pos {
+        if p.prev_end() <= end_pos {
             continue;
         }
 
