@@ -551,6 +551,9 @@ fn prepare<'a>(
                 } else {
                     let size = Size::new(regions.first.x, regions.base.y);
                     let pod = Regions::one(size, regions.base, Spec::splat(false));
+                    let role_map = StyleMap::with_role(Role::GenericInline);
+                    let styles = role_map.chain(&styles);
+
                     let mut frame = node.layout(ctx, &pod, styles)?.remove(0);
                     let shift = styles.get(TextNode::BASELINE);
 
@@ -1063,6 +1066,7 @@ fn stack(
     let mut finished = vec![];
     let mut first = true;
     let mut output = Frame::new(Size::with_x(width));
+    output.apply_role(Role::Paragraph);
 
     // Stack the lines into one frame per region.
     for line in lines {
@@ -1072,6 +1076,7 @@ fn stack(
         while !regions.first.y.fits(height) && !regions.in_last() {
             finished.push(Arc::new(output));
             output = Frame::new(Size::with_x(width));
+            output.apply_role(Role::Paragraph);
             regions.next();
             first = true;
         }

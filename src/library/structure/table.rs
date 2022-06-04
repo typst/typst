@@ -1,5 +1,6 @@
-use crate::library::layout::{BlockSpacing, GridNode, TrackSizing};
+use crate::library::layout::{BlockSpacing, GridNode, GridSemantics, TrackSizing};
 use crate::library::prelude::*;
+use crate::model::StyleEntry;
 
 /// A table of items.
 #[derive(Debug, Hash)]
@@ -49,10 +50,17 @@ impl TableNode {
 
 impl Show for TableNode {
     fn unguard(&self, sel: Selector) -> ShowNode {
+        let mut map = StyleMap::with_role(Role::TableCell);
+        map.push(StyleEntry::Unguard(sel));
+
         Self {
             tracks: self.tracks.clone(),
             gutter: self.gutter.clone(),
-            cells: self.cells.iter().map(|cell| cell.unguard(sel)).collect(),
+            cells: self
+                .cells
+                .iter()
+                .map(|cell| cell.clone().styled_with_map(map.clone()))
+                .collect(),
         }
         .pack()
     }
@@ -100,7 +108,9 @@ impl Show for TableNode {
             tracks: self.tracks.clone(),
             gutter: self.gutter.clone(),
             cells,
-        }))
+            semantic: GridSemantics::Table,
+        })
+        .styled_with_map(StyleMap::with_role(Role::Table)))
     }
 
     fn finalize(

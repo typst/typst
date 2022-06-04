@@ -2,10 +2,11 @@ use std::fmt::Write;
 
 use unscanny::Scanner;
 
-use crate::library::layout::{BlockSpacing, GridNode, TrackSizing};
+use crate::library::layout::{BlockSpacing, GridNode, GridSemantics, TrackSizing};
 use crate::library::prelude::*;
 use crate::library::text::ParNode;
 use crate::library::utility::Numbering;
+use crate::model::StyleEntry;
 
 /// An unordered (bulleted) or ordered (numbered) list.
 #[derive(Debug, Hash)]
@@ -76,9 +77,12 @@ impl<const L: ListKind> ListNode<L> {
 
 impl<const L: ListKind> Show for ListNode<L> {
     fn unguard(&self, sel: Selector) -> ShowNode {
+        let mut map = StyleMap::with_role(Role::ListItemBody);
+        map.push(StyleEntry::Unguard(sel));
+
         Self {
             items: self.items.map(|item| ListItem {
-                body: Box::new(item.body.unguard(sel)),
+                body: Box::new(item.body.clone().styled_with_map(map.clone())),
                 ..*item
             }),
             ..*self
@@ -108,9 +112,12 @@ impl<const L: ListKind> Show for ListNode<L> {
 
         for (item, map) in self.items.iter() {
             number = item.number.unwrap_or(number);
+
+            let mut label_map = map.clone();
+            label_map.push(StyleEntry::Role(Role::ListLabel));
+
             cells.push(LayoutNode::default());
-            cells
-                .push(label.resolve(ctx, L, number)?.styled_with_map(map.clone()).pack());
+            cells.push(label.resolve(ctx, L, number)?.styled_with_map(label_map).pack());
             cells.push(LayoutNode::default());
             cells.push((*item.body).clone().styled_with_map(map.clone()).pack());
             number += 1;
@@ -134,6 +141,7 @@ impl<const L: ListKind> Show for ListNode<L> {
             ]),
             gutter: Spec::with_y(vec![TrackSizing::Relative(gutter.into())]),
             cells,
+            semantic: GridSemantics::List,
         }))
     }
 
@@ -155,7 +163,9 @@ impl<const L: ListKind> Show for ListNode<L> {
             }
         }
 
-        Ok(realized.spaced(above, below))
+        Ok(realized
+            .styled_with_map(StyleMap::with_role(Role::List(L == ORDERED)))
+            .spaced(above, below))
     }
 }
 

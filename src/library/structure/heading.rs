@@ -1,6 +1,7 @@
 use crate::library::layout::BlockSpacing;
 use crate::library::prelude::*;
 use crate::library::text::{FontFamily, TextNode, TextSize};
+use crate::model::StyleEntry;
 
 /// A section heading.
 #[derive(Debug, Hash)]
@@ -65,7 +66,13 @@ impl HeadingNode {
 
 impl Show for HeadingNode {
     fn unguard(&self, sel: Selector) -> ShowNode {
-        Self { body: self.body.unguard(sel), ..*self }.pack()
+        let mut map = StyleMap::with_role(Role::Heading(self.level.get()));
+        map.push(StyleEntry::Unguard(sel));
+        Self {
+            body: self.body.clone().styled_with_map(map),
+            ..*self
+        }
+        .pack()
     }
 
     fn encode(&self, _: StyleChain) -> Dict {
@@ -91,7 +98,8 @@ impl Show for HeadingNode {
             };
         }
 
-        let mut map = StyleMap::new();
+        let mut map = StyleMap::with_role(Role::Heading(self.level.get()));
+
         map.set(TextNode::SIZE, resolve!(Self::SIZE));
 
         if let Smart::Custom(family) = resolve!(Self::FAMILY) {

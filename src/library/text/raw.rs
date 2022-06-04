@@ -113,7 +113,7 @@ impl Show for RawNode {
         styles: StyleChain,
         mut realized: Content,
     ) -> TypResult<Content> {
-        let mut map = StyleMap::new();
+        let mut map = StyleMap::with_role(Role::Code);
         map.set_family(styles.get(Self::FAMILY).clone(), styles);
         map.set(TextNode::OVERHANG, false);
         map.set(TextNode::HYPHENATE, Smart::Custom(Hyphenate(false)));

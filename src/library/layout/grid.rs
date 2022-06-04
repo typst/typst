@@ -9,6 +9,8 @@ pub struct GridNode {
     pub gutter: Spec<Vec<TrackSizing>>,
     /// The nodes to be arranged in a grid.
     pub cells: Vec<LayoutNode>,
+    /// The role of the grid in the semantic tree.
+    pub semantic: GridSemantics,
 }
 
 #[node]
@@ -26,6 +28,7 @@ impl GridNode {
                 row_gutter.unwrap_or(base_gutter),
             ),
             cells: args.all()?,
+            semantic: GridSemantics::None,
         }))
     }
 }
@@ -45,6 +48,7 @@ impl Layout for GridNode {
             &self.cells,
             regions,
             styles,
+            self.semantic,
         );
 
         // Measure the columns and layout the grid row-by-row.
@@ -63,6 +67,28 @@ pub enum TrackSizing {
     /// A track size specified as a fraction of the remaining free space in the
     /// parent.
     Fractional(Fraction),
+}
+
+/// Defines what kind of semantics a grid should represent.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum GridSemantics {
+    /// The grid is transparent to the semantic tree.
+    None,
+    /// The grid is a list, its rows are list items. The bool indicates whether
+    /// the list is ordered.
+    List,
+    /// The grid is a table.
+    Table,
+}
+
+impl GridSemantics {
+    fn row(self) -> Option<Role> {
+        match self {
+            Self::None => None,
+            Self::List => Some(Role::ListItem),
+            Self::Table => Some(Role::TableRow),
+        }
+    }
 }
 
 castable! {
@@ -104,6 +130,8 @@ pub struct GridLayouter<'a> {
     regions: Regions,
     /// The inherited styles.
     styles: StyleChain<'a>,
+    /// The role of the grid in the semantic tree.
+    semantic: GridSemantics,
     /// Resolved column sizes.
     rcols: Vec<Length>,
     /// Rows in the current region.
@@ -139,6 +167,7 @@ impl<'a> GridLayouter<'a> {
         cells: &'a [LayoutNode],
         regions: &Regions,
         styles: StyleChain<'a>,
+        semantic: GridSemantics,
     ) -> Self {
         let mut cols = vec![];
         let mut rows = vec![];
@@ -193,6 +222,7 @@ impl<'a> GridLayouter<'a> {
             rows,
             regions,
             styles,
+            semantic,
             rcols,
             lrows,
             full,
@@ -450,6 +480,10 @@ impl<'a> GridLayouter<'a> {
     /// Layout a row with fixed height and return its frame.
     fn layout_single_row(&mut self, height: Length, y: usize) -> TypResult<Frame> {
         let mut output = Frame::new(Size::new(self.used.x, height));
+        if let Some(role) = self.semantic.row() {
+            output.apply_role(role);
+        }
+
         let mut pos = Point::zero();
 
         for (x, &rcol) in self.rcols.iter().enumerate() {
@@ -464,6 +498,7 @@ impl<'a> GridLayouter<'a> {
 
                 let pod = Regions::one(size, base, Spec::splat(true));
                 let frame = node.layout(self.ctx, &pod, self.styles)?.remove(0);
+
                 output.push_frame(pos, frame);
             }
 
@@ -482,7 +517,14 @@ impl<'a> GridLayouter<'a> {
         // Prepare frames.
         let mut outputs: Vec<_> = heights
             .iter()
-            .map(|&h| Frame::new(Size::new(self.used.x, h)))
+            .map(|&h| {
+                let mut f = Frame::new(Size::new(self.used.x, h));
+                if let Some(role) = self.semantic.row() {
+                    f.apply_role(role);
+                }
+
+                f
+            })
             .collect();
 
         // Prepare regions.

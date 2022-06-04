@@ -192,6 +192,9 @@ impl<'a> StackLayouter<'a> {
                 self.dir.start().into()
             });
 
+        let role_map = StyleMap::with_role(Role::GenericBlock);
+        let styles = role_map.chain(&styles);
+
         let frames = node.layout(ctx, &self.regions, styles)?;
         let len = frames.len();
         for (i, frame) in frames.into_iter().enumerate() {

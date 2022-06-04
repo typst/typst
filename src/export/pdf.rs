@@ -16,7 +16,7 @@ use ttf_parser::{name_id, GlyphId, Tag};
 
 use super::subset::subset;
 use crate::font::{find_name, FaceId, FontStore};
-use crate::frame::{Destination, Element, Frame, Group, Text};
+use crate::frame::{Destination, Element, Frame, Group, Role, Text};
 use crate::geom::{
     self, Color, Dir, Em, Geometry, Length, Numeric, Paint, Point, Ratio, Shape, Size,
     Stroke, Transform,
@@ -313,6 +313,8 @@ impl<'a> PdfExporter<'a> {
         }
 
         let mut languages = HashMap::new();
+        let mut heading_tree: Vec<HeadingNode> = vec![];
+
         for (page, page_id) in self.pages.into_iter().zip(page_refs.iter()) {
             let content_id = self.alloc.bump();
 
@@ -356,6 +358,20 @@ impl<'a> PdfExporter<'a> {
                     .or_insert_with(|| count);
             }
 
+            for heading in page.headings.into_iter() {
+                if let Some(last) = heading_tree.pop() {
+                    let new = last.clone().insert(heading.clone(), *page_id, 1);
+                    if let Some(new) = new {
+                        heading_tree.push(new);
+                    } else {
+                        heading_tree.push(last);
+                        heading_tree.push(HeadingNode::Leaf(heading, *page_id))
+                    }
+                } else {
+                    heading_tree.push(HeadingNode::Leaf(heading, *page_id))
+                }
+            }
+
             self.writer
                 .stream(content_id, &deflate(&page.content.finish()))
                 .filter(Filter::FlateDecode);
@@ -388,6 +404,39 @@ impl<'a> PdfExporter<'a> {
         resources.finish();
         pages.finish();
 
+        // Build the heading tree.
+        let outline_root_id = self.alloc.bump();
+
+        let start_ref = self.alloc.bump();
+        let mut current_ref = start_ref;
+        let mut prev_ref = None;
+
+        for (i, node) in heading_tree.iter().enumerate() {
+            let next = write_outline_item(
+                &mut self.writer,
+                node,
+                current_ref,
+                prev_ref,
+                i == heading_tree.len() - 1,
+                outline_root_id,
+            );
+            prev_ref = Some(current_ref);
+            current_ref = next;
+        }
+
+
+        self.alloc = Ref::new(
+            start_ref.get()
+                + heading_tree.iter().map(HeadingNode::len).sum::<usize>() as i32,
+        );
+
+        if let Some(prev_ref) = prev_ref {
+            let mut outline_root = self.writer.outline(outline_root_id);
+            outline_root.first(start_ref);
+            outline_root.last(prev_ref);
+            outline_root.count(heading_tree.len() as i32);
+        }
+
         let lang = languages
             .into_iter()
             .max_by(|(_, v1), (_, v2)| v1.cmp(v2))
@@ -404,6 +453,11 @@ impl<'a> PdfExporter<'a> {
         let mut catalog = self.writer.catalog(self.alloc.bump());
         catalog.pages(page_tree_ref);
         catalog.viewer_preferences().direction(dir);
+
+
+        if !heading_tree.is_empty() {
+            catalog.outlines(outline_root_id);
+        }
 
         if let Some(lang) = lang {
             catalog.lang(TextStr(lang.as_str()));
@@ -426,6 +480,7 @@ struct PageExporter<'a> {
     links: Vec<(Destination, Rect)>,
     state: State,
     saves: Vec<State>,
+    headings: Vec<Heading>,
 }
 
 /// Data for an exported page.
@@ -434,6 +489,7 @@ struct Page {
     content: Content,
     links: Vec<(Destination, Rect)>,
     languages: HashMap<Lang, usize>,
+    headings: Vec<Heading>,
 }
 
 /// A simulated graphics state used to deduplicate graphics state changes and
@@ -446,6 +502,64 @@ struct State {
     fill_space: Option<Name<'static>>,
     stroke: Option<Stroke>,
     stroke_space: Option<Name<'static>>,
+}
+
+/// A heading that can later be linked in the outline panel.
+#[derive(Debug, Clone)]
+struct Heading {
+    content: String,
+    level: usize,
+    position: Point,
+}
+
+#[derive(Debug, Clone)]
+enum HeadingNode {
+    Leaf(Heading, Ref),
+    Branch(Heading, Ref, Vec<HeadingNode>),
+}
+
+impl HeadingNode {
+    fn heading(&self) -> &Heading {
+        match self {
+            HeadingNode::Leaf(h, _) => h,
+            HeadingNode::Branch(h, _, _) => h,
+        }
+    }
+
+    fn reference(&self) -> Ref {
+        match self {
+            HeadingNode::Leaf(_, r) => *r,
+            HeadingNode::Branch(_, r, _) => *r,
+        }
+    }
+
+    fn len(&self) -> usize {
+        match self {
+            HeadingNode::Leaf(_, _) => 1,
+            HeadingNode::Branch(_, _, children) => {
+                1 + children.iter().map(|c| c.len()).sum::<usize>()
+            }
+        }
+    }
+
+    fn insert(self, other: Heading, page: Ref, level: usize) -> Option<Self> {
+        if level >= other.level {
+            return None;
+        }
+
+        let mut node = match self {
+            HeadingNode::Leaf(h, r) => (h, r, vec![]),
+            HeadingNode::Branch(h, r, v) if level + 1 == other.level => (h, r, v),
+            HeadingNode::Branch(h, r, mut v) => {
+                let new = v.pop().unwrap().insert(other, page, level + 1).unwrap();
+                v.push(new);
+                return Some(HeadingNode::Branch(h, r, v));
+            }
+        };
+
+        node.2.push(HeadingNode::Leaf(other, page));
+        Some(HeadingNode::Branch(node.0, node.1, node.2))
+    }
 }
 
 impl<'a> PageExporter<'a> {
@@ -461,6 +575,7 @@ impl<'a> PageExporter<'a> {
             links: vec![],
             state: State::default(),
             saves: vec![],
+            headings: vec![],
         }
     }
 
@@ -481,10 +596,22 @@ impl<'a> PageExporter<'a> {
             content: self.content,
             links: self.links,
             languages: self.languages,
+            headings: self.headings,
         }
     }
 
     fn write_frame(&mut self, frame: &Frame) {
+        if let Some(Role::Heading(level)) = frame.role() {
+            self.headings.push(Heading {
+                position: Point::new(
+                    self.state.transform.tx,
+                    self.state.transform.ty + Length::pt(3.0),
+                ),
+                content: frame.inner_text().to_string(),
+                level,
+            })
+        }
+
         for &(pos, ref element) in &frame.elements {
             let x = pos.x.to_f32();
             let y = pos.y.to_f32();
@@ -813,6 +940,67 @@ fn encode_image(img: &RasterImage) -> ImageResult<(Vec<u8>, Filter, bool)> {
             (data, Filter::FlateDecode, true)
         }
     })
+}
+
+fn write_outline_item(
+    writer: &mut PdfWriter,
+    node: &HeadingNode,
+    current_ref: Ref,
+    prev_ref: Option<Ref>,
+    is_last: bool,
+    parent_ref: Ref,
+) -> Ref {
+    let mut outline = writer.outline_item(current_ref);
+    let next = Ref::new(current_ref.get() + node.len() as i32);
+    outline.parent(parent_ref);
+
+    if !is_last {
+        outline.next(next);
+    }
+
+    if let Some(prev_ref) = prev_ref {
+        outline.prev(prev_ref);
+    }
+
+    if let HeadingNode::Branch(_, _, children) = node {
+        let current_child = Ref::new(current_ref.get() + 1);
+        if children.len() > 0 {
+            outline.first(current_child);
+            outline.last(Ref::new(next.get() - 1));
+        }
+
+        outline.count(-1 * children.len() as i32);
+    }
+
+    let heading = node.heading();
+    outline.title(TextStr(&heading.content));
+    outline.dest_direct().page(node.reference()).xyz(
+        heading.position.x.to_f32(),
+        heading.position.y.to_f32(),
+        None,
+    );
+
+    outline.finish();
+
+    if let HeadingNode::Branch(_, _, children) = node {
+        let mut current_child = Ref::new(current_ref.get() + 1);
+        let mut prev_ref = None;
+
+        for (i, child) in children.iter().enumerate() {
+            write_outline_item(
+                writer,
+                child,
+                current_child,
+                prev_ref,
+                i == children.len() - 1,
+                current_ref,
+            );
+            prev_ref = Some(current_child);
+            current_child = Ref::new(current_child.get() + 1);
+        }
+    }
+
+    next
 }
 
 /// Encode an image's alpha channel if present.

@@ -91,6 +91,9 @@ impl<const S: ShapeKind> Layout for ShapeNode<S> {
             let child = child.clone().padded(inset.map(|side| side.map(RawLength::from)));
 
             let mut pod = Regions::one(regions.first, regions.base, regions.expand);
+            let role_map = StyleMap::with_role(Role::GenericBlock);
+            let styles = role_map.chain(&styles);
+
             frames = child.layout(ctx, &pod, styles)?;
 
             // Relayout with full expansion into square region to make sure
