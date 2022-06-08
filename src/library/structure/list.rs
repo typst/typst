@@ -78,7 +78,7 @@ impl<const L: ListKind> Show for ListNode<L> {
     fn unguard(&self, sel: Selector) -> ShowNode {
         Self {
             items: self.items.map(|item| ListItem {
-                body: Box::new(item.body.unguard(sel)),
+                body: Box::new(item.body.unguard(sel).role(Role::ListItemBody)),
                 ..*item
             }),
             ..*self
@@ -108,9 +108,15 @@ impl<const L: ListKind> Show for ListNode<L> {
 
         for (item, map) in self.items.iter() {
             number = item.number.unwrap_or(number);
+
             cells.push(LayoutNode::default());
-            cells
-                .push(label.resolve(ctx, L, number)?.styled_with_map(map.clone()).pack());
+            cells.push(
+                label
+                    .resolve(ctx, L, number)?
+                    .styled_with_map(map.clone())
+                    .role(Role::ListLabel)
+                    .pack(),
+            );
             cells.push(LayoutNode::default());
             cells.push((*item.body).clone().styled_with_map(map.clone()).pack());
             number += 1;
@@ -155,7 +161,9 @@ impl<const L: ListKind> Show for ListNode<L> {
             }
         }
 
-        Ok(realized.spaced(above, below))
+        Ok(realized
+            .role(Role::List { ordered: L == ORDERED })
+            .spaced(above, below))
     }
 }
 

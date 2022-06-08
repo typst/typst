@@ -16,12 +16,13 @@ use ttf_parser::{name_id, GlyphId, Tag};
 
 use super::subset::subset;
 use crate::font::{find_name, FaceId, FontStore};
-use crate::frame::{Destination, Element, Frame, Group, Text};
+use crate::frame::{Destination, Element, Frame, Group, Role, Text};
 use crate::geom::{
     self, Color, Dir, Em, Geometry, Length, Numeric, Paint, Point, Ratio, Shape, Size,
     Stroke, Transform,
 };
 use crate::image::{Image, ImageId, ImageStore, RasterImage};
+use crate::library::prelude::EcoString;
 use crate::library::text::Lang;
 use crate::Context;
 
@@ -42,31 +43,43 @@ const SRGB_GRAY: Name<'static> = Name(b"srgbgray");
 
 /// An exporter for a whole PDF document.
 struct PdfExporter<'a> {
+    writer: PdfWriter,
     fonts: &'a FontStore,
     images: &'a ImageStore,
-    writer: PdfWriter,
-    alloc: Ref,
     pages: Vec<Page>,
-    face_map: Remapper<FaceId>,
+    page_heights: Vec<f32>,
+    alloc: Ref,
+    page_tree_ref: Ref,
     face_refs: Vec<Ref>,
-    glyph_sets: HashMap<FaceId, HashSet<u16>>,
-    image_map: Remapper<ImageId>,
     image_refs: Vec<Ref>,
+    page_refs: Vec<Ref>,
+    face_map: Remapper<FaceId>,
+    image_map: Remapper<ImageId>,
+    glyph_sets: HashMap<FaceId, HashSet<u16>>,
+    languages: HashMap<Lang, usize>,
+    heading_tree: Vec<HeadingNode>,
 }
 
 impl<'a> PdfExporter<'a> {
     fn new(ctx: &'a Context) -> Self {
+        let mut alloc = Ref::new(1);
+        let page_tree_ref = alloc.bump();
         Self {
+            writer: PdfWriter::new(),
             fonts: &ctx.fonts,
             images: &ctx.images,
-            writer: PdfWriter::new(),
-            alloc: Ref::new(1),
             pages: vec![],
-            face_map: Remapper::new(),
+            page_heights: vec![],
+            alloc,
+            page_tree_ref,
+            page_refs: vec![],
             face_refs: vec![],
-            glyph_sets: HashMap::new(),
-            image_map: Remapper::new(),
             image_refs: vec![],
+            face_map: Remapper::new(),
+            image_map: Remapper::new(),
+            glyph_sets: HashMap::new(),
+            languages: HashMap::new(),
+            heading_tree: vec![],
         }
     }
 
@@ -74,12 +87,24 @@ impl<'a> PdfExporter<'a> {
         self.build_pages(frames);
         self.write_fonts();
         self.write_images();
-        self.write_structure()
+
+        // The root page tree.
+        for page in std::mem::take(&mut self.pages).into_iter() {
+            self.write_page(page);
+        }
+
+        self.write_page_tree();
+        self.write_catalog();
+
+        self.writer.finish()
     }
 
     fn build_pages(&mut self, frames: &[Arc<Frame>]) {
         for frame in frames {
-            let page = PageExporter::new(self).export(frame);
+            let page_id = self.alloc.bump();
+            self.page_refs.push(page_id);
+            let page = PageExporter::new(self, page_id).export(frame);
+            self.page_heights.push(page.size.y.to_f32());
             self.pages.push(page);
         }
     }
@@ -299,70 +324,52 @@ impl<'a> PdfExporter<'a> {
         }
     }
 
-    fn write_structure(mut self) -> Vec<u8> {
-        // The root page tree.
-        let page_tree_ref = self.alloc.bump();
+    fn write_page(&mut self, page: Page) {
+        let content_id = self.alloc.bump();
 
-        // The page objects (non-root nodes in the page tree).
-        let mut page_refs = vec![];
-        let mut page_heights = vec![];
-        for page in &self.pages {
-            let page_id = self.alloc.bump();
-            page_refs.push(page_id);
-            page_heights.push(page.size.y.to_f32());
-        }
+        let mut page_writer = self.writer.page(page.id);
+        page_writer.parent(self.page_tree_ref);
 
-        let mut languages = HashMap::new();
-        for (page, page_id) in self.pages.into_iter().zip(page_refs.iter()) {
-            let content_id = self.alloc.bump();
+        let w = page.size.x.to_f32();
+        let h = page.size.y.to_f32();
+        page_writer.media_box(Rect::new(0.0, 0.0, w, h));
+        page_writer.contents(content_id);
 
-            let mut page_writer = self.writer.page(*page_id);
-            page_writer.parent(page_tree_ref);
-
-            let w = page.size.x.to_f32();
-            let h = page.size.y.to_f32();
-            page_writer.media_box(Rect::new(0.0, 0.0, w, h));
-            page_writer.contents(content_id);
-
-            let mut annotations = page_writer.annotations();
-            for (dest, rect) in page.links {
-                let mut link = annotations.push();
-                link.subtype(AnnotationType::Link).rect(rect);
-                match dest {
-                    Destination::Url(uri) => {
-                        link.action()
-                            .action_type(ActionType::Uri)
-                            .uri(Str(uri.as_str().as_bytes()));
-                    }
-                    Destination::Internal(loc) => {
-                        let index = loc.page - 1;
-                        let height = page_heights[index];
-                        link.action()
-                            .action_type(ActionType::GoTo)
-                            .destination_direct()
-                            .page(page_refs[index])
-                            .xyz(loc.pos.x.to_f32(), height - loc.pos.y.to_f32(), None);
-                    }
+        let mut annotations = page_writer.annotations();
+        for (dest, rect) in page.links {
+            let mut link = annotations.push();
+            link.subtype(AnnotationType::Link).rect(rect);
+            match dest {
+                Destination::Url(uri) => {
+                    link.action()
+                        .action_type(ActionType::Uri)
+                        .uri(Str(uri.as_str().as_bytes()));
+                }
+                Destination::Internal(loc) => {
+                    let index = loc.page - 1;
+                    let height = self.page_heights[index];
+                    link.action()
+                        .action_type(ActionType::GoTo)
+                        .destination_direct()
+                        .page(self.page_refs[index])
+                        .xyz(loc.pos.x.to_f32(), height - loc.pos.y.to_f32(), None);
                 }
             }
-
-            annotations.finish();
-            page_writer.finish();
-
-            for (lang, count) in page.languages {
-                languages
-                    .entry(lang)
-                    .and_modify(|x| *x += count)
-                    .or_insert_with(|| count);
-            }
-
-            self.writer
-                .stream(content_id, &deflate(&page.content.finish()))
-                .filter(Filter::FlateDecode);
         }
 
-        let mut pages = self.writer.pages(page_tree_ref);
-        pages.count(page_refs.len() as i32).kids(page_refs);
+        annotations.finish();
+        page_writer.finish();
+
+        self.writer
+            .stream(content_id, &deflate(&page.content.finish()))
+            .filter(Filter::FlateDecode);
+    }
+
+    fn write_page_tree(&mut self) {
+        let mut pages = self.writer.pages(self.page_tree_ref);
+        pages
+            .count(self.page_refs.len() as i32)
+            .kids(self.page_refs.iter().copied());
 
         let mut resources = pages.resources();
         let mut spaces = resources.color_spaces();
@@ -387,11 +394,36 @@ impl<'a> PdfExporter<'a> {
         images.finish();
         resources.finish();
         pages.finish();
+    }
 
-        let lang = languages
-            .into_iter()
-            .max_by(|(_, v1), (_, v2)| v1.cmp(v2))
-            .map(|(k, _)| k);
+    fn write_catalog(&mut self) {
+        // Build the outline tree.
+        let outline_root_id = (!self.heading_tree.is_empty()).then(|| self.alloc.bump());
+        let outline_start_ref = self.alloc;
+        let len = self.heading_tree.len();
+        let mut prev_ref = None;
+
+        for (i, node) in std::mem::take(&mut self.heading_tree).iter().enumerate() {
+            prev_ref = Some(self.write_outline_item(
+                node,
+                outline_root_id.unwrap(),
+                prev_ref,
+                i + 1 == len,
+            ));
+        }
+
+        if let Some(outline_root_id) = outline_root_id {
+            let mut outline_root = self.writer.outline(outline_root_id);
+            outline_root.first(outline_start_ref);
+            outline_root.last(Ref::new(self.alloc.get() - 1));
+            outline_root.count(self.heading_tree.len() as i32);
+        }
+
+        let lang = self
+            .languages
+            .iter()
+            .max_by_key(|(&lang, &count)| (count, lang))
+            .map(|(&k, _)| k);
 
         let dir = if lang.map(Lang::dir) == Some(Dir::RTL) {
             Direction::R2L
@@ -402,38 +434,88 @@ impl<'a> PdfExporter<'a> {
         // Write the document information, catalog and wrap it up!
         self.writer.document_info(self.alloc.bump()).creator(TextStr("Typst"));
         let mut catalog = self.writer.catalog(self.alloc.bump());
-        catalog.pages(page_tree_ref);
+        catalog.pages(self.page_tree_ref);
         catalog.viewer_preferences().direction(dir);
+
+        if let Some(outline_root_id) = outline_root_id {
+            catalog.outlines(outline_root_id);
+        }
 
         if let Some(lang) = lang {
             catalog.lang(TextStr(lang.as_str()));
         }
 
         catalog.finish();
-        self.writer.finish()
+    }
+
+    fn write_outline_item(
+        &mut self,
+        node: &HeadingNode,
+        parent_ref: Ref,
+        prev_ref: Option<Ref>,
+        is_last: bool,
+    ) -> Ref {
+        let id = self.alloc.bump();
+        let next_ref = Ref::new(id.get() + node.len() as i32);
+
+        let mut outline = self.writer.outline_item(id);
+        outline.parent(parent_ref);
+
+        if !is_last {
+            outline.next(next_ref);
+        }
+
+        if let Some(prev_rev) = prev_ref {
+            outline.prev(prev_rev);
+        }
+
+        if !node.children.is_empty() {
+            let current_child = Ref::new(id.get() + 1);
+            outline.first(current_child);
+            outline.last(Ref::new(next_ref.get() - 1));
+            outline.count(-1 * node.children.len() as i32);
+        }
+
+        outline.title(TextStr(&node.heading.content));
+        outline.dest_direct().page(node.heading.page).xyz(
+            node.heading.position.x.to_f32(),
+            (node.heading.position.y + Length::pt(3.0)).to_f32(),
+            None,
+        );
+
+        outline.finish();
+
+        let mut prev_ref = None;
+        for (i, child) in node.children.iter().enumerate() {
+            prev_ref = Some(self.write_outline_item(
+                child,
+                id,
+                prev_ref,
+                i + 1 == node.children.len(),
+            ));
+        }
+
+        id
     }
 }
 
 /// An exporter for the contents of a single PDF page.
-struct PageExporter<'a> {
-    fonts: &'a FontStore,
-    font_map: &'a mut Remapper<FaceId>,
-    image_map: &'a mut Remapper<ImageId>,
-    glyphs: &'a mut HashMap<FaceId, HashSet<u16>>,
-    languages: HashMap<Lang, usize>,
-    bottom: f32,
+struct PageExporter<'a, 'b> {
+    exporter: &'a mut PdfExporter<'b>,
+    page_ref: Ref,
     content: Content,
-    links: Vec<(Destination, Rect)>,
     state: State,
     saves: Vec<State>,
+    bottom: f32,
+    links: Vec<(Destination, Rect)>,
 }
 
 /// Data for an exported page.
 struct Page {
+    id: Ref,
     size: Size,
     content: Content,
     links: Vec<(Destination, Rect)>,
-    languages: HashMap<Lang, usize>,
 }
 
 /// A simulated graphics state used to deduplicate graphics state changes and
@@ -448,19 +530,56 @@ struct State {
     stroke_space: Option<Name<'static>>,
 }
 
-impl<'a> PageExporter<'a> {
-    fn new(exporter: &'a mut PdfExporter) -> Self {
+/// A heading that can later be linked in the outline panel.
+#[derive(Debug, Clone)]
+struct Heading {
+    content: EcoString,
+    level: usize,
+    position: Point,
+    page: Ref,
+}
+
+#[derive(Debug, Clone)]
+struct HeadingNode {
+    heading: Heading,
+    children: Vec<HeadingNode>,
+}
+
+impl HeadingNode {
+    fn leaf(heading: Heading) -> Self {
+        HeadingNode { heading, children: Vec::new() }
+    }
+
+    fn len(&self) -> usize {
+        1 + self.children.iter().map(Self::len).sum::<usize>()
+    }
+
+    fn insert(&mut self, other: Heading, level: usize) -> bool {
+        if level >= other.level {
+            return false;
+        }
+
+        if let Some(child) = self.children.last_mut() {
+            if child.insert(other.clone(), level + 1) {
+                return true;
+            }
+        }
+
+        self.children.push(Self::leaf(other));
+        true
+    }
+}
+
+impl<'a, 'b> PageExporter<'a, 'b> {
+    fn new(exporter: &'a mut PdfExporter<'b>, page_ref: Ref) -> Self {
         Self {
-            fonts: exporter.fonts,
-            font_map: &mut exporter.face_map,
-            image_map: &mut exporter.image_map,
-            glyphs: &mut exporter.glyph_sets,
-            languages: HashMap::new(),
-            bottom: 0.0,
+            exporter,
+            page_ref,
             content: Content::new(),
-            links: vec![],
             state: State::default(),
             saves: vec![],
+            bottom: 0.0,
+            links: vec![],
         }
     }
 
@@ -479,12 +598,29 @@ impl<'a> PageExporter<'a> {
         Page {
             size: frame.size,
             content: self.content,
+            id: self.page_ref,
             links: self.links,
-            languages: self.languages,
         }
     }
 
     fn write_frame(&mut self, frame: &Frame) {
+        if let Some(Role::Heading(level)) = frame.role() {
+            let heading = Heading {
+                position: Point::new(self.state.transform.tx, self.state.transform.ty),
+                content: frame.text(),
+                page: self.page_ref,
+                level,
+            };
+
+            if let Some(last) = self.exporter.heading_tree.last_mut() {
+                if !last.insert(heading.clone(), 1) {
+                    self.exporter.heading_tree.push(HeadingNode::leaf(heading))
+                }
+            } else {
+                self.exporter.heading_tree.push(HeadingNode::leaf(heading))
+            }
+        }
+
         for &(pos, ref element) in &frame.elements {
             let x = pos.x.to_f32();
             let y = pos.y.to_f32();
@@ -521,13 +657,14 @@ impl<'a> PageExporter<'a> {
     }
 
     fn write_text(&mut self, x: f32, y: f32, text: &Text) {
-        *self.languages.entry(text.lang).or_insert(0) += text.glyphs.len();
-        self.glyphs
+        *self.exporter.languages.entry(text.lang).or_insert(0) += text.glyphs.len();
+        self.exporter
+            .glyph_sets
             .entry(text.face_id)
             .or_default()
             .extend(text.glyphs.iter().map(|g| g.id));
 
-        let face = self.fonts.get(text.face_id);
+        let face = self.exporter.fonts.get(text.face_id);
 
         self.set_fill(text.fill);
         self.set_font(text.face_id, text.size);
@@ -641,8 +778,8 @@ impl<'a> PageExporter<'a> {
     }
 
     fn write_image(&mut self, x: f32, y: f32, id: ImageId, size: Size) {
-        self.image_map.insert(id);
-        let name = format_eco!("Im{}", self.image_map.map(id));
+        self.exporter.image_map.insert(id);
+        let name = format_eco!("Im{}", self.exporter.image_map.map(id));
         let w = size.x.to_f32();
         let h = size.y.to_f32();
         self.content.save_state();
@@ -705,8 +842,8 @@ impl<'a> PageExporter<'a> {
 
     fn set_font(&mut self, face_id: FaceId, size: Length) {
         if self.state.font != Some((face_id, size)) {
-            self.font_map.insert(face_id);
-            let name = format_eco!("F{}", self.font_map.map(face_id));
+            self.exporter.face_map.insert(face_id);
+            let name = format_eco!("F{}", self.exporter.face_map.map(face_id));
             self.content.set_font(Name(name.as_bytes()), size.to_f32());
             self.state.font = Some((face_id, size));
         }

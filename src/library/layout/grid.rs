@@ -450,6 +450,7 @@ impl<'a> GridLayouter<'a> {
     /// Layout a row with fixed height and return its frame.
     fn layout_single_row(&mut self, height: Length, y: usize) -> TypResult<Frame> {
         let mut output = Frame::new(Size::new(self.used.x, height));
+
         let mut pos = Point::zero();
 
         for (x, &rcol) in self.rcols.iter().enumerate() {
@@ -464,6 +465,14 @@ impl<'a> GridLayouter<'a> {
 
                 let pod = Regions::one(size, base, Spec::splat(true));
                 let frame = node.layout(self.ctx, &pod, self.styles)?.remove(0);
+                match frame.role() {
+                    Some(Role::ListLabel | Role::ListItemBody) => {
+                        output.apply_role(Role::ListItem)
+                    }
+                    Some(Role::TableCell) => output.apply_role(Role::TableRow),
+                    _ => {}
+                }
+
                 output.push_frame(pos, frame);
             }
 
@@ -505,6 +514,13 @@ impl<'a> GridLayouter<'a> {
                 // Push the layouted frames into the individual output frames.
                 let frames = node.layout(self.ctx, &pod, self.styles)?;
                 for (output, frame) in outputs.iter_mut().zip(frames) {
+                    match frame.role() {
+                        Some(Role::ListLabel | Role::ListItemBody) => {
+                            output.apply_role(Role::ListItem)
+                        }
+                        Some(Role::TableCell) => output.apply_role(Role::TableRow),
+                        _ => {}
+                    }
                     output.push_frame(pos, frame);
                 }
             }

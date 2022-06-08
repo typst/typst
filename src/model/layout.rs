@@ -232,7 +232,16 @@ impl Layout for LayoutNode {
                 let at = ctx.pins.cursor();
 
                 let entry = StyleEntry::Barrier(Barrier::new(node.id()));
-                let result = node.0.layout(ctx, regions, entry.chain(&styles));
+                let mut result = node.0.layout(ctx, regions, entry.chain(&styles));
+
+                if let Some(role) = styles.role() {
+                    result = result.map(|mut frames| {
+                        for frame in frames.iter_mut() {
+                            Arc::make_mut(frame).apply_role(role);
+                        }
+                        frames
+                    });
+                }
 
                 let fresh = ctx.pins.from(at);
                 let dirty = ctx.pins.dirty.get();

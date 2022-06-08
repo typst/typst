@@ -65,7 +65,8 @@ impl HeadingNode {
 
 impl Show for HeadingNode {
     fn unguard(&self, sel: Selector) -> ShowNode {
-        Self { body: self.body.unguard(sel), ..*self }.pack()
+        let body = self.body.unguard(sel).role(Role::Heading(self.level.get()));
+        Self { body, ..*self }.pack()
     }
 
     fn encode(&self, _: StyleChain) -> Dict {
@@ -114,7 +115,7 @@ impl Show for HeadingNode {
             realized = realized.underlined();
         }
 
-        realized = realized.styled_with_map(map);
+        realized = realized.styled_with_map(map).role(Role::Heading(self.level.get()));
         realized = realized.spaced(
             resolve!(Self::ABOVE).resolve(styles),
             resolve!(Self::BELOW).resolve(styles),

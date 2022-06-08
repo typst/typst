@@ -551,11 +551,14 @@ fn prepare<'a>(
                 } else {
                     let size = Size::new(regions.first.x, regions.base.y);
                     let pod = Regions::one(size, regions.base, Spec::splat(false));
+
                     let mut frame = node.layout(ctx, &pod, styles)?.remove(0);
                     let shift = styles.get(TextNode::BASELINE);
 
-                    if !shift.is_zero() {
-                        Arc::make_mut(&mut frame).translate(Point::with_y(shift));
+                    if !shift.is_zero() || frame.role().map_or(true, Role::is_weak) {
+                        let frame = Arc::make_mut(&mut frame);
+                        frame.translate(Point::with_y(shift));
+                        frame.apply_role(Role::GenericInline);
                     }
 
                     items.push(Item::Frame(frame));
@@ -1063,6 +1066,7 @@ fn stack(
     let mut finished = vec![];
     let mut first = true;
     let mut output = Frame::new(Size::with_x(width));
+    output.apply_role(Role::Paragraph);
 
     // Stack the lines into one frame per region.
     for line in lines {
@@ -1072,6 +1076,7 @@ fn stack(
         while !regions.first.y.fits(height) && !regions.in_last() {
             finished.push(Arc::new(output));
             output = Frame::new(Size::with_x(width));
+            output.apply_role(Role::Paragraph);
             regions.next();
             first = true;
         }

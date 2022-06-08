@@ -22,7 +22,11 @@ impl Layout for HideNode {
 
         // Clear the frames.
         for frame in &mut frames {
-            *frame = Arc::new(Frame { elements: vec![], ..**frame });
+            *frame = Arc::new({
+                let mut empty = Frame::new(frame.size);
+                empty.baseline = frame.baseline;
+                empty
+            });
         }
 
         Ok(frames)

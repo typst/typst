@@ -22,6 +22,8 @@ pub struct Frame {
     pub baseline: Option<Length>,
     /// The elements composing this layout.
     pub elements: Vec<(Point, Element)>,
+    /// The semantic role of the frame.
+    role: Option<Role>,
 }
 
 impl Frame {
@@ -29,7 +31,12 @@ impl Frame {
     #[track_caller]
     pub fn new(size: Size) -> Self {
         assert!(size.is_finite());
-        Self { size, baseline: None, elements: vec![] }
+        Self {
+            size,
+            baseline: None,
+            elements: vec![],
+            role: None,
+        }
     }
 
     /// The baseline of the frame.
@@ -41,6 +48,11 @@ impl Frame {
     /// of elements in the frame.
     pub fn layer(&self) -> usize {
         self.elements.len()
+    }
+
+    /// The role of the frame.
+    pub fn role(&self) -> Option<Role> {
+        self.role
     }
 
     /// Whether the frame has comparatively few elements.
@@ -58,7 +70,9 @@ impl Frame {
     /// Automatically decides whether to inline the frame or to include it as a
     /// group based on the number of elements in the frame.
     pub fn push_frame(&mut self, pos: Point, frame: impl FrameRepr) {
-        if self.elements.is_empty() || frame.as_ref().is_light() {
+        if (self.elements.is_empty() || frame.as_ref().is_light())
+            && frame.as_ref().role().is_none()
+        {
             frame.inline(self, self.layer(), pos);
         } else {
             self.elements.push((pos, Element::Group(Group::new(frame.share()))));
@@ -80,7 +94,9 @@ impl Frame {
 
     /// Add a frame at a position in the background.
     pub fn prepend_frame(&mut self, pos: Point, frame: impl FrameRepr) {
-        if self.elements.is_empty() || frame.as_ref().is_light() {
+        if (self.elements.is_empty() || frame.as_ref().is_light())
+            && frame.as_ref().role().is_none()
+        {
             frame.inline(self, 0, pos);
         } else {
             self.elements
@@ -125,6 +141,13 @@ impl Frame {
         self.group(|g| g.transform = transform);
     }
 
+    /// Apply the given role to the frame if it doesn't already have one.
+    pub fn apply_role(&mut self, role: Role) {
+        if self.role.map_or(true, Role::is_weak) {
+            self.role = Some(role);
+        }
+    }
+
     /// Clip the contents of a frame to its size.
     pub fn clip(&mut self) {
         self.group(|g| g.clips = true);
@@ -146,10 +169,31 @@ impl Frame {
     pub fn link(&mut self, dest: Destination) {
         self.push(Point::zero(), Element::Link(dest, self.size));
     }
+
+    /// Recover the text inside of the frame and its children.
+    pub fn text(&self) -> EcoString {
+        let mut text = EcoString::new();
+        for (_, element) in &self.elements {
+            match element {
+                Element::Text(content) => {
+                    for glyph in &content.glyphs {
+                        text.push(glyph.c);
+                    }
+                }
+                Element::Group(group) => text.push_str(&group.frame.text()),
+                _ => {}
+            }
+        }
+        text
+    }
 }
 
 impl Debug for Frame {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        if let Some(role) = self.role {
+            write!(f, "{role:?} ")?;
+        }
+
         f.debug_list()
             .entries(self.elements.iter().map(|(_, element)| element))
             .finish()
@@ -359,6 +403,56 @@ impl Location {
             "page" => Value::Int(self.page as i64),
             "x" => Value::Length(self.pos.x.into()),
             "y" => Value::Length(self.pos.y.into()),
+        }
+    }
+}
+
+/// A semantic role of a frame.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum Role {
+    /// A paragraph.
+    Paragraph,
+    /// A heading with some level.
+    Heading(usize),
+    /// A generic block-level subdivision.
+    GenericBlock,
+    /// A generic inline subdivision.
+    GenericInline,
+    /// A list. The boolean indicates whether it is ordered.
+    List { ordered: bool },
+    /// A list item. Must have a list parent.
+    ListItem,
+    /// The label of a list item.
+    ListLabel,
+    /// The body of a list item.
+    ListItemBody,
+    /// A mathematical formula.
+    Formula,
+    /// A table.
+    Table,
+    /// A table row.
+    TableRow,
+    /// A table cell.
+    TableCell,
+    /// A code fragment.
+    Code,
+    /// A page header.
+    Header,
+    /// A page footer.
+    Footer,
+    /// A page background.
+    Background,
+    /// A page foreground.
+    Foreground,
+}
+
+impl Role {
+    /// Whether the role describes a generic element and is not very
+    /// descriptive.
+    pub fn is_weak(self) -> bool {
+        match self {
+            Self::Paragraph | Self::GenericBlock | Self::GenericInline => true,
+            _ => false,
         }
     }
 }
