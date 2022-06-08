@@ -1,6 +1,5 @@
-use crate::library::layout::{BlockSpacing, GridNode, GridSemantics, TrackSizing};
+use crate::library::layout::{BlockSpacing, GridNode, TrackSizing};
 use crate::library::prelude::*;
-use crate::model::StyleEntry;
 
 /// A table of items.
 #[derive(Debug, Hash)]
@@ -105,7 +104,6 @@ impl Show for TableNode {
             tracks: self.tracks.clone(),
             gutter: self.gutter.clone(),
             cells,
-            semantic: GridSemantics::Table,
         })
         .role(Role::Table))
     }

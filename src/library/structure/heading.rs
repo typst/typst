@@ -1,7 +1,6 @@
 use crate::library::layout::BlockSpacing;
 use crate::library::prelude::*;
 use crate::library::text::{FontFamily, TextNode, TextSize};
-use crate::model::StyleEntry;
 
 /// A section heading.
 #[derive(Debug, Hash)]

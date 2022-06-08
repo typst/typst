@@ -9,8 +9,6 @@ pub struct GridNode {
     pub gutter: Spec<Vec<TrackSizing>>,
     /// The nodes to be arranged in a grid.
     pub cells: Vec<LayoutNode>,
-    /// The role of the grid in the semantic tree.
-    pub semantic: GridSemantics,
 }
 
 #[node]
@@ -28,7 +26,6 @@ impl GridNode {
                 row_gutter.unwrap_or(base_gutter),
             ),
             cells: args.all()?,
-            semantic: GridSemantics::None,
         }))
     }
 }
@@ -48,7 +45,6 @@ impl Layout for GridNode {
             &self.cells,
             regions,
             styles,
-            self.semantic,
         );
 
         // Measure the columns and layout the grid row-by-row.
@@ -71,7 +67,7 @@ pub enum TrackSizing {
 
 /// Defines what kind of semantics a grid should represent.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum GridSemantics {
+enum GridSemantics {
     /// The grid is transparent to the semantic tree.
     None,
     /// The grid is a list, its rows are list items. The bool indicates whether
@@ -82,11 +78,24 @@ pub enum GridSemantics {
 }
 
 impl GridSemantics {
+    /// The role of a row in a grid with these semantics.
     fn row(self) -> Option<Role> {
         match self {
             Self::None => None,
             Self::List => Some(Role::ListItem),
             Self::Table => Some(Role::TableRow),
+        }
+    }
+
+    /// Returns the semantic role of a grid row given the previous semantics and
+    /// the cell's role.
+    fn determine(other: Option<Self>, role: Option<Role>) -> Self {
+        match (other, role) {
+            (None, Some(Role::ListItem | Role::ListLabel)) => Self::List,
+            (Some(Self::List), Some(Role::ListItem | Role::ListLabel)) => Self::List,
+            (None, Some(Role::TableCell)) => Self::Table,
+            (Some(Self::Table), Some(Role::TableCell)) => Self::Table,
+            _ => Self::None,
         }
     }
 }
@@ -130,8 +139,6 @@ pub struct GridLayouter<'a> {
     regions: Regions,
     /// The inherited styles.
     styles: StyleChain<'a>,
-    /// The role of the grid in the semantic tree.
-    semantic: GridSemantics,
     /// Resolved column sizes.
     rcols: Vec<Length>,
     /// Rows in the current region.
@@ -167,7 +174,6 @@ impl<'a> GridLayouter<'a> {
         cells: &'a [LayoutNode],
         regions: &Regions,
         styles: StyleChain<'a>,
-        semantic: GridSemantics,
     ) -> Self {
         let mut cols = vec![];
         let mut rows = vec![];
@@ -222,7 +228,6 @@ impl<'a> GridLayouter<'a> {
             rows,
             regions,
             styles,
-            semantic,
             rcols,
             lrows,
             full,
@@ -480,11 +485,9 @@ impl<'a> GridLayouter<'a> {
     /// Layout a row with fixed height and return its frame.
     fn layout_single_row(&mut self, height: Length, y: usize) -> TypResult<Frame> {
         let mut output = Frame::new(Size::new(self.used.x, height));
-        if let Some(role) = self.semantic.row() {
-            output.apply_role(role);
-        }
 
         let mut pos = Point::zero();
+        let mut semantic = None;
 
         for (x, &rcol) in self.rcols.iter().enumerate() {
             if let Some(node) = self.cell(x, y) {
@@ -498,11 +501,16 @@ impl<'a> GridLayouter<'a> {
 
                 let pod = Regions::one(size, base, Spec::splat(true));
                 let frame = node.layout(self.ctx, &pod, self.styles)?.remove(0);
+                semantic = Some(GridSemantics::determine(semantic, frame.role()));
 
                 output.push_frame(pos, frame);
             }
 
             pos.x += rcol;
+        }
+
+        if let Some(role) = semantic.and_then(GridSemantics::row) {
+            output.apply_role(role);
         }
 
         Ok(output)
@@ -517,14 +525,7 @@ impl<'a> GridLayouter<'a> {
         // Prepare frames.
         let mut outputs: Vec<_> = heights
             .iter()
-            .map(|&h| {
-                let mut f = Frame::new(Size::new(self.used.x, h));
-                if let Some(role) = self.semantic.row() {
-                    f.apply_role(role);
-                }
-
-                f
-            })
+            .map(|&h| Frame::new(Size::new(self.used.x, h)))
             .collect();
 
         // Prepare regions.
@@ -534,6 +535,7 @@ impl<'a> GridLayouter<'a> {
 
         // Layout the row.
         let mut pos = Point::zero();
+        let mut semantic = None;
         for (x, &rcol) in self.rcols.iter().enumerate() {
             if let Some(node) = self.cell(x, y) {
                 pod.first.x = rcol;
@@ -547,11 +549,18 @@ impl<'a> GridLayouter<'a> {
                 // Push the layouted frames into the individual output frames.
                 let frames = node.layout(self.ctx, &pod, self.styles)?;
                 for (output, frame) in outputs.iter_mut().zip(frames) {
+                    semantic = Some(GridSemantics::determine(semantic, frame.role()));
                     output.push_frame(pos, frame);
                 }
             }
 
             pos.x += rcol;
+        }
+
+        for output in outputs.iter_mut() {
+            if let Some(role) = semantic.and_then(GridSemantics::row) {
+                output.apply_role(role);
+            }
         }
 
         Ok(outputs)

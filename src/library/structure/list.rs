@@ -2,11 +2,10 @@ use std::fmt::Write;
 
 use unscanny::Scanner;
 
-use crate::library::layout::{BlockSpacing, GridNode, GridSemantics, TrackSizing};
+use crate::library::layout::{BlockSpacing, GridNode, TrackSizing};
 use crate::library::prelude::*;
 use crate::library::text::ParNode;
 use crate::library::utility::Numbering;
-use crate::model::StyleEntry;
 
 /// An unordered (bulleted) or ordered (numbered) list.
 #[derive(Debug, Hash)]
@@ -141,7 +140,6 @@ impl<const L: ListKind> Show for ListNode<L> {
             ]),
             gutter: Spec::with_y(vec![TrackSizing::Relative(gutter.into())]),
             cells,
-            semantic: GridSemantics::List,
         }))
     }
 
