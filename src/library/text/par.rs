@@ -557,7 +557,6 @@ fn prepare<'a>(
 
                     if !shift.is_zero() || frame.role().map_or(true, Role::is_weak) {
                         let frame = Arc::make_mut(&mut frame);
-
                         frame.translate(Point::with_y(shift));
                         frame.apply_role(Role::GenericInline);
                     }

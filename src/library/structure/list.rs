@@ -161,7 +161,9 @@ impl<const L: ListKind> Show for ListNode<L> {
             }
         }
 
-        Ok(realized.role(Role::List(L == ORDERED)).spaced(above, below))
+        Ok(realized
+            .role(Role::List { ordered: L == ORDERED })
+            .spaced(above, below))
     }
 }
 

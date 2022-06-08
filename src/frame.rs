@@ -71,11 +71,8 @@ impl Frame {
     /// group based on the number of elements in the frame.
     pub fn push_frame(&mut self, pos: Point, frame: impl FrameRepr) {
         if (self.elements.is_empty() || frame.as_ref().is_light())
-            && (frame.as_ref().role().is_none() || self.role.is_none())
+            && frame.as_ref().role().is_none()
         {
-            if self.role.is_none() {
-                self.role = frame.as_ref().role()
-            }
             frame.inline(self, self.layer(), pos);
         } else {
             self.elements.push((pos, Element::Group(Group::new(frame.share()))));
@@ -98,11 +95,8 @@ impl Frame {
     /// Add a frame at a position in the background.
     pub fn prepend_frame(&mut self, pos: Point, frame: impl FrameRepr) {
         if (self.elements.is_empty() || frame.as_ref().is_light())
-            && (frame.as_ref().role().is_none() || self.role.is_none())
+            && frame.as_ref().role().is_none()
         {
-            if self.role.is_none() {
-                self.role = frame.as_ref().role()
-            }
             frame.inline(self, 0, pos);
         } else {
             self.elements
@@ -149,10 +143,8 @@ impl Frame {
 
     /// Apply the given role to the frame if it doesn't already have one.
     pub fn apply_role(&mut self, role: Role) {
-        match self.role {
-            None => self.role = Some(role),
-            Some(old) if old.is_weak() => self.role = Some(role),
-            Some(_) => {}
+        if self.role.map_or(true, Role::is_weak) {
+            self.role = Some(role);
         }
     }
 
@@ -179,24 +171,29 @@ impl Frame {
     }
 
     /// Recover the text inside of the frame and its children.
-    pub fn inner_text(&self) -> EcoString {
-        let mut res = EcoString::new();
+    pub fn text(&self) -> EcoString {
+        let mut text = EcoString::new();
         for (_, element) in &self.elements {
             match element {
-                Element::Text(text) => res.push_str(
-                    &text.glyphs.iter().map(|glyph| glyph.c).collect::<EcoString>(),
-                ),
-                Element::Group(group) => res.push_str(&group.frame.inner_text()),
+                Element::Text(content) => {
+                    for glyph in &content.glyphs {
+                        text.push(glyph.c);
+                    }
+                }
+                Element::Group(group) => text.push_str(&group.frame.text()),
                 _ => {}
             }
         }
-        res
+        text
     }
 }
 
 impl Debug for Frame {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        self.role.fmt(f)?;
+        if let Some(role) = self.role {
+            write!(f, "{role:?} ")?;
+        }
+
         f.debug_list()
             .entries(self.elements.iter().map(|(_, element)| element))
             .finish()
@@ -422,7 +419,7 @@ pub enum Role {
     /// A generic inline subdivision.
     GenericInline,
     /// A list. The boolean indicates whether it is ordered.
-    List(bool),
+    List { ordered: bool },
     /// A list item. Must have a list parent.
     ListItem,
     /// The label of a list item.
@@ -445,6 +442,8 @@ pub enum Role {
     Footer,
     /// A page background.
     Background,
+    /// A page foreground.
+    Foreground,
 }
 
 impl Role {

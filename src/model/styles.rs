@@ -37,13 +37,6 @@ impl StyleMap {
         styles
     }
 
-    /// Create a style map from a single role.
-    pub fn with_role(role: Role) -> Self {
-        let mut styles = Self::new();
-        styles.push(StyleEntry::Role(role));
-        styles
-    }
-
     /// Set an inner value for a style property.
     ///
     /// If the property needs folding and the value is already contained in the

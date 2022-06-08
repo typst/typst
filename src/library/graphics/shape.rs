@@ -94,9 +94,7 @@ impl<const S: ShapeKind> Layout for ShapeNode<S> {
             frames = child.layout(ctx, &pod, styles)?;
 
             for frame in frames.iter_mut() {
-                if frame.role().map_or(true, Role::is_weak) {
-                    Arc::make_mut(frame).apply_role(Role::GenericBlock);
-                }
+                Arc::make_mut(frame).apply_role(Role::GenericBlock);
             }
 
             // Relayout with full expansion into square region to make sure

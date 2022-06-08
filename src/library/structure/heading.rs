@@ -92,8 +92,7 @@ impl Show for HeadingNode {
             };
         }
 
-        let mut map = StyleMap::with_role(Role::Heading(self.level.get()));
-
+        let mut map = StyleMap::new();
         map.set(TextNode::SIZE, resolve!(Self::SIZE));
 
         if let Smart::Custom(family) = resolve!(Self::FAMILY) {
@@ -116,7 +115,7 @@ impl Show for HeadingNode {
             realized = realized.underlined();
         }
 
-        realized = realized.styled_with_map(map);
+        realized = realized.styled_with_map(map).role(Role::Heading(self.level.get()));
         realized = realized.spaced(
             resolve!(Self::ABOVE).resolve(styles),
             resolve!(Self::BELOW).resolve(styles),

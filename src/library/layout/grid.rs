@@ -65,41 +65,6 @@ pub enum TrackSizing {
     Fractional(Fraction),
 }
 
-/// Defines what kind of semantics a grid should represent.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-enum GridSemantics {
-    /// The grid is transparent to the semantic tree.
-    None,
-    /// The grid is a list, its rows are list items. The bool indicates whether
-    /// the list is ordered.
-    List,
-    /// The grid is a table.
-    Table,
-}
-
-impl GridSemantics {
-    /// The role of a row in a grid with these semantics.
-    fn row(self) -> Option<Role> {
-        match self {
-            Self::None => None,
-            Self::List => Some(Role::ListItem),
-            Self::Table => Some(Role::TableRow),
-        }
-    }
-
-    /// Returns the semantic role of a grid row given the previous semantics and
-    /// the cell's role.
-    fn determine(other: Option<Self>, role: Option<Role>) -> Self {
-        match (other, role) {
-            (None, Some(Role::ListItem | Role::ListLabel)) => Self::List,
-            (Some(Self::List), Some(Role::ListItem | Role::ListLabel)) => Self::List,
-            (None, Some(Role::TableCell)) => Self::Table,
-            (Some(Self::Table), Some(Role::TableCell)) => Self::Table,
-            _ => Self::None,
-        }
-    }
-}
-
 castable! {
     Vec<TrackSizing>,
     Expected: "integer, auto, relative length, fraction, or array of the latter three)",
@@ -487,7 +452,6 @@ impl<'a> GridLayouter<'a> {
         let mut output = Frame::new(Size::new(self.used.x, height));
 
         let mut pos = Point::zero();
-        let mut semantic = None;
 
         for (x, &rcol) in self.rcols.iter().enumerate() {
             if let Some(node) = self.cell(x, y) {
@@ -501,16 +465,18 @@ impl<'a> GridLayouter<'a> {
 
                 let pod = Regions::one(size, base, Spec::splat(true));
                 let frame = node.layout(self.ctx, &pod, self.styles)?.remove(0);
-                semantic = Some(GridSemantics::determine(semantic, frame.role()));
+                match frame.role() {
+                    Some(Role::ListLabel | Role::ListItemBody) => {
+                        output.apply_role(Role::ListItem)
+                    }
+                    Some(Role::TableCell) => output.apply_role(Role::TableRow),
+                    _ => {}
+                }
 
                 output.push_frame(pos, frame);
             }
 
             pos.x += rcol;
-        }
-
-        if let Some(role) = semantic.and_then(GridSemantics::row) {
-            output.apply_role(role);
         }
 
         Ok(output)
@@ -535,7 +501,6 @@ impl<'a> GridLayouter<'a> {
 
         // Layout the row.
         let mut pos = Point::zero();
-        let mut semantic = None;
         for (x, &rcol) in self.rcols.iter().enumerate() {
             if let Some(node) = self.cell(x, y) {
                 pod.first.x = rcol;
@@ -549,18 +514,18 @@ impl<'a> GridLayouter<'a> {
                 // Push the layouted frames into the individual output frames.
                 let frames = node.layout(self.ctx, &pod, self.styles)?;
                 for (output, frame) in outputs.iter_mut().zip(frames) {
-                    semantic = Some(GridSemantics::determine(semantic, frame.role()));
+                    match frame.role() {
+                        Some(Role::ListLabel | Role::ListItemBody) => {
+                            output.apply_role(Role::ListItem)
+                        }
+                        Some(Role::TableCell) => output.apply_role(Role::TableRow),
+                        _ => {}
+                    }
                     output.push_frame(pos, frame);
                 }
             }
 
             pos.x += rcol;
-        }
-
-        for output in outputs.iter_mut() {
-            if let Some(role) = semantic.and_then(GridSemantics::row) {
-                output.apply_role(role);
-            }
         }
 
         Ok(outputs)

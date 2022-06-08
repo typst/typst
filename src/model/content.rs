@@ -206,7 +206,7 @@ impl Content {
 
     /// Assign a role to this content by adding a style map.
     pub fn role(self, role: Role) -> Self {
-        self.styled_with_map(StyleMap::with_role(role))
+        self.styled_with_entry(StyleEntry::Role(role))
     }
 
     /// Reenable the show rule identified by the selector.

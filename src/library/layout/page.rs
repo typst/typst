@@ -110,30 +110,28 @@ impl PageNode {
             let pad = padding.resolve(styles).relative_to(size);
             let pw = size.x - pad.left - pad.right;
             let py = size.y - pad.bottom;
-            for (marginal, pos, area, role) in [
+            for (role, marginal, pos, area) in [
                 (
+                    Role::Header,
                     header,
                     Point::with_x(pad.left),
                     Size::new(pw, pad.top),
-                    Role::Header,
                 ),
                 (
+                    Role::Footer,
                     footer,
                     Point::new(pad.left, py),
                     Size::new(pw, pad.bottom),
-                    Role::Footer,
                 ),
-                (foreground, Point::zero(), size, Role::Background),
-                (background, Point::zero(), size, Role::Background),
+                (Role::Foreground, foreground, Point::zero(), size),
+                (Role::Background, background, Point::zero(), size),
             ] {
                 if let Some(content) = marginal.resolve(ctx, page)? {
                     let pod = Regions::one(area, area, Spec::splat(true));
-                    let role_map = StyleMap::with_role(role);
-                    let styles = role_map.chain(&styles);
                     let mut sub = content.layout(ctx, &pod, styles)?.remove(0);
                     Arc::make_mut(&mut sub).apply_role(role);
 
-                    if std::ptr::eq(marginal, background) {
+                    if role == Role::Background {
                         Arc::make_mut(frame).prepend_frame(pos, sub);
                     } else {
                         Arc::make_mut(frame).push_frame(pos, sub);
