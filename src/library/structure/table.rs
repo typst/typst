@@ -50,16 +50,13 @@ impl TableNode {
 
 impl Show for TableNode {
     fn unguard(&self, sel: Selector) -> ShowNode {
-        let mut map = StyleMap::with_role(Role::TableCell);
-        map.push(StyleEntry::Unguard(sel));
-
         Self {
             tracks: self.tracks.clone(),
             gutter: self.gutter.clone(),
             cells: self
                 .cells
                 .iter()
-                .map(|cell| cell.clone().styled_with_map(map.clone()))
+                .map(|cell| cell.unguard(sel).role(Role::TableCell))
                 .collect(),
         }
         .pack()
@@ -110,7 +107,7 @@ impl Show for TableNode {
             cells,
             semantic: GridSemantics::Table,
         })
-        .styled_with_map(StyleMap::with_role(Role::Table)))
+        .role(Role::Table))
     }
 
     fn finalize(

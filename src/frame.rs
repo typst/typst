@@ -448,7 +448,9 @@ pub enum Role {
 }
 
 impl Role {
-    fn is_weak(&self) -> bool {
+    /// Whether the role describes a generic element and is not very
+    /// descriptive.
+    pub fn is_weak(self) -> bool {
         match self {
             Self::Paragraph | Self::GenericBlock | Self::GenericInline => true,
             _ => false,

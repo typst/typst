@@ -204,6 +204,11 @@ impl Content {
         Self::Styled(Arc::new((self, styles)))
     }
 
+    /// Assign a role to this content by adding a style map.
+    pub fn role(self, role: Role) -> Self {
+        self.styled_with_map(StyleMap::with_role(role))
+    }
+
     /// Reenable the show rule identified by the selector.
     pub fn unguard(&self, sel: Selector) -> Self {
         self.clone().styled_with_entry(StyleEntry::Unguard(sel))

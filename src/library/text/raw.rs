@@ -113,7 +113,7 @@ impl Show for RawNode {
         styles: StyleChain,
         mut realized: Content,
     ) -> TypResult<Content> {
-        let mut map = StyleMap::with_role(Role::Code);
+        let mut map = StyleMap::new();
         map.set_family(styles.get(Self::FAMILY).clone(), styles);
         map.set(TextNode::OVERHANG, false);
         map.set(TextNode::HYPHENATE, Smart::Custom(Hyphenate(false)));
@@ -123,7 +123,7 @@ impl Show for RawNode {
             realized = realized.spaced(styles.get(Self::ABOVE), styles.get(Self::BELOW));
         }
 
-        Ok(realized.styled_with_map(map))
+        Ok(realized.styled_with_map(map).role(Role::Code))
     }
 }
 

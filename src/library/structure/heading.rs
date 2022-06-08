@@ -66,13 +66,8 @@ impl HeadingNode {
 
 impl Show for HeadingNode {
     fn unguard(&self, sel: Selector) -> ShowNode {
-        let mut map = StyleMap::with_role(Role::Heading(self.level.get()));
-        map.push(StyleEntry::Unguard(sel));
-        Self {
-            body: self.body.clone().styled_with_map(map),
-            ..*self
-        }
-        .pack()
+        let body = self.body.unguard(sel).role(Role::Heading(self.level.get()));
+        Self { body, ..*self }.pack()
     }
 
     fn encode(&self, _: StyleChain) -> Dict {

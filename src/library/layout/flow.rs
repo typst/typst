@@ -184,7 +184,7 @@ impl FlowLayouter {
         let len = frames.len();
         for (i, mut frame) in frames.into_iter().enumerate() {
             // Set the generic block role.
-            if frame.role().is_none() {
+            if frame.role().map_or(true, Role::is_weak) {
                 Arc::make_mut(&mut frame).apply_role(Role::GenericBlock);
             }
 

@@ -77,12 +77,9 @@ impl<const L: ListKind> ListNode<L> {
 
 impl<const L: ListKind> Show for ListNode<L> {
     fn unguard(&self, sel: Selector) -> ShowNode {
-        let mut map = StyleMap::with_role(Role::ListItemBody);
-        map.push(StyleEntry::Unguard(sel));
-
         Self {
             items: self.items.map(|item| ListItem {
-                body: Box::new(item.body.clone().styled_with_map(map.clone())),
+                body: Box::new(item.body.unguard(sel).role(Role::ListItemBody)),
                 ..*item
             }),
             ..*self
@@ -113,11 +110,14 @@ impl<const L: ListKind> Show for ListNode<L> {
         for (item, map) in self.items.iter() {
             number = item.number.unwrap_or(number);
 
-            let mut label_map = map.clone();
-            label_map.push(StyleEntry::Role(Role::ListLabel));
-
             cells.push(LayoutNode::default());
-            cells.push(label.resolve(ctx, L, number)?.styled_with_map(label_map).pack());
+            cells.push(
+                label
+                    .resolve(ctx, L, number)?
+                    .styled_with_map(map.clone())
+                    .role(Role::ListLabel)
+                    .pack(),
+            );
             cells.push(LayoutNode::default());
             cells.push((*item.body).clone().styled_with_map(map.clone()).pack());
             number += 1;
@@ -163,9 +163,7 @@ impl<const L: ListKind> Show for ListNode<L> {
             }
         }
 
-        Ok(realized
-            .styled_with_map(StyleMap::with_role(Role::List(L == ORDERED)))
-            .spaced(above, below))
+        Ok(realized.role(Role::List(L == ORDERED)).spaced(above, below))
     }
 }
 

@@ -91,10 +91,13 @@ impl<const S: ShapeKind> Layout for ShapeNode<S> {
             let child = child.clone().padded(inset.map(|side| side.map(RawLength::from)));
 
             let mut pod = Regions::one(regions.first, regions.base, regions.expand);
-            let role_map = StyleMap::with_role(Role::GenericBlock);
-            let styles = role_map.chain(&styles);
-
             frames = child.layout(ctx, &pod, styles)?;
+
+            for frame in frames.iter_mut() {
+                if frame.role().map_or(true, Role::is_weak) {
+                    Arc::make_mut(frame).apply_role(Role::GenericBlock);
+                }
+            }
 
             // Relayout with full expansion into square region to make sure
             // the result is really a square or circle.

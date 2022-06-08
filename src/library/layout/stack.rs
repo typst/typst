@@ -192,12 +192,14 @@ impl<'a> StackLayouter<'a> {
                 self.dir.start().into()
             });
 
-        let role_map = StyleMap::with_role(Role::GenericBlock);
-        let styles = role_map.chain(&styles);
-
         let frames = node.layout(ctx, &self.regions, styles)?;
         let len = frames.len();
-        for (i, frame) in frames.into_iter().enumerate() {
+        for (i, mut frame) in frames.into_iter().enumerate() {
+            // Set the generic block role.
+            if frame.role().map_or(true, Role::is_weak) {
+                Arc::make_mut(&mut frame).apply_role(Role::GenericBlock);
+            }
+
             // Grow our size, shrink the region and save the frame for later.
             let size = frame.size.to_gen(self.axis);
             self.used.main += size.main;

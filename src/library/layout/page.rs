@@ -130,7 +130,8 @@ impl PageNode {
                     let pod = Regions::one(area, area, Spec::splat(true));
                     let role_map = StyleMap::with_role(role);
                     let styles = role_map.chain(&styles);
-                    let sub = content.layout(ctx, &pod, styles)?.remove(0);
+                    let mut sub = content.layout(ctx, &pod, styles)?.remove(0);
+                    Arc::make_mut(&mut sub).apply_role(role);
 
                     if std::ptr::eq(marginal, background) {
                         Arc::make_mut(frame).prepend_frame(pos, sub);
