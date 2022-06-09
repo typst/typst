@@ -55,6 +55,11 @@ impl HeadingNode {
     pub const BELOW: Leveled<Option<BlockSpacing>> =
         Leveled::Value(Some(Ratio::new(0.55).into()));
 
+    /// Whether the heading appears in the outline.
+    pub const OUTLINED: bool = true;
+    /// Whether the heading is numbered.
+    pub const NUMBERED: bool = true;
+
     fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
         Ok(Content::show(Self {
             body: args.expect("body")?,
@@ -65,14 +70,15 @@ impl HeadingNode {
 
 impl Show for HeadingNode {
     fn unguard(&self, sel: Selector) -> ShowNode {
-        let body = self.body.unguard(sel).role(Role::Heading(self.level.get()));
-        Self { body, ..*self }.pack()
+        Self { body: self.body.unguard(sel), ..*self }.pack()
     }
 
-    fn encode(&self, _: StyleChain) -> Dict {
+    fn encode(&self, styles: StyleChain) -> Dict {
         dict! {
             "level" => Value::Int(self.level.get() as i64),
             "body" => Value::Content(self.body.clone()),
+            "outlined" => Value::Bool(styles.get(Self::OUTLINED)),
+            "numbered" => Value::Bool(styles.get(Self::NUMBERED)),
         }
     }
 
@@ -115,7 +121,12 @@ impl Show for HeadingNode {
             realized = realized.underlined();
         }
 
-        realized = realized.styled_with_map(map).role(Role::Heading(self.level.get()));
+        let role = Role::Heading {
+            level: self.level,
+            outlined: styles.get(Self::OUTLINED),
+        };
+
+        realized = realized.styled_with_map(map).role(role);
         realized = realized.spaced(
             resolve!(Self::ABOVE).resolve(styles),
             resolve!(Self::BELOW).resolve(styles),

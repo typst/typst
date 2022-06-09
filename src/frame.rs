@@ -1,6 +1,7 @@
 //! Finished layouts.
 
 use std::fmt::{self, Debug, Formatter, Write};
+use std::num::NonZeroUsize;
 use std::sync::Arc;
 
 use crate::eval::{Dict, Value};
@@ -71,7 +72,7 @@ impl Frame {
     /// group based on the number of elements in the frame.
     pub fn push_frame(&mut self, pos: Point, frame: impl FrameRepr) {
         if (self.elements.is_empty() || frame.as_ref().is_light())
-            && frame.as_ref().role().is_none()
+            && frame.as_ref().role().map_or(true, Role::is_weak)
         {
             frame.inline(self, self.layer(), pos);
         } else {
@@ -95,7 +96,7 @@ impl Frame {
     /// Add a frame at a position in the background.
     pub fn prepend_frame(&mut self, pos: Point, frame: impl FrameRepr) {
         if (self.elements.is_empty() || frame.as_ref().is_light())
-            && frame.as_ref().role().is_none()
+            && frame.as_ref().role().map_or(true, Role::is_weak)
         {
             frame.inline(self, 0, pos);
         } else {
@@ -412,8 +413,8 @@ impl Location {
 pub enum Role {
     /// A paragraph.
     Paragraph,
-    /// A heading with some level.
-    Heading(usize),
+    /// A heading with some level and whether it should be part of the outline.
+    Heading { level: NonZeroUsize, outlined: bool },
     /// A generic block-level subdivision.
     GenericBlock,
     /// A generic inline subdivision.

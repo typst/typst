@@ -604,12 +604,12 @@ impl<'a, 'b> PageExporter<'a, 'b> {
     }
 
     fn write_frame(&mut self, frame: &Frame) {
-        if let Some(Role::Heading(level)) = frame.role() {
+        if let Some(Role::Heading { level, outlined: true }) = frame.role() {
             let heading = Heading {
                 position: Point::new(self.state.transform.tx, self.state.transform.ty),
                 content: frame.text(),
                 page: self.page_ref,
-                level,
+                level: level.get(),
             };
 
             if let Some(last) = self.exporter.heading_tree.last_mut() {

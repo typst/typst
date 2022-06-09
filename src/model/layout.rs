@@ -231,9 +231,10 @@ impl Layout for LayoutNode {
                 let hash = fxhash::hash64(&ctx.pins);
                 let at = ctx.pins.cursor();
 
-                let entry = StyleEntry::Barrier(Barrier::new(node.id()));
-                let mut result = node.0.layout(ctx, regions, entry.chain(&styles));
+                let barrier = StyleEntry::Barrier(Barrier::new(node.id()));
+                let styles = barrier.chain(&styles);
 
+                let mut result = node.0.layout(ctx, regions, styles);
                 if let Some(role) = styles.role() {
                     result = result.map(|mut frames| {
                         for frame in frames.iter_mut() {
