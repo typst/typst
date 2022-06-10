@@ -181,8 +181,14 @@ impl FromStr for RgbaColor {
 }
 
 impl From<SynColor> for RgbaColor {
-    fn from(color: SynColor) -> Self {
-        Self::new(color.r, color.g, color.b, color.a)
+    fn from(SynColor { r, g, b, a }: SynColor) -> Self {
+        Self { r, g, b, a }
+    }
+}
+
+impl From<RgbaColor> for SynColor {
+    fn from(RgbaColor { r, g, b, a }: RgbaColor) -> Self {
+        Self { r, g, b, a }
     }
 }
 

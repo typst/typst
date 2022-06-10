@@ -201,7 +201,10 @@ impl Cast<Spanned<Value>> for Marginal {
             Value::Str(v) => Ok(Self::Content(Content::Text(v))),
             Value::Content(v) => Ok(Self::Content(v)),
             Value::Func(v) => Ok(Self::Func(v, value.span)),
-            _ => Err("expected none, content or function")?,
+            v => Err(format!(
+                "expected none, content or function, found {}",
+                v.type_name(),
+            )),
         }
     }
 }

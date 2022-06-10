@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use once_cell::sync::OnceCell;
-use rex::font::MathFont;
+use rex::font::MathHeader;
 use serde::{Deserialize, Serialize};
 use ttf_parser::{name_id, GlyphId, PlatformId, Tag};
 use unicode_segmentation::UnicodeSegmentation;
@@ -254,7 +254,7 @@ pub struct Face {
     /// The faces metrics.
     metrics: FaceMetrics,
     /// The parsed ReX math font.
-    math: OnceCell<Option<MathFont>>,
+    math: OnceCell<Option<MathHeader>>,
 }
 
 impl Face {
@@ -308,9 +308,14 @@ impl Face {
         &self.metrics
     }
 
-    /// Access the math font, if any.
-    pub fn math(&self) -> Option<&MathFont> {
-        self.math.get_or_init(|| MathFont::parse(self.buffer()).ok()).as_ref()
+    /// Access the math header, if any.
+    pub fn math(&self) -> Option<&MathHeader> {
+        self.math
+            .get_or_init(|| {
+                let data = self.ttf().table_data(Tag::from_bytes(b"MATH"))?;
+                MathHeader::parse(data).ok()
+            })
+            .as_ref()
     }
 
     /// Convert from font units to an em length.
@@ -350,7 +355,7 @@ pub struct FaceMetrics {
 impl FaceMetrics {
     /// Extract the face's metrics.
     pub fn from_ttf(ttf: &ttf_parser::Face) -> Self {
-        let units_per_em = f64::from(ttf.units_per_em().unwrap_or(0));
+        let units_per_em = f64::from(ttf.units_per_em());
         let to_em = |units| Em::from_units(units, units_per_em);
 
         let ascender = to_em(ttf.typographic_ascender().unwrap_or(ttf.ascender()));
@@ -517,7 +522,7 @@ impl FaceInfo {
 
         // Determine the unicode coverage.
         let mut codepoints = vec![];
-        for subtable in ttf.character_mapping_subtables() {
+        for subtable in ttf.tables().cmap.into_iter().flat_map(|table| table.subtables) {
             if subtable.is_unicode() {
                 subtable.codepoints(|c| codepoints.push(c));
             }
@@ -550,14 +555,14 @@ impl FaceInfo {
 
 /// Try to find and decode the name with the given id.
 pub fn find_name(ttf: &ttf_parser::Face, name_id: u16) -> Option<String> {
-    ttf.names().find_map(|entry| {
-        if entry.name_id() == name_id {
+    ttf.names().into_iter().find_map(|entry| {
+        if entry.name_id == name_id {
             if let Some(string) = entry.to_string() {
                 return Some(string);
             }
 
-            if entry.platform_id() == PlatformId::Macintosh && entry.encoding_id() == 0 {
-                return Some(decode_mac_roman(entry.name()));
+            if entry.platform_id == PlatformId::Macintosh && entry.encoding_id == 0 {
+                return Some(decode_mac_roman(entry.name));
             }
         }
 

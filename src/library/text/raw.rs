@@ -90,7 +90,9 @@ impl Show for RawNode {
                     seq.push(Content::Linebreak { justified: false });
                 }
 
-                for (style, piece) in highlighter.highlight(line, &SYNTAXES) {
+                for (style, piece) in
+                    highlighter.highlight_line(line, &SYNTAXES).into_iter().flatten()
+                {
                     seq.push(styled(piece, foreground, style));
                 }
             }
@@ -177,6 +179,7 @@ pub static THEME: Lazy<Theme> = Lazy::new(|| Theme {
         item("string", Some("#298e0d"), None),
         item("punctuation.shortcut", Some("#1d6c76"), None),
         item("constant.character.escape", Some("#1d6c76"), None),
+        item("invalid", Some("#ff0000"), None),
     ],
 });
 
@@ -185,7 +188,7 @@ fn item(scope: &str, color: Option<&str>, font_style: Option<FontStyle>) -> Them
     ThemeItem {
         scope: scope.parse().unwrap(),
         style: StyleModifier {
-            foreground: color.map(|s| s.parse().unwrap()),
+            foreground: color.map(|s| s.parse::<RgbaColor>().unwrap().into()),
             background: None,
             font_style,
         },

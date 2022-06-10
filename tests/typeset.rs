@@ -316,10 +316,7 @@ fn test_part(
     let mut errors: Vec<_> = errors
         .into_iter()
         .filter(|error| error.span.source() == id)
-        .map(|error| {
-            let range = error.pos.apply(ctx.sources.range(error.span));
-            (range, error.message)
-        })
+        .map(|error| (ctx.sources.range(error.span), error.message))
         .collect();
 
     errors.sort_by_key(|error| error.0.start);

@@ -1,5 +1,5 @@
 use rex::error::{Error, LayoutError};
-use rex::font::{FontContext, MathFont};
+use rex::font::FontContext;
 use rex::layout::{LayoutSettings, Style};
 use rex::parser::color::RGBA;
 use rex::render::{Backend, Cursor, Renderer};
@@ -38,7 +38,7 @@ impl Layout for RexNode {
         let face = ctx.fonts.get(face_id);
         let ctx = face
             .math()
-            .and_then(FontContext::new)
+            .map(|math| FontContext::new(face.ttf(), math))
             .ok_or("font is not suitable for math")
             .at(span)?;
 
@@ -110,7 +110,7 @@ impl FrameBackend {
 }
 
 impl Backend for FrameBackend {
-    fn symbol(&mut self, pos: Cursor, gid: u16, scale: f64, _: &MathFont) {
+    fn symbol(&mut self, pos: Cursor, gid: u16, scale: f64) {
         self.frame.push(
             self.transform(pos),
             Element::Text(Text {

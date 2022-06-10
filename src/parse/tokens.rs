@@ -4,10 +4,9 @@ use unicode_xid::UnicodeXID;
 use unscanny::Scanner;
 
 use super::resolve::{resolve_hex, resolve_raw, resolve_string};
-use crate::diag::ErrorPos;
 use crate::geom::{AngleUnit, LengthUnit};
 use crate::syntax::ast::{MathNode, RawNode, Unit};
-use crate::syntax::NodeKind;
+use crate::syntax::{NodeKind, SpanPos};
 use crate::util::EcoString;
 
 /// An iterator over the tokens of a string of source code.
@@ -287,14 +286,14 @@ impl<'s> Tokens<'s> {
                         NodeKind::Escape(c)
                     } else {
                         NodeKind::Error(
-                            ErrorPos::Full,
+                            SpanPos::Full,
                             "invalid unicode escape sequence".into(),
                         )
                     }
                 } else {
                     self.terminated = false;
                     NodeKind::Error(
-                        ErrorPos::End,
+                        SpanPos::End,
                         "expected closing brace".into(),
                     )
                 }
@@ -394,7 +393,7 @@ impl<'s> Tokens<'s> {
 
             self.terminated = false;
             NodeKind::Error(
-                ErrorPos::End,
+                SpanPos::End,
                 if found == 0 {
                     format_eco!("expected {} {}", remaining, noun)
                 } else {
@@ -442,7 +441,7 @@ impl<'s> Tokens<'s> {
         } else {
             self.terminated = false;
             NodeKind::Error(
-                ErrorPos::End,
+                SpanPos::End,
                 if !display || (!escaped && dollar) {
                     "expected closing dollar sign".into()
                 } else {
@@ -531,7 +530,7 @@ impl<'s> Tokens<'s> {
             NodeKind::Str(string)
         } else {
             self.terminated = false;
-            NodeKind::Error(ErrorPos::End, "expected quote".into())
+            NodeKind::Error(SpanPos::End, "expected quote".into())
         }
     }
 
@@ -677,12 +676,12 @@ mod tests {
     use super::*;
     use crate::parse::tests::check;
 
-    use ErrorPos::*;
     use NodeKind::*;
     use Option::None;
+    use SpanPos::*;
     use TokenMode::{Code, Markup};
 
-    fn Error(pos: ErrorPos, message: &str) -> NodeKind {
+    fn Error(pos: SpanPos, message: &str) -> NodeKind {
         NodeKind::Error(pos, message.into())
     }
 

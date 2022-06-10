@@ -238,6 +238,7 @@ impl Cast<Spanned<Value>> for Label {
 
     fn cast(value: Spanned<Value>) -> StrResult<Self> {
         match value.v {
+            Value::None => Ok(Self::Content(Content::Empty)),
             Value::Str(pattern) => {
                 let mut s = Scanner::new(&pattern);
                 let mut prefix;
@@ -258,7 +259,10 @@ impl Cast<Spanned<Value>> for Label {
             }
             Value::Content(v) => Ok(Self::Content(v)),
             Value::Func(v) => Ok(Self::Func(v, value.span)),
-            _ => Err("expected pattern, content or function")?,
+            v => Err(format!(
+                "expected string, content or function, found {}",
+                v.type_name(),
+            )),
         }
     }
 }

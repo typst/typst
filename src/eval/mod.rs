@@ -606,7 +606,7 @@ impl Eval for FuncCall {
             Value::Dict(dict) => dict.get(&args.into_key()?).at(self.span())?.clone(),
             Value::Func(func) => {
                 let point = || Tracepoint::Call(func.name().map(ToString::to_string));
-                func.call(vm, args).trace(point, self.span())?
+                func.call(vm, args).trace(vm.ctx, point, self.span())?
             }
 
             v => bail!(
@@ -629,12 +629,13 @@ impl Eval for MethodCall {
         Ok(if methods::is_mutating(&method) {
             let args = self.args().eval(vm)?;
             let mut value = self.receiver().access(vm)?;
-            methods::call_mut(&mut value, &method, args, span).trace(point, span)?;
+            methods::call_mut(&mut value, &method, args, span)
+                .trace(vm.ctx, point, span)?;
             Value::None
         } else {
             let value = self.receiver().eval(vm)?;
             let args = self.args().eval(vm)?;
-            methods::call(vm, value, &method, args, span).trace(point, span)?
+            methods::call(vm, value, &method, args, span).trace(vm.ctx, point, span)?
         })
     }
 }
@@ -980,7 +981,9 @@ fn import(vm: &mut Machine, path: &str, span: Span) -> TypResult<Module> {
 
     // Evaluate the file.
     let route = vm.route.clone();
-    let module = evaluate(vm.ctx, id, route).trace(|| Tracepoint::Import, span)?;
+    let module =
+        evaluate(vm.ctx, id, route).trace(vm.ctx, || Tracepoint::Import, span)?;
+
     vm.deps.extend(module.deps.iter().cloned());
 
     Ok(module)

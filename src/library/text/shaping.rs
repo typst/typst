@@ -221,14 +221,12 @@ impl<'a> ShapedText<'a> {
             let x_advance = face.to_em(ttf.glyph_hor_advance(glyph_id)?);
             let cluster = self.glyphs.last().map(|g| g.cluster).unwrap_or_default();
             self.width += x_advance.at(self.size);
-            let baseline_shift = self.styles.get(TextNode::BASELINE);
-
             self.glyphs.to_mut().push(ShapedGlyph {
                 face_id,
                 glyph_id: glyph_id.0,
                 x_advance,
                 x_offset: Em::zero(),
-                y_offset: Em::from_length(baseline_shift, self.size),
+                y_offset: Em::zero(),
                 cluster,
                 safe_to_break: true,
                 c: '-',
@@ -491,7 +489,7 @@ fn shape_tofus(ctx: &mut ShapingContext, base: usize, text: &str, face_id: FaceI
             glyph_id: 0,
             x_advance,
             x_offset: Em::zero(),
-            y_offset: Em::from_length(ctx.styles.get(TextNode::BASELINE), ctx.size),
+            y_offset: Em::zero(),
             cluster: base + cluster,
             safe_to_break: true,
             c,

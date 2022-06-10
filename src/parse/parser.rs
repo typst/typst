@@ -3,8 +3,7 @@ use std::mem;
 use std::ops::Range;
 
 use super::{TokenMode, Tokens};
-use crate::diag::ErrorPos;
-use crate::syntax::{InnerNode, NodeData, NodeKind, SyntaxNode};
+use crate::syntax::{InnerNode, NodeData, NodeKind, SpanPos, SyntaxNode};
 use crate::util::EcoString;
 
 /// A convenient token-based parser.
@@ -385,7 +384,7 @@ impl Parser<'_> {
     pub fn unexpected(&mut self) {
         if let Some(found) = self.peek() {
             let msg = format_eco!("unexpected {}", found);
-            let error = NodeKind::Error(ErrorPos::Full, msg);
+            let error = NodeKind::Error(SpanPos::Full, msg);
             self.perform(error, Self::eat);
         }
     }
@@ -399,7 +398,7 @@ impl Parser<'_> {
     /// Insert an error message that `what` was expected at the marker position.
     pub fn expected_at(&mut self, marker: Marker, what: &str) {
         let msg = format_eco!("expected {}", what);
-        let error = NodeKind::Error(ErrorPos::Full, msg);
+        let error = NodeKind::Error(SpanPos::Full, msg);
         self.children.insert(marker.0, NodeData::new(error, 0).into());
     }
 
@@ -409,7 +408,7 @@ impl Parser<'_> {
         match self.peek() {
             Some(found) => {
                 let msg = format_eco!("expected {}, found {}", thing, found);
-                let error = NodeKind::Error(ErrorPos::Full, msg);
+                let error = NodeKind::Error(SpanPos::Full, msg);
                 self.perform(error, Self::eat);
             }
             None => self.expected(thing),
@@ -481,7 +480,7 @@ impl Marker {
                     msg.push_str(", found ");
                     msg.push_str(child.kind().as_str());
                 }
-                let error = NodeKind::Error(ErrorPos::Full, msg);
+                let error = NodeKind::Error(SpanPos::Full, msg);
                 let inner = mem::take(child);
                 *child = InnerNode::with_child(error, inner).into();
             }

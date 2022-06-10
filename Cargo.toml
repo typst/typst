@@ -15,20 +15,19 @@ typst-macros = { path = "./macros" }
 
 # Utilities
 bytemuck = "1"
-either = "1"
 fxhash = "0.2"
 lipsum = { git = "https://github.com/reknih/lipsum", default-features = false }
 once_cell = "1"
 serde = { version = "1", features = ["derive"] }
 typed-arena = "2"
-unscanny = { git = "https://github.com/typst/unscanny" }
+unscanny = "0.1"
 regex = "1"
 
 # Text and font handling
 hypher = "0.1"
 kurbo = "0.8"
-ttf-parser = "0.12"
-rustybuzz = "0.4"
+ttf-parser = "0.15"
+rustybuzz = "0.5"
 unicode-bidi = "0.3.5"
 unicode-segmentation = "1"
 unicode-xid = "0.2"
@@ -36,22 +35,23 @@ unicode-script = "0.5"
 xi-unicode = "0.3"
 
 # Raster and vector graphics handling
-image = { version = "0.23", default-features = false, features = ["png", "jpeg"] }
-usvg = { version = "0.20", default-features = false }
+image = { version = "0.24", default-features = false, features = ["png", "jpeg", "gif"] }
+usvg = { version = "0.22", default-features = false }
 
 # External implementation of user-facing features
-syntect = { version = "4.6", default-features = false, features = ["dump-load", "parsing", "regex-fancy", "assets"] }
+syntect = { version = "5", default-features = false, features = ["default-syntaxes", "regex-fancy"] }
 rex = { git = "https://github.com/laurmaedje/ReX" }
 
 # PDF export
-miniz_oxide = "0.4"
-pdf-writer = "0.4"
-svg2pdf = "0.2"
+miniz_oxide = "0.5"
+pdf-writer = "0.6"
+subsetter = { git = "https://github.com/typst/subsetter" }
+svg2pdf = "0.4"
 
 # Raster export / rendering
 tiny-skia = "0.6.2"
 pixglyph = { git = "https://github.com/typst/pixglyph" }
-resvg = { version = "0.20", default-features = false }
+resvg = { version = "0.22", default-features = false }
 roxmltree = "0.14"
 flate2 = "1"
 

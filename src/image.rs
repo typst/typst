@@ -8,7 +8,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use image::io::Reader as ImageReader;
-use image::{DynamicImage, GenericImageView, ImageFormat};
+use image::{DynamicImage, ImageFormat};
 
 use crate::loading::{FileHash, Loader};
 
@@ -97,7 +97,7 @@ impl Image {
 
         match RasterImage::parse(data) {
             Ok(raster) => return Ok(Self::Raster(raster)),
-            Err(err) if matches!(ext, "png" | "jpg" | "jpeg") => return Err(err),
+            Err(err) if matches!(ext, "png" | "jpg" | "jpeg" | "gif") => return Err(err),
             Err(_) => {}
         }
 

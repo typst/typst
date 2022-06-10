@@ -1,9 +1,9 @@
 //! Diagnostics.
 
 use std::fmt::{self, Display, Formatter};
-use std::ops::Range;
 
 use crate::syntax::{Span, Spanned};
+use crate::Context;
 
 /// Early-return with a [`TypError`].
 #[macro_export]
@@ -39,8 +39,6 @@ pub type StrResult<T> = Result<T, String>;
 pub struct Error {
     /// The erroneous node in the source code.
     pub span: Span,
-    /// Where in the node the error should be annotated.
-    pub pos: ErrorPos,
     /// A diagnostic message describing the problem.
     pub message: String,
     /// The trace of function calls leading to the error.
@@ -52,31 +50,8 @@ impl Error {
     pub fn new(span: Span, message: impl Into<String>) -> Self {
         Self {
             span,
-            pos: ErrorPos::Full,
             trace: vec![],
             message: message.into(),
-        }
-    }
-}
-
-/// Where in a node an error should be annotated.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum ErrorPos {
-    /// At the start of the node.
-    Start,
-    /// Over the full width of the node.
-    Full,
-    /// At the end of the node.
-    End,
-}
-
-impl ErrorPos {
-    /// Apply this to a node's byte range.
-    pub fn apply(self, range: Range<usize>) -> Range<usize> {
-        match self {
-            ErrorPos::Start => range.start .. range.start,
-            ErrorPos::Full => range,
-            ErrorPos::End => range.end .. range.end,
         }
     }
 }
@@ -124,18 +99,25 @@ where
 /// Enrich a [`TypResult`] with a tracepoint.
 pub trait Trace<T> {
     /// Add the tracepoint to all errors that lie outside the `span`.
-    fn trace<F>(self, make_point: F, span: Span) -> Self
+    fn trace<F>(self, ctx: &Context, make_point: F, span: Span) -> Self
     where
         F: Fn() -> Tracepoint;
 }
 
 impl<T> Trace<T> for TypResult<T> {
-    fn trace<F>(self, make_point: F, span: Span) -> Self
+    fn trace<F>(self, ctx: &Context, make_point: F, span: Span) -> Self
     where
         F: Fn() -> Tracepoint,
     {
         self.map_err(|mut errors| {
+            let range = ctx.sources.range(span);
             for error in errors.iter_mut() {
+                // Skip traces that surround the error.
+                let error_range = ctx.sources.range(error.span);
+                if range.start <= error_range.start && range.end >= error_range.end {
+                    continue;
+                }
+
                 error.trace.push(Spanned::new(make_point(), span));
             }
             errors

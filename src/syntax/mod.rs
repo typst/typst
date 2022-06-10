@@ -13,7 +13,7 @@ pub use highlight::*;
 pub use span::*;
 
 use self::ast::{MathNode, RawNode, TypedNode, Unit};
-use crate::diag::{Error, ErrorPos};
+use crate::diag::Error;
 use crate::source::SourceId;
 use crate::util::EcoString;
 
@@ -82,7 +82,7 @@ impl SyntaxNode {
 
         match self.kind() {
             &NodeKind::Error(pos, ref message) => {
-                vec![Error { pos, ..Error::new(self.span(), message) }]
+                vec![Error::new(self.span().with_pos(pos), message)]
             }
             _ => self
                 .children()
@@ -150,9 +150,7 @@ impl SyntaxNode {
     pub fn range(&self, span: Span, offset: usize) -> Option<Range<usize>> {
         match self {
             Self::Inner(inner) => inner.range(span, offset),
-            Self::Leaf(leaf) => {
-                (span == leaf.span).then(|| offset .. offset + self.len())
-            }
+            Self::Leaf(leaf) => leaf.range(span, offset),
         }
     }
 
@@ -324,8 +322,8 @@ impl InnerNode {
     /// If the span points into this node, convert it to a byte range.
     pub fn range(&self, span: Span, mut offset: usize) -> Option<Range<usize>> {
         // Check whether we found it.
-        if self.data.span == span {
-            return Some(offset .. offset + self.len());
+        if let Some(range) = self.data.range(span, offset) {
+            return Some(range);
         }
 
         // The parent of a subtree has a smaller span number than all of its
@@ -535,6 +533,18 @@ impl NodeData {
         } else {
             Err(Unnumberable)
         }
+    }
+
+    /// If the span points into this node, convert it to a byte range.
+    pub fn range(&self, span: Span, offset: usize) -> Option<Range<usize>> {
+        (span.with_pos(SpanPos::Full) == self.span).then(|| {
+            let end = offset + self.len();
+            match span.pos() {
+                SpanPos::Full => offset .. end,
+                SpanPos::Start => offset .. offset,
+                SpanPos::End => end .. end,
+            }
+        })
     }
 }
 
@@ -787,7 +797,7 @@ pub enum NodeKind {
     /// The comment can contain nested block comments.
     BlockComment,
     /// Tokens that appear in the wrong place.
-    Error(ErrorPos, EcoString),
+    Error(SpanPos, EcoString),
     /// Unknown character sequences.
     Unknown(EcoString),
 }

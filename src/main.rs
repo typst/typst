@@ -239,9 +239,10 @@ fn print_diagnostics(
 
     for error in errors {
         // The main diagnostic.
-        let diag = Diagnostic::error().with_message(error.message).with_labels(vec![
-            Label::primary(error.span.source(), sources.range(error.span)),
-        ]);
+        let range = sources.range(error.span);
+        let diag = Diagnostic::error()
+            .with_message(error.message)
+            .with_labels(vec![Label::primary(error.span.source(), range)]);
 
         term::emit(&mut w, &config, sources, &diag)?;
 

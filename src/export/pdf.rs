@@ -3,6 +3,7 @@
 use std::cmp::Eq;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::hash::Hash;
+use std::io::Cursor;
 use std::sync::Arc;
 
 use image::{DynamicImage, GenericImageView, ImageFormat, ImageResult, Rgba};
@@ -14,7 +15,6 @@ use pdf_writer::writers::ColorSpace;
 use pdf_writer::{Content, Filter, Finish, Name, PdfWriter, Rect, Ref, Str, TextStr};
 use ttf_parser::{name_id, GlyphId, Tag};
 
-use super::subset::subset;
 use crate::font::{find_name, FaceId, FontStore};
 use crate::frame::{Destination, Element, Frame, Group, Role, Text};
 use crate::geom::{
@@ -24,6 +24,7 @@ use crate::geom::{
 use crate::image::{Image, ImageId, ImageStore, RasterImage};
 use crate::library::prelude::EcoString;
 use crate::library::text::Lang;
+use crate::util::SliceExt;
 use crate::Context;
 
 /// Export a collection of frames into a PDF file.
@@ -39,7 +40,7 @@ pub fn pdf(ctx: &Context, frames: &[Arc<Frame>]) -> Vec<u8> {
 
 /// Identifies the color space definitions.
 const SRGB: Name<'static> = Name(b"srgb");
-const SRGB_GRAY: Name<'static> = Name(b"srgbgray");
+const D65_GRAY: Name<'static> = Name(b"d65gray");
 
 /// An exporter for a whole PDF document.
 struct PdfExporter<'a> {
@@ -155,23 +156,37 @@ impl<'a> PdfExporter<'a> {
 
             // Write the CID font referencing the font descriptor.
             let mut cid = self.writer.cid_font(cid_ref);
-            cid.subtype(subtype)
-                .base_font(base_font)
-                .system_info(system_info)
-                .font_descriptor(descriptor_ref)
-                .widths()
-                .consecutive(0, {
-                    let num_glyphs = ttf.number_of_glyphs();
-                    (0 .. num_glyphs).map(|g| {
-                        let x = ttf.glyph_hor_advance(GlyphId(g)).unwrap_or(0);
-                        face.to_em(x).to_font_units()
-                    })
-                });
+            cid.subtype(subtype);
+            cid.base_font(base_font);
+            cid.system_info(system_info);
+            cid.font_descriptor(descriptor_ref);
+            cid.default_width(0.0);
 
             if subtype == CidFontType::Type2 {
                 cid.cid_to_gid_map_predefined(Name(b"Identity"));
             }
 
+            // Extract the widths of all glyphs.
+            let num_glyphs = ttf.number_of_glyphs();
+            let mut widths = vec![0.0; num_glyphs as usize];
+            for &g in glyphs {
+                let x = ttf.glyph_hor_advance(GlyphId(g)).unwrap_or(0);
+                widths[g as usize] = face.to_em(x).to_font_units();
+            }
+
+            // Write all non-zero glyph widths.
+            let mut first = 0;
+            let mut width_writer = cid.widths();
+            for (w, group) in widths.group_by_key(|&w| w) {
+                let end = first + group.len();
+                if w != 0.0 {
+                    let last = end - 1;
+                    width_writer.same(first as u16, last as u16, w);
+                }
+                first = end;
+            }
+
+            width_writer.finish();
             cid.finish();
 
             let mut flags = FontFlags::empty();
@@ -217,7 +232,9 @@ impl<'a> PdfExporter<'a> {
             // Compute a reverse mapping from glyphs to unicode.
             let cmap = {
                 let mut mapping = BTreeMap::new();
-                for subtable in ttf.character_mapping_subtables() {
+                for subtable in
+                    ttf.tables().cmap.into_iter().flat_map(|table| table.subtables)
+                {
                     if subtable.is_unicode() {
                         subtable.codepoints(|n| {
                             if let Some(c) = std::char::from_u32(n) {
@@ -245,16 +262,24 @@ impl<'a> PdfExporter<'a> {
                 .filter(Filter::FlateDecode);
 
             // Subset and write the face's bytes.
-            let buffer = face.buffer();
-            let subsetted = subset(buffer, face.index(), glyphs);
-            let data = deflate(subsetted.as_deref().unwrap_or(buffer));
-            let mut font_stream = self.writer.stream(data_ref, &data);
+            let data = face.buffer();
+            let subsetted = {
+                let glyphs: Vec<_> = glyphs.iter().copied().collect();
+                let profile = subsetter::Profile::pdf(&glyphs);
+                subsetter::subset(data, face.index(), profile)
+            };
+
+            // Compress and write the face's byte.
+            let data = subsetted.as_deref().unwrap_or(data);
+            let data = deflate(data);
+            let mut stream = self.writer.stream(data_ref, &data);
+            stream.filter(Filter::FlateDecode);
 
             if subtype == CidFontType::Type0 {
-                font_stream.pair(Name(b"Subtype"), Name(b"OpenType"));
+                stream.pair(Name(b"Subtype"), Name(b"OpenType"));
             }
 
-            font_stream.filter(Filter::FlateDecode).finish();
+            stream.finish();
         }
     }
 
@@ -346,13 +371,15 @@ impl<'a> PdfExporter<'a> {
                         .uri(Str(uri.as_str().as_bytes()));
                 }
                 Destination::Internal(loc) => {
-                    let index = loc.page - 1;
-                    let height = self.page_heights[index];
-                    link.action()
-                        .action_type(ActionType::GoTo)
-                        .destination_direct()
-                        .page(self.page_refs[index])
-                        .xyz(loc.pos.x.to_f32(), height - loc.pos.y.to_f32(), None);
+                    if (1 ..= self.page_heights.len()).contains(&loc.page) {
+                        let index = loc.page - 1;
+                        let height = self.page_heights[index];
+                        link.action()
+                            .action_type(ActionType::GoTo)
+                            .destination_direct()
+                            .page(self.page_refs[index])
+                            .xyz(loc.pos.x.to_f32(), height - loc.pos.y.to_f32(), None);
+                    }
                 }
             }
         }
@@ -360,9 +387,9 @@ impl<'a> PdfExporter<'a> {
         annotations.finish();
         page_writer.finish();
 
-        self.writer
-            .stream(content_id, &deflate(&page.content.finish()))
-            .filter(Filter::FlateDecode);
+        let data = page.content.finish();
+        let data = deflate(&data);
+        self.writer.stream(content_id, &data).filter(Filter::FlateDecode);
     }
 
     fn write_page_tree(&mut self) {
@@ -374,7 +401,7 @@ impl<'a> PdfExporter<'a> {
         let mut resources = pages.resources();
         let mut spaces = resources.color_spaces();
         spaces.insert(SRGB).start::<ColorSpace>().srgb();
-        spaces.insert(SRGB_GRAY).start::<ColorSpace>().srgb_gray();
+        spaces.insert(D65_GRAY).start::<ColorSpace>().d65_gray();
         spaces.finish();
 
         let mut fonts = resources.fonts();
@@ -855,7 +882,7 @@ impl<'a, 'b> PageExporter<'a, 'b> {
             let Paint::Solid(color) = fill;
             match color {
                 Color::Luma(c) => {
-                    self.set_fill_color_space(SRGB_GRAY);
+                    self.set_fill_color_space(D65_GRAY);
                     self.content.set_fill_gray(f(c.0));
                 }
                 Color::Rgba(c) => {
@@ -883,7 +910,7 @@ impl<'a, 'b> PageExporter<'a, 'b> {
             let Paint::Solid(color) = stroke.paint;
             match color {
                 Color::Luma(c) => {
-                    self.set_stroke_color_space(SRGB_GRAY);
+                    self.set_stroke_color_space(D65_GRAY);
                     self.content.set_stroke_gray(f(c.0));
                 }
                 Color::Rgba(c) => {
@@ -916,16 +943,16 @@ fn encode_image(img: &RasterImage) -> ImageResult<(Vec<u8>, Filter, bool)> {
     Ok(match (img.format, &img.buf) {
         // 8-bit gray JPEG.
         (ImageFormat::Jpeg, DynamicImage::ImageLuma8(_)) => {
-            let mut data = vec![];
+            let mut data = Cursor::new(vec![]);
             img.buf.write_to(&mut data, img.format)?;
-            (data, Filter::DctDecode, false)
+            (data.into_inner(), Filter::DctDecode, false)
         }
 
         // 8-bit Rgb JPEG (Cmyk JPEGs get converted to Rgb earlier).
         (ImageFormat::Jpeg, DynamicImage::ImageRgb8(_)) => {
-            let mut data = vec![];
+            let mut data = Cursor::new(vec![]);
             img.buf.write_to(&mut data, img.format)?;
-            (data, Filter::DctDecode, true)
+            (data.into_inner(), Filter::DctDecode, true)
         }
 
         // TODO: Encode flate streams with PNG-predictor?

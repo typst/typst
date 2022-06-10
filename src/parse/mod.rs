@@ -11,9 +11,8 @@ pub use tokens::*;
 
 use std::collections::HashSet;
 
-use crate::diag::ErrorPos;
 use crate::syntax::ast::{Associativity, BinOp, UnOp};
-use crate::syntax::{NodeKind, SyntaxNode};
+use crate::syntax::{NodeKind, SpanPos, SyntaxNode};
 use crate::util::EcoString;
 
 /// Parse a source file.
@@ -648,7 +647,7 @@ fn item(p: &mut Parser, keyed: bool) -> ParseResult<NodeKind> {
                     msg.push_str(", found ");
                     msg.push_str(kind.as_str());
                 }
-                let error = NodeKind::Error(ErrorPos::Full, msg);
+                let error = NodeKind::Error(SpanPos::Full, msg);
                 marker.end(p, error);
                 p.eat();
                 marker.perform(p, NodeKind::Named, expr).ok();
