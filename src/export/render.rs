@@ -23,8 +23,9 @@ use crate::Context;
 /// compilation so that fonts and images can be rendered and rendering artifacts
 /// can be cached.
 pub fn render(ctx: &Context, frame: &Frame, pixel_per_pt: f32) -> sk::Pixmap {
-    let pxw = (pixel_per_pt * frame.size.x.to_f32()).round().max(1.0) as u32;
-    let pxh = (pixel_per_pt * frame.size.y.to_f32()).round().max(1.0) as u32;
+    let size = frame.size();
+    let pxw = (pixel_per_pt * size.x.to_f32()).round().max(1.0) as u32;
+    let pxh = (pixel_per_pt * size.y.to_f32()).round().max(1.0) as u32;
 
     let mut canvas = sk::Pixmap::new(pxw, pxh).unwrap();
     canvas.fill(sk::Color::WHITE);
@@ -43,7 +44,7 @@ fn render_frame(
     ctx: &Context,
     frame: &Frame,
 ) {
-    for (pos, element) in &frame.elements {
+    for (pos, element) in frame.elements() {
         let x = pos.x.to_f32();
         let y = pos.y.to_f32();
         let ts = ts.pre_translate(x, y);
@@ -80,8 +81,9 @@ fn render_group(
     let mut mask = mask;
     let mut storage;
     if group.clips {
-        let w = group.frame.size.x.to_f32();
-        let h = group.frame.size.y.to_f32();
+        let size = group.frame.size();
+        let w = size.x.to_f32();
+        let h = size.y.to_f32();
         if let Some(path) = sk::Rect::from_xywh(0.0, 0.0, w, h)
             .map(sk::PathBuilder::from_rect)
             .and_then(|path| path.transform(ts))

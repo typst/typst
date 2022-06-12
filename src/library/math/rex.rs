@@ -66,8 +66,8 @@ impl Layout for RexNode {
         let mut backend = FrameBackend {
             frame: {
                 let mut frame = Frame::new(size);
+                frame.set_baseline(baseline);
                 frame.apply_role(Role::Formula);
-                frame.baseline = Some(baseline);
                 frame
             },
             baseline,

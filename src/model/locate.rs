@@ -299,7 +299,7 @@ fn locate_in_frame(
     frame: &Frame,
     ts: Transform,
 ) {
-    for &(pos, ref element) in &frame.elements {
+    for &(pos, ref element) in frame.elements() {
         match element {
             Element::Group(group) => {
                 let ts = ts

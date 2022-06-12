@@ -106,7 +106,7 @@ impl PageNode {
 
         // Realize overlays.
         for frame in &mut frames {
-            let size = frame.size;
+            let size = frame.size();
             let pad = padding.resolve(styles).relative_to(size);
             let pw = size.x - pad.left - pad.right;
             let py = size.y - pad.bottom;

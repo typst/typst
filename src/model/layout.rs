@@ -366,7 +366,7 @@ impl Layout for SizedNode {
 
         // Ensure frame size matches regions size if expansion is on.
         let frame = &mut frames[0];
-        let target = regions.expand.select(regions.first, frame.size);
+        let target = regions.expand.select(regions.first, frame.size());
         Arc::make_mut(frame).resize(target, Align::LEFT_TOP);
 
         Ok(frames)
@@ -391,7 +391,7 @@ impl Layout for FillNode {
     ) -> TypResult<Vec<Arc<Frame>>> {
         let mut frames = self.child.layout(ctx, regions, styles)?;
         for frame in &mut frames {
-            let shape = Geometry::Rect(frame.size).filled(self.fill);
+            let shape = Geometry::Rect(frame.size()).filled(self.fill);
             Arc::make_mut(frame).prepend(Point::zero(), Element::Shape(shape));
         }
         Ok(frames)
@@ -416,7 +416,7 @@ impl Layout for StrokeNode {
     ) -> TypResult<Vec<Arc<Frame>>> {
         let mut frames = self.child.layout(ctx, regions, styles)?;
         for frame in &mut frames {
-            let shape = Geometry::Rect(frame.size).stroked(self.stroke);
+            let shape = Geometry::Rect(frame.size()).stroked(self.stroke);
             Arc::make_mut(frame).prepend(Point::zero(), Element::Shape(shape));
         }
         Ok(frames)

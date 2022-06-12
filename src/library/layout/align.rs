@@ -47,7 +47,7 @@ impl Layout for AlignNode {
         for (region, frame) in regions.iter().zip(&mut frames) {
             // Align in the target size. The target size depends on whether we
             // should expand.
-            let target = regions.expand.select(region, frame.size);
+            let target = regions.expand.select(region, frame.size());
             let aligns = self
                 .aligns
                 .map(|align| align.resolve(styles))

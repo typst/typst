@@ -80,10 +80,10 @@ impl Layout for ColumnsNode {
                 };
 
                 if !regions.expand.y {
-                    output.size.y.set_max(frame.size.y);
+                    output.size_mut().y.set_max(frame.height());
                 }
 
-                let width = frame.size.x;
+                let width = frame.width();
                 let x = if dir.is_positive() {
                     cursor
                 } else {

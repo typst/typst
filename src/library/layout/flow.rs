@@ -189,7 +189,7 @@ impl FlowLayouter {
             }
 
             // Grow our size, shrink the region and save the frame for later.
-            let size = frame.size;
+            let size = frame.size();
             self.used.y += size.y;
             self.used.x.set_max(size.x);
             self.regions.first.y -= size.y;
@@ -231,10 +231,10 @@ impl FlowLayouter {
                 }
                 FlowItem::Frame(frame, aligns) => {
                     ruler = ruler.max(aligns.y);
-                    let x = aligns.x.position(size.x - frame.size.x);
+                    let x = aligns.x.position(size.x - frame.width());
                     let y = offset + ruler.position(size.y - self.used.y);
                     let pos = Point::new(x, y);
-                    offset += frame.size.y;
+                    offset += frame.height();
                     output.push_frame(pos, frame);
                 }
                 FlowItem::Placed(frame) => {

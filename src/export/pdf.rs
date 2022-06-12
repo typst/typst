@@ -611,19 +611,24 @@ impl<'a, 'b> PageExporter<'a, 'b> {
     }
 
     fn export(mut self, frame: &Frame) -> Page {
+        let size = frame.size();
+
         // Make the coordinate system start at the top-left.
-        self.bottom = frame.size.y.to_f32();
+        self.bottom = size.y.to_f32();
         self.transform(Transform {
             sx: Ratio::one(),
             ky: Ratio::zero(),
             kx: Ratio::zero(),
             sy: Ratio::new(-1.0),
             tx: Length::zero(),
-            ty: frame.size.y,
+            ty: size.y,
         });
+
+        // Encode the page into the content stream.
         self.write_frame(frame);
+
         Page {
-            size: frame.size,
+            size,
             content: self.content,
             id: self.page_ref,
             links: self.links,
@@ -648,7 +653,7 @@ impl<'a, 'b> PageExporter<'a, 'b> {
             }
         }
 
-        for &(pos, ref element) in &frame.elements {
+        for &(pos, ref element) in frame.elements() {
             let x = pos.x.to_f32();
             let y = pos.y.to_f32();
             match *element {
@@ -669,8 +674,9 @@ impl<'a, 'b> PageExporter<'a, 'b> {
         self.transform(translation.pre_concat(group.transform));
 
         if group.clips {
-            let w = group.frame.size.x.to_f32();
-            let h = group.frame.size.y.to_f32();
+            let size = group.frame.size();
+            let w = size.x.to_f32();
+            let h = size.y.to_f32();
             self.content.move_to(0.0, 0.0);
             self.content.line_to(w, 0.0);
             self.content.line_to(w, h);

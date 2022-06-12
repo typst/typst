@@ -201,7 +201,7 @@ impl<'a> StackLayouter<'a> {
             }
 
             // Grow our size, shrink the region and save the frame for later.
-            let size = frame.size.to_gen(self.axis);
+            let size = frame.size().to_gen(self.axis);
             self.used.main += size.main;
             self.used.cross.set_max(size.cross);
             *self.regions.first.get_mut(self.axis) -= size.main;
@@ -248,7 +248,7 @@ impl<'a> StackLayouter<'a> {
 
                     // Align along the block axis.
                     let parent = size.get(self.axis);
-                    let child = frame.size.get(self.axis);
+                    let child = frame.size().get(self.axis);
                     let block = ruler.position(parent - self.used.main)
                         + if self.dir.is_positive() {
                             cursor

@@ -104,7 +104,7 @@ impl<const S: ShapeKind> Layout for ShapeNode<S> {
                     let target = regions.expand.select(regions.first, Size::zero());
                     target.x.max(target.y)
                 } else {
-                    let size = frames[0].size;
+                    let size = frames[0].size();
                     let desired = size.x.max(size.y);
                     desired.min(regions.first.x).min(regions.first.y)
                 };
@@ -146,8 +146,8 @@ impl<const S: ShapeKind> Layout for ShapeNode<S> {
             }
         };
 
-        let outset = styles.get(Self::OUTSET).relative_to(frame.size);
-        let size = frame.size + outset.sum_by_axis();
+        let outset = styles.get(Self::OUTSET).relative_to(frame.size());
+        let size = frame.size() + outset.sum_by_axis();
 
         let radius = styles
             .get(Self::RADIUS)

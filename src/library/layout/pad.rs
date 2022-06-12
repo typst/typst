@@ -40,13 +40,13 @@ impl Layout for PadNode {
         for frame in &mut frames {
             // Apply the padding inversely such that the grown size padded
             // yields the frame's size.
-            let padded = grow(frame.size, padding);
+            let padded = grow(frame.size(), padding);
             let padding = padding.relative_to(padded);
             let offset = Point::new(padding.left, padding.top);
 
             // Grow the frame and translate everything in the frame inwards.
             let frame = Arc::make_mut(frame);
-            frame.size = padded;
+            frame.set_size(padded);
             frame.translate(offset);
         }
 

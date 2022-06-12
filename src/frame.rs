@@ -17,27 +17,55 @@ use crate::util::{EcoString, MaybeShared};
 #[derive(Default, Clone, Eq, PartialEq)]
 pub struct Frame {
     /// The size of the frame.
-    pub size: Size,
+    size: Size,
     /// The baseline of the frame measured from the top. If this is `None`, the
     /// frame's implicit baseline is at the bottom.
-    pub baseline: Option<Length>,
-    /// The elements composing this layout.
-    pub elements: Vec<(Point, Element)>,
+    baseline: Option<Length>,
     /// The semantic role of the frame.
     role: Option<Role>,
+    /// The elements composing this layout.
+    elements: Vec<(Point, Element)>,
 }
 
+/// Accessors and setters.
 impl Frame {
     /// Create a new, empty frame.
+    ///
+    /// Panics the size is not finite.
     #[track_caller]
     pub fn new(size: Size) -> Self {
         assert!(size.is_finite());
         Self {
             size,
             baseline: None,
-            elements: vec![],
             role: None,
+            elements: vec![],
         }
+    }
+
+    /// The size of the frame.
+    pub fn size(&self) -> Size {
+        self.size
+    }
+
+    /// The size of the frame, mutably.
+    pub fn size_mut(&mut self) -> &mut Size {
+        &mut self.size
+    }
+
+    /// Set the size of the frame.
+    pub fn set_size(&mut self, size: Size) {
+        self.size = size;
+    }
+
+    /// The width of the frame.
+    pub fn width(&self) -> Length {
+        self.size.x
+    }
+
+    /// The height of the frame.
+    pub fn height(&self) -> Length {
+        self.size.y
     }
 
     /// The baseline of the frame.
@@ -45,10 +73,9 @@ impl Frame {
         self.baseline.unwrap_or(self.size.y)
     }
 
-    /// The layer the next item will be added on. This corresponds to the number
-    /// of elements in the frame.
-    pub fn layer(&self) -> usize {
-        self.elements.len()
+    /// Set the frame's baseline from the top.
+    pub fn set_baseline(&mut self, baseline: Length) {
+        self.baseline = Some(baseline);
     }
 
     /// The role of the frame.
@@ -56,14 +83,49 @@ impl Frame {
         self.role
     }
 
-    /// Whether the frame has comparatively few elements.
-    pub fn is_light(&self) -> bool {
-        self.elements.len() <= 5
+    /// An iterator over the elements inside this frame alongside their
+    /// positions relative to the top-left of the frame.
+    pub fn elements(&self) -> std::slice::Iter<'_, (Point, Element)> {
+        self.elements.iter()
+    }
+
+    /// Recover the text inside of the frame and its children.
+    pub fn text(&self) -> EcoString {
+        let mut text = EcoString::new();
+        for (_, element) in &self.elements {
+            match element {
+                Element::Text(content) => {
+                    for glyph in &content.glyphs {
+                        text.push(glyph.c);
+                    }
+                }
+                Element::Group(group) => text.push_str(&group.frame.text()),
+                _ => {}
+            }
+        }
+        text
+    }
+}
+
+/// Inserting elements and subframes.
+impl Frame {
+    /// The layer the next item will be added on. This corresponds to the number
+    /// of elements in the frame.
+    pub fn layer(&self) -> usize {
+        self.elements.len()
     }
 
     /// Add an element at a position in the foreground.
     pub fn push(&mut self, pos: Point, element: Element) {
         self.elements.push((pos, element));
+    }
+
+    /// Insert an element at the given layer in the frame.
+    ///
+    /// This panics if the layer is greater than the number of layers present.
+    #[track_caller]
+    pub fn insert(&mut self, layer: usize, pos: Point, element: Element) {
+        self.elements.insert(layer, (pos, element));
     }
 
     /// Add a frame.
@@ -105,11 +167,17 @@ impl Frame {
         }
     }
 
-    /// Insert an element at the given layer in the frame.
-    ///
-    /// This panics if the layer is greater than the number of layers present.
-    pub fn insert(&mut self, layer: usize, pos: Point, element: Element) {
-        self.elements.insert(layer, (pos, element));
+    /// Whether the frame has comparatively few elements.
+    fn is_light(&self) -> bool {
+        self.elements.len() <= 5
+    }
+}
+
+/// Modify the frame.
+impl Frame {
+    /// Remove all elements from the frame.
+    pub fn clear(&mut self) {
+        self.elements.clear();
     }
 
     /// Resize the frame to a new size, distributing new space according to the
@@ -137,16 +205,21 @@ impl Frame {
         }
     }
 
-    /// Arbitrarily transform the contents of the frame.
-    pub fn transform(&mut self, transform: Transform) {
-        self.group(|g| g.transform = transform);
-    }
-
     /// Apply the given role to the frame if it doesn't already have one.
     pub fn apply_role(&mut self, role: Role) {
         if self.role.map_or(true, Role::is_weak) {
             self.role = Some(role);
         }
+    }
+
+    /// Link the whole frame to a resource.
+    pub fn link(&mut self, dest: Destination) {
+        self.push(Point::zero(), Element::Link(dest, self.size));
+    }
+
+    /// Arbitrarily transform the contents of the frame.
+    pub fn transform(&mut self, transform: Transform) {
+        self.group(|g| g.transform = transform);
     }
 
     /// Clip the contents of a frame to its size.
@@ -155,7 +228,7 @@ impl Frame {
     }
 
     /// Wrap the frame's contents in a group and modify that group with `f`.
-    pub fn group<F>(&mut self, f: F)
+    fn group<F>(&mut self, f: F)
     where
         F: FnOnce(&mut Group),
     {
@@ -164,28 +237,6 @@ impl Frame {
         f(&mut group);
         wrapper.push(Point::zero(), Element::Group(group));
         *self = wrapper;
-    }
-
-    /// Link the whole frame to a resource.
-    pub fn link(&mut self, dest: Destination) {
-        self.push(Point::zero(), Element::Link(dest, self.size));
-    }
-
-    /// Recover the text inside of the frame and its children.
-    pub fn text(&self) -> EcoString {
-        let mut text = EcoString::new();
-        for (_, element) in &self.elements {
-            match element {
-                Element::Text(content) => {
-                    for glyph in &content.glyphs {
-                        text.push(glyph.c);
-                    }
-                }
-                Element::Group(group) => text.push_str(&group.frame.text()),
-                _ => {}
-            }
-        }
-        text
     }
 }
 

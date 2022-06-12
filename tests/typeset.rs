@@ -538,8 +538,8 @@ fn render(ctx: &mut Context, frames: &[Arc<Frame>]) -> sk::Pixmap {
         .iter()
         .map(|frame| {
             let limit = Length::cm(100.0);
-            if frame.size.x > limit || frame.size.y > limit {
-                panic!("overlarge frame: {:?}", frame.size);
+            if frame.width() > limit || frame.height() > limit {
+                panic!("overlarge frame: {:?}", frame.size());
             }
             typst::export::render(ctx, frame, pixel_per_pt)
         })
@@ -579,7 +579,7 @@ fn render_links(
     ctx: &Context,
     frame: &Frame,
 ) {
-    for (pos, element) in &frame.elements {
+    for (pos, element) in frame.elements() {
         let ts = ts.pre_translate(pos.x.to_pt() as f32, pos.y.to_pt() as f32);
         match *element {
             Element::Group(ref group) => {

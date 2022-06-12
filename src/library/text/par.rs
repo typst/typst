@@ -336,7 +336,7 @@ impl<'a> Item<'a> {
         match self {
             Self::Text(shaped) => shaped.width,
             Self::Absolute(v) => *v,
-            Self::Frame(frame) => frame.size.x,
+            Self::Frame(frame) => frame.width(),
             Self::Fractional(_) | Self::Repeat(_, _) | Self::Pin(_) => Length::zero(),
         }
     }
@@ -1071,7 +1071,7 @@ fn stack(
     // Stack the lines into one frame per region.
     for line in lines {
         let frame = commit(p, ctx, line, &regions, width)?;
-        let height = frame.size.y;
+        let height = frame.size().y;
 
         while !regions.first.y.fits(height) && !regions.in_last() {
             finished.push(Arc::new(output));
@@ -1082,11 +1082,11 @@ fn stack(
         }
 
         if !first {
-            output.size.y += p.leading;
+            output.size_mut().y += p.leading;
         }
 
-        let pos = Point::with_y(output.size.y);
-        output.size.y += height;
+        let pos = Point::with_y(output.height());
+        output.size_mut().y += height;
         output.push_frame(pos, frame);
 
         regions.first.y -= height + p.leading;
@@ -1156,9 +1156,9 @@ fn commit(
     let mut frames = vec![];
     for item in reordered {
         let mut push = |offset: &mut Length, frame: MaybeShared<Frame>| {
-            let width = frame.size.x;
+            let width = frame.width();
             top.set_max(frame.baseline());
-            bottom.set_max(frame.size.y - frame.baseline());
+            bottom.set_max(frame.size().y - frame.baseline());
             frames.push((*offset, frame));
             *offset += width;
         };
@@ -1179,23 +1179,24 @@ fn commit(
             }
             Item::Repeat(node, styles) => {
                 let before = offset;
-                let width = Fraction::one().share(fr, remaining);
-                let size = Size::new(width, regions.base.y);
+                let fill = Fraction::one().share(fr, remaining);
+                let size = Size::new(fill, regions.base.y);
                 let pod = Regions::one(size, regions.base, Spec::new(false, false));
                 let frame = node.layout(ctx, &pod, *styles)?.remove(0);
-                let count = (width / frame.size.x).floor();
-                let remaining = width % frame.size.x;
+                let width = frame.width();
+                let count = (fill / width).floor();
+                let remaining = fill % width;
                 let apart = remaining / (count - 1.0);
                 if count == 1.0 {
                     offset += p.align.position(remaining);
                 }
-                if frame.size.x > Length::zero() {
+                if width > Length::zero() {
                     for _ in 0 .. (count as usize).min(1000) {
                         push(&mut offset, MaybeShared::Shared(frame.clone()));
                         offset += apart;
                     }
                 }
-                offset = before + width;
+                offset = before + fill;
             }
             Item::Pin(idx) => {
                 let mut frame = Frame::new(Size::zero());
@@ -1212,7 +1213,7 @@ fn commit(
 
     let size = Size::new(width, top + bottom);
     let mut output = Frame::new(size);
-    output.baseline = Some(top);
+    output.set_baseline(top);
 
     // Construct the line's frame.
     for (offset, frame) in frames {

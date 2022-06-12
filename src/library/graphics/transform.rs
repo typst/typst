@@ -33,7 +33,7 @@ impl Layout for MoveNode {
 
         let delta = self.delta.resolve(styles);
         for frame in &mut frames {
-            let delta = delta.zip(frame.size).map(|(d, s)| d.relative_to(s));
+            let delta = delta.zip(frame.size()).map(|(d, s)| d.relative_to(s));
             Arc::make_mut(frame).translate(delta.to_point());
         }
 
@@ -94,7 +94,7 @@ impl<const T: TransformKind> Layout for TransformNode<T> {
         let mut frames = self.child.layout(ctx, regions, styles)?;
 
         for frame in &mut frames {
-            let Spec { x, y } = origin.zip(frame.size).map(|(o, s)| o.position(s));
+            let Spec { x, y } = origin.zip(frame.size()).map(|(o, s)| o.position(s));
             let transform = Transform::translate(x, y)
                 .pre_concat(self.transform)
                 .pre_concat(Transform::translate(-x, -y));

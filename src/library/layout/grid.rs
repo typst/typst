@@ -304,7 +304,7 @@ impl<'a> GridLayouter<'a> {
                     }
 
                     let frame = node.layout(self.ctx, &pod, self.styles)?.remove(0);
-                    resolved.set_max(frame.size.x);
+                    resolved.set_max(frame.width());
                 }
             }
 
@@ -376,7 +376,7 @@ impl<'a> GridLayouter<'a> {
                 let mut sizes = node
                     .layout(self.ctx, &pod, self.styles)?
                     .into_iter()
-                    .map(|frame| frame.size.y);
+                    .map(|frame| frame.height());
                 self.ctx.pins.unfreeze();
 
                 // For each region, we want to know the maximum height any
@@ -432,7 +432,7 @@ impl<'a> GridLayouter<'a> {
         let frame = self.layout_single_row(resolved, y)?;
 
         // Skip to fitting region.
-        let height = frame.size.y;
+        let height = frame.height();
         while !self.regions.first.y.fits(height) && !self.regions.in_last() {
             self.finish_region()?;
 
@@ -533,8 +533,8 @@ impl<'a> GridLayouter<'a> {
 
     /// Push a row frame into the current region.
     fn push_row(&mut self, frame: Frame) {
-        self.regions.first.y -= frame.size.y;
-        self.used.y += frame.size.y;
+        self.regions.first.y -= frame.height();
+        self.used.y += frame.height();
         self.lrows.push(Row::Frame(frame));
     }
 
@@ -562,7 +562,7 @@ impl<'a> GridLayouter<'a> {
                 }
             };
 
-            let height = frame.size.y;
+            let height = frame.height();
             output.push_frame(pos, frame);
             pos.y += height;
         }

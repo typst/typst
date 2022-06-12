@@ -84,7 +84,7 @@ impl<'a> ShapedText<'a> {
 
         let mut offset = Length::zero();
         let mut frame = Frame::new(size);
-        frame.baseline = Some(top);
+        frame.set_baseline(top);
 
         let shift = self.styles.get(TextNode::BASELINE);
         let lang = self.styles.get(TextNode::LANG);
@@ -103,7 +103,7 @@ impl<'a> ShapedText<'a> {
                     id: glyph.glyph_id,
                     x_advance: glyph.x_advance
                         + if glyph.is_justifiable() {
-                            frame.size.x += justification;
+                            frame.size_mut().x += justification;
                             Em::from_length(justification, self.size)
                         } else {
                             Em::zero()
@@ -120,6 +120,7 @@ impl<'a> ShapedText<'a> {
                 fill,
                 glyphs,
             };
+
             let text_layer = frame.layer();
             let width = text.width();
 
