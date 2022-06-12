@@ -31,7 +31,7 @@ impl Layout for ColumnsNode {
         ctx: &mut Context,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Arc<Frame>>> {
+    ) -> TypResult<Vec<Frame>> {
         // Separating the infinite space into infinite columns does not make
         // much sense.
         if !regions.first.x.is_finite() {
@@ -94,7 +94,7 @@ impl Layout for ColumnsNode {
                 cursor += width + gutter;
             }
 
-            finished.push(Arc::new(output));
+            finished.push(output);
         }
 
         Ok(finished)

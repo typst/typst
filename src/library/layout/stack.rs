@@ -30,7 +30,7 @@ impl Layout for StackNode {
         ctx: &mut Context,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Arc<Frame>>> {
+    ) -> TypResult<Vec<Frame>> {
         let mut layouter = StackLayouter::new(self.dir, regions, styles);
 
         // Spacing to insert before the next node.
@@ -107,7 +107,7 @@ pub struct StackLayouter<'a> {
     /// fractional spacing.
     items: Vec<StackItem>,
     /// Finished frames for previous regions.
-    finished: Vec<Arc<Frame>>,
+    finished: Vec<Frame>,
 }
 
 /// A prepared item in a stack layout.
@@ -117,7 +117,7 @@ enum StackItem {
     /// Fractional spacing between other items.
     Fractional(Fraction),
     /// A frame for a layouted child node.
-    Frame(Arc<Frame>, Align),
+    Frame(Frame, Align),
 }
 
 impl<'a> StackLayouter<'a> {
@@ -196,9 +196,7 @@ impl<'a> StackLayouter<'a> {
         let len = frames.len();
         for (i, mut frame) in frames.into_iter().enumerate() {
             // Set the generic block role.
-            if frame.role().map_or(true, Role::is_weak) {
-                Arc::make_mut(&mut frame).apply_role(Role::GenericBlock);
-            }
+            frame.apply_role(Role::GenericBlock);
 
             // Grow our size, shrink the region and save the frame for later.
             let size = frame.size().to_gen(self.axis);
@@ -268,11 +266,11 @@ impl<'a> StackLayouter<'a> {
         self.full = self.regions.first;
         self.used = Gen::zero();
         self.fr = Fraction::zero();
-        self.finished.push(Arc::new(output));
+        self.finished.push(output);
     }
 
     /// Finish layouting and return the resulting frames.
-    pub fn finish(mut self) -> Vec<Arc<Frame>> {
+    pub fn finish(mut self) -> Vec<Frame> {
         self.finish_region();
         self.finished
     }

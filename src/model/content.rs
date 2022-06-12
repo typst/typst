@@ -22,7 +22,7 @@ use crate::util::EcoString;
 /// Layout content into a collection of pages.
 ///
 /// Relayouts until all pinned locations are converged.
-pub fn layout(ctx: &mut Context, content: &Content) -> TypResult<Vec<Arc<Frame>>> {
+pub fn layout(ctx: &mut Context, content: &Content) -> TypResult<Vec<Frame>> {
     let mut pass = 0;
     let mut frames;
 
@@ -46,7 +46,7 @@ pub fn layout(ctx: &mut Context, content: &Content) -> TypResult<Vec<Arc<Frame>>
 }
 
 /// Layout content into a collection of pages once.
-fn layout_once(ctx: &mut Context, content: &Content) -> TypResult<Vec<Arc<Frame>>> {
+fn layout_once(ctx: &mut Context, content: &Content) -> TypResult<Vec<Frame>> {
     let copy = ctx.config.styles.clone();
     let styles = StyleChain::with_root(&copy);
     let scratch = Scratch::default();
@@ -263,7 +263,7 @@ impl Layout for Content {
         ctx: &mut Context,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Arc<Frame>>> {
+    ) -> TypResult<Vec<Frame>> {
         let scratch = Scratch::default();
         let mut builder = Builder::new(ctx, &scratch, false);
         builder.accept(self, styles)?;

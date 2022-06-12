@@ -60,7 +60,7 @@ impl PageNode {
         ctx: &mut Context,
         mut page: usize,
         styles: StyleChain,
-    ) -> TypResult<Vec<Arc<Frame>>> {
+    ) -> TypResult<Vec<Frame>> {
         // When one of the lengths is infinite the page fits its content along
         // that axis.
         let width = styles.get(Self::WIDTH).unwrap_or(Length::inf());
@@ -129,12 +129,12 @@ impl PageNode {
                 if let Some(content) = marginal.resolve(ctx, page)? {
                     let pod = Regions::one(area, area, Spec::splat(true));
                     let mut sub = content.layout(ctx, &pod, styles)?.remove(0);
-                    Arc::make_mut(&mut sub).apply_role(role);
+                    sub.apply_role(role);
 
                     if role == Role::Background {
-                        Arc::make_mut(frame).prepend_frame(pos, sub);
+                        frame.prepend_frame(pos, sub);
                     } else {
-                        Arc::make_mut(frame).push_frame(pos, sub);
+                        frame.push_frame(pos, sub);
                     }
                 }
             }

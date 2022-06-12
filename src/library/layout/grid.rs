@@ -36,7 +36,7 @@ impl Layout for GridNode {
         ctx: &mut Context,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Arc<Frame>>> {
+    ) -> TypResult<Vec<Frame>> {
         // Prepare grid layout by unifying content and gutter tracks.
         let layouter = GridLayouter::new(
             ctx,
@@ -116,7 +116,7 @@ pub struct GridLayouter<'a> {
     /// The sum of fractions in the current region.
     fr: Fraction,
     /// Frames for finished regions.
-    finished: Vec<Arc<Frame>>,
+    finished: Vec<Frame>,
 }
 
 /// Produced by initial row layout, auto and relative rows are already finished,
@@ -203,7 +203,7 @@ impl<'a> GridLayouter<'a> {
     }
 
     /// Determines the columns sizes and then layouts the grid row-by-row.
-    pub fn layout(mut self) -> TypResult<Vec<Arc<Frame>>> {
+    pub fn layout(mut self) -> TypResult<Vec<Frame>> {
         self.ctx.pins.freeze();
         self.measure_columns()?;
         self.ctx.pins.unfreeze();
@@ -567,7 +567,7 @@ impl<'a> GridLayouter<'a> {
             pos.y += height;
         }
 
-        self.finished.push(Arc::new(output));
+        self.finished.push(output);
         self.regions.next();
         self.full = self.regions.first.y;
         self.used.y = Length::zero();

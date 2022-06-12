@@ -17,7 +17,7 @@ impl Layout for RepeatNode {
         ctx: &mut Context,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Arc<Frame>>> {
+    ) -> TypResult<Vec<Frame>> {
         // The actual repeating happens directly in the paragraph.
         self.0.layout(ctx, regions, styles)
     }

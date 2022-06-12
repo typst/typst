@@ -24,7 +24,7 @@ impl Layout for PlaceNode {
         ctx: &mut Context,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Arc<Frame>>> {
+    ) -> TypResult<Vec<Frame>> {
         let out_of_flow = self.out_of_flow();
 
         // The pod is the base area of the region because for absolute
@@ -41,7 +41,7 @@ impl Layout for PlaceNode {
         // space in our parent. Otherwise, respect the expand settings.
         let frame = &mut frames[0];
         let target = regions.expand.select(regions.first, Size::zero());
-        Arc::make_mut(frame).resize(target, Align::LEFT_TOP);
+        frame.resize(target, Align::LEFT_TOP);
 
         Ok(frames)
     }

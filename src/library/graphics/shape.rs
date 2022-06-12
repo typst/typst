@@ -79,7 +79,7 @@ impl<const S: ShapeKind> Layout for ShapeNode<S> {
         ctx: &mut Context,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Arc<Frame>>> {
+    ) -> TypResult<Vec<Frame>> {
         let mut frames;
         if let Some(child) = &self.0 {
             let mut inset = styles.get(Self::INSET);
@@ -94,7 +94,7 @@ impl<const S: ShapeKind> Layout for ShapeNode<S> {
             frames = child.layout(ctx, &pod, styles)?;
 
             for frame in frames.iter_mut() {
-                Arc::make_mut(frame).apply_role(Role::GenericBlock);
+                frame.apply_role(Role::GenericBlock);
             }
 
             // Relayout with full expansion into square region to make sure
@@ -131,10 +131,10 @@ impl<const S: ShapeKind> Layout for ShapeNode<S> {
                 size = regions.expand.select(regions.first, size);
             }
 
-            frames = vec![Arc::new(Frame::new(size))];
+            frames = vec![Frame::new(size)];
         }
 
-        let frame = Arc::make_mut(&mut frames[0]);
+        let frame = &mut frames[0];
 
         // Add fill and/or stroke.
         let fill = styles.get(Self::FILL);

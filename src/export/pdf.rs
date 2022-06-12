@@ -4,7 +4,6 @@ use std::cmp::Eq;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::hash::Hash;
 use std::io::Cursor;
-use std::sync::Arc;
 
 use image::{DynamicImage, GenericImageView, ImageFormat, ImageResult, Rgba};
 use pdf_writer::types::{
@@ -34,7 +33,7 @@ use crate::Context;
 /// included in the PDF.
 ///
 /// Returns the raw bytes making up the PDF file.
-pub fn pdf(ctx: &Context, frames: &[Arc<Frame>]) -> Vec<u8> {
+pub fn pdf(ctx: &Context, frames: &[Frame]) -> Vec<u8> {
     PdfExporter::new(ctx).export(frames)
 }
 
@@ -84,7 +83,7 @@ impl<'a> PdfExporter<'a> {
         }
     }
 
-    fn export(mut self, frames: &[Arc<Frame>]) -> Vec<u8> {
+    fn export(mut self, frames: &[Frame]) -> Vec<u8> {
         self.build_pages(frames);
         self.write_fonts();
         self.write_images();
@@ -100,7 +99,7 @@ impl<'a> PdfExporter<'a> {
         self.writer.finish()
     }
 
-    fn build_pages(&mut self, frames: &[Arc<Frame>]) {
+    fn build_pages(&mut self, frames: &[Frame]) {
         for frame in frames {
             let page_id = self.alloc.bump();
             self.page_refs.push(page_id);

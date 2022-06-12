@@ -17,12 +17,12 @@ impl Layout for HideNode {
         ctx: &mut Context,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Arc<Frame>>> {
+    ) -> TypResult<Vec<Frame>> {
         let mut frames = self.0.layout(ctx, regions, styles)?;
 
         // Clear the frames.
         for frame in &mut frames {
-            Arc::make_mut(frame).clear();
+            frame.clear();
         }
 
         Ok(frames)

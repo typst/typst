@@ -1,5 +1,4 @@
 use std::cmp::Ordering;
-use std::sync::Arc;
 
 use unicode_bidi::{BidiInfo, Level};
 use unicode_script::{Script, UnicodeScript};
@@ -9,7 +8,7 @@ use super::{shape, Lang, Quoter, Quotes, RepeatNode, ShapedText, TextNode};
 use crate::font::FontStore;
 use crate::library::layout::Spacing;
 use crate::library::prelude::*;
-use crate::util::{EcoString, MaybeShared};
+use crate::util::EcoString;
 
 /// Arrange text, spacing and inline-level nodes into a paragraph.
 #[derive(Hash)]
@@ -71,7 +70,7 @@ impl Layout for ParNode {
         ctx: &mut Context,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Arc<Frame>>> {
+    ) -> TypResult<Vec<Frame>> {
         // Collect all text into one string for BiDi analysis.
         let (text, segments) = collect(self, &styles);
 
@@ -305,7 +304,7 @@ enum Item<'a> {
     /// Fractional spacing between other items.
     Fractional(Fraction),
     /// A layouted child node.
-    Frame(Arc<Frame>),
+    Frame(Frame),
     /// A repeating node.
     Repeat(&'a RepeatNode, StyleChain<'a>),
     /// A pin identified by index.
@@ -551,16 +550,9 @@ fn prepare<'a>(
                 } else {
                     let size = Size::new(regions.first.x, regions.base.y);
                     let pod = Regions::one(size, regions.base, Spec::splat(false));
-
                     let mut frame = node.layout(ctx, &pod, styles)?.remove(0);
-                    let shift = styles.get(TextNode::BASELINE);
-
-                    if !shift.is_zero() || frame.role().map_or(true, Role::is_weak) {
-                        let frame = Arc::make_mut(&mut frame);
-                        frame.translate(Point::with_y(shift));
-                        frame.apply_role(Role::GenericInline);
-                    }
-
+                    frame.translate(Point::with_y(styles.get(TextNode::BASELINE)));
+                    frame.apply_role(Role::GenericInline);
                     items.push(Item::Frame(frame));
                 }
             }
@@ -1053,7 +1045,7 @@ fn stack(
     ctx: &mut Context,
     lines: &[Line],
     regions: &Regions,
-) -> TypResult<Vec<Arc<Frame>>> {
+) -> TypResult<Vec<Frame>> {
     // Determine the paragraph's width: Full width of the region if we
     // should expand or there's fractional spacing, fit-to-width otherwise.
     let mut width = regions.first.x;
@@ -1074,7 +1066,7 @@ fn stack(
         let height = frame.size().y;
 
         while !regions.first.y.fits(height) && !regions.in_last() {
-            finished.push(Arc::new(output));
+            finished.push(output);
             output = Frame::new(Size::with_x(width));
             output.apply_role(Role::Paragraph);
             regions.next();
@@ -1093,7 +1085,7 @@ fn stack(
         first = false;
     }
 
-    finished.push(Arc::new(output));
+    finished.push(output);
     Ok(finished)
 }
 
@@ -1155,7 +1147,7 @@ fn commit(
     // Build the frames and determine the height and baseline.
     let mut frames = vec![];
     for item in reordered {
-        let mut push = |offset: &mut Length, frame: MaybeShared<Frame>| {
+        let mut push = |offset: &mut Length, frame: Frame| {
             let width = frame.width();
             top.set_max(frame.baseline());
             bottom.set_max(frame.size().y - frame.baseline());
@@ -1172,10 +1164,10 @@ fn commit(
             }
             Item::Text(shaped) => {
                 let frame = shaped.build(&mut ctx.fonts, justification);
-                push(&mut offset, MaybeShared::Owned(frame));
+                push(&mut offset, frame);
             }
             Item::Frame(frame) => {
-                push(&mut offset, MaybeShared::Shared(frame.clone()));
+                push(&mut offset, frame.clone());
             }
             Item::Repeat(node, styles) => {
                 let before = offset;
@@ -1192,7 +1184,7 @@ fn commit(
                 }
                 if width > Length::zero() {
                     for _ in 0 .. (count as usize).min(1000) {
-                        push(&mut offset, MaybeShared::Shared(frame.clone()));
+                        push(&mut offset, frame.clone());
                         offset += apart;
                     }
                 }
@@ -1201,7 +1193,7 @@ fn commit(
             Item::Pin(idx) => {
                 let mut frame = Frame::new(Size::zero());
                 frame.push(Point::zero(), Element::Pin(*idx));
-                push(&mut offset, MaybeShared::Owned(frame));
+                push(&mut offset, frame);
             }
         }
     }

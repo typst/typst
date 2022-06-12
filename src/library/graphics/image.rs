@@ -38,7 +38,7 @@ impl Layout for ImageNode {
         ctx: &mut Context,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Arc<Frame>>> {
+    ) -> TypResult<Vec<Frame>> {
         let img = ctx.images.get(self.0);
         let pxw = img.width() as f64;
         let pxh = img.height() as f64;
@@ -90,7 +90,7 @@ impl Layout for ImageNode {
             frame.link(url.clone());
         }
 
-        Ok(vec![Arc::new(frame)])
+        Ok(vec![frame])
     }
 }
 

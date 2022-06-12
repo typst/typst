@@ -43,7 +43,7 @@ impl Layout for LineNode {
         _: &mut Context,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Arc<Frame>>> {
+    ) -> TypResult<Vec<Frame>> {
         let stroke = styles.get(Self::STROKE).unwrap_or_default();
 
         let origin = self
@@ -64,7 +64,7 @@ impl Layout for LineNode {
         let shape = Geometry::Line(delta.to_point()).stroked(stroke);
         frame.push(origin.to_point(), Element::Shape(shape));
 
-        Ok(vec![Arc::new(frame)])
+        Ok(vec![frame])
     }
 }
 

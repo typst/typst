@@ -72,7 +72,7 @@ use crate::source::{SourceId, SourceStore};
 /// Returns either a vector of frames representing individual pages or
 /// diagnostics in the form of a vector of error message with file and span
 /// information.
-pub fn typeset(ctx: &mut Context, id: SourceId) -> TypResult<Vec<Arc<Frame>>> {
+pub fn typeset(ctx: &mut Context, id: SourceId) -> TypResult<Vec<Frame>> {
     let module = eval::evaluate(ctx, id, vec![])?;
     model::layout(ctx, &module.content)
 }

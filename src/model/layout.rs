@@ -28,7 +28,7 @@ pub trait Layout: 'static {
         ctx: &mut Context,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Arc<Frame>>>;
+    ) -> TypResult<Vec<Frame>>;
 
     /// Convert to a packed node.
     fn pack(self) -> LayoutNode
@@ -222,7 +222,7 @@ impl Layout for LayoutNode {
         ctx: &mut Context,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Arc<Frame>>> {
+    ) -> TypResult<Vec<Frame>> {
         let prev = ctx.pins.dirty.replace(false);
 
         let (result, at, fresh, dirty) = crate::memo::memoized(
@@ -238,7 +238,7 @@ impl Layout for LayoutNode {
                 if let Some(role) = styles.role() {
                     result = result.map(|mut frames| {
                         for frame in frames.iter_mut() {
-                            Arc::make_mut(frame).apply_role(role);
+                            frame.apply_role(role);
                         }
                         frames
                     });
@@ -319,10 +319,10 @@ impl Layout for EmptyNode {
         _: &mut Context,
         regions: &Regions,
         _: StyleChain,
-    ) -> TypResult<Vec<Arc<Frame>>> {
-        Ok(vec![Arc::new(Frame::new(
+    ) -> TypResult<Vec<Frame>> {
+        Ok(vec![Frame::new(
             regions.expand.select(regions.first, Size::zero()),
-        ))])
+        )])
     }
 }
 
@@ -341,7 +341,7 @@ impl Layout for SizedNode {
         ctx: &mut Context,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Arc<Frame>>> {
+    ) -> TypResult<Vec<Frame>> {
         // The "pod" is the region into which the child will be layouted.
         let pod = {
             // Resolve the sizing to a concrete size.
@@ -367,7 +367,7 @@ impl Layout for SizedNode {
         // Ensure frame size matches regions size if expansion is on.
         let frame = &mut frames[0];
         let target = regions.expand.select(regions.first, frame.size());
-        Arc::make_mut(frame).resize(target, Align::LEFT_TOP);
+        frame.resize(target, Align::LEFT_TOP);
 
         Ok(frames)
     }
@@ -388,11 +388,11 @@ impl Layout for FillNode {
         ctx: &mut Context,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Arc<Frame>>> {
+    ) -> TypResult<Vec<Frame>> {
         let mut frames = self.child.layout(ctx, regions, styles)?;
         for frame in &mut frames {
             let shape = Geometry::Rect(frame.size()).filled(self.fill);
-            Arc::make_mut(frame).prepend(Point::zero(), Element::Shape(shape));
+            frame.prepend(Point::zero(), Element::Shape(shape));
         }
         Ok(frames)
     }
@@ -413,11 +413,11 @@ impl Layout for StrokeNode {
         ctx: &mut Context,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Arc<Frame>>> {
+    ) -> TypResult<Vec<Frame>> {
         let mut frames = self.child.layout(ctx, regions, styles)?;
         for frame in &mut frames {
             let shape = Geometry::Rect(frame.size()).stroked(self.stroke);
-            Arc::make_mut(frame).prepend(Point::zero(), Element::Shape(shape));
+            frame.prepend(Point::zero(), Element::Shape(shape));
         }
         Ok(frames)
     }

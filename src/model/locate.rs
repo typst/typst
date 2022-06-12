@@ -272,7 +272,7 @@ impl PinBoard {
     }
 
     /// Locate all pins in the frames.
-    pub fn locate(&mut self, frames: &[Arc<Frame>]) {
+    pub fn locate(&mut self, frames: &[Frame]) {
         let mut flow = 0;
         for (i, frame) in frames.iter().enumerate() {
             locate_in_frame(

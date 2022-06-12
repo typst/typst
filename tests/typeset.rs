@@ -286,7 +286,7 @@ fn test_part(
     line: usize,
     print: &PrintConfig,
     rng: &mut LinearShift,
-) -> (bool, bool, Vec<Arc<Frame>>) {
+) -> (bool, bool, Vec<Frame>) {
     let mut ok = true;
 
     let id = ctx.sources.provide(src_path, src);
@@ -532,7 +532,7 @@ fn test_spans_impl(node: &SyntaxNode, within: Range<u64>) -> bool {
 }
 
 /// Draw all frames into one image with padding in between.
-fn render(ctx: &mut Context, frames: &[Arc<Frame>]) -> sk::Pixmap {
+fn render(ctx: &mut Context, frames: &[Frame]) -> sk::Pixmap {
     let pixel_per_pt = 2.0;
     let pixmaps: Vec<_> = frames
         .iter()

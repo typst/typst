@@ -11,7 +11,7 @@ use crate::geom::{
 };
 use crate::image::ImageId;
 use crate::library::text::Lang;
-use crate::util::{EcoString, MaybeShared};
+use crate::util::EcoString;
 
 /// A finished layout with elements at fixed positions.
 #[derive(Default, Clone, Eq, PartialEq)]
@@ -24,7 +24,7 @@ pub struct Frame {
     /// The semantic role of the frame.
     role: Option<Role>,
     /// The elements composing this layout.
-    elements: Vec<(Point, Element)>,
+    elements: Arc<Vec<(Point, Element)>>,
 }
 
 /// Accessors and setters.
@@ -39,7 +39,7 @@ impl Frame {
             size,
             baseline: None,
             role: None,
-            elements: vec![],
+            elements: Arc::new(vec![]),
         }
     }
 
@@ -92,7 +92,7 @@ impl Frame {
     /// Recover the text inside of the frame and its children.
     pub fn text(&self) -> EcoString {
         let mut text = EcoString::new();
-        for (_, element) in &self.elements {
+        for (_, element) in self.elements() {
             match element {
                 Element::Text(content) => {
                     for glyph in &content.glyphs {
@@ -117,7 +117,19 @@ impl Frame {
 
     /// Add an element at a position in the foreground.
     pub fn push(&mut self, pos: Point, element: Element) {
-        self.elements.push((pos, element));
+        Arc::make_mut(&mut self.elements).push((pos, element));
+    }
+
+    /// Add a frame.
+    ///
+    /// Automatically decides whether to inline the frame or to include it as a
+    /// group based on the number of elements in the frame.
+    pub fn push_frame(&mut self, pos: Point, frame: Frame) {
+        if self.should_inline(&frame) {
+            self.inline(self.layer(), pos, frame);
+        } else {
+            self.push(pos, Element::Group(Group::new(frame)));
+        }
     }
 
     /// Insert an element at the given layer in the frame.
@@ -125,51 +137,72 @@ impl Frame {
     /// This panics if the layer is greater than the number of layers present.
     #[track_caller]
     pub fn insert(&mut self, layer: usize, pos: Point, element: Element) {
-        self.elements.insert(layer, (pos, element));
-    }
-
-    /// Add a frame.
-    ///
-    /// Automatically decides whether to inline the frame or to include it as a
-    /// group based on the number of elements in the frame.
-    pub fn push_frame(&mut self, pos: Point, frame: impl FrameRepr) {
-        if (self.elements.is_empty() || frame.as_ref().is_light())
-            && frame.as_ref().role().map_or(true, Role::is_weak)
-        {
-            frame.inline(self, self.layer(), pos);
-        } else {
-            self.elements.push((pos, Element::Group(Group::new(frame.share()))));
-        }
+        Arc::make_mut(&mut self.elements).insert(layer, (pos, element));
     }
 
     /// Add an element at a position in the background.
     pub fn prepend(&mut self, pos: Point, element: Element) {
-        self.elements.insert(0, (pos, element));
+        Arc::make_mut(&mut self.elements).insert(0, (pos, element));
     }
 
     /// Add multiple elements at a position in the background.
-    pub fn prepend_multiple<I>(&mut self, insert: I)
+    pub fn prepend_multiple<I>(&mut self, elements: I)
     where
         I: IntoIterator<Item = (Point, Element)>,
     {
-        self.elements.splice(0 .. 0, insert);
+        Arc::make_mut(&mut self.elements).splice(0 .. 0, elements);
     }
 
     /// Add a frame at a position in the background.
-    pub fn prepend_frame(&mut self, pos: Point, frame: impl FrameRepr) {
-        if (self.elements.is_empty() || frame.as_ref().is_light())
-            && frame.as_ref().role().map_or(true, Role::is_weak)
-        {
-            frame.inline(self, 0, pos);
+    pub fn prepend_frame(&mut self, pos: Point, frame: Frame) {
+        if self.should_inline(&frame) {
+            self.inline(0, pos, frame);
         } else {
-            self.elements
-                .insert(0, (pos, Element::Group(Group::new(frame.share()))));
+            self.prepend(pos, Element::Group(Group::new(frame)));
         }
     }
 
-    /// Whether the frame has comparatively few elements.
-    fn is_light(&self) -> bool {
-        self.elements.len() <= 5
+    /// Whether the given frame should be inlined.
+    pub fn should_inline(&self, frame: &Frame) -> bool {
+        (self.elements.is_empty() || frame.elements.len() <= 5)
+            && frame.role().map_or(true, |role| role.is_weak())
+    }
+
+    /// Inline a frame at the given layer.
+    pub fn inline(&mut self, layer: usize, pos: Point, frame: Frame) {
+        // Try to just reuse the elements.
+        if pos.is_zero() && self.elements.is_empty() {
+            self.elements = frame.elements;
+            return;
+        }
+
+        // Try to copy the elements without adjusting the positioned.
+        // Also try to reuse the elements if the Arc isn't shared.
+        let range = layer .. layer;
+        if pos.is_zero() {
+            let sink = Arc::make_mut(&mut self.elements);
+            match Arc::try_unwrap(frame.elements) {
+                Ok(elements) => {
+                    sink.splice(range, elements);
+                }
+                Err(arc) => {
+                    sink.splice(range, arc.iter().cloned());
+                }
+            }
+            return;
+        }
+
+        // We must adjust the element positioned.
+        // But still try to reuse the elements if the Arc isn't shared.
+        let sink = Arc::make_mut(&mut self.elements);
+        match Arc::try_unwrap(frame.elements) {
+            Ok(elements) => {
+                sink.splice(range, elements.into_iter().map(|(p, e)| (p + pos, e)));
+            }
+            Err(arc) => {
+                sink.splice(range, arc.iter().cloned().map(|(p, e)| (p + pos, e)));
+            }
+        }
     }
 }
 
@@ -177,7 +210,7 @@ impl Frame {
 impl Frame {
     /// Remove all elements from the frame.
     pub fn clear(&mut self) {
-        self.elements.clear();
+        self.elements = Arc::new(vec![]);
     }
 
     /// Resize the frame to a new size, distributing new space according to the
@@ -199,7 +232,7 @@ impl Frame {
             if let Some(baseline) = &mut self.baseline {
                 *baseline += offset.y;
             }
-            for (point, _) in &mut self.elements {
+            for (point, _) in Arc::make_mut(&mut self.elements) {
                 *point += offset;
             }
         }
@@ -207,7 +240,7 @@ impl Frame {
 
     /// Apply the given role to the frame if it doesn't already have one.
     pub fn apply_role(&mut self, role: Role) {
-        if self.role.map_or(true, Role::is_weak) {
+        if self.role.map_or(true, |prev| prev.is_weak() && !role.is_weak()) {
             self.role = Some(role);
         }
     }
@@ -232,8 +265,9 @@ impl Frame {
     where
         F: FnOnce(&mut Group),
     {
-        let mut wrapper = Frame { elements: vec![], ..*self };
-        let mut group = Group::new(Arc::new(std::mem::take(self)));
+        let mut wrapper = Frame::new(self.size);
+        wrapper.baseline = self.baseline;
+        let mut group = Group::new(std::mem::take(self));
         f(&mut group);
         wrapper.push(Point::zero(), Element::Group(group));
         *self = wrapper;
@@ -249,76 +283,6 @@ impl Debug for Frame {
         f.debug_list()
             .entries(self.elements.iter().map(|(_, element)| element))
             .finish()
-    }
-}
-
-impl AsRef<Frame> for Frame {
-    fn as_ref(&self) -> &Frame {
-        self
-    }
-}
-
-/// A representational form of a frame (owned, shared or maybe shared).
-pub trait FrameRepr: AsRef<Frame> {
-    /// Transform into a shared representation.
-    fn share(self) -> Arc<Frame>;
-
-    /// Inline `self` into the sink frame.
-    fn inline(self, sink: &mut Frame, layer: usize, offset: Point);
-}
-
-impl FrameRepr for Frame {
-    fn share(self) -> Arc<Frame> {
-        Arc::new(self)
-    }
-
-    fn inline(self, sink: &mut Frame, layer: usize, offset: Point) {
-        if offset.is_zero() {
-            if sink.elements.is_empty() {
-                sink.elements = self.elements;
-            } else {
-                sink.elements.splice(layer .. layer, self.elements);
-            }
-        } else {
-            sink.elements.splice(
-                layer .. layer,
-                self.elements.into_iter().map(|(p, e)| (p + offset, e)),
-            );
-        }
-    }
-}
-
-impl FrameRepr for Arc<Frame> {
-    fn share(self) -> Arc<Frame> {
-        self
-    }
-
-    fn inline(self, sink: &mut Frame, layer: usize, offset: Point) {
-        match Arc::try_unwrap(self) {
-            Ok(frame) => frame.inline(sink, layer, offset),
-            Err(rc) => {
-                sink.elements.splice(
-                    layer .. layer,
-                    rc.elements.iter().cloned().map(|(p, e)| (p + offset, e)),
-                );
-            }
-        }
-    }
-}
-
-impl FrameRepr for MaybeShared<Frame> {
-    fn share(self) -> Arc<Frame> {
-        match self {
-            Self::Owned(owned) => owned.share(),
-            Self::Shared(shared) => shared.share(),
-        }
-    }
-
-    fn inline(self, sink: &mut Frame, layer: usize, offset: Point) {
-        match self {
-            Self::Owned(owned) => owned.inline(sink, layer, offset),
-            Self::Shared(shared) => shared.inline(sink, layer, offset),
-        }
     }
 }
 
@@ -357,7 +321,7 @@ impl Debug for Element {
 #[derive(Clone, Eq, PartialEq)]
 pub struct Group {
     /// The group's frame.
-    pub frame: Arc<Frame>,
+    pub frame: Frame,
     /// A transformation to apply to the group.
     pub transform: Transform,
     /// Whether the frame should be a clipping boundary.
@@ -366,7 +330,7 @@ pub struct Group {
 
 impl Group {
     /// Create a new group with default settings.
-    pub fn new(frame: Arc<Frame>) -> Self {
+    pub fn new(frame: Frame) -> Self {
         Self {
             frame,
             transform: Transform::identity(),

@@ -25,7 +25,7 @@ impl Layout for RexNode {
         ctx: &mut Context,
         _: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Arc<Frame>>> {
+    ) -> TypResult<Vec<Frame>> {
         // Load the font.
         let span = self.tex.span;
         let face_id = ctx
@@ -80,7 +80,7 @@ impl Layout for RexNode {
         // Render into the frame.
         renderer.render(&layout, &mut backend);
 
-        Ok(vec![Arc::new(backend.frame)])
+        Ok(vec![backend.frame])
     }
 }
 

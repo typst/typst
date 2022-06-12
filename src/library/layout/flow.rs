@@ -28,7 +28,7 @@ impl Layout for FlowNode {
         ctx: &mut Context,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Arc<Frame>>> {
+    ) -> TypResult<Vec<Frame>> {
         let mut layouter = FlowLayouter::new(regions);
 
         for (child, map) in self.0.iter() {
@@ -92,7 +92,7 @@ pub struct FlowLayouter {
     /// Spacing and layouted nodes.
     items: Vec<FlowItem>,
     /// Finished frames for previous regions.
-    finished: Vec<Arc<Frame>>,
+    finished: Vec<Frame>,
 }
 
 /// A prepared item in a flow layout.
@@ -102,9 +102,9 @@ enum FlowItem {
     /// Fractional spacing between other items.
     Fractional(Fraction),
     /// A frame for a layouted child node and how to align it.
-    Frame(Arc<Frame>, Spec<Align>),
+    Frame(Frame, Spec<Align>),
     /// An absolutely placed frame.
-    Placed(Arc<Frame>),
+    Placed(Frame),
 }
 
 impl FlowLayouter {
@@ -184,9 +184,7 @@ impl FlowLayouter {
         let len = frames.len();
         for (i, mut frame) in frames.into_iter().enumerate() {
             // Set the generic block role.
-            if frame.role().map_or(true, Role::is_weak) {
-                Arc::make_mut(&mut frame).apply_role(Role::GenericBlock);
-            }
+            frame.apply_role(Role::GenericBlock);
 
             // Grow our size, shrink the region and save the frame for later.
             let size = frame.size();
@@ -248,11 +246,11 @@ impl FlowLayouter {
         self.full = self.regions.first;
         self.used = Size::zero();
         self.fr = Fraction::zero();
-        self.finished.push(Arc::new(output));
+        self.finished.push(output);
     }
 
     /// Finish layouting and return the resulting frames.
-    pub fn finish(mut self) -> Vec<Arc<Frame>> {
+    pub fn finish(mut self) -> Vec<Frame> {
         if self.expand.y {
             while self.regions.backlog.len() > 0 {
                 self.finish_region();

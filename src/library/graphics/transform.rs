@@ -28,13 +28,13 @@ impl Layout for MoveNode {
         ctx: &mut Context,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Arc<Frame>>> {
+    ) -> TypResult<Vec<Frame>> {
         let mut frames = self.child.layout(ctx, regions, styles)?;
 
         let delta = self.delta.resolve(styles);
         for frame in &mut frames {
             let delta = delta.zip(frame.size()).map(|(d, s)| d.relative_to(s));
-            Arc::make_mut(frame).translate(delta.to_point());
+            frame.translate(delta.to_point());
         }
 
         Ok(frames)
@@ -89,7 +89,7 @@ impl<const T: TransformKind> Layout for TransformNode<T> {
         ctx: &mut Context,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Arc<Frame>>> {
+    ) -> TypResult<Vec<Frame>> {
         let origin = styles.get(Self::ORIGIN).unwrap_or(Align::CENTER_HORIZON);
         let mut frames = self.child.layout(ctx, regions, styles)?;
 
@@ -99,7 +99,7 @@ impl<const T: TransformKind> Layout for TransformNode<T> {
                 .pre_concat(self.transform)
                 .pre_concat(Transform::translate(-x, -y));
 
-            Arc::make_mut(frame).transform(transform);
+            frame.transform(transform);
         }
 
         Ok(frames)

@@ -31,7 +31,7 @@ impl Layout for AlignNode {
         ctx: &mut Context,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Arc<Frame>>> {
+    ) -> TypResult<Vec<Frame>> {
         // The child only needs to expand along an axis if there's no alignment.
         let mut pod = regions.clone();
         pod.expand &= self.aligns.map_is_none();
@@ -53,7 +53,7 @@ impl Layout for AlignNode {
                 .map(|align| align.resolve(styles))
                 .unwrap_or(Spec::new(Align::Left, Align::Top));
 
-            Arc::make_mut(frame).resize(target, aligns);
+            frame.resize(target, aligns);
         }
 
         Ok(frames)

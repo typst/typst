@@ -31,7 +31,7 @@ impl Layout for PadNode {
         ctx: &mut Context,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Arc<Frame>>> {
+    ) -> TypResult<Vec<Frame>> {
         // Layout child into padded regions.
         let padding = self.padding.resolve(styles);
         let pod = regions.map(|size| shrink(size, padding));
@@ -45,7 +45,6 @@ impl Layout for PadNode {
             let offset = Point::new(padding.left, padding.top);
 
             // Grow the frame and translate everything in the frame inwards.
-            let frame = Arc::make_mut(frame);
             frame.set_size(padded);
             frame.translate(offset);
         }
