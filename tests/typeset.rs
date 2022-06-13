@@ -32,8 +32,8 @@ fn main() {
     let args = Args::new(env::args().skip(1));
     let mut filtered = Vec::new();
 
-    // Since differents tests can affect each other through the layout cache, a
-    // deterministic order is very important for reproducibility.
+    // Since differents tests can affect each other through the memoization
+    // cache, a deterministic order is important for reproducibility.
     for entry in WalkDir::new(".").sort_by_file_name() {
         let entry = entry.unwrap();
         if entry.depth() <= 1 {
@@ -599,8 +599,8 @@ fn render_links(
     }
 }
 
-/// This is a Linear-feedback shift register using XOR as its shifting
-/// function. It can be used as PRNG.
+/// A Linear-feedback shift register using XOR as its shifting function.
+/// Can be used as PRNG.
 struct LinearShift(u64);
 
 impl LinearShift {

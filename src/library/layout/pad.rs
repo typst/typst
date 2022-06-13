@@ -65,7 +65,7 @@ fn shrink(size: Size, padding: Sides<Relative<Length>>) -> Size {
 /// (Vertical axis is analogous.)
 ///
 /// Let w be the grown target width,
-///     s be given width,
+///     s be the given width,
 ///     l be the left padding,
 ///     r be the right padding,
 ///     p = l + r.

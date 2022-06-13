@@ -18,7 +18,7 @@ impl PageNode {
     /// Whether the page is flipped into landscape orientation.
     pub const FLIPPED: bool = false;
 
-    /// The page margin.
+    /// The page's margins.
     #[property(fold)]
     pub const MARGINS: Sides<Option<Smart<Relative<RawLength>>>> =
         Sides::splat(Smart::Auto);

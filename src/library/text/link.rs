@@ -1,7 +1,7 @@
 use super::TextNode;
 use crate::library::prelude::*;
 
-/// Link text and other elements to an URL.
+/// Link text and other elements to a destination.
 #[derive(Debug, Hash)]
 pub struct LinkNode {
     /// The destination the link points to.
@@ -15,7 +15,7 @@ impl LinkNode {
     /// The fill color of text in the link. Just the surrounding text color
     /// if `auto`.
     pub const FILL: Smart<Paint> = Smart::Auto;
-    /// Whether to underline link.
+    /// Whether to underline the link.
     pub const UNDERLINE: Smart<bool> = Smart::Auto;
 
     fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
@@ -35,10 +35,10 @@ castable! {
     Expected: "string or dictionary with `page`, `x`, and `y` keys",
     Value::Str(string) => Self::Url(string),
     Value::Dict(dict) => {
-        let page: i64 = dict.get(&"page".into())?.clone().cast()?;
-        let x: RawLength = dict.get(&"x".into())?.clone().cast()?;
-        let y: RawLength = dict.get(&"y".into())?.clone().cast()?;
-        Self::Internal(Location { page: page as usize, pos: Point::new(x.length, y.length) })
+        let page = dict.get("page")?.clone().cast()?;
+        let x: RawLength = dict.get("x")?.clone().cast()?;
+        let y: RawLength = dict.get("y")?.clone().cast()?;
+        Self::Internal(Location { page, pos: Point::new(x.length, y.length) })
     },
 }
 

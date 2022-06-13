@@ -15,7 +15,7 @@ impl Point {
         Self { x: Length::zero(), y: Length::zero() }
     }
 
-    /// Create a new point from x and y coordinate.
+    /// Create a new point from x and y coordinates.
     pub const fn new(x: Length, y: Length) -> Self {
         Self { x, y }
     }

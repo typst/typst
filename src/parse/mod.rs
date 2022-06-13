@@ -77,7 +77,7 @@ fn reparse_content_block(
     Some((vec![first], terminated, 1))
 }
 
-/// Reparse some markup elements without the topmost node.
+/// Reparse a sequence markup elements without the topmost node.
 ///
 /// Returns `Some` if all of the input was consumed.
 fn reparse_markup_elements(
@@ -87,7 +87,7 @@ fn reparse_markup_elements(
     differential: isize,
     reference: &[SyntaxNode],
     mut at_start: bool,
-    column: usize,
+    min_indent: usize,
 ) -> Option<(Vec<SyntaxNode>, bool, usize)> {
     let mut p = Parser::with_prefix(prefix, src, TokenMode::Markup);
 
@@ -98,8 +98,8 @@ fn reparse_markup_elements(
     let mut stopped = false;
 
     'outer: while !p.eof() {
-        if let Some(NodeKind::Space(1 ..)) = p.peek() {
-            if p.column(p.current_end()) < column {
+        if let Some(NodeKind::Space { newlines: (1 ..) }) = p.peek() {
+            if p.column(p.current_end()) < min_indent {
                 return None;
             }
         }
@@ -155,7 +155,7 @@ fn reparse_markup_elements(
 /// If `at_start` is true, things like headings that may only appear at the
 /// beginning of a line or content block are initially allowed.
 fn markup(p: &mut Parser, mut at_start: bool) {
-    p.perform(NodeKind::Markup(0), |p| {
+    p.perform(NodeKind::Markup { min_indent: 0 }, |p| {
         while !p.eof() {
             markup_node(p, &mut at_start);
         }
@@ -168,18 +168,18 @@ fn markup_line(p: &mut Parser) {
 }
 
 /// Parse markup that stays right of the given `column`.
-fn markup_indented(p: &mut Parser, column: usize) {
+fn markup_indented(p: &mut Parser, min_indent: usize) {
     p.eat_while(|t| match t {
-        NodeKind::Space(n) => *n == 0,
+        NodeKind::Space { newlines } => *newlines == 0,
         NodeKind::LineComment | NodeKind::BlockComment => true,
         _ => false,
     });
 
     let mut at_start = false;
-    p.perform(NodeKind::Markup(column), |p| {
+    p.perform(NodeKind::Markup { min_indent }, |p| {
         while !p.eof() {
-            if let Some(NodeKind::Space(1 ..)) = p.peek() {
-                if p.column(p.current_end()) < column {
+            if let Some(NodeKind::Space { newlines: (1 ..) }) = p.peek() {
+                if p.column(p.current_end()) < min_indent {
                     break;
                 }
             }
@@ -198,7 +198,7 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
 
     match token {
         // Whitespace.
-        NodeKind::Space(newlines) => {
+        NodeKind::Space { newlines } => {
             *at_start |= *newlines > 0;
             p.eat();
             return;
@@ -284,7 +284,7 @@ fn heading(p: &mut Parser, at_start: bool) {
     while p.eat_if(NodeKind::Eq) {}
 
     if at_start && p.peek().map_or(true, |kind| kind.is_space()) {
-        p.eat_while(|kind| kind == &NodeKind::Space(0));
+        p.eat_while(|kind| *kind == NodeKind::Space { newlines: 0 });
         markup_line(p);
         marker.end(p, NodeKind::Heading);
     } else {
@@ -299,9 +299,9 @@ fn list_node(p: &mut Parser, at_start: bool) {
     let text: EcoString = p.peek_src().into();
     p.assert(NodeKind::Minus);
 
-    let column = p.column(p.prev_end());
-    if at_start && p.eat_if(NodeKind::Space(0)) && !p.eof() {
-        markup_indented(p, column);
+    let min_indent = p.column(p.prev_end());
+    if at_start && p.eat_if(NodeKind::Space { newlines: 0 }) && !p.eof() {
+        markup_indented(p, min_indent);
         marker.end(p, NodeKind::List);
     } else {
         marker.convert(p, NodeKind::Text(text));
@@ -314,16 +314,16 @@ fn enum_node(p: &mut Parser, at_start: bool) {
     let text: EcoString = p.peek_src().into();
     p.eat();
 
-    let column = p.column(p.prev_end());
-    if at_start && p.eat_if(NodeKind::Space(0)) && !p.eof() {
-        markup_indented(p, column);
+    let min_indent = p.column(p.prev_end());
+    if at_start && p.eat_if(NodeKind::Space { newlines: 0 }) && !p.eof() {
+        markup_indented(p, min_indent);
         marker.end(p, NodeKind::Enum);
     } else {
         marker.convert(p, NodeKind::Text(text));
     }
 }
 
-/// Parse an expression within markup mode.
+/// Parse an expression within a markup mode.
 fn markup_expr(p: &mut Parser) {
     // Does the expression need termination or can content follow directly?
     let stmt = matches!(
@@ -556,10 +556,10 @@ fn parenthesized(p: &mut Parser, atomic: bool) -> ParseResult {
 enum CollectionKind {
     /// The collection is only one item and has no comma.
     Group,
-    /// The collection starts with a positional and has more items or a trailing
-    /// comma.
+    /// The collection starts with a positional item and has multiple items or a
+    /// trailing comma.
     Positional,
-    /// The collection starts with a named item.
+    /// The collection starts with a colon or named item.
     Named,
 }
 
@@ -672,7 +672,7 @@ fn array(p: &mut Parser, marker: Marker) {
 }
 
 /// Convert a collection into a dictionary, producing errors for anything other
-/// than named pairs.
+/// than named and keyed pairs.
 fn dict(p: &mut Parser, marker: Marker) {
     let mut used = HashSet::new();
     marker.filter_children(p, |x| match x.kind() {
@@ -731,11 +731,11 @@ fn code(p: &mut Parser) {
         p.end_group();
 
         // Forcefully skip over newlines since the group's contents can't.
-        p.eat_while(|t| matches!(t, NodeKind::Space(_)));
+        p.eat_while(NodeKind::is_space);
     }
 }
 
-// Parse a content block: `[...]`.
+/// Parse a content block: `[...]`.
 fn content_block(p: &mut Parser) {
     p.perform(NodeKind::ContentBlock, |p| {
         p.start_group(Group::Bracket);
@@ -857,7 +857,7 @@ fn wrap_expr(p: &mut Parser) -> ParseResult {
     })
 }
 
-/// Parse an if expresion.
+/// Parse an if-else expresion.
 fn if_expr(p: &mut Parser) -> ParseResult {
     p.perform(NodeKind::IfExpr, |p| {
         p.assert(NodeKind::If);
@@ -886,7 +886,7 @@ fn while_expr(p: &mut Parser) -> ParseResult {
     })
 }
 
-/// Parse a for expression.
+/// Parse a for-in expression.
 fn for_expr(p: &mut Parser) -> ParseResult {
     p.perform(NodeKind::ForExpr, |p| {
         p.assert(NodeKind::For);

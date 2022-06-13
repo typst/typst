@@ -176,7 +176,8 @@ impl<'a> StackLayouter<'a> {
             self.finish_region();
         }
 
-        // Align nodes' block-axis alignment is respected by the stack node.
+        // Block-axis alignment of the `AlignNode` is respected
+        // by the stack node.
         let align = node
             .downcast::<AlignNode>()
             .and_then(|node| node.aligns.get(self.axis))

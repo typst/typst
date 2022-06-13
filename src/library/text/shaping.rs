@@ -43,7 +43,9 @@ pub struct ShapedGlyph {
     pub x_offset: Em,
     /// The vertical offset of the glyph.
     pub y_offset: Em,
-    /// A value that is the same for all glyphs belong to one cluster.
+    /// The byte index in the source text where this glyph's cluster starts. A
+    /// cluster is a sequence of one or multiple glyphs that cannot be
+    /// separated and must always be treated as a union.
     pub cluster: usize,
     /// Whether splitting the shaping result before this glyph would yield the
     /// same results as shaping the parts to both sides of `text_index`
@@ -67,9 +69,9 @@ impl ShapedGlyph {
 
 /// A side you can go toward.
 enum Side {
-    /// Go toward the west.
+    /// To the left-hand side.
     Left,
-    /// Go toward the east.
+    /// To the right-hand side.
     Right,
 }
 
@@ -141,7 +143,7 @@ impl<'a> ShapedText<'a> {
         frame
     }
 
-    /// Measure the top and bottom extent of a this text.
+    /// Measure the top and bottom extent of this text.
     fn measure(&self, fonts: &mut FontStore) -> (Length, Length) {
         let mut top = Length::zero();
         let mut bottom = Length::zero();
@@ -498,7 +500,7 @@ fn shape_tofus(ctx: &mut ShapingContext, base: usize, text: &str, face_id: FaceI
     }
 }
 
-/// Apply tracking and spacing to a slice of shaped glyphs.
+/// Apply tracking and spacing to the shaped glyphs.
 fn track_and_space(ctx: &mut ShapingContext) {
     let tracking = Em::from_length(ctx.styles.get(TextNode::TRACKING), ctx.size);
     let spacing = ctx
@@ -522,7 +524,7 @@ fn track_and_space(ctx: &mut ShapingContext) {
     }
 }
 
-/// Resolve the font variant with `STRONG` and `EMPH` factored in.
+/// Resolve the font variant with `BOLD` and `ITALIC` factored in.
 pub fn variant(styles: StyleChain) -> FontVariant {
     let mut variant = FontVariant::new(
         styles.get(TextNode::STYLE),

@@ -122,7 +122,7 @@ impl Debug for Scope {
     }
 }
 
-/// A slot where a variable is stored.
+/// A slot where a value is stored.
 #[derive(Clone, Hash)]
 struct Slot {
     /// The stored value.
@@ -141,17 +141,17 @@ enum Kind {
 }
 
 impl Slot {
-    /// Create a new constant slot.
+    /// Create a new slot.
     fn new(value: Value, kind: Kind) -> Self {
         Self { value, kind }
     }
 
-    /// Read the variable.
+    /// Read the value.
     fn read(&self) -> &Value {
         &self.value
     }
 
-    /// Try to write to the variable.
+    /// Try to write to the value.
     fn write(&mut self) -> StrResult<&mut Value> {
         match self.kind {
             Kind::Normal => Ok(&mut self.value),

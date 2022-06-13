@@ -48,8 +48,8 @@ impl Transform {
     }
 
     /// Whether this is the identity transformation.
-    pub fn is_identity(&self) -> bool {
-        *self == Self::identity()
+    pub fn is_identity(self) -> bool {
+        self == Self::identity()
     }
 
     /// Pre-concatenate another transformation.

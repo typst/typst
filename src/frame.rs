@@ -27,7 +27,7 @@ pub struct Frame {
     elements: Arc<Vec<(Point, Element)>>,
 }
 
-/// Accessors and setters.
+/// Constructor, accessors and setters.
 impl Frame {
     /// Create a new, empty frame.
     ///
@@ -120,10 +120,10 @@ impl Frame {
         Arc::make_mut(&mut self.elements).push((pos, element));
     }
 
-    /// Add a frame.
+    /// Add a frame at a position in the foreground.
     ///
     /// Automatically decides whether to inline the frame or to include it as a
-    /// group based on the number of elements in the frame.
+    /// group based on the number of elements in and the role of the frame.
     pub fn push_frame(&mut self, pos: Point, frame: Frame) {
         if self.should_inline(&frame) {
             self.inline(self.layer(), pos, frame);
@@ -146,6 +146,9 @@ impl Frame {
     }
 
     /// Add multiple elements at a position in the background.
+    ///
+    /// The first element in the iterator will be the one that is most in the
+    /// background.
     pub fn prepend_multiple<I>(&mut self, elements: I)
     where
         I: IntoIterator<Item = (Point, Element)>,
@@ -163,20 +166,20 @@ impl Frame {
     }
 
     /// Whether the given frame should be inlined.
-    pub fn should_inline(&self, frame: &Frame) -> bool {
+    fn should_inline(&self, frame: &Frame) -> bool {
         (self.elements.is_empty() || frame.elements.len() <= 5)
             && frame.role().map_or(true, |role| role.is_weak())
     }
 
     /// Inline a frame at the given layer.
-    pub fn inline(&mut self, layer: usize, pos: Point, frame: Frame) {
+    fn inline(&mut self, layer: usize, pos: Point, frame: Frame) {
         // Try to just reuse the elements.
         if pos.is_zero() && self.elements.is_empty() {
             self.elements = frame.elements;
             return;
         }
 
-        // Try to copy the elements without adjusting the position.
+        // Try to transfer the elements without adjusting the position.
         // Also try to reuse the elements if the Arc isn't shared.
         let range = layer .. layer;
         if pos.is_zero() {
@@ -192,7 +195,7 @@ impl Frame {
             return;
         }
 
-        // We must adjust the element positioned.
+        // We must adjust the element positions.
         // But still try to reuse the elements if the Arc isn't shared.
         let sink = Arc::make_mut(&mut self.elements);
         match Arc::try_unwrap(frame.elements) {
@@ -210,7 +213,11 @@ impl Frame {
 impl Frame {
     /// Remove all elements from the frame.
     pub fn clear(&mut self) {
-        self.elements = Arc::new(vec![]);
+        if Arc::strong_count(&self.elements) == 1 {
+            Arc::make_mut(&mut self.elements).clear();
+        } else {
+            self.elements = Arc::new(vec![]);
+        }
     }
 
     /// Resize the frame to a new size, distributing new space according to the
@@ -407,7 +414,7 @@ pub enum Destination {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Location {
     /// The page, starting at 1.
-    pub page: usize,
+    pub page: NonZeroUsize,
     /// The exact coordinates on the page (from the top left, as usual).
     pub pos: Point,
 }
@@ -416,7 +423,7 @@ impl Location {
     /// Encode into a user-facing dictionary.
     pub fn encode(&self) -> Dict {
         dict! {
-            "page" => Value::Int(self.page as i64),
+            "page" => Value::Int(self.page.get() as i64),
             "x" => Value::Length(self.pos.x.into()),
             "y" => Value::Length(self.pos.y.into()),
         }
@@ -428,27 +435,28 @@ impl Location {
 pub enum Role {
     /// A paragraph.
     Paragraph,
-    /// A heading with some level and whether it should be part of the outline.
+    /// A heading of the given level and whether it should be part of the
+    /// outline.
     Heading { level: NonZeroUsize, outlined: bool },
     /// A generic block-level subdivision.
     GenericBlock,
     /// A generic inline subdivision.
     GenericInline,
-    /// A list. The boolean indicates whether it is ordered.
+    /// A list and whether it is ordered.
     List { ordered: bool },
     /// A list item. Must have a list parent.
     ListItem,
-    /// The label of a list item.
+    /// The label of a list item. Must have a list item parent.
     ListLabel,
-    /// The body of a list item.
+    /// The body of a list item. Must have a list item parent.
     ListItemBody,
     /// A mathematical formula.
     Formula,
     /// A table.
     Table,
-    /// A table row.
+    /// A table row. Must have a table parent.
     TableRow,
-    /// A table cell.
+    /// A table cell. Must have a table row parent.
     TableCell,
     /// A code fragment.
     Code,
@@ -466,6 +474,8 @@ impl Role {
     /// Whether the role describes a generic element and is not very
     /// descriptive.
     pub fn is_weak(self) -> bool {
+        // In Typst, all text is in a paragraph, so paragraph isn't very
+        // descriptive.
         match self {
             Self::Paragraph | Self::GenericBlock | Self::GenericInline => true,
             _ => false,

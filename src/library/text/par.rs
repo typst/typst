@@ -297,7 +297,7 @@ impl Segment<'_> {
 /// A prepared item in a paragraph layout.
 #[derive(Debug)]
 enum Item<'a> {
-    /// A shaped text run with consistent direction.
+    /// A shaped text run with consistent style and direction.
     Text(ShapedText<'a>),
     /// Absolute spacing between other items.
     Absolute(Length),
@@ -305,7 +305,7 @@ enum Item<'a> {
     Fractional(Fraction),
     /// A layouted child node.
     Frame(Frame),
-    /// A repeating node.
+    /// A repeating node that fills the remaining space.
     Repeat(&'a RepeatNode, StyleChain<'a>),
     /// A pin identified by index.
     Pin(usize),
@@ -330,7 +330,7 @@ impl<'a> Item<'a> {
         }
     }
 
-    /// The natural width of the item.
+    /// The natural layouted width of the item.
     fn width(&self) -> Length {
         match self {
             Self::Text(shaped) => shaped.width,
@@ -366,7 +366,7 @@ struct Line<'a> {
     last: Option<Item<'a>>,
     /// The width of the line.
     width: Length,
-    /// Whether the line is allowed to be justified.
+    /// Whether the line should be justified.
     justify: bool,
     /// Whether the line ends with a hyphen or dash, either naturally or through
     /// hyphenation.
@@ -403,7 +403,7 @@ impl<'a> Line<'a> {
         self.items().skip(start).take(end - start)
     }
 
-    // How many justifiable glyphs the line contains.
+    /// How many justifiable glyphs the line contains.
     fn justifiables(&self) -> usize {
         let mut count = 0;
         for shaped in self.items().filter_map(Item::text) {
@@ -528,7 +528,7 @@ fn prepare<'a>(
     let mut cursor = 0;
     let mut items = vec![];
 
-    // Layout the children and collect them into items.
+    // Shape / layout the children and collect them into items.
     for (segment, styles) in segments {
         let end = cursor + segment.len();
         match segment {
@@ -654,7 +654,7 @@ fn linebreak<'a>(
 }
 
 /// Perform line breaking in simple first-fit style. This means that we build
-/// lines a greedily, always taking the longest possible line. This may lead to
+/// lines greedily, always taking the longest possible line. This may lead to
 /// very unbalanced line, but is fast and simple.
 fn linebreak_simple<'a>(
     p: &'a Preparation<'a>,
@@ -670,8 +670,8 @@ fn linebreak_simple<'a>(
         let mut attempt = line(p, fonts, start .. end, mandatory, hyphen);
 
         // If the line doesn't fit anymore, we push the last fitting attempt
-        // into the stack and rebuild the line from its end. The resulting
-        // line cannot be broken up further.
+        // into the stack and rebuild the line from the attempt's end. The
+        // resulting line cannot be broken up further.
         if !width.fits(attempt.width) {
             if let Some((last_attempt, last_end)) = last.take() {
                 lines.push(last_attempt);
@@ -771,17 +771,18 @@ fn linebreak_optimized<'a>(
             ratio = ratio.min(10.0);
 
             // Determine the cost of the line.
-            let mut cost = if ratio < if attempt.justify { MIN_RATIO } else { 0.0 } {
+            let min_ratio = if attempt.justify { MIN_RATIO } else { 0.0 };
+            let mut cost = if ratio < min_ratio {
                 // The line is overfull. This is the case if
-                // - justification is on, but we'd need to shrink to much
+                // - justification is on, but we'd need to shrink too much
                 // - justification is off and the line just doesn't fit
                 // Since any longer line will also be overfull, we can deactive
                 // this breakpoint.
                 active = i + 1;
                 MAX_COST
             } else if eof {
-                // This is the final line and its not overfull since then
-                // we would have taken the above branch.
+                // This is the final line and its not overfull since then we
+                // would have taken the above branch.
                 0.0
             } else if mandatory {
                 // This is a mandatory break and the line is not overfull, so it

@@ -22,7 +22,7 @@ impl Em {
         Self(Scalar(em))
     }
 
-    /// Create font units at the given units per em.
+    /// Create an em length from font units at the given units per em.
     pub fn from_units(units: impl Into<f64>, units_per_em: f64) -> Self {
         Self(Scalar(units.into() / units_per_em))
     }

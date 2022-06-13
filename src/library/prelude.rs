@@ -19,5 +19,5 @@ pub use crate::model::{
     StyleChain, StyleMap, StyleVec,
 };
 pub use crate::syntax::{Span, Spanned};
-pub use crate::util::{EcoString, OptionExt};
+pub use crate::util::EcoString;
 pub use crate::Context;

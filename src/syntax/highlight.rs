@@ -60,7 +60,7 @@ where
     highlight_themed_impl(text, 0, &root, vec![], &highlighter, &mut f);
 }
 
-/// Recursive implementation for returning syntect styles.
+/// Recursive implementation for highlighting with a syntect theme.
 fn highlight_themed_impl<F>(
     text: &str,
     mut offset: usize,
@@ -273,7 +273,7 @@ impl Category {
             NodeKind::None => Some(Category::None),
             NodeKind::Auto => Some(Category::Auto),
             NodeKind::Ident(_) => match parent.kind() {
-                NodeKind::Markup(_) => Some(Category::Interpolated),
+                NodeKind::Markup { .. } => Some(Category::Interpolated),
                 NodeKind::FuncCall => Some(Category::Function),
                 NodeKind::MethodCall if i > 0 => Some(Category::Function),
                 NodeKind::ClosureExpr if i == 0 => Some(Category::Function),
@@ -298,8 +298,8 @@ impl Category {
             NodeKind::Error(_, _) => Some(Category::Invalid),
             NodeKind::Unknown(_) => Some(Category::Invalid),
             NodeKind::Underscore => None,
-            NodeKind::Markup(_) => None,
-            NodeKind::Space(_) => None,
+            NodeKind::Markup { .. } => None,
+            NodeKind::Space { .. } => None,
             NodeKind::Text(_) => None,
             NodeKind::Quote { .. } => None,
             NodeKind::List => None,

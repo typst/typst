@@ -47,7 +47,7 @@ pub fn resolve_hex(sequence: &str) -> Option<char> {
     u32::from_str_radix(sequence, 16).ok().and_then(std::char::from_u32)
 }
 
-/// Resolve the language tag and trims the raw text.
+/// Resolve the language tag and trim the raw text.
 pub fn resolve_raw(column: usize, backticks: usize, text: &str) -> RawNode {
     if backticks > 1 {
         let (tag, inner) = split_at_lang_tag(text);
@@ -77,7 +77,7 @@ fn split_at_lang_tag(raw: &str) -> (&str, &str) {
 
 /// Trim raw text and splits it into lines.
 ///
-/// Returns whether at least one newline was contained in `raw`.
+/// Also returns whether at least one newline was contained in `raw`.
 fn trim_and_split_raw(column: usize, mut raw: &str) -> (String, bool) {
     // Trims one space at the start.
     raw = raw.strip_prefix(' ').unwrap_or(raw);

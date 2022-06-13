@@ -19,7 +19,7 @@ use crate::Context;
 
 /// A node that can be layouted into a sequence of regions.
 ///
-/// Layouting return one frame per used region.
+/// Layouting returns one frame per used region.
 pub trait Layout: 'static {
     /// Layout this node into the given regions, producing frames.
     fn layout(
@@ -377,7 +377,7 @@ impl Layout for SizedNode {
 struct FillNode {
     /// How to fill the frames resulting from the `child`.
     fill: Paint,
-    /// The node to fill.
+    /// The node whose frames should be filled.
     child: LayoutNode,
 }
 
@@ -402,7 +402,7 @@ impl Layout for FillNode {
 struct StrokeNode {
     /// How to stroke the frames resulting from the `child`.
     stroke: Stroke,
-    /// The node to stroke.
+    /// The node whose frames should be stroked.
     child: LayoutNode,
 }
 

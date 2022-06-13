@@ -133,7 +133,7 @@ pub struct RasterImage {
 }
 
 impl RasterImage {
-    /// Parse an image from raw data in a supported format (PNG or JPEG).
+    /// Parse an image from raw data in a supported format (PNG, JPEG or GIF).
     ///
     /// The image format is determined automatically.
     pub fn parse(data: &[u8]) -> io::Result<Self> {

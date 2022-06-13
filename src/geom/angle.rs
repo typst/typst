@@ -35,7 +35,7 @@ impl Angle {
         (self.0).0
     }
 
-    /// Get the value of this length in unit.
+    /// Get the value of this angle in a unit.
     pub fn to_unit(self, unit: AngleUnit) -> f64 {
         self.to_raw() / unit.raw_scale()
     }

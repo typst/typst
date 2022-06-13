@@ -4,19 +4,19 @@ use std::ops::Range;
 
 use crate::syntax::SourceId;
 
-/// A value with the span it corresponds to in the source code.
+/// A value with a span locating it in the source code.
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Spanned<T> {
     /// The spanned value.
     pub v: T,
-    /// The location in source code of the value.
+    /// The value's location in source code.
     pub span: Span,
 }
 
 impl<T> Spanned<T> {
     /// Create a new instance from a value and its span.
-    pub fn new(v: T, span: impl Into<Span>) -> Self {
-        Self { v, span: span.into() }
+    pub fn new(v: T, span: Span) -> Self {
+        Self { v, span }
     }
 
     /// Convert from `&Spanned<T>` to `Spanned<&T>`
@@ -24,7 +24,7 @@ impl<T> Spanned<T> {
         Spanned { v: &self.v, span: self.span }
     }
 
-    /// Map the value using a function keeping the span.
+    /// Map the value using a function.
     pub fn map<F, U>(self, f: F) -> Spanned<U>
     where
         F: FnOnce(T) -> U,
@@ -52,11 +52,11 @@ impl<T: Debug> Debug for Spanned<T> {
 ///   sibling and smaller than any id in the subtrees of any right sibling.
 ///
 /// The internal ids of spans stay mostly stable, even for nodes behind an
-/// insertion. This is not true for simple ranges as they shift. Spans can be
-/// used as inputs to memoized functions without hurting cache performance when
-/// text is inserted somewhere in the document other than the end.
+/// insertion. This is not true for simple ranges as they would shift. Spans can
+/// be used as inputs to memoized functions without hurting cache performance
+/// when text is inserted somewhere in the document other than the end.
 ///
-/// This type takes 8 bytes and is null-optimized (i.e. `Option<Span>` also
+/// This type takes up 8 bytes and is null-optimized (i.e. `Option<Span>` also
 /// takes 8 bytes).
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Span(NonZeroU64);
@@ -90,7 +90,7 @@ impl Span {
         Self(to_non_zero(Self::DETACHED))
     }
 
-    /// Return a new span with updated position.
+    /// Return this span, but with updated position.
     pub const fn with_pos(self, pos: SpanPos) -> Self {
         let bits = (self.0.get() & ((1 << 62) - 1)) | ((pos as u64) << 62);
         Self(to_non_zero(bits))

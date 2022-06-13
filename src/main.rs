@@ -52,7 +52,7 @@ SUBCOMMANDS:
   --fonts        List all discovered system fonts
 ";
 
-/// Highlight a .typ file into a HTML file.
+/// Highlight a .typ file into an HTML file.
 struct HighlightCommand {
     input: PathBuf,
     output: PathBuf,
@@ -72,7 +72,7 @@ OPTIONS:
   -h, --help     Print this help
 ";
 
-/// List discovered fonts.
+/// List discovered system fonts.
 struct FontsCommand {
     variants: bool,
 }
@@ -142,7 +142,7 @@ fn parse_args() -> StrResult<Command> {
 }
 
 /// Parse two freestanding path arguments, with the output path being optional.
-/// If it is omitted, it is determined from the input path's filename with the
+/// If it is omitted, it is determined from the input path's file stem plus the
 /// given extension.
 fn parse_input_output(args: &mut Arguments, ext: &str) -> StrResult<(PathBuf, PathBuf)> {
     let input: PathBuf = args.free_from_str().map_err(|_| "missing input file")?;
@@ -229,7 +229,7 @@ fn typeset(command: TypesetCommand) -> StrResult<()> {
     Ok(())
 }
 
-/// Print diagnostics messages to the terminal.
+/// Print diagnostic messages to the terminal.
 fn print_diagnostics(
     sources: &SourceStore,
     errors: Vec<Error>,

@@ -6,7 +6,7 @@ pub fn repr(_: &mut Machine, args: &mut Args) -> TypResult<Value> {
     Ok(args.expect::<Value>("value")?.repr().into())
 }
 
-/// Cconvert a value to a string.
+/// Convert a value to a string.
 pub fn str(_: &mut Machine, args: &mut Args) -> TypResult<Value> {
     let Spanned { v, span } = args.expect("value")?;
     Ok(Value::Str(match v {
@@ -31,20 +31,20 @@ pub fn regex(_: &mut Machine, args: &mut Args) -> TypResult<Value> {
 
 /// Converts an integer into one or multiple letters.
 pub fn letter(_: &mut Machine, args: &mut Args) -> TypResult<Value> {
-    convert(Numbering::Letter, args)
+    numbered(Numbering::Letter, args)
 }
 
 /// Converts an integer into a roman numeral.
 pub fn roman(_: &mut Machine, args: &mut Args) -> TypResult<Value> {
-    convert(Numbering::Roman, args)
+    numbered(Numbering::Roman, args)
 }
 
 /// Convert a number into a symbol.
 pub fn symbol(_: &mut Machine, args: &mut Args) -> TypResult<Value> {
-    convert(Numbering::Symbol, args)
+    numbered(Numbering::Symbol, args)
 }
 
-fn convert(numbering: Numbering, args: &mut Args) -> TypResult<Value> {
+fn numbered(numbering: Numbering, args: &mut Args) -> TypResult<Value> {
     let n = args.expect::<usize>("non-negative integer")?;
     Ok(Value::Str(numbering.apply(n)))
 }

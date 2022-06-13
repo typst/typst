@@ -92,7 +92,7 @@ pub struct RawStroke<T = RawLength> {
 }
 
 impl RawStroke<Length> {
-    /// Unpack the stroke, filling missing fields with `default`.
+    /// Unpack the stroke, filling missing fields from the `default`.
     pub fn unwrap_or(self, default: Stroke) -> Stroke {
         Stroke {
             paint: self.paint.unwrap_or(default.paint),

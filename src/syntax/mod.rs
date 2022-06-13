@@ -27,7 +27,7 @@ pub enum SyntaxNode {
 }
 
 impl SyntaxNode {
-    /// Returns the metadata of the node.
+    /// The metadata of the node.
     pub fn data(&self) -> &NodeData {
         match self {
             Self::Inner(inner) => &inner.data,
@@ -58,14 +58,6 @@ impl SyntaxNode {
         self.data().span()
     }
 
-    /// The node's children.
-    pub fn children(&self) -> std::slice::Iter<'_, SyntaxNode> {
-        match self {
-            Self::Inner(inner) => inner.children(),
-            Self::Leaf(_) => [].iter(),
-        }
-    }
-
     /// Whether the node or its children contain an error.
     pub fn erroneous(&self) -> bool {
         match self {
@@ -92,6 +84,14 @@ impl SyntaxNode {
         }
     }
 
+    /// The node's children.
+    pub fn children(&self) -> std::slice::Iter<'_, SyntaxNode> {
+        match self {
+            Self::Inner(inner) => inner.children(),
+            Self::Leaf(_) => [].iter(),
+        }
+    }
+
     /// Convert the node to a typed AST node.
     pub fn cast<T>(&self) -> Option<T>
     where
@@ -100,12 +100,12 @@ impl SyntaxNode {
         T::from_untyped(self)
     }
 
-    /// Get the first child that can cast to some AST type.
+    /// Get the first child that can cast to the AST type `T`.
     pub fn cast_first_child<T: TypedNode>(&self) -> Option<T> {
         self.children().find_map(Self::cast)
     }
 
-    /// Get the last child that can cast to some AST type.
+    /// Get the last child that can cast to the AST type `T`.
     pub fn cast_last_child<T: TypedNode>(&self) -> Option<T> {
         self.children().rev().find_map(Self::cast)
     }
@@ -358,7 +358,7 @@ impl InnerNode {
         &mut self.children
     }
 
-    /// Replaces a range of children with some replacement.
+    /// Replaces a range of children with a replacement.
     ///
     /// May have mutated the children if it returns `Err(_)`.
     pub(crate) fn replace_children(
@@ -440,8 +440,7 @@ impl InnerNode {
         }
     }
 
-    /// Update the this node given after changes were made to one of its
-    /// children.
+    /// Update this node after changes were made to one of its children.
     pub(crate) fn update_parent(
         &mut self,
         prev_len: usize,
@@ -572,57 +571,61 @@ impl PartialEq for NodeData {
 /// the parser.
 #[derive(Debug, Clone, PartialEq)]
 pub enum NodeKind {
-    /// A left curly brace: `{`.
+    /// A left curly brace, starting a code block: `{`.
     LeftBrace,
-    /// A right curly brace: `}`.
+    /// A right curly brace, terminating a code block: `}`.
     RightBrace,
-    /// A left square bracket: `[`.
+    /// A left square bracket, starting a content block: `[`.
     LeftBracket,
-    /// A right square bracket: `]`.
+    /// A right square bracket, terminating a content block: `]`.
     RightBracket,
-    /// A left round parenthesis: `(`.
+    /// A left round parenthesis, starting a grouped expression, collection,
+    /// argument or parameter list: `(`.
     LeftParen,
-    /// A right round parenthesis: `)`.
+    /// A right round parenthesis, terminating a grouped expression, collection,
+    /// argument or parameter list: `)`.
     RightParen,
-    /// An asterisk: `*`.
+    /// The strong text toggle, multiplication operator, and wildcard import
+    /// symbol: `*`.
     Star,
-    /// An underscore: `_`.
+    /// Toggles emphasized text: `_`.
     Underscore,
-    /// A comma: `,`.
+    /// A comma separator in a sequence: `,`.
     Comma,
-    /// A semicolon: `;`.
+    /// A semicolon terminating an expression: `;`.
     Semicolon,
-    /// A colon: `:`.
+    /// A colon between name / key and value in a dictionary, argument or
+    /// parameter list: `:`.
     Colon,
-    /// A plus: `+`.
+    /// The unary plus and addition operator: `+`.
     Plus,
-    /// A hyphen: `-`.
+    /// The unary negation and subtraction operator: `-`.
     Minus,
-    /// A slash: `/`.
+    /// The division operator: `/`.
     Slash,
-    /// A dot: `.`.
+    /// A field access and method call operator: `.`.
     Dot,
-    /// A single equals sign: `=`.
+    /// The assignment operator: `=`.
     Eq,
-    /// Two equals signs: `==`.
+    /// The equality operator: `==`.
     EqEq,
-    /// An exclamation mark followed by an equals sign: `!=`.
+    /// The inequality operator: `!=`.
     ExclEq,
-    /// A less-than sign: `<`.
+    /// The less-than operator: `<`.
     Lt,
-    /// A less-than sign followed by an equals sign: `<=`.
+    /// The less-than or equal operator: `<=`.
     LtEq,
-    /// A greater-than sign: `>`.
+    /// The greater-than operator: `>`.
     Gt,
-    /// A greater-than sign followed by an equals sign: `>=`.
+    /// The greater-than or equal operator: `>=`.
     GtEq,
-    /// A plus followed by an equals sign: `+=`.
+    /// The add-assign operator: `+=`.
     PlusEq,
-    /// A hyphen followed by an equals sign: `-=`.
+    /// The subtract-assign operator: `-=`.
     HyphEq,
-    /// An asterisk followed by an equals sign: `*=`.
+    /// The multiply-assign operator: `*=`.
     StarEq,
-    /// A slash followed by an equals sign: `/=`.
+    /// The divide-assign operator: `/=`.
     SlashEq,
     /// The `not` operator.
     Not,
@@ -630,9 +633,9 @@ pub enum NodeKind {
     And,
     /// The `or` operator.
     Or,
-    /// Two dots: `..`.
+    /// The spread operator: `..`.
     Dots,
-    /// An equals sign followed by a greater-than sign: `=>`.
+    /// An arrow between a closure's parameters and body: `=>`.
     Arrow,
     /// The none literal: `none`.
     None,
@@ -670,15 +673,20 @@ pub enum NodeKind {
     From,
     /// The `as` keyword.
     As,
-    /// Markup of which all lines must start in some column.
+    /// Markup of which all lines must have a minimal indentation.
     ///
     /// Notably, the number does not determine in which column the markup
     /// started, but to the right of which column all markup elements must be,
     /// so it is zero except for headings and lists.
-    Markup(usize),
-    /// One or more whitespace characters.
-    Space(usize),
-    /// A consecutive non-markup string.
+    Markup { min_indent: usize },
+    /// One or more whitespace characters. Single spaces are collapsed into text
+    /// nodes if they would otherwise be surrounded by text nodes.
+    ///
+    /// Also stores how many newlines are contained.
+    Space { newlines: usize },
+    /// Consecutive text without markup. While basic text with just single
+    /// spaces is collapsed into a single node, certain symbols that could
+    /// possibly be markup force text into multiple nodes.
     Text(EcoString),
     /// A forced line break: `\` or `\+` if justified.
     Linebreak { justified: bool },
@@ -701,10 +709,9 @@ pub enum NodeKind {
     Strong,
     /// Emphasized content: `_Emphasized_`.
     Emph,
-    /// An arbitrary number of backticks followed by inner contents, terminated
-    /// with the same number of backticks: `` `...` ``.
+    /// A raw block with optional syntax highlighting: `` `...` ``.
     Raw(Arc<RawNode>),
-    /// Dollar signs surrounding inner contents.
+    /// A math formula: `$x$`, `$[x^2]$`.
     Math(Arc<MathNode>),
     /// A section heading: `= Introduction`.
     Heading,
@@ -740,7 +747,7 @@ pub enum NodeKind {
     DictExpr,
     /// A named pair: `thickness: 3pt`.
     Named,
-    /// A keyed pair: `"spaced key": true`.
+    /// A keyed pair: `"spacy key": true`.
     Keyed,
     /// A unary operation: `-x`.
     UnaryExpr,
@@ -803,24 +810,14 @@ pub enum NodeKind {
 }
 
 impl NodeKind {
-    /// Whether this is some kind of brace.
-    pub fn is_brace(&self) -> bool {
-        matches!(self, Self::LeftBrace | Self::RightBrace)
-    }
-
-    /// Whether this is some kind of bracket.
-    pub fn is_bracket(&self) -> bool {
-        matches!(self, Self::LeftBracket | Self::RightBracket)
-    }
-
-    /// Whether this is some kind of parenthesis.
+    /// Whether this is a kind of parenthesis.
     pub fn is_paren(&self) -> bool {
         matches!(self, Self::LeftParen | Self::RightParen)
     }
 
     /// Whether this is a space.
     pub fn is_space(&self) -> bool {
-        matches!(self, Self::Space(_))
+        matches!(self, Self::Space { .. })
     }
 
     /// Whether this is trivia.
@@ -828,31 +825,23 @@ impl NodeKind {
         self.is_space() || matches!(self, Self::LineComment | Self::BlockComment)
     }
 
-    /// Whether this is some kind of error.
+    /// Whether this is a kind of error.
     pub fn is_error(&self) -> bool {
         matches!(self, NodeKind::Error(_, _) | NodeKind::Unknown(_))
     }
 
-    /// Whether this node is `at_start` given the previous value of the property.
+    /// Whether `at_start` would still be true after this node given the
+    /// previous value of the property.
     pub fn is_at_start(&self, prev: bool) -> bool {
         match self {
-            Self::Space(1 ..) => true,
-            Self::Space(_) | Self::LineComment | Self::BlockComment => prev,
+            Self::Space { newlines: (1 ..) } => true,
+            Self::Space { .. } | Self::LineComment | Self::BlockComment => prev,
             _ => false,
         }
     }
 
-    /// Whether this node has to appear at the start of a line.
-    pub fn only_at_start(&self) -> bool {
-        match self {
-            Self::Heading | Self::Enum | Self::List => true,
-            Self::Text(t) => t == "-" || t.ends_with('.'),
-            _ => false,
-        }
-    }
-
-    /// Whether this is a node that is clearly delimited by a character and may
-    /// appear in markup.
+    /// Whether changes _inside_ this node are safely encapuslated, so that only
+    /// this node must be reparsed.
     pub fn is_bounded(&self) -> bool {
         match self {
             Self::CodeBlock
@@ -865,7 +854,7 @@ impl NodeKind {
             | Self::Ellipsis
             | Self::Quote { .. }
             | Self::BlockComment
-            | Self::Space(_)
+            | Self::Space { .. }
             | Self::Escape(_) => true,
             Self::Text(t) => t != "-" && !t.ends_with('.'),
             _ => false,
@@ -924,9 +913,9 @@ impl NodeKind {
             Self::Import => "keyword `import`",
             Self::Include => "keyword `include`",
             Self::From => "keyword `from`",
-            Self::Markup(_) => "markup",
-            Self::Space(2 ..) => "paragraph break",
-            Self::Space(_) => "space",
+            Self::Markup { .. } => "markup",
+            Self::Space { newlines: (2 ..) } => "paragraph break",
+            Self::Space { .. } => "space",
             Self::Linebreak { justified: false } => "linebreak",
             Self::Linebreak { justified: true } => "justified linebreak",
             Self::Text(_) => "text",
@@ -1052,8 +1041,8 @@ impl Hash for NodeKind {
             Self::Import => {}
             Self::Include => {}
             Self::From => {}
-            Self::Markup(c) => c.hash(state),
-            Self::Space(n) => n.hash(state),
+            Self::Markup { min_indent } => min_indent.hash(state),
+            Self::Space { newlines } => newlines.hash(state),
             Self::Linebreak { justified } => justified.hash(state),
             Self::Text(s) => s.hash(state),
             Self::NonBreakingSpace => {}

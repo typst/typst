@@ -110,7 +110,9 @@ impl<'s> Iterator for Tokens<'s> {
             ']' => NodeKind::RightBracket,
 
             // Whitespace.
-            ' ' if self.s.done() || !self.s.at(char::is_whitespace) => NodeKind::Space(0),
+            ' ' if self.s.done() || !self.s.at(char::is_whitespace) => {
+                NodeKind::Space { newlines: 0 }
+            }
             c if c.is_whitespace() => self.whitespace(),
 
             // Comments with special case for URLs.
@@ -260,7 +262,7 @@ impl<'s> Tokens<'s> {
             }
         }
 
-        NodeKind::Space(newlines)
+        NodeKind::Space { newlines }
     }
 
     fn backslash(&mut self) -> NodeKind {
@@ -681,8 +683,8 @@ mod tests {
     use SpanPos::*;
     use TokenMode::{Code, Markup};
 
-    fn Error(pos: SpanPos, message: &str) -> NodeKind {
-        NodeKind::Error(pos, message.into())
+    fn Space(newlines: usize) -> NodeKind {
+        NodeKind::Space { newlines }
     }
 
     fn Raw(text: &str, lang: Option<&str>, block: bool) -> NodeKind {
@@ -707,6 +709,10 @@ mod tests {
 
     fn Ident(ident: &str) -> NodeKind {
         NodeKind::Ident(ident.into())
+    }
+
+    fn Error(pos: SpanPos, message: &str) -> NodeKind {
+        NodeKind::Error(pos, message.into())
     }
 
     fn Invalid(invalid: &str) -> NodeKind {

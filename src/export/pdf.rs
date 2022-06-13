@@ -14,7 +14,7 @@ use pdf_writer::writers::ColorSpace;
 use pdf_writer::{Content, Filter, Finish, Name, PdfWriter, Rect, Ref, Str, TextStr};
 use ttf_parser::{name_id, GlyphId, Tag};
 
-use crate::font::{find_name, FaceId, FontStore};
+use crate::font::{FaceId, FontStore};
 use crate::frame::{Destination, Element, Frame, Group, Role, Text};
 use crate::geom::{
     self, Color, Dir, Em, Geometry, Length, Numeric, Paint, Point, Ratio, Shape, Size,
@@ -88,7 +88,6 @@ impl<'a> PdfExporter<'a> {
         self.write_fonts();
         self.write_images();
 
-        // The root page tree.
         for page in std::mem::take(&mut self.pages).into_iter() {
             self.write_page(page);
         }
@@ -123,7 +122,8 @@ impl<'a> PdfExporter<'a> {
             let metrics = face.metrics();
             let ttf = face.ttf();
 
-            let postscript_name = find_name(ttf, name_id::POST_SCRIPT_NAME)
+            let postscript_name = face
+                .find_name(name_id::POST_SCRIPT_NAME)
                 .unwrap_or_else(|| "unknown".to_string());
 
             let base_font = format_eco!("ABCDEF+{}", postscript_name);
@@ -370,9 +370,8 @@ impl<'a> PdfExporter<'a> {
                         .uri(Str(uri.as_str().as_bytes()));
                 }
                 Destination::Internal(loc) => {
-                    if (1 ..= self.page_heights.len()).contains(&loc.page) {
-                        let index = loc.page - 1;
-                        let height = self.page_heights[index];
+                    let index = loc.page.get() - 1;
+                    if let Some(&height) = self.page_heights.get(index) {
                         link.action()
                             .action_type(ActionType::GoTo)
                             .destination_direct()
@@ -457,8 +456,10 @@ impl<'a> PdfExporter<'a> {
             Direction::L2R
         };
 
-        // Write the document information, catalog and wrap it up!
+        // Write the document information.
         self.writer.document_info(self.alloc.bump()).creator(TextStr("Typst"));
+
+        // Write the document catalog.
         let mut catalog = self.writer.catalog(self.alloc.bump());
         catalog.pages(self.page_tree_ref);
         catalog.viewer_preferences().direction(dir);
@@ -554,46 +555,6 @@ struct State {
     fill_space: Option<Name<'static>>,
     stroke: Option<Stroke>,
     stroke_space: Option<Name<'static>>,
-}
-
-/// A heading that can later be linked in the outline panel.
-#[derive(Debug, Clone)]
-struct Heading {
-    content: EcoString,
-    level: usize,
-    position: Point,
-    page: Ref,
-}
-
-#[derive(Debug, Clone)]
-struct HeadingNode {
-    heading: Heading,
-    children: Vec<HeadingNode>,
-}
-
-impl HeadingNode {
-    fn leaf(heading: Heading) -> Self {
-        HeadingNode { heading, children: Vec::new() }
-    }
-
-    fn len(&self) -> usize {
-        1 + self.children.iter().map(Self::len).sum::<usize>()
-    }
-
-    fn insert(&mut self, other: Heading, level: usize) -> bool {
-        if level >= other.level {
-            return false;
-        }
-
-        if let Some(child) = self.children.last_mut() {
-            if child.insert(other.clone(), level + 1) {
-                return true;
-            }
-        }
-
-        self.children.push(Self::leaf(other));
-        true
-    }
 }
 
 impl<'a, 'b> PageExporter<'a, 'b> {
@@ -940,6 +901,47 @@ impl<'a, 'b> PageExporter<'a, 'b> {
     }
 }
 
+/// A heading that can later be linked in the outline panel.
+#[derive(Debug, Clone)]
+struct Heading {
+    content: EcoString,
+    level: usize,
+    position: Point,
+    page: Ref,
+}
+
+/// A node in the outline tree.
+#[derive(Debug, Clone)]
+struct HeadingNode {
+    heading: Heading,
+    children: Vec<HeadingNode>,
+}
+
+impl HeadingNode {
+    fn leaf(heading: Heading) -> Self {
+        HeadingNode { heading, children: Vec::new() }
+    }
+
+    fn len(&self) -> usize {
+        1 + self.children.iter().map(Self::len).sum::<usize>()
+    }
+
+    fn insert(&mut self, other: Heading, level: usize) -> bool {
+        if level >= other.level {
+            return false;
+        }
+
+        if let Some(child) = self.children.last_mut() {
+            if child.insert(other.clone(), level + 1) {
+                return true;
+            }
+        }
+
+        self.children.push(Self::leaf(other));
+        true
+    }
+}
+
 /// Encode an image with a suitable filter and return the data, filter and
 /// whether the image has color.
 ///
@@ -953,7 +955,7 @@ fn encode_image(img: &RasterImage) -> ImageResult<(Vec<u8>, Filter, bool)> {
             (data.into_inner(), Filter::DctDecode, false)
         }
 
-        // 8-bit Rgb JPEG (Cmyk JPEGs get converted to Rgb earlier).
+        // 8-bit RGB JPEG (CMYK JPEGs get converted to RGB earlier).
         (ImageFormat::Jpeg, DynamicImage::ImageRgb8(_)) => {
             let mut data = Cursor::new(vec![]);
             img.buf.write_to(&mut data, img.format)?;

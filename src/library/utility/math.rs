@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 
 use crate::library::prelude::*;
 
-/// Convert a value to a integer.
+/// Convert a value to an integer.
 pub fn int(_: &mut Machine, args: &mut Args) -> TypResult<Value> {
     let Spanned { v, span } = args.expect("value")?;
     Ok(Value::Int(match v {

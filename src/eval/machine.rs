@@ -11,7 +11,7 @@ use crate::Context;
 pub struct Machine<'a> {
     /// The core context.
     pub ctx: &'a mut Context,
-    /// The route of source ids at which the machine is located.
+    /// The route of source ids the machine took to reach its current location.
     pub route: Vec<SourceId>,
     /// The dependencies of the current evaluation process.
     pub deps: Vec<(SourceId, usize)>,

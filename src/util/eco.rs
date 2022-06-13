@@ -22,8 +22,8 @@ macro_rules! format_eco {
 pub struct EcoString(Repr);
 
 /// The internal representation. Either:
-/// - inline when below a certain number of bytes,
-/// - or reference-counted on the heap with COW semantics.
+/// - inline when below a certain number of bytes, or
+/// - reference-counted on the heap with clone-on-write semantics.
 #[derive(Clone)]
 enum Repr {
     Small { buf: [u8; LIMIT], len: u8 },

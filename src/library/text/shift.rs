@@ -3,11 +3,12 @@ use crate::font::FontStore;
 use crate::library::prelude::*;
 use crate::util::EcoString;
 
-/// Sub or superscript text. The text is rendered smaller and its baseline is raised.
+/// Sub or superscript text.
 ///
-/// To provide the best typography possible, we first try to transform the
-/// text to superscript codepoints. If that fails, we fall back to rendering
-/// shrunk normal letters in a raised way.
+/// The text is rendered smaller and its baseline is raised. To provide the best
+/// typography possible, we first try to transform the text to superscript
+/// codepoints. If that fails, we fall back to rendering shrunk normal letters
+/// in a raised way.
 #[derive(Debug, Hash)]
 pub struct ShiftNode<const S: ScriptKind>(pub Content);
 
@@ -19,7 +20,8 @@ pub type SubNode = ShiftNode<SUBSCRIPT>;
 
 #[node]
 impl<const S: ScriptKind> ShiftNode<S> {
-    /// Whether to prefer the dedicated sub- and superscript characters of the font.
+    /// Whether to prefer the dedicated sub- and superscript characters of the
+    /// font.
     pub const TYPOGRAPHIC: bool = true;
     /// The baseline shift for synthetic sub- and superscripts.
     pub const BASELINE: RawLength =
@@ -60,9 +62,8 @@ impl<const S: ScriptKind> Show for ShiftNode<S> {
     }
 }
 
-/// Find and transform the text contained in `content` iff it only consists of
-/// `Text`, `Space`, and `Empty` leaf nodes. The text is transformed to the
-/// given script kind.
+/// Find and transform the text contained in `content` to the given script kind
+/// if and only if it only consists of `Text`, `Space`, and `Empty` leaf nodes.
 fn search_text(content: &Content, mode: ScriptKind) -> Option<EcoString> {
     match content {
         Content::Text(_) => {

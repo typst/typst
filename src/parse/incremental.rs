@@ -54,7 +54,7 @@ impl Reparser<'_> {
         outermost: bool,
         safe_to_replace: bool,
     ) -> Option<Range<usize>> {
-        let is_markup = matches!(node.kind(), NodeKind::Markup(_));
+        let is_markup = matches!(node.kind(), NodeKind::Markup { .. });
         let original_count = node.children().len();
         let original_offset = offset;
 
@@ -96,9 +96,8 @@ impl Reparser<'_> {
                     } else {
                         // Update compulsary state of `ahead_nontrivia`.
                         if let Some(ahead_nontrivia) = ahead.as_mut() {
-                            match child.kind() {
-                                NodeKind::Space(n) if n > &0 => ahead_nontrivia.newline(),
-                                _ => {}
+                            if let NodeKind::Space { newlines: (1 ..) } = child.kind() {
+                                ahead_nontrivia.newline();
                             }
                         }
 
@@ -156,7 +155,6 @@ impl Reparser<'_> {
             // Do not allow replacement of elements inside of constructs whose
             // opening and closing brackets look the same.
             let safe_inside = node.kind().is_bounded();
-
             let child = &mut node.children_mut()[pos.idx];
             let prev_len = child.len();
             let prev_descendants = child.descendants();
@@ -200,8 +198,8 @@ impl Reparser<'_> {
 
         // Make sure this is a markup node and that we may replace. If so, save
         // the current indent.
-        let indent = match node.kind() {
-            NodeKind::Markup(n) if safe_to_replace => *n,
+        let min_indent = match node.kind() {
+            NodeKind::Markup { min_indent } if safe_to_replace => *min_indent,
             _ => return None,
         };
 
@@ -220,7 +218,7 @@ impl Reparser<'_> {
 
         self.replace(
             node,
-            ReparseMode::MarkupElements(at_start, indent),
+            ReparseMode::MarkupElements { at_start, min_indent },
             start.idx .. end.idx + 1,
             superseded_span,
             outermost,
@@ -261,15 +259,17 @@ impl Reparser<'_> {
                 &self.src[newborn_span.start ..],
                 newborn_span.len(),
             ),
-            ReparseMode::MarkupElements(at_start, indent) => reparse_markup_elements(
-                &prefix,
-                &self.src[newborn_span.start ..],
-                newborn_span.len(),
-                differential,
-                &node.children().as_slice()[superseded_start ..],
-                at_start,
-                indent,
-            ),
+            ReparseMode::MarkupElements { at_start, min_indent } => {
+                reparse_markup_elements(
+                    &prefix,
+                    &self.src[newborn_span.start ..],
+                    newborn_span.len(),
+                    differential,
+                    &node.children().as_slice()[superseded_start ..],
+                    at_start,
+                    min_indent,
+                )
+            }
         }?;
 
         // Do not accept unclosed nodes if the old node wasn't at the right edge
@@ -294,12 +294,12 @@ struct NodePos {
     offset: usize,
 }
 
-/// Encodes the state machine of the search for the node which is pending for
+/// Encodes the state machine of the search for the nodes are pending for
 /// replacement.
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum SearchState {
     /// Neither an end nor a start have been found as of now.
-    /// The last non-whitespace child is continually saved.
+    /// The latest non-trivia child is continually saved.
     NoneFound,
     /// The search has concluded by finding a node that fully contains the
     /// modifications.
@@ -332,15 +332,18 @@ impl SearchState {
     }
 }
 
-/// An ahead element with an index and whether it is `at_start`.
+/// An ahead node with an index and whether it is `at_start`.
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct Ahead {
+    /// The position of the node.
     pos: NodePos,
+    /// The `at_start` before this node.
     at_start: bool,
+    /// The kind of ahead node.
     kind: AheadKind,
 }
 
-/// The kind of ahead element.
+/// The kind of ahead node.
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum AheadKind {
     /// A normal non-trivia child has been found.
@@ -382,9 +385,9 @@ enum ReparseMode {
     Code,
     /// Reparse a content block, including its square brackets.
     Content,
-    /// Reparse elements of the markup. The variant carries whether the node is
-    /// `at_start` and the minimum indent of the containing markup node.
-    MarkupElements(bool, usize),
+    /// Reparse elements of the markup. Also specified the initial `at_start`
+    /// state for the reparse and the minimum indent of the reparsed nodes.
+    MarkupElements { at_start: bool, min_indent: usize },
 }
 
 #[cfg(test)]

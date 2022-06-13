@@ -20,8 +20,7 @@ use crate::Context;
 /// returns the resulting `tiny-skia` pixel buffer.
 ///
 /// In addition to the frame, you need to pass in the context used during
-/// compilation so that fonts and images can be rendered and rendering artifacts
-/// can be cached.
+/// compilation so that fonts and images can be rendered.
 pub fn render(ctx: &Context, frame: &Frame, pixel_per_pt: f32) -> sk::Pixmap {
     let size = frame.size();
     let pxw = (pixel_per_pt * size.x.to_f32()).round().max(1.0) as u32;
@@ -298,7 +297,7 @@ fn render_outline_glyph(
     Some(())
 }
 
-/// Renders a geometrical shape into the canvas.
+/// Render a geometrical shape into the canvas.
 fn render_shape(
     canvas: &mut sk::Pixmap,
     ts: sk::Transform,
@@ -341,7 +340,7 @@ fn render_shape(
     Some(())
 }
 
-/// Renders a raster or SVG image into the canvas.
+/// Render a raster or SVG image into the canvas.
 fn render_image(
     canvas: &mut sk::Pixmap,
     ts: sk::Transform,

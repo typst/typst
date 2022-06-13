@@ -10,7 +10,7 @@ impl Length {
         Self(Scalar(0.0))
     }
 
-    /// The inifinite length.
+    /// The infinite length.
     pub const fn inf() -> Self {
         Self(Scalar(f64::INFINITY))
     }
@@ -50,7 +50,7 @@ impl Length {
         (self.0).0
     }
 
-    /// Get the value of this length in unit.
+    /// Get the value of this length in a unit.
     pub fn to_unit(self, unit: LengthUnit) -> f64 {
         self.to_raw() / unit.raw_scale()
     }
@@ -75,7 +75,7 @@ impl Length {
         self.to_unit(LengthUnit::In)
     }
 
-    /// The absolute value of the this length.
+    /// The absolute value of this length.
     pub fn abs(self) -> Self {
         Self::raw(self.to_raw().abs())
     }
@@ -100,7 +100,8 @@ impl Length {
         *self = (*self).max(other);
     }
 
-    /// Whether the other length fits into this one (i.e. is smaller).
+    /// Whether the other length fits into this one (i.e. is smaller). Allows
+    /// for a bit of slack.
     pub fn fits(self, other: Self) -> bool {
         self.0 + 1e-6 >= other.0
     }

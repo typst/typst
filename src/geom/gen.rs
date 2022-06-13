@@ -31,7 +31,7 @@ impl<T> Gen<T> {
         Gen { cross: f(self.cross), main: f(self.main) }
     }
 
-    /// Convert to the specific representation, given the current block axis.
+    /// Convert to the specific representation, given the current main axis.
     pub fn to_spec(self, main: SpecAxis) -> Spec<T> {
         match main {
             SpecAxis::Horizontal => Spec::new(self.main, self.cross),
@@ -82,9 +82,9 @@ impl<T: Debug> Debug for Gen<T> {
 /// Two generic axes of a container.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum GenAxis {
-    /// The minor axis.
+    /// The minor / inline axis.
     Cross,
-    /// The major axis.
+    /// The major / block axis.
     Main,
 }
 

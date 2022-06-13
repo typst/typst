@@ -80,7 +80,7 @@ mod tests {
         let path = Path::new("PTSans.ttf");
         let loader = MemLoader::new().with(path, &data[..]);
 
-        // Test that the found was found.
+        // Test that the face was found.
         let info = &loader.faces[0];
         assert_eq!(info.path, path);
         assert_eq!(info.index, 0);

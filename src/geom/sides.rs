@@ -32,7 +32,7 @@ impl<T> Sides<T> {
         }
     }
 
-    /// Maps the individual fields with `f`.
+    /// Map the individual fields with `f`.
     pub fn map<F, U>(self, mut f: F) -> Sides<U>
     where
         F: FnMut(T) -> U,
@@ -58,12 +58,12 @@ impl<T> Sides<T> {
         }
     }
 
-    /// Returns an iterator over the sides.
+    /// An iterator over the sides.
     pub fn iter(&self) -> impl Iterator<Item = &T> {
         [&self.left, &self.top, &self.right, &self.bottom].into_iter()
     }
 
-    /// Returns whether all sides are equal.
+    /// Whether all sides are equal.
     pub fn is_uniform(&self) -> bool
     where
         T: PartialEq,
@@ -72,10 +72,7 @@ impl<T> Sides<T> {
     }
 }
 
-impl<T> Sides<T>
-where
-    T: Add,
-{
+impl<T: Add> Sides<T> {
     /// Sums up `left` and `right` into `x`, and `top` and `bottom` into `y`.
     pub fn sum_by_axis(self) -> Spec<T::Output> {
         Spec::new(self.left + self.right, self.top + self.bottom)

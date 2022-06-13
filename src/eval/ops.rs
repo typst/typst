@@ -30,7 +30,7 @@ pub fn join(lhs: Value, rhs: Value) -> StrResult<Value> {
     })
 }
 
-/// Apply the plus operator to a value.
+/// Apply the unary plus operator to a value.
 pub fn pos(value: Value) -> StrResult<Value> {
     Ok(match value {
         Int(v) => Int(v),
@@ -281,7 +281,7 @@ pub fn eq(lhs: Value, rhs: Value) -> StrResult<Value> {
     Ok(Bool(equal(&lhs, &rhs)))
 }
 
-/// Compute whether two values are equal.
+/// Compute whether two values are unequal.
 pub fn neq(lhs: Value, rhs: Value) -> StrResult<Value> {
     Ok(Bool(!equal(&lhs, &rhs)))
 }

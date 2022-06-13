@@ -14,7 +14,6 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use crate::geom::Em;
 use crate::loading::{FileHash, Loader};
-use crate::util::decode_mac_roman;
 
 /// A unique identifier for a loaded font face.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
@@ -139,8 +138,8 @@ impl FontStore {
     /// To do that we compute a key for all variants and select the one with the
     /// minimal key. This key prioritizes:
     /// - If `like` is some other face:
-    ///   - Are both faces (not) monospaced.
-    ///   - Do both faces (not) have serifs.
+    ///   - Are both faces (not) monospaced?
+    ///   - Do both faces (not) have serifs?
     ///   - How many words do the families share in their prefix? E.g. "Noto
     ///     Sans" and "Noto Sans Arabic" share two words, whereas "IBM Plex
     ///     Arabic" shares none with "Noto Sans", so prefer "Noto Sans Arabic"
@@ -165,7 +164,6 @@ impl FontStore {
         let mut best = None;
         let mut best_key = None;
 
-        // Find the best matching variant of this font.
         for id in ids {
             let current = &infos[id.0 as usize];
 
@@ -237,23 +235,22 @@ fn shared_prefix_words(left: &str, right: &str) -> usize {
 }
 
 impl_track_empty!(FontStore);
-impl_track_empty!(&'_ mut FontStore);
 impl_track_hash!(FaceId);
 impl_track_hash!(GlyphId);
 
 /// A font face.
 pub struct Face {
     /// The raw face data, possibly shared with other faces from the same
-    /// collection. Must stay alive put, because `ttf` points into it using
-    /// unsafe code.
+    /// collection. The vector's allocation must not move, because `ttf` points
+    /// into it using unsafe code.
     buffer: Arc<Vec<u8>>,
     /// The face's index in the collection (zero if not a collection).
     index: u32,
     /// The underlying ttf-parser/rustybuzz face.
     ttf: rustybuzz::Face<'static>,
-    /// The faces metrics.
+    /// The face's metrics.
     metrics: FaceMetrics,
-    /// The parsed ReX math font.
+    /// The parsed ReX math header.
     math: OnceCell<Option<MathHeader>>,
 }
 
@@ -298,7 +295,7 @@ impl Face {
         &self.ttf
     }
 
-    /// The number of units per em.
+    /// The number of font units per one em.
     pub fn units_per_em(&self) -> f64 {
         self.metrics.units_per_em
     }
@@ -306,16 +303,6 @@ impl Face {
     /// Access the face's metrics.
     pub fn metrics(&self) -> &FaceMetrics {
         &self.metrics
-    }
-
-    /// Access the math header, if any.
-    pub fn math(&self) -> Option<&MathHeader> {
-        self.math
-            .get_or_init(|| {
-                let data = self.ttf().table_data(Tag::from_bytes(b"MATH"))?;
-                MathHeader::parse(data).ok()
-            })
-            .as_ref()
     }
 
     /// Convert from font units to an em length.
@@ -328,6 +315,21 @@ impl Face {
         self.ttf
             .glyph_hor_advance(GlyphId(glyph))
             .map(|units| self.to_em(units))
+    }
+
+    /// Access the math header, if any.
+    pub fn math(&self) -> Option<&MathHeader> {
+        self.math
+            .get_or_init(|| {
+                let data = self.ttf().table_data(Tag::from_bytes(b"MATH"))?;
+                MathHeader::parse(data).ok()
+            })
+            .as_ref()
+    }
+
+    /// Lookup a name by id.
+    pub fn find_name(&self, name_id: u16) -> Option<String> {
+        find_name_ttf(&self.ttf, name_id)
     }
 }
 
@@ -396,7 +398,7 @@ impl FaceMetrics {
         }
     }
 
-    /// Look up a vertical metric at the given font size.
+    /// Look up a vertical metric.
     pub fn vertical(&self, metric: VerticalFontMetric) -> Em {
         match metric {
             VerticalFontMetric::Ascender => self.ascender,
@@ -491,15 +493,15 @@ impl FaceInfo {
         // sometimes doesn't for the Display variants and that mixes things
         // up.
         let family = {
-            let mut family = find_name(ttf, name_id::FAMILY)?;
+            let mut family = find_name_ttf(ttf, name_id::FAMILY)?;
             if family.starts_with("Noto") {
-                family = find_name(ttf, name_id::FULL_NAME)?;
+                family = find_name_ttf(ttf, name_id::FULL_NAME)?;
             }
             trim_styles(&family).to_string()
         };
 
         let variant = {
-            let mut full = find_name(ttf, name_id::FULL_NAME).unwrap_or_default();
+            let mut full = find_name_ttf(ttf, name_id::FULL_NAME).unwrap_or_default();
             full.make_ascii_lowercase();
 
             // Some fonts miss the relevant bits for italic or oblique, so
@@ -554,7 +556,7 @@ impl FaceInfo {
 }
 
 /// Try to find and decode the name with the given id.
-pub fn find_name(ttf: &ttf_parser::Face, name_id: u16) -> Option<String> {
+fn find_name_ttf(ttf: &ttf_parser::Face, name_id: u16) -> Option<String> {
     ttf.names().into_iter().find_map(|entry| {
         if entry.name_id == name_id {
             if let Some(string) = entry.to_string() {
@@ -568,6 +570,31 @@ pub fn find_name(ttf: &ttf_parser::Face, name_id: u16) -> Option<String> {
 
         None
     })
+}
+
+/// Decode mac roman encoded bytes into a string.
+fn decode_mac_roman(coded: &[u8]) -> String {
+    #[rustfmt::skip]
+    const TABLE: [char; 128] = [
+        'Ä', 'Å', 'Ç', 'É', 'Ñ', 'Ö', 'Ü', 'á', 'à', 'â', 'ä', 'ã', 'å', 'ç', 'é', 'è',
+        'ê', 'ë', 'í', 'ì', 'î', 'ï', 'ñ', 'ó', 'ò', 'ô', 'ö', 'õ', 'ú', 'ù', 'û', 'ü',
+        '†', '°', '¢', '£', '§', '•', '¶', 'ß', '®', '©', '™', '´', '¨', '≠', 'Æ', 'Ø',
+        '∞', '±', '≤', '≥', '¥', 'µ', '∂', '∑', '∏', 'π', '∫', 'ª', 'º', 'Ω', 'æ', 'ø',
+        '¿', '¡', '¬', '√', 'ƒ', '≈', '∆', '«', '»', '…', '\u{a0}', 'À', 'Ã', 'Õ', 'Œ', 'œ',
+        '–', '—', '“', '”', '‘', '’', '÷', '◊', 'ÿ', 'Ÿ', '⁄', '€', '‹', '›', 'ﬁ', 'ﬂ',
+        '‡', '·', '‚', '„', '‰', 'Â', 'Ê', 'Á', 'Ë', 'È', 'Í', 'Î', 'Ï', 'Ì', 'Ó', 'Ô',
+        '\u{f8ff}', 'Ò', 'Ú', 'Û', 'Ù', 'ı', 'ˆ', '˜', '¯', '˘', '˙', '˚', '¸', '˝', '˛', 'ˇ',
+    ];
+
+    fn char_from_mac_roman(code: u8) -> char {
+        if code < 128 {
+            code as char
+        } else {
+            TABLE[(code - 128) as usize]
+        }
+    }
+
+    coded.iter().copied().map(char_from_mac_roman).collect()
 }
 
 /// Trim style naming from a family name.
@@ -944,7 +971,7 @@ mod tests {
         test(&[0, 1], &[0, 2]);
         test(&[0, 1, 3], &[0, 2, 1, 1]);
         test(
-            // [2, 3, 4, 9, 10, 11, 15, 18, 19]
+            // {2, 3, 4, 9, 10, 11, 15, 18, 19}
             &[18, 19, 2, 4, 9, 11, 15, 3, 3, 10],
             &[2, 3, 4, 3, 3, 1, 2, 2],
         )

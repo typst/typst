@@ -25,7 +25,7 @@ impl Fraction {
         (self.0).0
     }
 
-    /// The absolute value of the this fraction.
+    /// The absolute value of this fraction.
     pub fn abs(self) -> Self {
         Self::new(self.get().abs())
     }

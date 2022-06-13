@@ -165,7 +165,7 @@ impl<const S: ShapeKind> Layout for ShapeNode<S> {
                 frame.prepend(pos, Element::Shape(shape));
             } else {
                 frame.prepend_multiple(
-                    Rect::new(size, radius)
+                    RoundedRect::new(size, radius)
                         .shapes(fill, stroke)
                         .into_iter()
                         .map(|x| (pos, Element::Shape(x))),

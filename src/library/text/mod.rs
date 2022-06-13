@@ -59,13 +59,13 @@ impl TextNode {
     /// The amount of space that should be added between characters.
     #[property(resolve)]
     pub const TRACKING: RawLength = RawLength::zero();
-    /// The width of spaces relative to the default space width.
+    /// The width of spaces relative to the font's space width.
     #[property(resolve)]
     pub const SPACING: Relative<RawLength> = Relative::one();
     /// The offset of the baseline.
     #[property(resolve)]
     pub const BASELINE: RawLength = RawLength::zero();
-    /// Whether glyphs can hang over into the margin.
+    /// Whether certain glyphs can hang over into the margin.
     pub const OVERHANG: bool = true;
     /// The top end of the text bounding box.
     pub const TOP_EDGE: TextEdge = TextEdge::Metric(VerticalFontMetric::CapHeight);
@@ -114,7 +114,7 @@ impl TextNode {
     /// Whether the font weight should be increased by 300.
     #[property(skip, fold)]
     pub const BOLD: Toggle = false;
-    /// Whether the the font style should be inverted.
+    /// Whether the font style should be inverted.
     #[property(skip, fold)]
     pub const ITALIC: Toggle = false;
     /// A case transformation that should be applied to the text.
@@ -123,7 +123,7 @@ impl TextNode {
     /// Whether small capital glyphs should be used. ("smcp")
     #[property(skip)]
     pub const SMALLCAPS: bool = false;
-    /// An URL the text should link to.
+    /// A destination the text should be linked to.
     #[property(skip, referenced)]
     pub const LINK: Option<Destination> = None;
     /// Decorative lines.
@@ -168,7 +168,7 @@ impl TextNode {
     }
 }
 
-/// A font family like "Arial".
+/// A lowercased font family like "arial".
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub struct FontFamily(EcoString);
 
@@ -338,7 +338,7 @@ impl Resolve for Smart<Hyphenate> {
 pub struct StylisticSet(u8);
 
 impl StylisticSet {
-    /// Creates a new set, clamping to 1-20.
+    /// Create a new set, clamping to 1-20.
     pub fn new(index: u8) -> Self {
         Self(index.clamp(1, 20))
     }
@@ -363,7 +363,7 @@ castable! {
 pub enum NumberType {
     /// Numbers that fit well with capital text. ("lnum")
     Lining,
-    /// Numbers that fit well into flow of upper- and lowercase text. ("onum")
+    /// Numbers that fit well into a flow of upper- and lowercase text. ("onum")
     OldStyle,
 }
 
@@ -396,28 +396,6 @@ castable! {
     },
 }
 
-/// How to position numbers.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum NumberPosition {
-    /// Numbers are positioned on the same baseline as text.
-    Normal,
-    /// Numbers are smaller and placed at the bottom. ("subs")
-    Subscript,
-    /// Numbers are smaller and placed at the top. ("sups")
-    Superscript,
-}
-
-castable! {
-    NumberPosition,
-    Expected: "string",
-    Value::Str(string) => match string.as_str() {
-        "normal" => Self::Normal,
-        "subscript" => Self::Subscript,
-        "superscript" => Self::Superscript,
-        _ => Err(r#"expected "normal", "subscript" or "superscript""#)?,
-    },
-}
-
 castable! {
     Vec<(Tag, u32)>,
     Expected: "array of strings or dictionary mapping tags to integers",
@@ -445,12 +423,12 @@ impl Fold for Vec<(Tag, u32)> {
     }
 }
 
-/// Convert text to lowercase.
+/// Convert a string or content to lowercase.
 pub fn lower(_: &mut Machine, args: &mut Args) -> TypResult<Value> {
     case(Case::Lower, args)
 }
 
-/// Convert text to uppercase.
+/// Convert a string or content to uppercase.
 pub fn upper(_: &mut Machine, args: &mut Args) -> TypResult<Value> {
     case(Case::Upper, args)
 }
@@ -475,7 +453,7 @@ pub enum Case {
 }
 
 impl Case {
-    /// Apply the case to a string of text.
+    /// Apply the case to a string.
     pub fn apply(self, text: &str) -> String {
         match self {
             Self::Upper => text.to_uppercase(),

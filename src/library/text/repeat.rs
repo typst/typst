@@ -1,6 +1,6 @@
 use crate::library::prelude::*;
 
-/// Fill space by repeating something horizontally.
+/// A node that should be repeated to fill up a line.
 #[derive(Debug, Hash)]
 pub struct RepeatNode(pub LayoutNode);
 

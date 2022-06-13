@@ -67,7 +67,7 @@ pub enum TrackSizing {
 
 castable! {
     Vec<TrackSizing>,
-    Expected: "integer, auto, relative length, fraction, or array of the latter three)",
+    Expected: "integer, auto, relative length, fraction, or array of the latter three",
     Value::Auto => vec![TrackSizing::Auto],
     Value::Length(v) => vec![TrackSizing::Relative(v.into())],
     Value::Ratio(v) => vec![TrackSizing::Relative(v.into())],

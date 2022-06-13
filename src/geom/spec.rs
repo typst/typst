@@ -26,7 +26,7 @@ impl<T> Spec<T> {
         Self { x: v.clone(), y: v }
     }
 
-    /// Maps the individual fields with `f`.
+    /// Map the individual fields with `f`.
     pub fn map<F, U>(self, mut f: F) -> Spec<U>
     where
         F: FnMut(T) -> U,

@@ -4,13 +4,15 @@ use std::mem;
 
 /// A rectangle with rounded corners.
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub struct Rect {
-    size: Size,
-    radius: Sides<Length>,
+pub struct RoundedRect {
+    /// The size of the rectangle.
+    pub size: Size,
+    /// The radius at each side.
+    pub radius: Sides<Length>,
 }
 
-impl Rect {
-    /// Create a new rectangle.
+impl RoundedRect {
+    /// Create a new rounded rectangle.
     pub fn new(size: Size, radius: Sides<Length>) -> Self {
         Self { size, radius }
     }
@@ -55,7 +57,6 @@ impl Rect {
         } else {
             let mut paths = self.stroke_segments(Sides::splat(None));
             assert_eq!(paths.len(), 1);
-
             Geometry::Path(paths.pop().unwrap().0)
         }
     }
@@ -103,7 +104,7 @@ impl Rect {
 }
 
 /// Draws one side of the rounded rectangle. Will always draw the left arc. The
-/// right arc will be drawn halfway iff there is no connection.
+/// right arc will be drawn halfway if and only if there is no connection.
 fn draw_side(
     path: &mut Path,
     side: Side,
@@ -114,7 +115,6 @@ fn draw_side(
 ) {
     let angle_left = Angle::deg(if connection.prev { 90.0 } else { 45.0 });
     let angle_right = Angle::deg(if connection.next { 90.0 } else { 45.0 });
-
     let length = size.get(side.axis());
 
     // The arcs for a border of the rectangle along the x-axis, starting at (0,0).
@@ -166,9 +166,9 @@ fn draw_side(
     }
 }
 
-/// A state machine that indicates which sides of the border strokes in a 2D
-/// polygon are connected to their neighboring sides.
-#[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
+/// Indicates which sides of the border strokes in a 2D polygon are connected to
+/// their neighboring sides.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
 struct Connection {
     prev: bool,
     next: bool,

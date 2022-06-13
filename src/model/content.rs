@@ -154,7 +154,7 @@ impl Content {
         Self::Show(node.pack(), None)
     }
 
-    /// Create a new sequence nodes from multiples nodes.
+    /// Create a new sequence node from multiples nodes.
     pub fn sequence(seq: Vec<Self>) -> Self {
         match seq.as_slice() {
             [] => Self::Empty,
@@ -204,7 +204,7 @@ impl Content {
         Self::Styled(Arc::new((self, styles)))
     }
 
-    /// Assign a role to this content by adding a style map.
+    /// Assign a semantic role to this content.
     pub fn role(self, role: Role) -> Self {
         self.styled_with_entry(StyleEntry::Role(role))
     }

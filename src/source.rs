@@ -107,7 +107,7 @@ impl SourceStore {
             return id;
         }
 
-        // No existing file yet.
+        // No existing file yet, so we allocate a new id.
         let id = SourceId(self.sources.len() as u16);
         self.sources.push(SourceFile::new(id, path, src));
 
@@ -166,8 +166,9 @@ pub struct SourceFile {
 impl SourceFile {
     /// Create a new source file.
     pub fn new(id: SourceId, path: &Path, src: String) -> Self {
-        let mut lines = vec![Line { byte_idx: 0, utf16_idx: 0 }];
-        lines.extend(Line::iter(0, 0, &src));
+        let lines = std::iter::once(Line { byte_idx: 0, utf16_idx: 0 })
+            .chain(lines(0, 0, &src))
+            .collect();
 
         let mut root = parse(&src);
         root.numberize(id, Span::FULL).unwrap();
@@ -242,7 +243,7 @@ impl SourceFile {
     pub fn replace(&mut self, src: String) {
         self.src = src;
         self.lines = vec![Line { byte_idx: 0, utf16_idx: 0 }];
-        self.lines.extend(Line::iter(0, 0, &self.src));
+        self.lines.extend(lines(0, 0, &self.src));
         self.root = parse(&self.src);
         self.root.numberize(self.id(), Span::FULL).unwrap();
         self.rev = self.rev.wrapping_add(1);
@@ -271,22 +272,19 @@ impl SourceFile {
         }
 
         // Recalculate the line starts after the edit.
-        self.lines.extend(Line::iter(
-            start_byte,
-            start_utf16,
-            &self.src[start_byte ..],
-        ));
+        self.lines
+            .extend(lines(start_byte, start_utf16, &self.src[start_byte ..]));
 
         // Incrementally reparse the replaced range.
         reparse(&mut self.root, &self.src, replace, with.len())
     }
 
-    /// Get the length of the file in bytes.
+    /// Get the length of the file in UTF-8 encoded bytes.
     pub fn len_bytes(&self) -> usize {
         self.src.len()
     }
 
-    /// Get the length of the file in UTF16 code units.
+    /// Get the length of the file in UTF-16 code units.
     pub fn len_utf16(&self) -> usize {
         let last = self.lines.last().unwrap();
         last.utf16_idx + self.src[last.byte_idx ..].len_utf16()
@@ -396,56 +394,48 @@ struct Line {
     utf16_idx: usize,
 }
 
-impl Line {
-    /// Iterate over the lines in the string.
-    fn iter(
-        byte_offset: usize,
-        utf16_offset: usize,
-        string: &str,
-    ) -> impl Iterator<Item = Line> + '_ {
-        let mut s = Scanner::new(string);
-        let mut utf16_idx = utf16_offset;
+/// Iterate over the lines in the string.
+fn lines(
+    byte_offset: usize,
+    utf16_offset: usize,
+    string: &str,
+) -> impl Iterator<Item = Line> + '_ {
+    let mut s = Scanner::new(string);
+    let mut utf16_idx = utf16_offset;
 
-        std::iter::from_fn(move || {
-            s.eat_until(|c: char| {
-                utf16_idx += c.len_utf16();
-                is_newline(c)
-            });
+    std::iter::from_fn(move || {
+        s.eat_until(|c: char| {
+            utf16_idx += c.len_utf16();
+            is_newline(c)
+        });
 
-            if s.done() {
-                return None;
-            }
+        if s.done() {
+            return None;
+        }
 
-            if s.eat() == Some('\r') && s.eat_if('\n') {
-                utf16_idx += 1;
-            }
+        if s.eat() == Some('\r') && s.eat_if('\n') {
+            utf16_idx += 1;
+        }
 
-            Some(Line {
-                byte_idx: byte_offset + s.cursor(),
-                utf16_idx,
-            })
+        Some(Line {
+            byte_idx: byte_offset + s.cursor(),
+            utf16_idx,
         })
-    }
-}
-
-impl AsRef<str> for SourceFile {
-    fn as_ref(&self) -> &str {
-        &self.src
-    }
+    })
 }
 
 #[cfg(feature = "codespan-reporting")]
 impl<'a> Files<'a> for SourceStore {
     type FileId = SourceId;
     type Name = std::path::Display<'a>;
-    type Source = &'a SourceFile;
+    type Source = &'a str;
 
     fn name(&'a self, id: SourceId) -> Result<Self::Name, files::Error> {
         Ok(self.get(id).path().display())
     }
 
     fn source(&'a self, id: SourceId) -> Result<Self::Source, files::Error> {
-        Ok(self.get(id))
+        Ok(self.get(id).src())
     }
 
     fn line_index(&'a self, id: SourceId, given: usize) -> Result<usize, files::Error> {
@@ -571,6 +561,7 @@ mod tests {
             let result = SourceFile::detached(after);
             source.edit(range, with);
             assert_eq!(source.src, result.src);
+            assert_eq!(source.root, result.root);
             assert_eq!(source.lines, result.lines);
         }
 

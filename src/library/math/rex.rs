@@ -34,7 +34,7 @@ impl Layout for RexNode {
             .ok_or("failed to find math font")
             .at(span)?;
 
-        // Prepare the font.
+        // Prepare the font context.
         let face = ctx.fonts.get(face_id);
         let ctx = face
             .math()

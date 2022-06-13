@@ -14,7 +14,7 @@ thread_local! {
 /// A map from hashes to cache entries.
 type Cache = HashMap<u64, CacheEntry>;
 
-/// Access the cache.
+/// Access the cache mutably.
 fn with<F, R>(f: F) -> R
 where
     F: FnOnce(&mut Cache) -> R,
@@ -24,7 +24,8 @@ where
 
 /// An entry in the cache.
 struct CacheEntry {
-    /// The memoized function's result plus constraints on the input.
+    /// The memoized function's result plus constraints on the input in the form
+    /// `(O, I::Contrast)`.
     data: Box<dyn Any>,
     /// How many evictions have passed since the entry has been last used.
     age: usize,
@@ -32,9 +33,9 @@ struct CacheEntry {
 
 /// Execute a memoized function call.
 ///
-/// This hashes all inputs to the function and then either returns a cached
-/// version from the thread-local cache or executes the function and saves a
-/// copy of the results in the cache.
+/// This [tracks](Track) all inputs to the function and then either returns a
+/// cached version from the thread-local cache or executes the function and
+/// saves a copy of the results in the cache.
 ///
 /// Note that `f` must be a pure function.
 pub fn memoized<I, O>(input: I, f: fn(input: I) -> (O, I::Constraint)) -> O
@@ -48,7 +49,7 @@ where
 /// Execute a function and then call another function with a reference to the
 /// result.
 ///
-/// This hashes all inputs to the function and then either
+/// This [tracks](Track) all inputs to the function and then either
 /// - calls `g` with a cached version from the thread-local cache,
 /// - or executes `f`, calls `g` with the fresh version and saves the result in
 ///   the cache.

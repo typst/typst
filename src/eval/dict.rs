@@ -46,7 +46,7 @@ impl Dict {
     }
 
     /// Borrow the value the given `key` maps to.
-    pub fn get(&self, key: &EcoString) -> StrResult<&Value> {
+    pub fn get(&self, key: &str) -> StrResult<&Value> {
         self.0.get(key).ok_or_else(|| missing_key(key))
     }
 
@@ -59,7 +59,7 @@ impl Dict {
     }
 
     /// Whether the dictionary contains a specific key.
-    pub fn contains(&self, key: &EcoString) -> bool {
+    pub fn contains(&self, key: &str) -> bool {
         self.0.contains_key(key)
     }
 
@@ -69,7 +69,7 @@ impl Dict {
     }
 
     /// Remove a mapping by `key`.
-    pub fn remove(&mut self, key: &EcoString) -> StrResult<()> {
+    pub fn remove(&mut self, key: &str) -> StrResult<()> {
         match Arc::make_mut(&mut self.0).remove(key) {
             Some(_) => Ok(()),
             None => Err(missing_key(key)),
@@ -87,12 +87,12 @@ impl Dict {
 
     /// Return the keys of the dictionary as an array.
     pub fn keys(&self) -> Array {
-        self.iter().map(|(key, _)| Value::Str(key.clone())).collect()
+        self.0.keys().cloned().map(Value::Str).collect()
     }
 
     /// Return the values of the dictionary as an array.
     pub fn values(&self) -> Array {
-        self.iter().map(|(_, value)| value.clone()).collect()
+        self.0.values().cloned().collect()
     }
 
     /// Transform each pair in the array with a function.
@@ -114,8 +114,8 @@ impl Dict {
 
 /// The missing key access error message.
 #[cold]
-fn missing_key(key: &EcoString) -> String {
-    format!("dictionary does not contain key {:?}", key)
+fn missing_key(key: &str) -> String {
+    format!("dictionary does not contain key {:?}", EcoString::from(key))
 }
 
 impl Debug for Dict {

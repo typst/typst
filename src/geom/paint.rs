@@ -79,7 +79,7 @@ impl Debug for Color {
     }
 }
 
-/// An 8-bit Luma color.
+/// An 8-bit grayscale color.
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct LumaColor(pub u8);
 

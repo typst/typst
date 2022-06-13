@@ -45,14 +45,9 @@ impl StrExt for EcoString {
 pub struct Regex(regex::Regex);
 
 impl Regex {
-    /// Create a new regex.
+    /// Create a new regular expression.
     pub fn new(re: &str) -> StrResult<Self> {
         regex::Regex::new(re).map(Self).map_err(|err| err.to_string())
-    }
-
-    /// Whether the regex matches the given `text`.
-    pub fn matches(&self, text: &str) -> bool {
-        self.0.is_match(text)
     }
 }
 

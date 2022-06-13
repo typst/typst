@@ -107,6 +107,8 @@ impl<const T: TransformKind> Layout for TransformNode<T> {
 }
 
 /// Kinds of transformations.
+///
+/// The move transformation is handled separately.
 pub type TransformKind = usize;
 
 /// A rotational transformation.

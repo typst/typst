@@ -19,12 +19,9 @@ impl Layout for HideNode {
         styles: StyleChain,
     ) -> TypResult<Vec<Frame>> {
         let mut frames = self.0.layout(ctx, regions, styles)?;
-
-        // Clear the frames.
         for frame in &mut frames {
             frame.clear();
         }
-
         Ok(frames)
     }
 }

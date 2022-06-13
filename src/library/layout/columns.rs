@@ -58,10 +58,10 @@ impl Layout for ColumnsNode {
 
         // Layout the children.
         let mut frames = self.child.layout(ctx, &pod, styles)?.into_iter();
+        let mut finished = vec![];
 
         let dir = styles.get(TextNode::DIR);
         let total_regions = (frames.len() as f32 / columns as f32).ceil() as usize;
-        let mut finished = vec![];
 
         // Stitch together the columns for each region.
         for region in regions.iter().take(total_regions) {

@@ -39,9 +39,8 @@ impl Layout for PlaceNode {
 
         // If expansion is off, zero all sizes so that we don't take up any
         // space in our parent. Otherwise, respect the expand settings.
-        let frame = &mut frames[0];
         let target = regions.expand.select(regions.first, Size::zero());
-        frame.resize(target, Align::LEFT_TOP);
+        frames[0].resize(target, Align::LEFT_TOP);
 
         Ok(frames)
     }

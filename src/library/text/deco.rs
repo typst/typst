@@ -20,8 +20,8 @@ pub type OverlineNode = DecoNode<OVERLINE>;
 
 #[node(showable)]
 impl<const L: DecoLine> DecoNode<L> {
-    /// How to stroke the line. The text color and thickness read from the font
-    /// tables if `auto`.
+    /// How to stroke the line. The text color and thickness are read from the
+    /// font tables if `auto`.
     #[property(shorthand, resolve, fold)]
     pub const STROKE: Smart<RawStroke> = Smart::Auto;
     /// Position of the line relative to the baseline, read from the font tables

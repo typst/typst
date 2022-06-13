@@ -1,6 +1,7 @@
 use std::cell::Cell;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
+use std::num::NonZeroUsize;
 use std::sync::Arc;
 
 use super::Content;
@@ -55,7 +56,7 @@ impl LocateNode {
         Self(Arc::new(Repr::Entry(EntryNode { group, recipe, value })))
     }
 
-    /// Create a new node with access to a group's members.
+    /// Create a new node with access to all of a group's members.
     pub fn all(group: Group, recipe: Spanned<Func>) -> Self {
         Self(Arc::new(Repr::All(AllNode { group, recipe })))
     }
@@ -278,7 +279,7 @@ impl PinBoard {
             locate_in_frame(
                 &mut self.list,
                 &mut flow,
-                1 + i,
+                NonZeroUsize::new(1 + i).unwrap(),
                 frame,
                 Transform::identity(),
             );
@@ -295,7 +296,7 @@ impl PinBoard {
 fn locate_in_frame(
     pins: &mut [Pin],
     flow: &mut usize,
-    page: usize,
+    page: NonZeroUsize,
     frame: &Frame,
     ts: Transform,
 ) {
@@ -384,7 +385,10 @@ impl Pin {
 impl Default for Pin {
     fn default() -> Self {
         Self {
-            loc: Location { page: 0, pos: Point::zero() },
+            loc: Location {
+                page: NonZeroUsize::new(1).unwrap(),
+                pos: Point::zero(),
+            },
             flow: 0,
             group: None,
             value: None,

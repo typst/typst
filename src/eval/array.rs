@@ -137,7 +137,7 @@ impl Array {
     }
 
     /// Return a new array with only those elements for which the function
-    /// return true.
+    /// returns true.
     pub fn filter(&self, vm: &mut Machine, f: Spanned<Func>) -> TypResult<Self> {
         let mut kept = vec![];
         for item in self.iter() {
@@ -154,7 +154,7 @@ impl Array {
 
     /// Return a new array with all items from this and nested arrays.
     pub fn flatten(&self) -> Self {
-        let mut flat = vec![];
+        let mut flat = Vec::with_capacity(self.0.len());
         for item in self.iter() {
             if let Value::Array(nested) = item {
                 flat.extend(nested.flatten().into_iter());

@@ -28,7 +28,7 @@ pub enum Value {
     Int(i64),
     /// A floating-point number: `1.2`, `10e-4`.
     Float(f64),
-    /// A length: `12pt`, `3cm`.
+    /// A length: `12pt`, `3cm`, `1.5em`.
     Length(RawLength),
     /// An angle: `1.5rad`, `90deg`.
     Angle(Angle),
@@ -532,10 +532,9 @@ impl<T: Cast> Cast for Option<T> {
 /// A value that can be automatically determined.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum Smart<T> {
-    /// The value should be determined smartly based on the
-    /// circumstances.
+    /// The value should be determined smartly based on the circumstances.
     Auto,
-    /// A forced, specific value.
+    /// A specific value.
     Custom(T),
 }
 
@@ -629,23 +628,23 @@ where
                 }
 
                 let sides = Sides {
-                    left: dict.get(&"left".into()).or_else(|_| dict.get(&"x".into())),
-                    top: dict.get(&"top".into()).or_else(|_| dict.get(&"y".into())),
-                    right: dict.get(&"right".into()).or_else(|_| dict.get(&"x".into())),
-                    bottom: dict.get(&"bottom".into()).or_else(|_| dict.get(&"y".into())),
-                }
-                .map(|side| {
-                    side.or_else(|_| dict.get(&"rest".into()))
-                        .and_then(|v| T::cast(v.clone()))
-                        .unwrap_or_default()
-                });
+                    left: dict.get("left").or(dict.get("x")),
+                    top: dict.get("top").or(dict.get("y")),
+                    right: dict.get("right").or(dict.get("x")),
+                    bottom: dict.get("bottom").or(dict.get("y")),
+                };
 
-                Ok(sides)
+                Ok(sides.map(|side| {
+                    side.or(dict.get("rest"))
+                        .cloned()
+                        .and_then(T::cast)
+                        .unwrap_or_default()
+                }))
             }
             v => T::cast(v).map(Sides::splat).map_err(|msg| {
                 with_alternative(
                     msg,
-                    "dictionary with any of `left`, `top`, `right`, `bottom`,\
+                    "dictionary with any of `left`, `top`, `right`, `bottom`, \
                      `x`, `y`, or `rest` as keys",
                 )
             }),

@@ -116,7 +116,7 @@ fn process_const(
 ) -> Result<(Property, syn::ItemMod)> {
     let property = parse_property(item)?;
 
-    // The display name, e.g. `TextNode::STRONG`.
+    // The display name, e.g. `TextNode::BOLD`.
     let name = format!("{}::{}", self_name, &item.ident);
 
     // The type of the property's value is what the user of our macro wrote
@@ -134,7 +134,7 @@ fn process_const(
         value_ty.clone()
     };
 
-    // ... but the real type of the const becomes this..
+    // ... but the real type of the const becomes this ...
     let key = quote! { Key<#value_ty, #self_args> };
     let phantom_args = self_args.iter().filter(|arg| match arg {
         syn::GenericArgument::Type(syn::Type::Path(path)) => {
@@ -148,9 +148,11 @@ fn process_const(
 
     let default = &item.expr;
 
-    // Ensure that the type is either `Copy` or that the property is referenced
-    // or that the property isn't copy but can't be referenced because it needs
-    // folding.
+    // Ensure that the type is
+    // - either `Copy`, or
+    // - that the property is referenced, or
+    // - that the property isn't copy but can't be referenced because it needs
+    //   folding.
     let get;
     let mut copy = None;
 

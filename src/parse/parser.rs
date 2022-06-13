@@ -24,7 +24,7 @@ pub struct Parser<'s> {
     children: Vec<SyntaxNode>,
     /// Whether the last group was not correctly terminated.
     unterminated_group: bool,
-    /// Whether a group terminator was found, that did not close a group.
+    /// Whether a group terminator was found that did not close a group.
     stray_terminator: bool,
 }
 
@@ -58,9 +58,10 @@ impl<'s> Parser<'s> {
         self.children
     }
 
-    /// End the parsing process and return the parsed children and whether the
-    /// last token was terminated if all groups were terminated correctly or
-    /// `None` otherwise.
+    /// End the parsing process and return
+    /// - the parsed children and whether the last token was terminated, if all
+    ///   groups were terminated correctly, or
+    /// - `None` otherwise.
     pub fn consume(self) -> Option<(Vec<SyntaxNode>, bool)> {
         self.terminated().then(|| (self.children, self.tokens.terminated()))
     }
@@ -131,7 +132,7 @@ impl<'s> Parser<'s> {
         self.repeek();
     }
 
-    /// Eat if the current token it is the given one.
+    /// Consume the current token if it is the given one.
     pub fn eat_if(&mut self, kind: NodeKind) -> bool {
         let at = self.at(kind);
         if at {
@@ -150,7 +151,8 @@ impl<'s> Parser<'s> {
         }
     }
 
-    /// Eat if the current token is the given one and produce an error if not.
+    /// Consume the current token if it is the given one and produce an error if
+    /// not.
     pub fn expect(&mut self, kind: NodeKind) -> ParseResult {
         let at = self.peek() == Some(&kind);
         if at {
@@ -162,7 +164,7 @@ impl<'s> Parser<'s> {
         }
     }
 
-    /// Eat, debug-asserting that the token is the given one.
+    /// Consume the current token, debug-asserting that it is the given one.
     #[track_caller]
     pub fn assert(&mut self, kind: NodeKind) {
         debug_assert_eq!(self.peek(), Some(&kind));
@@ -179,8 +181,8 @@ impl<'s> Parser<'s> {
         if self.eof { None } else { self.current.as_ref() }
     }
 
-    /// Peek at the current token, if it follows immediately after the last one
-    /// without any trivia in between.
+    /// Peek at the current token, but only if it follows immediately after the
+    /// last one without any trivia in between.
     pub fn peek_direct(&self) -> Option<&NodeKind> {
         if self.prev_end() == self.current_start() {
             self.peek()
@@ -267,9 +269,9 @@ impl<'s> Parser<'s> {
             Group::Imports => None,
         } {
             if self.current.as_ref() == Some(&end) {
-                // If another group closes after a group with the missing terminator,
-                // its scope of influence ends here and no longer taints the rest of the
-                // reparse.
+                // If another group closes after a group with the missing
+                // terminator, its scope of influence ends here and no longer
+                // taints the rest of the reparse.
                 self.unterminated_group = false;
 
                 // Bump the delimeter and return. No need to rescan in this
@@ -330,7 +332,7 @@ impl<'s> Parser<'s> {
             Some(NodeKind::Underscore) => self.inside(Group::Emph),
             Some(NodeKind::Semicolon) => self.inside(Group::Expr),
             Some(NodeKind::From) => self.inside(Group::Imports),
-            Some(NodeKind::Space(n)) => self.space_ends_group(*n),
+            Some(NodeKind::Space { newlines }) => self.space_ends_group(*newlines),
             Some(_) => false,
             None => true,
         };
@@ -339,7 +341,7 @@ impl<'s> Parser<'s> {
     /// Returns whether the given type can be skipped over.
     fn is_trivia(&self, token: &NodeKind) -> bool {
         match token {
-            NodeKind::Space(n) => !self.space_ends_group(*n),
+            NodeKind::Space { newlines } => !self.space_ends_group(*newlines),
             NodeKind::LineComment => true,
             NodeKind::BlockComment => true,
             _ => false,
@@ -491,8 +493,8 @@ impl Marker {
 /// A logical group of tokens, e.g. `[...]`.
 #[derive(Debug)]
 struct GroupEntry {
-    /// The kind of group this is. This decides which tokens will end the group.
-    /// For example, a [`Group::Paren`] will be ended by
+    /// The kind of group this is. This decides which token(s) will end the
+    /// group. For example, a [`Group::Paren`] will be ended by
     /// [`Token::RightParen`].
     pub kind: Group,
     /// The mode the parser was in _before_ the group started (to which we go

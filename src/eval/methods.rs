@@ -72,7 +72,7 @@ pub fn call(
         Value::Dyn(dynamic) => match method {
             "matches" => {
                 if let Some(regex) = dynamic.downcast::<Regex>() {
-                    Value::Bool(regex.matches(&args.expect::<EcoString>("text")?))
+                    Value::Bool(regex.is_match(&args.expect::<EcoString>("text")?))
                 } else {
                     missing()?
                 }
@@ -125,7 +125,7 @@ pub fn call_mut(
         },
 
         Value::Dict(dict) => match method {
-            "remove" => dict.remove(&args.expect("key")?).at(span)?,
+            "remove" => dict.remove(&args.expect::<EcoString>("key")?).at(span)?,
             _ => missing()?,
         },
 

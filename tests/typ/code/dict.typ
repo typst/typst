@@ -8,11 +8,11 @@
 {(:)}
 
 // Two pairs and string key.
-#let dict = (normal: 1, "spaced key": 2)
+#let dict = (normal: 1, "spacy key": 2)
 #dict
 
 #test(dict.normal, 1)
-#test(dict("spaced key"), 2)
+#test(dict("spacy key"), 2)
 
 ---
 // Test lvalue and rvalue access.

@@ -105,7 +105,7 @@ impl Func {
         self.call(&mut vm, args)
     }
 
-    /// Execute the function's set rule.
+    /// Execute the function's set rule and return the resulting style map.
     pub fn set(&self, mut args: Args) -> TypResult<StyleMap> {
         let styles = match self.0.as_ref() {
             Repr::Native(Native { set: Some(set), .. }) => set(&mut args)?,
@@ -139,7 +139,7 @@ impl PartialEq for Func {
     }
 }
 
-/// A native rust function.
+/// A function defined by a native rust function or node.
 struct Native {
     /// The name of the function.
     pub name: &'static str,
@@ -171,17 +171,17 @@ pub trait Node: 'static {
     /// node's set rule.
     fn construct(vm: &mut Machine, args: &mut Args) -> TypResult<Content>;
 
-    /// Parse the arguments into style properties for this node.
+    /// Parse relevant arguments into style properties for this node.
     ///
     /// When `constructor` is true, [`construct`](Self::construct) will run
-    /// after this invocation of `set`.
+    /// after this invocation of `set` with the remaining arguments.
     fn set(args: &mut Args, constructor: bool) -> TypResult<StyleMap>;
 }
 
 /// A user-defined closure.
 #[derive(Hash)]
 pub struct Closure {
-    /// The location where the closure was defined.
+    /// The source file where the closure was defined.
     pub location: Option<SourceId>,
     /// The name of the closure.
     pub name: Option<EcoString>,
@@ -199,8 +199,8 @@ pub struct Closure {
 impl Closure {
     /// Call the function in the context with the arguments.
     pub fn call(&self, vm: &mut Machine, args: &mut Args) -> TypResult<Value> {
-        // Don't leak the scopes from the call site. Instead, we use the
-        // scope of captured variables we collected earlier.
+        // Don't leak the scopes from the call site. Instead, we use the scope
+        // of captured variables we collected earlier.
         let mut scopes = Scopes::new(None);
         scopes.top = self.captured.clone();
 

@@ -216,7 +216,7 @@ impl StyleEntry {
         }
     }
 
-    /// The highest-level kind of of structure the entry interrupts.
+    /// The highest-level kind of structure the entry interrupts.
     pub fn interruption(&self) -> Option<Interruption> {
         match self {
             Self::Property(property) => property.interruption(),
@@ -328,7 +328,7 @@ impl<'a> StyleChain<'a> {
         Ok(realized)
     }
 
-    /// Retrieve the current role
+    /// Retrieve the current role.
     pub fn role(self) -> Option<Role> {
         let mut depth = 0;
 
@@ -522,6 +522,15 @@ impl<T> StyleVec<T> {
         }
     }
 
+    /// Iterate over references to the contained items and associated style maps.
+    pub fn iter(&self) -> impl Iterator<Item = (&T, &StyleMap)> + '_ {
+        self.items().zip(
+            self.maps
+                .iter()
+                .flat_map(|(map, count)| iter::repeat(map).take(*count)),
+        )
+    }
+
     /// Iterate over the contained items.
     pub fn items(&self) -> std::slice::Iter<'_, T> {
         self.items.iter()
@@ -534,15 +543,6 @@ impl<T> StyleVec<T> {
     /// any of the maps fulfills a specific property.
     pub fn styles(&self) -> impl Iterator<Item = &StyleMap> {
         self.maps.iter().map(|(map, _)| map)
-    }
-
-    /// Iterate over references to the contained items and associated style maps.
-    pub fn iter(&self) -> impl Iterator<Item = (&T, &StyleMap)> + '_ {
-        self.items().zip(
-            self.maps
-                .iter()
-                .flat_map(|(map, count)| iter::repeat(map).take(*count)),
-        )
     }
 }
 

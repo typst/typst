@@ -54,15 +54,15 @@ macro_rules! node {
 
 node! {
     /// The syntactical root capable of representing a full parsed document.
-    Markup: NodeKind::Markup(_)
+    Markup: NodeKind::Markup { .. }
 }
 
 impl Markup {
     /// The markup nodes.
     pub fn nodes(&self) -> impl Iterator<Item = MarkupNode> + '_ {
         self.0.children().filter_map(|node| match node.kind() {
-            NodeKind::Space(2 ..) => Some(MarkupNode::Parbreak),
-            NodeKind::Space(_) => Some(MarkupNode::Space),
+            NodeKind::Space { newlines: (2 ..) } => Some(MarkupNode::Parbreak),
+            NodeKind::Space { .. } => Some(MarkupNode::Space),
             &NodeKind::Linebreak { justified } => {
                 Some(MarkupNode::Linebreak { justified })
             }
@@ -159,7 +159,7 @@ pub struct RawNode {
     pub block: bool,
 }
 
-/// A math formula: `$a^2 + b^2 = c^2$`.
+/// A math formula: `$x$`, `$[x^2]$`.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub struct MathNode {
     /// The formula between the dollars / brackets.
@@ -514,7 +514,7 @@ impl DictExpr {
 pub enum DictItem {
     /// A named pair: `thickness: 3pt`.
     Named(Named),
-    /// A keyed pair: `"spaced key": true`.
+    /// A keyed pair: `"spacy key": true`.
     Keyed(Keyed),
     /// A spreaded value: `..things`.
     Spread(Expr),
@@ -557,12 +557,12 @@ impl Named {
 }
 
 node! {
-    /// A pair of a string key and an expression: `"spaced key": true`.
+    /// A pair of a string key and an expression: `"spacy key": true`.
     Keyed
 }
 
 impl Keyed {
-    /// The key: `"spaced key"`.
+    /// The key: `"spacy key"`.
     pub fn key(&self) -> EcoString {
         self.0
             .children()
@@ -593,7 +593,7 @@ impl UnaryExpr {
             .expect("unary expression is missing operator")
     }
 
-    /// The expression to operator on: `x`.
+    /// The expression to operate on: `x`.
     pub fn expr(&self) -> Expr {
         self.0.cast_last_child().expect("unary expression is missing child")
     }
@@ -1010,9 +1010,10 @@ impl LetExpr {
     /// The expression the binding is initialized with.
     pub fn init(&self) -> Option<Expr> {
         if self.0.cast_first_child::<Ident>().is_some() {
+            // This is a normal binding like `let x = 1`.
             self.0.children().filter_map(SyntaxNode::cast).nth(1)
         } else {
-            // This is a let .. with expression.
+            // This is a closure binding like `let f(x) = 1`.
             self.0.cast_first_child()
         }
     }
@@ -1187,7 +1188,7 @@ impl ImportExpr {
             .expect("import is missing items")
     }
 
-    /// The location of the importable file.
+    /// The path to the file that should be imported.
     pub fn path(&self) -> Expr {
         self.0.cast_last_child().expect("import is missing path")
     }
@@ -1208,7 +1209,7 @@ node! {
 }
 
 impl IncludeExpr {
-    /// The location of the file to be included.
+    /// The path to the file that should be included.
     pub fn path(&self) -> Expr {
         self.0.cast_last_child().expect("include is missing path")
     }
@@ -1225,7 +1226,7 @@ node! {
 }
 
 node! {
-    /// A return expression: `return x + 1`.
+    /// A return expression: `return`, `return x + 1`.
     ReturnExpr
 }
 

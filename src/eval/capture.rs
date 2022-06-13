@@ -43,8 +43,8 @@ impl<'a> CapturesVisitor<'a> {
         match node.cast() {
             // Every identifier is a potential variable that we need to capture.
             // Identifiers that shouldn't count as captures because they
-            // actually bind a new name are handled further below (individually
-            // through the expressions that contain them).
+            // actually bind a new name are handled below (individually through
+            // the expressions that contain them).
             Some(Expr::Ident(ident)) => self.capture(ident),
 
             // Code and content blocks create a scope.
@@ -179,7 +179,7 @@ mod tests {
         test("#import x, y from z", &["z"]);
         test("#import x, y, z from x + y", &["x", "y"]);
 
-        // Scoping.
+        // Blocks.
         test("{ let x = 1; { let y = 2; y }; x + y }", &["y"]);
         test("[#let x = 1]#x", &["x"]);
     }

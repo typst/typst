@@ -18,7 +18,7 @@ pub struct Property {
     pub key: KeyId,
     /// The id of the node the property belongs to.
     pub node: NodeId,
-    /// Whether the property should only affects the first node down the
+    /// Whether the property should only affect the first node down the
     /// hierarchy. Used by constructors.
     pub scoped: bool,
     /// The property's value.
@@ -143,10 +143,10 @@ pub trait Key<'a>: Copy + 'static {
     /// The name of the property, used for debug printing.
     const NAME: &'static str;
 
-    /// The ids of the key and of the node the key belongs to.
+    /// The id of the node the key belongs to.
     fn node() -> NodeId;
 
-    /// Compute an output value from a sequence of values belong to this key,
+    /// Compute an output value from a sequence of values belonging to this key,
     /// folding if necessary.
     fn get(
         chain: StyleChain<'a>,
