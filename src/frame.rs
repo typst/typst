@@ -176,7 +176,7 @@ impl Frame {
             return;
         }
 
-        // Try to copy the elements without adjusting the positioned.
+        // Try to copy the elements without adjusting the position.
         // Also try to reuse the elements if the Arc isn't shared.
         let range = layer .. layer;
         if pos.is_zero() {

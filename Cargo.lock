@@ -321,7 +321,7 @@ checksum = "349d5a591cd28b49e1d1037471617a32ddcda5731b99419008085f72d5a53836"
 [[package]]
 name = "lipsum"
 version = "0.8.2"
-source = "git+https://github.com/reknih/lipsum#d6d8f2cba12f8dee8c8ed4af62858cdb061c0801"
+source = "git+https://github.com/reknih/lipsum#025427353ab32268daa3d96feda380a96db529c5"
 dependencies = [
  "rand",
  "rand_chacha",

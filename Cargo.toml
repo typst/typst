@@ -16,7 +16,7 @@ typst-macros = { path = "./macros" }
 # Utilities
 bytemuck = "1"
 fxhash = "0.2"
-lipsum = { git = "https://github.com/reknih/lipsum", default-features = false }
+lipsum = { git = "https://github.com/reknih/lipsum" }
 once_cell = "1"
 serde = { version = "1", features = ["derive"] }
 typed-arena = "2"

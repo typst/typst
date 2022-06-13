@@ -1,5 +1,3 @@
-use lipsum::lipsum_from_seed;
-
 use crate::eval::Regex;
 use crate::library::prelude::*;
 
@@ -22,7 +20,7 @@ pub fn str(_: &mut Machine, args: &mut Args) -> TypResult<Value> {
 /// Create blind text.
 pub fn lorem(_: &mut Machine, args: &mut Args) -> TypResult<Value> {
     let words: usize = args.expect("number of words")?;
-    Ok(Value::Str(lipsum_from_seed(words, 97).into()))
+    Ok(Value::Str(lipsum::lipsum(words).into()))
 }
 
 /// Create a regular expression.
