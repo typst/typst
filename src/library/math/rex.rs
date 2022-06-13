@@ -58,19 +58,24 @@ impl Layout for RexNode {
         // Determine the metrics.
         let (x0, y0, x1, y1) = renderer.size(&layout);
         let width = Length::pt(x1 - x0);
-        let height = Length::pt(y1 - y0);
-        let size = Size::new(width, height);
-        let baseline = Length::pt(y1);
+        let mut top = Length::pt(y1);
+        let mut bottom = Length::pt(-y0);
+        if !self.display {
+            let metrics = face.metrics();
+            top = styles.get(TextNode::TOP_EDGE).resolve(styles, metrics);
+            bottom = -styles.get(TextNode::BOTTOM_EDGE).resolve(styles, metrics);
+        };
 
         // Prepare a frame rendering backend.
+        let size = Size::new(width, top + bottom);
         let mut backend = FrameBackend {
             frame: {
                 let mut frame = Frame::new(size);
-                frame.set_baseline(baseline);
+                frame.set_baseline(top);
                 frame.apply_role(Role::Formula);
                 frame
             },
-            baseline,
+            baseline: top,
             face_id,
             fill: styles.get(TextNode::FILL),
             lang: styles.get(TextNode::LANG),

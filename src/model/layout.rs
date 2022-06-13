@@ -19,10 +19,9 @@ use crate::Context;
 
 /// A node that can be layouted into a sequence of regions.
 ///
-/// Layout return one frame per used region alongside constraints that define
-/// whether the result is reusable in other regions.
+/// Layouting return one frame per used region.
 pub trait Layout: 'static {
-    /// Layout this node into the given regions, producing constrained frames.
+    /// Layout this node into the given regions, producing frames.
     fn layout(
         &self,
         ctx: &mut Context,

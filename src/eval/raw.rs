@@ -43,6 +43,12 @@ impl RawAlign {
     }
 }
 
+impl From<Align> for RawAlign {
+    fn from(align: Align) -> Self {
+        Self::Specific(align)
+    }
+}
+
 impl Debug for RawAlign {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {

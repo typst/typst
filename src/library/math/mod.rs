@@ -56,7 +56,7 @@ impl Show for MathNode {
         };
 
         Ok(if self.display {
-            Content::block(node)
+            Content::block(node.pack().aligned(Spec::with_x(Some(Align::Center.into()))))
         } else {
             Content::inline(node)
         })
