@@ -2,6 +2,7 @@
 
 use std::io::Read;
 
+use image::imageops::FilterType;
 use image::{GenericImageView, Rgba};
 use tiny_skia as sk;
 use ttf_parser::{GlyphId, OutlineBuilder};
@@ -351,33 +352,35 @@ fn render_image(
     let view_width = size.x.to_f32();
     let view_height = size.y.to_f32();
 
-    let pixmap = match img {
+    let aspect = (img.width() as f32) / (img.height() as f32);
+    let scale = ts.sx.max(ts.sy);
+    let w = (scale * view_width.max(aspect * view_height)).ceil() as u32;
+    let h = ((w as f32) / aspect).ceil() as u32;
+
+    let mut pixmap = sk::Pixmap::new(w, h)?;
+    match img {
         Image::Raster(img) => {
-            let w = img.buf.width();
-            let h = img.buf.height();
-            let mut pixmap = sk::Pixmap::new(w, h)?;
-            for ((_, _, src), dest) in img.buf.pixels().zip(pixmap.pixels_mut()) {
+            let downscale = w < img.width();
+            let filter = if downscale {
+                FilterType::Lanczos3
+            } else {
+                FilterType::CatmullRom
+            };
+            let buf = img.buf.resize(w, h, filter);
+            for ((_, _, src), dest) in buf.pixels().zip(pixmap.pixels_mut()) {
                 let Rgba([r, g, b, a]) = src;
                 *dest = sk::ColorU8::from_rgba(r, g, b, a).premultiply();
             }
-            pixmap
         }
         Image::Svg(Svg(tree)) => {
-            let size = tree.svg_node().size;
-            let aspect = (size.width() / size.height()) as f32;
-            let scale = ts.sx.max(ts.sy);
-            let w = (scale * view_width.max(aspect * view_height)).ceil() as u32;
-            let h = ((w as f32) / aspect).ceil() as u32;
-            let mut pixmap = sk::Pixmap::new(w, h)?;
             resvg::render(
                 &tree,
                 FitTo::Size(w, h),
                 sk::Transform::identity(),
                 pixmap.as_mut(),
-            );
-            pixmap
+            )?;
         }
-    };
+    }
 
     let scale_x = view_width / pixmap.width() as f32;
     let scale_y = view_height / pixmap.height() as f32;
@@ -386,7 +389,7 @@ fn render_image(
     paint.shader = sk::Pattern::new(
         pixmap.as_ref(),
         sk::SpreadMode::Pad,
-        sk::FilterQuality::Bilinear,
+        sk::FilterQuality::Nearest,
         1.0,
         sk::Transform::from_scale(scale_x, scale_y),
     );
