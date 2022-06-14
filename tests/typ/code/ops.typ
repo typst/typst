@@ -49,6 +49,11 @@
 #test(3-4 * 5 < -10, true)
 #test({ let x; x = 1 + 4*5 >= 21 and { x = "a"; x + "b" == "ab" }; x }, true)
 
+// With block.
+#test(if true {
+  1
+} + 2, 3)
+
 // Mathematical identities.
 #let nums = (
   1, 3.14,
