@@ -121,10 +121,9 @@ impl Loader for FsLoader {
     }
 
     fn resolve(&self, path: &Path) -> io::Result<FileHash> {
-        let file = File::open(path)?;
-        let meta = file.metadata()?;
+        let meta = fs::metadata(path)?;
         if meta.is_file() {
-            let handle = Handle::from_file(file)?;
+            let handle = Handle::from_path(path)?;
             Ok(FileHash(fxhash::hash64(&handle)))
         } else {
             Err(io::ErrorKind::NotFound.into())
