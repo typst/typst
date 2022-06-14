@@ -1,6 +1,8 @@
 //! Diagnostics.
 
 use std::fmt::{self, Display, Formatter};
+use std::io;
+use std::path::Path;
 
 use crate::syntax::{Span, Spanned};
 use crate::Context;
@@ -132,5 +134,15 @@ pub fn with_alternative(msg: String, alt: &str) -> String {
         format!("{} or {}, found {}", a, alt, b)
     } else {
         msg
+    }
+}
+
+/// Format a file loading failure.
+pub fn failed_to_load(target: &str, path: &Path, error: io::Error) -> String {
+    match error.kind() {
+        io::ErrorKind::NotFound => {
+            format!("file not found (searched at {})", path.display())
+        }
+        _ => format!("failed to load {target} ({error})"),
     }
 }

@@ -206,10 +206,7 @@ fn typeset(command: TypesetCommand) -> StrResult<()> {
     let mut ctx = Context::new(Arc::new(loader), config.build());
 
     // Load the source file.
-    let id = ctx
-        .sources
-        .load(&command.input)
-        .map_err(|_| "failed to load source file")?;
+    let id = ctx.sources.load(&command.input)?;
 
     // Typeset.
     match typst::typeset(&mut ctx, id) {

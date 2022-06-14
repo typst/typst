@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use unscanny::Scanner;
 
-use crate::diag::TypResult;
+use crate::diag::{failed_to_load, StrResult, TypResult};
 use crate::loading::{FileHash, Loader};
 use crate::parse::{is_newline, parse, reparse};
 use crate::syntax::ast::Markup;
@@ -74,19 +74,22 @@ impl SourceStore {
     ///
     /// If there already exists a source file for this path, it is
     /// [replaced](SourceFile::replace).
-    pub fn load(&mut self, path: impl AsRef<Path>) -> io::Result<SourceId> {
-        let path = path.as_ref();
-        let hash = self.loader.resolve(path)?;
-        if let Some(&id) = self.files.get(&hash) {
-            return Ok(id);
-        }
+    pub fn load(&mut self, path: &Path) -> StrResult<SourceId> {
+        let mut try_load = || -> io::Result<SourceId> {
+            let hash = self.loader.resolve(path)?;
+            if let Some(&id) = self.files.get(&hash) {
+                return Ok(id);
+            }
 
-        let data = self.loader.load(path)?;
-        let src = String::from_utf8(data).map_err(|_| {
-            io::Error::new(io::ErrorKind::InvalidData, "file is not valid utf-8")
-        })?;
+            let data = self.loader.load(path)?;
+            let src = String::from_utf8(data).map_err(|_| {
+                io::Error::new(io::ErrorKind::InvalidData, "file is not valid utf-8")
+            })?;
 
-        Ok(self.provide(path, src))
+            Ok(self.provide(path, src))
+        };
+
+        try_load().map_err(|err| failed_to_load("source file", path, err))
     }
 
     /// Directly provide a source file.

@@ -16,13 +16,7 @@ impl ImageNode {
             args.expect::<Spanned<EcoString>>("path to image file")?;
 
         let full = vm.locate(&path).at(span)?;
-        let id = vm.ctx.images.load(&full).map_err(|err| match err.kind() {
-            std::io::ErrorKind::NotFound => {
-                error!(span, "file not found (searched at {})", full.display())
-            }
-            _ => error!(span, "failed to load image ({})", err),
-        })?;
-
+        let id = vm.ctx.images.load(&full).at(span)?;
         let width = args.named("width")?;
         let height = args.named("height")?;
 

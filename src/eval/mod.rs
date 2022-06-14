@@ -967,12 +967,7 @@ impl Eval for IncludeExpr {
 fn import(vm: &mut Machine, path: &str, span: Span) -> TypResult<Module> {
     // Load the source file.
     let full = vm.locate(&path).at(span)?;
-    let id = vm.ctx.sources.load(&full).map_err(|err| match err.kind() {
-        std::io::ErrorKind::NotFound => {
-            error!(span, "file not found (searched at {})", full.display())
-        }
-        _ => error!(span, "failed to load source file ({})", err),
-    })?;
+    let id = vm.ctx.sources.load(&full).at(span)?;
 
     // Prevent cyclic importing.
     if vm.route.contains(&id) {

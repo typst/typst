@@ -10,6 +10,7 @@ use std::sync::Arc;
 use image::io::Reader as ImageReader;
 use image::{DynamicImage, ImageFormat};
 
+use crate::diag::{failed_to_load, StrResult};
 use crate::loading::{FileHash, Loader};
 
 /// A unique identifier for a loaded image.
@@ -60,19 +61,24 @@ impl ImageStore {
 
     /// Load and decode an image file from a path relative to the compilation
     /// environment's root.
-    pub fn load(&mut self, path: &Path) -> io::Result<ImageId> {
-        let hash = self.loader.resolve(path)?;
-        Ok(*match self.files.entry(hash) {
-            Entry::Occupied(entry) => entry.into_mut(),
-            Entry::Vacant(entry) => {
-                let buffer = self.loader.load(path)?;
-                let ext = path.extension().and_then(OsStr::to_str).unwrap_or_default();
-                let image = Image::parse(&buffer, ext)?;
-                let id = ImageId(self.images.len() as u32);
-                self.images.push(image);
-                entry.insert(id)
-            }
-        })
+    pub fn load(&mut self, path: &Path) -> StrResult<ImageId> {
+        let mut try_load = || -> io::Result<ImageId> {
+            let hash = self.loader.resolve(path)?;
+            Ok(*match self.files.entry(hash) {
+                Entry::Occupied(entry) => entry.into_mut(),
+                Entry::Vacant(entry) => {
+                    let buffer = self.loader.load(path)?;
+                    let ext =
+                        path.extension().and_then(OsStr::to_str).unwrap_or_default();
+                    let image = Image::parse(&buffer, ext)?;
+                    let id = ImageId(self.images.len() as u32);
+                    self.images.push(image);
+                    entry.insert(id)
+                }
+            })
+        };
+
+        try_load().map_err(|err| failed_to_load("image", path, err))
     }
 }
 
