@@ -20,8 +20,8 @@ pub fn reparse(
     replacement_len: usize,
 ) -> Range<usize> {
     if let SyntaxNode::Inner(inner) = root {
-        let reparser = Reparser { src, replaced, replacement_len };
-        if let Some(range) = reparser.reparse_step(Arc::make_mut(inner), 0, true, true) {
+        let change = Change { src, replaced, replacement_len };
+        if let Some(range) = try_reparse(&change, Arc::make_mut(inner), 0, true, true) {
             return range;
         }
     }
@@ -32,266 +32,251 @@ pub fn reparse(
     0 .. src.len()
 }
 
-/// Allows partial refreshs of the syntax tree.
-///
-/// This struct holds a description of a change. Its methods can be used to try
-/// and apply the change to a syntax tree.
-struct Reparser<'a> {
+/// Try to reparse inside the given node.
+fn try_reparse(
+    change: &Change,
+    node: &mut InnerNode,
+    mut offset: usize,
+    outermost: bool,
+    safe_to_replace: bool,
+) -> Option<Range<usize>> {
+    let is_markup = matches!(node.kind(), NodeKind::Markup { .. });
+    let original_count = node.children().len();
+    let original_offset = offset;
+
+    let mut search = SearchState::default();
+    let mut ahead: Option<Ahead> = None;
+
+    // Whether the first node that should be replaced is at start.
+    let mut at_start = true;
+
+    // Whether the last searched child is the outermost child.
+    let mut child_outermost = false;
+
+    // Find the the first child in the range of children to reparse.
+    for (i, child) in node.children().enumerate() {
+        let pos = NodePos { idx: i, offset };
+        let child_span = offset .. offset + child.len();
+        child_outermost = outermost && i + 1 == original_count;
+
+        match search {
+            SearchState::NoneFound => {
+                // The edit is contained within the span of the current element.
+                if child_span.contains(&change.replaced.start)
+                    && child_span.end >= change.replaced.end
+                {
+                    // In Markup mode, we want to consider a non-whitespace
+                    // neighbor if the edit is on the node boundary.
+                    search = if is_markup && child_span.end == change.replaced.end {
+                        SearchState::RequireNonTrivia(pos)
+                    } else {
+                        SearchState::Contained(pos)
+                    };
+                } else if child_span.contains(&change.replaced.start) {
+                    search = SearchState::Inside(pos);
+                } else if child_span.end == change.replaced.start
+                    && change.replaced.start == change.replaced.end
+                    && child_outermost
+                {
+                    search = SearchState::SpanFound(pos, pos);
+                } else {
+                    // Update compulsary state of `ahead_nontrivia`.
+                    if let Some(ahead_nontrivia) = ahead.as_mut() {
+                        if let NodeKind::Space { newlines: (1 ..) } = child.kind() {
+                            ahead_nontrivia.newline();
+                        }
+                    }
+
+                    // We look only for non spaces, non-semicolon and also
+                    // reject text that points to the special case for URL
+                    // evasion and line comments.
+                    if !child.kind().is_space()
+                        && child.kind() != &NodeKind::Semicolon
+                        && child.kind() != &NodeKind::Text('/'.into())
+                        && (ahead.is_none() || change.replaced.start > child_span.end)
+                        && !ahead.map_or(false, Ahead::is_compulsory)
+                    {
+                        ahead =
+                            Some(Ahead::new(pos, at_start, child.kind().is_bounded()));
+                    }
+
+                    at_start = child.kind().is_at_start(at_start);
+                }
+            }
+            SearchState::Inside(start) => {
+                if child_span.end == change.replaced.end {
+                    search = SearchState::RequireNonTrivia(start);
+                } else if child_span.end > change.replaced.end {
+                    search = SearchState::SpanFound(start, pos);
+                }
+            }
+            SearchState::RequireNonTrivia(start) => {
+                if !child.kind().is_trivia() {
+                    search = SearchState::SpanFound(start, pos);
+                }
+            }
+            _ => unreachable!(),
+        }
+
+        offset += child.len();
+
+        if search.done().is_some() {
+            break;
+        }
+    }
+
+    // If we were looking for a non-whitespace element and hit the end of
+    // the file here, we instead use EOF as the end of the span.
+    if let SearchState::RequireNonTrivia(start) = search {
+        search = SearchState::SpanFound(start, NodePos {
+            idx: node.children().len() - 1,
+            offset: offset - node.children().last().unwrap().len(),
+        })
+    }
+
+    if let SearchState::Contained(pos) = search {
+        // Do not allow replacement of elements inside of constructs whose
+        // opening and closing brackets look the same.
+        let safe_inside = node.kind().is_bounded();
+        let child = &mut node.children_mut()[pos.idx];
+        let prev_len = child.len();
+        let prev_descendants = child.descendants();
+
+        if let Some(range) = match child {
+            SyntaxNode::Inner(node) => try_reparse(
+                change,
+                Arc::make_mut(node),
+                pos.offset,
+                child_outermost,
+                safe_inside,
+            ),
+            SyntaxNode::Leaf(_) => None,
+        } {
+            let new_len = child.len();
+            let new_descendants = child.descendants();
+            node.update_parent(prev_len, new_len, prev_descendants, new_descendants);
+            return Some(range);
+        }
+
+        let superseded_span = pos.offset .. pos.offset + prev_len;
+        let func: Option<ReparseMode> = match child.kind() {
+            NodeKind::CodeBlock => Some(ReparseMode::Code),
+            NodeKind::ContentBlock => Some(ReparseMode::Content),
+            _ => None,
+        };
+
+        // Return if the element was reparsable on its own, otherwise try to
+        // treat it as a markup element.
+        if let Some(func) = func {
+            if let Some(result) = replace(
+                change,
+                node,
+                func,
+                pos.idx .. pos.idx + 1,
+                superseded_span,
+                outermost,
+            ) {
+                return Some(result);
+            }
+        }
+    }
+
+    // Make sure this is a markup node and that we may replace. If so, save
+    // the current indent.
+    let min_indent = match node.kind() {
+        NodeKind::Markup { min_indent } if safe_to_replace => *min_indent,
+        _ => return None,
+    };
+
+    let (mut start, end) = search.done()?;
+    if let Some(ahead) = ahead {
+        if start.offset == change.replaced.start || ahead.is_compulsory() {
+            start = ahead.pos;
+            at_start = ahead.at_start;
+        }
+    } else {
+        start = NodePos { idx: 0, offset: original_offset };
+    }
+
+    let superseded_span =
+        start.offset .. end.offset + node.children().as_slice()[end.idx].len();
+
+    replace(
+        change,
+        node,
+        ReparseMode::MarkupElements { at_start, min_indent },
+        start.idx .. end.idx + 1,
+        superseded_span,
+        outermost,
+    )
+}
+
+/// Reparse the superseded nodes and replace them.
+fn replace(
+    change: &Change,
+    node: &mut InnerNode,
+    mode: ReparseMode,
+    superseded_idx: Range<usize>,
+    superseded_span: Range<usize>,
+    outermost: bool,
+) -> Option<Range<usize>> {
+    let superseded_start = superseded_idx.start;
+
+    let differential: isize =
+        change.replacement_len as isize - change.replaced.len() as isize;
+    let newborn_end = (superseded_span.end as isize + differential) as usize;
+    let newborn_span = superseded_span.start .. newborn_end;
+
+    let mut prefix = "";
+    for (i, c) in change.src[.. newborn_span.start].char_indices().rev() {
+        if is_newline(c) {
+            break;
+        }
+        prefix = &change.src[i .. newborn_span.start];
+    }
+
+    let (newborns, terminated, amount) = match mode {
+        ReparseMode::Code => reparse_code_block(
+            &prefix,
+            &change.src[newborn_span.start ..],
+            newborn_span.len(),
+        ),
+        ReparseMode::Content => reparse_content_block(
+            &prefix,
+            &change.src[newborn_span.start ..],
+            newborn_span.len(),
+        ),
+        ReparseMode::MarkupElements { at_start, min_indent } => reparse_markup_elements(
+            &prefix,
+            &change.src[newborn_span.start ..],
+            newborn_span.len(),
+            differential,
+            &node.children().as_slice()[superseded_start ..],
+            at_start,
+            min_indent,
+        ),
+    }?;
+
+    // Do not accept unclosed nodes if the old node wasn't at the right edge
+    // of the tree.
+    if !outermost && !terminated {
+        return None;
+    }
+
+    node.replace_children(superseded_start .. superseded_start + amount, newborns)
+        .ok()?;
+
+    Some(newborn_span)
+}
+
+/// A description of a change.
+struct Change<'a> {
     /// The new source code, with the change applied.
     src: &'a str,
     /// Which range in the old source file was changed.
     replaced: Range<usize>,
     /// How many characters replaced the text in `replaced`.
     replacement_len: usize,
-}
-
-impl Reparser<'_> {
-    /// Try to reparse inside the given node.
-    fn reparse_step(
-        &self,
-        node: &mut InnerNode,
-        mut offset: usize,
-        outermost: bool,
-        safe_to_replace: bool,
-    ) -> Option<Range<usize>> {
-        let is_markup = matches!(node.kind(), NodeKind::Markup { .. });
-        let original_count = node.children().len();
-        let original_offset = offset;
-
-        let mut search = SearchState::default();
-        let mut ahead: Option<Ahead> = None;
-
-        // Whether the first node that should be replaced is at start.
-        let mut at_start = true;
-
-        // Whether the last searched child is the outermost child.
-        let mut child_outermost = false;
-
-        // Find the the first child in the range of children to reparse.
-        for (i, child) in node.children().enumerate() {
-            let pos = NodePos { idx: i, offset };
-            let child_span = offset .. offset + child.len();
-            child_outermost = outermost && i + 1 == original_count;
-
-            match search {
-                SearchState::NoneFound => {
-                    // The edit is contained within the span of the current element.
-                    if child_span.contains(&self.replaced.start)
-                        && child_span.end >= self.replaced.end
-                    {
-                        // In Markup mode, we want to consider a non-whitespace
-                        // neighbor if the edit is on the node boundary.
-                        search = if is_markup && child_span.end == self.replaced.end {
-                            SearchState::RequireNonTrivia(pos)
-                        } else {
-                            SearchState::Contained(pos)
-                        };
-                    } else if child_span.contains(&self.replaced.start) {
-                        search = SearchState::Inside(pos);
-                    } else if child_span.end == self.replaced.start
-                        && self.replaced.start == self.replaced.end
-                        && child_outermost
-                    {
-                        search = SearchState::SpanFound(pos, pos);
-                    } else {
-                        // Update compulsary state of `ahead_nontrivia`.
-                        if let Some(ahead_nontrivia) = ahead.as_mut() {
-                            if let NodeKind::Space { newlines: (1 ..) } = child.kind() {
-                                ahead_nontrivia.newline();
-                            }
-                        }
-
-                        // We look only for non spaces, non-semicolon and also
-                        // reject text that points to the special case for URL
-                        // evasion and line comments.
-                        if !child.kind().is_space()
-                            && child.kind() != &NodeKind::Semicolon
-                            && child.kind() != &NodeKind::Text('/'.into())
-                            && (ahead.is_none() || self.replaced.start > child_span.end)
-                            && !ahead.map_or(false, Ahead::is_compulsory)
-                        {
-                            ahead = Some(Ahead::new(
-                                pos,
-                                at_start,
-                                child.kind().is_bounded(),
-                            ));
-                        }
-
-                        at_start = child.kind().is_at_start(at_start);
-                    }
-                }
-                SearchState::Inside(start) => {
-                    if child_span.end == self.replaced.end {
-                        search = SearchState::RequireNonTrivia(start);
-                    } else if child_span.end > self.replaced.end {
-                        search = SearchState::SpanFound(start, pos);
-                    }
-                }
-                SearchState::RequireNonTrivia(start) => {
-                    if !child.kind().is_trivia() {
-                        search = SearchState::SpanFound(start, pos);
-                    }
-                }
-                _ => unreachable!(),
-            }
-
-            offset += child.len();
-
-            if search.done().is_some() {
-                break;
-            }
-        }
-
-        // If we were looking for a non-whitespace element and hit the end of
-        // the file here, we instead use EOF as the end of the span.
-        if let SearchState::RequireNonTrivia(start) = search {
-            search = SearchState::SpanFound(start, NodePos {
-                idx: node.children().len() - 1,
-                offset: offset - node.children().last().unwrap().len(),
-            })
-        }
-
-        if let SearchState::Contained(pos) = search {
-            // Do not allow replacement of elements inside of constructs whose
-            // opening and closing brackets look the same.
-            let safe_inside = node.kind().is_bounded();
-            let child = &mut node.children_mut()[pos.idx];
-            let prev_len = child.len();
-            let prev_descendants = child.descendants();
-
-            if let Some(range) = match child {
-                SyntaxNode::Inner(node) => self.reparse_step(
-                    Arc::make_mut(node),
-                    pos.offset,
-                    child_outermost,
-                    safe_inside,
-                ),
-                SyntaxNode::Leaf(_) => None,
-            } {
-                let new_len = child.len();
-                let new_descendants = child.descendants();
-                node.update_parent(prev_len, new_len, prev_descendants, new_descendants);
-                return Some(range);
-            }
-
-            let superseded_span = pos.offset .. pos.offset + prev_len;
-            let func: Option<ReparseMode> = match child.kind() {
-                NodeKind::CodeBlock => Some(ReparseMode::Code),
-                NodeKind::ContentBlock => Some(ReparseMode::Content),
-                _ => None,
-            };
-
-            // Return if the element was reparsable on its own, otherwise try to
-            // treat it as a markup element.
-            if let Some(func) = func {
-                if let Some(result) = self.replace(
-                    node,
-                    func,
-                    pos.idx .. pos.idx + 1,
-                    superseded_span,
-                    outermost,
-                ) {
-                    return Some(result);
-                }
-            }
-        }
-
-        // Make sure this is a markup node and that we may replace. If so, save
-        // the current indent.
-        let min_indent = match node.kind() {
-            NodeKind::Markup { min_indent } if safe_to_replace => *min_indent,
-            _ => return None,
-        };
-
-        let (mut start, end) = search.done()?;
-        if let Some(ahead) = ahead {
-            if start.offset == self.replaced.start || ahead.is_compulsory() {
-                start = ahead.pos;
-                at_start = ahead.at_start;
-            }
-        } else {
-            start = NodePos { idx: 0, offset: original_offset };
-        }
-
-        let superseded_span =
-            start.offset .. end.offset + node.children().as_slice()[end.idx].len();
-
-        self.replace(
-            node,
-            ReparseMode::MarkupElements { at_start, min_indent },
-            start.idx .. end.idx + 1,
-            superseded_span,
-            outermost,
-        )
-    }
-
-    fn replace(
-        &self,
-        node: &mut InnerNode,
-        mode: ReparseMode,
-        superseded_idx: Range<usize>,
-        superseded_span: Range<usize>,
-        outermost: bool,
-    ) -> Option<Range<usize>> {
-        let superseded_start = superseded_idx.start;
-
-        let differential: isize =
-            self.replacement_len as isize - self.replaced.len() as isize;
-        let newborn_end = (superseded_span.end as isize + differential) as usize;
-        let newborn_span = superseded_span.start .. newborn_end;
-
-        let mut prefix = "";
-        for (i, c) in self.src[.. newborn_span.start].char_indices().rev() {
-            if is_newline(c) {
-                break;
-            }
-            prefix = &self.src[i .. newborn_span.start];
-        }
-
-        let (newborns, terminated, amount) = match mode {
-            ReparseMode::Code => reparse_code_block(
-                &prefix,
-                &self.src[newborn_span.start ..],
-                newborn_span.len(),
-            ),
-            ReparseMode::Content => reparse_content_block(
-                &prefix,
-                &self.src[newborn_span.start ..],
-                newborn_span.len(),
-            ),
-            ReparseMode::MarkupElements { at_start, min_indent } => {
-                reparse_markup_elements(
-                    &prefix,
-                    &self.src[newborn_span.start ..],
-                    newborn_span.len(),
-                    differential,
-                    &node.children().as_slice()[superseded_start ..],
-                    at_start,
-                    min_indent,
-                )
-            }
-        }?;
-
-        // Do not accept unclosed nodes if the old node wasn't at the right edge
-        // of the tree.
-        if !outermost && !terminated {
-            return None;
-        }
-
-        node.replace_children(superseded_start .. superseded_start + amount, newborns)
-            .ok()?;
-
-        Some(newborn_span)
-    }
-}
-
-/// The position of a syntax node.
-#[derive(Clone, Copy, Debug, PartialEq)]
-struct NodePos {
-    /// The index in the parent node.
-    idx: usize,
-    /// The byte offset in the string.
-    offset: usize,
 }
 
 /// Encodes the state machine of the search for the nodes are pending for
@@ -330,6 +315,15 @@ impl SearchState {
             Self::SpanFound(s, e) => Some((s, e)),
         }
     }
+}
+
+/// The position of a syntax node.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct NodePos {
+    /// The index in the parent node.
+    idx: usize,
+    /// The byte offset in the string.
+    offset: usize,
 }
 
 /// An ahead node with an index and whether it is `at_start`.
