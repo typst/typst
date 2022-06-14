@@ -8,7 +8,8 @@ use std::sync::Arc;
 use super::{ops, Args, Array, Dict, Func, RawLength, Regex};
 use crate::diag::{with_alternative, StrResult};
 use crate::geom::{
-    Angle, Color, Dir, Em, Fraction, Length, Paint, Ratio, Relative, RgbaColor, Sides,
+    Angle, Color, Corners, Dir, Em, Fraction, Length, Paint, Ratio, Relative, RgbaColor,
+    Sides,
 };
 use crate::library::text::RawNode;
 use crate::model::{Content, Group, Layout, LayoutNode, Pattern};
@@ -516,6 +517,71 @@ impl<T: Cast> Cast<Spanned<Value>> for Spanned<T> {
     }
 }
 
+dynamic! {
+    Dir: "direction",
+}
+
+dynamic! {
+    Regex: "regular expression",
+}
+
+dynamic! {
+    Group: "group",
+}
+
+castable! {
+    usize,
+    Expected: "non-negative integer",
+    Value::Int(int) => int.try_into().map_err(|_| {
+        if int < 0 {
+            "must be at least zero"
+        } else {
+            "number too large"
+        }
+    })?,
+}
+
+castable! {
+    NonZeroUsize,
+    Expected: "positive integer",
+    Value::Int(int) => int
+        .try_into()
+        .and_then(|int: usize| int.try_into())
+        .map_err(|_| if int <= 0 {
+            "must be positive"
+        } else {
+            "number too large"
+        })?,
+}
+
+castable! {
+    Paint,
+    Expected: "color",
+    Value::Color(color) => Paint::Solid(color),
+}
+
+castable! {
+    String,
+    Expected: "string",
+    Value::Str(string) => string.into(),
+}
+
+castable! {
+    LayoutNode,
+    Expected: "content",
+    Value::None => Self::default(),
+    Value::Str(text) => Content::Text(text).pack(),
+    Value::Content(content) => content.pack(),
+}
+
+castable! {
+    Pattern,
+    Expected: "function, string or regular expression",
+    Value::Func(func) => Self::Node(func.node()?),
+    Value::Str(text) => Self::text(&text),
+    @regex: Regex => Self::Regex(regex.clone()),
+}
+
 impl<T: Cast> Cast for Option<T> {
     fn is(value: &Value) -> bool {
         matches!(value, Value::None) || T::is(value)
@@ -609,112 +675,84 @@ impl<T: Cast> Cast for Smart<T> {
 
 impl<T> Cast for Sides<T>
 where
-    T: Cast + Default + Clone,
+    T: Cast + Default + Copy,
 {
     fn is(value: &Value) -> bool {
         matches!(value, Value::Dict(_)) || T::is(value)
     }
 
-    fn cast(value: Value) -> StrResult<Self> {
-        match value {
-            Value::Dict(dict) => {
-                for (key, _) in &dict {
-                    if !matches!(
-                        key.as_str(),
-                        "left" | "top" | "right" | "bottom" | "x" | "y" | "rest"
-                    ) {
-                        return Err(format!("unexpected key {key:?}"));
-                    }
-                }
+    fn cast(mut value: Value) -> StrResult<Self> {
+        if let Value::Dict(dict) = &mut value {
+            let mut take = |key| dict.take(key).map(T::cast).transpose();
 
-                let sides = Sides {
-                    left: dict.get("left").or(dict.get("x")),
-                    top: dict.get("top").or(dict.get("y")),
-                    right: dict.get("right").or(dict.get("x")),
-                    bottom: dict.get("bottom").or(dict.get("y")),
-                };
+            let rest = take("rest")?;
+            let x = take("x")?.or(rest);
+            let y = take("y")?.or(rest);
+            let sides = Sides {
+                left: take("left")?.or(x),
+                top: take("top")?.or(y),
+                right: take("right")?.or(x),
+                bottom: take("bottom")?.or(y),
+            };
 
-                Ok(sides.map(|side| {
-                    side.or(dict.get("rest"))
-                        .cloned()
-                        .and_then(T::cast)
-                        .unwrap_or_default()
-                }))
+            if let Some((key, _)) = dict.iter().next() {
+                return Err(format!("unexpected key {key:?}"));
             }
-            v => T::cast(v).map(Sides::splat).map_err(|msg| {
+
+            Ok(sides.map(Option::unwrap_or_default))
+        } else {
+            T::cast(value).map(Self::splat).map_err(|msg| {
                 with_alternative(
                     msg,
-                    "dictionary with any of `left`, `top`, `right`, `bottom`, \
+                    "dictionary with any of \
+                     `left`, `top`, `right`, `bottom`, \
                      `x`, `y`, or `rest` as keys",
                 )
-            }),
+            })
         }
     }
 }
 
-dynamic! {
-    Dir: "direction",
-}
+impl<T> Cast for Corners<T>
+where
+    T: Cast + Default + Copy,
+{
+    fn is(value: &Value) -> bool {
+        matches!(value, Value::Dict(_)) || T::is(value)
+    }
 
-dynamic! {
-    Regex: "regular expression",
-}
+    fn cast(mut value: Value) -> StrResult<Self> {
+        if let Value::Dict(dict) = &mut value {
+            let mut take = |key| dict.take(key).map(T::cast).transpose();
 
-dynamic! {
-    Group: "group",
-}
+            let rest = take("rest")?;
+            let left = take("left")?.or(rest);
+            let top = take("top")?.or(rest);
+            let right = take("right")?.or(rest);
+            let bottom = take("bottom")?.or(rest);
+            let corners = Corners {
+                top_left: take("top-left")?.or(top).or(left),
+                top_right: take("top-right")?.or(top).or(right),
+                bottom_right: take("bottom-right")?.or(bottom).or(right),
+                bottom_left: take("bottom-left")?.or(bottom).or(left),
+            };
 
-castable! {
-    usize,
-    Expected: "non-negative integer",
-    Value::Int(int) => int.try_into().map_err(|_| {
-        if int < 0 {
-            "must be at least zero"
+            if let Some((key, _)) = dict.iter().next() {
+                return Err(format!("unexpected key {key:?}"));
+            }
+
+            Ok(corners.map(Option::unwrap_or_default))
         } else {
-            "number too large"
+            T::cast(value).map(Self::splat).map_err(|msg| {
+                with_alternative(
+                    msg,
+                    "dictionary with any of \
+                     `top-left`, `top-right`, `bottom-right`, `bottom-left`, \
+                     `left`, `top`, `right`, `bottom`, or `rest` as keys",
+                )
+            })
         }
-    })?,
-}
-
-castable! {
-    NonZeroUsize,
-    Expected: "positive integer",
-    Value::Int(int) => int
-        .try_into()
-        .and_then(|int: usize| int.try_into())
-        .map_err(|_| if int <= 0 {
-            "must be positive"
-        } else {
-            "number too large"
-        })?,
-}
-
-castable! {
-    Paint,
-    Expected: "color",
-    Value::Color(color) => Paint::Solid(color),
-}
-
-castable! {
-    String,
-    Expected: "string",
-    Value::Str(string) => string.into(),
-}
-
-castable! {
-    LayoutNode,
-    Expected: "content",
-    Value::None => Self::default(),
-    Value::Str(text) => Content::Text(text).pack(),
-    Value::Content(content) => content.pack(),
-}
-
-castable! {
-    Pattern,
-    Expected: "function, string or regular expression",
-    Value::Func(func) => Self::Node(func.node()?),
-    Value::Str(text) => Self::text(&text),
-    @regex: Regex => Self::Regex(regex.clone()),
+    }
 }
 
 #[cfg(test)]

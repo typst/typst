@@ -48,17 +48,17 @@ impl<T> Sides<T> {
     /// Zip two instances into an instance.
     pub fn zip<F, V, W>(self, other: Sides<V>, mut f: F) -> Sides<W>
     where
-        F: FnMut(T, V, Side) -> W,
+        F: FnMut(T, V) -> W,
     {
         Sides {
-            left: f(self.left, other.left, Side::Left),
-            top: f(self.top, other.top, Side::Top),
-            right: f(self.right, other.right, Side::Right),
-            bottom: f(self.bottom, other.bottom, Side::Bottom),
+            left: f(self.left, other.left),
+            top: f(self.top, other.top),
+            right: f(self.right, other.right),
+            bottom: f(self.bottom, other.bottom),
         }
     }
 
-    /// An iterator over the sides.
+    /// An iterator over the sides, starting with the left side, clockwise.
     pub fn iter(&self) -> impl Iterator<Item = &T> {
         [&self.left, &self.top, &self.right, &self.bottom].into_iter()
     }
@@ -155,6 +155,21 @@ impl Side {
             Self::Right => Self::Top,
             Self::Bottom => Self::Right,
         }
+    }
+
+    /// The first corner of the side in clockwise order.
+    pub fn start_corner(self) -> Corner {
+        match self {
+            Self::Left => Corner::BottomLeft,
+            Self::Top => Corner::TopLeft,
+            Self::Right => Corner::TopRight,
+            Self::Bottom => Corner::BottomRight,
+        }
+    }
+
+    /// The second corner of the side in clockwise order.
+    pub fn end_corner(self) -> Corner {
+        self.next_cw().start_corner()
     }
 
     /// Return the corresponding axis.

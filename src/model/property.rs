@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use super::{Interruption, NodeId, StyleChain};
 use crate::eval::{RawLength, Smart};
-use crate::geom::{Length, Numeric, Relative, Sides, Spec};
+use crate::geom::{Corners, Length, Numeric, Relative, Sides, Spec};
 use crate::library::layout::PageNode;
 use crate::library::structure::{EnumNode, ListNode};
 use crate::library::text::ParNode;
@@ -191,12 +191,15 @@ impl<T: Resolve> Resolve for Sides<T> {
     type Output = Sides<T::Output>;
 
     fn resolve(self, styles: StyleChain) -> Self::Output {
-        Sides {
-            left: self.left.resolve(styles),
-            right: self.right.resolve(styles),
-            top: self.top.resolve(styles),
-            bottom: self.bottom.resolve(styles),
-        }
+        self.map(|v| v.resolve(styles))
+    }
+}
+
+impl<T: Resolve> Resolve for Corners<T> {
+    type Output = Corners<T::Output>;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        self.map(|v| v.resolve(styles))
     }
 }
 
@@ -252,7 +255,7 @@ where
     type Output = Sides<T::Output>;
 
     fn fold(self, outer: Self::Output) -> Self::Output {
-        self.zip(outer, |inner, outer, _| inner.fold(outer))
+        self.zip(outer, |inner, outer| inner.fold(outer))
     }
 }
 
@@ -260,7 +263,7 @@ impl Fold for Sides<Option<Relative<Length>>> {
     type Output = Sides<Relative<Length>>;
 
     fn fold(self, outer: Self::Output) -> Self::Output {
-        self.zip(outer, |inner, outer, _| inner.unwrap_or(outer))
+        self.zip(outer, |inner, outer| inner.unwrap_or(outer))
     }
 }
 
@@ -268,7 +271,26 @@ impl Fold for Sides<Option<Smart<Relative<RawLength>>>> {
     type Output = Sides<Smart<Relative<RawLength>>>;
 
     fn fold(self, outer: Self::Output) -> Self::Output {
-        self.zip(outer, |inner, outer, _| inner.unwrap_or(outer))
+        self.zip(outer, |inner, outer| inner.unwrap_or(outer))
+    }
+}
+
+impl<T> Fold for Corners<T>
+where
+    T: Fold,
+{
+    type Output = Corners<T::Output>;
+
+    fn fold(self, outer: Self::Output) -> Self::Output {
+        self.zip(outer, |inner, outer| inner.fold(outer))
+    }
+}
+
+impl Fold for Corners<Option<Relative<Length>>> {
+    type Output = Corners<Relative<Length>>;
+
+    fn fold(self, outer: Self::Output) -> Self::Output {
+        self.zip(outer, |inner, outer| inner.unwrap_or(outer))
     }
 }
 

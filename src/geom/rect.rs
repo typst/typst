@@ -7,13 +7,13 @@ use std::mem;
 pub struct RoundedRect {
     /// The size of the rectangle.
     pub size: Size,
-    /// The radius at each side.
-    pub radius: Sides<Length>,
+    /// The radius at each corner.
+    pub radius: Corners<Length>,
 }
 
 impl RoundedRect {
     /// Create a new rounded rectangle.
-    pub fn new(size: Size, radius: Sides<Length>) -> Self {
+    pub fn new(size: Size, radius: Corners<Length>) -> Self {
         Self { size, radius }
     }
 
@@ -73,20 +73,20 @@ impl RoundedRect {
         let mut always_continuous = true;
 
         for side in [Side::Top, Side::Right, Side::Bottom, Side::Left] {
-            let is_continuous = strokes.get(side) == strokes.get(side.next_cw());
-            connection = connection.advance(is_continuous && side != Side::Left);
-            always_continuous &= is_continuous;
+            let continuous = strokes.get(side) == strokes.get(side.next_cw());
+            connection = connection.advance(continuous && side != Side::Left);
+            always_continuous &= continuous;
 
             draw_side(
                 &mut path,
                 side,
                 self.size,
-                self.radius.get(side.next_ccw()),
-                self.radius.get(side),
+                self.radius.get(side.start_corner()),
+                self.radius.get(side.end_corner()),
                 connection,
             );
 
-            if !is_continuous {
+            if !continuous {
                 res.push((mem::take(&mut path), strokes.get(side)));
             }
         }
@@ -109,8 +109,8 @@ fn draw_side(
     path: &mut Path,
     side: Side,
     size: Size,
-    radius_left: Length,
-    radius_right: Length,
+    start_radius: Length,
+    end_radius: Length,
     connection: Connection,
 ) {
     let angle_left = Angle::deg(if connection.prev { 90.0 } else { 45.0 });
@@ -118,23 +118,23 @@ fn draw_side(
     let length = size.get(side.axis());
 
     // The arcs for a border of the rectangle along the x-axis, starting at (0,0).
-    let p1 = Point::with_x(radius_left);
+    let p1 = Point::with_x(start_radius);
     let mut arc1 = bezier_arc(
         p1 + Point::new(
-            -angle_left.sin() * radius_left,
-            (1.0 - angle_left.cos()) * radius_left,
+            -angle_left.sin() * start_radius,
+            (1.0 - angle_left.cos()) * start_radius,
         ),
-        Point::new(radius_left, radius_left),
+        Point::new(start_radius, start_radius),
         p1,
     );
 
-    let p2 = Point::with_x(length - radius_right);
+    let p2 = Point::with_x(length - end_radius);
     let mut arc2 = bezier_arc(
         p2,
-        Point::new(length - radius_right, radius_right),
+        Point::new(length - end_radius, end_radius),
         p2 + Point::new(
-            angle_right.sin() * radius_right,
-            (1.0 - angle_right.cos()) * radius_right,
+            angle_right.sin() * end_radius,
+            (1.0 - angle_right.cos()) * end_radius,
         ),
     );
 
@@ -152,16 +152,16 @@ fn draw_side(
     arc2 = arc2.map(|x| x.transform(transform));
 
     if !connection.prev {
-        path.move_to(if radius_left.is_zero() { arc1[3] } else { arc1[0] });
+        path.move_to(if start_radius.is_zero() { arc1[3] } else { arc1[0] });
     }
 
-    if !radius_left.is_zero() {
+    if !start_radius.is_zero() {
         path.cubic_to(arc1[1], arc1[2], arc1[3]);
     }
 
     path.line_to(arc2[0]);
 
-    if !connection.next && !radius_right.is_zero() {
+    if !connection.next && !end_radius.is_zero() {
         path.cubic_to(arc2[1], arc2[2], arc2[3]);
     }
 }

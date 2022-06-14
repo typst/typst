@@ -76,6 +76,11 @@ impl Dict {
         }
     }
 
+    /// Remove the value if the dictionary contains the given key.
+    pub fn take(&mut self, key: &str) -> Option<Value> {
+        Arc::make_mut(&mut self.0).remove(key)
+    }
+
     /// Clear the dictionary.
     pub fn clear(&mut self) {
         if Arc::strong_count(&self.0) == 1 {

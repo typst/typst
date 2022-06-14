@@ -30,8 +30,13 @@
 
 // Rounded corners.
 #rect(width: 2cm, radius: 60%)
-#rect(width: 1cm, radius: (x: 5pt, y: 10pt))
-#rect(width: 1.25cm, radius: (left: 2pt, top: 5pt, right: 8pt, bottom: 11pt))
+#rect(width: 1cm, radius: (left: 10pt, right: 5pt))
+#rect(width: 1.25cm, radius: (
+  top-left: 2pt,
+  top-right: 5pt,
+  bottom-right: 8pt,
+  bottom-left: 11pt
+))
 
 // Different strokes.
 [
@@ -54,3 +59,11 @@ Use the `*const T` pointer or the `&mut T` reference.
 ---
 // Error: 15-38 unexpected key "cake"
 #rect(radius: (left: 10pt, cake: 5pt))
+
+---
+// Error: 15-21 expected stroke or none or dictionary with any of `left`, `top`, `right`, `bottom`, `x`, `y`, or `rest` as keys or auto, found array
+#rect(stroke: (1, 2))
+
+---
+// Error: 15-19 expected relative length or none or dictionary with any of `top-left`, `top-right`, `bottom-right`, `bottom-left`, `left`, `top`, `right`, `bottom`, or `rest` as keys, found color
+#rect(radius: blue)

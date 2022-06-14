@@ -33,9 +33,11 @@ impl<const S: ShapeKind> ShapeNode<S> {
     /// How much to extend the shape's dimensions beyond the allocated space.
     #[property(resolve, fold)]
     pub const OUTSET: Sides<Option<Relative<RawLength>>> = Sides::splat(Relative::zero());
+
     /// How much to round the shape's corners.
     #[property(skip, resolve, fold)]
-    pub const RADIUS: Sides<Option<Relative<RawLength>>> = Sides::splat(Relative::zero());
+    pub const RADIUS: Corners<Option<Relative<RawLength>>> =
+        Corners::splat(Relative::zero());
 
     fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
         let size = match S {
