@@ -375,7 +375,7 @@ fn expr_prec(p: &mut Parser, atomic: bool, min_prec: usize) -> ParseResult {
     loop {
         // Parenthesis or bracket means this is a function call.
         if let Some(NodeKind::LeftParen | NodeKind::LeftBracket) = p.peek_direct() {
-            marker.perform(p, NodeKind::FuncCall, |p| args(p, true, true))?;
+            marker.perform(p, NodeKind::FuncCall, |p| args(p))?;
             continue;
         }
 
@@ -387,7 +387,7 @@ fn expr_prec(p: &mut Parser, atomic: bool, min_prec: usize) -> ParseResult {
         if p.eat_if(NodeKind::Dot) {
             ident(p)?;
             if let Some(NodeKind::LeftParen | NodeKind::LeftBracket) = p.peek_direct() {
-                marker.perform(p, NodeKind::MethodCall, |p| args(p, true, true))?;
+                marker.perform(p, NodeKind::MethodCall, |p| args(p))?;
             } else {
                 marker.end(p, NodeKind::FieldAccess);
             }
@@ -745,10 +745,10 @@ fn content_block(p: &mut Parser) {
 }
 
 /// Parse the arguments to a function call.
-fn args(p: &mut Parser, direct: bool, brackets: bool) -> ParseResult {
-    match if direct { p.peek_direct() } else { p.peek() } {
+fn args(p: &mut Parser) -> ParseResult {
+    match p.peek_direct() {
         Some(NodeKind::LeftParen) => {}
-        Some(NodeKind::LeftBracket) if brackets => {}
+        Some(NodeKind::LeftBracket) => {}
         _ => {
             p.expected_found("argument list");
             return Err(ParseError);
@@ -778,7 +778,7 @@ fn args(p: &mut Parser, direct: bool, brackets: bool) -> ParseResult {
             });
         }
 
-        while brackets && p.peek_direct() == Some(&NodeKind::LeftBracket) {
+        while p.peek_direct() == Some(&NodeKind::LeftBracket) {
             content_block(p);
         }
     });
@@ -825,7 +825,7 @@ fn set_expr(p: &mut Parser) -> ParseResult {
     p.perform(NodeKind::SetExpr, |p| {
         p.assert(NodeKind::Set);
         ident(p)?;
-        args(p, true, false)
+        args(p)
     })
 }
 
