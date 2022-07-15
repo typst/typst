@@ -1067,7 +1067,7 @@ impl ShowExpr {
 }
 
 node! {
-    /// A wrap expression: wrap body in columns(2, body)`.
+    /// A wrap expression: `wrap body in columns(2, body)`.
     WrapExpr
 }
 

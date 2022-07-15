@@ -119,11 +119,11 @@ pub fn highlight_pre(text: &str, mode: TokenMode, theme: &Theme) -> String {
             }
 
             if style.font_style.contains(FontStyle::BOLD) {
-                buf.push_str("font-weight:bold");
+                buf.push_str("font-weight:bold;");
             }
 
             if style.font_style.contains(FontStyle::ITALIC) {
-                buf.push_str("font-style:italic");
+                buf.push_str("font-style:italic;");
             }
 
             if style.font_style.contains(FontStyle::UNDERLINE) {
@@ -209,6 +209,7 @@ impl Category {
             NodeKind::Comma => Some(Category::Punctuation),
             NodeKind::Semicolon => Some(Category::Punctuation),
             NodeKind::Colon => Some(Category::Punctuation),
+            NodeKind::Dot => Some(Category::Punctuation),
             NodeKind::LineComment => Some(Category::Comment),
             NodeKind::BlockComment => Some(Category::Comment),
             NodeKind::Strong => Some(Category::Strong),
@@ -253,7 +254,6 @@ impl Category {
                 _ => Some(Category::Operator),
             },
             NodeKind::Slash => Some(Category::Operator),
-            NodeKind::Dot => Some(Category::Operator),
             NodeKind::PlusEq => Some(Category::Operator),
             NodeKind::HyphEq => Some(Category::Operator),
             NodeKind::StarEq => Some(Category::Operator),
@@ -281,10 +281,11 @@ impl Category {
                 NodeKind::ShowExpr
                     if parent
                         .children()
-                        .filter(|c| matches!(c.kind(), NodeKind::Ident(_)))
-                        .map(SyntaxNode::span)
-                        .nth(1)
-                        .map_or(false, |span| span == child.span()) =>
+                        .rev()
+                        .skip_while(|child| child.kind() != &NodeKind::As)
+                        .take_while(|child| child.kind() != &NodeKind::Colon)
+                        .find(|c| matches!(c.kind(), NodeKind::Ident(_)))
+                        .map_or(false, |ident| std::ptr::eq(ident, child)) =>
                 {
                     Some(Category::Function)
                 }
