@@ -1,6 +1,8 @@
 //! Evaluation of markup into modules.
 
 #[macro_use]
+mod cast;
+#[macro_use]
 mod array;
 #[macro_use]
 mod dict;
@@ -21,6 +23,7 @@ pub use self::str::*;
 pub use args::*;
 pub use array::*;
 pub use capture::*;
+pub use cast::*;
 pub use dict::*;
 pub use func::*;
 pub use machine::*;
