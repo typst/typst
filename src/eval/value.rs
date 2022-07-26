@@ -4,7 +4,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use super::{ops, Args, Array, Cast, Dict, Func, RawLength};
+use super::{ops, Args, Array, Cast, Dict, Func, RawLength, Str};
 use crate::diag::StrResult;
 use crate::geom::{Angle, Color, Em, Fraction, Length, Ratio, Relative, RgbaColor};
 use crate::library::text::RawNode;
@@ -37,7 +37,7 @@ pub enum Value {
     /// A color value: `#f79143ff`.
     Color(Color),
     /// A string: `"string"`.
-    Str(EcoString),
+    Str(Str),
     /// A content value: `[*Hi* there]`.
     Content(Content),
     /// An array of values: `(1, "hi", 12cm)`.
@@ -91,7 +91,7 @@ impl Value {
             Self::Relative(_) => Relative::<RawLength>::TYPE_NAME,
             Self::Fraction(_) => Fraction::TYPE_NAME,
             Self::Color(_) => Color::TYPE_NAME,
-            Self::Str(_) => EcoString::TYPE_NAME,
+            Self::Str(_) => Str::TYPE_NAME,
             Self::Content(_) => Content::TYPE_NAME,
             Self::Array(_) => Array::TYPE_NAME,
             Self::Dict(_) => Dict::TYPE_NAME,
@@ -107,8 +107,8 @@ impl Value {
     }
 
     /// Return the debug representation of the value.
-    pub fn repr(&self) -> EcoString {
-        format_eco!("{:?}", self)
+    pub fn repr(&self) -> Str {
+        format_str!("{:?}", self)
     }
 
     /// Return the display representation of the value.
@@ -117,12 +117,12 @@ impl Value {
             Value::None => Content::new(),
             Value::Int(v) => Content::Text(format_eco!("{}", v)),
             Value::Float(v) => Content::Text(format_eco!("{}", v)),
-            Value::Str(v) => Content::Text(v),
+            Value::Str(v) => Content::Text(v.into()),
             Value::Content(v) => v,
 
             // For values which can't be shown "naturally", we return the raw
             // representation with typst code syntax highlighting.
-            v => Content::show(RawNode { text: v.repr(), block: false })
+            v => Content::show(RawNode { text: v.repr().into(), block: false })
                 .styled(RawNode::LANG, Some("typc".into())),
         }
     }
@@ -229,6 +229,12 @@ impl From<RgbaColor> for Value {
 
 impl From<&str> for Value {
     fn from(v: &str) -> Self {
+        Self::Str(v.into())
+    }
+}
+
+impl From<EcoString> for Value {
+    fn from(v: EcoString) -> Self {
         Self::Str(v.into())
     }
 }
@@ -388,11 +394,11 @@ primitive! { Relative<RawLength>:  "relative length",
 }
 primitive! { Fraction: "fraction", Fraction }
 primitive! { Color: "color", Color }
-primitive! { EcoString: "string", Str }
+primitive! { Str: "string", Str }
 primitive! { Content: "content",
     Content,
     None => Content::new(),
-    Str(text) => Content::Text(text)
+    Str(text) => Content::Text(text.into())
 }
 primitive! { Array: "array", Array }
 primitive! { Dict: "dictionary", Dict }

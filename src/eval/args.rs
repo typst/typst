@@ -1,9 +1,8 @@
 use std::fmt::{self, Debug, Formatter, Write};
 
-use super::{Array, Cast, Dict, Value};
+use super::{Array, Cast, Dict, Str, Value};
 use crate::diag::{At, TypResult};
 use crate::syntax::{Span, Spanned};
-use crate::util::EcoString;
 
 /// Evaluated arguments to a function.
 #[derive(Clone, PartialEq, Hash)]
@@ -20,7 +19,7 @@ pub struct Arg {
     /// The span of the whole argument.
     pub span: Span,
     /// The name of the argument (`None` for positional arguments).
-    pub name: Option<EcoString>,
+    pub name: Option<Str>,
     /// The value of the argument.
     pub value: Spanned<Value>,
 }
@@ -177,7 +176,7 @@ impl Args {
     }
 
     /// Reinterpret these arguments as actually being a dictionary key.
-    pub fn into_key(self) -> TypResult<EcoString> {
+    pub fn into_key(self) -> TypResult<Str> {
         self.into_castable("key")
     }
 

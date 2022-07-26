@@ -1,4 +1,4 @@
-use std::borrow::Borrow;
+use std::borrow::{Borrow, Cow};
 use std::cmp::Ordering;
 use std::fmt::{self, Debug, Display, Formatter, Write};
 use std::hash::{Hash, Hasher};
@@ -227,18 +227,7 @@ impl Default for EcoString {
 
 impl Debug for EcoString {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_char('"')?;
-        for c in self.chars() {
-            match c {
-                '\\' => f.write_str(r"\\")?,
-                '"' => f.write_str(r#"\""#)?,
-                '\n' => f.write_str(r"\n")?,
-                '\r' => f.write_str(r"\r")?,
-                '\t' => f.write_str(r"\t")?,
-                _ => f.write_char(c)?,
-            }
-        }
-        f.write_char('"')
+        Debug::fmt(self.as_str(), f)
     }
 }
 
@@ -325,12 +314,6 @@ impl Borrow<str> for EcoString {
     }
 }
 
-impl From<&Self> for EcoString {
-    fn from(s: &Self) -> Self {
-        s.clone()
-    }
-}
-
 impl From<char> for EcoString {
     fn from(c: char) -> Self {
         let mut buf = [0; LIMIT];
@@ -351,9 +334,22 @@ impl From<String> for EcoString {
     }
 }
 
-impl From<&EcoString> for String {
-    fn from(s: &EcoString) -> Self {
-        s.as_str().to_owned()
+impl From<Cow<'_, str>> for EcoString {
+    fn from(s: Cow<str>) -> Self {
+        match s {
+            Cow::Borrowed(s) => s.into(),
+            Cow::Owned(s) => s.into(),
+        }
+    }
+}
+
+impl FromIterator<char> for EcoString {
+    fn from_iter<T: IntoIterator<Item = char>>(iter: T) -> Self {
+        let mut s = Self::new();
+        for c in iter {
+            s.push(c);
+        }
+        s
     }
 }
 
@@ -366,13 +362,9 @@ impl From<EcoString> for String {
     }
 }
 
-impl FromIterator<char> for EcoString {
-    fn from_iter<T: IntoIterator<Item = char>>(iter: T) -> Self {
-        let mut s = Self::new();
-        for c in iter {
-            s.push(c);
-        }
-        s
+impl From<&EcoString> for String {
+    fn from(s: &EcoString) -> Self {
+        s.as_str().to_owned()
     }
 }
 

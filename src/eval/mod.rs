@@ -7,8 +7,9 @@ mod array;
 #[macro_use]
 mod dict;
 #[macro_use]
+mod str;
+#[macro_use]
 mod value;
-
 mod args;
 mod capture;
 mod func;
@@ -17,7 +18,6 @@ pub mod methods;
 pub mod ops;
 mod raw;
 mod scope;
-mod str;
 
 pub use self::str::*;
 pub use args::*;
@@ -347,7 +347,7 @@ impl Eval for Lit {
                 Unit::Fr => Fraction::new(v).into(),
                 Unit::Percent => Ratio::new(v / 100.0).into(),
             },
-            LitKind::Str(ref v) => Value::Str(v.clone()),
+            LitKind::Str(v) => Value::Str(v.into()),
         })
     }
 }
@@ -474,10 +474,10 @@ impl Eval for DictExpr {
         for item in self.items() {
             match item {
                 DictItem::Named(named) => {
-                    map.insert(named.name().take(), named.expr().eval(vm)?);
+                    map.insert(named.name().take().into(), named.expr().eval(vm)?);
                 }
                 DictItem::Keyed(keyed) => {
-                    map.insert(keyed.key(), keyed.expr().eval(vm)?);
+                    map.insert(keyed.key().into(), keyed.expr().eval(vm)?);
                 }
                 DictItem::Spread(expr) => match expr.eval(vm)? {
                     Value::None => {}
@@ -662,7 +662,7 @@ impl Eval for CallArgs {
                 CallArg::Named(named) => {
                     items.push(Arg {
                         span,
-                        name: Some(named.name().take()),
+                        name: Some(named.name().take().into()),
                         value: Spanned::new(named.expr().eval(vm)?, named.expr().span()),
                     });
                 }
@@ -859,7 +859,7 @@ impl Eval for ForExpr {
             (for ($($binding:ident => $value:ident),*) in $iter:expr) => {{
                 #[allow(unused_parens)]
                 for ($($value),*) in $iter {
-                    $(vm.scopes.top.define(&$binding, $value);)*
+                    $(vm.scopes.top.define($binding.clone(), $value);)*
 
                     let body = self.body();
                     let value = body.eval(vm)?;
@@ -886,7 +886,7 @@ impl Eval for ForExpr {
 
         match (key, value, iter) {
             (None, v, Value::Str(string)) => {
-                iter!(for (v => value) in string.graphemes(true));
+                iter!(for (v => value) in string.as_str().graphemes(true));
             }
             (None, v, Value::Array(array)) => {
                 iter!(for (v => value) in array.into_iter());
@@ -1047,7 +1047,7 @@ impl Access for Ident {
 impl Access for FieldAccess {
     fn access<'a>(&self, vm: &'a mut Machine) -> TypResult<&'a mut Value> {
         Ok(match self.object().access(vm)? {
-            Value::Dict(dict) => dict.get_mut(self.field().take()),
+            Value::Dict(dict) => dict.get_mut(self.field().take().into()),
             v => bail!(
                 self.object().span(),
                 "expected dictionary, found {}",

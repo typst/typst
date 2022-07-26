@@ -33,7 +33,7 @@ impl LinkNode {
 castable! {
     Destination,
     Expected: "string or dictionary with `page`, `x`, and `y` keys",
-    Value::Str(string) => Self::Url(string),
+    Value::Str(string) => Self::Url(string.into()),
     Value::Dict(dict) => {
         let page = dict.get("page")?.clone().cast()?;
         let x: RawLength = dict.get("x")?.clone().cast()?;
@@ -54,7 +54,7 @@ impl Show for LinkNode {
     fn encode(&self, _: StyleChain) -> Dict {
         dict! {
             "url" => match &self.dest {
-                Destination::Url(url) => Value::Str(url.clone()),
+                Destination::Url(url) => Value::Str(url.clone().into()),
                 Destination::Internal(loc) => Value::Dict(loc.encode()),
             },
             "body" => match &self.body {

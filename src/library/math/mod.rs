@@ -43,7 +43,7 @@ impl Show for MathNode {
 
     fn encode(&self, _: StyleChain) -> Dict {
         dict! {
-            "formula" => Value::Str(self.formula.v.clone()),
+            "formula" => Value::Str(self.formula.v.clone().into()),
             "display" => Value::Bool(self.display)
         }
     }

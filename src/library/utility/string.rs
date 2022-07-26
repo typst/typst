@@ -10,8 +10,8 @@ pub fn repr(_: &mut Machine, args: &mut Args) -> TypResult<Value> {
 pub fn str(_: &mut Machine, args: &mut Args) -> TypResult<Value> {
     let Spanned { v, span } = args.expect("value")?;
     Ok(Value::Str(match v {
-        Value::Int(v) => format_eco!("{}", v),
-        Value::Float(v) => format_eco!("{}", v),
+        Value::Int(v) => format_str!("{}", v),
+        Value::Float(v) => format_str!("{}", v),
         Value::Str(v) => v,
         v => bail!(span, "cannot convert {} to string", v.type_name()),
     }))
@@ -46,7 +46,7 @@ pub fn symbol(_: &mut Machine, args: &mut Args) -> TypResult<Value> {
 
 fn numbered(numbering: Numbering, args: &mut Args) -> TypResult<Value> {
     let n = args.expect::<usize>("non-negative integer")?;
-    Ok(Value::Str(numbering.apply(n)))
+    Ok(Value::Str(numbering.apply(n).into()))
 }
 
 /// Allows to convert a number into letters, roman numerals and symbols.

@@ -1,6 +1,6 @@
 //! Methods on values.
 
-use super::{Args, Machine, Regex, StrExt, Value};
+use super::{Args, Machine, Value};
 use crate::diag::{At, TypResult};
 use crate::model::{Content, Group};
 use crate::syntax::Span;
@@ -20,9 +20,42 @@ pub fn call(
     let output = match value {
         Value::Str(string) => match method {
             "len" => Value::Int(string.len() as i64),
-            "trim" => Value::Str(string.trim().into()),
+            "slice" => {
+                let start = args.expect("start")?;
+                let mut end = args.eat()?;
+                if end.is_none() {
+                    end = args.named("count")?.map(|c: i64| start + c);
+                }
+                Value::Str(string.slice(start, end).at(span)?)
+            }
+            "contains" => Value::Bool(string.contains(args.expect("pattern")?)),
+            "starts-with" => Value::Bool(string.starts_with(args.expect("pattern")?)),
+            "ends-with" => Value::Bool(string.ends_with(args.expect("pattern")?)),
+            "find" => {
+                string.find(args.expect("pattern")?).map_or(Value::None, Value::Str)
+            }
+            "position" => string
+                .position(args.expect("pattern")?)
+                .map_or(Value::None, Value::Int),
+
+            "match" => string
+                .match_(args.expect("pattern")?)
+                .map_or(Value::None, Value::Dict),
+            "matches" => Value::Array(string.matches(args.expect("pattern")?)),
+            "replace" => {
+                let pattern = args.expect("pattern")?;
+                let with = args.expect("replacement string")?;
+                let count = args.named("count")?;
+                Value::Str(string.replace(pattern, with, count))
+            }
+            "trim" => {
+                let pattern = args.eat()?;
+                let at = args.named("at")?;
+                let repeat = args.named("repeat")?.unwrap_or(true);
+                Value::Str(string.trim(pattern, at, repeat))
+            }
             "split" => Value::Array(string.split(args.eat()?)),
-            _ => missing()?,
+            _ => return missing(),
         },
 
         Value::Array(array) => match method {
@@ -54,7 +87,7 @@ pub fn call(
                 array.join(sep, last).at(span)?
             }
             "sorted" => Value::Array(array.sorted().at(span)?),
-            _ => missing()?,
+            _ => return missing(),
         },
 
         Value::Dict(dict) => match method {
@@ -62,48 +95,37 @@ pub fn call(
             "keys" => Value::Array(dict.keys()),
             "values" => Value::Array(dict.values()),
             "pairs" => Value::Array(dict.map(vm, args.expect("function")?)?),
-            _ => missing()?,
+            _ => return missing(),
         },
 
         Value::Func(func) => match method {
             "with" => Value::Func(func.clone().with(args.take())),
-            _ => missing()?,
+            _ => return missing(),
         },
 
         Value::Args(args) => match method {
             "positional" => Value::Array(args.to_positional()),
             "named" => Value::Dict(args.to_named()),
-            _ => missing()?,
+            _ => return missing(),
         },
 
-        Value::Dyn(dynamic) => match method {
-            "matches" => {
-                if let Some(regex) = dynamic.downcast::<Regex>() {
-                    Value::Bool(regex.is_match(&args.expect::<EcoString>("text")?))
-                } else {
-                    missing()?
-                }
-            }
-            "entry" => {
-                if let Some(group) = dynamic.downcast::<Group>() {
-                    Value::Content(Content::Locate(
+        Value::Dyn(dynamic) => {
+            if let Some(group) = dynamic.downcast::<Group>() {
+                match method {
+                    "entry" => Value::Content(Content::Locate(
                         group.entry(args.expect("recipe")?, args.named("value")?),
-                    ))
-                } else {
-                    missing()?
+                    )),
+                    "all" => {
+                        Value::Content(Content::Locate(group.all(args.expect("recipe")?)))
+                    }
+                    _ => return missing(),
                 }
+            } else {
+                return missing();
             }
-            "all" => {
-                if let Some(group) = dynamic.downcast::<Group>() {
-                    Value::Content(Content::Locate(group.all(args.expect("recipe")?)))
-                } else {
-                    missing()?
-                }
-            }
-            _ => missing()?,
-        },
+        }
 
-        _ => missing()?,
+        _ => return missing(),
     };
 
     args.finish()?;
@@ -128,15 +150,15 @@ pub fn call_mut(
                 array.insert(args.expect("index")?, args.expect("value")?).at(span)?
             }
             "remove" => array.remove(args.expect("index")?).at(span)?,
-            _ => missing()?,
+            _ => return missing(),
         },
 
         Value::Dict(dict) => match method {
             "remove" => dict.remove(&args.expect::<EcoString>("key")?).at(span)?,
-            _ => missing()?,
+            _ => return missing(),
         },
 
-        _ => missing()?,
+        _ => return missing(),
     }
 
     args.finish()?;

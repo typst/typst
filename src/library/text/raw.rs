@@ -50,10 +50,10 @@ impl Show for RawNode {
 
     fn encode(&self, styles: StyleChain) -> Dict {
         dict! {
-           "text" => Value::Str(self.text.clone()),
+           "text" => Value::Str(self.text.clone().into()),
            "block" => Value::Bool(self.block),
            "lang" => match styles.get(Self::LANG) {
-               Some(lang) => Value::Str(lang.clone()),
+               Some(lang) => Value::Str(lang.clone().into()),
                None => Value::None,
            },
         }

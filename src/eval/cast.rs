@@ -5,6 +5,7 @@ use crate::diag::{with_alternative, StrResult};
 use crate::geom::{Corners, Dir, Paint, Sides};
 use crate::model::{Content, Group, Layout, LayoutNode, Pattern};
 use crate::syntax::Spanned;
+use crate::util::EcoString;
 
 /// Cast from a value to a specific type.
 pub trait Cast<V = Value>: Sized {
@@ -160,6 +161,12 @@ castable! {
     Paint,
     Expected: "color",
     Value::Color(color) => Paint::Solid(color),
+}
+
+castable! {
+    EcoString,
+    Expected: "string",
+    Value::Str(str) => str.into(),
 }
 
 castable! {

@@ -2,7 +2,7 @@
 
 use std::cmp::Ordering;
 
-use super::{RawAlign, RawLength, RawStroke, Smart, StrExt, Value};
+use super::{RawAlign, RawLength, RawStroke, Regex, Smart, Value};
 use crate::diag::StrResult;
 use crate::geom::{Numeric, Relative, Spec, SpecAxis};
 use crate::model;
@@ -21,8 +21,8 @@ pub fn join(lhs: Value, rhs: Value) -> StrResult<Value> {
         (a, None) => a,
         (None, b) => b,
         (Str(a), Str(b)) => Str(a + b),
-        (Str(a), Content(b)) => Content(model::Content::Text(a) + b),
-        (Content(a), Str(b)) => Content(a + model::Content::Text(b)),
+        (Str(a), Content(b)) => Content(model::Content::Text(a.into()) + b),
+        (Content(a), Str(b)) => Content(a + model::Content::Text(b.into())),
         (Content(a), Content(b)) => Content(a + b),
         (Array(a), Array(b)) => Array(a + b),
         (Dict(a), Dict(b)) => Dict(a + b),
@@ -87,8 +87,8 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
 
         (Str(a), Str(b)) => Str(a + b),
         (Content(a), Content(b)) => Content(a + b),
-        (Content(a), Str(b)) => Content(a + model::Content::Text(b)),
-        (Str(a), Content(b)) => Content(model::Content::Text(a) + b),
+        (Content(a), Str(b)) => Content(a + model::Content::Text(b.into())),
+        (Str(a), Content(b)) => Content(model::Content::Text(a.into()) + b),
 
         (Array(a), Array(b)) => Array(a + b),
         (Dict(a), Dict(b)) => Dict(a + b),
@@ -183,8 +183,8 @@ pub fn mul(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Fraction(a), Float(b)) => Fraction(a * b),
         (Int(a), Fraction(b)) => Fraction(a as f64 * b),
 
-        (Str(a), Int(b)) => Str(StrExt::repeat(&a, b)?),
-        (Int(a), Str(b)) => Str(StrExt::repeat(&b, a)?),
+        (Str(a), Int(b)) => Str(a.repeat(b)?),
+        (Int(a), Str(b)) => Str(b.repeat(a)?),
         (Array(a), Int(b)) => Array(a.repeat(b)?),
         (Int(a), Array(b)) => Array(b.repeat(a)?),
         (Content(a), Int(b)) => Content(a.repeat(b)?),
@@ -384,9 +384,16 @@ pub fn not_in(lhs: Value, rhs: Value) -> StrResult<Value> {
 /// Test for containment.
 pub fn contains(lhs: &Value, rhs: &Value) -> Option<bool> {
     Some(match (lhs, rhs) {
-        (Value::Str(a), Value::Str(b)) => b.contains(a.as_str()),
-        (Value::Str(a), Value::Dict(b)) => b.contains(a),
-        (a, Value::Array(b)) => b.contains(a),
+        (Str(a), Str(b)) => b.as_str().contains(a.as_str()),
+        (Dyn(a), Str(b)) => {
+            if let Some(regex) = a.downcast::<Regex>() {
+                regex.is_match(b)
+            } else {
+                return Option::None;
+            }
+        }
+        (Str(a), Dict(b)) => b.contains(a),
+        (a, Array(b)) => b.contains(a),
         _ => return Option::None,
     })
 }
