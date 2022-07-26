@@ -3,9 +3,9 @@ use std::fmt::{self, Debug, Formatter, Write};
 use std::ops::{Add, AddAssign};
 use std::sync::Arc;
 
-use super::{ops, Args, Cast, Func, Machine, Value};
+use super::{ops, Args, Func, Machine, Value};
 use crate::diag::{At, StrResult, TypResult};
-use crate::syntax::{Span, Spanned};
+use crate::syntax::Spanned;
 use crate::util::ArcExt;
 
 /// Create a new [`Array`] from values.
@@ -35,14 +35,19 @@ impl Array {
         Self(Arc::new(vec))
     }
 
-    /// Whether the array is empty.
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-
     /// The length of the array.
     pub fn len(&self) -> i64 {
         self.0.len() as i64
+    }
+
+    /// The first value in the array.
+    pub fn first(&self) -> Option<&Value> {
+        self.0.first()
+    }
+
+    /// The last value in the array.
+    pub fn last(&self) -> Option<&Value> {
+        self.0.last()
     }
 
     /// Borrow the value at the given index.
@@ -67,7 +72,7 @@ impl Array {
 
     /// Remove the last value in the array.
     pub fn pop(&mut self) -> StrResult<()> {
-        Arc::make_mut(&mut self.0).pop().ok_or_else(|| "array is empty")?;
+        Arc::make_mut(&mut self.0).pop().ok_or_else(array_is_empty)?;
         Ok(())
     }
 
@@ -95,11 +100,6 @@ impl Array {
         return Ok(());
     }
 
-    /// Whether the array contains a specific value.
-    pub fn contains(&self, value: &Value) -> bool {
-        self.0.contains(value)
-    }
-
     /// Extract a contigous subregion of the array.
     pub fn slice(&self, start: i64, end: Option<i64>) -> StrResult<Self> {
         let len = self.len();
@@ -118,22 +118,33 @@ impl Array {
         Ok(Self::from_vec(self.0[start .. end].to_vec()))
     }
 
-    /// Transform each item in the array with a function.
-    pub fn map(&self, vm: &mut Machine, f: Spanned<Func>) -> TypResult<Self> {
-        let enumerate = f.v.argc() == Some(2);
-        Ok(self
-            .iter()
-            .cloned()
-            .enumerate()
-            .map(|(i, item)| {
-                let mut args = Args::new(f.span, []);
-                if enumerate {
-                    args.push(f.span, Value::Int(i as i64));
-                }
-                args.push(f.span, item);
-                f.v.call(vm, args)
-            })
-            .collect::<TypResult<_>>()?)
+    /// Whether the array contains a specific value.
+    pub fn contains(&self, value: &Value) -> bool {
+        self.0.contains(value)
+    }
+
+    /// Return the first matching element.
+    pub fn find(&self, vm: &mut Machine, f: Spanned<Func>) -> TypResult<Option<Value>> {
+        for item in self.iter() {
+            let args = Args::new(f.span, [item.clone()]);
+            if f.v.call(vm, args)?.cast::<bool>().at(f.span)? {
+                return Ok(Some(item.clone()));
+            }
+        }
+
+        Ok(None)
+    }
+
+    /// Return the index of the first matching element.
+    pub fn position(&self, vm: &mut Machine, f: Spanned<Func>) -> TypResult<Option<i64>> {
+        for (i, item) in self.iter().enumerate() {
+            let args = Args::new(f.span, [item.clone()]);
+            if f.v.call(vm, args)?.cast::<bool>().at(f.span)? {
+                return Ok(Some(i as i64));
+            }
+        }
+
+        Ok(None)
     }
 
     /// Return a new array with only those elements for which the function
@@ -141,15 +152,53 @@ impl Array {
     pub fn filter(&self, vm: &mut Machine, f: Spanned<Func>) -> TypResult<Self> {
         let mut kept = vec![];
         for item in self.iter() {
-            if f.v
-                .call(vm, Args::new(f.span, [item.clone()]))?
-                .cast::<bool>()
-                .at(f.span)?
-            {
+            let args = Args::new(f.span, [item.clone()]);
+            if f.v.call(vm, args)?.cast::<bool>().at(f.span)? {
                 kept.push(item.clone())
             }
         }
         Ok(Self::from_vec(kept))
+    }
+
+    /// Transform each item in the array with a function.
+    pub fn map(&self, vm: &mut Machine, f: Spanned<Func>) -> TypResult<Self> {
+        let enumerate = f.v.argc() == Some(2);
+        Ok(self
+            .iter()
+            .enumerate()
+            .map(|(i, item)| {
+                let mut args = Args::new(f.span, []);
+                if enumerate {
+                    args.push(f.span, Value::Int(i as i64));
+                }
+                args.push(f.span, item.clone());
+                f.v.call(vm, args)
+            })
+            .collect::<TypResult<_>>()?)
+    }
+
+    /// Whether any element matches.
+    pub fn any(&self, vm: &mut Machine, f: Spanned<Func>) -> TypResult<bool> {
+        for item in self.iter() {
+            let args = Args::new(f.span, [item.clone()]);
+            if f.v.call(vm, args)?.cast::<bool>().at(f.span)? {
+                return Ok(true);
+            }
+        }
+
+        Ok(false)
+    }
+
+    /// Whether all elements match.
+    pub fn all(&self, vm: &mut Machine, f: Spanned<Func>) -> TypResult<bool> {
+        for item in self.iter() {
+            let args = Args::new(f.span, [item.clone()]);
+            if !f.v.call(vm, args)?.cast::<bool>().at(f.span)? {
+                return Ok(false);
+            }
+        }
+
+        Ok(true)
     }
 
     /// Return a new array with all items from this and nested arrays.
@@ -165,15 +214,9 @@ impl Array {
         Self::from_vec(flat)
     }
 
-    /// Return the index of the element if it is part of the array.
-    pub fn find(&self, vm: &mut Machine, target: Target) -> TypResult<Option<i64>> {
-        for (i, item) in self.iter().enumerate() {
-            if target.matches(vm, item)? {
-                return Ok(Some(i as i64));
-            }
-        }
-
-        Ok(None)
+    /// Returns a new array with reversed order.
+    pub fn rev(&self) -> Self {
+        self.0.iter().cloned().rev().collect()
     }
 
     /// Join all values in the array, optionally with separator and last
@@ -256,6 +299,12 @@ fn out_of_bounds(index: i64, len: i64) -> String {
     format!("array index out of bounds (index: {}, len: {})", index, len)
 }
 
+/// The error message when the array is empty.
+#[cold]
+fn array_is_empty() -> String {
+    "array is empty".into()
+}
+
 impl Debug for Array {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.write_char('(')?;
@@ -317,39 +366,5 @@ impl<'a> IntoIterator for &'a Array {
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
-    }
-}
-
-/// Something that can be found.
-pub enum Target {
-    /// A bare value.
-    Value(Value),
-    /// A function that returns a boolean.
-    Func(Func, Span),
-}
-
-impl Target {
-    /// Whether the value is the search target.
-    pub fn matches(&self, vm: &mut Machine, other: &Value) -> TypResult<bool> {
-        match self {
-            Self::Value(value) => Ok(value == other),
-            Self::Func(f, span) => f
-                .call(vm, Args::new(*span, [other.clone()]))?
-                .cast::<bool>()
-                .at(*span),
-        }
-    }
-}
-
-impl Cast<Spanned<Value>> for Target {
-    fn is(_: &Spanned<Value>) -> bool {
-        true
-    }
-
-    fn cast(value: Spanned<Value>) -> StrResult<Self> {
-        Ok(match value.v {
-            Value::Func(v) => Self::Func(v, value.span),
-            v => Self::Value(v),
-        })
     }
 }

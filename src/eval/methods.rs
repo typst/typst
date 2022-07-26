@@ -27,6 +27,8 @@ pub fn call(
 
         Value::Array(array) => match method {
             "len" => Value::Int(array.len()),
+            "first" => array.first().cloned().unwrap_or(Value::None),
+            "last" => array.last().cloned().unwrap_or(Value::None),
             "slice" => {
                 let start = args.expect("start")?;
                 let mut end = args.eat()?;
@@ -35,12 +37,17 @@ pub fn call(
                 }
                 Value::Array(array.slice(start, end).at(span)?)
             }
-            "map" => Value::Array(array.map(vm, args.expect("function")?)?),
-            "filter" => Value::Array(array.filter(vm, args.expect("function")?)?),
-            "flatten" => Value::Array(array.flatten()),
-            "find" => array
-                .find(vm, args.expect("value or function")?)?
+            "contains" => Value::Bool(array.contains(&args.expect("value")?)),
+            "find" => array.find(vm, args.expect("function")?)?.unwrap_or(Value::None),
+            "position" => array
+                .position(vm, args.expect("function")?)?
                 .map_or(Value::None, Value::Int),
+            "filter" => Value::Array(array.filter(vm, args.expect("function")?)?),
+            "map" => Value::Array(array.map(vm, args.expect("function")?)?),
+            "any" => Value::Bool(array.any(vm, args.expect("function")?)?),
+            "all" => Value::Bool(array.all(vm, args.expect("function")?)?),
+            "flatten" => Value::Array(array.flatten()),
+            "rev" => Value::Array(array.rev()),
             "join" => {
                 let sep = args.eat()?;
                 let last = args.named("last")?;

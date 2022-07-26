@@ -9,6 +9,15 @@
 #test((a: 1, b: 2).len(), 2)
 
 ---
+// The the `first` and `last` methods.
+#test(().first(), none)
+#test(().last(), none)
+#test((1,).first(), 1)
+#test((2,).last(), 2)
+#test((1, 2, 3).first(), 1)
+#test((1, 2, 3).last(), 3)
+
+---
 // Test the `push` and `pop` methods.
 {
   let tasks = (a: (1, 2, 3), b: (4, 5, 6))
@@ -29,16 +38,16 @@
 }
 
 ---
-// Test the `find` method.
-#test(("Hi", "❤️", "Love").find("❤️"), 1)
-#test(("Bye", "💘", "Apart").find("❤️"), none)
-#test(("A", "B", "CDEF", "G").find(v => v.len() > 2), 2)
+// Error: 2:17-2:19 missing argument: index
+#let numbers = ()
+{ numbers.insert() }
 
 ---
 // Test the `slice` method.
 #test((1, 2, 3, 4).slice(2), (3, 4))
 #test(range(10).slice(2, 6), (2, 3, 4, 5))
 #test(range(10).slice(4, count: 3), (4, 5, 6))
+#test(range(10).slice(-5, count: 2), (5, 6))
 #test((1, 2, 3).slice(2, -2), ())
 #test((1, 2, 3).slice(-2, 2), (2,))
 #test((1, 2, 3).slice(-3, 2), (1, 2))
@@ -53,9 +62,14 @@
 { (1, 2, 3).slice(0, -4) }
 
 ---
-// Error: 2:17-2:19 missing argument: index
-#let numbers = ()
-{ numbers.insert() }
+// Test the `position` method.
+#test(("Hi", "❤️", "Love").position(s => s == "❤️"), 1)
+#test(("Bye", "💘", "Apart").position(s => s == "❤️"), none)
+#test(("A", "B", "CDEF", "G").position(v => v.len() > 2), 2)
+
+---
+// Test the `rev` method.
+#test(range(3).rev(), (2, 1, 0))
 
 ---
 // Test the `join` method.
