@@ -41,6 +41,7 @@ usvg = { version = "0.22", default-features = false }
 # External implementation of user-facing features
 syntect = { version = "5", default-features = false, features = ["default-syntaxes", "regex-fancy"] }
 rex = { git = "https://github.com/laurmaedje/ReX" }
+csv = "1"
 
 # PDF export
 miniz_oxide = "0.5"

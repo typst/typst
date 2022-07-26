@@ -2,12 +2,15 @@
 
 pub use std::fmt::{self, Debug, Formatter};
 pub use std::hash::Hash;
+pub use std::io;
 pub use std::num::NonZeroUsize;
 pub use std::sync::Arc;
 
 pub use typst_macros::node;
 
-pub use crate::diag::{with_alternative, At, Error, StrResult, TypError, TypResult};
+pub use crate::diag::{
+    failed_to_load, with_alternative, At, Error, StrResult, TypError, TypResult,
+};
 pub use crate::eval::{
     Arg, Args, Array, Cast, Dict, Dynamic, Func, Machine, Node, RawAlign, RawLength,
     RawStroke, Scope, Smart, Value,

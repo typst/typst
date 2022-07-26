@@ -79,6 +79,8 @@ pub fn typeset(ctx: &mut Context, id: SourceId) -> TypResult<Vec<Frame>> {
 
 /// The core context which holds the configuration and stores.
 pub struct Context {
+    /// The loader for fonts and files.
+    pub loader: Arc<dyn Loader>,
     /// Stores loaded source files.
     pub sources: SourceStore,
     /// Stores parsed font faces.
@@ -97,6 +99,7 @@ impl Context {
     /// Create a new context.
     pub fn new(loader: Arc<dyn Loader>, config: Config) -> Self {
         Self {
+            loader: Arc::clone(&loader),
             sources: SourceStore::new(Arc::clone(&loader)),
             fonts: FontStore::new(Arc::clone(&loader)),
             images: ImageStore::new(loader),
