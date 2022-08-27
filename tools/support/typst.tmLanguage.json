@@ -118,6 +118,16 @@
           "captures": { "0": { "name": "punctuation.defintion.string.math.typst" } }
         },
         {
+          "name": "entity.other.reference.typst",
+          "match": "(@)[[:alpha:]_][[:alnum:]_-]*",
+          "captures": { "1": { "name": "punctuation.definition.reference.typst" } }
+        },
+        {
+          "name": "entity.other.label.typst",
+          "match": "<[[:alpha:]_][[:alnum:]_-]*>",
+          "captures": { "1": { "name": "punctuation.definition.label.typst" } }
+        },
+        {
           "begin": "(#)(pub|let|set|show|wrap)\\b",
           "end": "\n|(;)|(?=])",
           "beginCaptures": {
