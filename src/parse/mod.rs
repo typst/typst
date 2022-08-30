@@ -175,18 +175,24 @@ fn markup_indented(p: &mut Parser, min_indent: usize) {
         _ => false,
     });
 
+    let marker = p.marker();
     let mut at_start = false;
-    p.perform(NodeKind::Markup { min_indent }, |p| {
-        while !p.eof() {
-            if let Some(NodeKind::Space { newlines: (1 ..) }) = p.peek() {
-                if p.column(p.current_end()) < min_indent {
-                    break;
-                }
-            }
 
-            markup_node(p, &mut at_start);
+    while !p.eof() {
+        match p.peek() {
+            Some(NodeKind::Space { newlines: (1 ..) })
+                if p.column(p.current_end()) < min_indent =>
+            {
+                break;
+            }
+            Some(NodeKind::Label(_)) => break,
+            _ => {}
         }
-    });
+
+        markup_node(p, &mut at_start);
+    }
+
+    marker.end(p, NodeKind::Markup { min_indent });
 }
 
 /// Parse a markup node.
@@ -212,16 +218,18 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
 
         // Text and markup.
         NodeKind::Text(_)
+        | NodeKind::Linebreak { .. }
         | NodeKind::NonBreakingSpace
         | NodeKind::Shy
         | NodeKind::EnDash
         | NodeKind::EmDash
         | NodeKind::Ellipsis
         | NodeKind::Quote { .. }
-        | NodeKind::Linebreak { .. }
+        | NodeKind::Escape(_)
         | NodeKind::Raw(_)
         | NodeKind::Math(_)
-        | NodeKind::Escape(_) => {
+        | NodeKind::Label(_)
+        | NodeKind::Ref(_) => {
             p.eat();
         }
 

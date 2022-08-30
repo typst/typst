@@ -81,7 +81,7 @@
           "name": "markup.heading.typst",
           "contentName": "entity.name.section.typst",
           "begin": "^\\s*=+\\s+",
-          "end": "\n",
+          "end": "\n|(?=<)",
           "beginCaptures": { "0": { "name": "punctuation.definition.heading.typst" } },
           "patterns": [{ "include": "#markup" }]
         },

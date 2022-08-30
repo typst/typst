@@ -723,6 +723,10 @@ pub enum NodeKind {
     ///
     /// Can also exist without the number: `.`.
     EnumNumbering(Option<usize>),
+    /// A label: `<label>`.
+    Label(EcoString),
+    /// A reference: `@label`.
+    Ref(EcoString),
     /// An identifier: `center`.
     Ident(EcoString),
     /// A boolean: `true`, `false`.
@@ -935,6 +939,8 @@ impl NodeKind {
             Self::Heading => "heading",
             Self::Enum => "enumeration item",
             Self::EnumNumbering(_) => "enumeration item numbering",
+            Self::Label(_) => "label",
+            Self::Ref(_) => "reference",
             Self::Ident(_) => "identifier",
             Self::Bool(_) => "boolean",
             Self::Int(_) => "integer",
@@ -1060,6 +1066,8 @@ impl Hash for NodeKind {
             Self::Heading => {}
             Self::Enum => {}
             Self::EnumNumbering(num) => num.hash(state),
+            Self::Label(c) => c.hash(state),
+            Self::Ref(c) => c.hash(state),
             Self::Ident(v) => v.hash(state),
             Self::Bool(v) => v.hash(state),
             Self::Int(v) => v.hash(state),

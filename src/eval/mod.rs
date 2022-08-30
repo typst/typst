@@ -203,6 +203,8 @@ impl Eval for MarkupNode {
             Self::Heading(heading) => heading.eval(vm)?,
             Self::List(list) => list.eval(vm)?,
             Self::Enum(enum_) => enum_.eval(vm)?,
+            Self::Label(_) => Content::Empty,
+            Self::Ref(label) => Content::show(library::structure::RefNode(label.clone())),
             Self::Expr(expr) => expr.eval(vm)?.display(),
         })
     }

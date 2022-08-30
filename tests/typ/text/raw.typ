@@ -31,11 +31,11 @@ Text
 The keyword ```rust let```.
 
 // Trimming depends on number backticks.
-<``> \
-<` untrimmed `> \
-<``` trimmed` ```> \
-<``` trimmed ```> \
-<``` trimmed```>
+(``) \
+(` untrimmed `) \
+(``` trimmed` ```) \
+(``` trimmed ```) \
+(``` trimmed```) \
 
 ---
 // First line is not dedented and leading space is still possible.

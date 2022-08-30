@@ -153,6 +153,10 @@ pub enum Category {
     Punctuation,
     /// A line or block comment.
     Comment,
+    /// An easily typable shortcut to a unicode codepoint.
+    Shortcut,
+    /// An escape sequence.
+    Escape,
     /// Strong text.
     Strong,
     /// Emphasized text.
@@ -165,10 +169,10 @@ pub enum Category {
     Heading,
     /// A list or enumeration.
     List,
-    /// An easily typable shortcut to a unicode codepoint.
-    Shortcut,
-    /// An escape sequence.
-    Escape,
+    /// A label.
+    Label,
+    /// A reference.
+    Ref,
     /// A keyword.
     Keyword,
     /// An operator symbol.
@@ -212,6 +216,13 @@ impl Category {
             NodeKind::Dot => Some(Category::Punctuation),
             NodeKind::LineComment => Some(Category::Comment),
             NodeKind::BlockComment => Some(Category::Comment),
+            NodeKind::Linebreak { .. } => Some(Category::Shortcut),
+            NodeKind::NonBreakingSpace => Some(Category::Shortcut),
+            NodeKind::Shy => Some(Category::Shortcut),
+            NodeKind::EnDash => Some(Category::Shortcut),
+            NodeKind::EmDash => Some(Category::Shortcut),
+            NodeKind::Ellipsis => Some(Category::Shortcut),
+            NodeKind::Escape(_) => Some(Category::Escape),
             NodeKind::Strong => Some(Category::Strong),
             NodeKind::Emph => Some(Category::Emph),
             NodeKind::Raw(_) => Some(Category::Raw),
@@ -222,13 +233,8 @@ impl Category {
                 _ => Some(Category::Operator),
             },
             NodeKind::EnumNumbering(_) => Some(Category::List),
-            NodeKind::Linebreak { .. } => Some(Category::Shortcut),
-            NodeKind::NonBreakingSpace => Some(Category::Shortcut),
-            NodeKind::Shy => Some(Category::Shortcut),
-            NodeKind::EnDash => Some(Category::Shortcut),
-            NodeKind::EmDash => Some(Category::Shortcut),
-            NodeKind::Ellipsis => Some(Category::Shortcut),
-            NodeKind::Escape(_) => Some(Category::Escape),
+            NodeKind::Label(_) => Some(Category::Label),
+            NodeKind::Ref(_) => Some(Category::Ref),
             NodeKind::Not => Some(Category::Keyword),
             NodeKind::And => Some(Category::Keyword),
             NodeKind::Or => Some(Category::Keyword),
@@ -344,14 +350,16 @@ impl Category {
             Self::Bracket => "punctuation.definition.typst",
             Self::Punctuation => "punctuation.typst",
             Self::Comment => "comment.typst",
+            Self::Shortcut => "punctuation.shortcut.typst",
+            Self::Escape => "constant.character.escape.content.typst",
             Self::Strong => "markup.bold.typst",
             Self::Emph => "markup.italic.typst",
             Self::Raw => "markup.raw.typst",
             Self::Math => "string.other.math.typst",
             Self::Heading => "markup.heading.typst",
             Self::List => "markup.list.typst",
-            Self::Shortcut => "punctuation.shortcut.typst",
-            Self::Escape => "constant.character.escape.content.typst",
+            Self::Label => "entity.name.label.typst",
+            Self::Ref => "markup.other.reference.typst",
             Self::Keyword => "keyword.typst",
             Self::Operator => "keyword.operator.typst",
             Self::None => "constant.language.none.typst",

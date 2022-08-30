@@ -169,6 +169,9 @@ pub static THEME: Lazy<Theme> = Lazy::new(|| Theme {
         item("markup.raw", Some("#818181"), None),
         item("markup.list", Some("#8b41b1"), None),
         item("comment", Some("#8a8a8a"), None),
+        item("punctuation.shortcut", Some("#1d6c76"), None),
+        item("constant.character.escape", Some("#1d6c76"), None),
+        item("entity.name.label, markup.other.reference", Some("#1d6c76"), None),
         item("keyword, constant.language, variable.language", Some("#d73a49"), None),
         item("storage.type, storage.modifier", Some("#d73a49"), None),
         item("entity.other", Some("#8b41b1"), None),
@@ -177,8 +180,6 @@ pub static THEME: Lazy<Theme> = Lazy::new(|| Theme {
         item("meta.annotation", Some("#301414"), None),
         item("constant", Some("#b60157"), None),
         item("string", Some("#298e0d"), None),
-        item("punctuation.shortcut", Some("#1d6c76"), None),
-        item("constant.character.escape", Some("#1d6c76"), None),
         item("invalid", Some("#ff0000"), None),
     ],
 });

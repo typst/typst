@@ -30,7 +30,7 @@
 // Who needs whitespace anyways?
 #import*from"target.typ"
 
-// Should output `Hi`.
+// Should output `bye`.
 // Stop at semicolon.
 #import a, c from "target.typ";bye
 
@@ -93,25 +93,21 @@ This is never reached.
 // Error: 17-18 expected expression, found comma
 #import a, b, c,, from "target.typ"
 
-// Should output `"target.typ"`.
 // Error: 1-6 unexpected keyword `from`
 #from "target.typ"
 
-// Should output `target`.
 // Error: 2:2 expected semicolon or line break
 #import * from "target.typ
 "target
 
-// Should output `@ 0.2.1`.
 // Error: 28 expected semicolon or line break
-#import * from "target.typ" @ 0.2.1
+#import * from "target.typ" § 0.2.1
 
 // A star in the list.
 // Error: 12-13 expected expression, found star
 #import a, *, b from "target.typ"
 
 // An item after a star.
-// Should output `, a from "target.typ"`.
 // Error: 10 expected keyword `from`
 #import *, a from "target.typ"
 

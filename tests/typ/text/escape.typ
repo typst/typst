@@ -3,10 +3,10 @@
 ---
 // Escapable symbols.
 \\ \/ \[ \] \{ \} \# \* \_ \
-\= \~ \` \$ \" \'
+\= \~ \` \$ \" \' \< \> \@
 
 // No need to escape.
-( ) ; < >
+( ) ;
 
 // Unescapable.
 \a \: \; \( \)

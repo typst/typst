@@ -84,6 +84,8 @@ impl Markup {
             NodeKind::Heading => node.cast().map(MarkupNode::Heading),
             NodeKind::List => node.cast().map(MarkupNode::List),
             NodeKind::Enum => node.cast().map(MarkupNode::Enum),
+            NodeKind::Label(v) => Some(MarkupNode::Label(v.clone())),
+            NodeKind::Ref(v) => Some(MarkupNode::Ref(v.clone())),
             _ => node.cast().map(MarkupNode::Expr),
         })
     }
@@ -116,6 +118,10 @@ pub enum MarkupNode {
     List(ListNode),
     /// An item in an enumeration (ordered list): `1. ...`.
     Enum(EnumNode),
+    /// A label.
+    Label(EcoString),
+    /// A reference.
+    Ref(EcoString),
     /// An expression.
     Expr(Expr),
 }

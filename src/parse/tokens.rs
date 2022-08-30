@@ -148,8 +148,10 @@ impl<'s> Tokens<'s> {
             '*' if !self.in_word() => NodeKind::Star,
             '_' if !self.in_word() => NodeKind::Underscore,
             '`' => self.raw(),
-            '$' => self.math(),
             '=' => NodeKind::Eq,
+            '$' => self.math(),
+            '<' => self.label(),
+            '@' => self.reference(),
             c if c == '.' || c.is_ascii_digit() => self.numbering(start, c),
 
             // Plain text.
@@ -277,7 +279,9 @@ impl<'s> Tokens<'s> {
             // Parenthesis and hashtag.
             '[' | ']' | '{' | '}' | '#' |
             // Markup.
-            '~' | '\'' | '"' | '*' | '_' | '`' | '$' | '=' | '-' | '.' => {
+            '~' | '-' | '.' | ':' |
+            '\'' | '"' | '*' | '_' | '`' | '$' | '=' |
+            '<' | '>' | '@' => {
                 self.s.expect(c);
                 NodeKind::Escape(c)
             }
@@ -450,6 +454,29 @@ impl<'s> Tokens<'s> {
                     "expected closing bracket and dollar sign".into()
                 },
             )
+        }
+    }
+
+    fn label(&mut self) -> NodeKind {
+        let label = self.s.eat_while(is_id_continue);
+        if self.s.eat_if('>') {
+            if !label.is_empty() {
+                NodeKind::Label(label.into())
+            } else {
+                NodeKind::Error(SpanPos::Full, "label cannot be empty".into())
+            }
+        } else {
+            self.terminated = false;
+            NodeKind::Error(SpanPos::End, "expected closing angle bracket".into())
+        }
+    }
+
+    fn reference(&mut self) -> NodeKind {
+        let label = self.s.eat_while(is_id_continue);
+        if !label.is_empty() {
+            NodeKind::Ref(label.into())
+        } else {
+            NodeKind::Error(SpanPos::Full, "label cannot be empty".into())
         }
     }
 
