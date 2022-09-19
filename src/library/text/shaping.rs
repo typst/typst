@@ -58,12 +58,12 @@ pub struct ShapedGlyph {
 impl ShapedGlyph {
     /// Whether the glyph is a space.
     pub fn is_space(&self) -> bool {
-        self.c == ' '
+        matches!(self.c, ' ' | '\u{00A0}' | '　')
     }
 
     /// Whether the glyph is justifiable.
     pub fn is_justifiable(&self) -> bool {
-        matches!(self.c, ' ' | '，' | '　' | '。' | '、')
+        self.is_space() || matches!(self.c, '，' | '。' | '、')
     }
 }
 
@@ -508,12 +508,14 @@ fn track_and_space(ctx: &mut ShapingContext) {
         .get(TextNode::SPACING)
         .map(|abs| Em::from_length(abs, ctx.size));
 
-    if tracking.is_zero() && spacing.is_one() {
-        return;
-    }
-
     let mut glyphs = ctx.glyphs.iter_mut().peekable();
     while let Some(glyph) = glyphs.next() {
+        // Make non-breaking space same width as normal space.
+        if glyph.c == '\u{00A0}' {
+            let face = ctx.fonts.get(glyph.face_id);
+            glyph.x_advance -= nbsp_delta(face).unwrap_or_default();
+        }
+
         if glyph.is_space() {
             glyph.x_advance = spacing.relative_to(glyph.x_advance);
         }
@@ -522,6 +524,13 @@ fn track_and_space(ctx: &mut ShapingContext) {
             glyph.x_advance += tracking;
         }
     }
+}
+
+/// Difference between non-breaking and normal space.
+fn nbsp_delta(face: &Face) -> Option<Em> {
+    let space = face.ttf().glyph_index(' ')?.0;
+    let nbsp = face.ttf().glyph_index('\u{00A0}')?.0;
+    Some(face.advance(nbsp)? - face.advance(space)?)
 }
 
 /// Resolve the font variant with `BOLD` and `ITALIC` factored in.

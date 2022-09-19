@@ -128,7 +128,7 @@
           "captures": { "1": { "name": "punctuation.definition.label.typst" } }
         },
         {
-          "begin": "(#)(pub|let|set|show|wrap)\\b",
+          "begin": "(#)(pub|let|set|rule|select|show|wrap)\\b",
           "end": "\n|(;)|(?=])",
           "beginCaptures": {
             "0": { "name": "keyword.other.typst" },
@@ -239,7 +239,7 @@
         },
         {
           "name": "keyword.other.typst",
-          "match": "\\b(pub|let|set|show|wrap|as|in|from)\\b"
+          "match": "\\b(pub|let|set|rule|select|show|wrap|as|in|from)\\b"
         },
         {
           "name": "keyword.control.conditional.typst",
