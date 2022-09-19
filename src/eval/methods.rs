@@ -2,7 +2,6 @@
 
 use super::{Args, Machine, Value};
 use crate::diag::{At, TypResult};
-use crate::model::{Content, Group};
 use crate::syntax::Span;
 use crate::util::EcoString;
 
@@ -108,22 +107,6 @@ pub fn call(
             "named" => Value::Dict(args.to_named()),
             _ => return missing(),
         },
-
-        Value::Dyn(dynamic) => {
-            if let Some(group) = dynamic.downcast::<Group>() {
-                match method {
-                    "entry" => Value::Content(Content::Locate(
-                        group.entry(args.expect("recipe")?, args.named("value")?),
-                    )),
-                    "all" => {
-                        Value::Content(Content::Locate(group.all(args.expect("recipe")?)))
-                    }
-                    _ => return missing(),
-                }
-            } else {
-                return missing();
-            }
-        }
 
         _ => return missing(),
     };

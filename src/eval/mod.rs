@@ -62,15 +62,6 @@ pub fn evaluate(
         panic!("Tried to cyclicly evaluate {}", path);
     }
 
-    // Check whether the module was already evaluated.
-    if let Some(module) = ctx.modules.get(&id) {
-        if module.valid(&ctx.sources) {
-            return Ok(module.clone());
-        } else {
-            ctx.modules.remove(&id);
-        }
-    }
-
     route.push(id);
 
     // Parse the file.
@@ -91,16 +82,11 @@ pub fn evaluate(
     }
 
     // Assemble the module.
-    let module = Module {
+    Ok(Module {
         scope: vm.scopes.top,
         content: result?,
         deps: vm.deps,
-    };
-
-    // Save the evaluated module.
-    ctx.modules.insert(id, module.clone());
-
-    Ok(module)
+    })
 }
 
 /// An evaluated module, ready for importing or layouting.

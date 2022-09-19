@@ -57,8 +57,6 @@ pub fn new() -> Scope {
     std.def_node::<layout::ColumnsNode>("columns");
     std.def_node::<layout::ColbreakNode>("colbreak");
     std.def_node::<layout::PlaceNode>("place");
-    std.def_fn("locate", layout::locate);
-    std.def_fn("group", layout::group);
 
     // Graphics.
     std.def_node::<graphics::ImageNode>("image");

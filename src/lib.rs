@@ -34,8 +34,6 @@
 #[macro_use]
 pub mod util;
 #[macro_use]
-pub mod memo;
-#[macro_use]
 pub mod geom;
 #[macro_use]
 pub mod diag;
@@ -52,19 +50,16 @@ pub mod parse;
 pub mod source;
 pub mod syntax;
 
-use std::collections::HashMap;
-use std::hash::Hasher;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use crate::diag::TypResult;
-use crate::eval::{Module, Scope};
+use crate::eval::Scope;
 use crate::font::FontStore;
 use crate::frame::Frame;
 use crate::image::ImageStore;
 use crate::loading::Loader;
-use crate::memo::Track;
-use crate::model::{PinBoard, PinConstraint, StyleMap};
+use crate::model::StyleMap;
 use crate::source::{SourceId, SourceStore};
 
 /// Typeset a source file into a collection of layouted frames.
@@ -89,10 +84,6 @@ pub struct Context {
     pub images: ImageStore,
     /// The context's configuration.
     config: Config,
-    /// Stores evaluated modules.
-    modules: HashMap<SourceId, Module>,
-    /// Stores document pins.
-    pins: PinBoard,
 }
 
 impl Context {
@@ -104,21 +95,7 @@ impl Context {
             fonts: FontStore::new(Arc::clone(&loader)),
             images: ImageStore::new(loader),
             config,
-            modules: HashMap::new(),
-            pins: PinBoard::new(),
         }
-    }
-}
-
-impl Track for &mut Context {
-    type Constraint = PinConstraint;
-
-    fn key<H: Hasher>(&self, hasher: &mut H) {
-        self.pins.key(hasher);
-    }
-
-    fn matches(&self, constraint: &Self::Constraint) -> bool {
-        self.pins.matches(constraint)
     }
 }
 

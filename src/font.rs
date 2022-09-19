@@ -234,10 +234,6 @@ fn shared_prefix_words(left: &str, right: &str) -> usize {
         .count()
 }
 
-impl_track_empty!(FontStore);
-impl_track_hash!(FaceId);
-impl_track_hash!(GlyphId);
-
 /// A font face.
 pub struct Face {
     /// The raw face data, possibly shared with other faces from the same

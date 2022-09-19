@@ -5,7 +5,7 @@ use std::fmt::{self, Debug, Formatter, Write};
 use std::hash::Hash;
 use std::sync::Arc;
 
-use super::{Barrier, NodeId, PinConstraint, Resolve, StyleChain, StyleEntry};
+use super::{Barrier, NodeId, Resolve, StyleChain, StyleEntry};
 use crate::diag::TypResult;
 use crate::eval::{RawAlign, RawLength};
 use crate::frame::{Element, Frame};
@@ -131,8 +131,6 @@ impl Regions {
     }
 }
 
-impl_track_hash!(Regions);
-
 /// A type-erased layouting node with a precomputed hash.
 #[derive(Clone, Hash)]
 pub struct LayoutNode(Arc<Prehashed<dyn Bounds>>);
@@ -222,51 +220,23 @@ impl Layout for LayoutNode {
         regions: &Regions,
         styles: StyleChain,
     ) -> TypResult<Vec<Frame>> {
-        let prev = ctx.pins.dirty.replace(false);
+        let barrier = StyleEntry::Barrier(Barrier::new(self.id()));
+        let styles = barrier.chain(&styles);
 
-        let (result, at, fresh, dirty) = crate::memo::memoized(
-            (self, &mut *ctx, regions, styles),
-            |(node, ctx, regions, styles)| {
-                let hash = fxhash::hash64(&ctx.pins);
-                let at = ctx.pins.cursor();
-
-                let barrier = StyleEntry::Barrier(Barrier::new(node.id()));
-                let styles = barrier.chain(&styles);
-
-                let mut result = node.0.layout(ctx, regions, styles);
-                if let Some(role) = styles.role() {
-                    result = result.map(|mut frames| {
-                        for frame in frames.iter_mut() {
-                            frame.apply_role(role);
-                        }
-                        frames
-                    });
-                }
-
-                let fresh = ctx.pins.from(at);
-                let dirty = ctx.pins.dirty.get();
-                let constraint = PinConstraint(dirty.then(|| hash));
-                ((result, at, fresh, dirty), ((), constraint, (), ()))
-            },
-        );
-
-        ctx.pins.dirty.replace(prev || dirty);
-
-        // Replay the side effect in case of caching. This should currently be
-        // more or less the only relevant side effect on the context.
-        if dirty {
-            ctx.pins.replay(at, fresh);
+        let mut frames = self.0.layout(ctx, regions, styles)?;
+        if let Some(role) = styles.role() {
+            for frame in &mut frames {
+                frame.apply_role(role);
+            }
         }
 
-        result
+        Ok(frames)
     }
 
     fn pack(self) -> LayoutNode {
         self
     }
 }
-
-impl_track_hash!(LayoutNode);
 
 impl Default for LayoutNode {
     fn default() -> Self {

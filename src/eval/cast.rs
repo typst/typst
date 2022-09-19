@@ -3,7 +3,7 @@ use std::num::NonZeroUsize;
 use super::{Regex, Value};
 use crate::diag::{with_alternative, StrResult};
 use crate::geom::{Corners, Dir, Paint, Sides};
-use crate::model::{Content, Group, Layout, LayoutNode, Pattern};
+use crate::model::{Content, Layout, LayoutNode, Pattern};
 use crate::syntax::Spanned;
 use crate::util::EcoString;
 
@@ -126,10 +126,6 @@ dynamic! {
 
 dynamic! {
     Regex: "regular expression",
-}
-
-dynamic! {
-    Group: "group",
 }
 
 castable! {

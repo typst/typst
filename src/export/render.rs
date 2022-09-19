@@ -246,16 +246,8 @@ fn render_outline_glyph(
     // Rasterize the glyph with `pixglyph`.
     // Try to retrieve a prepared glyph or prepare it from scratch if it
     // doesn't exist, yet.
-    let bitmap = crate::memo::memoized_ref(
-        (&ctx.fonts, text.face_id, id),
-        |(fonts, face_id, id)| {
-            (
-                pixglyph::Glyph::load(fonts.get(face_id).ttf(), id),
-                ((), (), ()),
-            )
-        },
-        |glyph| glyph.as_ref().map(|g| g.rasterize(ts.tx, ts.ty, ppem)),
-    )?;
+    let glyph = pixglyph::Glyph::load(ctx.fonts.get(text.face_id).ttf(), id)?;
+    let bitmap = glyph.rasterize(ts.tx, ts.ty, ppem);
 
     let cw = canvas.width() as i32;
     let ch = canvas.height() as i32;
