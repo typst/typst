@@ -165,7 +165,8 @@ pub static THEME: Lazy<Theme> = Lazy::new(|| Theme {
     scopes: vec![
         item("markup.bold", None, Some(FontStyle::BOLD)),
         item("markup.italic", None, Some(FontStyle::ITALIC)),
-        item("markup.heading, entity.name.section", None, Some(FontStyle::BOLD | FontStyle::UNDERLINE)),
+        item("markup.heading, entity.name.section", None, Some(FontStyle::BOLD)),
+        item("markup.heading.typst", None, Some(FontStyle::BOLD | FontStyle::UNDERLINE)),
         item("markup.raw", Some("#818181"), None),
         item("markup.list", Some("#8b41b1"), None),
         item("comment", Some("#8a8a8a"), None),
