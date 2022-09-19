@@ -11,7 +11,7 @@ pub use mem::*;
 use std::io;
 use std::path::Path;
 
-use crate::font::FaceInfo;
+use crate::font::FontInfo;
 
 /// A hash that identifies a file.
 ///
@@ -21,8 +21,8 @@ pub struct FileHash(pub u64);
 
 /// Loads resources from a local or remote source.
 pub trait Loader {
-    /// Descriptions of all font faces this loader serves.
-    fn faces(&self) -> &[FaceInfo];
+    /// Descriptions of all fonts this loader serves.
+    fn fonts(&self) -> &[FontInfo];
 
     /// Resolve a hash that is the same for this and all other paths pointing to
     /// the same file.
@@ -36,7 +36,7 @@ pub trait Loader {
 pub struct BlankLoader;
 
 impl Loader for BlankLoader {
-    fn faces(&self) -> &[FaceInfo] {
+    fn fonts(&self) -> &[FontInfo] {
         &[]
     }
 

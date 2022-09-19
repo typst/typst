@@ -377,7 +377,7 @@ impl Category {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::source::SourceFile;
+    use crate::source::Source;
 
     #[test]
     fn test_highlighting() {
@@ -386,7 +386,7 @@ mod tests {
         #[track_caller]
         fn test(src: &str, goal: &[(Range<usize>, Category)]) {
             let mut vec = vec![];
-            let source = SourceFile::detached(src);
+            let source = Source::detached(src);
             let full = 0 .. src.len();
             highlight_node(source.root(), full, &mut |range, category| {
                 vec.push((range, category));

@@ -11,7 +11,7 @@ use same_file::is_same_file;
 use termcolor::{ColorChoice, StandardStream, WriteColor};
 
 use typst::diag::{Error, StrResult};
-use typst::font::{FaceInfo, FontStore};
+use typst::font::{FontInfo, FontStore};
 use typst::library::text::THEME;
 use typst::loading::FsLoader;
 use typst::parse::TokenMode;
@@ -276,7 +276,7 @@ fn fonts(command: FontsCommand) -> StrResult<()> {
     for (name, infos) in fonts.families() {
         println!("{name}");
         if command.variants {
-            for &FaceInfo { variant, .. } in infos {
+            for &FontInfo { variant, .. } in infos {
                 println!(
                     "- Style: {:?}, Weight: {:?}, Stretch: {:?}",
                     variant.style, variant.weight, variant.stretch,

@@ -15,12 +15,12 @@ use unicode_segmentation::UnicodeSegmentation;
 use crate::geom::Em;
 use crate::loading::{FileHash, Loader};
 
-/// A unique identifier for a loaded font face.
+/// A unique identifier for a loaded font.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct FaceId(u32);
+pub struct FontId(u32);
 
-impl FaceId {
-    /// Create a face id from the raw underlying value.
+impl FontId {
+    /// Create a font id from the raw underlying value.
     ///
     /// This should only be called with values returned by
     /// [`into_raw`](Self::into_raw).
@@ -34,38 +34,38 @@ impl FaceId {
     }
 }
 
-/// Storage for loaded and parsed font faces.
+/// Storage for loaded and parsed fonts.
 pub struct FontStore {
     loader: Arc<dyn Loader>,
     failed: Vec<bool>,
-    faces: Vec<Option<Face>>,
-    families: BTreeMap<String, Vec<FaceId>>,
+    fonts: Vec<Option<Font>>,
+    families: BTreeMap<String, Vec<FontId>>,
     buffers: HashMap<FileHash, Arc<Vec<u8>>>,
 }
 
 impl FontStore {
     /// Create a new, empty font store.
     pub fn new(loader: Arc<dyn Loader>) -> Self {
-        let mut faces = vec![];
+        let mut fonts = vec![];
         let mut failed = vec![];
-        let mut families = BTreeMap::<String, Vec<FaceId>>::new();
+        let mut families = BTreeMap::<String, Vec<FontId>>::new();
 
-        let infos = loader.faces();
+        let infos = loader.fonts();
         for (i, info) in infos.iter().enumerate() {
-            let id = FaceId(i as u32);
-            faces.push(None);
+            let id = FontId(i as u32);
+            fonts.push(None);
             failed.push(false);
             families.entry(info.family.to_lowercase()).or_default().push(id);
         }
 
-        for faces in families.values_mut() {
-            faces.sort_by_key(|id| infos[id.0 as usize].variant);
-            faces.dedup_by_key(|id| infos[id.0 as usize].variant);
+        for fonts in families.values_mut() {
+            fonts.sort_by_key(|id| infos[id.0 as usize].variant);
+            fonts.dedup_by_key(|id| infos[id.0 as usize].variant);
         }
 
         Self {
             loader,
-            faces,
+            fonts,
             failed,
             families,
             buffers: HashMap::new(),
@@ -73,73 +73,73 @@ impl FontStore {
     }
 
     /// An ordered iterator over all font families this loader knows and details
-    /// about the faces that are part of them.
+    /// about the fonts that are part of them.
     pub fn families(
         &self,
-    ) -> impl Iterator<Item = (&str, impl Iterator<Item = &FaceInfo>)> + '_ {
+    ) -> impl Iterator<Item = (&str, impl Iterator<Item = &FontInfo>)> + '_ {
         // Since the keys are lowercased, we instead use the family field of the
-        // first face's info.
-        let faces = self.loader.faces();
+        // first font's info.
+        let fonts = self.loader.fonts();
         self.families.values().map(|ids| {
-            let family = faces[ids[0].0 as usize].family.as_str();
-            let infos = ids.iter().map(|&id| &faces[id.0 as usize]);
+            let family = fonts[ids[0].0 as usize].family.as_str();
+            let infos = ids.iter().map(|&id| &fonts[id.0 as usize]);
             (family, infos)
         })
     }
 
-    /// Get a reference to a loaded face.
+    /// Get a reference to a loaded font.
     ///
-    /// This panics if the face with this `id` was not loaded. This function
+    /// This panics if the font with this `id` was not loaded. This function
     /// should only be called with ids returned by this store's
     /// [`select()`](Self::select) and
     /// [`select_fallback()`](Self::select_fallback) methods.
     #[track_caller]
-    pub fn get(&self, id: FaceId) -> &Face {
-        self.faces[id.0 as usize].as_ref().expect("font face was not loaded")
+    pub fn get(&self, id: FontId) -> &Font {
+        self.fonts[id.0 as usize].as_ref().expect("font was not loaded")
     }
 
-    /// Try to find and load a font face from the given `family` that matches
+    /// Try to find and load a font from the given `family` that matches
     /// the given `variant` as closely as possible.
-    pub fn select(&mut self, family: &str, variant: FontVariant) -> Option<FaceId> {
+    pub fn select(&mut self, family: &str, variant: FontVariant) -> Option<FontId> {
         let ids = self.families.get(family)?;
         let id = self.find_best_variant(None, variant, ids.iter().copied())?;
         self.load(id)
     }
 
     /// Try to find and load a fallback font that
-    /// - is as close as possible to the face `like` (if any)
+    /// - is as close as possible to the font `like` (if any)
     /// - is as close as possible to the given `variant`
     /// - is suitable for shaping the given `text`
     pub fn select_fallback(
         &mut self,
-        like: Option<FaceId>,
+        like: Option<FontId>,
         variant: FontVariant,
         text: &str,
-    ) -> Option<FaceId> {
-        // Find the faces that contain the text's first char ...
+    ) -> Option<FontId> {
+        // Find the fonts that contain the text's first char ...
         let c = text.chars().next()?;
         let ids = self
             .loader
-            .faces()
+            .fonts()
             .iter()
             .enumerate()
             .filter(|(_, info)| info.coverage.contains(c as u32))
-            .map(|(i, _)| FaceId(i as u32));
+            .map(|(i, _)| FontId(i as u32));
 
         // ... and find the best variant among them.
         let id = self.find_best_variant(like, variant, ids)?;
         self.load(id)
     }
 
-    /// Find the face in the passed iterator that
-    /// - is closest to the face `like` (if any)
+    /// Find the font in the passed iterator that
+    /// - is closest to the font `like` (if any)
     /// - is closest to the given `variant`
     ///
     /// To do that we compute a key for all variants and select the one with the
     /// minimal key. This key prioritizes:
-    /// - If `like` is some other face:
-    ///   - Are both faces (not) monospaced?
-    ///   - Do both faces (not) have serifs?
+    /// - If `like` is some other font:
+    ///   - Are both fonts (not) monospaced?
+    ///   - Do both fonts (not) have serifs?
     ///   - How many words do the families share in their prefix? E.g. "Noto
     ///     Sans" and "Noto Sans Arabic" share two words, whereas "IBM Plex
     ///     Arabic" shares none with "Noto Sans", so prefer "Noto Sans Arabic"
@@ -154,11 +154,11 @@ impl FontStore {
     /// - The absolute distance to the target weight.
     fn find_best_variant(
         &self,
-        like: Option<FaceId>,
+        like: Option<FontId>,
         variant: FontVariant,
-        ids: impl IntoIterator<Item = FaceId>,
-    ) -> Option<FaceId> {
-        let infos = self.loader.faces();
+        ids: impl IntoIterator<Item = FontId>,
+    ) -> Option<FontId> {
+        let infos = self.loader.fonts();
         let like = like.map(|id| &infos[id.0 as usize]);
 
         let mut best = None;
@@ -190,12 +190,12 @@ impl FontStore {
         best
     }
 
-    /// Load the face with the given id.
+    /// Load the font with the given id.
     ///
-    /// Returns `Some(id)` if the face was loaded successfully.
-    fn load(&mut self, id: FaceId) -> Option<FaceId> {
+    /// Returns `Some(id)` if the font was loaded successfully.
+    fn load(&mut self, id: FontId) -> Option<FontId> {
         let idx = id.0 as usize;
-        let slot = &mut self.faces[idx];
+        let slot = &mut self.fonts[idx];
         if slot.is_some() {
             return Some(id);
         }
@@ -204,11 +204,11 @@ impl FontStore {
             return None;
         }
 
-        let FaceInfo { ref path, index, .. } = self.loader.faces()[idx];
+        let FontInfo { ref path, index, .. } = self.loader.fonts()[idx];
         self.failed[idx] = true;
 
-        // Check the buffer cache since multiple faces may
-        // refer to the same data (font collection).
+        // Check the buffer cache since multiple fonts may refer to the same
+        // data (font collection).
         let hash = self.loader.resolve(path).ok()?;
         let buffer = match self.buffers.entry(hash) {
             Entry::Occupied(entry) => entry.into_mut(),
@@ -218,8 +218,8 @@ impl FontStore {
             }
         };
 
-        let face = Face::new(Arc::clone(buffer), index)?;
-        *slot = Some(face);
+        let font = Font::new(Arc::clone(buffer), index)?;
+        *slot = Some(font);
         self.failed[idx] = false;
 
         Some(id)
@@ -234,24 +234,24 @@ fn shared_prefix_words(left: &str, right: &str) -> usize {
         .count()
 }
 
-/// A font face.
-pub struct Face {
-    /// The raw face data, possibly shared with other faces from the same
+/// An OpenType font.
+pub struct Font {
+    /// The raw font data, possibly shared with other fonts from the same
     /// collection. The vector's allocation must not move, because `ttf` points
     /// into it using unsafe code.
     buffer: Arc<Vec<u8>>,
-    /// The face's index in the collection (zero if not a collection).
+    /// The font's index in the collection (zero if not a collection).
     index: u32,
     /// The underlying ttf-parser/rustybuzz face.
     ttf: rustybuzz::Face<'static>,
-    /// The face's metrics.
-    metrics: FaceMetrics,
+    /// The font's metrics.
+    metrics: FontMetrics,
     /// The parsed ReX math header.
     math: OnceCell<Option<MathHeader>>,
 }
 
-impl Face {
-    /// Parse a font face from a buffer and collection index.
+impl Font {
+    /// Parse a font from a buffer and collection index.
     pub fn new(buffer: Arc<Vec<u8>>, index: u32) -> Option<Self> {
         // Safety:
         // - The slices's location is stable in memory:
@@ -263,7 +263,7 @@ impl Face {
             unsafe { std::slice::from_raw_parts(buffer.as_ptr(), buffer.len()) };
 
         let ttf = rustybuzz::Face::from_slice(slice, index)?;
-        let metrics = FaceMetrics::from_ttf(&ttf);
+        let metrics = FontMetrics::from_ttf(&ttf);
 
         Some(Self {
             buffer,
@@ -296,8 +296,8 @@ impl Face {
         self.metrics.units_per_em
     }
 
-    /// Access the face's metrics.
-    pub fn metrics(&self) -> &FaceMetrics {
+    /// Access the font's metrics.
+    pub fn metrics(&self) -> &FontMetrics {
         &self.metrics
     }
 
@@ -329,9 +329,9 @@ impl Face {
     }
 }
 
-/// Metrics for a font face.
+/// Metrics for a font.
 #[derive(Debug, Copy, Clone)]
-pub struct FaceMetrics {
+pub struct FontMetrics {
     /// How many font units represent one em unit.
     pub units_per_em: f64,
     /// The distance from the baseline to the typographic ascender.
@@ -350,8 +350,8 @@ pub struct FaceMetrics {
     pub overline: LineMetrics,
 }
 
-impl FaceMetrics {
-    /// Extract the face's metrics.
+impl FontMetrics {
+    /// Extract the font's metrics.
     pub fn from_ttf(ttf: &ttf_parser::Face) -> Self {
         let units_per_em = f64::from(ttf.units_per_em());
         let to_em = |units| Em::from_units(units, units_per_em);
@@ -437,36 +437,36 @@ pub enum VerticalFontMetric {
     Descender,
 }
 
-/// Properties of a single font face.
+/// Properties of a single font.
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
-pub struct FaceInfo {
+pub struct FontInfo {
     /// The path to the font file.
     pub path: PathBuf,
     /// The collection index in the font file.
     pub index: u32,
-    /// The typographic font family this face is part of.
+    /// The typographic font family this font is part of.
     pub family: String,
-    /// Properties that distinguish this face from other faces in the same
+    /// Properties that distinguish this font from other fonts in the same
     /// family.
     pub variant: FontVariant,
-    /// Whether the face is monospaced.
+    /// Whether the font is monospaced.
     pub monospaced: bool,
-    /// Whether the face has serifs (if known).
+    /// Whether the font has serifs (if known).
     pub serif: Option<bool>,
-    /// The unicode coverage of the face.
+    /// The unicode coverage of the font.
     pub coverage: Coverage,
 }
 
-impl FaceInfo {
-    /// Compute metadata for all faces in the given data.
+impl FontInfo {
+    /// Compute metadata for all fonts in the given data.
     pub fn from_data<'a>(
         path: &'a Path,
         data: &'a [u8],
-    ) -> impl Iterator<Item = FaceInfo> + 'a {
+    ) -> impl Iterator<Item = FontInfo> + 'a {
         let count = ttf_parser::fonts_in_collection(data).unwrap_or(1);
         (0 .. count).filter_map(move |index| {
-            let face = ttf_parser::Face::from_slice(data, index).ok()?;
-            Self::from_ttf(path, index, &face)
+            let ttf = ttf_parser::Face::from_slice(data, index).ok()?;
+            Self::from_ttf(path, index, &ttf)
         })
     }
 
@@ -477,7 +477,7 @@ impl FaceInfo {
         // variants (e.g. Display variants of Noto fonts) and then some
         // variants become inaccessible from Typst. And even though the
         // fsSelection bit WWS should help us decide whether that is the
-        // case, it's wrong for some fonts (e.g. for some faces of "Noto
+        // case, it's wrong for some fonts (e.g. for certain variants of "Noto
         // Sans Display").
         //
         // So, instead we use Name ID 1 "Family" and trim many common
@@ -539,7 +539,7 @@ impl FaceInfo {
             }
         }
 
-        Some(FaceInfo {
+        Some(FontInfo {
             path: path.to_owned(),
             index,
             family,
@@ -648,15 +648,15 @@ fn trim_styles(mut family: &str) -> &str {
     &family[.. len]
 }
 
-/// Properties that distinguish a face from other faces in the same family.
+/// Properties that distinguish a font from other fonts in the same family.
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[derive(Serialize, Deserialize)]
 pub struct FontVariant {
-    /// The style of the face (normal / italic / oblique).
+    /// The style of the font (normal / italic / oblique).
     pub style: FontStyle,
-    /// How heavy the face is (100 - 900).
+    /// How heavy the font is (100 - 900).
     pub weight: FontWeight,
-    /// How condensed or expanded the face is (0.5 - 2.0).
+    /// How condensed or expanded the font is (0.5 - 2.0).
     pub stretch: FontStretch,
 }
 
@@ -673,7 +673,7 @@ impl Debug for FontVariant {
     }
 }
 
-/// The style of a font face.
+/// The style of a font.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -705,7 +705,7 @@ impl Default for FontStyle {
     }
 }
 
-/// The weight of a font face.
+/// The weight of a font.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
@@ -773,7 +773,7 @@ impl Debug for FontWeight {
     }
 }
 
-/// The width of a font face.
+/// The width of a font.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]

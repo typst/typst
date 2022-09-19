@@ -94,8 +94,8 @@ fn search_text(content: &Content, mode: ScriptKind) -> Option<EcoString> {
 /// given string.
 fn is_shapable(fonts: &mut FontStore, text: &str, styles: StyleChain) -> bool {
     for family in styles.get(TextNode::FAMILY).iter() {
-        if let Some(face_id) = fonts.select(family.as_str(), variant(styles)) {
-            let ttf = fonts.get(face_id).ttf();
+        if let Some(font_id) = fonts.select(family.as_str(), variant(styles)) {
+            let ttf = fonts.get(font_id).ttf();
             return text.chars().all(|c| ttf.glyph_index(c).is_some());
         }
     }

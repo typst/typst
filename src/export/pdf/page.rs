@@ -5,7 +5,7 @@ use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str};
 use super::{
     deflate, EmExt, Heading, HeadingNode, LengthExt, PdfContext, RefExt, D65_GRAY, SRGB,
 };
-use crate::font::FaceId;
+use crate::font::FontId;
 use crate::frame::{Destination, Element, Frame, Group, Role, Text};
 use crate::geom::{
     self, Color, Em, Geometry, Length, Numeric, Paint, Point, Ratio, Shape, Size, Stroke,
@@ -80,7 +80,7 @@ pub fn write_page_tree(ctx: &mut PdfContext) {
     spaces.finish();
 
     let mut fonts = resources.fonts();
-    for (font_ref, f) in ctx.face_map.pdf_indices(&ctx.face_refs) {
+    for (font_ref, f) in ctx.font_map.pdf_indices(&ctx.font_refs) {
         let name = format_eco!("F{}", f);
         fonts.pair(Name(name.as_bytes()), font_ref);
     }
@@ -169,7 +169,7 @@ struct PageContext<'a, 'b> {
 #[derive(Debug, Default, Clone)]
 struct State {
     transform: Transform,
-    font: Option<(FaceId, Length)>,
+    font: Option<(FontId, Length)>,
     fill: Option<Paint>,
     fill_space: Option<Name<'static>>,
     stroke: Option<Stroke>,
@@ -200,12 +200,12 @@ impl<'a, 'b> PageContext<'a, 'b> {
         ]);
     }
 
-    fn set_font(&mut self, face_id: FaceId, size: Length) {
-        if self.state.font != Some((face_id, size)) {
-            self.parent.face_map.insert(face_id);
-            let name = format_eco!("F{}", self.parent.face_map.map(face_id));
+    fn set_font(&mut self, font_id: FontId, size: Length) {
+        if self.state.font != Some((font_id, size)) {
+            self.parent.font_map.insert(font_id);
+            let name = format_eco!("F{}", self.parent.font_map.map(font_id));
             self.content.set_font(Name(name.as_bytes()), size.to_f32());
-            self.state.font = Some((face_id, size));
+            self.state.font = Some((font_id, size));
         }
     }
 
@@ -329,14 +329,14 @@ fn write_text(ctx: &mut PageContext, x: f32, y: f32, text: &Text) {
     *ctx.parent.languages.entry(text.lang).or_insert(0) += text.glyphs.len();
     ctx.parent
         .glyph_sets
-        .entry(text.face_id)
+        .entry(text.font_id)
         .or_default()
         .extend(text.glyphs.iter().map(|g| g.id));
 
-    let face = ctx.parent.fonts.get(text.face_id);
+    let font = ctx.parent.fonts.get(text.font_id);
 
     ctx.set_fill(text.fill);
-    ctx.set_font(text.face_id, text.size);
+    ctx.set_font(text.font_id, text.size);
     ctx.content.begin_text();
 
     // Position the text.
@@ -364,7 +364,7 @@ fn write_text(ctx: &mut PageContext, x: f32, y: f32, text: &Text) {
         encoded.push((glyph.id >> 8) as u8);
         encoded.push((glyph.id & 0xff) as u8);
 
-        if let Some(advance) = face.advance(glyph.id) {
+        if let Some(advance) = font.advance(glyph.id) {
             adjustment += glyph.x_advance - advance;
         }
 

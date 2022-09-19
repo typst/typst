@@ -142,8 +142,8 @@ fn render_svg_glyph(
     text: &Text,
     id: GlyphId,
 ) -> Option<()> {
-    let face = ctx.fonts.get(text.face_id);
-    let mut data = face.ttf().glyph_svg_image(id)?;
+    let font = ctx.fonts.get(text.font_id);
+    let mut data = font.ttf().glyph_svg_image(id)?;
 
     // Decompress SVGZ.
     let mut decoded = vec![];
@@ -165,7 +165,7 @@ fn render_svg_glyph(
 
     // If there's no viewbox defined, use the em square for our scale
     // transformation ...
-    let upem = face.units_per_em() as f32;
+    let upem = font.units_per_em() as f32;
     let (mut width, mut height) = (upem, upem);
 
     // ... but if there's a viewbox or width, use that.
@@ -195,8 +195,8 @@ fn render_bitmap_glyph(
 ) -> Option<()> {
     let size = text.size.to_f32();
     let ppem = size * ts.sy;
-    let face = ctx.fonts.get(text.face_id);
-    let raster = face.ttf().glyph_raster_image(id, ppem as u16)?;
+    let font = ctx.fonts.get(text.font_id);
+    let raster = font.ttf().glyph_raster_image(id, ppem as u16)?;
     let img = RasterImage::parse(&raster.data).ok()?;
 
     // FIXME: Vertical alignment isn't quite right for Apple Color Emoji,
@@ -225,10 +225,10 @@ fn render_outline_glyph(
     // rasterization can't be used due to very large text size or weird
     // scale/skewing transforms.
     if ppem > 100.0 || ts.kx != 0.0 || ts.ky != 0.0 || ts.sx != ts.sy {
-        let face = ctx.fonts.get(text.face_id);
+        let font = ctx.fonts.get(text.font_id);
         let path = {
             let mut builder = WrappedPathBuilder(sk::PathBuilder::new());
-            face.ttf().outline_glyph(id, &mut builder)?;
+            font.ttf().outline_glyph(id, &mut builder)?;
             builder.0.finish()?
         };
 
@@ -237,7 +237,7 @@ fn render_outline_glyph(
 
         // Flip vertically because font design coordinate
         // system is Y-up.
-        let scale = text.size.to_f32() / face.units_per_em() as f32;
+        let scale = text.size.to_f32() / font.units_per_em() as f32;
         let ts = ts.pre_scale(scale, -scale);
         canvas.fill_path(&path, &paint, rule, ts, mask)?;
         return Some(());
@@ -246,7 +246,7 @@ fn render_outline_glyph(
     // Rasterize the glyph with `pixglyph`.
     // Try to retrieve a prepared glyph or prepare it from scratch if it
     // doesn't exist, yet.
-    let glyph = pixglyph::Glyph::load(ctx.fonts.get(text.face_id).ttf(), id)?;
+    let glyph = pixglyph::Glyph::load(ctx.fonts.get(text.font_id).ttf(), id)?;
     let bitmap = glyph.rasterize(ts.tx, ts.ty, ppem);
 
     let cw = canvas.width() as i32;

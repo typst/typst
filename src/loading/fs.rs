@@ -7,19 +7,19 @@ use same_file::Handle;
 use walkdir::WalkDir;
 
 use super::{FileHash, Loader};
-use crate::font::FaceInfo;
+use crate::font::FontInfo;
 
 /// Loads fonts and files from the local file system.
 ///
 /// _This is only available when the `fs` feature is enabled._
 pub struct FsLoader {
-    faces: Vec<FaceInfo>,
+    fonts: Vec<FontInfo>,
 }
 
 impl FsLoader {
     /// Create a new loader without any fonts.
     pub fn new() -> Self {
-        Self { faces: vec![] }
+        Self { fonts: vec![] }
     }
 
     /// Builder-style variant of [`search_system`](Self::search_system).
@@ -100,24 +100,24 @@ impl FsLoader {
         }
     }
 
-    /// Index the font faces in the file at the given path.
+    /// Index the fonts in the file at the given path.
     ///
-    /// The file may form a font collection and contain multiple font faces,
+    /// The file may form a font collection and contain multiple fonts,
     /// which will then all be indexed.
     fn search_file(&mut self, path: impl AsRef<Path>) {
         let path = path.as_ref();
         let path = path.strip_prefix(".").unwrap_or(path);
         if let Ok(file) = File::open(path) {
             if let Ok(mmap) = unsafe { Mmap::map(&file) } {
-                self.faces.extend(FaceInfo::from_data(path, &mmap));
+                self.fonts.extend(FontInfo::from_data(path, &mmap));
             }
         }
     }
 }
 
 impl Loader for FsLoader {
-    fn faces(&self) -> &[FaceInfo] {
-        &self.faces
+    fn fonts(&self) -> &[FontInfo] {
+        &self.fonts
     }
 
     fn resolve(&self, path: &Path) -> io::Result<FileHash> {

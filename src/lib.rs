@@ -78,7 +78,7 @@ pub struct Context {
     pub loader: Arc<dyn Loader>,
     /// Stores loaded source files.
     pub sources: SourceStore,
-    /// Stores parsed font faces.
+    /// Stores parsed fonts.
     pub fonts: FontStore,
     /// Stores decoded images.
     pub images: ImageStore,

@@ -4,7 +4,7 @@ use rex::layout::{LayoutSettings, Style};
 use rex::parser::color::RGBA;
 use rex::render::{Backend, Cursor, Renderer};
 
-use crate::font::FaceId;
+use crate::font::FontId;
 use crate::library::prelude::*;
 use crate::library::text::{variant, FontFamily, Lang, TextNode};
 
@@ -28,17 +28,17 @@ impl Layout for RexNode {
     ) -> TypResult<Vec<Frame>> {
         // Load the font.
         let span = self.tex.span;
-        let face_id = ctx
+        let font_id = ctx
             .fonts
             .select(self.family.as_str(), variant(styles))
             .ok_or("failed to find math font")
             .at(span)?;
 
         // Prepare the font context.
-        let face = ctx.fonts.get(face_id);
-        let ctx = face
+        let font = ctx.fonts.get(font_id);
+        let ctx = font
             .math()
-            .map(|math| FontContext::new(face.ttf(), math))
+            .map(|math| FontContext::new(font.ttf(), math))
             .ok_or("font is not suitable for math")
             .at(span)?;
 
@@ -61,7 +61,7 @@ impl Layout for RexNode {
         let mut top = Length::pt(y1);
         let mut bottom = Length::pt(-y0);
         if !self.display {
-            let metrics = face.metrics();
+            let metrics = font.metrics();
             top = styles.get(TextNode::TOP_EDGE).resolve(styles, metrics);
             bottom = -styles.get(TextNode::BOTTOM_EDGE).resolve(styles, metrics);
         };
@@ -76,7 +76,7 @@ impl Layout for RexNode {
                 frame
             },
             baseline: top,
-            face_id,
+            font_id,
             fill: styles.get(TextNode::FILL),
             lang: styles.get(TextNode::LANG),
             colors: vec![],
@@ -93,7 +93,7 @@ impl Layout for RexNode {
 struct FrameBackend {
     frame: Frame,
     baseline: Length,
-    face_id: FaceId,
+    font_id: FontId,
     fill: Paint,
     lang: Lang,
     colors: Vec<RGBA>,
@@ -119,7 +119,7 @@ impl Backend for FrameBackend {
         self.frame.push(
             self.transform(pos),
             Element::Text(Text {
-                face_id: self.face_id,
+                font_id: self.font_id,
                 size: Length::pt(scale),
                 fill: self.fill(),
                 lang: self.lang,

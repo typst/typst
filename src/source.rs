@@ -46,7 +46,7 @@ impl SourceId {
 pub struct SourceStore {
     loader: Arc<dyn Loader>,
     files: HashMap<FileHash, SourceId>,
-    sources: Vec<SourceFile>,
+    sources: Vec<Source>,
 }
 
 impl SourceStore {
@@ -65,7 +65,7 @@ impl SourceStore {
     /// should only be called with ids returned by this store's
     /// [`load()`](Self::load) and [`provide()`](Self::provide) methods.
     #[track_caller]
-    pub fn get(&self, id: SourceId) -> &SourceFile {
+    pub fn get(&self, id: SourceId) -> &Source {
         &self.sources[id.0 as usize]
     }
 
@@ -112,7 +112,7 @@ impl SourceStore {
 
         // No existing file yet, so we allocate a new id.
         let id = SourceId(self.sources.len() as u16);
-        self.sources.push(SourceFile::new(id, path, src));
+        self.sources.push(Source::new(id, path, src));
 
         // Register in file map if the path was known to the loader.
         if let Some(hash) = hash {
@@ -157,7 +157,7 @@ impl SourceStore {
 ///
 /// _Note_: All line and column indices start at zero, just like byte indices.
 /// Only for user-facing display, you should add 1 to them.
-pub struct SourceFile {
+pub struct Source {
     id: SourceId,
     path: PathBuf,
     src: String,
@@ -166,7 +166,7 @@ pub struct SourceFile {
     rev: usize,
 }
 
-impl SourceFile {
+impl Source {
     /// Create a new source file.
     pub fn new(id: SourceId, path: &Path, src: String) -> Self {
         let lines = std::iter::once(Line { byte_idx: 0, utf16_idx: 0 })
@@ -485,7 +485,7 @@ mod tests {
 
     #[test]
     fn test_source_file_new() {
-        let source = SourceFile::detached(TEST);
+        let source = Source::detached(TEST);
         assert_eq!(source.lines, [
             Line { byte_idx: 0, utf16_idx: 0 },
             Line { byte_idx: 7, utf16_idx: 6 },
@@ -496,7 +496,7 @@ mod tests {
 
     #[test]
     fn test_source_file_pos_to_line() {
-        let source = SourceFile::detached(TEST);
+        let source = Source::detached(TEST);
         assert_eq!(source.byte_to_line(0), Some(0));
         assert_eq!(source.byte_to_line(2), Some(0));
         assert_eq!(source.byte_to_line(6), Some(0));
@@ -509,7 +509,7 @@ mod tests {
 
     #[test]
     fn test_source_file_pos_to_column() {
-        let source = SourceFile::detached(TEST);
+        let source = Source::detached(TEST);
         assert_eq!(source.byte_to_column(0), Some(0));
         assert_eq!(source.byte_to_column(2), Some(1));
         assert_eq!(source.byte_to_column(6), Some(5));
@@ -521,14 +521,14 @@ mod tests {
     #[test]
     fn test_source_file_utf16() {
         #[track_caller]
-        fn roundtrip(source: &SourceFile, byte_idx: usize, utf16_idx: usize) {
+        fn roundtrip(source: &Source, byte_idx: usize, utf16_idx: usize) {
             let middle = source.byte_to_utf16(byte_idx).unwrap();
             let result = source.utf16_to_byte(middle).unwrap();
             assert_eq!(middle, utf16_idx);
             assert_eq!(result, byte_idx);
         }
 
-        let source = SourceFile::detached(TEST);
+        let source = Source::detached(TEST);
         roundtrip(&source, 0, 0);
         roundtrip(&source, 2, 1);
         roundtrip(&source, 3, 2);
@@ -542,14 +542,14 @@ mod tests {
     #[test]
     fn test_source_file_roundtrip() {
         #[track_caller]
-        fn roundtrip(source: &SourceFile, byte_idx: usize) {
+        fn roundtrip(source: &Source, byte_idx: usize) {
             let line = source.byte_to_line(byte_idx).unwrap();
             let column = source.byte_to_column(byte_idx).unwrap();
             let result = source.line_column_to_byte(line, column).unwrap();
             assert_eq!(result, byte_idx);
         }
 
-        let source = SourceFile::detached(TEST);
+        let source = Source::detached(TEST);
         roundtrip(&source, 0);
         roundtrip(&source, 7);
         roundtrip(&source, 12);
@@ -560,8 +560,8 @@ mod tests {
     fn test_source_file_edit() {
         #[track_caller]
         fn test(prev: &str, range: Range<usize>, with: &str, after: &str) {
-            let mut source = SourceFile::detached(prev);
-            let result = SourceFile::detached(after);
+            let mut source = Source::detached(prev);
+            let result = Source::detached(after);
             source.edit(range, with);
             assert_eq!(source.src, result.src);
             assert_eq!(source.root, result.root);

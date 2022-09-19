@@ -12,7 +12,7 @@ pub use string::*;
 
 use crate::eval::{Eval, Machine, Scopes};
 use crate::library::prelude::*;
-use crate::source::SourceFile;
+use crate::source::Source;
 
 /// The name of a value's type.
 pub fn type_(_: &mut Machine, args: &mut Args) -> TypResult<Value> {
@@ -33,7 +33,7 @@ pub fn eval(vm: &mut Machine, args: &mut Args) -> TypResult<Value> {
     let Spanned { v: src, span } = args.expect::<Spanned<String>>("source")?;
 
     // Parse the source and set a synthetic span for all nodes.
-    let source = SourceFile::synthesized(src, span);
+    let source = Source::synthesized(src, span);
     let ast = source.ast()?;
 
     // Evaluate the source.

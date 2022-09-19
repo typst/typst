@@ -14,7 +14,7 @@ use pdf_writer::{Finish, Name, PdfWriter, Ref, TextStr};
 
 use self::outline::{Heading, HeadingNode};
 use self::page::Page;
-use crate::font::{FaceId, FontStore};
+use crate::font::{FontId, FontStore};
 use crate::frame::Frame;
 use crate::geom::{Dir, Em, Length};
 use crate::image::{ImageId, ImageStore};
@@ -51,12 +51,12 @@ pub struct PdfContext<'a> {
     page_heights: Vec<f32>,
     alloc: Ref,
     page_tree_ref: Ref,
-    face_refs: Vec<Ref>,
+    font_refs: Vec<Ref>,
     image_refs: Vec<Ref>,
     page_refs: Vec<Ref>,
-    face_map: Remapper<FaceId>,
+    font_map: Remapper<FontId>,
     image_map: Remapper<ImageId>,
-    glyph_sets: HashMap<FaceId, HashSet<u16>>,
+    glyph_sets: HashMap<FontId, HashSet<u16>>,
     languages: HashMap<Lang, usize>,
     heading_tree: Vec<HeadingNode>,
 }
@@ -74,9 +74,9 @@ impl<'a> PdfContext<'a> {
             alloc,
             page_tree_ref,
             page_refs: vec![],
-            face_refs: vec![],
+            font_refs: vec![],
             image_refs: vec![],
-            face_map: Remapper::new(),
+            font_map: Remapper::new(),
             image_map: Remapper::new(),
             glyph_sets: HashMap::new(),
             languages: HashMap::new(),

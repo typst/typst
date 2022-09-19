@@ -4,20 +4,20 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use super::{FileHash, Loader};
-use crate::font::FaceInfo;
+use crate::font::FontInfo;
 use crate::util::PathExt;
 
 /// Loads fonts and files from an in-memory storage.
 #[derive(Default)]
 pub struct MemLoader {
-    faces: Vec<FaceInfo>,
+    fonts: Vec<FontInfo>,
     files: HashMap<PathBuf, Cow<'static, [u8]>>,
 }
 
 impl MemLoader {
     /// Create a new from-memory loader.
     pub fn new() -> Self {
-        Self { faces: vec![], files: HashMap::new() }
+        Self { fonts: vec![], files: HashMap::new() }
     }
 
     /// Builder-style variant of [`insert`](Self::insert).
@@ -42,14 +42,14 @@ impl MemLoader {
     {
         let path = path.as_ref().normalize();
         let data = data.into();
-        self.faces.extend(FaceInfo::from_data(&path, &data));
+        self.fonts.extend(FontInfo::from_data(&path, &data));
         self.files.insert(path, data);
     }
 }
 
 impl Loader for MemLoader {
-    fn faces(&self) -> &[FaceInfo] {
-        &self.faces
+    fn fonts(&self) -> &[FontInfo] {
+        &self.fonts
     }
 
     fn resolve(&self, path: &Path) -> io::Result<FileHash> {
@@ -80,13 +80,13 @@ mod tests {
         let path = Path::new("PTSans.ttf");
         let loader = MemLoader::new().with(path, &data[..]);
 
-        // Test that the face was found.
-        let info = &loader.faces[0];
+        // Test that the font was found.
+        let info = &loader.fonts[0];
         assert_eq!(info.path, path);
         assert_eq!(info.index, 0);
         assert_eq!(info.family, "PT Sans");
         assert_eq!(info.variant, FontVariant::default());
-        assert_eq!(loader.faces.len(), 1);
+        assert_eq!(loader.fonts.len(), 1);
 
         // Test that the file can be loaded.
         assert_eq!(

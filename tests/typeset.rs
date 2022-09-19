@@ -16,7 +16,7 @@ use typst::library::layout::PageNode;
 use typst::library::text::{TextNode, TextSize};
 use typst::loading::FsLoader;
 use typst::model::StyleMap;
-use typst::source::SourceFile;
+use typst::source::Source;
 use typst::syntax::SyntaxNode;
 use typst::{bail, Config, Context};
 
@@ -349,7 +349,7 @@ fn test_part(
     (ok, compare_ref, frames)
 }
 
-fn parse_metadata(source: &SourceFile) -> (Option<bool>, Vec<(Range<usize>, String)>) {
+fn parse_metadata(source: &Source) -> (Option<bool>, Vec<(Range<usize>, String)>) {
     let mut compare_ref = None;
     let mut errors = vec![];
 
@@ -395,11 +395,7 @@ fn parse_metadata(source: &SourceFile) -> (Option<bool>, Vec<(Range<usize>, Stri
     (compare_ref, errors)
 }
 
-fn print_error(
-    source: &SourceFile,
-    line: usize,
-    (range, message): &(Range<usize>, String),
-) {
+fn print_error(source: &Source, line: usize, (range, message): &(Range<usize>, String)) {
     let start_line = 1 + line + source.byte_to_line(range.start).unwrap();
     let start_col = 1 + source.byte_to_column(range.start).unwrap();
     let end_line = 1 + line + source.byte_to_line(range.end).unwrap();
@@ -445,7 +441,7 @@ fn test_reparse(src: &str, i: usize, rng: &mut LinearShift) -> bool {
     let mut ok = true;
 
     let apply = |replace: std::ops::Range<usize>, with| {
-        let mut incr_source = SourceFile::detached(src);
+        let mut incr_source = Source::detached(src);
         if incr_source.root().len() != src.len() {
             println!(
                 "    Subtest {i} tree length {} does not match string length {} ❌",
@@ -459,7 +455,7 @@ fn test_reparse(src: &str, i: usize, rng: &mut LinearShift) -> bool {
 
         let edited_src = incr_source.src();
         let incr_root = incr_source.root();
-        let ref_source = SourceFile::detached(edited_src);
+        let ref_source = Source::detached(edited_src);
         let ref_root = ref_source.root();
         let mut ok = incr_root == ref_root;
         if !ok {
@@ -498,7 +494,7 @@ fn test_reparse(src: &str, i: usize, rng: &mut LinearShift) -> bool {
         ok &= apply(start .. end, supplement);
     }
 
-    let source = SourceFile::detached(src);
+    let source = Source::detached(src);
     let leafs = source.root().leafs();
     let start = source.range(leafs[pick(0 .. leafs.len())].span()).start;
     let supplement = supplements[pick(0 .. supplements.len())];

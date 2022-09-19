@@ -5,7 +5,7 @@ use std::num::NonZeroUsize;
 use std::sync::Arc;
 
 use crate::eval::{Dict, Value};
-use crate::font::FaceId;
+use crate::font::FontId;
 use crate::geom::{
     Align, Em, Length, Numeric, Paint, Point, Shape, Size, Spec, Transform,
 };
@@ -356,8 +356,8 @@ impl Debug for Group {
 /// A run of shaped text.
 #[derive(Clone, Eq, PartialEq)]
 pub struct Text {
-    /// The font face the glyphs are contained in.
-    pub face_id: FaceId,
+    /// The font the glyphs are contained in.
+    pub font_id: FontId,
     /// The font size.
     pub size: Length,
     /// Glyph color.
@@ -391,7 +391,7 @@ impl Debug for Text {
 /// A glyph in a run of shaped text.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Glyph {
-    /// The glyph's index in the face.
+    /// The glyph's index in the font.
     pub id: u16,
     /// The advance width of the glyph.
     pub x_advance: Em,

@@ -9,20 +9,20 @@ use crate::util::SliceExt;
 
 /// Embed all used fonts into the PDF.
 pub fn write_fonts(ctx: &mut PdfContext) {
-    for face_id in ctx.face_map.layout_indices() {
+    for font_id in ctx.font_map.layout_indices() {
         let type0_ref = ctx.alloc.bump();
         let cid_ref = ctx.alloc.bump();
         let descriptor_ref = ctx.alloc.bump();
         let cmap_ref = ctx.alloc.bump();
         let data_ref = ctx.alloc.bump();
-        ctx.face_refs.push(type0_ref);
+        ctx.font_refs.push(type0_ref);
 
-        let glyphs = &ctx.glyph_sets[&face_id];
-        let face = ctx.fonts.get(face_id);
-        let metrics = face.metrics();
-        let ttf = face.ttf();
+        let glyphs = &ctx.glyph_sets[&font_id];
+        let font = ctx.fonts.get(font_id);
+        let metrics = font.metrics();
+        let ttf = font.ttf();
 
-        let postscript_name = face
+        let postscript_name = font
             .find_name(name_id::POST_SCRIPT_NAME)
             .unwrap_or_else(|| "unknown".to_string());
 
@@ -70,7 +70,7 @@ pub fn write_fonts(ctx: &mut PdfContext) {
         let mut widths = vec![0.0; num_glyphs as usize];
         for &g in glyphs {
             let x = ttf.glyph_hor_advance(GlyphId(g)).unwrap_or(0);
-            widths[g as usize] = face.to_em(x).to_font_units();
+            widths[g as usize] = font.to_em(x).to_font_units();
         }
 
         // Write all non-zero glyph widths.
@@ -97,10 +97,10 @@ pub fn write_fonts(ctx: &mut PdfContext) {
 
         let global_bbox = ttf.global_bounding_box();
         let bbox = Rect::new(
-            face.to_em(global_bbox.x_min).to_font_units(),
-            face.to_em(global_bbox.y_min).to_font_units(),
-            face.to_em(global_bbox.x_max).to_font_units(),
-            face.to_em(global_bbox.y_max).to_font_units(),
+            font.to_em(global_bbox.x_min).to_font_units(),
+            font.to_em(global_bbox.y_min).to_font_units(),
+            font.to_em(global_bbox.x_max).to_font_units(),
+            font.to_em(global_bbox.y_max).to_font_units(),
         );
 
         let italic_angle = ttf.italic_angle().unwrap_or(0.0);
@@ -160,15 +160,15 @@ pub fn write_fonts(ctx: &mut PdfContext) {
             .cmap(cmap_ref, &deflate(&cmap.finish()))
             .filter(Filter::FlateDecode);
 
-        // Subset and write the face's bytes.
-        let data = face.buffer();
+        // Subset and write the font's bytes.
+        let data = font.buffer();
         let subsetted = {
             let glyphs: Vec<_> = glyphs.iter().copied().collect();
             let profile = subsetter::Profile::pdf(&glyphs);
-            subsetter::subset(data, face.index(), profile)
+            subsetter::subset(data, font.index(), profile)
         };
 
-        // Compress and write the face's byte.
+        // Compress and write the font's byte.
         let data = subsetted.as_deref().unwrap_or(data);
         let data = deflate(data);
         let mut stream = ctx.writer.stream(data_ref, &data);

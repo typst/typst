@@ -94,12 +94,12 @@ pub fn decorate(
     pos: Point,
     width: Length,
 ) {
-    let face = fonts.get(text.face_id);
-    let face_metrics = face.metrics();
+    let font = fonts.get(text.font_id);
+    let font_metrics = font.metrics();
     let metrics = match deco.line {
-        STRIKETHROUGH => face_metrics.strikethrough,
-        OVERLINE => face_metrics.overline,
-        UNDERLINE | _ => face_metrics.underline,
+        STRIKETHROUGH => font_metrics.strikethrough,
+        OVERLINE => font_metrics.overline,
+        UNDERLINE | _ => font_metrics.underline,
     };
 
     let evade = deco.evade && deco.line != STRIKETHROUGH;
@@ -141,9 +141,9 @@ pub fn decorate(
     for glyph in text.glyphs.iter() {
         let dx = glyph.x_offset.at(text.size) + x;
         let mut builder =
-            BezPathBuilder::new(face_metrics.units_per_em, text.size, dx.to_raw());
+            BezPathBuilder::new(font_metrics.units_per_em, text.size, dx.to_raw());
 
-        let bbox = face.ttf().outline_glyph(GlyphId(glyph.id), &mut builder);
+        let bbox = font.ttf().outline_glyph(GlyphId(glyph.id), &mut builder);
         let path = builder.finish();
 
         x += glyph.x_advance.at(text.size);
@@ -151,8 +151,8 @@ pub fn decorate(
         // Only do the costly segments intersection test if the line
         // intersects the bounding box.
         if bbox.map_or(false, |bbox| {
-            let y_min = -face.to_em(bbox.y_max).at(text.size);
-            let y_max = -face.to_em(bbox.y_min).at(text.size);
+            let y_min = -font.to_em(bbox.y_max).at(text.size);
+            let y_max = -font.to_em(bbox.y_min).at(text.size);
 
             offset >= y_min && offset <= y_max
         }) {

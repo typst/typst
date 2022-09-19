@@ -390,11 +390,11 @@ mod tests {
     use super::*;
     use crate::parse::parse;
     use crate::parse::tests::check;
-    use crate::source::SourceFile;
+    use crate::source::Source;
 
     #[track_caller]
     fn test(prev: &str, range: Range<usize>, with: &str, goal: Range<usize>) {
-        let mut source = SourceFile::detached(prev);
+        let mut source = Source::detached(prev);
         let range = source.edit(range, with);
         check(source.src(), source.root(), &parse(source.src()));
         assert_eq!(range, goal);

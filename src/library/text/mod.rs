@@ -25,7 +25,7 @@ use std::borrow::Cow;
 use ttf_parser::Tag;
 
 use crate::font::{
-    Face, FaceMetrics, FontStretch, FontStyle, FontWeight, VerticalFontMetric,
+    Font, FontMetrics, FontStretch, FontStyle, FontWeight, VerticalFontMetric,
 };
 use crate::library::prelude::*;
 use crate::util::EcoString;
@@ -269,8 +269,8 @@ pub enum TextEdge {
 }
 
 impl TextEdge {
-    /// Resolve the value of the text edge given a font face.
-    pub fn resolve(self, styles: StyleChain, metrics: &FaceMetrics) -> Length {
+    /// Resolve the value of the text edge given a font's metrics.
+    pub fn resolve(self, styles: StyleChain, metrics: &FontMetrics) -> Length {
         match self {
             Self::Metric(metric) => metrics.vertical(metric).resolve(styles),
             Self::Length(length) => length.resolve(styles),
@@ -333,7 +333,7 @@ impl Resolve for Smart<Hyphenate> {
     }
 }
 
-/// A stylistic set in a font face.
+/// A stylistic set in a font.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct StylisticSet(u8);
 
@@ -514,7 +514,7 @@ impl Show for StrongNode {
     }
 }
 
-/// Emphasized text, rendered with an italic face by default.
+/// Emphasized text, rendered with an italic font by default.
 #[derive(Debug, Hash)]
 pub struct EmphNode(pub Content);
 
