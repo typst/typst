@@ -780,16 +780,12 @@ fn linebreak_optimized<'a>(
                 // this breakpoint.
                 active = i + 1;
                 MAX_COST
-            } else if eof {
-                // This is the final line and its not overfull since then we
-                // would have taken the above branch.
-                0.0
-            } else if mandatory {
+            } else if mandatory || eof {
                 // This is a mandatory break and the line is not overfull, so it
                 // has minimum cost. All breakpoints before this one become
                 // inactive since no line can span above the mandatory break.
                 active = k;
-                MIN_COST
+                MIN_COST + if attempt.justify { ratio.powi(3).abs() } else { 0.0 }
             } else {
                 // Normal line with cost of |ratio^3|.
                 ratio.powi(3).abs()
