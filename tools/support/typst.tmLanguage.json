@@ -4,20 +4,27 @@
     { "include": "#markup" }
   ],
   "repository": {
-    "blockcomment": {
+    "comments": {
       "patterns": [
         {
           "name": "comment.block.typst",
           "begin": "/\\*",
           "end": "\\*/",
           "captures": { "0": { "name": "punctuation.definition.comment.typst" } },
-          "patterns": [{ "include": "#blockcomment" }]
+          "patterns": [{ "include": "#comments" }]
+        },
+        {
+          "name": "comment.line.double-slash.typst",
+          "begin": "(?<!:)//",
+          "end": "\n",
+          "beginCaptures": { "0": { "name": "punctuation.definition.comment.typst" } },
+          "patterns": [{ "include": "#comments" }]
         }
       ]
     },
     "common": {
       "patterns": [
-        { "include": "#blockcomment" },
+        { "include": "#comments" },
         {
           "name": "meta.block.code.typst",
           "begin": "{",
@@ -37,12 +44,6 @@
     "markup": {
       "patterns": [
         { "include": "#common" },
-        {
-          "name": "comment.line.double-slash.typst",
-          "begin": "(?<!:)//",
-          "end": "\n",
-          "beginCaptures": { "0": { "name": "punctuation.definition.comment.typst" } }
-        },
         {
           "name": "constant.character.escape.content.typst",
           "match": "\\\\([\\\\/\\[\\]{}#*_=~`$-.]|u\\{[0-9a-zA-Z]*\\}?)"
@@ -128,7 +129,7 @@
           "captures": { "1": { "name": "punctuation.definition.label.typst" } }
         },
         {
-          "begin": "(#)(pub|let|set|rule|select|show|wrap)\\b",
+          "begin": "(#)(pub|let|set|show|wrap)\\b",
           "end": "\n|(;)|(?=])",
           "beginCaptures": {
             "0": { "name": "keyword.other.typst" },
@@ -239,7 +240,7 @@
         },
         {
           "name": "keyword.other.typst",
-          "match": "\\b(pub|let|set|rule|select|show|wrap|as|in|from)\\b"
+          "match": "\\b(pub|let|set|show|wrap|as|in|from)\\b"
         },
         {
           "name": "keyword.control.conditional.typst",
