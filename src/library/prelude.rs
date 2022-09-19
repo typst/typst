@@ -17,6 +17,7 @@ pub use crate::eval::{
 };
 pub use crate::frame::*;
 pub use crate::geom::*;
+pub use crate::loading::Loader;
 pub use crate::model::{
     Content, Fold, Key, Layout, LayoutNode, Regions, Resolve, Selector, Show, ShowNode,
     StyleChain, StyleMap, StyleVec,

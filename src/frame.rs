@@ -5,7 +5,7 @@ use std::num::NonZeroUsize;
 use std::sync::Arc;
 
 use crate::eval::{Dict, Value};
-use crate::font::FontId;
+use crate::font::Font;
 use crate::geom::{
     Align, Em, Length, Numeric, Paint, Point, Shape, Size, Spec, Transform,
 };
@@ -353,7 +353,7 @@ impl Debug for Group {
 #[derive(Clone, Eq, PartialEq)]
 pub struct Text {
     /// The font the glyphs are contained in.
-    pub font_id: FontId,
+    pub font: Font,
     /// The font size.
     pub size: Length,
     /// Glyph color.

@@ -4,7 +4,7 @@ use std::str::FromStr;
 use rustybuzz::{Feature, UnicodeBuffer};
 
 use super::*;
-use crate::font::{FontId, FontStore, FontVariant};
+use crate::font::{Font, FontVariant};
 use crate::library::prelude::*;
 use crate::util::SliceExt;
 
@@ -31,10 +31,10 @@ pub struct ShapedText<'a> {
 }
 
 /// A single glyph resulting from shaping.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 pub struct ShapedGlyph {
     /// The font the glyph is contained in.
-    pub font_id: FontId,
+    pub font: Font,
     /// The glyph's index in the font.
     pub glyph_id: u16,
     /// The advance width of the glyph.
@@ -80,8 +80,8 @@ impl<'a> ShapedText<'a> {
     ///
     /// The `justification` defines how much extra advance width each
     /// [justifiable glyph](ShapedGlyph::is_justifiable) will get.
-    pub fn build(&self, fonts: &mut FontStore, justification: Length) -> Frame {
-        let (top, bottom) = self.measure(fonts);
+    pub fn build(&self, loader: &dyn Loader, justification: Length) -> Frame {
+        let (top, bottom) = self.measure(loader);
         let size = Size::new(self.width, top + bottom);
 
         let mut offset = Length::zero();
@@ -94,8 +94,8 @@ impl<'a> ShapedText<'a> {
         let fill = self.styles.get(TextNode::FILL);
         let link = self.styles.get(TextNode::LINK);
 
-        for ((font_id, y_offset), group) in
-            self.glyphs.as_ref().group_by_key(|g| (g.font_id, g.y_offset))
+        for ((font, y_offset), group) in
+            self.glyphs.as_ref().group_by_key(|g| (g.font.clone(), g.y_offset))
         {
             let pos = Point::new(offset, top + shift + y_offset.at(self.size));
 
@@ -116,7 +116,7 @@ impl<'a> ShapedText<'a> {
                 .collect();
 
             let text = Text {
-                font_id,
+                font,
                 size: self.size,
                 lang,
                 fill,
@@ -128,7 +128,7 @@ impl<'a> ShapedText<'a> {
 
             // Apply line decorations.
             for deco in &decos {
-                decorate(&mut frame, &deco, fonts, &text, shift, pos, width);
+                decorate(&mut frame, &deco, &text, shift, pos, width);
             }
 
             frame.insert(text_layer, pos, Element::Text(text));
@@ -144,7 +144,7 @@ impl<'a> ShapedText<'a> {
     }
 
     /// Measure the top and bottom extent of this text.
-    fn measure(&self, fonts: &mut FontStore) -> (Length, Length) {
+    fn measure(&self, loader: &dyn Loader) -> (Length, Length) {
         let mut top = Length::zero();
         let mut bottom = Length::zero();
 
@@ -162,14 +162,18 @@ impl<'a> ShapedText<'a> {
             // When there are no glyphs, we just use the vertical metrics of the
             // first available font.
             for family in families(self.styles) {
-                if let Some(font_id) = fonts.select(family, self.variant) {
-                    expand(fonts.get(font_id));
+                if let Some(font) = loader
+                    .book()
+                    .select(family, self.variant)
+                    .and_then(|id| loader.font(id).ok())
+                {
+                    expand(&font);
                     break;
                 }
             }
         } else {
-            for (font_id, _) in self.glyphs.group_by_key(|g| g.font_id) {
-                expand(fonts.get(font_id));
+            for g in self.glyphs.iter() {
+                expand(&g.font);
             }
         }
 
@@ -195,7 +199,7 @@ impl<'a> ShapedText<'a> {
     /// shaping process if possible.
     pub fn reshape(
         &'a self,
-        fonts: &mut FontStore,
+        loader: &dyn Loader,
         text_range: Range<usize>,
     ) -> ShapedText<'a> {
         if let Some(glyphs) = self.slice_safe_to_break(text_range.clone()) {
@@ -209,22 +213,24 @@ impl<'a> ShapedText<'a> {
                 glyphs: Cow::Borrowed(glyphs),
             }
         } else {
-            shape(fonts, &self.text[text_range], self.styles, self.dir)
+            shape(loader, &self.text[text_range], self.styles, self.dir)
         }
     }
 
     /// Push a hyphen to end of the text.
-    pub fn push_hyphen(&mut self, fonts: &mut FontStore) {
+    pub fn push_hyphen(&mut self, loader: &dyn Loader) {
         families(self.styles).find_map(|family| {
-            let font_id = fonts.select(family, self.variant)?;
-            let font = fonts.get(font_id);
+            let font = loader
+                .book()
+                .select(family, self.variant)
+                .and_then(|id| loader.font(id).ok())?;
             let ttf = font.ttf();
             let glyph_id = ttf.glyph_index('-')?;
             let x_advance = font.to_em(ttf.glyph_hor_advance(glyph_id)?);
             let cluster = self.glyphs.last().map(|g| g.cluster).unwrap_or_default();
             self.width += x_advance.at(self.size);
             self.glyphs.to_mut().push(ShapedGlyph {
-                font_id,
+                font,
                 glyph_id: glyph_id.0,
                 x_advance,
                 x_offset: Em::zero(),
@@ -300,9 +306,9 @@ impl Debug for ShapedText<'_> {
 
 /// Holds shaping results and metadata common to all shaped segments.
 struct ShapingContext<'a> {
-    fonts: &'a mut FontStore,
+    loader: &'a dyn Loader,
     glyphs: Vec<ShapedGlyph>,
-    used: Vec<FontId>,
+    used: Vec<Font>,
     styles: StyleChain<'a>,
     size: Length,
     variant: FontVariant,
@@ -313,7 +319,7 @@ struct ShapingContext<'a> {
 
 /// Shape text into [`ShapedText`].
 pub fn shape<'a>(
-    fonts: &mut FontStore,
+    loader: &dyn Loader,
     text: &'a str,
     styles: StyleChain<'a>,
     dir: Dir,
@@ -321,7 +327,7 @@ pub fn shape<'a>(
     let size = styles.get(TextNode::SIZE);
 
     let mut ctx = ShapingContext {
-        fonts,
+        loader,
         size,
         glyphs: vec![],
         used: vec![],
@@ -362,32 +368,33 @@ fn shape_segment<'a>(
     }
 
     // Find the next available family.
+    let book = ctx.loader.book();
     let mut selection = families.find_map(|family| {
-        ctx.fonts
-            .select(family, ctx.variant)
-            .filter(|id| !ctx.used.contains(id))
+        book.select(family, ctx.variant)
+            .and_then(|id| ctx.loader.font(id).ok())
+            .filter(|font| !ctx.used.contains(font))
     });
 
     // Do font fallback if the families are exhausted and fallback is enabled.
     if selection.is_none() && ctx.fallback {
-        let first = ctx.used.first().copied();
-        selection = ctx
-            .fonts
+        let first = ctx.used.first().map(Font::info);
+        selection = book
             .select_fallback(first, ctx.variant, text)
-            .filter(|id| !ctx.used.contains(id));
+            .and_then(|id| ctx.loader.font(id).ok())
+            .filter(|font| !ctx.used.contains(font));
     }
 
     // Extract the font id or shape notdef glyphs if we couldn't find any font.
-    let font_id = if let Some(id) = selection {
-        id
+    let font = if let Some(font) = selection {
+        font
     } else {
-        if let Some(&font_id) = ctx.used.first() {
-            shape_tofus(ctx, base, text, font_id);
+        if let Some(font) = ctx.used.first().cloned() {
+            shape_tofus(ctx, base, text, font);
         }
         return;
     };
 
-    ctx.used.push(font_id);
+    ctx.used.push(font.clone());
 
     // Fill the buffer with our text.
     let mut buffer = UnicodeBuffer::new();
@@ -400,7 +407,6 @@ fn shape_segment<'a>(
     });
 
     // Shape!
-    let mut font = ctx.fonts.get(font_id);
     let buffer = rustybuzz::shape(font.ttf(), &ctx.tags, buffer);
     let infos = buffer.glyph_infos();
     let pos = buffer.glyph_positions();
@@ -416,7 +422,7 @@ fn shape_segment<'a>(
             // Add the glyph to the shaped output.
             // TODO: Don't ignore y_advance.
             ctx.glyphs.push(ShapedGlyph {
-                font_id,
+                font: font.clone(),
                 glyph_id: info.glyph_id as u16,
                 x_advance: font.to_em(pos[i].x_advance),
                 x_offset: font.to_em(pos[i].x_offset),
@@ -471,8 +477,6 @@ fn shape_segment<'a>(
 
             // Recursively shape the tofu sequence with the next family.
             shape_segment(ctx, base + range.start, &text[range], families.clone());
-
-            font = ctx.fonts.get(font_id);
         }
 
         i += 1;
@@ -482,12 +486,11 @@ fn shape_segment<'a>(
 }
 
 /// Shape the text with tofus from the given font.
-fn shape_tofus(ctx: &mut ShapingContext, base: usize, text: &str, font_id: FontId) {
-    let font = ctx.fonts.get(font_id);
+fn shape_tofus(ctx: &mut ShapingContext, base: usize, text: &str, font: Font) {
     let x_advance = font.advance(0).unwrap_or_default();
     for (cluster, c) in text.char_indices() {
         ctx.glyphs.push(ShapedGlyph {
-            font_id,
+            font: font.clone(),
             glyph_id: 0,
             x_advance,
             x_offset: Em::zero(),
@@ -511,8 +514,7 @@ fn track_and_space(ctx: &mut ShapingContext) {
     while let Some(glyph) = glyphs.next() {
         // Make non-breaking space same width as normal space.
         if glyph.c == '\u{00A0}' {
-            let font = ctx.fonts.get(glyph.font_id);
-            glyph.x_advance -= nbsp_delta(font).unwrap_or_default();
+            glyph.x_advance -= nbsp_delta(&glyph.font).unwrap_or_default();
         }
 
         if glyph.is_space() {

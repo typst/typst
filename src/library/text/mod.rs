@@ -24,9 +24,7 @@ use std::borrow::Cow;
 
 use ttf_parser::Tag;
 
-use crate::font::{
-    Font, FontMetrics, FontStretch, FontStyle, FontWeight, VerticalFontMetric,
-};
+use crate::font::{FontMetrics, FontStretch, FontStyle, FontWeight, VerticalFontMetric};
 use crate::library::prelude::*;
 use crate::util::EcoString;
 

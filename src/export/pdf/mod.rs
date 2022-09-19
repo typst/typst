@@ -14,12 +14,11 @@ use pdf_writer::{Finish, Name, PdfWriter, Ref, TextStr};
 
 use self::outline::{Heading, HeadingNode};
 use self::page::Page;
-use crate::font::{FontId, FontStore};
+use crate::font::Font;
 use crate::frame::Frame;
 use crate::geom::{Dir, Em, Length};
 use crate::image::Image;
 use crate::library::text::Lang;
-use crate::Context;
 
 /// Export a collection of frames into a PDF file.
 ///
@@ -28,8 +27,8 @@ use crate::Context;
 /// included in the PDF.
 ///
 /// Returns the raw bytes making up the PDF file.
-pub fn pdf(ctx: &Context, frames: &[Frame]) -> Vec<u8> {
-    let mut ctx = PdfContext::new(ctx);
+pub fn pdf(frames: &[Frame]) -> Vec<u8> {
+    let mut ctx = PdfContext::new();
     page::construct_pages(&mut ctx, frames);
     font::write_fonts(&mut ctx);
     image::write_images(&mut ctx);
@@ -43,9 +42,8 @@ const SRGB: Name<'static> = Name(b"srgb");
 const D65_GRAY: Name<'static> = Name(b"d65gray");
 
 /// Context for exporting a whole PDF document.
-pub struct PdfContext<'a> {
+pub struct PdfContext {
     writer: PdfWriter,
-    fonts: &'a FontStore,
     pages: Vec<Page>,
     page_heights: Vec<f32>,
     alloc: Ref,
@@ -53,20 +51,19 @@ pub struct PdfContext<'a> {
     font_refs: Vec<Ref>,
     image_refs: Vec<Ref>,
     page_refs: Vec<Ref>,
-    font_map: Remapper<FontId>,
+    font_map: Remapper<Font>,
     image_map: Remapper<Image>,
-    glyph_sets: HashMap<FontId, HashSet<u16>>,
+    glyph_sets: HashMap<Font, HashSet<u16>>,
     languages: HashMap<Lang, usize>,
     heading_tree: Vec<HeadingNode>,
 }
 
-impl<'a> PdfContext<'a> {
-    fn new(ctx: &'a Context) -> Self {
+impl PdfContext {
+    fn new() -> Self {
         let mut alloc = Ref::new(1);
         let page_tree_ref = alloc.bump();
         Self {
             writer: PdfWriter::new(),
-            fonts: &ctx.fonts,
             pages: vec![],
             page_heights: vec![],
             alloc,

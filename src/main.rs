@@ -11,9 +11,9 @@ use same_file::is_same_file;
 use termcolor::{ColorChoice, StandardStream, WriteColor};
 
 use typst::diag::{Error, StrResult};
-use typst::font::{FontInfo, FontStore};
+use typst::font::FontVariant;
 use typst::library::text::THEME;
-use typst::loading::FsLoader;
+use typst::loading::{FsLoader, Loader};
 use typst::parse::TokenMode;
 use typst::source::SourceStore;
 use typst::{Config, Context};
@@ -212,7 +212,7 @@ fn typeset(command: TypesetCommand) -> StrResult<()> {
     match typst::typeset(&mut ctx, id) {
         // Export the PDF.
         Ok(frames) => {
-            let buffer = typst::export::pdf(&ctx, &frames);
+            let buffer = typst::export::pdf(&frames);
             fs::write(&command.output, buffer).map_err(|_| "failed to write PDF file")?;
         }
 
@@ -271,16 +271,12 @@ fn highlight(command: HighlightCommand) -> StrResult<()> {
 /// Execute a font listing command.
 fn fonts(command: FontsCommand) -> StrResult<()> {
     let loader = FsLoader::new().with_system();
-    let fonts = FontStore::new(Arc::new(loader));
-
-    for (name, infos) in fonts.families() {
+    for (name, infos) in loader.book().families() {
         println!("{name}");
         if command.variants {
-            for &FontInfo { variant, .. } in infos {
-                println!(
-                    "- Style: {:?}, Weight: {:?}, Stretch: {:?}",
-                    variant.style, variant.weight, variant.stretch,
-                );
+            for info in infos {
+                let FontVariant { style, weight, stretch } = info.variant;
+                println!("- Style: {style:?}, Weight: {weight:?}, Stretch: {stretch:?}");
             }
         }
     }

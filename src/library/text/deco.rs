@@ -2,7 +2,6 @@ use kurbo::{BezPath, Line, ParamCurve};
 use ttf_parser::{GlyphId, OutlineBuilder};
 
 use super::TextNode;
-use crate::font::FontStore;
 use crate::library::prelude::*;
 
 /// Typeset underline, stricken-through or overlined text.
@@ -88,14 +87,12 @@ pub const OVERLINE: DecoLine = 2;
 pub fn decorate(
     frame: &mut Frame,
     deco: &Decoration,
-    fonts: &FontStore,
     text: &Text,
     shift: Length,
     pos: Point,
     width: Length,
 ) {
-    let font = fonts.get(text.font_id);
-    let font_metrics = font.metrics();
+    let font_metrics = text.font.metrics();
     let metrics = match deco.line {
         STRIKETHROUGH => font_metrics.strikethrough,
         OVERLINE => font_metrics.overline,
@@ -143,7 +140,7 @@ pub fn decorate(
         let mut builder =
             BezPathBuilder::new(font_metrics.units_per_em, text.size, dx.to_raw());
 
-        let bbox = font.ttf().outline_glyph(GlyphId(glyph.id), &mut builder);
+        let bbox = text.font.ttf().outline_glyph(GlyphId(glyph.id), &mut builder);
         let path = builder.finish();
 
         x += glyph.x_advance.at(text.size);
@@ -151,8 +148,8 @@ pub fn decorate(
         // Only do the costly segments intersection test if the line
         // intersects the bounding box.
         if bbox.map_or(false, |bbox| {
-            let y_min = -font.to_em(bbox.y_max).at(text.size);
-            let y_max = -font.to_em(bbox.y_min).at(text.size);
+            let y_min = -text.font.to_em(bbox.y_max).at(text.size);
+            let y_max = -text.font.to_em(bbox.y_min).at(text.size);
 
             offset >= y_min && offset <= y_max
         }) {

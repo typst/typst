@@ -7,13 +7,14 @@ edition = "2021"
 [features]
 default = ["fs"]
 cli = ["fs", "pico-args", "codespan-reporting", "same-file"]
-fs = ["dirs", "memmap2", "same-file", "walkdir"]
+fs = ["dirs", "memmap2", "walkdir", "same-file"]
 
 [dependencies]
 # Workspace
 typst-macros = { path = "./macros" }
 
 # Utilities
+bitflags = "1"
 bytemuck = "1"
 fxhash = "0.2"
 lipsum = { git = "https://github.com/reknih/lipsum" }

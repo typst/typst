@@ -13,7 +13,6 @@ use crate::geom::{
     self, Geometry, Length, Paint, PathElement, Shape, Size, Stroke, Transform,
 };
 use crate::image::{DecodedImage, Image};
-use crate::Context;
 
 /// Export a frame into a rendered image.
 ///
@@ -22,7 +21,7 @@ use crate::Context;
 ///
 /// In addition to the frame, you need to pass in the context used during
 /// compilation so that fonts and images can be rendered.
-pub fn render(ctx: &Context, frame: &Frame, pixel_per_pt: f32) -> sk::Pixmap {
+pub fn render(frame: &Frame, pixel_per_pt: f32) -> sk::Pixmap {
     let size = frame.size();
     let pxw = (pixel_per_pt * size.x.to_f32()).round().max(1.0) as u32;
     let pxh = (pixel_per_pt * size.y.to_f32()).round().max(1.0) as u32;
@@ -31,7 +30,7 @@ pub fn render(ctx: &Context, frame: &Frame, pixel_per_pt: f32) -> sk::Pixmap {
     canvas.fill(sk::Color::WHITE);
 
     let ts = sk::Transform::from_scale(pixel_per_pt, pixel_per_pt);
-    render_frame(&mut canvas, ts, None, ctx, frame);
+    render_frame(&mut canvas, ts, None, frame);
 
     canvas
 }
@@ -41,7 +40,6 @@ fn render_frame(
     canvas: &mut sk::Pixmap,
     ts: sk::Transform,
     mask: Option<&sk::ClipMask>,
-    ctx: &Context,
     frame: &Frame,
 ) {
     for (pos, element) in frame.elements() {
@@ -51,10 +49,10 @@ fn render_frame(
 
         match element {
             Element::Group(group) => {
-                render_group(canvas, ts, mask, ctx, group);
+                render_group(canvas, ts, mask, group);
             }
             Element::Text(text) => {
-                render_text(canvas, ts, mask, ctx, text);
+                render_text(canvas, ts, mask, text);
             }
             Element::Shape(shape) => {
                 render_shape(canvas, ts, mask, shape);
@@ -72,7 +70,6 @@ fn render_group(
     canvas: &mut sk::Pixmap,
     ts: sk::Transform,
     mask: Option<&sk::ClipMask>,
-    ctx: &Context,
     group: &Group,
 ) {
     let ts = ts.pre_concat(group.transform.into());
@@ -107,7 +104,7 @@ fn render_group(
         }
     }
 
-    render_frame(canvas, ts, mask, ctx, &group.frame);
+    render_frame(canvas, ts, mask, &group.frame);
 }
 
 /// Render a text run into the canvas.
@@ -115,7 +112,6 @@ fn render_text(
     canvas: &mut sk::Pixmap,
     ts: sk::Transform,
     mask: Option<&sk::ClipMask>,
-    ctx: &Context,
     text: &Text,
 ) {
     let mut x = 0.0;
@@ -124,9 +120,9 @@ fn render_text(
         let offset = x + glyph.x_offset.at(text.size).to_f32();
         let ts = ts.pre_translate(offset, 0.0);
 
-        render_svg_glyph(canvas, ts, mask, ctx, text, id)
-            .or_else(|| render_bitmap_glyph(canvas, ts, mask, ctx, text, id))
-            .or_else(|| render_outline_glyph(canvas, ts, mask, ctx, text, id));
+        render_svg_glyph(canvas, ts, mask, text, id)
+            .or_else(|| render_bitmap_glyph(canvas, ts, mask, text, id))
+            .or_else(|| render_outline_glyph(canvas, ts, mask, text, id));
 
         x += glyph.x_advance.at(text.size).to_f32();
     }
@@ -137,12 +133,10 @@ fn render_svg_glyph(
     canvas: &mut sk::Pixmap,
     ts: sk::Transform,
     _: Option<&sk::ClipMask>,
-    ctx: &Context,
     text: &Text,
     id: GlyphId,
 ) -> Option<()> {
-    let font = ctx.fonts.get(text.font_id);
-    let mut data = font.ttf().glyph_svg_image(id)?;
+    let mut data = text.font.ttf().glyph_svg_image(id)?;
 
     // Decompress SVGZ.
     let mut decoded = vec![];
@@ -164,7 +158,7 @@ fn render_svg_glyph(
 
     // If there's no viewbox defined, use the em square for our scale
     // transformation ...
-    let upem = font.units_per_em() as f32;
+    let upem = text.font.units_per_em() as f32;
     let (mut width, mut height) = (upem, upem);
 
     // ... but if there's a viewbox or width, use that.
@@ -188,14 +182,12 @@ fn render_bitmap_glyph(
     canvas: &mut sk::Pixmap,
     ts: sk::Transform,
     mask: Option<&sk::ClipMask>,
-    ctx: &Context,
     text: &Text,
     id: GlyphId,
 ) -> Option<()> {
     let size = text.size.to_f32();
     let ppem = size * ts.sy;
-    let font = ctx.fonts.get(text.font_id);
-    let raster = font.ttf().glyph_raster_image(id, ppem as u16)?;
+    let raster = text.font.ttf().glyph_raster_image(id, ppem as u16)?;
     let ext = match raster.format {
         ttf_parser::RasterImageFormat::PNG => "png",
     };
@@ -217,7 +209,6 @@ fn render_outline_glyph(
     canvas: &mut sk::Pixmap,
     ts: sk::Transform,
     mask: Option<&sk::ClipMask>,
-    ctx: &Context,
     text: &Text,
     id: GlyphId,
 ) -> Option<()> {
@@ -227,10 +218,9 @@ fn render_outline_glyph(
     // rasterization can't be used due to very large text size or weird
     // scale/skewing transforms.
     if ppem > 100.0 || ts.kx != 0.0 || ts.ky != 0.0 || ts.sx != ts.sy {
-        let font = ctx.fonts.get(text.font_id);
         let path = {
             let mut builder = WrappedPathBuilder(sk::PathBuilder::new());
-            font.ttf().outline_glyph(id, &mut builder)?;
+            text.font.ttf().outline_glyph(id, &mut builder)?;
             builder.0.finish()?
         };
 
@@ -239,7 +229,7 @@ fn render_outline_glyph(
 
         // Flip vertically because font design coordinate
         // system is Y-up.
-        let scale = text.size.to_f32() / font.units_per_em() as f32;
+        let scale = text.size.to_f32() / text.font.units_per_em() as f32;
         let ts = ts.pre_scale(scale, -scale);
         canvas.fill_path(&path, &paint, rule, ts, mask)?;
         return Some(());
@@ -248,9 +238,8 @@ fn render_outline_glyph(
     // Rasterize the glyph with `pixglyph`.
     // Try to retrieve a prepared glyph or prepare it from scratch if it
     // doesn't exist, yet.
-    let glyph = pixglyph::Glyph::load(ctx.fonts.get(text.font_id).ttf(), id)?;
+    let glyph = pixglyph::Glyph::load(text.font.ttf(), id)?;
     let bitmap = glyph.rasterize(ts.tx, ts.ty, ppem);
-
     let cw = canvas.width() as i32;
     let ch = canvas.height() as i32;
     let mw = bitmap.width as i32;

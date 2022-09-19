@@ -5,7 +5,6 @@ use unicode_script::{Script, UnicodeScript};
 use xi_unicode::LineBreakIterator;
 
 use super::{shape, Lang, Quoter, Quotes, RepeatNode, ShapedText, TextNode};
-use crate::font::FontStore;
 use crate::library::layout::Spacing;
 use crate::library::prelude::*;
 use crate::util::EcoString;
@@ -78,7 +77,7 @@ impl Layout for ParNode {
         let p = prepare(ctx, self, &text, segments, regions, styles)?;
 
         // Break the paragraph into lines.
-        let lines = linebreak(&p, &mut ctx.fonts, regions.first.x);
+        let lines = linebreak(&p, ctx.loader.as_ref(), regions.first.x);
 
         // Stack the lines into one frame per region.
         stack(&p, ctx, &lines, regions)
@@ -518,7 +517,13 @@ fn prepare<'a>(
         let end = cursor + segment.len();
         match segment {
             Segment::Text(_) => {
-                shape_range(&mut items, &mut ctx.fonts, &bidi, cursor .. end, styles);
+                shape_range(
+                    &mut items,
+                    ctx.loader.as_ref(),
+                    &bidi,
+                    cursor .. end,
+                    styles,
+                );
             }
             Segment::Spacing(spacing) => match spacing {
                 Spacing::Relative(v) => {
@@ -562,14 +567,14 @@ fn prepare<'a>(
 /// items for them.
 fn shape_range<'a>(
     items: &mut Vec<Item<'a>>,
-    fonts: &mut FontStore,
+    loader: &dyn Loader,
     bidi: &BidiInfo<'a>,
     range: Range,
     styles: StyleChain<'a>,
 ) {
     let mut process = |text, level: Level| {
         let dir = if level.is_ltr() { Dir::LTR } else { Dir::RTL };
-        let shaped = shape(fonts, text, styles, dir);
+        let shaped = shape(loader, text, styles, dir);
         items.push(Item::Text(shaped));
     };
 
@@ -628,12 +633,12 @@ fn shared_get<'a, K: Key<'a>>(
 /// Find suitable linebreaks.
 fn linebreak<'a>(
     p: &'a Preparation<'a>,
-    fonts: &mut FontStore,
+    loader: &dyn Loader,
     width: Length,
 ) -> Vec<Line<'a>> {
     match p.styles.get(ParNode::LINEBREAKS) {
-        Linebreaks::Simple => linebreak_simple(p, fonts, width),
-        Linebreaks::Optimized => linebreak_optimized(p, fonts, width),
+        Linebreaks::Simple => linebreak_simple(p, loader, width),
+        Linebreaks::Optimized => linebreak_optimized(p, loader, width),
     }
 }
 
@@ -642,7 +647,7 @@ fn linebreak<'a>(
 /// very unbalanced line, but is fast and simple.
 fn linebreak_simple<'a>(
     p: &'a Preparation<'a>,
-    fonts: &mut FontStore,
+    loader: &dyn Loader,
     width: Length,
 ) -> Vec<Line<'a>> {
     let mut lines = vec![];
@@ -651,7 +656,7 @@ fn linebreak_simple<'a>(
 
     for (end, mandatory, hyphen) in breakpoints(p) {
         // Compute the line and its size.
-        let mut attempt = line(p, fonts, start .. end, mandatory, hyphen);
+        let mut attempt = line(p, loader, start .. end, mandatory, hyphen);
 
         // If the line doesn't fit anymore, we push the last fitting attempt
         // into the stack and rebuild the line from the attempt's end. The
@@ -660,7 +665,7 @@ fn linebreak_simple<'a>(
             if let Some((last_attempt, last_end)) = last.take() {
                 lines.push(last_attempt);
                 start = last_end;
-                attempt = line(p, fonts, start .. end, mandatory, hyphen);
+                attempt = line(p, loader, start .. end, mandatory, hyphen);
             }
         }
 
@@ -702,7 +707,7 @@ fn linebreak_simple<'a>(
 /// text.
 fn linebreak_optimized<'a>(
     p: &'a Preparation<'a>,
-    fonts: &mut FontStore,
+    loader: &dyn Loader,
     width: Length,
 ) -> Vec<Line<'a>> {
     /// The cost of a line or paragraph layout.
@@ -727,7 +732,7 @@ fn linebreak_optimized<'a>(
     let mut table = vec![Entry {
         pred: 0,
         total: 0.0,
-        line: line(p, fonts, 0 .. 0, false, false),
+        line: line(p, loader, 0 .. 0, false, false),
     }];
 
     let em = p.styles.get(TextNode::SIZE);
@@ -741,7 +746,7 @@ fn linebreak_optimized<'a>(
         for (i, pred) in table.iter_mut().enumerate().skip(active) {
             // Layout the line.
             let start = pred.line.end;
-            let attempt = line(p, fonts, start .. end, mandatory, hyphen);
+            let attempt = line(p, loader, start .. end, mandatory, hyphen);
 
             // Determine how much the line's spaces would need to be stretched
             // to make it the desired width.
@@ -915,7 +920,7 @@ impl Breakpoints<'_> {
 /// Create a line which spans the given range.
 fn line<'a>(
     p: &'a Preparation,
-    fonts: &mut FontStore,
+    loader: &dyn Loader,
     mut range: Range,
     mandatory: bool,
     hyphen: bool,
@@ -970,9 +975,9 @@ fn line<'a>(
         if hyphen || start + shaped.text.len() > range.end {
             if hyphen || start < range.end || before.is_empty() {
                 let shifted = start - base .. range.end - base;
-                let mut reshaped = shaped.reshape(fonts, shifted);
+                let mut reshaped = shaped.reshape(loader, shifted);
                 if hyphen || shy {
-                    reshaped.push_hyphen(fonts);
+                    reshaped.push_hyphen(loader);
                 }
                 width += reshaped.width;
                 last = Some(Item::Text(reshaped));
@@ -993,7 +998,7 @@ fn line<'a>(
         if range.start + shaped.text.len() > end {
             if range.start < end {
                 let shifted = range.start - base .. end - base;
-                let reshaped = shaped.reshape(fonts, shifted);
+                let reshaped = shaped.reshape(loader, shifted);
                 width += reshaped.width;
                 first = Some(Item::Text(reshaped));
             }
@@ -1144,7 +1149,7 @@ fn commit(
                 offset += v.share(fr, remaining);
             }
             Item::Text(shaped) => {
-                let frame = shaped.build(&mut ctx.fonts, justification);
+                let frame = shaped.build(ctx.loader.as_ref(), justification);
                 push(&mut offset, frame);
             }
             Item::Frame(frame) => {

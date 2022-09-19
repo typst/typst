@@ -81,7 +81,7 @@ impl SourceStore {
                 return Ok(id);
             }
 
-            let data = self.loader.load(path)?;
+            let data = self.loader.file(path)?;
             let src = String::from_utf8(data.to_vec()).map_err(|_| {
                 io::Error::new(io::ErrorKind::InvalidData, "file is not valid utf-8")
             })?;
@@ -96,7 +96,7 @@ impl SourceStore {
     ///
     /// The `path` does not need to be [resolvable](Loader::resolve) through the
     /// `loader`. If it is though, imports that resolve to the same file hash
-    /// will use the inserted file instead of going through [`Loader::load`].
+    /// will use the inserted file instead of going through [`Loader::file`].
     ///
     /// If the path is resolvable and points to an existing source file, it is
     /// [replaced](Source::replace).

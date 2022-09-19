@@ -234,7 +234,7 @@ fn test(
 
     if compare_ever {
         if let Some(pdf_path) = pdf_path {
-            let pdf_data = typst::export::pdf(ctx, &frames);
+            let pdf_data = typst::export::pdf(&frames);
             fs::create_dir_all(&pdf_path.parent().unwrap()).unwrap();
             fs::write(pdf_path, pdf_data).unwrap();
         }
@@ -245,7 +245,7 @@ fn test(
             }
         }
 
-        let canvas = render(ctx, &frames);
+        let canvas = render(&frames);
         fs::create_dir_all(&png_path.parent().unwrap()).unwrap();
         canvas.save_png(png_path).unwrap();
 
@@ -532,7 +532,7 @@ fn test_spans_impl(node: &SyntaxNode, within: Range<u64>) -> bool {
 }
 
 /// Draw all frames into one image with padding in between.
-fn render(ctx: &mut Context, frames: &[Frame]) -> sk::Pixmap {
+fn render(frames: &[Frame]) -> sk::Pixmap {
     let pixel_per_pt = 2.0;
     let pixmaps: Vec<_> = frames
         .iter()
@@ -541,7 +541,7 @@ fn render(ctx: &mut Context, frames: &[Frame]) -> sk::Pixmap {
             if frame.width() > limit || frame.height() > limit {
                 panic!("overlarge frame: {:?}", frame.size());
             }
-            typst::export::render(ctx, frame, pixel_per_pt)
+            typst::export::render(frame, pixel_per_pt)
         })
         .collect();
 
@@ -555,7 +555,7 @@ fn render(ctx: &mut Context, frames: &[Frame]) -> sk::Pixmap {
     let [x, mut y] = [pad; 2];
     for (frame, mut pixmap) in frames.iter().zip(pixmaps) {
         let ts = sk::Transform::from_scale(pixel_per_pt, pixel_per_pt);
-        render_links(&mut pixmap, ts, ctx, frame);
+        render_links(&mut pixmap, ts, frame);
 
         canvas.draw_pixmap(
             x as i32,
@@ -573,18 +573,13 @@ fn render(ctx: &mut Context, frames: &[Frame]) -> sk::Pixmap {
 }
 
 /// Draw extra boxes for links so we can see whether they are there.
-fn render_links(
-    canvas: &mut sk::Pixmap,
-    ts: sk::Transform,
-    ctx: &Context,
-    frame: &Frame,
-) {
+fn render_links(canvas: &mut sk::Pixmap, ts: sk::Transform, frame: &Frame) {
     for (pos, element) in frame.elements() {
         let ts = ts.pre_translate(pos.x.to_pt() as f32, pos.y.to_pt() as f32);
         match *element {
             Element::Group(ref group) => {
                 let ts = ts.pre_concat(group.transform.into());
-                render_links(canvas, ts, ctx, &group.frame);
+                render_links(canvas, ts, &group.frame);
             }
             Element::Link(_, size) => {
                 let w = size.x.to_pt() as f32;

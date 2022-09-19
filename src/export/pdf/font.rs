@@ -9,7 +9,7 @@ use crate::util::SliceExt;
 
 /// Embed all used fonts into the PDF.
 pub fn write_fonts(ctx: &mut PdfContext) {
-    for &font_id in ctx.font_map.items() {
+    for font in ctx.font_map.items() {
         let type0_ref = ctx.alloc.bump();
         let cid_ref = ctx.alloc.bump();
         let descriptor_ref = ctx.alloc.bump();
@@ -17,8 +17,7 @@ pub fn write_fonts(ctx: &mut PdfContext) {
         let data_ref = ctx.alloc.bump();
         ctx.font_refs.push(type0_ref);
 
-        let glyphs = &ctx.glyph_sets[&font_id];
-        let font = ctx.fonts.get(font_id);
+        let glyphs = &ctx.glyph_sets[font];
         let metrics = font.metrics();
         let ttf = font.ttf();
 
@@ -161,7 +160,7 @@ pub fn write_fonts(ctx: &mut PdfContext) {
             .filter(Filter::FlateDecode);
 
         // Subset and write the font's bytes.
-        let data = font.buffer();
+        let data = font.data();
         let subsetted = {
             let glyphs: Vec<_> = glyphs.iter().copied().collect();
             let profile = subsetter::Profile::pdf(&glyphs);

@@ -7,7 +7,7 @@ pub fn csv(vm: &mut Machine, args: &mut Args) -> TypResult<Value> {
 
     let path = vm.locate(&path).at(span)?;
     let try_load = || -> io::Result<Value> {
-        let data = vm.ctx.loader.load(&path)?;
+        let data = vm.ctx.loader.file(&path)?;
 
         let mut builder = csv::ReaderBuilder::new();
         builder.has_headers(false);

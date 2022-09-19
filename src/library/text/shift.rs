@@ -1,5 +1,4 @@
 use super::{variant, TextNode, TextSize};
-use crate::font::FontStore;
 use crate::library::prelude::*;
 use crate::util::EcoString;
 
@@ -47,7 +46,7 @@ impl<const S: ScriptKind> Show for ShiftNode<S> {
         let mut transformed = None;
         if styles.get(Self::TYPOGRAPHIC) {
             if let Some(text) = search_text(&self.0, S) {
-                if is_shapable(&mut ctx.fonts, &text, styles) {
+                if is_shapable(ctx.loader.as_ref(), &text, styles) {
                     transformed = Some(Content::Text(text));
                 }
             }
@@ -92,11 +91,14 @@ fn search_text(content: &Content, mode: ScriptKind) -> Option<EcoString> {
 
 /// Checks whether the first retrievable family contains all code points of the
 /// given string.
-fn is_shapable(fonts: &mut FontStore, text: &str, styles: StyleChain) -> bool {
+fn is_shapable(loader: &dyn Loader, text: &str, styles: StyleChain) -> bool {
+    let book = loader.book();
     for family in styles.get(TextNode::FAMILY).iter() {
-        if let Some(font_id) = fonts.select(family.as_str(), variant(styles)) {
-            let ttf = fonts.get(font_id).ttf();
-            return text.chars().all(|c| ttf.glyph_index(c).is_some());
+        if let Some(font) = book
+            .select(family.as_str(), variant(styles))
+            .and_then(|id| loader.font(id).ok())
+        {
+            return text.chars().all(|c| font.ttf().glyph_index(c).is_some());
         }
     }
 

@@ -1,10 +1,12 @@
+use std::io;
 use std::path::Path;
 use std::sync::Arc;
 
 use iai::{black_box, main, Iai};
 use unscanny::Scanner;
 
-use typst::loading::MemLoader;
+use typst::font::{Font, FontBook};
+use typst::loading::{Buffer, FileHash, Loader};
 use typst::parse::{TokenMode, Tokens};
 use typst::source::SourceId;
 use typst::{Config, Context};
@@ -13,7 +15,7 @@ const SRC: &str = include_str!("bench.typ");
 const FONT: &[u8] = include_bytes!("../fonts/IBMPlexSans-Regular.ttf");
 
 fn context() -> (Context, SourceId) {
-    let loader = MemLoader::new().with(Path::new("font.ttf"), FONT);
+    let loader = BenchLoader::new();
     let mut ctx = Context::new(Arc::new(loader), Config::default());
     let id = ctx.sources.provide(Path::new("src.typ"), SRC.to_string());
     (ctx, id)
@@ -94,5 +96,36 @@ fn bench_layout(iai: &mut Iai) {
 fn bench_render(iai: &mut Iai) {
     let (mut ctx, id) = context();
     let frames = typst::typeset(&mut ctx, id).unwrap();
-    iai.run(|| typst::export::render(&mut ctx, &frames[0], 1.0))
+    iai.run(|| typst::export::render(&frames[0], 1.0))
+}
+
+struct BenchLoader {
+    book: FontBook,
+    font: Font,
+}
+
+impl BenchLoader {
+    fn new() -> Self {
+        let font = Font::new(FONT.into(), 0).unwrap();
+        let book = FontBook::from_fonts([&font]);
+        Self { book, font }
+    }
+}
+
+impl Loader for BenchLoader {
+    fn book(&self) -> &FontBook {
+        &self.book
+    }
+
+    fn font(&self, _: usize) -> io::Result<Font> {
+        Ok(self.font.clone())
+    }
+
+    fn resolve(&self, _: &Path) -> io::Result<FileHash> {
+        Err(io::ErrorKind::NotFound.into())
+    }
+
+    fn file(&self, _: &Path) -> io::Result<Buffer> {
+        Err(io::ErrorKind::NotFound.into())
+    }
 }

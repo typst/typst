@@ -4,7 +4,7 @@ use rex::layout::{LayoutSettings, Style};
 use rex::parser::color::RGBA;
 use rex::render::{Backend, Cursor, Renderer};
 
-use crate::font::FontId;
+use crate::font::Font;
 use crate::library::prelude::*;
 use crate::library::text::{variant, FontFamily, Lang, TextNode};
 
@@ -28,14 +28,15 @@ impl Layout for RexNode {
     ) -> TypResult<Vec<Frame>> {
         // Load the font.
         let span = self.tex.span;
-        let font_id = ctx
-            .fonts
+        let font = ctx
+            .loader
+            .book()
             .select(self.family.as_str(), variant(styles))
+            .and_then(|id| ctx.loader.font(id).ok())
             .ok_or("failed to find math font")
             .at(span)?;
 
         // Prepare the font context.
-        let font = ctx.fonts.get(font_id);
         let ctx = font
             .math()
             .map(|math| FontContext::new(font.ttf(), math))
@@ -76,7 +77,7 @@ impl Layout for RexNode {
                 frame
             },
             baseline: top,
-            font_id,
+            font: font.clone(),
             fill: styles.get(TextNode::FILL),
             lang: styles.get(TextNode::LANG),
             colors: vec![],
@@ -93,7 +94,7 @@ impl Layout for RexNode {
 struct FrameBackend {
     frame: Frame,
     baseline: Length,
-    font_id: FontId,
+    font: Font,
     fill: Paint,
     lang: Lang,
     colors: Vec<RGBA>,
@@ -119,7 +120,7 @@ impl Backend for FrameBackend {
         self.frame.push(
             self.transform(pos),
             Element::Text(Text {
-                font_id: self.font_id,
+                font: self.font.clone(),
                 size: Length::pt(scale),
                 fill: self.fill(),
                 lang: self.lang,

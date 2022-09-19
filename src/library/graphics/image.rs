@@ -22,7 +22,7 @@ impl ImageNode {
         let image = vm
             .ctx
             .loader
-            .load(&full)
+            .file(&full)
             .and_then(|buffer| Image::new(buffer, ext))
             .map_err(|err| failed_to_load("image", &full, err))
             .at(span)?;

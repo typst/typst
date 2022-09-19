@@ -55,7 +55,6 @@ use std::sync::Arc;
 
 use crate::diag::TypResult;
 use crate::eval::Scope;
-use crate::font::FontStore;
 use crate::frame::Frame;
 use crate::loading::Loader;
 use crate::model::StyleMap;
@@ -77,8 +76,6 @@ pub struct Context {
     pub loader: Arc<dyn Loader>,
     /// Stores loaded source files.
     pub sources: SourceStore,
-    /// Stores parsed fonts.
-    pub fonts: FontStore,
     /// The context's configuration.
     config: Config,
 }
@@ -89,7 +86,6 @@ impl Context {
         Self {
             loader: Arc::clone(&loader),
             sources: SourceStore::new(Arc::clone(&loader)),
-            fonts: FontStore::new(Arc::clone(&loader)),
             config,
         }
     }
