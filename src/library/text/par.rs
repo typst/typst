@@ -25,8 +25,6 @@ pub enum ParChild {
     Spacing(Spacing),
     /// An arbitrary inline-level node.
     Node(LayoutNode),
-    /// A pin identified by index.
-    Pin(usize),
 }
 
 #[node]
@@ -101,7 +99,6 @@ impl Debug for ParChild {
             Self::Quote { double } => write!(f, "Quote({double})"),
             Self::Spacing(kind) => write!(f, "{:?}", kind),
             Self::Node(node) => node.fmt(f),
-            Self::Pin(idx) => write!(f, "Pin({idx})"),
         }
     }
 }
@@ -197,7 +194,6 @@ type Range = std::ops::Range<usize>;
 // paragraph's full text.
 const SPACING_REPLACE: char = ' '; // Space
 const NODE_REPLACE: char = '\u{FFFC}'; // Object Replacement Character
-const PIN_REPLACE: char = '\u{200D}'; // Zero Width Joiner
 
 /// A paragraph representation in which children are already layouted and text
 /// is already preshaped.
@@ -278,8 +274,6 @@ enum Segment<'a> {
     Spacing(Spacing),
     /// An arbitrary inline-level layout node.
     Node(&'a LayoutNode),
-    /// A pin identified by index.
-    Pin(usize),
 }
 
 impl Segment<'_> {
@@ -289,7 +283,6 @@ impl Segment<'_> {
             Self::Text(len) => len,
             Self::Spacing(_) => SPACING_REPLACE.len_utf8(),
             Self::Node(_) => NODE_REPLACE.len_utf8(),
-            Self::Pin(_) => PIN_REPLACE.len_utf8(),
         }
     }
 }
@@ -307,8 +300,6 @@ enum Item<'a> {
     Frame(Frame),
     /// A repeating node that fills the remaining space.
     Repeat(&'a RepeatNode, StyleChain<'a>),
-    /// A pin identified by index.
-    Pin(usize),
 }
 
 impl<'a> Item<'a> {
@@ -326,7 +317,6 @@ impl<'a> Item<'a> {
             Self::Text(shaped) => shaped.text.len(),
             Self::Absolute(_) | Self::Fractional(_) => SPACING_REPLACE.len_utf8(),
             Self::Frame(_) | Self::Repeat(_, _) => NODE_REPLACE.len_utf8(),
-            Self::Pin(_) => PIN_REPLACE.len_utf8(),
         }
     }
 
@@ -336,7 +326,7 @@ impl<'a> Item<'a> {
             Self::Text(shaped) => shaped.width,
             Self::Absolute(v) => *v,
             Self::Frame(frame) => frame.width(),
-            Self::Fractional(_) | Self::Repeat(_, _) | Self::Pin(_) => Length::zero(),
+            Self::Fractional(_) | Self::Repeat(_, _) => Length::zero(),
         }
     }
 }
@@ -467,7 +457,6 @@ fn collect<'a>(
                         ParChild::Quote { .. } => Some('"'),
                         ParChild::Spacing(_) => Some(SPACING_REPLACE),
                         ParChild::Node(_) => Some(NODE_REPLACE),
-                        ParChild::Pin(_) => Some(PIN_REPLACE),
                     });
 
                     full.push_str(quoter.quote(&quotes, double, peeked));
@@ -483,10 +472,6 @@ fn collect<'a>(
             ParChild::Node(node) => {
                 full.push(NODE_REPLACE);
                 Segment::Node(node)
-            }
-            &ParChild::Pin(idx) => {
-                full.push(PIN_REPLACE);
-                Segment::Pin(idx)
             }
         };
 
@@ -556,7 +541,6 @@ fn prepare<'a>(
                     items.push(Item::Frame(frame));
                 }
             }
-            Segment::Pin(idx) => items.push(Item::Pin(idx)),
         }
 
         cursor = end;
@@ -1186,11 +1170,6 @@ fn commit(
                     }
                 }
                 offset = before + fill;
-            }
-            Item::Pin(idx) => {
-                let mut frame = Frame::new(Size::zero());
-                frame.push(Point::zero(), Element::Pin(*idx));
-                push(&mut offset, frame);
             }
         }
     }

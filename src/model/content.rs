@@ -90,8 +90,6 @@ pub enum Content {
     /// A node that can be realized with styles, optionally with attached
     /// properties.
     Show(ShowNode, Option<Dict>),
-    /// A pin identified by index.
-    Pin(usize),
     /// Content with attached styles.
     Styled(Arc<(Self, StyleMap)>),
     /// A sequence of multiple nodes.
@@ -281,7 +279,6 @@ impl Debug for Content {
             Self::Pagebreak { weak } => write!(f, "Pagebreak({weak})"),
             Self::Page(page) => page.fmt(f),
             Self::Show(node, _) => node.fmt(f),
-            Self::Pin(idx) => write!(f, "Pin({idx})"),
             Self::Styled(styled) => {
                 let (sub, map) = styled.as_ref();
                 map.fmt(f)?;
@@ -651,9 +648,6 @@ impl<'a> ParBuilder<'a> {
             Content::Inline(node) => {
                 self.0.supportive(ParChild::Node(node.clone()), styles);
             }
-            &Content::Pin(idx) => {
-                self.0.ignorant(ParChild::Pin(idx), styles);
-            }
             _ => return false,
         }
 
@@ -673,7 +667,7 @@ impl<'a> ParBuilder<'a> {
             && children
                 .items()
                 .find_map(|child| match child {
-                    ParChild::Spacing(_) | ParChild::Pin(_) => None,
+                    ParChild::Spacing(_) => None,
                     ParChild::Text(_) | ParChild::Quote { .. } => Some(true),
                     ParChild::Node(_) => Some(false),
                 })

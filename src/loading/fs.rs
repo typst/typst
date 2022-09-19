@@ -6,7 +6,7 @@ use memmap2::Mmap;
 use same_file::Handle;
 use walkdir::WalkDir;
 
-use super::{FileHash, Loader};
+use super::{Buffer, FileHash, Loader};
 use crate::font::FontInfo;
 
 /// Loads fonts and files from the local file system.
@@ -130,7 +130,7 @@ impl Loader for FsLoader {
         }
     }
 
-    fn load(&self, path: &Path) -> io::Result<Vec<u8>> {
-        fs::read(path)
+    fn load(&self, path: &Path) -> io::Result<Buffer> {
+        Ok(fs::read(path)?.into())
     }
 }

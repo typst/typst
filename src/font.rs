@@ -13,7 +13,7 @@ use ttf_parser::{name_id, GlyphId, PlatformId, Tag};
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::geom::Em;
-use crate::loading::{FileHash, Loader};
+use crate::loading::{Buffer, FileHash, Loader};
 
 /// A unique identifier for a loaded font.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
@@ -40,7 +40,7 @@ pub struct FontStore {
     failed: Vec<bool>,
     fonts: Vec<Option<Font>>,
     families: BTreeMap<String, Vec<FontId>>,
-    buffers: HashMap<FileHash, Arc<Vec<u8>>>,
+    buffers: HashMap<FileHash, Buffer>,
 }
 
 impl FontStore {
@@ -214,11 +214,11 @@ impl FontStore {
             Entry::Occupied(entry) => entry.into_mut(),
             Entry::Vacant(entry) => {
                 let buffer = self.loader.load(path).ok()?;
-                entry.insert(Arc::new(buffer))
+                entry.insert(buffer)
             }
         };
 
-        let font = Font::new(Arc::clone(buffer), index)?;
+        let font = Font::new(buffer.clone(), index)?;
         *slot = Some(font);
         self.failed[idx] = false;
 
@@ -239,7 +239,7 @@ pub struct Font {
     /// The raw font data, possibly shared with other fonts from the same
     /// collection. The vector's allocation must not move, because `ttf` points
     /// into it using unsafe code.
-    buffer: Arc<Vec<u8>>,
+    data: Buffer,
     /// The font's index in the collection (zero if not a collection).
     index: u32,
     /// The underlying ttf-parser/rustybuzz face.
@@ -251,8 +251,8 @@ pub struct Font {
 }
 
 impl Font {
-    /// Parse a font from a buffer and collection index.
-    pub fn new(buffer: Arc<Vec<u8>>, index: u32) -> Option<Self> {
+    /// Parse a font from data and collection index.
+    pub fn new(data: Buffer, index: u32) -> Option<Self> {
         // Safety:
         // - The slices's location is stable in memory:
         //   - We don't move the underlying vector
@@ -260,13 +260,13 @@ impl Font {
         // - The internal 'static lifetime is not leaked because its rewritten
         //   to the self-lifetime in `ttf()`.
         let slice: &'static [u8] =
-            unsafe { std::slice::from_raw_parts(buffer.as_ptr(), buffer.len()) };
+            unsafe { std::slice::from_raw_parts(data.as_ptr(), data.len()) };
 
         let ttf = rustybuzz::Face::from_slice(slice, index)?;
         let metrics = FontMetrics::from_ttf(&ttf);
 
         Some(Self {
-            buffer,
+            data,
             index,
             ttf,
             metrics,
@@ -275,8 +275,8 @@ impl Font {
     }
 
     /// The underlying buffer.
-    pub fn buffer(&self) -> &Arc<Vec<u8>> {
-        &self.buffer
+    pub fn buffer(&self) -> &Buffer {
+        &self.data
     }
 
     /// The collection index.

@@ -17,7 +17,7 @@ use self::page::Page;
 use crate::font::{FontId, FontStore};
 use crate::frame::Frame;
 use crate::geom::{Dir, Em, Length};
-use crate::image::{ImageId, ImageStore};
+use crate::image::Image;
 use crate::library::text::Lang;
 use crate::Context;
 
@@ -46,7 +46,6 @@ const D65_GRAY: Name<'static> = Name(b"d65gray");
 pub struct PdfContext<'a> {
     writer: PdfWriter,
     fonts: &'a FontStore,
-    images: &'a ImageStore,
     pages: Vec<Page>,
     page_heights: Vec<f32>,
     alloc: Ref,
@@ -55,7 +54,7 @@ pub struct PdfContext<'a> {
     image_refs: Vec<Ref>,
     page_refs: Vec<Ref>,
     font_map: Remapper<FontId>,
-    image_map: Remapper<ImageId>,
+    image_map: Remapper<Image>,
     glyph_sets: HashMap<FontId, HashSet<u16>>,
     languages: HashMap<Lang, usize>,
     heading_tree: Vec<HeadingNode>,
@@ -68,7 +67,6 @@ impl<'a> PdfContext<'a> {
         Self {
             writer: PdfWriter::new(),
             fonts: &ctx.fonts,
-            images: &ctx.images,
             pages: vec![],
             page_heights: vec![],
             alloc,
@@ -147,36 +145,33 @@ fn deflate(data: &[u8]) -> Vec<u8> {
     miniz_oxide::deflate::compress_to_vec_zlib(data, COMPRESSION_LEVEL)
 }
 
-/// Assigns new, consecutive PDF-internal indices to things.
-struct Remapper<Index> {
-    /// Forwards from the old indices to the new pdf indices.
-    to_pdf: HashMap<Index, usize>,
-    /// Backwards from the pdf indices to the old indices.
-    to_layout: Vec<Index>,
+/// Assigns new, consecutive PDF-internal indices to items.
+struct Remapper<T> {
+    /// Forwards from the items to the pdf indices.
+    to_pdf: HashMap<T, usize>,
+    /// Backwards from the pdf indices to the items.
+    to_items: Vec<T>,
 }
 
-impl<Index> Remapper<Index>
+impl<T> Remapper<T>
 where
-    Index: Copy + Eq + Hash,
+    T: Eq + Hash + Clone,
 {
     fn new() -> Self {
-        Self {
-            to_pdf: HashMap::new(),
-            to_layout: vec![],
-        }
+        Self { to_pdf: HashMap::new(), to_items: vec![] }
     }
 
-    fn insert(&mut self, index: Index) {
-        let to_layout = &mut self.to_layout;
-        self.to_pdf.entry(index).or_insert_with(|| {
+    fn insert(&mut self, item: T) {
+        let to_layout = &mut self.to_items;
+        self.to_pdf.entry(item.clone()).or_insert_with(|| {
             let pdf_index = to_layout.len();
-            to_layout.push(index);
+            to_layout.push(item);
             pdf_index
         });
     }
 
-    fn map(&self, index: Index) -> usize {
-        self.to_pdf[&index]
+    fn map(&self, item: T) -> usize {
+        self.to_pdf[&item]
     }
 
     fn pdf_indices<'a>(
@@ -186,8 +181,8 @@ where
         refs.iter().copied().zip(0 .. self.to_pdf.len())
     }
 
-    fn layout_indices(&self) -> impl Iterator<Item = Index> + '_ {
-        self.to_layout.iter().copied()
+    fn items(&self) -> impl Iterator<Item = &T> + '_ {
+        self.to_items.iter()
     }
 }
 

@@ -11,7 +11,7 @@ use crate::geom::{
     self, Color, Em, Geometry, Length, Numeric, Paint, Point, Ratio, Shape, Size, Stroke,
     Transform,
 };
-use crate::image::ImageId;
+use crate::image::Image;
 
 /// Construct page objects.
 pub fn construct_pages(ctx: &mut PdfContext, frames: &[Frame]) {
@@ -290,13 +290,12 @@ fn write_frame(ctx: &mut PageContext, frame: &Frame) {
     for &(pos, ref element) in frame.elements() {
         let x = pos.x.to_f32();
         let y = pos.y.to_f32();
-        match *element {
-            Element::Group(ref group) => write_group(ctx, pos, group),
-            Element::Text(ref text) => write_text(ctx, x, y, text),
-            Element::Shape(ref shape) => write_shape(ctx, x, y, shape),
-            Element::Image(id, size) => write_image(ctx, x, y, id, size),
-            Element::Link(ref dest, size) => write_link(ctx, pos, dest, size),
-            Element::Pin(_) => {}
+        match element {
+            Element::Group(group) => write_group(ctx, pos, group),
+            Element::Text(text) => write_text(ctx, x, y, text),
+            Element::Shape(shape) => write_shape(ctx, x, y, shape),
+            Element::Image(image, size) => write_image(ctx, x, y, image, *size),
+            Element::Link(dest, size) => write_link(ctx, pos, dest, *size),
         }
     }
 }
@@ -449,9 +448,9 @@ fn write_path(ctx: &mut PageContext, x: f32, y: f32, path: &geom::Path) {
 }
 
 /// Encode a vector or raster image into the content stream.
-fn write_image(ctx: &mut PageContext, x: f32, y: f32, id: ImageId, size: Size) {
-    ctx.parent.image_map.insert(id);
-    let name = format_eco!("Im{}", ctx.parent.image_map.map(id));
+fn write_image(ctx: &mut PageContext, x: f32, y: f32, image: &Image, size: Size) {
+    ctx.parent.image_map.insert(image.clone());
+    let name = format_eco!("Im{}", ctx.parent.image_map.map(image.clone()));
     let w = size.x.to_f32();
     let h = size.y.to_f32();
     ctx.content.save_state();

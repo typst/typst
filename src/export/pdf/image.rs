@@ -1,25 +1,26 @@
 use std::io::Cursor;
 
-use image::{DynamicImage, GenericImageView, ImageFormat, ImageResult, Rgba};
+use image::{DynamicImage, GenericImageView, ImageResult, Rgba};
 use pdf_writer::{Filter, Finish};
 
 use super::{deflate, PdfContext, RefExt};
-use crate::image::{Image, RasterImage};
+use crate::image::{DecodedImage, ImageFormat};
 
 /// Embed all used images into the PDF.
 pub fn write_images(ctx: &mut PdfContext) {
-    for image_id in ctx.image_map.layout_indices() {
+    for image in ctx.image_map.items() {
         let image_ref = ctx.alloc.bump();
         ctx.image_refs.push(image_ref);
 
-        let img = ctx.images.get(image_id);
-        let width = img.width();
-        let height = img.height();
+        let width = image.width();
+        let height = image.height();
 
         // Add the primary image.
-        match img {
-            Image::Raster(img) => {
-                if let Ok((data, filter, has_color)) = encode_image(img) {
+        match image.decode().unwrap() {
+            DecodedImage::Raster(dynamic) => {
+                if let Ok((data, filter, has_color)) =
+                    encode_image(image.format(), &dynamic)
+                {
                     let mut image = ctx.writer.image_xobject(image_ref, &data);
                     image.filter(filter);
                     image.width(width as i32);
@@ -35,8 +36,8 @@ pub fn write_images(ctx: &mut PdfContext) {
 
                     // Add a second gray-scale image containing the alpha values if
                     // this image has an alpha channel.
-                    if img.buf.color().has_alpha() {
-                        let (alpha_data, alpha_filter) = encode_alpha(img);
+                    if dynamic.color().has_alpha() {
+                        let (alpha_data, alpha_filter) = encode_alpha(&dynamic);
                         let mask_ref = ctx.alloc.bump();
                         image.s_mask(mask_ref);
                         image.finish();
@@ -59,9 +60,9 @@ pub fn write_images(ctx: &mut PdfContext) {
                         .device_gray();
                 }
             }
-            Image::Svg(img) => {
+            DecodedImage::Svg(svg) => {
                 let next_ref = svg2pdf::convert_tree_into(
-                    &img.0,
+                    &svg,
                     svg2pdf::Options::default(),
                     &mut ctx.writer,
                     image_ref,
@@ -76,19 +77,22 @@ pub fn write_images(ctx: &mut PdfContext) {
 /// whether the image has color.
 ///
 /// Skips the alpha channel as that's encoded separately.
-fn encode_image(img: &RasterImage) -> ImageResult<(Vec<u8>, Filter, bool)> {
-    Ok(match (img.format, &img.buf) {
+fn encode_image(
+    format: ImageFormat,
+    dynamic: &DynamicImage,
+) -> ImageResult<(Vec<u8>, Filter, bool)> {
+    Ok(match (format, dynamic) {
         // 8-bit gray JPEG.
-        (ImageFormat::Jpeg, DynamicImage::ImageLuma8(_)) => {
+        (ImageFormat::Jpg, DynamicImage::ImageLuma8(_)) => {
             let mut data = Cursor::new(vec![]);
-            img.buf.write_to(&mut data, img.format)?;
+            dynamic.write_to(&mut data, image::ImageFormat::Jpeg)?;
             (data.into_inner(), Filter::DctDecode, false)
         }
 
         // 8-bit RGB JPEG (CMYK JPEGs get converted to RGB earlier).
-        (ImageFormat::Jpeg, DynamicImage::ImageRgb8(_)) => {
+        (ImageFormat::Jpg, DynamicImage::ImageRgb8(_)) => {
             let mut data = Cursor::new(vec![]);
-            img.buf.write_to(&mut data, img.format)?;
+            dynamic.write_to(&mut data, image::ImageFormat::Jpeg)?;
             (data.into_inner(), Filter::DctDecode, true)
         }
 
@@ -117,7 +121,7 @@ fn encode_image(img: &RasterImage) -> ImageResult<(Vec<u8>, Filter, bool)> {
 }
 
 /// Encode an image's alpha channel if present.
-fn encode_alpha(img: &RasterImage) -> (Vec<u8>, Filter) {
-    let pixels: Vec<_> = img.buf.pixels().map(|(_, _, Rgba([_, _, _, a]))| a).collect();
+fn encode_alpha(dynamic: &DynamicImage) -> (Vec<u8>, Filter) {
+    let pixels: Vec<_> = dynamic.pixels().map(|(_, _, Rgba([_, _, _, a]))| a).collect();
     (deflate(&pixels), Filter::FlateDecode)
 }

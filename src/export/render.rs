@@ -12,7 +12,7 @@ use crate::frame::{Element, Frame, Group, Text};
 use crate::geom::{
     self, Geometry, Length, Paint, PathElement, Shape, Size, Stroke, Transform,
 };
-use crate::image::{Image, RasterImage, Svg};
+use crate::image::{DecodedImage, Image};
 use crate::Context;
 
 /// Export a frame into a rendered image.
@@ -49,21 +49,20 @@ fn render_frame(
         let y = pos.y.to_f32();
         let ts = ts.pre_translate(x, y);
 
-        match *element {
-            Element::Group(ref group) => {
+        match element {
+            Element::Group(group) => {
                 render_group(canvas, ts, mask, ctx, group);
             }
-            Element::Text(ref text) => {
+            Element::Text(text) => {
                 render_text(canvas, ts, mask, ctx, text);
             }
-            Element::Shape(ref shape) => {
+            Element::Shape(shape) => {
                 render_shape(canvas, ts, mask, shape);
             }
-            Element::Image(id, size) => {
-                render_image(canvas, ts, mask, ctx.images.get(id), size);
+            Element::Image(image, size) => {
+                render_image(canvas, ts, mask, image, *size);
             }
             Element::Link(_, _) => {}
-            Element::Pin(_) => {}
         }
     }
 }
@@ -197,17 +196,20 @@ fn render_bitmap_glyph(
     let ppem = size * ts.sy;
     let font = ctx.fonts.get(text.font_id);
     let raster = font.ttf().glyph_raster_image(id, ppem as u16)?;
-    let img = RasterImage::parse(&raster.data).ok()?;
+    let ext = match raster.format {
+        ttf_parser::RasterImageFormat::PNG => "png",
+    };
+    let image = Image::new(raster.data.into(), ext).ok()?;
 
     // FIXME: Vertical alignment isn't quite right for Apple Color Emoji,
     // and maybe also for Noto Color Emoji. And: Is the size calculation
     // correct?
     let h = text.size;
-    let w = (img.width() as f64 / img.height() as f64) * h;
-    let dx = (raster.x as f32) / (img.width() as f32) * size;
-    let dy = (raster.y as f32) / (img.height() as f32) * size;
+    let w = (image.width() as f64 / image.height() as f64) * h;
+    let dx = (raster.x as f32) / (image.width() as f32) * size;
+    let dy = (raster.y as f32) / (image.height() as f32) * size;
     let ts = ts.pre_translate(dx, -size - dy);
-    render_image(canvas, ts, mask, &Image::Raster(img), Size::new(w, h))
+    render_image(canvas, ts, mask, &image, Size::new(w, h))
 }
 
 /// Render an outline glyph into the canvas. This is the "normal" case.
@@ -338,33 +340,33 @@ fn render_image(
     canvas: &mut sk::Pixmap,
     ts: sk::Transform,
     mask: Option<&sk::ClipMask>,
-    img: &Image,
+    image: &Image,
     size: Size,
 ) -> Option<()> {
     let view_width = size.x.to_f32();
     let view_height = size.y.to_f32();
 
-    let aspect = (img.width() as f32) / (img.height() as f32);
+    let aspect = (image.width() as f32) / (image.height() as f32);
     let scale = ts.sx.max(ts.sy);
     let w = (scale * view_width.max(aspect * view_height)).ceil() as u32;
     let h = ((w as f32) / aspect).ceil() as u32;
 
     let mut pixmap = sk::Pixmap::new(w, h)?;
-    match img {
-        Image::Raster(img) => {
-            let downscale = w < img.width();
+    match image.decode().unwrap() {
+        DecodedImage::Raster(dynamic) => {
+            let downscale = w < image.width();
             let filter = if downscale {
                 FilterType::Lanczos3
             } else {
                 FilterType::CatmullRom
             };
-            let buf = img.buf.resize(w, h, filter);
+            let buf = dynamic.resize(w, h, filter);
             for ((_, _, src), dest) in buf.pixels().zip(pixmap.pixels_mut()) {
                 let Rgba([r, g, b, a]) = src;
                 *dest = sk::ColorU8::from_rgba(r, g, b, a).premultiply();
             }
         }
-        Image::Svg(Svg(tree)) => {
+        DecodedImage::Svg(tree) => {
             resvg::render(
                 &tree,
                 FitTo::Size(w, h),

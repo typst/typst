@@ -73,7 +73,7 @@ impl SourceStore {
     /// root.
     ///
     /// If there already exists a source file for this path, it is
-    /// [replaced](SourceFile::replace).
+    /// [replaced](Source::replace).
     pub fn load(&mut self, path: &Path) -> StrResult<SourceId> {
         let mut try_load = || -> io::Result<SourceId> {
             let hash = self.loader.resolve(path)?;
@@ -82,7 +82,7 @@ impl SourceStore {
             }
 
             let data = self.loader.load(path)?;
-            let src = String::from_utf8(data).map_err(|_| {
+            let src = String::from_utf8(data.to_vec()).map_err(|_| {
                 io::Error::new(io::ErrorKind::InvalidData, "file is not valid utf-8")
             })?;
 
@@ -99,7 +99,7 @@ impl SourceStore {
     /// will use the inserted file instead of going through [`Loader::load`].
     ///
     /// If the path is resolvable and points to an existing source file, it is
-    /// [replaced](SourceFile::replace).
+    /// [replaced](Source::replace).
     pub fn provide(&mut self, path: impl AsRef<Path>, src: String) -> SourceId {
         let path = path.as_ref();
         let hash = self.loader.resolve(path).ok();
@@ -122,7 +122,7 @@ impl SourceStore {
         id
     }
 
-    /// Fully [replace](SourceFile::replace) the source text of a file.
+    /// Fully [replace](Source::replace) the source text of a file.
     ///
     /// This panics if no source file with this `id` exists.
     #[track_caller]
@@ -130,7 +130,7 @@ impl SourceStore {
         self.sources[id.0 as usize].replace(src)
     }
 
-    /// [Edit](SourceFile::edit) a source file by replacing the given range.
+    /// [Edit](Source::edit) a source file by replacing the given range.
     ///
     /// This panics if no source file with this `id` exists or if the `replace`
     /// range is out of bounds.
@@ -144,7 +144,7 @@ impl SourceStore {
         self.sources[id.0 as usize].edit(replace, with)
     }
 
-    /// Map a span that points into a [file](SourceFile::range) stored in this
+    /// Map a span that points into a [file](Source::range) stored in this
     /// source store to a byte range.
     ///
     /// Panics if the span does not point into this source store.

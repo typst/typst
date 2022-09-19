@@ -57,7 +57,6 @@ use crate::diag::TypResult;
 use crate::eval::Scope;
 use crate::font::FontStore;
 use crate::frame::Frame;
-use crate::image::ImageStore;
 use crate::loading::Loader;
 use crate::model::StyleMap;
 use crate::source::{SourceId, SourceStore};
@@ -80,8 +79,6 @@ pub struct Context {
     pub sources: SourceStore,
     /// Stores parsed fonts.
     pub fonts: FontStore,
-    /// Stores decoded images.
-    pub images: ImageStore,
     /// The context's configuration.
     config: Config,
 }
@@ -93,7 +90,6 @@ impl Context {
             loader: Arc::clone(&loader),
             sources: SourceStore::new(Arc::clone(&loader)),
             fonts: FontStore::new(Arc::clone(&loader)),
-            images: ImageStore::new(loader),
             config,
         }
     }

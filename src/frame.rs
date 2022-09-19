@@ -9,7 +9,7 @@ use crate::font::FontId;
 use crate::geom::{
     Align, Em, Length, Numeric, Paint, Point, Shape, Size, Spec, Transform,
 };
-use crate::image::ImageId;
+use crate::image::Image;
 use crate::library::text::Lang;
 use crate::util::EcoString;
 
@@ -303,12 +303,9 @@ pub enum Element {
     /// A geometric shape with optional fill and stroke.
     Shape(Shape),
     /// An image and its size.
-    Image(ImageId, Size),
+    Image(Image, Size),
     /// A link to an external resource and its trigger region.
     Link(Destination, Size),
-    /// A pin identified by index. This is used to find elements on the pages
-    /// and use their location in formatting. Exporters can just ignore it.
-    Pin(usize),
 }
 
 impl Debug for Element {
@@ -319,7 +316,6 @@ impl Debug for Element {
             Self::Shape(shape) => write!(f, "{shape:?}"),
             Self::Image(image, _) => write!(f, "{image:?}"),
             Self::Link(dest, _) => write!(f, "Link({dest:?})"),
-            Self::Pin(idx) => write!(f, "Pin({idx})"),
         }
     }
 }

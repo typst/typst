@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use super::{FileHash, Loader};
+use super::{Buffer, FileHash, Loader};
 use crate::font::FontInfo;
 use crate::util::PathExt;
 
@@ -61,10 +61,10 @@ impl Loader for MemLoader {
         }
     }
 
-    fn load(&self, path: &Path) -> io::Result<Vec<u8>> {
+    fn load(&self, path: &Path) -> io::Result<Buffer> {
         self.files
             .get(&path.normalize())
-            .map(|cow| cow.clone().into_owned())
+            .map(|cow| cow.clone().into_owned().into())
             .ok_or_else(|| io::ErrorKind::NotFound.into())
     }
 }
@@ -90,7 +90,7 @@ mod tests {
 
         // Test that the file can be loaded.
         assert_eq!(
-            loader.load(Path::new("directory/../PTSans.ttf")).unwrap(),
+            loader.load(Path::new("directory/../PTSans.ttf")).unwrap().as_slice(),
             data
         );
     }

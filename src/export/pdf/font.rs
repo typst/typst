@@ -9,7 +9,7 @@ use crate::util::SliceExt;
 
 /// Embed all used fonts into the PDF.
 pub fn write_fonts(ctx: &mut PdfContext) {
-    for font_id in ctx.font_map.layout_indices() {
+    for &font_id in ctx.font_map.items() {
         let type0_ref = ctx.alloc.bump();
         let cid_ref = ctx.alloc.bump();
         let descriptor_ref = ctx.alloc.bump();

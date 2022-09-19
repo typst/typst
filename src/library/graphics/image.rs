@@ -1,10 +1,12 @@
-use crate::image::ImageId;
+use std::ffi::OsStr;
+
+use crate::image::Image;
 use crate::library::prelude::*;
 use crate::library::text::TextNode;
 
 /// Show a raster or vector graphic.
 #[derive(Debug, Hash)]
-pub struct ImageNode(pub ImageId);
+pub struct ImageNode(pub Image);
 
 #[node]
 impl ImageNode {
@@ -16,12 +18,20 @@ impl ImageNode {
             args.expect::<Spanned<EcoString>>("path to image file")?;
 
         let full = vm.locate(&path).at(span)?;
-        let id = vm.ctx.images.load(&full).at(span)?;
+        let ext = full.extension().and_then(OsStr::to_str).unwrap_or_default();
+        let image = vm
+            .ctx
+            .loader
+            .load(&full)
+            .and_then(|buffer| Image::new(buffer, ext))
+            .map_err(|err| failed_to_load("image", &full, err))
+            .at(span)?;
+
         let width = args.named("width")?;
         let height = args.named("height")?;
 
         Ok(Content::inline(
-            ImageNode(id).pack().sized(Spec::new(width, height)),
+            ImageNode(image).pack().sized(Spec::new(width, height)),
         ))
     }
 }
@@ -29,13 +39,12 @@ impl ImageNode {
 impl Layout for ImageNode {
     fn layout(
         &self,
-        ctx: &mut Context,
+        _: &mut Context,
         regions: &Regions,
         styles: StyleChain,
     ) -> TypResult<Vec<Frame>> {
-        let img = ctx.images.get(self.0);
-        let pxw = img.width() as f64;
-        let pxh = img.height() as f64;
+        let pxw = self.0.width() as f64;
+        let pxh = self.0.height() as f64;
         let px_ratio = pxw / pxh;
 
         // Find out whether the image is wider or taller than the target size.
@@ -71,7 +80,7 @@ impl Layout for ImageNode {
         // the frame to the target size, center aligning the image in the
         // process.
         let mut frame = Frame::new(fitted);
-        frame.push(Point::zero(), Element::Image(self.0, fitted));
+        frame.push(Point::zero(), Element::Image(self.0.clone(), fitted));
         frame.resize(target, Align::CENTER_HORIZON);
 
         // Create a clipping group if only part of the image should be visible.
