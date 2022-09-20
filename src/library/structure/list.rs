@@ -56,7 +56,7 @@ impl<const L: ListKind> ListNode<L> {
     #[property(resolve)]
     pub const SPACING: BlockSpacing = Ratio::one().into();
 
-    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Content::show(Self {
             start: args.named("start")?.unwrap_or(1),
             tight: args.named("tight")?.unwrap_or(true),
@@ -100,7 +100,7 @@ impl<const L: ListKind> Show for ListNode<L> {
         }
     }
 
-    fn realize(&self, world: &dyn World, styles: StyleChain) -> TypResult<Content> {
+    fn realize(&self, world: &dyn World, styles: StyleChain) -> SourceResult<Content> {
         let mut cells = vec![];
         let mut number = self.start;
 
@@ -148,7 +148,7 @@ impl<const L: ListKind> Show for ListNode<L> {
         _: &dyn World,
         styles: StyleChain,
         realized: Content,
-    ) -> TypResult<Content> {
+    ) -> SourceResult<Content> {
         let mut above = styles.get(Self::ABOVE);
         let mut below = styles.get(Self::BELOW);
 
@@ -211,7 +211,7 @@ impl Label {
         world: &dyn World,
         kind: ListKind,
         number: usize,
-    ) -> TypResult<Content> {
+    ) -> SourceResult<Content> {
         Ok(match self {
             Self::Default => match kind {
                 UNORDERED => Content::Text('•'.into()),

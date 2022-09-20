@@ -39,7 +39,7 @@ impl<const S: ShapeKind> ShapeNode<S> {
     pub const RADIUS: Corners<Option<Relative<RawLength>>> =
         Corners::splat(Relative::zero());
 
-    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         let size = match S {
             SQUARE => args.named::<RawLength>("size")?.map(Relative::from),
             CIRCLE => args.named::<RawLength>("radius")?.map(|r| 2.0 * Relative::from(r)),
@@ -81,7 +81,7 @@ impl<const S: ShapeKind> Layout for ShapeNode<S> {
         world: &dyn World,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Frame>> {
+    ) -> SourceResult<Vec<Frame>> {
         let mut frames;
         if let Some(child) = &self.0 {
             let mut inset = styles.get(Self::INSET);

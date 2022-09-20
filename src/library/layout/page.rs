@@ -41,7 +41,7 @@ impl PageNode {
     #[property(referenced)]
     pub const FOREGROUND: Marginal = Marginal::None;
 
-    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Content::Page(Self(args.expect("body")?)))
     }
 
@@ -60,7 +60,7 @@ impl PageNode {
         world: &dyn World,
         mut page: usize,
         styles: StyleChain,
-    ) -> TypResult<Vec<Frame>> {
+    ) -> SourceResult<Vec<Frame>> {
         // When one of the lengths is infinite the page fits its content along
         // that axis.
         let width = styles.get(Self::WIDTH).unwrap_or(Length::inf());
@@ -159,7 +159,7 @@ pub struct PagebreakNode;
 
 #[node]
 impl PagebreakNode {
-    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         let weak = args.named("weak")?.unwrap_or(false);
         Ok(Content::Pagebreak { weak })
     }
@@ -178,7 +178,11 @@ pub enum Marginal {
 
 impl Marginal {
     /// Resolve the marginal based on the page number.
-    pub fn resolve(&self, world: &dyn World, page: usize) -> TypResult<Option<Content>> {
+    pub fn resolve(
+        &self,
+        world: &dyn World,
+        page: usize,
+    ) -> SourceResult<Option<Content>> {
         Ok(match self {
             Self::None => None,
             Self::Content(content) => Some(content.clone()),

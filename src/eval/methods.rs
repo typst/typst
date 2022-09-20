@@ -1,7 +1,7 @@
 //! Methods on values.
 
 use super::{Args, Value, Vm};
-use crate::diag::{At, TypResult};
+use crate::diag::{At, SourceResult};
 use crate::syntax::Span;
 use crate::util::EcoString;
 
@@ -12,7 +12,7 @@ pub fn call(
     method: &str,
     mut args: Args,
     span: Span,
-) -> TypResult<Value> {
+) -> SourceResult<Value> {
     let name = value.type_name();
     let missing = || Err(missing_method(name, method)).at(span);
 
@@ -121,7 +121,7 @@ pub fn call_mut(
     method: &str,
     mut args: Args,
     span: Span,
-) -> TypResult<()> {
+) -> SourceResult<()> {
     let name = value.type_name();
     let missing = || Err(missing_method(name, method)).at(span);
 

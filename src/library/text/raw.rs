@@ -35,7 +35,7 @@ impl RawNode {
     #[property(resolve, shorthand(around))]
     pub const BELOW: Option<BlockSpacing> = Some(Ratio::one().into());
 
-    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Content::show(Self {
             text: args.expect("text")?,
             block: args.named("block")?.unwrap_or(false),
@@ -59,7 +59,7 @@ impl Show for RawNode {
         }
     }
 
-    fn realize(&self, _: &dyn World, styles: StyleChain) -> TypResult<Content> {
+    fn realize(&self, _: &dyn World, styles: StyleChain) -> SourceResult<Content> {
         let lang = styles.get(Self::LANG).as_ref().map(|s| s.to_lowercase());
         let foreground = THEME
             .settings
@@ -114,7 +114,7 @@ impl Show for RawNode {
         _: &dyn World,
         styles: StyleChain,
         mut realized: Content,
-    ) -> TypResult<Content> {
+    ) -> SourceResult<Content> {
         let mut map = StyleMap::new();
         map.set_family(styles.get(Self::FAMILY).clone(), styles);
         map.set(TextNode::OVERHANG, false);

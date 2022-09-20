@@ -49,7 +49,7 @@ impl ParNode {
     #[property(resolve)]
     pub const LINEBREAKS: Smart<Linebreaks> = Smart::Auto;
 
-    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         // The paragraph constructor is special: It doesn't create a paragraph
         // node. Instead, it just ensures that the passed content lives is in a
         // separate paragraph and styles it.
@@ -67,7 +67,7 @@ impl Layout for ParNode {
         world: &dyn World,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Frame>> {
+    ) -> SourceResult<Vec<Frame>> {
         // Collect all text into one string for BiDi analysis.
         let (text, segments) = collect(self, &styles);
 
@@ -170,7 +170,7 @@ pub struct ParbreakNode;
 
 #[node]
 impl ParbreakNode {
-    fn construct(_: &mut Vm, _: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Vm, _: &mut Args) -> SourceResult<Content> {
         Ok(Content::Parbreak)
     }
 }
@@ -180,7 +180,7 @@ pub struct LinebreakNode;
 
 #[node]
 impl LinebreakNode {
-    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         let justified = args.named("justified")?.unwrap_or(false);
         Ok(Content::Linebreak { justified })
     }
@@ -502,7 +502,7 @@ fn prepare<'a>(
     segments: Vec<(Segment<'a>, StyleChain<'a>)>,
     regions: &Regions,
     styles: StyleChain<'a>,
-) -> TypResult<Preparation<'a>> {
+) -> SourceResult<Preparation<'a>> {
     let bidi = BidiInfo::new(&text, match styles.get(TextNode::DIR) {
         Dir::LTR => Some(Level::ltr()),
         Dir::RTL => Some(Level::rtl()),
@@ -1025,7 +1025,7 @@ fn stack(
     world: &dyn World,
     lines: &[Line],
     regions: &Regions,
-) -> TypResult<Vec<Frame>> {
+) -> SourceResult<Vec<Frame>> {
     // Determine the paragraph's width: Full width of the region if we
     // should expand or there's fractional spacing, fit-to-width otherwise.
     let mut width = regions.first.x;
@@ -1076,7 +1076,7 @@ fn commit(
     line: &Line,
     regions: &Regions,
     width: Length,
-) -> TypResult<Frame> {
+) -> SourceResult<Frame> {
     let mut remaining = width - line.width;
     let mut offset = Length::zero();
 

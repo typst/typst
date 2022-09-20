@@ -4,7 +4,7 @@ use std::ops::{Add, AddAssign};
 use std::sync::Arc;
 
 use super::{Args, Array, Func, Str, Value, Vm};
-use crate::diag::{StrResult, TypResult};
+use crate::diag::{SourceResult, StrResult};
 use crate::parse::is_ident;
 use crate::syntax::Spanned;
 use crate::util::ArcExt;
@@ -101,14 +101,13 @@ impl Dict {
     }
 
     /// Transform each pair in the array with a function.
-    pub fn map(&self, vm: &mut Vm, f: Spanned<Func>) -> TypResult<Array> {
-        Ok(self
-            .iter()
+    pub fn map(&self, vm: &mut Vm, f: Spanned<Func>) -> SourceResult<Array> {
+        self.iter()
             .map(|(key, value)| {
                 let args = Args::new(f.span, [Value::Str(key.clone()), value.clone()]);
                 f.v.call(vm, args)
             })
-            .collect::<TypResult<_>>()?)
+            .collect()
     }
 
     /// Iterate over pairs of references to the contained keys and values.

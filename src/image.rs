@@ -2,6 +2,7 @@
 
 use std::io;
 
+use crate::diag::StrResult;
 use crate::util::Buffer;
 
 /// A raster or vector image.
@@ -19,61 +20,26 @@ pub struct Image {
     height: u32,
 }
 
-/// A decoded image.
-pub enum DecodedImage {
-    /// A pixel raster format, like PNG or JPEG.
-    Raster(image::DynamicImage),
-    /// An SVG vector graphic.
-    Svg(usvg::Tree),
-}
-
-/// A raster or vector image format.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum ImageFormat {
-    /// Raster format for illustrations and transparent graphics.
-    Png,
-    /// Lossy raster format suitable for photos.
-    Jpg,
-    /// Raster format that is typically used for short animated clips.
-    Gif,
-    /// The vector graphics format of the web.
-    Svg,
-}
-
 impl Image {
-    /// Create an image from a raw buffer and a file extension.
+    /// Create an image from a buffer and a format.
     ///
-    /// The file extension is used to determine the format.
-    pub fn new(data: Buffer, ext: &str) -> io::Result<Self> {
-        let format = match ext {
-            "svg" | "svgz" => ImageFormat::Svg,
-            "png" => ImageFormat::Png,
-            "jpg" | "jpeg" => ImageFormat::Jpg,
-            "gif" => ImageFormat::Gif,
-            _ => {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    "unknown image format",
-                ));
-            }
-        };
-
+    /// Extracts the width and height.
+    pub fn new(data: Buffer, format: ImageFormat) -> StrResult<Self> {
         let (width, height) = match format {
-            ImageFormat::Svg => {
+            ImageFormat::Vector(VectorFormat::Svg) => {
                 let opts = usvg::Options::default();
-                let tree =
-                    usvg::Tree::from_data(&data, &opts.to_ref()).map_err(invalid)?;
+                let tree = usvg::Tree::from_data(&data, &opts.to_ref())
+                    .map_err(format_usvg_error)?;
 
                 let size = tree.svg_node().size;
                 let width = size.width().ceil() as u32;
                 let height = size.height().ceil() as u32;
                 (width, height)
             }
-            _ => {
+            ImageFormat::Raster(format) => {
                 let cursor = io::Cursor::new(&data);
-                let format = convert_format(format);
-                let reader = image::io::Reader::with_format(cursor, format);
-                reader.into_dimensions().map_err(invalid)?
+                let reader = image::io::Reader::with_format(cursor, format.into());
+                reader.into_dimensions().map_err(format_image_error)?
             }
         };
 
@@ -101,39 +67,125 @@ impl Image {
     }
 
     /// Decode the image.
-    pub fn decode(&self) -> io::Result<DecodedImage> {
+    pub fn decode(&self) -> StrResult<DecodedImage> {
         Ok(match self.format {
-            ImageFormat::Svg => {
+            ImageFormat::Vector(VectorFormat::Svg) => {
                 let opts = usvg::Options::default();
-                let tree =
-                    usvg::Tree::from_data(&self.data, &opts.to_ref()).map_err(invalid)?;
+                let tree = usvg::Tree::from_data(&self.data, &opts.to_ref())
+                    .map_err(format_usvg_error)?;
                 DecodedImage::Svg(tree)
             }
-            _ => {
+            ImageFormat::Raster(format) => {
                 let cursor = io::Cursor::new(&self.data);
-                let format = convert_format(self.format);
-                let reader = image::io::Reader::with_format(cursor, format);
-                let dynamic = reader.decode().map_err(invalid)?;
-                DecodedImage::Raster(dynamic)
+                let reader = image::io::Reader::with_format(cursor, format.into());
+                let dynamic = reader.decode().map_err(format_image_error)?;
+                DecodedImage::Raster(dynamic, format)
             }
         })
     }
 }
 
-/// Convert a raster image format to the image crate's format.
-fn convert_format(format: ImageFormat) -> image::ImageFormat {
-    match format {
-        ImageFormat::Png => image::ImageFormat::Png,
-        ImageFormat::Jpg => image::ImageFormat::Jpeg,
-        ImageFormat::Gif => image::ImageFormat::Gif,
-        ImageFormat::Svg => panic!("must be a raster format"),
+/// A raster or vector image format.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum ImageFormat {
+    /// A raster graphics format.
+    Raster(RasterFormat),
+    /// A vector graphics format.
+    Vector(VectorFormat),
+}
+
+/// A raster graphics format.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum RasterFormat {
+    /// Raster format for illustrations and transparent graphics.
+    Png,
+    /// Lossy raster format suitable for photos.
+    Jpg,
+    /// Raster format that is typically used for short animated clips.
+    Gif,
+}
+
+/// A vector graphics format.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum VectorFormat {
+    /// The vector graphics format of the web.
+    Svg,
+}
+
+impl From<RasterFormat> for image::ImageFormat {
+    fn from(format: RasterFormat) -> Self {
+        match format {
+            RasterFormat::Png => image::ImageFormat::Png,
+            RasterFormat::Jpg => image::ImageFormat::Jpeg,
+            RasterFormat::Gif => image::ImageFormat::Gif,
+        }
     }
 }
 
-/// Turn any error into an I/O error.
-fn invalid<E>(error: E) -> io::Error
-where
-    E: std::error::Error + Send + Sync + 'static,
-{
-    io::Error::new(io::ErrorKind::InvalidData, error)
+impl From<ttf_parser::RasterImageFormat> for RasterFormat {
+    fn from(format: ttf_parser::RasterImageFormat) -> Self {
+        match format {
+            ttf_parser::RasterImageFormat::PNG => RasterFormat::Png,
+        }
+    }
+}
+
+impl From<ttf_parser::RasterImageFormat> for ImageFormat {
+    fn from(format: ttf_parser::RasterImageFormat) -> Self {
+        Self::Raster(format.into())
+    }
+}
+
+/// A decoded image.
+pub enum DecodedImage {
+    /// A decoded pixel raster.
+    Raster(image::DynamicImage, RasterFormat),
+    /// An decoded SVG tree.
+    Svg(usvg::Tree),
+}
+
+/// Format the user-facing raster graphic decoding error message.
+fn format_image_error(error: image::ImageError) -> String {
+    match error {
+        image::ImageError::Limits(_) => "file is too large".into(),
+        _ => "failed to decode image".into(),
+    }
+}
+
+/// Format the user-facing SVG decoding error message.
+fn format_usvg_error(error: usvg::Error) -> String {
+    match error {
+        usvg::Error::NotAnUtf8Str => "file is not valid utf-8".into(),
+        usvg::Error::MalformedGZip => "file is not compressed correctly".into(),
+        usvg::Error::ElementsLimitReached => "file is too large".into(),
+        usvg::Error::InvalidSize => {
+            "failed to parse svg: width, height, or viewbox is invalid".into()
+        }
+        usvg::Error::ParsingFailed(error) => match error {
+            roxmltree::Error::UnexpectedCloseTag { expected, actual, pos } => {
+                format!(
+                    "failed to parse svg: found closing tag '{actual}' \
+                     instead of '{expected}' in line {}",
+                    pos.row
+                )
+            }
+            roxmltree::Error::UnknownEntityReference(entity, pos) => {
+                format!(
+                    "failed to parse svg: unknown entity '{entity}' in line {}",
+                    pos.row
+                )
+            }
+            roxmltree::Error::DuplicatedAttribute(attr, pos) => {
+                format!(
+                    "failed to parse svg: duplicate attribute '{attr}' in line {}",
+                    pos.row
+                )
+            }
+            roxmltree::Error::NoRootNode => {
+                "failed to parse svg: missing root node".into()
+            }
+            roxmltree::Error::SizeLimit => "file is too large".into(),
+            _ => "failed to parse svg".into(),
+        },
+    }
 }

@@ -15,12 +15,12 @@ use crate::library::prelude::*;
 use crate::source::Source;
 
 /// The name of a value's type.
-pub fn type_(_: &mut Vm, args: &mut Args) -> TypResult<Value> {
+pub fn type_(_: &mut Vm, args: &mut Args) -> SourceResult<Value> {
     Ok(args.expect::<Value>("value")?.type_name().into())
 }
 
 /// Ensure that a condition is fulfilled.
-pub fn assert(_: &mut Vm, args: &mut Args) -> TypResult<Value> {
+pub fn assert(_: &mut Vm, args: &mut Args) -> SourceResult<Value> {
     let Spanned { v, span } = args.expect::<Spanned<bool>>("condition")?;
     if !v {
         bail!(span, "assertion failed");
@@ -29,7 +29,7 @@ pub fn assert(_: &mut Vm, args: &mut Args) -> TypResult<Value> {
 }
 
 /// Evaluate a string as Typst markup.
-pub fn eval(vm: &mut Vm, args: &mut Args) -> TypResult<Value> {
+pub fn eval(vm: &mut Vm, args: &mut Args) -> SourceResult<Value> {
     let Spanned { v: text, span } = args.expect::<Spanned<String>>("source")?;
 
     // Parse the source and set a synthetic span for all nodes.
@@ -44,7 +44,7 @@ pub fn eval(vm: &mut Vm, args: &mut Args) -> TypResult<Value> {
 
     // Handle control flow.
     if let Some(flow) = sub.flow {
-        return Err(flow.forbidden());
+        bail!(flow.forbidden());
     }
 
     Ok(Value::Content(result?))

@@ -3,7 +3,7 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use super::{Args, Eval, Flow, Scope, Scopes, Value, Vm};
-use crate::diag::{StrResult, TypResult};
+use crate::diag::{SourceResult, StrResult};
 use crate::model::{Content, NodeId, StyleMap};
 use crate::source::SourceId;
 use crate::syntax::ast::Expr;
@@ -29,7 +29,7 @@ impl Func {
     /// Create a new function from a native rust function.
     pub fn from_fn(
         name: &'static str,
-        func: fn(&mut Vm, &mut Args) -> TypResult<Value>,
+        func: fn(&mut Vm, &mut Args) -> SourceResult<Value>,
     ) -> Self {
         Self(Arc::new(Repr::Native(Native {
             name,
@@ -86,7 +86,7 @@ impl Func {
     }
 
     /// Call the function with the given arguments.
-    pub fn call(&self, vm: &mut Vm, mut args: Args) -> TypResult<Value> {
+    pub fn call(&self, vm: &mut Vm, mut args: Args) -> SourceResult<Value> {
         let value = match self.0.as_ref() {
             Repr::Native(native) => (native.func)(vm, &mut args)?,
             Repr::Closure(closure) => closure.call(vm, &mut args)?,
@@ -100,13 +100,13 @@ impl Func {
     }
 
     /// Call the function without an existing virtual machine.
-    pub fn call_detached(&self, world: &dyn World, args: Args) -> TypResult<Value> {
+    pub fn call_detached(&self, world: &dyn World, args: Args) -> SourceResult<Value> {
         let mut vm = Vm::new(world, vec![], Scopes::new(None));
         self.call(&mut vm, args)
     }
 
     /// Execute the function's set rule and return the resulting style map.
-    pub fn set(&self, mut args: Args) -> TypResult<StyleMap> {
+    pub fn set(&self, mut args: Args) -> SourceResult<StyleMap> {
         let styles = match self.0.as_ref() {
             Repr::Native(Native { set: Some(set), .. }) => set(&mut args)?,
             _ => StyleMap::new(),
@@ -144,9 +144,9 @@ struct Native {
     /// The name of the function.
     pub name: &'static str,
     /// The function pointer.
-    pub func: fn(&mut Vm, &mut Args) -> TypResult<Value>,
+    pub func: fn(&mut Vm, &mut Args) -> SourceResult<Value>,
     /// The set rule.
-    pub set: Option<fn(&mut Args) -> TypResult<StyleMap>>,
+    pub set: Option<fn(&mut Args) -> SourceResult<StyleMap>>,
     /// The id of the node to customize with this function's show rule.
     pub node: Option<NodeId>,
 }
@@ -169,13 +169,13 @@ pub trait Node: 'static {
     ///
     /// This is passed only the arguments that remain after execution of the
     /// node's set rule.
-    fn construct(vm: &mut Vm, args: &mut Args) -> TypResult<Content>;
+    fn construct(vm: &mut Vm, args: &mut Args) -> SourceResult<Content>;
 
     /// Parse relevant arguments into style properties for this node.
     ///
     /// When `constructor` is true, [`construct`](Self::construct) will run
     /// after this invocation of `set` with the remaining arguments.
-    fn set(args: &mut Args, constructor: bool) -> TypResult<StyleMap>;
+    fn set(args: &mut Args, constructor: bool) -> SourceResult<StyleMap>;
 }
 
 /// A user-defined closure.
@@ -198,7 +198,7 @@ pub struct Closure {
 
 impl Closure {
     /// Call the function in the context with the arguments.
-    pub fn call(&self, vm: &mut Vm, args: &mut Args) -> TypResult<Value> {
+    pub fn call(&self, vm: &mut Vm, args: &mut Args) -> SourceResult<Value> {
         // Don't leak the scopes from the call site. Instead, we use the scope
         // of captured variables we collected earlier.
         let mut scopes = Scopes::new(None);
@@ -235,7 +235,7 @@ impl Closure {
         match sub.flow {
             Some(Flow::Return(_, Some(explicit))) => return Ok(explicit),
             Some(Flow::Return(_, None)) => {}
-            Some(flow) => return Err(flow.forbidden())?,
+            Some(flow) => bail!(flow.forbidden()),
             None => {}
         }
 

@@ -4,7 +4,7 @@ use std::ops::{Add, AddAssign};
 use std::sync::Arc;
 
 use super::{ops, Args, Func, Value, Vm};
-use crate::diag::{At, StrResult, TypResult};
+use crate::diag::{At, SourceResult, StrResult};
 use crate::syntax::Spanned;
 use crate::util::ArcExt;
 
@@ -124,7 +124,7 @@ impl Array {
     }
 
     /// Return the first matching element.
-    pub fn find(&self, vm: &mut Vm, f: Spanned<Func>) -> TypResult<Option<Value>> {
+    pub fn find(&self, vm: &mut Vm, f: Spanned<Func>) -> SourceResult<Option<Value>> {
         for item in self.iter() {
             let args = Args::new(f.span, [item.clone()]);
             if f.v.call(vm, args)?.cast::<bool>().at(f.span)? {
@@ -136,7 +136,7 @@ impl Array {
     }
 
     /// Return the index of the first matching element.
-    pub fn position(&self, vm: &mut Vm, f: Spanned<Func>) -> TypResult<Option<i64>> {
+    pub fn position(&self, vm: &mut Vm, f: Spanned<Func>) -> SourceResult<Option<i64>> {
         for (i, item) in self.iter().enumerate() {
             let args = Args::new(f.span, [item.clone()]);
             if f.v.call(vm, args)?.cast::<bool>().at(f.span)? {
@@ -149,7 +149,7 @@ impl Array {
 
     /// Return a new array with only those elements for which the function
     /// returns true.
-    pub fn filter(&self, vm: &mut Vm, f: Spanned<Func>) -> TypResult<Self> {
+    pub fn filter(&self, vm: &mut Vm, f: Spanned<Func>) -> SourceResult<Self> {
         let mut kept = vec![];
         for item in self.iter() {
             let args = Args::new(f.span, [item.clone()]);
@@ -161,10 +161,9 @@ impl Array {
     }
 
     /// Transform each item in the array with a function.
-    pub fn map(&self, vm: &mut Vm, f: Spanned<Func>) -> TypResult<Self> {
+    pub fn map(&self, vm: &mut Vm, f: Spanned<Func>) -> SourceResult<Self> {
         let enumerate = f.v.argc() == Some(2);
-        Ok(self
-            .iter()
+        self.iter()
             .enumerate()
             .map(|(i, item)| {
                 let mut args = Args::new(f.span, []);
@@ -174,11 +173,11 @@ impl Array {
                 args.push(f.span, item.clone());
                 f.v.call(vm, args)
             })
-            .collect::<TypResult<_>>()?)
+            .collect()
     }
 
     /// Whether any element matches.
-    pub fn any(&self, vm: &mut Vm, f: Spanned<Func>) -> TypResult<bool> {
+    pub fn any(&self, vm: &mut Vm, f: Spanned<Func>) -> SourceResult<bool> {
         for item in self.iter() {
             let args = Args::new(f.span, [item.clone()]);
             if f.v.call(vm, args)?.cast::<bool>().at(f.span)? {
@@ -190,7 +189,7 @@ impl Array {
     }
 
     /// Whether all elements match.
-    pub fn all(&self, vm: &mut Vm, f: Spanned<Func>) -> TypResult<bool> {
+    pub fn all(&self, vm: &mut Vm, f: Spanned<Func>) -> SourceResult<bool> {
         for item in self.iter() {
             let args = Args::new(f.span, [item.clone()]);
             if !f.v.call(vm, args)?.cast::<bool>().at(f.span)? {

@@ -30,7 +30,7 @@ impl TableNode {
     #[property(resolve, shorthand(around))]
     pub const BELOW: Option<BlockSpacing> = Some(Ratio::one().into());
 
-    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         let columns = args.named("columns")?.unwrap_or_default();
         let rows = args.named("rows")?.unwrap_or_default();
         let base_gutter: Vec<TrackSizing> = args.named("gutter")?.unwrap_or_default();
@@ -72,7 +72,7 @@ impl Show for TableNode {
         }
     }
 
-    fn realize(&self, world: &dyn World, styles: StyleChain) -> TypResult<Content> {
+    fn realize(&self, world: &dyn World, styles: StyleChain) -> SourceResult<Content> {
         let fill = styles.get(Self::FILL);
         let stroke = styles.get(Self::STROKE).map(RawStroke::unwrap_or_default);
         let padding = styles.get(Self::PADDING);
@@ -98,7 +98,7 @@ impl Show for TableNode {
 
                 Ok(child)
             })
-            .collect::<TypResult<_>>()?;
+            .collect::<SourceResult<_>>()?;
 
         Ok(Content::block(GridNode {
             tracks: self.tracks.clone(),
@@ -113,7 +113,7 @@ impl Show for TableNode {
         _: &dyn World,
         styles: StyleChain,
         realized: Content,
-    ) -> TypResult<Content> {
+    ) -> SourceResult<Content> {
         Ok(realized.spaced(styles.get(Self::ABOVE), styles.get(Self::BELOW)))
     }
 }
@@ -129,7 +129,7 @@ pub enum Celled<T> {
 
 impl<T: Cast + Clone> Celled<T> {
     /// Resolve the value based on the cell position.
-    pub fn resolve(&self, world: &dyn World, x: usize, y: usize) -> TypResult<T> {
+    pub fn resolve(&self, world: &dyn World, x: usize, y: usize) -> SourceResult<T> {
         Ok(match self {
             Self::Value(value) => value.clone(),
             Self::Func(func, span) => {

@@ -4,7 +4,7 @@ use image::{DynamicImage, GenericImageView, ImageResult, Rgba};
 use pdf_writer::{Filter, Finish};
 
 use super::{deflate, PdfContext, RefExt};
-use crate::image::{DecodedImage, ImageFormat};
+use crate::image::{DecodedImage, RasterFormat};
 
 /// Embed all used images into the PDF.
 pub fn write_images(ctx: &mut PdfContext) {
@@ -18,11 +18,9 @@ pub fn write_images(ctx: &mut PdfContext) {
         // Add the primary image.
         // TODO: Error if image could not be encoded.
         match image.decode().unwrap() {
-            DecodedImage::Raster(dynamic) => {
+            DecodedImage::Raster(dynamic, format) => {
                 // TODO: Error if image could not be encoded.
-                let (data, filter, has_color) =
-                    encode_image(image.format(), &dynamic).unwrap();
-
+                let (data, filter, has_color) = encode_image(format, &dynamic).unwrap();
                 let mut image = ctx.writer.image_xobject(image_ref, &data);
                 image.filter(filter);
                 image.width(width as i32);
@@ -70,19 +68,19 @@ pub fn write_images(ctx: &mut PdfContext) {
 ///
 /// Skips the alpha channel as that's encoded separately.
 fn encode_image(
-    format: ImageFormat,
+    format: RasterFormat,
     dynamic: &DynamicImage,
 ) -> ImageResult<(Vec<u8>, Filter, bool)> {
     Ok(match (format, dynamic) {
         // 8-bit gray JPEG.
-        (ImageFormat::Jpg, DynamicImage::ImageLuma8(_)) => {
+        (RasterFormat::Jpg, DynamicImage::ImageLuma8(_)) => {
             let mut data = Cursor::new(vec![]);
             dynamic.write_to(&mut data, image::ImageFormat::Jpeg)?;
             (data.into_inner(), Filter::DctDecode, false)
         }
 
         // 8-bit RGB JPEG (CMYK JPEGs get converted to RGB earlier).
-        (ImageFormat::Jpg, DynamicImage::ImageRgb8(_)) => {
+        (RasterFormat::Jpg, DynamicImage::ImageRgb8(_)) => {
             let mut data = Cursor::new(vec![]);
             dynamic.write_to(&mut data, image::ImageFormat::Jpeg)?;
             (data.into_inner(), Filter::DctDecode, true)
@@ -91,7 +89,7 @@ fn encode_image(
         // TODO: Encode flate streams with PNG-predictor?
 
         // 8-bit gray PNG.
-        (ImageFormat::Png, DynamicImage::ImageLuma8(luma)) => {
+        (RasterFormat::Png, DynamicImage::ImageLuma8(luma)) => {
             let data = deflate(luma.as_raw());
             (data, Filter::FlateDecode, false)
         }

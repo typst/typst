@@ -165,7 +165,7 @@ impl<'a> ShapedText<'a> {
                 if let Some(font) = world
                     .book()
                     .select(family, self.variant)
-                    .and_then(|id| world.font(id).ok())
+                    .and_then(|id| world.font(id))
                 {
                     expand(&font);
                     break;
@@ -223,7 +223,7 @@ impl<'a> ShapedText<'a> {
             let font = world
                 .book()
                 .select(family, self.variant)
-                .and_then(|id| world.font(id).ok())?;
+                .and_then(|id| world.font(id))?;
             let ttf = font.ttf();
             let glyph_id = ttf.glyph_index('-')?;
             let x_advance = font.to_em(ttf.glyph_hor_advance(glyph_id)?);
@@ -371,7 +371,7 @@ fn shape_segment<'a>(
     let book = ctx.world.book();
     let mut selection = families.find_map(|family| {
         book.select(family, ctx.variant)
-            .and_then(|id| ctx.world.font(id).ok())
+            .and_then(|id| ctx.world.font(id))
             .filter(|font| !ctx.used.contains(font))
     });
 
@@ -380,7 +380,7 @@ fn shape_segment<'a>(
         let first = ctx.used.first().map(Font::info);
         selection = book
             .select_fallback(first, ctx.variant, text)
-            .and_then(|id| ctx.world.font(id).ok())
+            .and_then(|id| ctx.world.font(id))
             .filter(|font| !ctx.used.contains(font));
     }
 

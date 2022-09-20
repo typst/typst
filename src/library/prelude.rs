@@ -8,9 +8,7 @@ pub use std::sync::Arc;
 
 pub use typst_macros::node;
 
-pub use crate::diag::{
-    failed_to_load, with_alternative, At, Error, StrResult, TypError, TypResult,
-};
+pub use crate::diag::{with_alternative, At, SourceError, SourceResult, StrResult};
 pub use crate::eval::{
     Arg, Args, Array, Cast, Dict, Dynamic, Func, Node, RawAlign, RawLength, RawStroke,
     Scope, Smart, Value, Vm,

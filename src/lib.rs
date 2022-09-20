@@ -49,10 +49,9 @@ pub mod parse;
 pub mod source;
 pub mod syntax;
 
-use std::io;
 use std::path::{Path, PathBuf};
 
-use crate::diag::TypResult;
+use crate::diag::{FileResult, SourceResult};
 use crate::eval::Scope;
 use crate::font::{Font, FontBook};
 use crate::frame::Frame;
@@ -65,7 +64,7 @@ use crate::util::Buffer;
 /// Returns either a vector of frames representing individual pages or
 /// diagnostics in the form of a vector of error message with file and span
 /// information.
-pub fn typeset(world: &dyn World, main: SourceId) -> TypResult<Vec<Frame>> {
+pub fn typeset(world: &dyn World, main: SourceId) -> SourceResult<Vec<Frame>> {
     let module = eval::evaluate(world, main, vec![])?;
     model::layout(world, &module.content)
 }
@@ -75,8 +74,8 @@ pub trait World {
     /// Access the global configuration.
     fn config(&self) -> &Config;
 
-    /// Resolve the unique id of a source file.
-    fn resolve(&self, path: &Path) -> io::Result<SourceId>;
+    /// Try to resolve the unique id of a source file.
+    fn resolve(&self, path: &Path) -> FileResult<SourceId>;
 
     /// Access a source file by id.
     fn source(&self, id: SourceId) -> &Source;
@@ -84,11 +83,11 @@ pub trait World {
     /// Metadata about all known fonts.
     fn book(&self) -> &FontBook;
 
-    /// Access the font with the given id.
-    fn font(&self, id: usize) -> io::Result<Font>;
+    /// Try to access the font with the given id.
+    fn font(&self, id: usize) -> Option<Font>;
 
-    /// Access a file at a path.
-    fn file(&self, path: &Path) -> io::Result<Buffer>;
+    /// Try to access a file at a path.
+    fn file(&self, path: &Path) -> FileResult<Buffer>;
 }
 
 /// The global configuration for typesetting.

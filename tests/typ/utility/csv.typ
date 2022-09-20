@@ -11,5 +11,5 @@
 #csv("nope.csv")
 
 ---
-// Error: 6-20 failed to load csv file (CSV error: record 2 (line: 3, byte: 8): found record with 3 fields, but the previous record has 2 fields)
+// Error: 6-20 failed to parse csv file: found 3 instead of 2 fields in line 3
 #csv("/res/bad.csv")

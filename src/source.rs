@@ -5,13 +5,13 @@ use std::path::{Path, PathBuf};
 
 use unscanny::Scanner;
 
-use crate::diag::TypResult;
+use crate::diag::SourceResult;
 use crate::parse::{is_newline, parse, reparse};
 use crate::syntax::ast::Markup;
 use crate::syntax::{Span, SyntaxNode};
 use crate::util::{PathExt, StrExt};
 
-/// A single source file.
+/// A source file.
 ///
 /// _Note_: All line and column indices start at zero, just like byte indices.
 /// Only for user-facing display, you should add 1 to them.
@@ -63,10 +63,10 @@ impl Source {
     }
 
     /// The root node of the file's typed abstract syntax tree.
-    pub fn ast(&self) -> TypResult<Markup> {
+    pub fn ast(&self) -> SourceResult<Markup> {
         let errors = self.root.errors();
         if errors.is_empty() {
-            Ok(self.root.cast().unwrap())
+            Ok(self.root.cast().expect("root node must be markup"))
         } else {
             Err(Box::new(errors))
         }

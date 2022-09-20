@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use super::{Scopes, Value};
-use crate::diag::{StrResult, TypError};
+use crate::diag::{SourceError, StrResult};
 use crate::source::SourceId;
 use crate::syntax::Span;
 use crate::util::PathExt;
@@ -56,7 +56,7 @@ pub enum Flow {
 
 impl Flow {
     /// Return an error stating that this control flow is forbidden.
-    pub fn forbidden(&self) -> TypError {
+    pub fn forbidden(&self) -> SourceError {
         match *self {
             Self::Break(span) => {
                 error!(span, "cannot break outside of loop")

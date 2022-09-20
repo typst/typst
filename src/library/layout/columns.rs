@@ -17,7 +17,7 @@ impl ColumnsNode {
     #[property(resolve)]
     pub const GUTTER: Relative<RawLength> = Ratio::new(0.04).into();
 
-    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Content::block(Self {
             columns: args.expect("column count")?,
             child: args.expect("body")?,
@@ -31,7 +31,7 @@ impl Layout for ColumnsNode {
         world: &dyn World,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Frame>> {
+    ) -> SourceResult<Vec<Frame>> {
         // Separating the infinite space into infinite columns does not make
         // much sense.
         if !regions.first.x.is_finite() {
@@ -106,7 +106,7 @@ pub struct ColbreakNode;
 
 #[node]
 impl ColbreakNode {
-    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         let weak = args.named("weak")?.unwrap_or(false);
         Ok(Content::Colbreak { weak })
     }

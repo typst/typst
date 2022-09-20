@@ -13,7 +13,7 @@ pub struct GridNode {
 
 #[node]
 impl GridNode {
-    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         let columns = args.named("columns")?.unwrap_or_default();
         let rows = args.named("rows")?.unwrap_or_default();
         let base_gutter: Vec<TrackSizing> = args.named("gutter")?.unwrap_or_default();
@@ -36,7 +36,7 @@ impl Layout for GridNode {
         world: &dyn World,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Frame>> {
+    ) -> SourceResult<Vec<Frame>> {
         // Prepare grid layout by unifying content and gutter tracks.
         let layouter = GridLayouter::new(
             world,
@@ -203,7 +203,7 @@ impl<'a> GridLayouter<'a> {
     }
 
     /// Determines the columns sizes and then layouts the grid row-by-row.
-    pub fn layout(mut self) -> TypResult<Vec<Frame>> {
+    pub fn layout(mut self) -> SourceResult<Vec<Frame>> {
         self.measure_columns()?;
 
         for y in 0 .. self.rows.len() {
@@ -228,7 +228,7 @@ impl<'a> GridLayouter<'a> {
     }
 
     /// Determine all column sizes.
-    fn measure_columns(&mut self) -> TypResult<()> {
+    fn measure_columns(&mut self) -> SourceResult<()> {
         // Sum of sizes of resolved relative tracks.
         let mut rel = Length::zero();
 
@@ -275,7 +275,10 @@ impl<'a> GridLayouter<'a> {
     }
 
     /// Measure the size that is available to auto columns.
-    fn measure_auto_columns(&mut self, available: Length) -> TypResult<(Length, usize)> {
+    fn measure_auto_columns(
+        &mut self,
+        available: Length,
+    ) -> SourceResult<(Length, usize)> {
         let mut auto = Length::zero();
         let mut count = 0;
 
@@ -355,7 +358,7 @@ impl<'a> GridLayouter<'a> {
 
     /// Layout a row with automatic height. Such a row may break across multiple
     /// regions.
-    fn layout_auto_row(&mut self, y: usize) -> TypResult<()> {
+    fn layout_auto_row(&mut self, y: usize) -> SourceResult<()> {
         let mut resolved: Vec<Length> = vec![];
 
         // Determine the size for each region of the row.
@@ -423,7 +426,11 @@ impl<'a> GridLayouter<'a> {
 
     /// Layout a row with relative height. Such a row cannot break across
     /// multiple regions, but it may force a region break.
-    fn layout_relative_row(&mut self, v: Relative<RawLength>, y: usize) -> TypResult<()> {
+    fn layout_relative_row(
+        &mut self,
+        v: Relative<RawLength>,
+        y: usize,
+    ) -> SourceResult<()> {
         let resolved = v.resolve(self.styles).relative_to(self.regions.base.y);
         let frame = self.layout_single_row(resolved, y)?;
 
@@ -444,7 +451,7 @@ impl<'a> GridLayouter<'a> {
     }
 
     /// Layout a row with fixed height and return its frame.
-    fn layout_single_row(&mut self, height: Length, y: usize) -> TypResult<Frame> {
+    fn layout_single_row(&mut self, height: Length, y: usize) -> SourceResult<Frame> {
         let mut output = Frame::new(Size::new(self.used.x, height));
 
         let mut pos = Point::zero();
@@ -483,7 +490,7 @@ impl<'a> GridLayouter<'a> {
         &mut self,
         heights: &[Length],
         y: usize,
-    ) -> TypResult<Vec<Frame>> {
+    ) -> SourceResult<Vec<Frame>> {
         // Prepare frames.
         let mut outputs: Vec<_> = heights
             .iter()
@@ -535,7 +542,7 @@ impl<'a> GridLayouter<'a> {
     }
 
     /// Finish rows for one region.
-    fn finish_region(&mut self) -> TypResult<()> {
+    fn finish_region(&mut self) -> SourceResult<()> {
         // Determine the size of the grid in this region, expanding fully if
         // there are fr rows.
         let mut size = self.used;

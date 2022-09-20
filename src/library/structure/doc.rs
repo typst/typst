@@ -7,7 +7,11 @@ pub struct DocNode(pub StyleVec<PageNode>);
 
 impl DocNode {
     /// Layout the document into a sequence of frames, one per page.
-    pub fn layout(&self, world: &dyn World, styles: StyleChain) -> TypResult<Vec<Frame>> {
+    pub fn layout(
+        &self,
+        world: &dyn World,
+        styles: StyleChain,
+    ) -> SourceResult<Vec<Frame>> {
         let mut frames = vec![];
         for (page, map) in self.0.iter() {
             let number = 1 + frames.len();

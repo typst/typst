@@ -6,7 +6,7 @@ use std::hash::Hash;
 use std::sync::Arc;
 
 use super::{Barrier, NodeId, Resolve, StyleChain, StyleEntry};
-use crate::diag::TypResult;
+use crate::diag::SourceResult;
 use crate::eval::{RawAlign, RawLength};
 use crate::frame::{Element, Frame};
 use crate::geom::{
@@ -27,7 +27,7 @@ pub trait Layout: 'static {
         world: &dyn World,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Frame>>;
+    ) -> SourceResult<Vec<Frame>>;
 
     /// Convert to a packed node.
     fn pack(self) -> LayoutNode
@@ -219,7 +219,7 @@ impl Layout for LayoutNode {
         world: &dyn World,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Frame>> {
+    ) -> SourceResult<Vec<Frame>> {
         let barrier = StyleEntry::Barrier(Barrier::new(self.id()));
         let styles = barrier.chain(&styles);
 
@@ -288,7 +288,7 @@ impl Layout for EmptyNode {
         _: &dyn World,
         regions: &Regions,
         _: StyleChain,
-    ) -> TypResult<Vec<Frame>> {
+    ) -> SourceResult<Vec<Frame>> {
         Ok(vec![Frame::new(
             regions.expand.select(regions.first, Size::zero()),
         )])
@@ -310,7 +310,7 @@ impl Layout for SizedNode {
         world: &dyn World,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Frame>> {
+    ) -> SourceResult<Vec<Frame>> {
         // The "pod" is the region into which the child will be layouted.
         let pod = {
             // Resolve the sizing to a concrete size.
@@ -357,7 +357,7 @@ impl Layout for FillNode {
         world: &dyn World,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Frame>> {
+    ) -> SourceResult<Vec<Frame>> {
         let mut frames = self.child.layout(world, regions, styles)?;
         for frame in &mut frames {
             let shape = Geometry::Rect(frame.size()).filled(self.fill);
@@ -382,7 +382,7 @@ impl Layout for StrokeNode {
         world: &dyn World,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Frame>> {
+    ) -> SourceResult<Vec<Frame>> {
         let mut frames = self.child.layout(world, regions, styles)?;
         for frame in &mut frames {
             let shape = Geometry::Rect(frame.size()).stroked(self.stroke);

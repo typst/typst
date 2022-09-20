@@ -1,9 +1,9 @@
-use std::io;
 use std::path::Path;
 
 use iai::{black_box, main, Iai};
 use unscanny::Scanner;
 
+use typst::diag::{FileError, FileResult};
 use typst::font::{Font, FontBook};
 use typst::parse::{TokenMode, Tokens};
 use typst::source::{Source, SourceId};
@@ -120,8 +120,8 @@ impl World for BenchWorld {
         &self.config
     }
 
-    fn resolve(&self, _: &Path) -> io::Result<SourceId> {
-        Err(io::ErrorKind::NotFound.into())
+    fn resolve(&self, path: &Path) -> FileResult<SourceId> {
+        Err(FileError::NotFound(path.into()))
     }
 
     fn source(&self, _: SourceId) -> &Source {
@@ -132,11 +132,11 @@ impl World for BenchWorld {
         &self.book
     }
 
-    fn font(&self, _: usize) -> io::Result<Font> {
-        Ok(self.font.clone())
+    fn font(&self, _: usize) -> Option<Font> {
+        Some(self.font.clone())
     }
 
-    fn file(&self, _: &Path) -> io::Result<Buffer> {
-        Err(io::ErrorKind::NotFound.into())
+    fn file(&self, path: &Path) -> FileResult<Buffer> {
+        Err(FileError::NotFound(path.into()))
     }
 }

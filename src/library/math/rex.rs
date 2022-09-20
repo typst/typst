@@ -25,13 +25,13 @@ impl Layout for RexNode {
         world: &dyn World,
         _: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Frame>> {
+    ) -> SourceResult<Vec<Frame>> {
         // Load the font.
         let span = self.tex.span;
         let font = world
             .book()
             .select(self.family.as_str(), variant(styles))
-            .and_then(|id| world.font(id).ok())
+            .and_then(|id| world.font(id))
             .ok_or("failed to find math font")
             .at(span)?;
 

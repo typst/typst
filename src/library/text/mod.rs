@@ -128,7 +128,7 @@ impl TextNode {
     #[property(skip, fold)]
     pub const DECO: Decoration = vec![];
 
-    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         // The text constructor is special: It doesn't create a text node.
         // Instead, it leaves the passed argument structurally unchanged, but
         // styles all text in it.
@@ -422,17 +422,17 @@ impl Fold for Vec<(Tag, u32)> {
 }
 
 /// Convert a string or content to lowercase.
-pub fn lower(_: &mut Vm, args: &mut Args) -> TypResult<Value> {
+pub fn lower(_: &mut Vm, args: &mut Args) -> SourceResult<Value> {
     case(Case::Lower, args)
 }
 
 /// Convert a string or content to uppercase.
-pub fn upper(_: &mut Vm, args: &mut Args) -> TypResult<Value> {
+pub fn upper(_: &mut Vm, args: &mut Args) -> SourceResult<Value> {
     case(Case::Upper, args)
 }
 
 /// Change the case of text.
-fn case(case: Case, args: &mut Args) -> TypResult<Value> {
+fn case(case: Case, args: &mut Args) -> SourceResult<Value> {
     let Spanned { v, span } = args.expect("string or content")?;
     Ok(match v {
         Value::Str(v) => Value::Str(case.apply(&v).into()),
@@ -461,7 +461,7 @@ impl Case {
 }
 
 /// Display text in small capitals.
-pub fn smallcaps(_: &mut Vm, args: &mut Args) -> TypResult<Value> {
+pub fn smallcaps(_: &mut Vm, args: &mut Args) -> SourceResult<Value> {
     let body: Content = args.expect("content")?;
     Ok(Value::Content(body.styled(TextNode::SMALLCAPS, true)))
 }
@@ -493,7 +493,7 @@ pub struct StrongNode(pub Content);
 
 #[node(showable)]
 impl StrongNode {
-    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Content::show(Self(args.expect("body")?)))
     }
 }
@@ -507,7 +507,7 @@ impl Show for StrongNode {
         dict! { "body" => Value::Content(self.0.clone()) }
     }
 
-    fn realize(&self, _: &dyn World, _: StyleChain) -> TypResult<Content> {
+    fn realize(&self, _: &dyn World, _: StyleChain) -> SourceResult<Content> {
         Ok(self.0.clone().styled(TextNode::BOLD, Toggle))
     }
 }
@@ -518,7 +518,7 @@ pub struct EmphNode(pub Content);
 
 #[node(showable)]
 impl EmphNode {
-    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Content::show(Self(args.expect("body")?)))
     }
 }
@@ -532,7 +532,7 @@ impl Show for EmphNode {
         dict! { "body" => Value::Content(self.0.clone()) }
     }
 
-    fn realize(&self, _: &dyn World, _: StyleChain) -> TypResult<Content> {
+    fn realize(&self, _: &dyn World, _: StyleChain) -> SourceResult<Content> {
         Ok(self.0.clone().styled(TextNode::ITALIC, Toggle))
     }
 }

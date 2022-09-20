@@ -13,7 +13,7 @@ pub use highlight::*;
 pub use span::*;
 
 use self::ast::{MathNode, RawNode, TypedNode, Unit};
-use crate::diag::Error;
+use crate::diag::SourceError;
 use crate::source::SourceId;
 use crate::util::EcoString;
 
@@ -67,14 +67,14 @@ impl SyntaxNode {
     }
 
     /// The error messages for this node and its descendants.
-    pub fn errors(&self) -> Vec<Error> {
+    pub fn errors(&self) -> Vec<SourceError> {
         if !self.erroneous() {
             return vec![];
         }
 
         match self.kind() {
             &NodeKind::Error(pos, ref message) => {
-                vec![Error::new(self.span().with_pos(pos), message)]
+                vec![SourceError::new(self.span().with_pos(pos), message)]
             }
             _ => self
                 .children()

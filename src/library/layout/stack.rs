@@ -15,7 +15,7 @@ pub struct StackNode {
 
 #[node]
 impl StackNode {
-    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Content::block(Self {
             dir: args.named("dir")?.unwrap_or(Dir::TTB),
             spacing: args.named("spacing")?,
@@ -30,7 +30,7 @@ impl Layout for StackNode {
         world: &dyn World,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Frame>> {
+    ) -> SourceResult<Vec<Frame>> {
         let mut layouter = StackLayouter::new(self.dir, regions, styles);
 
         // Spacing to insert before the next node.
@@ -171,7 +171,7 @@ impl<'a> StackLayouter<'a> {
         world: &dyn World,
         node: &LayoutNode,
         styles: StyleChain,
-    ) -> TypResult<()> {
+    ) -> SourceResult<()> {
         if self.regions.is_full() {
             self.finish_region();
         }

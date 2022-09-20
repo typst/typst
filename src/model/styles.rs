@@ -4,7 +4,7 @@ use std::iter;
 use std::marker::PhantomData;
 
 use super::{Barrier, Content, Key, Property, Recipe, Selector, Show, Target};
-use crate::diag::TypResult;
+use crate::diag::SourceResult;
 use crate::frame::Role;
 use crate::library::text::{FontFamily, TextNode};
 use crate::util::ReadableTypeId;
@@ -277,7 +277,11 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Apply show recipes in this style chain to a target.
-    pub fn apply(self, world: &dyn World, target: Target) -> TypResult<Option<Content>> {
+    pub fn apply(
+        self,
+        world: &dyn World,
+        target: Target,
+    ) -> SourceResult<Option<Content>> {
         // Find out how many recipes there any and whether any of their patterns
         // match.
         let mut n = 0;

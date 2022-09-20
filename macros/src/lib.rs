@@ -331,7 +331,7 @@ fn generate_set(
 ) -> syn::ImplItemMethod {
     let user = user.map(|method| {
         let block = &method.block;
-        quote! { (|| -> TypResult<()> { #block; Ok(()) } )()?; }
+        quote! { (|| -> SourceResult<()> { #block; Ok(()) } )()?; }
     });
 
     let mut shorthands = vec![];
@@ -367,7 +367,7 @@ fn generate_set(
     });
 
     parse_quote! {
-        fn set(args: &mut Args, constructor: bool) -> TypResult<StyleMap> {
+        fn set(args: &mut Args, constructor: bool) -> SourceResult<StyleMap> {
             let mut styles = StyleMap::new();
             #user
             #(#bindings)*

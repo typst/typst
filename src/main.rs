@@ -17,7 +17,7 @@ use siphasher::sip128::{Hasher128, SipHasher};
 use termcolor::{ColorChoice, StandardStream, WriteColor};
 use walkdir::WalkDir;
 
-use typst::diag::{failed_to_load, Error, StrResult};
+use typst::diag::{FileError, FileResult, SourceError, StrResult};
 use typst::font::{Font, FontBook, FontInfo, FontVariant};
 use typst::library::text::THEME;
 use typst::parse::TokenMode;
@@ -209,9 +209,7 @@ fn typeset(command: TypesetCommand) -> StrResult<()> {
     }
 
     // Create the world that serves sources, fonts and files.
-    let id = world
-        .resolve(&command.input)
-        .map_err(|err| failed_to_load("source file", &command.input, err))?;
+    let id = world.resolve(&command.input).map_err(|err| err.to_string())?;
 
     // Typeset.
     match typst::typeset(&world, id) {
@@ -234,7 +232,7 @@ fn typeset(command: TypesetCommand) -> StrResult<()> {
 /// Print diagnostic messages to the terminal.
 fn print_diagnostics(
     world: &SystemWorld,
-    errors: Vec<Error>,
+    errors: Vec<SourceError>,
 ) -> Result<(), codespan_reporting::files::Error> {
     let mut w = StandardStream::stderr(ColorChoice::Always);
     let config = term::Config { tab_width: 2, ..Default::default() };
@@ -328,17 +326,13 @@ impl World for SystemWorld {
         &self.config
     }
 
-    fn resolve(&self, path: &Path) -> io::Result<SourceId> {
+    fn resolve(&self, path: &Path) -> FileResult<SourceId> {
         let hash = PathHash::new(path)?;
         if let Some(&id) = self.nav.borrow().get(&hash) {
             return Ok(id);
         }
 
-        let data = fs::read(path)?;
-        let text = String::from_utf8(data).map_err(|_| {
-            io::Error::new(io::ErrorKind::InvalidData, "file is not valid utf-8")
-        })?;
-
+        let text = fs::read_to_string(path).map_err(|e| FileError::from_io(e, path))?;
         let id = SourceId::from_raw(self.sources.len() as u16);
         let source = Source::new(id, path, text);
         self.sources.push(Box::new(source));
@@ -355,7 +349,7 @@ impl World for SystemWorld {
         &self.book
     }
 
-    fn font(&self, id: usize) -> io::Result<Font> {
+    fn font(&self, id: usize) -> Option<Font> {
         let slot = &self.fonts[id];
         slot.font
             .get_or_init(|| {
@@ -363,14 +357,15 @@ impl World for SystemWorld {
                 Font::new(data, slot.index)
             })
             .clone()
-            .ok_or_else(|| io::ErrorKind::InvalidData.into())
     }
 
-    fn file(&self, path: &Path) -> io::Result<Buffer> {
+    fn file(&self, path: &Path) -> FileResult<Buffer> {
         let hash = PathHash::new(path)?;
         Ok(match self.files.borrow_mut().entry(hash) {
             Entry::Occupied(entry) => entry.get().clone(),
-            Entry::Vacant(entry) => entry.insert(fs::read(path)?.into()).clone(),
+            Entry::Vacant(entry) => entry
+                .insert(fs::read(path).map_err(|e| FileError::from_io(e, path))?.into())
+                .clone(),
         })
     }
 }
@@ -380,15 +375,16 @@ impl World for SystemWorld {
 struct PathHash(u128);
 
 impl PathHash {
-    fn new(path: &Path) -> io::Result<Self> {
-        let file = File::open(path)?;
-        if file.metadata()?.is_file() {
-            let handle = Handle::from_file(file)?;
+    fn new(path: &Path) -> FileResult<Self> {
+        let f = |e| FileError::from_io(e, path);
+        let file = File::open(path).map_err(f)?;
+        if file.metadata().map_err(f)?.is_file() {
+            let handle = Handle::from_file(file).map_err(f)?;
             let mut state = SipHasher::new();
             handle.hash(&mut state);
             Ok(Self(state.finish128().as_u128()))
         } else {
-            Err(io::ErrorKind::NotFound.into())
+            Err(FileError::NotFound(path.into()))
         }
     }
 }

@@ -3,7 +3,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 
 use super::{Args, Func, Node, Value, Vm};
-use crate::diag::{StrResult, TypResult};
+use crate::diag::{SourceResult, StrResult};
 use crate::util::EcoString;
 
 /// A stack of scopes.
@@ -78,7 +78,7 @@ impl Scope {
     pub fn def_fn(
         &mut self,
         name: &'static str,
-        func: fn(&mut Vm, &mut Args) -> TypResult<Value>,
+        func: fn(&mut Vm, &mut Args) -> SourceResult<Value>,
     ) {
         self.define(name, Func::from_fn(name, func));
     }

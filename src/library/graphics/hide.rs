@@ -6,7 +6,7 @@ pub struct HideNode(pub LayoutNode);
 
 #[node]
 impl HideNode {
-    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Content::inline(Self(args.expect("body")?)))
     }
 }
@@ -17,7 +17,7 @@ impl Layout for HideNode {
         world: &dyn World,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Frame>> {
+    ) -> SourceResult<Vec<Frame>> {
         let mut frames = self.0.layout(world, regions, styles)?;
         for frame in &mut frames {
             frame.clear();

@@ -28,7 +28,7 @@ impl<const S: ScriptKind> ShiftNode<S> {
     /// The font size for synthetic sub- and superscripts.
     pub const SIZE: TextSize = TextSize(Em::new(0.6).into());
 
-    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Content::show(Self(args.expect("body")?)))
     }
 }
@@ -42,7 +42,7 @@ impl<const S: ScriptKind> Show for ShiftNode<S> {
         dict! { "body" => Value::Content(self.0.clone()) }
     }
 
-    fn realize(&self, world: &dyn World, styles: StyleChain) -> TypResult<Content> {
+    fn realize(&self, world: &dyn World, styles: StyleChain) -> SourceResult<Content> {
         let mut transformed = None;
         if styles.get(Self::TYPOGRAPHIC) {
             if let Some(text) = search_text(&self.0, S) {
@@ -96,7 +96,7 @@ fn is_shapable(world: &dyn World, text: &str, styles: StyleChain) -> bool {
         if let Some(font) = world
             .book()
             .select(family.as_str(), variant(styles))
-            .and_then(|id| world.font(id).ok())
+            .and_then(|id| world.font(id))
         {
             return text.chars().all(|c| font.ttf().glyph_index(c).is_some());
         }

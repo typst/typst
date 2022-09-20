@@ -1,7 +1,7 @@
 use std::fmt::{self, Debug, Formatter};
 
 use super::{Content, Interruption, NodeId, Show, ShowNode, StyleChain, StyleEntry};
-use crate::diag::TypResult;
+use crate::diag::SourceResult;
 use crate::eval::{Args, Func, Regex, Value};
 use crate::library::structure::{EnumNode, ListNode};
 use crate::syntax::Spanned;
@@ -33,7 +33,7 @@ impl Recipe {
         styles: StyleChain,
         sel: Selector,
         target: Target,
-    ) -> TypResult<Option<Content>> {
+    ) -> SourceResult<Option<Content>> {
         let content = match (target, &self.pattern) {
             (Target::Node(node), &Pattern::Node(id)) if node.id() == id => {
                 let node = node.unguard(sel);
@@ -75,7 +75,7 @@ impl Recipe {
     }
 
     /// Call the recipe function, with the argument if desired.
-    fn call<F>(&self, world: &dyn World, arg: F) -> TypResult<Content>
+    fn call<F>(&self, world: &dyn World, arg: F) -> SourceResult<Content>
     where
         F: FnOnce() -> Value,
     {

@@ -34,7 +34,7 @@ impl<const L: DecoLine> DecoNode<L> {
     /// with the glyphs. Does not apply to strikethrough.
     pub const EVADE: bool = true;
 
-    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Content::show(Self(args.expect("body")?)))
     }
 }
@@ -48,7 +48,7 @@ impl<const L: DecoLine> Show for DecoNode<L> {
         dict! { "body" => Value::Content(self.0.clone()) }
     }
 
-    fn realize(&self, _: &dyn World, styles: StyleChain) -> TypResult<Content> {
+    fn realize(&self, _: &dyn World, styles: StyleChain) -> SourceResult<Content> {
         Ok(self.0.clone().styled(TextNode::DECO, Decoration {
             line: L,
             stroke: styles.get(Self::STROKE).unwrap_or_default(),

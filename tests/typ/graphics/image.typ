@@ -55,5 +55,9 @@ A #image("/res/tiger.jpg", height: 1cm, width: 80%) B
 #image("path/does/not/exist")
 
 ---
-// Error: 8-21 failed to load image (unknown image format)
+// Error: 8-21 unknown image format
 #image("./image.typ")
+
+---
+// Error: 8-22 failed to parse svg: found closing tag 'g' instead of 'style' in line 4
+#image("/res/bad.svg")

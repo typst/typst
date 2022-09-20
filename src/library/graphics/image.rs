@@ -1,6 +1,6 @@
 use std::ffi::OsStr;
 
-use crate::image::Image;
+use crate::image::{Image, ImageFormat, RasterFormat, VectorFormat};
 use crate::library::prelude::*;
 use crate::library::text::TextNode;
 
@@ -13,19 +13,22 @@ impl ImageNode {
     /// How the image should adjust itself to a given area.
     pub const FIT: ImageFit = ImageFit::Cover;
 
-    fn construct(vm: &mut Vm, args: &mut Args) -> TypResult<Content> {
+    fn construct(vm: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         let Spanned { v: path, span } =
             args.expect::<Spanned<EcoString>>("path to image file")?;
 
         let full = vm.locate(&path).at(span)?;
+        let buffer = vm.world.file(&full).at(span)?;
         let ext = full.extension().and_then(OsStr::to_str).unwrap_or_default();
-        let image = vm
-            .world
-            .file(&full)
-            .and_then(|buffer| Image::new(buffer, ext))
-            .map_err(|err| failed_to_load("image", &full, err))
-            .at(span)?;
+        let format = match ext.to_lowercase().as_str() {
+            "png" => ImageFormat::Raster(RasterFormat::Png),
+            "jpg" | "jpeg" => ImageFormat::Raster(RasterFormat::Jpg),
+            "gif" => ImageFormat::Raster(RasterFormat::Gif),
+            "svg" | "svgz" => ImageFormat::Vector(VectorFormat::Svg),
+            _ => bail!(span, "unknown image format"),
+        };
 
+        let image = Image::new(buffer, format).at(span)?;
         let width = args.named("width")?;
         let height = args.named("height")?;
 
@@ -41,7 +44,7 @@ impl Layout for ImageNode {
         _: &dyn World,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Frame>> {
+    ) -> SourceResult<Vec<Frame>> {
         let pxw = self.0.width() as f64;
         let pxh = self.0.height() as f64;
         let px_ratio = pxw / pxh;

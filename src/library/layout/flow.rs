@@ -28,7 +28,7 @@ impl Layout for FlowNode {
         world: &dyn World,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Frame>> {
+    ) -> SourceResult<Vec<Frame>> {
         let mut layouter = FlowLayouter::new(regions);
 
         for (child, map) in self.0.iter() {
@@ -152,7 +152,7 @@ impl FlowLayouter {
         world: &dyn World,
         node: &LayoutNode,
         styles: StyleChain,
-    ) -> TypResult<()> {
+    ) -> SourceResult<()> {
         // Don't even try layouting into a full region.
         if self.regions.is_full() {
             self.finish_region();

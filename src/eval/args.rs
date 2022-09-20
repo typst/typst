@@ -1,7 +1,7 @@
 use std::fmt::{self, Debug, Formatter, Write};
 
 use super::{Array, Cast, Dict, Str, Value};
-use crate::diag::{At, TypResult};
+use crate::diag::{At, SourceResult};
 use crate::syntax::{Span, Spanned};
 
 /// Evaluated arguments to a function.
@@ -48,7 +48,7 @@ impl Args {
     }
 
     /// Consume and cast the first positional argument if there is one.
-    pub fn eat<T>(&mut self) -> TypResult<Option<T>>
+    pub fn eat<T>(&mut self) -> SourceResult<Option<T>>
     where
         T: Cast<Spanned<Value>>,
     {
@@ -66,7 +66,7 @@ impl Args {
     ///
     /// Returns a `missing argument: {what}` error if no positional argument is
     /// left.
-    pub fn expect<T>(&mut self, what: &str) -> TypResult<T>
+    pub fn expect<T>(&mut self, what: &str) -> SourceResult<T>
     where
         T: Cast<Spanned<Value>>,
     {
@@ -77,7 +77,7 @@ impl Args {
     }
 
     /// Find and consume the first castable positional argument.
-    pub fn find<T>(&mut self) -> TypResult<Option<T>>
+    pub fn find<T>(&mut self) -> SourceResult<Option<T>>
     where
         T: Cast<Spanned<Value>>,
     {
@@ -92,7 +92,7 @@ impl Args {
     }
 
     /// Find and consume all castable positional arguments.
-    pub fn all<T>(&mut self) -> TypResult<Vec<T>>
+    pub fn all<T>(&mut self) -> SourceResult<Vec<T>>
     where
         T: Cast<Spanned<Value>>,
     {
@@ -105,7 +105,7 @@ impl Args {
 
     /// Cast and remove the value for the given named argument, returning an
     /// error if the conversion fails.
-    pub fn named<T>(&mut self, name: &str) -> TypResult<Option<T>>
+    pub fn named<T>(&mut self, name: &str) -> SourceResult<Option<T>>
     where
         T: Cast<Spanned<Value>>,
     {
@@ -126,7 +126,7 @@ impl Args {
     }
 
     /// Same as named, but with fallback to find.
-    pub fn named_or_find<T>(&mut self, name: &str) -> TypResult<Option<T>>
+    pub fn named_or_find<T>(&mut self, name: &str) -> SourceResult<Option<T>>
     where
         T: Cast<Spanned<Value>>,
     {
@@ -146,7 +146,7 @@ impl Args {
 
     /// Return an "unexpected argument" error if there is any remaining
     /// argument.
-    pub fn finish(self) -> TypResult<()> {
+    pub fn finish(self) -> SourceResult<()> {
         if let Some(arg) = self.items.first() {
             bail!(arg.span, "unexpected argument");
         }
@@ -171,17 +171,17 @@ impl Args {
     }
 
     /// Reinterpret these arguments as actually being an array index.
-    pub fn into_index(self) -> TypResult<i64> {
+    pub fn into_index(self) -> SourceResult<i64> {
         self.into_castable("index")
     }
 
     /// Reinterpret these arguments as actually being a dictionary key.
-    pub fn into_key(self) -> TypResult<Str> {
+    pub fn into_key(self) -> SourceResult<Str> {
         self.into_castable("key")
     }
 
     /// Reinterpret these arguments as actually being a single castable thing.
-    fn into_castable<T: Cast>(self, what: &str) -> TypResult<T> {
+    fn into_castable<T: Cast>(self, what: &str) -> SourceResult<T> {
         let mut iter = self.items.into_iter();
         let value = match iter.next() {
             Some(Arg { name: None, value, .. }) => value.v.cast().at(value.span)?,

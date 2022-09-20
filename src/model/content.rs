@@ -23,7 +23,7 @@ use crate::World;
 /// Layout content into a collection of pages.
 ///
 /// Relayouts until all pinned locations are converged.
-pub fn layout(world: &dyn World, content: &Content) -> TypResult<Vec<Frame>> {
+pub fn layout(world: &dyn World, content: &Content) -> SourceResult<Vec<Frame>> {
     let styles = StyleChain::with_root(&world.config().styles);
     let scratch = Scratch::default();
 
@@ -235,7 +235,7 @@ impl Layout for Content {
         world: &dyn World,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Frame>> {
+    ) -> SourceResult<Vec<Frame>> {
         let scratch = Scratch::default();
         let mut builder = Builder::new(world, &scratch, false);
         builder.accept(self, styles)?;
@@ -369,7 +369,7 @@ impl<'a, 'w> Builder<'a, 'w> {
     fn into_doc(
         mut self,
         styles: StyleChain<'a>,
-    ) -> TypResult<(DocNode, StyleChain<'a>)> {
+    ) -> SourceResult<(DocNode, StyleChain<'a>)> {
         self.interrupt(Interruption::Page, styles, true)?;
         let (pages, shared) = self.doc.unwrap().pages.finish();
         Ok((DocNode(pages), shared))
@@ -378,13 +378,17 @@ impl<'a, 'w> Builder<'a, 'w> {
     fn into_flow(
         mut self,
         styles: StyleChain<'a>,
-    ) -> TypResult<(FlowNode, StyleChain<'a>)> {
+    ) -> SourceResult<(FlowNode, StyleChain<'a>)> {
         self.interrupt(Interruption::Par, styles, false)?;
         let (children, shared) = self.flow.0.finish();
         Ok((FlowNode(children), shared))
     }
 
-    fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) -> TypResult<()> {
+    fn accept(
+        &mut self,
+        content: &'a Content,
+        styles: StyleChain<'a>,
+    ) -> SourceResult<()> {
         match content {
             Content::Empty => return Ok(()),
             Content::Text(text) => {
@@ -430,7 +434,7 @@ impl<'a, 'w> Builder<'a, 'w> {
         Ok(())
     }
 
-    fn show(&mut self, node: &ShowNode, styles: StyleChain<'a>) -> TypResult<()> {
+    fn show(&mut self, node: &ShowNode, styles: StyleChain<'a>) -> SourceResult<()> {
         if let Some(mut realized) = styles.apply(self.world, Target::Node(node))? {
             let mut map = StyleMap::new();
             let barrier = Barrier::new(node.id());
@@ -447,7 +451,7 @@ impl<'a, 'w> Builder<'a, 'w> {
         &mut self,
         (content, map): &'a (Content, StyleMap),
         styles: StyleChain<'a>,
-    ) -> TypResult<()> {
+    ) -> SourceResult<()> {
         let stored = self.scratch.styles.alloc(styles);
         let styles = map.chain(stored);
         let intr = map.interruption();
@@ -470,7 +474,7 @@ impl<'a, 'w> Builder<'a, 'w> {
         intr: Interruption,
         styles: StyleChain<'a>,
         keep: bool,
-    ) -> TypResult<()> {
+    ) -> SourceResult<()> {
         if intr >= Interruption::List && !self.list.is_empty() {
             mem::take(&mut self.list).finish(self)?;
         }
@@ -493,7 +497,11 @@ impl<'a, 'w> Builder<'a, 'w> {
         Ok(())
     }
 
-    fn sequence(&mut self, seq: &'a [Content], styles: StyleChain<'a>) -> TypResult<()> {
+    fn sequence(
+        &mut self,
+        seq: &'a [Content],
+        styles: StyleChain<'a>,
+    ) -> SourceResult<()> {
         for content in seq {
             self.accept(content, styles)?;
         }
@@ -738,7 +746,7 @@ impl<'a> ListBuilder<'a> {
         true
     }
 
-    fn finish(self, parent: &mut Builder<'a, '_>) -> TypResult<()> {
+    fn finish(self, parent: &mut Builder<'a, '_>) -> SourceResult<()> {
         let (items, shared) = self.items.finish();
         let kind = match items.items().next() {
             Some(item) => item.kind,

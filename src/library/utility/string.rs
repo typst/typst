@@ -2,12 +2,12 @@ use crate::eval::Regex;
 use crate::library::prelude::*;
 
 /// The string representation of a value.
-pub fn repr(_: &mut Vm, args: &mut Args) -> TypResult<Value> {
+pub fn repr(_: &mut Vm, args: &mut Args) -> SourceResult<Value> {
     Ok(args.expect::<Value>("value")?.repr().into())
 }
 
 /// Convert a value to a string.
-pub fn str(_: &mut Vm, args: &mut Args) -> TypResult<Value> {
+pub fn str(_: &mut Vm, args: &mut Args) -> SourceResult<Value> {
     let Spanned { v, span } = args.expect("value")?;
     Ok(Value::Str(match v {
         Value::Int(v) => format_str!("{}", v),
@@ -18,33 +18,33 @@ pub fn str(_: &mut Vm, args: &mut Args) -> TypResult<Value> {
 }
 
 /// Create blind text.
-pub fn lorem(_: &mut Vm, args: &mut Args) -> TypResult<Value> {
+pub fn lorem(_: &mut Vm, args: &mut Args) -> SourceResult<Value> {
     let words: usize = args.expect("number of words")?;
     Ok(Value::Str(lipsum::lipsum(words).into()))
 }
 
 /// Create a regular expression.
-pub fn regex(_: &mut Vm, args: &mut Args) -> TypResult<Value> {
+pub fn regex(_: &mut Vm, args: &mut Args) -> SourceResult<Value> {
     let Spanned { v, span } = args.expect::<Spanned<EcoString>>("regular expression")?;
     Ok(Regex::new(&v).at(span)?.into())
 }
 
 /// Converts an integer into one or multiple letters.
-pub fn letter(_: &mut Vm, args: &mut Args) -> TypResult<Value> {
+pub fn letter(_: &mut Vm, args: &mut Args) -> SourceResult<Value> {
     numbered(Numbering::Letter, args)
 }
 
 /// Converts an integer into a roman numeral.
-pub fn roman(_: &mut Vm, args: &mut Args) -> TypResult<Value> {
+pub fn roman(_: &mut Vm, args: &mut Args) -> SourceResult<Value> {
     numbered(Numbering::Roman, args)
 }
 
 /// Convert a number into a symbol.
-pub fn symbol(_: &mut Vm, args: &mut Args) -> TypResult<Value> {
+pub fn symbol(_: &mut Vm, args: &mut Args) -> SourceResult<Value> {
     numbered(Numbering::Symbol, args)
 }
 
-fn numbered(numbering: Numbering, args: &mut Args) -> TypResult<Value> {
+fn numbered(numbering: Numbering, args: &mut Args) -> SourceResult<Value> {
     let n = args.expect::<usize>("non-negative integer")?;
     Ok(Value::Str(numbering.apply(n).into()))
 }

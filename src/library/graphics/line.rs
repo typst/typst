@@ -15,7 +15,7 @@ impl LineNode {
     #[property(resolve, fold)]
     pub const STROKE: RawStroke = RawStroke::default();
 
-    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         let origin = args.named("origin")?.unwrap_or_default();
 
         let delta = match args.named::<Spec<Relative<RawLength>>>("to")? {
@@ -43,7 +43,7 @@ impl Layout for LineNode {
         _: &dyn World,
         regions: &Regions,
         styles: StyleChain,
-    ) -> TypResult<Vec<Frame>> {
+    ) -> SourceResult<Vec<Frame>> {
         let stroke = styles.get(Self::STROKE).unwrap_or_default();
 
         let origin = self
