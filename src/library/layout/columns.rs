@@ -17,7 +17,7 @@ impl ColumnsNode {
     #[property(resolve)]
     pub const GUTTER: Relative<RawLength> = Ratio::new(0.04).into();
 
-    fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Content> {
         Ok(Content::block(Self {
             columns: args.expect("column count")?,
             child: args.expect("body")?,
@@ -28,14 +28,14 @@ impl ColumnsNode {
 impl Layout for ColumnsNode {
     fn layout(
         &self,
-        ctx: &mut Context,
+        world: &dyn World,
         regions: &Regions,
         styles: StyleChain,
     ) -> TypResult<Vec<Frame>> {
         // Separating the infinite space into infinite columns does not make
         // much sense.
         if !regions.first.x.is_finite() {
-            return self.child.layout(ctx, regions, styles);
+            return self.child.layout(world, regions, styles);
         }
 
         // Determine the width of the gutter and each column.
@@ -57,7 +57,7 @@ impl Layout for ColumnsNode {
         };
 
         // Layout the children.
-        let mut frames = self.child.layout(ctx, &pod, styles)?.into_iter();
+        let mut frames = self.child.layout(world, &pod, styles)?.into_iter();
         let mut finished = vec![];
 
         let dir = styles.get(TextNode::DIR);
@@ -106,7 +106,7 @@ pub struct ColbreakNode;
 
 #[node]
 impl ColbreakNode {
-    fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Content> {
         let weak = args.named("weak")?.unwrap_or(false);
         Ok(Content::Colbreak { weak })
     }

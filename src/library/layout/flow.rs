@@ -25,7 +25,7 @@ pub enum FlowChild {
 impl Layout for FlowNode {
     fn layout(
         &self,
-        ctx: &mut Context,
+        world: &dyn World,
         regions: &Regions,
         styles: StyleChain,
     ) -> TypResult<Vec<Frame>> {
@@ -38,7 +38,7 @@ impl Layout for FlowNode {
                     layouter.layout_spacing(*kind, styles);
                 }
                 FlowChild::Node(ref node) => {
-                    layouter.layout_node(ctx, node, styles)?;
+                    layouter.layout_node(world, node, styles)?;
                 }
                 FlowChild::Colbreak => {
                     layouter.finish_region();
@@ -149,7 +149,7 @@ impl FlowLayouter {
     /// Layout a node.
     pub fn layout_node(
         &mut self,
-        ctx: &mut Context,
+        world: &dyn World,
         node: &LayoutNode,
         styles: StyleChain,
     ) -> TypResult<()> {
@@ -162,7 +162,7 @@ impl FlowLayouter {
         // aligned later.
         if let Some(placed) = node.downcast::<PlaceNode>() {
             if placed.out_of_flow() {
-                let frame = node.layout(ctx, &self.regions, styles)?.remove(0);
+                let frame = node.layout(world, &self.regions, styles)?.remove(0);
                 self.items.push(FlowItem::Placed(frame));
                 return Ok(());
             }
@@ -180,7 +180,7 @@ impl FlowLayouter {
                 .unwrap_or(Align::Top),
         );
 
-        let frames = node.layout(ctx, &self.regions, styles)?;
+        let frames = node.layout(world, &self.regions, styles)?;
         let len = frames.len();
         for (i, mut frame) in frames.into_iter().enumerate() {
             // Set the generic block role.

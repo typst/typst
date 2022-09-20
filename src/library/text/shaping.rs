@@ -80,8 +80,8 @@ impl<'a> ShapedText<'a> {
     ///
     /// The `justification` defines how much extra advance width each
     /// [justifiable glyph](ShapedGlyph::is_justifiable) will get.
-    pub fn build(&self, loader: &dyn Loader, justification: Length) -> Frame {
-        let (top, bottom) = self.measure(loader);
+    pub fn build(&self, world: &dyn World, justification: Length) -> Frame {
+        let (top, bottom) = self.measure(world);
         let size = Size::new(self.width, top + bottom);
 
         let mut offset = Length::zero();
@@ -144,7 +144,7 @@ impl<'a> ShapedText<'a> {
     }
 
     /// Measure the top and bottom extent of this text.
-    fn measure(&self, loader: &dyn Loader) -> (Length, Length) {
+    fn measure(&self, world: &dyn World) -> (Length, Length) {
         let mut top = Length::zero();
         let mut bottom = Length::zero();
 
@@ -162,10 +162,10 @@ impl<'a> ShapedText<'a> {
             // When there are no glyphs, we just use the vertical metrics of the
             // first available font.
             for family in families(self.styles) {
-                if let Some(font) = loader
+                if let Some(font) = world
                     .book()
                     .select(family, self.variant)
-                    .and_then(|id| loader.font(id).ok())
+                    .and_then(|id| world.font(id).ok())
                 {
                     expand(&font);
                     break;
@@ -199,7 +199,7 @@ impl<'a> ShapedText<'a> {
     /// shaping process if possible.
     pub fn reshape(
         &'a self,
-        loader: &dyn Loader,
+        world: &dyn World,
         text_range: Range<usize>,
     ) -> ShapedText<'a> {
         if let Some(glyphs) = self.slice_safe_to_break(text_range.clone()) {
@@ -213,17 +213,17 @@ impl<'a> ShapedText<'a> {
                 glyphs: Cow::Borrowed(glyphs),
             }
         } else {
-            shape(loader, &self.text[text_range], self.styles, self.dir)
+            shape(world, &self.text[text_range], self.styles, self.dir)
         }
     }
 
     /// Push a hyphen to end of the text.
-    pub fn push_hyphen(&mut self, loader: &dyn Loader) {
+    pub fn push_hyphen(&mut self, world: &dyn World) {
         families(self.styles).find_map(|family| {
-            let font = loader
+            let font = world
                 .book()
                 .select(family, self.variant)
-                .and_then(|id| loader.font(id).ok())?;
+                .and_then(|id| world.font(id).ok())?;
             let ttf = font.ttf();
             let glyph_id = ttf.glyph_index('-')?;
             let x_advance = font.to_em(ttf.glyph_hor_advance(glyph_id)?);
@@ -306,7 +306,7 @@ impl Debug for ShapedText<'_> {
 
 /// Holds shaping results and metadata common to all shaped segments.
 struct ShapingContext<'a> {
-    loader: &'a dyn Loader,
+    world: &'a dyn World,
     glyphs: Vec<ShapedGlyph>,
     used: Vec<Font>,
     styles: StyleChain<'a>,
@@ -319,7 +319,7 @@ struct ShapingContext<'a> {
 
 /// Shape text into [`ShapedText`].
 pub fn shape<'a>(
-    loader: &dyn Loader,
+    world: &dyn World,
     text: &'a str,
     styles: StyleChain<'a>,
     dir: Dir,
@@ -327,7 +327,7 @@ pub fn shape<'a>(
     let size = styles.get(TextNode::SIZE);
 
     let mut ctx = ShapingContext {
-        loader,
+        world,
         size,
         glyphs: vec![],
         used: vec![],
@@ -368,10 +368,10 @@ fn shape_segment<'a>(
     }
 
     // Find the next available family.
-    let book = ctx.loader.book();
+    let book = ctx.world.book();
     let mut selection = families.find_map(|family| {
         book.select(family, ctx.variant)
-            .and_then(|id| ctx.loader.font(id).ok())
+            .and_then(|id| ctx.world.font(id).ok())
             .filter(|font| !ctx.used.contains(font))
     });
 
@@ -380,7 +380,7 @@ fn shape_segment<'a>(
         let first = ctx.used.first().map(Font::info);
         selection = book
             .select_fallback(first, ctx.variant, text)
-            .and_then(|id| ctx.loader.font(id).ok())
+            .and_then(|id| ctx.world.font(id).ok())
             .filter(|font| !ctx.used.contains(font));
     }
 

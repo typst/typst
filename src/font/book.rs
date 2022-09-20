@@ -39,8 +39,8 @@ impl FontBook {
         self.infos.push(info);
     }
 
-    /// An ordered iterator over all font families this loader knows and details
-    /// about the faces that are part of them.
+    /// An ordered iterator over all font families this book knows and details
+    /// about the fonts that are part of them.
     pub fn families(
         &self,
     ) -> impl Iterator<Item = (&str, impl Iterator<Item = &FontInfo>)> + '_ {

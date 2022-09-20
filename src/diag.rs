@@ -5,7 +5,7 @@ use std::io;
 use std::path::Path;
 
 use crate::syntax::{Span, Spanned};
-use crate::Context;
+use crate::World;
 
 /// Early-return with a [`TypError`].
 #[macro_export]
@@ -101,21 +101,21 @@ where
 /// Enrich a [`TypResult`] with a tracepoint.
 pub trait Trace<T> {
     /// Add the tracepoint to all errors that lie outside the `span`.
-    fn trace<F>(self, ctx: &Context, make_point: F, span: Span) -> Self
+    fn trace<F>(self, world: &dyn World, make_point: F, span: Span) -> Self
     where
         F: Fn() -> Tracepoint;
 }
 
 impl<T> Trace<T> for TypResult<T> {
-    fn trace<F>(self, ctx: &Context, make_point: F, span: Span) -> Self
+    fn trace<F>(self, world: &dyn World, make_point: F, span: Span) -> Self
     where
         F: Fn() -> Tracepoint,
     {
         self.map_err(|mut errors| {
-            let range = ctx.sources.range(span);
+            let range = world.source(span.source()).range(span);
             for error in errors.iter_mut() {
                 // Skip traces that surround the error.
-                let error_range = ctx.sources.range(error.span);
+                let error_range = world.source(error.span.source()).range(error.span);
                 if range.start <= error_range.start && range.end >= error_range.end {
                     continue;
                 }

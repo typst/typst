@@ -60,7 +60,7 @@ impl HeadingNode {
     /// Whether the heading is numbered.
     pub const NUMBERED: bool = true;
 
-    fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Content> {
         Ok(Content::show(Self {
             body: args.expect("body")?,
             level: args.named("level")?.unwrap_or(NonZeroUsize::new(1).unwrap()),
@@ -82,19 +82,19 @@ impl Show for HeadingNode {
         }
     }
 
-    fn realize(&self, _: &mut Context, _: StyleChain) -> TypResult<Content> {
+    fn realize(&self, _: &dyn World, _: StyleChain) -> TypResult<Content> {
         Ok(Content::block(self.body.clone()))
     }
 
     fn finalize(
         &self,
-        ctx: &mut Context,
+        world: &dyn World,
         styles: StyleChain,
         mut realized: Content,
     ) -> TypResult<Content> {
         macro_rules! resolve {
             ($key:expr) => {
-                styles.get($key).resolve(ctx, self.level)?
+                styles.get($key).resolve(world, self.level)?
             };
         }
 
@@ -149,13 +149,13 @@ pub enum Leveled<T> {
 
 impl<T: Cast + Clone> Leveled<T> {
     /// Resolve the value based on the level.
-    pub fn resolve(&self, ctx: &mut Context, level: NonZeroUsize) -> TypResult<T> {
+    pub fn resolve(&self, world: &dyn World, level: NonZeroUsize) -> TypResult<T> {
         Ok(match self {
             Self::Value(value) => value.clone(),
             Self::Mapping(mapping) => mapping(level),
             Self::Func(func, span) => {
                 let args = Args::new(*span, [Value::Int(level.get() as i64)]);
-                func.call_detached(ctx, args)?.cast().at(*span)?
+                func.call_detached(world, args)?.cast().at(*span)?
             }
         })
     }

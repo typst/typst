@@ -8,7 +8,7 @@ use crate::diag::TypResult;
 use crate::frame::Role;
 use crate::library::text::{FontFamily, TextNode};
 use crate::util::ReadableTypeId;
-use crate::Context;
+use crate::World;
 
 /// A map of style properties.
 #[derive(Default, Clone, PartialEq, Hash)]
@@ -277,7 +277,7 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Apply show recipes in this style chain to a target.
-    pub fn apply(self, ctx: &mut Context, target: Target) -> TypResult<Option<Content>> {
+    pub fn apply(self, world: &dyn World, target: Target) -> TypResult<Option<Content>> {
         // Find out how many recipes there any and whether any of their patterns
         // match.
         let mut n = 0;
@@ -296,7 +296,9 @@ impl<'a> StyleChain<'a> {
                     let sel = Selector::Nth(n);
                     if self.guarded(sel) {
                         guarded = true;
-                    } else if let Some(content) = recipe.apply(ctx, self, sel, target)? {
+                    } else if let Some(content) =
+                        recipe.apply(world, self, sel, target)?
+                    {
                         realized = Some(content);
                         break;
                     }
@@ -312,7 +314,7 @@ impl<'a> StyleChain<'a> {
                 if self.guarded(sel) {
                     guarded = true;
                 } else {
-                    let content = node.unguard(sel).realize(ctx, self)?;
+                    let content = node.unguard(sel).realize(world, self)?;
                     realized = Some(content.styled_with_entry(StyleEntry::Guard(sel)));
                 }
             }
@@ -320,7 +322,7 @@ impl<'a> StyleChain<'a> {
             // Finalize only if guarding didn't stop any recipe.
             if !guarded {
                 if let Some(content) = realized {
-                    realized = Some(node.finalize(ctx, self, content)?);
+                    realized = Some(node.finalize(world, self, content)?);
                 }
             }
         }

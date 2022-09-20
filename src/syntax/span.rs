@@ -42,8 +42,8 @@ impl<T: Debug> Debug for Spanned<T> {
 /// A unique identifier for a syntax node.
 ///
 /// This is used throughout the compiler to track which source section an error
-/// or element stems from. Can be [mapped back](crate::source::SourceStore::range)
-/// to a source id + byte range for user facing display.
+/// or element stems from. Can be [mapped back](crate::source::Source::range)
+/// to a byte range for user facing display.
 ///
 /// Span ids are ordered in the tree to enable quickly finding the node with
 /// some id:

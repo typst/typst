@@ -980,7 +980,7 @@ impl NodeKind {
             Self::LineComment => "line comment",
             Self::BlockComment => "block comment",
             Self::Error(_, _) => "parse error",
-            Self::Unknown(src) => match src.as_str() {
+            Self::Unknown(text) => match text.as_str() {
                 "*/" => "end of block comment",
                 _ => "invalid token",
             },
@@ -1107,7 +1107,7 @@ impl Hash for NodeKind {
             Self::LineComment => {}
             Self::BlockComment => {}
             Self::Error(pos, msg) => (pos, msg).hash(state),
-            Self::Unknown(src) => src.hash(state),
+            Self::Unknown(text) => text.hash(state),
         }
     }
 }

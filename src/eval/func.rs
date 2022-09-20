@@ -2,13 +2,13 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use super::{Args, Eval, Flow, Machine, Scope, Scopes, Value};
+use super::{Args, Eval, Flow, Scope, Scopes, Value, Vm};
 use crate::diag::{StrResult, TypResult};
 use crate::model::{Content, NodeId, StyleMap};
 use crate::source::SourceId;
 use crate::syntax::ast::Expr;
 use crate::util::EcoString;
-use crate::Context;
+use crate::World;
 
 /// An evaluatable function.
 #[derive(Clone, Hash)]
@@ -29,7 +29,7 @@ impl Func {
     /// Create a new function from a native rust function.
     pub fn from_fn(
         name: &'static str,
-        func: fn(&mut Machine, &mut Args) -> TypResult<Value>,
+        func: fn(&mut Vm, &mut Args) -> TypResult<Value>,
     ) -> Self {
         Self(Arc::new(Repr::Native(Native {
             name,
@@ -86,7 +86,7 @@ impl Func {
     }
 
     /// Call the function with the given arguments.
-    pub fn call(&self, vm: &mut Machine, mut args: Args) -> TypResult<Value> {
+    pub fn call(&self, vm: &mut Vm, mut args: Args) -> TypResult<Value> {
         let value = match self.0.as_ref() {
             Repr::Native(native) => (native.func)(vm, &mut args)?,
             Repr::Closure(closure) => closure.call(vm, &mut args)?,
@@ -100,8 +100,8 @@ impl Func {
     }
 
     /// Call the function without an existing virtual machine.
-    pub fn call_detached(&self, ctx: &mut Context, args: Args) -> TypResult<Value> {
-        let mut vm = Machine::new(ctx, vec![], Scopes::new(None));
+    pub fn call_detached(&self, world: &dyn World, args: Args) -> TypResult<Value> {
+        let mut vm = Vm::new(world, vec![], Scopes::new(None));
         self.call(&mut vm, args)
     }
 
@@ -144,7 +144,7 @@ struct Native {
     /// The name of the function.
     pub name: &'static str,
     /// The function pointer.
-    pub func: fn(&mut Machine, &mut Args) -> TypResult<Value>,
+    pub func: fn(&mut Vm, &mut Args) -> TypResult<Value>,
     /// The set rule.
     pub set: Option<fn(&mut Args) -> TypResult<StyleMap>>,
     /// The id of the node to customize with this function's show rule.
@@ -169,7 +169,7 @@ pub trait Node: 'static {
     ///
     /// This is passed only the arguments that remain after execution of the
     /// node's set rule.
-    fn construct(vm: &mut Machine, args: &mut Args) -> TypResult<Content>;
+    fn construct(vm: &mut Vm, args: &mut Args) -> TypResult<Content>;
 
     /// Parse relevant arguments into style properties for this node.
     ///
@@ -198,7 +198,7 @@ pub struct Closure {
 
 impl Closure {
     /// Call the function in the context with the arguments.
-    pub fn call(&self, vm: &mut Machine, args: &mut Args) -> TypResult<Value> {
+    pub fn call(&self, vm: &mut Vm, args: &mut Args) -> TypResult<Value> {
         // Don't leak the scopes from the call site. Instead, we use the scope
         // of captured variables we collected earlier.
         let mut scopes = Scopes::new(None);
@@ -228,9 +228,8 @@ impl Closure {
         };
 
         // Evaluate the body.
-        let mut sub = Machine::new(vm.ctx, route, scopes);
+        let mut sub = Vm::new(vm.world, route, scopes);
         let result = self.body.eval(&mut sub);
-        vm.deps.extend(sub.deps);
 
         // Handle control flow.
         match sub.flow {

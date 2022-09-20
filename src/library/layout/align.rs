@@ -12,7 +12,7 @@ pub struct AlignNode {
 
 #[node]
 impl AlignNode {
-    fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Content> {
         let aligns: Spec<Option<RawAlign>> = args.find()?.unwrap_or_default();
         let body: Content = args.expect("body")?;
         Ok(match (body, aligns) {
@@ -28,7 +28,7 @@ impl AlignNode {
 impl Layout for AlignNode {
     fn layout(
         &self,
-        ctx: &mut Context,
+        world: &dyn World,
         regions: &Regions,
         styles: StyleChain,
     ) -> TypResult<Vec<Frame>> {
@@ -43,7 +43,7 @@ impl Layout for AlignNode {
         }
 
         // Layout the child.
-        let mut frames = self.child.layout(ctx, &pod, passed.chain(&styles))?;
+        let mut frames = self.child.layout(world, &pod, passed.chain(&styles))?;
         for (region, frame) in regions.iter().zip(&mut frames) {
             // Align in the target size. The target size depends on whether we
             // should expand.

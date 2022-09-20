@@ -15,7 +15,7 @@ pub struct StackNode {
 
 #[node]
 impl StackNode {
-    fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Content> {
         Ok(Content::block(Self {
             dir: args.named("dir")?.unwrap_or(Dir::TTB),
             spacing: args.named("spacing")?,
@@ -27,7 +27,7 @@ impl StackNode {
 impl Layout for StackNode {
     fn layout(
         &self,
-        ctx: &mut Context,
+        world: &dyn World,
         regions: &Regions,
         styles: StyleChain,
     ) -> TypResult<Vec<Frame>> {
@@ -47,7 +47,7 @@ impl Layout for StackNode {
                         layouter.layout_spacing(kind);
                     }
 
-                    layouter.layout_node(ctx, node, styles)?;
+                    layouter.layout_node(world, node, styles)?;
                     deferred = self.spacing;
                 }
             }
@@ -168,7 +168,7 @@ impl<'a> StackLayouter<'a> {
     /// Layout an arbitrary node.
     pub fn layout_node(
         &mut self,
-        ctx: &mut Context,
+        world: &dyn World,
         node: &LayoutNode,
         styles: StyleChain,
     ) -> TypResult<()> {
@@ -193,7 +193,7 @@ impl<'a> StackLayouter<'a> {
                 self.dir.start().into()
             });
 
-        let frames = node.layout(ctx, &self.regions, styles)?;
+        let frames = node.layout(world, &self.regions, styles)?;
         let len = frames.len();
         for (i, mut frame) in frames.into_iter().enumerate() {
             // Set the generic block role.

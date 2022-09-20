@@ -3,7 +3,7 @@ use std::fmt::{self, Debug, Formatter, Write};
 use std::ops::{Add, AddAssign};
 use std::sync::Arc;
 
-use super::{Args, Array, Func, Machine, Str, Value};
+use super::{Args, Array, Func, Str, Value, Vm};
 use crate::diag::{StrResult, TypResult};
 use crate::parse::is_ident;
 use crate::syntax::Spanned;
@@ -101,7 +101,7 @@ impl Dict {
     }
 
     /// Transform each pair in the array with a function.
-    pub fn map(&self, vm: &mut Machine, f: Spanned<Func>) -> TypResult<Array> {
+    pub fn map(&self, vm: &mut Vm, f: Spanned<Func>) -> TypResult<Array> {
         Ok(self
             .iter()
             .map(|(key, value)| {

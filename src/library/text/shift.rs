@@ -28,7 +28,7 @@ impl<const S: ScriptKind> ShiftNode<S> {
     /// The font size for synthetic sub- and superscripts.
     pub const SIZE: TextSize = TextSize(Em::new(0.6).into());
 
-    fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Content> {
         Ok(Content::show(Self(args.expect("body")?)))
     }
 }
@@ -42,11 +42,11 @@ impl<const S: ScriptKind> Show for ShiftNode<S> {
         dict! { "body" => Value::Content(self.0.clone()) }
     }
 
-    fn realize(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content> {
+    fn realize(&self, world: &dyn World, styles: StyleChain) -> TypResult<Content> {
         let mut transformed = None;
         if styles.get(Self::TYPOGRAPHIC) {
             if let Some(text) = search_text(&self.0, S) {
-                if is_shapable(ctx.loader.as_ref(), &text, styles) {
+                if is_shapable(world, &text, styles) {
                     transformed = Some(Content::Text(text));
                 }
             }
@@ -91,12 +91,12 @@ fn search_text(content: &Content, mode: ScriptKind) -> Option<EcoString> {
 
 /// Checks whether the first retrievable family contains all code points of the
 /// given string.
-fn is_shapable(loader: &dyn Loader, text: &str, styles: StyleChain) -> bool {
-    let book = loader.book();
+fn is_shapable(world: &dyn World, text: &str, styles: StyleChain) -> bool {
     for family in styles.get(TextNode::FAMILY).iter() {
-        if let Some(font) = book
+        if let Some(font) = world
+            .book()
             .select(family.as_str(), variant(styles))
-            .and_then(|id| loader.font(id).ok())
+            .and_then(|id| world.font(id).ok())
         {
             return text.chars().all(|c| font.ttf().glyph_index(c).is_some());
         }

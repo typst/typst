@@ -1,25 +1,17 @@
 use std::io;
 use std::path::Path;
-use std::sync::Arc;
 
 use iai::{black_box, main, Iai};
 use unscanny::Scanner;
 
 use typst::font::{Font, FontBook};
-use typst::loading::{Buffer, FileHash, Loader};
 use typst::parse::{TokenMode, Tokens};
-use typst::source::SourceId;
-use typst::{Config, Context};
+use typst::source::{Source, SourceId};
+use typst::util::Buffer;
+use typst::{Config, World};
 
-const SRC: &str = include_str!("bench.typ");
+const TEXT: &str = include_str!("bench.typ");
 const FONT: &[u8] = include_bytes!("../fonts/IBMPlexSans-Regular.ttf");
-
-fn context() -> (Context, SourceId) {
-    let loader = BenchLoader::new();
-    let mut ctx = Context::new(Arc::new(loader), Config::default());
-    let id = ctx.sources.provide(Path::new("src.typ"), SRC.to_string());
-    (ctx, id)
-}
 
 main!(
     bench_decode,
@@ -38,7 +30,7 @@ fn bench_decode(iai: &mut Iai) {
         // We don't use chars().count() because that has a special
         // superfast implementation.
         let mut count = 0;
-        let mut chars = black_box(SRC).chars();
+        let mut chars = black_box(TEXT).chars();
         while let Some(_) = chars.next() {
             count += 1;
         }
@@ -49,7 +41,7 @@ fn bench_decode(iai: &mut Iai) {
 fn bench_scan(iai: &mut Iai) {
     iai.run(|| {
         let mut count = 0;
-        let mut scanner = Scanner::new(black_box(SRC));
+        let mut scanner = Scanner::new(black_box(TEXT));
         while let Some(_) = scanner.eat() {
             count += 1;
         }
@@ -58,21 +50,20 @@ fn bench_scan(iai: &mut Iai) {
 }
 
 fn bench_tokenize(iai: &mut Iai) {
-    iai.run(|| Tokens::new(black_box(SRC), black_box(TokenMode::Markup)).count());
+    iai.run(|| Tokens::new(black_box(TEXT), black_box(TokenMode::Markup)).count());
 }
 
 fn bench_parse(iai: &mut Iai) {
-    iai.run(|| typst::parse::parse(SRC));
+    iai.run(|| typst::parse::parse(TEXT));
 }
 
 fn bench_edit(iai: &mut Iai) {
-    let (mut ctx, id) = context();
-    iai.run(|| black_box(ctx.sources.edit(id, 1168 .. 1171, "_Uhr_")));
+    let mut source = Source::detached(TEXT);
+    iai.run(|| black_box(source.edit(1168 .. 1171, "_Uhr_")));
 }
 
 fn bench_highlight(iai: &mut Iai) {
-    let (ctx, id) = context();
-    let source = ctx.sources.get(id);
+    let source = Source::detached(TEXT);
     iai.run(|| {
         typst::syntax::highlight_node(
             source.root(),
@@ -83,46 +74,66 @@ fn bench_highlight(iai: &mut Iai) {
 }
 
 fn bench_eval(iai: &mut Iai) {
-    let (mut ctx, id) = context();
-    iai.run(|| typst::eval::evaluate(&mut ctx, id, vec![]).unwrap());
+    let world = BenchWorld::new();
+    let id = world.source.id();
+    iai.run(|| typst::eval::evaluate(&world, id, vec![]).unwrap());
 }
 
 fn bench_layout(iai: &mut Iai) {
-    let (mut ctx, id) = context();
-    let module = typst::eval::evaluate(&mut ctx, id, vec![]).unwrap();
-    iai.run(|| typst::model::layout(&mut ctx, &module.content));
+    let world = BenchWorld::new();
+    let id = world.source.id();
+    let module = typst::eval::evaluate(&world, id, vec![]).unwrap();
+    iai.run(|| typst::model::layout(&world, &module.content));
 }
 
 fn bench_render(iai: &mut Iai) {
-    let (mut ctx, id) = context();
-    let frames = typst::typeset(&mut ctx, id).unwrap();
+    let world = BenchWorld::new();
+    let id = world.source.id();
+    let frames = typst::typeset(&world, id).unwrap();
     iai.run(|| typst::export::render(&frames[0], 1.0))
 }
 
-struct BenchLoader {
+struct BenchWorld {
+    config: Config,
     book: FontBook,
     font: Font,
+    source: Source,
 }
 
-impl BenchLoader {
+impl BenchWorld {
     fn new() -> Self {
         let font = Font::new(FONT.into(), 0).unwrap();
         let book = FontBook::from_fonts([&font]);
-        Self { book, font }
+        let id = SourceId::from_raw(0);
+        let source = Source::new(id, Path::new("bench.typ"), TEXT.into());
+        Self {
+            config: Config::default(),
+            book,
+            font,
+            source,
+        }
     }
 }
 
-impl Loader for BenchLoader {
+impl World for BenchWorld {
+    fn config(&self) -> &Config {
+        &self.config
+    }
+
+    fn resolve(&self, _: &Path) -> io::Result<SourceId> {
+        Err(io::ErrorKind::NotFound.into())
+    }
+
+    fn source(&self, _: SourceId) -> &Source {
+        &self.source
+    }
+
     fn book(&self) -> &FontBook {
         &self.book
     }
 
     fn font(&self, _: usize) -> io::Result<Font> {
         Ok(self.font.clone())
-    }
-
-    fn resolve(&self, _: &Path) -> io::Result<FileHash> {
-        Err(io::ErrorKind::NotFound.into())
     }
 
     fn file(&self, _: &Path) -> io::Result<Buffer> {

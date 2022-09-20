@@ -22,17 +22,16 @@ pub struct RexNode {
 impl Layout for RexNode {
     fn layout(
         &self,
-        ctx: &mut Context,
+        world: &dyn World,
         _: &Regions,
         styles: StyleChain,
     ) -> TypResult<Vec<Frame>> {
         // Load the font.
         let span = self.tex.span;
-        let font = ctx
-            .loader
+        let font = world
             .book()
             .select(self.family.as_str(), variant(styles))
-            .and_then(|id| ctx.loader.font(id).ok())
+            .and_then(|id| world.font(id).ok())
             .ok_or("failed to find math font")
             .at(span)?;
 

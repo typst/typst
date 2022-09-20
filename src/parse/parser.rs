@@ -30,15 +30,15 @@ pub struct Parser<'s> {
 
 impl<'s> Parser<'s> {
     /// Create a new parser for the source string.
-    pub fn new(src: &'s str, mode: TokenMode) -> Self {
-        Self::with_prefix("", src, mode)
+    pub fn new(text: &'s str, mode: TokenMode) -> Self {
+        Self::with_prefix("", text, mode)
     }
 
     /// Create a new parser for the source string that is prefixed by some text
     /// that does not need to be parsed but taken into account for column
     /// calculation.
-    pub fn with_prefix(prefix: &str, src: &'s str, mode: TokenMode) -> Self {
-        let mut tokens = Tokens::with_prefix(prefix, src, mode);
+    pub fn with_prefix(prefix: &str, text: &'s str, mode: TokenMode) -> Self {
+        let mut tokens = Tokens::with_prefix(prefix, text, mode);
         let current = tokens.next();
         Self {
             tokens,

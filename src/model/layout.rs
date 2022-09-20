@@ -15,7 +15,7 @@ use crate::geom::{
 use crate::library::graphics::MoveNode;
 use crate::library::layout::{AlignNode, PadNode};
 use crate::util::Prehashed;
-use crate::Context;
+use crate::World;
 
 /// A node that can be layouted into a sequence of regions.
 ///
@@ -24,7 +24,7 @@ pub trait Layout: 'static {
     /// Layout this node into the given regions, producing frames.
     fn layout(
         &self,
-        ctx: &mut Context,
+        world: &dyn World,
         regions: &Regions,
         styles: StyleChain,
     ) -> TypResult<Vec<Frame>>;
@@ -216,14 +216,14 @@ impl LayoutNode {
 impl Layout for LayoutNode {
     fn layout(
         &self,
-        ctx: &mut Context,
+        world: &dyn World,
         regions: &Regions,
         styles: StyleChain,
     ) -> TypResult<Vec<Frame>> {
         let barrier = StyleEntry::Barrier(Barrier::new(self.id()));
         let styles = barrier.chain(&styles);
 
-        let mut frames = self.0.layout(ctx, regions, styles)?;
+        let mut frames = self.0.layout(world, regions, styles)?;
         if let Some(role) = styles.role() {
             for frame in &mut frames {
                 frame.apply_role(role);
@@ -285,7 +285,7 @@ struct EmptyNode;
 impl Layout for EmptyNode {
     fn layout(
         &self,
-        _: &mut Context,
+        _: &dyn World,
         regions: &Regions,
         _: StyleChain,
     ) -> TypResult<Vec<Frame>> {
@@ -307,7 +307,7 @@ struct SizedNode {
 impl Layout for SizedNode {
     fn layout(
         &self,
-        ctx: &mut Context,
+        world: &dyn World,
         regions: &Regions,
         styles: StyleChain,
     ) -> TypResult<Vec<Frame>> {
@@ -331,7 +331,7 @@ impl Layout for SizedNode {
         };
 
         // Layout the child.
-        let mut frames = self.child.layout(ctx, &pod, styles)?;
+        let mut frames = self.child.layout(world, &pod, styles)?;
 
         // Ensure frame size matches regions size if expansion is on.
         let frame = &mut frames[0];
@@ -354,11 +354,11 @@ struct FillNode {
 impl Layout for FillNode {
     fn layout(
         &self,
-        ctx: &mut Context,
+        world: &dyn World,
         regions: &Regions,
         styles: StyleChain,
     ) -> TypResult<Vec<Frame>> {
-        let mut frames = self.child.layout(ctx, regions, styles)?;
+        let mut frames = self.child.layout(world, regions, styles)?;
         for frame in &mut frames {
             let shape = Geometry::Rect(frame.size()).filled(self.fill);
             frame.prepend(Point::zero(), Element::Shape(shape));
@@ -379,11 +379,11 @@ struct StrokeNode {
 impl Layout for StrokeNode {
     fn layout(
         &self,
-        ctx: &mut Context,
+        world: &dyn World,
         regions: &Regions,
         styles: StyleChain,
     ) -> TypResult<Vec<Frame>> {
-        let mut frames = self.child.layout(ctx, regions, styles)?;
+        let mut frames = self.child.layout(world, regions, styles)?;
         for frame in &mut frames {
             let shape = Geometry::Rect(frame.size()).stroked(self.stroke);
             frame.prepend(Point::zero(), Element::Shape(shape));

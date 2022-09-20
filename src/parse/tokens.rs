@@ -34,16 +34,16 @@ pub enum TokenMode {
 impl<'s> Tokens<'s> {
     /// Create a new token iterator with the given mode.
     #[inline]
-    pub fn new(src: &'s str, mode: TokenMode) -> Self {
-        Self::with_prefix("", src, mode)
+    pub fn new(text: &'s str, mode: TokenMode) -> Self {
+        Self::with_prefix("", text, mode)
     }
 
     /// Create a new token iterator with the given mode and a prefix to offset
     /// column calculations.
     #[inline]
-    pub fn with_prefix(prefix: &str, src: &'s str, mode: TokenMode) -> Self {
+    pub fn with_prefix(prefix: &str, text: &'s str, mode: TokenMode) -> Self {
         Self {
-            s: Scanner::new(src),
+            s: Scanner::new(text),
             mode,
             terminated: true,
             column_offset: column(prefix, prefix.len(), 0),
@@ -770,9 +770,9 @@ mod tests {
             t!(Markup $($tts)*);
             t!(Code $($tts)*);
         };
-        ($mode:ident $([$blocks:literal])?: $src:expr => $($token:expr),*) => {{
+        ($mode:ident $([$blocks:literal])?: $text:expr => $($token:expr),*) => {{
             // Test without suffix.
-            t!(@$mode: $src => $($token),*);
+            t!(@$mode: $text => $($token),*);
 
             // Suffixes described by four-tuples of:
             //
@@ -810,21 +810,21 @@ mod tests {
 
             // Test with each applicable suffix.
             for &(block, mode, suffix, ref token) in suffixes {
-                let src = $src;
+                let text = $text;
                 #[allow(unused_variables)]
                 let blocks = BLOCKS;
                 $(let blocks = $blocks;)?
                 assert!(!blocks.contains(|c| !BLOCKS.contains(c)));
                 if (mode.is_none() || mode == Some($mode)) && blocks.contains(block) {
-                    t!(@$mode: format!("{}{}", src, suffix) => $($token,)* token);
+                    t!(@$mode: format!("{}{}", text, suffix) => $($token,)* token);
                 }
             }
         }};
-        (@$mode:ident: $src:expr => $($token:expr),*) => {{
-            let src = $src;
-            let found = Tokens::new(&src, $mode).collect::<Vec<_>>();
+        (@$mode:ident: $text:expr => $($token:expr),*) => {{
+            let text = $text;
+            let found = Tokens::new(&text, $mode).collect::<Vec<_>>();
             let expected = vec![$($token.clone()),*];
-            check(&src, found, expected);
+            check(&text, found, expected);
         }};
     }
 

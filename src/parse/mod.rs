@@ -16,15 +16,15 @@ use crate::syntax::{NodeKind, SpanPos, SyntaxNode};
 use crate::util::EcoString;
 
 /// Parse a source file.
-pub fn parse(src: &str) -> SyntaxNode {
-    let mut p = Parser::new(src, TokenMode::Markup);
+pub fn parse(text: &str) -> SyntaxNode {
+    let mut p = Parser::new(text, TokenMode::Markup);
     markup(&mut p, true);
     p.finish().into_iter().next().unwrap()
 }
 
 /// Parse code directly, only used for syntax highlighting.
-pub fn parse_code(src: &str) -> Vec<SyntaxNode> {
-    let mut p = Parser::new(src, TokenMode::Code);
+pub fn parse_code(text: &str) -> Vec<SyntaxNode> {
+    let mut p = Parser::new(text, TokenMode::Code);
     code(&mut p);
     p.finish()
 }
@@ -34,10 +34,10 @@ pub fn parse_code(src: &str) -> Vec<SyntaxNode> {
 /// Returns `Some` if all of the input was consumed.
 fn reparse_code_block(
     prefix: &str,
-    src: &str,
+    text: &str,
     end_pos: usize,
 ) -> Option<(Vec<SyntaxNode>, bool, usize)> {
-    let mut p = Parser::with_prefix(prefix, src, TokenMode::Code);
+    let mut p = Parser::with_prefix(prefix, text, TokenMode::Code);
     if !p.at(NodeKind::LeftBrace) {
         return None;
     }
@@ -58,10 +58,10 @@ fn reparse_code_block(
 /// Returns `Some` if all of the input was consumed.
 fn reparse_content_block(
     prefix: &str,
-    src: &str,
+    text: &str,
     end_pos: usize,
 ) -> Option<(Vec<SyntaxNode>, bool, usize)> {
-    let mut p = Parser::with_prefix(prefix, src, TokenMode::Code);
+    let mut p = Parser::with_prefix(prefix, text, TokenMode::Code);
     if !p.at(NodeKind::LeftBracket) {
         return None;
     }
@@ -82,14 +82,14 @@ fn reparse_content_block(
 /// Returns `Some` if all of the input was consumed.
 fn reparse_markup_elements(
     prefix: &str,
-    src: &str,
+    text: &str,
     end_pos: usize,
     differential: isize,
     reference: &[SyntaxNode],
     mut at_start: bool,
     min_indent: usize,
 ) -> Option<(Vec<SyntaxNode>, bool, usize)> {
-    let mut p = Parser::with_prefix(prefix, src, TokenMode::Markup);
+    let mut p = Parser::with_prefix(prefix, text, TokenMode::Markup);
 
     let mut node: Option<&SyntaxNode> = None;
     let mut iter = reference.iter();
@@ -996,12 +996,12 @@ mod tests {
     use std::fmt::Debug;
 
     #[track_caller]
-    pub fn check<T>(src: &str, found: T, expected: T)
+    pub fn check<T>(text: &str, found: T, expected: T)
     where
         T: Debug + PartialEq,
     {
         if found != expected {
-            println!("source:   {src:?}");
+            println!("source:   {text:?}");
             println!("expected: {expected:#?}");
             println!("found:    {found:#?}");
             panic!("test failed");

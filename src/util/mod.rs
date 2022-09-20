@@ -2,8 +2,10 @@
 
 #[macro_use]
 mod eco;
+mod buffer;
 mod hash;
 
+pub use buffer::Buffer;
 pub use eco::EcoString;
 pub use hash::Prehashed;
 

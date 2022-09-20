@@ -384,10 +384,10 @@ mod tests {
         use Category::*;
 
         #[track_caller]
-        fn test(src: &str, goal: &[(Range<usize>, Category)]) {
+        fn test(text: &str, goal: &[(Range<usize>, Category)]) {
             let mut vec = vec![];
-            let source = Source::detached(src);
-            let full = 0 .. src.len();
+            let source = Source::detached(text);
+            let full = 0 .. text.len();
             highlight_node(source.root(), full, &mut |range, category| {
                 vec.push((range, category));
             });

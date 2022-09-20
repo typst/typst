@@ -13,11 +13,11 @@ mod value;
 mod args;
 mod capture;
 mod func;
-mod machine;
 pub mod methods;
 pub mod ops;
 mod raw;
 mod scope;
+mod vm;
 
 pub use self::str::*;
 pub use args::*;
@@ -26,25 +26,25 @@ pub use capture::*;
 pub use cast::*;
 pub use dict::*;
 pub use func::*;
-pub use machine::*;
 pub use raw::*;
 pub use scope::*;
 pub use typst_macros::node;
 pub use value::*;
+pub use vm::*;
 
 use std::collections::BTreeMap;
 
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::diag::{At, StrResult, Trace, Tracepoint, TypResult};
+use crate::diag::{failed_to_load, At, StrResult, Trace, Tracepoint, TypResult};
 use crate::geom::{Angle, Em, Fraction, Length, Ratio};
 use crate::library;
 use crate::model::{Content, Pattern, Recipe, StyleEntry, StyleMap};
-use crate::source::{SourceId, SourceStore};
+use crate::source::SourceId;
 use crate::syntax::ast::*;
 use crate::syntax::{Span, Spanned};
 use crate::util::EcoString;
-use crate::Context;
+use crate::World;
 
 /// Evaluate a source file and return the resulting module.
 ///
@@ -52,29 +52,24 @@ use crate::Context;
 /// layoutable contents or diagnostics in the form of a vector of error
 /// messages with file and span information.
 pub fn evaluate(
-    ctx: &mut Context,
+    world: &dyn World,
     id: SourceId,
     mut route: Vec<SourceId>,
 ) -> TypResult<Module> {
     // Prevent cyclic evaluation.
     if route.contains(&id) {
-        let path = ctx.sources.get(id).path().display();
+        let path = world.source(id).path().display();
         panic!("Tried to cyclicly evaluate {}", path);
     }
 
     route.push(id);
 
-    // Parse the file.
-    let source = ctx.sources.get(id);
-    let ast = source.ast()?;
-    let rev = source.rev();
-
     // Evaluate the module.
-    let std = ctx.config.std.clone();
-    let scopes = Scopes::new(Some(&std));
-    let mut vm = Machine::new(ctx, route, scopes);
+    let ast = world.source(id).ast()?;
+    let std = &world.config().std;
+    let scopes = Scopes::new(Some(std));
+    let mut vm = Vm::new(world, route, scopes);
     let result = ast.eval(&mut vm);
-    vm.deps.push((id, rev));
 
     // Handle control flow.
     if let Some(flow) = vm.flow {
@@ -82,11 +77,7 @@ pub fn evaluate(
     }
 
     // Assemble the module.
-    Ok(Module {
-        scope: vm.scopes.top,
-        content: result?,
-        deps: vm.deps,
-    })
+    Ok(Module { scope: vm.scopes.top, content: result? })
 }
 
 /// An evaluated module, ready for importing or layouting.
@@ -96,15 +87,6 @@ pub struct Module {
     pub scope: Scope,
     /// The module's layoutable contents.
     pub content: Content,
-    /// The source file revisions this module depends on.
-    pub deps: Vec<(SourceId, usize)>,
-}
-
-impl Module {
-    /// Whether the module is still valid for the given sources.
-    pub fn valid(&self, sources: &SourceStore) -> bool {
-        self.deps.iter().all(|&(id, rev)| rev == sources.get(id).rev())
-    }
 }
 
 /// Evaluate an expression.
@@ -113,20 +95,20 @@ pub trait Eval {
     type Output;
 
     /// Evaluate the expression to the output value.
-    fn eval(&self, vm: &mut Machine) -> TypResult<Self::Output>;
+    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output>;
 }
 
 impl Eval for Markup {
     type Output = Content;
 
-    fn eval(&self, vm: &mut Machine) -> TypResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
         eval_markup(vm, &mut self.nodes())
     }
 }
 
 /// Evaluate a stream of markup nodes.
 fn eval_markup(
-    vm: &mut Machine,
+    vm: &mut Vm,
     nodes: &mut impl Iterator<Item = MarkupNode>,
 ) -> TypResult<Content> {
     let flow = vm.flow.take();
@@ -175,7 +157,7 @@ fn eval_markup(
 impl Eval for MarkupNode {
     type Output = Content;
 
-    fn eval(&self, vm: &mut Machine) -> TypResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
         Ok(match self {
             Self::Space => Content::Space,
             Self::Parbreak => Content::Parbreak,
@@ -199,7 +181,7 @@ impl Eval for MarkupNode {
 impl Eval for StrongNode {
     type Output = Content;
 
-    fn eval(&self, vm: &mut Machine) -> TypResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
         Ok(Content::show(library::text::StrongNode(
             self.body().eval(vm)?,
         )))
@@ -209,7 +191,7 @@ impl Eval for StrongNode {
 impl Eval for EmphNode {
     type Output = Content;
 
-    fn eval(&self, vm: &mut Machine) -> TypResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
         Ok(Content::show(library::text::EmphNode(
             self.body().eval(vm)?,
         )))
@@ -219,7 +201,7 @@ impl Eval for EmphNode {
 impl Eval for RawNode {
     type Output = Content;
 
-    fn eval(&self, _: &mut Machine) -> TypResult<Self::Output> {
+    fn eval(&self, _: &mut Vm) -> TypResult<Self::Output> {
         let content = Content::show(library::text::RawNode {
             text: self.text.clone(),
             block: self.block,
@@ -234,7 +216,7 @@ impl Eval for RawNode {
 impl Eval for Spanned<MathNode> {
     type Output = Content;
 
-    fn eval(&self, _: &mut Machine) -> TypResult<Self::Output> {
+    fn eval(&self, _: &mut Vm) -> TypResult<Self::Output> {
         Ok(Content::show(library::math::MathNode {
             formula: self.clone().map(|math| math.formula),
             display: self.v.display,
@@ -245,7 +227,7 @@ impl Eval for Spanned<MathNode> {
 impl Eval for HeadingNode {
     type Output = Content;
 
-    fn eval(&self, vm: &mut Machine) -> TypResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
         Ok(Content::show(library::structure::HeadingNode {
             body: self.body().eval(vm)?,
             level: self.level(),
@@ -256,7 +238,7 @@ impl Eval for HeadingNode {
 impl Eval for ListNode {
     type Output = Content;
 
-    fn eval(&self, vm: &mut Machine) -> TypResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
         Ok(Content::Item(library::structure::ListItem {
             kind: library::structure::UNORDERED,
             number: None,
@@ -268,7 +250,7 @@ impl Eval for ListNode {
 impl Eval for EnumNode {
     type Output = Content;
 
-    fn eval(&self, vm: &mut Machine) -> TypResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
         Ok(Content::Item(library::structure::ListItem {
             kind: library::structure::ORDERED,
             number: self.number(),
@@ -280,7 +262,7 @@ impl Eval for EnumNode {
 impl Eval for Expr {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Machine) -> TypResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
         let forbidden = |name| {
             error!(
                 self.span(),
@@ -321,7 +303,7 @@ impl Eval for Expr {
 impl Eval for Lit {
     type Output = Value;
 
-    fn eval(&self, _: &mut Machine) -> TypResult<Self::Output> {
+    fn eval(&self, _: &mut Vm) -> TypResult<Self::Output> {
         Ok(match self.kind() {
             LitKind::None => Value::None,
             LitKind::Auto => Value::Auto,
@@ -343,7 +325,7 @@ impl Eval for Lit {
 impl Eval for Ident {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Machine) -> TypResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
         vm.scopes.get(self).cloned().at(self.span())
     }
 }
@@ -351,7 +333,7 @@ impl Eval for Ident {
 impl Eval for CodeBlock {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Machine) -> TypResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
         vm.scopes.enter();
         let output = eval_code(vm, &mut self.exprs())?;
         vm.scopes.exit();
@@ -360,10 +342,7 @@ impl Eval for CodeBlock {
 }
 
 /// Evaluate a stream of expressions.
-fn eval_code(
-    vm: &mut Machine,
-    exprs: &mut impl Iterator<Item = Expr>,
-) -> TypResult<Value> {
+fn eval_code(vm: &mut Vm, exprs: &mut impl Iterator<Item = Expr>) -> TypResult<Value> {
     let flow = vm.flow.take();
     let mut output = Value::None;
 
@@ -415,7 +394,7 @@ fn eval_code(
 impl Eval for ContentBlock {
     type Output = Content;
 
-    fn eval(&self, vm: &mut Machine) -> TypResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
         vm.scopes.enter();
         let content = self.body().eval(vm)?;
         vm.scopes.exit();
@@ -426,7 +405,7 @@ impl Eval for ContentBlock {
 impl Eval for GroupExpr {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Machine) -> TypResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
         self.expr().eval(vm)
     }
 }
@@ -434,7 +413,7 @@ impl Eval for GroupExpr {
 impl Eval for ArrayExpr {
     type Output = Array;
 
-    fn eval(&self, vm: &mut Machine) -> TypResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
         let items = self.items();
 
         let mut vec = Vec::with_capacity(items.size_hint().0);
@@ -456,7 +435,7 @@ impl Eval for ArrayExpr {
 impl Eval for DictExpr {
     type Output = Dict;
 
-    fn eval(&self, vm: &mut Machine) -> TypResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
         let mut map = BTreeMap::new();
 
         for item in self.items() {
@@ -486,7 +465,7 @@ impl Eval for DictExpr {
 impl Eval for UnaryExpr {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Machine) -> TypResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
         let value = self.expr().eval(vm)?;
         let result = match self.op() {
             UnOp::Pos => ops::pos(value),
@@ -500,7 +479,7 @@ impl Eval for UnaryExpr {
 impl Eval for BinaryExpr {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Machine) -> TypResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
         match self.op() {
             BinOp::Add => self.apply(vm, ops::add),
             BinOp::Sub => self.apply(vm, ops::sub),
@@ -529,7 +508,7 @@ impl BinaryExpr {
     /// Apply a basic binary operation.
     fn apply(
         &self,
-        vm: &mut Machine,
+        vm: &mut Vm,
         op: fn(Value, Value) -> StrResult<Value>,
     ) -> TypResult<Value> {
         let lhs = self.lhs().eval(vm)?;
@@ -548,7 +527,7 @@ impl BinaryExpr {
     /// Apply an assignment operation.
     fn assign(
         &self,
-        vm: &mut Machine,
+        vm: &mut Vm,
         op: fn(Value, Value) -> StrResult<Value>,
     ) -> TypResult<Value> {
         let rhs = self.rhs().eval(vm)?;
@@ -562,7 +541,7 @@ impl BinaryExpr {
 impl Eval for FieldAccess {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Machine) -> TypResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
         let object = self.object().eval(vm)?;
         let span = self.field().span();
         let field = self.field().take();
@@ -588,7 +567,7 @@ impl Eval for FieldAccess {
 impl Eval for FuncCall {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Machine) -> TypResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
         let callee = self.callee().eval(vm)?;
         let args = self.args().eval(vm)?;
 
@@ -597,7 +576,7 @@ impl Eval for FuncCall {
             Value::Dict(dict) => dict.get(&args.into_key()?).at(self.span())?.clone(),
             Value::Func(func) => {
                 let point = || Tracepoint::Call(func.name().map(ToString::to_string));
-                func.call(vm, args).trace(vm.ctx, point, self.span())?
+                func.call(vm, args).trace(vm.world, point, self.span())?
             }
 
             v => bail!(
@@ -612,7 +591,7 @@ impl Eval for FuncCall {
 impl Eval for MethodCall {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Machine) -> TypResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
         let span = self.span();
         let method = self.method();
         let point = || Tracepoint::Call(Some(method.to_string()));
@@ -621,12 +600,12 @@ impl Eval for MethodCall {
             let args = self.args().eval(vm)?;
             let mut value = self.receiver().access(vm)?;
             methods::call_mut(&mut value, &method, args, span)
-                .trace(vm.ctx, point, span)?;
+                .trace(vm.world, point, span)?;
             Value::None
         } else {
             let value = self.receiver().eval(vm)?;
             let args = self.args().eval(vm)?;
-            methods::call(vm, value, &method, args, span).trace(vm.ctx, point, span)?
+            methods::call(vm, value, &method, args, span).trace(vm.world, point, span)?
         })
     }
 }
@@ -634,7 +613,7 @@ impl Eval for MethodCall {
 impl Eval for CallArgs {
     type Output = Args;
 
-    fn eval(&self, vm: &mut Machine) -> TypResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
         let mut items = Vec::new();
 
         for arg in self.items() {
@@ -683,7 +662,7 @@ impl Eval for CallArgs {
 impl Eval for ClosureExpr {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Machine) -> TypResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
         // The closure's name is defined by its let binding if there's one.
         let name = self.name().map(Ident::take);
 
@@ -730,7 +709,7 @@ impl Eval for ClosureExpr {
 impl Eval for LetExpr {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Machine) -> TypResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
         let value = match self.init() {
             Some(expr) => expr.eval(vm)?,
             None => Value::None,
@@ -743,7 +722,7 @@ impl Eval for LetExpr {
 impl Eval for SetExpr {
     type Output = StyleMap;
 
-    fn eval(&self, vm: &mut Machine) -> TypResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
         let target = self.target();
         let target = target.eval(vm)?.cast::<Func>().at(target.span())?;
         let args = self.args().eval(vm)?;
@@ -754,7 +733,7 @@ impl Eval for SetExpr {
 impl Eval for ShowExpr {
     type Output = Recipe;
 
-    fn eval(&self, vm: &mut Machine) -> TypResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
         // Evaluate the target function.
         let pattern = self.pattern();
         let pattern = pattern.eval(vm)?.cast::<Pattern>().at(pattern.span())?;
@@ -791,7 +770,7 @@ impl Eval for ShowExpr {
 impl Eval for IfExpr {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Machine) -> TypResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
         let condition = self.condition();
         if condition.eval(vm)?.cast::<bool>().at(condition.span())? {
             self.if_body().eval(vm)
@@ -806,7 +785,7 @@ impl Eval for IfExpr {
 impl Eval for WhileExpr {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Machine) -> TypResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
         let flow = vm.flow.take();
         let mut output = Value::None;
 
@@ -838,7 +817,7 @@ impl Eval for WhileExpr {
 impl Eval for ForExpr {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Machine) -> TypResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
         let flow = vm.flow.take();
         let mut output = Value::None;
         vm.scopes.enter();
@@ -917,7 +896,7 @@ impl Eval for ForExpr {
 impl Eval for ImportExpr {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Machine) -> TypResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
         let span = self.path().span();
         let path = self.path().eval(vm)?.cast::<EcoString>().at(span)?;
         let module = import(vm, &path, span)?;
@@ -946,7 +925,7 @@ impl Eval for ImportExpr {
 impl Eval for IncludeExpr {
     type Output = Content;
 
-    fn eval(&self, vm: &mut Machine) -> TypResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
         let span = self.path().span();
         let path = self.path().eval(vm)?.cast::<EcoString>().at(span)?;
         let module = import(vm, &path, span)?;
@@ -955,10 +934,14 @@ impl Eval for IncludeExpr {
 }
 
 /// Process an import of a module relative to the current location.
-fn import(vm: &mut Machine, path: &str, span: Span) -> TypResult<Module> {
+fn import(vm: &mut Vm, path: &str, span: Span) -> TypResult<Module> {
     // Load the source file.
     let full = vm.locate(&path).at(span)?;
-    let id = vm.ctx.sources.load(&full).at(span)?;
+    let id = vm
+        .world
+        .resolve(&full)
+        .map_err(|err| failed_to_load("source file", &full, err))
+        .at(span)?;
 
     // Prevent cyclic importing.
     if vm.route.contains(&id) {
@@ -968,9 +951,7 @@ fn import(vm: &mut Machine, path: &str, span: Span) -> TypResult<Module> {
     // Evaluate the file.
     let route = vm.route.clone();
     let module =
-        evaluate(vm.ctx, id, route).trace(vm.ctx, || Tracepoint::Import, span)?;
-
-    vm.deps.extend(module.deps.iter().cloned());
+        evaluate(vm.world, id, route).trace(vm.world, || Tracepoint::Import, span)?;
 
     Ok(module)
 }
@@ -978,7 +959,7 @@ fn import(vm: &mut Machine, path: &str, span: Span) -> TypResult<Module> {
 impl Eval for BreakExpr {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Machine) -> TypResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
         if vm.flow.is_none() {
             vm.flow = Some(Flow::Break(self.span()));
         }
@@ -989,7 +970,7 @@ impl Eval for BreakExpr {
 impl Eval for ContinueExpr {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Machine) -> TypResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
         if vm.flow.is_none() {
             vm.flow = Some(Flow::Continue(self.span()));
         }
@@ -1000,7 +981,7 @@ impl Eval for ContinueExpr {
 impl Eval for ReturnExpr {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Machine) -> TypResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm) -> TypResult<Self::Output> {
         let value = self.body().map(|body| body.eval(vm)).transpose()?;
         if vm.flow.is_none() {
             vm.flow = Some(Flow::Return(self.span(), value));
@@ -1012,11 +993,11 @@ impl Eval for ReturnExpr {
 /// Access an expression mutably.
 pub trait Access {
     /// Access the value.
-    fn access<'a>(&self, vm: &'a mut Machine) -> TypResult<&'a mut Value>;
+    fn access<'a>(&self, vm: &'a mut Vm) -> TypResult<&'a mut Value>;
 }
 
 impl Access for Expr {
-    fn access<'a>(&self, vm: &'a mut Machine) -> TypResult<&'a mut Value> {
+    fn access<'a>(&self, vm: &'a mut Vm) -> TypResult<&'a mut Value> {
         match self {
             Expr::Ident(v) => v.access(vm),
             Expr::FieldAccess(v) => v.access(vm),
@@ -1027,13 +1008,13 @@ impl Access for Expr {
 }
 
 impl Access for Ident {
-    fn access<'a>(&self, vm: &'a mut Machine) -> TypResult<&'a mut Value> {
+    fn access<'a>(&self, vm: &'a mut Vm) -> TypResult<&'a mut Value> {
         vm.scopes.get_mut(self).at(self.span())
     }
 }
 
 impl Access for FieldAccess {
-    fn access<'a>(&self, vm: &'a mut Machine) -> TypResult<&'a mut Value> {
+    fn access<'a>(&self, vm: &'a mut Vm) -> TypResult<&'a mut Value> {
         Ok(match self.object().access(vm)? {
             Value::Dict(dict) => dict.get_mut(self.field().take().into()),
             v => bail!(
@@ -1046,7 +1027,7 @@ impl Access for FieldAccess {
 }
 
 impl Access for FuncCall {
-    fn access<'a>(&self, vm: &'a mut Machine) -> TypResult<&'a mut Value> {
+    fn access<'a>(&self, vm: &'a mut Vm) -> TypResult<&'a mut Value> {
         let args = self.args().eval(vm)?;
         Ok(match self.callee().access(vm)? {
             Value::Array(array) => array.get_mut(args.into_index()?).at(self.span())?,

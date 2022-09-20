@@ -6,7 +6,7 @@ pub struct RefNode(pub EcoString);
 
 #[node(showable)]
 impl RefNode {
-    fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Content> {
         Ok(Content::show(Self(args.expect("label")?)))
     }
 }
@@ -22,7 +22,7 @@ impl Show for RefNode {
         }
     }
 
-    fn realize(&self, _: &mut Context, _: StyleChain) -> TypResult<Content> {
+    fn realize(&self, _: &dyn World, _: StyleChain) -> TypResult<Content> {
         Ok(Content::Text(format_eco!("@{}", self.0)))
     }
 }

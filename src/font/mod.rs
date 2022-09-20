@@ -15,7 +15,7 @@ use rex::font::MathHeader;
 use ttf_parser::{GlyphId, Tag};
 
 use crate::geom::Em;
-use crate::loading::Buffer;
+use crate::util::Buffer;
 
 /// An OpenType font.
 #[derive(Clone)]

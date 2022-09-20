@@ -1,13 +1,13 @@
 //! Methods on values.
 
-use super::{Args, Machine, Value};
+use super::{Args, Value, Vm};
 use crate::diag::{At, TypResult};
 use crate::syntax::Span;
 use crate::util::EcoString;
 
 /// Call a method on a value.
 pub fn call(
-    vm: &mut Machine,
+    vm: &mut Vm,
     value: Value,
     method: &str,
     mut args: Args,

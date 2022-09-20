@@ -3,7 +3,7 @@ use std::cmp::Ordering;
 use crate::library::prelude::*;
 
 /// Convert a value to an integer.
-pub fn int(_: &mut Machine, args: &mut Args) -> TypResult<Value> {
+pub fn int(_: &mut Vm, args: &mut Args) -> TypResult<Value> {
     let Spanned { v, span } = args.expect("value")?;
     Ok(Value::Int(match v {
         Value::Bool(v) => v as i64,
@@ -18,7 +18,7 @@ pub fn int(_: &mut Machine, args: &mut Args) -> TypResult<Value> {
 }
 
 /// Convert a value to a float.
-pub fn float(_: &mut Machine, args: &mut Args) -> TypResult<Value> {
+pub fn float(_: &mut Vm, args: &mut Args) -> TypResult<Value> {
     let Spanned { v, span } = args.expect("value")?;
     Ok(Value::Float(match v {
         Value::Int(v) => v as f64,
@@ -32,7 +32,7 @@ pub fn float(_: &mut Machine, args: &mut Args) -> TypResult<Value> {
 }
 
 /// The absolute value of a numeric value.
-pub fn abs(_: &mut Machine, args: &mut Args) -> TypResult<Value> {
+pub fn abs(_: &mut Vm, args: &mut Args) -> TypResult<Value> {
     let Spanned { v, span } = args.expect("numeric value")?;
     Ok(match v {
         Value::Int(v) => Value::Int(v.abs()),
@@ -48,12 +48,12 @@ pub fn abs(_: &mut Machine, args: &mut Args) -> TypResult<Value> {
 }
 
 /// The minimum of a sequence of values.
-pub fn min(_: &mut Machine, args: &mut Args) -> TypResult<Value> {
+pub fn min(_: &mut Vm, args: &mut Args) -> TypResult<Value> {
     minmax(args, Ordering::Less)
 }
 
 /// The maximum of a sequence of values.
-pub fn max(_: &mut Machine, args: &mut Args) -> TypResult<Value> {
+pub fn max(_: &mut Vm, args: &mut Args) -> TypResult<Value> {
     minmax(args, Ordering::Greater)
 }
 
@@ -79,17 +79,17 @@ fn minmax(args: &mut Args, goal: Ordering) -> TypResult<Value> {
 }
 
 /// Whether an integer is even.
-pub fn even(_: &mut Machine, args: &mut Args) -> TypResult<Value> {
+pub fn even(_: &mut Vm, args: &mut Args) -> TypResult<Value> {
     Ok(Value::Bool(args.expect::<i64>("integer")? % 2 == 0))
 }
 
 /// Whether an integer is odd.
-pub fn odd(_: &mut Machine, args: &mut Args) -> TypResult<Value> {
+pub fn odd(_: &mut Vm, args: &mut Args) -> TypResult<Value> {
     Ok(Value::Bool(args.expect::<i64>("integer")? % 2 != 0))
 }
 
 /// The modulo of two numbers.
-pub fn mod_(_: &mut Machine, args: &mut Args) -> TypResult<Value> {
+pub fn mod_(_: &mut Vm, args: &mut Args) -> TypResult<Value> {
     let Spanned { v: v1, span: span1 } = args.expect("integer or float")?;
     let Spanned { v: v2, span: span2 } = args.expect("integer or float")?;
 
@@ -119,7 +119,7 @@ pub fn mod_(_: &mut Machine, args: &mut Args) -> TypResult<Value> {
 }
 
 /// Create a sequence of numbers.
-pub fn range(_: &mut Machine, args: &mut Args) -> TypResult<Value> {
+pub fn range(_: &mut Vm, args: &mut Args) -> TypResult<Value> {
     let first = args.expect::<i64>("end")?;
     let (start, end) = match args.eat::<i64>()? {
         Some(second) => (first, second),

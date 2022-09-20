@@ -1,13 +1,13 @@
 use crate::library::prelude::*;
 
 /// Read structured data from a CSV file.
-pub fn csv(vm: &mut Machine, args: &mut Args) -> TypResult<Value> {
+pub fn csv(vm: &mut Vm, args: &mut Args) -> TypResult<Value> {
     let Spanned { v: path, span } =
         args.expect::<Spanned<EcoString>>("path to csv file")?;
 
     let path = vm.locate(&path).at(span)?;
     let try_load = || -> io::Result<Value> {
-        let data = vm.ctx.loader.file(&path)?;
+        let data = vm.world.file(&path)?;
 
         let mut builder = csv::ReaderBuilder::new();
         builder.has_headers(false);

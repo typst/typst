@@ -5,7 +5,7 @@ use crate::diag::TypResult;
 use crate::eval::{Args, Func, Regex, Value};
 use crate::library::structure::{EnumNode, ListNode};
 use crate::syntax::Spanned;
-use crate::Context;
+use crate::World;
 
 /// A show rule recipe.
 #[derive(Clone, PartialEq, Hash)]
@@ -29,7 +29,7 @@ impl Recipe {
     /// Try to apply the recipe to the target.
     pub fn apply(
         &self,
-        ctx: &mut Context,
+        world: &dyn World,
         styles: StyleChain,
         sel: Selector,
         target: Target,
@@ -37,7 +37,7 @@ impl Recipe {
         let content = match (target, &self.pattern) {
             (Target::Node(node), &Pattern::Node(id)) if node.id() == id => {
                 let node = node.unguard(sel);
-                self.call(ctx, || {
+                self.call(world, || {
                     let dict = node.encode(styles);
                     Value::Content(Content::Show(node, Some(dict)))
                 })?
@@ -53,7 +53,7 @@ impl Recipe {
                         result.push(Content::Text(text[cursor .. start].into()));
                     }
 
-                    result.push(self.call(ctx, || Value::Str(mat.as_str().into()))?);
+                    result.push(self.call(world, || Value::Str(mat.as_str().into()))?);
                     cursor = mat.end();
                 }
 
@@ -75,7 +75,7 @@ impl Recipe {
     }
 
     /// Call the recipe function, with the argument if desired.
-    fn call<F>(&self, ctx: &mut Context, arg: F) -> TypResult<Content>
+    fn call<F>(&self, world: &dyn World, arg: F) -> TypResult<Content>
     where
         F: FnOnce() -> Value,
     {
@@ -85,7 +85,7 @@ impl Recipe {
             Args::new(self.func.span, [arg()])
         };
 
-        Ok(self.func.v.call_detached(ctx, args)?.display())
+        Ok(self.func.v.call_detached(world, args)?.display())
     }
 
     /// What kind of structure the property interrupts.

@@ -8,7 +8,7 @@ pub struct HNode;
 
 #[node]
 impl HNode {
-    fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Content> {
         let amount = args.expect("spacing")?;
         let weak = args.named("weak")?.unwrap_or(false);
         Ok(Content::Horizontal { amount, weak })
@@ -20,7 +20,7 @@ pub struct VNode;
 
 #[node]
 impl VNode {
-    fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Content> {
         let amount = args.expect("spacing")?;
         let weak = args.named("weak")?.unwrap_or(false);
         Ok(Content::Vertical { amount, weak, generated: false })

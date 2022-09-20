@@ -30,7 +30,7 @@ impl TableNode {
     #[property(resolve, shorthand(around))]
     pub const BELOW: Option<BlockSpacing> = Some(Ratio::one().into());
 
-    fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Content> {
         let columns = args.named("columns")?.unwrap_or_default();
         let rows = args.named("rows")?.unwrap_or_default();
         let base_gutter: Vec<TrackSizing> = args.named("gutter")?.unwrap_or_default();
@@ -72,7 +72,7 @@ impl Show for TableNode {
         }
     }
 
-    fn realize(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content> {
+    fn realize(&self, world: &dyn World, styles: StyleChain) -> TypResult<Content> {
         let fill = styles.get(Self::FILL);
         let stroke = styles.get(Self::STROKE).map(RawStroke::unwrap_or_default);
         let padding = styles.get(Self::PADDING);
@@ -92,7 +92,7 @@ impl Show for TableNode {
 
                 let x = i % cols;
                 let y = i / cols;
-                if let Some(fill) = fill.resolve(ctx, x, y)? {
+                if let Some(fill) = fill.resolve(world, x, y)? {
                     child = child.filled(fill);
                 }
 
@@ -110,7 +110,7 @@ impl Show for TableNode {
 
     fn finalize(
         &self,
-        _: &mut Context,
+        _: &dyn World,
         styles: StyleChain,
         realized: Content,
     ) -> TypResult<Content> {
@@ -129,12 +129,12 @@ pub enum Celled<T> {
 
 impl<T: Cast + Clone> Celled<T> {
     /// Resolve the value based on the cell position.
-    pub fn resolve(&self, ctx: &mut Context, x: usize, y: usize) -> TypResult<T> {
+    pub fn resolve(&self, world: &dyn World, x: usize, y: usize) -> TypResult<T> {
         Ok(match self {
             Self::Value(value) => value.clone(),
             Self::Func(func, span) => {
                 let args = Args::new(*span, [Value::Int(x as i64), Value::Int(y as i64)]);
-                func.call_detached(ctx, args)?.cast().at(*span)?
+                func.call_detached(world, args)?.cast().at(*span)?
             }
         })
     }

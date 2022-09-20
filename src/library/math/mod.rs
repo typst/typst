@@ -28,7 +28,7 @@ impl MathNode {
     #[property(resolve, shorthand(around))]
     pub const BELOW: Option<BlockSpacing> = Some(Ratio::one().into());
 
-    fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Content> {
         Ok(Content::show(Self {
             formula: args.expect("formula")?,
             display: args.named("display")?.unwrap_or(false),
@@ -48,7 +48,7 @@ impl Show for MathNode {
         }
     }
 
-    fn realize(&self, _: &mut Context, styles: StyleChain) -> TypResult<Content> {
+    fn realize(&self, _: &dyn World, styles: StyleChain) -> TypResult<Content> {
         let node = self::rex::RexNode {
             tex: self.formula.clone(),
             display: self.display,
@@ -64,7 +64,7 @@ impl Show for MathNode {
 
     fn finalize(
         &self,
-        _: &mut Context,
+        _: &dyn World,
         styles: StyleChain,
         mut realized: Content,
     ) -> TypResult<Content> {

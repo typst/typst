@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 
-use super::{Args, Func, Machine, Node, Value};
+use super::{Args, Func, Node, Value, Vm};
 use crate::diag::{StrResult, TypResult};
 use crate::util::EcoString;
 
@@ -78,7 +78,7 @@ impl Scope {
     pub fn def_fn(
         &mut self,
         name: &'static str,
-        func: fn(&mut Machine, &mut Args) -> TypResult<Value>,
+        func: fn(&mut Vm, &mut Args) -> TypResult<Value>,
     ) {
         self.define(name, Func::from_fn(name, func));
     }

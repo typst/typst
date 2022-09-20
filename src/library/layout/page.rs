@@ -41,7 +41,7 @@ impl PageNode {
     #[property(referenced)]
     pub const FOREGROUND: Marginal = Marginal::None;
 
-    fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Content> {
         Ok(Content::Page(Self(args.expect("body")?)))
     }
 
@@ -57,7 +57,7 @@ impl PageNode {
     /// Layout the page run into a sequence of frames, one per page.
     pub fn layout(
         &self,
-        ctx: &mut Context,
+        world: &dyn World,
         mut page: usize,
         styles: StyleChain,
     ) -> TypResult<Vec<Frame>> {
@@ -97,7 +97,7 @@ impl PageNode {
 
         // Layout the child.
         let regions = Regions::repeat(size, size, size.map(Length::is_finite));
-        let mut frames = child.layout(ctx, &regions, styles)?;
+        let mut frames = child.layout(world, &regions, styles)?;
 
         let header = styles.get(Self::HEADER);
         let footer = styles.get(Self::FOOTER);
@@ -126,9 +126,9 @@ impl PageNode {
                 (Role::Foreground, foreground, Point::zero(), size),
                 (Role::Background, background, Point::zero(), size),
             ] {
-                if let Some(content) = marginal.resolve(ctx, page)? {
+                if let Some(content) = marginal.resolve(world, page)? {
                     let pod = Regions::one(area, area, Spec::splat(true));
-                    let mut sub = content.layout(ctx, &pod, styles)?.remove(0);
+                    let mut sub = content.layout(world, &pod, styles)?.remove(0);
                     sub.apply_role(role);
 
                     if role == Role::Background {
@@ -159,7 +159,7 @@ pub struct PagebreakNode;
 
 #[node]
 impl PagebreakNode {
-    fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Content> {
         let weak = args.named("weak")?.unwrap_or(false);
         Ok(Content::Pagebreak { weak })
     }
@@ -178,13 +178,13 @@ pub enum Marginal {
 
 impl Marginal {
     /// Resolve the marginal based on the page number.
-    pub fn resolve(&self, ctx: &mut Context, page: usize) -> TypResult<Option<Content>> {
+    pub fn resolve(&self, world: &dyn World, page: usize) -> TypResult<Option<Content>> {
         Ok(match self {
             Self::None => None,
             Self::Content(content) => Some(content.clone()),
             Self::Func(func, span) => {
                 let args = Args::new(*span, [Value::Int(page as i64)]);
-                Some(func.call_detached(ctx, args)?.display())
+                Some(func.call_detached(world, args)?.display())
             }
         })
     }

@@ -1,24 +1,31 @@
+use std::cell::RefCell;
+use std::collections::{hash_map::Entry, HashMap};
 use std::env;
 use std::ffi::OsStr;
-use std::fs;
+use std::fs::{self, File};
+use std::hash::Hash;
+use std::io;
 use std::ops::Range;
-use std::path::Path;
-use std::sync::Arc;
+use std::path::{Path, PathBuf};
 
+use elsa::FrozenVec;
+use same_file::Handle;
+use siphasher::sip128::{Hasher128, SipHasher};
 use tiny_skia as sk;
 use unscanny::Scanner;
 use walkdir::WalkDir;
 
 use typst::eval::{Smart, Value};
+use typst::font::{Font, FontBook};
 use typst::frame::{Element, Frame};
 use typst::geom::{Length, RgbaColor, Sides};
 use typst::library::layout::PageNode;
 use typst::library::text::{TextNode, TextSize};
-use typst::loading::FsLoader;
 use typst::model::StyleMap;
-use typst::source::Source;
+use typst::source::{Source, SourceId};
 use typst::syntax::SyntaxNode;
-use typst::{bail, Config, Context};
+use typst::util::Buffer;
+use typst::{bail, Config, World};
 
 const TYP_DIR: &str = "./typ";
 const REF_DIR: &str = "./ref";
@@ -57,46 +64,8 @@ fn main() {
         println!("Running {len} tests");
     }
 
-    // Set page width to 120pt with 10pt margins, so that the inner page is
-    // exactly 100pt wide. Page height is unbounded and font size is 10pt so
-    // that it multiplies to nice round numbers.
-    let mut styles = StyleMap::new();
-    styles.set(PageNode::WIDTH, Smart::Custom(Length::pt(120.0).into()));
-    styles.set(PageNode::HEIGHT, Smart::Auto);
-    styles.set(
-        PageNode::MARGINS,
-        Sides::splat(Some(Smart::Custom(Length::pt(10.0).into()))),
-    );
-    styles.set(TextNode::SIZE, TextSize(Length::pt(10.0).into()));
-
-    // Hook up helpers into the global scope.
-    let mut std = typst::library::new();
-    std.define("conifer", RgbaColor::new(0x9f, 0xEB, 0x52, 0xFF));
-    std.define("forest", RgbaColor::new(0x43, 0xA1, 0x27, 0xFF));
-    std.def_fn("test", move |_, args| {
-        let lhs = args.expect::<Value>("left-hand side")?;
-        let rhs = args.expect::<Value>("right-hand side")?;
-        if lhs != rhs {
-            bail!(args.span, "Assertion failed: {:?} != {:?}", lhs, rhs,);
-        }
-        Ok(Value::None)
-    });
-    std.def_fn("print", move |_, args| {
-        print!("> ");
-        for (i, value) in args.all::<Value>()?.into_iter().enumerate() {
-            if i > 0 {
-                print!(", ")
-            }
-            print!("{value:?}");
-        }
-        println!();
-        Ok(Value::None)
-    });
-
     // Create loader and context.
-    let loader = FsLoader::new().with_path(FONT_DIR);
-    let config = Config::builder().std(std).styles(styles).build();
-    let mut ctx = Context::new(Arc::new(loader), config);
+    let mut world = TestWorld::new(args.print);
 
     // Run all the tests.
     let mut ok = 0;
@@ -108,12 +77,11 @@ fn main() {
             args.pdf.then(|| Path::new(PDF_DIR).join(path).with_extension("pdf"));
 
         ok += test(
-            &mut ctx,
+            &mut world,
             &src_path,
             &png_path,
             &ref_path,
             pdf_path.as_deref(),
-            &args.print,
         ) as usize;
     }
 
@@ -179,18 +147,166 @@ impl Args {
     }
 }
 
+struct TestWorld {
+    config: Config,
+    print: PrintConfig,
+    sources: FrozenVec<Box<Source>>,
+    nav: RefCell<HashMap<PathHash, SourceId>>,
+    book: FontBook,
+    fonts: Vec<Font>,
+    files: RefCell<HashMap<PathHash, Buffer>>,
+}
+
+impl TestWorld {
+    fn new(print: PrintConfig) -> Self {
+        // Set page width to 120pt with 10pt margins, so that the inner page is
+        // exactly 100pt wide. Page height is unbounded and font size is 10pt so
+        // that it multiplies to nice round numbers.
+        let mut styles = StyleMap::new();
+        styles.set(PageNode::WIDTH, Smart::Custom(Length::pt(120.0).into()));
+        styles.set(PageNode::HEIGHT, Smart::Auto);
+        styles.set(
+            PageNode::MARGINS,
+            Sides::splat(Some(Smart::Custom(Length::pt(10.0).into()))),
+        );
+        styles.set(TextNode::SIZE, TextSize(Length::pt(10.0).into()));
+
+        // Hook up helpers into the global scope.
+        let mut std = typst::library::new();
+        std.define("conifer", RgbaColor::new(0x9f, 0xEB, 0x52, 0xFF));
+        std.define("forest", RgbaColor::new(0x43, 0xA1, 0x27, 0xFF));
+        std.def_fn("test", move |_, args| {
+            let lhs = args.expect::<Value>("left-hand side")?;
+            let rhs = args.expect::<Value>("right-hand side")?;
+            if lhs != rhs {
+                bail!(args.span, "Assertion failed: {:?} != {:?}", lhs, rhs,);
+            }
+            Ok(Value::None)
+        });
+        std.def_fn("print", move |_, args| {
+            print!("> ");
+            for (i, value) in args.all::<Value>()?.into_iter().enumerate() {
+                if i > 0 {
+                    print!(", ")
+                }
+                print!("{value:?}");
+            }
+            println!();
+            Ok(Value::None)
+        });
+
+        let mut fonts = vec![];
+        for entry in WalkDir::new(FONT_DIR)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .filter(|entry| entry.file_type().is_file())
+        {
+            let buffer: Buffer = fs::read(entry.path()).unwrap().into();
+            for index in 0 .. ttf_parser::fonts_in_collection(&buffer).unwrap_or(1) {
+                fonts.push(Font::new(buffer.clone(), index).unwrap())
+            }
+        }
+
+        Self {
+            config: Config { root: PathBuf::new(), std, styles },
+            print,
+            sources: FrozenVec::new(),
+            nav: RefCell::new(HashMap::new()),
+            book: FontBook::from_fonts(&fonts),
+            fonts,
+            files: RefCell::new(HashMap::new()),
+        }
+    }
+
+    fn provide(&mut self, path: &Path, text: String) -> SourceId {
+        let hash = PathHash::new(path).unwrap();
+        if let Some(&id) = self.nav.borrow().get(&hash) {
+            self.sources.as_mut()[id.into_raw() as usize].replace(text);
+            return id;
+        }
+
+        let id = SourceId::from_raw(self.sources.len() as u16);
+        let source = Source::new(id, path, text);
+        self.sources.push(Box::new(source));
+        self.nav.borrow_mut().insert(hash, id);
+        id
+    }
+}
+
+impl World for TestWorld {
+    fn config(&self) -> &Config {
+        &self.config
+    }
+
+    fn resolve(&self, path: &Path) -> io::Result<SourceId> {
+        let hash = PathHash::new(path)?;
+        if let Some(&id) = self.nav.borrow().get(&hash) {
+            return Ok(id);
+        }
+
+        let data = fs::read(path)?;
+        let text = String::from_utf8(data).map_err(|_| {
+            io::Error::new(io::ErrorKind::InvalidData, "file is not valid utf-8")
+        })?;
+
+        let id = SourceId::from_raw(self.sources.len() as u16);
+        let source = Source::new(id, path, text);
+        self.sources.push(Box::new(source));
+        self.nav.borrow_mut().insert(hash, id);
+
+        Ok(id)
+    }
+
+    fn source(&self, id: SourceId) -> &Source {
+        &self.sources[id.into_raw() as usize]
+    }
+
+    fn book(&self) -> &FontBook {
+        &self.book
+    }
+
+    fn font(&self, id: usize) -> io::Result<Font> {
+        Ok(self.fonts[id].clone())
+    }
+
+    fn file(&self, path: &Path) -> io::Result<Buffer> {
+        let hash = PathHash::new(path)?;
+        Ok(match self.files.borrow_mut().entry(hash) {
+            Entry::Occupied(entry) => entry.get().clone(),
+            Entry::Vacant(entry) => entry.insert(fs::read(path)?.into()).clone(),
+        })
+    }
+}
+
+/// A hash that is the same for all paths pointing to the same file.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+struct PathHash(u128);
+
+impl PathHash {
+    fn new(path: &Path) -> io::Result<Self> {
+        let file = File::open(path)?;
+        if file.metadata()?.is_file() {
+            let handle = Handle::from_file(file)?;
+            let mut state = SipHasher::new();
+            handle.hash(&mut state);
+            Ok(Self(state.finish128().as_u128()))
+        } else {
+            Err(io::ErrorKind::NotFound.into())
+        }
+    }
+}
+
 fn test(
-    ctx: &mut Context,
+    world: &mut TestWorld,
     src_path: &Path,
     png_path: &Path,
     ref_path: &Path,
     pdf_path: Option<&Path>,
-    print: &PrintConfig,
 ) -> bool {
     let name = src_path.strip_prefix(TYP_DIR).unwrap_or(src_path);
     println!("Testing {}", name.display());
 
-    let src = fs::read_to_string(src_path).unwrap();
+    let text = fs::read_to_string(src_path).unwrap();
 
     let mut ok = true;
     let mut frames = vec![];
@@ -199,7 +315,7 @@ fn test(
     let mut compare_ever = false;
     let mut rng = LinearShift::new();
 
-    let parts: Vec<_> = src.split("\n---").collect();
+    let parts: Vec<_> = text.split("\n---").collect();
     for (i, &part) in parts.iter().enumerate() {
         let is_header = i == 0
             && parts.len() > 1
@@ -214,16 +330,8 @@ fn test(
                 }
             }
         } else {
-            let (part_ok, compare_here, part_frames) = test_part(
-                ctx,
-                src_path,
-                part.into(),
-                i,
-                compare_ref,
-                line,
-                print,
-                &mut rng,
-            );
+            let (part_ok, compare_here, part_frames) =
+                test_part(world, src_path, part.into(), i, compare_ref, line, &mut rng);
             ok &= part_ok;
             compare_ever |= compare_here;
             frames.extend(part_frames);
@@ -239,7 +347,7 @@ fn test(
             fs::write(pdf_path, pdf_data).unwrap();
         }
 
-        if print.frames {
+        if world.print.frames {
             for frame in &frames {
                 println!("Frame: {:#?}", frame);
             }
@@ -268,7 +376,7 @@ fn test(
     }
 
     if ok {
-        if *print == PrintConfig::default() {
+        if world.print == PrintConfig::default() {
             print!("\x1b[1A");
         }
         println!("Testing {} ✔", name.display());
@@ -278,20 +386,19 @@ fn test(
 }
 
 fn test_part(
-    ctx: &mut Context,
+    world: &mut TestWorld,
     src_path: &Path,
-    src: String,
+    text: String,
     i: usize,
     compare_ref: bool,
     line: usize,
-    print: &PrintConfig,
     rng: &mut LinearShift,
 ) -> (bool, bool, Vec<Frame>) {
     let mut ok = true;
 
-    let id = ctx.sources.provide(src_path, src);
-    let source = ctx.sources.get(id);
-    if print.syntax {
+    let id = world.provide(src_path, text);
+    let source = world.source(id);
+    if world.print.syntax {
         println!("Syntax Tree: {:#?}", source.root())
     }
 
@@ -299,9 +406,9 @@ fn test_part(
     let compare_ref = local_compare_ref.unwrap_or(compare_ref);
 
     ok &= test_spans(source.root());
-    ok &= test_reparse(ctx.sources.get(id).src(), i, rng);
+    ok &= test_reparse(world.source(id).text(), i, rng);
 
-    let (mut frames, errors) = match typst::typeset(ctx, id) {
+    let (mut frames, errors) = match typst::typeset(world, id) {
         Ok(frames) => (frames, vec![]),
         Err(errors) => (vec![], *errors),
     };
@@ -317,7 +424,7 @@ fn test_part(
         .into_iter()
         .filter(|error| error.span.source() == id)
         .map(|error| {
-            let range = ctx.sources.range(error.span);
+            let range = world.source(error.span.source()).range(error.span);
             let msg = error.message.replace("\\", "/");
             (range, msg)
         })
@@ -330,7 +437,7 @@ fn test_part(
         println!("  Subtest {i} does not match expected errors. ❌");
         ok = false;
 
-        let source = ctx.sources.get(id);
+        let source = world.source(id);
         for error in errors.iter() {
             if !ref_errors.contains(error) {
                 print!("    Not annotated | ");
@@ -353,7 +460,7 @@ fn parse_metadata(source: &Source) -> (Option<bool>, Vec<(Range<usize>, String)>
     let mut compare_ref = None;
     let mut errors = vec![];
 
-    let lines: Vec<_> = source.src().lines().map(str::trim).collect();
+    let lines: Vec<_> = source.text().lines().map(str::trim).collect();
     for (i, line) in lines.iter().enumerate() {
         if line.starts_with("// Ref: false") {
             compare_ref = Some(false);
@@ -409,7 +516,7 @@ fn print_error(source: &Source, line: usize, (range, message): &(Range<usize>, S
 /// The method will first inject 10 strings once every 400 source characters
 /// and then select 5 leaf node boundries to inject an additional, randomly
 /// chosen string from the injection list.
-fn test_reparse(src: &str, i: usize, rng: &mut LinearShift) -> bool {
+fn test_reparse(text: &str, i: usize, rng: &mut LinearShift) -> bool {
     let supplements = [
         "[",
         "]",
@@ -441,19 +548,19 @@ fn test_reparse(src: &str, i: usize, rng: &mut LinearShift) -> bool {
     let mut ok = true;
 
     let apply = |replace: std::ops::Range<usize>, with| {
-        let mut incr_source = Source::detached(src);
-        if incr_source.root().len() != src.len() {
+        let mut incr_source = Source::detached(text);
+        if incr_source.root().len() != text.len() {
             println!(
                 "    Subtest {i} tree length {} does not match string length {} ❌",
                 incr_source.root().len(),
-                src.len(),
+                text.len(),
             );
             return false;
         }
 
         incr_source.edit(replace.clone(), with);
 
-        let edited_src = incr_source.src();
+        let edited_src = incr_source.text();
         let incr_root = incr_source.root();
         let ref_source = Source::detached(edited_src);
         let ref_root = ref_source.root();
@@ -481,20 +588,20 @@ fn test_reparse(src: &str, i: usize, rng: &mut LinearShift) -> bool {
         (range.start as f64 + ratio * (range.end - range.start) as f64).floor() as usize
     };
 
-    let insertions = (src.len() as f64 / 400.0).ceil() as usize;
+    let insertions = (text.len() as f64 / 400.0).ceil() as usize;
     for _ in 0 .. insertions {
         let supplement = supplements[pick(0 .. supplements.len())];
-        let start = pick(0 .. src.len());
-        let end = pick(start .. src.len());
+        let start = pick(0 .. text.len());
+        let end = pick(start .. text.len());
 
-        if !src.is_char_boundary(start) || !src.is_char_boundary(end) {
+        if !text.is_char_boundary(start) || !text.is_char_boundary(end) {
             continue;
         }
 
         ok &= apply(start .. end, supplement);
     }
 
-    let source = Source::detached(src);
+    let source = Source::detached(text);
     let leafs = source.root().leafs();
     let start = source.range(leafs[pick(0 .. leafs.len())].span()).start;
     let supplement = supplements[pick(0 .. supplements.len())];

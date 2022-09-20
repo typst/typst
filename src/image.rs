@@ -2,7 +2,7 @@
 
 use std::io;
 
-use crate::loading::Buffer;
+use crate::util::Buffer;
 
 /// A raster or vector image.
 ///

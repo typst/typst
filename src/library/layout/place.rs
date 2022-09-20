@@ -7,7 +7,7 @@ pub struct PlaceNode(pub LayoutNode);
 
 #[node]
 impl PlaceNode {
-    fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Content> {
         let aligns = args.find()?.unwrap_or(Spec::with_x(Some(RawAlign::Start)));
         let dx = args.named("dx")?.unwrap_or_default();
         let dy = args.named("dy")?.unwrap_or_default();
@@ -21,7 +21,7 @@ impl PlaceNode {
 impl Layout for PlaceNode {
     fn layout(
         &self,
-        ctx: &mut Context,
+        world: &dyn World,
         regions: &Regions,
         styles: StyleChain,
     ) -> TypResult<Vec<Frame>> {
@@ -35,7 +35,7 @@ impl Layout for PlaceNode {
             Regions::one(regions.base, regions.base, expand)
         };
 
-        let mut frames = self.0.layout(ctx, &pod, styles)?;
+        let mut frames = self.0.layout(world, &pod, styles)?;
 
         // If expansion is off, zero all sizes so that we don't take up any
         // space in our parent. Otherwise, respect the expand settings.

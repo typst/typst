@@ -147,8 +147,8 @@ fn render_svg_glyph(
     }
 
     // Parse XML.
-    let src = std::str::from_utf8(data).ok()?;
-    let document = roxmltree::Document::parse(src).ok()?;
+    let xml = std::str::from_utf8(data).ok()?;
+    let document = roxmltree::Document::parse(xml).ok()?;
     let root = document.root_element();
 
     // Parse SVG.

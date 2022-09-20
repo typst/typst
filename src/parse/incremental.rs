@@ -15,21 +15,21 @@ use super::{
 /// Returns the range in the new source that was ultimately reparsed.
 pub fn reparse(
     root: &mut SyntaxNode,
-    src: &str,
+    text: &str,
     replaced: Range<usize>,
     replacement_len: usize,
 ) -> Range<usize> {
     if let SyntaxNode::Inner(inner) = root {
-        let change = Change { src, replaced, replacement_len };
+        let change = Change { text, replaced, replacement_len };
         if let Some(range) = try_reparse(&change, Arc::make_mut(inner), 0, true, true) {
             return range;
         }
     }
 
     let id = root.span().source();
-    *root = parse(src);
+    *root = parse(text);
     root.numberize(id, Span::FULL).unwrap();
-    0 .. src.len()
+    0 .. text.len()
 }
 
 /// Try to reparse inside the given node.
@@ -228,27 +228,27 @@ fn replace(
     let newborn_span = superseded_span.start .. newborn_end;
 
     let mut prefix = "";
-    for (i, c) in change.src[.. newborn_span.start].char_indices().rev() {
+    for (i, c) in change.text[.. newborn_span.start].char_indices().rev() {
         if is_newline(c) {
             break;
         }
-        prefix = &change.src[i .. newborn_span.start];
+        prefix = &change.text[i .. newborn_span.start];
     }
 
     let (newborns, terminated, amount) = match mode {
         ReparseMode::Code => reparse_code_block(
             &prefix,
-            &change.src[newborn_span.start ..],
+            &change.text[newborn_span.start ..],
             newborn_span.len(),
         ),
         ReparseMode::Content => reparse_content_block(
             &prefix,
-            &change.src[newborn_span.start ..],
+            &change.text[newborn_span.start ..],
             newborn_span.len(),
         ),
         ReparseMode::MarkupElements { at_start, min_indent } => reparse_markup_elements(
             &prefix,
-            &change.src[newborn_span.start ..],
+            &change.text[newborn_span.start ..],
             newborn_span.len(),
             differential,
             &node.children().as_slice()[superseded_start ..],
@@ -272,7 +272,7 @@ fn replace(
 /// A description of a change.
 struct Change<'a> {
     /// The new source code, with the change applied.
-    src: &'a str,
+    text: &'a str,
     /// Which range in the old source file was changed.
     replaced: Range<usize>,
     /// How many characters replaced the text in `replaced`.
@@ -396,7 +396,7 @@ mod tests {
     fn test(prev: &str, range: Range<usize>, with: &str, goal: Range<usize>) {
         let mut source = Source::detached(prev);
         let range = source.edit(range, with);
-        check(source.src(), source.root(), &parse(source.src()));
+        check(source.text(), source.root(), &parse(source.text()));
         assert_eq!(range, goal);
     }
 

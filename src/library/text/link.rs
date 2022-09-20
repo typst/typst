@@ -18,7 +18,7 @@ impl LinkNode {
     /// Whether to underline the link.
     pub const UNDERLINE: Smart<bool> = Smart::Auto;
 
-    fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Content> {
         Ok(Content::show({
             let dest = args.expect::<Destination>("destination")?;
             let body = match dest {
@@ -64,7 +64,7 @@ impl Show for LinkNode {
         }
     }
 
-    fn realize(&self, _: &mut Context, _: StyleChain) -> TypResult<Content> {
+    fn realize(&self, _: &dyn World, _: StyleChain) -> TypResult<Content> {
         Ok(self.body.clone().unwrap_or_else(|| match &self.dest {
             Destination::Url(url) => {
                 let mut text = url.as_str();
@@ -80,7 +80,7 @@ impl Show for LinkNode {
 
     fn finalize(
         &self,
-        _: &mut Context,
+        _: &dyn World,
         styles: StyleChain,
         mut realized: Content,
     ) -> TypResult<Content> {

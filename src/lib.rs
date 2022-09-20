@@ -44,117 +44,75 @@ pub mod font;
 pub mod frame;
 pub mod image;
 pub mod library;
-pub mod loading;
 pub mod model;
 pub mod parse;
 pub mod source;
 pub mod syntax;
 
-use std::path::PathBuf;
-use std::sync::Arc;
+use std::io;
+use std::path::{Path, PathBuf};
 
 use crate::diag::TypResult;
 use crate::eval::Scope;
+use crate::font::{Font, FontBook};
 use crate::frame::Frame;
-use crate::loading::Loader;
 use crate::model::StyleMap;
-use crate::source::{SourceId, SourceStore};
+use crate::source::{Source, SourceId};
+use crate::util::Buffer;
 
 /// Typeset a source file into a collection of layouted frames.
 ///
 /// Returns either a vector of frames representing individual pages or
 /// diagnostics in the form of a vector of error message with file and span
 /// information.
-pub fn typeset(ctx: &mut Context, id: SourceId) -> TypResult<Vec<Frame>> {
-    let module = eval::evaluate(ctx, id, vec![])?;
-    model::layout(ctx, &module.content)
+pub fn typeset(world: &dyn World, main: SourceId) -> TypResult<Vec<Frame>> {
+    let module = eval::evaluate(world, main, vec![])?;
+    model::layout(world, &module.content)
 }
 
-/// The core context which holds the configuration and stores.
-pub struct Context {
-    /// The loader for fonts and files.
-    pub loader: Arc<dyn Loader>,
-    /// Stores loaded source files.
-    pub sources: SourceStore,
-    /// The context's configuration.
-    config: Config,
+/// The environment in which typesetting occurs.
+pub trait World {
+    /// Access the global configuration.
+    fn config(&self) -> &Config;
+
+    /// Resolve the unique id of a source file.
+    fn resolve(&self, path: &Path) -> io::Result<SourceId>;
+
+    /// Access a source file by id.
+    fn source(&self, id: SourceId) -> &Source;
+
+    /// Metadata about all known fonts.
+    fn book(&self) -> &FontBook;
+
+    /// Access the font with the given id.
+    fn font(&self, id: usize) -> io::Result<Font>;
+
+    /// Access a file at a path.
+    fn file(&self, path: &Path) -> io::Result<Buffer>;
 }
 
-impl Context {
-    /// Create a new context.
-    pub fn new(loader: Arc<dyn Loader>, config: Config) -> Self {
-        Self {
-            loader: Arc::clone(&loader),
-            sources: SourceStore::new(Arc::clone(&loader)),
-            config,
-        }
-    }
-}
-
-/// Compilation configuration.
+/// The global configuration for typesetting.
 pub struct Config {
-    /// The compilation root.
+    /// The compilation root, relative to which absolute paths are.
+    ///
+    /// Default: Empty path.
     pub root: PathBuf,
-    /// The standard library scope.
-    pub std: Arc<Scope>,
-    /// The default styles.
-    pub styles: Arc<StyleMap>,
-}
-
-impl Config {
-    /// Create a new configuration builder.
-    pub fn builder() -> ConfigBuilder {
-        ConfigBuilder::default()
-    }
+    /// The scope containing definitions that are available everywhere.
+    ///
+    /// Default: Typst's standard library.
+    pub std: Scope,
+    /// The default properties for page size, font selection and so on.
+    ///
+    /// Default: Empty style map.
+    pub styles: StyleMap,
 }
 
 impl Default for Config {
     fn default() -> Self {
-        Self::builder().build()
-    }
-}
-
-/// A builder for a [`Config`].
-///
-/// This struct is created by [`Config::builder`].
-#[derive(Debug, Default, Clone)]
-pub struct ConfigBuilder {
-    root: PathBuf,
-    std: Option<Arc<Scope>>,
-    styles: Option<Arc<StyleMap>>,
-}
-
-impl ConfigBuilder {
-    /// The compilation root, relative to which absolute paths are.
-    ///
-    /// Default: Empty path.
-    pub fn root(&mut self, root: impl Into<PathBuf>) -> &mut Self {
-        self.root = root.into();
-        self
-    }
-
-    /// The scope containing definitions that are available everywhere.
-    ///
-    /// Default: Typst's standard library.
-    pub fn std(&mut self, std: impl Into<Arc<Scope>>) -> &mut Self {
-        self.std = Some(std.into());
-        self
-    }
-
-    /// The default properties for page size, font selection and so on.
-    ///
-    /// Default: Empty style map.
-    pub fn styles(&mut self, styles: impl Into<Arc<StyleMap>>) -> &mut Self {
-        self.styles = Some(styles.into());
-        self
-    }
-
-    /// Finish building the configuration.
-    pub fn build(&self) -> Config {
-        Config {
-            root: self.root.clone(),
-            std: self.std.clone().unwrap_or_else(|| Arc::new(library::new())),
-            styles: self.styles.clone().unwrap_or_default(),
+        Self {
+            root: PathBuf::new(),
+            std: library::new(),
+            styles: StyleMap::new(),
         }
     }
 }

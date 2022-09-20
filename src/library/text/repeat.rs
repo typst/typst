@@ -6,7 +6,7 @@ pub struct RepeatNode(pub LayoutNode);
 
 #[node]
 impl RepeatNode {
-    fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Content> {
         Ok(Content::inline(Self(args.expect("body")?)))
     }
 }
@@ -14,11 +14,11 @@ impl RepeatNode {
 impl Layout for RepeatNode {
     fn layout(
         &self,
-        ctx: &mut Context,
+        world: &dyn World,
         regions: &Regions,
         styles: StyleChain,
     ) -> TypResult<Vec<Frame>> {
         // The actual repeating happens directly in the paragraph.
-        self.0.layout(ctx, regions, styles)
+        self.0.layout(world, regions, styles)
     }
 }

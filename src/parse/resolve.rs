@@ -23,7 +23,7 @@ pub fn resolve_string(string: &str) -> EcoString {
             Some('r') => out.push('\r'),
             Some('t') => out.push('\t'),
             Some('u') if s.eat_if('{') => {
-                // TODO: Feedback if closing brace is missing.
+                // TODO: Error if closing brace is missing.
                 let sequence = s.eat_while(char::is_ascii_hexdigit);
                 let _terminated = s.eat_if('}');
 
@@ -33,7 +33,7 @@ pub fn resolve_string(string: &str) -> EcoString {
                 }
             }
 
-            // TODO: Feedback about invalid escape sequence.
+            // TODO: Error for invalid escape sequence.
             _ => out.push_str(s.from(start)),
         }
     }

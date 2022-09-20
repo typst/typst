@@ -56,7 +56,7 @@ impl<const L: ListKind> ListNode<L> {
     #[property(resolve)]
     pub const SPACING: BlockSpacing = Ratio::one().into();
 
-    fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Content> {
         Ok(Content::show(Self {
             start: args.named("start")?.unwrap_or(1),
             tight: args.named("tight")?.unwrap_or(true),
@@ -100,7 +100,7 @@ impl<const L: ListKind> Show for ListNode<L> {
         }
     }
 
-    fn realize(&self, ctx: &mut Context, styles: StyleChain) -> TypResult<Content> {
+    fn realize(&self, world: &dyn World, styles: StyleChain) -> TypResult<Content> {
         let mut cells = vec![];
         let mut number = self.start;
 
@@ -112,7 +112,7 @@ impl<const L: ListKind> Show for ListNode<L> {
             cells.push(LayoutNode::default());
             cells.push(
                 label
-                    .resolve(ctx, L, number)?
+                    .resolve(world, L, number)?
                     .styled_with_map(map.clone())
                     .role(Role::ListLabel)
                     .pack(),
@@ -145,7 +145,7 @@ impl<const L: ListKind> Show for ListNode<L> {
 
     fn finalize(
         &self,
-        _: &mut Context,
+        _: &dyn World,
         styles: StyleChain,
         realized: Content,
     ) -> TypResult<Content> {
@@ -208,7 +208,7 @@ impl Label {
     /// Resolve the value based on the level.
     pub fn resolve(
         &self,
-        ctx: &mut Context,
+        world: &dyn World,
         kind: ListKind,
         number: usize,
     ) -> TypResult<Content> {
@@ -225,7 +225,7 @@ impl Label {
             Self::Content(content) => content.clone(),
             Self::Func(func, span) => {
                 let args = Args::new(*span, [Value::Int(number as i64)]);
-                func.call_detached(ctx, args)?.display()
+                func.call_detached(world, args)?.display()
             }
         })
     }

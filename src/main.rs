@@ -1,22 +1,32 @@
-use std::fs;
+use std::cell::RefCell;
+use std::collections::{hash_map::Entry, HashMap};
+use std::fs::{self, File};
+use std::hash::Hash;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process;
-use std::sync::Arc;
 
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term::{self, termcolor};
+use elsa::FrozenVec;
+use memmap2::Mmap;
+use once_cell::unsync::OnceCell;
 use pico_args::Arguments;
-use same_file::is_same_file;
+use same_file::{is_same_file, Handle};
+use siphasher::sip128::{Hasher128, SipHasher};
 use termcolor::{ColorChoice, StandardStream, WriteColor};
+use walkdir::WalkDir;
 
-use typst::diag::{Error, StrResult};
-use typst::font::FontVariant;
+use typst::diag::{failed_to_load, Error, StrResult};
+use typst::font::{Font, FontBook, FontInfo, FontVariant};
 use typst::library::text::THEME;
-use typst::loading::{FsLoader, Loader};
 use typst::parse::TokenMode;
-use typst::source::SourceStore;
-use typst::{Config, Context};
+use typst::source::{Source, SourceId};
+use typst::util::Buffer;
+use typst::{Config, World};
+
+type CodespanResult<T> = Result<T, CodespanError>;
+type CodespanError = codespan_reporting::files::Error;
 
 /// What to do.
 enum Command {
@@ -191,25 +201,20 @@ fn dispatch(command: Command) -> StrResult<()> {
 
 /// Execute a typesetting command.
 fn typeset(command: TypesetCommand) -> StrResult<()> {
-    let mut config = Config::builder();
+    let mut world = SystemWorld::new();
     if let Some(root) = &command.root {
-        config.root(root);
+        world.config.root = root.clone();
     } else if let Some(dir) = command.input.parent() {
-        config.root(dir);
+        world.config.root = dir.into();
     }
 
-    // Create a loader for fonts and files.
-    let loader = FsLoader::new().with_system();
-
-    // Create the context which holds loaded source files, fonts, images and
-    // cached artifacts.
-    let mut ctx = Context::new(Arc::new(loader), config.build());
-
-    // Load the source file.
-    let id = ctx.sources.load(&command.input)?;
+    // Create the world that serves sources, fonts and files.
+    let id = world
+        .resolve(&command.input)
+        .map_err(|err| failed_to_load("source file", &command.input, err))?;
 
     // Typeset.
-    match typst::typeset(&mut ctx, id) {
+    match typst::typeset(&world, id) {
         // Export the PDF.
         Ok(frames) => {
             let buffer = typst::export::pdf(&frames);
@@ -218,7 +223,7 @@ fn typeset(command: TypesetCommand) -> StrResult<()> {
 
         // Print diagnostics.
         Err(errors) => {
-            print_diagnostics(&ctx.sources, *errors)
+            print_diagnostics(&world, *errors)
                 .map_err(|_| "failed to print diagnostics")?;
         }
     }
@@ -228,7 +233,7 @@ fn typeset(command: TypesetCommand) -> StrResult<()> {
 
 /// Print diagnostic messages to the terminal.
 fn print_diagnostics(
-    sources: &SourceStore,
+    world: &SystemWorld,
     errors: Vec<Error>,
 ) -> Result<(), codespan_reporting::files::Error> {
     let mut w = StandardStream::stderr(ColorChoice::Always);
@@ -236,21 +241,24 @@ fn print_diagnostics(
 
     for error in errors {
         // The main diagnostic.
-        let range = sources.range(error.span);
+        let range = world.source(error.span.source()).range(error.span);
         let diag = Diagnostic::error()
             .with_message(error.message)
             .with_labels(vec![Label::primary(error.span.source(), range)]);
 
-        term::emit(&mut w, &config, sources, &diag)?;
+        term::emit(&mut w, &config, world, &diag)?;
 
         // Stacktrace-like helper diagnostics.
         for point in error.trace {
             let message = point.v.to_string();
             let help = Diagnostic::help().with_message(message).with_labels(vec![
-                Label::primary(point.span.source(), sources.range(point.span)),
+                Label::primary(
+                    point.span.source(),
+                    world.source(point.span.source()).range(point.span),
+                ),
             ]);
 
-            term::emit(&mut w, &config, sources, &help)?;
+            term::emit(&mut w, &config, world, &help)?;
         }
     }
 
@@ -259,8 +267,8 @@ fn print_diagnostics(
 
 /// Execute a highlighting command.
 fn highlight(command: HighlightCommand) -> StrResult<()> {
-    let input = std::fs::read_to_string(&command.input)
-        .map_err(|_| "failed to load source file")?;
+    let input =
+        fs::read_to_string(&command.input).map_err(|_| "failed to load source file")?;
 
     let html = typst::syntax::highlight_html(&input, TokenMode::Markup, &THEME);
     fs::write(&command.output, html).map_err(|_| "failed to write HTML file")?;
@@ -270,8 +278,8 @@ fn highlight(command: HighlightCommand) -> StrResult<()> {
 
 /// Execute a font listing command.
 fn fonts(command: FontsCommand) -> StrResult<()> {
-    let loader = FsLoader::new().with_system();
-    for (name, infos) in loader.book().families() {
+    let world = SystemWorld::new();
+    for (name, infos) in world.book().families() {
         println!("{name}");
         if command.variants {
             for info in infos {
@@ -282,4 +290,235 @@ fn fonts(command: FontsCommand) -> StrResult<()> {
     }
 
     Ok(())
+}
+
+/// A world that provides access to the operating system.
+struct SystemWorld {
+    config: Config,
+    sources: FrozenVec<Box<Source>>,
+    nav: RefCell<HashMap<PathHash, SourceId>>,
+    book: FontBook,
+    fonts: Vec<FontSlot>,
+    files: RefCell<HashMap<PathHash, Buffer>>,
+}
+
+struct FontSlot {
+    path: PathBuf,
+    index: u32,
+    font: OnceCell<Option<Font>>,
+}
+
+impl SystemWorld {
+    fn new() -> Self {
+        let mut world = Self {
+            config: Config::default(),
+            book: FontBook::new(),
+            sources: FrozenVec::new(),
+            nav: RefCell::new(HashMap::new()),
+            fonts: vec![],
+            files: RefCell::new(HashMap::new()),
+        };
+        world.search_system();
+        world
+    }
+}
+
+impl World for SystemWorld {
+    fn config(&self) -> &Config {
+        &self.config
+    }
+
+    fn resolve(&self, path: &Path) -> io::Result<SourceId> {
+        let hash = PathHash::new(path)?;
+        if let Some(&id) = self.nav.borrow().get(&hash) {
+            return Ok(id);
+        }
+
+        let data = fs::read(path)?;
+        let text = String::from_utf8(data).map_err(|_| {
+            io::Error::new(io::ErrorKind::InvalidData, "file is not valid utf-8")
+        })?;
+
+        let id = SourceId::from_raw(self.sources.len() as u16);
+        let source = Source::new(id, path, text);
+        self.sources.push(Box::new(source));
+        self.nav.borrow_mut().insert(hash, id);
+
+        Ok(id)
+    }
+
+    fn source(&self, id: SourceId) -> &Source {
+        &self.sources[id.into_raw() as usize]
+    }
+
+    fn book(&self) -> &FontBook {
+        &self.book
+    }
+
+    fn font(&self, id: usize) -> io::Result<Font> {
+        let slot = &self.fonts[id];
+        slot.font
+            .get_or_init(|| {
+                let data = self.file(&slot.path).ok()?;
+                Font::new(data, slot.index)
+            })
+            .clone()
+            .ok_or_else(|| io::ErrorKind::InvalidData.into())
+    }
+
+    fn file(&self, path: &Path) -> io::Result<Buffer> {
+        let hash = PathHash::new(path)?;
+        Ok(match self.files.borrow_mut().entry(hash) {
+            Entry::Occupied(entry) => entry.get().clone(),
+            Entry::Vacant(entry) => entry.insert(fs::read(path)?.into()).clone(),
+        })
+    }
+}
+
+/// A hash that is the same for all paths pointing to the same file.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+struct PathHash(u128);
+
+impl PathHash {
+    fn new(path: &Path) -> io::Result<Self> {
+        let file = File::open(path)?;
+        if file.metadata()?.is_file() {
+            let handle = Handle::from_file(file)?;
+            let mut state = SipHasher::new();
+            handle.hash(&mut state);
+            Ok(Self(state.finish128().as_u128()))
+        } else {
+            Err(io::ErrorKind::NotFound.into())
+        }
+    }
+}
+
+impl SystemWorld {
+    /// Search for fonts in the linux system font directories.
+    #[cfg(all(unix, not(target_os = "macos")))]
+    fn search_system(&mut self) {
+        self.search_dir("/usr/share/fonts");
+        self.search_dir("/usr/local/share/fonts");
+
+        if let Some(dir) = dirs::font_dir() {
+            self.search_dir(dir);
+        }
+    }
+
+    /// Search for fonts in the macOS system font directories.
+    #[cfg(target_os = "macos")]
+    fn search_system(&mut self) {
+        self.search_dir("/Library/Fonts");
+        self.search_dir("/Network/Library/Fonts");
+        self.search_dir("/System/Library/Fonts");
+
+        if let Some(dir) = dirs::font_dir() {
+            self.search_dir(dir);
+        }
+    }
+
+    /// Search for fonts in the Windows system font directories.
+    #[cfg(windows)]
+    fn search_system(&mut self) {
+        let windir =
+            std::env::var("WINDIR").unwrap_or_else(|_| "C:\\Windows".to_string());
+
+        self.search_dir(Path::new(&windir).join("Fonts"));
+
+        if let Some(roaming) = dirs::config_dir() {
+            self.search_dir(roaming.join("Microsoft\\Windows\\Fonts"));
+        }
+
+        if let Some(local) = dirs::cache_dir() {
+            self.search_dir(local.join("Microsoft\\Windows\\Fonts"));
+        }
+    }
+
+    /// Search for all fonts in a directory.
+    /// recursively.
+    fn search_dir(&mut self, path: impl AsRef<Path>) {
+        for entry in WalkDir::new(path)
+            .follow_links(true)
+            .sort_by(|a, b| a.file_name().cmp(b.file_name()))
+            .into_iter()
+            .filter_map(|e| e.ok())
+        {
+            let path = entry.path();
+            if matches!(
+                path.extension().and_then(|s| s.to_str()),
+                Some("ttf" | "otf" | "TTF" | "OTF" | "ttc" | "otc" | "TTC" | "OTC"),
+            ) {
+                self.search_file(path);
+            }
+        }
+    }
+
+    /// Index the fonts in the file at the given path.
+    fn search_file(&mut self, path: impl AsRef<Path>) {
+        let path = path.as_ref();
+        if let Ok(file) = File::open(path) {
+            if let Ok(mmap) = unsafe { Mmap::map(&file) } {
+                for (i, info) in FontInfo::from_data(&mmap).enumerate() {
+                    self.book.push(info);
+                    self.fonts.push(FontSlot {
+                        path: path.into(),
+                        index: i as u32,
+                        font: OnceCell::new(),
+                    });
+                }
+            }
+        }
+    }
+}
+
+impl<'a> codespan_reporting::files::Files<'a> for SystemWorld {
+    type FileId = SourceId;
+    type Name = std::path::Display<'a>;
+    type Source = &'a str;
+
+    fn name(&'a self, id: SourceId) -> CodespanResult<Self::Name> {
+        Ok(World::source(self, id).path().display())
+    }
+
+    fn source(&'a self, id: SourceId) -> CodespanResult<Self::Source> {
+        Ok(World::source(self, id).text())
+    }
+
+    fn line_index(&'a self, id: SourceId, given: usize) -> CodespanResult<usize> {
+        let source = World::source(self, id);
+        source
+            .byte_to_line(given)
+            .ok_or_else(|| CodespanError::IndexTooLarge {
+                given,
+                max: source.len_bytes(),
+            })
+    }
+
+    fn line_range(
+        &'a self,
+        id: SourceId,
+        given: usize,
+    ) -> CodespanResult<std::ops::Range<usize>> {
+        let source = World::source(self, id);
+        source
+            .line_to_range(given)
+            .ok_or_else(|| CodespanError::LineTooLarge { given, max: source.len_lines() })
+    }
+
+    fn column_number(
+        &'a self,
+        id: SourceId,
+        _: usize,
+        given: usize,
+    ) -> CodespanResult<usize> {
+        let source = World::source(self, id);
+        source.byte_to_column(given).ok_or_else(|| {
+            let max = source.len_bytes();
+            if given <= max {
+                CodespanError::InvalidCharBoundary { given }
+            } else {
+                CodespanError::IndexTooLarge { given, max }
+            }
+        })
+    }
 }

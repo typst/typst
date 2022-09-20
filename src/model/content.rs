@@ -18,20 +18,20 @@ use crate::library::text::{
     DecoNode, EmphNode, ParChild, ParNode, StrongNode, UNDERLINE,
 };
 use crate::util::EcoString;
+use crate::World;
 
 /// Layout content into a collection of pages.
 ///
 /// Relayouts until all pinned locations are converged.
-pub fn layout(ctx: &mut Context, content: &Content) -> TypResult<Vec<Frame>> {
-    let copy = ctx.config.styles.clone();
-    let styles = StyleChain::with_root(&copy);
+pub fn layout(world: &dyn World, content: &Content) -> TypResult<Vec<Frame>> {
+    let styles = StyleChain::with_root(&world.config().styles);
     let scratch = Scratch::default();
 
-    let mut builder = Builder::new(ctx, &scratch, true);
+    let mut builder = Builder::new(world, &scratch, true);
     builder.accept(content, styles)?;
 
     let (doc, shared) = builder.into_doc(styles)?;
-    doc.layout(ctx, shared)
+    doc.layout(world, shared)
 }
 
 /// Composable representation of styled content.
@@ -232,15 +232,15 @@ impl Content {
 impl Layout for Content {
     fn layout(
         &self,
-        ctx: &mut Context,
+        world: &dyn World,
         regions: &Regions,
         styles: StyleChain,
     ) -> TypResult<Vec<Frame>> {
         let scratch = Scratch::default();
-        let mut builder = Builder::new(ctx, &scratch, false);
+        let mut builder = Builder::new(world, &scratch, false);
         builder.accept(self, styles)?;
         let (flow, shared) = builder.into_flow(styles)?;
-        flow.layout(ctx, regions, shared)
+        flow.layout(world, regions, shared)
     }
 
     fn pack(self) -> LayoutNode {
@@ -330,9 +330,9 @@ impl Sum for Content {
 }
 
 /// Builds a document or a flow node from content.
-struct Builder<'a, 'ctx> {
+struct Builder<'a, 'w> {
     /// The core context.
-    ctx: &'ctx mut Context,
+    world: &'w dyn World,
     /// Scratch arenas for building.
     scratch: &'a Scratch<'a>,
     /// The current document building state.
@@ -354,10 +354,10 @@ struct Scratch<'a> {
     templates: Arena<Content>,
 }
 
-impl<'a, 'ctx> Builder<'a, 'ctx> {
-    fn new(ctx: &'ctx mut Context, scratch: &'a Scratch<'a>, top: bool) -> Self {
+impl<'a, 'w> Builder<'a, 'w> {
+    fn new(world: &'w dyn World, scratch: &'a Scratch<'a>, top: bool) -> Self {
         Self {
-            ctx,
+            world,
             scratch,
             doc: top.then(|| DocBuilder::default()),
             flow: FlowBuilder::default(),
@@ -388,7 +388,7 @@ impl<'a, 'ctx> Builder<'a, 'ctx> {
         match content {
             Content::Empty => return Ok(()),
             Content::Text(text) => {
-                if let Some(realized) = styles.apply(self.ctx, Target::Text(text))? {
+                if let Some(realized) = styles.apply(self.world, Target::Text(text))? {
                     let stored = self.scratch.templates.alloc(realized);
                     return self.accept(stored, styles);
                 }
@@ -431,7 +431,7 @@ impl<'a, 'ctx> Builder<'a, 'ctx> {
     }
 
     fn show(&mut self, node: &ShowNode, styles: StyleChain<'a>) -> TypResult<()> {
-        if let Some(mut realized) = styles.apply(self.ctx, Target::Node(node))? {
+        if let Some(mut realized) = styles.apply(self.world, Target::Node(node))? {
             let mut map = StyleMap::new();
             let barrier = Barrier::new(node.id());
             map.push(StyleEntry::Barrier(barrier));

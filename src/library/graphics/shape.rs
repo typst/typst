@@ -39,7 +39,7 @@ impl<const S: ShapeKind> ShapeNode<S> {
     pub const RADIUS: Corners<Option<Relative<RawLength>>> =
         Corners::splat(Relative::zero());
 
-    fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Content> {
         let size = match S {
             SQUARE => args.named::<RawLength>("size")?.map(Relative::from),
             CIRCLE => args.named::<RawLength>("radius")?.map(|r| 2.0 * Relative::from(r)),
@@ -78,7 +78,7 @@ impl<const S: ShapeKind> ShapeNode<S> {
 impl<const S: ShapeKind> Layout for ShapeNode<S> {
     fn layout(
         &self,
-        ctx: &mut Context,
+        world: &dyn World,
         regions: &Regions,
         styles: StyleChain,
     ) -> TypResult<Vec<Frame>> {
@@ -93,7 +93,7 @@ impl<const S: ShapeKind> Layout for ShapeNode<S> {
             let child = child.clone().padded(inset.map(|side| side.map(RawLength::from)));
 
             let mut pod = Regions::one(regions.first, regions.base, regions.expand);
-            frames = child.layout(ctx, &pod, styles)?;
+            frames = child.layout(world, &pod, styles)?;
 
             for frame in frames.iter_mut() {
                 frame.apply_role(Role::GenericBlock);
@@ -113,7 +113,7 @@ impl<const S: ShapeKind> Layout for ShapeNode<S> {
 
                 pod.first = Size::splat(length);
                 pod.expand = Spec::splat(true);
-                frames = child.layout(ctx, &pod, styles)?;
+                frames = child.layout(world, &pod, styles)?;
             }
         } else {
             // The default size that a shape takes on if it has no child and

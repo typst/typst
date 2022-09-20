@@ -13,15 +13,14 @@ impl ImageNode {
     /// How the image should adjust itself to a given area.
     pub const FIT: ImageFit = ImageFit::Cover;
 
-    fn construct(vm: &mut Machine, args: &mut Args) -> TypResult<Content> {
+    fn construct(vm: &mut Vm, args: &mut Args) -> TypResult<Content> {
         let Spanned { v: path, span } =
             args.expect::<Spanned<EcoString>>("path to image file")?;
 
         let full = vm.locate(&path).at(span)?;
         let ext = full.extension().and_then(OsStr::to_str).unwrap_or_default();
         let image = vm
-            .ctx
-            .loader
+            .world
             .file(&full)
             .and_then(|buffer| Image::new(buffer, ext))
             .map_err(|err| failed_to_load("image", &full, err))
@@ -39,7 +38,7 @@ impl ImageNode {
 impl Layout for ImageNode {
     fn layout(
         &self,
-        _: &mut Context,
+        _: &dyn World,
         regions: &Regions,
         styles: StyleChain,
     ) -> TypResult<Vec<Frame>> {

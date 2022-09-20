@@ -16,48 +16,40 @@ pub fn write_images(ctx: &mut PdfContext) {
         let height = image.height();
 
         // Add the primary image.
+        // TODO: Error if image could not be encoded.
         match image.decode().unwrap() {
             DecodedImage::Raster(dynamic) => {
-                if let Ok((data, filter, has_color)) =
-                    encode_image(image.format(), &dynamic)
-                {
-                    let mut image = ctx.writer.image_xobject(image_ref, &data);
-                    image.filter(filter);
-                    image.width(width as i32);
-                    image.height(height as i32);
-                    image.bits_per_component(8);
+                // TODO: Error if image could not be encoded.
+                let (data, filter, has_color) =
+                    encode_image(image.format(), &dynamic).unwrap();
 
-                    let space = image.color_space();
-                    if has_color {
-                        space.device_rgb();
-                    } else {
-                        space.device_gray();
-                    }
+                let mut image = ctx.writer.image_xobject(image_ref, &data);
+                image.filter(filter);
+                image.width(width as i32);
+                image.height(height as i32);
+                image.bits_per_component(8);
 
-                    // Add a second gray-scale image containing the alpha values if
-                    // this image has an alpha channel.
-                    if dynamic.color().has_alpha() {
-                        let (alpha_data, alpha_filter) = encode_alpha(&dynamic);
-                        let mask_ref = ctx.alloc.bump();
-                        image.s_mask(mask_ref);
-                        image.finish();
-
-                        let mut mask = ctx.writer.image_xobject(mask_ref, &alpha_data);
-                        mask.filter(alpha_filter);
-                        mask.width(width as i32);
-                        mask.height(height as i32);
-                        mask.color_space().device_gray();
-                        mask.bits_per_component(8);
-                    }
+                let space = image.color_space();
+                if has_color {
+                    space.device_rgb();
                 } else {
-                    // TODO: Warn that image could not be encoded.
-                    ctx.writer
-                        .image_xobject(image_ref, &[])
-                        .width(0)
-                        .height(0)
-                        .bits_per_component(1)
-                        .color_space()
-                        .device_gray();
+                    space.device_gray();
+                }
+
+                // Add a second gray-scale image containing the alpha values if
+                // this image has an alpha channel.
+                if dynamic.color().has_alpha() {
+                    let (alpha_data, alpha_filter) = encode_alpha(&dynamic);
+                    let mask_ref = ctx.alloc.bump();
+                    image.s_mask(mask_ref);
+                    image.finish();
+
+                    let mut mask = ctx.writer.image_xobject(mask_ref, &alpha_data);
+                    mask.filter(alpha_filter);
+                    mask.width(width as i32);
+                    mask.height(height as i32);
+                    mask.color_space().device_gray();
+                    mask.bits_per_component(8);
                 }
             }
             DecodedImage::Svg(svg) => {

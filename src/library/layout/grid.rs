@@ -13,7 +13,7 @@ pub struct GridNode {
 
 #[node]
 impl GridNode {
-    fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Content> {
         let columns = args.named("columns")?.unwrap_or_default();
         let rows = args.named("rows")?.unwrap_or_default();
         let base_gutter: Vec<TrackSizing> = args.named("gutter")?.unwrap_or_default();
@@ -33,13 +33,13 @@ impl GridNode {
 impl Layout for GridNode {
     fn layout(
         &self,
-        ctx: &mut Context,
+        world: &dyn World,
         regions: &Regions,
         styles: StyleChain,
     ) -> TypResult<Vec<Frame>> {
         // Prepare grid layout by unifying content and gutter tracks.
         let layouter = GridLayouter::new(
-            ctx,
+            world,
             self.tracks.as_deref(),
             self.gutter.as_deref(),
             &self.cells,
@@ -93,7 +93,7 @@ castable! {
 /// Performs grid layout.
 pub struct GridLayouter<'a> {
     /// The core context.
-    ctx: &'a mut Context,
+    world: &'a dyn World,
     /// The grid cells.
     cells: &'a [LayoutNode],
     /// The column tracks including gutter tracks.
@@ -133,7 +133,7 @@ impl<'a> GridLayouter<'a> {
     ///
     /// This prepares grid layout by unifying content and gutter tracks.
     pub fn new(
-        ctx: &'a mut Context,
+        world: &'a dyn World,
         tracks: Spec<&[TrackSizing]>,
         gutter: Spec<&[TrackSizing]>,
         cells: &'a [LayoutNode],
@@ -187,7 +187,7 @@ impl<'a> GridLayouter<'a> {
         regions.expand = Spec::new(true, false);
 
         Self {
-            ctx,
+            world,
             cells,
             cols,
             rows,
@@ -301,7 +301,7 @@ impl<'a> GridLayouter<'a> {
                             v.resolve(self.styles).relative_to(self.regions.base.y);
                     }
 
-                    let frame = node.layout(self.ctx, &pod, self.styles)?.remove(0);
+                    let frame = node.layout(self.world, &pod, self.styles)?.remove(0);
                     resolved.set_max(frame.width());
                 }
             }
@@ -371,7 +371,7 @@ impl<'a> GridLayouter<'a> {
                 }
 
                 let mut sizes = node
-                    .layout(self.ctx, &pod, self.styles)?
+                    .layout(self.world, &pod, self.styles)?
                     .into_iter()
                     .map(|frame| frame.height());
 
@@ -460,7 +460,7 @@ impl<'a> GridLayouter<'a> {
                     .select(self.regions.base, size);
 
                 let pod = Regions::one(size, base, Spec::splat(true));
-                let frame = node.layout(self.ctx, &pod, self.styles)?.remove(0);
+                let frame = node.layout(self.world, &pod, self.styles)?.remove(0);
                 match frame.role() {
                     Some(Role::ListLabel | Role::ListItemBody) => {
                         output.apply_role(Role::ListItem)
@@ -508,7 +508,7 @@ impl<'a> GridLayouter<'a> {
                 }
 
                 // Push the layouted frames into the individual output frames.
-                let frames = node.layout(self.ctx, &pod, self.styles)?;
+                let frames = node.layout(self.world, &pod, self.styles)?;
                 for (output, frame) in outputs.iter_mut().zip(frames) {
                     match frame.role() {
                         Some(Role::ListLabel | Role::ListItemBody) => {

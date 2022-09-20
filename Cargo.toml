@@ -5,9 +5,18 @@ authors = ["The Typst Project Developers"]
 edition = "2021"
 
 [features]
-default = ["fs"]
-cli = ["fs", "pico-args", "codespan-reporting", "same-file"]
-fs = ["dirs", "memmap2", "walkdir", "same-file"]
+default = ["tests"]
+tests = ["same-file", "walkdir", "elsa", "siphasher"]
+cli = [
+    "pico-args",
+    "codespan-reporting",
+    "dirs",
+    "memmap2",
+    "same-file",
+    "walkdir",
+    "elsa",
+    "siphasher",
+]
 
 [dependencies]
 # Workspace
@@ -57,15 +66,15 @@ resvg = { version = "0.22", default-features = false }
 roxmltree = "0.14"
 flate2 = "1"
 
-# Command line interface
+# Command line interface / tests
 pico-args = { version = "0.4", optional = true }
 codespan-reporting = { version = "0.11", optional = true }
 same-file = { version = "1", optional = true }
-
-# File system loading
+walkdir = { version = "2", optional = true }
+elsa = { version = "1.7", optional = true }
 dirs = { version = "4", optional = true }
 memmap2 = { version = "0.5", optional = true }
-walkdir = { version = "2", optional = true }
+siphasher = { version = "0.3", optional = true }
 
 [dev-dependencies]
 iai = { git = "https://github.com/reknih/iai" }
@@ -85,7 +94,7 @@ required-features = ["cli"]
 
 [[test]]
 name = "typeset"
-required-features = ["fs"]
+required-features = ["tests"]
 harness = false
 
 [[bench]]

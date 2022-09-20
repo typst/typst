@@ -136,14 +136,14 @@ mod tests {
     use crate::parse::parse;
 
     #[track_caller]
-    fn test(src: &str, result: &[&str]) {
+    fn test(text: &str, result: &[&str]) {
         let mut scopes = Scopes::new(None);
         scopes.top.define("x", 0);
         scopes.top.define("y", 0);
         scopes.top.define("z", 0);
 
         let mut visitor = CapturesVisitor::new(&scopes);
-        let root = parse(src);
+        let root = parse(text);
         visitor.visit(&root);
 
         let captures = visitor.finish();

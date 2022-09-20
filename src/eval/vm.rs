@@ -5,32 +5,24 @@ use crate::diag::{StrResult, TypError};
 use crate::source::SourceId;
 use crate::syntax::Span;
 use crate::util::PathExt;
-use crate::Context;
+use crate::World;
 
 /// A virtual machine.
-pub struct Machine<'a> {
+pub struct Vm<'w> {
     /// The core context.
-    pub ctx: &'a mut Context,
+    pub world: &'w dyn World,
     /// The route of source ids the machine took to reach its current location.
     pub route: Vec<SourceId>,
-    /// The dependencies of the current evaluation process.
-    pub deps: Vec<(SourceId, usize)>,
     /// The stack of scopes.
-    pub scopes: Scopes<'a>,
+    pub scopes: Scopes<'w>,
     /// A control flow event that is currently happening.
     pub flow: Option<Flow>,
 }
 
-impl<'a> Machine<'a> {
+impl<'w> Vm<'w> {
     /// Create a new virtual machine.
-    pub fn new(ctx: &'a mut Context, route: Vec<SourceId>, scopes: Scopes<'a>) -> Self {
-        Self {
-            ctx,
-            route,
-            deps: vec![],
-            scopes,
-            flow: None,
-        }
+    pub fn new(ctx: &'w dyn World, route: Vec<SourceId>, scopes: Scopes<'w>) -> Self {
+        Self { world: ctx, route, scopes, flow: None }
     }
 
     /// Resolve a user-entered path to be relative to the compilation
@@ -38,10 +30,10 @@ impl<'a> Machine<'a> {
     pub fn locate(&self, path: &str) -> StrResult<PathBuf> {
         if let Some(&id) = self.route.last() {
             if let Some(path) = path.strip_prefix('/') {
-                return Ok(self.ctx.config.root.join(path).normalize());
+                return Ok(self.world.config().root.join(path).normalize());
             }
 
-            if let Some(dir) = self.ctx.sources.get(id).path().parent() {
+            if let Some(dir) = self.world.source(id).path().parent() {
                 return Ok(dir.join(path).normalize());
             }
         }

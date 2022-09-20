@@ -12,7 +12,7 @@ pub struct MoveNode {
 
 #[node]
 impl MoveNode {
-    fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Content> {
         let dx = args.named("dx")?.unwrap_or_default();
         let dy = args.named("dy")?.unwrap_or_default();
         Ok(Content::inline(Self {
@@ -25,11 +25,11 @@ impl MoveNode {
 impl Layout for MoveNode {
     fn layout(
         &self,
-        ctx: &mut Context,
+        world: &dyn World,
         regions: &Regions,
         styles: StyleChain,
     ) -> TypResult<Vec<Frame>> {
-        let mut frames = self.child.layout(ctx, regions, styles)?;
+        let mut frames = self.child.layout(world, regions, styles)?;
 
         let delta = self.delta.resolve(styles);
         for frame in &mut frames {
@@ -62,7 +62,7 @@ impl<const T: TransformKind> TransformNode<T> {
     #[property(resolve)]
     pub const ORIGIN: Spec<Option<RawAlign>> = Spec::default();
 
-    fn construct(_: &mut Machine, args: &mut Args) -> TypResult<Content> {
+    fn construct(_: &mut Vm, args: &mut Args) -> TypResult<Content> {
         let transform = match T {
             ROTATE => {
                 let angle = args.named_or_find("angle")?.unwrap_or_default();
@@ -86,12 +86,12 @@ impl<const T: TransformKind> TransformNode<T> {
 impl<const T: TransformKind> Layout for TransformNode<T> {
     fn layout(
         &self,
-        ctx: &mut Context,
+        world: &dyn World,
         regions: &Regions,
         styles: StyleChain,
     ) -> TypResult<Vec<Frame>> {
         let origin = styles.get(Self::ORIGIN).unwrap_or(Align::CENTER_HORIZON);
-        let mut frames = self.child.layout(ctx, regions, styles)?;
+        let mut frames = self.child.layout(world, regions, styles)?;
 
         for frame in &mut frames {
             let Spec { x, y } = origin.zip(frame.size()).map(|(o, s)| o.position(s));
