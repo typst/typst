@@ -5,6 +5,8 @@ use std::fmt::{self, Debug, Formatter, Write};
 use std::hash::Hash;
 use std::sync::Arc;
 
+use comemo::{Prehashed, Tracked};
+
 use super::{Barrier, NodeId, Resolve, StyleChain, StyleEntry};
 use crate::diag::SourceResult;
 use crate::eval::{RawAlign, RawLength};
@@ -14,7 +16,6 @@ use crate::geom::{
 };
 use crate::library::graphics::MoveNode;
 use crate::library::layout::{AlignNode, PadNode};
-use crate::util::Prehashed;
 use crate::World;
 
 /// A node that can be layouted into a sequence of regions.
@@ -24,7 +25,7 @@ pub trait Layout: 'static {
     /// Layout this node into the given regions, producing frames.
     fn layout(
         &self,
-        world: &dyn World,
+        world: Tracked<dyn World>,
         regions: &Regions,
         styles: StyleChain,
     ) -> SourceResult<Vec<Frame>>;
@@ -214,9 +215,10 @@ impl LayoutNode {
 }
 
 impl Layout for LayoutNode {
+    #[comemo::memoize]
     fn layout(
         &self,
-        world: &dyn World,
+        world: Tracked<dyn World>,
         regions: &Regions,
         styles: StyleChain,
     ) -> SourceResult<Vec<Frame>> {
@@ -285,7 +287,7 @@ struct EmptyNode;
 impl Layout for EmptyNode {
     fn layout(
         &self,
-        _: &dyn World,
+        _: Tracked<dyn World>,
         regions: &Regions,
         _: StyleChain,
     ) -> SourceResult<Vec<Frame>> {
@@ -307,7 +309,7 @@ struct SizedNode {
 impl Layout for SizedNode {
     fn layout(
         &self,
-        world: &dyn World,
+        world: Tracked<dyn World>,
         regions: &Regions,
         styles: StyleChain,
     ) -> SourceResult<Vec<Frame>> {
@@ -354,7 +356,7 @@ struct FillNode {
 impl Layout for FillNode {
     fn layout(
         &self,
-        world: &dyn World,
+        world: Tracked<dyn World>,
         regions: &Regions,
         styles: StyleChain,
     ) -> SourceResult<Vec<Frame>> {
@@ -379,7 +381,7 @@ struct StrokeNode {
 impl Layout for StrokeNode {
     fn layout(
         &self,
-        world: &dyn World,
+        world: Tracked<dyn World>,
         regions: &Regions,
         styles: StyleChain,
     ) -> SourceResult<Vec<Frame>> {

@@ -9,7 +9,7 @@ impl DocNode {
     /// Layout the document into a sequence of frames, one per page.
     pub fn layout(
         &self,
-        world: &dyn World,
+        world: Tracked<dyn World>,
         styles: StyleChain,
     ) -> SourceResult<Vec<Frame>> {
         let mut frames = vec![];

@@ -34,6 +34,7 @@ pub use vm::*;
 
 use std::collections::BTreeMap;
 
+use comemo::{Track, Tracked};
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::diag::{At, SourceResult, StrResult, Trace, Tracepoint};
@@ -51,24 +52,24 @@ use crate::World;
 /// Returns either a module containing a scope with top-level bindings and
 /// layoutable contents or diagnostics in the form of a vector of error
 /// messages with file and span information.
-pub fn evaluate(
-    world: &dyn World,
+#[comemo::memoize]
+pub fn eval(
+    world: Tracked<dyn World>,
+    route: Tracked<Route>,
     id: SourceId,
-    mut route: Vec<SourceId>,
 ) -> SourceResult<Module> {
     // Prevent cyclic evaluation.
-    if route.contains(&id) {
+    if route.contains(id) {
         let path = world.source(id).path().display();
         panic!("Tried to cyclicly evaluate {}", path);
     }
 
-    route.push(id);
-
     // Evaluate the module.
+    let route = unsafe { Route::insert(route, id) };
     let ast = world.source(id).ast()?;
     let std = &world.config().std;
     let scopes = Scopes::new(Some(std));
-    let mut vm = Vm::new(world, route, scopes);
+    let mut vm = Vm::new(world, route.track(), Some(id), scopes);
     let result = ast.eval(&mut vm);
 
     // Handle control flow.
@@ -78,6 +79,39 @@ pub fn evaluate(
 
     // Assemble the module.
     Ok(Module { scope: vm.scopes.top, content: result? })
+}
+
+/// A route of source ids.
+#[derive(Default)]
+pub struct Route {
+    parent: Option<Tracked<'static, Self>>,
+    id: Option<SourceId>,
+}
+
+impl Route {
+    /// Create a new, empty route.
+    pub fn new(id: Option<SourceId>) -> Self {
+        Self { id, parent: None }
+    }
+
+    /// Insert a new id into the route.
+    ///
+    /// You must guarantee that `outer` lives longer than the resulting
+    /// route is ever used.
+    unsafe fn insert(outer: Tracked<Route>, id: SourceId) -> Route {
+        Route {
+            parent: Some(std::mem::transmute(outer)),
+            id: Some(id),
+        }
+    }
+}
+
+#[comemo::track]
+impl Route {
+    /// Whether the given id is part of the route.
+    fn contains(&self, id: SourceId) -> bool {
+        self.id == Some(id) || self.parent.map_or(false, |parent| parent.contains(id))
+    }
 }
 
 /// An evaluated module, ready for importing or layouting.
@@ -696,7 +730,7 @@ impl Eval for ClosureExpr {
 
         // Define the actual function.
         Ok(Value::Func(Func::from_closure(Closure {
-            location: vm.route.last().copied(),
+            location: vm.location,
             name,
             captured,
             params,
@@ -755,7 +789,7 @@ impl Eval for ShowExpr {
         let body = self.body();
         let span = body.span();
         let func = Func::from_closure(Closure {
-            location: vm.route.last().copied(),
+            location: vm.location,
             name: None,
             captured,
             params,
@@ -940,14 +974,13 @@ fn import(vm: &mut Vm, path: &str, span: Span) -> SourceResult<Module> {
     let id = vm.world.resolve(&full).at(span)?;
 
     // Prevent cyclic importing.
-    if vm.route.contains(&id) {
+    if vm.route.contains(id) {
         bail!(span, "cyclic import");
     }
 
     // Evaluate the file.
-    let route = vm.route.clone();
     let module =
-        evaluate(vm.world, id, route).trace(vm.world, || Tracepoint::Import, span)?;
+        eval(vm.world, vm.route, id).trace(vm.world, || Tracepoint::Import, span)?;
 
     Ok(module)
 }

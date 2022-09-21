@@ -507,7 +507,7 @@ impl Show for StrongNode {
         dict! { "body" => Value::Content(self.0.clone()) }
     }
 
-    fn realize(&self, _: &dyn World, _: StyleChain) -> SourceResult<Content> {
+    fn realize(&self, _: Tracked<dyn World>, _: StyleChain) -> SourceResult<Content> {
         Ok(self.0.clone().styled(TextNode::BOLD, Toggle))
     }
 }
@@ -532,7 +532,7 @@ impl Show for EmphNode {
         dict! { "body" => Value::Content(self.0.clone()) }
     }
 
-    fn realize(&self, _: &dyn World, _: StyleChain) -> SourceResult<Content> {
+    fn realize(&self, _: Tracked<dyn World>, _: StyleChain) -> SourceResult<Content> {
         Ok(self.0.clone().styled(TextNode::ITALIC, Toggle))
     }
 }

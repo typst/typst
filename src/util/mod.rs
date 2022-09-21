@@ -3,11 +3,9 @@
 #[macro_use]
 mod eco;
 mod buffer;
-mod hash;
 
 pub use buffer::Buffer;
 pub use eco::EcoString;
-pub use hash::Prehashed;
 
 use std::any::TypeId;
 use std::fmt::{self, Debug, Formatter};

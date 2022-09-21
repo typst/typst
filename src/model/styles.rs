@@ -3,6 +3,8 @@ use std::hash::Hash;
 use std::iter;
 use std::marker::PhantomData;
 
+use comemo::Tracked;
+
 use super::{Barrier, Content, Key, Property, Recipe, Selector, Show, Target};
 use crate::diag::SourceResult;
 use crate::frame::Role;
@@ -279,7 +281,7 @@ impl<'a> StyleChain<'a> {
     /// Apply show recipes in this style chain to a target.
     pub fn apply(
         self,
-        world: &dyn World,
+        world: Tracked<dyn World>,
         target: Target,
     ) -> SourceResult<Option<Content>> {
         // Find out how many recipes there any and whether any of their patterns

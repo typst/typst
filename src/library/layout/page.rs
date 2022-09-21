@@ -57,7 +57,7 @@ impl PageNode {
     /// Layout the page run into a sequence of frames, one per page.
     pub fn layout(
         &self,
-        world: &dyn World,
+        world: Tracked<dyn World>,
         mut page: usize,
         styles: StyleChain,
     ) -> SourceResult<Vec<Frame>> {
@@ -180,7 +180,7 @@ impl Marginal {
     /// Resolve the marginal based on the page number.
     pub fn resolve(
         &self,
-        world: &dyn World,
+        world: Tracked<dyn World>,
         page: usize,
     ) -> SourceResult<Option<Content>> {
         Ok(match self {

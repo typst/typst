@@ -1,6 +1,8 @@
 use std::path::PathBuf;
 
-use super::{Scopes, Value};
+use comemo::Tracked;
+
+use super::{Route, Scopes, Value};
 use crate::diag::{SourceError, StrResult};
 use crate::source::SourceId;
 use crate::syntax::Span;
@@ -8,27 +10,40 @@ use crate::util::PathExt;
 use crate::World;
 
 /// A virtual machine.
-pub struct Vm<'w> {
+pub struct Vm<'a> {
     /// The core context.
-    pub world: &'w dyn World,
+    pub world: Tracked<'a, dyn World>,
     /// The route of source ids the machine took to reach its current location.
-    pub route: Vec<SourceId>,
+    pub route: Tracked<'a, Route>,
+    /// The current location.
+    pub location: Option<SourceId>,
     /// The stack of scopes.
-    pub scopes: Scopes<'w>,
+    pub scopes: Scopes<'a>,
     /// A control flow event that is currently happening.
     pub flow: Option<Flow>,
 }
 
-impl<'w> Vm<'w> {
+impl<'a> Vm<'a> {
     /// Create a new virtual machine.
-    pub fn new(ctx: &'w dyn World, route: Vec<SourceId>, scopes: Scopes<'w>) -> Self {
-        Self { world: ctx, route, scopes, flow: None }
+    pub fn new(
+        world: Tracked<'a, dyn World>,
+        route: Tracked<'a, Route>,
+        location: Option<SourceId>,
+        scopes: Scopes<'a>,
+    ) -> Self {
+        Self {
+            world,
+            route,
+            location,
+            scopes,
+            flow: None,
+        }
     }
 
     /// Resolve a user-entered path to be relative to the compilation
     /// environment's root.
     pub fn locate(&self, path: &str) -> StrResult<PathBuf> {
-        if let Some(&id) = self.route.last() {
+        if let Some(id) = self.location {
             if let Some(path) = path.strip_prefix('/') {
                 return Ok(self.world.config().root.join(path).normalize());
             }

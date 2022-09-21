@@ -40,7 +40,7 @@ impl LineNode {
 impl Layout for LineNode {
     fn layout(
         &self,
-        _: &dyn World,
+        _: Tracked<dyn World>,
         regions: &Regions,
         styles: StyleChain,
     ) -> SourceResult<Vec<Frame>> {

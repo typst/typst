@@ -3,13 +3,15 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::sync::Arc;
 
+use comemo::Prehashed;
+
 use super::{Interruption, NodeId, StyleChain};
 use crate::eval::{RawLength, Smart};
 use crate::geom::{Corners, Length, Numeric, Relative, Sides, Spec};
 use crate::library::layout::PageNode;
 use crate::library::structure::{EnumNode, ListNode};
 use crate::library::text::ParNode;
-use crate::util::{Prehashed, ReadableTypeId};
+use crate::util::ReadableTypeId;
 
 /// A style property originating from a set rule or constructor.
 #[derive(Clone, Hash)]

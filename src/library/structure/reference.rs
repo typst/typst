@@ -22,7 +22,7 @@ impl Show for RefNode {
         }
     }
 
-    fn realize(&self, _: &dyn World, _: StyleChain) -> SourceResult<Content> {
+    fn realize(&self, _: Tracked<dyn World>, _: StyleChain) -> SourceResult<Content> {
         Ok(Content::Text(format_eco!("@{}", self.0)))
     }
 }

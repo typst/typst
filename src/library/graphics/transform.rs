@@ -25,7 +25,7 @@ impl MoveNode {
 impl Layout for MoveNode {
     fn layout(
         &self,
-        world: &dyn World,
+        world: Tracked<dyn World>,
         regions: &Regions,
         styles: StyleChain,
     ) -> SourceResult<Vec<Frame>> {
@@ -86,7 +86,7 @@ impl<const T: TransformKind> TransformNode<T> {
 impl<const T: TransformKind> Layout for TransformNode<T> {
     fn layout(
         &self,
-        world: &dyn World,
+        world: Tracked<dyn World>,
         regions: &Regions,
         styles: StyleChain,
     ) -> SourceResult<Vec<Frame>> {

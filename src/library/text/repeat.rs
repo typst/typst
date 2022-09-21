@@ -14,7 +14,7 @@ impl RepeatNode {
 impl Layout for RepeatNode {
     fn layout(
         &self,
-        world: &dyn World,
+        world: Tracked<dyn World>,
         regions: &Regions,
         styles: StyleChain,
     ) -> SourceResult<Vec<Frame>> {

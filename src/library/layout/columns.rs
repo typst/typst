@@ -28,7 +28,7 @@ impl ColumnsNode {
 impl Layout for ColumnsNode {
     fn layout(
         &self,
-        world: &dyn World,
+        world: Tracked<dyn World>,
         regions: &Regions,
         styles: StyleChain,
     ) -> SourceResult<Vec<Frame>> {

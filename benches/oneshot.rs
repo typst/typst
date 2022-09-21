@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use comemo::{Prehashed, Track, Tracked};
 use iai::{black_box, main, Iai};
 use unscanny::Scanner;
 
@@ -76,14 +77,16 @@ fn bench_highlight(iai: &mut Iai) {
 fn bench_eval(iai: &mut Iai) {
     let world = BenchWorld::new();
     let id = world.source.id();
-    iai.run(|| typst::eval::evaluate(&world, id, vec![]).unwrap());
+    let route = typst::eval::Route::default();
+    iai.run(|| typst::eval::eval(world.track(), route.track(), id).unwrap());
 }
 
 fn bench_layout(iai: &mut Iai) {
     let world = BenchWorld::new();
     let id = world.source.id();
-    let module = typst::eval::evaluate(&world, id, vec![]).unwrap();
-    iai.run(|| typst::model::layout(&world, &module.content));
+    let route = typst::eval::Route::default();
+    let module = typst::eval::eval(world.track(), route.track(), id).unwrap();
+    iai.run(|| typst::model::layout(world.track(), &module.content));
 }
 
 fn bench_render(iai: &mut Iai) {
@@ -94,41 +97,38 @@ fn bench_render(iai: &mut Iai) {
 }
 
 struct BenchWorld {
-    config: Config,
-    book: FontBook,
+    config: Prehashed<Config>,
+    book: Prehashed<FontBook>,
     font: Font,
     source: Source,
 }
 
 impl BenchWorld {
     fn new() -> Self {
+        let config = Config::default();
         let font = Font::new(FONT.into(), 0).unwrap();
         let book = FontBook::from_fonts([&font]);
-        let id = SourceId::from_raw(0);
+        let id = SourceId::from_u16(0);
         let source = Source::new(id, Path::new("bench.typ"), TEXT.into());
         Self {
-            config: Config::default(),
-            book,
+            config: Prehashed::new(config),
+            book: Prehashed::new(book),
             font,
             source,
         }
     }
+
+    fn track(&self) -> Tracked<dyn World> {
+        (self as &dyn World).track()
+    }
 }
 
 impl World for BenchWorld {
-    fn config(&self) -> &Config {
+    fn config(&self) -> &Prehashed<Config> {
         &self.config
     }
 
-    fn resolve(&self, path: &Path) -> FileResult<SourceId> {
-        Err(FileError::NotFound(path.into()))
-    }
-
-    fn source(&self, _: SourceId) -> &Source {
-        &self.source
-    }
-
-    fn book(&self) -> &FontBook {
+    fn book(&self) -> &Prehashed<FontBook> {
         &self.book
     }
 
@@ -138,5 +138,13 @@ impl World for BenchWorld {
 
     fn file(&self, path: &Path) -> FileResult<Buffer> {
         Err(FileError::NotFound(path.into()))
+    }
+
+    fn resolve(&self, path: &Path) -> FileResult<SourceId> {
+        Err(FileError::NotFound(path.into()))
+    }
+
+    fn source(&self, _: SourceId) -> &Source {
+        &self.source
     }
 }

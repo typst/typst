@@ -2,10 +2,11 @@ use std::fmt::{self, Debug, Formatter, Write};
 use std::hash::Hash;
 use std::sync::Arc;
 
+use comemo::{Prehashed, Tracked};
+
 use super::{Content, NodeId, Selector, StyleChain};
 use crate::diag::SourceResult;
 use crate::eval::Dict;
-use crate::util::Prehashed;
 use crate::World;
 
 /// A node that can be realized given some styles.
@@ -18,7 +19,11 @@ pub trait Show: 'static {
 
     /// The base recipe for this node that is executed if there is no
     /// user-defined show rule.
-    fn realize(&self, world: &dyn World, styles: StyleChain) -> SourceResult<Content>;
+    fn realize(
+        &self,
+        world: Tracked<dyn World>,
+        styles: StyleChain,
+    ) -> SourceResult<Content>;
 
     /// Finalize this node given the realization of a base or user recipe. Use
     /// this for effects that should work even in the face of a user-defined
@@ -30,7 +35,7 @@ pub trait Show: 'static {
     #[allow(unused_variables)]
     fn finalize(
         &self,
-        world: &dyn World,
+        world: Tracked<dyn World>,
         styles: StyleChain,
         realized: Content,
     ) -> SourceResult<Content> {
@@ -74,13 +79,17 @@ impl Show for ShowNode {
         self.0.encode(styles)
     }
 
-    fn realize(&self, world: &dyn World, styles: StyleChain) -> SourceResult<Content> {
+    fn realize(
+        &self,
+        world: Tracked<dyn World>,
+        styles: StyleChain,
+    ) -> SourceResult<Content> {
         self.0.realize(world, styles)
     }
 
     fn finalize(
         &self,
-        world: &dyn World,
+        world: Tracked<dyn World>,
         styles: StyleChain,
         realized: Content,
     ) -> SourceResult<Content> {

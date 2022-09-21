@@ -81,7 +81,7 @@ impl Span {
             "span number outside valid range"
         );
 
-        let bits = ((id.into_raw() as u64) << Self::BITS) | number;
+        let bits = ((id.into_u16() as u64) << Self::BITS) | number;
         Self(to_non_zero(bits))
     }
 
@@ -98,7 +98,7 @@ impl Span {
 
     /// The id of the source file the span points into.
     pub const fn source(self) -> SourceId {
-        SourceId::from_raw((self.0.get() >> Self::BITS) as u16)
+        SourceId::from_u16((self.0.get() >> Self::BITS) as u16)
     }
 
     /// The unique number of the span within the source file.
@@ -157,7 +157,7 @@ mod tests {
 
     #[test]
     fn test_span_encoding() {
-        let id = SourceId::from_raw(5);
+        let id = SourceId::from_u16(5);
         let span = Span::new(id, 10).with_pos(SpanPos::End);
         assert_eq!(span.source(), id);
         assert_eq!(span.number(), 10);

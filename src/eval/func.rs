@@ -2,7 +2,9 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use super::{Args, Eval, Flow, Scope, Scopes, Value, Vm};
+use comemo::{Track, Tracked};
+
+use super::{Args, Eval, Flow, Route, Scope, Scopes, Value, Vm};
 use crate::diag::{SourceResult, StrResult};
 use crate::model::{Content, NodeId, StyleMap};
 use crate::source::SourceId;
@@ -100,8 +102,13 @@ impl Func {
     }
 
     /// Call the function without an existing virtual machine.
-    pub fn call_detached(&self, world: &dyn World, args: Args) -> SourceResult<Value> {
-        let mut vm = Vm::new(world, vec![], Scopes::new(None));
+    pub fn call_detached(
+        &self,
+        world: Tracked<dyn World>,
+        args: Args,
+    ) -> SourceResult<Value> {
+        let route = Route::default();
+        let mut vm = Vm::new(world, route.track(), None, Scopes::new(None));
         self.call(&mut vm, args)
     }
 
@@ -220,15 +227,12 @@ impl Closure {
         }
 
         // Determine the route inside the closure.
-        let detached = vm.route.is_empty();
-        let route = if detached {
-            self.location.into_iter().collect()
-        } else {
-            vm.route.clone()
-        };
+        let detached = vm.location.is_none();
+        let fresh = Route::new(self.location);
+        let route = if detached { fresh.track() } else { vm.route };
 
         // Evaluate the body.
-        let mut sub = Vm::new(vm.world, route, scopes);
+        let mut sub = Vm::new(vm.world, route, self.location, scopes);
         let result = self.body.eval(&mut sub);
 
         // Handle control flow.

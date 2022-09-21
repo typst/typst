@@ -3,6 +3,9 @@
 use std::fmt::{self, Display, Formatter};
 use std::io;
 use std::path::{Path, PathBuf};
+use std::string::FromUtf8Error;
+
+use comemo::Tracked;
 
 use crate::syntax::{Span, Spanned};
 use crate::World;
@@ -84,13 +87,13 @@ impl Display for Tracepoint {
 /// Enrich a [`SourceResult`] with a tracepoint.
 pub trait Trace<T> {
     /// Add the tracepoint to all errors that lie outside the `span`.
-    fn trace<F>(self, world: &dyn World, make_point: F, span: Span) -> Self
+    fn trace<F>(self, world: Tracked<dyn World>, make_point: F, span: Span) -> Self
     where
         F: Fn() -> Tracepoint;
 }
 
 impl<T> Trace<T> for SourceResult<T> {
-    fn trace<F>(self, world: &dyn World, make_point: F, span: Span) -> Self
+    fn trace<F>(self, world: Tracked<dyn World>, make_point: F, span: Span) -> Self
     where
         F: Fn() -> Tracepoint,
     {
@@ -146,6 +149,8 @@ pub type FileResult<T> = Result<T, FileError>;
 pub enum FileError {
     /// A file was not found at this path.
     NotFound(PathBuf),
+    /// A directory was found, but a file was expected.
+    IsDirectory,
     /// A file could not be accessed.
     AccessDenied,
     /// The file was not valid UTF-8, but should have been.
@@ -178,10 +183,17 @@ impl Display for FileError {
             Self::NotFound(path) => {
                 write!(f, "file not found (searched at {})", path.display())
             }
-            Self::AccessDenied => f.pad("file access denied"),
+            Self::IsDirectory => f.pad("failed to load file (is a directory)"),
+            Self::AccessDenied => f.pad("failed to load file (access denied)"),
             Self::InvalidUtf8 => f.pad("file is not valid utf-8"),
             Self::Other => f.pad("failed to load file"),
         }
+    }
+}
+
+impl From<FromUtf8Error> for FileError {
+    fn from(_: FromUtf8Error) -> Self {
+        Self::InvalidUtf8
     }
 }
 

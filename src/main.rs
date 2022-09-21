@@ -1,15 +1,17 @@
-use std::cell::RefCell;
-use std::collections::{hash_map::Entry, HashMap};
+use std::cell::{RefCell, RefMut};
+use std::collections::HashMap;
 use std::fs::{self, File};
 use std::hash::Hash;
-use std::io::{self, Write};
+use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process;
 
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term::{self, termcolor};
+use comemo::Prehashed;
 use elsa::FrozenVec;
 use memmap2::Mmap;
+use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use once_cell::unsync::OnceCell;
 use pico_args::Arguments;
 use same_file::{is_same_file, Handle};
@@ -19,10 +21,8 @@ use walkdir::WalkDir;
 
 use typst::diag::{FileError, FileResult, SourceError, StrResult};
 use typst::font::{Font, FontBook, FontInfo, FontVariant};
-use typst::library::text::THEME;
-use typst::parse::TokenMode;
 use typst::source::{Source, SourceId};
-use typst::util::Buffer;
+use typst::util::{Buffer, PathExt};
 use typst::{Config, World};
 
 type CodespanResult<T> = Result<T, CodespanError>;
@@ -31,7 +31,6 @@ type CodespanError = codespan_reporting::files::Error;
 /// What to do.
 enum Command {
     Typeset(TypesetCommand),
-    Highlight(HighlightCommand),
     Fonts(FontsCommand),
 }
 
@@ -40,6 +39,7 @@ struct TypesetCommand {
     input: PathBuf,
     output: PathBuf,
     root: Option<PathBuf>,
+    watch: bool,
 }
 
 const HELP: &'static str = "\
@@ -55,31 +55,11 @@ ARGS:
 
 OPTIONS:
   -h, --help     Print this help
+  -w, --watch    Watch the inputs and recompile on changes
   --root <dir>   Configure the root for absolute paths
 
 SUBCOMMANDS:
-  --highlight    Highlight .typ files to HTML
   --fonts        List all discovered system fonts
-";
-
-/// Highlight a .typ file into an HTML file.
-struct HighlightCommand {
-    input: PathBuf,
-    output: PathBuf,
-}
-
-const HELP_HIGHLIGHT: &'static str = "\
-typst --highlight creates highlighted HTML from .typ files
-
-USAGE:
-  typst --highlight [OPTIONS] <input.typ> [output.html]
-
-ARGS:
-  <input.typ>    Path to input Typst file
-  [output.html]  Path to output HTML file
-
-OPTIONS:
-  -h, --help     Print this help
 ";
 
 /// List discovered system fonts.
@@ -116,14 +96,7 @@ fn parse_args() -> StrResult<Command> {
     let mut args = Arguments::from_env();
     let help = args.contains(["-h", "--help"]);
 
-    let command = if args.contains("--highlight") {
-        if help {
-            print_help(HELP_HIGHLIGHT);
-        }
-
-        let (input, output) = parse_input_output(&mut args, "html")?;
-        Command::Highlight(HighlightCommand { input, output })
-    } else if args.contains("--fonts") {
+    let command = if args.contains("--fonts") {
         if help {
             print_help(HELP_FONTS);
         }
@@ -135,8 +108,9 @@ fn parse_args() -> StrResult<Command> {
         }
 
         let root = args.opt_value_from_str("--root").map_err(|_| "missing root path")?;
+        let watch = args.contains(["-w", "--watch"]);
         let (input, output) = parse_input_output(&mut args, "pdf")?;
-        Command::Typeset(TypesetCommand { input, output, root })
+        Command::Typeset(TypesetCommand { input, output, watch, root })
     };
 
     // Don't allow excess arguments.
@@ -194,39 +168,149 @@ fn print_error(msg: &str) -> io::Result<()> {
 fn dispatch(command: Command) -> StrResult<()> {
     match command {
         Command::Typeset(command) => typeset(command),
-        Command::Highlight(command) => highlight(command),
         Command::Fonts(command) => fonts(command),
     }
 }
 
 /// Execute a typesetting command.
 fn typeset(command: TypesetCommand) -> StrResult<()> {
-    let mut world = SystemWorld::new();
+    let mut config = Config::default();
     if let Some(root) = &command.root {
-        world.config.root = root.clone();
+        config.root = root.clone();
     } else if let Some(dir) = command.input.parent() {
-        world.config.root = dir.into();
+        config.root = dir.into();
     }
 
+
     // Create the world that serves sources, fonts and files.
-    let id = world.resolve(&command.input).map_err(|err| err.to_string())?;
+    let mut world = SystemWorld::new(config);
 
     // Typeset.
-    match typst::typeset(&world, id) {
+    typeset_once(&mut world, &command)?;
+
+    if !command.watch {
+        return Ok(());
+    }
+
+    // Setup file watching.
+    let (tx, rx) = std::sync::mpsc::channel();
+    let mut watcher = RecommendedWatcher::new(tx, notify::Config::default())
+        .map_err(|_| "failed to watch directory")?;
+
+    // Watch this directory recursively.
+    watcher
+        .watch(Path::new("."), RecursiveMode::Recursive)
+        .map_err(|_| "failed to watch directory")?;
+
+    // Handle events.
+    let timeout = std::time::Duration::from_millis(100);
+    loop {
+        let mut recompile = false;
+        for event in rx
+            .recv()
+            .into_iter()
+            .chain(std::iter::from_fn(|| rx.recv_timeout(timeout).ok()))
+        {
+            let event = event.map_err(|_| "failed to watch directory")?;
+            if event
+                .paths
+                .iter()
+                .all(|path| is_same_file(path, &command.output).unwrap_or(false))
+            {
+                continue;
+            }
+
+            recompile |= world.relevant(&event);
+        }
+
+        if recompile {
+            typeset_once(&mut world, &command)?;
+        }
+    }
+}
+
+/// Typeset a single time.
+fn typeset_once(world: &mut SystemWorld, command: &TypesetCommand) -> StrResult<()> {
+    status(command, Status::Compiling).unwrap();
+
+    world.reset();
+    let main = world.resolve(&command.input).map_err(|err| err.to_string())?;
+    match typst::typeset(world, main) {
         // Export the PDF.
         Ok(frames) => {
             let buffer = typst::export::pdf(&frames);
             fs::write(&command.output, buffer).map_err(|_| "failed to write PDF file")?;
+            status(command, Status::Success).unwrap();
         }
 
         // Print diagnostics.
         Err(errors) => {
+            status(command, Status::Error).unwrap();
             print_diagnostics(&world, *errors)
                 .map_err(|_| "failed to print diagnostics")?;
         }
     }
 
     Ok(())
+}
+
+/// Clear the terminal and render the status message.
+fn status(command: &TypesetCommand, status: Status) -> io::Result<()> {
+    if !command.watch {
+        return Ok(());
+    }
+
+    let esc = 27 as char;
+    let input = command.input.display();
+    let output = command.output.display();
+    let time = chrono::offset::Local::now();
+    let timestamp = time.format("%H:%M:%S");
+    let message = status.message();
+    let color = status.color();
+
+    let mut w = StandardStream::stderr(ColorChoice::Always);
+    write!(w, "{esc}c{esc}[1;1H")?;
+
+    w.set_color(&color)?;
+    write!(w, "watching")?;
+    w.reset()?;
+    writeln!(w, " {input}")?;
+
+    w.set_color(&color)?;
+    write!(w, "writing to")?;
+    w.reset()?;
+    writeln!(w, " {output}")?;
+
+    writeln!(w)?;
+    writeln!(w, "[{timestamp}] {message}")?;
+    writeln!(w)?;
+
+    w.flush()
+}
+
+/// The status in which the watcher can be.
+enum Status {
+    Compiling,
+    Success,
+    Error,
+}
+
+impl Status {
+    fn message(&self) -> &str {
+        match self {
+            Self::Compiling => "compiling ...",
+            Self::Success => "compiled successfully",
+            Self::Error => "compiled with errors",
+        }
+    }
+
+    fn color(&self) -> termcolor::ColorSpec {
+        let styles = term::Styles::default();
+        match self {
+            Self::Error => styles.header_error,
+            _ => styles.header_note,
+        }
+    }
 }
 
 /// Print diagnostic messages to the terminal.
@@ -263,21 +347,11 @@ fn print_diagnostics(
     Ok(())
 }
 
-/// Execute a highlighting command.
-fn highlight(command: HighlightCommand) -> StrResult<()> {
-    let input =
-        fs::read_to_string(&command.input).map_err(|_| "failed to load source file")?;
-
-    let html = typst::syntax::highlight_html(&input, TokenMode::Markup, &THEME);
-    fs::write(&command.output, html).map_err(|_| "failed to write HTML file")?;
-
-    Ok(())
-}
-
 /// Execute a font listing command.
 fn fonts(command: FontsCommand) -> StrResult<()> {
-    let world = SystemWorld::new();
-    for (name, infos) in world.book().families() {
+    let mut searcher = FontSearcher::new();
+    searcher.search_system();
+    for (name, infos) in searcher.book.families() {
         println!("{name}");
         if command.variants {
             for info in infos {
@@ -292,60 +366,50 @@ fn fonts(command: FontsCommand) -> StrResult<()> {
 
 /// A world that provides access to the operating system.
 struct SystemWorld {
-    config: Config,
-    sources: FrozenVec<Box<Source>>,
-    nav: RefCell<HashMap<PathHash, SourceId>>,
-    book: FontBook,
+    config: Prehashed<Config>,
+    book: Prehashed<FontBook>,
     fonts: Vec<FontSlot>,
-    files: RefCell<HashMap<PathHash, Buffer>>,
+    hashes: RefCell<HashMap<PathBuf, FileResult<PathHash>>>,
+    paths: RefCell<HashMap<PathHash, PathSlot>>,
+    sources: FrozenVec<Box<Source>>,
 }
 
+/// Holds details about the location of a font and lazily the font itself.
 struct FontSlot {
     path: PathBuf,
     index: u32,
     font: OnceCell<Option<Font>>,
 }
 
+/// Holds canonical data for all paths pointing to the same entity.
+#[derive(Default)]
+struct PathSlot {
+    source: OnceCell<FileResult<SourceId>>,
+    buffer: OnceCell<FileResult<Buffer>>,
+}
+
 impl SystemWorld {
-    fn new() -> Self {
-        let mut world = Self {
-            config: Config::default(),
-            book: FontBook::new(),
+    fn new(config: Config) -> Self {
+        let mut searcher = FontSearcher::new();
+        searcher.search_system();
+
+        Self {
+            config: Prehashed::new(config),
+            book: Prehashed::new(searcher.book),
+            fonts: searcher.fonts,
+            hashes: RefCell::default(),
+            paths: RefCell::default(),
             sources: FrozenVec::new(),
-            nav: RefCell::new(HashMap::new()),
-            fonts: vec![],
-            files: RefCell::new(HashMap::new()),
-        };
-        world.search_system();
-        world
+        }
     }
 }
 
 impl World for SystemWorld {
-    fn config(&self) -> &Config {
+    fn config(&self) -> &Prehashed<Config> {
         &self.config
     }
 
-    fn resolve(&self, path: &Path) -> FileResult<SourceId> {
-        let hash = PathHash::new(path)?;
-        if let Some(&id) = self.nav.borrow().get(&hash) {
-            return Ok(id);
-        }
-
-        let text = fs::read_to_string(path).map_err(|e| FileError::from_io(e, path))?;
-        let id = SourceId::from_raw(self.sources.len() as u16);
-        let source = Source::new(id, path, text);
-        self.sources.push(Box::new(source));
-        self.nav.borrow_mut().insert(hash, id);
-
-        Ok(id)
-    }
-
-    fn source(&self, id: SourceId) -> &Source {
-        &self.sources[id.into_raw() as usize]
-    }
-
-    fn book(&self) -> &FontBook {
+    fn book(&self) -> &Prehashed<FontBook> {
         &self.book
     }
 
@@ -360,36 +424,178 @@ impl World for SystemWorld {
     }
 
     fn file(&self, path: &Path) -> FileResult<Buffer> {
-        let hash = PathHash::new(path)?;
-        Ok(match self.files.borrow_mut().entry(hash) {
-            Entry::Occupied(entry) => entry.get().clone(),
-            Entry::Vacant(entry) => entry
-                .insert(fs::read(path).map_err(|e| FileError::from_io(e, path))?.into())
-                .clone(),
-        })
+        self.slot(path)?
+            .buffer
+            .get_or_init(|| read(path).map(Buffer::from))
+            .clone()
+    }
+
+    fn resolve(&self, path: &Path) -> FileResult<SourceId> {
+        self.slot(path)?
+            .source
+            .get_or_init(|| {
+                let buf = read(path)?;
+                let text = String::from_utf8(buf)?;
+                Ok(self.insert(path, text))
+            })
+            .clone()
+    }
+
+    fn source(&self, id: SourceId) -> &Source {
+        &self.sources[id.into_u16() as usize]
     }
 }
 
-/// A hash that is the same for all paths pointing to the same file.
+impl SystemWorld {
+    fn slot(&self, path: &Path) -> FileResult<RefMut<PathSlot>> {
+        let mut hashes = self.hashes.borrow_mut();
+        let hash = match hashes.get(path).cloned() {
+            Some(hash) => hash,
+            None => {
+                let hash = PathHash::new(path);
+                if let Ok(canon) = path.canonicalize() {
+                    hashes.insert(canon.normalize(), hash.clone());
+                }
+                hashes.insert(path.into(), hash.clone());
+                hash
+            }
+        }?;
+
+        Ok(std::cell::RefMut::map(self.paths.borrow_mut(), |paths| {
+            paths.entry(hash).or_default()
+        }))
+    }
+
+    fn insert(&self, path: &Path, text: String) -> SourceId {
+        let id = SourceId::from_u16(self.sources.len() as u16);
+        let source = Source::new(id, path, text);
+        self.sources.push(Box::new(source));
+        id
+    }
+
+    fn relevant(&mut self, event: &notify::Event) -> bool {
+        match &event.kind {
+            notify::EventKind::Any => {}
+            notify::EventKind::Access(_) => return false,
+            notify::EventKind::Create(_) => return true,
+            notify::EventKind::Modify(kind) => match kind {
+                notify::event::ModifyKind::Any => {}
+                notify::event::ModifyKind::Data(_) => {}
+                notify::event::ModifyKind::Metadata(_) => return false,
+                notify::event::ModifyKind::Name(_) => return true,
+                notify::event::ModifyKind::Other => return false,
+            },
+            notify::EventKind::Remove(_) => {}
+            notify::EventKind::Other => return false,
+        }
+
+        event.paths.iter().any(|path| self.dependant(path))
+    }
+
+    fn dependant(&self, path: &Path) -> bool {
+        self.hashes.borrow().contains_key(&path.normalize())
+            || PathHash::new(path)
+                .map_or(false, |hash| self.paths.borrow().contains_key(&hash))
+    }
+
+    fn reset(&mut self) {
+        self.sources.as_mut().clear();
+        self.hashes.borrow_mut().clear();
+        self.paths.borrow_mut().clear();
+    }
+}
+
+/// A hash that is the same for all paths pointing to the same entity.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 struct PathHash(u128);
 
 impl PathHash {
     fn new(path: &Path) -> FileResult<Self> {
         let f = |e| FileError::from_io(e, path);
-        let file = File::open(path).map_err(f)?;
-        if file.metadata().map_err(f)?.is_file() {
-            let handle = Handle::from_file(file).map_err(f)?;
-            let mut state = SipHasher::new();
-            handle.hash(&mut state);
-            Ok(Self(state.finish128().as_u128()))
-        } else {
-            Err(FileError::NotFound(path.into()))
-        }
+        let handle = Handle::from_path(path).map_err(f)?;
+        let mut state = SipHasher::new();
+        handle.hash(&mut state);
+        Ok(Self(state.finish128().as_u128()))
     }
 }
 
-impl SystemWorld {
+/// Read a file.
+fn read(path: &Path) -> FileResult<Vec<u8>> {
+    let f = |e| FileError::from_io(e, path);
+    let mut file = File::open(path).map_err(f)?;
+    if file.metadata().map_err(f)?.is_file() {
+        let mut data = vec![];
+        file.read_to_end(&mut data).map_err(f)?;
+        Ok(data)
+    } else {
+        Err(FileError::IsDirectory)
+    }
+}
+
+impl<'a> codespan_reporting::files::Files<'a> for SystemWorld {
+    type FileId = SourceId;
+    type Name = std::path::Display<'a>;
+    type Source = &'a str;
+
+    fn name(&'a self, id: SourceId) -> CodespanResult<Self::Name> {
+        Ok(World::source(self, id).path().display())
+    }
+
+    fn source(&'a self, id: SourceId) -> CodespanResult<Self::Source> {
+        Ok(World::source(self, id).text())
+    }
+
+    fn line_index(&'a self, id: SourceId, given: usize) -> CodespanResult<usize> {
+        let source = World::source(self, id);
+        source
+            .byte_to_line(given)
+            .ok_or_else(|| CodespanError::IndexTooLarge {
+                given,
+                max: source.len_bytes(),
+            })
+    }
+
+    fn line_range(
+        &'a self,
+        id: SourceId,
+        given: usize,
+    ) -> CodespanResult<std::ops::Range<usize>> {
+        let source = World::source(self, id);
+        source
+            .line_to_range(given)
+            .ok_or_else(|| CodespanError::LineTooLarge { given, max: source.len_lines() })
+    }
+
+    fn column_number(
+        &'a self,
+        id: SourceId,
+        _: usize,
+        given: usize,
+    ) -> CodespanResult<usize> {
+        let source = World::source(self, id);
+        source.byte_to_column(given).ok_or_else(|| {
+            let max = source.len_bytes();
+            if given <= max {
+                CodespanError::InvalidCharBoundary { given }
+            } else {
+                CodespanError::IndexTooLarge { given, max }
+            }
+        })
+    }
+}
+
+/// Searches for fonts.
+struct FontSearcher {
+    book: FontBook,
+    fonts: Vec<FontSlot>,
+}
+
+impl FontSearcher {
+    /// Create a new, empty system searcher.
+    fn new() -> Self {
+        Self { book: FontBook::new(), fonts: vec![] }
+    }
+
     /// Search for fonts in the linux system font directories.
     #[cfg(all(unix, not(target_os = "macos")))]
     fn search_system(&mut self) {
@@ -464,57 +670,5 @@ impl SystemWorld {
                 }
             }
         }
-    }
-}
-
-impl<'a> codespan_reporting::files::Files<'a> for SystemWorld {
-    type FileId = SourceId;
-    type Name = std::path::Display<'a>;
-    type Source = &'a str;
-
-    fn name(&'a self, id: SourceId) -> CodespanResult<Self::Name> {
-        Ok(World::source(self, id).path().display())
-    }
-
-    fn source(&'a self, id: SourceId) -> CodespanResult<Self::Source> {
-        Ok(World::source(self, id).text())
-    }
-
-    fn line_index(&'a self, id: SourceId, given: usize) -> CodespanResult<usize> {
-        let source = World::source(self, id);
-        source
-            .byte_to_line(given)
-            .ok_or_else(|| CodespanError::IndexTooLarge {
-                given,
-                max: source.len_bytes(),
-            })
-    }
-
-    fn line_range(
-        &'a self,
-        id: SourceId,
-        given: usize,
-    ) -> CodespanResult<std::ops::Range<usize>> {
-        let source = World::source(self, id);
-        source
-            .line_to_range(given)
-            .ok_or_else(|| CodespanError::LineTooLarge { given, max: source.len_lines() })
-    }
-
-    fn column_number(
-        &'a self,
-        id: SourceId,
-        _: usize,
-        given: usize,
-    ) -> CodespanResult<usize> {
-        let source = World::source(self, id);
-        source.byte_to_column(given).ok_or_else(|| {
-            let max = source.len_bytes();
-            if given <= max {
-                CodespanError::InvalidCharBoundary { given }
-            } else {
-                CodespanError::IndexTooLarge { given, max }
-            }
-        })
     }
 }

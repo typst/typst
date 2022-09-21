@@ -1,5 +1,7 @@
 use std::fmt::{self, Debug, Formatter};
 
+use comemo::Tracked;
+
 use super::{Content, Interruption, NodeId, Show, ShowNode, StyleChain, StyleEntry};
 use crate::diag::SourceResult;
 use crate::eval::{Args, Func, Regex, Value};
@@ -29,7 +31,7 @@ impl Recipe {
     /// Try to apply the recipe to the target.
     pub fn apply(
         &self,
-        world: &dyn World,
+        world: Tracked<dyn World>,
         styles: StyleChain,
         sel: Selector,
         target: Target,
@@ -75,7 +77,7 @@ impl Recipe {
     }
 
     /// Call the recipe function, with the argument if desired.
-    fn call<F>(&self, world: &dyn World, arg: F) -> SourceResult<Content>
+    fn call<F>(&self, world: Tracked<dyn World>, arg: F) -> SourceResult<Content>
     where
         F: FnOnce() -> Value,
     {

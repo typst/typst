@@ -8,7 +8,7 @@ use unicode_segmentation::UnicodeSegmentation;
 use super::{Font, FontStretch, FontStyle, FontVariant, FontWeight};
 
 /// Metadata about a collection of fonts.
-#[derive(Default)]
+#[derive(Default, Clone, Hash)]
 pub struct FontBook {
     /// Maps from lowercased family names to font indices.
     families: BTreeMap<String, Vec<usize>>,
@@ -144,7 +144,7 @@ impl FontBook {
 }
 
 /// Properties of a single font.
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct FontInfo {
     /// The typographic font family this font is part of.
     pub family: String,
@@ -377,7 +377,7 @@ fn shared_prefix_words(left: &str, right: &str) -> usize {
 /// - 2 codepoints inside (18, 19)
 ///
 /// So the resulting encoding is `[2, 3, 4, 3, 3, 1, 2, 2]`.
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Coverage(Vec<u32>);
 

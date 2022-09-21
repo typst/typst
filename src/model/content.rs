@@ -4,6 +4,7 @@ use std::iter::Sum;
 use std::mem;
 use std::ops::{Add, AddAssign};
 
+use comemo::Tracked;
 use typed_arena::Arena;
 
 use super::{
@@ -23,7 +24,8 @@ use crate::World;
 /// Layout content into a collection of pages.
 ///
 /// Relayouts until all pinned locations are converged.
-pub fn layout(world: &dyn World, content: &Content) -> SourceResult<Vec<Frame>> {
+#[comemo::memoize]
+pub fn layout(world: Tracked<dyn World>, content: &Content) -> SourceResult<Vec<Frame>> {
     let styles = StyleChain::with_root(&world.config().styles);
     let scratch = Scratch::default();
 
@@ -232,7 +234,7 @@ impl Content {
 impl Layout for Content {
     fn layout(
         &self,
-        world: &dyn World,
+        world: Tracked<dyn World>,
         regions: &Regions,
         styles: StyleChain,
     ) -> SourceResult<Vec<Frame>> {
@@ -330,9 +332,9 @@ impl Sum for Content {
 }
 
 /// Builds a document or a flow node from content.
-struct Builder<'a, 'w> {
+struct Builder<'a> {
     /// The core context.
-    world: &'w dyn World,
+    world: Tracked<'a, dyn World>,
     /// Scratch arenas for building.
     scratch: &'a Scratch<'a>,
     /// The current document building state.
@@ -354,8 +356,8 @@ struct Scratch<'a> {
     templates: Arena<Content>,
 }
 
-impl<'a, 'w> Builder<'a, 'w> {
-    fn new(world: &'w dyn World, scratch: &'a Scratch<'a>, top: bool) -> Self {
+impl<'a> Builder<'a> {
+    fn new(world: Tracked<'a, dyn World>, scratch: &'a Scratch<'a>, top: bool) -> Self {
         Self {
             world,
             scratch,
@@ -662,7 +664,7 @@ impl<'a> ParBuilder<'a> {
         true
     }
 
-    fn finish(self, parent: &mut Builder<'a, '_>) {
+    fn finish(self, parent: &mut Builder<'a>) {
         let (mut children, shared) = self.0.finish();
         if children.is_empty() {
             return;
@@ -746,7 +748,7 @@ impl<'a> ListBuilder<'a> {
         true
     }
 
-    fn finish(self, parent: &mut Builder<'a, '_>) -> SourceResult<()> {
+    fn finish(self, parent: &mut Builder<'a>) -> SourceResult<()> {
         let (items, shared) = self.items.finish();
         let kind = match items.items().next() {
             Some(item) => item.kind,

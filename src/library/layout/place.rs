@@ -21,7 +21,7 @@ impl PlaceNode {
 impl Layout for PlaceNode {
     fn layout(
         &self,
-        world: &dyn World,
+        world: Tracked<dyn World>,
         regions: &Regions,
         styles: StyleChain,
     ) -> SourceResult<Vec<Frame>> {

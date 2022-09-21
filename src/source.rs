@@ -1,8 +1,11 @@
 //! Source file management.
 
+use std::fmt::{self, Debug, Formatter};
+use std::hash::{Hash, Hasher};
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
+use comemo::Prehashed;
 use unscanny::Scanner;
 
 use crate::diag::SourceResult;
@@ -13,15 +16,14 @@ use crate::util::{PathExt, StrExt};
 
 /// A source file.
 ///
-/// _Note_: All line and column indices start at zero, just like byte indices.
-/// Only for user-facing display, you should add 1 to them.
+/// All line and column indices start at zero, just like byte indices. Only for
+/// user-facing display, you should add 1 to them.
 pub struct Source {
     id: SourceId,
     path: PathBuf,
-    text: String,
+    text: Prehashed<String>,
     lines: Vec<Line>,
     root: SyntaxNode,
-    rev: usize,
 }
 
 impl Source {
@@ -38,9 +40,8 @@ impl Source {
             id,
             path: path.normalize(),
             root,
-            text,
+            text: Prehashed::new(text),
             lines,
-            rev: 0,
         }
     }
 
@@ -87,14 +88,6 @@ impl Source {
         &self.text
     }
 
-    /// The revision number of the file.
-    ///
-    /// This is increased on [replacements](Self::replace) and
-    /// [edits](Self::edit).
-    pub fn rev(&self) -> usize {
-        self.rev
-    }
-
     /// Slice out the part of the source code enclosed by the range.
     pub fn get(&self, range: Range<usize>) -> Option<&str> {
         self.text.get(range)
@@ -102,12 +95,11 @@ impl Source {
 
     /// Fully replace the source text and increase the revision number.
     pub fn replace(&mut self, text: String) {
-        self.text = text;
+        self.text = Prehashed::new(text);
         self.lines = vec![Line { byte_idx: 0, utf16_idx: 0 }];
         self.lines.extend(lines(0, 0, &self.text));
         self.root = parse(&self.text);
         self.root.numberize(self.id(), Span::FULL).unwrap();
-        self.rev = self.rev.wrapping_add(1);
     }
 
     /// Edit the source file by replacing the given range and increase the
@@ -117,11 +109,11 @@ impl Source {
     ///
     /// The method panics if the `replace` range is out of bounds.
     pub fn edit(&mut self, replace: Range<usize>, with: &str) -> Range<usize> {
-        self.rev = self.rev.wrapping_add(1);
-
         let start_byte = replace.start;
         let start_utf16 = self.byte_to_utf16(replace.start).unwrap();
-        self.text.replace_range(replace.clone(), with);
+        let mut text = std::mem::take(&mut self.text).into_inner();
+        text.replace_range(replace.clone(), with);
+        self.text = Prehashed::new(text);
 
         // Remove invalidated line starts.
         let line = self.byte_to_line(start_byte).unwrap();
@@ -246,6 +238,20 @@ impl Source {
     }
 }
 
+impl Debug for Source {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "Source({})", self.path.display())
+    }
+}
+
+impl Hash for Source {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+        self.path.hash(state);
+        self.text.hash(state);
+    }
+}
+
 /// A unique identifier for a loaded source file.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct SourceId(u16);
@@ -256,16 +262,13 @@ impl SourceId {
         Self(u16::MAX)
     }
 
-    /// Create a source id from the raw underlying value.
-    ///
-    /// This should only be called with values returned by
-    /// [`into_raw`](Self::into_raw).
-    pub const fn from_raw(v: u16) -> Self {
+    /// Create a source id from a number.
+    pub const fn from_u16(v: u16) -> Self {
         Self(v)
     }
 
-    /// Convert into the raw underlying value.
-    pub const fn into_raw(self) -> u16 {
+    /// Extract the underlying number.
+    pub const fn into_u16(self) -> u16 {
         self.0
     }
 }

@@ -48,7 +48,11 @@ impl Show for MathNode {
         }
     }
 
-    fn realize(&self, _: &dyn World, styles: StyleChain) -> SourceResult<Content> {
+    fn realize(
+        &self,
+        _: Tracked<dyn World>,
+        styles: StyleChain,
+    ) -> SourceResult<Content> {
         let node = self::rex::RexNode {
             tex: self.formula.clone(),
             display: self.display,
@@ -64,7 +68,7 @@ impl Show for MathNode {
 
     fn finalize(
         &self,
-        _: &dyn World,
+        _: Tracked<dyn World>,
         styles: StyleChain,
         mut realized: Content,
     ) -> SourceResult<Content> {

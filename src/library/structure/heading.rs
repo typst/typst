@@ -82,13 +82,13 @@ impl Show for HeadingNode {
         }
     }
 
-    fn realize(&self, _: &dyn World, _: StyleChain) -> SourceResult<Content> {
+    fn realize(&self, _: Tracked<dyn World>, _: StyleChain) -> SourceResult<Content> {
         Ok(Content::block(self.body.clone()))
     }
 
     fn finalize(
         &self,
-        world: &dyn World,
+        world: Tracked<dyn World>,
         styles: StyleChain,
         mut realized: Content,
     ) -> SourceResult<Content> {
@@ -149,7 +149,11 @@ pub enum Leveled<T> {
 
 impl<T: Cast + Clone> Leveled<T> {
     /// Resolve the value based on the level.
-    pub fn resolve(&self, world: &dyn World, level: NonZeroUsize) -> SourceResult<T> {
+    pub fn resolve(
+        &self,
+        world: Tracked<dyn World>,
+        level: NonZeroUsize,
+    ) -> SourceResult<T> {
         Ok(match self {
             Self::Value(value) => value.clone(),
             Self::Mapping(mapping) => mapping(level),

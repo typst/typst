@@ -2,7 +2,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::Deref;
 use std::sync::Arc;
 
-use super::Prehashed;
+use comemo::Prehashed;
 
 /// A shared buffer that is cheap to clone and hash.
 #[derive(Clone, Hash, Eq, PartialEq)]

@@ -6,6 +6,7 @@ pub use std::io;
 pub use std::num::NonZeroUsize;
 pub use std::sync::Arc;
 
+pub use comemo::Tracked;
 pub use typst_macros::node;
 
 pub use crate::diag::{with_alternative, At, SourceError, SourceResult, StrResult};

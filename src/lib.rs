@@ -21,7 +21,7 @@
 //! [parsed]: parse::parse
 //! [syntax tree]: syntax::SyntaxNode
 //! [AST]: syntax::ast
-//! [evaluate]: eval::evaluate
+//! [evaluate]: eval::eval
 //! [module]: eval::Module
 //! [content]: model::Content
 //! [layouted]: model::layout
@@ -51,8 +51,10 @@ pub mod syntax;
 
 use std::path::{Path, PathBuf};
 
+use comemo::{Prehashed, Track};
+
 use crate::diag::{FileResult, SourceResult};
-use crate::eval::Scope;
+use crate::eval::{Route, Scope};
 use crate::font::{Font, FontBook};
 use crate::frame::Frame;
 use crate::model::StyleMap;
@@ -64,33 +66,39 @@ use crate::util::Buffer;
 /// Returns either a vector of frames representing individual pages or
 /// diagnostics in the form of a vector of error message with file and span
 /// information.
-pub fn typeset(world: &dyn World, main: SourceId) -> SourceResult<Vec<Frame>> {
-    let module = eval::evaluate(world, main, vec![])?;
-    model::layout(world, &module.content)
+pub fn typeset(
+    world: &(dyn World + 'static),
+    main: SourceId,
+) -> SourceResult<Vec<Frame>> {
+    let route = Route::default();
+    let module = eval::eval(world.track(), route.track(), main)?;
+    model::layout(world.track(), &module.content)
 }
 
 /// The environment in which typesetting occurs.
+#[comemo::track]
 pub trait World {
     /// Access the global configuration.
-    fn config(&self) -> &Config;
-
-    /// Try to resolve the unique id of a source file.
-    fn resolve(&self, path: &Path) -> FileResult<SourceId>;
-
-    /// Access a source file by id.
-    fn source(&self, id: SourceId) -> &Source;
+    fn config(&self) -> &Prehashed<Config>;
 
     /// Metadata about all known fonts.
-    fn book(&self) -> &FontBook;
+    fn book(&self) -> &Prehashed<FontBook>;
 
     /// Try to access the font with the given id.
     fn font(&self, id: usize) -> Option<Font>;
 
     /// Try to access a file at a path.
     fn file(&self, path: &Path) -> FileResult<Buffer>;
+
+    /// Try to resolve the unique id of a source file.
+    fn resolve(&self, path: &Path) -> FileResult<SourceId>;
+
+    /// Access a source file by id.
+    fn source(&self, id: SourceId) -> &Source;
 }
 
 /// The global configuration for typesetting.
+#[derive(Debug, Clone, Hash)]
 pub struct Config {
     /// The compilation root, relative to which absolute paths are.
     ///

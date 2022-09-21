@@ -64,7 +64,7 @@ impl ParNode {
 impl Layout for ParNode {
     fn layout(
         &self,
-        world: &dyn World,
+        world: Tracked<dyn World>,
         regions: &Regions,
         styles: StyleChain,
     ) -> SourceResult<Vec<Frame>> {
@@ -496,7 +496,7 @@ fn collect<'a>(
 /// Prepare paragraph layout by shaping the whole paragraph and layouting all
 /// contained inline-level nodes.
 fn prepare<'a>(
-    world: &dyn World,
+    world: Tracked<dyn World>,
     par: &'a ParNode,
     text: &'a str,
     segments: Vec<(Segment<'a>, StyleChain<'a>)>,
@@ -561,7 +561,7 @@ fn prepare<'a>(
 /// items for them.
 fn shape_range<'a>(
     items: &mut Vec<Item<'a>>,
-    world: &dyn World,
+    world: Tracked<dyn World>,
     bidi: &BidiInfo<'a>,
     range: Range,
     styles: StyleChain<'a>,
@@ -627,7 +627,7 @@ fn shared_get<'a, K: Key<'a>>(
 /// Find suitable linebreaks.
 fn linebreak<'a>(
     p: &'a Preparation<'a>,
-    world: &dyn World,
+    world: Tracked<dyn World>,
     width: Length,
 ) -> Vec<Line<'a>> {
     match p.styles.get(ParNode::LINEBREAKS) {
@@ -641,7 +641,7 @@ fn linebreak<'a>(
 /// very unbalanced line, but is fast and simple.
 fn linebreak_simple<'a>(
     p: &'a Preparation<'a>,
-    world: &dyn World,
+    world: Tracked<dyn World>,
     width: Length,
 ) -> Vec<Line<'a>> {
     let mut lines = vec![];
@@ -701,7 +701,7 @@ fn linebreak_simple<'a>(
 /// text.
 fn linebreak_optimized<'a>(
     p: &'a Preparation<'a>,
-    world: &dyn World,
+    world: Tracked<dyn World>,
     width: Length,
 ) -> Vec<Line<'a>> {
     /// The cost of a line or paragraph layout.
@@ -914,7 +914,7 @@ impl Breakpoints<'_> {
 /// Create a line which spans the given range.
 fn line<'a>(
     p: &'a Preparation,
-    world: &dyn World,
+    world: Tracked<dyn World>,
     mut range: Range,
     mandatory: bool,
     hyphen: bool,
@@ -1022,7 +1022,7 @@ fn line<'a>(
 /// Combine layouted lines into one frame per region.
 fn stack(
     p: &Preparation,
-    world: &dyn World,
+    world: Tracked<dyn World>,
     lines: &[Line],
     regions: &Regions,
 ) -> SourceResult<Vec<Frame>> {
@@ -1072,7 +1072,7 @@ fn stack(
 /// Commit to a line and build its frame.
 fn commit(
     p: &Preparation,
-    world: &dyn World,
+    world: Tracked<dyn World>,
     line: &Line,
     regions: &Regions,
     width: Length,

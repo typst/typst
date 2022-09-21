@@ -38,7 +38,7 @@
 #import a, c, from "target.typ"
 
 ---
-// Error: 19-21 file not found (searched at typ/code)
+// Error: 19-21 failed to load file (is a directory)
 #import name from ""
 
 ---

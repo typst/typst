@@ -33,7 +33,7 @@ impl GridNode {
 impl Layout for GridNode {
     fn layout(
         &self,
-        world: &dyn World,
+        world: Tracked<dyn World>,
         regions: &Regions,
         styles: StyleChain,
     ) -> SourceResult<Vec<Frame>> {
@@ -93,7 +93,7 @@ castable! {
 /// Performs grid layout.
 pub struct GridLayouter<'a> {
     /// The core context.
-    world: &'a dyn World,
+    world: Tracked<'a, dyn World>,
     /// The grid cells.
     cells: &'a [LayoutNode],
     /// The column tracks including gutter tracks.
@@ -133,7 +133,7 @@ impl<'a> GridLayouter<'a> {
     ///
     /// This prepares grid layout by unifying content and gutter tracks.
     pub fn new(
-        world: &'a dyn World,
+        world: Tracked<'a, dyn World>,
         tracks: Spec<&[TrackSizing]>,
         gutter: Spec<&[TrackSizing]>,
         cells: &'a [LayoutNode],

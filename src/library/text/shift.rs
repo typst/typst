@@ -42,7 +42,11 @@ impl<const S: ScriptKind> Show for ShiftNode<S> {
         dict! { "body" => Value::Content(self.0.clone()) }
     }
 
-    fn realize(&self, world: &dyn World, styles: StyleChain) -> SourceResult<Content> {
+    fn realize(
+        &self,
+        world: Tracked<dyn World>,
+        styles: StyleChain,
+    ) -> SourceResult<Content> {
         let mut transformed = None;
         if styles.get(Self::TYPOGRAPHIC) {
             if let Some(text) = search_text(&self.0, S) {
@@ -91,7 +95,7 @@ fn search_text(content: &Content, mode: ScriptKind) -> Option<EcoString> {
 
 /// Checks whether the first retrievable family contains all code points of the
 /// given string.
-fn is_shapable(world: &dyn World, text: &str, styles: StyleChain) -> bool {
+fn is_shapable(world: Tracked<dyn World>, text: &str, styles: StyleChain) -> bool {
     for family in styles.get(TextNode::FAMILY).iter() {
         if let Some(font) = world
             .book()

@@ -48,7 +48,11 @@ impl<const L: DecoLine> Show for DecoNode<L> {
         dict! { "body" => Value::Content(self.0.clone()) }
     }
 
-    fn realize(&self, _: &dyn World, styles: StyleChain) -> SourceResult<Content> {
+    fn realize(
+        &self,
+        _: Tracked<dyn World>,
+        styles: StyleChain,
+    ) -> SourceResult<Content> {
         Ok(self.0.clone().styled(TextNode::DECO, Decoration {
             line: L,
             stroke: styles.get(Self::STROKE).unwrap_or_default(),

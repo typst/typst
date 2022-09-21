@@ -25,7 +25,7 @@ pub enum FlowChild {
 impl Layout for FlowNode {
     fn layout(
         &self,
-        world: &dyn World,
+        world: Tracked<dyn World>,
         regions: &Regions,
         styles: StyleChain,
     ) -> SourceResult<Vec<Frame>> {
@@ -149,7 +149,7 @@ impl FlowLayouter {
     /// Layout a node.
     pub fn layout_node(
         &mut self,
-        world: &dyn World,
+        world: Tracked<dyn World>,
         node: &LayoutNode,
         styles: StyleChain,
     ) -> SourceResult<()> {

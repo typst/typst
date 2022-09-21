@@ -1,15 +1,15 @@
-use std::cell::RefCell;
-use std::collections::{hash_map::Entry, HashMap};
+use std::cell::{RefCell, RefMut};
+use std::collections::HashMap;
 use std::env;
 use std::ffi::OsStr;
 use std::fs::{self, File};
-use std::hash::Hash;
+use std::io::Read;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
+use comemo::Prehashed;
 use elsa::FrozenVec;
-use same_file::Handle;
-use siphasher::sip128::{Hasher128, SipHasher};
+use once_cell::unsync::OnceCell;
 use tiny_skia as sk;
 use unscanny::Scanner;
 use walkdir::WalkDir;
@@ -24,7 +24,7 @@ use typst::library::text::{TextNode, TextSize};
 use typst::model::StyleMap;
 use typst::source::{Source, SourceId};
 use typst::syntax::SyntaxNode;
-use typst::util::Buffer;
+use typst::util::{Buffer, PathExt};
 use typst::{bail, Config, World};
 
 const TYP_DIR: &str = "./typ";
@@ -147,54 +147,65 @@ impl Args {
     }
 }
 
+fn config() -> Config {
+    // Set page width to 120pt with 10pt margins, so that the inner page is
+    // exactly 100pt wide. Page height is unbounded and font size is 10pt so
+    // that it multiplies to nice round numbers.
+    let mut styles = StyleMap::new();
+    styles.set(PageNode::WIDTH, Smart::Custom(Length::pt(120.0).into()));
+    styles.set(PageNode::HEIGHT, Smart::Auto);
+    styles.set(
+        PageNode::MARGINS,
+        Sides::splat(Some(Smart::Custom(Length::pt(10.0).into()))),
+    );
+    styles.set(TextNode::SIZE, TextSize(Length::pt(10.0).into()));
+
+    // Hook up helpers into the global scope.
+    let mut std = typst::library::new();
+    std.define("conifer", RgbaColor::new(0x9f, 0xEB, 0x52, 0xFF));
+    std.define("forest", RgbaColor::new(0x43, 0xA1, 0x27, 0xFF));
+    std.def_fn("test", move |_, args| {
+        let lhs = args.expect::<Value>("left-hand side")?;
+        let rhs = args.expect::<Value>("right-hand side")?;
+        if lhs != rhs {
+            bail!(args.span, "Assertion failed: {:?} != {:?}", lhs, rhs,);
+        }
+        Ok(Value::None)
+    });
+    std.def_fn("print", move |_, args| {
+        print!("> ");
+        for (i, value) in args.all::<Value>()?.into_iter().enumerate() {
+            if i > 0 {
+                print!(", ")
+            }
+            print!("{value:?}");
+        }
+        println!();
+        Ok(Value::None)
+    });
+
+    Config { root: PathBuf::new(), std, styles }
+}
+
+/// A world that provides access to the tests environment.
 struct TestWorld {
-    config: Config,
     print: PrintConfig,
-    sources: FrozenVec<Box<Source>>,
-    nav: RefCell<HashMap<PathHash, SourceId>>,
-    book: FontBook,
+    config: Prehashed<Config>,
+    book: Prehashed<FontBook>,
     fonts: Vec<Font>,
-    files: RefCell<HashMap<PathHash, Buffer>>,
+    paths: RefCell<HashMap<PathBuf, PathSlot>>,
+    sources: FrozenVec<Box<Source>>,
+}
+
+#[derive(Default)]
+struct PathSlot {
+    source: OnceCell<FileResult<SourceId>>,
+    buffer: OnceCell<FileResult<Buffer>>,
 }
 
 impl TestWorld {
     fn new(print: PrintConfig) -> Self {
-        // Set page width to 120pt with 10pt margins, so that the inner page is
-        // exactly 100pt wide. Page height is unbounded and font size is 10pt so
-        // that it multiplies to nice round numbers.
-        let mut styles = StyleMap::new();
-        styles.set(PageNode::WIDTH, Smart::Custom(Length::pt(120.0).into()));
-        styles.set(PageNode::HEIGHT, Smart::Auto);
-        styles.set(
-            PageNode::MARGINS,
-            Sides::splat(Some(Smart::Custom(Length::pt(10.0).into()))),
-        );
-        styles.set(TextNode::SIZE, TextSize(Length::pt(10.0).into()));
-
-        // Hook up helpers into the global scope.
-        let mut std = typst::library::new();
-        std.define("conifer", RgbaColor::new(0x9f, 0xEB, 0x52, 0xFF));
-        std.define("forest", RgbaColor::new(0x43, 0xA1, 0x27, 0xFF));
-        std.def_fn("test", move |_, args| {
-            let lhs = args.expect::<Value>("left-hand side")?;
-            let rhs = args.expect::<Value>("right-hand side")?;
-            if lhs != rhs {
-                bail!(args.span, "Assertion failed: {:?} != {:?}", lhs, rhs,);
-            }
-            Ok(Value::None)
-        });
-        std.def_fn("print", move |_, args| {
-            print!("> ");
-            for (i, value) in args.all::<Value>()?.into_iter().enumerate() {
-                if i > 0 {
-                    print!(", ")
-                }
-                print!("{value:?}");
-            }
-            println!();
-            Ok(Value::None)
-        });
-
+        // Search for fonts.
         let mut fonts = vec![];
         for entry in WalkDir::new(FONT_DIR)
             .into_iter()
@@ -208,56 +219,22 @@ impl TestWorld {
         }
 
         Self {
-            config: Config { root: PathBuf::new(), std, styles },
             print,
-            sources: FrozenVec::new(),
-            nav: RefCell::new(HashMap::new()),
-            book: FontBook::from_fonts(&fonts),
+            config: Prehashed::new(config()),
+            book: Prehashed::new(FontBook::from_fonts(&fonts)),
             fonts,
-            files: RefCell::new(HashMap::new()),
+            paths: RefCell::default(),
+            sources: FrozenVec::new(),
         }
-    }
-
-    fn provide(&mut self, path: &Path, text: String) -> SourceId {
-        let hash = PathHash::new(path).unwrap();
-        if let Some(&id) = self.nav.borrow().get(&hash) {
-            self.sources.as_mut()[id.into_raw() as usize].replace(text);
-            return id;
-        }
-
-        let id = SourceId::from_raw(self.sources.len() as u16);
-        let source = Source::new(id, path, text);
-        self.sources.push(Box::new(source));
-        self.nav.borrow_mut().insert(hash, id);
-        id
     }
 }
 
 impl World for TestWorld {
-    fn config(&self) -> &Config {
+    fn config(&self) -> &Prehashed<Config> {
         &self.config
     }
 
-    fn resolve(&self, path: &Path) -> FileResult<SourceId> {
-        let hash = PathHash::new(path)?;
-        if let Some(&id) = self.nav.borrow().get(&hash) {
-            return Ok(id);
-        }
-
-        let text = fs::read_to_string(path).map_err(|e| FileError::from_io(e, path))?;
-        let id = SourceId::from_raw(self.sources.len() as u16);
-        let source = Source::new(id, path, text);
-        self.sources.push(Box::new(source));
-        self.nav.borrow_mut().insert(hash, id);
-
-        Ok(id)
-    }
-
-    fn source(&self, id: SourceId) -> &Source {
-        &self.sources[id.into_raw() as usize]
-    }
-
-    fn book(&self) -> &FontBook {
+    fn book(&self) -> &Prehashed<FontBook> {
         &self.book
     }
 
@@ -266,32 +243,66 @@ impl World for TestWorld {
     }
 
     fn file(&self, path: &Path) -> FileResult<Buffer> {
-        let hash = PathHash::new(path)?;
-        Ok(match self.files.borrow_mut().entry(hash) {
-            Entry::Occupied(entry) => entry.get().clone(),
-            Entry::Vacant(entry) => entry
-                .insert(fs::read(path).map_err(|e| FileError::from_io(e, path))?.into())
-                .clone(),
-        })
+        self.slot(path)
+            .buffer
+            .get_or_init(|| read(path).map(Buffer::from))
+            .clone()
+    }
+
+    fn resolve(&self, path: &Path) -> FileResult<SourceId> {
+        self.slot(path)
+            .source
+            .get_or_init(|| {
+                let buf = read(path)?;
+                let text = String::from_utf8(buf)?;
+                Ok(self.insert(path, text))
+            })
+            .clone()
+    }
+
+    fn source(&self, id: SourceId) -> &Source {
+        &self.sources[id.into_u16() as usize]
     }
 }
 
-/// A hash that is the same for all paths pointing to the same file.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-struct PathHash(u128);
-
-impl PathHash {
-    fn new(path: &Path) -> FileResult<Self> {
-        let f = |e| FileError::from_io(e, path);
-        let file = File::open(path).map_err(f)?;
-        if file.metadata().map_err(f)?.is_file() {
-            let handle = Handle::from_file(file).map_err(f)?;
-            let mut state = SipHasher::new();
-            handle.hash(&mut state);
-            Ok(Self(state.finish128().as_u128()))
+impl TestWorld {
+    fn set(&mut self, path: &Path, text: String) -> SourceId {
+        let slot = self.slot(path);
+        if let Some(&Ok(id)) = slot.source.get() {
+            drop(slot);
+            self.sources.as_mut()[id.into_u16() as usize].replace(text);
+            id
         } else {
-            Err(FileError::NotFound(path.into()))
+            let id = self.insert(path, text);
+            slot.source.set(Ok(id)).unwrap();
+            id
         }
+    }
+
+    fn slot(&self, path: &Path) -> RefMut<PathSlot> {
+        RefMut::map(self.paths.borrow_mut(), |paths| {
+            paths.entry(path.normalize()).or_default()
+        })
+    }
+
+    fn insert(&self, path: &Path, text: String) -> SourceId {
+        let id = SourceId::from_u16(self.sources.len() as u16);
+        let source = Source::new(id, path, text);
+        self.sources.push(Box::new(source));
+        id
+    }
+}
+
+/// Read a file.
+fn read(path: &Path) -> FileResult<Vec<u8>> {
+    let f = |e| FileError::from_io(e, path);
+    let mut file = File::open(path).map_err(f)?;
+    if file.metadata().map_err(f)?.is_file() {
+        let mut data = vec![];
+        file.read_to_end(&mut data).map_err(f)?;
+        Ok(data)
+    } else {
+        Err(FileError::IsDirectory)
     }
 }
 
@@ -395,7 +406,7 @@ fn test_part(
 ) -> (bool, bool, Vec<Frame>) {
     let mut ok = true;
 
-    let id = world.provide(src_path, text);
+    let id = world.set(src_path, text);
     let source = world.source(id);
     if world.print.syntax {
         println!("Syntax Tree: {:#?}", source.root())

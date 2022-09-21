@@ -27,7 +27,7 @@ impl StackNode {
 impl Layout for StackNode {
     fn layout(
         &self,
-        world: &dyn World,
+        world: Tracked<dyn World>,
         regions: &Regions,
         styles: StyleChain,
     ) -> SourceResult<Vec<Frame>> {
@@ -168,7 +168,7 @@ impl<'a> StackLayouter<'a> {
     /// Layout an arbitrary node.
     pub fn layout_node(
         &mut self,
-        world: &dyn World,
+        world: Tracked<dyn World>,
         node: &LayoutNode,
         styles: StyleChain,
     ) -> SourceResult<()> {

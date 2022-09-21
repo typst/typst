@@ -22,7 +22,7 @@ pub struct RexNode {
 impl Layout for RexNode {
     fn layout(
         &self,
-        world: &dyn World,
+        world: Tracked<dyn World>,
         _: &Regions,
         styles: StyleChain,
     ) -> SourceResult<Vec<Frame>> {

@@ -72,7 +72,11 @@ impl Show for TableNode {
         }
     }
 
-    fn realize(&self, world: &dyn World, styles: StyleChain) -> SourceResult<Content> {
+    fn realize(
+        &self,
+        world: Tracked<dyn World>,
+        styles: StyleChain,
+    ) -> SourceResult<Content> {
         let fill = styles.get(Self::FILL);
         let stroke = styles.get(Self::STROKE).map(RawStroke::unwrap_or_default);
         let padding = styles.get(Self::PADDING);
@@ -110,7 +114,7 @@ impl Show for TableNode {
 
     fn finalize(
         &self,
-        _: &dyn World,
+        _: Tracked<dyn World>,
         styles: StyleChain,
         realized: Content,
     ) -> SourceResult<Content> {
@@ -129,7 +133,12 @@ pub enum Celled<T> {
 
 impl<T: Cast + Clone> Celled<T> {
     /// Resolve the value based on the cell position.
-    pub fn resolve(&self, world: &dyn World, x: usize, y: usize) -> SourceResult<T> {
+    pub fn resolve(
+        &self,
+        world: Tracked<dyn World>,
+        x: usize,
+        y: usize,
+    ) -> SourceResult<T> {
         Ok(match self {
             Self::Value(value) => value.clone(),
             Self::Func(func, span) => {

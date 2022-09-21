@@ -80,7 +80,7 @@ impl<'a> ShapedText<'a> {
     ///
     /// The `justification` defines how much extra advance width each
     /// [justifiable glyph](ShapedGlyph::is_justifiable) will get.
-    pub fn build(&self, world: &dyn World, justification: Length) -> Frame {
+    pub fn build(&self, world: Tracked<dyn World>, justification: Length) -> Frame {
         let (top, bottom) = self.measure(world);
         let size = Size::new(self.width, top + bottom);
 
@@ -144,7 +144,7 @@ impl<'a> ShapedText<'a> {
     }
 
     /// Measure the top and bottom extent of this text.
-    fn measure(&self, world: &dyn World) -> (Length, Length) {
+    fn measure(&self, world: Tracked<dyn World>) -> (Length, Length) {
         let mut top = Length::zero();
         let mut bottom = Length::zero();
 
@@ -199,7 +199,7 @@ impl<'a> ShapedText<'a> {
     /// shaping process if possible.
     pub fn reshape(
         &'a self,
-        world: &dyn World,
+        world: Tracked<dyn World>,
         text_range: Range<usize>,
     ) -> ShapedText<'a> {
         if let Some(glyphs) = self.slice_safe_to_break(text_range.clone()) {
@@ -218,7 +218,7 @@ impl<'a> ShapedText<'a> {
     }
 
     /// Push a hyphen to end of the text.
-    pub fn push_hyphen(&mut self, world: &dyn World) {
+    pub fn push_hyphen(&mut self, world: Tracked<dyn World>) {
         families(self.styles).find_map(|family| {
             let font = world
                 .book()
@@ -306,7 +306,7 @@ impl Debug for ShapedText<'_> {
 
 /// Holds shaping results and metadata common to all shaped segments.
 struct ShapingContext<'a> {
-    world: &'a dyn World,
+    world: Tracked<'a, dyn World>,
     glyphs: Vec<ShapedGlyph>,
     used: Vec<Font>,
     styles: StyleChain<'a>,
@@ -319,7 +319,7 @@ struct ShapingContext<'a> {
 
 /// Shape text into [`ShapedText`].
 pub fn shape<'a>(
-    world: &dyn World,
+    world: Tracked<dyn World>,
     text: &'a str,
     styles: StyleChain<'a>,
     dir: Dir,

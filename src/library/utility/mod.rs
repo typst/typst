@@ -10,7 +10,9 @@ pub use data::*;
 pub use math::*;
 pub use string::*;
 
-use crate::eval::{Eval, Scopes, Vm};
+use comemo::Track;
+
+use crate::eval::{Eval, Route, Scopes, Vm};
 use crate::library::prelude::*;
 use crate::source::Source;
 
@@ -39,7 +41,8 @@ pub fn eval(vm: &mut Vm, args: &mut Args) -> SourceResult<Value> {
     // Evaluate the source.
     let std = &vm.world.config().std;
     let scopes = Scopes::new(Some(std));
-    let mut sub = Vm::new(vm.world, vec![], scopes);
+    let route = Route::default();
+    let mut sub = Vm::new(vm.world, route.track(), None, scopes);
     let result = ast.eval(&mut sub);
 
     // Handle control flow.

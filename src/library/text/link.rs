@@ -64,7 +64,7 @@ impl Show for LinkNode {
         }
     }
 
-    fn realize(&self, _: &dyn World, _: StyleChain) -> SourceResult<Content> {
+    fn realize(&self, _: Tracked<dyn World>, _: StyleChain) -> SourceResult<Content> {
         Ok(self.body.clone().unwrap_or_else(|| match &self.dest {
             Destination::Url(url) => {
                 let mut text = url.as_str();
@@ -80,7 +80,7 @@ impl Show for LinkNode {
 
     fn finalize(
         &self,
-        _: &dyn World,
+        _: Tracked<dyn World>,
         styles: StyleChain,
         mut realized: Content,
     ) -> SourceResult<Content> {

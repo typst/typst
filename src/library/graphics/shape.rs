@@ -78,7 +78,7 @@ impl<const S: ShapeKind> ShapeNode<S> {
 impl<const S: ShapeKind> Layout for ShapeNode<S> {
     fn layout(
         &self,
-        world: &dyn World,
+        world: Tracked<dyn World>,
         regions: &Regions,
         styles: StyleChain,
     ) -> SourceResult<Vec<Frame>> {

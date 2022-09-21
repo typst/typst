@@ -59,7 +59,11 @@ impl Show for RawNode {
         }
     }
 
-    fn realize(&self, _: &dyn World, styles: StyleChain) -> SourceResult<Content> {
+    fn realize(
+        &self,
+        _: Tracked<dyn World>,
+        styles: StyleChain,
+    ) -> SourceResult<Content> {
         let lang = styles.get(Self::LANG).as_ref().map(|s| s.to_lowercase());
         let foreground = THEME
             .settings
@@ -111,7 +115,7 @@ impl Show for RawNode {
 
     fn finalize(
         &self,
-        _: &dyn World,
+        _: Tracked<dyn World>,
         styles: StyleChain,
         mut realized: Content,
     ) -> SourceResult<Content> {

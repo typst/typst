@@ -100,7 +100,11 @@ impl<const L: ListKind> Show for ListNode<L> {
         }
     }
 
-    fn realize(&self, world: &dyn World, styles: StyleChain) -> SourceResult<Content> {
+    fn realize(
+        &self,
+        world: Tracked<dyn World>,
+        styles: StyleChain,
+    ) -> SourceResult<Content> {
         let mut cells = vec![];
         let mut number = self.start;
 
@@ -145,7 +149,7 @@ impl<const L: ListKind> Show for ListNode<L> {
 
     fn finalize(
         &self,
-        _: &dyn World,
+        _: Tracked<dyn World>,
         styles: StyleChain,
         realized: Content,
     ) -> SourceResult<Content> {
@@ -208,7 +212,7 @@ impl Label {
     /// Resolve the value based on the level.
     pub fn resolve(
         &self,
-        world: &dyn World,
+        world: Tracked<dyn World>,
         kind: ListKind,
         number: usize,
     ) -> SourceResult<Content> {
