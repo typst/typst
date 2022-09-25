@@ -27,3 +27,32 @@
 ---
 // Error: 7-22 failed to parse json file: syntax error in line 3
 #json("/res/bad.json")
+
+---
+// Test reading XML data.
+#let data = xml("/res/data.xml")
+#test(data, ((
+  tag: "data",
+  attrs: (:),
+  children: (
+    "\n  ",
+    (tag: "hello", attrs: (name: "hi"), children: ("1",)),
+    "\n  ",
+    (
+      tag: "data",
+      attrs: (:),
+      children: (
+        "\n    ",
+        (tag: "hello", attrs: (:), children: ("World",)),
+        "\n    ",
+        (tag: "hello", attrs: (:), children: ("World",)),
+        "\n  ",
+      ),
+    ),
+    "\n",
+  ),
+),))
+
+---
+// Error: 6-20 failed to parse xml file: found closing tag 'data' instead of 'hello' in line 3
+#xml("/res/bad.xml")

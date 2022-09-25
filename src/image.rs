@@ -2,7 +2,7 @@
 
 use std::io;
 
-use crate::diag::StrResult;
+use crate::diag::{format_xml_like_error, StrResult};
 use crate::util::Buffer;
 
 /// A raster or vector image.
@@ -161,31 +161,6 @@ fn format_usvg_error(error: usvg::Error) -> String {
         usvg::Error::InvalidSize => {
             "failed to parse svg: width, height, or viewbox is invalid".into()
         }
-        usvg::Error::ParsingFailed(error) => match error {
-            roxmltree::Error::UnexpectedCloseTag { expected, actual, pos } => {
-                format!(
-                    "failed to parse svg: found closing tag '{actual}' \
-                     instead of '{expected}' in line {}",
-                    pos.row
-                )
-            }
-            roxmltree::Error::UnknownEntityReference(entity, pos) => {
-                format!(
-                    "failed to parse svg: unknown entity '{entity}' in line {}",
-                    pos.row
-                )
-            }
-            roxmltree::Error::DuplicatedAttribute(attr, pos) => {
-                format!(
-                    "failed to parse svg: duplicate attribute '{attr}' in line {}",
-                    pos.row
-                )
-            }
-            roxmltree::Error::NoRootNode => {
-                "failed to parse svg: missing root node".into()
-            }
-            roxmltree::Error::SizeLimit => "file is too large".into(),
-            _ => "failed to parse svg".into(),
-        },
+        usvg::Error::ParsingFailed(error) => format_xml_like_error("svg", error),
     }
 }

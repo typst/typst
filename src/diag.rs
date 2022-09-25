@@ -3,6 +3,7 @@
 use std::fmt::{self, Display, Formatter};
 use std::io;
 use std::path::{Path, PathBuf};
+use std::str::Utf8Error;
 use std::string::FromUtf8Error;
 
 use comemo::Tracked;
@@ -191,6 +192,12 @@ impl Display for FileError {
     }
 }
 
+impl From<Utf8Error> for FileError {
+    fn from(_: Utf8Error) -> Self {
+        Self::InvalidUtf8
+    }
+}
+
 impl From<FromUtf8Error> for FileError {
     fn from(_: FromUtf8Error) -> Self {
         Self::InvalidUtf8
@@ -200,5 +207,35 @@ impl From<FromUtf8Error> for FileError {
 impl From<FileError> for String {
     fn from(error: FileError) -> Self {
         error.to_string()
+    }
+}
+
+/// Format a user-facing error message for an XML-like file format.
+pub fn format_xml_like_error(format: &str, error: roxmltree::Error) -> String {
+    match error {
+        roxmltree::Error::UnexpectedCloseTag { expected, actual, pos } => {
+            format!(
+                "failed to parse {format}: found closing tag '{actual}' \
+                 instead of '{expected}' in line {}",
+                pos.row
+            )
+        }
+        roxmltree::Error::UnknownEntityReference(entity, pos) => {
+            format!(
+                "failed to parse {format}: unknown entity '{entity}' in line {}",
+                pos.row
+            )
+        }
+        roxmltree::Error::DuplicatedAttribute(attr, pos) => {
+            format!(
+                "failed to parse {format}: duplicate attribute '{attr}' in line {}",
+                pos.row
+            )
+        }
+        roxmltree::Error::NoRootNode => {
+            format!("failed to parse {format}: missing root node")
+        }
+        roxmltree::Error::SizeLimit => "file is too large".into(),
+        _ => format!("failed to parse {format}"),
     }
 }
