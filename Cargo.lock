@@ -1061,6 +1061,7 @@ dependencies = [
  "rustybuzz",
  "same-file",
  "serde",
+ "serde_json",
  "siphasher",
  "subsetter",
  "svg2pdf",
