@@ -223,6 +223,7 @@ impl<'a> PageContext<'a> {
                     self.content.set_fill_color([f(c.r), f(c.g), f(c.b)]);
                 }
                 Color::Cmyk(c) => {
+                    self.reset_fill_color_space();
                     self.content.set_fill_cmyk(f(c.c), f(c.m), f(c.y), f(c.k));
                 }
             }
@@ -235,6 +236,10 @@ impl<'a> PageContext<'a> {
             self.content.set_fill_color_space(ColorSpaceOperand::Named(space));
             self.state.fill_space = Some(space);
         }
+    }
+
+    fn reset_fill_color_space(&mut self) {
+        self.state.fill_space = None;
     }
 
     fn set_stroke(&mut self, stroke: Stroke) {
@@ -251,6 +256,7 @@ impl<'a> PageContext<'a> {
                     self.content.set_stroke_color([f(c.r), f(c.g), f(c.b)]);
                 }
                 Color::Cmyk(c) => {
+                    self.reset_stroke_color_space();
                     self.content.set_stroke_cmyk(f(c.c), f(c.m), f(c.y), f(c.k));
                 }
             }
@@ -265,6 +271,10 @@ impl<'a> PageContext<'a> {
             self.content.set_stroke_color_space(ColorSpaceOperand::Named(space));
             self.state.stroke_space = Some(space);
         }
+    }
+
+    fn reset_stroke_color_space(&mut self) {
+        self.state.stroke_space = None;
     }
 }
 
