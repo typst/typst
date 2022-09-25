@@ -19,7 +19,7 @@ unscanny = "0.1"
 regex = "1"
 
 # Incremental compilation
-comemo = { path = "../comemo" }
+comemo = { git = "https://github.com/typst/comemo" }
 
 # Text and font handling
 hypher = "0.1"

@@ -153,6 +153,7 @@ checksum = "3d7b894f5411737b7867f4827955924d7c254fc9f4d91a6aad6b097804b1018b"
 [[package]]
 name = "comemo"
 version = "0.1.0"
+source = "git+https://github.com/typst/comemo#470a69f4d55671a57367c84b814b84bf0617ef63"
 dependencies = [
  "comemo-macros",
  "siphasher",
@@ -161,6 +162,7 @@ dependencies = [
 [[package]]
 name = "comemo-macros"
 version = "0.1.0"
+source = "git+https://github.com/typst/comemo#470a69f4d55671a57367c84b814b84bf0617ef63"
 dependencies = [
  "proc-macro2",
  "quote",
