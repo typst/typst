@@ -108,6 +108,13 @@ pub fn call(
             _ => return missing(),
         },
 
+        Value::Color(color) => match method {
+            "lighten" => Value::Color(color.lighten(args.expect("amount")?)),
+            "darken" => Value::Color(color.darken(args.expect("amount")?)),
+            "negate" => Value::Color(color.negate()),
+            _ => return missing(),
+        },
+
         _ => return missing(),
     };
 

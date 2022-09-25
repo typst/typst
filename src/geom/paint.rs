@@ -67,6 +67,37 @@ impl Color {
             Self::Cmyk(cmyk) => cmyk.to_rgba(),
         }
     }
+
+    /// Lighten this color by the given factor.
+    pub fn lighten(self, factor: Ratio) -> Self {
+        let ratio = factor.get();
+
+        match self {
+            Self::Luma(luma) => Self::Luma(luma.lighten(ratio)),
+            Self::Rgba(rgba) => Self::Rgba(rgba.lighten(ratio)),
+            Self::Cmyk(cmyk) => Self::Cmyk(cmyk.lighten(ratio)),
+        }
+    }
+
+    /// Darken this color by the given factor.
+    pub fn darken(self, factor: Ratio) -> Self {
+        let ratio = factor.get();
+
+        match self {
+            Self::Luma(luma) => Self::Luma(luma.darken(ratio)),
+            Self::Rgba(rgba) => Self::Rgba(rgba.darken(ratio)),
+            Self::Cmyk(cmyk) => Self::Cmyk(cmyk.darken(ratio)),
+        }
+    }
+
+    /// Negate this color.
+    pub fn negate(self) -> Self {
+        match self {
+            Self::Luma(luma) => Self::Luma(luma.negate()),
+            Self::Rgba(rgba) => Self::Rgba(rgba.negate()),
+            Self::Cmyk(cmyk) => Self::Cmyk(cmyk.negate()),
+        }
+    }
 }
 
 impl Debug for Color {
@@ -91,7 +122,7 @@ impl LumaColor {
 
     /// Convert to an opque RGBA color.
     pub const fn to_rgba(self) -> RgbaColor {
-        RgbaColor::new(self.0, self.0, self.0, 255)
+        RgbaColor::new(self.0, self.0, self.0, u8::MAX)
     }
 
     /// Convert to CMYK as a fraction of true black.
@@ -102,6 +133,21 @@ impl LumaColor {
             (self.0 as f64 * 0.67) as u8,
             (self.0 as f64 * 0.90) as u8,
         )
+    }
+
+    /// Lighten this color by a factor.
+    pub fn lighten(self, factor: f64) -> Self {
+        Self(self.0.saturating_add(((u8::MAX - self.0) as f64 * factor) as u8))
+    }
+
+    /// Darken this color by a factor.
+    pub fn darken(self, factor: f64) -> Self {
+        Self(self.0.saturating_sub((self.0 as f64 * factor) as u8))
+    }
+
+    /// Negate this color.
+    pub fn negate(self) -> Self {
+        Self(u8::MAX - self.0)
     }
 }
 
@@ -135,6 +181,46 @@ impl RgbaColor {
     pub const fn new(r: u8, g: u8, b: u8, a: u8) -> Self {
         Self { r, g, b, a }
     }
+
+    // Lighten this color by a factor.
+    //
+    // The alpha channel is not affected.
+    pub fn lighten(self, factor: f64) -> Self {
+        let lighten = |c: u8| c.saturating_add(((u8::MAX - c) as f64 * factor) as u8);
+
+        Self {
+            r: lighten(self.r),
+            g: lighten(self.g),
+            b: lighten(self.b),
+            a: self.a,
+        }
+    }
+
+    // Darken this color by a factor.
+    //
+    // The alpha channel is not affected.
+    pub fn darken(self, factor: f64) -> Self {
+        let darken = |c: u8| c.saturating_sub((c as f64 * factor) as u8);
+
+        Self {
+            r: darken(self.r),
+            g: darken(self.g),
+            b: darken(self.b),
+            a: self.a,
+        }
+    }
+
+    // Negate this color.
+    //
+    // The alpha channel is not affected.
+    pub fn negate(self) -> Self {
+        Self {
+            r: u8::MAX - self.r,
+            g: u8::MAX - self.g,
+            b: u8::MAX - self.b,
+            a: self.a,
+        }
+    }
 }
 
 impl FromStr for RgbaColor {
@@ -161,7 +247,7 @@ impl FromStr for RgbaColor {
             return Err("string has wrong length");
         }
 
-        let mut values: [u8; 4] = [255; 4];
+        let mut values: [u8; 4] = [u8::MAX; 4];
 
         for elem in if alpha { 0 .. 4 } else { 0 .. 3 } {
             let item_len = if long { 2 } else { 1 };
@@ -248,6 +334,42 @@ impl CmykColor {
             g: f(self.m),
             b: f(self.y),
             a: 255,
+        }
+    }
+
+    /// Lighten this color by a factor.
+    pub fn lighten(self, factor: f64) -> Self {
+        let lighten = |c: u8| c.saturating_sub((c as f64 * factor) as u8);
+
+        Self {
+            c: lighten(self.c),
+            m: lighten(self.m),
+            y: lighten(self.y),
+            k: lighten(self.k),
+        }
+    }
+
+    /// Darken this color by a factor.
+    pub fn darken(self, factor: f64) -> Self {
+        let darken = |c: u8| c.saturating_add(((u8::MAX - c) as f64 * factor) as u8);
+
+        Self {
+            c: darken(self.c),
+            m: darken(self.m),
+            y: darken(self.y),
+            k: darken(self.k),
+        }
+    }
+
+    /// Negate this color.
+    ///
+    /// Does not affect the key component.
+    pub fn negate(self) -> Self {
+        Self {
+            c: u8::MAX - self.c,
+            m: u8::MAX - self.m,
+            y: u8::MAX - self.y,
+            k: self.k,
         }
     }
 }

@@ -8,6 +8,12 @@
 // Alpha channel.
 #test(rgb(255, 0, 0, 50%), rgb("ff000080"))
 
+// Test color modification methods.
+#test(rgb(25, 35, 45).lighten(10%), rgb(48, 57, 66))
+#test(rgb(40, 30, 20).darken(10%), rgb(36, 27, 18))
+#test(rgb("#133337").negate(), rgb(236, 204, 200))
+#test(white.lighten(100%), white)
+
 ---
 // Test gray color conversion.
 // Ref: true
@@ -15,10 +21,25 @@
 #rect(fill: luma(80%))
 
 ---
+// Test gray color modification.
+#test(luma(20%).lighten(50%), luma(60%))
+#test(luma(80%).darken(20%), luma(64.5%))
+#test(luma(80%).negate(), luma(20%))
+
+---
 // Test CMYK color conversion.
 // Ref: true
-#rect(fill: cmyk(69%, 11%, 69%, 41%))
-#rect(fill: cmyk(50%, 64%, 16%, 17%))
+#let c = cmyk(50%, 64%, 16%, 17%)
+#rect(width: 1cm, fill: cmyk(69%, 11%, 69%, 41%))
+#rect(width: 1cm, fill: c)
+#rect(width: 1cm, fill: c.negate())
+
+#for x in range(0, 11) {
+    square(width: 9pt, fill: c.lighten(x * 10%))
+}
+#for x in range(0, 11) {
+    square(width: 9pt, fill: c.darken(x * 10%))
+}
 
 ---
 // Error for values that are out of range.
