@@ -454,8 +454,8 @@ impl Marker {
     /// Wrap all children after the marker (excluding trailing trivia) in a node
     /// with the given `kind`.
     pub fn end(self, p: &mut Parser, kind: NodeKind) {
-        let until = p.trivia_start();
-        let children = p.children.drain(self.0 .. until.0).collect();
+        let until = p.trivia_start().0.max(self.0);
+        let children = p.children.drain(self.0 .. until).collect();
         p.children
             .insert(self.0, InnerNode::with_children(kind, children).into());
     }

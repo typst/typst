@@ -413,6 +413,11 @@ impl<'a> Builder<'a> {
 
         self.interrupt(Interruption::List, styles, false)?;
 
+        if let Content::Item(_) = content {
+            self.list.accept(content, styles);
+            return Ok(());
+        }
+
         if self.par.accept(content, styles) {
             return Ok(());
         }

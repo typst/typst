@@ -5,14 +5,9 @@
 
 ---
 1. First.
-   2. Second.
+   2. Indented
 
-1. Back to first.
-
----
-2. Second
-1. First
-  + Indented
++ Second
 
 ---
 // Test automatic numbering in summed content.
@@ -34,6 +29,12 @@
 #set enum(label: "i)")
 + A
 + B
+
+---
+// Mix of different lists
+- List
++ Enum
+/ Desc: List
 
 ---
 // Test label closure.
