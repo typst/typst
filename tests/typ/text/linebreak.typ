@@ -30,7 +30,7 @@ Trailing break \ \
 ---
 // Test justified breaks.
 #set par(justify: true)
-With a soft \+
-break you can force a break without #linebreak(justified: true)
-breaking justification. #linebreak(justified: false)
+With a soft #linebreak(justify: true)
+break you can force a break without #linebreak(justify: true)
+breaking justification. #linebreak(justify: false)
 Nice!

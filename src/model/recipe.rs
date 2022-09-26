@@ -5,7 +5,7 @@ use comemo::Tracked;
 use super::{Content, Interruption, NodeId, Show, ShowNode, StyleChain, StyleEntry};
 use crate::diag::SourceResult;
 use crate::eval::{Args, Func, Regex, Value};
-use crate::library::structure::{EnumNode, ListNode};
+use crate::library::structure::{DescNode, EnumNode, ListNode};
 use crate::syntax::Spanned;
 use crate::World;
 
@@ -93,7 +93,10 @@ impl Recipe {
     /// What kind of structure the property interrupts.
     pub fn interruption(&self) -> Option<Interruption> {
         if let Pattern::Node(id) = self.pattern {
-            if id == NodeId::of::<ListNode>() || id == NodeId::of::<EnumNode>() {
+            if id == NodeId::of::<ListNode>()
+                || id == NodeId::of::<EnumNode>()
+                || id == NodeId::of::<DescNode>()
+            {
                 return Some(Interruption::List);
             }
         }

@@ -39,7 +39,7 @@ Hello
 fn main() {}
 ```
 
-$[ x + y = z ]$
+$ x + y = z $
 
 - List
 

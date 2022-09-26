@@ -1,4 +1,4 @@
-// Test enums.
+// Test enumerations.
 
 ---
 #enum[Embrace][Extend][Extinguish]
@@ -12,28 +12,28 @@
 ---
 2. Second
 1. First
-  . Indented
+  + Indented
 
 ---
 // Test automatic numbering in summed content.
 #for i in range(5) {
-   [. #roman(1 + i)]
+   [+ #roman(1 + i)]
 }
 
 ---
 // Test label pattern.
 #set enum(label: "~ A:")
-. First
-. Second
+1. First
+ + Second
 
 #set enum(label: "(*)")
-. A
-. B
-. C
++ A
++ B
++ C
 
 #set enum(label: "i)")
-. A
-. B
++ A
++ B
 
 ---
 // Test label closure.
@@ -47,12 +47,13 @@
 
 ---
 #set enum(label: n => n > 1)
-. A
-. B
++ A
++ B
 
 ---
-// Lone dot is not a list.
-.
+// Lone plus is not an enum.
++
+No enum
 
 ---
 // Error: 18-20 invalid pattern

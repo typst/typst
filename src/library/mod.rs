@@ -41,6 +41,7 @@ pub fn new() -> Scope {
     std.def_node::<structure::HeadingNode>("heading");
     std.def_node::<structure::ListNode>("list");
     std.def_node::<structure::EnumNode>("enum");
+    std.def_node::<structure::DescNode>("desc");
     std.def_node::<structure::TableNode>("table");
 
     // Layout.

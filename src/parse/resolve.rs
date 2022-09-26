@@ -26,14 +26,12 @@ pub fn resolve_string(string: &str) -> EcoString {
                 // TODO: Error if closing brace is missing.
                 let sequence = s.eat_while(char::is_ascii_hexdigit);
                 let _terminated = s.eat_if('}');
-
                 match resolve_hex(sequence) {
                     Some(c) => out.push(c),
                     None => out.push_str(s.from(start)),
                 }
             }
 
-            // TODO: Error for invalid escape sequence.
             _ => out.push_str(s.from(start)),
         }
     }

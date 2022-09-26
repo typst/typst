@@ -1,8 +1,8 @@
 // Test hyperlinking.
 
 ---
-// Link without body.
-#link("https://example.com/")
+// Link syntax.
+https://example.com/
 
 // Link with body.
 #link("https://typst.app/")[Some text text text]
@@ -10,9 +10,16 @@
 // With line break.
 This link appears #link("https://google.com/")[in the middle of] a paragraph.
 
-// Prefix is trimmed.
+// Certain prefixes are trimmed when using the `link` function.
 Contact #link("mailto:hi@typst.app") or
 call #link("tel:123") for more information.
+
+---
+// Test that the period is trimmed.
+https://a.b.?q=%10#. \
+Wahttp://link \
+Nohttps:\//link \
+Nohttp\://comment
 
 ---
 // Styled with underline and color.

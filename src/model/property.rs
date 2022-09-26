@@ -9,7 +9,7 @@ use super::{Interruption, NodeId, StyleChain};
 use crate::eval::{RawLength, Smart};
 use crate::geom::{Corners, Length, Numeric, Relative, Sides, Spec};
 use crate::library::layout::PageNode;
-use crate::library::structure::{EnumNode, ListNode};
+use crate::library::structure::{DescNode, EnumNode, ListNode};
 use crate::library::text::ParNode;
 use crate::util::ReadableTypeId;
 
@@ -68,7 +68,10 @@ impl Property {
             Some(Interruption::Page)
         } else if self.is_of::<ParNode>() {
             Some(Interruption::Par)
-        } else if self.is_of::<ListNode>() || self.is_of::<EnumNode>() {
+        } else if self.is_of::<ListNode>()
+            || self.is_of::<EnumNode>()
+            || self.is_of::<DescNode>()
+        {
             Some(Interruption::List)
         } else {
             None

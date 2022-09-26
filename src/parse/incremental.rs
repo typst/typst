@@ -407,18 +407,18 @@ mod tests {
         test("", 0..0, "do it", 0..5);
         test("a d e", 1 .. 3, " b c d", 0 .. 9);
         test("*~ *", 2..2, "*", 0..5);
-        test("_1_\n2a\n3", 5..5, "4", 0..7);
-        test("_1_\n2a\n3~", 8..8, "4", 5..10);
+        test("_1_\n2a\n3", 5..5, "4", 4..7);
+        test("_1_\n2a\n3~", 8..8, "4", 4..10);
         test("_1_ 2 3a\n4", 7..7, "5", 0..9);
         test("* {1+2} *", 5..6, "3", 2..7);
         test("a #f() e", 1 .. 6, " b c d", 0 .. 9);
         test("a\nb\nc\nd\ne\n", 5 .. 5, "c", 2 .. 7);
         test("a\n\nb\n\nc\n\nd\n\ne\n", 7 .. 7, "c", 3 .. 10);
-        test("a\nb\nc *hel a b lo* d\nd\ne", 13..13, "c ", 6..20);
+        test("a\nb\nc *hel a b lo* d\nd\ne", 13..13, "c ", 4..20);
         test("~~ {a} ~~", 4 .. 5, "b", 3 .. 6);
         test("{(0, 1, 2)}", 5 .. 6, "11pt", 0..14);
         test("\n= A heading", 4 .. 4, "n evocative", 0 .. 23);
-        test("for~your~thing", 9 .. 9, "a", 4 .. 15);
+        test("for~your~thing", 9 .. 9, "a", 0 .. 15);
         test("a your thing a", 6 .. 7, "a", 0 .. 14);
         test("{call(); abc}", 7 .. 7, "[]", 0 .. 15);
         test("#call() abc", 7 .. 7, "[]", 0 .. 10);
@@ -429,17 +429,17 @@ mod tests {
         test("#grid(columns: (auto, 1fr, 40%), [*plonk*], rect(width: 100%, height: 1pt, fill: conifer), [thing])", 34 .. 41, "_bar_", 33 .. 40);
         test("{let i=1; for x in range(5) {i}}", 6 .. 6, " ", 0 .. 33);
         test("{let i=1; for x in range(5) {i}}", 13 .. 14, "  ", 0 .. 33);
-        test("hello~~{x}", 7 .. 10, "#f()", 5 .. 11);
-        test("this~is -- in my opinion -- spectacular", 8 .. 10, "---", 5 .. 25);
-        test("understanding `code` is complicated", 15 .. 15, "C ", 14 .. 22);
+        test("hello~~{x}", 7 .. 10, "#f()", 0 .. 11);
+        test("this~is -- in my opinion -- spectacular", 8 .. 10, "---", 0 .. 25);
+        test("understanding `code` is complicated", 15 .. 15, "C ", 0 .. 22);
         test("{ let x = g() }", 10 .. 12, "f(54", 0 .. 17);
-        test(r#"a ```typst hello``` b"#, 16 .. 17, "", 2 .. 18);
-        test(r#"a ```typst hello```"#, 16 .. 17, "", 2 .. 18);
+        test(r#"a ```typst hello``` b"#, 16 .. 17, "", 0 .. 18);
+        test(r#"a ```typst hello```"#, 16 .. 17, "", 0 .. 18);
         test("#for", 4 .. 4, "//", 0 .. 6);
         test("#show a: f as b..", 16..16, "c", 0..18);
         test("a\n#let \nb", 7 .. 7, "i", 2 .. 9);
         test("a\n#for i \nb", 9 .. 9, "in", 2 .. 12);
-        test("a~https://fun/html", 13..14, "n", 2..18);
+        test("a~https://fun/html", 13..14, "n", 0..18);
     }
 
     #[test]
@@ -452,7 +452,7 @@ mod tests {
         test("abc\n= a heading\njoke", 3 .. 4, "\nnot ", 0 .. 19);
         test("#let x = (1, 2 + ;~ Five\r\n\r", 20 .. 23, "2.", 0 .. 23);
         test("hey #myfriend", 4 .. 4, "\\", 0 .. 14);
-        test("hey  #myfriend", 4 .. 4, "\\", 3 .. 6);
+        test("hey  #myfriend", 4 .. 4, "\\", 0 .. 6);
         test("= foo\nbar\n - a\n - b", 6 .. 9, "", 0 .. 11);
         test("= foo\n  bar\n  baz", 6 .. 8, "", 0 .. 9);
         test(" // hi", 1 .. 1, " ", 0 .. 7);
@@ -461,12 +461,12 @@ mod tests {
 
     #[test]
     fn test_parse_incremental_type_invariants() {
-        test("a #for x in array {x}", 18 .. 21, "[#x]", 2 .. 22);
-        test("a #let x = 1 {5}", 3 .. 6, "if", 2 .. 11);
+        test("a #for x in array {x}", 18 .. 21, "[#x]", 0 .. 22);
+        test("a #let x = 1 {5}", 3 .. 6, "if", 0 .. 11);
         test("a {let x = 1 {5}} b", 3 .. 6, "if", 2 .. 16);
         test("#let x = 1 {5}", 4 .. 4, " if", 0 .. 13);
         test("{let x = 1 {5}}", 4 .. 4, " if", 0 .. 18);
-        test("a // b c #f()", 3 .. 4, "", 2 .. 12);
+        test("a // b c #f()", 3 .. 4, "", 0 .. 12);
         test("{\nf()\n//g(a)\n}", 6 .. 8, "", 0 .. 12);
         test("a{\nf()\n//g(a)\n}b", 7 .. 9, "", 1 .. 13);
         test("a #while x {\n g(x) \n}  b", 11 .. 11, "//", 0 .. 26);
@@ -477,8 +477,8 @@ mod tests {
     #[test]
     fn test_parse_incremental_wrongly_or_unclosed_things() {
         test(r#"{"hi"}"#, 4 .. 5, "c", 0 .. 6);
-        test(r"this \u{abcd}", 8 .. 9, "", 5 .. 12);
-        test(r"this \u{abcd} that", 12 .. 13, "", 5 .. 17);
+        test(r"this \u{abcd}", 8 .. 9, "", 0 .. 12);
+        test(r"this \u{abcd} that", 12 .. 13, "", 0 .. 17);
         test(r"{{let x = z}; a = 1} b", 6 .. 6, "//", 0 .. 24);
         test("a b c", 1 .. 1, " /* letters */", 0 .. 19);
         test("a b c", 1 .. 1, " /* letters", 0 .. 16);

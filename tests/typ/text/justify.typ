@@ -21,8 +21,8 @@ D
 
 ---
 // Test forced justification with justified break.
-A B C \+
-D E F \+
+A B C #linebreak(justify: true)
+D E F #linebreak(justify: true)
 
 ---
 // Test that justificating chinese text is at least a bit sensible.

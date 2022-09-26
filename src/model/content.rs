@@ -14,7 +14,7 @@ use super::{
 use crate::diag::StrResult;
 use crate::library::layout::{FlowChild, FlowNode, PageNode, PlaceNode, Spacing};
 use crate::library::prelude::*;
-use crate::library::structure::{DocNode, ListItem, ListNode, ORDERED, UNORDERED};
+use crate::library::structure::{DocNode, ListItem, ListNode, DESC, ENUM, LIST};
 use crate::library::text::{
     DecoNode, EmphNode, ParChild, ParNode, StrongNode, UNDERLINE,
 };
@@ -62,7 +62,7 @@ pub enum Content {
     /// A word space.
     Space,
     /// A forced line break.
-    Linebreak { justified: bool },
+    Linebreak { justify: bool },
     /// Horizontal spacing.
     Horizontal { amount: Spacing, weak: bool },
     /// Plain text.
@@ -264,7 +264,7 @@ impl Debug for Content {
         match self {
             Self::Empty => f.pad("Empty"),
             Self::Space => f.pad("Space"),
-            Self::Linebreak { justified } => write!(f, "Linebreak({justified})"),
+            Self::Linebreak { justify } => write!(f, "Linebreak({justify})"),
             Self::Horizontal { amount, weak } => {
                 write!(f, "Horizontal({amount:?}, {weak})")
             }
@@ -633,8 +633,8 @@ impl<'a> ParBuilder<'a> {
             Content::Space => {
                 self.0.weak(ParChild::Text(' '.into()), styles, 2);
             }
-            &Content::Linebreak { justified } => {
-                let c = if justified { '\u{2028}' } else { '\n' };
+            &Content::Linebreak { justify } => {
+                let c = if justify { '\u{2028}' } else { '\n' };
                 self.0.destructive(ParChild::Text(c.into()), styles);
             }
             &Content::Horizontal { amount, weak } => {
@@ -734,7 +734,7 @@ impl<'a> ListBuilder<'a> {
                     .items
                     .items()
                     .next()
-                    .map_or(true, |first| item.kind == first.kind) =>
+                    .map_or(true, |first| item.kind() == first.kind()) =>
             {
                 self.items.push(item.clone(), styles);
                 self.tight &= self.staged.drain(..).all(|(t, _)| *t != Content::Parbreak);
@@ -751,21 +751,16 @@ impl<'a> ListBuilder<'a> {
     fn finish(self, parent: &mut Builder<'a>) -> SourceResult<()> {
         let (items, shared) = self.items.finish();
         let kind = match items.items().next() {
-            Some(item) => item.kind,
+            Some(item) => item.kind(),
             None => return Ok(()),
         };
 
-        let start = 1;
         let tight = self.tight;
         let attached = tight && self.attachable;
-
         let content = match kind {
-            UNORDERED => {
-                Content::show(ListNode::<UNORDERED> { start, tight, attached, items })
-            }
-            ORDERED | _ => {
-                Content::show(ListNode::<ORDERED> { start, tight, attached, items })
-            }
+            LIST => Content::show(ListNode::<LIST> { tight, attached, items }),
+            ENUM => Content::show(ListNode::<ENUM> { tight, attached, items }),
+            DESC | _ => Content::show(ListNode::<DESC> { tight, attached, items }),
         };
 
         let stored = parent.scratch.templates.alloc(content);

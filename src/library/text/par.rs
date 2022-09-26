@@ -181,8 +181,8 @@ pub struct LinebreakNode;
 #[node]
 impl LinebreakNode {
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
-        let justified = args.named("justified")?.unwrap_or(false);
-        Ok(Content::Linebreak { justified })
+        let justify = args.named("justify")?.unwrap_or(false);
+        Ok(Content::Linebreak { justify })
     }
 }
 

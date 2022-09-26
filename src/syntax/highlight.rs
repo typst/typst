@@ -147,12 +147,12 @@ pub fn highlight_pre(text: &str, mode: TokenMode, theme: &Theme) -> String {
 /// The syntax highlighting category of a node.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Category {
+    /// A line or block comment.
+    Comment,
     /// Any kind of bracket, parenthesis or brace.
     Bracket,
     /// Punctuation in code.
     Punctuation,
-    /// A line or block comment.
-    Comment,
     /// An easily typable shortcut to a unicode codepoint.
     Shortcut,
     /// An escape sequence.
@@ -161,14 +161,18 @@ pub enum Category {
     Strong,
     /// Emphasized text.
     Emph,
+    /// A hyperlink.
+    Link,
     /// Raw text or code.
     Raw,
     /// A math formula.
     Math,
     /// A section heading.
     Heading,
-    /// A list or enumeration.
+    /// A symbol of a list, enumeration, or description list.
     List,
+    /// A term in a description list.
+    Term,
     /// A label.
     Label,
     /// A reference.
@@ -204,66 +208,74 @@ impl Category {
         i: usize,
     ) -> Option<Category> {
         match child.kind() {
+            NodeKind::LineComment => Some(Category::Comment),
+            NodeKind::BlockComment => Some(Category::Comment),
             NodeKind::LeftBrace => Some(Category::Bracket),
             NodeKind::RightBrace => Some(Category::Bracket),
             NodeKind::LeftBracket => Some(Category::Bracket),
             NodeKind::RightBracket => Some(Category::Bracket),
             NodeKind::LeftParen => Some(Category::Bracket),
             NodeKind::RightParen => Some(Category::Bracket),
-            NodeKind::Comma => Some(Category::Punctuation),
-            NodeKind::Semicolon => Some(Category::Punctuation),
-            NodeKind::Colon => Some(Category::Punctuation),
-            NodeKind::Dot => Some(Category::Punctuation),
-            NodeKind::LineComment => Some(Category::Comment),
-            NodeKind::BlockComment => Some(Category::Comment),
+
+            NodeKind::Markup { .. } => match parent.kind() {
+                NodeKind::Desc
+                    if parent
+                        .children()
+                        .take_while(|child| child.kind() != &NodeKind::Colon)
+                        .find(|c| matches!(c.kind(), NodeKind::Markup { .. }))
+                        .map_or(false, |ident| std::ptr::eq(ident, child)) =>
+                {
+                    Some(Category::Term)
+                }
+                _ => None,
+            },
+            NodeKind::Space { .. } => None,
             NodeKind::Linebreak { .. } => Some(Category::Shortcut),
+            NodeKind::Text(_) => None,
+            NodeKind::Escape(_) => Some(Category::Escape),
             NodeKind::NonBreakingSpace => Some(Category::Shortcut),
             NodeKind::Shy => Some(Category::Shortcut),
             NodeKind::EnDash => Some(Category::Shortcut),
             NodeKind::EmDash => Some(Category::Shortcut),
             NodeKind::Ellipsis => Some(Category::Shortcut),
-            NodeKind::Escape(_) => Some(Category::Escape),
-            NodeKind::Strong => Some(Category::Strong),
-            NodeKind::Emph => Some(Category::Emph),
-            NodeKind::Raw(_) => Some(Category::Raw),
-            NodeKind::Math(_) => Some(Category::Math),
-            NodeKind::Heading => Some(Category::Heading),
-            NodeKind::Minus => match parent.kind() {
-                NodeKind::List => Some(Category::List),
-                _ => Some(Category::Operator),
-            },
-            NodeKind::EnumNumbering(_) => Some(Category::List),
-            NodeKind::Label(_) => Some(Category::Label),
-            NodeKind::Ref(_) => Some(Category::Ref),
-            NodeKind::Not => Some(Category::Keyword),
-            NodeKind::And => Some(Category::Keyword),
-            NodeKind::Or => Some(Category::Keyword),
-            NodeKind::Let => Some(Category::Keyword),
-            NodeKind::Set => Some(Category::Keyword),
-            NodeKind::Show => Some(Category::Keyword),
-            NodeKind::Wrap => Some(Category::Keyword),
-            NodeKind::If => Some(Category::Keyword),
-            NodeKind::Else => Some(Category::Keyword),
-            NodeKind::While => Some(Category::Keyword),
-            NodeKind::For => Some(Category::Keyword),
-            NodeKind::In => Some(Category::Keyword),
-            NodeKind::As => Some(Category::Keyword),
-            NodeKind::Break => Some(Category::Keyword),
-            NodeKind::Continue => Some(Category::Keyword),
-            NodeKind::Return => Some(Category::Keyword),
-            NodeKind::Import => Some(Category::Keyword),
-            NodeKind::From => Some(Category::Keyword),
-            NodeKind::Include => Some(Category::Keyword),
-            NodeKind::Plus => Some(Category::Operator),
+            NodeKind::Quote { .. } => None,
             NodeKind::Star => match parent.kind() {
                 NodeKind::Strong => None,
                 _ => Some(Category::Operator),
             },
-            NodeKind::Slash => Some(Category::Operator),
-            NodeKind::PlusEq => Some(Category::Operator),
-            NodeKind::HyphEq => Some(Category::Operator),
-            NodeKind::StarEq => Some(Category::Operator),
-            NodeKind::SlashEq => Some(Category::Operator),
+            NodeKind::Underscore => None,
+            NodeKind::Strong => Some(Category::Strong),
+            NodeKind::Emph => Some(Category::Emph),
+            NodeKind::Link(_) => Some(Category::Link),
+            NodeKind::Raw(_) => Some(Category::Raw),
+            NodeKind::Math(_) => Some(Category::Math),
+            NodeKind::Heading => Some(Category::Heading),
+            NodeKind::List => None,
+            NodeKind::Enum => None,
+            NodeKind::EnumNumbering(_) => Some(Category::List),
+            NodeKind::Desc => None,
+            NodeKind::Label(_) => Some(Category::Label),
+            NodeKind::Ref(_) => Some(Category::Ref),
+
+            NodeKind::Comma => Some(Category::Punctuation),
+            NodeKind::Semicolon => Some(Category::Punctuation),
+            NodeKind::Colon => match parent.kind() {
+                NodeKind::Desc => Some(Category::Term),
+                _ => Some(Category::Punctuation),
+            },
+            NodeKind::Plus => match parent.kind() {
+                NodeKind::Enum => Some(Category::List),
+                _ => Some(Category::Operator),
+            },
+            NodeKind::Minus => match parent.kind() {
+                NodeKind::List => Some(Category::List),
+                _ => Some(Category::Operator),
+            },
+            NodeKind::Slash => match parent.kind() {
+                NodeKind::Desc => Some(Category::List),
+                _ => Some(Category::Operator),
+            },
+            NodeKind::Dot => Some(Category::Punctuation),
             NodeKind::Eq => match parent.kind() {
                 NodeKind::Heading => None,
                 _ => Some(Category::Operator),
@@ -274,10 +286,34 @@ impl Category {
             NodeKind::LtEq => Some(Category::Operator),
             NodeKind::Gt => Some(Category::Operator),
             NodeKind::GtEq => Some(Category::Operator),
+            NodeKind::PlusEq => Some(Category::Operator),
+            NodeKind::HyphEq => Some(Category::Operator),
+            NodeKind::StarEq => Some(Category::Operator),
+            NodeKind::SlashEq => Some(Category::Operator),
             NodeKind::Dots => Some(Category::Operator),
             NodeKind::Arrow => Some(Category::Operator),
+            NodeKind::Not => Some(Category::Keyword),
+            NodeKind::And => Some(Category::Keyword),
+            NodeKind::Or => Some(Category::Keyword),
             NodeKind::None => Some(Category::None),
             NodeKind::Auto => Some(Category::Auto),
+            NodeKind::Let => Some(Category::Keyword),
+            NodeKind::Set => Some(Category::Keyword),
+            NodeKind::Show => Some(Category::Keyword),
+            NodeKind::Wrap => Some(Category::Keyword),
+            NodeKind::If => Some(Category::Keyword),
+            NodeKind::Else => Some(Category::Keyword),
+            NodeKind::For => Some(Category::Keyword),
+            NodeKind::In => Some(Category::Keyword),
+            NodeKind::While => Some(Category::Keyword),
+            NodeKind::Break => Some(Category::Keyword),
+            NodeKind::Continue => Some(Category::Keyword),
+            NodeKind::Return => Some(Category::Keyword),
+            NodeKind::Import => Some(Category::Keyword),
+            NodeKind::Include => Some(Category::Keyword),
+            NodeKind::From => Some(Category::Keyword),
+            NodeKind::As => Some(Category::Keyword),
+
             NodeKind::Ident(_) => match parent.kind() {
                 NodeKind::Markup { .. } => Some(Category::Interpolated),
                 NodeKind::FuncCall => Some(Category::Function),
@@ -302,15 +338,6 @@ impl Category {
             NodeKind::Float(_) => Some(Category::Number),
             NodeKind::Numeric(_, _) => Some(Category::Number),
             NodeKind::Str(_) => Some(Category::String),
-            NodeKind::Error(_, _) => Some(Category::Invalid),
-            NodeKind::Unknown(_) => Some(Category::Invalid),
-            NodeKind::Underscore => None,
-            NodeKind::Markup { .. } => None,
-            NodeKind::Space { .. } => None,
-            NodeKind::Text(_) => None,
-            NodeKind::Quote { .. } => None,
-            NodeKind::List => None,
-            NodeKind::Enum => None,
             NodeKind::CodeBlock => None,
             NodeKind::ContentBlock => None,
             NodeKind::GroupExpr => None,
@@ -341,6 +368,9 @@ impl Category {
             NodeKind::BreakExpr => None,
             NodeKind::ContinueExpr => None,
             NodeKind::ReturnExpr => None,
+
+            NodeKind::Error(_, _) => Some(Category::Invalid),
+            NodeKind::Unknown(_) => Some(Category::Invalid),
         }
     }
 
@@ -354,10 +384,12 @@ impl Category {
             Self::Escape => "constant.character.escape.content.typst",
             Self::Strong => "markup.bold.typst",
             Self::Emph => "markup.italic.typst",
+            Self::Link => "markup.underline.link.typst",
             Self::Raw => "markup.raw.typst",
             Self::Math => "string.other.math.typst",
             Self::Heading => "markup.heading.typst",
             Self::List => "markup.list.typst",
+            Self::Term => "markup.bold.typst",
             Self::Label => "entity.name.label.typst",
             Self::Ref => "markup.other.reference.typst",
             Self::Keyword => "keyword.typst",

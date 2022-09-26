@@ -195,16 +195,20 @@ impl Eval for MarkupNode {
         Ok(match self {
             Self::Space => Content::Space,
             Self::Parbreak => Content::Parbreak,
-            &Self::Linebreak { justified } => Content::Linebreak { justified },
+            &Self::Linebreak => Content::Linebreak { justify: false },
             Self::Text(text) => Content::Text(text.clone()),
             &Self::Quote { double } => Content::Quote { double },
             Self::Strong(strong) => strong.eval(vm)?,
             Self::Emph(emph) => emph.eval(vm)?,
+            Self::Link(url) => {
+                Content::show(library::text::LinkNode::from_url(url.clone()))
+            }
             Self::Raw(raw) => raw.eval(vm)?,
             Self::Math(math) => math.eval(vm)?,
             Self::Heading(heading) => heading.eval(vm)?,
             Self::List(list) => list.eval(vm)?,
             Self::Enum(enum_) => enum_.eval(vm)?,
+            Self::Desc(desc) => desc.eval(vm)?,
             Self::Label(_) => Content::Empty,
             Self::Ref(label) => Content::show(library::structure::RefNode(label.clone())),
             Self::Expr(expr) => expr.eval(vm)?.display(),
@@ -273,11 +277,8 @@ impl Eval for ListNode {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(Content::Item(library::structure::ListItem {
-            kind: library::structure::UNORDERED,
-            number: None,
-            body: Box::new(self.body().eval(vm)?),
-        }))
+        let body = Box::new(self.body().eval(vm)?);
+        Ok(Content::Item(library::structure::ListItem::List(body)))
     }
 }
 
@@ -285,11 +286,23 @@ impl Eval for EnumNode {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(Content::Item(library::structure::ListItem {
-            kind: library::structure::ORDERED,
-            number: self.number(),
-            body: Box::new(self.body().eval(vm)?),
-        }))
+        let number = self.number();
+        let body = Box::new(self.body().eval(vm)?);
+        Ok(Content::Item(library::structure::ListItem::Enum(
+            number, body,
+        )))
+    }
+}
+
+impl Eval for DescNode {
+    type Output = Content;
+
+    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        let term = self.term().eval(vm)?;
+        let body = self.body().eval(vm)?;
+        Ok(Content::Item(library::structure::ListItem::Desc(Box::new(
+            library::structure::DescItem { term, body },
+        ))))
     }
 }
 

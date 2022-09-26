@@ -44,9 +44,9 @@ Hello *{x}*
   move(dy: -0.15em, image(path, width: 1em, height: 1em))
 })
 
-. Monkey
-. Rhino
-. Tiger
++ Monkey
++ Rhino
++ Tiger
 
 ---
 // Error: 11-25 set is only allowed directly in code and content blocks

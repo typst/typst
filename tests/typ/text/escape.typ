@@ -2,14 +2,11 @@
 
 ---
 // Escapable symbols.
-\\ \/ \[ \] \{ \} \# \* \_ \
-\= \~ \` \$ \" \' \< \> \@
+\\ \/ \[ \] \{ \} \# \* \_ \+ \= \~ \
+\` \$ \" \' \< \> \@ \( \) \A
 
 // No need to escape.
 ( ) ;
-
-// Unescapable.
-\a \: \; \( \)
 
 // Escaped comments.
 \//

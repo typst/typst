@@ -162,11 +162,6 @@ fn markup(p: &mut Parser, mut at_start: bool) {
     });
 }
 
-/// Parse a single line of markup.
-fn markup_line(p: &mut Parser) {
-    markup_indented(p, usize::MAX);
-}
-
 /// Parse markup that stays right of the given `column`.
 fn markup_indented(p: &mut Parser, min_indent: usize) {
     p.eat_while(|t| match t {
@@ -185,7 +180,6 @@ fn markup_indented(p: &mut Parser, min_indent: usize) {
             {
                 break;
             }
-            Some(NodeKind::Label(_)) => break,
             _ => {}
         }
 
@@ -193,6 +187,33 @@ fn markup_indented(p: &mut Parser, min_indent: usize) {
     }
 
     marker.end(p, NodeKind::Markup { min_indent });
+}
+
+/// Parse a line of markup that can prematurely end if `f` returns true.
+fn markup_line<F>(p: &mut Parser, mut f: F)
+where
+    F: FnMut(&NodeKind) -> bool,
+{
+    p.eat_while(|t| match t {
+        NodeKind::Space { newlines } => *newlines == 0,
+        NodeKind::LineComment | NodeKind::BlockComment => true,
+        _ => false,
+    });
+
+    p.perform(NodeKind::Markup { min_indent: usize::MAX }, |p| {
+        let mut at_start = false;
+        while let Some(kind) = p.peek() {
+            if let NodeKind::Space { newlines: (1 ..) } = kind {
+                break;
+            }
+
+            if f(kind) {
+                break;
+            }
+
+            markup_node(p, &mut at_start);
+        }
+    });
 }
 
 /// Parse a markup node.
@@ -226,6 +247,7 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
         | NodeKind::Ellipsis
         | NodeKind::Quote { .. }
         | NodeKind::Escape(_)
+        | NodeKind::Link(_)
         | NodeKind::Raw(_)
         | NodeKind::Math(_)
         | NodeKind::Label(_)
@@ -233,12 +255,22 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
             p.eat();
         }
 
-        // Grouping markup.
+        // Strong, emph, heading.
         NodeKind::Star => strong(p),
         NodeKind::Underscore => emph(p),
         NodeKind::Eq => heading(p, *at_start),
+
+        // Lists.
         NodeKind::Minus => list_node(p, *at_start),
-        NodeKind::EnumNumbering(_) => enum_node(p, *at_start),
+        NodeKind::Plus | NodeKind::EnumNumbering(_) => enum_node(p, *at_start),
+        NodeKind::Slash => {
+            desc_node(p, *at_start).ok();
+        }
+        NodeKind::Colon => {
+            let marker = p.marker();
+            p.eat();
+            marker.convert(p, NodeKind::Text(':'.into()));
+        }
 
         // Hashtag + keyword / identifier.
         NodeKind::Ident(_)
@@ -293,7 +325,7 @@ fn heading(p: &mut Parser, at_start: bool) {
 
     if at_start && p.peek().map_or(true, |kind| kind.is_space()) {
         p.eat_while(|kind| *kind == NodeKind::Space { newlines: 0 });
-        markup_line(p);
+        markup_line(p, |kind| matches!(kind, NodeKind::Label(_)));
         marker.end(p, NodeKind::Heading);
     } else {
         let text = p.get(current_start .. p.prev_end()).into();
@@ -329,6 +361,25 @@ fn enum_node(p: &mut Parser, at_start: bool) {
     } else {
         marker.convert(p, NodeKind::Text(text));
     }
+}
+
+/// Parse a single description list item.
+fn desc_node(p: &mut Parser, at_start: bool) -> ParseResult {
+    let marker = p.marker();
+    let text: EcoString = p.peek_src().into();
+    p.eat();
+
+    let min_indent = p.column(p.prev_end());
+    if at_start && p.eat_if(NodeKind::Space { newlines: 0 }) && !p.eof() {
+        markup_line(p, |node| matches!(node, NodeKind::Colon));
+        p.expect(NodeKind::Colon)?;
+        markup_indented(p, min_indent);
+        marker.end(p, NodeKind::Desc);
+    } else {
+        marker.convert(p, NodeKind::Text(text));
+    }
+
+    Ok(())
 }
 
 /// Parse an expression within a markup mode.

@@ -10,6 +10,13 @@ pub struct LinkNode {
     pub body: Option<Content>,
 }
 
+impl LinkNode {
+    /// Create a link node from a URL with its bare text.
+    pub fn from_url(url: EcoString) -> Self {
+        Self { dest: Destination::Url(url), body: None }
+    }
+}
+
 #[node(showable)]
 impl LinkNode {
     /// The fill color of text in the link. Just the surrounding text color

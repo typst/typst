@@ -63,9 +63,7 @@ impl Markup {
         self.0.children().filter_map(|node| match node.kind() {
             NodeKind::Space { newlines: (2 ..) } => Some(MarkupNode::Parbreak),
             NodeKind::Space { .. } => Some(MarkupNode::Space),
-            &NodeKind::Linebreak { justified } => {
-                Some(MarkupNode::Linebreak { justified })
-            }
+            NodeKind::Linebreak => Some(MarkupNode::Linebreak),
             NodeKind::Text(s) => Some(MarkupNode::Text(s.clone())),
             NodeKind::Escape(c) => Some(MarkupNode::Text((*c).into())),
             NodeKind::NonBreakingSpace => Some(MarkupNode::Text('\u{00A0}'.into())),
@@ -76,6 +74,7 @@ impl Markup {
             &NodeKind::Quote { double } => Some(MarkupNode::Quote { double }),
             NodeKind::Strong => node.cast().map(MarkupNode::Strong),
             NodeKind::Emph => node.cast().map(MarkupNode::Emph),
+            NodeKind::Link(url) => Some(MarkupNode::Link(url.clone())),
             NodeKind::Raw(raw) => Some(MarkupNode::Raw(raw.as_ref().clone())),
             NodeKind::Math(math) => Some(MarkupNode::Math(Spanned::new(
                 math.as_ref().clone(),
@@ -84,6 +83,7 @@ impl Markup {
             NodeKind::Heading => node.cast().map(MarkupNode::Heading),
             NodeKind::List => node.cast().map(MarkupNode::List),
             NodeKind::Enum => node.cast().map(MarkupNode::Enum),
+            NodeKind::Desc => node.cast().map(MarkupNode::Desc),
             NodeKind::Label(v) => Some(MarkupNode::Label(v.clone())),
             NodeKind::Ref(v) => Some(MarkupNode::Ref(v.clone())),
             _ => node.cast().map(MarkupNode::Expr),
@@ -96,8 +96,8 @@ impl Markup {
 pub enum MarkupNode {
     /// Whitespace containing less than two newlines.
     Space,
-    /// A forced line break: `\` or `\+` if justified.
-    Linebreak { justified: bool },
+    /// A forced line break.
+    Linebreak,
     /// A paragraph break: Two or more newlines.
     Parbreak,
     /// Plain text.
@@ -108,6 +108,8 @@ pub enum MarkupNode {
     Strong(StrongNode),
     /// Emphasized content: `_Emphasized_`.
     Emph(EmphNode),
+    /// A hyperlink.
+    Link(EcoString),
     /// A raw block with optional syntax highlighting: `` `...` ``.
     Raw(RawNode),
     /// A math formula: `$a^2 = b^2 + c^2$`.
@@ -116,8 +118,10 @@ pub enum MarkupNode {
     Heading(HeadingNode),
     /// An item in an unordered list: `- ...`.
     List(ListNode),
-    /// An item in an enumeration (ordered list): `1. ...`.
+    /// An item in an enumeration (ordered list): `+ ...` or `1. ...`.
     Enum(EnumNode),
+    /// An item in a description list: `/ Term: Details.
+    Desc(DescNode),
     /// A label.
     Label(EcoString),
     /// A reference.
@@ -170,8 +174,8 @@ pub struct RawNode {
 pub struct MathNode {
     /// The formula between the dollars / brackets.
     pub formula: EcoString,
-    /// Whether the formula is display-level, that is, it is surrounded by
-    /// `$[..]$`.
+    /// Whether the formula is display-level, that is, it contains whitespace
+    /// after the starting dollar sign and before the ending dollar sign.
     pub display: bool,
 }
 
@@ -205,7 +209,7 @@ node! {
 impl ListNode {
     /// The contents of the list item.
     pub fn body(&self) -> Markup {
-        self.0.cast_first_child().expect("list node is missing body")
+        self.0.cast_first_child().expect("list item is missing body")
     }
 }
 
@@ -217,18 +221,36 @@ node! {
 impl EnumNode {
     /// The contents of the list item.
     pub fn body(&self) -> Markup {
-        self.0.cast_first_child().expect("enum node is missing body")
+        self.0.cast_first_child().expect("enum item is missing body")
     }
 
     /// The number, if any.
     pub fn number(&self) -> Option<usize> {
+        self.0.children().find_map(|node| match node.kind() {
+            NodeKind::EnumNumbering(num) => Some(*num),
+            _ => None,
+        })
+    }
+}
+
+node! {
+    /// An item in a description list: `/ Term: Details.
+    DescNode: Desc
+}
+
+impl DescNode {
+    /// The term described by the list item.
+    pub fn term(&self) -> Markup {
         self.0
-            .children()
-            .find_map(|node| match node.kind() {
-                NodeKind::EnumNumbering(num) => Some(*num),
-                _ => None,
-            })
-            .expect("enum node is missing number")
+            .cast_first_child()
+            .expect("description list item is missing term")
+    }
+
+    /// The description of the term.
+    pub fn body(&self) -> Markup {
+        self.0
+            .cast_last_child()
+            .expect("description list item is missing body")
     }
 }
 

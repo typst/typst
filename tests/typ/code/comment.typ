@@ -25,11 +25,6 @@ Still comment.
 E
 
 ---
-// Line comments have a special case for URLs.
-https://example.com \
-https:/* block comments don't ... */
-
----
 // End should not appear without start.
 // Error: 7-9 unexpected end of block comment
 /* */ */

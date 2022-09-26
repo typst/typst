@@ -103,6 +103,11 @@ impl<'s> Iterator for Tokens<'s> {
         let start = self.s.cursor();
         let c = self.s.eat()?;
         Some(match c {
+            // Comments.
+            '/' if self.s.eat_if('/') => self.line_comment(),
+            '/' if self.s.eat_if('*') => self.block_comment(),
+            '*' if self.s.eat_if('/') => NodeKind::Unknown("*/".into()),
+
             // Blocks.
             '{' => NodeKind::LeftBrace,
             '}' => NodeKind::RightBrace,
@@ -110,15 +115,7 @@ impl<'s> Iterator for Tokens<'s> {
             ']' => NodeKind::RightBracket,
 
             // Whitespace.
-            ' ' if self.s.done() || !self.s.at(char::is_whitespace) => {
-                NodeKind::Space { newlines: 0 }
-            }
-            c if c.is_whitespace() => self.whitespace(),
-
-            // Comments with special case for URLs.
-            '/' if self.s.eat_if('*') => self.block_comment(),
-            '/' if !self.maybe_in_url() && self.s.eat_if('/') => self.line_comment(),
-            '*' if self.s.eat_if('/') => NodeKind::Unknown(self.s.from(start).into()),
+            c if c.is_whitespace() => self.whitespace(c),
 
             // Other things.
             _ => match self.mode {
@@ -130,122 +127,50 @@ impl<'s> Iterator for Tokens<'s> {
 }
 
 impl<'s> Tokens<'s> {
-    #[inline]
-    fn markup(&mut self, start: usize, c: char) -> NodeKind {
-        match c {
-            // Escape sequences.
-            '\\' => self.backslash(),
-
-            // Keywords and identifiers.
-            '#' => self.hash(),
-
-            // Markup.
-            '~' => NodeKind::NonBreakingSpace,
-            '-' => self.hyph(),
-            '.' if self.s.eat_if("..") => NodeKind::Ellipsis,
-            '\'' => NodeKind::Quote { double: false },
-            '"' => NodeKind::Quote { double: true },
-            '*' if !self.in_word() => NodeKind::Star,
-            '_' if !self.in_word() => NodeKind::Underscore,
-            '`' => self.raw(),
-            '=' => NodeKind::Eq,
-            '$' => self.math(),
-            '<' => self.label(),
-            '@' => self.reference(),
-            c if c == '.' || c.is_ascii_digit() => self.numbering(start, c),
-
-            // Plain text.
-            _ => self.text(start),
+    fn line_comment(&mut self) -> NodeKind {
+        self.s.eat_until(is_newline);
+        if self.s.peek().is_none() {
+            self.terminated = false;
         }
+        NodeKind::LineComment
     }
 
-    fn code(&mut self, start: usize, c: char) -> NodeKind {
-        match c {
-            // Parens.
-            '(' => NodeKind::LeftParen,
-            ')' => NodeKind::RightParen,
+    fn block_comment(&mut self) -> NodeKind {
+        let mut state = '_';
+        let mut depth = 1;
+        self.terminated = false;
 
-            // Length two.
-            '=' if self.s.eat_if('=') => NodeKind::EqEq,
-            '!' if self.s.eat_if('=') => NodeKind::ExclEq,
-            '<' if self.s.eat_if('=') => NodeKind::LtEq,
-            '>' if self.s.eat_if('=') => NodeKind::GtEq,
-            '+' if self.s.eat_if('=') => NodeKind::PlusEq,
-            '-' if self.s.eat_if('=') => NodeKind::HyphEq,
-            '*' if self.s.eat_if('=') => NodeKind::StarEq,
-            '/' if self.s.eat_if('=') => NodeKind::SlashEq,
-            '.' if self.s.eat_if('.') => NodeKind::Dots,
-            '=' if self.s.eat_if('>') => NodeKind::Arrow,
-
-            // Length one.
-            ',' => NodeKind::Comma,
-            ';' => NodeKind::Semicolon,
-            ':' => NodeKind::Colon,
-            '+' => NodeKind::Plus,
-            '-' => NodeKind::Minus,
-            '*' => NodeKind::Star,
-            '/' => NodeKind::Slash,
-            '=' => NodeKind::Eq,
-            '<' => NodeKind::Lt,
-            '>' => NodeKind::Gt,
-            '.' if self.s.done() || !self.s.at(char::is_ascii_digit) => NodeKind::Dot,
-
-            // Identifiers.
-            c if is_id_start(c) => self.ident(start),
-
-            // Numbers.
-            c if c.is_ascii_digit() || (c == '.' && self.s.at(char::is_ascii_digit)) => {
-                self.number(start, c)
+        // Find the first `*/` that does not correspond to a nested `/*`.
+        while let Some(c) = self.s.eat() {
+            state = match (state, c) {
+                ('*', '/') => {
+                    depth -= 1;
+                    if depth == 0 {
+                        self.terminated = true;
+                        break;
+                    }
+                    '_'
+                }
+                ('/', '*') => {
+                    depth += 1;
+                    '_'
+                }
+                ('/', '/') => {
+                    self.line_comment();
+                    '_'
+                }
+                _ => c,
             }
-
-            // Strings.
-            '"' => self.string(),
-
-            _ => NodeKind::Unknown(self.s.from(start).into()),
         }
+
+        NodeKind::BlockComment
     }
 
-    #[inline]
-    fn text(&mut self, start: usize) -> NodeKind {
-        macro_rules! table {
-            ($($c:literal)|*) => {{
-                let mut t = [false; 128];
-                $(t[$c as usize] = true;)*
-                t
-            }}
+    fn whitespace(&mut self, c: char) -> NodeKind {
+        if c == ' ' && !self.s.at(char::is_whitespace) {
+            return NodeKind::Space { newlines: 0 };
         }
 
-        const TABLE: [bool; 128] = table! {
-            // Ascii whitespace.
-            ' ' | '\t' | '\n' | '\x0b' | '\x0c' | '\r' |
-            // Comments, parentheses, code.
-            '/' | '[' | ']' | '{' | '}' | '#' |
-            // Markup
-            '~' | '-' | '.' | '\'' | '"' | '*' | '_' | '`' | '$' | '\\'
-        };
-
-        loop {
-            self.s.eat_until(|c: char| {
-                TABLE.get(c as usize).copied().unwrap_or_else(|| c.is_whitespace())
-            });
-
-            // Allow a single space, optionally preceded by . or - if something
-            // alphanumeric follows directly. This leads to less text nodes,
-            // which is good for performance.
-            let mut s = self.s;
-            s.eat_if(['.', '-']);
-            s.eat_if(' ');
-            if !s.at(char::is_alphanumeric) {
-                break;
-            }
-
-            self.s = s;
-        }
-
-        NodeKind::Text(self.s.from(start).into())
-    }
-
-    fn whitespace(&mut self) -> NodeKind {
         self.s.uneat();
 
         // Count the number of newlines.
@@ -267,25 +192,84 @@ impl<'s> Tokens<'s> {
         NodeKind::Space { newlines }
     }
 
-    fn backslash(&mut self) -> NodeKind {
-        let c = match self.s.peek() {
-            Some(c) => c,
-            None => return NodeKind::Linebreak { justified: false },
+    #[inline]
+    fn markup(&mut self, start: usize, c: char) -> NodeKind {
+        match c {
+            // Escape sequences.
+            '\\' => self.backslash(),
+
+            // Single-char things.
+            '~' => NodeKind::NonBreakingSpace,
+            '.' if self.s.eat_if("..") => NodeKind::Ellipsis,
+            '\'' => NodeKind::Quote { double: false },
+            '"' => NodeKind::Quote { double: true },
+            '*' if !self.in_word() => NodeKind::Star,
+            '_' if !self.in_word() => NodeKind::Underscore,
+            '=' => NodeKind::Eq,
+            '+' => NodeKind::Plus,
+            '/' => NodeKind::Slash,
+            ':' => NodeKind::Colon,
+
+            // Multi-char things.
+            '#' => self.hash(start),
+            '-' => self.hyph(),
+            'h' if self.s.eat_if("ttp://") || self.s.eat_if("ttps://") => {
+                self.link(start)
+            }
+            '`' => self.raw(),
+            '$' => self.math(),
+            c if c.is_ascii_digit() => self.numbering(start),
+            '<' => self.label(),
+            '@' => self.reference(start),
+
+            // Plain text.
+            _ => self.text(start),
+        }
+    }
+
+    #[inline]
+    fn text(&mut self, start: usize) -> NodeKind {
+        macro_rules! table {
+            ($(|$c:literal)*) => {{
+                let mut t = [false; 128];
+                $(t[$c as usize] = true;)*
+                t
+            }}
+        }
+
+        const TABLE: [bool; 128] = table! {
+            | ' ' | '\t' | '\n' | '\x0b' | '\x0c' | '\r' | '\\' | '/'
+            | '[' | ']' | '{' | '}' | '~' | '-' | '.' | '\'' | '"'
+            | '*' | '_' | ':' | 'h' | '`' | '$' | '<' | '>' | '@' | '#'
         };
 
-        match c {
-            // Backslash and comments.
-            '\\' | '/' |
-            // Parenthesis and hashtag.
-            '[' | ']' | '{' | '}' | '#' |
-            // Markup.
-            '~' | '-' | '.' | ':' |
-            '\'' | '"' | '*' | '_' | '`' | '$' | '=' |
-            '<' | '>' | '@' => {
-                self.s.expect(c);
-                NodeKind::Escape(c)
+        loop {
+            self.s.eat_until(|c: char| {
+                TABLE.get(c as usize).copied().unwrap_or_else(|| c.is_whitespace())
+            });
+
+            // Continue with the same text node if the thing would become text
+            // anyway.
+            let mut s = self.s;
+            match s.eat() {
+                Some('/') if !s.at(['/', '*']) => {}
+                Some(' ') if s.at(char::is_alphanumeric) => {}
+                Some('-') if !s.at(['-', '?']) => {}
+                Some('.') if !s.at("..") => {}
+                Some('h') if !s.at("ttp://") && !s.at("ttps://") => {}
+                Some('@' | '#') if !s.at(is_id_start) => {}
+                _ => break,
             }
-            'u' if self.s.eat_if("u{") => {
+
+            self.s = s;
+        }
+
+        NodeKind::Text(self.s.from(start).into())
+    }
+
+    fn backslash(&mut self) -> NodeKind {
+        match self.s.peek() {
+            Some('u') if self.s.eat_if("u{") => {
                 let sequence = self.s.eat_while(char::is_ascii_alphanumeric);
                 if self.s.eat_if('}') {
                     if let Some(c) = resolve_hex(sequence) {
@@ -298,26 +282,23 @@ impl<'s> Tokens<'s> {
                     }
                 } else {
                     self.terminated = false;
-                    NodeKind::Error(
-                        SpanPos::End,
-                        "expected closing brace".into(),
-                    )
+                    NodeKind::Error(SpanPos::End, "expected closing brace".into())
                 }
             }
 
             // Linebreaks.
-            c if c.is_whitespace() => NodeKind::Linebreak { justified: false },
-            '+' => {
-                self.s.expect(c);
-                NodeKind::Linebreak { justified: true }
-            }
+            Some(c) if c.is_whitespace() => NodeKind::Linebreak,
+            None => NodeKind::Linebreak,
 
-            // Just the backslash.
-            _ => NodeKind::Text('\\'.into()),
+            // Escapes.
+            Some(c) => {
+                self.s.expect(c);
+                NodeKind::Escape(c)
+            }
         }
     }
 
-    fn hash(&mut self) -> NodeKind {
+    fn hash(&mut self, start: usize) -> NodeKind {
         if self.s.at(is_id_start) {
             let read = self.s.eat_while(is_id_continue);
             match keyword(read) {
@@ -325,7 +306,7 @@ impl<'s> Tokens<'s> {
                 None => NodeKind::Ident(read.into()),
             }
         } else {
-            NodeKind::Text('#'.into())
+            self.text(start)
         }
     }
 
@@ -343,19 +324,26 @@ impl<'s> Tokens<'s> {
         }
     }
 
-    fn numbering(&mut self, start: usize, c: char) -> NodeKind {
-        let number = if c != '.' {
-            self.s.eat_while(char::is_ascii_digit);
-            let read = self.s.from(start);
-            if !self.s.eat_if('.') {
-                return NodeKind::Text(self.s.from(start).into());
-            }
-            read.parse().ok()
-        } else {
-            None
-        };
+    fn in_word(&self) -> bool {
+        let alphanumeric = |c: Option<char>| c.map_or(false, |c| c.is_alphanumeric());
+        let prev = self.s.scout(-2);
+        let next = self.s.peek();
+        alphanumeric(prev) && alphanumeric(next)
+    }
 
-        NodeKind::EnumNumbering(number)
+    fn link(&mut self, start: usize) -> NodeKind {
+        #[rustfmt::skip]
+        self.s.eat_while(|c: char| matches!(c,
+            | '0' ..= '9'
+            | 'a' ..= 'z'
+            | 'A' ..= 'Z'
+            | '~'  | '/' | '%' | '?' | '#' | '&' | '+' | '='
+            | '\'' | '.' | ',' | ';'
+        ));
+        if self.s.scout(-1) == Some('.') {
+            self.s.uneat();
+        }
+        NodeKind::Link(self.s.from(start).into())
     }
 
     fn raw(&mut self) -> NodeKind {
@@ -376,7 +364,6 @@ impl<'s> Tokens<'s> {
         }
 
         let start = self.s.cursor();
-
         let mut found = 0;
         while found < backticks {
             match self.s.eat() {
@@ -394,10 +381,9 @@ impl<'s> Tokens<'s> {
                 self.s.get(start .. end),
             )))
         } else {
+            self.terminated = false;
             let remaining = backticks - found;
             let noun = if remaining == 1 { "backtick" } else { "backticks" };
-
-            self.terminated = false;
             NodeKind::Error(
                 SpanPos::End,
                 if found == 0 {
@@ -410,51 +396,38 @@ impl<'s> Tokens<'s> {
     }
 
     fn math(&mut self) -> NodeKind {
-        let mut display = false;
-        if self.s.eat_if('[') {
-            display = true;
-        }
-
-        let start = self.s.cursor();
-
         let mut escaped = false;
-        let mut dollar = !display;
-
-        let terminated = loop {
-            match self.s.eat() {
-                Some('$') if !escaped && dollar => break true,
-                Some(']') if !escaped => dollar = true,
-                Some(c) => {
-                    dollar = !display;
-                    escaped = c == '\\' && !escaped;
-                }
-                None => break false,
+        let formula = self.s.eat_until(|c| {
+            if c == '$' && !escaped {
+                true
+            } else {
+                escaped = c == '\\' && !escaped;
+                false
             }
-        };
+        });
 
-        let end = self.s.cursor()
-            - match (terminated, display) {
-                (false, _) => 0,
-                (true, false) => 1,
-                (true, true) => 2,
-            };
+        let display = formula.len() >= 2
+            && formula.starts_with(char::is_whitespace)
+            && formula.ends_with(char::is_whitespace);
 
-        if terminated {
-            NodeKind::Math(Arc::new(MathNode {
-                formula: self.s.get(start .. end).into(),
-                display,
-            }))
+        if self.s.eat_if('$') {
+            NodeKind::Math(Arc::new(MathNode { formula: formula.into(), display }))
         } else {
             self.terminated = false;
-            NodeKind::Error(
-                SpanPos::End,
-                if !display || (!escaped && dollar) {
-                    "expected closing dollar sign".into()
-                } else {
-                    "expected closing bracket and dollar sign".into()
-                },
-            )
+            NodeKind::Error(SpanPos::End, "expected dollar sign".into())
         }
+    }
+
+    fn numbering(&mut self, start: usize) -> NodeKind {
+        self.s.eat_while(char::is_ascii_digit);
+        let read = self.s.from(start);
+        if self.s.eat_if('.') {
+            if let Ok(number) = read.parse() {
+                return NodeKind::EnumNumbering(number);
+            }
+        }
+
+        self.text(start)
     }
 
     fn label(&mut self) -> NodeKind {
@@ -471,12 +444,59 @@ impl<'s> Tokens<'s> {
         }
     }
 
-    fn reference(&mut self) -> NodeKind {
+    fn reference(&mut self, start: usize) -> NodeKind {
         let label = self.s.eat_while(is_id_continue);
         if !label.is_empty() {
             NodeKind::Ref(label.into())
         } else {
-            NodeKind::Error(SpanPos::Full, "label cannot be empty".into())
+            self.text(start)
+        }
+    }
+
+    fn code(&mut self, start: usize, c: char) -> NodeKind {
+        match c {
+            // Parentheses.
+            '(' => NodeKind::LeftParen,
+            ')' => NodeKind::RightParen,
+
+            // Two-char operators.
+            '=' if self.s.eat_if('=') => NodeKind::EqEq,
+            '!' if self.s.eat_if('=') => NodeKind::ExclEq,
+            '<' if self.s.eat_if('=') => NodeKind::LtEq,
+            '>' if self.s.eat_if('=') => NodeKind::GtEq,
+            '+' if self.s.eat_if('=') => NodeKind::PlusEq,
+            '-' if self.s.eat_if('=') => NodeKind::HyphEq,
+            '*' if self.s.eat_if('=') => NodeKind::StarEq,
+            '/' if self.s.eat_if('=') => NodeKind::SlashEq,
+            '.' if self.s.eat_if('.') => NodeKind::Dots,
+            '=' if self.s.eat_if('>') => NodeKind::Arrow,
+
+            // Single-char operators.
+            ',' => NodeKind::Comma,
+            ';' => NodeKind::Semicolon,
+            ':' => NodeKind::Colon,
+            '+' => NodeKind::Plus,
+            '-' => NodeKind::Minus,
+            '*' => NodeKind::Star,
+            '/' => NodeKind::Slash,
+            '=' => NodeKind::Eq,
+            '<' => NodeKind::Lt,
+            '>' => NodeKind::Gt,
+            '.' if !self.s.at(char::is_ascii_digit) => NodeKind::Dot,
+
+            // Identifiers.
+            c if is_id_start(c) => self.ident(start),
+
+            // Numbers.
+            c if c.is_ascii_digit() || (c == '.' && self.s.at(char::is_ascii_digit)) => {
+                self.number(start, c)
+            }
+
+            // Strings.
+            '"' => self.string(),
+
+            // Invalid token.
+            _ => NodeKind::Unknown(self.s.from(start).into()),
         }
     }
 
@@ -543,74 +563,24 @@ impl<'s> Tokens<'s> {
         }
     }
 
-
     fn string(&mut self) -> NodeKind {
         let mut escaped = false;
-        let string = resolve_string(self.s.eat_until(|c| {
+        let verbatim = self.s.eat_until(|c| {
             if c == '"' && !escaped {
                 true
             } else {
                 escaped = c == '\\' && !escaped;
                 false
             }
-        }));
+        });
 
+        let string = resolve_string(verbatim);
         if self.s.eat_if('"') {
             NodeKind::Str(string)
         } else {
             self.terminated = false;
             NodeKind::Error(SpanPos::End, "expected quote".into())
         }
-    }
-
-    fn line_comment(&mut self) -> NodeKind {
-        self.s.eat_until(is_newline);
-        if self.s.peek().is_none() {
-            self.terminated = false;
-        }
-        NodeKind::LineComment
-    }
-
-    fn block_comment(&mut self) -> NodeKind {
-        let mut state = '_';
-        let mut depth = 1;
-        self.terminated = false;
-
-        // Find the first `*/` that does not correspond to a nested `/*`.
-        while let Some(c) = self.s.eat() {
-            state = match (state, c) {
-                ('*', '/') => {
-                    depth -= 1;
-                    if depth == 0 {
-                        self.terminated = true;
-                        break;
-                    }
-                    '_'
-                }
-                ('/', '*') => {
-                    depth += 1;
-                    '_'
-                }
-                ('/', '/') => {
-                    self.line_comment();
-                    '_'
-                }
-                _ => c,
-            }
-        }
-
-        NodeKind::BlockComment
-    }
-
-    fn in_word(&self) -> bool {
-        let alphanumeric = |c: Option<char>| c.map_or(false, |c| c.is_alphanumeric());
-        let prev = self.s.scout(-2);
-        let next = self.s.peek();
-        alphanumeric(prev) && alphanumeric(next)
-    }
-
-    fn maybe_in_url(&self) -> bool {
-        self.mode == TokenMode::Markup && self.s.before().ends_with(":/")
     }
 }
 
@@ -872,14 +842,14 @@ mod tests {
     #[test]
     fn test_tokenize_text() {
         // Test basic text.
-        t!(Markup[" /"]: "hello"       => Text("hello"));
-        t!(Markup[" /"]: "hello-world" => Text("hello-world"));
+        t!(Markup[" /"]: "hello"      => Text("hello"));
+        t!(Markup[" /"]: "reha-world" => Text("reha-world"));
 
         // Test code symbols in text.
-        t!(Markup[" /"]: "a():\"b" => Text("a():"), Quote { double: true }, Text("b"));
-        t!(Markup[" /"]: ";:,|/+"  => Text(";:,|"), Text("/+"));
+        t!(Markup[" /"]: "a():\"b" => Text("a()"), Colon, Quote { double: true }, Text("b"));
+        t!(Markup[" /"]: ";,|/+"  => Text(";,|/+"));
         t!(Markup[" /"]: "=-a"     => Eq, Minus, Text("a"));
-        t!(Markup[" "]: "#123"     => Text("#"), Text("123"));
+        t!(Markup[" "]: "#123"     => Text("#123"));
 
         // Test text ends.
         t!(Markup[""]: "hello " => Text("hello"), Space(0));
@@ -904,11 +874,9 @@ mod tests {
         t!(Markup: r"\`" => Escape('`'));
         t!(Markup: r"\$" => Escape('$'));
         t!(Markup: r"\#" => Escape('#'));
-
-        // Test unescapable symbols.
-        t!(Markup[" /"]: r"\a"   => Text(r"\"), Text("a"));
-        t!(Markup[" /"]: r"\u"   => Text(r"\"), Text("u"));
-        t!(Markup[" /"]: r"\1"   => Text(r"\"), Text("1"));
+        t!(Markup: r"\a"   => Escape('a'));
+        t!(Markup: r"\u"   => Escape('u'));
+        t!(Markup: r"\1"   => Escape('1'));
 
         // Test basic unicode escapes.
         t!(Markup: r"\u{}"     => Error(Full, "invalid unicode escape sequence"));
@@ -930,16 +898,15 @@ mod tests {
         t!(Markup: "_"          => Underscore);
         t!(Markup[""]: "==="    => Eq, Eq, Eq);
         t!(Markup["a1/"]: "= "  => Eq, Space(0));
-        t!(Markup[" "]: r"\"    => Linebreak { justified: false });
-        t!(Markup[" "]: r"\+"   => Linebreak { justified: true });
+        t!(Markup[" "]: r"\"    => Linebreak);
         t!(Markup: "~"          => NonBreakingSpace);
         t!(Markup["a1/"]: "-?"  => Shy);
         t!(Markup["a "]: r"a--" => Text("a"), EnDash);
         t!(Markup["a1/"]: "- "  => Minus, Space(0));
-        t!(Markup[" "]: "."     => EnumNumbering(None));
-        t!(Markup[" "]: "1."    => EnumNumbering(Some(1)));
-        t!(Markup[" "]: "1.a"   => EnumNumbering(Some(1)), Text("a"));
-        t!(Markup[" /"]: "a1."  => Text("a1"), EnumNumbering(None));
+        t!(Markup[" "]: "+"     => Plus);
+        t!(Markup[" "]: "1."    => EnumNumbering(1));
+        t!(Markup[" "]: "1.a"   => EnumNumbering(1), Text("a"));
+        t!(Markup[" /"]: "a1."  => Text("a1."));
     }
 
     #[test]
@@ -995,7 +962,7 @@ mod tests {
         for (s, t) in list.clone() {
             t!(Markup[" "]: format!("#{}", s) => t);
             t!(Markup[" "]: format!("#{0}#{0}", s) => t, t);
-            t!(Markup[" /"]: format!("# {}", s) => Text("#"), Space(0), Text(s));
+            t!(Markup[" /"]: format!("# {}", s) => Text(&format!("# {s}")));
         }
 
         for (s, t) in list {
@@ -1037,18 +1004,16 @@ mod tests {
         t!(Markup: "$$"        => Math("", false));
         t!(Markup: "$x$"       => Math("x", false));
         t!(Markup: r"$\\$"     => Math(r"\\", false));
-        t!(Markup: "$[x + y]$" => Math("x + y", true));
-        t!(Markup: r"$[\\]$"   => Math(r"\\", true));
+        t!(Markup: r"$[\\]$"   => Math(r"[\\]", false));
+        t!(Markup: "$ x + y $" => Math(" x + y ", true));
 
         // Test unterminated.
-        t!(Markup[""]: "$x"      => Error(End, "expected closing dollar sign"));
-        t!(Markup[""]: "$[x"     => Error(End, "expected closing bracket and dollar sign"));
-        t!(Markup[""]: "$[x]\n$" => Error(End, "expected closing bracket and dollar sign"));
+        t!(Markup[""]: "$x"     => Error(End, "expected dollar sign"));
+        t!(Markup[""]: "$[x]\n" => Error(End, "expected dollar sign"));
 
         // Test escape sequences.
-        t!(Markup: r"$\$x$"       => Math(r"\$x", false));
-        t!(Markup: r"$[\\\]$]$"   => Math(r"\\\]$", true));
-        t!(Markup[""]: r"$[ ]\\$" => Error(End, "expected closing bracket and dollar sign"));
+        t!(Markup: r"$\$x$"   => Math(r"\$x", false));
+        t!(Markup: r"$\ \$ $" => Math(r"\ \$ ", false));
     }
 
     #[test]
