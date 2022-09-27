@@ -389,7 +389,7 @@ impl Category {
             Self::Math => "string.other.math.typst",
             Self::Heading => "markup.heading.typst",
             Self::List => "markup.list.typst",
-            Self::Term => "markup.bold.typst",
+            Self::Term => "markup.list.term.typst",
             Self::Label => "entity.name.label.typst",
             Self::Ref => "markup.other.reference.typst",
             Self::Keyword => "keyword.typst",

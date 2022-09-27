@@ -49,6 +49,30 @@
           "match": "\\\\([\\\\/\\[\\]{}#*_=~`$-.]|u\\{[0-9a-zA-Z]*\\}?)"
         },
         {
+          "name": "punctuation.definition.linebreak.typst",
+          "match": "\\\\"
+        },
+        {
+          "name": "punctuation.definition.nonbreaking-space.typst",
+          "match": "~"
+        },
+        {
+          "name": "punctuation.definition.shy.typst",
+          "match": "-\\?"
+        },
+        {
+          "name": "punctuation.definition.em-dash.typst",
+          "match": "---"
+        },
+        {
+          "name": "punctuation.definition.en-dash.typst",
+          "match": "--"
+        },
+        {
+          "name": "punctuation.definition.ellipsis.typst",
+          "match": "\\.\\.\\."
+        },
+        {
           "name": "markup.bold.typst",
           "begin": "(^\\*|\\*$|((?<=\\W|_)\\*)|(\\*(?=\\W|_)))",
           "end": "(^\\*|\\*$|((?<=\\W|_)\\*)|(\\*(?=\\W|_)))|\n|(?=\\])",
@@ -63,20 +87,26 @@
           "patterns": [{ "include": "#markup" }]
         },
         {
-          "name": "punctuation.definition.linebreak.typst",
-          "match": "\\\\"
+          "name": "markup.underline.link.typst",
+          "match": "https?://[0-9a-zA-Z~/%#&=',;\\.\\+\\?]*"
         },
         {
-          "name": "punctuation.definition.em-dash.typst",
-          "match": "---"
+          "name": "markup.raw.block.typst",
+          "begin": "`{3,}",
+          "end": "\\0",
+          "captures": { "0": { "name": "punctuation.definition.raw.typst" } }
         },
         {
-          "name": "punctuation.definition.en-dash.typst",
-          "match": "--"
+          "name": "markup.raw.inline.typst",
+          "begin": "`",
+          "end": "`",
+          "captures": { "0": { "name": "punctuation.definition.raw.typst" } }
         },
         {
-          "name": "punctuation.definition.nonbreaking-space.typst",
-          "match": "~"
+          "name": "string.other.math.typst",
+          "begin": "\\$",
+          "end": "\\$",
+          "captures": { "0": { "name": "punctuation.defintion.string.math.typst" } }
         },
         {
           "name": "markup.heading.typst",
@@ -92,41 +122,24 @@
         },
         {
           "name": "punctuation.definition.list.numbered.typst",
-          "match": "^\\s*[0-9]*\\.\\s+"
+          "match": "^\\s*([0-9]*\\.|\\+)\\s+"
         },
         {
-          "name": "markup.raw.block.typst",
-          "begin": "`{3,}",
-          "end": "\\0",
-          "captures": { "0": { "name": "punctuation.definition.raw.typst" } }
-        },
-        {
-          "name": "markup.raw.inline.typst",
-          "begin": "`",
-          "end": "`",
-          "captures": { "0": { "name": "punctuation.definition.raw.typst" } }
-        },
-        {
-          "name": "string.other.math.block.typst",
-          "begin": "\\$\\[",
-          "end": "\\]\\$",
-          "captures": { "0": { "name": "punctuation.defintion.string.math.typst" } }
-        },
-        {
-          "name": "string.other.math.typst",
-          "begin": "\\$",
-          "end": "\\$",
-          "captures": { "0": { "name": "punctuation.defintion.string.math.typst" } }
-        },
-        {
-          "name": "entity.other.reference.typst",
-          "match": "(@)[[:alpha:]_][[:alnum:]_-]*",
-          "captures": { "1": { "name": "punctuation.definition.reference.typst" } }
+          "match": "^\\s*(/)\\s+([^:]*:)",
+          "captures": {
+            "1": { "name": "punctuation.definition.list.description.typst" },
+            "2": { "name": "markup.list.term.typst" }
+          }
         },
         {
           "name": "entity.other.label.typst",
           "match": "<[[:alpha:]_][[:alnum:]_-]*>",
           "captures": { "1": { "name": "punctuation.definition.label.typst" } }
+        },
+        {
+          "name": "entity.other.reference.typst",
+          "match": "(@)[[:alpha:]_][[:alnum:]_-]*",
+          "captures": { "1": { "name": "punctuation.definition.reference.typst" } }
         },
         {
           "begin": "(#)(pub|let|set|show|wrap)\\b",
