@@ -173,7 +173,7 @@ impl FontInfo {
     pub fn from_data<'a>(data: &'a [u8]) -> impl Iterator<Item = FontInfo> + 'a {
         let count = ttf_parser::fonts_in_collection(data).unwrap_or(1);
         (0 .. count).filter_map(move |index| {
-            let ttf = ttf_parser::Face::from_slice(data, index).ok()?;
+            let ttf = ttf_parser::Face::parse(data, index).ok()?;
             Self::from_ttf(&ttf)
         })
     }
@@ -239,7 +239,8 @@ impl FontInfo {
 
         // Determine whether this is a serif or sans-serif font.
         if let Some(panose) = ttf
-            .table_data(Tag::from_bytes(b"OS/2"))
+            .raw_face()
+            .table(Tag::from_bytes(b"OS/2"))
             .and_then(|os2| os2.get(32 .. 45))
         {
             if matches!(panose, [2, 2 ..= 10, ..]) {

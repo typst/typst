@@ -22,7 +22,7 @@ pub use shift::*;
 
 use std::borrow::Cow;
 
-use ttf_parser::Tag;
+use rustybuzz::Tag;
 
 use crate::font::{FontMetrics, FontStretch, FontStyle, FontWeight, VerticalFontMetric};
 use crate::library::prelude::*;

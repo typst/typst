@@ -10,7 +10,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use once_cell::sync::OnceCell;
+use once_cell::unsync::OnceCell;
 use rex::font::MathHeader;
 use ttf_parser::{GlyphId, Tag};
 
@@ -33,8 +33,10 @@ struct Repr {
     info: FontInfo,
     /// The font's metrics.
     metrics: FontMetrics,
-    /// The underlying ttf-parser/rustybuzz face.
-    ttf: rustybuzz::Face<'static>,
+    /// The underlying ttf-parser face.
+    ttf: ttf_parser::Face<'static>,
+    /// The underlying rustybuzz face.
+    rusty: rustybuzz::Face<'static>,
     /// The parsed ReX math header.
     math: OnceCell<Option<MathHeader>>,
 }
@@ -51,7 +53,8 @@ impl Font {
         let slice: &'static [u8] =
             unsafe { std::slice::from_raw_parts(data.as_ptr(), data.len()) };
 
-        let ttf = rustybuzz::Face::from_slice(slice, index)?;
+        let ttf = ttf_parser::Face::parse(slice, index).ok()?;
+        let rusty = rustybuzz::Face::from_slice(slice, index)?;
         let metrics = FontMetrics::from_ttf(&ttf);
         let info = FontInfo::from_ttf(&ttf)?;
 
@@ -59,8 +62,9 @@ impl Font {
             data,
             index,
             info,
-            ttf,
             metrics,
+            ttf,
+            rusty,
             math: OnceCell::new(),
         })))
     }
@@ -108,11 +112,18 @@ impl Font {
         find_name(&self.0.ttf, id)
     }
 
-    /// A reference to the underlying `ttf-parser` / `rustybuzz` face.
-    pub fn ttf(&self) -> &rustybuzz::Face<'_> {
-        // We can't implement Deref because that would leak the internal 'static
-        // lifetime.
+    /// A reference to the underlying `ttf-parser` face.
+    pub fn ttf(&self) -> &ttf_parser::Face<'_> {
+        // We can't implement Deref because that would leak the
+        // internal 'static lifetime.
         &self.0.ttf
+    }
+
+    /// A reference to the underlying `rustybuzz` face.
+    pub fn rusty(&self) -> &rustybuzz::Face<'_> {
+        // We can't implement Deref because that would leak the
+        // internal 'static lifetime.
+        &self.0.rusty
     }
 
     /// Access the math header, if any.
@@ -120,7 +131,7 @@ impl Font {
         self.0
             .math
             .get_or_init(|| {
-                let data = self.ttf().table_data(Tag::from_bytes(b"MATH"))?;
+                let data = self.ttf().raw_face().table(Tag::from_bytes(b"MATH"))?;
                 MathHeader::parse(data).ok()
             })
             .as_ref()

@@ -39,8 +39,6 @@ Hello
 fn main() {}
 ```
 
-$ x + y = z $
-
 - List
 
 Paragraph

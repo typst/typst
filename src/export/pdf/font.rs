@@ -45,8 +45,9 @@ pub fn write_fonts(ctx: &mut PdfContext) {
         // Check for the presence of CFF outlines to select the correct
         // CID-Font subtype.
         let subtype = match ttf
-            .table_data(Tag::from_bytes(b"CFF "))
-            .or(ttf.table_data(Tag::from_bytes(b"CFF2")))
+            .raw_face()
+            .table(Tag::from_bytes(b"CFF "))
+            .or(ttf.raw_face().table(Tag::from_bytes(b"CFF2")))
         {
             Some(_) => CidFontType::Type0,
             None => CidFontType::Type2,

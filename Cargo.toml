@@ -24,7 +24,7 @@ comemo = { git = "https://github.com/typst/comemo" }
 # Text and font handling
 hypher = "0.1"
 kurbo = "0.8"
-ttf-parser = "0.15"
+ttf-parser = "0.17"
 rustybuzz = "0.5"
 unicode-bidi = "0.3.5"
 unicode-segmentation = "1"

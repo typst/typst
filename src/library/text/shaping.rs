@@ -1,7 +1,7 @@
 use std::ops::Range;
 use std::str::FromStr;
 
-use rustybuzz::{Feature, UnicodeBuffer};
+use rustybuzz::{Feature, Tag, UnicodeBuffer};
 
 use super::*;
 use crate::font::{Font, FontVariant};
@@ -407,7 +407,7 @@ fn shape_segment<'a>(
     });
 
     // Shape!
-    let buffer = rustybuzz::shape(font.ttf(), &ctx.tags, buffer);
+    let buffer = rustybuzz::shape(font.rusty(), &ctx.tags, buffer);
     let infos = buffer.glyph_infos();
     let pos = buffer.glyph_positions();
 
