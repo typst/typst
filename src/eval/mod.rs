@@ -33,6 +33,7 @@ pub use value::*;
 pub use vm::*;
 
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use comemo::{Track, Tracked};
 use unicode_segmentation::UnicodeSegmentation;
@@ -251,14 +252,86 @@ impl Eval for RawNode {
     }
 }
 
-impl Eval for Spanned<MathNode> {
+impl Eval for Math {
     type Output = Content;
 
+    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        let nodes =
+            self.nodes().map(|node| node.eval(vm)).collect::<SourceResult<_>>()?;
+        Ok(Content::show(library::math::MathNode::Row(
+            Arc::new(nodes),
+            self.span(),
+        )))
+    }
+}
+
+impl Eval for MathNode {
+    type Output = library::math::MathNode;
+
+    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        Ok(match self {
+            Self::Space => library::math::MathNode::Space,
+            Self::Linebreak => library::math::MathNode::Linebreak,
+            Self::Atom(atom) => library::math::MathNode::Atom(atom.clone()),
+            Self::Script(node) => node.eval(vm)?,
+            Self::Frac(node) => node.eval(vm)?,
+            Self::Align(node) => node.eval(vm)?,
+            Self::Group(node) => library::math::MathNode::Row(
+                Arc::new(
+                    node.nodes()
+                        .map(|node| node.eval(vm))
+                        .collect::<SourceResult<_>>()?,
+                ),
+                node.span(),
+            ),
+            Self::Expr(expr) => match expr.eval(vm)?.display() {
+                Content::Text(text) => library::math::MathNode::Atom(text),
+                _ => bail!(expr.span(), "expected text"),
+            },
+        })
+    }
+}
+
+impl Eval for ScriptNode {
+    type Output = library::math::MathNode;
+
+    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        Ok(library::math::MathNode::Script(Arc::new(
+            library::math::ScriptNode {
+                base: self.base().eval(vm)?,
+                sub: self
+                    .sub()
+                    .map(|node| node.eval(vm))
+                    .transpose()?
+                    .map(|node| node.unparen()),
+                sup: self
+                    .sup()
+                    .map(|node| node.eval(vm))
+                    .transpose()?
+                    .map(|node| node.unparen()),
+            },
+        )))
+    }
+}
+
+impl Eval for FracNode {
+    type Output = library::math::MathNode;
+
+    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        Ok(library::math::MathNode::Frac(Arc::new(
+            library::math::FracNode {
+                num: self.num().eval(vm)?.unparen(),
+                denom: self.denom().eval(vm)?.unparen(),
+            },
+        )))
+    }
+}
+
+impl Eval for AlignNode {
+    type Output = library::math::MathNode;
+
     fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(Content::show(library::math::MathNode {
-            formula: self.clone().map(|math| math.formula),
-            display: self.v.display,
-        }))
+        Ok(library::math::MathNode::Align(self.count()))
     }
 }
 

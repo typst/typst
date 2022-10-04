@@ -435,8 +435,7 @@ fn test_part(
         .filter(|error| error.span.source() == id)
         .map(|error| {
             let range = world.source(error.span.source()).range(error.span);
-            let msg = error.message.replace("\\", "/");
-            (range, msg)
+            (range, error.message.to_string())
         })
         .collect();
 

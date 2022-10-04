@@ -12,7 +12,7 @@ use std::sync::Arc;
 pub use highlight::*;
 pub use span::*;
 
-use self::ast::{MathNode, RawNode, TypedNode, Unit};
+use self::ast::{RawNode, TypedNode, Unit};
 use crate::diag::SourceError;
 use crate::source::SourceId;
 use crate::util::EcoString;
@@ -579,6 +579,12 @@ pub enum NodeKind {
     ///
     /// The comment can contain nested block comments.
     BlockComment,
+    /// One or more whitespace characters. Single spaces are collapsed into text
+    /// nodes if they would otherwise be surrounded by text nodes.
+    ///
+    /// Also stores how many newlines are contained.
+    Space { newlines: usize },
+
     /// A left curly brace, starting a code block: `{`.
     LeftBrace,
     /// A right curly brace, terminating a code block: `}`.
@@ -593,69 +599,6 @@ pub enum NodeKind {
     /// A right round parenthesis, terminating a grouped expression, collection,
     /// argument or parameter list: `)`.
     RightParen,
-
-    /// Markup of which all lines must have a minimal indentation.
-    ///
-    /// Notably, the number does not determine in which column the markup
-    /// started, but to the right of which column all markup elements must be,
-    /// so it is zero except for headings and lists.
-    Markup { min_indent: usize },
-    /// One or more whitespace characters. Single spaces are collapsed into text
-    /// nodes if they would otherwise be surrounded by text nodes.
-    ///
-    /// Also stores how many newlines are contained.
-    Space { newlines: usize },
-    /// A forced line break.
-    Linebreak,
-    /// Consecutive text without markup. While basic text with just single
-    /// spaces is collapsed into a single node, certain symbols that could
-    /// possibly be markup force text into multiple nodes.
-    Text(EcoString),
-    /// A slash and the letter "u" followed by a hexadecimal unicode entity
-    /// enclosed in curly braces: `\u{1F5FA}`.
-    Escape(char),
-    /// A non-breaking space: `~`.
-    NonBreakingSpace,
-    /// A soft hyphen: `-?`.
-    Shy,
-    /// An en-dash: `--`.
-    EnDash,
-    /// An em-dash: `---`.
-    EmDash,
-    /// An ellipsis: `...`.
-    Ellipsis,
-    /// A smart quote: `'` or `"`.
-    Quote { double: bool },
-    /// The strong text toggle, multiplication operator, and wildcard import
-    /// symbol: `*`.
-    Star,
-    /// Toggles emphasized text: `_`.
-    Underscore,
-    /// Strong content: `*Strong*`.
-    Strong,
-    /// Emphasized content: `_Emphasized_`.
-    Emph,
-    /// A hyperlink.
-    Link(EcoString),
-    /// A raw block with optional syntax highlighting: `` `...` ``.
-    Raw(Arc<RawNode>),
-    /// A math formula: `$x$`, `$[x^2]$`.
-    Math(Arc<MathNode>),
-    /// A section heading: `= Introduction`.
-    Heading,
-    /// An item in an unordered list: `- ...`.
-    List,
-    /// An item in an enumeration (ordered list): `+ ...` or `1. ...`.
-    Enum,
-    /// An explicit enumeration numbering: `23.`.
-    EnumNumbering(usize),
-    /// An item in a description list: `/ Term: Details.
-    Desc,
-    /// A label: `<label>`.
-    Label(EcoString),
-    /// A reference: `@label`.
-    Ref(EcoString),
-
     /// A comma separator in a sequence: `,`.
     Comma,
     /// A semicolon terminating an expression: `;`.
@@ -664,14 +607,38 @@ pub enum NodeKind {
     /// parameter list, or between the term and body of a description list
     /// term: `:`.
     Colon,
+    /// The strong text toggle, multiplication operator, and wildcard import
+    /// symbol: `*`.
+    Star,
+    /// Toggles emphasized text and indicates a subscript in a formula: `_`.
+    Underscore,
+    /// Starts and ends a math formula.
+    Dollar,
+    /// The non-breaking space: `~`.
+    Tilde,
+    /// The soft hyphen: `-?`.
+    HyphQuest,
+    /// The en-dash: `--`.
+    Hyph2,
+    /// The em-dash: `---`.
+    Hyph3,
+    /// The ellipsis: `...`.
+    Dot3,
+    /// A smart quote: `'` or `"`.
+    Quote { double: bool },
     /// The unary plus and addition operator, and start of enum items: `+`.
     Plus,
     /// The unary negation and subtraction operator, and start of list
     /// items: `-`.
     Minus,
-    /// The division operator and start of description list items: `/`.
+    /// The division operator, start of description list items, and fraction
+    /// operator in a formula: `/`.
     Slash,
-    /// A field access and method call operator: `.`.
+    /// The superscript operator: `^`.
+    Hat,
+    /// The math alignment operator: `&`.
+    Amp,
+    /// The field access and method call operator: `.`.
     Dot,
     /// The assignment operator: `=`.
     Eq,
@@ -699,15 +666,16 @@ pub enum NodeKind {
     Dots,
     /// An arrow between a closure's parameters and body: `=>`.
     Arrow,
+
     /// The `not` operator.
     Not,
     /// The `and` operator.
     And,
     /// The `or` operator.
     Or,
-    /// The none literal: `none`.
+    /// The `none` literal.
     None,
-    /// The auto literal: `auto`.
+    /// The `auto` literal.
     Auto,
     /// The `let` keyword.
     Let,
@@ -741,6 +709,55 @@ pub enum NodeKind {
     From,
     /// The `as` keyword.
     As,
+
+    /// Markup of which all lines must have a minimal indentation.
+    ///
+    /// Notably, the number does not determine in which column the markup
+    /// started, but to the right of which column all markup elements must be,
+    /// so it is zero except for headings and lists.
+    Markup { min_indent: usize },
+    /// A forced line break in markup or math.
+    Linebreak,
+    /// Consecutive text without markup. While basic text with just single
+    /// spaces is collapsed into a single node, certain symbols that could
+    /// possibly be markup force text into multiple nodes.
+    Text(EcoString),
+    /// A slash and the letter "u" followed by a hexadecimal unicode entity
+    /// enclosed in curly braces: `\u{1F5FA}`.
+    Escape(char),
+    /// Strong content: `*Strong*`.
+    Strong,
+    /// Emphasized content: `_Emphasized_`.
+    Emph,
+    /// A hyperlink.
+    Link(EcoString),
+    /// A raw block with optional syntax highlighting: `` `...` ``.
+    Raw(Arc<RawNode>),
+    /// A math formula: `$x$`, `$ x^2 $`.
+    Math,
+    /// A section heading: `= Introduction`.
+    Heading,
+    /// An item in an unordered list: `- ...`.
+    List,
+    /// An item in an enumeration (ordered list): `+ ...` or `1. ...`.
+    Enum,
+    /// An explicit enumeration numbering: `23.`.
+    EnumNumbering(usize),
+    /// An item in a description list: `/ Term: Details.
+    Desc,
+    /// A label: `<label>`.
+    Label(EcoString),
+    /// A reference: `@label`.
+    Ref(EcoString),
+
+    /// An atom in a math formula: `x`, `+`, `12`.
+    Atom(EcoString),
+    /// A base with an optional sub- and superscript in a formula: `a_1^2`.
+    Script,
+    /// A fraction: `x/2`.
+    Frac,
+    /// A math alignment indicator: `&`, `&&`.
+    Align,
 
     /// An identifier: `center`.
     Ident(EcoString),
@@ -859,11 +876,11 @@ impl NodeKind {
             Self::CodeBlock
             | Self::ContentBlock
             | Self::Linebreak { .. }
-            | Self::NonBreakingSpace
-            | Self::Shy
-            | Self::EnDash
-            | Self::EmDash
-            | Self::Ellipsis
+            | Self::Tilde
+            | Self::HyphQuest
+            | Self::Hyph2
+            | Self::Hyph3
+            | Self::Dot3
             | Self::Quote { .. }
             | Self::BlockComment
             | Self::Space { .. }
@@ -877,47 +894,32 @@ impl NodeKind {
         match self {
             Self::LineComment => "line comment",
             Self::BlockComment => "block comment",
+            Self::Space { .. } => "space",
+
             Self::LeftBrace => "opening brace",
             Self::RightBrace => "closing brace",
             Self::LeftBracket => "opening bracket",
             Self::RightBracket => "closing bracket",
             Self::LeftParen => "opening paren",
             Self::RightParen => "closing paren",
-
-            Self::Markup { .. } => "markup",
-            Self::Space { newlines: (2 ..) } => "paragraph break",
-            Self::Space { .. } => "space",
-            Self::Linebreak => "linebreak",
-            Self::Text(_) => "text",
-            Self::Escape(_) => "escape sequence",
-            Self::NonBreakingSpace => "non-breaking space",
-            Self::Shy => "soft hyphen",
-            Self::EnDash => "en dash",
-            Self::EmDash => "em dash",
-            Self::Ellipsis => "ellipsis",
-            Self::Quote { double: false } => "single quote",
-            Self::Quote { double: true } => "double quote",
-            Self::Star => "star",
-            Self::Underscore => "underscore",
-            Self::Strong => "strong content",
-            Self::Emph => "emphasized content",
-            Self::Link(_) => "link",
-            Self::Raw(_) => "raw block",
-            Self::Math(_) => "math formula",
-            Self::Heading => "heading",
-            Self::List => "list item",
-            Self::Enum => "enumeration item",
-            Self::EnumNumbering(_) => "enumeration item numbering",
-            Self::Desc => "description list item",
-            Self::Label(_) => "label",
-            Self::Ref(_) => "reference",
-
             Self::Comma => "comma",
             Self::Semicolon => "semicolon",
             Self::Colon => "colon",
+            Self::Star => "star",
+            Self::Underscore => "underscore",
+            Self::Dollar => "dollar sign",
+            Self::Tilde => "non-breaking space",
+            Self::HyphQuest => "soft hyphen",
+            Self::Hyph2 => "en dash",
+            Self::Hyph3 => "em dash",
+            Self::Dot3 => "ellipsis",
+            Self::Quote { double: false } => "single quote",
+            Self::Quote { double: true } => "double quote",
             Self::Plus => "plus",
             Self::Minus => "minus",
             Self::Slash => "slash",
+            Self::Hat => "hat",
+            Self::Amp => "ampersand",
             Self::Dot => "dot",
             Self::Eq => "assignment operator",
             Self::EqEq => "equality operator",
@@ -932,6 +934,7 @@ impl NodeKind {
             Self::SlashEq => "divide-assign operator",
             Self::Dots => "dots",
             Self::Arrow => "arrow",
+
             Self::Not => "operator `not`",
             Self::And => "operator `and`",
             Self::Or => "operator `or`",
@@ -953,6 +956,28 @@ impl NodeKind {
             Self::Include => "keyword `include`",
             Self::From => "keyword `from`",
             Self::As => "keyword `as`",
+
+            Self::Markup { .. } => "markup",
+            Self::Linebreak => "linebreak",
+            Self::Text(_) => "text",
+            Self::Escape(_) => "escape sequence",
+            Self::Strong => "strong content",
+            Self::Emph => "emphasized content",
+            Self::Link(_) => "link",
+            Self::Raw(_) => "raw block",
+            Self::Math => "math formula",
+            Self::Heading => "heading",
+            Self::List => "list item",
+            Self::Enum => "enumeration item",
+            Self::EnumNumbering(_) => "enumeration item numbering",
+            Self::Desc => "description list item",
+            Self::Label(_) => "label",
+            Self::Ref(_) => "reference",
+
+            Self::Atom(_) => "math atom",
+            Self::Script => "script",
+            Self::Frac => "fraction",
+            Self::Align => "alignment indicator",
 
             Self::Ident(_) => "identifier",
             Self::Bool(_) => "boolean",
@@ -1012,45 +1037,31 @@ impl Hash for NodeKind {
         match self {
             Self::LineComment => {}
             Self::BlockComment => {}
+            Self::Space { newlines } => newlines.hash(state),
+
             Self::LeftBrace => {}
             Self::RightBrace => {}
             Self::LeftBracket => {}
             Self::RightBracket => {}
             Self::LeftParen => {}
             Self::RightParen => {}
-
-            Self::Markup { min_indent } => min_indent.hash(state),
-            Self::Space { newlines } => newlines.hash(state),
-            Self::Linebreak => {}
-            Self::Text(s) => s.hash(state),
-            Self::Escape(c) => c.hash(state),
-            Self::NonBreakingSpace => {}
-            Self::Shy => {}
-            Self::EnDash => {}
-            Self::EmDash => {}
-            Self::Ellipsis => {}
-            Self::Quote { double } => double.hash(state),
-            Self::Star => {}
-            Self::Underscore => {}
-            Self::Strong => {}
-            Self::Emph => {}
-            Self::Link(link) => link.hash(state),
-            Self::Raw(raw) => raw.hash(state),
-            Self::Math(math) => math.hash(state),
-            Self::Heading => {}
-            Self::List => {}
-            Self::Enum => {}
-            Self::EnumNumbering(num) => num.hash(state),
-            Self::Desc => {}
-            Self::Label(c) => c.hash(state),
-            Self::Ref(c) => c.hash(state),
-
             Self::Comma => {}
             Self::Semicolon => {}
             Self::Colon => {}
+            Self::Star => {}
+            Self::Underscore => {}
+            Self::Dollar => {}
+            Self::Tilde => {}
+            Self::HyphQuest => {}
+            Self::Hyph2 => {}
+            Self::Hyph3 => {}
+            Self::Dot3 => {}
+            Self::Quote { double } => double.hash(state),
             Self::Plus => {}
             Self::Minus => {}
             Self::Slash => {}
+            Self::Hat => {}
+            Self::Amp => {}
             Self::Dot => {}
             Self::Eq => {}
             Self::EqEq => {}
@@ -1065,6 +1076,7 @@ impl Hash for NodeKind {
             Self::SlashEq => {}
             Self::Dots => {}
             Self::Arrow => {}
+
             Self::Not => {}
             Self::And => {}
             Self::Or => {}
@@ -1086,6 +1098,28 @@ impl Hash for NodeKind {
             Self::Include => {}
             Self::From => {}
             Self::As => {}
+
+            Self::Markup { min_indent } => min_indent.hash(state),
+            Self::Linebreak => {}
+            Self::Text(s) => s.hash(state),
+            Self::Escape(c) => c.hash(state),
+            Self::Strong => {}
+            Self::Emph => {}
+            Self::Link(link) => link.hash(state),
+            Self::Raw(raw) => raw.hash(state),
+            Self::Math => {}
+            Self::Heading => {}
+            Self::List => {}
+            Self::Enum => {}
+            Self::EnumNumbering(num) => num.hash(state),
+            Self::Desc => {}
+            Self::Label(c) => c.hash(state),
+            Self::Ref(c) => c.hash(state),
+
+            Self::Atom(c) => c.hash(state),
+            Self::Script => {}
+            Self::Frac => {}
+            Self::Align => {}
 
             Self::Ident(v) => v.hash(state),
             Self::Bool(v) => v.hash(state),

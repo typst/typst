@@ -92,14 +92,14 @@ impl<'s> Parser<'s> {
         let until = self.trivia_start();
         let mut children = mem::replace(&mut self.children, prev);
 
-        if self.tokens.mode() == TokenMode::Code {
+        if self.tokens.mode() == TokenMode::Markup {
+            self.children.push(InnerNode::with_children(kind, children).into());
+        } else {
             // Trailing trivia should not be wrapped into the new node.
             let idx = self.children.len();
             self.children.push(SyntaxNode::default());
             self.children.extend(children.drain(until.0 ..));
             self.children[idx] = InnerNode::with_children(kind, children).into();
-        } else {
-            self.children.push(InnerNode::with_children(kind, children).into());
         }
 
         output
@@ -122,7 +122,7 @@ impl<'s> Parser<'s> {
         self.prev_end = self.tokens.cursor();
         self.bump();
 
-        if self.tokens.mode() == TokenMode::Code {
+        if self.tokens.mode() != TokenMode::Markup {
             // Skip whitespace and comments.
             while self.current.as_ref().map_or(false, |x| self.is_trivia(x)) {
                 self.bump();
@@ -232,8 +232,17 @@ impl<'s> Parser<'s> {
     pub fn start_group(&mut self, kind: Group) {
         self.groups.push(GroupEntry { kind, prev_mode: self.tokens.mode() });
         self.tokens.set_mode(match kind {
-            Group::Bracket | Group::Strong | Group::Emph => TokenMode::Markup,
-            Group::Brace | Group::Paren | Group::Expr | Group::Imports => TokenMode::Code,
+            Group::Strong | Group::Emph => TokenMode::Markup,
+            Group::Bracket => match self.tokens.mode() {
+                TokenMode::Math => TokenMode::Math,
+                _ => TokenMode::Markup,
+            },
+            Group::Brace | Group::Paren => match self.tokens.mode() {
+                TokenMode::Math => TokenMode::Math,
+                _ => TokenMode::Code,
+            },
+            Group::Math => TokenMode::Math,
+            Group::Expr | Group::Imports => TokenMode::Code,
         });
 
         match kind {
@@ -242,6 +251,7 @@ impl<'s> Parser<'s> {
             Group::Paren => self.assert(NodeKind::LeftParen),
             Group::Strong => self.assert(NodeKind::Star),
             Group::Emph => self.assert(NodeKind::Underscore),
+            Group::Math => self.assert(NodeKind::Dollar),
             Group::Expr => self.repeek(),
             Group::Imports => self.repeek(),
         }
@@ -260,11 +270,12 @@ impl<'s> Parser<'s> {
 
         // Eat the end delimiter if there is one.
         if let Some((end, required)) = match group.kind {
-            Group::Paren => Some((NodeKind::RightParen, true)),
-            Group::Bracket => Some((NodeKind::RightBracket, true)),
             Group::Brace => Some((NodeKind::RightBrace, true)),
+            Group::Bracket => Some((NodeKind::RightBracket, true)),
+            Group::Paren => Some((NodeKind::RightParen, true)),
             Group::Strong => Some((NodeKind::Star, true)),
             Group::Emph => Some((NodeKind::Underscore, true)),
+            Group::Math => Some((NodeKind::Dollar, true)),
             Group::Expr => Some((NodeKind::Semicolon, false)),
             Group::Imports => None,
         } {
@@ -290,7 +301,7 @@ impl<'s> Parser<'s> {
         // Rescan the peeked token if the mode changed.
         if rescan {
             let mut target = self.prev_end();
-            if group_mode == TokenMode::Code {
+            if group_mode != TokenMode::Markup {
                 let start = self.trivia_start().0;
                 target = self.current_start
                     - self.children[start ..].iter().map(SyntaxNode::len).sum::<usize>();
@@ -330,6 +341,7 @@ impl<'s> Parser<'s> {
             Some(NodeKind::RightParen) => self.inside(Group::Paren),
             Some(NodeKind::Star) => self.inside(Group::Strong),
             Some(NodeKind::Underscore) => self.inside(Group::Emph),
+            Some(NodeKind::Dollar) => self.inside(Group::Math),
             Some(NodeKind::Semicolon) => self.inside(Group::Expr),
             Some(NodeKind::From) => self.inside(Group::Imports),
             Some(NodeKind::Space { newlines }) => self.space_ends_group(*newlines),
@@ -472,7 +484,7 @@ impl Marker {
             }
 
             // Don't expose trivia in code.
-            if p.tokens.mode() == TokenMode::Code && child.kind().is_trivia() {
+            if p.tokens.mode() != TokenMode::Markup && child.kind().is_trivia() {
                 continue;
             }
 
@@ -515,6 +527,8 @@ pub enum Group {
     Strong,
     /// A group surrounded with underscore: `_..._`.
     Emph,
+    /// A group surrounded by dollar signs: `$...$`.
+    Math,
     /// A group ended by a semicolon or a line break: `;`, `\n`.
     Expr,
     /// A group for import items, ended by a semicolon, line break or `from`.

@@ -5,7 +5,7 @@ use unscanny::Scanner;
 
 use super::resolve::{resolve_hex, resolve_raw, resolve_string};
 use crate::geom::{AngleUnit, LengthUnit};
-use crate::syntax::ast::{MathNode, RawNode, Unit};
+use crate::syntax::ast::{RawNode, Unit};
 use crate::syntax::{NodeKind, SpanPos};
 use crate::util::EcoString;
 
@@ -27,6 +27,8 @@ pub struct Tokens<'s> {
 pub enum TokenMode {
     /// Text and markup.
     Markup,
+    /// Math atoms, operators, etc.
+    Math,
     /// Keywords, literals and operators.
     Code,
 }
@@ -103,23 +105,16 @@ impl<'s> Iterator for Tokens<'s> {
         let start = self.s.cursor();
         let c = self.s.eat()?;
         Some(match c {
-            // Comments.
+            // Trivia.
             '/' if self.s.eat_if('/') => self.line_comment(),
             '/' if self.s.eat_if('*') => self.block_comment(),
             '*' if self.s.eat_if('/') => NodeKind::Unknown("*/".into()),
-
-            // Blocks.
-            '{' => NodeKind::LeftBrace,
-            '}' => NodeKind::RightBrace,
-            '[' => NodeKind::LeftBracket,
-            ']' => NodeKind::RightBracket,
-
-            // Whitespace.
             c if c.is_whitespace() => self.whitespace(c),
 
             // Other things.
             _ => match self.mode {
                 TokenMode::Markup => self.markup(start, c),
+                TokenMode::Math => self.math(start, c),
                 TokenMode::Code => self.code(start, c),
             },
         })
@@ -195,16 +190,23 @@ impl<'s> Tokens<'s> {
     #[inline]
     fn markup(&mut self, start: usize, c: char) -> NodeKind {
         match c {
+            // Blocks.
+            '{' => NodeKind::LeftBrace,
+            '}' => NodeKind::RightBrace,
+            '[' => NodeKind::LeftBracket,
+            ']' => NodeKind::RightBracket,
+
             // Escape sequences.
             '\\' => self.backslash(),
 
             // Single-char things.
-            '~' => NodeKind::NonBreakingSpace,
-            '.' if self.s.eat_if("..") => NodeKind::Ellipsis,
+            '~' => NodeKind::Tilde,
+            '.' if self.s.eat_if("..") => NodeKind::Dot3,
             '\'' => NodeKind::Quote { double: false },
             '"' => NodeKind::Quote { double: true },
             '*' if !self.in_word() => NodeKind::Star,
             '_' if !self.in_word() => NodeKind::Underscore,
+            '$' => NodeKind::Dollar,
             '=' => NodeKind::Eq,
             '+' => NodeKind::Plus,
             '/' => NodeKind::Slash,
@@ -217,7 +219,6 @@ impl<'s> Tokens<'s> {
                 self.link(start)
             }
             '`' => self.raw(),
-            '$' => self.math(),
             c if c.is_ascii_digit() => self.numbering(start),
             '<' => self.label(),
             '@' => self.reference(start),
@@ -313,12 +314,12 @@ impl<'s> Tokens<'s> {
     fn hyph(&mut self) -> NodeKind {
         if self.s.eat_if('-') {
             if self.s.eat_if('-') {
-                NodeKind::EmDash
+                NodeKind::Hyph3
             } else {
-                NodeKind::EnDash
+                NodeKind::Hyph2
             }
         } else if self.s.eat_if('?') {
-            NodeKind::Shy
+            NodeKind::HyphQuest
         } else {
             NodeKind::Minus
         }
@@ -395,29 +396,6 @@ impl<'s> Tokens<'s> {
         }
     }
 
-    fn math(&mut self) -> NodeKind {
-        let mut escaped = false;
-        let formula = self.s.eat_until(|c| {
-            if c == '$' && !escaped {
-                true
-            } else {
-                escaped = c == '\\' && !escaped;
-                false
-            }
-        });
-
-        let display = formula.len() >= 2
-            && formula.starts_with(char::is_whitespace)
-            && formula.ends_with(char::is_whitespace);
-
-        if self.s.eat_if('$') {
-            NodeKind::Math(Arc::new(MathNode { formula: formula.into(), display }))
-        } else {
-            self.terminated = false;
-            NodeKind::Error(SpanPos::End, "expected dollar sign".into())
-        }
-    }
-
     fn numbering(&mut self, start: usize) -> NodeKind {
         self.s.eat_while(char::is_ascii_digit);
         let read = self.s.from(start);
@@ -453,8 +431,51 @@ impl<'s> Tokens<'s> {
         }
     }
 
+    fn math(&mut self, start: usize, c: char) -> NodeKind {
+        match c {
+            // Escape sequences.
+            '\\' => self.backslash(),
+
+            // Single-char things.
+            '_' => NodeKind::Underscore,
+            '^' => NodeKind::Hat,
+            '/' => NodeKind::Slash,
+            '&' => NodeKind::Amp,
+            '$' => NodeKind::Dollar,
+
+            // Brackets.
+            '{' => NodeKind::LeftBrace,
+            '}' => NodeKind::RightBrace,
+            '[' => NodeKind::LeftBracket,
+            ']' => NodeKind::RightBracket,
+            '(' => NodeKind::LeftParen,
+            ')' => NodeKind::RightParen,
+
+            // Identifiers.
+            c if is_math_id_start(c) && self.s.at(is_math_id_continue) => {
+                self.s.eat_while(is_math_id_continue);
+                NodeKind::Ident(self.s.from(start).into())
+            }
+
+            // Numbers.
+            c if c.is_numeric() => {
+                self.s.eat_while(char::is_numeric);
+                NodeKind::Atom(self.s.from(start).into())
+            }
+
+            // Other math atoms.
+            c => NodeKind::Atom(c.into()),
+        }
+    }
+
     fn code(&mut self, start: usize, c: char) -> NodeKind {
         match c {
+            // Blocks.
+            '{' => NodeKind::LeftBrace,
+            '}' => NodeKind::RightBrace,
+            '[' => NodeKind::LeftBracket,
+            ']' => NodeKind::RightBracket,
+
             // Parentheses.
             '(' => NodeKind::LeftParen,
             ')' => NodeKind::RightParen,
@@ -673,6 +694,18 @@ fn is_id_continue(c: char) -> bool {
     c.is_xid_continue() || c == '_' || c == '-'
 }
 
+/// Whether a character can start an identifier in math.
+#[inline]
+fn is_math_id_start(c: char) -> bool {
+    c.is_xid_start()
+}
+
+/// Whether a character can continue an identifier in math.
+#[inline]
+fn is_math_id_continue(c: char) -> bool {
+    c.is_xid_continue() && c != '_'
+}
+
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod tests {
@@ -694,10 +727,6 @@ mod tests {
             lang: lang.map(Into::into),
             block,
         }))
-    }
-
-    fn Math(formula: &str, display: bool) -> NodeKind {
-        NodeKind::Math(Arc::new(MathNode { formula: formula.into(), display }))
     }
 
     fn Str(string: &str) -> NodeKind {
@@ -770,7 +799,6 @@ mod tests {
                 ('/', None, "//", LineComment),
                 ('/', None, "/**/", BlockComment),
                 ('/', Some(Markup), "*", Star),
-                ('/', Some(Markup), "$ $", Math(" ", false)),
                 ('/', Some(Markup), r"\\", Escape('\\')),
                 ('/', Some(Markup), "#let", Let),
                 ('/', Some(Code), "(", LeftParen),
@@ -853,7 +881,7 @@ mod tests {
 
         // Test text ends.
         t!(Markup[""]: "hello " => Text("hello"), Space(0));
-        t!(Markup[""]: "hello~" => Text("hello"), NonBreakingSpace);
+        t!(Markup[""]: "hello~" => Text("hello"), Tilde);
     }
 
     #[test]
@@ -899,9 +927,9 @@ mod tests {
         t!(Markup[""]: "==="    => Eq, Eq, Eq);
         t!(Markup["a1/"]: "= "  => Eq, Space(0));
         t!(Markup[" "]: r"\"    => Linebreak);
-        t!(Markup: "~"          => NonBreakingSpace);
-        t!(Markup["a1/"]: "-?"  => Shy);
-        t!(Markup["a "]: r"a--" => Text("a"), EnDash);
+        t!(Markup: "~"          => Tilde);
+        t!(Markup["a1/"]: "-?"  => HyphQuest);
+        t!(Markup["a "]: r"a--" => Text("a"), Hyph2);
         t!(Markup["a1/"]: "- "  => Minus, Space(0));
         t!(Markup[" "]: "+"     => Plus);
         t!(Markup[" "]: "1."    => EnumNumbering(1));
@@ -996,24 +1024,6 @@ mod tests {
         t!(Markup: "````🚀````"           => Raw("", None, false));
         t!(Markup[""]: "`````👩‍🚀````noend" => Error(End, "expected 5 backticks"));
         t!(Markup[""]: "````raw``````"    => Raw("", Some("raw"), false), Raw("", None, false));
-    }
-
-    #[test]
-    fn test_tokenize_math_formulas() {
-        // Test basic formula.
-        t!(Markup: "$$"        => Math("", false));
-        t!(Markup: "$x$"       => Math("x", false));
-        t!(Markup: r"$\\$"     => Math(r"\\", false));
-        t!(Markup: r"$[\\]$"   => Math(r"[\\]", false));
-        t!(Markup: "$ x + y $" => Math(" x + y ", true));
-
-        // Test unterminated.
-        t!(Markup[""]: "$x"     => Error(End, "expected dollar sign"));
-        t!(Markup[""]: "$[x]\n" => Error(End, "expected dollar sign"));
-
-        // Test escape sequences.
-        t!(Markup: r"$\$x$"   => Math(r"\$x", false));
-        t!(Markup: r"$\ \$ $" => Math(r"\ \$ ", false));
     }
 
     #[test]

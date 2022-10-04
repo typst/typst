@@ -5,7 +5,7 @@
 use std::num::NonZeroUsize;
 use std::ops::Deref;
 
-use super::{NodeData, NodeKind, Span, Spanned, SyntaxNode};
+use super::{NodeData, NodeKind, Span, SyntaxNode};
 use crate::geom::{AngleUnit, LengthUnit};
 use crate::util::EcoString;
 
@@ -60,34 +60,7 @@ node! {
 impl Markup {
     /// The markup nodes.
     pub fn nodes(&self) -> impl Iterator<Item = MarkupNode> + '_ {
-        self.0.children().filter_map(|node| match node.kind() {
-            NodeKind::Space { newlines: (2 ..) } => Some(MarkupNode::Parbreak),
-            NodeKind::Space { .. } => Some(MarkupNode::Space),
-            NodeKind::Linebreak => Some(MarkupNode::Linebreak),
-            NodeKind::Text(s) => Some(MarkupNode::Text(s.clone())),
-            NodeKind::Escape(c) => Some(MarkupNode::Text((*c).into())),
-            NodeKind::NonBreakingSpace => Some(MarkupNode::Text('\u{00A0}'.into())),
-            NodeKind::Shy => Some(MarkupNode::Text('\u{00AD}'.into())),
-            NodeKind::EnDash => Some(MarkupNode::Text('\u{2013}'.into())),
-            NodeKind::EmDash => Some(MarkupNode::Text('\u{2014}'.into())),
-            NodeKind::Ellipsis => Some(MarkupNode::Text('\u{2026}'.into())),
-            &NodeKind::Quote { double } => Some(MarkupNode::Quote { double }),
-            NodeKind::Strong => node.cast().map(MarkupNode::Strong),
-            NodeKind::Emph => node.cast().map(MarkupNode::Emph),
-            NodeKind::Link(url) => Some(MarkupNode::Link(url.clone())),
-            NodeKind::Raw(raw) => Some(MarkupNode::Raw(raw.as_ref().clone())),
-            NodeKind::Math(math) => Some(MarkupNode::Math(Spanned::new(
-                math.as_ref().clone(),
-                node.span(),
-            ))),
-            NodeKind::Heading => node.cast().map(MarkupNode::Heading),
-            NodeKind::List => node.cast().map(MarkupNode::List),
-            NodeKind::Enum => node.cast().map(MarkupNode::Enum),
-            NodeKind::Desc => node.cast().map(MarkupNode::Desc),
-            NodeKind::Label(v) => Some(MarkupNode::Label(v.clone())),
-            NodeKind::Ref(v) => Some(MarkupNode::Ref(v.clone())),
-            _ => node.cast().map(MarkupNode::Expr),
-        })
+        self.0.children().filter_map(SyntaxNode::cast)
     }
 }
 
@@ -113,7 +86,7 @@ pub enum MarkupNode {
     /// A raw block with optional syntax highlighting: `` `...` ``.
     Raw(RawNode),
     /// A math formula: `$a^2 = b^2 + c^2$`.
-    Math(Spanned<MathNode>),
+    Math(Math),
     /// A section heading: `= Introduction`.
     Heading(HeadingNode),
     /// An item in an unordered list: `- ...`.
@@ -128,6 +101,40 @@ pub enum MarkupNode {
     Ref(EcoString),
     /// An expression.
     Expr(Expr),
+}
+
+impl TypedNode for MarkupNode {
+    fn from_untyped(node: &SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::Space { newlines: (2 ..) } => Some(Self::Parbreak),
+            NodeKind::Space { .. } => Some(Self::Space),
+            NodeKind::Linebreak => Some(Self::Linebreak),
+            NodeKind::Text(s) => Some(Self::Text(s.clone())),
+            NodeKind::Escape(c) => Some(Self::Text((*c).into())),
+            NodeKind::Tilde => Some(Self::Text('\u{00A0}'.into())),
+            NodeKind::HyphQuest => Some(Self::Text('\u{00AD}'.into())),
+            NodeKind::Hyph2 => Some(Self::Text('\u{2013}'.into())),
+            NodeKind::Hyph3 => Some(Self::Text('\u{2014}'.into())),
+            NodeKind::Dot3 => Some(Self::Text('\u{2026}'.into())),
+            NodeKind::Quote { double } => Some(Self::Quote { double: *double }),
+            NodeKind::Strong => node.cast().map(Self::Strong),
+            NodeKind::Emph => node.cast().map(Self::Emph),
+            NodeKind::Link(url) => Some(Self::Link(url.clone())),
+            NodeKind::Raw(raw) => Some(Self::Raw(raw.as_ref().clone())),
+            NodeKind::Math => node.cast().map(Self::Math),
+            NodeKind::Heading => node.cast().map(Self::Heading),
+            NodeKind::List => node.cast().map(Self::List),
+            NodeKind::Enum => node.cast().map(Self::Enum),
+            NodeKind::Desc => node.cast().map(Self::Desc),
+            NodeKind::Label(v) => Some(Self::Label(v.clone())),
+            NodeKind::Ref(v) => Some(Self::Ref(v.clone())),
+            _ => node.cast().map(Self::Expr),
+        }
+    }
+
+    fn as_untyped(&self) -> &SyntaxNode {
+        unimplemented!("MarkupNode::as_untyped")
+    }
 }
 
 node! {
@@ -169,14 +176,122 @@ pub struct RawNode {
     pub block: bool,
 }
 
-/// A math formula: `$x$`, `$[x^2]$`.
+node! {
+    /// A math formula: `$x$`, `$ x^2 $`.
+    Math: NodeKind::Math { .. }
+}
+
+impl Math {
+    /// The math nodes.
+    pub fn nodes(&self) -> impl Iterator<Item = MathNode> + '_ {
+        self.0.children().filter_map(SyntaxNode::cast)
+    }
+}
+
+/// A single piece of a math formula.
 #[derive(Debug, Clone, PartialEq, Hash)]
-pub struct MathNode {
-    /// The formula between the dollars / brackets.
-    pub formula: EcoString,
-    /// Whether the formula is display-level, that is, it contains whitespace
-    /// after the starting dollar sign and before the ending dollar sign.
-    pub display: bool,
+pub enum MathNode {
+    /// Whitespace.
+    Space,
+    /// A forced line break.
+    Linebreak,
+    /// An atom: `x`, `+`, `12`.
+    Atom(EcoString),
+    /// A base with an optional sub- and superscript: `a_1^2`.
+    Script(ScriptNode),
+    /// A fraction: `x/2`.
+    Frac(FracNode),
+    /// A math alignment indicator: `&`, `&&`.
+    Align(AlignNode),
+    /// Grouped mathematical material.
+    Group(Math),
+    /// An expression.
+    Expr(Expr),
+}
+
+impl TypedNode for MathNode {
+    fn from_untyped(node: &SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::Space { .. } => Some(Self::Space),
+            NodeKind::LeftBrace => Some(Self::Atom('{'.into())),
+            NodeKind::RightBrace => Some(Self::Atom('}'.into())),
+            NodeKind::LeftBracket => Some(Self::Atom('['.into())),
+            NodeKind::RightBracket => Some(Self::Atom(']'.into())),
+            NodeKind::LeftParen => Some(Self::Atom('('.into())),
+            NodeKind::RightParen => Some(Self::Atom(')'.into())),
+            NodeKind::Linebreak => Some(Self::Linebreak),
+            NodeKind::Escape(c) => Some(Self::Atom((*c).into())),
+            NodeKind::Atom(atom) => Some(Self::Atom(atom.clone())),
+            NodeKind::Script => node.cast().map(Self::Script),
+            NodeKind::Frac => node.cast().map(Self::Frac),
+            NodeKind::Align => node.cast().map(Self::Align),
+            NodeKind::Math => node.cast().map(Self::Group),
+            _ => node.cast().map(Self::Expr),
+        }
+    }
+
+    fn as_untyped(&self) -> &SyntaxNode {
+        unimplemented!("MathNode::as_untyped")
+    }
+}
+
+node! {
+    /// A base with an optional sub- and superscript in a formula: `a_1^2`.
+    ScriptNode: Script
+}
+
+impl ScriptNode {
+    /// The base of the script.
+    pub fn base(&self) -> MathNode {
+        self.0.cast_first_child().expect("subscript is missing base")
+    }
+
+    /// The subscript.
+    pub fn sub(&self) -> Option<MathNode> {
+        self.0
+            .children()
+            .skip_while(|node| !matches!(node.kind(), NodeKind::Underscore))
+            .nth(1)
+            .map(|node| node.cast().expect("script node has invalid subscript"))
+    }
+
+    /// The superscript.
+    pub fn sup(&self) -> Option<MathNode> {
+        self.0
+            .children()
+            .skip_while(|node| !matches!(node.kind(), NodeKind::Hat))
+            .nth(1)
+            .map(|node| node.cast().expect("script node has invalid superscript"))
+    }
+}
+
+node! {
+    /// A fraction in a formula: `x/2`
+    FracNode: Frac
+}
+
+impl FracNode {
+    /// The numerator.
+    pub fn num(&self) -> MathNode {
+        self.0.cast_first_child().expect("fraction is missing numerator")
+    }
+
+    /// The denominator.
+    pub fn denom(&self) -> MathNode {
+        self.0.cast_last_child().expect("fraction is missing denominator")
+    }
+}
+
+node! {
+    /// A math alignment indicator: `&`, `&&`.
+    AlignNode: Align
+}
+
+impl AlignNode {
+    /// The number of ampersands.
+    pub fn count(&self) -> usize {
+        self.0.children().filter(|n| n.kind() == &NodeKind::Amp).count()
+    }
 }
 
 node! {
@@ -799,27 +914,27 @@ impl BinOp {
     }
 
     /// The associativity of this operator.
-    pub fn associativity(self) -> Associativity {
+    pub fn assoc(self) -> Assoc {
         match self {
-            Self::Add => Associativity::Left,
-            Self::Sub => Associativity::Left,
-            Self::Mul => Associativity::Left,
-            Self::Div => Associativity::Left,
-            Self::And => Associativity::Left,
-            Self::Or => Associativity::Left,
-            Self::Eq => Associativity::Left,
-            Self::Neq => Associativity::Left,
-            Self::Lt => Associativity::Left,
-            Self::Leq => Associativity::Left,
-            Self::Gt => Associativity::Left,
-            Self::Geq => Associativity::Left,
-            Self::In => Associativity::Left,
-            Self::NotIn => Associativity::Left,
-            Self::Assign => Associativity::Right,
-            Self::AddAssign => Associativity::Right,
-            Self::SubAssign => Associativity::Right,
-            Self::MulAssign => Associativity::Right,
-            Self::DivAssign => Associativity::Right,
+            Self::Add => Assoc::Left,
+            Self::Sub => Assoc::Left,
+            Self::Mul => Assoc::Left,
+            Self::Div => Assoc::Left,
+            Self::And => Assoc::Left,
+            Self::Or => Assoc::Left,
+            Self::Eq => Assoc::Left,
+            Self::Neq => Assoc::Left,
+            Self::Lt => Assoc::Left,
+            Self::Leq => Assoc::Left,
+            Self::Gt => Assoc::Left,
+            Self::Geq => Assoc::Left,
+            Self::In => Assoc::Left,
+            Self::NotIn => Assoc::Left,
+            Self::Assign => Assoc::Right,
+            Self::AddAssign => Assoc::Right,
+            Self::SubAssign => Assoc::Right,
+            Self::MulAssign => Assoc::Right,
+            Self::DivAssign => Assoc::Right,
         }
     }
 
@@ -851,7 +966,7 @@ impl BinOp {
 
 /// The associativity of a binary operator.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum Associativity {
+pub enum Assoc {
     /// Left-associative: `a + b + c` is equivalent to `(a + b) + c`.
     Left,
     /// Right-associative: `a = b = c` is equivalent to `a = (b = c)`.

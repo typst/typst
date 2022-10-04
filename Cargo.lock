@@ -1077,6 +1077,7 @@ dependencies = [
  "typed-arena",
  "typst-macros",
  "unicode-bidi",
+ "unicode-math",
  "unicode-script",
  "unicode-segmentation",
  "unicode-xid",

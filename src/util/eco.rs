@@ -353,6 +353,16 @@ impl FromIterator<char> for EcoString {
     }
 }
 
+impl FromIterator<Self> for EcoString {
+    fn from_iter<T: IntoIterator<Item = Self>>(iter: T) -> Self {
+        let mut s = Self::new();
+        for piece in iter {
+            s.push_str(&piece);
+        }
+        s
+    }
+}
+
 impl From<EcoString> for String {
     fn from(s: EcoString) -> Self {
         match s.0 {

@@ -11,7 +11,7 @@ pub use tokens::*;
 
 use std::collections::HashSet;
 
-use crate::syntax::ast::{Associativity, BinOp, UnOp};
+use crate::syntax::ast::{Assoc, BinOp, UnOp};
 use crate::syntax::{NodeKind, SpanPos, SyntaxNode};
 use crate::util::EcoString;
 
@@ -22,11 +22,22 @@ pub fn parse(text: &str) -> SyntaxNode {
     p.finish().into_iter().next().unwrap()
 }
 
+/// Parse math directly, only used for syntax highlighting.
+pub fn parse_math(text: &str) -> SyntaxNode {
+    let mut p = Parser::new(text, TokenMode::Math);
+    p.perform(NodeKind::Math, |p| {
+        while !p.eof() {
+            math_node(p);
+        }
+    });
+    p.finish().into_iter().next().unwrap()
+}
+
 /// Parse code directly, only used for syntax highlighting.
-pub fn parse_code(text: &str) -> Vec<SyntaxNode> {
+pub fn parse_code(text: &str) -> SyntaxNode {
     let mut p = Parser::new(text, TokenMode::Code);
-    code(&mut p);
-    p.finish()
+    p.perform(NodeKind::CodeBlock, code);
+    p.finish().into_iter().next().unwrap()
 }
 
 /// Reparse a code block.
@@ -240,20 +251,20 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
         // Text and markup.
         NodeKind::Text(_)
         | NodeKind::Linebreak { .. }
-        | NodeKind::NonBreakingSpace
-        | NodeKind::Shy
-        | NodeKind::EnDash
-        | NodeKind::EmDash
-        | NodeKind::Ellipsis
+        | NodeKind::Tilde
+        | NodeKind::HyphQuest
+        | NodeKind::Hyph2
+        | NodeKind::Hyph3
+        | NodeKind::Dot3
         | NodeKind::Quote { .. }
         | NodeKind::Escape(_)
         | NodeKind::Link(_)
         | NodeKind::Raw(_)
-        | NodeKind::Math(_)
         | NodeKind::Label(_)
-        | NodeKind::Ref(_) => {
-            p.eat();
-        }
+        | NodeKind::Ref(_) => p.eat(),
+
+        // Math.
+        NodeKind::Dollar => math(p),
 
         // Strong, emph, heading.
         NodeKind::Star => strong(p),
@@ -405,6 +416,111 @@ fn markup_expr(p: &mut Parser) {
     p.end_group();
 }
 
+/// Parse math.
+fn math(p: &mut Parser) {
+    p.perform(NodeKind::Math, |p| {
+        p.start_group(Group::Math);
+        while !p.eof() {
+            math_node(p);
+        }
+        p.end_group();
+    });
+}
+
+/// Parse a math node.
+fn math_node(p: &mut Parser) {
+    math_node_prec(p, 0, None)
+}
+
+/// Parse a math node with operators having at least the minimum precedence.
+fn math_node_prec(p: &mut Parser, min_prec: usize, stop: Option<NodeKind>) {
+    let marker = p.marker();
+    math_primary(p);
+
+    loop {
+        let (kind, mut prec, assoc, stop) = match p.peek() {
+            v if v == stop.as_ref() => break,
+            Some(NodeKind::Underscore) => {
+                (NodeKind::Script, 2, Assoc::Right, Some(NodeKind::Hat))
+            }
+            Some(NodeKind::Hat) => (
+                NodeKind::Script,
+                2,
+                Assoc::Right,
+                Some(NodeKind::Underscore),
+            ),
+            Some(NodeKind::Slash) => (NodeKind::Frac, 1, Assoc::Left, None),
+            _ => break,
+        };
+
+        if prec < min_prec {
+            break;
+        }
+
+        match assoc {
+            Assoc::Left => prec += 1,
+            Assoc::Right => {}
+        }
+
+        p.eat();
+        math_node_prec(p, prec, stop);
+
+        // Allow up to two different scripts. We do not risk encountering the
+        // previous script kind again here due to right-associativity.
+        if p.eat_if(NodeKind::Underscore) || p.eat_if(NodeKind::Hat) {
+            math_node_prec(p, prec, None);
+        }
+
+        marker.end(p, kind);
+    }
+}
+
+/// Parse a primary math node.
+fn math_primary(p: &mut Parser) {
+    let token = match p.peek() {
+        Some(t) => t,
+        None => return,
+    };
+
+    match token {
+        // Spaces, atoms and expressions.
+        NodeKind::Space { .. }
+        | NodeKind::Linebreak
+        | NodeKind::Escape(_)
+        | NodeKind::Atom(_)
+        | NodeKind::Ident(_) => p.eat(),
+
+        // Groups.
+        NodeKind::LeftParen => group(p, Group::Paren),
+        NodeKind::LeftBracket => group(p, Group::Bracket),
+        NodeKind::LeftBrace => group(p, Group::Brace),
+
+        // Alignment indactor.
+        NodeKind::Amp => align(p),
+
+        _ => p.unexpected(),
+    }
+}
+
+/// Parse grouped math.
+fn group(p: &mut Parser, group: Group) {
+    p.perform(NodeKind::Math, |p| {
+        p.start_group(group);
+        while !p.eof() {
+            math_node(p);
+        }
+        p.end_group();
+    })
+}
+
+/// Parse an alignment indicator.
+fn align(p: &mut Parser) {
+    p.perform(NodeKind::Align, |p| {
+        p.assert(NodeKind::Amp);
+        while p.eat_if(NodeKind::Amp) {}
+    })
+}
+
 /// Parse an expression.
 fn expr(p: &mut Parser) -> ParseResult {
     expr_prec(p, false, 0)
@@ -434,7 +550,7 @@ fn expr_prec(p: &mut Parser, atomic: bool, min_prec: usize) -> ParseResult {
     loop {
         // Parenthesis or bracket means this is a function call.
         if let Some(NodeKind::LeftParen | NodeKind::LeftBracket) = p.peek_direct() {
-            marker.perform(p, NodeKind::FuncCall, |p| args(p))?;
+            marker.perform(p, NodeKind::FuncCall, args)?;
             continue;
         }
 
@@ -446,7 +562,7 @@ fn expr_prec(p: &mut Parser, atomic: bool, min_prec: usize) -> ParseResult {
         if p.eat_if(NodeKind::Dot) {
             ident(p)?;
             if let Some(NodeKind::LeftParen | NodeKind::LeftBracket) = p.peek_direct() {
-                marker.perform(p, NodeKind::MethodCall, |p| args(p))?;
+                marker.perform(p, NodeKind::MethodCall, args)?;
             } else {
                 marker.end(p, NodeKind::FieldAccess);
             }
@@ -474,9 +590,9 @@ fn expr_prec(p: &mut Parser, atomic: bool, min_prec: usize) -> ParseResult {
 
         p.eat();
 
-        match op.associativity() {
-            Associativity::Left => prec += 1,
-            Associativity::Right => {}
+        match op.assoc() {
+            Assoc::Left => prec += 1,
+            Assoc::Right => {}
         }
 
         marker.perform(p, NodeKind::BinaryExpr, |p| expr_prec(p, atomic, prec))?;

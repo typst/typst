@@ -9,11 +9,11 @@ $ a^2 + b^2 = c^2 $
 
 ---
 Prove by induction:
-$ \sum_{k=0}^n k = \frac{n(n+1)}{2} $
+$ sum_(k=0)^n k = (n(n+1))/2 $
 
 ---
 // Test that blackboard style looks nice.
-$ f: \mathbb{N} \rightarrow \mathbb{R} $
+$ f: NN arrow RR $
 
 ---
 #set math(family: "IBM Plex Sans")
@@ -22,9 +22,5 @@ $ f: \mathbb{N} \rightarrow \mathbb{R} $
 $a$
 
 ---
-// Error: 1-10 expected '}' found EOF
-$\sqrt{x$
-
----
-// Error: 2:1 expected dollar sign
+// Error: 1:3 expected dollar sign
 $a

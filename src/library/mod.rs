@@ -73,6 +73,11 @@ pub fn new() -> Scope {
 
     // Math.
     std.def_node::<math::MathNode>("math");
+    std.define("sum", "∑");
+    std.define("in", "∈");
+    std.define("arrow", "→");
+    std.define("NN", "ℕ");
+    std.define("RR", "ℝ");
 
     // Utility.
     std.def_fn("type", utility::type_);
