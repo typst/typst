@@ -22,17 +22,6 @@ pub fn parse(text: &str) -> SyntaxNode {
     p.finish().into_iter().next().unwrap()
 }
 
-/// Parse math directly, only used for syntax highlighting.
-pub fn parse_math(text: &str) -> SyntaxNode {
-    let mut p = Parser::new(text, TokenMode::Math);
-    p.perform(NodeKind::Math, |p| {
-        while !p.eof() {
-            math_node(p);
-        }
-    });
-    p.finish().into_iter().next().unwrap()
-}
-
 /// Parse code directly, only used for syntax highlighting.
 pub fn parse_code(text: &str) -> SyntaxNode {
     let mut p = Parser::new(text, TokenMode::Code);
@@ -250,7 +239,7 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
 
         // Text and markup.
         NodeKind::Text(_)
-        | NodeKind::Linebreak { .. }
+        | NodeKind::Backslash
         | NodeKind::Tilde
         | NodeKind::HyphQuest
         | NodeKind::Hyph2
@@ -353,7 +342,7 @@ fn list_node(p: &mut Parser, at_start: bool) {
     let min_indent = p.column(p.prev_end());
     if at_start && p.eat_if(NodeKind::Space { newlines: 0 }) && !p.eof() {
         markup_indented(p, min_indent);
-        marker.end(p, NodeKind::List);
+        marker.end(p, NodeKind::ListItem);
     } else {
         marker.convert(p, NodeKind::Text(text));
     }
@@ -368,7 +357,7 @@ fn enum_node(p: &mut Parser, at_start: bool) {
     let min_indent = p.column(p.prev_end());
     if at_start && p.eat_if(NodeKind::Space { newlines: 0 }) && !p.eof() {
         markup_indented(p, min_indent);
-        marker.end(p, NodeKind::Enum);
+        marker.end(p, NodeKind::EnumItem);
     } else {
         marker.convert(p, NodeKind::Text(text));
     }
@@ -385,7 +374,7 @@ fn desc_node(p: &mut Parser, at_start: bool) -> ParseResult {
         markup_line(p, |node| matches!(node, NodeKind::Colon));
         p.expect(NodeKind::Colon)?;
         markup_indented(p, min_indent);
-        marker.end(p, NodeKind::Desc);
+        marker.end(p, NodeKind::DescItem);
     } else {
         marker.convert(p, NodeKind::Text(text));
     }
@@ -485,7 +474,7 @@ fn math_primary(p: &mut Parser) {
     match token {
         // Spaces, atoms and expressions.
         NodeKind::Space { .. }
-        | NodeKind::Linebreak
+        | NodeKind::Backslash
         | NodeKind::Escape(_)
         | NodeKind::Atom(_)
         | NodeKind::Ident(_) => p.eat(),
@@ -820,7 +809,7 @@ fn item(p: &mut Parser, keyed: bool) -> ParseResult<NodeKind> {
                 }
                 if let Some(kind) = kind {
                     msg.push_str(", found ");
-                    msg.push_str(kind.as_str());
+                    msg.push_str(kind.name());
                 }
                 let error = NodeKind::Error(SpanPos::Full, msg);
                 marker.end(p, error);

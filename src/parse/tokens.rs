@@ -108,7 +108,9 @@ impl<'s> Iterator for Tokens<'s> {
             // Trivia.
             '/' if self.s.eat_if('/') => self.line_comment(),
             '/' if self.s.eat_if('*') => self.block_comment(),
-            '*' if self.s.eat_if('/') => NodeKind::Unknown("*/".into()),
+            '*' if self.s.eat_if('/') => {
+                NodeKind::Error(SpanPos::Full, "unexpected end of block comment".into())
+            }
             c if c.is_whitespace() => self.whitespace(c),
 
             // Other things.
@@ -288,8 +290,8 @@ impl<'s> Tokens<'s> {
             }
 
             // Linebreaks.
-            Some(c) if c.is_whitespace() => NodeKind::Linebreak,
-            None => NodeKind::Linebreak,
+            Some(c) if c.is_whitespace() => NodeKind::Backslash,
+            None => NodeKind::Backslash,
 
             // Escapes.
             Some(c) => {
@@ -517,7 +519,7 @@ impl<'s> Tokens<'s> {
             '"' => self.string(),
 
             // Invalid token.
-            _ => NodeKind::Unknown(self.s.from(start).into()),
+            _ => NodeKind::Error(SpanPos::Full, "not valid here".into()),
         }
     }
 
@@ -556,7 +558,6 @@ impl<'s> Tokens<'s> {
 
         let number = self.s.get(start .. suffix_start);
         let suffix = self.s.from(suffix_start);
-        let all = self.s.from(start);
 
         // Find out whether it is a simple number.
         if suffix.is_empty() {
@@ -577,10 +578,10 @@ impl<'s> Tokens<'s> {
                 "em" => NodeKind::Numeric(f, Unit::Em),
                 "fr" => NodeKind::Numeric(f, Unit::Fr),
                 "%" => NodeKind::Numeric(f, Unit::Percent),
-                _ => NodeKind::Unknown(all.into()),
+                _ => NodeKind::Error(SpanPos::Full, "invalid number suffix".into()),
             }
         } else {
-            NodeKind::Unknown(all.into())
+            NodeKind::Error(SpanPos::Full, "invalid number".into())
         }
     }
 
@@ -743,10 +744,6 @@ mod tests {
 
     fn Error(pos: SpanPos, message: &str) -> NodeKind {
         NodeKind::Error(pos, message.into())
-    }
-
-    fn Invalid(invalid: &str) -> NodeKind {
-        NodeKind::Unknown(invalid.into())
     }
 
     /// Building blocks for suffix testing.
@@ -926,7 +923,7 @@ mod tests {
         t!(Markup: "_"          => Underscore);
         t!(Markup[""]: "==="    => Eq, Eq, Eq);
         t!(Markup["a1/"]: "= "  => Eq, Space(0));
-        t!(Markup[" "]: r"\"    => Linebreak);
+        t!(Markup[" "]: r"\"    => Backslash);
         t!(Markup: "~"          => Tilde);
         t!(Markup["a1/"]: "-?"  => HyphQuest);
         t!(Markup["a "]: r"a--" => Text("a"), Hyph2);
@@ -972,6 +969,9 @@ mod tests {
         t!(Code[" /"]: "--1"  => Minus, Minus, Int(1));
         t!(Code[" /"]: "--_a" => Minus, Minus, Ident("_a"));
         t!(Code[" /"]: "a-b"  => Ident("a-b"));
+
+        // Test invalid.
+        t!(Code: r"\" => Error(Full, "not valid here"));
     }
 
     #[test]
@@ -1107,6 +1107,9 @@ mod tests {
         t!(Code[" /"]: "1..2"   => Int(1), Dots, Int(2));
         t!(Code[" /"]: "1..2.3" => Int(1), Dots, Float(2.3));
         t!(Code[" /"]: "1.2..3" => Float(1.2), Dots, Int(3));
+
+        // Test invalid.
+        t!(Code[" /"]: "1foo" => Error(Full, "invalid number suffix"));
     }
 
     #[test]
@@ -1161,25 +1164,9 @@ mod tests {
         t!(Both[""]: "/*/*" => BlockComment);
         t!(Both[""]: "/**/" => BlockComment);
         t!(Both[""]: "/***" => BlockComment);
-    }
 
-    #[test]
-    fn test_tokenize_invalid() {
-        // Test invalidly closed block comments.
-        t!(Both: "*/"     => Invalid("*/"));
-        t!(Both: "/**/*/" => BlockComment, Invalid("*/"));
-
-        // Test invalid expressions.
-        t!(Code: r"\"        => Invalid(r"\"));
-        t!(Code: "🌓"        => Invalid("🌓"));
-        t!(Code: r"\:"       => Invalid(r"\"), Colon);
-        t!(Code: "meal⌚"    => Ident("meal"), Invalid("⌚"));
-        t!(Code[" /"]: r"\a" => Invalid(r"\"), Ident("a"));
-        t!(Code[" /"]: "#"   => Invalid("#"));
-
-        // Test invalid number suffixes.
-        t!(Code[" /"]: "1foo" => Invalid("1foo"));
-        t!(Code: "1p%"        => Invalid("1p"), Invalid("%"));
-        t!(Code: "1%%"        => Numeric(1.0, Unit::Percent), Invalid("%"));
+        // Test unexpected terminator.
+        t!(Both: "/*Hi*/*/" => BlockComment,
+           Error(Full, "unexpected end of block comment"));
     }
 }

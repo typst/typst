@@ -1,3 +1,5 @@
+//! Syntax highlighting for Typst source code.
+
 use std::fmt::Write;
 use std::ops::Range;
 
@@ -5,85 +7,9 @@ use syntect::highlighting::{Color, FontStyle, Highlighter, Style, Theme};
 use syntect::parsing::Scope;
 
 use super::{NodeKind, SyntaxNode};
-use crate::parse::TokenMode;
-
-/// Provide highlighting categories for the descendants of a node that fall into
-/// a range.
-pub fn highlight_node<F>(root: &SyntaxNode, range: Range<usize>, mut f: F)
-where
-    F: FnMut(Range<usize>, Category),
-{
-    highlight_node_impl(0, root, range, &mut f)
-}
-
-/// Provide highlighting categories for the descendants of a node that fall into
-/// a range.
-pub fn highlight_node_impl<F>(
-    mut offset: usize,
-    node: &SyntaxNode,
-    range: Range<usize>,
-    f: &mut F,
-) where
-    F: FnMut(Range<usize>, Category),
-{
-    for (i, child) in node.children().enumerate() {
-        let span = offset .. offset + child.len();
-        if range.start <= span.end && range.end >= span.start {
-            if let Some(category) = Category::determine(child, node, i) {
-                f(span, category);
-            }
-            highlight_node_impl(offset, child, range.clone(), f);
-        }
-        offset += child.len();
-    }
-}
-
-/// Highlight source text in a theme by calling `f` with each consecutive piece
-/// and its style.
-pub fn highlight_themed<F>(text: &str, mode: TokenMode, theme: &Theme, mut f: F)
-where
-    F: FnMut(&str, Style),
-{
-    let root = match mode {
-        TokenMode::Markup => crate::parse::parse(text),
-        TokenMode::Math => crate::parse::parse_math(text),
-        TokenMode::Code => crate::parse::parse_code(text),
-    };
-
-    let highlighter = Highlighter::new(&theme);
-    highlight_themed_impl(text, 0, &root, vec![], &highlighter, &mut f);
-}
-
-/// Recursive implementation for highlighting with a syntect theme.
-fn highlight_themed_impl<F>(
-    text: &str,
-    mut offset: usize,
-    node: &SyntaxNode,
-    scopes: Vec<Scope>,
-    highlighter: &Highlighter,
-    f: &mut F,
-) where
-    F: FnMut(&str, Style),
-{
-    if node.children().len() == 0 {
-        let piece = &text[offset .. offset + node.len()];
-        let style = highlighter.style_for_stack(&scopes);
-        f(piece, style);
-        return;
-    }
-
-    for (i, child) in node.children().enumerate() {
-        let mut scopes = scopes.clone();
-        if let Some(category) = Category::determine(child, node, i) {
-            scopes.push(Scope::new(category.tm_scope()).unwrap())
-        }
-        highlight_themed_impl(text, offset, child, scopes, highlighter, f);
-        offset += child.len();
-    }
-}
 
 /// Highlight source text into a standalone HTML document.
-pub fn highlight_html(text: &str, mode: TokenMode, theme: &Theme) -> String {
+pub fn highlight_html(text: &str, theme: &Theme) -> String {
     let mut buf = String::new();
     buf.push_str("<!DOCTYPE html>\n");
     buf.push_str("<html>\n");
@@ -91,18 +17,19 @@ pub fn highlight_html(text: &str, mode: TokenMode, theme: &Theme) -> String {
     buf.push_str("  <meta charset=\"utf-8\">\n");
     buf.push_str("</head>\n");
     buf.push_str("<body>\n");
-    buf.push_str(&highlight_pre(text, mode, theme));
+    buf.push_str(&highlight_pre(text, theme));
     buf.push_str("\n</body>\n");
     buf.push_str("</html>\n");
     buf
 }
 
 /// Highlight source text into an HTML pre element.
-pub fn highlight_pre(text: &str, mode: TokenMode, theme: &Theme) -> String {
+pub fn highlight_pre(text: &str, theme: &Theme) -> String {
     let mut buf = String::new();
     buf.push_str("<pre>\n");
 
-    highlight_themed(text, mode, theme, |piece, style| {
+    let root = crate::parse::parse(text);
+    highlight_themed(&root, theme, |range, style| {
         let styled = style != Style::default();
         if styled {
             buf.push_str("<span style=\"");
@@ -127,7 +54,7 @@ pub fn highlight_pre(text: &str, mode: TokenMode, theme: &Theme) -> String {
             buf.push_str("\">");
         }
 
-        buf.push_str(piece);
+        buf.push_str(&text[range]);
 
         if styled {
             buf.push_str("</span>");
@@ -138,19 +65,82 @@ pub fn highlight_pre(text: &str, mode: TokenMode, theme: &Theme) -> String {
     buf
 }
 
+/// Highlight a syntax node in a theme by calling `f` with ranges and their
+/// styles.
+pub fn highlight_themed<F>(root: &SyntaxNode, theme: &Theme, mut f: F)
+where
+    F: FnMut(Range<usize>, Style),
+{
+    fn process<F>(
+        mut offset: usize,
+        node: &SyntaxNode,
+        scopes: Vec<Scope>,
+        highlighter: &Highlighter,
+        f: &mut F,
+    ) where
+        F: FnMut(Range<usize>, Style),
+    {
+        if node.children().len() == 0 {
+            let range = offset .. offset + node.len();
+            let style = highlighter.style_for_stack(&scopes);
+            f(range, style);
+            return;
+        }
+
+        for (i, child) in node.children().enumerate() {
+            let mut scopes = scopes.clone();
+            if let Some(category) = Category::determine(child, node, i) {
+                scopes.push(Scope::new(category.tm_scope()).unwrap())
+            }
+            process(offset, child, scopes, highlighter, f);
+            offset += child.len();
+        }
+    }
+
+    let highlighter = Highlighter::new(&theme);
+    process(0, root, vec![], &highlighter, &mut f);
+}
+
+/// Highlight a syntax node by calling `f` with ranges overlapping `within` and
+/// their categories.
+pub fn highlight_categories<F>(root: &SyntaxNode, within: Range<usize>, mut f: F)
+where
+    F: FnMut(Range<usize>, Category),
+{
+    fn process<F>(mut offset: usize, node: &SyntaxNode, range: Range<usize>, f: &mut F)
+    where
+        F: FnMut(Range<usize>, Category),
+    {
+        for (i, child) in node.children().enumerate() {
+            let span = offset .. offset + child.len();
+            if range.start <= span.end && range.end >= span.start {
+                if let Some(category) = Category::determine(child, node, i) {
+                    f(span, category);
+                }
+                process(offset, child, range.clone(), f);
+            }
+            offset += child.len();
+        }
+    }
+
+    process(0, root, within, &mut f)
+}
+
 /// The syntax highlighting category of a node.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Category {
     /// A line or block comment.
     Comment,
-    /// Any kind of bracket, parenthesis or brace.
+    /// A square bracket, parenthesis or brace.
     Bracket,
     /// Punctuation in code.
     Punctuation,
-    /// An easily typable shortcut to a unicode codepoint.
-    Shortcut,
     /// An escape sequence.
     Escape,
+    /// An easily typable shortcut to a unicode codepoint.
+    Shortcut,
+    /// A smart quote.
+    Quote,
     /// Strong text.
     Strong,
     /// Emphasized text.
@@ -159,38 +149,40 @@ pub enum Category {
     Link,
     /// Raw text or code.
     Raw,
-    /// A math formula.
+    /// A full math formula.
     Math,
+    /// The delimiters of a math formula.
+    MathDelimiter,
+    /// A symbol with special meaning in a math formula.
+    MathSymbol,
     /// A section heading.
     Heading,
+    /// A full item of a list, enumeration or description list.
+    ListItem,
     /// A marker of a list, enumeration, or description list.
     ListMarker,
     /// A term in a description list.
-    Term,
+    ListTerm,
     /// A label.
     Label,
     /// A reference.
     Ref,
     /// A keyword.
     Keyword,
+    /// A literal defined by a keyword like `none`, `auto` or a boolean.
+    KeywordLiteral,
     /// An operator symbol.
     Operator,
-    /// The none literal.
-    None,
-    /// The auto literal.
-    Auto,
-    /// A boolean literal.
-    Bool,
     /// A numeric literal.
     Number,
     /// A string literal.
     String,
-    /// A function.
+    /// A function or method name.
     Function,
-    /// An interpolated variable in markup.
+    /// An interpolated variable in markup or math.
     Interpolated,
-    /// An invalid node.
-    Invalid,
+    /// A syntax error.
+    Error,
 }
 
 impl Category {
@@ -214,40 +206,38 @@ impl Category {
             NodeKind::RightParen => Some(Category::Bracket),
             NodeKind::Comma => Some(Category::Punctuation),
             NodeKind::Semicolon => Some(Category::Punctuation),
-            NodeKind::Colon => match parent.kind() {
-                NodeKind::Desc => Some(Category::Term),
-                _ => Some(Category::Punctuation),
-            },
+            NodeKind::Colon => Some(Category::Punctuation),
             NodeKind::Star => match parent.kind() {
                 NodeKind::Strong => None,
                 _ => Some(Category::Operator),
             },
             NodeKind::Underscore => match parent.kind() {
-                NodeKind::Script => Some(Category::Shortcut),
+                NodeKind::Script => Some(Category::MathSymbol),
                 _ => None,
             },
-            NodeKind::Dollar => Some(Category::Math),
+            NodeKind::Dollar => Some(Category::MathDelimiter),
+            NodeKind::Backslash => Some(Category::Shortcut),
             NodeKind::Tilde => Some(Category::Shortcut),
             NodeKind::HyphQuest => Some(Category::Shortcut),
             NodeKind::Hyph2 => Some(Category::Shortcut),
             NodeKind::Hyph3 => Some(Category::Shortcut),
             NodeKind::Dot3 => Some(Category::Shortcut),
-            NodeKind::Quote { .. } => None,
-            NodeKind::Plus => match parent.kind() {
-                NodeKind::Enum => Some(Category::ListMarker),
-                _ => Some(Category::Operator),
-            },
-            NodeKind::Minus => match parent.kind() {
-                NodeKind::List => Some(Category::ListMarker),
-                _ => Some(Category::Operator),
-            },
-            NodeKind::Slash => match parent.kind() {
-                NodeKind::Desc => Some(Category::ListMarker),
-                NodeKind::Frac => Some(Category::Shortcut),
-                _ => Some(Category::Operator),
-            },
-            NodeKind::Hat => Some(Category::Shortcut),
-            NodeKind::Amp => Some(Category::Shortcut),
+            NodeKind::Quote { .. } => Some(Category::Quote),
+            NodeKind::Plus => Some(match parent.kind() {
+                NodeKind::EnumItem => Category::ListMarker,
+                _ => Category::Operator,
+            }),
+            NodeKind::Minus => Some(match parent.kind() {
+                NodeKind::ListItem => Category::ListMarker,
+                _ => Category::Operator,
+            }),
+            NodeKind::Slash => Some(match parent.kind() {
+                NodeKind::DescItem => Category::ListMarker,
+                NodeKind::Frac => Category::MathSymbol,
+                _ => Category::Operator,
+            }),
+            NodeKind::Hat => Some(Category::MathSymbol),
+            NodeKind::Amp => Some(Category::MathSymbol),
             NodeKind::Dot => Some(Category::Punctuation),
             NodeKind::Eq => match parent.kind() {
                 NodeKind::Heading => None,
@@ -269,8 +259,8 @@ impl Category {
             NodeKind::Not => Some(Category::Keyword),
             NodeKind::And => Some(Category::Keyword),
             NodeKind::Or => Some(Category::Keyword),
-            NodeKind::None => Some(Category::None),
-            NodeKind::Auto => Some(Category::Auto),
+            NodeKind::None => Some(Category::KeywordLiteral),
+            NodeKind::Auto => Some(Category::KeywordLiteral),
             NodeKind::Let => Some(Category::Keyword),
             NodeKind::Set => Some(Category::Keyword),
             NodeKind::Show => Some(Category::Keyword),
@@ -289,37 +279,35 @@ impl Category {
             NodeKind::As => Some(Category::Keyword),
 
             NodeKind::Markup { .. } => match parent.kind() {
-                NodeKind::Desc
+                NodeKind::DescItem
                     if parent
                         .children()
                         .take_while(|child| child.kind() != &NodeKind::Colon)
                         .find(|c| matches!(c.kind(), NodeKind::Markup { .. }))
                         .map_or(false, |ident| std::ptr::eq(ident, child)) =>
                 {
-                    Some(Category::Term)
+                    Some(Category::ListTerm)
                 }
                 _ => None,
             },
-            NodeKind::Linebreak { .. } => Some(Category::Shortcut),
             NodeKind::Text(_) => None,
             NodeKind::Escape(_) => Some(Category::Escape),
             NodeKind::Strong => Some(Category::Strong),
             NodeKind::Emph => Some(Category::Emph),
             NodeKind::Link(_) => Some(Category::Link),
             NodeKind::Raw(_) => Some(Category::Raw),
-            NodeKind::Math => None,
-            NodeKind::Heading => Some(Category::Heading),
-            NodeKind::List => None,
-            NodeKind::Enum => None,
-            NodeKind::EnumNumbering(_) => Some(Category::ListMarker),
-            NodeKind::Desc => None,
-            NodeKind::Label(_) => Some(Category::Label),
-            NodeKind::Ref(_) => Some(Category::Ref),
-
+            NodeKind::Math => Some(Category::Math),
             NodeKind::Atom(_) => None,
             NodeKind::Script => None,
             NodeKind::Frac => None,
             NodeKind::Align => None,
+            NodeKind::Heading => Some(Category::Heading),
+            NodeKind::ListItem => Some(Category::ListItem),
+            NodeKind::EnumItem => Some(Category::ListItem),
+            NodeKind::EnumNumbering(_) => Some(Category::ListMarker),
+            NodeKind::DescItem => Some(Category::ListItem),
+            NodeKind::Label(_) => Some(Category::Label),
+            NodeKind::Ref(_) => Some(Category::Ref),
 
             NodeKind::Ident(_) => match parent.kind() {
                 NodeKind::Markup { .. } => Some(Category::Interpolated),
@@ -341,7 +329,7 @@ impl Category {
                 }
                 _ => None,
             },
-            NodeKind::Bool(_) => Some(Category::Bool),
+            NodeKind::Bool(_) => Some(Category::KeywordLiteral),
             NodeKind::Int(_) => Some(Category::Number),
             NodeKind::Float(_) => Some(Category::Number),
             NodeKind::Numeric(_, _) => Some(Category::Number),
@@ -377,39 +365,40 @@ impl Category {
             NodeKind::ContinueExpr => None,
             NodeKind::ReturnExpr => None,
 
-            NodeKind::Error(_, _) => Some(Category::Invalid),
-            NodeKind::Unknown(_) => Some(Category::Invalid),
+            NodeKind::Error(_, _) => Some(Category::Error),
         }
     }
 
     /// Return the TextMate grammar scope for the given highlighting category.
     pub fn tm_scope(&self) -> &'static str {
         match self {
-            Self::Bracket => "punctuation.definition.typst",
-            Self::Punctuation => "punctuation.typst",
             Self::Comment => "comment.typst",
-            Self::Shortcut => "punctuation.shortcut.typst",
-            Self::Escape => "constant.character.escape.content.typst",
+            Self::Bracket => "punctuation.definition.bracket.typst",
+            Self::Punctuation => "punctuation.typst",
+            Self::Escape => "constant.character.escape.typst",
+            Self::Shortcut => "constant.character.shortcut.typst",
+            Self::Quote => "constant.character.quote.typst",
             Self::Strong => "markup.bold.typst",
             Self::Emph => "markup.italic.typst",
             Self::Link => "markup.underline.link.typst",
             Self::Raw => "markup.raw.typst",
             Self::Math => "string.other.math.typst",
+            Self::MathDelimiter => "punctuation.definition.math.typst",
+            Self::MathSymbol => "keyword.operator.math.typst",
             Self::Heading => "markup.heading.typst",
-            Self::ListMarker => "markup.list.typst",
-            Self::Term => "markup.list.term.typst",
+            Self::ListItem => "markup.list.typst",
+            Self::ListMarker => "punctuation.definition.list.typst",
+            Self::ListTerm => "markup.list.term.typst",
             Self::Label => "entity.name.label.typst",
             Self::Ref => "markup.other.reference.typst",
             Self::Keyword => "keyword.typst",
             Self::Operator => "keyword.operator.typst",
-            Self::None => "constant.language.none.typst",
-            Self::Auto => "constant.language.auto.typst",
-            Self::Bool => "constant.language.boolean.typst",
+            Self::KeywordLiteral => "constant.language.typst",
             Self::Number => "constant.numeric.typst",
             Self::String => "string.quoted.double.typst",
             Self::Function => "entity.name.function.typst",
-            Self::Interpolated => "entity.other.interpolated.typst",
-            Self::Invalid => "invalid.typst",
+            Self::Interpolated => "meta.interpolation.typst",
+            Self::Error => "invalid.typst",
         }
     }
 }
@@ -428,7 +417,7 @@ mod tests {
             let mut vec = vec![];
             let source = Source::detached(text);
             let full = 0 .. text.len();
-            highlight_node(source.root(), full, &mut |range, category| {
+            highlight_categories(source.root(), full, &mut |range, category| {
                 vec.push((range, category));
             });
             assert_eq!(vec, goal);

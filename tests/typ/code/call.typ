@@ -73,7 +73,7 @@
 // Error: 7-8 expected expression, found colon
 #func(:)
 
-// Error: 10-12 expected expression, found end of block comment
+// Error: 10-12 unexpected end of block comment
 #func(a:1*/)
 
 // Error: 8 expected comma

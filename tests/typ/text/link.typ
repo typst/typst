@@ -5,7 +5,7 @@
 https://example.com/
 
 // Link with body.
-#link("https://typst.app/")[Some text text text]
+#link("https://typst.org/")[Some text text text]
 
 // With line break.
 This link appears #link("https://google.com/")[in the middle of] a paragraph.
@@ -31,7 +31,7 @@ You could also make the
 // Transformed link.
 #set page(height: 60pt)
 #set link(underline: false)
-#let mylink = link("https://typst.app/")[LINK]
+#let mylink = link("https://typst.org/")[LINK]
 My cool #move(dx: 0.7cm, dy: 0.7cm, rotate(10deg, scale(200%, mylink)))
 
 ---

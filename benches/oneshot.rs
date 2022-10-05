@@ -66,7 +66,7 @@ fn bench_edit(iai: &mut Iai) {
 fn bench_highlight(iai: &mut Iai) {
     let source = Source::detached(TEXT);
     iai.run(|| {
-        typst::syntax::highlight_node(
+        typst::syntax::highlight::highlight_categories(
             source.root(),
             0 .. source.len_bytes(),
             &mut |_, _| {},

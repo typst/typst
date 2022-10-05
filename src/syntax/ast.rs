@@ -1,6 +1,6 @@
 //! A typed layer over the untyped syntax tree.
 //!
-//! The AST is rooted in the [`Markup`] node.
+//! The AST is rooted in the [`MarkupNode`].
 
 use std::num::NonZeroUsize;
 use std::ops::Deref;
@@ -54,19 +54,19 @@ macro_rules! node {
 
 node! {
     /// The syntactical root capable of representing a full parsed document.
-    Markup: NodeKind::Markup { .. }
+    MarkupNode: NodeKind::Markup { .. }
 }
 
-impl Markup {
-    /// The markup nodes.
-    pub fn nodes(&self) -> impl Iterator<Item = MarkupNode> + '_ {
+impl MarkupNode {
+    /// The children.
+    pub fn items(&self) -> impl Iterator<Item = MarkupItem> + '_ {
         self.0.children().filter_map(SyntaxNode::cast)
     }
 }
 
 /// A single piece of markup.
 #[derive(Debug, Clone, PartialEq)]
-pub enum MarkupNode {
+pub enum MarkupItem {
     /// Whitespace containing less than two newlines.
     Space,
     /// A forced line break.
@@ -81,34 +81,34 @@ pub enum MarkupNode {
     Strong(StrongNode),
     /// Emphasized content: `_Emphasized_`.
     Emph(EmphNode),
-    /// A hyperlink.
+    /// A hyperlink: `https://typst.org`.
     Link(EcoString),
     /// A raw block with optional syntax highlighting: `` `...` ``.
     Raw(RawNode),
-    /// A math formula: `$a^2 = b^2 + c^2$`.
-    Math(Math),
+    /// A math formula: `$x$`, `$ x^2 $`.
+    Math(MathNode),
     /// A section heading: `= Introduction`.
     Heading(HeadingNode),
     /// An item in an unordered list: `- ...`.
-    List(ListNode),
+    List(ListItem),
     /// An item in an enumeration (ordered list): `+ ...` or `1. ...`.
-    Enum(EnumNode),
-    /// An item in a description list: `/ Term: Details.
-    Desc(DescNode),
-    /// A label.
+    Enum(EnumItem),
+    /// An item in a description list: `/ Term: Details`.
+    Desc(DescItem),
+    /// A label: `<label>`.
     Label(EcoString),
-    /// A reference.
+    /// A reference: `@label`.
     Ref(EcoString),
     /// An expression.
     Expr(Expr),
 }
 
-impl TypedNode for MarkupNode {
+impl TypedNode for MarkupItem {
     fn from_untyped(node: &SyntaxNode) -> Option<Self> {
         match node.kind() {
             NodeKind::Space { newlines: (2 ..) } => Some(Self::Parbreak),
             NodeKind::Space { .. } => Some(Self::Space),
-            NodeKind::Linebreak => Some(Self::Linebreak),
+            NodeKind::Backslash => Some(Self::Linebreak),
             NodeKind::Text(s) => Some(Self::Text(s.clone())),
             NodeKind::Escape(c) => Some(Self::Text((*c).into())),
             NodeKind::Tilde => Some(Self::Text('\u{00A0}'.into())),
@@ -123,9 +123,9 @@ impl TypedNode for MarkupNode {
             NodeKind::Raw(raw) => Some(Self::Raw(raw.as_ref().clone())),
             NodeKind::Math => node.cast().map(Self::Math),
             NodeKind::Heading => node.cast().map(Self::Heading),
-            NodeKind::List => node.cast().map(Self::List),
-            NodeKind::Enum => node.cast().map(Self::Enum),
-            NodeKind::Desc => node.cast().map(Self::Desc),
+            NodeKind::ListItem => node.cast().map(Self::List),
+            NodeKind::EnumItem => node.cast().map(Self::Enum),
+            NodeKind::DescItem => node.cast().map(Self::Desc),
             NodeKind::Label(v) => Some(Self::Label(v.clone())),
             NodeKind::Ref(v) => Some(Self::Ref(v.clone())),
             _ => node.cast().map(Self::Expr),
@@ -144,7 +144,7 @@ node! {
 
 impl StrongNode {
     /// The contents of the strong node.
-    pub fn body(&self) -> Markup {
+    pub fn body(&self) -> MarkupNode {
         self.0.cast_first_child().expect("strong node is missing markup body")
     }
 }
@@ -156,7 +156,7 @@ node! {
 
 impl EmphNode {
     /// The contents of the emphasis node.
-    pub fn body(&self) -> Markup {
+    pub fn body(&self) -> MarkupNode {
         self.0
             .cast_first_child()
             .expect("emphasis node is missing markup body")
@@ -178,19 +178,19 @@ pub struct RawNode {
 
 node! {
     /// A math formula: `$x$`, `$ x^2 $`.
-    Math: NodeKind::Math { .. }
+    MathNode: NodeKind::Math { .. }
 }
 
-impl Math {
-    /// The math nodes.
-    pub fn nodes(&self) -> impl Iterator<Item = MathNode> + '_ {
+impl MathNode {
+    /// The children.
+    pub fn items(&self) -> impl Iterator<Item = MathItem> + '_ {
         self.0.children().filter_map(SyntaxNode::cast)
     }
 }
 
 /// A single piece of a math formula.
 #[derive(Debug, Clone, PartialEq, Hash)]
-pub enum MathNode {
+pub enum MathItem {
     /// Whitespace.
     Space,
     /// A forced line break.
@@ -201,15 +201,15 @@ pub enum MathNode {
     Script(ScriptNode),
     /// A fraction: `x/2`.
     Frac(FracNode),
-    /// A math alignment indicator: `&`, `&&`.
+    /// An alignment indicator: `&`, `&&`.
     Align(AlignNode),
     /// Grouped mathematical material.
-    Group(Math),
+    Group(MathNode),
     /// An expression.
     Expr(Expr),
 }
 
-impl TypedNode for MathNode {
+impl TypedNode for MathItem {
     fn from_untyped(node: &SyntaxNode) -> Option<Self> {
         match node.kind() {
             NodeKind::Space { .. } => Some(Self::Space),
@@ -219,7 +219,7 @@ impl TypedNode for MathNode {
             NodeKind::RightBracket => Some(Self::Atom(']'.into())),
             NodeKind::LeftParen => Some(Self::Atom('('.into())),
             NodeKind::RightParen => Some(Self::Atom(')'.into())),
-            NodeKind::Linebreak => Some(Self::Linebreak),
+            NodeKind::Backslash => Some(Self::Linebreak),
             NodeKind::Escape(c) => Some(Self::Atom((*c).into())),
             NodeKind::Atom(atom) => Some(Self::Atom(atom.clone())),
             NodeKind::Script => node.cast().map(Self::Script),
@@ -242,12 +242,12 @@ node! {
 
 impl ScriptNode {
     /// The base of the script.
-    pub fn base(&self) -> MathNode {
+    pub fn base(&self) -> MathItem {
         self.0.cast_first_child().expect("subscript is missing base")
     }
 
     /// The subscript.
-    pub fn sub(&self) -> Option<MathNode> {
+    pub fn sub(&self) -> Option<MathItem> {
         self.0
             .children()
             .skip_while(|node| !matches!(node.kind(), NodeKind::Underscore))
@@ -256,7 +256,7 @@ impl ScriptNode {
     }
 
     /// The superscript.
-    pub fn sup(&self) -> Option<MathNode> {
+    pub fn sup(&self) -> Option<MathItem> {
         self.0
             .children()
             .skip_while(|node| !matches!(node.kind(), NodeKind::Hat))
@@ -272,12 +272,12 @@ node! {
 
 impl FracNode {
     /// The numerator.
-    pub fn num(&self) -> MathNode {
+    pub fn num(&self) -> MathItem {
         self.0.cast_first_child().expect("fraction is missing numerator")
     }
 
     /// The denominator.
-    pub fn denom(&self) -> MathNode {
+    pub fn denom(&self) -> MathItem {
         self.0.cast_last_child().expect("fraction is missing denominator")
     }
 }
@@ -301,7 +301,7 @@ node! {
 
 impl HeadingNode {
     /// The contents of the heading.
-    pub fn body(&self) -> Markup {
+    pub fn body(&self) -> MarkupNode {
         self.0.cast_first_child().expect("heading is missing markup body")
     }
 
@@ -318,27 +318,22 @@ impl HeadingNode {
 
 node! {
     /// An item in an unordered list: `- ...`.
-    ListNode: List
+    ListItem: ListItem
 }
 
-impl ListNode {
+impl ListItem {
     /// The contents of the list item.
-    pub fn body(&self) -> Markup {
+    pub fn body(&self) -> MarkupNode {
         self.0.cast_first_child().expect("list item is missing body")
     }
 }
 
 node! {
     /// An item in an enumeration (ordered list): `1. ...`.
-    EnumNode: Enum
+    EnumItem: EnumItem
 }
 
-impl EnumNode {
-    /// The contents of the list item.
-    pub fn body(&self) -> Markup {
-        self.0.cast_first_child().expect("enum item is missing body")
-    }
-
+impl EnumItem {
     /// The number, if any.
     pub fn number(&self) -> Option<usize> {
         self.0.children().find_map(|node| match node.kind() {
@@ -346,23 +341,28 @@ impl EnumNode {
             _ => None,
         })
     }
+
+    /// The contents of the list item.
+    pub fn body(&self) -> MarkupNode {
+        self.0.cast_first_child().expect("enum item is missing body")
+    }
 }
 
 node! {
-    /// An item in a description list: `/ Term: Details.
-    DescNode: Desc
+    /// An item in a description list: `/ Term: Details`.
+    DescItem: DescItem
 }
 
-impl DescNode {
-    /// The term described by the list item.
-    pub fn term(&self) -> Markup {
+impl DescItem {
+    /// The term described by the item.
+    pub fn term(&self) -> MarkupNode {
         self.0
             .cast_first_child()
             .expect("description list item is missing term")
     }
 
     /// The description of the term.
-    pub fn body(&self) -> Markup {
+    pub fn body(&self) -> MarkupNode {
         self.0
             .cast_last_child()
             .expect("description list item is missing body")
@@ -586,7 +586,7 @@ node! {
 
 impl ContentBlock {
     /// The contained markup.
-    pub fn body(&self) -> Markup {
+    pub fn body(&self) -> MarkupNode {
         self.0.cast_first_child().expect("content is missing body")
     }
 }

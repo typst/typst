@@ -76,10 +76,10 @@
 {)}
 
 // Error: 4 expected comma
-// Error: 4-6 expected expression, found end of block comment
+// Error: 4-6 unexpected end of block comment
 {(1*/2)}
 
-// Error: 6-8 expected expression, found invalid token
+// Error: 6-8 invalid number suffix
 {(1, 1u 2)}
 
 // Error: 3-4 expected expression, found comma

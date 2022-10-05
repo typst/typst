@@ -112,7 +112,7 @@
 ---
 // Multiple unseparated expressions in one line.
 
-// Error: 2-4 expected expression, found invalid token
+// Error: 2-4 invalid number suffix
 {1u}
 
 // Should output `1`.

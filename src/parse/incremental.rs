@@ -96,11 +96,10 @@ fn try_reparse(
                         && (ahead.is_none() || change.replaced.start > child_span.end)
                         && !ahead.map_or(false, Ahead::is_compulsory)
                     {
-                        ahead =
-                            Some(Ahead::new(pos, at_start, child.kind().is_bounded()));
+                        ahead = Some(Ahead::new(pos, at_start, is_bounded(child.kind())));
                     }
 
-                    at_start = child.kind().is_at_start(at_start);
+                    at_start = next_at_start(child.kind(), at_start);
                 }
             }
             SearchState::Inside(start) => {
@@ -137,7 +136,7 @@ fn try_reparse(
     if let SearchState::Contained(pos) = search {
         // Do not allow replacement of elements inside of constructs whose
         // opening and closing brackets look the same.
-        let safe_inside = node.kind().is_bounded();
+        let safe_inside = is_bounded(node.kind());
         let child = &mut node.children_mut()[pos.idx];
         let prev_len = child.len();
         let prev_descendants = child.descendants();
@@ -382,6 +381,36 @@ enum ReparseMode {
     /// Reparse elements of the markup. Also specified the initial `at_start`
     /// state for the reparse and the minimum indent of the reparsed nodes.
     MarkupElements { at_start: bool, min_indent: usize },
+}
+
+/// Whether changes _inside_ this node are safely encapsulated, so that only
+/// this node must be reparsed.
+fn is_bounded(kind: &NodeKind) -> bool {
+    match kind {
+        NodeKind::CodeBlock
+        | NodeKind::ContentBlock
+        | NodeKind::Backslash
+        | NodeKind::Tilde
+        | NodeKind::HyphQuest
+        | NodeKind::Hyph2
+        | NodeKind::Hyph3
+        | NodeKind::Dot3
+        | NodeKind::Quote { .. }
+        | NodeKind::BlockComment
+        | NodeKind::Space { .. }
+        | NodeKind::Escape(_) => true,
+        _ => false,
+    }
+}
+
+/// Whether `at_start` would still be true after this node given the
+/// previous value of the property.
+fn next_at_start(kind: &NodeKind, prev: bool) -> bool {
+    match kind {
+        NodeKind::Space { newlines: (1 ..) } => true,
+        NodeKind::Space { .. } | NodeKind::LineComment | NodeKind::BlockComment => prev,
+        _ => false,
+    }
 }
 
 #[cfg(test)]

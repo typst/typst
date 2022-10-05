@@ -159,7 +159,7 @@ impl<'s> Parser<'s> {
             self.eat();
             Ok(())
         } else {
-            self.expected(kind.as_str());
+            self.expected(kind.name());
             Err(ParseError)
         }
     }
@@ -293,7 +293,7 @@ impl<'s> Parser<'s> {
                 self.stray_terminator = s;
                 rescan = false;
             } else if required {
-                self.expected(end.as_str());
+                self.expected(end.name());
                 self.unterminated_group = true;
             }
         }
@@ -397,7 +397,7 @@ impl Parser<'_> {
     /// Eat the current token and add an error that it is unexpected.
     pub fn unexpected(&mut self) {
         if let Some(found) = self.peek() {
-            let msg = format_eco!("unexpected {}", found);
+            let msg = format_eco!("unexpected {}", found.name());
             let error = NodeKind::Error(SpanPos::Full, msg);
             self.perform(error, Self::eat);
         }
@@ -421,7 +421,7 @@ impl Parser<'_> {
     pub fn expected_found(&mut self, thing: &str) {
         match self.peek() {
             Some(found) => {
-                let msg = format_eco!("expected {}, found {}", thing, found);
+                let msg = format_eco!("expected {}, found {}", thing, found.name());
                 let error = NodeKind::Error(SpanPos::Full, msg);
                 self.perform(error, Self::eat);
             }
@@ -492,7 +492,7 @@ impl Marker {
                 let mut msg = EcoString::from(msg);
                 if msg.starts_with("expected") {
                     msg.push_str(", found ");
-                    msg.push_str(child.kind().as_str());
+                    msg.push_str(child.kind().name());
                 }
                 let error = NodeKind::Error(SpanPos::Full, msg);
                 let inner = mem::take(child);

@@ -8,8 +8,6 @@ use syntect::parsing::SyntaxSet;
 use super::{FontFamily, Hyphenate, TextNode};
 use crate::library::layout::BlockSpacing;
 use crate::library::prelude::*;
-use crate::parse::TokenMode;
-use crate::syntax;
 
 /// Monospaced text with optional syntax highlighting.
 #[derive(Debug, Hash)]
@@ -73,14 +71,14 @@ impl Show for RawNode {
             .into();
 
         let mut realized = if matches!(lang.as_deref(), Some("typ" | "typst" | "typc")) {
-            let mode = match lang.as_deref() {
-                Some("typc") => TokenMode::Code,
-                _ => TokenMode::Markup,
+            let root = match lang.as_deref() {
+                Some("typc") => crate::parse::parse_code(&self.text),
+                _ => crate::parse::parse(&self.text),
             };
 
             let mut seq = vec![];
-            syntax::highlight_themed(&self.text, mode, &THEME, |piece, style| {
-                seq.push(styled(piece, foreground, style));
+            crate::syntax::highlight::highlight_themed(&root, &THEME, |range, style| {
+                seq.push(styled(&self.text[range], foreground, style));
             });
 
             Content::sequence(seq)
@@ -167,24 +165,29 @@ pub static THEME: Lazy<Theme> = Lazy::new(|| Theme {
     author: Some("The Typst Project Developers".into()),
     settings: ThemeSettings::default(),
     scopes: vec![
+        item("comment", Some("#8a8a8a"), None),
+        item("constant.character.escape", Some("#1d6c76"), None),
+        item("constant.character.shortcut", Some("#1d6c76"), None),
         item("markup.bold", None, Some(FontStyle::BOLD)),
         item("markup.italic", None, Some(FontStyle::ITALIC)),
+        item("markup.underline", None, Some(FontStyle::UNDERLINE)),
+        item("markup.raw", Some("#818181"), None),
+        item("string.other.math.typst", None, None),
+        item("punctuation.definition.math", Some("#298e0d"), None),
+        item("keyword.operator.math", Some("#1d6c76"), None),
         item("markup.heading, entity.name.section", None, Some(FontStyle::BOLD)),
         item("markup.heading.typst", None, Some(FontStyle::BOLD | FontStyle::UNDERLINE)),
-        item("markup.raw", Some("#818181"), None),
-        item("markup.list", Some("#8b41b1"), None),
-        item("comment", Some("#8a8a8a"), None),
-        item("punctuation.shortcut", Some("#1d6c76"), None),
-        item("constant.character.escape", Some("#1d6c76"), None),
+        item("punctuation.definition.list", Some("#8b41b1"), None),
+        item("markup.list.term", None, Some(FontStyle::BOLD)),
         item("entity.name.label, markup.other.reference", Some("#1d6c76"), None),
         item("keyword, constant.language, variable.language", Some("#d73a49"), None),
         item("storage.type, storage.modifier", Some("#d73a49"), None),
-        item("entity.other", Some("#8b41b1"), None),
+        item("constant", Some("#b60157"), None),
+        item("string", Some("#298e0d"), None),
         item("entity.name, variable.function, support", Some("#4b69c6"), None),
         item("support.macro", Some("#16718d"), None),
         item("meta.annotation", Some("#301414"), None),
-        item("constant", Some("#b60157"), None),
-        item("string", Some("#298e0d"), None),
+        item("entity.other, meta.interpolation", Some("#8b41b1"), None),
         item("invalid", Some("#ff0000"), None),
     ],
 });

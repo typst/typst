@@ -133,25 +133,25 @@ pub trait Eval {
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output>;
 }
 
-impl Eval for Markup {
+impl Eval for MarkupNode {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        eval_markup(vm, &mut self.nodes())
+        eval_markup(vm, &mut self.items())
     }
 }
 
 /// Evaluate a stream of markup nodes.
 fn eval_markup(
     vm: &mut Vm,
-    nodes: &mut impl Iterator<Item = MarkupNode>,
+    nodes: &mut impl Iterator<Item = MarkupItem>,
 ) -> SourceResult<Content> {
     let flow = vm.flow.take();
     let mut seq = Vec::with_capacity(nodes.size_hint().1.unwrap_or_default());
 
     while let Some(node) = nodes.next() {
         seq.push(match node {
-            MarkupNode::Expr(Expr::Set(set)) => {
+            MarkupItem::Expr(Expr::Set(set)) => {
                 let styles = set.eval(vm)?;
                 if vm.flow.is_some() {
                     break;
@@ -159,7 +159,7 @@ fn eval_markup(
 
                 eval_markup(vm, nodes)?.styled_with_map(styles)
             }
-            MarkupNode::Expr(Expr::Show(show)) => {
+            MarkupItem::Expr(Expr::Show(show)) => {
                 let recipe = show.eval(vm)?;
                 if vm.flow.is_some() {
                     break;
@@ -168,7 +168,7 @@ fn eval_markup(
                 eval_markup(vm, nodes)?
                     .styled_with_entry(StyleEntry::Recipe(recipe).into())
             }
-            MarkupNode::Expr(Expr::Wrap(wrap)) => {
+            MarkupItem::Expr(Expr::Wrap(wrap)) => {
                 let tail = eval_markup(vm, nodes)?;
                 vm.scopes.top.define(wrap.binding().take(), tail);
                 wrap.body().eval(vm)?.display()
@@ -189,7 +189,7 @@ fn eval_markup(
     Ok(Content::sequence(seq))
 }
 
-impl Eval for MarkupNode {
+impl Eval for MarkupItem {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
@@ -252,12 +252,12 @@ impl Eval for RawNode {
     }
 }
 
-impl Eval for Math {
+impl Eval for MathNode {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let nodes =
-            self.nodes().map(|node| node.eval(vm)).collect::<SourceResult<_>>()?;
+            self.items().map(|node| node.eval(vm)).collect::<SourceResult<_>>()?;
         Ok(Content::show(library::math::MathNode::Row(
             Arc::new(nodes),
             self.span(),
@@ -265,7 +265,7 @@ impl Eval for Math {
     }
 }
 
-impl Eval for MathNode {
+impl Eval for MathItem {
     type Output = library::math::MathNode;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
@@ -278,7 +278,7 @@ impl Eval for MathNode {
             Self::Align(node) => node.eval(vm)?,
             Self::Group(node) => library::math::MathNode::Row(
                 Arc::new(
-                    node.nodes()
+                    node.items()
                         .map(|node| node.eval(vm))
                         .collect::<SourceResult<_>>()?,
                 ),
@@ -346,7 +346,7 @@ impl Eval for HeadingNode {
     }
 }
 
-impl Eval for ListNode {
+impl Eval for ListItem {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
@@ -355,7 +355,7 @@ impl Eval for ListNode {
     }
 }
 
-impl Eval for EnumNode {
+impl Eval for EnumItem {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
@@ -367,7 +367,7 @@ impl Eval for EnumNode {
     }
 }
 
-impl Eval for DescNode {
+impl Eval for DescItem {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
