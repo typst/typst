@@ -184,10 +184,12 @@ pub type FileResult<T> = Result<T, FileError>;
 pub enum FileError {
     /// A file was not found at this path.
     NotFound(PathBuf),
-    /// A directory was found, but a file was expected.
-    IsDirectory,
     /// A file could not be accessed.
     AccessDenied,
+    /// A directory was found, but a file was expected.
+    IsDirectory,
+    /// The file is not a Typst source file, but should have been.
+    NotSource,
     /// The file was not valid UTF-8, but should have been.
     InvalidUtf8,
     /// Another error.
@@ -218,8 +220,9 @@ impl Display for FileError {
             Self::NotFound(path) => {
                 write!(f, "file not found (searched at {})", path.display())
             }
-            Self::IsDirectory => f.pad("failed to load file (is a directory)"),
             Self::AccessDenied => f.pad("failed to load file (access denied)"),
+            Self::IsDirectory => f.pad("failed to load file (is a directory)"),
+            Self::NotSource => f.pad("not a typst source file"),
             Self::InvalidUtf8 => f.pad("file is not valid utf-8"),
             Self::Other => f.pad("failed to load file"),
         }
