@@ -4,9 +4,10 @@ use unicode_xid::UnicodeXID;
 use unscanny::Scanner;
 
 use super::resolve::{resolve_hex, resolve_raw, resolve_string};
+use crate::diag::ErrorPos;
 use crate::geom::{AngleUnit, LengthUnit};
 use crate::syntax::ast::{RawNode, Unit};
-use crate::syntax::{NodeKind, SpanPos};
+use crate::syntax::NodeKind;
 use crate::util::EcoString;
 
 /// An iterator over the tokens of a string of source code.
@@ -109,7 +110,7 @@ impl<'s> Iterator for Tokens<'s> {
             '/' if self.s.eat_if('/') => self.line_comment(),
             '/' if self.s.eat_if('*') => self.block_comment(),
             '*' if self.s.eat_if('/') => {
-                NodeKind::Error(SpanPos::Full, "unexpected end of block comment".into())
+                NodeKind::Error(ErrorPos::Full, "unexpected end of block comment".into())
             }
             c if c.is_whitespace() => self.whitespace(c),
 
@@ -279,13 +280,13 @@ impl<'s> Tokens<'s> {
                         NodeKind::Escape(c)
                     } else {
                         NodeKind::Error(
-                            SpanPos::Full,
+                            ErrorPos::Full,
                             "invalid unicode escape sequence".into(),
                         )
                     }
                 } else {
                     self.terminated = false;
-                    NodeKind::Error(SpanPos::End, "expected closing brace".into())
+                    NodeKind::Error(ErrorPos::End, "expected closing brace".into())
                 }
             }
 
@@ -388,7 +389,7 @@ impl<'s> Tokens<'s> {
             let remaining = backticks - found;
             let noun = if remaining == 1 { "backtick" } else { "backticks" };
             NodeKind::Error(
-                SpanPos::End,
+                ErrorPos::End,
                 if found == 0 {
                     format_eco!("expected {} {}", remaining, noun)
                 } else {
@@ -416,11 +417,11 @@ impl<'s> Tokens<'s> {
             if !label.is_empty() {
                 NodeKind::Label(label.into())
             } else {
-                NodeKind::Error(SpanPos::Full, "label cannot be empty".into())
+                NodeKind::Error(ErrorPos::Full, "label cannot be empty".into())
             }
         } else {
             self.terminated = false;
-            NodeKind::Error(SpanPos::End, "expected closing angle bracket".into())
+            NodeKind::Error(ErrorPos::End, "expected closing angle bracket".into())
         }
     }
 
@@ -519,7 +520,7 @@ impl<'s> Tokens<'s> {
             '"' => self.string(),
 
             // Invalid token.
-            _ => NodeKind::Error(SpanPos::Full, "not valid here".into()),
+            _ => NodeKind::Error(ErrorPos::Full, "not valid here".into()),
         }
     }
 
@@ -578,10 +579,10 @@ impl<'s> Tokens<'s> {
                 "em" => NodeKind::Numeric(f, Unit::Em),
                 "fr" => NodeKind::Numeric(f, Unit::Fr),
                 "%" => NodeKind::Numeric(f, Unit::Percent),
-                _ => NodeKind::Error(SpanPos::Full, "invalid number suffix".into()),
+                _ => NodeKind::Error(ErrorPos::Full, "invalid number suffix".into()),
             }
         } else {
-            NodeKind::Error(SpanPos::Full, "invalid number".into())
+            NodeKind::Error(ErrorPos::Full, "invalid number".into())
         }
     }
 
@@ -601,7 +602,7 @@ impl<'s> Tokens<'s> {
             NodeKind::Str(string)
         } else {
             self.terminated = false;
-            NodeKind::Error(SpanPos::End, "expected quote".into())
+            NodeKind::Error(ErrorPos::End, "expected quote".into())
         }
     }
 }
@@ -713,9 +714,9 @@ mod tests {
     use super::*;
     use crate::parse::tests::check;
 
+    use ErrorPos::*;
     use NodeKind::*;
     use Option::None;
-    use SpanPos::*;
     use TokenMode::{Code, Markup};
 
     fn Space(newlines: usize) -> NodeKind {
@@ -742,7 +743,7 @@ mod tests {
         NodeKind::Ident(ident.into())
     }
 
-    fn Error(pos: SpanPos, message: &str) -> NodeKind {
+    fn Error(pos: ErrorPos, message: &str) -> NodeKind {
         NodeKind::Error(pos, message.into())
     }
 

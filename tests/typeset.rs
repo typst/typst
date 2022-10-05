@@ -433,10 +433,7 @@ fn test_part(
     let mut errors: Vec<_> = errors
         .into_iter()
         .filter(|error| error.span.source() == id)
-        .map(|error| {
-            let range = world.source(error.span.source()).range(error.span);
-            (range, error.message.to_string())
-        })
+        .map(|error| (error.range(world), error.message.to_string()))
         .collect();
 
     errors.sort_by_key(|error| error.0.start);

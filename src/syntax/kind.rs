@@ -2,7 +2,7 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use super::ast::{RawNode, Unit};
-use super::SpanPos;
+use crate::diag::ErrorPos;
 use crate::util::EcoString;
 
 /// All syntactical building blocks that can be part of a Typst document.
@@ -271,7 +271,7 @@ pub enum NodeKind {
     ReturnExpr,
 
     /// An invalid sequence of characters.
-    Error(SpanPos, EcoString),
+    Error(ErrorPos, EcoString),
 }
 
 impl NodeKind {

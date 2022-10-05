@@ -2,6 +2,7 @@
 
 use std::fmt::{self, Display, Formatter};
 use std::io;
+use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::str::Utf8Error;
 use std::string::FromUtf8Error;
@@ -9,6 +10,7 @@ use std::string::FromUtf8Error;
 use comemo::Tracked;
 
 use crate::syntax::{Span, Spanned};
+use crate::util::EcoString;
 use crate::World;
 
 /// Early-return with a [`SourceError`].
@@ -39,32 +41,64 @@ macro_rules! error {
 pub type SourceResult<T> = Result<T, Box<Vec<SourceError>>>;
 
 /// An error in a source file.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct SourceError {
-    /// The erroneous node in the source code.
+    /// The span of the erroneous node in the source code.
     pub span: Span,
+    /// The position in the node where the error should be annotated.
+    pub pos: ErrorPos,
     /// A diagnostic message describing the problem.
-    pub message: String,
+    pub message: EcoString,
     /// The trace of function calls leading to the error.
     pub trace: Vec<Spanned<Tracepoint>>,
 }
 
 impl SourceError {
     /// Create a new, bare error.
-    pub fn new(span: Span, message: impl Into<String>) -> Self {
+    pub fn new(span: Span, message: impl Into<EcoString>) -> Self {
         Self {
             span,
+            pos: ErrorPos::Full,
             trace: vec![],
             message: message.into(),
         }
     }
+
+    /// Adjust the position in the node where the error should be annotated.
+    pub fn with_pos(mut self, pos: ErrorPos) -> Self {
+        self.pos = pos;
+        self
+    }
+
+    /// The range in the source file identified by
+    /// [`self.span.source()`](Span::source) where the error should be
+    /// annotated.
+    pub fn range(&self, world: &dyn World) -> Range<usize> {
+        let full = world.source(self.span.source()).range(self.span);
+        match self.pos {
+            ErrorPos::Full => full,
+            ErrorPos::Start => full.start .. full.start,
+            ErrorPos::End => full.end .. full.end,
+        }
+    }
+}
+
+/// Where in a node an error should be annotated,
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum ErrorPos {
+    /// Over the full width of the node.
+    Full,
+    /// At the start of the node.
+    Start,
+    /// At the end of the node.
+    End,
 }
 
 /// A part of an error's [trace](SourceError::trace).
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum Tracepoint {
     /// A function call.
-    Call(Option<String>),
+    Call(Option<EcoString>),
     /// A module import.
     Import,
 }
@@ -135,7 +169,7 @@ pub trait At<T> {
 
 impl<T, S> At<T> for Result<T, S>
 where
-    S: Into<String>,
+    S: Into<EcoString>,
 {
     fn at(self, span: Span) -> SourceResult<T> {
         self.map_err(|message| Box::new(vec![error!(span, message)]))
@@ -204,9 +238,9 @@ impl From<FromUtf8Error> for FileError {
     }
 }
 
-impl From<FileError> for String {
+impl From<FileError> for EcoString {
     fn from(error: FileError) -> Self {
-        error.to_string()
+        format_eco!("{error}")
     }
 }
 

@@ -695,7 +695,7 @@ impl Eval for FuncCall {
             Value::Array(array) => array.get(args.into_index()?).at(self.span())?.clone(),
             Value::Dict(dict) => dict.get(&args.into_key()?).at(self.span())?.clone(),
             Value::Func(func) => {
-                let point = || Tracepoint::Call(func.name().map(ToString::to_string));
+                let point = || Tracepoint::Call(func.name().map(Into::into));
                 func.call(vm, args).trace(vm.world, point, self.span())?
             }
 
@@ -713,8 +713,8 @@ impl Eval for MethodCall {
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let span = self.span();
-        let method = self.method();
-        let point = || Tracepoint::Call(Some(method.to_string()));
+        let method = self.method().take();
+        let point = || Tracepoint::Call(Some(method.clone()));
 
         Ok(if methods::is_mutating(&method) {
             let args = self.args().eval(vm)?;

@@ -323,7 +323,7 @@ fn print_diagnostics(
 
     for error in errors {
         // The main diagnostic.
-        let range = world.source(error.span.source()).range(error.span);
+        let range = error.range(world);
         let diag = Diagnostic::error()
             .with_message(error.message)
             .with_labels(vec![Label::primary(error.span.source(), range)]);

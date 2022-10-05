@@ -63,10 +63,10 @@ pub struct Span(NonZeroU64);
 
 impl Span {
     // Data layout:
-    // | 2 bits span pos | 16 bits source id | 46 bits number |
+    // | 16 bits source id | 48 bits number |
 
     // Number of bits for and minimum and maximum numbers assignable to spans.
-    const BITS: usize = 46;
+    const BITS: usize = 48;
     const DETACHED: u64 = 1;
 
     /// The full range of numbers available to spans.
@@ -90,12 +90,6 @@ impl Span {
         Self(to_non_zero(Self::DETACHED))
     }
 
-    /// Return this span, but with updated position.
-    pub const fn with_pos(self, pos: SpanPos) -> Self {
-        let bits = (self.0.get() & ((1 << 62) - 1)) | ((pos as u64) << 62);
-        Self(to_non_zero(bits))
-    }
-
     /// The id of the source file the span points into.
     pub const fn source(self) -> SourceId {
         SourceId::from_u16((self.0.get() >> Self::BITS) as u16)
@@ -105,16 +99,6 @@ impl Span {
     pub const fn number(self) -> u64 {
         self.0.get() & ((1 << Self::BITS) - 1)
     }
-
-    /// Where in the node the span points to.
-    pub const fn pos(self) -> SpanPos {
-        match self.0.get() >> 62 {
-            0 => SpanPos::Full,
-            1 => SpanPos::Start,
-            2 => SpanPos::End,
-            _ => panic!("span pos encoding is invalid"),
-        }
-    }
 }
 
 /// Convert to a non zero u64.
@@ -123,17 +107,6 @@ const fn to_non_zero(v: u64) -> NonZeroU64 {
         Some(v) => v,
         None => panic!("span encoding is zero"),
     }
-}
-
-/// Where in a node a span points.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum SpanPos {
-    /// Over the full width of the node.
-    Full = 0,
-    /// At the start of the node.
-    Start = 1,
-    /// At the end of the node.
-    End = 2,
 }
 
 /// Result of numbering a node within an interval.
@@ -153,14 +126,13 @@ impl std::error::Error for Unnumberable {}
 
 #[cfg(test)]
 mod tests {
-    use super::{SourceId, Span, SpanPos};
+    use super::{SourceId, Span};
 
     #[test]
     fn test_span_encoding() {
         let id = SourceId::from_u16(5);
-        let span = Span::new(id, 10).with_pos(SpanPos::End);
+        let span = Span::new(id, 10);
         assert_eq!(span.source(), id);
         assert_eq!(span.number(), 10);
-        assert_eq!(span.pos(), SpanPos::End);
     }
 }

@@ -73,7 +73,7 @@ impl SyntaxNode {
 
         match self.kind() {
             NodeKind::Error(pos, message) => {
-                vec![SourceError::new(self.span().with_pos(*pos), message)]
+                vec![SourceError::new(self.span(), message.clone()).with_pos(*pos)]
             }
             _ => self
                 .children()
@@ -535,14 +535,7 @@ impl NodeData {
 
     /// If the span points into this node, convert it to a byte range.
     pub fn range(&self, span: Span, offset: usize) -> Option<Range<usize>> {
-        (span.with_pos(SpanPos::Full) == self.span).then(|| {
-            let end = offset + self.len();
-            match span.pos() {
-                SpanPos::Full => offset .. end,
-                SpanPos::Start => offset .. offset,
-                SpanPos::End => end .. end,
-            }
-        })
+        (self.span == span).then(|| offset .. offset + self.len())
     }
 }
 
