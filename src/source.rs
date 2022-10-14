@@ -23,7 +23,7 @@ pub struct Source {
     path: PathBuf,
     text: Prehashed<String>,
     lines: Vec<Line>,
-    root: SyntaxNode,
+    root: Prehashed<SyntaxNode>,
 }
 
 impl Source {
@@ -39,9 +39,9 @@ impl Source {
         Self {
             id,
             path: path.normalize(),
-            root,
             text: Prehashed::new(text),
             lines,
+            root: Prehashed::new(root),
         }
     }
 
@@ -53,7 +53,9 @@ impl Source {
     /// Create a source file with the same synthetic span for all nodes.
     pub fn synthesized(text: impl Into<String>, span: Span) -> Self {
         let mut file = Self::detached(text);
-        file.root.synthesize(span);
+        let mut root = file.root.into_inner();
+        root.synthesize(span);
+        file.root = Prehashed::new(root);
         file.id = span.source();
         file
     }
@@ -98,8 +100,9 @@ impl Source {
         self.text = Prehashed::new(text);
         self.lines = vec![Line { byte_idx: 0, utf16_idx: 0 }];
         self.lines.extend(lines(0, 0, &self.text));
-        self.root = parse(&self.text);
-        self.root.numberize(self.id(), Span::FULL).unwrap();
+        let mut root = parse(&self.text);
+        root.numberize(self.id(), Span::FULL).unwrap();
+        self.root = Prehashed::new(root);
     }
 
     /// Edit the source file by replacing the given range and increase the
@@ -129,7 +132,10 @@ impl Source {
             .extend(lines(start_byte, start_utf16, &self.text[start_byte ..]));
 
         // Incrementally reparse the replaced range.
-        reparse(&mut self.root, &self.text, replace, with.len())
+        let mut root = std::mem::take(&mut self.root).into_inner();
+        let range = reparse(&mut root, &self.text, replace, with.len());
+        self.root = Prehashed::new(root);
+        range
     }
 
     /// Get the length of the file in UTF-8 encoded bytes.
@@ -249,6 +255,7 @@ impl Hash for Source {
         self.id.hash(state);
         self.path.hash(state);
         self.text.hash(state);
+        self.root.hash(state);
     }
 }
 
@@ -399,8 +406,8 @@ mod tests {
             let result = Source::detached(after);
             source.edit(range, with);
             assert_eq!(source.text, result.text);
-            assert_eq!(source.root, result.root);
             assert_eq!(source.lines, result.lines);
+            assert_eq!(*source.root, *result.root);
         }
 
         // Test inserting at the begining.
