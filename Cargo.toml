@@ -19,7 +19,7 @@ unscanny = "0.1"
 regex = "1"
 
 # Incremental compilation
-comemo = { git = "https://github.com/typst/comemo" }
+comemo = "0.1"
 
 # Text and font handling
 hypher = "0.1"
@@ -47,7 +47,7 @@ serde_json = "1"
 # PDF export
 miniz_oxide = "0.5"
 pdf-writer = "0.6"
-subsetter = { git = "https://github.com/typst/subsetter" }
+subsetter = "0.1"
 svg2pdf = "0.4"
 
 # Raster export / rendering
