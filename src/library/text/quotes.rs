@@ -1,5 +1,5 @@
 use super::{Lang, Region};
-use crate::parse::is_newline;
+use crate::syntax::is_newline;
 
 /// State machine for smart quote subtitution.
 #[derive(Debug, Clone)]

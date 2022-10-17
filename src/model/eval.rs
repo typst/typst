@@ -1,50 +1,20 @@
 //! Evaluation of markup into modules.
 
-#[macro_use]
-mod cast;
-#[macro_use]
-mod array;
-#[macro_use]
-mod dict;
-#[macro_use]
-mod str;
-#[macro_use]
-mod value;
-mod args;
-mod capture;
-mod func;
-pub mod methods;
-pub mod ops;
-mod raw;
-mod scope;
-mod vm;
-
-pub use self::str::*;
-pub use args::*;
-pub use array::*;
-pub use capture::*;
-pub use cast::*;
-pub use dict::*;
-pub use func::*;
-pub use raw::*;
-pub use scope::*;
-pub use typst_macros::node;
-pub use value::*;
-pub use vm::*;
-
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use comemo::{Track, Tracked};
 use unicode_segmentation::UnicodeSegmentation;
 
+use super::{
+    methods, ops, Arg, Args, Array, CapturesVisitor, Closure, Content, Dict, Flow, Func,
+    Pattern, Recipe, Scope, Scopes, StyleEntry, StyleMap, Value, Vm,
+};
 use crate::diag::{At, SourceResult, StrResult, Trace, Tracepoint};
 use crate::geom::{Angle, Em, Fraction, Length, Ratio};
 use crate::library;
-use crate::model::{Content, Pattern, Recipe, StyleEntry, StyleMap};
-use crate::source::SourceId;
 use crate::syntax::ast::TypedNode;
-use crate::syntax::{ast, Span, Spanned, Unit};
+use crate::syntax::{ast, SourceId, Span, Spanned, Unit};
 use crate::util::EcoString;
 use crate::World;
 

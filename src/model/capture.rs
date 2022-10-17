@@ -133,7 +133,7 @@ impl<'a> CapturesVisitor<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parse::parse;
+    use crate::syntax::parse;
 
     #[track_caller]
     fn test(text: &str, result: &[&str]) {

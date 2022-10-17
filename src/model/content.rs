@@ -21,21 +21,6 @@ use crate::library::text::{
 use crate::util::EcoString;
 use crate::World;
 
-/// Layout content into a collection of pages.
-///
-/// Relayouts until all pinned locations are converged.
-#[comemo::memoize]
-pub fn layout(world: Tracked<dyn World>, content: &Content) -> SourceResult<Vec<Frame>> {
-    let styles = StyleChain::with_root(&world.config().styles);
-    let scratch = Scratch::default();
-
-    let mut builder = Builder::new(world, &scratch, true);
-    builder.accept(content, styles)?;
-
-    let (doc, shared) = builder.into_doc(styles)?;
-    doc.layout(world, shared)
-}
-
 /// Composable representation of styled content.
 ///
 /// This results from:
@@ -332,7 +317,7 @@ impl Sum for Content {
 }
 
 /// Builds a document or a flow node from content.
-struct Builder<'a> {
+pub(super) struct Builder<'a> {
     /// The core context.
     world: Tracked<'a, dyn World>,
     /// Scratch arenas for building.
@@ -349,7 +334,7 @@ struct Builder<'a> {
 
 /// Temporary storage arenas for building.
 #[derive(Default)]
-struct Scratch<'a> {
+pub(super) struct Scratch<'a> {
     /// An arena where intermediate style chains are stored.
     styles: Arena<StyleChain<'a>>,
     /// An arena where intermediate content resulting from show rules is stored.
@@ -357,7 +342,11 @@ struct Scratch<'a> {
 }
 
 impl<'a> Builder<'a> {
-    fn new(world: Tracked<'a, dyn World>, scratch: &'a Scratch<'a>, top: bool) -> Self {
+    pub fn new(
+        world: Tracked<'a, dyn World>,
+        scratch: &'a Scratch<'a>,
+        top: bool,
+    ) -> Self {
         Self {
             world,
             scratch,
@@ -368,7 +357,7 @@ impl<'a> Builder<'a> {
         }
     }
 
-    fn into_doc(
+    pub fn into_doc(
         mut self,
         styles: StyleChain<'a>,
     ) -> SourceResult<(DocNode, StyleChain<'a>)> {
@@ -377,7 +366,7 @@ impl<'a> Builder<'a> {
         Ok((DocNode(pages), shared))
     }
 
-    fn into_flow(
+    pub fn into_flow(
         mut self,
         styles: StyleChain<'a>,
     ) -> SourceResult<(FlowNode, StyleChain<'a>)> {
@@ -386,7 +375,7 @@ impl<'a> Builder<'a> {
         Ok((FlowNode(children), shared))
     }
 
-    fn accept(
+    pub fn accept(
         &mut self,
         content: &'a Content,
         styles: StyleChain<'a>,

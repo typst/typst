@@ -1,5 +1,5 @@
-use crate::eval::Regex;
 use crate::library::prelude::*;
+use crate::model::Regex;
 
 /// The string representation of a value.
 pub fn repr(_: &mut Vm, args: &mut Args) -> SourceResult<Value> {

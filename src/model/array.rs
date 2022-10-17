@@ -12,11 +12,11 @@ use crate::util::ArcExt;
 #[allow(unused_macros)]
 macro_rules! array {
     ($value:expr; $count:expr) => {
-        $crate::eval::Array::from_vec(vec![$value.into(); $count])
+        $crate::model::Array::from_vec(vec![$value.into(); $count])
     };
 
     ($($value:expr),* $(,)?) => {
-        $crate::eval::Array::from_vec(vec![$($value.into()),*])
+        $crate::model::Array::from_vec(vec![$($value.into()),*])
     };
 }
 

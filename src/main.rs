@@ -21,7 +21,7 @@ use walkdir::WalkDir;
 
 use typst::diag::{FileError, FileResult, SourceError, StrResult};
 use typst::font::{Font, FontBook, FontInfo, FontVariant};
-use typst::source::{Source, SourceId};
+use typst::syntax::{Source, SourceId};
 use typst::util::{Buffer, PathExt};
 use typst::{Config, World};
 

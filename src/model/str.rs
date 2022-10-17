@@ -13,7 +13,7 @@ use crate::util::EcoString;
 #[allow(unused_macros)]
 macro_rules! format_str {
     ($($tts:tt)*) => {{
-        $crate::eval::Str::from(format_eco!($($tts)*))
+        $crate::model::Str::from(format_eco!($($tts)*))
     }};
 }
 
@@ -76,69 +76,69 @@ impl Str {
     }
 
     /// Whether the given pattern exists in this string.
-    pub fn contains(&self, pattern: TextPattern) -> bool {
+    pub fn contains(&self, pattern: StrPattern) -> bool {
         match pattern {
-            TextPattern::Str(pat) => self.0.contains(pat.as_str()),
-            TextPattern::Regex(re) => re.is_match(self),
+            StrPattern::Str(pat) => self.0.contains(pat.as_str()),
+            StrPattern::Regex(re) => re.is_match(self),
         }
     }
 
     /// Whether this string begins with the given pattern.
-    pub fn starts_with(&self, pattern: TextPattern) -> bool {
+    pub fn starts_with(&self, pattern: StrPattern) -> bool {
         match pattern {
-            TextPattern::Str(pat) => self.0.starts_with(pat.as_str()),
-            TextPattern::Regex(re) => re.find(self).map_or(false, |m| m.start() == 0),
+            StrPattern::Str(pat) => self.0.starts_with(pat.as_str()),
+            StrPattern::Regex(re) => re.find(self).map_or(false, |m| m.start() == 0),
         }
     }
 
     /// Whether this string ends with the given pattern.
-    pub fn ends_with(&self, pattern: TextPattern) -> bool {
+    pub fn ends_with(&self, pattern: StrPattern) -> bool {
         match pattern {
-            TextPattern::Str(pat) => self.0.ends_with(pat.as_str()),
-            TextPattern::Regex(re) => {
+            StrPattern::Str(pat) => self.0.ends_with(pat.as_str()),
+            StrPattern::Regex(re) => {
                 re.find_iter(self).last().map_or(false, |m| m.end() == self.0.len())
             }
         }
     }
 
     /// The text of the pattern's first match in this string.
-    pub fn find(&self, pattern: TextPattern) -> Option<Self> {
+    pub fn find(&self, pattern: StrPattern) -> Option<Self> {
         match pattern {
-            TextPattern::Str(pat) => self.0.contains(pat.as_str()).then(|| pat),
-            TextPattern::Regex(re) => re.find(self).map(|m| m.as_str().into()),
+            StrPattern::Str(pat) => self.0.contains(pat.as_str()).then(|| pat),
+            StrPattern::Regex(re) => re.find(self).map(|m| m.as_str().into()),
         }
     }
 
     /// The position of the pattern's first match in this string.
-    pub fn position(&self, pattern: TextPattern) -> Option<i64> {
+    pub fn position(&self, pattern: StrPattern) -> Option<i64> {
         match pattern {
-            TextPattern::Str(pat) => self.0.find(pat.as_str()).map(|i| i as i64),
-            TextPattern::Regex(re) => re.find(self).map(|m| m.start() as i64),
+            StrPattern::Str(pat) => self.0.find(pat.as_str()).map(|i| i as i64),
+            StrPattern::Regex(re) => re.find(self).map(|m| m.start() as i64),
         }
     }
 
     /// The start and, text and capture groups (if any) of the first match of
     /// the pattern in this string.
-    pub fn match_(&self, pattern: TextPattern) -> Option<Dict> {
+    pub fn match_(&self, pattern: StrPattern) -> Option<Dict> {
         match pattern {
-            TextPattern::Str(pat) => {
+            StrPattern::Str(pat) => {
                 self.0.match_indices(pat.as_str()).next().map(match_to_dict)
             }
-            TextPattern::Regex(re) => re.captures(self).map(captures_to_dict),
+            StrPattern::Regex(re) => re.captures(self).map(captures_to_dict),
         }
     }
 
     /// The start, end, text and capture groups (if any) of all matches of the
     /// pattern in this string.
-    pub fn matches(&self, pattern: TextPattern) -> Array {
+    pub fn matches(&self, pattern: StrPattern) -> Array {
         match pattern {
-            TextPattern::Str(pat) => self
+            StrPattern::Str(pat) => self
                 .0
                 .match_indices(pat.as_str())
                 .map(match_to_dict)
                 .map(Value::Dict)
                 .collect(),
-            TextPattern::Regex(re) => re
+            StrPattern::Regex(re) => re
                 .captures_iter(self)
                 .map(captures_to_dict)
                 .map(Value::Dict)
@@ -147,14 +147,14 @@ impl Str {
     }
 
     /// Split this string at whitespace or a specific pattern.
-    pub fn split(&self, pattern: Option<TextPattern>) -> Array {
+    pub fn split(&self, pattern: Option<StrPattern>) -> Array {
         let s = self.as_str();
         match pattern {
             None => s.split_whitespace().map(|v| Value::Str(v.into())).collect(),
-            Some(TextPattern::Str(pat)) => {
+            Some(StrPattern::Str(pat)) => {
                 s.split(pat.as_str()).map(|v| Value::Str(v.into())).collect()
             }
-            Some(TextPattern::Regex(re)) => {
+            Some(StrPattern::Regex(re)) => {
                 re.split(s).map(|v| Value::Str(v.into())).collect()
             }
         }
@@ -166,20 +166,20 @@ impl Str {
     /// pattern.
     pub fn trim(
         &self,
-        pattern: Option<TextPattern>,
-        at: Option<TextSide>,
+        pattern: Option<StrPattern>,
+        at: Option<StrSide>,
         repeat: bool,
     ) -> Self {
-        let mut start = matches!(at, Some(TextSide::Start) | None);
-        let end = matches!(at, Some(TextSide::End) | None);
+        let mut start = matches!(at, Some(StrSide::Start) | None);
+        let end = matches!(at, Some(StrSide::End) | None);
 
         let trimmed = match pattern {
             None => match at {
                 None => self.0.trim(),
-                Some(TextSide::Start) => self.0.trim_start(),
-                Some(TextSide::End) => self.0.trim_end(),
+                Some(StrSide::Start) => self.0.trim_start(),
+                Some(StrSide::End) => self.0.trim_end(),
             },
-            Some(TextPattern::Str(pat)) => {
+            Some(StrPattern::Str(pat)) => {
                 let pat = pat.as_str();
                 let mut s = self.as_str();
                 if repeat {
@@ -199,7 +199,7 @@ impl Str {
                 }
                 s
             }
-            Some(TextPattern::Regex(re)) => {
+            Some(StrPattern::Regex(re)) => {
                 let s = self.as_str();
                 let mut last = 0;
                 let mut range = 0 .. s.len();
@@ -239,18 +239,13 @@ impl Str {
 
     /// Replace at most `count` occurances of the given pattern with a
     /// replacement string (beginning from the start).
-    pub fn replace(
-        &self,
-        pattern: TextPattern,
-        with: Self,
-        count: Option<usize>,
-    ) -> Self {
+    pub fn replace(&self, pattern: StrPattern, with: Self, count: Option<usize>) -> Self {
         match pattern {
-            TextPattern::Str(pat) => match count {
+            StrPattern::Str(pat) => match count {
                 Some(n) => self.0.replacen(pat.as_str(), &with, n).into(),
                 None => self.0.replace(pat.as_str(), &with).into(),
             },
-            TextPattern::Regex(re) => match count {
+            StrPattern::Regex(re) => match count {
                 Some(n) => re.replacen(self, n, with.as_str()).into(),
                 None => re.replace(self, with.as_str()).into(),
             },
@@ -440,7 +435,7 @@ impl Hash for Regex {
 
 /// A pattern which can be searched for in a string.
 #[derive(Debug, Clone)]
-pub enum TextPattern {
+pub enum StrPattern {
     /// Just a string.
     Str(Str),
     /// A regular expression.
@@ -448,7 +443,7 @@ pub enum TextPattern {
 }
 
 castable! {
-    TextPattern,
+    StrPattern,
     Expected: "string or regular expression",
     Value::Str(text) => Self::Str(text),
     @regex: Regex => Self::Regex(regex.clone()),
@@ -456,7 +451,7 @@ castable! {
 
 /// A side of a string.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub enum TextSide {
+pub enum StrSide {
     /// The logical start of the string, may be left or right depending on the
     /// language.
     Start,
@@ -465,7 +460,7 @@ pub enum TextSide {
 }
 
 castable! {
-    TextSide,
+    StrSide,
     Expected: "start or end",
     @align: RawAlign => match align {
         RawAlign::Start => Self::Start,

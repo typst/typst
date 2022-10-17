@@ -4,11 +4,12 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use super::{ops, Args, Array, Cast, Dict, Func, RawLength, Str};
+use siphasher::sip128::{Hasher128, SipHasher};
+
+use super::{ops, Args, Array, Cast, Content, Dict, Func, Layout, RawLength, Str};
 use crate::diag::StrResult;
 use crate::geom::{Angle, Color, Em, Fraction, Length, Ratio, Relative, RgbaColor};
 use crate::library::text::RawNode;
-use crate::model::{Content, Layout};
 use crate::util::EcoString;
 
 /// A computational value.
@@ -296,7 +297,7 @@ trait Bounds: Debug + Sync + Send + 'static {
     fn as_any(&self) -> &dyn Any;
     fn dyn_eq(&self, other: &Dynamic) -> bool;
     fn dyn_type_name(&self) -> &'static str;
-    fn hash64(&self) -> u64;
+    fn hash128(&self) -> u128;
 }
 
 impl<T> Bounds for T
@@ -319,19 +320,19 @@ where
         T::TYPE_NAME
     }
 
-    fn hash64(&self) -> u64 {
+    fn hash128(&self) -> u128 {
         // Also hash the TypeId since nodes with different types but
         // equal data should be different.
-        let mut state = fxhash::FxHasher64::default();
+        let mut state = SipHasher::new();
         self.type_id().hash(&mut state);
         self.hash(&mut state);
-        state.finish()
+        state.finish128().as_u128()
     }
 }
 
 impl Hash for dyn Bounds {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write_u64(self.hash64());
+        state.write_u128(self.hash128());
     }
 }
 

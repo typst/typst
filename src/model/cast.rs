@@ -1,9 +1,8 @@
 use std::num::NonZeroUsize;
 
-use super::{Regex, Value};
+use super::{Content, Layout, LayoutNode, Pattern, Regex, Value};
 use crate::diag::{with_alternative, StrResult};
 use crate::geom::{Corners, Dir, Paint, Sides};
-use crate::model::{Content, Layout, LayoutNode, Pattern};
 use crate::syntax::Spanned;
 use crate::util::EcoString;
 
@@ -19,20 +18,20 @@ pub trait Cast<V = Value>: Sized {
 /// Implement traits for dynamic types.
 macro_rules! dynamic {
     ($type:ty: $name:literal, $($tts:tt)*) => {
-        impl $crate::eval::Type for $type {
+        impl $crate::model::Type for $type {
             const TYPE_NAME: &'static str = $name;
         }
 
         castable! {
             $type,
-            Expected: <Self as $crate::eval::Type>::TYPE_NAME,
+            Expected: <Self as $crate::model::Type>::TYPE_NAME,
             $($tts)*
             @this: Self => this.clone(),
         }
 
-        impl From<$type> for $crate::eval::Value {
+        impl From<$type> for $crate::model::Value {
             fn from(v: $type) -> Self {
-                $crate::eval::Value::Dyn($crate::eval::Dynamic::new(v))
+                $crate::model::Value::Dyn($crate::model::Dynamic::new(v))
             }
         }
     };
@@ -41,12 +40,12 @@ macro_rules! dynamic {
 /// Make a type castable from a value.
 macro_rules! castable {
     ($type:ty: $inner:ty) => {
-        impl $crate::eval::Cast<$crate::eval::Value> for $type {
-            fn is(value: &$crate::eval::Value) -> bool {
+        impl $crate::model::Cast<$crate::model::Value> for $type {
+            fn is(value: &$crate::model::Value) -> bool {
                 <$inner>::is(value)
             }
 
-            fn cast(value: $crate::eval::Value) -> $crate::diag::StrResult<Self> {
+            fn cast(value: $crate::model::Value) -> $crate::diag::StrResult<Self> {
                 <$inner>::cast(value).map(Self)
             }
         }
@@ -59,22 +58,22 @@ macro_rules! castable {
         $(@$dyn_in:ident: $dyn_type:ty => $dyn_out:expr,)*
     ) => {
         #[allow(unreachable_patterns)]
-        impl $crate::eval::Cast<$crate::eval::Value> for $type {
-            fn is(value: &$crate::eval::Value) -> bool {
+        impl $crate::model::Cast<$crate::model::Value> for $type {
+            fn is(value: &$crate::model::Value) -> bool {
                 #[allow(unused_variables)]
                 match value {
                     $($pattern => true,)*
-                    $crate::eval::Value::Dyn(dynamic) => {
+                    $crate::model::Value::Dyn(dynamic) => {
                         false $(|| dynamic.is::<$dyn_type>())*
                     }
                     _ => false,
                 }
             }
 
-            fn cast(value: $crate::eval::Value) -> $crate::diag::StrResult<Self> {
+            fn cast(value: $crate::model::Value) -> $crate::diag::StrResult<Self> {
                 let found = match value {
                     $($pattern => return Ok($out),)*
-                    $crate::eval::Value::Dyn(dynamic) => {
+                    $crate::model::Value::Dyn(dynamic) => {
                         $(if let Some($dyn_in) = dynamic.downcast::<$dyn_type>() {
                             return Ok($dyn_out);
                         })*

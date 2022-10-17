@@ -4,11 +4,12 @@ use std::sync::Arc;
 
 use comemo::{Track, Tracked};
 
-use super::{Args, Eval, Flow, Route, Scope, Scopes, Value, Vm};
+use super::{
+    Args, Content, Eval, Flow, NodeId, Route, Scope, Scopes, StyleMap, Value, Vm,
+};
 use crate::diag::{SourceResult, StrResult};
-use crate::model::{Content, NodeId, StyleMap};
-use crate::source::SourceId;
 use crate::syntax::ast::Expr;
+use crate::syntax::SourceId;
 use crate::util::EcoString;
 use crate::World;
 

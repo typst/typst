@@ -72,8 +72,8 @@ impl Show for RawNode {
 
         let mut realized = if matches!(lang.as_deref(), Some("typ" | "typst" | "typc")) {
             let root = match lang.as_deref() {
-                Some("typc") => crate::parse::parse_code(&self.text),
-                _ => crate::parse::parse(&self.text),
+                Some("typc") => crate::syntax::parse_code(&self.text),
+                _ => crate::syntax::parse(&self.text),
             };
 
             let mut seq = vec![];

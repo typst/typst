@@ -1,18 +1,10 @@
-//! Parsing and tokenization.
-
-mod incremental;
-mod parser;
-mod resolve;
-mod tokens;
-
-pub use incremental::*;
-pub use parser::*;
-pub use tokens::*;
-
 use std::collections::HashSet;
 
-use crate::syntax::ast::{Assoc, BinOp, UnOp};
-use crate::syntax::{ErrorPos, NodeKind, SyntaxNode};
+use super::ast::{Assoc, BinOp, UnOp};
+use super::{
+    ErrorPos, Group, Marker, NodeKind, ParseError, ParseResult, Parser, SyntaxNode,
+    TokenMode,
+};
 use crate::util::EcoString;
 
 /// Parse a source file.
@@ -32,7 +24,7 @@ pub fn parse_code(text: &str) -> SyntaxNode {
 /// Reparse a code block.
 ///
 /// Returns `Some` if all of the input was consumed.
-fn reparse_code_block(
+pub(crate) fn reparse_code_block(
     prefix: &str,
     text: &str,
     end_pos: usize,
@@ -56,7 +48,7 @@ fn reparse_code_block(
 /// Reparse a content block.
 ///
 /// Returns `Some` if all of the input was consumed.
-fn reparse_content_block(
+pub(crate) fn reparse_content_block(
     prefix: &str,
     text: &str,
     end_pos: usize,
@@ -80,7 +72,7 @@ fn reparse_content_block(
 /// Reparse a sequence markup elements without the topmost node.
 ///
 /// Returns `Some` if all of the input was consumed.
-fn reparse_markup_elements(
+pub(crate) fn reparse_markup_elements(
     prefix: &str,
     text: &str,
     end_pos: usize,
@@ -1143,24 +1135,6 @@ fn body(p: &mut Parser) -> ParseResult {
         _ => {
             p.expected("body");
             Err(ParseError)
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::fmt::Debug;
-
-    #[track_caller]
-    pub fn check<T>(text: &str, found: T, expected: T)
-    where
-        T: Debug + PartialEq,
-    {
-        if found != expected {
-            println!("source:   {text:?}");
-            println!("expected: {expected:#?}");
-            println!("found:    {found:#?}");
-            panic!("test failed");
         }
     }
 }

@@ -6,7 +6,7 @@ use std::ops::Range;
 use syntect::highlighting::{Color, FontStyle, Highlighter, Style, Theme};
 use syntect::parsing::Scope;
 
-use super::{NodeKind, SyntaxNode};
+use super::{parse, NodeKind, SyntaxNode};
 
 /// Highlight source text into a standalone HTML document.
 pub fn highlight_html(text: &str, theme: &Theme) -> String {
@@ -28,7 +28,7 @@ pub fn highlight_pre(text: &str, theme: &Theme) -> String {
     let mut buf = String::new();
     buf.push_str("<pre>\n");
 
-    let root = crate::parse::parse(text);
+    let root = parse(text);
     highlight_themed(&root, theme, |range, style| {
         let styled = style != Style::default();
         if styled {
@@ -401,8 +401,8 @@ impl Category {
 
 #[cfg(test)]
 mod tests {
+    use super::super::Source;
     use super::*;
-    use crate::source::Source;
 
     #[test]
     fn test_highlighting() {

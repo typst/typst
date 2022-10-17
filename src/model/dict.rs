@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use super::{Args, Array, Func, Str, Value, Vm};
 use crate::diag::{SourceResult, StrResult};
-use crate::parse::is_ident;
+use crate::syntax::is_ident;
 use crate::syntax::Spanned;
 use crate::util::ArcExt;
 
@@ -16,7 +16,7 @@ macro_rules! dict {
         #[allow(unused_mut)]
         let mut map = std::collections::BTreeMap::new();
         $(map.insert($key.into(), $value.into());)*
-        $crate::eval::Dict::from_map(map)
+        $crate::model::Dict::from_map(map)
     }};
 }
 

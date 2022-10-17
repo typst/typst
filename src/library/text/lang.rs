@@ -1,5 +1,5 @@
-use crate::eval::Value;
 use crate::geom::Dir;
+use crate::model::Value;
 
 /// A code for a natural language.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]

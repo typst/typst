@@ -4,9 +4,8 @@ use std::sync::Arc;
 
 use comemo::{Prehashed, Tracked};
 
-use super::{Content, NodeId, Selector, StyleChain};
+use super::{Content, Dict, NodeId, Selector, StyleChain};
 use crate::diag::SourceResult;
-use crate::eval::Dict;
 use crate::World;
 
 /// A node that can be realized given some styles.

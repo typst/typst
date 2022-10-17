@@ -12,9 +12,9 @@ pub use string::*;
 
 use comemo::Track;
 
-use crate::eval::{Eval, Route, Scopes, Vm};
 use crate::library::prelude::*;
-use crate::source::Source;
+use crate::model::{Eval, Route, Scopes, Vm};
+use crate::syntax::Source;
 
 /// The name of a value's type.
 pub fn type_(_: &mut Vm, args: &mut Args) -> SourceResult<Value> {

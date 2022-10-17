@@ -5,7 +5,6 @@ use std::cmp::Ordering;
 use super::{RawAlign, RawLength, RawStroke, Regex, Smart, Value};
 use crate::diag::StrResult;
 use crate::geom::{Numeric, Relative, Spec, SpecAxis};
-use crate::model;
 use Value::*;
 
 /// Bail with a type mismatch error.
@@ -21,8 +20,8 @@ pub fn join(lhs: Value, rhs: Value) -> StrResult<Value> {
         (a, None) => a,
         (None, b) => b,
         (Str(a), Str(b)) => Str(a + b),
-        (Str(a), Content(b)) => Content(model::Content::Text(a.into()) + b),
-        (Content(a), Str(b)) => Content(a + model::Content::Text(b.into())),
+        (Str(a), Content(b)) => Content(super::Content::Text(a.into()) + b),
+        (Content(a), Str(b)) => Content(a + super::Content::Text(b.into())),
         (Content(a), Content(b)) => Content(a + b),
         (Array(a), Array(b)) => Array(a + b),
         (Dict(a), Dict(b)) => Dict(a + b),
@@ -87,8 +86,8 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
 
         (Str(a), Str(b)) => Str(a + b),
         (Content(a), Content(b)) => Content(a + b),
-        (Content(a), Str(b)) => Content(a + model::Content::Text(b.into())),
-        (Str(a), Content(b)) => Content(model::Content::Text(a.into()) + b),
+        (Content(a), Str(b)) => Content(a + super::Content::Text(b.into())),
+        (Str(a), Content(b)) => Content(super::Content::Text(a.into()) + b),
 
         (Array(a), Array(b)) => Array(a + b),
         (Dict(a), Dict(b)) => Dict(a + b),

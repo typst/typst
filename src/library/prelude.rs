@@ -12,12 +12,12 @@ pub use typst_macros::node;
 pub use crate::diag::{
     with_alternative, At, FileError, FileResult, SourceError, SourceResult, StrResult,
 };
-pub use crate::eval::{
+pub use crate::frame::*;
+pub use crate::geom::*;
+pub use crate::model::{
     Arg, Args, Array, Cast, Dict, Dynamic, Func, Node, RawAlign, RawLength, RawStroke,
     Scope, Smart, Str, Value, Vm,
 };
-pub use crate::frame::*;
-pub use crate::geom::*;
 pub use crate::model::{
     Content, Fold, Key, Layout, LayoutNode, Regions, Resolve, Selector, Show, ShowNode,
     StyleChain, StyleMap, StyleVec,

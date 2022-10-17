@@ -1,10 +1,9 @@
 use std::ops::Range;
 use std::sync::Arc;
 
-use crate::syntax::{InnerNode, NodeKind, Span, SyntaxNode};
-
 use super::{
-    is_newline, parse, reparse_code_block, reparse_content_block, reparse_markup_elements,
+    is_newline, parse, reparse_code_block, reparse_content_block,
+    reparse_markup_elements, InnerNode, NodeKind, Span, SyntaxNode,
 };
 
 /// Refresh the given syntax node with as little parsing as possible.
@@ -413,9 +412,8 @@ fn next_at_start(kind: &NodeKind, prev: bool) -> bool {
 #[rustfmt::skip]
 mod tests {
     use super::*;
-    use crate::parse::parse;
-    use crate::parse::tests::check;
-    use crate::source::Source;
+    use super::super::{parse, Source};
+    use super::super::tests::check;
 
     #[track_caller]
     fn test(prev: &str, range: Range<usize>, with: &str, goal: Range<usize>) {

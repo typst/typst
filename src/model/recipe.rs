@@ -2,9 +2,11 @@ use std::fmt::{self, Debug, Formatter};
 
 use comemo::Tracked;
 
-use super::{Content, Interruption, NodeId, Show, ShowNode, StyleChain, StyleEntry};
+use super::{
+    Args, Content, Func, Interruption, NodeId, Regex, Show, ShowNode, StyleChain,
+    StyleEntry, Value,
+};
 use crate::diag::SourceResult;
-use crate::eval::{Args, Func, Regex, Value};
 use crate::library::structure::{DescNode, EnumNode, ListNode};
 use crate::syntax::Spanned;
 use crate::World;

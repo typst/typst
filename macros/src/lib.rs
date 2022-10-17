@@ -69,12 +69,12 @@ fn expand(stream: TokenStream2, mut impl_block: syn::ItemImpl) -> Result<TokenSt
             use std::any::TypeId;
             use std::marker::PhantomData;
             use once_cell::sync::Lazy;
-            use crate::{eval, model};
+            use crate::model;
             use super::*;
 
             #impl_block
 
-            impl<#params> eval::Node for #self_ty {
+            impl<#params> model::Node for #self_ty {
                 const SHOWABLE: bool = #showable;
                 #construct
                 #set

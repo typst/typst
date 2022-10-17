@@ -2,8 +2,7 @@ use std::fmt::{self, Display, Formatter};
 use std::mem;
 use std::ops::Range;
 
-use super::{TokenMode, Tokens};
-use crate::syntax::{ErrorPos, InnerNode, NodeData, NodeKind, SyntaxNode};
+use super::{ErrorPos, InnerNode, NodeData, NodeKind, SyntaxNode, TokenMode, Tokens};
 use crate::util::EcoString;
 
 /// A convenient token-based parser.

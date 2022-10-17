@@ -2,7 +2,7 @@ use std::fmt::{self, Debug, Display, Formatter};
 use std::num::NonZeroU64;
 use std::ops::Range;
 
-use crate::syntax::SourceId;
+use super::SourceId;
 
 /// A value with a span locating it in the source code.
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
@@ -42,8 +42,8 @@ impl<T: Debug> Debug for Spanned<T> {
 /// A unique identifier for a syntax node.
 ///
 /// This is used throughout the compiler to track which source section an error
-/// or element stems from. Can be [mapped back](crate::source::Source::range)
-/// to a byte range for user facing display.
+/// or element stems from. Can be [mapped back](super::Source::range) to a byte
+/// range for user facing display.
 ///
 /// Span ids are ordered in the tree to enable quickly finding the node with
 /// some id:

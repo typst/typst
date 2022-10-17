@@ -11,25 +11,23 @@ typst-macros = { path = "./macros" }
 # Utilities
 bitflags = "1"
 bytemuck = "1"
-fxhash = "0.2"
+comemo = "0.1"
 once_cell = "1"
+regex = "1"
 serde = { version = "1", features = ["derive"] }
+siphasher = "0.3"
 typed-arena = "2"
 unscanny = "0.1"
-regex = "1"
-
-# Incremental compilation
-comemo = "0.1"
 
 # Text and font handling
 hypher = "0.1"
 kurbo = "0.8"
-ttf-parser = "0.17"
 rustybuzz = "0.5"
+ttf-parser = "0.17"
 unicode-bidi = "0.3.5"
+unicode-script = "0.5"
 unicode-segmentation = "1"
 unicode-xid = "0.2"
-unicode-script = "0.5"
 xi-unicode = "0.3"
 
 # Raster and vector graphics handling
@@ -37,12 +35,12 @@ image = { version = "0.24", default-features = false, features = ["png", "jpeg",
 usvg = { version = "0.22", default-features = false }
 
 # External implementation of user-facing features
-syntect = { version = "5", default-features = false, features = ["default-syntaxes", "regex-fancy"] }
-rex = { git = "https://github.com/laurmaedje/ReX" }
-unicode-math = { git = "https://github.com/s3bk/unicode-math/" }
-lipsum = { git = "https://github.com/reknih/lipsum" }
 csv = "1"
+lipsum = { git = "https://github.com/reknih/lipsum" }
+rex = { git = "https://github.com/laurmaedje/ReX" }
 serde_json = "1"
+syntect = { version = "5", default-features = false, features = ["default-syntaxes", "regex-fancy"] }
+unicode-math = { git = "https://github.com/s3bk/unicode-math/" }
 
 # PDF export
 miniz_oxide = "0.5"
@@ -50,52 +48,50 @@ pdf-writer = "0.6"
 subsetter = "0.1"
 svg2pdf = "0.4"
 
-# Raster export / rendering
-tiny-skia = "0.6.2"
+# Rendering
+flate2 = "1"
 pixglyph = { git = "https://github.com/typst/pixglyph" }
 resvg = { version = "0.22", default-features = false }
 roxmltree = "0.14"
-flate2 = "1"
+tiny-skia = "0.6.2"
 
-# Command line interface / tests
-pico-args = { version = "0.4", optional = true }
+# Command line interface
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"], optional = true }
 codespan-reporting = { version = "0.11", optional = true }
+dirs = { version = "4", optional = true }
+elsa = { version = "1.7", optional = true }
+memmap2 = { version = "0.5", optional = true }
+notify = { version = "5", optional = true }
+pico-args = { version = "0.4", optional = true }
 same-file = { version = "1", optional = true }
 walkdir = { version = "2", optional = true }
-elsa = { version = "1.7", optional = true }
-dirs = { version = "4", optional = true }
-memmap2 = { version = "0.5", optional = true }
-siphasher = { version = "0.3", optional = true }
-notify = { version = "5", optional = true }
-chrono = { version = "0.4", default-features = false, features = ["clock", "std"], optional = true }
 
 [dev-dependencies]
 iai = { git = "https://github.com/reknih/iai" }
 walkdir = "2"
+elsa = "1.7"
+
+[workspace]
+members = ["macros"]
 
 [features]
-default = ["tests"]
-tests = ["same-file", "walkdir", "elsa", "siphasher"]
 cli = [
-    "pico-args",
+    "chrono",
     "codespan-reporting",
     "dirs",
+    "elsa",
     "memmap2",
+    "notify",
+    "pico-args",
     "same-file",
     "walkdir",
-    "elsa",
-    "siphasher",
-    "notify",
-    "chrono",
 ]
 
 [profile.dev]
-# Faster compilation
-debug = 0
+debug = 0 # Faster compilation
 
 [profile.dev.package."*"]
-# Faster test execution
-opt-level = 2
+opt-level = 2 # Faster test execution
 
 [[bin]]
 name = "typst"
@@ -103,7 +99,6 @@ required-features = ["cli"]
 
 [[test]]
 name = "typeset"
-required-features = ["tests"]
 harness = false
 
 [[bench]]

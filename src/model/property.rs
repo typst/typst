@@ -5,8 +5,7 @@ use std::sync::Arc;
 
 use comemo::Prehashed;
 
-use super::{Interruption, NodeId, StyleChain};
-use crate::eval::{RawLength, Smart};
+use super::{Interruption, NodeId, RawLength, Smart, StyleChain};
 use crate::geom::{Corners, Length, Numeric, Relative, Sides, Spec};
 use crate::library::layout::PageNode;
 use crate::library::structure::{DescNode, EnumNode, ListNode};

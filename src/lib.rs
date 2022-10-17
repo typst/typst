@@ -17,12 +17,12 @@
 //! - **Exporting:** The finished layout can be exported into a supported
 //!   format. Currently, the only supported output format is [PDF].
 //!
-//! [tokens]: parse::Tokens
-//! [parsed]: parse::parse
+//! [tokens]: syntax::Tokens
+//! [parsed]: syntax::parse
 //! [syntax tree]: syntax::SyntaxNode
 //! [AST]: syntax::ast
-//! [evaluate]: eval::eval
-//! [module]: eval::Module
+//! [evaluate]: model::eval
+//! [module]: model::Module
 //! [content]: model::Content
 //! [layouted]: model::layout
 //! [PDF]: export::pdf
@@ -38,15 +38,12 @@ pub mod geom;
 #[macro_use]
 pub mod diag;
 #[macro_use]
-pub mod eval;
+pub mod model;
 pub mod export;
 pub mod font;
 pub mod frame;
 pub mod image;
 pub mod library;
-pub mod model;
-pub mod parse;
-pub mod source;
 pub mod syntax;
 
 use std::path::{Path, PathBuf};
@@ -54,11 +51,11 @@ use std::path::{Path, PathBuf};
 use comemo::{Prehashed, Track};
 
 use crate::diag::{FileResult, SourceResult};
-use crate::eval::{Route, Scope};
 use crate::font::{Font, FontBook};
 use crate::frame::Frame;
 use crate::model::StyleMap;
-use crate::source::{Source, SourceId};
+use crate::model::{Route, Scope};
+use crate::syntax::{Source, SourceId};
 use crate::util::Buffer;
 
 /// Typeset a source file into a collection of layouted frames.
@@ -71,7 +68,7 @@ pub fn typeset(
     main: SourceId,
 ) -> SourceResult<Vec<Frame>> {
     let route = Route::default();
-    let module = eval::eval(world.track(), route.track(), main)?;
+    let module = model::eval(world.track(), route.track(), main)?;
     model::layout(world.track(), &module.content)
 }
 

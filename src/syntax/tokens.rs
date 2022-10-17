@@ -4,8 +4,8 @@ use unicode_xid::UnicodeXID;
 use unscanny::Scanner;
 
 use super::resolve::{resolve_hex, resolve_raw, resolve_string};
+use super::{ErrorPos, NodeKind, RawKind, Unit};
 use crate::geom::{AngleUnit, LengthUnit};
-use crate::syntax::{ErrorPos, NodeKind, RawKind, Unit};
 use crate::util::EcoString;
 
 /// An iterator over the tokens of a string of source code.
@@ -710,8 +710,8 @@ fn is_math_id_continue(c: char) -> bool {
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod tests {
+    use super::super::tests::check;
     use super::*;
-    use crate::parse::tests::check;
 
     use ErrorPos::*;
     use NodeKind::*;

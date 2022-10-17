@@ -1,7 +1,6 @@
 use unscanny::Scanner;
 
-use super::{is_ident, is_newline};
-use crate::syntax::RawKind;
+use super::{is_ident, is_newline, RawKind};
 use crate::util::EcoString;
 
 /// Resolve all escape sequences in a string.

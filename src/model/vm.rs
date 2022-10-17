@@ -4,8 +4,7 @@ use comemo::Tracked;
 
 use super::{Route, Scopes, Value};
 use crate::diag::{SourceError, StrResult};
-use crate::source::SourceId;
-use crate::syntax::Span;
+use crate::syntax::{SourceId, Span};
 use crate::util::PathExt;
 use crate::World;
 

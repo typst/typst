@@ -6,8 +6,7 @@ use unscanny::Scanner;
 
 use typst::diag::{FileError, FileResult};
 use typst::font::{Font, FontBook};
-use typst::parse::{TokenMode, Tokens};
-use typst::source::{Source, SourceId};
+use typst::syntax::{Source, SourceId, TokenMode, Tokens};
 use typst::util::Buffer;
 use typst::{Config, World};
 
@@ -55,7 +54,7 @@ fn bench_tokenize(iai: &mut Iai) {
 }
 
 fn bench_parse(iai: &mut Iai) {
-    iai.run(|| typst::parse::parse(TEXT));
+    iai.run(|| typst::syntax::parse(TEXT));
 }
 
 fn bench_edit(iai: &mut Iai) {
@@ -77,15 +76,15 @@ fn bench_highlight(iai: &mut Iai) {
 fn bench_eval(iai: &mut Iai) {
     let world = BenchWorld::new();
     let id = world.source.id();
-    let route = typst::eval::Route::default();
-    iai.run(|| typst::eval::eval(world.track(), route.track(), id).unwrap());
+    let route = typst::model::Route::default();
+    iai.run(|| typst::model::eval(world.track(), route.track(), id).unwrap());
 }
 
 fn bench_layout(iai: &mut Iai) {
     let world = BenchWorld::new();
     let id = world.source.id();
-    let route = typst::eval::Route::default();
-    let module = typst::eval::eval(world.track(), route.track(), id).unwrap();
+    let route = typst::model::Route::default();
+    let module = typst::model::eval(world.track(), route.track(), id).unwrap();
     iai.run(|| typst::model::layout(world.track(), &module.content));
 }
 

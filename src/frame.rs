@@ -4,13 +4,13 @@ use std::fmt::{self, Debug, Formatter, Write};
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 
-use crate::eval::{Dict, Value};
 use crate::font::Font;
 use crate::geom::{
     Align, Em, Length, Numeric, Paint, Point, Shape, Size, Spec, Transform,
 };
 use crate::image::Image;
 use crate::library::text::Lang;
+use crate::model::{Dict, Value};
 use crate::util::EcoString;
 
 /// A finished layout with elements at fixed positions.

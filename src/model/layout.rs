@@ -8,8 +8,8 @@ use std::sync::Arc;
 use comemo::{Prehashed, Tracked};
 
 use super::{Barrier, NodeId, Resolve, StyleChain, StyleEntry};
+use super::{Builder, Content, RawAlign, RawLength, Scratch};
 use crate::diag::SourceResult;
-use crate::eval::{RawAlign, RawLength};
 use crate::frame::{Element, Frame};
 use crate::geom::{
     Align, Geometry, Length, Paint, Point, Relative, Sides, Size, Spec, Stroke,
@@ -17,6 +17,21 @@ use crate::geom::{
 use crate::library::graphics::MoveNode;
 use crate::library::layout::{AlignNode, PadNode};
 use crate::World;
+
+/// Layout content into a collection of pages.
+///
+/// Relayouts until all pinned locations are converged.
+#[comemo::memoize]
+pub fn layout(world: Tracked<dyn World>, content: &Content) -> SourceResult<Vec<Frame>> {
+    let styles = StyleChain::with_root(&world.config().styles);
+    let scratch = Scratch::default();
+
+    let mut builder = Builder::new(world, &scratch, true);
+    builder.accept(content, styles)?;
+
+    let (doc, shared) = builder.into_doc(styles)?;
+    doc.layout(world, shared)
+}
 
 /// A node that can be layouted into a sequence of regions.
 ///

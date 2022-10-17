@@ -15,15 +15,13 @@ use unscanny::Scanner;
 use walkdir::WalkDir;
 
 use typst::diag::{FileError, FileResult};
-use typst::eval::{Smart, Value};
 use typst::font::{Font, FontBook};
 use typst::frame::{Element, Frame};
 use typst::geom::{Length, RgbaColor, Sides};
 use typst::library::layout::PageNode;
 use typst::library::text::{TextNode, TextSize};
-use typst::model::StyleMap;
-use typst::source::{Source, SourceId};
-use typst::syntax::SyntaxNode;
+use typst::model::{Smart, StyleMap, Value};
+use typst::syntax::{Source, SourceId, SyntaxNode};
 use typst::util::{Buffer, PathExt};
 use typst::{bail, Config, World};
 
