@@ -1,23 +1,24 @@
-use std::fmt::Debug;
+use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::iter::Sum;
 use std::mem;
 use std::ops::{Add, AddAssign};
+use std::sync::Arc;
 
 use comemo::Tracked;
 use typed_arena::Arena;
 
 use super::{
-    Barrier, CollapsingBuilder, Interruption, Key, Layout, LayoutNode, Property, Show,
-    ShowNode, StyleEntry, StyleMap, StyleVecBuilder, Target,
+    Barrier, CollapsingBuilder, Dict, Interruption, Key, Layout, LayoutNode, Property,
+    Regions, Selector, Show, ShowNode, StyleChain, StyleEntry, StyleMap, StyleVecBuilder,
+    Target,
 };
-use crate::diag::StrResult;
+use crate::diag::{SourceResult, StrResult};
+use crate::frame::{Frame, Role};
+use crate::geom::{Length, Numeric};
 use crate::library::layout::{FlowChild, FlowNode, PageNode, PlaceNode, Spacing};
-use crate::library::prelude::*;
 use crate::library::structure::{DocNode, ListItem, ListNode, DESC, ENUM, LIST};
-use crate::library::text::{
-    DecoNode, EmphNode, ParChild, ParNode, StrongNode, UNDERLINE,
-};
+use crate::library::text::{ParChild, ParNode};
 use crate::util::EcoString;
 use crate::World;
 
@@ -171,21 +172,6 @@ impl Content {
     /// Reenable the show rule identified by the selector.
     pub fn unguard(&self, sel: Selector) -> Self {
         self.clone().styled_with_entry(StyleEntry::Unguard(sel))
-    }
-
-    /// Make this content strong.
-    pub fn strong(self) -> Self {
-        Self::show(StrongNode(self))
-    }
-
-    /// Make this content emphasized.
-    pub fn emph(self) -> Self {
-        Self::show(EmphNode(self))
-    }
-
-    /// Underline this content.
-    pub fn underlined(self) -> Self {
-        Self::show(DecoNode::<UNDERLINE>(self))
     }
 
     /// Add weak vertical spacing above and below the node.

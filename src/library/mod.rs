@@ -14,7 +14,7 @@ pub mod utility;
 use prelude::*;
 
 /// Construct a scope containing all standard library definitions.
-pub fn new() -> Scope {
+pub fn scope() -> Scope {
     let mut std = Scope::new();
 
     // Text.
@@ -58,6 +58,9 @@ pub fn new() -> Scope {
     std.def_node::<layout::ColumnsNode>("columns");
     std.def_node::<layout::ColbreakNode>("colbreak");
     std.def_node::<layout::PlaceNode>("place");
+    std.def_node::<layout::MoveNode>("move");
+    std.def_node::<layout::ScaleNode>("scale");
+    std.def_node::<layout::RotateNode>("rotate");
 
     // Graphics.
     std.def_node::<graphics::ImageNode>("image");
@@ -66,9 +69,6 @@ pub fn new() -> Scope {
     std.def_node::<graphics::SquareNode>("square");
     std.def_node::<graphics::EllipseNode>("ellipse");
     std.def_node::<graphics::CircleNode>("circle");
-    std.def_node::<graphics::MoveNode>("move");
-    std.def_node::<graphics::ScaleNode>("scale");
-    std.def_node::<graphics::RotateNode>("rotate");
     std.def_node::<graphics::HideNode>("hide");
 
     // Math.
@@ -141,4 +141,118 @@ pub fn new() -> Scope {
     std.define("bottom", RawAlign::Specific(Align::Bottom));
 
     std
+}
+
+/// Construct the standard role map.
+pub fn roles() -> RoleMap {
+    RoleMap {
+        strong: |body| Content::show(text::StrongNode(body)),
+        emph: |body| Content::show(text::EmphNode(body)),
+        raw: |text, lang, block| {
+            let node = Content::show(text::RawNode { text, block });
+            match lang {
+                Some(_) => node.styled(text::RawNode::LANG, lang),
+                None => node,
+            }
+        },
+        link: |url| Content::show(text::LinkNode::from_url(url)),
+        ref_: |target| Content::show(structure::RefNode(target)),
+        heading: |level, body| Content::show(structure::HeadingNode { level, body }),
+        list_item: |body| Content::Item(structure::ListItem::List(Box::new(body))),
+        enum_item: |number, body| {
+            Content::Item(structure::ListItem::Enum(number, Box::new(body)))
+        },
+        desc_item: |term, body| {
+            Content::Item(structure::ListItem::Desc(Box::new(structure::DescItem {
+                term,
+                body,
+            })))
+        },
+    }
+}
+
+/// Additional methods on content.
+pub trait ContentExt {
+    /// Make this content strong.
+    fn strong(self) -> Self;
+
+    /// Make this content emphasized.
+    fn emph(self) -> Self;
+
+    /// Underline this content.
+    fn underlined(self) -> Self;
+}
+
+impl ContentExt for Content {
+    fn strong(self) -> Self {
+        Self::show(text::StrongNode(self))
+    }
+
+    fn emph(self) -> Self {
+        Self::show(text::EmphNode(self))
+    }
+
+    fn underlined(self) -> Self {
+        Self::show(text::DecoNode::<{ text::UNDERLINE }>(self))
+    }
+}
+
+/// Additional methods for the style chain.
+pub trait StyleMapExt {
+    /// Set a font family composed of a preferred family and existing families
+    /// from a style chain.
+    fn set_family(&mut self, preferred: text::FontFamily, existing: StyleChain);
+}
+
+impl StyleMapExt for StyleMap {
+    fn set_family(&mut self, preferred: text::FontFamily, existing: StyleChain) {
+        self.set(
+            text::TextNode::FAMILY,
+            std::iter::once(preferred)
+                .chain(existing.get(text::TextNode::FAMILY).iter().cloned())
+                .collect(),
+        );
+    }
+}
+
+/// Additional methods for layout nodes.
+pub trait LayoutNodeExt {
+    /// Set alignments for this node.
+    fn aligned(self, aligns: Spec<Option<RawAlign>>) -> Self;
+
+    /// Pad this node at the sides.
+    fn padded(self, padding: Sides<Relative<RawLength>>) -> Self;
+
+    /// Transform this node's contents without affecting layout.
+    fn moved(self, delta: Spec<Relative<RawLength>>) -> Self;
+}
+
+impl LayoutNodeExt for LayoutNode {
+    fn aligned(self, aligns: Spec<Option<RawAlign>>) -> Self {
+        if aligns.any(Option::is_some) {
+            layout::AlignNode { aligns, child: self }.pack()
+        } else {
+            self
+        }
+    }
+
+    fn padded(self, padding: Sides<Relative<RawLength>>) -> Self {
+        if !padding.left.is_zero()
+            || !padding.top.is_zero()
+            || !padding.right.is_zero()
+            || !padding.bottom.is_zero()
+        {
+            layout::PadNode { padding, child: self }.pack()
+        } else {
+            self
+        }
+    }
+
+    fn moved(self, delta: Spec<Relative<RawLength>>) -> Self {
+        if delta.any(|r| !r.is_zero()) {
+            layout::MoveNode { delta, child: self }.pack()
+        } else {
+            self
+        }
+    }
 }

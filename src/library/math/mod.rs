@@ -15,7 +15,7 @@ use rex::render::{Backend, Cursor, Renderer};
 use crate::font::Font;
 use crate::library::layout::BlockSpacing;
 use crate::library::prelude::*;
-use crate::library::text::{variant, FontFamily, Lang, TextNode};
+use crate::library::text::{variant, FontFamily, TextNode};
 
 /// A piece of a mathematical formula.
 #[derive(Debug, Clone, Hash)]

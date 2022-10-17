@@ -1,7 +1,6 @@
 //! Text handling and paragraph layout.
 
 mod deco;
-mod lang;
 mod link;
 mod par;
 mod quotes;
@@ -11,7 +10,6 @@ mod shaping;
 mod shift;
 
 pub use deco::*;
-pub use lang::*;
 pub use link::*;
 pub use par::*;
 pub use quotes::*;
@@ -288,6 +286,20 @@ castable! {
         "descender" => VerticalFontMetric::Descender,
         _ => Err("unknown font metric")?,
     }),
+}
+
+castable! {
+    Lang,
+    Expected: "string",
+    Value::Str(string) => Self::from_str(&string)
+        .ok_or("expected two or three letter language code (ISO 639-1/2/3)")?,
+}
+
+castable! {
+    Region,
+    Expected: "string",
+    Value::Str(string) => Self::from_str(&string)
+        .ok_or("expected two letter region code (ISO 3166-1 alpha-2)")?,
 }
 
 /// The direction of text and inline objects in their line.

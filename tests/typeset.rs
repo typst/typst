@@ -159,7 +159,7 @@ fn config() -> Config {
     styles.set(TextNode::SIZE, TextSize(Length::pt(10.0).into()));
 
     // Hook up helpers into the global scope.
-    let mut std = typst::library::new();
+    let mut std = typst::library::scope();
     std.define("conifer", RgbaColor::new(0x9f, 0xEB, 0x52, 0xFF));
     std.define("forest", RgbaColor::new(0x43, 0xA1, 0x27, 0xFF));
     std.def_fn("test", move |_, args| {
@@ -182,7 +182,12 @@ fn config() -> Config {
         Ok(Value::None)
     });
 
-    Config { root: PathBuf::new(), std, styles }
+    Config {
+        root: PathBuf::new(),
+        roles: typst::library::roles(),
+        std,
+        styles,
+    }
 }
 
 /// A world that provides access to the tests environment.

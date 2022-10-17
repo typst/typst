@@ -141,7 +141,7 @@ fn eval_markup(
             ast::MarkupNode::Expr(ast::Expr::Wrap(wrap)) => {
                 let tail = eval_markup(vm, nodes)?;
                 vm.scopes.top.define(wrap.binding().take(), tail);
-                wrap.body().eval(vm)?.display()
+                wrap.body().eval(vm)?.display(vm.world)
             }
 
             _ => node.eval(vm)?,
@@ -181,7 +181,7 @@ impl Eval for ast::MarkupNode {
             Self::Desc(v) => v.eval(vm),
             Self::Label(v) => v.eval(vm),
             Self::Ref(v) => v.eval(vm),
-            Self::Expr(v) => v.eval(vm).map(Value::display),
+            Self::Expr(v) => v.eval(vm).map(|value| value.display(vm.world)),
         }
     }
 }
@@ -242,9 +242,7 @@ impl Eval for ast::Strong {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(Content::show(library::text::StrongNode(
-            self.body().eval(vm)?,
-        )))
+        Ok((vm.roles().strong)(self.body().eval(vm)?))
     }
 }
 
@@ -252,34 +250,80 @@ impl Eval for ast::Emph {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(Content::show(library::text::EmphNode(
-            self.body().eval(vm)?,
-        )))
-    }
-}
-
-impl Eval for ast::Link {
-    type Output = Content;
-
-    fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(Content::show(library::text::LinkNode::from_url(
-            self.url().clone(),
-        )))
+        Ok((vm.roles().emph)(self.body().eval(vm)?))
     }
 }
 
 impl Eval for ast::Raw {
     type Output = Content;
 
+    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        let text = self.text().clone();
+        let lang = self.lang().cloned();
+        let block = self.block();
+        Ok((vm.roles().raw)(text, lang, block))
+    }
+}
+
+impl Eval for ast::Link {
+    type Output = Content;
+
+    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        Ok((vm.roles().link)(self.url().clone()))
+    }
+}
+
+impl Eval for ast::Label {
+    type Output = Content;
+
     fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
-        let content = Content::show(library::text::RawNode {
-            text: self.text().clone(),
-            block: self.block(),
-        });
-        Ok(match self.lang() {
-            Some(_) => content.styled(library::text::RawNode::LANG, self.lang().cloned()),
-            None => content,
-        })
+        Ok(Content::Empty)
+    }
+}
+
+impl Eval for ast::Ref {
+    type Output = Content;
+
+    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        Ok((vm.roles().ref_)(self.get().clone()))
+    }
+}
+
+impl Eval for ast::Heading {
+    type Output = Content;
+
+    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        let level = self.level();
+        let body = self.body().eval(vm)?;
+        Ok((vm.roles().heading)(level, body))
+    }
+}
+
+impl Eval for ast::ListItem {
+    type Output = Content;
+
+    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        Ok((vm.roles().list_item)(self.body().eval(vm)?))
+    }
+}
+
+impl Eval for ast::EnumItem {
+    type Output = Content;
+
+    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        let number = self.number();
+        let body = self.body().eval(vm)?;
+        Ok((vm.roles().enum_item)(number, body))
+    }
+}
+
+impl Eval for ast::DescItem {
+    type Output = Content;
+
+    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        let term = self.term().eval(vm)?;
+        let body = self.body().eval(vm)?;
+        Ok((vm.roles().desc_item)(term, body))
     }
 }
 
@@ -318,7 +362,7 @@ impl Eval for ast::MathNode {
                 ),
                 node.span(),
             ),
-            Self::Expr(expr) => match expr.eval(vm)?.display() {
+            Self::Expr(expr) => match expr.eval(vm)?.display(vm.world) {
                 Content::Text(text) => library::math::MathNode::Atom(text),
                 _ => bail!(expr.span(), "expected text"),
             },
@@ -366,68 +410,6 @@ impl Eval for ast::Align {
 
     fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
         Ok(library::math::MathNode::Align(self.count()))
-    }
-}
-
-impl Eval for ast::Heading {
-    type Output = Content;
-
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(Content::show(library::structure::HeadingNode {
-            body: self.body().eval(vm)?,
-            level: self.level(),
-        }))
-    }
-}
-
-impl Eval for ast::ListItem {
-    type Output = Content;
-
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let body = Box::new(self.body().eval(vm)?);
-        Ok(Content::Item(library::structure::ListItem::List(body)))
-    }
-}
-
-impl Eval for ast::EnumItem {
-    type Output = Content;
-
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let number = self.number();
-        let body = Box::new(self.body().eval(vm)?);
-        Ok(Content::Item(library::structure::ListItem::Enum(
-            number, body,
-        )))
-    }
-}
-
-impl Eval for ast::DescItem {
-    type Output = Content;
-
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let term = self.term().eval(vm)?;
-        let body = self.body().eval(vm)?;
-        Ok(Content::Item(library::structure::ListItem::Desc(Box::new(
-            library::structure::DescItem { term, body },
-        ))))
-    }
-}
-
-impl Eval for ast::Label {
-    type Output = Content;
-
-    fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(Content::Empty)
-    }
-}
-
-impl Eval for ast::Ref {
-    type Output = Content;
-
-    fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(Content::show(library::structure::RefNode(
-            self.get().clone(),
-        )))
     }
 }
 
@@ -530,7 +512,7 @@ fn eval_code(
                     break;
                 }
 
-                let tail = eval_code(vm, exprs)?.display();
+                let tail = eval_code(vm, exprs)?.display(vm.world);
                 Value::Content(tail.styled_with_map(styles))
             }
             ast::Expr::Show(show) => {
@@ -540,7 +522,7 @@ fn eval_code(
                     break;
                 }
 
-                let tail = eval_code(vm, exprs)?.display();
+                let tail = eval_code(vm, exprs)?.display(vm.world);
                 Value::Content(tail.styled_with_entry(entry))
             }
             ast::Expr::Wrap(wrap) => {

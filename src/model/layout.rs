@@ -8,19 +8,13 @@ use std::sync::Arc;
 use comemo::{Prehashed, Tracked};
 
 use super::{Barrier, NodeId, Resolve, StyleChain, StyleEntry};
-use super::{Builder, Content, RawAlign, RawLength, Scratch};
+use super::{Builder, Content, RawLength, Scratch};
 use crate::diag::SourceResult;
 use crate::frame::{Element, Frame};
-use crate::geom::{
-    Align, Geometry, Length, Paint, Point, Relative, Sides, Size, Spec, Stroke,
-};
-use crate::library::graphics::MoveNode;
-use crate::library::layout::{AlignNode, PadNode};
+use crate::geom::{Align, Geometry, Length, Paint, Point, Relative, Size, Spec, Stroke};
 use crate::World;
 
 /// Layout content into a collection of pages.
-///
-/// Relayouts until all pinned locations are converged.
 #[comemo::memoize]
 pub fn layout(world: Tracked<dyn World>, content: &Content) -> SourceResult<Vec<Frame>> {
     let styles = StyleChain::with_root(&world.config().styles);
@@ -195,37 +189,6 @@ impl LayoutNode {
     /// Stroke the frames resulting from a node.
     pub fn stroked(self, stroke: Stroke) -> Self {
         StrokeNode { stroke, child: self }.pack()
-    }
-
-    /// Set alignments for this node.
-    pub fn aligned(self, aligns: Spec<Option<RawAlign>>) -> Self {
-        if aligns.any(Option::is_some) {
-            AlignNode { aligns, child: self }.pack()
-        } else {
-            self
-        }
-    }
-
-    /// Pad this node at the sides.
-    pub fn padded(self, padding: Sides<Relative<RawLength>>) -> Self {
-        if !padding.left.is_zero()
-            || !padding.top.is_zero()
-            || !padding.right.is_zero()
-            || !padding.bottom.is_zero()
-        {
-            PadNode { padding, child: self }.pack()
-        } else {
-            self
-        }
-    }
-
-    /// Transform this node's contents without affecting layout.
-    pub fn moved(self, delta: Spec<Relative<RawLength>>) -> Self {
-        if delta.any(|r| !r.is_zero()) {
-            MoveNode { delta, child: self }.pack()
-        } else {
-            self
-        }
     }
 }
 

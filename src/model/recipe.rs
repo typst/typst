@@ -89,7 +89,7 @@ impl Recipe {
             Args::new(self.func.span, [arg()])
         };
 
-        Ok(self.func.v.call_detached(world, args)?.display())
+        Ok(self.func.v.call_detached(world, args)?.display(world))
     }
 
     /// What kind of structure the property interrupts.

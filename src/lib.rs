@@ -46,6 +46,7 @@ pub mod image;
 pub mod library;
 pub mod syntax;
 
+use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
 
 use comemo::{Prehashed, Track};
@@ -54,9 +55,9 @@ use crate::diag::{FileResult, SourceResult};
 use crate::font::{Font, FontBook};
 use crate::frame::Frame;
 use crate::model::StyleMap;
-use crate::model::{Route, Scope};
+use crate::model::{Content, Route, Scope};
 use crate::syntax::{Source, SourceId};
-use crate::util::Buffer;
+use crate::util::{Buffer, EcoString};
 
 /// Typeset a source file into a collection of layouted frames.
 ///
@@ -105,6 +106,10 @@ pub struct Config {
     ///
     /// Default: Typst's standard library.
     pub std: Scope,
+    /// Defines which standard library items fulfill which syntactical roles.
+    ///
+    /// Default: Typst's standard library's role map.
+    pub roles: RoleMap,
     /// The default properties for page size, font selection and so on.
     ///
     /// Default: Empty style map.
@@ -115,8 +120,23 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             root: PathBuf::new(),
-            std: library::new(),
+            std: library::scope(),
             styles: StyleMap::new(),
+            roles: library::roles(),
         }
     }
+}
+
+/// Definition of certain standard library items the language is aware of.
+#[derive(Debug, Clone, Hash)]
+pub struct RoleMap {
+    strong: fn(Content) -> Content,
+    emph: fn(Content) -> Content,
+    raw: fn(EcoString, Option<EcoString>, bool) -> Content,
+    link: fn(EcoString) -> Content,
+    ref_: fn(EcoString) -> Content,
+    heading: fn(NonZeroUsize, Content) -> Content,
+    list_item: fn(Content) -> Content,
+    enum_item: fn(Option<usize>, Content) -> Content,
+    desc_item: fn(Content, Content) -> Content,
 }

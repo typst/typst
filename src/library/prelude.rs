@@ -9,6 +9,7 @@ pub use std::sync::Arc;
 pub use comemo::Tracked;
 pub use typst_macros::node;
 
+pub use super::{ContentExt, LayoutNodeExt, StyleMapExt};
 pub use crate::diag::{
     with_alternative, At, FileError, FileResult, SourceError, SourceResult, StrResult,
 };
@@ -24,4 +25,4 @@ pub use crate::model::{
 };
 pub use crate::syntax::{Span, Spanned};
 pub use crate::util::EcoString;
-pub use crate::World;
+pub use crate::{RoleMap, World};

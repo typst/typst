@@ -4,6 +4,9 @@ version = "0.1.0"
 authors = ["The Typst Project Developers"]
 edition = "2021"
 
+[workspace]
+members = ["macros"]
+
 [dependencies]
 # Workspace
 typst-macros = { path = "./macros" }
@@ -68,11 +71,8 @@ walkdir = { version = "2", optional = true }
 
 [dev-dependencies]
 iai = { git = "https://github.com/reknih/iai" }
-walkdir = "2"
 elsa = "1.7"
-
-[workspace]
-members = ["macros"]
+walkdir = "2"
 
 [features]
 cli = [
@@ -103,5 +103,4 @@ harness = false
 
 [[bench]]
 name = "oneshot"
-path = "benches/oneshot.rs"
 harness = false

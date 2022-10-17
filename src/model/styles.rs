@@ -8,7 +8,6 @@ use comemo::Tracked;
 use super::{Barrier, Content, Key, Property, Recipe, Selector, Show, Target};
 use crate::diag::SourceResult;
 use crate::frame::Role;
-use crate::library::text::{FontFamily, TextNode};
 use crate::util::ReadableTypeId;
 use crate::World;
 
@@ -53,17 +52,6 @@ impl StyleMap {
         if let Some(value) = value {
             self.set(key, value);
         }
-    }
-
-    /// Set a font family composed of a preferred family and existing families
-    /// from a style chain.
-    pub fn set_family(&mut self, preferred: FontFamily, existing: StyleChain) {
-        self.set(
-            TextNode::FAMILY,
-            iter::once(preferred)
-                .chain(existing.get(TextNode::FAMILY).iter().cloned())
-                .collect(),
-        );
     }
 
     /// Whether the map contains a style property for the given key.

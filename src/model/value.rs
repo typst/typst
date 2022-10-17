@@ -4,13 +4,14 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
+use comemo::Tracked;
 use siphasher::sip128::{Hasher128, SipHasher};
 
 use super::{ops, Args, Array, Cast, Content, Dict, Func, Layout, RawLength, Str};
 use crate::diag::StrResult;
 use crate::geom::{Angle, Color, Em, Fraction, Length, Ratio, Relative, RgbaColor};
-use crate::library::text::RawNode;
 use crate::util::EcoString;
+use crate::World;
 
 /// A computational value.
 #[derive(Clone)]
@@ -113,7 +114,7 @@ impl Value {
     }
 
     /// Return the display representation of the value.
-    pub fn display(self) -> Content {
+    pub fn display(self, world: Tracked<dyn World>) -> Content {
         match self {
             Value::None => Content::new(),
             Value::Int(v) => Content::Text(format_eco!("{}", v)),
@@ -123,8 +124,7 @@ impl Value {
 
             // For values which can't be shown "naturally", we return the raw
             // representation with typst code syntax highlighting.
-            v => Content::show(RawNode { text: v.repr().into(), block: false })
-                .styled(RawNode::LANG, Some("typc".into())),
+            v => (world.config().roles.raw)(v.repr().into(), Some("typc".into()), false),
         }
     }
 }

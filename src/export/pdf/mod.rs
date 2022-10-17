@@ -15,10 +15,9 @@ use pdf_writer::{Finish, Name, PdfWriter, Ref, TextStr};
 use self::outline::{Heading, HeadingNode};
 use self::page::Page;
 use crate::font::Font;
-use crate::frame::Frame;
+use crate::frame::{Frame, Lang};
 use crate::geom::{Dir, Em, Length};
 use crate::image::Image;
-use crate::library::text::Lang;
 
 /// Export a collection of frames into a PDF file.
 ///
