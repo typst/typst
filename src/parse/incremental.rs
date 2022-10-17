@@ -389,16 +389,12 @@ fn is_bounded(kind: &NodeKind) -> bool {
     match kind {
         NodeKind::CodeBlock
         | NodeKind::ContentBlock
-        | NodeKind::Backslash
-        | NodeKind::Tilde
-        | NodeKind::HyphQuest
-        | NodeKind::Hyph2
-        | NodeKind::Hyph3
-        | NodeKind::Dot3
-        | NodeKind::Quote { .. }
+        | NodeKind::Linebreak
+        | NodeKind::SmartQuote { .. }
         | NodeKind::BlockComment
         | NodeKind::Space { .. }
-        | NodeKind::Escape(_) => true,
+        | NodeKind::Escape(_)
+        | NodeKind::Shorthand(_) => true,
         _ => false,
     }
 }

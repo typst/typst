@@ -3,8 +3,7 @@ use std::mem;
 use std::ops::Range;
 
 use super::{TokenMode, Tokens};
-use crate::diag::ErrorPos;
-use crate::syntax::{InnerNode, NodeData, NodeKind, SyntaxNode};
+use crate::syntax::{ErrorPos, InnerNode, NodeData, NodeKind, SyntaxNode};
 use crate::util::EcoString;
 
 /// A convenient token-based parser.

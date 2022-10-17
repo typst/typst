@@ -5,8 +5,7 @@
 use std::num::NonZeroUsize;
 use std::ops::Deref;
 
-use super::{NodeData, NodeKind, Span, SyntaxNode};
-use crate::geom::{AngleUnit, LengthUnit};
+use super::{NodeData, NodeKind, RawKind, Span, SyntaxNode, Unit};
 use crate::util::EcoString;
 
 /// A typed AST node.
@@ -25,10 +24,7 @@ pub trait TypedNode: Sized {
 
 macro_rules! node {
     ($(#[$attr:meta])* $name:ident) => {
-        node!{$(#[$attr])* $name: $name}
-    };
-    ($(#[$attr:meta])* $name:ident: $variant:ident) => {
-        node!{$(#[$attr])* $name: NodeKind::$variant}
+        node!{ $(#[$attr])* $name: NodeKind::$name { .. } }
     };
     ($(#[$attr:meta])* $name:ident: $variants:pat) => {
         #[derive(Debug, Clone, PartialEq, Hash)]
@@ -54,254 +50,296 @@ macro_rules! node {
 
 node! {
     /// The syntactical root capable of representing a full parsed document.
-    MarkupNode: NodeKind::Markup { .. }
+    Markup
 }
 
-impl MarkupNode {
+impl Markup {
     /// The children.
-    pub fn items(&self) -> impl Iterator<Item = MarkupItem> + '_ {
+    pub fn children(&self) -> impl Iterator<Item = MarkupNode> + '_ {
         self.0.children().filter_map(SyntaxNode::cast)
     }
 }
 
 /// A single piece of markup.
 #[derive(Debug, Clone, PartialEq)]
-pub enum MarkupItem {
+pub enum MarkupNode {
     /// Whitespace containing less than two newlines.
-    Space,
+    Space(Space),
     /// A forced line break.
-    Linebreak,
-    /// A paragraph break: Two or more newlines.
-    Parbreak,
+    Linebreak(Linebreak),
     /// Plain text.
-    Text(EcoString),
+    Text(Text),
+    /// An escape sequence: `\#`, `\u{1F5FA}`.
+    Escape(Escape),
+    /// A shorthand for a unicode codepoint. For example, `~` for non-breaking
+    /// space or `-?` for a soft hyphen.
+    Shorthand(Shorthand),
     /// A smart quote: `'` or `"`.
-    Quote { double: bool },
-    /// Strong content: `*Strong*`.
-    Strong(StrongNode),
-    /// Emphasized content: `_Emphasized_`.
-    Emph(EmphNode),
-    /// A hyperlink: `https://typst.org`.
-    Link(EcoString),
+    SmartQuote(SmartQuote),
+    /// Strong markup: `*Strong*`.
+    Strong(Strong),
+    /// Emphasized markup: `_Emphasized_`.
+    Emph(Emph),
     /// A raw block with optional syntax highlighting: `` `...` ``.
-    Raw(RawNode),
-    /// A math formula: `$x$`, `$ x^2 $`.
-    Math(MathNode),
+    Raw(Raw),
+    /// A hyperlink: `https://typst.org`.
+    Link(Link),
+    /// A label: `<label>`.
+    Label(Label),
+    /// A reference: `@target`.
+    Ref(Ref),
     /// A section heading: `= Introduction`.
-    Heading(HeadingNode),
+    Heading(Heading),
     /// An item in an unordered list: `- ...`.
     List(ListItem),
     /// An item in an enumeration (ordered list): `+ ...` or `1. ...`.
     Enum(EnumItem),
     /// An item in a description list: `/ Term: Details`.
     Desc(DescItem),
-    /// A label: `<label>`.
-    Label(EcoString),
-    /// A reference: `@label`.
-    Ref(EcoString),
+    /// A math formula: `$x$`, `$ x^2 $`.
+    Math(Math),
     /// An expression.
     Expr(Expr),
 }
 
-impl TypedNode for MarkupItem {
+impl TypedNode for MarkupNode {
     fn from_untyped(node: &SyntaxNode) -> Option<Self> {
         match node.kind() {
-            NodeKind::Space { newlines: (2 ..) } => Some(Self::Parbreak),
-            NodeKind::Space { .. } => Some(Self::Space),
-            NodeKind::Backslash => Some(Self::Linebreak),
-            NodeKind::Text(s) => Some(Self::Text(s.clone())),
-            NodeKind::Escape(c) => Some(Self::Text((*c).into())),
-            NodeKind::Tilde => Some(Self::Text('\u{00A0}'.into())),
-            NodeKind::HyphQuest => Some(Self::Text('\u{00AD}'.into())),
-            NodeKind::Hyph2 => Some(Self::Text('\u{2013}'.into())),
-            NodeKind::Hyph3 => Some(Self::Text('\u{2014}'.into())),
-            NodeKind::Dot3 => Some(Self::Text('\u{2026}'.into())),
-            NodeKind::Quote { double } => Some(Self::Quote { double: *double }),
+            NodeKind::Space { .. } => node.cast().map(Self::Space),
+            NodeKind::Linebreak => node.cast().map(Self::Linebreak),
+            NodeKind::Text(_) => node.cast().map(Self::Text),
+            NodeKind::Escape(_) => node.cast().map(Self::Escape),
+            NodeKind::Shorthand(_) => node.cast().map(Self::Shorthand),
+            NodeKind::SmartQuote { .. } => node.cast().map(Self::SmartQuote),
             NodeKind::Strong => node.cast().map(Self::Strong),
             NodeKind::Emph => node.cast().map(Self::Emph),
-            NodeKind::Link(url) => Some(Self::Link(url.clone())),
-            NodeKind::Raw(raw) => Some(Self::Raw(raw.as_ref().clone())),
-            NodeKind::Math => node.cast().map(Self::Math),
+            NodeKind::Raw(_) => node.cast().map(Self::Raw),
+            NodeKind::Link(_) => node.cast().map(Self::Link),
+            NodeKind::Label(_) => node.cast().map(Self::Label),
+            NodeKind::Ref(_) => node.cast().map(Self::Ref),
             NodeKind::Heading => node.cast().map(Self::Heading),
             NodeKind::ListItem => node.cast().map(Self::List),
             NodeKind::EnumItem => node.cast().map(Self::Enum),
             NodeKind::DescItem => node.cast().map(Self::Desc),
-            NodeKind::Label(v) => Some(Self::Label(v.clone())),
-            NodeKind::Ref(v) => Some(Self::Ref(v.clone())),
+            NodeKind::Math => node.cast().map(Self::Math),
             _ => node.cast().map(Self::Expr),
         }
     }
 
     fn as_untyped(&self) -> &SyntaxNode {
-        unimplemented!("MarkupNode::as_untyped")
+        match self {
+            Self::Space(v) => v.as_untyped(),
+            Self::Linebreak(v) => v.as_untyped(),
+            Self::Text(v) => v.as_untyped(),
+            Self::Escape(v) => v.as_untyped(),
+            Self::Shorthand(v) => v.as_untyped(),
+            Self::SmartQuote(v) => v.as_untyped(),
+            Self::Strong(v) => v.as_untyped(),
+            Self::Emph(v) => v.as_untyped(),
+            Self::Raw(v) => v.as_untyped(),
+            Self::Link(v) => v.as_untyped(),
+            Self::Label(v) => v.as_untyped(),
+            Self::Ref(v) => v.as_untyped(),
+            Self::Heading(v) => v.as_untyped(),
+            Self::List(v) => v.as_untyped(),
+            Self::Enum(v) => v.as_untyped(),
+            Self::Desc(v) => v.as_untyped(),
+            Self::Math(v) => v.as_untyped(),
+            Self::Expr(v) => v.as_untyped(),
+        }
+    }
+}
+
+node! {
+    /// Whitespace.
+    Space
+}
+
+impl Space {
+    /// Get the number of newlines.
+    pub fn newlines(&self) -> usize {
+        match self.0.kind() {
+            &NodeKind::Space { newlines } => newlines,
+            _ => panic!("space is of wrong kind"),
+        }
+    }
+}
+
+node! {
+    /// A forced line break.
+    Linebreak
+}
+
+node! {
+    /// Plain text.
+    Text
+}
+
+impl Text {
+    /// Get the text.
+    pub fn get(&self) -> &EcoString {
+        match self.0.kind() {
+            NodeKind::Text(v) => v,
+            _ => panic!("text is of wrong kind"),
+        }
+    }
+}
+
+node! {
+    /// An escape sequence: `\#`, `\u{1F5FA}`.
+    Escape
+}
+
+impl Escape {
+    /// Get the escaped character.
+    pub fn get(&self) -> char {
+        match self.0.kind() {
+            &NodeKind::Escape(v) => v,
+            _ => panic!("escape is of wrong kind"),
+        }
+    }
+}
+
+node! {
+    /// A shorthand for a unicode codepoint. For example, `~` for non-breaking
+    /// space or `-?` for a soft hyphen.
+    Shorthand
+}
+
+impl Shorthand {
+    /// Get the shorthanded character.
+    pub fn get(&self) -> char {
+        match self.0.kind() {
+            &NodeKind::Shorthand(v) => v,
+            _ => panic!("shorthand is of wrong kind"),
+        }
+    }
+}
+
+node! {
+    /// A smart quote: `'` or `"`.
+    SmartQuote
+}
+
+impl SmartQuote {
+    /// Whether this is a double quote.
+    pub fn double(&self) -> bool {
+        match self.0.kind() {
+            &NodeKind::SmartQuote { double } => double,
+            _ => panic!("smart quote is of wrong kind"),
+        }
     }
 }
 
 node! {
     /// Strong content: `*Strong*`.
-    StrongNode: Strong
+    Strong
 }
 
-impl StrongNode {
+impl Strong {
     /// The contents of the strong node.
-    pub fn body(&self) -> MarkupNode {
+    pub fn body(&self) -> Markup {
         self.0.cast_first_child().expect("strong node is missing markup body")
     }
 }
 
 node! {
     /// Emphasized content: `_Emphasized_`.
-    EmphNode: Emph
+    Emph
 }
 
-impl EmphNode {
+impl Emph {
     /// The contents of the emphasis node.
-    pub fn body(&self) -> MarkupNode {
+    pub fn body(&self) -> Markup {
         self.0
             .cast_first_child()
             .expect("emphasis node is missing markup body")
     }
 }
 
-/// A raw block with optional syntax highlighting: `` `...` ``.
-#[derive(Debug, Clone, PartialEq, Hash)]
-pub struct RawNode {
-    /// An optional identifier specifying the language to syntax-highlight in.
-    pub lang: Option<EcoString>,
-    /// The raw text, determined as the raw string between the backticks trimmed
-    /// according to the above rules.
-    pub text: EcoString,
-    /// Whether the element is block-level, that is, it has 3+ backticks
-    /// and contains at least one newline.
-    pub block: bool,
-}
-
 node! {
-    /// A math formula: `$x$`, `$ x^2 $`.
-    MathNode: NodeKind::Math { .. }
+    /// A raw block with optional syntax highlighting: `` `...` ``.
+    Raw
 }
 
-impl MathNode {
-    /// The children.
-    pub fn items(&self) -> impl Iterator<Item = MathItem> + '_ {
-        self.0.children().filter_map(SyntaxNode::cast)
+impl Raw {
+    /// The raw text.
+    pub fn text(&self) -> &EcoString {
+        &self.get().text
     }
-}
 
-/// A single piece of a math formula.
-#[derive(Debug, Clone, PartialEq, Hash)]
-pub enum MathItem {
-    /// Whitespace.
-    Space,
-    /// A forced line break.
-    Linebreak,
-    /// An atom: `x`, `+`, `12`.
-    Atom(EcoString),
-    /// A base with an optional sub- and superscript: `a_1^2`.
-    Script(ScriptNode),
-    /// A fraction: `x/2`.
-    Frac(FracNode),
-    /// An alignment indicator: `&`, `&&`.
-    Align(AlignNode),
-    /// Grouped mathematical material.
-    Group(MathNode),
-    /// An expression.
-    Expr(Expr),
-}
+    /// An optional identifier specifying the language to syntax-highlight in.
+    pub fn lang(&self) -> Option<&EcoString> {
+        self.get().lang.as_ref()
+    }
 
-impl TypedNode for MathItem {
-    fn from_untyped(node: &SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            NodeKind::Space { .. } => Some(Self::Space),
-            NodeKind::LeftBrace => Some(Self::Atom('{'.into())),
-            NodeKind::RightBrace => Some(Self::Atom('}'.into())),
-            NodeKind::LeftBracket => Some(Self::Atom('['.into())),
-            NodeKind::RightBracket => Some(Self::Atom(']'.into())),
-            NodeKind::LeftParen => Some(Self::Atom('('.into())),
-            NodeKind::RightParen => Some(Self::Atom(')'.into())),
-            NodeKind::Backslash => Some(Self::Linebreak),
-            NodeKind::Escape(c) => Some(Self::Atom((*c).into())),
-            NodeKind::Atom(atom) => Some(Self::Atom(atom.clone())),
-            NodeKind::Script => node.cast().map(Self::Script),
-            NodeKind::Frac => node.cast().map(Self::Frac),
-            NodeKind::Align => node.cast().map(Self::Align),
-            NodeKind::Math => node.cast().map(Self::Group),
-            _ => node.cast().map(Self::Expr),
+    /// Whether the raw block is block-level.
+    pub fn block(&self) -> bool {
+        self.get().block
+    }
+
+    /// The raw fields.
+    fn get(&self) -> &RawKind {
+        match self.0.kind() {
+            NodeKind::Raw(v) => v.as_ref(),
+            _ => panic!("raw is of wrong kind"),
         }
     }
+}
 
-    fn as_untyped(&self) -> &SyntaxNode {
-        unimplemented!("MathNode::as_untyped")
+node! {
+    /// A hyperlink: `https://typst.org`.
+    Link
+}
+
+impl Link {
+    /// Get the URL.
+    pub fn url(&self) -> &EcoString {
+        match self.0.kind() {
+            NodeKind::Link(url) => url,
+            _ => panic!("link is of wrong kind"),
+        }
     }
 }
 
 node! {
-    /// A base with an optional sub- and superscript in a formula: `a_1^2`.
-    ScriptNode: Script
+    /// A label: `<label>`.
+    Label
 }
 
-impl ScriptNode {
-    /// The base of the script.
-    pub fn base(&self) -> MathItem {
-        self.0.cast_first_child().expect("subscript is missing base")
-    }
-
-    /// The subscript.
-    pub fn sub(&self) -> Option<MathItem> {
-        self.0
-            .children()
-            .skip_while(|node| !matches!(node.kind(), NodeKind::Underscore))
-            .nth(1)
-            .map(|node| node.cast().expect("script node has invalid subscript"))
-    }
-
-    /// The superscript.
-    pub fn sup(&self) -> Option<MathItem> {
-        self.0
-            .children()
-            .skip_while(|node| !matches!(node.kind(), NodeKind::Hat))
-            .nth(1)
-            .map(|node| node.cast().expect("script node has invalid superscript"))
+impl Label {
+    /// Get the label.
+    pub fn get(&self) -> &EcoString {
+        match self.0.kind() {
+            NodeKind::Label(v) => v,
+            _ => panic!("label is of wrong kind"),
+        }
     }
 }
 
 node! {
-    /// A fraction in a formula: `x/2`
-    FracNode: Frac
+    /// A reference: `@target`.
+    Ref
 }
 
-impl FracNode {
-    /// The numerator.
-    pub fn num(&self) -> MathItem {
-        self.0.cast_first_child().expect("fraction is missing numerator")
-    }
-
-    /// The denominator.
-    pub fn denom(&self) -> MathItem {
-        self.0.cast_last_child().expect("fraction is missing denominator")
-    }
-}
-
-node! {
-    /// A math alignment indicator: `&`, `&&`.
-    AlignNode: Align
-}
-
-impl AlignNode {
-    /// The number of ampersands.
-    pub fn count(&self) -> usize {
-        self.0.children().filter(|n| n.kind() == &NodeKind::Amp).count()
+impl Ref {
+    /// Get the target.
+    pub fn get(&self) -> &EcoString {
+        match self.0.kind() {
+            NodeKind::Ref(v) => v,
+            _ => panic!("reference is of wrong kind"),
+        }
     }
 }
 
 node! {
     /// A section heading: `= Introduction`.
-    HeadingNode: Heading
+    Heading
 }
 
-impl HeadingNode {
+impl Heading {
     /// The contents of the heading.
-    pub fn body(&self) -> MarkupNode {
+    pub fn body(&self) -> Markup {
         self.0.cast_first_child().expect("heading is missing markup body")
     }
 
@@ -318,19 +356,19 @@ impl HeadingNode {
 
 node! {
     /// An item in an unordered list: `- ...`.
-    ListItem: ListItem
+    ListItem
 }
 
 impl ListItem {
     /// The contents of the list item.
-    pub fn body(&self) -> MarkupNode {
+    pub fn body(&self) -> Markup {
         self.0.cast_first_child().expect("list item is missing body")
     }
 }
 
 node! {
     /// An item in an enumeration (ordered list): `1. ...`.
-    EnumItem: EnumItem
+    EnumItem
 }
 
 impl EnumItem {
@@ -343,29 +381,168 @@ impl EnumItem {
     }
 
     /// The contents of the list item.
-    pub fn body(&self) -> MarkupNode {
+    pub fn body(&self) -> Markup {
         self.0.cast_first_child().expect("enum item is missing body")
     }
 }
 
 node! {
     /// An item in a description list: `/ Term: Details`.
-    DescItem: DescItem
+    DescItem
 }
 
 impl DescItem {
     /// The term described by the item.
-    pub fn term(&self) -> MarkupNode {
+    pub fn term(&self) -> Markup {
         self.0
             .cast_first_child()
             .expect("description list item is missing term")
     }
 
     /// The description of the term.
-    pub fn body(&self) -> MarkupNode {
+    pub fn body(&self) -> Markup {
         self.0
             .cast_last_child()
             .expect("description list item is missing body")
+    }
+}
+
+node! {
+    /// A math formula: `$x$`, `$ x^2 $`.
+    Math
+}
+
+impl Math {
+    /// The children.
+    pub fn children(&self) -> impl Iterator<Item = MathNode> + '_ {
+        self.0.children().filter_map(SyntaxNode::cast)
+    }
+}
+
+/// A single piece of a math formula.
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub enum MathNode {
+    /// Whitespace.
+    Space(Space),
+    /// A forced line break.
+    Linebreak(Linebreak),
+    /// An escape sequence: `\#`, `\u{1F5FA}`.
+    Escape(Escape),
+    /// A atom: `x`, `+`, `12`.
+    Atom(Atom),
+    /// A base with an optional sub- and superscript: `a_1^2`.
+    Script(Script),
+    /// A fraction: `x/2`.
+    Frac(Frac),
+    /// An alignment indicator: `&`, `&&`.
+    Align(Align),
+    /// Grouped mathematical material.
+    Group(Math),
+    /// An expression.
+    Expr(Expr),
+}
+
+impl TypedNode for MathNode {
+    fn from_untyped(node: &SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            NodeKind::Space { .. } => node.cast().map(Self::Space),
+            NodeKind::Linebreak => node.cast().map(Self::Linebreak),
+            NodeKind::Escape(_) => node.cast().map(Self::Escape),
+            NodeKind::Atom(_) => node.cast().map(Self::Atom),
+            NodeKind::Script => node.cast().map(Self::Script),
+            NodeKind::Frac => node.cast().map(Self::Frac),
+            NodeKind::Align => node.cast().map(Self::Align),
+            NodeKind::Math => node.cast().map(Self::Group),
+            _ => node.cast().map(Self::Expr),
+        }
+    }
+
+    fn as_untyped(&self) -> &SyntaxNode {
+        match self {
+            Self::Space(v) => v.as_untyped(),
+            Self::Linebreak(v) => v.as_untyped(),
+            Self::Escape(v) => v.as_untyped(),
+            Self::Atom(v) => v.as_untyped(),
+            Self::Script(v) => v.as_untyped(),
+            Self::Frac(v) => v.as_untyped(),
+            Self::Align(v) => v.as_untyped(),
+            Self::Group(v) => v.as_untyped(),
+            Self::Expr(v) => v.as_untyped(),
+        }
+    }
+}
+
+node! {
+    /// A atom in a formula: `x`, `+`, `12`.
+    Atom
+}
+
+impl Atom {
+    /// Get the atom's text.
+    pub fn get(&self) -> &EcoString {
+        match self.0.kind() {
+            NodeKind::Atom(v) => v,
+            _ => panic!("atom is of wrong kind"),
+        }
+    }
+}
+
+node! {
+    /// A base with an optional sub- and superscript in a formula: `a_1^2`.
+    Script
+}
+
+impl Script {
+    /// The base of the script.
+    pub fn base(&self) -> MathNode {
+        self.0.cast_first_child().expect("script node is missing base")
+    }
+
+    /// The subscript.
+    pub fn sub(&self) -> Option<MathNode> {
+        self.0
+            .children()
+            .skip_while(|node| !matches!(node.kind(), NodeKind::Underscore))
+            .nth(1)
+            .map(|node| node.cast().expect("script node has invalid subscript"))
+    }
+
+    /// The superscript.
+    pub fn sup(&self) -> Option<MathNode> {
+        self.0
+            .children()
+            .skip_while(|node| !matches!(node.kind(), NodeKind::Hat))
+            .nth(1)
+            .map(|node| node.cast().expect("script node has invalid superscript"))
+    }
+}
+
+node! {
+    /// A fraction in a formula: `x/2`
+    Frac
+}
+
+impl Frac {
+    /// The numerator.
+    pub fn num(&self) -> MathNode {
+        self.0.cast_first_child().expect("fraction is missing numerator")
+    }
+
+    /// The denominator.
+    pub fn denom(&self) -> MathNode {
+        self.0.cast_last_child().expect("fraction is missing denominator")
+    }
+}
+
+node! {
+    /// A math alignment indicator: `&`, `&&`.
+    Align
+}
+
+impl Align {
+    /// The number of ampersands.
+    pub fn count(&self) -> usize {
+        self.0.children().filter(|n| n.kind() == &NodeKind::Amp).count()
     }
 }
 
@@ -381,15 +558,15 @@ pub enum Expr {
     /// A content block: `[*Hi* there!]`.
     Content(ContentBlock),
     /// A grouped expression: `(1 + 2)`.
-    Group(GroupExpr),
+    Parenthesized(Parenthesized),
     /// An array expression: `(1, "hi", 12cm)`.
-    Array(ArrayExpr),
+    Array(Array),
     /// A dictionary expression: `(thickness: 3pt, pattern: dashed)`.
-    Dict(DictExpr),
+    Dict(Dict),
     /// A unary operation: `-x`.
-    Unary(UnaryExpr),
+    Unary(Unary),
     /// A binary operation: `a + b`.
-    Binary(BinaryExpr),
+    Binary(Binary),
     /// A field access: `properties.age`.
     FieldAccess(FieldAccess),
     /// An invocation of a function: `f(x, y)`.
@@ -397,31 +574,31 @@ pub enum Expr {
     /// An invocation of a method: `array.push(v)`.
     MethodCall(MethodCall),
     /// A closure expression: `(x, y) => z`.
-    Closure(ClosureExpr),
-    /// A let expression: `let x = 1`.
-    Let(LetExpr),
-    /// A set expression: `set text(...)`.
-    Set(SetExpr),
-    /// A show expression: `show node: heading as [*{nody.body}*]`.
-    Show(ShowExpr),
-    /// A wrap expression: `wrap body in columns(2, body)`.
-    Wrap(WrapExpr),
-    /// An if-else expression: `if x { y } else { z }`.
-    If(IfExpr),
-    /// A while loop expression: `while x { y }`.
-    While(WhileExpr),
-    /// A for loop expression: `for x in y { z }`.
-    For(ForExpr),
-    /// An import expression: `import a, b, c from "utils.typ"`.
-    Import(ImportExpr),
-    /// An include expression: `include "chapter1.typ"`.
-    Include(IncludeExpr),
-    /// A break expression: `break`.
-    Break(BreakExpr),
-    /// A continue expression: `continue`.
-    Continue(ContinueExpr),
-    /// A return expression: `return`.
-    Return(ReturnExpr),
+    Closure(Closure),
+    /// A let binding: `let x = 1`.
+    Let(LetBinding),
+    /// A set rule: `set text(...)`.
+    Set(SetRule),
+    /// A show rule: `show node: heading as [*{nody.body}*]`.
+    Show(ShowRule),
+    /// A wrap rule: `wrap body in columns(2, body)`.
+    Wrap(WrapRule),
+    /// An if-else conditional: `if x { y } else { z }`.
+    Conditional(Conditional),
+    /// A while loop: `while x { y }`.
+    While(WhileLoop),
+    /// A for loop: `for x in y { z }`.
+    For(ForLoop),
+    /// A module import: `import a, b, c from "utils.typ"`.
+    Import(ModuleImport),
+    /// A module include: `include "chapter1.typ"`.
+    Include(ModuleInclude),
+    /// A break statement: `break`.
+    Break(BreakStmt),
+    /// A continue statement: `continue`.
+    Continue(ContinueStmt),
+    /// A return statement: `return`, `return x + 1`.
+    Return(ReturnStmt),
 }
 
 impl TypedNode for Expr {
@@ -430,27 +607,27 @@ impl TypedNode for Expr {
             NodeKind::Ident(_) => node.cast().map(Self::Ident),
             NodeKind::CodeBlock => node.cast().map(Self::Code),
             NodeKind::ContentBlock => node.cast().map(Self::Content),
-            NodeKind::GroupExpr => node.cast().map(Self::Group),
-            NodeKind::ArrayExpr => node.cast().map(Self::Array),
-            NodeKind::DictExpr => node.cast().map(Self::Dict),
-            NodeKind::UnaryExpr => node.cast().map(Self::Unary),
-            NodeKind::BinaryExpr => node.cast().map(Self::Binary),
+            NodeKind::Parenthesized => node.cast().map(Self::Parenthesized),
+            NodeKind::Array => node.cast().map(Self::Array),
+            NodeKind::Dict => node.cast().map(Self::Dict),
+            NodeKind::Unary => node.cast().map(Self::Unary),
+            NodeKind::Binary => node.cast().map(Self::Binary),
             NodeKind::FieldAccess => node.cast().map(Self::FieldAccess),
             NodeKind::FuncCall => node.cast().map(Self::FuncCall),
             NodeKind::MethodCall => node.cast().map(Self::MethodCall),
-            NodeKind::ClosureExpr => node.cast().map(Self::Closure),
-            NodeKind::LetExpr => node.cast().map(Self::Let),
-            NodeKind::SetExpr => node.cast().map(Self::Set),
-            NodeKind::ShowExpr => node.cast().map(Self::Show),
-            NodeKind::WrapExpr => node.cast().map(Self::Wrap),
-            NodeKind::IfExpr => node.cast().map(Self::If),
-            NodeKind::WhileExpr => node.cast().map(Self::While),
-            NodeKind::ForExpr => node.cast().map(Self::For),
-            NodeKind::ImportExpr => node.cast().map(Self::Import),
-            NodeKind::IncludeExpr => node.cast().map(Self::Include),
-            NodeKind::BreakExpr => node.cast().map(Self::Break),
-            NodeKind::ContinueExpr => node.cast().map(Self::Continue),
-            NodeKind::ReturnExpr => node.cast().map(Self::Return),
+            NodeKind::Closure => node.cast().map(Self::Closure),
+            NodeKind::LetBinding => node.cast().map(Self::Let),
+            NodeKind::SetRule => node.cast().map(Self::Set),
+            NodeKind::ShowRule => node.cast().map(Self::Show),
+            NodeKind::WrapRule => node.cast().map(Self::Wrap),
+            NodeKind::Conditional => node.cast().map(Self::Conditional),
+            NodeKind::WhileLoop => node.cast().map(Self::While),
+            NodeKind::ForLoop => node.cast().map(Self::For),
+            NodeKind::ModuleImport => node.cast().map(Self::Import),
+            NodeKind::ModuleInclude => node.cast().map(Self::Include),
+            NodeKind::BreakStmt => node.cast().map(Self::Break),
+            NodeKind::ContinueStmt => node.cast().map(Self::Continue),
+            NodeKind::ReturnStmt => node.cast().map(Self::Return),
             _ => node.cast().map(Self::Lit),
         }
     }
@@ -463,7 +640,7 @@ impl TypedNode for Expr {
             Self::Ident(v) => v.as_untyped(),
             Self::Array(v) => v.as_untyped(),
             Self::Dict(v) => v.as_untyped(),
-            Self::Group(v) => v.as_untyped(),
+            Self::Parenthesized(v) => v.as_untyped(),
             Self::Unary(v) => v.as_untyped(),
             Self::Binary(v) => v.as_untyped(),
             Self::FieldAccess(v) => v.as_untyped(),
@@ -474,7 +651,7 @@ impl TypedNode for Expr {
             Self::Set(v) => v.as_untyped(),
             Self::Show(v) => v.as_untyped(),
             Self::Wrap(v) => v.as_untyped(),
-            Self::If(v) => v.as_untyped(),
+            Self::Conditional(v) => v.as_untyped(),
             Self::While(v) => v.as_untyped(),
             Self::For(v) => v.as_untyped(),
             Self::Import(v) => v.as_untyped(),
@@ -497,7 +674,7 @@ impl Expr {
                 | Self::Set(_)
                 | Self::Show(_)
                 | Self::Wrap(_)
-                | Self::If(_)
+                | Self::Conditional(_)
                 | Self::While(_)
                 | Self::For(_)
                 | Self::Import(_)
@@ -552,24 +729,9 @@ pub enum LitKind {
     Str(EcoString),
 }
 
-/// Unit of a numeric value.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum Unit {
-    /// An absolute length unit.
-    Length(LengthUnit),
-    /// An angular unit.
-    Angle(AngleUnit),
-    /// Font-relative: `1em` is the same as the font size.
-    Em,
-    /// Fractions: `fr`.
-    Fr,
-    /// Percentage: `%`.
-    Percent,
-}
-
 node! {
     /// A code block: `{ let x = 1; x + 2 }`.
-    CodeBlock: CodeBlock
+    CodeBlock
 }
 
 impl CodeBlock {
@@ -581,46 +743,48 @@ impl CodeBlock {
 
 node! {
     /// A content block: `[*Hi* there!]`.
-    ContentBlock: ContentBlock
+    ContentBlock
 }
 
 impl ContentBlock {
     /// The contained markup.
-    pub fn body(&self) -> MarkupNode {
-        self.0.cast_first_child().expect("content is missing body")
+    pub fn body(&self) -> Markup {
+        self.0.cast_first_child().expect("content block is missing body")
     }
 }
 
 node! {
-    /// A grouped expression: `(1 + 2)`.
-    GroupExpr: GroupExpr
+    /// A parenthesized expression: `(1 + 2)`.
+    Parenthesized
 }
 
-impl GroupExpr {
+impl Parenthesized {
     /// The wrapped expression.
     pub fn expr(&self) -> Expr {
-        self.0.cast_first_child().expect("group is missing expression")
+        self.0
+            .cast_first_child()
+            .expect("parenthesized expression is missing expression")
     }
 }
 
 node! {
-    /// An array expression: `(1, "hi", 12cm)`.
-    ArrayExpr: ArrayExpr
+    /// An array: `(1, "hi", 12cm)`.
+    Array
 }
 
-impl ArrayExpr {
-    /// The array items.
+impl Array {
+    /// The array's items.
     pub fn items(&self) -> impl Iterator<Item = ArrayItem> + '_ {
         self.0.children().filter_map(SyntaxNode::cast)
     }
 }
 
-/// An item in an array expresssion.
+/// An item in an array.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum ArrayItem {
-    /// A bare value: `12`.
+    /// A bare expression: `12`.
     Pos(Expr),
-    /// A spreaded value: `..things`.
+    /// A spreaded expression: `..things`.
     Spread(Expr),
 }
 
@@ -641,12 +805,12 @@ impl TypedNode for ArrayItem {
 }
 
 node! {
-    /// A dictionary expression: `(thickness: 3pt, pattern: dashed)`.
-    DictExpr: DictExpr
+    /// A dictionary: `(thickness: 3pt, pattern: dashed)`.
+    Dict
 }
 
-impl DictExpr {
-    /// The named dictionary items.
+impl Dict {
+    /// The dictionary's items.
     pub fn items(&self) -> impl Iterator<Item = DictItem> + '_ {
         self.0.children().filter_map(SyntaxNode::cast)
     }
@@ -659,7 +823,7 @@ pub enum DictItem {
     Named(Named),
     /// A keyed pair: `"spacy key": true`.
     Keyed(Keyed),
-    /// A spreaded value: `..things`.
+    /// A spreaded expression: `..things`.
     Spread(Expr),
 }
 
@@ -724,21 +888,21 @@ impl Keyed {
 
 node! {
     /// A unary operation: `-x`.
-    UnaryExpr: UnaryExpr
+    Unary
 }
 
-impl UnaryExpr {
+impl Unary {
     /// The operator: `-`.
     pub fn op(&self) -> UnOp {
         self.0
             .children()
             .find_map(|node| UnOp::from_token(node.kind()))
-            .expect("unary expression is missing operator")
+            .expect("unary operation is missing operator")
     }
 
     /// The expression to operate on: `x`.
     pub fn expr(&self) -> Expr {
-        self.0.cast_last_child().expect("unary expression is missing child")
+        self.0.cast_last_child().expect("unary operation is missing child")
     }
 }
 
@@ -784,10 +948,10 @@ impl UnOp {
 
 node! {
     /// A binary operation: `a + b`.
-    BinaryExpr: BinaryExpr
+    Binary
 }
 
-impl BinaryExpr {
+impl Binary {
     /// The binary operator: `+`.
     pub fn op(&self) -> BinOp {
         let mut not = false;
@@ -801,21 +965,21 @@ impl BinaryExpr {
                 NodeKind::In if not => Some(BinOp::NotIn),
                 _ => BinOp::from_token(node.kind()),
             })
-            .expect("binary expression is missing operator")
+            .expect("binary operation is missing operator")
     }
 
     /// The left-hand side of the operation: `a`.
     pub fn lhs(&self) -> Expr {
         self.0
             .cast_first_child()
-            .expect("binary expression is missing left-hand side")
+            .expect("binary operation is missing left-hand side")
     }
 
     /// The right-hand side of the operation: `b`.
     pub fn rhs(&self) -> Expr {
         self.0
             .cast_last_child()
-            .expect("binary expression is missing right-hand side")
+            .expect("binary operation is missing right-hand side")
     }
 }
 
@@ -975,24 +1139,24 @@ pub enum Assoc {
 
 node! {
     /// A field access: `properties.age`.
-    FieldAccess: FieldAccess
+    FieldAccess
 }
 
 impl FieldAccess {
-    /// The object with the field.
-    pub fn object(&self) -> Expr {
+    /// The expression to access the field on.
+    pub fn target(&self) -> Expr {
         self.0.cast_first_child().expect("field access is missing object")
     }
 
     /// The name of the field.
     pub fn field(&self) -> Ident {
-        self.0.cast_last_child().expect("field access call is missing name")
+        self.0.cast_last_child().expect("field access is missing name")
     }
 }
 
 node! {
     /// An invocation of a function: `f(x, y)`.
-    FuncCall: FuncCall
+    FuncCall
 }
 
 impl FuncCall {
@@ -1002,7 +1166,7 @@ impl FuncCall {
     }
 
     /// The arguments to the function.
-    pub fn args(&self) -> CallArgs {
+    pub fn args(&self) -> Args {
         self.0
             .cast_last_child()
             .expect("function call is missing argument list")
@@ -1011,13 +1175,13 @@ impl FuncCall {
 
 node! {
     /// An invocation of a method: `array.push(v)`.
-    MethodCall: MethodCall
+    MethodCall
 }
 
 impl MethodCall {
-    /// The value to call the method on.
-    pub fn receiver(&self) -> Expr {
-        self.0.cast_first_child().expect("method call is missing callee")
+    /// The expresion to call the method on.
+    pub fn target(&self) -> Expr {
+        self.0.cast_first_child().expect("method call is missing target")
     }
 
     /// The name of the method.
@@ -1026,7 +1190,7 @@ impl MethodCall {
     }
 
     /// The arguments to the method.
-    pub fn args(&self) -> CallArgs {
+    pub fn args(&self) -> Args {
         self.0
             .cast_last_child()
             .expect("method call is missing argument list")
@@ -1035,19 +1199,19 @@ impl MethodCall {
 
 node! {
     /// The arguments to a function: `12, draw: false`.
-    CallArgs
+    Args
 }
 
-impl CallArgs {
+impl Args {
     /// The positional and named arguments.
-    pub fn items(&self) -> impl Iterator<Item = CallArg> + '_ {
+    pub fn items(&self) -> impl Iterator<Item = Arg> + '_ {
         self.0.children().filter_map(SyntaxNode::cast)
     }
 }
 
 /// An argument to a function call.
 #[derive(Debug, Clone, PartialEq, Hash)]
-pub enum CallArg {
+pub enum Arg {
     /// A positional argument: `12`.
     Pos(Expr),
     /// A named argument: `draw: false`.
@@ -1056,7 +1220,7 @@ pub enum CallArg {
     Spread(Expr),
 }
 
-impl TypedNode for CallArg {
+impl TypedNode for Arg {
     fn from_untyped(node: &SyntaxNode) -> Option<Self> {
         match node.kind() {
             NodeKind::Named => node.cast().map(Self::Named),
@@ -1076,10 +1240,10 @@ impl TypedNode for CallArg {
 
 node! {
     /// A closure expression: `(x, y) => z`.
-    ClosureExpr: ClosureExpr
+    Closure
 }
 
-impl ClosureExpr {
+impl Closure {
     /// The name of the closure.
     ///
     /// This only exists if you use the function syntax sugar: `let f(x) = y`.
@@ -1088,10 +1252,10 @@ impl ClosureExpr {
     }
 
     /// The parameter bindings.
-    pub fn params(&self) -> impl Iterator<Item = ClosureParam> + '_ {
+    pub fn params(&self) -> impl Iterator<Item = Param> + '_ {
         self.0
             .children()
-            .find(|x| x.kind() == &NodeKind::ClosureParams)
+            .find(|x| x.kind() == &NodeKind::Params)
             .expect("closure is missing parameter list")
             .children()
             .filter_map(SyntaxNode::cast)
@@ -1105,7 +1269,7 @@ impl ClosureExpr {
 
 /// A parameter to a closure.
 #[derive(Debug, Clone, PartialEq, Hash)]
-pub enum ClosureParam {
+pub enum Param {
     /// A positional parameter: `x`.
     Pos(Ident),
     /// A named parameter with a default value: `draw: false`.
@@ -1114,7 +1278,7 @@ pub enum ClosureParam {
     Sink(Ident),
 }
 
-impl TypedNode for ClosureParam {
+impl TypedNode for Param {
     fn from_untyped(node: &SyntaxNode) -> Option<Self> {
         match node.kind() {
             NodeKind::Ident(_) => node.cast().map(Self::Pos),
@@ -1134,11 +1298,11 @@ impl TypedNode for ClosureParam {
 }
 
 node! {
-    /// A let expression: `let x = 1`.
-    LetExpr
+    /// A let binding: `let x = 1`.
+    LetBinding
 }
 
-impl LetExpr {
+impl LetBinding {
     /// The binding to assign to.
     pub fn binding(&self) -> Ident {
         match self.0.cast_first_child() {
@@ -1146,7 +1310,7 @@ impl LetExpr {
             Some(Expr::Closure(closure)) => {
                 closure.name().expect("let-bound closure is missing name")
             }
-            _ => panic!("let expression is missing binding"),
+            _ => panic!("let is missing binding"),
         }
     }
 
@@ -1163,28 +1327,28 @@ impl LetExpr {
 }
 
 node! {
-    /// A set expression: `set text(...)`.
-    SetExpr
+    /// A set rule: `set text(...)`.
+    SetRule
 }
 
-impl SetExpr {
+impl SetRule {
     /// The function to set style properties for.
     pub fn target(&self) -> Ident {
         self.0.cast_first_child().expect("set rule is missing target")
     }
 
     /// The style properties to set.
-    pub fn args(&self) -> CallArgs {
+    pub fn args(&self) -> Args {
         self.0.cast_last_child().expect("set rule is missing argument list")
     }
 }
 
 node! {
-    /// A show expression: `show node: heading as [*{nody.body}*]`.
-    ShowExpr
+    /// A show rule: `show node: heading as [*{nody.body}*]`.
+    ShowRule
 }
 
-impl ShowExpr {
+impl ShowRule {
     /// The binding to assign to.
     pub fn binding(&self) -> Option<Ident> {
         let mut children = self.0.children();
@@ -1210,31 +1374,31 @@ impl ShowExpr {
 }
 
 node! {
-    /// A wrap expression: `wrap body in columns(2, body)`.
-    WrapExpr
+    /// A wrap rule: `wrap body in columns(2, body)`.
+    WrapRule
 }
 
-impl WrapExpr {
+impl WrapRule {
     /// The binding to assign the remaining markup to.
     pub fn binding(&self) -> Ident {
-        self.0.cast_first_child().expect("wrap expression is missing binding")
+        self.0.cast_first_child().expect("wrap rule is missing binding")
     }
 
     /// The expression to evaluate.
     pub fn body(&self) -> Expr {
-        self.0.cast_last_child().expect("wrap expression is missing body")
+        self.0.cast_last_child().expect("wrap rule is missing body")
     }
 }
 
 node! {
-    /// An if-else expression: `if x { y } else { z }`.
-    IfExpr
+    /// An if-else conditional: `if x { y } else { z }`.
+    Conditional
 }
 
-impl IfExpr {
+impl Conditional {
     /// The condition which selects the body to evaluate.
     pub fn condition(&self) -> Expr {
-        self.0.cast_first_child().expect("if expression is missing condition")
+        self.0.cast_first_child().expect("conditional is missing condition")
     }
 
     /// The expression to evaluate if the condition is true.
@@ -1243,7 +1407,7 @@ impl IfExpr {
             .children()
             .filter_map(SyntaxNode::cast)
             .nth(1)
-            .expect("if expression is missing body")
+            .expect("conditional is missing body")
     }
 
     /// The expression to evaluate if the condition is false.
@@ -1253,11 +1417,11 @@ impl IfExpr {
 }
 
 node! {
-    /// A while loop expression: `while x { y }`.
-    WhileExpr
+    /// A while loop: `while x { y }`.
+    WhileLoop
 }
 
-impl WhileExpr {
+impl WhileLoop {
     /// The condition which selects whether to evaluate the body.
     pub fn condition(&self) -> Expr {
         self.0.cast_first_child().expect("while loop is missing condition")
@@ -1270,11 +1434,11 @@ impl WhileExpr {
 }
 
 node! {
-    /// A for loop expression: `for x in y { z }`.
-    ForExpr
+    /// A for loop: `for x in y { z }`.
+    ForLoop
 }
 
-impl ForExpr {
+impl ForLoop {
     /// The pattern to assign to.
     pub fn pattern(&self) -> ForPattern {
         self.0.cast_first_child().expect("for loop is missing pattern")
@@ -1292,7 +1456,7 @@ impl ForExpr {
 }
 
 node! {
-    /// A for-in loop expression: `for x in y { z }`.
+    /// A for-in loop: `for x in y { z }`.
     ForPattern
 }
 
@@ -1311,11 +1475,11 @@ impl ForPattern {
 }
 
 node! {
-    /// An import expression: `import a, b, c from "utils.typ"`.
-    ImportExpr
+    /// A module import: `import a, b, c from "utils.typ"`.
+    ModuleImport
 }
 
-impl ImportExpr {
+impl ModuleImport {
     /// The items to be imported.
     pub fn imports(&self) -> Imports {
         self.0
@@ -1328,12 +1492,12 @@ impl ImportExpr {
                 }
                 _ => None,
             })
-            .expect("import is missing items")
+            .expect("module import is missing items")
     }
 
     /// The path to the file that should be imported.
     pub fn path(&self) -> Expr {
-        self.0.cast_last_child().expect("import is missing path")
+        self.0.cast_last_child().expect("module import is missing path")
     }
 }
 
@@ -1347,33 +1511,33 @@ pub enum Imports {
 }
 
 node! {
-    /// An include expression: `include "chapter1.typ"`.
-    IncludeExpr
+    /// A module include: `include "chapter1.typ"`.
+    ModuleInclude
 }
 
-impl IncludeExpr {
+impl ModuleInclude {
     /// The path to the file that should be included.
     pub fn path(&self) -> Expr {
-        self.0.cast_last_child().expect("include is missing path")
+        self.0.cast_last_child().expect("module include is missing path")
     }
 }
 
 node! {
     /// A break expression: `break`.
-    BreakExpr
+    BreakStmt
 }
 
 node! {
     /// A continue expression: `continue`.
-    ContinueExpr
+    ContinueStmt
 }
 
 node! {
     /// A return expression: `return`, `return x + 1`.
-    ReturnExpr
+    ReturnStmt
 }
 
-impl ReturnExpr {
+impl ReturnStmt {
     /// The expression to return.
     pub fn body(&self) -> Option<Expr> {
         self.0.cast_last_child()
@@ -1382,11 +1546,19 @@ impl ReturnExpr {
 
 node! {
     /// An identifier.
-    Ident: NodeKind::Ident(_)
+    Ident
 }
 
 impl Ident {
-    /// Take out the contained [`EcoString`].
+    /// Get the identifier.
+    pub fn get(&self) -> &EcoString {
+        match self.0.kind() {
+            NodeKind::Ident(id) => id,
+            _ => panic!("identifier is of wrong kind"),
+        }
+    }
+
+    /// Take out the container identifier.
     pub fn take(self) -> EcoString {
         match self.0 {
             SyntaxNode::Leaf(NodeData { kind: NodeKind::Ident(id), .. }) => id,
@@ -1399,9 +1571,6 @@ impl Deref for Ident {
     type Target = str;
 
     fn deref(&self) -> &Self::Target {
-        match &self.0 {
-            SyntaxNode::Leaf(NodeData { kind: NodeKind::Ident(id), .. }) => id,
-            _ => panic!("identifier is of wrong kind"),
-        }
+        self.get()
     }
 }

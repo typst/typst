@@ -43,8 +43,8 @@ use crate::geom::{Angle, Em, Fraction, Length, Ratio};
 use crate::library;
 use crate::model::{Content, Pattern, Recipe, StyleEntry, StyleMap};
 use crate::source::SourceId;
-use crate::syntax::ast::*;
-use crate::syntax::{Span, Spanned};
+use crate::syntax::ast::TypedNode;
+use crate::syntax::{ast, Span, Spanned, Unit};
 use crate::util::EcoString;
 use crate::World;
 
@@ -133,25 +133,25 @@ pub trait Eval {
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output>;
 }
 
-impl Eval for MarkupNode {
+impl Eval for ast::Markup {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        eval_markup(vm, &mut self.items())
+        eval_markup(vm, &mut self.children())
     }
 }
 
 /// Evaluate a stream of markup nodes.
 fn eval_markup(
     vm: &mut Vm,
-    nodes: &mut impl Iterator<Item = MarkupItem>,
+    nodes: &mut impl Iterator<Item = ast::MarkupNode>,
 ) -> SourceResult<Content> {
     let flow = vm.flow.take();
     let mut seq = Vec::with_capacity(nodes.size_hint().1.unwrap_or_default());
 
     while let Some(node) = nodes.next() {
         seq.push(match node {
-            MarkupItem::Expr(Expr::Set(set)) => {
+            ast::MarkupNode::Expr(ast::Expr::Set(set)) => {
                 let styles = set.eval(vm)?;
                 if vm.flow.is_some() {
                     break;
@@ -159,7 +159,7 @@ fn eval_markup(
 
                 eval_markup(vm, nodes)?.styled_with_map(styles)
             }
-            MarkupItem::Expr(Expr::Show(show)) => {
+            ast::MarkupNode::Expr(ast::Expr::Show(show)) => {
                 let recipe = show.eval(vm)?;
                 if vm.flow.is_some() {
                     break;
@@ -168,7 +168,7 @@ fn eval_markup(
                 eval_markup(vm, nodes)?
                     .styled_with_entry(StyleEntry::Recipe(recipe).into())
             }
-            MarkupItem::Expr(Expr::Wrap(wrap)) => {
+            ast::MarkupNode::Expr(ast::Expr::Wrap(wrap)) => {
                 let tail = eval_markup(vm, nodes)?;
                 vm.scopes.top.define(wrap.binding().take(), tail);
                 wrap.body().eval(vm)?.display()
@@ -189,35 +189,86 @@ fn eval_markup(
     Ok(Content::sequence(seq))
 }
 
-impl Eval for MarkupItem {
+impl Eval for ast::MarkupNode {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(match self {
-            Self::Space => Content::Space,
-            Self::Parbreak => Content::Parbreak,
-            &Self::Linebreak => Content::Linebreak { justify: false },
-            Self::Text(text) => Content::Text(text.clone()),
-            &Self::Quote { double } => Content::Quote { double },
-            Self::Strong(strong) => strong.eval(vm)?,
-            Self::Emph(emph) => emph.eval(vm)?,
-            Self::Link(url) => {
-                Content::show(library::text::LinkNode::from_url(url.clone()))
-            }
-            Self::Raw(raw) => raw.eval(vm)?,
-            Self::Math(math) => math.eval(vm)?,
-            Self::Heading(heading) => heading.eval(vm)?,
-            Self::List(list) => list.eval(vm)?,
-            Self::Enum(enum_) => enum_.eval(vm)?,
-            Self::Desc(desc) => desc.eval(vm)?,
-            Self::Label(_) => Content::Empty,
-            Self::Ref(label) => Content::show(library::structure::RefNode(label.clone())),
-            Self::Expr(expr) => expr.eval(vm)?.display(),
+        match self {
+            Self::Space(v) => v.eval(vm),
+            Self::Linebreak(v) => v.eval(vm),
+            Self::Text(v) => v.eval(vm),
+            Self::Escape(v) => v.eval(vm),
+            Self::Shorthand(v) => v.eval(vm),
+            Self::SmartQuote(v) => v.eval(vm),
+            Self::Strong(v) => v.eval(vm),
+            Self::Emph(v) => v.eval(vm),
+            Self::Link(v) => v.eval(vm),
+            Self::Raw(v) => v.eval(vm),
+            Self::Math(v) => v.eval(vm),
+            Self::Heading(v) => v.eval(vm),
+            Self::List(v) => v.eval(vm),
+            Self::Enum(v) => v.eval(vm),
+            Self::Desc(v) => v.eval(vm),
+            Self::Label(v) => v.eval(vm),
+            Self::Ref(v) => v.eval(vm),
+            Self::Expr(v) => v.eval(vm).map(Value::display),
+        }
+    }
+}
+
+impl Eval for ast::Space {
+    type Output = Content;
+
+    fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
+        Ok(if self.newlines() < 2 {
+            Content::Space
+        } else {
+            Content::Parbreak
         })
     }
 }
 
-impl Eval for StrongNode {
+impl Eval for ast::Linebreak {
+    type Output = Content;
+
+    fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
+        Ok(Content::Linebreak { justify: false })
+    }
+}
+
+impl Eval for ast::Text {
+    type Output = Content;
+
+    fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
+        Ok(Content::Text(self.get().clone()))
+    }
+}
+
+impl Eval for ast::Escape {
+    type Output = Content;
+
+    fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
+        Ok(Content::Text(self.get().into()))
+    }
+}
+
+impl Eval for ast::Shorthand {
+    type Output = Content;
+
+    fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
+        Ok(Content::Text(self.get().into()))
+    }
+}
+
+impl Eval for ast::SmartQuote {
+    type Output = Content;
+
+    fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
+        Ok(Content::Quote { double: self.double() })
+    }
+}
+
+impl Eval for ast::Strong {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
@@ -227,7 +278,7 @@ impl Eval for StrongNode {
     }
 }
 
-impl Eval for EmphNode {
+impl Eval for ast::Emph {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
@@ -237,27 +288,39 @@ impl Eval for EmphNode {
     }
 }
 
-impl Eval for RawNode {
+impl Eval for ast::Link {
+    type Output = Content;
+
+    fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
+        Ok(Content::show(library::text::LinkNode::from_url(
+            self.url().clone(),
+        )))
+    }
+}
+
+impl Eval for ast::Raw {
     type Output = Content;
 
     fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
         let content = Content::show(library::text::RawNode {
-            text: self.text.clone(),
-            block: self.block,
+            text: self.text().clone(),
+            block: self.block(),
         });
-        Ok(match self.lang {
-            Some(_) => content.styled(library::text::RawNode::LANG, self.lang.clone()),
+        Ok(match self.lang() {
+            Some(_) => content.styled(library::text::RawNode::LANG, self.lang().cloned()),
             None => content,
         })
     }
 }
 
-impl Eval for MathNode {
+impl Eval for ast::Math {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let nodes =
-            self.items().map(|node| node.eval(vm)).collect::<SourceResult<_>>()?;
+        let nodes = self
+            .children()
+            .map(|node| node.eval(vm))
+            .collect::<SourceResult<_>>()?;
         Ok(Content::show(library::math::MathNode::Row(
             Arc::new(nodes),
             self.span(),
@@ -265,20 +328,21 @@ impl Eval for MathNode {
     }
 }
 
-impl Eval for MathItem {
+impl Eval for ast::MathNode {
     type Output = library::math::MathNode;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         Ok(match self {
-            Self::Space => library::math::MathNode::Space,
-            Self::Linebreak => library::math::MathNode::Linebreak,
-            Self::Atom(atom) => library::math::MathNode::Atom(atom.clone()),
+            Self::Space(_) => library::math::MathNode::Space,
+            Self::Linebreak(_) => library::math::MathNode::Linebreak,
+            Self::Escape(c) => library::math::MathNode::Atom(c.get().into()),
+            Self::Atom(atom) => library::math::MathNode::Atom(atom.get().clone()),
             Self::Script(node) => node.eval(vm)?,
             Self::Frac(node) => node.eval(vm)?,
             Self::Align(node) => node.eval(vm)?,
             Self::Group(node) => library::math::MathNode::Row(
                 Arc::new(
-                    node.items()
+                    node.children()
                         .map(|node| node.eval(vm))
                         .collect::<SourceResult<_>>()?,
                 ),
@@ -292,7 +356,7 @@ impl Eval for MathItem {
     }
 }
 
-impl Eval for ScriptNode {
+impl Eval for ast::Script {
     type Output = library::math::MathNode;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
@@ -314,7 +378,7 @@ impl Eval for ScriptNode {
     }
 }
 
-impl Eval for FracNode {
+impl Eval for ast::Frac {
     type Output = library::math::MathNode;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
@@ -327,7 +391,7 @@ impl Eval for FracNode {
     }
 }
 
-impl Eval for AlignNode {
+impl Eval for ast::Align {
     type Output = library::math::MathNode;
 
     fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
@@ -335,7 +399,7 @@ impl Eval for AlignNode {
     }
 }
 
-impl Eval for HeadingNode {
+impl Eval for ast::Heading {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
@@ -346,7 +410,7 @@ impl Eval for HeadingNode {
     }
 }
 
-impl Eval for ListItem {
+impl Eval for ast::ListItem {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
@@ -355,7 +419,7 @@ impl Eval for ListItem {
     }
 }
 
-impl Eval for EnumItem {
+impl Eval for ast::EnumItem {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
@@ -367,7 +431,7 @@ impl Eval for EnumItem {
     }
 }
 
-impl Eval for DescItem {
+impl Eval for ast::DescItem {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
@@ -379,7 +443,25 @@ impl Eval for DescItem {
     }
 }
 
-impl Eval for Expr {
+impl Eval for ast::Label {
+    type Output = Content;
+
+    fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
+        Ok(Content::Empty)
+    }
+}
+
+impl Eval for ast::Ref {
+    type Output = Content;
+
+    fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
+        Ok(Content::show(library::structure::RefNode(
+            self.get().clone(),
+        )))
+    }
+}
+
+impl Eval for ast::Expr {
     type Output = Value;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
@@ -397,7 +479,7 @@ impl Eval for Expr {
             Self::Content(v) => v.eval(vm).map(Value::Content),
             Self::Array(v) => v.eval(vm).map(Value::Array),
             Self::Dict(v) => v.eval(vm).map(Value::Dict),
-            Self::Group(v) => v.eval(vm),
+            Self::Parenthesized(v) => v.eval(vm),
             Self::FieldAccess(v) => v.eval(vm),
             Self::FuncCall(v) => v.eval(vm),
             Self::MethodCall(v) => v.eval(vm),
@@ -408,7 +490,7 @@ impl Eval for Expr {
             Self::Set(_) => bail!(forbidden("set")),
             Self::Show(_) => bail!(forbidden("show")),
             Self::Wrap(_) => bail!(forbidden("wrap")),
-            Self::If(v) => v.eval(vm),
+            Self::Conditional(v) => v.eval(vm),
             Self::While(v) => v.eval(vm),
             Self::For(v) => v.eval(vm),
             Self::Import(v) => v.eval(vm),
@@ -420,29 +502,29 @@ impl Eval for Expr {
     }
 }
 
-impl Eval for Lit {
+impl Eval for ast::Lit {
     type Output = Value;
 
     fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
         Ok(match self.kind() {
-            LitKind::None => Value::None,
-            LitKind::Auto => Value::Auto,
-            LitKind::Bool(v) => Value::Bool(v),
-            LitKind::Int(v) => Value::Int(v),
-            LitKind::Float(v) => Value::Float(v),
-            LitKind::Numeric(v, unit) => match unit {
+            ast::LitKind::None => Value::None,
+            ast::LitKind::Auto => Value::Auto,
+            ast::LitKind::Bool(v) => Value::Bool(v),
+            ast::LitKind::Int(v) => Value::Int(v),
+            ast::LitKind::Float(v) => Value::Float(v),
+            ast::LitKind::Numeric(v, unit) => match unit {
                 Unit::Length(unit) => Length::with_unit(v, unit).into(),
                 Unit::Angle(unit) => Angle::with_unit(v, unit).into(),
                 Unit::Em => Em::new(v).into(),
                 Unit::Fr => Fraction::new(v).into(),
                 Unit::Percent => Ratio::new(v / 100.0).into(),
             },
-            LitKind::Str(v) => Value::Str(v.into()),
+            ast::LitKind::Str(v) => Value::Str(v.into()),
         })
     }
 }
 
-impl Eval for Ident {
+impl Eval for ast::Ident {
     type Output = Value;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
@@ -450,7 +532,7 @@ impl Eval for Ident {
     }
 }
 
-impl Eval for CodeBlock {
+impl Eval for ast::CodeBlock {
     type Output = Value;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
@@ -462,14 +544,17 @@ impl Eval for CodeBlock {
 }
 
 /// Evaluate a stream of expressions.
-fn eval_code(vm: &mut Vm, exprs: &mut impl Iterator<Item = Expr>) -> SourceResult<Value> {
+fn eval_code(
+    vm: &mut Vm,
+    exprs: &mut impl Iterator<Item = ast::Expr>,
+) -> SourceResult<Value> {
     let flow = vm.flow.take();
     let mut output = Value::None;
 
     while let Some(expr) = exprs.next() {
         let span = expr.span();
         let value = match expr {
-            Expr::Set(set) => {
+            ast::Expr::Set(set) => {
                 let styles = set.eval(vm)?;
                 if vm.flow.is_some() {
                     break;
@@ -478,7 +563,7 @@ fn eval_code(vm: &mut Vm, exprs: &mut impl Iterator<Item = Expr>) -> SourceResul
                 let tail = eval_code(vm, exprs)?.display();
                 Value::Content(tail.styled_with_map(styles))
             }
-            Expr::Show(show) => {
+            ast::Expr::Show(show) => {
                 let recipe = show.eval(vm)?;
                 let entry = StyleEntry::Recipe(recipe).into();
                 if vm.flow.is_some() {
@@ -488,7 +573,7 @@ fn eval_code(vm: &mut Vm, exprs: &mut impl Iterator<Item = Expr>) -> SourceResul
                 let tail = eval_code(vm, exprs)?.display();
                 Value::Content(tail.styled_with_entry(entry))
             }
-            Expr::Wrap(wrap) => {
+            ast::Expr::Wrap(wrap) => {
                 let tail = eval_code(vm, exprs)?;
                 vm.scopes.top.define(wrap.binding().take(), tail);
                 wrap.body().eval(vm)?
@@ -511,7 +596,7 @@ fn eval_code(vm: &mut Vm, exprs: &mut impl Iterator<Item = Expr>) -> SourceResul
     Ok(output)
 }
 
-impl Eval for ContentBlock {
+impl Eval for ast::ContentBlock {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
@@ -522,7 +607,7 @@ impl Eval for ContentBlock {
     }
 }
 
-impl Eval for GroupExpr {
+impl Eval for ast::Parenthesized {
     type Output = Value;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
@@ -530,7 +615,7 @@ impl Eval for GroupExpr {
     }
 }
 
-impl Eval for ArrayExpr {
+impl Eval for ast::Array {
     type Output = Array;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
@@ -539,8 +624,8 @@ impl Eval for ArrayExpr {
         let mut vec = Vec::with_capacity(items.size_hint().0);
         for item in items {
             match item {
-                ArrayItem::Pos(expr) => vec.push(expr.eval(vm)?),
-                ArrayItem::Spread(expr) => match expr.eval(vm)? {
+                ast::ArrayItem::Pos(expr) => vec.push(expr.eval(vm)?),
+                ast::ArrayItem::Spread(expr) => match expr.eval(vm)? {
                     Value::None => {}
                     Value::Array(array) => vec.extend(array.into_iter()),
                     v => bail!(expr.span(), "cannot spread {} into array", v.type_name()),
@@ -552,7 +637,7 @@ impl Eval for ArrayExpr {
     }
 }
 
-impl Eval for DictExpr {
+impl Eval for ast::Dict {
     type Output = Dict;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
@@ -560,13 +645,13 @@ impl Eval for DictExpr {
 
         for item in self.items() {
             match item {
-                DictItem::Named(named) => {
+                ast::DictItem::Named(named) => {
                     map.insert(named.name().take().into(), named.expr().eval(vm)?);
                 }
-                DictItem::Keyed(keyed) => {
+                ast::DictItem::Keyed(keyed) => {
                     map.insert(keyed.key().into(), keyed.expr().eval(vm)?);
                 }
-                DictItem::Spread(expr) => match expr.eval(vm)? {
+                ast::DictItem::Spread(expr) => match expr.eval(vm)? {
                     Value::None => {}
                     Value::Dict(dict) => map.extend(dict.into_iter()),
                     v => bail!(
@@ -582,49 +667,49 @@ impl Eval for DictExpr {
     }
 }
 
-impl Eval for UnaryExpr {
+impl Eval for ast::Unary {
     type Output = Value;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let value = self.expr().eval(vm)?;
         let result = match self.op() {
-            UnOp::Pos => ops::pos(value),
-            UnOp::Neg => ops::neg(value),
-            UnOp::Not => ops::not(value),
+            ast::UnOp::Pos => ops::pos(value),
+            ast::UnOp::Neg => ops::neg(value),
+            ast::UnOp::Not => ops::not(value),
         };
         Ok(result.at(self.span())?)
     }
 }
 
-impl Eval for BinaryExpr {
+impl Eval for ast::Binary {
     type Output = Value;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         match self.op() {
-            BinOp::Add => self.apply(vm, ops::add),
-            BinOp::Sub => self.apply(vm, ops::sub),
-            BinOp::Mul => self.apply(vm, ops::mul),
-            BinOp::Div => self.apply(vm, ops::div),
-            BinOp::And => self.apply(vm, ops::and),
-            BinOp::Or => self.apply(vm, ops::or),
-            BinOp::Eq => self.apply(vm, ops::eq),
-            BinOp::Neq => self.apply(vm, ops::neq),
-            BinOp::Lt => self.apply(vm, ops::lt),
-            BinOp::Leq => self.apply(vm, ops::leq),
-            BinOp::Gt => self.apply(vm, ops::gt),
-            BinOp::Geq => self.apply(vm, ops::geq),
-            BinOp::In => self.apply(vm, ops::in_),
-            BinOp::NotIn => self.apply(vm, ops::not_in),
-            BinOp::Assign => self.assign(vm, |_, b| Ok(b)),
-            BinOp::AddAssign => self.assign(vm, ops::add),
-            BinOp::SubAssign => self.assign(vm, ops::sub),
-            BinOp::MulAssign => self.assign(vm, ops::mul),
-            BinOp::DivAssign => self.assign(vm, ops::div),
+            ast::BinOp::Add => self.apply(vm, ops::add),
+            ast::BinOp::Sub => self.apply(vm, ops::sub),
+            ast::BinOp::Mul => self.apply(vm, ops::mul),
+            ast::BinOp::Div => self.apply(vm, ops::div),
+            ast::BinOp::And => self.apply(vm, ops::and),
+            ast::BinOp::Or => self.apply(vm, ops::or),
+            ast::BinOp::Eq => self.apply(vm, ops::eq),
+            ast::BinOp::Neq => self.apply(vm, ops::neq),
+            ast::BinOp::Lt => self.apply(vm, ops::lt),
+            ast::BinOp::Leq => self.apply(vm, ops::leq),
+            ast::BinOp::Gt => self.apply(vm, ops::gt),
+            ast::BinOp::Geq => self.apply(vm, ops::geq),
+            ast::BinOp::In => self.apply(vm, ops::in_),
+            ast::BinOp::NotIn => self.apply(vm, ops::not_in),
+            ast::BinOp::Assign => self.assign(vm, |_, b| Ok(b)),
+            ast::BinOp::AddAssign => self.assign(vm, ops::add),
+            ast::BinOp::SubAssign => self.assign(vm, ops::sub),
+            ast::BinOp::MulAssign => self.assign(vm, ops::mul),
+            ast::BinOp::DivAssign => self.assign(vm, ops::div),
         }
     }
 }
 
-impl BinaryExpr {
+impl ast::Binary {
     /// Apply a basic binary operation.
     fn apply(
         &self,
@@ -634,8 +719,8 @@ impl BinaryExpr {
         let lhs = self.lhs().eval(vm)?;
 
         // Short-circuit boolean operations.
-        if (self.op() == BinOp::And && lhs == Value::Bool(false))
-            || (self.op() == BinOp::Or && lhs == Value::Bool(true))
+        if (self.op() == ast::BinOp::And && lhs == Value::Bool(false))
+            || (self.op() == ast::BinOp::Or && lhs == Value::Bool(true))
         {
             return Ok(lhs);
         }
@@ -658,11 +743,11 @@ impl BinaryExpr {
     }
 }
 
-impl Eval for FieldAccess {
+impl Eval for ast::FieldAccess {
     type Output = Value;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let object = self.object().eval(vm)?;
+        let object = self.target().eval(vm)?;
         let span = self.field().span();
         let field = self.field().take();
 
@@ -676,7 +761,7 @@ impl Eval for FieldAccess {
                 .clone(),
 
             v => bail!(
-                self.object().span(),
+                self.target().span(),
                 "cannot access field on {}",
                 v.type_name()
             ),
@@ -684,7 +769,7 @@ impl Eval for FieldAccess {
     }
 }
 
-impl Eval for FuncCall {
+impl Eval for ast::FuncCall {
     type Output = Value;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
@@ -708,7 +793,7 @@ impl Eval for FuncCall {
     }
 }
 
-impl Eval for MethodCall {
+impl Eval for ast::MethodCall {
     type Output = Value;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
@@ -718,19 +803,19 @@ impl Eval for MethodCall {
 
         Ok(if methods::is_mutating(&method) {
             let args = self.args().eval(vm)?;
-            let mut value = self.receiver().access(vm)?;
+            let mut value = self.target().access(vm)?;
             methods::call_mut(&mut value, &method, args, span)
                 .trace(vm.world, point, span)?;
             Value::None
         } else {
-            let value = self.receiver().eval(vm)?;
+            let value = self.target().eval(vm)?;
             let args = self.args().eval(vm)?;
             methods::call(vm, value, &method, args, span).trace(vm.world, point, span)?
         })
     }
 }
 
-impl Eval for CallArgs {
+impl Eval for ast::Args {
     type Output = Args;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
@@ -739,21 +824,21 @@ impl Eval for CallArgs {
         for arg in self.items() {
             let span = arg.span();
             match arg {
-                CallArg::Pos(expr) => {
+                ast::Arg::Pos(expr) => {
                     items.push(Arg {
                         span,
                         name: None,
                         value: Spanned::new(expr.eval(vm)?, expr.span()),
                     });
                 }
-                CallArg::Named(named) => {
+                ast::Arg::Named(named) => {
                     items.push(Arg {
                         span,
                         name: Some(named.name().take().into()),
                         value: Spanned::new(named.expr().eval(vm)?, named.expr().span()),
                     });
                 }
-                CallArg::Spread(expr) => match expr.eval(vm)? {
+                ast::Arg::Spread(expr) => match expr.eval(vm)? {
                     Value::None => {}
                     Value::Array(array) => {
                         items.extend(array.into_iter().map(|value| Arg {
@@ -779,12 +864,12 @@ impl Eval for CallArgs {
     }
 }
 
-impl Eval for ClosureExpr {
+impl Eval for ast::Closure {
     type Output = Value;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         // The closure's name is defined by its let binding if there's one.
-        let name = self.name().map(Ident::take);
+        let name = self.name().map(ast::Ident::take);
 
         // Collect captured variables.
         let captured = {
@@ -799,13 +884,13 @@ impl Eval for ClosureExpr {
         // Collect parameters and an optional sink parameter.
         for param in self.params() {
             match param {
-                ClosureParam::Pos(name) => {
+                ast::Param::Pos(name) => {
                     params.push((name.take(), None));
                 }
-                ClosureParam::Named(named) => {
+                ast::Param::Named(named) => {
                     params.push((named.name().take(), Some(named.expr().eval(vm)?)));
                 }
-                ClosureParam::Sink(name) => {
+                ast::Param::Sink(name) => {
                     if sink.is_some() {
                         bail!(name.span(), "only one argument sink is allowed");
                     }
@@ -826,7 +911,7 @@ impl Eval for ClosureExpr {
     }
 }
 
-impl Eval for LetExpr {
+impl Eval for ast::LetBinding {
     type Output = Value;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
@@ -839,7 +924,7 @@ impl Eval for LetExpr {
     }
 }
 
-impl Eval for SetExpr {
+impl Eval for ast::SetRule {
     type Output = StyleMap;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
@@ -850,7 +935,7 @@ impl Eval for SetExpr {
     }
 }
 
-impl Eval for ShowExpr {
+impl Eval for ast::ShowRule {
     type Output = Recipe;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
@@ -887,7 +972,7 @@ impl Eval for ShowExpr {
     }
 }
 
-impl Eval for IfExpr {
+impl Eval for ast::Conditional {
     type Output = Value;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
@@ -902,7 +987,7 @@ impl Eval for IfExpr {
     }
 }
 
-impl Eval for WhileExpr {
+impl Eval for ast::WhileLoop {
     type Output = Value;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
@@ -934,7 +1019,7 @@ impl Eval for WhileExpr {
     }
 }
 
-impl Eval for ForExpr {
+impl Eval for ast::ForLoop {
     type Output = Value;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
@@ -968,7 +1053,7 @@ impl Eval for ForExpr {
 
         let iter = self.iter().eval(vm)?;
         let pattern = self.pattern();
-        let key = pattern.key().map(Ident::take);
+        let key = pattern.key().map(ast::Ident::take);
         let value = pattern.value().take();
 
         match (key, value, iter) {
@@ -1013,7 +1098,7 @@ impl Eval for ForExpr {
     }
 }
 
-impl Eval for ImportExpr {
+impl Eval for ast::ModuleImport {
     type Output = Value;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
@@ -1022,12 +1107,12 @@ impl Eval for ImportExpr {
         let module = import(vm, &path, span)?;
 
         match self.imports() {
-            Imports::Wildcard => {
+            ast::Imports::Wildcard => {
                 for (var, value) in module.scope.iter() {
                     vm.scopes.top.define(var, value.clone());
                 }
             }
-            Imports::Items(idents) => {
+            ast::Imports::Items(idents) => {
                 for ident in idents {
                     if let Some(value) = module.scope.get(&ident) {
                         vm.scopes.top.define(ident.take(), value.clone());
@@ -1042,7 +1127,7 @@ impl Eval for ImportExpr {
     }
 }
 
-impl Eval for IncludeExpr {
+impl Eval for ast::ModuleInclude {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
@@ -1071,7 +1156,7 @@ fn import(vm: &mut Vm, path: &str, span: Span) -> SourceResult<Module> {
     Ok(module)
 }
 
-impl Eval for BreakExpr {
+impl Eval for ast::BreakStmt {
     type Output = Value;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
@@ -1082,7 +1167,7 @@ impl Eval for BreakExpr {
     }
 }
 
-impl Eval for ContinueExpr {
+impl Eval for ast::ContinueStmt {
     type Output = Value;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
@@ -1093,7 +1178,7 @@ impl Eval for ContinueExpr {
     }
 }
 
-impl Eval for ReturnExpr {
+impl Eval for ast::ReturnStmt {
     type Output = Value;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
@@ -1111,29 +1196,29 @@ pub trait Access {
     fn access<'a>(&self, vm: &'a mut Vm) -> SourceResult<&'a mut Value>;
 }
 
-impl Access for Expr {
+impl Access for ast::Expr {
     fn access<'a>(&self, vm: &'a mut Vm) -> SourceResult<&'a mut Value> {
         match self {
-            Expr::Ident(v) => v.access(vm),
-            Expr::FieldAccess(v) => v.access(vm),
-            Expr::FuncCall(v) => v.access(vm),
+            Self::Ident(v) => v.access(vm),
+            Self::FieldAccess(v) => v.access(vm),
+            Self::FuncCall(v) => v.access(vm),
             _ => bail!(self.span(), "cannot mutate a temporary value"),
         }
     }
 }
 
-impl Access for Ident {
+impl Access for ast::Ident {
     fn access<'a>(&self, vm: &'a mut Vm) -> SourceResult<&'a mut Value> {
         vm.scopes.get_mut(self).at(self.span())
     }
 }
 
-impl Access for FieldAccess {
+impl Access for ast::FieldAccess {
     fn access<'a>(&self, vm: &'a mut Vm) -> SourceResult<&'a mut Value> {
-        Ok(match self.object().access(vm)? {
+        Ok(match self.target().access(vm)? {
             Value::Dict(dict) => dict.get_mut(self.field().take().into()),
             v => bail!(
-                self.object().span(),
+                self.target().span(),
                 "expected dictionary, found {}",
                 v.type_name(),
             ),
@@ -1141,7 +1226,7 @@ impl Access for FieldAccess {
     }
 }
 
-impl Access for FuncCall {
+impl Access for ast::FuncCall {
     fn access<'a>(&self, vm: &'a mut Vm) -> SourceResult<&'a mut Value> {
         let args = self.args().eval(vm)?;
         Ok(match self.callee().access(vm)? {

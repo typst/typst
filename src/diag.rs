@@ -9,7 +9,7 @@ use std::string::FromUtf8Error;
 
 use comemo::Tracked;
 
-use crate::syntax::{Span, Spanned};
+use crate::syntax::{ErrorPos, Span, Spanned};
 use crate::util::EcoString;
 use crate::World;
 
@@ -81,17 +81,6 @@ impl SourceError {
             ErrorPos::End => full.end .. full.end,
         }
     }
-}
-
-/// Where in a node an error should be annotated,
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum ErrorPos {
-    /// Over the full width of the node.
-    Full,
-    /// At the start of the node.
-    Start,
-    /// At the end of the node.
-    End,
 }
 
 /// A part of an error's [trace](SourceError::trace).

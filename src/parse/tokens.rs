@@ -4,10 +4,8 @@ use unicode_xid::UnicodeXID;
 use unscanny::Scanner;
 
 use super::resolve::{resolve_hex, resolve_raw, resolve_string};
-use crate::diag::ErrorPos;
 use crate::geom::{AngleUnit, LengthUnit};
-use crate::syntax::ast::{RawNode, Unit};
-use crate::syntax::NodeKind;
+use crate::syntax::{ErrorPos, NodeKind, RawKind, Unit};
 use crate::util::EcoString;
 
 /// An iterator over the tokens of a string of source code.
@@ -199,24 +197,9 @@ impl<'s> Tokens<'s> {
             '[' => NodeKind::LeftBracket,
             ']' => NodeKind::RightBracket,
 
-            // Escape sequences.
-            '\\' => self.backslash(),
-
-            // Single-char things.
-            '~' => NodeKind::Tilde,
-            '.' if self.s.eat_if("..") => NodeKind::Dot3,
-            '\'' => NodeKind::Quote { double: false },
-            '"' => NodeKind::Quote { double: true },
-            '*' if !self.in_word() => NodeKind::Star,
-            '_' if !self.in_word() => NodeKind::Underscore,
-            '$' => NodeKind::Dollar,
-            '=' => NodeKind::Eq,
-            '+' => NodeKind::Plus,
-            '/' => NodeKind::Slash,
-            ':' => NodeKind::Colon,
-
             // Multi-char things.
             '#' => self.hash(start),
+            '.' if self.s.eat_if("..") => NodeKind::Shorthand('\u{2026}'),
             '-' => self.hyph(),
             'h' if self.s.eat_if("ttp://") || self.s.eat_if("ttps://") => {
                 self.link(start)
@@ -225,6 +208,21 @@ impl<'s> Tokens<'s> {
             c if c.is_ascii_digit() => self.numbering(start),
             '<' => self.label(),
             '@' => self.reference(start),
+
+            // Escape sequences.
+            '\\' => self.backslash(),
+
+            // Single-char things.
+            '~' => NodeKind::Shorthand('\u{00A0}'),
+            '\'' => NodeKind::SmartQuote { double: false },
+            '"' => NodeKind::SmartQuote { double: true },
+            '*' if !self.in_word() => NodeKind::Star,
+            '_' if !self.in_word() => NodeKind::Underscore,
+            '$' => NodeKind::Dollar,
+            '=' => NodeKind::Eq,
+            '+' => NodeKind::Plus,
+            '/' => NodeKind::Slash,
+            ':' => NodeKind::Colon,
 
             // Plain text.
             _ => self.text(start),
@@ -291,8 +289,8 @@ impl<'s> Tokens<'s> {
             }
 
             // Linebreaks.
-            Some(c) if c.is_whitespace() => NodeKind::Backslash,
-            None => NodeKind::Backslash,
+            Some(c) if c.is_whitespace() => NodeKind::Linebreak,
+            None => NodeKind::Linebreak,
 
             // Escapes.
             Some(c) => {
@@ -317,22 +315,15 @@ impl<'s> Tokens<'s> {
     fn hyph(&mut self) -> NodeKind {
         if self.s.eat_if('-') {
             if self.s.eat_if('-') {
-                NodeKind::Hyph3
+                NodeKind::Shorthand('\u{2014}')
             } else {
-                NodeKind::Hyph2
+                NodeKind::Shorthand('\u{2013}')
             }
         } else if self.s.eat_if('?') {
-            NodeKind::HyphQuest
+            NodeKind::Shorthand('\u{00AD}')
         } else {
             NodeKind::Minus
         }
-    }
-
-    fn in_word(&self) -> bool {
-        let alphanumeric = |c: Option<char>| c.map_or(false, |c| c.is_alphanumeric());
-        let prev = self.s.scout(-2);
-        let next = self.s.peek();
-        alphanumeric(prev) && alphanumeric(next)
     }
 
     fn link(&mut self, start: usize) -> NodeKind {
@@ -360,7 +351,7 @@ impl<'s> Tokens<'s> {
 
         // Special case for empty inline block.
         if backticks == 2 {
-            return NodeKind::Raw(Arc::new(RawNode {
+            return NodeKind::Raw(Arc::new(RawKind {
                 text: EcoString::new(),
                 lang: None,
                 block: false,
@@ -567,22 +558,23 @@ impl<'s> Tokens<'s> {
             }
         }
 
-        if let Ok(f) = number.parse::<f64>() {
-            match suffix {
-                "" => NodeKind::Float(f),
-                "pt" => NodeKind::Numeric(f, Unit::Length(LengthUnit::Pt)),
-                "mm" => NodeKind::Numeric(f, Unit::Length(LengthUnit::Mm)),
-                "cm" => NodeKind::Numeric(f, Unit::Length(LengthUnit::Cm)),
-                "in" => NodeKind::Numeric(f, Unit::Length(LengthUnit::In)),
-                "deg" => NodeKind::Numeric(f, Unit::Angle(AngleUnit::Deg)),
-                "rad" => NodeKind::Numeric(f, Unit::Angle(AngleUnit::Rad)),
-                "em" => NodeKind::Numeric(f, Unit::Em),
-                "fr" => NodeKind::Numeric(f, Unit::Fr),
-                "%" => NodeKind::Numeric(f, Unit::Percent),
-                _ => NodeKind::Error(ErrorPos::Full, "invalid number suffix".into()),
-            }
-        } else {
-            NodeKind::Error(ErrorPos::Full, "invalid number".into())
+        let v = match number.parse::<f64>() {
+            Ok(v) => v,
+            Err(_) => return NodeKind::Error(ErrorPos::Full, "invalid number".into()),
+        };
+
+        match suffix {
+            "" => NodeKind::Float(v),
+            "pt" => NodeKind::Numeric(v, Unit::Length(LengthUnit::Pt)),
+            "mm" => NodeKind::Numeric(v, Unit::Length(LengthUnit::Mm)),
+            "cm" => NodeKind::Numeric(v, Unit::Length(LengthUnit::Cm)),
+            "in" => NodeKind::Numeric(v, Unit::Length(LengthUnit::In)),
+            "deg" => NodeKind::Numeric(v, Unit::Angle(AngleUnit::Deg)),
+            "rad" => NodeKind::Numeric(v, Unit::Angle(AngleUnit::Rad)),
+            "em" => NodeKind::Numeric(v, Unit::Em),
+            "fr" => NodeKind::Numeric(v, Unit::Fr),
+            "%" => NodeKind::Numeric(v, Unit::Percent),
+            _ => NodeKind::Error(ErrorPos::Full, "invalid number suffix".into()),
         }
     }
 
@@ -604,6 +596,13 @@ impl<'s> Tokens<'s> {
             self.terminated = false;
             NodeKind::Error(ErrorPos::End, "expected quote".into())
         }
+    }
+
+    fn in_word(&self) -> bool {
+        let alphanumeric = |c: Option<char>| c.map_or(false, |c| c.is_alphanumeric());
+        let prev = self.s.scout(-2);
+        let next = self.s.peek();
+        alphanumeric(prev) && alphanumeric(next)
     }
 }
 
@@ -724,7 +723,7 @@ mod tests {
     }
 
     fn Raw(text: &str, lang: Option<&str>, block: bool) -> NodeKind {
-        NodeKind::Raw(Arc::new(RawNode {
+        NodeKind::Raw(Arc::new(RawKind {
             text: text.into(),
             lang: lang.map(Into::into),
             block,
@@ -762,6 +761,43 @@ mod tests {
     /// - '/': symbols
     const BLOCKS: &str = " a1/";
 
+    // Suffixes described by four-tuples of:
+    //
+    // - block the suffix is part of
+    // - mode in which the suffix is applicable
+    // - the suffix string
+    // - the resulting suffix NodeKind
+    fn suffixes()
+    -> impl Iterator<Item = (char, Option<TokenMode>, &'static str, NodeKind)> {
+        [
+            // Whitespace suffixes.
+            (' ', None, " ", Space(0)),
+            (' ', None, "\n", Space(1)),
+            (' ', None, "\r", Space(1)),
+            (' ', None, "\r\n", Space(1)),
+            // Letter suffixes.
+            ('a', Some(Markup), "hello", Text("hello")),
+            ('a', Some(Markup), "💚", Text("💚")),
+            ('a', Some(Code), "val", Ident("val")),
+            ('a', Some(Code), "α", Ident("α")),
+            ('a', Some(Code), "_", Ident("_")),
+            // Number suffixes.
+            ('1', Some(Code), "2", Int(2)),
+            ('1', Some(Code), ".2", Float(0.2)),
+            // Symbol suffixes.
+            ('/', None, "[", LeftBracket),
+            ('/', None, "//", LineComment),
+            ('/', None, "/**/", BlockComment),
+            ('/', Some(Markup), "*", Star),
+            ('/', Some(Markup), r"\\", Escape('\\')),
+            ('/', Some(Markup), "#let", Let),
+            ('/', Some(Code), "(", LeftParen),
+            ('/', Some(Code), ":", Colon),
+            ('/', Some(Code), "+=", PlusEq),
+        ]
+        .into_iter()
+    }
+
     macro_rules! t {
         (Both $($tts:tt)*) => {
             t!(Markup $($tts)*);
@@ -771,41 +807,8 @@ mod tests {
             // Test without suffix.
             t!(@$mode: $text => $($token),*);
 
-            // Suffixes described by four-tuples of:
-            //
-            // - block the suffix is part of
-            // - mode in which the suffix is applicable
-            // - the suffix string
-            // - the resulting suffix NodeKind
-            let suffixes: &[(char, Option<TokenMode>, &str, NodeKind)] = &[
-                // Whitespace suffixes.
-                (' ', None, " ", Space(0)),
-                (' ', None, "\n", Space(1)),
-                (' ', None, "\r", Space(1)),
-                (' ', None, "\r\n", Space(1)),
-                // Letter suffixes.
-                ('a', Some(Markup), "hello", Text("hello")),
-                ('a', Some(Markup), "💚", Text("💚")),
-                ('a', Some(Code), "val", Ident("val")),
-                ('a', Some(Code), "α", Ident("α")),
-                ('a', Some(Code), "_", Ident("_")),
-                // Number suffixes.
-                ('1', Some(Code), "2", Int(2)),
-                ('1', Some(Code), ".2", Float(0.2)),
-                // Symbol suffixes.
-                ('/', None, "[", LeftBracket),
-                ('/', None, "//", LineComment),
-                ('/', None, "/**/", BlockComment),
-                ('/', Some(Markup), "*", Star),
-                ('/', Some(Markup), r"\\", Escape('\\')),
-                ('/', Some(Markup), "#let", Let),
-                ('/', Some(Code), "(", LeftParen),
-                ('/', Some(Code), ":", Colon),
-                ('/', Some(Code), "+=", PlusEq),
-            ];
-
             // Test with each applicable suffix.
-            for &(block, mode, suffix, ref token) in suffixes {
+            for (block, mode, suffix, ref token) in suffixes() {
                 let text = $text;
                 #[allow(unused_variables)]
                 let blocks = BLOCKS;
@@ -872,14 +875,14 @@ mod tests {
         t!(Markup[" /"]: "reha-world" => Text("reha-world"));
 
         // Test code symbols in text.
-        t!(Markup[" /"]: "a():\"b" => Text("a()"), Colon, Quote { double: true }, Text("b"));
+        t!(Markup[" /"]: "a():\"b" => Text("a()"), Colon, SmartQuote { double: true }, Text("b"));
         t!(Markup[" /"]: ";,|/+"  => Text(";,|/+"));
         t!(Markup[" /"]: "=-a"     => Eq, Minus, Text("a"));
         t!(Markup[" "]: "#123"     => Text("#123"));
 
         // Test text ends.
         t!(Markup[""]: "hello " => Text("hello"), Space(0));
-        t!(Markup[""]: "hello~" => Text("hello"), Tilde);
+        t!(Markup[""]: "hello~" => Text("hello"), Shorthand('\u{00A0}'));
     }
 
     #[test]
@@ -924,10 +927,10 @@ mod tests {
         t!(Markup: "_"          => Underscore);
         t!(Markup[""]: "==="    => Eq, Eq, Eq);
         t!(Markup["a1/"]: "= "  => Eq, Space(0));
-        t!(Markup[" "]: r"\"    => Backslash);
-        t!(Markup: "~"          => Tilde);
-        t!(Markup["a1/"]: "-?"  => HyphQuest);
-        t!(Markup["a "]: r"a--" => Text("a"), Hyph2);
+        t!(Markup[" "]: r"\"    => Linebreak);
+        t!(Markup: "~"          => Shorthand('\u{00A0}'));
+        t!(Markup["a1/"]: "-?"  => Shorthand('\u{00AD}'));
+        t!(Markup["a "]: r"a--" => Text("a"), Shorthand('\u{2013}'));
         t!(Markup["a1/"]: "- "  => Minus, Space(0));
         t!(Markup[" "]: "+"     => Plus);
         t!(Markup[" "]: "1."    => EnumNumbering(1));

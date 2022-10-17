@@ -138,23 +138,21 @@ pub enum Category {
     /// An escape sequence.
     Escape,
     /// An easily typable shortcut to a unicode codepoint.
-    Shortcut,
+    Shorthand,
     /// A smart quote.
-    Quote,
-    /// Strong text.
+    SmartQuote,
+    /// Strong markup.
     Strong,
-    /// Emphasized text.
+    /// Emphasized markup.
     Emph,
     /// A hyperlink.
     Link,
     /// Raw text or code.
     Raw,
-    /// A full math formula.
-    Math,
-    /// The delimiters of a math formula.
-    MathDelimiter,
-    /// A symbol with special meaning in a math formula.
-    MathSymbol,
+    /// A label.
+    Label,
+    /// A reference.
+    Ref,
     /// A section heading.
     Heading,
     /// A full item of a list, enumeration or description list.
@@ -163,10 +161,12 @@ pub enum Category {
     ListMarker,
     /// A term in a description list.
     ListTerm,
-    /// A label.
-    Label,
-    /// A reference.
-    Ref,
+    /// A full math formula.
+    Math,
+    /// The delimiters of a math formula.
+    MathDelimiter,
+    /// An operator with special meaning in a math formula.
+    MathOperator,
     /// A keyword.
     Keyword,
     /// A literal defined by a keyword like `none`, `auto` or a boolean.
@@ -212,17 +212,10 @@ impl Category {
                 _ => Some(Category::Operator),
             },
             NodeKind::Underscore => match parent.kind() {
-                NodeKind::Script => Some(Category::MathSymbol),
+                NodeKind::Script => Some(Category::MathOperator),
                 _ => None,
             },
             NodeKind::Dollar => Some(Category::MathDelimiter),
-            NodeKind::Backslash => Some(Category::Shortcut),
-            NodeKind::Tilde => Some(Category::Shortcut),
-            NodeKind::HyphQuest => Some(Category::Shortcut),
-            NodeKind::Hyph2 => Some(Category::Shortcut),
-            NodeKind::Hyph3 => Some(Category::Shortcut),
-            NodeKind::Dot3 => Some(Category::Shortcut),
-            NodeKind::Quote { .. } => Some(Category::Quote),
             NodeKind::Plus => Some(match parent.kind() {
                 NodeKind::EnumItem => Category::ListMarker,
                 _ => Category::Operator,
@@ -233,11 +226,11 @@ impl Category {
             }),
             NodeKind::Slash => Some(match parent.kind() {
                 NodeKind::DescItem => Category::ListMarker,
-                NodeKind::Frac => Category::MathSymbol,
+                NodeKind::Frac => Category::MathOperator,
                 _ => Category::Operator,
             }),
-            NodeKind::Hat => Some(Category::MathSymbol),
-            NodeKind::Amp => Some(Category::MathSymbol),
+            NodeKind::Hat => Some(Category::MathOperator),
+            NodeKind::Amp => Some(Category::MathOperator),
             NodeKind::Dot => Some(Category::Punctuation),
             NodeKind::Eq => match parent.kind() {
                 NodeKind::Heading => None,
@@ -291,32 +284,35 @@ impl Category {
                 _ => None,
             },
             NodeKind::Text(_) => None,
+            NodeKind::Linebreak => Some(Category::Escape),
             NodeKind::Escape(_) => Some(Category::Escape),
+            NodeKind::Shorthand(_) => Some(Category::Shorthand),
+            NodeKind::SmartQuote { .. } => Some(Category::SmartQuote),
             NodeKind::Strong => Some(Category::Strong),
             NodeKind::Emph => Some(Category::Emph),
-            NodeKind::Link(_) => Some(Category::Link),
             NodeKind::Raw(_) => Some(Category::Raw),
-            NodeKind::Math => Some(Category::Math),
-            NodeKind::Atom(_) => None,
-            NodeKind::Script => None,
-            NodeKind::Frac => None,
-            NodeKind::Align => None,
+            NodeKind::Link(_) => Some(Category::Link),
+            NodeKind::Label(_) => Some(Category::Label),
+            NodeKind::Ref(_) => Some(Category::Ref),
             NodeKind::Heading => Some(Category::Heading),
             NodeKind::ListItem => Some(Category::ListItem),
             NodeKind::EnumItem => Some(Category::ListItem),
             NodeKind::EnumNumbering(_) => Some(Category::ListMarker),
             NodeKind::DescItem => Some(Category::ListItem),
-            NodeKind::Label(_) => Some(Category::Label),
-            NodeKind::Ref(_) => Some(Category::Ref),
+            NodeKind::Math => Some(Category::Math),
+            NodeKind::Atom(_) => None,
+            NodeKind::Script => None,
+            NodeKind::Frac => None,
+            NodeKind::Align => None,
 
             NodeKind::Ident(_) => match parent.kind() {
                 NodeKind::Markup { .. } => Some(Category::Interpolated),
                 NodeKind::Math => Some(Category::Interpolated),
                 NodeKind::FuncCall => Some(Category::Function),
                 NodeKind::MethodCall if i > 0 => Some(Category::Function),
-                NodeKind::ClosureExpr if i == 0 => Some(Category::Function),
-                NodeKind::SetExpr => Some(Category::Function),
-                NodeKind::ShowExpr
+                NodeKind::Closure if i == 0 => Some(Category::Function),
+                NodeKind::SetRule => Some(Category::Function),
+                NodeKind::ShowRule
                     if parent
                         .children()
                         .rev()
@@ -336,34 +332,34 @@ impl Category {
             NodeKind::Str(_) => Some(Category::String),
             NodeKind::CodeBlock => None,
             NodeKind::ContentBlock => None,
-            NodeKind::GroupExpr => None,
-            NodeKind::ArrayExpr => None,
-            NodeKind::DictExpr => None,
+            NodeKind::Parenthesized => None,
+            NodeKind::Array => None,
+            NodeKind::Dict => None,
             NodeKind::Named => None,
             NodeKind::Keyed => None,
-            NodeKind::UnaryExpr => None,
-            NodeKind::BinaryExpr => None,
+            NodeKind::Unary => None,
+            NodeKind::Binary => None,
             NodeKind::FieldAccess => None,
             NodeKind::FuncCall => None,
             NodeKind::MethodCall => None,
-            NodeKind::CallArgs => None,
+            NodeKind::Args => None,
             NodeKind::Spread => None,
-            NodeKind::ClosureExpr => None,
-            NodeKind::ClosureParams => None,
-            NodeKind::LetExpr => None,
-            NodeKind::SetExpr => None,
-            NodeKind::ShowExpr => None,
-            NodeKind::WrapExpr => None,
-            NodeKind::IfExpr => None,
-            NodeKind::WhileExpr => None,
-            NodeKind::ForExpr => None,
+            NodeKind::Closure => None,
+            NodeKind::Params => None,
+            NodeKind::LetBinding => None,
+            NodeKind::SetRule => None,
+            NodeKind::ShowRule => None,
+            NodeKind::WrapRule => None,
+            NodeKind::Conditional => None,
+            NodeKind::WhileLoop => None,
+            NodeKind::ForLoop => None,
             NodeKind::ForPattern => None,
-            NodeKind::ImportExpr => None,
+            NodeKind::ModuleImport => None,
             NodeKind::ImportItems => None,
-            NodeKind::IncludeExpr => None,
-            NodeKind::BreakExpr => None,
-            NodeKind::ContinueExpr => None,
-            NodeKind::ReturnExpr => None,
+            NodeKind::ModuleInclude => None,
+            NodeKind::BreakStmt => None,
+            NodeKind::ContinueStmt => None,
+            NodeKind::ReturnStmt => None,
 
             NodeKind::Error(_, _) => Some(Category::Error),
         }
@@ -376,15 +372,15 @@ impl Category {
             Self::Bracket => "punctuation.definition.bracket.typst",
             Self::Punctuation => "punctuation.typst",
             Self::Escape => "constant.character.escape.typst",
-            Self::Shortcut => "constant.character.shortcut.typst",
-            Self::Quote => "constant.character.quote.typst",
+            Self::Shorthand => "constant.character.shorthand.typst",
+            Self::SmartQuote => "constant.character.quote.typst",
             Self::Strong => "markup.bold.typst",
             Self::Emph => "markup.italic.typst",
             Self::Link => "markup.underline.link.typst",
             Self::Raw => "markup.raw.typst",
             Self::Math => "string.other.math.typst",
             Self::MathDelimiter => "punctuation.definition.math.typst",
-            Self::MathSymbol => "keyword.operator.math.typst",
+            Self::MathOperator => "keyword.operator.math.typst",
             Self::Heading => "markup.heading.typst",
             Self::ListItem => "markup.list.typst",
             Self::ListMarker => "punctuation.definition.list.typst",

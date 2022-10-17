@@ -1,7 +1,7 @@
 use unscanny::Scanner;
 
 use super::{is_ident, is_newline};
-use crate::syntax::ast::RawNode;
+use crate::syntax::RawKind;
 use crate::util::EcoString;
 
 /// Resolve all escape sequences in a string.
@@ -46,17 +46,17 @@ pub fn resolve_hex(sequence: &str) -> Option<char> {
 }
 
 /// Resolve the language tag and trim the raw text.
-pub fn resolve_raw(column: usize, backticks: usize, text: &str) -> RawNode {
+pub fn resolve_raw(column: usize, backticks: usize, text: &str) -> RawKind {
     if backticks > 1 {
         let (tag, inner) = split_at_lang_tag(text);
         let (text, block) = trim_and_split_raw(column, inner);
-        RawNode {
+        RawKind {
             lang: is_ident(tag).then(|| tag.into()),
             text: text.into(),
             block,
         }
     } else {
-        RawNode {
+        RawKind {
             lang: None,
             text: split_lines(text).join("\n").into(),
             block: false,

@@ -11,9 +11,8 @@ pub use tokens::*;
 
 use std::collections::HashSet;
 
-use crate::diag::ErrorPos;
 use crate::syntax::ast::{Assoc, BinOp, UnOp};
-use crate::syntax::{NodeKind, SyntaxNode};
+use crate::syntax::{ErrorPos, NodeKind, SyntaxNode};
 use crate::util::EcoString;
 
 /// Parse a source file.
@@ -240,14 +239,10 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
 
         // Text and markup.
         NodeKind::Text(_)
-        | NodeKind::Backslash
-        | NodeKind::Tilde
-        | NodeKind::HyphQuest
-        | NodeKind::Hyph2
-        | NodeKind::Hyph3
-        | NodeKind::Dot3
-        | NodeKind::Quote { .. }
+        | NodeKind::Linebreak
+        | NodeKind::SmartQuote { .. }
         | NodeKind::Escape(_)
+        | NodeKind::Shorthand(_)
         | NodeKind::Link(_)
         | NodeKind::Raw(_)
         | NodeKind::Label(_)
@@ -475,15 +470,15 @@ fn math_primary(p: &mut Parser) {
     match token {
         // Spaces, atoms and expressions.
         NodeKind::Space { .. }
-        | NodeKind::Backslash
+        | NodeKind::Linebreak
         | NodeKind::Escape(_)
         | NodeKind::Atom(_)
         | NodeKind::Ident(_) => p.eat(),
 
         // Groups.
-        NodeKind::LeftParen => group(p, Group::Paren),
-        NodeKind::LeftBracket => group(p, Group::Bracket),
-        NodeKind::LeftBrace => group(p, Group::Brace),
+        NodeKind::LeftParen => group(p, Group::Paren, '(', ')'),
+        NodeKind::LeftBracket => group(p, Group::Bracket, '[', ']'),
+        NodeKind::LeftBrace => group(p, Group::Brace, '{', '}'),
 
         // Alignment indactor.
         NodeKind::Amp => align(p),
@@ -493,13 +488,17 @@ fn math_primary(p: &mut Parser) {
 }
 
 /// Parse grouped math.
-fn group(p: &mut Parser, group: Group) {
+fn group(p: &mut Parser, group: Group, l: char, r: char) {
     p.perform(NodeKind::Math, |p| {
+        let marker = p.marker();
         p.start_group(group);
+        marker.convert(p, NodeKind::Atom(l.into()));
         while !p.eof() {
             math_node(p);
         }
+        let marker = p.marker();
         p.end_group();
+        marker.convert(p, NodeKind::Atom(r.into()));
     })
 }
 
@@ -532,7 +531,7 @@ fn expr_prec(p: &mut Parser, atomic: bool, min_prec: usize) -> ParseResult {
             p.eat();
             let prec = op.precedence();
             expr_prec(p, atomic, prec)?;
-            marker.end(p, NodeKind::UnaryExpr);
+            marker.end(p, NodeKind::Unary);
         }
         _ => primary(p, atomic)?,
     };
@@ -585,7 +584,7 @@ fn expr_prec(p: &mut Parser, atomic: bool, min_prec: usize) -> ParseResult {
             Assoc::Right => {}
         }
 
-        marker.perform(p, NodeKind::BinaryExpr, |p| expr_prec(p, atomic, prec))?;
+        marker.perform(p, NodeKind::Binary, |p| expr_prec(p, atomic, prec))?;
     }
 
     Ok(())
@@ -605,9 +604,9 @@ fn primary(p: &mut Parser, atomic: bool) -> ParseResult {
 
             // Arrow means this is a closure's lone parameter.
             if !atomic && p.at(NodeKind::Arrow) {
-                marker.end(p, NodeKind::ClosureParams);
+                marker.end(p, NodeKind::Params);
                 p.assert(NodeKind::Arrow);
-                marker.perform(p, NodeKind::ClosureExpr, expr)
+                marker.perform(p, NodeKind::Closure, expr)
             } else {
                 Ok(())
             }
@@ -703,12 +702,12 @@ fn parenthesized(p: &mut Parser, atomic: bool) -> ParseResult {
     if !atomic && p.at(NodeKind::Arrow) {
         params(p, marker);
         p.assert(NodeKind::Arrow);
-        return marker.perform(p, NodeKind::ClosureExpr, expr);
+        return marker.perform(p, NodeKind::Closure, expr);
     }
 
     // Transform into the identified collection.
     match kind {
-        CollectionKind::Group => marker.end(p, NodeKind::GroupExpr),
+        CollectionKind::Group => marker.end(p, NodeKind::Parenthesized),
         CollectionKind::Positional => array(p, marker),
         CollectionKind::Named => dict(p, marker),
     }
@@ -833,7 +832,7 @@ fn array(p: &mut Parser, marker: Marker) {
         NodeKind::Named | NodeKind::Keyed => Err("expected expression"),
         _ => Ok(()),
     });
-    marker.end(p, NodeKind::ArrayExpr);
+    marker.end(p, NodeKind::Array);
 }
 
 /// Convert a collection into a dictionary, producing errors for anything other
@@ -855,7 +854,7 @@ fn dict(p: &mut Parser, marker: Marker) {
         NodeKind::Spread | NodeKind::Comma | NodeKind::Colon => Ok(()),
         _ => Err("expected named or keyed pair"),
     });
-    marker.end(p, NodeKind::DictExpr);
+    marker.end(p, NodeKind::Dict);
 }
 
 /// Convert a collection into a list of parameters, producing errors for
@@ -874,7 +873,7 @@ fn params(p: &mut Parser, marker: Marker) {
         }
         _ => Err("expected identifier, named pair or argument sink"),
     });
-    marker.end(p, NodeKind::ClosureParams);
+    marker.end(p, NodeKind::Params);
 }
 
 /// Parse a code block: `{...}`.
@@ -920,7 +919,7 @@ fn args(p: &mut Parser) -> ParseResult {
         }
     }
 
-    p.perform(NodeKind::CallArgs, |p| {
+    p.perform(NodeKind::Args, |p| {
         if p.at(NodeKind::LeftParen) {
             let marker = p.marker();
             p.start_group(Group::Paren);
@@ -953,7 +952,7 @@ fn args(p: &mut Parser) -> ParseResult {
 
 /// Parse a let expression.
 fn let_expr(p: &mut Parser) -> ParseResult {
-    p.perform(NodeKind::LetExpr, |p| {
+    p.perform(NodeKind::LetBinding, |p| {
         p.assert(NodeKind::Let);
 
         let marker = p.marker();
@@ -978,7 +977,7 @@ fn let_expr(p: &mut Parser) -> ParseResult {
 
         // Rewrite into a closure expression if it's a function definition.
         if has_params {
-            marker.end(p, NodeKind::ClosureExpr);
+            marker.end(p, NodeKind::Closure);
         }
 
         Ok(())
@@ -987,7 +986,7 @@ fn let_expr(p: &mut Parser) -> ParseResult {
 
 /// Parse a set expression.
 fn set_expr(p: &mut Parser) -> ParseResult {
-    p.perform(NodeKind::SetExpr, |p| {
+    p.perform(NodeKind::SetRule, |p| {
         p.assert(NodeKind::Set);
         ident(p)?;
         args(p)
@@ -996,7 +995,7 @@ fn set_expr(p: &mut Parser) -> ParseResult {
 
 /// Parse a show expression.
 fn show_expr(p: &mut Parser) -> ParseResult {
-    p.perform(NodeKind::ShowExpr, |p| {
+    p.perform(NodeKind::ShowRule, |p| {
         p.assert(NodeKind::Show);
         let marker = p.marker();
         expr(p)?;
@@ -1014,7 +1013,7 @@ fn show_expr(p: &mut Parser) -> ParseResult {
 
 /// Parse a wrap expression.
 fn wrap_expr(p: &mut Parser) -> ParseResult {
-    p.perform(NodeKind::WrapExpr, |p| {
+    p.perform(NodeKind::WrapRule, |p| {
         p.assert(NodeKind::Wrap);
         ident(p)?;
         p.expect(NodeKind::In)?;
@@ -1024,7 +1023,7 @@ fn wrap_expr(p: &mut Parser) -> ParseResult {
 
 /// Parse an if-else expresion.
 fn if_expr(p: &mut Parser) -> ParseResult {
-    p.perform(NodeKind::IfExpr, |p| {
+    p.perform(NodeKind::Conditional, |p| {
         p.assert(NodeKind::If);
 
         expr(p)?;
@@ -1044,7 +1043,7 @@ fn if_expr(p: &mut Parser) -> ParseResult {
 
 /// Parse a while expresion.
 fn while_expr(p: &mut Parser) -> ParseResult {
-    p.perform(NodeKind::WhileExpr, |p| {
+    p.perform(NodeKind::WhileLoop, |p| {
         p.assert(NodeKind::While);
         expr(p)?;
         body(p)
@@ -1053,7 +1052,7 @@ fn while_expr(p: &mut Parser) -> ParseResult {
 
 /// Parse a for-in expression.
 fn for_expr(p: &mut Parser) -> ParseResult {
-    p.perform(NodeKind::ForExpr, |p| {
+    p.perform(NodeKind::ForLoop, |p| {
         p.assert(NodeKind::For);
         for_pattern(p)?;
         p.expect(NodeKind::In)?;
@@ -1075,7 +1074,7 @@ fn for_pattern(p: &mut Parser) -> ParseResult {
 
 /// Parse an import expression.
 fn import_expr(p: &mut Parser) -> ParseResult {
-    p.perform(NodeKind::ImportExpr, |p| {
+    p.perform(NodeKind::ModuleImport, |p| {
         p.assert(NodeKind::Import);
 
         if !p.eat_if(NodeKind::Star) {
@@ -1103,7 +1102,7 @@ fn import_expr(p: &mut Parser) -> ParseResult {
 
 /// Parse an include expression.
 fn include_expr(p: &mut Parser) -> ParseResult {
-    p.perform(NodeKind::IncludeExpr, |p| {
+    p.perform(NodeKind::ModuleInclude, |p| {
         p.assert(NodeKind::Include);
         expr(p)
     })
@@ -1111,7 +1110,7 @@ fn include_expr(p: &mut Parser) -> ParseResult {
 
 /// Parse a break expression.
 fn break_expr(p: &mut Parser) -> ParseResult {
-    p.perform(NodeKind::BreakExpr, |p| {
+    p.perform(NodeKind::BreakStmt, |p| {
         p.assert(NodeKind::Break);
         Ok(())
     })
@@ -1119,7 +1118,7 @@ fn break_expr(p: &mut Parser) -> ParseResult {
 
 /// Parse a continue expression.
 fn continue_expr(p: &mut Parser) -> ParseResult {
-    p.perform(NodeKind::ContinueExpr, |p| {
+    p.perform(NodeKind::ContinueStmt, |p| {
         p.assert(NodeKind::Continue);
         Ok(())
     })
@@ -1127,7 +1126,7 @@ fn continue_expr(p: &mut Parser) -> ParseResult {
 
 /// Parse a return expression.
 fn return_expr(p: &mut Parser) -> ParseResult {
-    p.perform(NodeKind::ReturnExpr, |p| {
+    p.perform(NodeKind::ReturnStmt, |p| {
         p.assert(NodeKind::Return);
         if !p.at(NodeKind::Comma) && !p.eof() {
             expr(p)?;

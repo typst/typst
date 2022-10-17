@@ -1,8 +1,7 @@
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use super::ast::{RawNode, Unit};
-use crate::diag::ErrorPos;
+use crate::geom::{AngleUnit, LengthUnit};
 use crate::util::EcoString;
 
 /// All syntactical building blocks that can be part of a Typst document.
@@ -11,13 +10,9 @@ use crate::util::EcoString;
 /// the parser.
 #[derive(Debug, Clone, PartialEq)]
 pub enum NodeKind {
-    /// A line comment, two slashes followed by inner contents, terminated with
-    /// a newline: `//<str>\n`.
+    /// A line comment: `// ...`.
     LineComment,
-    /// A block comment, a slash and a star followed by inner contents,
-    /// terminated with a star and a slash: `/*<str>*/`.
-    ///
-    /// The comment can contain nested block comments.
+    /// A block comment: `/* ... */`.
     BlockComment,
     /// One or more whitespace characters. Single spaces are collapsed into text
     /// nodes if they would otherwise be surrounded by text nodes.
@@ -43,7 +38,7 @@ pub enum NodeKind {
     Comma,
     /// A semicolon terminating an expression: `;`.
     Semicolon,
-    /// A colon between name / key and value in a dictionary, argument or
+    /// A colon between name/key and value in a dictionary, argument or
     /// parameter list, or between the term and body of a description list
     /// term: `:`.
     Colon,
@@ -52,22 +47,8 @@ pub enum NodeKind {
     Star,
     /// Toggles emphasized text and indicates a subscript in a formula: `_`.
     Underscore,
-    /// Starts and ends a math formula.
+    /// Starts and ends a math formula: `$`.
     Dollar,
-    /// A forced line break: `\`.
-    Backslash,
-    /// The non-breaking space: `~`.
-    Tilde,
-    /// The soft hyphen: `-?`.
-    HyphQuest,
-    /// The en-dash: `--`.
-    Hyph2,
-    /// The em-dash: `---`.
-    Hyph3,
-    /// The ellipsis: `...`.
-    Dot3,
-    /// A smart quote: `'` or `"`.
-    Quote { double: bool },
     /// The unary plus, binary addition operator, and start of enum items: `+`.
     Plus,
     /// The unary negation, binary subtraction operator, and start of list
@@ -160,18 +141,37 @@ pub enum NodeKind {
     Markup { min_indent: usize },
     /// Consecutive text without markup.
     Text(EcoString),
-    /// A unicode escape sequence, written as a slash and the letter "u"
-    /// followed by a hexadecimal unicode entity enclosed in curly braces:
-    /// `\u{1F5FA}`.
+    /// A forced line break: `\`.
+    Linebreak,
+    /// An escape sequence: `\#`, `\u{1F5FA}`.
     Escape(char),
-    /// Strong content: `*Strong*`.
+    /// A shorthand for a unicode codepoint. For example, `~` for non-breaking
+    /// space or `-?` for a soft hyphen.
+    Shorthand(char),
+    /// A smart quote: `'` or `"`.
+    SmartQuote { double: bool },
+    /// Strong markup: `*Strong*`.
     Strong,
-    /// Emphasized content: `_Emphasized_`.
+    /// Emphasized markup: `_Emphasized_`.
     Emph,
+    /// A raw block with optional syntax highlighting: `` `...` ``.
+    Raw(Arc<RawKind>),
     /// A hyperlink: `https://typst.org`.
     Link(EcoString),
-    /// A raw block with optional syntax highlighting: `` `...` ``.
-    Raw(Arc<RawNode>),
+    /// A label: `<label>`.
+    Label(EcoString),
+    /// A reference: `@target`.
+    Ref(EcoString),
+    /// A section heading: `= Introduction`.
+    Heading,
+    /// An item of an unordered list: `- ...`.
+    ListItem,
+    /// An item of an enumeration (ordered list): `+ ...` or `1. ...`.
+    EnumItem,
+    /// An explicit enumeration numbering: `23.`.
+    EnumNumbering(usize),
+    /// An item of a description list: `/ Term: Details.
+    DescItem,
     /// A math formula: `$x$`, `$ x^2 $`.
     Math,
     /// An atom in a math formula: `x`, `+`, `12`.
@@ -182,20 +182,6 @@ pub enum NodeKind {
     Frac,
     /// An alignment indicator in a math formula: `&`, `&&`.
     Align,
-    /// A section heading: `= Introduction`.
-    Heading,
-    /// An item in an unordered list: `- ...`.
-    ListItem,
-    /// An item in an enumeration (ordered list): `+ ...` or `1. ...`.
-    EnumItem,
-    /// An explicit enumeration numbering: `23.`.
-    EnumNumbering(usize),
-    /// An item in a description list: `/ Term: Details.
-    DescItem,
-    /// A label: `<label>`.
-    Label(EcoString),
-    /// A reference: `@label`.
-    Ref(EcoString),
 
     /// An identifier: `center`.
     Ident(EcoString),
@@ -214,19 +200,19 @@ pub enum NodeKind {
     /// A content block: `[*Hi* there!]`.
     ContentBlock,
     /// A grouped expression: `(1 + 2)`.
-    GroupExpr,
-    /// An array expression: `(1, "hi", 12cm)`.
-    ArrayExpr,
-    /// A dictionary expression: `(thickness: 3pt, pattern: dashed)`.
-    DictExpr,
+    Parenthesized,
+    /// An array: `(1, "hi", 12cm)`.
+    Array,
+    /// A dictionary: `(thickness: 3pt, pattern: dashed)`.
+    Dict,
     /// A named pair: `thickness: 3pt`.
     Named,
     /// A keyed pair: `"spacy key": true`.
     Keyed,
     /// A unary operation: `-x`.
-    UnaryExpr,
+    Unary,
     /// A binary operation: `a + b`.
-    BinaryExpr,
+    Binary,
     /// A field access: `properties.age`.
     FieldAccess,
     /// An invocation of a function: `f(x, y)`.
@@ -234,50 +220,89 @@ pub enum NodeKind {
     /// An invocation of a method: `array.push(v)`.
     MethodCall,
     /// A function call's argument list: `(x, y)`.
-    CallArgs,
+    Args,
     /// Spreaded arguments or a argument sink: `..x`.
     Spread,
-    /// A closure expression: `(x, y) => z`.
-    ClosureExpr,
+    /// A closure: `(x, y) => z`.
+    Closure,
     /// A closure's parameters: `(x, y)`.
-    ClosureParams,
-    /// A let expression: `let x = 1`.
-    LetExpr,
-    /// A set expression: `set text(...)`.
-    SetExpr,
-    /// A show expression: `show node: heading as [*{nody.body}*]`.
-    ShowExpr,
-    /// A wrap expression: `wrap body in columns(2, body)`.
-    WrapExpr,
-    /// An if-else expression: `if x { y } else { z }`.
-    IfExpr,
-    /// A while loop expression: `while x { ... }`.
-    WhileExpr,
-    /// A for loop expression: `for x in y { ... }`.
-    ForExpr,
+    Params,
+    /// A let binding: `let x = 1`.
+    LetBinding,
+    /// A set rule: `set text(...)`.
+    SetRule,
+    /// A show rule: `show node: heading as [*{nody.body}*]`.
+    ShowRule,
+    /// A wrap rule: `wrap body in columns(2, body)`.
+    WrapRule,
+    /// An if-else conditional: `if x { y } else { z }`.
+    Conditional,
+    /// A while loop: `while x { ... }`.
+    WhileLoop,
+    /// A for loop: `for x in y { ... }`.
+    ForLoop,
     /// A for loop's destructuring pattern: `x` or `x, y`.
     ForPattern,
-    /// An import expression: `import a, b, c from "utils.typ"`.
-    ImportExpr,
-    /// Items to import: `a, b, c`.
+    /// A module import: `import a, b, c from "utils.typ"`.
+    ModuleImport,
+    /// Items to import from a module: `a, b, c`.
     ImportItems,
-    /// An include expression: `include "chapter1.typ"`.
-    IncludeExpr,
-    /// A break expression: `break`.
-    BreakExpr,
-    /// A continue expression: `continue`.
-    ContinueExpr,
-    /// A return expression: `return x + 1`.
-    ReturnExpr,
+    /// A module include: `include "chapter1.typ"`.
+    ModuleInclude,
+    /// A break statement: `break`.
+    BreakStmt,
+    /// A continue statement: `continue`.
+    ContinueStmt,
+    /// A return statement: `return x + 1`.
+    ReturnStmt,
 
     /// An invalid sequence of characters.
     Error(ErrorPos, EcoString),
 }
 
+/// Fields of the node kind `Raw`.
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub struct RawKind {
+    /// An optional identifier specifying the language to syntax-highlight in.
+    pub lang: Option<EcoString>,
+    /// The raw text, determined as the raw string between the backticks trimmed
+    /// according to the above rules.
+    pub text: EcoString,
+    /// Whether the element is block-level, that is, it has 3+ backticks
+    /// and contains at least one newline.
+    pub block: bool,
+}
+
+/// Unit of a numeric value.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum Unit {
+    /// An absolute length unit.
+    Length(LengthUnit),
+    /// An angular unit.
+    Angle(AngleUnit),
+    /// Font-relative: `1em` is the same as the font size.
+    Em,
+    /// Fractions: `fr`.
+    Fr,
+    /// Percentage: `%`.
+    Percent,
+}
+
+/// Where in a node an error should be annotated,
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum ErrorPos {
+    /// Over the full width of the node.
+    Full,
+    /// At the start of the node.
+    Start,
+    /// At the end of the node.
+    End,
+}
+
 impl NodeKind {
-    /// Whether this is a kind of parenthesis.
-    pub fn is_paren(&self) -> bool {
-        matches!(self, Self::LeftParen | Self::RightParen)
+    /// Whether this is trivia.
+    pub fn is_trivia(&self) -> bool {
+        self.is_space() || matches!(self, Self::LineComment | Self::BlockComment)
     }
 
     /// Whether this is a space.
@@ -285,12 +310,12 @@ impl NodeKind {
         matches!(self, Self::Space { .. })
     }
 
-    /// Whether this is trivia.
-    pub fn is_trivia(&self) -> bool {
-        self.is_space() || matches!(self, Self::LineComment | Self::BlockComment)
+    /// Whether this is a left or right parenthesis.
+    pub fn is_paren(&self) -> bool {
+        matches!(self, Self::LeftParen | Self::RightParen)
     }
 
-    /// Whether this is a kind of error.
+    /// Whether this is an error.
     pub fn is_error(&self) -> bool {
         matches!(self, NodeKind::Error(_, _))
     }
@@ -313,14 +338,8 @@ impl NodeKind {
             Self::Star => "star",
             Self::Underscore => "underscore",
             Self::Dollar => "dollar sign",
-            Self::Backslash => "linebreak",
-            Self::Tilde => "non-breaking space",
-            Self::HyphQuest => "soft hyphen",
-            Self::Hyph2 => "en dash",
-            Self::Hyph3 => "em dash",
-            Self::Dot3 => "ellipsis",
-            Self::Quote { double: false } => "single quote",
-            Self::Quote { double: true } => "double quote",
+            Self::SmartQuote { double: false } => "single quote",
+            Self::SmartQuote { double: true } => "double quote",
             Self::Plus => "plus",
             Self::Minus => "minus",
             Self::Slash => "slash",
@@ -363,23 +382,25 @@ impl NodeKind {
             Self::As => "keyword `as`",
             Self::Markup { .. } => "markup",
             Self::Text(_) => "text",
+            Self::Linebreak => "linebreak",
             Self::Escape(_) => "escape sequence",
+            Self::Shorthand(_) => "shorthand",
             Self::Strong => "strong content",
             Self::Emph => "emphasized content",
-            Self::Link(_) => "link",
             Self::Raw(_) => "raw block",
-            Self::Math => "math formula",
-            Self::Atom(_) => "math atom",
-            Self::Script => "script",
-            Self::Frac => "fraction",
-            Self::Align => "alignment indicator",
+            Self::Link(_) => "link",
+            Self::Label(_) => "label",
+            Self::Ref(_) => "reference",
             Self::Heading => "heading",
             Self::ListItem => "list item",
             Self::EnumItem => "enumeration item",
             Self::EnumNumbering(_) => "enumeration item numbering",
             Self::DescItem => "description list item",
-            Self::Label(_) => "label",
-            Self::Ref(_) => "reference",
+            Self::Math => "math formula",
+            Self::Atom(_) => "math atom",
+            Self::Script => "script",
+            Self::Frac => "fraction",
+            Self::Align => "alignment indicator",
             Self::Ident(_) => "identifier",
             Self::Bool(_) => "boolean",
             Self::Int(_) => "integer",
@@ -388,34 +409,34 @@ impl NodeKind {
             Self::Str(_) => "string",
             Self::CodeBlock => "code block",
             Self::ContentBlock => "content block",
-            Self::GroupExpr => "group",
-            Self::ArrayExpr => "array",
-            Self::DictExpr => "dictionary",
+            Self::Parenthesized => "group",
+            Self::Array => "array",
+            Self::Dict => "dictionary",
             Self::Named => "named pair",
             Self::Keyed => "keyed pair",
-            Self::UnaryExpr => "unary expression",
-            Self::BinaryExpr => "binary expression",
+            Self::Unary => "unary expression",
+            Self::Binary => "binary expression",
             Self::FieldAccess => "field access",
             Self::FuncCall => "function call",
             Self::MethodCall => "method call",
-            Self::CallArgs => "call arguments",
+            Self::Args => "call arguments",
             Self::Spread => "spread",
-            Self::ClosureExpr => "closure",
-            Self::ClosureParams => "closure parameters",
-            Self::LetExpr => "`let` expression",
-            Self::SetExpr => "`set` expression",
-            Self::ShowExpr => "`show` expression",
-            Self::WrapExpr => "`wrap` expression",
-            Self::IfExpr => "`if` expression",
-            Self::WhileExpr => "while-loop expression",
-            Self::ForExpr => "for-loop expression",
+            Self::Closure => "closure",
+            Self::Params => "closure parameters",
+            Self::LetBinding => "`let` expression",
+            Self::SetRule => "`set` expression",
+            Self::ShowRule => "`show` expression",
+            Self::WrapRule => "`wrap` expression",
+            Self::Conditional => "`if` expression",
+            Self::WhileLoop => "while-loop expression",
+            Self::ForLoop => "for-loop expression",
             Self::ForPattern => "for-loop destructuring pattern",
-            Self::ImportExpr => "`import` expression",
+            Self::ModuleImport => "`import` expression",
             Self::ImportItems => "import items",
-            Self::IncludeExpr => "`include` expression",
-            Self::BreakExpr => "`break` expression",
-            Self::ContinueExpr => "`continue` expression",
-            Self::ReturnExpr => "`return` expression",
+            Self::ModuleInclude => "`include` expression",
+            Self::BreakStmt => "`break` expression",
+            Self::ContinueStmt => "`continue` expression",
+            Self::ReturnStmt => "`return` expression",
             Self::Error(_, _) => "syntax error",
         }
     }
@@ -440,13 +461,6 @@ impl Hash for NodeKind {
             Self::Star => {}
             Self::Underscore => {}
             Self::Dollar => {}
-            Self::Backslash => {}
-            Self::Tilde => {}
-            Self::HyphQuest => {}
-            Self::Hyph2 => {}
-            Self::Hyph3 => {}
-            Self::Dot3 => {}
-            Self::Quote { double } => double.hash(state),
             Self::Plus => {}
             Self::Minus => {}
             Self::Slash => {}
@@ -489,23 +503,26 @@ impl Hash for NodeKind {
             Self::As => {}
             Self::Markup { min_indent } => min_indent.hash(state),
             Self::Text(s) => s.hash(state),
+            Self::Linebreak => {}
             Self::Escape(c) => c.hash(state),
+            Self::Shorthand(c) => c.hash(state),
+            Self::SmartQuote { double } => double.hash(state),
             Self::Strong => {}
             Self::Emph => {}
-            Self::Link(link) => link.hash(state),
             Self::Raw(raw) => raw.hash(state),
-            Self::Math => {}
-            Self::Atom(c) => c.hash(state),
-            Self::Script => {}
-            Self::Frac => {}
-            Self::Align => {}
+            Self::Link(link) => link.hash(state),
+            Self::Label(c) => c.hash(state),
+            Self::Ref(c) => c.hash(state),
             Self::Heading => {}
             Self::ListItem => {}
             Self::EnumItem => {}
             Self::EnumNumbering(num) => num.hash(state),
             Self::DescItem => {}
-            Self::Label(c) => c.hash(state),
-            Self::Ref(c) => c.hash(state),
+            Self::Math => {}
+            Self::Atom(c) => c.hash(state),
+            Self::Script => {}
+            Self::Frac => {}
+            Self::Align => {}
             Self::Ident(v) => v.hash(state),
             Self::Bool(v) => v.hash(state),
             Self::Int(v) => v.hash(state),
@@ -514,34 +531,34 @@ impl Hash for NodeKind {
             Self::Str(v) => v.hash(state),
             Self::CodeBlock => {}
             Self::ContentBlock => {}
-            Self::GroupExpr => {}
-            Self::ArrayExpr => {}
-            Self::DictExpr => {}
+            Self::Parenthesized => {}
+            Self::Array => {}
+            Self::Dict => {}
             Self::Named => {}
             Self::Keyed => {}
-            Self::UnaryExpr => {}
-            Self::BinaryExpr => {}
+            Self::Unary => {}
+            Self::Binary => {}
             Self::FieldAccess => {}
             Self::FuncCall => {}
             Self::MethodCall => {}
-            Self::CallArgs => {}
+            Self::Args => {}
             Self::Spread => {}
-            Self::ClosureExpr => {}
-            Self::ClosureParams => {}
-            Self::LetExpr => {}
-            Self::SetExpr => {}
-            Self::ShowExpr => {}
-            Self::WrapExpr => {}
-            Self::IfExpr => {}
-            Self::WhileExpr => {}
-            Self::ForExpr => {}
+            Self::Closure => {}
+            Self::Params => {}
+            Self::LetBinding => {}
+            Self::SetRule => {}
+            Self::ShowRule => {}
+            Self::WrapRule => {}
+            Self::Conditional => {}
+            Self::WhileLoop => {}
+            Self::ForLoop => {}
             Self::ForPattern => {}
-            Self::ImportExpr => {}
+            Self::ModuleImport => {}
             Self::ImportItems => {}
-            Self::IncludeExpr => {}
-            Self::BreakExpr => {}
-            Self::ContinueExpr => {}
-            Self::ReturnExpr => {}
+            Self::ModuleInclude => {}
+            Self::BreakStmt => {}
+            Self::ContinueStmt => {}
+            Self::ReturnStmt => {}
             Self::Error(pos, msg) => (pos, msg).hash(state),
         }
     }
