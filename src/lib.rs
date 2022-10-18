@@ -130,13 +130,13 @@ impl Default for Config {
 /// Definition of certain standard library items the language is aware of.
 #[derive(Debug, Clone, Hash)]
 pub struct RoleMap {
-    strong: fn(Content) -> Content,
-    emph: fn(Content) -> Content,
-    raw: fn(EcoString, Option<EcoString>, bool) -> Content,
-    link: fn(EcoString) -> Content,
-    ref_: fn(EcoString) -> Content,
-    heading: fn(NonZeroUsize, Content) -> Content,
-    list_item: fn(Content) -> Content,
-    enum_item: fn(Option<usize>, Content) -> Content,
-    desc_item: fn(Content, Content) -> Content,
+    pub strong: fn(Content) -> Content,
+    pub emph: fn(Content) -> Content,
+    pub raw: fn(EcoString, Option<EcoString>, bool) -> Content,
+    pub link: fn(EcoString) -> Content,
+    pub ref_: fn(EcoString) -> Content,
+    pub heading: fn(NonZeroUsize, Content) -> Content,
+    pub list_item: fn(Content) -> Content,
+    pub enum_item: fn(Option<usize>, Content) -> Content,
+    pub desc_item: fn(Content, Content) -> Content,
 }

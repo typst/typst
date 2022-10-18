@@ -1,6 +1,6 @@
 //! The standard library.
 //!
-//! Call [`new`] to obtain a [`Scope`] containing all standard library
+//! Call [`scope`] to obtain a [`Scope`] containing all standard library
 //! definitions.
 
 pub mod graphics;

@@ -133,15 +133,11 @@ impl Debug for KeyId {
 /// This trait is not intended to be implemented manually, but rather through
 /// the `#[node]` proc-macro.
 pub trait Key<'a>: Copy + 'static {
-    /// The unfolded type which this property is stored as in a style map. For
-    /// example, this is [`Toggle`](crate::geom::Length) for the
-    /// [`BOLD`](crate::library::text::TextNode::BOLD) property.
+    /// The unfolded type which this property is stored as in a style map.
     type Value: Debug + Clone + Hash + Sync + Send + 'static;
 
     /// The folded type of value that is returned when reading this property
-    /// from a style chain. For example, this is [`bool`] for the
-    /// [`BOLD`](crate::library::text::TextNode::BOLD) property. For non-copy,
-    /// non-folding properties this is a reference type.
+    /// from a style chain.
     type Output;
 
     /// The name of the property, used for debug printing.
