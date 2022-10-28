@@ -74,14 +74,14 @@ impl<T> Sides<T> {
 
 impl<T: Add> Sides<T> {
     /// Sums up `left` and `right` into `x`, and `top` and `bottom` into `y`.
-    pub fn sum_by_axis(self) -> Spec<T::Output> {
-        Spec::new(self.left + self.right, self.top + self.bottom)
+    pub fn sum_by_axis(self) -> Axes<T::Output> {
+        Axes::new(self.left + self.right, self.top + self.bottom)
     }
 }
 
-impl Sides<Relative<Length>> {
+impl Sides<Rel<Abs>> {
     /// Evaluate the sides relative to the given `size`.
-    pub fn relative_to(self, size: Size) -> Sides<Length> {
+    pub fn relative_to(self, size: Size) -> Sides<Abs> {
         Sides {
             left: self.left.relative_to(size.x),
             top: self.top.relative_to(size.y),
@@ -173,10 +173,10 @@ impl Side {
     }
 
     /// Return the corresponding axis.
-    pub fn axis(self) -> SpecAxis {
+    pub fn axis(self) -> Axis {
         match self {
-            Self::Left | Self::Right => SpecAxis::Vertical,
-            Self::Top | Self::Bottom => SpecAxis::Horizontal,
+            Self::Left | Self::Right => Axis::Y,
+            Self::Top | Self::Bottom => Axis::X,
         }
     }
 }

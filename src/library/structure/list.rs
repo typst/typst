@@ -29,10 +29,10 @@ impl<const L: ListKind> ListNode<L> {
     pub const LABEL: Label = Label::Default;
     /// The indentation of each item's label.
     #[property(resolve)]
-    pub const INDENT: RawLength = RawLength::zero();
+    pub const INDENT: Length = Length::zero();
     /// The space between the label and the body of each item.
     #[property(resolve)]
-    pub const BODY_INDENT: RawLength = Em::new(match L {
+    pub const BODY_INDENT: Length = Em::new(match L {
         LIST | ENUM => 0.5,
         DESC | _ => 1.0,
     })
@@ -159,13 +159,13 @@ impl<const L: ListKind> Show for ListNode<L> {
         }
 
         Ok(Content::block(GridNode {
-            tracks: Spec::with_x(vec![
+            tracks: Axes::with_x(vec![
                 TrackSizing::Relative(indent.into()),
                 TrackSizing::Auto,
                 TrackSizing::Relative(body_indent.into()),
                 TrackSizing::Auto,
             ]),
-            gutter: Spec::with_y(vec![TrackSizing::Relative(gutter.into())]),
+            gutter: Axes::with_y(vec![TrackSizing::Relative(gutter.into())]),
             cells,
         }))
     }

@@ -2,9 +2,9 @@ use super::*;
 
 /// A fraction of remaining space.
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct Fraction(Scalar);
+pub struct Fr(Scalar);
 
-impl Fraction {
+impl Fr {
     /// Takes up zero space: `0fr`.
     pub const fn zero() -> Self {
         Self(Scalar(0.0))
@@ -31,17 +31,17 @@ impl Fraction {
     }
 
     /// Determine this fraction's share in the remaining space.
-    pub fn share(self, total: Self, remaining: Length) -> Length {
+    pub fn share(self, total: Self, remaining: Abs) -> Abs {
         let ratio = self / total;
         if ratio.is_finite() && remaining.is_finite() {
             ratio * remaining
         } else {
-            Length::zero()
+            Abs::zero()
         }
     }
 }
 
-impl Numeric for Fraction {
+impl Numeric for Fr {
     fn zero() -> Self {
         Self::zero()
     }
@@ -51,13 +51,13 @@ impl Numeric for Fraction {
     }
 }
 
-impl Debug for Fraction {
+impl Debug for Fr {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}fr", round_2(self.get()))
     }
 }
 
-impl Neg for Fraction {
+impl Neg for Fr {
     type Output = Self;
 
     fn neg(self) -> Self {
@@ -65,7 +65,7 @@ impl Neg for Fraction {
     }
 }
 
-impl Add for Fraction {
+impl Add for Fr {
     type Output = Self;
 
     fn add(self, other: Self) -> Self {
@@ -73,9 +73,9 @@ impl Add for Fraction {
     }
 }
 
-sub_impl!(Fraction - Fraction -> Fraction);
+sub_impl!(Fr - Fr -> Fr);
 
-impl Mul<f64> for Fraction {
+impl Mul<f64> for Fr {
     type Output = Self;
 
     fn mul(self, other: f64) -> Self {
@@ -83,15 +83,15 @@ impl Mul<f64> for Fraction {
     }
 }
 
-impl Mul<Fraction> for f64 {
-    type Output = Fraction;
+impl Mul<Fr> for f64 {
+    type Output = Fr;
 
-    fn mul(self, other: Fraction) -> Fraction {
+    fn mul(self, other: Fr) -> Fr {
         other * self
     }
 }
 
-impl Div<f64> for Fraction {
+impl Div<f64> for Fr {
     type Output = Self;
 
     fn div(self, other: f64) -> Self {
@@ -99,7 +99,7 @@ impl Div<f64> for Fraction {
     }
 }
 
-impl Div for Fraction {
+impl Div for Fr {
     type Output = f64;
 
     fn div(self, other: Self) -> f64 {
@@ -107,12 +107,12 @@ impl Div for Fraction {
     }
 }
 
-assign_impl!(Fraction += Fraction);
-assign_impl!(Fraction -= Fraction);
-assign_impl!(Fraction *= f64);
-assign_impl!(Fraction /= f64);
+assign_impl!(Fr += Fr);
+assign_impl!(Fr -= Fr);
+assign_impl!(Fr *= f64);
+assign_impl!(Fr /= f64);
 
-impl Sum for Fraction {
+impl Sum for Fr {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
         Self(iter.map(|s| s.0).sum())
     }

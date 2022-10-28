@@ -1,7 +1,7 @@
 use pdf_writer::{Finish, Ref, TextStr};
 
-use super::{LengthExt, PdfContext, RefExt};
-use crate::geom::{Length, Point};
+use super::{AbsExt, PdfContext, RefExt};
+use crate::geom::{Abs, Point};
 use crate::util::EcoString;
 
 /// A heading that can later be linked in the outline panel.
@@ -77,7 +77,7 @@ pub fn write_outline_item(
     outline.title(TextStr(&node.heading.content));
     outline.dest_direct().page(node.heading.page).xyz(
         node.heading.position.x.to_f32(),
-        (node.heading.position.y + Length::pt(3.0)).to_f32(),
+        (node.heading.position.y + Abs::pt(3.0)).to_f32(),
         None,
     );
 

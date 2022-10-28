@@ -90,19 +90,19 @@ pub struct StackLayouter<'a> {
     /// The stacking direction.
     dir: Dir,
     /// The axis of the stacking direction.
-    axis: SpecAxis,
+    axis: Axis,
     /// The regions to layout children into.
     regions: Regions,
     /// The inherited styles.
     styles: StyleChain<'a>,
     /// Whether the stack itself should expand to fill the region.
-    expand: Spec<bool>,
+    expand: Axes<bool>,
     /// The full size of the current region that was available at the start.
     full: Size,
     /// The generic size used by the frames for the current region.
-    used: Gen<Length>,
+    used: Gen<Abs>,
     /// The sum of fractions in the current region.
-    fr: Fraction,
+    fr: Fr,
     /// Already layouted items whose exact positions are not yet known due to
     /// fractional spacing.
     items: Vec<StackItem>,
@@ -113,9 +113,9 @@ pub struct StackLayouter<'a> {
 /// A prepared item in a stack layout.
 enum StackItem {
     /// Absolute spacing between other items.
-    Absolute(Length),
+    Absolute(Abs),
     /// Fractional spacing between other items.
-    Fractional(Fraction),
+    Fractional(Fr),
     /// A frame for a layouted child node.
     Frame(Frame, Align),
 }
@@ -139,7 +139,7 @@ impl<'a> StackLayouter<'a> {
             expand,
             full,
             used: Gen::zero(),
-            fr: Fraction::zero(),
+            fr: Fr::zero(),
             items: vec![],
             finished: vec![],
         }
@@ -200,7 +200,12 @@ impl<'a> StackLayouter<'a> {
             frame.apply_role(Role::GenericBlock);
 
             // Grow our size, shrink the region and save the frame for later.
-            let size = frame.size().to_gen(self.axis);
+            let size = frame.size();
+            let size = match self.axis {
+                Axis::X => Gen::new(size.y, size.x),
+                Axis::Y => Gen::new(size.x, size.y),
+            };
+
             self.used.main += size.main;
             self.used.cross.set_max(size.cross);
             *self.regions.first.get_mut(self.axis) -= size.main;
@@ -218,7 +223,7 @@ impl<'a> StackLayouter<'a> {
     pub fn finish_region(&mut self) {
         // Determine the size of the stack in this region dependening on whether
         // the region expands.
-        let used = self.used.to_spec(self.axis);
+        let used = self.used.to_axes(self.axis);
         let mut size = self.expand.select(self.full, used);
 
         // Expand fully if there are fr spacings.
@@ -230,7 +235,7 @@ impl<'a> StackLayouter<'a> {
         }
 
         let mut output = Frame::new(size);
-        let mut cursor = Length::zero();
+        let mut cursor = Abs::zero();
         let mut ruler: Align = self.dir.start().into();
 
         // Place all frames.
@@ -255,7 +260,7 @@ impl<'a> StackLayouter<'a> {
                             self.used.main - child - cursor
                         };
 
-                    let pos = Gen::new(Length::zero(), block).to_point(self.axis);
+                    let pos = Gen::new(Abs::zero(), block).to_point(self.axis);
                     cursor += child;
                     output.push_frame(pos, frame);
                 }
@@ -266,7 +271,7 @@ impl<'a> StackLayouter<'a> {
         self.regions.next();
         self.full = self.regions.first;
         self.used = Gen::zero();
-        self.fr = Fraction::zero();
+        self.fr = Fr::zero();
         self.finished.push(output);
     }
 
@@ -274,5 +279,41 @@ impl<'a> StackLayouter<'a> {
     pub fn finish(mut self) -> Vec<Frame> {
         self.finish_region();
         self.finished
+    }
+}
+
+/// A container with a main and cross component.
+#[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct Gen<T> {
+    /// The main component.
+    pub cross: T,
+    /// The cross component.
+    pub main: T,
+}
+
+impl<T> Gen<T> {
+    /// Create a new instance from the two components.
+    pub const fn new(cross: T, main: T) -> Self {
+        Self { cross, main }
+    }
+
+    /// Convert to the specific representation, given the current main axis.
+    pub fn to_axes(self, main: Axis) -> Axes<T> {
+        match main {
+            Axis::X => Axes::new(self.main, self.cross),
+            Axis::Y => Axes::new(self.cross, self.main),
+        }
+    }
+}
+
+impl Gen<Abs> {
+    /// The zero value.
+    pub fn zero() -> Self {
+        Self { cross: Abs::zero(), main: Abs::zero() }
+    }
+
+    /// Convert to a point.
+    pub fn to_point(self, main: Axis) -> Point {
+        self.to_axes(main).to_point()
     }
 }

@@ -30,13 +30,13 @@ pub enum ParChild {
 impl ParNode {
     /// The spacing between lines.
     #[property(resolve)]
-    pub const LEADING: RawLength = Em::new(0.65).into();
+    pub const LEADING: Length = Em::new(0.65).into();
     /// The extra spacing between paragraphs.
     #[property(resolve)]
-    pub const SPACING: RawLength = Em::new(1.2).into();
+    pub const SPACING: Length = Em::new(1.2).into();
     /// The indent the first line of a consecutive paragraph should have.
     #[property(resolve)]
-    pub const INDENT: RawLength = RawLength::zero();
+    pub const INDENT: Length = Length::zero();
     /// Whether to allow paragraph spacing when there is paragraph indent.
     pub const SPACING_AND_INDENT: bool = false;
 
@@ -119,8 +119,8 @@ castable! {
     HorizontalAlign,
     Expected: "alignment",
     @align: RawAlign => match align.axis() {
-        SpecAxis::Horizontal => Self(*align),
-        SpecAxis::Vertical => Err("must be horizontal")?,
+        Axis::X => Self(*align),
+        Axis::Y => Err("must be horizontal")?,
     },
 }
 
@@ -212,7 +212,7 @@ struct Preparation<'a> {
     /// The text language if it's the same for all children.
     lang: Option<Lang>,
     /// The resolved leading between lines.
-    leading: Length,
+    leading: Abs,
     /// The paragraph's resolved alignment.
     align: Align,
     /// Whether to justify the paragraph.
@@ -292,9 +292,9 @@ enum Item<'a> {
     /// A shaped text run with consistent style and direction.
     Text(ShapedText<'a>),
     /// Absolute spacing between other items.
-    Absolute(Length),
+    Absolute(Abs),
     /// Fractional spacing between other items.
-    Fractional(Fraction),
+    Fractional(Fr),
     /// A layouted child node.
     Frame(Frame),
     /// A repeating node that fills the remaining space.
@@ -320,12 +320,12 @@ impl<'a> Item<'a> {
     }
 
     /// The natural layouted width of the item.
-    fn width(&self) -> Length {
+    fn width(&self) -> Abs {
         match self {
             Self::Text(shaped) => shaped.width,
             Self::Absolute(v) => *v,
             Self::Frame(frame) => frame.width(),
-            Self::Fractional(_) | Self::Repeat(_, _) => Length::zero(),
+            Self::Fractional(_) | Self::Repeat(_, _) => Abs::zero(),
         }
     }
 }
@@ -354,7 +354,7 @@ struct Line<'a> {
     /// there is only one text item, this takes precedence over `first`.
     last: Option<Item<'a>>,
     /// The width of the line.
-    width: Length,
+    width: Abs,
     /// Whether the line should be justified.
     justify: bool,
     /// Whether the line ends with a hyphen or dash, either naturally or through
@@ -402,8 +402,8 @@ impl<'a> Line<'a> {
     }
 
     /// How much of the line is stretchable spaces.
-    fn stretch(&self) -> Length {
-        let mut stretch = Length::zero();
+    fn stretch(&self) -> Abs {
+        let mut stretch = Abs::zero();
         for shaped in self.items().filter_map(Item::text) {
             stretch += shaped.stretch();
         }
@@ -411,11 +411,11 @@ impl<'a> Line<'a> {
     }
 
     /// The sum of fractions in the line.
-    fn fr(&self) -> Fraction {
+    fn fr(&self) -> Fr {
         self.items()
             .filter_map(|item| match item {
                 Item::Fractional(fr) => Some(*fr),
-                Item::Repeat(_, _) => Some(Fraction::one()),
+                Item::Repeat(_, _) => Some(Fr::one()),
                 _ => None,
             })
             .sum()
@@ -533,7 +533,7 @@ fn prepare<'a>(
                     items.push(Item::Repeat(repeat, styles));
                 } else {
                     let size = Size::new(regions.first.x, regions.base.y);
-                    let pod = Regions::one(size, regions.base, Spec::splat(false));
+                    let pod = Regions::one(size, regions.base, Axes::splat(false));
                     let mut frame = node.layout(world, &pod, styles)?.remove(0);
                     frame.translate(Point::with_y(styles.get(TextNode::BASELINE)));
                     frame.apply_role(Role::GenericInline);
@@ -628,7 +628,7 @@ fn shared_get<'a, K: Key<'a>>(
 fn linebreak<'a>(
     p: &'a Preparation<'a>,
     world: Tracked<dyn World>,
-    width: Length,
+    width: Abs,
 ) -> Vec<Line<'a>> {
     match p.styles.get(ParNode::LINEBREAKS) {
         Linebreaks::Simple => linebreak_simple(p, world, width),
@@ -642,7 +642,7 @@ fn linebreak<'a>(
 fn linebreak_simple<'a>(
     p: &'a Preparation<'a>,
     world: Tracked<dyn World>,
-    width: Length,
+    width: Abs,
 ) -> Vec<Line<'a>> {
     let mut lines = vec![];
     let mut start = 0;
@@ -702,7 +702,7 @@ fn linebreak_simple<'a>(
 fn linebreak_optimized<'a>(
     p: &'a Preparation<'a>,
     world: Tracked<dyn World>,
-    width: Length,
+    width: Abs,
 ) -> Vec<Line<'a>> {
     /// The cost of a line or paragraph layout.
     type Cost = f64;
@@ -930,7 +930,7 @@ fn line<'a>(
             first: None,
             inner: &[],
             last: None,
-            width: Length::zero(),
+            width: Abs::zero(),
             justify,
             dash: false,
         };
@@ -938,7 +938,7 @@ fn line<'a>(
 
     // Slice out the relevant items.
     let (expanded, mut inner) = p.slice(range.clone());
-    let mut width = Length::zero();
+    let mut width = Abs::zero();
 
     // Reshape the last item if it's split in half or hyphenated.
     let mut last = None;
@@ -1075,10 +1075,10 @@ fn commit(
     world: Tracked<dyn World>,
     line: &Line,
     regions: &Regions,
-    width: Length,
+    width: Abs,
 ) -> SourceResult<Frame> {
     let mut remaining = width - line.width;
-    let mut offset = Length::zero();
+    let mut offset = Abs::zero();
 
     // Reorder the line from logical to visual order.
     let reordered = reorder(line);
@@ -1112,22 +1112,22 @@ fn commit(
 
     // Determine how much to justify each space.
     let fr = line.fr();
-    let mut justification = Length::zero();
-    if remaining < Length::zero() || (line.justify && fr.is_zero()) {
+    let mut justification = Abs::zero();
+    if remaining < Abs::zero() || (line.justify && fr.is_zero()) {
         let justifiables = line.justifiables();
         if justifiables > 0 {
             justification = remaining / justifiables as f64;
-            remaining = Length::zero();
+            remaining = Abs::zero();
         }
     }
 
-    let mut top = Length::zero();
-    let mut bottom = Length::zero();
+    let mut top = Abs::zero();
+    let mut bottom = Abs::zero();
 
     // Build the frames and determine the height and baseline.
     let mut frames = vec![];
     for item in reordered {
-        let mut push = |offset: &mut Length, frame: Frame| {
+        let mut push = |offset: &mut Abs, frame: Frame| {
             let width = frame.width();
             top.set_max(frame.baseline());
             bottom.set_max(frame.size().y - frame.baseline());
@@ -1151,9 +1151,9 @@ fn commit(
             }
             Item::Repeat(node, styles) => {
                 let before = offset;
-                let fill = Fraction::one().share(fr, remaining);
+                let fill = Fr::one().share(fr, remaining);
                 let size = Size::new(fill, regions.base.y);
-                let pod = Regions::one(size, regions.base, Spec::new(false, false));
+                let pod = Regions::one(size, regions.base, Axes::new(false, false));
                 let frame = node.layout(world, &pod, *styles)?.remove(0);
                 let width = frame.width();
                 let count = (fill / width).floor();
@@ -1162,7 +1162,7 @@ fn commit(
                 if count == 1.0 {
                     offset += p.align.position(remaining);
                 }
-                if width > Length::zero() {
+                if width > Abs::zero() {
                     for _ in 0 .. (count as usize).min(1000) {
                         push(&mut offset, frame.clone());
                         offset += apart;
@@ -1175,7 +1175,7 @@ fn commit(
 
     // Remaining space is distributed now.
     if !fr.is_zero() {
-        remaining = Length::zero();
+        remaining = Abs::zero();
     }
 
     let size = Size::new(width, top + bottom);

@@ -4,7 +4,7 @@ use crate::library::prelude::*;
 #[derive(Debug, Hash)]
 pub struct PadNode {
     /// The amount of padding.
-    pub padding: Sides<Relative<RawLength>>,
+    pub padding: Sides<Rel<Length>>,
     /// The child node whose sides to pad.
     pub child: LayoutNode,
 }
@@ -54,7 +54,7 @@ impl Layout for PadNode {
 }
 
 /// Shrink a size by padding relative to the size itself.
-fn shrink(size: Size, padding: Sides<Relative<Length>>) -> Size {
+fn shrink(size: Size, padding: Sides<Rel<Abs>>) -> Size {
     size - padding.relative_to(size).sum_by_axis()
 }
 
@@ -77,7 +77,7 @@ fn shrink(size: Size, padding: Sides<Relative<Length>>) -> Size {
 ///   <=> w - p.rel * w - p.abs = s
 ///   <=> (1 - p.rel) * w = s + p.abs
 ///   <=> w = (s + p.abs) / (1 - p.rel)
-fn grow(size: Size, padding: Sides<Relative<Length>>) -> Size {
+fn grow(size: Size, padding: Sides<Rel<Abs>>) -> Size {
     size.zip(padding.sum_by_axis())
         .map(|(s, p)| (s + p.abs).safe_div(1.0 - p.rel.get()))
 }

@@ -5,7 +5,7 @@ use unscanny::Scanner;
 
 use super::resolve::{resolve_hex, resolve_raw, resolve_string};
 use super::{ErrorPos, NodeKind, RawKind, Unit};
-use crate::geom::{AngleUnit, LengthUnit};
+use crate::geom::{AbsUnit, AngleUnit};
 use crate::util::EcoString;
 
 /// An iterator over the tokens of a string of source code.
@@ -565,10 +565,10 @@ impl<'s> Tokens<'s> {
 
         match suffix {
             "" => NodeKind::Float(v),
-            "pt" => NodeKind::Numeric(v, Unit::Length(LengthUnit::Pt)),
-            "mm" => NodeKind::Numeric(v, Unit::Length(LengthUnit::Mm)),
-            "cm" => NodeKind::Numeric(v, Unit::Length(LengthUnit::Cm)),
-            "in" => NodeKind::Numeric(v, Unit::Length(LengthUnit::In)),
+            "pt" => NodeKind::Numeric(v, Unit::Length(AbsUnit::Pt)),
+            "mm" => NodeKind::Numeric(v, Unit::Length(AbsUnit::Mm)),
+            "cm" => NodeKind::Numeric(v, Unit::Length(AbsUnit::Cm)),
+            "in" => NodeKind::Numeric(v, Unit::Length(AbsUnit::In)),
             "deg" => NodeKind::Numeric(v, Unit::Angle(AngleUnit::Deg)),
             "rad" => NodeKind::Numeric(v, Unit::Angle(AngleUnit::Rad)),
             "em" => NodeKind::Numeric(v, Unit::Em),
@@ -1089,10 +1089,10 @@ mod tests {
         let nums = ints.iter().map(|&(k, v)| (k, v as f64)).chain(floats);
 
         let suffixes: &[(&str, fn(f64) -> NodeKind)] = &[
-            ("mm", |x| Numeric(x, Unit::Length(LengthUnit::Mm))),
-            ("pt", |x| Numeric(x, Unit::Length(LengthUnit::Pt))),
-            ("cm", |x| Numeric(x, Unit::Length(LengthUnit::Cm))),
-            ("in", |x| Numeric(x, Unit::Length(LengthUnit::In))),
+            ("mm", |x| Numeric(x, Unit::Length(AbsUnit::Mm))),
+            ("pt", |x| Numeric(x, Unit::Length(AbsUnit::Pt))),
+            ("cm", |x| Numeric(x, Unit::Length(AbsUnit::Cm))),
+            ("in", |x| Numeric(x, Unit::Length(AbsUnit::In))),
             ("rad", |x| Numeric(x, Unit::Angle(AngleUnit::Rad))),
             ("deg", |x| Numeric(x, Unit::Angle(AngleUnit::Deg))),
             ("em", |x| Numeric(x, Unit::Em)),

@@ -16,12 +16,9 @@ pub use crate::diag::{
 pub use crate::frame::*;
 pub use crate::geom::*;
 pub use crate::model::{
-    Arg, Args, Array, Cast, Dict, Dynamic, Func, Node, RawAlign, RawLength, RawStroke,
-    Scope, Smart, Str, Value, Vm,
-};
-pub use crate::model::{
-    Content, Fold, Key, Layout, LayoutNode, Regions, Resolve, Selector, Show, ShowNode,
-    StyleChain, StyleMap, StyleVec,
+    Arg, Args, Array, Cast, Content, Dict, Dynamic, Fold, Func, Key, Layout, LayoutNode,
+    Node, RawAlign, RawStroke, Regions, Resolve, Scope, Selector, Show, ShowNode, Smart,
+    Str, StyleChain, StyleMap, StyleVec, Value, Vm,
 };
 pub use crate::syntax::{Span, Spanned};
 pub use crate::util::EcoString;

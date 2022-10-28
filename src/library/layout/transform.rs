@@ -5,7 +5,7 @@ use crate::library::prelude::*;
 #[derive(Debug, Hash)]
 pub struct MoveNode {
     /// The offset by which to move the node.
-    pub delta: Spec<Relative<RawLength>>,
+    pub delta: Axes<Rel<Length>>,
     /// The node whose contents should be moved.
     pub child: LayoutNode,
 }
@@ -16,7 +16,7 @@ impl MoveNode {
         let dx = args.named("dx")?.unwrap_or_default();
         let dy = args.named("dy")?.unwrap_or_default();
         Ok(Content::inline(Self {
-            delta: Spec::new(dx, dy),
+            delta: Axes::new(dx, dy),
             child: args.expect("body")?,
         }))
     }
@@ -60,7 +60,7 @@ pub type ScaleNode = TransformNode<SCALE>;
 impl<const T: TransformKind> TransformNode<T> {
     /// The origin of the transformation.
     #[property(resolve)]
-    pub const ORIGIN: Spec<Option<RawAlign>> = Spec::default();
+    pub const ORIGIN: Axes<Option<RawAlign>> = Axes::default();
 
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         let transform = match T {
@@ -94,7 +94,7 @@ impl<const T: TransformKind> Layout for TransformNode<T> {
         let mut frames = self.child.layout(world, regions, styles)?;
 
         for frame in &mut frames {
-            let Spec { x, y } = origin.zip(frame.size()).map(|(o, s)| o.position(s));
+            let Axes { x, y } = origin.zip(frame.size()).map(|(o, s)| o.position(s));
             let transform = Transform::translate(x, y)
                 .pre_concat(self.transform)
                 .pre_concat(Transform::translate(-x, -y));

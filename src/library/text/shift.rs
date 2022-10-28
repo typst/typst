@@ -23,7 +23,7 @@ impl<const S: ScriptKind> ShiftNode<S> {
     /// font.
     pub const TYPOGRAPHIC: bool = true;
     /// The baseline shift for synthetic sub- and superscripts.
-    pub const BASELINE: RawLength =
+    pub const BASELINE: Length =
         Em::new(if S == SUPERSCRIPT { -0.5 } else { 0.2 }).into();
     /// The font size for synthetic sub- and superscripts.
     pub const SIZE: TextSize = TextSize(Em::new(0.6).into());

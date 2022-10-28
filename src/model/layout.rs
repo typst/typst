@@ -8,10 +8,10 @@ use std::sync::Arc;
 use comemo::{Prehashed, Tracked};
 
 use super::{Barrier, NodeId, Resolve, StyleChain, StyleEntry};
-use super::{Builder, Content, RawLength, Scratch};
+use super::{Builder, Content, Scratch};
 use crate::diag::SourceResult;
 use crate::frame::{Element, Frame};
-use crate::geom::{Align, Geometry, Length, Paint, Point, Relative, Size, Spec, Stroke};
+use crate::geom::{Abs, Align, Axes, Geometry, Length, Paint, Point, Rel, Size, Stroke};
 use crate::World;
 
 /// Layout content into a collection of pages.
@@ -56,18 +56,18 @@ pub struct Regions {
     /// The base size for relative sizing.
     pub base: Size,
     /// The height of followup regions. The width is the same for all regions.
-    pub backlog: Vec<Length>,
+    pub backlog: Vec<Abs>,
     /// The height of the final region that is repeated once the backlog is
     /// drained. The width is the same for all regions.
-    pub last: Option<Length>,
+    pub last: Option<Abs>,
     /// Whether nodes should expand to fill the regions instead of shrinking to
     /// fit the content.
-    pub expand: Spec<bool>,
+    pub expand: Axes<bool>,
 }
 
 impl Regions {
     /// Create a new region sequence with exactly one region.
-    pub fn one(size: Size, base: Size, expand: Spec<bool>) -> Self {
+    pub fn one(size: Size, base: Size, expand: Axes<bool>) -> Self {
         Self {
             first: size,
             base,
@@ -78,7 +78,7 @@ impl Regions {
     }
 
     /// Create a new sequence of same-size regions that repeats indefinitely.
-    pub fn repeat(size: Size, base: Size, expand: Spec<bool>) -> Self {
+    pub fn repeat(size: Size, base: Size, expand: Axes<bool>) -> Self {
         Self {
             first: size,
             base,
@@ -108,7 +108,7 @@ impl Regions {
 
     /// Whether the first region is full and a region break is called for.
     pub fn is_full(&self) -> bool {
-        Length::zero().fits(self.first.y) && !self.in_last()
+        Abs::zero().fits(self.first.y) && !self.in_last()
     }
 
     /// Whether the first region is the last usable region.
@@ -173,7 +173,7 @@ impl LayoutNode {
     }
 
     /// Force a size for this node.
-    pub fn sized(self, sizing: Spec<Option<Relative<RawLength>>>) -> Self {
+    pub fn sized(self, sizing: Axes<Option<Rel<Length>>>) -> Self {
         if sizing.any(Option::is_some) {
             SizedNode { sizing, child: self }.pack()
         } else {
@@ -279,7 +279,7 @@ impl Layout for EmptyNode {
 #[derive(Debug, Hash)]
 struct SizedNode {
     /// How to size the node horizontally and vertically.
-    sizing: Spec<Option<Relative<RawLength>>>,
+    sizing: Axes<Option<Rel<Length>>>,
     /// The node to be sized.
     child: LayoutNode,
 }
@@ -303,7 +303,7 @@ impl Layout for SizedNode {
 
             // Select the appropriate base and expansion for the child depending
             // on whether it is automatically or relatively sized.
-            let is_auto = self.sizing.map_is_none();
+            let is_auto = self.sizing.as_ref().map(Option::is_none);
             let base = is_auto.select(regions.base, size);
             let expand = regions.expand | !is_auto;
 

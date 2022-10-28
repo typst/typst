@@ -4,9 +4,9 @@ use crate::library::prelude::*;
 #[derive(Debug, Hash)]
 pub struct GridNode {
     /// Defines sizing for content rows and columns.
-    pub tracks: Spec<Vec<TrackSizing>>,
+    pub tracks: Axes<Vec<TrackSizing>>,
     /// Defines sizing of gutter rows and columns between content.
-    pub gutter: Spec<Vec<TrackSizing>>,
+    pub gutter: Axes<Vec<TrackSizing>>,
     /// The nodes to be arranged in a grid.
     pub cells: Vec<LayoutNode>,
 }
@@ -20,8 +20,8 @@ impl GridNode {
         let column_gutter = args.named("column-gutter")?;
         let row_gutter = args.named("row-gutter")?;
         Ok(Content::block(Self {
-            tracks: Spec::new(columns, rows),
-            gutter: Spec::new(
+            tracks: Axes::new(columns, rows),
+            gutter: Axes::new(
                 column_gutter.unwrap_or_else(|| base_gutter.clone()),
                 row_gutter.unwrap_or(base_gutter),
             ),
@@ -59,10 +59,10 @@ pub enum TrackSizing {
     Auto,
     /// A track size specified in absolute terms and relative to the parent's
     /// size.
-    Relative(Relative<RawLength>),
+    Relative(Rel<Length>),
     /// A track size specified as a fraction of the remaining free space in the
     /// parent.
-    Fractional(Fraction),
+    Fractional(Fr),
 }
 
 castable! {
@@ -105,16 +105,16 @@ pub struct GridLayouter<'a> {
     /// The inherited styles.
     styles: StyleChain<'a>,
     /// Resolved column sizes.
-    rcols: Vec<Length>,
+    rcols: Vec<Abs>,
     /// Rows in the current region.
     lrows: Vec<Row>,
     /// The full height of the current region.
-    full: Length,
+    full: Abs,
     /// The used-up size of the current region. The horizontal size is
     /// determined once after columns are resolved and not touched again.
     used: Size,
     /// The sum of fractions in the current region.
-    fr: Fraction,
+    fr: Fr,
     /// Frames for finished regions.
     finished: Vec<Frame>,
 }
@@ -125,7 +125,7 @@ enum Row {
     /// Finished row frame of auto or relative row.
     Frame(Frame),
     /// Fractional row with y index.
-    Fr(Fraction, usize),
+    Fr(Fr, usize),
 }
 
 impl<'a> GridLayouter<'a> {
@@ -134,8 +134,8 @@ impl<'a> GridLayouter<'a> {
     /// This prepares grid layout by unifying content and gutter tracks.
     pub fn new(
         world: Tracked<'a, dyn World>,
-        tracks: Spec<&[TrackSizing]>,
-        gutter: Spec<&[TrackSizing]>,
+        tracks: Axes<&[TrackSizing]>,
+        gutter: Axes<&[TrackSizing]>,
         cells: &'a [LayoutNode],
         regions: &Regions,
         styles: StyleChain<'a>,
@@ -156,7 +156,7 @@ impl<'a> GridLayouter<'a> {
         };
 
         let auto = TrackSizing::Auto;
-        let zero = TrackSizing::Relative(Relative::zero());
+        let zero = TrackSizing::Relative(Rel::zero());
         let get_or = |tracks: &[_], idx, default| {
             tracks.get(idx).or(tracks.last()).copied().unwrap_or(default)
         };
@@ -178,13 +178,13 @@ impl<'a> GridLayouter<'a> {
         rows.pop();
 
         let full = regions.first.y;
-        let rcols = vec![Length::zero(); cols.len()];
+        let rcols = vec![Abs::zero(); cols.len()];
         let lrows = vec![];
 
         // We use the regions for auto row measurement. Since at that moment,
         // columns are already sized, we can enable horizontal expansion.
         let mut regions = regions.clone();
-        regions.expand = Spec::new(true, false);
+        regions.expand = Axes::new(true, false);
 
         Self {
             world,
@@ -197,7 +197,7 @@ impl<'a> GridLayouter<'a> {
             lrows,
             full,
             used: Size::zero(),
-            fr: Fraction::zero(),
+            fr: Fr::zero(),
             finished: vec![],
         }
     }
@@ -230,10 +230,10 @@ impl<'a> GridLayouter<'a> {
     /// Determine all column sizes.
     fn measure_columns(&mut self) -> SourceResult<()> {
         // Sum of sizes of resolved relative tracks.
-        let mut rel = Length::zero();
+        let mut rel = Abs::zero();
 
         // Sum of fractions of all fractional tracks.
-        let mut fr = Fraction::zero();
+        let mut fr = Fr::zero();
 
         // Resolve the size of all relative columns and compute the sum of all
         // fractional tracks.
@@ -252,14 +252,14 @@ impl<'a> GridLayouter<'a> {
 
         // Size that is not used by fixed-size columns.
         let available = self.regions.first.x - rel;
-        if available >= Length::zero() {
+        if available >= Abs::zero() {
             // Determine size of auto columns.
             let (auto, count) = self.measure_auto_columns(available)?;
 
             // If there is remaining space, distribute it to fractional columns,
             // otherwise shrink auto columns.
             let remaining = available - auto;
-            if remaining >= Length::zero() {
+            if remaining >= Abs::zero() {
                 if !fr.is_zero() {
                     self.grow_fractional_columns(remaining, fr);
                 }
@@ -275,11 +275,8 @@ impl<'a> GridLayouter<'a> {
     }
 
     /// Measure the size that is available to auto columns.
-    fn measure_auto_columns(
-        &mut self,
-        available: Length,
-    ) -> SourceResult<(Length, usize)> {
-        let mut auto = Length::zero();
+    fn measure_auto_columns(&mut self, available: Abs) -> SourceResult<(Abs, usize)> {
+        let mut auto = Abs::zero();
         let mut count = 0;
 
         // Determine size of auto columns by laying out all cells in those
@@ -289,12 +286,12 @@ impl<'a> GridLayouter<'a> {
                 continue;
             }
 
-            let mut resolved = Length::zero();
+            let mut resolved = Abs::zero();
             for y in 0 .. self.rows.len() {
                 if let Some(node) = self.cell(x, y) {
                     let size = Size::new(available, self.regions.base.y);
                     let mut pod =
-                        Regions::one(size, self.regions.base, Spec::splat(false));
+                        Regions::one(size, self.regions.base, Axes::splat(false));
 
                     // For relative rows, we can already resolve the correct
                     // base, for auto it's already correct and for fr we could
@@ -318,7 +315,7 @@ impl<'a> GridLayouter<'a> {
     }
 
     /// Distribute remaining space to fractional columns.
-    fn grow_fractional_columns(&mut self, remaining: Length, fr: Fraction) {
+    fn grow_fractional_columns(&mut self, remaining: Abs, fr: Fr) {
         for (&col, rcol) in self.cols.iter().zip(&mut self.rcols) {
             if let TrackSizing::Fractional(v) = col {
                 *rcol = v.share(fr, remaining);
@@ -327,7 +324,7 @@ impl<'a> GridLayouter<'a> {
     }
 
     /// Redistribute space to auto columns so that each gets a fair share.
-    fn shrink_auto_columns(&mut self, available: Length, count: usize) {
+    fn shrink_auto_columns(&mut self, available: Abs, count: usize) {
         // The fair share each auto column may have.
         let fair = available / count as f64;
 
@@ -359,7 +356,7 @@ impl<'a> GridLayouter<'a> {
     /// Layout a row with automatic height. Such a row may break across multiple
     /// regions.
     fn layout_auto_row(&mut self, y: usize) -> SourceResult<()> {
-        let mut resolved: Vec<Length> = vec![];
+        let mut resolved: Vec<Abs> = vec![];
 
         // Determine the size for each region of the row.
         for (x, &rcol) in self.rcols.iter().enumerate() {
@@ -426,11 +423,7 @@ impl<'a> GridLayouter<'a> {
 
     /// Layout a row with relative height. Such a row cannot break across
     /// multiple regions, but it may force a region break.
-    fn layout_relative_row(
-        &mut self,
-        v: Relative<RawLength>,
-        y: usize,
-    ) -> SourceResult<()> {
+    fn layout_relative_row(&mut self, v: Rel<Length>, y: usize) -> SourceResult<()> {
         let resolved = v.resolve(self.styles).relative_to(self.regions.base.y);
         let frame = self.layout_single_row(resolved, y)?;
 
@@ -451,7 +444,7 @@ impl<'a> GridLayouter<'a> {
     }
 
     /// Layout a row with fixed height and return its frame.
-    fn layout_single_row(&mut self, height: Length, y: usize) -> SourceResult<Frame> {
+    fn layout_single_row(&mut self, height: Abs, y: usize) -> SourceResult<Frame> {
         let mut output = Frame::new(Size::new(self.used.x, height));
 
         let mut pos = Point::zero();
@@ -462,11 +455,11 @@ impl<'a> GridLayouter<'a> {
 
                 // Set the base to the region's base for auto rows and to the
                 // size for relative and fractional rows.
-                let base = Spec::new(self.cols[x], self.rows[y])
+                let base = Axes::new(self.cols[x], self.rows[y])
                     .map(|s| s == TrackSizing::Auto)
                     .select(self.regions.base, size);
 
-                let pod = Regions::one(size, base, Spec::splat(true));
+                let pod = Regions::one(size, base, Axes::splat(true));
                 let frame = node.layout(self.world, &pod, self.styles)?.remove(0);
                 match frame.role() {
                     Some(Role::ListLabel | Role::ListItemBody) => {
@@ -488,7 +481,7 @@ impl<'a> GridLayouter<'a> {
     /// Layout a row spanning multiple regions.
     fn layout_multi_row(
         &mut self,
-        heights: &[Length],
+        heights: &[Abs],
         y: usize,
     ) -> SourceResult<Vec<Frame>> {
         // Prepare frames.
@@ -499,7 +492,7 @@ impl<'a> GridLayouter<'a> {
 
         // Prepare regions.
         let size = Size::new(self.used.x, heights[0]);
-        let mut pod = Regions::one(size, self.regions.base, Spec::splat(true));
+        let mut pod = Regions::one(size, self.regions.base, Axes::splat(true));
         pod.backlog = heights[1 ..].to_vec();
 
         // Layout the row.
@@ -573,8 +566,8 @@ impl<'a> GridLayouter<'a> {
         self.finished.push(output);
         self.regions.next();
         self.full = self.regions.first.y;
-        self.used.y = Length::zero();
-        self.fr = Fraction::zero();
+        self.used.y = Abs::zero();
+        self.fr = Fr::zero();
 
         Ok(())
     }

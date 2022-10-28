@@ -81,14 +81,14 @@ pub struct FlowLayouter {
     /// The regions to layout children into.
     regions: Regions,
     /// Whether the flow should expand to fill the region.
-    expand: Spec<bool>,
+    expand: Axes<bool>,
     /// The full size of `regions.size` that was available before we started
     /// subtracting.
     full: Size,
     /// The size used by the frames for the current region.
     used: Size,
     /// The sum of fractions in the current region.
-    fr: Fraction,
+    fr: Fr,
     /// Spacing and layouted nodes.
     items: Vec<FlowItem>,
     /// Finished frames for previous regions.
@@ -98,11 +98,11 @@ pub struct FlowLayouter {
 /// A prepared item in a flow layout.
 enum FlowItem {
     /// Absolute spacing between other items.
-    Absolute(Length),
+    Absolute(Abs),
     /// Fractional spacing between other items.
-    Fractional(Fraction),
+    Fractional(Fr),
     /// A frame for a layouted child node and how to align it.
-    Frame(Frame, Spec<Align>),
+    Frame(Frame, Axes<Align>),
     /// An absolutely placed frame.
     Placed(Frame),
 }
@@ -122,7 +122,7 @@ impl FlowLayouter {
             expand,
             full,
             used: Size::zero(),
-            fr: Fraction::zero(),
+            fr: Fr::zero(),
             items: vec![],
             finished: vec![],
         }
@@ -169,7 +169,7 @@ impl FlowLayouter {
         }
 
         // How to align the node.
-        let aligns = Spec::new(
+        let aligns = Axes::new(
             // For non-expanding paragraphs it is crucial that we align the
             // whole paragraph as it is itself aligned.
             styles.get(ParNode::ALIGN),
@@ -215,7 +215,7 @@ impl FlowLayouter {
         }
 
         let mut output = Frame::new(size);
-        let mut offset = Length::zero();
+        let mut offset = Abs::zero();
         let mut ruler = Align::Top;
 
         // Place all frames.
@@ -245,7 +245,7 @@ impl FlowLayouter {
         self.regions.next();
         self.full = self.regions.first;
         self.used = Size::zero();
-        self.fr = Fraction::zero();
+        self.fr = Fr::zero();
         self.finished.push(output);
     }
 

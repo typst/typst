@@ -7,8 +7,8 @@ pub struct Transform {
     pub ky: Ratio,
     pub kx: Ratio,
     pub sy: Ratio,
-    pub tx: Length,
-    pub ty: Length,
+    pub tx: Abs,
+    pub ty: Abs,
 }
 
 impl Transform {
@@ -19,13 +19,13 @@ impl Transform {
             ky: Ratio::zero(),
             kx: Ratio::zero(),
             sy: Ratio::one(),
-            tx: Length::zero(),
-            ty: Length::zero(),
+            tx: Abs::zero(),
+            ty: Abs::zero(),
         }
     }
 
     /// A translate transform.
-    pub const fn translate(tx: Length, ty: Length) -> Self {
+    pub const fn translate(tx: Abs, ty: Abs) -> Self {
         Self { tx, ty, ..Self::identity() }
     }
 

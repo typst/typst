@@ -33,7 +33,7 @@ impl ImageNode {
         let height = args.named("height")?;
 
         Ok(Content::inline(
-            ImageNode(image).pack().sized(Spec::new(width, height)),
+            ImageNode(image).pack().sized(Axes::new(width, height)),
         ))
     }
 }
@@ -62,7 +62,7 @@ impl Layout for ImageNode {
         } else if first.y.is_finite() {
             Size::new(first.x.min(first.y * px_ratio), first.y)
         } else {
-            Size::new(Length::pt(pxw), Length::pt(pxh))
+            Size::new(Abs::pt(pxw), Abs::pt(pxh))
         };
 
         // Compute the actual size of the fitted image.

@@ -5,9 +5,9 @@ use crate::library::prelude::*;
 #[derive(Debug, Hash)]
 pub struct TableNode {
     /// Defines sizing for content rows and columns.
-    pub tracks: Spec<Vec<TrackSizing>>,
+    pub tracks: Axes<Vec<TrackSizing>>,
     /// Defines sizing of gutter rows and columns between content.
-    pub gutter: Spec<Vec<TrackSizing>>,
+    pub gutter: Axes<Vec<TrackSizing>>,
     /// The nodes to be arranged in the table.
     pub cells: Vec<Content>,
 }
@@ -21,7 +21,7 @@ impl TableNode {
     #[property(resolve, fold)]
     pub const STROKE: Option<RawStroke> = Some(RawStroke::default());
     /// How much to pad the cells's content.
-    pub const PADDING: Relative<RawLength> = Length::pt(5.0).into();
+    pub const PADDING: Rel<Length> = Abs::pt(5.0).into();
 
     /// The spacing above the table.
     #[property(resolve, shorthand(around))]
@@ -37,8 +37,8 @@ impl TableNode {
         let column_gutter = args.named("column-gutter")?;
         let row_gutter = args.named("row-gutter")?;
         Ok(Content::show(Self {
-            tracks: Spec::new(columns, rows),
-            gutter: Spec::new(
+            tracks: Axes::new(columns, rows),
+            gutter: Axes::new(
                 column_gutter.unwrap_or_else(|| base_gutter.clone()),
                 row_gutter.unwrap_or(base_gutter),
             ),

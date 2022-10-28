@@ -218,17 +218,17 @@ impl StyleMapExt for StyleMap {
 /// Additional methods for layout nodes.
 pub trait LayoutNodeExt {
     /// Set alignments for this node.
-    fn aligned(self, aligns: Spec<Option<RawAlign>>) -> Self;
+    fn aligned(self, aligns: Axes<Option<RawAlign>>) -> Self;
 
     /// Pad this node at the sides.
-    fn padded(self, padding: Sides<Relative<RawLength>>) -> Self;
+    fn padded(self, padding: Sides<Rel<Length>>) -> Self;
 
     /// Transform this node's contents without affecting layout.
-    fn moved(self, delta: Spec<Relative<RawLength>>) -> Self;
+    fn moved(self, delta: Axes<Rel<Length>>) -> Self;
 }
 
 impl LayoutNodeExt for LayoutNode {
-    fn aligned(self, aligns: Spec<Option<RawAlign>>) -> Self {
+    fn aligned(self, aligns: Axes<Option<RawAlign>>) -> Self {
         if aligns.any(Option::is_some) {
             layout::AlignNode { aligns, child: self }.pack()
         } else {
@@ -236,7 +236,7 @@ impl LayoutNodeExt for LayoutNode {
         }
     }
 
-    fn padded(self, padding: Sides<Relative<RawLength>>) -> Self {
+    fn padded(self, padding: Sides<Rel<Length>>) -> Self {
         if !padding.left.is_zero()
             || !padding.top.is_zero()
             || !padding.right.is_zero()
@@ -248,7 +248,7 @@ impl LayoutNodeExt for LayoutNode {
         }
     }
 
-    fn moved(self, delta: Spec<Relative<RawLength>>) -> Self {
+    fn moved(self, delta: Axes<Rel<Length>>) -> Self {
         if delta.any(|r| !r.is_zero()) {
             layout::MoveNode { delta, child: self }.pack()
         } else {

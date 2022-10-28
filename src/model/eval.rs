@@ -11,7 +11,7 @@ use super::{
     Pattern, Recipe, Scope, Scopes, StyleEntry, StyleMap, Value, Vm,
 };
 use crate::diag::{At, SourceResult, StrResult, Trace, Tracepoint};
-use crate::geom::{Angle, Em, Fraction, Length, Ratio};
+use crate::geom::{Abs, Angle, Em, Fr, Ratio};
 use crate::library;
 use crate::syntax::ast::TypedNode;
 use crate::syntax::{ast, SourceId, Span, Spanned, Unit};
@@ -465,10 +465,10 @@ impl Eval for ast::Lit {
             ast::LitKind::Int(v) => Value::Int(v),
             ast::LitKind::Float(v) => Value::Float(v),
             ast::LitKind::Numeric(v, unit) => match unit {
-                Unit::Length(unit) => Length::with_unit(v, unit).into(),
+                Unit::Length(unit) => Abs::with_unit(v, unit).into(),
                 Unit::Angle(unit) => Angle::with_unit(v, unit).into(),
                 Unit::Em => Em::new(v).into(),
-                Unit::Fr => Fraction::new(v).into(),
+                Unit::Fr => Fr::new(v).into(),
                 Unit::Percent => Ratio::new(v / 100.0).into(),
             },
             ast::LitKind::Str(v) => Value::Str(v.into()),

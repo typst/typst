@@ -26,10 +26,10 @@ impl<const L: DecoLine> DecoNode<L> {
     /// Position of the line relative to the baseline, read from the font tables
     /// if `auto`.
     #[property(resolve)]
-    pub const OFFSET: Smart<RawLength> = Smart::Auto;
+    pub const OFFSET: Smart<Length> = Smart::Auto;
     /// Amount that the line will be longer or shorter than its associated text.
     #[property(resolve)]
-    pub const EXTENT: RawLength = RawLength::zero();
+    pub const EXTENT: Length = Length::zero();
     /// Whether the line skips sections in which it would collide
     /// with the glyphs. Does not apply to strikethrough.
     pub const EVADE: bool = true;
@@ -69,9 +69,9 @@ impl<const L: DecoLine> Show for DecoNode<L> {
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Decoration {
     pub line: DecoLine,
-    pub stroke: RawStroke<Length>,
-    pub offset: Smart<Length>,
-    pub extent: Length,
+    pub stroke: RawStroke<Abs>,
+    pub offset: Smart<Abs>,
+    pub extent: Abs,
     pub evade: bool,
 }
 
@@ -92,9 +92,9 @@ pub fn decorate(
     frame: &mut Frame,
     deco: &Decoration,
     text: &Text,
-    shift: Length,
+    shift: Abs,
     pos: Point,
-    width: Length,
+    width: Abs,
 ) {
     let font_metrics = text.font.metrics();
     let metrics = match deco.line {
@@ -116,9 +116,9 @@ pub fn decorate(
     let mut start = pos.x - deco.extent;
     let end = pos.x + (width + 2.0 * deco.extent);
 
-    let mut push_segment = |from: Length, to: Length| {
+    let mut push_segment = |from: Abs, to: Abs| {
         let origin = Point::new(from, pos.y + offset);
-        let target = Point::new(to - from, Length::zero());
+        let target = Point::new(to - from, Abs::zero());
 
         if target.x >= min_width || !evade {
             let shape = Geometry::Line(target).stroked(stroke);
@@ -161,7 +161,7 @@ pub fn decorate(
             intersections.extend(
                 path.segments()
                     .flat_map(|seg| seg.intersect_line(line))
-                    .map(|is| Length::raw(line.eval(is.line_t).x)),
+                    .map(|is| Abs::raw(line.eval(is.line_t).x)),
             );
         }
     }
@@ -196,12 +196,12 @@ pub fn decorate(
 struct BezPathBuilder {
     path: BezPath,
     units_per_em: f64,
-    font_size: Length,
+    font_size: Abs,
     x_offset: f64,
 }
 
 impl BezPathBuilder {
-    fn new(units_per_em: f64, font_size: Length, x_offset: f64) -> Self {
+    fn new(units_per_em: f64, font_size: Abs, x_offset: f64) -> Self {
         Self {
             path: BezPath::new(),
             units_per_em,

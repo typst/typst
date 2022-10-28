@@ -3,12 +3,12 @@ use pdf_writer::writers::ColorSpace;
 use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str};
 
 use super::{
-    deflate, EmExt, Heading, HeadingNode, LengthExt, PdfContext, RefExt, D65_GRAY, SRGB,
+    deflate, AbsExt, EmExt, Heading, HeadingNode, PdfContext, RefExt, D65_GRAY, SRGB,
 };
 use crate::font::Font;
 use crate::frame::{Destination, Element, Frame, Group, Role, Text};
 use crate::geom::{
-    self, Color, Em, Geometry, Length, Numeric, Paint, Point, Ratio, Shape, Size, Stroke,
+    self, Abs, Color, Em, Geometry, Numeric, Paint, Point, Ratio, Shape, Size, Stroke,
     Transform,
 };
 use crate::image::Image;
@@ -45,7 +45,7 @@ pub fn construct_page(ctx: &mut PdfContext, frame: &Frame) {
         ky: Ratio::zero(),
         kx: Ratio::zero(),
         sy: Ratio::new(-1.0),
-        tx: Length::zero(),
+        tx: Abs::zero(),
         ty: size.y,
     });
 
@@ -169,7 +169,7 @@ struct PageContext<'a> {
 #[derive(Debug, Default, Clone)]
 struct State {
     transform: Transform,
-    font: Option<(Font, Length)>,
+    font: Option<(Font, Abs)>,
     fill: Option<Paint>,
     fill_space: Option<Name<'static>>,
     stroke: Option<Stroke>,
@@ -200,7 +200,7 @@ impl<'a> PageContext<'a> {
         ]);
     }
 
-    fn set_font(&mut self, font: &Font, size: Length) {
+    fn set_font(&mut self, font: &Font, size: Abs) {
         if self.state.font.as_ref().map(|(f, s)| (f, *s)) != Some((font, size)) {
             self.parent.font_map.insert(font.clone());
             let name = format_eco!("F{}", self.parent.font_map.map(font.clone()));
@@ -402,22 +402,18 @@ fn write_shape(ctx: &mut PageContext, x: f32, y: f32, shape: &Shape) {
     }
 
     match shape.geometry {
+        Geometry::Line(target) => {
+            let dx = target.x.to_f32();
+            let dy = target.y.to_f32();
+            ctx.content.move_to(x, y);
+            ctx.content.line_to(x + dx, y + dy);
+        }
         Geometry::Rect(size) => {
             let w = size.x.to_f32();
             let h = size.y.to_f32();
             if w > 0.0 && h > 0.0 {
                 ctx.content.rect(x, y, w, h);
             }
-        }
-        Geometry::Ellipse(size) => {
-            let approx = geom::Path::ellipse(size);
-            write_path(ctx, x, y, &approx);
-        }
-        Geometry::Line(target) => {
-            let dx = target.x.to_f32();
-            let dy = target.y.to_f32();
-            ctx.content.move_to(x, y);
-            ctx.content.line_to(x + dx, y + dy);
         }
         Geometry::Path(ref path) => {
             write_path(ctx, x, y, path);
@@ -469,10 +465,10 @@ fn write_image(ctx: &mut PageContext, x: f32, y: f32, image: &Image, size: Size)
 
 /// Save a link for later writing in the annotations dictionary.
 fn write_link(ctx: &mut PageContext, pos: Point, dest: &Destination, size: Size) {
-    let mut min_x = Length::inf();
-    let mut min_y = Length::inf();
-    let mut max_x = -Length::inf();
-    let mut max_y = -Length::inf();
+    let mut min_x = Abs::inf();
+    let mut min_y = Abs::inf();
+    let mut max_x = -Abs::inf();
+    let mut max_y = -Abs::inf();
 
     // Compute the bounding box of the transformed link.
     for point in [

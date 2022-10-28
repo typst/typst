@@ -16,7 +16,7 @@ use self::outline::{Heading, HeadingNode};
 use self::page::Page;
 use crate::font::Font;
 use crate::frame::{Frame, Lang};
-use crate::geom::{Dir, Em, Length};
+use crate::geom::{Abs, Dir, Em};
 use crate::image::Image;
 
 /// Export a collection of frames into a PDF file.
@@ -182,13 +182,13 @@ where
     }
 }
 
-/// Additional methods for [`Length`].
-trait LengthExt {
-    /// Convert an em length to a number of points.
+/// Additional methods for [`Abs`].
+trait AbsExt {
+    /// Convert an to a number of points.
     fn to_f32(self) -> f32;
 }
 
-impl LengthExt for Length {
+impl AbsExt for Abs {
     fn to_f32(self) -> f32 {
         self.to_pt() as f32
     }

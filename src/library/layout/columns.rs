@@ -15,7 +15,7 @@ pub struct ColumnsNode {
 impl ColumnsNode {
     /// The size of the gutter space between each column.
     #[property(resolve)]
-    pub const GUTTER: Relative<RawLength> = Ratio::new(0.04).into();
+    pub const GUTTER: Rel<Length> = Ratio::new(0.04).into();
 
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Content::block(Self {
@@ -53,7 +53,7 @@ impl Layout for ColumnsNode {
                 .skip(1)
                 .collect(),
             last: regions.last,
-            expand: Spec::new(true, regions.expand.y),
+            expand: Axes::new(true, regions.expand.y),
         };
 
         // Layout the children.
@@ -69,9 +69,9 @@ impl Layout for ColumnsNode {
             // Otherwise its the maximum column height for the frame. In that
             // case, the frame is first created with zero height and then
             // resized.
-            let height = if regions.expand.y { region.y } else { Length::zero() };
+            let height = if regions.expand.y { region.y } else { Abs::zero() };
             let mut output = Frame::new(Size::new(regions.first.x, height));
-            let mut cursor = Length::zero();
+            let mut cursor = Abs::zero();
 
             for _ in 0 .. columns {
                 let frame = match frames.next() {

@@ -17,7 +17,7 @@ use walkdir::WalkDir;
 use typst::diag::{FileError, FileResult};
 use typst::font::{Font, FontBook};
 use typst::frame::{Element, Frame};
-use typst::geom::{Length, RgbaColor, Sides};
+use typst::geom::{Abs, RgbaColor, Sides};
 use typst::library::layout::PageNode;
 use typst::library::text::{TextNode, TextSize};
 use typst::model::{Smart, StyleMap, Value};
@@ -150,13 +150,13 @@ fn config() -> Config {
     // exactly 100pt wide. Page height is unbounded and font size is 10pt so
     // that it multiplies to nice round numbers.
     let mut styles = StyleMap::new();
-    styles.set(PageNode::WIDTH, Smart::Custom(Length::pt(120.0).into()));
+    styles.set(PageNode::WIDTH, Smart::Custom(Abs::pt(120.0).into()));
     styles.set(PageNode::HEIGHT, Smart::Auto);
     styles.set(
         PageNode::MARGINS,
-        Sides::splat(Some(Smart::Custom(Length::pt(10.0).into()))),
+        Sides::splat(Some(Smart::Custom(Abs::pt(10.0).into()))),
     );
-    styles.set(TextNode::SIZE, TextSize(Length::pt(10.0).into()));
+    styles.set(TextNode::SIZE, TextSize(Abs::pt(10.0).into()));
 
     // Hook up helpers into the global scope.
     let mut std = typst::library::scope();
@@ -653,7 +653,7 @@ fn render(frames: &[Frame]) -> sk::Pixmap {
     let pixmaps: Vec<_> = frames
         .iter()
         .map(|frame| {
-            let limit = Length::cm(100.0);
+            let limit = Abs::cm(100.0);
             if frame.width() > limit || frame.height() > limit {
                 panic!("overlarge frame: {:?}", frame.size());
             }

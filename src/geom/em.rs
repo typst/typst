@@ -7,7 +7,7 @@ use super::*;
 pub struct Em(Scalar);
 
 impl Em {
-    /// The zero length.
+    /// The zero em length.
     pub const fn zero() -> Self {
         Self(Scalar(0.0))
     }
@@ -28,7 +28,7 @@ impl Em {
     }
 
     /// Create an em length from a length at the given font size.
-    pub fn from_length(length: Length, font_size: Length) -> Self {
+    pub fn from_length(length: Abs, font_size: Abs) -> Self {
         let result = length / font_size;
         if result.is_finite() {
             Self(Scalar(result))
@@ -42,10 +42,10 @@ impl Em {
         (self.0).0
     }
 
-    /// Convert to a length at the given font size.
-    pub fn at(self, font_size: Length) -> Length {
+    /// Convert to an absolute length at the given font size.
+    pub fn at(self, font_size: Abs) -> Abs {
         let resolved = font_size * self.get();
-        if resolved.is_finite() { resolved } else { Length::zero() }
+        if resolved.is_finite() { resolved } else { Abs::zero() }
     }
 }
 

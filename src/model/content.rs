@@ -15,7 +15,7 @@ use super::{
 };
 use crate::diag::{SourceResult, StrResult};
 use crate::frame::{Frame, Role};
-use crate::geom::{Length, Numeric};
+use crate::geom::{Abs, Numeric};
 use crate::library::layout::{FlowChild, FlowNode, PageNode, PlaceNode, Spacing};
 use crate::library::structure::{DocNode, ListItem, ListNode, DESC, ENUM, LIST};
 use crate::library::text::{ParChild, ParNode};
@@ -175,7 +175,7 @@ impl Content {
     }
 
     /// Add weak vertical spacing above and below the node.
-    pub fn spaced(self, above: Option<Length>, below: Option<Length>) -> Self {
+    pub fn spaced(self, above: Option<Abs>, below: Option<Abs>) -> Self {
         if above.is_none() && below.is_none() {
             return self;
         }

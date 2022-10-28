@@ -5,7 +5,7 @@ use crate::library::text::{HorizontalAlign, ParNode};
 #[derive(Debug, Hash)]
 pub struct AlignNode {
     /// How to align the node horizontally and vertically.
-    pub aligns: Spec<Option<RawAlign>>,
+    pub aligns: Axes<Option<RawAlign>>,
     /// The node to be aligned.
     pub child: LayoutNode,
 }
@@ -13,11 +13,11 @@ pub struct AlignNode {
 #[node]
 impl AlignNode {
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
-        let aligns: Spec<Option<RawAlign>> = args.find()?.unwrap_or_default();
+        let aligns: Axes<Option<RawAlign>> = args.find()?.unwrap_or_default();
         let body: Content = args.expect("body")?;
         Ok(match (body, aligns) {
             (Content::Block(node), _) => Content::Block(node.aligned(aligns)),
-            (other, Spec { x: Some(x), y: None }) => {
+            (other, Axes { x: Some(x), y: None }) => {
                 other.styled(ParNode::ALIGN, HorizontalAlign(x))
             }
             (other, _) => Content::Block(other.pack().aligned(aligns)),
@@ -34,7 +34,7 @@ impl Layout for AlignNode {
     ) -> SourceResult<Vec<Frame>> {
         // The child only needs to expand along an axis if there's no alignment.
         let mut pod = regions.clone();
-        pod.expand &= self.aligns.map_is_none();
+        pod.expand &= self.aligns.as_ref().map(Option::is_none);
 
         // Align paragraphs inside the child.
         let mut passed = StyleMap::new();
@@ -51,7 +51,7 @@ impl Layout for AlignNode {
             let aligns = self
                 .aligns
                 .map(|align| align.resolve(styles))
-                .unwrap_or(Spec::new(Align::Left, Align::Top));
+                .unwrap_or(Axes::new(Align::Left, Align::Top));
 
             frame.resize(target, aligns);
         }

@@ -2,42 +2,46 @@
 
 #[macro_use]
 mod macros;
+mod abs;
 mod align;
 mod angle;
+mod axes;
 mod corners;
 mod dir;
+mod ellipse;
 mod em;
-mod fraction;
-mod gen;
+mod fr;
 mod length;
 mod paint;
 mod path;
 mod point;
 mod ratio;
-mod rect;
-mod relative;
+mod rel;
+mod rounded;
 mod scalar;
 mod sides;
-mod spec;
+mod size;
 mod transform;
 
+pub use abs::*;
 pub use align::*;
 pub use angle::*;
+pub use axes::*;
 pub use corners::*;
 pub use dir::*;
+pub use ellipse::*;
 pub use em::*;
-pub use fraction::*;
-pub use gen::*;
+pub use fr::*;
 pub use length::*;
 pub use paint::*;
 pub use path::*;
 pub use point::*;
 pub use ratio::*;
-pub use rect::*;
-pub use relative::*;
+pub use rel::*;
+pub use rounded::*;
 pub use scalar::*;
 pub use sides::*;
-pub use spec::*;
+pub use size::*;
 pub use transform::*;
 
 use std::cmp::Ordering;
@@ -82,8 +86,6 @@ pub enum Geometry {
     Line(Point),
     /// A rectangle with its origin in the topleft corner.
     Rect(Size),
-    /// A ellipse with its origin in the topleft corner.
-    Ellipse(Size),
     /// A bezier path.
     Path(Path),
 }

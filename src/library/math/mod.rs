@@ -92,7 +92,7 @@ impl Show for MathNode {
         Ok(if self.display() {
             Content::block(
                 LayoutNode::new(self.clone())
-                    .aligned(Spec::with_x(Some(Align::Center.into()))),
+                    .aligned(Axes::with_x(Some(Align::Center.into()))),
             )
         } else {
             Content::inline(self.clone())
@@ -171,9 +171,9 @@ fn layout_tex(
 
     // Determine the metrics.
     let (x0, y0, x1, y1) = renderer.size(&layout);
-    let width = Length::pt(x1 - x0);
-    let mut top = Length::pt(y1);
-    let mut bottom = Length::pt(-y0);
+    let width = Abs::pt(x1 - x0);
+    let mut top = Abs::pt(y1);
+    let mut bottom = Abs::pt(-y0);
     if style != Style::Display {
         let metrics = font.metrics();
         top = styles.get(TextNode::TOP_EDGE).resolve(styles, metrics);
@@ -204,7 +204,7 @@ fn layout_tex(
 /// A ReX rendering backend that renders into a frame.
 struct FrameBackend {
     frame: Frame,
-    baseline: Length,
+    baseline: Abs,
     font: Font,
     fill: Paint,
     lang: Lang,
@@ -222,7 +222,7 @@ impl FrameBackend {
 
     /// Convert a cursor to a point.
     fn transform(&self, cursor: Cursor) -> Point {
-        Point::new(Length::pt(cursor.x), self.baseline + Length::pt(cursor.y))
+        Point::new(Abs::pt(cursor.x), self.baseline + Abs::pt(cursor.y))
     }
 }
 
@@ -232,7 +232,7 @@ impl Backend for FrameBackend {
             self.transform(pos),
             Element::Text(Text {
                 font: self.font.clone(),
-                size: Length::pt(scale),
+                size: Abs::pt(scale),
                 fill: self.fill(),
                 lang: self.lang,
                 glyphs: vec![Glyph {
@@ -249,10 +249,7 @@ impl Backend for FrameBackend {
         self.frame.push(
             self.transform(pos),
             Element::Shape(Shape {
-                geometry: Geometry::Rect(Size::new(
-                    Length::pt(width),
-                    Length::pt(height),
-                )),
+                geometry: Geometry::Rect(Size::new(Abs::pt(width), Abs::pt(height))),
                 fill: Some(self.fill()),
                 stroke: None,
             }),

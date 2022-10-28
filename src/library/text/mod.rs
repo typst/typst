@@ -48,19 +48,19 @@ impl TextNode {
 
     /// The size of the glyphs.
     #[property(shorthand, fold)]
-    pub const SIZE: TextSize = Length::pt(11.0);
+    pub const SIZE: TextSize = Abs::pt(11.0);
     /// The glyph fill color.
     #[property(shorthand)]
     pub const FILL: Paint = Color::BLACK.into();
     /// The amount of space that should be added between characters.
     #[property(resolve)]
-    pub const TRACKING: RawLength = RawLength::zero();
+    pub const TRACKING: Length = Length::zero();
     /// The width of spaces relative to the font's space width.
     #[property(resolve)]
-    pub const SPACING: Relative<RawLength> = Relative::one();
+    pub const SPACING: Rel<Length> = Rel::one();
     /// The offset of the baseline.
     #[property(resolve)]
-    pub const BASELINE: RawLength = RawLength::zero();
+    pub const BASELINE: Length = Length::zero();
     /// Whether certain glyphs can hang over into the margin.
     pub const OVERHANG: bool = true;
     /// The top end of the text bounding box.
@@ -243,17 +243,17 @@ castable! {
 
 /// The size of text.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct TextSize(pub RawLength);
+pub struct TextSize(pub Length);
 
 impl Fold for TextSize {
-    type Output = Length;
+    type Output = Abs;
 
     fn fold(self, outer: Self::Output) -> Self::Output {
-        self.0.em.at(outer) + self.0.length
+        self.0.em.at(outer) + self.0.abs
     }
 }
 
-castable!(TextSize: RawLength);
+castable!(TextSize: Length);
 
 /// Specifies the bottom or top edge of text.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
@@ -261,12 +261,12 @@ pub enum TextEdge {
     /// An edge specified using one of the well-known font metrics.
     Metric(VerticalFontMetric),
     /// An edge specified as a length.
-    Length(RawLength),
+    Length(Length),
 }
 
 impl TextEdge {
     /// Resolve the value of the text edge given a font's metrics.
-    pub fn resolve(self, styles: StyleChain, metrics: &FontMetrics) -> Length {
+    pub fn resolve(self, styles: StyleChain, metrics: &FontMetrics) -> Abs {
         match self {
             Self::Metric(metric) => metrics.vertical(metric).resolve(styles),
             Self::Length(length) => length.resolve(styles),
@@ -310,8 +310,8 @@ castable! {
     HorizontalDir,
     Expected: "direction",
     @dir: Dir => match dir.axis() {
-        SpecAxis::Horizontal => Self(*dir),
-        SpecAxis::Vertical => Err("must be horizontal")?,
+        Axis::X => Self(*dir),
+        Axis::Y => Err("must be horizontal")?,
     },
 }
 

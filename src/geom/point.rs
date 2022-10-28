@@ -4,35 +4,35 @@ use super::*;
 #[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Point {
     /// The x coordinate.
-    pub x: Length,
+    pub x: Abs,
     /// The y coordinate.
-    pub y: Length,
+    pub y: Abs,
 }
 
 impl Point {
     /// The origin point.
     pub const fn zero() -> Self {
-        Self { x: Length::zero(), y: Length::zero() }
+        Self { x: Abs::zero(), y: Abs::zero() }
     }
 
     /// Create a new point from x and y coordinates.
-    pub const fn new(x: Length, y: Length) -> Self {
+    pub const fn new(x: Abs, y: Abs) -> Self {
         Self { x, y }
     }
 
     /// Create an instance with two equal components.
-    pub const fn splat(value: Length) -> Self {
+    pub const fn splat(value: Abs) -> Self {
         Self { x: value, y: value }
     }
 
     /// Create a new point with y set to zero.
-    pub const fn with_x(x: Length) -> Self {
-        Self { x, y: Length::zero() }
+    pub const fn with_x(x: Abs) -> Self {
+        Self { x, y: Abs::zero() }
     }
 
     /// Create a new point with x set to zero.
-    pub const fn with_y(y: Length) -> Self {
-        Self { x: Length::zero(), y }
+    pub const fn with_y(y: Abs) -> Self {
+        Self { x: Abs::zero(), y }
     }
 
     /// Transform the point with the given transformation.
@@ -54,20 +54,20 @@ impl Numeric for Point {
     }
 }
 
-impl Get<SpecAxis> for Point {
-    type Component = Length;
+impl Get<Axis> for Point {
+    type Component = Abs;
 
-    fn get(self, axis: SpecAxis) -> Length {
+    fn get(self, axis: Axis) -> Abs {
         match axis {
-            SpecAxis::Horizontal => self.x,
-            SpecAxis::Vertical => self.y,
+            Axis::X => self.x,
+            Axis::Y => self.y,
         }
     }
 
-    fn get_mut(&mut self, axis: SpecAxis) -> &mut Length {
+    fn get_mut(&mut self, axis: Axis) -> &mut Abs {
         match axis {
-            SpecAxis::Horizontal => &mut self.x,
-            SpecAxis::Vertical => &mut self.y,
+            Axis::X => &mut self.x,
+            Axis::Y => &mut self.y,
         }
     }
 }

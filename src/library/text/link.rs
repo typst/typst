@@ -43,9 +43,9 @@ castable! {
     Value::Str(string) => Self::Url(string.into()),
     Value::Dict(dict) => {
         let page = dict.get("page")?.clone().cast()?;
-        let x: RawLength = dict.get("x")?.clone().cast()?;
-        let y: RawLength = dict.get("y")?.clone().cast()?;
-        Self::Internal(Location { page, pos: Point::new(x.length, y.length) })
+        let x: Length = dict.get("x")?.clone().cast()?;
+        let y: Length = dict.get("y")?.clone().cast()?;
+        Self::Internal(Location { page, pos: Point::new(x.abs, y.abs) })
     },
 }
 

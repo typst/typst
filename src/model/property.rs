@@ -5,11 +5,11 @@ use std::sync::Arc;
 
 use comemo::Prehashed;
 
-use super::{Interruption, NodeId, RawLength, Smart, StyleChain};
-use crate::geom::{Corners, Length, Numeric, Relative, Sides, Spec};
+use super::{Interruption, NodeId, Smart, StyleChain};
+use crate::geom::{Abs, Axes, Corners, Em, Length, Numeric, Rel, Sides};
 use crate::library::layout::PageNode;
 use crate::library::structure::{DescNode, EnumNode, ListNode};
-use crate::library::text::ParNode;
+use crate::library::text::{ParNode, TextNode};
 use crate::util::ReadableTypeId;
 
 /// A style property originating from a set rule or constructor.
@@ -163,6 +163,26 @@ pub trait Resolve {
     fn resolve(self, styles: StyleChain) -> Self::Output;
 }
 
+impl Resolve for Em {
+    type Output = Abs;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        if self.is_zero() {
+            Abs::zero()
+        } else {
+            self.at(styles.get(TextNode::SIZE))
+        }
+    }
+}
+
+impl Resolve for Length {
+    type Output = Abs;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        self.abs + self.em.resolve(styles)
+    }
+}
+
 impl<T: Resolve> Resolve for Option<T> {
     type Output = Option<T::Output>;
 
@@ -179,8 +199,8 @@ impl<T: Resolve> Resolve for Smart<T> {
     }
 }
 
-impl<T: Resolve> Resolve for Spec<T> {
-    type Output = Spec<T::Output>;
+impl<T: Resolve> Resolve for Axes<T> {
+    type Output = Axes<T::Output>;
 
     fn resolve(self, styles: StyleChain) -> Self::Output {
         self.map(|v| v.resolve(styles))
@@ -203,12 +223,12 @@ impl<T: Resolve> Resolve for Corners<T> {
     }
 }
 
-impl<T> Resolve for Relative<T>
+impl<T> Resolve for Rel<T>
 where
     T: Resolve + Numeric,
     <T as Resolve>::Output: Numeric,
 {
-    type Output = Relative<<T as Resolve>::Output>;
+    type Output = Rel<<T as Resolve>::Output>;
 
     fn resolve(self, styles: StyleChain) -> Self::Output {
         self.map(|abs| abs.resolve(styles))
@@ -259,16 +279,16 @@ where
     }
 }
 
-impl Fold for Sides<Option<Relative<Length>>> {
-    type Output = Sides<Relative<Length>>;
+impl Fold for Sides<Option<Rel<Abs>>> {
+    type Output = Sides<Rel<Abs>>;
 
     fn fold(self, outer: Self::Output) -> Self::Output {
         self.zip(outer, |inner, outer| inner.unwrap_or(outer))
     }
 }
 
-impl Fold for Sides<Option<Smart<Relative<RawLength>>>> {
-    type Output = Sides<Smart<Relative<RawLength>>>;
+impl Fold for Sides<Option<Smart<Rel<Length>>>> {
+    type Output = Sides<Smart<Rel<Length>>>;
 
     fn fold(self, outer: Self::Output) -> Self::Output {
         self.zip(outer, |inner, outer| inner.unwrap_or(outer))
@@ -286,8 +306,8 @@ where
     }
 }
 
-impl Fold for Corners<Option<Relative<Length>>> {
-    type Output = Corners<Relative<Length>>;
+impl Fold for Corners<Option<Rel<Abs>>> {
+    type Output = Corners<Rel<Abs>>;
 
     fn fold(self, outer: Self::Output) -> Self::Output {
         self.zip(outer, |inner, outer| inner.unwrap_or(outer))

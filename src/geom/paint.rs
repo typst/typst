@@ -394,14 +394,14 @@ pub struct Stroke {
     /// The stroke's paint.
     pub paint: Paint,
     /// The stroke's thickness.
-    pub thickness: Length,
+    pub thickness: Abs,
 }
 
 impl Default for Stroke {
     fn default() -> Self {
         Self {
             paint: Paint::Solid(Color::BLACK.into()),
-            thickness: Length::pt(1.0),
+            thickness: Abs::pt(1.0),
         }
     }
 }

@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use crate::font::Font;
 use crate::geom::{
-    Align, Dir, Em, Length, Numeric, Paint, Point, Shape, Size, Spec, Transform,
+    Abs, Align, Axes, Dir, Em, Numeric, Paint, Point, Shape, Size, Transform,
 };
 use crate::image::Image;
 use crate::model::{Dict, Value};
@@ -19,7 +19,7 @@ pub struct Frame {
     size: Size,
     /// The baseline of the frame measured from the top. If this is `None`, the
     /// frame's implicit baseline is at the bottom.
-    baseline: Option<Length>,
+    baseline: Option<Abs>,
     /// The semantic role of the frame.
     role: Option<Role>,
     /// The elements composing this layout.
@@ -58,22 +58,22 @@ impl Frame {
     }
 
     /// The width of the frame.
-    pub fn width(&self) -> Length {
+    pub fn width(&self) -> Abs {
         self.size.x
     }
 
     /// The height of the frame.
-    pub fn height(&self) -> Length {
+    pub fn height(&self) -> Abs {
         self.size.y
     }
 
     /// The baseline of the frame.
-    pub fn baseline(&self) -> Length {
+    pub fn baseline(&self) -> Abs {
         self.baseline.unwrap_or(self.size.y)
     }
 
     /// Set the frame's baseline from the top.
-    pub fn set_baseline(&mut self, baseline: Length) {
+    pub fn set_baseline(&mut self, baseline: Abs) {
         self.baseline = Some(baseline);
     }
 
@@ -221,7 +221,7 @@ impl Frame {
 
     /// Resize the frame to a new size, distributing new space according to the
     /// given alignments.
-    pub fn resize(&mut self, target: Size, aligns: Spec<Align>) {
+    pub fn resize(&mut self, target: Size, aligns: Axes<Align>) {
         if self.size != target {
             let offset = Point::new(
                 aligns.x.position(target.x - self.size.x),
@@ -354,7 +354,7 @@ pub struct Text {
     /// The font the glyphs are contained in.
     pub font: Font,
     /// The font size.
-    pub size: Length,
+    pub size: Abs,
     /// Glyph color.
     pub fill: Paint,
     /// The natural language of the text.
@@ -365,7 +365,7 @@ pub struct Text {
 
 impl Text {
     /// The width of the text run.
-    pub fn width(&self) -> Length {
+    pub fn width(&self) -> Abs {
         self.glyphs.iter().map(|g| g.x_advance).sum::<Em>().at(self.size)
     }
 }

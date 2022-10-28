@@ -19,16 +19,16 @@ pub enum Align {
 
 impl Align {
     /// Top-left alignment.
-    pub const LEFT_TOP: Spec<Self> = Spec { x: Align::Left, y: Align::Top };
+    pub const LEFT_TOP: Axes<Self> = Axes { x: Align::Left, y: Align::Top };
 
     /// Center-horizon alignment.
-    pub const CENTER_HORIZON: Spec<Self> = Spec { x: Align::Center, y: Align::Horizon };
+    pub const CENTER_HORIZON: Axes<Self> = Axes { x: Align::Center, y: Align::Horizon };
 
     /// The axis this alignment belongs to.
-    pub const fn axis(self) -> SpecAxis {
+    pub const fn axis(self) -> Axis {
         match self {
-            Self::Left | Self::Center | Self::Right => SpecAxis::Horizontal,
-            Self::Top | Self::Horizon | Self::Bottom => SpecAxis::Vertical,
+            Self::Left | Self::Center | Self::Right => Axis::X,
+            Self::Top | Self::Horizon | Self::Bottom => Axis::Y,
         }
     }
 
@@ -44,12 +44,13 @@ impl Align {
         }
     }
 
-    /// Returns the position of this alignment in the given length.
-    pub fn position(self, length: Length) -> Length {
+    /// Returns the position of this alignment in a container with the given
+    /// extentq.
+    pub fn position(self, extent: Abs) -> Abs {
         match self {
-            Self::Left | Self::Top => Length::zero(),
-            Self::Center | Self::Horizon => length / 2.0,
-            Self::Right | Self::Bottom => length,
+            Self::Left | Self::Top => Abs::zero(),
+            Self::Center | Self::Horizon => extent / 2.0,
+            Self::Right | Self::Bottom => extent,
         }
     }
 }

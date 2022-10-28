@@ -11,17 +11,16 @@ pub struct PageNode(pub LayoutNode);
 impl PageNode {
     /// The unflipped width of the page.
     #[property(resolve)]
-    pub const WIDTH: Smart<RawLength> = Smart::Custom(Paper::A4.width().into());
+    pub const WIDTH: Smart<Length> = Smart::Custom(Paper::A4.width().into());
     /// The unflipped height of the page.
     #[property(resolve)]
-    pub const HEIGHT: Smart<RawLength> = Smart::Custom(Paper::A4.height().into());
+    pub const HEIGHT: Smart<Length> = Smart::Custom(Paper::A4.height().into());
     /// Whether the page is flipped into landscape orientation.
     pub const FLIPPED: bool = false;
 
     /// The page's margins.
     #[property(fold)]
-    pub const MARGINS: Sides<Option<Smart<Relative<RawLength>>>> =
-        Sides::splat(Smart::Auto);
+    pub const MARGINS: Sides<Option<Smart<Rel<Length>>>> = Sides::splat(Smart::Auto);
 
     /// How many columns the page has.
     pub const COLUMNS: NonZeroUsize = NonZeroUsize::new(1).unwrap();
@@ -63,8 +62,8 @@ impl PageNode {
     ) -> SourceResult<Vec<Frame>> {
         // When one of the lengths is infinite the page fits its content along
         // that axis.
-        let width = styles.get(Self::WIDTH).unwrap_or(Length::inf());
-        let height = styles.get(Self::HEIGHT).unwrap_or(Length::inf());
+        let width = styles.get(Self::WIDTH).unwrap_or(Abs::inf());
+        let height = styles.get(Self::HEIGHT).unwrap_or(Abs::inf());
         let mut size = Size::new(width, height);
         if styles.get(Self::FLIPPED) {
             std::mem::swap(&mut size.x, &mut size.y);
@@ -76,7 +75,7 @@ impl PageNode {
         }
 
         // Determine the margins.
-        let default = Relative::from(0.1190 * min);
+        let default = Rel::from(0.1190 * min);
         let padding = styles.get(Self::MARGINS).map(|side| side.unwrap_or(default));
 
         let mut child = self.0.clone();
@@ -96,7 +95,7 @@ impl PageNode {
         }
 
         // Layout the child.
-        let regions = Regions::repeat(size, size, size.map(Length::is_finite));
+        let regions = Regions::repeat(size, size, size.map(Abs::is_finite));
         let mut frames = child.layout(world, &regions, styles)?;
 
         let header = styles.get(Self::HEADER);
@@ -127,7 +126,7 @@ impl PageNode {
                 (Role::Background, background, Point::zero(), size),
             ] {
                 if let Some(content) = marginal.resolve(world, page)? {
-                    let pod = Regions::one(area, area, Spec::splat(true));
+                    let pod = Regions::one(area, area, Axes::splat(true));
                     let mut sub = content.layout(world, &pod, styles)?.remove(0);
                     sub.apply_role(role);
 
@@ -224,13 +223,13 @@ pub struct Paper {
 
 impl Paper {
     /// The width of the paper.
-    pub fn width(self) -> Length {
-        Length::mm(self.width)
+    pub fn width(self) -> Abs {
+        Abs::mm(self.width)
     }
 
     /// The height of the paper.
-    pub fn height(self) -> Length {
-        Length::mm(self.height)
+    pub fn height(self) -> Abs {
+        Abs::mm(self.height)
     }
 }
 

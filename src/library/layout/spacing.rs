@@ -31,10 +31,10 @@ impl VNode {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Spacing {
     /// Spacing specified in absolute terms and relative to the parent's size.
-    Relative(Relative<RawLength>),
+    Relative(Rel<Length>),
     /// Spacing specified as a fraction of the remaining free space in the
     /// parent.
-    Fractional(Fraction),
+    Fractional(Fr),
 }
 
 impl Spacing {
@@ -44,9 +44,9 @@ impl Spacing {
     }
 }
 
-impl From<Length> for Spacing {
-    fn from(length: Length) -> Self {
-        Self::Relative(length.into())
+impl From<Abs> for Spacing {
+    fn from(abs: Abs) -> Self {
+        Self::Relative(abs.into())
     }
 }
 
@@ -71,12 +71,12 @@ castable! {
 
 /// Spacing around and between block-level nodes, relative to paragraph spacing.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct BlockSpacing(Relative<RawLength>);
+pub struct BlockSpacing(Rel<Length>);
 
-castable!(BlockSpacing: Relative<RawLength>);
+castable!(BlockSpacing: Rel<Length>);
 
 impl Resolve for BlockSpacing {
-    type Output = Length;
+    type Output = Abs;
 
     fn resolve(self, styles: StyleChain) -> Self::Output {
         let whole = styles.get(ParNode::SPACING);

@@ -10,7 +10,7 @@ use usvg::FitTo;
 
 use crate::frame::{Element, Frame, Group, Text};
 use crate::geom::{
-    self, Geometry, Length, Paint, PathElement, Shape, Size, Stroke, Transform,
+    self, Abs, Geometry, Paint, PathElement, Shape, Size, Stroke, Transform,
 };
 use crate::image::{DecodedImage, Image};
 
@@ -286,17 +286,16 @@ fn render_shape(
     shape: &Shape,
 ) -> Option<()> {
     let path = match shape.geometry {
+        Geometry::Line(target) => {
+            let mut builder = sk::PathBuilder::new();
+            builder.line_to(target.x.to_f32(), target.y.to_f32());
+            builder.finish()?
+        }
         Geometry::Rect(size) => {
             let w = size.x.to_f32();
             let h = size.y.to_f32();
             let rect = sk::Rect::from_xywh(0.0, 0.0, w, h)?;
             sk::PathBuilder::from_rect(rect)
-        }
-        Geometry::Ellipse(size) => convert_path(&geom::Path::ellipse(size))?,
-        Geometry::Line(target) => {
-            let mut builder = sk::PathBuilder::new();
-            builder.line_to(target.x.to_f32(), target.y.to_f32());
-            builder.finish()?
         }
         Geometry::Path(ref path) => convert_path(path)?,
     };
@@ -460,12 +459,12 @@ impl OutlineBuilder for WrappedPathBuilder {
 }
 
 /// Additional methods for [`Length`].
-trait LengthExt {
-    /// Convert an em length to a number of points as f32.
+trait AbsExt {
+    /// Convert to a number of points as f32.
     fn to_f32(self) -> f32;
 }
 
-impl LengthExt for Length {
+impl AbsExt for Abs {
     fn to_f32(self) -> f32 {
         self.to_pt() as f32
     }

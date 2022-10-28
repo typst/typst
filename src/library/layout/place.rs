@@ -8,12 +8,12 @@ pub struct PlaceNode(pub LayoutNode);
 #[node]
 impl PlaceNode {
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
-        let aligns = args.find()?.unwrap_or(Spec::with_x(Some(RawAlign::Start)));
+        let aligns = args.find()?.unwrap_or(Axes::with_x(Some(RawAlign::Start)));
         let dx = args.named("dx")?.unwrap_or_default();
         let dy = args.named("dy")?.unwrap_or_default();
         let body: LayoutNode = args.expect("body")?;
         Ok(Content::block(Self(
-            body.moved(Spec::new(dx, dy)).aligned(aligns),
+            body.moved(Axes::new(dx, dy)).aligned(aligns),
         )))
     }
 }
@@ -30,7 +30,7 @@ impl Layout for PlaceNode {
         // The pod is the base area of the region because for absolute
         // placement we don't really care about the already used area.
         let pod = {
-            let finite = regions.base.map(Length::is_finite);
+            let finite = regions.base.map(Abs::is_finite);
             let expand = finite & (regions.expand | out_of_flow);
             Regions::one(regions.base, regions.base, expand)
         };

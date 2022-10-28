@@ -23,9 +23,9 @@ pub struct ShapedText<'a> {
     /// The font variant.
     pub variant: FontVariant,
     /// The font size.
-    pub size: Length,
+    pub size: Abs,
     /// The width of the text's bounding box.
-    pub width: Length,
+    pub width: Abs,
     /// The shaped glyphs.
     pub glyphs: Cow<'a, [ShapedGlyph]>,
 }
@@ -80,11 +80,11 @@ impl<'a> ShapedText<'a> {
     ///
     /// The `justification` defines how much extra advance width each
     /// [justifiable glyph](ShapedGlyph::is_justifiable) will get.
-    pub fn build(&self, world: Tracked<dyn World>, justification: Length) -> Frame {
+    pub fn build(&self, world: Tracked<dyn World>, justification: Abs) -> Frame {
         let (top, bottom) = self.measure(world);
         let size = Size::new(self.width, top + bottom);
 
-        let mut offset = Length::zero();
+        let mut offset = Abs::zero();
         let mut frame = Frame::new(size);
         frame.set_baseline(top);
 
@@ -144,9 +144,9 @@ impl<'a> ShapedText<'a> {
     }
 
     /// Measure the top and bottom extent of this text.
-    fn measure(&self, world: Tracked<dyn World>) -> (Length, Length) {
-        let mut top = Length::zero();
-        let mut bottom = Length::zero();
+    fn measure(&self, world: Tracked<dyn World>) -> (Abs, Abs) {
+        let mut top = Abs::zero();
+        let mut bottom = Abs::zero();
 
         let top_edge = self.styles.get(TextNode::TOP_EDGE);
         let bottom_edge = self.styles.get(TextNode::BOTTOM_EDGE);
@@ -186,7 +186,7 @@ impl<'a> ShapedText<'a> {
     }
 
     /// The width of the spaces in the text.
-    pub fn stretch(&self) -> Length {
+    pub fn stretch(&self) -> Abs {
         self.glyphs
             .iter()
             .filter(|g| g.is_justifiable())
@@ -310,7 +310,7 @@ struct ShapingContext<'a> {
     glyphs: Vec<ShapedGlyph>,
     used: Vec<Font>,
     styles: StyleChain<'a>,
-    size: Length,
+    size: Abs,
     variant: FontVariant,
     tags: Vec<rustybuzz::Feature>,
     fallback: bool,

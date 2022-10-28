@@ -9,7 +9,7 @@ impl BoxNode {
         let width = args.named("width")?;
         let height = args.named("height")?;
         let body: LayoutNode = args.eat()?.unwrap_or_default();
-        Ok(Content::inline(body.sized(Spec::new(width, height))))
+        Ok(Content::inline(body.sized(Axes::new(width, height))))
     }
 }
 

@@ -29,20 +29,19 @@ impl<const S: ShapeKind> ShapeNode<S> {
 
     /// How much to pad the shape's content.
     #[property(resolve, fold)]
-    pub const INSET: Sides<Option<Relative<RawLength>>> = Sides::splat(Relative::zero());
+    pub const INSET: Sides<Option<Rel<Length>>> = Sides::splat(Rel::zero());
     /// How much to extend the shape's dimensions beyond the allocated space.
     #[property(resolve, fold)]
-    pub const OUTSET: Sides<Option<Relative<RawLength>>> = Sides::splat(Relative::zero());
+    pub const OUTSET: Sides<Option<Rel<Length>>> = Sides::splat(Rel::zero());
 
     /// How much to round the shape's corners.
     #[property(skip, resolve, fold)]
-    pub const RADIUS: Corners<Option<Relative<RawLength>>> =
-        Corners::splat(Relative::zero());
+    pub const RADIUS: Corners<Option<Rel<Length>>> = Corners::splat(Rel::zero());
 
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         let size = match S {
-            SQUARE => args.named::<RawLength>("size")?.map(Relative::from),
-            CIRCLE => args.named::<RawLength>("radius")?.map(|r| 2.0 * Relative::from(r)),
+            SQUARE => args.named::<Length>("size")?.map(Rel::from),
+            CIRCLE => args.named::<Length>("radius")?.map(|r| 2.0 * Rel::from(r)),
             _ => None,
         };
 
@@ -57,7 +56,7 @@ impl<const S: ShapeKind> ShapeNode<S> {
         };
 
         Ok(Content::inline(
-            Self(args.eat()?).pack().sized(Spec::new(width, height)),
+            Self(args.eat()?).pack().sized(Axes::new(width, height)),
         ))
     }
 
@@ -90,7 +89,7 @@ impl<const S: ShapeKind> Layout for ShapeNode<S> {
             }
 
             // Pad the child.
-            let child = child.clone().padded(inset.map(|side| side.map(RawLength::from)));
+            let child = child.clone().padded(inset.map(|side| side.map(Length::from)));
 
             let mut pod = Regions::one(regions.first, regions.base, regions.expand);
             frames = child.layout(world, &pod, styles)?;
@@ -112,14 +111,13 @@ impl<const S: ShapeKind> Layout for ShapeNode<S> {
                 };
 
                 pod.first = Size::splat(length);
-                pod.expand = Spec::splat(true);
+                pod.expand = Axes::splat(true);
                 frames = child.layout(world, &pod, styles)?;
             }
         } else {
             // The default size that a shape takes on if it has no child and
             // enough space.
-            let mut size =
-                Size::new(Length::pt(45.0), Length::pt(30.0)).min(regions.first);
+            let mut size = Size::new(Abs::pt(45.0), Abs::pt(30.0)).min(regions.first);
 
             if is_quadratic(S) {
                 let length = if regions.expand.x || regions.expand.y {
@@ -159,16 +157,11 @@ impl<const S: ShapeKind> Layout for ShapeNode<S> {
 
         if fill.is_some() || stroke.iter().any(Option::is_some) {
             if is_round(S) {
-                let shape = Shape {
-                    geometry: Geometry::Ellipse(size),
-                    fill,
-                    stroke: stroke.left,
-                };
+                let shape = ellipse(size, fill, stroke.left);
                 frame.prepend(pos, Element::Shape(shape));
             } else {
                 frame.prepend_multiple(
-                    RoundedRect::new(size, radius)
-                        .shapes(fill, stroke)
+                    rounded_rect(size, radius, fill, stroke)
                         .into_iter()
                         .map(|x| (pos, Element::Shape(x))),
                 )

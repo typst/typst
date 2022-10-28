@@ -15,10 +15,10 @@ pub enum Dir {
 
 impl Dir {
     /// The specific axis this direction belongs to.
-    pub const fn axis(self) -> SpecAxis {
+    pub const fn axis(self) -> Axis {
         match self {
-            Self::LTR | Self::RTL => SpecAxis::Horizontal,
-            Self::TTB | Self::BTT => SpecAxis::Vertical,
+            Self::LTR | Self::RTL => Axis::X,
+            Self::TTB | Self::BTT => Axis::Y,
         }
     }
 

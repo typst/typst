@@ -1,7 +1,7 @@
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use crate::geom::{AngleUnit, LengthUnit};
+use crate::geom::{AbsUnit, AngleUnit};
 use crate::util::EcoString;
 
 /// All syntactical building blocks that can be part of a Typst document.
@@ -277,7 +277,7 @@ pub struct RawKind {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Unit {
     /// An absolute length unit.
-    Length(LengthUnit),
+    Length(AbsUnit),
     /// An angular unit.
     Angle(AngleUnit),
     /// Font-relative: `1em` is the same as the font size.
