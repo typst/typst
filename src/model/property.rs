@@ -5,18 +5,17 @@ use std::sync::Arc;
 
 use comemo::Prehashed;
 
-use super::{Interruption, NodeId, Smart, StyleChain};
-use crate::geom::{Abs, Axes, Corners, Em, Length, Numeric, Rel, Sides};
+use super::{Interruption, NodeId, StyleChain};
 use crate::library::layout::PageNode;
 use crate::library::structure::{DescNode, EnumNode, ListNode};
-use crate::library::text::{ParNode, TextNode};
+use crate::library::text::ParNode;
 use crate::util::ReadableTypeId;
 
 /// A style property originating from a set rule or constructor.
 #[derive(Clone, Hash)]
 pub struct Property {
     /// The id of the property's [key](Key).
-    pub key: KeyId,
+    key: KeyId,
     /// The id of the node the property belongs to.
     pub node: NodeId,
     /// Whether the property should only affect the first node down the
@@ -152,166 +151,6 @@ pub trait Key<'a>: Copy + 'static {
         chain: StyleChain<'a>,
         values: impl Iterator<Item = &'a Self::Value>,
     ) -> Self::Output;
-}
-
-/// A property that is resolved with other properties from the style chain.
-pub trait Resolve {
-    /// The type of the resolved output.
-    type Output;
-
-    /// Resolve the value using the style chain.
-    fn resolve(self, styles: StyleChain) -> Self::Output;
-}
-
-impl Resolve for Em {
-    type Output = Abs;
-
-    fn resolve(self, styles: StyleChain) -> Self::Output {
-        if self.is_zero() {
-            Abs::zero()
-        } else {
-            self.at(styles.get(TextNode::SIZE))
-        }
-    }
-}
-
-impl Resolve for Length {
-    type Output = Abs;
-
-    fn resolve(self, styles: StyleChain) -> Self::Output {
-        self.abs + self.em.resolve(styles)
-    }
-}
-
-impl<T: Resolve> Resolve for Option<T> {
-    type Output = Option<T::Output>;
-
-    fn resolve(self, styles: StyleChain) -> Self::Output {
-        self.map(|v| v.resolve(styles))
-    }
-}
-
-impl<T: Resolve> Resolve for Smart<T> {
-    type Output = Smart<T::Output>;
-
-    fn resolve(self, styles: StyleChain) -> Self::Output {
-        self.map(|v| v.resolve(styles))
-    }
-}
-
-impl<T: Resolve> Resolve for Axes<T> {
-    type Output = Axes<T::Output>;
-
-    fn resolve(self, styles: StyleChain) -> Self::Output {
-        self.map(|v| v.resolve(styles))
-    }
-}
-
-impl<T: Resolve> Resolve for Sides<T> {
-    type Output = Sides<T::Output>;
-
-    fn resolve(self, styles: StyleChain) -> Self::Output {
-        self.map(|v| v.resolve(styles))
-    }
-}
-
-impl<T: Resolve> Resolve for Corners<T> {
-    type Output = Corners<T::Output>;
-
-    fn resolve(self, styles: StyleChain) -> Self::Output {
-        self.map(|v| v.resolve(styles))
-    }
-}
-
-impl<T> Resolve for Rel<T>
-where
-    T: Resolve + Numeric,
-    <T as Resolve>::Output: Numeric,
-{
-    type Output = Rel<<T as Resolve>::Output>;
-
-    fn resolve(self, styles: StyleChain) -> Self::Output {
-        self.map(|abs| abs.resolve(styles))
-    }
-}
-
-/// A property that is folded to determine its final value.
-pub trait Fold {
-    /// The type of the folded output.
-    type Output;
-
-    /// Fold this inner value with an outer folded value.
-    fn fold(self, outer: Self::Output) -> Self::Output;
-}
-
-impl<T> Fold for Option<T>
-where
-    T: Fold,
-    T::Output: Default,
-{
-    type Output = Option<T::Output>;
-
-    fn fold(self, outer: Self::Output) -> Self::Output {
-        self.map(|inner| inner.fold(outer.unwrap_or_default()))
-    }
-}
-
-impl<T> Fold for Smart<T>
-where
-    T: Fold,
-    T::Output: Default,
-{
-    type Output = Smart<T::Output>;
-
-    fn fold(self, outer: Self::Output) -> Self::Output {
-        self.map(|inner| inner.fold(outer.unwrap_or_default()))
-    }
-}
-
-impl<T> Fold for Sides<T>
-where
-    T: Fold,
-{
-    type Output = Sides<T::Output>;
-
-    fn fold(self, outer: Self::Output) -> Self::Output {
-        self.zip(outer, |inner, outer| inner.fold(outer))
-    }
-}
-
-impl Fold for Sides<Option<Rel<Abs>>> {
-    type Output = Sides<Rel<Abs>>;
-
-    fn fold(self, outer: Self::Output) -> Self::Output {
-        self.zip(outer, |inner, outer| inner.unwrap_or(outer))
-    }
-}
-
-impl Fold for Sides<Option<Smart<Rel<Length>>>> {
-    type Output = Sides<Smart<Rel<Length>>>;
-
-    fn fold(self, outer: Self::Output) -> Self::Output {
-        self.zip(outer, |inner, outer| inner.unwrap_or(outer))
-    }
-}
-
-impl<T> Fold for Corners<T>
-where
-    T: Fold,
-{
-    type Output = Corners<T::Output>;
-
-    fn fold(self, outer: Self::Output) -> Self::Output {
-        self.zip(outer, |inner, outer| inner.fold(outer))
-    }
-}
-
-impl Fold for Corners<Option<Rel<Abs>>> {
-    type Output = Corners<Rel<Abs>>;
-
-    fn fold(self, outer: Self::Output) -> Self::Output {
-        self.zip(outer, |inner, outer| inner.unwrap_or(outer))
-    }
 }
 
 /// A scoped property barrier.

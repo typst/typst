@@ -142,7 +142,7 @@
           "captures": { "1": { "name": "punctuation.definition.reference.typst" } }
         },
         {
-          "begin": "(#)(pub|let|set|show|wrap)\\b",
+          "begin": "(#)(let|set|show|wrap|apply|select)\\b",
           "end": "\n|(;)|(?=])",
           "beginCaptures": {
             "0": { "name": "keyword.other.typst" },
@@ -180,7 +180,7 @@
           "captures": { "1": { "name": "punctuation.definition.keyword.typst" } }
         },
         {
-          "begin": "(#)(import|include)\\b",
+          "begin": "(#)(import|include|export)\\b",
           "end": "\n|(;)|(?=])",
           "beginCaptures": {
             "0": { "name": "keyword.control.import.typst" },
@@ -253,7 +253,7 @@
         },
         {
           "name": "keyword.other.typst",
-          "match": "\\b(pub|let|set|show|wrap|as|in|from)\\b"
+          "match": "\\b(let|as|in|from|set|show|wrap|apply|select)\\b"
         },
         {
           "name": "keyword.control.conditional.typst",
@@ -265,7 +265,7 @@
         },
         {
           "name": "keyword.control.import.typst",
-          "match": "\\b(import|include)\\b"
+          "match": "\\b(import|include|export)\\b"
         },
         {
           "name": "keyword.control.flow.typst",
@@ -344,6 +344,12 @@
             "name": "constant.character.escape.string.typst",
             "match": "\\\\([\\\\\"nrt]|u\\{?[0-9a-zA-Z]*\\}?)"
           }]
+        },
+        {
+          "name": "string.other.math.typst",
+          "begin": "\\$",
+          "end": "\\$",
+          "captures": { "0": { "name": "punctuation.defintion.string.math.typst" } }
         }
       ]
     },
