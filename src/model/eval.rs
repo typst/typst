@@ -242,7 +242,7 @@ impl Eval for ast::Strong {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok((vm.roles().strong)(self.body().eval(vm)?))
+        Ok((vm.items().strong)(self.body().eval(vm)?))
     }
 }
 
@@ -250,7 +250,7 @@ impl Eval for ast::Emph {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok((vm.roles().emph)(self.body().eval(vm)?))
+        Ok((vm.items().emph)(self.body().eval(vm)?))
     }
 }
 
@@ -261,7 +261,7 @@ impl Eval for ast::Raw {
         let text = self.text().clone();
         let lang = self.lang().cloned();
         let block = self.block();
-        Ok((vm.roles().raw)(text, lang, block))
+        Ok((vm.items().raw)(text, lang, block))
     }
 }
 
@@ -269,7 +269,7 @@ impl Eval for ast::Link {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok((vm.roles().link)(self.url().clone()))
+        Ok((vm.items().link)(self.url().clone()))
     }
 }
 
@@ -285,7 +285,7 @@ impl Eval for ast::Ref {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok((vm.roles().ref_)(self.get().clone()))
+        Ok((vm.items().ref_)(self.get().clone()))
     }
 }
 
@@ -295,7 +295,7 @@ impl Eval for ast::Heading {
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let level = self.level();
         let body = self.body().eval(vm)?;
-        Ok((vm.roles().heading)(level, body))
+        Ok((vm.items().heading)(level, body))
     }
 }
 
@@ -303,7 +303,7 @@ impl Eval for ast::ListItem {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok((vm.roles().list_item)(self.body().eval(vm)?))
+        Ok((vm.items().list_item)(self.body().eval(vm)?))
     }
 }
 
@@ -313,7 +313,7 @@ impl Eval for ast::EnumItem {
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let number = self.number();
         let body = self.body().eval(vm)?;
-        Ok((vm.roles().enum_item)(number, body))
+        Ok((vm.items().enum_item)(number, body))
     }
 }
 
@@ -323,7 +323,7 @@ impl Eval for ast::DescItem {
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let term = self.term().eval(vm)?;
         let body = self.body().eval(vm)?;
-        Ok((vm.roles().desc_item)(term, body))
+        Ok((vm.items().desc_item)(term, body))
     }
 }
 

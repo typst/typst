@@ -143,9 +143,9 @@ pub fn scope() -> Scope {
     std
 }
 
-/// Construct the standard role map.
-pub fn roles() -> RoleMap {
-    RoleMap {
+/// Construct the language map.
+pub fn items() -> LangItems {
+    LangItems {
         strong: |body| Content::show(text::StrongNode(body)),
         emph: |body| Content::show(text::EmphNode(body)),
         raw: |text, lang, block| {

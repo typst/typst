@@ -22,4 +22,4 @@ pub use crate::model::{
 };
 pub use crate::syntax::{Span, Spanned};
 pub use crate::util::EcoString;
-pub use crate::{RoleMap, World};
+pub use crate::{LangItems, World};

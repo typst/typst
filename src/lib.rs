@@ -108,8 +108,8 @@ pub struct Config {
     pub std: Scope,
     /// Defines which standard library items fulfill which syntactical roles.
     ///
-    /// Default: Typst's standard library's role map.
-    pub roles: RoleMap,
+    /// Default: Typst's standard library's language map.
+    pub items: LangItems,
     /// The default properties for page size, font selection and so on.
     ///
     /// Default: Empty style map.
@@ -121,15 +121,15 @@ impl Default for Config {
         Self {
             root: PathBuf::new(),
             std: library::scope(),
+            items: library::items(),
             styles: StyleMap::new(),
-            roles: library::roles(),
         }
     }
 }
 
 /// Definition of certain standard library items the language is aware of.
 #[derive(Debug, Clone, Hash)]
-pub struct RoleMap {
+pub struct LangItems {
     pub strong: fn(Content) -> Content,
     pub emph: fn(Content) -> Content,
     pub raw: fn(EcoString, Option<EcoString>, bool) -> Content,

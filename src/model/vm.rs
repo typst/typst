@@ -6,7 +6,7 @@ use super::{Route, Scopes, Value};
 use crate::diag::{SourceError, StrResult};
 use crate::syntax::{SourceId, Span};
 use crate::util::PathExt;
-use crate::{RoleMap, World};
+use crate::{LangItems, World};
 
 /// A virtual machine.
 pub struct Vm<'a> {
@@ -55,9 +55,9 @@ impl<'a> Vm<'a> {
         return Err("cannot access file system from here".into());
     }
 
-    /// The role map.
-    pub fn roles(&self) -> &RoleMap {
-        &self.world.config().roles
+    /// The language items.
+    pub fn items(&self) -> &LangItems {
+        &self.world.config().items
     }
 }
 

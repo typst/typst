@@ -124,7 +124,7 @@ impl Value {
 
             // For values which can't be shown "naturally", we return the raw
             // representation with typst code syntax highlighting.
-            v => (world.config().roles.raw)(v.repr().into(), Some("typc".into()), false),
+            v => (world.config().items.raw)(v.repr().into(), Some("typc".into()), false),
         }
     }
 }

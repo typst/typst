@@ -184,7 +184,7 @@ fn config() -> Config {
 
     Config {
         root: PathBuf::new(),
-        roles: typst::library::roles(),
+        items: typst::library::items(),
         std,
         styles,
     }
