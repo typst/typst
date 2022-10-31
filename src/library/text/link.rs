@@ -58,16 +58,17 @@ impl Show for LinkNode {
         .pack()
     }
 
-    fn encode(&self, _: StyleChain) -> Dict {
-        dict! {
-            "url" => match &self.dest {
+    fn field(&self, name: &str) -> Option<Value> {
+        match name {
+            "url" => Some(match &self.dest {
                 Destination::Url(url) => Value::Str(url.clone().into()),
                 Destination::Internal(loc) => Value::Dict(loc.encode()),
-            },
-            "body" => match &self.body {
+            }),
+            "body" => Some(match &self.body {
                 Some(body) => Value::Content(body.clone()),
                 None => Value::None,
-            },
+            }),
+            _ => None,
         }
     }
 

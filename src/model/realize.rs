@@ -87,7 +87,7 @@ impl<'a> Builder<'a> {
                 }
             }
 
-            Content::Show(node, _) => return self.show(node, styles),
+            Content::Show(node) => return self.show(node, styles),
             Content::Styled(styled) => return self.styled(styled, styles),
             Content::Sequence(seq) => return self.sequence(seq, styles),
 

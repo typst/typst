@@ -57,14 +57,12 @@ impl Show for TableNode {
         .pack()
     }
 
-    fn encode(&self, _: StyleChain) -> Dict {
-        dict! {
-            "cells" => Value::Array(
-                self.cells
-                    .iter()
-                    .map(|cell| Value::Content(cell.clone()))
-                    .collect()
-            ),
+    fn field(&self, name: &str) -> Option<Value> {
+        match name {
+            "cells" => Some(Value::Array(
+                self.cells.iter().cloned().map(Value::Content).collect(),
+            )),
+            _ => None,
         }
     }
 

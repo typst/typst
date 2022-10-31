@@ -8,7 +8,7 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use super::{
     methods, ops, Arg, Args, Array, CapturesVisitor, Closure, Content, Dict, Flow, Func,
-    Pattern, Recipe, Scope, Scopes, StyleEntry, StyleMap, Value, Vm,
+    Pattern, Recipe, Scope, Scopes, Show, StyleEntry, StyleMap, Value, Vm,
 };
 use crate::diag::{At, SourceResult, StrResult, Trace, Tracepoint};
 use crate::geom::{Abs, Angle, Em, Fr, Ratio};
@@ -706,9 +706,9 @@ impl Eval for ast::FieldAccess {
         Ok(match object {
             Value::Dict(dict) => dict.get(&field).at(span)?.clone(),
 
-            Value::Content(Content::Show(_, Some(dict))) => dict
-                .get(&field)
-                .map_err(|_| format!("unknown field {field:?}"))
+            Value::Content(Content::Show(node)) => node
+                .field(&field)
+                .ok_or_else(|| format!("unknown field {field:?}"))
                 .at(span)?
                 .clone(),
 

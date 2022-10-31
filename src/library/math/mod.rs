@@ -84,8 +84,8 @@ impl Show for MathNode {
         ShowNode::new(self.clone())
     }
 
-    fn encode(&self, _: StyleChain) -> Dict {
-        todo!()
+    fn field(&self, _: &str) -> Option<Value> {
+        None
     }
 
     fn realize(&self, _: Tracked<dyn World>, _: StyleChain) -> SourceResult<Content> {

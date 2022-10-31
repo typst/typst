@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use comemo::{Prehashed, Tracked};
 
-use super::{Content, Dict, NodeId, Selector, StyleChain};
+use super::{Content, NodeId, Selector, StyleChain, Value};
 use crate::diag::SourceResult;
 use crate::World;
 
@@ -13,8 +13,8 @@ pub trait Show: 'static {
     /// Unguard nested content against recursive show rules.
     fn unguard(&self, sel: Selector) -> ShowNode;
 
-    /// Encode this node into a dictionary.
-    fn encode(&self, styles: StyleChain) -> Dict;
+    /// Access a field on this node.
+    fn field(&self, name: &str) -> Option<Value>;
 
     /// The base recipe for this node that is executed if there is no
     /// user-defined show rule.
@@ -74,8 +74,8 @@ impl Show for ShowNode {
         self.0.unguard(sel)
     }
 
-    fn encode(&self, styles: StyleChain) -> Dict {
-        self.0.encode(styles)
+    fn field(&self, name: &str) -> Option<Value> {
+        self.0.field(name)
     }
 
     fn realize(

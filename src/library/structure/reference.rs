@@ -16,9 +16,10 @@ impl Show for RefNode {
         Self(self.0.clone()).pack()
     }
 
-    fn encode(&self, _: StyleChain) -> Dict {
-        dict! {
-            "label" => Value::Str(self.0.clone().into()),
+    fn field(&self, name: &str) -> Option<Value> {
+        match name {
+            "label" => Some(Value::Str(self.0.clone().into())),
+            _ => None,
         }
     }
 

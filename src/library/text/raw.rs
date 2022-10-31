@@ -46,14 +46,11 @@ impl Show for RawNode {
         Self { text: self.text.clone(), ..*self }.pack()
     }
 
-    fn encode(&self, styles: StyleChain) -> Dict {
-        dict! {
-           "text" => Value::Str(self.text.clone().into()),
-           "block" => Value::Bool(self.block),
-           "lang" => match styles.get(Self::LANG) {
-               Some(lang) => Value::Str(lang.clone().into()),
-               None => Value::None,
-           },
+    fn field(&self, name: &str) -> Option<Value> {
+        match name {
+            "text" => Some(Value::Str(self.text.clone().into())),
+            "block" => Some(Value::Bool(self.block)),
+            _ => None,
         }
     }
 

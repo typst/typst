@@ -7,7 +7,7 @@ use std::sync::Arc;
 use comemo::Tracked;
 
 use super::{
-    Builder, Dict, Key, Layout, LayoutNode, Property, Regions, Scratch, Selector, Show,
+    Builder, Key, Layout, LayoutNode, Property, Regions, Scratch, Selector, Show,
     ShowNode, StyleChain, StyleEntry, StyleMap,
 };
 use crate::diag::{SourceResult, StrResult};
@@ -73,7 +73,7 @@ pub enum Content {
     Page(PageNode),
     /// A node that can be realized with styles, optionally with attached
     /// properties.
-    Show(ShowNode, Option<Dict>),
+    Show(ShowNode),
     /// Content with attached styles.
     Styled(Arc<(Self, StyleMap)>),
     /// A sequence of multiple nodes.
@@ -107,7 +107,7 @@ impl Content {
     where
         T: Show + Debug + Hash + Sync + Send + 'static,
     {
-        Self::Show(node.pack(), None)
+        Self::Show(node.pack())
     }
 
     /// Create a new sequence node from multiples nodes.
@@ -242,7 +242,7 @@ impl Debug for Content {
             Self::Item(item) => item.fmt(f),
             Self::Pagebreak { weak } => write!(f, "Pagebreak({weak})"),
             Self::Page(page) => page.fmt(f),
-            Self::Show(node, _) => node.fmt(f),
+            Self::Show(node) => node.fmt(f),
             Self::Styled(styled) => {
                 let (sub, map) = styled.as_ref();
                 map.fmt(f)?;

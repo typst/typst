@@ -73,12 +73,11 @@ impl Show for HeadingNode {
         Self { body: self.body.unguard(sel), ..*self }.pack()
     }
 
-    fn encode(&self, styles: StyleChain) -> Dict {
-        dict! {
-            "level" => Value::Int(self.level.get() as i64),
-            "body" => Value::Content(self.body.clone()),
-            "outlined" => Value::Bool(styles.get(Self::OUTLINED)),
-            "numbered" => Value::Bool(styles.get(Self::NUMBERED)),
+    fn field(&self, name: &str) -> Option<Value> {
+        match name {
+            "level" => Some(Value::Int(self.level.get() as i64)),
+            "body" => Some(Value::Content(self.body.clone())),
+            _ => None,
         }
     }
 

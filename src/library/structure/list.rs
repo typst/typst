@@ -90,16 +90,14 @@ impl<const L: ListKind> Show for ListNode<L> {
         .pack()
     }
 
-    fn encode(&self, _: StyleChain) -> Dict {
-        dict! {
-            "tight" => Value::Bool(self.tight),
-            "attached" => Value::Bool(self.attached),
-            "items" => Value::Array(
-                self.items
-                    .items()
-                    .map(|item| item.encode())
-                    .collect()
-            ),
+    fn field(&self, name: &str) -> Option<Value> {
+        match name {
+            "tight" => Some(Value::Bool(self.tight)),
+            "attached" => Some(Value::Bool(self.attached)),
+            "items" => Some(Value::Array(
+                self.items.items().map(|item| item.encode()).collect(),
+            )),
+            _ => None,
         }
     }
 

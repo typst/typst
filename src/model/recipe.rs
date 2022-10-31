@@ -3,8 +3,7 @@ use std::fmt::{self, Debug, Formatter};
 use comemo::Tracked;
 
 use super::{
-    Args, Content, Func, Interruption, NodeId, Regex, Show, ShowNode, StyleChain,
-    StyleEntry, Value,
+    Args, Content, Func, Interruption, NodeId, Regex, Show, ShowNode, StyleEntry, Value,
 };
 use crate::diag::SourceResult;
 use crate::library::structure::{DescNode, EnumNode, ListNode};
@@ -34,17 +33,13 @@ impl Recipe {
     pub fn apply(
         &self,
         world: Tracked<dyn World>,
-        styles: StyleChain,
         sel: Selector,
         target: Target,
     ) -> SourceResult<Option<Content>> {
         let content = match (target, &self.pattern) {
             (Target::Node(node), &Pattern::Node(id)) if node.id() == id => {
                 let node = node.unguard(sel);
-                self.call(world, || {
-                    let dict = node.encode(styles);
-                    Value::Content(Content::Show(node, Some(dict)))
-                })?
+                self.call(world, || Value::Content(Content::Show(node)))?
             }
 
             (Target::Text(text), Pattern::Regex(regex)) => {

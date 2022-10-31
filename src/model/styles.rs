@@ -286,9 +286,7 @@ impl<'a> StyleChain<'a> {
                     let sel = Selector::Nth(n);
                     if self.guarded(sel) {
                         guarded = true;
-                    } else if let Some(content) =
-                        recipe.apply(world, self, sel, target)?
-                    {
+                    } else if let Some(content) = recipe.apply(world, sel, target)? {
                         realized = Some(content);
                         break;
                     }
