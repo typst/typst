@@ -7,7 +7,6 @@ use comemo::Tracked;
 
 use super::{Barrier, Content, Key, Property, Recipe, Selector, Show, Target};
 use crate::diag::SourceResult;
-use crate::frame::Role;
 use crate::util::ReadableTypeId;
 use crate::World;
 
@@ -161,8 +160,6 @@ pub enum StyleEntry {
     Property(Property),
     /// A show rule recipe.
     Recipe(Recipe),
-    /// A semantic role.
-    Role(Role),
     /// A barrier for scoped styles.
     Barrier(Barrier),
     /// Guards against recursive show rules.
@@ -222,7 +219,6 @@ impl Debug for StyleEntry {
         match self {
             Self::Property(property) => property.fmt(f)?,
             Self::Recipe(recipe) => recipe.fmt(f)?,
-            Self::Role(role) => role.fmt(f)?,
             Self::Barrier(barrier) => barrier.fmt(f)?,
             Self::Guard(sel) => write!(f, "Guard against {sel:?}")?,
             Self::Unguard(sel) => write!(f, "Unguard against {sel:?}")?,
@@ -322,21 +318,6 @@ impl<'a> StyleChain<'a> {
         }
 
         Ok(realized)
-    }
-
-    /// Retrieve the current role.
-    pub fn role(self) -> Option<Role> {
-        let mut depth = 0;
-
-        for entry in self.entries() {
-            match *entry {
-                StyleEntry::Role(role) => return Some(role),
-                StyleEntry::Barrier(_) if depth == 1 => return None,
-                StyleEntry::Barrier(_) => depth += 1,
-                _ => {}
-            }
-        }
-        None
     }
 
     /// Whether the recipe identified by the selector is guarded.

@@ -127,7 +127,7 @@ impl Show for RawNode {
             realized = realized.spaced(styles.get(Self::ABOVE), styles.get(Self::BELOW));
         }
 
-        Ok(realized.styled_with_map(map).role(Role::Code))
+        Ok(realized.styled_with_map(map))
     }
 }
 

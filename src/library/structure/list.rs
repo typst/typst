@@ -128,11 +128,7 @@ impl<const L: ListKind> Show for ListNode<L> {
             cells.push(LayoutNode::default());
 
             let label = if L == LIST || L == ENUM {
-                label
-                    .resolve(world, L, number)?
-                    .styled_with_map(map.clone())
-                    .role(Role::ListLabel)
-                    .pack()
+                label.resolve(world, L, number)?.styled_with_map(map.clone()).pack()
             } else {
                 LayoutNode::default()
             };
@@ -188,7 +184,7 @@ impl<const L: ListKind> Show for ListNode<L> {
             }
         }
 
-        Ok(realized.role(Role::List { ordered: L == ENUM }).spaced(above, below))
+        Ok(realized.spaced(above, below))
     }
 }
 

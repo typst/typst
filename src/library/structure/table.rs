@@ -52,11 +52,7 @@ impl Show for TableNode {
         Self {
             tracks: self.tracks.clone(),
             gutter: self.gutter.clone(),
-            cells: self
-                .cells
-                .iter()
-                .map(|cell| cell.unguard(sel).role(Role::TableCell))
-                .collect(),
+            cells: self.cells.iter().map(|cell| cell.unguard(sel)).collect(),
         }
         .pack()
     }
@@ -108,8 +104,7 @@ impl Show for TableNode {
             tracks: self.tracks.clone(),
             gutter: self.gutter.clone(),
             cells,
-        })
-        .role(Role::Table))
+        }))
     }
 
     fn finalize(

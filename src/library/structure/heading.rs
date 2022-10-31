@@ -121,12 +121,7 @@ impl Show for HeadingNode {
             realized = realized.underlined();
         }
 
-        let role = Role::Heading {
-            level: self.level,
-            outlined: styles.get(Self::OUTLINED),
-        };
-
-        realized = realized.styled_with_map(map).role(role);
+        realized = realized.styled_with_map(map);
         realized = realized.spaced(
             resolve!(Self::ABOVE).resolve(styles),
             resolve!(Self::BELOW).resolve(styles),

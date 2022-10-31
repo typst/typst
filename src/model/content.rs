@@ -11,7 +11,7 @@ use super::{
     ShowNode, StyleChain, StyleEntry, StyleMap,
 };
 use crate::diag::{SourceResult, StrResult};
-use crate::frame::{Frame, Role};
+use crate::frame::Frame;
 use crate::geom::Abs;
 use crate::library::layout::{PageNode, Spacing};
 use crate::library::structure::ListItem;
@@ -158,11 +158,6 @@ impl Content {
         }
 
         Self::Styled(Arc::new((self, styles)))
-    }
-
-    /// Assign a semantic role to this content.
-    pub fn role(self, role: Role) -> Self {
-        self.styled_with_entry(StyleEntry::Role(role))
     }
 
     /// Reenable the show rule identified by the selector.

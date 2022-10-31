@@ -202,15 +202,7 @@ impl Layout for LayoutNode {
     ) -> SourceResult<Vec<Frame>> {
         let barrier = StyleEntry::Barrier(Barrier::new(self.id()));
         let styles = barrier.chain(&styles);
-
-        let mut frames = self.0.layout(world, regions, styles)?;
-        if let Some(role) = styles.role() {
-            for frame in &mut frames {
-                frame.apply_role(role);
-            }
-        }
-
-        Ok(frames)
+        self.0.layout(world, regions, styles)
     }
 
     fn pack(self) -> LayoutNode {
