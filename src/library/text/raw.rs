@@ -105,7 +105,12 @@ impl Show for RawNode {
             realized = Content::block(realized);
         }
 
-        Ok(realized)
+        let mut map = StyleMap::new();
+        map.set(TextNode::OVERHANG, false);
+        map.set(TextNode::HYPHENATE, Smart::Custom(Hyphenate(false)));
+        map.set(TextNode::SMART_QUOTES, false);
+
+        Ok(realized.styled_with_map(map))
     }
 
     fn finalize(
@@ -116,9 +121,6 @@ impl Show for RawNode {
     ) -> SourceResult<Content> {
         let mut map = StyleMap::new();
         map.set_family(styles.get(Self::FAMILY).clone(), styles);
-        map.set(TextNode::OVERHANG, false);
-        map.set(TextNode::HYPHENATE, Smart::Custom(Hyphenate(false)));
-        map.set(TextNode::SMART_QUOTES, false);
 
         if self.block {
             realized = realized.spaced(styles.get(Self::ABOVE), styles.get(Self::BELOW));

@@ -103,16 +103,13 @@ impl Show for MathNode {
         &self,
         _: Tracked<dyn World>,
         styles: StyleChain,
-        mut realized: Content,
+        realized: Content,
     ) -> SourceResult<Content> {
-        let mut map = StyleMap::new();
-        map.set_family(styles.get(Self::FAMILY).clone(), styles);
-
-        if self.display() {
-            realized = realized.spaced(styles.get(Self::ABOVE), styles.get(Self::BELOW));
-        }
-
-        Ok(realized.styled_with_map(map))
+        Ok(if self.display() {
+            realized.spaced(styles.get(Self::ABOVE), styles.get(Self::BELOW))
+        } else {
+            realized
+        })
     }
 }
 

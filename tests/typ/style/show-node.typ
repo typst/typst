@@ -23,7 +23,7 @@ A [= Heading] C
 #set heading(around: none)
 
 Where is
-= There are not headings around here!
+= There are no headings around here!
 my heading?
 
 ---

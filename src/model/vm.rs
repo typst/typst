@@ -12,7 +12,7 @@ use crate::{LangItems, World};
 pub struct Vm<'a> {
     /// The core context.
     pub world: Tracked<'a, dyn World>,
-    /// The route of source ids the machine took to reach its current location.
+    /// The route of source ids the VM took to reach its current location.
     pub route: Tracked<'a, Route>,
     /// The current location.
     pub location: Option<SourceId>,
@@ -52,7 +52,7 @@ impl<'a> Vm<'a> {
             }
         }
 
-        return Err("cannot access file system from here".into());
+        Err("cannot access file system from here".into())
     }
 
     /// The language items.

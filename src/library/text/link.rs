@@ -73,17 +73,21 @@ impl Show for LinkNode {
     }
 
     fn realize(&self, _: Tracked<dyn World>, _: StyleChain) -> SourceResult<Content> {
-        Ok(self.body.clone().unwrap_or_else(|| match &self.dest {
-            Destination::Url(url) => {
-                let mut text = url.as_str();
-                for prefix in ["mailto:", "tel:"] {
-                    text = text.trim_start_matches(prefix);
+        Ok(self
+            .body
+            .clone()
+            .unwrap_or_else(|| match &self.dest {
+                Destination::Url(url) => {
+                    let mut text = url.as_str();
+                    for prefix in ["mailto:", "tel:"] {
+                        text = text.trim_start_matches(prefix);
+                    }
+                    let shorter = text.len() < url.len();
+                    Content::Text(if shorter { text.into() } else { url.clone() })
                 }
-                let shorter = text.len() < url.len();
-                Content::Text(if shorter { text.into() } else { url.clone() })
-            }
-            Destination::Internal(_) => Content::Empty,
-        }))
+                Destination::Internal(_) => Content::Empty,
+            })
+            .styled(TextNode::LINK, Some(self.dest.clone())))
     }
 
     fn finalize(
@@ -93,8 +97,6 @@ impl Show for LinkNode {
         mut realized: Content,
     ) -> SourceResult<Content> {
         let mut map = StyleMap::new();
-        map.set(TextNode::LINK, Some(self.dest.clone()));
-
         if let Smart::Custom(fill) = styles.get(Self::FILL) {
             map.set(TextNode::FILL, fill);
         }

@@ -28,7 +28,6 @@ pub trait Show: 'static {
     /// this for effects that should work even in the face of a user-defined
     /// show rule, for example:
     /// - Application of general settable properties
-    /// - Attaching things like semantics to a heading
     ///
     /// Defaults to just the realized content.
     #[allow(unused_variables)]
