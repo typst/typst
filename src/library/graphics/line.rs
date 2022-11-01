@@ -9,7 +9,7 @@ pub struct LineNode {
     delta: Axes<Rel<Length>>,
 }
 
-#[node]
+#[node(Layout)]
 impl LineNode {
     /// How to stroke the line.
     #[property(resolve, fold)]
@@ -32,7 +32,7 @@ impl LineNode {
             }
         };
 
-        Ok(Content::inline(Self { origin, delta }))
+        Ok(Self { origin, delta }.pack())
     }
 }
 
@@ -64,6 +64,10 @@ impl Layout for LineNode {
         frame.push(origin.to_point(), Element::Shape(shape));
 
         Ok(vec![frame])
+    }
+
+    fn level(&self) -> Level {
+        Level::Inline
     }
 }
 

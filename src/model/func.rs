@@ -4,9 +4,7 @@ use std::sync::Arc;
 
 use comemo::{Track, Tracked};
 
-use super::{
-    Args, Content, Eval, Flow, NodeId, Route, Scope, Scopes, StyleMap, Value, Vm,
-};
+use super::{Args, Eval, Flow, Node, NodeId, Route, Scope, Scopes, StyleMap, Value, Vm};
 use crate::diag::{SourceResult, StrResult};
 use crate::syntax::ast::Expr;
 use crate::syntax::SourceId;
@@ -52,7 +50,7 @@ impl Func {
                 Ok(Value::Content(content.styled_with_map(styles.scoped())))
             },
             set: Some(|args| T::set(args, false)),
-            node: T::SHOWABLE.then(|| NodeId::of::<T>()),
+            node: Some(NodeId::of::<T>()),
         })))
     }
 
@@ -166,24 +164,6 @@ impl Hash for Native {
         self.set.map(|set| set as usize).hash(state);
         self.node.hash(state);
     }
-}
-
-/// A constructable, stylable content node.
-pub trait Node: 'static {
-    /// Whether this node can be customized through a show rule.
-    const SHOWABLE: bool;
-
-    /// Construct a node from the arguments.
-    ///
-    /// This is passed only the arguments that remain after execution of the
-    /// node's set rule.
-    fn construct(vm: &mut Vm, args: &mut Args) -> SourceResult<Content>;
-
-    /// Parse relevant arguments into style properties for this node.
-    ///
-    /// When `constructor` is true, [`construct`](Self::construct) will run
-    /// after this invocation of `set` with the remaining arguments.
-    fn set(args: &mut Args, constructor: bool) -> SourceResult<StyleMap>;
 }
 
 /// A user-defined closure.

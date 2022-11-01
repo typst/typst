@@ -4,26 +4,35 @@ use crate::library::prelude::*;
 use crate::library::text::ParNode;
 
 /// Horizontal spacing.
-pub struct HNode;
+#[derive(Debug, Clone, Hash)]
+pub struct HNode {
+    pub amount: Spacing,
+    pub weak: bool,
+}
 
 #[node]
 impl HNode {
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         let amount = args.expect("spacing")?;
         let weak = args.named("weak")?.unwrap_or(false);
-        Ok(Content::Horizontal { amount, weak })
+        Ok(Self { amount, weak }.pack())
     }
 }
 
 /// Vertical spacing.
-pub struct VNode;
+#[derive(Debug, Clone, Hash)]
+pub struct VNode {
+    pub amount: Spacing,
+    pub weak: bool,
+    pub generated: bool,
+}
 
 #[node]
 impl VNode {
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         let amount = args.expect("spacing")?;
         let weak = args.named("weak")?.unwrap_or(false);
-        Ok(Content::Vertical { amount, weak, generated: false })
+        Ok(Self { amount, weak, generated: false }.pack())
     }
 }
 

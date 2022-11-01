@@ -1,5 +1,6 @@
-use super::{variant, TextNode, TextSize};
+use super::{variant, SpaceNode, TextNode, TextSize};
 use crate::library::prelude::*;
+use crate::model::SequenceNode;
 use crate::util::EcoString;
 
 /// Sub or superscript text.
@@ -17,7 +18,7 @@ pub type SuperNode = ShiftNode<SUPERSCRIPT>;
 /// Shift the text into subscript.
 pub type SubNode = ShiftNode<SUBSCRIPT>;
 
-#[node]
+#[node(Show)]
 impl<const S: ScriptKind> ShiftNode<S> {
     /// Whether to prefer the dedicated sub- and superscript characters of the
     /// font.
@@ -29,12 +30,12 @@ impl<const S: ScriptKind> ShiftNode<S> {
     pub const SIZE: TextSize = TextSize(Em::new(0.6).into());
 
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Content::show(Self(args.expect("body")?)))
+        Ok(Self(args.expect("body")?).pack())
     }
 }
 
 impl<const S: ScriptKind> Show for ShiftNode<S> {
-    fn unguard(&self, _: Selector) -> ShowNode {
+    fn unguard_parts(&self, _: Selector) -> Content {
         Self(self.0.clone()).pack()
     }
 
@@ -54,7 +55,7 @@ impl<const S: ScriptKind> Show for ShiftNode<S> {
         if styles.get(Self::TYPOGRAPHIC) {
             if let Some(text) = search_text(&self.0, S) {
                 if is_shapable(world, &text, styles) {
-                    transformed = Some(Content::Text(text));
+                    transformed = Some(TextNode(text).pack());
                 }
             }
         };
@@ -71,28 +72,26 @@ impl<const S: ScriptKind> Show for ShiftNode<S> {
 /// Find and transform the text contained in `content` to the given script kind
 /// if and only if it only consists of `Text`, `Space`, and `Empty` leaf nodes.
 fn search_text(content: &Content, mode: ScriptKind) -> Option<EcoString> {
-    match content {
-        Content::Text(_) => {
-            if let Content::Text(t) = content {
-                if let Some(sup) = convert_script(t, mode) {
-                    return Some(sup);
-                }
-            }
-            None
+    if content.is_empty() {
+        Some(EcoString::new())
+    } else if content.is::<SpaceNode>() {
+        Some(' '.into())
+    } else if let Some(text) = content.downcast::<TextNode>() {
+        if let Some(sup) = convert_script(&text.0, mode) {
+            return Some(sup);
         }
-        Content::Space => Some(' '.into()),
-        Content::Empty => Some(EcoString::new()),
-        Content::Sequence(seq) => {
-            let mut full = EcoString::new();
-            for item in seq.iter() {
-                match search_text(item, mode) {
-                    Some(text) => full.push_str(&text),
-                    None => return None,
-                }
+        None
+    } else if let Some(seq) = content.downcast::<SequenceNode>() {
+        let mut full = EcoString::new();
+        for item in seq.0.iter() {
+            match search_text(item, mode) {
+                Some(text) => full.push_str(&text),
+                None => return None,
             }
-            Some(full)
         }
-        _ => None,
+        Some(full)
+    } else {
+        None
     }
 }
 

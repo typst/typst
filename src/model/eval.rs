@@ -8,11 +8,12 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use super::{
     methods, ops, Arg, Args, Array, CapturesVisitor, Closure, Content, Dict, Flow, Func,
-    Pattern, Recipe, Scope, Scopes, Show, StyleEntry, StyleMap, Value, Vm,
+    Node, Pattern, Recipe, Scope, Scopes, Show, StyleEntry, StyleMap, Value, Vm,
 };
 use crate::diag::{At, SourceResult, StrResult, Trace, Tracepoint};
 use crate::geom::{Abs, Angle, Em, Fr, Ratio};
-use crate::library;
+use crate::library::math;
+use crate::library::text::TextNode;
 use crate::syntax::ast::TypedNode;
 use crate::syntax::{ast, SourceId, Span, Spanned, Unit};
 use crate::util::EcoString;
@@ -189,11 +190,11 @@ impl Eval for ast::MarkupNode {
 impl Eval for ast::Space {
     type Output = Content;
 
-    fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         Ok(if self.newlines() < 2 {
-            Content::Space
+            (vm.items().space)()
         } else {
-            Content::Parbreak
+            (vm.items().parbreak)()
         })
     }
 }
@@ -201,40 +202,40 @@ impl Eval for ast::Space {
 impl Eval for ast::Linebreak {
     type Output = Content;
 
-    fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(Content::Linebreak { justify: false })
+    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        Ok((vm.items().linebreak)(false))
     }
 }
 
 impl Eval for ast::Text {
     type Output = Content;
 
-    fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(Content::Text(self.get().clone()))
+    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        Ok(vm.text(self.get().clone()))
     }
 }
 
 impl Eval for ast::Escape {
     type Output = Content;
 
-    fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(Content::Text(self.get().into()))
+    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        Ok(vm.text(self.get()))
     }
 }
 
 impl Eval for ast::Shorthand {
     type Output = Content;
 
-    fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(Content::Text(self.get().into()))
+    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        Ok(vm.text(self.get()))
     }
 }
 
 impl Eval for ast::SmartQuote {
     type Output = Content;
 
-    fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(Content::Quote { double: self.double() })
+    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        Ok((vm.items().smart_quote)(self.double()))
     }
 }
 
@@ -277,7 +278,7 @@ impl Eval for ast::Label {
     type Output = Content;
 
     fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(Content::Empty)
+        Ok(Content::empty())
     }
 }
 
@@ -335,26 +336,23 @@ impl Eval for ast::Math {
             .children()
             .map(|node| node.eval(vm))
             .collect::<SourceResult<_>>()?;
-        Ok(Content::show(library::math::MathNode::Row(
-            Arc::new(nodes),
-            self.span(),
-        )))
+        Ok(math::MathNode::Row(Arc::new(nodes), self.span()).pack())
     }
 }
 
 impl Eval for ast::MathNode {
-    type Output = library::math::MathNode;
+    type Output = math::MathNode;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         Ok(match self {
-            Self::Space(_) => library::math::MathNode::Space,
-            Self::Linebreak(_) => library::math::MathNode::Linebreak,
-            Self::Escape(c) => library::math::MathNode::Atom(c.get().into()),
-            Self::Atom(atom) => library::math::MathNode::Atom(atom.get().clone()),
+            Self::Space(_) => math::MathNode::Space,
+            Self::Linebreak(_) => math::MathNode::Linebreak,
+            Self::Escape(c) => math::MathNode::Atom(c.get().into()),
+            Self::Atom(atom) => math::MathNode::Atom(atom.get().clone()),
             Self::Script(node) => node.eval(vm)?,
             Self::Frac(node) => node.eval(vm)?,
             Self::Align(node) => node.eval(vm)?,
-            Self::Group(node) => library::math::MathNode::Row(
+            Self::Group(node) => math::MathNode::Row(
                 Arc::new(
                     node.children()
                         .map(|node| node.eval(vm))
@@ -362,54 +360,54 @@ impl Eval for ast::MathNode {
                 ),
                 node.span(),
             ),
-            Self::Expr(expr) => match expr.eval(vm)?.display(vm.world) {
-                Content::Text(text) => library::math::MathNode::Atom(text),
-                _ => bail!(expr.span(), "expected text"),
-            },
+            Self::Expr(expr) => {
+                let content = expr.eval(vm)?.display(vm.world);
+                if let Some(node) = content.downcast::<TextNode>() {
+                    math::MathNode::Atom(node.0.clone())
+                } else {
+                    bail!(expr.span(), "expected text")
+                }
+            }
         })
     }
 }
 
 impl Eval for ast::Script {
-    type Output = library::math::MathNode;
+    type Output = math::MathNode;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(library::math::MathNode::Script(Arc::new(
-            library::math::ScriptNode {
-                base: self.base().eval(vm)?,
-                sub: self
-                    .sub()
-                    .map(|node| node.eval(vm))
-                    .transpose()?
-                    .map(|node| node.unparen()),
-                sup: self
-                    .sup()
-                    .map(|node| node.eval(vm))
-                    .transpose()?
-                    .map(|node| node.unparen()),
-            },
-        )))
+        Ok(math::MathNode::Script(Arc::new(math::ScriptNode {
+            base: self.base().eval(vm)?,
+            sub: self
+                .sub()
+                .map(|node| node.eval(vm))
+                .transpose()?
+                .map(|node| node.unparen()),
+            sup: self
+                .sup()
+                .map(|node| node.eval(vm))
+                .transpose()?
+                .map(|node| node.unparen()),
+        })))
     }
 }
 
 impl Eval for ast::Frac {
-    type Output = library::math::MathNode;
+    type Output = math::MathNode;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(library::math::MathNode::Frac(Arc::new(
-            library::math::FracNode {
-                num: self.num().eval(vm)?.unparen(),
-                denom: self.denom().eval(vm)?.unparen(),
-            },
-        )))
+        Ok(math::MathNode::Frac(Arc::new(math::FracNode {
+            num: self.num().eval(vm)?.unparen(),
+            denom: self.denom().eval(vm)?.unparen(),
+        })))
     }
 }
 
 impl Eval for ast::Align {
-    type Output = library::math::MathNode;
+    type Output = math::MathNode;
 
     fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(library::math::MathNode::Align(self.count()))
+        Ok(math::MathNode::Align(self.count()))
     }
 }
 
@@ -706,8 +704,9 @@ impl Eval for ast::FieldAccess {
         Ok(match object {
             Value::Dict(dict) => dict.get(&field).at(span)?.clone(),
 
-            Value::Content(Content::Show(node)) => node
-                .field(&field)
+            Value::Content(node) => node
+                .to::<dyn Show>()
+                .and_then(|node| node.field(&field))
                 .ok_or_else(|| format!("unknown field {field:?}"))
                 .at(span)?
                 .clone(),

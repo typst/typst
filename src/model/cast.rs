@@ -1,6 +1,6 @@
 use std::num::NonZeroUsize;
 
-use super::{Content, Layout, LayoutNode, Pattern, Regex, Value};
+use super::{Pattern, Regex, Value};
 use crate::diag::{with_alternative, StrResult};
 use crate::geom::{Corners, Dir, Paint, Sides};
 use crate::syntax::Spanned;
@@ -168,14 +168,6 @@ castable! {
     String,
     Expected: "string",
     Value::Str(string) => string.into(),
-}
-
-castable! {
-    LayoutNode,
-    Expected: "content",
-    Value::None => Self::default(),
-    Value::Str(text) => Content::Text(text.into()).pack(),
-    Value::Content(content) => content.pack(),
 }
 
 castable! {

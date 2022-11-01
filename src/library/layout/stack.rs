@@ -1,6 +1,7 @@
 use super::{AlignNode, Spacing};
 use crate::library::prelude::*;
 use crate::library::text::ParNode;
+use crate::model::StyledNode;
 
 /// Arrange nodes and spacing along an axis.
 #[derive(Debug, Hash)]
@@ -13,14 +14,15 @@ pub struct StackNode {
     pub children: Vec<StackChild>,
 }
 
-#[node]
+#[node(Layout)]
 impl StackNode {
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Content::block(Self {
+        Ok(Self {
             dir: args.named("dir")?.unwrap_or(Dir::TTB),
             spacing: args.named("spacing")?,
             children: args.all()?,
-        }))
+        }
+        .pack())
     }
 }
 
@@ -55,6 +57,10 @@ impl Layout for StackNode {
 
         Ok(layouter.finish())
     }
+
+    fn level(&self) -> Level {
+        Level::Block
+    }
 }
 
 /// A child of a stack node.
@@ -63,7 +69,7 @@ pub enum StackChild {
     /// Spacing between other nodes.
     Spacing(Spacing),
     /// An arbitrary node.
-    Node(LayoutNode),
+    Node(Content),
 }
 
 impl Debug for StackChild {
@@ -82,7 +88,7 @@ castable! {
     Value::Ratio(v) => Self::Spacing(Spacing::Relative(v.into())),
     Value::Relative(v) => Self::Spacing(Spacing::Relative(v)),
     Value::Fraction(v) => Self::Spacing(Spacing::Fractional(v)),
-    Value::Content(v) => Self::Node(v.pack()),
+    Value::Content(v) => Self::Node(v),
 }
 
 /// Performs stack layout.
@@ -169,7 +175,7 @@ impl<'a> StackLayouter<'a> {
     pub fn layout_node(
         &mut self,
         world: Tracked<dyn World>,
-        node: &LayoutNode,
+        node: &Content,
         styles: StyleChain,
     ) -> SourceResult<()> {
         if self.regions.is_full() {
@@ -183,17 +189,17 @@ impl<'a> StackLayouter<'a> {
             .and_then(|node| node.aligns.get(self.axis))
             .map(|align| align.resolve(styles))
             .unwrap_or_else(|| {
-                if let Some(Content::Styled(styled)) = node.downcast::<Content>() {
-                    let map = &styled.1;
+                if let Some(styled) = node.downcast::<StyledNode>() {
+                    let map = &styled.map;
                     if map.contains(ParNode::ALIGN) {
-                        return StyleChain::with_root(&styled.1).get(ParNode::ALIGN);
+                        return StyleChain::with_root(map).get(ParNode::ALIGN);
                     }
                 }
 
                 self.dir.start().into()
             });
 
-        let frames = node.layout(world, &self.regions, styles)?;
+        let frames = node.layout_block(world, &self.regions, styles)?;
         let len = frames.len();
         for (i, mut frame) in frames.into_iter().enumerate() {
             // Set the generic block role.

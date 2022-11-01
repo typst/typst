@@ -5,7 +5,7 @@ use crate::library::prelude::*;
 
 /// Layouts its child onto one or multiple pages.
 #[derive(PartialEq, Clone, Hash)]
-pub struct PageNode(pub LayoutNode);
+pub struct PageNode(pub Content);
 
 #[node]
 impl PageNode {
@@ -41,7 +41,7 @@ impl PageNode {
     pub const FOREGROUND: Marginal = Marginal::None;
 
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Content::Page(Self(args.expect("body")?)))
+        Ok(Self(args.expect("body")?).pack())
     }
 
     fn set(...) {
@@ -96,7 +96,7 @@ impl PageNode {
 
         // Layout the child.
         let regions = Regions::repeat(size, size, size.map(Abs::is_finite));
-        let mut frames = child.layout(world, &regions, styles)?;
+        let mut frames = child.layout_block(world, &regions, styles)?;
 
         let header = styles.get(Self::HEADER);
         let footer = styles.get(Self::FOOTER);
@@ -127,7 +127,7 @@ impl PageNode {
             ] {
                 if let Some(content) = marginal.resolve(world, page)? {
                     let pod = Regions::one(area, area, Axes::splat(true));
-                    let mut sub = content.layout(world, &pod, styles)?.remove(0);
+                    let mut sub = content.layout_block(world, &pod, styles)?.remove(0);
                     sub.apply_role(role);
 
                     if role == Role::Background {
@@ -154,13 +154,16 @@ impl Debug for PageNode {
 }
 
 /// A page break.
-pub struct PagebreakNode;
+#[derive(Debug, Copy, Clone, Hash)]
+pub struct PagebreakNode {
+    pub weak: bool,
+}
 
 #[node]
 impl PagebreakNode {
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         let weak = args.named("weak")?.unwrap_or(false);
-        Ok(Content::Pagebreak { weak })
+        Ok(Self { weak }.pack())
     }
 }
 
@@ -201,7 +204,7 @@ impl Cast<Spanned<Value>> for Marginal {
     fn cast(value: Spanned<Value>) -> StrResult<Self> {
         match value.v {
             Value::None => Ok(Self::None),
-            Value::Str(v) => Ok(Self::Content(Content::Text(v.into()))),
+            Value::Str(v) => Ok(Self::Content(TextNode(v.into()).pack())),
             Value::Content(v) => Ok(Self::Content(v)),
             Value::Func(v) => Ok(Self::Func(v, value.span)),
             v => Err(format!(

@@ -54,8 +54,7 @@ use comemo::{Prehashed, Track};
 use crate::diag::{FileResult, SourceResult};
 use crate::font::{Font, FontBook};
 use crate::frame::Frame;
-use crate::model::StyleMap;
-use crate::model::{Content, Route, Scope};
+use crate::model::{Content, Route, Scope, StyleMap};
 use crate::syntax::{Source, SourceId};
 use crate::util::{Buffer, EcoString};
 
@@ -130,13 +129,18 @@ impl Default for Config {
 /// Definition of certain standard library items the language is aware of.
 #[derive(Debug, Clone, Hash)]
 pub struct LangItems {
-    pub strong: fn(Content) -> Content,
-    pub emph: fn(Content) -> Content,
-    pub raw: fn(EcoString, Option<EcoString>, bool) -> Content,
-    pub link: fn(EcoString) -> Content,
-    pub ref_: fn(EcoString) -> Content,
-    pub heading: fn(NonZeroUsize, Content) -> Content,
-    pub list_item: fn(Content) -> Content,
-    pub enum_item: fn(Option<usize>, Content) -> Content,
-    pub desc_item: fn(Content, Content) -> Content,
+    pub space: fn() -> Content,
+    pub linebreak: fn(justify: bool) -> Content,
+    pub text: fn(text: EcoString) -> Content,
+    pub smart_quote: fn(double: bool) -> Content,
+    pub parbreak: fn() -> Content,
+    pub strong: fn(body: Content) -> Content,
+    pub emph: fn(body: Content) -> Content,
+    pub raw: fn(text: EcoString, tag: Option<EcoString>, block: bool) -> Content,
+    pub link: fn(label: EcoString) -> Content,
+    pub ref_: fn(target: EcoString) -> Content,
+    pub heading: fn(level: NonZeroUsize, body: Content) -> Content,
+    pub list_item: fn(body: Content) -> Content,
+    pub enum_item: fn(number: Option<usize>, body: Content) -> Content,
+    pub desc_item: fn(term: Content, body: Content) -> Content,
 }

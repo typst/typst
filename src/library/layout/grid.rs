@@ -8,10 +8,10 @@ pub struct GridNode {
     /// Defines sizing of gutter rows and columns between content.
     pub gutter: Axes<Vec<TrackSizing>>,
     /// The nodes to be arranged in a grid.
-    pub cells: Vec<LayoutNode>,
+    pub cells: Vec<Content>,
 }
 
-#[node]
+#[node(Layout)]
 impl GridNode {
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         let columns = args.named("columns")?.unwrap_or_default();
@@ -19,14 +19,15 @@ impl GridNode {
         let base_gutter: Vec<TrackSizing> = args.named("gutter")?.unwrap_or_default();
         let column_gutter = args.named("column-gutter")?;
         let row_gutter = args.named("row-gutter")?;
-        Ok(Content::block(Self {
+        Ok(Self {
             tracks: Axes::new(columns, rows),
             gutter: Axes::new(
                 column_gutter.unwrap_or_else(|| base_gutter.clone()),
                 row_gutter.unwrap_or(base_gutter),
             ),
             cells: args.all()?,
-        }))
+        }
+        .pack())
     }
 }
 
@@ -49,6 +50,10 @@ impl Layout for GridNode {
 
         // Measure the columns and layout the grid row-by-row.
         layouter.layout()
+    }
+
+    fn level(&self) -> Level {
+        Level::Block
     }
 }
 
@@ -95,7 +100,7 @@ pub struct GridLayouter<'a> {
     /// The core context.
     world: Tracked<'a, dyn World>,
     /// The grid cells.
-    cells: &'a [LayoutNode],
+    cells: &'a [Content],
     /// The column tracks including gutter tracks.
     cols: Vec<TrackSizing>,
     /// The row tracks including gutter tracks.
@@ -136,7 +141,7 @@ impl<'a> GridLayouter<'a> {
         world: Tracked<'a, dyn World>,
         tracks: Axes<&[TrackSizing]>,
         gutter: Axes<&[TrackSizing]>,
-        cells: &'a [LayoutNode],
+        cells: &'a [Content],
         regions: &Regions,
         styles: StyleChain<'a>,
     ) -> Self {
@@ -301,7 +306,8 @@ impl<'a> GridLayouter<'a> {
                             v.resolve(self.styles).relative_to(self.regions.base.y);
                     }
 
-                    let frame = node.layout(self.world, &pod, self.styles)?.remove(0);
+                    let frame =
+                        node.layout_block(self.world, &pod, self.styles)?.remove(0);
                     resolved.set_max(frame.width());
                 }
             }
@@ -371,7 +377,7 @@ impl<'a> GridLayouter<'a> {
                 }
 
                 let mut sizes = node
-                    .layout(self.world, &pod, self.styles)?
+                    .layout_block(self.world, &pod, self.styles)?
                     .into_iter()
                     .map(|frame| frame.height());
 
@@ -460,7 +466,7 @@ impl<'a> GridLayouter<'a> {
                     .select(self.regions.base, size);
 
                 let pod = Regions::one(size, base, Axes::splat(true));
-                let frame = node.layout(self.world, &pod, self.styles)?.remove(0);
+                let frame = node.layout_block(self.world, &pod, self.styles)?.remove(0);
                 match frame.role() {
                     Some(Role::ListLabel | Role::ListItemBody) => {
                         output.apply_role(Role::ListItem)
@@ -508,7 +514,7 @@ impl<'a> GridLayouter<'a> {
                 }
 
                 // Push the layouted frames into the individual output frames.
-                let frames = node.layout(self.world, &pod, self.styles)?;
+                let frames = node.layout_block(self.world, &pod, self.styles)?;
                 for (output, frame) in outputs.iter_mut().zip(frames) {
                     match frame.role() {
                         Some(Role::ListLabel | Role::ListItemBody) => {
@@ -576,7 +582,7 @@ impl<'a> GridLayouter<'a> {
     ///
     /// Returns `None` if it's a gutter cell.
     #[track_caller]
-    fn cell(&self, x: usize, y: usize) -> Option<&'a LayoutNode> {
+    fn cell(&self, x: usize, y: usize) -> Option<&'a Content> {
         assert!(x < self.cols.len());
         assert!(y < self.rows.len());
 

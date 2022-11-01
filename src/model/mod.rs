@@ -8,7 +8,6 @@ mod eval;
 mod layout;
 mod property;
 mod recipe;
-mod show;
 #[macro_use]
 mod cast;
 #[macro_use]
@@ -36,7 +35,6 @@ pub use args::*;
 pub use array::*;
 pub use capture::*;
 pub use cast::*;
-pub use collapse::*;
 pub use content::*;
 pub use dict::*;
 pub use eval::*;
@@ -48,10 +46,10 @@ pub use raw::*;
 pub use recipe::*;
 pub use resolve::*;
 pub use scope::*;
-pub use show::*;
 pub use styles::*;
 pub use typst_macros::node;
 pub use value::*;
 pub use vm::*;
 
+// use collapse::*;
 use realize::*;

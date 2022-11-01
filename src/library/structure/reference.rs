@@ -4,15 +4,15 @@ use crate::library::prelude::*;
 #[derive(Debug, Hash)]
 pub struct RefNode(pub EcoString);
 
-#[node(showable)]
+#[node(Show)]
 impl RefNode {
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Content::show(Self(args.expect("label")?)))
+        Ok(Self(args.expect("label")?).pack())
     }
 }
 
 impl Show for RefNode {
-    fn unguard(&self, _: Selector) -> ShowNode {
+    fn unguard_parts(&self, _: Selector) -> Content {
         Self(self.0.clone()).pack()
     }
 
@@ -24,6 +24,6 @@ impl Show for RefNode {
     }
 
     fn realize(&self, _: Tracked<dyn World>, _: StyleChain) -> SourceResult<Content> {
-        Ok(Content::Text(format_eco!("@{}", self.0)))
+        Ok(TextNode(format_eco!("@{}", self.0)).pack())
     }
 }

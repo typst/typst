@@ -6,10 +6,10 @@ pub struct PadNode {
     /// The amount of padding.
     pub padding: Sides<Rel<Length>>,
     /// The child node whose sides to pad.
-    pub child: LayoutNode,
+    pub child: Content,
 }
 
-#[node]
+#[node(Layout)]
 impl PadNode {
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         let all = args.named("rest")?.or(args.find()?);
@@ -19,9 +19,9 @@ impl PadNode {
         let top = args.named("top")?.or(y).or(all).unwrap_or_default();
         let right = args.named("right")?.or(x).or(all).unwrap_or_default();
         let bottom = args.named("bottom")?.or(y).or(all).unwrap_or_default();
-        let body: LayoutNode = args.expect("body")?;
+        let body = args.expect::<Content>("body")?;
         let padding = Sides::new(left, top, right, bottom);
-        Ok(Content::block(body.padded(padding)))
+        Ok(body.padded(padding))
     }
 }
 
@@ -35,7 +35,7 @@ impl Layout for PadNode {
         // Layout child into padded regions.
         let padding = self.padding.resolve(styles);
         let pod = regions.map(|size| shrink(size, padding));
-        let mut frames = self.child.layout(world, &pod, styles)?;
+        let mut frames = self.child.layout_block(world, &pod, styles)?;
 
         for frame in &mut frames {
             // Apply the padding inversely such that the grown size padded
@@ -50,6 +50,10 @@ impl Layout for PadNode {
         }
 
         Ok(frames)
+    }
+
+    fn level(&self) -> Level {
+        Level::Block
     }
 }
 

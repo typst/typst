@@ -36,7 +36,6 @@ pub fn call(
             "position" => string
                 .position(args.expect("pattern")?)
                 .map_or(Value::None, Value::Int),
-
             "match" => string
                 .match_(args.expect("pattern")?)
                 .map_or(Value::None, Value::Dict),

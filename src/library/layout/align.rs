@@ -7,21 +7,25 @@ pub struct AlignNode {
     /// How to align the node horizontally and vertically.
     pub aligns: Axes<Option<RawAlign>>,
     /// The node to be aligned.
-    pub child: LayoutNode,
+    pub child: Content,
 }
 
-#[node]
+#[node(Layout)]
 impl AlignNode {
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         let aligns: Axes<Option<RawAlign>> = args.find()?.unwrap_or_default();
         let body: Content = args.expect("body")?;
-        Ok(match (body, aligns) {
-            (Content::Block(node), _) => Content::Block(node.aligned(aligns)),
-            (other, Axes { x: Some(x), y: None }) => {
-                other.styled(ParNode::ALIGN, HorizontalAlign(x))
+
+        if let Axes { x: Some(x), y: None } = aligns {
+            if body
+                .to::<dyn Layout>()
+                .map_or(true, |node| node.level() == Level::Inline)
+            {
+                return Ok(body.styled(ParNode::ALIGN, HorizontalAlign(x)));
             }
-            (other, _) => Content::Block(other.pack().aligned(aligns)),
-        })
+        }
+
+        Ok(body.aligned(aligns))
     }
 }
 
@@ -43,7 +47,7 @@ impl Layout for AlignNode {
         }
 
         // Layout the child.
-        let mut frames = self.child.layout(world, &pod, passed.chain(&styles))?;
+        let mut frames = self.child.layout_block(world, &pod, passed.chain(&styles))?;
         for (region, frame) in regions.iter().zip(&mut frames) {
             // Align in the target size. The target size depends on whether we
             // should expand.
@@ -57,5 +61,9 @@ impl Layout for AlignNode {
         }
 
         Ok(frames)
+    }
+
+    fn level(&self) -> Level {
+        Level::Block
     }
 }

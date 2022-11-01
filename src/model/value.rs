@@ -7,9 +7,10 @@ use std::sync::Arc;
 use comemo::Tracked;
 use siphasher::sip128::{Hasher128, SipHasher};
 
-use super::{ops, Args, Array, Cast, Content, Dict, Func, Layout, Str};
+use super::{ops, Args, Array, Cast, Content, Dict, Func, Node, Str};
 use crate::diag::StrResult;
 use crate::geom::{Abs, Angle, Color, Em, Fr, Length, Ratio, Rel, RgbaColor};
+use crate::library::text::TextNode;
 use crate::util::EcoString;
 use crate::World;
 
@@ -55,22 +56,6 @@ pub enum Value {
 }
 
 impl Value {
-    /// Create a content value from an inline-level node.
-    pub fn inline<T>(node: T) -> Self
-    where
-        T: Layout + Debug + Hash + Sync + Send + 'static,
-    {
-        Self::Content(Content::inline(node))
-    }
-
-    /// Create a content value from a block-level node.
-    pub fn block<T>(node: T) -> Self
-    where
-        T: Layout + Debug + Hash + Sync + Send + 'static,
-    {
-        Self::Content(Content::block(node))
-    }
-
     /// Create a new dynamic value.
     pub fn dynamic<T>(any: T) -> Self
     where
@@ -115,16 +100,17 @@ impl Value {
 
     /// Return the display representation of the value.
     pub fn display(self, world: Tracked<dyn World>) -> Content {
+        let items = &world.config().items;
         match self {
-            Value::None => Content::new(),
-            Value::Int(v) => Content::Text(format_eco!("{}", v)),
-            Value::Float(v) => Content::Text(format_eco!("{}", v)),
-            Value::Str(v) => Content::Text(v.into()),
+            Value::None => Content::empty(),
+            Value::Int(v) => (items.text)(format_eco!("{}", v)),
+            Value::Float(v) => (items.text)(format_eco!("{}", v)),
+            Value::Str(v) => (items.text)(v.into()),
             Value::Content(v) => v,
 
             // For values which can't be shown "naturally", we return the raw
             // representation with typst code syntax highlighting.
-            v => (world.config().items.raw)(v.repr().into(), Some("typc".into()), false),
+            v => (items.raw)(v.repr().into(), Some("typc".into()), false),
         }
     }
 }
@@ -398,8 +384,8 @@ primitive! { Color: "color", Color }
 primitive! { Str: "string", Str }
 primitive! { Content: "content",
     Content,
-    None => Content::new(),
-    Str(text) => Content::Text(text.into())
+    None => Content::empty(),
+    Str(text) => TextNode(text.into()).pack()
 }
 primitive! { Array: "array", Array }
 primitive! { Dict: "dictionary", Dict }
@@ -448,7 +434,6 @@ mod tests {
         test(dict!["two" => false, "one" => 1], "(one: 1, two: false)");
 
         // Functions, content and dynamics.
-        test(Content::Text("a".into()), "[...]");
         test(Func::from_fn("nil", |_, _| Ok(Value::None)), "nil");
         test(Dynamic::new(1), "1");
     }

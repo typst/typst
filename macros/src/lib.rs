@@ -12,7 +12,7 @@ use syn::{Error, Ident, Result};
 #[proc_macro_attribute]
 pub fn node(stream: TokenStream, item: TokenStream) -> TokenStream {
     let impl_block = syn::parse_macro_input!(item as syn::ItemImpl);
-    expand(TokenStream2::from(stream), impl_block)
+    expand(stream.into(), impl_block)
         .unwrap_or_else(|err| err.to_compile_error())
         .into()
 }
@@ -51,14 +51,35 @@ fn expand(stream: TokenStream2, mut impl_block: syn::ItemImpl) -> Result<TokenSt
         }
     }
 
-    let construct =
-        construct.ok_or_else(|| Error::new(impl_block.span(), "missing constructor"))?;
+    let construct = construct.unwrap_or_else(|| {
+        parse_quote! {
+            fn construct(
+                _: &mut model::Vm,
+                _: &mut model::Args,
+            ) -> crate::diag::SourceResult<model::Content> {
+                unimplemented!()
+            }
+        }
+    });
 
     let set = generate_set(&properties, set);
-    let showable = match stream.to_string().as_str() {
-        "" => false,
-        "showable" => true,
-        _ => return Err(Error::new(stream.span(), "unrecognized argument")),
+
+    let items: syn::punctuated::Punctuated<Ident, syn::Token![,]> =
+        parse_quote! { #stream };
+
+    let checks = items.iter().map(|cap| {
+        quote! {
+            if id == TypeId::of::<dyn #cap>() {
+                return Some(unsafe { crate::util::fat::vtable(self as &dyn #cap) });
+            }
+        }
+    });
+
+    let vtable = quote! {
+        fn vtable(&self, id: TypeId) -> Option<*const ()> {
+            #(#checks)*
+            None
+        }
     };
 
     // Put everything into a module with a hopefully unique type to isolate
@@ -75,9 +96,13 @@ fn expand(stream: TokenStream2, mut impl_block: syn::ItemImpl) -> Result<TokenSt
             #impl_block
 
             impl<#params> model::Node for #self_ty {
-                const SHOWABLE: bool = #showable;
                 #construct
                 #set
+                #vtable
+
+                fn id(&self) -> model::NodeId {
+                    model::NodeId::of::<Self>()
+                }
             }
 
             #(#key_modules)*
@@ -331,7 +356,7 @@ fn generate_set(
 ) -> syn::ImplItemMethod {
     let user = user.map(|method| {
         let block = &method.block;
-        quote! { (|| -> SourceResult<()> { #block; Ok(()) } )()?; }
+        quote! { (|| -> crate::diag::SourceResult<()> { #block; Ok(()) } )()?; }
     });
 
     let mut shorthands = vec![];
@@ -367,8 +392,11 @@ fn generate_set(
     });
 
     parse_quote! {
-        fn set(args: &mut Args, constructor: bool) -> SourceResult<StyleMap> {
-            let mut styles = StyleMap::new();
+        fn set(
+            args: &mut model::Args,
+            constructor: bool,
+        ) -> crate::diag::SourceResult<model::StyleMap> {
+            let mut styles = model::StyleMap::new();
             #user
             #(#bindings)*
             #(#sets)*

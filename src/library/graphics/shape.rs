@@ -5,7 +5,7 @@ use crate::library::text::TextNode;
 
 /// Place a node into a sizable and fillable shape.
 #[derive(Debug, Hash)]
-pub struct ShapeNode<const S: ShapeKind>(pub Option<LayoutNode>);
+pub struct ShapeNode<const S: ShapeKind>(pub Option<Content>);
 
 /// Place a node into a square.
 pub type SquareNode = ShapeNode<SQUARE>;
@@ -19,7 +19,7 @@ pub type CircleNode = ShapeNode<CIRCLE>;
 /// Place a node into an ellipse.
 pub type EllipseNode = ShapeNode<ELLIPSE>;
 
-#[node]
+#[node(Layout)]
 impl<const S: ShapeKind> ShapeNode<S> {
     /// How to fill the shape.
     pub const FILL: Option<Paint> = None;
@@ -55,9 +55,7 @@ impl<const S: ShapeKind> ShapeNode<S> {
             size => size,
         };
 
-        Ok(Content::inline(
-            Self(args.eat()?).pack().sized(Axes::new(width, height)),
-        ))
+        Ok(Self(args.eat()?).pack().boxed(Axes::new(width, height)))
     }
 
     fn set(...) {
@@ -92,7 +90,7 @@ impl<const S: ShapeKind> Layout for ShapeNode<S> {
             let child = child.clone().padded(inset.map(|side| side.map(Length::from)));
 
             let mut pod = Regions::one(regions.first, regions.base, regions.expand);
-            frames = child.layout(world, &pod, styles)?;
+            frames = child.layout_inline(world, &pod, styles)?;
 
             for frame in frames.iter_mut() {
                 frame.apply_role(Role::GenericBlock);
@@ -112,7 +110,7 @@ impl<const S: ShapeKind> Layout for ShapeNode<S> {
 
                 pod.first = Size::splat(length);
                 pod.expand = Axes::splat(true);
-                frames = child.layout(world, &pod, styles)?;
+                frames = child.layout_inline(world, &pod, styles)?;
             }
         } else {
             // The default size that a shape takes on if it has no child and
@@ -174,6 +172,10 @@ impl<const S: ShapeKind> Layout for ShapeNode<S> {
         }
 
         Ok(frames)
+    }
+
+    fn level(&self) -> Level {
+        Level::Inline
     }
 }
 

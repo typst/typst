@@ -1,24 +1,88 @@
 use crate::library::prelude::*;
 
 /// An inline-level container that sizes content and places it into a paragraph.
-pub struct BoxNode;
+#[derive(Debug, Clone, Hash)]
+pub struct BoxNode {
+    /// How to size the node horizontally and vertically.
+    pub sizing: Axes<Option<Rel<Length>>>,
+    /// The node to be sized.
+    pub child: Content,
+}
 
-#[node]
+#[node(Layout)]
 impl BoxNode {
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         let width = args.named("width")?;
         let height = args.named("height")?;
-        let body: LayoutNode = args.eat()?.unwrap_or_default();
-        Ok(Content::inline(body.sized(Axes::new(width, height))))
+        let body = args.eat::<Content>()?.unwrap_or_default();
+        Ok(body.boxed(Axes::new(width, height)))
+    }
+}
+
+impl Layout for BoxNode {
+    fn layout(
+        &self,
+        world: Tracked<dyn World>,
+        regions: &Regions,
+        styles: StyleChain,
+    ) -> SourceResult<Vec<Frame>> {
+        // The "pod" is the region into which the child will be layouted.
+        let pod = {
+            // Resolve the sizing to a concrete size.
+            let size = self
+                .sizing
+                .resolve(styles)
+                .zip(regions.base)
+                .map(|(s, b)| s.map(|v| v.relative_to(b)))
+                .unwrap_or(regions.first);
+
+            // Select the appropriate base and expansion for the child depending
+            // on whether it is automatically or relatively sized.
+            let is_auto = self.sizing.as_ref().map(Option::is_none);
+            let base = is_auto.select(regions.base, size);
+            let expand = regions.expand | !is_auto;
+
+            Regions::one(size, base, expand)
+        };
+
+        // Layout the child.
+        let mut frames = self.child.layout_inline(world, &pod, styles)?;
+
+        // Ensure frame size matches regions size if expansion is on.
+        let frame = &mut frames[0];
+        let target = regions.expand.select(regions.first, frame.size());
+        frame.resize(target, Align::LEFT_TOP);
+
+        Ok(frames)
+    }
+
+    fn level(&self) -> Level {
+        Level::Inline
     }
 }
 
 /// A block-level container that places content into a separate flow.
-pub struct BlockNode;
+#[derive(Debug, Clone, Hash)]
+pub struct BlockNode(pub Content);
 
-#[node]
+#[node(Layout)]
 impl BlockNode {
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Content::Block(args.eat()?.unwrap_or_default()))
+        Ok(Self(args.eat()?.unwrap_or_default()).pack())
+    }
+}
+
+impl Layout for BlockNode {
+    fn layout(
+        &self,
+        world: Tracked<dyn World>,
+        regions: &Regions,
+        styles: StyleChain,
+    ) -> SourceResult<Vec<Frame>> {
+        self.0.layout_block(world, regions, styles)
+    }
+
+    fn level(&self) -> Level {
+        Level::Block
     }
 }

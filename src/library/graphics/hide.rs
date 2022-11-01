@@ -2,12 +2,12 @@ use crate::library::prelude::*;
 
 /// Hide a node without affecting layout.
 #[derive(Debug, Hash)]
-pub struct HideNode(pub LayoutNode);
+pub struct HideNode(pub Content);
 
-#[node]
+#[node(Layout)]
 impl HideNode {
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Content::inline(Self(args.expect("body")?)))
+        Ok(Self(args.expect("body")?).pack())
     }
 }
 
@@ -18,10 +18,14 @@ impl Layout for HideNode {
         regions: &Regions,
         styles: StyleChain,
     ) -> SourceResult<Vec<Frame>> {
-        let mut frames = self.0.layout(world, regions, styles)?;
+        let mut frames = self.0.layout_inline(world, regions, styles)?;
         for frame in &mut frames {
             frame.clear();
         }
         Ok(frames)
+    }
+
+    fn level(&self) -> Level {
+        Level::Inline
     }
 }

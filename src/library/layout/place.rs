@@ -3,18 +3,16 @@ use crate::library::prelude::*;
 
 /// Place a node at an absolute position.
 #[derive(Debug, Hash)]
-pub struct PlaceNode(pub LayoutNode);
+pub struct PlaceNode(pub Content);
 
-#[node]
+#[node(Layout)]
 impl PlaceNode {
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         let aligns = args.find()?.unwrap_or(Axes::with_x(Some(RawAlign::Start)));
         let dx = args.named("dx")?.unwrap_or_default();
         let dy = args.named("dy")?.unwrap_or_default();
-        let body: LayoutNode = args.expect("body")?;
-        Ok(Content::block(Self(
-            body.moved(Axes::new(dx, dy)).aligned(aligns),
-        )))
+        let body = args.expect::<Content>("body")?;
+        Ok(Self(body.moved(Axes::new(dx, dy)).aligned(aligns)).pack())
     }
 }
 
@@ -35,7 +33,7 @@ impl Layout for PlaceNode {
             Regions::one(regions.base, regions.base, expand)
         };
 
-        let mut frames = self.0.layout(world, &pod, styles)?;
+        let mut frames = self.0.layout_block(world, &pod, styles)?;
 
         // If expansion is off, zero all sizes so that we don't take up any
         // space in our parent. Otherwise, respect the expand settings.
@@ -43,6 +41,10 @@ impl Layout for PlaceNode {
         frames[0].resize(target, Align::LEFT_TOP);
 
         Ok(frames)
+    }
+
+    fn level(&self) -> Level {
+        Level::Block
     }
 }
 

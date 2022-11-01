@@ -8,7 +8,7 @@ use crate::library::text::TextNode;
 #[derive(Debug, Hash)]
 pub struct ImageNode(pub Image);
 
-#[node]
+#[node(Layout)]
 impl ImageNode {
     /// How the image should adjust itself to a given area.
     pub const FIT: ImageFit = ImageFit::Cover;
@@ -32,9 +32,7 @@ impl ImageNode {
         let width = args.named("width")?;
         let height = args.named("height")?;
 
-        Ok(Content::inline(
-            ImageNode(image).pack().sized(Axes::new(width, height)),
-        ))
+        Ok(ImageNode(image).pack().boxed(Axes::new(width, height)))
     }
 }
 
@@ -96,6 +94,10 @@ impl Layout for ImageNode {
         }
 
         Ok(vec![frame])
+    }
+
+    fn level(&self) -> Level {
+        Level::Inline
     }
 }
 

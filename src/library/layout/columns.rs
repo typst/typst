@@ -8,20 +8,21 @@ pub struct ColumnsNode {
     pub columns: NonZeroUsize,
     /// The child to be layouted into the columns. Most likely, this should be a
     /// flow or stack node.
-    pub child: LayoutNode,
+    pub child: Content,
 }
 
-#[node]
+#[node(Layout)]
 impl ColumnsNode {
     /// The size of the gutter space between each column.
     #[property(resolve)]
     pub const GUTTER: Rel<Length> = Ratio::new(0.04).into();
 
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Content::block(Self {
+        Ok(Self {
             columns: args.expect("column count")?,
             child: args.expect("body")?,
-        }))
+        }
+        .pack())
     }
 }
 
@@ -35,7 +36,7 @@ impl Layout for ColumnsNode {
         // Separating the infinite space into infinite columns does not make
         // much sense.
         if !regions.first.x.is_finite() {
-            return self.child.layout(world, regions, styles);
+            return self.child.layout_block(world, regions, styles);
         }
 
         // Determine the width of the gutter and each column.
@@ -57,7 +58,7 @@ impl Layout for ColumnsNode {
         };
 
         // Layout the children.
-        let mut frames = self.child.layout(world, &pod, styles)?.into_iter();
+        let mut frames = self.child.layout_block(world, &pod, styles)?.into_iter();
         let mut finished = vec![];
 
         let dir = styles.get(TextNode::DIR);
@@ -99,15 +100,22 @@ impl Layout for ColumnsNode {
 
         Ok(finished)
     }
+
+    fn level(&self) -> Level {
+        Level::Block
+    }
 }
 
 /// A column break.
-pub struct ColbreakNode;
+#[derive(Debug, Clone, Hash)]
+pub struct ColbreakNode {
+    pub weak: bool,
+}
 
 #[node]
 impl ColbreakNode {
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         let weak = args.named("weak")?.unwrap_or(false);
-        Ok(Content::Colbreak { weak })
+        Ok(Self { weak }.pack())
     }
 }

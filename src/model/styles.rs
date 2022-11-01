@@ -7,7 +7,6 @@ use comemo::Tracked;
 
 use super::{Barrier, Content, Key, Property, Recipe, Selector, Show, Target};
 use crate::diag::SourceResult;
-use crate::util::ReadableTypeId;
 use crate::World;
 
 /// A map of style properties.
@@ -98,7 +97,7 @@ impl StyleMap {
     pub fn scoped(mut self) -> Self {
         for entry in &mut self.0 {
             if let StyleEntry::Property(property) = entry {
-                property.scoped = true;
+                property.make_scoped();
             }
         }
         self
@@ -122,23 +121,6 @@ impl Debug for StyleMap {
             writeln!(f, "{:?}", entry)?;
         }
         Ok(())
-    }
-}
-
-/// A unique identifier for a node.
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
-pub struct NodeId(ReadableTypeId);
-
-impl NodeId {
-    /// The id of the given node.
-    pub fn of<T: 'static>() -> Self {
-        Self(ReadableTypeId::of::<T>())
-    }
-}
-
-impl Debug for NodeId {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        self.0.fmt(f)
     }
 }
 
@@ -175,7 +157,7 @@ impl StyleEntry {
             if !tail
                 .entries()
                 .filter_map(StyleEntry::property)
-                .any(|p| p.scoped && barrier.is_for(p.node))
+                .any(|p| p.scoped() && barrier.is_for(p.node()))
             {
                 return *tail;
             }
@@ -302,7 +284,13 @@ impl<'a> StyleChain<'a> {
                 if self.guarded(sel) {
                     guarded = true;
                 } else {
-                    let content = node.unguard(sel).realize(world, self)?;
+                    let content = node
+                        .to::<dyn Show>()
+                        .unwrap()
+                        .unguard_parts(sel)
+                        .to::<dyn Show>()
+                        .unwrap()
+                        .realize(world, self)?;
                     realized = Some(content.styled_with_entry(StyleEntry::Guard(sel)));
                 }
             }
@@ -310,7 +298,9 @@ impl<'a> StyleChain<'a> {
             // Finalize only if guarding didn't stop any recipe.
             if !guarded {
                 if let Some(content) = realized {
-                    realized = Some(node.finalize(world, self, content)?);
+                    realized = Some(
+                        node.to::<dyn Show>().unwrap().finalize(world, self, content)?,
+                    );
                 }
             }
         }
@@ -403,7 +393,7 @@ impl<'a, K: Key<'a>> Iterator for Values<'a, K> {
             match entry {
                 StyleEntry::Property(property) => {
                     if let Some(value) = property.downcast::<K>() {
-                        if !property.scoped || self.depth <= 1 {
+                        if !property.scoped() || self.depth <= 1 {
                             return Some(value);
                         }
                     }

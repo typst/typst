@@ -5,7 +5,6 @@ mod link;
 mod par;
 mod quotes;
 mod raw;
-mod repeat;
 mod shaping;
 mod shift;
 
@@ -14,7 +13,6 @@ pub use link::*;
 pub use par::*;
 pub use quotes::*;
 pub use raw::*;
-pub use repeat::*;
 pub use shaping::*;
 pub use shift::*;
 
@@ -27,8 +25,8 @@ use crate::library::prelude::*;
 use crate::util::EcoString;
 
 /// A single run of text with the same style.
-#[derive(Hash)]
-pub struct TextNode;
+#[derive(Debug, Clone, Hash)]
+pub struct TextNode(pub EcoString);
 
 #[node]
 impl TextNode {
@@ -142,7 +140,7 @@ impl TextNode {
             for item in args.items.iter().filter(|item| item.name.is_none()) {
                 if EcoString::is(&item.value) {
                     count += 1;
-                } else if Content::is(&item.value) {
+                } else if <Content as Cast<Spanned<Value>>>::is(&item.value) {
                     content = true;
                 }
             }
@@ -433,6 +431,45 @@ impl Fold for Vec<(Tag, u32)> {
     }
 }
 
+/// A text space.
+#[derive(Debug, Clone, Hash)]
+pub struct SpaceNode;
+
+#[node]
+impl SpaceNode {
+    fn construct(_: &mut Vm, _: &mut Args) -> SourceResult<Content> {
+        Ok(Self.pack())
+    }
+}
+
+/// A line break.
+#[derive(Debug, Clone, Hash)]
+pub struct LinebreakNode {
+    pub justify: bool,
+}
+
+#[node]
+impl LinebreakNode {
+    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+        let justify = args.named("justify")?.unwrap_or(false);
+        Ok(Self { justify }.pack())
+    }
+}
+
+/// A smart quote.
+#[derive(Debug, Clone, Hash)]
+pub struct SmartQuoteNode {
+    pub double: bool,
+}
+
+#[node]
+impl SmartQuoteNode {
+    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+        let double = args.named("double")?.unwrap_or(true);
+        Ok(Self { double }.pack())
+    }
+}
+
 /// Convert a string or content to lowercase.
 pub fn lower(_: &mut Vm, args: &mut Args) -> SourceResult<Value> {
     case(Case::Lower, args)
@@ -478,40 +515,19 @@ pub fn smallcaps(_: &mut Vm, args: &mut Args) -> SourceResult<Value> {
     Ok(Value::Content(body.styled(TextNode::SMALLCAPS, true)))
 }
 
-/// A toggle that turns on and off alternatingly if folded.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct Toggle;
-
-impl Fold for Toggle {
-    type Output = bool;
-
-    fn fold(self, outer: Self::Output) -> Self::Output {
-        !outer
-    }
-}
-
-impl Fold for Decoration {
-    type Output = Vec<Self>;
-
-    fn fold(self, mut outer: Self::Output) -> Self::Output {
-        outer.insert(0, self);
-        outer
-    }
-}
-
 /// Strong text, rendered in boldface by default.
 #[derive(Debug, Hash)]
 pub struct StrongNode(pub Content);
 
-#[node(showable)]
+#[node(Show)]
 impl StrongNode {
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Content::show(Self(args.expect("body")?)))
+        Ok(Self(args.expect("body")?).pack())
     }
 }
 
 impl Show for StrongNode {
-    fn unguard(&self, sel: Selector) -> ShowNode {
+    fn unguard_parts(&self, sel: Selector) -> Content {
         Self(self.0.unguard(sel)).pack()
     }
 
@@ -531,15 +547,15 @@ impl Show for StrongNode {
 #[derive(Debug, Hash)]
 pub struct EmphNode(pub Content);
 
-#[node(showable)]
+#[node(Show)]
 impl EmphNode {
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Content::show(Self(args.expect("body")?)))
+        Ok(Self(args.expect("body")?).pack())
     }
 }
 
 impl Show for EmphNode {
-    fn unguard(&self, sel: Selector) -> ShowNode {
+    fn unguard_parts(&self, sel: Selector) -> Content {
         Self(self.0.unguard(sel)).pack()
     }
 
@@ -552,5 +568,26 @@ impl Show for EmphNode {
 
     fn realize(&self, _: Tracked<dyn World>, _: StyleChain) -> SourceResult<Content> {
         Ok(self.0.clone().styled(TextNode::ITALIC, Toggle))
+    }
+}
+
+/// A toggle that turns on and off alternatingly if folded.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct Toggle;
+
+impl Fold for Toggle {
+    type Output = bool;
+
+    fn fold(self, outer: Self::Output) -> Self::Output {
+        !outer
+    }
+}
+
+impl Fold for Decoration {
+    type Output = Vec<Self>;
+
+    fn fold(self, mut outer: Self::Output) -> Self::Output {
+        outer.insert(0, self);
+        outer
     }
 }

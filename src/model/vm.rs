@@ -2,10 +2,10 @@ use std::path::PathBuf;
 
 use comemo::Tracked;
 
-use super::{Route, Scopes, Value};
+use super::{Content, Route, Scopes, Value};
 use crate::diag::{SourceError, StrResult};
 use crate::syntax::{SourceId, Span};
-use crate::util::PathExt;
+use crate::util::{EcoString, PathExt};
 use crate::{LangItems, World};
 
 /// A virtual machine.
@@ -58,6 +58,13 @@ impl<'a> Vm<'a> {
     /// The language items.
     pub fn items(&self) -> &LangItems {
         &self.world.config().items
+    }
+
+    /// Create text content.
+    ///
+    /// This is a shorthand for `(vm.items().text)(..)`.
+    pub fn text(&self, text: impl Into<EcoString>) -> Content {
+        (self.items().text)(text.into())
     }
 }
 

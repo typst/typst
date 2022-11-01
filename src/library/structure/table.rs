@@ -12,7 +12,7 @@ pub struct TableNode {
     pub cells: Vec<Content>,
 }
 
-#[node(showable)]
+#[node(Show)]
 impl TableNode {
     /// How to fill the cells.
     #[property(referenced)]
@@ -36,19 +36,20 @@ impl TableNode {
         let base_gutter: Vec<TrackSizing> = args.named("gutter")?.unwrap_or_default();
         let column_gutter = args.named("column-gutter")?;
         let row_gutter = args.named("row-gutter")?;
-        Ok(Content::show(Self {
+        Ok(Self {
             tracks: Axes::new(columns, rows),
             gutter: Axes::new(
                 column_gutter.unwrap_or_else(|| base_gutter.clone()),
                 row_gutter.unwrap_or(base_gutter),
             ),
             cells: args.all()?,
-        }))
+        }
+        .pack())
     }
 }
 
 impl Show for TableNode {
-    fn unguard(&self, sel: Selector) -> ShowNode {
+    fn unguard_parts(&self, sel: Selector) -> Content {
         Self {
             tracks: self.tracks.clone(),
             gutter: self.gutter.clone(),
@@ -82,7 +83,7 @@ impl Show for TableNode {
             .cloned()
             .enumerate()
             .map(|(i, child)| {
-                let mut child = child.pack().padded(Sides::splat(padding));
+                let mut child = child.padded(Sides::splat(padding));
 
                 if let Some(stroke) = stroke {
                     child = child.stroked(stroke);
@@ -98,11 +99,12 @@ impl Show for TableNode {
             })
             .collect::<SourceResult<_>>()?;
 
-        Ok(Content::block(GridNode {
+        Ok(GridNode {
             tracks: self.tracks.clone(),
             gutter: self.gutter.clone(),
             cells,
-        }))
+        }
+        .pack())
     }
 
     fn finalize(

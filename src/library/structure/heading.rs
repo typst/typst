@@ -1,4 +1,4 @@
-use crate::library::layout::BlockSpacing;
+use crate::library::layout::{BlockNode, BlockSpacing};
 use crate::library::prelude::*;
 use crate::library::text::{FontFamily, TextNode, TextSize};
 
@@ -12,7 +12,7 @@ pub struct HeadingNode {
     pub body: Content,
 }
 
-#[node(showable)]
+#[node(Show)]
 impl HeadingNode {
     /// The heading's font family. Just the normal text family if `auto`.
     #[property(referenced)]
@@ -61,15 +61,16 @@ impl HeadingNode {
     pub const NUMBERED: bool = true;
 
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Content::show(Self {
+        Ok(Self {
             body: args.expect("body")?,
             level: args.named("level")?.unwrap_or(NonZeroUsize::new(1).unwrap()),
-        }))
+        }
+        .pack())
     }
 }
 
 impl Show for HeadingNode {
-    fn unguard(&self, sel: Selector) -> ShowNode {
+    fn unguard_parts(&self, sel: Selector) -> Content {
         Self { body: self.body.unguard(sel), ..*self }.pack()
     }
 
@@ -82,7 +83,7 @@ impl Show for HeadingNode {
     }
 
     fn realize(&self, _: Tracked<dyn World>, _: StyleChain) -> SourceResult<Content> {
-        Ok(Content::block(self.body.clone()))
+        Ok(BlockNode(self.body.clone()).pack())
     }
 
     fn finalize(

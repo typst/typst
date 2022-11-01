@@ -5,8 +5,8 @@ use syntect::highlighting::{
 };
 use syntect::parsing::SyntaxSet;
 
-use super::{FontFamily, Hyphenate, TextNode};
-use crate::library::layout::BlockSpacing;
+use super::{FontFamily, Hyphenate, LinebreakNode, TextNode};
+use crate::library::layout::{BlockNode, BlockSpacing};
 use crate::library::prelude::*;
 
 /// Monospaced text with optional syntax highlighting.
@@ -18,7 +18,7 @@ pub struct RawNode {
     pub block: bool,
 }
 
-#[node(showable)]
+#[node(Show)]
 impl RawNode {
     /// The language to syntax-highlight in.
     #[property(referenced)]
@@ -34,15 +34,16 @@ impl RawNode {
     pub const BELOW: Option<BlockSpacing> = Some(Ratio::one().into());
 
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Content::show(Self {
+        Ok(Self {
             text: args.expect("text")?,
             block: args.named("block")?.unwrap_or(false),
-        }))
+        }
+        .pack())
     }
 }
 
 impl Show for RawNode {
-    fn unguard(&self, _: Selector) -> ShowNode {
+    fn unguard_parts(&self, _: Selector) -> Content {
         Self { text: self.text.clone(), ..*self }.pack()
     }
 
@@ -86,7 +87,7 @@ impl Show for RawNode {
             let mut highlighter = HighlightLines::new(syntax, &THEME);
             for (i, line) in self.text.lines().enumerate() {
                 if i != 0 {
-                    seq.push(Content::Linebreak { justify: false });
+                    seq.push(LinebreakNode { justify: false }.pack());
                 }
 
                 for (style, piece) in
@@ -98,11 +99,11 @@ impl Show for RawNode {
 
             Content::sequence(seq)
         } else {
-            Content::Text(self.text.clone())
+            TextNode(self.text.clone()).pack()
         };
 
         if self.block {
-            realized = Content::block(realized);
+            realized = BlockNode(realized).pack();
         }
 
         let mut map = StyleMap::new();
@@ -132,7 +133,7 @@ impl Show for RawNode {
 
 /// Style a piece of text with a syntect style.
 fn styled(piece: &str, foreground: Paint, style: Style) -> Content {
-    let mut body = Content::Text(piece.into());
+    let mut body = TextNode(piece.into()).pack();
 
     let paint = style.foreground.into();
     if paint != foreground {

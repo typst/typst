@@ -18,9 +18,11 @@ pub fn scope() -> Scope {
     let mut std = Scope::new();
 
     // Text.
+    std.def_node::<text::SpaceNode>("space");
+    std.def_node::<text::LinebreakNode>("linebreak");
+    std.def_node::<text::SmartQuoteNode>("smartquote");
     std.def_node::<text::TextNode>("text");
     std.def_node::<text::ParNode>("par");
-    std.def_node::<text::LinebreakNode>("linebreak");
     std.def_node::<text::ParbreakNode>("parbreak");
     std.def_node::<text::StrongNode>("strong");
     std.def_node::<text::EmphNode>("emph");
@@ -146,27 +148,29 @@ pub fn scope() -> Scope {
 /// Construct the language map.
 pub fn items() -> LangItems {
     LangItems {
-        strong: |body| Content::show(text::StrongNode(body)),
-        emph: |body| Content::show(text::EmphNode(body)),
+        space: || text::SpaceNode.pack(),
+        linebreak: |justify| text::LinebreakNode { justify }.pack(),
+        text: |text| text::TextNode(text).pack(),
+        smart_quote: |double| text::SmartQuoteNode { double }.pack(),
+        parbreak: || text::ParbreakNode.pack(),
+        strong: |body| text::StrongNode(body).pack(),
+        emph: |body| text::EmphNode(body).pack(),
         raw: |text, lang, block| {
-            let node = Content::show(text::RawNode { text, block });
+            let node = text::RawNode { text, block }.pack();
             match lang {
                 Some(_) => node.styled(text::RawNode::LANG, lang),
                 None => node,
             }
         },
-        link: |url| Content::show(text::LinkNode::from_url(url)),
-        ref_: |target| Content::show(structure::RefNode(target)),
-        heading: |level, body| Content::show(structure::HeadingNode { level, body }),
-        list_item: |body| Content::Item(structure::ListItem::List(Box::new(body))),
+        link: |url| text::LinkNode::from_url(url).pack(),
+        ref_: |target| structure::RefNode(target).pack(),
+        heading: |level, body| structure::HeadingNode { level, body }.pack(),
+        list_item: |body| structure::ListItem::List(Box::new(body)).pack(),
         enum_item: |number, body| {
-            Content::Item(structure::ListItem::Enum(number, Box::new(body)))
+            structure::ListItem::Enum(number, Box::new(body)).pack()
         },
         desc_item: |term, body| {
-            Content::Item(structure::ListItem::Desc(Box::new(structure::DescItem {
-                term,
-                body,
-            })))
+            structure::ListItem::Desc(Box::new(structure::DescItem { term, body })).pack()
         },
     }
 }
@@ -181,19 +185,96 @@ pub trait ContentExt {
 
     /// Underline this content.
     fn underlined(self) -> Self;
+
+    /// Add weak vertical spacing above and below the content.
+    fn spaced(self, above: Option<Abs>, below: Option<Abs>) -> Self;
+
+    /// Force a size for this node.
+    fn boxed(self, sizing: Axes<Option<Rel<Length>>>) -> Self;
+
+    /// Set alignments for this node.
+    fn aligned(self, aligns: Axes<Option<RawAlign>>) -> Self;
+
+    /// Pad this node at the sides.
+    fn padded(self, padding: Sides<Rel<Length>>) -> Self;
+
+    /// Transform this node's contents without affecting layout.
+    fn moved(self, delta: Axes<Rel<Length>>) -> Self;
+
+    /// Fill the frames resulting from a node.
+    fn filled(self, fill: Paint) -> Self;
+
+    /// Stroke the frames resulting from a node.
+    fn stroked(self, stroke: Stroke) -> Self;
 }
 
 impl ContentExt for Content {
     fn strong(self) -> Self {
-        Self::show(text::StrongNode(self))
+        text::StrongNode(self).pack()
     }
 
     fn emph(self) -> Self {
-        Self::show(text::EmphNode(self))
+        text::EmphNode(self).pack()
     }
 
     fn underlined(self) -> Self {
-        Self::show(text::DecoNode::<{ text::UNDERLINE }>(self))
+        text::DecoNode::<{ text::UNDERLINE }>(self).pack()
+    }
+
+    fn spaced(self, above: Option<Abs>, below: Option<Abs>) -> Self {
+        if above.is_none() && below.is_none() {
+            return self;
+        }
+
+        let mut seq = vec![];
+        if let Some(above) = above {
+            seq.push(
+                layout::VNode {
+                    amount: above.into(),
+                    weak: true,
+                    generated: true,
+                }
+                .pack(),
+            );
+        }
+
+        seq.push(self);
+        if let Some(below) = below {
+            seq.push(
+                layout::VNode {
+                    amount: below.into(),
+                    weak: true,
+                    generated: true,
+                }
+                .pack(),
+            );
+        }
+
+        Self::sequence(seq)
+    }
+
+    fn boxed(self, sizing: Axes<Option<Rel<Length>>>) -> Self {
+        layout::BoxNode { sizing, child: self }.pack()
+    }
+
+    fn aligned(self, aligns: Axes<Option<RawAlign>>) -> Self {
+        layout::AlignNode { aligns, child: self }.pack()
+    }
+
+    fn padded(self, padding: Sides<Rel<Length>>) -> Self {
+        layout::PadNode { padding, child: self }.pack()
+    }
+
+    fn moved(self, delta: Axes<Rel<Length>>) -> Self {
+        layout::MoveNode { delta, child: self }.pack()
+    }
+
+    fn filled(self, fill: Paint) -> Self {
+        FillNode { fill, child: self }.pack()
+    }
+
+    fn stroked(self, stroke: Stroke) -> Self {
+        StrokeNode { stroke, child: self }.pack()
     }
 }
 
@@ -215,44 +296,66 @@ impl StyleMapExt for StyleMap {
     }
 }
 
-/// Additional methods for layout nodes.
-pub trait LayoutNodeExt {
-    /// Set alignments for this node.
-    fn aligned(self, aligns: Axes<Option<RawAlign>>) -> Self;
-
-    /// Pad this node at the sides.
-    fn padded(self, padding: Sides<Rel<Length>>) -> Self;
-
-    /// Transform this node's contents without affecting layout.
-    fn moved(self, delta: Axes<Rel<Length>>) -> Self;
+/// Fill the frames resulting from a node.
+#[derive(Debug, Hash)]
+struct FillNode {
+    /// How to fill the frames resulting from the `child`.
+    fill: Paint,
+    /// The node whose frames should be filled.
+    child: Content,
 }
 
-impl LayoutNodeExt for LayoutNode {
-    fn aligned(self, aligns: Axes<Option<RawAlign>>) -> Self {
-        if aligns.any(Option::is_some) {
-            layout::AlignNode { aligns, child: self }.pack()
-        } else {
-            self
+#[node(Layout)]
+impl FillNode {}
+
+impl Layout for FillNode {
+    fn layout(
+        &self,
+        world: Tracked<dyn World>,
+        regions: &Regions,
+        styles: StyleChain,
+    ) -> SourceResult<Vec<Frame>> {
+        let mut frames = self.child.layout_block(world, regions, styles)?;
+        for frame in &mut frames {
+            let shape = Geometry::Rect(frame.size()).filled(self.fill);
+            frame.prepend(Point::zero(), Element::Shape(shape));
         }
+        Ok(frames)
     }
 
-    fn padded(self, padding: Sides<Rel<Length>>) -> Self {
-        if !padding.left.is_zero()
-            || !padding.top.is_zero()
-            || !padding.right.is_zero()
-            || !padding.bottom.is_zero()
-        {
-            layout::PadNode { padding, child: self }.pack()
-        } else {
-            self
+    fn level(&self) -> Level {
+        Level::Block
+    }
+}
+
+/// Stroke the frames resulting from a node.
+#[derive(Debug, Hash)]
+struct StrokeNode {
+    /// How to stroke the frames resulting from the `child`.
+    stroke: Stroke,
+    /// The node whose frames should be stroked.
+    child: Content,
+}
+
+#[node(Layout)]
+impl StrokeNode {}
+
+impl Layout for StrokeNode {
+    fn layout(
+        &self,
+        world: Tracked<dyn World>,
+        regions: &Regions,
+        styles: StyleChain,
+    ) -> SourceResult<Vec<Frame>> {
+        let mut frames = self.child.layout_block(world, regions, styles)?;
+        for frame in &mut frames {
+            let shape = Geometry::Rect(frame.size()).stroked(self.stroke);
+            frame.prepend(Point::zero(), Element::Shape(shape));
         }
+        Ok(frames)
     }
 
-    fn moved(self, delta: Axes<Rel<Length>>) -> Self {
-        if delta.any(|r| !r.is_zero()) {
-            layout::MoveNode { delta, child: self }.pack()
-        } else {
-            self
-        }
+    fn level(&self) -> Level {
+        Level::Block
     }
 }

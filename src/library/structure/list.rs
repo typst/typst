@@ -1,8 +1,8 @@
 use unscanny::Scanner;
 
-use crate::library::layout::{BlockSpacing, GridNode, TrackSizing};
+use crate::library::layout::{BlockSpacing, GridNode, HNode, TrackSizing};
 use crate::library::prelude::*;
-use crate::library::text::ParNode;
+use crate::library::text::{ParNode, SpaceNode};
 use crate::library::utility::Numbering;
 
 /// An unordered (bulleted) or ordered (numbered) list.
@@ -22,7 +22,7 @@ pub type EnumNode = ListNode<ENUM>;
 /// A description list.
 pub type DescNode = ListNode<DESC>;
 
-#[node(showable)]
+#[node(Show)]
 impl<const L: ListKind> ListNode<L> {
     /// How the list is labelled.
     #[property(referenced)]
@@ -73,16 +73,17 @@ impl<const L: ListKind> ListNode<L> {
                 .collect(),
         };
 
-        Ok(Content::show(Self {
+        Ok(Self {
             tight: args.named("tight")?.unwrap_or(true),
             attached: args.named("attached")?.unwrap_or(false),
             items,
-        }))
+        }
+        .pack())
     }
 }
 
 impl<const L: ListKind> Show for ListNode<L> {
-    fn unguard(&self, sel: Selector) -> ShowNode {
+    fn unguard_parts(&self, sel: Selector) -> Content {
         Self {
             items: self.items.map(|item| item.unguard(sel)),
             ..*self
@@ -123,36 +124,37 @@ impl<const L: ListKind> Show for ListNode<L> {
                 number = n;
             }
 
-            cells.push(LayoutNode::default());
+            cells.push(Content::empty());
 
             let label = if L == LIST || L == ENUM {
-                label.resolve(world, L, number)?.styled_with_map(map.clone()).pack()
+                label.resolve(world, L, number)?.styled_with_map(map.clone())
             } else {
-                LayoutNode::default()
+                Content::empty()
             };
 
             cells.push(label);
-            cells.push(LayoutNode::default());
+            cells.push(Content::empty());
 
             let body = match &item {
                 ListItem::List(body) => body.as_ref().clone(),
                 ListItem::Enum(_, body) => body.as_ref().clone(),
                 ListItem::Desc(item) => Content::sequence(vec![
-                    Content::Horizontal {
+                    HNode {
                         amount: (-body_indent).into(),
                         weak: false,
-                    },
-                    (item.term.clone() + Content::Text(':'.into())).strong(),
-                    Content::Space,
+                    }
+                    .pack(),
+                    (item.term.clone() + TextNode(':'.into()).pack()).strong(),
+                    SpaceNode.pack(),
                     item.body.clone(),
                 ]),
             };
 
-            cells.push(body.styled_with_map(map.clone()).pack());
+            cells.push(body.styled_with_map(map.clone()));
             number += 1;
         }
 
-        Ok(Content::block(GridNode {
+        Ok(GridNode {
             tracks: Axes::with_x(vec![
                 TrackSizing::Relative(indent.into()),
                 TrackSizing::Auto,
@@ -161,7 +163,8 @@ impl<const L: ListKind> Show for ListNode<L> {
             ]),
             gutter: Axes::with_y(vec![TrackSizing::Relative(gutter.into())]),
             cells,
-        }))
+        }
+        .pack())
     }
 
     fn finalize(
@@ -250,6 +253,9 @@ impl Debug for ListItem {
     }
 }
 
+#[node]
+impl ListItem {}
+
 /// A description list item.
 #[derive(Clone, PartialEq, Hash)]
 pub struct DescItem {
@@ -310,14 +316,14 @@ impl Label {
     ) -> SourceResult<Content> {
         Ok(match self {
             Self::Default => match kind {
-                LIST => Content::Text('•'.into()),
-                ENUM => Content::Text(format_eco!("{}.", number)),
+                LIST => TextNode('•'.into()).pack(),
+                ENUM => TextNode(format_eco!("{}.", number)).pack(),
                 DESC | _ => panic!("description lists don't have a label"),
             },
             Self::Pattern(prefix, numbering, upper, suffix) => {
                 let fmt = numbering.apply(number);
                 let mid = if *upper { fmt.to_uppercase() } else { fmt.to_lowercase() };
-                Content::Text(format_eco!("{}{}{}", prefix, mid, suffix))
+                TextNode(format_eco!("{}{}{}", prefix, mid, suffix)).pack()
             }
             Self::Content(content) => content.clone(),
             Self::Func(func, span) => {
@@ -335,7 +341,7 @@ impl Cast<Spanned<Value>> for Label {
 
     fn cast(value: Spanned<Value>) -> StrResult<Self> {
         match value.v {
-            Value::None => Ok(Self::Content(Content::Empty)),
+            Value::None => Ok(Self::Content(Content::empty())),
             Value::Str(pattern) => {
                 let mut s = Scanner::new(&pattern);
                 let mut prefix;

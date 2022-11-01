@@ -17,7 +17,7 @@ pub type StrikethroughNode = DecoNode<STRIKETHROUGH>;
 /// Typeset overlined text.
 pub type OverlineNode = DecoNode<OVERLINE>;
 
-#[node(showable)]
+#[node(Show)]
 impl<const L: DecoLine> DecoNode<L> {
     /// How to stroke the line. The text color and thickness are read from the
     /// font tables if `auto`.
@@ -35,12 +35,12 @@ impl<const L: DecoLine> DecoNode<L> {
     pub const EVADE: bool = true;
 
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Content::show(Self(args.expect("body")?)))
+        Ok(Self(args.expect("body")?).pack())
     }
 }
 
 impl<const L: DecoLine> Show for DecoNode<L> {
-    fn unguard(&self, sel: Selector) -> ShowNode {
+    fn unguard_parts(&self, sel: Selector) -> Content {
         Self(self.0.unguard(sel)).pack()
     }
 

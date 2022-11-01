@@ -3,15 +3,20 @@ use std::mem;
 use comemo::Tracked;
 use typed_arena::Arena;
 
+use super::collapse::CollapsingBuilder;
 use super::{
-    Barrier, CollapsingBuilder, Content, Interruption, Layout, ShowNode, StyleChain,
-    StyleEntry, StyleMap, StyleVecBuilder, Target,
+    Barrier, Content, Interruption, Layout, Level, Node, SequenceNode, Show, StyleChain,
+    StyleEntry, StyleMap, StyleVecBuilder, StyledNode, Target,
 };
 use crate::diag::SourceResult;
 use crate::geom::Numeric;
-use crate::library::layout::{FlowChild, FlowNode, PageNode, PlaceNode};
+use crate::library::layout::{
+    ColbreakNode, FlowChild, FlowNode, HNode, PageNode, PagebreakNode, PlaceNode, VNode,
+};
 use crate::library::structure::{DocNode, ListItem, ListNode, DESC, ENUM, LIST};
-use crate::library::text::{ParChild, ParNode};
+use crate::library::text::{
+    LinebreakNode, ParChild, ParNode, ParbreakNode, SmartQuoteNode, SpaceNode, TextNode,
+};
 use crate::World;
 
 /// Builds a document or a flow node from content.
@@ -78,20 +83,19 @@ impl<'a> Builder<'a> {
         content: &'a Content,
         styles: StyleChain<'a>,
     ) -> SourceResult<()> {
-        match content {
-            Content::Empty => return Ok(()),
-            Content::Text(text) => {
-                if let Some(realized) = styles.apply(self.world, Target::Text(text))? {
-                    let stored = self.scratch.templates.alloc(realized);
-                    return self.accept(stored, styles);
-                }
+        if let Some(node) = content.downcast::<TextNode>() {
+            if let Some(realized) = styles.apply(self.world, Target::Text(&node.0))? {
+                let stored = self.scratch.templates.alloc(realized);
+                return self.accept(stored, styles);
             }
-
-            Content::Show(node) => return self.show(node, styles),
-            Content::Styled(styled) => return self.styled(styled, styles),
-            Content::Sequence(seq) => return self.sequence(seq, styles),
-
-            _ => {}
+        } else if let Some(styled) = content.downcast::<StyledNode>() {
+            return self.styled(styled, styles);
+        } else if let Some(seq) = content.downcast::<SequenceNode>() {
+            return self.sequence(seq, styles);
+        } else if content.has::<dyn Show>() {
+            if self.show(&content, styles)? {
+                return Ok(());
+            }
         }
 
         if self.list.accept(content, styles) {
@@ -100,7 +104,7 @@ impl<'a> Builder<'a> {
 
         self.interrupt(Interruption::List, styles, false)?;
 
-        if let Content::Item(_) = content {
+        if content.is::<ListItem>() {
             self.list.accept(content, styles);
             return Ok(());
         }
@@ -115,7 +119,7 @@ impl<'a> Builder<'a> {
             return Ok(());
         }
 
-        let keep = matches!(content, Content::Pagebreak { weak: false });
+        let keep = content.downcast::<PagebreakNode>().map_or(false, |node| !node.weak);
         self.interrupt(Interruption::Page, styles, keep)?;
 
         if let Some(doc) = &mut self.doc {
@@ -128,7 +132,7 @@ impl<'a> Builder<'a> {
         Ok(())
     }
 
-    fn show(&mut self, node: &ShowNode, styles: StyleChain<'a>) -> SourceResult<()> {
+    fn show(&mut self, node: &'a Content, styles: StyleChain<'a>) -> SourceResult<bool> {
         if let Some(mut realized) = styles.apply(self.world, Target::Node(node))? {
             let mut map = StyleMap::new();
             let barrier = Barrier::new(node.id());
@@ -137,24 +141,26 @@ impl<'a> Builder<'a> {
             realized = realized.styled_with_map(map);
             let stored = self.scratch.templates.alloc(realized);
             self.accept(stored, styles)?;
+            Ok(true)
+        } else {
+            Ok(false)
         }
-        Ok(())
     }
 
     fn styled(
         &mut self,
-        (content, map): &'a (Content, StyleMap),
+        styled: &'a StyledNode,
         styles: StyleChain<'a>,
     ) -> SourceResult<()> {
         let stored = self.scratch.styles.alloc(styles);
-        let styles = map.chain(stored);
-        let intr = map.interruption();
+        let styles = styled.map.chain(stored);
+        let intr = styled.map.interruption();
 
         if let Some(intr) = intr {
             self.interrupt(intr, styles, false)?;
         }
 
-        self.accept(content, styles)?;
+        self.accept(&styled.sub, styles)?;
 
         if let Some(intr) = intr {
             self.interrupt(intr, styles, true)?;
@@ -193,10 +199,10 @@ impl<'a> Builder<'a> {
 
     fn sequence(
         &mut self,
-        seq: &'a [Content],
+        seq: &'a SequenceNode,
         styles: StyleChain<'a>,
     ) -> SourceResult<()> {
-        for content in seq {
+        for content in &seq.0 {
             self.accept(content, styles)?;
         }
         Ok(())
@@ -213,15 +219,13 @@ struct DocBuilder<'a> {
 
 impl<'a> DocBuilder<'a> {
     fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) {
-        match content {
-            Content::Pagebreak { weak } => {
-                self.keep_next = !weak;
-            }
-            Content::Page(page) => {
-                self.pages.push(page.clone(), styles);
-                self.keep_next = false;
-            }
-            _ => {}
+        if let Some(pagebreak) = content.downcast::<PagebreakNode>() {
+            self.keep_next = !pagebreak.weak;
+        }
+
+        if let Some(page) = content.downcast::<PageNode>() {
+            self.pages.push(page.clone(), styles);
+            self.keep_next = false;
         }
     }
 }
@@ -250,36 +254,34 @@ impl<'a> FlowBuilder<'a> {
         //    4     | generated weak fractional spacing
         //    5     | par spacing
 
-        match content {
-            Content::Parbreak => {}
-            Content::Colbreak { weak } => {
-                if *weak {
-                    self.0.weak(FlowChild::Colbreak, styles, 0);
-                } else {
-                    self.0.destructive(FlowChild::Colbreak, styles);
-                }
+        if let Some(_) = content.downcast::<ParbreakNode>() {
+            /* Nothing to do */
+        } else if let Some(colbreak) = content.downcast::<ColbreakNode>() {
+            if colbreak.weak {
+                self.0.weak(FlowChild::Colbreak, styles, 0);
+            } else {
+                self.0.destructive(FlowChild::Colbreak, styles);
             }
-            &Content::Vertical { amount, weak, generated } => {
-                let child = FlowChild::Spacing(amount);
-                let frac = amount.is_fractional();
-                if weak {
-                    let weakness = 1 + u8::from(frac) + 2 * u8::from(generated);
-                    self.0.weak(child, styles, weakness);
-                } else if frac {
-                    self.0.destructive(child, styles);
-                } else {
-                    self.0.ignorant(child, styles);
-                }
+        } else if let Some(vertical) = content.downcast::<VNode>() {
+            let child = FlowChild::Spacing(vertical.amount);
+            let frac = vertical.amount.is_fractional();
+            if vertical.weak {
+                let weakness = 1 + u8::from(frac) + 2 * u8::from(vertical.generated);
+                self.0.weak(child, styles, weakness);
+            } else if frac {
+                self.0.destructive(child, styles);
+            } else {
+                self.0.ignorant(child, styles);
             }
-            Content::Block(node) => {
-                let child = FlowChild::Node(node.clone());
-                if node.is::<PlaceNode>() {
-                    self.0.ignorant(child, styles);
-                } else {
-                    self.0.supportive(child, styles);
-                }
+        } else if content.has::<dyn Layout>() {
+            let child = FlowChild::Node(content.clone());
+            if content.is::<PlaceNode>() {
+                self.0.ignorant(child, styles);
+            } else {
+                self.0.supportive(child, styles);
             }
-            _ => return false,
+        } else {
+            return false;
         }
 
         true
@@ -321,36 +323,34 @@ impl<'a> ParBuilder<'a> {
         //    1     | weak spacing
         //    2     | space
 
-        match content {
-            Content::Space => {
-                self.0.weak(ParChild::Text(' '.into()), styles, 2);
+        if content.is::<SpaceNode>() {
+            self.0.weak(ParChild::Text(' '.into()), styles, 2);
+        } else if let Some(linebreak) = content.downcast::<LinebreakNode>() {
+            let c = if linebreak.justify { '\u{2028}' } else { '\n' };
+            self.0.destructive(ParChild::Text(c.into()), styles);
+        } else if let Some(horizontal) = content.downcast::<HNode>() {
+            let child = ParChild::Spacing(horizontal.amount);
+            let frac = horizontal.amount.is_fractional();
+            if horizontal.weak {
+                let weakness = u8::from(!frac);
+                self.0.weak(child, styles, weakness);
+            } else if frac {
+                self.0.destructive(child, styles);
+            } else {
+                self.0.ignorant(child, styles);
             }
-            &Content::Linebreak { justify } => {
-                let c = if justify { '\u{2028}' } else { '\n' };
-                self.0.destructive(ParChild::Text(c.into()), styles);
+        } else if let Some(quote) = content.downcast::<SmartQuoteNode>() {
+            self.0.supportive(ParChild::Quote { double: quote.double }, styles);
+        } else if let Some(node) = content.downcast::<TextNode>() {
+            self.0.supportive(ParChild::Text(node.0.clone()), styles);
+        } else if let Some(node) = content.to::<dyn Layout>() {
+            if node.level() == Level::Inline {
+                self.0.supportive(ParChild::Node(content.clone()), styles);
+            } else {
+                return false;
             }
-            &Content::Horizontal { amount, weak } => {
-                let child = ParChild::Spacing(amount);
-                let frac = amount.is_fractional();
-                if weak {
-                    let weakness = u8::from(!frac);
-                    self.0.weak(child, styles, weakness);
-                } else if frac {
-                    self.0.destructive(child, styles);
-                } else {
-                    self.0.ignorant(child, styles);
-                }
-            }
-            &Content::Quote { double } => {
-                self.0.supportive(ParChild::Quote { double }, styles);
-            }
-            Content::Text(text) => {
-                self.0.supportive(ParChild::Text(text.clone()), styles);
-            }
-            Content::Inline(node) => {
-                self.0.supportive(ParChild::Node(node.clone()), styles);
-            }
-            _ => return false,
+        } else {
+            return false;
         }
 
         true
@@ -412,29 +412,31 @@ struct ListBuilder<'a> {
 impl<'a> ListBuilder<'a> {
     fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) -> bool {
         if self.items.is_empty() {
-            match content {
-                Content::Space => {}
-                Content::Item(_) => {}
-                Content::Parbreak => self.attachable = false,
-                _ => self.attachable = true,
+            if content.is::<ParbreakNode>() {
+                self.attachable = false;
+            } else if !content.is::<SpaceNode>() && !content.is::<ListItem>() {
+                self.attachable = true;
             }
         }
 
-        match content {
-            Content::Item(item)
-                if self
-                    .items
-                    .items()
-                    .next()
-                    .map_or(true, |first| item.kind() == first.kind()) =>
+        if let Some(item) = content.downcast::<ListItem>() {
+            if self
+                .items
+                .items()
+                .next()
+                .map_or(true, |first| item.kind() == first.kind())
             {
                 self.items.push(item.clone(), styles);
-                self.tight &= self.staged.drain(..).all(|(t, _)| *t != Content::Parbreak);
+                self.tight &= self.staged.drain(..).all(|(t, _)| !t.is::<ParbreakNode>());
+            } else {
+                return false;
             }
-            Content::Space | Content::Parbreak if !self.items.is_empty() => {
-                self.staged.push((content, styles));
-            }
-            _ => return false,
+        } else if !self.items.is_empty()
+            && (content.is::<SpaceNode>() || content.is::<ParbreakNode>())
+        {
+            self.staged.push((content, styles));
+        } else {
+            return false;
         }
 
         true
@@ -450,9 +452,9 @@ impl<'a> ListBuilder<'a> {
         let tight = self.tight;
         let attached = tight && self.attachable;
         let content = match kind {
-            LIST => Content::show(ListNode::<LIST> { tight, attached, items }),
-            ENUM => Content::show(ListNode::<ENUM> { tight, attached, items }),
-            DESC | _ => Content::show(ListNode::<DESC> { tight, attached, items }),
+            LIST => ListNode::<LIST> { tight, attached, items }.pack(),
+            ENUM => ListNode::<ENUM> { tight, attached, items }.pack(),
+            DESC | _ => ListNode::<DESC> { tight, attached, items }.pack(),
         };
 
         let stored = parent.scratch.templates.alloc(content);

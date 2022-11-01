@@ -17,7 +17,7 @@ impl LinkNode {
     }
 }
 
-#[node(showable)]
+#[node(Show)]
 impl LinkNode {
     /// The fill color of text in the link. Just the surrounding text color
     /// if `auto`.
@@ -26,14 +26,12 @@ impl LinkNode {
     pub const UNDERLINE: Smart<bool> = Smart::Auto;
 
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Content::show({
-            let dest = args.expect::<Destination>("destination")?;
-            let body = match dest {
-                Destination::Url(_) => args.eat()?,
-                Destination::Internal(_) => Some(args.expect("body")?),
-            };
-            Self { dest, body }
-        }))
+        let dest = args.expect::<Destination>("destination")?;
+        let body = match dest {
+            Destination::Url(_) => args.eat()?,
+            Destination::Internal(_) => Some(args.expect("body")?),
+        };
+        Ok(Self { dest, body }.pack())
     }
 }
 
@@ -50,7 +48,7 @@ castable! {
 }
 
 impl Show for LinkNode {
-    fn unguard(&self, sel: Selector) -> ShowNode {
+    fn unguard_parts(&self, sel: Selector) -> Content {
         Self {
             dest: self.dest.clone(),
             body: self.body.as_ref().map(|body| body.unguard(sel)),
@@ -83,9 +81,9 @@ impl Show for LinkNode {
                         text = text.trim_start_matches(prefix);
                     }
                     let shorter = text.len() < url.len();
-                    Content::Text(if shorter { text.into() } else { url.clone() })
+                    TextNode(if shorter { text.into() } else { url.clone() }).pack()
                 }
-                Destination::Internal(_) => Content::Empty,
+                Destination::Internal(_) => Content::empty(),
             })
             .styled(TextNode::LINK, Some(self.dest.clone())))
     }

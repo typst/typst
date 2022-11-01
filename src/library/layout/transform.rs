@@ -7,18 +7,19 @@ pub struct MoveNode {
     /// The offset by which to move the node.
     pub delta: Axes<Rel<Length>>,
     /// The node whose contents should be moved.
-    pub child: LayoutNode,
+    pub child: Content,
 }
 
-#[node]
+#[node(Layout)]
 impl MoveNode {
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         let dx = args.named("dx")?.unwrap_or_default();
         let dy = args.named("dy")?.unwrap_or_default();
-        Ok(Content::inline(Self {
+        Ok(Self {
             delta: Axes::new(dx, dy),
             child: args.expect("body")?,
-        }))
+        }
+        .pack())
     }
 }
 
@@ -29,7 +30,7 @@ impl Layout for MoveNode {
         regions: &Regions,
         styles: StyleChain,
     ) -> SourceResult<Vec<Frame>> {
-        let mut frames = self.child.layout(world, regions, styles)?;
+        let mut frames = self.child.layout_inline(world, regions, styles)?;
 
         let delta = self.delta.resolve(styles);
         for frame in &mut frames {
@@ -39,6 +40,10 @@ impl Layout for MoveNode {
 
         Ok(frames)
     }
+
+    fn level(&self) -> Level {
+        Level::Inline
+    }
 }
 
 /// Transform a node without affecting layout.
@@ -47,7 +52,7 @@ pub struct TransformNode<const T: TransformKind> {
     /// Transformation to apply to the contents.
     pub transform: Transform,
     /// The node whose contents should be transformed.
-    pub child: LayoutNode,
+    pub child: Content,
 }
 
 /// Rotate a node without affecting layout.
@@ -56,7 +61,7 @@ pub type RotateNode = TransformNode<ROTATE>;
 /// Scale a node without affecting layout.
 pub type ScaleNode = TransformNode<SCALE>;
 
-#[node]
+#[node(Layout)]
 impl<const T: TransformKind> TransformNode<T> {
     /// The origin of the transformation.
     #[property(resolve)]
@@ -76,10 +81,7 @@ impl<const T: TransformKind> TransformNode<T> {
             }
         };
 
-        Ok(Content::inline(Self {
-            transform,
-            child: args.expect("body")?,
-        }))
+        Ok(Self { transform, child: args.expect("body")? }.pack())
     }
 }
 
@@ -91,7 +93,7 @@ impl<const T: TransformKind> Layout for TransformNode<T> {
         styles: StyleChain,
     ) -> SourceResult<Vec<Frame>> {
         let origin = styles.get(Self::ORIGIN).unwrap_or(Align::CENTER_HORIZON);
-        let mut frames = self.child.layout(world, regions, styles)?;
+        let mut frames = self.child.layout_inline(world, regions, styles)?;
 
         for frame in &mut frames {
             let Axes { x, y } = origin.zip(frame.size()).map(|(o, s)| o.position(s));
@@ -103,6 +105,10 @@ impl<const T: TransformKind> Layout for TransformNode<T> {
         }
 
         Ok(frames)
+    }
+
+    fn level(&self) -> Level {
+        Level::Inline
     }
 }
 

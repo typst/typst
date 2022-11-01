@@ -1,10 +1,10 @@
 use std::cmp::Ordering;
 
-use unicode_bidi::{BidiInfo, Level};
+use unicode_bidi::{BidiInfo, Level as BidiLevel};
 use unicode_script::{Script, UnicodeScript};
 use xi_unicode::LineBreakIterator;
 
-use super::{shape, Lang, Quoter, Quotes, RepeatNode, ShapedText, TextNode};
+use super::{shape, Lang, Quoter, Quotes, ShapedText, TextNode};
 use crate::library::layout::Spacing;
 use crate::library::prelude::*;
 use crate::util::EcoString;
@@ -23,10 +23,10 @@ pub enum ParChild {
     /// Horizontal spacing between other children.
     Spacing(Spacing),
     /// An arbitrary inline-level node.
-    Node(LayoutNode),
+    Node(Content),
 }
 
-#[node]
+#[node(Layout)]
 impl ParNode {
     /// The spacing between lines.
     #[property(resolve)]
@@ -54,9 +54,9 @@ impl ParNode {
         // node. Instead, it just ensures that the passed content lives is in a
         // separate paragraph and styles it.
         Ok(Content::sequence(vec![
-            Content::Parbreak,
+            ParbreakNode.pack(),
             args.expect("body")?,
-            Content::Parbreak,
+            ParbreakNode.pack(),
         ]))
     }
 }
@@ -81,6 +81,10 @@ impl Layout for ParNode {
 
         // Stack the lines into one frame per region.
         stack(&p, world, &lines, regions)
+    }
+
+    fn level(&self) -> Level {
+        Level::Block
     }
 }
 
@@ -166,23 +170,39 @@ impl Resolve for Smart<Linebreaks> {
 }
 
 /// A paragraph break.
+#[derive(Debug, Clone, Hash)]
 pub struct ParbreakNode;
 
 #[node]
 impl ParbreakNode {
     fn construct(_: &mut Vm, _: &mut Args) -> SourceResult<Content> {
-        Ok(Content::Parbreak)
+        Ok(Self.pack())
     }
 }
 
-/// A line break.
-pub struct LinebreakNode;
+/// A node that should be repeated to fill up a line.
+#[derive(Debug, Hash)]
+pub struct RepeatNode(pub Content);
 
-#[node]
-impl LinebreakNode {
+#[node(Layout)]
+impl RepeatNode {
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
-        let justify = args.named("justify")?.unwrap_or(false);
-        Ok(Content::Linebreak { justify })
+        Ok(Self(args.expect("body")?).pack())
+    }
+}
+
+impl Layout for RepeatNode {
+    fn layout(
+        &self,
+        world: Tracked<dyn World>,
+        regions: &Regions,
+        styles: StyleChain,
+    ) -> SourceResult<Vec<Frame>> {
+        self.0.layout_inline(world, regions, styles)
+    }
+
+    fn level(&self) -> Level {
+        Level::Inline
     }
 }
 
@@ -272,7 +292,7 @@ enum Segment<'a> {
     /// Horizontal spacing between other segments.
     Spacing(Spacing),
     /// An arbitrary inline-level layout node.
-    Node(&'a LayoutNode),
+    Node(&'a Content),
 }
 
 impl Segment<'_> {
@@ -504,8 +524,8 @@ fn prepare<'a>(
     styles: StyleChain<'a>,
 ) -> SourceResult<Preparation<'a>> {
     let bidi = BidiInfo::new(&text, match styles.get(TextNode::DIR) {
-        Dir::LTR => Some(Level::ltr()),
-        Dir::RTL => Some(Level::rtl()),
+        Dir::LTR => Some(BidiLevel::ltr()),
+        Dir::RTL => Some(BidiLevel::rtl()),
         _ => None,
     });
 
@@ -529,12 +549,12 @@ fn prepare<'a>(
                 }
             },
             Segment::Node(node) => {
-                if let Some(repeat) = node.downcast() {
+                if let Some(repeat) = node.downcast::<RepeatNode>() {
                     items.push(Item::Repeat(repeat, styles));
                 } else {
                     let size = Size::new(regions.first.x, regions.base.y);
                     let pod = Regions::one(size, regions.base, Axes::splat(false));
-                    let mut frame = node.layout(world, &pod, styles)?.remove(0);
+                    let mut frame = node.layout_inline(world, &pod, styles)?.remove(0);
                     frame.translate(Point::with_y(styles.get(TextNode::BASELINE)));
                     frame.apply_role(Role::GenericInline);
                     items.push(Item::Frame(frame));
@@ -566,13 +586,13 @@ fn shape_range<'a>(
     range: Range,
     styles: StyleChain<'a>,
 ) {
-    let mut process = |text, level: Level| {
+    let mut process = |text, level: BidiLevel| {
         let dir = if level.is_ltr() { Dir::LTR } else { Dir::RTL };
         let shaped = shape(world, text, styles, dir);
         items.push(Item::Text(shaped));
     };
 
-    let mut prev_level = Level::ltr();
+    let mut prev_level = BidiLevel::ltr();
     let mut prev_script = Script::Unknown;
     let mut cursor = range.start;
 

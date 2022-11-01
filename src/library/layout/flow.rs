@@ -17,10 +17,13 @@ pub enum FlowChild {
     /// Vertical spacing between other children.
     Spacing(Spacing),
     /// An arbitrary block-level node.
-    Node(LayoutNode),
+    Node(Content),
     /// A column / region break.
     Colbreak,
 }
+
+#[node(Layout)]
+impl FlowNode {}
 
 impl Layout for FlowNode {
     fn layout(
@@ -47,6 +50,10 @@ impl Layout for FlowNode {
         }
 
         Ok(layouter.finish())
+    }
+
+    fn level(&self) -> Level {
+        Level::Block
     }
 }
 
@@ -150,7 +157,7 @@ impl FlowLayouter {
     pub fn layout_node(
         &mut self,
         world: Tracked<dyn World>,
-        node: &LayoutNode,
+        node: &Content,
         styles: StyleChain,
     ) -> SourceResult<()> {
         // Don't even try layouting into a full region.
@@ -162,7 +169,7 @@ impl FlowLayouter {
         // aligned later.
         if let Some(placed) = node.downcast::<PlaceNode>() {
             if placed.out_of_flow() {
-                let frame = node.layout(world, &self.regions, styles)?.remove(0);
+                let frame = node.layout_block(world, &self.regions, styles)?.remove(0);
                 self.items.push(FlowItem::Placed(frame));
                 return Ok(());
             }
@@ -180,7 +187,7 @@ impl FlowLayouter {
                 .unwrap_or(Align::Top),
         );
 
-        let frames = node.layout(world, &self.regions, styles)?;
+        let frames = node.layout_block(world, &self.regions, styles)?;
         let len = frames.len();
         for (i, mut frame) in frames.into_iter().enumerate() {
             // Set the generic block role.

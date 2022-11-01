@@ -1,11 +1,13 @@
 //! Utilities.
 
-#[macro_use]
-mod eco;
-mod buffer;
+pub mod fat;
 
 pub use buffer::Buffer;
 pub use eco::EcoString;
+
+#[macro_use]
+mod eco;
+mod buffer;
 
 use std::any::TypeId;
 use std::fmt::{self, Debug, Formatter};

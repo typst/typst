@@ -1,17 +1,13 @@
 //! Layouting infrastructure.
 
-use std::any::Any;
-use std::fmt::{self, Debug, Formatter, Write};
 use std::hash::Hash;
-use std::sync::Arc;
 
-use comemo::{Prehashed, Tracked};
+use comemo::Tracked;
 
-use super::{Barrier, NodeId, Resolve, StyleChain, StyleEntry};
-use super::{Builder, Content, Scratch};
+use super::{Builder, Capability, Content, Scratch, StyleChain};
 use crate::diag::SourceResult;
-use crate::frame::{Element, Frame};
-use crate::geom::{Abs, Align, Axes, Geometry, Length, Paint, Point, Rel, Size, Stroke};
+use crate::frame::Frame;
+use crate::geom::{Abs, Axes, Size};
 use crate::World;
 
 /// Layout content into a collection of pages.
@@ -30,7 +26,7 @@ pub fn layout(world: Tracked<dyn World>, content: &Content) -> SourceResult<Vec<
 /// A node that can be layouted into a sequence of regions.
 ///
 /// Layouting returns one frame per used region.
-pub trait Layout: 'static {
+pub trait Layout: 'static + Sync + Send {
     /// Layout this node into the given regions, producing frames.
     fn layout(
         &self,
@@ -39,13 +35,17 @@ pub trait Layout: 'static {
         styles: StyleChain,
     ) -> SourceResult<Vec<Frame>>;
 
-    /// Convert to a packed node.
-    fn pack(self) -> LayoutNode
-    where
-        Self: Debug + Hash + Sized + Sync + Send + 'static,
-    {
-        LayoutNode::new(self)
-    }
+    /// Whether this is an inline-level or block-level node.
+    fn level(&self) -> Level;
+}
+
+impl Capability for dyn Layout {}
+
+/// At which level a node operates.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum Level {
+    Inline,
+    Block,
 }
 
 /// A sequence of regions to layout into.
@@ -138,228 +138,5 @@ impl Regions {
         let backlog = self.backlog.iter();
         let last = self.last.iter().cycle();
         first.chain(backlog.chain(last).map(|&h| Size::new(self.first.x, h)))
-    }
-}
-
-/// A type-erased layouting node with a precomputed hash.
-#[derive(Clone, Hash)]
-pub struct LayoutNode(Arc<Prehashed<dyn Bounds>>);
-
-impl LayoutNode {
-    /// Pack any layoutable node.
-    pub fn new<T>(node: T) -> Self
-    where
-        T: Layout + Debug + Hash + Sync + Send + 'static,
-    {
-        Self(Arc::new(Prehashed::new(node)))
-    }
-
-    /// Check whether the contained node is a specific layout node.
-    pub fn is<T: 'static>(&self) -> bool {
-        (**self.0).as_any().is::<T>()
-    }
-
-    /// The id of this node.
-    pub fn id(&self) -> NodeId {
-        (**self.0).node_id()
-    }
-
-    /// Try to downcast to a specific layout node.
-    pub fn downcast<T>(&self) -> Option<&T>
-    where
-        T: Layout + Debug + Hash + 'static,
-    {
-        (**self.0).as_any().downcast_ref()
-    }
-
-    /// Force a size for this node.
-    pub fn sized(self, sizing: Axes<Option<Rel<Length>>>) -> Self {
-        if sizing.any(Option::is_some) {
-            SizedNode { sizing, child: self }.pack()
-        } else {
-            self
-        }
-    }
-
-    /// Fill the frames resulting from a node.
-    pub fn filled(self, fill: Paint) -> Self {
-        FillNode { fill, child: self }.pack()
-    }
-
-    /// Stroke the frames resulting from a node.
-    pub fn stroked(self, stroke: Stroke) -> Self {
-        StrokeNode { stroke, child: self }.pack()
-    }
-}
-
-impl Layout for LayoutNode {
-    #[comemo::memoize]
-    fn layout(
-        &self,
-        world: Tracked<dyn World>,
-        regions: &Regions,
-        styles: StyleChain,
-    ) -> SourceResult<Vec<Frame>> {
-        let barrier = StyleEntry::Barrier(Barrier::new(self.id()));
-        let styles = barrier.chain(&styles);
-        self.0.layout(world, regions, styles)
-    }
-
-    fn pack(self) -> LayoutNode {
-        self
-    }
-}
-
-impl Default for LayoutNode {
-    fn default() -> Self {
-        EmptyNode.pack()
-    }
-}
-
-impl Debug for LayoutNode {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_str("Layout(")?;
-        self.0.fmt(f)?;
-        f.write_char(')')
-    }
-}
-
-impl PartialEq for LayoutNode {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.eq(&other.0)
-    }
-}
-
-trait Bounds: Layout + Debug + Sync + Send + 'static {
-    fn as_any(&self) -> &dyn Any;
-    fn node_id(&self) -> NodeId;
-}
-
-impl<T> Bounds for T
-where
-    T: Layout + Debug + Hash + Sync + Send + 'static,
-{
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn node_id(&self) -> NodeId {
-        NodeId::of::<Self>()
-    }
-}
-
-/// A layout node that produces an empty frame.
-///
-/// The packed version of this is returned by [`PackedNode::default`].
-#[derive(Debug, Hash)]
-struct EmptyNode;
-
-impl Layout for EmptyNode {
-    fn layout(
-        &self,
-        _: Tracked<dyn World>,
-        regions: &Regions,
-        _: StyleChain,
-    ) -> SourceResult<Vec<Frame>> {
-        Ok(vec![Frame::new(
-            regions.expand.select(regions.first, Size::zero()),
-        )])
-    }
-}
-
-/// Fix the size of a node.
-#[derive(Debug, Hash)]
-struct SizedNode {
-    /// How to size the node horizontally and vertically.
-    sizing: Axes<Option<Rel<Length>>>,
-    /// The node to be sized.
-    child: LayoutNode,
-}
-
-impl Layout for SizedNode {
-    fn layout(
-        &self,
-        world: Tracked<dyn World>,
-        regions: &Regions,
-        styles: StyleChain,
-    ) -> SourceResult<Vec<Frame>> {
-        // The "pod" is the region into which the child will be layouted.
-        let pod = {
-            // Resolve the sizing to a concrete size.
-            let size = self
-                .sizing
-                .resolve(styles)
-                .zip(regions.base)
-                .map(|(s, b)| s.map(|v| v.relative_to(b)))
-                .unwrap_or(regions.first);
-
-            // Select the appropriate base and expansion for the child depending
-            // on whether it is automatically or relatively sized.
-            let is_auto = self.sizing.as_ref().map(Option::is_none);
-            let base = is_auto.select(regions.base, size);
-            let expand = regions.expand | !is_auto;
-
-            Regions::one(size, base, expand)
-        };
-
-        // Layout the child.
-        let mut frames = self.child.layout(world, &pod, styles)?;
-
-        // Ensure frame size matches regions size if expansion is on.
-        let frame = &mut frames[0];
-        let target = regions.expand.select(regions.first, frame.size());
-        frame.resize(target, Align::LEFT_TOP);
-
-        Ok(frames)
-    }
-}
-
-/// Fill the frames resulting from a node.
-#[derive(Debug, Hash)]
-struct FillNode {
-    /// How to fill the frames resulting from the `child`.
-    fill: Paint,
-    /// The node whose frames should be filled.
-    child: LayoutNode,
-}
-
-impl Layout for FillNode {
-    fn layout(
-        &self,
-        world: Tracked<dyn World>,
-        regions: &Regions,
-        styles: StyleChain,
-    ) -> SourceResult<Vec<Frame>> {
-        let mut frames = self.child.layout(world, regions, styles)?;
-        for frame in &mut frames {
-            let shape = Geometry::Rect(frame.size()).filled(self.fill);
-            frame.prepend(Point::zero(), Element::Shape(shape));
-        }
-        Ok(frames)
-    }
-}
-
-/// Stroke the frames resulting from a node.
-#[derive(Debug, Hash)]
-struct StrokeNode {
-    /// How to stroke the frames resulting from the `child`.
-    stroke: Stroke,
-    /// The node whose frames should be stroked.
-    child: LayoutNode,
-}
-
-impl Layout for StrokeNode {
-    fn layout(
-        &self,
-        world: Tracked<dyn World>,
-        regions: &Regions,
-        styles: StyleChain,
-    ) -> SourceResult<Vec<Frame>> {
-        let mut frames = self.child.layout(world, regions, styles)?;
-        for frame in &mut frames {
-            let shape = Geometry::Rect(frame.size()).stroked(self.stroke);
-            frame.prepend(Point::zero(), Element::Shape(shape));
-        }
-        Ok(frames)
     }
 }

@@ -36,7 +36,7 @@ pub enum MathNode {
     Row(Arc<Vec<MathNode>>, Span),
 }
 
-#[node(showable)]
+#[node(Show, Layout)]
 impl MathNode {
     /// The math font family.
     #[property(referenced)]
@@ -54,16 +54,6 @@ impl MathNode {
 }
 
 impl MathNode {
-    /// Whether this is a display-style node.
-    pub fn display(&self) -> bool {
-        match self {
-            Self::Row(row, _) => {
-                matches!(row.as_slice(), [MathNode::Space, .., MathNode::Space])
-            }
-            _ => false,
-        }
-    }
-
     /// Strip parentheses from the node.
     pub fn unparen(self) -> Self {
         if let Self::Row(row, span) = &self {
@@ -80,8 +70,8 @@ impl MathNode {
 }
 
 impl Show for MathNode {
-    fn unguard(&self, _: Selector) -> ShowNode {
-        ShowNode::new(self.clone())
+    fn unguard_parts(&self, _: Selector) -> Content {
+        self.clone().pack()
     }
 
     fn field(&self, _: &str) -> Option<Value> {
@@ -89,13 +79,11 @@ impl Show for MathNode {
     }
 
     fn realize(&self, _: Tracked<dyn World>, _: StyleChain) -> SourceResult<Content> {
-        Ok(if self.display() {
-            Content::block(
-                LayoutNode::new(self.clone())
-                    .aligned(Axes::with_x(Some(Align::Center.into()))),
-            )
-        } else {
-            Content::inline(self.clone())
+        Ok(match self.level() {
+            Level::Inline => self.clone().pack(),
+            Level::Block => {
+                self.clone().pack().aligned(Axes::with_x(Some(Align::Center.into())))
+            }
         })
     }
 
@@ -105,10 +93,11 @@ impl Show for MathNode {
         styles: StyleChain,
         realized: Content,
     ) -> SourceResult<Content> {
-        Ok(if self.display() {
-            realized.spaced(styles.get(Self::ABOVE), styles.get(Self::BELOW))
-        } else {
-            realized
+        Ok(match self.level() {
+            Level::Inline => realized,
+            Level::Block => {
+                realized.spaced(styles.get(Self::ABOVE), styles.get(Self::BELOW))
+            }
         })
     }
 }
@@ -120,12 +109,27 @@ impl Layout for MathNode {
         _: &Regions,
         styles: StyleChain,
     ) -> SourceResult<Vec<Frame>> {
-        let style = if self.display() { Style::Display } else { Style::Text };
+        let style = match self.level() {
+            Level::Inline => Style::Text,
+            Level::Block => Style::Display,
+        };
+
         let span = match self {
             &Self::Row(_, span) => span,
             _ => Span::detached(),
         };
+
         Ok(vec![layout_tex(world, self, span, style, styles)?])
+    }
+
+    fn level(&self) -> Level {
+        if let Self::Row(row, _) = self {
+            if matches!(row.as_slice(), [MathNode::Space, .., MathNode::Space]) {
+                return Level::Block;
+            }
+        }
+
+        Level::Inline
     }
 }
 

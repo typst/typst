@@ -1,12 +1,15 @@
 use std::fmt::{self, Debug, Formatter};
+use std::hash::Hash;
 
 use comemo::Tracked;
 
 use super::{
-    Args, Content, Func, Interruption, NodeId, Regex, Show, ShowNode, StyleEntry, Value,
+    Args, Capability, Content, Func, Interruption, Node, NodeId, Regex, StyleChain,
+    StyleEntry, Value,
 };
 use crate::diag::SourceResult;
 use crate::library::structure::{DescNode, EnumNode, ListNode};
+use crate::library::text::TextNode;
 use crate::syntax::Spanned;
 use crate::World;
 
@@ -38,8 +41,8 @@ impl Recipe {
     ) -> SourceResult<Option<Content>> {
         let content = match (target, &self.pattern) {
             (Target::Node(node), &Pattern::Node(id)) if node.id() == id => {
-                let node = node.unguard(sel);
-                self.call(world, || Value::Content(Content::Show(node)))?
+                let node = node.to::<dyn Show>().unwrap().unguard_parts(sel);
+                self.call(world, || Value::Content(node))?
             }
 
             (Target::Text(text), Pattern::Regex(regex)) => {
@@ -49,7 +52,7 @@ impl Recipe {
                 for mat in regex.find_iter(text) {
                     let start = mat.start();
                     if cursor < start {
-                        result.push(Content::Text(text[cursor .. start].into()));
+                        result.push(TextNode(text[cursor .. start].into()).pack());
                     }
 
                     result.push(self.call(world, || Value::Str(mat.as_str().into()))?);
@@ -61,7 +64,7 @@ impl Recipe {
                 }
 
                 if cursor < text.len() {
-                    result.push(Content::Text(text[cursor ..].into()));
+                    result.push(TextNode(text[cursor ..].into()).pack());
                 }
 
                 Content::sequence(result)
@@ -132,7 +135,7 @@ impl Pattern {
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Target<'a> {
     /// A showable node.
-    Node(&'a ShowNode),
+    Node(&'a Content),
     /// A slice of text.
     Text(&'a str),
 }
@@ -145,3 +148,38 @@ pub enum Selector {
     /// The base recipe for a kind of node.
     Base(NodeId),
 }
+
+/// A node that can be realized given some styles.
+pub trait Show: 'static + Sync + Send {
+    /// Unguard nested content against recursive show rules.
+    fn unguard_parts(&self, sel: Selector) -> Content;
+
+    /// Access a field on this node.
+    fn field(&self, name: &str) -> Option<Value>;
+
+    /// The base recipe for this node that is executed if there is no
+    /// user-defined show rule.
+    fn realize(
+        &self,
+        world: Tracked<dyn World>,
+        styles: StyleChain,
+    ) -> SourceResult<Content>;
+
+    /// Finalize this node given the realization of a base or user recipe. Use
+    /// this for effects that should work even in the face of a user-defined
+    /// show rule, for example:
+    /// - Application of general settable properties
+    ///
+    /// Defaults to just the realized content.
+    #[allow(unused_variables)]
+    fn finalize(
+        &self,
+        world: Tracked<dyn World>,
+        styles: StyleChain,
+        realized: Content,
+    ) -> SourceResult<Content> {
+        Ok(realized)
+    }
+}
+
+impl Capability for dyn Show {}

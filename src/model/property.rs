@@ -17,10 +17,10 @@ pub struct Property {
     /// The id of the property's [key](Key).
     key: KeyId,
     /// The id of the node the property belongs to.
-    pub node: NodeId,
+    node: NodeId,
     /// Whether the property should only affect the first node down the
     /// hierarchy. Used by constructors.
-    pub scoped: bool,
+    scoped: bool,
     /// The property's value.
     value: Arc<Prehashed<dyn Bounds>>,
     /// The name of the property.
@@ -58,6 +58,21 @@ impl Property {
         } else {
             None
         }
+    }
+
+    /// The node this property is for.
+    pub fn node(&self) -> NodeId {
+        self.node
+    }
+
+    /// Whether the property is scoped.
+    pub fn scoped(&self) -> bool {
+        self.scoped
+    }
+
+    /// Make the property scoped.
+    pub fn make_scoped(&mut self) {
+        self.scoped = true;
     }
 
     /// What kind of structure the property interrupts.
@@ -110,24 +125,7 @@ where
     }
 }
 
-/// A unique identifier for a property key.
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
-pub struct KeyId(ReadableTypeId);
-
-impl KeyId {
-    /// The id of the given key.
-    pub fn of<'a, T: Key<'a>>() -> Self {
-        Self(ReadableTypeId::of::<T>())
-    }
-}
-
-impl Debug for KeyId {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        self.0.fmt(f)
-    }
-}
-
-/// Style property keys.
+/// A style property key.
 ///
 /// This trait is not intended to be implemented manually, but rather through
 /// the `#[node]` proc-macro.
@@ -151,6 +149,23 @@ pub trait Key<'a>: Copy + 'static {
         chain: StyleChain<'a>,
         values: impl Iterator<Item = &'a Self::Value>,
     ) -> Self::Output;
+}
+
+/// A unique identifier for a property key.
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+struct KeyId(ReadableTypeId);
+
+impl KeyId {
+    /// The id of the given key.
+    pub fn of<'a, T: Key<'a>>() -> Self {
+        Self(ReadableTypeId::of::<T>())
+    }
+}
+
+impl Debug for KeyId {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        self.0.fmt(f)
+    }
 }
 
 /// A scoped property barrier.

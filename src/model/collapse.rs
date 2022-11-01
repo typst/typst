@@ -1,7 +1,7 @@
 use super::{StyleChain, StyleVec, StyleVecBuilder};
 
 /// A wrapper around a [`StyleVecBuilder`] that allows to collapse items.
-pub struct CollapsingBuilder<'a, T> {
+pub(super) struct CollapsingBuilder<'a, T> {
     /// The internal builder.
     builder: StyleVecBuilder<'a, T>,
     /// Staged weak and ignorant items that we can't yet commit to the builder.
