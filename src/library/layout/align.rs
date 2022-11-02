@@ -1,26 +1,23 @@
 use crate::library::prelude::*;
 use crate::library::text::{HorizontalAlign, ParNode};
 
-/// Align a node along the layouting axes.
+/// Align content along the layouting axes.
 #[derive(Debug, Hash)]
 pub struct AlignNode {
-    /// How to align the node horizontally and vertically.
+    /// How to align the content horizontally and vertically.
     pub aligns: Axes<Option<RawAlign>>,
-    /// The node to be aligned.
+    /// The content to be aligned.
     pub child: Content,
 }
 
-#[node(Layout)]
+#[node(LayoutBlock)]
 impl AlignNode {
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         let aligns: Axes<Option<RawAlign>> = args.find()?.unwrap_or_default();
         let body: Content = args.expect("body")?;
 
         if let Axes { x: Some(x), y: None } = aligns {
-            if body
-                .to::<dyn Layout>()
-                .map_or(true, |node| node.level() == Level::Inline)
-            {
+            if !body.has::<dyn LayoutBlock>() {
                 return Ok(body.styled(ParNode::ALIGN, HorizontalAlign(x)));
             }
         }
@@ -29,8 +26,8 @@ impl AlignNode {
     }
 }
 
-impl Layout for AlignNode {
-    fn layout(
+impl LayoutBlock for AlignNode {
+    fn layout_block(
         &self,
         world: Tracked<dyn World>,
         regions: &Regions,
@@ -61,9 +58,5 @@ impl Layout for AlignNode {
         }
 
         Ok(frames)
-    }
-
-    fn level(&self) -> Level {
-        Level::Block
     }
 }

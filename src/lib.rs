@@ -11,7 +11,7 @@
 //!   structure, layouts, etc. of the module. The nodes of the content tree are
 //!   well structured and order-independent and thus much better suited for
 //!   layouting than the raw markup.
-//! - **Layouting:** Next, the content is [layouted] into a portable version of
+//! - **Layouting:** Next, the content is layouted into a portable version of
 //!   the typeset document. The output of this is a collection of [`Frame`]s
 //!   (one per page), ready for exporting.
 //! - **Exporting:** The finished layout can be exported into a supported
@@ -24,7 +24,6 @@
 //! [evaluate]: model::eval
 //! [module]: model::Module
 //! [content]: model::Content
-//! [layouted]: model::layout
 //! [PDF]: export::pdf
 
 #![allow(clippy::len_without_is_empty)]
@@ -69,7 +68,7 @@ pub fn typeset(
 ) -> SourceResult<Vec<Frame>> {
     let route = Route::default();
     let module = model::eval(world.track(), route.track(), main)?;
-    model::layout(world.track(), &module.content)
+    library::layout::Layout::layout(&module.content, world.track())
 }
 
 /// The environment in which typesetting occurs.

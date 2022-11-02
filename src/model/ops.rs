@@ -2,10 +2,11 @@
 
 use std::cmp::Ordering;
 
-use super::{Node, RawAlign, RawStroke, Regex, Smart, Value};
+use super::{Node, Regex, Smart, Value};
 use crate::diag::StrResult;
 use crate::geom::{Axes, Axis, Length, Numeric, Rel};
 use crate::library::text::TextNode;
+use crate::library::{RawAlign, RawStroke};
 use Value::*;
 
 /// Bail with a type mismatch error.

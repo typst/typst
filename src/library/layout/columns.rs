@@ -11,7 +11,7 @@ pub struct ColumnsNode {
     pub child: Content,
 }
 
-#[node(Layout)]
+#[node(LayoutBlock)]
 impl ColumnsNode {
     /// The size of the gutter space between each column.
     #[property(resolve)]
@@ -26,8 +26,8 @@ impl ColumnsNode {
     }
 }
 
-impl Layout for ColumnsNode {
-    fn layout(
+impl LayoutBlock for ColumnsNode {
+    fn layout_block(
         &self,
         world: Tracked<dyn World>,
         regions: &Regions,
@@ -66,7 +66,7 @@ impl Layout for ColumnsNode {
 
         // Stitch together the columns for each region.
         for region in regions.iter().take(total_regions) {
-            // The height should be the parent height if the node shall expand.
+            // The height should be the parent height if we should expand.
             // Otherwise its the maximum column height for the frame. In that
             // case, the frame is first created with zero height and then
             // resized.
@@ -99,10 +99,6 @@ impl Layout for ColumnsNode {
         }
 
         Ok(finished)
-    }
-
-    fn level(&self) -> Level {
-        Level::Block
     }
 }
 

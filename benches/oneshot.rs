@@ -85,7 +85,7 @@ fn bench_layout(iai: &mut Iai) {
     let id = world.source.id();
     let route = typst::model::Route::default();
     let module = typst::model::eval(world.track(), route.track(), id).unwrap();
-    iai.run(|| typst::model::layout(world.track(), &module.content));
+    iai.run(|| typst::library::layout::Layout::layout(&module.content, world.track()));
 }
 
 fn bench_render(iai: &mut Iai) {

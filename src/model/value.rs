@@ -307,7 +307,7 @@ where
     }
 
     fn hash128(&self) -> u128 {
-        // Also hash the TypeId since nodes with different types but
+        // Also hash the TypeId since values with different types but
         // equal data should be different.
         let mut state = SipHasher::new();
         self.type_id().hash(&mut state);

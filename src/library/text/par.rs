@@ -22,11 +22,11 @@ pub enum ParChild {
     Quote { double: bool },
     /// Horizontal spacing between other children.
     Spacing(Spacing),
-    /// An arbitrary inline-level node.
-    Node(Content),
+    /// Arbitrary inline-level content.
+    Inline(Content),
 }
 
-#[node(Layout)]
+#[node(LayoutBlock)]
 impl ParNode {
     /// The spacing between lines.
     #[property(resolve)]
@@ -61,8 +61,8 @@ impl ParNode {
     }
 }
 
-impl Layout for ParNode {
-    fn layout(
+impl LayoutBlock for ParNode {
+    fn layout_block(
         &self,
         world: Tracked<dyn World>,
         regions: &Regions,
@@ -82,10 +82,6 @@ impl Layout for ParNode {
         // Stack the lines into one frame per region.
         stack(&p, world, &lines, regions)
     }
-
-    fn level(&self) -> Level {
-        Level::Block
-    }
 }
 
 impl Debug for ParNode {
@@ -101,7 +97,7 @@ impl Debug for ParChild {
             Self::Text(text) => write!(f, "Text({:?})", text),
             Self::Quote { double } => write!(f, "Quote({double})"),
             Self::Spacing(kind) => write!(f, "{:?}", kind),
-            Self::Node(node) => node.fmt(f),
+            Self::Inline(inline) => inline.fmt(f),
         }
     }
 }
@@ -180,19 +176,19 @@ impl ParbreakNode {
     }
 }
 
-/// A node that should be repeated to fill up a line.
+/// Repeats content to fill a line.
 #[derive(Debug, Hash)]
 pub struct RepeatNode(pub Content);
 
-#[node(Layout)]
+#[node(LayoutInline)]
 impl RepeatNode {
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self(args.expect("body")?).pack())
     }
 }
 
-impl Layout for RepeatNode {
-    fn layout(
+impl LayoutInline for RepeatNode {
+    fn layout_inline(
         &self,
         world: Tracked<dyn World>,
         regions: &Regions,
@@ -200,16 +196,12 @@ impl Layout for RepeatNode {
     ) -> SourceResult<Vec<Frame>> {
         self.0.layout_inline(world, regions, styles)
     }
-
-    fn level(&self) -> Level {
-        Level::Inline
-    }
 }
 
 /// Range of a substring of text.
 type Range = std::ops::Range<usize>;
 
-// The characters by which spacing, nodes and pins are replaced in the
+// The characters by which spacing, inline content and pins are replaced in the
 // paragraph's full text.
 const SPACING_REPLACE: char = ' '; // Space
 const NODE_REPLACE: char = '\u{FFFC}'; // Object Replacement Character
@@ -291,8 +283,8 @@ enum Segment<'a> {
     Text(usize),
     /// Horizontal spacing between other segments.
     Spacing(Spacing),
-    /// An arbitrary inline-level layout node.
-    Node(&'a Content),
+    /// Arbitrary inline-level content.
+    Inline(&'a Content),
 }
 
 impl Segment<'_> {
@@ -301,7 +293,7 @@ impl Segment<'_> {
         match *self {
             Self::Text(len) => len,
             Self::Spacing(_) => SPACING_REPLACE.len_utf8(),
-            Self::Node(_) => NODE_REPLACE.len_utf8(),
+            Self::Inline(_) => NODE_REPLACE.len_utf8(),
         }
     }
 }
@@ -315,9 +307,9 @@ enum Item<'a> {
     Absolute(Abs),
     /// Fractional spacing between other items.
     Fractional(Fr),
-    /// A layouted child node.
+    /// Layouted inline-level content.
     Frame(Frame),
-    /// A repeating node that fills the remaining space.
+    /// A repeating node that fills the remaining space in a line.
     Repeat(&'a RepeatNode, StyleChain<'a>),
 }
 
@@ -475,7 +467,7 @@ fn collect<'a>(
                         ParChild::Text(text) => text.chars().next(),
                         ParChild::Quote { .. } => Some('"'),
                         ParChild::Spacing(_) => Some(SPACING_REPLACE),
-                        ParChild::Node(_) => Some(NODE_REPLACE),
+                        ParChild::Inline(_) => Some(NODE_REPLACE),
                     });
 
                     full.push_str(quoter.quote(&quotes, double, peeked));
@@ -488,9 +480,9 @@ fn collect<'a>(
                 full.push(SPACING_REPLACE);
                 Segment::Spacing(spacing)
             }
-            ParChild::Node(node) => {
+            ParChild::Inline(inline) => {
                 full.push(NODE_REPLACE);
-                Segment::Node(node)
+                Segment::Inline(inline)
             }
         };
 
@@ -514,7 +506,7 @@ fn collect<'a>(
 }
 
 /// Prepare paragraph layout by shaping the whole paragraph and layouting all
-/// contained inline-level nodes.
+/// contained inline-level content.
 fn prepare<'a>(
     world: Tracked<dyn World>,
     par: &'a ParNode,
@@ -548,13 +540,13 @@ fn prepare<'a>(
                     items.push(Item::Fractional(v));
                 }
             },
-            Segment::Node(node) => {
-                if let Some(repeat) = node.downcast::<RepeatNode>() {
+            Segment::Inline(inline) => {
+                if let Some(repeat) = inline.downcast::<RepeatNode>() {
                     items.push(Item::Repeat(repeat, styles));
                 } else {
                     let size = Size::new(regions.first.x, regions.base.y);
                     let pod = Regions::one(size, regions.base, Axes::splat(false));
-                    let mut frame = node.layout_inline(world, &pod, styles)?.remove(0);
+                    let mut frame = inline.layout_inline(world, &pod, styles)?.remove(0);
                     frame.translate(Point::with_y(styles.get(TextNode::BASELINE)));
                     frame.apply_role(Role::GenericInline);
                     items.push(Item::Frame(frame));
@@ -1169,12 +1161,12 @@ fn commit(
             Item::Frame(frame) => {
                 push(&mut offset, frame.clone());
             }
-            Item::Repeat(node, styles) => {
+            Item::Repeat(repeat, styles) => {
                 let before = offset;
                 let fill = Fr::one().share(fr, remaining);
                 let size = Size::new(fill, regions.base.y);
                 let pod = Regions::one(size, regions.base, Axes::new(false, false));
-                let frame = node.layout(world, &pod, *styles)?.remove(0);
+                let frame = repeat.layout_inline(world, &pod, *styles)?.remove(0);
                 let width = frame.width();
                 let count = (fill / width).floor();
                 let remaining = fill % width;

@@ -80,7 +80,7 @@ impl PageNode {
 
         let mut child = self.0.clone();
 
-        // Realize columns with columns node.
+        // Realize columns.
         let columns = styles.get(Self::COLUMNS);
         if columns.get() > 1 {
             child = ColumnsNode { columns, child: self.0.clone() }.pack();

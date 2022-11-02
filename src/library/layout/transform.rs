@@ -1,16 +1,16 @@
 use crate::geom::Transform;
 use crate::library::prelude::*;
 
-/// Move a node without affecting layout.
+/// Move content without affecting layout.
 #[derive(Debug, Hash)]
 pub struct MoveNode {
-    /// The offset by which to move the node.
+    /// The offset by which to move the content.
     pub delta: Axes<Rel<Length>>,
-    /// The node whose contents should be moved.
+    /// The content that should be moved.
     pub child: Content,
 }
 
-#[node(Layout)]
+#[node(LayoutInline)]
 impl MoveNode {
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         let dx = args.named("dx")?.unwrap_or_default();
@@ -23,8 +23,8 @@ impl MoveNode {
     }
 }
 
-impl Layout for MoveNode {
-    fn layout(
+impl LayoutInline for MoveNode {
+    fn layout_inline(
         &self,
         world: Tracked<dyn World>,
         regions: &Regions,
@@ -40,28 +40,24 @@ impl Layout for MoveNode {
 
         Ok(frames)
     }
-
-    fn level(&self) -> Level {
-        Level::Inline
-    }
 }
 
-/// Transform a node without affecting layout.
+/// Transform content without affecting layout.
 #[derive(Debug, Hash)]
 pub struct TransformNode<const T: TransformKind> {
-    /// Transformation to apply to the contents.
+    /// Transformation to apply to the content.
     pub transform: Transform,
-    /// The node whose contents should be transformed.
+    /// The content that should be transformed.
     pub child: Content,
 }
 
-/// Rotate a node without affecting layout.
+/// Rotate content without affecting layout.
 pub type RotateNode = TransformNode<ROTATE>;
 
-/// Scale a node without affecting layout.
+/// Scale content without affecting layout.
 pub type ScaleNode = TransformNode<SCALE>;
 
-#[node(Layout)]
+#[node(LayoutInline)]
 impl<const T: TransformKind> TransformNode<T> {
     /// The origin of the transformation.
     #[property(resolve)]
@@ -85,8 +81,8 @@ impl<const T: TransformKind> TransformNode<T> {
     }
 }
 
-impl<const T: TransformKind> Layout for TransformNode<T> {
-    fn layout(
+impl<const T: TransformKind> LayoutInline for TransformNode<T> {
+    fn layout_inline(
         &self,
         world: Tracked<dyn World>,
         regions: &Regions,
@@ -105,10 +101,6 @@ impl<const T: TransformKind> Layout for TransformNode<T> {
         }
 
         Ok(frames)
-    }
-
-    fn level(&self) -> Level {
-        Level::Inline
     }
 }
 

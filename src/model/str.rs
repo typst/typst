@@ -5,8 +5,9 @@ use std::ops::{Add, AddAssign, Deref};
 
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::{Array, Dict, RawAlign, Value};
+use super::{Array, Dict, Value};
 use crate::diag::StrResult;
+use crate::library::RawAlign;
 use crate::util::EcoString;
 
 /// Create a new [`Str`] from a format string.

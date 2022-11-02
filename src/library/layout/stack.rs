@@ -3,7 +3,7 @@ use crate::library::prelude::*;
 use crate::library::text::ParNode;
 use crate::model::StyledNode;
 
-/// Arrange nodes and spacing along an axis.
+/// Arrange content and spacing along an axis.
 #[derive(Debug, Hash)]
 pub struct StackNode {
     /// The stacking direction.
@@ -14,7 +14,7 @@ pub struct StackNode {
     pub children: Vec<StackChild>,
 }
 
-#[node(Layout)]
+#[node(LayoutBlock)]
 impl StackNode {
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self {
@@ -26,8 +26,8 @@ impl StackNode {
     }
 }
 
-impl Layout for StackNode {
-    fn layout(
+impl LayoutBlock for StackNode {
+    fn layout_block(
         &self,
         world: Tracked<dyn World>,
         regions: &Regions,
@@ -35,7 +35,7 @@ impl Layout for StackNode {
     ) -> SourceResult<Vec<Frame>> {
         let mut layouter = StackLayouter::new(self.dir, regions, styles);
 
-        // Spacing to insert before the next node.
+        // Spacing to insert before the next block.
         let mut deferred = None;
 
         for child in &self.children {
@@ -44,12 +44,12 @@ impl Layout for StackNode {
                     layouter.layout_spacing(*kind);
                     deferred = None;
                 }
-                StackChild::Node(node) => {
+                StackChild::Block(block) => {
                     if let Some(kind) = deferred {
                         layouter.layout_spacing(kind);
                     }
 
-                    layouter.layout_node(world, node, styles)?;
+                    layouter.layout_block(world, block, styles)?;
                     deferred = self.spacing;
                 }
             }
@@ -57,26 +57,22 @@ impl Layout for StackNode {
 
         Ok(layouter.finish())
     }
-
-    fn level(&self) -> Level {
-        Level::Block
-    }
 }
 
 /// A child of a stack node.
 #[derive(Hash)]
 pub enum StackChild {
-    /// Spacing between other nodes.
+    /// Spacing between other children.
     Spacing(Spacing),
-    /// An arbitrary node.
-    Node(Content),
+    /// Arbitrary block-level content.
+    Block(Content),
 }
 
 impl Debug for StackChild {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::Spacing(kind) => kind.fmt(f),
-            Self::Node(node) => node.fmt(f),
+            Self::Block(block) => block.fmt(f),
         }
     }
 }
@@ -88,7 +84,7 @@ castable! {
     Value::Ratio(v) => Self::Spacing(Spacing::Relative(v.into())),
     Value::Relative(v) => Self::Spacing(Spacing::Relative(v)),
     Value::Fraction(v) => Self::Spacing(Spacing::Fractional(v)),
-    Value::Content(v) => Self::Node(v),
+    Value::Content(v) => Self::Block(v),
 }
 
 /// Performs stack layout.
@@ -122,7 +118,7 @@ enum StackItem {
     Absolute(Abs),
     /// Fractional spacing between other items.
     Fractional(Fr),
-    /// A frame for a layouted child node.
+    /// A frame for a layouted block.
     Frame(Frame, Align),
 }
 
@@ -171,11 +167,11 @@ impl<'a> StackLayouter<'a> {
         }
     }
 
-    /// Layout an arbitrary node.
-    pub fn layout_node(
+    /// Layout an arbitrary block.
+    pub fn layout_block(
         &mut self,
         world: Tracked<dyn World>,
-        node: &Content,
+        block: &Content,
         styles: StyleChain,
     ) -> SourceResult<()> {
         if self.regions.is_full() {
@@ -184,12 +180,12 @@ impl<'a> StackLayouter<'a> {
 
         // Block-axis alignment of the `AlignNode` is respected
         // by the stack node.
-        let align = node
+        let align = block
             .downcast::<AlignNode>()
             .and_then(|node| node.aligns.get(self.axis))
             .map(|align| align.resolve(styles))
             .unwrap_or_else(|| {
-                if let Some(styled) = node.downcast::<StyledNode>() {
+                if let Some(styled) = block.downcast::<StyledNode>() {
                     let map = &styled.map;
                     if map.contains(ParNode::ALIGN) {
                         return StyleChain::with_root(map).get(ParNode::ALIGN);
@@ -199,7 +195,7 @@ impl<'a> StackLayouter<'a> {
                 self.dir.start().into()
             });
 
-        let frames = node.layout_block(world, &self.regions, styles)?;
+        let frames = block.layout_block(world, &self.regions, styles)?;
         let len = frames.len();
         for (i, mut frame) in frames.into_iter().enumerate() {
             // Set the generic block role.

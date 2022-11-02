@@ -1,18 +1,18 @@
 use crate::library::prelude::*;
 
-/// Hide a node without affecting layout.
+/// Hide content without affecting layout.
 #[derive(Debug, Hash)]
 pub struct HideNode(pub Content);
 
-#[node(Layout)]
+#[node(LayoutInline)]
 impl HideNode {
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self(args.expect("body")?).pack())
     }
 }
 
-impl Layout for HideNode {
-    fn layout(
+impl LayoutInline for HideNode {
+    fn layout_inline(
         &self,
         world: Tracked<dyn World>,
         regions: &Regions,
@@ -23,9 +23,5 @@ impl Layout for HideNode {
             frame.clear();
         }
         Ok(frames)
-    }
-
-    fn level(&self) -> Level {
-        Level::Inline
     }
 }

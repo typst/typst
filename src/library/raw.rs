@@ -1,8 +1,8 @@
 use std::fmt::{self, Debug, Formatter};
 
-use super::{Fold, Resolve, Smart, StyleChain, Value};
 use crate::geom::{Abs, Align, Axes, Axis, Get, Length, Paint, Stroke};
 use crate::library::text::TextNode;
+use crate::model::{Fold, Resolve, Smart, StyleChain, Value};
 
 /// The unresolved alignment representation.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]

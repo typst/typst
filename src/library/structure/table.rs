@@ -8,7 +8,7 @@ pub struct TableNode {
     pub tracks: Axes<Vec<TrackSizing>>,
     /// Defines sizing of gutter rows and columns between content.
     pub gutter: Axes<Vec<TrackSizing>>,
-    /// The nodes to be arranged in the table.
+    /// The content to be arranged in the table.
     pub cells: Vec<Content>,
 }
 

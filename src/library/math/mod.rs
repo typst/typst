@@ -36,7 +36,7 @@ pub enum MathNode {
     Row(Arc<Vec<MathNode>>, Span),
 }
 
-#[node(Show, Layout)]
+#[node(Show, LayoutInline)]
 impl MathNode {
     /// The math font family.
     #[property(referenced)]
@@ -67,6 +67,15 @@ impl MathNode {
 
         self
     }
+
+    /// Whether the formula is display level.
+    pub fn display(&self) -> bool {
+        if let Self::Row(row, _) = self {
+            matches!(row.as_slice(), [MathNode::Space, .., MathNode::Space])
+        } else {
+            false
+        }
+    }
 }
 
 impl Show for MathNode {
@@ -79,11 +88,10 @@ impl Show for MathNode {
     }
 
     fn realize(&self, _: Tracked<dyn World>, _: StyleChain) -> SourceResult<Content> {
-        Ok(match self.level() {
-            Level::Inline => self.clone().pack(),
-            Level::Block => {
-                self.clone().pack().aligned(Axes::with_x(Some(Align::Center.into())))
-            }
+        Ok(if self.display() {
+            self.clone().pack().aligned(Axes::with_x(Some(Align::Center.into())))
+        } else {
+            self.clone().pack()
         })
     }
 
@@ -93,43 +101,28 @@ impl Show for MathNode {
         styles: StyleChain,
         realized: Content,
     ) -> SourceResult<Content> {
-        Ok(match self.level() {
-            Level::Inline => realized,
-            Level::Block => {
-                realized.spaced(styles.get(Self::ABOVE), styles.get(Self::BELOW))
-            }
+        Ok(if self.display() {
+            realized.spaced(styles.get(Self::ABOVE), styles.get(Self::BELOW))
+        } else {
+            realized
         })
     }
 }
 
-impl Layout for MathNode {
-    fn layout(
+impl LayoutInline for MathNode {
+    fn layout_inline(
         &self,
         world: Tracked<dyn World>,
         _: &Regions,
         styles: StyleChain,
     ) -> SourceResult<Vec<Frame>> {
-        let style = match self.level() {
-            Level::Inline => Style::Text,
-            Level::Block => Style::Display,
-        };
-
+        let style = if self.display() { Style::Display } else { Style::Text };
         let span = match self {
             &Self::Row(_, span) => span,
             _ => Span::detached(),
         };
 
         Ok(vec![layout_tex(world, self, span, style, styles)?])
-    }
-
-    fn level(&self) -> Level {
-        if let Self::Row(row, _) = self {
-            if matches!(row.as_slice(), [MathNode::Space, .., MathNode::Space]) {
-                return Level::Block;
-            }
-        }
-
-        Level::Inline
     }
 }
 

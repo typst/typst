@@ -9,7 +9,7 @@ pub struct LineNode {
     delta: Axes<Rel<Length>>,
 }
 
-#[node(Layout)]
+#[node(LayoutInline)]
 impl LineNode {
     /// How to stroke the line.
     #[property(resolve, fold)]
@@ -36,8 +36,8 @@ impl LineNode {
     }
 }
 
-impl Layout for LineNode {
-    fn layout(
+impl LayoutInline for LineNode {
+    fn layout_inline(
         &self,
         _: Tracked<dyn World>,
         regions: &Regions,
@@ -64,10 +64,6 @@ impl Layout for LineNode {
         frame.push(origin.to_point(), Element::Shape(shape));
 
         Ok(vec![frame])
-    }
-
-    fn level(&self) -> Level {
-        Level::Inline
     }
 }
 

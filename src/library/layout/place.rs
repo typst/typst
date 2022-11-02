@@ -1,11 +1,11 @@
 use super::AlignNode;
 use crate::library::prelude::*;
 
-/// Place a node at an absolute position.
+/// Place content at an absolute position.
 #[derive(Debug, Hash)]
 pub struct PlaceNode(pub Content);
 
-#[node(Layout)]
+#[node(LayoutBlock)]
 impl PlaceNode {
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         let aligns = args.find()?.unwrap_or(Axes::with_x(Some(RawAlign::Start)));
@@ -16,8 +16,8 @@ impl PlaceNode {
     }
 }
 
-impl Layout for PlaceNode {
-    fn layout(
+impl LayoutBlock for PlaceNode {
+    fn layout_block(
         &self,
         world: Tracked<dyn World>,
         regions: &Regions,
@@ -41,10 +41,6 @@ impl Layout for PlaceNode {
         frames[0].resize(target, Align::LEFT_TOP);
 
         Ok(frames)
-    }
-
-    fn level(&self) -> Level {
-        Level::Block
     }
 }
 

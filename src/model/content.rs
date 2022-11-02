@@ -5,18 +5,12 @@ use std::iter::{self, Sum};
 use std::ops::{Add, AddAssign};
 use std::sync::Arc;
 
-use comemo::Tracked;
 use siphasher::sip128::{Hasher128, SipHasher};
 use typst_macros::node;
 
-use super::{
-    Args, Barrier, Builder, Key, Layout, Level, Property, Regions, Scratch, Selector,
-    StyleChain, StyleEntry, StyleMap, Vm,
-};
+use super::{Args, Key, Property, Selector, StyleEntry, StyleMap, Vm};
 use crate::diag::{SourceResult, StrResult};
-use crate::frame::Frame;
 use crate::util::ReadableTypeId;
-use crate::World;
 
 /// Composable representation of styled content.
 ///
@@ -40,22 +34,27 @@ impl Content {
         }
     }
 
+    /// Whether the content is empty.
     pub fn is_empty(&self) -> bool {
         self.downcast::<SequenceNode>().map_or(false, |seq| seq.0.is_empty())
     }
 
+    /// The id of the contained node.
     pub fn id(&self) -> NodeId {
         (*self.0).id()
     }
 
+    /// Whether the contained node is of type `T`.
     pub fn is<T: 'static>(&self) -> bool {
         (*self.0).as_any().is::<T>()
     }
 
+    /// Cast to `T` if the contained node is of type `T`.
     pub fn downcast<T: 'static>(&self) -> Option<&T> {
         (*self.0).as_any().downcast_ref::<T>()
     }
 
+    /// Try to cast to a mutable instance of `T`.
     fn try_downcast_mut<T: 'static>(&mut self) -> Option<&mut T> {
         Arc::get_mut(&mut self.0)?.as_any_mut().downcast_mut::<T>()
     }
@@ -119,51 +118,6 @@ impl Content {
     /// Reenable the show rule identified by the selector.
     pub fn unguard(&self, sel: Selector) -> Self {
         self.clone().styled_with_entry(StyleEntry::Unguard(sel))
-    }
-
-    #[comemo::memoize]
-    pub fn layout_block(
-        &self,
-        world: Tracked<dyn World>,
-        regions: &Regions,
-        styles: StyleChain,
-    ) -> SourceResult<Vec<Frame>> {
-        let barrier = StyleEntry::Barrier(Barrier::new(self.id()));
-        let styles = barrier.chain(&styles);
-
-        if let Some(node) = self.to::<dyn Layout>() {
-            if node.level() == Level::Block {
-                return node.layout(world, regions, styles);
-            }
-        }
-
-        let scratch = Scratch::default();
-        let mut builder = Builder::new(world, &scratch, false);
-        builder.accept(self, styles)?;
-        let (flow, shared) = builder.into_flow(styles)?;
-        flow.layout(world, regions, shared)
-    }
-
-
-    #[comemo::memoize]
-    pub fn layout_inline(
-        &self,
-        world: Tracked<dyn World>,
-        regions: &Regions,
-        styles: StyleChain,
-    ) -> SourceResult<Vec<Frame>> {
-        let barrier = StyleEntry::Barrier(Barrier::new(self.id()));
-        let styles = barrier.chain(&styles);
-
-        if let Some(node) = self.to::<dyn Layout>() {
-            return node.layout(world, regions, styles);
-        }
-
-        let scratch = Scratch::default();
-        let mut builder = Builder::new(world, &scratch, false);
-        builder.accept(self, styles)?;
-        let (flow, shared) = builder.into_flow(styles)?;
-        flow.layout(world, regions, shared)
     }
 }
 
@@ -293,6 +247,11 @@ pub trait Node: 'static {
     fn vtable(&self, id: TypeId) -> Option<*const ()>;
 }
 
+/// A capability a node can have.
+///
+/// This is implemented by trait objects.
+pub trait Capability: 'static + Send + Sync {}
+
 /// A unique identifier for a node.
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct NodeId(ReadableTypeId);
@@ -310,15 +269,12 @@ impl Debug for NodeId {
     }
 }
 
-/// A capability a node can have.
-///
-/// This is implemented by trait objects.
-pub trait Capability: 'static + Send + Sync {}
-
 /// A node with applied styles.
 #[derive(Clone, Hash)]
 pub struct StyledNode {
+    /// The styled content.
     pub sub: Content,
+    /// The styles.
     pub map: StyleMap,
 }
 

@@ -1,15 +1,15 @@
 use crate::library::prelude::*;
 
-/// An inline-level container that sizes content and places it into a paragraph.
+/// An inline-level container that sizes content.
 #[derive(Debug, Clone, Hash)]
 pub struct BoxNode {
-    /// How to size the node horizontally and vertically.
+    /// How to size the content horizontally and vertically.
     pub sizing: Axes<Option<Rel<Length>>>,
-    /// The node to be sized.
+    /// The content to be sized.
     pub child: Content,
 }
 
-#[node(Layout)]
+#[node(LayoutInline)]
 impl BoxNode {
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         let width = args.named("width")?;
@@ -19,8 +19,8 @@ impl BoxNode {
     }
 }
 
-impl Layout for BoxNode {
-    fn layout(
+impl LayoutInline for BoxNode {
+    fn layout_inline(
         &self,
         world: Tracked<dyn World>,
         regions: &Regions,
@@ -55,34 +55,26 @@ impl Layout for BoxNode {
 
         Ok(frames)
     }
-
-    fn level(&self) -> Level {
-        Level::Inline
-    }
 }
 
 /// A block-level container that places content into a separate flow.
 #[derive(Debug, Clone, Hash)]
 pub struct BlockNode(pub Content);
 
-#[node(Layout)]
+#[node(LayoutBlock)]
 impl BlockNode {
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self(args.eat()?.unwrap_or_default()).pack())
     }
 }
 
-impl Layout for BlockNode {
-    fn layout(
+impl LayoutBlock for BlockNode {
+    fn layout_block(
         &self,
         world: Tracked<dyn World>,
         regions: &Regions,
         styles: StyleChain,
     ) -> SourceResult<Vec<Frame>> {
         self.0.layout_block(world, regions, styles)
-    }
-
-    fn level(&self) -> Level {
-        Level::Block
     }
 }

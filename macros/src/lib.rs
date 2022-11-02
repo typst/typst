@@ -8,17 +8,31 @@ use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::{Error, Ident, Result};
 
-/// Turn a struct into a node / a function with settable properties.
+/// Implement `Capability` for a trait.
+#[proc_macro_attribute]
+pub fn capability(_: TokenStream, item: TokenStream) -> TokenStream {
+    let item_trait = syn::parse_macro_input!(item as syn::ItemTrait);
+    let name = &item_trait.ident;
+    quote! {
+        #item_trait
+        impl crate::model::Capability for dyn #name {}
+    }.into()
+}
+
+/// Implement `Node` for a struct.
 #[proc_macro_attribute]
 pub fn node(stream: TokenStream, item: TokenStream) -> TokenStream {
     let impl_block = syn::parse_macro_input!(item as syn::ItemImpl);
-    expand(stream.into(), impl_block)
+    expand_node(stream.into(), impl_block)
         .unwrap_or_else(|err| err.to_compile_error())
         .into()
 }
 
 /// Expand an impl block for a node.
-fn expand(stream: TokenStream2, mut impl_block: syn::ItemImpl) -> Result<TokenStream2> {
+fn expand_node(
+    stream: TokenStream2,
+    mut impl_block: syn::ItemImpl,
+) -> Result<TokenStream2> {
     // Split the node type into name and generic type arguments.
     let params = &impl_block.generics.params;
     let self_ty = &*impl_block.self_ty;

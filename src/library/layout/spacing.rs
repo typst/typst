@@ -78,7 +78,7 @@ castable! {
     Value::Fraction(v) => Self::Fractional(v),
 }
 
-/// Spacing around and between block-level nodes, relative to paragraph spacing.
+/// Spacing around and between blocks, relative to paragraph spacing.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct BlockSpacing(Rel<Length>);
 

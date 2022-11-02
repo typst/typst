@@ -3,23 +3,23 @@ use std::f64::consts::SQRT_2;
 use crate::library::prelude::*;
 use crate::library::text::TextNode;
 
-/// Place a node into a sizable and fillable shape.
+/// A sizable and fillable shape with optional content.
 #[derive(Debug, Hash)]
 pub struct ShapeNode<const S: ShapeKind>(pub Option<Content>);
 
-/// Place a node into a square.
+/// A square with optional content.
 pub type SquareNode = ShapeNode<SQUARE>;
 
-/// Place a node into a rectangle.
+/// A rectangle with optional content.
 pub type RectNode = ShapeNode<RECT>;
 
-/// Place a node into a circle.
+/// A circle with optional content.
 pub type CircleNode = ShapeNode<CIRCLE>;
 
-/// Place a node into an ellipse.
+/// A ellipse with optional content.
 pub type EllipseNode = ShapeNode<ELLIPSE>;
 
-#[node(Layout)]
+#[node(LayoutInline)]
 impl<const S: ShapeKind> ShapeNode<S> {
     /// How to fill the shape.
     pub const FILL: Option<Paint> = None;
@@ -72,8 +72,8 @@ impl<const S: ShapeKind> ShapeNode<S> {
     }
 }
 
-impl<const S: ShapeKind> Layout for ShapeNode<S> {
-    fn layout(
+impl<const S: ShapeKind> LayoutInline for ShapeNode<S> {
+    fn layout_inline(
         &self,
         world: Tracked<dyn World>,
         regions: &Regions,
@@ -172,10 +172,6 @@ impl<const S: ShapeKind> Layout for ShapeNode<S> {
         }
 
         Ok(frames)
-    }
-
-    fn level(&self) -> Level {
-        Level::Inline
     }
 }
 

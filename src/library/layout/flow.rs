@@ -4,7 +4,7 @@ use super::{AlignNode, PlaceNode, Spacing};
 use crate::library::prelude::*;
 use crate::library::text::ParNode;
 
-/// Arrange spacing, paragraphs and other block-level nodes into a flow.
+/// Arrange spacing, paragraphs and block-level nodes into a flow.
 ///
 /// This node is reponsible for layouting both the top-level content flow and
 /// the contents of boxes.
@@ -16,17 +16,17 @@ pub struct FlowNode(pub StyleVec<FlowChild>);
 pub enum FlowChild {
     /// Vertical spacing between other children.
     Spacing(Spacing),
-    /// An arbitrary block-level node.
-    Node(Content),
+    /// Arbitrary block-level content.
+    Block(Content),
     /// A column / region break.
     Colbreak,
 }
 
-#[node(Layout)]
+#[node(LayoutBlock)]
 impl FlowNode {}
 
-impl Layout for FlowNode {
-    fn layout(
+impl LayoutBlock for FlowNode {
+    fn layout_block(
         &self,
         world: Tracked<dyn World>,
         regions: &Regions,
@@ -40,8 +40,8 @@ impl Layout for FlowNode {
                 FlowChild::Spacing(kind) => {
                     layouter.layout_spacing(*kind, styles);
                 }
-                FlowChild::Node(ref node) => {
-                    layouter.layout_node(world, node, styles)?;
+                FlowChild::Block(block) => {
+                    layouter.layout_block(world, block, styles)?;
                 }
                 FlowChild::Colbreak => {
                     layouter.finish_region();
@@ -50,10 +50,6 @@ impl Layout for FlowNode {
         }
 
         Ok(layouter.finish())
-    }
-
-    fn level(&self) -> Level {
-        Level::Block
     }
 }
 
@@ -68,7 +64,7 @@ impl Debug for FlowChild {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::Spacing(kind) => write!(f, "{:?}", kind),
-            Self::Node(node) => node.fmt(f),
+            Self::Block(block) => block.fmt(f),
             Self::Colbreak => f.pad("Colbreak"),
         }
     }
@@ -96,7 +92,7 @@ pub struct FlowLayouter {
     used: Size,
     /// The sum of fractions in the current region.
     fr: Fr,
-    /// Spacing and layouted nodes.
+    /// Spacing and layouted blocks.
     items: Vec<FlowItem>,
     /// Finished frames for previous regions.
     finished: Vec<Frame>,
@@ -108,7 +104,7 @@ enum FlowItem {
     Absolute(Abs),
     /// Fractional spacing between other items.
     Fractional(Fr),
-    /// A frame for a layouted child node and how to align it.
+    /// A frame for a layouted block and how to align it.
     Frame(Frame, Axes<Align>),
     /// An absolutely placed frame.
     Placed(Frame),
@@ -153,11 +149,11 @@ impl FlowLayouter {
         }
     }
 
-    /// Layout a node.
-    pub fn layout_node(
+    /// Layout a block.
+    pub fn layout_block(
         &mut self,
         world: Tracked<dyn World>,
-        node: &Content,
+        block: &Content,
         styles: StyleChain,
     ) -> SourceResult<()> {
         // Don't even try layouting into a full region.
@@ -167,27 +163,28 @@ impl FlowLayouter {
 
         // Placed nodes that are out of flow produce placed items which aren't
         // aligned later.
-        if let Some(placed) = node.downcast::<PlaceNode>() {
+        if let Some(placed) = block.downcast::<PlaceNode>() {
             if placed.out_of_flow() {
-                let frame = node.layout_block(world, &self.regions, styles)?.remove(0);
+                let frame = block.layout_block(world, &self.regions, styles)?.remove(0);
                 self.items.push(FlowItem::Placed(frame));
                 return Ok(());
             }
         }
 
-        // How to align the node.
+        // How to align the block.
         let aligns = Axes::new(
             // For non-expanding paragraphs it is crucial that we align the
             // whole paragraph as it is itself aligned.
             styles.get(ParNode::ALIGN),
-            // Vertical align node alignment is respected by the flow node.
-            node.downcast::<AlignNode>()
+            // Vertical align node alignment is respected by the flow.
+            block
+                .downcast::<AlignNode>()
                 .and_then(|aligned| aligned.aligns.y)
                 .map(|align| align.resolve(styles))
                 .unwrap_or(Align::Top),
         );
 
-        let frames = node.layout_block(world, &self.regions, styles)?;
+        let frames = block.layout_block(world, &self.regions, styles)?;
         let len = frames.len();
         for (i, mut frame) in frames.into_iter().enumerate() {
             // Set the generic block role.

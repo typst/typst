@@ -1,17 +1,17 @@
 use crate::library::prelude::*;
 
-/// Arrange nodes in a grid.
+/// Arrange content in a grid.
 #[derive(Debug, Hash)]
 pub struct GridNode {
     /// Defines sizing for content rows and columns.
     pub tracks: Axes<Vec<TrackSizing>>,
     /// Defines sizing of gutter rows and columns between content.
     pub gutter: Axes<Vec<TrackSizing>>,
-    /// The nodes to be arranged in a grid.
+    /// The content to be arranged in a grid.
     pub cells: Vec<Content>,
 }
 
-#[node(Layout)]
+#[node(LayoutBlock)]
 impl GridNode {
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         let columns = args.named("columns")?.unwrap_or_default();
@@ -31,8 +31,8 @@ impl GridNode {
     }
 }
 
-impl Layout for GridNode {
-    fn layout(
+impl LayoutBlock for GridNode {
+    fn layout_block(
         &self,
         world: Tracked<dyn World>,
         regions: &Regions,
@@ -50,10 +50,6 @@ impl Layout for GridNode {
 
         // Measure the columns and layout the grid row-by-row.
         layouter.layout()
-    }
-
-    fn level(&self) -> Level {
-        Level::Block
     }
 }
 
@@ -293,7 +289,7 @@ impl<'a> GridLayouter<'a> {
 
             let mut resolved = Abs::zero();
             for y in 0 .. self.rows.len() {
-                if let Some(node) = self.cell(x, y) {
+                if let Some(cell) = self.cell(x, y) {
                     let size = Size::new(available, self.regions.base.y);
                     let mut pod =
                         Regions::one(size, self.regions.base, Axes::splat(false));
@@ -307,7 +303,7 @@ impl<'a> GridLayouter<'a> {
                     }
 
                     let frame =
-                        node.layout_block(self.world, &pod, self.styles)?.remove(0);
+                        cell.layout_block(self.world, &pod, self.styles)?.remove(0);
                     resolved.set_max(frame.width());
                 }
             }
@@ -366,7 +362,7 @@ impl<'a> GridLayouter<'a> {
 
         // Determine the size for each region of the row.
         for (x, &rcol) in self.rcols.iter().enumerate() {
-            if let Some(node) = self.cell(x, y) {
+            if let Some(cell) = self.cell(x, y) {
                 let mut pod = self.regions.clone();
                 pod.first.x = rcol;
                 pod.base.x = rcol;
@@ -376,7 +372,7 @@ impl<'a> GridLayouter<'a> {
                     pod.base.x = self.regions.base.x;
                 }
 
-                let mut sizes = node
+                let mut sizes = cell
                     .layout_block(self.world, &pod, self.styles)?
                     .into_iter()
                     .map(|frame| frame.height());
@@ -456,7 +452,7 @@ impl<'a> GridLayouter<'a> {
         let mut pos = Point::zero();
 
         for (x, &rcol) in self.rcols.iter().enumerate() {
-            if let Some(node) = self.cell(x, y) {
+            if let Some(cell) = self.cell(x, y) {
                 let size = Size::new(rcol, height);
 
                 // Set the base to the region's base for auto rows and to the
@@ -466,7 +462,7 @@ impl<'a> GridLayouter<'a> {
                     .select(self.regions.base, size);
 
                 let pod = Regions::one(size, base, Axes::splat(true));
-                let frame = node.layout_block(self.world, &pod, self.styles)?.remove(0);
+                let frame = cell.layout_block(self.world, &pod, self.styles)?.remove(0);
                 match frame.role() {
                     Some(Role::ListLabel | Role::ListItemBody) => {
                         output.apply_role(Role::ListItem)
@@ -504,7 +500,7 @@ impl<'a> GridLayouter<'a> {
         // Layout the row.
         let mut pos = Point::zero();
         for (x, &rcol) in self.rcols.iter().enumerate() {
-            if let Some(node) = self.cell(x, y) {
+            if let Some(cell) = self.cell(x, y) {
                 pod.first.x = rcol;
                 pod.base.x = rcol;
 
@@ -514,7 +510,7 @@ impl<'a> GridLayouter<'a> {
                 }
 
                 // Push the layouted frames into the individual output frames.
-                let frames = node.layout_block(self.world, &pod, self.styles)?;
+                let frames = cell.layout_block(self.world, &pod, self.styles)?;
                 for (output, frame) in outputs.iter_mut().zip(frames) {
                     match frame.role() {
                         Some(Role::ListLabel | Role::ListItemBody) => {
@@ -578,7 +574,7 @@ impl<'a> GridLayouter<'a> {
         Ok(())
     }
 
-    /// Get the node in the cell in column `x` and row `y`.
+    /// Get the content of the cell in column `x` and row `y`.
     ///
     /// Returns `None` if it's a gutter cell.
     #[track_caller]

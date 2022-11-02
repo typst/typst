@@ -1,15 +1,15 @@
 use crate::library::prelude::*;
 
-/// Pad a node at the sides.
+/// Pad content at the sides.
 #[derive(Debug, Hash)]
 pub struct PadNode {
     /// The amount of padding.
     pub padding: Sides<Rel<Length>>,
-    /// The child node whose sides to pad.
+    /// The content whose sides to pad.
     pub child: Content,
 }
 
-#[node(Layout)]
+#[node(LayoutBlock)]
 impl PadNode {
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         let all = args.named("rest")?.or(args.find()?);
@@ -25,8 +25,8 @@ impl PadNode {
     }
 }
 
-impl Layout for PadNode {
-    fn layout(
+impl LayoutBlock for PadNode {
+    fn layout_block(
         &self,
         world: Tracked<dyn World>,
         regions: &Regions,
@@ -50,10 +50,6 @@ impl Layout for PadNode {
         }
 
         Ok(frames)
-    }
-
-    fn level(&self) -> Level {
-        Level::Block
     }
 }
 
