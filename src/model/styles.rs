@@ -7,12 +7,11 @@ use std::sync::Arc;
 
 use comemo::{Prehashed, Tracked};
 
-use super::{capability, Args, Content, Func, Node, NodeId, Regex, Smart, Value};
+use super::{capability, Args, Content, Func, NodeId, Regex, Smart, Value};
 use crate::diag::SourceResult;
-use crate::geom::{Abs, Axes, Corners, Em, Length, Numeric, Rel, Sides};
-use crate::library::layout::PageNode;
-use crate::library::structure::{DescNode, EnumNode, ListNode};
-use crate::library::text::{ParNode, TextNode};
+use crate::geom::{
+    Abs, Align, Axes, Corners, Em, GenAlign, Length, Numeric, PartialStroke, Rel, Sides,
+};
 use crate::syntax::Spanned;
 use crate::util::ReadableTypeId;
 use crate::World;
@@ -111,9 +110,9 @@ impl StyleMap {
         self
     }
 
-    /// The highest-level kind of of structure the map interrupts.
-    pub fn interruption(&self) -> Option<Interruption> {
-        self.0.iter().filter_map(|entry| entry.interruption()).max()
+    /// Whether this map contains styles for the given `node.`
+    pub fn interrupts<T: 'static>(&self) -> bool {
+        self.0.iter().any(|entry| entry.is_of(NodeId::of::<T>()))
     }
 }
 
@@ -130,17 +129,6 @@ impl Debug for StyleMap {
         }
         Ok(())
     }
-}
-
-/// Determines whether a style could interrupt some composable structure.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub enum Interruption {
-    /// The style forces a list break.
-    List,
-    /// The style forces a paragraph break.
-    Par,
-    /// The style forces a page break.
-    Page,
 }
 
 /// An entry for a single style property, recipe or barrier.
@@ -193,12 +181,12 @@ impl StyleEntry {
         }
     }
 
-    /// The highest-level kind of structure the entry interrupts.
-    pub fn interruption(&self) -> Option<Interruption> {
+    /// Whether this entry contains styles for the given `node.`
+    pub fn is_of(&self, node: NodeId) -> bool {
         match self {
-            Self::Property(property) => property.interruption(),
-            Self::Recipe(recipe) => recipe.interruption(),
-            _ => None,
+            Self::Property(property) => property.is_of(node),
+            Self::Recipe(recipe) => recipe.is_of(node),
+            _ => false,
         }
     }
 }
@@ -397,7 +385,7 @@ impl<'a, K: Key<'a>> Iterator for Values<'a, K> {
     type Item = &'a K::Value;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(entry) = self.entries.next() {
+        for entry in &mut self.entries {
             match entry {
                 StyleEntry::Property(property) => {
                     if let Some(value) = property.downcast::<K>() {
@@ -662,9 +650,9 @@ impl Property {
         self.key == KeyId::of::<K>()
     }
 
-    /// Whether this property belongs to the node `T`.
-    pub fn is_of<T: 'static>(&self) -> bool {
-        self.node == NodeId::of::<T>()
+    /// Whether this property belongs to the node with the given id.
+    pub fn is_of(&self, node: NodeId) -> bool {
+        self.node == node
     }
 
     /// Access the property's value if it is of the given key.
@@ -689,22 +677,6 @@ impl Property {
     /// Make the property scoped.
     pub fn make_scoped(&mut self) {
         self.scoped = true;
-    }
-
-    /// What kind of structure the property interrupts.
-    pub fn interruption(&self) -> Option<Interruption> {
-        if self.is_of::<PageNode>() {
-            Some(Interruption::Page)
-        } else if self.is_of::<ParNode>() {
-            Some(Interruption::Par)
-        } else if self.is_of::<ListNode>()
-            || self.is_of::<EnumNode>()
-            || self.is_of::<DescNode>()
-        {
-            Some(Interruption::List)
-        } else {
-            None
-        }
     }
 }
 
@@ -826,7 +798,7 @@ impl Resolve for Em {
         if self.is_zero() {
             Abs::zero()
         } else {
-            self.at(styles.get(TextNode::SIZE))
+            self.at(item!(em)(styles))
         }
     }
 }
@@ -888,6 +860,30 @@ where
 
     fn resolve(self, styles: StyleChain) -> Self::Output {
         self.map(|abs| abs.resolve(styles))
+    }
+}
+
+impl Resolve for GenAlign {
+    type Output = Align;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        let dir = item!(dir)(styles);
+        match self {
+            Self::Start => dir.start().into(),
+            Self::End => dir.end().into(),
+            Self::Specific(align) => align,
+        }
+    }
+}
+
+impl Resolve for PartialStroke {
+    type Output = PartialStroke<Abs>;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        PartialStroke {
+            paint: self.paint,
+            thickness: self.thickness.resolve(styles),
+        }
     }
 }
 
@@ -970,6 +966,17 @@ impl Fold for Corners<Option<Rel<Abs>>> {
     }
 }
 
+impl Fold for PartialStroke<Abs> {
+    type Output = Self;
+
+    fn fold(self, outer: Self::Output) -> Self::Output {
+        Self {
+            paint: self.paint.or(outer.paint),
+            thickness: self.thickness.or(outer.thickness),
+        }
+    }
+}
+
 /// A show rule recipe.
 #[derive(Clone, PartialEq, Hash)]
 pub struct Recipe {
@@ -1003,13 +1010,14 @@ impl Recipe {
             }
 
             (Target::Text(text), Pattern::Regex(regex)) => {
+                let make = world.config().items.text;
                 let mut result = vec![];
                 let mut cursor = 0;
 
                 for mat in regex.find_iter(text) {
                     let start = mat.start();
                     if cursor < start {
-                        result.push(TextNode(text[cursor .. start].into()).pack());
+                        result.push(make(text[cursor .. start].into()));
                     }
 
                     result.push(self.call(world, || Value::Str(mat.as_str().into()))?);
@@ -1021,7 +1029,7 @@ impl Recipe {
                 }
 
                 if cursor < text.len() {
-                    result.push(TextNode(text[cursor ..].into()).pack());
+                    result.push(make(text[cursor ..].into()));
                 }
 
                 Content::sequence(result)
@@ -1047,18 +1055,12 @@ impl Recipe {
         Ok(self.func.v.call_detached(world, args)?.display(world))
     }
 
-    /// What kind of structure the property interrupts.
-    pub fn interruption(&self) -> Option<Interruption> {
-        if let Pattern::Node(id) = self.pattern {
-            if id == NodeId::of::<ListNode>()
-                || id == NodeId::of::<EnumNode>()
-                || id == NodeId::of::<DescNode>()
-            {
-                return Some(Interruption::List);
-            }
+    /// Whether this recipe is for the given node.
+    pub fn is_of(&self, node: NodeId) -> bool {
+        match self.pattern {
+            Pattern::Node(id) => id == node,
+            _ => false,
         }
-
-        None
     }
 }
 

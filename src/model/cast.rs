@@ -1,8 +1,13 @@
 use std::num::NonZeroUsize;
+use std::str::FromStr;
 
 use super::{Pattern, Regex, Value};
 use crate::diag::{with_alternative, StrResult};
-use crate::geom::{Corners, Dir, Paint, Sides};
+use crate::font::{FontStretch, FontStyle, FontWeight};
+use crate::frame::{Destination, Lang, Location, Region};
+use crate::geom::{
+    Axes, Corners, Dir, GenAlign, Get, Length, Paint, PartialStroke, Point, Rel, Sides,
+};
 use crate::syntax::Spanned;
 use crate::util::EcoString;
 
@@ -16,7 +21,9 @@ pub trait Cast<V = Value>: Sized {
 }
 
 /// Implement traits for dynamic types.
-macro_rules! dynamic {
+#[macro_export]
+#[doc(hidden)]
+macro_rules! __dynamic {
     ($type:ty: $name:literal, $($tts:tt)*) => {
         impl $crate::model::Type for $type {
             const TYPE_NAME: &'static str = $name;
@@ -37,8 +44,13 @@ macro_rules! dynamic {
     };
 }
 
+#[doc(inline)]
+pub use crate::__dynamic as dynamic;
+
 /// Make a type castable from a value.
-macro_rules! castable {
+#[macro_export]
+#[doc(hidden)]
+macro_rules! __castable {
     ($type:ty: $inner:ty) => {
         impl $crate::model::Cast<$crate::model::Value> for $type {
             fn is(value: &$crate::model::Value) -> bool {
@@ -88,6 +100,9 @@ macro_rules! castable {
     };
 }
 
+#[doc(inline)]
+pub use crate::__castable as castable;
+
 impl Cast for Value {
     fn is(_: &Value) -> bool {
         true
@@ -117,14 +132,6 @@ impl<T: Cast> Cast<Spanned<Value>> for Spanned<T> {
         let span = value.span;
         T::cast(value.v).map(|t| Spanned::new(t, span))
     }
-}
-
-dynamic! {
-    Dir: "direction",
-}
-
-dynamic! {
-    Regex: "regular expression",
 }
 
 castable! {
@@ -170,12 +177,125 @@ castable! {
     Value::Str(string) => string.into(),
 }
 
+dynamic! {
+    Regex: "regular expression",
+}
+
 castable! {
     Pattern,
     Expected: "function, string or regular expression",
     Value::Func(func) => Self::Node(func.node()?),
     Value::Str(text) => Self::text(&text),
     @regex: Regex => Self::Regex(regex.clone()),
+}
+
+dynamic! {
+    Dir: "direction",
+}
+
+dynamic! {
+    GenAlign: "alignment",
+}
+
+dynamic! {
+    Axes<GenAlign>: "2d alignment",
+}
+
+castable! {
+    Axes<Option<GenAlign>>,
+    Expected: "1d or 2d alignment",
+    @align: GenAlign => {
+        let mut aligns = Axes::default();
+        aligns.set(align.axis(), Some(*align));
+        aligns
+    },
+    @aligns: Axes<GenAlign> => aligns.map(Some),
+}
+
+dynamic! {
+    PartialStroke: "stroke",
+    Value::Length(thickness) => Self {
+        paint: Smart::Auto,
+        thickness: Smart::Custom(thickness),
+    },
+    Value::Color(color) => Self {
+        paint: Smart::Custom(color.into()),
+        thickness: Smart::Auto,
+    },
+}
+
+castable! {
+    Axes<Rel<Length>>,
+    Expected: "array of two relative lengths",
+    Value::Array(array) => {
+        let mut iter = array.into_iter();
+        match (iter.next(), iter.next(), iter.next()) {
+            (Some(a), Some(b), None) => Axes::new(a.cast()?, b.cast()?),
+            _ => Err("point array must contain exactly two entries")?,
+        }
+    },
+}
+
+castable! {
+    Destination,
+    Expected: "string or dictionary with `page`, `x`, and `y` keys",
+    Value::Str(string) => Self::Url(string.into()),
+    Value::Dict(dict) => {
+        let page = dict.get("page")?.clone().cast()?;
+        let x: Length = dict.get("x")?.clone().cast()?;
+        let y: Length = dict.get("y")?.clone().cast()?;
+        Self::Internal(Location { page, pos: Point::new(x.abs, y.abs) })
+    },
+}
+
+castable! {
+    FontStyle,
+    Expected: "string",
+    Value::Str(string) => match string.as_str() {
+        "normal" => Self::Normal,
+        "italic" => Self::Italic,
+        "oblique" => Self::Oblique,
+        _ => Err(r#"expected "normal", "italic" or "oblique""#)?,
+    },
+}
+
+castable! {
+    FontWeight,
+    Expected: "integer or string",
+    Value::Int(v) => Value::Int(v)
+        .cast::<usize>()?
+        .try_into()
+        .map_or(Self::BLACK, Self::from_number),
+    Value::Str(string) => match string.as_str() {
+        "thin" => Self::THIN,
+        "extralight" => Self::EXTRALIGHT,
+        "light" => Self::LIGHT,
+        "regular" => Self::REGULAR,
+        "medium" => Self::MEDIUM,
+        "semibold" => Self::SEMIBOLD,
+        "bold" => Self::BOLD,
+        "extrabold" => Self::EXTRABOLD,
+        "black" => Self::BLACK,
+        _ => Err("unknown font weight")?,
+    },
+}
+
+castable! {
+    FontStretch,
+    Expected: "ratio",
+    Value::Ratio(v) => Self::from_ratio(v.get() as f32),
+}
+
+castable! {
+    Lang,
+    Expected: "string",
+    Value::Str(string) => Self::from_str(&string)?,
+}
+
+castable! {
+    Region,
+    Expected: "string",
+    Value::Str(string) => Self::from_str(&string)?,
 }
 
 impl<T: Cast> Cast for Option<T> {

@@ -2,11 +2,11 @@ use std::path::PathBuf;
 
 use comemo::Tracked;
 
-use super::{Content, Route, Scopes, Value};
-use crate::diag::{SourceError, StrResult};
+use super::{LangItems, Route, Scopes, Value};
+use crate::diag::{error, SourceError, StrResult};
 use crate::syntax::{SourceId, Span};
-use crate::util::{EcoString, PathExt};
-use crate::{LangItems, World};
+use crate::util::PathExt;
+use crate::World;
 
 /// A virtual machine.
 pub struct Vm<'a> {
@@ -20,6 +20,8 @@ pub struct Vm<'a> {
     pub scopes: Scopes<'a>,
     /// A control flow event that is currently happening.
     pub flow: Option<Flow>,
+    /// The language items.
+    pub items: LangItems,
 }
 
 impl<'a> Vm<'a> {
@@ -36,6 +38,7 @@ impl<'a> Vm<'a> {
             location,
             scopes,
             flow: None,
+            items: world.config().items,
         }
     }
 
@@ -53,18 +56,6 @@ impl<'a> Vm<'a> {
         }
 
         Err("cannot access file system from here".into())
-    }
-
-    /// The language items.
-    pub fn items(&self) -> &LangItems {
-        &self.world.config().items
-    }
-
-    /// Create text content.
-    ///
-    /// This is a shorthand for `(vm.items().text)(..)`.
-    pub fn text(&self, text: impl Into<EcoString>) -> Content {
-        (self.items().text)(text.into())
     }
 }
 

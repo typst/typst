@@ -170,7 +170,7 @@ bitflags::bitflags! {
 
 impl FontInfo {
     /// Compute metadata for all fonts in the given data.
-    pub fn from_data<'a>(data: &'a [u8]) -> impl Iterator<Item = FontInfo> + 'a {
+    pub fn from_data(data: &[u8]) -> impl Iterator<Item = FontInfo> + '_ {
         let count = ttf_parser::fonts_in_collection(data).unwrap_or(1);
         (0 .. count).filter_map(move |index| {
             let ttf = ttf_parser::Face::parse(data, index).ok()?;

@@ -8,7 +8,9 @@ use std::sync::Arc;
 use super::ArcExt;
 
 /// Create a new [`EcoString`] from a format string.
-macro_rules! format_eco {
+#[macro_export]
+#[doc(hidden)]
+macro_rules! __format_eco {
     ($($tts:tt)*) => {{
         use std::fmt::Write;
         let mut s = $crate::util::EcoString::new();
@@ -16,6 +18,9 @@ macro_rules! format_eco {
         s
     }};
 }
+
+#[doc(inline)]
+pub use crate::__format_eco as format_eco;
 
 /// An economical string with inline storage and clone-on-write semantics.
 #[derive(Clone)]
@@ -55,7 +60,7 @@ impl EcoString {
     }
 
     /// Create an instance from an existing string-like type.
-    pub fn from_str<S>(s: S) -> Self
+    pub fn from_str_like<S>(s: S) -> Self
     where
         S: AsRef<str> + Into<String>,
     {
@@ -324,13 +329,13 @@ impl From<char> for EcoString {
 
 impl From<&str> for EcoString {
     fn from(s: &str) -> Self {
-        Self::from_str(s)
+        Self::from_str_like(s)
     }
 }
 
 impl From<String> for EcoString {
     fn from(s: String) -> Self {
-        Self::from_str(s)
+        Self::from_str_like(s)
     }
 }
 

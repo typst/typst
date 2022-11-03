@@ -111,7 +111,7 @@ impl FontWeight {
 
     /// The absolute number distance between this and another font weight.
     pub fn distance(self, other: Self) -> u16 {
-        (self.0 as i16 - other.0 as i16).abs() as u16
+        (self.0 as i16 - other.0 as i16).unsigned_abs()
     }
 }
 

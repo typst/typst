@@ -235,17 +235,17 @@ fn replace(
 
     let (newborns, terminated, amount) = match mode {
         ReparseMode::Code => reparse_code_block(
-            &prefix,
+            prefix,
             &change.text[newborn_span.start ..],
             newborn_span.len(),
         ),
         ReparseMode::Content => reparse_content_block(
-            &prefix,
+            prefix,
             &change.text[newborn_span.start ..],
             newborn_span.len(),
         ),
         ReparseMode::MarkupElements { at_start, min_indent } => reparse_markup_elements(
-            &prefix,
+            prefix,
             &change.text[newborn_span.start ..],
             newborn_span.len(),
             differential,
@@ -385,17 +385,17 @@ enum ReparseMode {
 /// Whether changes _inside_ this node are safely encapsulated, so that only
 /// this node must be reparsed.
 fn is_bounded(kind: &NodeKind) -> bool {
-    match kind {
+    matches!(
+        kind,
         NodeKind::CodeBlock
-        | NodeKind::ContentBlock
-        | NodeKind::Linebreak
-        | NodeKind::SmartQuote { .. }
-        | NodeKind::BlockComment
-        | NodeKind::Space { .. }
-        | NodeKind::Escape(_)
-        | NodeKind::Shorthand(_) => true,
-        _ => false,
-    }
+            | NodeKind::ContentBlock
+            | NodeKind::Linebreak
+            | NodeKind::SmartQuote { .. }
+            | NodeKind::BlockComment
+            | NodeKind::Space { .. }
+            | NodeKind::Escape(_)
+            | NodeKind::Shorthand(_)
+    )
 }
 
 /// Whether `at_start` would still be true after this node given the

@@ -388,24 +388,6 @@ impl From<CmykColor> for Color {
     }
 }
 
-/// A stroke of a geometric shape.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct Stroke {
-    /// The stroke's paint.
-    pub paint: Paint,
-    /// The stroke's thickness.
-    pub thickness: Abs,
-}
-
-impl Default for Stroke {
-    fn default() -> Self {
-        Self {
-            paint: Paint::Solid(Color::BLACK.into()),
-            thickness: Abs::pt(1.0),
-        }
-    }
-}
-
 /// Convert to the closest u8.
 fn round_u8(value: f64) -> u8 {
     value.round() as u8

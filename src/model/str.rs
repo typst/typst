@@ -5,18 +5,22 @@ use std::ops::{Add, AddAssign, Deref};
 
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::{Array, Dict, Value};
+use super::{castable, dict, Array, Dict, Value};
 use crate::diag::StrResult;
-use crate::library::RawAlign;
+use crate::geom::GenAlign;
 use crate::util::EcoString;
 
 /// Create a new [`Str`] from a format string.
-#[allow(unused_macros)]
-macro_rules! format_str {
+#[macro_export]
+#[doc(hidden)]
+macro_rules! __format_str {
     ($($tts:tt)*) => {{
         $crate::model::Str::from(format_eco!($($tts)*))
     }};
 }
+
+#[doc(inline)]
+pub use crate::__format_str as format_str;
 
 /// An immutable reference counted string.
 #[derive(Default, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -463,9 +467,9 @@ pub enum StrSide {
 castable! {
     StrSide,
     Expected: "start or end",
-    @align: RawAlign => match align {
-        RawAlign::Start => Self::Start,
-        RawAlign::End => Self::End,
+    @align: GenAlign => match align {
+        GenAlign::Start => Self::Start,
+        GenAlign::End => Self::End,
         _ => Err("expected either `start` or `end`")?,
     },
 }

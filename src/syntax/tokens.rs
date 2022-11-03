@@ -6,7 +6,7 @@ use unscanny::Scanner;
 use super::resolve::{resolve_hex, resolve_raw, resolve_string};
 use super::{ErrorPos, NodeKind, RawKind, Unit};
 use crate::geom::{AbsUnit, AngleUnit};
-use crate::util::EcoString;
+use crate::util::{format_eco, EcoString};
 
 /// An iterator over the tokens of a string of source code.
 #[derive(Clone)]

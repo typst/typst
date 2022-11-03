@@ -71,7 +71,7 @@ pub fn write_outline_item(
         let current_child = Ref::new(id.get() + 1);
         outline.first(current_child);
         outline.last(Ref::new(next_ref.get() - 1));
-        outline.count(-1 * node.children.len() as i32);
+        outline.count(-(node.children.len() as i32));
     }
 
     outline.title(TextStr(&node.heading.content));

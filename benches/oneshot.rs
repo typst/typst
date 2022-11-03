@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use comemo::{Prehashed, Track, Tracked};
 use iai::{black_box, main, Iai};
@@ -20,7 +20,7 @@ main!(
     bench_parse,
     bench_edit,
     bench_eval,
-    bench_layout,
+    bench_typeset,
     bench_highlight,
     bench_render,
 );
@@ -80,12 +80,10 @@ fn bench_eval(iai: &mut Iai) {
     iai.run(|| typst::model::eval(world.track(), route.track(), id).unwrap());
 }
 
-fn bench_layout(iai: &mut Iai) {
+fn bench_typeset(iai: &mut Iai) {
     let world = BenchWorld::new();
     let id = world.source.id();
-    let route = typst::model::Route::default();
-    let module = typst::model::eval(world.track(), route.track(), id).unwrap();
-    iai.run(|| typst::library::layout::Layout::layout(&module.content, world.track()));
+    iai.run(|| typst::typeset(&world, id));
 }
 
 fn bench_render(iai: &mut Iai) {
@@ -104,7 +102,13 @@ struct BenchWorld {
 
 impl BenchWorld {
     fn new() -> Self {
-        let config = Config::default();
+        let config = Config {
+            root: PathBuf::new(),
+            scope: typst_library::scope(),
+            styles: typst_library::styles(),
+            items: typst_library::items(),
+        };
+
         let font = Font::new(FONT.into(), 0).unwrap();
         let book = FontBook::from_fonts([&font]);
         let id = SourceId::from_u16(0);

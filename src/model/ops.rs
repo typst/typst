@@ -1,12 +1,9 @@
 //! Operations on values.
 
-use std::cmp::Ordering;
-
-use super::{Node, Regex, Smart, Value};
+use super::{Regex, Smart, Value};
 use crate::diag::StrResult;
-use crate::geom::{Axes, Axis, Length, Numeric, Rel};
-use crate::library::text::TextNode;
-use crate::library::{RawAlign, RawStroke};
+use crate::geom::{Axes, Axis, GenAlign, Length, Numeric, PartialStroke, Rel};
+use std::cmp::Ordering;
 use Value::*;
 
 /// Bail with a type mismatch error.
@@ -22,8 +19,8 @@ pub fn join(lhs: Value, rhs: Value) -> StrResult<Value> {
         (a, None) => a,
         (None, b) => b,
         (Str(a), Str(b)) => Str(a + b),
-        (Str(a), Content(b)) => Content(TextNode(a.into()).pack() + b),
-        (Content(a), Str(b)) => Content(a + TextNode(b.into()).pack()),
+        (Str(a), Content(b)) => Content(super::Content::text(a) + b),
+        (Content(a), Str(b)) => Content(a + super::Content::text(b)),
         (Content(a), Content(b)) => Content(a + b),
         (Array(a), Array(b)) => Array(a + b),
         (Dict(a), Dict(b)) => Dict(a + b),
@@ -88,14 +85,14 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
 
         (Str(a), Str(b)) => Str(a + b),
         (Content(a), Content(b)) => Content(a + b),
-        (Content(a), Str(b)) => Content(a + TextNode(b.into()).pack()),
-        (Str(a), Content(b)) => Content(TextNode(a.into()).pack() + b),
+        (Content(a), Str(b)) => Content(a + super::Content::text(b)),
+        (Str(a), Content(b)) => Content(super::Content::text(a) + b),
 
         (Array(a), Array(b)) => Array(a + b),
         (Dict(a), Dict(b)) => Dict(a + b),
 
         (Color(color), Length(thickness)) | (Length(thickness), Color(color)) => {
-            Value::dynamic(RawStroke {
+            Value::dynamic(PartialStroke {
                 paint: Smart::Custom(color.into()),
                 thickness: Smart::Custom(thickness),
             })
@@ -104,7 +101,7 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Dyn(a), Dyn(b)) => {
             // 1D alignments can be summed into 2D alignments.
             if let (Some(&a), Some(&b)) =
-                (a.downcast::<RawAlign>(), b.downcast::<RawAlign>())
+                (a.downcast::<GenAlign>(), b.downcast::<GenAlign>())
             {
                 if a.axis() != b.axis() {
                     Value::dynamic(match a.axis() {

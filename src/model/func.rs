@@ -5,7 +5,7 @@ use std::sync::Arc;
 use comemo::{Track, Tracked};
 
 use super::{Args, Eval, Flow, Node, NodeId, Route, Scope, Scopes, StyleMap, Value, Vm};
-use crate::diag::{SourceResult, StrResult};
+use crate::diag::{bail, SourceResult, StrResult};
 use crate::syntax::ast::{self, Expr, TypedNode};
 use crate::syntax::{SourceId, SyntaxNode};
 use crate::util::EcoString;
@@ -229,7 +229,7 @@ impl Closure {
 }
 
 /// A visitor that determines which variables to capture for a closure.
-pub struct CapturesVisitor<'a> {
+pub(super) struct CapturesVisitor<'a> {
     external: &'a Scopes<'a>,
     internal: Scopes<'a>,
     captures: Scope,

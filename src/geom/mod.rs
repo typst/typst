@@ -21,6 +21,7 @@ mod rounded;
 mod scalar;
 mod sides;
 mod size;
+mod stroke;
 mod transform;
 
 pub use abs::*;
@@ -42,6 +43,7 @@ pub use rounded::*;
 pub use scalar::*;
 pub use sides::*;
 pub use size::*;
+pub use stroke::*;
 pub use transform::*;
 
 use std::cmp::Ordering;

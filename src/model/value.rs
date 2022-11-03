@@ -7,11 +7,10 @@ use std::sync::Arc;
 use comemo::Tracked;
 use siphasher::sip128::{Hasher128, SipHasher};
 
-use super::{ops, Args, Array, Cast, Content, Dict, Func, Node, Str};
+use super::{format_str, ops, Args, Array, Cast, Content, Dict, Func, Str};
 use crate::diag::StrResult;
 use crate::geom::{Abs, Angle, Color, Em, Fr, Length, Ratio, Rel, RgbaColor};
-use crate::library::text::TextNode;
-use crate::util::EcoString;
+use crate::util::{format_eco, EcoString};
 use crate::World;
 
 /// A computational value.
@@ -385,7 +384,7 @@ primitive! { Str: "string", Str }
 primitive! { Content: "content",
     Content,
     None => Content::empty(),
-    Str(text) => TextNode(text.into()).pack()
+    Str(text) => Content::text(text)
 }
 primitive! { Array: "array", Array }
 primitive! { Dict: "dictionary", Dict }
@@ -395,6 +394,7 @@ primitive! { Args: "arguments", Args }
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::model::{array, dict};
 
     #[track_caller]
     fn test(value: impl Into<Value>, exp: &str) {

@@ -10,32 +10,40 @@ use std::string::FromUtf8Error;
 use comemo::Tracked;
 
 use crate::syntax::{ErrorPos, Span, Spanned};
-use crate::util::EcoString;
+use crate::util::{format_eco, EcoString};
 use crate::World;
 
 /// Early-return with a [`SourceError`].
 #[macro_export]
-macro_rules! bail {
+#[doc(hidden)]
+macro_rules! __bail {
     ($error:expr) => {
         return Err(Box::new(vec![$error]))
     };
 
     ($($tts:tt)*) => {
-        $crate::bail!($crate::error!($($tts)*))
+        $crate::diag::bail!($crate::diag::error!($($tts)*))
     };
 }
 
+#[doc(inline)]
+pub use crate::__bail as bail;
+
 /// Construct a [`SourceError`].
 #[macro_export]
-macro_rules! error {
+#[doc(hidden)]
+macro_rules! __error {
     ($span:expr, $message:expr $(,)?) => {
         $crate::diag::SourceError::new($span, $message)
     };
 
     ($span:expr, $fmt:expr, $($arg:expr),+ $(,)?) => {
-        $crate::error!($span, format!($fmt, $($arg),+))
+        $crate::diag::error!($span, format!($fmt, $($arg),+))
     };
 }
+
+#[doc(inline)]
+pub use crate::__error as error;
 
 /// A result that can carry multiple source errors.
 pub type SourceResult<T> = Result<T, Box<Vec<SourceError>>>;

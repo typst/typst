@@ -16,11 +16,5 @@ $ sum_(k=0)^n k = (n(n+1))/2 $
 $ f: NN arrow RR $
 
 ---
-#set math(family: "IBM Plex Sans")
-
-// Error: 1-4 font is not suitable for math
-$a$
-
----
 // Error: 1:3 expected dollar sign
 $a

@@ -110,11 +110,11 @@ const fn to_non_zero(v: u64) -> NonZeroU64 {
 }
 
 /// Result of numbering a node within an interval.
-pub type NumberingResult = Result<(), Unnumberable>;
+pub(super) type NumberingResult = Result<(), Unnumberable>;
 
 /// Indicates that a node cannot be numbered within a given interval.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct Unnumberable;
+pub(super) struct Unnumberable;
 
 impl Display for Unnumberable {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {

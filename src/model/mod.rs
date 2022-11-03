@@ -1,6 +1,8 @@
 //! Layout and computation model.
 
 #[macro_use]
+mod items;
+#[macro_use]
 mod cast;
 #[macro_use]
 mod array;
@@ -16,11 +18,10 @@ mod args;
 mod content;
 mod eval;
 mod func;
+mod methods;
+mod ops;
 mod scope;
 mod vm;
-
-pub mod methods;
-pub mod ops;
 
 pub use self::str::*;
 pub use args::*;
@@ -30,6 +31,7 @@ pub use content::*;
 pub use dict::*;
 pub use eval::*;
 pub use func::*;
+pub use items::*;
 pub use scope::*;
 pub use styles::*;
 pub use value::*;

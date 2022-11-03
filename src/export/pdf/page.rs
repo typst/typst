@@ -12,6 +12,7 @@ use crate::geom::{
     Transform,
 };
 use crate::image::Image;
+use crate::util::format_eco;
 
 /// Construct page objects.
 pub fn construct_pages(ctx: &mut PdfContext, frames: &[Frame]) {

@@ -97,7 +97,7 @@ pub fn call(
         },
 
         Value::Func(func) => match method {
-            "with" => Value::Func(func.clone().with(args.take())),
+            "with" => Value::Func(func.with(args.take())),
             _ => return missing(),
         },
 

@@ -312,8 +312,10 @@ fn render_shape(
 
     if let Some(Stroke { paint, thickness }) = shape.stroke {
         let paint = paint.into();
-        let mut stroke = sk::Stroke::default();
-        stroke.width = thickness.to_f32();
+        let stroke = sk::Stroke {
+            width: thickness.to_f32(),
+            ..Default::default()
+        };
         canvas.stroke_path(&path, &paint, &stroke, ts, mask);
     }
 
@@ -364,14 +366,16 @@ fn render_image(
     let scale_x = view_width / pixmap.width() as f32;
     let scale_y = view_height / pixmap.height() as f32;
 
-    let mut paint = sk::Paint::default();
-    paint.shader = sk::Pattern::new(
-        pixmap.as_ref(),
-        sk::SpreadMode::Pad,
-        sk::FilterQuality::Nearest,
-        1.0,
-        sk::Transform::from_scale(scale_x, scale_y),
-    );
+    let paint = sk::Paint {
+        shader: sk::Pattern::new(
+            pixmap.as_ref(),
+            sk::SpreadMode::Pad,
+            sk::FilterQuality::Nearest,
+            1.0,
+            sk::Transform::from_scale(scale_x, scale_y),
+        ),
+        ..Default::default()
+    };
 
     let rect = sk::Rect::from_xywh(0.0, 0.0, view_width, view_height)?;
     canvas.fill_rect(rect, &paint, ts, mask);

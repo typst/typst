@@ -97,7 +97,7 @@ where
         }
     }
 
-    let highlighter = Highlighter::new(&theme);
+    let highlighter = Highlighter::new(theme);
     process(0, root, vec![], &highlighter, &mut f);
 }
 

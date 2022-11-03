@@ -1,22 +1,19 @@
 //! Evaluation of markup into modules.
 
 use std::collections::BTreeMap;
-use std::sync::Arc;
 
 use comemo::{Track, Tracked};
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::{
     methods, ops, Arg, Args, Array, CapturesVisitor, Closure, Content, Dict, Flow, Func,
-    Node, Pattern, Recipe, Scope, Scopes, Show, StyleEntry, StyleMap, Value, Vm,
+    Pattern, Recipe, Scope, Scopes, Show, StyleEntry, StyleMap, Value, Vm,
 };
-use crate::diag::{At, SourceResult, StrResult, Trace, Tracepoint};
+use crate::diag::{bail, error, At, SourceResult, StrResult, Trace, Tracepoint};
 use crate::geom::{Abs, Angle, Em, Fr, Ratio};
-use crate::library::math;
-use crate::library::text::TextNode;
 use crate::syntax::ast::TypedNode;
 use crate::syntax::{ast, SourceId, Span, Spanned, Unit};
-use crate::util::EcoString;
+use crate::util::{format_eco, EcoString};
 use crate::World;
 
 /// Evaluate a source file and return the resulting module.
@@ -39,7 +36,7 @@ pub fn eval(
     // Evaluate the module.
     let route = unsafe { Route::insert(route, id) };
     let ast = world.source(id).ast()?;
-    let std = &world.config().std;
+    let std = &world.config().scope;
     let scopes = Scopes::new(Some(std));
     let mut vm = Vm::new(world, route.track(), Some(id), scopes);
     let result = ast.eval(&mut vm);
@@ -136,8 +133,7 @@ fn eval_markup(
                     break;
                 }
 
-                eval_markup(vm, nodes)?
-                    .styled_with_entry(StyleEntry::Recipe(recipe).into())
+                eval_markup(vm, nodes)?.styled_with_entry(StyleEntry::Recipe(recipe))
             }
             ast::MarkupNode::Expr(ast::Expr::Wrap(wrap)) => {
                 let tail = eval_markup(vm, nodes)?;
@@ -165,10 +161,13 @@ impl Eval for ast::MarkupNode {
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         match self {
-            Self::Space(v) => v.eval(vm),
+            Self::Space(v) => Ok(match v.newlines() {
+                0 ..= 1 => (vm.items.space)(),
+                _ => (vm.items.parbreak)(),
+            }),
             Self::Linebreak(v) => v.eval(vm),
             Self::Text(v) => v.eval(vm),
-            Self::Escape(v) => v.eval(vm),
+            Self::Escape(v) => Ok((vm.items.text)(v.get().into())),
             Self::Shorthand(v) => v.eval(vm),
             Self::SmartQuote(v) => v.eval(vm),
             Self::Strong(v) => v.eval(vm),
@@ -187,23 +186,11 @@ impl Eval for ast::MarkupNode {
     }
 }
 
-impl Eval for ast::Space {
-    type Output = Content;
-
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(if self.newlines() < 2 {
-            (vm.items().space)()
-        } else {
-            (vm.items().parbreak)()
-        })
-    }
-}
-
 impl Eval for ast::Linebreak {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok((vm.items().linebreak)(false))
+        Ok((vm.items.linebreak)(false))
     }
 }
 
@@ -211,15 +198,7 @@ impl Eval for ast::Text {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(vm.text(self.get().clone()))
-    }
-}
-
-impl Eval for ast::Escape {
-    type Output = Content;
-
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(vm.text(self.get()))
+        Ok((vm.items.text)(self.get().clone()))
     }
 }
 
@@ -227,7 +206,7 @@ impl Eval for ast::Shorthand {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(vm.text(self.get()))
+        Ok((vm.items.text)(self.get().into()))
     }
 }
 
@@ -235,7 +214,7 @@ impl Eval for ast::SmartQuote {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok((vm.items().smart_quote)(self.double()))
+        Ok((vm.items.smart_quote)(self.double()))
     }
 }
 
@@ -243,7 +222,7 @@ impl Eval for ast::Strong {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok((vm.items().strong)(self.body().eval(vm)?))
+        Ok((vm.items.strong)(self.body().eval(vm)?))
     }
 }
 
@@ -251,7 +230,7 @@ impl Eval for ast::Emph {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok((vm.items().emph)(self.body().eval(vm)?))
+        Ok((vm.items.emph)(self.body().eval(vm)?))
     }
 }
 
@@ -262,7 +241,7 @@ impl Eval for ast::Raw {
         let text = self.text().clone();
         let lang = self.lang().cloned();
         let block = self.block();
-        Ok((vm.items().raw)(text, lang, block))
+        Ok((vm.items.raw)(text, lang, block))
     }
 }
 
@@ -270,7 +249,7 @@ impl Eval for ast::Link {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok((vm.items().link)(self.url().clone()))
+        Ok((vm.items.link)(self.url().clone()))
     }
 }
 
@@ -286,7 +265,7 @@ impl Eval for ast::Ref {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok((vm.items().ref_)(self.get().clone()))
+        Ok((vm.items.ref_)(self.get().clone()))
     }
 }
 
@@ -296,7 +275,7 @@ impl Eval for ast::Heading {
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let level = self.level();
         let body = self.body().eval(vm)?;
-        Ok((vm.items().heading)(level, body))
+        Ok((vm.items.heading)(level, body))
     }
 }
 
@@ -304,7 +283,7 @@ impl Eval for ast::ListItem {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok((vm.items().list_item)(self.body().eval(vm)?))
+        Ok((vm.items.list_item)(self.body().eval(vm)?))
     }
 }
 
@@ -314,7 +293,7 @@ impl Eval for ast::EnumItem {
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let number = self.number();
         let body = self.body().eval(vm)?;
-        Ok((vm.items().enum_item)(number, body))
+        Ok((vm.items.enum_item)(number, body))
     }
 }
 
@@ -324,7 +303,7 @@ impl Eval for ast::DescItem {
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let term = self.term().eval(vm)?;
         let body = self.body().eval(vm)?;
-        Ok((vm.items().desc_item)(term, body))
+        Ok((vm.items.desc_item)(term, body))
     }
 }
 
@@ -332,82 +311,76 @@ impl Eval for ast::Math {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let nodes = self
-            .children()
-            .map(|node| node.eval(vm))
-            .collect::<SourceResult<_>>()?;
-        Ok(math::MathNode::Row(Arc::new(nodes), self.span()).pack())
+        Ok((vm.items.math)(
+            self.children()
+                .map(|node| node.eval(vm))
+                .collect::<SourceResult<_>>()?,
+            self.display(),
+        ))
     }
 }
 
 impl Eval for ast::MathNode {
-    type Output = math::MathNode;
+    type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         Ok(match self {
-            Self::Space(_) => math::MathNode::Space,
-            Self::Linebreak(_) => math::MathNode::Linebreak,
-            Self::Escape(c) => math::MathNode::Atom(c.get().into()),
-            Self::Atom(atom) => math::MathNode::Atom(atom.get().clone()),
-            Self::Script(node) => node.eval(vm)?,
-            Self::Frac(node) => node.eval(vm)?,
-            Self::Align(node) => node.eval(vm)?,
-            Self::Group(node) => math::MathNode::Row(
-                Arc::new(
-                    node.children()
-                        .map(|node| node.eval(vm))
-                        .collect::<SourceResult<_>>()?,
-                ),
-                node.span(),
-            ),
-            Self::Expr(expr) => {
-                let content = expr.eval(vm)?.display(vm.world);
-                if let Some(node) = content.downcast::<TextNode>() {
-                    math::MathNode::Atom(node.0.clone())
-                } else {
-                    bail!(expr.span(), "expected text")
-                }
-            }
+            Self::Space(_) => (vm.items.space)(),
+            Self::Linebreak(v) => v.eval(vm)?,
+            Self::Escape(v) => (vm.items.math_atom)(v.get().into()),
+            Self::Atom(v) => v.eval(vm)?,
+            Self::Script(v) => v.eval(vm)?,
+            Self::Frac(v) => v.eval(vm)?,
+            Self::Align(v) => v.eval(vm)?,
+            Self::Group(v) => v.eval(vm)?,
+            Self::Expr(v) => match v.eval(vm)? {
+                Value::None => Content::empty(),
+                Value::Int(v) => (vm.items.math_atom)(format_eco!("{}", v)),
+                Value::Float(v) => (vm.items.math_atom)(format_eco!("{}", v)),
+                Value::Str(v) => (vm.items.math_atom)(v.into()),
+                Value::Content(v) => v,
+                _ => bail!(v.span(), "unexpected garbage"),
+            },
         })
     }
 }
 
-impl Eval for ast::Script {
-    type Output = math::MathNode;
+impl Eval for ast::Atom {
+    type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(math::MathNode::Script(Arc::new(math::ScriptNode {
-            base: self.base().eval(vm)?,
-            sub: self
-                .sub()
-                .map(|node| node.eval(vm))
-                .transpose()?
-                .map(|node| node.unparen()),
-            sup: self
-                .sup()
-                .map(|node| node.eval(vm))
-                .transpose()?
-                .map(|node| node.unparen()),
-        })))
+        Ok((vm.items.math_atom)(self.get().clone()))
+    }
+}
+
+impl Eval for ast::Script {
+    type Output = Content;
+
+    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        Ok((vm.items.math_script)(
+            self.base().eval(vm)?,
+            self.sub().map(|node| node.eval(vm)).transpose()?,
+            self.sup().map(|node| node.eval(vm)).transpose()?,
+        ))
     }
 }
 
 impl Eval for ast::Frac {
-    type Output = math::MathNode;
+    type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(math::MathNode::Frac(Arc::new(math::FracNode {
-            num: self.num().eval(vm)?.unparen(),
-            denom: self.denom().eval(vm)?.unparen(),
-        })))
+        Ok((vm.items.math_frac)(
+            self.num().eval(vm)?,
+            self.denom().eval(vm)?,
+        ))
     }
 }
 
 impl Eval for ast::Align {
-    type Output = math::MathNode;
+    type Output = Content;
 
-    fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(math::MathNode::Align(self.count()))
+    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        Ok((vm.items.math_align)(self.count()))
     }
 }
 
@@ -515,7 +488,7 @@ fn eval_code(
             }
             ast::Expr::Show(show) => {
                 let recipe = show.eval(vm)?;
-                let entry = StyleEntry::Recipe(recipe).into();
+                let entry = StyleEntry::Recipe(recipe);
                 if vm.flow.is_some() {
                     break;
                 }
@@ -627,7 +600,7 @@ impl Eval for ast::Unary {
             ast::UnOp::Neg => ops::neg(value),
             ast::UnOp::Not => ops::not(value),
         };
-        Ok(result.at(self.span())?)
+        result.at(self.span())
     }
 }
 
@@ -676,7 +649,7 @@ impl ast::Binary {
         }
 
         let rhs = self.rhs().eval(vm)?;
-        Ok(op(lhs, rhs).at(self.span())?)
+        op(lhs, rhs).at(self.span())
     }
 
     /// Apply an assignment operation.
@@ -708,8 +681,7 @@ impl Eval for ast::FieldAccess {
                 .to::<dyn Show>()
                 .and_then(|node| node.field(&field))
                 .ok_or_else(|| format!("unknown field {field:?}"))
-                .at(span)?
-                .clone(),
+                .at(span)?,
 
             v => bail!(
                 self.target().span(),
@@ -754,9 +726,8 @@ impl Eval for ast::MethodCall {
 
         Ok(if methods::is_mutating(&method) {
             let args = self.args().eval(vm)?;
-            let mut value = self.target().access(vm)?;
-            methods::call_mut(&mut value, &method, args, span)
-                .trace(vm.world, point, span)?;
+            let value = self.target().access(vm)?;
+            methods::call_mut(value, &method, args, span).trace(vm.world, point, span)?;
             Value::None
         } else {
             let value = self.target().eval(vm)?;
@@ -882,7 +853,7 @@ impl Eval for ast::SetRule {
         let target = self.target();
         let target = target.eval(vm)?.cast::<Func>().at(target.span())?;
         let args = self.args().eval(vm)?;
-        Ok(target.set(args)?)
+        target.set(args)
     }
 }
 
@@ -1085,14 +1056,14 @@ impl Eval for ast::ModuleInclude {
         let span = self.path().span();
         let path = self.path().eval(vm)?.cast::<EcoString>().at(span)?;
         let module = import(vm, &path, span)?;
-        Ok(module.content.clone())
+        Ok(module.content)
     }
 }
 
 /// Process an import of a module relative to the current location.
 fn import(vm: &mut Vm, path: &str, span: Span) -> SourceResult<Module> {
     // Load the source file.
-    let full = vm.locate(&path).at(span)?;
+    let full = vm.locate(path).at(span)?;
     let id = vm.world.resolve(&full).at(span)?;
 
     // Prevent cyclic importing.

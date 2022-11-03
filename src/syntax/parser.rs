@@ -3,7 +3,7 @@ use std::mem;
 use std::ops::Range;
 
 use super::{ErrorPos, InnerNode, NodeData, NodeKind, SyntaxNode, TokenMode, Tokens};
-use crate::util::EcoString;
+use crate::util::{format_eco, EcoString};
 
 /// A convenient token-based parser.
 pub struct Parser<'s> {

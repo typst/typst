@@ -55,7 +55,7 @@ node! {
 
 impl Markup {
     /// The children.
-    pub fn children(&self) -> impl Iterator<Item = MarkupNode> + '_ {
+    pub fn children(&self) -> impl DoubleEndedIterator<Item = MarkupNode> + '_ {
         self.0.children().filter_map(SyntaxNode::cast)
     }
 }
@@ -166,7 +166,7 @@ impl Space {
 }
 
 node! {
-    /// A forced line break.
+    /// A forced line break: `\`.
     Linebreak
 }
 
@@ -414,8 +414,14 @@ node! {
 
 impl Math {
     /// The children.
-    pub fn children(&self) -> impl Iterator<Item = MathNode> + '_ {
+    pub fn children(&self) -> impl DoubleEndedIterator<Item = MathNode> + '_ {
         self.0.children().filter_map(SyntaxNode::cast)
+    }
+
+    /// Whether this is a display-level math formula.
+    pub fn display(&self) -> bool {
+        matches!(self.children().next(), Some(MathNode::Space(_)))
+            && matches!(self.children().last(), Some(MathNode::Space(_)))
     }
 }
 
@@ -424,7 +430,7 @@ impl Math {
 pub enum MathNode {
     /// Whitespace.
     Space(Space),
-    /// A forced line break.
+    /// A forced line break: `\`.
     Linebreak(Linebreak),
     /// An escape sequence: `\#`, `\u{1F5FA}`.
     Escape(Escape),
@@ -535,7 +541,7 @@ impl Frac {
 }
 
 node! {
-    /// A math alignment indicator: `&`, `&&`.
+    /// An alignment indicator in a formula: `&`, `&&`.
     Align
 }
 
@@ -736,7 +742,7 @@ node! {
 
 impl CodeBlock {
     /// The list of expressions contained in the block.
-    pub fn exprs(&self) -> impl Iterator<Item = Expr> + '_ {
+    pub fn exprs(&self) -> impl DoubleEndedIterator<Item = Expr> + '_ {
         self.0.children().filter_map(SyntaxNode::cast)
     }
 }
@@ -774,7 +780,7 @@ node! {
 
 impl Array {
     /// The array's items.
-    pub fn items(&self) -> impl Iterator<Item = ArrayItem> + '_ {
+    pub fn items(&self) -> impl DoubleEndedIterator<Item = ArrayItem> + '_ {
         self.0.children().filter_map(SyntaxNode::cast)
     }
 }
@@ -811,7 +817,7 @@ node! {
 
 impl Dict {
     /// The dictionary's items.
-    pub fn items(&self) -> impl Iterator<Item = DictItem> + '_ {
+    pub fn items(&self) -> impl DoubleEndedIterator<Item = DictItem> + '_ {
         self.0.children().filter_map(SyntaxNode::cast)
     }
 }
@@ -1204,7 +1210,7 @@ node! {
 
 impl Args {
     /// The positional and named arguments.
-    pub fn items(&self) -> impl Iterator<Item = Arg> + '_ {
+    pub fn items(&self) -> impl DoubleEndedIterator<Item = Arg> + '_ {
         self.0.children().filter_map(SyntaxNode::cast)
     }
 }
@@ -1252,7 +1258,7 @@ impl Closure {
     }
 
     /// The parameter bindings.
-    pub fn params(&self) -> impl Iterator<Item = Param> + '_ {
+    pub fn params(&self) -> impl DoubleEndedIterator<Item = Param> + '_ {
         self.0
             .children()
             .find(|x| x.kind() == &NodeKind::Params)

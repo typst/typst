@@ -1,7 +1,7 @@
 use std::fmt::{self, Debug, Formatter, Write};
 
 use super::{Array, Cast, Dict, Str, Value};
-use crate::diag::{At, SourceResult};
+use crate::diag::{bail, At, SourceResult};
 use crate::syntax::{Span, Spanned};
 
 /// Evaluated arguments to a function.

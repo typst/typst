@@ -3,7 +3,7 @@
 pub mod fat;
 
 pub use buffer::Buffer;
-pub use eco::EcoString;
+pub use eco::{format_eco, EcoString};
 
 #[macro_use]
 mod eco;
@@ -11,8 +11,11 @@ mod buffer;
 
 use std::any::TypeId;
 use std::fmt::{self, Debug, Formatter};
+use std::hash::Hash;
 use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
+
+use siphasher::sip128::{Hasher128, SipHasher};
 
 /// Turn a closure into a struct implementing [`Debug`].
 pub fn debug<F>(f: F) -> impl Debug
@@ -31,6 +34,13 @@ where
     }
 
     Wrapper(f)
+}
+
+/// Calculate a 128-bit siphash of a value.
+pub fn hash128<T: Hash>(value: &T) -> u128 {
+    let mut state = SipHasher::new();
+    value.hash(&mut state);
+    state.finish128().as_u128()
 }
 
 /// Extra methods for [`str`].

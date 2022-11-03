@@ -10,8 +10,9 @@ use crate::syntax::Spanned;
 use crate::util::ArcExt;
 
 /// Create a new [`Dict`] from key-value pairs.
-#[allow(unused_macros)]
-macro_rules! dict {
+#[macro_export]
+#[doc(hidden)]
+macro_rules! __dict {
     ($($key:expr => $value:expr),* $(,)?) => {{
         #[allow(unused_mut)]
         let mut map = std::collections::BTreeMap::new();
@@ -19,6 +20,9 @@ macro_rules! dict {
         $crate::model::Dict::from_map(map)
     }};
 }
+
+#[doc(inline)]
+pub use crate::__dict as dict;
 
 /// A reference-counted dictionary with value semantics.
 #[derive(Default, Clone, PartialEq, Hash)]

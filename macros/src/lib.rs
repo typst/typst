@@ -15,7 +15,7 @@ pub fn capability(_: TokenStream, item: TokenStream) -> TokenStream {
     let name = &item_trait.ident;
     quote! {
         #item_trait
-        impl crate::model::Capability for dyn #name {}
+        impl ::typst::model::Capability for dyn #name {}
     }.into()
 }
 
@@ -70,7 +70,7 @@ fn expand_node(
             fn construct(
                 _: &mut model::Vm,
                 _: &mut model::Args,
-            ) -> crate::diag::SourceResult<model::Content> {
+            ) -> typst::diag::SourceResult<model::Content> {
                 unimplemented!()
             }
         }
@@ -84,7 +84,7 @@ fn expand_node(
     let checks = items.iter().map(|cap| {
         quote! {
             if id == TypeId::of::<dyn #cap>() {
-                return Some(unsafe { crate::util::fat::vtable(self as &dyn #cap) });
+                return Some(unsafe { typst::util::fat::vtable(self as &dyn #cap) });
             }
         }
     });
@@ -101,10 +101,10 @@ fn expand_node(
     Ok(quote! {
         #[allow(non_snake_case)]
         mod #module {
-            use std::any::TypeId;
-            use std::marker::PhantomData;
-            use once_cell::sync::Lazy;
-            use crate::model;
+            use ::std::any::TypeId;
+            use ::std::marker::PhantomData;
+            use ::once_cell::sync::Lazy;
+            use ::typst::model;
             use super::*;
 
             #impl_block
@@ -370,7 +370,7 @@ fn generate_set(
 ) -> syn::ImplItemMethod {
     let user = user.map(|method| {
         let block = &method.block;
-        quote! { (|| -> crate::diag::SourceResult<()> { #block; Ok(()) } )()?; }
+        quote! { (|| -> typst::diag::SourceResult<()> { #block; Ok(()) } )()?; }
     });
 
     let mut shorthands = vec![];
@@ -379,7 +379,7 @@ fn generate_set(
         .filter(|p| !p.skip)
         .map(|property| {
             let name = &property.name;
-            let string = name.to_string().replace("_", "-").to_lowercase();
+            let string = name.to_string().replace('_', "-").to_lowercase();
 
             let value = if let Some(short) = &property.shorthand {
                 match short {
@@ -409,7 +409,7 @@ fn generate_set(
         fn set(
             args: &mut model::Args,
             constructor: bool,
-        ) -> crate::diag::SourceResult<model::StyleMap> {
+        ) -> typst::diag::SourceResult<model::StyleMap> {
             let mut styles = model::StyleMap::new();
             #user
             #(#bindings)*

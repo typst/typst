@@ -9,8 +9,9 @@ use crate::syntax::Spanned;
 use crate::util::ArcExt;
 
 /// Create a new [`Array`] from values.
-#[allow(unused_macros)]
-macro_rules! array {
+#[macro_export]
+#[doc(hidden)]
+macro_rules! __array {
     ($value:expr; $count:expr) => {
         $crate::model::Array::from_vec(vec![$value.into(); $count])
     };
@@ -19,6 +20,9 @@ macro_rules! array {
         $crate::model::Array::from_vec(vec![$($value.into()),*])
     };
 }
+
+#[doc(inline)]
+pub use crate::__array as array;
 
 /// A reference counted array with value semantics.
 #[derive(Default, Clone, PartialEq, Hash)]
@@ -97,7 +101,7 @@ impl Array {
             .ok_or_else(|| out_of_bounds(index, len))?;
 
         Arc::make_mut(&mut self.0).remove(i);
-        return Ok(());
+        Ok(())
     }
 
     /// Extract a contigous subregion of the array.

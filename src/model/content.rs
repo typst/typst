@@ -9,8 +9,9 @@ use siphasher::sip128::{Hasher128, SipHasher};
 use typst_macros::node;
 
 use super::{Args, Key, Property, Selector, StyleEntry, StyleMap, Vm};
+use crate as typst;
 use crate::diag::{SourceResult, StrResult};
-use crate::util::ReadableTypeId;
+use crate::util::{EcoString, ReadableTypeId};
 
 /// Composable representation of styled content.
 ///
@@ -24,6 +25,11 @@ impl Content {
     /// Create empty content.
     pub fn empty() -> Self {
         SequenceNode(vec![]).pack()
+    }
+
+    /// Create content from a string of text.
+    pub fn text(text: impl Into<EcoString>) -> Self {
+        item!(text)(text.into())
     }
 
     /// Create a new sequence node from multiples nodes.
@@ -146,7 +152,7 @@ impl Add for Content {
         let mut lhs = self;
         if let Some(lhs_mut) = lhs.try_downcast_mut::<SequenceNode>() {
             if let Some(rhs_mut) = rhs.try_downcast_mut::<SequenceNode>() {
-                lhs_mut.0.extend(rhs_mut.0.drain(..));
+                lhs_mut.0.append(&mut rhs_mut.0);
             } else if let Some(rhs) = rhs.downcast::<SequenceNode>() {
                 lhs_mut.0.extend(rhs.0.iter().cloned());
             } else {

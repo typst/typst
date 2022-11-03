@@ -26,9 +26,7 @@
 //! [content]: model::Content
 //! [PDF]: export::pdf
 
-#![allow(clippy::len_without_is_empty)]
-#![allow(clippy::or_fun_call)]
-#![allow(clippy::try_err)]
+extern crate self as typst;
 
 #[macro_use]
 pub mod util;
@@ -42,10 +40,8 @@ pub mod export;
 pub mod font;
 pub mod frame;
 pub mod image;
-pub mod library;
 pub mod syntax;
 
-use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
 
 use comemo::{Prehashed, Track};
@@ -53,9 +49,9 @@ use comemo::{Prehashed, Track};
 use crate::diag::{FileResult, SourceResult};
 use crate::font::{Font, FontBook};
 use crate::frame::Frame;
-use crate::model::{Content, Route, Scope, StyleMap};
+use crate::model::{LangItems, Route, Scope, StyleMap};
 use crate::syntax::{Source, SourceId};
-use crate::util::{Buffer, EcoString};
+use crate::util::Buffer;
 
 /// Typeset a source file into a collection of layouted frames.
 ///
@@ -66,9 +62,10 @@ pub fn typeset(
     world: &(dyn World + 'static),
     main: SourceId,
 ) -> SourceResult<Vec<Frame>> {
+    crate::model::set_lang_items(world.config().items);
     let route = Route::default();
     let module = model::eval(world.track(), route.track(), main)?;
-    library::layout::Layout::layout(&module.content, world.track())
+    item!(root)(world.track(), &module.content)
 }
 
 /// The environment in which typesetting occurs.
@@ -97,49 +94,11 @@ pub trait World {
 #[derive(Debug, Clone, Hash)]
 pub struct Config {
     /// The compilation root, relative to which absolute paths are.
-    ///
-    /// Default: Empty path.
     pub root: PathBuf,
     /// The scope containing definitions that are available everywhere.
-    ///
-    /// Default: Typst's standard library.
-    pub std: Scope,
-    /// Defines which standard library items fulfill which syntactical roles.
-    ///
-    /// Default: Typst's standard library's language map.
-    pub items: LangItems,
+    pub scope: Scope,
     /// The default properties for page size, font selection and so on.
-    ///
-    /// Default: Empty style map.
     pub styles: StyleMap,
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            root: PathBuf::new(),
-            std: library::scope(),
-            items: library::items(),
-            styles: StyleMap::new(),
-        }
-    }
-}
-
-/// Definition of certain standard library items the language is aware of.
-#[derive(Debug, Clone, Hash)]
-pub struct LangItems {
-    pub space: fn() -> Content,
-    pub linebreak: fn(justify: bool) -> Content,
-    pub text: fn(text: EcoString) -> Content,
-    pub smart_quote: fn(double: bool) -> Content,
-    pub parbreak: fn() -> Content,
-    pub strong: fn(body: Content) -> Content,
-    pub emph: fn(body: Content) -> Content,
-    pub raw: fn(text: EcoString, tag: Option<EcoString>, block: bool) -> Content,
-    pub link: fn(label: EcoString) -> Content,
-    pub ref_: fn(target: EcoString) -> Content,
-    pub heading: fn(level: NonZeroUsize, body: Content) -> Content,
-    pub list_item: fn(body: Content) -> Content,
-    pub enum_item: fn(number: Option<usize>, body: Content) -> Content,
-    pub desc_item: fn(term: Content, body: Content) -> Content,
+    /// Defines which standard library items fulfill which syntactical roles.
+    pub items: LangItems,
 }

@@ -99,50 +99,6 @@ impl SyntaxNode {
         self.children().rev().find_map(Self::cast)
     }
 
-    /// Change the type of the node.
-    pub fn convert(&mut self, kind: NodeKind) {
-        match self {
-            Self::Inner(inner) => {
-                let node = Arc::make_mut(inner);
-                node.erroneous |= kind.is_error();
-                node.data.kind = kind;
-            }
-            Self::Leaf(leaf) => leaf.kind = kind,
-        }
-    }
-
-    /// Set a synthetic span for the node and all its descendants.
-    pub fn synthesize(&mut self, span: Span) {
-        match self {
-            Self::Inner(inner) => Arc::make_mut(inner).synthesize(span),
-            Self::Leaf(leaf) => leaf.synthesize(span),
-        }
-    }
-
-    /// Assign spans to each node.
-    pub fn numberize(&mut self, id: SourceId, within: Range<u64>) -> NumberingResult {
-        match self {
-            Self::Inner(inner) => Arc::make_mut(inner).numberize(id, None, within),
-            Self::Leaf(leaf) => leaf.numberize(id, within),
-        }
-    }
-
-    /// The upper bound of assigned numbers in this subtree.
-    pub fn upper(&self) -> u64 {
-        match self {
-            Self::Inner(inner) => inner.upper(),
-            Self::Leaf(leaf) => leaf.span().number() + 1,
-        }
-    }
-
-    /// If the span points into this node, convert it to a byte range.
-    pub fn range(&self, span: Span, offset: usize) -> Option<Range<usize>> {
-        match self {
-            Self::Inner(inner) => inner.range(span, offset),
-            Self::Leaf(leaf) => leaf.range(span, offset),
-        }
-    }
-
     /// Returns all leaf descendants of this node (may include itself).
     ///
     /// This method is slow and only intended for testing.
@@ -154,6 +110,54 @@ impl SyntaxNode {
             vec![self.clone()]
         } else {
             self.children().flat_map(Self::leafs).collect()
+        }
+    }
+
+    /// Change the type of the node.
+    pub(super) fn convert(&mut self, kind: NodeKind) {
+        match self {
+            Self::Inner(inner) => {
+                let node = Arc::make_mut(inner);
+                node.erroneous |= kind.is_error();
+                node.data.kind = kind;
+            }
+            Self::Leaf(leaf) => leaf.kind = kind,
+        }
+    }
+
+    /// Set a synthetic span for the node and all its descendants.
+    pub(super) fn synthesize(&mut self, span: Span) {
+        match self {
+            Self::Inner(inner) => Arc::make_mut(inner).synthesize(span),
+            Self::Leaf(leaf) => leaf.synthesize(span),
+        }
+    }
+
+    /// Assign spans to each node.
+    pub(super) fn numberize(
+        &mut self,
+        id: SourceId,
+        within: Range<u64>,
+    ) -> NumberingResult {
+        match self {
+            Self::Inner(inner) => Arc::make_mut(inner).numberize(id, None, within),
+            Self::Leaf(leaf) => leaf.numberize(id, within),
+        }
+    }
+
+    /// If the span points into this node, convert it to a byte range.
+    pub(super) fn range(&self, span: Span, offset: usize) -> Option<Range<usize>> {
+        match self {
+            Self::Inner(inner) => inner.range(span, offset),
+            Self::Leaf(leaf) => leaf.range(span, offset),
+        }
+    }
+
+    /// The upper bound of assigned numbers in this subtree.
+    fn upper(&self) -> u64 {
+        match self {
+            Self::Inner(inner) => inner.upper(),
+            Self::Leaf(leaf) => leaf.span().number() + 1,
         }
     }
 }
@@ -246,7 +250,7 @@ impl InnerNode {
     }
 
     /// Set a synthetic span for the node and all its descendants.
-    pub fn synthesize(&mut self, span: Span) {
+    fn synthesize(&mut self, span: Span) {
         self.data.synthesize(span);
         for child in &mut self.children {
             child.synthesize(span);
@@ -255,7 +259,7 @@ impl InnerNode {
 
     /// Assign span numbers `within` an interval to this node's subtree or just
     /// a `range` of its children.
-    pub fn numberize(
+    fn numberize(
         &mut self,
         id: SourceId,
         range: Option<Range<usize>>,
@@ -304,12 +308,12 @@ impl InnerNode {
     }
 
     /// The upper bound of assigned numbers in this subtree.
-    pub fn upper(&self) -> u64 {
+    fn upper(&self) -> u64 {
         self.upper
     }
 
     /// If the span points into this node, convert it to a byte range.
-    pub fn range(&self, span: Span, mut offset: usize) -> Option<Range<usize>> {
+    fn range(&self, span: Span, mut offset: usize) -> Option<Range<usize>> {
         // Check whether we found it.
         if let Some(range) = self.data.range(span, offset) {
             return Some(range);
@@ -343,14 +347,14 @@ impl InnerNode {
     }
 
     /// The node's children, mutably.
-    pub(crate) fn children_mut(&mut self) -> &mut [SyntaxNode] {
+    pub(super) fn children_mut(&mut self) -> &mut [SyntaxNode] {
         &mut self.children
     }
 
     /// Replaces a range of children with a replacement.
     ///
     /// May have mutated the children if it returns `Err(_)`.
-    pub(crate) fn replace_children(
+    pub(super) fn replace_children(
         &mut self,
         mut range: Range<usize>,
         replacement: Vec<SyntaxNode>,
@@ -430,7 +434,7 @@ impl InnerNode {
     }
 
     /// Update this node after changes were made to one of its children.
-    pub(crate) fn update_parent(
+    pub(super) fn update_parent(
         &mut self,
         prev_len: usize,
         new_len: usize,
@@ -509,12 +513,12 @@ impl NodeData {
     }
 
     /// Set a synthetic span for the node.
-    pub fn synthesize(&mut self, span: Span) {
+    fn synthesize(&mut self, span: Span) {
         self.span = span;
     }
 
     /// Assign a span to the node.
-    pub fn numberize(&mut self, id: SourceId, within: Range<u64>) -> NumberingResult {
+    fn numberize(&mut self, id: SourceId, within: Range<u64>) -> NumberingResult {
         if within.start < within.end {
             self.span = Span::new(id, (within.start + within.end) / 2);
             Ok(())
@@ -524,7 +528,7 @@ impl NodeData {
     }
 
     /// If the span points into this node, convert it to a byte range.
-    pub fn range(&self, span: Span, offset: usize) -> Option<Range<usize>> {
+    fn range(&self, span: Span, offset: usize) -> Option<Range<usize>> {
         (self.span == span).then(|| offset .. offset + self.len())
     }
 }

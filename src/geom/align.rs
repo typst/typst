@@ -78,3 +78,40 @@ impl Debug for Align {
         })
     }
 }
+
+/// The generic alignment representation.
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub enum GenAlign {
+    /// Align at the start side of the text direction.
+    Start,
+    /// Align at the end side of the text direction.
+    End,
+    /// Align at a specific alignment.
+    Specific(Align),
+}
+
+impl GenAlign {
+    /// The axis this alignment belongs to.
+    pub const fn axis(self) -> Axis {
+        match self {
+            Self::Start | Self::End => Axis::X,
+            Self::Specific(align) => align.axis(),
+        }
+    }
+}
+
+impl From<Align> for GenAlign {
+    fn from(align: Align) -> Self {
+        Self::Specific(align)
+    }
+}
+
+impl Debug for GenAlign {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Self::Start => f.pad("start"),
+            Self::End => f.pad("end"),
+            Self::Specific(align) => align.fmt(f),
+        }
+    }
+}
