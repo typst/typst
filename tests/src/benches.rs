@@ -2,13 +2,12 @@ use std::path::{Path, PathBuf};
 
 use comemo::{Prehashed, Track, Tracked};
 use iai::{black_box, main, Iai};
-use unscanny::Scanner;
-
 use typst::diag::{FileError, FileResult};
 use typst::font::{Font, FontBook};
 use typst::syntax::{Source, SourceId, TokenMode, Tokens};
 use typst::util::Buffer;
 use typst::{Config, World};
+use unscanny::Scanner;
 
 const TEXT: &str = include_str!("../typ/benches/bench.typ");
 const FONT: &[u8] = include_bytes!("../../fonts/IBMPlexSans-Regular.ttf");

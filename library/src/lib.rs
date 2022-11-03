@@ -1,19 +1,19 @@
 //! Typst's standard library.
 
+pub mod base;
 pub mod graphics;
 pub mod layout;
 pub mod math;
 pub mod prelude;
 pub mod structure;
 pub mod text;
-pub mod utility;
 
 mod ext;
 
 use typst::geom::{Align, Color, Dir, GenAlign};
 use typst::model::{LangItems, Node, Scope, StyleMap};
 
-use self::layout::Layout;
+use self::layout::LayoutRoot;
 
 /// Construct the standard library scope.
 pub fn scope() -> Scope {
@@ -83,32 +83,32 @@ pub fn scope() -> Scope {
     std.define("NN", "ℕ");
     std.define("RR", "ℝ");
 
-    // Utility.
-    std.def_fn("type", utility::type_);
-    std.def_fn("assert", utility::assert);
-    std.def_fn("eval", utility::eval);
-    std.def_fn("int", utility::int);
-    std.def_fn("float", utility::float);
-    std.def_fn("abs", utility::abs);
-    std.def_fn("min", utility::min);
-    std.def_fn("max", utility::max);
-    std.def_fn("even", utility::even);
-    std.def_fn("odd", utility::odd);
-    std.def_fn("mod", utility::mod_);
-    std.def_fn("range", utility::range);
-    std.def_fn("luma", utility::luma);
-    std.def_fn("rgb", utility::rgb);
-    std.def_fn("cmyk", utility::cmyk);
-    std.def_fn("repr", utility::repr);
-    std.def_fn("str", utility::str);
-    std.def_fn("regex", utility::regex);
-    std.def_fn("letter", utility::letter);
-    std.def_fn("roman", utility::roman);
-    std.def_fn("symbol", utility::symbol);
-    std.def_fn("lorem", utility::lorem);
-    std.def_fn("csv", utility::csv);
-    std.def_fn("json", utility::json);
-    std.def_fn("xml", utility::xml);
+    // Base.
+    std.def_fn("type", base::type_);
+    std.def_fn("assert", base::assert);
+    std.def_fn("eval", base::eval);
+    std.def_fn("int", base::int);
+    std.def_fn("float", base::float);
+    std.def_fn("abs", base::abs);
+    std.def_fn("min", base::min);
+    std.def_fn("max", base::max);
+    std.def_fn("even", base::even);
+    std.def_fn("odd", base::odd);
+    std.def_fn("mod", base::mod_);
+    std.def_fn("range", base::range);
+    std.def_fn("luma", base::luma);
+    std.def_fn("rgb", base::rgb);
+    std.def_fn("cmyk", base::cmyk);
+    std.def_fn("repr", base::repr);
+    std.def_fn("str", base::str);
+    std.def_fn("regex", base::regex);
+    std.def_fn("letter", base::letter);
+    std.def_fn("roman", base::roman);
+    std.def_fn("symbol", base::symbol);
+    std.def_fn("lorem", base::lorem);
+    std.def_fn("csv", base::csv);
+    std.def_fn("json", base::json);
+    std.def_fn("xml", base::xml);
 
     // Predefined colors.
     std.define("black", Color::BLACK);
@@ -155,7 +155,7 @@ pub fn styles() -> StyleMap {
 /// Construct the standard lang item mapping.
 pub fn items() -> LangItems {
     LangItems {
-        root: |world, content| content.layout(world),
+        root: |world, content| content.layout_root(world),
         em: |styles| styles.get(text::TextNode::SIZE),
         dir: |styles| styles.get(text::TextNode::DIR),
         space: || text::SpaceNode.pack(),

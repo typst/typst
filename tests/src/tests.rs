@@ -11,9 +11,6 @@ use comemo::Prehashed;
 use elsa::FrozenVec;
 use once_cell::unsync::OnceCell;
 use tiny_skia as sk;
-use unscanny::Scanner;
-use walkdir::WalkDir;
-
 use typst::diag::{bail, FileError, FileResult};
 use typst::font::{Font, FontBook};
 use typst::frame::{Element, Frame};
@@ -24,6 +21,8 @@ use typst::util::{Buffer, PathExt};
 use typst::{Config, World};
 use typst_library::layout::PageNode;
 use typst_library::text::{TextNode, TextSize};
+use unscanny::Scanner;
+use walkdir::WalkDir;
 
 const TYP_DIR: &str = "typ";
 const REF_DIR: &str = "ref";

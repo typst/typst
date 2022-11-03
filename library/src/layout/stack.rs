@@ -89,7 +89,7 @@ castable! {
 }
 
 /// Performs stack layout.
-pub struct StackLayouter<'a> {
+struct StackLayouter<'a> {
     /// The stacking direction.
     dir: Dir,
     /// The axis of the stacking direction.
@@ -125,7 +125,7 @@ enum StackItem {
 
 impl<'a> StackLayouter<'a> {
     /// Create a new stack layouter.
-    pub fn new(dir: Dir, regions: &Regions, styles: StyleChain<'a>) -> Self {
+    fn new(dir: Dir, regions: &Regions, styles: StyleChain<'a>) -> Self {
         let axis = dir.axis();
         let expand = regions.expand;
         let full = regions.first;
@@ -149,7 +149,7 @@ impl<'a> StackLayouter<'a> {
     }
 
     /// Add spacing along the spacing direction.
-    pub fn layout_spacing(&mut self, spacing: Spacing) {
+    fn layout_spacing(&mut self, spacing: Spacing) {
         match spacing {
             Spacing::Relative(v) => {
                 // Resolve the spacing and limit it to the remaining space.
@@ -169,7 +169,7 @@ impl<'a> StackLayouter<'a> {
     }
 
     /// Layout an arbitrary block.
-    pub fn layout_block(
+    fn layout_block(
         &mut self,
         world: Tracked<dyn World>,
         block: &Content,
@@ -223,7 +223,7 @@ impl<'a> StackLayouter<'a> {
     }
 
     /// Advance to the next region.
-    pub fn finish_region(&mut self) {
+    fn finish_region(&mut self) {
         // Determine the size of the stack in this region dependening on whether
         // the region expands.
         let used = self.used.to_axes(self.axis);
@@ -279,7 +279,7 @@ impl<'a> StackLayouter<'a> {
     }
 
     /// Finish layouting and return the resulting frames.
-    pub fn finish(mut self) -> Vec<Frame> {
+    fn finish(mut self) -> Vec<Frame> {
         self.finish_region();
         self.finished
     }
@@ -287,7 +287,7 @@ impl<'a> StackLayouter<'a> {
 
 /// A container with a main and cross component.
 #[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct Gen<T> {
+struct Gen<T> {
     /// The main component.
     pub cross: T,
     /// The cross component.
@@ -296,12 +296,12 @@ pub struct Gen<T> {
 
 impl<T> Gen<T> {
     /// Create a new instance from the two components.
-    pub const fn new(cross: T, main: T) -> Self {
+    const fn new(cross: T, main: T) -> Self {
         Self { cross, main }
     }
 
     /// Convert to the specific representation, given the current main axis.
-    pub fn to_axes(self, main: Axis) -> Axes<T> {
+    fn to_axes(self, main: Axis) -> Axes<T> {
         match main {
             Axis::X => Axes::new(self.main, self.cross),
             Axis::Y => Axes::new(self.cross, self.main),
@@ -311,12 +311,12 @@ impl<T> Gen<T> {
 
 impl Gen<Abs> {
     /// The zero value.
-    pub fn zero() -> Self {
+    fn zero() -> Self {
         Self { cross: Abs::zero(), main: Abs::zero() }
     }
 
     /// Convert to a point.
-    pub fn to_point(self, main: Axis) -> Point {
+    fn to_point(self, main: Axis) -> Point {
         self.to_axes(main).to_point()
     }
 }

@@ -1,4 +1,5 @@
 use crate::prelude::*;
+use crate::text::TextNode;
 
 /// A reference to a label.
 #[derive(Debug, Hash)]

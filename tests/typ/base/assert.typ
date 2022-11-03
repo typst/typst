@@ -1,8 +1,7 @@
-// Test basic functions.
+// Test the `assert` function.
 // Ref: false
 
 ---
-// Test the `assert` function.
 #assert(1 + 1 == 2)
 #assert(range(2, 5) == (2, 3, 4))
 #assert(not false)

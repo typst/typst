@@ -44,16 +44,16 @@ use crate::text::{
     LinebreakNode, ParChild, ParNode, ParbreakNode, SmartQuoteNode, SpaceNode, TextNode,
 };
 
-/// The root-level layout.
+/// Root-level layout.
 #[capability]
-pub trait Layout: 'static + Sync + Send {
+pub trait LayoutRoot: 'static + Sync + Send {
     /// Layout into one frame per page.
-    fn layout(&self, world: Tracked<dyn World>) -> SourceResult<Vec<Frame>>;
+    fn layout_root(&self, world: Tracked<dyn World>) -> SourceResult<Vec<Frame>>;
 }
 
-impl Layout for Content {
+impl LayoutRoot for Content {
     #[comemo::memoize]
-    fn layout(&self, world: Tracked<dyn World>) -> SourceResult<Vec<Frame>> {
+    fn layout_root(&self, world: Tracked<dyn World>) -> SourceResult<Vec<Frame>> {
         let styles = StyleChain::with_root(&world.config().styles);
         let scratch = Scratch::default();
 
@@ -259,7 +259,7 @@ struct Scratch<'a> {
 
 /// Determines whether a style could interrupt some composable structure.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub enum Interruption {
+enum Interruption {
     /// The style forces a list break.
     List,
     /// The style forces a paragraph break.
@@ -269,11 +269,7 @@ pub enum Interruption {
 }
 
 impl<'a> Builder<'a> {
-    pub fn new(
-        world: Tracked<'a, dyn World>,
-        scratch: &'a Scratch<'a>,
-        top: bool,
-    ) -> Self {
+    fn new(world: Tracked<'a, dyn World>, scratch: &'a Scratch<'a>, top: bool) -> Self {
         Self {
             world,
             scratch,
@@ -284,7 +280,7 @@ impl<'a> Builder<'a> {
         }
     }
 
-    pub fn into_doc(
+    fn into_doc(
         mut self,
         styles: StyleChain<'a>,
     ) -> SourceResult<(DocNode, StyleChain<'a>)> {
@@ -293,7 +289,7 @@ impl<'a> Builder<'a> {
         Ok((DocNode(pages), shared))
     }
 
-    pub fn into_flow(
+    fn into_flow(
         mut self,
         styles: StyleChain<'a>,
     ) -> SourceResult<(FlowNode, StyleChain<'a>)> {
@@ -302,7 +298,7 @@ impl<'a> Builder<'a> {
         Ok((FlowNode(children), shared))
     }
 
-    pub fn accept(
+    fn accept(
         &mut self,
         content: &'a Content,
         styles: StyleChain<'a>,
@@ -740,7 +736,7 @@ enum Last {
 
 impl<'a, T> CollapsingBuilder<'a, T> {
     /// Create a new style-vec builder.
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self {
             builder: StyleVecBuilder::new(),
             staged: vec![],
@@ -749,7 +745,7 @@ impl<'a, T> CollapsingBuilder<'a, T> {
     }
 
     /// Whether the builder is empty.
-    pub fn is_empty(&self) -> bool {
+    fn is_empty(&self) -> bool {
         self.builder.is_empty() && self.staged.is_empty()
     }
 
@@ -760,7 +756,7 @@ impl<'a, T> CollapsingBuilder<'a, T> {
     /// Between weak items, there may be at least one per layer and among the
     /// candidates the strongest one (smallest `weakness`) wins. When tied,
     /// the one that compares larger through `PartialOrd` wins.
-    pub fn weak(&mut self, item: T, styles: StyleChain<'a>, weakness: u8)
+    fn weak(&mut self, item: T, styles: StyleChain<'a>, weakness: u8)
     where
         T: PartialOrd,
     {
@@ -788,31 +784,31 @@ impl<'a, T> CollapsingBuilder<'a, T> {
     }
 
     /// Forces nearby weak items to collapse.
-    pub fn destructive(&mut self, item: T, styles: StyleChain<'a>) {
+    fn destructive(&mut self, item: T, styles: StyleChain<'a>) {
         self.flush(false);
         self.builder.push(item, styles);
         self.last = Last::Destructive;
     }
 
     /// Allows nearby weak items to exist.
-    pub fn supportive(&mut self, item: T, styles: StyleChain<'a>) {
+    fn supportive(&mut self, item: T, styles: StyleChain<'a>) {
         self.flush(true);
         self.builder.push(item, styles);
         self.last = Last::Supportive;
     }
 
     /// Has no influence on other items.
-    pub fn ignorant(&mut self, item: T, styles: StyleChain<'a>) {
+    fn ignorant(&mut self, item: T, styles: StyleChain<'a>) {
         self.staged.push((item, styles, None));
     }
 
     /// Iterate over the contained items.
-    pub fn items(&self) -> impl DoubleEndedIterator<Item = &T> {
+    fn items(&self) -> impl DoubleEndedIterator<Item = &T> {
         self.builder.items().chain(self.staged.iter().map(|(item, ..)| item))
     }
 
     /// Return the finish style vec and the common prefix chain.
-    pub fn finish(mut self) -> (StyleVec<T>, StyleChain<'a>) {
+    fn finish(mut self) -> (StyleVec<T>, StyleChain<'a>) {
         self.flush(false);
         self.builder.finish()
     }

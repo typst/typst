@@ -4,7 +4,7 @@ use super::{Lang, Region};
 
 /// State machine for smart quote subtitution.
 #[derive(Debug, Clone)]
-pub struct Quoter {
+pub(super) struct Quoter {
     /// How many quotes have been opened.
     quote_depth: usize,
     /// Whether an opening quote might follow.
@@ -68,7 +68,7 @@ fn is_opening_bracket(c: char) -> bool {
 }
 
 /// Decides which quotes to subtitute smart quotes with.
-pub struct Quotes<'s> {
+pub(super) struct Quotes<'s> {
     /// The opening single quote.
     pub single_open: &'s str,
     /// The closing single quote.

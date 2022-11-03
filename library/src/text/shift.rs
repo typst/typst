@@ -11,7 +11,7 @@ use crate::prelude::*;
 /// codepoints. If that fails, we fall back to rendering shrunk normal letters
 /// in a raised way.
 #[derive(Debug, Hash)]
-pub struct ShiftNode<const S: ScriptKind>(pub Content);
+pub struct ShiftNode<const S: ShiftKind>(pub Content);
 
 /// Shift the text into superscript.
 pub type SuperNode = ShiftNode<SUPERSCRIPT>;
@@ -20,7 +20,7 @@ pub type SuperNode = ShiftNode<SUPERSCRIPT>;
 pub type SubNode = ShiftNode<SUBSCRIPT>;
 
 #[node(Show)]
-impl<const S: ScriptKind> ShiftNode<S> {
+impl<const S: ShiftKind> ShiftNode<S> {
     /// Whether to prefer the dedicated sub- and superscript characters of the
     /// font.
     pub const TYPOGRAPHIC: bool = true;
@@ -35,7 +35,7 @@ impl<const S: ScriptKind> ShiftNode<S> {
     }
 }
 
-impl<const S: ScriptKind> Show for ShiftNode<S> {
+impl<const S: ShiftKind> Show for ShiftNode<S> {
     fn unguard_parts(&self, _: Selector) -> Content {
         Self(self.0.clone()).pack()
     }
@@ -72,7 +72,7 @@ impl<const S: ScriptKind> Show for ShiftNode<S> {
 
 /// Find and transform the text contained in `content` to the given script kind
 /// if and only if it only consists of `Text`, `Space`, and `Empty` leaf nodes.
-fn search_text(content: &Content, mode: ScriptKind) -> Option<EcoString> {
+fn search_text(content: &Content, mode: ShiftKind) -> Option<EcoString> {
     if content.is_empty() {
         Some(EcoString::new())
     } else if content.is::<SpaceNode>() {
@@ -114,7 +114,7 @@ fn is_shapable(world: Tracked<dyn World>, text: &str, styles: StyleChain) -> boo
 
 /// Convert a string to sub- or superscript codepoints if all characters
 /// can be mapped to such a codepoint.
-fn convert_script(text: &str, mode: ScriptKind) -> Option<EcoString> {
+fn convert_script(text: &str, mode: ShiftKind) -> Option<EcoString> {
     let mut result = EcoString::with_capacity(text.len());
     let converter = match mode {
         SUPERSCRIPT => to_superscript_codepoint,
@@ -179,10 +179,10 @@ fn to_subscript_codepoint(c: char) -> Option<char> {
 }
 
 /// A category of script.
-pub type ScriptKind = usize;
+pub type ShiftKind = usize;
 
 /// Text that is rendered smaller and raised, also known as superior.
-const SUPERSCRIPT: ScriptKind = 0;
+const SUPERSCRIPT: ShiftKind = 0;
 
 /// Text that is rendered smaller and lowered, also known as inferior.
-const SUBSCRIPT: ScriptKind = 1;
+const SUBSCRIPT: ShiftKind = 1;

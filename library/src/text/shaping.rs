@@ -13,7 +13,7 @@ use crate::prelude::*;
 /// This type contains owned or borrowed shaped text runs, which can be
 /// measured, used to reshape substrings more quickly and converted into a
 /// frame.
-pub struct ShapedText<'a> {
+pub(super) struct ShapedText<'a> {
     /// The text that was shaped.
     pub text: &'a str,
     /// The text direction.
@@ -32,7 +32,7 @@ pub struct ShapedText<'a> {
 
 /// A single glyph resulting from shaping.
 #[derive(Debug, Clone)]
-pub struct ShapedGlyph {
+pub(super) struct ShapedGlyph {
     /// The font the glyph is contained in.
     pub font: Font,
     /// The glyph's index in the font.
@@ -318,7 +318,7 @@ struct ShapingContext<'a> {
 }
 
 /// Shape text into [`ShapedText`].
-pub fn shape<'a>(
+pub(super) fn shape<'a>(
     world: Tracked<dyn World>,
     text: &'a str,
     styles: StyleChain<'a>,
@@ -534,7 +534,7 @@ fn nbsp_delta(font: &Font) -> Option<Em> {
     Some(font.advance(nbsp)? - font.advance(space)?)
 }
 
-/// Resolve the font variant with `BOLD` and `ITALIC` factored in.
+/// Resolve the font variant.
 pub fn variant(styles: StyleChain) -> FontVariant {
     let mut variant = FontVariant::new(
         styles.get(TextNode::STYLE),

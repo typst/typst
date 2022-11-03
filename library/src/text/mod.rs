@@ -11,7 +11,6 @@ mod shift;
 pub use deco::*;
 pub use link::*;
 pub use par::*;
-pub use quotes::*;
 pub use raw::*;
 pub use shaping::*;
 pub use shift::*;
@@ -22,6 +21,7 @@ use rustybuzz::Tag;
 use typst::font::{FontMetrics, FontStretch, FontStyle, FontWeight, VerticalFontMetric};
 use typst::util::EcoString;
 
+use self::quotes::*;
 use crate::prelude::*;
 
 /// A single run of text with the same style.
@@ -107,22 +107,22 @@ impl TextNode {
 
     /// Whether the font weight should be increased by 300.
     #[property(skip, fold)]
-    pub const BOLD: Toggle = false;
+    pub(super) const BOLD: Toggle = false;
     /// Whether the font style should be inverted.
     #[property(skip, fold)]
-    pub const ITALIC: Toggle = false;
+    pub(super) const ITALIC: Toggle = false;
     /// A case transformation that should be applied to the text.
     #[property(skip)]
-    pub const CASE: Option<Case> = None;
+    pub(super) const CASE: Option<Case> = None;
     /// Whether small capital glyphs should be used. ("smcp")
     #[property(skip)]
-    pub const SMALLCAPS: bool = false;
+    pub(super) const SMALLCAPS: bool = false;
     /// A destination the text should be linked to.
     #[property(skip, referenced)]
-    pub const LINK: Option<Destination> = None;
+    pub(crate) const LINK: Option<Destination> = None;
     /// Decorative lines.
     #[property(skip, fold)]
-    pub const DECO: Decoration = vec![];
+    pub(super) const DECO: Decoration = vec![];
 
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         // The text constructor is special: It doesn't create a text node.

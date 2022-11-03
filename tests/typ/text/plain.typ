@@ -1,4 +1,4 @@
-// Test simple text.
+// Test plain text.
 
 ---
 #set page(width: 250pt, height: 120pt)

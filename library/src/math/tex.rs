@@ -5,7 +5,7 @@ use rex::parser::color::RGBA;
 use rex::render::{Backend, Cursor, Renderer};
 use typst::font::Font;
 
-use super::*;
+use super::MathNode;
 use crate::prelude::*;
 use crate::text::{variant, LinebreakNode, SpaceNode, TextNode};
 

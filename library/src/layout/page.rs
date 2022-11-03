@@ -2,6 +2,7 @@ use std::str::FromStr;
 
 use super::ColumnsNode;
 use crate::prelude::*;
+use crate::text::TextNode;
 
 /// Layouts its child onto one or multiple pages.
 #[derive(PartialEq, Clone, Hash)]

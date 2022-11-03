@@ -1,9 +1,9 @@
 use unscanny::Scanner;
 
+use crate::base::Numbering;
 use crate::layout::{BlockSpacing, GridNode, HNode, TrackSizing};
 use crate::prelude::*;
-use crate::text::{ParNode, SpaceNode};
-use crate::utility::Numbering;
+use crate::text::{ParNode, SpaceNode, TextNode};
 
 /// An unordered (bulleted) or ordered (numbered) list.
 #[derive(Debug, Hash)]

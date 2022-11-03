@@ -1,13 +1,13 @@
-//! Computational utility functions.
+//! Foundational functions.
 
+mod calc;
 mod color;
 mod data;
-mod math;
 mod string;
 
+pub use calc::*;
 pub use color::*;
 pub use data::*;
-pub use math::*;
 pub use string::*;
 
 use comemo::Track;

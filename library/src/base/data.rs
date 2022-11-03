@@ -1,6 +1,6 @@
 use std::fmt::Write;
 
-use typst::diag::format_xml_like_error;
+use typst::diag::{format_xml_like_error, FileError};
 
 use crate::prelude::*;
 

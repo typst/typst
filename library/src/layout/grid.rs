@@ -99,7 +99,7 @@ castable! {
 }
 
 /// Performs grid layout.
-pub struct GridLayouter<'a> {
+struct GridLayouter<'a> {
     /// The core context.
     world: Tracked<'a, dyn World>,
     /// The grid cells.
@@ -140,7 +140,7 @@ impl<'a> GridLayouter<'a> {
     /// Create a new grid layouter.
     ///
     /// This prepares grid layout by unifying content and gutter tracks.
-    pub fn new(
+    fn new(
         world: Tracked<'a, dyn World>,
         tracks: Axes<&[TrackSizing]>,
         gutter: Axes<&[TrackSizing]>,
@@ -211,7 +211,7 @@ impl<'a> GridLayouter<'a> {
     }
 
     /// Determines the columns sizes and then layouts the grid row-by-row.
-    pub fn layout(mut self) -> SourceResult<Vec<Frame>> {
+    fn layout(mut self) -> SourceResult<Vec<Frame>> {
         self.measure_columns()?;
 
         for y in 0 .. self.rows.len() {

@@ -17,13 +17,12 @@ use pico_args::Arguments;
 use same_file::{is_same_file, Handle};
 use siphasher::sip128::{Hasher128, SipHasher};
 use termcolor::{ColorChoice, StandardStream, WriteColor};
-use walkdir::WalkDir;
-
 use typst::diag::{FileError, FileResult, SourceError, StrResult};
 use typst::font::{Font, FontBook, FontInfo, FontVariant};
 use typst::syntax::{Source, SourceId};
 use typst::util::{Buffer, PathExt};
 use typst::{Config, World};
+use walkdir::WalkDir;
 
 type CodespanResult<T> = Result<T, CodespanError>;
 type CodespanError = codespan_reporting::files::Error;

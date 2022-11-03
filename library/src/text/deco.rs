@@ -70,7 +70,7 @@ impl<const L: DecoLine> Show for DecoNode<L> {
 ///
 /// For more details, see [`DecoNode`].
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct Decoration {
+pub(super) struct Decoration {
     pub line: DecoLine,
     pub stroke: PartialStroke<Abs>,
     pub offset: Smart<Abs>,
@@ -91,7 +91,7 @@ pub const STRIKETHROUGH: DecoLine = 1;
 pub const OVERLINE: DecoLine = 2;
 
 /// Add line decorations to a single run of shaped text.
-pub fn decorate(
+pub(super) fn decorate(
     frame: &mut Frame,
     deco: &Decoration,
     text: &Text,

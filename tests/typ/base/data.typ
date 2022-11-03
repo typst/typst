@@ -10,7 +10,7 @@
 #table(columns: data(0).len(), ..cells)
 
 ---
-// Error: 6-16 file not found (searched at typ/utility/nope.csv)
+// Error: 6-16 file not found (searched at typ/base/nope.csv)
 #csv("nope.csv")
 
 ---

@@ -115,7 +115,7 @@ impl StyleMapExt for StyleMap {
     fn set_family(&mut self, preferred: text::FontFamily, existing: StyleChain) {
         self.set(
             text::TextNode::FAMILY,
-            FallbackList(
+            text::FallbackList(
                 std::iter::once(preferred)
                     .chain(existing.get(text::TextNode::FAMILY).0.iter().cloned())
                     .collect(),

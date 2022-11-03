@@ -80,7 +80,7 @@ impl PartialOrd for FlowChild {
 }
 
 /// Performs flow layout.
-pub struct FlowLayouter {
+struct FlowLayouter {
     /// The regions to layout children into.
     regions: Regions,
     /// Whether the flow should expand to fill the region.
@@ -112,7 +112,7 @@ enum FlowItem {
 
 impl FlowLayouter {
     /// Create a new flow layouter.
-    pub fn new(regions: &Regions) -> Self {
+    fn new(regions: &Regions) -> Self {
         let expand = regions.expand;
         let full = regions.first;
 
@@ -132,7 +132,7 @@ impl FlowLayouter {
     }
 
     /// Layout spacing.
-    pub fn layout_spacing(&mut self, spacing: Spacing, styles: StyleChain) {
+    fn layout_spacing(&mut self, spacing: Spacing, styles: StyleChain) {
         match spacing {
             Spacing::Relative(v) => {
                 // Resolve the spacing and limit it to the remaining space.
@@ -150,7 +150,7 @@ impl FlowLayouter {
     }
 
     /// Layout a block.
-    pub fn layout_block(
+    fn layout_block(
         &mut self,
         world: Tracked<dyn World>,
         block: &Content,
@@ -206,7 +206,7 @@ impl FlowLayouter {
     }
 
     /// Finish the frame for one region.
-    pub fn finish_region(&mut self) {
+    fn finish_region(&mut self) {
         // Determine the size of the flow in this region dependening on whether
         // the region expands.
         let mut size = self.expand.select(self.full, self.used);
@@ -254,7 +254,7 @@ impl FlowLayouter {
     }
 
     /// Finish layouting and return the resulting frames.
-    pub fn finish(mut self) -> Vec<Frame> {
+    fn finish(mut self) -> Vec<Frame> {
         if self.expand.y {
             while !self.regions.backlog.is_empty() {
                 self.finish_region();
