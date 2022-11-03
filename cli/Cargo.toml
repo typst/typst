@@ -7,6 +7,9 @@ edition = "2021"
 [[bin]]
 name = "typst"
 path = "src/main.rs"
+test = false
+doctest = false
+bench = false
 doc = false
 
 [dependencies]

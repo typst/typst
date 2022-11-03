@@ -7,6 +7,7 @@ desktop.ini
 # Tests and benchmarks
 tests/png
 tests/pdf
+tests/target
 tarpaulin-report.html
 
 # Rust

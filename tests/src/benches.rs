@@ -10,8 +10,8 @@ use typst::syntax::{Source, SourceId, TokenMode, Tokens};
 use typst::util::Buffer;
 use typst::{Config, World};
 
-const TEXT: &str = include_str!("bench.typ");
-const FONT: &[u8] = include_bytes!("../fonts/IBMPlexSans-Regular.ttf");
+const TEXT: &str = include_str!("../typ/benches/bench.typ");
+const FONT: &[u8] = include_bytes!("../../fonts/IBMPlexSans-Regular.ttf");
 
 main!(
     bench_decode,
@@ -113,6 +113,7 @@ impl BenchWorld {
         let book = FontBook::from_fonts([&font]);
         let id = SourceId::from_u16(0);
         let source = Source::new(id, Path::new("bench.typ"), TEXT.into());
+
         Self {
             config: Prehashed::new(config),
             book: Prehashed::new(book),

@@ -1111,9 +1111,7 @@ dependencies = [
  "bitflags",
  "bytemuck",
  "comemo",
- "elsa",
  "flate2",
- "iai",
  "image",
  "miniz_oxide",
  "once_cell",
@@ -1131,13 +1129,11 @@ dependencies = [
  "syntect",
  "tiny-skia",
  "ttf-parser 0.17.1",
- "typst-library",
  "typst-macros",
  "unicode-segmentation",
  "unicode-xid",
  "unscanny",
  "usvg",
- "walkdir",
 ]
 
 [[package]]
@@ -1192,6 +1188,22 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "typst-tests"
+version = "0.1.0"
+dependencies = [
+ "comemo",
+ "elsa",
+ "iai",
+ "once_cell",
+ "tiny-skia",
+ "ttf-parser 0.17.1",
+ "typst",
+ "typst-library",
+ "unscanny",
+ "walkdir",
 ]
 
 [[package]]

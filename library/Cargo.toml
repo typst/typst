@@ -4,6 +4,11 @@ version = "0.1.0"
 authors = ["The Typst Project Developers"]
 edition = "2021"
 
+[lib]
+test = false
+doctest = false
+bench = false
+
 [dependencies]
 typst = { path = ".." }
 comemo = "0.1"

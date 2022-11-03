@@ -20,13 +20,6 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v2
 
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: ${{ matrix.rust }}
-          override: true
-
       - name: Dependency cache
         uses: Swatinem/rust-cache@v1
 
@@ -34,10 +27,10 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --all-features
+          args: --all
 
       - name: Test
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --all-features
+          args: --all

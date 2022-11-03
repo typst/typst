@@ -25,23 +25,25 @@ use typst::{Config, World};
 use typst_library::layout::PageNode;
 use typst_library::text::{TextNode, TextSize};
 
-const TYP_DIR: &str = "./typ";
-const REF_DIR: &str = "./ref";
-const PNG_DIR: &str = "./png";
-const PDF_DIR: &str = "./pdf";
+const TYP_DIR: &str = "typ";
+const REF_DIR: &str = "ref";
+const PNG_DIR: &str = "png";
+const PDF_DIR: &str = "pdf";
 const FONT_DIR: &str = "../fonts";
 
 fn main() {
-    env::set_current_dir(env::current_dir().unwrap().join("tests")).unwrap();
-
     let args = Args::new(env::args().skip(1));
     let mut filtered = Vec::new();
 
     // Since differents tests can affect each other through the memoization
     // cache, a deterministic order is important for reproducibility.
-    for entry in WalkDir::new(".").sort_by_file_name() {
+    for entry in WalkDir::new("typ").sort_by_file_name() {
         let entry = entry.unwrap();
         if entry.depth() <= 1 {
+            continue;
+        }
+
+        if entry.path().starts_with("typ/benches") {
             continue;
         }
 

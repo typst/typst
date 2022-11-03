@@ -2,6 +2,7 @@
 
 ## Directory structure
 Top level directory structure:
+- `src`: Testing code.
 - `typ`: Input files.
 - `res`: Resource files used by tests.
 - `ref`: Reference images which the output is compared with to determine whether
@@ -10,24 +11,34 @@ Top level directory structure:
 - `pdf`: PDF files produced by tests.
 
 ## Running the tests
-Running the integration tests (the tests in this directory).
+Running all tests (including unit tests):
 ```bash
-cargo test --test typeset
+cargo test --all
+```
+
+Running just the integration tests (the tests in this directory):
+```bash
+cargo test --all --test tests
+```
+
+You may want to [make yourself an alias](#making-an-alias) like:
+```bash
+testit
 ```
 
 Running all tests whose paths contain the string `page` or `stack`.
 ```bash
-cargo test --test typeset page stack
+testit page stack
 ```
 
 Running a test with the exact filename `page.typ`.
 ```bash
-cargo test --test typeset -- --exact page.typ
+testit --exact page.typ
 ```
 
 Debug-printing the layout trees for all executed tests.
 ```bash
-cargo test --test typeset -- --debug empty.typ
+testit --debug empty.typ
 ```
 
 To make the integration tests go faster they don't generate PDFs by default.
@@ -35,7 +46,7 @@ Pass the `--pdf` flag to generate those. Mind that PDFs are not tested
 automatically at the moment, so you should always check the output manually when
 making changes.
 ```bash
-cargo test --test typeset -- --pdf
+testit --pdf
 ```
 
 ## Creating new tests
@@ -50,23 +61,23 @@ oxipng -o max path/to/image.png
 oxipng -r -o max tests/ref
 ```
 
-## Shorthand for running tests
+## Making an alias
 If you want to have a quicker way to run the tests, consider adding a shortcut
 to your shell profile so that you can simply write something like:
 ```bash
-tests --debug empty.typ
-```
-
-### PowerShell
-Open your PowerShell profile by executing `notepad $profile`.
-```ps
-function tests {
-    cargo test --test typeset -- $args
-}
+testit empty.typ
 ```
 
 ### Bash
 Open your Bash configuration by executing `nano ~/.bashrc`.
 ```bash
-alias tests="cargo test --test typeset --"
+alias testit="cargo test --all --test tests --"
+```
+
+### PowerShell
+Open your PowerShell profile by executing `notepad $profile`.
+```ps
+function testit {
+    cargo test --all --test tests -- $args
+}
 ```

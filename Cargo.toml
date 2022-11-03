@@ -5,7 +5,11 @@ authors = ["The Typst Project Developers"]
 edition = "2021"
 
 [workspace]
-members = ["cli", "library", "macros"]
+members = ["cli", "library", "macros", "tests"]
+
+[lib]
+doctest = false
+bench = false
 
 [dependencies]
 typst-macros = { path = "macros" }
@@ -35,22 +39,8 @@ unicode-xid = "0.2"
 unscanny = "0.1"
 usvg = { version = "0.22", default-features = false }
 
-[dev-dependencies]
-typst-library = { path = "library" }
-iai = { git = "https://github.com/reknih/iai" }
-elsa = "1.7"
-walkdir = "2"
-
 [profile.dev]
 debug = 0
 
 [profile.dev.package."*"]
 opt-level = 2
-
-[[test]]
-name = "typeset"
-harness = false
-
-[[bench]]
-name = "oneshot"
-harness = false
