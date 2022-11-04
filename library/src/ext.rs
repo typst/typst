@@ -55,24 +55,16 @@ impl ContentExt for Content {
         let mut seq = vec![];
         if let Some(above) = above {
             seq.push(
-                layout::VNode {
-                    amount: above.into(),
-                    weak: true,
-                    generated: true,
-                }
-                .pack(),
+                layout::VNode { amount: above.into(), weak: true, generated: true }
+                    .pack(),
             );
         }
 
         seq.push(self);
         if let Some(below) = below {
             seq.push(
-                layout::VNode {
-                    amount: below.into(),
-                    weak: true,
-                    generated: true,
-                }
-                .pack(),
+                layout::VNode { amount: below.into(), weak: true, generated: true }
+                    .pack(),
             );
         }
 

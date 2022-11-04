@@ -28,7 +28,7 @@ pub fn reparse(
     let id = root.span().source();
     *root = parse(text);
     root.numberize(id, Span::FULL).unwrap();
-    0 .. text.len()
+    0..text.len()
 }
 
 /// Try to reparse inside the given node.
@@ -55,7 +55,7 @@ fn try_reparse(
     // Find the the first child in the range of children to reparse.
     for (i, child) in node.children().enumerate() {
         let pos = NodePos { idx: i, offset };
-        let child_span = offset .. offset + child.len();
+        let child_span = offset..offset + child.len();
         child_outermost = outermost && i + 1 == original_count;
 
         match search {
@@ -81,7 +81,7 @@ fn try_reparse(
                 } else {
                     // Update compulsary state of `ahead_nontrivia`.
                     if let Some(ahead_nontrivia) = ahead.as_mut() {
-                        if let NodeKind::Space { newlines: (1 ..) } = child.kind() {
+                        if let NodeKind::Space { newlines: (1..) } = child.kind() {
                             ahead_nontrivia.newline();
                         }
                     }
@@ -126,10 +126,13 @@ fn try_reparse(
     // If we were looking for a non-whitespace element and hit the end of
     // the file here, we instead use EOF as the end of the span.
     if let SearchState::RequireNonTrivia(start) = search {
-        search = SearchState::SpanFound(start, NodePos {
-            idx: node.children().len() - 1,
-            offset: offset - node.children().last().unwrap().len(),
-        })
+        search = SearchState::SpanFound(
+            start,
+            NodePos {
+                idx: node.children().len() - 1,
+                offset: offset - node.children().last().unwrap().len(),
+            },
+        )
     }
 
     if let SearchState::Contained(pos) = search {
@@ -156,7 +159,7 @@ fn try_reparse(
             return Some(range);
         }
 
-        let superseded_span = pos.offset .. pos.offset + prev_len;
+        let superseded_span = pos.offset..pos.offset + prev_len;
         let func: Option<ReparseMode> = match child.kind() {
             NodeKind::CodeBlock => Some(ReparseMode::Code),
             NodeKind::ContentBlock => Some(ReparseMode::Content),
@@ -170,7 +173,7 @@ fn try_reparse(
                 change,
                 node,
                 func,
-                pos.idx .. pos.idx + 1,
+                pos.idx..pos.idx + 1,
                 superseded_span,
                 outermost,
             ) {
@@ -197,13 +200,13 @@ fn try_reparse(
     }
 
     let superseded_span =
-        start.offset .. end.offset + node.children().as_slice()[end.idx].len();
+        start.offset..end.offset + node.children().as_slice()[end.idx].len();
 
     replace(
         change,
         node,
         ReparseMode::MarkupElements { at_start, min_indent },
-        start.idx .. end.idx + 1,
+        start.idx..end.idx + 1,
         superseded_span,
         outermost,
     )
@@ -223,33 +226,33 @@ fn replace(
     let differential: isize =
         change.replacement_len as isize - change.replaced.len() as isize;
     let newborn_end = (superseded_span.end as isize + differential) as usize;
-    let newborn_span = superseded_span.start .. newborn_end;
+    let newborn_span = superseded_span.start..newborn_end;
 
     let mut prefix = "";
-    for (i, c) in change.text[.. newborn_span.start].char_indices().rev() {
+    for (i, c) in change.text[..newborn_span.start].char_indices().rev() {
         if is_newline(c) {
             break;
         }
-        prefix = &change.text[i .. newborn_span.start];
+        prefix = &change.text[i..newborn_span.start];
     }
 
     let (newborns, terminated, amount) = match mode {
         ReparseMode::Code => reparse_code_block(
             prefix,
-            &change.text[newborn_span.start ..],
+            &change.text[newborn_span.start..],
             newborn_span.len(),
         ),
         ReparseMode::Content => reparse_content_block(
             prefix,
-            &change.text[newborn_span.start ..],
+            &change.text[newborn_span.start..],
             newborn_span.len(),
         ),
         ReparseMode::MarkupElements { at_start, min_indent } => reparse_markup_elements(
             prefix,
-            &change.text[newborn_span.start ..],
+            &change.text[newborn_span.start..],
             newborn_span.len(),
             differential,
-            &node.children().as_slice()[superseded_start ..],
+            &node.children().as_slice()[superseded_start..],
             at_start,
             min_indent,
         ),
@@ -261,7 +264,7 @@ fn replace(
         return None;
     }
 
-    node.replace_children(superseded_start .. superseded_start + amount, newborns)
+    node.replace_children(superseded_start..superseded_start + amount, newborns)
         .ok()?;
 
     Some(newborn_span)
@@ -351,11 +354,7 @@ impl Ahead {
         Self {
             pos,
             at_start,
-            kind: if bounded {
-                AheadKind::Normal
-            } else {
-                AheadKind::Unbounded(true)
-            },
+            kind: if bounded { AheadKind::Normal } else { AheadKind::Unbounded(true) },
         }
     }
 
@@ -402,7 +401,7 @@ fn is_bounded(kind: &NodeKind) -> bool {
 /// previous value of the property.
 fn next_at_start(kind: &NodeKind, prev: bool) -> bool {
     match kind {
-        NodeKind::Space { newlines: (1 ..) } => true,
+        NodeKind::Space { newlines: (1..) } => true,
         NodeKind::Space { .. } | NodeKind::LineComment | NodeKind::BlockComment => prev,
         _ => false,
     }

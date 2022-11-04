@@ -294,11 +294,8 @@ where
     }
 
     fn dyn_eq(&self, other: &Dynamic) -> bool {
-        if let Some(other) = other.downcast::<Self>() {
-            self == other
-        } else {
-            false
-        }
+        let Some(other) = other.downcast::<Self>() else { return false };
+        self == other
     }
 
     fn dyn_type_name(&self) -> &'static str {
@@ -411,15 +408,9 @@ mod tests {
         test(Abs::pt(5.5), "5.5pt");
         test(Angle::deg(90.0), "90deg");
         test(Ratio::one() / 2.0, "50%");
-        test(
-            Ratio::new(0.3) + Length::from(Abs::cm(2.0)),
-            "30% + 56.69pt",
-        );
+        test(Ratio::new(0.3) + Length::from(Abs::cm(2.0)), "30% + 56.69pt");
         test(Fr::one() * 7.55, "7.55fr");
-        test(
-            Color::Rgba(RgbaColor::new(1, 1, 1, 0xff)),
-            "rgb(\"#010101\")",
-        );
+        test(Color::Rgba(RgbaColor::new(1, 1, 1, 0xff)), "rgb(\"#010101\")");
 
         // Collections.
         test("hello", r#""hello""#);

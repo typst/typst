@@ -117,22 +117,38 @@ impl<'s> Quotes<'s> {
 
     /// The opening quote.
     fn open(&self, double: bool) -> &'s str {
-        if double { self.double_open } else { self.single_open }
+        if double {
+            self.double_open
+        } else {
+            self.single_open
+        }
     }
 
     /// The closing quote.
     fn close(&self, double: bool) -> &'s str {
-        if double { self.double_close } else { self.single_close }
+        if double {
+            self.double_close
+        } else {
+            self.single_close
+        }
     }
 
     /// Which character should be used as a prime.
     fn prime(&self, double: bool) -> &'static str {
-        if double { "″" } else { "′" }
+        if double {
+            "″"
+        } else {
+            "′"
+        }
     }
 
     /// Which character should be used as a fallback quote.
     fn fallback(&self, double: bool) -> &'static str {
-        if double { "\"" } else { "’" }
+        if double {
+            "\""
+        } else {
+            "’"
+        }
     }
 }
 

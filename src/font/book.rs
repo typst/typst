@@ -172,7 +172,7 @@ impl FontInfo {
     /// Compute metadata for all fonts in the given data.
     pub fn from_data(data: &[u8]) -> impl Iterator<Item = FontInfo> + '_ {
         let count = ttf_parser::fonts_in_collection(data).unwrap_or(1);
-        (0 .. count).filter_map(move |index| {
+        (0..count).filter_map(move |index| {
             let ttf = ttf_parser::Face::parse(data, index).ok()?;
             Self::from_ttf(&ttf)
         })
@@ -241,9 +241,9 @@ impl FontInfo {
         if let Some(panose) = ttf
             .raw_face()
             .table(Tag::from_bytes(b"OS/2"))
-            .and_then(|os2| os2.get(32 .. 45))
+            .and_then(|os2| os2.get(32..45))
         {
-            if matches!(panose, [2, 2 ..= 10, ..]) {
+            if matches!(panose, [2, 2..=10, ..]) {
                 flags.insert(FontFlags::SERIF);
             }
         }
@@ -305,9 +305,8 @@ fn typographic_family(mut family: &str) -> &str {
     const SEPARATORS: [char; 3] = [' ', '-', '_'];
 
     // Modifiers that can appear in combination with suffixes.
-    const MODIFIERS: &[&str] = &[
-        "extra", "ext", "ex", "x", "semi", "sem", "sm", "demi", "dem", "ultra",
-    ];
+    const MODIFIERS: &[&str] =
+        &["extra", "ext", "ex", "x", "semi", "sem", "sm", "demi", "dem", "ultra"];
 
     // Style suffixes.
     #[rustfmt::skip]
@@ -331,9 +330,8 @@ fn typographic_family(mut family: &str) -> &str {
         len = trimmed.len();
 
         // Find style suffix.
-        let mut t = match SUFFIXES.iter().find_map(|s| trimmed.strip_suffix(s)) {
-            Some(t) => t,
-            None => break,
+        let Some(mut t) = SUFFIXES.iter().find_map(|s| trimmed.strip_suffix(s)) else {
+            break;
         };
 
         // Strip optional separator.
@@ -351,7 +349,7 @@ fn typographic_family(mut family: &str) -> &str {
         }
     }
 
-    &family[.. len]
+    &family[..len]
 }
 
 /// How many words the two strings share in their prefix.
@@ -411,7 +409,7 @@ impl Coverage {
         let mut cursor = 0;
 
         for &run in &self.0 {
-            if (cursor .. cursor + run).contains(&c) {
+            if (cursor..cursor + run).contains(&c) {
                 return inside;
             }
             cursor += run;
@@ -432,19 +430,13 @@ mod tests {
         assert_eq!(typographic_family("eras bold"), "eras");
         assert_eq!(typographic_family("footlight mt light"), "footlight mt");
         assert_eq!(typographic_family("times new roman"), "times new roman");
-        assert_eq!(
-            typographic_family("noto sans mono cond sembd"),
-            "noto sans mono"
-        );
+        assert_eq!(typographic_family("noto sans mono cond sembd"), "noto sans mono");
         assert_eq!(typographic_family("noto serif SEMCOND sembd"), "noto serif");
         assert_eq!(typographic_family("crimson text"), "crimson text");
         assert_eq!(typographic_family("footlight light"), "footlight");
         assert_eq!(typographic_family("Noto Sans"), "Noto Sans");
         assert_eq!(typographic_family("Noto Sans Light"), "Noto Sans");
-        assert_eq!(
-            typographic_family("Noto Sans Semicondensed Heavy"),
-            "Noto Sans"
-        );
+        assert_eq!(typographic_family("Noto Sans Semicondensed Heavy"), "Noto Sans");
         assert_eq!(typographic_family("Familx"), "Familx");
         assert_eq!(typographic_family("Font Ultra"), "Font Ultra");
         assert_eq!(typographic_family("Font Ultra Bold"), "Font");
@@ -458,7 +450,7 @@ mod tests {
             assert_eq!(coverage.0, runs);
 
             let max = 5 + set.iter().copied().max().unwrap_or_default();
-            for c in 0 .. max {
+            for c in 0..max {
                 assert_eq!(set.contains(&c), coverage.contains(c));
             }
         }

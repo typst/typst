@@ -1,4 +1,4 @@
-//! Layout and computation model.
+//! Document and computation model.
 
 #[macro_use]
 mod items;
@@ -23,18 +23,18 @@ mod ops;
 mod scope;
 mod vm;
 
-pub use self::str::*;
-pub use args::*;
-pub use array::*;
-pub use cast::*;
-pub use content::*;
-pub use dict::*;
-pub use eval::*;
-pub use func::*;
-pub use items::*;
-pub use scope::*;
-pub use styles::*;
-pub use value::*;
-pub use vm::*;
-
 pub use typst_macros::{capability, node};
+
+pub use self::args::*;
+pub use self::array::*;
+pub use self::cast::*;
+pub use self::content::*;
+pub use self::dict::*;
+pub use self::eval::*;
+pub use self::func::*;
+pub use self::items::*;
+pub use self::scope::*;
+pub use self::str::*;
+pub use self::styles::*;
+pub use self::value::*;
+pub use self::vm::*;

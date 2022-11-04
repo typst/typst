@@ -78,10 +78,7 @@ fn search_text(content: &Content, mode: ShiftKind) -> Option<EcoString> {
     } else if content.is::<SpaceNode>() {
         Some(' '.into())
     } else if let Some(text) = content.downcast::<TextNode>() {
-        if let Some(sup) = convert_script(&text.0, mode) {
-            return Some(sup);
-        }
-        None
+        convert_script(&text.0, mode)
     } else if let Some(seq) = content.downcast::<SequenceNode>() {
         let mut full = EcoString::new();
         for item in seq.0.iter() {
@@ -138,7 +135,7 @@ fn to_superscript_codepoint(c: char) -> Option<char> {
         '1' => 0x00B9,
         '2' => 0x00B2,
         '3' => 0x00B3,
-        '4' ..= '9' => 0x2070 + (c as u32 + 4 - '4' as u32),
+        '4'..='9' => 0x2070 + (c as u32 + 4 - '4' as u32),
         '+' => 0x207A,
         '-' => 0x207B,
         '=' => 0x207C,
@@ -155,7 +152,7 @@ fn to_superscript_codepoint(c: char) -> Option<char> {
 fn to_subscript_codepoint(c: char) -> Option<char> {
     char::from_u32(match c {
         '0' => 0x2080,
-        '1' ..= '9' => 0x2080 + (c as u32 - '0' as u32),
+        '1'..='9' => 0x2080 + (c as u32 - '0' as u32),
         '+' => 0x208A,
         '-' => 0x208B,
         '=' => 0x208C,

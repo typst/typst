@@ -174,7 +174,7 @@ where
         &'a self,
         refs: &'a [Ref],
     ) -> impl Iterator<Item = (Ref, usize)> + 'a {
-        refs.iter().copied().zip(0 .. self.to_pdf.len())
+        refs.iter().copied().zip(0..self.to_pdf.len())
     }
 
     fn items(&self) -> impl Iterator<Item = &T> + '_ {

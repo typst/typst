@@ -74,12 +74,8 @@ impl LayoutBlock for ColumnsNode {
             let mut output = Frame::new(Size::new(regions.first.x, height));
             let mut cursor = Abs::zero();
 
-            for _ in 0 .. columns {
-                let frame = match frames.next() {
-                    Some(frame) => frame,
-                    None => break,
-                };
-
+            for _ in 0..columns {
+                let Some(frame) = frames.next() else { break };
                 if !regions.expand.y {
                     output.size_mut().y.set_max(frame.height());
                 }

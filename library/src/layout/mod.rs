@@ -12,17 +12,17 @@ mod spacing;
 mod stack;
 mod transform;
 
-pub use align::*;
-pub use columns::*;
-pub use container::*;
-pub use flow::*;
-pub use grid::*;
-pub use pad::*;
-pub use page::*;
-pub use place::*;
-pub use spacing::*;
-pub use stack::*;
-pub use transform::*;
+pub use self::align::*;
+pub use self::columns::*;
+pub use self::container::*;
+pub use self::flow::*;
+pub use self::grid::*;
+pub use self::pad::*;
+pub use self::page::*;
+pub use self::place::*;
+pub use self::spacing::*;
+pub use self::stack::*;
+pub use self::transform::*;
 
 use std::mem;
 
@@ -357,18 +357,19 @@ impl<'a> Builder<'a> {
         content: &'a Content,
         styles: StyleChain<'a>,
     ) -> SourceResult<bool> {
-        if let Some(mut realized) = styles.apply(self.world, Target::Node(content))? {
-            let mut map = StyleMap::new();
-            let barrier = Barrier::new(content.id());
-            map.push(StyleEntry::Barrier(barrier));
-            map.push(StyleEntry::Barrier(barrier));
-            realized = realized.styled_with_map(map);
-            let stored = self.scratch.templates.alloc(realized);
-            self.accept(stored, styles)?;
-            Ok(true)
-        } else {
-            Ok(false)
-        }
+        let Some(mut realized) = styles.apply(self.world, Target::Node(content))? else {
+            return Ok(false);
+        };
+
+        let mut map = StyleMap::new();
+        let barrier = Barrier::new(content.id());
+        map.push(StyleEntry::Barrier(barrier));
+        map.push(StyleEntry::Barrier(barrier));
+        realized = realized.styled_with_map(map);
+        let stored = self.scratch.templates.alloc(realized);
+        self.accept(stored, styles)?;
+
+        Ok(true)
     }
 
     fn styled(
@@ -466,10 +467,7 @@ impl<'a> DocBuilder<'a> {
 
 impl Default for DocBuilder<'_> {
     fn default() -> Self {
-        Self {
-            pages: StyleVecBuilder::new(),
-            keep_next: true,
-        }
+        Self { pages: StyleVecBuilder::new(), keep_next: true }
     }
 }
 
@@ -658,30 +656,25 @@ impl<'a> ListBuilder<'a> {
             {
                 self.items.push(item.clone(), styles);
                 self.tight &= self.staged.drain(..).all(|(t, _)| !t.is::<ParbreakNode>());
-            } else {
-                return false;
+                return true;
             }
         } else if !self.items.is_empty()
             && (content.is::<SpaceNode>() || content.is::<ParbreakNode>())
         {
             self.staged.push((content, styles));
-        } else {
-            return false;
+            return true;
         }
 
-        true
+        false
     }
 
     fn finish(self, parent: &mut Builder<'a>) -> SourceResult<()> {
         let (items, shared) = self.items.finish();
-        let kind = match items.items().next() {
-            Some(item) => item.kind(),
-            None => return Ok(()),
-        };
 
+        let Some(item) = items.items().next() else { return Ok(()) };
         let tight = self.tight;
         let attached = tight && self.attachable;
-        let content = match kind {
+        let content = match item.kind() {
             LIST => ListNode::<LIST> { tight, attached, items }.pack(),
             ENUM => ListNode::<ENUM> { tight, attached, items }.pack(),
             DESC | _ => ListNode::<DESC> { tight, attached, items }.pack(),
@@ -765,18 +758,15 @@ impl<'a, T> CollapsingBuilder<'a, T> {
         }
 
         if self.last == Last::Weak {
-            if let Some(i) =
-                self.staged.iter().position(|(prev_item, _, prev_weakness)| {
-                    prev_weakness.map_or(false, |prev_weakness| {
-                        weakness < prev_weakness
-                            || (weakness == prev_weakness && item > *prev_item)
-                    })
+            let weak = self.staged.iter().position(|(prev_item, _, prev_weakness)| {
+                prev_weakness.map_or(false, |prev_weakness| {
+                    weakness < prev_weakness
+                        || (weakness == prev_weakness && item > *prev_item)
                 })
-            {
-                self.staged.remove(i);
-            } else {
-                return;
-            }
+            });
+
+            let Some(weak) = weak else { return };
+            self.staged.remove(weak);
         }
 
         self.staged.push((item, styles, Some(weakness)));

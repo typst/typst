@@ -10,20 +10,18 @@ pub fn luma(_: &mut Vm, args: &mut Args) -> SourceResult<Value> {
 
 /// Create an RGB(A) color.
 pub fn rgb(_: &mut Vm, args: &mut Args) -> SourceResult<Value> {
-    Ok(Value::Color(
-        if let Some(string) = args.find::<Spanned<EcoString>>()? {
-            match RgbaColor::from_str(&string.v) {
-                Ok(color) => color.into(),
-                Err(msg) => bail!(string.span, msg),
-            }
-        } else {
-            let Component(r) = args.expect("red component")?;
-            let Component(g) = args.expect("green component")?;
-            let Component(b) = args.expect("blue component")?;
-            let Component(a) = args.eat()?.unwrap_or(Component(255));
-            RgbaColor::new(r, g, b, a).into()
-        },
-    ))
+    Ok(Value::Color(if let Some(string) = args.find::<Spanned<EcoString>>()? {
+        match RgbaColor::from_str(&string.v) {
+            Ok(color) => color.into(),
+            Err(msg) => bail!(string.span, msg),
+        }
+    } else {
+        let Component(r) = args.expect("red component")?;
+        let Component(g) = args.expect("green component")?;
+        let Component(b) = args.expect("blue component")?;
+        let Component(a) = args.eat()?.unwrap_or(Component(255));
+        RgbaColor::new(r, g, b, a).into()
+    }))
 }
 
 /// Create a CMYK color.

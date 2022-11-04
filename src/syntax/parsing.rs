@@ -90,7 +90,7 @@ pub(crate) fn reparse_markup_elements(
     let mut stopped = false;
 
     'outer: while !p.eof() {
-        if let Some(NodeKind::Space { newlines: (1 ..) }) = p.peek() {
+        if let Some(NodeKind::Space { newlines: (1..) }) = p.peek() {
             if p.column(p.current_end()) < min_indent {
                 return None;
             }
@@ -167,7 +167,7 @@ fn markup_indented(p: &mut Parser, min_indent: usize) {
 
     while !p.eof() {
         match p.peek() {
-            Some(NodeKind::Space { newlines: (1 ..) })
+            Some(NodeKind::Space { newlines: (1..) })
                 if p.column(p.current_end()) < min_indent =>
             {
                 break;
@@ -195,7 +195,7 @@ where
     p.perform(NodeKind::Markup { min_indent: usize::MAX }, |p| {
         let mut at_start = false;
         while let Some(kind) = p.peek() {
-            if let NodeKind::Space { newlines: (1 ..) } = kind {
+            if let NodeKind::Space { newlines: (1..) } = kind {
                 break;
             }
 
@@ -210,11 +210,7 @@ where
 
 /// Parse a markup node.
 fn markup_node(p: &mut Parser, at_start: &mut bool) {
-    let token = match p.peek() {
-        Some(t) => t,
-        None => return,
-    };
-
+    let Some(token) = p.peek() else { return };
     match token {
         // Whitespace.
         NodeKind::Space { newlines } => {
@@ -316,7 +312,7 @@ fn heading(p: &mut Parser, at_start: bool) {
         markup_line(p, |kind| matches!(kind, NodeKind::Label(_)));
         marker.end(p, NodeKind::Heading);
     } else {
-        let text = p.get(current_start .. p.prev_end()).into();
+        let text = p.get(current_start..p.prev_end()).into();
         marker.convert(p, NodeKind::Text(text));
     }
 }
@@ -420,12 +416,9 @@ fn math_node_prec(p: &mut Parser, min_prec: usize, stop: Option<NodeKind>) {
             Some(NodeKind::Underscore) => {
                 (NodeKind::Script, 2, Assoc::Right, Some(NodeKind::Hat))
             }
-            Some(NodeKind::Hat) => (
-                NodeKind::Script,
-                2,
-                Assoc::Right,
-                Some(NodeKind::Underscore),
-            ),
+            Some(NodeKind::Hat) => {
+                (NodeKind::Script, 2, Assoc::Right, Some(NodeKind::Underscore))
+            }
             Some(NodeKind::Slash) => (NodeKind::Frac, 1, Assoc::Left, None),
             _ => break,
         };
@@ -454,11 +447,7 @@ fn math_node_prec(p: &mut Parser, min_prec: usize, stop: Option<NodeKind>) {
 
 /// Parse a primary math node.
 fn math_primary(p: &mut Parser) {
-    let token = match p.peek() {
-        Some(t) => t,
-        None => return,
-    };
-
+    let Some(token) = p.peek() else { return };
     match token {
         // Spaces, atoms and expressions.
         NodeKind::Space { .. }
@@ -652,7 +641,6 @@ fn literal(p: &mut Parser) -> bool {
             p.eat();
             true
         }
-
         _ => false,
     }
 }
@@ -724,50 +712,51 @@ enum CollectionKind {
 /// Returns the length of the collection and whether the literal contained any
 /// commas.
 fn collection(p: &mut Parser, keyed: bool) -> (CollectionKind, usize) {
-    let mut kind = None;
+    let mut collection_kind = None;
     let mut items = 0;
     let mut can_group = true;
     let mut missing_coma: Option<Marker> = None;
 
     while !p.eof() {
-        if let Ok(item_kind) = item(p, keyed) {
-            match item_kind {
-                NodeKind::Spread => can_group = false,
-                NodeKind::Named if kind.is_none() => {
-                    kind = Some(CollectionKind::Named);
-                    can_group = false;
-                }
-                _ if kind.is_none() => {
-                    kind = Some(CollectionKind::Positional);
-                }
-                _ => {}
-            }
-
-            items += 1;
-
-            if let Some(marker) = missing_coma.take() {
-                p.expected_at(marker, "comma");
-            }
-
-            if p.eof() {
-                break;
-            }
-
-            if p.eat_if(NodeKind::Comma) {
-                can_group = false;
-            } else {
-                missing_coma = Some(p.trivia_start());
-            }
-        } else {
+        let Ok(item_kind) = item(p, keyed) else {
             p.eat_if(NodeKind::Comma);
-            kind = Some(CollectionKind::Group);
+            collection_kind = Some(CollectionKind::Group);
+            continue;
+        };
+
+        match item_kind {
+            NodeKind::Spread => can_group = false,
+            NodeKind::Named if collection_kind.is_none() => {
+                collection_kind = Some(CollectionKind::Named);
+                can_group = false;
+            }
+            _ if collection_kind.is_none() => {
+                collection_kind = Some(CollectionKind::Positional);
+            }
+            _ => {}
+        }
+
+        items += 1;
+
+        if let Some(marker) = missing_coma.take() {
+            p.expected_at(marker, "comma");
+        }
+
+        if p.eof() {
+            break;
+        }
+
+        if p.eat_if(NodeKind::Comma) {
+            can_group = false;
+        } else {
+            missing_coma = Some(p.trivia_start());
         }
     }
 
     let kind = if can_group && items == 1 {
         CollectionKind::Group
     } else {
-        kind.unwrap_or(CollectionKind::Positional)
+        collection_kind.unwrap_or(CollectionKind::Positional)
     };
 
     (kind, items)

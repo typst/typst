@@ -170,13 +170,13 @@ impl<'a> GridLayouter<'a> {
         };
 
         // Collect content and gutter columns.
-        for x in 0 .. c {
+        for x in 0..c {
             cols.push(get_or(tracks.x, x, auto));
             cols.push(get_or(gutter.x, x, zero));
         }
 
         // Collect content and gutter rows.
-        for y in 0 .. r {
+        for y in 0..r {
             rows.push(get_or(tracks.y, y, auto));
             rows.push(get_or(gutter.y, y, zero));
         }
@@ -214,7 +214,7 @@ impl<'a> GridLayouter<'a> {
     fn layout(mut self) -> SourceResult<Vec<Frame>> {
         self.measure_columns()?;
 
-        for y in 0 .. self.rows.len() {
+        for y in 0..self.rows.len() {
             // Skip to next region if current one is full, but only for content
             // rows, not for gutter rows.
             if y % 2 == 0 && self.regions.is_full() {
@@ -295,7 +295,7 @@ impl<'a> GridLayouter<'a> {
             }
 
             let mut resolved = Abs::zero();
-            for y in 0 .. self.rows.len() {
+            for y in 0..self.rows.len() {
                 if let Some(cell) = self.cell(x, y) {
                     let size = Size::new(available, self.regions.base.y);
                     let mut pod =
@@ -412,7 +412,7 @@ impl<'a> GridLayouter<'a> {
         // eaten up by any fr rows.
         if self.fr.is_zero() {
             let len = resolved.len();
-            for (region, target) in self.regions.iter().zip(&mut resolved[.. len - 1]) {
+            for (region, target) in self.regions.iter().zip(&mut resolved[..len - 1]) {
                 target.set_max(region.y);
             }
         }
@@ -502,7 +502,7 @@ impl<'a> GridLayouter<'a> {
         // Prepare regions.
         let size = Size::new(self.used.x, heights[0]);
         let mut pod = Regions::one(size, self.regions.base, Axes::splat(true));
-        pod.backlog = heights[1 ..].to_vec();
+        pod.backlog = heights[1..].to_vec();
 
         // Layout the row.
         let mut pos = Point::zero();

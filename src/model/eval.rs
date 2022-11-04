@@ -140,7 +140,6 @@ fn eval_markup(
                 vm.scopes.top.define(wrap.binding().take(), tail);
                 wrap.body().eval(vm)?.display(vm.world)
             }
-
             _ => node.eval(vm)?,
         });
 
@@ -162,7 +161,7 @@ impl Eval for ast::MarkupNode {
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         match self {
             Self::Space(v) => Ok(match v.newlines() {
-                0 ..= 1 => (vm.items.space)(),
+                0..=1 => (vm.items.space)(),
                 _ => (vm.items.parbreak)(),
             }),
             Self::Linebreak(v) => v.eval(vm),
@@ -369,10 +368,7 @@ impl Eval for ast::Frac {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok((vm.items.math_frac)(
-            self.num().eval(vm)?,
-            self.denom().eval(vm)?,
-        ))
+        Ok((vm.items.math_frac)(self.num().eval(vm)?, self.denom().eval(vm)?))
     }
 }
 
@@ -501,7 +497,6 @@ fn eval_code(
                 vm.scopes.top.define(wrap.binding().take(), tail);
                 wrap.body().eval(vm)?
             }
-
             _ => expr.eval(vm)?,
         };
 
@@ -676,18 +671,12 @@ impl Eval for ast::FieldAccess {
 
         Ok(match object {
             Value::Dict(dict) => dict.get(&field).at(span)?.clone(),
-
             Value::Content(node) => node
                 .to::<dyn Show>()
                 .and_then(|node| node.field(&field))
                 .ok_or_else(|| format!("unknown field {field:?}"))
                 .at(span)?,
-
-            v => bail!(
-                self.target().span(),
-                "cannot access field on {}",
-                v.type_name()
-            ),
+            v => bail!(self.target().span(), "cannot access field on {}", v.type_name()),
         })
     }
 }
@@ -706,7 +695,6 @@ impl Eval for ast::FuncCall {
                 let point = || Tracepoint::Call(func.name().map(Into::into));
                 func.call(vm, args).trace(vm.world, point, self.span())?
             }
-
             v => bail!(
                 self.callee().span(),
                 "expected callable or collection, found {}",

@@ -97,7 +97,7 @@ impl<'s> Parser<'s> {
             // Trailing trivia should not be wrapped into the new node.
             let idx = self.children.len();
             self.children.push(SyntaxNode::default());
-            self.children.extend(children.drain(until.0 ..));
+            self.children.extend(children.drain(until.0..));
             self.children[idx] = InnerNode::with_children(kind, children).into();
         }
 
@@ -177,7 +177,11 @@ impl<'s> Parser<'s> {
 
     /// Peek at the current token without consuming it.
     pub fn peek(&self) -> Option<&NodeKind> {
-        if self.eof { None } else { self.current.as_ref() }
+        if self.eof {
+            None
+        } else {
+            self.current.as_ref()
+        }
     }
 
     /// Peek at the current token, but only if it follows immediately after the
@@ -192,7 +196,7 @@ impl<'s> Parser<'s> {
 
     /// Peek at the source of the current token.
     pub fn peek_src(&self) -> &'s str {
-        self.get(self.current_start() .. self.current_end())
+        self.get(self.current_start()..self.current_end())
     }
 
     /// Obtain a range of the source code.
@@ -303,7 +307,7 @@ impl<'s> Parser<'s> {
             if group_mode != TokenMode::Markup {
                 let start = self.trivia_start().0;
                 target = self.current_start
-                    - self.children[start ..].iter().map(SyntaxNode::len).sum::<usize>();
+                    - self.children[start..].iter().map(SyntaxNode::len).sum::<usize>();
                 self.children.truncate(start);
             }
 
@@ -466,7 +470,7 @@ impl Marker {
     /// with the given `kind`.
     pub fn end(self, p: &mut Parser, kind: NodeKind) {
         let until = p.trivia_start().0.max(self.0);
-        let children = p.children.drain(self.0 .. until).collect();
+        let children = p.children.drain(self.0..until).collect();
         p.children
             .insert(self.0, InnerNode::with_children(kind, children).into());
     }
@@ -476,7 +480,7 @@ impl Marker {
     where
         F: FnMut(&SyntaxNode) -> Result<(), &'static str>,
     {
-        for child in &mut p.children[self.0 ..] {
+        for child in &mut p.children[self.0..] {
             // Don't expose errors.
             if child.kind().is_error() {
                 continue;

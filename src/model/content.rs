@@ -161,10 +161,7 @@ impl Add for Content {
             return lhs;
         }
 
-        let seq = match (
-            lhs.downcast::<SequenceNode>(),
-            rhs.downcast::<SequenceNode>(),
-        ) {
+        let seq = match (lhs.downcast::<SequenceNode>(), rhs.downcast::<SequenceNode>()) {
             (Some(lhs), Some(rhs)) => lhs.0.iter().chain(&rhs.0).cloned().collect(),
             (Some(lhs), None) => lhs.0.iter().cloned().chain(iter::once(rhs)).collect(),
             (None, Some(rhs)) => iter::once(lhs).chain(rhs.0.iter().cloned()).collect(),

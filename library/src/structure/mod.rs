@@ -6,8 +6,8 @@ mod list;
 mod reference;
 mod table;
 
-pub use doc::*;
-pub use heading::*;
-pub use list::*;
-pub use reference::*;
-pub use table::*;
+pub use self::doc::*;
+pub use self::heading::*;
+pub use self::list::*;
+pub use self::reference::*;
+pub use self::table::*;

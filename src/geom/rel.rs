@@ -128,10 +128,7 @@ impl<T: Numeric> Mul<f64> for Rel<T> {
     type Output = Self;
 
     fn mul(self, other: f64) -> Self::Output {
-        Self {
-            rel: self.rel * other,
-            abs: self.abs * other,
-        }
+        Self { rel: self.rel * other, abs: self.abs * other }
     }
 }
 
@@ -147,10 +144,7 @@ impl<T: Numeric> Div<f64> for Rel<T> {
     type Output = Self;
 
     fn div(self, other: f64) -> Self::Output {
-        Self {
-            rel: self.rel / other,
-            abs: self.abs / other,
-        }
+        Self { rel: self.rel / other, abs: self.abs / other }
     }
 }
 

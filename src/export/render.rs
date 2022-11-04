@@ -256,8 +256,8 @@ fn render_outline_glyph(
     // Blend the glyph bitmap with the existing pixels on the canvas.
     // FIXME: This doesn't respect the clipping mask.
     let pixels = bytemuck::cast_slice_mut::<u8, u32>(canvas.data_mut());
-    for x in left.clamp(0, cw) .. right.clamp(0, cw) {
-        for y in top.clamp(0, ch) .. bottom.clamp(0, ch) {
+    for x in left.clamp(0, cw)..right.clamp(0, cw) {
+        for y in top.clamp(0, ch)..bottom.clamp(0, ch) {
             let ai = ((y - top) * mw + (x - left)) as usize;
             let cov = bitmap.coverage[ai];
             if cov == 0 {
@@ -312,10 +312,7 @@ fn render_shape(
 
     if let Some(Stroke { paint, thickness }) = shape.stroke {
         let paint = paint.into();
-        let stroke = sk::Stroke {
-            width: thickness.to_f32(),
-            ..Default::default()
-        };
+        let stroke = sk::Stroke { width: thickness.to_f32(), ..Default::default() };
         canvas.stroke_path(&path, &paint, &stroke, ts, mask);
     }
 
@@ -342,11 +339,8 @@ fn render_image(
     match image.decode().unwrap() {
         DecodedImage::Raster(dynamic, _) => {
             let downscale = w < image.width();
-            let filter = if downscale {
-                FilterType::Lanczos3
-            } else {
-                FilterType::CatmullRom
-            };
+            let filter =
+                if downscale { FilterType::Lanczos3 } else { FilterType::CatmullRom };
             let buf = dynamic.resize(w, h, filter);
             for ((_, _, src), dest) in buf.pixels().zip(pixmap.pixels_mut()) {
                 let Rgba([r, g, b, a]) = src;

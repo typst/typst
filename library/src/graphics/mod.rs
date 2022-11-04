@@ -5,7 +5,7 @@ mod image;
 mod line;
 mod shape;
 
+pub use self::hide::*;
 pub use self::image::*;
-pub use hide::*;
-pub use line::*;
-pub use shape::*;
+pub use self::line::*;
+pub use self::shape::*;

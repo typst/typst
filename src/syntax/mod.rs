@@ -2,6 +2,7 @@
 
 pub mod ast;
 pub mod highlight;
+
 mod incremental;
 mod kind;
 mod node;
@@ -12,12 +13,12 @@ mod source;
 mod span;
 mod tokens;
 
-pub use kind::*;
-pub use node::*;
-pub use parsing::*;
-pub use source::*;
-pub use span::*;
-pub use tokens::*;
+pub use self::kind::*;
+pub use self::node::*;
+pub use self::parsing::*;
+pub use self::source::*;
+pub use self::span::*;
+pub use self::tokens::*;
 
 use incremental::reparse;
 use parser::*;

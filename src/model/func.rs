@@ -32,12 +32,7 @@ impl Func {
         name: &'static str,
         func: fn(&mut Vm, &mut Args) -> SourceResult<Value>,
     ) -> Self {
-        Self(Arc::new(Repr::Native(Native {
-            name,
-            func,
-            set: None,
-            node: None,
-        })))
+        Self(Arc::new(Repr::Native(Native { name, func, set: None, node: None })))
     }
 
     /// Create a new function from a native rust node.
@@ -92,7 +87,7 @@ impl Func {
             Repr::Native(native) => (native.func)(vm, &mut args)?,
             Repr::Closure(closure) => closure.call(vm, &mut args)?,
             Repr::With(wrapped, applied) => {
-                args.items.splice(.. 0, applied.items.iter().cloned());
+                args.items.splice(..0, applied.items.iter().cloned());
                 return wrapped.call(vm, args);
             }
         };
@@ -194,12 +189,15 @@ impl Closure {
 
         // Parse the arguments according to the parameter list.
         for (param, default) in &self.params {
-            scopes.top.define(param.clone(), match default {
-                None => args.expect::<Value>(param)?,
-                Some(default) => {
-                    args.named::<Value>(param)?.unwrap_or_else(|| default.clone())
-                }
-            });
+            scopes.top.define(
+                param.clone(),
+                match default {
+                    Some(default) => {
+                        args.named::<Value>(param)?.unwrap_or_else(|| default.clone())
+                    }
+                    None => args.expect::<Value>(param)?,
+                },
+            );
         }
 
         // Put the remaining arguments into the sink.

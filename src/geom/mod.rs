@@ -24,27 +24,27 @@ mod size;
 mod stroke;
 mod transform;
 
-pub use abs::*;
-pub use align::*;
-pub use angle::*;
-pub use axes::*;
-pub use corners::*;
-pub use dir::*;
-pub use ellipse::*;
-pub use em::*;
-pub use fr::*;
-pub use length::*;
-pub use paint::*;
-pub use path::*;
-pub use point::*;
-pub use ratio::*;
-pub use rel::*;
-pub use rounded::*;
-pub use scalar::*;
-pub use sides::*;
-pub use size::*;
-pub use stroke::*;
-pub use transform::*;
+pub use self::abs::*;
+pub use self::align::*;
+pub use self::angle::*;
+pub use self::axes::*;
+pub use self::corners::*;
+pub use self::dir::*;
+pub use self::ellipse::*;
+pub use self::em::*;
+pub use self::fr::*;
+pub use self::length::*;
+pub use self::paint::*;
+pub use self::path::*;
+pub use self::point::*;
+pub use self::ratio::*;
+pub use self::rel::*;
+pub use self::rounded::*;
+pub use self::scalar::*;
+pub use self::sides::*;
+pub use self::size::*;
+pub use self::stroke::*;
+pub use self::transform::*;
 
 use std::cmp::Ordering;
 use std::f64::consts::PI;
@@ -95,20 +95,12 @@ pub enum Geometry {
 impl Geometry {
     /// Fill the geometry without a stroke.
     pub fn filled(self, fill: Paint) -> Shape {
-        Shape {
-            geometry: self,
-            fill: Some(fill),
-            stroke: None,
-        }
+        Shape { geometry: self, fill: Some(fill), stroke: None }
     }
 
     /// Stroke the geometry without a fill.
     pub fn stroked(self, stroke: Stroke) -> Shape {
-        Shape {
-            geometry: self,
-            fill: None,
-            stroke: Some(stroke),
-        }
+        Shape { geometry: self, fill: None, stroke: Some(stroke) }
     }
 }
 

@@ -153,7 +153,7 @@ impl Frame {
     where
         I: IntoIterator<Item = (Point, Element)>,
     {
-        Arc::make_mut(&mut self.elements).splice(0 .. 0, elements);
+        Arc::make_mut(&mut self.elements).splice(0..0, elements);
     }
 
     /// Add a frame at a position in the background.
@@ -181,7 +181,7 @@ impl Frame {
 
         // Try to transfer the elements without adjusting the position.
         // Also try to reuse the elements if the Arc isn't shared.
-        let range = layer .. layer;
+        let range = layer..layer;
         if pos.is_zero() {
             let sink = Arc::make_mut(&mut self.elements);
             match Arc::try_unwrap(frame.elements) {
@@ -407,7 +407,7 @@ impl Lang {
 
     /// Return the language code as an all lowercase string slice.
     pub fn as_str(&self) -> &str {
-        std::str::from_utf8(&self.0[.. usize::from(self.1)]).unwrap_or_default()
+        std::str::from_utf8(&self.0[..usize::from(self.1)]).unwrap_or_default()
     }
 
     /// The default direction for the language.
@@ -426,9 +426,9 @@ impl FromStr for Lang {
     /// Construct a language from a two- or three-byte ISO 639-1/2/3 code.
     fn from_str(iso: &str) -> Result<Self, Self::Err> {
         let len = iso.len();
-        if matches!(len, 2 ..= 3) && iso.is_ascii() {
+        if matches!(len, 2..=3) && iso.is_ascii() {
             let mut bytes = [b' '; 3];
-            bytes[.. len].copy_from_slice(iso.as_bytes());
+            bytes[..len].copy_from_slice(iso.as_bytes());
             bytes.make_ascii_lowercase();
             Ok(Self(bytes, len as u8))
         } else {
@@ -538,9 +538,6 @@ impl Role {
     pub fn is_weak(self) -> bool {
         // In Typst, all text is in a paragraph, so paragraph isn't very
         // descriptive.
-        matches!(
-            self,
-            Self::Paragraph | Self::GenericBlock | Self::GenericInline
-        )
+        matches!(self, Self::Paragraph | Self::GenericBlock | Self::GenericInline)
     }
 }

@@ -16,12 +16,7 @@ pub struct Corners<T> {
 impl<T> Corners<T> {
     /// Create a new instance from the four components.
     pub const fn new(top_left: T, top_right: T, bottom_right: T, bottom_left: T) -> Self {
-        Self {
-            top_left,
-            top_right,
-            bottom_right,
-            bottom_left,
-        }
+        Self { top_left, top_right, bottom_right, bottom_left }
     }
 
     /// Create an instance with four equal components.
@@ -66,13 +61,8 @@ impl<T> Corners<T> {
     /// An iterator over the corners, starting with the top left corner,
     /// clockwise.
     pub fn iter(&self) -> impl Iterator<Item = &T> {
-        [
-            &self.top_left,
-            &self.top_right,
-            &self.bottom_right,
-            &self.bottom_left,
-        ]
-        .into_iter()
+        [&self.top_left, &self.top_right, &self.bottom_right, &self.bottom_left]
+            .into_iter()
     }
 
     /// Whether all sides are equal.

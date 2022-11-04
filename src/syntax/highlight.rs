@@ -81,7 +81,7 @@ where
         F: FnMut(Range<usize>, Style),
     {
         if node.children().len() == 0 {
-            let range = offset .. offset + node.len();
+            let range = offset..offset + node.len();
             let style = highlighter.style_for_stack(&scopes);
             f(range, style);
             return;
@@ -112,7 +112,7 @@ where
         F: FnMut(Range<usize>, Category),
     {
         for (i, child) in node.children().enumerate() {
-            let span = offset .. offset + child.len();
+            let span = offset..offset + child.len();
             if range.start <= span.end && range.end >= span.start {
                 if let Some(category) = Category::determine(child, node, i) {
                     f(span, category);
@@ -412,29 +412,35 @@ mod tests {
         fn test(text: &str, goal: &[(Range<usize>, Category)]) {
             let mut vec = vec![];
             let source = Source::detached(text);
-            let full = 0 .. text.len();
+            let full = 0..text.len();
             highlight_categories(source.root(), full, &mut |range, category| {
                 vec.push((range, category));
             });
             assert_eq!(vec, goal);
         }
 
-        test("= *AB*", &[(0 .. 6, Heading), (2 .. 6, Strong)]);
+        test("= *AB*", &[(0..6, Heading), (2..6, Strong)]);
 
-        test("#f(x + 1)", &[
-            (0 .. 2, Function),
-            (2 .. 3, Bracket),
-            (5 .. 6, Operator),
-            (7 .. 8, Number),
-            (8 .. 9, Bracket),
-        ]);
+        test(
+            "#f(x + 1)",
+            &[
+                (0..2, Function),
+                (2..3, Bracket),
+                (5..6, Operator),
+                (7..8, Number),
+                (8..9, Bracket),
+            ],
+        );
 
-        test("#let f(x) = x", &[
-            (0 .. 4, Keyword),
-            (5 .. 6, Function),
-            (6 .. 7, Bracket),
-            (8 .. 9, Bracket),
-            (10 .. 11, Operator),
-        ]);
+        test(
+            "#let f(x) = x",
+            &[
+                (0..4, Keyword),
+                (5..6, Function),
+                (6..7, Bracket),
+                (8..9, Bracket),
+                (10..11, Operator),
+            ],
+        );
     }
 }

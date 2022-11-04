@@ -95,9 +95,9 @@ impl<const L: ListKind> Show for ListNode<L> {
         match name {
             "tight" => Some(Value::Bool(self.tight)),
             "attached" => Some(Value::Bool(self.attached)),
-            "items" => Some(Value::Array(
-                self.items.items().map(|item| item.encode()).collect(),
-            )),
+            "items" => {
+                Some(Value::Array(self.items.items().map(|item| item.encode()).collect()))
+            }
             _ => None,
         }
     }
@@ -139,11 +139,7 @@ impl<const L: ListKind> Show for ListNode<L> {
                 ListItem::List(body) => body.as_ref().clone(),
                 ListItem::Enum(_, body) => body.as_ref().clone(),
                 ListItem::Desc(item) => Content::sequence(vec![
-                    HNode {
-                        amount: (-body_indent).into(),
-                        weak: false,
-                    }
-                    .pack(),
+                    HNode { amount: (-body_indent).into(), weak: false }.pack(),
                     (item.term.clone() + TextNode(':'.into()).pack()).strong(),
                     SpaceNode.pack(),
                     item.body.clone(),

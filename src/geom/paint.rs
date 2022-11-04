@@ -244,11 +244,11 @@ impl FromStr for RgbaColor {
         }
 
         let mut values: [u8; 4] = [u8::MAX; 4];
-        for elem in if alpha { 0 .. 4 } else { 0 .. 3 } {
+        for elem in if alpha { 0..4 } else { 0..3 } {
             let item_len = if long { 2 } else { 1 };
             let pos = elem * item_len;
 
-            let item = &hex_str[pos .. (pos + item_len)];
+            let item = &hex_str[pos..(pos + item_len)];
             values[elem] = u8::from_str_radix(item, 16).unwrap();
 
             if short {
@@ -324,12 +324,7 @@ impl CmykColor {
             round_u8(255.0 * (1.0 - c) * (1.0 - k))
         };
 
-        RgbaColor {
-            r: f(self.c),
-            g: f(self.m),
-            b: f(self.y),
-            a: 255,
-        }
+        RgbaColor { r: f(self.c), g: f(self.m), b: f(self.y), a: 255 }
     }
 
     /// Lighten this color by a factor.

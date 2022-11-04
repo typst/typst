@@ -115,10 +115,7 @@ fn parse_args() -> StrResult<Command> {
     // Don't allow excess arguments.
     let rest = args.finish();
     if !rest.is_empty() {
-        Err(format!(
-            "unexpected argument{}",
-            if rest.len() > 1 { "s" } else { "" }
-        ))?;
+        Err(format!("unexpected argument{}", if rest.len() > 1 { "s" } else { "" }))?;
     }
 
     Ok(command)

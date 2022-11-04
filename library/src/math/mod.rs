@@ -69,12 +69,7 @@ impl LayoutInline for MathNode {
         _: &Regions,
         styles: StyleChain,
     ) -> SourceResult<Vec<Frame>> {
-        Ok(vec![layout_tex(
-            &self.texify(),
-            self.display,
-            world,
-            styles,
-        )?])
+        Ok(vec![layout_tex(&self.texify(), self.display, world, styles)?])
     }
 }
 
@@ -181,7 +176,7 @@ fn escape_char(c: char) -> EcoString {
 /// Trim grouping parenthesis≤.
 fn unparen(s: EcoString) -> EcoString {
     if s.starts_with('(') && s.ends_with(')') {
-        s[1 .. s.len() - 1].into()
+        s[1..s.len() - 1].into()
     } else {
         s
     }

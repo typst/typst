@@ -45,7 +45,11 @@ impl Em {
     /// Convert to an absolute length at the given font size.
     pub fn at(self, font_size: Abs) -> Abs {
         let resolved = font_size * self.get();
-        if resolved.is_finite() { resolved } else { Abs::zero() }
+        if resolved.is_finite() {
+            resolved
+        } else {
+            Abs::zero()
+        }
     }
 }
 

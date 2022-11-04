@@ -291,16 +291,16 @@ impl InnerNode {
         let mut start = within.start;
         if range.is_none() {
             let end = start + stride;
-            self.data.numberize(id, start .. end)?;
+            self.data.numberize(id, start..end)?;
             self.upper = within.end;
             start = end;
         }
 
         // Number the children.
         let len = self.children.len();
-        for child in &mut self.children[range.unwrap_or(0 .. len)] {
+        for child in &mut self.children[range.unwrap_or(0..len)] {
             let end = start + child.descendants() as u64 * stride;
-            child.numberize(id, start .. end)?;
+            child.numberize(id, start..end)?;
             start = end;
         }
 
@@ -377,8 +377,8 @@ impl InnerNode {
         // - or if we were erroneous before due to a non-superseded node.
         self.erroneous = replacement.iter().any(SyntaxNode::erroneous)
             || (self.erroneous
-                && (self.children[.. range.start].iter().any(SyntaxNode::erroneous))
-                || self.children[range.end ..].iter().any(SyntaxNode::erroneous));
+                && (self.children[..range.start].iter().any(SyntaxNode::erroneous))
+                || self.children[range.end..].iter().any(SyntaxNode::erroneous));
 
         // Perform the replacement.
         let replacement_count = replacement.len();
@@ -392,7 +392,7 @@ impl InnerNode {
         let max_left = range.start;
         let max_right = self.children.len() - range.end;
         loop {
-            let renumber = range.start - left .. range.end + right;
+            let renumber = range.start - left..range.end + right;
 
             // The minimum assignable number is either
             // - the upper bound of the node right before the to-be-renumbered
@@ -416,7 +416,7 @@ impl InnerNode {
                 .map_or(self.upper(), |next| next.span().number());
 
             // Try to renumber.
-            let within = start_number .. end_number;
+            let within = start_number..end_number;
             let id = self.span().source();
             if self.numberize(id, Some(renumber), within).is_ok() {
                 return Ok(());
@@ -529,7 +529,7 @@ impl NodeData {
 
     /// If the span points into this node, convert it to a byte range.
     fn range(&self, span: Span, offset: usize) -> Option<Range<usize>> {
-        (self.span == span).then(|| offset .. offset + self.len())
+        (self.span == span).then(|| offset..offset + self.len())
     }
 }
 

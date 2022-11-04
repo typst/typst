@@ -103,17 +103,17 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
             if let (Some(&a), Some(&b)) =
                 (a.downcast::<GenAlign>(), b.downcast::<GenAlign>())
             {
-                if a.axis() != b.axis() {
-                    Value::dynamic(match a.axis() {
-                        Axis::X => Axes { x: a, y: b },
-                        Axis::Y => Axes { x: b, y: a },
-                    })
-                } else {
+                if a.axis() == b.axis() {
                     return Err(format!("cannot add two {:?} alignments", a.axis()));
                 }
-            } else {
-                mismatch!("cannot add {} and {}", a, b);
-            }
+
+                return Ok(Value::dynamic(match a.axis() {
+                    Axis::X => Axes { x: a, y: b },
+                    Axis::Y => Axes { x: b, y: a },
+                }));
+            };
+
+            mismatch!("cannot add {} and {}", a, b);
         }
 
         (a, b) => mismatch!("cannot add {} and {}", a, b),
@@ -370,17 +370,11 @@ pub fn not_in(lhs: Value, rhs: Value) -> StrResult<Value> {
 
 /// Test for containment.
 pub fn contains(lhs: &Value, rhs: &Value) -> Option<bool> {
-    Some(match (lhs, rhs) {
-        (Str(a), Str(b)) => b.as_str().contains(a.as_str()),
-        (Dyn(a), Str(b)) => {
-            if let Some(regex) = a.downcast::<Regex>() {
-                regex.is_match(b)
-            } else {
-                return Option::None;
-            }
-        }
-        (Str(a), Dict(b)) => b.contains(a),
-        (a, Array(b)) => b.contains(a),
-        _ => return Option::None,
-    })
+    match (lhs, rhs) {
+        (Str(a), Str(b)) => Some(b.as_str().contains(a.as_str())),
+        (Dyn(a), Str(b)) => a.downcast::<Regex>().map(|regex| regex.is_match(b)),
+        (Str(a), Dict(b)) => Some(b.contains(a)),
+        (a, Array(b)) => Some(b.contains(a)),
+        _ => Option::None,
+    }
 }

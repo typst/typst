@@ -111,12 +111,7 @@ impl PageNode {
             let pw = size.x - pad.left - pad.right;
             let py = size.y - pad.bottom;
             for (role, marginal, pos, area) in [
-                (
-                    Role::Header,
-                    header,
-                    Point::with_x(pad.left),
-                    Size::new(pw, pad.top),
-                ),
+                (Role::Header, header, Point::with_x(pad.left), Size::new(pw, pad.top)),
                 (
                     Role::Footer,
                     footer,

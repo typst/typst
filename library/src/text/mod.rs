@@ -8,12 +8,12 @@ mod raw;
 mod shaping;
 mod shift;
 
-pub use deco::*;
-pub use link::*;
-pub use par::*;
-pub use raw::*;
-pub use shaping::*;
-pub use shift::*;
+pub use self::deco::*;
+pub use self::link::*;
+pub use self::par::*;
+pub use self::raw::*;
+pub use self::shaping::*;
+pub use self::shift::*;
 
 use std::borrow::Cow;
 
@@ -152,7 +152,7 @@ impl TextNode {
 
             if count > 0 {
                 let mut list = Vec::with_capacity(count);
-                for _ in 0 .. count {
+                for _ in 0..count {
                     list.push(args.find()?.unwrap());
                 }
 

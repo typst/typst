@@ -123,13 +123,13 @@ impl Source {
         self.lines.truncate(line + 1);
 
         // Handle adjoining of \r and \n.
-        if self.text[.. start_byte].ends_with('\r') && with.starts_with('\n') {
+        if self.text[..start_byte].ends_with('\r') && with.starts_with('\n') {
             self.lines.pop();
         }
 
         // Recalculate the line starts after the edit.
         self.lines
-            .extend(lines(start_byte, start_utf16, &self.text[start_byte ..]));
+            .extend(lines(start_byte, start_utf16, &self.text[start_byte..]));
 
         // Incrementally reparse the replaced range.
         let mut root = std::mem::take(&mut self.root).into_inner();
@@ -146,7 +146,7 @@ impl Source {
     /// Get the length of the file in UTF-16 code units.
     pub fn len_utf16(&self) -> usize {
         let last = self.lines.last().unwrap();
-        last.utf16_idx + self.text[last.byte_idx ..].len_utf16()
+        last.utf16_idx + self.text[last.byte_idx..].len_utf16()
     }
 
     /// Get the length of the file in lines.
@@ -167,7 +167,7 @@ impl Source {
     pub fn byte_to_utf16(&self, byte_idx: usize) -> Option<usize> {
         let line_idx = self.byte_to_line(byte_idx)?;
         let line = self.lines.get(line_idx)?;
-        let head = self.text.get(line.byte_idx .. byte_idx)?;
+        let head = self.text.get(line.byte_idx..byte_idx)?;
         Some(line.utf16_idx + head.len_utf16())
     }
 
@@ -188,7 +188,7 @@ impl Source {
     pub fn byte_to_column(&self, byte_idx: usize) -> Option<usize> {
         let line = self.byte_to_line(byte_idx)?;
         let start = self.line_to_byte(line)?;
-        let head = self.get(start .. byte_idx)?;
+        let head = self.get(start..byte_idx)?;
         Some(head.chars().count())
     }
 
@@ -202,7 +202,7 @@ impl Source {
         )?;
 
         let mut k = line.utf16_idx;
-        for (i, c) in self.text[line.byte_idx ..].char_indices() {
+        for (i, c) in self.text[line.byte_idx..].char_indices() {
             if k >= utf16_idx {
                 return Some(line.byte_idx + i);
             }
@@ -211,7 +211,6 @@ impl Source {
 
         (k == utf16_idx).then(|| self.text.len())
     }
-
 
     /// Return the byte position at which the given line starts.
     pub fn line_to_byte(&self, line_idx: usize) -> Option<usize> {
@@ -222,7 +221,7 @@ impl Source {
     pub fn line_to_range(&self, line_idx: usize) -> Option<Range<usize>> {
         let start = self.line_to_byte(line_idx)?;
         let end = self.line_to_byte(line_idx + 1).unwrap_or(self.text.len());
-        Some(start .. end)
+        Some(start..end)
     }
 
     /// Return the byte index of the given (line, column) pair.
@@ -237,7 +236,7 @@ impl Source {
         let range = self.line_to_range(line_idx)?;
         let line = self.get(range.clone())?;
         let mut chars = line.chars();
-        for _ in 0 .. column_idx {
+        for _ in 0..column_idx {
             chars.next();
         }
         Some(range.start + (line.len() - chars.as_str().len()))
@@ -312,10 +311,7 @@ fn lines(
             utf16_idx += 1;
         }
 
-        Some(Line {
-            byte_idx: byte_offset + s.cursor(),
-            utf16_idx,
-        })
+        Some(Line { byte_idx: byte_offset + s.cursor(), utf16_idx })
     })
 }
 
@@ -328,12 +324,15 @@ mod tests {
     #[test]
     fn test_source_file_new() {
         let source = Source::detached(TEST);
-        assert_eq!(source.lines, [
-            Line { byte_idx: 0, utf16_idx: 0 },
-            Line { byte_idx: 7, utf16_idx: 6 },
-            Line { byte_idx: 15, utf16_idx: 12 },
-            Line { byte_idx: 18, utf16_idx: 15 },
-        ]);
+        assert_eq!(
+            source.lines,
+            [
+                Line { byte_idx: 0, utf16_idx: 0 },
+                Line { byte_idx: 7, utf16_idx: 6 },
+                Line { byte_idx: 15, utf16_idx: 12 },
+                Line { byte_idx: 18, utf16_idx: 15 },
+            ]
+        );
     }
 
     #[test]
@@ -411,20 +410,20 @@ mod tests {
         }
 
         // Test inserting at the begining.
-        test("abc\n", 0 .. 0, "hi\n", "hi\nabc\n");
-        test("\nabc", 0 .. 0, "hi\r", "hi\r\nabc");
+        test("abc\n", 0..0, "hi\n", "hi\nabc\n");
+        test("\nabc", 0..0, "hi\r", "hi\r\nabc");
 
         // Test editing in the middle.
-        test(TEST, 4 .. 16, "❌", "ä\tc❌i\rjkl");
+        test(TEST, 4..16, "❌", "ä\tc❌i\rjkl");
 
         // Test appending.
-        test("abc\ndef", 7 .. 7, "hi", "abc\ndefhi");
-        test("abc\ndef\n", 8 .. 8, "hi", "abc\ndef\nhi");
+        test("abc\ndef", 7..7, "hi", "abc\ndefhi");
+        test("abc\ndef\n", 8..8, "hi", "abc\ndef\nhi");
 
         // Test appending with adjoining \r and \n.
-        test("abc\ndef\r", 8 .. 8, "\nghi", "abc\ndef\r\nghi");
+        test("abc\ndef\r", 8..8, "\nghi", "abc\ndef\r\nghi");
 
         // Test removing everything.
-        test(TEST, 0 .. 21, "", "");
+        test(TEST, 0..21, "", "");
     }
 }

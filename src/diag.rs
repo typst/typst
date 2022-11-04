@@ -85,8 +85,8 @@ impl SourceError {
         let full = world.source(self.span.source()).range(self.span);
         match self.pos {
             ErrorPos::Full => full,
-            ErrorPos::Start => full.start .. full.start,
-            ErrorPos::End => full.end .. full.end,
+            ErrorPos::Start => full.start..full.start,
+            ErrorPos::End => full.end..full.end,
         }
     }
 }

@@ -2,12 +2,12 @@
 
 pub mod fat;
 
-pub use buffer::Buffer;
-pub use eco::{format_eco, EcoString};
-
 #[macro_use]
 mod eco;
 mod buffer;
+
+pub use buffer::Buffer;
+pub use eco::{format_eco, EcoString};
 
 use std::any::TypeId;
 use std::fmt::{self, Debug, Formatter};

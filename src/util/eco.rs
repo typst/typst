@@ -68,7 +68,7 @@ impl EcoString {
         let len = slice.len();
         Self(if len <= LIMIT {
             let mut buf = [0; LIMIT];
-            buf[.. len].copy_from_slice(slice.as_bytes());
+            buf[..len].copy_from_slice(slice.as_bytes());
             Repr::Small { buf, len: len as u8 }
         } else {
             Repr::Large(Arc::new(s.into()))
@@ -116,7 +116,7 @@ impl EcoString {
                 let prev = usize::from(*len);
                 let new = prev + string.len();
                 if new <= LIMIT {
-                    buf[prev .. new].copy_from_slice(string.as_bytes());
+                    buf[prev..new].copy_from_slice(string.as_bytes());
                     *len = new as u8;
                 } else {
                     let mut spilled = String::with_capacity(new);
@@ -161,7 +161,7 @@ impl EcoString {
     pub fn to_lowercase(&self) -> Self {
         if let Repr::Small { mut buf, len } = self.0 {
             if self.is_ascii() {
-                buf[.. usize::from(len)].make_ascii_lowercase();
+                buf[..usize::from(len)].make_ascii_lowercase();
                 return Self(Repr::Small { buf, len });
             }
         }
@@ -173,7 +173,7 @@ impl EcoString {
     pub fn to_uppercase(&self) -> Self {
         if let Repr::Small { mut buf, len } = self.0 {
             if self.is_ascii() {
-                buf[.. usize::from(len)].make_ascii_uppercase();
+                buf[..usize::from(len)].make_ascii_uppercase();
                 return Self(Repr::Small { buf, len });
             }
         }
@@ -191,10 +191,10 @@ impl EcoString {
             let prev = usize::from(len);
             let new = prev.saturating_mul(n);
             if new <= LIMIT {
-                let src = &buf[.. prev];
+                let src = &buf[..prev];
                 let mut buf = [0; LIMIT];
-                for i in 0 .. n {
-                    buf[prev * i .. prev * (i + 1)].copy_from_slice(src);
+                for i in 0..n {
+                    buf[prev * i..prev * (i + 1)].copy_from_slice(src);
                 }
                 return Self(Repr::Small { buf, len: new as u8 });
             }
@@ -217,7 +217,7 @@ impl Deref for EcoString {
             // Furthermore, we still do the bounds-check on the len in case
             // it gets corrupted somehow.
             Repr::Small { buf, len } => unsafe {
-                std::str::from_utf8_unchecked(&buf[.. usize::from(*len)])
+                std::str::from_utf8_unchecked(&buf[..usize::from(*len)])
             },
             Repr::Large(string) => string.as_str(),
         }
@@ -398,9 +398,9 @@ mod tests {
         assert_eq!(EcoString::from("abc"), "abc");
 
         // Test around the inline limit.
-        assert_eq!(EcoString::from(&ALPH[.. LIMIT - 1]), ALPH[.. LIMIT - 1]);
-        assert_eq!(EcoString::from(&ALPH[.. LIMIT]), ALPH[.. LIMIT]);
-        assert_eq!(EcoString::from(&ALPH[.. LIMIT + 1]), ALPH[.. LIMIT + 1]);
+        assert_eq!(EcoString::from(&ALPH[..LIMIT - 1]), ALPH[..LIMIT - 1]);
+        assert_eq!(EcoString::from(&ALPH[..LIMIT]), ALPH[..LIMIT]);
+        assert_eq!(EcoString::from(&ALPH[..LIMIT + 1]), ALPH[..LIMIT + 1]);
 
         // Test heap string.
         assert_eq!(EcoString::from(ALPH), ALPH);
@@ -443,7 +443,7 @@ mod tests {
         assert_eq!(v, "Hello World");
 
         // Remove one-by-one.
-        for _ in 0 .. 10 {
+        for _ in 0..10 {
             v.pop();
         }
 
@@ -462,7 +462,7 @@ mod tests {
     fn test_str_index() {
         // Test that we can use the index syntax.
         let v = EcoString::from("abc");
-        assert_eq!(&v[.. 2], "ab");
+        assert_eq!(&v[..2], "ab");
     }
 
     #[test]

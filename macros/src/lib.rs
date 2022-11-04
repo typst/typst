@@ -18,7 +18,8 @@ pub fn capability(_: TokenStream, item: TokenStream) -> TokenStream {
     quote! {
         #item_trait
         impl ::typst::model::Capability for dyn #name {}
-    }.into()
+    }
+    .into()
 }
 
 /// Implement `Node` for a struct.
@@ -349,10 +350,7 @@ fn parse_property(item: &mut syn::ImplItemConst) -> Result<Property> {
 
     let span = property.name.span();
     if property.skip && property.shorthand.is_some() {
-        return Err(Error::new(
-            span,
-            "skip and shorthand are mutually exclusive",
-        ));
+        return Err(Error::new(span, "skip and shorthand are mutually exclusive"));
     }
 
     if property.referenced && (property.fold || property.resolve) {

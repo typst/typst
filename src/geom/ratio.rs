@@ -46,7 +46,11 @@ impl Ratio {
     /// Return the ratio of the given `whole`.
     pub fn of<T: Numeric>(self, whole: T) -> T {
         let resolved = whole * self.get();
-        if resolved.is_finite() { resolved } else { T::zero() }
+        if resolved.is_finite() {
+            resolved
+        } else {
+            T::zero()
+        }
     }
 }
 

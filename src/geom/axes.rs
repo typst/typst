@@ -54,10 +54,7 @@ impl<T> Axes<T> {
 
     /// Zip two instances into an instance over a tuple.
     pub fn zip<U>(self, other: Axes<U>) -> Axes<(T, U)> {
-        Axes {
-            x: (self.x, other.x),
-            y: (self.y, other.y),
-        }
+        Axes { x: (self.x, other.x), y: (self.y, other.y) }
     }
 
     /// Whether a condition is true for at least one of fields.
@@ -100,18 +97,12 @@ impl<T: Default> Axes<T> {
 impl<T: Ord> Axes<T> {
     /// The component-wise minimum of this and another instance.
     pub fn min(self, other: Self) -> Self {
-        Self {
-            x: self.x.min(other.x),
-            y: self.y.min(other.y),
-        }
+        Self { x: self.x.min(other.x), y: self.y.min(other.y) }
     }
 
     /// The component-wise minimum of this and another instance.
     pub fn max(self, other: Self) -> Self {
-        Self {
-            x: self.x.max(other.x),
-            y: self.y.max(other.y),
-        }
+        Self { x: self.x.max(other.x), y: self.y.max(other.y) }
     }
 }
 

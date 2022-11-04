@@ -18,9 +18,5 @@ pub fn ellipse(size: Size, fill: Option<Paint>, stroke: Option<Stroke>) -> Shape
     path.cubic_to(point(rx, my), point(mx, ry), point(z, ry));
     path.cubic_to(point(-mx, ry), point(-rx, my), point(-rx, z));
 
-    Shape {
-        geometry: Geometry::Path(path),
-        stroke,
-        fill,
-    }
+    Shape { geometry: Geometry::Path(path), stroke, fill }
 }

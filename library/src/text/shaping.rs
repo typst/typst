@@ -98,7 +98,6 @@ impl<'a> ShapedText<'a> {
             self.glyphs.as_ref().group_by_key(|g| (g.font.clone(), g.y_offset))
         {
             let pos = Point::new(offset, top + shift + y_offset.at(self.size));
-
             let glyphs = group
                 .iter()
                 .map(|glyph| Glyph {
@@ -115,14 +114,7 @@ impl<'a> ShapedText<'a> {
                 })
                 .collect();
 
-            let text = Text {
-                font,
-                size: self.size,
-                lang,
-                fill,
-                glyphs,
-            };
-
+            let text = Text { font, size: self.size, lang, fill, glyphs };
             let text_layer = frame.layer();
             let width = text.width();
 
@@ -253,7 +245,7 @@ impl<'a> ShapedText<'a> {
 
         let left = self.find_safe_to_break(start, Side::Left)?;
         let right = self.find_safe_to_break(end, Side::Right)?;
-        Some(&self.glyphs[left .. right])
+        Some(&self.glyphs[left..right])
     }
 
     /// Find the glyph offset matching the text index that is most towards the
@@ -274,7 +266,11 @@ impl<'a> ShapedText<'a> {
             .glyphs
             .binary_search_by(|g| {
                 let ordering = g.cluster.cmp(&text_index);
-                if ltr { ordering } else { ordering.reverse() }
+                if ltr {
+                    ordering
+                } else {
+                    ordering.reverse()
+                }
             })
             .ok()?;
 
@@ -385,9 +381,7 @@ fn shape_segment<'a>(
     }
 
     // Extract the font id or shape notdef glyphs if we couldn't find any font.
-    let font = if let Some(font) = selection {
-        font
-    } else {
+    let Some(font) = selection else {
         if let Some(font) = ctx.used.first().cloned() {
             shape_tofus(ctx, base, text, font);
         }
@@ -429,7 +423,7 @@ fn shape_segment<'a>(
                 y_offset: font.to_em(pos[i].y_offset),
                 cluster: base + cluster,
                 safe_to_break: !info.unsafe_to_break(),
-                c: text[cluster ..].chars().next().unwrap(),
+                c: text[cluster..].chars().next().unwrap(),
             });
         } else {
             // Determine the source text range for the tofu sequence.
@@ -466,11 +460,11 @@ fn shape_segment<'a>(
                     .and_then(|last| infos.get(last))
                     .map_or(text.len(), |info| info.cluster as usize);
 
-                start .. end
+                start..end
             };
 
             // Trim half-baked cluster.
-            let remove = base + range.start .. base + range.end;
+            let remove = base + range.start..base + range.end;
             while ctx.glyphs.last().map_or(false, |g| remove.contains(&g.cluster)) {
                 ctx.glyphs.pop();
             }

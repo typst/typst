@@ -5,10 +5,10 @@ mod color;
 mod data;
 mod string;
 
-pub use calc::*;
-pub use color::*;
-pub use data::*;
-pub use string::*;
+pub use self::calc::*;
+pub use self::color::*;
+pub use self::data::*;
+pub use self::string::*;
 
 use comemo::Track;
 use typst::model::{Eval, Route, Scopes, Vm};

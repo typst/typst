@@ -29,11 +29,7 @@ impl Args {
     pub fn new(span: Span, values: impl IntoIterator<Item = Value>) -> Self {
         let items = values
             .into_iter()
-            .map(|value| Arg {
-                span,
-                name: None,
-                value: Spanned::new(value, span),
-            })
+            .map(|value| Arg { span, name: None, value: Spanned::new(value, span) })
             .collect();
         Self { span, items }
     }

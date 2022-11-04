@@ -75,13 +75,8 @@ fn main() {
         let pdf_path =
             args.pdf.then(|| Path::new(PDF_DIR).join(path).with_extension("pdf"));
 
-        ok += test(
-            &mut world,
-            &src_path,
-            &png_path,
-            &ref_path,
-            pdf_path.as_deref(),
-        ) as usize;
+        ok += test(&mut world, &src_path, &png_path, &ref_path, pdf_path.as_deref())
+            as usize;
     }
 
     if len > 1 {
@@ -153,10 +148,8 @@ fn config() -> Config {
     let mut styles = typst_library::styles();
     styles.set(PageNode::WIDTH, Smart::Custom(Abs::pt(120.0).into()));
     styles.set(PageNode::HEIGHT, Smart::Auto);
-    styles.set(
-        PageNode::MARGINS,
-        Sides::splat(Some(Smart::Custom(Abs::pt(10.0).into()))),
-    );
+    styles
+        .set(PageNode::MARGINS, Sides::splat(Some(Smart::Custom(Abs::pt(10.0).into()))));
     styles.set(TextNode::SIZE, TextSize(Abs::pt(10.0).into()));
 
     // Hook up helpers into the global scope.
@@ -217,7 +210,7 @@ impl TestWorld {
             .filter(|entry| entry.file_type().is_file())
         {
             let buffer: Buffer = fs::read(entry.path()).unwrap().into();
-            for index in 0 .. ttf_parser::fonts_in_collection(&buffer).unwrap_or(1) {
+            for index in 0..ttf_parser::fonts_in_collection(&buffer).unwrap_or(1) {
                 fonts.push(Font::new(buffer.clone(), index).unwrap())
             }
         }
@@ -480,18 +473,12 @@ fn parse_metadata(source: &Source) -> (Option<bool>, Vec<(Range<usize>, String)>
             compare_ref = Some(true);
         }
 
-        let rest = if let Some(rest) = line.strip_prefix("// Error: ") {
-            rest
-        } else {
-            continue;
-        };
-
         fn num(s: &mut Scanner) -> usize {
             s.eat_while(char::is_numeric).parse().unwrap()
         }
 
         let comments =
-            lines[i ..].iter().take_while(|line| line.starts_with("//")).count();
+            lines[i..].iter().take_while(|line| line.starts_with("//")).count();
 
         let pos = |s: &mut Scanner| -> usize {
             let first = num(s) - 1;
@@ -501,10 +488,11 @@ fn parse_metadata(source: &Source) -> (Option<bool>, Vec<(Range<usize>, String)>
             source.line_column_to_byte(line, column).unwrap()
         };
 
+        let Some(rest) = line.strip_prefix("// Error: ") else { continue };
         let mut s = Scanner::new(rest);
         let start = pos(&mut s);
         let end = if s.eat_if('-') { pos(&mut s) } else { start };
-        let range = start .. end;
+        let range = start..end;
 
         errors.push((range, s.after().trim().to_string()));
     }
@@ -582,10 +570,7 @@ fn test_reparse(text: &str, i: usize, rng: &mut LinearShift) -> bool {
             );
             println!("    Expected reference tree:\n{ref_root:#?}\n");
             println!("    Found incremental tree:\n{incr_root:#?}");
-            println!(
-                "    Full source ({}):\n\"{edited_src:?}\"",
-                edited_src.len()
-            );
+            println!("    Full source ({}):\n\"{edited_src:?}\"", edited_src.len());
         }
 
         ok &= test_spans(ref_root);
@@ -599,23 +584,23 @@ fn test_reparse(text: &str, i: usize, rng: &mut LinearShift) -> bool {
     };
 
     let insertions = (text.len() as f64 / 400.0).ceil() as usize;
-    for _ in 0 .. insertions {
-        let supplement = supplements[pick(0 .. supplements.len())];
-        let start = pick(0 .. text.len());
-        let end = pick(start .. text.len());
+    for _ in 0..insertions {
+        let supplement = supplements[pick(0..supplements.len())];
+        let start = pick(0..text.len());
+        let end = pick(start..text.len());
 
         if !text.is_char_boundary(start) || !text.is_char_boundary(end) {
             continue;
         }
 
-        ok &= apply(start .. end, supplement);
+        ok &= apply(start..end, supplement);
     }
 
     let source = Source::detached(text);
     let leafs = source.root().leafs();
-    let start = source.range(leafs[pick(0 .. leafs.len())].span()).start;
-    let supplement = supplements[pick(0 .. supplements.len())];
-    ok &= apply(start .. start, supplement);
+    let start = source.range(leafs[pick(0..leafs.len())].span()).start;
+    let supplement = supplements[pick(0..supplements.len())];
+    ok &= apply(start..start, supplement);
 
     ok
 }
@@ -623,24 +608,21 @@ fn test_reparse(text: &str, i: usize, rng: &mut LinearShift) -> bool {
 /// Ensure that all spans are properly ordered (and therefore unique).
 #[track_caller]
 fn test_spans(root: &SyntaxNode) -> bool {
-    test_spans_impl(root, 0 .. u64::MAX)
+    test_spans_impl(root, 0..u64::MAX)
 }
 
 #[track_caller]
 fn test_spans_impl(node: &SyntaxNode, within: Range<u64>) -> bool {
     if !within.contains(&node.span().number()) {
         eprintln!("    Node: {node:#?}");
-        eprintln!(
-            "    Wrong span order: {} not in {within:?} ❌",
-            node.span().number(),
-        );
+        eprintln!("    Wrong span order: {} not in {within:?} ❌", node.span().number(),);
     }
 
     let start = node.span().number() + 1;
     let mut children = node.children().peekable();
     while let Some(child) = children.next() {
         let end = children.peek().map_or(within.end, |next| next.span().number());
-        if !test_spans_impl(child, start .. end) {
+        if !test_spans_impl(child, start..end) {
             return false;
         }
     }

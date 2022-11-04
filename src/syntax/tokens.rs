@@ -373,7 +373,7 @@ impl<'s> Tokens<'s> {
             NodeKind::Raw(Arc::new(resolve_raw(
                 column,
                 backticks,
-                self.s.get(start .. end),
+                self.s.get(start..end),
             )))
         } else {
             self.terminated = false;
@@ -548,7 +548,7 @@ impl<'s> Tokens<'s> {
             self.s.eat_while(char::is_ascii_alphanumeric);
         }
 
-        let number = self.s.get(start .. suffix_start);
+        let number = self.s.get(start..suffix_start);
         let suffix = self.s.from(suffix_start);
 
         // Find out whether it is a simple number.
@@ -558,9 +558,8 @@ impl<'s> Tokens<'s> {
             }
         }
 
-        let v = match number.parse::<f64>() {
-            Ok(v) => v,
-            Err(_) => return NodeKind::Error(ErrorPos::Full, "invalid number".into()),
+        let Ok(v) = number.parse::<f64>() else {
+            return NodeKind::Error(ErrorPos::Full, "invalid number".into());
         };
 
         match suffix {
@@ -636,7 +635,7 @@ fn keyword(ident: &str) -> Option<NodeKind> {
 #[inline]
 fn column(string: &str, index: usize, offset: usize) -> usize {
     let mut apply_offset = false;
-    let res = string[.. index]
+    let res = string[..index]
         .char_indices()
         .rev()
         .take_while(|&(_, c)| !is_newline(c))
@@ -653,7 +652,11 @@ fn column(string: &str, index: usize, offset: usize) -> usize {
         apply_offset = true;
     }
 
-    if apply_offset { res + offset } else { res }
+    if apply_offset {
+        res + offset
+    } else {
+        res
+    }
 }
 
 /// Whether this character denotes a newline.
@@ -767,8 +770,8 @@ mod tests {
     // - mode in which the suffix is applicable
     // - the suffix string
     // - the resulting suffix NodeKind
-    fn suffixes()
-    -> impl Iterator<Item = (char, Option<TokenMode>, &'static str, NodeKind)> {
+    fn suffixes(
+    ) -> impl Iterator<Item = (char, Option<TokenMode>, &'static str, NodeKind)> {
         [
             // Whitespace suffixes.
             (' ', None, " ", Space(0)),

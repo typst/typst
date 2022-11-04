@@ -222,7 +222,7 @@ impl<'a> Preparation<'a> {
         let mut cursor = 0;
         for item in &self.items {
             let end = cursor + item.len();
-            if (cursor .. end).contains(&text_offset) {
+            if (cursor..end).contains(&text_offset) {
                 return Some(item);
             }
             cursor = end;
@@ -256,7 +256,7 @@ impl<'a> Preparation<'a> {
             cursor += len;
         }
 
-        (expanded, &self.items[start .. end])
+        (expanded, &self.items[start..end])
     }
 }
 
@@ -500,11 +500,14 @@ fn prepare<'a>(
     regions: &Regions,
     styles: StyleChain<'a>,
 ) -> SourceResult<Preparation<'a>> {
-    let bidi = BidiInfo::new(text, match styles.get(TextNode::DIR) {
-        Dir::LTR => Some(BidiLevel::ltr()),
-        Dir::RTL => Some(BidiLevel::rtl()),
-        _ => None,
-    });
+    let bidi = BidiInfo::new(
+        text,
+        match styles.get(TextNode::DIR) {
+            Dir::LTR => Some(BidiLevel::ltr()),
+            Dir::RTL => Some(BidiLevel::rtl()),
+            _ => None,
+        },
+    );
 
     let mut cursor = 0;
     let mut items = vec![];
@@ -514,7 +517,7 @@ fn prepare<'a>(
         let end = cursor + segment.len();
         match segment {
             Segment::Text(_) => {
-                shape_range(&mut items, world, &bidi, cursor .. end, styles);
+                shape_range(&mut items, world, &bidi, cursor..end, styles);
             }
             Segment::Spacing(spacing) => match spacing {
                 Spacing::Relative(v) => {
@@ -574,18 +577,18 @@ fn shape_range<'a>(
     let mut cursor = range.start;
 
     // Group by embedding level and script.
-    for i in cursor .. range.end {
+    for i in cursor..range.end {
         if !bidi.text.is_char_boundary(i) {
             continue;
         }
 
         let level = bidi.levels[i];
         let script =
-            bidi.text[i ..].chars().next().map_or(Script::Unknown, |c| c.script());
+            bidi.text[i..].chars().next().map_or(Script::Unknown, |c| c.script());
 
         if level != prev_level || !is_compatible(script, prev_script) {
             if cursor < i {
-                process(&bidi.text[cursor .. i], prev_level);
+                process(&bidi.text[cursor..i], prev_level);
             }
             cursor = i;
             prev_level = level;
@@ -595,7 +598,7 @@ fn shape_range<'a>(
         }
     }
 
-    process(&bidi.text[cursor .. range.end], prev_level);
+    process(&bidi.text[cursor..range.end], prev_level);
 }
 
 /// Whether this is not a specific script.
@@ -655,7 +658,7 @@ fn linebreak_simple<'a>(
 
     for (end, mandatory, hyphen) in breakpoints(p) {
         // Compute the line and its size.
-        let mut attempt = line(p, world, start .. end, mandatory, hyphen);
+        let mut attempt = line(p, world, start..end, mandatory, hyphen);
 
         // If the line doesn't fit anymore, we push the last fitting attempt
         // into the stack and rebuild the line from the attempt's end. The
@@ -664,7 +667,7 @@ fn linebreak_simple<'a>(
             if let Some((last_attempt, last_end)) = last.take() {
                 lines.push(last_attempt);
                 start = last_end;
-                attempt = line(p, world, start .. end, mandatory, hyphen);
+                attempt = line(p, world, start..end, mandatory, hyphen);
             }
         }
 
@@ -731,7 +734,7 @@ fn linebreak_optimized<'a>(
     let mut table = vec![Entry {
         pred: 0,
         total: 0.0,
-        line: line(p, world, 0 .. 0, false, false),
+        line: line(p, world, 0..0, false, false),
     }];
 
     let em = p.styles.get(TextNode::SIZE);
@@ -745,7 +748,7 @@ fn linebreak_optimized<'a>(
         for (i, pred) in table.iter_mut().enumerate().skip(active) {
             // Layout the line.
             let start = pred.line.end;
-            let attempt = line(p, world, start .. end, mandatory, hyphen);
+            let attempt = line(p, world, start..end, mandatory, hyphen);
 
             // Determine how much the line's spaces would need to be stretched
             // to make it the desired width.
@@ -877,7 +880,7 @@ impl Iterator for Breakpoints<'_> {
         // Hyphenate the next word.
         if self.p.hyphenate != Some(false) {
             if let Some(lang) = self.lang(self.offset) {
-                let word = &self.p.bidi.text[self.offset .. self.end];
+                let word = &self.p.bidi.text[self.offset..self.end];
                 let trimmed = word.trim_end_matches(|c: char| !c.is_alphabetic());
                 if !trimmed.is_empty() {
                     self.suffix = self.offset + trimmed.len();
@@ -953,7 +956,7 @@ fn line<'a>(
         // end of the line.
         let base = expanded.end - shaped.text.len();
         let start = range.start.max(base);
-        let text = &p.bidi.text[start .. range.end];
+        let text = &p.bidi.text[start..range.end];
         let trimmed = text.trim_end();
         range.end = start + trimmed.len();
 
@@ -973,7 +976,7 @@ fn line<'a>(
         // are no other items in the line.
         if hyphen || start + shaped.text.len() > range.end {
             if hyphen || start < range.end || before.is_empty() {
-                let shifted = start - base .. range.end - base;
+                let shifted = start - base..range.end - base;
                 let mut reshaped = shaped.reshape(world, shifted);
                 if hyphen || shy {
                     reshaped.push_hyphen(world);
@@ -996,7 +999,7 @@ fn line<'a>(
         // Reshape if necessary.
         if range.start + shaped.text.len() > end {
             if range.start < end {
-                let shifted = range.start - base .. end - base;
+                let shifted = range.start - base..end - base;
                 let reshaped = shaped.reshape(world, shifted);
                 width += reshaped.width;
                 first = Some(Item::Text(reshaped));
@@ -1168,7 +1171,7 @@ fn commit(
                     offset += p.align.position(remaining);
                 }
                 if width > Abs::zero() {
-                    for _ in 0 .. (count as usize).min(1000) {
+                    for _ in 0..(count as usize).min(1000) {
                         push(&mut offset, frame.clone());
                         offset += apart;
                     }
@@ -1229,7 +1232,7 @@ fn reorder<'a>(line: &'a Line<'a>) -> Vec<&Item<'a>> {
         reordered.extend(line.slice(run.clone()));
 
         if levels[run.start].is_rtl() {
-            reordered[prev ..].reverse();
+            reordered[prev..].reverse();
         }
     }
 

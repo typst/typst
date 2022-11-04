@@ -92,10 +92,7 @@ impl Add for Length {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
-        Self {
-            abs: self.abs + rhs.abs,
-            em: self.em + rhs.em,
-        }
+        Self { abs: self.abs + rhs.abs, em: self.em + rhs.em }
     }
 }
 

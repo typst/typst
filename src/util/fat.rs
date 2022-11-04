@@ -5,7 +5,7 @@
 //! pointer metadata APIs are stable, we should definitely move to them:
 //! <https://github.com/rust-lang/rust/issues/81513>
 
-use std::alloc;
+use std::alloc::Layout;
 use std::mem;
 
 /// Create a fat pointer from a data address and a vtable address.
@@ -15,12 +15,8 @@ use std::mem;
 /// to a value whose type implements the trait of `T` and the `vtable` must have
 /// been extracted with [`vtable`].
 pub unsafe fn from_raw_parts<T: ?Sized>(data: *const (), vtable: *const ()) -> *const T {
-    debug_assert_eq!(
-        alloc::Layout::new::<*const T>(),
-        alloc::Layout::new::<FatPointer>(),
-    );
-
     let fat = FatPointer { data, vtable };
+    debug_assert_eq!(Layout::new::<*const T>(), Layout::new::<FatPointer>());
     mem::transmute_copy::<FatPointer, *const T>(&fat)
 }
 
@@ -31,12 +27,8 @@ pub unsafe fn from_raw_parts<T: ?Sized>(data: *const (), vtable: *const ()) -> *
 /// to a value whose type implements the trait of `T` and the `vtable` must have
 /// been extracted with [`vtable`].
 pub unsafe fn from_raw_parts_mut<T: ?Sized>(data: *mut (), vtable: *const ()) -> *mut T {
-    debug_assert_eq!(
-        alloc::Layout::new::<*mut T>(),
-        alloc::Layout::new::<FatPointer>(),
-    );
-
     let fat = FatPointer { data, vtable };
+    debug_assert_eq!(Layout::new::<*mut T>(), Layout::new::<FatPointer>());
     mem::transmute_copy::<FatPointer, *mut T>(&fat)
 }
 
@@ -45,11 +37,7 @@ pub unsafe fn from_raw_parts_mut<T: ?Sized>(data: *mut (), vtable: *const ()) ->
 /// # Safety
 /// Must only be called when `T` is a `dyn Trait`.
 pub unsafe fn vtable<T: ?Sized>(ptr: *const T) -> *const () {
-    debug_assert_eq!(
-        alloc::Layout::new::<*const T>(),
-        alloc::Layout::new::<FatPointer>(),
-    );
-
+    debug_assert_eq!(Layout::new::<*const T>(), Layout::new::<FatPointer>());
     mem::transmute_copy::<*const T, FatPointer>(&ptr).vtable
 }
 

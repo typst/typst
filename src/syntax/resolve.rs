@@ -30,7 +30,6 @@ pub fn resolve_string(string: &str) -> EcoString {
                     None => out.push_str(s.from(start)),
                 }
             }
-
             _ => out.push_str(s.from(start)),
         }
     }
@@ -66,10 +65,7 @@ pub fn resolve_raw(column: usize, backticks: usize, text: &str) -> RawKind {
 /// Parse the lang tag and return it alongside the remaining inner raw text.
 fn split_at_lang_tag(raw: &str) -> (&str, &str) {
     let mut s = Scanner::new(raw);
-    (
-        s.eat_until(|c: char| c == '`' || c.is_whitespace() || is_newline(c)),
-        s.after(),
-    )
+    (s.eat_until(|c: char| c == '`' || c.is_whitespace() || is_newline(c)), s.after())
 }
 
 /// Trim raw text and splits it into lines.
@@ -94,7 +90,7 @@ fn trim_and_split_raw(column: usize, mut raw: &str) -> (String, bool) {
             .take_while(|c| c.is_whitespace())
             .map(char::len_utf8)
             .sum();
-        *line = &line[offset ..];
+        *line = &line[offset..];
     }
 
     let had_newline = lines.len() > 1;
@@ -127,13 +123,13 @@ fn split_lines(text: &str) -> Vec<&str> {
                 s.eat_if('\n');
             }
 
-            lines.push(&text[start .. end]);
+            lines.push(&text[start..end]);
             start = s.cursor();
         }
         end = s.cursor();
     }
 
-    lines.push(&text[start ..]);
+    lines.push(&text[start..]);
     lines
 }
 

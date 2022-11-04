@@ -119,7 +119,7 @@ impl Array {
             .ok_or_else(|| out_of_bounds(end, len))?
             .max(start);
 
-        Ok(Self::from_vec(self.0[start .. end].to_vec()))
+        Ok(Self::from_vec(self.0[start..end].to_vec()))
     }
 
     /// Whether the array contains a specific value.
@@ -287,12 +287,8 @@ impl Array {
 
     /// Resolve an index.
     fn locate(&self, index: i64) -> Option<usize> {
-        usize::try_from(if index >= 0 {
-            index
-        } else {
-            self.len().checked_add(index)?
-        })
-        .ok()
+        usize::try_from(if index >= 0 { index } else { self.len().checked_add(index)? })
+            .ok()
     }
 }
 

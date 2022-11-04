@@ -1471,7 +1471,11 @@ impl ForPattern {
     pub fn key(&self) -> Option<Ident> {
         let mut children = self.0.children().filter_map(SyntaxNode::cast);
         let key = children.next();
-        if children.next().is_some() { key } else { None }
+        if children.next().is_some() {
+            key
+        } else {
+            None
+        }
     }
 
     /// The value part of the pattern.

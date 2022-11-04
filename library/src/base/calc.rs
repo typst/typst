@@ -101,14 +101,12 @@ pub fn mod_(_: &mut Vm, args: &mut Args) -> SourceResult<Value> {
         (Value::Int(a), Value::Float(b)) => (a as f64, b),
         (Value::Float(a), Value::Int(b)) => (a, b as f64),
         (Value::Float(a), Value::Float(b)) => (a, b),
-        (Value::Int(_), b) | (Value::Float(_), b) => bail!(
-            span2,
-            format!("expected integer or float, found {}", b.type_name())
-        ),
-        (a, _) => bail!(
-            span1,
-            format!("expected integer or float, found {}", a.type_name())
-        ),
+        (Value::Int(_), b) | (Value::Float(_), b) => {
+            bail!(span2, format!("expected integer or float, found {}", b.type_name()))
+        }
+        (a, _) => {
+            bail!(span1, format!("expected integer or float, found {}", a.type_name()))
+        }
     };
 
     if b == 0.0 {

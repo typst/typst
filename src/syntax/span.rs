@@ -70,7 +70,7 @@ impl Span {
     const DETACHED: u64 = 1;
 
     /// The full range of numbers available to spans.
-    pub const FULL: Range<u64> = 2 .. (1 << Self::BITS);
+    pub const FULL: Range<u64> = 2..(1 << Self::BITS);
 
     /// Create a new span from a source id and a unique number.
     ///

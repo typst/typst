@@ -67,17 +67,13 @@ impl Str {
             .ok_or_else(|| out_of_bounds(end, len))?
             .max(start);
 
-        Ok(self.0[start .. end].into())
+        Ok(self.0[start..end].into())
     }
 
     /// Resolve an index.
     fn locate(&self, index: i64) -> Option<usize> {
-        usize::try_from(if index >= 0 {
-            index
-        } else {
-            self.len().checked_add(index)?
-        })
-        .ok()
+        usize::try_from(if index >= 0 { index } else { self.len().checked_add(index)? })
+            .ok()
     }
 
     /// Whether the given pattern exists in this string.
@@ -207,7 +203,7 @@ impl Str {
             Some(StrPattern::Regex(re)) => {
                 let s = self.as_str();
                 let mut last = 0;
-                let mut range = 0 .. s.len();
+                let mut range = 0..s.len();
 
                 for m in re.find_iter(s) {
                     // Does this match follow directly after the last one?
@@ -235,7 +231,7 @@ impl Str {
                     range.end = s.len();
                 }
 
-                &s[range.start .. range.start.max(range.end)]
+                &s[range.start..range.start.max(range.end)]
             }
         };
 
@@ -271,10 +267,7 @@ impl Str {
 /// The out of bounds access error message.
 #[cold]
 fn out_of_bounds(index: i64, len: i64) -> String {
-    format!(
-        "string index out of bounds (index: {}, len: {})",
-        index, len
-    )
+    format!("string index out of bounds (index: {}, len: {})", index, len)
 }
 
 /// Convert an item of std's `match_indices` to a dictionary.

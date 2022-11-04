@@ -56,13 +56,16 @@ impl<const L: DecoLine> Show for DecoNode<L> {
         _: Tracked<dyn World>,
         styles: StyleChain,
     ) -> SourceResult<Content> {
-        Ok(self.0.clone().styled(TextNode::DECO, Decoration {
-            line: L,
-            stroke: styles.get(Self::STROKE).unwrap_or_default(),
-            offset: styles.get(Self::OFFSET),
-            extent: styles.get(Self::EXTENT),
-            evade: styles.get(Self::EVADE),
-        }))
+        Ok(self.0.clone().styled(
+            TextNode::DECO,
+            Decoration {
+                line: L,
+                stroke: styles.get(Self::STROKE).unwrap_or_default(),
+                offset: styles.get(Self::OFFSET),
+                extent: styles.get(Self::EXTENT),
+                evade: styles.get(Self::EVADE),
+            },
+        ))
     }
 }
 

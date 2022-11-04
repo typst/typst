@@ -94,7 +94,7 @@ impl StyleMap {
     /// This is useful over `chain` when you want to combine two maps, but you
     /// still need an owned map without a lifetime.
     pub fn apply_map(&mut self, tail: &Self) {
-        self.0.splice(0 .. 0, tail.0.iter().cloned());
+        self.0.splice(0..0, tail.0.iter().cloned());
     }
 
     /// Mark all contained properties as _scoped_. This means that they only
@@ -159,10 +159,7 @@ impl StyleEntry {
             }
         }
 
-        StyleChain {
-            head: std::slice::from_ref(self),
-            tail: Some(tail),
-        }
+        StyleChain { head: std::slice::from_ref(self), tail: Some(tail) }
     }
 
     /// If this is a property, return it.
@@ -328,7 +325,7 @@ impl<'a> StyleChain<'a> {
         let mut suffix = StyleMap::new();
         let take = self.links().count().saturating_sub(len);
         for link in self.links().take(take) {
-            suffix.0.splice(0 .. 0, link.iter().cloned());
+            suffix.0.splice(0..0, link.iter().cloned());
         }
         suffix
     }
@@ -344,10 +341,7 @@ impl<'a> StyleChain<'a> {
 
     /// Iterate over the entries of the chain.
     fn entries(self) -> Entries<'a> {
-        Entries {
-            inner: [].as_slice().iter(),
-            links: self.links(),
-        }
+        Entries { inner: [].as_slice().iter(), links: self.links() }
     }
 
     /// Iterate over the links of the chain.
@@ -582,12 +576,12 @@ impl<'a, T> StyleVecBuilder<'a, T> {
         for &(mut chain, _) in iter {
             let len = chain.links().count();
             if len < shared {
-                for _ in 0 .. shared - len {
+                for _ in 0..shared - len {
                     trunk.pop();
                 }
                 shared = len;
             } else if len > shared {
-                for _ in 0 .. len - shared {
+                for _ in 0..len - shared {
                     chain.pop();
                 }
             }
@@ -1017,7 +1011,7 @@ impl Recipe {
                 for mat in regex.find_iter(text) {
                     let start = mat.start();
                     if cursor < start {
-                        result.push(make(text[cursor .. start].into()));
+                        result.push(make(text[cursor..start].into()));
                     }
 
                     result.push(self.call(world, || Value::Str(mat.as_str().into()))?);
@@ -1029,7 +1023,7 @@ impl Recipe {
                 }
 
                 if cursor < text.len() {
-                    result.push(make(text[cursor ..].into()));
+                    result.push(make(text[cursor..].into()));
                 }
 
                 Content::sequence(result)
@@ -1066,11 +1060,7 @@ impl Recipe {
 
 impl Debug for Recipe {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(
-            f,
-            "Recipe matching {:?} from {:?}",
-            self.pattern, self.func.span
-        )
+        write!(f, "Recipe matching {:?} from {:?}", self.pattern, self.func.span)
     }
 }
 

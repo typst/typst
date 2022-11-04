@@ -3,8 +3,8 @@
 mod book;
 mod variant;
 
-pub use book::*;
-pub use variant::*;
+pub use self::book::*;
+pub use self::variant::*;
 
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};

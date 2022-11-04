@@ -21,11 +21,7 @@ pub fn rounded_rect(
     if !stroke.is_uniform() {
         for (path, stroke) in stroke_segments(size, radius, stroke) {
             if stroke.is_some() {
-                res.push(Shape {
-                    geometry: Geometry::Path(path),
-                    fill: None,
-                    stroke,
-                });
+                res.push(Shape { geometry: Geometry::Path(path), fill: None, stroke });
             }
         }
     }

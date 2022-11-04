@@ -3,5 +3,5 @@
 mod pdf;
 mod render;
 
-pub use pdf::pdf;
-pub use render::render;
+pub use self::pdf::pdf;
+pub use self::render::render;
