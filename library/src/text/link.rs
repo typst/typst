@@ -17,7 +17,7 @@ impl LinkNode {
     }
 }
 
-#[node(Show)]
+#[node(Show, Finalize)]
 impl LinkNode {
     /// The fill color of text in the link. Just the surrounding text color
     /// if `auto`.
@@ -33,16 +33,6 @@ impl LinkNode {
         };
         Ok(Self { dest, body }.pack())
     }
-}
-
-impl Show for LinkNode {
-    fn unguard_parts(&self, sel: Selector) -> Content {
-        Self {
-            dest: self.dest.clone(),
-            body: self.body.as_ref().map(|body| body.unguard(sel)),
-        }
-        .pack()
-    }
 
     fn field(&self, name: &str) -> Option<Value> {
         match name {
@@ -57,25 +47,33 @@ impl Show for LinkNode {
             _ => None,
         }
     }
+}
 
-    fn realize(&self, _: Tracked<dyn World>, _: StyleChain) -> SourceResult<Content> {
-        Ok(self
-            .body
-            .clone()
-            .unwrap_or_else(|| match &self.dest {
-                Destination::Url(url) => {
-                    let mut text = url.as_str();
-                    for prefix in ["mailto:", "tel:"] {
-                        text = text.trim_start_matches(prefix);
-                    }
-                    let shorter = text.len() < url.len();
-                    TextNode(if shorter { text.into() } else { url.clone() }).pack()
-                }
-                Destination::Internal(_) => Content::empty(),
-            })
-            .styled(TextNode::LINK, Some(self.dest.clone())))
+impl Show for LinkNode {
+    fn unguard_parts(&self, sel: Selector) -> Content {
+        Self {
+            dest: self.dest.clone(),
+            body: self.body.as_ref().map(|body| body.unguard(sel)),
+        }
+        .pack()
     }
 
+    fn show(&self, _: Tracked<dyn World>, _: StyleChain) -> SourceResult<Content> {
+        Ok(self.body.clone().unwrap_or_else(|| match &self.dest {
+            Destination::Url(url) => {
+                let mut text = url.as_str();
+                for prefix in ["mailto:", "tel:"] {
+                    text = text.trim_start_matches(prefix);
+                }
+                let shorter = text.len() < url.len();
+                TextNode::packed(if shorter { text.into() } else { url.clone() })
+            }
+            Destination::Internal(_) => Content::empty(),
+        }))
+    }
+}
+
+impl Finalize for LinkNode {
     fn finalize(
         &self,
         _: Tracked<dyn World>,
@@ -83,6 +81,8 @@ impl Show for LinkNode {
         mut realized: Content,
     ) -> SourceResult<Content> {
         let mut map = StyleMap::new();
+        map.set(TextNode::LINK, Some(self.dest.clone()));
+
         if let Smart::Custom(fill) = styles.get(Self::FILL) {
             map.set(TextNode::FILL, fill);
         }

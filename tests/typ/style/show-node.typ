@@ -3,7 +3,7 @@
 ---
 // Override lists.
 #set list(around: none)
-#show v: list as "(" + v.items.join(", ") + ")"
+#show list: it => "(" + it.items.join(", ") + ")"
 
 - A
   - B
@@ -14,12 +14,12 @@
 ---
 // Test full reset.
 #set heading(size: 1em, strong: false, around: none)
-#show heading as [B]
+#show heading: [B]
 A [= Heading] C
 
 ---
 // Test full removal.
-#show heading as []
+#show heading: none
 #set heading(around: none)
 
 Where is
@@ -29,13 +29,13 @@ my heading?
 ---
 // Test integrated example.
 #set heading(size: 1em)
-#show node: heading as {
+#show heading: it => {
   move(dy: -1pt)[📖]
   h(5pt)
-  if node.level == 1 {
-    underline(text(1.25em, blue, node.body))
+  if it.level == 1 {
+    underline(text(1.25em, blue, it.body))
   } else {
-    text(red, node.body)
+    text(red, it.body)
   }
 }
 
@@ -50,10 +50,10 @@ Another text.
 
 ---
 // Test set and show in code blocks.
-#show node: heading as {
+#show heading: it => {
   set text(red)
-  show "ding" as [🛎]
-  node.body
+  show "ding": [🛎]
+  it.body
 }
 
 = Heading
@@ -62,12 +62,12 @@ Another text.
 // Test that scoping works as expected.
 {
   let world = [ World ]
-  show c: "W" as strong(c)
+  show "W": strong
   world
   {
     set text(blue)
-    wrap it in {
-      show "o" as "Ø"
+    show it => {
+      show "o": "Ø"
       it
     }
     world
@@ -76,22 +76,27 @@ Another text.
 }
 
 ---
-#show heading as 1234
+#show heading: [1234]
 = Heading
 
 ---
 // Error: 25-29 unknown field "page"
-#show it: heading as it.page
+#show heading: it => it.page
 = Heading
 
 ---
-// Error: 10-15 this function cannot be customized with show
-#show _: upper as {}
+// Error: 7-12 this function cannot be customized with show
+#show upper: it => {}
+
+---
+// Error: 16-20 expected content or function, found integer
+#show heading: 1234
+= Heading
 
 ---
 // Error: 7-10 expected function, string or regular expression, found color
-#show red as []
+#show red: []
 
 ---
-// Error: 7-27 show is only allowed directly in code and content blocks
-{ 1 + show heading as none }
+// Error: 7-25 show is only allowed directly in code and content blocks
+{ 1 + show heading: none }

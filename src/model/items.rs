@@ -48,11 +48,11 @@ pub struct LangItems {
     pub em: fn(StyleChain) -> Abs,
     /// Access the text direction.
     pub dir: fn(StyleChain) -> Dir,
-    /// A space.
+    /// Whitespace.
     pub space: fn() -> Content,
-    /// A forced line break.
+    /// A forced line break: `\`.
     pub linebreak: fn(justify: bool) -> Content,
-    /// Plain text.
+    /// Plain text without markup.
     pub text: fn(text: EcoString) -> Content,
     /// A smart quote: `'` or `"`.
     pub smart_quote: fn(double: bool) -> Content,
@@ -72,18 +72,18 @@ pub struct LangItems {
     pub heading: fn(level: NonZeroUsize, body: Content) -> Content,
     /// An item in an unordered list: `- ...`.
     pub list_item: fn(body: Content) -> Content,
-    /// An item in an enumeration (ordered list): `1. ...`.
+    /// An item in an enumeration (ordered list): `+ ...` or `1. ...`.
     pub enum_item: fn(number: Option<usize>, body: Content) -> Content,
     /// An item in a description list: `/ Term: Details`.
     pub desc_item: fn(term: Content, body: Content) -> Content,
-    /// A math formula: `$x$`, `$ x^2 $`.
+    /// A mathematical formula: `$x$`, `$ x^2 $`.
     pub math: fn(children: Vec<Content>, display: bool) -> Content,
-    /// A atom in a formula: `x`, `+`, `12`.
+    /// An atom in a formula: `x`, `+`, `12`.
     pub math_atom: fn(atom: EcoString) -> Content,
-    /// A base with an optional sub- and superscript in a formula: `a_1^2`.
+    /// A base with optional sub- and superscripts in a formula: `a_1^2`.
     pub math_script:
         fn(base: Content, sub: Option<Content>, sup: Option<Content>) -> Content,
-    /// A fraction in a formula: `x/2`
+    /// A fraction in a formula: `x/2`.
     pub math_frac: fn(num: Content, denom: Content) -> Content,
     /// An alignment indicator in a formula: `&`, `&&`.
     pub math_align: fn(count: usize) -> Content,

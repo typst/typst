@@ -9,7 +9,7 @@
 
 ---
 #set raw(around: none)
-#show it: raw as text("IBM Plex Sans", eval(it.text))
+#show raw: it => text("IBM Plex Sans", eval(it.text))
 
 Interacting
 ```
@@ -31,19 +31,18 @@ Blue #move(dy: -0.15em)[🌊]
 
 ---
 // Error: 23-30 cannot access file system from here
-#show it: raw as eval(it.text)
+#show raw: it => eval(it.text)
 
 ```
-#show strong as image("/res/tiger.jpg")
-*No absolute tiger!*
+#image("/res/tiger.jpg")
 ```
 
 ---
 // Error: 23-30 cannot access file system from here
-#show it: raw as eval(it.text)
+#show raw: it => eval(it.text)
 
 ```
-#show emph as image("../../res/giraffe.jpg")
+#show emph: _ => image("../../res/giraffe.jpg")
 _No relative giraffe!_
 ```
 

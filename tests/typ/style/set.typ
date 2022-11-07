@@ -49,5 +49,18 @@ Hello *{x}*
 + Tiger
 
 ---
+// Test conditional set.
+#show ref: it => {
+  set text(red) if it.target == "unknown"
+  it
+}
+
+@hello from the @unknown
+
+---
+// Error: 19-24 expected boolean, found integer
+#set text(red) if 1 + 2
+
+---
 // Error: 11-25 set is only allowed directly in code and content blocks
 { let x = set text(blue) }

@@ -33,12 +33,6 @@ impl<const S: ShiftKind> ShiftNode<S> {
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self(args.expect("body")?).pack())
     }
-}
-
-impl<const S: ShiftKind> Show for ShiftNode<S> {
-    fn unguard_parts(&self, _: Selector) -> Content {
-        Self(self.0.clone()).pack()
-    }
 
     fn field(&self, name: &str) -> Option<Value> {
         match name {
@@ -46,8 +40,14 @@ impl<const S: ShiftKind> Show for ShiftNode<S> {
             _ => None,
         }
     }
+}
 
-    fn realize(
+impl<const S: ShiftKind> Show for ShiftNode<S> {
+    fn unguard_parts(&self, _: Selector) -> Content {
+        Self(self.0.clone()).pack()
+    }
+
+    fn show(
         &self,
         world: Tracked<dyn World>,
         styles: StyleChain,
@@ -56,7 +56,7 @@ impl<const S: ShiftKind> Show for ShiftNode<S> {
         if styles.get(Self::TYPOGRAPHIC) {
             if let Some(text) = search_text(&self.0, S) {
                 if is_shapable(world, &text, styles) {
-                    transformed = Some(TextNode(text).pack());
+                    transformed = Some(TextNode::packed(text));
                 }
             }
         };

@@ -19,7 +19,7 @@ pub struct RawNode {
     pub block: bool,
 }
 
-#[node(Show)]
+#[node(Show, Finalize)]
 impl RawNode {
     /// The language to syntax-highlight in.
     #[property(referenced)]
@@ -41,12 +41,6 @@ impl RawNode {
         }
         .pack())
     }
-}
-
-impl Show for RawNode {
-    fn unguard_parts(&self, _: Selector) -> Content {
-        Self { text: self.text.clone(), ..*self }.pack()
-    }
 
     fn field(&self, name: &str) -> Option<Value> {
         match name {
@@ -55,12 +49,14 @@ impl Show for RawNode {
             _ => None,
         }
     }
+}
 
-    fn realize(
-        &self,
-        _: Tracked<dyn World>,
-        styles: StyleChain,
-    ) -> SourceResult<Content> {
+impl Show for RawNode {
+    fn unguard_parts(&self, _: Selector) -> Content {
+        Self { text: self.text.clone(), ..*self }.pack()
+    }
+
+    fn show(&self, _: Tracked<dyn World>, styles: StyleChain) -> SourceResult<Content> {
         let lang = styles.get(Self::LANG).as_ref().map(|s| s.to_lowercase());
         let foreground = THEME
             .settings
@@ -100,7 +96,7 @@ impl Show for RawNode {
 
             Content::sequence(seq)
         } else {
-            TextNode(self.text.clone()).pack()
+            TextNode::packed(self.text.clone())
         };
 
         if self.block {
@@ -114,7 +110,9 @@ impl Show for RawNode {
 
         Ok(realized.styled_with_map(map))
     }
+}
 
+impl Finalize for RawNode {
     fn finalize(
         &self,
         _: Tracked<dyn World>,
@@ -134,7 +132,7 @@ impl Show for RawNode {
 
 /// Style a piece of text with a syntect style.
 fn styled(piece: &str, foreground: Paint, style: Style) -> Content {
-    let mut body = TextNode(piece.into()).pack();
+    let mut body = TextNode::packed(piece);
 
     let paint = style.foreground.into();
     if paint != foreground {

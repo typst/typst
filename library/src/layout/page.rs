@@ -200,7 +200,7 @@ impl Cast<Spanned<Value>> for Marginal {
     fn cast(value: Spanned<Value>) -> StrResult<Self> {
         match value.v {
             Value::None => Ok(Self::None),
-            Value::Str(v) => Ok(Self::Content(TextNode(v.into()).pack())),
+            Value::Str(v) => Ok(Self::Content(TextNode::packed(v))),
             Value::Content(v) => Ok(Self::Content(v)),
             Value::Func(v) => Ok(Self::Func(v, value.span)),
             v => Err(format!(

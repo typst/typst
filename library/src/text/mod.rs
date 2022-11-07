@@ -28,6 +28,13 @@ use crate::prelude::*;
 #[derive(Debug, Clone, Hash)]
 pub struct TextNode(pub EcoString);
 
+impl TextNode {
+    /// Create a new packed text node.
+    pub fn packed(text: impl Into<EcoString>) -> Content {
+        Self(text.into()).pack()
+    }
+}
+
 #[node]
 impl TextNode {
     /// A prioritized sequence of font families.
@@ -486,12 +493,6 @@ impl StrongNode {
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self(args.expect("body")?).pack())
     }
-}
-
-impl Show for StrongNode {
-    fn unguard_parts(&self, sel: Selector) -> Content {
-        Self(self.0.unguard(sel)).pack()
-    }
 
     fn field(&self, name: &str) -> Option<Value> {
         match name {
@@ -499,8 +500,14 @@ impl Show for StrongNode {
             _ => None,
         }
     }
+}
 
-    fn realize(&self, _: Tracked<dyn World>, _: StyleChain) -> SourceResult<Content> {
+impl Show for StrongNode {
+    fn unguard_parts(&self, sel: Selector) -> Content {
+        Self(self.0.unguard(sel)).pack()
+    }
+
+    fn show(&self, _: Tracked<dyn World>, _: StyleChain) -> SourceResult<Content> {
         Ok(self.0.clone().styled(TextNode::BOLD, Toggle))
     }
 }
@@ -514,12 +521,6 @@ impl EmphNode {
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self(args.expect("body")?).pack())
     }
-}
-
-impl Show for EmphNode {
-    fn unguard_parts(&self, sel: Selector) -> Content {
-        Self(self.0.unguard(sel)).pack()
-    }
 
     fn field(&self, name: &str) -> Option<Value> {
         match name {
@@ -527,8 +528,14 @@ impl Show for EmphNode {
             _ => None,
         }
     }
+}
 
-    fn realize(&self, _: Tracked<dyn World>, _: StyleChain) -> SourceResult<Content> {
+impl Show for EmphNode {
+    fn unguard_parts(&self, sel: Selector) -> Content {
+        Self(self.0.unguard(sel)).pack()
+    }
+
+    fn show(&self, _: Tracked<dyn World>, _: StyleChain) -> SourceResult<Content> {
         Ok(self.0.clone().styled(TextNode::ITALIC, Toggle))
     }
 }
@@ -542,14 +549,5 @@ impl Fold for Toggle {
 
     fn fold(self, outer: Self::Output) -> Self::Output {
         !outer
-    }
-}
-
-impl Fold for Decoration {
-    type Output = Vec<Self>;
-
-    fn fold(self, mut outer: Self::Output) -> Self::Output {
-        outer.insert(0, self);
-        outer
     }
 }

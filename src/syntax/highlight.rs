@@ -257,7 +257,6 @@ impl Category {
             NodeKind::Let => Some(Category::Keyword),
             NodeKind::Set => Some(Category::Keyword),
             NodeKind::Show => Some(Category::Keyword),
-            NodeKind::Wrap => Some(Category::Keyword),
             NodeKind::If => Some(Category::Keyword),
             NodeKind::Else => Some(Category::Keyword),
             NodeKind::For => Some(Category::Keyword),
@@ -269,7 +268,6 @@ impl Category {
             NodeKind::Import => Some(Category::Keyword),
             NodeKind::Include => Some(Category::Keyword),
             NodeKind::From => Some(Category::Keyword),
-            NodeKind::As => Some(Category::Keyword),
 
             NodeKind::Markup { .. } => match parent.kind() {
                 NodeKind::DescItem
@@ -316,8 +314,7 @@ impl Category {
                     if parent
                         .children()
                         .rev()
-                        .skip_while(|child| child.kind() != &NodeKind::As)
-                        .take_while(|child| child.kind() != &NodeKind::Colon)
+                        .skip_while(|child| child.kind() != &NodeKind::Colon)
                         .find(|c| matches!(c.kind(), NodeKind::Ident(_)))
                         .map_or(false, |ident| std::ptr::eq(ident, child)) =>
                 {
@@ -349,7 +346,6 @@ impl Category {
             NodeKind::LetBinding => None,
             NodeKind::SetRule => None,
             NodeKind::ShowRule => None,
-            NodeKind::WrapRule => None,
             NodeKind::Conditional => None,
             NodeKind::WhileLoop => None,
             NodeKind::ForLoop => None,
@@ -357,9 +353,9 @@ impl Category {
             NodeKind::ModuleImport => None,
             NodeKind::ImportItems => None,
             NodeKind::ModuleInclude => None,
-            NodeKind::BreakStmt => None,
-            NodeKind::ContinueStmt => None,
-            NodeKind::ReturnStmt => None,
+            NodeKind::LoopBreak => None,
+            NodeKind::LoopContinue => None,
+            NodeKind::FuncReturn => None,
 
             NodeKind::Error(_, _) => Some(Category::Error),
         }

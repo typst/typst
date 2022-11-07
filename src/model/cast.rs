@@ -1,7 +1,7 @@
 use std::num::NonZeroUsize;
 use std::str::FromStr;
 
-use super::{Pattern, Regex, Value};
+use super::{Content, Pattern, Regex, Transform, Value};
 use crate::diag::{with_alternative, StrResult};
 use crate::font::{FontStretch, FontStyle, FontWeight};
 use crate::frame::{Destination, Lang, Location, Region};
@@ -187,6 +187,15 @@ castable! {
     Value::Func(func) => Self::Node(func.node()?),
     Value::Str(text) => Self::text(&text),
     @regex: Regex => Self::Regex(regex.clone()),
+}
+
+castable! {
+    Transform,
+    Expected: "content or function",
+    Value::None => Self::Content(Content::empty()),
+    Value::Str(text) => Self::Content(item!(text)(text.into())),
+    Value::Content(content) => Self::Content(content),
+    Value::Func(func) => Self::Func(func),
 }
 
 dynamic! {

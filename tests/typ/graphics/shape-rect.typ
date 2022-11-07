@@ -47,10 +47,10 @@
 ---
 // Outset padding.
 #set raw(lang: "rust")
-#show node: raw as [
+#show raw: it => [
   #set text(8pt)
   #h(5.6pt, weak: true)
-  #rect(radius: 3pt, outset: (y: 3pt, x: 2.5pt), fill: rgb(239, 241, 243), node)
+  #rect(radius: 3pt, outset: (y: 3pt, x: 2.5pt), fill: rgb(239, 241, 243), it)
   #h(5.6pt, weak: true)
 ]
 

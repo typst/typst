@@ -9,8 +9,8 @@ pub use typst::frame::*;
 pub use typst::geom::*;
 pub use typst::model::{
     array, capability, castable, dict, dynamic, format_str, node, Args, Array, Cast,
-    Content, Dict, Fold, Func, Key, Node, Resolve, Scope, Selector, Show, Smart, Str,
-    StyleChain, StyleMap, StyleVec, Value, Vm,
+    Content, Dict, Finalize, Fold, Func, Key, Node, Resolve, Scope, Selector, Show,
+    Smart, Str, StyleChain, StyleMap, StyleVec, Value, Vm,
 };
 pub use typst::syntax::{Span, Spanned};
 pub use typst::util::{format_eco, EcoString};

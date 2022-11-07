@@ -1,4 +1,4 @@
-// Test import statements.
+// Test module imports.
 
 ---
 // Test importing semantics.

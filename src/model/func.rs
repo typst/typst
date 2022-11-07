@@ -310,16 +310,6 @@ impl<'a> CapturesVisitor<'a> {
                 self.bind(expr.binding());
             }
 
-            // A show rule contains a binding, but that binding is only active
-            // after the target has been evaluated.
-            Some(ast::Expr::Show(show)) => {
-                self.visit(show.pattern().as_untyped());
-                if let Some(binding) = show.binding() {
-                    self.bind(binding);
-                }
-                self.visit(show.body().as_untyped());
-            }
-
             // A for loop contains one or two bindings in its pattern. These are
             // active after the iterable is evaluated but before the body is
             // evaluated.
@@ -391,9 +381,9 @@ mod tests {
         test("{(x, y: x + z) => x + y}", &["x", "z"]);
 
         // Show rule.
-        test("#show x: y as x", &["y"]);
-        test("#show x: y as x + z", &["y", "z"]);
-        test("#show x: x as x", &["x"]);
+        test("#show y: x => x", &["y"]);
+        test("#show y: x => x + z", &["y", "z"]);
+        test("#show x: x => x", &["x"]);
 
         // For loop.
         test("#for x in y { x + z }", &["y", "z"]);

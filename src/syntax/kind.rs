@@ -106,8 +106,6 @@ pub enum NodeKind {
     Set,
     /// The `show` keyword.
     Show,
-    /// The `wrap` keyword.
-    Wrap,
     /// The `if` keyword.
     If,
     /// The `else` keyword.
@@ -130,8 +128,6 @@ pub enum NodeKind {
     Include,
     /// The `from` keyword.
     From,
-    /// The `as` keyword.
-    As,
 
     /// Markup of which all lines must have a minimal indentation.
     ///
@@ -139,7 +135,7 @@ pub enum NodeKind {
     /// started, but to the right of which column all markup elements must be,
     /// so it is zero except inside indent-aware constructs like lists.
     Markup { min_indent: usize },
-    /// Consecutive text without markup.
+    /// Plain text without markup.
     Text(EcoString),
     /// A forced line break: `\`.
     Linebreak,
@@ -150,9 +146,9 @@ pub enum NodeKind {
     Shorthand(char),
     /// A smart quote: `'` or `"`.
     SmartQuote { double: bool },
-    /// Strong markup: `*Strong*`.
+    /// Strong content: `*Strong*`.
     Strong,
-    /// Emphasized markup: `_Emphasized_`.
+    /// Emphasized content: `_Emphasized_`.
     Emph,
     /// A raw block with optional syntax highlighting: `` `...` ``.
     Raw(Arc<RawKind>),
@@ -164,26 +160,26 @@ pub enum NodeKind {
     Ref(EcoString),
     /// A section heading: `= Introduction`.
     Heading,
-    /// An item of an unordered list: `- ...`.
+    /// An item in an unordered list: `- ...`.
     ListItem,
-    /// An item of an enumeration (ordered list): `+ ...` or `1. ...`.
+    /// An item in an enumeration (ordered list): `+ ...` or `1. ...`.
     EnumItem,
     /// An explicit enumeration numbering: `23.`.
     EnumNumbering(usize),
-    /// An item of a description list: `/ Term: Details.
+    /// An item in a description list: `/ Term: Details`.
     DescItem,
-    /// A math formula: `$x$`, `$ x^2 $`.
+    /// A mathematical formula: `$x$`, `$ x^2 $`.
     Math,
-    /// An atom in a math formula: `x`, `+`, `12`.
+    /// An atom in a formula: `x`, `+`, `12`.
     Atom(EcoString),
-    /// A base with optional sub- and superscript in a math formula: `a_1^2`.
+    /// A base with optional sub- and superscripts in a formula: `a_1^2`.
     Script,
-    /// A fraction in a math formula: `x/2`.
+    /// A fraction in a formula: `x/2`.
     Frac,
-    /// An alignment indicator in a math formula: `&`, `&&`.
+    /// An alignment indicator in a formula: `&`, `&&`.
     Align,
 
-    /// An identifier: `center`.
+    /// An identifier: `it`.
     Ident(EcoString),
     /// A boolean: `true`, `false`.
     Bool(bool),
@@ -219,9 +215,9 @@ pub enum NodeKind {
     FuncCall,
     /// An invocation of a method: `array.push(v)`.
     MethodCall,
-    /// A function call's argument list: `(x, y)`.
+    /// A function call's argument list: `(12pt, y)`.
     Args,
-    /// Spreaded arguments or a argument sink: `..x`.
+    /// Spreaded arguments or an argument sink: `..x`.
     Spread,
     /// A closure: `(x, y) => z`.
     Closure,
@@ -231,15 +227,13 @@ pub enum NodeKind {
     LetBinding,
     /// A set rule: `set text(...)`.
     SetRule,
-    /// A show rule: `show node: heading as [*{nody.body}*]`.
+    /// A show rule: `show heading: it => [*{it.body}*]`.
     ShowRule,
-    /// A wrap rule: `wrap body in columns(2, body)`.
-    WrapRule,
     /// An if-else conditional: `if x { y } else { z }`.
     Conditional,
-    /// A while loop: `while x { ... }`.
+    /// A while loop: `while x { y }`.
     WhileLoop,
-    /// A for loop: `for x in y { ... }`.
+    /// A for loop: `for x in y { z }`.
     ForLoop,
     /// A for loop's destructuring pattern: `x` or `x, y`.
     ForPattern,
@@ -249,12 +243,12 @@ pub enum NodeKind {
     ImportItems,
     /// A module include: `include "chapter1.typ"`.
     ModuleInclude,
-    /// A break statement: `break`.
-    BreakStmt,
-    /// A continue statement: `continue`.
-    ContinueStmt,
-    /// A return statement: `return x + 1`.
-    ReturnStmt,
+    /// A break from a loop: `break`.
+    LoopBreak,
+    /// A continue in a loop: `continue`.
+    LoopContinue,
+    /// A return from a function: `return`, `return x + 1`.
+    FuncReturn,
 
     /// An invalid sequence of characters.
     Error(ErrorPos, EcoString),
@@ -367,7 +361,6 @@ impl NodeKind {
             Self::Let => "keyword `let`",
             Self::Set => "keyword `set`",
             Self::Show => "keyword `show`",
-            Self::Wrap => "keyword `wrap`",
             Self::If => "keyword `if`",
             Self::Else => "keyword `else`",
             Self::For => "keyword `for`",
@@ -379,7 +372,6 @@ impl NodeKind {
             Self::Import => "keyword `import`",
             Self::Include => "keyword `include`",
             Self::From => "keyword `from`",
-            Self::As => "keyword `as`",
             Self::Markup { .. } => "markup",
             Self::Text(_) => "text",
             Self::Linebreak => "linebreak",
@@ -426,7 +418,6 @@ impl NodeKind {
             Self::LetBinding => "`let` expression",
             Self::SetRule => "`set` expression",
             Self::ShowRule => "`show` expression",
-            Self::WrapRule => "`wrap` expression",
             Self::Conditional => "`if` expression",
             Self::WhileLoop => "while-loop expression",
             Self::ForLoop => "for-loop expression",
@@ -434,9 +425,9 @@ impl NodeKind {
             Self::ModuleImport => "`import` expression",
             Self::ImportItems => "import items",
             Self::ModuleInclude => "`include` expression",
-            Self::BreakStmt => "`break` expression",
-            Self::ContinueStmt => "`continue` expression",
-            Self::ReturnStmt => "`return` expression",
+            Self::LoopBreak => "`break` expression",
+            Self::LoopContinue => "`continue` expression",
+            Self::FuncReturn => "`return` expression",
             Self::Error(_, _) => "syntax error",
         }
     }
@@ -488,7 +479,6 @@ impl Hash for NodeKind {
             Self::Let => {}
             Self::Set => {}
             Self::Show => {}
-            Self::Wrap => {}
             Self::If => {}
             Self::Else => {}
             Self::For => {}
@@ -500,7 +490,6 @@ impl Hash for NodeKind {
             Self::Import => {}
             Self::Include => {}
             Self::From => {}
-            Self::As => {}
             Self::Markup { min_indent } => min_indent.hash(state),
             Self::Text(s) => s.hash(state),
             Self::Linebreak => {}
@@ -548,7 +537,6 @@ impl Hash for NodeKind {
             Self::LetBinding => {}
             Self::SetRule => {}
             Self::ShowRule => {}
-            Self::WrapRule => {}
             Self::Conditional => {}
             Self::WhileLoop => {}
             Self::ForLoop => {}
@@ -556,9 +544,9 @@ impl Hash for NodeKind {
             Self::ModuleImport => {}
             Self::ImportItems => {}
             Self::ModuleInclude => {}
-            Self::BreakStmt => {}
-            Self::ContinueStmt => {}
-            Self::ReturnStmt => {}
+            Self::LoopBreak => {}
+            Self::LoopContinue => {}
+            Self::FuncReturn => {}
             Self::Error(pos, msg) => (pos, msg).hash(state),
         }
     }

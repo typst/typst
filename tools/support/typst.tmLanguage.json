@@ -142,7 +142,7 @@
           "captures": { "1": { "name": "punctuation.definition.reference.typst" } }
         },
         {
-          "begin": "(#)(let|set|show|wrap|apply|select)\\b",
+          "begin": "(#)(let|set|show)\\b",
           "end": "\n|(;)|(?=])",
           "beginCaptures": {
             "0": { "name": "keyword.other.typst" },
@@ -253,7 +253,7 @@
         },
         {
           "name": "keyword.other.typst",
-          "match": "\\b(let|as|in|from|set|show|wrap|apply|select)\\b"
+          "match": "\\b(let|as|in|from|set|show)\\b"
         },
         {
           "name": "keyword.control.conditional.typst",
@@ -276,6 +276,11 @@
           "comment": "Function name",
           "name": "entity.name.function.typst",
           "match": "\\b[[:alpha:]_][[:alnum:]_-]*!?(?=\\[|\\()"
+        },
+        {
+          "comment": "Function name",
+          "name": "entity.name.function.typst",
+          "match": "(?<=\\bshow\\s*)\\b[[:alpha:]_][[:alnum:]_-]*(?=\\s*:)"
         },
         {
           "comment": "Function arguments",

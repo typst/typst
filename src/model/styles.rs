@@ -12,7 +12,7 @@ use crate::diag::SourceResult;
 use crate::geom::{
     Abs, Align, Axes, Corners, Em, GenAlign, Length, Numeric, PartialStroke, Rel, Sides,
 };
-use crate::syntax::Spanned;
+use crate::syntax::Span;
 use crate::util::ReadableTypeId;
 use crate::World;
 
@@ -283,17 +283,17 @@ impl<'a> StyleChain<'a> {
                         .unguard_parts(sel)
                         .to::<dyn Show>()
                         .unwrap()
-                        .realize(world, self)?;
+                        .show(world, self)?;
                     realized = Some(content.styled_with_entry(StyleEntry::Guard(sel)));
                 }
             }
 
             // Finalize only if guarding didn't stop any recipe.
             if !guarded {
-                if let Some(content) = realized {
-                    realized = Some(
-                        node.to::<dyn Show>().unwrap().finalize(world, self, content)?,
-                    );
+                if let Some(node) = node.to::<dyn Finalize>() {
+                    if let Some(content) = realized {
+                        realized = Some(node.finalize(world, self, content)?);
+                    }
                 }
             }
         }
@@ -974,18 +974,20 @@ impl Fold for PartialStroke<Abs> {
 /// A show rule recipe.
 #[derive(Clone, PartialEq, Hash)]
 pub struct Recipe {
-    /// The patterns to customize.
-    pub pattern: Pattern,
-    /// The function that defines the recipe.
-    pub func: Spanned<Func>,
+    /// The span errors are reported with.
+    pub span: Span,
+    /// The pattern that the rule applies to.
+    pub pattern: Option<Pattern>,
+    /// The transformation to perform on the match.
+    pub transform: Transform,
 }
 
 impl Recipe {
     /// Whether the recipe is applicable to the target.
     pub fn applicable(&self, target: Target) -> bool {
         match (&self.pattern, target) {
-            (Pattern::Node(id), Target::Node(node)) => *id == node.id(),
-            (Pattern::Regex(_), Target::Text(_)) => true,
+            (Some(Pattern::Node(id)), Target::Node(node)) => *id == node.id(),
+            (Some(Pattern::Regex(_)), Target::Text(_)) => true,
             _ => false,
         }
     }
@@ -998,12 +1000,13 @@ impl Recipe {
         target: Target,
     ) -> SourceResult<Option<Content>> {
         let content = match (target, &self.pattern) {
-            (Target::Node(node), &Pattern::Node(id)) if node.id() == id => {
-                let node = node.to::<dyn Show>().unwrap().unguard_parts(sel);
-                self.call(world, || Value::Content(node))?
+            (Target::Node(node), Some(Pattern::Node(id))) if node.id() == *id => {
+                self.transform.apply(world, self.span, || {
+                    Value::Content(node.to::<dyn Show>().unwrap().unguard_parts(sel))
+                })?
             }
 
-            (Target::Text(text), Pattern::Regex(regex)) => {
+            (Target::Text(text), Some(Pattern::Regex(regex))) => {
                 let make = world.config().items.text;
                 let mut result = vec![];
                 let mut cursor = 0;
@@ -1014,7 +1017,10 @@ impl Recipe {
                         result.push(make(text[cursor..start].into()));
                     }
 
-                    result.push(self.call(world, || Value::Str(mat.as_str().into()))?);
+                    let transformed = self
+                        .transform
+                        .apply(world, self.span, || Value::Str(mat.as_str().into()))?;
+                    result.push(transformed);
                     cursor = mat.end();
                 }
 
@@ -1035,24 +1041,10 @@ impl Recipe {
         Ok(Some(content.styled_with_entry(StyleEntry::Guard(sel))))
     }
 
-    /// Call the recipe function, with the argument if desired.
-    fn call<F>(&self, world: Tracked<dyn World>, arg: F) -> SourceResult<Content>
-    where
-        F: FnOnce() -> Value,
-    {
-        let args = if self.func.v.argc() == Some(0) {
-            Args::new(self.func.span, [])
-        } else {
-            Args::new(self.func.span, [arg()])
-        };
-
-        Ok(self.func.v.call_detached(world, args)?.display(world))
-    }
-
     /// Whether this recipe is for the given node.
     pub fn is_of(&self, node: NodeId) -> bool {
         match self.pattern {
-            Pattern::Node(id) => id == node,
+            Some(Pattern::Node(id)) => id == node,
             _ => false,
         }
     }
@@ -1060,7 +1052,7 @@ impl Recipe {
 
 impl Debug for Recipe {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "Recipe matching {:?} from {:?}", self.pattern, self.func.span)
+        write!(f, "Recipe matching {:?}", self.pattern)
     }
 }
 
@@ -1077,6 +1069,36 @@ impl Pattern {
     /// Define a simple text replacement pattern.
     pub fn text(text: &str) -> Self {
         Self::Regex(Regex::new(&regex::escape(text)).unwrap())
+    }
+}
+
+/// A show rule transformation that can be applied to a match.
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub enum Transform {
+    /// Replacement content.
+    Content(Content),
+    /// A function to apply to the match.
+    Func(Func),
+}
+
+impl Transform {
+    /// Apply the transform.
+    pub fn apply<F>(
+        &self,
+        world: Tracked<dyn World>,
+        span: Span,
+        arg: F,
+    ) -> SourceResult<Content>
+    where
+        F: FnOnce() -> Value,
+    {
+        match self {
+            Transform::Content(content) => Ok(content.clone()),
+            Transform::Func(func) => {
+                let args = Args::new(span, [arg()]);
+                Ok(func.call_detached(world, args)?.display(world))
+            }
+        }
     }
 }
 
@@ -1104,30 +1126,25 @@ pub trait Show: 'static + Sync + Send {
     /// Unguard nested content against recursive show rules.
     fn unguard_parts(&self, sel: Selector) -> Content;
 
-    /// Access a field on this node.
-    fn field(&self, name: &str) -> Option<Value>;
-
     /// The base recipe for this node that is executed if there is no
     /// user-defined show rule.
-    fn realize(
+    fn show(
         &self,
         world: Tracked<dyn World>,
         styles: StyleChain,
     ) -> SourceResult<Content>;
+}
 
+/// Post-process a node after it was realized.
+#[capability]
+pub trait Finalize: 'static + Sync + Send {
     /// Finalize this node given the realization of a base or user recipe. Use
     /// this for effects that should work even in the face of a user-defined
-    /// show rule, for example:
-    /// - Application of general settable properties
-    ///
-    /// Defaults to just the realized content.
-    #[allow(unused_variables)]
+    /// show rule, for example the linking behaviour of a link node.
     fn finalize(
         &self,
         world: Tracked<dyn World>,
         styles: StyleChain,
         realized: Content,
-    ) -> SourceResult<Content> {
-        Ok(realized)
-    }
+    ) -> SourceResult<Content>;
 }

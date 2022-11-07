@@ -1,4 +1,4 @@
-// Test include statements.
+// Test module includes.
 
 ---
 #set page(width: 200pt)

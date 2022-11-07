@@ -7,7 +7,7 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use super::{
     methods, ops, Arg, Args, Array, CapturesVisitor, Closure, Content, Dict, Flow, Func,
-    Pattern, Recipe, Scope, Scopes, Show, StyleEntry, StyleMap, Value, Vm,
+    Pattern, Recipe, Scope, Scopes, StyleMap, Transform, Value, Vm,
 };
 use crate::diag::{bail, error, At, SourceResult, StrResult, Trace, Tracepoint};
 use crate::geom::{Abs, Angle, Em, Fr, Ratio};
@@ -133,12 +133,8 @@ fn eval_markup(
                     break;
                 }
 
-                eval_markup(vm, nodes)?.styled_with_entry(StyleEntry::Recipe(recipe))
-            }
-            ast::MarkupNode::Expr(ast::Expr::Wrap(wrap)) => {
                 let tail = eval_markup(vm, nodes)?;
-                vm.scopes.top.define(wrap.binding().take(), tail);
-                wrap.body().eval(vm)?.display(vm.world)
+                tail.styled_with_recipe(vm.world, recipe)?
             }
             _ => node.eval(vm)?,
         });
@@ -408,7 +404,6 @@ impl Eval for ast::Expr {
             Self::Let(v) => v.eval(vm),
             Self::Set(_) => bail!(forbidden("set")),
             Self::Show(_) => bail!(forbidden("show")),
-            Self::Wrap(_) => bail!(forbidden("wrap")),
             Self::Conditional(v) => v.eval(vm),
             Self::While(v) => v.eval(vm),
             Self::For(v) => v.eval(vm),
@@ -484,18 +479,12 @@ fn eval_code(
             }
             ast::Expr::Show(show) => {
                 let recipe = show.eval(vm)?;
-                let entry = StyleEntry::Recipe(recipe);
                 if vm.flow.is_some() {
                     break;
                 }
 
                 let tail = eval_code(vm, exprs)?.display(vm.world);
-                Value::Content(tail.styled_with_entry(entry))
-            }
-            ast::Expr::Wrap(wrap) => {
-                let tail = eval_code(vm, exprs)?;
-                vm.scopes.top.define(wrap.binding().take(), tail);
-                wrap.body().eval(vm)?
+                Value::Content(tail.styled_with_recipe(vm.world, recipe)?)
             }
             _ => expr.eval(vm)?,
         };
@@ -671,9 +660,8 @@ impl Eval for ast::FieldAccess {
 
         Ok(match object {
             Value::Dict(dict) => dict.get(&field).at(span)?.clone(),
-            Value::Content(node) => node
-                .to::<dyn Show>()
-                .and_then(|node| node.field(&field))
+            Value::Content(content) => content
+                .field(&field)
                 .ok_or_else(|| format!("unknown field {field:?}"))
                 .at(span)?,
             v => bail!(self.target().span(), "cannot access field on {}", v.type_name()),
@@ -838,6 +826,11 @@ impl Eval for ast::SetRule {
     type Output = StyleMap;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        if let Some(condition) = self.condition() {
+            if !condition.eval(vm)?.cast::<bool>().at(condition.span())? {
+                return Ok(StyleMap::new());
+            }
+        }
         let target = self.target();
         let target = target.eval(vm)?.cast::<Func>().at(target.span())?;
         let args = self.args().eval(vm)?;
@@ -849,36 +842,16 @@ impl Eval for ast::ShowRule {
     type Output = Recipe;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        // Evaluate the target function.
-        let pattern = self.pattern();
-        let pattern = pattern.eval(vm)?.cast::<Pattern>().at(pattern.span())?;
+        let pattern = self
+            .pattern()
+            .map(|pattern| pattern.eval(vm)?.cast::<Pattern>().at(pattern.span()))
+            .transpose()?;
 
-        // Collect captured variables.
-        let captured = {
-            let mut visitor = CapturesVisitor::new(&vm.scopes);
-            visitor.visit(self.as_untyped());
-            visitor.finish()
-        };
+        let transform = self.transform();
+        let span = transform.span();
+        let transform = transform.eval(vm)?.cast::<Transform>().at(span)?;
 
-        // Define parameters.
-        let mut params = vec![];
-        if let Some(binding) = self.binding() {
-            params.push((binding.take(), None));
-        }
-
-        // Define the recipe function.
-        let body = self.body();
-        let span = body.span();
-        let func = Func::from_closure(Closure {
-            location: vm.location,
-            name: None,
-            captured,
-            params,
-            sink: None,
-            body,
-        });
-
-        Ok(Recipe { pattern, func: Spanned::new(func, span) })
+        Ok(Recipe { span, pattern, transform })
     }
 }
 
@@ -1066,7 +1039,7 @@ fn import(vm: &mut Vm, path: &str, span: Span) -> SourceResult<Module> {
     Ok(module)
 }
 
-impl Eval for ast::BreakStmt {
+impl Eval for ast::LoopBreak {
     type Output = Value;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
@@ -1077,7 +1050,7 @@ impl Eval for ast::BreakStmt {
     }
 }
 
-impl Eval for ast::ContinueStmt {
+impl Eval for ast::LoopContinue {
     type Output = Value;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
@@ -1088,7 +1061,7 @@ impl Eval for ast::ContinueStmt {
     }
 }
 
-impl Eval for ast::ReturnStmt {
+impl Eval for ast::FuncReturn {
     type Output = Value;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {

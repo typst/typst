@@ -37,12 +37,6 @@ impl<const L: DecoLine> DecoNode<L> {
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self(args.expect("body")?).pack())
     }
-}
-
-impl<const L: DecoLine> Show for DecoNode<L> {
-    fn unguard_parts(&self, sel: Selector) -> Content {
-        Self(self.0.unguard(sel)).pack()
-    }
 
     fn field(&self, name: &str) -> Option<Value> {
         match name {
@@ -50,12 +44,14 @@ impl<const L: DecoLine> Show for DecoNode<L> {
             _ => None,
         }
     }
+}
 
-    fn realize(
-        &self,
-        _: Tracked<dyn World>,
-        styles: StyleChain,
-    ) -> SourceResult<Content> {
+impl<const L: DecoLine> Show for DecoNode<L> {
+    fn unguard_parts(&self, sel: Selector) -> Content {
+        Self(self.0.unguard(sel)).pack()
+    }
+
+    fn show(&self, _: Tracked<dyn World>, styles: StyleChain) -> SourceResult<Content> {
         Ok(self.0.clone().styled(
             TextNode::DECO,
             Decoration {
@@ -79,6 +75,15 @@ pub(super) struct Decoration {
     pub offset: Smart<Abs>,
     pub extent: Abs,
     pub evade: bool,
+}
+
+impl Fold for Decoration {
+    type Output = Vec<Self>;
+
+    fn fold(self, mut outer: Self::Output) -> Self::Output {
+        outer.insert(0, self);
+        outer
+    }
 }
 
 /// A kind of decorative line.

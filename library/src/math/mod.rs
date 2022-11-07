@@ -18,7 +18,7 @@ pub struct MathNode {
     pub display: bool,
 }
 
-#[node(Show, LayoutInline, Texify)]
+#[node(Show, Finalize, LayoutInline, Texify)]
 impl MathNode {
     /// The math font family.
     #[property(referenced)]
@@ -29,6 +29,13 @@ impl MathNode {
     /// The spacing below display math.
     #[property(resolve, shorthand(around))]
     pub const BELOW: Option<BlockSpacing> = Some(Ratio::one().into());
+
+    fn field(&self, name: &str) -> Option<Value> {
+        match name {
+            "display" => Some(Value::Bool(self.display)),
+            _ => None,
+        }
+    }
 }
 
 impl Show for MathNode {
@@ -36,18 +43,16 @@ impl Show for MathNode {
         self.clone().pack()
     }
 
-    fn field(&self, _: &str) -> Option<Value> {
-        None
-    }
-
-    fn realize(&self, _: Tracked<dyn World>, _: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _: Tracked<dyn World>, _: StyleChain) -> SourceResult<Content> {
         Ok(if self.display {
             self.clone().pack().aligned(Axes::with_x(Some(Align::Center.into())))
         } else {
             self.clone().pack()
         })
     }
+}
 
+impl Finalize for MathNode {
     fn finalize(
         &self,
         _: Tracked<dyn World>,

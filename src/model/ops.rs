@@ -19,8 +19,8 @@ pub fn join(lhs: Value, rhs: Value) -> StrResult<Value> {
         (a, None) => a,
         (None, b) => b,
         (Str(a), Str(b)) => Str(a + b),
-        (Str(a), Content(b)) => Content(super::Content::text(a) + b),
-        (Content(a), Str(b)) => Content(a + super::Content::text(b)),
+        (Str(a), Content(b)) => Content(item!(text)(a.into()) + b),
+        (Content(a), Str(b)) => Content(a + item!(text)(b.into())),
         (Content(a), Content(b)) => Content(a + b),
         (Array(a), Array(b)) => Array(a + b),
         (Dict(a), Dict(b)) => Dict(a + b),
@@ -85,8 +85,8 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
 
         (Str(a), Str(b)) => Str(a + b),
         (Content(a), Content(b)) => Content(a + b),
-        (Content(a), Str(b)) => Content(a + super::Content::text(b)),
-        (Str(a), Content(b)) => Content(super::Content::text(a) + b),
+        (Content(a), Str(b)) => Content(a + item!(text)(b.into())),
+        (Str(a), Content(b)) => Content(item!(text)(a.into()) + b),
 
         (Array(a), Array(b)) => Array(a + b),
         (Dict(a), Dict(b)) => Dict(a + b),

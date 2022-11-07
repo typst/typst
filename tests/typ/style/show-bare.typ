@@ -1,4 +1,4 @@
-// Test wrap.
+// Test bare show without pattern.
 
 ---
 #set page(height: 130pt)
@@ -9,28 +9,25 @@
   T. Ypst
 ]
 
-#wrap body in columns(2, body)
+#show columns.with(2)
 Great typography is at the essence of great storytelling. It is the medium that
 transports meaning from parchment to reader, the wave that sparks a flame
 in booklovers and the great fulfiller of human need.
 
 ---
-// Test wrap in content block.
-A [_B #wrap c in [*#c*]; C_] D
+// Test bare show in content block.
+A [_B #show c => [*#c*]; C_] D
 
 ---
-// Test wrap style precedence.
+// Test style precedence.
 #set text(fill: eastern, size: 1.5em)
-#wrap body in text(fill: forest, body)
+#show text.with(fill: forest)
 Forest
 
 ---
-// Ok, whatever.
-{
-  wrap body in 2 * body
-  2
-}
+#show [Shown]
+Ignored
 
 ---
-// Error: 4-18 wrap is only allowed directly in code and content blocks
-{ (wrap body in 2) * body }
+// Error: 4-18 show is only allowed directly in code and content blocks
+{ (show body => 2) * body }

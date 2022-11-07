@@ -2,17 +2,18 @@
 
 ---
 // Test basic identity.
-#show it: heading as it
+#show heading: it => it
 = Heading
 
 ---
 // Test more recipes down the chain.
-#show it: list as scale(origin: left, x: 80%, it)
-#show heading as []
-#show enum as []
+#show list: scale.with(origin: left, x: 80%)
+#show heading: []
+#show enum: []
 - Actual
 - Tight
 - List
+= Nope
 
 ---
 // Test recursive base recipe. (Burn it with fire!)
@@ -23,11 +24,11 @@
 ---
 // Test show rule in function.
 #let starwars(body) = [
-  #show v: list as {
+  #show list: it => {
     stack(dir: ltr,
-      text(red, v),
+      text(red, it),
       1fr,
-      scale(x: -100%, text(blue, v)),
+      scale(x: -100%, text(blue, it)),
     )
   }
   #body
@@ -44,8 +45,8 @@
 ---
 // Test multi-recursion with nested lists.
 #set rect(inset: 2pt)
-#show v: list as rect(stroke: blue, v)
-#show v: list as rect(stroke: red, v)
+#show list: rect.with(stroke: blue)
+#show list: rect.with(stroke: red)
 
 - List
   - Nested
@@ -55,8 +56,8 @@
 ---
 // Inner heading is not finalized. Bug?
 #set heading(around: none)
-#show it: heading as it.body
-#show heading as [
+#show heading: it => it.body
+#show heading: [
   = A [
     = B
   ]

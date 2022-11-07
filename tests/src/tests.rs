@@ -38,7 +38,7 @@ fn main() {
     // cache, a deterministic order is important for reproducibility.
     for entry in WalkDir::new("typ").sort_by_file_name() {
         let entry = entry.unwrap();
-        if entry.depth() <= 1 {
+        if entry.depth() == 0 {
             continue;
         }
 

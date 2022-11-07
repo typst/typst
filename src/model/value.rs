@@ -381,7 +381,7 @@ primitive! { Str: "string", Str }
 primitive! { Content: "content",
     Content,
     None => Content::empty(),
-    Str(text) => Content::text(text)
+    Str(text) => item!(text)(text.into())
 }
 primitive! { Array: "array", Array }
 primitive! { Dict: "dictionary", Dict }

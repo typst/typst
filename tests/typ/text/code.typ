@@ -7,6 +7,7 @@
 #lorem(100)
 
 #let hi = "Hello World"
+#show heading: emph
 ```
 
 ---

@@ -12,7 +12,7 @@ pub struct TableNode {
     pub cells: Vec<Content>,
 }
 
-#[node(Show)]
+#[node(Show, Finalize)]
 impl TableNode {
     /// How to fill the cells.
     #[property(referenced)]
@@ -46,6 +46,15 @@ impl TableNode {
         }
         .pack())
     }
+
+    fn field(&self, name: &str) -> Option<Value> {
+        match name {
+            "cells" => Some(Value::Array(
+                self.cells.iter().cloned().map(Value::Content).collect(),
+            )),
+            _ => None,
+        }
+    }
 }
 
 impl Show for TableNode {
@@ -58,16 +67,7 @@ impl Show for TableNode {
         .pack()
     }
 
-    fn field(&self, name: &str) -> Option<Value> {
-        match name {
-            "cells" => Some(Value::Array(
-                self.cells.iter().cloned().map(Value::Content).collect(),
-            )),
-            _ => None,
-        }
-    }
-
-    fn realize(
+    fn show(
         &self,
         world: Tracked<dyn World>,
         styles: StyleChain,
@@ -106,7 +106,9 @@ impl Show for TableNode {
         }
         .pack())
     }
+}
 
+impl Finalize for TableNode {
     fn finalize(
         &self,
         _: Tracked<dyn World>,

@@ -5,13 +5,14 @@ use std::iter::{self, Sum};
 use std::ops::{Add, AddAssign};
 use std::sync::Arc;
 
+use comemo::Tracked;
 use siphasher::sip128::{Hasher128, SipHasher};
 use typst_macros::node;
 
-use super::{Args, Key, Property, Selector, StyleEntry, StyleMap, Vm};
-use crate as typst;
+use super::{Args, Key, Property, Recipe, Selector, StyleEntry, StyleMap, Value, Vm};
 use crate::diag::{SourceResult, StrResult};
-use crate::util::{EcoString, ReadableTypeId};
+use crate::util::ReadableTypeId;
+use crate::World;
 
 /// Composable representation of styled content.
 ///
@@ -25,11 +26,6 @@ impl Content {
     /// Create empty content.
     pub fn empty() -> Self {
         SequenceNode(vec![]).pack()
-    }
-
-    /// Create content from a string of text.
-    pub fn text(text: impl Into<EcoString>) -> Self {
-        item!(text)(text.into())
     }
 
     /// Create a new sequence node from multiples nodes.
@@ -65,6 +61,11 @@ impl Content {
         Arc::get_mut(&mut self.0)?.as_any_mut().downcast_mut::<T>()
     }
 
+    /// Access a field on this content.
+    pub fn field(&self, name: &str) -> Option<Value> {
+        self.0.field(name)
+    }
+
     /// Whether this content has the given capability.
     pub fn has<C>(&self) -> bool
     where
@@ -95,6 +96,19 @@ impl Content {
     /// Style this content with a single style property.
     pub fn styled<'k, K: Key<'k>>(self, key: K, value: K::Value) -> Self {
         self.styled_with_entry(StyleEntry::Property(Property::new(key, value)))
+    }
+
+    /// Style this content with a recipe, eagerly applying it if possible.
+    pub fn styled_with_recipe(
+        self,
+        world: Tracked<dyn World>,
+        recipe: Recipe,
+    ) -> SourceResult<Self> {
+        if recipe.pattern.is_none() {
+            recipe.transform.apply(world, recipe.span, || Value::Content(self))
+        } else {
+            Ok(self.styled_with_entry(StyleEntry::Recipe(recipe)))
+        }
     }
 
     /// Style this content with a style entry.
@@ -241,6 +255,9 @@ pub trait Node: 'static {
     fn set(args: &mut Args, constructor: bool) -> SourceResult<StyleMap>
     where
         Self: Sized;
+
+    /// Access a field on this node.
+    fn field(&self, name: &str) -> Option<Value>;
 
     /// A unique identifier of the node type.
     fn id(&self) -> NodeId;

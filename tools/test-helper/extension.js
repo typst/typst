@@ -38,12 +38,12 @@ function activate(context) {
 
     const rerunCmd = vscode.commands.registerCommand("ShortcutMenuBar.testRerun", () => {
         const uri = vscode.window.activeTextEditor.document.uri
-        const components = uri.fsPath.split('tests')
+        const components = uri.fsPath.split(/tests[\/\\]/)
         const dir = components[0]
         const subPath = components[1]
 
         cp.exec(
-            `cargo test --manifest-path ${dir}/Cargo.toml --test typeset ${subPath}`,
+            `cargo test --manifest-path ${dir}/Cargo.toml --all --test tests -- ${subPath}`,
             (err, stdout, stderr) => {
                 console.log('Ran tests')
                 refreshPanel(stdout, stderr)

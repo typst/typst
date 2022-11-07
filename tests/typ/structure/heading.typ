@@ -1,7 +1,7 @@
 // Test headings.
 
 ---
-#show node: heading as text(blue, node.body)
+#show heading: it => text(blue, it.body)
 
 =
 No heading
@@ -46,8 +46,8 @@ multiline.
 = Heading
 
 #set heading(family: "Roboto", fill: eastern)
-#show it: heading as it.body
-#show it: strong as it.body + [!]
+#show heading: it => it.body
+#show strong: it => it.body + [!]
 
 ===== Heading 🌍
 #heading(level: 5)[Heading]

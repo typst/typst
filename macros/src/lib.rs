@@ -47,6 +47,7 @@ fn expand_node(
     let mut properties = vec![];
     let mut construct = None;
     let mut set = None;
+    let mut field = None;
 
     for item in std::mem::take(&mut impl_block.items) {
         match item {
@@ -61,6 +62,7 @@ fn expand_node(
                 match method.sig.ident.to_string().as_str() {
                     "construct" => construct = Some(method),
                     "set" => set = Some(method),
+                    "field" => field = Some(method),
                     _ => return Err(Error::new(method.span(), "unexpected method")),
                 }
             }
@@ -80,6 +82,14 @@ fn expand_node(
     });
 
     let set = generate_set(&properties, set);
+
+    let field = field.unwrap_or_else(|| {
+        parse_quote! {
+            fn field(&self, name: &str) -> Option<Value> {
+                None
+            }
+        }
+    });
 
     let items: syn::punctuated::Punctuated<Ident, syn::Token![,]> =
         parse_quote! { #stream };
@@ -115,11 +125,13 @@ fn expand_node(
             impl<#params> model::Node for #self_ty {
                 #construct
                 #set
-                #vtable
+                #field
 
                 fn id(&self) -> model::NodeId {
                     model::NodeId::of::<Self>()
                 }
+
+                #vtable
             }
 
             #(#key_modules)*

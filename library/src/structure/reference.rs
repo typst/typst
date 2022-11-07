@@ -8,7 +8,14 @@ pub struct RefNode(pub EcoString);
 #[node(Show)]
 impl RefNode {
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Self(args.expect("label")?).pack())
+        Ok(Self(args.expect("target")?).pack())
+    }
+
+    fn field(&self, name: &str) -> Option<Value> {
+        match name {
+            "target" => Some(Value::Str(self.0.clone().into())),
+            _ => None,
+        }
     }
 }
 
@@ -17,14 +24,7 @@ impl Show for RefNode {
         Self(self.0.clone()).pack()
     }
 
-    fn field(&self, name: &str) -> Option<Value> {
-        match name {
-            "label" => Some(Value::Str(self.0.clone().into())),
-            _ => None,
-        }
-    }
-
-    fn realize(&self, _: Tracked<dyn World>, _: StyleChain) -> SourceResult<Content> {
-        Ok(TextNode(format_eco!("@{}", self.0)).pack())
+    fn show(&self, _: Tracked<dyn World>, _: StyleChain) -> SourceResult<Content> {
+        Ok(TextNode::packed(format_eco!("@{}", self.0)))
     }
 }

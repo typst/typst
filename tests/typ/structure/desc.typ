@@ -37,7 +37,7 @@ No: list \
 
 ---
 // Test grid like show rule.
-#show it: desc as table(
+#show desc: it => table(
   columns: 2,
   padding: 3pt,
   ..it.items.map(item => (emph(item.term), item.body)).flatten(),

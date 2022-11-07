@@ -12,7 +12,7 @@ pub struct HeadingNode {
     pub body: Content,
 }
 
-#[node(Show)]
+#[node(Show, Finalize)]
 impl HeadingNode {
     /// The heading's font family. Just the normal text family if `auto`.
     #[property(referenced)]
@@ -67,12 +67,6 @@ impl HeadingNode {
         }
         .pack())
     }
-}
-
-impl Show for HeadingNode {
-    fn unguard_parts(&self, sel: Selector) -> Content {
-        Self { body: self.body.unguard(sel), ..*self }.pack()
-    }
 
     fn field(&self, name: &str) -> Option<Value> {
         match name {
@@ -81,11 +75,19 @@ impl Show for HeadingNode {
             _ => None,
         }
     }
+}
 
-    fn realize(&self, _: Tracked<dyn World>, _: StyleChain) -> SourceResult<Content> {
-        Ok(BlockNode(self.body.clone()).pack())
+impl Show for HeadingNode {
+    fn unguard_parts(&self, sel: Selector) -> Content {
+        Self { body: self.body.unguard(sel), ..*self }.pack()
     }
 
+    fn show(&self, _: Tracked<dyn World>, _: StyleChain) -> SourceResult<Content> {
+        Ok(BlockNode(self.body.clone()).pack())
+    }
+}
+
+impl Finalize for HeadingNode {
     fn finalize(
         &self,
         world: Tracked<dyn World>,

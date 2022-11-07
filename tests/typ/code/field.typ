@@ -14,7 +14,7 @@
 
 ---
 // Test field on node.
-#show node: list as {
+#show list: node => {
   test(node.items.len(), 3)
 }
 
@@ -32,7 +32,7 @@
 
 ---
 // Error: 29-32 unknown field "fun"
-#show node: heading as node.fun
+#show heading: node => node.fun
 = A
 
 ---

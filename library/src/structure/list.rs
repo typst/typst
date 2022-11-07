@@ -22,7 +22,7 @@ pub type EnumNode = ListNode<ENUM>;
 /// A description list.
 pub type DescNode = ListNode<DESC>;
 
-#[node(Show)]
+#[node(Show, Finalize)]
 impl<const L: ListKind> ListNode<L> {
     /// How the list is labelled.
     #[property(referenced)]
@@ -80,16 +80,6 @@ impl<const L: ListKind> ListNode<L> {
         }
         .pack())
     }
-}
-
-impl<const L: ListKind> Show for ListNode<L> {
-    fn unguard_parts(&self, sel: Selector) -> Content {
-        Self {
-            items: self.items.map(|item| item.unguard(sel)),
-            ..*self
-        }
-        .pack()
-    }
 
     fn field(&self, name: &str) -> Option<Value> {
         match name {
@@ -101,8 +91,18 @@ impl<const L: ListKind> Show for ListNode<L> {
             _ => None,
         }
     }
+}
 
-    fn realize(
+impl<const L: ListKind> Show for ListNode<L> {
+    fn unguard_parts(&self, sel: Selector) -> Content {
+        Self {
+            items: self.items.map(|item| item.unguard(sel)),
+            ..*self
+        }
+        .pack()
+    }
+
+    fn show(
         &self,
         world: Tracked<dyn World>,
         styles: StyleChain,
@@ -140,7 +140,7 @@ impl<const L: ListKind> Show for ListNode<L> {
                 ListItem::Enum(_, body) => body.as_ref().clone(),
                 ListItem::Desc(item) => Content::sequence(vec![
                     HNode { amount: (-body_indent).into(), weak: false }.pack(),
-                    (item.term.clone() + TextNode(':'.into()).pack()).strong(),
+                    (item.term.clone() + TextNode::packed(':')).strong(),
                     SpaceNode.pack(),
                     item.body.clone(),
                 ]),
@@ -162,7 +162,9 @@ impl<const L: ListKind> Show for ListNode<L> {
         }
         .pack())
     }
+}
 
+impl<const L: ListKind> Finalize for ListNode<L> {
     fn finalize(
         &self,
         _: Tracked<dyn World>,
@@ -312,14 +314,14 @@ impl Label {
     ) -> SourceResult<Content> {
         Ok(match self {
             Self::Default => match kind {
-                LIST => TextNode('•'.into()).pack(),
-                ENUM => TextNode(format_eco!("{}.", number)).pack(),
+                LIST => TextNode::packed('•'),
+                ENUM => TextNode::packed(format_eco!("{}.", number)),
                 DESC | _ => panic!("description lists don't have a label"),
             },
             Self::Pattern(prefix, numbering, upper, suffix) => {
                 let fmt = numbering.apply(number);
                 let mid = if *upper { fmt.to_uppercase() } else { fmt.to_lowercase() };
-                TextNode(format_eco!("{}{}{}", prefix, mid, suffix)).pack()
+                TextNode::packed(format_eco!("{}{}{}", prefix, mid, suffix))
             }
             Self::Content(content) => content.clone(),
             Self::Func(func, span) => {
