@@ -9,7 +9,7 @@ use comemo::Tracked;
 use siphasher::sip128::{Hasher128, SipHasher};
 use typst_macros::node;
 
-use super::{Args, Key, Property, Recipe, Selector, StyleEntry, StyleMap, Value, Vm};
+use super::{Args, Key, Property, Recipe, RecipeId, StyleEntry, StyleMap, Value, Vm};
 use crate::diag::{SourceResult, StrResult};
 use crate::util::ReadableTypeId;
 use crate::World;
@@ -104,7 +104,7 @@ impl Content {
         world: Tracked<dyn World>,
         recipe: Recipe,
     ) -> SourceResult<Self> {
-        if recipe.pattern.is_none() {
+        if recipe.selector.is_none() {
             recipe.transform.apply(world, recipe.span, || Value::Content(self))
         } else {
             Ok(self.styled_with_entry(StyleEntry::Recipe(recipe)))
@@ -135,9 +135,9 @@ impl Content {
         StyledNode { sub: self, map: styles }.pack()
     }
 
-    /// Reenable the show rule identified by the selector.
-    pub fn unguard(&self, sel: Selector) -> Self {
-        self.clone().styled_with_entry(StyleEntry::Unguard(sel))
+    /// Reenable a specific show rule recipe.
+    pub fn unguard(&self, id: RecipeId) -> Self {
+        self.clone().styled_with_entry(StyleEntry::Unguard(id))
     }
 }
 

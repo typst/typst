@@ -52,7 +52,7 @@ impl RawNode {
 }
 
 impl Show for RawNode {
-    fn unguard_parts(&self, _: Selector) -> Content {
+    fn unguard_parts(&self, _: RecipeId) -> Content {
         Self { text: self.text.clone(), ..*self }.pack()
     }
 

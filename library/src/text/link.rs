@@ -50,10 +50,10 @@ impl LinkNode {
 }
 
 impl Show for LinkNode {
-    fn unguard_parts(&self, sel: Selector) -> Content {
+    fn unguard_parts(&self, id: RecipeId) -> Content {
         Self {
             dest: self.dest.clone(),
-            body: self.body.as_ref().map(|body| body.unguard(sel)),
+            body: self.body.as_ref().map(|body| body.unguard(id)),
         }
         .pack()
     }

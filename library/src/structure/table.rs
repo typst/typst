@@ -58,11 +58,11 @@ impl TableNode {
 }
 
 impl Show for TableNode {
-    fn unguard_parts(&self, sel: Selector) -> Content {
+    fn unguard_parts(&self, id: RecipeId) -> Content {
         Self {
             tracks: self.tracks.clone(),
             gutter: self.gutter.clone(),
-            cells: self.cells.iter().map(|cell| cell.unguard(sel)).collect(),
+            cells: self.cells.iter().map(|cell| cell.unguard(id)).collect(),
         }
         .pack()
     }

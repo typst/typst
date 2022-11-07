@@ -503,8 +503,8 @@ impl StrongNode {
 }
 
 impl Show for StrongNode {
-    fn unguard_parts(&self, sel: Selector) -> Content {
-        Self(self.0.unguard(sel)).pack()
+    fn unguard_parts(&self, id: RecipeId) -> Content {
+        Self(self.0.unguard(id)).pack()
     }
 
     fn show(&self, _: Tracked<dyn World>, _: StyleChain) -> SourceResult<Content> {
@@ -531,8 +531,8 @@ impl EmphNode {
 }
 
 impl Show for EmphNode {
-    fn unguard_parts(&self, sel: Selector) -> Content {
-        Self(self.0.unguard(sel)).pack()
+    fn unguard_parts(&self, id: RecipeId) -> Content {
+        Self(self.0.unguard(id)).pack()
     }
 
     fn show(&self, _: Tracked<dyn World>, _: StyleChain) -> SourceResult<Content> {

@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use comemo::{Prehashed, Tracked};
 
-use super::{capability, Args, Content, Func, NodeId, Regex, Smart, Value};
+use super::{capability, Args, Content, Dict, Func, NodeId, Regex, Smart, Value};
 use crate::diag::SourceResult;
 use crate::geom::{
     Abs, Align, Axes, Corners, Em, GenAlign, Length, Numeric, PartialStroke, Rel, Sides,
@@ -141,9 +141,9 @@ pub enum StyleEntry {
     /// A barrier for scoped styles.
     Barrier(Barrier),
     /// Guards against recursive show rules.
-    Guard(Selector),
+    Guard(RecipeId),
     /// Allows recursive show rules again.
-    Unguard(Selector),
+    Unguard(RecipeId),
 }
 
 impl StyleEntry {
@@ -243,8 +243,7 @@ impl<'a> StyleChain<'a> {
         world: Tracked<dyn World>,
         target: Target,
     ) -> SourceResult<Option<Content>> {
-        // Find out how many recipes there any and whether any of their patterns
-        // match.
+        // Find out how many recipes there any and whether any of them match.
         let mut n = 0;
         let mut any = true;
         for recipe in self.entries().filter_map(StyleEntry::recipe) {
@@ -258,7 +257,7 @@ impl<'a> StyleChain<'a> {
         if any {
             for recipe in self.entries().filter_map(StyleEntry::recipe) {
                 if recipe.applicable(target) {
-                    let sel = Selector::Nth(n);
+                    let sel = RecipeId::Nth(n);
                     if self.guarded(sel) {
                         guarded = true;
                     } else if let Some(content) = recipe.apply(world, sel, target)? {
@@ -273,7 +272,7 @@ impl<'a> StyleChain<'a> {
         if let Target::Node(node) = target {
             // Realize if there was no matching recipe.
             if realized.is_none() {
-                let sel = Selector::Base(node.id());
+                let sel = RecipeId::Base(node.id());
                 if self.guarded(sel) {
                     guarded = true;
                 } else {
@@ -302,7 +301,7 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Whether the recipe identified by the selector is guarded.
-    fn guarded(self, sel: Selector) -> bool {
+    fn guarded(self, sel: RecipeId) -> bool {
         for entry in self.entries() {
             match *entry {
                 StyleEntry::Guard(s) if s == sel => return true,
@@ -976,8 +975,8 @@ impl Fold for PartialStroke<Abs> {
 pub struct Recipe {
     /// The span errors are reported with.
     pub span: Span,
-    /// The pattern that the rule applies to.
-    pub pattern: Option<Pattern>,
+    /// Determines whether the recipe applies to a node.
+    pub selector: Option<Selector>,
     /// The transformation to perform on the match.
     pub transform: Transform,
 }
@@ -985,28 +984,26 @@ pub struct Recipe {
 impl Recipe {
     /// Whether the recipe is applicable to the target.
     pub fn applicable(&self, target: Target) -> bool {
-        match (&self.pattern, target) {
-            (Some(Pattern::Node(id)), Target::Node(node)) => *id == node.id(),
-            (Some(Pattern::Regex(_)), Target::Text(_)) => true,
-            _ => false,
-        }
+        self.selector
+            .as_ref()
+            .map_or(false, |selector| selector.matches(target))
     }
 
     /// Try to apply the recipe to the target.
     pub fn apply(
         &self,
         world: Tracked<dyn World>,
-        sel: Selector,
+        sel: RecipeId,
         target: Target,
     ) -> SourceResult<Option<Content>> {
-        let content = match (target, &self.pattern) {
-            (Target::Node(node), Some(Pattern::Node(id))) if node.id() == *id => {
+        let content = match (target, &self.selector) {
+            (Target::Node(node), Some(Selector::Node(id, _))) if node.id() == *id => {
                 self.transform.apply(world, self.span, || {
                     Value::Content(node.to::<dyn Show>().unwrap().unguard_parts(sel))
                 })?
             }
 
-            (Target::Text(text), Some(Pattern::Regex(regex))) => {
+            (Target::Text(text), Some(Selector::Regex(regex))) => {
                 let make = world.config().items.text;
                 let mut result = vec![];
                 let mut cursor = 0;
@@ -1043,8 +1040,8 @@ impl Recipe {
 
     /// Whether this recipe is for the given node.
     pub fn is_of(&self, node: NodeId) -> bool {
-        match self.pattern {
-            Some(Pattern::Node(id)) => id == node,
+        match self.selector {
+            Some(Selector::Node(id, _)) => id == node,
             _ => false,
         }
     }
@@ -1052,23 +1049,41 @@ impl Recipe {
 
 impl Debug for Recipe {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "Recipe matching {:?}", self.pattern)
+        write!(f, "Recipe matching {:?}", self.selector)
     }
 }
 
-/// A show rule pattern that may match a target.
+/// A selector in a show rule.
 #[derive(Debug, Clone, PartialEq, Hash)]
-pub enum Pattern {
-    /// Defines the appearence of some node.
-    Node(NodeId),
-    /// Defines text to be replaced.
+pub enum Selector {
+    /// Matches a specific type of node.
+    ///
+    /// If there is a dictionary, only nodes with the fields from the
+    /// dictionary match.
+    Node(NodeId, Option<Dict>),
+    /// Matches text through a regular expression.
     Regex(Regex),
 }
 
-impl Pattern {
-    /// Define a simple text replacement pattern.
+impl Selector {
+    /// Define a simple text selector.
     pub fn text(text: &str) -> Self {
         Self::Regex(Regex::new(&regex::escape(text)).unwrap())
+    }
+
+    /// Whether the selector matches for the target.
+    pub fn matches(&self, target: Target) -> bool {
+        match (self, target) {
+            (Self::Node(id, dict), Target::Node(node)) => {
+                *id == node.id()
+                    && dict
+                        .iter()
+                        .flat_map(|dict| dict.iter())
+                        .all(|(name, value)| node.field(name).as_ref() == Some(value))
+            }
+            (Self::Regex(_), Target::Text(_)) => true,
+            _ => false,
+        }
     }
 }
 
@@ -1113,7 +1128,7 @@ pub enum Target<'a> {
 
 /// Identifies a show rule recipe.
 #[derive(Debug, Copy, Clone, PartialEq, Hash)]
-pub enum Selector {
+pub enum RecipeId {
     /// The nth recipe from the top of the chain.
     Nth(usize),
     /// The base recipe for a kind of node.
@@ -1123,8 +1138,8 @@ pub enum Selector {
 /// A node that can be realized given some styles.
 #[capability]
 pub trait Show: 'static + Sync + Send {
-    /// Unguard nested content against recursive show rules.
-    fn unguard_parts(&self, sel: Selector) -> Content;
+    /// Unguard nested content against a specific recipe.
+    fn unguard_parts(&self, id: RecipeId) -> Content;
 
     /// The base recipe for this node that is executed if there is no
     /// user-defined show rule.

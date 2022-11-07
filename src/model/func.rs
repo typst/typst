@@ -4,10 +4,12 @@ use std::sync::Arc;
 
 use comemo::{Track, Tracked};
 
-use super::{Args, Eval, Flow, Node, NodeId, Route, Scope, Scopes, StyleMap, Value, Vm};
+use super::{
+    Args, Eval, Flow, Node, NodeId, Route, Scope, Scopes, Selector, StyleMap, Value, Vm,
+};
 use crate::diag::{bail, SourceResult, StrResult};
 use crate::syntax::ast::{self, Expr, TypedNode};
-use crate::syntax::{SourceId, SyntaxNode};
+use crate::syntax::{SourceId, Span, SyntaxNode};
 use crate::util::EcoString;
 use crate::World;
 
@@ -52,11 +54,6 @@ impl Func {
     /// Create a new function from a closure.
     pub fn from_closure(closure: Closure) -> Self {
         Self(Arc::new(Repr::Closure(closure)))
-    }
-
-    /// Apply the given arguments to the function.
-    pub fn with(self, args: Args) -> Self {
-        Self(Arc::new(Repr::With(self, args)))
     }
 
     /// The name of the function.
@@ -106,12 +103,18 @@ impl Func {
         self.call(&mut vm, args)
     }
 
+    /// Apply the given arguments to the function.
+    pub fn with(self, args: Args) -> Self {
+        Self(Arc::new(Repr::With(self, args)))
+    }
+
     /// Execute the function's set rule and return the resulting style map.
-    pub fn set(&self, mut args: Args) -> SourceResult<StyleMap> {
-        let styles = match self.0.as_ref() {
-            Repr::Native(Native { set: Some(set), .. }) => set(&mut args)?,
-            _ => StyleMap::new(),
+    pub fn set(&self, mut args: Args, span: Span) -> SourceResult<StyleMap> {
+        let Repr::Native(Native { set: Some(set), .. }) = self.0.as_ref() else {
+            bail!(span, "this function cannot be customized with set");
         };
+
+        let styles = set(&mut args)?;
         args.finish()?;
         Ok(styles)
     }
@@ -121,6 +124,18 @@ impl Func {
         match self.0.as_ref() {
             Repr::Native(Native { node: Some(id), .. }) => Ok(*id),
             _ => Err("this function cannot be customized with show")?,
+        }
+    }
+
+    /// Create a selector from this node and the given arguments.
+    pub fn where_(self, args: &mut Args) -> StrResult<Selector> {
+        match self.0.as_ref() {
+            Repr::Native(Native { node: Some(id), .. }) => {
+                let named = args.to_named();
+                args.items.retain(|arg| arg.name.is_none());
+                Ok(Selector::Node(*id, Some(named)))
+            }
+            _ => Err("this function is not selectable")?,
         }
     }
 }

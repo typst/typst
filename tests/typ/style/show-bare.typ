@@ -1,4 +1,4 @@
-// Test bare show without pattern.
+// Test bare show without selector.
 
 ---
 #set page(height: 130pt)

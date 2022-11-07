@@ -94,9 +94,9 @@ impl<const L: ListKind> ListNode<L> {
 }
 
 impl<const L: ListKind> Show for ListNode<L> {
-    fn unguard_parts(&self, sel: Selector) -> Content {
+    fn unguard_parts(&self, id: RecipeId) -> Content {
         Self {
-            items: self.items.map(|item| item.unguard(sel)),
+            items: self.items.map(|item| item.unguard(id)),
             ..*self
         }
         .pack()
@@ -208,7 +208,7 @@ impl ListItem {
         }
     }
 
-    fn unguard(&self, sel: Selector) -> Self {
+    fn unguard(&self, sel: RecipeId) -> Self {
         match self {
             Self::List(body) => Self::List(Box::new(body.unguard(sel))),
             Self::Enum(number, body) => Self::Enum(*number, Box::new(body.unguard(sel))),

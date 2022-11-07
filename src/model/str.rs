@@ -77,69 +77,69 @@ impl Str {
     }
 
     /// Whether the given pattern exists in this string.
-    pub fn contains(&self, pattern: StrPattern) -> bool {
+    pub fn contains(&self, pattern: Pattern) -> bool {
         match pattern {
-            StrPattern::Str(pat) => self.0.contains(pat.as_str()),
-            StrPattern::Regex(re) => re.is_match(self),
+            Pattern::Str(pat) => self.0.contains(pat.as_str()),
+            Pattern::Regex(re) => re.is_match(self),
         }
     }
 
     /// Whether this string begins with the given pattern.
-    pub fn starts_with(&self, pattern: StrPattern) -> bool {
+    pub fn starts_with(&self, pattern: Pattern) -> bool {
         match pattern {
-            StrPattern::Str(pat) => self.0.starts_with(pat.as_str()),
-            StrPattern::Regex(re) => re.find(self).map_or(false, |m| m.start() == 0),
+            Pattern::Str(pat) => self.0.starts_with(pat.as_str()),
+            Pattern::Regex(re) => re.find(self).map_or(false, |m| m.start() == 0),
         }
     }
 
     /// Whether this string ends with the given pattern.
-    pub fn ends_with(&self, pattern: StrPattern) -> bool {
+    pub fn ends_with(&self, pattern: Pattern) -> bool {
         match pattern {
-            StrPattern::Str(pat) => self.0.ends_with(pat.as_str()),
-            StrPattern::Regex(re) => {
+            Pattern::Str(pat) => self.0.ends_with(pat.as_str()),
+            Pattern::Regex(re) => {
                 re.find_iter(self).last().map_or(false, |m| m.end() == self.0.len())
             }
         }
     }
 
     /// The text of the pattern's first match in this string.
-    pub fn find(&self, pattern: StrPattern) -> Option<Self> {
+    pub fn find(&self, pattern: Pattern) -> Option<Self> {
         match pattern {
-            StrPattern::Str(pat) => self.0.contains(pat.as_str()).then(|| pat),
-            StrPattern::Regex(re) => re.find(self).map(|m| m.as_str().into()),
+            Pattern::Str(pat) => self.0.contains(pat.as_str()).then(|| pat),
+            Pattern::Regex(re) => re.find(self).map(|m| m.as_str().into()),
         }
     }
 
     /// The position of the pattern's first match in this string.
-    pub fn position(&self, pattern: StrPattern) -> Option<i64> {
+    pub fn position(&self, pattern: Pattern) -> Option<i64> {
         match pattern {
-            StrPattern::Str(pat) => self.0.find(pat.as_str()).map(|i| i as i64),
-            StrPattern::Regex(re) => re.find(self).map(|m| m.start() as i64),
+            Pattern::Str(pat) => self.0.find(pat.as_str()).map(|i| i as i64),
+            Pattern::Regex(re) => re.find(self).map(|m| m.start() as i64),
         }
     }
 
     /// The start and, text and capture groups (if any) of the first match of
     /// the pattern in this string.
-    pub fn match_(&self, pattern: StrPattern) -> Option<Dict> {
+    pub fn match_(&self, pattern: Pattern) -> Option<Dict> {
         match pattern {
-            StrPattern::Str(pat) => {
+            Pattern::Str(pat) => {
                 self.0.match_indices(pat.as_str()).next().map(match_to_dict)
             }
-            StrPattern::Regex(re) => re.captures(self).map(captures_to_dict),
+            Pattern::Regex(re) => re.captures(self).map(captures_to_dict),
         }
     }
 
     /// The start, end, text and capture groups (if any) of all matches of the
     /// pattern in this string.
-    pub fn matches(&self, pattern: StrPattern) -> Array {
+    pub fn matches(&self, pattern: Pattern) -> Array {
         match pattern {
-            StrPattern::Str(pat) => self
+            Pattern::Str(pat) => self
                 .0
                 .match_indices(pat.as_str())
                 .map(match_to_dict)
                 .map(Value::Dict)
                 .collect(),
-            StrPattern::Regex(re) => re
+            Pattern::Regex(re) => re
                 .captures_iter(self)
                 .map(captures_to_dict)
                 .map(Value::Dict)
@@ -148,14 +148,14 @@ impl Str {
     }
 
     /// Split this string at whitespace or a specific pattern.
-    pub fn split(&self, pattern: Option<StrPattern>) -> Array {
+    pub fn split(&self, pattern: Option<Pattern>) -> Array {
         let s = self.as_str();
         match pattern {
             None => s.split_whitespace().map(|v| Value::Str(v.into())).collect(),
-            Some(StrPattern::Str(pat)) => {
+            Some(Pattern::Str(pat)) => {
                 s.split(pat.as_str()).map(|v| Value::Str(v.into())).collect()
             }
-            Some(StrPattern::Regex(re)) => {
+            Some(Pattern::Regex(re)) => {
                 re.split(s).map(|v| Value::Str(v.into())).collect()
             }
         }
@@ -167,7 +167,7 @@ impl Str {
     /// pattern.
     pub fn trim(
         &self,
-        pattern: Option<StrPattern>,
+        pattern: Option<Pattern>,
         at: Option<StrSide>,
         repeat: bool,
     ) -> Self {
@@ -180,7 +180,7 @@ impl Str {
                 Some(StrSide::Start) => self.0.trim_start(),
                 Some(StrSide::End) => self.0.trim_end(),
             },
-            Some(StrPattern::Str(pat)) => {
+            Some(Pattern::Str(pat)) => {
                 let pat = pat.as_str();
                 let mut s = self.as_str();
                 if repeat {
@@ -200,7 +200,7 @@ impl Str {
                 }
                 s
             }
-            Some(StrPattern::Regex(re)) => {
+            Some(Pattern::Regex(re)) => {
                 let s = self.as_str();
                 let mut last = 0;
                 let mut range = 0..s.len();
@@ -240,13 +240,13 @@ impl Str {
 
     /// Replace at most `count` occurances of the given pattern with a
     /// replacement string (beginning from the start).
-    pub fn replace(&self, pattern: StrPattern, with: Self, count: Option<usize>) -> Self {
+    pub fn replace(&self, pattern: Pattern, with: Self, count: Option<usize>) -> Self {
         match pattern {
-            StrPattern::Str(pat) => match count {
+            Pattern::Str(pat) => match count {
                 Some(n) => self.0.replacen(pat.as_str(), &with, n).into(),
                 None => self.0.replace(pat.as_str(), &with).into(),
             },
-            StrPattern::Regex(re) => match count {
+            Pattern::Regex(re) => match count {
                 Some(n) => re.replacen(self, n, with.as_str()).into(),
                 None => re.replace(self, with.as_str()).into(),
             },
@@ -433,7 +433,7 @@ impl Hash for Regex {
 
 /// A pattern which can be searched for in a string.
 #[derive(Debug, Clone)]
-pub enum StrPattern {
+pub enum Pattern {
     /// Just a string.
     Str(Str),
     /// A regular expression.
@@ -441,7 +441,7 @@ pub enum StrPattern {
 }
 
 castable! {
-    StrPattern,
+    Pattern,
     Expected: "string or regular expression",
     Value::Str(text) => Self::Str(text),
     @regex: Regex => Self::Regex(regex.clone()),

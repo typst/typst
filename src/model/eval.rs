@@ -7,7 +7,7 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use super::{
     methods, ops, Arg, Args, Array, CapturesVisitor, Closure, Content, Dict, Flow, Func,
-    Pattern, Recipe, Scope, Scopes, StyleMap, Transform, Value, Vm,
+    Recipe, Scope, Scopes, Selector, StyleMap, Transform, Value, Vm,
 };
 use crate::diag::{bail, error, At, SourceResult, StrResult, Trace, Tracepoint};
 use crate::geom::{Abs, Angle, Em, Fr, Ratio};
@@ -831,10 +831,12 @@ impl Eval for ast::SetRule {
                 return Ok(StyleMap::new());
             }
         }
+
         let target = self.target();
-        let target = target.eval(vm)?.cast::<Func>().at(target.span())?;
+        let span = target.span();
+        let target = target.eval(vm)?.cast::<Func>().at(span)?;
         let args = self.args().eval(vm)?;
-        target.set(args)
+        target.set(args, span)
     }
 }
 
@@ -842,16 +844,16 @@ impl Eval for ast::ShowRule {
     type Output = Recipe;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let pattern = self
-            .pattern()
-            .map(|pattern| pattern.eval(vm)?.cast::<Pattern>().at(pattern.span()))
+        let selector = self
+            .selector()
+            .map(|selector| selector.eval(vm)?.cast::<Selector>().at(selector.span()))
             .transpose()?;
 
         let transform = self.transform();
         let span = transform.span();
         let transform = transform.eval(vm)?.cast::<Transform>().at(span)?;
 
-        Ok(Recipe { span, pattern, transform })
+        Ok(Recipe { span, selector, transform })
     }
 }
 

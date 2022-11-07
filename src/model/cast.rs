@@ -1,7 +1,7 @@
 use std::num::NonZeroUsize;
 use std::str::FromStr;
 
-use super::{Content, Pattern, Regex, Transform, Value};
+use super::{Content, Regex, Selector, Transform, Value};
 use crate::diag::{with_alternative, StrResult};
 use crate::font::{FontStretch, FontStyle, FontWeight};
 use crate::frame::{Destination, Lang, Location, Region};
@@ -181,10 +181,9 @@ dynamic! {
     Regex: "regular expression",
 }
 
-castable! {
-    Pattern,
-    Expected: "function, string or regular expression",
-    Value::Func(func) => Self::Node(func.node()?),
+dynamic! {
+    Selector: "selector",
+    Value::Func(func) => Self::Node(func.node()?, None),
     Value::Str(text) => Self::text(&text),
     @regex: Regex => Self::Regex(regex.clone()),
 }

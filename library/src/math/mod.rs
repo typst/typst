@@ -39,7 +39,7 @@ impl MathNode {
 }
 
 impl Show for MathNode {
-    fn unguard_parts(&self, _: Selector) -> Content {
+    fn unguard_parts(&self, _: RecipeId) -> Content {
         self.clone().pack()
     }
 

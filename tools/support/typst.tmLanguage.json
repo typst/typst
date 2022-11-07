@@ -280,7 +280,7 @@
         {
           "comment": "Function name",
           "name": "entity.name.function.typst",
-          "match": "(?<=\\bshow\\s*)\\b[[:alpha:]_][[:alnum:]_-]*(?=\\s*:)"
+          "match": "(?<=\\bshow\\s*)\\b[[:alpha:]_][[:alnum:]_-]*(?=\\s*[:.])"
         },
         {
           "comment": "Function arguments",

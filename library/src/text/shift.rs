@@ -43,7 +43,7 @@ impl<const S: ShiftKind> ShiftNode<S> {
 }
 
 impl<const S: ShiftKind> Show for ShiftNode<S> {
-    fn unguard_parts(&self, _: Selector) -> Content {
+    fn unguard_parts(&self, _: RecipeId) -> Content {
         Self(self.0.clone()).pack()
     }
 

@@ -9,7 +9,7 @@ pub use typst::frame::*;
 pub use typst::geom::*;
 pub use typst::model::{
     array, capability, castable, dict, dynamic, format_str, node, Args, Array, Cast,
-    Content, Dict, Finalize, Fold, Func, Key, Node, Resolve, Scope, Selector, Show,
+    Content, Dict, Finalize, Fold, Func, Key, Node, RecipeId, Resolve, Scope, Show,
     Smart, Str, StyleChain, StyleMap, StyleVec, Value, Vm,
 };
 pub use typst::syntax::{Span, Spanned};

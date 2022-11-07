@@ -98,6 +98,7 @@ pub fn call(
 
         Value::Func(func) => match method {
             "with" => Value::Func(func.with(args.take())),
+            "where" => Value::dynamic(func.where_(&mut args).at(span)?),
             _ => return missing(),
         },
 

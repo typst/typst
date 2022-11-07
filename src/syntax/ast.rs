@@ -1358,8 +1358,8 @@ node! {
 }
 
 impl ShowRule {
-    /// The pattern that this rule matches.
-    pub fn pattern(&self) -> Option<Expr> {
+    /// Defines which nodes the show rule applies to.
+    pub fn selector(&self) -> Option<Expr> {
         self.0
             .children()
             .rev()

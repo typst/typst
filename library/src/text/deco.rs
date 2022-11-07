@@ -47,8 +47,8 @@ impl<const L: DecoLine> DecoNode<L> {
 }
 
 impl<const L: DecoLine> Show for DecoNode<L> {
-    fn unguard_parts(&self, sel: Selector) -> Content {
-        Self(self.0.unguard(sel)).pack()
+    fn unguard_parts(&self, id: RecipeId) -> Content {
+        Self(self.0.unguard(id)).pack()
     }
 
     fn show(&self, _: Tracked<dyn World>, styles: StyleChain) -> SourceResult<Content> {
