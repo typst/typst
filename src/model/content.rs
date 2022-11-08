@@ -115,10 +115,14 @@ impl Content {
     pub fn styled_with_entry(mut self, entry: StyleEntry) -> Self {
         if let Some(styled) = self.try_downcast_mut::<StyledNode>() {
             styled.map.apply(entry);
-            return self;
+            self
+        } else if let Some(styled) = self.downcast::<StyledNode>() {
+            let mut map = styled.map.clone();
+            map.apply(entry);
+            StyledNode { sub: styled.sub.clone(), map }.pack()
+        } else {
+            StyledNode { sub: self, map: entry.into() }.pack()
         }
-
-        StyledNode { sub: self, map: entry.into() }.pack()
     }
 
     /// Style this content with a full style map.

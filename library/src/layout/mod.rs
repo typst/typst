@@ -33,7 +33,7 @@ use typst::frame::Frame;
 use typst::geom::*;
 use typst::model::{
     capability, Barrier, Content, Node, SequenceNode, Show, StyleChain, StyleEntry,
-    StyleMap, StyleVec, StyleVecBuilder, StyledNode, Target,
+    StyleVec, StyleVecBuilder, StyledNode, Target,
 };
 use typst::World;
 
@@ -253,8 +253,10 @@ struct Builder<'a> {
 struct Scratch<'a> {
     /// An arena where intermediate style chains are stored.
     styles: Arena<StyleChain<'a>>,
+    /// An arena for individual intermediate style entries.
+    entries: Arena<StyleEntry>,
     /// An arena where intermediate content resulting from show rules is stored.
-    templates: Arena<Content>,
+    content: Arena<Content>,
 }
 
 /// Determines whether a style could interrupt some composable structure.
@@ -305,7 +307,7 @@ impl<'a> Builder<'a> {
     ) -> SourceResult<()> {
         if let Some(text) = content.downcast::<TextNode>() {
             if let Some(realized) = styles.apply(self.world, Target::Text(&text.0))? {
-                let stored = self.scratch.templates.alloc(realized);
+                let stored = self.scratch.content.alloc(realized);
                 return self.accept(stored, styles);
             }
         } else if let Some(styled) = content.downcast::<StyledNode>() {
@@ -357,16 +359,18 @@ impl<'a> Builder<'a> {
         content: &'a Content,
         styles: StyleChain<'a>,
     ) -> SourceResult<bool> {
-        let Some(mut realized) = styles.apply(self.world, Target::Node(content))? else {
+        let barrier = StyleEntry::Barrier(Barrier::new(content.id()));
+        let styles = self
+            .scratch
+            .entries
+            .alloc(barrier)
+            .chain(self.scratch.styles.alloc(styles));
+
+        let Some(realized) = styles.apply(self.world, Target::Node(content))? else {
             return Ok(false);
         };
 
-        let mut map = StyleMap::new();
-        let barrier = Barrier::new(content.id());
-        map.push(StyleEntry::Barrier(barrier));
-        map.push(StyleEntry::Barrier(barrier));
-        realized = realized.styled_with_map(map);
-        let stored = self.scratch.templates.alloc(realized);
+        let stored = self.scratch.content.alloc(realized);
         self.accept(stored, styles)?;
 
         Ok(true)
@@ -680,7 +684,7 @@ impl<'a> ListBuilder<'a> {
             DESC | _ => ListNode::<DESC> { tight, attached, items }.pack(),
         };
 
-        let stored = parent.scratch.templates.alloc(content);
+        let stored = parent.scratch.content.alloc(content);
         parent.accept(stored, shared)?;
 
         for (content, styles) in self.staged {

@@ -161,9 +161,13 @@ impl ReadableTypeId {
 impl Debug for ReadableTypeId {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         #[cfg(debug_assertions)]
-        f.pad(self.name)?;
+        if let Some(part) = self.name.split("::").last() {
+            f.pad(part)?;
+        }
+
         #[cfg(not(debug_assertions))]
         f.pad("ReadableTypeId")?;
+
         Ok(())
     }
 }

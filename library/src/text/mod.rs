@@ -25,7 +25,7 @@ use self::quotes::*;
 use crate::prelude::*;
 
 /// A single run of text with the same style.
-#[derive(Debug, Clone, Hash)]
+#[derive(Clone, Hash)]
 pub struct TextNode(pub EcoString);
 
 impl TextNode {
@@ -166,6 +166,12 @@ impl TextNode {
                 styles.set(Self::FAMILY, FallbackList(list));
             }
         }
+    }
+}
+
+impl Debug for TextNode {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "Text({:?})", self.0)
     }
 }
 

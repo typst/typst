@@ -85,6 +85,15 @@ impl StyleMap {
     /// Like [`chain`](Self::chain) or [`apply_map`](Self::apply_map), but with
     /// only a entry.
     pub fn apply(&mut self, entry: StyleEntry) {
+        if let StyleEntry::Guard(a) = &entry {
+            if let [StyleEntry::Unguard(b), ..] = self.0.as_slice() {
+                if a == b {
+                    self.0.remove(0);
+                    return;
+                }
+            }
+        }
+
         self.0.insert(0, entry);
     }
 
@@ -124,7 +133,7 @@ impl From<StyleEntry> for StyleMap {
 
 impl Debug for StyleMap {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        for entry in self.0.iter().rev() {
+        for entry in self.0.iter() {
             writeln!(f, "{:?}", entry)?;
         }
         Ok(())
@@ -351,7 +360,7 @@ impl<'a> StyleChain<'a> {
 
 impl Debug for StyleChain<'_> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        for entry in self.entries() {
+        for entry in self.entries().collect::<Vec<_>>().into_iter().rev() {
             writeln!(f, "{:?}", entry)?;
         }
         Ok(())
