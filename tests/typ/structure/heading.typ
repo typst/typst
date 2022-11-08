@@ -43,11 +43,10 @@ multiline.
 
 ---
 // Test styling.
+#show heading.where(level: 5): it => {
+  text(family: "Roboto", fill: eastern, it.body + [!])
+}
+
 = Heading
-
-#set heading(family: "Roboto", fill: eastern)
-#show heading: it => it.body
-#show strong: it => it.body + [!]
-
 ===== Heading 🌍
 #heading(level: 5)[Heading]

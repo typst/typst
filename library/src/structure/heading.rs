@@ -1,6 +1,8 @@
+use typst::font::FontWeight;
+
 use crate::layout::{BlockNode, BlockSpacing};
 use crate::prelude::*;
-use crate::text::{FontFamily, TextNode, TextSize};
+use crate::text::{TextNode, TextSize};
 
 /// A section heading.
 #[derive(Debug, Hash)]
@@ -14,32 +16,10 @@ pub struct HeadingNode {
 
 #[node(Show, Finalize)]
 impl HeadingNode {
-    /// The heading's font family. Just the normal text family if `auto`.
-    #[property(referenced)]
-    pub const FAMILY: Leveled<Smart<FontFamily>> = Leveled::Value(Smart::Auto);
-    /// The color of text in the heading. Just the normal text color if `auto`.
-    #[property(referenced)]
-    pub const FILL: Leveled<Smart<Paint>> = Leveled::Value(Smart::Auto);
-    /// The size of text in the heading.
-    #[property(referenced)]
-    pub const SIZE: Leveled<TextSize> = Leveled::Mapping(|level| {
-        let size = match level.get() {
-            1 => 1.4,
-            2 => 1.2,
-            _ => 1.0,
-        };
-        TextSize(Em::new(size).into())
-    });
-
-    /// Whether text in the heading is strengthend.
-    #[property(referenced)]
-    pub const STRONG: Leveled<bool> = Leveled::Value(true);
-    /// Whether text in the heading is emphasized.
-    #[property(referenced)]
-    pub const EMPH: Leveled<bool> = Leveled::Value(false);
-    /// Whether the heading is underlined.
-    #[property(referenced)]
-    pub const UNDERLINE: Leveled<bool> = Leveled::Value(false);
+    /// Whether the heading appears in the outline.
+    pub const OUTLINED: bool = true;
+    /// Whether the heading is numbered.
+    pub const NUMBERED: bool = true;
 
     /// The spacing above the heading.
     #[property(referenced, shorthand(around))]
@@ -54,11 +34,6 @@ impl HeadingNode {
     #[property(referenced, shorthand(around))]
     pub const BELOW: Leveled<Option<BlockSpacing>> =
         Leveled::Value(Some(Ratio::new(0.55).into()));
-
-    /// Whether the heading appears in the outline.
-    pub const OUTLINED: bool = true;
-    /// Whether the heading is numbered.
-    pub const NUMBERED: bool = true;
 
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self {
@@ -101,30 +76,17 @@ impl Finalize for HeadingNode {
         }
 
         let mut map = StyleMap::new();
-        map.set(TextNode::SIZE, resolve!(Self::SIZE));
+        map.set(TextNode::SIZE, {
+            let size = match self.level.get() {
+                1 => 1.4,
+                2 => 1.2,
+                _ => 1.0,
+            };
+            TextSize(Em::new(size).into())
+        });
+        map.set(TextNode::WEIGHT, FontWeight::BOLD);
 
-        if let Smart::Custom(family) = resolve!(Self::FAMILY) {
-            map.set_family(family, styles);
-        }
-
-        if let Smart::Custom(fill) = resolve!(Self::FILL) {
-            map.set(TextNode::FILL, fill);
-        }
-
-        if resolve!(Self::STRONG) {
-            realized = realized.strong();
-        }
-
-        if resolve!(Self::EMPH) {
-            realized = realized.emph();
-        }
-
-        if resolve!(Self::UNDERLINE) {
-            realized = realized.underlined();
-        }
-
-        realized = realized.styled_with_map(map);
-        realized = realized.spaced(
+        realized = realized.styled_with_map(map).spaced(
             resolve!(Self::ABOVE).resolve(styles),
             resolve!(Self::BELOW).resolve(styles),
         );

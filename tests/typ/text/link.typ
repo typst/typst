@@ -16,6 +16,7 @@ call #link("tel:123") for more information.
 
 ---
 // Test that the period is trimmed.
+#show link: underline
 https://a.b.?q=%10#. \
 Wahttp://link \
 Nohttps:\//link \
@@ -23,20 +24,19 @@ Nohttp\://comment
 
 ---
 // Styled with underline and color.
-#set link(fill: rgb("283663"))
+#show link: it => underline(text(fill: rgb("283663"), it))
 You could also make the
 #link("https://html5zombo.com/")[link look way more typical.]
 
 ---
 // Transformed link.
 #set page(height: 60pt)
-#set link(underline: false)
 #let mylink = link("https://typst.org/")[LINK]
 My cool #move(dx: 0.7cm, dy: 0.7cm, rotate(10deg, scale(200%, mylink)))
 
 ---
 // Link containing a block.
-#link("https://example.com/", underline: false, block[
+#link("https://example.com/", block[
   My cool rhino
   #move(dx: 10pt, image("/res/rhino.png", width: 1cm))
 ])

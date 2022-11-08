@@ -6,7 +6,7 @@ use syntect::highlighting::{
 use syntect::parsing::SyntaxSet;
 use typst::syntax;
 
-use super::{FontFamily, Hyphenate, LinebreakNode, TextNode};
+use super::{FallbackList, FontFamily, Hyphenate, LinebreakNode, TextNode};
 use crate::layout::{BlockNode, BlockSpacing};
 use crate::prelude::*;
 
@@ -24,9 +24,6 @@ impl RawNode {
     /// The language to syntax-highlight in.
     #[property(referenced)]
     pub const LANG: Option<EcoString> = None;
-    /// The raw text's font family.
-    #[property(referenced)]
-    pub const FAMILY: FontFamily = FontFamily::new("IBM Plex Mono");
     /// The spacing above block-level raw.
     #[property(resolve, shorthand(around))]
     pub const ABOVE: Option<BlockSpacing> = Some(Ratio::one().into());
@@ -119,14 +116,16 @@ impl Finalize for RawNode {
         styles: StyleChain,
         mut realized: Content,
     ) -> SourceResult<Content> {
-        let mut map = StyleMap::new();
-        map.set_family(styles.get(Self::FAMILY).clone(), styles);
+        realized = realized.styled(
+            TextNode::FAMILY,
+            FallbackList(vec![FontFamily::new("IBM Plex Mono")]),
+        );
 
         if self.block {
             realized = realized.spaced(styles.get(Self::ABOVE), styles.get(Self::BELOW));
         }
 
-        Ok(realized.styled_with_map(map))
+        Ok(realized)
     }
 }
 

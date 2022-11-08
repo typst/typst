@@ -5,9 +5,8 @@ use rex::parser::color::RGBA;
 use rex::render::{Backend, Cursor, Renderer};
 use typst::font::Font;
 
-use super::MathNode;
 use crate::prelude::*;
-use crate::text::{variant, LinebreakNode, SpaceNode, TextNode};
+use crate::text::{families, variant, LinebreakNode, SpaceNode, TextNode};
 
 /// Turn a math node into TeX math code.
 #[capability]
@@ -42,17 +41,21 @@ pub fn layout_tex(
     styles: StyleChain,
 ) -> SourceResult<Frame> {
     // Load the font.
-    let font = world
-        .book()
-        .select(styles.get(MathNode::FAMILY).as_str(), variant(styles))
-        .and_then(|id| world.font(id))
-        .expect("failed to find math font");
+    let variant = variant(styles);
+    let mut font = None;
+    for family in families(styles) {
+        font = world.book().select(family, variant).and_then(|id| world.font(id));
+        if font.as_ref().map_or(false, |font| font.math().is_some()) {
+            break;
+        }
+    }
 
     // Prepare the font context.
+    let font = font.expect("failed to find suitable math font");
     let ctx = font
         .math()
         .map(|math| FontContext::new(font.ttf(), math))
-        .expect("font is not suitable for math");
+        .expect("failed to create font context");
 
     // Layout the formula.
     let em = styles.get(TextNode::SIZE);

@@ -7,7 +7,7 @@ use std::fmt::Write;
 use self::tex::{layout_tex, Texify};
 use crate::layout::BlockSpacing;
 use crate::prelude::*;
-use crate::text::FontFamily;
+use crate::text::{FallbackList, FontFamily, TextNode};
 
 /// A piece of a mathematical formula.
 #[derive(Debug, Clone, Hash)]
@@ -20,9 +20,6 @@ pub struct MathNode {
 
 #[node(Show, Finalize, LayoutInline, Texify)]
 impl MathNode {
-    /// The math font family.
-    #[property(referenced)]
-    pub const FAMILY: FontFamily = FontFamily::new("NewComputerModernMath");
     /// The spacing above display math.
     #[property(resolve, shorthand(around))]
     pub const ABOVE: Option<BlockSpacing> = Some(Ratio::one().into());
@@ -44,11 +41,7 @@ impl Show for MathNode {
     }
 
     fn show(&self, _: Tracked<dyn World>, _: StyleChain) -> SourceResult<Content> {
-        Ok(if self.display {
-            self.clone().pack().aligned(Axes::with_x(Some(Align::Center.into())))
-        } else {
-            self.clone().pack()
-        })
+        Ok(self.clone().pack())
     }
 }
 
@@ -57,13 +50,20 @@ impl Finalize for MathNode {
         &self,
         _: Tracked<dyn World>,
         styles: StyleChain,
-        realized: Content,
+        mut realized: Content,
     ) -> SourceResult<Content> {
-        Ok(if self.display {
-            realized.spaced(styles.get(Self::ABOVE), styles.get(Self::BELOW))
-        } else {
-            realized
-        })
+        realized = realized.styled(
+            TextNode::FAMILY,
+            FallbackList(vec![FontFamily::new("NewComputerModernMath")]),
+        );
+
+        if self.display {
+            realized = realized
+                .aligned(Axes::with_x(Some(Align::Center.into())))
+                .spaced(styles.get(Self::ABOVE), styles.get(Self::BELOW))
+        }
+
+        Ok(realized)
     }
 }
 

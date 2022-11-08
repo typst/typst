@@ -552,7 +552,7 @@ pub fn variant(styles: StyleChain) -> FontVariant {
 }
 
 /// Resolve a prioritized iterator over the font families.
-fn families(styles: StyleChain) -> impl Iterator<Item = &str> + Clone {
+pub fn families(styles: StyleChain) -> impl Iterator<Item = &str> + Clone {
     const FALLBACKS: &[&str] = &[
         "ibm plex sans",
         "twitter color emoji",

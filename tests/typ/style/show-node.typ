@@ -13,8 +13,9 @@
 
 ---
 // Test full reset.
-#set heading(size: 1em, strong: false, around: none)
+#set heading(around: none)
 #show heading: [B]
+#show heading: text.with(size: 10pt, weight: 400)
 A [= Heading] C
 
 ---
@@ -28,8 +29,8 @@ my heading?
 
 ---
 // Test integrated example.
-#set heading(size: 1em)
 #show heading: it => {
+  set text(10pt)
   move(dy: -1pt)[📖]
   h(5pt)
   if it.level == 1 {
