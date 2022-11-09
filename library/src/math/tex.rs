@@ -87,7 +87,6 @@ pub fn layout_tex(
         frame: {
             let mut frame = Frame::new(size);
             frame.set_baseline(top);
-            frame.apply_role(Role::Formula);
             frame
         },
         baseline: top,

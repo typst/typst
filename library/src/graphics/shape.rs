@@ -92,10 +92,6 @@ impl<const S: ShapeKind> LayoutInline for ShapeNode<S> {
             let mut pod = Regions::one(regions.first, regions.base, regions.expand);
             frames = child.layout_inline(world, &pod, styles)?;
 
-            for frame in frames.iter_mut() {
-                frame.apply_role(Role::GenericBlock);
-            }
-
             // Relayout with full expansion into square region to make sure
             // the result is really a square or circle.
             if is_quadratic(S) {

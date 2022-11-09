@@ -481,14 +481,6 @@ impl<'a> GridLayouter<'a> {
 
                 let pod = Regions::one(size, base, Axes::splat(true));
                 let frame = cell.layout_block(self.world, &pod, self.styles)?.remove(0);
-                match frame.role() {
-                    Some(Role::ListLabel | Role::ListItemBody) => {
-                        output.apply_role(Role::ListItem)
-                    }
-                    Some(Role::TableCell) => output.apply_role(Role::TableRow),
-                    _ => {}
-                }
-
                 output.push_frame(pos, frame);
             }
 
@@ -530,13 +522,6 @@ impl<'a> GridLayouter<'a> {
                 // Push the layouted frames into the individual output frames.
                 let frames = cell.layout_block(self.world, &pod, self.styles)?;
                 for (output, frame) in outputs.iter_mut().zip(frames) {
-                    match frame.role() {
-                        Some(Role::ListLabel | Role::ListItemBody) => {
-                            output.apply_role(Role::ListItem)
-                        }
-                        Some(Role::TableCell) => output.apply_role(Role::TableRow),
-                        _ => {}
-                    }
                     output.push_frame(pos, frame);
                 }
             }

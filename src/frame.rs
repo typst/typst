@@ -245,13 +245,6 @@ impl Frame {
         }
     }
 
-    /// Apply the given role to the frame if it doesn't already have one.
-    pub fn apply_role(&mut self, role: Role) {
-        if self.role.map_or(true, |prev| prev.is_weak() && !role.is_weak()) {
-            self.role = Some(role);
-        }
-    }
-
     /// Link the whole frame to a resource.
     pub fn link(&mut self, dest: Destination) {
         self.push(Point::zero(), Element::Link(dest, self.size));

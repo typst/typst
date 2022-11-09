@@ -530,7 +530,6 @@ fn prepare<'a>(
                     let pod = Regions::one(size, regions.base, Axes::splat(false));
                     let mut frame = inline.layout_inline(world, &pod, styles)?.remove(0);
                     frame.translate(Point::with_y(styles.get(TextNode::BASELINE)));
-                    frame.apply_role(Role::GenericInline);
                     items.push(Item::Frame(frame));
                 }
             }
@@ -1040,7 +1039,6 @@ fn stack(
     let mut finished = vec![];
     let mut first = true;
     let mut output = Frame::new(Size::with_x(width));
-    output.apply_role(Role::Paragraph);
 
     // Stack the lines into one frame per region.
     for line in lines {
@@ -1050,7 +1048,6 @@ fn stack(
         while !regions.first.y.fits(height) && !regions.in_last() {
             finished.push(output);
             output = Frame::new(Size::with_x(width));
-            output.apply_role(Role::Paragraph);
             regions.next();
             first = true;
         }

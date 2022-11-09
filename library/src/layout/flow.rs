@@ -207,10 +207,7 @@ impl<'a> FlowLayouter<'a> {
 
         let frames = block.layout_block(world, &self.regions, styles)?;
         let len = frames.len();
-        for (i, mut frame) in frames.into_iter().enumerate() {
-            // Set the generic block role.
-            frame.apply_role(Role::GenericBlock);
-
+        for (i, frame) in frames.into_iter().enumerate() {
             // Grow our size, shrink the region and save the frame for later.
             let size = frame.size();
             self.used.y += size.y;
