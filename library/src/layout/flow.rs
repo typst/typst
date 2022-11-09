@@ -1,6 +1,7 @@
 use std::cmp::Ordering;
 
-use super::{AlignNode, PlaceNode, Spacing};
+use super::{AlignNode, PlaceNode, Spacing, VNode};
+use crate::layout::BlockNode;
 use crate::prelude::*;
 use crate::text::ParNode;
 
@@ -15,7 +16,7 @@ pub struct FlowNode(pub StyleVec<FlowChild>);
 #[derive(Hash, PartialEq)]
 pub enum FlowChild {
     /// Vertical spacing between other children.
-    Spacing(Spacing),
+    Spacing(VNode),
     /// Arbitrary block-level content.
     Block(Content),
     /// A column / region break.
@@ -32,13 +33,13 @@ impl LayoutBlock for FlowNode {
         regions: &Regions,
         styles: StyleChain,
     ) -> SourceResult<Vec<Frame>> {
-        let mut layouter = FlowLayouter::new(regions);
+        let mut layouter = FlowLayouter::new(regions, styles);
 
         for (child, map) in self.0.iter() {
             let styles = map.chain(&styles);
             match child {
-                FlowChild::Spacing(kind) => {
-                    layouter.layout_spacing(*kind, styles);
+                FlowChild::Spacing(node) => {
+                    layouter.layout_spacing(node, styles);
                 }
                 FlowChild::Block(block) => {
                     layouter.layout_block(world, block, styles)?;
@@ -80,9 +81,11 @@ impl PartialOrd for FlowChild {
 }
 
 /// Performs flow layout.
-struct FlowLayouter {
+struct FlowLayouter<'a> {
     /// The regions to layout children into.
     regions: Regions,
+    /// The shared styles.
+    shared: StyleChain<'a>,
     /// Whether the flow should expand to fill the region.
     expand: Axes<bool>,
     /// The full size of `regions.size` that was available before we started
@@ -92,6 +95,8 @@ struct FlowLayouter {
     used: Size,
     /// The sum of fractions in the current region.
     fr: Fr,
+    /// The spacing below the last block.
+    below: Option<VNode>,
     /// Spacing and layouted blocks.
     items: Vec<FlowItem>,
     /// Finished frames for previous regions.
@@ -110,9 +115,9 @@ enum FlowItem {
     Placed(Frame),
 }
 
-impl FlowLayouter {
+impl<'a> FlowLayouter<'a> {
     /// Create a new flow layouter.
-    fn new(regions: &Regions) -> Self {
+    fn new(regions: &Regions, shared: StyleChain<'a>) -> Self {
         let expand = regions.expand;
         let full = regions.first;
 
@@ -122,18 +127,20 @@ impl FlowLayouter {
 
         Self {
             regions,
+            shared,
             expand,
             full,
             used: Size::zero(),
             fr: Fr::zero(),
+            below: None,
             items: vec![],
             finished: vec![],
         }
     }
 
     /// Layout spacing.
-    fn layout_spacing(&mut self, spacing: Spacing, styles: StyleChain) {
-        match spacing {
+    fn layout_spacing(&mut self, node: &VNode, styles: StyleChain) {
+        match node.amount {
             Spacing::Relative(v) => {
                 // Resolve the spacing and limit it to the remaining space.
                 let resolved = v.resolve(styles).relative_to(self.full.y);
@@ -146,6 +153,10 @@ impl FlowLayouter {
                 self.items.push(FlowItem::Fractional(v));
                 self.fr += v;
             }
+        }
+
+        if node.weak || node.amount.is_fractional() {
+            self.below = None;
         }
     }
 
@@ -161,9 +172,19 @@ impl FlowLayouter {
             self.finish_region();
         }
 
+        // Add spacing between the last block and this one.
+        if let Some(below) = self.below.take() {
+            let above = styles.get(BlockNode::ABOVE);
+            let pick_below = (above.weak && !below.weak) || (below.amount > above.amount);
+            let spacing = if pick_below { below } else { above };
+            self.layout_spacing(&spacing, self.shared);
+        }
+
         // Placed nodes that are out of flow produce placed items which aren't
         // aligned later.
+        let mut is_placed = false;
         if let Some(placed) = block.downcast::<PlaceNode>() {
+            is_placed = true;
             if placed.out_of_flow() {
                 let frame = block.layout_block(world, &self.regions, styles)?.remove(0);
                 self.items.push(FlowItem::Placed(frame));
@@ -200,6 +221,10 @@ impl FlowLayouter {
             if i + 1 < len {
                 self.finish_region();
             }
+        }
+
+        if !is_placed {
+            self.below = Some(styles.get(BlockNode::BELOW));
         }
 
         Ok(())
@@ -250,6 +275,7 @@ impl FlowLayouter {
         self.full = self.regions.first;
         self.used = Size::zero();
         self.fr = Fr::zero();
+        self.below = None;
         self.finished.push(output);
     }
 

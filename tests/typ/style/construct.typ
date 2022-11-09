@@ -4,11 +4,7 @@
 // Ensure that constructor styles aren't passed down the tree.
 // The inner list should have no extra indent.
 #set par(leading: 2pt)
-#list(
-  body-indent: 20pt,
-  [First],
-  list([A], [B])
-)
+#list(body-indent: 20pt, [First], list[A][B])
 
 ---
 // Ensure that constructor styles win, but not over outer styles.
@@ -29,5 +25,7 @@
 A #rect(fill: yellow, inset: 5pt, rect()) B
 
 ---
-// The inner list should not be indented extra.
-[#set text(1em);#list(indent: 20pt, list[A])]
+// The constructor property should still work
+// when there are recursive show rules.
+#show list: text.with(blue)
+#list(label: "(a)", [A], list[B])

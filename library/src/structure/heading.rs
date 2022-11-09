@@ -1,6 +1,6 @@
 use typst::font::FontWeight;
 
-use crate::layout::{BlockNode, BlockSpacing};
+use crate::layout::{BlockNode, VNode};
 use crate::prelude::*;
 use crate::text::{TextNode, TextSize};
 
@@ -16,25 +16,6 @@ pub struct HeadingNode {
 
 #[node(Show, Finalize)]
 impl HeadingNode {
-    /// Whether the heading appears in the outline.
-    pub const OUTLINED: bool = true;
-    /// Whether the heading is numbered.
-    pub const NUMBERED: bool = true;
-
-    /// The spacing above the heading.
-    #[property(referenced, shorthand(around))]
-    pub const ABOVE: Leveled<Option<BlockSpacing>> = Leveled::Mapping(|level| {
-        let ratio = match level.get() {
-            1 => 1.5,
-            _ => 1.2,
-        };
-        Some(Ratio::new(ratio).into())
-    });
-    /// The spacing below the heading.
-    #[property(referenced, shorthand(around))]
-    pub const BELOW: Leveled<Option<BlockSpacing>> =
-        Leveled::Value(Some(Ratio::new(0.55).into()));
-
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self {
             body: args.expect("body")?,
@@ -65,76 +46,25 @@ impl Show for HeadingNode {
 impl Finalize for HeadingNode {
     fn finalize(
         &self,
-        world: Tracked<dyn World>,
-        styles: StyleChain,
-        mut realized: Content,
+        _: Tracked<dyn World>,
+        _: StyleChain,
+        realized: Content,
     ) -> SourceResult<Content> {
-        macro_rules! resolve {
-            ($key:expr) => {
-                styles.get($key).resolve(world, self.level)?
-            };
-        }
+        let size = Em::new(match self.level.get() {
+            1 => 1.4,
+            2 => 1.2,
+            _ => 1.0,
+        });
+
+        let above = Em::new(if self.level.get() == 1 { 1.8 } else { 1.44 });
+        let below = Em::new(0.66);
 
         let mut map = StyleMap::new();
-        map.set(TextNode::SIZE, {
-            let size = match self.level.get() {
-                1 => 1.4,
-                2 => 1.2,
-                _ => 1.0,
-            };
-            TextSize(Em::new(size).into())
-        });
+        map.set(TextNode::SIZE, TextSize(size.into()));
         map.set(TextNode::WEIGHT, FontWeight::BOLD);
+        map.set(BlockNode::ABOVE, VNode::strong(above.into()));
+        map.set(BlockNode::BELOW, VNode::strong(below.into()));
 
-        realized = realized.styled_with_map(map).spaced(
-            resolve!(Self::ABOVE).resolve(styles),
-            resolve!(Self::BELOW).resolve(styles),
-        );
-
-        Ok(realized)
-    }
-}
-
-/// Either the value or a closure mapping to the value.
-#[derive(Debug, Clone, PartialEq, Hash)]
-pub enum Leveled<T> {
-    /// A bare value.
-    Value(T),
-    /// A simple mapping from a heading level to a value.
-    Mapping(fn(NonZeroUsize) -> T),
-    /// A closure mapping from a heading level to a value.
-    Func(Func, Span),
-}
-
-impl<T: Cast + Clone> Leveled<T> {
-    /// Resolve the value based on the level.
-    pub fn resolve(
-        &self,
-        world: Tracked<dyn World>,
-        level: NonZeroUsize,
-    ) -> SourceResult<T> {
-        Ok(match self {
-            Self::Value(value) => value.clone(),
-            Self::Mapping(mapping) => mapping(level),
-            Self::Func(func, span) => {
-                let args = Args::new(*span, [Value::Int(level.get() as i64)]);
-                func.call_detached(world, args)?.cast().at(*span)?
-            }
-        })
-    }
-}
-
-impl<T: Cast> Cast<Spanned<Value>> for Leveled<T> {
-    fn is(value: &Spanned<Value>) -> bool {
-        matches!(&value.v, Value::Func(_)) || T::is(&value.v)
-    }
-
-    fn cast(value: Spanned<Value>) -> StrResult<Self> {
-        match value.v {
-            Value::Func(v) => Ok(Self::Func(v, value.span)),
-            v => T::cast(v)
-                .map(Self::Value)
-                .map_err(|msg| with_alternative(msg, "function")),
-        }
+        Ok(realized.styled_with_map(map))
     }
 }

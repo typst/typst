@@ -28,18 +28,12 @@ pub enum ParChild {
 
 #[node(LayoutBlock)]
 impl ParNode {
-    /// The spacing between lines.
-    #[property(resolve)]
-    pub const LEADING: Length = Em::new(0.65).into();
-    /// The extra spacing between paragraphs.
-    #[property(resolve)]
-    pub const SPACING: Length = Em::new(1.2).into();
     /// The indent the first line of a consecutive paragraph should have.
     #[property(resolve)]
     pub const INDENT: Length = Length::zero();
-    /// Whether to allow paragraph spacing when there is paragraph indent.
-    pub const SPACING_AND_INDENT: bool = false;
-
+    /// The spacing between lines.
+    #[property(resolve)]
+    pub const LEADING: Length = Em::new(0.65).into();
     /// How to align text and inline objects in their line.
     #[property(resolve)]
     pub const ALIGN: HorizontalAlign = HorizontalAlign(GenAlign::Start);

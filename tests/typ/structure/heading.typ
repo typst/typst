@@ -43,9 +43,9 @@ multiline.
 
 ---
 // Test styling.
-#show heading.where(level: 5): it => {
+#show heading.where(level: 5): it => block(
   text(family: "Roboto", fill: eastern, it.body + [!])
-}
+)
 
 = Heading
 ===== Heading 🌍

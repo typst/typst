@@ -7,33 +7,27 @@ To the right! Where the sunlight peeks behind the mountain.
 
 ---
 // Test changing leading and spacing.
-#set par(spacing: 1em, leading: 2pt)
+#set block(spacing: 1em)
+#set par(leading: 2pt)
 But, soft! what light through yonder window breaks?
 
 It is the east, and Juliet is the sun.
 
 ---
-// Test that largest paragraph spacing wins.
-#set par(spacing: 2.5pt)
-[#set par(spacing: 15pt);First]
-[#set par(spacing: 7.5pt);Second]
-Third
-
-Fourth
-
----
 // Test that paragraph spacing loses against block spacing.
-#set par(spacing: 100pt)
-#set table(around: 5pt)
+// TODO
+// #set block(spacing: 100pt)
+// #show table: set block(spacing: 5pt)
+#set block(spacing: 5pt)
 Hello
 #table(columns: 4, fill: (x, y) => if odd(x + y) { silver })[A][B][C][D]
 
 ---
 // While we're at it, test the larger block spacing wins.
-#set raw(around: 15pt)
-#set math(around: 7.5pt)
-#set list(around: 2.5pt)
-#set par(spacing: 0pt)
+#set block(spacing: 0pt)
+#show raw: it => { set block(spacing: 15pt); it }
+#show math: it => { set block(spacing: 7.5pt); it }
+#show list: it => { set block(spacing: 2.5pt); it }
 
 ```rust
 fn main() {}

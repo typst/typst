@@ -30,8 +30,8 @@ No: list \
 ---
 // Test style change.
 #set text(8pt)
-
 / First list: #lorem(4)
+
 #set desc(body-indent: 30pt)
 / Second list: #lorem(4)
 

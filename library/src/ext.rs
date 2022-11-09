@@ -12,9 +12,6 @@ pub trait ContentExt {
     /// Underline this content.
     fn underlined(self) -> Self;
 
-    /// Add weak vertical spacing above and below the content.
-    fn spaced(self, above: Option<Abs>, below: Option<Abs>) -> Self;
-
     /// Force a size for this content.
     fn boxed(self, sizing: Axes<Option<Rel<Length>>>) -> Self;
 
@@ -45,30 +42,6 @@ impl ContentExt for Content {
 
     fn underlined(self) -> Self {
         text::DecoNode::<{ text::UNDERLINE }>(self).pack()
-    }
-
-    fn spaced(self, above: Option<Abs>, below: Option<Abs>) -> Self {
-        if above.is_none() && below.is_none() {
-            return self;
-        }
-
-        let mut seq = vec![];
-        if let Some(above) = above {
-            seq.push(
-                layout::VNode { amount: above.into(), weak: true, generated: true }
-                    .pack(),
-            );
-        }
-
-        seq.push(self);
-        if let Some(below) = below {
-            seq.push(
-                layout::VNode { amount: below.into(), weak: true, generated: true }
-                    .pack(),
-            );
-        }
-
-        Content::sequence(seq)
     }
 
     fn boxed(self, sizing: Axes<Option<Rel<Length>>>) -> Self {

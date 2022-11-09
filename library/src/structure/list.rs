@@ -1,17 +1,15 @@
 use unscanny::Scanner;
 
 use crate::base::Numbering;
-use crate::layout::{BlockSpacing, GridNode, HNode, TrackSizing};
+use crate::layout::{BlockNode, GridNode, HNode, Spacing, TrackSizing};
 use crate::prelude::*;
 use crate::text::{ParNode, SpaceNode, TextNode};
 
 /// An unordered (bulleted) or ordered (numbered) list.
-#[derive(Debug, Hash)]
+#[derive(Debug, Clone, Hash)]
 pub struct ListNode<const L: ListKind = LIST> {
     /// If true, the items are separated by leading instead of list spacing.
     pub tight: bool,
-    /// If true, the spacing above the list is leading instead of above spacing.
-    pub attached: bool,
     /// The individual bulleted or numbered items.
     pub items: StyleVec<ListItem>,
 }
@@ -22,7 +20,7 @@ pub type EnumNode = ListNode<ENUM>;
 /// A description list.
 pub type DescNode = ListNode<DESC>;
 
-#[node(Show, Finalize)]
+#[node(Show, LayoutBlock)]
 impl<const L: ListKind> ListNode<L> {
     /// How the list is labelled.
     #[property(referenced)]
@@ -37,16 +35,8 @@ impl<const L: ListKind> ListNode<L> {
         DESC | _ => 1.0,
     })
     .into();
-
-    /// The spacing above the list.
-    #[property(resolve, shorthand(around))]
-    pub const ABOVE: Option<BlockSpacing> = Some(Ratio::one().into());
-    /// The spacing below the list.
-    #[property(resolve, shorthand(around))]
-    pub const BELOW: Option<BlockSpacing> = Some(Ratio::one().into());
     /// The spacing between the items of a wide (non-tight) list.
-    #[property(resolve)]
-    pub const SPACING: BlockSpacing = Ratio::one().into();
+    pub const SPACING: Smart<Spacing> = Smart::Auto;
 
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         let items = match L {
@@ -73,18 +63,12 @@ impl<const L: ListKind> ListNode<L> {
                 .collect(),
         };
 
-        Ok(Self {
-            tight: args.named("tight")?.unwrap_or(true),
-            attached: args.named("attached")?.unwrap_or(false),
-            items,
-        }
-        .pack())
+        Ok(Self { tight: args.named("tight")?.unwrap_or(true), items }.pack())
     }
 
     fn field(&self, name: &str) -> Option<Value> {
         match name {
             "tight" => Some(Value::Bool(self.tight)),
-            "attached" => Some(Value::Bool(self.attached)),
             "items" => {
                 Some(Value::Array(self.items.items().map(|item| item.encode()).collect()))
             }
@@ -102,11 +86,18 @@ impl<const L: ListKind> Show for ListNode<L> {
         .pack()
     }
 
-    fn show(
+    fn show(&self, _: Tracked<dyn World>, _: StyleChain) -> SourceResult<Content> {
+        Ok(self.clone().pack())
+    }
+}
+
+impl<const L: ListKind> LayoutBlock for ListNode<L> {
+    fn layout_block(
         &self,
         world: Tracked<dyn World>,
+        regions: &Regions,
         styles: StyleChain,
-    ) -> SourceResult<Content> {
+    ) -> SourceResult<Vec<Frame>> {
         let mut cells = vec![];
         let mut number = 1;
 
@@ -114,9 +105,11 @@ impl<const L: ListKind> Show for ListNode<L> {
         let indent = styles.get(Self::INDENT);
         let body_indent = styles.get(Self::BODY_INDENT);
         let gutter = if self.tight {
-            styles.get(ParNode::LEADING)
+            styles.get(ParNode::LEADING).into()
         } else {
-            styles.get(Self::SPACING)
+            styles
+                .get(Self::SPACING)
+                .unwrap_or_else(|| styles.get(BlockNode::BELOW).amount)
         };
 
         for (item, map) in self.items.iter() {
@@ -150,40 +143,17 @@ impl<const L: ListKind> Show for ListNode<L> {
             number += 1;
         }
 
-        Ok(GridNode {
+        GridNode {
             tracks: Axes::with_x(vec![
                 TrackSizing::Relative(indent.into()),
                 TrackSizing::Auto,
                 TrackSizing::Relative(body_indent.into()),
                 TrackSizing::Auto,
             ]),
-            gutter: Axes::with_y(vec![TrackSizing::Relative(gutter.into())]),
+            gutter: Axes::with_y(vec![gutter.into()]),
             cells,
         }
-        .pack())
-    }
-}
-
-impl<const L: ListKind> Finalize for ListNode<L> {
-    fn finalize(
-        &self,
-        _: Tracked<dyn World>,
-        styles: StyleChain,
-        realized: Content,
-    ) -> SourceResult<Content> {
-        let mut above = styles.get(Self::ABOVE);
-        let mut below = styles.get(Self::BELOW);
-
-        if self.attached {
-            if above.is_some() {
-                above = Some(styles.get(ParNode::LEADING));
-            }
-            if below.is_some() {
-                below = Some(styles.get(ParNode::SPACING));
-            }
-        }
-
-        Ok(realized.spaced(above, below))
+        .layout_block(world, regions, styles)
     }
 }
 

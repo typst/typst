@@ -8,7 +8,6 @@
 #eval("#let")
 
 ---
-#set raw(around: none)
 #show raw: it => text("IBM Plex Sans", eval(it.text))
 
 Interacting

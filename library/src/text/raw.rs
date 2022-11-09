@@ -6,8 +6,8 @@ use syntect::highlighting::{
 use syntect::parsing::SyntaxSet;
 use typst::syntax;
 
-use super::{FallbackList, FontFamily, Hyphenate, LinebreakNode, TextNode};
-use crate::layout::{BlockNode, BlockSpacing};
+use super::{FontFamily, Hyphenate, LinebreakNode, TextNode};
+use crate::layout::BlockNode;
 use crate::prelude::*;
 
 /// Monospaced text with optional syntax highlighting.
@@ -19,17 +19,11 @@ pub struct RawNode {
     pub block: bool,
 }
 
-#[node(Show, Finalize)]
+#[node(Show)]
 impl RawNode {
     /// The language to syntax-highlight in.
     #[property(referenced)]
     pub const LANG: Option<EcoString> = None;
-    /// The spacing above block-level raw.
-    #[property(resolve, shorthand(around))]
-    pub const ABOVE: Option<BlockSpacing> = Some(Ratio::one().into());
-    /// The spacing below block-level raw.
-    #[property(resolve, shorthand(around))]
-    pub const BELOW: Option<BlockSpacing> = Some(Ratio::one().into());
 
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self {
@@ -104,28 +98,9 @@ impl Show for RawNode {
         map.set(TextNode::OVERHANG, false);
         map.set(TextNode::HYPHENATE, Hyphenate(Smart::Custom(false)));
         map.set(TextNode::SMART_QUOTES, false);
+        map.set_family(FontFamily::new("IBM Plex Mono"), styles);
 
         Ok(realized.styled_with_map(map))
-    }
-}
-
-impl Finalize for RawNode {
-    fn finalize(
-        &self,
-        _: Tracked<dyn World>,
-        styles: StyleChain,
-        mut realized: Content,
-    ) -> SourceResult<Content> {
-        realized = realized.styled(
-            TextNode::FAMILY,
-            FallbackList(vec![FontFamily::new("IBM Plex Mono")]),
-        );
-
-        if self.block {
-            realized = realized.spaced(styles.get(Self::ABOVE), styles.get(Self::BELOW));
-        }
-
-        Ok(realized)
     }
 }
 

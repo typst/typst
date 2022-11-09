@@ -2,7 +2,6 @@
 
 ---
 // Override lists.
-#set list(around: none)
 #show list: it => "(" + it.items.join(", ") + ")"
 
 - A
@@ -13,7 +12,6 @@
 
 ---
 // Test full reset.
-#set heading(around: none)
 #show heading: [B]
 #show heading: text.with(size: 10pt, weight: 400)
 A [= Heading] C
@@ -21,7 +19,6 @@ A [= Heading] C
 ---
 // Test full removal.
 #show heading: none
-#set heading(around: none)
 
 Where is
 = There are no headings around here!
@@ -29,7 +26,7 @@ my heading?
 
 ---
 // Test integrated example.
-#show heading: it => {
+#show heading: it => block({
   set text(10pt)
   move(dy: -1pt)[📖]
   h(5pt)
@@ -38,7 +35,7 @@ my heading?
   } else {
     text(red, it.body)
   }
-}
+})
 
 = Task 1
 Some text.

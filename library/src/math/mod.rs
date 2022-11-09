@@ -5,9 +5,8 @@ mod tex;
 use std::fmt::Write;
 
 use self::tex::{layout_tex, Texify};
-use crate::layout::BlockSpacing;
 use crate::prelude::*;
-use crate::text::{FallbackList, FontFamily, TextNode};
+use crate::text::FontFamily;
 
 /// A piece of a mathematical formula.
 #[derive(Debug, Clone, Hash)]
@@ -18,15 +17,8 @@ pub struct MathNode {
     pub display: bool,
 }
 
-#[node(Show, Finalize, LayoutInline, Texify)]
+#[node(Show, LayoutInline, Texify)]
 impl MathNode {
-    /// The spacing above display math.
-    #[property(resolve, shorthand(around))]
-    pub const ABOVE: Option<BlockSpacing> = Some(Ratio::one().into());
-    /// The spacing below display math.
-    #[property(resolve, shorthand(around))]
-    pub const BELOW: Option<BlockSpacing> = Some(Ratio::one().into());
-
     fn field(&self, name: &str) -> Option<Value> {
         match name {
             "display" => Some(Value::Bool(self.display)),
@@ -40,27 +32,13 @@ impl Show for MathNode {
         self.clone().pack()
     }
 
-    fn show(&self, _: Tracked<dyn World>, _: StyleChain) -> SourceResult<Content> {
-        Ok(self.clone().pack())
-    }
-}
+    fn show(&self, _: Tracked<dyn World>, styles: StyleChain) -> SourceResult<Content> {
+        let mut map = StyleMap::new();
+        map.set_family(FontFamily::new("NewComputerModernMath"), styles);
 
-impl Finalize for MathNode {
-    fn finalize(
-        &self,
-        _: Tracked<dyn World>,
-        styles: StyleChain,
-        mut realized: Content,
-    ) -> SourceResult<Content> {
-        realized = realized.styled(
-            TextNode::FAMILY,
-            FallbackList(vec![FontFamily::new("NewComputerModernMath")]),
-        );
-
+        let mut realized = self.clone().pack().styled_with_map(map);
         if self.display {
-            realized = realized
-                .aligned(Axes::with_x(Some(Align::Center.into())))
-                .spaced(styles.get(Self::ABOVE), styles.get(Self::BELOW))
+            realized = realized.aligned(Axes::with_x(Some(Align::Center.into())))
         }
 
         Ok(realized)

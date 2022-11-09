@@ -42,9 +42,9 @@
 ---
 // Test aligning things in RTL stack with align function & fr units.
 #set page(width: 50pt, margins: 5pt)
+#set block(spacing: 5pt)
 #set text(8pt)
 #stack(dir: rtl, 1fr, [A], 1fr, [B], [C])
-#v(5pt)
 #stack(dir: rtl,
   align(center, [A]),
   align(left, [B]),

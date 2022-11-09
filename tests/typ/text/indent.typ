@@ -2,7 +2,7 @@
 
 ---
 #set par(indent: 12pt, leading: 5pt)
-#set heading(above: 8pt)
+#set block(spacing: 5pt)
 #show heading: text.with(size: 10pt)
 
 The first paragraph has no indent.
@@ -31,7 +31,7 @@ starts a paragraph without indent.
 
 ---
 // This is madness.
-#set par(indent: 12pt, spacing-and-indent: true)
+#set par(indent: 12pt)
 Why would anybody ever ...
 
 ... want spacing and indent?

@@ -32,8 +32,8 @@ use typst::diag::SourceResult;
 use typst::frame::Frame;
 use typst::geom::*;
 use typst::model::{
-    capability, Barrier, Content, Node, SequenceNode, Show, StyleChain, StyleEntry,
-    StyleVec, StyleVecBuilder, StyledNode, Target,
+    capability, Content, Node, SequenceNode, Show, StyleChain, StyleEntry, StyleVec,
+    StyleVecBuilder, StyledNode, Target,
 };
 use typst::World;
 
@@ -85,10 +85,12 @@ impl LayoutBlock for Content {
         regions: &Regions,
         styles: StyleChain,
     ) -> SourceResult<Vec<Frame>> {
-        if let Some(node) = self.to::<dyn LayoutBlock>() {
-            let barrier = StyleEntry::Barrier(Barrier::new(self.id()));
-            let styles = barrier.chain(&styles);
-            return node.layout_block(world, regions, styles);
+        if !self.has::<dyn Show>() || !styles.applicable(self) {
+            if let Some(node) = self.to::<dyn LayoutBlock>() {
+                let barrier = StyleEntry::Barrier(self.id());
+                let styles = barrier.chain(&styles);
+                return node.layout_block(world, regions, styles);
+            }
         }
 
         let scratch = Scratch::default();
@@ -119,16 +121,18 @@ impl LayoutInline for Content {
         regions: &Regions,
         styles: StyleChain,
     ) -> SourceResult<Vec<Frame>> {
-        if let Some(node) = self.to::<dyn LayoutInline>() {
-            let barrier = StyleEntry::Barrier(Barrier::new(self.id()));
-            let styles = barrier.chain(&styles);
-            return node.layout_inline(world, regions, styles);
-        }
+        if !self.has::<dyn Show>() || !styles.applicable(self) {
+            if let Some(node) = self.to::<dyn LayoutInline>() {
+                let barrier = StyleEntry::Barrier(self.id());
+                let styles = barrier.chain(&styles);
+                return node.layout_inline(world, regions, styles);
+            }
 
-        if let Some(node) = self.to::<dyn LayoutBlock>() {
-            let barrier = StyleEntry::Barrier(Barrier::new(self.id()));
-            let styles = barrier.chain(&styles);
-            return node.layout_block(world, regions, styles);
+            if let Some(node) = self.to::<dyn LayoutBlock>() {
+                let barrier = StyleEntry::Barrier(self.id());
+                let styles = barrier.chain(&styles);
+                return node.layout_block(world, regions, styles);
+            }
         }
 
         let scratch = Scratch::default();
@@ -253,8 +257,6 @@ struct Builder<'a> {
 struct Scratch<'a> {
     /// An arena where intermediate style chains are stored.
     styles: Arena<StyleChain<'a>>,
-    /// An arena for individual intermediate style entries.
-    entries: Arena<StyleEntry>,
     /// An arena where intermediate content resulting from show rules is stored.
     content: Arena<Content>,
 }
@@ -354,18 +356,7 @@ impl<'a> Builder<'a> {
         Ok(())
     }
 
-    fn show(
-        &mut self,
-        content: &'a Content,
-        styles: StyleChain<'a>,
-    ) -> SourceResult<bool> {
-        let barrier = StyleEntry::Barrier(Barrier::new(content.id()));
-        let styles = self
-            .scratch
-            .entries
-            .alloc(barrier)
-            .chain(self.scratch.styles.alloc(styles));
-
+    fn show(&mut self, content: &Content, styles: StyleChain<'a>) -> SourceResult<bool> {
         let Some(realized) = styles.apply(self.world, Target::Node(content))? else {
             return Ok(false);
         };
@@ -457,7 +448,7 @@ struct DocBuilder<'a> {
 }
 
 impl<'a> DocBuilder<'a> {
-    fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) {
+    fn accept(&mut self, content: &Content, styles: StyleChain<'a>) {
         if let Some(pagebreak) = content.downcast::<PagebreakNode>() {
             self.keep_next = !pagebreak.weak;
         }
@@ -477,10 +468,10 @@ impl Default for DocBuilder<'_> {
 
 /// Accepts flow content.
 #[derive(Default)]
-struct FlowBuilder<'a>(CollapsingBuilder<'a, FlowChild>);
+struct FlowBuilder<'a>(CollapsingBuilder<'a, FlowChild>, bool);
 
 impl<'a> FlowBuilder<'a> {
-    fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) -> bool {
+    fn accept(&mut self, content: &Content, styles: StyleChain<'a>) -> bool {
         // Weak flow elements:
         // Weakness | Element
         //    0     | weak colbreak
@@ -490,8 +481,11 @@ impl<'a> FlowBuilder<'a> {
         //    4     | generated weak fractional spacing
         //    5     | par spacing
 
+        let last_was_parbreak = self.1;
+        self.1 = false;
+
         if content.is::<ParbreakNode>() {
-            /* Nothing to do */
+            self.1 = true;
         } else if let Some(colbreak) = content.downcast::<ColbreakNode>() {
             if colbreak.weak {
                 self.0.weak(FlowChild::Colbreak, styles, 0);
@@ -499,10 +493,10 @@ impl<'a> FlowBuilder<'a> {
                 self.0.destructive(FlowChild::Colbreak, styles);
             }
         } else if let Some(vertical) = content.downcast::<VNode>() {
-            let child = FlowChild::Spacing(vertical.amount);
+            let child = FlowChild::Spacing(*vertical);
             let frac = vertical.amount.is_fractional();
             if vertical.weak {
-                let weakness = 1 + u8::from(frac) + 2 * u8::from(vertical.generated);
+                let weakness = 1 + u8::from(frac);
                 self.0.weak(child, styles, weakness);
             } else if frac {
                 self.0.destructive(child, styles);
@@ -510,6 +504,24 @@ impl<'a> FlowBuilder<'a> {
                 self.0.ignorant(child, styles);
             }
         } else if content.has::<dyn LayoutBlock>() {
+            if !last_was_parbreak {
+                let tight = if let Some(node) = content.downcast::<ListNode>() {
+                    node.tight
+                } else if let Some(node) = content.downcast::<EnumNode>() {
+                    node.tight
+                } else if let Some(node) = content.downcast::<DescNode>() {
+                    node.tight
+                } else {
+                    false
+                };
+
+                if tight {
+                    let leading = styles.get(ParNode::LEADING);
+                    let spacing = VNode::weak(leading.into());
+                    self.0.weak(FlowChild::Spacing(spacing), styles, 1);
+                }
+            }
+
             let child = FlowChild::Block(content.clone());
             if content.is::<PlaceNode>() {
                 self.0.ignorant(child, styles);
@@ -521,18 +533,6 @@ impl<'a> FlowBuilder<'a> {
         }
 
         true
-    }
-
-    fn par(&mut self, par: ParNode, styles: StyleChain<'a>, indent: bool) {
-        let amount = if indent && !styles.get(ParNode::SPACING_AND_INDENT) {
-            styles.get(ParNode::LEADING).into()
-        } else {
-            styles.get(ParNode::SPACING).into()
-        };
-
-        self.0.weak(FlowChild::Spacing(amount), styles, 5);
-        self.0.supportive(FlowChild::Block(par.pack()), styles);
-        self.0.weak(FlowChild::Spacing(amount), styles, 5);
     }
 
     fn finish(self, doc: &mut DocBuilder<'a>, styles: StyleChain<'a>) {
@@ -552,7 +552,7 @@ impl<'a> FlowBuilder<'a> {
 struct ParBuilder<'a>(CollapsingBuilder<'a, ParChild>);
 
 impl<'a> ParBuilder<'a> {
-    fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) -> bool {
+    fn accept(&mut self, content: &Content, styles: StyleChain<'a>) -> bool {
         // Weak par elements:
         // Weakness | Element
         //    0     | weak fractional spacing
@@ -621,7 +621,7 @@ impl<'a> ParBuilder<'a> {
             children.push_front(ParChild::Spacing(indent.into()));
         }
 
-        parent.flow.par(ParNode(children), shared, !indent.is_zero());
+        parent.flow.accept(&ParNode(children).pack(), shared);
     }
 
     fn is_empty(&self) -> bool {
@@ -635,63 +635,54 @@ struct ListBuilder<'a> {
     items: StyleVecBuilder<'a, ListItem>,
     /// Whether the list contains no paragraph breaks.
     tight: bool,
-    /// Whether the list can be attached.
-    attachable: bool,
     /// Trailing content for which it is unclear whether it is part of the list.
     staged: Vec<(&'a Content, StyleChain<'a>)>,
 }
 
 impl<'a> ListBuilder<'a> {
     fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) -> bool {
-        if self.items.is_empty() {
-            if content.is::<ParbreakNode>() {
-                self.attachable = false;
-            } else if !content.is::<SpaceNode>() && !content.is::<ListItem>() {
-                self.attachable = true;
-            }
-        }
-
-        if let Some(item) = content.downcast::<ListItem>() {
+        if !self.items.is_empty()
+            && (content.is::<SpaceNode>() || content.is::<ParbreakNode>())
+        {
+            self.staged.push((content, styles));
+        } else if let Some(item) = content.downcast::<ListItem>() {
             if self
                 .items
                 .items()
                 .next()
-                .map_or(true, |first| item.kind() == first.kind())
+                .map_or(false, |first| item.kind() != first.kind())
             {
-                self.items.push(item.clone(), styles);
-                self.tight &= self.staged.drain(..).all(|(t, _)| !t.is::<ParbreakNode>());
-                return true;
+                return false;
             }
-        } else if !self.items.is_empty()
-            && (content.is::<SpaceNode>() || content.is::<ParbreakNode>())
-        {
-            self.staged.push((content, styles));
-            return true;
+
+            self.items.push(item.clone(), styles);
+            self.tight &= self.staged.drain(..).all(|(t, _)| !t.is::<ParbreakNode>());
+        } else {
+            return false;
         }
 
-        false
+        true
     }
 
     fn finish(self, parent: &mut Builder<'a>) -> SourceResult<()> {
         let (items, shared) = self.items.finish();
+        if let Some(item) = items.items().next() {
+            let tight = self.tight;
+            let content = match item.kind() {
+                LIST => ListNode::<LIST> { tight, items }.pack(),
+                ENUM => ListNode::<ENUM> { tight, items }.pack(),
+                DESC | _ => ListNode::<DESC> { tight, items }.pack(),
+            };
 
-        let Some(item) = items.items().next() else { return Ok(()) };
-        let tight = self.tight;
-        let attached = tight && self.attachable;
-        let content = match item.kind() {
-            LIST => ListNode::<LIST> { tight, attached, items }.pack(),
-            ENUM => ListNode::<ENUM> { tight, attached, items }.pack(),
-            DESC | _ => ListNode::<DESC> { tight, attached, items }.pack(),
-        };
-
-        let stored = parent.scratch.content.alloc(content);
-        parent.accept(stored, shared)?;
+            let stored = parent.scratch.content.alloc(content);
+            parent.accept(stored, shared)?;
+        }
 
         for (content, styles) in self.staged {
             parent.accept(content, styles)?;
         }
 
-        parent.list.attachable = true;
+        parent.list.tight = true;
 
         Ok(())
     }
@@ -706,7 +697,6 @@ impl Default for ListBuilder<'_> {
         Self {
             items: StyleVecBuilder::default(),
             tight: true,
-            attachable: true,
             staged: vec![],
         }
     }

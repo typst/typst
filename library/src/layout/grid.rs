@@ -1,5 +1,7 @@
 use crate::prelude::*;
 
+use super::Spacing;
+
 /// Arrange content in a grid.
 #[derive(Debug, Hash)]
 pub struct GridNode {
@@ -64,6 +66,15 @@ pub enum TrackSizing {
     /// A track size specified as a fraction of the remaining free space in the
     /// parent.
     Fractional(Fr),
+}
+
+impl From<Spacing> for TrackSizing {
+    fn from(spacing: Spacing) -> Self {
+        match spacing {
+            Spacing::Relative(rel) => Self::Relative(rel),
+            Spacing::Fractional(fr) => Self::Fractional(fr),
+        }
+    }
 }
 
 /// Track sizing definitions.

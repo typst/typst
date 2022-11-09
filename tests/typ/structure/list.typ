@@ -6,7 +6,7 @@ No list
 
 ---
 _Shopping list_
-#list(attached: true)[Apples][Potatoes][Juice]
+#list[Apples][Potatoes][Juice]
 
 ---
 - First level.

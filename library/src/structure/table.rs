@@ -1,8 +1,8 @@
-use crate::layout::{BlockSpacing, GridNode, TrackSizing, TrackSizings};
+use crate::layout::{GridNode, TrackSizing, TrackSizings};
 use crate::prelude::*;
 
 /// A table of items.
-#[derive(Debug, Hash)]
+#[derive(Debug, Clone, Hash)]
 pub struct TableNode {
     /// Defines sizing for content rows and columns.
     pub tracks: Axes<Vec<TrackSizing>>,
@@ -12,7 +12,7 @@ pub struct TableNode {
     pub cells: Vec<Content>,
 }
 
-#[node(Show, Finalize)]
+#[node(Show, LayoutBlock)]
 impl TableNode {
     /// How to fill the cells.
     #[property(referenced)]
@@ -22,13 +22,6 @@ impl TableNode {
     pub const STROKE: Option<PartialStroke> = Some(PartialStroke::default());
     /// How much to pad the cells's content.
     pub const PADDING: Rel<Length> = Abs::pt(5.0).into();
-
-    /// The spacing above the table.
-    #[property(resolve, shorthand(around))]
-    pub const ABOVE: Option<BlockSpacing> = Some(Ratio::one().into());
-    /// The spacing below the table.
-    #[property(resolve, shorthand(around))]
-    pub const BELOW: Option<BlockSpacing> = Some(Ratio::one().into());
 
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         let TrackSizings(columns) = args.named("columns")?.unwrap_or_default();
@@ -67,11 +60,18 @@ impl Show for TableNode {
         .pack()
     }
 
-    fn show(
+    fn show(&self, _: Tracked<dyn World>, _: StyleChain) -> SourceResult<Content> {
+        Ok(self.clone().pack())
+    }
+}
+
+impl LayoutBlock for TableNode {
+    fn layout_block(
         &self,
         world: Tracked<dyn World>,
+        regions: &Regions,
         styles: StyleChain,
-    ) -> SourceResult<Content> {
+    ) -> SourceResult<Vec<Frame>> {
         let fill = styles.get(Self::FILL);
         let stroke = styles.get(Self::STROKE).map(PartialStroke::unwrap_or_default);
         let padding = styles.get(Self::PADDING);
@@ -99,23 +99,12 @@ impl Show for TableNode {
             })
             .collect::<SourceResult<_>>()?;
 
-        Ok(GridNode {
+        GridNode {
             tracks: self.tracks.clone(),
             gutter: self.gutter.clone(),
             cells,
         }
-        .pack())
-    }
-}
-
-impl Finalize for TableNode {
-    fn finalize(
-        &self,
-        _: Tracked<dyn World>,
-        styles: StyleChain,
-        realized: Content,
-    ) -> SourceResult<Content> {
-        Ok(realized.spaced(styles.get(Self::ABOVE), styles.get(Self::BELOW)))
+        .layout_block(world, regions, styles)
     }
 }
 

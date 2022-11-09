@@ -16,51 +16,36 @@
 = Nope
 
 ---
-// Test recursive base recipe. (Burn it with fire!)
-#set list(label: [- Hey])
-- Labelless
-- List
-
----
 // Test show rule in function.
-#let starwars(body) = [
-  #show list: it => {
+#let starwars(body) = {
+  show list: it => block({
     stack(dir: ltr,
       text(red, it),
       1fr,
       scale(x: -100%, text(blue, it)),
     )
-  }
-  #body
-]
+  })
+  body
+}
 
 - Normal list
+
 #starwars[
   - Star
   - Wars
   - List
 ]
+
 - Normal list
 
 ---
 // Test multi-recursion with nested lists.
-#set rect(inset: 2pt)
+#set rect(inset: 3pt)
 #show list: rect.with(stroke: blue)
 #show list: rect.with(stroke: red)
+#show list: block
 
 - List
   - Nested
   - List
 - Recursive!
-
----
-// Inner heading is not finalized. Bug?
-#set heading(around: none)
-#show heading: it => it.body
-#show heading: [
-  = A [
-    = B
-  ]
-]
-
-= Discarded

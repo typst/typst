@@ -1,12 +1,8 @@
 
 ---
 #set page(width: 180pt)
-#set par(
-  justify: true,
-  indent: 14pt,
-  spacing: 0pt,
-  leading: 5pt,
-)
+#set block(spacing: 5pt)
+#set par(justify: true, indent: 14pt, leading: 5pt)
 
 This text is justified, meaning that spaces are stretched so that the text
 forms a "block" with flush edges at both sides.

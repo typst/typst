@@ -148,7 +148,7 @@ pub enum StyleEntry {
     /// A show rule recipe.
     Recipe(Recipe),
     /// A barrier for scoped styles.
-    Barrier(Barrier),
+    Barrier(NodeId),
     /// Guards against recursive show rules.
     Guard(RecipeId),
     /// Allows recursive show rules again.
@@ -158,11 +158,11 @@ pub enum StyleEntry {
 impl StyleEntry {
     /// Make this style the first link of the `tail` chain.
     pub fn chain<'a>(&'a self, tail: &'a StyleChain) -> StyleChain<'a> {
-        if let StyleEntry::Barrier(barrier) = self {
+        if let StyleEntry::Barrier(id) = self {
             if !tail
                 .entries()
                 .filter_map(StyleEntry::property)
-                .any(|p| p.scoped() && barrier.is_for(p.node()))
+                .any(|p| p.scoped() && *id == p.node())
             {
                 return *tail;
             }
@@ -203,7 +203,7 @@ impl Debug for StyleEntry {
         match self {
             Self::Property(property) => property.fmt(f)?,
             Self::Recipe(recipe) => recipe.fmt(f)?,
-            Self::Barrier(barrier) => barrier.fmt(f)?,
+            Self::Barrier(id) => write!(f, "Barrier for {id:?}")?,
             Self::Guard(sel) => write!(f, "Guard against {sel:?}")?,
             Self::Unguard(sel) => write!(f, "Unguard against {sel:?}")?,
         }
@@ -244,6 +244,34 @@ impl<'a> StyleChain<'a> {
     /// references where applicable.
     pub fn get<K: Key<'a>>(self, key: K) -> K::Output {
         K::get(self, self.values(key))
+    }
+
+    /// Whether the style chain has a matching recipe for the content.
+    pub fn applicable(self, content: &Content) -> bool {
+        let target = Target::Node(content);
+
+        // Find out how many recipes there any and whether any of them match.
+        let mut n = 0;
+        let mut any = true;
+        for recipe in self.entries().filter_map(StyleEntry::recipe) {
+            n += 1;
+            any |= recipe.applicable(target);
+        }
+
+        // Find an applicable recipe.
+        if any {
+            for recipe in self.entries().filter_map(StyleEntry::recipe) {
+                if recipe.applicable(target) {
+                    let sel = RecipeId::Nth(n);
+                    if !self.guarded(sel) {
+                        return true;
+                    }
+                }
+                n -= 1;
+            }
+        }
+
+        false
     }
 
     /// Apply show recipes in this style chain to a target.
@@ -292,6 +320,7 @@ impl<'a> StyleChain<'a> {
                         .to::<dyn Show>()
                         .unwrap()
                         .show(world, self)?;
+
                     realized = Some(content.styled_with_entry(StyleEntry::Guard(sel)));
                 }
             }
@@ -342,8 +371,9 @@ impl<'a> StyleChain<'a> {
     fn values<K: Key<'a>>(self, _: K) -> Values<'a, K> {
         Values {
             entries: self.entries(),
-            depth: 0,
             key: PhantomData,
+            barriers: 0,
+            guarded: false,
         }
     }
 
@@ -379,8 +409,9 @@ impl PartialEq for StyleChain<'_> {
 /// An iterator over the values in a style chain.
 struct Values<'a, K> {
     entries: Entries<'a>,
-    depth: usize,
     key: PhantomData<K>,
+    barriers: usize,
+    guarded: bool,
 }
 
 impl<'a, K: Key<'a>> Iterator for Values<'a, K> {
@@ -391,13 +422,22 @@ impl<'a, K: Key<'a>> Iterator for Values<'a, K> {
             match entry {
                 StyleEntry::Property(property) => {
                     if let Some(value) = property.downcast::<K>() {
-                        if !property.scoped() || self.depth <= 1 {
+                        if !property.scoped()
+                            || if self.guarded {
+                                self.barriers == 1
+                            } else {
+                                self.barriers <= 1
+                            }
+                        {
                             return Some(value);
                         }
                     }
                 }
-                StyleEntry::Barrier(barrier) => {
-                    self.depth += barrier.is_for(K::node()) as usize;
+                StyleEntry::Barrier(id) => {
+                    self.barriers += (*id == K::node()) as usize;
+                }
+                StyleEntry::Guard(RecipeId::Base(id)) => {
+                    self.guarded |= *id == K::node();
                 }
                 _ => {}
             }
@@ -444,7 +484,7 @@ impl<'a> Iterator for Links<'a> {
 }
 
 /// A sequence of items with associated styles.
-#[derive(Hash)]
+#[derive(Clone, Hash)]
 pub struct StyleVec<T> {
     items: Vec<T>,
     maps: Vec<(StyleMap, usize)>,
@@ -755,32 +795,6 @@ impl KeyId {
 impl Debug for KeyId {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         self.0.fmt(f)
-    }
-}
-
-/// A scoped property barrier.
-///
-/// Barriers interact with [scoped](super::StyleMap::scoped) styles: A scoped
-/// style can still be read through a single barrier (the one of the node it
-/// _should_ apply to), but a second barrier will make it invisible.
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
-pub struct Barrier(NodeId);
-
-impl Barrier {
-    /// Create a new barrier for the given node.
-    pub fn new(node: NodeId) -> Self {
-        Self(node)
-    }
-
-    /// Whether this barrier is for the node `T`.
-    pub fn is_for(&self, node: NodeId) -> bool {
-        self.0 == node
-    }
-}
-
-impl Debug for Barrier {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "Barrier for {:?}", self.0)
     }
 }
 
