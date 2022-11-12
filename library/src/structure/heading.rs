@@ -50,20 +50,21 @@ impl Finalize for HeadingNode {
         _: StyleChain,
         realized: Content,
     ) -> SourceResult<Content> {
-        let size = Em::new(match self.level.get() {
+        let scale = match self.level.get() {
             1 => 1.4,
             2 => 1.2,
             _ => 1.0,
-        });
+        };
 
-        let above = Em::new(if self.level.get() == 1 { 1.8 } else { 1.44 });
-        let below = Em::new(0.66);
+        let size = Em::new(scale);
+        let above = Em::new(if self.level.get() == 1 { 1.8 } else { 1.44 }) / scale;
+        let below = Em::new(0.66) / scale;
 
         let mut map = StyleMap::new();
         map.set(TextNode::SIZE, TextSize(size.into()));
         map.set(TextNode::WEIGHT, FontWeight::BOLD);
-        map.set(BlockNode::ABOVE, VNode::strong(above.into()));
-        map.set(BlockNode::BELOW, VNode::strong(below.into()));
+        map.set(BlockNode::ABOVE, VNode::block_around(above.into()));
+        map.set(BlockNode::BELOW, VNode::block_around(below.into()));
 
         Ok(realized.styled_with_map(map))
     }

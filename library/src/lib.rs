@@ -1,14 +1,13 @@
 //! Typst's standard library.
 
 pub mod base;
+pub mod core;
 pub mod graphics;
 pub mod layout;
 pub mod math;
 pub mod prelude;
 pub mod structure;
 pub mod text;
-
-mod ext;
 
 use typst::geom::{Align, Color, Dir, GenAlign};
 use typst::model::{LangItems, Node, Scope, StyleMap};

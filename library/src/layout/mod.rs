@@ -32,16 +32,18 @@ use typst::diag::SourceResult;
 use typst::frame::Frame;
 use typst::geom::*;
 use typst::model::{
-    capability, Content, Node, SequenceNode, Show, StyleChain, StyleEntry, StyleVec,
+    capability, Content, Node, SequenceNode, Show, StyleChain, StyleEntry,
     StyleVecBuilder, StyledNode, Target,
 };
 use typst::World;
 
+use crate::core::BehavedBuilder;
+use crate::prelude::*;
 use crate::structure::{
     DescNode, DocNode, EnumNode, ListItem, ListNode, DESC, ENUM, LIST,
 };
 use crate::text::{
-    LinebreakNode, ParChild, ParNode, ParbreakNode, SmartQuoteNode, SpaceNode, TextNode,
+    LinebreakNode, ParNode, ParbreakNode, SmartQuoteNode, SpaceNode, TextNode,
 };
 
 /// Root-level layout.
@@ -468,41 +470,17 @@ impl Default for DocBuilder<'_> {
 
 /// Accepts flow content.
 #[derive(Default)]
-struct FlowBuilder<'a>(CollapsingBuilder<'a, FlowChild>, bool);
+struct FlowBuilder<'a>(BehavedBuilder<'a>, bool);
 
 impl<'a> FlowBuilder<'a> {
     fn accept(&mut self, content: &Content, styles: StyleChain<'a>) -> bool {
-        // Weak flow elements:
-        // Weakness | Element
-        //    0     | weak colbreak
-        //    1     | weak fractional spacing
-        //    2     | weak spacing
-        //    3     | generated weak spacing
-        //    4     | generated weak fractional spacing
-        //    5     | par spacing
-
         let last_was_parbreak = self.1;
         self.1 = false;
 
         if content.is::<ParbreakNode>() {
             self.1 = true;
-        } else if let Some(colbreak) = content.downcast::<ColbreakNode>() {
-            if colbreak.weak {
-                self.0.weak(FlowChild::Colbreak, styles, 0);
-            } else {
-                self.0.destructive(FlowChild::Colbreak, styles);
-            }
-        } else if let Some(vertical) = content.downcast::<VNode>() {
-            let child = FlowChild::Spacing(*vertical);
-            let frac = vertical.amount.is_fractional();
-            if vertical.weak {
-                let weakness = 1 + u8::from(frac);
-                self.0.weak(child, styles, weakness);
-            } else if frac {
-                self.0.destructive(child, styles);
-            } else {
-                self.0.ignorant(child, styles);
-            }
+        } else if content.is::<VNode>() || content.is::<ColbreakNode>() {
+            self.0.push(content.clone(), styles);
         } else if content.has::<dyn LayoutBlock>() {
             if !last_was_parbreak {
                 let tight = if let Some(node) = content.downcast::<ListNode>() {
@@ -517,17 +495,16 @@ impl<'a> FlowBuilder<'a> {
 
                 if tight {
                     let leading = styles.get(ParNode::LEADING);
-                    let spacing = VNode::weak(leading.into());
-                    self.0.weak(FlowChild::Spacing(spacing), styles, 1);
+                    let spacing = VNode::list_attach(leading.into());
+                    self.0.push(spacing.pack(), styles);
                 }
             }
 
-            let child = FlowChild::Block(content.clone());
-            if content.is::<PlaceNode>() {
-                self.0.ignorant(child, styles);
-            } else {
-                self.0.supportive(child, styles);
-            }
+            let above = styles.get(BlockNode::ABOVE);
+            let below = styles.get(BlockNode::BELOW);
+            self.0.push(above.pack(), styles);
+            self.0.push(content.clone(), styles);
+            self.0.push(below.pack(), styles);
         } else {
             return false;
         }
@@ -549,43 +526,22 @@ impl<'a> FlowBuilder<'a> {
 
 /// Accepts paragraph content.
 #[derive(Default)]
-struct ParBuilder<'a>(CollapsingBuilder<'a, ParChild>);
+struct ParBuilder<'a>(BehavedBuilder<'a>);
 
 impl<'a> ParBuilder<'a> {
     fn accept(&mut self, content: &Content, styles: StyleChain<'a>) -> bool {
-        // Weak par elements:
-        // Weakness | Element
-        //    0     | weak fractional spacing
-        //    1     | weak spacing
-        //    2     | space
-
-        if content.is::<SpaceNode>() {
-            self.0.weak(ParChild::Text(' '.into()), styles, 2);
-        } else if let Some(linebreak) = content.downcast::<LinebreakNode>() {
-            let c = if linebreak.justify { '\u{2028}' } else { '\n' };
-            self.0.destructive(ParChild::Text(c.into()), styles);
-        } else if let Some(horizontal) = content.downcast::<HNode>() {
-            let child = ParChild::Spacing(horizontal.amount);
-            let frac = horizontal.amount.is_fractional();
-            if horizontal.weak {
-                let weakness = u8::from(!frac);
-                self.0.weak(child, styles, weakness);
-            } else if frac {
-                self.0.destructive(child, styles);
-            } else {
-                self.0.ignorant(child, styles);
-            }
-        } else if let Some(quote) = content.downcast::<SmartQuoteNode>() {
-            self.0.supportive(ParChild::Quote { double: quote.double }, styles);
-        } else if let Some(text) = content.downcast::<TextNode>() {
-            self.0.supportive(ParChild::Text(text.0.clone()), styles);
-        } else if content.has::<dyn LayoutInline>() {
-            self.0.supportive(ParChild::Inline(content.clone()), styles);
-        } else {
-            return false;
+        if content.is::<SpaceNode>()
+            || content.is::<LinebreakNode>()
+            || content.is::<HNode>()
+            || content.is::<SmartQuoteNode>()
+            || content.is::<TextNode>()
+            || content.has::<dyn LayoutInline>()
+        {
+            self.0.push(content.clone(), styles);
+            return true;
         }
 
-        true
+        false
     }
 
     fn finish(self, parent: &mut Builder<'a>) {
@@ -600,10 +556,14 @@ impl<'a> ParBuilder<'a> {
         if !indent.is_zero()
             && children
                 .items()
-                .find_map(|child| match child {
-                    ParChild::Spacing(_) => None,
-                    ParChild::Text(_) | ParChild::Quote { .. } => Some(true),
-                    ParChild::Inline(_) => Some(false),
+                .find_map(|child| {
+                    if child.is::<TextNode>() || child.is::<SmartQuoteNode>() {
+                        Some(true)
+                    } else if child.has::<dyn LayoutInline>() {
+                        Some(false)
+                    } else {
+                        None
+                    }
                 })
                 .unwrap_or_default()
             && parent
@@ -611,14 +571,10 @@ impl<'a> ParBuilder<'a> {
                 .0
                 .items()
                 .rev()
-                .find_map(|child| match child {
-                    FlowChild::Spacing(_) => None,
-                    FlowChild::Block(content) => Some(content.is::<ParNode>()),
-                    FlowChild::Colbreak => Some(false),
-                })
-                .unwrap_or_default()
+                .find(|child| child.has::<dyn LayoutBlock>())
+                .map_or(false, |child| child.is::<ParNode>())
         {
-            children.push_front(ParChild::Spacing(indent.into()));
+            children.push_front(HNode::strong(indent.into()).pack());
         }
 
         parent.flow.accept(&ParNode(children).pack(), shared);
@@ -699,117 +655,5 @@ impl Default for ListBuilder<'_> {
             tight: true,
             staged: vec![],
         }
-    }
-}
-
-/// A wrapper around a [`StyleVecBuilder`] that allows to collapse items.
-struct CollapsingBuilder<'a, T> {
-    /// The internal builder.
-    builder: StyleVecBuilder<'a, T>,
-    /// Staged weak and ignorant items that we can't yet commit to the builder.
-    /// The option is `Some(_)` for weak items and `None` for ignorant items.
-    staged: Vec<(T, StyleChain<'a>, Option<u8>)>,
-    /// What the last non-ignorant item was.
-    last: Last,
-}
-
-/// What the last non-ignorant item was.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-enum Last {
-    Weak,
-    Destructive,
-    Supportive,
-}
-
-impl<'a, T> CollapsingBuilder<'a, T> {
-    /// Create a new style-vec builder.
-    fn new() -> Self {
-        Self {
-            builder: StyleVecBuilder::new(),
-            staged: vec![],
-            last: Last::Destructive,
-        }
-    }
-
-    /// Whether the builder is empty.
-    fn is_empty(&self) -> bool {
-        self.builder.is_empty() && self.staged.is_empty()
-    }
-
-    /// Can only exist when there is at least one supportive item to its left
-    /// and to its right, with no destructive items in between. There may be
-    /// ignorant items in between in both directions.
-    ///
-    /// Between weak items, there may be at least one per layer and among the
-    /// candidates the strongest one (smallest `weakness`) wins. When tied,
-    /// the one that compares larger through `PartialOrd` wins.
-    fn weak(&mut self, item: T, styles: StyleChain<'a>, weakness: u8)
-    where
-        T: PartialOrd,
-    {
-        if self.last == Last::Destructive {
-            return;
-        }
-
-        if self.last == Last::Weak {
-            let weak = self.staged.iter().position(|(prev_item, _, prev_weakness)| {
-                prev_weakness.map_or(false, |prev_weakness| {
-                    weakness < prev_weakness
-                        || (weakness == prev_weakness && item > *prev_item)
-                })
-            });
-
-            let Some(weak) = weak else { return };
-            self.staged.remove(weak);
-        }
-
-        self.staged.push((item, styles, Some(weakness)));
-        self.last = Last::Weak;
-    }
-
-    /// Forces nearby weak items to collapse.
-    fn destructive(&mut self, item: T, styles: StyleChain<'a>) {
-        self.flush(false);
-        self.builder.push(item, styles);
-        self.last = Last::Destructive;
-    }
-
-    /// Allows nearby weak items to exist.
-    fn supportive(&mut self, item: T, styles: StyleChain<'a>) {
-        self.flush(true);
-        self.builder.push(item, styles);
-        self.last = Last::Supportive;
-    }
-
-    /// Has no influence on other items.
-    fn ignorant(&mut self, item: T, styles: StyleChain<'a>) {
-        self.staged.push((item, styles, None));
-    }
-
-    /// Iterate over the contained items.
-    fn items(&self) -> impl DoubleEndedIterator<Item = &T> {
-        self.builder.items().chain(self.staged.iter().map(|(item, ..)| item))
-    }
-
-    /// Return the finish style vec and the common prefix chain.
-    fn finish(mut self) -> (StyleVec<T>, StyleChain<'a>) {
-        self.flush(false);
-        self.builder.finish()
-    }
-
-    /// Push the staged items, filtering out weak items if `supportive` is
-    /// false.
-    fn flush(&mut self, supportive: bool) {
-        for (item, styles, meta) in self.staged.drain(..) {
-            if supportive || meta.is_none() {
-                self.builder.push(item, styles);
-            }
-        }
-    }
-}
-
-impl<'a, T> Default for CollapsingBuilder<'a, T> {
-    fn default() -> Self {
-        Self::new()
     }
 }

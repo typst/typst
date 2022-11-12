@@ -410,10 +410,16 @@ impl Fold for FontFeatures {
 #[derive(Debug, Clone, Hash)]
 pub struct SpaceNode;
 
-#[node]
+#[node(Behave)]
 impl SpaceNode {
     fn construct(_: &mut Vm, _: &mut Args) -> SourceResult<Content> {
         Ok(Self.pack())
+    }
+}
+
+impl Behave for SpaceNode {
+    fn behaviour(&self) -> Behaviour {
+        Behaviour::Weak(2)
     }
 }
 
@@ -423,11 +429,17 @@ pub struct LinebreakNode {
     pub justify: bool,
 }
 
-#[node]
+#[node(Behave)]
 impl LinebreakNode {
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         let justify = args.named("justify")?.unwrap_or(false);
         Ok(Self { justify }.pack())
+    }
+}
+
+impl Behave for LinebreakNode {
+    fn behaviour(&self) -> Behaviour {
+        Behaviour::Destructive
     }
 }
 

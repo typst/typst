@@ -1,30 +1,19 @@
-use std::cmp::Ordering;
-
-use typst::util::EcoString;
 use unicode_bidi::{BidiInfo, Level as BidiLevel};
 use unicode_script::{Script, UnicodeScript};
 use xi_unicode::LineBreakIterator;
 
-use super::{shape, Lang, Quoter, Quotes, ShapedText, TextNode};
-use crate::layout::Spacing;
+use typst::model::Key;
+
+use super::{
+    shape, Lang, LinebreakNode, Quoter, Quotes, ShapedText, SmartQuoteNode, SpaceNode,
+    TextNode,
+};
+use crate::layout::{HNode, Spacing};
 use crate::prelude::*;
 
 /// Arrange text, spacing and inline-level nodes into a paragraph.
 #[derive(Hash)]
-pub struct ParNode(pub StyleVec<ParChild>);
-
-/// A uniformly styled atomic piece of a paragraph.
-#[derive(Hash, PartialEq)]
-pub enum ParChild {
-    /// A chunk of text.
-    Text(EcoString),
-    /// A single or double smart quote.
-    Quote { double: bool },
-    /// Horizontal spacing between other children.
-    Spacing(Spacing),
-    /// Arbitrary inline-level content.
-    Inline(Content),
-}
+pub struct ParNode(pub StyleVec<Content>);
 
 #[node(LayoutBlock)]
 impl ParNode {
@@ -81,26 +70,6 @@ impl Debug for ParNode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.write_str("Par ")?;
         self.0.fmt(f)
-    }
-}
-
-impl Debug for ParChild {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            Self::Text(text) => write!(f, "Text({:?})", text),
-            Self::Quote { double } => write!(f, "Quote({double})"),
-            Self::Spacing(kind) => write!(f, "{:?}", kind),
-            Self::Inline(inline) => inline.fmt(f),
-        }
-    }
-}
-
-impl PartialOrd for ParChild {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        match (self, other) {
-            (Self::Spacing(a), Self::Spacing(b)) => a.partial_cmp(b),
-            _ => None,
-        }
     }
 }
 
@@ -426,43 +395,52 @@ fn collect<'a>(
 
     while let Some((child, map)) = iter.next() {
         let styles = map.chain(styles);
-        let segment = match child {
-            ParChild::Text(text) => {
-                let prev = full.len();
-                if let Some(case) = styles.get(TextNode::CASE) {
-                    full.push_str(&case.apply(text));
-                } else {
-                    full.push_str(text);
-                }
-                Segment::Text(full.len() - prev)
+        let segment = if child.is::<SpaceNode>() {
+            full.push(' ');
+            Segment::Text(1)
+        } else if let Some(node) = child.downcast::<TextNode>() {
+            let prev = full.len();
+            if let Some(case) = styles.get(TextNode::CASE) {
+                full.push_str(&case.apply(&node.0));
+            } else {
+                full.push_str(&node.0);
             }
-            &ParChild::Quote { double } => {
-                let prev = full.len();
-                if styles.get(TextNode::SMART_QUOTES) {
-                    let lang = styles.get(TextNode::LANG);
-                    let region = styles.get(TextNode::REGION);
-                    let quotes = Quotes::from_lang(lang, region);
-                    let peeked = iter.peek().and_then(|(child, _)| match child {
-                        ParChild::Text(text) => text.chars().next(),
-                        ParChild::Quote { .. } => Some('"'),
-                        ParChild::Spacing(_) => Some(SPACING_REPLACE),
-                        ParChild::Inline(_) => Some(NODE_REPLACE),
-                    });
+            Segment::Text(full.len() - prev)
+        } else if let Some(node) = child.downcast::<LinebreakNode>() {
+            let c = if node.justify { '\u{2028}' } else { '\n' };
+            full.push(c);
+            Segment::Text(c.len_utf8())
+        } else if let Some(node) = child.downcast::<SmartQuoteNode>() {
+            let prev = full.len();
+            if styles.get(TextNode::SMART_QUOTES) {
+                let lang = styles.get(TextNode::LANG);
+                let region = styles.get(TextNode::REGION);
+                let quotes = Quotes::from_lang(lang, region);
+                let peeked = iter.peek().and_then(|(child, _)| {
+                    if let Some(node) = child.downcast::<TextNode>() {
+                        node.0.chars().next()
+                    } else if child.is::<SmartQuoteNode>() {
+                        Some('"')
+                    } else if child.is::<SpaceNode>() || child.is::<HNode>() {
+                        Some(SPACING_REPLACE)
+                    } else {
+                        Some(NODE_REPLACE)
+                    }
+                });
 
-                    full.push_str(quoter.quote(&quotes, double, peeked));
-                } else {
-                    full.push(if double { '"' } else { '\'' });
-                }
-                Segment::Text(full.len() - prev)
+                full.push_str(quoter.quote(&quotes, node.double, peeked));
+            } else {
+                full.push(if node.double { '"' } else { '\'' });
             }
-            &ParChild::Spacing(spacing) => {
-                full.push(SPACING_REPLACE);
-                Segment::Spacing(spacing)
-            }
-            ParChild::Inline(inline) => {
-                full.push(NODE_REPLACE);
-                Segment::Inline(inline)
-            }
+            Segment::Text(full.len() - prev)
+        } else if let Some(&node) = child.downcast::<HNode>() {
+            full.push(SPACING_REPLACE);
+            Segment::Spacing(node.amount)
+        } else if child.has::<dyn LayoutInline>() {
+            full.push(NODE_REPLACE);
+            Segment::Inline(child)
+        } else {
+            panic!("unexpected par child: {child:?}");
         };
 
         if let Some(last) = full.chars().last() {
@@ -608,7 +586,7 @@ fn is_compatible(a: Script, b: Script) -> bool {
 /// paragraph.
 fn shared_get<'a, K: Key<'a>>(
     styles: StyleChain<'a>,
-    children: &StyleVec<ParChild>,
+    children: &StyleVec<Content>,
     key: K,
 ) -> Option<K::Output> {
     children

@@ -1,4 +1,5 @@
-use super::*;
+//! Extension traits.
+
 use crate::prelude::*;
 
 /// Additional methods on content.
@@ -33,31 +34,31 @@ pub trait ContentExt {
 
 impl ContentExt for Content {
     fn strong(self) -> Self {
-        text::StrongNode(self).pack()
+        crate::text::StrongNode(self).pack()
     }
 
     fn emph(self) -> Self {
-        text::EmphNode(self).pack()
+        crate::text::EmphNode(self).pack()
     }
 
     fn underlined(self) -> Self {
-        text::DecoNode::<{ text::UNDERLINE }>(self).pack()
+        crate::text::DecoNode::<{ crate::text::UNDERLINE }>(self).pack()
     }
 
     fn boxed(self, sizing: Axes<Option<Rel<Length>>>) -> Self {
-        layout::BoxNode { sizing, child: self }.pack()
+        crate::layout::BoxNode { sizing, child: self }.pack()
     }
 
     fn aligned(self, aligns: Axes<Option<GenAlign>>) -> Self {
-        layout::AlignNode { aligns, child: self }.pack()
+        crate::layout::AlignNode { aligns, child: self }.pack()
     }
 
     fn padded(self, padding: Sides<Rel<Length>>) -> Self {
-        layout::PadNode { padding, child: self }.pack()
+        crate::layout::PadNode { padding, child: self }.pack()
     }
 
     fn moved(self, delta: Axes<Rel<Length>>) -> Self {
-        layout::MoveNode { delta, child: self }.pack()
+        crate::layout::MoveNode { delta, child: self }.pack()
     }
 
     fn filled(self, fill: Paint) -> Self {
@@ -73,16 +74,16 @@ impl ContentExt for Content {
 pub trait StyleMapExt {
     /// Set a font family composed of a preferred family and existing families
     /// from a style chain.
-    fn set_family(&mut self, preferred: text::FontFamily, existing: StyleChain);
+    fn set_family(&mut self, preferred: crate::text::FontFamily, existing: StyleChain);
 }
 
 impl StyleMapExt for StyleMap {
-    fn set_family(&mut self, preferred: text::FontFamily, existing: StyleChain) {
+    fn set_family(&mut self, preferred: crate::text::FontFamily, existing: StyleChain) {
         self.set(
-            text::TextNode::FAMILY,
-            text::FallbackList(
+            crate::text::TextNode::FAMILY,
+            crate::text::FallbackList(
                 std::iter::once(preferred)
-                    .chain(existing.get(text::TextNode::FAMILY).0.iter().cloned())
+                    .chain(existing.get(crate::text::TextNode::FAMILY).0.iter().cloned())
                     .collect(),
             ),
         );

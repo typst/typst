@@ -104,10 +104,20 @@ pub struct ColbreakNode {
     pub weak: bool,
 }
 
-#[node]
+#[node(Behave)]
 impl ColbreakNode {
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         let weak = args.named("weak")?.unwrap_or(false);
         Ok(Self { weak }.pack())
+    }
+}
+
+impl Behave for ColbreakNode {
+    fn behaviour(&self) -> Behaviour {
+        if self.weak {
+            Behaviour::Weak(1)
+        } else {
+            Behaviour::Destructive
+        }
     }
 }

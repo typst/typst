@@ -5,7 +5,7 @@ use crate::prelude::*;
 #[derive(Debug, Hash)]
 pub struct PlaceNode(pub Content);
 
-#[node(LayoutBlock)]
+#[node(LayoutBlock, Behave)]
 impl PlaceNode {
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         let aligns = args.find()?.unwrap_or(Axes::with_x(Some(GenAlign::Start)));
@@ -52,5 +52,11 @@ impl PlaceNode {
         self.0
             .downcast::<AlignNode>()
             .map_or(false, |node| node.aligns.y.is_some())
+    }
+}
+
+impl Behave for PlaceNode {
+    fn behaviour(&self) -> Behaviour {
+        Behaviour::Ignorant
     }
 }

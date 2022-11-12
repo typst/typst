@@ -66,19 +66,25 @@ pub struct BlockNode(pub Content);
 impl BlockNode {
     /// The spacing between the previous and this block.
     #[property(skip)]
-    pub const ABOVE: VNode = VNode::weak(Em::new(1.2).into());
+    pub const ABOVE: VNode = VNode::block_spacing(Em::new(1.2).into());
     /// The spacing between this and the following block.
     #[property(skip)]
-    pub const BELOW: VNode = VNode::weak(Em::new(1.2).into());
+    pub const BELOW: VNode = VNode::block_spacing(Em::new(1.2).into());
 
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self(args.eat()?.unwrap_or_default()).pack())
     }
 
     fn set(...) {
-        let spacing = args.named("spacing")?.map(VNode::weak);
-        styles.set_opt(Self::ABOVE, args.named("above")?.map(VNode::strong).or(spacing));
-        styles.set_opt(Self::BELOW, args.named("below")?.map(VNode::strong).or(spacing));
+        let spacing = args.named("spacing")?.map(VNode::block_spacing);
+        styles.set_opt(
+            Self::ABOVE,
+            args.named("above")?.map(VNode::block_around).or(spacing),
+        );
+        styles.set_opt(
+            Self::BELOW,
+            args.named("below")?.map(VNode::block_around).or(spacing),
+        );
     }
 }
 

@@ -5,11 +5,13 @@ use crate::prelude::*;
 /// Horizontal spacing.
 #[derive(Debug, Copy, Clone, Hash)]
 pub struct HNode {
+    /// The amount of horizontal spacing.
     pub amount: Spacing,
+    /// Whether the node is weak, see also [`Behaviour`].
     pub weak: bool,
 }
 
-#[node]
+#[node(Behave)]
 impl HNode {
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         let amount = args.expect("spacing")?;
@@ -18,31 +20,98 @@ impl HNode {
     }
 }
 
-/// Vertical spacing.
-#[derive(Debug, Copy, Clone, Hash, PartialEq, PartialOrd)]
-pub struct VNode {
-    pub amount: Spacing,
-    pub weak: bool,
-}
-
-impl VNode {
-    /// Create weak vertical spacing.
-    pub fn weak(amount: Spacing) -> Self {
-        Self { amount, weak: true }
-    }
-
-    /// Create strong vertical spacing.
+impl HNode {
+    /// Normal strong spacing.
     pub fn strong(amount: Spacing) -> Self {
         Self { amount, weak: false }
     }
+
+    /// User-created weak spacing.
+    pub fn weak(amount: Spacing) -> Self {
+        Self { amount, weak: true }
+    }
 }
 
-#[node]
+impl Behave for HNode {
+    fn behaviour(&self) -> Behaviour {
+        if self.amount.is_fractional() {
+            Behaviour::Destructive
+        } else if self.weak {
+            Behaviour::Weak(1)
+        } else {
+            Behaviour::Ignorant
+        }
+    }
+
+    fn larger(&self, prev: &Content) -> bool {
+        let Some(prev) = prev.downcast::<Self>() else { return false };
+        self.amount > prev.amount
+    }
+}
+
+/// Vertical spacing.
+#[derive(Debug, Copy, Clone, Hash, PartialEq, PartialOrd)]
+pub struct VNode {
+    /// The amount of vertical spacing.
+    pub amount: Spacing,
+    /// The node's weakness level, see also [`Behaviour`].
+    pub weakness: u8,
+}
+
+#[node(Behave)]
 impl VNode {
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         let amount = args.expect("spacing")?;
-        let weak = args.named("weak")?.unwrap_or(false);
-        Ok(Self { amount, weak }.pack())
+        let node = if args.named("weak")?.unwrap_or(false) {
+            Self::weak(amount)
+        } else {
+            Self::strong(amount)
+        };
+        Ok(node.pack())
+    }
+}
+
+impl VNode {
+    /// Normal strong spacing.
+    pub fn strong(amount: Spacing) -> Self {
+        Self { amount, weakness: 0 }
+    }
+
+    /// User-created weak spacing.
+    pub fn weak(amount: Spacing) -> Self {
+        Self { amount, weakness: 1 }
+    }
+
+    /// Weak spacing with list attach weakness.
+    pub fn list_attach(amount: Spacing) -> Self {
+        Self { amount, weakness: 2 }
+    }
+
+    /// Weak spacing with BlockNode::ABOVE/BELOW weakness.
+    pub fn block_around(amount: Spacing) -> Self {
+        Self { amount, weakness: 3 }
+    }
+
+    /// Weak spacing with BlockNode::SPACING weakness.
+    pub fn block_spacing(amount: Spacing) -> Self {
+        Self { amount, weakness: 4 }
+    }
+}
+
+impl Behave for VNode {
+    fn behaviour(&self) -> Behaviour {
+        if self.amount.is_fractional() {
+            Behaviour::Destructive
+        } else if self.weakness > 0 {
+            Behaviour::Weak(self.weakness)
+        } else {
+            Behaviour::Ignorant
+        }
+    }
+
+    fn larger(&self, prev: &Content) -> bool {
+        let Some(prev) = prev.downcast::<Self>() else { return false };
+        self.amount > prev.amount
     }
 }
 
