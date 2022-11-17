@@ -393,6 +393,26 @@ fn collect<'a>(
     let mut segments = vec![];
     let mut iter = par.0.iter().peekable();
 
+    let indent = styles.get(ParNode::INDENT);
+    if !indent.is_zero()
+        && par
+            .0
+            .items()
+            .find_map(|child| {
+                if child.is::<TextNode>() || child.is::<SmartQuoteNode>() {
+                    Some(true)
+                } else if child.has::<dyn LayoutInline>() {
+                    Some(false)
+                } else {
+                    None
+                }
+            })
+            .unwrap_or_default()
+    {
+        full.push(SPACING_REPLACE);
+        segments.push((Segment::Spacing(indent.into()), *styles));
+    }
+
     while let Some((child, map)) = iter.next() {
         let styles = map.chain(styles);
         let segment = if child.is::<SpaceNode>() {

@@ -1,3 +1,5 @@
+use typst::model::{Property, StyleEntry};
+
 use super::{AlignNode, ColbreakNode, PlaceNode, Spacing, VNode};
 use crate::prelude::*;
 use crate::text::ParNode;
@@ -58,6 +60,8 @@ struct FlowLayouter {
     used: Size,
     /// The sum of fractions in the current region.
     fr: Fr,
+    /// Whether the last block was a paragraph.
+    last_block_was_par: bool,
     /// Spacing and layouted blocks.
     items: Vec<FlowItem>,
     /// Finished frames for previous regions.
@@ -92,6 +96,7 @@ impl FlowLayouter {
             full,
             used: Size::zero(),
             fr: Fr::zero(),
+            last_block_was_par: false,
             items: vec![],
             finished: vec![],
         }
@@ -150,8 +155,18 @@ impl FlowLayouter {
                 .unwrap_or(Align::Top),
         );
 
+        // Disable paragraph indent if this is not a consecutive paragraph.
+        let reset;
+        let is_par = block.is::<ParNode>();
+        let mut chained = styles;
+        if !self.last_block_was_par && is_par && !styles.get(ParNode::INDENT).is_zero() {
+            let property = Property::new(ParNode::INDENT, Length::zero());
+            reset = StyleEntry::Property(property);
+            chained = reset.chain(&styles);
+        }
+
         // Layout the block itself.
-        let frames = block.layout_block(world, &self.regions, styles)?;
+        let frames = block.layout_block(world, &self.regions, chained)?;
         let len = frames.len();
         for (i, frame) in frames.into_iter().enumerate() {
             // Grow our size, shrink the region and save the frame for later.
@@ -165,6 +180,8 @@ impl FlowLayouter {
                 self.finish_region();
             }
         }
+
+        self.last_block_was_par = is_par;
 
         Ok(())
     }

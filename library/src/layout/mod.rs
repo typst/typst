@@ -474,13 +474,14 @@ struct FlowBuilder<'a>(BehavedBuilder<'a>, bool);
 
 impl<'a> FlowBuilder<'a> {
     fn accept(&mut self, content: &Content, styles: StyleChain<'a>) -> bool {
-        let last_was_parbreak = self.1;
-        self.1 = false;
+        let last_was_parbreak = std::mem::replace(&mut self.1, false);
 
         if content.is::<ParbreakNode>() {
             self.1 = true;
+            return true;
         } else if content.is::<VNode>() || content.is::<ColbreakNode>() {
             self.0.push(content.clone(), styles);
+            return true;
         } else if content.has::<dyn LayoutBlock>() {
             if !last_was_parbreak {
                 let tight = if let Some(node) = content.downcast::<ListNode>() {
@@ -505,11 +506,10 @@ impl<'a> FlowBuilder<'a> {
             self.0.push(above.pack(), styles);
             self.0.push(content.clone(), styles);
             self.0.push(below.pack(), styles);
-        } else {
-            return false;
+            return true;
         }
 
-        true
+        false
     }
 
     fn finish(self, doc: &mut DocBuilder<'a>, styles: StyleChain<'a>) {
@@ -545,39 +545,10 @@ impl<'a> ParBuilder<'a> {
     }
 
     fn finish(self, parent: &mut Builder<'a>) {
-        let (mut children, shared) = self.0.finish();
-        if children.is_empty() {
-            return;
+        let (children, shared) = self.0.finish();
+        if !children.is_empty() {
+            parent.flow.accept(&ParNode(children).pack(), shared);
         }
-
-        // Paragraph indent should only apply if the paragraph starts with
-        // text and follows directly after another paragraph.
-        let indent = shared.get(ParNode::INDENT);
-        if !indent.is_zero()
-            && children
-                .items()
-                .find_map(|child| {
-                    if child.is::<TextNode>() || child.is::<SmartQuoteNode>() {
-                        Some(true)
-                    } else if child.has::<dyn LayoutInline>() {
-                        Some(false)
-                    } else {
-                        None
-                    }
-                })
-                .unwrap_or_default()
-            && parent
-                .flow
-                .0
-                .items()
-                .rev()
-                .find(|child| child.has::<dyn LayoutBlock>())
-                .map_or(false, |child| child.is::<ParNode>())
-        {
-            children.push_front(HNode::strong(indent.into()).pack());
-        }
-
-        parent.flow.accept(&ParNode(children).pack(), shared);
     }
 
     fn is_empty(&self) -> bool {
