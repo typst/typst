@@ -112,7 +112,7 @@ pub trait LayoutInline: 'static + Sync + Send {
         world: Tracked<dyn World>,
         regions: &Regions,
         styles: StyleChain,
-    ) -> SourceResult<Vec<Frame>>;
+    ) -> SourceResult<Frame>;
 }
 
 impl LayoutInline for Content {
@@ -122,7 +122,10 @@ impl LayoutInline for Content {
         world: Tracked<dyn World>,
         regions: &Regions,
         styles: StyleChain,
-    ) -> SourceResult<Vec<Frame>> {
+    ) -> SourceResult<Frame> {
+        assert!(regions.backlog.is_empty());
+        assert!(regions.last.is_none());
+
         if !self.has::<dyn Show>() || !styles.applicable(self) {
             if let Some(node) = self.to::<dyn LayoutInline>() {
                 let barrier = StyleEntry::Barrier(self.id());
@@ -133,7 +136,7 @@ impl LayoutInline for Content {
             if let Some(node) = self.to::<dyn LayoutBlock>() {
                 let barrier = StyleEntry::Barrier(self.id());
                 let styles = barrier.chain(&styles);
-                return node.layout_block(world, regions, styles);
+                return Ok(node.layout_block(world, regions, styles)?.remove(0));
             }
         }
 
@@ -141,7 +144,7 @@ impl LayoutInline for Content {
         let mut builder = Builder::new(world, &scratch, false);
         builder.accept(self, styles)?;
         let (flow, shared) = builder.into_flow(styles)?;
-        flow.layout_block(world, regions, shared)
+        Ok(flow.layout_block(world, regions, shared)?.remove(0))
     }
 }
 

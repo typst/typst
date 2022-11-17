@@ -51,8 +51,8 @@ impl LayoutInline for MathNode {
         world: Tracked<dyn World>,
         _: &Regions,
         styles: StyleChain,
-    ) -> SourceResult<Vec<Frame>> {
-        Ok(vec![layout_tex(&self.texify(), self.display, world, styles)?])
+    ) -> SourceResult<Frame> {
+        layout_tex(&self.texify(), self.display, world, styles)
     }
 }
 

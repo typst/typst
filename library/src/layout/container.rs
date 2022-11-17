@@ -26,7 +26,7 @@ impl LayoutInline for BoxNode {
         world: Tracked<dyn World>,
         regions: &Regions,
         styles: StyleChain,
-    ) -> SourceResult<Vec<Frame>> {
+    ) -> SourceResult<Frame> {
         // The "pod" is the region into which the child will be layouted.
         let pod = {
             // Resolve the sizing to a concrete size.
@@ -47,14 +47,13 @@ impl LayoutInline for BoxNode {
         };
 
         // Layout the child.
-        let mut frames = self.child.layout_inline(world, &pod, styles)?;
+        let mut frame = self.child.layout_inline(world, &pod, styles)?;
 
         // Ensure frame size matches regions size if expansion is on.
-        let frame = &mut frames[0];
         let target = regions.expand.select(regions.first, frame.size());
         frame.resize(target, Align::LEFT_TOP);
 
-        Ok(frames)
+        Ok(frame)
     }
 }
 

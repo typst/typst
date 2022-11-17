@@ -42,7 +42,7 @@ impl LayoutInline for LineNode {
         _: Tracked<dyn World>,
         regions: &Regions,
         styles: StyleChain,
-    ) -> SourceResult<Vec<Frame>> {
+    ) -> SourceResult<Frame> {
         let stroke = styles.get(Self::STROKE).unwrap_or_default();
 
         let origin = self
@@ -63,6 +63,6 @@ impl LayoutInline for LineNode {
         let shape = Geometry::Line(delta.to_point()).stroked(stroke);
         frame.push(origin.to_point(), Element::Shape(shape));
 
-        Ok(vec![frame])
+        Ok(frame)
     }
 }

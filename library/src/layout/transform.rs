@@ -30,16 +30,12 @@ impl LayoutInline for MoveNode {
         world: Tracked<dyn World>,
         regions: &Regions,
         styles: StyleChain,
-    ) -> SourceResult<Vec<Frame>> {
-        let mut frames = self.child.layout_inline(world, regions, styles)?;
-
+    ) -> SourceResult<Frame> {
+        let mut frame = self.child.layout_inline(world, regions, styles)?;
         let delta = self.delta.resolve(styles);
-        for frame in &mut frames {
-            let delta = delta.zip(frame.size()).map(|(d, s)| d.relative_to(s));
-            frame.translate(delta.to_point());
-        }
-
-        Ok(frames)
+        let delta = delta.zip(frame.size()).map(|(d, s)| d.relative_to(s));
+        frame.translate(delta.to_point());
+        Ok(frame)
     }
 }
 
@@ -88,20 +84,17 @@ impl<const T: TransformKind> LayoutInline for TransformNode<T> {
         world: Tracked<dyn World>,
         regions: &Regions,
         styles: StyleChain,
-    ) -> SourceResult<Vec<Frame>> {
+    ) -> SourceResult<Frame> {
+        let mut frame = self.child.layout_inline(world, regions, styles)?;
+
         let origin = styles.get(Self::ORIGIN).unwrap_or(Align::CENTER_HORIZON);
-        let mut frames = self.child.layout_inline(world, regions, styles)?;
+        let Axes { x, y } = origin.zip(frame.size()).map(|(o, s)| o.position(s));
+        let transform = Transform::translate(x, y)
+            .pre_concat(self.transform)
+            .pre_concat(Transform::translate(-x, -y));
+        frame.transform(transform);
 
-        for frame in &mut frames {
-            let Axes { x, y } = origin.zip(frame.size()).map(|(o, s)| o.position(s));
-            let transform = Transform::translate(x, y)
-                .pre_concat(self.transform)
-                .pre_concat(Transform::translate(-x, -y));
-
-            frame.transform(transform);
-        }
-
-        Ok(frames)
+        Ok(frame)
     }
 }
 

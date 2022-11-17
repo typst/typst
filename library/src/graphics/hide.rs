@@ -17,11 +17,9 @@ impl LayoutInline for HideNode {
         world: Tracked<dyn World>,
         regions: &Regions,
         styles: StyleChain,
-    ) -> SourceResult<Vec<Frame>> {
-        let mut frames = self.0.layout_inline(world, regions, styles)?;
-        for frame in &mut frames {
-            frame.clear();
-        }
-        Ok(frames)
+    ) -> SourceResult<Frame> {
+        let mut frame = self.0.layout_inline(world, regions, styles)?;
+        frame.clear();
+        Ok(frame)
     }
 }

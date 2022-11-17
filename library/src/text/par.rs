@@ -141,7 +141,7 @@ impl LayoutInline for RepeatNode {
         world: Tracked<dyn World>,
         regions: &Regions,
         styles: StyleChain,
-    ) -> SourceResult<Vec<Frame>> {
+    ) -> SourceResult<Frame> {
         self.0.layout_inline(world, regions, styles)
     }
 }
@@ -526,7 +526,7 @@ fn prepare<'a>(
                 } else {
                     let size = Size::new(regions.first.x, regions.base.y);
                     let pod = Regions::one(size, regions.base, Axes::splat(false));
-                    let mut frame = inline.layout_inline(world, &pod, styles)?.remove(0);
+                    let mut frame = inline.layout_inline(world, &pod, styles)?;
                     frame.translate(Point::with_y(styles.get(TextNode::BASELINE)));
                     items.push(Item::Frame(frame));
                 }
@@ -1151,7 +1151,7 @@ fn commit(
                 let fill = Fr::one().share(fr, remaining);
                 let size = Size::new(fill, regions.base.y);
                 let pod = Regions::one(size, regions.base, Axes::new(false, false));
-                let frame = repeat.layout_inline(world, &pod, *styles)?.remove(0);
+                let frame = repeat.layout_inline(world, &pod, *styles)?;
                 let width = frame.width();
                 let count = (fill / width).floor();
                 let remaining = fill % width;

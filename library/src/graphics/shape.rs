@@ -78,8 +78,8 @@ impl<const S: ShapeKind> LayoutInline for ShapeNode<S> {
         world: Tracked<dyn World>,
         regions: &Regions,
         styles: StyleChain,
-    ) -> SourceResult<Vec<Frame>> {
-        let mut frames;
+    ) -> SourceResult<Frame> {
+        let mut frame;
         if let Some(child) = &self.0 {
             let mut inset = styles.get(Self::INSET);
             if is_round(S) {
@@ -90,7 +90,7 @@ impl<const S: ShapeKind> LayoutInline for ShapeNode<S> {
             let child = child.clone().padded(inset.map(|side| side.map(Length::from)));
 
             let mut pod = Regions::one(regions.first, regions.base, regions.expand);
-            frames = child.layout_inline(world, &pod, styles)?;
+            frame = child.layout_inline(world, &pod, styles)?;
 
             // Relayout with full expansion into square region to make sure
             // the result is really a square or circle.
@@ -99,14 +99,14 @@ impl<const S: ShapeKind> LayoutInline for ShapeNode<S> {
                     let target = regions.expand.select(regions.first, Size::zero());
                     target.x.max(target.y)
                 } else {
-                    let size = frames[0].size();
+                    let size = frame.size();
                     let desired = size.x.max(size.y);
                     desired.min(regions.first.x).min(regions.first.y)
                 };
 
                 pod.first = Size::splat(length);
                 pod.expand = Axes::splat(true);
-                frames = child.layout_inline(world, &pod, styles)?;
+                frame = child.layout_inline(world, &pod, styles)?;
             }
         } else {
             // The default size that a shape takes on if it has no child and
@@ -125,10 +125,8 @@ impl<const S: ShapeKind> LayoutInline for ShapeNode<S> {
                 size = regions.expand.select(regions.first, size);
             }
 
-            frames = vec![Frame::new(size)];
+            frame = Frame::new(size);
         }
-
-        let frame = &mut frames[0];
 
         // Add fill and/or stroke.
         let fill = styles.get(Self::FILL);
@@ -167,7 +165,7 @@ impl<const S: ShapeKind> LayoutInline for ShapeNode<S> {
             frame.link(url.clone());
         }
 
-        Ok(frames)
+        Ok(frame)
     }
 }
 

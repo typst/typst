@@ -43,7 +43,7 @@ impl LayoutInline for ImageNode {
         _: Tracked<dyn World>,
         regions: &Regions,
         styles: StyleChain,
-    ) -> SourceResult<Vec<Frame>> {
+    ) -> SourceResult<Frame> {
         let pxw = self.0.width() as f64;
         let pxh = self.0.height() as f64;
         let px_ratio = pxw / pxh;
@@ -94,7 +94,7 @@ impl LayoutInline for ImageNode {
             frame.link(url.clone());
         }
 
-        Ok(vec![frame])
+        Ok(frame)
     }
 }
 
