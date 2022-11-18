@@ -33,7 +33,7 @@ use typst::frame::Frame;
 use typst::geom::*;
 use typst::model::{
     capability, Content, Node, SequenceNode, Show, StyleChain, StyleEntry,
-    StyleVecBuilder, StyledNode, Target,
+    StyleVecBuilder, StyledNode,
 };
 use typst::World;
 
@@ -312,8 +312,8 @@ impl<'a> Builder<'a> {
         content: &'a Content,
         styles: StyleChain<'a>,
     ) -> SourceResult<()> {
-        if let Some(text) = content.downcast::<TextNode>() {
-            if let Some(realized) = styles.apply(self.world, Target::Text(&text.0))? {
+        if content.is::<TextNode>() {
+            if let Some(realized) = styles.apply(self.world, content)? {
                 let stored = self.scratch.content.alloc(realized);
                 return self.accept(stored, styles);
             }
@@ -362,7 +362,7 @@ impl<'a> Builder<'a> {
     }
 
     fn show(&mut self, content: &Content, styles: StyleChain<'a>) -> SourceResult<bool> {
-        let Some(realized) = styles.apply(self.world, Target::Node(content))? else {
+        let Some(realized) = styles.apply(self.world, content)? else {
             return Ok(false);
         };
 

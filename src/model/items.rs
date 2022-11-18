@@ -5,7 +5,7 @@ use std::num::NonZeroUsize;
 use comemo::Tracked;
 use once_cell::sync::OnceCell;
 
-use super::{Content, StyleChain};
+use super::{Content, NodeId, StyleChain};
 use crate::diag::SourceResult;
 use crate::frame::Frame;
 use crate::geom::{Abs, Dir};
@@ -54,6 +54,10 @@ pub struct LangItems {
     pub linebreak: fn(justify: bool) -> Content,
     /// Plain text without markup.
     pub text: fn(text: EcoString) -> Content,
+    /// The id of the text node.
+    pub text_id: NodeId,
+    /// Get the string if this is a text node.
+    pub text_str: fn(&Content) -> Option<&str>,
     /// A smart quote: `'` or `"`.
     pub smart_quote: fn(double: bool) -> Content,
     /// A paragraph break.

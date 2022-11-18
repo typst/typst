@@ -247,9 +247,7 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Whether the style chain has a matching recipe for the content.
-    pub fn applicable(self, content: &Content) -> bool {
-        let target = Target::Node(content);
-
+    pub fn applicable(self, target: &Content) -> bool {
         // Find out how many recipes there any and whether any of them match.
         let mut n = 0;
         let mut any = true;
@@ -278,7 +276,7 @@ impl<'a> StyleChain<'a> {
     pub fn apply(
         self,
         world: Tracked<dyn World>,
-        target: Target,
+        target: &Content,
     ) -> SourceResult<Option<Content>> {
         // Find out how many recipes there any and whether any of them match.
         let mut n = 0;
@@ -306,16 +304,14 @@ impl<'a> StyleChain<'a> {
             }
         }
 
-        if let Target::Node(node) = target {
+        if let Some(showable) = target.to::<dyn Show>() {
             // Realize if there was no matching recipe.
             if realized.is_none() {
-                let sel = RecipeId::Base(node.id());
+                let sel = RecipeId::Base(target.id());
                 if self.guarded(sel) {
                     guarded = true;
                 } else {
-                    let content = node
-                        .to::<dyn Show>()
-                        .unwrap()
+                    let content = showable
                         .unguard_parts(sel)
                         .to::<dyn Show>()
                         .unwrap()
@@ -327,7 +323,7 @@ impl<'a> StyleChain<'a> {
 
             // Finalize only if guarding didn't stop any recipe.
             if !guarded {
-                if let Some(node) = node.to::<dyn Finalize>() {
+                if let Some(node) = target.to::<dyn Finalize>() {
                     if let Some(content) = realized {
                         realized = Some(node.finalize(world, self, content)?);
                     }
@@ -1006,7 +1002,7 @@ pub struct Recipe {
 
 impl Recipe {
     /// Whether the recipe is applicable to the target.
-    pub fn applicable(&self, target: Target) -> bool {
+    pub fn applicable(&self, target: &Content) -> bool {
         self.selector
             .as_ref()
             .map_or(false, |selector| selector.matches(target))
@@ -1017,16 +1013,24 @@ impl Recipe {
         &self,
         world: Tracked<dyn World>,
         sel: RecipeId,
-        target: Target,
+        target: &Content,
     ) -> SourceResult<Option<Content>> {
-        let content = match (target, &self.selector) {
-            (Target::Node(node), Some(Selector::Node(id, _))) if node.id() == *id => {
+        let content = match &self.selector {
+            Some(Selector::Node(id, _)) => {
+                if target.id() != *id {
+                    return Ok(None);
+                }
+
                 self.transform.apply(world, self.span, || {
-                    Value::Content(node.to::<dyn Show>().unwrap().unguard_parts(sel))
+                    Value::Content(target.to::<dyn Show>().unwrap().unguard_parts(sel))
                 })?
             }
 
-            (Target::Text(text), Some(Selector::Regex(regex))) => {
+            Some(Selector::Regex(regex)) => {
+                let Some(text) = item!(text_str)(target) else {
+                    return Ok(None);
+                };
+
                 let make = world.config().items.text;
                 let mut result = vec![];
                 let mut cursor = 0;
@@ -1055,7 +1059,7 @@ impl Recipe {
                 Content::sequence(result)
             }
 
-            _ => return Ok(None),
+            None => return Ok(None),
         };
 
         Ok(Some(content.styled_with_entry(StyleEntry::Guard(sel))))
@@ -1095,17 +1099,16 @@ impl Selector {
     }
 
     /// Whether the selector matches for the target.
-    pub fn matches(&self, target: Target) -> bool {
-        match (self, target) {
-            (Self::Node(id, dict), Target::Node(node)) => {
-                *id == node.id()
+    pub fn matches(&self, target: &Content) -> bool {
+        match self {
+            Self::Node(id, dict) => {
+                *id == target.id()
                     && dict
                         .iter()
                         .flat_map(|dict| dict.iter())
-                        .all(|(name, value)| node.field(name).as_ref() == Some(value))
+                        .all(|(name, value)| target.field(name).as_ref() == Some(value))
             }
-            (Self::Regex(_), Target::Text(_)) => true,
-            _ => false,
+            Self::Regex(_) => target.id() == item!(text_id),
         }
     }
 }
@@ -1138,15 +1141,6 @@ impl Transform {
             }
         }
     }
-}
-
-/// A target for a show rule recipe.
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum Target<'a> {
-    /// A showable node.
-    Node(&'a Content),
-    /// A slice of text.
-    Text(&'a str),
 }
 
 /// Identifies a show rule recipe.

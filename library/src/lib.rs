@@ -10,7 +10,7 @@ pub mod structure;
 pub mod text;
 
 use typst::geom::{Align, Color, Dir, GenAlign};
-use typst::model::{LangItems, Node, Scope, StyleMap};
+use typst::model::{LangItems, Node, NodeId, Scope, StyleMap};
 
 use self::layout::LayoutRoot;
 
@@ -160,6 +160,8 @@ pub fn items() -> LangItems {
         space: || text::SpaceNode.pack(),
         linebreak: |justify| text::LinebreakNode { justify }.pack(),
         text: |text| text::TextNode(text).pack(),
+        text_id: NodeId::of::<text::TextNode>(),
+        text_str: |content| Some(&content.downcast::<text::TextNode>()?.0),
         smart_quote: |double| text::SmartQuoteNode { double }.pack(),
         parbreak: || text::ParbreakNode.pack(),
         strong: |body| text::StrongNode(body).pack(),
