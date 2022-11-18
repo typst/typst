@@ -167,6 +167,13 @@ impl TextNode {
             }
         }
     }
+
+    fn field(&self, name: &str) -> Option<Value> {
+        match name {
+            "text" => Some(Value::Str(self.0.clone().into())),
+            _ => None,
+        }
+    }
 }
 
 impl Debug for TextNode {

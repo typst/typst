@@ -48,6 +48,11 @@ Treeworld, the World of worlds, is a world.
 Rust is memory-safe and blazingly fast. Let's rewrite everything in rust.
 
 ---
+// Test accessing the string itself.
+#show "hello": it => it.text.split("").map(upper).join("|")
+Oh, hello there!
+
+---
 // Replace worlds but only in lists.
 #show list: it => [
   #show "World": [🌎]

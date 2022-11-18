@@ -419,9 +419,10 @@ impl Recipe {
                         result.push(make(text[cursor..start].into()));
                     }
 
-                    let transformed = self
-                        .transform
-                        .apply(world, self.span, || Value::Str(mat.as_str().into()))?;
+                    let transformed = self.transform.apply(world, self.span, || {
+                        Value::Content(make(mat.as_str().into()))
+                    })?;
+
                     result.push(transformed);
                     cursor = mat.end();
                 }
