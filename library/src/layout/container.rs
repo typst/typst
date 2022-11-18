@@ -2,7 +2,7 @@ use super::VNode;
 use crate::prelude::*;
 
 /// An inline-level container that sizes content.
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Hash)]
 pub struct BoxNode {
     /// How to size the content horizontally and vertically.
     pub sizing: Axes<Option<Rel<Length>>>,
@@ -58,7 +58,7 @@ impl LayoutInline for BoxNode {
 }
 
 /// A block-level container that places content into a separate flow.
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Hash)]
 pub struct BlockNode(pub Content);
 
 #[node(LayoutBlock)]

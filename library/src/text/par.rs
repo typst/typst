@@ -114,7 +114,7 @@ castable! {
 }
 
 /// A paragraph break.
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Hash)]
 pub struct ParbreakNode;
 
 #[node]

@@ -32,8 +32,8 @@ use typst::diag::SourceResult;
 use typst::frame::Frame;
 use typst::geom::*;
 use typst::model::{
-    capability, Content, Node, SequenceNode, Show, StyleChain, StyleEntry,
-    StyleVecBuilder, StyledNode,
+    capability, Content, Node, SequenceNode, Show, Style, StyleChain, StyleVecBuilder,
+    StyledNode,
 };
 use typst::World;
 
@@ -89,7 +89,7 @@ impl LayoutBlock for Content {
     ) -> SourceResult<Vec<Frame>> {
         if !self.has::<dyn Show>() || !styles.applicable(self) {
             if let Some(node) = self.to::<dyn LayoutBlock>() {
-                let barrier = StyleEntry::Barrier(self.id());
+                let barrier = Style::Barrier(self.id());
                 let styles = barrier.chain(&styles);
                 return node.layout_block(world, regions, styles);
             }
@@ -128,13 +128,13 @@ impl LayoutInline for Content {
 
         if !self.has::<dyn Show>() || !styles.applicable(self) {
             if let Some(node) = self.to::<dyn LayoutInline>() {
-                let barrier = StyleEntry::Barrier(self.id());
+                let barrier = Style::Barrier(self.id());
                 let styles = barrier.chain(&styles);
                 return node.layout_inline(world, regions, styles);
             }
 
             if let Some(node) = self.to::<dyn LayoutBlock>() {
-                let barrier = StyleEntry::Barrier(self.id());
+                let barrier = Style::Barrier(self.id());
                 let styles = barrier.chain(&styles);
                 return Ok(node.layout_block(world, regions, styles)?.remove(0));
             }

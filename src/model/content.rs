@@ -9,7 +9,7 @@ use comemo::Tracked;
 use siphasher::sip128::{Hasher128, SipHasher};
 use typst_macros::node;
 
-use super::{Args, Key, Property, Recipe, RecipeId, StyleEntry, StyleMap, Value, Vm};
+use super::{Args, Key, Property, Recipe, RecipeId, Style, StyleMap, Value, Vm};
 use crate::diag::{SourceResult, StrResult};
 use crate::util::ReadableTypeId;
 use crate::World;
@@ -95,7 +95,7 @@ impl Content {
 
     /// Style this content with a single style property.
     pub fn styled<'k, K: Key<'k>>(self, key: K, value: K::Value) -> Self {
-        self.styled_with_entry(StyleEntry::Property(Property::new(key, value)))
+        self.styled_with_entry(Style::Property(Property::new(key, value)))
     }
 
     /// Style this content with a recipe, eagerly applying it if possible.
@@ -107,12 +107,12 @@ impl Content {
         if recipe.selector.is_none() {
             recipe.transform.apply(world, recipe.span, || Value::Content(self))
         } else {
-            Ok(self.styled_with_entry(StyleEntry::Recipe(recipe)))
+            Ok(self.styled_with_entry(Style::Recipe(recipe)))
         }
     }
 
     /// Style this content with a style entry.
-    pub fn styled_with_entry(mut self, entry: StyleEntry) -> Self {
+    pub fn styled_with_entry(mut self, entry: Style) -> Self {
         if let Some(styled) = self.try_downcast_mut::<StyledNode>() {
             styled.map.apply(entry);
             self
@@ -141,7 +141,7 @@ impl Content {
 
     /// Reenable a specific show rule recipe.
     pub fn unguard(&self, id: RecipeId) -> Self {
-        self.clone().styled_with_entry(StyleEntry::Unguard(id))
+        self.clone().styled_with_entry(Style::Unguard(id))
     }
 }
 

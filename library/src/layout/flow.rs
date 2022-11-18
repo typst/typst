@@ -1,4 +1,4 @@
-use typst::model::{Property, StyleEntry};
+use typst::model::{Property, Style};
 
 use super::{AlignNode, ColbreakNode, PlaceNode, Spacing, VNode};
 use crate::prelude::*;
@@ -161,7 +161,7 @@ impl FlowLayouter {
         let mut chained = styles;
         if !self.last_block_was_par && is_par && !styles.get(ParNode::INDENT).is_zero() {
             let property = Property::new(ParNode::INDENT, Length::zero());
-            reset = StyleEntry::Property(property);
+            reset = Style::Property(property);
             chained = reset.chain(&styles);
         }
 

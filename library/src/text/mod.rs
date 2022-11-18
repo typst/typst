@@ -407,7 +407,7 @@ impl Fold for FontFeatures {
 }
 
 /// A text space.
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Hash)]
 pub struct SpaceNode;
 
 #[node(Behave)]
@@ -424,7 +424,7 @@ impl Behave for SpaceNode {
 }
 
 /// A line break.
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Hash)]
 pub struct LinebreakNode {
     pub justify: bool,
 }
@@ -444,7 +444,7 @@ impl Behave for LinebreakNode {
 }
 
 /// A smart quote.
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Hash)]
 pub struct SmartQuoteNode {
     pub double: bool,
 }

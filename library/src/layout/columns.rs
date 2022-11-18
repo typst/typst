@@ -99,7 +99,7 @@ impl LayoutBlock for ColumnsNode {
 }
 
 /// A column break.
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Hash)]
 pub struct ColbreakNode {
     pub weak: bool,
 }
