@@ -31,13 +31,6 @@ impl StyleMap {
         self.0.is_empty()
     }
 
-    /// Create a style map from a single property-value pair.
-    pub fn with<'a, K: Key<'a>>(key: K, value: K::Value) -> Self {
-        let mut styles = Self::new();
-        styles.set(key, value);
-        styles
-    }
-
     /// Set an inner value for a style property.
     ///
     /// If the property needs folding and the value is already contained in the
@@ -75,12 +68,12 @@ impl StyleMap {
         }
     }
 
-    /// Set an outer style property.
+    /// Set an outer style.
     ///
     /// Like [`chain`](Self::chain) or [`apply_map`](Self::apply_map), but with
     /// only a entry.
-    pub fn apply(&mut self, entry: Style) {
-        self.0.insert(0, entry);
+    pub fn apply(&mut self, style: Style) {
+        self.0.insert(0, style);
     }
 
     /// Apply styles from `tail` in-place. The resulting style map is equivalent
@@ -135,10 +128,6 @@ pub enum Style {
     Recipe(Recipe),
     /// A barrier for scoped styles.
     Barrier(NodeId),
-    /// Guards against recursive show rules.
-    Guard(RecipeId),
-    /// Allows recursive show rules again.
-    Unguard(RecipeId),
 }
 
 impl Style {
@@ -190,8 +179,6 @@ impl Debug for Style {
             Self::Property(property) => property.fmt(f)?,
             Self::Recipe(recipe) => recipe.fmt(f)?,
             Self::Barrier(id) => write!(f, "Barrier for {id:?}")?,
-            Self::Guard(sel) => write!(f, "Guard against {sel:?}")?,
-            Self::Unguard(sel) => write!(f, "Unguard against {sel:?}")?,
         }
         f.write_str("]")
     }
@@ -338,14 +325,10 @@ impl Debug for KeyId {
     }
 }
 
-/// A node that can be realized given some styles.
+/// A built-in show rule for a node.
 #[capability]
 pub trait Show: 'static + Sync + Send {
-    /// Unguard nested content against a specific recipe.
-    fn unguard_parts(&self, id: RecipeId) -> Content;
-
-    /// The base recipe for this node that is executed if there is no
-    /// user-defined show rule.
+    /// Execute the base recipe for this node.
     fn show(
         &self,
         world: Tracked<dyn World>,
@@ -356,9 +339,9 @@ pub trait Show: 'static + Sync + Send {
 /// Post-process a node after it was realized.
 #[capability]
 pub trait Finalize: 'static + Sync + Send {
-    /// Finalize this node given the realization of a base or user recipe. Use
-    /// this for effects that should work even in the face of a user-defined
-    /// show rule, for example the linking behaviour of a link node.
+    /// Finalize the fully realized form of the node. Use this for effects that
+    /// should work even in the face of a user-defined show rule, for example
+    /// the linking behaviour of a link node.
     fn finalize(
         &self,
         world: Tracked<dyn World>,
@@ -400,7 +383,7 @@ impl Recipe {
                 }
 
                 self.transform.apply(world, self.span, || {
-                    Value::Content(target.to::<dyn Show>().unwrap().unguard_parts(sel))
+                    Value::Content(target.clone().guard(sel))
                 })?
             }
 
@@ -420,7 +403,7 @@ impl Recipe {
                     }
 
                     let transformed = self.transform.apply(world, self.span, || {
-                        Value::Content(make(mat.as_str().into()))
+                        Value::Content(make(mat.as_str().into()).guard(sel))
                     })?;
 
                     result.push(transformed);
@@ -441,7 +424,7 @@ impl Recipe {
             None => return Ok(None),
         };
 
-        Ok(Some(content.styled_with_entry(Style::Guard(sel))))
+        Ok(Some(content))
     }
 
     /// Whether this recipe is for the given node.
@@ -566,87 +549,41 @@ impl<'a> StyleChain<'a> {
         K::get(self, self.values(key))
     }
 
-    /// Whether the style chain has a matching recipe for the content.
-    pub fn applicable(self, target: &Content) -> bool {
-        // Find out how many recipes there any and whether any of them match.
-        let mut n = 0;
-        let mut any = true;
-        for recipe in self.entries().filter_map(Style::recipe) {
-            n += 1;
-            any |= recipe.applicable(target);
-        }
-
-        // Find an applicable recipe.
-        if any {
-            for recipe in self.entries().filter_map(Style::recipe) {
-                if recipe.applicable(target) {
-                    let sel = RecipeId::Nth(n);
-                    if !self.guarded(sel) {
-                        return true;
-                    }
-                }
-                n -= 1;
-            }
-        }
-
-        false
-    }
-
     /// Apply show recipes in this style chain to a target.
-    pub fn apply(
+    pub fn show(
         self,
         world: Tracked<dyn World>,
         target: &Content,
     ) -> SourceResult<Option<Content>> {
-        // Find out how many recipes there any and whether any of them match.
-        let mut n = 0;
-        let mut any = true;
-        for recipe in self.entries().filter_map(Style::recipe) {
-            n += 1;
-            any |= recipe.applicable(target);
-        }
+        // Find out how many recipes there are.
+        let mut n = self.entries().filter_map(Style::recipe).count();
 
         // Find an applicable recipe.
         let mut realized = None;
-        let mut guarded = false;
-        if any {
-            for recipe in self.entries().filter_map(Style::recipe) {
-                if recipe.applicable(target) {
-                    let sel = RecipeId::Nth(n);
-                    if self.guarded(sel) {
-                        guarded = true;
-                    } else if let Some(content) = recipe.apply(world, sel, target)? {
-                        realized = Some(content);
-                        break;
-                    }
+        for recipe in self.entries().filter_map(Style::recipe) {
+            let sel = RecipeId::Nth(n);
+            if recipe.applicable(target) && !target.guarded(sel) {
+                if let Some(content) = recipe.apply(world, sel, target)? {
+                    realized = Some(content);
+                    break;
                 }
-                n -= 1;
+            }
+            n -= 1;
+        }
+
+        // Realize if there was no matching recipe.
+        let base = RecipeId::Base(target.id());
+        if realized.is_none() && !target.guarded(base) {
+            if let Some(showable) = target.to::<dyn Show>() {
+                realized = Some(showable.show(world, self)?);
             }
         }
 
-        if let Some(showable) = target.to::<dyn Show>() {
-            // Realize if there was no matching recipe.
-            if realized.is_none() {
-                let sel = RecipeId::Base(target.id());
-                if self.guarded(sel) {
-                    guarded = true;
-                } else {
-                    let content = showable
-                        .unguard_parts(sel)
-                        .to::<dyn Show>()
-                        .unwrap()
-                        .show(world, self)?;
-
-                    realized = Some(content.styled_with_entry(Style::Guard(sel)));
-                }
-            }
-
-            // Finalize only if guarding didn't stop any recipe.
-            if !guarded {
-                if let Some(node) = target.to::<dyn Finalize>() {
-                    if let Some(content) = realized {
-                        realized = Some(node.finalize(world, self, content)?);
-                    }
+        // Finalize only if this is the first application for this node.
+        if let Some(node) = target.to::<dyn Finalize>() {
+            if target.pristine() {
+                if let Some(content) = realized {
+                    realized = Some(node.finalize(world, self, content)?);
                 }
             }
         }
@@ -654,14 +591,17 @@ impl<'a> StyleChain<'a> {
         Ok(realized)
     }
 
-    /// Whether the recipe identified by the selector is guarded.
-    fn guarded(self, sel: RecipeId) -> bool {
-        for entry in self.entries() {
-            match *entry {
-                Style::Guard(s) if s == sel => return true,
-                Style::Unguard(s) if s == sel => return false,
-                _ => {}
+    /// Whether the style chain has a matching recipe for the content.
+    pub fn applicable(self, target: &Content) -> bool {
+        // Find out how many recipes there are.
+        let mut n = self.entries().filter_map(Style::recipe).count();
+
+        // Find out whether any recipe matches and is unguarded.
+        for recipe in self.entries().filter_map(Style::recipe) {
+            if recipe.applicable(target) && !target.guarded(RecipeId::Nth(n)) {
+                return true;
             }
+            n -= 1;
         }
 
         false
@@ -689,7 +629,6 @@ impl<'a> StyleChain<'a> {
             entries: self.entries(),
             key: PhantomData,
             barriers: 0,
-            guarded: false,
         }
     }
 
@@ -727,7 +666,6 @@ struct Values<'a, K> {
     entries: Entries<'a>,
     key: PhantomData<K>,
     barriers: usize,
-    guarded: bool,
 }
 
 impl<'a, K: Key<'a>> Iterator for Values<'a, K> {
@@ -738,22 +676,13 @@ impl<'a, K: Key<'a>> Iterator for Values<'a, K> {
             match entry {
                 Style::Property(property) => {
                     if let Some(value) = property.downcast::<K>() {
-                        if !property.scoped()
-                            || if self.guarded {
-                                self.barriers == 1
-                            } else {
-                                self.barriers <= 1
-                            }
-                        {
+                        if !property.scoped() || self.barriers <= 1 {
                             return Some(value);
                         }
                     }
                 }
                 Style::Barrier(id) => {
                     self.barriers += (*id == K::node()) as usize;
-                }
-                Style::Guard(RecipeId::Base(id)) => {
-                    self.guarded |= *id == K::node();
                 }
                 _ => {}
             }

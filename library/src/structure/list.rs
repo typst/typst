@@ -6,7 +6,7 @@ use crate::prelude::*;
 use crate::text::{ParNode, SpaceNode, TextNode};
 
 /// An unordered (bulleted) or ordered (numbered) list.
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Hash)]
 pub struct ListNode<const L: ListKind = LIST> {
     /// If true, the items are separated by leading instead of list spacing.
     pub tight: bool,
@@ -20,7 +20,7 @@ pub type EnumNode = ListNode<ENUM>;
 /// A description list.
 pub type DescNode = ListNode<DESC>;
 
-#[node(Show, LayoutBlock)]
+#[node(LayoutBlock)]
 impl<const L: ListKind> ListNode<L> {
     /// How the list is labelled.
     #[property(referenced)]
@@ -74,20 +74,6 @@ impl<const L: ListKind> ListNode<L> {
             }
             _ => None,
         }
-    }
-}
-
-impl<const L: ListKind> Show for ListNode<L> {
-    fn unguard_parts(&self, id: RecipeId) -> Content {
-        Self {
-            items: self.items.map(|item| item.unguard(id)),
-            ..*self
-        }
-        .pack()
-    }
-
-    fn show(&self, _: Tracked<dyn World>, _: StyleChain) -> SourceResult<Content> {
-        Ok(self.clone().pack())
     }
 }
 
@@ -175,17 +161,6 @@ impl ListItem {
             Self::List(_) => LIST,
             Self::Enum { .. } => ENUM,
             Self::Desc { .. } => DESC,
-        }
-    }
-
-    fn unguard(&self, sel: RecipeId) -> Self {
-        match self {
-            Self::List(body) => Self::List(Box::new(body.unguard(sel))),
-            Self::Enum(number, body) => Self::Enum(*number, Box::new(body.unguard(sel))),
-            Self::Desc(item) => Self::Desc(Box::new(DescItem {
-                term: item.term.unguard(sel),
-                body: item.body.unguard(sel),
-            })),
         }
     }
 

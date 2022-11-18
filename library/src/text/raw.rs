@@ -43,10 +43,6 @@ impl RawNode {
 }
 
 impl Show for RawNode {
-    fn unguard_parts(&self, _: RecipeId) -> Content {
-        Self { text: self.text.clone(), ..*self }.pack()
-    }
-
     fn show(&self, _: Tracked<dyn World>, styles: StyleChain) -> SourceResult<Content> {
         let lang = styles.get(Self::LANG).as_ref().map(|s| s.to_lowercase());
         let foreground = THEME

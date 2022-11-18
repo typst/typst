@@ -14,17 +14,6 @@ Die Zeitung Der Spiegel existiert.
 TeX, LaTeX, LuaTeX and LuaLaTeX!
 
 ---
-// Test out-of-order guarding.
-#show "Good": [Typst!]
-#show "Typst": [Fun!]
-#show "Fun": [Good!]
-#show enum: []
-
-Good \
-Fun \
-Typst \
-
----
 // Test that replacements happen exactly once.
 #show "A": [BB]
 #show "B": [CC]

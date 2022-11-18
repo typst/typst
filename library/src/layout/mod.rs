@@ -32,7 +32,7 @@ use typst::diag::SourceResult;
 use typst::frame::Frame;
 use typst::geom::*;
 use typst::model::{
-    capability, Content, Node, SequenceNode, Show, Style, StyleChain, StyleVecBuilder,
+    capability, Content, Node, SequenceNode, Style, StyleChain, StyleVecBuilder,
     StyledNode,
 };
 use typst::World;
@@ -87,7 +87,7 @@ impl LayoutBlock for Content {
         regions: &Regions,
         styles: StyleChain,
     ) -> SourceResult<Vec<Frame>> {
-        if !self.has::<dyn Show>() || !styles.applicable(self) {
+        if !styles.applicable(self) {
             if let Some(node) = self.to::<dyn LayoutBlock>() {
                 let barrier = Style::Barrier(self.id());
                 let styles = barrier.chain(&styles);
@@ -126,7 +126,7 @@ impl LayoutInline for Content {
         assert!(regions.backlog.is_empty());
         assert!(regions.last.is_none());
 
-        if !self.has::<dyn Show>() || !styles.applicable(self) {
+        if !styles.applicable(self) {
             if let Some(node) = self.to::<dyn LayoutInline>() {
                 let barrier = Style::Barrier(self.id());
                 let styles = barrier.chain(&styles);
@@ -312,16 +312,17 @@ impl<'a> Builder<'a> {
         content: &'a Content,
         styles: StyleChain<'a>,
     ) -> SourceResult<()> {
-        if content.is::<TextNode>() {
-            if let Some(realized) = styles.apply(self.world, content)? {
-                let stored = self.scratch.content.alloc(realized);
-                return self.accept(stored, styles);
-            }
-        } else if let Some(styled) = content.downcast::<StyledNode>() {
+        if let Some(styled) = content.downcast::<StyledNode>() {
             return self.styled(styled, styles);
-        } else if let Some(seq) = content.downcast::<SequenceNode>() {
+        }
+
+        if let Some(seq) = content.downcast::<SequenceNode>() {
             return self.sequence(seq, styles);
-        } else if content.has::<dyn Show>() && self.show(content, styles)? {
+        }
+
+        if let Some(realized) = styles.show(self.world, content)? {
+            let stored = self.scratch.content.alloc(realized);
+            self.accept(stored, styles)?;
             return Ok(());
         }
 
@@ -359,17 +360,6 @@ impl<'a> Builder<'a> {
         // handled (e.g. a pagebreak in a flow building process). However, we
         // don't have the spans here at the moment.
         Ok(())
-    }
-
-    fn show(&mut self, content: &Content, styles: StyleChain<'a>) -> SourceResult<bool> {
-        let Some(realized) = styles.apply(self.world, content)? else {
-            return Ok(false);
-        };
-
-        let stored = self.scratch.content.alloc(realized);
-        self.accept(stored, styles)?;
-
-        Ok(true)
     }
 
     fn styled(

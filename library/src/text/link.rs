@@ -50,14 +50,6 @@ impl LinkNode {
 }
 
 impl Show for LinkNode {
-    fn unguard_parts(&self, id: RecipeId) -> Content {
-        Self {
-            dest: self.dest.clone(),
-            body: self.body.unguard(id),
-        }
-        .pack()
-    }
-
     fn show(&self, _: Tracked<dyn World>, _: StyleChain) -> SourceResult<Content> {
         Ok(self.body.clone())
     }

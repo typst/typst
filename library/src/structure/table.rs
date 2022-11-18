@@ -2,7 +2,7 @@ use crate::layout::{GridNode, TrackSizing, TrackSizings};
 use crate::prelude::*;
 
 /// A table of items.
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Hash)]
 pub struct TableNode {
     /// Defines sizing for content rows and columns.
     pub tracks: Axes<Vec<TrackSizing>>,
@@ -12,7 +12,7 @@ pub struct TableNode {
     pub cells: Vec<Content>,
 }
 
-#[node(Show, LayoutBlock)]
+#[node(LayoutBlock)]
 impl TableNode {
     /// How to fill the cells.
     #[property(referenced)]
@@ -47,21 +47,6 @@ impl TableNode {
             )),
             _ => None,
         }
-    }
-}
-
-impl Show for TableNode {
-    fn unguard_parts(&self, id: RecipeId) -> Content {
-        Self {
-            tracks: self.tracks.clone(),
-            gutter: self.gutter.clone(),
-            cells: self.cells.iter().map(|cell| cell.unguard(id)).collect(),
-        }
-        .pack()
-    }
-
-    fn show(&self, _: Tracked<dyn World>, _: StyleChain) -> SourceResult<Content> {
-        Ok(self.clone().pack())
     }
 }
 

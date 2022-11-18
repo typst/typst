@@ -28,15 +28,16 @@ impl MathNode {
 }
 
 impl Show for MathNode {
-    fn unguard_parts(&self, _: RecipeId) -> Content {
-        self.clone().pack()
-    }
-
     fn show(&self, _: Tracked<dyn World>, styles: StyleChain) -> SourceResult<Content> {
         let mut map = StyleMap::new();
         map.set_family(FontFamily::new("NewComputerModernMath"), styles);
 
-        let mut realized = self.clone().pack().styled_with_map(map);
+        let mut realized = self
+            .clone()
+            .pack()
+            .guard(RecipeId::Base(NodeId::of::<Self>()))
+            .styled_with_map(map);
+
         if self.display {
             realized = realized.aligned(Axes::with_x(Some(Align::Center.into())))
         }

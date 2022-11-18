@@ -20,10 +20,6 @@ impl RefNode {
 }
 
 impl Show for RefNode {
-    fn unguard_parts(&self, _: RecipeId) -> Content {
-        Self(self.0.clone()).pack()
-    }
-
     fn show(&self, _: Tracked<dyn World>, _: StyleChain) -> SourceResult<Content> {
         Ok(TextNode::packed(format_eco!("@{}", self.0)))
     }

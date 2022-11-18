@@ -20,7 +20,7 @@ use crate::World;
 /// - anything written between square brackets in Typst
 /// - any constructor function
 #[derive(Clone, Hash)]
-pub struct Content(Arc<dyn Bounds>);
+pub struct Content(Arc<dyn Bounds>, Vec<RecipeId>);
 
 impl Content {
     /// Create empty content.
@@ -112,16 +112,16 @@ impl Content {
     }
 
     /// Style this content with a style entry.
-    pub fn styled_with_entry(mut self, entry: Style) -> Self {
+    pub fn styled_with_entry(mut self, style: Style) -> Self {
         if let Some(styled) = self.try_downcast_mut::<StyledNode>() {
-            styled.map.apply(entry);
+            styled.map.apply(style);
             self
         } else if let Some(styled) = self.downcast::<StyledNode>() {
             let mut map = styled.map.clone();
-            map.apply(entry);
+            map.apply(style);
             StyledNode { sub: styled.sub.clone(), map }.pack()
         } else {
-            StyledNode { sub: self, map: entry.into() }.pack()
+            StyledNode { sub: self, map: style.into() }.pack()
         }
     }
 
@@ -139,9 +139,20 @@ impl Content {
         StyledNode { sub: self, map: styles }.pack()
     }
 
-    /// Reenable a specific show rule recipe.
-    pub fn unguard(&self, id: RecipeId) -> Self {
-        self.clone().styled_with_entry(Style::Unguard(id))
+    /// Disable a show rule recipe.
+    pub fn guard(mut self, id: RecipeId) -> Self {
+        self.1.push(id);
+        self
+    }
+
+    /// Whether no show rule was executed for this node so far.
+    pub fn pristine(&self) -> bool {
+        self.1.is_empty()
+    }
+
+    /// Check whether a show rule recipe is disabled.
+    pub fn guarded(&self, id: RecipeId) -> bool {
+        self.1.contains(&id)
     }
 }
 
@@ -241,7 +252,7 @@ pub trait Node: 'static {
     where
         Self: Debug + Hash + Sync + Send + Sized + 'static,
     {
-        Content(Arc::new(self))
+        Content(Arc::new(self), vec![])
     }
 
     /// Construct a node from the arguments.

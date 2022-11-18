@@ -528,10 +528,6 @@ impl StrongNode {
 }
 
 impl Show for StrongNode {
-    fn unguard_parts(&self, id: RecipeId) -> Content {
-        Self(self.0.unguard(id)).pack()
-    }
-
     fn show(&self, _: Tracked<dyn World>, _: StyleChain) -> SourceResult<Content> {
         Ok(self.0.clone().styled(TextNode::BOLD, Toggle))
     }
@@ -556,10 +552,6 @@ impl EmphNode {
 }
 
 impl Show for EmphNode {
-    fn unguard_parts(&self, id: RecipeId) -> Content {
-        Self(self.0.unguard(id)).pack()
-    }
-
     fn show(&self, _: Tracked<dyn World>, _: StyleChain) -> SourceResult<Content> {
         Ok(self.0.clone().styled(TextNode::ITALIC, Toggle))
     }

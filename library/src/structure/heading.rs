@@ -34,10 +34,6 @@ impl HeadingNode {
 }
 
 impl Show for HeadingNode {
-    fn unguard_parts(&self, id: RecipeId) -> Content {
-        Self { body: self.body.unguard(id), ..*self }.pack()
-    }
-
     fn show(&self, _: Tracked<dyn World>, _: StyleChain) -> SourceResult<Content> {
         Ok(BlockNode(self.body.clone()).pack())
     }
