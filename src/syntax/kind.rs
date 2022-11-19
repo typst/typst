@@ -150,8 +150,8 @@ pub enum NodeKind {
     Strong,
     /// Emphasized content: `_Emphasized_`.
     Emph,
-    /// A raw block with optional syntax highlighting: `` `...` ``.
-    Raw(Arc<RawKind>),
+    /// Raw text with optional syntax highlighting: `` `...` ``.
+    Raw(Arc<RawFields>),
     /// A hyperlink: `https://typst.org`.
     Link(EcoString),
     /// A label: `<label>`.
@@ -254,9 +254,9 @@ pub enum NodeKind {
     Error(ErrorPos, EcoString),
 }
 
-/// Fields of the node kind `Raw`.
+/// Fields of a [`Raw`](NodeKind::Raw) node.
 #[derive(Debug, Clone, PartialEq, Hash)]
-pub struct RawKind {
+pub struct RawFields {
     /// An optional identifier specifying the language to syntax-highlight in.
     pub lang: Option<EcoString>,
     /// The raw text, determined as the raw string between the backticks trimmed

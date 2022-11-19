@@ -5,7 +5,7 @@
 use std::num::NonZeroUsize;
 use std::ops::Deref;
 
-use super::{NodeData, NodeKind, RawKind, Span, SyntaxNode, Unit};
+use super::{NodeData, NodeKind, RawFields, Span, SyntaxNode, Unit};
 use crate::util::EcoString;
 
 /// A typed AST node.
@@ -80,7 +80,7 @@ pub enum MarkupNode {
     Strong(Strong),
     /// Emphasized content: `_Emphasized_`.
     Emph(Emph),
-    /// A raw block with optional syntax highlighting: `` `...` ``.
+    /// Raw text with optional syntax highlighting: `` `...` ``.
     Raw(Raw),
     /// A hyperlink: `https://typst.org`.
     Link(Link),
@@ -258,7 +258,7 @@ impl Emph {
 }
 
 node! {
-    /// A raw block with optional syntax highlighting: `` `...` ``.
+    /// Raw text with optional syntax highlighting: `` `...` ``.
     Raw
 }
 
@@ -279,7 +279,7 @@ impl Raw {
     }
 
     /// The raw fields.
-    fn get(&self) -> &RawKind {
+    fn get(&self) -> &RawFields {
         match self.0.kind() {
             NodeKind::Raw(v) => v.as_ref(),
             _ => panic!("raw is of wrong kind"),

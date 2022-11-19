@@ -147,7 +147,7 @@ pub enum Category {
     Emph,
     /// A hyperlink.
     Link,
-    /// Raw text or code.
+    /// Raw text.
     Raw,
     /// A label.
     Label,

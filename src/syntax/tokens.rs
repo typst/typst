@@ -4,7 +4,7 @@ use unicode_xid::UnicodeXID;
 use unscanny::Scanner;
 
 use super::resolve::{resolve_hex, resolve_raw, resolve_string};
-use super::{ErrorPos, NodeKind, RawKind, Unit};
+use super::{ErrorPos, NodeKind, RawFields, Unit};
 use crate::geom::{AbsUnit, AngleUnit};
 use crate::util::{format_eco, EcoString};
 
@@ -351,7 +351,7 @@ impl<'s> Tokens<'s> {
 
         // Special case for empty inline block.
         if backticks == 2 {
-            return NodeKind::Raw(Arc::new(RawKind {
+            return NodeKind::Raw(Arc::new(RawFields {
                 text: EcoString::new(),
                 lang: None,
                 block: false,
@@ -724,7 +724,7 @@ mod tests {
     }
 
     fn Raw(text: &str, lang: Option<&str>, block: bool) -> NodeKind {
-        NodeKind::Raw(Arc::new(RawKind {
+        NodeKind::Raw(Arc::new(RawFields {
             text: text.into(),
             lang: lang.map(Into::into),
             block,

@@ -66,7 +66,7 @@ pub struct LangItems {
     pub strong: fn(body: Content) -> Content,
     /// Emphasized content: `_Emphasized_`.
     pub emph: fn(body: Content) -> Content,
-    /// A raw block with optional syntax highlighting: `` `...` ``.
+    /// Raw text with optional syntax highlighting: `` `...` ``.
     pub raw: fn(text: EcoString, tag: Option<EcoString>, block: bool) -> Content,
     /// A hyperlink: `https://typst.org`.
     pub link: fn(url: EcoString) -> Content,

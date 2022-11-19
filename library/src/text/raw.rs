@@ -10,7 +10,7 @@ use super::{FontFamily, Hyphenate, LinebreakNode, TextNode};
 use crate::layout::BlockNode;
 use crate::prelude::*;
 
-/// Monospaced text with optional syntax highlighting.
+/// Raw text with optional syntax highlighting.
 #[derive(Debug, Hash)]
 pub struct RawNode {
     /// The raw text.
