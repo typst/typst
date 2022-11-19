@@ -1,4 +1,4 @@
-#set page(width: 450pt, margins: 1cm)
+#set page(width: 450pt, margin: 1cm)
 
 *Technische Universität Berlin* #h(1fr) *WiSe 2019/2020* \
 *Fakultät II, Institut for Mathematik* #h(1fr) Woche 3 \

@@ -23,7 +23,7 @@
 
 ---
 // Test square that is limited by region size.
-#set page(width: 20pt, height: 10pt, margins: 0pt)
+#set page(width: 20pt, height: 10pt, margin: 0pt)
 #stack(dir: ltr, square(fill: forest), square(fill: conifer))
 
 ---
@@ -35,7 +35,7 @@
 
 ---
 // Test square that is overflowing due to its aspect ratio.
-#set page(width: 40pt, height: 20pt, margins: 5pt)
+#set page(width: 40pt, height: 20pt, margin: 5pt)
 #square(width: 100%)
 #square(width: 100%)[Hello]
 

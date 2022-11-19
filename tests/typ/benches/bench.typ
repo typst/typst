@@ -1,5 +1,5 @@
 // Configuration with `page` and `font` functions.
-#set page(width: 450pt, margins: 1cm)
+#set page(width: 450pt, margin: 1cm)
 
 // There are variables and they can take normal values like strings, ...
 #let city = "Berlin"

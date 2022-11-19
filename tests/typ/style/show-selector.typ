@@ -17,7 +17,7 @@
   stroke: (left: 1.5pt + luma(180)),
 )
 
-#set page(margins: (top: 12pt))
+#set page(margin: (top: 12pt))
 #set par(justify: true)
 
 This code tests `code`

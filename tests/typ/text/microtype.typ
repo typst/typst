@@ -2,7 +2,7 @@
 
 ---
 // Test hanging punctuation.
-#set page(width: 130pt, margins: 15pt)
+#set page(width: 130pt, margin: 15pt)
 #set par(justify: true, linebreaks: "simple")
 #set text(size: 9pt)
 #rect(fill: rgb(0, 0, 0, 0), width: 100%)[
@@ -17,7 +17,7 @@
 
 ---
 // Test that lone punctuation doesn't overhang into the margin.
-#set page(margins: 0pt)
+#set page(margin: 0pt)
 #set par(align: end)
 #set text(dir: rtl)
 :

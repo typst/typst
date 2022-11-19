@@ -21,7 +21,7 @@ impl PageNode {
 
     /// The page's margins.
     #[property(fold)]
-    pub const MARGINS: Sides<Option<Smart<Rel<Length>>>> = Sides::splat(Smart::Auto);
+    pub const MARGIN: Sides<Option<Smart<Rel<Length>>>> = Sides::splat(Smart::Auto);
 
     /// How many columns the page has.
     pub const COLUMNS: NonZeroUsize = NonZeroUsize::new(1).unwrap();
@@ -77,7 +77,7 @@ impl PageNode {
 
         // Determine the margins.
         let default = Rel::from(0.1190 * min);
-        let padding = styles.get(Self::MARGINS).map(|side| side.unwrap_or(default));
+        let padding = styles.get(Self::MARGIN).map(|side| side.unwrap_or(default));
 
         let mut child = self.0.clone();
 

@@ -148,8 +148,7 @@ fn config() -> Config {
     let mut styles = typst_library::styles();
     styles.set(PageNode::WIDTH, Smart::Custom(Abs::pt(120.0).into()));
     styles.set(PageNode::HEIGHT, Smart::Auto);
-    styles
-        .set(PageNode::MARGINS, Sides::splat(Some(Smart::Custom(Abs::pt(10.0).into()))));
+    styles.set(PageNode::MARGIN, Sides::splat(Some(Smart::Custom(Abs::pt(10.0).into()))));
     styles.set(TextNode::SIZE, TextSize(Abs::pt(10.0).into()));
 
     // Hook up helpers into the global scope.

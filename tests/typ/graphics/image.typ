@@ -25,7 +25,7 @@
 
 ---
 // Test all three fit modes.
-#set page(height: 50pt, margins: 0pt)
+#set page(height: 50pt, margin: 0pt)
 #grid(
   columns: (1fr, 1fr, 1fr),
   rows: 100%,

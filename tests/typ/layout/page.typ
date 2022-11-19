@@ -24,7 +24,7 @@
 // Test page fill.
 #set page(width: 80pt, height: 40pt, fill: eastern)
 #text(15pt, "Roboto", fill: white, smallcaps[Typst])
-#page(width: 40pt, fill: none, margins: (top: 10pt, rest: auto))[Hi]
+#page(width: 40pt, fill: none, margin: (top: 10pt, rest: auto))[Hi]
 
 ---
 // Just page followed by pagebreak.
