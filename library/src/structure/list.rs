@@ -144,7 +144,7 @@ impl<const L: ListKind> LayoutBlock for ListNode<L> {
 }
 
 /// An item in a list.
-#[derive(Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, Hash)]
 pub enum ListItem {
     /// An item of an unordered list.
     List(Box<Content>),
@@ -183,24 +183,11 @@ impl ListItem {
     }
 }
 
-impl Debug for ListItem {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            Self::List(body) => write!(f, "- {body:?}"),
-            Self::Enum(number, body) => match number {
-                Some(n) => write!(f, "{n}. {body:?}"),
-                None => write!(f, "+ {body:?}"),
-            },
-            Self::Desc(item) => item.fmt(f),
-        }
-    }
-}
-
 #[node]
 impl ListItem {}
 
 /// A description list item.
-#[derive(Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, Hash)]
 pub struct DescItem {
     /// The term described by the list item.
     pub term: Content,
@@ -216,12 +203,6 @@ castable! {
         let body: Content = dict.get("body")?.clone().cast()?;
         Self { term, body }
     },
-}
-
-impl Debug for DescItem {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "/ {:?}: {:?}", self.term, self.body)
-    }
 }
 
 /// How to label a list.

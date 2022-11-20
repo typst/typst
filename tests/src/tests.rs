@@ -7,7 +7,7 @@ use std::io::Read;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
-use comemo::Prehashed;
+use comemo::{Prehashed, Track};
 use elsa::FrozenVec;
 use once_cell::unsync::OnceCell;
 use tiny_skia as sk;
@@ -100,6 +100,7 @@ struct Args {
 #[derive(Default, Copy, Clone, Eq, PartialEq)]
 struct PrintConfig {
     syntax: bool,
+    model: bool,
     frames: bool,
 }
 
@@ -120,6 +121,8 @@ impl Args {
                 "--pdf" => pdf = true,
                 // Debug print the syntax trees.
                 "--syntax" => print.syntax = true,
+                // Debug print the model.
+                "--model" => print.model = true,
                 // Debug print the frames.
                 "--frames" => print.frames = true,
                 // Everything else is a file filter.
@@ -355,7 +358,7 @@ fn test(
 
         if world.print.frames {
             for frame in &frames {
-                println!("Frame: {:#?}", frame);
+                println!("Frame:\n{:#?}\n", frame);
             }
         }
 
@@ -405,7 +408,7 @@ fn test_part(
     let id = world.set(src_path, text);
     let source = world.source(id);
     if world.print.syntax {
-        println!("Syntax Tree: {:#?}", source.root())
+        println!("Syntax Tree:\n{:#?}\n", source.root())
     }
 
     let (local_compare_ref, mut ref_errors) = parse_metadata(&source);
@@ -413,6 +416,13 @@ fn test_part(
 
     ok &= test_spans(source.root());
     ok &= test_reparse(world.source(id).text(), i, rng);
+
+    if world.print.model {
+        let tracked = (world as &dyn World).track();
+        let route = typst::model::Route::default();
+        let module = typst::model::eval(tracked, route.track(), id).unwrap();
+        println!("Model:\n{:#?}\n", module.content);
+    }
 
     let (mut frames, errors) = match typst::typeset(world, id) {
         Ok(frames) => (frames, vec![]),
