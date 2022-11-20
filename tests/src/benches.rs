@@ -10,7 +10,7 @@ use typst::{Config, World};
 use unscanny::Scanner;
 
 const TEXT: &str = include_str!("../typ/benches/bench.typ");
-const FONT: &[u8] = include_bytes!("../../fonts/IBMPlexSans-Regular.ttf");
+const FONT: &[u8] = include_bytes!("../fonts/IBMPlexSans-Regular.ttf");
 
 main!(
     bench_decode,

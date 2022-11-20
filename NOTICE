@@ -65,15 +65,15 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ================================================================================
 The SIL Open Font License Version 1.1 applies to:
 
-* IBM Plex fonts in fonts/IBMPlex*.ttf
+* IBM Plex fonts in tests/fonts/IBMPlex*.ttf
   Copyright © 2017 IBM Corp. with Reserved Font Name "Plex"
   (https://github.com/IBM/plex)
 
-* Noto fonts in fonts/Noto*.ttf
+* Noto fonts in tests/fonts/Noto*.ttf
   Copyright 2018 The Noto Project Authors
   (github.com/googlei18n/noto-fonts)
 
-* PT Sans fonts in fonts/PTSans*.ttf
+* PT Sans fonts in tests/fonts/PTSans*.ttf
   Copyright (c) 2010, ParaType Ltd. (http://www.paratype.com/public),
   with Reserved Font Names "PT Sans" and "ParaType".
 
@@ -168,7 +168,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 ================================================================================
 The Apache License Version 2.0 applies to:
 
-* Roboto fonts in fonts/Roboto*.ttf
+* Roboto fonts in tests/fonts/Roboto*.ttf
   (https://github.com/googlefonts/roboto)
 
                                  Apache License
@@ -352,7 +352,7 @@ The Apache License Version 2.0 applies to:
 ================================================================================
 The Ubuntu Font License Version 1.0 applies to:
 
-* Ubuntu fonts in fonts/Ubuntu*.ttf
+* Ubuntu fonts in tests/fonts/Ubuntu*.ttf
   (https://design.ubuntu.com/font/)
 
 -------------------------------
@@ -457,10 +457,10 @@ DEALINGS IN THE FONT SOFTWARE.
 ================================================================================
 The GUST Font License Version 1.0 applies to:
 
-* Latin Modern fonts in fonts/LatinModern*.otf
+* Latin Modern fonts in tests/fonts/LatinModern*.otf
   (http://www.gust.org.pl/projects/e-foundry/lm-math)
 
-* NewComputerModern fonts in fonts/NewCM*.otf
+* NewComputerModern fonts in tests/fonts/NewCM*.otf
 
 % This is version 1.0, dated 22 June 2009, of the GUST Font License.
 % (GUST is the Polish TeX Users Group, http://www.gust.org.pl)
@@ -495,7 +495,7 @@ The GUST Font License Version 1.0 applies to:
 ================================================================================
 The Creative Commons Attribution 4.0 International License applies to:
 
-* Twitter Color Emoji font in fonts/TwitterColorEmoji.ttf
+* Twitter Color Emoji font in tests/fonts/TwitterColorEmoji.ttf
   Copyright 2016 Brad Erickson
   Copyright 2016 Twitter, Inc.
   (https://github.com/eosrei/twemoji-color-font)

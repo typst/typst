@@ -4,11 +4,12 @@
 Top level directory structure:
 - `src`: Testing code.
 - `typ`: Input files.
-- `res`: Resource files used by tests.
 - `ref`: Reference images which the output is compared with to determine whether
          a test passed or failed.
 - `png`: PNG files produced by tests.
 - `pdf`: PDF files produced by tests.
+- `res`: Resource files used by tests.
+- `fonts`: Font files used for tests.
 
 ## Running the tests
 Running all tests (including unit tests):

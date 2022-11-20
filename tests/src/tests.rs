@@ -28,7 +28,7 @@ const TYP_DIR: &str = "typ";
 const REF_DIR: &str = "ref";
 const PNG_DIR: &str = "png";
 const PDF_DIR: &str = "pdf";
-const FONT_DIR: &str = "../fonts";
+const FONT_DIR: &str = "fonts";
 
 fn main() {
     let args = Args::new(env::args().skip(1));
