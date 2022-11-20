@@ -322,8 +322,7 @@ impl<'a> Builder<'a> {
 
         if let Some(realized) = styles.show(self.world, content)? {
             let stored = self.scratch.content.alloc(realized);
-            self.accept(stored, styles)?;
-            return Ok(());
+            return self.accept(stored, styles);
         }
 
         if self.list.accept(content, styles) {
@@ -353,7 +352,9 @@ impl<'a> Builder<'a> {
         self.interrupt(Interruption::Page, styles, keep)?;
 
         if let Some(doc) = &mut self.doc {
-            doc.accept(content, styles);
+            if doc.accept(content, styles) {
+                return Ok(());
+            }
         }
 
         // We might want to issue a warning or error for content that wasn't
@@ -402,20 +403,32 @@ impl<'a> Builder<'a> {
         styles: StyleChain<'a>,
         keep: bool,
     ) -> SourceResult<()> {
-        if intr >= Interruption::List && !self.list.is_empty() {
-            mem::take(&mut self.list).finish(self)?;
+        if intr >= Interruption::List && !self.list.items.is_empty() {
+            let staged = mem::take(&mut self.list.staged);
+            let (list, styles) = mem::take(&mut self.list).finish();
+            let stored = self.scratch.content.alloc(list);
+            self.accept(stored, styles)?;
+            for (content, styles) in staged {
+                self.accept(content, styles)?;
+            }
         }
 
-        if intr >= Interruption::Par && !self.par.is_empty() {
-            mem::take(&mut self.par).finish(self);
+        if intr >= Interruption::Par && !self.par.0.is_empty() {
+            let (par, styles) = mem::take(&mut self.par).finish();
+            let stored = self.scratch.content.alloc(par);
+            self.accept(stored, styles)?;
         }
 
-        if intr >= Interruption::Page {
-            if let Some(doc) = &mut self.doc {
-                if !self.flow.is_empty() || (doc.keep_next && keep) {
-                    mem::take(&mut self.flow).finish(doc, styles);
-                }
-                doc.keep_next = !keep;
+        if let Some(doc) = &mut self.doc {
+            if intr >= Interruption::Page
+                && (!self.flow.0.is_empty() || (doc.keep_next && keep))
+            {
+                let (flow, shared) = mem::take(&mut self.flow).finish();
+                let styles =
+                    if shared == StyleChain::default() { styles } else { shared };
+                let page = PageNode(flow).pack();
+                let stored = self.scratch.content.alloc(page);
+                self.accept(stored, styles)?;
             }
         }
 
@@ -443,15 +456,19 @@ struct DocBuilder<'a> {
 }
 
 impl<'a> DocBuilder<'a> {
-    fn accept(&mut self, content: &Content, styles: StyleChain<'a>) {
+    fn accept(&mut self, content: &Content, styles: StyleChain<'a>) -> bool {
         if let Some(pagebreak) = content.downcast::<PagebreakNode>() {
             self.keep_next = !pagebreak.weak;
+            return true;
         }
 
         if let Some(page) = content.downcast::<PageNode>() {
             self.pages.push(page.clone(), styles);
             self.keep_next = false;
+            return true;
         }
+
+        false
     }
 }
 
@@ -466,32 +483,35 @@ impl Default for DocBuilder<'_> {
 struct FlowBuilder<'a>(BehavedBuilder<'a>, bool);
 
 impl<'a> FlowBuilder<'a> {
-    fn accept(&mut self, content: &Content, styles: StyleChain<'a>) -> bool {
-        let last_was_parbreak = std::mem::replace(&mut self.1, false);
-
+    fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) -> bool {
         if content.is::<ParbreakNode>() {
             self.1 = true;
             return true;
-        } else if content.is::<VNode>() || content.is::<ColbreakNode>() {
+        }
+
+        let last_was_parbreak = self.1;
+        self.1 = false;
+
+        if content.is::<VNode>() || content.is::<ColbreakNode>() {
             self.0.push(content.clone(), styles);
             return true;
-        } else if content.has::<dyn LayoutBlock>() {
-            if !last_was_parbreak {
-                let tight = if let Some(node) = content.downcast::<ListNode>() {
-                    node.tight
-                } else if let Some(node) = content.downcast::<EnumNode>() {
-                    node.tight
-                } else if let Some(node) = content.downcast::<DescNode>() {
-                    node.tight
-                } else {
-                    false
-                };
+        }
 
-                if tight {
-                    let leading = styles.get(ParNode::LEADING);
-                    let spacing = VNode::list_attach(leading.into());
-                    self.0.push(spacing.pack(), styles);
-                }
+        if content.has::<dyn LayoutBlock>() {
+            let is_tight_list = if let Some(node) = content.downcast::<ListNode>() {
+                node.tight
+            } else if let Some(node) = content.downcast::<EnumNode>() {
+                node.tight
+            } else if let Some(node) = content.downcast::<DescNode>() {
+                node.tight
+            } else {
+                false
+            };
+
+            if !last_was_parbreak && is_tight_list {
+                let leading = styles.get(ParNode::LEADING);
+                let spacing = VNode::list_attach(leading.into());
+                self.0.push(spacing.pack(), styles);
             }
 
             let above = styles.get(BlockNode::ABOVE);
@@ -505,15 +525,9 @@ impl<'a> FlowBuilder<'a> {
         false
     }
 
-    fn finish(self, doc: &mut DocBuilder<'a>, styles: StyleChain<'a>) {
+    fn finish(self) -> (Content, StyleChain<'a>) {
         let (flow, shared) = self.0.finish();
-        let styles = if flow.is_empty() { styles } else { shared };
-        let node = PageNode(FlowNode(flow).pack());
-        doc.pages.push(node, styles);
-    }
-
-    fn is_empty(&self) -> bool {
-        self.0.is_empty()
+        (FlowNode(flow).pack(), shared)
     }
 }
 
@@ -522,7 +536,7 @@ impl<'a> FlowBuilder<'a> {
 struct ParBuilder<'a>(BehavedBuilder<'a>);
 
 impl<'a> ParBuilder<'a> {
-    fn accept(&mut self, content: &Content, styles: StyleChain<'a>) -> bool {
+    fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) -> bool {
         if content.is::<SpaceNode>()
             || content.is::<LinebreakNode>()
             || content.is::<HNode>()
@@ -537,15 +551,9 @@ impl<'a> ParBuilder<'a> {
         false
     }
 
-    fn finish(self, parent: &mut Builder<'a>) {
+    fn finish(self) -> (Content, StyleChain<'a>) {
         let (children, shared) = self.0.finish();
-        if !children.is_empty() {
-            parent.flow.accept(&ParNode(children).pack(), shared);
-        }
-    }
-
-    fn is_empty(&self) -> bool {
-        self.0.is_empty()
+        (ParNode(children).pack(), shared)
     }
 }
 
@@ -565,50 +573,34 @@ impl<'a> ListBuilder<'a> {
             && (content.is::<SpaceNode>() || content.is::<ParbreakNode>())
         {
             self.staged.push((content, styles));
-        } else if let Some(item) = content.downcast::<ListItem>() {
+            return true;
+        }
+
+        if let Some(item) = content.downcast::<ListItem>() {
             if self
                 .items
                 .items()
                 .next()
-                .map_or(false, |first| item.kind() != first.kind())
+                .map_or(true, |first| item.kind() == first.kind())
             {
-                return false;
+                self.items.push(item.clone(), styles);
+                self.tight &= self.staged.drain(..).all(|(t, _)| !t.is::<ParbreakNode>());
+                return true;
             }
-
-            self.items.push(item.clone(), styles);
-            self.tight &= self.staged.drain(..).all(|(t, _)| !t.is::<ParbreakNode>());
-        } else {
-            return false;
         }
 
-        true
+        false
     }
 
-    fn finish(self, parent: &mut Builder<'a>) -> SourceResult<()> {
+    fn finish(self) -> (Content, StyleChain<'a>) {
         let (items, shared) = self.items.finish();
-        if let Some(item) = items.items().next() {
-            let tight = self.tight;
-            let content = match item.kind() {
-                LIST => ListNode::<LIST> { tight, items }.pack(),
-                ENUM => ListNode::<ENUM> { tight, items }.pack(),
-                DESC | _ => ListNode::<DESC> { tight, items }.pack(),
-            };
-
-            let stored = parent.scratch.content.alloc(content);
-            parent.accept(stored, shared)?;
-        }
-
-        for (content, styles) in self.staged {
-            parent.accept(content, styles)?;
-        }
-
-        parent.list.tight = true;
-
-        Ok(())
-    }
-
-    fn is_empty(&self) -> bool {
-        self.items.is_empty()
+        let item = items.items().next().unwrap();
+        let output = match item.kind() {
+            LIST => ListNode::<LIST> { tight: self.tight, items }.pack(),
+            ENUM => ListNode::<ENUM> { tight: self.tight, items }.pack(),
+            DESC | _ => ListNode::<DESC> { tight: self.tight, items }.pack(),
+        };
+        (output, shared)
     }
 }
 

@@ -28,7 +28,7 @@ pub enum Behaviour {
     Supportive,
     /// A node that destroys adjacent weak nodes.
     Destructive,
-    /// A node that does not interact at all with other node, having the
+    /// A node that does not interact at all with other nodes, having the
     /// same effect as if it didn't exist.
     Ignorant,
 }
