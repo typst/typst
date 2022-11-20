@@ -109,6 +109,8 @@ fn expand_node(
         }
     };
 
+    let name = self_name.trim_end_matches("Node").to_lowercase();
+
     // Put everything into a module with a hopefully unique type to isolate
     // it from the outside.
     Ok(quote! {
@@ -129,6 +131,10 @@ fn expand_node(
 
                 fn id(&self) -> model::NodeId {
                     model::NodeId::of::<Self>()
+                }
+
+                fn name(&self) -> &'static str {
+                    #name
                 }
 
                 #vtable

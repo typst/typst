@@ -96,6 +96,8 @@ impl SourceError {
 pub enum Tracepoint {
     /// A function call.
     Call(Option<EcoString>),
+    /// A show rule application.
+    Apply(EcoString),
     /// A module import.
     Import,
 }
@@ -108,6 +110,9 @@ impl Display for Tracepoint {
             }
             Tracepoint::Call(None) => {
                 write!(f, "error occured in this function call")
+            }
+            Tracepoint::Apply(name) => {
+                write!(f, "error occured while applying show rule to this {name}")
             }
             Tracepoint::Import => {
                 write!(f, "error occured while importing this module")

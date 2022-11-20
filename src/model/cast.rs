@@ -194,7 +194,12 @@ castable! {
     Value::None => Self::Content(Content::empty()),
     Value::Str(text) => Self::Content(item!(text)(text.into())),
     Value::Content(content) => Self::Content(content),
-    Value::Func(func) => Self::Func(func),
+    Value::Func(func) => {
+        if func.argc().map_or(false, |count| count != 1) {
+            Err("function must have exactly one parameter")?
+        }
+        Self::Func(func)
+    },
 }
 
 dynamic! {

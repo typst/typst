@@ -11,6 +11,7 @@ use typst_macros::node;
 
 use super::{Args, Key, Property, Recipe, RecipeId, Style, StyleMap, Value, Vm};
 use crate::diag::{SourceResult, StrResult};
+use crate::syntax::Span;
 use crate::util::ReadableTypeId;
 use crate::World;
 
@@ -20,7 +21,7 @@ use crate::World;
 /// - anything written between square brackets in Typst
 /// - any constructor function
 #[derive(Clone, Hash)]
-pub struct Content(Arc<dyn Bounds>, Vec<RecipeId>);
+pub struct Content(Arc<dyn Bounds>, Vec<RecipeId>, Option<Span>);
 
 impl Content {
     /// Create empty content.
@@ -39,6 +40,16 @@ impl Content {
     /// Whether the content is empty.
     pub fn is_empty(&self) -> bool {
         self.downcast::<SequenceNode>().map_or(false, |seq| seq.0.is_empty())
+    }
+
+    /// The node's span.
+    pub fn span(&self) -> Option<Span> {
+        self.2
+    }
+
+    /// The node's human-readable name.
+    pub fn name(&self) -> &'static str {
+        (*self.0).name()
     }
 
     /// The id of the contained node.
@@ -105,7 +116,7 @@ impl Content {
         recipe: Recipe,
     ) -> SourceResult<Self> {
         if recipe.selector.is_none() {
-            recipe.transform.apply(world, recipe.span, || Value::Content(self))
+            recipe.transform.apply(world, recipe.span, self)
         } else {
             Ok(self.styled_with_entry(Style::Recipe(recipe)))
         }
@@ -137,6 +148,21 @@ impl Content {
         }
 
         StyledNode { sub: self, map: styles }.pack()
+    }
+
+    /// Attach a span to the content.
+    pub fn spanned(mut self, span: Span) -> Self {
+        if let Some(styled) = self.try_downcast_mut::<StyledNode>() {
+            styled.sub.2 = Some(span);
+        } else if let Some(styled) = self.downcast::<StyledNode>() {
+            self = StyledNode {
+                sub: styled.sub.clone().spanned(span),
+                map: styled.map.clone(),
+            }
+            .pack();
+        }
+        self.2 = Some(span);
+        self
     }
 
     /// Disable a show rule recipe.
@@ -252,7 +278,7 @@ pub trait Node: 'static {
     where
         Self: Debug + Hash + Sync + Send + Sized + 'static,
     {
-        Content(Arc::new(self), vec![])
+        Content(Arc::new(self), vec![], None)
     }
 
     /// Construct a node from the arguments.
@@ -276,6 +302,9 @@ pub trait Node: 'static {
 
     /// A unique identifier of the node type.
     fn id(&self) -> NodeId;
+
+    /// The node's name.
+    fn name(&self) -> &'static str;
 
     /// Extract the pointer of the vtable of the trait object with the
     /// given type `id` if this node implements that trait.

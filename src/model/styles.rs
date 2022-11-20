@@ -8,7 +8,7 @@ use std::sync::Arc;
 use comemo::{Prehashed, Tracked};
 
 use super::{capability, Args, Content, Dict, Func, NodeId, Regex, Smart, Value};
-use crate::diag::SourceResult;
+use crate::diag::{SourceResult, Trace, Tracepoint};
 use crate::geom::{
     Abs, Align, Axes, Corners, Em, GenAlign, Length, Numeric, PartialStroke, Rel, Sides,
 };
@@ -382,9 +382,7 @@ impl Recipe {
                     return Ok(None);
                 }
 
-                self.transform.apply(world, self.span, || {
-                    Value::Content(target.clone().guard(sel))
-                })?
+                self.transform.apply(world, self.span, target.clone().guard(sel))?
             }
 
             Some(Selector::Regex(regex)) => {
@@ -402,9 +400,11 @@ impl Recipe {
                         result.push(make(text[cursor..start].into()));
                     }
 
-                    let transformed = self.transform.apply(world, self.span, || {
-                        Value::Content(make(mat.as_str().into()).guard(sel))
-                    })?;
+                    let transformed = self.transform.apply(
+                        world,
+                        self.span,
+                        make(mat.as_str().into()).guard(sel),
+                    )?;
 
                     result.push(transformed);
                     cursor = mat.end();
@@ -486,20 +486,22 @@ pub enum Transform {
 
 impl Transform {
     /// Apply the transform.
-    pub fn apply<F>(
+    pub fn apply(
         &self,
         world: Tracked<dyn World>,
-        span: Span,
-        arg: F,
-    ) -> SourceResult<Content>
-    where
-        F: FnOnce() -> Value,
-    {
+        rule_span: Span,
+        content: Content,
+    ) -> SourceResult<Content> {
         match self {
             Transform::Content(content) => Ok(content.clone()),
             Transform::Func(func) => {
-                let args = Args::new(span, [arg()]);
-                Ok(func.call_detached(world, args)?.display(world))
+                let args = Args::new(rule_span, [Value::Content(content.clone())]);
+                let mut result = func.call_detached(world, args);
+                if let Some(span) = content.span() {
+                    let point = || Tracepoint::Apply(content.name().into());
+                    result = result.trace(world, point, span);
+                }
+                Ok(result?.display(world))
             }
         }
     }

@@ -155,29 +155,30 @@ impl Eval for ast::MarkupNode {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        match self {
-            Self::Space(v) => Ok(match v.newlines() {
+        Ok(match self {
+            Self::Space(v) => match v.newlines() {
                 0..=1 => (vm.items.space)(),
                 _ => (vm.items.parbreak)(),
-            }),
-            Self::Linebreak(v) => v.eval(vm),
-            Self::Text(v) => v.eval(vm),
-            Self::Escape(v) => Ok((vm.items.text)(v.get().into())),
-            Self::Shorthand(v) => v.eval(vm),
-            Self::SmartQuote(v) => v.eval(vm),
-            Self::Strong(v) => v.eval(vm),
-            Self::Emph(v) => v.eval(vm),
-            Self::Link(v) => v.eval(vm),
-            Self::Raw(v) => v.eval(vm),
-            Self::Math(v) => v.eval(vm),
-            Self::Heading(v) => v.eval(vm),
-            Self::List(v) => v.eval(vm),
-            Self::Enum(v) => v.eval(vm),
-            Self::Desc(v) => v.eval(vm),
-            Self::Label(v) => v.eval(vm),
-            Self::Ref(v) => v.eval(vm),
-            Self::Expr(v) => v.eval(vm).map(|value| value.display(vm.world)),
+            },
+            Self::Linebreak(v) => v.eval(vm)?,
+            Self::Text(v) => v.eval(vm)?,
+            Self::Escape(v) => (vm.items.text)(v.get().into()),
+            Self::Shorthand(v) => v.eval(vm)?,
+            Self::SmartQuote(v) => v.eval(vm)?,
+            Self::Strong(v) => v.eval(vm)?,
+            Self::Emph(v) => v.eval(vm)?,
+            Self::Link(v) => v.eval(vm)?,
+            Self::Raw(v) => v.eval(vm)?,
+            Self::Math(v) => v.eval(vm)?,
+            Self::Heading(v) => v.eval(vm)?,
+            Self::List(v) => v.eval(vm)?,
+            Self::Enum(v) => v.eval(vm)?,
+            Self::Desc(v) => v.eval(vm)?,
+            Self::Label(v) => v.eval(vm)?,
+            Self::Ref(v) => v.eval(vm)?,
+            Self::Expr(v) => v.eval(vm)?.display(vm.world),
         }
+        .spanned(self.span()))
     }
 }
 

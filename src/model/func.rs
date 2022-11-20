@@ -68,9 +68,7 @@ impl Func {
     /// The number of positional arguments this function takes, if known.
     pub fn argc(&self) -> Option<usize> {
         match self.0.as_ref() {
-            Repr::Closure(closure) => Some(
-                closure.params.iter().filter(|(_, default)| default.is_none()).count(),
-            ),
+            Repr::Closure(closure) => closure.argc(),
             Repr::With(wrapped, applied) => Some(wrapped.argc()?.saturating_sub(
                 applied.items.iter().filter(|arg| arg.name.is_none()).count(),
             )),
@@ -238,6 +236,15 @@ impl Closure {
         }
 
         result
+    }
+
+    /// The number of positional arguments this function takes, if known.
+    pub fn argc(&self) -> Option<usize> {
+        if self.sink.is_some() {
+            return None;
+        }
+
+        Some(self.params.iter().filter(|(_, default)| default.is_none()).count())
     }
 }
 

@@ -21,9 +21,9 @@
     .map(s => s.trim())
     .filter(s => s != "")
     .map(s => s + "!")
-    .join([\ ])
+    .join("\n ")
 
-  test(rewritten, [Hello!\ This is a sentence!\ And one more!])
+  test(rewritten, "Hello!\n This is a sentence!\n And one more!")
 }
 
 ---
