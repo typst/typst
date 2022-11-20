@@ -314,6 +314,18 @@ impl NodeKind {
         matches!(self, NodeKind::Error(_, _))
     }
 
+    /// Does this node need termination through a semicolon or linebreak?
+    pub fn is_stmt(&self) -> bool {
+        matches!(
+            self,
+            NodeKind::LetBinding
+                | NodeKind::SetRule
+                | NodeKind::ShowRule
+                | NodeKind::ModuleImport
+                | NodeKind::ModuleInclude
+        )
+    }
+
     /// A human-readable name for the kind.
     pub fn name(&self) -> &'static str {
         match self {

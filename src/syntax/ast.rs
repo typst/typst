@@ -56,7 +56,17 @@ node! {
 impl Markup {
     /// The children.
     pub fn children(&self) -> impl DoubleEndedIterator<Item = MarkupNode> + '_ {
-        self.0.children().filter_map(SyntaxNode::cast)
+        let mut was_stmt = false;
+        self.0
+            .children()
+            .filter(move |node| {
+                // Ignore linebreak directly after statements without semicolons.
+                let kind = node.kind();
+                let keep = !was_stmt || !matches!(kind, NodeKind::Space { newlines: 1 });
+                was_stmt = kind.is_stmt();
+                keep
+            })
+            .filter_map(SyntaxNode::cast)
     }
 }
 
