@@ -4,14 +4,12 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use comemo::Tracked;
 use siphasher::sip128::{Hasher128, SipHasher};
 
 use super::{format_str, ops, Args, Array, Cast, Content, Dict, Func, Str};
 use crate::diag::StrResult;
 use crate::geom::{Abs, Angle, Color, Em, Fr, Length, Ratio, Rel, RgbaColor};
 use crate::util::{format_eco, EcoString};
-use crate::World;
 
 /// A computational value.
 #[derive(Clone)]
@@ -98,18 +96,15 @@ impl Value {
     }
 
     /// Return the display representation of the value.
-    pub fn display(self, world: Tracked<dyn World>) -> Content {
-        let items = &world.config().items;
+    pub fn display(self) -> Content {
         match self {
-            Value::None => Content::empty(),
-            Value::Int(v) => (items.text)(format_eco!("{}", v)),
-            Value::Float(v) => (items.text)(format_eco!("{}", v)),
-            Value::Str(v) => (items.text)(v.into()),
-            Value::Content(v) => v,
-
-            // For values which can't be shown "naturally", we return the raw
-            // representation with typst code syntax highlighting.
-            v => (items.raw)(v.repr().into(), Some("typc".into()), false),
+            Self::None => Content::empty(),
+            Self::Int(v) => item!(text)(format_eco!("{}", v)),
+            Self::Float(v) => item!(text)(format_eco!("{}", v)),
+            Self::Str(v) => item!(text)(v.into()),
+            Self::Content(v) => v,
+            Self::Func(_) => Content::empty(),
+            _ => item!(raw)(self.repr().into(), Some("typc".into()), false),
         }
     }
 }
@@ -425,7 +420,7 @@ mod tests {
         test(dict!["two" => false, "one" => 1], "(one: 1, two: false)");
 
         // Functions, content and dynamics.
-        test(Func::from_fn("nil", |_, _| Ok(Value::None)), "nil");
+        test(Func::from_fn("nil", |_, _| Ok(Value::None)), "<function nil>");
         test(Dynamic::new(1), "1");
     }
 }

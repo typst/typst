@@ -141,8 +141,8 @@ impl Func {
 impl Debug for Func {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self.name() {
-            Some(name) => f.write_str(name),
-            None => f.write_str("(..) => {..}"),
+            Some(name) => write!(f, "<function {name}>"),
+            None => f.write_str("<function>"),
         }
     }
 }

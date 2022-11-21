@@ -40,9 +40,9 @@
 #raw(repr[*{"H" + "i"} there*])
 
 ---
-// Functions
+// Functions are invisible.
+Nothing
 #let f(x) = x
-
-{f} \
-{rect} \
-{() => none} \
+{f}
+{rect}
+{() => none}

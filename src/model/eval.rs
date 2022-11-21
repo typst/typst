@@ -183,7 +183,7 @@ impl Eval for ast::MarkupNode {
             Self::Desc(v) => v.eval(vm)?,
             Self::Label(_) => unimplemented!("handled above"),
             Self::Ref(v) => v.eval(vm)?,
-            Self::Expr(v) => v.eval(vm)?.display(vm.world),
+            Self::Expr(v) => v.eval(vm)?.display(),
         }
         .spanned(self.span()))
     }
@@ -474,7 +474,7 @@ fn eval_code(
                     break;
                 }
 
-                let tail = eval_code(vm, exprs)?.display(vm.world);
+                let tail = eval_code(vm, exprs)?.display();
                 Value::Content(tail.styled_with_map(styles))
             }
             ast::Expr::Show(show) => {
@@ -483,7 +483,7 @@ fn eval_code(
                     break;
                 }
 
-                let tail = eval_code(vm, exprs)?.display(vm.world);
+                let tail = eval_code(vm, exprs)?.display();
                 Value::Content(tail.styled_with_recipe(vm.world, recipe)?)
             }
             _ => expr.eval(vm)?,

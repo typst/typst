@@ -510,7 +510,7 @@ impl Transform {
                     let point = || Tracepoint::Apply(content.name().into());
                     result = result.trace(world, point, span);
                 }
-                Ok(result?.display(world))
+                Ok(result?.display())
             }
         }
     }

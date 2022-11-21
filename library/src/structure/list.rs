@@ -252,7 +252,7 @@ impl Label {
             Self::Content(content) => content.clone(),
             Self::Func(func, span) => {
                 let args = Args::new(*span, [Value::Int(number as i64)]);
-                func.call_detached(world, args)?.display(world)
+                func.call_detached(world, args)?.display()
             }
         })
     }
