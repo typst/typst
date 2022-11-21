@@ -350,6 +350,10 @@ pub trait Finalize: 'static + Sync + Send {
     ) -> SourceResult<Content>;
 }
 
+/// Indicates that a node cannot be labelled.
+#[capability]
+pub trait Unlabellable: 'static + Sync + Send {}
+
 /// A show rule recipe.
 #[derive(Clone, PartialEq, Hash)]
 pub struct Recipe {
@@ -392,9 +396,7 @@ impl Recipe {
 
                 let make = |s| {
                     let mut content = item!(text)(s);
-                    if let Some(span) = target.span() {
-                        content = content.spanned(span);
-                    }
+                    content.copy_meta(target);
                     content
                 };
 

@@ -7,7 +7,7 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use super::{
     methods, ops, Arg, Args, Array, CapturesVisitor, Closure, Content, Dict, Flow, Func,
-    Recipe, Scope, Scopes, Selector, StyleMap, Transform, Value, Vm,
+    Recipe, Scope, Scopes, Selector, StyleMap, Transform, Unlabellable, Value, Vm,
 };
 use crate::diag::{bail, error, At, SourceResult, StrResult, Trace, Tracepoint};
 use crate::geom::{Abs, Angle, Em, Fr, Ratio};
@@ -118,14 +118,14 @@ fn eval_markup(
     let mut seq = Vec::with_capacity(nodes.size_hint().1.unwrap_or_default());
 
     while let Some(node) = nodes.next() {
-        seq.push(match node {
+        match node {
             ast::MarkupNode::Expr(ast::Expr::Set(set)) => {
                 let styles = set.eval(vm)?;
                 if vm.flow.is_some() {
                     break;
                 }
 
-                eval_markup(vm, nodes)?.styled_with_map(styles)
+                seq.push(eval_markup(vm, nodes)?.styled_with_map(styles))
             }
             ast::MarkupNode::Expr(ast::Expr::Show(show)) => {
                 let recipe = show.eval(vm)?;
@@ -134,10 +134,17 @@ fn eval_markup(
                 }
 
                 let tail = eval_markup(vm, nodes)?;
-                tail.styled_with_recipe(vm.world, recipe)?
+                seq.push(tail.styled_with_recipe(vm.world, recipe)?)
             }
-            _ => node.eval(vm)?,
-        });
+            ast::MarkupNode::Label(label) => {
+                if let Some(node) =
+                    seq.iter_mut().rev().find(|node| !node.has::<dyn Unlabellable>())
+                {
+                    node.set_label(label.get().clone());
+                }
+            }
+            _ => seq.push(node.eval(vm)?),
+        }
 
         if vm.flow.is_some() {
             break;
@@ -174,7 +181,7 @@ impl Eval for ast::MarkupNode {
             Self::List(v) => v.eval(vm)?,
             Self::Enum(v) => v.eval(vm)?,
             Self::Desc(v) => v.eval(vm)?,
-            Self::Label(v) => v.eval(vm)?,
+            Self::Label(_) => unimplemented!("handled above"),
             Self::Ref(v) => v.eval(vm)?,
             Self::Expr(v) => v.eval(vm)?.display(vm.world),
         }
@@ -246,14 +253,6 @@ impl Eval for ast::Link {
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         Ok((vm.items.link)(self.url().clone()))
-    }
-}
-
-impl Eval for ast::Label {
-    type Output = Content;
-
-    fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(Content::empty())
     }
 }
 

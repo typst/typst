@@ -414,12 +414,14 @@ impl Fold for FontFeatures {
 #[derive(Debug, Hash)]
 pub struct SpaceNode;
 
-#[node(Behave)]
+#[node(Unlabellable, Behave)]
 impl SpaceNode {
     fn construct(_: &mut Vm, _: &mut Args) -> SourceResult<Content> {
         Ok(Self.pack())
     }
 }
+
+impl Unlabellable for SpaceNode {}
 
 impl Behave for SpaceNode {
     fn behaviour(&self) -> Behaviour {

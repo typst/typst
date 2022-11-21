@@ -12,7 +12,7 @@ use typst_macros::node;
 use super::{Args, Key, Property, Recipe, RecipeId, Style, StyleMap, Value, Vm};
 use crate::diag::{SourceResult, StrResult};
 use crate::syntax::Span;
-use crate::util::ReadableTypeId;
+use crate::util::{EcoString, ReadableTypeId};
 use crate::World;
 
 /// Composable representation of styled content.
@@ -21,7 +21,7 @@ use crate::World;
 /// - anything written between square brackets in Typst
 /// - any constructor function
 #[derive(Clone, Hash)]
-pub struct Content(Arc<dyn Bounds>, Vec<RecipeId>, Option<Span>);
+pub struct Content(Arc<dyn Bounds>, Vec<RecipeId>, Option<Span>, Option<EcoString>);
 
 impl Content {
     /// Create empty content.
@@ -40,11 +40,6 @@ impl Content {
     /// Whether the content is empty.
     pub fn is_empty(&self) -> bool {
         self.downcast::<SequenceNode>().map_or(false, |seq| seq.0.is_empty())
-    }
-
-    /// The node's span.
-    pub fn span(&self) -> Option<Span> {
-        self.2
     }
 
     /// The node's human-readable name.
@@ -74,6 +69,13 @@ impl Content {
 
     /// Access a field on this content.
     pub fn field(&self, name: &str) -> Option<Value> {
+        if name == "label" {
+            return Some(match &self.3 {
+                Some(label) => Value::Str(label.clone().into()),
+                None => Value::None,
+            });
+        }
+
         self.0.field(name)
     }
 
@@ -150,21 +152,6 @@ impl Content {
         StyledNode { sub: self, map: styles }.pack()
     }
 
-    /// Attach a span to the content.
-    pub fn spanned(mut self, span: Span) -> Self {
-        if let Some(styled) = self.try_downcast_mut::<StyledNode>() {
-            styled.sub.2 = Some(span);
-        } else if let Some(styled) = self.downcast::<StyledNode>() {
-            self = StyledNode {
-                sub: styled.sub.clone().spanned(span),
-                map: styled.map.clone(),
-            }
-            .pack();
-        }
-        self.2 = Some(span);
-        self
-    }
-
     /// Disable a show rule recipe.
     pub fn guard(mut self, id: RecipeId) -> Self {
         self.1.push(id);
@@ -179,6 +166,54 @@ impl Content {
     /// Check whether a show rule recipe is disabled.
     pub fn guarded(&self, id: RecipeId) -> bool {
         self.1.contains(&id)
+    }
+
+    /// The node's span.
+    pub fn span(&self) -> Option<Span> {
+        self.2
+    }
+
+    /// Set the content's span.
+    pub fn set_span(&mut self, span: Span) {
+        if let Some(styled) = self.try_downcast_mut::<StyledNode>() {
+            styled.sub.2 = Some(span);
+        } else if let Some(styled) = self.downcast::<StyledNode>() {
+            *self = StyledNode {
+                sub: styled.sub.clone().spanned(span),
+                map: styled.map.clone(),
+            }
+            .pack();
+        }
+        self.2 = Some(span);
+    }
+
+    /// Attach a span to the content.
+    pub fn spanned(mut self, span: Span) -> Self {
+        self.set_span(span);
+        self
+    }
+
+    /// The content's label.
+    pub fn label(&self) -> Option<&EcoString> {
+        self.3.as_ref()
+    }
+
+    /// Set the content's label.
+    pub fn set_label(&mut self, label: EcoString) {
+        self.3 = Some(label);
+    }
+
+    /// Attacha label to the content.
+    pub fn labelled(mut self, label: EcoString) -> Self {
+        self.set_label(label);
+        self
+    }
+
+    /// Copy the metadata from other content.
+    pub fn copy_meta(&mut self, from: &Content) {
+        self.1 = from.1.clone();
+        self.2 = from.2;
+        self.3 = from.3.clone();
     }
 }
 
@@ -278,7 +313,7 @@ pub trait Node: 'static {
     where
         Self: Debug + Hash + Sync + Send + Sized + 'static,
     {
-        Content(Arc::new(self), vec![], None)
+        Content(Arc::new(self), vec![], None, None)
     }
 
     /// A unique identifier of the node type.

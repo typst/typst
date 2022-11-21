@@ -117,12 +117,14 @@ castable! {
 #[derive(Debug, Hash)]
 pub struct ParbreakNode;
 
-#[node]
+#[node(Unlabellable)]
 impl ParbreakNode {
     fn construct(_: &mut Vm, _: &mut Args) -> SourceResult<Content> {
         Ok(Self.pack())
     }
 }
+
+impl Unlabellable for ParbreakNode {}
 
 /// Repeats content to fill a line.
 #[derive(Debug, Hash)]
