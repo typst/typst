@@ -281,6 +281,12 @@ pub trait Node: 'static {
         Content(Arc::new(self), vec![], None)
     }
 
+    /// A unique identifier of the node type.
+    fn id(&self) -> NodeId;
+
+    /// The node's name.
+    fn name(&self) -> &'static str;
+
     /// Construct a node from the arguments.
     ///
     /// This is passed only the arguments that remain after execution of the
@@ -299,12 +305,6 @@ pub trait Node: 'static {
 
     /// Access a field on this node.
     fn field(&self, name: &str) -> Option<Value>;
-
-    /// A unique identifier of the node type.
-    fn id(&self) -> NodeId;
-
-    /// The node's name.
-    fn name(&self) -> &'static str;
 
     /// Extract the pointer of the vtable of the trait object with the
     /// given type `id` if this node implements that trait.

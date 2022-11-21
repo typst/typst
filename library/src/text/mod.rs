@@ -114,22 +114,22 @@ impl TextNode {
 
     /// Whether the font weight should be increased by 300.
     #[property(skip, fold)]
-    pub(super) const BOLD: Toggle = false;
+    const BOLD: Toggle = false;
     /// Whether the font style should be inverted.
     #[property(skip, fold)]
-    pub(super) const ITALIC: Toggle = false;
+    const ITALIC: Toggle = false;
     /// A case transformation that should be applied to the text.
     #[property(skip)]
-    pub(super) const CASE: Option<Case> = None;
+    const CASE: Option<Case> = None;
     /// Whether small capital glyphs should be used. ("smcp")
     #[property(skip)]
-    pub(super) const SMALLCAPS: bool = false;
+    const SMALLCAPS: bool = false;
     /// A destination the text should be linked to.
     #[property(skip, referenced)]
     pub(crate) const LINK: Option<Destination> = None;
     /// Decorative lines.
     #[property(skip, fold)]
-    pub(super) const DECO: Decoration = vec![];
+    const DECO: Decoration = vec![];
 
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         // The text constructor is special: It doesn't create a text node.

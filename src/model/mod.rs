@@ -23,6 +23,8 @@ mod ops;
 mod scope;
 mod vm;
 
+#[doc(hidden)]
+pub use once_cell;
 pub use typst_macros::{capability, node};
 
 pub use self::args::*;
