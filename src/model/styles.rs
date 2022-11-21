@@ -390,12 +390,19 @@ impl Recipe {
                     return Ok(None);
                 };
 
-                let make = item!(text);
+                let make = |s| {
+                    let mut content = item!(text)(s);
+                    if let Some(span) = target.span() {
+                        content = content.spanned(span);
+                    }
+                    content
+                };
+
                 let mut result = vec![];
                 let mut cursor = 0;
 
-                for mat in regex.find_iter(text) {
-                    let start = mat.start();
+                for m in regex.find_iter(text) {
+                    let start = m.start();
                     if cursor < start {
                         result.push(make(text[cursor..start].into()));
                     }
@@ -403,11 +410,11 @@ impl Recipe {
                     let transformed = self.transform.apply(
                         world,
                         self.span,
-                        make(mat.as_str().into()).guard(sel),
+                        make(m.as_str().into()).guard(sel),
                     )?;
 
                     result.push(transformed);
-                    cursor = mat.end();
+                    cursor = m.end();
                 }
 
                 if result.is_empty() {
