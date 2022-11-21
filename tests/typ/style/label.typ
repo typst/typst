@@ -2,7 +2,7 @@
 
 ---
 // Test labelled headings.
-#show heading: text.with(10pt)
+#show heading: set text(10pt)
 #show heading.where(label: "intro"): underline
 
 = Introduction <intro>
@@ -13,7 +13,7 @@ The end.
 
 ---
 // Test label after expression.
-#show strong.where(label: "v"): text.with(red)
+#show strong.where(label: "v"): set text(red)
 
 #let a = [*A*]
 #let b = [*B*]
@@ -30,8 +30,8 @@ This is a thing [that <last>] happened.
 
 ---
 // Test abusing labels for styling.
-#show strong.where(label: "red"): text.with(red)
-#show strong.where(label: "blue"): text.with(blue)
+#show strong.where(label: "red"): set text(red)
+#show strong.where(label: "blue"): set text(blue)
 
 *A* *B* <red> *C* <blue> *D*
 

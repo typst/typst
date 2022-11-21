@@ -16,18 +16,17 @@ It is the east, and Juliet is the sun.
 ---
 // Test that paragraph spacing loses against block spacing.
 // TODO
-// #set block(spacing: 100pt)
-// #show table: set block(spacing: 5pt)
-#set block(spacing: 5pt)
+#set block(spacing: 100pt)
+#show table: set block(above: 5pt, below: 5pt)
 Hello
 #table(columns: 4, fill: (x, y) => if odd(x + y) { silver })[A][B][C][D]
 
 ---
 // While we're at it, test the larger block spacing wins.
 #set block(spacing: 0pt)
-#show raw: it => { set block(spacing: 15pt); it }
-#show math: it => { set block(spacing: 7.5pt); it }
-#show list: it => { set block(spacing: 2.5pt); it }
+#show raw: set block(spacing: 15pt)
+#show math: set block(spacing: 7.5pt)
+#show list: set block(spacing: 2.5pt)
 
 ```rust
 fn main() {}

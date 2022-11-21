@@ -851,7 +851,11 @@ impl Eval for ast::ShowRule {
 
         let transform = self.transform();
         let span = transform.span();
-        let transform = transform.eval(vm)?.cast::<Transform>().at(span)?;
+
+        let transform = match transform {
+            ast::Expr::Set(set) => Transform::Style(set.eval(vm)?),
+            expr => expr.eval(vm)?.cast::<Transform>().at(span)?,
+        };
 
         Ok(Recipe { span, selector, transform })
     }

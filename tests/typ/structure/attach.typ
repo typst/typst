@@ -10,7 +10,7 @@ Next paragraph.
 
 ---
 // Test that attached list isn't affected by block spacing.
-#show list: it => { set block(above: 100pt); it }
+#show list: set block(above: 100pt)
 Hello
 - A
 World

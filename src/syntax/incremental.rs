@@ -458,7 +458,7 @@ mod tests {
         test(r#"a ```typst hello``` b"#, 16 .. 17, "", 0 .. 18);
         test(r#"a ```typst hello```"#, 16 .. 17, "", 0 .. 18);
         test("#for", 4 .. 4, "//", 0 .. 6);
-        test("#show a: f as b..", 16..16, "c", 0..18);
+        test("#show f: a => b..", 16..16, "c", 0..18);
         test("a\n#let \nb", 7 .. 7, "i", 2 .. 9);
         test("a\n#for i \nb", 9 .. 9, "in", 2 .. 12);
         test("a~https://fun/html", 13..14, "n", 0..18);

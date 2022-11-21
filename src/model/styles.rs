@@ -491,6 +491,8 @@ pub enum Transform {
     Content(Content),
     /// A function to apply to the match.
     Func(Func),
+    /// Apply styles to the content.
+    Style(StyleMap),
 }
 
 impl Transform {
@@ -512,6 +514,7 @@ impl Transform {
                 }
                 Ok(result?.display())
             }
+            Transform::Style(styles) => Ok(content.styled_with_map(styles.clone())),
         }
     }
 }

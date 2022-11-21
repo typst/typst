@@ -27,5 +27,5 @@ A #rect(fill: yellow, inset: 5pt, rect()) B
 ---
 // The constructor property should still work
 // when there are recursive show rules.
-#show list: text.with(blue)
+#show list: set text(blue)
 #list(label: "(a)", [A], list[B])

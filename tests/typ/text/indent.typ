@@ -3,7 +3,7 @@
 ---
 #set par(indent: 12pt, leading: 5pt)
 #set block(spacing: 5pt)
-#show heading: text.with(size: 10pt)
+#show heading: set text(size: 10pt)
 
 The first paragraph has no indent.
 
