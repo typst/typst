@@ -3,7 +3,7 @@ use std::ffi::OsStr;
 use typst::image::{Image, ImageFormat, RasterFormat, VectorFormat};
 
 use crate::prelude::*;
-use crate::text::TextNode;
+use crate::text::LinkNode;
 
 /// Show a raster or vector graphic.
 #[derive(Debug, Hash)]
@@ -90,7 +90,7 @@ impl LayoutInline for ImageNode {
         }
 
         // Apply link if it exists.
-        if let Some(url) = styles.get(TextNode::LINK) {
+        if let Some(url) = styles.get(LinkNode::DEST) {
             frame.link(url.clone());
         }
 

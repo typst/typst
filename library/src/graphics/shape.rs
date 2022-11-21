@@ -1,7 +1,7 @@
 use std::f64::consts::SQRT_2;
 
 use crate::prelude::*;
-use crate::text::TextNode;
+use crate::text::LinkNode;
 
 /// A sizable and fillable shape with optional content.
 #[derive(Debug, Hash)]
@@ -161,7 +161,7 @@ impl<const S: ShapeKind> LayoutInline for ShapeNode<S> {
         }
 
         // Apply link if it exists.
-        if let Some(url) = styles.get(TextNode::LINK) {
+        if let Some(url) = styles.get(LinkNode::DEST) {
             frame.link(url.clone());
         }
 

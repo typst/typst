@@ -124,9 +124,6 @@ impl TextNode {
     /// Whether small capital glyphs should be used. ("smcp")
     #[property(skip)]
     const SMALLCAPS: bool = false;
-    /// A destination the text should be linked to.
-    #[property(skip, referenced)]
-    pub(crate) const LINK: Option<Destination> = None;
     /// Decorative lines.
     #[property(skip, fold)]
     const DECO: Decoration = vec![];

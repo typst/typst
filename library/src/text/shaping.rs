@@ -92,7 +92,7 @@ impl<'a> ShapedText<'a> {
         let lang = self.styles.get(TextNode::LANG);
         let decos = self.styles.get(TextNode::DECO);
         let fill = self.styles.get(TextNode::FILL);
-        let link = self.styles.get(TextNode::LINK);
+        let link = self.styles.get(LinkNode::DEST);
 
         for ((font, y_offset), group) in
             self.glyphs.as_ref().group_by_key(|g| (g.font.clone(), g.y_offset))

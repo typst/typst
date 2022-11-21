@@ -25,6 +25,10 @@ impl LinkNode {
 
 #[node(Show, Finalize)]
 impl LinkNode {
+    /// A destination the text should be linked to.
+    #[property(skip, referenced)]
+    pub(crate) const DEST: Option<Destination> = None;
+
     fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         let dest = args.expect::<Destination>("destination")?;
         Ok(match dest {
@@ -62,6 +66,6 @@ impl Finalize for LinkNode {
         _: StyleChain,
         realized: Content,
     ) -> SourceResult<Content> {
-        Ok(realized.styled(TextNode::LINK, Some(self.dest.clone())))
+        Ok(realized.styled(Self::DEST, Some(self.dest.clone())))
     }
 }
