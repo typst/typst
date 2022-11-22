@@ -42,8 +42,11 @@ macro_rules! item {
 #[derive(Copy, Clone)]
 pub struct LangItems {
     /// The root layout function.
-    pub root:
-        fn(world: Tracked<dyn World>, document: &Content) -> SourceResult<Vec<Frame>>,
+    pub root: fn(
+        content: &Content,
+        world: Tracked<dyn World>,
+        styles: StyleChain,
+    ) -> SourceResult<Vec<Frame>>,
     /// Access the em size.
     pub em: fn(StyleChain) -> Abs,
     /// Access the text direction.

@@ -1,13 +1,16 @@
-use crate::layout::PageNode;
+use crate::layout::{LayoutRoot, PageNode};
 use crate::prelude::*;
 
 /// A sequence of page runs.
 #[derive(Hash)]
 pub struct DocNode(pub StyleVec<PageNode>);
 
-impl DocNode {
+#[node(LayoutRoot)]
+impl DocNode {}
+
+impl LayoutRoot for DocNode {
     /// Layout the document into a sequence of frames, one per page.
-    pub fn layout(
+    fn layout_root(
         &self,
         world: Tracked<dyn World>,
         styles: StyleChain,

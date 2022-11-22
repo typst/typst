@@ -49,7 +49,7 @@ use comemo::{Prehashed, Track};
 use crate::diag::{FileResult, SourceResult};
 use crate::font::{Font, FontBook};
 use crate::frame::Frame;
-use crate::model::{LangItems, Route, Scope, StyleMap};
+use crate::model::{LangItems, Route, Scope, StyleChain, StyleMap};
 use crate::syntax::{Source, SourceId};
 use crate::util::Buffer;
 
@@ -62,10 +62,12 @@ pub fn typeset(
     world: &(dyn World + 'static),
     main: SourceId,
 ) -> SourceResult<Vec<Frame>> {
-    crate::model::set_lang_items(world.config().items);
+    let config = world.config();
+    crate::model::set_lang_items(config.items);
     let route = Route::default();
     let module = model::eval(world.track(), route.track(), main)?;
-    item!(root)(world.track(), &module.content)
+    let styles = StyleChain::with_root(&config.styles);
+    item!(root)(&module.content, world.track(), styles)
 }
 
 /// The environment in which typesetting occurs.

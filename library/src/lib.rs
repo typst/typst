@@ -154,7 +154,7 @@ pub fn styles() -> StyleMap {
 /// Construct the standard lang item mapping.
 pub fn items() -> LangItems {
     LangItems {
-        root: |world, content| content.layout_root(world),
+        root: |content, world, styles| content.layout_root(world, styles),
         em: |styles| styles.get(text::TextNode::SIZE),
         dir: |styles| styles.get(text::TextNode::DIR),
         space: || text::SpaceNode.pack(),

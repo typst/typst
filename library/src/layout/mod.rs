@@ -49,20 +49,25 @@ use crate::text::{
 #[capability]
 pub trait LayoutRoot {
     /// Layout into one frame per page.
-    fn layout_root(&self, world: Tracked<dyn World>) -> SourceResult<Vec<Frame>>;
+    fn layout_root(
+        &self,
+        world: Tracked<dyn World>,
+        styles: StyleChain,
+    ) -> SourceResult<Vec<Frame>>;
 }
 
 impl LayoutRoot for Content {
     #[comemo::memoize]
-    fn layout_root(&self, world: Tracked<dyn World>) -> SourceResult<Vec<Frame>> {
-        let styles = StyleChain::with_root(&world.config().styles);
+    fn layout_root(
+        &self,
+        world: Tracked<dyn World>,
+        styles: StyleChain,
+    ) -> SourceResult<Vec<Frame>> {
         let scratch = Scratch::default();
-
         let mut builder = Builder::new(world, &scratch, true);
         builder.accept(self, styles)?;
-
         let (doc, shared) = builder.into_doc(styles)?;
-        doc.layout(world, shared)
+        doc.layout_root(world, shared)
     }
 }
 
