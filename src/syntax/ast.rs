@@ -5,7 +5,7 @@
 use std::num::NonZeroUsize;
 use std::ops::Deref;
 
-use super::{NodeData, NodeKind, RawFields, Span, SyntaxNode, Unit};
+use super::{NodeKind, RawFields, Span, SyntaxNode, Unit};
 use crate::util::EcoString;
 
 /// A typed AST node.
@@ -1557,8 +1557,8 @@ impl Ident {
 
     /// Take out the container identifier.
     pub fn take(self) -> EcoString {
-        match self.0 {
-            SyntaxNode::Leaf(NodeData { kind: NodeKind::Ident(id), .. }) => id,
+        match self.0.take() {
+            NodeKind::Ident(id) => id,
             _ => panic!("identifier is of wrong kind"),
         }
     }

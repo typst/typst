@@ -95,7 +95,7 @@ impl Source {
         self.text.get(range)
     }
 
-    /// Fully replace the source text and increase the revision number.
+    /// Fully replace the source text.
     pub fn replace(&mut self, text: String) {
         self.text = Prehashed::new(text);
         self.lines = vec![Line { byte_idx: 0, utf16_idx: 0 }];
@@ -105,8 +105,7 @@ impl Source {
         self.root = Prehashed::new(root);
     }
 
-    /// Edit the source file by replacing the given range and increase the
-    /// revision number.
+    /// Edit the source file by replacing the given range.
     ///
     /// Returns the range in the new source that was ultimately reparsed.
     ///

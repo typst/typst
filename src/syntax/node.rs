@@ -6,78 +6,66 @@ use super::ast::TypedNode;
 use super::{NodeKind, NumberingResult, SourceId, Span, Unnumberable};
 use crate::diag::SourceError;
 
-/// An inner or leaf node in the untyped syntax tree.
+/// A node in the untyped syntax tree.
 #[derive(Clone, PartialEq, Hash)]
-pub enum SyntaxNode {
+pub struct SyntaxNode(Repr);
+
+/// The two internal representations.
+#[derive(Clone, PartialEq, Hash)]
+enum Repr {
+    /// A leaf node.
+    Leaf(NodeData),
     /// A reference-counted inner node.
     Inner(Arc<InnerNode>),
-    /// A leaf token.
-    Leaf(NodeData),
 }
 
 impl SyntaxNode {
-    /// The metadata of the node.
-    pub fn data(&self) -> &NodeData {
-        match self {
-            Self::Inner(inner) => &inner.data,
-            Self::Leaf(leaf) => leaf,
-        }
+    /// Create a new leaf node.
+    pub fn leaf(kind: NodeKind, len: usize) -> Self {
+        Self(Repr::Leaf(NodeData::new(kind, len)))
+    }
+
+    /// Create a new inner node with children.
+    pub fn inner(kind: NodeKind, children: Vec<SyntaxNode>) -> Self {
+        Self(Repr::Inner(Arc::new(InnerNode::with_children(kind, children))))
     }
 
     /// The type of the node.
     pub fn kind(&self) -> &NodeKind {
-        self.data().kind()
+        &self.data().kind
+    }
+
+    /// Take the kind out of the node.
+    pub fn take(self) -> NodeKind {
+        match self.0 {
+            Repr::Leaf(leaf) => leaf.kind,
+            Repr::Inner(inner) => inner.data.kind.clone(),
+        }
     }
 
     /// The length of the node.
     pub fn len(&self) -> usize {
-        self.data().len()
-    }
-
-    /// The number of descendants, including the node itself.
-    pub fn descendants(&self) -> usize {
-        match self {
-            Self::Inner(inner) => inner.descendants(),
-            Self::Leaf(_) => 1,
-        }
+        self.data().len
     }
 
     /// The span of the node.
     pub fn span(&self) -> Span {
-        self.data().span()
+        self.data().span
     }
 
-    /// Whether the node or its children contain an error.
-    pub fn erroneous(&self) -> bool {
-        match self {
-            Self::Inner(node) => node.erroneous,
-            Self::Leaf(data) => data.kind.is_error(),
-        }
-    }
-
-    /// The error messages for this node and its descendants.
-    pub fn errors(&self) -> Vec<SourceError> {
-        if !self.erroneous() {
-            return vec![];
-        }
-
-        match self.kind() {
-            NodeKind::Error(pos, message) => {
-                vec![SourceError::new(self.span(), message.clone()).with_pos(*pos)]
-            }
-            _ => self
-                .children()
-                .filter(|node| node.erroneous())
-                .flat_map(|node| node.errors())
-                .collect(),
+    /// The number of descendants, including the node itself.
+    pub fn descendants(&self) -> usize {
+        match &self.0 {
+            Repr::Inner(inner) => inner.descendants,
+            Repr::Leaf(_) => 1,
         }
     }
 
     /// The node's children.
     pub fn children(&self) -> std::slice::Iter<'_, SyntaxNode> {
-        match self {
-            Self::Inner(inner) => inner.children(),
-            Self::Leaf(_) => [].iter(),
+        match &self.0 {
+            Repr::Inner(inner) => inner.children.iter(),
+            Repr::Leaf(_) => [].iter(),
         }
     }
 
@@ -99,37 +87,49 @@ impl SyntaxNode {
         self.children().rev().find_map(Self::cast)
     }
 
-    /// Returns all leaf descendants of this node (may include itself).
-    ///
-    /// This method is slow and only intended for testing.
-    pub fn leafs(&self) -> Vec<Self> {
-        if match self {
-            Self::Inner(inner) => inner.children.is_empty(),
-            Self::Leaf(_) => true,
-        } {
-            vec![self.clone()]
-        } else {
-            self.children().flat_map(Self::leafs).collect()
+    /// Whether the node or its children contain an error.
+    pub fn erroneous(&self) -> bool {
+        match &self.0 {
+            Repr::Inner(node) => node.erroneous,
+            Repr::Leaf(data) => data.kind.is_error(),
+        }
+    }
+
+    /// The error messages for this node and its descendants.
+    pub fn errors(&self) -> Vec<SourceError> {
+        if !self.erroneous() {
+            return vec![];
+        }
+
+        match self.kind() {
+            NodeKind::Error(pos, message) => {
+                vec![SourceError::new(self.span(), message.clone()).with_pos(*pos)]
+            }
+            _ => self
+                .children()
+                .filter(|node| node.erroneous())
+                .flat_map(|node| node.errors())
+                .collect(),
         }
     }
 
     /// Change the type of the node.
     pub(super) fn convert(&mut self, kind: NodeKind) {
-        match self {
-            Self::Inner(inner) => {
+        match &mut self.0 {
+            Repr::Inner(inner) => {
                 let node = Arc::make_mut(inner);
                 node.erroneous |= kind.is_error();
                 node.data.kind = kind;
             }
-            Self::Leaf(leaf) => leaf.kind = kind,
+            Repr::Leaf(leaf) => leaf.kind = kind,
         }
     }
 
     /// Set a synthetic span for the node and all its descendants.
     pub(super) fn synthesize(&mut self, span: Span) {
-        match self {
-            Self::Inner(inner) => Arc::make_mut(inner).synthesize(span),
-            Self::Leaf(leaf) => leaf.synthesize(span),
+        match &mut self.0 {
+            Repr::Inner(inner) => Arc::make_mut(inner).synthesize(span),
+            Repr::Leaf(leaf) => leaf.synthesize(span),
         }
     }
 
@@ -139,47 +139,100 @@ impl SyntaxNode {
         id: SourceId,
         within: Range<u64>,
     ) -> NumberingResult {
-        match self {
-            Self::Inner(inner) => Arc::make_mut(inner).numberize(id, None, within),
-            Self::Leaf(leaf) => leaf.numberize(id, within),
+        match &mut self.0 {
+            Repr::Inner(inner) => Arc::make_mut(inner).numberize(id, None, within),
+            Repr::Leaf(leaf) => leaf.numberize(id, within),
         }
     }
 
     /// If the span points into this node, convert it to a byte range.
     pub(super) fn range(&self, span: Span, offset: usize) -> Option<Range<usize>> {
-        match self {
-            Self::Inner(inner) => inner.range(span, offset),
-            Self::Leaf(leaf) => leaf.range(span, offset),
+        match &self.0 {
+            Repr::Inner(inner) => inner.range(span, offset),
+            Repr::Leaf(leaf) => leaf.range(span, offset),
+        }
+    }
+
+    /// Whether this is a leaf node.
+    pub(super) fn is_leaf(&self) -> bool {
+        matches!(self.0, Repr::Leaf(_))
+    }
+
+    /// The node's children, mutably.
+    pub(super) fn children_mut(&mut self) -> &mut [SyntaxNode] {
+        match &mut self.0 {
+            Repr::Leaf(_) => &mut [],
+            Repr::Inner(inner) => &mut Arc::make_mut(inner).children,
+        }
+    }
+
+    /// Replaces a range of children with a replacement.
+    ///
+    /// May have mutated the children if it returns `Err(_)`.
+    pub(super) fn replace_children(
+        &mut self,
+        range: Range<usize>,
+        replacement: Vec<SyntaxNode>,
+    ) -> NumberingResult {
+        if let Repr::Inner(inner) = &mut self.0 {
+            Arc::make_mut(inner).replace_children(range, replacement)?;
+        }
+        Ok(())
+    }
+
+    /// Update this node after changes were made to one of its children.
+    pub(super) fn update_parent(
+        &mut self,
+        prev_len: usize,
+        new_len: usize,
+        prev_descendants: usize,
+        new_descendants: usize,
+    ) {
+        if let Repr::Inner(inner) = &mut self.0 {
+            Arc::make_mut(inner).update_parent(
+                prev_len,
+                new_len,
+                prev_descendants,
+                new_descendants,
+            );
+        }
+    }
+
+    /// The metadata of the node.
+    fn data(&self) -> &NodeData {
+        match &self.0 {
+            Repr::Inner(inner) => &inner.data,
+            Repr::Leaf(leaf) => leaf,
         }
     }
 
     /// The upper bound of assigned numbers in this subtree.
     fn upper(&self) -> u64 {
-        match self {
-            Self::Inner(inner) => inner.upper(),
-            Self::Leaf(leaf) => leaf.span().number() + 1,
+        match &self.0 {
+            Repr::Inner(inner) => inner.upper,
+            Repr::Leaf(leaf) => leaf.span.number() + 1,
+        }
+    }
+}
+
+impl Debug for SyntaxNode {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match &self.0 {
+            Repr::Inner(node) => node.fmt(f),
+            Repr::Leaf(node) => node.fmt(f),
         }
     }
 }
 
 impl Default for SyntaxNode {
     fn default() -> Self {
-        Self::Leaf(NodeData::new(NodeKind::None, 0))
-    }
-}
-
-impl Debug for SyntaxNode {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            Self::Inner(node) => node.fmt(f),
-            Self::Leaf(token) => token.fmt(f),
-        }
+        Self::leaf(NodeKind::None, 0)
     }
 }
 
 /// An inner node in the untyped syntax tree.
 #[derive(Clone, Hash)]
-pub struct InnerNode {
+struct InnerNode {
     /// Node metadata.
     data: NodeData,
     /// The number of nodes in the whole subtree, including this node.
@@ -193,13 +246,8 @@ pub struct InnerNode {
 }
 
 impl InnerNode {
-    /// Creates a new node with the given kind and a single child.
-    pub fn with_child(kind: NodeKind, child: impl Into<SyntaxNode>) -> Self {
-        Self::with_children(kind, vec![child.into()])
-    }
-
-    /// Creates a new node with the given kind and children.
-    pub fn with_children(kind: NodeKind, children: Vec<SyntaxNode>) -> Self {
+    /// Create a new inner node with the given kind and children.
+    fn with_children(kind: NodeKind, children: Vec<SyntaxNode>) -> Self {
         let mut len = 0;
         let mut descendants = 1;
         let mut erroneous = kind.is_error();
@@ -217,36 +265,6 @@ impl InnerNode {
             upper: 0,
             children,
         }
-    }
-
-    /// The node's metadata.
-    pub fn data(&self) -> &NodeData {
-        &self.data
-    }
-
-    /// The node's type.
-    pub fn kind(&self) -> &NodeKind {
-        self.data().kind()
-    }
-
-    /// The node's length.
-    pub fn len(&self) -> usize {
-        self.data().len()
-    }
-
-    /// The node's span.
-    pub fn span(&self) -> Span {
-        self.data().span()
-    }
-
-    /// The number of descendants, including the node itself.
-    pub fn descendants(&self) -> usize {
-        self.descendants
-    }
-
-    /// The node's children.
-    pub fn children(&self) -> std::slice::Iter<'_, SyntaxNode> {
-        self.children.iter()
     }
 
     /// Set a synthetic span for the node and all its descendants.
@@ -307,11 +325,6 @@ impl InnerNode {
         Ok(())
     }
 
-    /// The upper bound of assigned numbers in this subtree.
-    fn upper(&self) -> u64 {
-        self.upper
-    }
-
     /// If the span points into this node, convert it to a byte range.
     fn range(&self, span: Span, mut offset: usize) -> Option<Range<usize>> {
         // Check whether we found it.
@@ -322,7 +335,7 @@ impl InnerNode {
         // The parent of a subtree has a smaller span number than all of its
         // descendants. Therefore, we can bail out early if the target span's
         // number is smaller than our number.
-        if span.number() < self.span().number() {
+        if span.number() < self.data.span.number() {
             return None;
         }
 
@@ -346,15 +359,10 @@ impl InnerNode {
         None
     }
 
-    /// The node's children, mutably.
-    pub(super) fn children_mut(&mut self) -> &mut [SyntaxNode] {
-        &mut self.children
-    }
-
     /// Replaces a range of children with a replacement.
     ///
     /// May have mutated the children if it returns `Err(_)`.
-    pub(super) fn replace_children(
+    fn replace_children(
         &mut self,
         mut range: Range<usize>,
         replacement: Vec<SyntaxNode>,
@@ -403,7 +411,7 @@ impl InnerNode {
                 .start
                 .checked_sub(1)
                 .and_then(|i| self.children.get(i))
-                .map_or(self.span().number() + 1, |child| child.upper());
+                .map_or(self.data.span.number() + 1, |child| child.upper());
 
             // The upper bound for renumbering is either
             // - the span number of the first child after the to-be-renumbered
@@ -413,11 +421,11 @@ impl InnerNode {
             let end_number = self
                 .children
                 .get(renumber.end)
-                .map_or(self.upper(), |next| next.span().number());
+                .map_or(self.upper, |next| next.span().number());
 
             // Try to renumber.
             let within = start_number..end_number;
-            let id = self.span().source();
+            let id = self.data.span.source();
             if self.numberize(id, Some(renumber), within).is_ok() {
                 return Ok(());
             }
@@ -434,7 +442,7 @@ impl InnerNode {
     }
 
     /// Update this node after changes were made to one of its children.
-    pub(super) fn update_parent(
+    fn update_parent(
         &mut self,
         prev_len: usize,
         new_len: usize,
@@ -444,18 +452,6 @@ impl InnerNode {
         self.data.len = self.data.len + new_len - prev_len;
         self.descendants = self.descendants + new_descendants - prev_descendants;
         self.erroneous = self.children.iter().any(SyntaxNode::erroneous);
-    }
-}
-
-impl From<InnerNode> for SyntaxNode {
-    fn from(node: InnerNode) -> Self {
-        Arc::new(node).into()
-    }
-}
-
-impl From<Arc<InnerNode>> for SyntaxNode {
-    fn from(node: Arc<InnerNode>) -> Self {
-        Self::Inner(node)
     }
 }
 
@@ -479,12 +475,12 @@ impl PartialEq for InnerNode {
     }
 }
 
-/// Data shared between inner and leaf nodes.
+/// Data shared between leaf and inner nodes.
 #[derive(Clone, Hash)]
-pub struct NodeData {
+struct NodeData {
     /// What kind of node this is (each kind would have its own struct in a
     /// strongly typed AST).
-    pub(super) kind: NodeKind,
+    kind: NodeKind,
     /// The byte length of the node in the source.
     len: usize,
     /// The node's span.
@@ -493,23 +489,8 @@ pub struct NodeData {
 
 impl NodeData {
     /// Create new node metadata.
-    pub fn new(kind: NodeKind, len: usize) -> Self {
+    fn new(kind: NodeKind, len: usize) -> Self {
         Self { len, kind, span: Span::detached() }
-    }
-
-    /// The node's type.
-    pub fn kind(&self) -> &NodeKind {
-        &self.kind
-    }
-
-    /// The node's length.
-    pub fn len(&self) -> usize {
-        self.len
-    }
-
-    /// The node's span.
-    pub fn span(&self) -> Span {
-        self.span
     }
 
     /// Set a synthetic span for the node.
@@ -529,13 +510,7 @@ impl NodeData {
 
     /// If the span points into this node, convert it to a byte range.
     fn range(&self, span: Span, offset: usize) -> Option<Range<usize>> {
-        (self.span == span).then(|| offset..offset + self.len())
-    }
-}
-
-impl From<NodeData> for SyntaxNode {
-    fn from(token: NodeData) -> Self {
-        Self::Leaf(token)
+        (self.span == span).then(|| offset..offset + self.len)
     }
 }
 

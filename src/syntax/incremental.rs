@@ -1,9 +1,8 @@
 use std::ops::Range;
-use std::sync::Arc;
 
 use super::{
     is_newline, parse, reparse_code_block, reparse_content_block,
-    reparse_markup_elements, InnerNode, NodeKind, Span, SyntaxNode,
+    reparse_markup_elements, NodeKind, Span, SyntaxNode,
 };
 
 /// Refresh the given syntax node with as little parsing as possible.
@@ -18,11 +17,9 @@ pub fn reparse(
     replaced: Range<usize>,
     replacement_len: usize,
 ) -> Range<usize> {
-    if let SyntaxNode::Inner(inner) = root {
-        let change = Change { text, replaced, replacement_len };
-        if let Some(range) = try_reparse(&change, Arc::make_mut(inner), 0, true, true) {
-            return range;
-        }
+    let change = Change { text, replaced, replacement_len };
+    if let Some(range) = try_reparse(&change, root, 0, true, true) {
+        return range;
     }
 
     let id = root.span().source();
@@ -34,7 +31,7 @@ pub fn reparse(
 /// Try to reparse inside the given node.
 fn try_reparse(
     change: &Change,
-    node: &mut InnerNode,
+    node: &mut SyntaxNode,
     mut offset: usize,
     outermost: bool,
     safe_to_replace: bool,
@@ -143,20 +140,15 @@ fn try_reparse(
         let prev_len = child.len();
         let prev_descendants = child.descendants();
 
-        if let Some(range) = match child {
-            SyntaxNode::Inner(node) => try_reparse(
-                change,
-                Arc::make_mut(node),
-                pos.offset,
-                child_outermost,
-                safe_inside,
-            ),
-            SyntaxNode::Leaf(_) => None,
-        } {
-            let new_len = child.len();
-            let new_descendants = child.descendants();
-            node.update_parent(prev_len, new_len, prev_descendants, new_descendants);
-            return Some(range);
+        if !child.is_leaf() {
+            if let Some(range) =
+                try_reparse(change, child, pos.offset, child_outermost, safe_inside)
+            {
+                let new_len = child.len();
+                let new_descendants = child.descendants();
+                node.update_parent(prev_len, new_len, prev_descendants, new_descendants);
+                return Some(range);
+            }
         }
 
         let superseded_span = pos.offset..pos.offset + prev_len;
@@ -215,7 +207,7 @@ fn try_reparse(
 /// Reparse the superseded nodes and replace them.
 fn replace(
     change: &Change,
-    node: &mut InnerNode,
+    node: &mut SyntaxNode,
     mode: ReparseMode,
     superseded_idx: Range<usize>,
     superseded_span: Range<usize>,

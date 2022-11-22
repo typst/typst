@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 use std::mem;
 use std::ops::Range;
 
-use super::{ErrorPos, InnerNode, NodeData, NodeKind, SyntaxNode, TokenMode, Tokens};
+use super::{ErrorPos, NodeKind, SyntaxNode, TokenMode, Tokens};
 use crate::util::{format_eco, EcoString};
 
 /// A convenient token-based parser.
@@ -92,13 +92,13 @@ impl<'s> Parser<'s> {
         let mut children = mem::replace(&mut self.children, prev);
 
         if self.tokens.mode() == TokenMode::Markup {
-            self.children.push(InnerNode::with_children(kind, children).into());
+            self.children.push(SyntaxNode::inner(kind, children));
         } else {
             // Trailing trivia should not be wrapped into the new node.
             let idx = self.children.len();
             self.children.push(SyntaxNode::default());
             self.children.extend(children.drain(until.0..));
-            self.children[idx] = InnerNode::with_children(kind, children).into();
+            self.children[idx] = SyntaxNode::inner(kind, children);
         }
 
         output
@@ -330,7 +330,7 @@ impl<'s> Parser<'s> {
     fn bump(&mut self) {
         let kind = self.current.take().unwrap();
         let len = self.tokens.cursor() - self.current_start;
-        self.children.push(NodeData::new(kind, len).into());
+        self.children.push(SyntaxNode::leaf(kind, len));
         self.current_start = self.tokens.cursor();
         self.current = self.tokens.next();
     }
@@ -416,7 +416,7 @@ impl Parser<'_> {
     pub fn expected_at(&mut self, marker: Marker, what: &str) {
         let msg = format_eco!("expected {}", what);
         let error = NodeKind::Error(ErrorPos::Full, msg);
-        self.children.insert(marker.0, NodeData::new(error, 0).into());
+        self.children.insert(marker.0, SyntaxNode::leaf(error, 0));
     }
 
     /// Eat the current token and add an error that it is not the expected
@@ -471,8 +471,7 @@ impl Marker {
     pub fn end(self, p: &mut Parser, kind: NodeKind) {
         let until = p.trivia_start().0.max(self.0);
         let children = p.children.drain(self.0..until).collect();
-        p.children
-            .insert(self.0, InnerNode::with_children(kind, children).into());
+        p.children.insert(self.0, SyntaxNode::inner(kind, children));
     }
 
     /// Wrap all children that do not fulfill the predicate in error nodes.
@@ -499,7 +498,7 @@ impl Marker {
                 }
                 let error = NodeKind::Error(ErrorPos::Full, msg);
                 let inner = mem::take(child);
-                *child = InnerNode::with_child(error, inner).into();
+                *child = SyntaxNode::inner(error, vec![inner]);
             }
         }
     }

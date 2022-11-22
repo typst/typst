@@ -606,12 +606,21 @@ fn test_reparse(text: &str, i: usize, rng: &mut LinearShift) -> bool {
     }
 
     let source = Source::detached(text);
-    let leafs = source.root().leafs();
+    let leafs = leafs(source.root());
     let start = source.range(leafs[pick(0..leafs.len())].span()).start;
     let supplement = supplements[pick(0..supplements.len())];
     ok &= apply(start..start, supplement);
 
     ok
+}
+
+/// Returns all leaf descendants of a node (may include itself).
+fn leafs(node: &SyntaxNode) -> Vec<SyntaxNode> {
+    if node.children().len() == 0 {
+        vec![node.clone()]
+    } else {
+        node.children().flat_map(leafs).collect()
+    }
 }
 
 /// Ensure that all spans are properly ordered (and therefore unique).
