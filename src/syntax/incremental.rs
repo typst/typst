@@ -2,7 +2,7 @@ use std::ops::Range;
 
 use super::{
     is_newline, parse, reparse_code_block, reparse_content_block,
-    reparse_markup_elements, NodeKind, Span, SyntaxNode,
+    reparse_markup_elements, Span, SyntaxKind, SyntaxNode,
 };
 
 /// Refresh the given syntax node with as little parsing as possible.
@@ -36,7 +36,7 @@ fn try_reparse(
     outermost: bool,
     safe_to_replace: bool,
 ) -> Option<Range<usize>> {
-    let is_markup = matches!(node.kind(), NodeKind::Markup { .. });
+    let is_markup = matches!(node.kind(), SyntaxKind::Markup { .. });
     let original_count = node.children().len();
     let original_offset = offset;
 
@@ -78,7 +78,7 @@ fn try_reparse(
                 } else {
                     // Update compulsary state of `ahead_nontrivia`.
                     if let Some(ahead_nontrivia) = ahead.as_mut() {
-                        if let NodeKind::Space { newlines: (1..) } = child.kind() {
+                        if let SyntaxKind::Space { newlines: (1..) } = child.kind() {
                             ahead_nontrivia.newline();
                         }
                     }
@@ -87,8 +87,8 @@ fn try_reparse(
                     // reject text that points to the special case for URL
                     // evasion and line comments.
                     if !child.kind().is_space()
-                        && child.kind() != &NodeKind::Semicolon
-                        && child.kind() != &NodeKind::Text('/'.into())
+                        && child.kind() != &SyntaxKind::Semicolon
+                        && child.kind() != &SyntaxKind::Text('/'.into())
                         && (ahead.is_none() || change.replaced.start > child_span.end)
                         && !ahead.map_or(false, Ahead::is_compulsory)
                     {
@@ -153,8 +153,8 @@ fn try_reparse(
 
         let superseded_span = pos.offset..pos.offset + prev_len;
         let func: Option<ReparseMode> = match child.kind() {
-            NodeKind::CodeBlock => Some(ReparseMode::Code),
-            NodeKind::ContentBlock => Some(ReparseMode::Content),
+            SyntaxKind::CodeBlock => Some(ReparseMode::Code),
+            SyntaxKind::ContentBlock => Some(ReparseMode::Content),
             _ => None,
         };
 
@@ -177,7 +177,7 @@ fn try_reparse(
     // Make sure this is a markup node and that we may replace. If so, save
     // the current indent.
     let min_indent = match node.kind() {
-        NodeKind::Markup { min_indent } if safe_to_replace => *min_indent,
+        SyntaxKind::Markup { min_indent } if safe_to_replace => *min_indent,
         _ => return None,
     };
 
@@ -375,26 +375,28 @@ enum ReparseMode {
 
 /// Whether changes _inside_ this node are safely encapsulated, so that only
 /// this node must be reparsed.
-fn is_bounded(kind: &NodeKind) -> bool {
+fn is_bounded(kind: &SyntaxKind) -> bool {
     matches!(
         kind,
-        NodeKind::CodeBlock
-            | NodeKind::ContentBlock
-            | NodeKind::Linebreak
-            | NodeKind::SmartQuote { .. }
-            | NodeKind::BlockComment
-            | NodeKind::Space { .. }
-            | NodeKind::Escape(_)
-            | NodeKind::Shorthand(_)
+        SyntaxKind::CodeBlock
+            | SyntaxKind::ContentBlock
+            | SyntaxKind::Linebreak
+            | SyntaxKind::SmartQuote { .. }
+            | SyntaxKind::BlockComment
+            | SyntaxKind::Space { .. }
+            | SyntaxKind::Escape(_)
+            | SyntaxKind::Shorthand(_)
     )
 }
 
 /// Whether `at_start` would still be true after this node given the
 /// previous value of the property.
-fn next_at_start(kind: &NodeKind, prev: bool) -> bool {
+fn next_at_start(kind: &SyntaxKind, prev: bool) -> bool {
     match kind {
-        NodeKind::Space { newlines: (1..) } => true,
-        NodeKind::Space { .. } | NodeKind::LineComment | NodeKind::BlockComment => prev,
+        SyntaxKind::Space { newlines: (1..) } => true,
+        SyntaxKind::Space { .. } | SyntaxKind::LineComment | SyntaxKind::BlockComment => {
+            prev
+        }
         _ => false,
     }
 }

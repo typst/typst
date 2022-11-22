@@ -1,9 +1,9 @@
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::{self, Debug, Display, Formatter};
 use std::ops::Range;
 use std::sync::Arc;
 
-use super::ast::TypedNode;
-use super::{NodeKind, NumberingResult, SourceId, Span, Unnumberable};
+use super::ast::AstNode;
+use super::{SourceId, Span, SyntaxKind};
 use crate::diag::SourceError;
 
 /// A node in the untyped syntax tree.
@@ -21,22 +21,22 @@ enum Repr {
 
 impl SyntaxNode {
     /// Create a new leaf node.
-    pub fn leaf(kind: NodeKind, len: usize) -> Self {
+    pub fn leaf(kind: SyntaxKind, len: usize) -> Self {
         Self(Repr::Leaf(NodeData::new(kind, len)))
     }
 
     /// Create a new inner node with children.
-    pub fn inner(kind: NodeKind, children: Vec<SyntaxNode>) -> Self {
+    pub fn inner(kind: SyntaxKind, children: Vec<SyntaxNode>) -> Self {
         Self(Repr::Inner(Arc::new(InnerNode::with_children(kind, children))))
     }
 
     /// The type of the node.
-    pub fn kind(&self) -> &NodeKind {
+    pub fn kind(&self) -> &SyntaxKind {
         &self.data().kind
     }
 
     /// Take the kind out of the node.
-    pub fn take(self) -> NodeKind {
+    pub fn take(self) -> SyntaxKind {
         match self.0 {
             Repr::Leaf(leaf) => leaf.kind,
             Repr::Inner(inner) => inner.data.kind.clone(),
@@ -72,18 +72,18 @@ impl SyntaxNode {
     /// Convert the node to a typed AST node.
     pub fn cast<T>(&self) -> Option<T>
     where
-        T: TypedNode,
+        T: AstNode,
     {
         T::from_untyped(self)
     }
 
     /// Get the first child that can cast to the AST type `T`.
-    pub fn cast_first_child<T: TypedNode>(&self) -> Option<T> {
+    pub fn cast_first_child<T: AstNode>(&self) -> Option<T> {
         self.children().find_map(Self::cast)
     }
 
     /// Get the last child that can cast to the AST type `T`.
-    pub fn cast_last_child<T: TypedNode>(&self) -> Option<T> {
+    pub fn cast_last_child<T: AstNode>(&self) -> Option<T> {
         self.children().rev().find_map(Self::cast)
     }
 
@@ -102,7 +102,7 @@ impl SyntaxNode {
         }
 
         match self.kind() {
-            NodeKind::Error(pos, message) => {
+            SyntaxKind::Error(pos, message) => {
                 vec![SourceError::new(self.span(), message.clone()).with_pos(*pos)]
             }
             _ => self
@@ -114,7 +114,7 @@ impl SyntaxNode {
     }
 
     /// Change the type of the node.
-    pub(super) fn convert(&mut self, kind: NodeKind) {
+    pub(super) fn convert(&mut self, kind: SyntaxKind) {
         match &mut self.0 {
             Repr::Inner(inner) => {
                 let node = Arc::make_mut(inner);
@@ -226,7 +226,7 @@ impl Debug for SyntaxNode {
 
 impl Default for SyntaxNode {
     fn default() -> Self {
-        Self::leaf(NodeKind::None, 0)
+        Self::leaf(SyntaxKind::None, 0)
     }
 }
 
@@ -247,7 +247,7 @@ struct InnerNode {
 
 impl InnerNode {
     /// Create a new inner node with the given kind and children.
-    fn with_children(kind: NodeKind, children: Vec<SyntaxNode>) -> Self {
+    fn with_children(kind: SyntaxKind, children: Vec<SyntaxNode>) -> Self {
         let mut len = 0;
         let mut descendants = 1;
         let mut erroneous = kind.is_error();
@@ -305,7 +305,7 @@ impl InnerNode {
             }
         }
 
-        // Number this node itself.
+        // Number the node itself.
         let mut start = within.start;
         if range.is_none() {
             let end = start + stride;
@@ -480,7 +480,7 @@ impl PartialEq for InnerNode {
 struct NodeData {
     /// What kind of node this is (each kind would have its own struct in a
     /// strongly typed AST).
-    kind: NodeKind,
+    kind: SyntaxKind,
     /// The byte length of the node in the source.
     len: usize,
     /// The node's span.
@@ -489,7 +489,7 @@ struct NodeData {
 
 impl NodeData {
     /// Create new node metadata.
-    fn new(kind: NodeKind, len: usize) -> Self {
+    fn new(kind: SyntaxKind, len: usize) -> Self {
         Self { len, kind, span: Span::detached() }
     }
 
@@ -525,3 +525,18 @@ impl PartialEq for NodeData {
         self.kind == other.kind && self.len == other.len
     }
 }
+
+/// Result of numbering a node within an interval.
+pub(super) type NumberingResult = Result<(), Unnumberable>;
+
+/// Indicates that a node cannot be numbered within a given interval.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub(super) struct Unnumberable;
+
+impl Display for Unnumberable {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.pad("cannot number within this interval")
+    }
+}
+
+impl std::error::Error for Unnumberable {}

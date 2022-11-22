@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 use std::mem;
 use std::ops::Range;
 
-use super::{ErrorPos, NodeKind, SyntaxNode, TokenMode, Tokens};
+use super::{ErrorPos, SyntaxKind, SyntaxNode, TokenMode, Tokens};
 use crate::util::{format_eco, EcoString};
 
 /// A convenient token-based parser.
@@ -12,7 +12,7 @@ pub struct Parser<'s> {
     /// Whether we are at the end of the file or of a group.
     eof: bool,
     /// The current token.
-    current: Option<NodeKind>,
+    current: Option<SyntaxKind>,
     /// The end byte index of the last non-trivia token.
     prev_end: usize,
     /// The start byte index of the peeked token.
@@ -82,7 +82,7 @@ impl<'s> Parser<'s> {
     }
 
     /// Perform a subparse that wraps its result in a node with the given kind.
-    pub fn perform<F, T>(&mut self, kind: NodeKind, f: F) -> T
+    pub fn perform<F, T>(&mut self, kind: SyntaxKind, f: F) -> T
     where
         F: FnOnce(&mut Self) -> T,
     {
@@ -112,9 +112,9 @@ impl<'s> Parser<'s> {
     /// Consume the current token and also trailing trivia.
     pub fn eat(&mut self) {
         self.stray_terminator |= match self.current {
-            Some(NodeKind::RightParen) => !self.inside(Group::Paren),
-            Some(NodeKind::RightBracket) => !self.inside(Group::Bracket),
-            Some(NodeKind::RightBrace) => !self.inside(Group::Brace),
+            Some(SyntaxKind::RightParen) => !self.inside(Group::Paren),
+            Some(SyntaxKind::RightBracket) => !self.inside(Group::Bracket),
+            Some(SyntaxKind::RightBrace) => !self.inside(Group::Brace),
             _ => false,
         };
 
@@ -132,7 +132,7 @@ impl<'s> Parser<'s> {
     }
 
     /// Consume the current token if it is the given one.
-    pub fn eat_if(&mut self, kind: NodeKind) -> bool {
+    pub fn eat_if(&mut self, kind: SyntaxKind) -> bool {
         let at = self.at(kind);
         if at {
             self.eat();
@@ -143,7 +143,7 @@ impl<'s> Parser<'s> {
     /// Eat tokens while the condition is true.
     pub fn eat_while<F>(&mut self, mut f: F)
     where
-        F: FnMut(&NodeKind) -> bool,
+        F: FnMut(&SyntaxKind) -> bool,
     {
         while self.peek().map_or(false, |t| f(t)) {
             self.eat();
@@ -152,7 +152,7 @@ impl<'s> Parser<'s> {
 
     /// Consume the current token if it is the given one and produce an error if
     /// not.
-    pub fn expect(&mut self, kind: NodeKind) -> ParseResult {
+    pub fn expect(&mut self, kind: SyntaxKind) -> ParseResult {
         let at = self.peek() == Some(&kind);
         if at {
             self.eat();
@@ -165,18 +165,18 @@ impl<'s> Parser<'s> {
 
     /// Consume the current token, debug-asserting that it is the given one.
     #[track_caller]
-    pub fn assert(&mut self, kind: NodeKind) {
+    pub fn assert(&mut self, kind: SyntaxKind) {
         debug_assert_eq!(self.peek(), Some(&kind));
         self.eat();
     }
 
     /// Whether the current token is of the given type.
-    pub fn at(&self, kind: NodeKind) -> bool {
+    pub fn at(&self, kind: SyntaxKind) -> bool {
         self.peek() == Some(&kind)
     }
 
     /// Peek at the current token without consuming it.
-    pub fn peek(&self) -> Option<&NodeKind> {
+    pub fn peek(&self) -> Option<&SyntaxKind> {
         if self.eof {
             None
         } else {
@@ -186,7 +186,7 @@ impl<'s> Parser<'s> {
 
     /// Peek at the current token, but only if it follows immediately after the
     /// last one without any trivia in between.
-    pub fn peek_direct(&self) -> Option<&NodeKind> {
+    pub fn peek_direct(&self) -> Option<&SyntaxKind> {
         if self.prev_end() == self.current_start() {
             self.peek()
         } else {
@@ -249,12 +249,12 @@ impl<'s> Parser<'s> {
         });
 
         match kind {
-            Group::Brace => self.assert(NodeKind::LeftBrace),
-            Group::Bracket => self.assert(NodeKind::LeftBracket),
-            Group::Paren => self.assert(NodeKind::LeftParen),
-            Group::Strong => self.assert(NodeKind::Star),
-            Group::Emph => self.assert(NodeKind::Underscore),
-            Group::Math => self.assert(NodeKind::Dollar),
+            Group::Brace => self.assert(SyntaxKind::LeftBrace),
+            Group::Bracket => self.assert(SyntaxKind::LeftBracket),
+            Group::Paren => self.assert(SyntaxKind::LeftParen),
+            Group::Strong => self.assert(SyntaxKind::Star),
+            Group::Emph => self.assert(SyntaxKind::Underscore),
+            Group::Math => self.assert(SyntaxKind::Dollar),
             Group::Expr => self.repeek(),
             Group::Imports => self.repeek(),
         }
@@ -273,13 +273,13 @@ impl<'s> Parser<'s> {
 
         // Eat the end delimiter if there is one.
         if let Some((end, required)) = match group.kind {
-            Group::Brace => Some((NodeKind::RightBrace, true)),
-            Group::Bracket => Some((NodeKind::RightBracket, true)),
-            Group::Paren => Some((NodeKind::RightParen, true)),
-            Group::Strong => Some((NodeKind::Star, true)),
-            Group::Emph => Some((NodeKind::Underscore, true)),
-            Group::Math => Some((NodeKind::Dollar, true)),
-            Group::Expr => Some((NodeKind::Semicolon, false)),
+            Group::Brace => Some((SyntaxKind::RightBrace, true)),
+            Group::Bracket => Some((SyntaxKind::RightBracket, true)),
+            Group::Paren => Some((SyntaxKind::RightParen, true)),
+            Group::Strong => Some((SyntaxKind::Star, true)),
+            Group::Emph => Some((SyntaxKind::Underscore, true)),
+            Group::Math => Some((SyntaxKind::Dollar, true)),
+            Group::Expr => Some((SyntaxKind::Semicolon, false)),
             Group::Imports => None,
         } {
             if self.current.as_ref() == Some(&end) {
@@ -339,26 +339,26 @@ impl<'s> Parser<'s> {
     /// group.
     fn repeek(&mut self) {
         self.eof = match &self.current {
-            Some(NodeKind::RightBrace) => self.inside(Group::Brace),
-            Some(NodeKind::RightBracket) => self.inside(Group::Bracket),
-            Some(NodeKind::RightParen) => self.inside(Group::Paren),
-            Some(NodeKind::Star) => self.inside(Group::Strong),
-            Some(NodeKind::Underscore) => self.inside(Group::Emph),
-            Some(NodeKind::Dollar) => self.inside(Group::Math),
-            Some(NodeKind::Semicolon) => self.inside(Group::Expr),
-            Some(NodeKind::From) => self.inside(Group::Imports),
-            Some(NodeKind::Space { newlines }) => self.space_ends_group(*newlines),
+            Some(SyntaxKind::RightBrace) => self.inside(Group::Brace),
+            Some(SyntaxKind::RightBracket) => self.inside(Group::Bracket),
+            Some(SyntaxKind::RightParen) => self.inside(Group::Paren),
+            Some(SyntaxKind::Star) => self.inside(Group::Strong),
+            Some(SyntaxKind::Underscore) => self.inside(Group::Emph),
+            Some(SyntaxKind::Dollar) => self.inside(Group::Math),
+            Some(SyntaxKind::Semicolon) => self.inside(Group::Expr),
+            Some(SyntaxKind::From) => self.inside(Group::Imports),
+            Some(SyntaxKind::Space { newlines }) => self.space_ends_group(*newlines),
             Some(_) => false,
             None => true,
         };
     }
 
     /// Returns whether the given type can be skipped over.
-    fn is_trivia(&self, token: &NodeKind) -> bool {
+    fn is_trivia(&self, token: &SyntaxKind) -> bool {
         match token {
-            NodeKind::Space { newlines } => !self.space_ends_group(*newlines),
-            NodeKind::LineComment => true,
-            NodeKind::BlockComment => true,
+            SyntaxKind::Space { newlines } => !self.space_ends_group(*newlines),
+            SyntaxKind::LineComment => true,
+            SyntaxKind::BlockComment => true,
             _ => false,
         }
     }
@@ -378,7 +378,7 @@ impl<'s> Parser<'s> {
                     != Some(Group::Brace)
                     || !matches!(
                         self.tokens.clone().next(),
-                        Some(NodeKind::Else | NodeKind::Dot)
+                        Some(SyntaxKind::Else | SyntaxKind::Dot)
                     )
             }
             _ => false,
@@ -401,7 +401,7 @@ impl Parser<'_> {
     pub fn unexpected(&mut self) {
         if let Some(found) = self.peek() {
             let msg = format_eco!("unexpected {}", found.name());
-            let error = NodeKind::Error(ErrorPos::Full, msg);
+            let error = SyntaxKind::Error(ErrorPos::Full, msg);
             self.perform(error, Self::eat);
         }
     }
@@ -415,7 +415,7 @@ impl Parser<'_> {
     /// Insert an error message that `what` was expected at the marker position.
     pub fn expected_at(&mut self, marker: Marker, what: &str) {
         let msg = format_eco!("expected {}", what);
-        let error = NodeKind::Error(ErrorPos::Full, msg);
+        let error = SyntaxKind::Error(ErrorPos::Full, msg);
         self.children.insert(marker.0, SyntaxNode::leaf(error, 0));
     }
 
@@ -425,7 +425,7 @@ impl Parser<'_> {
         match self.peek() {
             Some(found) => {
                 let msg = format_eco!("expected {}, found {}", thing, found.name());
-                let error = NodeKind::Error(ErrorPos::Full, msg);
+                let error = SyntaxKind::Error(ErrorPos::Full, msg);
                 self.perform(error, Self::eat);
             }
             None => self.expected(thing),
@@ -449,7 +449,7 @@ impl Marker {
     }
 
     /// Convert the child directly after marker.
-    pub fn convert(self, p: &mut Parser, kind: NodeKind) {
+    pub fn convert(self, p: &mut Parser, kind: SyntaxKind) {
         if let Some(child) = p.children.get_mut(self.0) {
             child.convert(kind);
         }
@@ -457,7 +457,7 @@ impl Marker {
 
     /// Perform a subparse that wraps all children after the marker in a node
     /// with the given kind.
-    pub fn perform<T, F>(self, p: &mut Parser, kind: NodeKind, f: F) -> T
+    pub fn perform<T, F>(self, p: &mut Parser, kind: SyntaxKind, f: F) -> T
     where
         F: FnOnce(&mut Parser) -> T,
     {
@@ -468,7 +468,7 @@ impl Marker {
 
     /// Wrap all children after the marker (excluding trailing trivia) in a node
     /// with the given `kind`.
-    pub fn end(self, p: &mut Parser, kind: NodeKind) {
+    pub fn end(self, p: &mut Parser, kind: SyntaxKind) {
         let until = p.trivia_start().0.max(self.0);
         let children = p.children.drain(self.0..until).collect();
         p.children.insert(self.0, SyntaxNode::inner(kind, children));
@@ -496,7 +496,7 @@ impl Marker {
                     msg.push_str(", found ");
                     msg.push_str(child.kind().name());
                 }
-                let error = NodeKind::Error(ErrorPos::Full, msg);
+                let error = SyntaxKind::Error(ErrorPos::Full, msg);
                 let inner = mem::take(child);
                 *child = SyntaxNode::inner(error, vec![inner]);
             }

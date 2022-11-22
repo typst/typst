@@ -5,11 +5,11 @@
 use std::num::NonZeroUsize;
 use std::ops::Deref;
 
-use super::{NodeKind, RawFields, Span, SyntaxNode, Unit};
+use super::{RawFields, Span, SyntaxKind, SyntaxNode, Unit};
 use crate::util::EcoString;
 
 /// A typed AST node.
-pub trait TypedNode: Sized {
+pub trait AstNode: Sized {
     /// Convert a node into its typed variant.
     fn from_untyped(node: &SyntaxNode) -> Option<Self>;
 
@@ -24,7 +24,7 @@ pub trait TypedNode: Sized {
 
 macro_rules! node {
     ($(#[$attr:meta])* $name:ident) => {
-        node!{ $(#[$attr])* $name: NodeKind::$name { .. } }
+        node!{ $(#[$attr])* $name: SyntaxKind::$name { .. } }
     };
     ($(#[$attr:meta])* $name:ident: $variants:pat) => {
         #[derive(Debug, Clone, PartialEq, Hash)]
@@ -32,7 +32,7 @@ macro_rules! node {
         $(#[$attr])*
         pub struct $name(SyntaxNode);
 
-        impl TypedNode for $name {
+        impl AstNode for $name {
             fn from_untyped(node: &SyntaxNode) -> Option<Self> {
                 if matches!(node.kind(), $variants) {
                     Some(Self(node.clone()))
@@ -62,7 +62,8 @@ impl Markup {
             .filter(move |node| {
                 // Ignore linebreak directly after statements without semicolons.
                 let kind = node.kind();
-                let keep = !was_stmt || !matches!(kind, NodeKind::Space { newlines: 1 });
+                let keep =
+                    !was_stmt || !matches!(kind, SyntaxKind::Space { newlines: 1 });
                 was_stmt = kind.is_stmt();
                 keep
             })
@@ -112,26 +113,26 @@ pub enum MarkupNode {
     Expr(Expr),
 }
 
-impl TypedNode for MarkupNode {
+impl AstNode for MarkupNode {
     fn from_untyped(node: &SyntaxNode) -> Option<Self> {
         match node.kind() {
-            NodeKind::Space { .. } => node.cast().map(Self::Space),
-            NodeKind::Linebreak => node.cast().map(Self::Linebreak),
-            NodeKind::Text(_) => node.cast().map(Self::Text),
-            NodeKind::Escape(_) => node.cast().map(Self::Escape),
-            NodeKind::Shorthand(_) => node.cast().map(Self::Shorthand),
-            NodeKind::SmartQuote { .. } => node.cast().map(Self::SmartQuote),
-            NodeKind::Strong => node.cast().map(Self::Strong),
-            NodeKind::Emph => node.cast().map(Self::Emph),
-            NodeKind::Raw(_) => node.cast().map(Self::Raw),
-            NodeKind::Link(_) => node.cast().map(Self::Link),
-            NodeKind::Label(_) => node.cast().map(Self::Label),
-            NodeKind::Ref(_) => node.cast().map(Self::Ref),
-            NodeKind::Heading => node.cast().map(Self::Heading),
-            NodeKind::ListItem => node.cast().map(Self::List),
-            NodeKind::EnumItem => node.cast().map(Self::Enum),
-            NodeKind::DescItem => node.cast().map(Self::Desc),
-            NodeKind::Math => node.cast().map(Self::Math),
+            SyntaxKind::Space { .. } => node.cast().map(Self::Space),
+            SyntaxKind::Linebreak => node.cast().map(Self::Linebreak),
+            SyntaxKind::Text(_) => node.cast().map(Self::Text),
+            SyntaxKind::Escape(_) => node.cast().map(Self::Escape),
+            SyntaxKind::Shorthand(_) => node.cast().map(Self::Shorthand),
+            SyntaxKind::SmartQuote { .. } => node.cast().map(Self::SmartQuote),
+            SyntaxKind::Strong => node.cast().map(Self::Strong),
+            SyntaxKind::Emph => node.cast().map(Self::Emph),
+            SyntaxKind::Raw(_) => node.cast().map(Self::Raw),
+            SyntaxKind::Link(_) => node.cast().map(Self::Link),
+            SyntaxKind::Label(_) => node.cast().map(Self::Label),
+            SyntaxKind::Ref(_) => node.cast().map(Self::Ref),
+            SyntaxKind::Heading => node.cast().map(Self::Heading),
+            SyntaxKind::ListItem => node.cast().map(Self::List),
+            SyntaxKind::EnumItem => node.cast().map(Self::Enum),
+            SyntaxKind::DescItem => node.cast().map(Self::Desc),
+            SyntaxKind::Math => node.cast().map(Self::Math),
             _ => node.cast().map(Self::Expr),
         }
     }
@@ -169,7 +170,7 @@ impl Space {
     /// Get the number of newlines.
     pub fn newlines(&self) -> usize {
         match self.0.kind() {
-            &NodeKind::Space { newlines } => newlines,
+            &SyntaxKind::Space { newlines } => newlines,
             _ => panic!("space is of wrong kind"),
         }
     }
@@ -189,7 +190,7 @@ impl Text {
     /// Get the text.
     pub fn get(&self) -> &EcoString {
         match self.0.kind() {
-            NodeKind::Text(v) => v,
+            SyntaxKind::Text(v) => v,
             _ => panic!("text is of wrong kind"),
         }
     }
@@ -204,7 +205,7 @@ impl Escape {
     /// Get the escaped character.
     pub fn get(&self) -> char {
         match self.0.kind() {
-            &NodeKind::Escape(v) => v,
+            &SyntaxKind::Escape(v) => v,
             _ => panic!("escape is of wrong kind"),
         }
     }
@@ -220,7 +221,7 @@ impl Shorthand {
     /// Get the shorthanded character.
     pub fn get(&self) -> char {
         match self.0.kind() {
-            &NodeKind::Shorthand(v) => v,
+            &SyntaxKind::Shorthand(v) => v,
             _ => panic!("shorthand is of wrong kind"),
         }
     }
@@ -235,7 +236,7 @@ impl SmartQuote {
     /// Whether this is a double quote.
     pub fn double(&self) -> bool {
         match self.0.kind() {
-            &NodeKind::SmartQuote { double } => double,
+            &SyntaxKind::SmartQuote { double } => double,
             _ => panic!("smart quote is of wrong kind"),
         }
     }
@@ -291,7 +292,7 @@ impl Raw {
     /// The raw fields.
     fn get(&self) -> &RawFields {
         match self.0.kind() {
-            NodeKind::Raw(v) => v.as_ref(),
+            SyntaxKind::Raw(v) => v.as_ref(),
             _ => panic!("raw is of wrong kind"),
         }
     }
@@ -306,7 +307,7 @@ impl Link {
     /// Get the URL.
     pub fn url(&self) -> &EcoString {
         match self.0.kind() {
-            NodeKind::Link(url) => url,
+            SyntaxKind::Link(url) => url,
             _ => panic!("link is of wrong kind"),
         }
     }
@@ -321,7 +322,7 @@ impl Label {
     /// Get the label.
     pub fn get(&self) -> &EcoString {
         match self.0.kind() {
-            NodeKind::Label(v) => v,
+            SyntaxKind::Label(v) => v,
             _ => panic!("label is of wrong kind"),
         }
     }
@@ -336,7 +337,7 @@ impl Ref {
     /// Get the target.
     pub fn get(&self) -> &EcoString {
         match self.0.kind() {
-            NodeKind::Ref(v) => v,
+            SyntaxKind::Ref(v) => v,
             _ => panic!("reference is of wrong kind"),
         }
     }
@@ -357,7 +358,7 @@ impl Heading {
     pub fn level(&self) -> NonZeroUsize {
         self.0
             .children()
-            .filter(|n| n.kind() == &NodeKind::Eq)
+            .filter(|n| n.kind() == &SyntaxKind::Eq)
             .count()
             .try_into()
             .expect("heading is missing equals sign")
@@ -385,7 +386,7 @@ impl EnumItem {
     /// The explicit numbering, if any: `23.`.
     pub fn number(&self) -> Option<usize> {
         self.0.children().find_map(|node| match node.kind() {
-            NodeKind::EnumNumbering(num) => Some(*num),
+            SyntaxKind::EnumNumbering(num) => Some(*num),
             _ => None,
         })
     }
@@ -458,17 +459,17 @@ pub enum MathNode {
     Expr(Expr),
 }
 
-impl TypedNode for MathNode {
+impl AstNode for MathNode {
     fn from_untyped(node: &SyntaxNode) -> Option<Self> {
         match node.kind() {
-            NodeKind::Space { .. } => node.cast().map(Self::Space),
-            NodeKind::Linebreak => node.cast().map(Self::Linebreak),
-            NodeKind::Escape(_) => node.cast().map(Self::Escape),
-            NodeKind::Atom(_) => node.cast().map(Self::Atom),
-            NodeKind::Script => node.cast().map(Self::Script),
-            NodeKind::Frac => node.cast().map(Self::Frac),
-            NodeKind::Align => node.cast().map(Self::Align),
-            NodeKind::Math => node.cast().map(Self::Group),
+            SyntaxKind::Space { .. } => node.cast().map(Self::Space),
+            SyntaxKind::Linebreak => node.cast().map(Self::Linebreak),
+            SyntaxKind::Escape(_) => node.cast().map(Self::Escape),
+            SyntaxKind::Atom(_) => node.cast().map(Self::Atom),
+            SyntaxKind::Script => node.cast().map(Self::Script),
+            SyntaxKind::Frac => node.cast().map(Self::Frac),
+            SyntaxKind::Align => node.cast().map(Self::Align),
+            SyntaxKind::Math => node.cast().map(Self::Group),
             _ => node.cast().map(Self::Expr),
         }
     }
@@ -497,7 +498,7 @@ impl Atom {
     /// Get the atom's text.
     pub fn get(&self) -> &EcoString {
         match self.0.kind() {
-            NodeKind::Atom(v) => v,
+            SyntaxKind::Atom(v) => v,
             _ => panic!("atom is of wrong kind"),
         }
     }
@@ -518,7 +519,7 @@ impl Script {
     pub fn sub(&self) -> Option<MathNode> {
         self.0
             .children()
-            .skip_while(|node| !matches!(node.kind(), NodeKind::Underscore))
+            .skip_while(|node| !matches!(node.kind(), SyntaxKind::Underscore))
             .nth(1)
             .map(|node| node.cast().expect("script node has invalid subscript"))
     }
@@ -527,7 +528,7 @@ impl Script {
     pub fn sup(&self) -> Option<MathNode> {
         self.0
             .children()
-            .skip_while(|node| !matches!(node.kind(), NodeKind::Hat))
+            .skip_while(|node| !matches!(node.kind(), SyntaxKind::Hat))
             .nth(1)
             .map(|node| node.cast().expect("script node has invalid superscript"))
     }
@@ -558,7 +559,7 @@ node! {
 impl Align {
     /// The number of ampersands.
     pub fn count(&self) -> usize {
-        self.0.children().filter(|n| n.kind() == &NodeKind::Amp).count()
+        self.0.children().filter(|n| n.kind() == &SyntaxKind::Amp).count()
     }
 }
 
@@ -615,32 +616,32 @@ pub enum Expr {
     Return(FuncReturn),
 }
 
-impl TypedNode for Expr {
+impl AstNode for Expr {
     fn from_untyped(node: &SyntaxNode) -> Option<Self> {
         match node.kind() {
-            NodeKind::Ident(_) => node.cast().map(Self::Ident),
-            NodeKind::CodeBlock => node.cast().map(Self::Code),
-            NodeKind::ContentBlock => node.cast().map(Self::Content),
-            NodeKind::Parenthesized => node.cast().map(Self::Parenthesized),
-            NodeKind::Array => node.cast().map(Self::Array),
-            NodeKind::Dict => node.cast().map(Self::Dict),
-            NodeKind::Unary => node.cast().map(Self::Unary),
-            NodeKind::Binary => node.cast().map(Self::Binary),
-            NodeKind::FieldAccess => node.cast().map(Self::FieldAccess),
-            NodeKind::FuncCall => node.cast().map(Self::FuncCall),
-            NodeKind::MethodCall => node.cast().map(Self::MethodCall),
-            NodeKind::Closure => node.cast().map(Self::Closure),
-            NodeKind::LetBinding => node.cast().map(Self::Let),
-            NodeKind::SetRule => node.cast().map(Self::Set),
-            NodeKind::ShowRule => node.cast().map(Self::Show),
-            NodeKind::Conditional => node.cast().map(Self::Conditional),
-            NodeKind::WhileLoop => node.cast().map(Self::While),
-            NodeKind::ForLoop => node.cast().map(Self::For),
-            NodeKind::ModuleImport => node.cast().map(Self::Import),
-            NodeKind::ModuleInclude => node.cast().map(Self::Include),
-            NodeKind::LoopBreak => node.cast().map(Self::Break),
-            NodeKind::LoopContinue => node.cast().map(Self::Continue),
-            NodeKind::FuncReturn => node.cast().map(Self::Return),
+            SyntaxKind::Ident(_) => node.cast().map(Self::Ident),
+            SyntaxKind::CodeBlock => node.cast().map(Self::Code),
+            SyntaxKind::ContentBlock => node.cast().map(Self::Content),
+            SyntaxKind::Parenthesized => node.cast().map(Self::Parenthesized),
+            SyntaxKind::Array => node.cast().map(Self::Array),
+            SyntaxKind::Dict => node.cast().map(Self::Dict),
+            SyntaxKind::Unary => node.cast().map(Self::Unary),
+            SyntaxKind::Binary => node.cast().map(Self::Binary),
+            SyntaxKind::FieldAccess => node.cast().map(Self::FieldAccess),
+            SyntaxKind::FuncCall => node.cast().map(Self::FuncCall),
+            SyntaxKind::MethodCall => node.cast().map(Self::MethodCall),
+            SyntaxKind::Closure => node.cast().map(Self::Closure),
+            SyntaxKind::LetBinding => node.cast().map(Self::Let),
+            SyntaxKind::SetRule => node.cast().map(Self::Set),
+            SyntaxKind::ShowRule => node.cast().map(Self::Show),
+            SyntaxKind::Conditional => node.cast().map(Self::Conditional),
+            SyntaxKind::WhileLoop => node.cast().map(Self::While),
+            SyntaxKind::ForLoop => node.cast().map(Self::For),
+            SyntaxKind::ModuleImport => node.cast().map(Self::Import),
+            SyntaxKind::ModuleInclude => node.cast().map(Self::Include),
+            SyntaxKind::LoopBreak => node.cast().map(Self::Break),
+            SyntaxKind::LoopContinue => node.cast().map(Self::Continue),
+            SyntaxKind::FuncReturn => node.cast().map(Self::Return),
             _ => node.cast().map(Self::Lit),
         }
     }
@@ -696,26 +697,26 @@ impl Expr {
 
 node! {
     /// A literal: `1`, `true`, ...
-    Lit: NodeKind::None
-       | NodeKind::Auto
-       | NodeKind::Bool(_)
-       | NodeKind::Int(_)
-       | NodeKind::Float(_)
-       | NodeKind::Numeric(_, _)
-       | NodeKind::Str(_)
+    Lit: SyntaxKind::None
+       | SyntaxKind::Auto
+       | SyntaxKind::Bool(_)
+       | SyntaxKind::Int(_)
+       | SyntaxKind::Float(_)
+       | SyntaxKind::Numeric(_, _)
+       | SyntaxKind::Str(_)
 }
 
 impl Lit {
     /// The kind of literal.
     pub fn kind(&self) -> LitKind {
         match *self.0.kind() {
-            NodeKind::None => LitKind::None,
-            NodeKind::Auto => LitKind::Auto,
-            NodeKind::Bool(v) => LitKind::Bool(v),
-            NodeKind::Int(v) => LitKind::Int(v),
-            NodeKind::Float(v) => LitKind::Float(v),
-            NodeKind::Numeric(v, unit) => LitKind::Numeric(v, unit),
-            NodeKind::Str(ref v) => LitKind::Str(v.clone()),
+            SyntaxKind::None => LitKind::None,
+            SyntaxKind::Auto => LitKind::Auto,
+            SyntaxKind::Bool(v) => LitKind::Bool(v),
+            SyntaxKind::Int(v) => LitKind::Int(v),
+            SyntaxKind::Float(v) => LitKind::Float(v),
+            SyntaxKind::Numeric(v, unit) => LitKind::Numeric(v, unit),
+            SyntaxKind::Str(ref v) => LitKind::Str(v.clone()),
             _ => panic!("literal is of wrong kind"),
         }
     }
@@ -799,10 +800,10 @@ pub enum ArrayItem {
     Spread(Expr),
 }
 
-impl TypedNode for ArrayItem {
+impl AstNode for ArrayItem {
     fn from_untyped(node: &SyntaxNode) -> Option<Self> {
         match node.kind() {
-            NodeKind::Spread => node.cast_first_child().map(Self::Spread),
+            SyntaxKind::Spread => node.cast_first_child().map(Self::Spread),
             _ => node.cast().map(Self::Pos),
         }
     }
@@ -838,12 +839,12 @@ pub enum DictItem {
     Spread(Expr),
 }
 
-impl TypedNode for DictItem {
+impl AstNode for DictItem {
     fn from_untyped(node: &SyntaxNode) -> Option<Self> {
         match node.kind() {
-            NodeKind::Named => node.cast().map(Self::Named),
-            NodeKind::Keyed => node.cast().map(Self::Keyed),
-            NodeKind::Spread => node.cast_first_child().map(Self::Spread),
+            SyntaxKind::Named => node.cast().map(Self::Named),
+            SyntaxKind::Keyed => node.cast().map(Self::Keyed),
+            SyntaxKind::Spread => node.cast_first_child().map(Self::Spread),
             _ => None,
         }
     }
@@ -885,7 +886,7 @@ impl Keyed {
         self.0
             .children()
             .find_map(|node| match node.kind() {
-                NodeKind::Str(key) => Some(key.clone()),
+                SyntaxKind::Str(key) => Some(key.clone()),
                 _ => None,
             })
             .expect("keyed pair is missing key")
@@ -930,11 +931,11 @@ pub enum UnOp {
 
 impl UnOp {
     /// Try to convert the token into a unary operation.
-    pub fn from_token(token: &NodeKind) -> Option<Self> {
+    pub fn from_token(token: &SyntaxKind) -> Option<Self> {
         Some(match token {
-            NodeKind::Plus => Self::Pos,
-            NodeKind::Minus => Self::Neg,
-            NodeKind::Not => Self::Not,
+            SyntaxKind::Plus => Self::Pos,
+            SyntaxKind::Minus => Self::Neg,
+            SyntaxKind::Not => Self::Not,
             _ => return None,
         })
     }
@@ -969,11 +970,11 @@ impl Binary {
         self.0
             .children()
             .find_map(|node| match node.kind() {
-                NodeKind::Not => {
+                SyntaxKind::Not => {
                     not = true;
                     None
                 }
-                NodeKind::In if not => Some(BinOp::NotIn),
+                SyntaxKind::In if not => Some(BinOp::NotIn),
                 _ => BinOp::from_token(node.kind()),
             })
             .expect("binary operation is missing operator")
@@ -1039,26 +1040,26 @@ pub enum BinOp {
 
 impl BinOp {
     /// Try to convert the token into a binary operation.
-    pub fn from_token(token: &NodeKind) -> Option<Self> {
+    pub fn from_token(token: &SyntaxKind) -> Option<Self> {
         Some(match token {
-            NodeKind::Plus => Self::Add,
-            NodeKind::Minus => Self::Sub,
-            NodeKind::Star => Self::Mul,
-            NodeKind::Slash => Self::Div,
-            NodeKind::And => Self::And,
-            NodeKind::Or => Self::Or,
-            NodeKind::EqEq => Self::Eq,
-            NodeKind::ExclEq => Self::Neq,
-            NodeKind::Lt => Self::Lt,
-            NodeKind::LtEq => Self::Leq,
-            NodeKind::Gt => Self::Gt,
-            NodeKind::GtEq => Self::Geq,
-            NodeKind::Eq => Self::Assign,
-            NodeKind::In => Self::In,
-            NodeKind::PlusEq => Self::AddAssign,
-            NodeKind::HyphEq => Self::SubAssign,
-            NodeKind::StarEq => Self::MulAssign,
-            NodeKind::SlashEq => Self::DivAssign,
+            SyntaxKind::Plus => Self::Add,
+            SyntaxKind::Minus => Self::Sub,
+            SyntaxKind::Star => Self::Mul,
+            SyntaxKind::Slash => Self::Div,
+            SyntaxKind::And => Self::And,
+            SyntaxKind::Or => Self::Or,
+            SyntaxKind::EqEq => Self::Eq,
+            SyntaxKind::ExclEq => Self::Neq,
+            SyntaxKind::Lt => Self::Lt,
+            SyntaxKind::LtEq => Self::Leq,
+            SyntaxKind::Gt => Self::Gt,
+            SyntaxKind::GtEq => Self::Geq,
+            SyntaxKind::Eq => Self::Assign,
+            SyntaxKind::In => Self::In,
+            SyntaxKind::PlusEq => Self::AddAssign,
+            SyntaxKind::HyphEq => Self::SubAssign,
+            SyntaxKind::StarEq => Self::MulAssign,
+            SyntaxKind::SlashEq => Self::DivAssign,
             _ => return None,
         })
     }
@@ -1231,11 +1232,11 @@ pub enum Arg {
     Spread(Expr),
 }
 
-impl TypedNode for Arg {
+impl AstNode for Arg {
     fn from_untyped(node: &SyntaxNode) -> Option<Self> {
         match node.kind() {
-            NodeKind::Named => node.cast().map(Self::Named),
-            NodeKind::Spread => node.cast_first_child().map(Self::Spread),
+            SyntaxKind::Named => node.cast().map(Self::Named),
+            SyntaxKind::Spread => node.cast_first_child().map(Self::Spread),
             _ => node.cast().map(Self::Pos),
         }
     }
@@ -1266,7 +1267,7 @@ impl Closure {
     pub fn params(&self) -> impl DoubleEndedIterator<Item = Param> + '_ {
         self.0
             .children()
-            .find(|x| x.kind() == &NodeKind::Params)
+            .find(|x| x.kind() == &SyntaxKind::Params)
             .expect("closure is missing parameter list")
             .children()
             .filter_map(SyntaxNode::cast)
@@ -1289,12 +1290,12 @@ pub enum Param {
     Sink(Ident),
 }
 
-impl TypedNode for Param {
+impl AstNode for Param {
     fn from_untyped(node: &SyntaxNode) -> Option<Self> {
         match node.kind() {
-            NodeKind::Ident(_) => node.cast().map(Self::Pos),
-            NodeKind::Named => node.cast().map(Self::Named),
-            NodeKind::Spread => node.cast_first_child().map(Self::Sink),
+            SyntaxKind::Ident(_) => node.cast().map(Self::Pos),
+            SyntaxKind::Named => node.cast().map(Self::Named),
+            SyntaxKind::Spread => node.cast_first_child().map(Self::Sink),
             _ => None,
         }
     }
@@ -1357,7 +1358,7 @@ impl SetRule {
     pub fn condition(&self) -> Option<Expr> {
         self.0
             .children()
-            .skip_while(|child| child.kind() != &NodeKind::If)
+            .skip_while(|child| child.kind() != &SyntaxKind::If)
             .find_map(SyntaxNode::cast)
     }
 }
@@ -1373,7 +1374,7 @@ impl ShowRule {
         self.0
             .children()
             .rev()
-            .skip_while(|child| child.kind() != &NodeKind::Colon)
+            .skip_while(|child| child.kind() != &SyntaxKind::Colon)
             .find_map(SyntaxNode::cast)
     }
 
@@ -1482,8 +1483,8 @@ impl ModuleImport {
         self.0
             .children()
             .find_map(|node| match node.kind() {
-                NodeKind::Star => Some(Imports::Wildcard),
-                NodeKind::ImportItems => {
+                SyntaxKind::Star => Some(Imports::Wildcard),
+                SyntaxKind::ImportItems => {
                     let items = node.children().filter_map(SyntaxNode::cast).collect();
                     Some(Imports::Items(items))
                 }
@@ -1550,7 +1551,7 @@ impl Ident {
     /// Get the identifier.
     pub fn get(&self) -> &EcoString {
         match self.0.kind() {
-            NodeKind::Ident(id) => id,
+            SyntaxKind::Ident(id) => id,
             _ => panic!("identifier is of wrong kind"),
         }
     }
@@ -1558,7 +1559,7 @@ impl Ident {
     /// Take out the container identifier.
     pub fn take(self) -> EcoString {
         match self.0.take() {
-            NodeKind::Ident(id) => id,
+            SyntaxKind::Ident(id) => id,
             _ => panic!("identifier is of wrong kind"),
         }
     }

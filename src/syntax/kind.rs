@@ -6,10 +6,9 @@ use crate::util::EcoString;
 
 /// All syntactical building blocks that can be part of a Typst document.
 ///
-/// Can be emitted as a token by the tokenizer or as part of a syntax node by
-/// the parser.
+/// Can be created by the tokenizer or by the parser.
 #[derive(Debug, Clone, PartialEq)]
-pub enum NodeKind {
+pub enum SyntaxKind {
     /// A line comment: `// ...`.
     LineComment,
     /// A block comment: `/* ... */`.
@@ -254,7 +253,7 @@ pub enum NodeKind {
     Error(ErrorPos, EcoString),
 }
 
-/// Fields of a [`Raw`](NodeKind::Raw) node.
+/// Fields of the raw syntax kind.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub struct RawFields {
     /// An optional identifier specifying the language to syntax-highlight in.
@@ -293,7 +292,7 @@ pub enum ErrorPos {
     End,
 }
 
-impl NodeKind {
+impl SyntaxKind {
     /// Whether this is trivia.
     pub fn is_trivia(&self) -> bool {
         self.is_space() || matches!(self, Self::LineComment | Self::BlockComment)
@@ -311,18 +310,18 @@ impl NodeKind {
 
     /// Whether this is an error.
     pub fn is_error(&self) -> bool {
-        matches!(self, NodeKind::Error(_, _))
+        matches!(self, SyntaxKind::Error(_, _))
     }
 
     /// Does this node need termination through a semicolon or linebreak?
     pub fn is_stmt(&self) -> bool {
         matches!(
             self,
-            NodeKind::LetBinding
-                | NodeKind::SetRule
-                | NodeKind::ShowRule
-                | NodeKind::ModuleImport
-                | NodeKind::ModuleInclude
+            SyntaxKind::LetBinding
+                | SyntaxKind::SetRule
+                | SyntaxKind::ShowRule
+                | SyntaxKind::ModuleImport
+                | SyntaxKind::ModuleInclude
         )
     }
 
@@ -445,7 +444,7 @@ impl NodeKind {
     }
 }
 
-impl Hash for NodeKind {
+impl Hash for SyntaxKind {
     fn hash<H: Hasher>(&self, state: &mut H) {
         std::mem::discriminant(self).hash(state);
         match self {

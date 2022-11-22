@@ -8,7 +8,7 @@ use super::{
     Args, Eval, Flow, Node, NodeId, Route, Scope, Scopes, Selector, StyleMap, Value, Vm,
 };
 use crate::diag::{bail, SourceResult, StrResult};
-use crate::syntax::ast::{self, Expr, TypedNode};
+use crate::syntax::ast::{self, AstNode, Expr};
 use crate::syntax::{SourceId, Span, SyntaxNode};
 use crate::util::EcoString;
 use crate::World;

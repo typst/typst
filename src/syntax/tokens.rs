@@ -4,7 +4,7 @@ use unicode_xid::UnicodeXID;
 use unscanny::Scanner;
 
 use super::resolve::{resolve_hex, resolve_raw, resolve_string};
-use super::{ErrorPos, NodeKind, RawFields, Unit};
+use super::{ErrorPos, RawFields, SyntaxKind, Unit};
 use crate::geom::{AbsUnit, AngleUnit};
 use crate::util::{format_eco, EcoString};
 
@@ -96,7 +96,7 @@ impl<'s> Tokens<'s> {
 }
 
 impl<'s> Iterator for Tokens<'s> {
-    type Item = NodeKind;
+    type Item = SyntaxKind;
 
     /// Parse the next token in the source code.
     #[inline]
@@ -107,9 +107,10 @@ impl<'s> Iterator for Tokens<'s> {
             // Trivia.
             '/' if self.s.eat_if('/') => self.line_comment(),
             '/' if self.s.eat_if('*') => self.block_comment(),
-            '*' if self.s.eat_if('/') => {
-                NodeKind::Error(ErrorPos::Full, "unexpected end of block comment".into())
-            }
+            '*' if self.s.eat_if('/') => SyntaxKind::Error(
+                ErrorPos::Full,
+                "unexpected end of block comment".into(),
+            ),
             c if c.is_whitespace() => self.whitespace(c),
 
             // Other things.
@@ -123,15 +124,15 @@ impl<'s> Iterator for Tokens<'s> {
 }
 
 impl<'s> Tokens<'s> {
-    fn line_comment(&mut self) -> NodeKind {
+    fn line_comment(&mut self) -> SyntaxKind {
         self.s.eat_until(is_newline);
         if self.s.peek().is_none() {
             self.terminated = false;
         }
-        NodeKind::LineComment
+        SyntaxKind::LineComment
     }
 
-    fn block_comment(&mut self) -> NodeKind {
+    fn block_comment(&mut self) -> SyntaxKind {
         let mut state = '_';
         let mut depth = 1;
         self.terminated = false;
@@ -159,12 +160,12 @@ impl<'s> Tokens<'s> {
             }
         }
 
-        NodeKind::BlockComment
+        SyntaxKind::BlockComment
     }
 
-    fn whitespace(&mut self, c: char) -> NodeKind {
+    fn whitespace(&mut self, c: char) -> SyntaxKind {
         if c == ' ' && !self.s.at(char::is_whitespace) {
-            return NodeKind::Space { newlines: 0 };
+            return SyntaxKind::Space { newlines: 0 };
         }
 
         self.s.uneat();
@@ -185,21 +186,21 @@ impl<'s> Tokens<'s> {
             }
         }
 
-        NodeKind::Space { newlines }
+        SyntaxKind::Space { newlines }
     }
 
     #[inline]
-    fn markup(&mut self, start: usize, c: char) -> NodeKind {
+    fn markup(&mut self, start: usize, c: char) -> SyntaxKind {
         match c {
             // Blocks.
-            '{' => NodeKind::LeftBrace,
-            '}' => NodeKind::RightBrace,
-            '[' => NodeKind::LeftBracket,
-            ']' => NodeKind::RightBracket,
+            '{' => SyntaxKind::LeftBrace,
+            '}' => SyntaxKind::RightBrace,
+            '[' => SyntaxKind::LeftBracket,
+            ']' => SyntaxKind::RightBracket,
 
             // Multi-char things.
             '#' => self.hash(start),
-            '.' if self.s.eat_if("..") => NodeKind::Shorthand('\u{2026}'),
+            '.' if self.s.eat_if("..") => SyntaxKind::Shorthand('\u{2026}'),
             '-' => self.hyph(),
             'h' if self.s.eat_if("ttp://") || self.s.eat_if("ttps://") => {
                 self.link(start)
@@ -213,16 +214,16 @@ impl<'s> Tokens<'s> {
             '\\' => self.backslash(),
 
             // Single-char things.
-            '~' => NodeKind::Shorthand('\u{00A0}'),
-            '\'' => NodeKind::SmartQuote { double: false },
-            '"' => NodeKind::SmartQuote { double: true },
-            '*' if !self.in_word() => NodeKind::Star,
-            '_' if !self.in_word() => NodeKind::Underscore,
-            '$' => NodeKind::Dollar,
-            '=' => NodeKind::Eq,
-            '+' => NodeKind::Plus,
-            '/' => NodeKind::Slash,
-            ':' => NodeKind::Colon,
+            '~' => SyntaxKind::Shorthand('\u{00A0}'),
+            '\'' => SyntaxKind::SmartQuote { double: false },
+            '"' => SyntaxKind::SmartQuote { double: true },
+            '*' if !self.in_word() => SyntaxKind::Star,
+            '_' if !self.in_word() => SyntaxKind::Underscore,
+            '$' => SyntaxKind::Dollar,
+            '=' => SyntaxKind::Eq,
+            '+' => SyntaxKind::Plus,
+            '/' => SyntaxKind::Slash,
+            ':' => SyntaxKind::Colon,
 
             // Plain text.
             _ => self.text(start),
@@ -230,7 +231,7 @@ impl<'s> Tokens<'s> {
     }
 
     #[inline]
-    fn text(&mut self, start: usize) -> NodeKind {
+    fn text(&mut self, start: usize) -> SyntaxKind {
         macro_rules! table {
             ($(|$c:literal)*) => {{
                 let mut t = [false; 128];
@@ -266,67 +267,67 @@ impl<'s> Tokens<'s> {
             self.s = s;
         }
 
-        NodeKind::Text(self.s.from(start).into())
+        SyntaxKind::Text(self.s.from(start).into())
     }
 
-    fn backslash(&mut self) -> NodeKind {
+    fn backslash(&mut self) -> SyntaxKind {
         match self.s.peek() {
             Some('u') if self.s.eat_if("u{") => {
                 let sequence = self.s.eat_while(char::is_ascii_alphanumeric);
                 if self.s.eat_if('}') {
                     if let Some(c) = resolve_hex(sequence) {
-                        NodeKind::Escape(c)
+                        SyntaxKind::Escape(c)
                     } else {
-                        NodeKind::Error(
+                        SyntaxKind::Error(
                             ErrorPos::Full,
                             "invalid unicode escape sequence".into(),
                         )
                     }
                 } else {
                     self.terminated = false;
-                    NodeKind::Error(ErrorPos::End, "expected closing brace".into())
+                    SyntaxKind::Error(ErrorPos::End, "expected closing brace".into())
                 }
             }
 
             // Linebreaks.
-            Some(c) if c.is_whitespace() => NodeKind::Linebreak,
-            None => NodeKind::Linebreak,
+            Some(c) if c.is_whitespace() => SyntaxKind::Linebreak,
+            None => SyntaxKind::Linebreak,
 
             // Escapes.
             Some(c) => {
                 self.s.expect(c);
-                NodeKind::Escape(c)
+                SyntaxKind::Escape(c)
             }
         }
     }
 
-    fn hash(&mut self, start: usize) -> NodeKind {
+    fn hash(&mut self, start: usize) -> SyntaxKind {
         if self.s.at(is_id_start) {
             let read = self.s.eat_while(is_id_continue);
             match keyword(read) {
                 Some(keyword) => keyword,
-                None => NodeKind::Ident(read.into()),
+                None => SyntaxKind::Ident(read.into()),
             }
         } else {
             self.text(start)
         }
     }
 
-    fn hyph(&mut self) -> NodeKind {
+    fn hyph(&mut self) -> SyntaxKind {
         if self.s.eat_if('-') {
             if self.s.eat_if('-') {
-                NodeKind::Shorthand('\u{2014}')
+                SyntaxKind::Shorthand('\u{2014}')
             } else {
-                NodeKind::Shorthand('\u{2013}')
+                SyntaxKind::Shorthand('\u{2013}')
             }
         } else if self.s.eat_if('?') {
-            NodeKind::Shorthand('\u{00AD}')
+            SyntaxKind::Shorthand('\u{00AD}')
         } else {
-            NodeKind::Minus
+            SyntaxKind::Minus
         }
     }
 
-    fn link(&mut self, start: usize) -> NodeKind {
+    fn link(&mut self, start: usize) -> SyntaxKind {
         #[rustfmt::skip]
         self.s.eat_while(|c: char| matches!(c,
             | '0' ..= '9'
@@ -338,10 +339,10 @@ impl<'s> Tokens<'s> {
         if self.s.scout(-1) == Some('.') {
             self.s.uneat();
         }
-        NodeKind::Link(self.s.from(start).into())
+        SyntaxKind::Link(self.s.from(start).into())
     }
 
-    fn raw(&mut self) -> NodeKind {
+    fn raw(&mut self) -> SyntaxKind {
         let column = self.column(self.s.cursor() - 1);
 
         let mut backticks = 1;
@@ -351,7 +352,7 @@ impl<'s> Tokens<'s> {
 
         // Special case for empty inline block.
         if backticks == 2 {
-            return NodeKind::Raw(Arc::new(RawFields {
+            return SyntaxKind::Raw(Arc::new(RawFields {
                 text: EcoString::new(),
                 lang: None,
                 block: false,
@@ -370,7 +371,7 @@ impl<'s> Tokens<'s> {
 
         if found == backticks {
             let end = self.s.cursor() - found as usize;
-            NodeKind::Raw(Arc::new(resolve_raw(
+            SyntaxKind::Raw(Arc::new(resolve_raw(
                 column,
                 backticks,
                 self.s.get(start..end),
@@ -379,7 +380,7 @@ impl<'s> Tokens<'s> {
             self.terminated = false;
             let remaining = backticks - found;
             let noun = if remaining == 1 { "backtick" } else { "backticks" };
-            NodeKind::Error(
+            SyntaxKind::Error(
                 ErrorPos::End,
                 if found == 0 {
                     format_eco!("expected {} {}", remaining, noun)
@@ -390,114 +391,114 @@ impl<'s> Tokens<'s> {
         }
     }
 
-    fn numbering(&mut self, start: usize) -> NodeKind {
+    fn numbering(&mut self, start: usize) -> SyntaxKind {
         self.s.eat_while(char::is_ascii_digit);
         let read = self.s.from(start);
         if self.s.eat_if('.') {
             if let Ok(number) = read.parse() {
-                return NodeKind::EnumNumbering(number);
+                return SyntaxKind::EnumNumbering(number);
             }
         }
 
         self.text(start)
     }
 
-    fn label(&mut self) -> NodeKind {
+    fn label(&mut self) -> SyntaxKind {
         let label = self.s.eat_while(is_id_continue);
         if self.s.eat_if('>') {
             if !label.is_empty() {
-                NodeKind::Label(label.into())
+                SyntaxKind::Label(label.into())
             } else {
-                NodeKind::Error(ErrorPos::Full, "label cannot be empty".into())
+                SyntaxKind::Error(ErrorPos::Full, "label cannot be empty".into())
             }
         } else {
             self.terminated = false;
-            NodeKind::Error(ErrorPos::End, "expected closing angle bracket".into())
+            SyntaxKind::Error(ErrorPos::End, "expected closing angle bracket".into())
         }
     }
 
-    fn reference(&mut self, start: usize) -> NodeKind {
+    fn reference(&mut self, start: usize) -> SyntaxKind {
         let label = self.s.eat_while(is_id_continue);
         if !label.is_empty() {
-            NodeKind::Ref(label.into())
+            SyntaxKind::Ref(label.into())
         } else {
             self.text(start)
         }
     }
 
-    fn math(&mut self, start: usize, c: char) -> NodeKind {
+    fn math(&mut self, start: usize, c: char) -> SyntaxKind {
         match c {
             // Escape sequences.
             '\\' => self.backslash(),
 
             // Single-char things.
-            '_' => NodeKind::Underscore,
-            '^' => NodeKind::Hat,
-            '/' => NodeKind::Slash,
-            '&' => NodeKind::Amp,
-            '$' => NodeKind::Dollar,
+            '_' => SyntaxKind::Underscore,
+            '^' => SyntaxKind::Hat,
+            '/' => SyntaxKind::Slash,
+            '&' => SyntaxKind::Amp,
+            '$' => SyntaxKind::Dollar,
 
             // Brackets.
-            '{' => NodeKind::LeftBrace,
-            '}' => NodeKind::RightBrace,
-            '[' => NodeKind::LeftBracket,
-            ']' => NodeKind::RightBracket,
-            '(' => NodeKind::LeftParen,
-            ')' => NodeKind::RightParen,
+            '{' => SyntaxKind::LeftBrace,
+            '}' => SyntaxKind::RightBrace,
+            '[' => SyntaxKind::LeftBracket,
+            ']' => SyntaxKind::RightBracket,
+            '(' => SyntaxKind::LeftParen,
+            ')' => SyntaxKind::RightParen,
 
             // Identifiers.
             c if is_math_id_start(c) && self.s.at(is_math_id_continue) => {
                 self.s.eat_while(is_math_id_continue);
-                NodeKind::Ident(self.s.from(start).into())
+                SyntaxKind::Ident(self.s.from(start).into())
             }
 
             // Numbers.
             c if c.is_numeric() => {
                 self.s.eat_while(char::is_numeric);
-                NodeKind::Atom(self.s.from(start).into())
+                SyntaxKind::Atom(self.s.from(start).into())
             }
 
             // Other math atoms.
-            c => NodeKind::Atom(c.into()),
+            c => SyntaxKind::Atom(c.into()),
         }
     }
 
-    fn code(&mut self, start: usize, c: char) -> NodeKind {
+    fn code(&mut self, start: usize, c: char) -> SyntaxKind {
         match c {
             // Blocks.
-            '{' => NodeKind::LeftBrace,
-            '}' => NodeKind::RightBrace,
-            '[' => NodeKind::LeftBracket,
-            ']' => NodeKind::RightBracket,
+            '{' => SyntaxKind::LeftBrace,
+            '}' => SyntaxKind::RightBrace,
+            '[' => SyntaxKind::LeftBracket,
+            ']' => SyntaxKind::RightBracket,
 
             // Parentheses.
-            '(' => NodeKind::LeftParen,
-            ')' => NodeKind::RightParen,
+            '(' => SyntaxKind::LeftParen,
+            ')' => SyntaxKind::RightParen,
 
             // Two-char operators.
-            '=' if self.s.eat_if('=') => NodeKind::EqEq,
-            '!' if self.s.eat_if('=') => NodeKind::ExclEq,
-            '<' if self.s.eat_if('=') => NodeKind::LtEq,
-            '>' if self.s.eat_if('=') => NodeKind::GtEq,
-            '+' if self.s.eat_if('=') => NodeKind::PlusEq,
-            '-' if self.s.eat_if('=') => NodeKind::HyphEq,
-            '*' if self.s.eat_if('=') => NodeKind::StarEq,
-            '/' if self.s.eat_if('=') => NodeKind::SlashEq,
-            '.' if self.s.eat_if('.') => NodeKind::Dots,
-            '=' if self.s.eat_if('>') => NodeKind::Arrow,
+            '=' if self.s.eat_if('=') => SyntaxKind::EqEq,
+            '!' if self.s.eat_if('=') => SyntaxKind::ExclEq,
+            '<' if self.s.eat_if('=') => SyntaxKind::LtEq,
+            '>' if self.s.eat_if('=') => SyntaxKind::GtEq,
+            '+' if self.s.eat_if('=') => SyntaxKind::PlusEq,
+            '-' if self.s.eat_if('=') => SyntaxKind::HyphEq,
+            '*' if self.s.eat_if('=') => SyntaxKind::StarEq,
+            '/' if self.s.eat_if('=') => SyntaxKind::SlashEq,
+            '.' if self.s.eat_if('.') => SyntaxKind::Dots,
+            '=' if self.s.eat_if('>') => SyntaxKind::Arrow,
 
             // Single-char operators.
-            ',' => NodeKind::Comma,
-            ';' => NodeKind::Semicolon,
-            ':' => NodeKind::Colon,
-            '+' => NodeKind::Plus,
-            '-' => NodeKind::Minus,
-            '*' => NodeKind::Star,
-            '/' => NodeKind::Slash,
-            '=' => NodeKind::Eq,
-            '<' => NodeKind::Lt,
-            '>' => NodeKind::Gt,
-            '.' if !self.s.at(char::is_ascii_digit) => NodeKind::Dot,
+            ',' => SyntaxKind::Comma,
+            ';' => SyntaxKind::Semicolon,
+            ':' => SyntaxKind::Colon,
+            '+' => SyntaxKind::Plus,
+            '-' => SyntaxKind::Minus,
+            '*' => SyntaxKind::Star,
+            '/' => SyntaxKind::Slash,
+            '=' => SyntaxKind::Eq,
+            '<' => SyntaxKind::Lt,
+            '>' => SyntaxKind::Gt,
+            '.' if !self.s.at(char::is_ascii_digit) => SyntaxKind::Dot,
 
             // Identifiers.
             c if is_id_start(c) => self.ident(start),
@@ -511,22 +512,22 @@ impl<'s> Tokens<'s> {
             '"' => self.string(),
 
             // Invalid token.
-            _ => NodeKind::Error(ErrorPos::Full, "not valid here".into()),
+            _ => SyntaxKind::Error(ErrorPos::Full, "not valid here".into()),
         }
     }
 
-    fn ident(&mut self, start: usize) -> NodeKind {
+    fn ident(&mut self, start: usize) -> SyntaxKind {
         self.s.eat_while(is_id_continue);
         match self.s.from(start) {
-            "none" => NodeKind::None,
-            "auto" => NodeKind::Auto,
-            "true" => NodeKind::Bool(true),
-            "false" => NodeKind::Bool(false),
-            id => keyword(id).unwrap_or_else(|| NodeKind::Ident(id.into())),
+            "none" => SyntaxKind::None,
+            "auto" => SyntaxKind::Auto,
+            "true" => SyntaxKind::Bool(true),
+            "false" => SyntaxKind::Bool(false),
+            id => keyword(id).unwrap_or_else(|| SyntaxKind::Ident(id.into())),
         }
     }
 
-    fn number(&mut self, start: usize, c: char) -> NodeKind {
+    fn number(&mut self, start: usize, c: char) -> SyntaxKind {
         // Read the first part (integer or fractional depending on `first`).
         self.s.eat_while(char::is_ascii_digit);
 
@@ -554,30 +555,30 @@ impl<'s> Tokens<'s> {
         // Find out whether it is a simple number.
         if suffix.is_empty() {
             if let Ok(i) = number.parse::<i64>() {
-                return NodeKind::Int(i);
+                return SyntaxKind::Int(i);
             }
         }
 
         let Ok(v) = number.parse::<f64>() else {
-            return NodeKind::Error(ErrorPos::Full, "invalid number".into());
+            return SyntaxKind::Error(ErrorPos::Full, "invalid number".into());
         };
 
         match suffix {
-            "" => NodeKind::Float(v),
-            "pt" => NodeKind::Numeric(v, Unit::Length(AbsUnit::Pt)),
-            "mm" => NodeKind::Numeric(v, Unit::Length(AbsUnit::Mm)),
-            "cm" => NodeKind::Numeric(v, Unit::Length(AbsUnit::Cm)),
-            "in" => NodeKind::Numeric(v, Unit::Length(AbsUnit::In)),
-            "deg" => NodeKind::Numeric(v, Unit::Angle(AngleUnit::Deg)),
-            "rad" => NodeKind::Numeric(v, Unit::Angle(AngleUnit::Rad)),
-            "em" => NodeKind::Numeric(v, Unit::Em),
-            "fr" => NodeKind::Numeric(v, Unit::Fr),
-            "%" => NodeKind::Numeric(v, Unit::Percent),
-            _ => NodeKind::Error(ErrorPos::Full, "invalid number suffix".into()),
+            "" => SyntaxKind::Float(v),
+            "pt" => SyntaxKind::Numeric(v, Unit::Length(AbsUnit::Pt)),
+            "mm" => SyntaxKind::Numeric(v, Unit::Length(AbsUnit::Mm)),
+            "cm" => SyntaxKind::Numeric(v, Unit::Length(AbsUnit::Cm)),
+            "in" => SyntaxKind::Numeric(v, Unit::Length(AbsUnit::In)),
+            "deg" => SyntaxKind::Numeric(v, Unit::Angle(AngleUnit::Deg)),
+            "rad" => SyntaxKind::Numeric(v, Unit::Angle(AngleUnit::Rad)),
+            "em" => SyntaxKind::Numeric(v, Unit::Em),
+            "fr" => SyntaxKind::Numeric(v, Unit::Fr),
+            "%" => SyntaxKind::Numeric(v, Unit::Percent),
+            _ => SyntaxKind::Error(ErrorPos::Full, "invalid number suffix".into()),
         }
     }
 
-    fn string(&mut self) -> NodeKind {
+    fn string(&mut self) -> SyntaxKind {
         let mut escaped = false;
         let verbatim = self.s.eat_until(|c| {
             if c == '"' && !escaped {
@@ -590,10 +591,10 @@ impl<'s> Tokens<'s> {
 
         let string = resolve_string(verbatim);
         if self.s.eat_if('"') {
-            NodeKind::Str(string)
+            SyntaxKind::Str(string)
         } else {
             self.terminated = false;
-            NodeKind::Error(ErrorPos::End, "expected quote".into())
+            SyntaxKind::Error(ErrorPos::End, "expected quote".into())
         }
     }
 
@@ -605,25 +606,25 @@ impl<'s> Tokens<'s> {
     }
 }
 
-fn keyword(ident: &str) -> Option<NodeKind> {
+fn keyword(ident: &str) -> Option<SyntaxKind> {
     Some(match ident {
-        "not" => NodeKind::Not,
-        "and" => NodeKind::And,
-        "or" => NodeKind::Or,
-        "let" => NodeKind::Let,
-        "set" => NodeKind::Set,
-        "show" => NodeKind::Show,
-        "if" => NodeKind::If,
-        "else" => NodeKind::Else,
-        "for" => NodeKind::For,
-        "in" => NodeKind::In,
-        "while" => NodeKind::While,
-        "break" => NodeKind::Break,
-        "continue" => NodeKind::Continue,
-        "return" => NodeKind::Return,
-        "import" => NodeKind::Import,
-        "include" => NodeKind::Include,
-        "from" => NodeKind::From,
+        "not" => SyntaxKind::Not,
+        "and" => SyntaxKind::And,
+        "or" => SyntaxKind::Or,
+        "let" => SyntaxKind::Let,
+        "set" => SyntaxKind::Set,
+        "show" => SyntaxKind::Show,
+        "if" => SyntaxKind::If,
+        "else" => SyntaxKind::Else,
+        "for" => SyntaxKind::For,
+        "in" => SyntaxKind::In,
+        "while" => SyntaxKind::While,
+        "break" => SyntaxKind::Break,
+        "continue" => SyntaxKind::Continue,
+        "return" => SyntaxKind::Return,
+        "import" => SyntaxKind::Import,
+        "include" => SyntaxKind::Include,
+        "from" => SyntaxKind::From,
         _ => return None,
     })
 }
@@ -715,36 +716,36 @@ mod tests {
     use super::*;
 
     use ErrorPos::*;
-    use NodeKind::*;
     use Option::None;
+    use SyntaxKind::*;
     use TokenMode::{Code, Markup};
 
-    fn Space(newlines: usize) -> NodeKind {
-        NodeKind::Space { newlines }
+    fn Space(newlines: usize) -> SyntaxKind {
+        SyntaxKind::Space { newlines }
     }
 
-    fn Raw(text: &str, lang: Option<&str>, block: bool) -> NodeKind {
-        NodeKind::Raw(Arc::new(RawFields {
+    fn Raw(text: &str, lang: Option<&str>, block: bool) -> SyntaxKind {
+        SyntaxKind::Raw(Arc::new(RawFields {
             text: text.into(),
             lang: lang.map(Into::into),
             block,
         }))
     }
 
-    fn Str(string: &str) -> NodeKind {
-        NodeKind::Str(string.into())
+    fn Str(string: &str) -> SyntaxKind {
+        SyntaxKind::Str(string.into())
     }
 
-    fn Text(string: &str) -> NodeKind {
-        NodeKind::Text(string.into())
+    fn Text(string: &str) -> SyntaxKind {
+        SyntaxKind::Text(string.into())
     }
 
-    fn Ident(ident: &str) -> NodeKind {
-        NodeKind::Ident(ident.into())
+    fn Ident(ident: &str) -> SyntaxKind {
+        SyntaxKind::Ident(ident.into())
     }
 
-    fn Error(pos: ErrorPos, message: &str) -> NodeKind {
-        NodeKind::Error(pos, message.into())
+    fn Error(pos: ErrorPos, message: &str) -> SyntaxKind {
+        SyntaxKind::Error(pos, message.into())
     }
 
     /// Building blocks for suffix testing.
@@ -769,7 +770,7 @@ mod tests {
     // - the suffix string
     // - the resulting suffix NodeKind
     fn suffixes(
-    ) -> impl Iterator<Item = (char, Option<TokenMode>, &'static str, NodeKind)> {
+    ) -> impl Iterator<Item = (char, Option<TokenMode>, &'static str, SyntaxKind)> {
         [
             // Whitespace suffixes.
             (' ', None, " ", Space(0)),
@@ -1089,7 +1090,7 @@ mod tests {
         // Combined integers and floats.
         let nums = ints.iter().map(|&(k, v)| (k, v as f64)).chain(floats);
 
-        let suffixes: &[(&str, fn(f64) -> NodeKind)] = &[
+        let suffixes: &[(&str, fn(f64) -> SyntaxKind)] = &[
             ("mm", |x| Numeric(x, Unit::Length(AbsUnit::Mm))),
             ("pt", |x| Numeric(x, Unit::Length(AbsUnit::Pt))),
             ("cm", |x| Numeric(x, Unit::Length(AbsUnit::Cm))),

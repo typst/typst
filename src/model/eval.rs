@@ -11,7 +11,7 @@ use super::{
 };
 use crate::diag::{bail, error, At, SourceResult, StrResult, Trace, Tracepoint};
 use crate::geom::{Abs, Angle, Em, Fr, Ratio};
-use crate::syntax::ast::TypedNode;
+use crate::syntax::ast::AstNode;
 use crate::syntax::{ast, SourceId, Span, Spanned, Unit};
 use crate::util::{format_eco, EcoString};
 use crate::World;
