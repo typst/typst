@@ -25,7 +25,7 @@ impl LayoutBlock for FlowNode {
 
         for (child, map) in self.0.iter() {
             let styles = map.chain(&styles);
-            if let Some(&node) = child.downcast::<VNode>() {
+            if let Some(&node) = child.to::<VNode>() {
                 layouter.layout_spacing(node.amount, styles);
             } else if child.has::<dyn LayoutBlock>() {
                 layouter.layout_block(world, child, styles)?;
@@ -134,7 +134,7 @@ impl FlowLayouter {
 
         // Placed nodes that are out of flow produce placed items which aren't
         // aligned later.
-        if let Some(placed) = block.downcast::<PlaceNode>() {
+        if let Some(placed) = block.to::<PlaceNode>() {
             if placed.out_of_flow() {
                 let frame = block.layout_block(world, &self.regions, styles)?.remove(0);
                 self.items.push(FlowItem::Placed(frame));
@@ -149,7 +149,7 @@ impl FlowLayouter {
             styles.get(ParNode::ALIGN),
             // Vertical align node alignment is respected by the flow.
             block
-                .downcast::<AlignNode>()
+                .to::<AlignNode>()
                 .and_then(|aligned| aligned.aligns.y)
                 .map(|align| align.resolve(styles))
                 .unwrap_or(Align::Top),

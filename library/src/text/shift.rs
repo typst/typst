@@ -69,13 +69,11 @@ impl<const S: ShiftKind> Show for ShiftNode<S> {
 /// Find and transform the text contained in `content` to the given script kind
 /// if and only if it only consists of `Text`, `Space`, and `Empty` leaf nodes.
 fn search_text(content: &Content, mode: ShiftKind) -> Option<EcoString> {
-    if content.is_empty() {
-        Some(EcoString::new())
-    } else if content.is::<SpaceNode>() {
+    if content.is::<SpaceNode>() {
         Some(' '.into())
-    } else if let Some(text) = content.downcast::<TextNode>() {
+    } else if let Some(text) = content.to::<TextNode>() {
         convert_script(&text.0, mode)
-    } else if let Some(seq) = content.downcast::<SequenceNode>() {
+    } else if let Some(seq) = content.to::<SequenceNode>() {
         let mut full = EcoString::new();
         for item in seq.0.iter() {
             match search_text(item, mode) {

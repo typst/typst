@@ -35,7 +35,7 @@ impl Show for MathNode {
         let mut realized = self
             .clone()
             .pack()
-            .guard(RecipeId::Base(NodeId::of::<Self>()))
+            .guarded(RecipeId::Base(NodeId::of::<Self>()))
             .styled_with_map(map);
 
         if self.display {

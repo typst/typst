@@ -4,7 +4,7 @@ use typst::model::{capability, Content, StyleChain, StyleVec, StyleVecBuilder};
 
 /// How a node interacts with other nodes.
 #[capability]
-pub trait Behave: 'static + Send + Sync {
+pub trait Behave {
     /// The node's interaction behaviour.
     fn behaviour(&self) -> Behaviour;
 
@@ -62,13 +62,13 @@ impl<'a> BehavedBuilder<'a> {
     /// Push an item into the sequence.
     pub fn push(&mut self, item: Content, styles: StyleChain<'a>) {
         let interaction = item
-            .to::<dyn Behave>()
+            .with::<dyn Behave>()
             .map_or(Behaviour::Supportive, Behave::behaviour);
 
         match interaction {
             Behaviour::Weak(level) => {
                 if matches!(self.last, Behaviour::Weak(_)) {
-                    let item = item.to::<dyn Behave>().unwrap();
+                    let item = item.with::<dyn Behave>().unwrap();
                     let i = self.staged.iter().position(|prev| {
                         let Behaviour::Weak(prev_level) = prev.1 else { return false };
                         level < prev_level

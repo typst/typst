@@ -1,13 +1,14 @@
 //! Evaluation of markup into modules.
 
 use std::collections::BTreeMap;
+use std::mem;
 
 use comemo::{Track, Tracked};
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::{
     methods, ops, Arg, Args, Array, CapturesVisitor, Closure, Content, Dict, Flow, Func,
-    Recipe, Scope, Scopes, Selector, StyleMap, Transform, Unlabellable, Value, Vm,
+    Recipe, Scope, Scopes, Selector, StyleMap, Transform, Value, Vm,
 };
 use crate::diag::{bail, error, At, SourceResult, StrResult, Trace, Tracepoint};
 use crate::geom::{Abs, Angle, Em, Fr, Ratio};
@@ -137,10 +138,8 @@ fn eval_markup(
                 seq.push(tail.styled_with_recipe(vm.world, recipe)?)
             }
             ast::MarkupNode::Label(label) => {
-                if let Some(node) =
-                    seq.iter_mut().rev().find(|node| !node.has::<dyn Unlabellable>())
-                {
-                    node.set_label(label.get().clone());
+                if let Some(node) = seq.iter_mut().rev().find(|node| node.labellable()) {
+                    *node = mem::take(node).labelled(label.get().clone());
                 }
             }
             _ => seq.push(node.eval(vm)?),
@@ -1080,7 +1079,7 @@ impl Eval for ast::FuncReturn {
 }
 
 /// Access an expression mutably.
-pub trait Access {
+trait Access {
     /// Access the value.
     fn access<'a>(&self, vm: &'a mut Vm) -> SourceResult<&'a mut Value>;
 }

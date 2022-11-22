@@ -49,9 +49,7 @@ impl PlaceNode {
     /// origin. Instead of relative to the parent's current flow/cursor
     /// position.
     pub fn out_of_flow(&self) -> bool {
-        self.0
-            .downcast::<AlignNode>()
-            .map_or(false, |node| node.aligns.y.is_some())
+        self.0.to::<AlignNode>().map_or(false, |node| node.aligns.y.is_some())
     }
 }
 

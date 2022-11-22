@@ -10,7 +10,7 @@ use crate::text::{families, variant, LinebreakNode, SpaceNode, TextNode};
 
 /// Turn a math node into TeX math code.
 #[capability]
-pub trait Texify: 'static + Sync + Send {
+pub trait Texify {
     /// Perform the conversion.
     fn texify(&self) -> EcoString;
 }
@@ -25,7 +25,7 @@ impl Texify for Content {
             return r"\\".into();
         }
 
-        if let Some(node) = self.to::<dyn Texify>() {
+        if let Some(node) = self.with::<dyn Texify>() {
             return node.texify();
         }
 

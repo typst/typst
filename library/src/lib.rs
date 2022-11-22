@@ -161,7 +161,7 @@ pub fn items() -> LangItems {
         linebreak: |justify| text::LinebreakNode { justify }.pack(),
         text: |text| text::TextNode(text).pack(),
         text_id: NodeId::of::<text::TextNode>(),
-        text_str: |content| Some(&content.downcast::<text::TextNode>()?.0),
+        text_str: |content| Some(&content.to::<text::TextNode>()?.0),
         smart_quote: |double| text::SmartQuoteNode { double }.pack(),
         parbreak: || text::ParbreakNode.pack(),
         strong: |body| text::StrongNode(body).pack(),

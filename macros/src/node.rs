@@ -227,6 +227,9 @@ fn create(node: &Node) -> Result<TokenStream> {
             #construct_func
             #set_func
             #field_method
+        }
+
+        unsafe impl<#params> ::typst::model::Capable for #self_ty {
             #vtable_method
         }
     };
@@ -411,9 +414,9 @@ fn create_property_module(node: &Node, property: &Property) -> (syn::Type, syn::
             fn clone(&self) -> Self { *self }
         }
 
-        impl<'a, #params> ::typst::model::Key<'a> for #key {
+        impl<#params> ::typst::model::Key for #key {
             type Value = #value_ty;
-            type Output = #output_ty;
+            type Output<'a> = #output_ty;
             #name_const
             #node_func
             #get_method
@@ -492,10 +495,10 @@ fn create_property_get_method(property: &Property) -> syn::ImplItemMethod {
     };
 
     parse_quote! {
-        fn get(
+        fn get<'a>(
             chain: ::typst::model::StyleChain<'a>,
             mut values: impl ::std::iter::Iterator<Item = &'a Self::Value>,
-        ) -> Self::Output {
+        ) -> Self::Output<'a> {
             #value
         }
     }

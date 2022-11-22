@@ -44,7 +44,7 @@ impl Behave for HNode {
     }
 
     fn larger(&self, prev: &Content) -> bool {
-        let Some(prev) = prev.downcast::<Self>() else { return false };
+        let Some(prev) = prev.to::<Self>() else { return false };
         self.amount > prev.amount
     }
 }
@@ -110,7 +110,7 @@ impl Behave for VNode {
     }
 
     fn larger(&self, prev: &Content) -> bool {
-        let Some(prev) = prev.downcast::<Self>() else { return false };
+        let Some(prev) = prev.to::<Self>() else { return false };
         self.amount > prev.amount
     }
 }

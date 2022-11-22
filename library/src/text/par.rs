@@ -420,7 +420,7 @@ fn collect<'a>(
         let segment = if child.is::<SpaceNode>() {
             full.push(' ');
             Segment::Text(1)
-        } else if let Some(node) = child.downcast::<TextNode>() {
+        } else if let Some(node) = child.to::<TextNode>() {
             let prev = full.len();
             if let Some(case) = styles.get(TextNode::CASE) {
                 full.push_str(&case.apply(&node.0));
@@ -428,18 +428,18 @@ fn collect<'a>(
                 full.push_str(&node.0);
             }
             Segment::Text(full.len() - prev)
-        } else if let Some(node) = child.downcast::<LinebreakNode>() {
+        } else if let Some(node) = child.to::<LinebreakNode>() {
             let c = if node.justify { '\u{2028}' } else { '\n' };
             full.push(c);
             Segment::Text(c.len_utf8())
-        } else if let Some(node) = child.downcast::<SmartQuoteNode>() {
+        } else if let Some(node) = child.to::<SmartQuoteNode>() {
             let prev = full.len();
             if styles.get(TextNode::SMART_QUOTES) {
                 let lang = styles.get(TextNode::LANG);
                 let region = styles.get(TextNode::REGION);
                 let quotes = Quotes::from_lang(lang, region);
                 let peeked = iter.peek().and_then(|(child, _)| {
-                    if let Some(node) = child.downcast::<TextNode>() {
+                    if let Some(node) = child.to::<TextNode>() {
                         node.0.chars().next()
                     } else if child.is::<SmartQuoteNode>() {
                         Some('"')
@@ -455,7 +455,7 @@ fn collect<'a>(
                 full.push(if node.double { '"' } else { '\'' });
             }
             Segment::Text(full.len() - prev)
-        } else if let Some(&node) = child.downcast::<HNode>() {
+        } else if let Some(&node) = child.to::<HNode>() {
             full.push(SPACING_REPLACE);
             Segment::Spacing(node.amount)
         } else if child.has::<dyn LayoutInline>() {
@@ -523,7 +523,7 @@ fn prepare<'a>(
                 }
             },
             Segment::Inline(inline) => {
-                if let Some(repeat) = inline.downcast::<RepeatNode>() {
+                if let Some(repeat) = inline.to::<RepeatNode>() {
                     items.push(Item::Repeat(repeat, styles));
                 } else {
                     let size = Size::new(regions.first.x, regions.base.y);
@@ -606,11 +606,11 @@ fn is_compatible(a: Script, b: Script) -> bool {
 
 /// Get a style property, but only if it is the same for all children of the
 /// paragraph.
-fn shared_get<'a, K: Key<'a>>(
+fn shared_get<'a, K: Key>(
     styles: StyleChain<'a>,
     children: &StyleVec<Content>,
     key: K,
-) -> Option<K::Output> {
+) -> Option<K::Output<'a>> {
     children
         .styles()
         .all(|map| !map.contains(key))

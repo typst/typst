@@ -32,8 +32,7 @@ use typst::diag::SourceResult;
 use typst::frame::Frame;
 use typst::geom::*;
 use typst::model::{
-    capability, Content, Node, SequenceNode, Style, StyleChain, StyleVecBuilder,
-    StyledNode,
+    capability, Content, SequenceNode, Style, StyleChain, StyleVecBuilder, StyledNode,
 };
 use typst::World;
 
@@ -48,7 +47,7 @@ use crate::text::{
 
 /// Root-level layout.
 #[capability]
-pub trait LayoutRoot: 'static + Sync + Send {
+pub trait LayoutRoot {
     /// Layout into one frame per page.
     fn layout_root(&self, world: Tracked<dyn World>) -> SourceResult<Vec<Frame>>;
 }
@@ -69,7 +68,7 @@ impl LayoutRoot for Content {
 
 /// Block-level layout.
 #[capability]
-pub trait LayoutBlock: 'static + Sync + Send {
+pub trait LayoutBlock {
     /// Layout into one frame per region.
     fn layout_block(
         &self,
@@ -88,7 +87,7 @@ impl LayoutBlock for Content {
         styles: StyleChain,
     ) -> SourceResult<Vec<Frame>> {
         if !styles.applicable(self) {
-            if let Some(node) = self.to::<dyn LayoutBlock>() {
+            if let Some(node) = self.with::<dyn LayoutBlock>() {
                 let barrier = Style::Barrier(self.id());
                 let styles = barrier.chain(&styles);
                 return node.layout_block(world, regions, styles);
@@ -105,7 +104,7 @@ impl LayoutBlock for Content {
 
 /// Inline-level layout.
 #[capability]
-pub trait LayoutInline: 'static + Sync + Send {
+pub trait LayoutInline {
     /// Layout into a single frame.
     fn layout_inline(
         &self,
@@ -127,13 +126,13 @@ impl LayoutInline for Content {
         assert!(regions.last.is_none());
 
         if !styles.applicable(self) {
-            if let Some(node) = self.to::<dyn LayoutInline>() {
+            if let Some(node) = self.with::<dyn LayoutInline>() {
                 let barrier = Style::Barrier(self.id());
                 let styles = barrier.chain(&styles);
                 return node.layout_inline(world, regions, styles);
             }
 
-            if let Some(node) = self.to::<dyn LayoutBlock>() {
+            if let Some(node) = self.with::<dyn LayoutBlock>() {
                 let barrier = Style::Barrier(self.id());
                 let styles = barrier.chain(&styles);
                 return Ok(node.layout_block(world, regions, styles)?.remove(0));
@@ -312,11 +311,11 @@ impl<'a> Builder<'a> {
         content: &'a Content,
         styles: StyleChain<'a>,
     ) -> SourceResult<()> {
-        if let Some(styled) = content.downcast::<StyledNode>() {
+        if let Some(styled) = content.to::<StyledNode>() {
             return self.styled(styled, styles);
         }
 
-        if let Some(seq) = content.downcast::<SequenceNode>() {
+        if let Some(seq) = content.to::<SequenceNode>() {
             return self.sequence(seq, styles);
         }
 
@@ -347,7 +346,7 @@ impl<'a> Builder<'a> {
         }
 
         let keep = content
-            .downcast::<PagebreakNode>()
+            .to::<PagebreakNode>()
             .map_or(false, |pagebreak| !pagebreak.weak);
         self.interrupt(Interruption::Page, styles, keep)?;
 
@@ -457,12 +456,12 @@ struct DocBuilder<'a> {
 
 impl<'a> DocBuilder<'a> {
     fn accept(&mut self, content: &Content, styles: StyleChain<'a>) -> bool {
-        if let Some(pagebreak) = content.downcast::<PagebreakNode>() {
+        if let Some(pagebreak) = content.to::<PagebreakNode>() {
             self.keep_next = !pagebreak.weak;
             return true;
         }
 
-        if let Some(page) = content.downcast::<PageNode>() {
+        if let Some(page) = content.to::<PageNode>() {
             self.pages.push(page.clone(), styles);
             self.keep_next = false;
             return true;
@@ -498,11 +497,11 @@ impl<'a> FlowBuilder<'a> {
         }
 
         if content.has::<dyn LayoutBlock>() {
-            let is_tight_list = if let Some(node) = content.downcast::<ListNode>() {
+            let is_tight_list = if let Some(node) = content.to::<ListNode>() {
                 node.tight
-            } else if let Some(node) = content.downcast::<EnumNode>() {
+            } else if let Some(node) = content.to::<EnumNode>() {
                 node.tight
-            } else if let Some(node) = content.downcast::<DescNode>() {
+            } else if let Some(node) = content.to::<DescNode>() {
                 node.tight
             } else {
                 false
@@ -576,7 +575,7 @@ impl<'a> ListBuilder<'a> {
             return true;
         }
 
-        if let Some(item) = content.downcast::<ListItem>() {
+        if let Some(item) = content.to::<ListItem>() {
             if self
                 .items
                 .items()

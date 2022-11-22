@@ -36,19 +36,19 @@ impl StyleMap {
     /// If the property needs folding and the value is already contained in the
     /// style map, `self` contributes the outer values and `value` is the inner
     /// one.
-    pub fn set<'a, K: Key<'a>>(&mut self, key: K, value: K::Value) {
+    pub fn set<K: Key>(&mut self, key: K, value: K::Value) {
         self.0.push(Style::Property(Property::new(key, value)));
     }
 
     /// Set an inner value for a style property if it is `Some(_)`.
-    pub fn set_opt<'a, K: Key<'a>>(&mut self, key: K, value: Option<K::Value>) {
+    pub fn set_opt<K: Key>(&mut self, key: K, value: Option<K::Value>) {
         if let Some(value) = value {
             self.set(key, value);
         }
     }
 
     /// Whether the map contains a style property for the given key.
-    pub fn contains<'a, K: Key<'a>>(&self, _: K) -> bool {
+    pub fn contains<K: Key>(&self, _: K) -> bool {
         self.0
             .iter()
             .filter_map(|entry| entry.property())
@@ -188,13 +188,13 @@ impl Debug for Style {
 ///
 /// This trait is not intended to be implemented manually, but rather through
 /// the `#[node]` proc-macro.
-pub trait Key<'a>: Copy + 'static {
+pub trait Key: Copy + 'static {
     /// The unfolded type which this property is stored as in a style map.
     type Value: Debug + Clone + Hash + Sync + Send + 'static;
 
     /// The folded type of value that is returned when reading this property
     /// from a style chain.
-    type Output;
+    type Output<'a>;
 
     /// The name of the property, used for debug printing.
     const NAME: &'static str;
@@ -204,10 +204,10 @@ pub trait Key<'a>: Copy + 'static {
 
     /// Compute an output value from a sequence of values belonging to this key,
     /// folding if necessary.
-    fn get(
+    fn get<'a>(
         chain: StyleChain<'a>,
         values: impl Iterator<Item = &'a Self::Value>,
-    ) -> Self::Output;
+    ) -> Self::Output<'a>;
 }
 
 /// A style property originating from a set rule or constructor.
@@ -229,7 +229,7 @@ pub struct Property {
 
 impl Property {
     /// Create a new property from a key-value pair.
-    pub fn new<'a, K: Key<'a>>(_: K, value: K::Value) -> Self {
+    pub fn new<K: Key>(_: K, value: K::Value) -> Self {
         Self {
             key: KeyId::of::<K>(),
             node: K::node(),
@@ -241,7 +241,7 @@ impl Property {
     }
 
     /// Whether this property has the given key.
-    pub fn is<'a, K: Key<'a>>(&self) -> bool {
+    pub fn is<K: Key>(&self) -> bool {
         self.key == KeyId::of::<K>()
     }
 
@@ -251,7 +251,7 @@ impl Property {
     }
 
     /// Access the property's value if it is of the given key.
-    pub fn downcast<'a, K: Key<'a>>(&'a self) -> Option<&'a K::Value> {
+    pub fn downcast<K: Key>(&self) -> Option<&K::Value> {
         if self.key == KeyId::of::<K>() {
             (**self.value).as_any().downcast_ref()
         } else {
@@ -314,7 +314,7 @@ struct KeyId(ReadableTypeId);
 
 impl KeyId {
     /// The id of the given key.
-    pub fn of<'a, T: Key<'a>>() -> Self {
+    pub fn of<T: Key>() -> Self {
         Self(ReadableTypeId::of::<T>())
     }
 }
@@ -327,7 +327,7 @@ impl Debug for KeyId {
 
 /// A built-in show rule for a node.
 #[capability]
-pub trait Show: 'static + Sync + Send {
+pub trait Show {
     /// Execute the base recipe for this node.
     fn show(
         &self,
@@ -338,7 +338,7 @@ pub trait Show: 'static + Sync + Send {
 
 /// Post-process a node after it was realized.
 #[capability]
-pub trait Finalize: 'static + Sync + Send {
+pub trait Finalize {
     /// Finalize the fully realized form of the node. Use this for effects that
     /// should work even in the face of a user-defined show rule, for example
     /// the linking behaviour of a link node.
@@ -352,7 +352,7 @@ pub trait Finalize: 'static + Sync + Send {
 
 /// Indicates that a node cannot be labelled.
 #[capability]
-pub trait Unlabellable: 'static + Sync + Send {}
+pub trait Unlabellable {}
 
 /// A show rule recipe.
 #[derive(Clone, PartialEq, Hash)]
@@ -386,7 +386,7 @@ impl Recipe {
                     return Ok(None);
                 }
 
-                self.transform.apply(world, self.span, target.clone().guard(sel))?
+                self.transform.apply(world, self.span, target.clone().guarded(sel))?
             }
 
             Some(Selector::Regex(regex)) => {
@@ -412,7 +412,7 @@ impl Recipe {
                     let transformed = self.transform.apply(
                         world,
                         self.span,
-                        make(m.as_str().into()).guard(sel),
+                        make(m.as_str().into()).guarded(sel),
                     )?;
 
                     result.push(transformed);
@@ -559,7 +559,7 @@ impl<'a> StyleChain<'a> {
     /// Returns the property's default value if no map in the chain contains an
     /// entry for it. Also takes care of resolving and folding and returns
     /// references where applicable.
-    pub fn get<K: Key<'a>>(self, key: K) -> K::Output {
+    pub fn get<K: Key>(self, key: K) -> K::Output<'a> {
         K::get(self, self.values(key))
     }
 
@@ -576,7 +576,7 @@ impl<'a> StyleChain<'a> {
         let mut realized = None;
         for recipe in self.entries().filter_map(Style::recipe) {
             let sel = RecipeId::Nth(n);
-            if recipe.applicable(target) && !target.guarded(sel) {
+            if recipe.applicable(target) && !target.is_guarded(sel) {
                 if let Some(content) = recipe.apply(world, sel, target)? {
                     realized = Some(content);
                     break;
@@ -587,15 +587,15 @@ impl<'a> StyleChain<'a> {
 
         // Realize if there was no matching recipe.
         let base = RecipeId::Base(target.id());
-        if realized.is_none() && !target.guarded(base) {
-            if let Some(showable) = target.to::<dyn Show>() {
+        if realized.is_none() && !target.is_guarded(base) {
+            if let Some(showable) = target.with::<dyn Show>() {
                 realized = Some(showable.show(world, self)?);
             }
         }
 
         // Finalize only if this is the first application for this node.
-        if let Some(node) = target.to::<dyn Finalize>() {
-            if target.pristine() {
+        if let Some(node) = target.with::<dyn Finalize>() {
+            if target.is_pristine() {
                 if let Some(content) = realized {
                     realized = Some(node.finalize(world, self, content)?);
                 }
@@ -612,7 +612,7 @@ impl<'a> StyleChain<'a> {
 
         // Find out whether any recipe matches and is unguarded.
         for recipe in self.entries().filter_map(Style::recipe) {
-            if recipe.applicable(target) && !target.guarded(RecipeId::Nth(n)) {
+            if recipe.applicable(target) && !target.is_guarded(RecipeId::Nth(n)) {
                 return true;
             }
             n -= 1;
@@ -638,7 +638,7 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Iterate over all values for the given property in the chain.
-    fn values<K: Key<'a>>(self, _: K) -> Values<'a, K> {
+    fn values<K: Key>(self, _: K) -> Values<'a, K> {
         Values {
             entries: self.entries(),
             key: PhantomData,
@@ -682,7 +682,7 @@ struct Values<'a, K> {
     barriers: usize,
 }
 
-impl<'a, K: Key<'a>> Iterator for Values<'a, K> {
+impl<'a, K: Key> Iterator for Values<'a, K> {
     type Item = &'a K::Value;
 
     fn next(&mut self) -> Option<Self::Item> {

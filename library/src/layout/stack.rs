@@ -182,11 +182,11 @@ impl<'a> StackLayouter<'a> {
         // Block-axis alignment of the `AlignNode` is respected
         // by the stack node.
         let align = block
-            .downcast::<AlignNode>()
+            .to::<AlignNode>()
             .and_then(|node| node.aligns.get(self.axis))
             .map(|align| align.resolve(styles))
             .unwrap_or_else(|| {
-                if let Some(styled) = block.downcast::<StyledNode>() {
+                if let Some(styled) = block.to::<StyledNode>() {
                     let map = &styled.map;
                     if map.contains(ParNode::ALIGN) {
                         return StyleChain::with_root(map).get(ParNode::ALIGN);
