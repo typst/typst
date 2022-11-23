@@ -10,12 +10,17 @@ pub mod structure;
 pub mod text;
 
 use typst::geom::{Align, Color, Dir, GenAlign};
-use typst::model::{LangItems, Node, NodeId, Scope, StyleMap};
+use typst::model::{LangItems, Library, Node, NodeId, Scope, StyleMap};
 
 use self::layout::LayoutRoot;
 
-/// Construct the standard library scope.
-pub fn scope() -> Scope {
+/// Construct the standard library.
+pub fn new() -> Library {
+    Library { scope: scope(), styles: styles(), items: items() }
+}
+
+/// Construct the standard scope.
+fn scope() -> Scope {
     let mut std = Scope::new();
 
     // Text.
@@ -147,12 +152,12 @@ pub fn scope() -> Scope {
 }
 
 /// Construct the standard style map.
-pub fn styles() -> StyleMap {
+fn styles() -> StyleMap {
     StyleMap::new()
 }
 
 /// Construct the standard lang item mapping.
-pub fn items() -> LangItems {
+fn items() -> LangItems {
     LangItems {
         layout: |content, world, styles| content.layout_root(world, styles),
         em: |styles| styles.get(text::TextNode::SIZE),

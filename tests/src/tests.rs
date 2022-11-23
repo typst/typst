@@ -15,10 +15,10 @@ use typst::diag::{bail, FileError, FileResult};
 use typst::font::{Font, FontBook};
 use typst::frame::{Element, Frame};
 use typst::geom::{Abs, RgbaColor, Sides};
-use typst::model::{Smart, Value};
+use typst::model::{Library, Smart, Value};
 use typst::syntax::{Source, SourceId, SyntaxNode};
 use typst::util::{Buffer, PathExt};
-use typst::{Config, World};
+use typst::World;
 use typst_library::layout::PageNode;
 use typst_library::text::{TextNode, TextSize};
 use unscanny::Scanner;
@@ -144,21 +144,22 @@ impl Args {
     }
 }
 
-fn config() -> Config {
+fn library() -> Library {
+    let mut lib = typst_library::new();
+
     // Set page width to 120pt with 10pt margins, so that the inner page is
     // exactly 100pt wide. Page height is unbounded and font size is 10pt so
     // that it multiplies to nice round numbers.
-    let mut styles = typst_library::styles();
-    styles.set(PageNode::WIDTH, Smart::Custom(Abs::pt(120.0).into()));
-    styles.set(PageNode::HEIGHT, Smart::Auto);
-    styles.set(PageNode::MARGIN, Sides::splat(Some(Smart::Custom(Abs::pt(10.0).into()))));
-    styles.set(TextNode::SIZE, TextSize(Abs::pt(10.0).into()));
+    lib.styles.set(PageNode::WIDTH, Smart::Custom(Abs::pt(120.0).into()));
+    lib.styles.set(PageNode::HEIGHT, Smart::Auto);
+    lib.styles
+        .set(PageNode::MARGIN, Sides::splat(Some(Smart::Custom(Abs::pt(10.0).into()))));
+    lib.styles.set(TextNode::SIZE, TextSize(Abs::pt(10.0).into()));
 
     // Hook up helpers into the global scope.
-    let mut scope = typst_library::scope();
-    scope.define("conifer", RgbaColor::new(0x9f, 0xEB, 0x52, 0xFF));
-    scope.define("forest", RgbaColor::new(0x43, 0xA1, 0x27, 0xFF));
-    scope.def_fn("test", move |_, args| {
+    lib.scope.define("conifer", RgbaColor::new(0x9f, 0xEB, 0x52, 0xFF));
+    lib.scope.define("forest", RgbaColor::new(0x43, 0xA1, 0x27, 0xFF));
+    lib.scope.def_fn("test", move |_, args| {
         let lhs = args.expect::<Value>("left-hand side")?;
         let rhs = args.expect::<Value>("right-hand side")?;
         if lhs != rhs {
@@ -166,7 +167,7 @@ fn config() -> Config {
         }
         Ok(Value::None)
     });
-    scope.def_fn("print", move |_, args| {
+    lib.scope.def_fn("print", move |_, args| {
         print!("> ");
         for (i, value) in args.all::<Value>()?.into_iter().enumerate() {
             if i > 0 {
@@ -178,18 +179,13 @@ fn config() -> Config {
         Ok(Value::None)
     });
 
-    Config {
-        root: PathBuf::new(),
-        scope,
-        styles,
-        items: typst_library::items(),
-    }
+    lib
 }
 
 /// A world that provides access to the tests environment.
 struct TestWorld {
     print: PrintConfig,
-    config: Prehashed<Config>,
+    library: Prehashed<Library>,
     book: Prehashed<FontBook>,
     fonts: Vec<Font>,
     paths: RefCell<HashMap<PathBuf, PathSlot>>,
@@ -219,7 +215,7 @@ impl TestWorld {
 
         Self {
             print,
-            config: Prehashed::new(config()),
+            library: Prehashed::new(library()),
             book: Prehashed::new(FontBook::from_fonts(&fonts)),
             fonts,
             paths: RefCell::default(),
@@ -229,8 +225,12 @@ impl TestWorld {
 }
 
 impl World for TestWorld {
-    fn config(&self) -> &Prehashed<Config> {
-        &self.config
+    fn root(&self) -> &Path {
+        Path::new("")
+    }
+
+    fn library(&self) -> &Prehashed<Library> {
+        &self.library
     }
 
     fn book(&self) -> &Prehashed<FontBook> {

@@ -19,9 +19,10 @@ use siphasher::sip128::{Hasher128, SipHasher};
 use termcolor::{ColorChoice, StandardStream, WriteColor};
 use typst::diag::{FileError, FileResult, SourceError, StrResult};
 use typst::font::{Font, FontBook, FontInfo, FontVariant};
+use typst::model::Library;
 use typst::syntax::{Source, SourceId};
 use typst::util::{Buffer, PathExt};
-use typst::{Config, World};
+use typst::World;
 use walkdir::WalkDir;
 
 type CodespanResult<T> = Result<T, CodespanError>;
@@ -178,15 +179,8 @@ fn typeset(command: TypesetCommand) -> StrResult<()> {
         PathBuf::new()
     };
 
-    let config = Config {
-        root,
-        scope: typst_library::scope(),
-        styles: typst_library::styles(),
-        items: typst_library::items(),
-    };
-
     // Create the world that serves sources, fonts and files.
-    let mut world = SystemWorld::new(config);
+    let mut world = SystemWorld::new(root);
 
     // Typeset.
     typeset_once(&mut world, &command)?;
@@ -371,7 +365,8 @@ fn fonts(command: FontsCommand) -> StrResult<()> {
 
 /// A world that provides access to the operating system.
 struct SystemWorld {
-    config: Prehashed<Config>,
+    root: PathBuf,
+    library: Prehashed<Library>,
     book: Prehashed<FontBook>,
     fonts: Vec<FontSlot>,
     hashes: RefCell<HashMap<PathBuf, FileResult<PathHash>>>,
@@ -394,12 +389,13 @@ struct PathSlot {
 }
 
 impl SystemWorld {
-    fn new(config: Config) -> Self {
+    fn new(root: PathBuf) -> Self {
         let mut searcher = FontSearcher::new();
         searcher.search_system();
 
         Self {
-            config: Prehashed::new(config),
+            root,
+            library: Prehashed::new(typst_library::new()),
             book: Prehashed::new(searcher.book),
             fonts: searcher.fonts,
             hashes: RefCell::default(),
@@ -410,8 +406,12 @@ impl SystemWorld {
 }
 
 impl World for SystemWorld {
-    fn config(&self) -> &Prehashed<Config> {
-        &self.config
+    fn root(&self) -> &Path {
+        &self.root
+    }
+
+    fn library(&self) -> &Prehashed<Library> {
+        &self.library
     }
 
     fn book(&self) -> &Prehashed<FontBook> {

@@ -1,12 +1,13 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use comemo::{Prehashed, Track, Tracked};
 use iai::{black_box, main, Iai};
 use typst::diag::{FileError, FileResult};
 use typst::font::{Font, FontBook};
+use typst::model::Library;
 use typst::syntax::{Source, SourceId, TokenMode, Tokens};
 use typst::util::Buffer;
-use typst::{Config, World};
+use typst::World;
 use unscanny::Scanner;
 
 const TEXT: &str = include_str!("../typ/benches/bench.typ");
@@ -90,7 +91,7 @@ fn bench_render(iai: &mut Iai) {
 }
 
 struct BenchWorld {
-    config: Prehashed<Config>,
+    library: Prehashed<Library>,
     book: Prehashed<FontBook>,
     font: Font,
     source: Source,
@@ -98,22 +99,14 @@ struct BenchWorld {
 
 impl BenchWorld {
     fn new() -> Self {
-        let config = Config {
-            root: PathBuf::new(),
-            scope: typst_library::scope(),
-            styles: typst_library::styles(),
-            items: typst_library::items(),
-        };
-
         let font = Font::new(FONT.into(), 0).unwrap();
         let book = FontBook::from_fonts([&font]);
-        let source = Source::detached(TEXT);
 
         Self {
-            config: Prehashed::new(config),
+            library: Prehashed::new(typst_library::new()),
             book: Prehashed::new(book),
             font,
-            source,
+            source: Source::detached(TEXT),
         }
     }
 
@@ -123,8 +116,12 @@ impl BenchWorld {
 }
 
 impl World for BenchWorld {
-    fn config(&self) -> &Prehashed<Config> {
-        &self.config
+    fn root(&self) -> &Path {
+        Path::new("")
+    }
+
+    fn library(&self) -> &Prehashed<Library> {
+        &self.library
     }
 
     fn book(&self) -> &Prehashed<FontBook> {

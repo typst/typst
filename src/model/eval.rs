@@ -35,10 +35,13 @@ pub fn eval(
         panic!("Tried to cyclicly evaluate {}", path);
     }
 
+    // Hook up the lang items.
+    let library = world.library();
+    super::set_lang_items(library.items.clone());
+
     // Evaluate the module.
     let route = unsafe { Route::insert(route, id) };
-    let std = &world.config().scope;
-    let scopes = Scopes::new(Some(std));
+    let scopes = Scopes::new(Some(&library.scope));
     let mut vm = Vm::new(world, route.track(), id, scopes);
     let result = source.ast()?.eval(&mut vm);
 

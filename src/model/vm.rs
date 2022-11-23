@@ -38,7 +38,7 @@ impl<'a> Vm<'a> {
             location,
             scopes,
             flow: None,
-            items: world.config().items,
+            items: world.library().items.clone(),
         }
     }
 
@@ -47,7 +47,7 @@ impl<'a> Vm<'a> {
     pub fn locate(&self, path: &str) -> StrResult<PathBuf> {
         if !self.location.is_detached() {
             if let Some(path) = path.strip_prefix('/') {
-                return Ok(self.world.config().root.join(path).normalize());
+                return Ok(self.world.root().join(path).normalize());
             }
 
             if let Some(dir) = self.world.source(self.location).path().parent() {

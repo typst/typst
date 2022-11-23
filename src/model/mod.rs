@@ -1,7 +1,7 @@
 //! Document and computation model.
 
 #[macro_use]
-mod items;
+mod library;
 #[macro_use]
 mod cast;
 #[macro_use]
@@ -34,7 +34,7 @@ pub use self::content::*;
 pub use self::dict::*;
 pub use self::eval::*;
 pub use self::func::*;
-pub use self::items::*;
+pub use self::library::*;
 pub use self::scope::*;
 pub use self::str::*;
 pub use self::styles::*;

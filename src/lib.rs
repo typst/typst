@@ -42,14 +42,14 @@ pub mod frame;
 pub mod image;
 pub mod syntax;
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use comemo::{Prehashed, Track};
 
 use crate::diag::{FileResult, SourceResult};
 use crate::font::{Font, FontBook};
 use crate::frame::Frame;
-use crate::model::{LangItems, Route, Scope, StyleChain, StyleMap};
+use crate::model::{Library, Route, StyleChain};
 use crate::syntax::{Source, SourceId};
 use crate::util::Buffer;
 
@@ -62,24 +62,24 @@ pub fn typeset(
     world: &(dyn World + 'static),
     source: &Source,
 ) -> SourceResult<Vec<Frame>> {
-    // Set up the language items.
-    let config = world.config();
-    crate::model::set_lang_items(config.items);
-
     // Evaluate the source file into a module.
     let route = Route::default();
     let module = model::eval(world.track(), route.track(), source)?;
 
     // Layout the module's contents.
-    let styles = StyleChain::with_root(&config.styles);
-    item!(layout)(&module.content, world.track(), styles)
+    let library = world.library();
+    let styles = StyleChain::with_root(&library.styles);
+    (library.items.layout)(&module.content, world.track(), styles)
 }
 
 /// The environment in which typesetting occurs.
 #[comemo::track]
 pub trait World {
-    /// Access the global configuration.
-    fn config(&self) -> &Prehashed<Config>;
+    /// The compilation root.
+    fn root(&self) -> &Path;
+
+    /// The standard library.
+    fn library(&self) -> &Prehashed<Library>;
 
     /// Metadata about all known fonts.
     fn book(&self) -> &Prehashed<FontBook>;
@@ -95,17 +95,4 @@ pub trait World {
 
     /// Access a source file by id.
     fn source(&self, id: SourceId) -> &Source;
-}
-
-/// The global configuration for typesetting.
-#[derive(Debug, Clone, Hash)]
-pub struct Config {
-    /// The compilation root, relative to which absolute paths are.
-    pub root: PathBuf,
-    /// The scope containing definitions that are available everywhere.
-    pub scope: Scope,
-    /// The default properties for page size, font selection and so on.
-    pub styles: StyleMap,
-    /// Defines which standard library items fulfill which syntactical roles.
-    pub items: LangItems,
 }

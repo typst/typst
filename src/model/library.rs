@@ -5,41 +5,26 @@ use std::num::NonZeroUsize;
 use comemo::Tracked;
 use once_cell::sync::OnceCell;
 
-use super::{Content, NodeId, StyleChain};
+use super::{Content, NodeId, Scope, StyleChain, StyleMap};
 use crate::diag::SourceResult;
 use crate::frame::Frame;
 use crate::geom::{Abs, Dir};
 use crate::util::{hash128, EcoString};
 use crate::World;
 
-/// Global storage for lang items.
-#[doc(hidden)]
-pub static LANG_ITEMS: OnceCell<LangItems> = OnceCell::new();
-
-/// Set the lang items. This is a hack :(
-///
-/// Passing the lang items everywhere they are needed (especially the text node
-/// related things) is very painful. By storing them globally, in theory, we
-/// break incremental, but only when different sets of lang items are used in
-/// the same program. For this reason, if this function is called multiple
-/// times, the items must be the same.
-pub(crate) fn set_lang_items(items: LangItems) {
-    if LANG_ITEMS.set(items).is_err() {
-        let first = hash128(LANG_ITEMS.get().unwrap());
-        let second = hash128(&items);
-        assert_eq!(first, second, "set differing lang items");
-    }
-}
-
-/// Access a lang item.
-macro_rules! item {
-    ($name:ident) => {
-        $crate::model::LANG_ITEMS.get().unwrap().$name
-    };
+/// A Typst standard library.
+#[derive(Debug, Clone, Hash)]
+pub struct Library {
+    /// The scope containing definitions that are available everywhere.
+    pub scope: Scope,
+    /// The default properties for page size, font selection and so on.
+    pub styles: StyleMap,
+    /// Defines which standard library items fulfill which syntactical roles.
+    pub items: LangItems,
 }
 
 /// Definition of certain standard library items the language is aware of.
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct LangItems {
     /// The root layout function.
     pub layout: fn(
@@ -127,4 +112,30 @@ impl Hash for LangItems {
         self.math_frac.hash(state);
         self.math_align.hash(state);
     }
+}
+
+/// Global storage for lang items.
+#[doc(hidden)]
+pub static LANG_ITEMS: OnceCell<LangItems> = OnceCell::new();
+
+/// Set the lang items. This is a hack :(
+///
+/// Passing the lang items everywhere they are needed (especially the text node
+/// related things) is very painful. By storing them globally, in theory, we
+/// break incremental, but only when different sets of lang items are used in
+/// the same program. For this reason, if this function is called multiple
+/// times, the items must be the same.
+pub(crate) fn set_lang_items(items: LangItems) {
+    if let Err(items) = LANG_ITEMS.set(items) {
+        let first = hash128(LANG_ITEMS.get().unwrap());
+        let second = hash128(&items);
+        assert_eq!(first, second, "set differing lang items");
+    }
+}
+
+/// Access a lang item.
+macro_rules! item {
+    ($name:ident) => {
+        $crate::model::LANG_ITEMS.get().unwrap().$name
+    };
 }
