@@ -32,7 +32,8 @@ use typst::diag::SourceResult;
 use typst::frame::Frame;
 use typst::geom::*;
 use typst::model::{
-    capability, Content, SequenceNode, Style, StyleChain, StyleVecBuilder, StyledNode,
+    capability, Content, Node, SequenceNode, Style, StyleChain, StyleVecBuilder,
+    StyledNode,
 };
 use typst::World;
 
@@ -64,10 +65,8 @@ impl LayoutRoot for Content {
         styles: StyleChain,
     ) -> SourceResult<Vec<Frame>> {
         let scratch = Scratch::default();
-        let mut builder = Builder::new(world, &scratch, true);
-        builder.accept(self, styles)?;
-        let (doc, shared) = builder.into_doc(styles)?;
-        doc.layout_root(world, shared)
+        let (realized, styles) = realize_root(world, &scratch, self, styles)?;
+        realized.with::<dyn LayoutRoot>().unwrap().layout_root(world, styles)
     }
 }
 
@@ -91,19 +90,14 @@ impl LayoutBlock for Content {
         regions: &Regions,
         styles: StyleChain,
     ) -> SourceResult<Vec<Frame>> {
-        if !styles.applicable(self) {
-            if let Some(node) = self.with::<dyn LayoutBlock>() {
-                let barrier = Style::Barrier(self.id());
-                let styles = barrier.chain(&styles);
-                return node.layout_block(world, regions, styles);
-            }
-        }
-
         let scratch = Scratch::default();
-        let mut builder = Builder::new(world, &scratch, false);
-        builder.accept(self, styles)?;
-        let (flow, shared) = builder.into_flow(styles)?;
-        flow.layout_block(world, regions, shared)
+        let (realized, styles) = realize_block(world, &scratch, self, styles)?;
+        let barrier = Style::Barrier(realized.id());
+        let styles = barrier.chain(&styles);
+        realized
+            .with::<dyn LayoutBlock>()
+            .unwrap()
+            .layout_block(world, regions, styles)
     }
 }
 
@@ -130,25 +124,16 @@ impl LayoutInline for Content {
         assert!(regions.backlog.is_empty());
         assert!(regions.last.is_none());
 
-        if !styles.applicable(self) {
-            if let Some(node) = self.with::<dyn LayoutInline>() {
-                let barrier = Style::Barrier(self.id());
-                let styles = barrier.chain(&styles);
-                return node.layout_inline(world, regions, styles);
-            }
-
-            if let Some(node) = self.with::<dyn LayoutBlock>() {
-                let barrier = Style::Barrier(self.id());
-                let styles = barrier.chain(&styles);
-                return Ok(node.layout_block(world, regions, styles)?.remove(0));
-            }
+        if self.has::<dyn LayoutInline>() && !styles.applicable(self) {
+            let barrier = Style::Barrier(self.id());
+            let styles = barrier.chain(&styles);
+            return self
+                .with::<dyn LayoutInline>()
+                .unwrap()
+                .layout_inline(world, regions, styles);
         }
 
-        let scratch = Scratch::default();
-        let mut builder = Builder::new(world, &scratch, false);
-        builder.accept(self, styles)?;
-        let (flow, shared) = builder.into_flow(styles)?;
-        Ok(flow.layout_block(world, regions, shared)?.remove(0))
+        Ok(self.layout_block(world, regions, styles)?.remove(0))
     }
 }
 
@@ -245,6 +230,42 @@ impl Regions {
     }
 }
 
+/// Realize into a node that is capable of root-level layout.
+fn realize_root<'a>(
+    world: Tracked<'a, dyn World>,
+    scratch: &'a Scratch<'a>,
+    content: &'a Content,
+    styles: StyleChain<'a>,
+) -> SourceResult<(Content, StyleChain<'a>)> {
+    if content.has::<dyn LayoutRoot>() && !styles.applicable(content) {
+        return Ok((content.clone(), styles));
+    }
+
+    let mut builder = Builder::new(world, &scratch, true);
+    builder.accept(content, styles)?;
+    builder.interrupt_page(Some(styles))?;
+    let (pages, shared) = builder.doc.unwrap().pages.finish();
+    Ok((DocNode(pages).pack(), shared))
+}
+
+/// Realize into a node that is capable of block-level layout.
+fn realize_block<'a>(
+    world: Tracked<'a, dyn World>,
+    scratch: &'a Scratch<'a>,
+    content: &'a Content,
+    styles: StyleChain<'a>,
+) -> SourceResult<(Content, StyleChain<'a>)> {
+    if content.has::<dyn LayoutBlock>() && !styles.applicable(content) {
+        return Ok((content.clone(), styles));
+    }
+
+    let mut builder = Builder::new(world, &scratch, false);
+    builder.accept(content, styles)?;
+    builder.interrupt_par()?;
+    let (children, shared) = builder.flow.0.finish();
+    Ok((FlowNode(children).pack(), shared))
+}
+
 /// Builds a document or a flow node from content.
 struct Builder<'a> {
     /// The core context.
@@ -270,17 +291,6 @@ struct Scratch<'a> {
     content: Arena<Content>,
 }
 
-/// Determines whether a style could interrupt some composable structure.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-enum Interruption {
-    /// The style forces a list break.
-    List,
-    /// The style forces a paragraph break.
-    Par,
-    /// The style forces a page break.
-    Page,
-}
-
 impl<'a> Builder<'a> {
     fn new(world: Tracked<'a, dyn World>, scratch: &'a Scratch<'a>, top: bool) -> Self {
         Self {
@@ -293,24 +303,6 @@ impl<'a> Builder<'a> {
         }
     }
 
-    fn into_doc(
-        mut self,
-        styles: StyleChain<'a>,
-    ) -> SourceResult<(DocNode, StyleChain<'a>)> {
-        self.interrupt(Interruption::Page, styles, true)?;
-        let (pages, shared) = self.doc.unwrap().pages.finish();
-        Ok((DocNode(pages), shared))
-    }
-
-    fn into_flow(
-        mut self,
-        styles: StyleChain<'a>,
-    ) -> SourceResult<(FlowNode, StyleChain<'a>)> {
-        self.interrupt(Interruption::Par, styles, false)?;
-        let (children, shared) = self.flow.0.finish();
-        Ok((FlowNode(children), shared))
-    }
-
     fn accept(
         &mut self,
         content: &'a Content,
@@ -321,7 +313,10 @@ impl<'a> Builder<'a> {
         }
 
         if let Some(seq) = content.to::<SequenceNode>() {
-            return self.sequence(seq, styles);
+            for sub in &seq.0 {
+                self.accept(sub, styles)?;
+            }
+            return Ok(());
         }
 
         if let Some(realized) = styles.show(self.world, content)? {
@@ -333,7 +328,7 @@ impl<'a> Builder<'a> {
             return Ok(());
         }
 
-        self.interrupt(Interruption::List, styles, false)?;
+        self.interrupt_list()?;
 
         if content.is::<ListItem>() {
             self.list.accept(content, styles);
@@ -344,7 +339,7 @@ impl<'a> Builder<'a> {
             return Ok(());
         }
 
-        self.interrupt(Interruption::Par, styles, false)?;
+        self.interrupt_par()?;
 
         if self.flow.accept(content, styles) {
             return Ok(());
@@ -353,7 +348,8 @@ impl<'a> Builder<'a> {
         let keep = content
             .to::<PagebreakNode>()
             .map_or(false, |pagebreak| !pagebreak.weak);
-        self.interrupt(Interruption::Page, styles, keep)?;
+
+        self.interrupt_page(keep.then(|| styles))?;
 
         if let Some(doc) = &mut self.doc {
             if doc.accept(content, styles) {
@@ -361,9 +357,6 @@ impl<'a> Builder<'a> {
             }
         }
 
-        // We might want to issue a warning or error for content that wasn't
-        // handled (e.g. a pagebreak in a flow building process). However, we
-        // don't have the spans here at the moment.
         Ok(())
     }
 
@@ -374,40 +367,32 @@ impl<'a> Builder<'a> {
     ) -> SourceResult<()> {
         let stored = self.scratch.styles.alloc(styles);
         let styles = styled.map.chain(stored);
-
-        let intr = if styled.map.interrupts::<PageNode>() {
-            Some(Interruption::Page)
-        } else if styled.map.interrupts::<ParNode>() {
-            Some(Interruption::Par)
-        } else if styled.map.interrupts::<ListNode>()
-            || styled.map.interrupts::<EnumNode>()
-            || styled.map.interrupts::<DescNode>()
-        {
-            Some(Interruption::List)
-        } else {
-            None
-        };
-
-        if let Some(intr) = intr {
-            self.interrupt(intr, styles, false)?;
-        }
-
+        self.interrupt_style(&styled.map, None)?;
         self.accept(&styled.sub, styles)?;
-
-        if let Some(intr) = intr {
-            self.interrupt(intr, styles, true)?;
-        }
-
+        self.interrupt_style(&styled.map, Some(styles))?;
         Ok(())
     }
 
-    fn interrupt(
+    fn interrupt_style(
         &mut self,
-        intr: Interruption,
-        styles: StyleChain<'a>,
-        keep: bool,
+        map: &StyleMap,
+        styles: Option<StyleChain<'a>>,
     ) -> SourceResult<()> {
-        if intr >= Interruption::List && !self.list.items.is_empty() {
+        if map.interrupts::<PageNode>() {
+            self.interrupt_page(styles)?;
+        } else if map.interrupts::<ParNode>() {
+            self.interrupt_par()?;
+        } else if map.interrupts::<ListNode>()
+            || map.interrupts::<EnumNode>()
+            || map.interrupts::<DescNode>()
+        {
+            self.interrupt_list()?;
+        }
+        Ok(())
+    }
+
+    fn interrupt_list(&mut self) -> SourceResult<()> {
+        if !self.list.items.is_empty() {
             let staged = mem::take(&mut self.list.staged);
             let (list, styles) = mem::take(&mut self.list).finish();
             let stored = self.scratch.content.alloc(list);
@@ -416,36 +401,30 @@ impl<'a> Builder<'a> {
                 self.accept(content, styles)?;
             }
         }
+        Ok(())
+    }
 
-        if intr >= Interruption::Par && !self.par.0.is_empty() {
+    fn interrupt_par(&mut self) -> SourceResult<()> {
+        self.interrupt_list()?;
+        if !self.par.0.is_empty() {
             let (par, styles) = mem::take(&mut self.par).finish();
             let stored = self.scratch.content.alloc(par);
             self.accept(stored, styles)?;
         }
 
-        if let Some(doc) = &mut self.doc {
-            if intr >= Interruption::Page
-                && (!self.flow.0.is_empty() || (doc.keep_next && keep))
-            {
-                let (flow, shared) = mem::take(&mut self.flow).finish();
-                let styles =
-                    if shared == StyleChain::default() { styles } else { shared };
-                let page = PageNode(flow).pack();
-                let stored = self.scratch.content.alloc(page);
-                self.accept(stored, styles)?;
-            }
-        }
-
         Ok(())
     }
 
-    fn sequence(
-        &mut self,
-        seq: &'a SequenceNode,
-        styles: StyleChain<'a>,
-    ) -> SourceResult<()> {
-        for content in &seq.0 {
-            self.accept(content, styles)?;
+    fn interrupt_page(&mut self, styles: Option<StyleChain<'a>>) -> SourceResult<()> {
+        self.interrupt_par()?;
+        let Some(doc) = &mut self.doc else { return Ok(()) };
+        if !self.flow.0.is_empty() || (doc.keep_next && styles.is_some()) {
+            let (flow, shared) = mem::take(&mut self.flow).finish();
+            let styles =
+                if shared == StyleChain::default() { styles.unwrap() } else { shared };
+            let page = PageNode(flow).pack();
+            let stored = self.scratch.content.alloc(page);
+            self.accept(stored, styles)?;
         }
         Ok(())
     }
