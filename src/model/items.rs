@@ -42,7 +42,7 @@ macro_rules! item {
 #[derive(Copy, Clone)]
 pub struct LangItems {
     /// The root layout function.
-    pub root: fn(
+    pub layout: fn(
         content: &Content,
         world: Tracked<dyn World>,
         styles: StyleChain,
@@ -104,7 +104,7 @@ impl Debug for LangItems {
 
 impl Hash for LangItems {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        (self.root as usize).hash(state);
+        (self.layout as usize).hash(state);
         (self.em as usize).hash(state);
         (self.dir as usize).hash(state);
         self.space.hash(state);

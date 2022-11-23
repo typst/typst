@@ -13,7 +13,7 @@ use super::{
 use crate::diag::{bail, error, At, SourceResult, StrResult, Trace, Tracepoint};
 use crate::geom::{Abs, Angle, Em, Fr, Ratio};
 use crate::syntax::ast::AstNode;
-use crate::syntax::{ast, SourceId, Span, Spanned, Unit};
+use crate::syntax::{ast, Source, SourceId, Span, Spanned, Unit};
 use crate::util::{format_eco, EcoString};
 use crate::World;
 
@@ -26,9 +26,10 @@ use crate::World;
 pub fn eval(
     world: Tracked<dyn World>,
     route: Tracked<Route>,
-    id: SourceId,
+    source: &Source,
 ) -> SourceResult<Module> {
     // Prevent cyclic evaluation.
+    let id = source.id();
     if route.contains(id) {
         let path = world.source(id).path().display();
         panic!("Tried to cyclicly evaluate {}", path);
@@ -36,11 +37,10 @@ pub fn eval(
 
     // Evaluate the module.
     let route = unsafe { Route::insert(route, id) };
-    let ast = world.source(id).ast()?;
     let std = &world.config().scope;
     let scopes = Scopes::new(Some(std));
-    let mut vm = Vm::new(world, route.track(), Some(id), scopes);
-    let result = ast.eval(&mut vm);
+    let mut vm = Vm::new(world, route.track(), id, scopes);
+    let result = source.ast()?.eval(&mut vm);
 
     // Handle control flow.
     if let Some(flow) = vm.flow {
@@ -59,9 +59,9 @@ pub struct Route {
 }
 
 impl Route {
-    /// Create a new, empty route.
-    pub fn new(id: Option<SourceId>) -> Self {
-        Self { id, parent: None }
+    /// Create a new route with just one entry.
+    pub fn new(id: SourceId) -> Self {
+        Self { id: Some(id), parent: None }
     }
 
     /// Insert a new id into the route.
@@ -94,7 +94,7 @@ pub struct Module {
 }
 
 /// Evaluate an expression.
-pub trait Eval {
+pub(super) trait Eval {
     /// The output of evaluating the expression.
     type Output;
 
@@ -1038,10 +1038,9 @@ fn import(vm: &mut Vm, path: &str, span: Span) -> SourceResult<Module> {
     }
 
     // Evaluate the file.
-    let module =
-        eval(vm.world, vm.route, id).trace(vm.world, || Tracepoint::Import, span)?;
-
-    Ok(module)
+    let source = vm.world.source(id);
+    let point = || Tracepoint::Import;
+    eval(vm.world, vm.route, source).trace(vm.world, point, span)
 }
 
 impl Eval for ast::LoopBreak {

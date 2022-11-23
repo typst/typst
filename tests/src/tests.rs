@@ -418,13 +418,13 @@ fn test_part(
     ok &= test_reparse(world.source(id).text(), i, rng);
 
     if world.print.model {
-        let tracked = (world as &dyn World).track();
+        let world = (world as &dyn World).track();
         let route = typst::model::Route::default();
-        let module = typst::model::eval(tracked, route.track(), id).unwrap();
+        let module = typst::model::eval(world, route.track(), source).unwrap();
         println!("Model:\n{:#?}\n", module.content);
     }
 
-    let (mut frames, errors) = match typst::typeset(world, id) {
+    let (mut frames, errors) = match typst::typeset(world, source) {
         Ok(frames) => (frames, vec![]),
         Err(errors) => (vec![], *errors),
     };

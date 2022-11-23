@@ -15,7 +15,7 @@ pub struct Vm<'a> {
     /// The route of source ids the VM took to reach its current location.
     pub route: Tracked<'a, Route>,
     /// The current location.
-    pub location: Option<SourceId>,
+    pub location: SourceId,
     /// The stack of scopes.
     pub scopes: Scopes<'a>,
     /// A control flow event that is currently happening.
@@ -29,7 +29,7 @@ impl<'a> Vm<'a> {
     pub fn new(
         world: Tracked<'a, dyn World>,
         route: Tracked<'a, Route>,
-        location: Option<SourceId>,
+        location: SourceId,
         scopes: Scopes<'a>,
     ) -> Self {
         Self {
@@ -45,12 +45,12 @@ impl<'a> Vm<'a> {
     /// Resolve a user-entered path to be relative to the compilation
     /// environment's root.
     pub fn locate(&self, path: &str) -> StrResult<PathBuf> {
-        if let Some(id) = self.location {
+        if !self.location.is_detached() {
             if let Some(path) = path.strip_prefix('/') {
                 return Ok(self.world.config().root.join(path).normalize());
             }
 
-            if let Some(dir) = self.world.source(id).path().parent() {
+            if let Some(dir) = self.world.source(self.location).path().parent() {
                 return Ok(dir.join(path).normalize());
             }
         }

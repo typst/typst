@@ -60,14 +60,19 @@ use crate::util::Buffer;
 /// information.
 pub fn typeset(
     world: &(dyn World + 'static),
-    main: SourceId,
+    source: &Source,
 ) -> SourceResult<Vec<Frame>> {
+    // Set up the language items.
     let config = world.config();
     crate::model::set_lang_items(config.items);
+
+    // Evaluate the source file into a module.
     let route = Route::default();
-    let module = model::eval(world.track(), route.track(), main)?;
+    let module = model::eval(world.track(), route.track(), source)?;
+
+    // Layout the module's contents.
     let styles = StyleChain::with_root(&config.styles);
-    item!(root)(&module.content, world.track(), styles)
+    item!(layout)(&module.content, world.track(), styles)
 }
 
 /// The environment in which typesetting occurs.

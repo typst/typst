@@ -97,7 +97,9 @@ impl Func {
         args: Args,
     ) -> SourceResult<Value> {
         let route = Route::default();
-        let mut vm = Vm::new(world, route.track(), None, Scopes::new(None));
+        let id = SourceId::detached();
+        let scopes = Scopes::new(None);
+        let mut vm = Vm::new(world, route.track(), id, scopes);
         self.call(&mut vm, args)
     }
 
@@ -178,7 +180,7 @@ impl Hash for Native {
 #[derive(Hash)]
 pub struct Closure {
     /// The source file where the closure was defined.
-    pub location: Option<SourceId>,
+    pub location: SourceId,
     /// The name of the closure.
     pub name: Option<EcoString>,
     /// Captured values from outer scopes.
@@ -219,7 +221,7 @@ impl Closure {
         }
 
         // Determine the route inside the closure.
-        let detached = vm.location.is_none();
+        let detached = vm.location.is_detached();
         let fresh = Route::new(self.location);
         let route = if detached { fresh.track() } else { vm.route };
 

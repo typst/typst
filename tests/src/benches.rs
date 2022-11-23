@@ -74,21 +74,18 @@ fn bench_highlight(iai: &mut Iai) {
 
 fn bench_eval(iai: &mut Iai) {
     let world = BenchWorld::new();
-    let id = world.source.id();
     let route = typst::model::Route::default();
-    iai.run(|| typst::model::eval(world.track(), route.track(), id).unwrap());
+    iai.run(|| typst::model::eval(world.track(), route.track(), &world.source).unwrap());
 }
 
 fn bench_typeset(iai: &mut Iai) {
     let world = BenchWorld::new();
-    let id = world.source.id();
-    iai.run(|| typst::typeset(&world, id));
+    iai.run(|| typst::typeset(&world, &world.source));
 }
 
 fn bench_render(iai: &mut Iai) {
     let world = BenchWorld::new();
-    let id = world.source.id();
-    let frames = typst::typeset(&world, id).unwrap();
+    let frames = typst::typeset(&world, &world.source).unwrap();
     iai.run(|| typst::export::render(&frames[0], 1.0))
 }
 
@@ -110,8 +107,7 @@ impl BenchWorld {
 
         let font = Font::new(FONT.into(), 0).unwrap();
         let book = FontBook::from_fonts([&font]);
-        let id = SourceId::from_u16(0);
-        let source = Source::new(id, Path::new("bench.typ"), TEXT.into());
+        let source = Source::detached(TEXT);
 
         Self {
             config: Prehashed::new(config),
@@ -148,6 +144,6 @@ impl World for BenchWorld {
     }
 
     fn source(&self, _: SourceId) -> &Source {
-        &self.source
+        unimplemented!()
     }
 }

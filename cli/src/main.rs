@@ -235,10 +235,12 @@ fn typeset(command: TypesetCommand) -> StrResult<()> {
 /// Typeset a single time.
 fn typeset_once(world: &mut SystemWorld, command: &TypesetCommand) -> StrResult<()> {
     status(command, Status::Compiling).unwrap();
-
     world.reset();
+
     let main = world.resolve(&command.input).map_err(|err| err.to_string())?;
-    match typst::typeset(world, main) {
+    let source = world.source(main);
+
+    match typst::typeset(world, source) {
         // Export the PDF.
         Ok(frames) => {
             let buffer = typst::export::pdf(&frames);

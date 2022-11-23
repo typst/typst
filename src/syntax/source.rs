@@ -21,26 +21,21 @@ use crate::util::{PathExt, StrExt};
 pub struct Source {
     id: SourceId,
     path: PathBuf,
-    text: Prehashed<String>,
     lines: Vec<Line>,
+    text: Prehashed<String>,
     root: Prehashed<SyntaxNode>,
 }
 
 impl Source {
     /// Create a new source file.
     pub fn new(id: SourceId, path: &Path, text: String) -> Self {
-        let lines = std::iter::once(Line { byte_idx: 0, utf16_idx: 0 })
-            .chain(lines(0, 0, &text))
-            .collect();
-
         let mut root = parse(&text);
         root.numberize(id, Span::FULL).unwrap();
-
         Self {
             id,
             path: path.normalize(),
+            lines: lines(&text),
             text: Prehashed::new(text),
-            lines,
             root: Prehashed::new(root),
         }
     }
@@ -51,13 +46,16 @@ impl Source {
     }
 
     /// Create a source file with the same synthetic span for all nodes.
-    pub fn synthesized(text: impl Into<String>, span: Span) -> Self {
-        let mut file = Self::detached(text);
-        let mut root = file.root.into_inner();
+    pub fn synthesized(text: String, span: Span) -> Self {
+        let mut root = parse(&text);
         root.synthesize(span);
-        file.root = Prehashed::new(root);
-        file.id = span.source();
-        file
+        Self {
+            id: SourceId::detached(),
+            path: PathBuf::new(),
+            lines: lines(&text),
+            text: Prehashed::new(text),
+            root: Prehashed::new(root),
+        }
     }
 
     /// The root node of the file's untyped syntax tree.
@@ -98,10 +96,9 @@ impl Source {
     /// Fully replace the source text.
     pub fn replace(&mut self, text: String) {
         self.text = Prehashed::new(text);
-        self.lines = vec![Line { byte_idx: 0, utf16_idx: 0 }];
-        self.lines.extend(lines(0, 0, &self.text));
+        self.lines = lines(&self.text);
         let mut root = parse(&self.text);
-        root.numberize(self.id(), Span::FULL).unwrap();
+        root.numberize(self.id, Span::FULL).unwrap();
         self.root = Prehashed::new(root);
     }
 
@@ -128,7 +125,7 @@ impl Source {
 
         // Recalculate the line starts after the edit.
         self.lines
-            .extend(lines(start_byte, start_utf16, &self.text[start_byte..]));
+            .extend(lines_from(start_byte, start_utf16, &self.text[start_byte..]));
 
         // Incrementally reparse the replaced range.
         let mut root = std::mem::take(&mut self.root).into_inner();
@@ -262,9 +259,14 @@ impl Hash for Source {
 pub struct SourceId(u16);
 
 impl SourceId {
-    /// Create a new source id for a file that is not part of a store.
+    /// Create a new source id for a file that is not part of the world.
     pub const fn detached() -> Self {
         Self(u16::MAX)
+    }
+
+    /// Whether the source id is the detached.
+    pub const fn is_detached(self) -> bool {
+        self.0 == Self::detached().0
     }
 
     /// Create a source id from a number.
@@ -287,8 +289,15 @@ struct Line {
     utf16_idx: usize,
 }
 
-/// Iterate over the lines in the string.
-fn lines(
+/// Create a line vector.
+fn lines(text: &str) -> Vec<Line> {
+    std::iter::once(Line { byte_idx: 0, utf16_idx: 0 })
+        .chain(lines_from(0, 0, &text))
+        .collect()
+}
+
+/// Compute a line iterator from an offset.
+fn lines_from(
     byte_offset: usize,
     utf16_offset: usize,
     text: &str,

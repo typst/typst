@@ -27,15 +27,13 @@ use super::SourceId;
 pub struct Span(NonZeroU64);
 
 impl Span {
-    // Data layout:
-    // | 16 bits source id | 48 bits number |
-
-    // Number of bits for and minimum and maximum numbers assignable to spans.
-    const BITS: usize = 48;
-    const DETACHED: u64 = 1;
-
     /// The full range of numbers available for span numbering.
     pub const FULL: Range<u64> = 2..(1 << Self::BITS);
+    const DETACHED: u64 = 1;
+
+    // Data layout:
+    // | 16 bits source id | 48 bits number |
+    const BITS: usize = 48;
 
     /// Create a new span from a source id and a unique number.
     ///
@@ -46,13 +44,26 @@ impl Span {
             "span number outside valid range"
         );
 
-        let bits = ((id.into_u16() as u64) << Self::BITS) | number;
-        Self(to_non_zero(bits))
+        Self::pack(id, number)
     }
 
     /// A span that does not point into any source file.
     pub const fn detached() -> Self {
-        Self(to_non_zero(Self::DETACHED))
+        Self::pack(SourceId::detached(), Self::DETACHED)
+    }
+
+    /// Pack the components into a span.
+    const fn pack(id: SourceId, number: u64) -> Span {
+        let bits = ((id.into_u16() as u64) << Self::BITS) | number;
+        match NonZeroU64::new(bits) {
+            Some(v) => Self(v),
+            None => panic!("span encoding is zero"),
+        }
+    }
+
+    /// Whether the span is detached.
+    pub const fn is_detached(self) -> bool {
+        self.source().is_detached()
     }
 
     /// The id of the source file the span points into.
@@ -63,14 +74,6 @@ impl Span {
     /// The unique number of the span within its source file.
     pub const fn number(self) -> u64 {
         self.0.get() & ((1 << Self::BITS) - 1)
-    }
-}
-
-/// Convert to a non zero u64.
-const fn to_non_zero(v: u64) -> NonZeroU64 {
-    match NonZeroU64::new(v) {
-        Some(v) => v,
-        None => panic!("span encoding is zero"),
     }
 }
 
