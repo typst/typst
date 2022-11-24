@@ -13,7 +13,7 @@ pub struct HNode {
 
 #[node(Behave)]
 impl HNode {
-    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let amount = args.expect("spacing")?;
         let weak = args.named("weak")?.unwrap_or(false);
         Ok(Self { amount, weak }.pack())
@@ -60,7 +60,7 @@ pub struct VNode {
 
 #[node(Behave)]
 impl VNode {
-    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let amount = args.expect("spacing")?;
         let node = if args.named("weak")?.unwrap_or(false) {
             Self::weak(amount)

@@ -30,7 +30,7 @@ impl<const S: ShiftKind> ShiftNode<S> {
     /// The font size for synthetic sub- and superscripts.
     pub const SIZE: TextSize = TextSize(Em::new(0.6).into());
 
-    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self(args.expect("body")?).pack())
     }
 

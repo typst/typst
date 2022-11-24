@@ -128,7 +128,7 @@ impl Array {
     }
 
     /// Return the first matching element.
-    pub fn find(&self, vm: &mut Vm, f: Spanned<Func>) -> SourceResult<Option<Value>> {
+    pub fn find(&self, vm: &Vm, f: Spanned<Func>) -> SourceResult<Option<Value>> {
         for item in self.iter() {
             let args = Args::new(f.span, [item.clone()]);
             if f.v.call(vm, args)?.cast::<bool>().at(f.span)? {
@@ -140,7 +140,7 @@ impl Array {
     }
 
     /// Return the index of the first matching element.
-    pub fn position(&self, vm: &mut Vm, f: Spanned<Func>) -> SourceResult<Option<i64>> {
+    pub fn position(&self, vm: &Vm, f: Spanned<Func>) -> SourceResult<Option<i64>> {
         for (i, item) in self.iter().enumerate() {
             let args = Args::new(f.span, [item.clone()]);
             if f.v.call(vm, args)?.cast::<bool>().at(f.span)? {
@@ -153,7 +153,7 @@ impl Array {
 
     /// Return a new array with only those elements for which the function
     /// returns true.
-    pub fn filter(&self, vm: &mut Vm, f: Spanned<Func>) -> SourceResult<Self> {
+    pub fn filter(&self, vm: &Vm, f: Spanned<Func>) -> SourceResult<Self> {
         let mut kept = vec![];
         for item in self.iter() {
             let args = Args::new(f.span, [item.clone()]);
@@ -165,7 +165,7 @@ impl Array {
     }
 
     /// Transform each item in the array with a function.
-    pub fn map(&self, vm: &mut Vm, f: Spanned<Func>) -> SourceResult<Self> {
+    pub fn map(&self, vm: &Vm, f: Spanned<Func>) -> SourceResult<Self> {
         let enumerate = f.v.argc() == Some(2);
         self.iter()
             .enumerate()
@@ -181,7 +181,7 @@ impl Array {
     }
 
     /// Whether any element matches.
-    pub fn any(&self, vm: &mut Vm, f: Spanned<Func>) -> SourceResult<bool> {
+    pub fn any(&self, vm: &Vm, f: Spanned<Func>) -> SourceResult<bool> {
         for item in self.iter() {
             let args = Args::new(f.span, [item.clone()]);
             if f.v.call(vm, args)?.cast::<bool>().at(f.span)? {
@@ -193,7 +193,7 @@ impl Array {
     }
 
     /// Whether all elements match.
-    pub fn all(&self, vm: &mut Vm, f: Spanned<Func>) -> SourceResult<bool> {
+    pub fn all(&self, vm: &Vm, f: Spanned<Func>) -> SourceResult<bool> {
         for item in self.iter() {
             let args = Args::new(f.span, [item.clone()]);
             if !f.v.call(vm, args)?.cast::<bool>().at(f.span)? {

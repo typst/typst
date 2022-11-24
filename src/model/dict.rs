@@ -105,7 +105,7 @@ impl Dict {
     }
 
     /// Transform each pair in the array with a function.
-    pub fn map(&self, vm: &mut Vm, f: Spanned<Func>) -> SourceResult<Array> {
+    pub fn map(&self, vm: &Vm, f: Spanned<Func>) -> SourceResult<Array> {
         self.iter()
             .map(|(key, value)| {
                 let args = Args::new(f.span, [Value::Str(key.clone()), value.clone()]);

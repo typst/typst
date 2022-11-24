@@ -1030,7 +1030,7 @@ impl Eval for ast::ModuleInclude {
 }
 
 /// Process an import of a module relative to the current location.
-fn import(vm: &mut Vm, path: &str, span: Span) -> SourceResult<Module> {
+fn import(vm: &Vm, path: &str, span: Span) -> SourceResult<Module> {
     // Load the source file.
     let full = vm.locate(path).at(span)?;
     let id = vm.world.resolve(&full).at(span)?;

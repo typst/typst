@@ -9,19 +9,22 @@ use crate::util::PathExt;
 use crate::World;
 
 /// A virtual machine.
+///
+/// Holds the state needed to evaluate Typst sources. A new virtual machine is
+/// created for each module evaluation and function call.
 pub struct Vm<'a> {
     /// The core context.
-    pub world: Tracked<'a, dyn World>,
+    pub(crate) world: Tracked<'a, dyn World>,
     /// The route of source ids the VM took to reach its current location.
-    pub route: Tracked<'a, Route>,
+    pub(crate) route: Tracked<'a, Route>,
     /// The current location.
-    pub location: SourceId,
+    pub(crate) location: SourceId,
     /// The stack of scopes.
-    pub scopes: Scopes<'a>,
+    pub(crate) scopes: Scopes<'a>,
     /// A control flow event that is currently happening.
-    pub flow: Option<Flow>,
+    pub(crate) flow: Option<Flow>,
     /// The language items.
-    pub items: LangItems,
+    pub(crate) items: LangItems,
 }
 
 impl<'a> Vm<'a> {
@@ -40,6 +43,11 @@ impl<'a> Vm<'a> {
             flow: None,
             items: world.library().items.clone(),
         }
+    }
+
+    /// Access the underlying world.
+    pub fn world(&self) -> Tracked<dyn World> {
+        self.world
     }
 
     /// Resolve a user-entered path to be relative to the compilation

@@ -3,13 +3,13 @@ use std::str::FromStr;
 use crate::prelude::*;
 
 /// Create a grayscale color.
-pub fn luma(_: &mut Vm, args: &mut Args) -> SourceResult<Value> {
+pub fn luma(_: &Vm, args: &mut Args) -> SourceResult<Value> {
     let Component(luma) = args.expect("gray component")?;
     Ok(Value::Color(LumaColor::new(luma).into()))
 }
 
 /// Create an RGB(A) color.
-pub fn rgb(_: &mut Vm, args: &mut Args) -> SourceResult<Value> {
+pub fn rgb(_: &Vm, args: &mut Args) -> SourceResult<Value> {
     Ok(Value::Color(if let Some(string) = args.find::<Spanned<EcoString>>()? {
         match RgbaColor::from_str(&string.v) {
             Ok(color) => color.into(),
@@ -25,7 +25,7 @@ pub fn rgb(_: &mut Vm, args: &mut Args) -> SourceResult<Value> {
 }
 
 /// Create a CMYK color.
-pub fn cmyk(_: &mut Vm, args: &mut Args) -> SourceResult<Value> {
+pub fn cmyk(_: &Vm, args: &mut Args) -> SourceResult<Value> {
     let RatioComponent(c) = args.expect("cyan component")?;
     let RatioComponent(m) = args.expect("magenta component")?;
     let RatioComponent(y) = args.expect("yellow component")?;

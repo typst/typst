@@ -128,7 +128,7 @@ impl TextNode {
     #[property(skip, fold)]
     const DECO: Decoration = vec![];
 
-    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         // The text constructor is special: It doesn't create a text node.
         // Instead, it leaves the passed argument structurally unchanged, but
         // styles all text in it.
@@ -416,7 +416,7 @@ pub struct SpaceNode;
 
 #[node(Unlabellable, Behave)]
 impl SpaceNode {
-    fn construct(_: &mut Vm, _: &mut Args) -> SourceResult<Content> {
+    fn construct(_: &Vm, _: &mut Args) -> SourceResult<Content> {
         Ok(Self.pack())
     }
 }
@@ -437,7 +437,7 @@ pub struct LinebreakNode {
 
 #[node(Behave)]
 impl LinebreakNode {
-    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let justify = args.named("justify")?.unwrap_or(false);
         Ok(Self { justify }.pack())
     }
@@ -457,19 +457,19 @@ pub struct SmartQuoteNode {
 
 #[node]
 impl SmartQuoteNode {
-    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let double = args.named("double")?.unwrap_or(true);
         Ok(Self { double }.pack())
     }
 }
 
 /// Convert a string or content to lowercase.
-pub fn lower(_: &mut Vm, args: &mut Args) -> SourceResult<Value> {
+pub fn lower(_: &Vm, args: &mut Args) -> SourceResult<Value> {
     case(Case::Lower, args)
 }
 
 /// Convert a string or content to uppercase.
-pub fn upper(_: &mut Vm, args: &mut Args) -> SourceResult<Value> {
+pub fn upper(_: &Vm, args: &mut Args) -> SourceResult<Value> {
     case(Case::Upper, args)
 }
 
@@ -503,7 +503,7 @@ impl Case {
 }
 
 /// Display text in small capitals.
-pub fn smallcaps(_: &mut Vm, args: &mut Args) -> SourceResult<Value> {
+pub fn smallcaps(_: &Vm, args: &mut Args) -> SourceResult<Value> {
     let body: Content = args.expect("content")?;
     Ok(Value::Content(body.styled(TextNode::SMALLCAPS, true)))
 }
@@ -514,7 +514,7 @@ pub struct StrongNode(pub Content);
 
 #[node(Show)]
 impl StrongNode {
-    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self(args.expect("body")?).pack())
     }
 
@@ -538,7 +538,7 @@ pub struct EmphNode(pub Content);
 
 #[node(Show)]
 impl EmphNode {
-    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self(args.expect("body")?).pack())
     }
 

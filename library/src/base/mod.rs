@@ -17,12 +17,12 @@ use typst::syntax::Source;
 use crate::prelude::*;
 
 /// The name of a value's type.
-pub fn type_(_: &mut Vm, args: &mut Args) -> SourceResult<Value> {
+pub fn type_(_: &Vm, args: &mut Args) -> SourceResult<Value> {
     Ok(args.expect::<Value>("value")?.type_name().into())
 }
 
 /// Ensure that a condition is fulfilled.
-pub fn assert(_: &mut Vm, args: &mut Args) -> SourceResult<Value> {
+pub fn assert(_: &Vm, args: &mut Args) -> SourceResult<Value> {
     let Spanned { v, span } = args.expect::<Spanned<bool>>("condition")?;
     if !v {
         bail!(span, "assertion failed");
@@ -31,10 +31,10 @@ pub fn assert(_: &mut Vm, args: &mut Args) -> SourceResult<Value> {
 }
 
 /// Evaluate a string as Typst markup.
-pub fn eval(vm: &mut Vm, args: &mut Args) -> SourceResult<Value> {
+pub fn eval(vm: &Vm, args: &mut Args) -> SourceResult<Value> {
     let Spanned { v: text, span } = args.expect::<Spanned<String>>("source")?;
     let source = Source::synthesized(text, span);
     let route = Route::default();
-    let module = model::eval(vm.world, route.track(), &source)?;
+    let module = model::eval(vm.world(), route.track(), &source)?;
     Ok(Value::Content(module.content))
 }

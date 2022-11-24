@@ -12,7 +12,7 @@ pub struct AlignNode {
 
 #[node(LayoutBlock)]
 impl AlignNode {
-    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let aligns: Axes<Option<GenAlign>> = args.find()?.unwrap_or_default();
         let body: Content = args.expect("body")?;
 

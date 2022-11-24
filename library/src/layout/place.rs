@@ -7,7 +7,7 @@ pub struct PlaceNode(pub Content);
 
 #[node(LayoutBlock, Behave)]
 impl PlaceNode {
-    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let aligns = args.find()?.unwrap_or(Axes::with_x(Some(GenAlign::Start)));
         let dx = args.named("dx")?.unwrap_or_default();
         let dy = args.named("dy")?.unwrap_or_default();

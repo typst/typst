@@ -31,7 +31,7 @@ impl ParNode {
     /// How to determine line breaks.
     pub const LINEBREAKS: Smart<Linebreaks> = Smart::Auto;
 
-    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         // The paragraph constructor is special: It doesn't create a paragraph
         // node. Instead, it just ensures that the passed content lives is in a
         // separate paragraph and styles it.
@@ -119,7 +119,7 @@ pub struct ParbreakNode;
 
 #[node(Unlabellable)]
 impl ParbreakNode {
-    fn construct(_: &mut Vm, _: &mut Args) -> SourceResult<Content> {
+    fn construct(_: &Vm, _: &mut Args) -> SourceResult<Content> {
         Ok(Self.pack())
     }
 }
@@ -132,7 +132,7 @@ pub struct RepeatNode(pub Content);
 
 #[node(LayoutInline)]
 impl RepeatNode {
-    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self(args.expect("body")?).pack())
     }
 }

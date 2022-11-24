@@ -12,7 +12,7 @@ pub struct BoxNode {
 
 #[node(LayoutInline)]
 impl BoxNode {
-    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let width = args.named("width")?;
         let height = args.named("height")?;
         let body = args.eat::<Content>()?.unwrap_or_default();
@@ -70,7 +70,7 @@ impl BlockNode {
     #[property(skip)]
     pub const BELOW: VNode = VNode::block_spacing(Em::new(1.2).into());
 
-    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self(args.eat()?.unwrap_or_default()).pack())
     }
 

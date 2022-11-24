@@ -14,12 +14,12 @@ impl ImageNode {
     /// How the image should adjust itself to a given area.
     pub const FIT: ImageFit = ImageFit::Cover;
 
-    fn construct(vm: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+    fn construct(vm: &Vm, args: &mut Args) -> SourceResult<Content> {
         let Spanned { v: path, span } =
             args.expect::<Spanned<EcoString>>("path to image file")?;
 
         let full = vm.locate(&path).at(span)?;
-        let buffer = vm.world.file(&full).at(span)?;
+        let buffer = vm.world().file(&full).at(span)?;
         let ext = full.extension().and_then(OsStr::to_str).unwrap_or_default();
         let format = match ext.to_lowercase().as_str() {
             "png" => ImageFormat::Raster(RasterFormat::Png),

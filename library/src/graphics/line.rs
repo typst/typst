@@ -15,7 +15,7 @@ impl LineNode {
     #[property(resolve, fold)]
     pub const STROKE: PartialStroke = PartialStroke::default();
 
-    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let origin = args.named("origin")?.unwrap_or_default();
 
         let delta = match args.named::<Axes<Rel<Length>>>("to")? {

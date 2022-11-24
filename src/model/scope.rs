@@ -78,7 +78,7 @@ impl Scope {
     pub fn def_fn(
         &mut self,
         name: &'static str,
-        func: fn(&mut Vm, &mut Args) -> SourceResult<Value>,
+        func: fn(&Vm, &mut Args) -> SourceResult<Value>,
     ) {
         self.define(name, Func::from_fn(name, func));
     }

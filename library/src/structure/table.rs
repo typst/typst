@@ -23,7 +23,7 @@ impl TableNode {
     /// How much to pad the cells's content.
     pub const PADDING: Rel<Length> = Abs::pt(5.0).into();
 
-    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let TrackSizings(columns) = args.named("columns")?.unwrap_or_default();
         let TrackSizings(rows) = args.named("rows")?.unwrap_or_default();
         let TrackSizings(base_gutter) = args.named("gutter")?.unwrap_or_default();

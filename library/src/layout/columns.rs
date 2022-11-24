@@ -17,7 +17,7 @@ impl ColumnsNode {
     #[property(resolve)]
     pub const GUTTER: Rel<Length> = Ratio::new(0.04).into();
 
-    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self {
             columns: args.expect("column count")?,
             child: args.expect("body")?,
@@ -106,7 +106,7 @@ pub struct ColbreakNode {
 
 #[node(Behave)]
 impl ColbreakNode {
-    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let weak = args.named("weak")?.unwrap_or(false);
         Ok(Self { weak }.pack())
     }

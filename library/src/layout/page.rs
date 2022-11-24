@@ -41,7 +41,7 @@ impl PageNode {
     #[property(referenced)]
     pub const FOREGROUND: Marginal = Marginal::None;
 
-    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self(args.expect("body")?).pack())
     }
 
@@ -150,7 +150,7 @@ pub struct PagebreakNode {
 
 #[node]
 impl PagebreakNode {
-    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let weak = args.named("weak")?.unwrap_or(false);
         Ok(Self { weak }.pack())
     }

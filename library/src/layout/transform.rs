@@ -13,7 +13,7 @@ pub struct MoveNode {
 
 #[node(LayoutInline)]
 impl MoveNode {
-    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let dx = args.named("dx")?.unwrap_or_default();
         let dy = args.named("dy")?.unwrap_or_default();
         Ok(Self {
@@ -60,7 +60,7 @@ impl<const T: TransformKind> TransformNode<T> {
     #[property(resolve)]
     pub const ORIGIN: Axes<Option<GenAlign>> = Axes::default();
 
-    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let transform = match T {
             ROTATE => {
                 let angle = args.named_or_find("angle")?.unwrap_or_default();

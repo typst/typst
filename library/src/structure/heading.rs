@@ -16,7 +16,7 @@ pub struct HeadingNode {
 
 #[node(Show, Finalize)]
 impl HeadingNode {
-    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self {
             body: args.expect("body")?,
             level: args.named("level")?.unwrap_or(NonZeroUsize::new(1).unwrap()),

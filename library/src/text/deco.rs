@@ -34,7 +34,7 @@ impl<const L: DecoLine> DecoNode<L> {
     /// with the glyphs. Does not apply to strikethrough.
     pub const EVADE: bool = true;
 
-    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self(args.expect("body")?).pack())
     }
 

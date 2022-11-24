@@ -11,7 +11,7 @@ pub struct PadNode {
 
 #[node(LayoutBlock)]
 impl PadNode {
-    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let all = args.named("rest")?.or(args.find()?);
         let x = args.named("x")?;
         let y = args.named("y")?;

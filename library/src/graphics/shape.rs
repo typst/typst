@@ -38,7 +38,7 @@ impl<const S: ShapeKind> ShapeNode<S> {
     #[property(skip, resolve, fold)]
     pub const RADIUS: Corners<Option<Rel<Length>>> = Corners::splat(Rel::zero());
 
-    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let size = match S {
             SQUARE => args.named::<Length>("size")?.map(Rel::from),
             CIRCLE => args.named::<Length>("radius")?.map(|r| 2.0 * Rel::from(r)),

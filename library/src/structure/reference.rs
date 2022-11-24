@@ -7,7 +7,7 @@ pub struct RefNode(pub EcoString);
 
 #[node(Show)]
 impl RefNode {
-    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self(args.expect("target")?).pack())
     }
 

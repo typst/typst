@@ -284,7 +284,7 @@ fn create_node_construct_func(node: &Node) -> syn::ImplItemMethod {
     node.construct.clone().unwrap_or_else(|| {
         parse_quote! {
             fn construct(
-                _: &mut ::typst::model::Vm,
+                _: &::typst::model::Vm,
                 _: &mut ::typst::model::Args,
             ) -> ::typst::diag::SourceResult<::typst::model::Content> {
                 unimplemented!()

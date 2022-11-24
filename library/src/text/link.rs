@@ -29,7 +29,7 @@ impl LinkNode {
     #[property(skip, referenced)]
     pub(crate) const DEST: Option<Destination> = None;
 
-    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let dest = args.expect::<Destination>("destination")?;
         Ok(match dest {
             Destination::Url(url) => match args.eat()? {

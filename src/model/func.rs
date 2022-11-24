@@ -32,7 +32,7 @@ impl Func {
     /// Create a new function from a native rust function.
     pub fn from_fn(
         name: &'static str,
-        func: fn(&mut Vm, &mut Args) -> SourceResult<Value>,
+        func: fn(&Vm, &mut Args) -> SourceResult<Value>,
     ) -> Self {
         Self(Arc::new(Repr::Native(Native { name, func, set: None, node: None })))
     }
@@ -77,7 +77,7 @@ impl Func {
     }
 
     /// Call the function with the given arguments.
-    pub fn call(&self, vm: &mut Vm, mut args: Args) -> SourceResult<Value> {
+    pub fn call(&self, vm: &Vm, mut args: Args) -> SourceResult<Value> {
         let value = match self.0.as_ref() {
             Repr::Native(native) => (native.func)(vm, &mut args)?,
             Repr::Closure(closure) => closure.call(vm, &mut args)?,
@@ -99,8 +99,8 @@ impl Func {
         let route = Route::default();
         let id = SourceId::detached();
         let scopes = Scopes::new(None);
-        let mut vm = Vm::new(world, route.track(), id, scopes);
-        self.call(&mut vm, args)
+        let vm = Vm::new(world, route.track(), id, scopes);
+        self.call(&vm, args)
     }
 
     /// Apply the given arguments to the function.
@@ -160,7 +160,7 @@ struct Native {
     /// The name of the function.
     pub name: &'static str,
     /// The function pointer.
-    pub func: fn(&mut Vm, &mut Args) -> SourceResult<Value>,
+    pub func: fn(&Vm, &mut Args) -> SourceResult<Value>,
     /// The set rule.
     pub set: Option<fn(&mut Args) -> SourceResult<StyleMap>>,
     /// The id of the node to customize with this function's show rule.
@@ -196,7 +196,7 @@ pub struct Closure {
 
 impl Closure {
     /// Call the function in the context with the arguments.
-    pub fn call(&self, vm: &mut Vm, args: &mut Args) -> SourceResult<Value> {
+    pub fn call(&self, vm: &Vm, args: &mut Args) -> SourceResult<Value> {
         // Don't leak the scopes from the call site. Instead, we use the scope
         // of captured variables we collected earlier.
         let mut scopes = Scopes::new(None);

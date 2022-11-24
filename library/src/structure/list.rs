@@ -38,7 +38,7 @@ impl<const L: ListKind> ListNode<L> {
     /// The spacing between the items of a wide (non-tight) list.
     pub const SPACING: Smart<Spacing> = Smart::Auto;
 
-    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let items = match L {
             LIST => args
                 .all()?

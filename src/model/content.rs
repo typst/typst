@@ -362,7 +362,7 @@ pub trait Node: 'static + Capable {
     ///
     /// This is passed only the arguments that remain after execution of the
     /// node's set rule.
-    fn construct(vm: &mut Vm, args: &mut Args) -> SourceResult<Content>
+    fn construct(vm: &Vm, args: &mut Args) -> SourceResult<Content>
     where
         Self: Sized;
 

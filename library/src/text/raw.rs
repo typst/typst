@@ -25,7 +25,7 @@ impl RawNode {
     #[property(referenced)]
     pub const LANG: Option<EcoString> = None;
 
-    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self {
             text: args.expect("text")?,
             block: args.named("block")?.unwrap_or(false),

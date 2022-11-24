@@ -5,12 +5,12 @@ use typst::diag::{format_xml_like_error, FileError};
 use crate::prelude::*;
 
 /// Read structured data from a CSV file.
-pub fn csv(vm: &mut Vm, args: &mut Args) -> SourceResult<Value> {
+pub fn csv(vm: &Vm, args: &mut Args) -> SourceResult<Value> {
     let Spanned { v: path, span } =
         args.expect::<Spanned<EcoString>>("path to csv file")?;
 
     let path = vm.locate(&path).at(span)?;
-    let data = vm.world.file(&path).at(span)?;
+    let data = vm.world().file(&path).at(span)?;
 
     let mut builder = csv::ReaderBuilder::new();
     builder.has_headers(false);
@@ -45,12 +45,12 @@ fn format_csv_error(error: csv::Error) -> String {
 }
 
 /// Read structured data from a JSON file.
-pub fn json(vm: &mut Vm, args: &mut Args) -> SourceResult<Value> {
+pub fn json(vm: &Vm, args: &mut Args) -> SourceResult<Value> {
     let Spanned { v: path, span } =
         args.expect::<Spanned<EcoString>>("path to json file")?;
 
     let path = vm.locate(&path).at(span)?;
-    let data = vm.world.file(&path).at(span)?;
+    let data = vm.world().file(&path).at(span)?;
     let value: serde_json::Value =
         serde_json::from_slice(&data).map_err(format_json_error).at(span)?;
 
@@ -85,12 +85,12 @@ fn format_json_error(error: serde_json::Error) -> String {
 }
 
 /// Read structured data from an XML file.
-pub fn xml(vm: &mut Vm, args: &mut Args) -> SourceResult<Value> {
+pub fn xml(vm: &Vm, args: &mut Args) -> SourceResult<Value> {
     let Spanned { v: path, span } =
         args.expect::<Spanned<EcoString>>("path to xml file")?;
 
     let path = vm.locate(&path).at(span)?;
-    let data = vm.world.file(&path).at(span)?;
+    let data = vm.world().file(&path).at(span)?;
     let text = std::str::from_utf8(&data).map_err(FileError::from).at(span)?;
 
     let document = roxmltree::Document::parse(text).map_err(format_xml_error).at(span)?;
