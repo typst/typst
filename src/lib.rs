@@ -49,16 +49,16 @@ use comemo::{Prehashed, Track};
 use crate::diag::{FileResult, SourceResult};
 use crate::font::{Font, FontBook};
 use crate::frame::Frame;
-use crate::model::{Library, Route, StyleChain};
+use crate::model::{Library, Route};
 use crate::syntax::{Source, SourceId};
 use crate::util::Buffer;
 
-/// Typeset a source file into a collection of layouted frames.
+/// Compile a source file into a collection of layouted frames.
 ///
 /// Returns either a vector of frames representing individual pages or
 /// diagnostics in the form of a vector of error message with file and span
 /// information.
-pub fn typeset(
+pub fn compile(
     world: &(dyn World + 'static),
     source: &Source,
 ) -> SourceResult<Vec<Frame>> {
@@ -66,10 +66,8 @@ pub fn typeset(
     let route = Route::default();
     let module = model::eval(world.track(), route.track(), source)?;
 
-    // Layout the module's contents.
-    let library = world.library();
-    let styles = StyleChain::with_root(&library.styles);
-    (library.items.layout)(&module.content, world.track(), styles)
+    // Typeset the module's contents.
+    model::typeset(world.track(), &module.content)
 }
 
 /// The environment in which typesetting occurs.

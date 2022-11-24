@@ -21,6 +21,7 @@ mod func;
 mod methods;
 mod ops;
 mod scope;
+mod typeset;
 mod vm;
 
 #[doc(hidden)]
@@ -38,5 +39,6 @@ pub use self::library::*;
 pub use self::scope::*;
 pub use self::str::*;
 pub use self::styles::*;
+pub use self::typeset::*;
 pub use self::value::*;
 pub use self::vm::*;

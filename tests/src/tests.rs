@@ -424,7 +424,7 @@ fn test_part(
         println!("Model:\n{:#?}\n", module.content);
     }
 
-    let (mut frames, errors) = match typst::typeset(world, source) {
+    let (mut frames, errors) = match typst::compile(world, source) {
         Ok(frames) => (frames, vec![]),
         Err(errors) => (vec![], *errors),
     };

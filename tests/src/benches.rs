@@ -21,6 +21,7 @@ main!(
     bench_edit,
     bench_eval,
     bench_typeset,
+    bench_compile,
     bench_highlight,
     bench_render,
 );
@@ -81,12 +82,19 @@ fn bench_eval(iai: &mut Iai) {
 
 fn bench_typeset(iai: &mut Iai) {
     let world = BenchWorld::new();
-    iai.run(|| typst::typeset(&world, &world.source));
+    let route = typst::model::Route::default();
+    let module = typst::model::eval(world.track(), route.track(), &world.source).unwrap();
+    iai.run(|| typst::model::typeset(world.track(), &module.content));
+}
+
+fn bench_compile(iai: &mut Iai) {
+    let world = BenchWorld::new();
+    iai.run(|| typst::compile(&world, &world.source));
 }
 
 fn bench_render(iai: &mut Iai) {
     let world = BenchWorld::new();
-    let frames = typst::typeset(&world, &world.source).unwrap();
+    let frames = typst::compile(&world, &world.source).unwrap();
     iai.run(|| typst::export::render(&frames[0], 1.0))
 }
 

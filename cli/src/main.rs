@@ -30,12 +30,12 @@ type CodespanError = codespan_reporting::files::Error;
 
 /// What to do.
 enum Command {
-    Typeset(TypesetCommand),
+    Compile(CompileCommand),
     Fonts(FontsCommand),
 }
 
-/// Typeset a .typ file into a PDF file.
-struct TypesetCommand {
+/// Compile a .typ file into a PDF file.
+struct CompileCommand {
     input: PathBuf,
     output: PathBuf,
     root: Option<PathBuf>,
@@ -110,7 +110,7 @@ fn parse_args() -> StrResult<Command> {
         let root = args.opt_value_from_str("--root").map_err(|_| "missing root path")?;
         let watch = args.contains(["-w", "--watch"]);
         let (input, output) = parse_input_output(&mut args, "pdf")?;
-        Command::Typeset(TypesetCommand { input, output, watch, root })
+        Command::Compile(CompileCommand { input, output, watch, root })
     };
 
     // Don't allow excess arguments.
@@ -164,13 +164,13 @@ fn print_error(msg: &str) -> io::Result<()> {
 /// Dispatch a command.
 fn dispatch(command: Command) -> StrResult<()> {
     match command {
-        Command::Typeset(command) => typeset(command),
+        Command::Compile(command) => compile(command),
         Command::Fonts(command) => fonts(command),
     }
 }
 
-/// Execute a typesetting command.
-fn typeset(command: TypesetCommand) -> StrResult<()> {
+/// Execute a compilation command.
+fn compile(command: CompileCommand) -> StrResult<()> {
     let root = if let Some(root) = &command.root {
         root.clone()
     } else if let Some(dir) = command.input.parent() {
@@ -182,8 +182,8 @@ fn typeset(command: TypesetCommand) -> StrResult<()> {
     // Create the world that serves sources, fonts and files.
     let mut world = SystemWorld::new(root);
 
-    // Typeset.
-    typeset_once(&mut world, &command)?;
+    // Perform initial compilation.
+    compile_once(&mut world, &command)?;
 
     if !command.watch {
         return Ok(());
@@ -221,20 +221,20 @@ fn typeset(command: TypesetCommand) -> StrResult<()> {
         }
 
         if recompile {
-            typeset_once(&mut world, &command)?;
+            compile_once(&mut world, &command)?;
         }
     }
 }
 
-/// Typeset a single time.
-fn typeset_once(world: &mut SystemWorld, command: &TypesetCommand) -> StrResult<()> {
+/// Compile a single time.
+fn compile_once(world: &mut SystemWorld, command: &CompileCommand) -> StrResult<()> {
     status(command, Status::Compiling).unwrap();
     world.reset();
 
     let main = world.resolve(&command.input).map_err(|err| err.to_string())?;
     let source = world.source(main);
 
-    match typst::typeset(world, source) {
+    match typst::compile(world, source) {
         // Export the PDF.
         Ok(frames) => {
             let buffer = typst::export::pdf(&frames);
@@ -254,7 +254,7 @@ fn typeset_once(world: &mut SystemWorld, command: &TypesetCommand) -> StrResult<
 }
 
 /// Clear the terminal and render the status message.
-fn status(command: &TypesetCommand, status: Status) -> io::Result<()> {
+fn status(command: &CompileCommand, status: Status) -> io::Result<()> {
     if !command.watch {
         return Ok(());
     }
