@@ -30,21 +30,21 @@ impl LayoutBlock for AlignNode {
     fn layout_block(
         &self,
         world: Tracked<dyn World>,
-        regions: &Regions,
         styles: StyleChain,
+        regions: &Regions,
     ) -> SourceResult<Vec<Frame>> {
         // The child only needs to expand along an axis if there's no alignment.
         let mut pod = regions.clone();
         pod.expand &= self.aligns.as_ref().map(Option::is_none);
 
         // Align paragraphs inside the child.
-        let mut passed = StyleMap::new();
+        let mut map = StyleMap::new();
         if let Some(align) = self.aligns.x {
-            passed.set(ParNode::ALIGN, HorizontalAlign(align));
+            map.set(ParNode::ALIGN, HorizontalAlign(align));
         }
 
         // Layout the child.
-        let mut frames = self.child.layout_block(world, &pod, passed.chain(&styles))?;
+        let mut frames = self.child.layout_block(world, styles.chain(&map), &pod)?;
         for (region, frame) in regions.iter().zip(&mut frames) {
             // Align in the target size. The target size depends on whether we
             // should expand.

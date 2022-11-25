@@ -32,8 +32,8 @@ use typst::diag::SourceResult;
 use typst::frame::Frame;
 use typst::geom::*;
 use typst::model::{
-    capability, Content, Node, SequenceNode, Style, StyleChain, StyleVecBuilder,
-    StyledNode,
+    applicable, capability, realize, Content, Node, SequenceNode, Style, StyleChain,
+    StyleVecBuilder, StyledNode,
 };
 use typst::World;
 
@@ -77,8 +77,8 @@ pub trait LayoutBlock {
     fn layout_block(
         &self,
         world: Tracked<dyn World>,
-        regions: &Regions,
         styles: StyleChain,
+        regions: &Regions,
     ) -> SourceResult<Vec<Frame>>;
 }
 
@@ -87,17 +87,17 @@ impl LayoutBlock for Content {
     fn layout_block(
         &self,
         world: Tracked<dyn World>,
-        regions: &Regions,
         styles: StyleChain,
+        regions: &Regions,
     ) -> SourceResult<Vec<Frame>> {
         let scratch = Scratch::default();
         let (realized, styles) = realize_block(world, &scratch, self, styles)?;
         let barrier = Style::Barrier(realized.id());
-        let styles = barrier.chain(&styles);
+        let styles = styles.chain_one(&barrier);
         realized
             .with::<dyn LayoutBlock>()
             .unwrap()
-            .layout_block(world, regions, styles)
+            .layout_block(world, styles, regions)
     }
 }
 
@@ -108,8 +108,8 @@ pub trait LayoutInline {
     fn layout_inline(
         &self,
         world: Tracked<dyn World>,
-        regions: &Regions,
         styles: StyleChain,
+        regions: &Regions,
     ) -> SourceResult<Frame>;
 }
 
@@ -118,22 +118,22 @@ impl LayoutInline for Content {
     fn layout_inline(
         &self,
         world: Tracked<dyn World>,
-        regions: &Regions,
         styles: StyleChain,
+        regions: &Regions,
     ) -> SourceResult<Frame> {
         assert!(regions.backlog.is_empty());
         assert!(regions.last.is_none());
 
-        if self.has::<dyn LayoutInline>() && !styles.applicable(self) {
+        if self.has::<dyn LayoutInline>() && !applicable(self, styles) {
             let barrier = Style::Barrier(self.id());
-            let styles = barrier.chain(&styles);
+            let styles = styles.chain_one(&barrier);
             return self
                 .with::<dyn LayoutInline>()
                 .unwrap()
-                .layout_inline(world, regions, styles);
+                .layout_inline(world, styles, regions);
         }
 
-        Ok(self.layout_block(world, regions, styles)?.remove(0))
+        Ok(self.layout_block(world, styles, regions)?.remove(0))
     }
 }
 
@@ -237,7 +237,7 @@ fn realize_root<'a>(
     content: &'a Content,
     styles: StyleChain<'a>,
 ) -> SourceResult<(Content, StyleChain<'a>)> {
-    if content.has::<dyn LayoutRoot>() && !styles.applicable(content) {
+    if content.has::<dyn LayoutRoot>() && !applicable(content, styles) {
         return Ok((content.clone(), styles));
     }
 
@@ -255,7 +255,7 @@ fn realize_block<'a>(
     content: &'a Content,
     styles: StyleChain<'a>,
 ) -> SourceResult<(Content, StyleChain<'a>)> {
-    if content.has::<dyn LayoutBlock>() && !styles.applicable(content) {
+    if content.has::<dyn LayoutBlock>() && !applicable(content, styles) {
         return Ok((content.clone(), styles));
     }
 
@@ -319,7 +319,7 @@ impl<'a> Builder<'a> {
             return Ok(());
         }
 
-        if let Some(realized) = styles.show(self.world, content)? {
+        if let Some(realized) = realize(self.world, content, styles)? {
             let stored = self.scratch.content.alloc(realized);
             return self.accept(stored, styles);
         }
@@ -366,7 +366,7 @@ impl<'a> Builder<'a> {
         styles: StyleChain<'a>,
     ) -> SourceResult<()> {
         let stored = self.scratch.styles.alloc(styles);
-        let styles = styled.map.chain(stored);
+        let styles = stored.chain(&styled.map);
         self.interrupt_style(&styled.map, None)?;
         self.accept(&styled.sub, styles)?;
         self.interrupt_style(&styled.map, Some(styles))?;

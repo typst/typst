@@ -18,7 +18,7 @@ impl LayoutRoot for DocNode {
         let mut frames = vec![];
         for (page, map) in self.0.iter() {
             let number = 1 + frames.len();
-            frames.extend(page.layout(world, number, map.chain(&styles))?);
+            frames.extend(page.layout(world, number, styles.chain(map))?);
         }
         Ok(frames)
     }

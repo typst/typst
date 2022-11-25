@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use comemo::{Prehashed, Tracked};
 
-use super::{capability, Args, Content, Dict, Func, NodeId, Regex, Smart, Value};
+use super::{Args, Content, Dict, Func, NodeId, Regex, Smart, Value};
 use crate::diag::{SourceResult, Trace, Tracepoint};
 use crate::geom::{
     Abs, Align, Axes, Corners, Em, GenAlign, Length, Numeric, PartialStroke, Rel, Sides,
@@ -55,34 +55,15 @@ impl StyleMap {
             .any(|property| property.is::<K>())
     }
 
-    /// Make `self` the first link of the `tail` chain.
-    ///
-    /// The resulting style chain contains styles from `self` as well as
-    /// `tail`. The ones from `self` take precedence over the ones from
-    /// `tail`. For folded properties `self` contributes the inner value.
-    pub fn chain<'a>(&'a self, tail: &'a StyleChain<'a>) -> StyleChain<'a> {
-        if self.is_empty() {
-            *tail
-        } else {
-            StyleChain { head: &self.0, tail: Some(tail) }
-        }
+    /// Apply outer styles. Like [`chain`](StyleChain::chain), but in-place.
+    pub fn apply(&mut self, outer: Self) {
+        self.0.splice(0..0, outer.0.iter().cloned());
     }
 
-    /// Set an outer style.
-    ///
-    /// Like [`chain`](Self::chain) or [`apply_map`](Self::apply_map), but with
-    /// only a entry.
-    pub fn apply(&mut self, style: Style) {
-        self.0.insert(0, style);
-    }
-
-    /// Apply styles from `tail` in-place. The resulting style map is equivalent
-    /// to the style chain created by `self.chain(StyleChain::new(tail))`.
-    ///
-    /// This is useful over `chain` when you want to combine two maps, but you
-    /// still need an owned map without a lifetime.
-    pub fn apply_map(&mut self, tail: &Self) {
-        self.0.splice(0..0, tail.0.iter().cloned());
+    /// Set an outer style. Like [`chain_one`](StyleChain::chain_one), but
+    /// in-place.
+    pub fn apply_one(&mut self, outer: Style) {
+        self.0.insert(0, outer);
     }
 
     /// Mark all contained properties as _scoped_. This means that they only
@@ -131,21 +112,6 @@ pub enum Style {
 }
 
 impl Style {
-    /// Make this style the first link of the `tail` chain.
-    pub fn chain<'a>(&'a self, tail: &'a StyleChain) -> StyleChain<'a> {
-        if let Style::Barrier(id) = self {
-            if !tail
-                .entries()
-                .filter_map(Style::property)
-                .any(|p| p.scoped() && *id == p.node())
-            {
-                return *tail;
-            }
-        }
-
-        StyleChain { head: std::slice::from_ref(self), tail: Some(tail) }
-    }
-
     /// If this is a property, return it.
     pub fn property(&self) -> Option<&Property> {
         match self {
@@ -182,32 +148,6 @@ impl Debug for Style {
         }
         f.write_str("]")
     }
-}
-
-/// A style property key.
-///
-/// This trait is not intended to be implemented manually, but rather through
-/// the `#[node]` proc-macro.
-pub trait Key: Copy + 'static {
-    /// The unfolded type which this property is stored as in a style map.
-    type Value: Debug + Clone + Hash + Sync + Send + 'static;
-
-    /// The folded type of value that is returned when reading this property
-    /// from a style chain.
-    type Output<'a>;
-
-    /// The name of the property, used for debug printing.
-    const NAME: &'static str;
-
-    /// The id of the node the key belongs to.
-    fn node() -> NodeId;
-
-    /// Compute an output value from a sequence of values belonging to this key,
-    /// folding if necessary.
-    fn get<'a>(
-        chain: StyleChain<'a>,
-        values: impl Iterator<Item = &'a Self::Value>,
-    ) -> Self::Output<'a>;
 }
 
 /// A style property originating from a set rule or constructor.
@@ -308,6 +248,32 @@ where
     }
 }
 
+/// A style property key.
+///
+/// This trait is not intended to be implemented manually, but rather through
+/// the `#[node]` proc-macro.
+pub trait Key: Copy + 'static {
+    /// The unfolded type which this property is stored as in a style map.
+    type Value: Debug + Clone + Hash + Sync + Send + 'static;
+
+    /// The folded type of value that is returned when reading this property
+    /// from a style chain.
+    type Output<'a>;
+
+    /// The name of the property, used for debug printing.
+    const NAME: &'static str;
+
+    /// The id of the node the key belongs to.
+    fn node() -> NodeId;
+
+    /// Compute an output value from a sequence of values belonging to this key,
+    /// folding if necessary.
+    fn get<'a>(
+        chain: StyleChain<'a>,
+        values: impl Iterator<Item = &'a Self::Value>,
+    ) -> Self::Output<'a>;
+}
+
 /// A unique identifier for a property key.
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 struct KeyId(ReadableTypeId);
@@ -325,35 +291,6 @@ impl Debug for KeyId {
     }
 }
 
-/// A built-in show rule for a node.
-#[capability]
-pub trait Show {
-    /// Execute the base recipe for this node.
-    fn show(
-        &self,
-        world: Tracked<dyn World>,
-        styles: StyleChain,
-    ) -> SourceResult<Content>;
-}
-
-/// Post-process a node after it was realized.
-#[capability]
-pub trait Finalize {
-    /// Finalize the fully realized form of the node. Use this for effects that
-    /// should work even in the face of a user-defined show rule, for example
-    /// the linking behaviour of a link node.
-    fn finalize(
-        &self,
-        world: Tracked<dyn World>,
-        styles: StyleChain,
-        realized: Content,
-    ) -> SourceResult<Content>;
-}
-
-/// Indicates that a node cannot be labelled.
-#[capability]
-pub trait Unlabellable {}
-
 /// A show rule recipe.
 #[derive(Clone, PartialEq, Hash)]
 pub struct Recipe {
@@ -366,6 +303,14 @@ pub struct Recipe {
 }
 
 impl Recipe {
+    /// Whether this recipe is for the given node.
+    pub fn is_of(&self, node: NodeId) -> bool {
+        match self.selector {
+            Some(Selector::Node(id, _)) => id == node,
+            _ => false,
+        }
+    }
+
     /// Whether the recipe is applicable to the target.
     pub fn applicable(&self, target: &Content) -> bool {
         self.selector
@@ -373,74 +318,24 @@ impl Recipe {
             .map_or(false, |selector| selector.matches(target))
     }
 
-    /// Try to apply the recipe to the target.
+    /// Apply the recipe to the given content.
     pub fn apply(
         &self,
         world: Tracked<dyn World>,
-        sel: RecipeId,
-        target: &Content,
-    ) -> SourceResult<Option<Content>> {
-        let content = match &self.selector {
-            Some(Selector::Node(id, _)) => {
-                if target.id() != *id {
-                    return Ok(None);
+        content: Content,
+    ) -> SourceResult<Content> {
+        match &self.transform {
+            Transform::Content(content) => Ok(content.clone()),
+            Transform::Func(func) => {
+                let args = Args::new(self.span, [Value::Content(content.clone())]);
+                let mut result = func.call_detached(world, args);
+                if let Some(span) = content.span() {
+                    let point = || Tracepoint::Show(content.name().into());
+                    result = result.trace(world, point, span);
                 }
-
-                self.transform.apply(world, self.span, target.clone().guarded(sel))?
+                Ok(result?.display())
             }
-
-            Some(Selector::Regex(regex)) => {
-                let Some(text) = item!(text_str)(target) else {
-                    return Ok(None);
-                };
-
-                let make = |s| {
-                    let mut content = item!(text)(s);
-                    content.copy_meta(target);
-                    content
-                };
-
-                let mut result = vec![];
-                let mut cursor = 0;
-
-                for m in regex.find_iter(text) {
-                    let start = m.start();
-                    if cursor < start {
-                        result.push(make(text[cursor..start].into()));
-                    }
-
-                    let transformed = self.transform.apply(
-                        world,
-                        self.span,
-                        make(m.as_str().into()).guarded(sel),
-                    )?;
-
-                    result.push(transformed);
-                    cursor = m.end();
-                }
-
-                if result.is_empty() {
-                    return Ok(None);
-                }
-
-                if cursor < text.len() {
-                    result.push(make(text[cursor..].into()));
-                }
-
-                Content::sequence(result)
-            }
-
-            None => return Ok(None),
-        };
-
-        Ok(Some(content))
-    }
-
-    /// Whether this recipe is for the given node.
-    pub fn is_of(&self, node: NodeId) -> bool {
-        match self.selector {
-            Some(Selector::Node(id, _)) => id == node,
-            _ => false,
+            Transform::Style(styles) => Ok(content.styled_with_map(styles.clone())),
         }
     }
 }
@@ -495,39 +390,6 @@ pub enum Transform {
     Style(StyleMap),
 }
 
-impl Transform {
-    /// Apply the transform.
-    pub fn apply(
-        &self,
-        world: Tracked<dyn World>,
-        rule_span: Span,
-        content: Content,
-    ) -> SourceResult<Content> {
-        match self {
-            Transform::Content(content) => Ok(content.clone()),
-            Transform::Func(func) => {
-                let args = Args::new(rule_span, [Value::Content(content.clone())]);
-                let mut result = func.call_detached(world, args);
-                if let Some(span) = content.span() {
-                    let point = || Tracepoint::Apply(content.name().into());
-                    result = result.trace(world, point, span);
-                }
-                Ok(result?.display())
-            }
-            Transform::Style(styles) => Ok(content.styled_with_map(styles.clone())),
-        }
-    }
-}
-
-/// Identifies a show rule recipe.
-#[derive(Debug, Copy, Clone, PartialEq, Hash)]
-pub enum RecipeId {
-    /// The nth recipe from the top of the chain.
-    Nth(usize),
-    /// The base recipe for a kind of node.
-    Base(NodeId),
-}
-
 /// A chain of style maps, similar to a linked list.
 ///
 /// A style chain allows to combine properties from multiple style maps in a
@@ -544,14 +406,40 @@ pub struct StyleChain<'a> {
 }
 
 impl<'a> StyleChain<'a> {
-    /// Create a new, empty style chain.
-    pub fn new() -> Self {
-        Self::default()
+    /// Start a new style chain with a root map.
+    pub fn new(root: &'a StyleMap) -> Self {
+        Self { head: &root.0, tail: None }
     }
 
-    /// Start a new style chain with a root map.
-    pub fn with_root(root: &'a StyleMap) -> Self {
-        Self { head: &root.0, tail: None }
+    /// Make the given map the first link of this chain.
+    ///
+    /// The resulting style chain contains styles from `map` as well as
+    /// `self`. The ones from `map` take precedence over the ones from
+    /// `self`. For folded properties `map` contributes the inner value.
+    pub fn chain<'b>(&'b self, map: &'b StyleMap) -> StyleChain<'b> {
+        if map.is_empty() {
+            *self
+        } else {
+            StyleChain { head: &map.0, tail: Some(self) }
+        }
+    }
+
+    /// Make the given style the first link of the this chain.
+    pub fn chain_one<'b>(&'b self, style: &'b Style) -> StyleChain<'b> {
+        if let Style::Barrier(id) = style {
+            if !self
+                .entries()
+                .filter_map(Style::property)
+                .any(|p| p.scoped() && *id == p.node())
+            {
+                return *self;
+            }
+        }
+
+        StyleChain {
+            head: std::slice::from_ref(style),
+            tail: Some(self),
+        }
     }
 
     /// Get the output value of a style property.
@@ -563,78 +451,9 @@ impl<'a> StyleChain<'a> {
         K::get(self, self.values(key))
     }
 
-    /// Apply show recipes in this style chain to a target.
-    pub fn show(
-        self,
-        world: Tracked<dyn World>,
-        target: &Content,
-    ) -> SourceResult<Option<Content>> {
-        // Find out how many recipes there are.
-        let mut n = self.entries().filter_map(Style::recipe).count();
-
-        // Find an applicable recipe.
-        let mut realized = None;
-        for recipe in self.entries().filter_map(Style::recipe) {
-            let sel = RecipeId::Nth(n);
-            if recipe.applicable(target) && !target.is_guarded(sel) {
-                if let Some(content) = recipe.apply(world, sel, target)? {
-                    realized = Some(content);
-                    break;
-                }
-            }
-            n -= 1;
-        }
-
-        // Realize if there was no matching recipe.
-        let base = RecipeId::Base(target.id());
-        if realized.is_none() && !target.is_guarded(base) {
-            if let Some(showable) = target.with::<dyn Show>() {
-                realized = Some(showable.show(world, self)?);
-            }
-        }
-
-        // Finalize only if this is the first application for this node.
-        if let Some(node) = target.with::<dyn Finalize>() {
-            if target.is_pristine() {
-                if let Some(content) = realized {
-                    realized = Some(node.finalize(world, self, content)?);
-                }
-            }
-        }
-
-        Ok(realized)
-    }
-
-    /// Whether the style chain has a matching recipe for the content.
-    pub fn applicable(self, target: &Content) -> bool {
-        // Find out how many recipes there are.
-        let mut n = self.entries().filter_map(Style::recipe).count();
-
-        // Find out whether any recipe matches and is unguarded.
-        for recipe in self.entries().filter_map(Style::recipe) {
-            if recipe.applicable(target) && !target.is_guarded(RecipeId::Nth(n)) {
-                return true;
-            }
-            n -= 1;
-        }
-
-        false
-    }
-
-    /// Remove the last link from the chain.
-    fn pop(&mut self) {
-        *self = self.tail.copied().unwrap_or_default();
-    }
-
-    /// Build a style map from the suffix (all links beyond the `len`) of the
-    /// chain.
-    fn suffix(self, len: usize) -> StyleMap {
-        let mut suffix = StyleMap::new();
-        let take = self.links().count().saturating_sub(len);
-        for link in self.links().take(take) {
-            suffix.0.splice(0..0, link.iter().cloned());
-        }
-        suffix
+    /// Iterate over all style recipes in the chain.
+    pub fn recipes(self) -> impl Iterator<Item = &'a Recipe> {
+        self.entries().filter_map(Style::recipe)
     }
 
     /// Iterate over all values for the given property in the chain.
@@ -655,6 +474,22 @@ impl<'a> StyleChain<'a> {
     fn links(self) -> Links<'a> {
         Links(Some(self))
     }
+
+    /// Build a style map from the suffix (all links beyond the `len`) of the
+    /// chain.
+    fn suffix(self, len: usize) -> StyleMap {
+        let mut suffix = StyleMap::new();
+        let take = self.links().count().saturating_sub(len);
+        for link in self.links().take(take) {
+            suffix.0.splice(0..0, link.iter().cloned());
+        }
+        suffix
+    }
+
+    /// Remove the last link from the chain.
+    fn pop(&mut self) {
+        *self = self.tail.copied().unwrap_or_default();
+    }
 }
 
 impl Debug for StyleChain<'_> {
@@ -672,37 +507,6 @@ impl PartialEq for StyleChain<'_> {
         self.head.as_ptr() == other.head.as_ptr()
             && self.head.len() == other.head.len()
             && self.tail.map(as_ptr) == other.tail.map(as_ptr)
-    }
-}
-
-/// An iterator over the values in a style chain.
-struct Values<'a, K> {
-    entries: Entries<'a>,
-    key: PhantomData<K>,
-    barriers: usize,
-}
-
-impl<'a, K: Key> Iterator for Values<'a, K> {
-    type Item = &'a K::Value;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        for entry in &mut self.entries {
-            match entry {
-                Style::Property(property) => {
-                    if let Some(value) = property.downcast::<K>() {
-                        if !property.scoped() || self.barriers <= 1 {
-                            return Some(value);
-                        }
-                    }
-                }
-                Style::Barrier(id) => {
-                    self.barriers += (*id == K::node()) as usize;
-                }
-                _ => {}
-            }
-        }
-
-        None
     }
 }
 
@@ -739,6 +543,37 @@ impl<'a> Iterator for Links<'a> {
         let StyleChain { head, tail } = self.0?;
         self.0 = tail.copied();
         Some(head)
+    }
+}
+
+/// An iterator over the values in a style chain.
+struct Values<'a, K> {
+    entries: Entries<'a>,
+    key: PhantomData<K>,
+    barriers: usize,
+}
+
+impl<'a, K: Key> Iterator for Values<'a, K> {
+    type Item = &'a K::Value;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        for entry in &mut self.entries {
+            match entry {
+                Style::Property(property) => {
+                    if let Some(value) = property.downcast::<K>() {
+                        if !property.scoped() || self.barriers <= 1 {
+                            return Some(value);
+                        }
+                    }
+                }
+                Style::Barrier(id) => {
+                    self.barriers += (*id == K::node()) as usize;
+                }
+                _ => {}
+            }
+        }
+
+        None
     }
 }
 

@@ -81,8 +81,8 @@ impl<const L: ListKind> LayoutBlock for ListNode<L> {
     fn layout_block(
         &self,
         world: Tracked<dyn World>,
-        regions: &Regions,
         styles: StyleChain,
+        regions: &Regions,
     ) -> SourceResult<Vec<Frame>> {
         let mut cells = vec![];
         let mut number = 1;
@@ -139,7 +139,7 @@ impl<const L: ListKind> LayoutBlock for ListNode<L> {
             gutter: Axes::with_y(vec![gutter.into()]),
             cells,
         }
-        .layout_block(world, regions, styles)
+        .layout_block(world, styles, regions)
     }
 }
 

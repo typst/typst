@@ -12,7 +12,7 @@ use crate::geom::{Abs, Dir};
 use crate::util::{hash128, EcoString};
 use crate::World;
 
-/// A Typst standard library.
+/// Definition of Typst's standard library.
 #[derive(Debug, Clone, Hash)]
 pub struct Library {
     /// The scope containing definitions that are available everywhere.
@@ -23,13 +23,13 @@ pub struct Library {
     pub items: LangItems,
 }
 
-/// Definition of certain standard library items the language is aware of.
+/// Definition of library items the language is aware of.
 #[derive(Clone)]
 pub struct LangItems {
     /// The root layout function.
     pub layout: fn(
-        content: &Content,
         world: Tracked<dyn World>,
+        content: &Content,
         styles: StyleChain,
     ) -> SourceResult<Vec<Frame>>,
     /// Access the em size.

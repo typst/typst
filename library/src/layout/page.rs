@@ -97,7 +97,7 @@ impl PageNode {
 
         // Layout the child.
         let regions = Regions::repeat(size, size, size.map(Abs::is_finite));
-        let mut frames = child.layout_block(world, &regions, styles)?;
+        let mut frames = child.layout_block(world, styles, &regions)?;
 
         let header = styles.get(Self::HEADER);
         let footer = styles.get(Self::FOOTER);
@@ -118,7 +118,7 @@ impl PageNode {
             ] {
                 if let Some(content) = marginal.resolve(world, page)? {
                     let pod = Regions::one(area, area, Axes::splat(true));
-                    let sub = content.layout_block(world, &pod, styles)?.remove(0);
+                    let sub = content.layout_block(world, styles, &pod)?.remove(0);
                     if std::ptr::eq(marginal, background) {
                         frame.prepend_frame(pos, sub);
                     } else {
@@ -402,9 +402,9 @@ papers! {
 
     // ---------------------------------------------------------------------- //
     // Other
-    (NEWSPAPER_COMPACT:    280.0,    430.0,    "newspaper-compact")
-    (NEWSPAPER_BERLINER:   315.0,    470.0,    "newspaper-berliner")
-    (NEWSPAPER_BROADSHEET: 381.0,    578.0,    "newspaper-broadsheet")
+    (NEWSPAPER_COMPACT:    280.0,    430.0, "newspaper-compact")
+    (NEWSPAPER_BERLINER:   315.0,    470.0, "newspaper-berliner")
+    (NEWSPAPER_BROADSHEET: 381.0,    578.0, "newspaper-broadsheet")
     (PRESENTATION_16_9:    297.0, 167.0625, "presentation-16-9")
-    (PRESENTATION_4_3:     280.0,    210.0,    "presentation-4-3")
+    (PRESENTATION_4_3:     280.0,    210.0, "presentation-4-3")
 }

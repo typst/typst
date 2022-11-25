@@ -14,7 +14,7 @@ use crate::geom::{
 };
 use crate::image::{DecodedImage, Image};
 
-/// Export a frame into a rendered image.
+/// Export a frame into a raster image.
 ///
 /// This renders the frame at the given number of pixels per printer's point and
 /// returns the resulting `tiny-skia` pixel buffer.

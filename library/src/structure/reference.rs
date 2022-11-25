@@ -20,7 +20,7 @@ impl RefNode {
 }
 
 impl Show for RefNode {
-    fn show(&self, _: Tracked<dyn World>, _: StyleChain) -> SourceResult<Content> {
-        Ok(TextNode::packed(format_eco!("@{}", self.0)))
+    fn show(&self, _: Tracked<dyn World>, _: StyleChain) -> Content {
+        TextNode::packed(format_eco!("@{}", self.0))
     }
 }

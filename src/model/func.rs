@@ -52,7 +52,7 @@ impl Func {
     }
 
     /// Create a new function from a closure.
-    pub fn from_closure(closure: Closure) -> Self {
+    pub(super) fn from_closure(closure: Closure) -> Self {
         Self(Arc::new(Repr::Closure(closure)))
     }
 
@@ -127,7 +127,8 @@ impl Func {
         }
     }
 
-    /// Create a selector from this node and the given arguments.
+    /// Create a selector for this function's node type, filtering by node's
+    /// whose [fields](super::Content::field) match the given arguments.
     pub fn where_(self, args: &mut Args) -> StrResult<Selector> {
         match self.0.as_ref() {
             Repr::Native(Native { node: Some(id), .. }) => {
@@ -178,7 +179,7 @@ impl Hash for Native {
 
 /// A user-defined closure.
 #[derive(Hash)]
-pub struct Closure {
+pub(super) struct Closure {
     /// The source file where the closure was defined.
     pub location: SourceId,
     /// The name of the closure.
@@ -196,7 +197,7 @@ pub struct Closure {
 
 impl Closure {
     /// Call the function in the context with the arguments.
-    pub fn call(&self, vm: &Vm, args: &mut Args) -> SourceResult<Value> {
+    fn call(&self, vm: &Vm, args: &mut Args) -> SourceResult<Value> {
         // Don't leak the scopes from the call site. Instead, we use the scope
         // of captured variables we collected earlier.
         let mut scopes = Scopes::new(None);
@@ -241,7 +242,7 @@ impl Closure {
     }
 
     /// The number of positional arguments this function takes, if known.
-    pub fn argc(&self) -> Option<usize> {
+    fn argc(&self) -> Option<usize> {
         if self.sink.is_some() {
             return None;
         }
@@ -270,20 +271,6 @@ impl<'a> CapturesVisitor<'a> {
     /// Return the scope of captured variables.
     pub fn finish(self) -> Scope {
         self.captures
-    }
-
-    /// Bind a new internal variable.
-    pub fn bind(&mut self, ident: ast::Ident) {
-        self.internal.top.define(ident.take(), Value::None);
-    }
-
-    /// Capture a variable if it isn't internal.
-    pub fn capture(&mut self, ident: ast::Ident) {
-        if self.internal.get(&ident).is_err() {
-            if let Ok(value) = self.external.get(&ident) {
-                self.captures.define_captured(ident.take(), value.clone());
-            }
-        }
     }
 
     /// Visit any node and collect all captured variables.
@@ -363,6 +350,20 @@ impl<'a> CapturesVisitor<'a> {
                 for child in node.children() {
                     self.visit(child);
                 }
+            }
+        }
+    }
+
+    /// Bind a new internal variable.
+    fn bind(&mut self, ident: ast::Ident) {
+        self.internal.top.define(ident.take(), Value::None);
+    }
+
+    /// Capture a variable if it isn't internal.
+    fn capture(&mut self, ident: ast::Ident) {
+        if self.internal.get(&ident).is_err() {
+            if let Ok(value) = self.external.get(&ident) {
+                self.captures.define_captured(ident.take(), value.clone());
             }
         }
     }

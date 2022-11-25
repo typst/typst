@@ -28,10 +28,10 @@ impl LayoutInline for MoveNode {
     fn layout_inline(
         &self,
         world: Tracked<dyn World>,
-        regions: &Regions,
         styles: StyleChain,
+        regions: &Regions,
     ) -> SourceResult<Frame> {
-        let mut frame = self.child.layout_inline(world, regions, styles)?;
+        let mut frame = self.child.layout_inline(world, styles, regions)?;
         let delta = self.delta.resolve(styles);
         let delta = delta.zip(frame.size()).map(|(d, s)| d.relative_to(s));
         frame.translate(delta.to_point());
@@ -82,10 +82,10 @@ impl<const T: TransformKind> LayoutInline for TransformNode<T> {
     fn layout_inline(
         &self,
         world: Tracked<dyn World>,
-        regions: &Regions,
         styles: StyleChain,
+        regions: &Regions,
     ) -> SourceResult<Frame> {
-        let mut frame = self.child.layout_inline(world, regions, styles)?;
+        let mut frame = self.child.layout_inline(world, styles, regions)?;
 
         let origin = styles.get(Self::ORIGIN).unwrap_or(Align::CENTER_HORIZON);
         let Axes { x, y } = origin.zip(frame.size()).map(|(o, s)| o.position(s));

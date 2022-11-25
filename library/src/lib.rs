@@ -159,7 +159,7 @@ fn styles() -> StyleMap {
 /// Construct the standard lang item mapping.
 fn items() -> LangItems {
     LangItems {
-        layout: |content, world, styles| content.layout_root(world, styles),
+        layout: |world, content, styles| content.layout_root(world, styles),
         em: |styles| styles.get(text::TextNode::SIZE),
         dir: |styles| styles.get(text::TextNode::DIR),
         space: || text::SpaceNode.pack(),

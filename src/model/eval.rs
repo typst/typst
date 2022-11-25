@@ -2,19 +2,22 @@
 
 use std::collections::BTreeMap;
 use std::mem;
+use std::path::PathBuf;
 
 use comemo::{Track, Tracked};
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::{
-    methods, ops, Arg, Args, Array, CapturesVisitor, Closure, Content, Dict, Flow, Func,
-    Recipe, Scope, Scopes, Selector, StyleMap, Transform, Value, Vm,
+    methods, ops, Arg, Args, Array, CapturesVisitor, Closure, Content, Dict, Func,
+    LangItems, Recipe, Scope, Scopes, Selector, StyleMap, Transform, Value,
 };
-use crate::diag::{bail, error, At, SourceResult, StrResult, Trace, Tracepoint};
+use crate::diag::{
+    bail, error, At, SourceError, SourceResult, StrResult, Trace, Tracepoint,
+};
 use crate::geom::{Abs, Angle, Em, Fr, Ratio};
 use crate::syntax::ast::AstNode;
 use crate::syntax::{ast, Source, SourceId, Span, Spanned, Unit};
-use crate::util::{format_eco, EcoString};
+use crate::util::{format_eco, EcoString, PathExt};
 use crate::World;
 
 /// Evaluate a source file and return the resulting module.
@@ -54,6 +57,94 @@ pub fn eval(
     Ok(Module { scope: vm.scopes.top, content: result? })
 }
 
+/// A virtual machine.
+///
+/// Holds the state needed to [evaluate](super::eval()) Typst sources. A new
+/// virtual machine is created for each module evaluation and function call.
+pub struct Vm<'a> {
+    /// The compilation environment.
+    pub(super) world: Tracked<'a, dyn World>,
+    /// The language items.
+    pub(super) items: LangItems,
+    /// The route of source ids the VM took to reach its current location.
+    pub(super) route: Tracked<'a, Route>,
+    /// The current location.
+    pub(super) location: SourceId,
+    /// A control flow event that is currently happening.
+    pub(super) flow: Option<Flow>,
+    /// The stack of scopes.
+    pub(super) scopes: Scopes<'a>,
+}
+
+impl<'a> Vm<'a> {
+    /// Create a new virtual machine.
+    pub fn new(
+        world: Tracked<'a, dyn World>,
+        route: Tracked<'a, Route>,
+        location: SourceId,
+        scopes: Scopes<'a>,
+    ) -> Self {
+        Self {
+            world,
+            items: world.library().items.clone(),
+            route,
+            location,
+            flow: None,
+            scopes,
+        }
+    }
+
+    /// Access the underlying world.
+    pub fn world(&self) -> Tracked<dyn World> {
+        self.world
+    }
+
+    /// Resolve a user-entered path to be relative to the compilation
+    /// environment's root.
+    pub fn locate(&self, path: &str) -> StrResult<PathBuf> {
+        if !self.location.is_detached() {
+            if let Some(path) = path.strip_prefix('/') {
+                return Ok(self.world.root().join(path).normalize());
+            }
+
+            if let Some(dir) = self.world.source(self.location).path().parent() {
+                return Ok(dir.join(path).normalize());
+            }
+        }
+
+        Err("cannot access file system from here".into())
+    }
+}
+
+/// A control flow event that occurred during evaluation.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Flow {
+    /// Stop iteration in a loop.
+    Break(Span),
+    /// Skip the remainder of the current iteration in a loop.
+    Continue(Span),
+    /// Stop execution of a function early, optionally returning an explicit
+    /// value.
+    Return(Span, Option<Value>),
+}
+
+impl Flow {
+    /// Return an error stating that this control flow is forbidden.
+    pub fn forbidden(&self) -> SourceError {
+        match *self {
+            Self::Break(span) => {
+                error!(span, "cannot break outside of loop")
+            }
+            Self::Continue(span) => {
+                error!(span, "cannot continue outside of loop")
+            }
+            Self::Return(span, _) => {
+                error!(span, "cannot return outside of function")
+            }
+        }
+    }
+}
+
 /// A route of source ids.
 #[derive(Default)]
 pub struct Route {
@@ -87,7 +178,7 @@ impl Route {
     }
 }
 
-/// An evaluated module, ready for importing or layouting.
+/// An evaluated module, ready for importing or typesetting.
 #[derive(Debug, Clone)]
 pub struct Module {
     /// The top-level definitions that were bound in this module.
@@ -700,18 +791,19 @@ impl Eval for ast::MethodCall {
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let span = self.span();
         let method = self.method().take();
-        let point = || Tracepoint::Call(Some(method.clone()));
 
-        Ok(if methods::is_mutating(&method) {
+        let result = if methods::is_mutating(&method) {
             let args = self.args().eval(vm)?;
             let value = self.target().access(vm)?;
-            methods::call_mut(value, &method, args, span).trace(vm.world, point, span)?;
-            Value::None
+            methods::call_mut(value, &method, args, span).map(|()| Value::None)
         } else {
             let value = self.target().eval(vm)?;
             let args = self.args().eval(vm)?;
-            methods::call(vm, value, &method, args, span).trace(vm.world, point, span)?
-        })
+            methods::call(vm, value, &method, args, span)
+        };
+
+        let point = || Tracepoint::Call(Some(method.clone()));
+        result.trace(vm.world, point, span)
     }
 }
 

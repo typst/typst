@@ -4,6 +4,8 @@ mod tex;
 
 use std::fmt::Write;
 
+use typst::model::Guard;
+
 use self::tex::{layout_tex, Texify};
 use crate::prelude::*;
 use crate::text::FontFamily;
@@ -28,21 +30,21 @@ impl MathNode {
 }
 
 impl Show for MathNode {
-    fn show(&self, _: Tracked<dyn World>, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _: Tracked<dyn World>, styles: StyleChain) -> Content {
         let mut map = StyleMap::new();
         map.set_family(FontFamily::new("NewComputerModernMath"), styles);
 
         let mut realized = self
             .clone()
             .pack()
-            .guarded(RecipeId::Base(NodeId::of::<Self>()))
+            .guarded(Guard::Base(NodeId::of::<Self>()))
             .styled_with_map(map);
 
         if self.display {
             realized = realized.aligned(Axes::with_x(Some(Align::Center.into())))
         }
 
-        Ok(realized)
+        realized
     }
 }
 
@@ -50,10 +52,10 @@ impl LayoutInline for MathNode {
     fn layout_inline(
         &self,
         world: Tracked<dyn World>,
-        _: &Regions,
         styles: StyleChain,
+        _: &Regions,
     ) -> SourceResult<Frame> {
-        layout_tex(&self.texify(), self.display, world, styles)
+        layout_tex(world, &self.texify(), self.display, styles)
     }
 }
 

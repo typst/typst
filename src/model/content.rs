@@ -9,9 +9,7 @@ use comemo::Tracked;
 use siphasher::sip128::{Hasher128, SipHasher};
 use typst_macros::node;
 
-use super::{
-    Args, Key, Property, Recipe, RecipeId, Style, StyleMap, Unlabellable, Value, Vm,
-};
+use super::{capability, Args, Guard, Key, Property, Recipe, Style, StyleMap, Value, Vm};
 use crate::diag::{SourceResult, StrResult};
 use crate::syntax::Span;
 use crate::util::{EcoString, ReadableTypeId};
@@ -21,7 +19,7 @@ use crate::World;
 #[derive(Clone, Hash)]
 pub struct Content {
     obj: Arc<dyn Bounds>,
-    guards: Vec<RecipeId>,
+    guards: Vec<Guard>,
     span: Option<Span>,
     label: Option<EcoString>,
 }
@@ -69,11 +67,11 @@ impl Content {
     /// Style this content with a style entry.
     pub fn styled_with_entry(mut self, style: Style) -> Self {
         if let Some(styled) = self.to_mut::<StyledNode>() {
-            styled.map.apply(style);
+            styled.map.apply_one(style);
             self
         } else if let Some(styled) = self.to::<StyledNode>() {
             let mut map = styled.map.clone();
-            map.apply(style);
+            map.apply_one(style);
             StyledNode { sub: styled.sub.clone(), map }.pack()
         } else {
             StyledNode { sub: self, map: style.into() }.pack()
@@ -87,7 +85,7 @@ impl Content {
         }
 
         if let Some(styled) = self.to_mut::<StyledNode>() {
-            styled.map.apply_map(&styles);
+            styled.map.apply(styles);
             return self;
         }
 
@@ -101,7 +99,7 @@ impl Content {
         recipe: Recipe,
     ) -> SourceResult<Self> {
         if recipe.selector.is_none() {
-            recipe.transform.apply(world, recipe.span, self)
+            recipe.apply(world, self)
         } else {
             Ok(self.styled_with_entry(Style::Recipe(recipe)))
         }
@@ -185,7 +183,7 @@ impl Content {
 
     /// Disable a show rule recipe.
     #[doc(hidden)]
-    pub fn guarded(mut self, id: RecipeId) -> Self {
+    pub fn guarded(mut self, id: Guard) -> Self {
         self.guards.push(id);
         self
     }
@@ -201,7 +199,7 @@ impl Content {
     }
 
     /// Check whether a show rule recipe is disabled.
-    pub(super) fn is_guarded(&self, id: RecipeId) -> bool {
+    pub(super) fn is_guarded(&self, id: Guard) -> bool {
         self.guards.contains(&id)
     }
 
@@ -378,12 +376,12 @@ pub trait Node: 'static + Capable {
     fn field(&self, name: &str) -> Option<Value>;
 }
 
-/// A unique identifier for a node.
+/// A unique identifier for a node type.
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct NodeId(ReadableTypeId);
 
 impl NodeId {
-    /// The id of the given node.
+    /// The id of the given node type.
     pub fn of<T: 'static>() -> Self {
         Self(ReadableTypeId::of::<T>())
     }
@@ -397,7 +395,8 @@ impl Debug for NodeId {
 
 /// A capability a node can have.
 ///
-/// This is implemented by trait objects.
+/// Should be implemented by trait objects that are accessible through
+/// [`Capable`].
 pub trait Capability: 'static {}
 
 /// Dynamically access a trait implementation at runtime.
@@ -406,3 +405,7 @@ pub unsafe trait Capable {
     /// if `self` implements the trait.
     fn vtable(&self, of: TypeId) -> Option<*const ()>;
 }
+
+/// Indicates that a node cannot be labelled.
+#[capability]
+pub trait Unlabellable {}

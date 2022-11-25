@@ -34,18 +34,13 @@ impl HeadingNode {
 }
 
 impl Show for HeadingNode {
-    fn show(&self, _: Tracked<dyn World>, _: StyleChain) -> SourceResult<Content> {
-        Ok(BlockNode(self.body.clone()).pack())
+    fn show(&self, _: Tracked<dyn World>, _: StyleChain) -> Content {
+        BlockNode(self.body.clone()).pack()
     }
 }
 
 impl Finalize for HeadingNode {
-    fn finalize(
-        &self,
-        _: Tracked<dyn World>,
-        _: StyleChain,
-        realized: Content,
-    ) -> SourceResult<Content> {
+    fn finalize(&self, realized: Content) -> Content {
         let scale = match self.level.get() {
             1 => 1.4,
             2 => 1.2,
@@ -61,7 +56,6 @@ impl Finalize for HeadingNode {
         map.set(TextNode::WEIGHT, FontWeight::BOLD);
         map.set(BlockNode::ABOVE, VNode::block_around(above.into()));
         map.set(BlockNode::BELOW, VNode::block_around(below.into()));
-
-        Ok(realized.styled_with_map(map))
+        realized.styled_with_map(map)
     }
 }

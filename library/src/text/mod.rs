@@ -527,8 +527,8 @@ impl StrongNode {
 }
 
 impl Show for StrongNode {
-    fn show(&self, _: Tracked<dyn World>, _: StyleChain) -> SourceResult<Content> {
-        Ok(self.0.clone().styled(TextNode::BOLD, Toggle))
+    fn show(&self, _: Tracked<dyn World>, _: StyleChain) -> Content {
+        self.0.clone().styled(TextNode::BOLD, Toggle)
     }
 }
 
@@ -551,8 +551,8 @@ impl EmphNode {
 }
 
 impl Show for EmphNode {
-    fn show(&self, _: Tracked<dyn World>, _: StyleChain) -> SourceResult<Content> {
-        Ok(self.0.clone().styled(TextNode::ITALIC, Toggle))
+    fn show(&self, _: Tracked<dyn World>, _: StyleChain) -> Content {
+        self.0.clone().styled(TextNode::ITALIC, Toggle)
     }
 }
 

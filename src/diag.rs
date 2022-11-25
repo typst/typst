@@ -100,7 +100,7 @@ pub enum Tracepoint {
     /// A function call.
     Call(Option<EcoString>),
     /// A show rule application.
-    Apply(EcoString),
+    Show(EcoString),
     /// A module import.
     Import,
 }
@@ -114,7 +114,7 @@ impl Display for Tracepoint {
             Tracepoint::Call(None) => {
                 write!(f, "error occured in this function call")
             }
-            Tracepoint::Apply(name) => {
+            Tracepoint::Show(name) => {
                 write!(f, "error occured while applying show rule to this {name}")
             }
             Tracepoint::Import => {

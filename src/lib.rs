@@ -1,21 +1,21 @@
-//! The compiler for the _Typst_ typesetting language.
+//! The compiler for the _Typst_ markup language.
 //!
 //! # Steps
-//! - **Parsing:** The parsing step first transforms a plain string into an
+//! - **Parsing:** The compiler first transforms a plain string into an
 //!   [iterator of tokens][tokens]. This token stream is [parsed] into a [syntax
 //!   tree]. The tree itself is untyped, but the [AST] module provides a typed
 //!   layer over it.
 //! - **Evaluation:** The next step is to [evaluate] the markup. This produces a
 //!   [module], consisting of a scope of values that were exported by the code
-//!   and [content], a hierarchical, styled representation of the text,
-//!   structure, layouts, etc. of the module. The nodes of the content tree are
-//!   well structured and order-independent and thus much better suited for
-//!   layouting than the raw markup.
-//! - **Layouting:** Next, the content is layouted into a portable version of
-//!   the typeset document. The output of this is a collection of [`Frame`]s
-//!   (one per page), ready for exporting.
-//! - **Exporting:** The finished layout can be exported into a supported
-//!   format. Currently, the only supported output format is [PDF].
+//!   and [content], a hierarchical, styled representation of what was written
+//!   in the source file. The nodes of the content tree are well structured and
+//!   order-independent and thus much better suited for further processing than
+//!   the raw markup.
+//! - **Typesetting:** Next, the content is [typeset] into a collection of
+//!   [`Frame`]s (one per page) with elements and fixed positions, ready for
+//!   exporting.
+//! - **Exporting:** These frames can finally be exported into an output format
+//!   (currently supported are [PDF] and [raster images]).
 //!
 //! [tokens]: syntax::Tokens
 //! [parsed]: syntax::parse
@@ -24,7 +24,9 @@
 //! [evaluate]: model::eval
 //! [module]: model::Module
 //! [content]: model::Content
+//! [typeset]: model::typeset
 //! [PDF]: export::pdf
+//! [raster images]: export::render
 
 extern crate self as typst;
 
@@ -73,7 +75,7 @@ pub fn compile(
 /// The environment in which typesetting occurs.
 #[comemo::track]
 pub trait World {
-    /// The compilation root.
+    /// The path relative to which absolute paths are.
     fn root(&self) -> &Path;
 
     /// The standard library.

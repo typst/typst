@@ -20,8 +20,8 @@ impl LayoutBlock for PlaceNode {
     fn layout_block(
         &self,
         world: Tracked<dyn World>,
-        regions: &Regions,
         styles: StyleChain,
+        regions: &Regions,
     ) -> SourceResult<Vec<Frame>> {
         let out_of_flow = self.out_of_flow();
 
@@ -33,7 +33,7 @@ impl LayoutBlock for PlaceNode {
             Regions::one(regions.base, regions.base, expand)
         };
 
-        let mut frames = self.0.layout_block(world, &pod, styles)?;
+        let mut frames = self.0.layout_block(world, styles, &pod)?;
 
         // If expansion is off, zero all sizes so that we don't take up any
         // space in our parent. Otherwise, respect the expand settings.

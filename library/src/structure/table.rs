@@ -54,8 +54,8 @@ impl LayoutBlock for TableNode {
     fn layout_block(
         &self,
         world: Tracked<dyn World>,
-        regions: &Regions,
         styles: StyleChain,
+        regions: &Regions,
     ) -> SourceResult<Vec<Frame>> {
         let fill = styles.get(Self::FILL);
         let stroke = styles.get(Self::STROKE).map(PartialStroke::unwrap_or_default);
@@ -89,7 +89,7 @@ impl LayoutBlock for TableNode {
             gutter: self.gutter.clone(),
             cells,
         }
-        .layout_block(world, regions, styles)
+        .layout_block(world, styles, regions)
     }
 }
 

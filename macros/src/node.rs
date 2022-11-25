@@ -8,10 +8,7 @@ use super::*;
 /// Expand the `#[node]` macro.
 pub fn expand(attr: TokenStream, body: syn::ItemImpl) -> Result<TokenStream> {
     let node = prepare(attr, body)?;
-    let scope = create(&node)?;
-    Ok(quote! {
-        const _: () = {  #scope };
-    })
+    create(&node)
 }
 
 /// Details about a node.
@@ -236,6 +233,7 @@ fn create(node: &Node) -> Result<TokenStream> {
 
     let mut modules: Vec<syn::ItemMod> = vec![];
     let mut items: Vec<syn::ImplItem> = vec![];
+    let scope = quote::format_ident!("__{}_keys", node.self_name);
 
     for property in &node.properties {
         let (key, module) = create_property_module(node, &property);
@@ -246,7 +244,8 @@ fn create(node: &Node) -> Result<TokenStream> {
         let vis = &property.vis;
         items.push(parse_quote! {
             #(#attrs)*
-            #vis const #name: #name::#key = #name::Key(::std::marker::PhantomData);
+            #vis const #name: #scope::#name::#key
+                = #scope::#name::Key(::std::marker::PhantomData);
         });
     }
 
@@ -255,8 +254,11 @@ fn create(node: &Node) -> Result<TokenStream> {
 
     Ok(quote! {
         #body
-        #node_impl
-        #(#modules)*
+        mod #scope {
+            use super::*;
+            #node_impl
+            #(#modules)*
+        }
     })
 }
 
@@ -428,7 +430,7 @@ fn create_property_module(node: &Node, property: &Property) -> (syn::Type, syn::
     // Generate the module code.
     let module = parse_quote! {
         #[allow(non_snake_case)]
-        mod #name { #scope }
+        pub mod #name { #scope }
     };
 
     (key, module)

@@ -18,13 +18,13 @@ impl LayoutBlock for FlowNode {
     fn layout_block(
         &self,
         world: Tracked<dyn World>,
-        regions: &Regions,
         styles: StyleChain,
+        regions: &Regions,
     ) -> SourceResult<Vec<Frame>> {
         let mut layouter = FlowLayouter::new(regions);
 
         for (child, map) in self.0.iter() {
-            let styles = map.chain(&styles);
+            let styles = styles.chain(&map);
             if let Some(&node) = child.to::<VNode>() {
                 layouter.layout_spacing(node.amount, styles);
             } else if child.has::<dyn LayoutBlock>() {
@@ -136,7 +136,7 @@ impl FlowLayouter {
         // aligned later.
         if let Some(placed) = block.to::<PlaceNode>() {
             if placed.out_of_flow() {
-                let frame = block.layout_block(world, &self.regions, styles)?.remove(0);
+                let frame = block.layout_block(world, styles, &self.regions)?.remove(0);
                 self.items.push(FlowItem::Placed(frame));
                 return Ok(());
             }
@@ -162,11 +162,11 @@ impl FlowLayouter {
         if !self.last_block_was_par && is_par && !styles.get(ParNode::INDENT).is_zero() {
             let property = Property::new(ParNode::INDENT, Length::zero());
             reset = Style::Property(property);
-            chained = reset.chain(&styles);
+            chained = styles.chain_one(&reset);
         }
 
         // Layout the block itself.
-        let frames = block.layout_block(world, &self.regions, chained)?;
+        let frames = block.layout_block(world, chained, &self.regions)?;
         let len = frames.len();
         for (i, frame) in frames.into_iter().enumerate() {
             // Grow our size, shrink the region and save the frame for later.

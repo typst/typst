@@ -30,13 +30,13 @@ impl LayoutBlock for ColumnsNode {
     fn layout_block(
         &self,
         world: Tracked<dyn World>,
-        regions: &Regions,
         styles: StyleChain,
+        regions: &Regions,
     ) -> SourceResult<Vec<Frame>> {
         // Separating the infinite space into infinite columns does not make
         // much sense.
         if !regions.first.x.is_finite() {
-            return self.child.layout_block(world, regions, styles);
+            return self.child.layout_block(world, styles, regions);
         }
 
         // Determine the width of the gutter and each column.
@@ -58,7 +58,7 @@ impl LayoutBlock for ColumnsNode {
         };
 
         // Layout the children.
-        let mut frames = self.child.layout_block(world, &pod, styles)?.into_iter();
+        let mut frames = self.child.layout_block(world, styles, &pod)?.into_iter();
         let mut finished = vec![];
 
         let dir = styles.get(TextNode::DIR);

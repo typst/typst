@@ -104,7 +104,7 @@ impl Dict {
         self.0.values().cloned().collect()
     }
 
-    /// Transform each pair in the array with a function.
+    /// Transform each pair in the dictionary with a function.
     pub fn map(&self, vm: &Vm, f: Spanned<Func>) -> SourceResult<Array> {
         self.iter()
             .map(|(key, value)| {

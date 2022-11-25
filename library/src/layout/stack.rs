@@ -31,8 +31,8 @@ impl LayoutBlock for StackNode {
     fn layout_block(
         &self,
         world: Tracked<dyn World>,
-        regions: &Regions,
         styles: StyleChain,
+        regions: &Regions,
     ) -> SourceResult<Vec<Frame>> {
         let mut layouter = StackLayouter::new(self.dir, regions, styles);
 
@@ -189,14 +189,14 @@ impl<'a> StackLayouter<'a> {
                 if let Some(styled) = block.to::<StyledNode>() {
                     let map = &styled.map;
                     if map.contains(ParNode::ALIGN) {
-                        return StyleChain::with_root(map).get(ParNode::ALIGN);
+                        return StyleChain::new(map).get(ParNode::ALIGN);
                     }
                 }
 
                 self.dir.start().into()
             });
 
-        let frames = block.layout_block(world, &self.regions, styles)?;
+        let frames = block.layout_block(world, styles, &self.regions)?;
         let len = frames.len();
         for (i, frame) in frames.into_iter().enumerate() {
             // Grow our size, shrink the region and save the frame for later.

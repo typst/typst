@@ -35,9 +35,9 @@ impl Texify for Content {
 
 /// Layout a TeX formula into a frame.
 pub fn layout_tex(
+    world: Tracked<dyn World>,
     tex: &str,
     display: bool,
-    world: Tracked<dyn World>,
     styles: StyleChain,
 ) -> SourceResult<Frame> {
     // Load the font.

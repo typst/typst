@@ -41,8 +41,8 @@ impl LayoutInline for ImageNode {
     fn layout_inline(
         &self,
         _: Tracked<dyn World>,
-        regions: &Regions,
         styles: StyleChain,
+        regions: &Regions,
     ) -> SourceResult<Frame> {
         let pxw = self.0.width() as f64;
         let pxh = self.0.height() as f64;

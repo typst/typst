@@ -43,11 +43,7 @@ impl<const S: ShiftKind> ShiftNode<S> {
 }
 
 impl<const S: ShiftKind> Show for ShiftNode<S> {
-    fn show(
-        &self,
-        world: Tracked<dyn World>,
-        styles: StyleChain,
-    ) -> SourceResult<Content> {
+    fn show(&self, world: Tracked<dyn World>, styles: StyleChain) -> Content {
         let mut transformed = None;
         if styles.get(Self::TYPOGRAPHIC) {
             if let Some(text) = search_text(&self.0, S) {
@@ -57,12 +53,12 @@ impl<const S: ShiftKind> Show for ShiftNode<S> {
             }
         };
 
-        Ok(transformed.unwrap_or_else(|| {
+        transformed.unwrap_or_else(|| {
             let mut map = StyleMap::new();
             map.set(TextNode::BASELINE, styles.get(Self::BASELINE));
             map.set(TextNode::SIZE, styles.get(Self::SIZE));
             self.0.clone().styled_with_map(map)
-        }))
+        })
     }
 }
 

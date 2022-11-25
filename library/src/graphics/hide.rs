@@ -15,10 +15,10 @@ impl LayoutInline for HideNode {
     fn layout_inline(
         &self,
         world: Tracked<dyn World>,
-        regions: &Regions,
         styles: StyleChain,
+        regions: &Regions,
     ) -> SourceResult<Frame> {
-        let mut frame = self.0.layout_inline(world, regions, styles)?;
+        let mut frame = self.0.layout_inline(world, styles, regions)?;
         frame.clear();
         Ok(frame)
     }

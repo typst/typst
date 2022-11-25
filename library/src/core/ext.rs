@@ -70,7 +70,7 @@ impl ContentExt for Content {
     }
 }
 
-/// Additional methods for the style chain.
+/// Additional methods for style maps.
 pub trait StyleMapExt {
     /// Set a font family composed of a preferred family and existing families
     /// from a style chain.
@@ -106,10 +106,10 @@ impl LayoutBlock for FillNode {
     fn layout_block(
         &self,
         world: Tracked<dyn World>,
-        regions: &Regions,
         styles: StyleChain,
+        regions: &Regions,
     ) -> SourceResult<Vec<Frame>> {
-        let mut frames = self.child.layout_block(world, regions, styles)?;
+        let mut frames = self.child.layout_block(world, styles, regions)?;
         for frame in &mut frames {
             let shape = Geometry::Rect(frame.size()).filled(self.fill);
             frame.prepend(Point::zero(), Element::Shape(shape));
@@ -134,10 +134,10 @@ impl LayoutBlock for StrokeNode {
     fn layout_block(
         &self,
         world: Tracked<dyn World>,
-        regions: &Regions,
         styles: StyleChain,
+        regions: &Regions,
     ) -> SourceResult<Vec<Frame>> {
-        let mut frames = self.child.layout_block(world, regions, styles)?;
+        let mut frames = self.child.layout_block(world, styles, regions)?;
         for frame in &mut frames {
             let shape = Geometry::Rect(frame.size()).stroked(self.stroke);
             frame.prepend(Point::zero(), Element::Shape(shape));

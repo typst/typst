@@ -29,13 +29,13 @@ impl LayoutBlock for PadNode {
     fn layout_block(
         &self,
         world: Tracked<dyn World>,
-        regions: &Regions,
         styles: StyleChain,
+        regions: &Regions,
     ) -> SourceResult<Vec<Frame>> {
         // Layout child into padded regions.
         let padding = self.padding.resolve(styles);
         let pod = regions.map(|size| shrink(size, padding));
-        let mut frames = self.child.layout_block(world, &pod, styles)?;
+        let mut frames = self.child.layout_block(world, styles, &pod)?;
 
         for frame in &mut frames {
             // Apply the padding inversely such that the grown size padded

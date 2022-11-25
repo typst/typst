@@ -54,18 +54,13 @@ impl LinkNode {
 }
 
 impl Show for LinkNode {
-    fn show(&self, _: Tracked<dyn World>, _: StyleChain) -> SourceResult<Content> {
-        Ok(self.body.clone())
+    fn show(&self, _: Tracked<dyn World>, _: StyleChain) -> Content {
+        self.body.clone()
     }
 }
 
 impl Finalize for LinkNode {
-    fn finalize(
-        &self,
-        _: Tracked<dyn World>,
-        _: StyleChain,
-        realized: Content,
-    ) -> SourceResult<Content> {
-        Ok(realized.styled(Self::DEST, Some(self.dest.clone())))
+    fn finalize(&self, realized: Content) -> Content {
+        realized.styled(Self::DEST, Some(self.dest.clone()))
     }
 }

@@ -37,8 +37,8 @@ impl LayoutBlock for GridNode {
     fn layout_block(
         &self,
         world: Tracked<dyn World>,
-        regions: &Regions,
         styles: StyleChain,
+        regions: &Regions,
     ) -> SourceResult<Vec<Frame>> {
         // Prepare grid layout by unifying content and gutter tracks.
         let layouter = GridLayouter::new(
@@ -321,7 +321,7 @@ impl<'a> GridLayouter<'a> {
                     }
 
                     let frame =
-                        cell.layout_block(self.world, &pod, self.styles)?.remove(0);
+                        cell.layout_block(self.world, self.styles, &pod)?.remove(0);
                     resolved.set_max(frame.width());
                 }
             }
@@ -391,7 +391,7 @@ impl<'a> GridLayouter<'a> {
                 }
 
                 let mut sizes = cell
-                    .layout_block(self.world, &pod, self.styles)?
+                    .layout_block(self.world, self.styles, &pod)?
                     .into_iter()
                     .map(|frame| frame.height());
 
@@ -480,7 +480,7 @@ impl<'a> GridLayouter<'a> {
                     .select(self.regions.base, size);
 
                 let pod = Regions::one(size, base, Axes::splat(true));
-                let frame = cell.layout_block(self.world, &pod, self.styles)?.remove(0);
+                let frame = cell.layout_block(self.world, self.styles, &pod)?.remove(0);
                 output.push_frame(pos, frame);
             }
 
@@ -520,7 +520,7 @@ impl<'a> GridLayouter<'a> {
                 }
 
                 // Push the layouted frames into the individual output frames.
-                let frames = cell.layout_block(self.world, &pod, self.styles)?;
+                let frames = cell.layout_block(self.world, self.styles, &pod)?;
                 for (output, frame) in outputs.iter_mut().zip(frames) {
                     output.push_frame(pos, frame);
                 }

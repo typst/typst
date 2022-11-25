@@ -40,8 +40,8 @@ impl LayoutInline for LineNode {
     fn layout_inline(
         &self,
         _: Tracked<dyn World>,
-        regions: &Regions,
         styles: StyleChain,
+        regions: &Regions,
     ) -> SourceResult<Frame> {
         let stroke = styles.get(Self::STROKE).unwrap_or_default();
 
