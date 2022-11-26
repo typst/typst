@@ -154,13 +154,13 @@ impl<T> Trace<T> for SourceResult<T> {
 }
 
 /// A result type with a string error message.
-pub type StrResult<T> = Result<T, String>;
+pub type StrResult<T> = Result<T, EcoString>;
 
 /// Transform `expected X, found Y` into `expected X or A, found Y`.
-pub fn with_alternative(msg: String, alt: &str) -> String {
+pub fn with_alternative(msg: EcoString, alt: &str) -> EcoString {
     let mut parts = msg.split(", found ");
     if let (Some(a), Some(b)) = (parts.next(), parts.next()) {
-        format!("{} or {}, found {}", a, alt, b)
+        format_eco!("{} or {}, found {}", a, alt, b)
     } else {
         msg
     }

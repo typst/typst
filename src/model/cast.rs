@@ -9,7 +9,7 @@ use crate::geom::{
     Axes, Corners, Dir, GenAlign, Get, Length, Paint, PartialStroke, Point, Rel, Sides,
 };
 use crate::syntax::Spanned;
-use crate::util::EcoString;
+use crate::util::{format_eco, EcoString};
 
 /// Cast from a value to a specific type.
 pub trait Cast<V = Value>: Sized {
@@ -94,7 +94,11 @@ macro_rules! __castable {
                     v => v.type_name(),
                 };
 
-                Err(format!("expected {}, found {}", $expected, found))
+                Err($crate::util::format_eco!(
+                    "expected {}, found {}",
+                    $expected,
+                    found,
+                ))
             }
         }
     };
@@ -426,7 +430,7 @@ where
             };
 
             if let Some((key, _)) = dict.iter().next() {
-                return Err(format!("unexpected key {key:?}"));
+                return Err(format_eco!("unexpected key {key:?}"));
             }
 
             Ok(sides.map(Option::unwrap_or_default))
@@ -468,7 +472,7 @@ where
             };
 
             if let Some((key, _)) = dict.iter().next() {
-                return Err(format!("unexpected key {key:?}"));
+                return Err(format_eco!("unexpected key {key:?}"));
             }
 
             Ok(corners.map(Option::unwrap_or_default))

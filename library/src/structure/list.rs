@@ -263,7 +263,7 @@ impl Cast<Spanned<Value>> for Label {
             Value::Str(v) => Ok(Self::Pattern(v.parse()?)),
             Value::Content(v) => Ok(Self::Content(v)),
             Value::Func(v) => Ok(Self::Func(v, value.span)),
-            v => Err(format!(
+            v => Err(format_eco!(
                 "expected string, content or function, found {}",
                 v.type_name(),
             )),

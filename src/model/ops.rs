@@ -3,13 +3,14 @@
 use super::{Regex, Smart, Value};
 use crate::diag::StrResult;
 use crate::geom::{Axes, Axis, GenAlign, Length, Numeric, PartialStroke, Rel};
+use crate::util::format_eco;
 use std::cmp::Ordering;
 use Value::*;
 
 /// Bail with a type mismatch error.
 macro_rules! mismatch {
     ($fmt:expr, $($value:expr),* $(,)?) => {
-        return Err(format!($fmt, $($value.type_name()),*))
+        return Err(format_eco!($fmt, $($value.type_name()),*))
     };
 }
 
@@ -104,7 +105,7 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
                 (a.downcast::<GenAlign>(), b.downcast::<GenAlign>())
             {
                 if a.axis() == b.axis() {
-                    return Err(format!("cannot add two {:?} alignments", a.axis()));
+                    return Err(format_eco!("cannot add two {:?} alignments", a.axis()));
                 }
 
                 return Ok(Value::dynamic(match a.axis() {

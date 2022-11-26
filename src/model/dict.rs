@@ -7,7 +7,7 @@ use super::{Args, Array, Func, Str, Value, Vm};
 use crate::diag::{SourceResult, StrResult};
 use crate::syntax::is_ident;
 use crate::syntax::Spanned;
-use crate::util::ArcExt;
+use crate::util::{format_eco, ArcExt, EcoString};
 
 /// Create a new [`Dict`] from key-value pairs.
 #[macro_export]
@@ -122,8 +122,8 @@ impl Dict {
 
 /// The missing key access error message.
 #[cold]
-fn missing_key(key: &str) -> String {
-    format!("dictionary does not contain key {:?}", Str::from(key))
+fn missing_key(key: &str) -> EcoString {
+    format_eco!("dictionary does not contain key {:?}", Str::from(key))
 }
 
 impl Debug for Dict {

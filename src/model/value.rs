@@ -344,7 +344,7 @@ macro_rules! primitive {
                 match value {
                     Value::$variant(v) => Ok(v),
                     $(Value::$other$(($binding))? => Ok($out),)*
-                    v => Err(format!(
+                    v => Err(format_eco!(
                         "expected {}, found {}",
                         Self::TYPE_NAME,
                         v.type_name(),

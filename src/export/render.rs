@@ -16,11 +16,8 @@ use crate::image::{DecodedImage, Image};
 
 /// Export a frame into a raster image.
 ///
-/// This renders the frame at the given number of pixels per printer's point and
-/// returns the resulting `tiny-skia` pixel buffer.
-///
-/// In addition to the frame, you need to pass in the context used during
-/// compilation so that fonts and images can be rendered.
+/// This renders the frame at the given number of pixels per point and returns
+/// the resulting `tiny-skia` pixel buffer.
 pub fn render(frame: &Frame, pixel_per_pt: f32) -> sk::Pixmap {
     let size = frame.size();
     let pxw = (pixel_per_pt * size.x.to_f32()).round().max(1.0) as u32;

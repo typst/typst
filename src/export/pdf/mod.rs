@@ -21,10 +21,6 @@ use crate::image::Image;
 
 /// Export a document into a PDF file.
 ///
-/// This creates one page per frame. In addition to the frames, you need to pass
-/// in the context used during compilation so that fonts and images can be
-/// included in the PDF.
-///
 /// Returns the raw bytes making up the PDF file.
 pub fn pdf(document: &Document) -> Vec<u8> {
     let mut ctx = PdfContext::new(&document.metadata);

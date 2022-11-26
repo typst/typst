@@ -8,7 +8,7 @@ use unicode_segmentation::UnicodeSegmentation;
 use super::{castable, dict, Array, Dict, Value};
 use crate::diag::StrResult;
 use crate::geom::GenAlign;
-use crate::util::EcoString;
+use crate::util::{format_eco, EcoString};
 
 /// Create a new [`Str`] from a format string.
 #[macro_export]
@@ -401,7 +401,7 @@ pub struct Regex(regex::Regex);
 impl Regex {
     /// Create a new regular expression.
     pub fn new(re: &str) -> StrResult<Self> {
-        regex::Regex::new(re).map(Self).map_err(|err| err.to_string())
+        regex::Regex::new(re).map(Self).map_err(|err| format_eco!("{err}"))
     }
 }
 

@@ -641,8 +641,7 @@ impl FontSearcher {
         }
     }
 
-    /// Search for all fonts in a directory.
-    /// recursively.
+    /// Search for all fonts in a directory recursively.
     fn search_dir(&mut self, path: impl AsRef<Path>) {
         for entry in WalkDir::new(path)
             .follow_links(true)

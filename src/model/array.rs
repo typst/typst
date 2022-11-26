@@ -6,7 +6,7 @@ use std::sync::Arc;
 use super::{ops, Args, Func, Value, Vm};
 use crate::diag::{At, SourceResult, StrResult};
 use crate::syntax::Spanned;
-use crate::util::ArcExt;
+use crate::util::{format_eco, ArcExt, EcoString};
 
 /// Create a new [`Array`] from values.
 #[macro_export]
@@ -253,7 +253,7 @@ impl Array {
         vec.sort_by(|a, b| {
             a.partial_cmp(b).unwrap_or_else(|| {
                 if result.is_ok() {
-                    result = Err(format!(
+                    result = Err(format_eco!(
                         "cannot order {} and {}",
                         a.type_name(),
                         b.type_name(),
@@ -294,13 +294,13 @@ impl Array {
 
 /// The out of bounds access error message.
 #[cold]
-fn out_of_bounds(index: i64, len: i64) -> String {
-    format!("array index out of bounds (index: {}, len: {})", index, len)
+fn out_of_bounds(index: i64, len: i64) -> EcoString {
+    format_eco!("array index out of bounds (index: {}, len: {})", index, len)
 }
 
 /// The error message when the array is empty.
 #[cold]
-fn array_is_empty() -> String {
+fn array_is_empty() -> EcoString {
     "array is empty".into()
 }
 
