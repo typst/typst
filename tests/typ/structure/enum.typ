@@ -57,9 +57,9 @@
 No enum
 
 ---
-// Error: 18-20 invalid pattern
+// Error: 18-20 invalid numbering pattern
 #set enum(label: "")
 
 ---
-// Error: 18-24 invalid pattern
+// Error: 18-24 invalid numbering pattern
 #set enum(label: "(())")

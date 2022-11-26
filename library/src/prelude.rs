@@ -27,6 +27,6 @@ pub use typst::util::{format_eco, EcoString};
 pub use typst::World;
 
 #[doc(no_inline)]
-pub use crate::core::{Behave, Behaviour, ContentExt, StyleMapExt};
-#[doc(no_inline)]
 pub use crate::layout::{LayoutBlock, LayoutInline, Regions};
+#[doc(no_inline)]
+pub use crate::shared::{Behave, Behaviour, ContentExt, StyleMapExt};

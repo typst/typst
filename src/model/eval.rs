@@ -59,7 +59,7 @@ pub fn eval(
 
 /// A virtual machine.
 ///
-/// Holds the state needed to [evaluate](super::eval()) Typst sources. A new
+/// Holds the state needed to [evaluate](eval) Typst sources. A new
 /// virtual machine is created for each module evaluation and function call.
 pub struct Vm<'a> {
     /// The compilation environment.
@@ -78,7 +78,7 @@ pub struct Vm<'a> {
 
 impl<'a> Vm<'a> {
     /// Create a new virtual machine.
-    pub fn new(
+    pub(super) fn new(
         world: Tracked<'a, dyn World>,
         route: Tracked<'a, Route>,
         location: SourceId,

@@ -37,8 +37,8 @@ use typst::model::{
 };
 use typst::World;
 
-use crate::core::BehavedBuilder;
 use crate::prelude::*;
+use crate::shared::BehavedBuilder;
 use crate::structure::{
     DescNode, DocNode, EnumNode, ListItem, ListNode, DESC, ENUM, LIST,
 };

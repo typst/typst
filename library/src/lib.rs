@@ -1,11 +1,11 @@
 //! Typst's standard library.
 
 pub mod base;
-pub mod core;
 pub mod graphics;
 pub mod layout;
 pub mod math;
 pub mod prelude;
+pub mod shared;
 pub mod structure;
 pub mod text;
 

@@ -1,8 +1,6 @@
-use unscanny::Scanner;
-
-use crate::base::Numbering;
 use crate::layout::{BlockNode, GridNode, HNode, Spacing, TrackSizing};
 use crate::prelude::*;
+use crate::shared::NumberingPattern;
 use crate::text::{ParNode, SpaceNode, TextNode};
 
 /// An unordered (bulleted) or ordered (numbered) list.
@@ -223,7 +221,7 @@ pub enum Label {
     /// The default labelling.
     Default,
     /// A pattern with prefix, numbering, lower / upper case and suffix.
-    Pattern(EcoString, Numbering, bool, EcoString),
+    Pattern(NumberingPattern),
     /// Bare content.
     Content(Content),
     /// A closure mapping from an item number to a value.
@@ -231,7 +229,7 @@ pub enum Label {
 }
 
 impl Label {
-    /// Resolve the value based on the level.
+    /// Resolve the label based on the level.
     pub fn resolve(
         &self,
         world: Tracked<dyn World>,
@@ -244,11 +242,7 @@ impl Label {
                 ENUM => TextNode::packed(format_eco!("{}.", number)),
                 DESC | _ => panic!("description lists don't have a label"),
             },
-            Self::Pattern(prefix, numbering, upper, suffix) => {
-                let fmt = numbering.apply(number);
-                let mid = if *upper { fmt.to_uppercase() } else { fmt.to_lowercase() };
-                TextNode::packed(format_eco!("{}{}{}", prefix, mid, suffix))
-            }
+            Self::Pattern(pattern) => TextNode::packed(pattern.apply(number)),
             Self::Content(content) => content.clone(),
             Self::Func(func, span) => {
                 let args = Args::new(*span, [Value::Int(number as i64)]);
@@ -266,24 +260,7 @@ impl Cast<Spanned<Value>> for Label {
     fn cast(value: Spanned<Value>) -> StrResult<Self> {
         match value.v {
             Value::None => Ok(Self::Content(Content::empty())),
-            Value::Str(pattern) => {
-                let mut s = Scanner::new(&pattern);
-                let mut prefix;
-                let numbering = loop {
-                    prefix = s.before();
-                    match s.eat().map(|c| c.to_ascii_lowercase()) {
-                        Some('1') => break Numbering::Arabic,
-                        Some('a') => break Numbering::Letter,
-                        Some('i') => break Numbering::Roman,
-                        Some('*') => break Numbering::Symbol,
-                        Some(_) => {}
-                        None => Err("invalid pattern")?,
-                    }
-                };
-                let upper = s.scout(-1).map_or(false, char::is_uppercase);
-                let suffix = s.after().into();
-                Ok(Self::Pattern(prefix.into(), numbering, upper, suffix))
-            }
+            Value::Str(v) => Ok(Self::Pattern(v.parse()?)),
             Value::Content(v) => Ok(Self::Content(v)),
             Value::Func(v) => Ok(Self::Func(v, value.span)),
             v => Err(format!(
