@@ -12,8 +12,8 @@ use elsa::FrozenVec;
 use once_cell::unsync::OnceCell;
 use tiny_skia as sk;
 use typst::diag::{bail, FileError, FileResult};
+use typst::doc::{Document, Element, Frame, Metadata};
 use typst::font::{Font, FontBook};
-use typst::frame::{Element, Frame};
 use typst::geom::{Abs, RgbaColor, Sides};
 use typst::model::{Library, Smart, Value};
 use typst::syntax::{Source, SourceId, SyntaxNode};
@@ -349,20 +349,21 @@ fn test(
         line += part.lines().count() + 1;
     }
 
+    let document = Document { pages: frames, metadata: Metadata::default() };
     if compare_ever {
         if let Some(pdf_path) = pdf_path {
-            let pdf_data = typst::export::pdf(&frames);
+            let pdf_data = typst::export::pdf(&document);
             fs::create_dir_all(&pdf_path.parent().unwrap()).unwrap();
             fs::write(pdf_path, pdf_data).unwrap();
         }
 
         if world.print.frames {
-            for frame in &frames {
+            for frame in &document.pages {
                 println!("Frame:\n{:#?}\n", frame);
             }
         }
 
-        let canvas = render(&frames);
+        let canvas = render(&document.pages);
         fs::create_dir_all(&png_path.parent().unwrap()).unwrap();
         canvas.save_png(png_path).unwrap();
 
@@ -378,7 +379,7 @@ fn test(
                 println!("  Does not match reference image. ❌");
                 ok = false;
             }
-        } else if !frames.is_empty() {
+        } else if !document.pages.is_empty() {
             println!("  Failed to open reference image. ❌");
             ok = false;
         }
@@ -425,7 +426,7 @@ fn test_part(
     }
 
     let (mut frames, errors) = match typst::compile(world, source) {
-        Ok(frames) => (frames, vec![]),
+        Ok(document) => (document.pages, vec![]),
         Err(errors) => (vec![], *errors),
     };
 

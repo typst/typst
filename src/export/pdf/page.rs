@@ -5,8 +5,8 @@ use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str};
 use super::{
     deflate, AbsExt, EmExt, Heading, HeadingNode, PdfContext, RefExt, D65_GRAY, SRGB,
 };
+use crate::doc::{Destination, Element, Frame, Group, Role, Text};
 use crate::font::Font;
-use crate::frame::{Destination, Element, Frame, Group, Role, Text};
 use crate::geom::{
     self, Abs, Color, Em, Geometry, Numeric, Paint, Point, Ratio, Shape, Size, Stroke,
     Transform,
@@ -155,8 +155,8 @@ pub struct Page {
 }
 
 /// An exporter for the contents of a single PDF page.
-struct PageContext<'a> {
-    parent: &'a mut PdfContext,
+struct PageContext<'a, 'b> {
+    parent: &'a mut PdfContext<'b>,
     page_ref: Ref,
     content: Content,
     state: State,
@@ -177,7 +177,7 @@ struct State {
     stroke_space: Option<Name<'static>>,
 }
 
-impl<'a> PageContext<'a> {
+impl PageContext<'_, '_> {
     fn save_state(&mut self) {
         self.saves.push(self.state.clone());
         self.content.save_state();

@@ -3,8 +3,8 @@ use std::str::FromStr;
 
 use super::{Content, Regex, Selector, Transform, Value};
 use crate::diag::{with_alternative, StrResult};
+use crate::doc::{Destination, Lang, Location, Region};
 use crate::font::{FontStretch, FontStyle, FontWeight};
-use crate::frame::{Destination, Lang, Location, Region};
 use crate::geom::{
     Axes, Corners, Dir, GenAlign, Get, Length, Paint, PartialStroke, Point, Rel, Sides,
 };

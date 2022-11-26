@@ -14,21 +14,21 @@ use pdf_writer::{Finish, Name, PdfWriter, Ref, TextStr};
 
 use self::outline::{Heading, HeadingNode};
 use self::page::Page;
+use crate::doc::{Document, Lang, Metadata};
 use crate::font::Font;
-use crate::frame::{Frame, Lang};
 use crate::geom::{Abs, Dir, Em};
 use crate::image::Image;
 
-/// Export a collection of frames into a PDF file.
+/// Export a document into a PDF file.
 ///
 /// This creates one page per frame. In addition to the frames, you need to pass
 /// in the context used during compilation so that fonts and images can be
 /// included in the PDF.
 ///
 /// Returns the raw bytes making up the PDF file.
-pub fn pdf(frames: &[Frame]) -> Vec<u8> {
-    let mut ctx = PdfContext::new();
-    page::construct_pages(&mut ctx, frames);
+pub fn pdf(document: &Document) -> Vec<u8> {
+    let mut ctx = PdfContext::new(&document.metadata);
+    page::construct_pages(&mut ctx, &document.pages);
     font::write_fonts(&mut ctx);
     image::write_images(&mut ctx);
     page::write_page_tree(&mut ctx);
@@ -41,7 +41,8 @@ const SRGB: Name<'static> = Name(b"srgb");
 const D65_GRAY: Name<'static> = Name(b"d65gray");
 
 /// Context for exporting a whole PDF document.
-pub struct PdfContext {
+pub struct PdfContext<'a> {
+    metadata: &'a Metadata,
     writer: PdfWriter,
     pages: Vec<Page>,
     page_heights: Vec<f32>,
@@ -57,11 +58,12 @@ pub struct PdfContext {
     heading_tree: Vec<HeadingNode>,
 }
 
-impl PdfContext {
-    fn new() -> Self {
+impl<'a> PdfContext<'a> {
+    fn new(metadata: &'a Metadata) -> Self {
         let mut alloc = Ref::new(1);
         let page_tree_ref = alloc.bump();
         Self {
+            metadata,
             writer: PdfWriter::new(),
             pages: vec![],
             page_heights: vec![],
@@ -117,7 +119,15 @@ fn write_catalog(ctx: &mut PdfContext) {
     };
 
     // Write the document information.
-    ctx.writer.document_info(ctx.alloc.bump()).creator(TextStr("Typst"));
+    let mut info = ctx.writer.document_info(ctx.alloc.bump());
+    if let Some(title) = &ctx.metadata.title {
+        info.title(TextStr(title));
+    }
+    if let Some(author) = &ctx.metadata.author {
+        info.author(TextStr(author));
+    }
+    info.creator(TextStr("Typst"));
+    info.finish();
 
     // Write the document catalog.
     let mut catalog = ctx.writer.catalog(ctx.alloc.bump());
@@ -131,8 +141,6 @@ fn write_catalog(ctx: &mut PdfContext) {
     if let Some(lang) = lang {
         catalog.lang(TextStr(lang.as_str()));
     }
-
-    catalog.finish();
 }
 
 /// Compress data with the DEFLATE algorithm.

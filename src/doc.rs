@@ -1,4 +1,4 @@
-//! Finished layouts.
+//! Finished documents.
 
 use std::fmt::{self, Debug, Formatter, Write};
 use std::num::NonZeroUsize;
@@ -12,6 +12,24 @@ use crate::geom::{
 use crate::image::Image;
 use crate::model::{dict, Dict, Value};
 use crate::util::EcoString;
+
+/// A finished document with metadata and page frames.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct Document {
+    /// The document's metadata.
+    pub metadata: Metadata,
+    /// The page frames.
+    pub pages: Vec<Frame>,
+}
+
+/// Document metadata.
+#[derive(Debug, Default, Clone, Eq, PartialEq)]
+pub struct Metadata {
+    /// The document's title.
+    pub title: Option<EcoString>,
+    /// The document's author.
+    pub author: Option<EcoString>,
+}
 
 /// A finished layout with elements at fixed positions.
 #[derive(Default, Clone, Eq, PartialEq)]

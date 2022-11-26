@@ -1,12 +1,12 @@
 //! Document structuring.
 
-mod doc;
+mod document;
 mod heading;
 mod list;
 mod reference;
 mod table;
 
-pub use self::doc::*;
+pub use self::document::*;
 pub use self::heading::*;
 pub use self::list::*;
 pub use self::reference::*;

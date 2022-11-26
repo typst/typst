@@ -44,6 +44,7 @@ fn scope() -> Scope {
     std.def_fn("smallcaps", text::smallcaps);
 
     // Structure.
+    std.def_node::<structure::DocumentNode>("document");
     std.def_node::<structure::RefNode>("ref");
     std.def_node::<structure::HeadingNode>("heading");
     std.def_node::<structure::ListNode>("list");

@@ -21,10 +21,6 @@ use crate::util::{format_eco, EcoString, PathExt};
 use crate::World;
 
 /// Evaluate a source file and return the resulting module.
-///
-/// Returns either a module containing a scope with top-level bindings and
-/// layoutable contents or diagnostics in the form of a vector of error
-/// messages with file and span information.
 #[comemo::memoize]
 pub fn eval(
     world: Tracked<dyn World>,
@@ -934,7 +930,7 @@ impl Eval for ast::SetRule {
         let target = self.target();
         let target = target.eval(vm)?.cast::<Func>().at(target.span())?;
         let args = self.args().eval(vm)?;
-        target.set(args)
+        Ok(target.set(args)?.spanned(self.span()))
     }
 }
 

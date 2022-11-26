@@ -10,7 +10,7 @@ pub use comemo::Tracked;
 #[doc(no_inline)]
 pub use typst::diag::{bail, error, with_alternative, At, SourceResult, StrResult};
 #[doc(no_inline)]
-pub use typst::frame::*;
+pub use typst::doc::*;
 #[doc(no_inline)]
 pub use typst::geom::*;
 #[doc(no_inline)]

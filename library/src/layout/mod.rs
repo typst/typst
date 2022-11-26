@@ -29,7 +29,7 @@ use std::mem;
 use comemo::Tracked;
 use typed_arena::Arena;
 use typst::diag::SourceResult;
-use typst::frame::Frame;
+use typst::doc::Frame;
 use typst::geom::*;
 use typst::model::{
     applicable, capability, realize, Content, Node, SequenceNode, Style, StyleChain,
@@ -40,7 +40,7 @@ use typst::World;
 use crate::prelude::*;
 use crate::shared::BehavedBuilder;
 use crate::structure::{
-    DescNode, DocNode, EnumNode, ListItem, ListNode, DESC, ENUM, LIST,
+    DescNode, DocumentNode, EnumNode, ListItem, ListNode, DESC, ENUM, LIST,
 };
 use crate::text::{
     LinebreakNode, ParNode, ParbreakNode, SmartQuoteNode, SpaceNode, TextNode,
@@ -54,7 +54,7 @@ pub trait LayoutRoot {
         &self,
         world: Tracked<dyn World>,
         styles: StyleChain,
-    ) -> SourceResult<Vec<Frame>>;
+    ) -> SourceResult<Document>;
 }
 
 impl LayoutRoot for Content {
@@ -63,7 +63,7 @@ impl LayoutRoot for Content {
         &self,
         world: Tracked<dyn World>,
         styles: StyleChain,
-    ) -> SourceResult<Vec<Frame>> {
+    ) -> SourceResult<Document> {
         let scratch = Scratch::default();
         let (realized, styles) = realize_root(world, &scratch, self, styles)?;
         realized.with::<dyn LayoutRoot>().unwrap().layout_root(world, styles)
@@ -245,7 +245,7 @@ fn realize_root<'a>(
     builder.accept(content, styles)?;
     builder.interrupt_page(Some(styles))?;
     let (pages, shared) = builder.doc.unwrap().pages.finish();
-    Ok((DocNode(pages).pack(), shared))
+    Ok((DocumentNode(pages).pack(), shared))
 }
 
 /// Realize into a node that is capable of block-level layout.
@@ -357,6 +357,10 @@ impl<'a> Builder<'a> {
             }
         }
 
+        if let Some(span) = content.span() {
+            bail!(span, "not allowed here");
+        }
+
         Ok(())
     }
 
@@ -378,13 +382,26 @@ impl<'a> Builder<'a> {
         map: &StyleMap,
         styles: Option<StyleChain<'a>>,
     ) -> SourceResult<()> {
-        if map.interrupts::<PageNode>() {
+        if let Some(Some(span)) = map.interruption::<DocumentNode>() {
+            if self.doc.is_none() {
+                bail!(span, "not allowed here");
+            }
+            if !self.flow.0.is_empty()
+                || !self.par.0.is_empty()
+                || !self.list.items.is_empty()
+            {
+                bail!(span, "must appear before any content");
+            }
+        } else if let Some(Some(span)) = map.interruption::<PageNode>() {
+            if self.doc.is_none() {
+                bail!(span, "not allowed here");
+            }
             self.interrupt_page(styles)?;
-        } else if map.interrupts::<ParNode>() {
+        } else if map.interruption::<ParNode>().is_some() {
             self.interrupt_par()?;
-        } else if map.interrupts::<ListNode>()
-            || map.interrupts::<EnumNode>()
-            || map.interrupts::<DescNode>()
+        } else if map.interruption::<ListNode>().is_some()
+            || map.interruption::<EnumNode>().is_some()
+            || map.interruption::<DescNode>().is_some()
         {
             self.interrupt_list()?;
         }

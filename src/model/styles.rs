@@ -79,9 +79,25 @@ impl StyleMap {
         self
     }
 
-    /// Whether this map contains styles for the given `node.`
-    pub fn interrupts<T: 'static>(&self) -> bool {
-        self.0.iter().any(|entry| entry.is_of(NodeId::of::<T>()))
+    /// Add an origin span to all contained properties.
+    pub fn spanned(mut self, span: Span) -> Self {
+        for entry in &mut self.0 {
+            if let Style::Property(property) = entry {
+                property.origin = Some(span);
+            }
+        }
+        self
+    }
+
+    /// Returns `Some(_)` with an optional span if this map contains styles for
+    /// the given `node`.
+    pub fn interruption<T: 'static>(&self) -> Option<Option<Span>> {
+        let node = NodeId::of::<T>();
+        self.0.iter().find_map(|entry| match entry {
+            Style::Property(property) => property.is_of(node).then(|| property.origin),
+            Style::Recipe(recipe) => recipe.is_of(node).then(|| Some(recipe.span)),
+            _ => None,
+        })
     }
 }
 
@@ -127,15 +143,6 @@ impl Style {
             _ => None,
         }
     }
-
-    /// Whether this entry contains styles for the given `node.`
-    pub fn is_of(&self, node: NodeId) -> bool {
-        match self {
-            Self::Property(property) => property.is_of(node),
-            Self::Recipe(recipe) => recipe.is_of(node),
-            _ => false,
-        }
-    }
 }
 
 impl Debug for Style {
@@ -162,6 +169,8 @@ pub struct Property {
     scoped: bool,
     /// The property's value.
     value: Arc<Prehashed<dyn Bounds>>,
+    /// The span of the set rule the property stems from.
+    origin: Option<Span>,
     /// The name of the property.
     #[cfg(debug_assertions)]
     name: &'static str,
@@ -175,6 +184,7 @@ impl Property {
             node: K::node(),
             value: Arc::new(Prehashed::new(value)),
             scoped: false,
+            origin: None,
             #[cfg(debug_assertions)]
             name: K::NAME,
         }
@@ -330,8 +340,11 @@ impl Recipe {
                 let args = Args::new(self.span, [Value::Content(content.clone())]);
                 let mut result = func.call_detached(world, args);
                 if let Some(span) = content.span() {
-                    let point = || Tracepoint::Show(content.name().into());
-                    result = result.trace(world, point, span);
+                    // For selector-less show rules, a tracepoint makes no sense.
+                    if self.selector.is_some() {
+                        let point = || Tracepoint::Show(content.name().into());
+                        result = result.trace(world, point, span);
+                    }
                 }
                 Ok(result?.display())
             }

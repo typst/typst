@@ -7,7 +7,7 @@ use once_cell::sync::OnceCell;
 
 use super::{Content, NodeId, Scope, StyleChain, StyleMap};
 use crate::diag::SourceResult;
-use crate::frame::Frame;
+use crate::doc::Document;
 use crate::geom::{Abs, Dir};
 use crate::util::{hash128, EcoString};
 use crate::World;
@@ -31,7 +31,7 @@ pub struct LangItems {
         world: Tracked<dyn World>,
         content: &Content,
         styles: StyleChain,
-    ) -> SourceResult<Vec<Frame>>,
+    ) -> SourceResult<Document>,
     /// Access the em size.
     pub em: fn(StyleChain) -> Abs,
     /// Access the text direction.

@@ -11,9 +11,8 @@
 //!   in the source file. The nodes of the content tree are well structured and
 //!   order-independent and thus much better suited for further processing than
 //!   the raw markup.
-//! - **Typesetting:** Next, the content is [typeset] into a collection of
-//!   [`Frame`]s (one per page) with elements and fixed positions, ready for
-//!   exporting.
+//! - **Typesetting:** Next, the content is [typeset] into a [document]
+//!   containing one [frame] per page with elements and fixed positions.
 //! - **Exporting:** These frames can finally be exported into an output format
 //!   (currently supported are [PDF] and [raster images]).
 //!
@@ -25,6 +24,8 @@
 //! [module]: model::Module
 //! [content]: model::Content
 //! [typeset]: model::typeset
+//! [document]: doc::Document
+//! [frame]: doc::Frame
 //! [PDF]: export::pdf
 //! [raster images]: export::render
 
@@ -38,9 +39,9 @@ pub mod geom;
 pub mod diag;
 #[macro_use]
 pub mod model;
+pub mod doc;
 pub mod export;
 pub mod font;
-pub mod frame;
 pub mod image;
 pub mod syntax;
 
@@ -49,21 +50,14 @@ use std::path::Path;
 use comemo::{Prehashed, Track};
 
 use crate::diag::{FileResult, SourceResult};
+use crate::doc::Document;
 use crate::font::{Font, FontBook};
-use crate::frame::Frame;
 use crate::model::{Library, Route};
 use crate::syntax::{Source, SourceId};
 use crate::util::Buffer;
 
-/// Compile a source file into a collection of layouted frames.
-///
-/// Returns either a vector of frames representing individual pages or
-/// diagnostics in the form of a vector of error message with file and span
-/// information.
-pub fn compile(
-    world: &(dyn World + 'static),
-    source: &Source,
-) -> SourceResult<Vec<Frame>> {
+/// Compile a source file into a fully layouted document.
+pub fn compile(world: &(dyn World + 'static), source: &Source) -> SourceResult<Document> {
     // Evaluate the source file into a module.
     let route = Route::default();
     let module = model::eval(world.track(), route.track(), source)?;

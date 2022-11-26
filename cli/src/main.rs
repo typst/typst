@@ -236,8 +236,8 @@ fn compile_once(world: &mut SystemWorld, command: &CompileCommand) -> StrResult<
 
     match typst::compile(world, source) {
         // Export the PDF.
-        Ok(frames) => {
-            let buffer = typst::export::pdf(&frames);
+        Ok(document) => {
+            let buffer = typst::export::pdf(&document);
             fs::write(&command.output, buffer).map_err(|_| "failed to write PDF file")?;
             status(command, Status::Success).unwrap();
         }

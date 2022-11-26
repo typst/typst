@@ -94,8 +94,8 @@ fn bench_compile(iai: &mut Iai) {
 
 fn bench_render(iai: &mut Iai) {
     let world = BenchWorld::new();
-    let frames = typst::compile(&world, &world.source).unwrap();
-    iai.run(|| typst::export::render(&frames[0], 1.0))
+    let document = typst::compile(&world, &world.source).unwrap();
+    iai.run(|| typst::export::render(&document.pages[0], 1.0))
 }
 
 struct BenchWorld {
