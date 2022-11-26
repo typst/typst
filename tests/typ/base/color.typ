@@ -1,4 +1,4 @@
-// Test color creation functions.
+// Test color creation functions and modification methods.
 // Ref: false
 
 ---

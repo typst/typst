@@ -1,14 +1,14 @@
 //! Foundational functions.
 
 mod calc;
-mod color;
+mod create;
 mod data;
-mod string;
+mod numbering;
 
 pub use self::calc::*;
-pub use self::color::*;
+pub use self::create::*;
 pub use self::data::*;
-pub use self::string::*;
+pub use self::numbering::*;
 
 use comemo::Track;
 use typst::model::{self, Route, Vm};
@@ -19,6 +19,11 @@ use crate::prelude::*;
 /// The name of a value's type.
 pub fn type_(_: &Vm, args: &mut Args) -> SourceResult<Value> {
     Ok(args.expect::<Value>("value")?.type_name().into())
+}
+
+/// The string representation of a value.
+pub fn repr(_: &Vm, args: &mut Args) -> SourceResult<Value> {
+    Ok(args.expect::<Value>("value")?.repr().into())
 }
 
 /// Ensure that a condition is fulfilled.

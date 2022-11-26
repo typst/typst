@@ -1,8 +1,15 @@
 use std::str::FromStr;
 
-use typst::model::{castable, Value};
-use typst::util::{format_eco, EcoString};
 use unscanny::Scanner;
+
+use crate::prelude::*;
+
+/// Apply a numbering pattern to a number.
+pub fn numbering(_: &Vm, args: &mut Args) -> SourceResult<Value> {
+    let number = args.expect::<usize>("number")?;
+    let pattern = args.expect::<NumberingPattern>("pattern")?;
+    Ok(Value::Str(pattern.apply(number).into()))
+}
 
 /// A numbering pattern for lists or headings.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -129,7 +136,7 @@ impl NumberingKind {
                     return '-'.into();
                 }
 
-                const SYMBOLS: &[char] = &['*', '†', '‡', '§', '‖', '¶'];
+                const SYMBOLS: &[char] = &['*', '†', '‡', '§', '¶', '‖'];
                 let symbol = SYMBOLS[(n - 1) % SYMBOLS.len()];
                 let amount = ((n - 1) / SYMBOLS.len()) + 1;
                 std::iter::repeat(symbol).take(amount).collect()

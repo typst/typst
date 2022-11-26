@@ -88,28 +88,26 @@ fn scope() -> Scope {
 
     // Base.
     std.def_fn("type", base::type_);
+    std.def_fn("repr", base::repr);
     std.def_fn("assert", base::assert);
     std.def_fn("eval", base::eval);
     std.def_fn("int", base::int);
     std.def_fn("float", base::float);
+    std.def_fn("luma", base::luma);
+    std.def_fn("rgb", base::rgb);
+    std.def_fn("cmyk", base::cmyk);
+    std.def_fn("str", base::str);
+    std.def_fn("lorem", base::lorem);
+    std.def_fn("label", base::label);
+    std.def_fn("regex", base::regex);
+    std.def_fn("range", base::range);
+    std.def_fn("numbering", base::numbering);
     std.def_fn("abs", base::abs);
     std.def_fn("min", base::min);
     std.def_fn("max", base::max);
     std.def_fn("even", base::even);
     std.def_fn("odd", base::odd);
     std.def_fn("mod", base::mod_);
-    std.def_fn("range", base::range);
-    std.def_fn("luma", base::luma);
-    std.def_fn("rgb", base::rgb);
-    std.def_fn("cmyk", base::cmyk);
-    std.def_fn("repr", base::repr);
-    std.def_fn("str", base::str);
-    std.def_fn("label", base::label);
-    std.def_fn("regex", base::regex);
-    std.def_fn("letter", base::letter);
-    std.def_fn("roman", base::roman);
-    std.def_fn("symbol", base::symbol);
-    std.def_fn("lorem", base::lorem);
     std.def_fn("csv", base::csv);
     std.def_fn("json", base::json);
     std.def_fn("xml", base::xml);

@@ -17,6 +17,13 @@ pub fn call(
     let missing = || Err(missing_method(name, method)).at(span);
 
     let output = match value {
+        Value::Color(color) => match method {
+            "lighten" => Value::Color(color.lighten(args.expect("amount")?)),
+            "darken" => Value::Color(color.darken(args.expect("amount")?)),
+            "negate" => Value::Color(color.negate()),
+            _ => return missing(),
+        },
+
         Value::Str(string) => match method {
             "len" => Value::Int(string.len() as i64),
             "slice" => {
@@ -105,13 +112,6 @@ pub fn call(
         Value::Args(args) => match method {
             "positional" => Value::Array(args.to_positional()),
             "named" => Value::Dict(args.to_named()),
-            _ => return missing(),
-        },
-
-        Value::Color(color) => match method {
-            "lighten" => Value::Color(color.lighten(args.expect("amount")?)),
-            "darken" => Value::Color(color.darken(args.expect("amount")?)),
-            "negate" => Value::Color(color.negate()),
             _ => return missing(),
         },
 

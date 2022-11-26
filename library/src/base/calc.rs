@@ -2,35 +2,6 @@ use std::cmp::Ordering;
 
 use crate::prelude::*;
 
-/// Convert a value to an integer.
-pub fn int(_: &Vm, args: &mut Args) -> SourceResult<Value> {
-    let Spanned { v, span } = args.expect("value")?;
-    Ok(Value::Int(match v {
-        Value::Bool(v) => v as i64,
-        Value::Int(v) => v,
-        Value::Float(v) => v as i64,
-        Value::Str(v) => match v.parse() {
-            Ok(v) => v,
-            Err(_) => bail!(span, "invalid integer"),
-        },
-        v => bail!(span, "cannot convert {} to integer", v.type_name()),
-    }))
-}
-
-/// Convert a value to a float.
-pub fn float(_: &Vm, args: &mut Args) -> SourceResult<Value> {
-    let Spanned { v, span } = args.expect("value")?;
-    Ok(Value::Float(match v {
-        Value::Int(v) => v as f64,
-        Value::Float(v) => v,
-        Value::Str(v) => match v.parse() {
-            Ok(v) => v,
-            Err(_) => bail!(span, "invalid float"),
-        },
-        v => bail!(span, "cannot convert {} to float", v.type_name()),
-    }))
-}
-
 /// The absolute value of a numeric value.
 pub fn abs(_: &Vm, args: &mut Args) -> SourceResult<Value> {
     let Spanned { v, span } = args.expect("numeric value")?;
@@ -114,29 +85,4 @@ pub fn mod_(_: &Vm, args: &mut Args) -> SourceResult<Value> {
     }
 
     Ok(Value::Float(a % b))
-}
-
-/// Create a sequence of numbers.
-pub fn range(_: &Vm, args: &mut Args) -> SourceResult<Value> {
-    let first = args.expect::<i64>("end")?;
-    let (start, end) = match args.eat::<i64>()? {
-        Some(second) => (first, second),
-        None => (0, first),
-    };
-
-    let step: i64 = match args.named("step")? {
-        Some(Spanned { v: 0, span }) => bail!(span, "step must not be zero"),
-        Some(Spanned { v, .. }) => v,
-        None => 1,
-    };
-
-    let mut x = start;
-    let mut seq = vec![];
-
-    while x.cmp(&end) == 0.cmp(&step) {
-        seq.push(Value::Int(x));
-        x += step;
-    }
-
-    Ok(Value::Array(Array::from_vec(seq)))
 }

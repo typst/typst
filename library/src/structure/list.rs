@@ -1,6 +1,6 @@
+use crate::base::NumberingPattern;
 use crate::layout::{BlockNode, GridNode, HNode, Spacing, TrackSizing};
 use crate::prelude::*;
-use crate::shared::NumberingPattern;
 use crate::text::{ParNode, SpaceNode, TextNode};
 
 /// An unordered (bulleted) or ordered (numbered) list.
