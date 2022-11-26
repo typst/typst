@@ -232,7 +232,6 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
         | SyntaxKind::Shorthand(_)
         | SyntaxKind::Link(_)
         | SyntaxKind::Raw(_)
-        | SyntaxKind::Label(_)
         | SyntaxKind::Ref(_) => p.eat(),
 
         // Math.
@@ -257,6 +256,7 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
 
         // Hashtag + keyword / identifier.
         SyntaxKind::Ident(_)
+        | SyntaxKind::Label(_)
         | SyntaxKind::Let
         | SyntaxKind::Set
         | SyntaxKind::Show
@@ -617,7 +617,8 @@ fn literal(p: &mut Parser) -> bool {
             | SyntaxKind::Float(_)
             | SyntaxKind::Bool(_)
             | SyntaxKind::Numeric(_, _)
-            | SyntaxKind::Str(_),
+            | SyntaxKind::Str(_)
+            | SyntaxKind::Label(_),
         ) => {
             p.eat();
             true

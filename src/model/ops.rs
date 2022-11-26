@@ -307,6 +307,7 @@ pub fn equal(lhs: &Value, rhs: &Value) -> bool {
         (Fraction(a), Fraction(b)) => a == b,
         (Color(a), Color(b)) => a == b,
         (Str(a), Str(b)) => a == b,
+        (Label(a), Label(b)) => a == b,
         (Content(a), Content(b)) => a == b,
         (Array(a), Array(b)) => a == b,
         (Dict(a), Dict(b)) => a == b,

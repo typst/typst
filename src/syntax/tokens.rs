@@ -207,8 +207,8 @@ impl<'s> Tokens<'s> {
             }
             '`' => self.raw(),
             c if c.is_ascii_digit() => self.numbering(start),
-            '<' => self.label(),
-            '@' => self.reference(start),
+            '<' if self.s.at(is_id_continue) => self.label(),
+            '@' if self.s.at(is_id_continue) => self.reference(),
 
             // Escape sequences.
             '\\' => self.backslash(),
@@ -417,13 +417,8 @@ impl<'s> Tokens<'s> {
         }
     }
 
-    fn reference(&mut self, start: usize) -> SyntaxKind {
-        let label = self.s.eat_while(is_id_continue);
-        if !label.is_empty() {
-            SyntaxKind::Ref(label.into())
-        } else {
-            self.text(start)
-        }
+    fn reference(&mut self) -> SyntaxKind {
+        SyntaxKind::Ref(self.s.eat_while(is_id_continue).into())
     }
 
     fn math(&mut self, start: usize, c: char) -> SyntaxKind {
@@ -474,6 +469,9 @@ impl<'s> Tokens<'s> {
             // Parentheses.
             '(' => SyntaxKind::LeftParen,
             ')' => SyntaxKind::RightParen,
+
+            // Labels.
+            '<' if self.s.at(is_id_continue) => self.label(),
 
             // Two-char operators.
             '=' if self.s.eat_if('=') => SyntaxKind::EqEq,
@@ -954,7 +952,7 @@ mod tests {
         t!(Code: "="        => Eq);
         t!(Code: "=="       => EqEq);
         t!(Code: "!="       => ExclEq);
-        t!(Code: "<"        => Lt);
+        t!(Code[" /"]: "<"  => Lt);
         t!(Code: "<="       => LtEq);
         t!(Code: ">"        => Gt);
         t!(Code: ">="       => GtEq);

@@ -153,7 +153,7 @@ pub enum SyntaxKind {
     Raw(Arc<RawFields>),
     /// A hyperlink: `https://typst.org`.
     Link(EcoString),
-    /// A label: `<label>`.
+    /// A label: `<intro>`.
     Label(EcoString),
     /// A reference: `@target`.
     Ref(EcoString),

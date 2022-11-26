@@ -8,7 +8,7 @@ use comemo::{Track, Tracked};
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::{
-    methods, ops, Arg, Args, Array, CapturesVisitor, Closure, Content, Dict, Func,
+    methods, ops, Arg, Args, Array, CapturesVisitor, Closure, Content, Dict, Func, Label,
     LangItems, Recipe, Scope, Scopes, Selector, StyleMap, Transform, Value,
 };
 use crate::diag::{
@@ -231,11 +231,16 @@ fn eval_markup(
                 let tail = eval_markup(vm, nodes)?;
                 seq.push(tail.styled_with_recipe(vm.world, recipe)?)
             }
-            ast::MarkupNode::Label(label) => {
-                if let Some(node) = seq.iter_mut().rev().find(|node| node.labellable()) {
-                    *node = mem::take(node).labelled(label.get().clone());
+            ast::MarkupNode::Expr(expr) => match expr.eval(vm)? {
+                Value::Label(label) => {
+                    if let Some(node) =
+                        seq.iter_mut().rev().find(|node| node.labellable())
+                    {
+                        *node = mem::take(node).labelled(label);
+                    }
                 }
-            }
+                value => seq.push(value.display().spanned(expr.span())),
+            },
             _ => seq.push(node.eval(vm)?),
         }
 
@@ -274,9 +279,8 @@ impl Eval for ast::MarkupNode {
             Self::List(v) => v.eval(vm)?,
             Self::Enum(v) => v.eval(vm)?,
             Self::Desc(v) => v.eval(vm)?,
-            Self::Label(_) => unimplemented!("handled above"),
             Self::Ref(v) => v.eval(vm)?,
-            Self::Expr(v) => v.eval(vm)?.display(),
+            Self::Expr(_) => unimplemented!("handled above"),
         }
         .spanned(self.span()))
     }
@@ -527,6 +531,7 @@ impl Eval for ast::Lit {
                 Unit::Percent => Ratio::new(v / 100.0).into(),
             },
             ast::LitKind::Str(v) => Value::Str(v.into()),
+            ast::LitKind::Label(v) => Value::Label(Label(v)),
         })
     }
 }

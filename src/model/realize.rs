@@ -78,6 +78,14 @@ fn try_apply(
             recipe.apply(world, target.clone().guarded(guard)).map(Some)
         }
 
+        Some(Selector::Label(label)) => {
+            if target.label() != Some(label) {
+                return Ok(None);
+            }
+
+            recipe.apply(world, target.clone().guarded(guard)).map(Some)
+        }
+
         Some(Selector::Regex(regex)) => {
             let Some(text) = item!(text_str)(&target) else {
                 return Ok(None);

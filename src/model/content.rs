@@ -21,7 +21,7 @@ pub struct Content {
     obj: Arc<dyn Bounds>,
     guards: Vec<Guard>,
     span: Option<Span>,
-    label: Option<EcoString>,
+    label: Option<Label>,
 }
 
 impl Content {
@@ -54,7 +54,7 @@ impl Content {
     }
 
     /// Attach a label to the content.
-    pub fn labelled(mut self, label: EcoString) -> Self {
+    pub fn labelled(mut self, label: Label) -> Self {
         self.label = Some(label);
         self
     }
@@ -131,7 +131,7 @@ impl Content {
     }
 
     /// The content's label.
-    pub fn label(&self) -> Option<&EcoString> {
+    pub fn label(&self) -> Option<&Label> {
         self.label.as_ref()
     }
 
@@ -139,7 +139,7 @@ impl Content {
     pub fn field(&self, name: &str) -> Option<Value> {
         if name == "label" {
             return Some(match &self.label {
-                Some(label) => Value::Str(label.clone().into()),
+                Some(label) => Value::Label(label.clone()),
                 None => Value::None,
             });
         }
@@ -332,6 +332,16 @@ impl SequenceNode {}
 impl Debug for SequenceNode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.debug_list().entries(self.0.iter()).finish()
+    }
+}
+
+/// A label for a node.
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct Label(pub EcoString);
+
+impl Debug for Label {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "<{}>", self.0)
     }
 }
 

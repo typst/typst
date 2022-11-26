@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use comemo::{Prehashed, Tracked};
 
-use super::{Args, Content, Dict, Func, NodeId, Regex, Smart, Value};
+use super::{Args, Content, Dict, Func, Label, NodeId, Regex, Smart, Value};
 use crate::diag::{SourceResult, Trace, Tracepoint};
 use crate::geom::{
     Abs, Align, Axes, Corners, Em, GenAlign, Length, Numeric, PartialStroke, Rel, Sides,
@@ -354,7 +354,9 @@ pub enum Selector {
     /// If there is a dictionary, only nodes with the fields from the
     /// dictionary match.
     Node(NodeId, Option<Dict>),
-    /// Matches text through a regular expression.
+    /// Matches nodes with a specific label.
+    Label(Label),
+    /// Matches text nodes through a regular expression.
     Regex(Regex),
 }
 
@@ -368,13 +370,17 @@ impl Selector {
     pub fn matches(&self, target: &Content) -> bool {
         match self {
             Self::Node(id, dict) => {
-                *id == target.id()
+                target.id() == *id
                     && dict
                         .iter()
                         .flat_map(|dict| dict.iter())
                         .all(|(name, value)| target.field(name).as_ref() == Some(value))
             }
-            Self::Regex(_) => target.id() == item!(text_id),
+            Self::Label(label) => target.label() == Some(label),
+            Self::Regex(regex) => {
+                target.id() == item!(text_id)
+                    && item!(text_str)(target).map_or(false, |text| regex.is_match(text))
+            }
         }
     }
 }

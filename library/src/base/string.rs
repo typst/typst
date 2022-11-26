@@ -14,9 +14,15 @@ pub fn str(_: &Vm, args: &mut Args) -> SourceResult<Value> {
     Ok(Value::Str(match v {
         Value::Int(v) => format_str!("{}", v),
         Value::Float(v) => format_str!("{}", v),
+        Value::Label(label) => label.0.into(),
         Value::Str(v) => v,
         v => bail!(span, "cannot convert {} to string", v.type_name()),
     }))
+}
+
+/// Create a label from a string.
+pub fn label(_: &Vm, args: &mut Args) -> SourceResult<Value> {
+    Ok(Value::Label(Label(args.expect("string")?)))
 }
 
 /// Create blind text.

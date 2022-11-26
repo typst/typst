@@ -105,6 +105,7 @@ fn scope() -> Scope {
     std.def_fn("cmyk", base::cmyk);
     std.def_fn("repr", base::repr);
     std.def_fn("str", base::str);
+    std.def_fn("label", base::label);
     std.def_fn("regex", base::regex);
     std.def_fn("letter", base::letter);
     std.def_fn("roman", base::roman);

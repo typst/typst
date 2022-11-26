@@ -95,8 +95,6 @@ pub enum MarkupNode {
     Raw(Raw),
     /// A hyperlink: `https://typst.org`.
     Link(Link),
-    /// A label: `<label>`.
-    Label(Label),
     /// A reference: `@target`.
     Ref(Ref),
     /// A section heading: `= Introduction`.
@@ -126,7 +124,6 @@ impl AstNode for MarkupNode {
             SyntaxKind::Emph => node.cast().map(Self::Emph),
             SyntaxKind::Raw(_) => node.cast().map(Self::Raw),
             SyntaxKind::Link(_) => node.cast().map(Self::Link),
-            SyntaxKind::Label(_) => node.cast().map(Self::Label),
             SyntaxKind::Ref(_) => node.cast().map(Self::Ref),
             SyntaxKind::Heading => node.cast().map(Self::Heading),
             SyntaxKind::ListItem => node.cast().map(Self::List),
@@ -149,7 +146,6 @@ impl AstNode for MarkupNode {
             Self::Emph(v) => v.as_untyped(),
             Self::Raw(v) => v.as_untyped(),
             Self::Link(v) => v.as_untyped(),
-            Self::Label(v) => v.as_untyped(),
             Self::Ref(v) => v.as_untyped(),
             Self::Heading(v) => v.as_untyped(),
             Self::List(v) => v.as_untyped(),
@@ -309,21 +305,6 @@ impl Link {
         match self.0.kind() {
             SyntaxKind::Link(url) => url,
             _ => panic!("link is of wrong kind"),
-        }
-    }
-}
-
-node! {
-    /// A label: `<label>`.
-    Label
-}
-
-impl Label {
-    /// Get the label.
-    pub fn get(&self) -> &EcoString {
-        match self.0.kind() {
-            SyntaxKind::Label(v) => v,
-            _ => panic!("label is of wrong kind"),
         }
     }
 }
@@ -704,6 +685,7 @@ node! {
        | SyntaxKind::Float(_)
        | SyntaxKind::Numeric(_, _)
        | SyntaxKind::Str(_)
+       | SyntaxKind::Label(_)
 }
 
 impl Lit {
@@ -717,6 +699,7 @@ impl Lit {
             SyntaxKind::Float(v) => LitKind::Float(v),
             SyntaxKind::Numeric(v, unit) => LitKind::Numeric(v, unit),
             SyntaxKind::Str(ref v) => LitKind::Str(v.clone()),
+            SyntaxKind::Label(ref v) => LitKind::Label(v.clone()),
             _ => panic!("literal is of wrong kind"),
         }
     }
@@ -739,6 +722,8 @@ pub enum LitKind {
     Numeric(f64, Unit),
     /// A quoted string: `"..."`.
     Str(EcoString),
+    /// A label: `<intro>`.
+    Label(EcoString),
 }
 
 node! {

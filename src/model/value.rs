@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use siphasher::sip128::{Hasher128, SipHasher};
 
-use super::{format_str, ops, Args, Array, Cast, Content, Dict, Func, Str};
+use super::{format_str, ops, Args, Array, Cast, Content, Dict, Func, Label, Str};
 use crate::diag::StrResult;
 use crate::geom::{Abs, Angle, Color, Em, Fr, Length, Ratio, Rel, RgbaColor};
 use crate::util::{format_eco, EcoString};
@@ -38,6 +38,8 @@ pub enum Value {
     Color(Color),
     /// A string: `"string"`.
     Str(Str),
+    /// A label: `<intro>`.
+    Label(Label),
     /// A content value: `[*Hi* there]`.
     Content(Content),
     /// An array of values: `(1, "hi", 12cm)`.
@@ -76,6 +78,7 @@ impl Value {
             Self::Fraction(_) => Fr::TYPE_NAME,
             Self::Color(_) => Color::TYPE_NAME,
             Self::Str(_) => Str::TYPE_NAME,
+            Self::Label(_) => Label::TYPE_NAME,
             Self::Content(_) => Content::TYPE_NAME,
             Self::Array(_) => Array::TYPE_NAME,
             Self::Dict(_) => Dict::TYPE_NAME,
@@ -130,6 +133,7 @@ impl Debug for Value {
             Self::Fraction(v) => Debug::fmt(v, f),
             Self::Color(v) => Debug::fmt(v, f),
             Self::Str(v) => Debug::fmt(v, f),
+            Self::Label(v) => Debug::fmt(v, f),
             Self::Content(_) => f.pad("[...]"),
             Self::Array(v) => Debug::fmt(v, f),
             Self::Dict(v) => Debug::fmt(v, f),
@@ -168,6 +172,7 @@ impl Hash for Value {
             Self::Fraction(v) => v.hash(state),
             Self::Color(v) => v.hash(state),
             Self::Str(v) => v.hash(state),
+            Self::Label(v) => v.hash(state),
             Self::Content(v) => v.hash(state),
             Self::Array(v) => v.hash(state),
             Self::Dict(v) => v.hash(state),
@@ -373,6 +378,7 @@ primitive! { Rel<Length>:  "relative length",
 primitive! { Fr: "fraction", Fraction }
 primitive! { Color: "color", Color }
 primitive! { Str: "string", Str }
+primitive! { Label: "label", Label }
 primitive! { Content: "content",
     Content,
     None => Content::empty(),
