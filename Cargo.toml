@@ -32,6 +32,7 @@ siphasher = "0.3"
 subsetter = "0.1"
 svg2pdf = "0.4"
 syntect = { version = "5", default-features = false, features = ["default-syntaxes", "regex-fancy"] }
+thin-vec = "0.2"
 tiny-skia = "0.6.2"
 ttf-parser = "0.17"
 unicode-segmentation = "1"

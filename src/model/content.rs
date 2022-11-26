@@ -7,6 +7,7 @@ use std::sync::Arc;
 
 use comemo::Tracked;
 use siphasher::sip128::{Hasher128, SipHasher};
+use thin_vec::ThinVec;
 use typst_macros::node;
 
 use super::{capability, Args, Guard, Key, Property, Recipe, Style, StyleMap, Value, Vm};
@@ -19,9 +20,15 @@ use crate::World;
 #[derive(Clone, Hash)]
 pub struct Content {
     obj: Arc<dyn Bounds>,
-    guards: Vec<Guard>,
     span: Option<Span>,
-    label: Option<Label>,
+    meta: ThinVec<Meta>,
+}
+
+/// Metadata that can be attached to content.
+#[derive(Debug, Clone, PartialEq, Hash)]
+enum Meta {
+    Guard(Guard),
+    Label(Label),
 }
 
 impl Content {
@@ -55,7 +62,14 @@ impl Content {
 
     /// Attach a label to the content.
     pub fn labelled(mut self, label: Label) -> Self {
-        self.label = Some(label);
+        for meta in &mut self.meta {
+            if let Meta::Label(prev) = meta {
+                *prev = label;
+                return self;
+            }
+        }
+
+        self.meta.push(Meta::Label(label));
         self
     }
 
@@ -132,13 +146,16 @@ impl Content {
 
     /// The content's label.
     pub fn label(&self) -> Option<&Label> {
-        self.label.as_ref()
+        self.meta.iter().find_map(|meta| match meta {
+            Meta::Label(label) => Some(label),
+            _ => None,
+        })
     }
 
     /// Access a field on this content.
     pub fn field(&self, name: &str) -> Option<Value> {
         if name == "label" {
-            return Some(match &self.label {
+            return Some(match self.label() {
                 Some(label) => Value::Label(label.clone()),
                 None => Value::None,
             });
@@ -184,7 +201,7 @@ impl Content {
     /// Disable a show rule recipe.
     #[doc(hidden)]
     pub fn guarded(mut self, id: Guard) -> Self {
-        self.guards.push(id);
+        self.meta.push(Meta::Guard(id));
         self
     }
 
@@ -195,19 +212,18 @@ impl Content {
 
     /// Whether no show rule was executed for this node so far.
     pub(super) fn is_pristine(&self) -> bool {
-        self.guards.is_empty()
+        !self.meta.iter().any(|meta| matches!(meta, Meta::Guard(_)))
     }
 
     /// Check whether a show rule recipe is disabled.
     pub(super) fn is_guarded(&self, id: Guard) -> bool {
-        self.guards.contains(&id)
+        self.meta.contains(&Meta::Guard(id))
     }
 
     /// Copy the metadata from other content.
     pub(super) fn copy_meta(&mut self, from: &Content) {
-        self.guards = from.guards.clone();
         self.span = from.span;
-        self.label = from.label.clone();
+        self.meta = from.meta.clone();
     }
 }
 
@@ -354,9 +370,8 @@ pub trait Node: 'static + Capable {
     {
         Content {
             obj: Arc::new(self),
-            guards: vec![],
             span: None,
-            label: None,
+            meta: ThinVec::new(),
         }
     }
 

@@ -1053,6 +1053,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "thin-vec"
+version = "0.2.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ceb05e71730d396f960f8f3901cdb41be2d339b303e9d7d3a07c5ff0536e671b"
+
+[[package]]
 name = "thiserror"
 version = "1.0.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1127,6 +1133,7 @@ dependencies = [
  "subsetter",
  "svg2pdf",
  "syntect",
+ "thin-vec",
  "tiny-skia",
  "ttf-parser 0.17.1",
  "typst-macros",
