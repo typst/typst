@@ -24,7 +24,6 @@ fn scope() -> Scope {
     let mut std = Scope::new();
 
     // Text.
-    std.def_node::<text::SpaceNode>("space");
     std.def_node::<text::LinebreakNode>("linebreak");
     std.def_node::<text::SmartQuoteNode>("smartquote");
     std.def_node::<text::TextNode>("text");

@@ -185,7 +185,7 @@ dynamic! {
     Selector: "selector",
     Value::Str(text) => Self::text(&text),
     Value::Label(label) => Self::Label(label),
-    Value::Func(func) => Self::Node(func.node()?, None),
+    Value::Func(func) => func.select(None)?,
     @regex: Regex => Self::Regex(regex.clone()),
 }
 

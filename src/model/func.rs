@@ -5,11 +5,12 @@ use std::sync::Arc;
 use comemo::{Track, Tracked};
 
 use super::{
-    Args, Eval, Flow, Node, NodeId, Route, Scope, Scopes, Selector, StyleMap, Value, Vm,
+    Args, Dict, Eval, Flow, Node, NodeId, Route, Scope, Scopes, Selector, StyleMap,
+    Value, Vm,
 };
 use crate::diag::{bail, SourceResult, StrResult};
 use crate::syntax::ast::{self, AstNode, Expr};
-use crate::syntax::{SourceId, Span, SyntaxNode};
+use crate::syntax::{SourceId, SyntaxNode};
 use crate::util::EcoString;
 use crate::World;
 
@@ -108,33 +109,35 @@ impl Func {
         Self(Arc::new(Repr::With(self, args)))
     }
 
-    /// Execute the function's set rule and return the resulting style map.
-    pub fn set(&self, mut args: Args, span: Span) -> SourceResult<StyleMap> {
-        let Repr::Native(Native { set: Some(set), .. }) = self.0.as_ref() else {
-            bail!(span, "this function cannot be customized with set");
-        };
-
-        let styles = set(&mut args)?;
-        args.finish()?;
-        Ok(styles)
-    }
-
-    /// The id of the node to customize with this function's show rule.
-    pub fn node(&self) -> StrResult<NodeId> {
-        match self.0.as_ref() {
-            Repr::Native(Native { node: Some(id), .. }) => Ok(*id),
-            _ => Err("this function cannot be customized with show")?,
-        }
-    }
-
     /// Create a selector for this function's node type, filtering by node's
     /// whose [fields](super::Content::field) match the given arguments.
     pub fn where_(self, args: &mut Args) -> StrResult<Selector> {
+        let fields = args.to_named();
+        args.items.retain(|arg| arg.name.is_none());
+        self.select(Some(fields))
+    }
+
+    /// Execute the function's set rule and return the resulting style map.
+    pub fn set(&self, mut args: Args) -> SourceResult<StyleMap> {
+        Ok(match self.0.as_ref() {
+            Repr::Native(Native { set: Some(set), .. }) => {
+                let styles = set(&mut args)?;
+                args.finish()?;
+                styles
+            }
+            _ => StyleMap::new(),
+        })
+    }
+
+    /// Create a selector for this function's node type.
+    pub fn select(&self, fields: Option<Dict>) -> StrResult<Selector> {
         match self.0.as_ref() {
-            Repr::Native(Native { node: Some(id), .. }) => {
-                let named = args.to_named();
-                args.items.retain(|arg| arg.name.is_none());
-                Ok(Selector::Node(*id, Some(named)))
+            &Repr::Native(Native { node: Some(id), .. }) => {
+                if id == item!(text_id) {
+                    Err("to select text, please use a string or regex instead")?;
+                }
+
+                Ok(Selector::Node(id, fields))
             }
             _ => Err("this function is not selectable")?,
         }

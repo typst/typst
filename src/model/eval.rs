@@ -932,10 +932,9 @@ impl Eval for ast::SetRule {
         }
 
         let target = self.target();
-        let span = target.span();
-        let target = target.eval(vm)?.cast::<Func>().at(span)?;
+        let target = target.eval(vm)?.cast::<Func>().at(target.span())?;
         let args = self.args().eval(vm)?;
-        target.set(args, span)
+        target.set(args)
     }
 }
 

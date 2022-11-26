@@ -83,8 +83,12 @@ Another text.
 = Heading
 
 ---
-// Error: 7-12 this function cannot be customized with show
+// Error: 7-12 this function is not selectable
 #show upper: it => {}
+
+---
+// Error: 7-11 to select text, please use a string or regex instead
+#show text: it => {}
 
 ---
 // Error: 16-20 expected content or function, found integer
