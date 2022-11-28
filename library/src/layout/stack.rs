@@ -15,7 +15,7 @@ pub struct StackNode {
     pub children: Vec<StackChild>,
 }
 
-#[node(LayoutBlock)]
+#[node(Layout)]
 impl StackNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self {
@@ -27,13 +27,13 @@ impl StackNode {
     }
 }
 
-impl LayoutBlock for StackNode {
-    fn layout_block(
+impl Layout for StackNode {
+    fn layout(
         &self,
         world: Tracked<dyn World>,
         styles: StyleChain,
         regions: &Regions,
-    ) -> SourceResult<Vec<Frame>> {
+    ) -> SourceResult<Fragment> {
         let mut layouter = StackLayouter::new(self.dir, regions, styles);
 
         // Spacing to insert before the next block.
@@ -196,9 +196,9 @@ impl<'a> StackLayouter<'a> {
                 self.dir.start().into()
             });
 
-        let frames = block.layout_block(world, styles, &self.regions)?;
-        let len = frames.len();
-        for (i, frame) in frames.into_iter().enumerate() {
+        let fragment = block.layout(world, styles, &self.regions)?;
+        let len = fragment.len();
+        for (i, frame) in fragment.into_iter().enumerate() {
             // Grow our size, shrink the region and save the frame for later.
             let size = frame.size();
             let size = match self.axis {
@@ -276,9 +276,9 @@ impl<'a> StackLayouter<'a> {
     }
 
     /// Finish layouting and return the resulting frames.
-    fn finish(mut self) -> Vec<Frame> {
+    fn finish(mut self) -> Fragment {
         self.finish_region();
-        self.finished
+        Fragment::frames(self.finished)
     }
 }
 

@@ -9,7 +9,7 @@ use crate::text::LinkNode;
 #[derive(Debug, Hash)]
 pub struct ImageNode(pub Image);
 
-#[node(LayoutInline)]
+#[node(Layout, Inline)]
 impl ImageNode {
     /// How the image should adjust itself to a given area.
     pub const FIT: ImageFit = ImageFit::Cover;
@@ -37,13 +37,13 @@ impl ImageNode {
     }
 }
 
-impl LayoutInline for ImageNode {
-    fn layout_inline(
+impl Layout for ImageNode {
+    fn layout(
         &self,
         _: Tracked<dyn World>,
         styles: StyleChain,
         regions: &Regions,
-    ) -> SourceResult<Frame> {
+    ) -> SourceResult<Fragment> {
         let pxw = self.0.width() as f64;
         let pxh = self.0.height() as f64;
         let px_ratio = pxw / pxh;
@@ -94,9 +94,11 @@ impl LayoutInline for ImageNode {
             frame.link(url.clone());
         }
 
-        Ok(frame)
+        Ok(Fragment::frame(frame))
     }
 }
+
+impl Inline for ImageNode {}
 
 /// How an image should adjust itself to a given area.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]

@@ -4,43 +4,34 @@ use super::{AbsExt, PdfContext, RefExt};
 use crate::geom::{Abs, Point};
 use crate::util::EcoString;
 
-/// A heading that can later be linked in the outline panel.
+/// A heading in the outline panel.
 #[derive(Debug, Clone)]
-pub struct Heading {
+pub struct HeadingNode {
     pub content: EcoString,
     pub level: usize,
     pub position: Point,
     pub page: Ref,
-}
-
-/// A node in the outline tree.
-#[derive(Debug, Clone)]
-pub struct HeadingNode {
-    pub heading: Heading,
     pub children: Vec<HeadingNode>,
 }
 
 impl HeadingNode {
-    pub fn leaf(heading: Heading) -> Self {
-        HeadingNode { heading, children: Vec::new() }
-    }
-
     pub fn len(&self) -> usize {
         1 + self.children.iter().map(Self::len).sum::<usize>()
     }
 
-    pub fn insert(&mut self, other: Heading, level: usize) -> bool {
-        if level >= other.level {
+    #[allow(unused)]
+    pub fn try_insert(&mut self, child: Self, level: usize) -> bool {
+        if level >= child.level {
             return false;
         }
 
-        if let Some(child) = self.children.last_mut() {
-            if child.insert(other.clone(), level + 1) {
+        if let Some(last) = self.children.last_mut() {
+            if last.try_insert(child.clone(), level + 1) {
                 return true;
             }
         }
 
-        self.children.push(Self::leaf(other));
+        self.children.push(child);
         true
     }
 }
@@ -74,10 +65,10 @@ pub fn write_outline_item(
         outline.count(-(node.children.len() as i32));
     }
 
-    outline.title(TextStr(&node.heading.content));
-    outline.dest_direct().page(node.heading.page).xyz(
-        node.heading.position.x.to_f32(),
-        (node.heading.position.y + Abs::pt(3.0)).to_f32(),
+    outline.title(TextStr(&node.content));
+    outline.dest_direct().page(node.page).xyz(
+        node.position.x.to_f32(),
+        (node.position.y + Abs::pt(3.0)).to_f32(),
         None,
     );
 

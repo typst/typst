@@ -4,22 +4,26 @@ use crate::prelude::*;
 #[derive(Debug, Hash)]
 pub struct HideNode(pub Content);
 
-#[node(LayoutInline)]
+#[node(Layout, Inline)]
 impl HideNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self(args.expect("body")?).pack())
     }
 }
 
-impl LayoutInline for HideNode {
-    fn layout_inline(
+impl Layout for HideNode {
+    fn layout(
         &self,
         world: Tracked<dyn World>,
         styles: StyleChain,
         regions: &Regions,
-    ) -> SourceResult<Frame> {
-        let mut frame = self.0.layout_inline(world, styles, regions)?;
-        frame.clear();
-        Ok(frame)
+    ) -> SourceResult<Fragment> {
+        let mut fragment = self.0.layout(world, styles, regions)?;
+        for frame in &mut fragment {
+            frame.clear();
+        }
+        Ok(fragment)
     }
 }
+
+impl Inline for HideNode {}

@@ -12,7 +12,7 @@ use std::hash::Hash;
 use pdf_writer::types::Direction;
 use pdf_writer::{Finish, Name, PdfWriter, Ref, TextStr};
 
-use self::outline::{Heading, HeadingNode};
+use self::outline::HeadingNode;
 use self::page::Page;
 use crate::doc::{Document, Lang, Metadata};
 use crate::font::Font;

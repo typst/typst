@@ -15,7 +15,7 @@ use crate::prelude::*;
 #[derive(Hash)]
 pub struct ParNode(pub StyleVec<Content>);
 
-#[node(LayoutBlock)]
+#[node(Layout)]
 impl ParNode {
     /// The indent the first line of a consecutive paragraph should have.
     #[property(resolve)]
@@ -43,13 +43,13 @@ impl ParNode {
     }
 }
 
-impl LayoutBlock for ParNode {
-    fn layout_block(
+impl Layout for ParNode {
+    fn layout(
         &self,
         world: Tracked<dyn World>,
         styles: StyleChain,
         regions: &Regions,
-    ) -> SourceResult<Vec<Frame>> {
+    ) -> SourceResult<Fragment> {
         // Collect all text into one string for BiDi analysis.
         let (text, segments) = collect(self, &styles);
 
@@ -130,23 +130,25 @@ impl Unlabellable for ParbreakNode {}
 #[derive(Debug, Hash)]
 pub struct RepeatNode(pub Content);
 
-#[node(LayoutInline)]
+#[node(Layout, Inline)]
 impl RepeatNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self(args.expect("body")?).pack())
     }
 }
 
-impl LayoutInline for RepeatNode {
-    fn layout_inline(
+impl Layout for RepeatNode {
+    fn layout(
         &self,
         world: Tracked<dyn World>,
         styles: StyleChain,
         regions: &Regions,
-    ) -> SourceResult<Frame> {
-        self.0.layout_inline(world, styles, regions)
+    ) -> SourceResult<Fragment> {
+        self.0.layout(world, styles, regions)
     }
 }
+
+impl Inline for RepeatNode {}
 
 /// Range of a substring of text.
 type Range = std::ops::Range<usize>;
@@ -405,7 +407,7 @@ fn collect<'a>(
             .find_map(|child| {
                 if child.is::<TextNode>() || child.is::<SmartQuoteNode>() {
                     Some(true)
-                } else if child.has::<dyn LayoutInline>() {
+                } else if child.has::<dyn Inline>() {
                     Some(false)
                 } else {
                     None
@@ -460,7 +462,7 @@ fn collect<'a>(
         } else if let Some(&node) = child.to::<HNode>() {
             full.push(SPACING_REPLACE);
             Segment::Spacing(node.amount)
-        } else if child.has::<dyn LayoutInline>() {
+        } else if child.has::<dyn Inline>() {
             full.push(NODE_REPLACE);
             Segment::Inline(child)
         } else {
@@ -530,7 +532,7 @@ fn prepare<'a>(
                 } else {
                     let size = Size::new(regions.first.x, regions.base.y);
                     let pod = Regions::one(size, regions.base, Axes::splat(false));
-                    let mut frame = inline.layout_inline(world, styles, &pod)?;
+                    let mut frame = inline.layout(world, styles, &pod)?.into_frame();
                     frame.translate(Point::with_y(styles.get(TextNode::BASELINE)));
                     items.push(Item::Frame(frame));
                 }
@@ -1011,7 +1013,7 @@ fn line<'a>(
 }
 
 /// Combine layouted lines into one frame per region.
-fn stack(p: &Preparation, lines: &[Line], regions: &Regions) -> SourceResult<Vec<Frame>> {
+fn stack(p: &Preparation, lines: &[Line], regions: &Regions) -> SourceResult<Fragment> {
     // Determine the paragraph's width: Full width of the region if we
     // should expand or there's fractional spacing, fit-to-width otherwise.
     let mut width = regions.first.x;
@@ -1050,7 +1052,7 @@ fn stack(p: &Preparation, lines: &[Line], regions: &Regions) -> SourceResult<Vec
     }
 
     finished.push(output);
-    Ok(finished)
+    Ok(Fragment::frames(finished))
 }
 
 /// Commit to a line and build its frame.
@@ -1137,7 +1139,7 @@ fn commit(
                 let fill = Fr::one().share(fr, remaining);
                 let size = Size::new(fill, regions.base.y);
                 let pod = Regions::one(size, regions.base, Axes::new(false, false));
-                let frame = repeat.layout_inline(p.world, *styles, &pod)?;
+                let frame = repeat.layout(p.world, *styles, &pod)?.into_frame();
                 let width = frame.width();
                 let count = (fill / width).floor();
                 let remaining = fill % width;

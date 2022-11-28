@@ -9,7 +9,7 @@ pub struct LineNode {
     delta: Axes<Rel<Length>>,
 }
 
-#[node(LayoutInline)]
+#[node(Layout, Inline)]
 impl LineNode {
     /// How to stroke the line.
     #[property(resolve, fold)]
@@ -36,13 +36,13 @@ impl LineNode {
     }
 }
 
-impl LayoutInline for LineNode {
-    fn layout_inline(
+impl Layout for LineNode {
+    fn layout(
         &self,
         _: Tracked<dyn World>,
         styles: StyleChain,
         regions: &Regions,
-    ) -> SourceResult<Frame> {
+    ) -> SourceResult<Fragment> {
         let stroke = styles.get(Self::STROKE).unwrap_or_default();
 
         let origin = self
@@ -58,11 +58,13 @@ impl LayoutInline for LineNode {
             .map(|(l, b)| l.relative_to(b));
 
         let target = regions.expand.select(regions.first, Size::zero());
-        let mut frame = Frame::new(target);
 
+        let mut frame = Frame::new(target);
         let shape = Geometry::Line(delta.to_point()).stroked(stroke);
         frame.push(origin.to_point(), Element::Shape(shape));
 
-        Ok(frame)
+        Ok(Fragment::frame(frame))
     }
 }
+
+impl Inline for LineNode {}

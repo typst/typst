@@ -11,7 +11,7 @@ pub struct MoveNode {
     pub child: Content,
 }
 
-#[node(LayoutInline)]
+#[node(Layout, Inline)]
 impl MoveNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let dx = args.named("dx")?.unwrap_or_default();
@@ -24,20 +24,24 @@ impl MoveNode {
     }
 }
 
-impl LayoutInline for MoveNode {
-    fn layout_inline(
+impl Layout for MoveNode {
+    fn layout(
         &self,
         world: Tracked<dyn World>,
         styles: StyleChain,
         regions: &Regions,
-    ) -> SourceResult<Frame> {
-        let mut frame = self.child.layout_inline(world, styles, regions)?;
-        let delta = self.delta.resolve(styles);
-        let delta = delta.zip(frame.size()).map(|(d, s)| d.relative_to(s));
-        frame.translate(delta.to_point());
-        Ok(frame)
+    ) -> SourceResult<Fragment> {
+        let mut fragment = self.child.layout(world, styles, regions)?;
+        for frame in &mut fragment {
+            let delta = self.delta.resolve(styles);
+            let delta = delta.zip(frame.size()).map(|(d, s)| d.relative_to(s));
+            frame.translate(delta.to_point());
+        }
+        Ok(fragment)
     }
 }
+
+impl Inline for MoveNode {}
 
 /// Transform content without affecting layout.
 #[derive(Debug, Hash)]
@@ -54,7 +58,7 @@ pub type RotateNode = TransformNode<ROTATE>;
 /// Scale content without affecting layout.
 pub type ScaleNode = TransformNode<SCALE>;
 
-#[node(LayoutInline)]
+#[node(Layout, Inline)]
 impl<const T: TransformKind> TransformNode<T> {
     /// The origin of the transformation.
     #[property(resolve)]
@@ -78,25 +82,27 @@ impl<const T: TransformKind> TransformNode<T> {
     }
 }
 
-impl<const T: TransformKind> LayoutInline for TransformNode<T> {
-    fn layout_inline(
+impl<const T: TransformKind> Layout for TransformNode<T> {
+    fn layout(
         &self,
         world: Tracked<dyn World>,
         styles: StyleChain,
         regions: &Regions,
-    ) -> SourceResult<Frame> {
-        let mut frame = self.child.layout_inline(world, styles, regions)?;
-
-        let origin = styles.get(Self::ORIGIN).unwrap_or(Align::CENTER_HORIZON);
-        let Axes { x, y } = origin.zip(frame.size()).map(|(o, s)| o.position(s));
-        let transform = Transform::translate(x, y)
-            .pre_concat(self.transform)
-            .pre_concat(Transform::translate(-x, -y));
-        frame.transform(transform);
-
-        Ok(frame)
+    ) -> SourceResult<Fragment> {
+        let mut fragment = self.child.layout(world, styles, regions)?;
+        for frame in &mut fragment {
+            let origin = styles.get(Self::ORIGIN).unwrap_or(Align::CENTER_HORIZON);
+            let Axes { x, y } = origin.zip(frame.size()).map(|(o, s)| o.position(s));
+            let transform = Transform::translate(x, y)
+                .pre_concat(self.transform)
+                .pre_concat(Transform::translate(-x, -y));
+            frame.transform(transform);
+        }
+        Ok(fragment)
     }
 }
+
+impl<const T: TransformKind> Inline for TransformNode<T> {}
 
 /// Kinds of transformations.
 ///

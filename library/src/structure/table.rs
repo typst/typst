@@ -12,7 +12,7 @@ pub struct TableNode {
     pub cells: Vec<Content>,
 }
 
-#[node(LayoutBlock)]
+#[node(Layout)]
 impl TableNode {
     /// How to fill the cells.
     #[property(referenced)]
@@ -50,13 +50,13 @@ impl TableNode {
     }
 }
 
-impl LayoutBlock for TableNode {
-    fn layout_block(
+impl Layout for TableNode {
+    fn layout(
         &self,
         world: Tracked<dyn World>,
         styles: StyleChain,
         regions: &Regions,
-    ) -> SourceResult<Vec<Frame>> {
+    ) -> SourceResult<Fragment> {
         let fill = styles.get(Self::FILL);
         let stroke = styles.get(Self::STROKE).map(PartialStroke::unwrap_or_default);
         let padding = styles.get(Self::PADDING);
@@ -89,7 +89,7 @@ impl LayoutBlock for TableNode {
             gutter: self.gutter.clone(),
             cells,
         }
-        .layout_block(world, styles, regions)
+        .layout(world, styles, regions)
     }
 }
 

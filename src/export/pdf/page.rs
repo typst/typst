@@ -2,10 +2,8 @@ use pdf_writer::types::{ActionType, AnnotationType, ColorSpaceOperand};
 use pdf_writer::writers::ColorSpace;
 use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str};
 
-use super::{
-    deflate, AbsExt, EmExt, Heading, HeadingNode, PdfContext, RefExt, D65_GRAY, SRGB,
-};
-use crate::doc::{Destination, Element, Frame, Group, Role, Text};
+use super::{deflate, AbsExt, EmExt, PdfContext, RefExt, D65_GRAY, SRGB};
+use crate::doc::{Destination, Element, Frame, Group, Text};
 use crate::font::Font;
 use crate::geom::{
     self, Abs, Color, Em, Geometry, Numeric, Paint, Point, Ratio, Shape, Size, Stroke,
@@ -281,23 +279,6 @@ impl PageContext<'_, '_> {
 
 /// Encode a frame into the content stream.
 fn write_frame(ctx: &mut PageContext, frame: &Frame) {
-    if let Some(Role::Heading { level, outlined: true }) = frame.role() {
-        let heading = Heading {
-            position: Point::new(ctx.state.transform.tx, ctx.state.transform.ty),
-            content: frame.text(),
-            page: ctx.page_ref,
-            level: level.get(),
-        };
-
-        if let Some(last) = ctx.parent.heading_tree.last_mut() {
-            if !last.insert(heading.clone(), 1) {
-                ctx.parent.heading_tree.push(HeadingNode::leaf(heading))
-            }
-        } else {
-            ctx.parent.heading_tree.push(HeadingNode::leaf(heading))
-        }
-    }
-
     for &(pos, ref element) in frame.elements() {
         let x = pos.x.to_f32();
         let y = pos.y.to_f32();

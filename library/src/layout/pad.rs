@@ -9,7 +9,7 @@ pub struct PadNode {
     pub child: Content,
 }
 
-#[node(LayoutBlock)]
+#[node(Layout)]
 impl PadNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let all = args.named("rest")?.or(args.find()?);
@@ -25,19 +25,19 @@ impl PadNode {
     }
 }
 
-impl LayoutBlock for PadNode {
-    fn layout_block(
+impl Layout for PadNode {
+    fn layout(
         &self,
         world: Tracked<dyn World>,
         styles: StyleChain,
         regions: &Regions,
-    ) -> SourceResult<Vec<Frame>> {
+    ) -> SourceResult<Fragment> {
         // Layout child into padded regions.
         let padding = self.padding.resolve(styles);
         let pod = regions.map(|size| shrink(size, padding));
-        let mut frames = self.child.layout_block(world, styles, &pod)?;
+        let mut fragment = self.child.layout(world, styles, &pod)?;
 
-        for frame in &mut frames {
+        for frame in &mut fragment {
             // Apply the padding inversely such that the grown size padded
             // yields the frame's size.
             let padded = grow(frame.size(), padding);
@@ -49,7 +49,7 @@ impl LayoutBlock for PadNode {
             frame.translate(offset);
         }
 
-        Ok(frames)
+        Ok(fragment)
     }
 }
 

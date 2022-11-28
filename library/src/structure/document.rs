@@ -26,7 +26,8 @@ impl LayoutRoot for DocumentNode {
         let mut pages = vec![];
         for (page, map) in self.0.iter() {
             let number = 1 + pages.len();
-            pages.extend(page.layout(world, number, styles.chain(map))?);
+            let fragment = page.layout(world, number, styles.chain(map))?;
+            pages.extend(fragment);
         }
 
         Ok(Document {

@@ -99,22 +99,22 @@ struct FillNode {
     child: Content,
 }
 
-#[node(LayoutBlock)]
+#[node(Layout)]
 impl FillNode {}
 
-impl LayoutBlock for FillNode {
-    fn layout_block(
+impl Layout for FillNode {
+    fn layout(
         &self,
         world: Tracked<dyn World>,
         styles: StyleChain,
         regions: &Regions,
-    ) -> SourceResult<Vec<Frame>> {
-        let mut frames = self.child.layout_block(world, styles, regions)?;
-        for frame in &mut frames {
+    ) -> SourceResult<Fragment> {
+        let mut fragment = self.child.layout(world, styles, regions)?;
+        for frame in &mut fragment {
             let shape = Geometry::Rect(frame.size()).filled(self.fill);
             frame.prepend(Point::zero(), Element::Shape(shape));
         }
-        Ok(frames)
+        Ok(fragment)
     }
 }
 
@@ -127,21 +127,21 @@ struct StrokeNode {
     child: Content,
 }
 
-#[node(LayoutBlock)]
+#[node(Layout)]
 impl StrokeNode {}
 
-impl LayoutBlock for StrokeNode {
-    fn layout_block(
+impl Layout for StrokeNode {
+    fn layout(
         &self,
         world: Tracked<dyn World>,
         styles: StyleChain,
         regions: &Regions,
-    ) -> SourceResult<Vec<Frame>> {
-        let mut frames = self.child.layout_block(world, styles, regions)?;
-        for frame in &mut frames {
+    ) -> SourceResult<Fragment> {
+        let mut fragment = self.child.layout(world, styles, regions)?;
+        for frame in &mut fragment {
             let shape = Geometry::Rect(frame.size()).stroked(self.stroke);
             frame.prepend(Point::zero(), Element::Shape(shape));
         }
-        Ok(frames)
+        Ok(fragment)
     }
 }

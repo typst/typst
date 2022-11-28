@@ -10,14 +10,14 @@ pub struct AlignNode {
     pub child: Content,
 }
 
-#[node(LayoutBlock)]
+#[node(Layout)]
 impl AlignNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let aligns: Axes<Option<GenAlign>> = args.find()?.unwrap_or_default();
         let body: Content = args.expect("body")?;
 
         if let Axes { x: Some(x), y: None } = aligns {
-            if !body.has::<dyn LayoutBlock>() {
+            if !body.has::<dyn Layout>() || body.has::<dyn Inline>() {
                 return Ok(body.styled(ParNode::ALIGN, HorizontalAlign(x)));
             }
         }
@@ -26,13 +26,13 @@ impl AlignNode {
     }
 }
 
-impl LayoutBlock for AlignNode {
-    fn layout_block(
+impl Layout for AlignNode {
+    fn layout(
         &self,
         world: Tracked<dyn World>,
         styles: StyleChain,
         regions: &Regions,
-    ) -> SourceResult<Vec<Frame>> {
+    ) -> SourceResult<Fragment> {
         // The child only needs to expand along an axis if there's no alignment.
         let mut pod = regions.clone();
         pod.expand &= self.aligns.as_ref().map(Option::is_none);
@@ -44,8 +44,8 @@ impl LayoutBlock for AlignNode {
         }
 
         // Layout the child.
-        let mut frames = self.child.layout_block(world, styles.chain(&map), &pod)?;
-        for (region, frame) in regions.iter().zip(&mut frames) {
+        let mut fragment = self.child.layout(world, styles.chain(&map), &pod)?;
+        for (region, frame) in regions.iter().zip(&mut fragment) {
             // Align in the target size. The target size depends on whether we
             // should expand.
             let target = regions.expand.select(region, frame.size());
@@ -57,6 +57,6 @@ impl LayoutBlock for AlignNode {
             frame.resize(target, aligns);
         }
 
-        Ok(frames)
+        Ok(fragment)
     }
 }

@@ -22,22 +22,24 @@
 #let star(width, ..args) = box(width: width, height: width)[
   #set text(spacing: 0%)
   #set line(..args)
-
-  #align(left)[
-    #line(length: +30%, origin: (09.0%, 02%))
-    #line(length: +30%, origin: (38.7%, 02%), angle: -72deg)
-    #line(length: +30%, origin: (57.5%, 02%), angle: 252deg)
-    #line(length: +30%, origin: (57.3%, 02%))
-    #line(length: -30%, origin: (88.0%, 02%), angle: -36deg)
-    #line(length: +30%, origin: (73.3%, 48%), angle: 252deg)
-    #line(length: -30%, origin: (73.5%, 48%), angle: 36deg)
-    #line(length: +30%, origin: (25.4%, 48%), angle: -36deg)
-    #line(length: +30%, origin: (25.6%, 48%), angle: -72deg)
-    #line(length: +32%, origin: (8.50%, 02%), angle: 34deg)
-  ]
+  #set par(align: left)
+  #line(length: +30%, origin: (09.0%, 02%))
+  #line(length: +30%, origin: (38.7%, 02%), angle: -72deg)
+  #line(length: +30%, origin: (57.5%, 02%), angle: 252deg)
+  #line(length: +30%, origin: (57.3%, 02%))
+  #line(length: -30%, origin: (88.0%, 02%), angle: -36deg)
+  #line(length: +30%, origin: (73.3%, 48%), angle: 252deg)
+  #line(length: -30%, origin: (73.5%, 48%), angle: 36deg)
+  #line(length: +30%, origin: (25.4%, 48%), angle: -36deg)
+  #line(length: +30%, origin: (25.6%, 48%), angle: -72deg)
+  #line(length: +32%, origin: (8.50%, 02%), angle: 34deg)
 ]
 
-#align(center, grid(columns: (1fr,) * 3, ..((star(20pt, stroke: 0.5pt),) * 9)))
+#align(center, grid(
+  columns: 3,
+  column-gutter: 10pt,
+  ..((star(20pt, stroke: 0.5pt),) * 9)
+))
 
 ---
 // Test errors.

@@ -13,7 +13,7 @@ pub struct GridNode {
     pub cells: Vec<Content>,
 }
 
-#[node(LayoutBlock)]
+#[node(Layout)]
 impl GridNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let TrackSizings(columns) = args.named("columns")?.unwrap_or_default();
@@ -33,13 +33,13 @@ impl GridNode {
     }
 }
 
-impl LayoutBlock for GridNode {
-    fn layout_block(
+impl Layout for GridNode {
+    fn layout(
         &self,
         world: Tracked<dyn World>,
         styles: StyleChain,
         regions: &Regions,
-    ) -> SourceResult<Vec<Frame>> {
+    ) -> SourceResult<Fragment> {
         // Prepare grid layout by unifying content and gutter tracks.
         let layouter = GridLayouter::new(
             world,
@@ -222,7 +222,7 @@ impl<'a> GridLayouter<'a> {
     }
 
     /// Determines the columns sizes and then layouts the grid row-by-row.
-    fn layout(mut self) -> SourceResult<Vec<Frame>> {
+    fn layout(mut self) -> SourceResult<Fragment> {
         self.measure_columns()?;
 
         for y in 0..self.rows.len() {
@@ -243,7 +243,7 @@ impl<'a> GridLayouter<'a> {
         }
 
         self.finish_region()?;
-        Ok(self.finished)
+        Ok(Fragment::frames(self.finished))
     }
 
     /// Determine all column sizes.
@@ -320,8 +320,7 @@ impl<'a> GridLayouter<'a> {
                             v.resolve(self.styles).relative_to(self.regions.base.y);
                     }
 
-                    let frame =
-                        cell.layout_block(self.world, self.styles, &pod)?.remove(0);
+                    let frame = cell.layout(self.world, self.styles, &pod)?.into_frame();
                     resolved.set_max(frame.width());
                 }
             }
@@ -391,7 +390,7 @@ impl<'a> GridLayouter<'a> {
                 }
 
                 let mut sizes = cell
-                    .layout_block(self.world, self.styles, &pod)?
+                    .layout(self.world, self.styles, &pod)?
                     .into_iter()
                     .map(|frame| frame.height());
 
@@ -429,9 +428,9 @@ impl<'a> GridLayouter<'a> {
         }
 
         // Layout into multiple regions.
-        let frames = self.layout_multi_row(&resolved, y)?;
-        let len = frames.len();
-        for (i, frame) in frames.into_iter().enumerate() {
+        let fragment = self.layout_multi_row(&resolved, y)?;
+        let len = fragment.len();
+        for (i, frame) in fragment.into_iter().enumerate() {
             self.push_row(frame);
             if i + 1 < len {
                 self.finish_region()?;
@@ -480,7 +479,7 @@ impl<'a> GridLayouter<'a> {
                     .select(self.regions.base, size);
 
                 let pod = Regions::one(size, base, Axes::splat(true));
-                let frame = cell.layout_block(self.world, self.styles, &pod)?.remove(0);
+                let frame = cell.layout(self.world, self.styles, &pod)?.into_frame();
                 output.push_frame(pos, frame);
             }
 
@@ -491,11 +490,7 @@ impl<'a> GridLayouter<'a> {
     }
 
     /// Layout a row spanning multiple regions.
-    fn layout_multi_row(
-        &mut self,
-        heights: &[Abs],
-        y: usize,
-    ) -> SourceResult<Vec<Frame>> {
+    fn layout_multi_row(&mut self, heights: &[Abs], y: usize) -> SourceResult<Fragment> {
         // Prepare frames.
         let mut outputs: Vec<_> = heights
             .iter()
@@ -520,8 +515,8 @@ impl<'a> GridLayouter<'a> {
                 }
 
                 // Push the layouted frames into the individual output frames.
-                let frames = cell.layout_block(self.world, self.styles, &pod)?;
-                for (output, frame) in outputs.iter_mut().zip(frames) {
+                let fragment = cell.layout(self.world, self.styles, &pod)?;
+                for (output, frame) in outputs.iter_mut().zip(fragment) {
                     output.push_frame(pos, frame);
                 }
             }
@@ -529,7 +524,7 @@ impl<'a> GridLayouter<'a> {
             pos.x += rcol;
         }
 
-        Ok(outputs)
+        Ok(Fragment::frames(outputs))
     }
 
     /// Push a row frame into the current region.

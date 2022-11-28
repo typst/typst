@@ -11,23 +11,23 @@ use crate::text::ParNode;
 #[derive(Hash)]
 pub struct FlowNode(pub StyleVec<Content>);
 
-#[node(LayoutBlock)]
+#[node(Layout)]
 impl FlowNode {}
 
-impl LayoutBlock for FlowNode {
-    fn layout_block(
+impl Layout for FlowNode {
+    fn layout(
         &self,
         world: Tracked<dyn World>,
         styles: StyleChain,
         regions: &Regions,
-    ) -> SourceResult<Vec<Frame>> {
+    ) -> SourceResult<Fragment> {
         let mut layouter = FlowLayouter::new(regions);
 
         for (child, map) in self.0.iter() {
             let styles = styles.chain(&map);
             if let Some(&node) = child.to::<VNode>() {
                 layouter.layout_spacing(node.amount, styles);
-            } else if child.has::<dyn LayoutBlock>() {
+            } else if child.has::<dyn Layout>() {
                 layouter.layout_block(world, child, styles)?;
             } else if child.is::<ColbreakNode>() {
                 layouter.finish_region();
@@ -136,7 +136,7 @@ impl FlowLayouter {
         // aligned later.
         if let Some(placed) = block.to::<PlaceNode>() {
             if placed.out_of_flow() {
-                let frame = block.layout_block(world, styles, &self.regions)?.remove(0);
+                let frame = block.layout(world, styles, &self.regions)?.into_frame();
                 self.items.push(FlowItem::Placed(frame));
                 return Ok(());
             }
@@ -166,9 +166,9 @@ impl FlowLayouter {
         }
 
         // Layout the block itself.
-        let frames = block.layout_block(world, chained, &self.regions)?;
-        let len = frames.len();
-        for (i, frame) in frames.into_iter().enumerate() {
+        let fragment = block.layout(world, chained, &self.regions)?;
+        let len = fragment.len();
+        for (i, frame) in fragment.into_iter().enumerate() {
             // Grow our size, shrink the region and save the frame for later.
             let size = frame.size();
             self.used.y += size.y;
@@ -234,8 +234,8 @@ impl FlowLayouter {
         self.finished.push(output);
     }
 
-    /// Finish layouting and return the resulting frames.
-    fn finish(mut self) -> Vec<Frame> {
+    /// Finish layouting and return the resulting fragment.
+    fn finish(mut self) -> Fragment {
         if self.expand.y {
             while !self.regions.backlog.is_empty() {
                 self.finish_region();
@@ -243,6 +243,6 @@ impl FlowLayouter {
         }
 
         self.finish_region();
-        self.finished
+        Fragment::frames(self.finished)
     }
 }

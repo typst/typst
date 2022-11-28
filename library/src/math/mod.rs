@@ -19,7 +19,7 @@ pub struct MathNode {
     pub display: bool,
 }
 
-#[node(Show, LayoutInline, Texify)]
+#[node(Show, Layout, Inline, Texify)]
 impl MathNode {
     fn field(&self, name: &str) -> Option<Value> {
         match name {
@@ -48,16 +48,18 @@ impl Show for MathNode {
     }
 }
 
-impl LayoutInline for MathNode {
-    fn layout_inline(
+impl Layout for MathNode {
+    fn layout(
         &self,
         world: Tracked<dyn World>,
         styles: StyleChain,
         _: &Regions,
-    ) -> SourceResult<Frame> {
+    ) -> SourceResult<Fragment> {
         layout_tex(world, &self.texify(), self.display, styles)
     }
 }
+
+impl Inline for MathNode {}
 
 impl Texify for MathNode {
     fn texify(&self) -> EcoString {

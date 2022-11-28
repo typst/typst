@@ -5,7 +5,7 @@ use crate::prelude::*;
 #[derive(Debug, Hash)]
 pub struct PlaceNode(pub Content);
 
-#[node(LayoutBlock, Behave)]
+#[node(Layout, Behave)]
 impl PlaceNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let aligns = args.find()?.unwrap_or(Axes::with_x(Some(GenAlign::Start)));
@@ -16,13 +16,13 @@ impl PlaceNode {
     }
 }
 
-impl LayoutBlock for PlaceNode {
-    fn layout_block(
+impl Layout for PlaceNode {
+    fn layout(
         &self,
         world: Tracked<dyn World>,
         styles: StyleChain,
         regions: &Regions,
-    ) -> SourceResult<Vec<Frame>> {
+    ) -> SourceResult<Fragment> {
         let out_of_flow = self.out_of_flow();
 
         // The pod is the base area of the region because for absolute
@@ -33,14 +33,14 @@ impl LayoutBlock for PlaceNode {
             Regions::one(regions.base, regions.base, expand)
         };
 
-        let mut frames = self.0.layout_block(world, styles, &pod)?;
+        let mut frame = self.0.layout(world, styles, &pod)?.into_frame();
 
         // If expansion is off, zero all sizes so that we don't take up any
         // space in our parent. Otherwise, respect the expand settings.
         let target = regions.expand.select(regions.first, Size::zero());
-        frames[0].resize(target, Align::LEFT_TOP);
+        frame.resize(target, Align::LEFT_TOP);
 
-        Ok(frames)
+        Ok(Fragment::frame(frame))
     }
 }
 

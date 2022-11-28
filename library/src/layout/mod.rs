@@ -29,7 +29,6 @@ use std::mem;
 use comemo::Tracked;
 use typed_arena::Arena;
 use typst::diag::SourceResult;
-use typst::doc::Frame;
 use typst::geom::*;
 use typst::model::{
     applicable, capability, realize, Content, Node, SequenceNode, Style, StyleChain,
@@ -70,72 +69,37 @@ impl LayoutRoot for Content {
     }
 }
 
-/// Block-level layout.
+/// Layout into regions.
 #[capability]
-pub trait LayoutBlock {
+pub trait Layout {
     /// Layout into one frame per region.
-    fn layout_block(
+    fn layout(
         &self,
         world: Tracked<dyn World>,
         styles: StyleChain,
         regions: &Regions,
-    ) -> SourceResult<Vec<Frame>>;
+    ) -> SourceResult<Fragment>;
 }
 
-impl LayoutBlock for Content {
+impl Layout for Content {
     #[comemo::memoize]
-    fn layout_block(
+    fn layout(
         &self,
         world: Tracked<dyn World>,
         styles: StyleChain,
         regions: &Regions,
-    ) -> SourceResult<Vec<Frame>> {
+    ) -> SourceResult<Fragment> {
         let scratch = Scratch::default();
         let (realized, styles) = realize_block(world, &scratch, self, styles)?;
         let barrier = Style::Barrier(realized.id());
         let styles = styles.chain_one(&barrier);
-        realized
-            .with::<dyn LayoutBlock>()
-            .unwrap()
-            .layout_block(world, styles, regions)
+        realized.with::<dyn Layout>().unwrap().layout(world, styles, regions)
     }
 }
 
 /// Inline-level layout.
 #[capability]
-pub trait LayoutInline {
-    /// Layout into a single frame.
-    fn layout_inline(
-        &self,
-        world: Tracked<dyn World>,
-        styles: StyleChain,
-        regions: &Regions,
-    ) -> SourceResult<Frame>;
-}
-
-impl LayoutInline for Content {
-    #[comemo::memoize]
-    fn layout_inline(
-        &self,
-        world: Tracked<dyn World>,
-        styles: StyleChain,
-        regions: &Regions,
-    ) -> SourceResult<Frame> {
-        assert!(regions.backlog.is_empty());
-        assert!(regions.last.is_none());
-
-        if self.has::<dyn LayoutInline>() && !applicable(self, styles) {
-            let barrier = Style::Barrier(self.id());
-            let styles = styles.chain_one(&barrier);
-            return self
-                .with::<dyn LayoutInline>()
-                .unwrap()
-                .layout_inline(world, styles, regions);
-        }
-
-        Ok(self.layout_block(world, styles, regions)?.remove(0))
-    }
-}
+pub trait Inline: Layout {}
 
 /// A sequence of regions to layout into.
 #[derive(Debug, Clone, Hash)]
@@ -255,7 +219,7 @@ fn realize_block<'a>(
     content: &'a Content,
     styles: StyleChain<'a>,
 ) -> SourceResult<(Content, StyleChain<'a>)> {
-    if content.has::<dyn LayoutBlock>() && !applicable(content, styles) {
+    if content.has::<dyn Layout>() && !applicable(content, styles) {
         return Ok((content.clone(), styles));
     }
 
@@ -497,7 +461,7 @@ impl<'a> FlowBuilder<'a> {
             return true;
         }
 
-        if content.has::<dyn LayoutBlock>() {
+        if content.has::<dyn Layout>() {
             let is_tight_list = if let Some(node) = content.to::<ListNode>() {
                 node.tight
             } else if let Some(node) = content.to::<EnumNode>() {
@@ -542,7 +506,7 @@ impl<'a> ParBuilder<'a> {
             || content.is::<HNode>()
             || content.is::<SmartQuoteNode>()
             || content.is::<TextNode>()
-            || content.has::<dyn LayoutInline>()
+            || content.has::<dyn Inline>()
         {
             self.0.push(content.clone(), styles);
             return true;

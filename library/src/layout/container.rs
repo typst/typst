@@ -10,7 +10,7 @@ pub struct BoxNode {
     pub child: Content,
 }
 
-#[node(LayoutInline)]
+#[node(Layout, Inline)]
 impl BoxNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let width = args.named("width")?;
@@ -20,13 +20,13 @@ impl BoxNode {
     }
 }
 
-impl LayoutInline for BoxNode {
-    fn layout_inline(
+impl Layout for BoxNode {
+    fn layout(
         &self,
         world: Tracked<dyn World>,
         styles: StyleChain,
         regions: &Regions,
-    ) -> SourceResult<Frame> {
+    ) -> SourceResult<Fragment> {
         // The "pod" is the region into which the child will be layouted.
         let pod = {
             // Resolve the sizing to a concrete size.
@@ -47,21 +47,23 @@ impl LayoutInline for BoxNode {
         };
 
         // Layout the child.
-        let mut frame = self.child.layout_inline(world, styles, &pod)?;
+        let mut frame = self.child.layout(world, styles, &pod)?.into_frame();
 
         // Ensure frame size matches regions size if expansion is on.
         let target = regions.expand.select(regions.first, frame.size());
         frame.resize(target, Align::LEFT_TOP);
 
-        Ok(frame)
+        Ok(Fragment::frame(frame))
     }
 }
+
+impl Inline for BoxNode {}
 
 /// A block-level container that places content into a separate flow.
 #[derive(Debug, Hash)]
 pub struct BlockNode(pub Content);
 
-#[node(LayoutBlock)]
+#[node(Layout)]
 impl BlockNode {
     /// The spacing between the previous and this block.
     #[property(skip)]
@@ -87,13 +89,13 @@ impl BlockNode {
     }
 }
 
-impl LayoutBlock for BlockNode {
-    fn layout_block(
+impl Layout for BlockNode {
+    fn layout(
         &self,
         world: Tracked<dyn World>,
         styles: StyleChain,
         regions: &Regions,
-    ) -> SourceResult<Vec<Frame>> {
-        self.0.layout_block(world, styles, regions)
+    ) -> SourceResult<Fragment> {
+        self.0.layout(world, styles, regions)
     }
 }

@@ -39,7 +39,7 @@ pub fn layout_tex(
     tex: &str,
     display: bool,
     styles: StyleChain,
-) -> SourceResult<Frame> {
+) -> SourceResult<Fragment> {
     // Load the font.
     let variant = variant(styles);
     let mut font = None;
@@ -98,7 +98,8 @@ pub fn layout_tex(
 
     // Render into the frame.
     renderer.render(&layout, &mut backend);
-    Ok(backend.frame)
+
+    Ok(Fragment::frame(backend.frame))
 }
 
 /// A ReX rendering backend that renders into a frame.

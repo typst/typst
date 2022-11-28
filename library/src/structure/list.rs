@@ -18,7 +18,7 @@ pub type EnumNode = ListNode<ENUM>;
 /// A description list.
 pub type DescNode = ListNode<DESC>;
 
-#[node(LayoutBlock)]
+#[node(Layout)]
 impl<const L: ListKind> ListNode<L> {
     /// How the list is labelled.
     #[property(referenced)]
@@ -75,13 +75,13 @@ impl<const L: ListKind> ListNode<L> {
     }
 }
 
-impl<const L: ListKind> LayoutBlock for ListNode<L> {
-    fn layout_block(
+impl<const L: ListKind> Layout for ListNode<L> {
+    fn layout(
         &self,
         world: Tracked<dyn World>,
         styles: StyleChain,
         regions: &Regions,
-    ) -> SourceResult<Vec<Frame>> {
+    ) -> SourceResult<Fragment> {
         let mut cells = vec![];
         let mut number = 1;
 
@@ -137,7 +137,7 @@ impl<const L: ListKind> LayoutBlock for ListNode<L> {
             gutter: Axes::with_y(vec![gutter.into()]),
             cells,
         }
-        .layout_block(world, styles, regions)
+        .layout(world, styles, regions)
     }
 }
 

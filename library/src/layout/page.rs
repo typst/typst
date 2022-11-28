@@ -60,7 +60,7 @@ impl PageNode {
         world: Tracked<dyn World>,
         mut page: usize,
         styles: StyleChain,
-    ) -> SourceResult<Vec<Frame>> {
+    ) -> SourceResult<Fragment> {
         // When one of the lengths is infinite the page fits its content along
         // that axis.
         let width = styles.get(Self::WIDTH).unwrap_or(Abs::inf());
@@ -97,7 +97,7 @@ impl PageNode {
 
         // Layout the child.
         let regions = Regions::repeat(size, size, size.map(Abs::is_finite));
-        let mut frames = child.layout_block(world, styles, &regions)?;
+        let mut fragment = child.layout(world, styles, &regions)?;
 
         let header = styles.get(Self::HEADER);
         let footer = styles.get(Self::FOOTER);
@@ -105,7 +105,7 @@ impl PageNode {
         let background = styles.get(Self::BACKGROUND);
 
         // Realize overlays.
-        for frame in &mut frames {
+        for frame in &mut fragment {
             let size = frame.size();
             let pad = padding.resolve(styles).relative_to(size);
             let pw = size.x - pad.left - pad.right;
@@ -118,7 +118,7 @@ impl PageNode {
             ] {
                 if let Some(content) = marginal.resolve(world, page)? {
                     let pod = Regions::one(area, area, Axes::splat(true));
-                    let sub = content.layout_block(world, styles, &pod)?.remove(0);
+                    let sub = content.layout(world, styles, &pod)?.into_frame();
                     if std::ptr::eq(marginal, background) {
                         frame.prepend_frame(pos, sub);
                     } else {
@@ -130,7 +130,7 @@ impl PageNode {
             page += 1;
         }
 
-        Ok(frames)
+        Ok(fragment)
     }
 }
 

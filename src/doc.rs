@@ -14,7 +14,7 @@ use crate::model::{dict, Dict, Value};
 use crate::util::EcoString;
 
 /// A finished document with metadata and page frames.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Document {
     /// The document's metadata.
     pub metadata: Metadata,
@@ -31,6 +31,73 @@ pub struct Metadata {
     pub author: Option<EcoString>,
 }
 
+/// A partial layout result.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct Fragment(Vec<Frame>);
+
+impl Fragment {
+    /// Create a fragment from a single frame.
+    pub fn frame(frame: Frame) -> Self {
+        Self(vec![frame])
+    }
+
+    /// Create a fragment from multiple frames.
+    pub fn frames(frames: Vec<Frame>) -> Self {
+        Self(frames)
+    }
+
+    /// The number of frames in the fragment.
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    /// Extract the first and only frame.
+    ///
+    /// Panics if there are multiple frames.
+    #[track_caller]
+    pub fn into_frame(self) -> Frame {
+        assert_eq!(self.0.len(), 1, "expected exactly one frame");
+        self.0.into_iter().next().unwrap()
+    }
+
+    /// Iterate over the contained frames.
+    pub fn iter(&self) -> std::slice::Iter<Frame> {
+        self.0.iter()
+    }
+
+    /// Iterate over the contained frames.
+    pub fn iter_mut(&mut self) -> std::slice::IterMut<Frame> {
+        self.0.iter_mut()
+    }
+}
+
+impl IntoIterator for Fragment {
+    type Item = Frame;
+    type IntoIter = std::vec::IntoIter<Frame>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a Fragment {
+    type Item = &'a Frame;
+    type IntoIter = std::slice::Iter<'a, Frame>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a mut Fragment {
+    type Item = &'a mut Frame;
+    type IntoIter = std::slice::IterMut<'a, Frame>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter_mut()
+    }
+}
+
 /// A finished layout with elements at fixed positions.
 #[derive(Default, Clone, Eq, PartialEq)]
 pub struct Frame {
@@ -39,8 +106,6 @@ pub struct Frame {
     /// The baseline of the frame measured from the top. If this is `None`, the
     /// frame's implicit baseline is at the bottom.
     baseline: Option<Abs>,
-    /// The semantic role of the frame.
-    role: Option<Role>,
     /// The elements composing this layout.
     elements: Arc<Vec<(Point, Element)>>,
 }
@@ -53,12 +118,7 @@ impl Frame {
     #[track_caller]
     pub fn new(size: Size) -> Self {
         assert!(size.is_finite());
-        Self {
-            size,
-            baseline: None,
-            role: None,
-            elements: Arc::new(vec![]),
-        }
+        Self { size, baseline: None, elements: Arc::new(vec![]) }
     }
 
     /// The size of the frame.
@@ -96,11 +156,6 @@ impl Frame {
         self.baseline = Some(baseline);
     }
 
-    /// The role of the frame.
-    pub fn role(&self) -> Option<Role> {
-        self.role
-    }
-
     /// An iterator over the elements inside this frame alongside their
     /// positions relative to the top-left of the frame.
     pub fn elements(&self) -> std::slice::Iter<'_, (Point, Element)> {
@@ -125,7 +180,7 @@ impl Frame {
     }
 }
 
-/// Inserting elements and subframes.
+/// Insert elements and subframes.
 impl Frame {
     /// The layer the next item will be added on. This corresponds to the number
     /// of elements in the frame.
@@ -141,7 +196,7 @@ impl Frame {
     /// Add a frame at a position in the foreground.
     ///
     /// Automatically decides whether to inline the frame or to include it as a
-    /// group based on the number of elements in and the role of the frame.
+    /// group based on the number of elements in it.
     pub fn push_frame(&mut self, pos: Point, frame: Frame) {
         if self.should_inline(&frame) {
             self.inline(self.layer(), pos, frame);
@@ -185,8 +240,7 @@ impl Frame {
 
     /// Whether the given frame should be inlined.
     fn should_inline(&self, frame: &Frame) -> bool {
-        (self.elements.is_empty() || frame.elements.len() <= 5)
-            && frame.role().map_or(true, |role| role.is_weak())
+        self.elements.is_empty() || frame.elements.len() <= 5
     }
 
     /// Inline a frame at the given layer.
@@ -294,10 +348,6 @@ impl Frame {
 
 impl Debug for Frame {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        if let Some(role) = self.role {
-            write!(f, "{role:?} ")?;
-        }
-
         f.debug_list()
             .entries(self.elements.iter().map(|(_, element)| element))
             .finish()
@@ -503,8 +553,8 @@ impl Location {
     }
 }
 
-/// A semantic role of a frame.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+/// Standard semantic roles.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Role {
     /// A paragraph.
     Paragraph,
@@ -541,14 +591,4 @@ pub enum Role {
     Background,
     /// A page foreground.
     Foreground,
-}
-
-impl Role {
-    /// Whether the role describes a generic element and is not very
-    /// descriptive.
-    pub fn is_weak(self) -> bool {
-        // In Typst, all text is in a paragraph, so paragraph isn't very
-        // descriptive.
-        matches!(self, Self::Paragraph | Self::GenericBlock | Self::GenericInline)
-    }
 }
