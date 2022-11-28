@@ -227,7 +227,7 @@ fn realize_block<'a>(
     builder.accept(content, styles)?;
     builder.interrupt_par()?;
     let (children, shared) = builder.flow.0.finish();
-    Ok((FlowNode(children).pack(), shared))
+    Ok((FlowNode(children, false).pack(), shared))
 }
 
 /// Builds a document or a flow node from content.
@@ -400,10 +400,10 @@ impl<'a> Builder<'a> {
         self.interrupt_par()?;
         let Some(doc) = &mut self.doc else { return Ok(()) };
         if !self.flow.0.is_empty() || (doc.keep_next && styles.is_some()) {
-            let (flow, shared) = mem::take(&mut self.flow).finish();
+            let (flow, shared) = mem::take(&mut self.flow).0.finish();
             let styles =
                 if shared == StyleChain::default() { styles.unwrap() } else { shared };
-            let page = PageNode(flow).pack();
+            let page = PageNode(FlowNode(flow, true).pack()).pack();
             let stored = self.scratch.content.alloc(page);
             self.accept(stored, styles)?;
         }
@@ -461,7 +461,7 @@ impl<'a> FlowBuilder<'a> {
             return true;
         }
 
-        if content.has::<dyn Layout>() {
+        if content.has::<dyn Layout>() || content.is::<ParNode>() {
             let is_tight_list = if let Some(node) = content.to::<ListNode>() {
                 node.tight
             } else if let Some(node) = content.to::<EnumNode>() {
@@ -487,11 +487,6 @@ impl<'a> FlowBuilder<'a> {
         }
 
         false
-    }
-
-    fn finish(self) -> (Content, StyleChain<'a>) {
-        let (flow, shared) = self.0.finish();
-        (FlowNode(flow).pack(), shared)
     }
 }
 

@@ -15,7 +15,7 @@ use crate::prelude::*;
 #[derive(Hash)]
 pub struct ParNode(pub StyleVec<Content>);
 
-#[node(Layout)]
+#[node]
 impl ParNode {
     /// The indent the first line of a consecutive paragraph should have.
     #[property(resolve)]
@@ -33,7 +33,7 @@ impl ParNode {
 
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         // The paragraph constructor is special: It doesn't create a paragraph
-        // node. Instead, it just ensures that the passed content lives is in a
+        // node. Instead, it just ensures that the passed content lives in a
         // separate paragraph and styles it.
         Ok(Content::sequence(vec![
             ParbreakNode.pack(),
@@ -43,15 +43,18 @@ impl ParNode {
     }
 }
 
-impl Layout for ParNode {
-    fn layout(
+impl ParNode {
+    /// Layout the paragraph into a collection of lines.
+    #[comemo::memoize]
+    pub fn layout(
         &self,
         world: Tracked<dyn World>,
         styles: StyleChain,
         regions: &Regions,
+        consecutive: bool,
     ) -> SourceResult<Fragment> {
         // Collect all text into one string for BiDi analysis.
-        let (text, segments) = collect(self, &styles);
+        let (text, segments) = collect(self, &styles, consecutive);
 
         // Perform BiDi analysis and then prepare paragraph layout by building a
         // representation on which we can do line breaking without layouting
@@ -62,7 +65,7 @@ impl Layout for ParNode {
         let lines = linebreak(&p, regions.first.x);
 
         // Stack the lines into one frame per region.
-        stack(&p, &lines, regions)
+        finalize(&p, &lines, regions)
     }
 }
 
@@ -177,8 +180,6 @@ struct Preparation<'a> {
     hyphenate: Option<bool>,
     /// The text language if it's the same for all children.
     lang: Option<Lang>,
-    /// The resolved leading between lines.
-    leading: Abs,
     /// The paragraph's resolved alignment.
     align: Align,
     /// Whether to justify the paragraph.
@@ -393,30 +394,33 @@ impl<'a> Line<'a> {
 fn collect<'a>(
     par: &'a ParNode,
     styles: &'a StyleChain<'a>,
+    consecutive: bool,
 ) -> (String, Vec<(Segment<'a>, StyleChain<'a>)>) {
     let mut full = String::new();
     let mut quoter = Quoter::new();
     let mut segments = vec![];
     let mut iter = par.0.iter().peekable();
 
-    let indent = styles.get(ParNode::INDENT);
-    if !indent.is_zero()
-        && par
-            .0
-            .items()
-            .find_map(|child| {
-                if child.is::<TextNode>() || child.is::<SmartQuoteNode>() {
-                    Some(true)
-                } else if child.has::<dyn Inline>() {
-                    Some(false)
-                } else {
-                    None
-                }
-            })
-            .unwrap_or_default()
-    {
-        full.push(SPACING_REPLACE);
-        segments.push((Segment::Spacing(indent.into()), *styles));
+    if consecutive {
+        let indent = styles.get(ParNode::INDENT);
+        if !indent.is_zero()
+            && par
+                .0
+                .items()
+                .find_map(|child| {
+                    if child.is::<TextNode>() || child.is::<SmartQuoteNode>() {
+                        Some(true)
+                    } else if child.has::<dyn Inline>() {
+                        Some(false)
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or_default()
+        {
+            full.push(SPACING_REPLACE);
+            segments.push((Segment::Spacing(indent.into()), *styles));
+        }
     }
 
     while let Some((child, map)) = iter.next() {
@@ -549,7 +553,6 @@ fn prepare<'a>(
         styles,
         hyphenate: shared_get(styles, &par.0, TextNode::HYPHENATE),
         lang: shared_get(styles, &par.0, TextNode::LANG),
-        leading: styles.get(ParNode::LEADING),
         align: styles.get(ParNode::ALIGN),
         justify: styles.get(ParNode::JUSTIFY),
     })
@@ -1013,7 +1016,11 @@ fn line<'a>(
 }
 
 /// Combine layouted lines into one frame per region.
-fn stack(p: &Preparation, lines: &[Line], regions: &Regions) -> SourceResult<Fragment> {
+fn finalize(
+    p: &Preparation,
+    lines: &[Line],
+    regions: &Regions,
+) -> SourceResult<Fragment> {
     // Determine the paragraph's width: Full width of the region if we
     // should expand or there's fractional spacing, fit-to-width otherwise.
     let mut width = regions.first.x;
@@ -1021,47 +1028,16 @@ fn stack(p: &Preparation, lines: &[Line], regions: &Regions) -> SourceResult<Fra
         width = lines.iter().map(|line| line.width).max().unwrap_or_default();
     }
 
-    // State for final frame building.
-    let mut regions = regions.clone();
-    let mut finished = vec![];
-    let mut first = true;
-    let mut output = Frame::new(Size::with_x(width));
-
     // Stack the lines into one frame per region.
-    for line in lines {
-        let frame = commit(p, line, &regions, width)?;
-        let height = frame.size().y;
-
-        while !regions.first.y.fits(height) && !regions.in_last() {
-            finished.push(output);
-            output = Frame::new(Size::with_x(width));
-            regions.next();
-            first = true;
-        }
-
-        if !first {
-            output.size_mut().y += p.leading;
-        }
-
-        let pos = Point::with_y(output.height());
-        output.size_mut().y += height;
-        output.push_frame(pos, frame);
-
-        regions.first.y -= height + p.leading;
-        first = false;
-    }
-
-    finished.push(output);
-    Ok(Fragment::frames(finished))
+    lines
+        .iter()
+        .map(|line| commit(p, line, regions.base, width))
+        .collect::<SourceResult<_>>()
+        .map(Fragment::frames)
 }
 
 /// Commit to a line and build its frame.
-fn commit(
-    p: &Preparation,
-    line: &Line,
-    regions: &Regions,
-    width: Abs,
-) -> SourceResult<Frame> {
+fn commit(p: &Preparation, line: &Line, base: Size, width: Abs) -> SourceResult<Frame> {
     let mut remaining = width - line.width;
     let mut offset = Abs::zero();
 
@@ -1137,8 +1113,8 @@ fn commit(
             Item::Repeat(repeat, styles) => {
                 let before = offset;
                 let fill = Fr::one().share(fr, remaining);
-                let size = Size::new(fill, regions.base.y);
-                let pod = Regions::one(size, regions.base, Axes::new(false, false));
+                let size = Size::new(fill, base.y);
+                let pod = Regions::one(size, base, Axes::new(false, false));
                 let frame = repeat.layout(p.world, *styles, &pod)?.into_frame();
                 let width = frame.width();
                 let count = (fill / width).floor();

@@ -56,6 +56,7 @@ impl Finalize for HeadingNode {
         map.set(TextNode::WEIGHT, FontWeight::BOLD);
         map.set(BlockNode::ABOVE, VNode::block_around(above.into()));
         map.set(BlockNode::BELOW, VNode::block_around(below.into()));
+        map.set(BlockNode::STICKY, true);
         realized.styled_with_map(map)
     }
 }

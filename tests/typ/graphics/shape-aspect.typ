@@ -36,7 +36,7 @@
 ---
 // Test square that is overflowing due to its aspect ratio.
 #set page(width: 40pt, height: 20pt, margin: 5pt)
-#square(width: 100%)
+#square(width: 100%) #parbreak()
 #square(width: 100%)[Hello]
 
 ---

@@ -32,7 +32,7 @@ pub struct Metadata {
 }
 
 /// A partial layout result.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct Fragment(Vec<Frame>);
 
 impl Fragment {
@@ -60,6 +60,11 @@ impl Fragment {
         self.0.into_iter().next().unwrap()
     }
 
+    /// Extract the frames.
+    pub fn into_frames(self) -> Vec<Frame> {
+        self.0
+    }
+
     /// Iterate over the contained frames.
     pub fn iter(&self) -> std::slice::Iter<Frame> {
         self.0.iter()
@@ -68,6 +73,15 @@ impl Fragment {
     /// Iterate over the contained frames.
     pub fn iter_mut(&mut self) -> std::slice::IterMut<Frame> {
         self.0.iter_mut()
+    }
+}
+
+impl Debug for Fragment {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self.0.as_slice() {
+            [frame] => frame.fmt(f),
+            frames => frames.fmt(f),
+        }
     }
 }
 
@@ -119,6 +133,11 @@ impl Frame {
     pub fn new(size: Size) -> Self {
         assert!(size.is_finite());
         Self { size, baseline: None, elements: Arc::new(vec![]) }
+    }
+
+    /// Whether the frame contains no elements.
+    pub fn is_empty(&self) -> bool {
+        self.elements.is_empty()
     }
 
     /// The size of the frame.

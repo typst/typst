@@ -59,21 +59,3 @@
   [rofl],
   [E\ ]*4,
 )
-
----
-// Test partition of `fr` units before and after multi-region layout.
-#set page(width: 5cm, height: 4cm)
-#grid(
-  columns: 2 * (1fr,),
-  rows: (1fr, 2fr, auto, 1fr, 1cm),
-  row-gutter: 10pt,
-  rect(fill: rgb("ff0000"))[No height],
-  [foo],
-  rect(fill: rgb("fc0030"))[Still no height],
-  [bar],
-  [The nature of being itself is in question. Am I One? What is being alive?],
-  [baz],
-  [The answer],
-  [42],
-  [Other text of interest],
-)

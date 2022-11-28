@@ -71,6 +71,9 @@ impl BlockNode {
     /// The spacing between this and the following block.
     #[property(skip)]
     pub const BELOW: VNode = VNode::block_spacing(Em::new(1.2).into());
+    /// Whether this block must stick to the following one.
+    #[property(skip)]
+    pub const STICKY: bool = false;
 
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self(args.eat()?.unwrap_or_default()).pack())
