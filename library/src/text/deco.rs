@@ -12,7 +12,7 @@ pub struct DecoNode<const L: DecoLine>(pub Content);
 pub type UnderlineNode = DecoNode<UNDERLINE>;
 
 /// Typeset stricken-through text.
-pub type StrikethroughNode = DecoNode<STRIKETHROUGH>;
+pub type StrikeNode = DecoNode<STRIKETHROUGH>;
 
 /// Typeset overlined text.
 pub type OverlineNode = DecoNode<OVERLINE>;
@@ -65,7 +65,7 @@ impl<const L: DecoLine> Show for DecoNode<L> {
 ///
 /// For more details, see [`DecoNode`].
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub(super) struct Decoration {
+pub struct Decoration {
     pub line: DecoLine,
     pub stroke: PartialStroke<Abs>,
     pub offset: Smart<Abs>,

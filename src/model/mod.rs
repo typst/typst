@@ -1,4 +1,4 @@
-//! Document and computation model.
+//! Content and computation model.
 
 #[macro_use]
 mod library;

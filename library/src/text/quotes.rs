@@ -1,10 +1,24 @@
 use typst::syntax::is_newline;
 
-use super::{Lang, Region};
+use crate::prelude::*;
+
+/// A smart quote.
+#[derive(Debug, Hash)]
+pub struct SmartQuoteNode {
+    pub double: bool,
+}
+
+#[node]
+impl SmartQuoteNode {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
+        let double = args.named("double")?.unwrap_or(true);
+        Ok(Self { double }.pack())
+    }
+}
 
 /// State machine for smart quote subtitution.
 #[derive(Debug, Clone)]
-pub(super) struct Quoter {
+pub struct Quoter {
     /// How many quotes have been opened.
     quote_depth: usize,
     /// Whether an opening quote might follow.
@@ -68,7 +82,7 @@ fn is_opening_bracket(c: char) -> bool {
 }
 
 /// Decides which quotes to subtitute smart quotes with.
-pub(super) struct Quotes<'s> {
+pub struct Quotes<'s> {
     /// The opening single quote.
     pub single_open: &'s str,
     /// The closing single quote.

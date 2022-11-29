@@ -10,7 +10,7 @@ use typst::util::Buffer;
 use typst::World;
 use unscanny::Scanner;
 
-const TEXT: &str = include_str!("../typ/benches/bench.typ");
+const TEXT: &str = include_str!("../typ/compiler/bench.typ");
 const FONT: &[u8] = include_bytes!("../fonts/IBMPlexSans-Regular.ttf");
 
 main!(
@@ -111,7 +111,7 @@ impl BenchWorld {
         let book = FontBook::from_fonts([&font]);
 
         Self {
-            library: Prehashed::new(typst_library::new()),
+            library: Prehashed::new(typst_library::build()),
             book: Prehashed::new(book),
             font,
             source: Source::detached(TEXT),

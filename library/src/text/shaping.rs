@@ -6,6 +6,7 @@ use typst::font::{Font, FontVariant};
 use typst::util::SliceExt;
 
 use super::*;
+use crate::meta::LinkNode;
 use crate::prelude::*;
 
 /// The result of shaping text.
@@ -13,7 +14,7 @@ use crate::prelude::*;
 /// This type contains owned or borrowed shaped text runs, which can be
 /// measured, used to reshape substrings more quickly and converted into a
 /// frame.
-pub(super) struct ShapedText<'a> {
+pub struct ShapedText<'a> {
     /// The text that was shaped.
     pub text: &'a str,
     /// The text direction.
@@ -32,7 +33,7 @@ pub(super) struct ShapedText<'a> {
 
 /// A single glyph resulting from shaping.
 #[derive(Debug, Clone)]
-pub(super) struct ShapedGlyph {
+pub struct ShapedGlyph {
     /// The font the glyph is contained in.
     pub font: Font,
     /// The glyph's index in the font.
@@ -314,7 +315,7 @@ struct ShapingContext<'a> {
 }
 
 /// Shape text into [`ShapedText`].
-pub(super) fn shape<'a>(
+pub fn shape<'a>(
     world: Tracked<dyn World>,
     text: &'a str,
     styles: StyleChain<'a>,

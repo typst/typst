@@ -1,13 +1,14 @@
 //! Typst's standard library.
 
-pub mod base;
-pub mod graphics;
+pub mod basics;
+pub mod compute;
 pub mod layout;
 pub mod math;
+pub mod meta;
 pub mod prelude;
 pub mod shared;
-pub mod structure;
 pub mod text;
+pub mod visualize;
 
 use typst::geom::{Align, Color, Dir, GenAlign};
 use typst::model::{LangItems, Library, Node, NodeId, Scope, StyleMap};
@@ -15,7 +16,7 @@ use typst::model::{LangItems, Library, Node, NodeId, Scope, StyleMap};
 use self::layout::LayoutRoot;
 
 /// Construct the standard library.
-pub fn new() -> Library {
+pub fn build() -> Library {
     Library { scope: scope(), styles: styles(), items: items() }
 }
 
@@ -23,97 +24,102 @@ pub fn new() -> Library {
 fn scope() -> Scope {
     let mut std = Scope::new();
 
+    // Basics.
+    std.def_node::<basics::HeadingNode>("heading");
+    std.def_node::<basics::ListNode>("list");
+    std.def_node::<basics::EnumNode>("enum");
+    std.def_node::<basics::DescNode>("desc");
+    std.def_node::<basics::TableNode>("table");
+
     // Text.
+    std.def_node::<text::TextNode>("text");
     std.def_node::<text::LinebreakNode>("linebreak");
     std.def_node::<text::SmartQuoteNode>("smartquote");
-    std.def_node::<text::TextNode>("text");
-    std.def_node::<text::ParNode>("par");
-    std.def_node::<text::ParbreakNode>("parbreak");
     std.def_node::<text::StrongNode>("strong");
     std.def_node::<text::EmphNode>("emph");
-    std.def_node::<text::RawNode>("raw");
-    std.def_node::<text::UnderlineNode>("underline");
-    std.def_node::<text::StrikethroughNode>("strike");
-    std.def_node::<text::OverlineNode>("overline");
-    std.def_node::<text::SuperNode>("super");
-    std.def_node::<text::SubNode>("sub");
-    std.def_node::<text::LinkNode>("link");
-    std.def_node::<text::RepeatNode>("repeat");
     std.def_fn("lower", text::lower);
     std.def_fn("upper", text::upper);
     std.def_fn("smallcaps", text::smallcaps);
-
-    // Structure.
-    std.def_node::<structure::DocumentNode>("document");
-    std.def_node::<structure::RefNode>("ref");
-    std.def_node::<structure::HeadingNode>("heading");
-    std.def_node::<structure::ListNode>("list");
-    std.def_node::<structure::EnumNode>("enum");
-    std.def_node::<structure::DescNode>("desc");
-    std.def_node::<structure::TableNode>("table");
-
-    // Layout.
-    std.def_node::<layout::PageNode>("page");
-    std.def_node::<layout::PagebreakNode>("pagebreak");
-    std.def_node::<layout::HNode>("h");
-    std.def_node::<layout::VNode>("v");
-    std.def_node::<layout::BoxNode>("box");
-    std.def_node::<layout::BlockNode>("block");
-    std.def_node::<layout::AlignNode>("align");
-    std.def_node::<layout::PadNode>("pad");
-    std.def_node::<layout::StackNode>("stack");
-    std.def_node::<layout::GridNode>("grid");
-    std.def_node::<layout::ColumnsNode>("columns");
-    std.def_node::<layout::ColbreakNode>("colbreak");
-    std.def_node::<layout::PlaceNode>("place");
-    std.def_node::<layout::MoveNode>("move");
-    std.def_node::<layout::ScaleNode>("scale");
-    std.def_node::<layout::RotateNode>("rotate");
-
-    // Graphics.
-    std.def_node::<graphics::ImageNode>("image");
-    std.def_node::<graphics::LineNode>("line");
-    std.def_node::<graphics::RectNode>("rect");
-    std.def_node::<graphics::SquareNode>("square");
-    std.def_node::<graphics::EllipseNode>("ellipse");
-    std.def_node::<graphics::CircleNode>("circle");
-    std.def_node::<graphics::HideNode>("hide");
+    std.def_node::<text::SubNode>("sub");
+    std.def_node::<text::SuperNode>("super");
+    std.def_node::<text::UnderlineNode>("underline");
+    std.def_node::<text::StrikeNode>("strike");
+    std.def_node::<text::OverlineNode>("overline");
+    std.def_node::<text::RawNode>("raw");
 
     // Math.
     std.def_node::<math::MathNode>("math");
+    std.def_node::<math::AtomNode>("atom");
+    std.def_node::<math::FracNode>("frac");
     std.define("sum", "∑");
     std.define("in", "∈");
     std.define("arrow", "→");
     std.define("NN", "ℕ");
     std.define("RR", "ℝ");
 
-    // Base.
-    std.def_fn("type", base::type_);
-    std.def_fn("repr", base::repr);
-    std.def_fn("assert", base::assert);
-    std.def_fn("eval", base::eval);
-    std.def_fn("int", base::int);
-    std.def_fn("float", base::float);
-    std.def_fn("luma", base::luma);
-    std.def_fn("rgb", base::rgb);
-    std.def_fn("cmyk", base::cmyk);
-    std.def_fn("str", base::str);
-    std.def_fn("lorem", base::lorem);
-    std.def_fn("label", base::label);
-    std.def_fn("regex", base::regex);
-    std.def_fn("range", base::range);
-    std.def_fn("numbering", base::numbering);
-    std.def_fn("abs", base::abs);
-    std.def_fn("min", base::min);
-    std.def_fn("max", base::max);
-    std.def_fn("even", base::even);
-    std.def_fn("odd", base::odd);
-    std.def_fn("mod", base::mod_);
-    std.def_fn("csv", base::csv);
-    std.def_fn("json", base::json);
-    std.def_fn("xml", base::xml);
+    // Layout.
+    std.def_node::<layout::PageNode>("page");
+    std.def_node::<layout::PagebreakNode>("pagebreak");
+    std.def_node::<layout::FlowNode>("flow");
+    std.def_node::<layout::VNode>("v");
+    std.def_node::<layout::ParNode>("par");
+    std.def_node::<layout::ParbreakNode>("parbreak");
+    std.def_node::<layout::HNode>("h");
+    std.def_node::<layout::BoxNode>("box");
+    std.def_node::<layout::BlockNode>("block");
+    std.def_node::<layout::StackNode>("stack");
+    std.def_node::<layout::GridNode>("grid");
+    std.def_node::<layout::ColumnsNode>("columns");
+    std.def_node::<layout::ColbreakNode>("colbreak");
+    std.def_node::<layout::PlaceNode>("place");
+    std.def_node::<layout::AlignNode>("align");
+    std.def_node::<layout::PadNode>("pad");
+    std.def_node::<layout::RepeatNode>("repeat");
+    std.def_node::<layout::MoveNode>("move");
+    std.def_node::<layout::ScaleNode>("scale");
+    std.def_node::<layout::RotateNode>("rotate");
+    std.def_node::<layout::HideNode>("hide");
 
-    // Predefined colors.
+    // Visualize.
+    std.def_node::<visualize::ImageNode>("image");
+    std.def_node::<visualize::LineNode>("line");
+    std.def_node::<visualize::RectNode>("rect");
+    std.def_node::<visualize::SquareNode>("square");
+    std.def_node::<visualize::EllipseNode>("ellipse");
+    std.def_node::<visualize::CircleNode>("circle");
+
+    // Meta.
+    std.def_node::<meta::DocumentNode>("document");
+    std.def_node::<meta::RefNode>("ref");
+    std.def_node::<meta::LinkNode>("link");
+
+    // Compute.
+    std.def_fn("type", compute::type_);
+    std.def_fn("repr", compute::repr);
+    std.def_fn("assert", compute::assert);
+    std.def_fn("eval", compute::eval);
+    std.def_fn("int", compute::int);
+    std.def_fn("float", compute::float);
+    std.def_fn("luma", compute::luma);
+    std.def_fn("rgb", compute::rgb);
+    std.def_fn("cmyk", compute::cmyk);
+    std.def_fn("str", compute::str);
+    std.def_fn("label", compute::label);
+    std.def_fn("regex", compute::regex);
+    std.def_fn("range", compute::range);
+    std.def_fn("abs", compute::abs);
+    std.def_fn("min", compute::min);
+    std.def_fn("max", compute::max);
+    std.def_fn("even", compute::even);
+    std.def_fn("odd", compute::odd);
+    std.def_fn("mod", compute::mod_);
+    std.def_fn("csv", compute::csv);
+    std.def_fn("json", compute::json);
+    std.def_fn("xml", compute::xml);
+    std.def_fn("lorem", compute::lorem);
+    std.def_fn("numbering", compute::numbering);
+
+    // Colors.
     std.define("black", Color::BLACK);
     std.define("gray", Color::GRAY);
     std.define("silver", Color::SILVER);
@@ -167,7 +173,7 @@ fn items() -> LangItems {
         text_id: NodeId::of::<text::TextNode>(),
         text_str: |content| Some(&content.to::<text::TextNode>()?.0),
         smart_quote: |double| text::SmartQuoteNode { double }.pack(),
-        parbreak: || text::ParbreakNode.pack(),
+        parbreak: || layout::ParbreakNode.pack(),
         strong: |body| text::StrongNode(body).pack(),
         emph: |body| text::EmphNode(body).pack(),
         raw: |text, lang, block| {
@@ -177,15 +183,13 @@ fn items() -> LangItems {
                 None => content,
             }
         },
-        link: |url| text::LinkNode::from_url(url).pack(),
-        ref_: |target| structure::RefNode(target).pack(),
-        heading: |level, body| structure::HeadingNode { level, body }.pack(),
-        list_item: |body| structure::ListItem::List(Box::new(body)).pack(),
-        enum_item: |number, body| {
-            structure::ListItem::Enum(number, Box::new(body)).pack()
-        },
+        link: |url| meta::LinkNode::from_url(url).pack(),
+        ref_: |target| meta::RefNode(target).pack(),
+        heading: |level, body| basics::HeadingNode { level, body }.pack(),
+        list_item: |body| basics::ListItem::List(Box::new(body)).pack(),
+        enum_item: |number, body| basics::ListItem::Enum(number, Box::new(body)).pack(),
         desc_item: |term, body| {
-            structure::ListItem::Desc(Box::new(structure::DescItem { term, body })).pack()
+            basics::ListItem::Desc(Box::new(basics::DescItem { term, body })).pack()
         },
         math: |children, display| math::MathNode { children, display }.pack(),
         math_atom: |atom| math::AtomNode(atom).pack(),

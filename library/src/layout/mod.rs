@@ -5,9 +5,12 @@ mod columns;
 mod container;
 mod flow;
 mod grid;
+mod hide;
 mod pad;
 mod page;
+mod par;
 mod place;
+mod repeat;
 mod spacing;
 mod stack;
 mod transform;
@@ -17,9 +20,12 @@ pub use self::columns::*;
 pub use self::container::*;
 pub use self::flow::*;
 pub use self::grid::*;
+pub use self::hide::*;
 pub use self::pad::*;
 pub use self::page::*;
+pub use self::par::*;
 pub use self::place::*;
+pub use self::repeat::*;
 pub use self::spacing::*;
 pub use self::stack::*;
 pub use self::transform::*;
@@ -36,14 +42,11 @@ use typst::model::{
 };
 use typst::World;
 
+use crate::basics::{DescNode, EnumNode, ListItem, ListNode, DESC, ENUM, LIST};
+use crate::meta::DocumentNode;
 use crate::prelude::*;
 use crate::shared::BehavedBuilder;
-use crate::structure::{
-    DescNode, DocumentNode, EnumNode, ListItem, ListNode, DESC, ENUM, LIST,
-};
-use crate::text::{
-    LinebreakNode, ParNode, ParbreakNode, SmartQuoteNode, SpaceNode, TextNode,
-};
+use crate::text::{LinebreakNode, SmartQuoteNode, SpaceNode, TextNode};
 
 /// Root-level layout.
 #[capability]

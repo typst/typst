@@ -1,8 +1,7 @@
 use typst::model::Style;
 
-use super::{AlignNode, BlockNode, ColbreakNode, PlaceNode, Spacing, VNode};
+use super::{AlignNode, BlockNode, ColbreakNode, ParNode, PlaceNode, Spacing, VNode};
 use crate::prelude::*;
-use crate::text::ParNode;
 
 /// Arrange spacing, paragraphs and block-level nodes into a flow.
 ///

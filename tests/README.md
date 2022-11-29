@@ -3,7 +3,9 @@
 ## Directory structure
 Top level directory structure:
 - `src`: Testing code.
-- `typ`: Input files.
+- `typ`: Input files. The tests in `compiler` specifically test the compiler
+         while the others test the standard library (but also the compiler
+         indirectly).
 - `ref`: Reference images which the output is compared with to determine whether
          a test passed or failed.
 - `png`: PNG files produced by tests.

@@ -395,7 +395,7 @@ impl SystemWorld {
 
         Self {
             root,
-            library: Prehashed::new(typst_library::new()),
+            library: Prehashed::new(typst_library::build()),
             book: Prehashed::new(searcher.book),
             fonts: searcher.fonts,
             hashes: RefCell::default(),

@@ -1,5 +1,5 @@
+use super::{HorizontalAlign, ParNode};
 use crate::prelude::*;
-use crate::text::{HorizontalAlign, ParNode};
 
 /// Align content along the layouting axes.
 #[derive(Debug, Hash)]

@@ -1,8 +1,7 @@
 use typst::model::StyledNode;
 
-use super::{AlignNode, Spacing};
+use super::{AlignNode, ParNode, Spacing};
 use crate::prelude::*;
-use crate::text::ParNode;
 
 /// Arrange content and spacing along an axis.
 #[derive(Debug, Hash)]

@@ -1,16 +1,15 @@
-//! Text handling and paragraph layout.
+//! Text handling.
 
 mod deco;
-mod link;
-mod par;
+mod misc;
 mod quotes;
 mod raw;
 mod shaping;
 mod shift;
 
 pub use self::deco::*;
-pub use self::link::*;
-pub use self::par::*;
+pub use self::misc::*;
+pub use self::quotes::*;
 pub use self::raw::*;
 pub use self::shaping::*;
 pub use self::shift::*;
@@ -21,7 +20,7 @@ use rustybuzz::Tag;
 use typst::font::{FontMetrics, FontStretch, FontStyle, FontWeight, VerticalFontMetric};
 use typst::util::EcoString;
 
-use self::quotes::*;
+use crate::layout::ParNode;
 use crate::prelude::*;
 
 /// A single run of text with the same style.
@@ -114,19 +113,19 @@ impl TextNode {
 
     /// Whether the font weight should be increased by 300.
     #[property(skip, fold)]
-    const BOLD: Toggle = false;
+    pub const BOLD: Toggle = false;
     /// Whether the font style should be inverted.
     #[property(skip, fold)]
-    const ITALIC: Toggle = false;
+    pub const ITALIC: Toggle = false;
     /// A case transformation that should be applied to the text.
     #[property(skip)]
-    const CASE: Option<Case> = None;
+    pub const CASE: Option<Case> = None;
     /// Whether small capital glyphs should be used. ("smcp")
     #[property(skip)]
-    const SMALLCAPS: bool = false;
+    pub const SMALLCAPS: bool = false;
     /// Decorative lines.
     #[property(skip, fold)]
-    const DECO: Decoration = vec![];
+    pub const DECO: Decoration = vec![];
 
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         // The text constructor is special: It doesn't create a text node.
@@ -407,163 +406,5 @@ impl Fold for FontFeatures {
     fn fold(mut self, outer: Self::Output) -> Self::Output {
         self.0.extend(outer.0);
         self
-    }
-}
-
-/// A text space.
-#[derive(Debug, Hash)]
-pub struct SpaceNode;
-
-#[node(Unlabellable, Behave)]
-impl SpaceNode {
-    fn construct(_: &Vm, _: &mut Args) -> SourceResult<Content> {
-        Ok(Self.pack())
-    }
-}
-
-impl Unlabellable for SpaceNode {}
-
-impl Behave for SpaceNode {
-    fn behaviour(&self) -> Behaviour {
-        Behaviour::Weak(2)
-    }
-}
-
-/// A line break.
-#[derive(Debug, Hash)]
-pub struct LinebreakNode {
-    pub justify: bool,
-}
-
-#[node(Behave)]
-impl LinebreakNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        let justify = args.named("justify")?.unwrap_or(false);
-        Ok(Self { justify }.pack())
-    }
-}
-
-impl Behave for LinebreakNode {
-    fn behaviour(&self) -> Behaviour {
-        Behaviour::Destructive
-    }
-}
-
-/// A smart quote.
-#[derive(Debug, Hash)]
-pub struct SmartQuoteNode {
-    pub double: bool,
-}
-
-#[node]
-impl SmartQuoteNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        let double = args.named("double")?.unwrap_or(true);
-        Ok(Self { double }.pack())
-    }
-}
-
-/// Convert a string or content to lowercase.
-pub fn lower(_: &Vm, args: &mut Args) -> SourceResult<Value> {
-    case(Case::Lower, args)
-}
-
-/// Convert a string or content to uppercase.
-pub fn upper(_: &Vm, args: &mut Args) -> SourceResult<Value> {
-    case(Case::Upper, args)
-}
-
-/// Change the case of text.
-fn case(case: Case, args: &mut Args) -> SourceResult<Value> {
-    let Spanned { v, span } = args.expect("string or content")?;
-    Ok(match v {
-        Value::Str(v) => Value::Str(case.apply(&v).into()),
-        Value::Content(v) => Value::Content(v.styled(TextNode::CASE, Some(case))),
-        v => bail!(span, "expected string or content, found {}", v.type_name()),
-    })
-}
-
-/// A case transformation on text.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum Case {
-    /// Everything is uppercased.
-    Upper,
-    /// Everything is lowercased.
-    Lower,
-}
-
-impl Case {
-    /// Apply the case to a string.
-    pub fn apply(self, text: &str) -> String {
-        match self {
-            Self::Upper => text.to_uppercase(),
-            Self::Lower => text.to_lowercase(),
-        }
-    }
-}
-
-/// Display text in small capitals.
-pub fn smallcaps(_: &Vm, args: &mut Args) -> SourceResult<Value> {
-    let body: Content = args.expect("content")?;
-    Ok(Value::Content(body.styled(TextNode::SMALLCAPS, true)))
-}
-
-/// Strong content, rendered in boldface by default.
-#[derive(Debug, Hash)]
-pub struct StrongNode(pub Content);
-
-#[node(Show)]
-impl StrongNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Self(args.expect("body")?).pack())
-    }
-
-    fn field(&self, name: &str) -> Option<Value> {
-        match name {
-            "body" => Some(Value::Content(self.0.clone())),
-            _ => None,
-        }
-    }
-}
-
-impl Show for StrongNode {
-    fn show(&self, _: Tracked<dyn World>, _: StyleChain) -> Content {
-        self.0.clone().styled(TextNode::BOLD, Toggle)
-    }
-}
-
-/// Emphasized content, rendered with an italic font by default.
-#[derive(Debug, Hash)]
-pub struct EmphNode(pub Content);
-
-#[node(Show)]
-impl EmphNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Self(args.expect("body")?).pack())
-    }
-
-    fn field(&self, name: &str) -> Option<Value> {
-        match name {
-            "body" => Some(Value::Content(self.0.clone())),
-            _ => None,
-        }
-    }
-}
-
-impl Show for EmphNode {
-    fn show(&self, _: Tracked<dyn World>, _: StyleChain) -> Content {
-        self.0.clone().styled(TextNode::ITALIC, Toggle)
-    }
-}
-
-/// A toggle that turns on and off alternatingly if folded.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct Toggle;
-
-impl Fold for Toggle {
-    type Output = bool;
-
-    fn fold(self, outer: Self::Output) -> Self::Output {
-        !outer
     }
 }
