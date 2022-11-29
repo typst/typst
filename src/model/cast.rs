@@ -280,10 +280,7 @@ castable! {
 castable! {
     FontWeight,
     Expected: "integer or string",
-    Value::Int(v) => Value::Int(v)
-        .cast::<usize>()?
-        .try_into()
-        .map_or(Self::BLACK, Self::from_number),
+    Value::Int(v) => Self::from_number(v.clamp(0, u16::MAX as i64) as u16),
     Value::Str(string) => match string.as_str() {
         "thin" => Self::THIN,
         "extralight" => Self::EXTRALIGHT,

@@ -17,6 +17,16 @@ _Still [
 P#strong[art]ly em#emph[phas]ized.
 
 ---
+// Adjusting the delta that strong applies on the weight.
+Normal
+
+#set strong(delta: 300)
+*Bold*
+
+#set strong(delta: 150)
+*Medium* and *[*Bold*]*
+
+---
 // Error: 13 expected underscore
 #box[_Scoped] to body.
 

@@ -111,12 +111,12 @@ impl TextNode {
     #[property(fold)]
     pub const FEATURES: FontFeatures = FontFeatures(vec![]);
 
-    /// Whether the font weight should be increased by 300.
+    /// A delta to apply on the font weight.
     #[property(skip, fold)]
-    pub const BOLD: Toggle = false;
+    pub const DELTA: Delta = 0;
     /// Whether the font style should be inverted.
     #[property(skip, fold)]
-    pub const ITALIC: Toggle = false;
+    pub const EMPH: Toggle = false;
     /// A case transformation that should be applied to the text.
     #[property(skip)]
     pub const CASE: Option<Case> = None;

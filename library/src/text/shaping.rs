@@ -537,11 +537,12 @@ pub fn variant(styles: StyleChain) -> FontVariant {
         styles.get(TextNode::STRETCH),
     );
 
-    if styles.get(TextNode::BOLD) {
-        variant.weight = variant.weight.thicken(300);
-    }
+    let delta = styles.get(TextNode::DELTA);
+    variant.weight = variant
+        .weight
+        .thicken(delta.clamp(i16::MIN as i64, i16::MAX as i64) as i16);
 
-    if styles.get(TextNode::ITALIC) {
+    if styles.get(TextNode::EMPH) {
         variant.style = match variant.style {
             FontStyle::Normal => FontStyle::Italic,
             FontStyle::Italic => FontStyle::Normal,

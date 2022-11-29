@@ -40,12 +40,15 @@ impl Behave for LinebreakNode {
     }
 }
 
-/// Strong content, rendered in boldface by default.
+/// Strongly emphasizes content by increasing the font weight.
 #[derive(Debug, Hash)]
 pub struct StrongNode(pub Content);
 
 #[node(Show)]
 impl StrongNode {
+    /// The delta to apply on the font weight.
+    pub const DELTA: i64 = 300;
+
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self(args.expect("body")?).pack())
     }
@@ -59,12 +62,30 @@ impl StrongNode {
 }
 
 impl Show for StrongNode {
-    fn show(&self, _: Tracked<dyn World>, _: StyleChain) -> Content {
-        self.0.clone().styled(TextNode::BOLD, Toggle)
+    fn show(&self, _: Tracked<dyn World>, styles: StyleChain) -> Content {
+        self.0.clone().styled(TextNode::DELTA, Delta(styles.get(Self::DELTA)))
     }
 }
 
-/// Emphasized content, rendered with an italic font by default.
+/// A delta that is summed up when folded.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct Delta(pub i64);
+
+castable! {
+    Delta,
+    Expected: "integer",
+    Value::Int(delta) => Self(delta),
+}
+
+impl Fold for Delta {
+    type Output = i64;
+
+    fn fold(self, outer: Self::Output) -> Self::Output {
+        outer + self.0
+    }
+}
+
+/// Emphasizes content by flipping the italicness.
 #[derive(Debug, Hash)]
 pub struct EmphNode(pub Content);
 
@@ -84,7 +105,7 @@ impl EmphNode {
 
 impl Show for EmphNode {
     fn show(&self, _: Tracked<dyn World>, _: StyleChain) -> Content {
-        self.0.clone().styled(TextNode::ITALIC, Toggle)
+        self.0.clone().styled(TextNode::EMPH, Toggle)
     }
 }
 
