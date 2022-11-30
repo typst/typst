@@ -25,24 +25,7 @@ impl Image {
     ///
     /// Extracts the width and height.
     pub fn new(data: Buffer, format: ImageFormat) -> StrResult<Self> {
-        let (width, height) = match format {
-            ImageFormat::Vector(VectorFormat::Svg) => {
-                let opts = usvg::Options::default();
-                let tree = usvg::Tree::from_data(&data, &opts.to_ref())
-                    .map_err(format_usvg_error)?;
-
-                let size = tree.svg_node().size;
-                let width = size.width().ceil() as u32;
-                let height = size.height().ceil() as u32;
-                (width, height)
-            }
-            ImageFormat::Raster(format) => {
-                let cursor = io::Cursor::new(&data);
-                let reader = image::io::Reader::with_format(cursor, format.into());
-                reader.into_dimensions().map_err(format_image_error)?
-            }
-        };
-
+        let (width, height) = determine_size(&data, format)?;
         Ok(Self { data, format, width, height })
     }
 
@@ -142,6 +125,28 @@ pub enum DecodedImage {
     Raster(image::DynamicImage, RasterFormat),
     /// An decoded SVG tree.
     Svg(usvg::Tree),
+}
+
+/// Determine the image size in pixels.
+#[comemo::memoize]
+fn determine_size(data: &Buffer, format: ImageFormat) -> StrResult<(u32, u32)> {
+    match format {
+        ImageFormat::Raster(format) => {
+            let cursor = io::Cursor::new(&data);
+            let reader = image::io::Reader::with_format(cursor, format.into());
+            Ok(reader.into_dimensions().map_err(format_image_error)?)
+        }
+        ImageFormat::Vector(VectorFormat::Svg) => {
+            let opts = usvg::Options::default();
+            let tree = usvg::Tree::from_data(&data, &opts.to_ref())
+                .map_err(format_usvg_error)?;
+
+            let size = tree.svg_node().size;
+            let width = size.width().ceil() as u32;
+            let height = size.height().ceil() as u32;
+            Ok((width, height))
+        }
+    }
 }
 
 /// Format the user-facing raster graphic decoding error message.
