@@ -279,9 +279,7 @@ impl<'a> GridLayouter<'a> {
             // otherwise shrink auto columns.
             let remaining = available - auto;
             if remaining >= Abs::zero() {
-                if !fr.is_zero() {
-                    self.grow_fractional_columns(remaining, fr);
-                }
+                self.grow_fractional_columns(remaining, fr);
             } else {
                 self.shrink_auto_columns(available, count);
             }
@@ -335,6 +333,10 @@ impl<'a> GridLayouter<'a> {
 
     /// Distribute remaining space to fractional columns.
     fn grow_fractional_columns(&mut self, remaining: Abs, fr: Fr) {
+        if fr.is_zero() {
+            return;
+        }
+
         for (&col, rcol) in self.cols.iter().zip(&mut self.rcols) {
             if let TrackSizing::Fractional(v) = col {
                 *rcol = v.share(fr, remaining);
@@ -344,30 +346,33 @@ impl<'a> GridLayouter<'a> {
 
     /// Redistribute space to auto columns so that each gets a fair share.
     fn shrink_auto_columns(&mut self, available: Abs, count: usize) {
-        // The fair share each auto column may have.
-        let fair = available / count as f64;
-
-        // The number of overlarge auto columns and the space that will be
-        // equally redistributed to them.
-        let mut overlarge: usize = 0;
+        let mut last;
+        let mut fair = -Abs::inf();
         let mut redistribute = available;
+        let mut overlarge = count;
+        let mut changed = true;
 
-        // Find out the number of and space used by overlarge auto columns.
-        for (&col, rcol) in self.cols.iter().zip(&mut self.rcols) {
-            if col == TrackSizing::Auto {
-                if *rcol > fair {
-                    overlarge += 1;
-                } else {
-                    redistribute -= *rcol;
+        // Iteratively remove columns that don't need to be shrunk.
+        while changed && overlarge > 0 {
+            changed = false;
+            last = fair;
+            fair = redistribute / (overlarge as f64);
+
+            for (&col, &rcol) in self.cols.iter().zip(&self.rcols) {
+                // Remove an auto column if it is not overlarge (rcol <= fair),
+                // but also hasn't already been removed (rcol > last).
+                if col == TrackSizing::Auto && rcol <= fair && rcol > last {
+                    redistribute -= rcol;
+                    overlarge -= 1;
+                    changed = true;
                 }
             }
         }
 
-        // Redistribute the space equally.
-        let share = redistribute / overlarge as f64;
+        // Redistribute space fairly among overlarge columns.
         for (&col, rcol) in self.cols.iter().zip(&mut self.rcols) {
             if col == TrackSizing::Auto && *rcol > fair {
-                *rcol = share;
+                *rcol = fair;
             }
         }
     }
@@ -465,7 +470,6 @@ impl<'a> GridLayouter<'a> {
     /// Layout a row with fixed height and return its frame.
     fn layout_single_row(&mut self, height: Abs, y: usize) -> SourceResult<Frame> {
         let mut output = Frame::new(Size::new(self.used.x, height));
-
         let mut pos = Point::zero();
 
         for (x, &rcol) in self.rcols.iter().enumerate() {
