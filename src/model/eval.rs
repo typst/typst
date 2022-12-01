@@ -1008,10 +1008,11 @@ impl Eval for ast::ForLoop {
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let flow = vm.flow.take();
         let mut output = Value::None;
-        vm.scopes.enter();
 
         macro_rules! iter {
             (for ($($binding:ident => $value:ident),*) in $iter:expr) => {{
+                vm.scopes.enter();
+
                 #[allow(unused_parens)]
                 for ($($value),*) in $iter {
                     $(vm.scopes.top.define($binding.clone(), $value);)*
@@ -1031,10 +1032,12 @@ impl Eval for ast::ForLoop {
                     }
                 }
 
+                vm.scopes.exit();
             }};
         }
 
         let iter = self.iter().eval(vm)?;
+
         let pattern = self.pattern();
         let key = pattern.key().map(ast::Ident::take);
         let value = pattern.value().take();
@@ -1076,7 +1079,6 @@ impl Eval for ast::ForLoop {
             vm.flow = flow;
         }
 
-        vm.scopes.exit();
         Ok(output)
     }
 }

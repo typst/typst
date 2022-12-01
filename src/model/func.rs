@@ -329,12 +329,14 @@ impl<'a> CapturesVisitor<'a> {
             // evaluated.
             Some(ast::Expr::For(expr)) => {
                 self.visit(expr.iter().as_untyped());
+                self.internal.enter();
                 let pattern = expr.pattern();
                 if let Some(key) = pattern.key() {
                     self.bind(key);
                 }
                 self.bind(pattern.value());
                 self.visit(expr.body().as_untyped());
+                self.internal.exit();
             }
 
             // An import contains items, but these are active only after the
@@ -416,6 +418,7 @@ mod tests {
         // For loop.
         test("#for x in y { x + z }", &["y", "z"]);
         test("#for x, y in y { x + y }", &["y"]);
+        test("#for x in y {} #x", &["x", "y"]);
 
         // Import.
         test("#import x, y from z", &["z"]);
