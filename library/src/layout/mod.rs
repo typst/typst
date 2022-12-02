@@ -32,7 +32,6 @@ pub use self::transform::*;
 
 use std::mem;
 
-use comemo::Tracked;
 use typed_arena::Arena;
 use typst::diag::SourceResult;
 use typst::geom::*;
@@ -40,7 +39,6 @@ use typst::model::{
     applicable, capability, realize, Content, Node, SequenceNode, Style, StyleChain,
     StyleVecBuilder, StyledNode,
 };
-use typst::World;
 
 use crate::basics::{DescNode, EnumNode, ListItem, ListNode, DESC, ENUM, LIST};
 use crate::meta::DocumentNode;
@@ -52,23 +50,27 @@ use crate::text::{LinebreakNode, SmartQuoteNode, SpaceNode, TextNode};
 #[capability]
 pub trait LayoutRoot {
     /// Layout into one frame per page.
-    fn layout_root(
-        &self,
-        world: Tracked<dyn World>,
-        styles: StyleChain,
-    ) -> SourceResult<Document>;
+    fn layout_root(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Document>;
 }
 
 impl LayoutRoot for Content {
-    #[comemo::memoize]
-    fn layout_root(
-        &self,
-        world: Tracked<dyn World>,
-        styles: StyleChain,
-    ) -> SourceResult<Document> {
-        let scratch = Scratch::default();
-        let (realized, styles) = realize_root(world, &scratch, self, styles)?;
-        realized.with::<dyn LayoutRoot>().unwrap().layout_root(world, styles)
+    fn layout_root(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Document> {
+        #[comemo::memoize]
+        fn cached(
+            node: &Content,
+            world: comemo::Tracked<dyn World>,
+            styles: StyleChain,
+        ) -> SourceResult<Document> {
+            let mut vt = Vt { world };
+            let scratch = Scratch::default();
+            let (realized, styles) = realize_root(&mut vt, &scratch, node, styles)?;
+            realized
+                .with::<dyn LayoutRoot>()
+                .unwrap()
+                .layout_root(&mut vt, styles)
+        }
+
+        cached(self, vt.world, styles)
     }
 }
 
@@ -78,25 +80,38 @@ pub trait Layout {
     /// Layout into one frame per region.
     fn layout(
         &self,
-        world: Tracked<dyn World>,
+        vt: &mut Vt,
         styles: StyleChain,
         regions: &Regions,
     ) -> SourceResult<Fragment>;
 }
 
 impl Layout for Content {
-    #[comemo::memoize]
     fn layout(
         &self,
-        world: Tracked<dyn World>,
+        vt: &mut Vt,
         styles: StyleChain,
         regions: &Regions,
     ) -> SourceResult<Fragment> {
-        let scratch = Scratch::default();
-        let (realized, styles) = realize_block(world, &scratch, self, styles)?;
-        let barrier = Style::Barrier(realized.id());
-        let styles = styles.chain_one(&barrier);
-        realized.with::<dyn Layout>().unwrap().layout(world, styles, regions)
+        #[comemo::memoize]
+        fn cached(
+            node: &Content,
+            world: comemo::Tracked<dyn World>,
+            styles: StyleChain,
+            regions: &Regions,
+        ) -> SourceResult<Fragment> {
+            let mut vt = Vt { world };
+            let scratch = Scratch::default();
+            let (realized, styles) = realize_block(&mut vt, &scratch, node, styles)?;
+            let barrier = Style::Barrier(realized.id());
+            let styles = styles.chain_one(&barrier);
+            realized
+                .with::<dyn Layout>()
+                .unwrap()
+                .layout(&mut vt, styles, regions)
+        }
+
+        cached(self, vt.world, styles, regions)
     }
 }
 
@@ -199,7 +214,7 @@ impl Regions {
 
 /// Realize into a node that is capable of root-level layout.
 fn realize_root<'a>(
-    world: Tracked<'a, dyn World>,
+    vt: &mut Vt,
     scratch: &'a Scratch<'a>,
     content: &'a Content,
     styles: StyleChain<'a>,
@@ -208,7 +223,7 @@ fn realize_root<'a>(
         return Ok((content.clone(), styles));
     }
 
-    let mut builder = Builder::new(world, &scratch, true);
+    let mut builder = Builder::new(vt, &scratch, true);
     builder.accept(content, styles)?;
     builder.interrupt_page(Some(styles))?;
     let (pages, shared) = builder.doc.unwrap().pages.finish();
@@ -217,7 +232,7 @@ fn realize_root<'a>(
 
 /// Realize into a node that is capable of block-level layout.
 fn realize_block<'a>(
-    world: Tracked<'a, dyn World>,
+    vt: &mut Vt,
     scratch: &'a Scratch<'a>,
     content: &'a Content,
     styles: StyleChain<'a>,
@@ -226,7 +241,7 @@ fn realize_block<'a>(
         return Ok((content.clone(), styles));
     }
 
-    let mut builder = Builder::new(world, &scratch, false);
+    let mut builder = Builder::new(vt, &scratch, false);
     builder.accept(content, styles)?;
     builder.interrupt_par()?;
     let (children, shared) = builder.flow.0.finish();
@@ -234,9 +249,9 @@ fn realize_block<'a>(
 }
 
 /// Builds a document or a flow node from content.
-struct Builder<'a> {
-    /// The core context.
-    world: Tracked<'a, dyn World>,
+struct Builder<'a, 'v, 't> {
+    /// The virtual typesetter.
+    vt: &'v mut Vt<'t>,
     /// Scratch arenas for building.
     scratch: &'a Scratch<'a>,
     /// The current document building state.
@@ -258,10 +273,10 @@ struct Scratch<'a> {
     content: Arena<Content>,
 }
 
-impl<'a> Builder<'a> {
-    fn new(world: Tracked<'a, dyn World>, scratch: &'a Scratch<'a>, top: bool) -> Self {
+impl<'a, 'v, 't> Builder<'a, 'v, 't> {
+    fn new(vt: &'v mut Vt<'t>, scratch: &'a Scratch<'a>, top: bool) -> Self {
         Self {
-            world,
+            vt,
             scratch,
             doc: top.then(|| DocBuilder::default()),
             flow: FlowBuilder::default(),
@@ -286,7 +301,7 @@ impl<'a> Builder<'a> {
             return Ok(());
         }
 
-        if let Some(realized) = realize(self.world, content, styles)? {
+        if let Some(realized) = realize(self.vt, content, styles)? {
             let stored = self.scratch.content.alloc(realized);
             return self.accept(stored, styles);
         }

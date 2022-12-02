@@ -20,7 +20,7 @@ impl FlowNode {
 impl Layout for FlowNode {
     fn layout(
         &self,
-        world: Tracked<dyn World>,
+        vt: &mut Vt,
         styles: StyleChain,
         regions: &Regions,
     ) -> SourceResult<Fragment> {
@@ -33,9 +33,9 @@ impl Layout for FlowNode {
             } else if let Some(node) = child.to::<ParNode>() {
                 let barrier = Style::Barrier(child.id());
                 let styles = styles.chain_one(&barrier);
-                layouter.layout_par(world, node, styles)?;
+                layouter.layout_par(vt, node, styles)?;
             } else if child.has::<dyn Layout>() {
-                layouter.layout_block(world, child, styles)?;
+                layouter.layout_block(vt, child, styles)?;
             } else if child.is::<ColbreakNode>() {
                 layouter.finish_region(false);
             } else {
@@ -122,16 +122,23 @@ impl FlowLayouter {
     /// Layout a paragraph.
     fn layout_par(
         &mut self,
-        world: Tracked<dyn World>,
+        vt: &mut Vt,
         par: &ParNode,
         styles: StyleChain,
     ) -> SourceResult<()> {
         let aligns = Axes::new(styles.get(ParNode::ALIGN), Align::Top);
         let leading = styles.get(ParNode::LEADING);
         let consecutive = self.last_was_par;
-        let fragment = par.layout(world, styles, &self.regions, consecutive)?;
-        let len = fragment.len();
+        let fragment = par.layout(
+            vt,
+            styles,
+            consecutive,
+            self.regions.first.x,
+            self.regions.base,
+            self.regions.expand.x,
+        )?;
 
+        let len = fragment.len();
         for (i, frame) in fragment.into_iter().enumerate() {
             if i > 0 {
                 self.layout_item(FlowItem::Leading(leading));
@@ -151,7 +158,7 @@ impl FlowLayouter {
     /// Layout a block.
     fn layout_block(
         &mut self,
-        world: Tracked<dyn World>,
+        vt: &mut Vt,
         block: &Content,
         styles: StyleChain,
     ) -> SourceResult<()> {
@@ -159,7 +166,7 @@ impl FlowLayouter {
         // aligned later.
         if let Some(placed) = block.to::<PlaceNode>() {
             if placed.out_of_flow() {
-                let frame = block.layout(world, styles, &self.regions)?.into_frame();
+                let frame = block.layout(vt, styles, &self.regions)?.into_frame();
                 self.layout_item(FlowItem::Placed(frame));
                 return Ok(());
             }
@@ -180,7 +187,7 @@ impl FlowLayouter {
 
         // Layout the block itself.
         let sticky = styles.get(BlockNode::STICKY);
-        let fragment = block.layout(world, styles, &self.regions)?;
+        let fragment = block.layout(vt, styles, &self.regions)?;
         for frame in fragment {
             self.layout_item(FlowItem::Frame(frame, aligns, sticky));
         }

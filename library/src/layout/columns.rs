@@ -29,14 +29,14 @@ impl ColumnsNode {
 impl Layout for ColumnsNode {
     fn layout(
         &self,
-        world: Tracked<dyn World>,
+        vt: &mut Vt,
         styles: StyleChain,
         regions: &Regions,
     ) -> SourceResult<Fragment> {
         // Separating the infinite space into infinite columns does not make
         // much sense.
         if !regions.first.x.is_finite() {
-            return self.child.layout(world, styles, regions);
+            return self.child.layout(vt, styles, regions);
         }
 
         // Determine the width of the gutter and each column.
@@ -58,7 +58,7 @@ impl Layout for ColumnsNode {
         };
 
         // Layout the children.
-        let mut frames = self.child.layout(world, styles, &pod)?.into_iter();
+        let mut frames = self.child.layout(vt, styles, &pod)?.into_iter();
         let mut finished = vec![];
 
         let dir = styles.get(TextNode::DIR);

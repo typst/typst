@@ -57,7 +57,7 @@ impl PageNode {
     /// Layout the page run into a sequence of frames, one per page.
     pub fn layout(
         &self,
-        world: Tracked<dyn World>,
+        vt: &mut Vt,
         mut page: usize,
         styles: StyleChain,
     ) -> SourceResult<Fragment> {
@@ -97,7 +97,7 @@ impl PageNode {
 
         // Layout the child.
         let regions = Regions::repeat(size, size, size.map(Abs::is_finite));
-        let mut fragment = child.layout(world, styles, &regions)?;
+        let mut fragment = child.layout(vt, styles, &regions)?;
 
         let header = styles.get(Self::HEADER);
         let footer = styles.get(Self::FOOTER);
@@ -116,9 +116,9 @@ impl PageNode {
                 (foreground, Point::zero(), size),
                 (background, Point::zero(), size),
             ] {
-                if let Some(content) = marginal.resolve(world, page)? {
+                if let Some(content) = marginal.resolve(vt, page)? {
                     let pod = Regions::one(area, area, Axes::splat(true));
-                    let sub = content.layout(world, styles, &pod)?.into_frame();
+                    let sub = content.layout(vt, styles, &pod)?.into_frame();
                     if std::ptr::eq(marginal, background) {
                         frame.prepend_frame(pos, sub);
                     } else {
@@ -169,17 +169,13 @@ pub enum Marginal {
 
 impl Marginal {
     /// Resolve the marginal based on the page number.
-    pub fn resolve(
-        &self,
-        world: Tracked<dyn World>,
-        page: usize,
-    ) -> SourceResult<Option<Content>> {
+    pub fn resolve(&self, vt: &Vt, page: usize) -> SourceResult<Option<Content>> {
         Ok(match self {
             Self::None => None,
             Self::Content(content) => Some(content.clone()),
             Self::Func(func, span) => {
                 let args = Args::new(*span, [Value::Int(page as i64)]);
-                Some(func.call_detached(world, args)?.display())
+                Some(func.call_detached(vt.world(), args)?.display())
             }
         })
     }

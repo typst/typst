@@ -14,11 +14,11 @@ impl RepeatNode {
 impl Layout for RepeatNode {
     fn layout(
         &self,
-        world: Tracked<dyn World>,
+        vt: &mut Vt,
         styles: StyleChain,
         regions: &Regions,
     ) -> SourceResult<Fragment> {
-        self.0.layout(world, styles, regions)
+        self.0.layout(vt, styles, regions)
     }
 }
 

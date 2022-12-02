@@ -6,7 +6,7 @@ pub use std::fmt::{self, Debug, Formatter};
 pub use std::num::NonZeroUsize;
 
 #[doc(no_inline)]
-pub use comemo::Tracked;
+pub use comemo::{Track, Tracked, TrackedMut};
 #[doc(no_inline)]
 pub use typst::diag::{bail, error, with_alternative, At, SourceResult, StrResult};
 #[doc(no_inline)]
@@ -16,8 +16,8 @@ pub use typst::geom::*;
 #[doc(no_inline)]
 pub use typst::model::{
     array, capability, castable, dict, dynamic, format_str, node, Args, Array, Cast,
-    Content, Dict, Finalize, Fold, Func, Label, Node, NodeId, Resolve, Show, Smart, Str,
-    StyleChain, StyleMap, StyleVec, Unlabellable, Value, Vm,
+    Content, Dict, Finalize, Fold, Func, Label, Node, NodeId, Resolve, Selector, Show,
+    Smart, Str, StyleChain, StyleMap, StyleVec, Unlabellable, Value, Vm, Vt,
 };
 #[doc(no_inline)]
 pub use typst::syntax::{Span, Spanned};

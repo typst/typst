@@ -1,8 +1,5 @@
-use comemo::Tracked;
-
-use super::{capability, Content, NodeId, Recipe, Selector, StyleChain};
+use super::{capability, Content, NodeId, Recipe, Selector, StyleChain, Vt};
 use crate::diag::SourceResult;
-use crate::World;
 
 /// Whether the target is affected by show rules in the given style chain.
 pub fn applicable(target: &Content, styles: StyleChain) -> bool {
@@ -22,7 +19,7 @@ pub fn applicable(target: &Content, styles: StyleChain) -> bool {
 
 /// Apply the show rules in the given style chain to a target.
 pub fn realize(
-    world: Tracked<dyn World>,
+    vt: &mut Vt,
     target: &Content,
     styles: StyleChain,
 ) -> SourceResult<Option<Content>> {
@@ -34,7 +31,7 @@ pub fn realize(
     for recipe in styles.recipes() {
         let guard = Guard::Nth(n);
         if recipe.applicable(target) && !target.is_guarded(guard) {
-            if let Some(content) = try_apply(world, &target, recipe, guard)? {
+            if let Some(content) = try_apply(vt, &target, recipe, guard)? {
                 realized = Some(content);
                 break;
             }
@@ -46,7 +43,7 @@ pub fn realize(
     if let Some(showable) = target.with::<dyn Show>() {
         let guard = Guard::Base(target.id());
         if realized.is_none() && !target.is_guarded(guard) {
-            realized = Some(showable.show(world, styles));
+            realized = Some(showable.show(vt, target, styles));
         }
     }
 
@@ -64,7 +61,7 @@ pub fn realize(
 
 /// Try to apply a recipe to the target.
 fn try_apply(
-    world: Tracked<dyn World>,
+    vt: &Vt,
     target: &Content,
     recipe: &Recipe,
     guard: Guard,
@@ -75,7 +72,7 @@ fn try_apply(
                 return Ok(None);
             }
 
-            recipe.apply(world, target.clone().guarded(guard)).map(Some)
+            recipe.apply(vt.world(), target.clone().guarded(guard)).map(Some)
         }
 
         Some(Selector::Label(label)) => {
@@ -83,7 +80,7 @@ fn try_apply(
                 return Ok(None);
             }
 
-            recipe.apply(world, target.clone().guarded(guard)).map(Some)
+            recipe.apply(vt.world(), target.clone().guarded(guard)).map(Some)
         }
 
         Some(Selector::Regex(regex)) => {
@@ -107,7 +104,7 @@ fn try_apply(
                 }
 
                 let piece = make(m.as_str().into()).guarded(guard);
-                let transformed = recipe.apply(world, piece)?;
+                let transformed = recipe.apply(vt.world(), piece)?;
                 result.push(transformed);
                 cursor = m.end();
             }
@@ -131,7 +128,7 @@ fn try_apply(
 #[capability]
 pub trait Show {
     /// Execute the base recipe for this node.
-    fn show(&self, world: Tracked<dyn World>, styles: StyleChain) -> Content;
+    fn show(&self, vt: &mut Vt, this: &Content, styles: StyleChain) -> Content;
 }
 
 /// Post-process a node after it was realized.

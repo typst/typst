@@ -44,27 +44,43 @@ impl ParNode {
 
 impl ParNode {
     /// Layout the paragraph into a collection of lines.
-    #[comemo::memoize]
     pub fn layout(
         &self,
-        world: Tracked<dyn World>,
+        vt: &mut Vt,
         styles: StyleChain,
-        regions: &Regions,
         consecutive: bool,
+        width: Abs,
+        base: Size,
+        expand: bool,
     ) -> SourceResult<Fragment> {
-        // Collect all text into one string for BiDi analysis.
-        let (text, segments) = collect(self, &styles, consecutive);
+        #[comemo::memoize]
+        fn cached(
+            par: &ParNode,
+            world: Tracked<dyn World>,
+            styles: StyleChain,
+            consecutive: bool,
+            width: Abs,
+            base: Size,
+            expand: bool,
+        ) -> SourceResult<Fragment> {
+            let mut vt = Vt { world };
 
-        // Perform BiDi analysis and then prepare paragraph layout by building a
-        // representation on which we can do line breaking without layouting
-        // each and every line from scratch.
-        let p = prepare(world, self, &text, segments, regions, styles)?;
+            // Collect all text into one string for BiDi analysis.
+            let (text, segments) = collect(par, &styles, consecutive);
 
-        // Break the paragraph into lines.
-        let lines = linebreak(&p, regions.first.x);
+            // Perform BiDi analysis and then prepare paragraph layout by building a
+            // representation on which we can do line breaking without layouting
+            // each and every line from scratch.
+            let p = prepare(&mut vt, par, &text, segments, styles, width, base)?;
 
-        // Stack the lines into one frame per region.
-        finalize(&p, &lines, regions)
+            // Break the paragraph into lines.
+            let lines = linebreak(&vt, &p, width);
+
+            // Stack the lines into one frame per region.
+            finalize(&mut vt, &p, &lines, width, base, expand)
+        }
+
+        cached(self, vt.world, styles, consecutive, width, base, expand)
     }
 }
 
@@ -143,8 +159,6 @@ const NODE_REPLACE: char = '\u{FFFC}'; // Object Replacement Character
 /// Only when a line break falls onto a text index that is not safe-to-break per
 /// rustybuzz, we have to reshape that portion.
 struct Preparation<'a> {
-    /// The compilation environment.
-    world: Tracked<'a, dyn World>,
     /// Bidirectional text embedding levels for the paragraph.
     bidi: BidiInfo<'a>,
     /// Text runs, spacing and layouted nodes.
@@ -470,12 +484,13 @@ fn collect<'a>(
 /// Prepare paragraph layout by shaping the whole paragraph and layouting all
 /// contained inline-level content.
 fn prepare<'a>(
-    world: Tracked<'a, dyn World>,
+    vt: &mut Vt,
     par: &'a ParNode,
     text: &'a str,
     segments: Vec<(Segment<'a>, StyleChain<'a>)>,
-    regions: &Regions,
     styles: StyleChain<'a>,
+    width: Abs,
+    base: Size,
 ) -> SourceResult<Preparation<'a>> {
     let bidi = BidiInfo::new(
         text,
@@ -494,11 +509,11 @@ fn prepare<'a>(
         let end = cursor + segment.len();
         match segment {
             Segment::Text(_) => {
-                shape_range(&mut items, world, &bidi, cursor..end, styles);
+                shape_range(&mut items, vt, &bidi, cursor..end, styles);
             }
             Segment::Spacing(spacing) => match spacing {
                 Spacing::Relative(v) => {
-                    let resolved = v.resolve(styles).relative_to(regions.base.x);
+                    let resolved = v.resolve(styles).relative_to(base.x);
                     items.push(Item::Absolute(resolved));
                 }
                 Spacing::Fractional(v) => {
@@ -509,9 +524,9 @@ fn prepare<'a>(
                 if let Some(repeat) = inline.to::<RepeatNode>() {
                     items.push(Item::Repeat(repeat, styles));
                 } else {
-                    let size = Size::new(regions.first.x, regions.base.y);
-                    let pod = Regions::one(size, regions.base, Axes::splat(false));
-                    let mut frame = inline.layout(world, styles, &pod)?.into_frame();
+                    let size = Size::new(width, base.y);
+                    let pod = Regions::one(size, base, Axes::splat(false));
+                    let mut frame = inline.layout(vt, styles, &pod)?.into_frame();
                     frame.translate(Point::with_y(styles.get(TextNode::BASELINE)));
                     items.push(Item::Frame(frame));
                 }
@@ -522,7 +537,6 @@ fn prepare<'a>(
     }
 
     Ok(Preparation {
-        world,
         bidi,
         items,
         styles,
@@ -537,14 +551,14 @@ fn prepare<'a>(
 /// items for them.
 fn shape_range<'a>(
     items: &mut Vec<Item<'a>>,
-    world: Tracked<dyn World>,
+    vt: &Vt,
     bidi: &BidiInfo<'a>,
     range: Range,
     styles: StyleChain<'a>,
 ) {
     let mut process = |text, level: BidiLevel| {
         let dir = if level.is_ltr() { Dir::LTR } else { Dir::RTL };
-        let shaped = shape(world, text, styles, dir);
+        let shaped = shape(vt, text, styles, dir);
         items.push(Item::Text(shaped));
     };
 
@@ -601,7 +615,7 @@ fn shared_get<'a, K: Key>(
 }
 
 /// Find suitable linebreaks.
-fn linebreak<'a>(p: &'a Preparation<'a>, width: Abs) -> Vec<Line<'a>> {
+fn linebreak<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<Line<'a>> {
     let linebreaks = p.styles.get(ParNode::LINEBREAKS).unwrap_or_else(|| {
         if p.styles.get(ParNode::JUSTIFY) {
             Linebreaks::Optimized
@@ -611,22 +625,22 @@ fn linebreak<'a>(p: &'a Preparation<'a>, width: Abs) -> Vec<Line<'a>> {
     });
 
     match linebreaks {
-        Linebreaks::Simple => linebreak_simple(p, width),
-        Linebreaks::Optimized => linebreak_optimized(p, width),
+        Linebreaks::Simple => linebreak_simple(vt, p, width),
+        Linebreaks::Optimized => linebreak_optimized(vt, p, width),
     }
 }
 
 /// Perform line breaking in simple first-fit style. This means that we build
 /// lines greedily, always taking the longest possible line. This may lead to
 /// very unbalanced line, but is fast and simple.
-fn linebreak_simple<'a>(p: &'a Preparation<'a>, width: Abs) -> Vec<Line<'a>> {
+fn linebreak_simple<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<Line<'a>> {
     let mut lines = vec![];
     let mut start = 0;
     let mut last = None;
 
     for (end, mandatory, hyphen) in breakpoints(p) {
         // Compute the line and its size.
-        let mut attempt = line(p, start..end, mandatory, hyphen);
+        let mut attempt = line(vt, p, start..end, mandatory, hyphen);
 
         // If the line doesn't fit anymore, we push the last fitting attempt
         // into the stack and rebuild the line from the attempt's end. The
@@ -635,7 +649,7 @@ fn linebreak_simple<'a>(p: &'a Preparation<'a>, width: Abs) -> Vec<Line<'a>> {
             if let Some((last_attempt, last_end)) = last.take() {
                 lines.push(last_attempt);
                 start = last_end;
-                attempt = line(p, start..end, mandatory, hyphen);
+                attempt = line(vt, p, start..end, mandatory, hyphen);
             }
         }
 
@@ -675,7 +689,7 @@ fn linebreak_simple<'a>(p: &'a Preparation<'a>, width: Abs) -> Vec<Line<'a>> {
 /// computed and stored in dynamic programming table) is minimal. The final
 /// result is simply the layout determined for the last breakpoint at the end of
 /// text.
-fn linebreak_optimized<'a>(p: &'a Preparation<'a>, width: Abs) -> Vec<Line<'a>> {
+fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<Line<'a>> {
     /// The cost of a line or paragraph layout.
     type Cost = f64;
 
@@ -698,7 +712,7 @@ fn linebreak_optimized<'a>(p: &'a Preparation<'a>, width: Abs) -> Vec<Line<'a>> 
     let mut table = vec![Entry {
         pred: 0,
         total: 0.0,
-        line: line(p, 0..0, false, false),
+        line: line(vt, p, 0..0, false, false),
     }];
 
     let em = p.styles.get(TextNode::SIZE);
@@ -712,7 +726,7 @@ fn linebreak_optimized<'a>(p: &'a Preparation<'a>, width: Abs) -> Vec<Line<'a>> 
         for (i, pred) in table.iter_mut().enumerate().skip(active) {
             // Layout the line.
             let start = pred.line.end;
-            let attempt = line(p, start..end, mandatory, hyphen);
+            let attempt = line(vt, p, start..end, mandatory, hyphen);
 
             // Determine how much the line's spaces would need to be stretched
             // to make it the desired width.
@@ -787,7 +801,7 @@ fn linebreak_optimized<'a>(p: &'a Preparation<'a>, width: Abs) -> Vec<Line<'a>> 
 /// Returns for each breakpoint the text index, whether the break is mandatory
 /// (after `\n`) and whether a hyphen is required (when breaking inside of a
 /// word).
-fn breakpoints<'a>(p: &'a Preparation) -> Breakpoints<'a> {
+fn breakpoints<'a>(p: &'a Preparation<'a>) -> Breakpoints<'a> {
     Breakpoints {
         p,
         linebreaks: LineBreakIterator::new(p.bidi.text),
@@ -885,6 +899,7 @@ impl Breakpoints<'_> {
 
 /// Create a line which spans the given range.
 fn line<'a>(
+    vt: &Vt,
     p: &'a Preparation,
     mut range: Range,
     mandatory: bool,
@@ -940,9 +955,9 @@ fn line<'a>(
         if hyphen || start + shaped.text.len() > range.end {
             if hyphen || start < range.end || before.is_empty() {
                 let shifted = start - base..range.end - base;
-                let mut reshaped = shaped.reshape(p.world, shifted);
+                let mut reshaped = shaped.reshape(vt, shifted);
                 if hyphen || shy {
-                    reshaped.push_hyphen(p.world);
+                    reshaped.push_hyphen(vt);
                 }
                 width += reshaped.width;
                 last = Some(Item::Text(reshaped));
@@ -963,7 +978,7 @@ fn line<'a>(
         if range.start + shaped.text.len() > end {
             if range.start < end {
                 let shifted = range.start - base..end - base;
-                let reshaped = shaped.reshape(p.world, shifted);
+                let reshaped = shaped.reshape(vt, shifted);
                 width += reshaped.width;
                 first = Some(Item::Text(reshaped));
             }
@@ -992,27 +1007,35 @@ fn line<'a>(
 
 /// Combine layouted lines into one frame per region.
 fn finalize(
+    vt: &mut Vt,
     p: &Preparation,
     lines: &[Line],
-    regions: &Regions,
+    mut width: Abs,
+    base: Size,
+    expand: bool,
 ) -> SourceResult<Fragment> {
     // Determine the paragraph's width: Full width of the region if we
     // should expand or there's fractional spacing, fit-to-width otherwise.
-    let mut width = regions.first.x;
-    if !regions.expand.x && lines.iter().all(|line| line.fr().is_zero()) {
+    if !expand && lines.iter().all(|line| line.fr().is_zero()) {
         width = lines.iter().map(|line| line.width).max().unwrap_or_default();
     }
 
     // Stack the lines into one frame per region.
     lines
         .iter()
-        .map(|line| commit(p, line, regions.base, width))
+        .map(|line| commit(vt, p, line, base, width))
         .collect::<SourceResult<_>>()
         .map(Fragment::frames)
 }
 
 /// Commit to a line and build its frame.
-fn commit(p: &Preparation, line: &Line, base: Size, width: Abs) -> SourceResult<Frame> {
+fn commit(
+    vt: &mut Vt,
+    p: &Preparation,
+    line: &Line,
+    base: Size,
+    width: Abs,
+) -> SourceResult<Frame> {
     let mut remaining = width - line.width;
     let mut offset = Abs::zero();
 
@@ -1079,7 +1102,7 @@ fn commit(p: &Preparation, line: &Line, base: Size, width: Abs) -> SourceResult<
                 offset += v.share(fr, remaining);
             }
             Item::Text(shaped) => {
-                let frame = shaped.build(p.world, justification);
+                let frame = shaped.build(vt, justification);
                 push(&mut offset, frame);
             }
             Item::Frame(frame) => {
@@ -1090,7 +1113,7 @@ fn commit(p: &Preparation, line: &Line, base: Size, width: Abs) -> SourceResult<
                 let fill = Fr::one().share(fr, remaining);
                 let size = Size::new(fill, base.y);
                 let pod = Regions::one(size, base, Axes::new(false, false));
-                let frame = repeat.layout(p.world, *styles, &pod)?.into_frame();
+                let frame = repeat.layout(vt, *styles, &pod)?.into_frame();
                 let width = frame.width();
                 let count = (fill / width).floor();
                 let remaining = fill % width;

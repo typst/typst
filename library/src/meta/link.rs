@@ -54,7 +54,7 @@ impl LinkNode {
 }
 
 impl Show for LinkNode {
-    fn show(&self, _: Tracked<dyn World>, _: StyleChain) -> Content {
+    fn show(&self, _: &mut Vt, _: &Content, _: StyleChain) -> Content {
         self.body.clone()
     }
 }

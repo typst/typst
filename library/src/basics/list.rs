@@ -78,7 +78,7 @@ impl<const L: ListKind> ListNode<L> {
 impl<const L: ListKind> Layout for ListNode<L> {
     fn layout(
         &self,
-        world: Tracked<dyn World>,
+        vt: &mut Vt,
         styles: StyleChain,
         regions: &Regions,
     ) -> SourceResult<Fragment> {
@@ -104,7 +104,7 @@ impl<const L: ListKind> Layout for ListNode<L> {
             cells.push(Content::empty());
 
             let label = if L == LIST || L == ENUM {
-                label.resolve(world, L, number)?.styled_with_map(map.clone())
+                label.resolve(vt, L, number)?.styled_with_map(map.clone())
             } else {
                 Content::empty()
             };
@@ -137,7 +137,7 @@ impl<const L: ListKind> Layout for ListNode<L> {
             gutter: Axes::with_y(vec![gutter.into()]),
             cells,
         }
-        .layout(world, styles, regions)
+        .layout(vt, styles, regions)
     }
 }
 
@@ -232,7 +232,7 @@ impl Label {
     /// Resolve the label based on the level.
     pub fn resolve(
         &self,
-        world: Tracked<dyn World>,
+        vt: &Vt,
         kind: ListKind,
         number: usize,
     ) -> SourceResult<Content> {
@@ -246,7 +246,7 @@ impl Label {
             Self::Content(content) => content.clone(),
             Self::Func(func, span) => {
                 let args = Args::new(*span, [Value::Int(number as i64)]);
-                func.call_detached(world, args)?.display()
+                func.call_detached(vt.world(), args)?.display()
             }
         })
     }

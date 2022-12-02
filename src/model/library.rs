@@ -2,15 +2,13 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::num::NonZeroUsize;
 
-use comemo::Tracked;
 use once_cell::sync::OnceCell;
 
-use super::{Content, NodeId, Scope, StyleChain, StyleMap};
+use super::{Content, NodeId, Scope, StyleChain, StyleMap, Vt};
 use crate::diag::SourceResult;
 use crate::doc::Document;
 use crate::geom::{Abs, Dir};
 use crate::util::{hash128, EcoString};
-use crate::World;
 
 /// Definition of Typst's standard library.
 #[derive(Debug, Clone, Hash)]
@@ -27,11 +25,8 @@ pub struct Library {
 #[derive(Clone)]
 pub struct LangItems {
     /// The root layout function.
-    pub layout: fn(
-        world: Tracked<dyn World>,
-        content: &Content,
-        styles: StyleChain,
-    ) -> SourceResult<Document>,
+    pub layout:
+        fn(vt: &mut Vt, content: &Content, styles: StyleChain) -> SourceResult<Document>,
     /// Access the em size.
     pub em: fn(StyleChain) -> Abs,
     /// Access the text direction.

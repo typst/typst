@@ -39,7 +39,7 @@ impl LineNode {
 impl Layout for LineNode {
     fn layout(
         &self,
-        _: Tracked<dyn World>,
+        _: &mut Vt,
         styles: StyleChain,
         regions: &Regions,
     ) -> SourceResult<Fragment> {

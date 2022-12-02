@@ -19,7 +19,7 @@ impl PlaceNode {
 impl Layout for PlaceNode {
     fn layout(
         &self,
-        world: Tracked<dyn World>,
+        vt: &mut Vt,
         styles: StyleChain,
         regions: &Regions,
     ) -> SourceResult<Fragment> {
@@ -33,7 +33,7 @@ impl Layout for PlaceNode {
             Regions::one(regions.base, regions.base, expand)
         };
 
-        let mut frame = self.0.layout(world, styles, &pod)?.into_frame();
+        let mut frame = self.0.layout(vt, styles, &pod)?.into_frame();
 
         // If expansion is off, zero all sizes so that we don't take up any
         // space in our parent. Otherwise, respect the expand settings.

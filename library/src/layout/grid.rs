@@ -36,13 +36,13 @@ impl GridNode {
 impl Layout for GridNode {
     fn layout(
         &self,
-        world: Tracked<dyn World>,
+        vt: &mut Vt,
         styles: StyleChain,
         regions: &Regions,
     ) -> SourceResult<Fragment> {
         // Prepare grid layout by unifying content and gutter tracks.
         let layouter = GridLayouter::new(
-            world,
+            vt,
             self.tracks.as_deref(),
             self.gutter.as_deref(),
             &self.cells,
@@ -110,9 +110,9 @@ castable! {
 }
 
 /// Performs grid layout.
-struct GridLayouter<'a> {
+struct GridLayouter<'a, 'v> {
     /// The core context.
-    world: Tracked<'a, dyn World>,
+    vt: &'a mut Vt<'v>,
     /// The grid cells.
     cells: &'a [Content],
     /// The column tracks including gutter tracks.
@@ -147,12 +147,12 @@ enum Row {
     Fr(Fr, usize),
 }
 
-impl<'a> GridLayouter<'a> {
+impl<'a, 'v> GridLayouter<'a, 'v> {
     /// Create a new grid layouter.
     ///
     /// This prepares grid layout by unifying content and gutter tracks.
     fn new(
-        world: Tracked<'a, dyn World>,
+        vt: &'a mut Vt<'v>,
         tracks: Axes<&[TrackSizing]>,
         gutter: Axes<&[TrackSizing]>,
         cells: &'a [Content],
@@ -206,7 +206,7 @@ impl<'a> GridLayouter<'a> {
         regions.expand = Axes::new(true, false);
 
         Self {
-            world,
+            vt,
             cells,
             cols,
             rows,
@@ -318,7 +318,7 @@ impl<'a> GridLayouter<'a> {
                             v.resolve(self.styles).relative_to(self.regions.base.y);
                     }
 
-                    let frame = cell.layout(self.world, self.styles, &pod)?.into_frame();
+                    let frame = cell.layout(self.vt, self.styles, &pod)?.into_frame();
                     resolved.set_max(frame.width());
                 }
             }
@@ -395,7 +395,7 @@ impl<'a> GridLayouter<'a> {
                 }
 
                 let mut sizes = cell
-                    .layout(self.world, self.styles, &pod)?
+                    .layout(self.vt, self.styles, &pod)?
                     .into_iter()
                     .map(|frame| frame.height());
 
@@ -483,7 +483,7 @@ impl<'a> GridLayouter<'a> {
                     .select(self.regions.base, size);
 
                 let pod = Regions::one(size, base, Axes::splat(true));
-                let frame = cell.layout(self.world, self.styles, &pod)?.into_frame();
+                let frame = cell.layout(self.vt, self.styles, &pod)?.into_frame();
                 output.push_frame(pos, frame);
             }
 
@@ -519,7 +519,7 @@ impl<'a> GridLayouter<'a> {
                 }
 
                 // Push the layouted frames into the individual output frames.
-                let fragment = cell.layout(self.world, self.styles, &pod)?;
+                let fragment = cell.layout(self.vt, self.styles, &pod)?;
                 for (output, frame) in outputs.iter_mut().zip(fragment) {
                     output.push_frame(pos, frame);
                 }

@@ -43,11 +43,11 @@ impl<const S: ShiftKind> ShiftNode<S> {
 }
 
 impl<const S: ShiftKind> Show for ShiftNode<S> {
-    fn show(&self, world: Tracked<dyn World>, styles: StyleChain) -> Content {
+    fn show(&self, vt: &mut Vt, _: &Content, styles: StyleChain) -> Content {
         let mut transformed = None;
         if styles.get(Self::TYPOGRAPHIC) {
             if let Some(text) = search_text(&self.0, S) {
-                if is_shapable(world, &text, styles) {
+                if is_shapable(vt, &text, styles) {
                     transformed = Some(TextNode::packed(text));
                 }
             }
@@ -85,7 +85,8 @@ fn search_text(content: &Content, mode: ShiftKind) -> Option<EcoString> {
 
 /// Checks whether the first retrievable family contains all code points of the
 /// given string.
-fn is_shapable(world: Tracked<dyn World>, text: &str, styles: StyleChain) -> bool {
+fn is_shapable(vt: &Vt, text: &str, styles: StyleChain) -> bool {
+    let world = vt.world();
     for family in styles.get(TextNode::FAMILY).0.iter() {
         if let Some(font) = world
             .book()

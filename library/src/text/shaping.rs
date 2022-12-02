@@ -81,8 +81,8 @@ impl<'a> ShapedText<'a> {
     ///
     /// The `justification` defines how much extra advance width each
     /// [justifiable glyph](ShapedGlyph::is_justifiable) will get.
-    pub fn build(&self, world: Tracked<dyn World>, justification: Abs) -> Frame {
-        let (top, bottom) = self.measure(world);
+    pub fn build(&self, vt: &Vt, justification: Abs) -> Frame {
+        let (top, bottom) = self.measure(vt);
         let size = Size::new(self.width, top + bottom);
 
         let mut offset = Abs::zero();
@@ -137,7 +137,7 @@ impl<'a> ShapedText<'a> {
     }
 
     /// Measure the top and bottom extent of this text.
-    fn measure(&self, world: Tracked<dyn World>) -> (Abs, Abs) {
+    fn measure(&self, vt: &Vt) -> (Abs, Abs) {
         let mut top = Abs::zero();
         let mut bottom = Abs::zero();
 
@@ -154,6 +154,7 @@ impl<'a> ShapedText<'a> {
         if self.glyphs.is_empty() {
             // When there are no glyphs, we just use the vertical metrics of the
             // first available font.
+            let world = vt.world();
             for family in families(self.styles) {
                 if let Some(font) = world
                     .book()
@@ -190,11 +191,7 @@ impl<'a> ShapedText<'a> {
 
     /// Reshape a range of the shaped text, reusing information from this
     /// shaping process if possible.
-    pub fn reshape(
-        &'a self,
-        world: Tracked<dyn World>,
-        text_range: Range<usize>,
-    ) -> ShapedText<'a> {
+    pub fn reshape(&'a self, vt: &Vt, text_range: Range<usize>) -> ShapedText<'a> {
         if let Some(glyphs) = self.slice_safe_to_break(text_range.clone()) {
             Self {
                 text: &self.text[text_range],
@@ -206,13 +203,14 @@ impl<'a> ShapedText<'a> {
                 glyphs: Cow::Borrowed(glyphs),
             }
         } else {
-            shape(world, &self.text[text_range], self.styles, self.dir)
+            shape(vt, &self.text[text_range], self.styles, self.dir)
         }
     }
 
     /// Push a hyphen to end of the text.
-    pub fn push_hyphen(&mut self, world: Tracked<dyn World>) {
+    pub fn push_hyphen(&mut self, vt: &Vt) {
         families(self.styles).find_map(|family| {
+            let world = vt.world();
             let font = world
                 .book()
                 .select(family, self.variant)
@@ -303,7 +301,7 @@ impl Debug for ShapedText<'_> {
 
 /// Holds shaping results and metadata common to all shaped segments.
 struct ShapingContext<'a> {
-    world: Tracked<'a, dyn World>,
+    vt: &'a Vt<'a>,
     glyphs: Vec<ShapedGlyph>,
     used: Vec<Font>,
     styles: StyleChain<'a>,
@@ -316,7 +314,7 @@ struct ShapingContext<'a> {
 
 /// Shape text into [`ShapedText`].
 pub fn shape<'a>(
-    world: Tracked<dyn World>,
+    vt: &Vt,
     text: &'a str,
     styles: StyleChain<'a>,
     dir: Dir,
@@ -324,7 +322,7 @@ pub fn shape<'a>(
     let size = styles.get(TextNode::SIZE);
 
     let mut ctx = ShapingContext {
-        world,
+        vt,
         size,
         glyphs: vec![],
         used: vec![],
@@ -365,10 +363,11 @@ fn shape_segment<'a>(
     }
 
     // Find the next available family.
-    let book = ctx.world.book();
+    let world = ctx.vt.world();
+    let book = world.book();
     let mut selection = families.find_map(|family| {
         book.select(family, ctx.variant)
-            .and_then(|id| ctx.world.font(id))
+            .and_then(|id| world.font(id))
             .filter(|font| !ctx.used.contains(font))
     });
 
@@ -377,7 +376,7 @@ fn shape_segment<'a>(
         let first = ctx.used.first().map(Font::info);
         selection = book
             .select_fallback(first, ctx.variant, text)
-            .and_then(|id| ctx.world.font(id))
+            .and_then(|id| world.font(id))
             .filter(|font| !ctx.used.contains(font));
     }
 

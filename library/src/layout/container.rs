@@ -23,7 +23,7 @@ impl BoxNode {
 impl Layout for BoxNode {
     fn layout(
         &self,
-        world: Tracked<dyn World>,
+        vt: &mut Vt,
         styles: StyleChain,
         regions: &Regions,
     ) -> SourceResult<Fragment> {
@@ -47,7 +47,7 @@ impl Layout for BoxNode {
         };
 
         // Layout the child.
-        let mut frame = self.child.layout(world, styles, &pod)?.into_frame();
+        let mut frame = self.child.layout(vt, styles, &pod)?.into_frame();
 
         // Ensure frame size matches regions size if expansion is on.
         let target = regions.expand.select(regions.first, frame.size());
@@ -95,10 +95,10 @@ impl BlockNode {
 impl Layout for BlockNode {
     fn layout(
         &self,
-        world: Tracked<dyn World>,
+        vt: &mut Vt,
         styles: StyleChain,
         regions: &Regions,
     ) -> SourceResult<Fragment> {
-        self.0.layout(world, styles, regions)
+        self.0.layout(vt, styles, regions)
     }
 }

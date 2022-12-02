@@ -18,15 +18,11 @@ impl DocumentNode {
 
 impl LayoutRoot for DocumentNode {
     /// Layout the document into a sequence of frames, one per page.
-    fn layout_root(
-        &self,
-        world: Tracked<dyn World>,
-        styles: StyleChain,
-    ) -> SourceResult<Document> {
+    fn layout_root(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Document> {
         let mut pages = vec![];
         for (page, map) in self.0.iter() {
             let number = 1 + pages.len();
-            let fragment = page.layout(world, number, styles.chain(map))?;
+            let fragment = page.layout(vt, number, styles.chain(map))?;
             pages.extend(fragment);
         }
 

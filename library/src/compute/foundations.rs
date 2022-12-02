@@ -1,7 +1,6 @@
 use crate::prelude::*;
 
 use comemo::Track;
-
 use typst::model;
 use typst::syntax::Source;
 

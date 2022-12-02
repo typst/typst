@@ -14,11 +14,11 @@ impl HideNode {
 impl Layout for HideNode {
     fn layout(
         &self,
-        world: Tracked<dyn World>,
+        vt: &mut Vt,
         styles: StyleChain,
         regions: &Regions,
     ) -> SourceResult<Fragment> {
-        let mut fragment = self.0.layout(world, styles, regions)?;
+        let mut fragment = self.0.layout(vt, styles, regions)?;
         for frame in &mut fragment {
             frame.clear();
         }

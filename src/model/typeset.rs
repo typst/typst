@@ -10,5 +10,23 @@ use crate::World;
 pub fn typeset(world: Tracked<dyn World>, content: &Content) -> SourceResult<Document> {
     let library = world.library();
     let styles = StyleChain::new(&library.styles);
-    (library.items.layout)(world, content, styles)
+    let mut vt = Vt { world };
+    (library.items.layout)(&mut vt, content, styles)
+}
+
+/// A virtual typesetter.
+///
+/// Holds the state needed to [typeset] content. This is the equivalent to the
+/// [Vm](super::Vm) for typesetting.
+pub struct Vt<'a> {
+    /// The compilation environment.
+    #[doc(hidden)]
+    pub world: Tracked<'a, dyn World>,
+}
+
+impl<'a> Vt<'a> {
+    /// Access the underlying world.
+    pub fn world(&self) -> Tracked<'a, dyn World> {
+        self.world
+    }
 }

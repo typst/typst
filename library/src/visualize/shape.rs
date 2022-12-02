@@ -75,7 +75,7 @@ impl<const S: ShapeKind> ShapeNode<S> {
 impl<const S: ShapeKind> Layout for ShapeNode<S> {
     fn layout(
         &self,
-        world: Tracked<dyn World>,
+        vt: &mut Vt,
         styles: StyleChain,
         regions: &Regions,
     ) -> SourceResult<Fragment> {
@@ -90,7 +90,7 @@ impl<const S: ShapeKind> Layout for ShapeNode<S> {
             let child = child.clone().padded(inset.map(|side| side.map(Length::from)));
 
             let mut pod = Regions::one(regions.first, regions.base, regions.expand);
-            frame = child.layout(world, styles, &pod)?.into_frame();
+            frame = child.layout(vt, styles, &pod)?.into_frame();
 
             // Relayout with full expansion into square region to make sure
             // the result is really a square or circle.
@@ -106,7 +106,7 @@ impl<const S: ShapeKind> Layout for ShapeNode<S> {
 
                 pod.first = Size::splat(length);
                 pod.expand = Axes::splat(true);
-                frame = child.layout(world, styles, &pod)?.into_frame();
+                frame = child.layout(vt, styles, &pod)?.into_frame();
             }
         } else {
             // The default size that a shape takes on if it has no child and

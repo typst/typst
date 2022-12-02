@@ -53,7 +53,7 @@ impl TableNode {
 impl Layout for TableNode {
     fn layout(
         &self,
-        world: Tracked<dyn World>,
+        vt: &mut Vt,
         styles: StyleChain,
         regions: &Regions,
     ) -> SourceResult<Fragment> {
@@ -76,7 +76,7 @@ impl Layout for TableNode {
 
                 let x = i % cols;
                 let y = i / cols;
-                if let Some(fill) = fill.resolve(world, x, y)? {
+                if let Some(fill) = fill.resolve(vt, x, y)? {
                     child = child.filled(fill);
                 }
 
@@ -89,7 +89,7 @@ impl Layout for TableNode {
             gutter: self.gutter.clone(),
             cells,
         }
-        .layout(world, styles, regions)
+        .layout(vt, styles, regions)
     }
 }
 
@@ -104,17 +104,12 @@ pub enum Celled<T> {
 
 impl<T: Cast + Clone> Celled<T> {
     /// Resolve the value based on the cell position.
-    pub fn resolve(
-        &self,
-        world: Tracked<dyn World>,
-        x: usize,
-        y: usize,
-    ) -> SourceResult<T> {
+    pub fn resolve(&self, vt: &Vt, x: usize, y: usize) -> SourceResult<T> {
         Ok(match self {
             Self::Value(value) => value.clone(),
             Self::Func(func, span) => {
                 let args = Args::new(*span, [Value::Int(x as i64), Value::Int(y as i64)]);
-                func.call_detached(world, args)?.cast().at(*span)?
+                func.call_detached(vt.world(), args)?.cast().at(*span)?
             }
         })
     }

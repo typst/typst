@@ -40,7 +40,7 @@ impl ImageNode {
 impl Layout for ImageNode {
     fn layout(
         &self,
-        _: Tracked<dyn World>,
+        _: &mut Vt,
         styles: StyleChain,
         regions: &Regions,
     ) -> SourceResult<Fragment> {

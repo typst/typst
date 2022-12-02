@@ -35,13 +35,14 @@ impl Texify for Content {
 
 /// Layout a TeX formula into a frame.
 pub fn layout_tex(
-    world: Tracked<dyn World>,
+    vt: &Vt,
     tex: &str,
     display: bool,
     styles: StyleChain,
 ) -> SourceResult<Fragment> {
     // Load the font.
     let variant = variant(styles);
+    let world = vt.world();
     let mut font = None;
     for family in families(styles) {
         font = world.book().select(family, variant).and_then(|id| world.font(id));

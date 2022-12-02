@@ -30,7 +30,7 @@ impl MathNode {
 }
 
 impl Show for MathNode {
-    fn show(&self, _: Tracked<dyn World>, styles: StyleChain) -> Content {
+    fn show(&self, _: &mut Vt, _: &Content, styles: StyleChain) -> Content {
         let mut map = StyleMap::new();
         map.set_family(FontFamily::new("NewComputerModernMath"), styles);
 
@@ -51,11 +51,11 @@ impl Show for MathNode {
 impl Layout for MathNode {
     fn layout(
         &self,
-        world: Tracked<dyn World>,
+        vt: &mut Vt,
         styles: StyleChain,
         _: &Regions,
     ) -> SourceResult<Fragment> {
-        layout_tex(world, &self.texify(), self.display, styles)
+        layout_tex(vt, &self.texify(), self.display, styles)
     }
 }
 

@@ -28,14 +28,14 @@ impl PadNode {
 impl Layout for PadNode {
     fn layout(
         &self,
-        world: Tracked<dyn World>,
+        vt: &mut Vt,
         styles: StyleChain,
         regions: &Regions,
     ) -> SourceResult<Fragment> {
         // Layout child into padded regions.
         let padding = self.padding.resolve(styles);
         let pod = regions.map(|size| shrink(size, padding));
-        let mut fragment = self.child.layout(world, styles, &pod)?;
+        let mut fragment = self.child.layout(vt, styles, &pod)?;
 
         for frame in &mut fragment {
             // Apply the padding inversely such that the grown size padded

@@ -29,7 +29,7 @@ impl StackNode {
 impl Layout for StackNode {
     fn layout(
         &self,
-        world: Tracked<dyn World>,
+        vt: &mut Vt,
         styles: StyleChain,
         regions: &Regions,
     ) -> SourceResult<Fragment> {
@@ -49,7 +49,7 @@ impl Layout for StackNode {
                         layouter.layout_spacing(kind);
                     }
 
-                    layouter.layout_block(world, block, styles)?;
+                    layouter.layout_block(vt, block, styles)?;
                     deferred = self.spacing;
                 }
             }
@@ -170,7 +170,7 @@ impl<'a> StackLayouter<'a> {
     /// Layout an arbitrary block.
     fn layout_block(
         &mut self,
-        world: Tracked<dyn World>,
+        vt: &mut Vt,
         block: &Content,
         styles: StyleChain,
     ) -> SourceResult<()> {
@@ -195,7 +195,7 @@ impl<'a> StackLayouter<'a> {
                 self.dir.start().into()
             });
 
-        let fragment = block.layout(world, styles, &self.regions)?;
+        let fragment = block.layout(vt, styles, &self.regions)?;
         let len = fragment.len();
         for (i, frame) in fragment.into_iter().enumerate() {
             // Grow our size, shrink the region and save the frame for later.

@@ -43,7 +43,7 @@ impl RawNode {
 }
 
 impl Show for RawNode {
-    fn show(&self, _: Tracked<dyn World>, styles: StyleChain) -> Content {
+    fn show(&self, _: &mut Vt, _: &Content, styles: StyleChain) -> Content {
         let lang = styles.get(Self::LANG).as_ref().map(|s| s.to_lowercase());
         let foreground = THEME
             .settings

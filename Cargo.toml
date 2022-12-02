@@ -15,7 +15,7 @@ bench = false
 typst-macros = { path = "macros" }
 bitflags = "1"
 bytemuck = "1"
-comemo = "0.1"
+comemo = { git = "https://github.com/typst/comemo" }
 flate2 = "1"
 image = { version = "0.24", default-features = false, features = ["png", "jpeg", "gif"] }
 miniz_oxide = "0.5"

@@ -27,11 +27,11 @@ impl MoveNode {
 impl Layout for MoveNode {
     fn layout(
         &self,
-        world: Tracked<dyn World>,
+        vt: &mut Vt,
         styles: StyleChain,
         regions: &Regions,
     ) -> SourceResult<Fragment> {
-        let mut fragment = self.child.layout(world, styles, regions)?;
+        let mut fragment = self.child.layout(vt, styles, regions)?;
         for frame in &mut fragment {
             let delta = self.delta.resolve(styles);
             let delta = delta.zip(frame.size()).map(|(d, s)| d.relative_to(s));
@@ -85,11 +85,11 @@ impl<const T: TransformKind> TransformNode<T> {
 impl<const T: TransformKind> Layout for TransformNode<T> {
     fn layout(
         &self,
-        world: Tracked<dyn World>,
+        vt: &mut Vt,
         styles: StyleChain,
         regions: &Regions,
     ) -> SourceResult<Fragment> {
-        let mut fragment = self.child.layout(world, styles, regions)?;
+        let mut fragment = self.child.layout(vt, styles, regions)?;
         for frame in &mut fragment {
             let origin = styles.get(Self::ORIGIN).unwrap_or(Align::CENTER_HORIZON);
             let Axes { x, y } = origin.zip(frame.size()).map(|(o, s)| o.position(s));

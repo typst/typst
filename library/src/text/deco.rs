@@ -47,7 +47,7 @@ impl<const L: DecoLine> DecoNode<L> {
 }
 
 impl<const L: DecoLine> Show for DecoNode<L> {
-    fn show(&self, _: Tracked<dyn World>, styles: StyleChain) -> Content {
+    fn show(&self, _: &mut Vt, _: &Content, styles: StyleChain) -> Content {
         self.0.clone().styled(
             TextNode::DECO,
             Decoration {

@@ -34,7 +34,7 @@ impl HeadingNode {
 }
 
 impl Show for HeadingNode {
-    fn show(&self, _: Tracked<dyn World>, _: StyleChain) -> Content {
+    fn show(&self, _: &mut Vt, _: &Content, _: StyleChain) -> Content {
         BlockNode(self.body.clone()).pack()
     }
 }

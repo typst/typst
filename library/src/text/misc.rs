@@ -62,7 +62,7 @@ impl StrongNode {
 }
 
 impl Show for StrongNode {
-    fn show(&self, _: Tracked<dyn World>, styles: StyleChain) -> Content {
+    fn show(&self, _: &mut Vt, _: &Content, styles: StyleChain) -> Content {
         self.0.clone().styled(TextNode::DELTA, Delta(styles.get(Self::DELTA)))
     }
 }
@@ -104,7 +104,7 @@ impl EmphNode {
 }
 
 impl Show for EmphNode {
-    fn show(&self, _: Tracked<dyn World>, _: StyleChain) -> Content {
+    fn show(&self, _: &mut Vt, _: &Content, _: StyleChain) -> Content {
         self.0.clone().styled(TextNode::EMPH, Toggle)
     }
 }

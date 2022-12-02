@@ -29,7 +29,7 @@ impl AlignNode {
 impl Layout for AlignNode {
     fn layout(
         &self,
-        world: Tracked<dyn World>,
+        vt: &mut Vt,
         styles: StyleChain,
         regions: &Regions,
     ) -> SourceResult<Fragment> {
@@ -44,7 +44,7 @@ impl Layout for AlignNode {
         }
 
         // Layout the child.
-        let mut fragment = self.child.layout(world, styles.chain(&map), &pod)?;
+        let mut fragment = self.child.layout(vt, styles.chain(&map), &pod)?;
         for (region, frame) in regions.iter().zip(&mut fragment) {
             // Align in the target size. The target size depends on whether we
             // should expand.

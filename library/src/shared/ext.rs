@@ -105,11 +105,11 @@ impl FillNode {}
 impl Layout for FillNode {
     fn layout(
         &self,
-        world: Tracked<dyn World>,
+        vt: &mut Vt,
         styles: StyleChain,
         regions: &Regions,
     ) -> SourceResult<Fragment> {
-        let mut fragment = self.child.layout(world, styles, regions)?;
+        let mut fragment = self.child.layout(vt, styles, regions)?;
         for frame in &mut fragment {
             let shape = Geometry::Rect(frame.size()).filled(self.fill);
             frame.prepend(Point::zero(), Element::Shape(shape));
@@ -133,11 +133,11 @@ impl StrokeNode {}
 impl Layout for StrokeNode {
     fn layout(
         &self,
-        world: Tracked<dyn World>,
+        vt: &mut Vt,
         styles: StyleChain,
         regions: &Regions,
     ) -> SourceResult<Fragment> {
-        let mut fragment = self.child.layout(world, styles, regions)?;
+        let mut fragment = self.child.layout(vt, styles, regions)?;
         for frame in &mut fragment {
             let shape = Geometry::Rect(frame.size()).stroked(self.stroke);
             frame.prepend(Point::zero(), Element::Shape(shape));
