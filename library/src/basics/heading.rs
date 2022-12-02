@@ -1,8 +1,9 @@
 use typst::font::FontWeight;
 
+use crate::compute::NumberingPattern;
 use crate::layout::{BlockNode, VNode};
 use crate::prelude::*;
-use crate::text::{TextNode, TextSize};
+use crate::text::{SpaceNode, TextNode, TextSize};
 
 /// A section heading.
 #[derive(Debug, Hash)]
@@ -14,8 +15,15 @@ pub struct HeadingNode {
     pub body: Content,
 }
 
-#[node(Show, Finalize)]
+#[node(Prepare, Show, Finalize)]
 impl HeadingNode {
+    /// How to number the heading.
+    #[property(referenced)]
+    pub const NUMBERING: Option<NumberingPattern> = None;
+
+    /// Whether the heading should appear in the outline.
+    pub const OUTLINED: bool = true;
+
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self {
             body: args.expect("body")?,
@@ -33,9 +41,42 @@ impl HeadingNode {
     }
 }
 
+impl Prepare for HeadingNode {
+    fn prepare(&self, vt: &mut Vt, mut this: Content, styles: StyleChain) -> Content {
+        let my_id = vt.identify(&this);
+
+        let mut counter = HeadingCounter::new();
+        for (node_id, node) in vt.locate(Selector::node::<HeadingNode>()) {
+            if node_id == my_id {
+                break;
+            }
+
+            if matches!(node.field("numbers"), Some(Value::Str(_))) {
+                let heading = node.to::<Self>().unwrap();
+                counter.advance(heading);
+            }
+        }
+
+        let mut numbers = Value::None;
+        if let Some(pattern) = styles.get(Self::NUMBERING) {
+            numbers = Value::Str(pattern.apply(counter.advance(self)).into());
+        }
+
+        this.push_field("outlined", Value::Bool(styles.get(Self::OUTLINED)));
+        this.push_field("numbers", numbers);
+
+        let meta = Meta::Node(my_id, this.clone());
+        this.styled(Meta::DATA, vec![meta])
+    }
+}
+
 impl Show for HeadingNode {
-    fn show(&self, _: &mut Vt, _: &Content, _: StyleChain) -> Content {
-        BlockNode(self.body.clone()).pack()
+    fn show(&self, _: &mut Vt, this: &Content, _: StyleChain) -> Content {
+        let mut realized = self.body.clone();
+        if let Some(Value::Str(numbering)) = this.field("numbers") {
+            realized = TextNode::packed(numbering) + SpaceNode.pack() + realized;
+        }
+        BlockNode(realized).pack()
     }
 }
 
@@ -58,5 +99,31 @@ impl Finalize for HeadingNode {
         map.set(BlockNode::BELOW, VNode::block_around(below.into()));
         map.set(BlockNode::STICKY, true);
         realized.styled_with_map(map)
+    }
+}
+
+/// Counters through headings with different levels.
+pub struct HeadingCounter(Vec<NonZeroUsize>);
+
+impl HeadingCounter {
+    /// Create a new heading counter.
+    pub fn new() -> Self {
+        Self(vec![])
+    }
+
+    /// Advance the counter and return the numbers for the given heading.
+    pub fn advance(&mut self, heading: &HeadingNode) -> &[NonZeroUsize] {
+        let level = heading.level.get();
+
+        if self.0.len() >= level {
+            self.0[level - 1] = self.0[level - 1].saturating_add(1);
+            self.0.truncate(level);
+        }
+
+        while self.0.len() < level {
+            self.0.push(NonZeroUsize::new(1).unwrap());
+        }
+
+        &self.0
     }
 }

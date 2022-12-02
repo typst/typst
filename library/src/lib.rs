@@ -92,6 +92,7 @@ fn scope() -> Scope {
     std.def_node::<meta::DocumentNode>("document");
     std.def_node::<meta::RefNode>("ref");
     std.def_node::<meta::LinkNode>("link");
+    std.def_node::<meta::OutlineNode>("outline");
 
     // Compute.
     std.def_fn("type", compute::type_);

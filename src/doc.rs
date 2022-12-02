@@ -477,8 +477,8 @@ pub struct Glyph {
 pub struct Lang([u8; 3], u8);
 
 impl Lang {
-    /// The code for the english language.
     pub const ENGLISH: Self = Self(*b"en ", 2);
+    pub const GERMAN: Self = Self(*b"de ", 2);
 
     /// Return the language code as an all lowercase string slice.
     pub fn as_str(&self) -> &str {
