@@ -12,7 +12,7 @@
 ---
 // Test automatic numbering in summed content.
 #for i in range(5) {
-   [+ #numbering(1 + i, "I")]
+   [+ #numbering("I", 1 + i)]
 }
 
 ---
@@ -42,7 +42,7 @@
    start: 4,
    spacing: 0.65em - 3pt,
    tight: false,
-   label: n => text(fill: (red, green, blue)(mod(n, 3)), numbering(n, "A")),
+   label: n => text(fill: (red, green, blue)(mod(n, 3)), numbering("A", n)),
    [Red], [Green], [Blue],
 )
 

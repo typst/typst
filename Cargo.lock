@@ -1182,7 +1182,6 @@ dependencies = [
  "unicode-bidi",
  "unicode-math",
  "unicode-script",
- "unscanny",
  "xi-unicode",
 ]
 

@@ -60,7 +60,7 @@ pub struct LangItems {
     /// An item in an unordered list: `- ...`.
     pub list_item: fn(body: Content) -> Content,
     /// An item in an enumeration (ordered list): `+ ...` or `1. ...`.
-    pub enum_item: fn(number: Option<usize>, body: Content) -> Content,
+    pub enum_item: fn(number: Option<NonZeroUsize>, body: Content) -> Content,
     /// An item in a description list: `/ Term: Details`.
     pub desc_item: fn(term: Content, body: Content) -> Content,
     /// A mathematical formula: `$x$`, `$ x^2 $`.

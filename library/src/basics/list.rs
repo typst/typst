@@ -44,12 +44,13 @@ impl<const L: ListKind> ListNode<L> {
                 .map(|body| ListItem::List(Box::new(body)))
                 .collect(),
             ENUM => {
-                let mut number: usize = args.named("start")?.unwrap_or(1);
+                let mut number: NonZeroUsize =
+                    args.named("start")?.unwrap_or(NonZeroUsize::new(1).unwrap());
                 args.all()?
                     .into_iter()
                     .map(|body| {
                         let item = ListItem::Enum(Some(number), Box::new(body));
-                        number += 1;
+                        number = number.saturating_add(1);
                         item
                     })
                     .collect()
@@ -83,7 +84,7 @@ impl<const L: ListKind> Layout for ListNode<L> {
         regions: &Regions,
     ) -> SourceResult<Fragment> {
         let mut cells = vec![];
-        let mut number = 1;
+        let mut number = NonZeroUsize::new(1).unwrap();
 
         let label = styles.get(Self::LABEL);
         let indent = styles.get(Self::INDENT);
@@ -124,7 +125,7 @@ impl<const L: ListKind> Layout for ListNode<L> {
             };
 
             cells.push(body.styled_with_map(map.clone()));
-            number += 1;
+            number = number.saturating_add(1);
         }
 
         GridNode {
@@ -147,7 +148,7 @@ pub enum ListItem {
     /// An item of an unordered list.
     List(Box<Content>),
     /// An item of an ordered list.
-    Enum(Option<usize>, Box<Content>),
+    Enum(Option<NonZeroUsize>, Box<Content>),
     /// An item of a description list.
     Desc(Box<DescItem>),
 }
@@ -168,7 +169,7 @@ impl ListItem {
             Self::List(body) => Value::Content(body.as_ref().clone()),
             Self::Enum(number, body) => Value::Dict(dict! {
                 "number" => match *number {
-                    Some(n) => Value::Int(n as i64),
+                    Some(n) => Value::Int(n.get() as i64),
                     None => Value::None,
                 },
                 "body" => Value::Content(body.as_ref().clone()),
@@ -234,7 +235,7 @@ impl Label {
         &self,
         vt: &Vt,
         kind: ListKind,
-        number: usize,
+        number: NonZeroUsize,
     ) -> SourceResult<Content> {
         Ok(match self {
             Self::Default => match kind {
@@ -242,10 +243,10 @@ impl Label {
                 ENUM => TextNode::packed(format_eco!("{}.", number)),
                 DESC | _ => panic!("description lists don't have a label"),
             },
-            Self::Pattern(pattern) => TextNode::packed(pattern.apply(number)),
+            Self::Pattern(pattern) => TextNode::packed(pattern.apply(&[number])),
             Self::Content(content) => content.clone(),
             Self::Func(func, span) => {
-                let args = Args::new(*span, [Value::Int(number as i64)]);
+                let args = Args::new(*span, [Value::Int(number.get() as i64)]);
                 func.call_detached(vt.world(), args)?.display()
             }
         })

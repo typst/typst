@@ -1,4 +1,5 @@
 use std::hash::{Hash, Hasher};
+use std::num::NonZeroUsize;
 use std::sync::Arc;
 
 use crate::geom::{AbsUnit, AngleUnit};
@@ -164,7 +165,7 @@ pub enum SyntaxKind {
     /// An item in an enumeration (ordered list): `+ ...` or `1. ...`.
     EnumItem,
     /// An explicit enumeration numbering: `23.`.
-    EnumNumbering(usize),
+    EnumNumbering(NonZeroUsize),
     /// An item in a description list: `/ Term: Details`.
     DescItem,
     /// A mathematical formula: `$x$`, `$ x^2 $`.

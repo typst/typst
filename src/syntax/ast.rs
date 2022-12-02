@@ -365,7 +365,7 @@ node! {
 
 impl EnumItem {
     /// The explicit numbering, if any: `23.`.
-    pub fn number(&self) -> Option<usize> {
+    pub fn number(&self) -> Option<NonZeroUsize> {
         self.0.children().find_map(|node| match node.kind() {
             SyntaxKind::EnumNumbering(num) => Some(*num),
             _ => None,

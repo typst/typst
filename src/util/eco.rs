@@ -368,6 +368,14 @@ impl FromIterator<Self> for EcoString {
     }
 }
 
+impl Extend<char> for EcoString {
+    fn extend<T: IntoIterator<Item = char>>(&mut self, iter: T) {
+        for c in iter {
+            self.push(c);
+        }
+    }
+}
+
 impl From<EcoString> for String {
     fn from(s: EcoString) -> Self {
         match s.0 {

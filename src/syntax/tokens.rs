@@ -1,3 +1,4 @@
+use std::num::NonZeroUsize;
 use std::sync::Arc;
 
 use unicode_xid::UnicodeXID;
@@ -395,8 +396,11 @@ impl<'s> Tokens<'s> {
         self.s.eat_while(char::is_ascii_digit);
         let read = self.s.from(start);
         if self.s.eat_if('.') {
-            if let Ok(number) = read.parse() {
-                return SyntaxKind::EnumNumbering(number);
+            if let Ok(number) = read.parse::<usize>() {
+                return match NonZeroUsize::new(number) {
+                    Some(number) => SyntaxKind::EnumNumbering(number),
+                    None => SyntaxKind::Error(ErrorPos::Full, "must be positive".into()),
+                };
             }
         }
 
@@ -933,8 +937,8 @@ mod tests {
         t!(Markup["a "]: r"a--" => Text("a"), Shorthand('\u{2013}'));
         t!(Markup["a1/"]: "- "  => Minus, Space(0));
         t!(Markup[" "]: "+"     => Plus);
-        t!(Markup[" "]: "1."    => EnumNumbering(1));
-        t!(Markup[" "]: "1.a"   => EnumNumbering(1), Text("a"));
+        t!(Markup[" "]: "1."    => EnumNumbering(NonZeroUsize::new(1).unwrap()));
+        t!(Markup[" "]: "1.a"   => EnumNumbering(NonZeroUsize::new(1).unwrap()), Text("a"));
         t!(Markup[" /"]: "a1."  => Text("a1."));
     }
 

@@ -1,8 +1,7 @@
 use std::str::FromStr;
 
-use unscanny::Scanner;
-
 use crate::prelude::*;
+use crate::text::Case;
 
 /// Create a blind text string.
 pub fn lorem(_: &Vm, args: &mut Args) -> SourceResult<Value> {
@@ -12,9 +11,9 @@ pub fn lorem(_: &Vm, args: &mut Args) -> SourceResult<Value> {
 
 /// Apply a numbering pattern to a number.
 pub fn numbering(_: &Vm, args: &mut Args) -> SourceResult<Value> {
-    let number = args.expect::<usize>("number")?;
     let pattern = args.expect::<NumberingPattern>("pattern")?;
-    Ok(Value::Str(pattern.apply(number).into()))
+    let numbers = args.all::<NonZeroUsize>()?;
+    Ok(Value::Str(pattern.apply(&numbers).into()))
 }
 
 /// How to turn a number into text.
@@ -28,18 +27,34 @@ pub fn numbering(_: &Vm, args: &mut Args) -> SourceResult<Value> {
 /// - `(I)`
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct NumberingPattern {
-    prefix: EcoString,
-    numbering: NumberingKind,
-    upper: bool,
+    pieces: Vec<(EcoString, NumberingKind, Case)>,
     suffix: EcoString,
 }
 
 impl NumberingPattern {
     /// Apply the pattern to the given number.
-    pub fn apply(&self, n: usize) -> EcoString {
-        let fmt = self.numbering.apply(n);
-        let mid = if self.upper { fmt.to_uppercase() } else { fmt.to_lowercase() };
-        format_eco!("{}{}{}", self.prefix, mid, self.suffix)
+    pub fn apply(&self, numbers: &[NonZeroUsize]) -> EcoString {
+        let mut fmt = EcoString::new();
+        let mut numbers = numbers.into_iter();
+
+        for ((prefix, kind, case), &n) in self.pieces.iter().zip(&mut numbers) {
+            fmt.push_str(prefix);
+            fmt.push_str(&kind.apply(n, *case));
+        }
+
+        for ((prefix, kind, case), &n) in
+            self.pieces.last().into_iter().cycle().zip(numbers)
+        {
+            if prefix.is_empty() {
+                fmt.push_str(&self.suffix);
+            } else {
+                fmt.push_str(prefix);
+            }
+            fmt.push_str(&kind.apply(n, *case));
+        }
+
+        fmt.push_str(&self.suffix);
+        fmt
     }
 }
 
@@ -47,22 +62,30 @@ impl FromStr for NumberingPattern {
     type Err = &'static str;
 
     fn from_str(pattern: &str) -> Result<Self, Self::Err> {
-        let mut s = Scanner::new(pattern);
-        let mut prefix;
-        let numbering = loop {
-            prefix = s.before();
-            match s.eat().map(|c| c.to_ascii_lowercase()) {
-                Some('1') => break NumberingKind::Arabic,
-                Some('a') => break NumberingKind::Letter,
-                Some('i') => break NumberingKind::Roman,
-                Some('*') => break NumberingKind::Symbol,
-                Some(_) => {}
-                None => Err("invalid numbering pattern")?,
-            }
-        };
-        let upper = s.scout(-1).map_or(false, char::is_uppercase);
-        let suffix = s.after().into();
-        Ok(Self { prefix: prefix.into(), numbering, upper, suffix })
+        let mut pieces = vec![];
+        let mut handled = 0;
+
+        for (i, c) in pattern.char_indices() {
+            let kind = match c.to_ascii_lowercase() {
+                '1' => NumberingKind::Arabic,
+                'a' => NumberingKind::Letter,
+                'i' => NumberingKind::Roman,
+                '*' => NumberingKind::Symbol,
+                _ => continue,
+            };
+
+            let prefix = pattern[handled..i].into();
+            let case = if c.is_uppercase() { Case::Upper } else { Case::Lower };
+            pieces.push((prefix, kind, case));
+            handled = i + 1;
+        }
+
+        let suffix = pattern[handled..].into();
+        if pieces.is_empty() {
+            Err("invalid numbering pattern")?;
+        }
+
+        Ok(Self { pieces, suffix })
     }
 }
 
@@ -83,21 +106,22 @@ enum NumberingKind {
 
 impl NumberingKind {
     /// Apply the numbering to the given number.
-    pub fn apply(self, mut n: usize) -> EcoString {
+    pub fn apply(self, n: NonZeroUsize, case: Case) -> EcoString {
+        let mut n = n.get();
         match self {
             Self::Arabic => {
                 format_eco!("{n}")
             }
             Self::Letter => {
-                if n == 0 {
-                    return '-'.into();
-                }
-
                 n -= 1;
 
                 let mut letters = vec![];
                 loop {
-                    letters.push(b'a' + (n % 26) as u8);
+                    let c = b'a' + (n % 26) as u8;
+                    letters.push(match case {
+                        Case::Lower => c,
+                        Case::Upper => c.to_ascii_uppercase(),
+                    });
                     n /= 26;
                     if n == 0 {
                         break;
@@ -108,10 +132,6 @@ impl NumberingKind {
                 String::from_utf8(letters).unwrap().into()
             }
             Self::Roman => {
-                if n == 0 {
-                    return 'N'.into();
-                }
-
                 // Adapted from Yann Villessuzanne's roman.rs under the
                 // Unlicense, at https://github.com/linfir/roman.rs/
                 let mut fmt = EcoString::new();
@@ -139,17 +159,18 @@ impl NumberingKind {
                 ] {
                     while n >= value {
                         n -= value;
-                        fmt.push_str(name);
+                        for c in name.chars() {
+                            match case {
+                                Case::Lower => fmt.extend(c.to_lowercase()),
+                                Case::Upper => fmt.push(c),
+                            }
+                        }
                     }
                 }
 
                 fmt
             }
             Self::Symbol => {
-                if n == 0 {
-                    return '-'.into();
-                }
-
                 const SYMBOLS: &[char] = &['*', '†', '‡', '§', '¶', '‖'];
                 let symbol = SYMBOLS[(n - 1) % SYMBOLS.len()];
                 let amount = ((n - 1) / SYMBOLS.len()) + 1;

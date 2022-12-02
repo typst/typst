@@ -32,13 +32,18 @@
 #lorem()
 
 ---
-#for i in range(9) {
-  numbering(i, "* and ")
-  numbering(i, "I")
+#for i in range(1, 9) {
+  numbering("*", i)
+  [ and ]
+  numbering("I.a", i, i)
   [ for #i]
   parbreak()
 }
 
 ---
-// Error: 12-14 must be at least zero
-#numbering(-1, "1")
+// Error: 17-18 must be positive
+#numbering("1", 0)
+
+---
+// Error: 17-19 must be positive
+#numbering("1", -1)
