@@ -255,15 +255,21 @@ castable! {
 }
 
 castable! {
-    Destination,
-    Expected: "string or dictionary with `page`, `x`, and `y` keys",
-    Value::Str(string) => Self::Url(string.into()),
+    Location,
+    Expected: "dictionary with `page`, `x`, and `y` keys",
     Value::Dict(dict) => {
         let page = dict.get("page")?.clone().cast()?;
         let x: Length = dict.get("x")?.clone().cast()?;
         let y: Length = dict.get("y")?.clone().cast()?;
-        Self::Internal(Location { page, pos: Point::new(x.abs, y.abs) })
+        Self { page, pos: Point::new(x.abs, y.abs) }
     },
+}
+
+castable! {
+    Destination,
+    Expected: "string or dictionary with `page`, `x`, and `y` keys",
+    Value::Str(string) => Self::Url(string.into()),
+    v @ Value::Dict(_) => Self::Internal(v.cast()?),
 }
 
 castable! {

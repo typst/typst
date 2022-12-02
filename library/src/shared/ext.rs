@@ -13,6 +13,9 @@ pub trait ContentExt {
     /// Underline this content.
     fn underlined(self) -> Self;
 
+    /// Link the content to a destination.
+    fn linked(self, dest: Destination) -> Self;
+
     /// Force a size for this content.
     fn boxed(self, sizing: Axes<Option<Rel<Length>>>) -> Self;
 
@@ -43,6 +46,10 @@ impl ContentExt for Content {
 
     fn underlined(self) -> Self {
         crate::text::DecoNode::<{ crate::text::UNDERLINE }>(self).pack()
+    }
+
+    fn linked(self, dest: Destination) -> Self {
+        self.styled(Meta::DATA, vec![Meta::Link(dest.clone())])
     }
 
     fn boxed(self, sizing: Axes<Option<Rel<Length>>>) -> Self {

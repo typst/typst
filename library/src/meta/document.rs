@@ -27,11 +27,9 @@ impl LayoutRoot for DocumentNode {
         }
 
         Ok(Document {
-            metadata: Metadata {
-                title: styles.get(Self::TITLE).clone(),
-                author: styles.get(Self::AUTHOR).clone(),
-            },
             pages,
+            title: styles.get(Self::TITLE).clone(),
+            author: styles.get(Self::AUTHOR).clone(),
         })
     }
 }

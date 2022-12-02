@@ -10,21 +10,14 @@ use crate::geom::{
     Abs, Align, Axes, Dir, Em, Numeric, Paint, Point, Shape, Size, Transform,
 };
 use crate::image::Image;
-use crate::model::{dict, Dict, Value};
+use crate::model::{dict, node, Content, Dict, Fold, StableId, StyleChain, Value};
 use crate::util::EcoString;
 
 /// A finished document with metadata and page frames.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Default, Clone)]
 pub struct Document {
-    /// The document's metadata.
-    pub metadata: Metadata,
     /// The page frames.
     pub pages: Vec<Frame>,
-}
-
-/// Document metadata.
-#[derive(Debug, Default, Clone, Eq, PartialEq)]
-pub struct Metadata {
     /// The document's title.
     pub title: Option<EcoString>,
     /// The document's author.
@@ -32,7 +25,7 @@ pub struct Metadata {
 }
 
 /// A partial layout result.
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone)]
 pub struct Fragment(Vec<Frame>);
 
 impl Fragment {
@@ -113,7 +106,7 @@ impl<'a> IntoIterator for &'a mut Fragment {
 }
 
 /// A finished layout with elements at fixed positions.
-#[derive(Default, Clone, Eq, PartialEq)]
+#[derive(Default, Clone)]
 pub struct Frame {
     /// The size of the frame.
     size: Size,
@@ -336,9 +329,11 @@ impl Frame {
         }
     }
 
-    /// Link the whole frame to a resource.
-    pub fn link(&mut self, dest: Destination) {
-        self.push(Point::zero(), Element::Link(dest, self.size));
+    /// Attach the metadata from this style chain to the frame.
+    pub fn meta(&mut self, styles: StyleChain) {
+        for meta in styles.get(Meta::DATA) {
+            self.push(Point::zero(), Element::Meta(meta, self.size));
+        }
     }
 
     /// Arbitrarily transform the contents of the frame.
@@ -374,7 +369,7 @@ impl Debug for Frame {
 }
 
 /// The building block frames are composed of.
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone)]
 pub enum Element {
     /// A group of elements.
     Group(Group),
@@ -384,8 +379,8 @@ pub enum Element {
     Shape(Shape),
     /// An image and its size.
     Image(Image, Size),
-    /// A link to an external resource and its trigger region.
-    Link(Destination, Size),
+    /// Meta information and the region it applies to.
+    Meta(Meta, Size),
 }
 
 impl Debug for Element {
@@ -395,13 +390,13 @@ impl Debug for Element {
             Self::Text(text) => write!(f, "{text:?}"),
             Self::Shape(shape) => write!(f, "{shape:?}"),
             Self::Image(image, _) => write!(f, "{image:?}"),
-            Self::Link(dest, _) => write!(f, "Link({dest:?})"),
+            Self::Meta(meta, _) => write!(f, "{meta:?}"),
         }
     }
 }
 
 /// A group of elements with optional clipping.
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone)]
 pub struct Group {
     /// The group's frame.
     pub frame: Frame,
@@ -540,6 +535,33 @@ impl FromStr for Region {
         } else {
             Err("expected two letter region code (ISO 3166-1 alpha-2)")
         }
+    }
+}
+
+/// Meta information that isn't visible or renderable.
+#[derive(Debug, Clone, Hash)]
+pub enum Meta {
+    /// An internal or external link.
+    Link(Destination),
+    /// An identifiable piece of content that produces something within the
+    /// area this metadata is attached to.
+    Node(StableId, Content),
+}
+
+#[node]
+impl Meta {
+    /// Metadata that should be attached to all elements affected by this style
+    /// property.
+    #[property(fold, skip)]
+    pub const DATA: Vec<Meta> = vec![];
+}
+
+impl Fold for Vec<Meta> {
+    type Output = Self;
+
+    fn fold(mut self, outer: Self::Output) -> Self::Output {
+        self.extend(outer);
+        self
     }
 }
 

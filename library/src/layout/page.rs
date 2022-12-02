@@ -5,7 +5,7 @@ use crate::prelude::*;
 use crate::text::TextNode;
 
 /// Layouts its child onto one or multiple pages.
-#[derive(PartialEq, Clone, Hash)]
+#[derive(Clone, Hash)]
 pub struct PageNode(pub Content);
 
 #[node]
@@ -157,7 +157,7 @@ impl PagebreakNode {
 }
 
 /// A header, footer, foreground or background definition.
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, Hash)]
 pub enum Marginal {
     /// Nothing,
     None,

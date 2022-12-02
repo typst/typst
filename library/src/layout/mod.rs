@@ -59,9 +59,11 @@ impl LayoutRoot for Content {
         fn cached(
             node: &Content,
             world: comemo::Tracked<dyn World>,
+            provider: TrackedMut<StabilityProvider>,
+            introspector: Tracked<Introspector>,
             styles: StyleChain,
         ) -> SourceResult<Document> {
-            let mut vt = Vt { world };
+            let mut vt = Vt { world, provider, introspector };
             let scratch = Scratch::default();
             let (realized, styles) = realize_root(&mut vt, &scratch, node, styles)?;
             realized
@@ -70,7 +72,13 @@ impl LayoutRoot for Content {
                 .layout_root(&mut vt, styles)
         }
 
-        cached(self, vt.world, styles)
+        cached(
+            self,
+            vt.world,
+            TrackedMut::reborrow_mut(&mut vt.provider),
+            vt.introspector,
+            styles,
+        )
     }
 }
 
@@ -97,10 +105,12 @@ impl Layout for Content {
         fn cached(
             node: &Content,
             world: comemo::Tracked<dyn World>,
+            provider: TrackedMut<StabilityProvider>,
+            introspector: Tracked<Introspector>,
             styles: StyleChain,
             regions: &Regions,
         ) -> SourceResult<Fragment> {
-            let mut vt = Vt { world };
+            let mut vt = Vt { world, provider, introspector };
             let scratch = Scratch::default();
             let (realized, styles) = realize_block(&mut vt, &scratch, node, styles)?;
             let barrier = Style::Barrier(realized.id());
@@ -111,7 +121,14 @@ impl Layout for Content {
                 .layout(&mut vt, styles, regions)
         }
 
-        cached(self, vt.world, styles, regions)
+        cached(
+            self,
+            vt.world,
+            TrackedMut::reborrow_mut(&mut vt.provider),
+            vt.introspector,
+            styles,
+            regions,
+        )
     }
 }
 
@@ -290,6 +307,15 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         content: &'a Content,
         styles: StyleChain<'a>,
     ) -> SourceResult<()> {
+        // Prepare only if this is the first application for this node.
+        if let Some(node) = content.with::<dyn Prepare>() {
+            if !content.is_prepared() {
+                let prepared = node.prepare(self.vt, content.clone().prepared(), styles);
+                let stored = self.scratch.content.alloc(prepared);
+                return self.accept(stored, styles);
+            }
+        }
+
         if let Some(styled) = content.to::<StyledNode>() {
             return self.styled(styled, styles);
         }

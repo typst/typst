@@ -152,15 +152,11 @@
 #test(test == test, true)
 #test((() => {}) == (() => {}), false)
 
-// Content compares by hash equality.
+// Content cannot be compared.
 #let t = [a]
-#test(t == t, true)
-#test([] == [], true)
-#test([a] == [a], true)
-#test([[a]] == [a], true)
-#test([] == [a], false)
-#test(box[] == box[], true)
-#test(box[a] == box[], false)
+#test(t == t, false)
+#test([] == [], false)
+#test([a] == [a], false)
 
 ---
 // Test comparison operators.

@@ -57,7 +57,7 @@ fn render_frame(
             Element::Image(image, size) => {
                 render_image(canvas, ts, mask, image, *size);
             }
-            Element::Link(_, _) => {}
+            Element::Meta(_, _) => {}
         }
     }
 }

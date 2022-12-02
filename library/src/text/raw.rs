@@ -42,6 +42,19 @@ impl RawNode {
     }
 }
 
+impl Prepare for RawNode {
+    fn prepare(&self, _: &mut Vt, mut this: Content, styles: StyleChain) -> Content {
+        this.push_field(
+            "lang",
+            match styles.get(Self::LANG) {
+                Some(lang) => Value::Str(lang.clone().into()),
+                None => Value::None,
+            },
+        );
+        this
+    }
+}
+
 impl Show for RawNode {
     fn show(&self, _: &mut Vt, _: &Content, styles: StyleChain) -> Content {
         let lang = styles.get(Self::LANG).as_ref().map(|s| s.to_lowercase());

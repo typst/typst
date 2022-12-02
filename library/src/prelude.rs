@@ -16,8 +16,9 @@ pub use typst::geom::*;
 #[doc(no_inline)]
 pub use typst::model::{
     array, capability, castable, dict, dynamic, format_str, node, Args, Array, Cast,
-    Content, Dict, Finalize, Fold, Func, Label, Node, NodeId, Resolve, Selector, Show,
-    Smart, Str, StyleChain, StyleMap, StyleVec, Unlabellable, Value, Vm, Vt,
+    Content, Dict, Finalize, Fold, Func, Introspector, Label, Node, NodeId, Prepare,
+    Resolve, Selector, Show, Smart, StabilityProvider, Str, StyleChain, StyleMap,
+    StyleVec, Unlabellable, Value, Vm, Vt,
 };
 #[doc(no_inline)]
 pub use typst::syntax::{Span, Spanned};

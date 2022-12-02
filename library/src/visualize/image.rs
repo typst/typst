@@ -2,7 +2,6 @@ use std::ffi::OsStr;
 
 use typst::image::{Image, ImageFormat, RasterFormat, VectorFormat};
 
-use crate::meta::LinkNode;
 use crate::prelude::*;
 
 /// Show a raster or vector graphic.
@@ -89,10 +88,8 @@ impl Layout for ImageNode {
             frame.clip();
         }
 
-        // Apply link if it exists.
-        if let Some(url) = styles.get(LinkNode::DEST) {
-            frame.link(url.clone());
-        }
+        // Apply metadata.
+        frame.meta(styles);
 
         Ok(Fragment::frame(frame))
     }

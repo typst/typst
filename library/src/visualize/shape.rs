@@ -1,6 +1,5 @@
 use std::f64::consts::SQRT_2;
 
-use crate::meta::LinkNode;
 use crate::prelude::*;
 
 /// A sizable and fillable shape with optional content.
@@ -160,10 +159,8 @@ impl<const S: ShapeKind> Layout for ShapeNode<S> {
             }
         }
 
-        // Apply link if it exists.
-        if let Some(url) = styles.get(LinkNode::DEST) {
-            frame.link(url.clone());
-        }
+        // Apply metadata.
+        frame.meta(styles);
 
         Ok(Fragment::frame(frame))
     }

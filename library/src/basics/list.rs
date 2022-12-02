@@ -216,7 +216,7 @@ pub const ENUM: ListKind = 1;
 pub const DESC: ListKind = 2;
 
 /// How to label a list or enumeration.
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, Hash)]
 pub enum Label {
     /// The default labelling.
     Default,

@@ -21,14 +21,16 @@ use crate::World;
 pub struct Content {
     obj: Arc<dyn Bounds>,
     span: Option<Span>,
-    meta: ThinVec<Meta>,
+    modifiers: ThinVec<Modifier>,
 }
 
-/// Metadata that can be attached to content.
+/// Modifiers that can be attached to content.
 #[derive(Debug, Clone, PartialEq, Hash)]
-enum Meta {
+enum Modifier {
+    Prepared,
     Guard(Guard),
     Label(Label),
+    Field(EcoString, Value),
 }
 
 impl Content {
@@ -62,15 +64,20 @@ impl Content {
 
     /// Attach a label to the content.
     pub fn labelled(mut self, label: Label) -> Self {
-        for meta in &mut self.meta {
-            if let Meta::Label(prev) = meta {
+        for modifier in &mut self.modifiers {
+            if let Modifier::Label(prev) = modifier {
                 *prev = label;
                 return self;
             }
         }
 
-        self.meta.push(Meta::Label(label));
+        self.modifiers.push(Modifier::Label(label));
         self
+    }
+
+    /// Attach a field to the content.
+    pub fn push_field(&mut self, name: impl Into<EcoString>, value: Value) {
+        self.modifiers.push(Modifier::Field(name.into(), value));
     }
 
     /// Style this content with a single style property.
@@ -146,8 +153,8 @@ impl Content {
 
     /// The content's label.
     pub fn label(&self) -> Option<&Label> {
-        self.meta.iter().find_map(|meta| match meta {
-            Meta::Label(label) => Some(label),
+        self.modifiers.iter().find_map(|modifier| match modifier {
+            Modifier::Label(label) => Some(label),
             _ => None,
         })
     }
@@ -159,6 +166,14 @@ impl Content {
                 Some(label) => Value::Label(label.clone()),
                 None => Value::None,
             });
+        }
+
+        for modifier in &self.modifiers {
+            if let Modifier::Field(other, value) = modifier {
+                if name == other.as_str() {
+                    return Some(value.clone());
+                }
+            }
         }
 
         self.obj.field(name)
@@ -201,8 +216,21 @@ impl Content {
     /// Disable a show rule recipe.
     #[doc(hidden)]
     pub fn guarded(mut self, id: Guard) -> Self {
-        self.meta.push(Meta::Guard(id));
+        self.modifiers.push(Modifier::Guard(id));
         self
+    }
+
+    /// Mark this content as prepared.
+    #[doc(hidden)]
+    pub fn prepared(mut self) -> Self {
+        self.modifiers.push(Modifier::Prepared);
+        self
+    }
+
+    /// Whether this node was prepared.
+    #[doc(hidden)]
+    pub fn is_prepared(&self) -> bool {
+        self.modifiers.contains(&Modifier::Prepared)
     }
 
     /// Whether a label can be attached to the content.
@@ -212,18 +240,21 @@ impl Content {
 
     /// Whether no show rule was executed for this node so far.
     pub(super) fn is_pristine(&self) -> bool {
-        !self.meta.iter().any(|meta| matches!(meta, Meta::Guard(_)))
+        !self
+            .modifiers
+            .iter()
+            .any(|modifier| matches!(modifier, Modifier::Guard(_)))
     }
 
     /// Check whether a show rule recipe is disabled.
     pub(super) fn is_guarded(&self, id: Guard) -> bool {
-        self.meta.contains(&Meta::Guard(id))
+        self.modifiers.contains(&Modifier::Guard(id))
     }
 
-    /// Copy the metadata from other content.
-    pub(super) fn copy_meta(&mut self, from: &Content) {
+    /// Copy the modifiers from another piece of content.
+    pub(super) fn copy_modifiers(&mut self, from: &Content) {
         self.span = from.span;
-        self.meta = from.meta.clone();
+        self.modifiers = from.modifiers.clone();
     }
 }
 
@@ -236,12 +267,6 @@ impl Debug for Content {
 impl Default for Content {
     fn default() -> Self {
         Self::empty()
-    }
-}
-
-impl PartialEq for Content {
-    fn eq(&self, other: &Self) -> bool {
-        (*self.obj).hash128() == (*other.obj).hash128()
     }
 }
 
@@ -371,7 +396,7 @@ pub trait Node: 'static + Capable {
         Content {
             obj: Arc::new(self),
             span: None,
-            meta: ThinVec::new(),
+            modifiers: ThinVec::new(),
         }
     }
 

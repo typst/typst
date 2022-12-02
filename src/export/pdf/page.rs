@@ -3,7 +3,7 @@ use pdf_writer::writers::ColorSpace;
 use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str};
 
 use super::{deflate, AbsExt, EmExt, PdfContext, RefExt, D65_GRAY, SRGB};
-use crate::doc::{Destination, Element, Frame, Group, Text};
+use crate::doc::{Destination, Element, Frame, Group, Meta, Text};
 use crate::font::Font;
 use crate::geom::{
     self, Abs, Color, Em, Geometry, Numeric, Paint, Point, Ratio, Shape, Size, Stroke,
@@ -287,7 +287,10 @@ fn write_frame(ctx: &mut PageContext, frame: &Frame) {
             Element::Text(text) => write_text(ctx, x, y, text),
             Element::Shape(shape) => write_shape(ctx, x, y, shape),
             Element::Image(image, size) => write_image(ctx, x, y, image, *size),
-            Element::Link(dest, size) => write_link(ctx, pos, dest, *size),
+            Element::Meta(meta, size) => match meta {
+                Meta::Link(dest) => write_link(ctx, pos, dest, *size),
+                _ => {}
+            },
         }
     }
 }

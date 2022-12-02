@@ -57,13 +57,15 @@ impl ParNode {
         fn cached(
             par: &ParNode,
             world: Tracked<dyn World>,
+            provider: TrackedMut<StabilityProvider>,
+            introspector: Tracked<Introspector>,
             styles: StyleChain,
             consecutive: bool,
             width: Abs,
             base: Size,
             expand: bool,
         ) -> SourceResult<Fragment> {
-            let mut vt = Vt { world };
+            let mut vt = Vt { world, provider, introspector };
 
             // Collect all text into one string for BiDi analysis.
             let (text, segments) = collect(par, &styles, consecutive);
@@ -80,7 +82,17 @@ impl ParNode {
             finalize(&mut vt, &p, &lines, width, base, expand)
         }
 
-        cached(self, vt.world, styles, consecutive, width, base, expand)
+        cached(
+            self,
+            vt.world,
+            TrackedMut::reborrow_mut(&mut vt.provider),
+            vt.introspector,
+            styles,
+            consecutive,
+            width,
+            base,
+            expand,
+        )
     }
 }
 

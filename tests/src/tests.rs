@@ -12,7 +12,7 @@ use elsa::FrozenVec;
 use once_cell::unsync::OnceCell;
 use tiny_skia as sk;
 use typst::diag::{bail, FileError, FileResult};
-use typst::doc::{Document, Element, Frame, Metadata};
+use typst::doc::{Document, Element, Frame, Meta};
 use typst::font::{Font, FontBook};
 use typst::geom::{Abs, RgbaColor, Sides};
 use typst::model::{Library, Smart, Value};
@@ -349,7 +349,7 @@ fn test(
         line += part.lines().count() + 1;
     }
 
-    let document = Document { pages: frames, metadata: Metadata::default() };
+    let document = Document { pages: frames, ..Default::default() };
     if compare_ever {
         if let Some(pdf_path) = pdf_path {
             let pdf_data = typst::export::pdf(&document);
@@ -699,7 +699,7 @@ fn render_links(canvas: &mut sk::Pixmap, ts: sk::Transform, frame: &Frame) {
                 let ts = ts.pre_concat(group.transform.into());
                 render_links(canvas, ts, &group.frame);
             }
-            Element::Link(_, size) => {
+            Element::Meta(Meta::Link(_), size) => {
                 let w = size.x.to_pt() as f32;
                 let h = size.y.to_pt() as f32;
                 let rect = sk::Rect::from_xywh(0.0, 0.0, w, h).unwrap();

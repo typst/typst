@@ -17,7 +17,7 @@ use crate::util::ReadableTypeId;
 use crate::World;
 
 /// A map of style properties.
-#[derive(Default, Clone, PartialEq, Hash)]
+#[derive(Default, Clone, Hash)]
 pub struct StyleMap(Vec<Style>);
 
 impl StyleMap {
@@ -117,7 +117,7 @@ impl Debug for StyleMap {
 }
 
 /// A single style property, recipe or barrier.
-#[derive(Clone, PartialEq, Hash)]
+#[derive(Clone, Hash)]
 pub enum Style {
     /// A style property originating from a set rule or constructor.
     Property(Property),
@@ -302,7 +302,7 @@ impl Debug for KeyId {
 }
 
 /// A show rule recipe.
-#[derive(Clone, PartialEq, Hash)]
+#[derive(Clone, Hash)]
 pub struct Recipe {
     /// The span errors are reported with.
     pub span: Span,
@@ -374,6 +374,11 @@ pub enum Selector {
 }
 
 impl Selector {
+    /// Define a simple node selector.
+    pub fn node<T: 'static>() -> Self {
+        Self::Node(NodeId::of::<T>(), None)
+    }
+
     /// Define a simple text selector.
     pub fn text(text: &str) -> Self {
         Self::Regex(Regex::new(&regex::escape(text)).unwrap())
@@ -399,7 +404,7 @@ impl Selector {
 }
 
 /// A show rule transformation that can be applied to a match.
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, Hash)]
 pub enum Transform {
     /// Replacement content.
     Content(Content),

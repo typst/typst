@@ -6,7 +6,6 @@ use typst::font::{Font, FontVariant};
 use typst::util::SliceExt;
 
 use super::*;
-use crate::meta::LinkNode;
 use crate::prelude::*;
 
 /// The result of shaping text.
@@ -93,7 +92,6 @@ impl<'a> ShapedText<'a> {
         let lang = self.styles.get(TextNode::LANG);
         let decos = self.styles.get(TextNode::DECO);
         let fill = self.styles.get(TextNode::FILL);
-        let link = self.styles.get(LinkNode::DEST);
 
         for ((font, y_offset), group) in
             self.glyphs.as_ref().group_by_key(|g| (g.font.clone(), g.y_offset))
@@ -128,10 +126,8 @@ impl<'a> ShapedText<'a> {
             offset += width;
         }
 
-        // Apply link if it exists.
-        if let Some(dest) = link {
-            frame.link(dest.clone());
-        }
+        // Apply metadata.
+        frame.meta(self.styles);
 
         frame
     }

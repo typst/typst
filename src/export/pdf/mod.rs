@@ -14,7 +14,7 @@ use pdf_writer::{Finish, Name, PdfWriter, Ref, TextStr};
 
 use self::outline::HeadingNode;
 use self::page::Page;
-use crate::doc::{Document, Lang, Metadata};
+use crate::doc::{Document, Lang};
 use crate::font::Font;
 use crate::geom::{Abs, Dir, Em};
 use crate::image::Image;
@@ -23,7 +23,7 @@ use crate::image::Image;
 ///
 /// Returns the raw bytes making up the PDF file.
 pub fn pdf(document: &Document) -> Vec<u8> {
-    let mut ctx = PdfContext::new(&document.metadata);
+    let mut ctx = PdfContext::new(document);
     page::construct_pages(&mut ctx, &document.pages);
     font::write_fonts(&mut ctx);
     image::write_images(&mut ctx);
@@ -38,7 +38,7 @@ const D65_GRAY: Name<'static> = Name(b"d65gray");
 
 /// Context for exporting a whole PDF document.
 pub struct PdfContext<'a> {
-    metadata: &'a Metadata,
+    document: &'a Document,
     writer: PdfWriter,
     pages: Vec<Page>,
     page_heights: Vec<f32>,
@@ -55,11 +55,11 @@ pub struct PdfContext<'a> {
 }
 
 impl<'a> PdfContext<'a> {
-    fn new(metadata: &'a Metadata) -> Self {
+    fn new(document: &'a Document) -> Self {
         let mut alloc = Ref::new(1);
         let page_tree_ref = alloc.bump();
         Self {
-            metadata,
+            document,
             writer: PdfWriter::new(),
             pages: vec![],
             page_heights: vec![],
@@ -116,10 +116,10 @@ fn write_catalog(ctx: &mut PdfContext) {
 
     // Write the document information.
     let mut info = ctx.writer.document_info(ctx.alloc.bump());
-    if let Some(title) = &ctx.metadata.title {
+    if let Some(title) = &ctx.document.title {
         info.title(TextStr(title));
     }
-    if let Some(author) = &ctx.metadata.author {
+    if let Some(author) = &ctx.document.author {
         info.author(TextStr(author));
     }
     info.creator(TextStr("Typst"));

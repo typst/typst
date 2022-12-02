@@ -3,6 +3,10 @@ use crate::diag::SourceResult;
 
 /// Whether the target is affected by show rules in the given style chain.
 pub fn applicable(target: &Content, styles: StyleChain) -> bool {
+    if target.has::<dyn Prepare>() && !target.is_prepared() {
+        return true;
+    }
+
     // Find out how many recipes there are.
     let mut n = styles.recipes().count();
 
@@ -90,7 +94,7 @@ fn try_apply(
 
             let make = |s| {
                 let mut content = item!(text)(s);
-                content.copy_meta(&target);
+                content.copy_modifiers(&target);
                 content
             };
 
@@ -122,6 +126,13 @@ fn try_apply(
 
         None => Ok(None),
     }
+}
+
+/// Preparations before execution of any show rule.
+#[capability]
+pub trait Prepare {
+    /// Prepare the node for show rule application.
+    fn prepare(&self, vt: &mut Vt, this: Content, styles: StyleChain) -> Content;
 }
 
 /// The base recipe for a node.
