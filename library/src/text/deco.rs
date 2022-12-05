@@ -47,8 +47,8 @@ impl<const L: DecoLine> DecoNode<L> {
 }
 
 impl<const L: DecoLine> Show for DecoNode<L> {
-    fn show(&self, _: &mut Vt, _: &Content, styles: StyleChain) -> Content {
-        self.0.clone().styled(
+    fn show(&self, _: &mut Vt, _: &Content, styles: StyleChain) -> SourceResult<Content> {
+        Ok(self.0.clone().styled(
             TextNode::DECO,
             Decoration {
                 line: L,
@@ -57,7 +57,7 @@ impl<const L: DecoLine> Show for DecoNode<L> {
                 extent: styles.get(Self::EXTENT),
                 evade: styles.get(Self::EVADE),
             },
-        )
+        ))
     }
 }
 

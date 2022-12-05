@@ -47,7 +47,7 @@ pub fn realize(
     if let Some(showable) = target.with::<dyn Show>() {
         let guard = Guard::Base(target.id());
         if realized.is_none() && !target.is_guarded(guard) {
-            realized = Some(showable.show(vt, target, styles));
+            realized = Some(showable.show(vt, target, styles)?);
         }
     }
 
@@ -139,7 +139,12 @@ pub trait Prepare {
 #[capability]
 pub trait Show {
     /// Execute the base recipe for this node.
-    fn show(&self, vt: &mut Vt, this: &Content, styles: StyleChain) -> Content;
+    fn show(
+        &self,
+        vt: &mut Vt,
+        this: &Content,
+        styles: StyleChain,
+    ) -> SourceResult<Content>;
 }
 
 /// Post-process a node after it was realized.

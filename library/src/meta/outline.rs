@@ -44,7 +44,12 @@ impl Prepare for OutlineNode {
 }
 
 impl Show for OutlineNode {
-    fn show(&self, vt: &mut Vt, _: &Content, styles: StyleChain) -> Content {
+    fn show(
+        &self,
+        vt: &mut Vt,
+        _: &Content,
+        styles: StyleChain,
+    ) -> SourceResult<Content> {
         let mut seq = vec![];
         if let Some(title) = styles.get(Self::TITLE) {
             let body = title.clone().unwrap_or_else(|| {
@@ -137,6 +142,6 @@ impl Show for OutlineNode {
             ancestors.push(node);
         }
 
-        BlockNode(Content::sequence(seq)).pack()
+        Ok(BlockNode(Content::sequence(seq)).pack())
     }
 }

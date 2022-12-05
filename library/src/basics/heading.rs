@@ -71,12 +71,12 @@ impl Prepare for HeadingNode {
 }
 
 impl Show for HeadingNode {
-    fn show(&self, _: &mut Vt, this: &Content, _: StyleChain) -> Content {
+    fn show(&self, _: &mut Vt, this: &Content, _: StyleChain) -> SourceResult<Content> {
         let mut realized = self.body.clone();
         if let Some(Value::Str(numbering)) = this.field("numbers") {
             realized = TextNode::packed(numbering) + SpaceNode.pack() + realized;
         }
-        BlockNode(realized).pack()
+        Ok(BlockNode(realized).pack())
     }
 }
 

@@ -30,7 +30,7 @@ impl MathNode {
 }
 
 impl Show for MathNode {
-    fn show(&self, _: &mut Vt, _: &Content, styles: StyleChain) -> Content {
+    fn show(&self, _: &mut Vt, _: &Content, styles: StyleChain) -> SourceResult<Content> {
         let mut map = StyleMap::new();
         map.set_family(FontFamily::new("NewComputerModernMath"), styles);
 
@@ -44,7 +44,7 @@ impl Show for MathNode {
             realized = realized.aligned(Axes::with_x(Some(Align::Center.into())))
         }
 
-        realized
+        Ok(realized)
     }
 }
 

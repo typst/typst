@@ -56,7 +56,7 @@ impl Prepare for RawNode {
 }
 
 impl Show for RawNode {
-    fn show(&self, _: &mut Vt, _: &Content, styles: StyleChain) -> Content {
+    fn show(&self, _: &mut Vt, _: &Content, styles: StyleChain) -> SourceResult<Content> {
         let lang = styles.get(Self::LANG).as_ref().map(|s| s.to_lowercase());
         let foreground = THEME
             .settings
@@ -109,7 +109,7 @@ impl Show for RawNode {
         map.set(TextNode::SMART_QUOTES, false);
         map.set_family(FontFamily::new("IBM Plex Mono"), styles);
 
-        realized.styled_with_map(map)
+        Ok(realized.styled_with_map(map))
     }
 }
 
