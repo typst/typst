@@ -38,7 +38,7 @@ macro_rules! __error {
     };
 
     ($span:expr, $fmt:expr, $($arg:expr),+ $(,)?) => {
-        $crate::diag::error!($span, format!($fmt, $($arg),+))
+        $crate::diag::error!($span, $crate::util::format_eco!($fmt, $($arg),+))
     };
 }
 
