@@ -34,6 +34,7 @@ fn scope() -> Scope {
     // Text.
     std.def_node::<text::TextNode>("text");
     std.def_node::<text::LinebreakNode>("linebreak");
+    std.def_node::<text::SymbolNode>("symbol");
     std.def_node::<text::SmartQuoteNode>("smartquote");
     std.def_node::<text::StrongNode>("strong");
     std.def_node::<text::EmphNode>("emph");
@@ -173,6 +174,7 @@ fn items() -> LangItems {
         text: |text| text::TextNode(text).pack(),
         text_id: NodeId::of::<text::TextNode>(),
         text_str: |content| Some(&content.to::<text::TextNode>()?.0),
+        symbol: |notation| text::SymbolNode(notation).pack(),
         smart_quote: |double| text::SmartQuoteNode { double }.pack(),
         parbreak: || layout::ParbreakNode.pack(),
         strong: |body| text::StrongNode(body).pack(),

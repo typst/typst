@@ -265,6 +265,7 @@ impl Eval for ast::MarkupNode {
             Self::Text(v) => v.eval(vm)?,
             Self::Escape(v) => (vm.items.text)(v.get().into()),
             Self::Shorthand(v) => v.eval(vm)?,
+            Self::Symbol(v) => v.eval(vm)?,
             Self::SmartQuote(v) => v.eval(vm)?,
             Self::Strong(v) => v.eval(vm)?,
             Self::Emph(v) => v.eval(vm)?,
@@ -303,6 +304,14 @@ impl Eval for ast::Shorthand {
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         Ok((vm.items.text)(self.get().into()))
+    }
+}
+
+impl Eval for ast::Symbol {
+    type Output = Content;
+
+    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        Ok((vm.items.symbol)(self.get().clone()))
     }
 }
 

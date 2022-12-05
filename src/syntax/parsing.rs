@@ -230,6 +230,7 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
         | SyntaxKind::SmartQuote { .. }
         | SyntaxKind::Escape(_)
         | SyntaxKind::Shorthand(_)
+        | SyntaxKind::Symbol(_)
         | SyntaxKind::Link(_)
         | SyntaxKind::Raw(_)
         | SyntaxKind::Ref(_) => p.eat(),

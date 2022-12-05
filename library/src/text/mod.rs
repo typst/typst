@@ -6,6 +6,7 @@ mod quotes;
 mod raw;
 mod shaping;
 mod shift;
+mod symbol;
 
 pub use self::deco::*;
 pub use self::misc::*;
@@ -13,6 +14,7 @@ pub use self::quotes::*;
 pub use self::raw::*;
 pub use self::shaping::*;
 pub use self::shift::*;
+pub use self::symbol::*;
 
 use std::borrow::Cow;
 

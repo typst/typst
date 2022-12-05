@@ -85,6 +85,8 @@ pub enum MarkupNode {
     /// A shorthand for a unicode codepoint. For example, `~` for non-breaking
     /// space or `-?` for a soft hyphen.
     Shorthand(Shorthand),
+    /// Symbol notation: `:arrow:l:`.
+    Symbol(Symbol),
     /// A smart quote: `'` or `"`.
     SmartQuote(SmartQuote),
     /// Strong content: `*Strong*`.
@@ -119,6 +121,7 @@ impl AstNode for MarkupNode {
             SyntaxKind::Text(_) => node.cast().map(Self::Text),
             SyntaxKind::Escape(_) => node.cast().map(Self::Escape),
             SyntaxKind::Shorthand(_) => node.cast().map(Self::Shorthand),
+            SyntaxKind::Symbol(_) => node.cast().map(Self::Symbol),
             SyntaxKind::SmartQuote { .. } => node.cast().map(Self::SmartQuote),
             SyntaxKind::Strong => node.cast().map(Self::Strong),
             SyntaxKind::Emph => node.cast().map(Self::Emph),
@@ -141,6 +144,7 @@ impl AstNode for MarkupNode {
             Self::Text(v) => v.as_untyped(),
             Self::Escape(v) => v.as_untyped(),
             Self::Shorthand(v) => v.as_untyped(),
+            Self::Symbol(v) => v.as_untyped(),
             Self::SmartQuote(v) => v.as_untyped(),
             Self::Strong(v) => v.as_untyped(),
             Self::Emph(v) => v.as_untyped(),
@@ -219,6 +223,21 @@ impl Shorthand {
         match self.0.kind() {
             &SyntaxKind::Shorthand(v) => v,
             _ => panic!("shorthand is of wrong kind"),
+        }
+    }
+}
+
+node! {
+    /// Symbol notation: `:arrow:l:`.
+    Symbol
+}
+
+impl Symbol {
+    /// Get the symbol's notation.
+    pub fn get(&self) -> &EcoString {
+        match self.0.kind() {
+            SyntaxKind::Symbol(v) => v,
+            _ => panic!("symbol is of wrong kind"),
         }
     }
 }

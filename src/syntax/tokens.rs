@@ -203,6 +203,7 @@ impl<'s> Tokens<'s> {
             '#' => self.hash(start),
             '.' if self.s.eat_if("..") => SyntaxKind::Shorthand('\u{2026}'),
             '-' => self.hyph(),
+            ':' => self.colon(),
             'h' if self.s.eat_if("ttp://") || self.s.eat_if("ttps://") => {
                 self.link(start)
             }
@@ -224,7 +225,6 @@ impl<'s> Tokens<'s> {
             '=' => SyntaxKind::Eq,
             '+' => SyntaxKind::Plus,
             '/' => SyntaxKind::Slash,
-            ':' => SyntaxKind::Colon,
 
             // Plain text.
             _ => self.text(start),
@@ -325,6 +325,25 @@ impl<'s> Tokens<'s> {
             SyntaxKind::Shorthand('\u{00AD}')
         } else {
             SyntaxKind::Minus
+        }
+    }
+
+    fn colon(&mut self) -> SyntaxKind {
+        let start = self.s.cursor();
+        let mut end = start;
+        while !self.s.eat_while(char::is_ascii_alphanumeric).is_empty() && self.s.at(':')
+        {
+            end = self.s.cursor();
+            self.s.eat();
+        }
+
+        self.s.jump(end);
+
+        if start < end {
+            self.s.expect(':');
+            SyntaxKind::Symbol(self.s.get(start..end).into())
+        } else {
+            SyntaxKind::Colon
         }
     }
 

@@ -1010,6 +1010,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "symmie"
+version = "0.1.0"
+source = "git+https://github.com/typst/symmie#8504bf7ec0d8996d160832c2724ba024ab6e988a"
+
+[[package]]
 name = "syn"
 version = "1.0.102"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1175,6 +1180,7 @@ dependencies = [
  "roxmltree",
  "rustybuzz",
  "serde_json",
+ "symmie",
  "syntect",
  "ttf-parser 0.17.1",
  "typed-arena",

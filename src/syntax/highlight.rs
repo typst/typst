@@ -139,6 +139,8 @@ pub enum Category {
     Escape,
     /// An easily typable shortcut to a unicode codepoint.
     Shorthand,
+    /// Symbol notation.
+    Symbol,
     /// A smart quote.
     SmartQuote,
     /// Strong markup.
@@ -285,6 +287,7 @@ impl Category {
             SyntaxKind::Linebreak => Some(Category::Escape),
             SyntaxKind::Escape(_) => Some(Category::Escape),
             SyntaxKind::Shorthand(_) => Some(Category::Shorthand),
+            SyntaxKind::Symbol(_) => Some(Category::Symbol),
             SyntaxKind::SmartQuote { .. } => Some(Category::SmartQuote),
             SyntaxKind::Strong => Some(Category::Strong),
             SyntaxKind::Emph => Some(Category::Emph),
@@ -369,6 +372,7 @@ impl Category {
             Self::Punctuation => "punctuation.typst",
             Self::Escape => "constant.character.escape.typst",
             Self::Shorthand => "constant.character.shorthand.typst",
+            Self::Symbol => "constant.symbol.typst",
             Self::SmartQuote => "constant.character.quote.typst",
             Self::Strong => "markup.bold.typst",
             Self::Emph => "markup.italic.typst",
