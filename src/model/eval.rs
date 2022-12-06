@@ -271,7 +271,6 @@ impl Eval for ast::MarkupNode {
             Self::Emph(v) => v.eval(vm)?,
             Self::Link(v) => v.eval(vm)?,
             Self::Raw(v) => v.eval(vm)?,
-            Self::Math(v) => v.eval(vm)?,
             Self::Heading(v) => v.eval(vm)?,
             Self::List(v) => v.eval(vm)?,
             Self::Enum(v) => v.eval(vm)?,
@@ -426,19 +425,29 @@ impl Eval for ast::MathNode {
             Self::Linebreak(v) => v.eval(vm)?,
             Self::Escape(v) => (vm.items.math_atom)(v.get().into()),
             Self::Atom(v) => v.eval(vm)?,
+            Self::Symbol(v) => (vm.items.symbol)(v.get().clone()),
             Self::Script(v) => v.eval(vm)?,
             Self::Frac(v) => v.eval(vm)?,
             Self::Align(v) => v.eval(vm)?,
             Self::Group(v) => v.eval(vm)?,
-            Self::Expr(v) => match v.eval(vm)? {
-                Value::None => Content::empty(),
-                Value::Int(v) => (vm.items.math_atom)(format_eco!("{}", v)),
-                Value::Float(v) => (vm.items.math_atom)(format_eco!("{}", v)),
-                Value::Str(v) => (vm.items.math_atom)(v.into()),
-                Value::Content(v) => v,
-                _ => bail!(v.span(), "unexpected garbage"),
-            },
-        })
+            Self::Expr(v) => {
+                if let ast::Expr::Ident(ident) = v {
+                    if self.as_untyped().len() == ident.len()
+                        && !vm.scopes.get(ident).is_ok()
+                    {
+                        let node = (vm.items.symbol)(ident.get().clone());
+                        return Ok(node.spanned(self.span()));
+                    }
+                }
+
+                match v.eval(vm)? {
+                    Value::Int(v) => (vm.items.math_atom)(format_eco!("{}", v)),
+                    Value::Float(v) => (vm.items.math_atom)(format_eco!("{}", v)),
+                    v => v.display(),
+                }
+            }
+        }
+        .spanned(self.span()))
     }
 }
 
@@ -494,6 +503,7 @@ impl Eval for ast::Expr {
             Self::Ident(v) => v.eval(vm),
             Self::Code(v) => v.eval(vm),
             Self::Content(v) => v.eval(vm).map(Value::Content),
+            Self::Math(v) => v.eval(vm).map(Value::Content),
             Self::Array(v) => v.eval(vm).map(Value::Array),
             Self::Dict(v) => v.eval(vm).map(Value::Dict),
             Self::Parenthesized(v) => v.eval(vm),

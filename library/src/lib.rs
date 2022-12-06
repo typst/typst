@@ -52,11 +52,7 @@ fn scope() -> Scope {
     std.def_node::<math::MathNode>("math");
     std.def_node::<math::AtomNode>("atom");
     std.def_node::<math::FracNode>("frac");
-    std.define("sum", "∑");
-    std.define("in", "∈");
-    std.define("arrow", "→");
-    std.define("NN", "ℕ");
-    std.define("RR", "ℝ");
+    std.def_node::<math::SqrtNode>("sqrt");
 
     // Layout.
     std.def_node::<layout::PageNode>("page");

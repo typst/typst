@@ -169,7 +169,7 @@ pub static THEME: Lazy<Theme> = Lazy::new(|| Theme {
         item("entity.name, variable.function, support", Some("#4b69c6"), None),
         item("support.macro", Some("#16718d"), None),
         item("meta.annotation", Some("#301414"), None),
-        item("entity.other, meta.interpolation", Some("#8b41b1"), None),
+        item("entity.other, meta.interpolation, constant.symbol.typst", Some("#8b41b1"), None),
         item("invalid", Some("#ff0000"), None),
     ],
 });

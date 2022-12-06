@@ -107,8 +107,6 @@ pub enum MarkupNode {
     Enum(EnumItem),
     /// An item in a description list: `/ Term: Details`.
     Desc(DescItem),
-    /// A math formula: `$x$`, `$ x^2 $`.
-    Math(Math),
     /// An expression.
     Expr(Expr),
 }
@@ -132,7 +130,6 @@ impl AstNode for MarkupNode {
             SyntaxKind::ListItem => node.cast().map(Self::List),
             SyntaxKind::EnumItem => node.cast().map(Self::Enum),
             SyntaxKind::DescItem => node.cast().map(Self::Desc),
-            SyntaxKind::Math => node.cast().map(Self::Math),
             _ => node.cast().map(Self::Expr),
         }
     }
@@ -155,7 +152,6 @@ impl AstNode for MarkupNode {
             Self::List(v) => v.as_untyped(),
             Self::Enum(v) => v.as_untyped(),
             Self::Desc(v) => v.as_untyped(),
-            Self::Math(v) => v.as_untyped(),
             Self::Expr(v) => v.as_untyped(),
         }
     }
@@ -447,6 +443,9 @@ pub enum MathNode {
     Escape(Escape),
     /// An atom: `x`, `+`, `12`.
     Atom(Atom),
+    /// Symbol notation: `:arrow:l:` or `arrow:l`. Notations without any colons
+    /// are parsed as identifier expression and handled during evaluation.
+    Symbol(Symbol),
     /// A base with optional sub- and superscripts: `a_1^2`.
     Script(Script),
     /// A fraction: `x/2`.
@@ -466,6 +465,7 @@ impl AstNode for MathNode {
             SyntaxKind::Linebreak => node.cast().map(Self::Linebreak),
             SyntaxKind::Escape(_) => node.cast().map(Self::Escape),
             SyntaxKind::Atom(_) => node.cast().map(Self::Atom),
+            SyntaxKind::Symbol(_) => node.cast().map(Self::Symbol),
             SyntaxKind::Script => node.cast().map(Self::Script),
             SyntaxKind::Frac => node.cast().map(Self::Frac),
             SyntaxKind::Align => node.cast().map(Self::Align),
@@ -480,6 +480,7 @@ impl AstNode for MathNode {
             Self::Linebreak(v) => v.as_untyped(),
             Self::Escape(v) => v.as_untyped(),
             Self::Atom(v) => v.as_untyped(),
+            Self::Symbol(v) => v.as_untyped(),
             Self::Script(v) => v.as_untyped(),
             Self::Frac(v) => v.as_untyped(),
             Self::Align(v) => v.as_untyped(),
@@ -574,6 +575,8 @@ pub enum Expr {
     Code(CodeBlock),
     /// A content block: `[*Hi* there!]`.
     Content(ContentBlock),
+    /// A math formula: `$x$`, `$ x^2 $`.
+    Math(Math),
     /// A grouped expression: `(1 + 2)`.
     Parenthesized(Parenthesized),
     /// An array: `(1, "hi", 12cm)`.
@@ -622,6 +625,7 @@ impl AstNode for Expr {
             SyntaxKind::Ident(_) => node.cast().map(Self::Ident),
             SyntaxKind::CodeBlock => node.cast().map(Self::Code),
             SyntaxKind::ContentBlock => node.cast().map(Self::Content),
+            SyntaxKind::Math => node.cast().map(Self::Math),
             SyntaxKind::Parenthesized => node.cast().map(Self::Parenthesized),
             SyntaxKind::Array => node.cast().map(Self::Array),
             SyntaxKind::Dict => node.cast().map(Self::Dict),
@@ -651,6 +655,7 @@ impl AstNode for Expr {
             Self::Lit(v) => v.as_untyped(),
             Self::Code(v) => v.as_untyped(),
             Self::Content(v) => v.as_untyped(),
+            Self::Math(v) => v.as_untyped(),
             Self::Ident(v) => v.as_untyped(),
             Self::Array(v) => v.as_untyped(),
             Self::Dict(v) => v.as_untyped(),

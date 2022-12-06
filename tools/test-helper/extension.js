@@ -132,13 +132,17 @@ function getWebviewContent(pngSrc, refSrc, stdout, stderr) {
         </div>
 
         <h1>Standard output</h1>
-        <pre>${stdout}</pre>
+        <pre>${escape(stdout)}</pre>
 
         <h1>Standard error</h1>
-        <pre>${stderr}</pre>
+        <pre>${escape(stderr)}</pre>
     </body>
     </html>
     `
+}
+
+function escape(text) {
+    return text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 function deactivate() {}

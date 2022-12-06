@@ -268,7 +268,7 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
         | SyntaxKind::Include
         | SyntaxKind::Break
         | SyntaxKind::Continue
-        | SyntaxKind::Return => markup_expr(p),
+        | SyntaxKind::Return => embedded_expr(p),
 
         // Code and content block.
         SyntaxKind::LeftBrace => code_block(p),
@@ -359,7 +359,7 @@ fn desc_item(p: &mut Parser, at_start: bool) -> ParseResult {
     Ok(())
 }
 
-fn markup_expr(p: &mut Parser) {
+fn embedded_expr(p: &mut Parser) {
     // Does the expression need termination or can content follow directly?
     let stmt = matches!(
         p.peek(),
@@ -437,36 +437,63 @@ fn math_node_prec(p: &mut Parser, min_prec: usize, stop: Option<SyntaxKind>) {
 fn math_primary(p: &mut Parser) {
     let Some(token) = p.peek() else { return };
     match token {
-        // Spaces, atoms and expressions.
+        // Spaces and expressions.
         SyntaxKind::Space { .. }
         | SyntaxKind::Linebreak
         | SyntaxKind::Escape(_)
-        | SyntaxKind::Atom(_)
-        | SyntaxKind::Ident(_) => p.eat(),
+        | SyntaxKind::Str(_)
+        | SyntaxKind::Symbol(_) => p.eat(),
 
-        // Groups.
-        SyntaxKind::LeftParen => math_group(p, Group::Paren, '(', ')'),
-        SyntaxKind::LeftBracket => math_group(p, Group::Bracket, '[', ']'),
-        SyntaxKind::LeftBrace => math_group(p, Group::Brace, '{', '}'),
+        // Atoms.
+        SyntaxKind::Atom(s) => match s.as_str() {
+            "(" => math_group(p, Group::MathRow('(', ')')),
+            "{" => math_group(p, Group::MathRow('{', '}')),
+            "[" => math_group(p, Group::MathRow('[', ']')),
+            _ => p.eat(),
+        },
 
         // Alignment indactor.
         SyntaxKind::Amp => math_align(p),
+
+        // Identifiers and math calls.
+        SyntaxKind::Ident(_) => {
+            let marker = p.marker();
+            p.eat();
+
+            // Parenthesis or bracket means this is a function call.
+            if matches!(p.peek_direct(), Some(SyntaxKind::Atom(s)) if s == "(") {
+                marker.perform(p, SyntaxKind::FuncCall, math_args);
+            }
+        }
+
+        // Hashtag + keyword / identifier.
+        SyntaxKind::Let
+        | SyntaxKind::Set
+        | SyntaxKind::Show
+        | SyntaxKind::If
+        | SyntaxKind::While
+        | SyntaxKind::For
+        | SyntaxKind::Import
+        | SyntaxKind::Include
+        | SyntaxKind::Break
+        | SyntaxKind::Continue
+        | SyntaxKind::Return => embedded_expr(p),
+
+        // Code and content block.
+        SyntaxKind::LeftBrace => code_block(p),
+        SyntaxKind::LeftBracket => content_block(p),
 
         _ => p.unexpected(),
     }
 }
 
-fn math_group(p: &mut Parser, group: Group, l: char, r: char) {
+fn math_group(p: &mut Parser, group: Group) {
     p.perform(SyntaxKind::Math, |p| {
-        let marker = p.marker();
         p.start_group(group);
-        marker.convert(p, SyntaxKind::Atom(l.into()));
         while !p.eof() {
             math_node(p);
         }
-        let marker = p.marker();
         p.end_group();
-        marker.convert(p, SyntaxKind::Atom(r.into()));
     })
 }
 
@@ -582,6 +609,7 @@ fn primary(p: &mut Parser, atomic: bool) -> ParseResult {
         Some(SyntaxKind::LeftParen) => parenthesized(p, atomic),
         Some(SyntaxKind::LeftBrace) => Ok(code_block(p)),
         Some(SyntaxKind::LeftBracket) => Ok(content_block(p)),
+        Some(SyntaxKind::Dollar) => Ok(math(p)),
 
         // Keywords.
         Some(SyntaxKind::Let) => let_binding(p),
@@ -900,6 +928,28 @@ fn args(p: &mut Parser) -> ParseResult {
     });
 
     Ok(())
+}
+
+fn math_args(p: &mut Parser) {
+    p.start_group(Group::MathRow('(', ')'));
+    p.perform(SyntaxKind::Args, |p| {
+        let mut marker = p.marker();
+        while !p.eof() {
+            if matches!(p.peek(), Some(SyntaxKind::Atom(s)) if s == ",") {
+                marker.end(p, SyntaxKind::Math);
+                let comma = p.marker();
+                p.eat();
+                comma.convert(p, SyntaxKind::Comma);
+                marker = p.marker();
+            } else {
+                math_node(p);
+            }
+        }
+        if marker != p.marker() {
+            marker.end(p, SyntaxKind::Math);
+        }
+    });
+    p.end_group();
 }
 
 fn let_binding(p: &mut Parser) -> ParseResult {

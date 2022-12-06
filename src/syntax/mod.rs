@@ -24,19 +24,4 @@ use incremental::reparse;
 use parser::*;
 
 #[cfg(test)]
-mod tests {
-    use std::fmt::Debug;
-
-    #[track_caller]
-    pub fn check<T>(text: &str, found: T, expected: T)
-    where
-        T: Debug + PartialEq,
-    {
-        if found != expected {
-            println!("source:   {text:?}");
-            println!("expected: {expected:#?}");
-            println!("found:    {found:#?}");
-            panic!("test failed");
-        }
-    }
-}
+mod tests;

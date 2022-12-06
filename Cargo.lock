@@ -1188,6 +1188,7 @@ dependencies = [
  "unicode-bidi",
  "unicode-math",
  "unicode-script",
+ "unicode-segmentation",
  "xi-unicode",
 ]
 

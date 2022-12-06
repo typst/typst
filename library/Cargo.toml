@@ -28,4 +28,5 @@ typed-arena = "2"
 unicode-bidi = "0.3.5"
 unicode-math = { git = "https://github.com/s3bk/unicode-math/" }
 unicode-script = "0.5"
+unicode-segmentation = "1"
 xi-unicode = "0.3"

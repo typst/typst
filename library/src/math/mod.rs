@@ -2,13 +2,12 @@
 
 mod tex;
 
-use std::fmt::Write;
+use typst::model::{Guard, SequenceNode};
+use unicode_segmentation::UnicodeSegmentation;
 
-use typst::model::Guard;
-
-use self::tex::{layout_tex, Texify};
+use self::tex::layout_tex;
 use crate::prelude::*;
-use crate::text::FontFamily;
+use crate::text::{FontFamily, LinebreakNode, SpaceNode, SymbolNode, TextNode};
 
 /// A piece of a mathematical formula.
 #[derive(Debug, Clone, Hash)]
@@ -55,15 +54,182 @@ impl Layout for MathNode {
         styles: StyleChain,
         _: &Regions,
     ) -> SourceResult<Fragment> {
-        layout_tex(vt, &self.texify(), self.display, styles)
+        let mut t = Texifier::new();
+        self.texify(&mut t)?;
+        layout_tex(vt, &t.finish(), self.display, styles)
     }
 }
 
 impl Inline for MathNode {}
 
+/// Turn a math node into TeX math code.
+#[capability]
+trait Texify {
+    /// Perform the conversion.
+    fn texify(&self, t: &mut Texifier) -> SourceResult<()>;
+
+    /// Texify the node, but trim parentheses..
+    fn texify_unparen(&self, t: &mut Texifier) -> SourceResult<()> {
+        let s = {
+            let mut sub = Texifier::new();
+            self.texify(&mut sub)?;
+            sub.finish()
+        };
+
+        let unparened = if s.starts_with("\\left(") && s.ends_with("\\right)") {
+            s[6..s.len() - 7].into()
+        } else {
+            s
+        };
+
+        t.push_str(&unparened);
+        Ok(())
+    }
+}
+
+/// Builds the TeX representation of the formula.
+struct Texifier {
+    tex: EcoString,
+    support: bool,
+    space: bool,
+}
+
+impl Texifier {
+    /// Create a new texifier.
+    fn new() -> Self {
+        Self {
+            tex: EcoString::new(),
+            support: false,
+            space: false,
+        }
+    }
+
+    /// Finish texifier and return the TeX string.
+    fn finish(self) -> EcoString {
+        self.tex
+    }
+
+    /// Push a weak space.
+    fn push_space(&mut self) {
+        self.space = !self.tex.is_empty();
+    }
+
+    /// Mark this position as supportive. This allows a space before or after
+    /// to exist.
+    fn support(&mut self) {
+        self.support = true;
+    }
+
+    /// Flush a space.
+    fn flush(&mut self) {
+        if self.space && self.support {
+            self.tex.push_str("\\ ");
+        }
+
+        self.space = false;
+        self.support = false;
+    }
+
+    /// Push a string.
+    fn push_str(&mut self, s: &str) {
+        self.flush();
+        self.tex.push_str(s);
+    }
+
+    /// Escape and push a char for TeX usage.
+    #[rustfmt::skip]
+    fn push_escaped(&mut self, c: char) {
+        self.flush();
+        match c {
+            ' ' => self.tex.push_str("\\ "),
+            '%' | '&' | '$' | '#' => {
+                self.tex.push('\\');
+                self.tex.push(c);
+                self.tex.push(' ');
+            }
+            '{' => self.tex.push_str("\\left\\{"),
+            '}' => self.tex.push_str("\\right\\}"),
+            '[' | '(' => {
+                self.tex.push_str("\\left");
+                self.tex.push(c);
+            }
+            ']' | ')' => {
+                self.tex.push_str("\\right");
+                self.tex.push(c);
+            }
+            'a' ..= 'z' | 'A' ..= 'Z' | '0' ..= '9' | 'Α' ..= 'Ω' | 'α' ..= 'ω' |
+            '*' | '+' | '-' | '?' | '!' | '=' | '<' | '>' |
+            ':' | ',' | ';' | '|' | '/' | '@' | '.' | '"' => self.tex.push(c),
+            c => {
+                if let Some(sym) = unicode_math::SYMBOLS
+                .iter()
+                .find(|sym| sym.codepoint == c) {
+                    self.tex.push('\\');
+                    self.tex.push_str(sym.name);
+                    self.tex.push(' ');
+                }
+            }
+        }
+    }
+}
+
 impl Texify for MathNode {
-    fn texify(&self) -> EcoString {
-        self.children.iter().map(Texify::texify).collect()
+    fn texify(&self, t: &mut Texifier) -> SourceResult<()> {
+        for child in &self.children {
+            child.texify(t)?;
+        }
+        Ok(())
+    }
+}
+
+impl Texify for Content {
+    fn texify(&self, t: &mut Texifier) -> SourceResult<()> {
+        if self.is::<SpaceNode>() {
+            t.push_space();
+            return Ok(());
+        }
+
+        if self.is::<LinebreakNode>() {
+            t.push_str("\\");
+            return Ok(());
+        }
+
+        if let Some(node) = self.to::<SymbolNode>() {
+            if let Some(c) = symmie::get(&node.0) {
+                t.push_escaped(c);
+                return Ok(());
+            } else if let Some(span) = self.span() {
+                bail!(span, "unknown symbol");
+            }
+        }
+
+        if let Some(node) = self.to::<TextNode>() {
+            t.support();
+            t.push_str("\\mathrm{");
+            for c in node.0.chars() {
+                t.push_escaped(c);
+            }
+            t.push_str("}");
+            t.support();
+            return Ok(());
+        }
+
+        if let Some(node) = self.to::<SequenceNode>() {
+            for child in &node.0 {
+                child.texify(t)?;
+            }
+            return Ok(());
+        }
+
+        if let Some(node) = self.with::<dyn Texify>() {
+            return node.texify(t);
+        }
+
+        if let Some(span) = self.span() {
+            bail!(span, "not allowed here");
+        }
+
+        Ok(())
     }
 }
 
@@ -72,11 +238,35 @@ impl Texify for MathNode {
 pub struct AtomNode(pub EcoString);
 
 #[node(Texify)]
-impl AtomNode {}
+impl AtomNode {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
+        Ok(Self(args.expect("text")?).pack())
+    }
+}
 
 impl Texify for AtomNode {
-    fn texify(&self) -> EcoString {
-        self.0.chars().map(escape_char).collect()
+    fn texify(&self, t: &mut Texifier) -> SourceResult<()> {
+        let multi = self.0.graphemes(true).count() > 1;
+        if multi {
+            t.push_str("\\mathrm{");
+        }
+
+        for c in self.0.chars() {
+            let supportive = c == '|';
+            if supportive {
+                t.support();
+            }
+            t.push_escaped(c);
+            if supportive {
+                t.support();
+            }
+        }
+
+        if multi {
+            t.push_str("}");
+        }
+
+        Ok(())
     }
 }
 
@@ -90,15 +280,22 @@ pub struct FracNode {
 }
 
 #[node(Texify)]
-impl FracNode {}
+impl FracNode {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
+        let num = args.expect("numerator")?;
+        let denom = args.expect("denominator")?;
+        Ok(Self { num, denom }.pack())
+    }
+}
 
 impl Texify for FracNode {
-    fn texify(&self) -> EcoString {
-        format_eco!(
-            "\\frac{{{}}}{{{}}}",
-            unparen(self.num.texify()),
-            unparen(self.denom.texify())
-        )
+    fn texify(&self, t: &mut Texifier) -> SourceResult<()> {
+        t.push_str("\\frac{");
+        self.num.texify_unparen(t)?;
+        t.push_str("}{");
+        self.denom.texify_unparen(t)?;
+        t.push_str("}");
+        Ok(())
     }
 }
 
@@ -117,18 +314,22 @@ pub struct ScriptNode {
 impl ScriptNode {}
 
 impl Texify for ScriptNode {
-    fn texify(&self) -> EcoString {
-        let mut tex = self.base.texify();
+    fn texify(&self, t: &mut Texifier) -> SourceResult<()> {
+        self.base.texify(t)?;
 
         if let Some(sub) = &self.sub {
-            write!(tex, "_{{{}}}", unparen(sub.texify())).unwrap();
+            t.push_str("_{");
+            sub.texify_unparen(t)?;
+            t.push_str("}");
         }
 
         if let Some(sup) = &self.sup {
-            write!(tex, "^{{{}}}", unparen(sup.texify())).unwrap();
+            t.push_str("^{");
+            sup.texify_unparen(t)?;
+            t.push_str("}");
         }
 
-        tex
+        Ok(())
     }
 }
 
@@ -140,32 +341,27 @@ pub struct AlignNode(pub usize);
 impl AlignNode {}
 
 impl Texify for AlignNode {
-    fn texify(&self) -> EcoString {
-        EcoString::new()
+    fn texify(&self, _: &mut Texifier) -> SourceResult<()> {
+        Ok(())
     }
 }
 
-/// Escape a char for TeX usage.
-#[rustfmt::skip]
-fn escape_char(c: char) -> EcoString {
-    match c {
-        '{' | '}' | '%' | '&' | '$' | '#' => format_eco!(" \\{c} "),
-        'a' ..= 'z' | 'A' ..= 'Z' | '0' ..= '9' | 'Α' ..= 'Ω' | 'α' ..= 'ω' |
-        '*' | '+' | '-' | '[' | '(' | ']' | ')' | '?' | '!' | '=' | '<' | '>' |
-        ':' | ',' | ';' | '|' | '/' | '@' | '.' | '"' => c.into(),
-        c => unicode_math::SYMBOLS
-            .iter()
-            .find(|sym| sym.codepoint == c)
-            .map(|sym| format_eco!("\\{} ", sym.name))
-            .unwrap_or_default(),
+/// A square root node.
+#[derive(Debug, Hash)]
+pub struct SqrtNode(Content);
+
+#[node(Texify)]
+impl SqrtNode {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
+        Ok(Self(args.expect("body")?).pack())
     }
 }
 
-/// Trim grouping parenthesis≤.
-fn unparen(s: EcoString) -> EcoString {
-    if s.starts_with('(') && s.ends_with(')') {
-        s[1..s.len() - 1].into()
-    } else {
-        s
+impl Texify for SqrtNode {
+    fn texify(&self, t: &mut Texifier) -> SourceResult<()> {
+        t.push_str("\\sqrt{");
+        self.0.texify_unparen(t)?;
+        t.push_str("}");
+        Ok(())
     }
 }

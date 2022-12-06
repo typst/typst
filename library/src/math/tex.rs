@@ -6,32 +6,7 @@ use rex::render::{Backend, Cursor, Renderer};
 use typst::font::Font;
 
 use crate::prelude::*;
-use crate::text::{families, variant, LinebreakNode, SpaceNode, TextNode};
-
-/// Turn a math node into TeX math code.
-#[capability]
-pub trait Texify {
-    /// Perform the conversion.
-    fn texify(&self) -> EcoString;
-}
-
-impl Texify for Content {
-    fn texify(&self) -> EcoString {
-        if self.is::<SpaceNode>() {
-            return EcoString::new();
-        }
-
-        if self.is::<LinebreakNode>() {
-            return r"\\".into();
-        }
-
-        if let Some(node) = self.with::<dyn Texify>() {
-            return node.texify();
-        }
-
-        panic!("{self:?} is not math");
-    }
-}
+use crate::text::{families, variant, TextNode};
 
 /// Layout a TeX formula into a frame.
 pub fn layout_tex(
@@ -63,13 +38,15 @@ pub fn layout_tex(
     let style = if display { Style::Display } else { Style::Text };
     let settings = LayoutSettings::new(&ctx, em.to_pt(), style);
     let renderer = Renderer::new();
-    let layout = renderer
+    let Ok(layout) = renderer
         .layout(&tex, settings)
         .map_err(|err| match err {
             Error::Parse(err) => err.to_string(),
             Error::Layout(LayoutError::Font(err)) => err.to_string(),
         })
-        .expect("failed to layout with rex");
+    else {
+        panic!("failed to layout with rex: {tex}");
+    };
 
     // Determine the metrics.
     let (x0, y0, x1, y1) = renderer.size(&layout);

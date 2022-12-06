@@ -163,8 +163,6 @@ pub enum Category {
     ListMarker,
     /// A term in a description list.
     ListTerm,
-    /// A full math formula.
-    Math,
     /// The delimiters of a math formula.
     MathDelimiter,
     /// An operator with special meaning in a math formula.
@@ -300,15 +298,17 @@ impl Category {
             SyntaxKind::EnumItem => Some(Category::ListItem),
             SyntaxKind::EnumNumbering(_) => Some(Category::ListMarker),
             SyntaxKind::DescItem => Some(Category::ListItem),
-            SyntaxKind::Math => Some(Category::Math),
+            SyntaxKind::Math => None,
             SyntaxKind::Atom(_) => None,
             SyntaxKind::Script => None,
             SyntaxKind::Frac => None,
             SyntaxKind::Align => None,
 
             SyntaxKind::Ident(_) => match parent.kind() {
-                SyntaxKind::Markup { .. } => Some(Category::Interpolated),
-                SyntaxKind::Math => Some(Category::Interpolated),
+                SyntaxKind::Markup { .. }
+                | SyntaxKind::Math
+                | SyntaxKind::Script
+                | SyntaxKind::Frac => Some(Category::Interpolated),
                 SyntaxKind::FuncCall => Some(Category::Function),
                 SyntaxKind::MethodCall if i > 0 => Some(Category::Function),
                 SyntaxKind::Closure if i == 0 => Some(Category::Function),
@@ -378,7 +378,6 @@ impl Category {
             Self::Emph => "markup.italic.typst",
             Self::Link => "markup.underline.link.typst",
             Self::Raw => "markup.raw.typst",
-            Self::Math => "string.other.math.typst",
             Self::MathDelimiter => "punctuation.definition.math.typst",
             Self::MathOperator => "keyword.operator.math.typst",
             Self::Heading => "markup.heading.typst",

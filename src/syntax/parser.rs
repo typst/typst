@@ -235,17 +235,9 @@ impl<'s> Parser<'s> {
     pub fn start_group(&mut self, kind: Group) {
         self.groups.push(GroupEntry { kind, prev_mode: self.tokens.mode() });
         self.tokens.set_mode(match kind {
-            Group::Strong | Group::Emph => TokenMode::Markup,
-            Group::Bracket => match self.tokens.mode() {
-                TokenMode::Math => TokenMode::Math,
-                _ => TokenMode::Markup,
-            },
-            Group::Brace | Group::Paren => match self.tokens.mode() {
-                TokenMode::Math => TokenMode::Math,
-                _ => TokenMode::Code,
-            },
-            Group::Math => TokenMode::Math,
-            Group::Expr | Group::Imports => TokenMode::Code,
+            Group::Bracket | Group::Strong | Group::Emph => TokenMode::Markup,
+            Group::Math | Group::MathRow(_, _) => TokenMode::Math,
+            Group::Brace | Group::Paren | Group::Expr | Group::Imports => TokenMode::Code,
         });
 
         match kind {
@@ -255,6 +247,7 @@ impl<'s> Parser<'s> {
             Group::Strong => self.assert(SyntaxKind::Star),
             Group::Emph => self.assert(SyntaxKind::Underscore),
             Group::Math => self.assert(SyntaxKind::Dollar),
+            Group::MathRow(l, _) => self.assert(SyntaxKind::Atom(l.into())),
             Group::Expr => self.repeek(),
             Group::Imports => self.repeek(),
         }
@@ -279,6 +272,7 @@ impl<'s> Parser<'s> {
             Group::Strong => Some((SyntaxKind::Star, true)),
             Group::Emph => Some((SyntaxKind::Underscore, true)),
             Group::Math => Some((SyntaxKind::Dollar, true)),
+            Group::MathRow(_, r) => Some((SyntaxKind::Atom(r.into()), true)),
             Group::Expr => Some((SyntaxKind::Semicolon, false)),
             Group::Imports => None,
         } {
@@ -344,9 +338,17 @@ impl<'s> Parser<'s> {
             Some(SyntaxKind::RightParen) => self.inside(Group::Paren),
             Some(SyntaxKind::Star) => self.inside(Group::Strong),
             Some(SyntaxKind::Underscore) => self.inside(Group::Emph),
-            Some(SyntaxKind::Dollar) => self.inside(Group::Math),
+            Some(SyntaxKind::Dollar) => {
+                self.groups.last().map(|group| group.kind) == Some(Group::Math)
+            }
             Some(SyntaxKind::Semicolon) => self.inside(Group::Expr),
             Some(SyntaxKind::From) => self.inside(Group::Imports),
+            Some(SyntaxKind::Atom(s)) => match s.as_str() {
+                ")" => self.inside(Group::MathRow('(', ')')),
+                "}" => self.inside(Group::MathRow('{', '}')),
+                "]" => self.inside(Group::MathRow('[', ']')),
+                _ => false,
+            },
             Some(SyntaxKind::Space { newlines }) => self.space_ends_group(*newlines),
             Some(_) => false,
             None => true,
@@ -531,6 +533,8 @@ pub enum Group {
     Emph,
     /// A group surrounded by dollar signs: `$...$`.
     Math,
+    /// A group surrounded by math delimiters.
+    MathRow(char, char),
     /// A group ended by a semicolon or a line break: `;`, `\n`.
     Expr,
     /// A group for import items, ended by a semicolon, line break or `from`.
