@@ -442,6 +442,7 @@ fn math_primary(p: &mut Parser) {
         | SyntaxKind::Linebreak
         | SyntaxKind::Escape(_)
         | SyntaxKind::Str(_)
+        | SyntaxKind::Shorthand(_)
         | SyntaxKind::Symbol(_) => p.eat(),
 
         // Atoms.

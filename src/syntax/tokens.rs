@@ -439,6 +439,18 @@ impl Tokens<'_> {
 impl Tokens<'_> {
     fn math(&mut self, start: usize, c: char) -> SyntaxKind {
         match c {
+            // Symbol shorthands.
+            '|' if self.s.eat_if("->") => SyntaxKind::Shorthand('\u{21A6}'),
+            '<' if self.s.eat_if("->") => SyntaxKind::Shorthand('\u{2194}'),
+            '<' if self.s.eat_if("=>") => SyntaxKind::Shorthand('\u{21D4}'),
+            '!' if self.s.eat_if('=') => SyntaxKind::Shorthand('\u{2260}'),
+            '<' if self.s.eat_if('=') => SyntaxKind::Shorthand('\u{2264}'),
+            '>' if self.s.eat_if('=') => SyntaxKind::Shorthand('\u{2265}'),
+            '<' if self.s.eat_if('-') => SyntaxKind::Shorthand('\u{2190}'),
+            '-' if self.s.eat_if('>') => SyntaxKind::Shorthand('\u{2192}'),
+            '=' if self.s.eat_if('>') => SyntaxKind::Shorthand('\u{21D2}'),
+            ':' if self.s.eat_if('=') => SyntaxKind::Shorthand('\u{2254}'),
+
             // Multi-char things.
             '#' => self.hash(start),
 

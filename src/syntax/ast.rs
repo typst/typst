@@ -441,6 +441,9 @@ pub enum MathNode {
     Linebreak(Linebreak),
     /// An escape sequence: `\#`, `\u{1F5FA}`.
     Escape(Escape),
+    /// A shorthand for a unicode codepoint. For example, `->` for a right
+    /// arrow.
+    Shorthand(Shorthand),
     /// An atom: `x`, `+`, `12`.
     Atom(Atom),
     /// Symbol notation: `:arrow:l:` or `arrow:l`. Notations without any colons
@@ -464,6 +467,7 @@ impl AstNode for MathNode {
             SyntaxKind::Space { .. } => node.cast().map(Self::Space),
             SyntaxKind::Linebreak => node.cast().map(Self::Linebreak),
             SyntaxKind::Escape(_) => node.cast().map(Self::Escape),
+            SyntaxKind::Shorthand(_) => node.cast().map(Self::Shorthand),
             SyntaxKind::Atom(_) => node.cast().map(Self::Atom),
             SyntaxKind::Symbol(_) => node.cast().map(Self::Symbol),
             SyntaxKind::Script => node.cast().map(Self::Script),
@@ -479,6 +483,7 @@ impl AstNode for MathNode {
             Self::Space(v) => v.as_untyped(),
             Self::Linebreak(v) => v.as_untyped(),
             Self::Escape(v) => v.as_untyped(),
+            Self::Shorthand(v) => v.as_untyped(),
             Self::Atom(v) => v.as_untyped(),
             Self::Symbol(v) => v.as_untyped(),
             Self::Script(v) => v.as_untyped(),

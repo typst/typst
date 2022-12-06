@@ -424,6 +424,7 @@ impl Eval for ast::MathNode {
             Self::Space(_) => (vm.items.space)(),
             Self::Linebreak(v) => v.eval(vm)?,
             Self::Escape(v) => (vm.items.math_atom)(v.get().into()),
+            Self::Shorthand(v) => (vm.items.math_atom)(v.get().into()),
             Self::Atom(v) => v.eval(vm)?,
             Self::Symbol(v) => (vm.items.symbol)(v.get().clone()),
             Self::Script(v) => v.eval(vm)?,
