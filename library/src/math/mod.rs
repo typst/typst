@@ -54,7 +54,7 @@ impl Layout for MathNode {
         styles: StyleChain,
         _: &Regions,
     ) -> SourceResult<Fragment> {
-        let mut t = Texifier::new();
+        let mut t = Texifier::new(styles);
         self.texify(&mut t)?;
         layout_tex(vt, &t.finish(), self.display, styles)
     }
@@ -71,7 +71,7 @@ trait Texify {
     /// Texify the node, but trim parentheses..
     fn texify_unparen(&self, t: &mut Texifier) -> SourceResult<()> {
         let s = {
-            let mut sub = Texifier::new();
+            let mut sub = Texifier::new(t.styles);
             self.texify(&mut sub)?;
             sub.finish()
         };
@@ -88,19 +88,21 @@ trait Texify {
 }
 
 /// Builds the TeX representation of the formula.
-struct Texifier {
+struct Texifier<'a> {
     tex: EcoString,
     support: bool,
     space: bool,
+    styles: StyleChain<'a>,
 }
 
-impl Texifier {
+impl<'a> Texifier<'a> {
     /// Create a new texifier.
-    fn new() -> Self {
+    fn new(styles: StyleChain<'a>) -> Self {
         Self {
             tex: EcoString::new(),
             support: false,
             space: false,
+            styles,
         }
     }
 
@@ -346,7 +348,7 @@ impl Texify for AlignNode {
     }
 }
 
-/// A square root node.
+/// A square root.
 #[derive(Debug, Hash)]
 pub struct SqrtNode(Content);
 
@@ -362,6 +364,89 @@ impl Texify for SqrtNode {
         t.push_str("\\sqrt{");
         self.0.texify_unparen(t)?;
         t.push_str("}");
+        Ok(())
+    }
+}
+
+/// A column vector.
+#[derive(Debug, Hash)]
+pub struct VecNode(Vec<Content>);
+
+#[node(Texify)]
+impl VecNode {
+    /// The kind of delimiter.
+    pub const DELIM: Delimiter = Delimiter::Paren;
+
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
+        Ok(Self(args.all()?).pack())
+    }
+}
+
+impl Texify for VecNode {
+    fn texify(&self, t: &mut Texifier) -> SourceResult<()> {
+        let kind = match t.styles.get(Self::DELIM) {
+            Delimiter::Paren => "pmatrix",
+            Delimiter::Bracket => "bmatrix",
+            Delimiter::Brace => "Bmatrix",
+            Delimiter::Bar => "vmatrix",
+        };
+
+        t.push_str("\\begin{");
+        t.push_str(kind);
+        t.push_str("}");
+
+        for component in &self.0 {
+            component.texify_unparen(t)?;
+            t.push_str("\\\\");
+        }
+        t.push_str("\\end{");
+        t.push_str(kind);
+        t.push_str("}");
+
+        Ok(())
+    }
+}
+
+/// A vector / matrix delimiter.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum Delimiter {
+    Paren,
+    Bracket,
+    Brace,
+    Bar,
+}
+
+castable! {
+    Delimiter,
+    Expected: "type of bracket or bar",
+    Value::Str(s) => match s.as_str() {
+        "(" => Self::Paren,
+        "[" => Self::Bracket,
+        "{" => Self::Brace,
+        "|" => Self::Bar,
+        _ => Err("expected \"(\", \"[\", \"{\", or \"|\"")?,
+    },
+}
+
+/// A case distinction.
+#[derive(Debug, Hash)]
+pub struct CasesNode(Vec<Content>);
+
+#[node(Texify)]
+impl CasesNode {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
+        Ok(Self(args.all()?).pack())
+    }
+}
+
+impl Texify for CasesNode {
+    fn texify(&self, t: &mut Texifier) -> SourceResult<()> {
+        t.push_str("\\begin{cases}");
+        for component in &self.0 {
+            component.texify_unparen(t)?;
+            t.push_str("\\\\");
+        }
+        t.push_str("\\end{cases}");
         Ok(())
     }
 }

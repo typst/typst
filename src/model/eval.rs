@@ -426,7 +426,7 @@ impl Eval for ast::MathNode {
             Self::Escape(v) => (vm.items.math_atom)(v.get().into()),
             Self::Shorthand(v) => (vm.items.math_atom)(v.get().into()),
             Self::Atom(v) => v.eval(vm)?,
-            Self::Symbol(v) => (vm.items.symbol)(v.get().clone()),
+            Self::Symbol(v) => (vm.items.symbol)(v.get().clone() + ":op".into()),
             Self::Script(v) => v.eval(vm)?,
             Self::Frac(v) => v.eval(vm)?,
             Self::Align(v) => v.eval(vm)?,
@@ -436,7 +436,7 @@ impl Eval for ast::MathNode {
                     if self.as_untyped().len() == ident.len()
                         && !vm.scopes.get(ident).is_ok()
                     {
-                        let node = (vm.items.symbol)(ident.get().clone());
+                        let node = (vm.items.symbol)(ident.get().clone() + ":op".into());
                         return Ok(node.spanned(self.span()));
                     }
                 }

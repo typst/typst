@@ -846,7 +846,7 @@ dependencies = [
 [[package]]
 name = "rex"
 version = "0.1.2"
-source = "git+https://github.com/laurmaedje/ReX#672c321a947f945e9ba936ae9fbd982c4e043f1c"
+source = "git+https://github.com/laurmaedje/ReX#523b29bd39a4daf50f9bb3ee48689c66b209c4ff"
 dependencies = [
  "itertools",
  "nom",

@@ -69,7 +69,7 @@ pub fn layout_tex(
         },
         baseline: top,
         font: font.clone(),
-        fill: styles.get(TextNode::FILL),
+        paint: styles.get(TextNode::FILL),
         lang: styles.get(TextNode::LANG),
         colors: vec![],
     };
@@ -85,18 +85,18 @@ struct FrameBackend {
     frame: Frame,
     baseline: Abs,
     font: Font,
-    fill: Paint,
+    paint: Paint,
     lang: Lang,
     colors: Vec<RGBA>,
 }
 
 impl FrameBackend {
-    /// The currently active fill paint.
-    fn fill(&self) -> Paint {
+    /// The currently active paint.
+    fn paint(&self) -> Paint {
         self.colors
             .last()
             .map(|&RGBA(r, g, b, a)| RgbaColor::new(r, g, b, a).into())
-            .unwrap_or(self.fill)
+            .unwrap_or(self.paint)
     }
 
     /// Convert a cursor to a point.
@@ -112,7 +112,7 @@ impl Backend for FrameBackend {
             Element::Text(Text {
                 font: self.font.clone(),
                 size: Abs::pt(scale),
-                fill: self.fill(),
+                fill: self.paint(),
                 lang: self.lang,
                 glyphs: vec![Glyph {
                     id: gid,
@@ -126,11 +126,11 @@ impl Backend for FrameBackend {
 
     fn rule(&mut self, pos: Cursor, width: f64, height: f64) {
         self.frame.push(
-            self.transform(pos),
+            self.transform(pos) + Point::with_y(Abs::pt(height) / 2.0),
             Element::Shape(Shape {
-                geometry: Geometry::Rect(Size::new(Abs::pt(width), Abs::pt(height))),
-                fill: Some(self.fill()),
-                stroke: None,
+                geometry: Geometry::Line(Point::new(Abs::pt(width), Abs::zero())),
+                fill: None,
+                stroke: Some(Stroke { paint: self.paint(), thickness: Abs::pt(height) }),
             }),
         );
     }

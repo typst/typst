@@ -53,6 +53,8 @@ fn scope() -> Scope {
     std.def_node::<math::AtomNode>("atom");
     std.def_node::<math::FracNode>("frac");
     std.def_node::<math::SqrtNode>("sqrt");
+    std.def_node::<math::VecNode>("vec");
+    std.def_node::<math::CasesNode>("cases");
 
     // Layout.
     std.def_node::<layout::PageNode>("page");
