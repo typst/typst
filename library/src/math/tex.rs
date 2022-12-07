@@ -125,6 +125,10 @@ impl Backend for FrameBackend {
     }
 
     fn rule(&mut self, pos: Cursor, width: f64, height: f64) {
+        if height == 0.0 {
+            return;
+        }
+
         self.frame.push(
             self.transform(pos) + Point::with_y(Abs::pt(height) / 2.0),
             Element::Shape(Shape {

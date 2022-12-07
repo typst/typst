@@ -51,10 +51,22 @@ fn scope() -> Scope {
     // Math.
     std.def_node::<math::MathNode>("math");
     std.def_node::<math::AtomNode>("atom");
+    std.def_node::<math::AccNode>("acc");
     std.def_node::<math::FracNode>("frac");
+    std.def_node::<math::BinomNode>("binom");
     std.def_node::<math::SqrtNode>("sqrt");
+    std.def_node::<math::FloorNode>("floor");
+    std.def_node::<math::CeilNode>("ceil");
     std.def_node::<math::VecNode>("vec");
     std.def_node::<math::CasesNode>("cases");
+    std.def_node::<math::SerifNode>("serif");
+    std.def_node::<math::SansNode>("sans");
+    std.def_node::<math::BoldNode>("bold");
+    std.def_node::<math::ItalNode>("ital");
+    std.def_node::<math::CalNode>("cal");
+    std.def_node::<math::FrakNode>("frak");
+    std.def_node::<math::MonoNode>("mono");
+    std.def_node::<math::BbNode>("bb");
 
     // Layout.
     std.def_node::<layout::PageNode>("page");

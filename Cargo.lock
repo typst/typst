@@ -1027,7 +1027,7 @@ dependencies = [
 [[package]]
 name = "symmie"
 version = "0.1.0"
-source = "git+https://github.com/typst/symmie#8504bf7ec0d8996d160832c2724ba024ab6e988a"
+source = "git+https://github.com/typst/symmie#6280fb20455cb63e6886ba5bb35b95a4b376da68"
 
 [[package]]
 name = "syn"

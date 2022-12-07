@@ -4,12 +4,11 @@
 $ v = vec(1, 2+3, 4) $
 
 ---
-#set vec(delim: "|")
-$ vec(1, 2) $
+$ binom(n, 1) = 1/2 n (n-1) $
 
 ---
-// Error: 17-20 expected "(", "[", "{", or "|"
-#set vec(delim: "%")
+#set vec(delim: "|")
+$ vec(1, 2) $
 
 ---
 $ f(x, y) := cases(
@@ -18,3 +17,11 @@ $ f(x, y) := cases(
   3 "if" x "is even",
   4 "else",
 ) $
+
+---
+// Error: 17-20 expected "(", "[", "{", or "|"
+#set vec(delim: "%")
+
+---
+// Error: 9-12 missing argument: lower index
+$ binom(x^2) $

@@ -434,7 +434,7 @@ impl Eval for ast::MathNode {
             Self::Expr(v) => {
                 if let ast::Expr::Ident(ident) = v {
                     if self.as_untyped().len() == ident.len()
-                        && !vm.scopes.get(ident).is_ok()
+                        && matches!(vm.scopes.get(ident), Ok(Value::Func(_)) | Err(_))
                     {
                         let node = (vm.items.symbol)(ident.get().clone() + ":op".into());
                         return Ok(node.spanned(self.span()));

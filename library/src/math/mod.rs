@@ -1,6 +1,11 @@
 //! Mathematical formulas.
 
+mod matrix;
+mod style;
 mod tex;
+
+pub use self::matrix::*;
+pub use self::style::*;
 
 use typst::model::{Guard, SequenceNode};
 use unicode_segmentation::UnicodeSegmentation;
@@ -272,6 +277,79 @@ impl Texify for AtomNode {
     }
 }
 
+/// An accented node.
+#[derive(Debug, Hash)]
+pub struct AccNode {
+    /// The accent base.
+    pub base: Content,
+    /// The Unicode accent character.
+    pub accent: char,
+}
+
+#[node(Texify)]
+impl AccNode {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
+        let base = args.expect("base")?;
+        let Spanned { v, span } = args.expect::<Spanned<Content>>("accent")?;
+        let accent = match extract(&v) {
+            Some(Ok(c)) => c,
+            Some(Err(msg)) => bail!(span, "{}", msg),
+            None => bail!(span, "not an accent"),
+        };
+        Ok(Self { base, accent }.pack())
+    }
+}
+
+#[rustfmt::skip]
+fn extract(content: &Content) -> Option<Result<char, &'static str>> {
+    let MathNode { children, .. } = content.to::<MathNode>()?;
+    let [child] = children.as_slice() else { return None };
+    let c = if let Some(atom) = child.to::<AtomNode>() {
+        let mut chars = atom.0.chars();
+        chars.next().filter(|_| chars.next().is_none())?
+    } else if let Some(symbol) = child.to::<SymbolNode>() {
+        match symmie::get(&symbol.0) {
+            Some(c) => c,
+            None => return Some(Err("unknown symbol")),
+        }
+    } else {
+        return None;
+    };
+
+    Some(Ok(match c {
+        '`' | '\u{300}' => '\u{300}',              // Grave
+        '´' | '\u{301}' => '\u{301}',              // Acute
+        '^' | '\u{302}' => '\u{302}',              // Circumflex
+        '~' | '\u{223C}' | '\u{303}' => '\u{303}', // Tilde
+        '¯' | '\u{304}' => '\u{304}',              // Macron
+        '‾' | '\u{305}' => '\u{305}',              // Overline
+        '˘' | '\u{306}' => '\u{306}',              // Breve
+        '.' | '\u{22C5}' | '\u{307}' => '\u{307}', // Dot
+        '¨' | '\u{308}' => '\u{308}',              // Diaeresis
+        'ˇ' | '\u{30C}' => '\u{30C}',              // Caron
+        '→' | '\u{20D7}' => '\u{20D7}',            // Arrow
+        _ => return None,
+    }))
+}
+
+impl Texify for AccNode {
+    fn texify(&self, t: &mut Texifier) -> SourceResult<()> {
+        if let Some(sym) = unicode_math::SYMBOLS.iter().find(|sym| {
+            sym.codepoint == self.accent
+                && sym.atom_type == unicode_math::AtomType::Accent
+        }) {
+            t.push_str("\\");
+            t.push_str(sym.name);
+            t.push_str("{");
+            self.base.texify(t)?;
+            t.push_str("}");
+        } else {
+            self.base.texify(t)?;
+        }
+        Ok(())
+    }
+}
+
 /// A fraction in a mathematical formula.
 #[derive(Debug, Hash)]
 pub struct FracNode {
@@ -296,6 +374,35 @@ impl Texify for FracNode {
         self.num.texify_unparen(t)?;
         t.push_str("}{");
         self.denom.texify_unparen(t)?;
+        t.push_str("}");
+        Ok(())
+    }
+}
+
+/// A binomial in a mathematical formula.
+#[derive(Debug, Hash)]
+pub struct BinomNode {
+    /// The upper index.
+    pub upper: Content,
+    /// The lower index.
+    pub lower: Content,
+}
+
+#[node(Texify)]
+impl BinomNode {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
+        let upper = args.expect("upper index")?;
+        let lower = args.expect("lower index")?;
+        Ok(Self { upper, lower }.pack())
+    }
+}
+
+impl Texify for BinomNode {
+    fn texify(&self, t: &mut Texifier) -> SourceResult<()> {
+        t.push_str("\\binom{");
+        self.upper.texify(t)?;
+        t.push_str("}{");
+        self.lower.texify(t)?;
         t.push_str("}");
         Ok(())
     }
@@ -348,7 +455,7 @@ impl Texify for AlignNode {
     }
 }
 
-/// A square root.
+/// A square root in a mathematical formula.
 #[derive(Debug, Hash)]
 pub struct SqrtNode(Content);
 
@@ -362,91 +469,48 @@ impl SqrtNode {
 impl Texify for SqrtNode {
     fn texify(&self, t: &mut Texifier) -> SourceResult<()> {
         t.push_str("\\sqrt{");
-        self.0.texify_unparen(t)?;
+        self.0.texify(t)?;
         t.push_str("}");
         Ok(())
     }
 }
 
-/// A column vector.
+/// A floored expression in a mathematical formula.
 #[derive(Debug, Hash)]
-pub struct VecNode(Vec<Content>);
+pub struct FloorNode(Content);
 
 #[node(Texify)]
-impl VecNode {
-    /// The kind of delimiter.
-    pub const DELIM: Delimiter = Delimiter::Paren;
-
+impl FloorNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Self(args.all()?).pack())
+        Ok(Self(args.expect("body")?).pack())
     }
 }
 
-impl Texify for VecNode {
+impl Texify for FloorNode {
     fn texify(&self, t: &mut Texifier) -> SourceResult<()> {
-        let kind = match t.styles.get(Self::DELIM) {
-            Delimiter::Paren => "pmatrix",
-            Delimiter::Bracket => "bmatrix",
-            Delimiter::Brace => "Bmatrix",
-            Delimiter::Bar => "vmatrix",
-        };
-
-        t.push_str("\\begin{");
-        t.push_str(kind);
-        t.push_str("}");
-
-        for component in &self.0 {
-            component.texify_unparen(t)?;
-            t.push_str("\\\\");
-        }
-        t.push_str("\\end{");
-        t.push_str(kind);
-        t.push_str("}");
-
+        t.push_str("\\left\\lfloor ");
+        self.0.texify(t)?;
+        t.push_str("\\right\\rfloor ");
         Ok(())
     }
 }
 
-/// A vector / matrix delimiter.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum Delimiter {
-    Paren,
-    Bracket,
-    Brace,
-    Bar,
-}
-
-castable! {
-    Delimiter,
-    Expected: "type of bracket or bar",
-    Value::Str(s) => match s.as_str() {
-        "(" => Self::Paren,
-        "[" => Self::Bracket,
-        "{" => Self::Brace,
-        "|" => Self::Bar,
-        _ => Err("expected \"(\", \"[\", \"{\", or \"|\"")?,
-    },
-}
-
-/// A case distinction.
+/// A ceiled expression in a mathematical formula.
 #[derive(Debug, Hash)]
-pub struct CasesNode(Vec<Content>);
+pub struct CeilNode(Content);
 
 #[node(Texify)]
-impl CasesNode {
+impl CeilNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Self(args.all()?).pack())
+        Ok(Self(args.expect("body")?).pack())
     }
 }
 
-impl Texify for CasesNode {
+impl Texify for CeilNode {
     fn texify(&self, t: &mut Texifier) -> SourceResult<()> {
-        t.push_str("\\begin{cases}");
-        for component in &self.0 {
-            component.texify_unparen(t)?;
-            t.push_str("\\\\");
-        }
-        t.push_str("\\end{cases}");
+        t.push_str("\\left\\lceil ");
+        self.0.texify(t)?;
+        t.push_str("\\right\\rceil ");
         Ok(())
     }
 }

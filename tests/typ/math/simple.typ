@@ -12,8 +12,12 @@ Prove by induction:
 $ sum_(k=0)^n k = (n(n+1))/2 $
 
 ---
+We know that:
+$ floor(x/2) <= ceil(x/2) $
+
+---
 // Test that blackboard style looks nice.
-$ f: NN arrow RR $
+$ f: NN -> RR $
 
 ---
 // Error: 1:3 expected dollar sign

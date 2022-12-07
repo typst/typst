@@ -7,6 +7,10 @@ pub fn applicable(target: &Content, styles: StyleChain) -> bool {
         return true;
     }
 
+    if target.has::<dyn Show>() && target.is_pristine() {
+        return true;
+    }
+
     // Find out how many recipes there are.
     let mut n = styles.recipes().count();
 
