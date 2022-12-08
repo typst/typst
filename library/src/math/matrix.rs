@@ -1,6 +1,6 @@
 use super::*;
 
-/// A column vector in a mathematical formula.
+/// A column vector.
 #[derive(Debug, Hash)]
 pub struct VecNode(Vec<Content>);
 
@@ -60,7 +60,7 @@ castable! {
     },
 }
 
-/// A case distinction in a mathematical formula.
+/// A case distinction.
 #[derive(Debug, Hash)]
 pub struct CasesNode(Vec<Content>);
 

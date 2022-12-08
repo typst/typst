@@ -8,7 +8,7 @@ pub struct MoveNode {
     /// The offset by which to move the content.
     pub delta: Axes<Rel<Length>>,
     /// The content that should be moved.
-    pub child: Content,
+    pub body: Content,
 }
 
 #[node(Layout, Inline)]
@@ -18,7 +18,7 @@ impl MoveNode {
         let dy = args.named("dy")?.unwrap_or_default();
         Ok(Self {
             delta: Axes::new(dx, dy),
-            child: args.expect("body")?,
+            body: args.expect("body")?,
         }
         .pack())
     }
@@ -31,7 +31,7 @@ impl Layout for MoveNode {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let mut fragment = self.child.layout(vt, styles, regions)?;
+        let mut fragment = self.body.layout(vt, styles, regions)?;
         for frame in &mut fragment {
             let delta = self.delta.resolve(styles);
             let delta = delta.zip(frame.size()).map(|(d, s)| d.relative_to(s));
@@ -49,7 +49,7 @@ pub struct TransformNode<const T: TransformKind> {
     /// Transformation to apply to the content.
     pub transform: Transform,
     /// The content that should be transformed.
-    pub child: Content,
+    pub body: Content,
 }
 
 /// Rotate content without affecting layout.
@@ -78,7 +78,7 @@ impl<const T: TransformKind> TransformNode<T> {
             }
         };
 
-        Ok(Self { transform, child: args.expect("body")? }.pack())
+        Ok(Self { transform, body: args.expect("body")? }.pack())
     }
 }
 
@@ -89,7 +89,7 @@ impl<const T: TransformKind> Layout for TransformNode<T> {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let mut fragment = self.child.layout(vt, styles, regions)?;
+        let mut fragment = self.body.layout(vt, styles, regions)?;
         for frame in &mut fragment {
             let origin = styles.get(Self::ORIGIN).unwrap_or(Align::CENTER_HORIZON);
             let Axes { x, y } = origin.zip(frame.size()).map(|(o, s)| o.position(s));

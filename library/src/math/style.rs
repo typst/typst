@@ -2,7 +2,7 @@ use super::*;
 
 /// Serif (roman) font style.
 #[derive(Debug, Hash)]
-pub struct SerifNode(Content);
+pub struct SerifNode(pub Content);
 
 #[node(Texify)]
 impl SerifNode {
@@ -22,7 +22,7 @@ impl Texify for SerifNode {
 
 /// Sans-serif font style.
 #[derive(Debug, Hash)]
-pub struct SansNode(Content);
+pub struct SansNode(pub Content);
 
 #[node(Texify)]
 impl SansNode {
@@ -42,7 +42,7 @@ impl Texify for SansNode {
 
 /// Bold font style.
 #[derive(Debug, Hash)]
-pub struct BoldNode(Content);
+pub struct BoldNode(pub Content);
 
 #[node(Texify)]
 impl BoldNode {
@@ -62,7 +62,7 @@ impl Texify for BoldNode {
 
 /// Italic font style.
 #[derive(Debug, Hash)]
-pub struct ItalNode(Content);
+pub struct ItalNode(pub Content);
 
 #[node(Texify)]
 impl ItalNode {
@@ -82,7 +82,7 @@ impl Texify for ItalNode {
 
 /// Calligraphic font style.
 #[derive(Debug, Hash)]
-pub struct CalNode(Content);
+pub struct CalNode(pub Content);
 
 #[node(Texify)]
 impl CalNode {
@@ -102,7 +102,7 @@ impl Texify for CalNode {
 
 /// Fraktur font style.
 #[derive(Debug, Hash)]
-pub struct FrakNode(Content);
+pub struct FrakNode(pub Content);
 
 #[node(Texify)]
 impl FrakNode {
@@ -122,7 +122,7 @@ impl Texify for FrakNode {
 
 /// Monospace font style.
 #[derive(Debug, Hash)]
-pub struct MonoNode(Content);
+pub struct MonoNode(pub Content);
 
 #[node(Texify)]
 impl MonoNode {
@@ -142,7 +142,7 @@ impl Texify for MonoNode {
 
 /// Blackboard bold (double-struck) font style.
 #[derive(Debug, Hash)]
-pub struct BbNode(Content);
+pub struct BbNode(pub Content);
 
 #[node(Texify)]
 impl BbNode {

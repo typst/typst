@@ -4,9 +4,9 @@ use crate::prelude::*;
 #[derive(Debug, Hash)]
 pub struct LineNode {
     /// Where the line starts.
-    origin: Axes<Rel<Length>>,
+    pub origin: Axes<Rel<Length>>,
     /// The offset from the `origin` where the line ends.
-    delta: Axes<Rel<Length>>,
+    pub delta: Axes<Rel<Length>>,
 }
 
 #[node(Layout, Inline)]

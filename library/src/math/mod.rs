@@ -17,10 +17,10 @@ use crate::text::{FontFamily, LinebreakNode, SpaceNode, SymbolNode, TextNode};
 /// A piece of a mathematical formula.
 #[derive(Debug, Clone, Hash)]
 pub struct MathNode {
-    /// The pieces of the formula.
-    pub children: Vec<Content>,
     /// Whether the formula is display-level.
     pub display: bool,
+    /// The pieces of the formula.
+    pub children: Vec<Content>,
 }
 
 #[node(Show, Layout, Inline, Texify)]
@@ -350,7 +350,7 @@ impl Texify for AccNode {
     }
 }
 
-/// A fraction in a mathematical formula.
+/// A fraction.
 #[derive(Debug, Hash)]
 pub struct FracNode {
     /// The numerator.
@@ -379,7 +379,7 @@ impl Texify for FracNode {
     }
 }
 
-/// A binomial in a mathematical formula.
+/// A binomial.
 #[derive(Debug, Hash)]
 pub struct BinomNode {
     /// The upper index.
@@ -408,7 +408,7 @@ impl Texify for BinomNode {
     }
 }
 
-/// A sub- and/or superscript in a mathematical formula.
+/// A sub- and/or superscript.
 #[derive(Debug, Hash)]
 pub struct ScriptNode {
     /// The base.
@@ -455,9 +455,9 @@ impl Texify for AlignNode {
     }
 }
 
-/// A square root in a mathematical formula.
+/// A square root.
 #[derive(Debug, Hash)]
-pub struct SqrtNode(Content);
+pub struct SqrtNode(pub Content);
 
 #[node(Texify)]
 impl SqrtNode {
@@ -475,9 +475,9 @@ impl Texify for SqrtNode {
     }
 }
 
-/// A floored expression in a mathematical formula.
+/// A floored expression.
 #[derive(Debug, Hash)]
-pub struct FloorNode(Content);
+pub struct FloorNode(pub Content);
 
 #[node(Texify)]
 impl FloorNode {
@@ -495,9 +495,9 @@ impl Texify for FloorNode {
     }
 }
 
-/// A ceiled expression in a mathematical formula.
+/// A ceiled expression.
 #[derive(Debug, Hash)]
-pub struct CeilNode(Content);
+pub struct CeilNode(pub Content);
 
 #[node(Texify)]
 impl CeilNode {

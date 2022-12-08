@@ -53,19 +53,19 @@ impl ContentExt for Content {
     }
 
     fn boxed(self, sizing: Axes<Option<Rel<Length>>>) -> Self {
-        crate::layout::BoxNode { sizing, child: self }.pack()
+        crate::layout::BoxNode { sizing, body: self }.pack()
     }
 
     fn aligned(self, aligns: Axes<Option<GenAlign>>) -> Self {
-        crate::layout::AlignNode { aligns, child: self }.pack()
+        crate::layout::AlignNode { aligns, body: self }.pack()
     }
 
     fn padded(self, padding: Sides<Rel<Length>>) -> Self {
-        crate::layout::PadNode { padding, child: self }.pack()
+        crate::layout::PadNode { padding, body: self }.pack()
     }
 
     fn moved(self, delta: Axes<Rel<Length>>) -> Self {
-        crate::layout::MoveNode { delta, child: self }.pack()
+        crate::layout::MoveNode { delta, body: self }.pack()
     }
 
     fn filled(self, fill: Paint) -> Self {

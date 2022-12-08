@@ -7,7 +7,7 @@ pub struct AlignNode {
     /// How to align the content horizontally and vertically.
     pub aligns: Axes<Option<GenAlign>>,
     /// The content to be aligned.
-    pub child: Content,
+    pub body: Content,
 }
 
 #[node(Layout)]
@@ -22,7 +22,7 @@ impl AlignNode {
             }
         }
 
-        Ok(body.aligned(aligns))
+        Ok(Self { aligns, body }.pack())
     }
 }
 
@@ -44,7 +44,7 @@ impl Layout for AlignNode {
         }
 
         // Layout the child.
-        let mut fragment = self.child.layout(vt, styles.chain(&map), pod)?;
+        let mut fragment = self.body.layout(vt, styles.chain(&map), pod)?;
         for (region, frame) in regions.iter().zip(&mut fragment) {
             // Align in the target size. The target size depends on whether we
             // should expand.

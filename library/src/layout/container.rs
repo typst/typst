@@ -7,7 +7,7 @@ pub struct BoxNode {
     /// How to size the content horizontally and vertically.
     pub sizing: Axes<Option<Rel<Length>>>,
     /// The content to be sized.
-    pub child: Content,
+    pub body: Content,
 }
 
 #[node(Layout, Inline)]
@@ -16,7 +16,7 @@ impl BoxNode {
         let width = args.named("width")?;
         let height = args.named("height")?;
         let body = args.eat::<Content>()?.unwrap_or_default();
-        Ok(body.boxed(Axes::new(width, height)))
+        Ok(Self { sizing: Axes::new(width, height), body }.pack())
     }
 }
 
@@ -47,7 +47,7 @@ impl Layout for BoxNode {
         };
 
         // Layout the child.
-        let mut frame = self.child.layout(vt, styles, pod)?.into_frame();
+        let mut frame = self.body.layout(vt, styles, pod)?.into_frame();
 
         // Ensure frame size matches regions size if expansion is on.
         let target = regions.expand.select(regions.first, frame.size());

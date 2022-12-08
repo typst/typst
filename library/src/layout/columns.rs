@@ -8,7 +8,7 @@ pub struct ColumnsNode {
     pub columns: NonZeroUsize,
     /// The child to be layouted into the columns. Most likely, this should be a
     /// flow or stack node.
-    pub child: Content,
+    pub body: Content,
 }
 
 #[node(Layout)]
@@ -20,7 +20,7 @@ impl ColumnsNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self {
             columns: args.expect("column count")?,
-            child: args.expect("body")?,
+            body: args.expect("body")?,
         }
         .pack())
     }
@@ -36,7 +36,7 @@ impl Layout for ColumnsNode {
         // Separating the infinite space into infinite columns does not make
         // much sense.
         if !regions.first.x.is_finite() {
-            return self.child.layout(vt, styles, regions);
+            return self.body.layout(vt, styles, regions);
         }
 
         // Determine the width of the gutter and each column.
@@ -60,7 +60,7 @@ impl Layout for ColumnsNode {
         };
 
         // Layout the children.
-        let mut frames = self.child.layout(vt, styles, pod)?.into_iter();
+        let mut frames = self.body.layout(vt, styles, pod)?.into_iter();
         let mut finished = vec![];
 
         let dir = styles.get(TextNode::DIR);
