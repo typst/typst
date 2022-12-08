@@ -30,12 +30,14 @@ impl Layout for PadNode {
         &self,
         vt: &mut Vt,
         styles: StyleChain,
-        regions: &Regions,
+        regions: Regions,
     ) -> SourceResult<Fragment> {
+        let mut backlog = vec![];
+
         // Layout child into padded regions.
         let padding = self.padding.resolve(styles);
-        let pod = regions.map(|size| shrink(size, padding));
-        let mut fragment = self.child.layout(vt, styles, &pod)?;
+        let pod = regions.map(&mut backlog, |size| shrink(size, padding));
+        let mut fragment = self.child.layout(vt, styles, pod)?;
 
         for frame in &mut fragment {
             // Apply the padding inversely such that the grown size padded

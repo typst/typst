@@ -97,7 +97,7 @@ impl PageNode {
 
         // Layout the child.
         let regions = Regions::repeat(size, size, size.map(Abs::is_finite));
-        let mut fragment = child.layout(vt, styles, &regions)?;
+        let mut fragment = child.layout(vt, styles, regions)?;
 
         let header = styles.get(Self::HEADER);
         let footer = styles.get(Self::FOOTER);
@@ -118,7 +118,7 @@ impl PageNode {
             ] {
                 if let Some(content) = marginal.resolve(vt, page)? {
                     let pod = Regions::one(area, area, Axes::splat(true));
-                    let sub = content.layout(vt, styles, &pod)?.into_frame();
+                    let sub = content.layout(vt, styles, pod)?.into_frame();
                     if std::ptr::eq(marginal, background) {
                         frame.prepend_frame(pos, sub);
                     } else {

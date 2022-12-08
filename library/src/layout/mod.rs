@@ -90,7 +90,7 @@ pub trait Layout {
         &self,
         vt: &mut Vt,
         styles: StyleChain,
-        regions: &Regions,
+        regions: Regions,
     ) -> SourceResult<Fragment>;
 }
 
@@ -99,7 +99,7 @@ impl Layout for Content {
         &self,
         vt: &mut Vt,
         styles: StyleChain,
-        regions: &Regions,
+        regions: Regions,
     ) -> SourceResult<Fragment> {
         #[comemo::memoize]
         fn cached(
@@ -108,7 +108,7 @@ impl Layout for Content {
             provider: TrackedMut<StabilityProvider>,
             introspector: Tracked<Introspector>,
             styles: StyleChain,
-            regions: &Regions,
+            regions: Regions,
         ) -> SourceResult<Fragment> {
             let mut vt = Vt { world, provider, introspector };
             let scratch = Scratch::default();
@@ -137,14 +137,14 @@ impl Layout for Content {
 pub trait Inline: Layout {}
 
 /// A sequence of regions to layout into.
-#[derive(Debug, Clone, Hash)]
-pub struct Regions {
+#[derive(Debug, Copy, Clone, Hash)]
+pub struct Regions<'a> {
     /// The (remaining) size of the first region.
     pub first: Size,
     /// The base size for relative sizing.
     pub base: Size,
     /// The height of followup regions. The width is the same for all regions.
-    pub backlog: Vec<Abs>,
+    pub backlog: &'a [Abs],
     /// The height of the final region that is repeated once the backlog is
     /// drained. The width is the same for all regions.
     pub last: Option<Abs>,
@@ -153,13 +153,13 @@ pub struct Regions {
     pub expand: Axes<bool>,
 }
 
-impl Regions {
+impl<'a> Regions<'a> {
     /// Create a new region sequence with exactly one region.
     pub fn one(size: Size, base: Size, expand: Axes<bool>) -> Self {
         Self {
             first: size,
             base,
-            backlog: vec![],
+            backlog: &[],
             last: None,
             expand,
         }
@@ -170,7 +170,7 @@ impl Regions {
         Self {
             first: size,
             base,
-            backlog: vec![],
+            backlog: &[],
             last: Some(size.y),
             expand,
         }
@@ -180,15 +180,17 @@ impl Regions {
     ///
     /// Note that since all regions must have the same width, the width returned
     /// by `f` is ignored for the backlog and the final region.
-    pub fn map<F>(&self, mut f: F) -> Self
+    pub fn map<'v, F>(&self, backlog: &'v mut Vec<Abs>, mut f: F) -> Regions<'v>
     where
         F: FnMut(Size) -> Size,
     {
         let x = self.first.x;
-        Self {
+        backlog.clear();
+        backlog.extend(self.backlog.iter().map(|&y| f(Size::new(x, y)).y));
+        Regions {
             first: f(self.first),
             base: f(self.base),
-            backlog: self.backlog.iter().map(|&y| f(Size::new(x, y)).y).collect(),
+            backlog,
             last: self.last.map(|y| f(Size::new(x, y)).y),
             expand: self.expand,
         }
@@ -208,8 +210,13 @@ impl Regions {
 
     /// Advance to the next region if there is any.
     pub fn next(&mut self) {
-        if let Some(height) = (!self.backlog.is_empty())
-            .then(|| self.backlog.remove(0))
+        if let Some(height) = self
+            .backlog
+            .split_first()
+            .map(|(first, tail)| {
+                self.backlog = tail;
+                *first
+            })
             .or(self.last)
         {
             self.first.y = height;

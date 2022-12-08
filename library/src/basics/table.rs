@@ -55,7 +55,7 @@ impl Layout for TableNode {
         &self,
         vt: &mut Vt,
         styles: StyleChain,
-        regions: &Regions,
+        regions: Regions,
     ) -> SourceResult<Fragment> {
         let fill = styles.get(Self::FILL);
         let stroke = styles.get(Self::STROKE).map(PartialStroke::unwrap_or_default);

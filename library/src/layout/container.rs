@@ -25,7 +25,7 @@ impl Layout for BoxNode {
         &self,
         vt: &mut Vt,
         styles: StyleChain,
-        regions: &Regions,
+        regions: Regions,
     ) -> SourceResult<Fragment> {
         // The "pod" is the region into which the child will be layouted.
         let pod = {
@@ -47,7 +47,7 @@ impl Layout for BoxNode {
         };
 
         // Layout the child.
-        let mut frame = self.child.layout(vt, styles, &pod)?.into_frame();
+        let mut frame = self.child.layout(vt, styles, pod)?.into_frame();
 
         // Ensure frame size matches regions size if expansion is on.
         let target = regions.expand.select(regions.first, frame.size());
@@ -97,7 +97,7 @@ impl Layout for BlockNode {
         &self,
         vt: &mut Vt,
         styles: StyleChain,
-        regions: &Regions,
+        regions: Regions,
     ) -> SourceResult<Fragment> {
         self.0.layout(vt, styles, regions)
     }

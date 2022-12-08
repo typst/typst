@@ -16,7 +16,7 @@ impl Layout for RepeatNode {
         &self,
         vt: &mut Vt,
         styles: StyleChain,
-        regions: &Regions,
+        regions: Regions,
     ) -> SourceResult<Fragment> {
         self.0.layout(vt, styles, regions)
     }

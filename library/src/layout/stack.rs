@@ -31,7 +31,7 @@ impl Layout for StackNode {
         &self,
         vt: &mut Vt,
         styles: StyleChain,
-        regions: &Regions,
+        regions: Regions,
     ) -> SourceResult<Fragment> {
         let mut layouter = StackLayouter::new(self.dir, regions, styles);
 
@@ -94,7 +94,7 @@ struct StackLayouter<'a> {
     /// The axis of the stacking direction.
     axis: Axis,
     /// The regions to layout children into.
-    regions: Regions,
+    regions: Regions<'a>,
     /// The inherited styles.
     styles: StyleChain<'a>,
     /// Whether the stack itself should expand to fill the region.
@@ -124,7 +124,7 @@ enum StackItem {
 
 impl<'a> StackLayouter<'a> {
     /// Create a new stack layouter.
-    fn new(dir: Dir, regions: &Regions, styles: StyleChain<'a>) -> Self {
+    fn new(dir: Dir, regions: Regions<'a>, styles: StyleChain<'a>) -> Self {
         let axis = dir.axis();
         let expand = regions.expand;
         let full = regions.first;
@@ -195,7 +195,7 @@ impl<'a> StackLayouter<'a> {
                 self.dir.start().into()
             });
 
-        let fragment = block.layout(vt, styles, &self.regions)?;
+        let fragment = block.layout(vt, styles, self.regions)?;
         let len = fragment.len();
         for (i, frame) in fragment.into_iter().enumerate() {
             // Grow our size, shrink the region and save the frame for later.

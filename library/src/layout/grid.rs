@@ -38,7 +38,7 @@ impl Layout for GridNode {
         &self,
         vt: &mut Vt,
         styles: StyleChain,
-        regions: &Regions,
+        regions: Regions,
     ) -> SourceResult<Fragment> {
         // Prepare grid layout by unifying content and gutter tracks.
         let layouter = GridLayouter::new(
@@ -120,7 +120,7 @@ struct GridLayouter<'a, 'v> {
     /// The row tracks including gutter tracks.
     rows: Vec<TrackSizing>,
     /// The regions to layout children into.
-    regions: Regions,
+    regions: Regions<'a>,
     /// The inherited styles.
     styles: StyleChain<'a>,
     /// Resolved column sizes.
@@ -156,7 +156,7 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
         tracks: Axes<&[TrackSizing]>,
         gutter: Axes<&[TrackSizing]>,
         cells: &'a [Content],
-        regions: &Regions,
+        regions: Regions<'a>,
         styles: StyleChain<'a>,
     ) -> Self {
         let mut cols = vec![];
@@ -318,7 +318,7 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
                             v.resolve(self.styles).relative_to(self.regions.base.y);
                     }
 
-                    let frame = cell.layout(self.vt, self.styles, &pod)?.into_frame();
+                    let frame = cell.layout(self.vt, self.styles, pod)?.into_frame();
                     resolved.set_max(frame.width());
                 }
             }
@@ -395,7 +395,7 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
                 }
 
                 let mut sizes = cell
-                    .layout(self.vt, self.styles, &pod)?
+                    .layout(self.vt, self.styles, pod)?
                     .into_iter()
                     .map(|frame| frame.height());
 
@@ -483,7 +483,7 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
                     .select(self.regions.base, size);
 
                 let pod = Regions::one(size, base, Axes::splat(true));
-                let frame = cell.layout(self.vt, self.styles, &pod)?.into_frame();
+                let frame = cell.layout(self.vt, self.styles, pod)?.into_frame();
                 output.push_frame(pos, frame);
             }
 
@@ -504,7 +504,7 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
         // Prepare regions.
         let size = Size::new(self.used.x, heights[0]);
         let mut pod = Regions::one(size, self.regions.base, Axes::splat(true));
-        pod.backlog = heights[1..].to_vec();
+        pod.backlog = &heights[1..];
 
         // Layout the row.
         let mut pos = Point::zero();
@@ -519,7 +519,7 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
                 }
 
                 // Push the layouted frames into the individual output frames.
-                let fragment = cell.layout(self.vt, self.styles, &pod)?;
+                let fragment = cell.layout(self.vt, self.styles, pod)?;
                 for (output, frame) in outputs.iter_mut().zip(fragment) {
                     output.push_frame(pos, frame);
                 }

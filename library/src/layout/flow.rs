@@ -22,7 +22,7 @@ impl Layout for FlowNode {
         &self,
         vt: &mut Vt,
         styles: StyleChain,
-        regions: &Regions,
+        regions: Regions,
     ) -> SourceResult<Fragment> {
         let mut layouter = FlowLayouter::new(regions, self.1);
 
@@ -55,11 +55,11 @@ impl Debug for FlowNode {
 }
 
 /// Performs flow layout.
-struct FlowLayouter {
+struct FlowLayouter<'a> {
     /// Whether this is a root page-level flow.
     root: bool,
     /// The regions to layout children into.
-    regions: Regions,
+    regions: Regions<'a>,
     /// Whether the flow should expand to fill the region.
     expand: Axes<bool>,
     /// The full size of `regions.size` that was available before we started
@@ -88,14 +88,13 @@ enum FlowItem {
     Placed(Frame),
 }
 
-impl FlowLayouter {
+impl<'a> FlowLayouter<'a> {
     /// Create a new flow layouter.
-    fn new(regions: &Regions, root: bool) -> Self {
+    fn new(mut regions: Regions<'a>, root: bool) -> Self {
         let expand = regions.expand;
         let full = regions.first;
 
         // Disable vertical expansion for children.
-        let mut regions = regions.clone();
         regions.expand.y = false;
 
         Self {
@@ -166,7 +165,7 @@ impl FlowLayouter {
         // aligned later.
         if let Some(placed) = block.to::<PlaceNode>() {
             if placed.out_of_flow() {
-                let frame = block.layout(vt, styles, &self.regions)?.into_frame();
+                let frame = block.layout(vt, styles, self.regions)?.into_frame();
                 self.layout_item(FlowItem::Placed(frame));
                 return Ok(());
             }
@@ -187,7 +186,7 @@ impl FlowLayouter {
 
         // Layout the block itself.
         let sticky = styles.get(BlockNode::STICKY);
-        let fragment = block.layout(vt, styles, &self.regions)?;
+        let fragment = block.layout(vt, styles, self.regions)?;
         for frame in fragment {
             self.layout_item(FlowItem::Frame(frame, aligns, sticky));
         }

@@ -81,7 +81,7 @@ impl<const L: ListKind> Layout for ListNode<L> {
         &self,
         vt: &mut Vt,
         styles: StyleChain,
-        regions: &Regions,
+        regions: Regions,
     ) -> SourceResult<Fragment> {
         let mut cells = vec![];
         let mut number = NonZeroUsize::new(1).unwrap();

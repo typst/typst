@@ -41,7 +41,7 @@ impl Layout for LineNode {
         &self,
         _: &mut Vt,
         styles: StyleChain,
-        regions: &Regions,
+        regions: Regions,
     ) -> SourceResult<Fragment> {
         let stroke = styles.get(Self::STROKE).unwrap_or_default();
 

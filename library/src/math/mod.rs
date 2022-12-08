@@ -57,7 +57,7 @@ impl Layout for MathNode {
         &self,
         vt: &mut Vt,
         styles: StyleChain,
-        _: &Regions,
+        _: Regions,
     ) -> SourceResult<Fragment> {
         let mut t = Texifier::new(styles);
         self.texify(&mut t)?;

@@ -41,14 +41,14 @@ impl Layout for ImageNode {
         &self,
         _: &mut Vt,
         styles: StyleChain,
-        regions: &Regions,
+        regions: Regions,
     ) -> SourceResult<Fragment> {
         let pxw = self.0.width() as f64;
         let pxh = self.0.height() as f64;
         let px_ratio = pxw / pxh;
 
         // Find out whether the image is wider or taller than the target size.
-        let &Regions { first, expand, .. } = regions;
+        let Regions { first, expand, .. } = regions;
         let region_ratio = first.x / first.y;
         let wide = px_ratio > region_ratio;
 

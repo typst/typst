@@ -29,7 +29,7 @@ impl Layout for MoveNode {
         &self,
         vt: &mut Vt,
         styles: StyleChain,
-        regions: &Regions,
+        regions: Regions,
     ) -> SourceResult<Fragment> {
         let mut fragment = self.child.layout(vt, styles, regions)?;
         for frame in &mut fragment {
@@ -87,7 +87,7 @@ impl<const T: TransformKind> Layout for TransformNode<T> {
         &self,
         vt: &mut Vt,
         styles: StyleChain,
-        regions: &Regions,
+        regions: Regions,
     ) -> SourceResult<Fragment> {
         let mut fragment = self.child.layout(vt, styles, regions)?;
         for frame in &mut fragment {

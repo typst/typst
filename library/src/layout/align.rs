@@ -31,7 +31,7 @@ impl Layout for AlignNode {
         &self,
         vt: &mut Vt,
         styles: StyleChain,
-        regions: &Regions,
+        regions: Regions,
     ) -> SourceResult<Fragment> {
         // The child only needs to expand along an axis if there's no alignment.
         let mut pod = regions.clone();
@@ -44,7 +44,7 @@ impl Layout for AlignNode {
         }
 
         // Layout the child.
-        let mut fragment = self.child.layout(vt, styles.chain(&map), &pod)?;
+        let mut fragment = self.child.layout(vt, styles.chain(&map), pod)?;
         for (region, frame) in regions.iter().zip(&mut fragment) {
             // Align in the target size. The target size depends on whether we
             // should expand.

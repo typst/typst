@@ -21,7 +21,7 @@ impl Layout for PlaceNode {
         &self,
         vt: &mut Vt,
         styles: StyleChain,
-        regions: &Regions,
+        regions: Regions,
     ) -> SourceResult<Fragment> {
         let out_of_flow = self.out_of_flow();
 
@@ -33,7 +33,7 @@ impl Layout for PlaceNode {
             Regions::one(regions.base, regions.base, expand)
         };
 
-        let mut frame = self.0.layout(vt, styles, &pod)?.into_frame();
+        let mut frame = self.0.layout(vt, styles, pod)?.into_frame();
 
         // If expansion is off, zero all sizes so that we don't take up any
         // space in our parent. Otherwise, respect the expand settings.

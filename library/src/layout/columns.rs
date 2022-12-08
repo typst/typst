@@ -31,7 +31,7 @@ impl Layout for ColumnsNode {
         &self,
         vt: &mut Vt,
         styles: StyleChain,
-        regions: &Regions,
+        regions: Regions,
     ) -> SourceResult<Fragment> {
         // Separating the infinite space into infinite columns does not make
         // much sense.
@@ -44,21 +44,23 @@ impl Layout for ColumnsNode {
         let gutter = styles.get(Self::GUTTER).relative_to(regions.base.x);
         let width = (regions.first.x - gutter * (columns - 1) as f64) / columns as f64;
 
+        let backlog: Vec<_> = std::iter::once(&regions.first.y)
+            .chain(regions.backlog)
+            .flat_map(|&height| std::iter::repeat(height).take(columns))
+            .skip(1)
+            .collect();
+
         // Create the pod regions.
         let pod = Regions {
             first: Size::new(width, regions.first.y),
             base: Size::new(width, regions.base.y),
-            backlog: std::iter::once(&regions.first.y)
-                .chain(regions.backlog.as_slice())
-                .flat_map(|&height| std::iter::repeat(height).take(columns))
-                .skip(1)
-                .collect(),
+            backlog: &backlog,
             last: regions.last,
             expand: Axes::new(true, regions.expand.y),
         };
 
         // Layout the children.
-        let mut frames = self.child.layout(vt, styles, &pod)?.into_iter();
+        let mut frames = self.child.layout(vt, styles, pod)?.into_iter();
         let mut finished = vec![];
 
         let dir = styles.get(TextNode::DIR);

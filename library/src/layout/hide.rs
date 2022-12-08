@@ -16,7 +16,7 @@ impl Layout for HideNode {
         &self,
         vt: &mut Vt,
         styles: StyleChain,
-        regions: &Regions,
+        regions: Regions,
     ) -> SourceResult<Fragment> {
         let mut fragment = self.0.layout(vt, styles, regions)?;
         for frame in &mut fragment {

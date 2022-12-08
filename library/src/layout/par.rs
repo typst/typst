@@ -538,7 +538,7 @@ fn prepare<'a>(
                 } else {
                     let size = Size::new(width, base.y);
                     let pod = Regions::one(size, base, Axes::splat(false));
-                    let mut frame = inline.layout(vt, styles, &pod)?.into_frame();
+                    let mut frame = inline.layout(vt, styles, pod)?.into_frame();
                     frame.translate(Point::with_y(styles.get(TextNode::BASELINE)));
                     items.push(Item::Frame(frame));
                 }
@@ -1125,7 +1125,7 @@ fn commit(
                 let fill = Fr::one().share(fr, remaining);
                 let size = Size::new(fill, base.y);
                 let pod = Regions::one(size, base, Axes::new(false, false));
-                let frame = repeat.layout(vt, *styles, &pod)?.into_frame();
+                let frame = repeat.layout(vt, *styles, pod)?.into_frame();
                 let width = frame.width();
                 let count = (fill / width).floor();
                 let remaining = fill % width;

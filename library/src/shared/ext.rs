@@ -114,7 +114,7 @@ impl Layout for FillNode {
         &self,
         vt: &mut Vt,
         styles: StyleChain,
-        regions: &Regions,
+        regions: Regions,
     ) -> SourceResult<Fragment> {
         let mut fragment = self.child.layout(vt, styles, regions)?;
         for frame in &mut fragment {
@@ -142,7 +142,7 @@ impl Layout for StrokeNode {
         &self,
         vt: &mut Vt,
         styles: StyleChain,
-        regions: &Regions,
+        regions: Regions,
     ) -> SourceResult<Fragment> {
         let mut fragment = self.child.layout(vt, styles, regions)?;
         for frame in &mut fragment {
