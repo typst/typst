@@ -338,9 +338,13 @@ impl<'s> Parser<'s> {
             Some(SyntaxKind::RightParen) => self.inside(Group::Paren),
             Some(SyntaxKind::Star) => self.inside(Group::Strong),
             Some(SyntaxKind::Underscore) => self.inside(Group::Emph),
-            Some(SyntaxKind::Dollar) => {
-                self.groups.last().map(|group| group.kind) == Some(Group::Math)
-            }
+            Some(SyntaxKind::Dollar) => self
+                .groups
+                .iter()
+                .rev()
+                .skip_while(|group| matches!(group.kind, Group::MathRow(..)))
+                .next()
+                .map_or(false, |group| group.kind == Group::Math),
             Some(SyntaxKind::Semicolon) => self.inside(Group::Expr),
             Some(SyntaxKind::From) => self.inside(Group::Imports),
             Some(SyntaxKind::Atom(s)) => match s.as_str() {

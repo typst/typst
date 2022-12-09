@@ -14,7 +14,7 @@ pub fn layout_tex(
     tex: &str,
     display: bool,
     styles: StyleChain,
-) -> SourceResult<Fragment> {
+) -> Result<Fragment, &'static str> {
     // Load the font.
     let variant = variant(styles);
     let world = vt.world();
@@ -27,11 +27,13 @@ pub fn layout_tex(
     }
 
     // Prepare the font context.
-    let font = font.expect("failed to find suitable math font");
-    let ctx = font
+    let Some(font) = font else { return Err("failed to find suitable math font") };
+    let Some(ctx) = font
         .math()
         .map(|math| FontContext::new(font.ttf(), math))
-        .expect("failed to create font context");
+    else {
+        return Err("failed to create math font context");
+    };
 
     // Layout the formula.
     let em = styles.get(TextNode::SIZE);
@@ -45,7 +47,7 @@ pub fn layout_tex(
             Error::Layout(LayoutError::Font(err)) => err.to_string(),
         })
     else {
-        panic!("failed to layout with rex: {tex}");
+        return Err("failed to layout math");
     };
 
     // Determine the metrics.

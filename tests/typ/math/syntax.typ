@@ -22,3 +22,7 @@ $ 1 + 2 = #{1 + 2} $
 $ A sub:eq:not B $
 ```
 <table>
+
+---
+// Error: 8 expected closing paren
+$ sum_( $

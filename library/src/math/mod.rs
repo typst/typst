@@ -61,7 +61,8 @@ impl Layout for MathNode {
     ) -> SourceResult<Fragment> {
         let mut t = Texifier::new(styles);
         self.texify(&mut t)?;
-        layout_tex(vt, &t.finish(), self.display, styles)
+        Ok(layout_tex(vt, &t.finish(), self.display, styles)
+            .unwrap_or(Fragment::frame(Frame::new(Size::zero()))))
     }
 }
 
