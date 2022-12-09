@@ -442,14 +442,14 @@ impl Texify for ScriptNode {
     }
 }
 
-/// A math alignment indicator: `&`, `&&`.
+/// A math alignment point: `&`, `&&`.
 #[derive(Debug, Hash)]
-pub struct AlignNode(pub usize);
+pub struct AlignPointNode(pub usize);
 
 #[node(Texify)]
-impl AlignNode {}
+impl AlignPointNode {}
 
-impl Texify for AlignNode {
+impl Texify for AlignPointNode {
     fn texify(&self, _: &mut Texifier) -> SourceResult<()> {
         Ok(())
     }

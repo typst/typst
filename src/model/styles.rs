@@ -913,6 +913,14 @@ where
     }
 }
 
+impl Fold for Axes<Option<GenAlign>> {
+    type Output = Axes<GenAlign>;
+
+    fn fold(self, outer: Self::Output) -> Self::Output {
+        self.zip(outer).map(|(inner, outer)| inner.unwrap_or(outer))
+    }
+}
+
 impl<T> Fold for Sides<T>
 where
     T: Fold,
@@ -920,7 +928,7 @@ where
     type Output = Sides<T::Output>;
 
     fn fold(self, outer: Self::Output) -> Self::Output {
-        self.zip(outer, |inner, outer| inner.fold(outer))
+        self.zip(outer).map(|(inner, outer)| inner.fold(outer))
     }
 }
 
@@ -928,7 +936,7 @@ impl Fold for Sides<Option<Rel<Abs>>> {
     type Output = Sides<Rel<Abs>>;
 
     fn fold(self, outer: Self::Output) -> Self::Output {
-        self.zip(outer, |inner, outer| inner.unwrap_or(outer))
+        self.zip(outer).map(|(inner, outer)| inner.unwrap_or(outer))
     }
 }
 
@@ -936,7 +944,7 @@ impl Fold for Sides<Option<Smart<Rel<Length>>>> {
     type Output = Sides<Smart<Rel<Length>>>;
 
     fn fold(self, outer: Self::Output) -> Self::Output {
-        self.zip(outer, |inner, outer| inner.unwrap_or(outer))
+        self.zip(outer).map(|(inner, outer)| inner.unwrap_or(outer))
     }
 }
 
@@ -947,7 +955,7 @@ where
     type Output = Corners<T::Output>;
 
     fn fold(self, outer: Self::Output) -> Self::Output {
-        self.zip(outer, |inner, outer| inner.fold(outer))
+        self.zip(outer).map(|(inner, outer)| inner.fold(outer))
     }
 }
 
@@ -955,7 +963,7 @@ impl Fold for Corners<Option<Rel<Abs>>> {
     type Output = Corners<Rel<Abs>>;
 
     fn fold(self, outer: Self::Output) -> Self::Output {
-        self.zip(outer, |inner, outer| inner.unwrap_or(outer))
+        self.zip(outer).map(|(inner, outer)| inner.unwrap_or(outer))
     }
 }
 

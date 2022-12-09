@@ -1,6 +1,6 @@
 use typst::model::StyledNode;
 
-use super::{AlignNode, ParNode, Spacing};
+use super::{AlignNode, Spacing};
 use crate::prelude::*;
 
 /// Arrange content and spacing along an axis.
@@ -180,21 +180,13 @@ impl<'a> StackLayouter<'a> {
 
         // Block-axis alignment of the `AlignNode` is respected
         // by the stack node.
-        let align = block
-            .to::<AlignNode>()
-            .and_then(|node| node.aligns.get(self.axis))
-            .map(|align| align.resolve(styles))
-            .unwrap_or_else(|| {
-                if let Some(styled) = block.to::<StyledNode>() {
-                    let map = &styled.map;
-                    if map.contains(ParNode::ALIGN) {
-                        return StyleChain::new(map).get(ParNode::ALIGN);
-                    }
-                }
+        let aligns = if let Some(styled) = block.to::<StyledNode>() {
+            styles.chain(&styled.map).get(AlignNode::ALIGNS)
+        } else {
+            styles.get(AlignNode::ALIGNS)
+        };
 
-                self.dir.start().into()
-            });
-
+        let align = aligns.get(self.axis).resolve(styles);
         let fragment = block.layout(vt, styles, self.regions)?;
         let len = fragment.len();
         for (i, frame) in fragment.into_iter().enumerate() {

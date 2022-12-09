@@ -208,6 +208,6 @@ fn items() -> LangItems {
         math_atom: |atom| math::AtomNode(atom).pack(),
         math_script: |base, sub, sup| math::ScriptNode { base, sub, sup }.pack(),
         math_frac: |num, denom| math::FracNode { num, denom }.pack(),
-        math_align: |count| math::AlignNode(count).pack(),
+        math_align_point: |count| math::AlignPointNode(count).pack(),
     }
 }

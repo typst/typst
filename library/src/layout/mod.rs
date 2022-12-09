@@ -412,7 +412,9 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
                 bail!(span, "not allowed here");
             }
             self.interrupt_page(styles)?;
-        } else if map.interruption::<ParNode>().is_some() {
+        } else if map.interruption::<ParNode>().is_some()
+            || map.interruption::<AlignNode>().is_some()
+        {
             self.interrupt_par()?;
         } else if map.interruption::<ListNode>().is_some()
             || map.interruption::<EnumNode>().is_some()

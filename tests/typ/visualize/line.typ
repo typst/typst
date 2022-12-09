@@ -22,7 +22,7 @@
 #let star(width, ..args) = box(width: width, height: width)[
   #set text(spacing: 0%)
   #set line(..args)
-  #set par(align: left)
+  #set align(left)
   #line(length: +30%, origin: (09.0%, 02%))
   #line(length: +30%, origin: (38.7%, 02%), angle: -72deg)
   #line(length: +30%, origin: (57.5%, 02%), angle: 252deg)

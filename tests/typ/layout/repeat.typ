@@ -32,7 +32,7 @@ A#repeat(rect(width: 2.5em, height: 1em))B
 // Test single repeat in both directions.
 A#repeat(rect(width: 6em, height: 0.7em))B
 
-#set par(align: center)
+#set align(center)
 A#repeat(rect(width: 6em, height: 0.7em))B
 
 #set text(dir: rtl)

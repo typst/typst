@@ -11,5 +11,5 @@
 }
 
 #set page(width: auto)
-#set par(align: center)
+#set align(center)
 #table(columns: 1 + modifiers.len(), ..cells)

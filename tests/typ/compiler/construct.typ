@@ -10,9 +10,9 @@
 // Ensure that constructor styles win, but not over outer styles.
 // The outer paragraph should be right-aligned,
 // but the B should be center-aligned.
-#set par(align: center)
-#par(align: right)[
-  A #rect(width: 2cm, fill: conifer, inset: 4pt)[B]
+#set list(label: [>])
+#list(label: [--])[
+  #rect(width: 2cm, fill: conifer, inset: 4pt, list[A])
 ]
 
 ---

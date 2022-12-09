@@ -499,7 +499,7 @@ fn math_group(p: &mut Parser, group: Group) {
 }
 
 fn math_align(p: &mut Parser) {
-    p.perform(SyntaxKind::Align, |p| {
+    p.perform(SyntaxKind::AlignPoint, |p| {
         p.assert(SyntaxKind::Amp);
         while p.eat_if(SyntaxKind::Amp) {}
     })

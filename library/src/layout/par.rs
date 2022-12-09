@@ -5,6 +5,7 @@ use xi_unicode::LineBreakIterator;
 use typst::model::Key;
 
 use super::{HNode, RepeatNode, Spacing};
+use crate::layout::AlignNode;
 use crate::prelude::*;
 use crate::text::{
     shape, LinebreakNode, Quoter, Quotes, ShapedText, SmartQuoteNode, SpaceNode, TextNode,
@@ -22,9 +23,6 @@ impl ParNode {
     /// The spacing between lines.
     #[property(resolve)]
     pub const LEADING: Length = Em::new(0.65).into();
-    /// How to align text and inline objects in their line.
-    #[property(resolve)]
-    pub const ALIGN: HorizontalAlign = HorizontalAlign(GenAlign::Start);
     /// Whether to justify text in its line.
     pub const JUSTIFY: bool = false;
     /// How to determine line breaks.
@@ -554,7 +552,7 @@ fn prepare<'a>(
         styles,
         hyphenate: shared_get(styles, &par.0, TextNode::HYPHENATE),
         lang: shared_get(styles, &par.0, TextNode::LANG),
-        align: styles.get(ParNode::ALIGN),
+        align: styles.get(AlignNode::ALIGNS).x.resolve(styles),
         justify: styles.get(ParNode::JUSTIFY),
     })
 }

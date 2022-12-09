@@ -45,16 +45,13 @@ impl<T> Corners<T> {
         }
     }
 
-    /// Zip two instances into an instance.
-    pub fn zip<F, V, W>(self, other: Corners<V>, mut f: F) -> Corners<W>
-    where
-        F: FnMut(T, V) -> W,
-    {
+    /// Zip two instances into one.
+    pub fn zip<U>(self, other: Corners<U>) -> Corners<(T, U)> {
         Corners {
-            top_left: f(self.top_left, other.top_left),
-            top_right: f(self.top_right, other.top_right),
-            bottom_right: f(self.bottom_right, other.bottom_right),
-            bottom_left: f(self.bottom_left, other.bottom_left),
+            top_left: (self.top_left, other.top_left),
+            top_right: (self.top_right, other.top_right),
+            bottom_right: (self.bottom_right, other.bottom_right),
+            bottom_left: (self.bottom_left, other.bottom_left),
         }
     }
 

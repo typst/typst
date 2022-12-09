@@ -179,8 +179,8 @@ pub enum SyntaxKind {
     Script,
     /// A fraction in a formula: `x/2`.
     Frac,
-    /// An alignment indicator in a formula: `&`, `&&`.
-    Align,
+    /// An alignment point in a formula: `&`, `&&`.
+    AlignPoint,
 
     /// An identifier: `it`.
     Ident(EcoString),
@@ -408,7 +408,7 @@ impl SyntaxKind {
             Self::Atom(_) => "math atom",
             Self::Script => "script",
             Self::Frac => "fraction",
-            Self::Align => "alignment indicator",
+            Self::AlignPoint => "alignment point",
             Self::Ident(_) => "identifier",
             Self::Bool(_) => "boolean",
             Self::Int(_) => "integer",
@@ -528,7 +528,7 @@ impl Hash for SyntaxKind {
             Self::Atom(c) => c.hash(state),
             Self::Script => {}
             Self::Frac => {}
-            Self::Align => {}
+            Self::AlignPoint => {}
             Self::Ident(v) => v.hash(state),
             Self::Bool(v) => v.hash(state),
             Self::Int(v) => v.hash(state),

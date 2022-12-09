@@ -125,7 +125,7 @@ impl<'a> FlowLayouter<'a> {
         par: &ParNode,
         styles: StyleChain,
     ) -> SourceResult<()> {
-        let aligns = Axes::new(styles.get(ParNode::ALIGN), Align::Top);
+        let aligns = styles.get(AlignNode::ALIGNS).resolve(styles);
         let leading = styles.get(ParNode::LEADING);
         let consecutive = self.last_was_par;
         let fragment = par.layout(
@@ -172,17 +172,7 @@ impl<'a> FlowLayouter<'a> {
         }
 
         // How to align the block.
-        let aligns = Axes::new(
-            // For non-expanding paragraphs it is crucial that we align the
-            // whole paragraph as it is itself aligned.
-            styles.get(ParNode::ALIGN),
-            // Vertical align node alignment is respected by the flow.
-            block
-                .to::<AlignNode>()
-                .and_then(|aligned| aligned.aligns.y)
-                .map(|align| align.resolve(styles))
-                .unwrap_or(Align::Top),
-        );
+        let aligns = styles.get(AlignNode::ALIGNS).resolve(styles);
 
         // Layout the block itself.
         let sticky = styles.get(BlockNode::STICKY);

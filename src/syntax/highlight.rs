@@ -302,7 +302,7 @@ impl Category {
             SyntaxKind::Atom(_) => None,
             SyntaxKind::Script => None,
             SyntaxKind::Frac => None,
-            SyntaxKind::Align => None,
+            SyntaxKind::AlignPoint => None,
 
             SyntaxKind::Ident(_) => match parent.kind() {
                 SyntaxKind::Markup { .. }

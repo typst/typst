@@ -429,7 +429,7 @@ impl Eval for ast::MathNode {
             Self::Symbol(v) => (vm.items.symbol)(v.get().clone() + ":op".into()),
             Self::Script(v) => v.eval(vm)?,
             Self::Frac(v) => v.eval(vm)?,
-            Self::Align(v) => v.eval(vm)?,
+            Self::AlignPoint(v) => v.eval(vm)?,
             Self::Group(v) => v.eval(vm)?,
             Self::Expr(v) => {
                 if let ast::Expr::Ident(ident) = v {
@@ -480,11 +480,11 @@ impl Eval for ast::Frac {
     }
 }
 
-impl Eval for ast::Align {
+impl Eval for ast::AlignPoint {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok((vm.items.math_align)(self.count()))
+        Ok((vm.items.math_align_point)(self.count()))
     }
 }
 

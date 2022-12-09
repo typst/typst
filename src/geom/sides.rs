@@ -45,16 +45,13 @@ impl<T> Sides<T> {
         }
     }
 
-    /// Zip two instances into an instance.
-    pub fn zip<F, V, W>(self, other: Sides<V>, mut f: F) -> Sides<W>
-    where
-        F: FnMut(T, V) -> W,
-    {
+    /// Zip two instances into one.
+    pub fn zip<U>(self, other: Sides<U>) -> Sides<(T, U)> {
         Sides {
-            left: f(self.left, other.left),
-            top: f(self.top, other.top),
-            right: f(self.right, other.right),
-            bottom: f(self.bottom, other.bottom),
+            left: (self.left, other.left),
+            top: (self.top, other.top),
+            right: (self.right, other.right),
+            bottom: (self.bottom, other.bottom),
         }
     }
 

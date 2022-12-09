@@ -453,8 +453,8 @@ pub enum MathNode {
     Script(Script),
     /// A fraction: `x/2`.
     Frac(Frac),
-    /// An alignment indicator: `&`, `&&`.
-    Align(Align),
+    /// An alignment point: `&`, `&&`.
+    AlignPoint(AlignPoint),
     /// Grouped mathematical material.
     Group(Math),
     /// An expression.
@@ -472,7 +472,7 @@ impl AstNode for MathNode {
             SyntaxKind::Symbol(_) => node.cast().map(Self::Symbol),
             SyntaxKind::Script => node.cast().map(Self::Script),
             SyntaxKind::Frac => node.cast().map(Self::Frac),
-            SyntaxKind::Align => node.cast().map(Self::Align),
+            SyntaxKind::AlignPoint => node.cast().map(Self::AlignPoint),
             SyntaxKind::Math => node.cast().map(Self::Group),
             _ => node.cast().map(Self::Expr),
         }
@@ -488,7 +488,7 @@ impl AstNode for MathNode {
             Self::Symbol(v) => v.as_untyped(),
             Self::Script(v) => v.as_untyped(),
             Self::Frac(v) => v.as_untyped(),
-            Self::Align(v) => v.as_untyped(),
+            Self::AlignPoint(v) => v.as_untyped(),
             Self::Group(v) => v.as_untyped(),
             Self::Expr(v) => v.as_untyped(),
         }
@@ -558,11 +558,11 @@ impl Frac {
 }
 
 node! {
-    /// An alignment indicator in a formula: `&`, `&&`.
-    Align
+    /// An alignment point in a formula: `&`, `&&`.
+    AlignPoint
 }
 
-impl Align {
+impl AlignPoint {
     /// The number of ampersands.
     pub fn count(&self) -> usize {
         self.0.children().filter(|n| n.kind() == &SyntaxKind::Amp).count()

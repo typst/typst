@@ -74,8 +74,8 @@ pub struct LangItems {
         fn(base: Content, sub: Option<Content>, sup: Option<Content>) -> Content,
     /// A fraction in a formula: `x/2`.
     pub math_frac: fn(num: Content, denom: Content) -> Content,
-    /// An alignment indicator in a formula: `&`, `&&`.
-    pub math_align: fn(count: usize) -> Content,
+    /// An alignment point in a formula: `&`, `&&`.
+    pub math_align_point: fn(count: usize) -> Content,
 }
 
 impl Debug for LangItems {
@@ -107,7 +107,7 @@ impl Hash for LangItems {
         self.math_atom.hash(state);
         self.math_script.hash(state);
         self.math_frac.hash(state);
-        self.math_align.hash(state);
+        self.math_align_point.hash(state);
     }
 }
 

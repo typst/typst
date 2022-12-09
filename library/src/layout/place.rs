@@ -1,9 +1,8 @@
-use super::AlignNode;
 use crate::prelude::*;
 
 /// Place content at an absolute position.
 #[derive(Debug, Hash)]
-pub struct PlaceNode(pub Content);
+pub struct PlaceNode(pub Content, bool);
 
 #[node(Layout, Behave)]
 impl PlaceNode {
@@ -12,7 +11,8 @@ impl PlaceNode {
         let dx = args.named("dx")?.unwrap_or_default();
         let dy = args.named("dy")?.unwrap_or_default();
         let body = args.expect::<Content>("body")?;
-        Ok(Self(body.moved(Axes::new(dx, dy)).aligned(aligns)).pack())
+        let out_of_flow = aligns.y.is_some();
+        Ok(Self(body.moved(Axes::new(dx, dy)).aligned(aligns), out_of_flow).pack())
     }
 }
 
@@ -49,7 +49,7 @@ impl PlaceNode {
     /// origin. Instead of relative to the parent's current flow/cursor
     /// position.
     pub fn out_of_flow(&self) -> bool {
-        self.0.to::<AlignNode>().map_or(false, |node| node.aligns.y.is_some())
+        self.1
     }
 }
 

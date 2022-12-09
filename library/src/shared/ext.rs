@@ -57,7 +57,7 @@ impl ContentExt for Content {
     }
 
     fn aligned(self, aligns: Axes<Option<GenAlign>>) -> Self {
-        crate::layout::AlignNode { aligns, body: self }.pack()
+        self.styled(crate::layout::AlignNode::ALIGNS, aligns)
     }
 
     fn padded(self, padding: Sides<Rel<Length>>) -> Self {

@@ -19,7 +19,7 @@ Add #h(10pt) #h(10pt) up
 
 ---
 // Test spacing collapsing before spacing.
-#set par(align: right)
+#set align(right)
 A #h(0pt) B #h(0pt) \
 A B \
 A #h(-1fr) B

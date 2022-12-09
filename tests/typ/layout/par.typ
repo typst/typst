@@ -2,7 +2,7 @@
 
 ---
 // Test ragged-left.
-#set par(align: right)
+#set align(right)
 To the right! Where the sunlight peeks behind the mountain.
 
 ---
@@ -35,11 +35,3 @@ fn main() {}
 - List
 
 Paragraph
-
----
-// Error: 17-20 must be horizontal
-#set par(align: top)
-
----
-// Error: 17-33 expected alignment, found 2d alignment
-#set par(align: horizon + center)
