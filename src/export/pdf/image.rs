@@ -17,10 +17,10 @@ pub fn write_images(ctx: &mut PdfContext) {
 
         // Add the primary image.
         // TODO: Error if image could not be encoded.
-        match image.decode().unwrap() {
+        match image.decode().unwrap().as_ref() {
             DecodedImage::Raster(dynamic, format) => {
                 // TODO: Error if image could not be encoded.
-                let (data, filter, has_color) = encode_image(format, &dynamic).unwrap();
+                let (data, filter, has_color) = encode_image(*format, &dynamic).unwrap();
                 let mut image = ctx.writer.image_xobject(image_ref, &data);
                 image.filter(filter);
                 image.width(width as i32);

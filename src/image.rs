@@ -1,6 +1,7 @@
 //! Image handling.
 
 use std::io;
+use std::sync::Arc;
 
 use crate::diag::{format_xml_like_error, StrResult};
 use crate::util::Buffer;
@@ -50,8 +51,9 @@ impl Image {
     }
 
     /// Decode the image.
-    pub fn decode(&self) -> StrResult<DecodedImage> {
-        Ok(match self.format {
+    #[comemo::memoize]
+    pub fn decode(&self) -> StrResult<Arc<DecodedImage>> {
+        Ok(Arc::new(match self.format {
             ImageFormat::Vector(VectorFormat::Svg) => {
                 let opts = usvg::Options::default();
                 let tree = usvg::Tree::from_data(&self.data, &opts.to_ref())
@@ -64,7 +66,7 @@ impl Image {
                 let dynamic = reader.decode().map_err(format_image_error)?;
                 DecodedImage::Raster(dynamic, format)
             }
-        })
+        }))
     }
 }
 

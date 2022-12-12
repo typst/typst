@@ -1,6 +1,7 @@
 //! Rendering into raster images.
 
 use std::io::Read;
+use std::sync::Arc;
 
 use image::imageops::FilterType;
 use image::{GenericImageView, Rgba};
@@ -316,64 +317,6 @@ fn render_shape(
     Some(())
 }
 
-/// Render a raster or SVG image into the canvas.
-fn render_image(
-    canvas: &mut sk::Pixmap,
-    ts: sk::Transform,
-    mask: Option<&sk::ClipMask>,
-    image: &Image,
-    size: Size,
-) -> Option<()> {
-    let view_width = size.x.to_f32();
-    let view_height = size.y.to_f32();
-
-    let aspect = (image.width() as f32) / (image.height() as f32);
-    let scale = ts.sx.max(ts.sy);
-    let w = (scale * view_width.max(aspect * view_height)).ceil() as u32;
-    let h = ((w as f32) / aspect).ceil() as u32;
-
-    let mut pixmap = sk::Pixmap::new(w, h)?;
-    match image.decode().unwrap() {
-        DecodedImage::Raster(dynamic, _) => {
-            let downscale = w < image.width();
-            let filter =
-                if downscale { FilterType::Lanczos3 } else { FilterType::CatmullRom };
-            let buf = dynamic.resize(w, h, filter);
-            for ((_, _, src), dest) in buf.pixels().zip(pixmap.pixels_mut()) {
-                let Rgba([r, g, b, a]) = src;
-                *dest = sk::ColorU8::from_rgba(r, g, b, a).premultiply();
-            }
-        }
-        DecodedImage::Svg(tree) => {
-            resvg::render(
-                &tree,
-                FitTo::Size(w, h),
-                sk::Transform::identity(),
-                pixmap.as_mut(),
-            )?;
-        }
-    }
-
-    let scale_x = view_width / pixmap.width() as f32;
-    let scale_y = view_height / pixmap.height() as f32;
-
-    let paint = sk::Paint {
-        shader: sk::Pattern::new(
-            pixmap.as_ref(),
-            sk::SpreadMode::Pad,
-            sk::FilterQuality::Nearest,
-            1.0,
-            sk::Transform::from_scale(scale_x, scale_y),
-        ),
-        ..Default::default()
-    };
-
-    let rect = sk::Rect::from_xywh(0.0, 0.0, view_width, view_height)?;
-    canvas.fill_rect(rect, &paint, ts, mask);
-
-    Some(())
-}
-
 /// Convert a Typst path into a tiny-skia path.
 fn convert_path(path: &geom::Path) -> Option<sk::Path> {
     let mut builder = sk::PathBuilder::new();
@@ -401,6 +344,70 @@ fn convert_path(path: &geom::Path) -> Option<sk::Path> {
         };
     }
     builder.finish()
+}
+
+/// Render a raster or SVG image into the canvas.
+fn render_image(
+    canvas: &mut sk::Pixmap,
+    ts: sk::Transform,
+    mask: Option<&sk::ClipMask>,
+    image: &Image,
+    size: Size,
+) -> Option<()> {
+    let view_width = size.x.to_f32();
+    let view_height = size.y.to_f32();
+
+    let aspect = (image.width() as f32) / (image.height() as f32);
+    let scale = ts.sx.max(ts.sy);
+    let w = (scale * view_width.max(aspect * view_height)).ceil() as u32;
+    let h = ((w as f32) / aspect).ceil() as u32;
+
+    let pixmap = scaled_texture(image, w, h)?;
+    let scale_x = view_width / pixmap.width() as f32;
+    let scale_y = view_height / pixmap.height() as f32;
+
+    let paint = sk::Paint {
+        shader: sk::Pattern::new(
+            (*pixmap).as_ref(),
+            sk::SpreadMode::Pad,
+            sk::FilterQuality::Nearest,
+            1.0,
+            sk::Transform::from_scale(scale_x, scale_y),
+        ),
+        ..Default::default()
+    };
+
+    let rect = sk::Rect::from_xywh(0.0, 0.0, view_width, view_height)?;
+    canvas.fill_rect(rect, &paint, ts, mask);
+
+    Some(())
+}
+
+/// Prepare a texture for an image at a scaled size.
+#[comemo::memoize]
+fn scaled_texture(image: &Image, w: u32, h: u32) -> Option<Arc<sk::Pixmap>> {
+    let mut pixmap = sk::Pixmap::new(w, h)?;
+    match image.decode().unwrap().as_ref() {
+        DecodedImage::Raster(dynamic, _) => {
+            let downscale = w < image.width();
+            let filter =
+                if downscale { FilterType::Lanczos3 } else { FilterType::CatmullRom };
+            let buf = dynamic.resize(w, h, filter);
+            for ((_, _, src), dest) in buf.pixels().zip(pixmap.pixels_mut()) {
+                let Rgba([r, g, b, a]) = src;
+                *dest = sk::ColorU8::from_rgba(r, g, b, a).premultiply();
+            }
+        }
+        DecodedImage::Svg(tree) => {
+            resvg::render(
+                &tree,
+                FitTo::Size(w, h),
+                sk::Transform::identity(),
+                pixmap.as_mut(),
+            )?;
+        }
+    }
+    Some(Arc::new(pixmap))
 }
 
 impl From<Transform> for sk::Transform {
