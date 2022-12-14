@@ -432,6 +432,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "if_chain"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cb56e1aa765b4b4f3aadfab769793b7087bb03a4ea4920644a6d238e2df5b9ed"
+
+[[package]]
 name = "image"
 version = "0.24.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1027,7 +1033,7 @@ dependencies = [
 [[package]]
 name = "symmie"
 version = "0.1.0"
-source = "git+https://github.com/typst/symmie#6280fb20455cb63e6886ba5bb35b95a4b376da68"
+source = "git+https://github.com/typst/symmie#8d620b9854964a261ec954d7d08bfddc9c282b7c"
 
 [[package]]
 name = "syn"
@@ -1136,6 +1142,7 @@ dependencies = [
  "bytemuck",
  "comemo",
  "flate2",
+ "if_chain",
  "image",
  "miniz_oxide 0.5.4",
  "once_cell",
@@ -1150,6 +1157,7 @@ dependencies = [
  "siphasher",
  "subsetter",
  "svg2pdf",
+ "symmie",
  "thin-vec",
  "tiny-skia",
  "ttf-parser 0.17.1",
