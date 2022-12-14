@@ -1,10 +1,6 @@
 use once_cell::sync::Lazy;
-use syntect::easy::HighlightLines;
-use syntect::highlighting::{
-    Color, FontStyle, Style, StyleModifier, Theme, ThemeItem, ThemeSettings,
-};
-use syntect::parsing::SyntaxSet;
-use typst::syntax;
+use syntect::highlighting as synt;
+use typst::syntax::{self, LinkedNode};
 
 use super::{FontFamily, Hyphenate, LinebreakNode, TextNode};
 use crate::layout::BlockNode;
@@ -61,8 +57,8 @@ impl Show for RawNode {
         let foreground = THEME
             .settings
             .foreground
-            .map(Color::from)
-            .unwrap_or(Color::BLACK)
+            .map(to_typst)
+            .map_or(Color::BLACK, Color::from)
             .into();
 
         let mut realized = if matches!(lang.as_deref(), Some("typ" | "typst" | "typc")) {
@@ -72,16 +68,22 @@ impl Show for RawNode {
             };
 
             let mut seq = vec![];
-            syntax::highlight::highlight_themed(&root, &THEME, |range, style| {
-                seq.push(styled(&self.text[range], foreground, style));
-            });
+            let highlighter = synt::Highlighter::new(&THEME);
+            highlight_themed(
+                &LinkedNode::new(&root),
+                vec![],
+                &highlighter,
+                &mut |node, style| {
+                    seq.push(styled(&self.text[node.range()], foreground, style));
+                },
+            );
 
             Content::sequence(seq)
         } else if let Some(syntax) =
             lang.and_then(|token| SYNTAXES.find_syntax_by_token(&token))
         {
             let mut seq = vec![];
-            let mut highlighter = HighlightLines::new(syntax, &THEME);
+            let mut highlighter = syntect::easy::HighlightLines::new(syntax, &THEME);
             for (i, line) in self.text.lines().enumerate() {
                 if i != 0 {
                     seq.push(LinebreakNode { justify: false }.pack());
@@ -113,54 +115,90 @@ impl Show for RawNode {
     }
 }
 
+/// Highlight a syntax node in a theme by calling `f` with ranges and their
+/// styles.
+fn highlight_themed<F>(
+    node: &LinkedNode,
+    scopes: Vec<syntect::parsing::Scope>,
+    highlighter: &synt::Highlighter,
+    f: &mut F,
+) where
+    F: FnMut(&LinkedNode, synt::Style),
+{
+    if node.children().len() == 0 {
+        let style = highlighter.style_for_stack(&scopes);
+        f(node, style);
+        return;
+    }
+
+    for child in node.children() {
+        let mut scopes = scopes.clone();
+        if let Some(tag) = typst::ide::highlight(&child) {
+            scopes.push(syntect::parsing::Scope::new(tag.tm_scope()).unwrap())
+        }
+        highlight_themed(&child, scopes, highlighter, f);
+    }
+}
+
 /// Style a piece of text with a syntect style.
-fn styled(piece: &str, foreground: Paint, style: Style) -> Content {
+fn styled(piece: &str, foreground: Paint, style: synt::Style) -> Content {
     let mut body = TextNode::packed(piece);
 
-    let paint = style.foreground.into();
+    let paint = to_typst(style.foreground).into();
     if paint != foreground {
         body = body.styled(TextNode::FILL, paint);
     }
 
-    if style.font_style.contains(FontStyle::BOLD) {
+    if style.font_style.contains(synt::FontStyle::BOLD) {
         body = body.strong();
     }
 
-    if style.font_style.contains(FontStyle::ITALIC) {
+    if style.font_style.contains(synt::FontStyle::ITALIC) {
         body = body.emph();
     }
 
-    if style.font_style.contains(FontStyle::UNDERLINE) {
+    if style.font_style.contains(synt::FontStyle::UNDERLINE) {
         body = body.underlined();
     }
 
     body
 }
 
+fn to_typst(synt::Color { r, g, b, a }: synt::Color) -> RgbaColor {
+    RgbaColor { r, g, b, a }
+}
+
+fn to_syn(RgbaColor { r, g, b, a }: RgbaColor) -> synt::Color {
+    synt::Color { r, g, b, a }
+}
+
 /// The syntect syntax definitions.
-static SYNTAXES: Lazy<SyntaxSet> = Lazy::new(|| SyntaxSet::load_defaults_newlines());
+static SYNTAXES: Lazy<syntect::parsing::SyntaxSet> =
+    Lazy::new(|| syntect::parsing::SyntaxSet::load_defaults_newlines());
 
 /// The default theme used for syntax highlighting.
-#[rustfmt::skip]
-pub static THEME: Lazy<Theme> = Lazy::new(|| Theme {
+pub static THEME: Lazy<synt::Theme> = Lazy::new(|| synt::Theme {
     name: Some("Typst Light".into()),
     author: Some("The Typst Project Developers".into()),
-    settings: ThemeSettings::default(),
+    settings: synt::ThemeSettings::default(),
     scopes: vec![
         item("comment", Some("#8a8a8a"), None),
         item("constant.character.escape", Some("#1d6c76"), None),
-        item("constant.character.shortcut", Some("#1d6c76"), None),
-        item("markup.bold", None, Some(FontStyle::BOLD)),
-        item("markup.italic", None, Some(FontStyle::ITALIC)),
-        item("markup.underline", None, Some(FontStyle::UNDERLINE)),
+        item("markup.bold", None, Some(synt::FontStyle::BOLD)),
+        item("markup.italic", None, Some(synt::FontStyle::ITALIC)),
+        item("markup.underline", None, Some(synt::FontStyle::UNDERLINE)),
         item("markup.raw", Some("#818181"), None),
         item("string.other.math.typst", None, None),
         item("punctuation.definition.math", Some("#298e0d"), None),
         item("keyword.operator.math", Some("#1d6c76"), None),
-        item("markup.heading, entity.name.section", None, Some(FontStyle::BOLD)),
-        item("markup.heading.typst", None, Some(FontStyle::BOLD | FontStyle::UNDERLINE)),
+        item("markup.heading, entity.name.section", None, Some(synt::FontStyle::BOLD)),
+        item(
+            "markup.heading.typst",
+            None,
+            Some(synt::FontStyle::BOLD | synt::FontStyle::UNDERLINE),
+        ),
         item("punctuation.definition.list", Some("#8b41b1"), None),
-        item("markup.list.term", None, Some(FontStyle::BOLD)),
+        item("markup.list.term", None, Some(synt::FontStyle::BOLD)),
         item("entity.name.label, markup.other.reference", Some("#1d6c76"), None),
         item("keyword, constant.language, variable.language", Some("#d73a49"), None),
         item("storage.type, storage.modifier", Some("#d73a49"), None),
@@ -169,17 +207,21 @@ pub static THEME: Lazy<Theme> = Lazy::new(|| Theme {
         item("entity.name, variable.function, support", Some("#4b69c6"), None),
         item("support.macro", Some("#16718d"), None),
         item("meta.annotation", Some("#301414"), None),
-        item("entity.other, meta.interpolation, constant.symbol.typst", Some("#8b41b1"), None),
+        item("entity.other, meta.interpolation", Some("#8b41b1"), None),
         item("invalid", Some("#ff0000"), None),
     ],
 });
 
 /// Create a syntect theme item.
-fn item(scope: &str, color: Option<&str>, font_style: Option<FontStyle>) -> ThemeItem {
-    ThemeItem {
+fn item(
+    scope: &str,
+    color: Option<&str>,
+    font_style: Option<synt::FontStyle>,
+) -> synt::ThemeItem {
+    synt::ThemeItem {
         scope: scope.parse().unwrap(),
-        style: StyleModifier {
-            foreground: color.map(|s| s.parse::<RgbaColor>().unwrap().into()),
+        style: synt::StyleModifier {
+            foreground: color.map(|s| to_syn(s.parse::<RgbaColor>().unwrap())),
             background: None,
             font_style,
         },

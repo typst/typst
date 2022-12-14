@@ -1,7 +1,6 @@
 //! Syntax definition, parsing, and highlighting.
 
 pub mod ast;
-pub mod highlight;
 
 mod incremental;
 mod kind;

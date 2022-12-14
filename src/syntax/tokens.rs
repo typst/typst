@@ -304,8 +304,10 @@ impl Tokens<'_> {
                 Some(keyword) => keyword,
                 None => SyntaxKind::Ident(read.into()),
             }
-        } else {
+        } else if self.mode == TokenMode::Markup {
             self.text(start)
+        } else {
+            SyntaxKind::Atom("#".into())
         }
     }
 

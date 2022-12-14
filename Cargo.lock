@@ -1150,7 +1150,6 @@ dependencies = [
  "siphasher",
  "subsetter",
  "svg2pdf",
- "syntect",
  "thin-vec",
  "tiny-skia",
  "ttf-parser 0.17.1",

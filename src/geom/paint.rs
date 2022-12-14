@@ -1,7 +1,5 @@
 use std::str::FromStr;
 
-use syntect::highlighting::Color as SynColor;
-
 use super::*;
 
 /// How a fill or stroke should be painted.
@@ -258,18 +256,6 @@ impl FromStr for RgbaColor {
         }
 
         Ok(Self::new(values[0], values[1], values[2], values[3]))
-    }
-}
-
-impl From<SynColor> for RgbaColor {
-    fn from(SynColor { r, g, b, a }: SynColor) -> Self {
-        Self { r, g, b, a }
-    }
-}
-
-impl From<RgbaColor> for SynColor {
-    fn from(RgbaColor { r, g, b, a }: RgbaColor) -> Self {
-        Self { r, g, b, a }
     }
 }
 

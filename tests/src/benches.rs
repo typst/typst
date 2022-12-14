@@ -22,7 +22,6 @@ main!(
     bench_eval,
     bench_typeset,
     bench_compile,
-    bench_highlight,
     bench_render,
 );
 
@@ -61,17 +60,6 @@ fn bench_parse(iai: &mut Iai) {
 fn bench_edit(iai: &mut Iai) {
     let mut source = Source::detached(TEXT);
     iai.run(|| black_box(source.edit(1168..1171, "_Uhr_")));
-}
-
-fn bench_highlight(iai: &mut Iai) {
-    let source = Source::detached(TEXT);
-    iai.run(|| {
-        typst::syntax::highlight::highlight_categories(
-            source.root(),
-            0..source.len_bytes(),
-            &mut |_, _| {},
-        )
-    });
 }
 
 fn bench_eval(iai: &mut Iai) {

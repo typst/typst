@@ -42,6 +42,7 @@ pub mod model;
 pub mod doc;
 pub mod export;
 pub mod font;
+pub mod ide;
 pub mod image;
 pub mod syntax;
 
