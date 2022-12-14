@@ -1,10 +1,12 @@
 use crate::prelude::*;
 
 /// Place content at an absolute position.
+#[func]
+#[capable(Layout, Behave)]
 #[derive(Debug, Hash)]
 pub struct PlaceNode(pub Content, bool);
 
-#[node(Layout, Behave)]
+#[node]
 impl PlaceNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let aligns = args.find()?.unwrap_or(Axes::with_x(Some(GenAlign::Start)));

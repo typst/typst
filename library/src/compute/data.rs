@@ -5,6 +5,7 @@ use typst::diag::{format_xml_like_error, FileError};
 use crate::prelude::*;
 
 /// Read structured data from a CSV file.
+#[func]
 pub fn csv(vm: &Vm, args: &mut Args) -> SourceResult<Value> {
     let Spanned { v: path, span } =
         args.expect::<Spanned<EcoString>>("path to csv file")?;
@@ -45,6 +46,7 @@ fn format_csv_error(error: csv::Error) -> String {
 }
 
 /// Read structured data from a JSON file.
+#[func]
 pub fn json(vm: &Vm, args: &mut Args) -> SourceResult<Value> {
     let Spanned { v: path, span } =
         args.expect::<Spanned<EcoString>>("path to json file")?;
@@ -85,6 +87,7 @@ fn format_json_error(error: serde_json::Error) -> String {
 }
 
 /// Read structured data from an XML file.
+#[func]
 pub fn xml(vm: &Vm, args: &mut Args) -> SourceResult<Value> {
     let Spanned { v: path, span } =
         args.expect::<Spanned<EcoString>>("path to xml file")?;

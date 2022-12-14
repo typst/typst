@@ -5,6 +5,8 @@ use crate::prelude::*;
 use crate::text::TextNode;
 
 /// Layouts its child onto one or multiple pages.
+#[func]
+#[capable]
 #[derive(Clone, Hash)]
 pub struct PageNode(pub Content);
 
@@ -143,6 +145,8 @@ impl Debug for PageNode {
 }
 
 /// A page break.
+#[func]
+#[capable]
 #[derive(Debug, Copy, Clone, Hash)]
 pub struct PagebreakNode {
     pub weak: bool,

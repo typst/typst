@@ -3,6 +3,8 @@ use std::f64::consts::SQRT_2;
 use crate::prelude::*;
 
 /// A sizable and fillable shape with optional content.
+#[func]
+#[capable(Layout, Inline)]
 #[derive(Debug, Hash)]
 pub struct ShapeNode<const S: ShapeKind>(pub Option<Content>);
 
@@ -18,7 +20,7 @@ pub type CircleNode = ShapeNode<CIRCLE>;
 /// A ellipse with optional content.
 pub type EllipseNode = ShapeNode<ELLIPSE>;
 
-#[node(Layout, Inline)]
+#[node]
 impl<const S: ShapeKind> ShapeNode<S> {
     /// How to fill the shape.
     pub const FILL: Option<Paint> = None;

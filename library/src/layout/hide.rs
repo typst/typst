@@ -1,10 +1,12 @@
 use crate::prelude::*;
 
 /// Hide content without affecting layout.
+#[func]
+#[capable(Layout, Inline)]
 #[derive(Debug, Hash)]
 pub struct HideNode(pub Content);
 
-#[node(Layout, Inline)]
+#[node]
 impl HideNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self(args.expect("body")?).pack())

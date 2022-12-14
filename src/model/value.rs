@@ -424,9 +424,5 @@ mod tests {
         test(dict![], "(:)");
         test(dict!["one" => 1], "(one: 1)");
         test(dict!["two" => false, "one" => 1], "(one: 1, two: false)");
-
-        // Functions, content and dynamics.
-        test(Func::from_fn("nil", |_, _| Ok(Value::None)), "<function nil>");
-        test(Dynamic::new(1), "1");
     }
 }

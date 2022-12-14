@@ -1,4 +1,3 @@
-use syn::parse::Parser;
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::Token;
@@ -6,8 +5,8 @@ use syn::Token;
 use super::*;
 
 /// Expand the `#[node]` macro.
-pub fn expand(attr: TokenStream, body: syn::ItemImpl) -> Result<TokenStream> {
-    let node = prepare(attr, body)?;
+pub fn node(body: syn::ItemImpl) -> Result<TokenStream> {
+    let node = prepare(body)?;
     create(&node)
 }
 
@@ -18,7 +17,6 @@ struct Node {
     self_ty: syn::Type,
     self_name: String,
     self_args: Punctuated<syn::GenericArgument, Token![,]>,
-    capabilities: Vec<syn::Ident>,
     properties: Vec<Property>,
     construct: Option<syn::ImplItemMethod>,
     set: Option<syn::ImplItemMethod>,
@@ -47,7 +45,7 @@ enum Shorthand {
 }
 
 /// Preprocess the impl block of a node.
-fn prepare(attr: TokenStream, body: syn::ItemImpl) -> Result<Node> {
+fn prepare(body: syn::ItemImpl) -> Result<Node> {
     // Extract the generic type arguments.
     let params = body.generics.params.clone();
 
@@ -65,12 +63,6 @@ fn prepare(attr: TokenStream, body: syn::ItemImpl) -> Result<Node> {
         syn::PathArguments::AngleBracketed(args) => args.args.clone(),
         _ => Punctuated::new(),
     };
-
-    // Parse the capabilities.
-    let capabilities: Vec<_> = Punctuated::<Ident, Token![,]>::parse_terminated
-        .parse2(attr)?
-        .into_iter()
-        .collect();
 
     let mut properties = vec![];
     let mut construct = None;
@@ -101,7 +93,6 @@ fn prepare(attr: TokenStream, body: syn::ItemImpl) -> Result<Node> {
         self_ty,
         self_name,
         self_args,
-        capabilities,
         properties,
         construct,
         set,
@@ -215,7 +206,6 @@ fn create(node: &Node) -> Result<TokenStream> {
     let construct_func = create_node_construct_func(node);
     let set_func = create_node_set_func(node);
     let field_method = create_node_field_method(node);
-    let vtable_method = create_node_vtable_method(node);
 
     let node_impl = quote! {
         impl<#params> ::typst::model::Node for #self_ty {
@@ -224,10 +214,6 @@ fn create(node: &Node) -> Result<TokenStream> {
             #construct_func
             #set_func
             #field_method
-        }
-
-        unsafe impl<#params> ::typst::model::Capable for #self_ty {
-            #vtable_method
         }
     };
 
@@ -357,26 +343,6 @@ fn create_node_field_method(node: &Node) -> syn::ImplItemMethod {
             }
         }
     })
-}
-
-/// Create the node's capability accessor method.
-fn create_node_vtable_method(node: &Node) -> syn::ImplItemMethod {
-    let checks = node.capabilities.iter().map(|capability| {
-        quote! {
-            if id == ::std::any::TypeId::of::<dyn #capability>() {
-                return Some(unsafe {
-                    ::typst::util::fat::vtable(self as &dyn #capability)
-                });
-            }
-        }
-    });
-
-    parse_quote! {
-        fn vtable(&self, id: ::std::any::TypeId) -> ::std::option::Option<*const ()> {
-            #(#checks)*
-            None
-        }
-    }
 }
 
 /// Process a single const item.

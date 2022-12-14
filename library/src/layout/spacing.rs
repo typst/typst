@@ -3,6 +3,8 @@ use std::cmp::Ordering;
 use crate::prelude::*;
 
 /// Horizontal spacing.
+#[func]
+#[capable(Behave)]
 #[derive(Debug, Copy, Clone, Hash)]
 pub struct HNode {
     /// The amount of horizontal spacing.
@@ -11,7 +13,7 @@ pub struct HNode {
     pub weak: bool,
 }
 
-#[node(Behave)]
+#[node]
 impl HNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let amount = args.expect("spacing")?;
@@ -50,6 +52,8 @@ impl Behave for HNode {
 }
 
 /// Vertical spacing.
+#[func]
+#[capable(Behave)]
 #[derive(Debug, Copy, Clone, Hash, PartialEq, PartialOrd)]
 pub struct VNode {
     /// The amount of vertical spacing.
@@ -58,7 +62,7 @@ pub struct VNode {
     pub weakness: u8,
 }
 
-#[node(Behave)]
+#[node]
 impl VNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let amount = args.expect("spacing")?;

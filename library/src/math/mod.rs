@@ -15,6 +15,8 @@ use crate::prelude::*;
 use crate::text::{FontFamily, LinebreakNode, SpaceNode, SymbolNode, TextNode};
 
 /// A piece of a mathematical formula.
+#[func]
+#[capable(Show, Layout, Inline, Texify)]
 #[derive(Debug, Clone, Hash)]
 pub struct MathNode {
     /// Whether the formula is display-level.
@@ -23,7 +25,7 @@ pub struct MathNode {
     pub children: Vec<Content>,
 }
 
-#[node(Show, Layout, Inline, Texify)]
+#[node]
 impl MathNode {
     fn field(&self, name: &str) -> Option<Value> {
         match name {
@@ -242,10 +244,12 @@ impl Texify for Content {
 }
 
 /// An atom in a math formula: `x`, `+`, `12`.
+#[func]
+#[capable(Texify)]
 #[derive(Debug, Hash)]
 pub struct AtomNode(pub EcoString);
 
-#[node(Texify)]
+#[node]
 impl AtomNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self(args.expect("text")?).pack())
@@ -279,6 +283,8 @@ impl Texify for AtomNode {
 }
 
 /// An accented node.
+#[func]
+#[capable(Texify)]
 #[derive(Debug, Hash)]
 pub struct AccNode {
     /// The accent base.
@@ -287,7 +293,7 @@ pub struct AccNode {
     pub accent: char,
 }
 
-#[node(Texify)]
+#[node]
 impl AccNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let base = args.expect("base")?;
@@ -352,6 +358,8 @@ impl Texify for AccNode {
 }
 
 /// A fraction.
+#[func]
+#[capable(Texify)]
 #[derive(Debug, Hash)]
 pub struct FracNode {
     /// The numerator.
@@ -360,7 +368,7 @@ pub struct FracNode {
     pub denom: Content,
 }
 
-#[node(Texify)]
+#[node]
 impl FracNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let num = args.expect("numerator")?;
@@ -381,6 +389,8 @@ impl Texify for FracNode {
 }
 
 /// A binomial.
+#[func]
+#[capable(Texify)]
 #[derive(Debug, Hash)]
 pub struct BinomNode {
     /// The upper index.
@@ -389,7 +399,7 @@ pub struct BinomNode {
     pub lower: Content,
 }
 
-#[node(Texify)]
+#[node]
 impl BinomNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let upper = args.expect("upper index")?;
@@ -410,6 +420,8 @@ impl Texify for BinomNode {
 }
 
 /// A sub- and/or superscript.
+#[func]
+#[capable(Texify)]
 #[derive(Debug, Hash)]
 pub struct ScriptNode {
     /// The base.
@@ -420,7 +432,7 @@ pub struct ScriptNode {
     pub sup: Option<Content>,
 }
 
-#[node(Texify)]
+#[node]
 impl ScriptNode {}
 
 impl Texify for ScriptNode {
@@ -444,10 +456,12 @@ impl Texify for ScriptNode {
 }
 
 /// A math alignment point: `&`, `&&`.
+#[func]
+#[capable(Texify)]
 #[derive(Debug, Hash)]
 pub struct AlignPointNode(pub usize);
 
-#[node(Texify)]
+#[node]
 impl AlignPointNode {}
 
 impl Texify for AlignPointNode {
@@ -457,10 +471,12 @@ impl Texify for AlignPointNode {
 }
 
 /// A square root.
+#[func]
+#[capable(Texify)]
 #[derive(Debug, Hash)]
 pub struct SqrtNode(pub Content);
 
-#[node(Texify)]
+#[node]
 impl SqrtNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self(args.expect("body")?).pack())
@@ -477,10 +493,12 @@ impl Texify for SqrtNode {
 }
 
 /// A floored expression.
+#[func]
+#[capable(Texify)]
 #[derive(Debug, Hash)]
 pub struct FloorNode(pub Content);
 
-#[node(Texify)]
+#[node]
 impl FloorNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self(args.expect("body")?).pack())
@@ -497,10 +515,12 @@ impl Texify for FloorNode {
 }
 
 /// A ceiled expression.
+#[func]
+#[capable(Texify)]
 #[derive(Debug, Hash)]
 pub struct CeilNode(pub Content);
 
-#[node(Texify)]
+#[node]
 impl CeilNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self(args.expect("body")?).pack())

@@ -1,10 +1,12 @@
 use super::*;
 
 /// Serif (roman) font style.
+#[func]
+#[capable(Texify)]
 #[derive(Debug, Hash)]
 pub struct SerifNode(pub Content);
 
-#[node(Texify)]
+#[node]
 impl SerifNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self(args.expect("body")?).pack())
@@ -21,10 +23,12 @@ impl Texify for SerifNode {
 }
 
 /// Sans-serif font style.
+#[func]
+#[capable(Texify)]
 #[derive(Debug, Hash)]
 pub struct SansNode(pub Content);
 
-#[node(Texify)]
+#[node]
 impl SansNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self(args.expect("body")?).pack())
@@ -41,10 +45,12 @@ impl Texify for SansNode {
 }
 
 /// Bold font style.
+#[func]
+#[capable(Texify)]
 #[derive(Debug, Hash)]
 pub struct BoldNode(pub Content);
 
-#[node(Texify)]
+#[node]
 impl BoldNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self(args.expect("body")?).pack())
@@ -61,10 +67,12 @@ impl Texify for BoldNode {
 }
 
 /// Italic font style.
+#[func]
+#[capable(Texify)]
 #[derive(Debug, Hash)]
 pub struct ItalNode(pub Content);
 
-#[node(Texify)]
+#[node]
 impl ItalNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self(args.expect("body")?).pack())
@@ -81,10 +89,12 @@ impl Texify for ItalNode {
 }
 
 /// Calligraphic font style.
+#[func]
+#[capable(Texify)]
 #[derive(Debug, Hash)]
 pub struct CalNode(pub Content);
 
-#[node(Texify)]
+#[node]
 impl CalNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self(args.expect("body")?).pack())
@@ -101,10 +111,12 @@ impl Texify for CalNode {
 }
 
 /// Fraktur font style.
+#[func]
+#[capable(Texify)]
 #[derive(Debug, Hash)]
 pub struct FrakNode(pub Content);
 
-#[node(Texify)]
+#[node]
 impl FrakNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self(args.expect("body")?).pack())
@@ -121,10 +133,12 @@ impl Texify for FrakNode {
 }
 
 /// Monospace font style.
+#[func]
+#[capable(Texify)]
 #[derive(Debug, Hash)]
 pub struct MonoNode(pub Content);
 
-#[node(Texify)]
+#[node]
 impl MonoNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self(args.expect("body")?).pack())
@@ -141,10 +155,12 @@ impl Texify for MonoNode {
 }
 
 /// Blackboard bold (double-struck) font style.
+#[func]
+#[capable(Texify)]
 #[derive(Debug, Hash)]
 pub struct BbNode(pub Content);
 
-#[node(Texify)]
+#[node]
 impl BbNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self(args.expect("body")?).pack())

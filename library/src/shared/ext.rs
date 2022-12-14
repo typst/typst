@@ -98,6 +98,7 @@ impl StyleMapExt for StyleMap {
 }
 
 /// Fill the frames resulting from content.
+#[capable(Layout)]
 #[derive(Debug, Hash)]
 struct FillNode {
     /// How to fill the frames resulting from the `child`.
@@ -106,7 +107,7 @@ struct FillNode {
     child: Content,
 }
 
-#[node(Layout)]
+#[node]
 impl FillNode {}
 
 impl Layout for FillNode {
@@ -126,6 +127,7 @@ impl Layout for FillNode {
 }
 
 /// Stroke the frames resulting from content.
+#[capable(Layout)]
 #[derive(Debug, Hash)]
 struct StrokeNode {
     /// How to stroke the frames resulting from the `child`.
@@ -134,7 +136,7 @@ struct StrokeNode {
     child: Content,
 }
 
-#[node(Layout)]
+#[node]
 impl StrokeNode {}
 
 impl Layout for StrokeNode {

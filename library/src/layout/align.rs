@@ -1,6 +1,8 @@
 use crate::prelude::*;
 
-/// Just an empty shell to scope styles.
+/// Align content horizontally and vertically.
+#[func]
+#[capable]
 #[derive(Debug, Hash)]
 pub enum AlignNode {}
 

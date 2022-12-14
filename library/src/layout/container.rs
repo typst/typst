@@ -2,6 +2,8 @@ use super::VNode;
 use crate::prelude::*;
 
 /// An inline-level container that sizes content.
+#[func]
+#[capable(Layout, Inline)]
 #[derive(Debug, Hash)]
 pub struct BoxNode {
     /// How to size the content horizontally and vertically.
@@ -10,7 +12,7 @@ pub struct BoxNode {
     pub body: Content,
 }
 
-#[node(Layout, Inline)]
+#[node]
 impl BoxNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let width = args.named("width")?;
@@ -60,10 +62,12 @@ impl Layout for BoxNode {
 impl Inline for BoxNode {}
 
 /// A block-level container that places content into a separate flow.
+#[func]
+#[capable(Layout)]
 #[derive(Debug, Hash)]
 pub struct BlockNode(pub Content);
 
-#[node(Layout)]
+#[node]
 impl BlockNode {
     /// The spacing between the previous and this block.
     #[property(skip)]

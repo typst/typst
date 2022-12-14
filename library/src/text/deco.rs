@@ -5,6 +5,8 @@ use super::TextNode;
 use crate::prelude::*;
 
 /// Typeset underline, stricken-through or overlined text.
+#[func]
+#[capable(Show)]
 #[derive(Debug, Hash)]
 pub struct DecoNode<const L: DecoLine>(pub Content);
 
@@ -17,7 +19,7 @@ pub type StrikeNode = DecoNode<STRIKETHROUGH>;
 /// Typeset overlined text.
 pub type OverlineNode = DecoNode<OVERLINE>;
 
-#[node(Show)]
+#[node]
 impl<const L: DecoLine> DecoNode<L> {
     /// How to stroke the line. The text color and thickness are read from the
     /// font tables if `auto`.

@@ -3,6 +3,8 @@ use typst::geom::Transform;
 use crate::prelude::*;
 
 /// Move content without affecting layout.
+#[func]
+#[capable(Layout, Inline)]
 #[derive(Debug, Hash)]
 pub struct MoveNode {
     /// The offset by which to move the content.
@@ -11,7 +13,7 @@ pub struct MoveNode {
     pub body: Content,
 }
 
-#[node(Layout, Inline)]
+#[node]
 impl MoveNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let dx = args.named("dx")?.unwrap_or_default();
@@ -44,6 +46,8 @@ impl Layout for MoveNode {
 impl Inline for MoveNode {}
 
 /// Transform content without affecting layout.
+#[func]
+#[capable(Layout, Inline)]
 #[derive(Debug, Hash)]
 pub struct TransformNode<const T: TransformKind> {
     /// Transformation to apply to the content.
@@ -58,7 +62,7 @@ pub type RotateNode = TransformNode<ROTATE>;
 /// Scale content without affecting layout.
 pub type ScaleNode = TransformNode<SCALE>;
 
-#[node(Layout, Inline)]
+#[node]
 impl<const T: TransformKind> TransformNode<T> {
     /// The origin of the transformation.
     #[property(resolve)]

@@ -6,6 +6,8 @@ use crate::prelude::*;
 use crate::text::{SpaceNode, TextNode, TextSize};
 
 /// A section heading.
+#[func]
+#[capable(Prepare, Show, Finalize)]
 #[derive(Debug, Hash)]
 pub struct HeadingNode {
     /// The logical nesting depth of the section, starting from one. In the
@@ -15,7 +17,7 @@ pub struct HeadingNode {
     pub body: Content,
 }
 
-#[node(Prepare, Show, Finalize)]
+#[node]
 impl HeadingNode {
     /// How to number the heading.
     #[property(referenced)]

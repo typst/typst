@@ -2,6 +2,8 @@ use crate::prelude::*;
 use crate::text::TextNode;
 
 /// Link text and other elements to a destination.
+#[func]
+#[capable(Show, Finalize)]
 #[derive(Debug, Hash)]
 pub struct LinkNode {
     /// The destination the link points to.
@@ -23,7 +25,7 @@ impl LinkNode {
     }
 }
 
-#[node(Show, Finalize)]
+#[node]
 impl LinkNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let dest = args.expect::<Destination>("destination")?;

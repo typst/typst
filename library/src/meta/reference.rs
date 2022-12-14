@@ -2,10 +2,12 @@ use crate::prelude::*;
 use crate::text::TextNode;
 
 /// A reference to a label.
+#[func]
+#[capable(Show)]
 #[derive(Debug, Hash)]
 pub struct RefNode(pub EcoString);
 
-#[node(Show)]
+#[node]
 impl RefNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self(args.expect("target")?).pack())

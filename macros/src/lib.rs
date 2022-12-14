@@ -13,6 +13,7 @@ macro_rules! bail {
 }
 
 mod capability;
+mod func;
 mod node;
 
 use proc_macro::TokenStream as BoundaryStream;
@@ -21,20 +22,34 @@ use quote::{quote, quote_spanned};
 use syn::parse_quote;
 use syn::{Error, Ident, Result};
 
+/// Implement `FuncType` for a type or function.
+#[proc_macro_attribute]
+pub fn func(_: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
+    let item = syn::parse_macro_input!(item as syn::Item);
+    func::func(item).unwrap_or_else(|err| err.to_compile_error()).into()
+}
+
 /// Implement `Node` for a struct.
 #[proc_macro_attribute]
-pub fn node(stream: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
+pub fn node(_: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
     let item = syn::parse_macro_input!(item as syn::ItemImpl);
-    node::expand(stream.into(), item)
-        .unwrap_or_else(|err| err.to_compile_error())
-        .into()
+    node::node(item).unwrap_or_else(|err| err.to_compile_error()).into()
 }
 
 /// Implement `Capability` for a trait.
 #[proc_macro_attribute]
 pub fn capability(_: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
     let item = syn::parse_macro_input!(item as syn::ItemTrait);
-    capability::expand(item)
+    capability::capability(item)
+        .unwrap_or_else(|err| err.to_compile_error())
+        .into()
+}
+
+/// Implement `Capable` for a type.
+#[proc_macro_attribute]
+pub fn capable(stream: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
+    let item = syn::parse_macro_input!(item as syn::Item);
+    capability::capable(stream.into(), item)
         .unwrap_or_else(|err| err.to_compile_error())
         .into()
 }

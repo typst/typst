@@ -12,6 +12,8 @@ use crate::text::{
 };
 
 /// Arrange text, spacing and inline-level nodes into a paragraph.
+#[func]
+#[capable]
 #[derive(Hash)]
 pub struct ParNode(pub StyleVec<Content>);
 
@@ -142,10 +144,12 @@ castable! {
 }
 
 /// A paragraph break.
+#[func]
+#[capable(Unlabellable)]
 #[derive(Debug, Hash)]
 pub struct ParbreakNode;
 
-#[node(Unlabellable)]
+#[node]
 impl ParbreakNode {
     fn construct(_: &Vm, _: &mut Args) -> SourceResult<Content> {
         Ok(Self.pack())

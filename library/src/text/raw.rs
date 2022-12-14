@@ -7,6 +7,8 @@ use crate::layout::BlockNode;
 use crate::prelude::*;
 
 /// Raw text with optional syntax highlighting.
+#[func]
+#[capable(Show)]
 #[derive(Debug, Hash)]
 pub struct RawNode {
     /// The raw text.
@@ -15,7 +17,7 @@ pub struct RawNode {
     pub block: bool,
 }
 
-#[node(Show)]
+#[node]
 impl RawNode {
     /// The language to syntax-highlight in.
     #[property(referenced)]

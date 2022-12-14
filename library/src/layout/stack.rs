@@ -4,6 +4,8 @@ use super::{AlignNode, Spacing};
 use crate::prelude::*;
 
 /// Arrange content and spacing along an axis.
+#[func]
+#[capable(Layout)]
 #[derive(Debug, Hash)]
 pub struct StackNode {
     /// The stacking direction.
@@ -14,7 +16,7 @@ pub struct StackNode {
     pub children: Vec<StackChild>,
 }
 
-#[node(Layout)]
+#[node]
 impl StackNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self {

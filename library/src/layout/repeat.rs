@@ -1,10 +1,12 @@
 use crate::prelude::*;
 
 /// Repeats content to fill a line.
+#[func]
+#[capable(Layout, Inline)]
 #[derive(Debug, Hash)]
 pub struct RepeatNode(pub Content);
 
-#[node(Layout, Inline)]
+#[node]
 impl RepeatNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self(args.expect("body")?).pack())

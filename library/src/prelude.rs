@@ -15,10 +15,10 @@ pub use typst::doc::*;
 pub use typst::geom::*;
 #[doc(no_inline)]
 pub use typst::model::{
-    array, capability, castable, dict, dynamic, format_str, node, Args, Array, Cast,
-    Content, Dict, Finalize, Fold, Func, Introspector, Label, Node, NodeId, Prepare,
-    Resolve, Selector, Show, Smart, StabilityProvider, Str, StyleChain, StyleMap,
-    StyleVec, Unlabellable, Value, Vm, Vt,
+    array, capability, capable, castable, dict, dynamic, format_str, func, node, Args,
+    Array, Cast, Content, Dict, Finalize, Fold, Func, Introspector, Label, Node, NodeId,
+    Prepare, Resolve, Selector, Show, Smart, StabilityProvider, Str, StyleChain,
+    StyleMap, StyleVec, Unlabellable, Value, Vm, Vt,
 };
 #[doc(no_inline)]
 pub use typst::syntax::{Span, Spanned};

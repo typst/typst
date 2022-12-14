@@ -4,10 +4,12 @@ use crate::prelude::*;
 use crate::text::{LinebreakNode, SpaceNode, TextNode};
 
 /// A section outline (table of contents).
+#[func]
+#[capable(Prepare, Show)]
 #[derive(Debug, Hash)]
 pub struct OutlineNode;
 
-#[node(Prepare, Show)]
+#[node]
 impl OutlineNode {
     /// The title of the outline.
     #[property(referenced)]

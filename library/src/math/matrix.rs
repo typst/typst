@@ -1,10 +1,12 @@
 use super::*;
 
 /// A column vector.
+#[func]
+#[capable(Texify)]
 #[derive(Debug, Hash)]
 pub struct VecNode(Vec<Content>);
 
-#[node(Texify)]
+#[node]
 impl VecNode {
     /// The kind of delimiter.
     pub const DELIM: Delimiter = Delimiter::Paren;
@@ -61,10 +63,12 @@ castable! {
 }
 
 /// A case distinction.
+#[func]
+#[capable(Texify)]
 #[derive(Debug, Hash)]
 pub struct CasesNode(Vec<Content>);
 
-#[node(Texify)]
+#[node]
 impl CasesNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self(args.all()?).pack())

@@ -30,16 +30,22 @@ enum Repr {
 }
 
 impl Func {
+    /// Create a new function from a type that can be turned into a function.
+    pub fn from_type<T: FuncType>(name: &'static str) -> Self {
+        T::create_func(name)
+    }
+
     /// Create a new function from a native rust function.
     pub fn from_fn(
         name: &'static str,
         func: fn(&Vm, &mut Args) -> SourceResult<Value>,
+        doc: &'static str,
     ) -> Self {
-        Self(Arc::new(Repr::Native(Native { name, func, set: None, node: None })))
+        Self(Arc::new(Repr::Native(Native { name, func, set: None, node: None, doc })))
     }
 
     /// Create a new function from a native rust node.
-    pub fn from_node<T: Node>(name: &'static str) -> Self {
+    pub fn from_node<T: Node>(name: &'static str, doc: &'static str) -> Self {
         Self(Arc::new(Repr::Native(Native {
             name,
             func: |ctx, args| {
@@ -49,6 +55,7 @@ impl Func {
             },
             set: Some(|args| T::set(args, false)),
             node: Some(NodeId::of::<T>()),
+            doc,
         })))
     }
 
@@ -63,6 +70,15 @@ impl Func {
             Repr::Native(native) => Some(native.name),
             Repr::Closure(closure) => closure.name.as_deref(),
             Repr::With(func, _) => func.name(),
+        }
+    }
+
+    /// Documentation for the function.
+    pub fn doc(&self) -> Option<&str> {
+        match self.0.as_ref() {
+            Repr::Native(native) => Some(native.doc),
+            Repr::With(func, _) => func.doc(),
+            _ => None,
         }
     }
 
@@ -159,16 +175,24 @@ impl PartialEq for Func {
     }
 }
 
+/// Types that can be turned into functions.
+pub trait FuncType {
+    /// Create a function with the given name from this type.
+    fn create_func(name: &'static str) -> Func;
+}
+
 /// A function defined by a native rust function or node.
 struct Native {
     /// The name of the function.
-    pub name: &'static str,
+    name: &'static str,
     /// The function pointer.
-    pub func: fn(&Vm, &mut Args) -> SourceResult<Value>,
+    func: fn(&Vm, &mut Args) -> SourceResult<Value>,
     /// The set rule.
-    pub set: Option<fn(&mut Args) -> SourceResult<StyleMap>>,
+    set: Option<fn(&mut Args) -> SourceResult<StyleMap>>,
     /// The id of the node to customize with this function's show rule.
-    pub node: Option<NodeId>,
+    node: Option<NodeId>,
+    /// Documentation of the function.
+    doc: &'static str,
 }
 
 impl Hash for Native {
@@ -177,6 +201,7 @@ impl Hash for Native {
         (self.func as usize).hash(state);
         self.set.map(|set| set as usize).hash(state);
         self.node.hash(state);
+        self.doc.hash(state);
     }
 }
 

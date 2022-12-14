@@ -7,15 +7,12 @@ use crate::prelude::*;
 ///
 /// This node is reponsible for layouting both the top-level content flow and
 /// the contents of boxes.
+#[capable(Layout)]
 #[derive(Hash)]
 pub struct FlowNode(pub StyleVec<Content>, pub bool);
 
-#[node(Layout)]
-impl FlowNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(BlockNode(args.expect("body")?).pack())
-    }
-}
+#[node]
+impl FlowNode {}
 
 impl Layout for FlowNode {
     fn layout(

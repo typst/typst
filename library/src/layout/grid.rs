@@ -3,6 +3,8 @@ use crate::prelude::*;
 use super::Spacing;
 
 /// Arrange content in a grid.
+#[func]
+#[capable(Layout)]
 #[derive(Debug, Hash)]
 pub struct GridNode {
     /// Defines sizing for content rows and columns.
@@ -13,7 +15,7 @@ pub struct GridNode {
     pub cells: Vec<Content>,
 }
 
-#[node(Layout)]
+#[node]
 impl GridNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let TrackSizings(columns) = args.named("columns")?.unwrap_or_default();

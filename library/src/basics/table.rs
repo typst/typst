@@ -2,6 +2,8 @@ use crate::layout::{GridNode, TrackSizing, TrackSizings};
 use crate::prelude::*;
 
 /// A table of items.
+#[func]
+#[capable(Layout)]
 #[derive(Debug, Hash)]
 pub struct TableNode {
     /// Defines sizing for content rows and columns.
@@ -12,7 +14,7 @@ pub struct TableNode {
     pub cells: Vec<Content>,
 }
 
-#[node(Layout)]
+#[node]
 impl TableNode {
     /// How to fill the cells.
     #[property(referenced)]

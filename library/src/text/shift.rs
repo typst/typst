@@ -10,6 +10,8 @@ use crate::prelude::*;
 /// typography possible, we first try to transform the text to superscript
 /// codepoints. If that fails, we fall back to rendering shrunk normal letters
 /// in a raised way.
+#[func]
+#[capable(Show)]
 #[derive(Debug, Hash)]
 pub struct ShiftNode<const S: ShiftKind>(pub Content);
 
@@ -19,7 +21,7 @@ pub type SuperNode = ShiftNode<SUPERSCRIPT>;
 /// Shift the text into subscript.
 pub type SubNode = ShiftNode<SUBSCRIPT>;
 
-#[node(Show)]
+#[node]
 impl<const S: ShiftKind> ShiftNode<S> {
     /// Whether to prefer the dedicated sub- and superscript characters of the
     /// font.

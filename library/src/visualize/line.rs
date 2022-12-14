@@ -1,6 +1,8 @@
 use crate::prelude::*;
 
 /// Display a line without affecting the layout.
+#[func]
+#[capable(Layout, Inline)]
 #[derive(Debug, Hash)]
 pub struct LineNode {
     /// Where the line starts.
@@ -9,7 +11,7 @@ pub struct LineNode {
     pub delta: Axes<Rel<Length>>,
 }
 
-#[node(Layout, Inline)]
+#[node]
 impl LineNode {
     /// How to stroke the line.
     #[property(resolve, fold)]

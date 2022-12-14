@@ -10,7 +10,9 @@ use crate::geom::{
     Abs, Align, Axes, Dir, Em, Numeric, Paint, Point, Shape, Size, Transform,
 };
 use crate::image::Image;
-use crate::model::{dict, node, Content, Dict, Fold, StableId, StyleChain, Value};
+use crate::model::{
+    capable, dict, node, Content, Dict, Fold, StableId, StyleChain, Value,
+};
 use crate::util::EcoString;
 
 /// A finished document with metadata and page frames.
@@ -539,6 +541,7 @@ impl FromStr for Region {
 }
 
 /// Meta information that isn't visible or renderable.
+#[capable]
 #[derive(Debug, Clone, Hash)]
 pub enum Meta {
     /// An internal or external link.

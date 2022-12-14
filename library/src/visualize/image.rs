@@ -5,10 +5,12 @@ use typst::image::{Image, ImageFormat, RasterFormat, VectorFormat};
 use crate::prelude::*;
 
 /// Show a raster or vector graphic.
+#[func]
+#[capable(Layout, Inline)]
 #[derive(Debug, Hash)]
 pub struct ImageNode(pub Image);
 
-#[node(Layout, Inline)]
+#[node]
 impl ImageNode {
     /// How the image should adjust itself to a given area.
     pub const FIT: ImageFit = ImageFit::Cover;

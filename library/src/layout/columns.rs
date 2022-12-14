@@ -2,6 +2,8 @@ use crate::prelude::*;
 use crate::text::TextNode;
 
 /// Separate a region into multiple equally sized columns.
+#[func]
+#[capable(Layout)]
 #[derive(Debug, Hash)]
 pub struct ColumnsNode {
     /// How many columns there should be.
@@ -11,7 +13,7 @@ pub struct ColumnsNode {
     pub body: Content,
 }
 
-#[node(Layout)]
+#[node]
 impl ColumnsNode {
     /// The size of the gutter space between each column.
     #[property(resolve)]
@@ -101,12 +103,14 @@ impl Layout for ColumnsNode {
 }
 
 /// A column break.
+#[func]
+#[capable(Behave)]
 #[derive(Debug, Hash)]
 pub struct ColbreakNode {
     pub weak: bool,
 }
 
-#[node(Behave)]
+#[node]
 impl ColbreakNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let weak = args.named("weak")?.unwrap_or(false);

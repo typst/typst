@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 
-use super::{Args, Func, Node, Value, Vm};
-use crate::diag::{SourceResult, StrResult};
+use super::{Func, FuncType, Value};
+use crate::diag::StrResult;
 use crate::util::EcoString;
 
 /// A stack of scopes.
@@ -75,17 +75,8 @@ impl Scope {
     }
 
     /// Define a function through a native rust function.
-    pub fn def_fn(
-        &mut self,
-        name: &'static str,
-        func: fn(&Vm, &mut Args) -> SourceResult<Value>,
-    ) {
-        self.define(name, Func::from_fn(name, func));
-    }
-
-    /// Define a function through a native rust node.
-    pub fn def_node<T: Node>(&mut self, name: &'static str) {
-        self.define(name, Func::from_node::<T>(name));
+    pub fn def_func<T: FuncType>(&mut self, name: &'static str) {
+        self.define(name, Func::from_type::<T>(name));
     }
 
     /// Define a captured, immutable binding.
@@ -108,8 +99,8 @@ impl Scope {
     }
 
     /// Iterate over all definitions.
-    pub fn iter(&self) -> impl Iterator<Item = (&str, &Value)> {
-        self.0.iter().map(|(k, v)| (k.as_str(), v.read()))
+    pub fn iter(&self) -> impl Iterator<Item = (&EcoString, &Value)> {
+        self.0.iter().map(|(k, v)| (k, v.read()))
     }
 }
 

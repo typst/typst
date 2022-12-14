@@ -1147,7 +1147,7 @@ impl Eval for ast::ModuleImport {
         match self.imports() {
             ast::Imports::Wildcard => {
                 for (var, value) in module.scope.iter() {
-                    vm.scopes.top.define(var, value.clone());
+                    vm.scopes.top.define(var.clone(), value.clone());
                 }
             }
             ast::Imports::Items(idents) => {

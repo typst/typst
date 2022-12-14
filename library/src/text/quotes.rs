@@ -3,6 +3,8 @@ use typst::syntax::is_newline;
 use crate::prelude::*;
 
 /// A smart quote.
+#[func]
+#[capable]
 #[derive(Debug, Hash)]
 pub struct SmartQuoteNode {
     pub double: bool,

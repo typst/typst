@@ -4,6 +4,8 @@ use crate::prelude::*;
 use crate::text::{SpaceNode, TextNode};
 
 /// An unordered (bulleted) or ordered (numbered) list.
+#[func]
+#[capable(Layout)]
 #[derive(Debug, Hash)]
 pub struct ListNode<const L: ListKind = LIST> {
     /// If true, the items are separated by leading instead of list spacing.
@@ -18,7 +20,7 @@ pub type EnumNode = ListNode<ENUM>;
 /// A description list.
 pub type DescNode = ListNode<DESC>;
 
-#[node(Layout)]
+#[node]
 impl<const L: ListKind> ListNode<L> {
     /// How the list is labelled.
     #[property(referenced)]
@@ -143,6 +145,7 @@ impl<const L: ListKind> Layout for ListNode<L> {
 }
 
 /// An item in a list.
+#[capable]
 #[derive(Debug, Clone, Hash)]
 pub enum ListItem {
     /// An item of an unordered list.

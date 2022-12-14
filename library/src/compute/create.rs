@@ -5,7 +5,8 @@ use typst::model::Regex;
 use crate::prelude::*;
 
 /// Convert a value to an integer.
-pub fn int(_: &Vm, args: &mut Args) -> SourceResult<Value> {
+#[func]
+pub fn int(args: &mut Args) -> SourceResult<Value> {
     let Spanned { v, span } = args.expect("value")?;
     Ok(Value::Int(match v {
         Value::Bool(v) => v as i64,
@@ -20,7 +21,8 @@ pub fn int(_: &Vm, args: &mut Args) -> SourceResult<Value> {
 }
 
 /// Convert a value to a float.
-pub fn float(_: &Vm, args: &mut Args) -> SourceResult<Value> {
+#[func]
+pub fn float(args: &mut Args) -> SourceResult<Value> {
     let Spanned { v, span } = args.expect("value")?;
     Ok(Value::Float(match v {
         Value::Int(v) => v as f64,
@@ -34,13 +36,15 @@ pub fn float(_: &Vm, args: &mut Args) -> SourceResult<Value> {
 }
 
 /// Create a grayscale color.
-pub fn luma(_: &Vm, args: &mut Args) -> SourceResult<Value> {
+#[func]
+pub fn luma(args: &mut Args) -> SourceResult<Value> {
     let Component(luma) = args.expect("gray component")?;
     Ok(Value::Color(LumaColor::new(luma).into()))
 }
 
 /// Create an RGB(A) color.
-pub fn rgb(_: &Vm, args: &mut Args) -> SourceResult<Value> {
+#[func]
+pub fn rgb(args: &mut Args) -> SourceResult<Value> {
     Ok(Value::Color(if let Some(string) = args.find::<Spanned<EcoString>>()? {
         match RgbaColor::from_str(&string.v) {
             Ok(color) => color.into(),
@@ -56,7 +60,8 @@ pub fn rgb(_: &Vm, args: &mut Args) -> SourceResult<Value> {
 }
 
 /// Create a CMYK color.
-pub fn cmyk(_: &Vm, args: &mut Args) -> SourceResult<Value> {
+#[func]
+pub fn cmyk(args: &mut Args) -> SourceResult<Value> {
     let RatioComponent(c) = args.expect("cyan component")?;
     let RatioComponent(m) = args.expect("magenta component")?;
     let RatioComponent(y) = args.expect("yellow component")?;
@@ -95,7 +100,8 @@ castable! {
 }
 
 /// Convert a value to a string.
-pub fn str(_: &Vm, args: &mut Args) -> SourceResult<Value> {
+#[func]
+pub fn str(args: &mut Args) -> SourceResult<Value> {
     let Spanned { v, span } = args.expect("value")?;
     Ok(Value::Str(match v {
         Value::Int(v) => format_str!("{}", v),
@@ -107,18 +113,21 @@ pub fn str(_: &Vm, args: &mut Args) -> SourceResult<Value> {
 }
 
 /// Create a label from a string.
-pub fn label(_: &Vm, args: &mut Args) -> SourceResult<Value> {
+#[func]
+pub fn label(args: &mut Args) -> SourceResult<Value> {
     Ok(Value::Label(Label(args.expect("string")?)))
 }
 
 /// Create a regular expression from a string.
-pub fn regex(_: &Vm, args: &mut Args) -> SourceResult<Value> {
+#[func]
+pub fn regex(args: &mut Args) -> SourceResult<Value> {
     let Spanned { v, span } = args.expect::<Spanned<EcoString>>("regular expression")?;
     Ok(Regex::new(&v).at(span)?.into())
 }
 
 /// Create an array consisting of a sequence of numbers.
-pub fn range(_: &Vm, args: &mut Args) -> SourceResult<Value> {
+#[func]
+pub fn range(args: &mut Args) -> SourceResult<Value> {
     let first = args.expect::<i64>("end")?;
     let (start, end) = match args.eat::<i64>()? {
         Some(second) => (first, second),

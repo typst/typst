@@ -26,6 +26,8 @@ use crate::layout::ParNode;
 use crate::prelude::*;
 
 /// A single run of text with the same style.
+#[func]
+#[capable]
 #[derive(Clone, Hash)]
 pub struct TextNode(pub EcoString);
 

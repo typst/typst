@@ -2,10 +2,12 @@ use crate::prelude::*;
 use crate::text::TextNode;
 
 /// A symbol identified by symmie notation.
+#[func]
+#[capable(Show)]
 #[derive(Debug, Hash)]
 pub struct SymbolNode(pub EcoString);
 
-#[node(Show)]
+#[node]
 impl SymbolNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self(args.expect("notation")?).pack())

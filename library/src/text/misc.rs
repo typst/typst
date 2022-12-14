@@ -2,10 +2,12 @@ use super::TextNode;
 use crate::prelude::*;
 
 /// A text space.
+#[func]
+#[capable(Unlabellable, Behave)]
 #[derive(Debug, Hash)]
 pub struct SpaceNode;
 
-#[node(Unlabellable, Behave)]
+#[node]
 impl SpaceNode {
     fn construct(_: &Vm, _: &mut Args) -> SourceResult<Content> {
         Ok(Self.pack())
@@ -21,12 +23,14 @@ impl Behave for SpaceNode {
 }
 
 /// A line break.
+#[func]
+#[capable(Behave)]
 #[derive(Debug, Hash)]
 pub struct LinebreakNode {
     pub justify: bool,
 }
 
-#[node(Behave)]
+#[node]
 impl LinebreakNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let justify = args.named("justify")?.unwrap_or(false);
@@ -41,10 +45,12 @@ impl Behave for LinebreakNode {
 }
 
 /// Strongly emphasizes content by increasing the font weight.
+#[func]
+#[capable(Show)]
 #[derive(Debug, Hash)]
 pub struct StrongNode(pub Content);
 
-#[node(Show)]
+#[node]
 impl StrongNode {
     /// The delta to apply on the font weight.
     pub const DELTA: i64 = 300;
@@ -86,10 +92,12 @@ impl Fold for Delta {
 }
 
 /// Emphasizes content by flipping the italicness.
+#[func]
+#[capable(Show)]
 #[derive(Debug, Hash)]
 pub struct EmphNode(pub Content);
 
-#[node(Show)]
+#[node]
 impl EmphNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self(args.expect("body")?).pack())
@@ -122,12 +130,14 @@ impl Fold for Toggle {
 }
 
 /// Convert a string or content to lowercase.
-pub fn lower(_: &Vm, args: &mut Args) -> SourceResult<Value> {
+#[func]
+pub fn lower(args: &mut Args) -> SourceResult<Value> {
     case(Case::Lower, args)
 }
 
 /// Convert a string or content to uppercase.
-pub fn upper(_: &Vm, args: &mut Args) -> SourceResult<Value> {
+#[func]
+pub fn upper(args: &mut Args) -> SourceResult<Value> {
     case(Case::Upper, args)
 }
 
@@ -161,7 +171,8 @@ impl Case {
 }
 
 /// Display text in small capitals.
-pub fn smallcaps(_: &Vm, args: &mut Args) -> SourceResult<Value> {
+#[func]
+pub fn smallcaps(args: &mut Args) -> SourceResult<Value> {
     let body: Content = args.expect("content")?;
     Ok(Value::Content(body.styled(TextNode::SMALLCAPS, true)))
 }

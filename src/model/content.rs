@@ -10,7 +10,9 @@ use siphasher::sip128::{Hasher128, SipHasher};
 use thin_vec::ThinVec;
 use typst_macros::node;
 
-use super::{capability, Args, Guard, Key, Property, Recipe, Style, StyleMap, Value, Vm};
+use super::{
+    capability, capable, Args, Guard, Key, Property, Recipe, Style, StyleMap, Value, Vm,
+};
 use crate::diag::{SourceResult, StrResult};
 use crate::syntax::Span;
 use crate::util::{EcoString, ReadableTypeId};
@@ -342,6 +344,7 @@ impl Hash for dyn Bounds {
 }
 
 /// A node with applied styles.
+#[capable]
 #[derive(Clone, Hash)]
 pub struct StyledNode {
     /// The styled content.
@@ -364,6 +367,7 @@ impl Debug for StyledNode {
 ///
 /// Combines other arbitrary content. So, when you write `[Hi] + [you]` in
 /// Typst, the two text nodes are combined into a single sequence node.
+#[capable]
 #[derive(Clone, Hash)]
 pub struct SequenceNode(pub Vec<Content>);
 

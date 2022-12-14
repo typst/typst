@@ -11,11 +11,11 @@ use comemo::{Prehashed, Track};
 use elsa::FrozenVec;
 use once_cell::unsync::OnceCell;
 use tiny_skia as sk;
-use typst::diag::{bail, FileError, FileResult};
+use typst::diag::{bail, FileError, FileResult, SourceResult};
 use typst::doc::{Document, Element, Frame, Meta};
 use typst::font::{Font, FontBook};
 use typst::geom::{Abs, RgbaColor, Sides};
-use typst::model::{Library, Smart, Value};
+use typst::model::{func, Library, Smart, Value};
 use typst::syntax::{Source, SourceId, SyntaxNode};
 use typst::util::{Buffer, PathExt};
 use typst::World;
@@ -145,6 +145,29 @@ impl Args {
 }
 
 fn library() -> Library {
+    #[func]
+    fn test(args: &mut typst::model::Args) -> SourceResult<Value> {
+        let lhs = args.expect::<Value>("left-hand side")?;
+        let rhs = args.expect::<Value>("right-hand side")?;
+        if lhs != rhs {
+            bail!(args.span, "Assertion failed: {:?} != {:?}", lhs, rhs,);
+        }
+        Ok(Value::None)
+    }
+
+    #[func]
+    fn print(args: &mut typst::model::Args) -> SourceResult<Value> {
+        print!("> ");
+        for (i, value) in args.all::<Value>()?.into_iter().enumerate() {
+            if i > 0 {
+                print!(", ")
+            }
+            print!("{value:?}");
+        }
+        println!();
+        Ok(Value::None)
+    }
+
     let mut lib = typst_library::build();
 
     // Set page width to 120pt with 10pt margins, so that the inner page is
@@ -157,27 +180,10 @@ fn library() -> Library {
     lib.styles.set(TextNode::SIZE, TextSize(Abs::pt(10.0).into()));
 
     // Hook up helpers into the global scope.
+    lib.scope.def_func::<TestFunc>("test");
+    lib.scope.def_func::<PrintFunc>("print");
     lib.scope.define("conifer", RgbaColor::new(0x9f, 0xEB, 0x52, 0xFF));
     lib.scope.define("forest", RgbaColor::new(0x43, 0xA1, 0x27, 0xFF));
-    lib.scope.def_fn("test", move |_, args| {
-        let lhs = args.expect::<Value>("left-hand side")?;
-        let rhs = args.expect::<Value>("right-hand side")?;
-        if lhs != rhs {
-            bail!(args.span, "Assertion failed: {:?} != {:?}", lhs, rhs,);
-        }
-        Ok(Value::None)
-    });
-    lib.scope.def_fn("print", move |_, args| {
-        print!("> ");
-        for (i, value) in args.all::<Value>()?.into_iter().enumerate() {
-            if i > 0 {
-                print!(", ")
-            }
-            print!("{value:?}");
-        }
-        println!();
-        Ok(Value::None)
-    });
 
     lib
 }

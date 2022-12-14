@@ -1,6 +1,8 @@
 use crate::prelude::*;
 
 /// Pad content at the sides.
+#[func]
+#[capable(Layout)]
 #[derive(Debug, Hash)]
 pub struct PadNode {
     /// The amount of padding.
@@ -9,7 +11,7 @@ pub struct PadNode {
     pub body: Content,
 }
 
-#[node(Layout)]
+#[node]
 impl PadNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let all = args.named("rest")?.or(args.find()?);

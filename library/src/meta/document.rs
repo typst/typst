@@ -2,10 +2,12 @@ use crate::layout::{LayoutRoot, PageNode};
 use crate::prelude::*;
 
 /// The root node that represents a full document.
+#[func]
+#[capable(LayoutRoot)]
 #[derive(Hash)]
 pub struct DocumentNode(pub StyleVec<PageNode>);
 
-#[node(LayoutRoot)]
+#[node]
 impl DocumentNode {
     /// The document's title.
     #[property(referenced)]

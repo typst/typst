@@ -4,13 +4,15 @@ use crate::prelude::*;
 use crate::text::Case;
 
 /// Create a blind text string.
-pub fn lorem(_: &Vm, args: &mut Args) -> SourceResult<Value> {
+#[func]
+pub fn lorem(args: &mut Args) -> SourceResult<Value> {
     let words: usize = args.expect("number of words")?;
     Ok(Value::Str(lipsum::lipsum(words).into()))
 }
 
 /// Apply a numbering pattern to a number.
-pub fn numbering(_: &Vm, args: &mut Args) -> SourceResult<Value> {
+#[func]
+pub fn numbering(args: &mut Args) -> SourceResult<Value> {
     let pattern = args.expect::<NumberingPattern>("pattern")?;
     let numbers = args.all::<NonZeroUsize>()?;
     Ok(Value::Str(pattern.apply(&numbers).into()))
