@@ -299,7 +299,9 @@ pub enum ErrorPos {
 impl SyntaxKind {
     /// Whether this is trivia.
     pub fn is_trivia(&self) -> bool {
-        self.is_space() || matches!(self, Self::LineComment | Self::BlockComment)
+        self.is_space()
+            || self.is_error()
+            || matches!(self, Self::LineComment | Self::BlockComment)
     }
 
     /// Whether this is a space.

@@ -1205,7 +1205,7 @@ node! {
 }
 
 impl MethodCall {
-    /// The expresion to call the method on.
+    /// The expression to call the method on.
     pub fn target(&self) -> Expr {
         self.0.cast_first_child().expect("method call is missing target")
     }

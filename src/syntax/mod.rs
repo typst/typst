@@ -5,6 +5,7 @@ pub mod highlight;
 
 mod incremental;
 mod kind;
+mod linked;
 mod node;
 mod parser;
 mod parsing;
@@ -14,6 +15,7 @@ mod span;
 mod tokens;
 
 pub use self::kind::*;
+pub use self::linked::*;
 pub use self::node::*;
 pub use self::parsing::*;
 pub use self::source::*;
