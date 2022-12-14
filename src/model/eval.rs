@@ -16,7 +16,7 @@ use crate::diag::{
 };
 use crate::geom::{Abs, Angle, Em, Fr, Ratio};
 use crate::syntax::ast::AstNode;
-use crate::syntax::{ast, Source, SourceId, Span, Spanned, Unit};
+use crate::syntax::{ast, Source, SourceId, Span, Spanned, SyntaxKind, SyntaxNode, Unit};
 use crate::util::{format_eco, EcoString, PathExt};
 use crate::World;
 
@@ -994,12 +994,25 @@ impl Eval for ast::WhileLoop {
     type Output = Value;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        const MAX_ITERS: usize = 10_000;
+
         let flow = vm.flow.take();
         let mut output = Value::None;
+        let mut i = 0;
 
         let condition = self.condition();
+        let body = self.body();
+
         while condition.eval(vm)?.cast::<bool>().at(condition.span())? {
-            let body = self.body();
+            if i == 0
+                && is_invariant(condition.as_untyped())
+                && !can_diverge(body.as_untyped())
+            {
+                bail!(condition.span(), "condition is always true");
+            } else if i >= MAX_ITERS {
+                bail!(self.span(), "loop seems to be infinite");
+            }
+
             let value = body.eval(vm)?;
             output = ops::join(output, value).at(body.span())?;
 
@@ -1012,6 +1025,8 @@ impl Eval for ast::WhileLoop {
                 Some(Flow::Return(..)) => break,
                 None => {}
             }
+
+            i += 1;
         }
 
         if flow.is_some() {
@@ -1020,6 +1035,24 @@ impl Eval for ast::WhileLoop {
 
         Ok(output)
     }
+}
+
+/// Whether the expression always evaluates to the same value.
+fn is_invariant(expr: &SyntaxNode) -> bool {
+    match expr.cast() {
+        Some(ast::Expr::Ident(_)) => false,
+        Some(ast::Expr::MethodCall(call)) => {
+            is_invariant(call.target().as_untyped())
+                && is_invariant(call.args().as_untyped())
+        }
+        _ => expr.children().all(is_invariant),
+    }
+}
+
+/// Whether the expression contains a break or return.
+fn can_diverge(expr: &SyntaxNode) -> bool {
+    matches!(expr.kind(), SyntaxKind::Break | SyntaxKind::Return)
+        || expr.children().any(can_diverge)
 }
 
 impl Eval for ast::ForLoop {

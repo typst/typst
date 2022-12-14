@@ -34,11 +34,13 @@
 #while [nope] [nope]
 
 ---
-// Make sure that we terminate and don't complain multiple times.
-#while true {
-  // Error: 3-7 unknown variable
-  nope
-}
+// Error: 8-25 condition is always true
+#while 2 < "hello".len() {}
+
+---
+// Error: 2:1-2:24 loop seems to be infinite
+#let i = 1
+#while i > 0 { i += 1 }
 
 ---
 // Error: 7 expected expression
