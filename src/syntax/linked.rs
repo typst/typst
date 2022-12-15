@@ -29,6 +29,11 @@ impl<'a> LinkedNode<'a> {
         self.node
     }
 
+    /// The index of this node in its parent's children list.
+    pub fn index(&self) -> usize {
+        self.index
+    }
+
     /// The absolute byte offset of the this node in the source file.
     pub fn offset(&self) -> usize {
         self.offset
@@ -40,18 +45,13 @@ impl<'a> LinkedNode<'a> {
     }
 
     /// Get this node's children.
-    pub fn children(
-        &self,
-    ) -> impl DoubleEndedIterator<Item = LinkedNode<'a>>
-           + ExactSizeIterator<Item = LinkedNode<'a>>
-           + '_ {
-        let parent = Rc::new(self.clone());
-        let mut offset = self.offset;
-        self.node.children().enumerate().map(move |(index, node)| {
-            let child = Self { node, parent: Some(parent.clone()), index, offset };
-            offset += node.len();
-            child
-        })
+    pub fn children(&self) -> LinkedChildren<'a> {
+        LinkedChildren {
+            parent: Rc::new(self.clone()),
+            iter: self.node.children().enumerate(),
+            front: self.offset,
+            back: self.offset + self.len(),
+        }
     }
 }
 
@@ -64,7 +64,7 @@ impl<'a> LinkedNode<'a> {
 
     /// Get the kind of this node's parent.
     pub fn parent_kind(&self) -> Option<&'a SyntaxKind> {
-        self.parent().map(|parent| parent.node.kind())
+        Some(self.parent()?.node.kind())
     }
 
     /// Get the first previous non-trivia sibling node.
@@ -81,11 +81,6 @@ impl<'a> LinkedNode<'a> {
         }
     }
 
-    /// Get the kind of this node's first previous non-trivia sibling.
-    pub fn prev_sibling_kind(&self) -> Option<&'a SyntaxKind> {
-        self.prev_sibling().map(|parent| parent.node.kind())
-    }
-
     /// Get the next non-trivia sibling node.
     pub fn next_sibling(&self) -> Option<Self> {
         let parent = self.parent()?;
@@ -98,11 +93,6 @@ impl<'a> LinkedNode<'a> {
         } else {
             Some(next)
         }
-    }
-
-    /// Get the kind of this node's next non-trivia sibling.
-    pub fn next_sibling_kind(&self) -> Option<&'a SyntaxKind> {
-        self.next_sibling().map(|parent| parent.node.kind())
     }
 }
 
@@ -198,6 +188,51 @@ impl Debug for LinkedNode<'_> {
     }
 }
 
+/// An iterator over the children of a linked node.
+pub struct LinkedChildren<'a> {
+    parent: Rc<LinkedNode<'a>>,
+    iter: std::iter::Enumerate<std::slice::Iter<'a, SyntaxNode>>,
+    front: usize,
+    back: usize,
+}
+
+impl<'a> Iterator for LinkedChildren<'a> {
+    type Item = LinkedNode<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next().map(|(index, node)| {
+            let offset = self.front;
+            self.front += node.len();
+            LinkedNode {
+                node,
+                parent: Some(self.parent.clone()),
+                index,
+                offset,
+            }
+        })
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
+}
+
+impl DoubleEndedIterator for LinkedChildren<'_> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.iter.next_back().map(|(index, node)| {
+            self.back -= node.len();
+            LinkedNode {
+                node,
+                parent: Some(self.parent.clone()),
+                index,
+                offset: self.back,
+            }
+        })
+    }
+}
+
+impl ExactSizeIterator for LinkedChildren<'_> {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -235,16 +270,5 @@ mod tests {
         assert_eq!(prev.kind(), &SyntaxKind::Eq);
         assert_eq!(leaf.kind(), &SyntaxKind::Space { newlines: 0 });
         assert_eq!(next.kind(), &SyntaxKind::Int(10));
-    }
-
-    #[test]
-    fn test_linked_node_leaf_at() {
-        let source = Source::detached("");
-        let leaf = LinkedNode::new(source.root()).leaf_at(0).unwrap();
-        assert_eq!(leaf.kind(), &SyntaxKind::Markup { min_indent: 0 });
-
-        let source = Source::detached("Hello\n");
-        let leaf = LinkedNode::new(source.root()).leaf_at(6).unwrap();
-        assert_eq!(leaf.kind(), &SyntaxKind::Space { newlines: 1 });
     }
 }

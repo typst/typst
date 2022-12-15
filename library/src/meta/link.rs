@@ -2,6 +2,8 @@ use crate::prelude::*;
 use crate::text::TextNode;
 
 /// Link text and other elements to a destination.
+///
+/// Tags: meta.
 #[func]
 #[capable(Show, Finalize)]
 #[derive(Debug, Hash)]

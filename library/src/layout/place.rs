@@ -1,6 +1,8 @@
 use crate::prelude::*;
 
 /// Place content at an absolute position.
+///
+/// Tags: layout.
 #[func]
 #[capable(Layout, Behave)]
 #[derive(Debug, Hash)]

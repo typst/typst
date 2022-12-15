@@ -1,6 +1,8 @@
 use crate::prelude::*;
 
 /// Repeats content to fill a line.
+///
+/// Tags: layout.
 #[func]
 #[capable(Layout, Inline)]
 #[derive(Debug, Hash)]

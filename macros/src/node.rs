@@ -36,6 +36,7 @@ struct Property {
     shorthand: Option<Shorthand>,
     resolve: bool,
     fold: bool,
+    reflect: bool,
 }
 
 /// The shorthand form of a style property.
@@ -117,6 +118,7 @@ fn prepare_property(item: &syn::ImplItemConst) -> Result<Property> {
     let mut referenced = false;
     let mut resolve = false;
     let mut fold = false;
+    let mut reflect = false;
 
     // Parse the `#[property(..)]` attribute.
     let mut stream = tokens.into_iter().peekable();
@@ -150,12 +152,9 @@ fn prepare_property(item: &syn::ImplItemConst) -> Result<Property> {
             "referenced" => referenced = true,
             "resolve" => resolve = true,
             "fold" => fold = true,
+            "reflect" => reflect = true,
             _ => bail!(ident, "invalid attribute"),
         }
-    }
-
-    if skip && shorthand.is_some() {
-        bail!(item.ident, "skip and shorthand are mutually exclusive");
     }
 
     if referenced && (fold || resolve) {
@@ -193,6 +192,7 @@ fn prepare_property(item: &syn::ImplItemConst) -> Result<Property> {
         referenced,
         resolve,
         fold,
+        reflect,
     })
 }
 
@@ -205,6 +205,7 @@ fn create(node: &Node) -> Result<TokenStream> {
     let name_method = create_node_name_method(node);
     let construct_func = create_node_construct_func(node);
     let set_func = create_node_set_func(node);
+    let properties_func = create_node_properties_func(node);
     let field_method = create_node_field_method(node);
 
     let node_impl = quote! {
@@ -213,6 +214,7 @@ fn create(node: &Node) -> Result<TokenStream> {
             #name_method
             #construct_func
             #set_func
+            #properties_func
             #field_method
         }
     };
@@ -221,7 +223,7 @@ fn create(node: &Node) -> Result<TokenStream> {
     let mut items: Vec<syn::ImplItem> = vec![];
     let scope = quote::format_ident!("__{}_keys", node.self_name);
 
-    for property in &node.properties {
+    for property in node.properties.iter() {
         let (key, module) = create_property_module(node, &property);
         modules.push(module);
 
@@ -327,6 +329,40 @@ fn create_node_set_func(node: &Node) -> syn::ImplItemMethod {
             #(#bindings)*
             #(#sets)*
             Ok(styles)
+        }
+    }
+}
+
+/// Create the node's `properties` function.
+fn create_node_properties_func(node: &Node) -> syn::ImplItemMethod {
+    let infos = node
+        .properties
+        .iter()
+        .filter(|p| !p.skip || p.reflect)
+        .map(|property| {
+            let name = property.name.to_string().replace('_', "-").to_lowercase();
+            let docs = doc_comment(&property.attrs);
+            let value_ty = &property.value_ty;
+            let shorthand = matches!(property.shorthand, Some(Shorthand::Positional));
+            quote! {
+                ::typst::model::ParamInfo {
+                    name: #name,
+                    docs: #docs,
+                    settable: true,
+                    shorthand: #shorthand,
+                    cast: <#value_ty as ::typst::model::Cast<
+                        ::typst::syntax::Spanned<::typst::model::Value>
+                    >>::describe(),
+                }
+            }
+        });
+
+    parse_quote! {
+        fn properties() -> ::std::vec::Vec<::typst::model::ParamInfo>
+        where
+            Self: Sized
+        {
+            ::std::vec![#(#infos),*]
         }
     }
 }

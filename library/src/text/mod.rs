@@ -26,6 +26,8 @@ use crate::layout::ParNode;
 use crate::prelude::*;
 
 /// A single run of text with the same style.
+///
+/// Tags: text.
 #[func]
 #[capable]
 #[derive(Clone, Hash)]
@@ -206,8 +208,7 @@ impl Debug for FontFamily {
 
 castable! {
     FontFamily,
-    Expected: "string",
-    Value::Str(string) => Self::new(&string),
+    string: EcoString => Self::new(&string),
 }
 
 /// Font family fallback list.
@@ -216,12 +217,10 @@ pub struct FallbackList(pub Vec<FontFamily>);
 
 castable! {
     FallbackList,
-    Expected: "string or array of strings",
-    Value::Str(string) => Self(vec![FontFamily::new(&string)]),
-    Value::Array(values) => Self(values
+    family: FontFamily => Self(vec![family]),
+    values: Array => Self(values
         .into_iter()
         .filter_map(|v| v.cast().ok())
-        .map(|string: EcoString| FontFamily::new(&string))
         .collect()),
 }
 
@@ -237,7 +236,10 @@ impl Fold for TextSize {
     }
 }
 
-castable!(TextSize: Length);
+castable! {
+    TextSize,
+    v: Length => Self(v),
+}
 
 /// Specifies the bottom or top edge of text.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
@@ -260,16 +262,17 @@ impl TextEdge {
 
 castable! {
     TextEdge,
-    Expected: "string or length",
-    Value::Length(v) => Self::Length(v),
-    Value::Str(string) => Self::Metric(match string.as_str() {
-        "ascender" => VerticalFontMetric::Ascender,
-        "cap-height" => VerticalFontMetric::CapHeight,
-        "x-height" => VerticalFontMetric::XHeight,
-        "baseline" => VerticalFontMetric::Baseline,
-        "descender" => VerticalFontMetric::Descender,
-        _ => Err("unknown font metric")?,
-    }),
+    v: Length => Self::Length(v),
+    /// The distance from the baseline to the ascender.
+    "ascender" => Self::Metric(VerticalFontMetric::Ascender),
+    /// The approximate height of uppercase letters.
+    "cap-height" => Self::Metric(VerticalFontMetric::CapHeight),
+    /// The approximate height of non-ascending lowercase letters.
+    "x-height" => Self::Metric(VerticalFontMetric::XHeight),
+    /// The baseline on which the letters rest.
+    "baseline" => Self::Metric(VerticalFontMetric::Baseline),
+    /// The distance from the baseline to the descender.
+    "descender" => Self::Metric(VerticalFontMetric::Descender),
 }
 
 /// The direction of text and inline objects in their line.
@@ -278,10 +281,9 @@ pub struct HorizontalDir(pub Smart<Dir>);
 
 castable! {
     HorizontalDir,
-    Expected: "direction or auto",
-    Value::Auto => Self(Smart::Auto),
-    @dir: Dir => match dir.axis() {
-        Axis::X => Self(Smart::Custom(*dir)),
+    _: AutoValue => Self(Smart::Auto),
+    dir: Dir => match dir.axis() {
+        Axis::X => Self(Smart::Custom(dir)),
         Axis::Y => Err("must be horizontal")?,
     },
 }
@@ -303,9 +305,8 @@ pub struct Hyphenate(pub Smart<bool>);
 
 castable! {
     Hyphenate,
-    Expected: "boolean or auto",
-    Value::Auto => Self(Smart::Auto),
-    Value::Bool(v) => Self(Smart::Custom(v)),
+    _: AutoValue => Self(Smart::Auto),
+    v: bool => Self(Smart::Custom(v)),
 }
 
 impl Resolve for Hyphenate {
@@ -337,8 +338,7 @@ impl StylisticSet {
 
 castable! {
     StylisticSet,
-    Expected: "integer",
-    Value::Int(v) => match v {
+    v: i64 => match v {
         1 ..= 20 => Self::new(v as u8),
         _ => Err("must be between 1 and 20")?,
     },
@@ -355,12 +355,10 @@ pub enum NumberType {
 
 castable! {
     NumberType,
-    Expected: "string",
-    Value::Str(string) => match string.as_str() {
-        "lining" => Self::Lining,
-        "old-style" => Self::OldStyle,
-        _ => Err(r#"expected "lining" or "old-style""#)?,
-    },
+    /// Numbers that fit well with capital text.
+    "lining" => Self::Lining,
+    /// Numbers that fit well into a flow of upper- and lowercase text.
+    "old-style" => Self::OldStyle,
 }
 
 /// The width of numbers / figures.
@@ -374,12 +372,10 @@ pub enum NumberWidth {
 
 castable! {
     NumberWidth,
-    Expected: "string",
-    Value::Str(string) => match string.as_str() {
-        "proportional" => Self::Proportional,
-        "tabular" => Self::Tabular,
-        _ => Err(r#"expected "proportional" or "tabular""#)?,
-    },
+    /// Number widths are glyph specific.
+    "proportional" => Self::Proportional,
+    /// All numbers are of equal width / monospaced.
+    "tabular" => Self::Tabular,
 }
 
 /// OpenType font features settings.
@@ -388,20 +384,21 @@ pub struct FontFeatures(pub Vec<(Tag, u32)>);
 
 castable! {
     FontFeatures,
-    Expected: "array of strings or dictionary mapping tags to integers",
-    Value::Array(values) => Self(values
+    values: Array => Self(values
         .into_iter()
-        .filter_map(|v| v.cast().ok())
-        .map(|string: EcoString| (Tag::from_bytes_lossy(string.as_bytes()), 1))
-        .collect()),
-    Value::Dict(values) => Self(values
-        .into_iter()
-        .filter_map(|(k, v)| {
-            let tag = Tag::from_bytes_lossy(k.as_bytes());
-            let num = v.cast::<i64>().ok()?.try_into().ok()?;
-            Some((tag, num))
+        .map(|v| {
+            let tag = v.cast::<EcoString>()?;
+            Ok((Tag::from_bytes_lossy(tag.as_bytes()), 1))
         })
-        .collect()),
+        .collect::<StrResult<_>>()?),
+    values: Dict => Self(values
+        .into_iter()
+        .map(|(k, v)| {
+            let num = v.cast::<u32>()?;
+            let tag = Tag::from_bytes_lossy(k.as_bytes());
+            Ok((tag, num))
+        })
+        .collect::<StrResult<_>>()?),
 }
 
 impl Fold for FontFeatures {

@@ -1577,12 +1577,17 @@ impl Ident {
             _ => panic!("identifier is of wrong kind"),
         }
     }
+
+    /// Get the identifier as a string slice.
+    pub fn as_str(&self) -> &str {
+        self.get()
+    }
 }
 
 impl Deref for Ident {
     type Target = str;
 
     fn deref(&self) -> &Self::Target {
-        self.get()
+        self.as_str()
     }
 }

@@ -1,6 +1,8 @@
 use crate::prelude::*;
 
 /// Display a line without affecting the layout.
+///
+/// Tags: visualize.
 #[func]
 #[capable(Layout, Inline)]
 #[derive(Debug, Hash)]

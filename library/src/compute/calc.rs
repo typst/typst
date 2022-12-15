@@ -3,6 +3,8 @@ use std::cmp::Ordering;
 use crate::prelude::*;
 
 /// The absolute value of a numeric value.
+///
+/// Tags: calculate.
 #[func]
 pub fn abs(args: &mut Args) -> SourceResult<Value> {
     let Spanned { v, span } = args.expect("numeric value")?;
@@ -20,12 +22,16 @@ pub fn abs(args: &mut Args) -> SourceResult<Value> {
 }
 
 /// The minimum of a sequence of values.
+///
+/// Tags: calculate.
 #[func]
 pub fn min(args: &mut Args) -> SourceResult<Value> {
     minmax(args, Ordering::Less)
 }
 
 /// The maximum of a sequence of values.
+///
+/// Tags: calculate.
 #[func]
 pub fn max(args: &mut Args) -> SourceResult<Value> {
     minmax(args, Ordering::Greater)
@@ -53,18 +59,24 @@ fn minmax(args: &mut Args, goal: Ordering) -> SourceResult<Value> {
 }
 
 /// Whether an integer is even.
+///
+/// Tags: calculate.
 #[func]
 pub fn even(args: &mut Args) -> SourceResult<Value> {
     Ok(Value::Bool(args.expect::<i64>("integer")? % 2 == 0))
 }
 
 /// Whether an integer is odd.
+///
+/// Tags: calculate.
 #[func]
 pub fn odd(args: &mut Args) -> SourceResult<Value> {
     Ok(Value::Bool(args.expect::<i64>("integer")? % 2 != 0))
 }
 
 /// The modulo of two numbers.
+///
+/// Tags: calculate.
 #[func]
 pub fn mod_(args: &mut Args) -> SourceResult<Value> {
     let Spanned { v: v1, span: span1 } = args.expect("integer or float")?;

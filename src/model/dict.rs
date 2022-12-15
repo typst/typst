@@ -62,6 +62,13 @@ impl Dict {
         Arc::make_mut(&mut self.0).entry(key).or_default()
     }
 
+    /// Remove the value if the dictionary contains the given key.
+    pub fn take(&mut self, key: &str) -> StrResult<Value> {
+        Arc::make_mut(&mut self.0)
+            .remove(key)
+            .ok_or_else(|| format_eco!("missing key: {:?}", Str::from(key)))
+    }
+
     /// Whether the dictionary contains a specific key.
     pub fn contains(&self, key: &str) -> bool {
         self.0.contains_key(key)
@@ -78,11 +85,6 @@ impl Dict {
             Some(_) => Ok(()),
             None => Err(missing_key(key)),
         }
-    }
-
-    /// Remove the value if the dictionary contains the given key.
-    pub fn take(&mut self, key: &str) -> Option<Value> {
-        Arc::make_mut(&mut self.0).remove(key)
     }
 
     /// Clear the dictionary.
@@ -117,6 +119,17 @@ impl Dict {
     /// Iterate over pairs of references to the contained keys and values.
     pub fn iter(&self) -> std::collections::btree_map::Iter<Str, Value> {
         self.0.iter()
+    }
+
+    /// Return an "unexpected key" error if there is any remaining pair.
+    pub fn finish(&self, expected: &[&str]) -> StrResult<()> {
+        if let Some((key, _)) = self.iter().next() {
+            let parts: Vec<_> = expected.iter().map(|s| format_eco!("\"{s}\"")).collect();
+            let mut msg = format!("unexpected key {key:?}, valid keys are ");
+            crate::diag::comma_list(&mut msg, &parts, "and");
+            return Err(msg.into());
+        }
+        Ok(())
     }
 }
 

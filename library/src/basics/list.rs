@@ -4,6 +4,8 @@ use crate::prelude::*;
 use crate::text::{SpaceNode, TextNode};
 
 /// An unordered (bulleted) or ordered (numbered) list.
+///
+/// Tags: basics.
 #[func]
 #[capable(Layout)]
 #[derive(Debug, Hash)]
@@ -24,7 +26,7 @@ pub type DescNode = ListNode<DESC>;
 impl<const L: ListKind> ListNode<L> {
     /// How the list is labelled.
     #[property(referenced)]
-    pub const LABEL: Label = Label::Default;
+    pub const LABEL: ListLabel = ListLabel::Default;
     /// The indentation of each item's label.
     #[property(resolve)]
     pub const INDENT: Length = Length::zero();
@@ -199,10 +201,10 @@ pub struct DescItem {
 
 castable! {
     DescItem,
-    Expected: "dictionary with `term` and `body` keys",
-    Value::Dict(dict) => {
-        let term: Content = dict.get("term")?.clone().cast()?;
-        let body: Content = dict.get("body")?.clone().cast()?;
+    mut dict: Dict => {
+        let term: Content = dict.take("term")?.cast()?;
+        let body: Content = dict.take("body")?.cast()?;
+        dict.finish(&["term", "body"])?;
         Self { term, body }
     },
 }
@@ -221,7 +223,7 @@ pub const DESC: ListKind = 2;
 
 /// How to label a list or enumeration.
 #[derive(Debug, Clone, Hash)]
-pub enum Label {
+pub enum ListLabel {
     /// The default labelling.
     Default,
     /// A pattern with prefix, numbering, lower / upper case and suffix.
@@ -232,7 +234,7 @@ pub enum Label {
     Func(Func, Span),
 }
 
-impl Label {
+impl ListLabel {
     /// Resolve the label based on the level.
     pub fn resolve(
         &self,
@@ -256,9 +258,12 @@ impl Label {
     }
 }
 
-impl Cast<Spanned<Value>> for Label {
+impl Cast<Spanned<Value>> for ListLabel {
     fn is(value: &Spanned<Value>) -> bool {
-        matches!(&value.v, Value::Content(_) | Value::Func(_))
+        matches!(
+            &value.v,
+            Value::None | Value::Str(_) | Value::Content(_) | Value::Func(_)
+        )
     }
 
     fn cast(value: Spanned<Value>) -> StrResult<Self> {
@@ -267,10 +272,15 @@ impl Cast<Spanned<Value>> for Label {
             Value::Str(v) => Ok(Self::Pattern(v.parse()?)),
             Value::Content(v) => Ok(Self::Content(v)),
             Value::Func(v) => Ok(Self::Func(v, value.span)),
-            v => Err(format_eco!(
-                "expected string, content or function, found {}",
-                v.type_name(),
-            )),
+            v => Self::error(v),
         }
+    }
+
+    fn describe() -> CastInfo {
+        CastInfo::Union(vec![
+            CastInfo::Type("string"),
+            CastInfo::Type("content"),
+            CastInfo::Type("function"),
+        ])
     }
 }

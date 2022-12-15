@@ -1,8 +1,8 @@
 //! Operations on values.
 
-use super::{Regex, Smart, Value};
+use super::{Regex, Value};
 use crate::diag::StrResult;
-use crate::geom::{Axes, Axis, GenAlign, Length, Numeric, PartialStroke, Rel};
+use crate::geom::{Axes, Axis, GenAlign, Length, Numeric, PartialStroke, Rel, Smart};
 use crate::util::format_eco;
 use std::cmp::Ordering;
 use Value::*;

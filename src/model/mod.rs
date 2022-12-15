@@ -26,7 +26,7 @@ mod typeset;
 
 #[doc(hidden)]
 pub use once_cell;
-pub use typst_macros::{capability, capable, func, node};
+pub use typst_macros::{capability, capable, castable, func, node};
 
 pub use self::args::*;
 pub use self::array::*;

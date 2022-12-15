@@ -1,6 +1,8 @@
 use crate::prelude::*;
 
 /// Pad content at the sides.
+///
+/// Tags: layout.
 #[func]
 #[capable(Layout)]
 #[derive(Debug, Hash)]

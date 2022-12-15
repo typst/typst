@@ -12,7 +12,8 @@ macro_rules! bail {
     }
 }
 
-mod capability;
+mod capable;
+mod castable;
 mod func;
 mod node;
 
@@ -40,7 +41,7 @@ pub fn node(_: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
 #[proc_macro_attribute]
 pub fn capability(_: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
     let item = syn::parse_macro_input!(item as syn::ItemTrait);
-    capability::capability(item)
+    capable::capability(item)
         .unwrap_or_else(|err| err.to_compile_error())
         .into()
 }
@@ -49,7 +50,34 @@ pub fn capability(_: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
 #[proc_macro_attribute]
 pub fn capable(stream: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
     let item = syn::parse_macro_input!(item as syn::Item);
-    capability::capable(stream.into(), item)
+    capable::capable(stream.into(), item)
         .unwrap_or_else(|err| err.to_compile_error())
         .into()
+}
+
+/// Implement `Cast` and optionally `Type` for a type.
+#[proc_macro]
+pub fn castable(stream: BoundaryStream) -> BoundaryStream {
+    castable::castable(stream.into())
+        .unwrap_or_else(|err| err.to_compile_error())
+        .into()
+}
+
+/// Extract documentation comments from an attribute list.
+fn doc_comment(attrs: &[syn::Attribute]) -> String {
+    let mut doc = String::new();
+
+    // Parse doc comments.
+    for attr in attrs {
+        if let Ok(syn::Meta::NameValue(meta)) = attr.parse_meta() {
+            if meta.path.is_ident("doc") {
+                if let syn::Lit::Str(string) = &meta.lit {
+                    doc.push_str(&string.value());
+                    doc.push('\n');
+                }
+            }
+        }
+    }
+
+    doc.trim().into()
 }

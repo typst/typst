@@ -2,6 +2,8 @@ use crate::prelude::*;
 use crate::text::TextNode;
 
 /// Separate a region into multiple equally sized columns.
+///
+/// Tags: layout.
 #[func]
 #[capable(Layout)]
 #[derive(Debug, Hash)]
@@ -103,6 +105,8 @@ impl Layout for ColumnsNode {
 }
 
 /// A column break.
+///
+/// Tags: layout.
 #[func]
 #[capable(Behave)]
 #[derive(Debug, Hash)]

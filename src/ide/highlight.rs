@@ -1,5 +1,3 @@
-//! Syntax highlighting for Typst source code.
-
 use crate::syntax::{LinkedNode, SyntaxKind};
 
 /// Syntax highlighting categories.
@@ -162,7 +160,8 @@ pub fn highlight(node: &LinkedNode) -> Option<Category> {
 
         SyntaxKind::Markup { .. }
             if node.parent_kind() == Some(&SyntaxKind::DescItem)
-                && node.next_sibling_kind() == Some(&SyntaxKind::Colon) =>
+                && node.next_sibling().as_ref().map(|v| v.kind())
+                    == Some(&SyntaxKind::Colon) =>
         {
             Some(Category::ListTerm)
         }
@@ -207,7 +206,8 @@ pub fn highlight(node: &LinkedNode) -> Option<Category> {
             }
             Some(SyntaxKind::SetRule) => Some(Category::Function),
             Some(SyntaxKind::ShowRule)
-                if node.prev_sibling_kind() == Some(&SyntaxKind::Show) =>
+                if node.prev_sibling().as_ref().map(|v| v.kind())
+                    == Some(&SyntaxKind::Show) =>
             {
                 Some(Category::Function)
             }

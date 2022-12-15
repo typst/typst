@@ -3,6 +3,8 @@ use std::cmp::Ordering;
 use crate::prelude::*;
 
 /// Horizontal spacing.
+///
+/// Tags: layout.
 #[func]
 #[capable(Behave)]
 #[derive(Debug, Copy, Clone, Hash)]
@@ -52,6 +54,8 @@ impl Behave for HNode {
 }
 
 /// Vertical spacing.
+///
+/// Tags: layout.
 #[func]
 #[capable(Behave)]
 #[derive(Debug, Copy, Clone, Hash, PartialEq, PartialOrd)]
@@ -119,6 +123,11 @@ impl Behave for VNode {
     }
 }
 
+castable! {
+    VNode,
+    spacing: Spacing => VNode::block_around(spacing),
+}
+
 /// Kinds of spacing.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Spacing {
@@ -160,9 +169,6 @@ impl PartialOrd for Spacing {
 
 castable! {
     Spacing,
-    Expected: "relative length or fraction",
-    Value::Length(v) => Self::Relative(v.into()),
-    Value::Ratio(v) => Self::Relative(v.into()),
-    Value::Relative(v) => Self::Relative(v),
-    Value::Fraction(v) => Self::Fractional(v),
+    v: Rel<Length> => Self::Relative(v),
+    v: Fr => Self::Fractional(v),
 }

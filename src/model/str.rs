@@ -442,9 +442,8 @@ pub enum StrPattern {
 
 castable! {
     StrPattern,
-    Expected: "string or regular expression",
-    Value::Str(text) => Self::Str(text),
-    @regex: Regex => Self::Regex(regex.clone()),
+    text: Str => Self::Str(text),
+    regex: Regex => Self::Regex(regex),
 }
 
 /// A side of a string.
@@ -459,8 +458,7 @@ pub enum StrSide {
 
 castable! {
     StrSide,
-    Expected: "start or end",
-    @align: GenAlign => match align {
+    align: GenAlign => match align {
         GenAlign::Start => Self::Start,
         GenAlign::End => Self::End,
         _ => Err("expected either `start` or `end`")?,

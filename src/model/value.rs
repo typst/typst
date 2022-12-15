@@ -6,7 +6,9 @@ use std::sync::Arc;
 
 use siphasher::sip128::{Hasher128, SipHasher};
 
-use super::{format_str, ops, Args, Array, Cast, Content, Dict, Func, Label, Str};
+use super::{
+    format_str, ops, Args, Array, Cast, CastInfo, Content, Dict, Func, Label, Str,
+};
 use crate::diag::StrResult;
 use crate::geom::{Abs, Angle, Color, Em, Fr, Length, Ratio, Rel, RgbaColor};
 use crate::util::{format_eco, EcoString};
@@ -350,6 +352,10 @@ macro_rules! primitive {
                         v.type_name(),
                     )),
                 }
+            }
+
+            fn describe() -> CastInfo {
+                CastInfo::Type(Self::TYPE_NAME)
             }
         }
 

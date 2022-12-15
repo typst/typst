@@ -12,6 +12,8 @@ use crate::text::{
 };
 
 /// Arrange text, spacing and inline-level nodes into a paragraph.
+///
+/// Tags: layout.
 #[func]
 #[capable]
 #[derive(Hash)]
@@ -109,9 +111,8 @@ pub struct HorizontalAlign(pub GenAlign);
 
 castable! {
     HorizontalAlign,
-    Expected: "alignment",
-    @align: GenAlign => match align.axis() {
-        Axis::X => Self(*align),
+    align: GenAlign => match align.axis() {
+        Axis::X => Self(align),
         Axis::Y => Err("must be horizontal")?,
     },
 }
@@ -135,15 +136,15 @@ pub enum Linebreaks {
 
 castable! {
     Linebreaks,
-    Expected: "string",
-    Value::Str(string) => match string.as_str() {
-        "simple" => Self::Simple,
-        "optimized" => Self::Optimized,
-        _ => Err(r#"expected "simple" or "optimized""#)?,
-    },
+    /// Determine the linebreaks in a simple first-fit style.
+    "simple" => Self::Simple,
+    /// Optimize the linebreaks for the whole paragraph.
+    "optimized" => Self::Optimized,
 }
 
 /// A paragraph break.
+///
+/// Tags: layout.
 #[func]
 #[capable(Unlabellable)]
 #[derive(Debug, Hash)]

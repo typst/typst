@@ -2,6 +2,8 @@ use crate::prelude::*;
 use crate::text::TextNode;
 
 /// A symbol identified by symmie notation.
+///
+/// Tags: text.
 #[func]
 #[capable(Show)]
 #[derive(Debug, Hash)]

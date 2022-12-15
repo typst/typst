@@ -57,13 +57,9 @@
 Use the `*const T` pointer or the `&mut T` reference.
 
 ---
-// Error: 15-38 unexpected key "cake"
+// Error: 15-38 unexpected key "cake", valid keys are "top-left", "top-right", "bottom-right", "bottom-left", "left", "top", "right", "bottom", and "rest"
 #rect(radius: (left: 10pt, cake: 5pt))
 
 ---
-// Error: 15-21 expected stroke or none or dictionary with any of `left`, `top`, `right`, `bottom`, `x`, `y`, or `rest` as keys or auto, found array
+// Error: 15-21 expected length, color, stroke, none, dictionary, or auto, found array
 #rect(stroke: (1, 2))
-
----
-// Error: 15-19 expected relative length or none or dictionary with any of `top-left`, `top-right`, `bottom-right`, `bottom-left`, `left`, `top`, `right`, `bottom`, or `rest` as keys, found color
-#rect(radius: blue)

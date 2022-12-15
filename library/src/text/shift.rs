@@ -10,6 +10,8 @@ use crate::prelude::*;
 /// typography possible, we first try to transform the text to superscript
 /// codepoints. If that fails, we fall back to rendering shrunk normal letters
 /// in a raised way.
+///
+/// Tags: text.
 #[func]
 #[capable(Show)]
 #[derive(Debug, Hash)]

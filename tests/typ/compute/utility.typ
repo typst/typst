@@ -41,9 +41,9 @@
 }
 
 ---
-// Error: 17-18 must be positive
+// Error: 17-18 number must be positive
 #numbering("1", 0)
 
 ---
-// Error: 17-19 must be positive
+// Error: 17-19 number must be positive
 #numbering("1", -1)

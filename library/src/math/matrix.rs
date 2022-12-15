@@ -1,6 +1,8 @@
 use super::*;
 
 /// A column vector.
+///
+/// Tags: math.
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]
@@ -52,17 +54,19 @@ pub enum Delimiter {
 
 castable! {
     Delimiter,
-    Expected: "type of bracket or bar",
-    Value::Str(s) => match s.as_str() {
-        "(" => Self::Paren,
-        "[" => Self::Bracket,
-        "{" => Self::Brace,
-        "|" => Self::Bar,
-        _ => Err("expected \"(\", \"[\", \"{\", or \"|\"")?,
-    },
+    /// Delimit matrices with parentheses.
+    "(" => Self::Paren,
+    /// Delimit matrices with brackets.
+    "[" => Self::Bracket,
+    /// Delimit matrices with curly braces.
+    "{" => Self::Brace,
+    /// Delimit matrices with vertical bars.
+    "|" => Self::Bar,
 }
 
 /// A case distinction.
+///
+/// Tags: math.
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]

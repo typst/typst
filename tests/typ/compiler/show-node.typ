@@ -96,7 +96,7 @@ Another text.
 = Heading
 
 ---
-// Error: 7-10 expected selector, found color
+// Error: 7-10 expected string, label, function, regular expression, or selector, found color
 #show red: []
 
 ---

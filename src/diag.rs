@@ -156,16 +156,6 @@ impl<T> Trace<T> for SourceResult<T> {
 /// A result type with a string error message.
 pub type StrResult<T> = Result<T, EcoString>;
 
-/// Transform `expected X, found Y` into `expected X or A, found Y`.
-pub fn with_alternative(msg: EcoString, alt: &str) -> EcoString {
-    let mut parts = msg.split(", found ");
-    if let (Some(a), Some(b)) = (parts.next(), parts.next()) {
-        format_eco!("{} or {}, found {}", a, alt, b)
-    } else {
-        msg
-    }
-}
-
 /// Convert a [`StrResult`] to a [`SourceResult`] by adding span information.
 pub trait At<T> {
     /// Add the span information.
@@ -178,6 +168,30 @@ where
 {
     fn at(self, span: Span) -> SourceResult<T> {
         self.map_err(|message| Box::new(vec![error!(span, message)]))
+    }
+}
+
+/// Format the parts separated with commas and a final "and" or "or".
+pub(crate) fn comma_list<S>(buf: &mut String, parts: &[S], last: &str)
+where
+    S: AsRef<str>,
+{
+    for (i, part) in parts.iter().enumerate() {
+        match i {
+            0 => {}
+            1 if parts.len() == 2 => {
+                buf.push(' ');
+                buf.push_str(last);
+                buf.push(' ');
+            }
+            i if i + 1 == parts.len() => {
+                buf.push_str(", ");
+                buf.push_str(last);
+                buf.push(' ');
+            }
+            _ => buf.push_str(", "),
+        }
+        buf.push_str(part.as_ref());
     }
 }
 

@@ -2,6 +2,8 @@ use super::VNode;
 use crate::prelude::*;
 
 /// An inline-level container that sizes content.
+///
+/// Tags: layout.
 #[func]
 #[capable(Layout, Inline)]
 #[derive(Debug, Hash)]
@@ -62,6 +64,8 @@ impl Layout for BoxNode {
 impl Inline for BoxNode {}
 
 /// A block-level container that places content into a separate flow.
+///
+/// Tags: layout.
 #[func]
 #[capable(Layout)]
 #[derive(Debug, Hash)]
@@ -70,10 +74,10 @@ pub struct BlockNode(pub Content);
 #[node]
 impl BlockNode {
     /// The spacing between the previous and this block.
-    #[property(skip)]
+    #[property(reflect, skip)]
     pub const ABOVE: VNode = VNode::block_spacing(Em::new(1.2).into());
     /// The spacing between this and the following block.
-    #[property(skip)]
+    #[property(reflect, skip)]
     pub const BELOW: VNode = VNode::block_spacing(Em::new(1.2).into());
     /// Whether this block must stick to the following one.
     #[property(skip)]

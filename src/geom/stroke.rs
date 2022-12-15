@@ -1,5 +1,4 @@
 use super::*;
-use crate::model::Smart;
 
 /// A stroke of a geometric shape.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]

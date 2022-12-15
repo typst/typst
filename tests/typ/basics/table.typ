@@ -18,5 +18,5 @@
 #table()
 
 ---
-// Error: 14-19 expected color or none or function, found string
+// Error: 14-19 expected color, none, or function, found string
 #table(fill: "hey")

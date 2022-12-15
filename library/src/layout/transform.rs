@@ -3,6 +3,8 @@ use typst::geom::Transform;
 use crate::prelude::*;
 
 /// Move content without affecting layout.
+///
+/// Tags: layout.
 #[func]
 #[capable(Layout, Inline)]
 #[derive(Debug, Hash)]
@@ -46,6 +48,8 @@ impl Layout for MoveNode {
 impl Inline for MoveNode {}
 
 /// Transform content without affecting layout.
+///
+/// Tags: layout.
 #[func]
 #[capable(Layout, Inline)]
 #[derive(Debug, Hash)]

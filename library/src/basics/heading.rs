@@ -6,6 +6,8 @@ use crate::prelude::*;
 use crate::text::{SpaceNode, TextNode, TextSize};
 
 /// A section heading.
+///
+/// Tags: basics.
 #[func]
 #[capable(Prepare, Show, Finalize)]
 #[derive(Debug, Hash)]

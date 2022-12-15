@@ -1,6 +1,8 @@
 use crate::prelude::*;
 
 /// Align content horizontally and vertically.
+///
+/// Tags: layout.
 #[func]
 #[capable]
 #[derive(Debug, Hash)]

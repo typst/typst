@@ -5,8 +5,8 @@ use std::sync::Arc;
 use comemo::{Track, Tracked};
 
 use super::{
-    Args, Dict, Eval, Flow, Node, NodeId, Route, Scope, Scopes, Selector, StyleMap,
-    Value, Vm,
+    Args, CastInfo, Dict, Eval, Flow, Node, NodeId, Route, Scope, Scopes, Selector,
+    StyleMap, Value, Vm,
 };
 use crate::diag::{bail, SourceResult, StrResult};
 use crate::syntax::ast::{self, AstNode, Expr};
@@ -39,13 +39,14 @@ impl Func {
     pub fn from_fn(
         name: &'static str,
         func: fn(&Vm, &mut Args) -> SourceResult<Value>,
-        doc: &'static str,
+        info: FuncInfo,
     ) -> Self {
-        Self(Arc::new(Repr::Native(Native { name, func, set: None, node: None, doc })))
+        Self(Arc::new(Repr::Native(Native { name, func, set: None, node: None, info })))
     }
 
     /// Create a new function from a native rust node.
-    pub fn from_node<T: Node>(name: &'static str, doc: &'static str) -> Self {
+    pub fn from_node<T: Node>(name: &'static str, mut info: FuncInfo) -> Self {
+        info.params.extend(T::properties());
         Self(Arc::new(Repr::Native(Native {
             name,
             func: |ctx, args| {
@@ -55,7 +56,7 @@ impl Func {
             },
             set: Some(|args| T::set(args, false)),
             node: Some(NodeId::of::<T>()),
-            doc,
+            info,
         })))
     }
 
@@ -73,11 +74,11 @@ impl Func {
         }
     }
 
-    /// Documentation for the function.
-    pub fn doc(&self) -> Option<&str> {
+    /// Extract details the function.
+    pub fn info(&self) -> Option<&FuncInfo> {
         match self.0.as_ref() {
-            Repr::Native(native) => Some(native.doc),
-            Repr::With(func, _) => func.doc(),
+            Repr::Native(native) => Some(&native.info),
+            Repr::With(func, _) => func.info(),
             _ => None,
         }
     }
@@ -192,7 +193,7 @@ struct Native {
     /// The id of the node to customize with this function's show rule.
     node: Option<NodeId>,
     /// Documentation of the function.
-    doc: &'static str,
+    info: FuncInfo,
 }
 
 impl Hash for Native {
@@ -201,8 +202,42 @@ impl Hash for Native {
         (self.func as usize).hash(state);
         self.set.map(|set| set as usize).hash(state);
         self.node.hash(state);
-        self.doc.hash(state);
     }
+}
+
+/// Details about a function.
+#[derive(Debug, Clone)]
+pub struct FuncInfo {
+    /// The function's name.
+    pub name: &'static str,
+    /// Tags that categorize the function.
+    pub tags: &'static [&'static str],
+    /// Documentation for the function.
+    pub docs: &'static str,
+    /// Details about the function's parameters.
+    pub params: Vec<ParamInfo>,
+}
+
+impl FuncInfo {
+    /// Get the parameter info for a parameter with the given name
+    pub fn param(&self, name: &str) -> Option<&ParamInfo> {
+        self.params.iter().find(|param| param.name == name)
+    }
+}
+
+/// Describes a named parameter.
+#[derive(Debug, Clone)]
+pub struct ParamInfo {
+    /// The parameter's name.
+    pub name: &'static str,
+    /// Documentation for the parameter.
+    pub docs: &'static str,
+    /// Is the parameter settable with a set rule?
+    pub settable: bool,
+    /// Can the name be omitted?
+    pub shorthand: bool,
+    /// Valid values for the parameter.
+    pub cast: CastInfo,
 }
 
 /// A user-defined closure.

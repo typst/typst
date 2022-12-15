@@ -5,6 +5,8 @@ use crate::prelude::*;
 use crate::text::TextNode;
 
 /// Layouts its child onto one or multiple pages.
+///
+/// Tags: layout.
 #[func]
 #[capable]
 #[derive(Clone, Hash)]
@@ -12,6 +14,9 @@ pub struct PageNode(pub Content);
 
 #[node]
 impl PageNode {
+    /// The paper size.
+    #[property(reflect, skip, shorthand)]
+    pub const PAPER: Paper = Paper::A4;
     /// The unflipped width of the page.
     #[property(resolve)]
     pub const WIDTH: Smart<Length> = Smart::Custom(Paper::A4.width().into());
@@ -145,6 +150,8 @@ impl Debug for PageNode {
 }
 
 /// A page break.
+///
+/// Tags: layout.
 #[func]
 #[capable]
 #[derive(Debug, Copy, Clone, Hash)]
@@ -187,7 +194,10 @@ impl Marginal {
 
 impl Cast<Spanned<Value>> for Marginal {
     fn is(value: &Spanned<Value>) -> bool {
-        matches!(&value.v, Value::Content(_) | Value::Func(_))
+        matches!(
+            &value.v,
+            Value::None | Value::Str(_) | Value::Content(_) | Value::Func(_)
+        )
     }
 
     fn cast(value: Spanned<Value>) -> StrResult<Self> {
@@ -196,43 +206,51 @@ impl Cast<Spanned<Value>> for Marginal {
             Value::Str(v) => Ok(Self::Content(TextNode::packed(v))),
             Value::Content(v) => Ok(Self::Content(v)),
             Value::Func(v) => Ok(Self::Func(v, value.span)),
-            v => Err(format_eco!(
-                "expected none, content or function, found {}",
-                v.type_name(),
-            )),
+            v => Self::error(v),
         }
+    }
+
+    fn describe() -> CastInfo {
+        CastInfo::Union(vec![
+            CastInfo::Type("none"),
+            CastInfo::Type("content"),
+            CastInfo::Type("function"),
+        ])
     }
 }
 
 /// Specification of a paper.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Hash)]
 pub struct Paper {
     /// The width of the paper in millimeters.
-    width: f64,
+    width: Scalar,
     /// The height of the paper in millimeters.
-    height: f64,
+    height: Scalar,
 }
 
 impl Paper {
     /// The width of the paper.
     pub fn width(self) -> Abs {
-        Abs::mm(self.width)
+        Abs::mm(self.width.0)
     }
 
     /// The height of the paper.
     pub fn height(self) -> Abs {
-        Abs::mm(self.height)
+        Abs::mm(self.height.0)
     }
 }
 
 /// Defines paper constants and a paper parsing implementation.
 macro_rules! papers {
-    ($(($var:ident: $width:expr, $height: expr, $($pats:tt)*))*) => {
+    ($(($var:ident: $width:expr, $height: expr, $pat:literal))*) => {
         /// Predefined papers.
         ///
         /// Each paper is parsable from its name in kebab-case.
         impl Paper {
-            $(pub const $var: Self = Self { width: $width, height: $height };)*
+            $(pub const $var: Self = Self {
+                width: Scalar($width),
+                height: Scalar($height),
+            };)*
         }
 
         impl FromStr for Paper {
@@ -240,18 +258,17 @@ macro_rules! papers {
 
             fn from_str(name: &str) -> Result<Self, Self::Err> {
                 match name.to_lowercase().as_str() {
-                    $($($pats)* => Ok(Self::$var),)*
+                    $($pat => Ok(Self::$var),)*
                     _ => Err("invalid paper name"),
                 }
             }
         }
-    };
-}
 
-castable! {
-    Paper,
-    Expected: "string",
-    Value::Str(string) => Self::from_str(&string)?,
+        castable! {
+            Paper,
+            $($pat => Self::$var,)*
+        }
+    };
 }
 
 // All paper sizes in mm.

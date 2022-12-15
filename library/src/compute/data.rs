@@ -5,6 +5,8 @@ use typst::diag::{format_xml_like_error, FileError};
 use crate::prelude::*;
 
 /// Read structured data from a CSV file.
+///
+/// Tags: data-loading.
 #[func]
 pub fn csv(vm: &Vm, args: &mut Args) -> SourceResult<Value> {
     let Spanned { v: path, span } =
@@ -46,6 +48,8 @@ fn format_csv_error(error: csv::Error) -> String {
 }
 
 /// Read structured data from a JSON file.
+///
+/// Tags: data-loading.
 #[func]
 pub fn json(vm: &Vm, args: &mut Args) -> SourceResult<Value> {
     let Spanned { v: path, span } =
@@ -87,6 +91,8 @@ fn format_json_error(error: serde_json::Error) -> String {
 }
 
 /// Read structured data from an XML file.
+///
+/// Tags: data-loading.
 #[func]
 pub fn xml(vm: &Vm, args: &mut Args) -> SourceResult<Value> {
     let Spanned { v: path, span } =

@@ -5,6 +5,8 @@ use super::TextNode;
 use crate::prelude::*;
 
 /// Typeset underline, stricken-through or overlined text.
+///
+/// Tags: text.
 #[func]
 #[capable(Show)]
 #[derive(Debug, Hash)]

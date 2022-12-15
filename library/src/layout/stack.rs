@@ -4,6 +4,8 @@ use super::{AlignNode, Spacing};
 use crate::prelude::*;
 
 /// Arrange content and spacing along an axis.
+///
+/// Tags: layout.
 #[func]
 #[capable(Layout)]
 #[derive(Debug, Hash)]
@@ -81,12 +83,8 @@ impl Debug for StackChild {
 
 castable! {
     StackChild,
-    Expected: "relative length, fraction, or content",
-    Value::Length(v) => Self::Spacing(Spacing::Relative(v.into())),
-    Value::Ratio(v) => Self::Spacing(Spacing::Relative(v.into())),
-    Value::Relative(v) => Self::Spacing(Spacing::Relative(v)),
-    Value::Fraction(v) => Self::Spacing(Spacing::Fractional(v)),
-    Value::Content(v) => Self::Block(v),
+    spacing: Spacing => Self::Spacing(spacing),
+    content: Content => Self::Block(content),
 }
 
 /// Performs stack layout.

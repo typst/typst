@@ -3,6 +3,8 @@ use typst::syntax::is_newline;
 use crate::prelude::*;
 
 /// A smart quote.
+///
+/// Tags: text.
 #[func]
 #[capable]
 #[derive(Debug, Hash)]

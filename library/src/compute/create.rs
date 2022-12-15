@@ -5,6 +5,8 @@ use typst::model::Regex;
 use crate::prelude::*;
 
 /// Convert a value to an integer.
+///
+/// Tags: create.
 #[func]
 pub fn int(args: &mut Args) -> SourceResult<Value> {
     let Spanned { v, span } = args.expect("value")?;
@@ -21,6 +23,8 @@ pub fn int(args: &mut Args) -> SourceResult<Value> {
 }
 
 /// Convert a value to a float.
+///
+/// Tags: create.
 #[func]
 pub fn float(args: &mut Args) -> SourceResult<Value> {
     let Spanned { v, span } = args.expect("value")?;
@@ -36,6 +40,8 @@ pub fn float(args: &mut Args) -> SourceResult<Value> {
 }
 
 /// Create a grayscale color.
+///
+/// Tags: create.
 #[func]
 pub fn luma(args: &mut Args) -> SourceResult<Value> {
     let Component(luma) = args.expect("gray component")?;
@@ -43,6 +49,8 @@ pub fn luma(args: &mut Args) -> SourceResult<Value> {
 }
 
 /// Create an RGB(A) color.
+///
+/// Tags: create.
 #[func]
 pub fn rgb(args: &mut Args) -> SourceResult<Value> {
     Ok(Value::Color(if let Some(string) = args.find::<Spanned<EcoString>>()? {
@@ -60,6 +68,8 @@ pub fn rgb(args: &mut Args) -> SourceResult<Value> {
 }
 
 /// Create a CMYK color.
+///
+/// Tags: create.
 #[func]
 pub fn cmyk(args: &mut Args) -> SourceResult<Value> {
     let RatioComponent(c) = args.expect("cyan component")?;
@@ -74,12 +84,11 @@ struct Component(u8);
 
 castable! {
     Component,
-    Expected: "integer or ratio",
-    Value::Int(v) => match v {
+    v: i64 => match v {
         0 ..= 255 => Self(v as u8),
         _ => Err("must be between 0 and 255")?,
     },
-    Value::Ratio(v) => if (0.0 ..= 1.0).contains(&v.get()) {
+    v: Ratio => if (0.0 ..= 1.0).contains(&v.get()) {
         Self((v.get() * 255.0).round() as u8)
     } else {
         Err("must be between 0% and 100%")?
@@ -91,8 +100,7 @@ struct RatioComponent(u8);
 
 castable! {
     RatioComponent,
-    Expected: "ratio",
-    Value::Ratio(v) => if (0.0 ..= 1.0).contains(&v.get()) {
+    v: Ratio => if (0.0 ..= 1.0).contains(&v.get()) {
         Self((v.get() * 255.0).round() as u8)
     } else {
         Err("must be between 0% and 100%")?
@@ -100,6 +108,8 @@ castable! {
 }
 
 /// Convert a value to a string.
+///
+/// Tags: create.
 #[func]
 pub fn str(args: &mut Args) -> SourceResult<Value> {
     let Spanned { v, span } = args.expect("value")?;
@@ -113,12 +123,16 @@ pub fn str(args: &mut Args) -> SourceResult<Value> {
 }
 
 /// Create a label from a string.
+///
+/// Tags: create.
 #[func]
 pub fn label(args: &mut Args) -> SourceResult<Value> {
     Ok(Value::Label(Label(args.expect("string")?)))
 }
 
 /// Create a regular expression from a string.
+///
+/// Tags: create.
 #[func]
 pub fn regex(args: &mut Args) -> SourceResult<Value> {
     let Spanned { v, span } = args.expect::<Spanned<EcoString>>("regular expression")?;
@@ -126,6 +140,8 @@ pub fn regex(args: &mut Args) -> SourceResult<Value> {
 }
 
 /// Create an array consisting of a sequence of numbers.
+///
+/// Tags: create.
 #[func]
 pub fn range(args: &mut Args) -> SourceResult<Value> {
     let first = args.expect::<i64>("end")?;

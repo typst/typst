@@ -2,7 +2,37 @@ use super::*;
 
 /// Expand the `#[func]` macro.
 pub fn func(item: syn::Item) -> Result<TokenStream> {
-    let doc = documentation(&item)?;
+    let doc_comment = match &item {
+        syn::Item::Struct(item) => doc_comment(&item.attrs),
+        syn::Item::Enum(item) => doc_comment(&item.attrs),
+        syn::Item::Fn(item) => doc_comment(&item.attrs),
+        _ => String::new(),
+    };
+
+    let mut tags = vec![];
+    let mut kept = vec![];
+    for line in doc_comment.lines() {
+        let line = line.trim();
+        if let Some(suffix) = line.trim_end_matches(".").strip_prefix("Tags: ") {
+            tags.extend(suffix.split(", "));
+        } else {
+            kept.push(line);
+        }
+    }
+
+    while kept.last().map_or(false, |line| line.is_empty()) {
+        kept.pop();
+    }
+
+    let docs = kept.join("\n");
+    let info = quote! {
+        ::typst::model::FuncInfo {
+            name,
+            docs: #docs,
+            tags: &[#(#tags),*],
+            params: ::std::vec![],
+        }
+    };
 
     if let syn::Item::Fn(item) = &item {
         let vis = &item.vis;
@@ -29,7 +59,7 @@ pub fn func(item: syn::Item) -> Result<TokenStream> {
 
             impl::typst::model::FuncType for #ty {
                 fn create_func(name: &'static str) -> ::typst::model::Func {
-                    ::typst::model::Func::from_fn(name, #full, #doc)
+                    ::typst::model::Func::from_fn(name, #full, #info)
                 }
             }
         })
@@ -47,36 +77,9 @@ pub fn func(item: syn::Item) -> Result<TokenStream> {
 
             impl #params ::typst::model::FuncType for #ident #args #clause {
                 fn create_func(name: &'static str) -> ::typst::model::Func {
-                    ::typst::model::Func::from_node::<Self>(name, #doc)
+                    ::typst::model::Func::from_node::<Self>(name, #info)
                 }
             }
         })
     }
-}
-
-/// Extract the item's documentation.
-fn documentation(item: &syn::Item) -> Result<String> {
-    let mut doc = String::new();
-
-    // Extract attributes.
-    let attrs = match item {
-        syn::Item::Struct(item) => &item.attrs,
-        syn::Item::Enum(item) => &item.attrs,
-        syn::Item::Fn(item) => &item.attrs,
-        _ => return Ok(doc),
-    };
-
-    // Parse doc comments.
-    for attr in attrs {
-        if let syn::Meta::NameValue(meta) = attr.parse_meta()? {
-            if meta.path.is_ident("doc") {
-                if let syn::Lit::Str(string) = &meta.lit {
-                    doc.push_str(&string.value());
-                    doc.push('\n');
-                }
-            }
-        }
-    }
-
-    Ok(doc.trim().into())
 }

@@ -29,6 +29,8 @@
 //! [PDF]: export::pdf
 //! [raster images]: export::render
 
+#![recursion_limit = "1000"]
+
 extern crate self as typst;
 
 #[macro_use]

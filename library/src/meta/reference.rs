@@ -2,6 +2,8 @@ use crate::prelude::*;
 use crate::text::TextNode;
 
 /// A reference to a label.
+///
+/// Tags: meta.
 #[func]
 #[capable(Show)]
 #[derive(Debug, Hash)]

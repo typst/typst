@@ -11,7 +11,8 @@ use thin_vec::ThinVec;
 use typst_macros::node;
 
 use super::{
-    capability, capable, Args, Guard, Key, Property, Recipe, Style, StyleMap, Value, Vm,
+    capability, capable, Args, Guard, Key, ParamInfo, Property, Recipe, Style, StyleMap,
+    Value, Vm,
 };
 use crate::diag::{SourceResult, StrResult};
 use crate::syntax::Span;
@@ -423,6 +424,11 @@ pub trait Node: 'static + Capable {
     /// When `constructor` is true, [`construct`](Self::construct) will run
     /// after this invocation of `set` with the remaining arguments.
     fn set(args: &mut Args, constructor: bool) -> SourceResult<StyleMap>
+    where
+        Self: Sized;
+
+    /// List the settable properties.
+    fn properties() -> Vec<ParamInfo>
     where
         Self: Sized;
 

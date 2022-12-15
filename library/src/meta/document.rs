@@ -2,6 +2,8 @@ use crate::layout::{LayoutRoot, PageNode};
 use crate::prelude::*;
 
 /// The root node that represents a full document.
+///
+/// Tags: meta.
 #[func]
 #[capable(LayoutRoot)]
 #[derive(Hash)]

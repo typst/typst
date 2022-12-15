@@ -3,6 +3,8 @@ use crate::prelude::*;
 use super::Spacing;
 
 /// Arrange content in a grid.
+///
+/// Tags: layout.
 #[func]
 #[capable(Layout)]
 #[derive(Debug, Hash)]
@@ -85,17 +87,9 @@ pub struct TrackSizings(pub Vec<TrackSizing>);
 
 castable! {
     TrackSizings,
-    Expected: "integer, auto, relative length, fraction, or array of the latter three",
-    Value::Auto => Self(vec![TrackSizing::Auto]),
-    Value::Length(v) => Self(vec![TrackSizing::Relative(v.into())]),
-    Value::Ratio(v) => Self(vec![TrackSizing::Relative(v.into())]),
-    Value::Relative(v) => Self(vec![TrackSizing::Relative(v)]),
-    Value::Fraction(v) => Self(vec![TrackSizing::Fractional(v)]),
-    Value::Int(v) => Self(vec![
-        TrackSizing::Auto;
-        Value::Int(v).cast::<NonZeroUsize>()?.get()
-    ]),
-    Value::Array(values) => Self(values
+    sizing: TrackSizing => Self(vec![sizing]),
+    count: NonZeroUsize => Self(vec![TrackSizing::Auto; count.get()]),
+    values: Array => Self(values
         .into_iter()
         .filter_map(|v| v.cast().ok())
         .collect()),
@@ -103,12 +97,9 @@ castable! {
 
 castable! {
     TrackSizing,
-    Expected: "auto, relative length, or fraction",
-    Value::Auto => Self::Auto,
-    Value::Length(v) => Self::Relative(v.into()),
-    Value::Ratio(v) => Self::Relative(v.into()),
-    Value::Relative(v) => Self::Relative(v),
-    Value::Fraction(v) => Self::Fractional(v),
+    _: AutoValue => Self::Auto,
+    v: Rel<Length> => Self::Relative(v),
+    v: Fr => Self::Fractional(v),
 }
 
 /// Performs grid layout.

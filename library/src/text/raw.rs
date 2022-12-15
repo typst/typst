@@ -7,6 +7,8 @@ use crate::layout::BlockNode;
 use crate::prelude::*;
 
 /// Raw text with optional syntax highlighting.
+///
+/// Tags: text.
 #[func]
 #[capable(Show)]
 #[derive(Debug, Hash)]

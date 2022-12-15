@@ -5,6 +5,8 @@ use typst::image::{Image, ImageFormat, RasterFormat, VectorFormat};
 use crate::prelude::*;
 
 /// Show a raster or vector graphic.
+///
+/// Tags: visualize.
 #[func]
 #[capable(Layout, Inline)]
 #[derive(Debug, Hash)]
@@ -112,11 +114,10 @@ pub enum ImageFit {
 
 castable! {
     ImageFit,
-    Expected: "string",
-    Value::Str(string) => match string.as_str() {
-        "cover" => Self::Cover,
-        "contain" => Self::Contain,
-        "stretch" => Self::Stretch,
-        _ => Err(r#"expected "cover", "contain" or "stretch""#)?,
-    },
+    /// The image should completely cover the area.
+    "cover" => Self::Cover,
+    /// The image should be fully contained in the area.
+    "contain" => Self::Contain,
+    /// The image should be stretched so that it exactly fills the area.
+    "stretch" => Self::Stretch,
 }

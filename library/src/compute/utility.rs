@@ -4,6 +4,8 @@ use crate::prelude::*;
 use crate::text::Case;
 
 /// Create a blind text string.
+///
+/// Tags: utility.
 #[func]
 pub fn lorem(args: &mut Args) -> SourceResult<Value> {
     let words: usize = args.expect("number of words")?;
@@ -11,6 +13,8 @@ pub fn lorem(args: &mut Args) -> SourceResult<Value> {
 }
 
 /// Apply a numbering pattern to a number.
+///
+/// Tags: utility.
 #[func]
 pub fn numbering(args: &mut Args) -> SourceResult<Value> {
     let pattern = args.expect::<NumberingPattern>("pattern")?;
@@ -93,8 +97,7 @@ impl FromStr for NumberingPattern {
 
 castable! {
     NumberingPattern,
-    Expected: "numbering pattern",
-    Value::Str(s) => s.parse()?,
+    string: EcoString => string.parse()?,
 }
 
 /// Different kinds of numberings.

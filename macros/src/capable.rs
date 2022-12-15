@@ -1,8 +1,8 @@
-use super::*;
-
 use syn::parse::Parser;
 use syn::punctuated::Punctuated;
 use syn::Token;
+
+use super::*;
 
 /// Expand the `#[capability]` macro.
 pub fn capability(item: syn::ItemTrait) -> Result<TokenStream> {

@@ -21,6 +21,7 @@ mod rounded;
 mod scalar;
 mod sides;
 mod size;
+mod smart;
 mod stroke;
 mod transform;
 
@@ -43,6 +44,7 @@ pub use self::rounded::*;
 pub use self::scalar::*;
 pub use self::sides::*;
 pub use self::size::*;
+pub use self::smart::*;
 pub use self::stroke::*;
 pub use self::transform::*;
 

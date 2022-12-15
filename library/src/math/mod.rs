@@ -15,6 +15,8 @@ use crate::prelude::*;
 use crate::text::{FontFamily, LinebreakNode, SpaceNode, SymbolNode, TextNode};
 
 /// A piece of a mathematical formula.
+///
+/// Tags: math.
 #[func]
 #[capable(Show, Layout, Inline, Texify)]
 #[derive(Debug, Clone, Hash)]
@@ -244,6 +246,8 @@ impl Texify for Content {
 }
 
 /// An atom in a math formula: `x`, `+`, `12`.
+///
+/// Tags: math.
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]
@@ -283,6 +287,8 @@ impl Texify for AtomNode {
 }
 
 /// An accented node.
+///
+/// Tags: math.
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]
@@ -358,6 +364,8 @@ impl Texify for AccNode {
 }
 
 /// A fraction.
+///
+/// Tags: math.
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]
@@ -389,6 +397,8 @@ impl Texify for FracNode {
 }
 
 /// A binomial.
+///
+/// Tags: math.
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]
@@ -420,6 +430,8 @@ impl Texify for BinomNode {
 }
 
 /// A sub- and/or superscript.
+///
+/// Tags: math.
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]
@@ -456,6 +468,8 @@ impl Texify for ScriptNode {
 }
 
 /// A math alignment point: `&`, `&&`.
+///
+/// Tags: math.
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]
@@ -471,6 +485,8 @@ impl Texify for AlignPointNode {
 }
 
 /// A square root.
+///
+/// Tags: math.
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]
@@ -493,6 +509,8 @@ impl Texify for SqrtNode {
 }
 
 /// A floored expression.
+///
+/// Tags: math.
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]
@@ -515,6 +533,8 @@ impl Texify for FloorNode {
 }
 
 /// A ceiled expression.
+///
+/// Tags: math.
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]

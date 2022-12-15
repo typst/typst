@@ -17,9 +17,9 @@
 #try(1pt + 0.3em, -0.15em)
 
 ---
-// Error: 21-23 expected string or length, found array
+// Error: 21-23 expected length, "ascender", "cap-height", "x-height", "baseline", or "descender", found array
 #set text(top-edge: ())
 
 ---
-// Error: 24-26 unknown font metric
+// Error: 24-26 expected length, "ascender", "cap-height", "x-height", "baseline", or "descender"
 #set text(bottom-edge: "")

@@ -2,6 +2,8 @@ use super::TextNode;
 use crate::prelude::*;
 
 /// A text space.
+///
+/// Tags: text.
 #[func]
 #[capable(Unlabellable, Behave)]
 #[derive(Debug, Hash)]
@@ -23,6 +25,8 @@ impl Behave for SpaceNode {
 }
 
 /// A line break.
+///
+/// Tags: text.
 #[func]
 #[capable(Behave)]
 #[derive(Debug, Hash)]
@@ -45,6 +49,8 @@ impl Behave for LinebreakNode {
 }
 
 /// Strongly emphasizes content by increasing the font weight.
+///
+/// Tags: text.
 #[func]
 #[capable(Show)]
 #[derive(Debug, Hash)]
@@ -79,8 +85,7 @@ pub struct Delta(pub i64);
 
 castable! {
     Delta,
-    Expected: "integer",
-    Value::Int(delta) => Self(delta),
+    v: i64 => Self(v),
 }
 
 impl Fold for Delta {
@@ -92,6 +97,8 @@ impl Fold for Delta {
 }
 
 /// Emphasizes content by flipping the italicness.
+///
+/// Tags: text.
 #[func]
 #[capable(Show)]
 #[derive(Debug, Hash)]
@@ -130,12 +137,16 @@ impl Fold for Toggle {
 }
 
 /// Convert a string or content to lowercase.
+///
+/// Tags: text.
 #[func]
 pub fn lower(args: &mut Args) -> SourceResult<Value> {
     case(Case::Lower, args)
 }
 
 /// Convert a string or content to uppercase.
+///
+/// Tags: text.
 #[func]
 pub fn upper(args: &mut Args) -> SourceResult<Value> {
     case(Case::Upper, args)
@@ -171,6 +182,8 @@ impl Case {
 }
 
 /// Display text in small capitals.
+///
+/// Tags: text.
 #[func]
 pub fn smallcaps(args: &mut Args) -> SourceResult<Value> {
     let body: Content = args.expect("content")?;

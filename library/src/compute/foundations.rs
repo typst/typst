@@ -5,18 +5,24 @@ use typst::model;
 use typst::syntax::Source;
 
 /// The name of a value's type.
+///
+/// Tags: foundations.
 #[func]
 pub fn type_(args: &mut Args) -> SourceResult<Value> {
     Ok(args.expect::<Value>("value")?.type_name().into())
 }
 
 /// The string representation of a value.
+///
+/// Tags: foundations.
 #[func]
 pub fn repr(args: &mut Args) -> SourceResult<Value> {
     Ok(args.expect::<Value>("value")?.repr().into())
 }
 
 /// Ensure that a condition is fulfilled.
+///
+/// Tags: foundations.
 #[func]
 pub fn assert(args: &mut Args) -> SourceResult<Value> {
     let Spanned { v, span } = args.expect::<Spanned<bool>>("condition")?;
@@ -27,6 +33,8 @@ pub fn assert(args: &mut Args) -> SourceResult<Value> {
 }
 
 /// Evaluate a string as Typst markup.
+///
+/// Tags: foundations.
 #[func]
 pub fn eval(vm: &Vm, args: &mut Args) -> SourceResult<Value> {
     let Spanned { v: text, span } = args.expect::<Spanned<String>>("source")?;

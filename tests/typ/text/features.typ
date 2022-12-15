@@ -55,9 +55,13 @@ fi vs. #text(features: (liga: 0))[No fi]
 #set text(stylistic-set: 25)
 
 ---
-// Error: 24-25 expected string or auto, found integer
+// Error: 24-25 expected "lining", "old-style", or auto, found integer
 #set text(number-type: 2)
 
 ---
-// Error: 21-26 expected array of strings or dictionary mapping tags to integers, found boolean
+// Error: 21-26 expected array or dictionary, found boolean
 #set text(features: false)
+
+---
+// Error: 21-35 expected string, found boolean
+#set text(features: ("tag", false))

@@ -8,17 +8,17 @@ pub use std::num::NonZeroUsize;
 #[doc(no_inline)]
 pub use comemo::{Track, Tracked, TrackedMut};
 #[doc(no_inline)]
-pub use typst::diag::{bail, error, with_alternative, At, SourceResult, StrResult};
+pub use typst::diag::{bail, error, At, SourceResult, StrResult};
 #[doc(no_inline)]
 pub use typst::doc::*;
 #[doc(no_inline)]
 pub use typst::geom::*;
 #[doc(no_inline)]
 pub use typst::model::{
-    array, capability, capable, castable, dict, dynamic, format_str, func, node, Args,
-    Array, Cast, Content, Dict, Finalize, Fold, Func, Introspector, Label, Node, NodeId,
-    Prepare, Resolve, Selector, Show, Smart, StabilityProvider, Str, StyleChain,
-    StyleMap, StyleVec, Unlabellable, Value, Vm, Vt,
+    array, capability, capable, castable, dict, format_str, func, node, Args, Array,
+    AutoValue, Cast, CastInfo, Content, Dict, Finalize, Fold, Func, Introspector, Label,
+    Node, NodeId, NoneValue, Prepare, Resolve, Selector, Show, StabilityProvider, Str,
+    StyleChain, StyleMap, StyleVec, Unlabellable, Value, Vm, Vt,
 };
 #[doc(no_inline)]
 pub use typst::syntax::{Span, Spanned};

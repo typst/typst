@@ -2,6 +2,8 @@ use crate::layout::{GridNode, TrackSizing, TrackSizings};
 use crate::prelude::*;
 
 /// A table of items.
+///
+/// Tags: basics.
 #[func]
 #[capable(Layout)]
 #[derive(Debug, Hash)]
@@ -125,9 +127,12 @@ impl<T: Cast> Cast<Spanned<Value>> for Celled<T> {
     fn cast(value: Spanned<Value>) -> StrResult<Self> {
         match value.v {
             Value::Func(v) => Ok(Self::Func(v, value.span)),
-            v => T::cast(v)
-                .map(Self::Value)
-                .map_err(|msg| with_alternative(msg, "function")),
+            v if T::is(&v) => Ok(Self::Value(T::cast(v)?)),
+            v => Self::error(v),
         }
+    }
+
+    fn describe() -> CastInfo {
+        T::describe() + CastInfo::Type("function")
     }
 }

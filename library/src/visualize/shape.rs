@@ -3,6 +3,8 @@ use std::f64::consts::SQRT_2;
 use crate::prelude::*;
 
 /// A sizable and fillable shape with optional content.
+///
+/// Tags: visualize.
 #[func]
 #[capable(Layout, Inline)]
 #[derive(Debug, Hash)]
@@ -25,7 +27,7 @@ impl<const S: ShapeKind> ShapeNode<S> {
     /// How to fill the shape.
     pub const FILL: Option<Paint> = None;
     /// How to stroke the shape.
-    #[property(skip, resolve, fold)]
+    #[property(reflect, skip, resolve, fold)]
     pub const STROKE: Smart<Sides<Option<PartialStroke>>> = Smart::Auto;
 
     /// How much to pad the shape's content.
@@ -36,7 +38,7 @@ impl<const S: ShapeKind> ShapeNode<S> {
     pub const OUTSET: Sides<Option<Rel<Length>>> = Sides::splat(Rel::zero());
 
     /// How much to round the shape's corners.
-    #[property(skip, resolve, fold)]
+    #[property(reflect, skip, resolve, fold)]
     pub const RADIUS: Corners<Option<Rel<Length>>> = Corners::splat(Rel::zero());
 
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
