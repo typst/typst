@@ -3,7 +3,8 @@ use crate::prelude::*;
 
 /// The root node that represents a full document.
 ///
-/// Tags: meta.
+/// # Tags
+/// - meta
 #[func]
 #[capable(LayoutRoot)]
 #[derive(Hash)]

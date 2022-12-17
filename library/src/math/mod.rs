@@ -16,22 +16,35 @@ use crate::text::{FontFamily, LinebreakNode, SpaceNode, SymbolNode, TextNode};
 
 /// A piece of a mathematical formula.
 ///
-/// Tags: math.
+/// # Parameters
+/// - items: Content (positional, variadic)
+///   The individual parts of the formula.
+/// - block: bool (named)
+///   Whether the formula is displayed as a separate block.
+///
+/// # Tags
+/// - math
 #[func]
 #[capable(Show, Layout, Inline, Texify)]
 #[derive(Debug, Clone, Hash)]
 pub struct MathNode {
-    /// Whether the formula is display-level.
-    pub display: bool,
+    /// Whether the formula is displayed as a separate block.
+    pub block: bool,
     /// The pieces of the formula.
     pub children: Vec<Content>,
 }
 
 #[node]
 impl MathNode {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
+        let block = args.named("block")?.unwrap_or(false);
+        let children = args.all()?;
+        Ok(Self { block, children }.pack())
+    }
+
     fn field(&self, name: &str) -> Option<Value> {
         match name {
-            "display" => Some(Value::Bool(self.display)),
+            "block" => Some(Value::Bool(self.block)),
             _ => None,
         }
     }
@@ -48,7 +61,7 @@ impl Show for MathNode {
             .guarded(Guard::Base(NodeId::of::<Self>()))
             .styled_with_map(map);
 
-        if self.display {
+        if self.block {
             realized = realized.aligned(Axes::with_x(Some(Align::Center.into())))
         }
 
@@ -65,7 +78,7 @@ impl Layout for MathNode {
     ) -> SourceResult<Fragment> {
         let mut t = Texifier::new(styles);
         self.texify(&mut t)?;
-        Ok(layout_tex(vt, &t.finish(), self.display, styles)
+        Ok(layout_tex(vt, &t.finish(), self.block, styles)
             .unwrap_or(Fragment::frame(Frame::new(Size::zero()))))
     }
 }
@@ -247,7 +260,12 @@ impl Texify for Content {
 
 /// An atom in a math formula: `x`, `+`, `12`.
 ///
-/// Tags: math.
+/// # Parameters
+/// - text: EcoString (positional, required)
+///   The atom's text.
+///
+/// # Tags
+/// - math
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]
@@ -288,7 +306,14 @@ impl Texify for AtomNode {
 
 /// An accented node.
 ///
-/// Tags: math.
+/// # Parameters
+/// - base: Content (positional, required)
+///   The base to which the accent is applied.
+/// - accent: Content (positional, required)
+///   The accent to apply to the base.
+///
+/// # Tags
+/// - math
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]
@@ -365,7 +390,14 @@ impl Texify for AccNode {
 
 /// A fraction.
 ///
-/// Tags: math.
+/// # Parameters
+/// - num: Content (positional, required)
+///   The fraction's numerator.
+/// - denom: Content (positional, required)
+///   The fraction's denominator.
+///
+/// # Tags
+/// - math
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]
@@ -398,7 +430,14 @@ impl Texify for FracNode {
 
 /// A binomial.
 ///
-/// Tags: math.
+/// # Parameters
+/// - upper: Content (positional, required)
+///   The binomial's upper index.
+/// - lower: Content (positional, required)
+///   The binomial's lower index.
+///
+/// # Tags
+/// - math
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]
@@ -431,7 +470,16 @@ impl Texify for BinomNode {
 
 /// A sub- and/or superscript.
 ///
-/// Tags: math.
+/// # Parameters
+/// - base: Content (positional, required)
+///   The base to which the applies the sub- and/or superscript.
+/// - sub: Content (named)
+///   The subscript.
+/// - sup: Content (named)
+///   The superscript.
+///
+/// # Tags
+/// - math
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]
@@ -445,7 +493,14 @@ pub struct ScriptNode {
 }
 
 #[node]
-impl ScriptNode {}
+impl ScriptNode {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
+        let base = args.expect("base")?;
+        let sub = args.named("sub")?;
+        let sup = args.named("sup")?;
+        Ok(Self { base, sub, sup }.pack())
+    }
+}
 
 impl Texify for ScriptNode {
     fn texify(&self, t: &mut Texifier) -> SourceResult<()> {
@@ -469,14 +524,23 @@ impl Texify for ScriptNode {
 
 /// A math alignment point: `&`, `&&`.
 ///
-/// Tags: math.
+/// # Parameters
+/// - index: usize (positional, required)
+///   The alignment point's index.
+///
+/// # Tags
+/// - math
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]
-pub struct AlignPointNode(pub usize);
+pub struct AlignPointNode(pub NonZeroUsize);
 
 #[node]
-impl AlignPointNode {}
+impl AlignPointNode {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
+        Ok(Self(args.expect("index")?).pack())
+    }
+}
 
 impl Texify for AlignPointNode {
     fn texify(&self, _: &mut Texifier) -> SourceResult<()> {
@@ -486,7 +550,12 @@ impl Texify for AlignPointNode {
 
 /// A square root.
 ///
-/// Tags: math.
+/// # Parameters
+/// - body: Content (positional, required)
+///   The expression to take the square root of.
+///
+/// # Tags
+/// - math
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]
@@ -510,7 +579,12 @@ impl Texify for SqrtNode {
 
 /// A floored expression.
 ///
-/// Tags: math.
+/// # Parameters
+/// - body: Content (positional, required)
+///   The expression to floor.
+///
+/// # Tags
+/// - math
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]
@@ -534,7 +608,12 @@ impl Texify for FloorNode {
 
 /// A ceiled expression.
 ///
-/// Tags: math.
+/// # Parameters
+/// - body: Content (positional, required)
+///   The expression to ceil.
+///
+/// # Tags
+/// - math
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]

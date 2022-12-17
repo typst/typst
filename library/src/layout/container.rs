@@ -1,9 +1,19 @@
 use super::VNode;
+use crate::layout::Spacing;
 use crate::prelude::*;
 
 /// An inline-level container that sizes content.
 ///
-/// Tags: layout.
+/// # Parameters
+/// - body: Content (positional)
+///   The contents of the box.
+/// - width: Rel<Length> (named)
+///   The width of the box.
+/// - height: Rel<Length> (named)
+///   The height of the box.
+///
+/// # Tags
+/// - layout
 #[func]
 #[capable(Layout, Inline)]
 #[derive(Debug, Hash)]
@@ -65,7 +75,20 @@ impl Inline for BoxNode {}
 
 /// A block-level container that places content into a separate flow.
 ///
-/// Tags: layout.
+/// # Parameters
+/// - body: Content (positional)
+///   The contents of the block.
+/// - spacing: Spacing (named, settable)
+///   The spacing around this block.
+/// - above: Spacing (named, settable)
+///   The spacing between the previous and this block. Takes precedence over
+///   `spacing`.
+/// - below: Spacing (named, settable)
+///   The spacing between this block and the following one. Takes precedence
+///   over `spacing`.
+///
+/// # Tags
+/// - layout
 #[func]
 #[capable(Layout)]
 #[derive(Debug, Hash)]
@@ -74,10 +97,10 @@ pub struct BlockNode(pub Content);
 #[node]
 impl BlockNode {
     /// The spacing between the previous and this block.
-    #[property(reflect, skip)]
+    #[property(skip)]
     pub const ABOVE: VNode = VNode::block_spacing(Em::new(1.2).into());
     /// The spacing between this and the following block.
-    #[property(reflect, skip)]
+    #[property(skip)]
     pub const BELOW: VNode = VNode::block_spacing(Em::new(1.2).into());
     /// Whether this block must stick to the following one.
     #[property(skip)]

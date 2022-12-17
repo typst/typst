@@ -5,7 +5,8 @@ use crate::text::{LinebreakNode, SpaceNode, TextNode};
 
 /// A section outline (table of contents).
 ///
-/// Tags: meta.
+/// # Tags
+/// - meta
 #[func]
 #[capable(Prepare, Show)]
 #[derive(Debug, Hash)]

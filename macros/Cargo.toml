@@ -14,3 +14,4 @@ bench = false
 proc-macro2 = "1"
 quote = "1"
 syn = { version = "1", features = ["full"] }
+unscanny = "0.1"

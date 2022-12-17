@@ -5,7 +5,17 @@ use crate::text::{SpaceNode, TextNode};
 
 /// An unordered (bulleted) or ordered (numbered) list.
 ///
-/// Tags: basics.
+/// # Parameters
+/// - items: Content (positional, variadic)
+///   The contents of the list items.
+/// - start: NonZeroUsize (named)
+///   Which number to start the enumeration with.
+/// - tight: bool (named)
+///   Makes the list more compact, if enabled. This looks better if the items
+///   fit into a single line each.
+///
+/// # Tags
+/// - basics
 #[func]
 #[capable(Layout)]
 #[derive(Debug, Hash)]

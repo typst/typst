@@ -6,7 +6,12 @@ use crate::prelude::*;
 
 /// Typeset underline, stricken-through or overlined text.
 ///
-/// Tags: text.
+/// # Parameters
+/// - body: Content (positional, required)
+///   The content to decorate.
+///
+/// # Tags
+/// - text
 #[func]
 #[capable(Show)]
 #[derive(Debug, Hash)]

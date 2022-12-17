@@ -232,12 +232,21 @@ pub struct ParamInfo {
     pub name: &'static str,
     /// Documentation for the parameter.
     pub docs: &'static str,
-    /// Is the parameter settable with a set rule?
-    pub settable: bool,
-    /// Can the name be omitted?
-    pub shorthand: bool,
     /// Valid values for the parameter.
     pub cast: CastInfo,
+    /// Is the parameter positional?
+    pub positional: bool,
+    /// Is the parameter named?
+    ///
+    /// Can be true even if `positional` is true if the parameter can be given
+    /// in both variants.
+    pub named: bool,
+    /// Is the parameter required?
+    pub required: bool,
+    /// Can the parameter be given any number of times?
+    pub variadic: bool,
+    /// Is the parameter settable with a set rule?
+    pub settable: bool,
 }
 
 /// A user-defined closure.

@@ -150,7 +150,7 @@ fn create_describe_func(castable: &Castable) -> TokenStream {
     let mut infos = vec![];
 
     for cast in &castable.casts {
-        let docs = doc_comment(&cast.attrs);
+        let docs = documentation(&cast.attrs);
         infos.push(match &cast.pattern {
             Pattern::Str(lit) => {
                 quote! { ::typst::model::CastInfo::Value(#lit.into(), #docs) }

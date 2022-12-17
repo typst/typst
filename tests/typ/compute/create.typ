@@ -48,7 +48,7 @@
 #test(str(10 / 3).len() > 10, true)
 
 ---
-// Error: 6-8 cannot convert content to string
+// Error: 6-8 expected integer, float, label, or string, found content
 #str([])
 
 ---

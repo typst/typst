@@ -33,7 +33,7 @@ pub trait Cast<V = Value>: Sized {
 }
 
 /// Describes a possible value for a cast.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 pub enum CastInfo {
     /// Any value is okay.
     Any,

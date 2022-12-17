@@ -2,7 +2,20 @@ use crate::prelude::*;
 
 /// Display a line without affecting the layout.
 ///
-/// Tags: visualize.
+/// You should only provide either an endpoint or an angle and a length.
+///
+/// # Parameters
+/// - origin: Axes<Rel<Length>> (named)
+///   The start point of the line.
+/// - to: Axes<Rel<Length>> (named)
+///   The end point of the line.
+/// - length: Rel<Length> (named)
+///   The line's length.
+/// - angle: Angle (named)
+///   The angle at which the line points away from the origin.
+///
+/// # Tags
+/// - visualize
 #[func]
 #[capable(Layout, Inline)]
 #[derive(Debug, Hash)]

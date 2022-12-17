@@ -4,7 +4,12 @@ use crate::prelude::*;
 
 /// A smart quote.
 ///
-/// Tags: text.
+/// # Parameters
+/// - double: bool (named)
+///   Whether to produce a smart double quote.
+///
+/// # Tags
+/// - text
 #[func]
 #[capable]
 #[derive(Debug, Hash)]

@@ -2,7 +2,26 @@ use crate::prelude::*;
 
 /// Pad content at the sides.
 ///
-/// Tags: layout.
+/// # Parameters
+/// - body: Content (positional, required)
+///   The content to pad at the sides.
+/// - left: Rel<Length> (named)
+///   The padding at the left side.
+/// - right: Rel<Length> (named)
+///   The padding at the right side.
+/// - top: Rel<Length> (named)
+///   The padding at the top side.
+/// - bottom: Rel<Length> (named)
+///   The padding at the bottom side.
+/// - x: Rel<Length> (named)
+///   The horizontal padding. Both `left` and `right` take precedence over this.
+/// - y: Rel<Length> (named)
+///   The vertical padding. Both `top` and `bottom` take precedence over this.
+/// - rest: Rel<Length> (named)
+///   The padding for all sides. All other parameters take precedence over this.
+///
+/// # Tags
+/// - layout
 #[func]
 #[capable(Layout)]
 #[derive(Debug, Hash)]

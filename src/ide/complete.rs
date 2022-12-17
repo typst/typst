@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use if_chain::if_chain;
 
 use super::summarize_font_family;
@@ -141,7 +143,7 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
                 SyntaxKind::Colon | SyntaxKind::Space { .. } => ctx.cursor,
                 _ => ctx.leaf.offset(),
             };
-            ctx.param_value_completions(&callee, &param);
+            ctx.named_param_value_completions(&callee, &param);
             return true;
         }
     }
@@ -360,6 +362,7 @@ struct CompletionContext<'a> {
     explicit: bool,
     from: usize,
     completions: Vec<Completion>,
+    seen_casts: HashSet<u128>,
 }
 
 impl<'a> CompletionContext<'a> {
@@ -382,6 +385,7 @@ impl<'a> CompletionContext<'a> {
             explicit,
             from: cursor,
             completions: vec![],
+            seen_casts: HashSet::new(),
         })
     }
 
@@ -440,14 +444,16 @@ impl<'a> CompletionContext<'a> {
                 continue;
             }
 
-            self.completions.push(Completion {
-                kind: CompletionKind::Param,
-                label: param.name.into(),
-                apply: Some(format_eco!("{}: ${{}}", param.name)),
-                detail: Some(param.docs.into()),
-            });
+            if param.named {
+                self.completions.push(Completion {
+                    kind: CompletionKind::Param,
+                    label: param.name.into(),
+                    apply: Some(format_eco!("{}: ${{}}", param.name)),
+                    detail: Some(param.docs.into()),
+                });
+            }
 
-            if param.shorthand {
+            if param.positional {
                 self.cast_completions(&param.cast);
             }
         }
@@ -458,11 +464,12 @@ impl<'a> CompletionContext<'a> {
     }
 
     /// Add completions for the values of a function parameter.
-    fn param_value_completions(&mut self, callee: &ast::Ident, name: &str) {
+    fn named_param_value_completions(&mut self, callee: &ast::Ident, name: &str) {
         let param = if_chain! {
             if let Some(Value::Func(func)) = self.scope.get(callee);
             if let Some(info) = func.info();
             if let Some(param) = info.param(name);
+            if param.named;
             then { param }
             else { return; }
         };
@@ -475,7 +482,12 @@ impl<'a> CompletionContext<'a> {
     }
 
     /// Add completions for a castable.
-    fn cast_completions(&mut self, cast: &CastInfo) {
+    fn cast_completions(&mut self, cast: &'a CastInfo) {
+        // Prevent duplicate completions from appearing.
+        if !self.seen_casts.insert(crate::util::hash128(cast)) {
+            return;
+        }
+
         match cast {
             CastInfo::Any => {}
             CastInfo::Value(value, docs) => {
@@ -485,7 +497,7 @@ impl<'a> CompletionContext<'a> {
                 self.snippet_completion("none", "none", "Nonexistent.")
             }
             CastInfo::Type("auto") => {
-                self.snippet_completion("auto", "auto", "A smart default");
+                self.snippet_completion("auto", "auto", "A smart default.");
             }
             CastInfo::Type("boolean") => {
                 self.snippet_completion("false", "false", "Yes / Enabled.");

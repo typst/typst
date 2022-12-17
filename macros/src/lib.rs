@@ -64,7 +64,7 @@ pub fn castable(stream: BoundaryStream) -> BoundaryStream {
 }
 
 /// Extract documentation comments from an attribute list.
-fn doc_comment(attrs: &[syn::Attribute]) -> String {
+fn documentation(attrs: &[syn::Attribute]) -> String {
     let mut doc = String::new();
 
     // Parse doc comments.
@@ -72,7 +72,9 @@ fn doc_comment(attrs: &[syn::Attribute]) -> String {
         if let Ok(syn::Meta::NameValue(meta)) = attr.parse_meta() {
             if meta.path.is_ident("doc") {
                 if let syn::Lit::Str(string) = &meta.lit {
-                    doc.push_str(&string.value());
+                    let full = string.value();
+                    let line = full.strip_prefix(' ').unwrap_or(&full);
+                    doc.push_str(line);
                     doc.push('\n');
                 }
             }
@@ -80,4 +82,9 @@ fn doc_comment(attrs: &[syn::Attribute]) -> String {
     }
 
     doc.trim().into()
+}
+
+/// Dedent documentation text.
+fn dedent(text: &str) -> String {
+    text.lines().map(str::trim).collect::<Vec<_>>().join("\n")
 }

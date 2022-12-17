@@ -2,7 +2,12 @@ use super::*;
 
 /// Serif (roman) font style.
 ///
-/// Tags: math.
+/// # Parameters
+/// - body: Content (positional, required)
+///   The piece of formula to style.
+///
+/// # Tags
+/// - math
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]
@@ -26,7 +31,12 @@ impl Texify for SerifNode {
 
 /// Sans-serif font style.
 ///
-/// Tags: math.
+/// # Parameters
+/// - body: Content (positional, required)
+///   The piece of formula to style.
+///
+/// # Tags
+/// - math
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]
@@ -50,7 +60,12 @@ impl Texify for SansNode {
 
 /// Bold font style.
 ///
-/// Tags: math.
+/// # Parameters
+/// - body: Content (positional, required)
+///   The piece of formula to style.
+///
+/// # Tags
+/// - math
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]
@@ -74,7 +89,12 @@ impl Texify for BoldNode {
 
 /// Italic font style.
 ///
-/// Tags: math.
+/// # Parameters
+/// - body: Content (positional, required)
+///   The piece of formula to style.
+///
+/// # Tags
+/// - math
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]
@@ -98,7 +118,12 @@ impl Texify for ItalNode {
 
 /// Calligraphic font style.
 ///
-/// Tags: math.
+/// # Parameters
+/// - body: Content (positional, required)
+///   The piece of formula to style.
+///
+/// # Tags
+/// - math
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]
@@ -122,7 +147,12 @@ impl Texify for CalNode {
 
 /// Fraktur font style.
 ///
-/// Tags: math.
+/// # Parameters
+/// - body: Content (positional, required)
+///   The piece of formula to style.
+///
+/// # Tags
+/// - math
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]
@@ -146,7 +176,12 @@ impl Texify for FrakNode {
 
 /// Monospace font style.
 ///
-/// Tags: math.
+/// # Parameters
+/// - body: Content (positional, required)
+///   The piece of formula to style.
+///
+/// # Tags
+/// - math
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]
@@ -170,7 +205,12 @@ impl Texify for MonoNode {
 
 /// Blackboard bold (double-struck) font style.
 ///
-/// Tags: math.
+/// # Parameters
+/// - body: Content (positional, required)
+///   The piece of formula to style.
+///
+/// # Tags
+/// - math
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]

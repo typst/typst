@@ -6,42 +6,60 @@ use crate::prelude::*;
 
 /// Convert a value to an integer.
 ///
-/// Tags: create.
+/// # Parameters
+/// - value: ToInt (positional, required)
+///   The value that should be converted to an integer.
+///
+/// # Tags
+/// - create
 #[func]
 pub fn int(args: &mut Args) -> SourceResult<Value> {
-    let Spanned { v, span } = args.expect("value")?;
-    Ok(Value::Int(match v {
-        Value::Bool(v) => v as i64,
-        Value::Int(v) => v,
-        Value::Float(v) => v as i64,
-        Value::Str(v) => match v.parse() {
-            Ok(v) => v,
-            Err(_) => bail!(span, "invalid integer"),
-        },
-        v => bail!(span, "cannot convert {} to integer", v.type_name()),
-    }))
+    Ok(Value::Int(args.expect::<ToInt>("value")?.0))
+}
+
+/// A value that can be cast to an integer.
+struct ToInt(i64);
+
+castable! {
+    ToInt,
+    v: bool => Self(v as i64),
+    v: i64 => Self(v),
+    v: f64 => Self(v as i64),
+    v: EcoString => Self(v.parse().map_err(|_| "not a valid integer")?),
 }
 
 /// Convert a value to a float.
 ///
-/// Tags: create.
+/// # Parameters
+/// - value: ToFloat (positional, required)
+///   The value that should be converted to a float.
+///
+/// # Tags
+/// - create
 #[func]
 pub fn float(args: &mut Args) -> SourceResult<Value> {
-    let Spanned { v, span } = args.expect("value")?;
-    Ok(Value::Float(match v {
-        Value::Int(v) => v as f64,
-        Value::Float(v) => v,
-        Value::Str(v) => match v.parse() {
-            Ok(v) => v,
-            Err(_) => bail!(span, "invalid float"),
-        },
-        v => bail!(span, "cannot convert {} to float", v.type_name()),
-    }))
+    Ok(Value::Float(args.expect::<ToFloat>("value")?.0))
+}
+
+/// A value that can be cast to a float.
+struct ToFloat(f64);
+
+castable! {
+    ToFloat,
+    v: bool => Self(v as i64 as f64),
+    v: i64 => Self(v as f64),
+    v: f64 => Self(v),
+    v: EcoString => Self(v.parse().map_err(|_| "not a valid float")?),
 }
 
 /// Create a grayscale color.
 ///
-/// Tags: create.
+/// # Parameters
+/// - gray: Component (positional, required)
+///   The gray component.
+///
+/// # Tags
+/// - create
 #[func]
 pub fn luma(args: &mut Args) -> SourceResult<Value> {
     let Component(luma) = args.expect("gray component")?;
@@ -50,7 +68,26 @@ pub fn luma(args: &mut Args) -> SourceResult<Value> {
 
 /// Create an RGB(A) color.
 ///
-/// Tags: create.
+/// # Parameters
+/// - hex: EcoString (positional)
+///   The color in hexademical notation.
+///
+///   Accepts three, four, six or eight hexadecimal digits and optionally
+///   a leading hashtag.
+///
+///   If this string is given, the individual components should not be given.
+///
+/// - red: Component (positional)
+///   The red component.
+/// - green: Component (positional)
+///   The green component.
+/// - blue: Component (positional)
+///   The blue component.
+/// - alpha: Component (positional)
+///   The alpha component.
+///
+/// # Tags
+/// - create
 #[func]
 pub fn rgb(args: &mut Args) -> SourceResult<Value> {
     Ok(Value::Color(if let Some(string) = args.find::<Spanned<EcoString>>()? {
@@ -65,18 +102,6 @@ pub fn rgb(args: &mut Args) -> SourceResult<Value> {
         let Component(a) = args.eat()?.unwrap_or(Component(255));
         RgbaColor::new(r, g, b, a).into()
     }))
-}
-
-/// Create a CMYK color.
-///
-/// Tags: create.
-#[func]
-pub fn cmyk(args: &mut Args) -> SourceResult<Value> {
-    let RatioComponent(c) = args.expect("cyan component")?;
-    let RatioComponent(m) = args.expect("magenta component")?;
-    let RatioComponent(y) = args.expect("yellow component")?;
-    let RatioComponent(k) = args.expect("key component")?;
-    Ok(Value::Color(CmykColor::new(c, m, y, k).into()))
 }
 
 /// An integer or ratio component.
@@ -95,6 +120,29 @@ castable! {
     },
 }
 
+/// Create a CMYK color.
+///
+/// # Parameters
+/// - cyan: RatioComponent (positional, required)
+///   The cyan component.
+/// - magenta: RatioComponent (positional, required)
+///   The magenta component.
+/// - yellow: RatioComponent (positional, required)
+///   The yellow component.
+/// - key: RatioComponent (positional, required)
+///   The key component.
+///
+/// # Tags
+/// - create
+#[func]
+pub fn cmyk(args: &mut Args) -> SourceResult<Value> {
+    let RatioComponent(c) = args.expect("cyan component")?;
+    let RatioComponent(m) = args.expect("magenta component")?;
+    let RatioComponent(y) = args.expect("yellow component")?;
+    let RatioComponent(k) = args.expect("key component")?;
+    Ok(Value::Color(CmykColor::new(c, m, y, k).into()))
+}
+
 /// A component that must be a ratio.
 struct RatioComponent(u8);
 
@@ -109,22 +157,36 @@ castable! {
 
 /// Convert a value to a string.
 ///
-/// Tags: create.
+/// # Parameters
+/// - value: ToStr (positional, required)
+///   The value that should be converted to a string.
+///
+/// # Tags
+/// - create
 #[func]
 pub fn str(args: &mut Args) -> SourceResult<Value> {
-    let Spanned { v, span } = args.expect("value")?;
-    Ok(Value::Str(match v {
-        Value::Int(v) => format_str!("{}", v),
-        Value::Float(v) => format_str!("{}", v),
-        Value::Label(label) => label.0.into(),
-        Value::Str(v) => v,
-        v => bail!(span, "cannot convert {} to string", v.type_name()),
-    }))
+    Ok(Value::Str(args.expect::<ToStr>("value")?.0))
+}
+
+/// A value that can be cast to a string.
+struct ToStr(Str);
+
+castable! {
+    ToStr,
+    v: i64 => Self(format_str!("{}", v)),
+    v: f64 => Self(format_str!("{}", v)),
+    v: Label => Self(v.0.into()),
+    v: Str => Self(v),
 }
 
 /// Create a label from a string.
 ///
-/// Tags: create.
+/// # Parameters
+/// - name: EcoString (positional, required)
+///   The name of the label.
+///
+/// # Tags
+/// - create
 #[func]
 pub fn label(args: &mut Args) -> SourceResult<Value> {
     Ok(Value::Label(Label(args.expect("string")?)))
@@ -132,7 +194,12 @@ pub fn label(args: &mut Args) -> SourceResult<Value> {
 
 /// Create a regular expression from a string.
 ///
-/// Tags: create.
+/// # Parameters
+/// - regex: EcoString (positional, required)
+///   The regular expression.
+///
+/// # Tags
+/// - create
 #[func]
 pub fn regex(args: &mut Args) -> SourceResult<Value> {
     let Spanned { v, span } = args.expect::<Spanned<EcoString>>("regular expression")?;
@@ -141,7 +208,18 @@ pub fn regex(args: &mut Args) -> SourceResult<Value> {
 
 /// Create an array consisting of a sequence of numbers.
 ///
-/// Tags: create.
+/// # Parameters
+/// - start: i64 (positional)
+///   The start of the range (inclusive).
+///
+/// - end: i64 (positional, required)
+///   The end of the range (exclusive).
+///
+/// - step: i64 (named)
+///   The distance between the generated numbers.
+///
+/// # Tags
+/// - create
 #[func]
 pub fn range(args: &mut Args) -> SourceResult<Value> {
     let first = args.expect::<i64>("end")?;

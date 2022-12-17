@@ -36,7 +36,6 @@ struct Property {
     shorthand: Option<Shorthand>,
     resolve: bool,
     fold: bool,
-    reflect: bool,
 }
 
 /// The shorthand form of a style property.
@@ -118,7 +117,6 @@ fn prepare_property(item: &syn::ImplItemConst) -> Result<Property> {
     let mut referenced = false;
     let mut resolve = false;
     let mut fold = false;
-    let mut reflect = false;
 
     // Parse the `#[property(..)]` attribute.
     let mut stream = tokens.into_iter().peekable();
@@ -152,7 +150,6 @@ fn prepare_property(item: &syn::ImplItemConst) -> Result<Property> {
             "referenced" => referenced = true,
             "resolve" => resolve = true,
             "fold" => fold = true,
-            "reflect" => reflect = true,
             _ => bail!(ident, "invalid attribute"),
         }
     }
@@ -192,7 +189,6 @@ fn prepare_property(item: &syn::ImplItemConst) -> Result<Property> {
         referenced,
         resolve,
         fold,
-        reflect,
     })
 }
 
@@ -275,9 +271,9 @@ fn create_node_construct_func(node: &Node) -> syn::ImplItemMethod {
         parse_quote! {
             fn construct(
                 _: &::typst::model::Vm,
-                _: &mut ::typst::model::Args,
+                args: &mut ::typst::model::Args,
             ) -> ::typst::diag::SourceResult<::typst::model::Content> {
-                unimplemented!()
+                ::typst::diag::bail!(args.span, "cannot be constructed manually");
             }
         }
     })
@@ -335,27 +331,26 @@ fn create_node_set_func(node: &Node) -> syn::ImplItemMethod {
 
 /// Create the node's `properties` function.
 fn create_node_properties_func(node: &Node) -> syn::ImplItemMethod {
-    let infos = node
-        .properties
-        .iter()
-        .filter(|p| !p.skip || p.reflect)
-        .map(|property| {
-            let name = property.name.to_string().replace('_', "-").to_lowercase();
-            let docs = doc_comment(&property.attrs);
-            let value_ty = &property.value_ty;
-            let shorthand = matches!(property.shorthand, Some(Shorthand::Positional));
-            quote! {
-                ::typst::model::ParamInfo {
-                    name: #name,
-                    docs: #docs,
-                    settable: true,
-                    shorthand: #shorthand,
-                    cast: <#value_ty as ::typst::model::Cast<
-                        ::typst::syntax::Spanned<::typst::model::Value>
-                    >>::describe(),
-                }
+    let infos = node.properties.iter().filter(|p| !p.skip).map(|property| {
+        let name = property.name.to_string().replace('_', "-").to_lowercase();
+        let docs = documentation(&property.attrs);
+        let value_ty = &property.value_ty;
+        let shorthand = matches!(property.shorthand, Some(Shorthand::Positional));
+        quote! {
+            ::typst::model::ParamInfo {
+                name: #name,
+                docs: #docs,
+                cast: <#value_ty as ::typst::model::Cast<
+                    ::typst::syntax::Spanned<::typst::model::Value>
+                >>::describe(),
+                named: true,
+                positional: #shorthand,
+                required: false,
+                variadic: false,
+                settable: true,
             }
-        });
+        }
+    });
 
     parse_quote! {
         fn properties() -> ::std::vec::Vec<::typst::model::ParamInfo>

@@ -2,7 +2,18 @@ use crate::prelude::*;
 
 /// Place content at an absolute position.
 ///
-/// Tags: layout.
+/// # Parameters
+/// - alignment: Axes<Option<GenAlign>> (positional)
+///   Relative to which position in the parent container to place the content.
+/// - body: Content (positional, required)
+///   The content to place.
+/// - dx: Rel<Length> (named)
+///   The horizontal displacement of the placed content.
+/// - dy: Rel<Length> (named)
+///   The vertical displacement of the placed content.
+///
+/// # Tags
+/// - layout
 #[func]
 #[capable(Layout, Behave)]
 #[derive(Debug, Hash)]

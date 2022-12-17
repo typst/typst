@@ -411,7 +411,7 @@ impl Eval for ast::Math {
             self.children()
                 .map(|node| node.eval(vm))
                 .collect::<SourceResult<_>>()?,
-            self.display(),
+            self.block(),
         ))
     }
 }

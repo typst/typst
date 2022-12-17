@@ -3,18 +3,30 @@ use std::str::FromStr;
 use crate::prelude::*;
 use crate::text::Case;
 
-/// Create a blind text string.
+/// Create blind text.
 ///
-/// Tags: utility.
+/// # Parameters
+/// - words: usize (positional, required)
+///   The length of the blind text in words.
+///
+/// # Tags
+/// - utility
 #[func]
 pub fn lorem(args: &mut Args) -> SourceResult<Value> {
     let words: usize = args.expect("number of words")?;
     Ok(Value::Str(lipsum::lipsum(words).into()))
 }
 
-/// Apply a numbering pattern to a number.
+/// Apply a numbering pattern to a sequence of numbers.
 ///
-/// Tags: utility.
+/// # Parameters
+/// - pattern: NumberingPattern (positional, required)
+///   A string that defines how the numbering works.
+/// - numbers: NonZeroUsize (positional, variadic)
+///   The numbers to apply the pattern to.
+///
+/// # Tags
+/// - utility
 #[func]
 pub fn numbering(args: &mut Args) -> SourceResult<Value> {
     let pattern = args.expect::<NumberingPattern>("pattern")?;

@@ -13,19 +13,19 @@
 #test(type(float(10)), "float")
 
 ---
-// Error: 6-10 cannot convert length to integer
+// Error: 6-10 expected boolean, integer, float, or string, found length
 #int(10pt)
 
 ---
-// Error: 8-13 cannot convert function to float
+// Error: 8-13 expected boolean, integer, float, or string, found function
 #float(float)
 
 ---
-// Error: 6-12 invalid integer
+// Error: 6-12 not a valid integer
 #int("nope")
 
 ---
-// Error: 8-15 invalid float
+// Error: 8-15 not a valid float
 #float("1.2.3")
 
 ---
@@ -39,16 +39,8 @@
 #test(abs(-25%), 25%)
 
 ---
-// Error: 6-17 expected numeric value, found string
+// Error: 6-17 expected integer, float, angle, ratio, or fraction, found string
 #abs("no number")
-
----
-// Error: 6-11 cannot take absolute value of a length
-#abs(-12pt)
-
----
-// Error: 6-16 cannot take absolute value of a length
-#abs(50% - 12pt)
 
 ---
 // Test the `even` and `odd` functions.

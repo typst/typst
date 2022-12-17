@@ -6,7 +6,12 @@ use typst::syntax::Source;
 
 /// The name of a value's type.
 ///
-/// Tags: foundations.
+/// # Parameters
+/// - value: Value (positional, required)
+///   The value whose type's to determine.
+///
+/// # Tags
+/// - foundations
 #[func]
 pub fn type_(args: &mut Args) -> SourceResult<Value> {
     Ok(args.expect::<Value>("value")?.type_name().into())
@@ -14,7 +19,12 @@ pub fn type_(args: &mut Args) -> SourceResult<Value> {
 
 /// The string representation of a value.
 ///
-/// Tags: foundations.
+/// # Parameters
+/// - value: Value (positional, required)
+///   The value whose string representation to produce.
+///
+/// # Tags
+/// - foundations
 #[func]
 pub fn repr(args: &mut Args) -> SourceResult<Value> {
     Ok(args.expect::<Value>("value")?.repr().into())
@@ -22,7 +32,12 @@ pub fn repr(args: &mut Args) -> SourceResult<Value> {
 
 /// Ensure that a condition is fulfilled.
 ///
-/// Tags: foundations.
+/// # Parameters
+/// - condition: bool (positional, required)
+///   The condition that must be true for the assertion to pass.
+///
+/// # Tags
+/// - foundations
 #[func]
 pub fn assert(args: &mut Args) -> SourceResult<Value> {
     let Spanned { v, span } = args.expect::<Spanned<bool>>("condition")?;
@@ -34,7 +49,12 @@ pub fn assert(args: &mut Args) -> SourceResult<Value> {
 
 /// Evaluate a string as Typst markup.
 ///
-/// Tags: foundations.
+/// # Parameters
+/// - source: String (positional, required)
+///   A string of Typst markup to evaluate.
+///
+/// # Tags
+/// - foundations
 #[func]
 pub fn eval(vm: &Vm, args: &mut Args) -> SourceResult<Value> {
     let Spanned { v: text, span } = args.expect::<Spanned<String>>("source")?;

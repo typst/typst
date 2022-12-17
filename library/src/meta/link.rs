@@ -3,7 +3,14 @@ use crate::text::TextNode;
 
 /// Link text and other elements to a destination.
 ///
-/// Tags: meta.
+/// # Parameters
+/// - dest: Destination (positional, required)
+///   The destination the link points to.
+/// - body: Content (positional)
+///   How the link is represented. Defaults to the destination if it is a link.
+///
+/// # Tags
+/// - meta
 #[func]
 #[capable(Show, Finalize)]
 #[derive(Debug, Hash)]

@@ -66,7 +66,7 @@ pub struct LangItems {
     /// An item in a description list: `/ Term: Details`.
     pub desc_item: fn(term: Content, body: Content) -> Content,
     /// A mathematical formula: `$x$`, `$ x^2 $`.
-    pub math: fn(children: Vec<Content>, display: bool) -> Content,
+    pub math: fn(children: Vec<Content>, block: bool) -> Content,
     /// An atom in a formula: `x`, `+`, `12`.
     pub math_atom: fn(atom: EcoString) -> Content,
     /// A base with optional sub- and superscripts in a formula: `a_1^2`.
@@ -75,7 +75,7 @@ pub struct LangItems {
     /// A fraction in a formula: `x/2`.
     pub math_frac: fn(num: Content, denom: Content) -> Content,
     /// An alignment point in a formula: `&`, `&&`.
-    pub math_align_point: fn(count: usize) -> Content,
+    pub math_align_point: fn(count: NonZeroUsize) -> Content,
 }
 
 impl Debug for LangItems {

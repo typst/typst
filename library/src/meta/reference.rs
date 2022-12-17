@@ -3,7 +3,12 @@ use crate::text::TextNode;
 
 /// A reference to a label.
 ///
-/// Tags: meta.
+/// # Parameters
+/// - target: Label (positional, required)
+///   The label that should be referenced.
+///
+/// # Tags
+/// - meta
 #[func]
 #[capable(Show)]
 #[derive(Debug, Hash)]

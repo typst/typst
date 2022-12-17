@@ -4,26 +4,37 @@ use crate::prelude::*;
 
 /// The absolute value of a numeric value.
 ///
-/// Tags: calculate.
+/// # Parameters
+/// - value: ToAbs (positional, required)
+///   The value whose absolute value to calculate.
+///
+/// # Tags
+/// - calculate
 #[func]
 pub fn abs(args: &mut Args) -> SourceResult<Value> {
-    let Spanned { v, span } = args.expect("numeric value")?;
-    Ok(match v {
-        Value::Int(v) => Value::Int(v.abs()),
-        Value::Float(v) => Value::Float(v.abs()),
-        Value::Angle(v) => Value::Angle(v.abs()),
-        Value::Ratio(v) => Value::Ratio(v.abs()),
-        Value::Fraction(v) => Value::Fraction(v.abs()),
-        Value::Length(_) | Value::Relative(_) => {
-            bail!(span, "cannot take absolute value of a length")
-        }
-        v => bail!(span, "expected numeric value, found {}", v.type_name()),
-    })
+    Ok(args.expect::<ToAbs>("value")?.0)
+}
+
+/// A value of which the absolute value can be taken.
+struct ToAbs(Value);
+
+castable! {
+    ToAbs,
+    v: i64 => Self(Value::Int(v.abs())),
+    v: f64 => Self(Value::Float(v.abs())),
+    v: Angle => Self(Value::Angle(v.abs())),
+    v: Ratio => Self(Value::Ratio(v.abs())),
+    v: Fr => Self(Value::Fraction(v.abs())),
 }
 
 /// The minimum of a sequence of values.
 ///
-/// Tags: calculate.
+/// # Parameters
+/// - values: Value (positional, variadic)
+///   The sequence of values.
+///
+/// # Tags
+/// - calculate
 #[func]
 pub fn min(args: &mut Args) -> SourceResult<Value> {
     minmax(args, Ordering::Less)
@@ -31,7 +42,12 @@ pub fn min(args: &mut Args) -> SourceResult<Value> {
 
 /// The maximum of a sequence of values.
 ///
-/// Tags: calculate.
+/// # Parameters
+/// - values: Value (positional, variadic)
+///   The sequence of values.
+///
+/// # Tags
+/// - calculate
 #[func]
 pub fn max(args: &mut Args) -> SourceResult<Value> {
     minmax(args, Ordering::Greater)
@@ -60,27 +76,44 @@ fn minmax(args: &mut Args, goal: Ordering) -> SourceResult<Value> {
 
 /// Whether an integer is even.
 ///
-/// Tags: calculate.
+/// # Parameters
+/// - value: i64 (positional, required)
+///   The number to check for evenness.
+///
+/// # Tags
+/// - calculate
 #[func]
 pub fn even(args: &mut Args) -> SourceResult<Value> {
-    Ok(Value::Bool(args.expect::<i64>("integer")? % 2 == 0))
+    Ok(Value::Bool(args.expect::<i64>("value")? % 2 == 0))
 }
 
 /// Whether an integer is odd.
 ///
-/// Tags: calculate.
+/// # Parameters
+/// - value: i64 (positional, required)
+///   The number to check for oddness.
+///
+/// # Tags
+/// - calculate
 #[func]
 pub fn odd(args: &mut Args) -> SourceResult<Value> {
-    Ok(Value::Bool(args.expect::<i64>("integer")? % 2 != 0))
+    Ok(Value::Bool(args.expect::<i64>("value")? % 2 != 0))
 }
 
-/// The modulo of two numbers.
+/// The modulus of two numbers.
 ///
-/// Tags: calculate.
+/// # Parameters
+/// - dividend: ToMod (positional, required)
+///   The dividend of the modulus.
+/// - divisor: ToMod (positional, required)
+///   The divisor of the modulus.
+///
+/// # Tags
+/// - calculate
 #[func]
 pub fn mod_(args: &mut Args) -> SourceResult<Value> {
-    let Spanned { v: v1, span: span1 } = args.expect("integer or float")?;
-    let Spanned { v: v2, span: span2 } = args.expect("integer or float")?;
+    let Spanned { v: v1, span: span1 } = args.expect("dividend")?;
+    let Spanned { v: v2, span: span2 } = args.expect("divisor")?;
 
     let (a, b) = match (v1, v2) {
         (Value::Int(a), Value::Int(b)) => match a.checked_rem(b) {
@@ -103,4 +136,13 @@ pub fn mod_(args: &mut Args) -> SourceResult<Value> {
     }
 
     Ok(Value::Float(a % b))
+}
+
+/// A value which can be passed to the `mod` function.
+struct ToMod;
+
+castable! {
+    ToMod,
+    _: i64 => Self,
+    _: f64 => Self,
 }

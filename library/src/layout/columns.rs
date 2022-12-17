@@ -3,13 +3,20 @@ use crate::text::TextNode;
 
 /// Separate a region into multiple equally sized columns.
 ///
-/// Tags: layout.
+/// # Parameters
+/// - count: usize (positional, required)
+///   The number of columns.
+/// - body: Content (positional, required)
+///   The content that should be layouted into the columns.
+///
+/// # Tags
+/// - layout
 #[func]
 #[capable(Layout)]
 #[derive(Debug, Hash)]
 pub struct ColumnsNode {
     /// How many columns there should be.
-    pub columns: NonZeroUsize,
+    pub count: NonZeroUsize,
     /// The child to be layouted into the columns. Most likely, this should be a
     /// flow or stack node.
     pub body: Content,
@@ -23,7 +30,7 @@ impl ColumnsNode {
 
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self {
-            columns: args.expect("column count")?,
+            count: args.expect("column count")?,
             body: args.expect("body")?,
         }
         .pack())
@@ -44,7 +51,7 @@ impl Layout for ColumnsNode {
         }
 
         // Determine the width of the gutter and each column.
-        let columns = self.columns.get();
+        let columns = self.count.get();
         let gutter = styles.get(Self::GUTTER).relative_to(regions.base.x);
         let width = (regions.first.x - gutter * (columns - 1) as f64) / columns as f64;
 
@@ -106,7 +113,13 @@ impl Layout for ColumnsNode {
 
 /// A column break.
 ///
-/// Tags: layout.
+/// # Parameters
+/// - weak: bool (named)
+///   If true, the column break is skipped if the current column is already
+///   empty.
+///
+/// # Tags
+/// - layout
 #[func]
 #[capable(Behave)]
 #[derive(Debug, Hash)]

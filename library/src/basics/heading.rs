@@ -7,7 +7,14 @@ use crate::text::{SpaceNode, TextNode, TextSize};
 
 /// A section heading.
 ///
-/// Tags: basics.
+/// # Parameters
+/// - body: Content (positional, required)
+///   The heading's contents.
+/// - level: NonZeroUsize (named)
+///   The logical nesting depth of the heading, starting from one.
+///
+/// # Tags
+/// - basics
 #[func]
 #[capable(Prepare, Show, Finalize)]
 #[derive(Debug, Hash)]

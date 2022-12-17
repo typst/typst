@@ -2,7 +2,12 @@ use super::*;
 
 /// A column vector.
 ///
-/// Tags: math.
+/// # Parameters
+/// - elements: Content (positional, variadic)
+///   The elements of the vector.
+///
+/// # Tags
+/// - math
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]
@@ -66,7 +71,12 @@ castable! {
 
 /// A case distinction.
 ///
-/// Tags: math.
+/// # Parameters
+/// - branches: Content (positional, variadic)
+///   The branches of the case distinction.
+///
+/// # Tags
+/// - math
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]

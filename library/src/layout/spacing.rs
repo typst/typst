@@ -2,9 +2,18 @@ use std::cmp::Ordering;
 
 use crate::prelude::*;
 
-/// Horizontal spacing.
+/// Horizontal spacing in a paragraph.
 ///
-/// Tags: layout.
+/// # Parameters
+/// - amount: Spacing (positional, required)
+///   How much spacing to insert.
+/// - weak: bool (named)
+///   If true, the spacing collapses at the start or end of a paragraph.
+///   Moreover, from multiple adjacent weak spacings all but the largest one
+///   collapse.
+///
+/// # Tags
+/// - layout
 #[func]
 #[capable(Behave)]
 #[derive(Debug, Copy, Clone, Hash)]
@@ -55,7 +64,16 @@ impl Behave for HNode {
 
 /// Vertical spacing.
 ///
-/// Tags: layout.
+/// # Parameters
+/// - amount: Spacing (positional, required)
+///   How much spacing to insert.
+/// - weak: bool (named)
+///   If true, the spacing collapses at the start or end of a flow.
+///   Moreover, from multiple adjacent weak spacings all but the largest one
+///   collapse.
+///
+/// # Tags
+/// - layout
 #[func]
 #[capable(Behave)]
 #[derive(Debug, Copy, Clone, Hash, PartialEq, PartialOrd)]
@@ -121,11 +139,6 @@ impl Behave for VNode {
         let Some(prev) = prev.to::<Self>() else { return false };
         self.amount > prev.amount
     }
-}
-
-castable! {
-    VNode,
-    spacing: Spacing => VNode::block_around(spacing),
 }
 
 /// Kinds of spacing.

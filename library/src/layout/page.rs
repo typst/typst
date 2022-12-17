@@ -6,7 +6,14 @@ use crate::text::TextNode;
 
 /// Layouts its child onto one or multiple pages.
 ///
-/// Tags: layout.
+/// # Parameters
+/// - body: Content (positional, required)
+///   The contents of the page(s).
+/// - paper: Paper (positional, settable)
+///   The paper size.
+///
+/// # Tags
+/// - layout
 #[func]
 #[capable]
 #[derive(Clone, Hash)]
@@ -14,9 +21,6 @@ pub struct PageNode(pub Content);
 
 #[node]
 impl PageNode {
-    /// The paper size.
-    #[property(reflect, skip, shorthand)]
-    pub const PAPER: Paper = Paper::A4;
     /// The unflipped width of the page.
     #[property(resolve)]
     pub const WIDTH: Smart<Length> = Smart::Custom(Paper::A4.width().into());
@@ -91,7 +95,7 @@ impl PageNode {
         // Realize columns.
         let columns = styles.get(Self::COLUMNS);
         if columns.get() > 1 {
-            child = ColumnsNode { columns, body: self.0.clone() }.pack();
+            child = ColumnsNode { count: columns, body: self.0.clone() }.pack();
         }
 
         // Realize margins.
@@ -151,7 +155,12 @@ impl Debug for PageNode {
 
 /// A page break.
 ///
-/// Tags: layout.
+/// # Parameters
+/// - weak: bool (named)
+///   If true, the page break is skipped if the current page is already empty.
+///
+/// # Tags
+/// - layout
 #[func]
 #[capable]
 #[derive(Debug, Copy, Clone, Hash)]
@@ -266,7 +275,10 @@ macro_rules! papers {
 
         castable! {
             Paper,
-            $($pat => Self::$var,)*
+            $(
+                /// Produces a paper of the respective size.
+                $pat => Self::$var,
+            )*
         }
     };
 }

@@ -3,7 +3,12 @@ use crate::text::TextNode;
 
 /// A symbol identified by symmie notation.
 ///
-/// Tags: text.
+/// # Parameters
+/// - notation: EcoString (positional, required)
+///   The symbols symmie notation.
+///
+/// # Tags
+/// - text
 #[func]
 #[capable(Show)]
 #[derive(Debug, Hash)]

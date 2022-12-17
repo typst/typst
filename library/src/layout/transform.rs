@@ -4,7 +4,16 @@ use crate::prelude::*;
 
 /// Move content without affecting layout.
 ///
-/// Tags: layout.
+/// # Parameters
+/// - body: Content (positional, required)
+///   The content to move.
+/// - dx: Rel<Length> (named)
+///   The horizontal displacement of the content.
+/// - dy: Rel<Length> (named)
+///   The vertical displacement of the content.
+///
+/// # Tags
+/// - layout
 #[func]
 #[capable(Layout, Inline)]
 #[derive(Debug, Hash)]
@@ -49,7 +58,18 @@ impl Inline for MoveNode {}
 
 /// Transform content without affecting layout.
 ///
-/// Tags: layout.
+/// # Parameters
+/// - body: Content (positional, required)
+///   The content to transform.
+/// - angle: Angle (named)
+///   The amount of rotation.
+/// - x: Ratio (named)
+///   The horizontal scaling factor.
+/// - y: Ratio (named)
+///   The vertical scaling factor.
+///
+/// # Tags
+/// - layout
 #[func]
 #[capable(Layout, Inline)]
 #[derive(Debug, Hash)]

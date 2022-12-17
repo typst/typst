@@ -13,7 +13,12 @@ use crate::text::{
 
 /// Arrange text, spacing and inline-level nodes into a paragraph.
 ///
-/// Tags: layout.
+/// # Parameters
+/// - body: Content (positional, required)
+///   The contents of the paragraph.
+///
+/// # Tags
+/// - layout
 #[func]
 #[capable]
 #[derive(Hash)]
@@ -144,7 +149,8 @@ castable! {
 
 /// A paragraph break.
 ///
-/// Tags: layout.
+/// # Tags
+/// - layout
 #[func]
 #[capable(Unlabellable)]
 #[derive(Debug, Hash)]

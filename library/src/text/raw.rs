@@ -8,14 +8,21 @@ use crate::prelude::*;
 
 /// Raw text with optional syntax highlighting.
 ///
-/// Tags: text.
+/// # Parameters
+/// - text: EcoString (positional, required)
+///   The raw text.
+/// - block: bool (named)
+///   Whether the raw text is displayed as a separate block.
+///
+/// # Tags
+/// - text
 #[func]
 #[capable(Show)]
 #[derive(Debug, Hash)]
 pub struct RawNode {
     /// The raw text.
     pub text: EcoString,
-    /// Whether the node is block-level.
+    /// Whether the raw text is displayed as a separate block.
     pub block: bool,
 }
 

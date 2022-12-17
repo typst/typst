@@ -25,9 +25,16 @@ use typst::util::EcoString;
 use crate::layout::ParNode;
 use crate::prelude::*;
 
-/// A single run of text with the same style.
+/// Stylable text.
 ///
-/// Tags: text.
+/// # Parameters
+/// - family: EcoString (positional, variadic, settable)
+///   A prioritized sequence of font families.
+/// - body: Content (positional, required)
+///   Content in which all text is styled according to the other arguments.
+///
+/// # Tags
+/// - text
 #[func]
 #[capable]
 #[derive(Clone, Hash)]

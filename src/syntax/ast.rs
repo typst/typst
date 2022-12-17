@@ -295,7 +295,7 @@ impl Raw {
         self.get().lang.as_ref()
     }
 
-    /// Whether the raw block is block-level.
+    /// Whether the raw text should be displayed in a separate block.
     pub fn block(&self) -> bool {
         self.get().block
     }
@@ -425,8 +425,8 @@ impl Math {
         self.0.children().filter_map(SyntaxNode::cast)
     }
 
-    /// Whether this is a display-level math formula.
-    pub fn display(&self) -> bool {
+    /// Whether the formula should be displayed as a separate block.
+    pub fn block(&self) -> bool {
         matches!(self.children().next(), Some(MathNode::Space(_)))
             && matches!(self.children().last(), Some(MathNode::Space(_)))
     }
@@ -564,8 +564,13 @@ node! {
 
 impl AlignPoint {
     /// The number of ampersands.
-    pub fn count(&self) -> usize {
-        self.0.children().filter(|n| n.kind() == &SyntaxKind::Amp).count()
+    pub fn count(&self) -> NonZeroUsize {
+        self.0
+            .children()
+            .filter(|n| n.kind() == &SyntaxKind::Amp)
+            .count()
+            .try_into()
+            .expect("alignment point is missing ampersand sign")
     }
 }
 

@@ -5,7 +5,16 @@ use crate::prelude::*;
 
 /// Arrange content and spacing along an axis.
 ///
-/// Tags: layout.
+/// # Parameters
+/// - items: StackChild (positional, variadic)
+///   The items to stack along an axis.
+/// - dir: Dir (named)
+///   The direction along which the items are stacked.
+/// - spacing: Spacing (named)
+///   Spacing to insert between items where no explicit spacing was provided.
+///
+/// # Tags
+/// - layout
 #[func]
 #[capable(Layout)]
 #[derive(Debug, Hash)]

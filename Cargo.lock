@@ -1221,6 +1221,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+ "unscanny",
 ]
 
 [[package]]

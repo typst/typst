@@ -4,7 +4,22 @@ use crate::prelude::*;
 
 /// A sizable and fillable shape with optional content.
 ///
-/// Tags: visualize.
+/// # Parameters
+/// - body: Content (positional)
+///   The content to place into the shape.
+/// - width: Rel<Length> (named)
+///   The shape's width.
+/// - height: Rel<Length> (named)
+///   The shape's height.
+/// - size: Length (named)
+///   The square's side length.
+/// - radius: Length (named)
+///   The circle's radius.
+/// - stroke: Smart<Sides<Option<PartialStroke>>> (named)
+///   How to stroke the shape.
+///
+/// # Tags
+/// - visualize
 #[func]
 #[capable(Layout, Inline)]
 #[derive(Debug, Hash)]
@@ -27,7 +42,7 @@ impl<const S: ShapeKind> ShapeNode<S> {
     /// How to fill the shape.
     pub const FILL: Option<Paint> = None;
     /// How to stroke the shape.
-    #[property(reflect, skip, resolve, fold)]
+    #[property(skip, resolve, fold)]
     pub const STROKE: Smart<Sides<Option<PartialStroke>>> = Smart::Auto;
 
     /// How much to pad the shape's content.
@@ -38,7 +53,7 @@ impl<const S: ShapeKind> ShapeNode<S> {
     pub const OUTSET: Sides<Option<Rel<Length>>> = Sides::splat(Rel::zero());
 
     /// How much to round the shape's corners.
-    #[property(reflect, skip, resolve, fold)]
+    #[property(skip, resolve, fold)]
     pub const RADIUS: Corners<Option<Rel<Length>>> = Corners::splat(Rel::zero());
 
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {

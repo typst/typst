@@ -50,7 +50,6 @@ fn scope() -> Scope {
 
     // Math.
     std.def_func::<math::MathNode>("math");
-    std.def_func::<math::AtomNode>("atom");
     std.def_func::<math::AccNode>("acc");
     std.def_func::<math::FracNode>("frac");
     std.def_func::<math::BinomNode>("binom");
@@ -203,7 +202,7 @@ fn items() -> LangItems {
         desc_item: |term, body| {
             basics::ListItem::Desc(Box::new(basics::DescItem { term, body })).pack()
         },
-        math: |children, display| math::MathNode { children, display }.pack(),
+        math: |children, block| math::MathNode { children, block }.pack(),
         math_atom: |atom| math::AtomNode(atom).pack(),
         math_script: |base, sub, sup| math::ScriptNode { base, sub, sup }.pack(),
         math_frac: |num, denom| math::FracNode { num, denom }.pack(),

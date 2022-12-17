@@ -3,7 +3,8 @@ use crate::prelude::*;
 
 /// A text space.
 ///
-/// Tags: text.
+/// # Tags
+/// - text
 #[func]
 #[capable(Unlabellable, Behave)]
 #[derive(Debug, Hash)]
@@ -26,7 +27,12 @@ impl Behave for SpaceNode {
 
 /// A line break.
 ///
-/// Tags: text.
+/// # Parameters
+/// - justify: bool (named)
+///   Whether to justify the line before the break.
+///
+/// # Tags
+/// - text
 #[func]
 #[capable(Behave)]
 #[derive(Debug, Hash)]
@@ -50,7 +56,12 @@ impl Behave for LinebreakNode {
 
 /// Strongly emphasizes content by increasing the font weight.
 ///
-/// Tags: text.
+/// # Parameters
+/// - body: Content (positional, required)
+///   The content to strongly emphasize.
+///
+/// # Tags
+/// - text
 #[func]
 #[capable(Show)]
 #[derive(Debug, Hash)]
@@ -98,7 +109,12 @@ impl Fold for Delta {
 
 /// Emphasizes content by flipping the italicness.
 ///
-/// Tags: text.
+/// # Parameters
+/// - body: Content (positional, required)
+///   The content to emphasize.
+///
+/// # Tags
+/// - text
 #[func]
 #[capable(Show)]
 #[derive(Debug, Hash)]
@@ -136,17 +152,27 @@ impl Fold for Toggle {
     }
 }
 
-/// Convert a string or content to lowercase.
+/// Convert text or content to lowercase.
 ///
-/// Tags: text.
+/// # Parameters
+/// - text: ToCase (positional, required)
+///   The text to convert to lowercase.
+///
+/// # Tags
+/// - text
 #[func]
 pub fn lower(args: &mut Args) -> SourceResult<Value> {
     case(Case::Lower, args)
 }
 
-/// Convert a string or content to uppercase.
+/// Convert text or content to uppercase.
 ///
-/// Tags: text.
+/// # Parameters
+/// - text: ToCase (positional, required)
+///   The text to convert to uppercase.
+///
+/// # Tags
+/// - text
 #[func]
 pub fn upper(args: &mut Args) -> SourceResult<Value> {
     case(Case::Upper, args)
@@ -160,6 +186,15 @@ fn case(case: Case, args: &mut Args) -> SourceResult<Value> {
         Value::Content(v) => Value::Content(v.styled(TextNode::CASE, Some(case))),
         v => bail!(span, "expected string or content, found {}", v.type_name()),
     })
+}
+
+/// A value whose case can be changed.
+struct ToCase;
+
+castable! {
+    ToCase,
+    _: Str => Self,
+    _: Content => Self,
 }
 
 /// A case transformation on text.
@@ -183,7 +218,12 @@ impl Case {
 
 /// Display text in small capitals.
 ///
-/// Tags: text.
+/// # Parameters
+/// - text: Content (positional, required)
+///   The text to display to small capitals.
+///
+/// # Tags
+/// - text
 #[func]
 pub fn smallcaps(args: &mut Args) -> SourceResult<Value> {
     let body: Content = args.expect("content")?;

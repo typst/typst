@@ -4,7 +4,22 @@ use super::Spacing;
 
 /// Arrange content in a grid.
 ///
-/// Tags: layout.
+/// # Parameters
+/// - cells: Content (positional, variadic)
+///   The contents of the table cells.
+/// - rows: TrackSizings (named)
+///   Defines the row sizes.
+/// - columns: TrackSizings (named)
+///   Defines the column sizes.
+/// - gutter: TrackSizings (named)
+///   Defines the gaps between rows & columns.
+/// - column-gutter: TrackSizings (named)
+///   Defines the gaps between columns. Takes precedence over `gutter`.
+/// - row-gutter: TrackSizings (named)
+///   Defines the gaps between rows. Takes precedence over `gutter`.
+///
+/// # Tags
+/// - layout
 #[func]
 #[capable(Layout)]
 #[derive(Debug, Hash)]

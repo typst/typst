@@ -6,7 +6,14 @@ use crate::prelude::*;
 
 /// Show a raster or vector graphic.
 ///
-/// Tags: visualize.
+/// Supported formats are PNG, JPEG, GIF and SVG.
+///
+/// # Parameters
+/// - path: EcoString (positional, required)
+///   Path to an image file.
+///
+/// # Tags
+/// - visualize
 #[func]
 #[capable(Layout, Inline)]
 #[derive(Debug, Hash)]
