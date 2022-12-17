@@ -108,7 +108,7 @@ fn complete_rules(ctx: &mut CompletionContext) -> bool {
 /// Complete call and set rule parameters.
 fn complete_params(ctx: &mut CompletionContext) -> bool {
     // Ensure that we are in a function call or set rule's argument list.
-    let (callee, args) = if_chain! {
+    let (callee, set, args) = if_chain! {
         if let Some(parent) = ctx.leaf.parent();
         if let Some(parent) = match parent.kind() {
             SyntaxKind::Named => parent.parent(),
@@ -117,13 +117,14 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
         if let Some(args) = parent.cast::<ast::Args>();
         if let Some(grand) = parent.parent();
         if let Some(expr) = grand.cast::<ast::Expr>();
+        let set = matches!(expr, ast::Expr::Set(_));
         if let Some(callee) = match expr {
             ast::Expr::FuncCall(call) => call.callee().as_untyped().cast(),
             ast::Expr::Set(set) => Some(set.target()),
             _ => None,
         };
         then {
-            (callee, args)
+            (callee, set, args)
         } else {
             return false;
         }
@@ -173,7 +174,7 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
                 _ => None,
             }).collect();
 
-            ctx.param_completions(&callee, &exclude);
+            ctx.param_completions(&callee, set, &exclude);
             return true;
         }
     }
@@ -427,7 +428,12 @@ impl<'a> CompletionContext<'a> {
     }
 
     /// Add completions for the parameters of a function.
-    fn param_completions(&mut self, callee: &ast::Ident, exclude: &[ast::Ident]) {
+    fn param_completions(
+        &mut self,
+        callee: &ast::Ident,
+        set: bool,
+        exclude: &[ast::Ident],
+    ) {
         let info = if_chain! {
             if let Some(Value::Func(func)) = self.scope.get(callee);
             if let Some(info) = func.info();
@@ -441,6 +447,10 @@ impl<'a> CompletionContext<'a> {
 
         for param in &info.params {
             if exclude.iter().any(|ident| ident.as_str() == param.name) {
+                continue;
+            }
+
+            if set && !param.settable {
                 continue;
             }
 
