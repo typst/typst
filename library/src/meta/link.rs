@@ -6,6 +6,7 @@ use crate::text::TextNode;
 /// # Parameters
 /// - dest: Destination (positional, required)
 ///   The destination the link points to.
+///
 /// - body: Content (positional)
 ///   How the link is represented. Defaults to the destination if it is a link.
 ///

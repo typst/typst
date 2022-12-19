@@ -11,6 +11,7 @@ use crate::prelude::*;
 /// # Parameters
 /// - text: EcoString (positional, required)
 ///   The raw text.
+///
 /// - block: bool (named)
 ///   Whether the raw text is displayed as a separate block.
 ///

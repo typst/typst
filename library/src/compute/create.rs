@@ -77,12 +77,21 @@ pub fn luma(args: &mut Args) -> SourceResult<Value> {
 ///
 ///   If this string is given, the individual components should not be given.
 ///
+///   # Example
+///   ```
+///   #let color = rgb("#239dad")
+///   #text(16pt, color)[*Typst*]
+///   ```
+///
 /// - red: Component (positional)
 ///   The red component.
+///
 /// - green: Component (positional)
 ///   The green component.
+///
 /// - blue: Component (positional)
 ///   The blue component.
+///
 /// - alpha: Component (positional)
 ///   The alpha component.
 ///
@@ -125,10 +134,13 @@ castable! {
 /// # Parameters
 /// - cyan: RatioComponent (positional, required)
 ///   The cyan component.
+///
 /// - magenta: RatioComponent (positional, required)
 ///   The magenta component.
+///
 /// - yellow: RatioComponent (positional, required)
 ///   The yellow component.
+///
 /// - key: RatioComponent (positional, required)
 ///   The key component.
 ///

@@ -4,12 +4,18 @@ extern crate proc_macro;
 
 /// Return an error at the given item.
 macro_rules! bail {
+    (callsite, $fmt:literal $($tts:tt)*) => {
+        return Err(syn::Error::new(
+            proc_macro2::Span::call_site(),
+            format!(concat!("typst: ", $fmt) $($tts)*)
+        ))
+    };
     ($item:expr, $fmt:literal $($tts:tt)*) => {
-        return Err(Error::new_spanned(
+        return Err(syn::Error::new_spanned(
             &$item,
             format!(concat!("typst: ", $fmt) $($tts)*)
         ))
-    }
+    };
 }
 
 mod capable;
@@ -19,9 +25,8 @@ mod node;
 
 use proc_macro::TokenStream as BoundaryStream;
 use proc_macro2::{TokenStream, TokenTree};
-use quote::{quote, quote_spanned};
-use syn::parse_quote;
-use syn::{Error, Ident, Result};
+use quote::{quote, quote_spanned, ToTokens};
+use syn::{parse_quote, Ident, Result};
 
 /// Implement `FuncType` for a type or function.
 #[proc_macro_attribute]
@@ -87,4 +92,12 @@ fn documentation(attrs: &[syn::Attribute]) -> String {
 /// Dedent documentation text.
 fn dedent(text: &str) -> String {
     text.lines().map(str::trim).collect::<Vec<_>>().join("\n")
+}
+
+/// Quote an optional value.
+fn quote_option<T: ToTokens>(option: Option<T>) -> TokenStream {
+    match option {
+        Some(value) => quote! { Some(#value) },
+        None => quote! { None },
+    }
 }

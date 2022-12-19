@@ -6,6 +6,7 @@ use crate::text::TextNode;
 /// # Parameters
 /// - count: usize (positional, required)
 ///   The number of columns.
+///
 /// - body: Content (positional, required)
 ///   The content that should be layouted into the columns.
 ///

@@ -7,14 +7,19 @@ use crate::prelude::*;
 /// # Parameters
 /// - body: Content (positional)
 ///   The content to place into the shape.
+///
 /// - width: Rel<Length> (named)
 ///   The shape's width.
+///
 /// - height: Rel<Length> (named)
 ///   The shape's height.
+///
 /// - size: Length (named)
 ///   The square's side length.
+///
 /// - radius: Length (named)
 ///   The circle's radius.
+///
 /// - stroke: Smart<Sides<Option<PartialStroke>>> (named)
 ///   How to stroke the shape.
 ///

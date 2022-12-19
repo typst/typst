@@ -170,7 +170,7 @@ bitflags::bitflags! {
 
 impl FontInfo {
     /// Compute metadata for all fonts in the given data.
-    pub fn from_data(data: &[u8]) -> impl Iterator<Item = FontInfo> + '_ {
+    pub fn iter(data: &[u8]) -> impl Iterator<Item = FontInfo> + '_ {
         let count = ttf_parser::fonts_in_collection(data).unwrap_or(1);
         (0..count).filter_map(move |index| {
             let ttf = ttf_parser::Face::parse(data, index).ok()?;
@@ -179,7 +179,7 @@ impl FontInfo {
     }
 
     /// Compute metadata for a single ttf-parser face.
-    pub fn from_ttf(ttf: &ttf_parser::Face) -> Option<Self> {
+    pub(super) fn from_ttf(ttf: &ttf_parser::Face) -> Option<Self> {
         // We cannot use Name ID 16 "Typographic Family", because for some
         // fonts it groups together more than just Style / Weight / Stretch
         // variants (e.g. Display variants of Noto fonts) and then some

@@ -122,7 +122,7 @@ pub static LANG_ITEMS: OnceCell<LangItems> = OnceCell::new();
 /// break incremental, but only when different sets of lang items are used in
 /// the same program. For this reason, if this function is called multiple
 /// times, the items must be the same.
-pub(crate) fn set_lang_items(items: LangItems) {
+pub fn set_lang_items(items: LangItems) {
     if let Err(items) = LANG_ITEMS.set(items) {
         let first = hash128(LANG_ITEMS.get().unwrap());
         let second = hash128(&items);

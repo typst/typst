@@ -1,4 +1,3 @@
-use proc_macro2::Span;
 use unscanny::Scanner;
 
 use super::*;
@@ -14,12 +13,21 @@ pub fn func(item: syn::Item) -> Result<TokenStream> {
 
     let tags = tags(&mut docs);
     let params = params(&mut docs)?;
+    let example = quote_option(example(&mut docs));
+    let syntax = quote_option(section(&mut docs, "Syntax"));
+
     let docs = docs.trim();
+    if docs.contains("# ") {
+        bail!(item, "Documentation heading not recognized");
+    }
+
     let info = quote! {
         ::typst::model::FuncInfo {
             name,
-            docs: #docs,
             tags: &[#(#tags),*],
+            docs: #docs,
+            example: #example,
+            syntax: #syntax,
             params: ::std::vec![#(#params),*],
         }
     };
@@ -76,18 +84,18 @@ pub fn func(item: syn::Item) -> Result<TokenStream> {
 
 /// Extract a section.
 pub fn section(docs: &mut String, title: &str) -> Option<String> {
-    let needle = format!("# {title}\n");
+    let needle = format!("\n# {title}\n");
     let start = docs.find(&needle)?;
     let rest = &docs[start..];
-    let len = rest[1..].find('#').map(|x| 1 + x).unwrap_or(rest.len());
+    let len = rest[1..].find("\n# ").map(|x| 1 + x).unwrap_or(rest.len());
     let end = start + len;
-    let section = docs[start + needle.len()..].to_owned();
+    let section = docs[start + needle.len()..end].trim().to_owned();
     docs.replace_range(start..end, "");
     Some(section)
 }
 
 /// Parse the tag section.
-pub fn tags(docs: &mut String) -> Vec<String> {
+fn tags(docs: &mut String) -> Vec<String> {
     section(docs, "Tags")
         .unwrap_or_default()
         .lines()
@@ -96,24 +104,40 @@ pub fn tags(docs: &mut String) -> Vec<String> {
         .collect()
 }
 
+/// Parse the example section.
+pub fn example(docs: &mut String) -> Option<String> {
+    Some(
+        section(docs, "Example")?
+            .lines()
+            .skip_while(|line| !line.contains("```"))
+            .skip(1)
+            .take_while(|line| !line.contains("```"))
+            .map(|s| s.trim())
+            .collect::<Vec<_>>()
+            .join("\n"),
+    )
+}
+
 /// Parse the parameter section.
-pub fn params(docs: &mut String) -> Result<Vec<TokenStream>> {
+fn params(docs: &mut String) -> Result<Vec<TokenStream>> {
     let Some(section) = section(docs, "Parameters") else { return Ok(vec![]) };
     let mut s = Scanner::new(&section);
     let mut infos = vec![];
 
     while s.eat_if('-') {
-        s.eat_whitespace();
-        let name = s.eat_until(':');
-        s.expect(": ");
-        let ty: syn::Type = syn::parse_str(s.eat_until(char::is_whitespace))?;
-        s.eat_whitespace();
         let mut named = false;
         let mut positional = false;
         let mut required = false;
         let mut variadic = false;
         let mut settable = false;
+
+        s.eat_whitespace();
+        let name = s.eat_until(':');
+        s.expect(": ");
+        let ty: syn::Type = syn::parse_str(s.eat_until(char::is_whitespace))?;
+        s.eat_whitespace();
         s.expect('(');
+
         for part in s.eat_until(')').split(',').map(str::trim).filter(|s| !s.is_empty()) {
             match part {
                 "named" => named = true,
@@ -121,12 +145,7 @@ pub fn params(docs: &mut String) -> Result<Vec<TokenStream>> {
                 "required" => required = true,
                 "variadic" => variadic = true,
                 "settable" => settable = true,
-                _ => {
-                    return Err(syn::Error::new(
-                        Span::call_site(),
-                        format!("unknown parameter flag {:?}", part),
-                    ))
-                }
+                _ => bail!(callsite, "unknown parameter flag {:?}", part),
             }
         }
 
@@ -135,18 +154,20 @@ pub fn params(docs: &mut String) -> Result<Vec<TokenStream>> {
             || (named && variadic)
             || (required && variadic)
         {
-            return Err(syn::Error::new(
-                Span::call_site(),
-                "invalid combination of parameter flags",
-            ));
+            bail!(callsite, "invalid combination of parameter flags");
         }
 
         s.expect(')');
-        let docs = dedent(s.eat_until("\n-").trim());
+
+        let mut docs = dedent(s.eat_until("\n-").trim());
+        let example = quote_option(example(&mut docs));
+        let docs = docs.trim();
+
         infos.push(quote! {
             ::typst::model::ParamInfo {
                 name: #name,
                 docs: #docs,
+                example: #example,
                 cast: <#ty as ::typst::model::Cast<
                     ::typst::syntax::Spanned<::typst::model::Value>
                 >>::describe(),

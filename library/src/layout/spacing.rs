@@ -7,6 +7,7 @@ use crate::prelude::*;
 /// # Parameters
 /// - amount: Spacing (positional, required)
 ///   How much spacing to insert.
+///
 /// - weak: bool (named)
 ///   If true, the spacing collapses at the start or end of a paragraph.
 ///   Moreover, from multiple adjacent weak spacings all but the largest one
@@ -67,6 +68,7 @@ impl Behave for HNode {
 /// # Parameters
 /// - amount: Spacing (positional, required)
 ///   How much spacing to insert.
+///
 /// - weak: bool (named)
 ///   If true, the spacing collapses at the start or end of a flow.
 ///   Moreover, from multiple adjacent weak spacings all but the largest one

@@ -9,6 +9,7 @@ use crate::text::TextNode;
 /// # Parameters
 /// - body: Content (positional, required)
 ///   The contents of the page(s).
+///
 /// - paper: Paper (positional, settable)
 ///   The paper size.
 ///

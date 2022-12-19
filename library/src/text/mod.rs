@@ -30,6 +30,7 @@ use crate::prelude::*;
 /// # Parameters
 /// - family: EcoString (positional, variadic, settable)
 ///   A prioritized sequence of font families.
+///
 /// - body: Content (positional, required)
 ///   Content in which all text is styled according to the other arguments.
 ///

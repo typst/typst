@@ -7,10 +7,13 @@ use crate::prelude::*;
 /// # Parameters
 /// - origin: Axes<Rel<Length>> (named)
 ///   The start point of the line.
+///
 /// - to: Axes<Rel<Length>> (named)
 ///   The end point of the line.
+///
 /// - length: Rel<Length> (named)
 ///   The line's length.
+///
 /// - angle: Angle (named)
 ///   The angle at which the line points away from the origin.
 ///

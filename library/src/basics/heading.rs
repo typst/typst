@@ -7,9 +7,23 @@ use crate::text::{SpaceNode, TextNode, TextSize};
 
 /// A section heading.
 ///
+/// # Example
+/// ```
+/// #set heading(numbering: "I.")
+///
+/// = Introduction
+/// In recent years, ...
+/// ```
+///
+/// # Syntax
+/// Headings can be created by starting a line with one or multiple equals
+/// signs. The number of equals signs determines the heading's logical nesting
+/// depth.
+///
 /// # Parameters
 /// - body: Content (positional, required)
 ///   The heading's contents.
+///
 /// - level: NonZeroUsize (named)
 ///   The logical nesting depth of the heading, starting from one.
 ///
@@ -29,10 +43,31 @@ pub struct HeadingNode {
 #[node]
 impl HeadingNode {
     /// How to number the heading.
+    ///
+    /// # Example
+    /// ```
+    /// #set heading(numbering: "1.a.")
+    ///
+    /// = A section
+    /// == A subsection
+    /// === A sub-subsection
+    /// ```
     #[property(referenced)]
     pub const NUMBERING: Option<NumberingPattern> = None;
 
     /// Whether the heading should appear in the outline.
+    ///
+    /// # Example
+    /// ```
+    /// #outline()
+    ///
+    /// #heading[Normal]
+    /// This is a normal heading.
+    ///
+    /// #heading(outlined: false)[Hidden]
+    /// This heading does not appear
+    /// in the outline.
+    /// ```
     pub const OUTLINED: bool = true;
 
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {

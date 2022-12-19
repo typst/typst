@@ -8,8 +8,10 @@ use crate::prelude::*;
 /// # Parameters
 /// - items: StackChild (positional, variadic)
 ///   The items to stack along an axis.
+///
 /// - dir: Dir (named)
 ///   The direction along which the items are stacked.
+///
 /// - spacing: Spacing (named)
 ///   Spacing to insert between items where no explicit spacing was provided.
 ///

@@ -213,10 +213,8 @@ impl TestWorld {
             .filter_map(|e| e.ok())
             .filter(|entry| entry.file_type().is_file())
         {
-            let buffer: Buffer = fs::read(entry.path()).unwrap().into();
-            for index in 0..ttf_parser::fonts_in_collection(&buffer).unwrap_or(1) {
-                fonts.push(Font::new(buffer.clone(), index).unwrap())
-            }
+            let data = std::fs::read(entry.path()).unwrap();
+            fonts.extend(Font::iter(data.into()));
         }
 
         Self {

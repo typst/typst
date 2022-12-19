@@ -7,8 +7,10 @@ use crate::prelude::*;
 /// # Parameters
 /// - body: Content (positional)
 ///   The contents of the box.
+///
 /// - width: Rel<Length> (named)
 ///   The width of the box.
+///
 /// - height: Rel<Length> (named)
 ///   The height of the box.
 ///
@@ -78,11 +80,14 @@ impl Inline for BoxNode {}
 /// # Parameters
 /// - body: Content (positional)
 ///   The contents of the block.
+///
 /// - spacing: Spacing (named, settable)
 ///   The spacing around this block.
+///
 /// - above: Spacing (named, settable)
 ///   The spacing between the previous and this block. Takes precedence over
 ///   `spacing`.
+///
 /// - below: Spacing (named, settable)
 ///   The spacing between this block and the following one. Takes precedence
 ///   over `spacing`.

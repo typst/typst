@@ -22,6 +22,7 @@ pub fn lorem(args: &mut Args) -> SourceResult<Value> {
 /// # Parameters
 /// - pattern: NumberingPattern (positional, required)
 ///   A string that defines how the numbering works.
+///
 /// - numbers: NonZeroUsize (positional, variadic)
 ///   The numbers to apply the pattern to.
 ///

@@ -664,7 +664,7 @@ impl FontSearcher {
         let path = path.as_ref();
         if let Ok(file) = File::open(path) {
             if let Ok(mmap) = unsafe { Mmap::map(&file) } {
-                for (i, info) in FontInfo::from_data(&mmap).enumerate() {
+                for (i, info) in FontInfo::iter(&mmap).enumerate() {
                     self.book.push(info);
                     self.fonts.push(FontSlot {
                         path: path.into(),

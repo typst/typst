@@ -69,6 +69,12 @@ impl Font {
         })))
     }
 
+    /// Parse all fonts in the given data.
+    pub fn iter(data: Buffer) -> impl Iterator<Item = Self> {
+        let count = ttf_parser::fonts_in_collection(&data).unwrap_or(1);
+        (0..count).filter_map(move |index| Self::new(data.clone(), index))
+    }
+
     /// The underlying buffer.
     pub fn data(&self) -> &Buffer {
         &self.0.data

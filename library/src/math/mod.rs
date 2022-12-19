@@ -19,6 +19,7 @@ use crate::text::{FontFamily, LinebreakNode, SpaceNode, SymbolNode, TextNode};
 /// # Parameters
 /// - items: Content (positional, variadic)
 ///   The individual parts of the formula.
+///
 /// - block: bool (named)
 ///   Whether the formula is displayed as a separate block.
 ///
@@ -309,6 +310,7 @@ impl Texify for AtomNode {
 /// # Parameters
 /// - base: Content (positional, required)
 ///   The base to which the accent is applied.
+///
 /// - accent: Content (positional, required)
 ///   The accent to apply to the base.
 ///
@@ -393,6 +395,7 @@ impl Texify for AccNode {
 /// # Parameters
 /// - num: Content (positional, required)
 ///   The fraction's numerator.
+///
 /// - denom: Content (positional, required)
 ///   The fraction's denominator.
 ///
@@ -433,6 +436,7 @@ impl Texify for FracNode {
 /// # Parameters
 /// - upper: Content (positional, required)
 ///   The binomial's upper index.
+///
 /// - lower: Content (positional, required)
 ///   The binomial's lower index.
 ///
@@ -473,8 +477,10 @@ impl Texify for BinomNode {
 /// # Parameters
 /// - base: Content (positional, required)
 ///   The base to which the applies the sub- and/or superscript.
+///
 /// - sub: Content (named)
 ///   The subscript.
+///
 /// - sup: Content (named)
 ///   The superscript.
 ///

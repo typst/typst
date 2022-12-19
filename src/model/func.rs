@@ -214,6 +214,10 @@ pub struct FuncInfo {
     pub tags: &'static [&'static str],
     /// Documentation for the function.
     pub docs: &'static str,
+    /// The source code of an example, if any.
+    pub example: Option<&'static str>,
+    /// Documentation about this function's syntax, if it has syntax.
+    pub syntax: Option<&'static str>,
     /// Details about the function's parameters.
     pub params: Vec<ParamInfo>,
 }
@@ -232,6 +236,8 @@ pub struct ParamInfo {
     pub name: &'static str,
     /// Documentation for the parameter.
     pub docs: &'static str,
+    /// The source code of an example, if any.
+    pub example: Option<&'static str>,
     /// Valid values for the parameter.
     pub cast: CastInfo,
     /// Is the parameter positional?

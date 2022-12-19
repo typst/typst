@@ -105,6 +105,7 @@ pub fn odd(args: &mut Args) -> SourceResult<Value> {
 /// # Parameters
 /// - dividend: ToMod (positional, required)
 ///   The dividend of the modulus.
+///
 /// - divisor: ToMod (positional, required)
 ///   The divisor of the modulus.
 ///
