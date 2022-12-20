@@ -43,7 +43,7 @@ castable! {
 /// ## Example
 /// ```
 /// #min(1, -3, -5, 20, 3, 6) \
-/// #min("Typst", "in", "beta")
+/// #min("typst", "in", "beta")
 /// ```
 ///
 /// ## Parameters
@@ -64,7 +64,7 @@ pub fn min(args: &mut Args) -> SourceResult<Value> {
 /// ## Example
 /// ```
 /// #max(1, -3, -5, 20, 3, 6) \
-/// #max("Typst", "in", "beta")
+/// #max("typst", "in", "beta")
 /// ```
 ///
 /// ## Parameters
