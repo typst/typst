@@ -144,6 +144,10 @@ impl Layout for ColumnsNode {
 /// # Column Break
 /// A forced column break.
 /// 
+/// The function will behave like a [page break](@pagebreak) when used in a
+/// single column layout or the last column on a page. Otherwise, content after
+/// the column break will be placed in the next column.
+/// 
 /// ## Example
 /// ```
 /// #set page(columns: 2)

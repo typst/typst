@@ -3,7 +3,20 @@ use std::cmp::Ordering;
 use crate::prelude::*;
 
 /// # Spacing (H)
-/// Horizontal spacing in a paragraph.
+/// Insert horizontal spacing into a paragraph.
+/// 
+/// The spacing can be a length or a `fractional`. In the latter case, the
+/// remaining space on the line is distributed among all fractional spacings
+/// according to their relative size.
+/// 
+/// ## Example
+/// ```
+/// #circle(fill: red)
+/// #h(1fr)
+/// #circle(fill: yellow)
+/// #h(2fr)
+/// #circle(fill: green)
+/// ```
 ///
 /// ## Parameters
 /// - amount: Spacing (positional, required)
@@ -13,6 +26,18 @@ use crate::prelude::*;
 ///   If true, the spacing collapses at the start or end of a paragraph.
 ///   Moreover, from multiple adjacent weak spacings all but the largest one
 ///   collapse.
+/// 
+///   ### Example
+///   ```
+///   #h(1cm, weak: true)
+///   We identified a group of
+///   _weak_ specimens that fail to
+///   manifest in most cases. However,
+///   when #h(8pt, weak: true)
+///   supported
+///   #h(8pt, weak: true) on all
+///   sides, they do show up.
+///   ```
 ///
 /// ## Category
 /// layout
@@ -65,8 +90,30 @@ impl Behave for HNode {
 }
 
 /// # Spacing (V)
-/// Vertical spacing.
+/// Insert vertical spacing.
+/// 
+/// The spacing can be a length or a `fractional`. In the latter case, the
+/// remaining space on the page is distributed among all fractional spacings
+/// according to their relative size.
 ///
+/// ## Example
+/// ```
+/// In this report, we will explore
+/// the various ethical
+/// considerations that must be
+/// taken into account when
+/// conducting psychological
+/// research: 
+/// #v(5mm)
+/// 
+/// - Informed consent
+///
+/// - Participant confidentiality
+///
+/// - The use of
+///   vulnerable populations.
+/// ```
+/// 
 /// ## Parameters
 /// - amount: Spacing (positional, required)
 ///   How much spacing to insert.
@@ -75,7 +122,20 @@ impl Behave for HNode {
 ///   If true, the spacing collapses at the start or end of a flow.
 ///   Moreover, from multiple adjacent weak spacings all but the largest one
 ///   collapse.
-///
+///   
+///   ### Example
+///   ```
+///   Only paragraph spacing
+/// 
+///   Override paragraph spacing
+///     with weak space
+///     #v(7mm, weak: true)
+/// 
+///   Add to paragraph spacing
+///     #v(7mm, weak: false)
+/// 
+///   A secret, fourth thing
+///  ```
 /// ## Category
 /// layout
 #[func]

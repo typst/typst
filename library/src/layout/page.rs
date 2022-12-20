@@ -158,6 +158,19 @@ impl Debug for PageNode {
 /// # Page Break
 /// A page break.
 ///
+/// A manually forced page break. It must not be used inside any containers.
+///
+/// ## Example
+/// ```
+/// The next page contains
+/// more details on compound theory.
+/// #pagebreak()
+///
+/// // Examples only render the first
+/// // page, so this is not visible.
+/// == Compound Theory
+/// ```
+///
 /// ## Parameters
 /// - weak: bool (named)
 ///   If true, the page break is skipped if the current page is already empty.

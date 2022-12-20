@@ -151,6 +151,19 @@ castable! {
 /// # Paragraph Break
 /// A paragraph break.
 ///
+/// This starts a new paragraph. Especially useful when used within code like
+/// [for loops](/docs/reference/concepts#for-loop). Paragraph breaks in an empty
+/// paragraph are ignored.
+///
+/// ## Example
+/// ```
+/// #for i in range(3) {
+///   [Blind text #i: ]
+///   lorem(5)
+///   parbreak()
+/// }
+/// ```
+///
 /// ## Category
 /// layout
 #[func]
