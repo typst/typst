@@ -5,39 +5,50 @@ use super::{variant, SpaceNode, TextNode, TextSize};
 use crate::prelude::*;
 
 /// # Subscript
-/// Sub- or superscript text.
+/// Set text in subscript.
 ///
-/// The text is rendered smaller and its baseline is raised/lowered. To provide
-/// the best typography possible, we first try to transform the text to
-/// superscript codepoints. If that fails, we fall back to rendering shrunk
-/// normal letters in a raised way.
+/// The text is rendered smaller and its baseline is lowered.
+///
+/// _Note:_ In the future, this might be unified with the [script](@script)
+/// function that handles subscripts in math.
+///
+/// ## Example
+/// ```
+/// Revenue#sub[yearly]
+/// ```
 ///
 /// ## Parameters
 /// - body: Content (positional, required)
-///   The text to display in sub- or superscript.
+///   The text to display in subscript.
 ///
 /// ## Category
 /// text
 #[func]
 #[capable(Show)]
 #[derive(Debug, Hash)]
-pub struct ShiftNode<const S: ShiftKind>(pub Content);
-
-/// Shift the text into superscript.
-pub type SuperNode = ShiftNode<SUPERSCRIPT>;
-
-/// Shift the text into subscript.
-pub type SubNode = ShiftNode<SUBSCRIPT>;
+pub struct SubNode(pub Content);
 
 #[node]
-impl<const S: ShiftKind> ShiftNode<S> {
-    /// Whether to prefer the dedicated sub- and superscript characters of the
-    /// font.
+impl SubNode {
+    /// Whether to prefer the dedicated subscript characters of the font.
+    ///
+    /// If this is enabled, Typst first tries to transform the text to subscript
+    /// codepoints. If that fails, it falls back to rendering lowered and shrunk
+    /// normal letters.
+    ///
+    /// # Example
+    /// ```
+    /// N#sub(typographic: true)[1]
+    /// N#sub(typographic: false)[1]
+    /// ```
     pub const TYPOGRAPHIC: bool = true;
-    /// The baseline shift for synthetic sub- and superscripts.
-    pub const BASELINE: Length =
-        Em::new(if S == SUPERSCRIPT { -0.5 } else { 0.2 }).into();
-    /// The font size for synthetic sub- and superscripts.
+    /// The baseline shift for synthetic subcripts. Does not apply if
+    /// `typographic` is true and the font has subscript codepoints for the
+    /// given `body`.
+    pub const BASELINE: Length = Em::new(0.2).into();
+    /// The font size for synthetic subscripts. Does not apply if
+    /// `typographic` is true and the font has subscript codepoints for the
+    /// given `body`.
     pub const SIZE: TextSize = TextSize(Em::new(0.6).into());
 
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
@@ -52,7 +63,7 @@ impl<const S: ShiftKind> ShiftNode<S> {
     }
 }
 
-impl<const S: ShiftKind> Show for ShiftNode<S> {
+impl Show for SubNode {
     fn show(
         &self,
         vt: &mut Vt,
@@ -61,7 +72,91 @@ impl<const S: ShiftKind> Show for ShiftNode<S> {
     ) -> SourceResult<Content> {
         let mut transformed = None;
         if styles.get(Self::TYPOGRAPHIC) {
-            if let Some(text) = search_text(&self.0, S) {
+            if let Some(text) = search_text(&self.0, true) {
+                if is_shapable(vt, &text, styles) {
+                    transformed = Some(TextNode::packed(text));
+                }
+            }
+        };
+
+        Ok(transformed.unwrap_or_else(|| {
+            let mut map = StyleMap::new();
+            map.set(TextNode::BASELINE, styles.get(Self::BASELINE));
+            map.set(TextNode::SIZE, styles.get(Self::SIZE));
+            self.0.clone().styled_with_map(map)
+        }))
+    }
+}
+
+/// # Superscript
+/// Set text in superscript.
+///
+/// The text is rendered smaller and its baseline is raised.
+///
+/// _Note:_ In the future, this might be unified with the [script](@script)
+/// function that handles superscripts in math.
+///
+/// ## Example
+/// ```
+/// 1#super[st] try!
+/// ```
+///
+/// ## Parameters
+/// - body: Content (positional, required)
+///   The text to display in superscript.
+///
+/// ## Category
+/// text
+#[func]
+#[capable(Show)]
+#[derive(Debug, Hash)]
+pub struct SuperNode(pub Content);
+
+#[node]
+impl SuperNode {
+    /// Whether to prefer the dedicated superscript characters of the font.
+    ///
+    /// If this is enabled, Typst first tries to transform the text to
+    /// superscript codepoints. If that fails, it falls back to rendering
+    /// raised and shrunk normal letters.
+    ///
+    /// # Example
+    /// ```
+    /// N#super(typographic: true)[1]
+    /// N#super(typographic: false)[1]
+    /// ```
+    pub const TYPOGRAPHIC: bool = true;
+    /// The baseline shift for synthetic superscripts. Does not apply if
+    /// `typographic` is true and the font has superscript codepoints for the
+    /// given `body`.
+    pub const BASELINE: Length = Em::new(-0.5).into();
+    /// The font size for synthetic superscripts. Does not apply if
+    /// `typographic` is true and the font has superscript codepoints for the
+    /// given `body`.
+    pub const SIZE: TextSize = TextSize(Em::new(0.6).into());
+
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
+        Ok(Self(args.expect("body")?).pack())
+    }
+
+    fn field(&self, name: &str) -> Option<Value> {
+        match name {
+            "body" => Some(Value::Content(self.0.clone())),
+            _ => None,
+        }
+    }
+}
+
+impl Show for SuperNode {
+    fn show(
+        &self,
+        vt: &mut Vt,
+        _: &Content,
+        styles: StyleChain,
+    ) -> SourceResult<Content> {
+        let mut transformed = None;
+        if styles.get(Self::TYPOGRAPHIC) {
+            if let Some(text) = search_text(&self.0, false) {
                 if is_shapable(vt, &text, styles) {
                     transformed = Some(TextNode::packed(text));
                 }
@@ -79,15 +174,15 @@ impl<const S: ShiftKind> Show for ShiftNode<S> {
 
 /// Find and transform the text contained in `content` to the given script kind
 /// if and only if it only consists of `Text`, `Space`, and `Empty` leaf nodes.
-fn search_text(content: &Content, mode: ShiftKind) -> Option<EcoString> {
+fn search_text(content: &Content, sub: bool) -> Option<EcoString> {
     if content.is::<SpaceNode>() {
         Some(' '.into())
     } else if let Some(text) = content.to::<TextNode>() {
-        convert_script(&text.0, mode)
+        convert_script(&text.0, sub)
     } else if let Some(seq) = content.to::<SequenceNode>() {
         let mut full = EcoString::new();
         for item in seq.0.iter() {
-            match search_text(item, mode) {
+            match search_text(item, sub) {
                 Some(text) => full.push_str(&text),
                 None => return None,
             }
@@ -117,12 +212,9 @@ fn is_shapable(vt: &Vt, text: &str, styles: StyleChain) -> bool {
 
 /// Convert a string to sub- or superscript codepoints if all characters
 /// can be mapped to such a codepoint.
-fn convert_script(text: &str, mode: ShiftKind) -> Option<EcoString> {
+fn convert_script(text: &str, sub: bool) -> Option<EcoString> {
     let mut result = EcoString::with_capacity(text.len());
-    let converter = match mode {
-        SUPERSCRIPT => to_superscript_codepoint,
-        SUBSCRIPT | _ => to_subscript_codepoint,
-    };
+    let converter = if sub { to_subscript_codepoint } else { to_superscript_codepoint };
 
     for c in text.chars() {
         match converter(c) {
@@ -180,12 +272,3 @@ fn to_subscript_codepoint(c: char) -> Option<char> {
         _ => return None,
     })
 }
-
-/// A category of script.
-pub type ShiftKind = usize;
-
-/// Text that is rendered smaller and raised, also known as superior.
-const SUPERSCRIPT: ShiftKind = 0;
-
-/// Text that is rendered smaller and lowered, also known as inferior.
-const SUBSCRIPT: ShiftKind = 1;

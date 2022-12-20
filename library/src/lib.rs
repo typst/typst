@@ -53,6 +53,7 @@ fn scope() -> Scope {
     std.def_func::<math::AccNode>("acc");
     std.def_func::<math::FracNode>("frac");
     std.def_func::<math::BinomNode>("binom");
+    std.def_func::<math::ScriptNode>("script");
     std.def_func::<math::SqrtNode>("sqrt");
     std.def_func::<math::FloorNode>("floor");
     std.def_func::<math::CeilNode>("ceil");
