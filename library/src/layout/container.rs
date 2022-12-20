@@ -5,6 +5,21 @@ use crate::prelude::*;
 /// # Box
 /// An inline-level container that sizes content.
 ///
+/// Normally, all elements except inline math, text, and boxes are block-level
+/// and cannot occur inside of a paragraph. The box element allows you to create
+/// inline-level containers. Boxes take the size of their contents by default
+/// but can also be sized explicitly.
+///
+/// ## Example
+/// ```
+/// Refer to the docs
+/// #box(
+///   height: 9pt,
+///   image("docs.svg")
+/// )
+/// for more information.
+/// ```
+///
 /// ## Parameters
 /// - body: Content (positional)
 ///   The contents of the box.
@@ -79,6 +94,24 @@ impl Inline for BoxNode {}
 /// # Block
 /// A block-level container that places content into a separate flow.
 ///
+/// This can be used to force elements that would otherwise be inline to become
+/// block-level. This is especially useful when writing `{show}` rules.
+///
+/// ## Example
+/// ```
+/// [
+///   #show heading: it => it.title
+///   = No block
+///   Some text
+/// ]
+///
+/// [
+///   #show heading: it => block(it.title)
+///   = Block
+///   Some more text
+/// ]
+/// ```
+///
 /// ## Parameters
 /// - body: Content (positional)
 ///   The contents of the block.
@@ -87,11 +120,11 @@ impl Inline for BoxNode {}
 ///   The spacing around this block.
 ///
 /// - above: Spacing (named, settable)
-///   The spacing between the previous and this block. Takes precedence over
+///   The spacing between this block and its predecessor. Takes precedence over
 ///   `spacing`.
 ///
 /// - below: Spacing (named, settable)
-///   The spacing between this block and the following one. Takes precedence
+///   The spacing between this block and its successor. Takes precedence
 ///   over `spacing`.
 ///
 /// ## Category
@@ -110,6 +143,8 @@ impl BlockNode {
     #[property(skip)]
     pub const BELOW: VNode = VNode::block_spacing(Em::new(1.2).into());
     /// Whether this block must stick to the following one.
+    ///
+    /// Use this to prevent page breaks between e.g. a heading and its body.
     #[property(skip)]
     pub const STICKY: bool = false;
 

@@ -14,7 +14,7 @@ use crate::prelude::*;
 ///
 /// ## Example
 /// ```
-/// #let results = csv("/data.csv")
+/// #let results = csv("data.csv")
 ///
 /// #table(
 ///   columns: 2,
@@ -133,8 +133,8 @@ fn format_csv_error(error: csv::Error) -> String {
 ///   °{day.unit}
 /// ]
 ///
-/// #forecast(json("/monday.json"))
-/// #forecast(json("/tuesday.json"))
+/// #forecast(json("monday.json"))
+/// #forecast(json("tuesday.json"))
 /// ```
 ///
 /// ## Parameters
@@ -180,7 +180,10 @@ fn convert_json(value: serde_json::Value) -> Value {
 /// Format the user-facing JSON error message.
 fn format_json_error(error: serde_json::Error) -> String {
     assert!(error.is_syntax() || error.is_eof());
-    format!("failed to parse json file: syntax error in line {}", error.line())
+    format!(
+        "failed to parse json file: syntax error in line {}",
+        error.line()
+    )
 }
 
 /// # XML
@@ -225,7 +228,7 @@ fn format_json_error(error: serde_json::Error) -> String {
 ///   }
 /// }
 ///
-/// #let file = xml("/example.xml")
+/// #let file = xml("example.xml")
 /// #for child in file(0).children {
 ///   if (type(child) == "dictionary") {
 ///     article(child)

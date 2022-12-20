@@ -3,6 +3,34 @@ use crate::text::TextNode;
 
 /// # Columns
 /// Separate a region into multiple equally sized columns.
+/// 
+/// The column function allows to separate the interior of any container into
+/// multiple columns. It will not equalize the height of the columns, instead,
+/// the columns will take up the height of their container or the remaining
+/// height on the page. The columns function can break across pages if
+/// necessary.
+/// 
+/// ## Example
+/// ```
+/// = [An extraordinarily
+///   long heading]
+/// 
+/// #box(height: 68pt,
+///  columns(2, gutter: 11pt)[
+///    #set par(justify: true)
+///    This research was funded by the
+///    National Academy of Sciences.
+///    NAoS provided support for field 
+///    tests and interviews with a
+///    grant of up to USD 40.000 for a
+///    period of 6 months.
+///  ]
+/// )
+/// 
+/// In recent years, deep learning has
+/// increasingly been used to solve a
+/// variety of problems.
+/// ```
 ///
 /// ## Parameters
 /// - count: usize (positional, required)
@@ -114,7 +142,25 @@ impl Layout for ColumnsNode {
 }
 
 /// # Column Break
-/// A column break.
+/// A forced column break.
+/// 
+/// ## Example
+/// ```
+/// #set page(columns: 2)
+/// Preliminary findings from our
+/// ongoing research project have
+/// revealed a hitherto unknown
+/// phenomenon of extraordinary
+/// significance.
+/// 
+/// #colbreak()
+/// Through rigorous experimentation
+/// and analysis, we have discovered
+/// a hitherto uncharacterized process
+/// that defies our current
+/// understanding of the fundamental
+/// laws of nature.
+/// ```
 ///
 /// ## Parameters
 /// - weak: bool (named)

@@ -124,8 +124,11 @@ impl Source {
         }
 
         // Recalculate the line starts after the edit.
-        self.lines
-            .extend(lines_from(start_byte, start_utf16, &self.text[start_byte..]));
+        self.lines.extend(lines_from(
+            start_byte,
+            start_utf16,
+            &self.text[start_byte..],
+        ));
 
         // Incrementally reparse the replaced range.
         let mut root = std::mem::take(&mut self.root).into_inner();
