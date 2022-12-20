@@ -467,7 +467,7 @@ fn collect<'a>(
             Segment::Text(c.len_utf8())
         } else if let Some(node) = child.to::<SmartQuoteNode>() {
             let prev = full.len();
-            if styles.get(TextNode::SMART_QUOTES) {
+            if styles.get(SmartQuoteNode::ENABLED) {
                 let lang = styles.get(TextNode::LANG);
                 let region = styles.get(TextNode::REGION);
                 let quotes = Quotes::from_lang(lang, region);

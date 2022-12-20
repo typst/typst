@@ -254,7 +254,7 @@ pub struct LineMetrics {
 /// Identifies a vertical metric of a font.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum VerticalFontMetric {
-    /// The distance from the baseline to the typographic ascender.
+    /// The typographic ascender.
     ///
     /// Corresponds to the typographic ascender from the `OS/2` table if present
     /// and falls back to the ascender from the `hhea` table otherwise.
@@ -265,7 +265,7 @@ pub enum VerticalFontMetric {
     XHeight,
     /// The baseline on which the letters rest.
     Baseline,
-    /// The distance from the baseline to the typographic descender.
+    /// The typographic descender.
     ///
     /// Corresponds to the typographic descender from the `OS/2` table if
     /// present and falls back to the descender from the `hhea` table otherwise.

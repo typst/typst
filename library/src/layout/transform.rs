@@ -31,6 +31,7 @@ use crate::prelude::*;
 ///   ### Example
 ///   ```
 ///   Hello, world!#move(dy: -2pt)[!]#move(dy: 2pt)[!]
+///   ```
 ///
 /// - dx: Rel<Length> (named)
 ///   The horizontal displacement of the content.
@@ -60,6 +61,13 @@ impl MoveNode {
             body: args.expect("body")?,
         }
         .pack())
+    }
+
+    fn field(&self, name: &str) -> Option<Value> {
+        match name {
+            "body" => Some(Value::Content(self.body.clone())),
+            _ => None,
+        }
     }
 }
 
@@ -129,6 +137,13 @@ impl RotateNode {
             body: args.expect("body")?,
         }
         .pack())
+    }
+
+    fn field(&self, name: &str) -> Option<Value> {
+        match name {
+            "body" => Some(Value::Content(self.body.clone())),
+            _ => None,
+        }
     }
 }
 
@@ -208,6 +223,13 @@ impl ScaleNode {
             body: args.expect("body")?,
         }
         .pack())
+    }
+
+    fn field(&self, name: &str) -> Option<Value> {
+        match name {
+            "body" => Some(Value::Content(self.body.clone())),
+            _ => None,
+        }
     }
 }
 

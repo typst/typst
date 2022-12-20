@@ -120,6 +120,19 @@ impl GridNode {
         }
         .pack())
     }
+
+    fn field(&self, name: &str) -> Option<Value> {
+        match name {
+            "columns" => Some(TrackSizing::encode_slice(&self.tracks.x)),
+            "rows" => Some(TrackSizing::encode_slice(&self.tracks.y)),
+            "column-gutter" => Some(TrackSizing::encode_slice(&self.gutter.x)),
+            "row-gutter" => Some(TrackSizing::encode_slice(&self.gutter.y)),
+            "cells" => Some(Value::Array(
+                self.cells.iter().cloned().map(Value::Content).collect(),
+            )),
+            _ => None,
+        }
+    }
 }
 
 impl Layout for GridNode {
@@ -155,6 +168,20 @@ pub enum TrackSizing {
     /// A track size specified as a fraction of the remaining free space in the
     /// parent.
     Fractional(Fr),
+}
+
+impl TrackSizing {
+    pub fn encode(self) -> Value {
+        match self {
+            Self::Auto => Value::Auto,
+            Self::Relative(rel) => Spacing::Relative(rel).encode(),
+            Self::Fractional(fr) => Spacing::Fractional(fr).encode(),
+        }
+    }
+
+    pub fn encode_slice(vec: &[TrackSizing]) -> Value {
+        Value::Array(vec.iter().copied().map(Self::encode).collect())
+    }
 }
 
 impl From<Spacing> for TrackSizing {

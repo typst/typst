@@ -67,6 +67,13 @@ impl PadNode {
         let padding = Sides::new(left, top, right, bottom);
         Ok(Self { padding, body }.pack())
     }
+
+    fn field(&self, name: &str) -> Option<Value> {
+        match name {
+            "body" => Some(Value::Content(self.body.clone())),
+            _ => None,
+        }
+    }
 }
 
 impl Layout for PadNode {

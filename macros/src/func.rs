@@ -109,15 +109,13 @@ pub fn section(docs: &mut String, title: &str, level: usize) -> Option<String> {
 
 /// Parse the example section.
 pub fn example(docs: &mut String, level: usize) -> Option<String> {
-    Some(
-        section(docs, "Example", level)?
-            .lines()
-            .skip_while(|line| !line.contains("```"))
-            .skip(1)
-            .take_while(|line| !line.contains("```"))
-            .collect::<Vec<_>>()
-            .join("\n"),
-    )
+    let section = section(docs, "Example", level)?;
+    let mut s = unscanny::Scanner::new(&section);
+    let count = s.eat_while('`').len();
+    let term = "`".repeat(count);
+    let text = s.eat_until(term.as_str()).trim();
+    s.expect(term.as_str());
+    Some(text.into())
 }
 
 /// Parse the parameter section.

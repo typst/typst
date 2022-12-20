@@ -54,9 +54,17 @@ pub struct HNode {
 #[node]
 impl HNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        let amount = args.expect("spacing")?;
+        let amount = args.expect("amount")?;
         let weak = args.named("weak")?.unwrap_or(false);
         Ok(Self { amount, weak }.pack())
+    }
+
+    fn field(&self, name: &str) -> Option<Value> {
+        match name {
+            "amount" => Some(self.amount.encode()),
+            "weak" => Some(Value::Bool(self.weak)),
+            _ => None,
+        }
     }
 }
 
@@ -159,6 +167,14 @@ impl VNode {
         };
         Ok(node.pack())
     }
+
+    fn field(&self, name: &str) -> Option<Value> {
+        match name {
+            "amount" => Some(self.amount.encode()),
+            "weak" => Some(Value::Bool(self.weakness != 0)),
+            _ => None,
+        }
+    }
 }
 
 impl VNode {
@@ -219,6 +235,22 @@ impl Spacing {
     /// Whether this is fractional spacing.
     pub fn is_fractional(self) -> bool {
         matches!(self, Self::Fractional(_))
+    }
+
+    /// Encode into a value.
+    pub fn encode(self) -> Value {
+        match self {
+            Self::Relative(rel) => {
+                if rel.rel.is_zero() {
+                    Value::Length(rel.abs)
+                } else if rel.abs.is_zero() {
+                    Value::Ratio(rel.rel)
+                } else {
+                    Value::Relative(rel)
+                }
+            }
+            Self::Fractional(fr) => Value::Fraction(fr),
+        }
     }
 }
 

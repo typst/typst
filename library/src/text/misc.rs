@@ -27,11 +27,40 @@ impl Behave for SpaceNode {
 }
 
 /// # Line Break
-/// A line break.
+/// Inserts a line break.
+///
+/// Advances the paragraph to the next line. A single trailing linebreak at the
+/// end of a paragraph is ignored, but more than one creates additional empty
+/// lines.
+///
+/// ## Example
+/// ```
+/// *Date:* 26.12.2022 \
+/// *Topic:* Infrastructure Test \
+/// *Severity:* High \
+/// ```
+///
+/// ## Syntax
+/// This function also has dedicated syntax: To insert a linebreak, simply write
+/// a backslash followed by whitespace. This always creates an unjustified
+/// break.
 ///
 /// ## Parameters
 /// - justify: bool (named)
 ///   Whether to justify the line before the break.
+///
+///   This is useful if you found a better line break opportunity in your
+///   justified text than Typst did.
+///
+///   ### Example
+///   ```
+///   #set par(justify: true)
+///   #let jb = linebreak(justify: true)
+///
+///   I have manually tuned the #jb
+///   linebreaks in this paragraph #jb
+///   for an _interesting_ result. #jb
+///   ```
 ///
 /// ## Category
 /// text
@@ -48,6 +77,13 @@ impl LinebreakNode {
         let justify = args.named("justify")?.unwrap_or(false);
         Ok(Self { justify }.pack())
     }
+
+    fn field(&self, name: &str) -> Option<Value> {
+        match name {
+            "justify" => Some(Value::Bool(self.justify)),
+            _ => None,
+        }
+    }
 }
 
 impl Behave for LinebreakNode {
@@ -58,6 +94,23 @@ impl Behave for LinebreakNode {
 
 /// # Strong Emphasis
 /// Strongly emphasizes content by increasing the font weight.
+///
+/// Increases the current font weight by a given `delta`.
+///
+/// ## Example
+/// ```
+/// This is *strong.* \
+/// This is #strong[too.] \
+///
+/// #show strong: set text(red)
+/// And this is *evermore.*
+/// ```
+///
+/// ## Syntax
+/// This function also has dedicated syntax: To strongly emphasize content,
+/// simply enclose it in stars/asterisks (`*`). Note that this only works at
+/// word boundaries. To strongly emphasize part of a word, you have to use the
+/// function.
 ///
 /// ## Parameters
 /// - body: Content (positional, required)
@@ -73,6 +126,12 @@ pub struct StrongNode(pub Content);
 #[node]
 impl StrongNode {
     /// The delta to apply on the font weight.
+    ///
+    /// # Example
+    /// ```
+    /// #set strong(delta: 0)
+    /// No *effect!*
+    /// ```
     pub const DELTA: i64 = 300;
 
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
@@ -111,7 +170,29 @@ impl Fold for Delta {
 }
 
 /// # Emphasis
-/// Emphasizes content by flipping the italicness.
+/// Emphasizes content by setting it in italics.
+///
+/// - If the current [text](@text) style is `{"normal"}`,
+///   this turns it into `{"italic"}`.
+/// - If it is already `{"italic"}` or `{"oblique"}`,
+///   it turns it back to `{"normal"}`.
+///
+/// ## Example
+/// ```
+/// This is _emphasized._ \
+/// This is #emph[too.]
+///
+/// #show emph: it => {
+///   text(blue, it.body)
+/// }
+///
+/// This is _emphasized_ differently.
+/// ```
+///
+/// ## Syntax
+/// This function also has dedicated syntax: To emphasize content, simply
+/// enclose it in underscores (`_`). Note that this only works at word
+/// boundaries. To emphasize part of a word, you have to use the function.
 ///
 /// ## Parameters
 /// - body: Content (positional, required)
@@ -159,6 +240,13 @@ impl Fold for Toggle {
 /// # Lowercase
 /// Convert text or content to lowercase.
 ///
+/// ## Example
+/// ```
+/// #lower("ABC") \
+/// #lower[*My Text*] \
+/// #lower[already low]
+/// ```
+///
 /// ## Parameters
 /// - text: ToCase (positional, required)
 ///   The text to convert to lowercase.
@@ -172,6 +260,13 @@ pub fn lower(args: &mut Args) -> SourceResult<Value> {
 
 /// # Uppercase
 /// Convert text or content to uppercase.
+///
+/// ## Example
+/// ```
+/// #upper("abc") \
+/// #upper[*my text*] \
+/// #upper[ALREADY HIGH]
+/// ```
 ///
 /// ## Parameters
 /// - text: ToCase (positional, required)
@@ -224,6 +319,29 @@ impl Case {
 
 /// # Small Capitals
 /// Display text in small capitals.
+///
+/// _Note:_ This enables the OpenType `smcp` feature for the font. Not all fonts
+/// support this feature (including Typst's current default font,
+/// unfortunately). Sometimes smallcaps are part of a dedicated font and
+/// sometimes they are not available at all. In the future, this function will
+/// support selecting a dedicated smallcaps font as well as synthesizing
+/// smallcaps from normal letters, but this is not yet implemented.
+///
+/// ## Example
+/// ```
+/// #set par(justify: true)
+/// #set text(family: "Noto Serif")
+/// #set heading(numbering: "I.")
+///
+/// #show heading: it => {
+///   set block(below: 10pt)
+///   set text(weight: "regular")
+///   align(center, smallcaps(it))
+/// }
+///
+/// = Introduction
+/// #lorem(40)
+/// ```
 ///
 /// ## Parameters
 /// - text: Content (positional, required)

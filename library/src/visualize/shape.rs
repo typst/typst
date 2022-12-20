@@ -94,6 +94,16 @@ impl<const S: ShapeKind> ShapeNode<S> {
             styles.set_opt(Self::RADIUS, args.named("radius")?);
         }
     }
+
+    fn field(&self, name: &str) -> Option<Value> {
+        match name {
+            "body" => match &self.0 {
+                Some(body) => Some(Value::Content(body.clone())),
+                None => Some(Value::None),
+            },
+            _ => None,
+        }
+    }
 }
 
 impl<const S: ShapeKind> Layout for ShapeNode<S> {

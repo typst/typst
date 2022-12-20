@@ -43,11 +43,11 @@ The 5\'11\" 'quick\' brown fox jumps over the \"lazy" dog\'s ear.
 // Test turning smart quotes off.
 He's told some books contain questionable "example text".
 
-#set text(smart-quotes: false)
+#set smartquote(enabled: false)
 He's told some books contain questionable "example text".
 
 ---
 // Test changing properties within text.
 "She suddenly started speaking french: #text(lang: "fr")['Je suis une banane.']" Roman told me.
 
-Some people's thought on this would be #text(smart-quotes: false)["strange."]
+Some people's thought on this would be [#set smartquote(enabled: false); "strange."]

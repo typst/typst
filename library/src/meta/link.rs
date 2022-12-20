@@ -5,7 +5,9 @@ use crate::text::TextNode;
 /// Link to a URL or another location in the document.
 ///
 /// The link function makes its positional `body` argument clickable and links
-/// it to the destination specified by the `dest` argument.
+/// it to the destination specified by the `dest` argument. By default, links
+/// are not styled any different from normal text. However, you can easily apply
+/// a style of your choice with a show rule.
 ///
 /// ## Example
 /// ```
@@ -85,7 +87,7 @@ impl LinkNode {
 
     fn field(&self, name: &str) -> Option<Value> {
         match name {
-            "url" => Some(match &self.dest {
+            "dest" => Some(match &self.dest {
                 Destination::Url(url) => Value::Str(url.clone().into()),
                 Destination::Internal(loc) => Value::Dict(loc.encode()),
             }),

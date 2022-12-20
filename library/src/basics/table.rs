@@ -67,6 +67,10 @@ impl TableNode {
 
     fn field(&self, name: &str) -> Option<Value> {
         match name {
+            "columns" => Some(TrackSizing::encode_slice(&self.tracks.x)),
+            "rows" => Some(TrackSizing::encode_slice(&self.tracks.y)),
+            "column-gutter" => Some(TrackSizing::encode_slice(&self.gutter.x)),
+            "row-gutter" => Some(TrackSizing::encode_slice(&self.gutter.y)),
             "cells" => Some(Value::Array(
                 self.cells.iter().cloned().map(Value::Content).collect(),
             )),

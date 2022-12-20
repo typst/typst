@@ -293,11 +293,11 @@ castable! {
 
 castable! {
     FontStyle,
-    /// The default style.
+    /// The default, typically upright style.
     "normal" => Self::Normal,
-    /// A cursive style.
+    /// A cursive style with custom letterform.
     "italic" => Self::Italic,
-    /// A slanted style.
+    /// Just a slanted version of the normal style.
     "oblique" => Self::Oblique,
 }
 

@@ -2,24 +2,93 @@ use once_cell::sync::Lazy;
 use syntect::highlighting as synt;
 use typst::syntax::{self, LinkedNode};
 
-use super::{FontFamily, Hyphenate, LinebreakNode, TextNode};
+use super::{FontFamily, Hyphenate, LinebreakNode, SmartQuoteNode, TextNode};
 use crate::layout::BlockNode;
 use crate::prelude::*;
 
-/// # Raw Text
+/// # Raw Text / Code
 /// Raw text with optional syntax highlighting.
+///
+/// Displays the text verbatim and in a monospace font. This is typically used
+/// to embed computer code into your document.
+///
+/// ## Syntax
+/// This function also has dedicated syntax. You can enclose text in 1 or 3+
+/// backticks (`` ` ``) to make it raw. Two backticks produce empty raw text.
+/// When you use three or more backticks, you can additionally specify a
+/// language tag for syntax highlighting directly after the opening backticks.
+/// Within raw blocks, everything is rendered as is, in particular, there are no
+/// escape sequences.
+///
+/// ## Example
+/// ````
+/// Adding `rbx` to `rcx` gives
+/// the desired result.
+///
+/// ```rust
+/// fn main() {
+///     println!("Hello World!");
+/// }
+/// ```
+/// ````
 ///
 /// ## Parameters
 /// - text: EcoString (positional, required)
 ///   The raw text.
 ///
+///   You can also use raw blocks creatively to create custom syntaxes for
+///   your automations.
+///
+///   ### Example
+///   ````
+///   // Parse numbers in raw blocks with the `mydsl` tag and
+///   // sum them up.
+///   #show raw.where(lang: "mydsl"): it => {
+///     let sum = 0
+///     for part in it.text.split("+") {
+///       sum += int(part.trim())
+///     }
+///     sum
+///   }
+///
+///   ```mydsl
+///   1 + 2 + 3 + 4 + 5
+///   ```
+///   ````
+///
 /// - block: bool (named)
 ///   Whether the raw text is displayed as a separate block.
+///
+///   ### Example
+///   ````
+///   // Display inline code in a small box
+///   // that retains the correct baseline.
+///   #show raw.where(block: false): rect.with(
+///     fill: luma(240),
+///     inset: (x: 3pt),
+///     outset: (y: 3pt),
+///     radius: 2pt,
+///   )
+///
+///   // Display block code in a larger box
+///   // with more padding.
+///   #show raw.where(block: true): rect.with(
+///     fill: luma(240),
+///     inset: 10pt,
+///     radius: 4pt,
+///   )
+///
+///   With `rg`, you can search through your files quickly.
+///
+///   ```bash
+///   rg "Hello World"
+///   ```
+///   ````
 ///
 /// ## Category
 /// text
 #[func]
-#[capable(Show)]
+#[capable(Show, Prepare)]
 #[derive(Debug, Hash)]
 pub struct RawNode {
     /// The raw text.
@@ -31,6 +100,17 @@ pub struct RawNode {
 #[node]
 impl RawNode {
     /// The language to syntax-highlight in.
+    ///
+    /// Apart from typical language tags known from Markdown, this supports the
+    /// `{"typ"}` and `{"typc"}` tags for Typst markup and Typst code,
+    /// respectively.
+    ///
+    /// # Example
+    /// ````
+    /// ```typ
+    /// This is *Typst!*
+    /// ```
+    /// ````
     #[property(referenced)]
     pub const LANG: Option<EcoString> = None;
 
@@ -121,7 +201,7 @@ impl Show for RawNode {
         let mut map = StyleMap::new();
         map.set(TextNode::OVERHANG, false);
         map.set(TextNode::HYPHENATE, Hyphenate(Smart::Custom(false)));
-        map.set(TextNode::SMART_QUOTES, false);
+        map.set(SmartQuoteNode::ENABLED, false);
         map.set_family(FontFamily::new("IBM Plex Mono"), styles);
 
         Ok(realized.styled_with_map(map))

@@ -64,6 +64,13 @@ impl PageNode {
             styles.set(Self::HEIGHT, Smart::Custom(paper.height().into()));
         }
     }
+
+    fn field(&self, name: &str) -> Option<Value> {
+        match name {
+            "body" => Some(Value::Content(self.0.clone())),
+            _ => None,
+        }
+    }
 }
 
 impl PageNode {
@@ -189,6 +196,13 @@ impl PagebreakNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let weak = args.named("weak")?.unwrap_or(false);
         Ok(Self { weak }.pack())
+    }
+
+    fn field(&self, name: &str) -> Option<Value> {
+        match name {
+            "weak" => Some(Value::Bool(self.weak)),
+            _ => None,
+        }
     }
 }
 

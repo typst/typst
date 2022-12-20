@@ -32,11 +32,11 @@ impl Debug for FontVariant {
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum FontStyle {
-    /// The default style.
+    /// The default, typically upright style.
     Normal,
-    /// A cursive style.
+    /// A cursive style with custom letterform.
     Italic,
-    /// A slanted style.
+    /// Just a slanted version of the normal style.
     Oblique,
 }
 
