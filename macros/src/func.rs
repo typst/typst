@@ -112,7 +112,6 @@ pub fn example(docs: &mut String) -> Option<String> {
             .skip_while(|line| !line.contains("```"))
             .skip(1)
             .take_while(|line| !line.contains("```"))
-            .map(|s| s.trim())
             .collect::<Vec<_>>()
             .join("\n"),
     )

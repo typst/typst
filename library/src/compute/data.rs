@@ -6,9 +6,28 @@ use crate::prelude::*;
 
 /// Read structured data from a CSV file.
 ///
+/// The CSV file will be read and parsed into a 2-dimensional array of strings:
+/// Each row in the CSV file will be represented as an array of strings, and all
+/// rows will be collected into a single array. Header rows will not be
+/// stripped.
+///
+/// # Example
+/// ```
+/// #let results = csv("/data.csv")
+///
+/// #table(
+///   columns: 2,
+///   [*Condition*], [*Result*],
+///   ..results.flatten(),
+/// )
+/// ```
 /// # Parameters
 /// - path: EcoString (positional, required)
 ///   Path to a CSV file.
+/// - delimiter: Delimiter (named)
+///   The delimiter that separates columns in the CSV file.
+///   Must be a single ASCII character.
+///   Defaults to a comma.
 ///
 /// # Tags
 /// - data-loading
@@ -23,6 +42,10 @@ pub fn csv(vm: &Vm, args: &mut Args) -> SourceResult<Value> {
     let mut builder = csv::ReaderBuilder::new();
     builder.has_headers(false);
 
+    if let Some(delimiter) = args.named::<Delimiter>("delimiter")? {
+        builder.delimiter(delimiter.0);
+    }
+
     let mut reader = builder.from_reader(data.as_slice());
     let mut vec = vec![];
 
@@ -33,6 +56,26 @@ pub fn csv(vm: &Vm, args: &mut Args) -> SourceResult<Value> {
     }
 
     Ok(Value::Array(Array::from_vec(vec)))
+}
+
+/// The delimiter to use when parsing CSV files.
+struct Delimiter(u8);
+
+castable! {
+    Delimiter,
+    v: EcoString => {
+        let mut chars = v.chars();
+        let first = chars.next().ok_or("delimiter must not be empty")?;
+        if chars.next().is_some() {
+            Err("delimiter must be a single character")?
+        }
+
+        if !first.is_ascii() {
+            Err("delimiter must be an ASCII character")?
+        }
+
+        Self(first as u8)
+    },
 }
 
 /// Format the user-facing CSV error message.
@@ -53,6 +96,43 @@ fn format_csv_error(error: csv::Error) -> String {
 }
 
 /// Read structured data from a JSON file.
+///
+/// The file must contain a valid JSON object or array. JSON objects will be
+/// converted into Typst dictionaries, and JSON arrays will be converted into
+/// Typst arrays. Strings and booleans will be converted into the Typst
+/// equivalents, `null` will be converted into `{none}`, and numbers will be
+/// converted to floats or integers depending on whether they are whole numbers.
+///
+/// The function returns a dictionary or an array, depending on the JSON file.
+///
+/// The JSON files in the example contain a object with the keys `temperature`,
+/// `unit`, and `weather`.
+///
+/// # Example
+/// ```
+/// #let forecast(day) = block[
+///   #square(
+///     width: 2cm,
+///     inset: 8pt,
+///     fill: if day.weather == "sunny" {
+///       yellow
+///     } else {
+///       aqua
+///     },
+///     align(
+///       bottom + right,
+///       strong(day.weather),
+///     ),
+///   )
+///   #h(6pt)
+///   #set text(22pt, baseline: -8pt)
+///   {day.temperature}
+///   °{day.unit}
+/// ]
+///
+/// #forecast(json("/monday.json"))
+/// #forecast(json("/tuesday.json"))
+/// ```
 ///
 /// # Parameters
 /// - path: EcoString (positional, required)
@@ -97,10 +177,60 @@ fn convert_json(value: serde_json::Value) -> Value {
 /// Format the user-facing JSON error message.
 fn format_json_error(error: serde_json::Error) -> String {
     assert!(error.is_syntax() || error.is_eof());
-    format!("failed to parse json file: syntax error in line {}", error.line())
+    format!(
+        "failed to parse json file: syntax error in line {}",
+        error.line()
+    )
 }
 
 /// Read structured data from an XML file.
+///
+/// The XML file is parsed into an array of dictionaries and strings. XML nodes
+/// can be elements or strings. Elements are represented as dictionaries with
+/// the the following keys:
+///
+/// - `tag`: The name of the element as a string.
+/// - `attrs`: A dictionary of the element's attributes as strings.
+/// - `children`: An array of the element's child nodes.
+///
+/// The XML file in the example contains a root `news` tag with multiple
+/// `article` tags. Each article has a `title`, `author`, and `content` tag. The
+/// `content` tag contains one or more paragraphs, which are represented as `p`
+/// tags.
+///
+/// # Example
+/// ```
+/// #let findChild(elem, tag) = {
+///   elem.children
+///     .find(e => "tag" in e and e.tag == tag)
+/// }
+///
+/// #let article(elem) = {
+///   let title = findChild(elem, "title")
+///   let author = findChild(elem, "author")
+///   let pars = findChild(elem, "content")
+///
+///   heading((title.children)(0))
+///   text(10pt, weight: "medium")[
+///     Published by
+///     {(author.children)(0)}
+///   ]
+///
+///   for p in pars.children {
+///     if (type(p) == "dictionary") {
+///       parbreak()
+///       (p.children)(0)
+///     }
+///   }
+/// }
+///
+/// #let file = xml("/example.xml")
+/// #for child in file(0).children {
+///   if (type(child) == "dictionary") {
+///     article(child)
+///   }
+/// }
+/// ```
 ///
 /// # Parameters
 /// - path: EcoString (positional, required)

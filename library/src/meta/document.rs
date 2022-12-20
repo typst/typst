@@ -1,7 +1,14 @@
 use crate::layout::{LayoutRoot, PageNode};
 use crate::prelude::*;
 
-/// The root node that represents a full document.
+/// The root element of a document and its metadata.
+///
+/// All documents are automatically wrapped in a `document` element. The main
+/// use of this element is to use it in `set` rules to specify document
+/// metadata.
+///
+/// The metadata set with this function is not rendered within the document.
+/// Instead, it is embedded in the compiled PDF file.
 ///
 /// # Tags
 /// - meta
@@ -12,7 +19,8 @@ pub struct DocumentNode(pub StyleVec<PageNode>);
 
 #[node]
 impl DocumentNode {
-    /// The document's title.
+    /// The document's title. This is often rendered as the title of the
+    /// PDF viewer window.
     #[property(referenced)]
     pub const TITLE: Option<EcoString> = None;
 

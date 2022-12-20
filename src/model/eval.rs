@@ -476,7 +476,10 @@ impl Eval for ast::Frac {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok((vm.items.math_frac)(self.num().eval(vm)?, self.denom().eval(vm)?))
+        Ok((vm.items.math_frac)(
+            self.num().eval(vm)?,
+            self.denom().eval(vm)?,
+        ))
     }
 }
 
@@ -778,7 +781,11 @@ impl Eval for ast::FieldAccess {
                 .field(&field)
                 .ok_or_else(|| format!("unknown field {field:?}"))
                 .at(span)?,
-            v => bail!(self.target().span(), "cannot access field on {}", v.type_name()),
+            v => bail!(
+                self.target().span(),
+                "cannot access field on {}",
+                v.type_name()
+            ),
         })
     }
 }

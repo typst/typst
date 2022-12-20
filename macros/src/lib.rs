@@ -91,7 +91,10 @@ fn documentation(attrs: &[syn::Attribute]) -> String {
 
 /// Dedent documentation text.
 fn dedent(text: &str) -> String {
-    text.lines().map(str::trim).collect::<Vec<_>>().join("\n")
+    text.lines()
+        .map(|s| s.strip_prefix("  ").unwrap_or(s))
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 /// Quote an optional value.

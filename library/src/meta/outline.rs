@@ -3,7 +3,22 @@ use crate::layout::{BlockNode, HNode, HideNode, RepeatNode, Spacing};
 use crate::prelude::*;
 use crate::text::{LinebreakNode, SpaceNode, TextNode};
 
-/// A section outline (table of contents).
+/// Generate a section outline / table of contents.
+///
+/// This function generates a list of all headings in the
+/// document, up to a given depth. The [@heading] numbering will be reproduced
+/// within the outline.
+///
+/// # Example
+/// ```
+/// #outline()
+///
+/// = Introduction
+/// #lorem(5)
+///
+/// = Prior work
+/// #lorem(10)
+/// ```
 ///
 /// # Tags
 /// - meta
@@ -15,18 +30,52 @@ pub struct OutlineNode;
 #[node]
 impl OutlineNode {
     /// The title of the outline.
+    ///
+    /// - When set to `{auto}`, an appropriate title for the [@text] language will
+    ///   be used. This is the default.
+    /// - When set to `{none}`, the outline will not have a title.
+    /// - A custom title can be set by passing content.
     #[property(referenced)]
     pub const TITLE: Option<Smart<Content>> = Some(Smart::Auto);
 
-    /// The maximum depth up to which headings are included in the outline.
+    /// The maximum depth up to which headings are included in the outline. When
+    /// this arguement is `{none}`, all headings are included.
     pub const DEPTH: Option<NonZeroUsize> = None;
 
-    /// Whether to indent the subheadings to match their parents.
+    /// Whether to indent the subheadings to align the start of their numbering
+    /// with the title of their parents. This will only have an effect if a
+    /// [@heading] numbering is set.
+    ///
+    /// # Example
+    /// ```
+    /// #set heading(numbering: "1.a.")
+    ///
+    /// #outline(indent: true)
+    ///
+    /// = About ACME Corp.
+    ///
+    /// == History
+    /// #lorem(10)
+    ///
+    /// == Products
+    /// #lorem(10)
+    /// ```
     pub const INDENT: bool = false;
 
-    /// The fill symbol.
+    /// The symbol used to fill the space between the title and the page
+    /// number. Can be set to `none` to disable filling. The default is a
+    /// single dot.
+    ///
+    /// # Example
+    /// ```
+    /// #outline(
+    ///   fill: pad(x: -1.5pt)[―]
+    /// )
+    ///
+    /// = A New Beginning
+    /// ```
     #[property(referenced)]
-    pub const FILL: Option<EcoString> = Some('.'.into());
+    pub const FILL: Option<Content> = Some(TextNode::packed("."));
 
     fn construct(_: &Vm, _: &mut Args) -> SourceResult<Content> {
         Ok(Self.pack())
@@ -132,7 +181,7 @@ impl Show for OutlineNode {
             // Add filler symbols between the section name and page number.
             if let Some(filler) = styles.get(Self::FILL) {
                 seq.push(SpaceNode.pack());
-                seq.push(RepeatNode(TextNode::packed(filler.clone())).pack());
+                seq.push(RepeatNode(filler.clone()).pack());
                 seq.push(SpaceNode.pack());
             } else {
                 let amount = Spacing::Fractional(Fr::one());
