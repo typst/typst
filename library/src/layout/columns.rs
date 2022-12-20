@@ -1,17 +1,18 @@
 use crate::prelude::*;
 use crate::text::TextNode;
 
+/// # Columns
 /// Separate a region into multiple equally sized columns.
 ///
-/// # Parameters
+/// ## Parameters
 /// - count: usize (positional, required)
 ///   The number of columns.
 ///
 /// - body: Content (positional, required)
 ///   The content that should be layouted into the columns.
 ///
-/// # Tags
-/// - layout
+/// ## Category
+/// layout
 #[func]
 #[capable(Layout)]
 #[derive(Debug, Hash)]
@@ -112,15 +113,16 @@ impl Layout for ColumnsNode {
     }
 }
 
+/// # Column Break
 /// A column break.
 ///
-/// # Parameters
+/// ## Parameters
 /// - weak: bool (named)
 ///   If true, the column break is skipped if the current column is already
 ///   empty.
 ///
-/// # Tags
-/// - layout
+/// ## Category
+/// layout
 #[func]
 #[capable(Behave)]
 #[derive(Debug, Hash)]

@@ -42,6 +42,11 @@ impl Em {
         (self.0).0
     }
 
+    /// The absolute value of this em length.
+    pub fn abs(self) -> Self {
+        Self::new(self.get().abs())
+    }
+
     /// Convert to an absolute length at the given font size.
     pub fn at(self, font_size: Abs) -> Abs {
         let resolved = font_size * self.get();

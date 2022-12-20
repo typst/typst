@@ -1,6 +1,7 @@
 use crate::layout::{LayoutRoot, PageNode};
 use crate::prelude::*;
 
+/// # Document
 /// The root element of a document and its metadata.
 ///
 /// All documents are automatically wrapped in a `document` element. The main
@@ -10,8 +11,8 @@ use crate::prelude::*;
 /// The metadata set with this function is not rendered within the document.
 /// Instead, it is embedded in the compiled PDF file.
 ///
-/// # Tags
-/// - meta
+/// ## Category
+/// meta
 #[func]
 #[capable(LayoutRoot)]
 #[derive(Hash)]

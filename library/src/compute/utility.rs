@@ -3,31 +3,33 @@ use std::str::FromStr;
 use crate::prelude::*;
 use crate::text::Case;
 
+/// # Blind Text
 /// Create blind text.
 ///
-/// # Parameters
+/// ## Parameters
 /// - words: usize (positional, required)
 ///   The length of the blind text in words.
 ///
-/// # Tags
-/// - utility
+/// ## Category
+/// utility
 #[func]
 pub fn lorem(args: &mut Args) -> SourceResult<Value> {
     let words: usize = args.expect("number of words")?;
     Ok(Value::Str(lipsum::lipsum(words).into()))
 }
 
+/// # Numbering
 /// Apply a numbering pattern to a sequence of numbers.
 ///
-/// # Parameters
+/// ## Parameters
 /// - pattern: NumberingPattern (positional, required)
 ///   A string that defines how the numbering works.
 ///
 /// - numbers: NonZeroUsize (positional, variadic)
 ///   The numbers to apply the pattern to.
 ///
-/// # Tags
-/// - utility
+/// ## Category
+/// utility
 #[func]
 pub fn numbering(args: &mut Args) -> SourceResult<Value> {
     let pattern = args.expect::<NumberingPattern>("pattern")?;

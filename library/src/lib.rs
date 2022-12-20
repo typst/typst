@@ -196,7 +196,7 @@ fn items() -> LangItems {
         },
         link: |url| meta::LinkNode::from_url(url).pack(),
         ref_: |target| meta::RefNode(target).pack(),
-        heading: |level, body| basics::HeadingNode { level, body }.pack(),
+        heading: |level, body| basics::HeadingNode { level, title: body }.pack(),
         list_item: |body| basics::ListItem::List(Box::new(body)).pack(),
         enum_item: |number, body| basics::ListItem::Enum(number, Box::new(body)).pack(),
         desc_item: |term, body| {

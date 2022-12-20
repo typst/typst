@@ -2,14 +2,15 @@ use typst::syntax::is_newline;
 
 use crate::prelude::*;
 
+/// # Smart Quote
 /// A smart quote.
 ///
-/// # Parameters
+/// ## Parameters
 /// - double: bool (named)
 ///   Whether to produce a smart double quote.
 ///
-/// # Tags
-/// - text
+/// ## Category
+/// text
 #[func]
 #[capable]
 #[derive(Debug, Hash)]

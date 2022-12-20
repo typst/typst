@@ -1,13 +1,14 @@
 use super::*;
 
+/// # Vector
 /// A column vector.
 ///
-/// # Parameters
+/// ## Parameters
 /// - elements: Content (positional, variadic)
 ///   The elements of the vector.
 ///
-/// # Tags
-/// - math
+/// ## Category
+/// math
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]
@@ -59,24 +60,25 @@ pub enum Delimiter {
 
 castable! {
     Delimiter,
-    /// Delimit matrices with parentheses.
+    /// Delimit vector with parentheses.
     "(" => Self::Paren,
-    /// Delimit matrices with brackets.
+    /// Delimit vector with brackets.
     "[" => Self::Bracket,
-    /// Delimit matrices with curly braces.
+    /// Delimit vector with curly braces.
     "{" => Self::Brace,
-    /// Delimit matrices with vertical bars.
+    /// Delimit vector with vertical bars.
     "|" => Self::Bar,
 }
 
+/// # Cases
 /// A case distinction.
 ///
-/// # Parameters
+/// ## Parameters
 /// - branches: Content (positional, variadic)
 ///   The branches of the case distinction.
 ///
-/// # Tags
-/// - math
+/// ## Category
+/// math
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]

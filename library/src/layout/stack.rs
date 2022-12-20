@@ -3,9 +3,10 @@ use typst::model::StyledNode;
 use super::{AlignNode, Spacing};
 use crate::prelude::*;
 
+/// # Stack
 /// Arrange content and spacing along an axis.
 ///
-/// # Parameters
+/// ## Parameters
 /// - items: StackChild (positional, variadic)
 ///   The items to stack along an axis.
 ///
@@ -15,8 +16,8 @@ use crate::prelude::*;
 /// - spacing: Spacing (named)
 ///   Spacing to insert between items where no explicit spacing was provided.
 ///
-/// # Tags
-/// - layout
+/// ## Category
+/// layout
 #[func]
 #[capable(Layout)]
 #[derive(Debug, Hash)]

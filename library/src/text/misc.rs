@@ -1,10 +1,11 @@
 use super::TextNode;
 use crate::prelude::*;
 
+/// # Space
 /// A text space.
 ///
-/// # Tags
-/// - text
+/// ## Category
+/// text
 #[func]
 #[capable(Unlabellable, Behave)]
 #[derive(Debug, Hash)]
@@ -25,14 +26,15 @@ impl Behave for SpaceNode {
     }
 }
 
+/// # Line Break
 /// A line break.
 ///
-/// # Parameters
+/// ## Parameters
 /// - justify: bool (named)
 ///   Whether to justify the line before the break.
 ///
-/// # Tags
-/// - text
+/// ## Category
+/// text
 #[func]
 #[capable(Behave)]
 #[derive(Debug, Hash)]
@@ -54,14 +56,15 @@ impl Behave for LinebreakNode {
     }
 }
 
+/// # Strong Emphasis
 /// Strongly emphasizes content by increasing the font weight.
 ///
-/// # Parameters
+/// ## Parameters
 /// - body: Content (positional, required)
 ///   The content to strongly emphasize.
 ///
-/// # Tags
-/// - text
+/// ## Category
+/// text
 #[func]
 #[capable(Show)]
 #[derive(Debug, Hash)]
@@ -107,14 +110,15 @@ impl Fold for Delta {
     }
 }
 
+/// # Emphasis
 /// Emphasizes content by flipping the italicness.
 ///
-/// # Parameters
+/// ## Parameters
 /// - body: Content (positional, required)
 ///   The content to emphasize.
 ///
-/// # Tags
-/// - text
+/// ## Category
+/// text
 #[func]
 #[capable(Show)]
 #[derive(Debug, Hash)]
@@ -152,27 +156,29 @@ impl Fold for Toggle {
     }
 }
 
+/// # Lowercase
 /// Convert text or content to lowercase.
 ///
-/// # Parameters
+/// ## Parameters
 /// - text: ToCase (positional, required)
 ///   The text to convert to lowercase.
 ///
-/// # Tags
-/// - text
+/// ## Category
+/// text
 #[func]
 pub fn lower(args: &mut Args) -> SourceResult<Value> {
     case(Case::Lower, args)
 }
 
+/// # Uppercase
 /// Convert text or content to uppercase.
 ///
-/// # Parameters
+/// ## Parameters
 /// - text: ToCase (positional, required)
 ///   The text to convert to uppercase.
 ///
-/// # Tags
-/// - text
+/// ## Category
+/// text
 #[func]
 pub fn upper(args: &mut Args) -> SourceResult<Value> {
     case(Case::Upper, args)
@@ -216,14 +222,15 @@ impl Case {
     }
 }
 
+/// # Small Capitals
 /// Display text in small capitals.
 ///
-/// # Parameters
+/// ## Parameters
 /// - text: Content (positional, required)
 ///   The text to display to small capitals.
 ///
-/// # Tags
-/// - text
+/// ## Category
+/// text
 #[func]
 pub fn smallcaps(args: &mut Args) -> SourceResult<Value> {
     let body: Content = args.expect("content")?;

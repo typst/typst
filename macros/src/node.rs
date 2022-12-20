@@ -337,7 +337,7 @@ fn create_node_properties_func(node: &Node) -> syn::ImplItemMethod {
         let shorthand = matches!(property.shorthand, Some(Shorthand::Positional));
 
         let mut docs = documentation(&property.attrs);
-        let example = quote_option(super::func::example(&mut docs));
+        let example = quote_option(super::func::example(&mut docs, 1));
         let docs = docs.trim();
 
         quote! {

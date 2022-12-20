@@ -1,6 +1,7 @@
 use crate::prelude::*;
 use crate::text::TextNode;
 
+/// # Reference
 /// A reference to a label.
 ///
 /// *Note: This function is currently unimplemented.*
@@ -10,17 +11,17 @@ use crate::text::TextNode;
 /// 1" for a reference to the first heading's label. The references are also
 /// links to the respective labels.
 ///
-/// # Syntax
+/// ## Syntax
 /// This function also has dedicated syntax: A reference to a label can be
 /// created by typing an `@` followed by the name of the label (e.g. `[=
 /// Introduction <intro>]` can be referenced by typing `[@intro]`).
 ///
-/// # Parameters
+/// ## Parameters
 /// - target: Label (positional, required)
 ///   The label that should be referenced.
 ///
-/// # Tags
-/// - meta
+/// ## Category
+/// meta
 #[func]
 #[capable(Show)]
 #[derive(Debug, Hash)]

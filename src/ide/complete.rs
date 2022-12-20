@@ -774,7 +774,7 @@ impl<'a> CompletionContext<'a> {
             matches!(
                 value,
                 Value::Func(func) if func.info().map_or(false, |info| {
-                    info.tags.contains(&"math")
+                    info.category == "math"
                 }),
             )
         });
@@ -805,7 +805,7 @@ impl<'a> CompletionContext<'a> {
             !short_form || matches!(
                 value,
                 Value::Func(func) if func.info().map_or(true, |info| {
-                    !info.tags.contains(&"math")
+                    info.category != "math"
                 }),
             )
         });

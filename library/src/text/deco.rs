@@ -4,14 +4,15 @@ use ttf_parser::{GlyphId, OutlineBuilder};
 use super::TextNode;
 use crate::prelude::*;
 
+/// # Underline
 /// Typeset underline, stricken-through or overlined text.
 ///
-/// # Parameters
+/// ## Parameters
 /// - body: Content (positional, required)
 ///   The content to decorate.
 ///
-/// # Tags
-/// - text
+/// ## Category
+/// text
 #[func]
 #[capable(Show)]
 #[derive(Debug, Hash)]

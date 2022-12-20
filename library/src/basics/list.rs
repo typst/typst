@@ -3,9 +3,10 @@ use crate::layout::{BlockNode, GridNode, HNode, ParNode, Spacing, TrackSizing};
 use crate::prelude::*;
 use crate::text::{SpaceNode, TextNode};
 
+/// # List
 /// An unordered (bulleted) or ordered (numbered) list.
 ///
-/// # Parameters
+/// ## Parameters
 /// - items: Content (positional, variadic)
 ///   The contents of the list items.
 ///
@@ -16,7 +17,7 @@ use crate::text::{SpaceNode, TextNode};
 ///   Makes the list more compact, if enabled. This looks better if the items
 ///   fit into a single line each.
 ///
-///   # Example
+///   ### Example
 ///   ```
 ///   #show columns.with(2)
 ///   #list(tight: true)[Tight][List]
@@ -24,8 +25,8 @@ use crate::text::{SpaceNode, TextNode};
 ///   #list(tight: false)[Wide][List]
 ///   ```
 ///
-/// # Tags
-/// - basics
+/// ## Category
+/// basics
 #[func]
 #[capable(Layout)]
 #[derive(Debug, Hash)]

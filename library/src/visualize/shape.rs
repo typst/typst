@@ -2,9 +2,10 @@ use std::f64::consts::SQRT_2;
 
 use crate::prelude::*;
 
+/// # Rectangle
 /// A sizable and fillable shape with optional content.
 ///
-/// # Parameters
+/// ## Parameters
 /// - body: Content (positional)
 ///   The content to place into the shape.
 ///
@@ -23,8 +24,8 @@ use crate::prelude::*;
 /// - stroke: Smart<Sides<Option<PartialStroke>>> (named)
 ///   How to stroke the shape.
 ///
-/// # Tags
-/// - visualize
+/// ## Category
+/// visualize
 #[func]
 #[capable(Layout, Inline)]
 #[derive(Debug, Hash)]

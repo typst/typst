@@ -6,17 +6,18 @@ use super::{FontFamily, Hyphenate, LinebreakNode, TextNode};
 use crate::layout::BlockNode;
 use crate::prelude::*;
 
+/// # Raw Text
 /// Raw text with optional syntax highlighting.
 ///
-/// # Parameters
+/// ## Parameters
 /// - text: EcoString (positional, required)
 ///   The raw text.
 ///
 /// - block: bool (named)
 ///   Whether the raw text is displayed as a separate block.
 ///
-/// # Tags
-/// - text
+/// ## Category
+/// text
 #[func]
 #[capable(Show)]
 #[derive(Debug, Hash)]

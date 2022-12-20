@@ -1,13 +1,14 @@
 use crate::prelude::*;
 
+/// # Hide
 /// Hide content without affecting layout.
 ///
-/// # Parameters
+/// ## Parameters
 /// - body: Content (positional, required)
 ///   The content to hide.
 ///
-/// # Tags
-/// - layout
+/// ## Category
+/// layout
 #[func]
 #[capable(Layout, Inline)]
 #[derive(Debug, Hash)]

@@ -4,16 +4,17 @@ use typst::image::{Image, ImageFormat, RasterFormat, VectorFormat};
 
 use crate::prelude::*;
 
+/// # Image
 /// Show a raster or vector graphic.
 ///
 /// Supported formats are PNG, JPEG, GIF and SVG.
 ///
-/// # Parameters
+/// ## Parameters
 /// - path: EcoString (positional, required)
 ///   Path to an image file.
 ///
-/// # Tags
-/// - visualize
+/// ## Category
+/// visualize
 #[func]
 #[capable(Layout, Inline)]
 #[derive(Debug, Hash)]

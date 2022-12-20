@@ -4,6 +4,7 @@ use typst::util::EcoString;
 use super::{variant, SpaceNode, TextNode, TextSize};
 use crate::prelude::*;
 
+/// # Subscript
 /// Sub- or superscript text.
 ///
 /// The text is rendered smaller and its baseline is raised/lowered. To provide
@@ -11,12 +12,12 @@ use crate::prelude::*;
 /// superscript codepoints. If that fails, we fall back to rendering shrunk
 /// normal letters in a raised way.
 ///
-/// # Parameters
+/// ## Parameters
 /// - body: Content (positional, required)
 ///   The text to display in sub- or superscript.
 ///
-/// # Tags
-/// - text
+/// ## Category
+/// text
 #[func]
 #[capable(Show)]
 #[derive(Debug, Hash)]

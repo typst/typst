@@ -37,18 +37,16 @@ impl Func {
 
     /// Create a new function from a native rust function.
     pub fn from_fn(
-        name: &'static str,
         func: fn(&Vm, &mut Args) -> SourceResult<Value>,
         info: FuncInfo,
     ) -> Self {
-        Self(Arc::new(Repr::Native(Native { name, func, set: None, node: None, info })))
+        Self(Arc::new(Repr::Native(Native { func, set: None, node: None, info })))
     }
 
     /// Create a new function from a native rust node.
-    pub fn from_node<T: Node>(name: &'static str, mut info: FuncInfo) -> Self {
+    pub fn from_node<T: Node>(mut info: FuncInfo) -> Self {
         info.params.extend(T::properties());
         Self(Arc::new(Repr::Native(Native {
-            name,
             func: |ctx, args| {
                 let styles = T::set(args, true)?;
                 let content = T::construct(ctx, args)?;
@@ -68,7 +66,7 @@ impl Func {
     /// The name of the function.
     pub fn name(&self) -> Option<&str> {
         match self.0.as_ref() {
-            Repr::Native(native) => Some(native.name),
+            Repr::Native(native) => Some(native.info.name),
             Repr::Closure(closure) => closure.name.as_deref(),
             Repr::With(func, _) => func.name(),
         }
@@ -184,8 +182,6 @@ pub trait FuncType {
 
 /// A function defined by a native rust function or node.
 struct Native {
-    /// The name of the function.
-    name: &'static str,
     /// The function pointer.
     func: fn(&Vm, &mut Args) -> SourceResult<Value>,
     /// The set rule.
@@ -198,7 +194,6 @@ struct Native {
 
 impl Hash for Native {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.name.hash(state);
         (self.func as usize).hash(state);
         self.set.map(|set| set as usize).hash(state);
         self.node.hash(state);
@@ -210,8 +205,10 @@ impl Hash for Native {
 pub struct FuncInfo {
     /// The function's name.
     pub name: &'static str,
-    /// Tags that categorize the function.
-    pub tags: &'static [&'static str],
+    /// The display name of the function.
+    pub display: &'static str,
+    /// Which category the function is part of.
+    pub category: &'static str,
     /// Documentation for the function.
     pub docs: &'static str,
     /// The source code of an example, if any.

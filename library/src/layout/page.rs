@@ -4,17 +4,18 @@ use super::ColumnsNode;
 use crate::prelude::*;
 use crate::text::TextNode;
 
+/// # Page
 /// Layouts its child onto one or multiple pages.
 ///
-/// # Parameters
+/// ## Parameters
 /// - body: Content (positional, required)
 ///   The contents of the page(s).
 ///
 /// - paper: Paper (positional, settable)
 ///   The paper size.
 ///
-/// # Tags
-/// - layout
+/// ## Category
+/// layout
 #[func]
 #[capable]
 #[derive(Clone, Hash)]
@@ -154,14 +155,15 @@ impl Debug for PageNode {
     }
 }
 
+/// # Page Break
 /// A page break.
 ///
-/// # Parameters
+/// ## Parameters
 /// - weak: bool (named)
 ///   If true, the page break is skipped if the current page is already empty.
 ///
-/// # Tags
-/// - layout
+/// ## Category
+/// layout
 #[func]
 #[capable]
 #[derive(Debug, Copy, Clone, Hash)]

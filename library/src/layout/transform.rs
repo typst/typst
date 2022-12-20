@@ -2,9 +2,10 @@ use typst::geom::Transform;
 
 use crate::prelude::*;
 
+/// # Move
 /// Move content without affecting layout.
 ///
-/// # Parameters
+/// ## Parameters
 /// - body: Content (positional, required)
 ///   The content to move.
 ///
@@ -14,8 +15,8 @@ use crate::prelude::*;
 /// - dy: Rel<Length> (named)
 ///   The vertical displacement of the content.
 ///
-/// # Tags
-/// - layout
+/// ## Category
+/// layout
 #[func]
 #[capable(Layout, Inline)]
 #[derive(Debug, Hash)]
@@ -58,64 +59,44 @@ impl Layout for MoveNode {
 
 impl Inline for MoveNode {}
 
-/// Transform content without affecting layout.
+/// # Rotate
+/// Rotate content with affecting layout.
 ///
-/// # Parameters
+/// ## Parameters
 /// - body: Content (positional, required)
-///   The content to transform.
+///   The content to rotate.
 ///
 /// - angle: Angle (named)
 ///   The amount of rotation.
 ///
-/// - x: Ratio (named)
-///   The horizontal scaling factor.
-///
-/// - y: Ratio (named)
-///   The vertical scaling factor.
-///
-/// # Tags
-/// - layout
+/// ## Category
+/// layout
 #[func]
 #[capable(Layout, Inline)]
 #[derive(Debug, Hash)]
-pub struct TransformNode<const T: TransformKind> {
-    /// Transformation to apply to the content.
-    pub transform: Transform,
-    /// The content that should be transformed.
+pub struct RotateNode {
+    /// The angle by which to rotate the node.
+    pub angle: Angle,
+    /// The content that should be rotated.
     pub body: Content,
 }
 
-/// Rotate content without affecting layout.
-pub type RotateNode = TransformNode<ROTATE>;
-
-/// Scale content without affecting layout.
-pub type ScaleNode = TransformNode<SCALE>;
-
 #[node]
-impl<const T: TransformKind> TransformNode<T> {
-    /// The origin of the transformation.
+impl RotateNode {
+    /// The origin of the rotation.
     #[property(resolve)]
     pub const ORIGIN: Axes<Option<GenAlign>> = Axes::default();
 
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        let transform = match T {
-            ROTATE => {
-                let angle = args.named_or_find("angle")?.unwrap_or_default();
-                Transform::rotate(angle)
-            }
-            SCALE | _ => {
-                let all = args.find()?;
-                let sx = args.named("x")?.or(all).unwrap_or(Ratio::one());
-                let sy = args.named("y")?.or(all).unwrap_or(Ratio::one());
-                Transform::scale(sx, sy)
-            }
-        };
-
-        Ok(Self { transform, body: args.expect("body")? }.pack())
+        Ok(Self {
+            angle: args.named_or_find("angle")?.unwrap_or_default(),
+            body: args.expect("body")?,
+        }
+        .pack())
     }
 }
 
-impl<const T: TransformKind> Layout for TransformNode<T> {
+impl Layout for RotateNode {
     fn layout(
         &self,
         vt: &mut Vt,
@@ -127,7 +108,7 @@ impl<const T: TransformKind> Layout for TransformNode<T> {
             let origin = styles.get(Self::ORIGIN).unwrap_or(Align::CENTER_HORIZON);
             let Axes { x, y } = origin.zip(frame.size()).map(|(o, s)| o.position(s));
             let transform = Transform::translate(x, y)
-                .pre_concat(self.transform)
+                .pre_concat(Transform::rotate(self.angle))
                 .pre_concat(Transform::translate(-x, -y));
             frame.transform(transform);
         }
@@ -135,15 +116,69 @@ impl<const T: TransformKind> Layout for TransformNode<T> {
     }
 }
 
-impl<const T: TransformKind> Inline for TransformNode<T> {}
+impl Inline for RotateNode {}
 
-/// Kinds of transformations.
+/// # Scale
+/// Scale content without affecting layout.
 ///
-/// The move transformation is handled separately.
-pub type TransformKind = usize;
+/// ## Parameters
+/// - body: Content (positional, required)
+///   The content to scale.
+///
+/// - x: Ratio (named)
+///   The horizontal scaling factor.
+///
+/// - y: Ratio (named)
+///   The vertical scaling factor.
+///
+/// ## Category
+/// layout
+#[func]
+#[capable(Layout, Inline)]
+#[derive(Debug, Hash)]
+pub struct ScaleNode {
+    /// Scaling factor.
+    pub factor: Axes<Ratio>,
+    /// The content that should be scaled.
+    pub body: Content,
+}
 
-/// A rotational transformation.
-const ROTATE: TransformKind = 1;
+#[node]
+impl ScaleNode {
+    /// The origin of the transformation.
+    #[property(resolve)]
+    pub const ORIGIN: Axes<Option<GenAlign>> = Axes::default();
 
-/// A scale transformation.
-const SCALE: TransformKind = 2;
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
+        let all = args.find()?;
+        let x = args.named("x")?.or(all).unwrap_or(Ratio::one());
+        let y = args.named("y")?.or(all).unwrap_or(Ratio::one());
+        Ok(Self {
+            factor: Axes::new(x, y),
+            body: args.expect("body")?,
+        }
+        .pack())
+    }
+}
+
+impl Layout for ScaleNode {
+    fn layout(
+        &self,
+        vt: &mut Vt,
+        styles: StyleChain,
+        regions: Regions,
+    ) -> SourceResult<Fragment> {
+        let mut fragment = self.body.layout(vt, styles, regions)?;
+        for frame in &mut fragment {
+            let origin = styles.get(Self::ORIGIN).unwrap_or(Align::CENTER_HORIZON);
+            let Axes { x, y } = origin.zip(frame.size()).map(|(o, s)| o.position(s));
+            let transform = Transform::translate(x, y)
+                .pre_concat(Transform::scale(self.factor.x, self.factor.y))
+                .pre_concat(Transform::translate(-x, -y));
+            frame.transform(transform);
+        }
+        Ok(fragment)
+    }
+}
+
+impl Inline for ScaleNode {}

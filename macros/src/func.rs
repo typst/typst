@@ -4,27 +4,34 @@ use super::*;
 
 /// Expand the `#[func]` macro.
 pub fn func(item: syn::Item) -> Result<TokenStream> {
-    let mut docs = match &item {
+    let docs = match &item {
         syn::Item::Struct(item) => documentation(&item.attrs),
         syn::Item::Enum(item) => documentation(&item.attrs),
         syn::Item::Fn(item) => documentation(&item.attrs),
         _ => String::new(),
     };
 
-    let tags = tags(&mut docs);
+    let first = docs.lines().next().unwrap();
+    let display = first.strip_prefix("# ").unwrap();
+    let display = display.trim();
+
+    let mut docs = docs[first.len()..].to_string();
+    let example = example(&mut docs, 2);
     let params = params(&mut docs)?;
-    let example = quote_option(example(&mut docs));
-    let syntax = quote_option(section(&mut docs, "Syntax"));
+    let syntax = quote_option(section(&mut docs, "Syntax", 2));
+    let category = section(&mut docs, "Category", 2).expect("missing category");
+    let example = quote_option(example);
 
     let docs = docs.trim();
     if docs.contains("# ") {
-        bail!(item, "Documentation heading not recognized");
+        bail!(item, "unrecognized heading");
     }
 
     let info = quote! {
         ::typst::model::FuncInfo {
             name,
-            tags: &[#(#tags),*],
+            display: #display,
+            category: #category,
             docs: #docs,
             example: #example,
             syntax: #syntax,
@@ -57,7 +64,7 @@ pub fn func(item: syn::Item) -> Result<TokenStream> {
 
             impl::typst::model::FuncType for #ty {
                 fn create_func(name: &'static str) -> ::typst::model::Func {
-                    ::typst::model::Func::from_fn(name, #full, #info)
+                    ::typst::model::Func::from_fn(#full, #info)
                 }
             }
         })
@@ -75,7 +82,7 @@ pub fn func(item: syn::Item) -> Result<TokenStream> {
 
             impl #params ::typst::model::FuncType for #ident #args #clause {
                 fn create_func(name: &'static str) -> ::typst::model::Func {
-                    ::typst::model::Func::from_node::<Self>(name, #info)
+                    ::typst::model::Func::from_node::<Self>(#info)
                 }
             }
         })
@@ -83,31 +90,27 @@ pub fn func(item: syn::Item) -> Result<TokenStream> {
 }
 
 /// Extract a section.
-pub fn section(docs: &mut String, title: &str) -> Option<String> {
-    let needle = format!("\n# {title}\n");
+pub fn section(docs: &mut String, title: &str, level: usize) -> Option<String> {
+    let hashtags = "#".repeat(level);
+    let needle = format!("\n{hashtags} {title}\n");
     let start = docs.find(&needle)?;
     let rest = &docs[start..];
-    let len = rest[1..].find("\n# ").map(|x| 1 + x).unwrap_or(rest.len());
+    let len = rest[1..]
+        .find("\n# ")
+        .or(rest[1..].find("\n## "))
+        .or(rest[1..].find("\n### "))
+        .map(|x| 1 + x)
+        .unwrap_or(rest.len());
     let end = start + len;
     let section = docs[start + needle.len()..end].trim().to_owned();
     docs.replace_range(start..end, "");
     Some(section)
 }
 
-/// Parse the tag section.
-fn tags(docs: &mut String) -> Vec<String> {
-    section(docs, "Tags")
-        .unwrap_or_default()
-        .lines()
-        .filter_map(|line| line.strip_prefix('-'))
-        .map(|s| s.trim().into())
-        .collect()
-}
-
 /// Parse the example section.
-pub fn example(docs: &mut String) -> Option<String> {
+pub fn example(docs: &mut String, level: usize) -> Option<String> {
     Some(
-        section(docs, "Example")?
+        section(docs, "Example", level)?
             .lines()
             .skip_while(|line| !line.contains("```"))
             .skip(1)
@@ -119,7 +122,7 @@ pub fn example(docs: &mut String) -> Option<String> {
 
 /// Parse the parameter section.
 fn params(docs: &mut String) -> Result<Vec<TokenStream>> {
-    let Some(section) = section(docs, "Parameters") else { return Ok(vec![]) };
+    let Some(section) = section(docs, "Parameters", 2) else { return Ok(vec![]) };
     let mut s = Scanner::new(&section);
     let mut infos = vec![];
 
@@ -159,7 +162,7 @@ fn params(docs: &mut String) -> Result<Vec<TokenStream>> {
         s.expect(')');
 
         let mut docs = dedent(s.eat_until("\n-").trim());
-        let example = quote_option(example(&mut docs));
+        let example = quote_option(example(&mut docs, 3));
         let docs = docs.trim();
 
         infos.push(quote! {

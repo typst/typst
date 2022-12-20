@@ -2,9 +2,10 @@ use std::cmp::Ordering;
 
 use crate::prelude::*;
 
+/// # Spacing (H)
 /// Horizontal spacing in a paragraph.
 ///
-/// # Parameters
+/// ## Parameters
 /// - amount: Spacing (positional, required)
 ///   How much spacing to insert.
 ///
@@ -13,8 +14,8 @@ use crate::prelude::*;
 ///   Moreover, from multiple adjacent weak spacings all but the largest one
 ///   collapse.
 ///
-/// # Tags
-/// - layout
+/// ## Category
+/// layout
 #[func]
 #[capable(Behave)]
 #[derive(Debug, Copy, Clone, Hash)]
@@ -63,9 +64,10 @@ impl Behave for HNode {
     }
 }
 
+/// # Spacing (V)
 /// Vertical spacing.
 ///
-/// # Parameters
+/// ## Parameters
 /// - amount: Spacing (positional, required)
 ///   How much spacing to insert.
 ///
@@ -74,8 +76,8 @@ impl Behave for HNode {
 ///   Moreover, from multiple adjacent weak spacings all but the largest one
 ///   collapse.
 ///
-/// # Tags
-/// - layout
+/// ## Category
+/// layout
 #[func]
 #[capable(Behave)]
 #[derive(Debug, Copy, Clone, Hash, PartialEq, PartialOrd)]

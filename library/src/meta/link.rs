@@ -1,12 +1,13 @@
 use crate::prelude::*;
 use crate::text::TextNode;
 
+/// # Link
 /// Link to a URL or another location in the document.
 ///
 /// The link function makes its positional `body` argument clickable and links
 /// it to the destination specified by the `dest` argument.
 ///
-/// # Example
+/// ## Example
 /// ```
 /// #show link: underline
 ///
@@ -16,10 +17,10 @@ use crate::text::TextNode;
 /// ]
 /// ```
 ///
-/// # Parameters
+/// ## Parameters
 /// - dest: Destination (positional, required)
 ///   The destination the link points to.
-///   
+///
 ///   - To link to web pages, `dest` should be a valid URL string. If the URL is
 ///     in the `mailto:` or `tel:` scheme and the `body` parameter is omitted,
 ///     the email address or phone number will be the link's body, without the
@@ -30,7 +31,7 @@ use crate::text::TextNode;
 ///     coordinates of type `length`. Pages are counted from one, and the
 ///     coordinates are relative to the page's top left corner.
 ///
-///   # Example
+///   ### Example
 ///   ```
 ///   #link("mailto:hello@typst.app") \
 ///   #link((page: 1, x: 0pt, y: 0pt))[
@@ -43,8 +44,8 @@ use crate::text::TextNode;
 ///   The content that should become a link. If `dest` is an URL string, the
 ///   parameter can be omitted. In this case, the URL will be shown as the link.
 ///
-/// # Tags
-/// - meta
+/// ## Category
+/// meta
 #[func]
 #[capable(Show, Finalize)]
 #[derive(Debug, Hash)]

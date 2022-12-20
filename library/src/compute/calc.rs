@@ -2,14 +2,22 @@ use std::cmp::Ordering;
 
 use crate::prelude::*;
 
+/// # Absolute
 /// The absolute value of a numeric value.
 ///
-/// # Parameters
+/// ## Example
+/// ```
+/// #abs(-5) \
+/// #abs(5pt - 2cm) \
+/// #abs(2fr)
+/// ```
+///
+/// ## Parameters
 /// - value: ToAbs (positional, required)
 ///   The value whose absolute value to calculate.
 ///
-/// # Tags
-/// - calculate
+/// ## Category
+/// calculate
 #[func]
 pub fn abs(args: &mut Args) -> SourceResult<Value> {
     Ok(args.expect::<ToAbs>("value")?.0)
@@ -22,32 +30,50 @@ castable! {
     ToAbs,
     v: i64 => Self(Value::Int(v.abs())),
     v: f64 => Self(Value::Float(v.abs())),
+    v: Length => Self(Value::Length(v.try_abs()
+        .ok_or_else(|| "cannot take absolute value of this length")?)),
     v: Angle => Self(Value::Angle(v.abs())),
     v: Ratio => Self(Value::Ratio(v.abs())),
     v: Fr => Self(Value::Fraction(v.abs())),
 }
 
+/// # Minimum
 /// The minimum of a sequence of values.
 ///
-/// # Parameters
-/// - values: Value (positional, variadic)
-///   The sequence of values.
+/// ## Example
+/// ```
+/// #min(1, -3, -5, 20, 3, 6) \
+/// #min("Typst", "in", "beta")
+/// ```
 ///
-/// # Tags
-/// - calculate
+/// ## Parameters
+/// - values: Value (positional, variadic)
+///   The sequence of values from which to extract the minimum.
+///   Must not be empty.
+///
+/// ## Category
+/// calculate
 #[func]
 pub fn min(args: &mut Args) -> SourceResult<Value> {
     minmax(args, Ordering::Less)
 }
 
+/// # Maximum
 /// The maximum of a sequence of values.
 ///
-/// # Parameters
-/// - values: Value (positional, variadic)
-///   The sequence of values.
+/// ## Example
+/// ```
+/// #max(1, -3, -5, 20, 3, 6) \
+/// #max("Typst", "in", "beta")
+/// ```
 ///
-/// # Tags
-/// - calculate
+/// ## Parameters
+/// - values: Value (positional, variadic)
+///   The sequence of values from which to extract the maximum.
+///   Must not be empty.
+///
+/// ## Category
+/// calculate
 #[func]
 pub fn max(args: &mut Args) -> SourceResult<Value> {
     minmax(args, Ordering::Greater)
@@ -74,43 +100,67 @@ fn minmax(args: &mut Args, goal: Ordering) -> SourceResult<Value> {
     Ok(extremum)
 }
 
+/// # Even
 /// Whether an integer is even.
 ///
-/// # Parameters
+/// ## Example
+/// ```
+/// #even(4) \
+/// #even(5) \
+/// { range(10).filter(even) }
+/// ```
+///
+/// ## Parameters
 /// - value: i64 (positional, required)
 ///   The number to check for evenness.
 ///
-/// # Tags
-/// - calculate
+/// ## Category
+/// calculate
 #[func]
 pub fn even(args: &mut Args) -> SourceResult<Value> {
     Ok(Value::Bool(args.expect::<i64>("value")? % 2 == 0))
 }
 
+/// # Odd
 /// Whether an integer is odd.
 ///
-/// # Parameters
+/// ## Example
+/// ```
+/// #odd(4) \
+/// #odd(5) \
+/// { range(10).filter(odd) }
+/// ```
+///
+///
+/// ## Parameters
 /// - value: i64 (positional, required)
 ///   The number to check for oddness.
 ///
-/// # Tags
-/// - calculate
+/// ## Category
+/// calculate
 #[func]
 pub fn odd(args: &mut Args) -> SourceResult<Value> {
     Ok(Value::Bool(args.expect::<i64>("value")? % 2 != 0))
 }
 
+/// # Modulus
 /// The modulus of two numbers.
 ///
-/// # Parameters
+/// ## Example
+/// ```
+/// #mod(20, 6) \
+/// #mod(1.75, 0.5)
+/// ```
+///
+/// ## Parameters
 /// - dividend: ToMod (positional, required)
 ///   The dividend of the modulus.
 ///
 /// - divisor: ToMod (positional, required)
 ///   The divisor of the modulus.
 ///
-/// # Tags
-/// - calculate
+/// ## Category
+/// calculate
 #[func]
 pub fn mod_(args: &mut Args) -> SourceResult<Value> {
     let Spanned { v: v1, span: span1 } = args.expect("dividend")?;

@@ -18,6 +18,12 @@ impl Length {
         Self { abs: Abs::zero(), em: Em::zero() }
     }
 
+    /// Try to compute the absolute value of the length.
+    pub fn try_abs(self) -> Option<Self> {
+        (self.abs.is_zero() || self.em.is_zero())
+            .then(|| Self { abs: self.abs.abs(), em: self.em.abs() })
+    }
+
     /// Try to divide two lengths.
     pub fn try_div(self, other: Self) -> Option<f64> {
         if self.abs.is_zero() && other.abs.is_zero() {

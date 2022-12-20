@@ -1,14 +1,15 @@
 use crate::prelude::*;
 use crate::text::TextNode;
 
+/// # Symbol
 /// A symbol identified by symmie notation.
 ///
-/// # Parameters
+/// ## Parameters
 /// - notation: EcoString (positional, required)
 ///   The symbols symmie notation.
 ///
-/// # Tags
-/// - text
+/// ## Category
+/// text
 #[func]
 #[capable(Show)]
 #[derive(Debug, Hash)]

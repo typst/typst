@@ -1,9 +1,10 @@
 use crate::layout::{GridNode, TrackSizing, TrackSizings};
 use crate::prelude::*;
 
+/// # Table
 /// A table of items.
 ///
-/// # Parameters
+/// ## Parameters
 /// - cells: Content (positional, variadic)
 ///   The contents of the table cells.
 ///
@@ -22,8 +23,8 @@ use crate::prelude::*;
 /// - row-gutter: TrackSizings (named)
 ///   Defines the gaps between rows. Takes precedence over `gutter`.
 ///
-/// # Tags
-/// - basics
+/// ## Category
+/// basics
 #[func]
 #[capable(Layout)]
 #[derive(Debug, Hash)]

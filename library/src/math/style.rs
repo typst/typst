@@ -1,13 +1,14 @@
 use super::*;
 
+/// # Serif
 /// Serif (roman) font style.
 ///
-/// # Parameters
+/// ## Parameters
 /// - body: Content (positional, required)
 ///   The piece of formula to style.
 ///
-/// # Tags
-/// - math
+/// ## Category
+/// math
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]
@@ -29,14 +30,15 @@ impl Texify for SerifNode {
     }
 }
 
+/// # Sans-serif
 /// Sans-serif font style.
 ///
-/// # Parameters
+/// ## Parameters
 /// - body: Content (positional, required)
 ///   The piece of formula to style.
 ///
-/// # Tags
-/// - math
+/// ## Category
+/// math
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]
@@ -58,14 +60,15 @@ impl Texify for SansNode {
     }
 }
 
+/// # Bold
 /// Bold font style.
 ///
-/// # Parameters
+/// ## Parameters
 /// - body: Content (positional, required)
 ///   The piece of formula to style.
 ///
-/// # Tags
-/// - math
+/// ## Category
+/// math
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]
@@ -87,14 +90,15 @@ impl Texify for BoldNode {
     }
 }
 
+/// # Italic
 /// Italic font style.
 ///
-/// # Parameters
+/// ## Parameters
 /// - body: Content (positional, required)
 ///   The piece of formula to style.
 ///
-/// # Tags
-/// - math
+/// ## Category
+/// math
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]
@@ -116,14 +120,15 @@ impl Texify for ItalNode {
     }
 }
 
+/// # Calligraphic
 /// Calligraphic font style.
 ///
-/// # Parameters
+/// ## Parameters
 /// - body: Content (positional, required)
 ///   The piece of formula to style.
 ///
-/// # Tags
-/// - math
+/// ## Category
+/// math
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]
@@ -145,14 +150,15 @@ impl Texify for CalNode {
     }
 }
 
+/// # Fraktur
 /// Fraktur font style.
 ///
-/// # Parameters
+/// ## Parameters
 /// - body: Content (positional, required)
 ///   The piece of formula to style.
 ///
-/// # Tags
-/// - math
+/// ## Category
+/// math
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]
@@ -174,14 +180,15 @@ impl Texify for FrakNode {
     }
 }
 
+/// # Monospace
 /// Monospace font style.
 ///
-/// # Parameters
+/// ## Parameters
 /// - body: Content (positional, required)
 ///   The piece of formula to style.
 ///
-/// # Tags
-/// - math
+/// ## Category
+/// math
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]
@@ -203,14 +210,15 @@ impl Texify for MonoNode {
     }
 }
 
+/// # Doublestruck
 /// Blackboard bold (double-struck) font style.
 ///
-/// # Parameters
+/// ## Parameters
 /// - body: Content (positional, required)
 ///   The piece of formula to style.
 ///
-/// # Tags
-/// - math
+/// ## Category
+/// math
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]

@@ -1,8 +1,9 @@
 use crate::prelude::*;
 
+/// # Place
 /// Place content at an absolute position.
 ///
-/// # Parameters
+/// ## Parameters
 /// - alignment: Axes<Option<GenAlign>> (positional)
 ///   Relative to which position in the parent container to place the content.
 ///
@@ -15,8 +16,8 @@ use crate::prelude::*;
 /// - dy: Rel<Length> (named)
 ///   The vertical displacement of the placed content.
 ///
-/// # Tags
-/// - layout
+/// ## Category
+/// layout
 #[func]
 #[capable(Layout, Behave)]
 #[derive(Debug, Hash)]

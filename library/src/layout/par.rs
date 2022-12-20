@@ -11,14 +11,15 @@ use crate::text::{
     shape, LinebreakNode, Quoter, Quotes, ShapedText, SmartQuoteNode, SpaceNode, TextNode,
 };
 
+/// # Paragraph
 /// Arrange text, spacing and inline-level nodes into a paragraph.
 ///
-/// # Parameters
+/// ## Parameters
 /// - body: Content (positional, required)
 ///   The contents of the paragraph.
 ///
-/// # Tags
-/// - layout
+/// ## Category
+/// layout
 #[func]
 #[capable]
 #[derive(Hash)]
@@ -147,10 +148,11 @@ castable! {
     "optimized" => Self::Optimized,
 }
 
+/// # Paragraph Break
 /// A paragraph break.
 ///
-/// # Tags
-/// - layout
+/// ## Category
+/// layout
 #[func]
 #[capable(Unlabellable)]
 #[derive(Debug, Hash)]

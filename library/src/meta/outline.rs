@@ -3,13 +3,14 @@ use crate::layout::{BlockNode, HNode, HideNode, RepeatNode, Spacing};
 use crate::prelude::*;
 use crate::text::{LinebreakNode, SpaceNode, TextNode};
 
-/// Generate a section outline / table of contents.
+/// # Outline
+/// A section outline / table of contents.
 ///
-/// This function generates a list of all headings in the
-/// document, up to a given depth. The [@heading] numbering will be reproduced
-/// within the outline.
+/// This function generates a list of all headings in the document, up to a
+/// given depth. The [heading](@heading) numbering will be reproduced within the
+/// outline.
 ///
-/// # Example
+/// ## Example
 /// ```
 /// #outline()
 ///
@@ -20,8 +21,8 @@ use crate::text::{LinebreakNode, SpaceNode, TextNode};
 /// #lorem(10)
 /// ```
 ///
-/// # Tags
-/// - meta
+/// ## Category
+/// meta
 #[func]
 #[capable(Prepare, Show)]
 #[derive(Debug, Hash)]
@@ -31,8 +32,8 @@ pub struct OutlineNode;
 impl OutlineNode {
     /// The title of the outline.
     ///
-    /// - When set to `{auto}`, an appropriate title for the [@text] language will
-    ///   be used. This is the default.
+    /// - When set to `{auto}`, an appropriate title for the [text](@text)
+    ///   language will be used. This is the default.
     /// - When set to `{none}`, the outline will not have a title.
     /// - A custom title can be set by passing content.
     #[property(referenced)]
@@ -44,7 +45,7 @@ impl OutlineNode {
 
     /// Whether to indent the subheadings to align the start of their numbering
     /// with the title of their parents. This will only have an effect if a
-    /// [@heading] numbering is set.
+    /// [heading](@heading) numbering is set.
     ///
     /// # Example
     /// ```
@@ -114,7 +115,7 @@ impl Show for OutlineNode {
             });
 
             seq.push(
-                HeadingNode { body, level: NonZeroUsize::new(1).unwrap() }
+                HeadingNode { title: body, level: NonZeroUsize::new(1).unwrap() }
                     .pack()
                     .styled(HeadingNode::NUMBERING, None)
                     .styled(HeadingNode::OUTLINED, false),
@@ -175,7 +176,7 @@ impl Show for OutlineNode {
             };
 
             // Add the numbering and section name.
-            let start = numbering + heading.body.clone();
+            let start = numbering + heading.title.clone();
             seq.push(start.linked(Destination::Internal(loc)));
 
             // Add filler symbols between the section name and page number.

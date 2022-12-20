@@ -2,9 +2,10 @@ use super::VNode;
 use crate::layout::Spacing;
 use crate::prelude::*;
 
+/// # Box
 /// An inline-level container that sizes content.
 ///
-/// # Parameters
+/// ## Parameters
 /// - body: Content (positional)
 ///   The contents of the box.
 ///
@@ -14,8 +15,8 @@ use crate::prelude::*;
 /// - height: Rel<Length> (named)
 ///   The height of the box.
 ///
-/// # Tags
-/// - layout
+/// ## Category
+/// layout
 #[func]
 #[capable(Layout, Inline)]
 #[derive(Debug, Hash)]
@@ -75,9 +76,10 @@ impl Layout for BoxNode {
 
 impl Inline for BoxNode {}
 
+/// # Block
 /// A block-level container that places content into a separate flow.
 ///
-/// # Parameters
+/// ## Parameters
 /// - body: Content (positional)
 ///   The contents of the block.
 ///
@@ -92,8 +94,8 @@ impl Inline for BoxNode {}
 ///   The spacing between this block and the following one. Takes precedence
 ///   over `spacing`.
 ///
-/// # Tags
-/// - layout
+/// ## Category
+/// layout
 #[func]
 #[capable(Layout)]
 #[derive(Debug, Hash)]

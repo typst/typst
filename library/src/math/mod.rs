@@ -14,17 +14,18 @@ use self::tex::layout_tex;
 use crate::prelude::*;
 use crate::text::{FontFamily, LinebreakNode, SpaceNode, SymbolNode, TextNode};
 
+/// # Math
 /// A piece of a mathematical formula.
 ///
-/// # Parameters
+/// ## Parameters
 /// - items: Content (positional, variadic)
 ///   The individual parts of the formula.
 ///
 /// - block: bool (named)
 ///   Whether the formula is displayed as a separate block.
 ///
-/// # Tags
-/// - math
+/// ## Category
+/// math
 #[func]
 #[capable(Show, Layout, Inline, Texify)]
 #[derive(Debug, Clone, Hash)]
@@ -259,14 +260,15 @@ impl Texify for Content {
     }
 }
 
+/// # Atom
 /// An atom in a math formula: `x`, `+`, `12`.
 ///
-/// # Parameters
+/// ## Parameters
 /// - text: EcoString (positional, required)
 ///   The atom's text.
 ///
-/// # Tags
-/// - math
+/// ## Category
+/// math
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]
@@ -305,17 +307,18 @@ impl Texify for AtomNode {
     }
 }
 
+/// # Accent
 /// An accented node.
 ///
-/// # Parameters
+/// ## Parameters
 /// - base: Content (positional, required)
 ///   The base to which the accent is applied.
 ///
 /// - accent: Content (positional, required)
 ///   The accent to apply to the base.
 ///
-/// # Tags
-/// - math
+/// ## Category
+/// math
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]
@@ -390,17 +393,18 @@ impl Texify for AccNode {
     }
 }
 
+/// # Fraction
 /// A fraction.
 ///
-/// # Parameters
+/// ## Parameters
 /// - num: Content (positional, required)
 ///   The fraction's numerator.
 ///
 /// - denom: Content (positional, required)
 ///   The fraction's denominator.
 ///
-/// # Tags
-/// - math
+/// ## Category
+/// math
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]
@@ -431,17 +435,18 @@ impl Texify for FracNode {
     }
 }
 
+/// # Binomial
 /// A binomial.
 ///
-/// # Parameters
+/// ## Parameters
 /// - upper: Content (positional, required)
 ///   The binomial's upper index.
 ///
 /// - lower: Content (positional, required)
 ///   The binomial's lower index.
 ///
-/// # Tags
-/// - math
+/// ## Category
+/// math
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]
@@ -472,9 +477,10 @@ impl Texify for BinomNode {
     }
 }
 
+/// # Script
 /// A sub- and/or superscript.
 ///
-/// # Parameters
+/// ## Parameters
 /// - base: Content (positional, required)
 ///   The base to which the applies the sub- and/or superscript.
 ///
@@ -484,8 +490,8 @@ impl Texify for BinomNode {
 /// - sup: Content (named)
 ///   The superscript.
 ///
-/// # Tags
-/// - math
+/// ## Category
+/// math
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]
@@ -528,14 +534,15 @@ impl Texify for ScriptNode {
     }
 }
 
+/// # Alignment Point
 /// A math alignment point: `&`, `&&`.
 ///
-/// # Parameters
+/// ## Parameters
 /// - index: usize (positional, required)
 ///   The alignment point's index.
 ///
-/// # Tags
-/// - math
+/// ## Category
+/// math
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]
@@ -554,14 +561,15 @@ impl Texify for AlignPointNode {
     }
 }
 
+/// # Square Root
 /// A square root.
 ///
-/// # Parameters
+/// ## Parameters
 /// - body: Content (positional, required)
 ///   The expression to take the square root of.
 ///
-/// # Tags
-/// - math
+/// ## Category
+/// math
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]
@@ -583,14 +591,15 @@ impl Texify for SqrtNode {
     }
 }
 
+/// # Floor
 /// A floored expression.
 ///
-/// # Parameters
+/// ## Parameters
 /// - body: Content (positional, required)
 ///   The expression to floor.
 ///
-/// # Tags
-/// - math
+/// ## Category
+/// math
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]
@@ -612,14 +621,15 @@ impl Texify for FloorNode {
     }
 }
 
+/// # Ceil
 /// A ceiled expression.
 ///
-/// # Parameters
+/// ## Parameters
 /// - body: Content (positional, required)
 ///   The expression to ceil.
 ///
-/// # Tags
-/// - math
+/// ## Category
+/// math
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]

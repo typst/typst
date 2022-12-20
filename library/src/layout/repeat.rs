@@ -1,13 +1,14 @@
 use crate::prelude::*;
 
+/// # Repeat
 /// Repeats content to fill a line.
 ///
-/// # Parameters
+/// ## Parameters
 /// - body: Content (positional, required)
 ///   The content to repeat.
 ///
-/// # Tags
-/// - layout
+/// ## Category
+/// layout
 #[func]
 #[capable(Layout, Inline)]
 #[derive(Debug, Hash)]

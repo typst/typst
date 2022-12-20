@@ -4,14 +4,27 @@ use typst::model::Regex;
 
 use crate::prelude::*;
 
+/// # Integer
 /// Convert a value to an integer.
 ///
-/// # Parameters
+/// - Booleans are converted to `0` or `1`.
+/// - Floats are floored to the next 64-bit integer.
+/// - Strings are parsed in base 10.
+///
+/// ## Example
+/// ```
+/// #int(false) \
+/// #int(true) \
+/// #int(2.7) \
+/// { int("27") + int("4") }
+/// ```
+///
+/// ## Parameters
 /// - value: ToInt (positional, required)
 ///   The value that should be converted to an integer.
 ///
-/// # Tags
-/// - create
+/// ## Category
+/// create
 #[func]
 pub fn int(args: &mut Args) -> SourceResult<Value> {
     Ok(Value::Int(args.expect::<ToInt>("value")?.0))
@@ -28,14 +41,29 @@ castable! {
     v: EcoString => Self(v.parse().map_err(|_| "not a valid integer")?),
 }
 
+/// # Float
 /// Convert a value to a float.
 ///
-/// # Parameters
+/// - Booleans are converted to `0.0` or `1.0`.
+/// - Integers are converted to the closest 64-bit float.
+/// - Strings are parsed in base 10 to the closest 64-bit float.
+///   Exponential notation is supported.
+///
+/// ## Example
+/// ```
+/// #float(false) \
+/// #float(true) \
+/// #float(4) \
+/// #float("2.7") \
+/// #float("1e5")
+/// ```
+///
+/// ## Parameters
 /// - value: ToFloat (positional, required)
 ///   The value that should be converted to a float.
 ///
-/// # Tags
-/// - create
+/// ## Category
+/// create
 #[func]
 pub fn float(args: &mut Args) -> SourceResult<Value> {
     Ok(Value::Float(args.expect::<ToFloat>("value")?.0))
@@ -52,23 +80,45 @@ castable! {
     v: EcoString => Self(v.parse().map_err(|_| "not a valid float")?),
 }
 
+/// # Luma
 /// Create a grayscale color.
 ///
-/// # Parameters
+/// ## Example
+/// ```
+/// #for x in range(250, step: 50) {
+///   square(fill: luma(x))
+/// }
+/// ```
+///
+/// ## Parameters
 /// - gray: Component (positional, required)
 ///   The gray component.
 ///
-/// # Tags
-/// - create
+/// ## Category
+/// create
 #[func]
 pub fn luma(args: &mut Args) -> SourceResult<Value> {
     let Component(luma) = args.expect("gray component")?;
     Ok(Value::Color(LumaColor::new(luma).into()))
 }
 
+/// # RGBA
 /// Create an RGB(A) color.
 ///
-/// # Parameters
+/// The color is specified in the sRGB color space.
+///
+/// _Note:_ While you can specify transparent colors and Typst's preview will
+/// render them correctly, the PDF export does not handle them properly at the
+/// moment. This will be fixed in the future.
+///
+/// ## Example
+/// ```
+/// #square(fill: rgb("#b1f2eb"))
+/// #square(fill: rgb(87, 127, 230))
+/// #square(fill: rgb(25%, 13%, 65%))
+/// ```
+///
+/// ## Parameters
 /// - hex: EcoString (positional)
 ///   The color in hexademical notation.
 ///
@@ -77,10 +127,11 @@ pub fn luma(args: &mut Args) -> SourceResult<Value> {
 ///
 ///   If this string is given, the individual components should not be given.
 ///
-///   # Example
+///   ### Example
 ///   ```
-///   #let color = rgb("#239dad")
-///   #text(16pt, color)[*Typst*]
+///   #text(16pt, rgb("#239dad"))[
+///     *Typst*
+///   ]
 ///   ```
 ///
 /// - red: Component (positional)
@@ -95,8 +146,8 @@ pub fn luma(args: &mut Args) -> SourceResult<Value> {
 /// - alpha: Component (positional)
 ///   The alpha component.
 ///
-/// # Tags
-/// - create
+/// ## Category
+/// create
 #[func]
 pub fn rgb(args: &mut Args) -> SourceResult<Value> {
     Ok(Value::Color(if let Some(string) = args.find::<Spanned<EcoString>>()? {
@@ -129,9 +180,21 @@ castable! {
     },
 }
 
+/// # CMYK
 /// Create a CMYK color.
 ///
-/// # Parameters
+/// This is useful if you want to target a specific printer. The conversion
+/// to RGB for display preview might differ from how your printer reproduces
+/// the color.
+///
+/// ## Example
+/// ```
+/// #square(
+///   fill: cmyk(27%, 0%, 3%, 5%)
+/// )
+/// ````
+///
+/// ## Parameters
 /// - cyan: RatioComponent (positional, required)
 ///   The cyan component.
 ///
@@ -144,8 +207,8 @@ castable! {
 /// - key: RatioComponent (positional, required)
 ///   The key component.
 ///
-/// # Tags
-/// - create
+/// ## Category
+/// create
 #[func]
 pub fn cmyk(args: &mut Args) -> SourceResult<Value> {
     let RatioComponent(c) = args.expect("cyan component")?;
@@ -167,14 +230,27 @@ castable! {
     },
 }
 
+/// # String
 /// Convert a value to a string.
 ///
-/// # Parameters
+/// - Integers are formatted in base 10.
+/// - Floats are formatted in base 10 and never in exponential notation.
+/// - From labels the name is extracted.
+///
+/// ## Example
+/// ```
+/// #str(10) \
+/// #str(2.7) \
+/// #str(1e8) \
+/// #str(<intro>)
+/// ```
+///
+/// ## Parameters
 /// - value: ToStr (positional, required)
 ///   The value that should be converted to a string.
 ///
-/// # Tags
-/// - create
+/// ## Category
+/// create
 #[func]
 pub fn str(args: &mut Args) -> SourceResult<Value> {
     Ok(Value::Str(args.expect::<ToStr>("value")?.0))
@@ -191,36 +267,94 @@ castable! {
     v: Str => Self(v),
 }
 
+/// # Label
 /// Create a label from a string.
 ///
-/// # Parameters
+/// Inserting a label into content attaches it to the closest previous element
+/// that is not a space. Then, the element can be [referenced](@ref) and styled
+/// through the label.
+///
+/// ## Example
+/// ```
+/// #show <a>: set text(blue)
+/// #show label("b"): set text(red)
+///
+/// = Heading <a>
+/// *Strong* #label("b")
+/// ```
+///
+/// ## Syntax
+/// This function also has dedicated syntax: You can create a label by enclosing
+/// its name in angle brackets. This works both in markup and code.
+///
+/// ## Parameters
 /// - name: EcoString (positional, required)
 ///   The name of the label.
 ///
-/// # Tags
-/// - create
+/// ## Category
+/// create
 #[func]
 pub fn label(args: &mut Args) -> SourceResult<Value> {
     Ok(Value::Label(Label(args.expect("string")?)))
 }
 
+/// # Regex
 /// Create a regular expression from a string.
 ///
-/// # Parameters
-/// - regex: EcoString (positional, required)
-///   The regular expression.
+/// The result can be used as a show rule
+/// [selector](/docs/reference/concepts/#selector) and with
+/// [string methods](/docs/reference/concepts/#methods) like `find`, `split`,
+/// and `replace`.
 ///
-/// # Tags
-/// - create
+/// [See here](https://docs.rs/regex/latest/regex/#syntax) for a specification
+/// of the supported syntax.
+///
+/// ## Example
+/// ```
+/// // Works with show rules.
+/// #show regex("\d+"): set text(red)
+///
+/// The numbers 1 to 10.
+///
+/// // Works with string methods.
+/// { "a,b;c"
+///     .split(regex("[,;]")) }
+/// ```
+///
+/// ## Parameters
+/// - regex: EcoString (positional, required)
+///   The regular expression as a string.
+///
+///   Most regex escape sequences just work because they are not valid Typst
+///   escape sequences. To produce regex escape sequences that are also valid in
+///   Typst (e.g. `[\\]`), you need to escape twice. Thus, to match a verbatim
+///   backslash, you would need to write `{regex("\\\\")}`.
+///
+/// ## Category
+/// create
 #[func]
 pub fn regex(args: &mut Args) -> SourceResult<Value> {
     let Spanned { v, span } = args.expect::<Spanned<EcoString>>("regular expression")?;
     Ok(Regex::new(&v).at(span)?.into())
 }
 
+/// # Range
 /// Create an array consisting of a sequence of numbers.
 ///
-/// # Parameters
+/// If you pass just one positional parameter, it is interpreted as the `end` of
+/// the range. If you pass two, they describe the `start` and `end` of the
+/// range.
+///
+/// ## Example
+/// ```
+/// #range(5) \
+/// #range(2, 5) \
+/// #range(20, step: 4) \
+/// #range(21, step: 4) \
+/// #range(5, 2, step: -1)
+/// ```
+///
+/// ## Parameters
 /// - start: i64 (positional)
 ///   The start of the range (inclusive).
 ///
@@ -230,8 +364,8 @@ pub fn regex(args: &mut Args) -> SourceResult<Value> {
 /// - step: i64 (named)
 ///   The distance between the generated numbers.
 ///
-/// # Tags
-/// - create
+/// ## Category
+/// create
 #[func]
 pub fn range(args: &mut Args) -> SourceResult<Value> {
     let first = args.expect::<i64>("end")?;

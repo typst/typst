@@ -4,6 +4,7 @@ use typst::diag::{format_xml_like_error, FileError};
 
 use crate::prelude::*;
 
+/// # CSV
 /// Read structured data from a CSV file.
 ///
 /// The CSV file will be read and parsed into a 2-dimensional array of strings:
@@ -11,7 +12,7 @@ use crate::prelude::*;
 /// rows will be collected into a single array. Header rows will not be
 /// stripped.
 ///
-/// # Example
+/// ## Example
 /// ```
 /// #let results = csv("/data.csv")
 ///
@@ -21,7 +22,8 @@ use crate::prelude::*;
 ///   ..results.flatten(),
 /// )
 /// ```
-/// # Parameters
+///
+/// ## Parameters
 /// - path: EcoString (positional, required)
 ///   Path to a CSV file.
 /// - delimiter: Delimiter (named)
@@ -29,8 +31,8 @@ use crate::prelude::*;
 ///   Must be a single ASCII character.
 ///   Defaults to a comma.
 ///
-/// # Tags
-/// - data-loading
+/// ## Category
+/// data-loading
 #[func]
 pub fn csv(vm: &Vm, args: &mut Args) -> SourceResult<Value> {
     let Spanned { v: path, span } =
@@ -95,6 +97,7 @@ fn format_csv_error(error: csv::Error) -> String {
     }
 }
 
+/// # JSON
 /// Read structured data from a JSON file.
 ///
 /// The file must contain a valid JSON object or array. JSON objects will be
@@ -108,7 +111,7 @@ fn format_csv_error(error: csv::Error) -> String {
 /// The JSON files in the example contain a object with the keys `temperature`,
 /// `unit`, and `weather`.
 ///
-/// # Example
+/// ## Example
 /// ```
 /// #let forecast(day) = block[
 ///   #square(
@@ -134,12 +137,12 @@ fn format_csv_error(error: csv::Error) -> String {
 /// #forecast(json("/tuesday.json"))
 /// ```
 ///
-/// # Parameters
+/// ## Parameters
 /// - path: EcoString (positional, required)
 ///   Path to a JSON file.
 ///
-/// # Tags
-/// - data-loading
+/// ## Category
+/// data-loading
 #[func]
 pub fn json(vm: &Vm, args: &mut Args) -> SourceResult<Value> {
     let Spanned { v: path, span } =
@@ -177,12 +180,10 @@ fn convert_json(value: serde_json::Value) -> Value {
 /// Format the user-facing JSON error message.
 fn format_json_error(error: serde_json::Error) -> String {
     assert!(error.is_syntax() || error.is_eof());
-    format!(
-        "failed to parse json file: syntax error in line {}",
-        error.line()
-    )
+    format!("failed to parse json file: syntax error in line {}", error.line())
 }
 
+/// # XML
 /// Read structured data from an XML file.
 ///
 /// The XML file is parsed into an array of dictionaries and strings. XML nodes
@@ -198,7 +199,7 @@ fn format_json_error(error: serde_json::Error) -> String {
 /// `content` tag contains one or more paragraphs, which are represented as `p`
 /// tags.
 ///
-/// # Example
+/// ## Example
 /// ```
 /// #let findChild(elem, tag) = {
 ///   elem.children
@@ -232,12 +233,12 @@ fn format_json_error(error: serde_json::Error) -> String {
 /// }
 /// ```
 ///
-/// # Parameters
+/// ## Parameters
 /// - path: EcoString (positional, required)
 ///   Path to an XML file.
 ///
-/// # Tags
-/// - data-loading
+/// ## Category
+/// data-loading
 #[func]
 pub fn xml(vm: &Vm, args: &mut Args) -> SourceResult<Value> {
     let Spanned { v: path, span } =

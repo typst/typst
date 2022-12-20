@@ -1,16 +1,17 @@
 use crate::prelude::*;
 
+/// # Align
 /// Align content horizontally and vertically.
 ///
-/// # Parameters
+/// ## Parameters
 /// - body: Content (positional, required)
 ///   The content to align.
 ///
 /// - alignment: Axes<Option<GenAlign>> (positional, settable)
 ///   The alignment along both axes.
 ///
-/// # Tags
-/// - layout
+/// ## Category
+/// layout
 #[func]
 #[capable]
 #[derive(Debug, Hash)]

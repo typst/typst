@@ -2,9 +2,10 @@ use crate::prelude::*;
 
 use super::Spacing;
 
+/// # Grid
 /// Arrange content in a grid.
 ///
-/// # Parameters
+/// ## Parameters
 /// - cells: Content (positional, variadic)
 ///   The contents of the table cells.
 ///
@@ -23,8 +24,8 @@ use super::Spacing;
 /// - row-gutter: TrackSizings (named)
 ///   Defines the gaps between rows. Takes precedence over `gutter`.
 ///
-/// # Tags
-/// - layout
+/// ## Category
+/// layout
 #[func]
 #[capable(Layout)]
 #[derive(Debug, Hash)]

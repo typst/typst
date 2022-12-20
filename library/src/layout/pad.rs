@@ -1,8 +1,9 @@
 use crate::prelude::*;
 
+/// # Padding
 /// Pad content at the sides.
 ///
-/// # Parameters
+/// ## Parameters
 /// - body: Content (positional, required)
 ///   The content to pad at the sides.
 ///
@@ -27,8 +28,8 @@ use crate::prelude::*;
 /// - rest: Rel<Length> (named)
 ///   The padding for all sides. All other parameters take precedence over this.
 ///
-/// # Tags
-/// - layout
+/// ## Category
+/// layout
 #[func]
 #[capable(Layout)]
 #[derive(Debug, Hash)]

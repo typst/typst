@@ -5,30 +5,48 @@ use crate::layout::{BlockNode, VNode};
 use crate::prelude::*;
 use crate::text::{SpaceNode, TextNode, TextSize};
 
+/// # Heading
 /// A section heading.
 ///
-/// # Example
+/// With headings, you can structure your document into sections. Each heading
+/// has a _level,_ which starts at one and is unbounded upwards. This level
+/// indicates the logical role of the following content (section, subsection,
+/// etc.) Top-level heading indicates a top-level section of the document (not
+/// the document's title).
+///
+/// Typst can automatically number your headings for you. To enable numbering,
+/// specify how you want your headings to be numbered with a [numbering
+/// pattern](@numbering).
+///
+/// Independently from the numbering, Typst can also automatically generate an
+/// [outline](@outline) of all headings for you. To exclude one or more headings
+/// from this outline, you can set the `outlined` parameter to `{false}`.
+///
+/// ## Example
 /// ```
-/// #set heading(numbering: "I.")
+/// #set heading(numbering: "1.a)")
 ///
 /// = Introduction
 /// In recent years, ...
+///
+/// == Preliminaries
+/// To start, ...
 /// ```
 ///
-/// # Syntax
-/// Headings can be created by starting a line with one or multiple equals
-/// signs. The number of equals signs determines the heading's logical nesting
-/// depth.
+/// ## Syntax
+/// Headings have dedicated syntax: They can be created by starting a line with
+/// one or multiple equals signs, followed by a space. The number of equals
+/// signs determines the heading's logical nesting depth.
 ///
-/// # Parameters
-/// - body: Content (positional, required)
-///   The heading's contents.
+/// ## Parameters
+/// - title: Content (positional, required)
+///   The heading's title.
 ///
 /// - level: NonZeroUsize (named)
 ///   The logical nesting depth of the heading, starting from one.
 ///
-/// # Tags
-/// - basics
+/// ## Category
+/// basics
 #[func]
 #[capable(Prepare, Show, Finalize)]
 #[derive(Debug, Hash)]
@@ -37,12 +55,12 @@ pub struct HeadingNode {
     /// default style, this controls the text size of the heading.
     pub level: NonZeroUsize,
     /// The heading's contents.
-    pub body: Content,
+    pub title: Content,
 }
 
 #[node]
 impl HeadingNode {
-    /// How to number the heading.
+    /// How to number the heading. Accepts a [numbering pattern](@numbering).
     ///
     /// # Example
     /// ```
@@ -72,7 +90,7 @@ impl HeadingNode {
 
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self {
-            body: args.expect("body")?,
+            title: args.expect("title")?,
             level: args.named("level")?.unwrap_or(NonZeroUsize::new(1).unwrap()),
         }
         .pack())
@@ -81,7 +99,7 @@ impl HeadingNode {
     fn field(&self, name: &str) -> Option<Value> {
         match name {
             "level" => Some(Value::Int(self.level.get() as i64)),
-            "body" => Some(Value::Content(self.body.clone())),
+            "title" => Some(Value::Content(self.title.clone())),
             _ => None,
         }
     }
@@ -118,7 +136,7 @@ impl Prepare for HeadingNode {
 
 impl Show for HeadingNode {
     fn show(&self, _: &mut Vt, this: &Content, _: StyleChain) -> SourceResult<Content> {
-        let mut realized = self.body.clone();
+        let mut realized = self.title.clone();
         if let Some(Value::Str(numbering)) = this.field("numbers") {
             realized = TextNode::packed(numbering) + SpaceNode.pack() + realized;
         }
