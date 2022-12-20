@@ -22,7 +22,7 @@ use crate::prelude::*;
 ///
 ///   Horizontal alignments can be `left`, `center`, `right`, `start`, or `end`.
 ///   The `start` and `end` alignments are relative to the current
-///   [text direction](@text).
+///   [text direction](@text/dir).
 ///
 ///   Vertical alignments can be `top`, `horizon`, or `bottom`.
 ///

@@ -32,8 +32,8 @@ pub struct OutlineNode;
 impl OutlineNode {
     /// The title of the outline.
     ///
-    /// - When set to `{auto}`, an appropriate title for the [text](@text)
-    ///   language will be used. This is the default.
+    /// - When set to `{auto}`, an appropriate title for the [text
+    ///   language](@text/lang) will be used. This is the default.
     /// - When set to `{none}`, the outline will not have a title.
     /// - A custom title can be set by passing content.
     #[property(referenced)]
@@ -45,7 +45,7 @@ impl OutlineNode {
 
     /// Whether to indent the subheadings to align the start of their numbering
     /// with the title of their parents. This will only have an effect if a
-    /// [heading](@heading) numbering is set.
+    /// [heading numbering](@heading/numbering) is set.
     ///
     /// # Example
     /// ```

@@ -6,7 +6,7 @@ use crate::prelude::*;
 /// A language-aware quote that reacts to its context.
 ///
 /// Automatically turns into an appropriate opening or closing quote based on
-/// the active [text](@text) language.
+/// the active [text language](@text/lang).
 ///
 /// ## Syntax
 /// This function also has dedicated syntax: The normal quote characters

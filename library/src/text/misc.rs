@@ -172,7 +172,7 @@ impl Fold for Delta {
 /// # Emphasis
 /// Emphasizes content by setting it in italics.
 ///
-/// - If the current [text](@text) style is `{"normal"}`,
+/// - If the current [text style](@text/style) is `{"normal"}`,
 ///   this turns it into `{"italic"}`.
 /// - If it is already `{"italic"}` or `{"oblique"}`,
 ///   it turns it back to `{"normal"}`.
