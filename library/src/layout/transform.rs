@@ -5,9 +5,32 @@ use crate::prelude::*;
 /// # Move
 /// Move content without affecting layout.
 ///
+/// The `move` function allows you to hide content while the layout still 'sees'
+/// it at the original positions. Containers will still be sized as if the content
+/// was not moved.
+///
+/// ## Example
+/// ```
+/// #rect(
+///   move(
+///     dx: 6pt, dy: 6pt,
+///     rect(
+///       inset: 8pt,
+///       fill: white,
+///       stroke: black,
+///       [Abra cadabra]
+///     )
+///   )
+/// )
+/// ```
+///
 /// ## Parameters
 /// - body: Content (positional, required)
 ///   The content to move.
+///
+///   ### Example
+///   ```
+///   Hello, world!#move(dy: -2pt)[!]#move(dy: 2pt)[!]
 ///
 /// - dx: Rel<Length> (named)
 ///   The horizontal displacement of the content.
@@ -61,6 +84,19 @@ impl Inline for MoveNode {}
 
 /// # Rotate
 /// Rotate content with affecting layout.
+///
+/// Rotate an element by a given angle. The layout will act as if the element
+/// was not rotated.
+///
+/// ## Example
+/// ```
+/// {
+///   range(16)
+///     .map(i =>
+///       rotate(360deg / 15 * i)[X]
+///     ).join(h(1fr))
+/// }
+/// ```
 ///
 /// ## Parameters
 /// - body: Content (positional, required)
@@ -121,6 +157,16 @@ impl Inline for RotateNode {}
 /// # Scale
 /// Scale content without affecting layout.
 ///
+/// The `scale` function allows you to scale and mirror content without
+/// affecting the layout.
+///
+///
+/// ## Example
+/// ```
+/// #set align(center)
+/// #scale(x: -100%)[👍]👩‍🦱👍
+/// ```
+///
 /// ## Parameters
 /// - body: Content (positional, required)
 ///   The content to scale.
@@ -128,8 +174,12 @@ impl Inline for RotateNode {}
 /// - x: Ratio (named)
 ///   The horizontal scaling factor.
 ///
+///   The body will be mirrored horizontally if the parameter is negative.
+///
 /// - y: Ratio (named)
 ///   The vertical scaling factor.
+///
+///   The body will be mirrored vertically if the parameter is negative.
 ///
 /// ## Category
 /// layout

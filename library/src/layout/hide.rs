@@ -3,6 +3,17 @@ use crate::prelude::*;
 /// # Hide
 /// Hide content without affecting layout.
 ///
+/// The `hide` function allows you to hide content while the layout still 'sees'
+/// it. This is useful to create layout items that are exactly as large as some
+/// content. It may also be useful to redact content because its arguments are
+/// not included in the output.
+///
+/// ## Example
+/// ```
+/// Hello Jane \
+/// #hide[Hello] Joe
+/// ```
+///
 /// ## Parameters
 /// - body: Content (positional, required)
 ///   The content to hide.

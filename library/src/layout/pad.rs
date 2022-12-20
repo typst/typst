@@ -1,7 +1,20 @@
 use crate::prelude::*;
 
 /// # Padding
-/// Pad content at the sides.
+/// Add spacing around content.
+///
+/// The `pad` function adds spacing around content. The spacing can be specified
+/// for each side individually, or for all sides at once by specifying a
+/// positional argument.
+///
+/// ## Example
+/// ```
+/// #set align(center)
+///
+/// #pad(16pt, image("typing.jpg"))
+/// _Typing speeds can be
+/// measured in words per minute._
+/// ```
 ///
 /// ## Parameters
 /// - body: Content (positional, required)
