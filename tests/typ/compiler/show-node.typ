@@ -31,9 +31,9 @@ my heading?
   move(dy: -1pt)[📖]
   h(5pt)
   if it.level == 1 {
-    underline(text(1.25em, blue, it.body))
+    underline(text(1.25em, blue, it.title))
   } else {
-    text(red, it.body)
+    text(red, it.title)
   }
 })
 
@@ -51,7 +51,7 @@ Another text.
 #show heading: it => {
   set text(red)
   show "ding": [🛎]
-  it.body
+  it.title
 }
 
 = Heading

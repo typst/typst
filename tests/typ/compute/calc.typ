@@ -39,7 +39,7 @@
 #test(abs(-25%), 25%)
 
 ---
-// Error: 6-17 expected integer, float, angle, ratio, or fraction, found string
+// Error: 6-17 expected integer, float, length, angle, ratio, or fraction, found string
 #abs("no number")
 
 ---

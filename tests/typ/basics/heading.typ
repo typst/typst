@@ -1,7 +1,7 @@
 // Test headings.
 
 ---
-#show heading: it => text(blue, it.body)
+#show heading: it => text(blue, it.title)
 
 =
 No heading
@@ -44,7 +44,7 @@ multiline.
 ---
 // Test styling.
 #show heading.where(level: 5): it => block(
-  text(family: "Roboto", fill: eastern, it.body + [!])
+  text(family: "Roboto", fill: eastern, it.title + [!])
 )
 
 = Heading

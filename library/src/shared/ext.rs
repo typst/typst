@@ -45,7 +45,7 @@ impl ContentExt for Content {
     }
 
     fn underlined(self) -> Self {
-        crate::text::DecoNode::<{ crate::text::UNDERLINE }>(self).pack()
+        crate::text::UnderlineNode(self).pack()
     }
 
     fn linked(self, dest: Destination) -> Self {
