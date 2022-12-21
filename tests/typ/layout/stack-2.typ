@@ -19,6 +19,5 @@ World! 🌍
 #set text(white)
 #rect(fill: forest)[
           #v(1fr)
-  #h(1fr) Hi you! #h(5pt)
-          #v(5pt)
+  #h(1fr) Hi you!
 ]

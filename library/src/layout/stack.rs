@@ -13,7 +13,6 @@ use crate::prelude::*;
 /// ```
 /// #stack(
 ///   dir: ttb,
-///
 ///   rect(width: 40pt),
 ///   rect(width: 120pt),
 ///   rect(width: 90pt),

@@ -15,8 +15,8 @@
 #rect(width: 1cm, fill: c.negate())
 
 #for x in range(0, 11) {
-  square(width: 9pt, fill: c.lighten(x * 10%))
+  square(size: 9pt, fill: c.lighten(x * 10%))
 }
 #for x in range(0, 11) {
-  square(width: 9pt, fill: c.darken(x * 10%))
+  square(size: 9pt, fill: c.darken(x * 10%))
 }

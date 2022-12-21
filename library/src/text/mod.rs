@@ -242,7 +242,9 @@ impl TextNode {
     ///
     /// # Example
     /// ```
+    /// #set rect(inset: 0pt)
     /// #set text(size: 20pt)
+    ///
     /// #set text(top-edge: "ascender")
     /// #rect(fill: aqua)[Typst]
     ///
@@ -256,7 +258,9 @@ impl TextNode {
     ///
     /// # Example
     /// ```
+    /// #set rect(inset: 0pt)
     /// #set text(size: 20pt)
+    ///
     /// #set text(bottom-edge: "baseline")
     /// #rect(fill: aqua)[Typst]
     ///

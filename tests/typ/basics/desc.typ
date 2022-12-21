@@ -39,7 +39,7 @@ No: list \
 // Test grid like show rule.
 #show desc: it => table(
   columns: 2,
-  padding: 3pt,
+  inset: 3pt,
   ..it.items.map(item => (emph(item(0)), item(1))).flatten(),
 )
 

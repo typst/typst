@@ -4,9 +4,13 @@
 // Test relative width and height and size that is smaller
 // than default size.
 #set page(width: 120pt, height: 70pt)
-#square(width: 50%, align(bottom)[A])
+#set align(center + horizon)
+#square(width: 50%, [A])
 #square(height: 50%)
-#box(stack(square(size: 10pt), 5pt, square(size: 10pt, [B])))
+#box(stack(
+  square(size: 10pt),
+  square(size: 20pt, [B])
+))
 
 ---
 // Test alignment in automatically sized square and circle.
@@ -37,7 +41,7 @@
 // Test square that is overflowing due to its aspect ratio.
 #set page(width: 40pt, height: 20pt, margin: 5pt)
 #square(width: 100%) #parbreak()
-#square(width: 100%)[Hello]
+#square(width: 100%)[Hey]
 
 ---
 // Size cannot be relative because we wouldn't know

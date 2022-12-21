@@ -2,7 +2,7 @@
 #set text("Latin Modern Roman")
 #show <table>: it => table(
   columns: 2,
-  padding: 8pt,
+  inset: 8pt,
   ..it.text
     .split("\n")
     .map(line => (text(10pt, raw(line, lang: "typ")), eval(line) + [ ]))

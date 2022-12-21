@@ -42,7 +42,7 @@ pub struct PageNode(pub Content);
 
 #[node]
 impl PageNode {
-    /// The unflipped width of the page.
+    /// The width of the page.
     ///
     /// # Example
     /// ```
@@ -58,7 +58,7 @@ impl PageNode {
     #[property(resolve)]
     pub const WIDTH: Smart<Length> = Smart::Custom(Paper::A4.width().into());
 
-    /// The unflipped height of the page.
+    /// The height of the page.
     ///
     /// If this is set to `{auto}`, page breaks can only be triggered manually
     /// by inserting a [page break](@pagebreak). Most examples throughout this
@@ -92,7 +92,6 @@ impl PageNode {
     ///
     /// - A single length: The same margin on all sides.
     /// - `{auto}`: The margin is set to the default value for the page's size.
-    /// - `{none}`: The page will be stripped of its margins.
     /// - A dictionary: With a dictionary, the margins can be set individually.
     ///   The dictionary can contain the following keys in order of precedence:
     ///   - `top`: The top margin.
@@ -101,7 +100,7 @@ impl PageNode {
     ///   - `left`: The left margin.
     ///   - `x`: The horizontal margins.
     ///   - `y`: The vertical margins.
-    ///   - `rest`: The margins on all sides except the sides for which the
+    ///   - `rest`: The margins on all sides except those for which the
     ///     dictionary explicitly sets a size.
     ///
     /// # Example
@@ -197,7 +196,7 @@ impl PageNode {
     ///       text(8pt, numbering("I", i))
     ///     )
     ///   )
-    ///   
+    ///
     ///   #lorem(18)
     /// ```
     #[property(referenced)]

@@ -7,6 +7,7 @@
 
 ---
 // Test auto sizing.
+#set circle(inset: 0pt)
 
 Auto-sized circle. \
 #circle(fill: rgb("eb5278"), stroke: 2pt + black,
@@ -33,13 +34,14 @@ Expanded by height.
 
 ---
 // Ensure circle directly in rect works.
-#rect(width: 40pt, height: 30pt, fill: forest, circle(fill: conifer))
+#rect(width: 40pt, height: 30pt, fill: forest,
+  circle(fill: conifer))
 
 ---
 // Test relative sizing.
 #let centered(body) = align(center + horizon, body)
 #set text(fill: white)
-#rect(width: 100pt, height: 50pt, fill: rgb("aaa"), centered[
+#rect(width: 100pt, height: 50pt, inset: 0pt, fill: rgb("aaa"), centered[
   #circle(radius: 10pt, fill: eastern, centered[A])      // D=20pt
   #circle(height: 60%, fill: eastern, centered[B])       // D=30pt
   #circle(width: 20% + 20pt, fill: eastern, centered[C]) // D=40pt

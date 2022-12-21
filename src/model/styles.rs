@@ -914,57 +914,45 @@ where
     }
 }
 
-impl Fold for Axes<Option<GenAlign>> {
-    type Output = Axes<GenAlign>;
+impl<T> Fold for Axes<Option<T>>
+where
+    T: Fold,
+{
+    type Output = Axes<T::Output>;
 
     fn fold(self, outer: Self::Output) -> Self::Output {
-        self.zip(outer).map(|(inner, outer)| inner.unwrap_or(outer))
+        self.zip(outer).map(|(inner, outer)| match inner {
+            Some(value) => value.fold(outer),
+            None => outer,
+        })
     }
 }
 
-impl<T> Fold for Sides<T>
+impl<T> Fold for Sides<Option<T>>
 where
     T: Fold,
 {
     type Output = Sides<T::Output>;
 
     fn fold(self, outer: Self::Output) -> Self::Output {
-        self.zip(outer).map(|(inner, outer)| inner.fold(outer))
+        self.zip(outer).map(|(inner, outer)| match inner {
+            Some(value) => value.fold(outer),
+            None => outer,
+        })
     }
 }
 
-impl Fold for Sides<Option<Rel<Abs>>> {
-    type Output = Sides<Rel<Abs>>;
-
-    fn fold(self, outer: Self::Output) -> Self::Output {
-        self.zip(outer).map(|(inner, outer)| inner.unwrap_or(outer))
-    }
-}
-
-impl Fold for Sides<Option<Smart<Rel<Length>>>> {
-    type Output = Sides<Smart<Rel<Length>>>;
-
-    fn fold(self, outer: Self::Output) -> Self::Output {
-        self.zip(outer).map(|(inner, outer)| inner.unwrap_or(outer))
-    }
-}
-
-impl<T> Fold for Corners<T>
+impl<T> Fold for Corners<Option<T>>
 where
     T: Fold,
 {
     type Output = Corners<T::Output>;
 
     fn fold(self, outer: Self::Output) -> Self::Output {
-        self.zip(outer).map(|(inner, outer)| inner.fold(outer))
-    }
-}
-
-impl Fold for Corners<Option<Rel<Abs>>> {
-    type Output = Corners<Rel<Abs>>;
-
-    fn fold(self, outer: Self::Output) -> Self::Output {
-        self.zip(outer).map(|(inner, outer)| inner.unwrap_or(outer))
+        self.zip(outer).map(|(inner, outer)| match inner {
+            Some(value) => value.fold(outer),
+            None => outer,
+        })
     }
 }
 
@@ -976,5 +964,29 @@ impl Fold for PartialStroke<Abs> {
             paint: self.paint.or(outer.paint),
             thickness: self.thickness.or(outer.thickness),
         }
+    }
+}
+
+impl Fold for Rel<Length> {
+    type Output = Self;
+
+    fn fold(self, _: Self::Output) -> Self::Output {
+        self
+    }
+}
+
+impl Fold for Rel<Abs> {
+    type Output = Self;
+
+    fn fold(self, _: Self::Output) -> Self::Output {
+        self
+    }
+}
+
+impl Fold for GenAlign {
+    type Output = Self;
+
+    fn fold(self, _: Self::Output) -> Self::Output {
+        self
     }
 }

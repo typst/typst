@@ -6,25 +6,25 @@ use crate::prelude::*;
 ///
 /// Tables are used to arrange content in cells. Cells can contain arbitray
 /// content, including multiple paragraphs and are specified in row-major order.
-/// Because tables are [grids](@grid) with configurable cell strokes and
-/// padding, refer to the [grid](@grid) docs for more information on how to size
-/// the table tracks.
+/// Because tables are just grids with configurable cell properties, refer to
+/// the [grid documentation](@grid) for more information on how to size the
+/// table tracks.
 ///
 /// ## Example
 /// ```
 /// #table(
 ///   columns: (1fr, auto, auto),
-///   padding: 10pt,
+///   inset: 10pt,
 ///   align: horizon,
 ///   [], [*Area*], [*Parameters*],
-///   image("cylinder.svg", fit: "contain"),
+///   image("cylinder.svg"),
 ///   $ pi h (D^2 - d^2) / 4 $,
 ///   [
 ///     $h$: height \
 ///     $D$: outer radius \
 ///     $d$: inner radius
 ///   ],
-///   image("tetrahedron.svg", fit: "contain"),
+///   image("tetrahedron.svg"),
 ///   $ sqrt(2) / 12 a^3 $,
 ///   [$a$: edge length]
 /// )
@@ -36,33 +36,23 @@ use crate::prelude::*;
 ///
 /// - rows: TrackSizings (named)
 ///   Defines the row sizes.
-///
-///   See [the respective `grid` argument](@grid/rows) for more information
-///   on sizing tracks.
+///   See the [grid documentation](@grid) for more information on track sizing.
 ///
 /// - columns: TrackSizings (named)
 ///   Defines the column sizes.
-///
-///   See [the respective `grid` argument](@grid/columns) for more information
-///   on sizing tracks.
+///   See the [grid documentation](@grid) for more information on track sizing.
 ///
 /// - gutter: TrackSizings (named)
 ///   Defines the gaps between rows & columns.
-///
-///   See [the respective `grid` argument](@grid/gutter) for more information
-///   on gutter.
+///   See the [grid documentation](@grid) for more information on gutters.
 ///
 /// - column-gutter: TrackSizings (named)
 ///   Defines the gaps between columns. Takes precedence over `gutter`.
-///
-///   See [the respective `grid` argument](@grid/column-gutter) for more information
-///   on gutter.
+///   See the [grid documentation](@grid) for more information on gutters.
 ///
 /// - row-gutter: TrackSizings (named)
 ///   Defines the gaps between rows. Takes precedence over `gutter`.
-///
-///   See [the respective `grid` argument](@grid/row-gutter) for more information
-///   on gutter.
+///   See the [grid documentation](@grid) for more information on gutters.
 ///
 /// ## Category
 /// basics
@@ -82,14 +72,14 @@ pub struct TableNode {
 impl TableNode {
     /// How to fill the cells.
     ///
-    /// This can either be a color or a function that returns a color. The
-    /// function is passed the cell's column and row index, starting at zero.
-    /// This can be used to implement striped tables.
+    /// This can be a color or a function that returns a color. The function is
+    /// passed the cell's column and row index, starting at zero. This can be
+    /// used to implement striped tables.
     ///
     /// # Example
     /// ```
     /// #table(
-    ///   fill: (col, _) => if odd(col) { luma(240) } else { luma(255) },
+    ///   fill: (col, _) => if odd(col) { luma(240) } else { white },
     ///   align: (col, row) =>
     ///     if row == 0 { center }
     ///     else if col == 0 { left }
@@ -120,7 +110,9 @@ impl TableNode {
     pub const STROKE: Option<PartialStroke> = Some(PartialStroke::default());
 
     /// How much to pad the cells's content.
-    pub const PADDING: Rel<Length> = Abs::pt(5.0).into();
+    ///
+    /// The default value is `{5pt}`.
+    pub const INSET: Rel<Length> = Abs::pt(5.0).into();
 
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let TrackSizings(columns) = args.named("columns")?.unwrap_or_default();
@@ -162,7 +154,7 @@ impl Layout for TableNode {
     ) -> SourceResult<Fragment> {
         let fill = styles.get(Self::FILL);
         let stroke = styles.get(Self::STROKE).map(PartialStroke::unwrap_or_default);
-        let padding = styles.get(Self::PADDING);
+        let inset = styles.get(Self::INSET);
         let align = styles.get(Self::ALIGN);
 
         let cols = self.tracks.x.len().max(1);
@@ -172,7 +164,7 @@ impl Layout for TableNode {
             .cloned()
             .enumerate()
             .map(|(i, child)| {
-                let mut child = child.padded(Sides::splat(padding));
+                let mut child = child.padded(Sides::splat(inset));
 
                 let x = i % cols;
                 let y = i / cols;

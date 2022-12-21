@@ -7,28 +7,31 @@ use super::Spacing;
 ///
 /// The grid element allows you to arrange content in a grid. You can define the
 /// number of rows and columns, as well as the size of the gutters between them.
-/// There are multiple sizing modes for columns and rows, including fixed sizes,
-/// that can be used to create complex layouts.
+/// There are multiple sizing modes for columns and rows that can be used to
+/// create complex layouts.
 ///
 /// The sizing of the grid is determined by the track sizes specified in the
 /// arguments. Because each of the sizing parameters accepts the same values, we
-/// will explain them here. Each sizing argument accepts an array of track
-/// sizes. A track size is either:
+/// will explain them just once, here. Each sizing argument accepts an array of
+/// individual track sizes. A track size is either:
 ///
-/// - a fixed length (e.g. `{10pt}`). The track will be exactly this size.
-/// - `{auto}`. The track will be sized to fit its contents. It will be at most
+/// - `{auto}`: The track will be sized to fit its contents. It will be at most
 ///   as large as the remaining space. If there is more than one `{auto}` track
-///   which, together, claim more than the available space, the tracks will be
-///   resized to fit the available space.
-/// - a fractional length (e.g. `{1fr}`). Once all other tracks have been sized,
+///   which, and together they claim more than the available space, the `{auto}`
+///   tracks will fairly distribute the available space among themselves.
+///
+/// - A fixed or relative length (e.g. `{10pt}` or `{20% - 1cm}`): The track
+///   will be exactly of this size.
+///
+/// - A fractional length (e.g. `{1fr}`): Once all other tracks have been sized,
 ///   the remaining space will be divided among the fractional tracks according
-///   to their fraction. For example, if there are two fractional tracks, each
+///   to their fractions. For example, if there are two fractional tracks, each
 ///   with a fraction of `{1fr}`, they will each take up half of the remaining
 ///   space.
 ///
 /// To specify a single track, the array can be omitted in favor of a single
 /// value. To specify multiple `{auto}` tracks, enter the number of tracks
-/// instead of a value. For example, `columns:` `{3}` is equivalent to
+/// instead of an array. For example, `columns:` `{3}` is equivalent to
 /// `columns:` `{(auto, auto, auto)}`.
 ///
 /// ## Example

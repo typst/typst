@@ -2,7 +2,6 @@
 
 ---
 #let cell(width, color) = rect(width: width, height: 2cm, fill: color)
-
 #set page(width: 100pt, height: 140pt)
 #grid(
   columns: (auto, 1fr, 3fr, 0.25cm, 3%, 2mm + 10%),
@@ -21,6 +20,7 @@
 )
 
 ---
+#set rect(inset: 0pt)
 #grid(
   columns: (auto, auto, 40%),
   column-gutter: 1fr,

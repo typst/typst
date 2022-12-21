@@ -8,7 +8,7 @@
 #set page(width: 150pt)
 
 // Fit to text.
-#rect(fill: conifer, inset: 3pt)[Textbox]
+#rect(fill: conifer)[Textbox]
 
 // Empty with fixed width and height.
 #block(rect(
@@ -18,7 +18,7 @@
 ))
 
 // Fixed width, text height.
-#rect(width: 2cm, fill: rgb("9650d6"), inset: 5pt)[Fixed and padded]
+#rect(width: 2cm, fill: rgb("9650d6"))[Fixed and padded]
 
 // Page width, fixed height.
 #rect(height: 1cm, width: 100%, fill: rgb("734ced"))[Topleft]
@@ -43,18 +43,6 @@
   #set rect(stroke: (right: red))
   #rect(width: 100%, fill: lime, stroke: (x: 5pt, y: 1pt))
 ]
-
----
-// Outset padding.
-#set raw(lang: "rust")
-#show raw: it => [
-  #set text(8pt)
-  #h(5.6pt, weak: true)
-  #rect(radius: 3pt, outset: (y: 3pt, x: 2.5pt), fill: rgb(239, 241, 243), it)
-  #h(5.6pt, weak: true)
-]
-
-Use the `*const T` pointer or the `&mut T` reference.
 
 ---
 // Error: 15-38 unexpected key "cake", valid keys are "top-left", "top-right", "bottom-right", "bottom-left", "left", "top", "right", "bottom", and "rest"

@@ -415,9 +415,9 @@ impl<T: Cast> Cast for Smart<T> {
     }
 }
 
-impl<T> Cast for Sides<T>
+impl<T> Cast for Sides<Option<T>>
 where
-    T: Cast + Default + Copy,
+    T: Cast + Copy,
 {
     fn is(value: &Value) -> bool {
         matches!(value, Value::Dict(_)) || T::is(value)
@@ -439,9 +439,9 @@ where
 
             dict.finish(&["left", "top", "right", "bottom", "x", "y", "rest"])?;
 
-            Ok(sides.map(Option::unwrap_or_default))
+            Ok(sides)
         } else if T::is(&value) {
-            Ok(Self::splat(T::cast(value)?))
+            Ok(Self::splat(Some(T::cast(value)?)))
         } else {
             <Self as Cast>::error(value)
         }
@@ -452,9 +452,9 @@ where
     }
 }
 
-impl<T> Cast for Corners<T>
+impl<T> Cast for Corners<Option<T>>
 where
-    T: Cast + Default + Copy,
+    T: Cast + Copy,
 {
     fn is(value: &Value) -> bool {
         matches!(value, Value::Dict(_)) || T::is(value)
@@ -488,9 +488,9 @@ where
                 "rest",
             ])?;
 
-            Ok(corners.map(Option::unwrap_or_default))
+            Ok(corners)
         } else if T::is(&value) {
-            Ok(Self::splat(T::cast(value)?))
+            Ok(Self::splat(Some(T::cast(value)?)))
         } else {
             <Self as Cast>::error(value)
         }

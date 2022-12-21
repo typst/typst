@@ -5,6 +5,9 @@
 #ellipse()
 
 ---
+#set rect(inset: 0pt)
+#set ellipse(inset: 0pt)
+
 Rect in ellipse in fixed rect. \
 #rect(width: 3cm, height: 2cm, fill: rgb("2a631a"),
   ellipse(fill: forest, width: 100%, height: 100%,

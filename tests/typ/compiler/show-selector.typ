@@ -5,7 +5,7 @@
 #show raw.where(block: false): rect.with(
   radius: 2pt,
   outset: (y: 3pt),
-  inset: (x: 3pt),
+  inset: (x: 3pt, y: 0pt),
   fill: luma(230),
 )
 
@@ -26,6 +26,9 @@ with selectors and justification.
 ```rs
 code!("it");
 ```
+
+You can use the ```rs *const T``` pointer or
+the ```rs &mut T``` reference.
 
 ---
 #show heading.where(level: 1): set text(red)

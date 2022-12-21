@@ -134,9 +134,13 @@ impl Inline for BoxNode {}
 ///   The spacing between this block and its predecessor. Takes precedence over
 ///   `spacing`.
 ///
+///   The default value is `{1.2em}`.
+///
 /// - below: Spacing (named, settable)
 ///   The spacing between this block and its successor. Takes precedence
 ///   over `spacing`.
+///
+///   The default value is `{1.2em}`.
 ///
 /// ## Category
 /// layout

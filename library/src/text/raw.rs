@@ -65,7 +65,7 @@ use crate::prelude::*;
 ///   // that retains the correct baseline.
 ///   #show raw.where(block: false): rect.with(
 ///     fill: luma(240),
-///     inset: (x: 3pt),
+///     inset: (x: 3pt, y: 0pt),
 ///     outset: (y: 3pt),
 ///     radius: 2pt,
 ///   )

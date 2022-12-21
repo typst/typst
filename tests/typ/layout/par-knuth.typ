@@ -14,7 +14,7 @@
 ]
 
 #let column(title, linebreaks, hyphenate) = {
-  rect(width: 132pt, fill: rgb("eee"))[
+  rect(inset: 0pt, width: 132pt, fill: rgb("eee"))[
     #set par(linebreaks: linebreaks)
     #set text(hyphenate: hyphenate)
     #strong(title) \ #story
