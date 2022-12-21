@@ -24,7 +24,7 @@ use crate::prelude::*;
 ///   The value that should be converted to an integer.
 ///
 /// ## Category
-/// create
+/// construct
 #[func]
 pub fn int(args: &mut Args) -> SourceResult<Value> {
     Ok(Value::Int(args.expect::<ToInt>("value")?.0))
@@ -63,7 +63,7 @@ castable! {
 ///   The value that should be converted to a float.
 ///
 /// ## Category
-/// create
+/// construct
 #[func]
 pub fn float(args: &mut Args) -> SourceResult<Value> {
     Ok(Value::Float(args.expect::<ToFloat>("value")?.0))
@@ -95,7 +95,7 @@ castable! {
 ///   The gray component.
 ///
 /// ## Category
-/// create
+/// construct
 #[func]
 pub fn luma(args: &mut Args) -> SourceResult<Value> {
     let Component(luma) = args.expect("gray component")?;
@@ -147,7 +147,7 @@ pub fn luma(args: &mut Args) -> SourceResult<Value> {
 ///   The alpha component.
 ///
 /// ## Category
-/// create
+/// construct
 #[func]
 pub fn rgb(args: &mut Args) -> SourceResult<Value> {
     Ok(Value::Color(if let Some(string) = args.find::<Spanned<EcoString>>()? {
@@ -208,7 +208,7 @@ castable! {
 ///   The key component.
 ///
 /// ## Category
-/// create
+/// construct
 #[func]
 pub fn cmyk(args: &mut Args) -> SourceResult<Value> {
     let RatioComponent(c) = args.expect("cyan component")?;
@@ -250,7 +250,7 @@ castable! {
 ///   The value that should be converted to a string.
 ///
 /// ## Category
-/// create
+/// construct
 #[func]
 pub fn str(args: &mut Args) -> SourceResult<Value> {
     Ok(Value::Str(args.expect::<ToStr>("value")?.0))
@@ -292,7 +292,7 @@ castable! {
 ///   The name of the label.
 ///
 /// ## Category
-/// create
+/// construct
 #[func]
 pub fn label(args: &mut Args) -> SourceResult<Value> {
     Ok(Value::Label(Label(args.expect("string")?)))
@@ -331,7 +331,7 @@ pub fn label(args: &mut Args) -> SourceResult<Value> {
 ///   backslash, you would need to write `{regex("\\\\")}`.
 ///
 /// ## Category
-/// create
+/// construct
 #[func]
 pub fn regex(args: &mut Args) -> SourceResult<Value> {
     let Spanned { v, span } = args.expect::<Spanned<EcoString>>("regular expression")?;
@@ -365,7 +365,7 @@ pub fn regex(args: &mut Args) -> SourceResult<Value> {
 ///   The distance between the generated numbers.
 ///
 /// ## Category
-/// create
+/// construct
 #[func]
 pub fn range(args: &mut Args) -> SourceResult<Value> {
     let first = args.expect::<i64>("end")?;
