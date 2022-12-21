@@ -51,6 +51,8 @@ castable! {
 ///   The sequence of values from which to extract the minimum.
 ///   Must not be empty.
 ///
+/// - returns: any
+///
 /// ## Category
 /// calculate
 #[func]
@@ -71,6 +73,8 @@ pub fn min(args: &mut Args) -> SourceResult<Value> {
 /// - values: Value (positional, variadic)
 ///   The sequence of values from which to extract the maximum.
 ///   Must not be empty.
+///
+/// - returns: any
 ///
 /// ## Category
 /// calculate
@@ -114,6 +118,8 @@ fn minmax(args: &mut Args, goal: Ordering) -> SourceResult<Value> {
 /// - value: i64 (positional, required)
 ///   The number to check for evenness.
 ///
+/// - returns: boolean
+///
 /// ## Category
 /// calculate
 #[func]
@@ -135,6 +141,8 @@ pub fn even(args: &mut Args) -> SourceResult<Value> {
 /// ## Parameters
 /// - value: i64 (positional, required)
 ///   The number to check for oddness.
+///
+/// - returns: boolean
 ///
 /// ## Category
 /// calculate
@@ -158,6 +166,8 @@ pub fn odd(args: &mut Args) -> SourceResult<Value> {
 ///
 /// - divisor: ToMod (positional, required)
 ///   The divisor of the modulus.
+///
+/// - returns: integer or float
 ///
 /// ## Category
 /// calculate

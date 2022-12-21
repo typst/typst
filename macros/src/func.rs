@@ -17,7 +17,7 @@ pub fn func(item: syn::Item) -> Result<TokenStream> {
 
     let mut docs = docs[first.len()..].to_string();
     let example = example(&mut docs, 2);
-    let params = params(&mut docs)?;
+    let (params, returns) = params(&mut docs)?;
     let syntax = quote_option(section(&mut docs, "Syntax", 2));
     let category = section(&mut docs, "Category", 2).expect("missing category");
     let example = quote_option(example);
@@ -36,6 +36,7 @@ pub fn func(item: syn::Item) -> Result<TokenStream> {
             example: #example,
             syntax: #syntax,
             params: ::std::vec![#(#params),*],
+            returns: ::std::vec![#(#returns),*]
         }
     };
 
@@ -119,10 +120,14 @@ pub fn example(docs: &mut String, level: usize) -> Option<String> {
 }
 
 /// Parse the parameter section.
-fn params(docs: &mut String) -> Result<Vec<TokenStream>> {
-    let Some(section) = section(docs, "Parameters", 2) else { return Ok(vec![]) };
+fn params(docs: &mut String) -> Result<(Vec<TokenStream>, Vec<String>)> {
+    let Some(section) = section(docs, "Parameters", 2) else {
+        return Ok((vec![], vec![]));
+    };
+
     let mut s = Scanner::new(&section);
     let mut infos = vec![];
+    let mut returns = vec![];
 
     while s.eat_if('-') {
         let mut named = false;
@@ -134,6 +139,18 @@ fn params(docs: &mut String) -> Result<Vec<TokenStream>> {
         s.eat_whitespace();
         let name = s.eat_until(':');
         s.expect(": ");
+
+        if name == "returns" {
+            returns = s
+                .eat_until('\n')
+                .split(" or ")
+                .map(str::trim)
+                .map(Into::into)
+                .collect();
+            s.eat_whitespace();
+            continue;
+        }
+
         let ty: syn::Type = syn::parse_str(s.eat_until(char::is_whitespace))?;
         s.eat_whitespace();
         s.expect('(');
@@ -182,5 +199,5 @@ fn params(docs: &mut String) -> Result<Vec<TokenStream>> {
         s.eat_whitespace();
     }
 
-    Ok(infos)
+    Ok((infos, returns))
 }

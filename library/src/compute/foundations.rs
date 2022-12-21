@@ -7,7 +7,7 @@ use typst::syntax::Source;
 /// # Type
 /// Determine a value's type.
 ///
-/// Returns the name of the value's type as a string.
+/// Returns the name of the value's type.
 ///
 /// ## Example
 /// ```
@@ -22,6 +22,8 @@ use typst::syntax::Source;
 /// ## Parameters
 /// - value: Value (positional, required)
 ///   The value whose type's to determine.
+///
+/// - returns: string
 ///
 /// ## Category
 /// foundations
@@ -48,6 +50,8 @@ pub fn type_(args: &mut Args) -> SourceResult<Value> {
 /// ## Parameters
 /// - value: Value (positional, required)
 ///   The value whose string representation to produce.
+///
+/// - returns: string
 ///
 /// ## Category
 /// foundations
@@ -98,6 +102,8 @@ pub fn assert(args: &mut Args) -> SourceResult<Value> {
 ///   A string of Typst markup to evaluate.
 ///
 ///   The markup and code in the string cannot interact with the file system.
+///
+/// - returns: content
 ///
 /// ## Category
 /// foundations

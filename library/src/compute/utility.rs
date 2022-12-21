@@ -24,6 +24,8 @@ use crate::text::Case;
 /// - words: usize (positional, required)
 ///   The length of the blind text in words.
 ///
+/// - returns: string
+///
 /// ## Category
 /// utility
 #[func]
@@ -70,6 +72,8 @@ pub fn lorem(args: &mut Args) -> SourceResult<Value> {
 ///
 ///   If more numbers than counting symbols are given, the last counting symbol
 ///   with its prefix is repeated.
+///
+/// - returns: string
 ///
 /// ## Category
 /// utility
@@ -139,11 +143,7 @@ impl FromStr for NumberingPattern {
             };
 
             let prefix = pattern[handled..i].into();
-            let case = if c.is_uppercase() {
-                Case::Upper
-            } else {
-                Case::Lower
-            };
+            let case = if c.is_uppercase() { Case::Upper } else { Case::Lower };
             pieces.push((prefix, kind, case));
             handled = i + 1;
         }

@@ -26,10 +26,13 @@ use crate::prelude::*;
 /// ## Parameters
 /// - path: EcoString (positional, required)
 ///   Path to a CSV file.
+///
 /// - delimiter: Delimiter (named)
 ///   The delimiter that separates columns in the CSV file.
 ///   Must be a single ASCII character.
 ///   Defaults to a comma.
+///
+/// - returns: array
 ///
 /// ## Category
 /// data-loading
@@ -140,6 +143,8 @@ fn format_csv_error(error: csv::Error) -> String {
 /// - path: EcoString (positional, required)
 ///   Path to a JSON file.
 ///
+/// - returns: dictionary or array
+///
 /// ## Category
 /// data-loading
 #[func]
@@ -235,6 +240,8 @@ fn format_json_error(error: serde_json::Error) -> String {
 /// ## Parameters
 /// - path: EcoString (positional, required)
 ///   Path to an XML file.
+///
+/// - returns: array
 ///
 /// ## Category
 /// data-loading

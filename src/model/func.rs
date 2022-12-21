@@ -217,6 +217,8 @@ pub struct FuncInfo {
     pub syntax: Option<&'static str>,
     /// Details about the function's parameters.
     pub params: Vec<ParamInfo>,
+    /// Valid types for the return value.
+    pub returns: Vec<&'static str>,
 }
 
 impl FuncInfo {

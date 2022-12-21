@@ -23,6 +23,8 @@ use crate::prelude::*;
 /// - value: ToInt (positional, required)
 ///   The value that should be converted to an integer.
 ///
+/// - returns: integer
+///
 /// ## Category
 /// construct
 #[func]
@@ -62,6 +64,8 @@ castable! {
 /// - value: ToFloat (positional, required)
 ///   The value that should be converted to a float.
 ///
+/// - returns: float
+///
 /// ## Category
 /// construct
 #[func]
@@ -93,6 +97,8 @@ castable! {
 /// ## Parameters
 /// - gray: Component (positional, required)
 ///   The gray component.
+///
+/// - returns: color
 ///
 /// ## Category
 /// construct
@@ -145,6 +151,8 @@ pub fn luma(args: &mut Args) -> SourceResult<Value> {
 ///
 /// - alpha: Component (positional)
 ///   The alpha component.
+///
+/// - returns: color
 ///
 /// ## Category
 /// construct
@@ -207,6 +215,8 @@ castable! {
 /// - key: RatioComponent (positional, required)
 ///   The key component.
 ///
+/// - returns: color
+///
 /// ## Category
 /// construct
 #[func]
@@ -248,6 +258,8 @@ castable! {
 /// ## Parameters
 /// - value: ToStr (positional, required)
 ///   The value that should be converted to a string.
+///
+/// - returns: string
 ///
 /// ## Category
 /// construct
@@ -291,6 +303,8 @@ castable! {
 /// - name: EcoString (positional, required)
 ///   The name of the label.
 ///
+/// - returns: label
+///
 /// ## Category
 /// construct
 #[func]
@@ -330,6 +344,8 @@ pub fn label(args: &mut Args) -> SourceResult<Value> {
 ///   Typst (e.g. `[\\]`), you need to escape twice. Thus, to match a verbatim
 ///   backslash, you would need to write `{regex("\\\\")}`.
 ///
+/// - returns: regex
+///
 /// ## Category
 /// construct
 #[func]
@@ -363,6 +379,8 @@ pub fn regex(args: &mut Args) -> SourceResult<Value> {
 ///
 /// - step: i64 (named)
 ///   The distance between the generated numbers.
+///
+/// - returns: array
 ///
 /// ## Category
 /// construct
