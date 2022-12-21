@@ -93,15 +93,14 @@ impl Array {
     }
 
     /// Remove and return the value at the specified index.
-    pub fn remove(&mut self, index: i64) -> StrResult<()> {
+    pub fn remove(&mut self, index: i64) -> StrResult<Value> {
         let len = self.len();
         let i = self
             .locate(index)
             .filter(|&i| i < self.0.len())
             .ok_or_else(|| out_of_bounds(index, len))?;
 
-        Arc::make_mut(&mut self.0).remove(i);
-        Ok(())
+        Ok(Arc::make_mut(&mut self.0).remove(i))
     }
 
     /// Extract a contigous subregion of the array.

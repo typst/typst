@@ -79,10 +79,10 @@ impl Dict {
         Arc::make_mut(&mut self.0).insert(key, value);
     }
 
-    /// Remove a mapping by `key`.
-    pub fn remove(&mut self, key: &str) -> StrResult<()> {
+    /// Remove a mapping by `key` and return the value.
+    pub fn remove(&mut self, key: &str) -> StrResult<Value> {
         match Arc::make_mut(&mut self.0).remove(key) {
-            Some(_) => Ok(()),
+            Some(value) => Ok(value),
             None => Err(missing_key(key)),
         }
     }

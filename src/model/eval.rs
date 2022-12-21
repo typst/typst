@@ -816,7 +816,7 @@ impl Eval for ast::MethodCall {
         let result = if methods::is_mutating(&method) {
             let args = self.args().eval(vm)?;
             let value = self.target().access(vm)?;
-            methods::call_mut(value, &method, args, span).map(|()| Value::None)
+            methods::call_mut(value, &method, args, span)
         } else {
             let value = self.target().eval(vm)?;
             let args = self.args().eval(vm)?;

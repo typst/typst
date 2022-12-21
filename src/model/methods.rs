@@ -128,9 +128,10 @@ pub fn call_mut(
     method: &str,
     mut args: Args,
     span: Span,
-) -> SourceResult<()> {
+) -> SourceResult<Value> {
     let name = value.type_name();
     let missing = || Err(missing_method(name, method)).at(span);
+    let mut output = Value::None;
 
     match value {
         Value::Array(array) => match method {
@@ -139,12 +140,14 @@ pub fn call_mut(
             "insert" => {
                 array.insert(args.expect("index")?, args.expect("value")?).at(span)?
             }
-            "remove" => array.remove(args.expect("index")?).at(span)?,
+            "remove" => output = array.remove(args.expect("index")?).at(span)?,
             _ => return missing(),
         },
 
         Value::Dict(dict) => match method {
-            "remove" => dict.remove(&args.expect::<EcoString>("key")?).at(span)?,
+            "remove" => {
+                output = dict.remove(&args.expect::<EcoString>("key")?).at(span)?
+            }
             _ => return missing(),
         },
 
@@ -152,7 +155,7 @@ pub fn call_mut(
     }
 
     args.finish()?;
-    Ok(())
+    Ok(output)
 }
 
 /// Whether a specific method is mutating.
