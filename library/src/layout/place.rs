@@ -3,15 +3,54 @@ use crate::prelude::*;
 /// # Place
 /// Place content at an absolute position.
 ///
+/// Placed content will not affect the position of other content. Place is
+/// always relative to its parent container and will be in the foreground of all
+/// other content in the container. Page margins will be respected.
+///
+///
+/// ## Example
+/// ```
+/// #set page(height: 60pt)
+/// Hello, world!
+///
+/// #place(
+///   top + right,
+///   square(
+///     width: 10pt,
+///     stroke: 1pt + blue
+///   ),
+/// )
+/// ```
+///
 /// ## Parameters
 /// - alignment: Axes<Option<GenAlign>> (positional)
 ///   Relative to which position in the parent container to place the content.
+///
+///   When an axis of the page is `{auto}` sized, all alignments relative to that
+///   axis will be ignored, instead, the item will be placed in the origin of the
+///   axis.
 ///
 /// - body: Content (positional, required)
 ///   The content to place.
 ///
 /// - dx: Rel<Length> (named)
 ///   The horizontal displacement of the placed content.
+///
+///   ### Example
+///   ```
+///   #set align(center)
+///   
+///   #box(
+///     width: 80pt,
+///     height: 80pt,
+///     {
+///       for i in range(18) {
+///         let amount = i * 4pt
+///         place(dx: amount, dy: amount)[A]
+///       }
+///     }
+///   )
+///   ```
 ///
 /// - dy: Rel<Length> (named)
 ///   The vertical displacement of the placed content.

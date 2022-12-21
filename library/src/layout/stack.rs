@@ -4,7 +4,21 @@ use super::{AlignNode, Spacing};
 use crate::prelude::*;
 
 /// # Stack
-/// Arrange content and spacing along an axis.
+/// Arrange content and spacing horizontally or vertically.
+///
+/// The stack places a list of items along an axis, with optional spacing
+/// between each item.
+///
+/// ## Example
+/// ```
+/// #stack(
+///   dir: ttb,
+///
+///   rect(width: 40pt),
+///   rect(width: 120pt),
+///   rect(width: 90pt),
+/// )
+/// ```
 ///
 /// ## Parameters
 /// - items: StackChild (positional, variadic)

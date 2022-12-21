@@ -14,6 +14,27 @@ use crate::text::{
 /// # Paragraph
 /// Arrange text, spacing and inline-level nodes into a paragraph.
 ///
+/// Although this function is primarily used in set rules to affect paragraph
+/// properties, it can also be used to explicitly render its argument onto a
+/// paragraph of its own.
+///
+/// ## Example
+/// ```
+/// #set par(indent: 1em, justify: true)
+/// #show par: set block(spacing: 0.65em)
+///
+/// We proceed by contradiction.
+/// Suppose that there exists a set
+/// of positive integers $a$, $b$, and
+/// $c$ that satisfies the equation
+/// $a^n + b^n = c^n$ for some
+/// integer value of $n > 2$.
+///
+/// Without loss of generality,
+/// let a be the smallest of the
+/// three integers. Then, we ...
+/// ```
+///
 /// ## Parameters
 /// - body: Content (positional, required)
 ///   The contents of the paragraph.
@@ -28,14 +49,57 @@ pub struct ParNode(pub StyleVec<Content>);
 #[node]
 impl ParNode {
     /// The indent the first line of a consecutive paragraph should have.
+    ///
+    /// The first paragraph on a page will never be indented.
+    ///
+    /// By typographic convention, paragraph breaks are indicated by either some
+    /// space between paragraphs or indented first lines. Consider turning the
+    /// [paragraph spacing](@block/spacing) off when using this property (e.g.
+    /// using `[#show par: set block(spacing: 0pt)]`).
     #[property(resolve)]
     pub const INDENT: Length = Length::zero();
+
     /// The spacing between lines.
+    ///
+    /// The default value is `{0.65em}`.
     #[property(resolve)]
     pub const LEADING: Length = Em::new(0.65).into();
+
     /// Whether to justify text in its line.
+    ///
+    /// Hyphenation will be enabled for justified paragraphs if the [text
+    /// property hyphenate](@text/hyphenate) is set to `{auto}` and the current
+    /// language is known.
+    ///
+    /// Note that the current [alignment](@align) still has an effect on the
+    /// placement of the last line except if it ends with a [justified line
+    /// break](@linebreak/justify).
     pub const JUSTIFY: bool = false;
+
     /// How to determine line breaks.
+    ///
+    /// When this property is set to `{auto}`, its default value, optimized line
+    /// breaks will be used for justified paragraphs. Enabling optimized line
+    /// breaks for ragged paragraphs may also be worthwhile to improve the
+    /// appearance of the text.
+    ///
+    /// # Example
+    /// ```
+    /// #set page(width: 190pt)
+    /// #set par(linebreaks: "simple")
+    /// Some texts are frustratingly
+    /// challenging to break in a
+    /// visually pleasing way. This
+    /// very aesthetic example is one
+    /// of them.
+    ///
+    /// #set par(linebreaks: "optimized")
+    /// Some texts are frustratingly
+    /// challenging to break in a
+    /// visually pleasing way. This
+    /// very aesthetic example is one
+    /// of them.
+    /// ```
     pub const LINEBREAKS: Smart<Linebreaks> = Smart::Auto;
 
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
@@ -145,6 +209,9 @@ castable! {
     /// Determine the linebreaks in a simple first-fit style.
     "simple" => Self::Simple,
     /// Optimize the linebreaks for the whole paragraph.
+    ///
+    /// Typst will try to produce more evenly filled lines of text by
+    /// considering the whole paragraph when calculating line breaks.
     "optimized" => Self::Optimized,
 }
 
@@ -154,6 +221,10 @@ castable! {
 /// This starts a new paragraph. Especially useful when used within code like
 /// [for loops](/docs/reference/concepts#for-loop). Multiple consecutive
 /// paragraph breaks collapse into a single one.
+///
+/// ## Syntax
+/// Instead of calling this function, you can insert two empty lines in your
+/// markup to create a paragraph break.
 ///
 /// ## Example
 /// ```
