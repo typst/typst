@@ -12,81 +12,76 @@ use super::Spacing;
 ///
 /// The sizing of the grid is determined by the track sizes specified in the
 /// arguments. Because each of the sizing parameters accepts the same values, we
-/// will explain them here:
+/// will explain them here. Each sizing argument accepts an array of track
+/// sizes. A track size is either:
 ///
-/// Each sizing argument accepts an array of track sizes. A track size is either
-/// - a fixed length (e.g. `10pt`). The track will be exactly this size.
+/// - a fixed length (e.g. `{10pt}`). The track will be exactly this size.
 /// - `{auto}`. The track will be sized to fit its contents. It will be at most
-///   as large as the remaining space. If there is more than one `auto` track
-///   that, together, claim more than the available space, they will be resized
-///   to fit the available space.
-/// - a `fractional` length (e.g. `{1fr}`). Once all other tracks have been
-///   sized, the remaining space will be divided among the fractional tracks
-///   according to their fraction. For example, if there are two fractional
-///   tracks, each with a fraction of `1`, they will each take up half of the
-///   remaining space.
+///   as large as the remaining space. If there is more than one `{auto}` track
+///   which, together, claim more than the available space, the tracks will be
+///   resized to fit the available space.
+/// - a fractional length (e.g. `{1fr}`). Once all other tracks have been sized,
+///   the remaining space will be divided among the fractional tracks according
+///   to their fraction. For example, if there are two fractional tracks, each
+///   with a fraction of `{1fr}`, they will each take up half of the remaining
+///   space.
 ///
 /// To specify a single track, the array can be omitted in favor of a single
 /// value. To specify multiple `{auto}` tracks, enter the number of tracks
-/// instead of a value. For example, `columns: {3}` is equivalent to
-/// `columns: {(auto, auto, auto)}`.
+/// instead of a value. For example, `columns:` `{3}` is equivalent to
+/// `columns:` `{(auto, auto, auto)}`.
 ///
 /// ## Example
 /// ```
-/// #set text(hyphenate: true)
+/// #set text(10pt, weight: "bold")
 /// #let cell = rect.with(
-///     inset: 6pt,
-///     fill: rgb("e4e5ea"),
-///     width: 100%,
-///     radius: 6pt
-///   )
-///   
-///   #grid(
-///     columns: (60pt, 1fr, 60pt),
-///     rows: (60pt, auto),
-///     gutter: 3pt,
-///     cell(height: 100%)[*Easy to learn*],
-///     cell(height: 100%)[Great output],
-///     cell(height: 100%)[*Intuitive*],
-///     cell[*Our best Typst yet*],
-///     cell[
-///       Responsive design in print
-///       for everyone
-///     ],
-///     cell[*One more thing...*],
-///   )
+///   inset: 8pt,
+///   fill: rgb("e4e5ea"),
+///   width: 100%,
+///   radius: 6pt
+/// )
+/// #grid(
+///   columns: (60pt, 1fr, 60pt),
+///   rows: (60pt, auto),
+///   gutter: 3pt,
+///   cell(height: 100%)[Easy to learn],
+///   cell(height: 100%)[Great output],
+///   cell(height: 100%)[Intuitive],
+///   cell[Our best Typst yet],
+///   cell[
+///     Responsive design in print
+///     for everyone
+///   ],
+///   cell[One more thing...],
+/// )
 /// ```
 ///
 /// ## Parameters
-/// - cells: Content (positional, variadic)
-///   The contents of the table cells.
+/// - cells: Content (positional, variadic) The contents of the table cells.
 ///
 ///   The cells are populated in row-major order.
 ///
-/// - rows: TrackSizings (named)
-///   Defines the row sizes.
+/// - rows: TrackSizings (named) Defines the row sizes.
 ///
 ///   If there are more cells than fit the defined rows, the last row is
 ///   repeated until there are no more cells.
 ///
-/// - columns: TrackSizings (named)
-///   Defines the column sizes.
+/// - columns: TrackSizings (named) Defines the column sizes.
 ///
-///   Either specify a track size array or provide an
-///   integer to create a grid with that many `{auto}`-sized columns. Note that
-///   opposed to rows and gutters, providing a single track size will only ever
-///   create a single column.
+///   Either specify a track size array or provide an integer to create a grid
+///   with that many `{auto}`-sized columns. Note that opposed to rows and
+///   gutters, providing a single track size will only ever create a single
+///   column.
 ///
-/// - gutter: TrackSizings (named)
-///   Defines the gaps between rows & columns.
+/// - gutter: TrackSizings (named) Defines the gaps between rows & columns.
 ///
 ///   If there are more gutters than defined sizes, the last gutter is repeated.
 ///
-/// - column-gutter: TrackSizings (named)
-///   Defines the gaps between columns. Takes precedence over `gutter`.
+/// - column-gutter: TrackSizings (named) Defines the gaps between columns.
+///   Takes precedence over `gutter`.
 ///
-/// - row-gutter: TrackSizings (named)
-///   Defines the gaps between rows. Takes precedence over `gutter`.
+/// - row-gutter: TrackSizings (named) Defines the gaps between rows. Takes
+///   precedence over `gutter`.
 ///
 /// ## Category
 /// layout

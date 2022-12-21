@@ -3,6 +3,22 @@ use crate::prelude::*;
 /// # Repeat
 /// Repeats content to fill a line.
 ///
+/// This can be useful when implementing a custom index, reference, or outline.
+///
+/// Space may be inserted between the instances of the body parameter, so be
+/// sure to include negative space if you need the instances to overlap.
+///
+/// ## Example
+/// ```
+/// Sign on the dotted line: #repeat[.]
+///
+/// #set text(10pt)
+/// #v(8pt, weak: true)
+/// #align(right)[
+///   Berlin, the 22nd of December, 2022
+/// ]
+/// ```
+///
 /// ## Parameters
 /// - body: Content (positional, required)
 ///   The content to repeat.

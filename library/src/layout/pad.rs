@@ -11,7 +11,7 @@ use crate::prelude::*;
 /// ```
 /// #set align(center)
 ///
-/// #pad(16pt, image("typing.jpg"))
+/// #pad(x: 16pt, image("typing.jpg"))
 /// _Typing speeds can be
 /// measured in words per minute._
 /// ```

@@ -152,8 +152,8 @@ castable! {
 /// A paragraph break.
 ///
 /// This starts a new paragraph. Especially useful when used within code like
-/// [for loops](/docs/reference/concepts#for-loop). Paragraph breaks in an empty
-/// paragraph are ignored.
+/// [for loops](/docs/reference/concepts#for-loop). Multiple consecutive
+/// paragraph breaks collapse into a single one.
 ///
 /// ## Example
 /// ```
@@ -790,7 +790,12 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
                 // has minimum cost. All breakpoints before this one become
                 // inactive since no line can span above the mandatory break.
                 active = k;
-                MIN_COST + if attempt.justify { ratio.powi(3).abs() } else { 0.0 }
+                MIN_COST
+                    + if attempt.justify {
+                        ratio.powi(3).abs()
+                    } else {
+                        0.0
+                    }
             } else {
                 // Normal line with cost of |ratio^3|.
                 ratio.powi(3).abs()

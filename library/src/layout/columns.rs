@@ -4,7 +4,7 @@ use crate::text::TextNode;
 /// # Columns
 /// Separate a region into multiple equally sized columns.
 /// 
-/// The column function allows to separate the interior of any container into
+/// The `column` function allows to separate the interior of any container into
 /// multiple columns. It will not equalize the height of the columns, instead,
 /// the columns will take up the height of their container or the remaining
 /// height on the page. The columns function can break across pages if
@@ -12,8 +12,7 @@ use crate::text::TextNode;
 /// 
 /// ## Example
 /// ```
-/// = [An extraordinarily
-///   long heading]
+/// = Towards Advanced Deep Learning
 /// 
 /// #box(height: 68pt,
 ///  columns(2, gutter: 11pt)[
@@ -176,7 +175,7 @@ impl Layout for ColumnsNode {
 ///
 /// ## Parameters
 /// - weak: bool (named)
-///   If true, the column break is skipped if the current column is already
+///   If `{true}`, the column break is skipped if the current column is already
 ///   empty.
 ///
 /// ## Category

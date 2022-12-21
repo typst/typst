@@ -5,9 +5,9 @@ use crate::prelude::*;
 /// # Spacing (H)
 /// Insert horizontal spacing into a paragraph.
 /// 
-/// The spacing can be a length or a `fractional`. In the latter case, the
+/// The spacing can be a length or a fractional. In the latter case, the
 /// remaining space on the line is distributed among all fractional spacings
-/// according to their relative size.
+/// according to their relative fractions.
 /// 
 /// ## Example
 /// ```
@@ -35,7 +35,7 @@ use crate::prelude::*;
 ///   manifest in most cases. However,
 ///   when #h(8pt, weak: true)
 ///   supported
-///   #h(8pt, weak: true) on all
+///   #h(8pt, weak: true) on both
 ///   sides, they do show up.
 ///   ```
 ///
@@ -100,9 +100,9 @@ impl Behave for HNode {
 /// # Spacing (V)
 /// Insert vertical spacing.
 /// 
-/// The spacing can be a length or a `fractional`. In the latter case, the
+/// The spacing can be a length or a fractional. In the latter case, the
 /// remaining space on the page is distributed among all fractional spacings
-/// according to their relative size.
+/// according to their relative fractions.
 ///
 /// ## Example
 /// ```
@@ -115,9 +115,7 @@ impl Behave for HNode {
 /// #v(5mm)
 /// 
 /// - Informed consent
-///
 /// - Participant confidentiality
-///
 /// - The use of
 ///   vulnerable populations.
 /// ```
@@ -127,23 +125,20 @@ impl Behave for HNode {
 ///   How much spacing to insert.
 ///
 /// - weak: bool (named)
-///   If true, the spacing collapses at the start or end of a flow.
-///   Moreover, from multiple adjacent weak spacings all but the largest one
-///   collapse.
+///   If true, the spacing collapses at the start or end of a flow. Moreover,
+///   from multiple adjacent weak spacings all but the largest one collapse.
+///   Weak spacings will always collapse adjacent paragraph spacing, even if the
+///   paragraph spacing is larger.
 ///   
 ///   ### Example
 ///   ```
-///   Only paragraph spacing
-/// 
-///   Override paragraph spacing
-///     with weak space
-///     #v(7mm, weak: true)
-/// 
-///   Add to paragraph spacing
-///     #v(7mm, weak: false)
-/// 
-///   A secret, fourth thing
-///  ```
+///   The following theorem is
+///   foundational to the field:
+///   #v(4pt, weak: true)
+///   $ x^2 + y^2 = r^2 $
+///   #v(4pt, weak: true)
+///   The proof is simple:
+///   ```
 /// ## Category
 /// layout
 #[func]

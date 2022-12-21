@@ -43,7 +43,7 @@ pub fn lorem(args: &mut Args) -> SourceResult<Value> {
 /// ## Example
 /// ```
 /// #numbering("1.1)", 1, 2, 3) \
-/// #numbering("1.b.i", 1, 2) \
+/// #numbering("1.a.i", 1, 2) \
 /// #numbering("I – 1", 12, 2)
 /// ```
 ///

@@ -32,6 +32,7 @@ use crate::prelude::*;
 ///
 ///   ### Example
 ///   ```
+///   #set page(height: 6cm)
 ///   #set text(lang: "ar")
 ///
 ///   مثال

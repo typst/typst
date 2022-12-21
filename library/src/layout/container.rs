@@ -5,10 +5,14 @@ use crate::prelude::*;
 /// # Box
 /// An inline-level container that sizes content.
 ///
-/// Normally, all elements except inline math, text, and boxes are block-level
-/// and cannot occur inside of a paragraph. The box element allows you to create
-/// inline-level containers. Boxes take the size of their contents by default
-/// but can also be sized explicitly.
+/// All elements except inline math, text, and boxes are block-level and cannot
+/// occur inside of a paragraph. The box element is an inline-level container.
+/// Boxes take the size of their contents by default but can also be sized
+/// explicitly.
+///
+/// _Note:_ While the behavior above will be the default in the future, the
+/// transformation functions [`scale`](@scale), [`rotate`](@rotate), and
+/// [`move`](@move) will currently yield inline nodes within paragraphs.
 ///
 /// ## Example
 /// ```
@@ -102,7 +106,7 @@ impl Inline for BoxNode {}
 /// A block-level container that places content into a separate flow.
 ///
 /// This can be used to force elements that would otherwise be inline to become
-/// block-level. This is especially useful when writing `{show}` rules.
+/// block-level. This is especially useful when writing show rules.
 ///
 /// ## Example
 /// ```

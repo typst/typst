@@ -7,12 +7,31 @@ use crate::text::TextNode;
 /// # Page
 /// Layouts its child onto one or multiple pages.
 ///
+/// Although this function is primarily used in set rules to affect page
+/// properties, it can also be used to explicitly render its argument onto
+/// a set of pages of its own.
+///
+/// Pages can be set to use `{auto}` as their width or height. In this case,
+/// the pages will grow to fit their content on the respective axis.
+///
 /// ## Parameters
 /// - body: Content (positional, required)
 ///   The contents of the page(s).
 ///
+///   Multiple pages will be created if the content does not fit on a single
+///   page. A new page with the page properties prior to the function invocation
+///   will be created after the body has been typeset.
+///
 /// - paper: Paper (positional, settable)
-///   The paper size.
+///   A standard paper size to set width and height. When this is not specified,
+///   Typst defaults to `{"a4"}` paper.
+///
+/// ## Example
+/// ```
+/// #set page("us-letter", margin: auto)
+///
+/// There you go, US friends!
+/// ```
 ///
 /// ## Category
 /// layout
@@ -24,33 +43,207 @@ pub struct PageNode(pub Content);
 #[node]
 impl PageNode {
     /// The unflipped width of the page.
+    ///
+    /// # Example
+    /// ```
+    /// #set page(
+    ///   width: 3cm,
+    ///   margin: (x: 0cm),
+    /// )
+    ///
+    /// #for i in range(3) {
+    ///   box(square(width: 1cm))
+    /// }
+    /// ```
     #[property(resolve)]
     pub const WIDTH: Smart<Length> = Smart::Custom(Paper::A4.width().into());
+
     /// The unflipped height of the page.
+    ///
+    /// If this is set to `{auto}`, page breaks can only be triggered manually
+    /// by inserting a [page break](@pagebreak). Most examples throughout this
+    /// documentation use `{auto}` for the height of the page to dynamically
+    /// grow and shrink to fit their content.
     #[property(resolve)]
     pub const HEIGHT: Smart<Length> = Smart::Custom(Paper::A4.height().into());
+
     /// Whether the page is flipped into landscape orientation.
+    ///
+    /// # Example
+    /// ```
+    /// #set page(
+    ///   "us-business-card",
+    ///   flipped: true,
+    ///   fill: rgb("f2e5dd"),
+    /// )
+    ///
+    /// #set align(bottom + end)
+    /// #text(14pt)[*Sam H. Richards*] \
+    /// _Procurement Manager_
+    ///
+    /// #set text(10pt)
+    /// 17 Main Street \
+    /// New York, NY 10001 \
+    /// +1 555 555 5555
+    /// ```
     pub const FLIPPED: bool = false;
 
     /// The page's margins.
+    ///
+    /// - A single length: The same margin on all sides.
+    /// - `{auto}`: The margin is set to the default value for the page's size.
+    /// - `{none}`: The page will be stripped of its margins.
+    /// - A dictionary: With a dictionary, the margins can be set individually.
+    ///   The dictionary can contain the following keys in order of precedence:
+    ///   - `top`: The top margin.
+    ///   - `right`: The right margin.
+    ///   - `bottom`: The bottom margin.
+    ///   - `left`: The left margin.
+    ///   - `x`: The horizontal margins.
+    ///   - `y`: The vertical margins.
+    ///   - `rest`: The margins on all sides except the sides for which the
+    ///     dictionary explicitly sets a size.
+    ///
+    /// # Example
+    /// ```
+    /// #set page(
+    ///  width: 3cm,
+    ///  height: 4cm,
+    ///  margin: (x: 8pt, y: 4pt),
+    /// )
+    ///
+    /// #rect(
+    ///   width: 100%,
+    ///   height: 100%,
+    ///   fill: aqua,
+    /// )
+    /// ```
     #[property(fold)]
     pub const MARGIN: Sides<Option<Smart<Rel<Length>>>> = Sides::splat(Smart::Auto);
 
     /// How many columns the page has.
+    ///
+    /// # Example
+    /// ```
+    /// #set page(columns: 2, height: 4.8cm)
+    /// Climate change is one of the
+    /// most pressing issues of our
+    /// time, with the potential to
+    /// devastate communities,
+    /// ecosystems, and economies
+    /// around the world. It's clear
+    /// that we need to take urgent
+    /// action to reduce our carbon
+    /// emissions and mitigate the
+    /// impacts of a rapidly changing
+    /// climate.
+    /// ```
     pub const COLUMNS: NonZeroUsize = NonZeroUsize::new(1).unwrap();
+
     /// The page's background color.
+    ///
+    /// This instructs the printer to color the complete page with the given
+    /// color. If you are considering larger production runs, it may be more
+    /// environmentally friendly and cost-effective to source pre-dyed pages and
+    /// not set this property.
+    ///
+    /// # Example
+    /// ```
+    /// #set page(fill: rgb("444352"))
+    /// #set text(fill: rgb("fdfdfd"))
+    /// *Dark mode enabled.*
+    /// ```
     pub const FILL: Option<Paint> = None;
 
     /// The page's header.
+    ///
+    /// The header is placed at in the top margin of each page.
+    ///
+    /// - Content: The content will be placed in the header.
+    /// - A function: The function will be called with the page number (starting
+    ///   at one) as its only argument. The content it returns will be placed in
+    ///   the header.
+    /// - `{none}`: The header will be empty.
+    ///
+    /// # Example
+    /// ```
+    /// #set par(justify: true)
+    /// #set page(
+    ///   margin: (x: 24pt, y: 32pt),
+    ///   header: align(horizon + right, text(8pt)[_Exercise Sheet 3_]),
+    /// )
+    ///
+    /// #lorem(18)
+    /// ```
     #[property(referenced)]
     pub const HEADER: Marginal = Marginal::None;
+
     /// The page's footer.
+    ///
+    /// The footer is placed at in the bottom margin of each page.
+    ///
+    /// - Content: The content will be placed in the footer.
+    /// - A function: The function will be called with the page number (starting
+    ///   at one) as its only argument. The content it returns will be placed in
+    ///   the footer.
+    /// - `{none}`: The footer will be empty.
+    ///
+    /// # Example
+    /// ```
+    /// #set par(justify: true)
+    /// #set page(
+    ///     margin: (x: 24pt, y: 32pt),
+    ///     footer: i => align(horizon + right,
+    ///       text(8pt, numbering("I", i))
+    ///     )
+    ///   )
+    ///   
+    ///   #lorem(18)
+    /// ```
     #[property(referenced)]
     pub const FOOTER: Marginal = Marginal::None;
+
     /// Content in the page's background.
+    ///
+    /// This content will be placed behind the page's body. It can be
+    /// used to place a background image or a watermark.
+    ///
+    /// # Example
+    /// ```
+    /// #set page(
+    ///  background: align(
+    ///    center + horizon,
+    ///    rotate(24deg,
+    ///      text(18pt, fill: rgb("FFCBC4"))[*CONFIDENTIAL*]
+    ///    )
+    ///   ),
+    /// )
+    ///
+    /// = Typst's secret plans
+    ///
+    /// In the year 2023, we plan to take over the world
+    /// (of typesetting).
+    /// ```
     #[property(referenced)]
     pub const BACKGROUND: Marginal = Marginal::None;
+
     /// Content in the page's foreground.
+    ///
+    /// This content will overlay the page's body.
+    ///
+    /// # Example
+    /// ```
+    /// #set page(
+    ///   foreground: align(
+    ///    center + horizon,
+    ///    text(24pt)[🥸]
+    ///   ),
+    /// )
+    ///
+    /// Reviewer 2 has marked our paper
+    /// "Weak Reject" because they did
+    /// not understand our approach...
+    /// ```
     #[property(referenced)]
     pub const FOREGROUND: Marginal = Marginal::None;
 
@@ -180,7 +373,7 @@ impl Debug for PageNode {
 ///
 /// ## Parameters
 /// - weak: bool (named)
-///   If true, the page break is skipped if the current page is already empty.
+///   If `{true}`, the page break is skipped if the current page is already empty.
 ///
 /// ## Category
 /// layout

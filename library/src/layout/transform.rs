@@ -5,7 +5,7 @@ use crate::prelude::*;
 /// # Move
 /// Move content without affecting layout.
 ///
-/// The `move` function allows you to hide content while the layout still 'sees'
+/// The `move` function allows you to move content while the layout still 'sees'
 /// it at the original positions. Containers will still be sized as if the content
 /// was not moved.
 ///
@@ -100,9 +100,8 @@ impl Inline for MoveNode {}
 /// ```
 /// {
 ///   range(16)
-///     .map(i =>
-///       rotate(360deg / 15 * i)[X]
-///     ).join(h(1fr))
+///     .map(i => rotate(24deg * i)[X])
+///     .join(h(1fr))
 /// }
 /// ```
 ///
@@ -112,6 +111,11 @@ impl Inline for MoveNode {}
 ///
 /// - angle: Angle (named)
 ///   The amount of rotation.
+///
+///   ### Example
+///   ```
+///   #rotate(angle: -1.571rad)[To space!]
+///   ```
 ///
 /// ## Category
 /// layout
@@ -128,6 +132,22 @@ pub struct RotateNode {
 #[node]
 impl RotateNode {
     /// The origin of the rotation.
+    ///
+    /// By default, the origin is the center of the rotated element. If,
+    /// however, you wanted the bottom left corner of the rotated element to
+    /// stay aligned with the baseline, you would set the origin to `bottom +
+    /// left`.
+    ///
+    /// # Example
+    /// ```
+    /// #set text(spacing: 8pt)
+    /// #let square = square.with(width: 8pt)
+    ///
+    /// #square()
+    /// #rotate(angle: 30deg, origin: center, square())
+    /// #rotate(angle: 30deg, origin: top + left, square())
+    /// #rotate(angle: 30deg, origin: bottom + right, square())
+    /// ```
     #[property(resolve)]
     pub const ORIGIN: Axes<Option<GenAlign>> = Axes::default();
 
@@ -211,6 +231,14 @@ pub struct ScaleNode {
 #[node]
 impl ScaleNode {
     /// The origin of the transformation.
+    ///
+    /// By default, the origin is the center of the scaled element.
+    ///
+    /// # Example
+    /// ```
+    /// A#scale(75%)[A]A \
+    /// B#scale(75%, origin: bottom + left)[B]B
+    /// ```
     #[property(resolve)]
     pub const ORIGIN: Axes<Option<GenAlign>> = Axes::default();
 
