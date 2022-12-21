@@ -5,14 +5,14 @@ use typst::image::{Image, ImageFormat, RasterFormat, VectorFormat};
 use crate::prelude::*;
 
 /// # Image
-/// Show a raster or vector graphic.
+/// A raster or vector graphic.
 ///
 /// Supported formats are PNG, JPEG, GIF and SVG.
 ///
 /// ## Example
 /// ```
 /// #align(center)[
-///   #image("molecular.jpg", width: 2in)
+///   #image("molecular.jpg", width: 80%)
 ///
 ///   *A step in the molecular testing
 ///   pipeline of our lab*

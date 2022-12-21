@@ -1,22 +1,29 @@
 use crate::prelude::*;
 
 /// # Line
-/// Display a line without affecting the layout.
+/// A line from one point to another.
 ///
-/// You should only provide either an endpoint or an angle and a length.
+/// ## Example
+/// ```
+/// #set page(height: 100pt)
+/// #line(end: (50%, 50%))
+/// ```
 ///
 /// ## Parameters
-/// - origin: Axes<Rel<Length>> (named)
+/// - start: Axes<Rel<Length>> (named)
 ///   The start point of the line.
+///   Must be an array of exactly two relative lengths.
 ///
-/// - to: Axes<Rel<Length>> (named)
+/// - end: Axes<Rel<Length>> (named)
 ///   The end point of the line.
+///   Must be an array of exactly two relative lengths.
 ///
 /// - length: Rel<Length> (named)
-///   The line's length.
+///   The line's length. Mutually exclusive with `end`.
 ///
 /// - angle: Angle (named)
-///   The angle at which the line points away from the origin.
+///   The angle at which the line points away from the origin. Mutually
+///   exclusive with `end`.
 ///
 /// ## Category
 /// visualize
@@ -25,22 +32,34 @@ use crate::prelude::*;
 #[derive(Debug, Hash)]
 pub struct LineNode {
     /// Where the line starts.
-    pub origin: Axes<Rel<Length>>,
-    /// The offset from the `origin` where the line ends.
+    pub start: Axes<Rel<Length>>,
+    /// The offset from `start` where the line ends.
     pub delta: Axes<Rel<Length>>,
 }
 
 #[node]
 impl LineNode {
-    /// How to stroke the line.
+    /// How to stroke the line. This can be:
+    ///
+    /// - A length specifying the stroke's thickness. The color is inherited,
+    ///   defaulting to black.
+    /// - A color to use for the stroke. The thickness is inherited, defaulting
+    ///   to `{1pt}`.
+    /// - A stroke combined from color and thickness using the `+` operator as
+    ///   in `{2pt + red}`.
+    ///
+    /// # Example
+    /// ```
+    /// #line(length: 100%, stroke: 2pt + red)
+    /// ```
     #[property(resolve, fold)]
     pub const STROKE: PartialStroke = PartialStroke::default();
 
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        let origin = args.named("origin")?.unwrap_or_default();
+        let start = args.named("start")?.unwrap_or_default();
 
-        let delta = match args.named::<Axes<Rel<Length>>>("to")? {
-            Some(to) => to.zip(origin).map(|(to, from)| to - from),
+        let delta = match args.named::<Axes<Rel<Length>>>("end")? {
+            Some(end) => end.zip(start).map(|(to, from)| to - from),
             None => {
                 let length =
                     args.named::<Rel<Length>>("length")?.unwrap_or(Abs::cm(1.0).into());
@@ -53,7 +72,7 @@ impl LineNode {
             }
         };
 
-        Ok(Self { origin, delta }.pack())
+        Ok(Self { start, delta }.pack())
     }
 }
 
@@ -67,7 +86,7 @@ impl Layout for LineNode {
         let stroke = styles.get(Self::STROKE).unwrap_or_default();
 
         let origin = self
-            .origin
+            .start
             .resolve(styles)
             .zip(regions.base)
             .map(|(l, b)| l.relative_to(b));

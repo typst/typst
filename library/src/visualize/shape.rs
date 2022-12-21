@@ -205,7 +205,7 @@ impl Inline for RectNode {}
 /// ## Example
 /// ```
 /// // Without content.
-/// #square(size: 30pt)
+/// #square(size: 40pt)
 ///
 /// // With content.
 /// #square[
@@ -428,7 +428,7 @@ impl Inline for EllipseNode {}
 /// ## Example
 /// ```
 /// // Without content.
-/// #circle(radius: 15pt)
+/// #circle(radius: 25pt)
 ///
 /// // With content.
 /// #circle[
