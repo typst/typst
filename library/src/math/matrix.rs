@@ -3,6 +3,14 @@ use super::*;
 /// # Vector
 /// A column vector.
 ///
+/// _Note:_ Matrices are not yet supported.
+///
+/// ## Example
+/// ```
+/// $ vec(a, b, c) dot vec(1, 2, 3)
+///     = a + 2b + 3c $
+/// ```
+///
 /// ## Parameters
 /// - elements: Content (positional, variadic)
 ///   The elements of the vector.
@@ -16,7 +24,13 @@ pub struct VecNode(Vec<Content>);
 
 #[node]
 impl VecNode {
-    /// The kind of delimiter.
+    /// The delimiter to use.
+    ///
+    /// # Example
+    /// ```
+    /// #set vec(delim: "[")
+    /// $ vec(1, 2) $
+    /// ```
     pub const DELIM: Delimiter = Delimiter::Paren;
 
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
@@ -69,18 +83,28 @@ pub enum Delimiter {
 
 castable! {
     Delimiter,
-    /// Delimit vector with parentheses.
+    /// Delimit the vector with parentheses.
     "(" => Self::Paren,
-    /// Delimit vector with brackets.
+    /// Delimit the vector with brackets.
     "[" => Self::Bracket,
-    /// Delimit vector with curly braces.
+    /// Delimit the vector with curly braces.
     "{" => Self::Brace,
-    /// Delimit vector with vertical bars.
+    /// Delimit the vector with vertical bars.
     "|" => Self::Bar,
 }
 
 /// # Cases
 /// A case distinction.
+///
+/// ## Example
+/// ```
+/// $ f(x, y) := cases(
+///   1 "if" (x dot y)/2 <= 0,
+///   2 "if" x in NN,
+///   3 "if" x "is even",
+///   4 "else",
+/// ) $
+/// ```
 ///
 /// ## Parameters
 /// - branches: Content (positional, variadic)

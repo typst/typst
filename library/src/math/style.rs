@@ -1,7 +1,11 @@
 use super::*;
 
 /// # Serif
-/// Serif (roman) font style.
+/// Serif (roman) font style in math.
+///
+/// This is already the default.
+///
+/// _Note:_ In the future this might be unified with text styling.
 ///
 /// ## Parameters
 /// - body: Content (positional, required)
@@ -31,7 +35,14 @@ impl Texify for SerifNode {
 }
 
 /// # Sans-serif
-/// Sans-serif font style.
+/// Sans-serif font style in math.
+///
+/// _Note:_ In the future this might be unified with text styling.
+///
+/// ## Example
+/// ```
+/// $ sans(A B C) $
+/// ```
 ///
 /// ## Parameters
 /// - body: Content (positional, required)
@@ -61,7 +72,14 @@ impl Texify for SansNode {
 }
 
 /// # Bold
-/// Bold font style.
+/// Bold font style in math.
+///
+/// _Note:_ In the future this might be unified with text styling.
+///
+/// ## Example
+/// ```
+/// $ bold(A) := B^+ $
+/// ```
 ///
 /// ## Parameters
 /// - body: Content (positional, required)
@@ -91,7 +109,11 @@ impl Texify for BoldNode {
 }
 
 /// # Italic
-/// Italic font style.
+/// Italic font style in math.
+///
+/// This is already the default.
+///
+/// _Note:_ In the future this might be unified with text styling.
 ///
 /// ## Parameters
 /// - body: Content (positional, required)
@@ -121,7 +143,14 @@ impl Texify for ItalNode {
 }
 
 /// # Calligraphic
-/// Calligraphic font style.
+/// Calligraphic font style in math.
+///
+/// _Note:_ In the future this might be unified with text styling.
+///
+/// ## Example
+/// ```
+/// Let $cal(P)$ be the set of ...
+/// ```
 ///
 /// ## Parameters
 /// - body: Content (positional, required)
@@ -151,7 +180,14 @@ impl Texify for CalNode {
 }
 
 /// # Fraktur
-/// Fraktur font style.
+/// Fraktur font style in math.
+///
+/// _Note:_ In the future this might be unified with text styling.
+///
+/// ## Example
+/// ```
+/// $ frak(P) $
+/// ```
 ///
 /// ## Parameters
 /// - body: Content (positional, required)
@@ -181,7 +217,14 @@ impl Texify for FrakNode {
 }
 
 /// # Monospace
-/// Monospace font style.
+/// Monospace font style in math.
+///
+/// _Note:_ In the future this might be unified with text styling.
+///
+/// ## Example
+/// ```
+/// $ mono(x + y = z) $
+/// ```
 ///
 /// ## Parameters
 /// - body: Content (positional, required)
@@ -211,11 +254,22 @@ impl Texify for MonoNode {
 }
 
 /// # Doublestruck
-/// Blackboard bold (double-struck) font style.
+/// Blackboard bold (double-struck) font style in math.
+///
+/// For uppercase latin letters, blackboard bold is additionally available
+/// through [symmie symbols](@symbol) of the form `NN` and `RR`.
+///
+/// _Note:_ In the future this might be unified with text styling.
+///
+/// ## Example
+/// ```
+/// $ bb(b) $
+/// $ bb(N) = NN $
+/// $ f: NN -> RR $
+/// ```
 ///
 /// ## Parameters
-/// - body: Content (positional, required)
-///   The piece of formula to style.
+/// - body: Content (positional, required) The piece of formula to style.
 ///
 /// ## Category
 /// math

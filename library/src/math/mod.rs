@@ -15,7 +15,33 @@ use crate::prelude::*;
 use crate::text::{FontFamily, LinebreakNode, SpaceNode, SymbolNode, TextNode};
 
 /// # Math
-/// A piece of a mathematical formula.
+/// A mathematical formula.
+///
+/// _Note:_ Math mode is still rather limited in Typst. We're working hard to
+/// improve it, so please bear with us in the meantime!
+///
+/// ## Syntax
+/// This function also has dedicated syntax: Write mathematical markup within
+/// dollar signs to create a formula. Starting and ending the formula with at
+/// least one space lifts it into a separate block that is centered
+/// horizontally.
+///
+/// ## Example
+/// ```
+/// #set text("Latin Modern Roman")
+///
+/// Let $a$, $b$, and $c$ be the side
+/// lengths of right-angled triangle.
+/// Then, we know that:
+/// $ a^2 + b^2 = c^2 $
+///
+/// Prove by induction:
+/// $ sum_(k=1)^n k = (n(n+1)) / 2 $
+///
+/// We define the following set:
+/// $ cal(A) :=
+///     { x in RR | x "is natural" } $
+/// ```
 ///
 /// ## Parameters
 /// - items: Content (positional, variadic)
@@ -310,12 +336,37 @@ impl Texify for AtomNode {
 /// # Accent
 /// An accented node.
 ///
+/// ## Example
+/// ```
+/// $acc(a, ->) != acc(a, ~)$ \
+/// $acc(a, `) = acc(a, grave)$
+/// ```
+///
 /// ## Parameters
 /// - base: Content (positional, required)
 ///   The base to which the accent is applied.
+///   May consist of multiple letters.
+///
+///   ### Example
+///   ```
+///   $acc(A B C, ->)$
+///   ```
 ///
 /// - accent: Content (positional, required)
 ///   The accent to apply to the base.
+///
+///   Supported accents include:
+///   - Grave: `` ` ``
+///   - Acute: `´`
+///   - Circumflex: `^`
+///   - Tilde: `~`
+///   - Macron: `¯`
+///   - Overline: `‾`
+///   - Breve: `˘`
+///   - Dot: `.`
+///   - Diaeresis: `¨`
+///   - Caron: `ˇ`
+///   - Arrow: `→`
 ///
 /// ## Category
 /// math
@@ -394,7 +445,19 @@ impl Texify for AccNode {
 }
 
 /// # Fraction
-/// A fraction.
+/// A mathematical fraction.
+///
+/// ## Syntax
+/// This function also has dedicated syntax: Use a slash to turn neighbouring
+/// expressions into a fraction. Multiple atoms can be grouped into a single
+/// expression using round grouping parenthesis. Such parentheses are removed
+/// from the output, but you can nest multiple to force them.
+///
+/// ## Example
+/// ```
+/// $ 1/2 < (x+1)/2 $
+/// $ ((x+1)) / 2 = frac(a, b) $
+/// ```
 ///
 /// ## Parameters
 /// - num: Content (positional, required)
@@ -436,7 +499,12 @@ impl Texify for FracNode {
 }
 
 /// # Binomial
-/// A binomial.
+/// A binomial expression.
+///
+/// ## Example
+/// ```
+/// $ binom(n, k) $
+/// ```
 ///
 /// ## Parameters
 /// - upper: Content (positional, required)
@@ -478,7 +546,19 @@ impl Texify for BinomNode {
 }
 
 /// # Script
-/// A sub- and/or superscript.
+/// A mathematical sub- and/or superscript.
+///
+/// _Note:_ In the future, this might be unified with the [sub](@sub) and
+/// [super](@super) functions that handle sub- and superscripts in text.
+///
+/// ## Syntax
+/// This function also has dedicated syntax: Use the underscore (`_`) to
+/// indicate a subscript and the circumflex (`^`) to indicate a superscript.
+///
+/// ## Example
+/// ```
+/// $ a_i = 2^(1+i) $
+/// ```
 ///
 /// ## Parameters
 /// - base: Content (positional, required)
@@ -564,6 +644,13 @@ impl Texify for AlignPointNode {
 /// # Square Root
 /// A square root.
 ///
+/// _Note:_ Non-square roots are not yet supported.
+///
+/// ## Example
+/// ```
+/// $ sqrt(x^2) = x = sqrt(x)^2 $
+/// ```
+///
 /// ## Parameters
 /// - body: Content (positional, required)
 ///   The expression to take the square root of.
@@ -594,6 +681,11 @@ impl Texify for SqrtNode {
 /// # Floor
 /// A floored expression.
 ///
+/// ## Example
+/// ```
+/// $ floor(x/2) $
+/// ```
+///
 /// ## Parameters
 /// - body: Content (positional, required)
 ///   The expression to floor.
@@ -623,6 +715,11 @@ impl Texify for FloorNode {
 
 /// # Ceil
 /// A ceiled expression.
+///
+/// ## Example
+/// ```
+/// $ ceil(x/2) $
+/// ```
 ///
 /// ## Parameters
 /// - body: Content (positional, required)
