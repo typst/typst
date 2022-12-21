@@ -198,10 +198,10 @@ fn items() -> LangItems {
         link: |url| meta::LinkNode::from_url(url).pack(),
         ref_: |target| meta::RefNode(target).pack(),
         heading: |level, body| basics::HeadingNode { level, title: body }.pack(),
-        list_item: |body| basics::ListItem::List(Box::new(body)).pack(),
-        enum_item: |number, body| basics::ListItem::Enum(number, Box::new(body)).pack(),
-        desc_item: |term, body| {
-            basics::ListItem::Desc(Box::new(basics::DescItem { term, body })).pack()
+        list_item: |body| layout::ListItem::List(body).pack(),
+        enum_item: |number, body| layout::ListItem::Enum(number, body).pack(),
+        desc_item: |term, description| {
+            layout::ListItem::Desc(basics::DescItem { term, description }).pack()
         },
         math: |children, block| math::MathNode { children, block }.pack(),
         math_atom: |atom| math::AtomNode(atom).pack(),

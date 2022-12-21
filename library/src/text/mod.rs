@@ -43,8 +43,8 @@ use crate::prelude::*;
 /// ```
 ///
 /// ## Parameters
-/// - family: EcoString (positional, variadic, settable) A prioritized sequence
-///   of font families.
+/// - family: EcoString (positional, variadic, settable)
+///   A prioritized sequence of font families.
 ///
 ///   When processing text, Typst tries all specified font families in order
 ///   until it finds a font that has the necessary glyphs. In the example below,
@@ -63,8 +63,8 @@ use crate::prelude::*;
 ///
 ///   ```
 ///
-/// - body: Content (positional, required) Content in which all text is styled
-///   according to the other arguments.
+/// - body: Content (positional, required)
+///   Content in which all text is styled according to the other arguments.
 ///
 /// ## Category
 /// text
@@ -141,6 +141,7 @@ impl TextNode {
     /// #text(weight: "light")[Light] \
     /// #text(weight: "regular")[Regular] \
     /// #text(weight: "medium")[Medium] \
+    /// #text(weight: 500)[Medium] \
     /// #text(weight: "bold")[Bold]
     /// ```
     pub const WEIGHT: FontWeight = FontWeight::REGULAR;
@@ -296,10 +297,10 @@ impl TextNode {
     /// - `{rtl}`: Layout text from right to left.
     ///
     /// When writing in right-to-left scripts like Arabic or Hebrew, you should
-    /// set the language or direction. While individual runs of text are
-    /// automatically layouted in the correct direction, setting the dominant
-    /// direction gives the bidirectional reordering algorithm the necessary
-    /// information to correctly place punctuation and inline objects.
+    /// set the [text language](@text/lang) or direction. While individual runs
+    /// of text are automatically layouted in the correct direction, setting the
+    /// dominant direction gives the bidirectional reordering algorithm the
+    /// necessary information to correctly place punctuation and inline objects.
     /// Furthermore, setting the direction affects the alignment values `start`
     /// and `end`, which are equivalent to `left` and `right` in `ltr` text and
     /// the other way around in `rtl` text.
@@ -318,6 +319,9 @@ impl TextNode {
 
     /// Whether to hyphenate text to improve line breaking. When `{auto}`, text
     /// will be hyphenated if and only if justification is enabled.
+    ///
+    /// Setting the [text language](@text/lang) ensures that the correct
+    /// hyphenation patterns are used.
     ///
     /// # Example
     /// ```

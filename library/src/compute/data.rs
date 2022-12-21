@@ -129,8 +129,7 @@ fn format_csv_error(error: csv::Error) -> String {
 ///   )
 ///   #h(6pt)
 ///   #set text(22pt, baseline: -8pt)
-///   {day.temperature}
-///   °{day.unit}
+///   {day.temperature} °{day.unit}
 /// ]
 ///
 /// #forecast(json("monday.json"))
@@ -180,10 +179,7 @@ fn convert_json(value: serde_json::Value) -> Value {
 /// Format the user-facing JSON error message.
 fn format_json_error(error: serde_json::Error) -> String {
     assert!(error.is_syntax() || error.is_eof());
-    format!(
-        "failed to parse json file: syntax error in line {}",
-        error.line()
-    )
+    format!("failed to parse json file: syntax error in line {}", error.line())
 }
 
 /// # XML

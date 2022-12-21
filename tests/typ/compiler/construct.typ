@@ -10,8 +10,8 @@
 // Ensure that constructor styles win, but not over outer styles.
 // The outer paragraph should be right-aligned,
 // but the B should be center-aligned.
-#set list(label: [>])
-#list(label: [--])[
+#set list(marker: [>])
+#list(marker: [--])[
   #rect(width: 2cm, fill: conifer, inset: 4pt, list[A])
 ]
 
@@ -27,5 +27,5 @@ A #rect(fill: yellow, inset: 5pt, rect()) B
 ---
 // The constructor property should still work
 // when there are recursive show rules.
-#show list: set text(blue)
-#list(label: "(a)", [A], list[B])
+#show enum: set text(blue)
+#enum(numbering: "(a)", [A], enum[B])

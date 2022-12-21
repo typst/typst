@@ -41,8 +41,8 @@ use crate::prelude::*;
 ///
 ///   ### Example
 ///   ````
-///   // Parse numbers in raw blocks with the `mydsl` tag and
-///   // sum them up.
+///   // Parse numbers in raw blocks with the
+///   // `mydsl` tag and sum them up.
 ///   #show raw.where(lang: "mydsl"): it => {
 ///     let sum = 0
 ///     for part in it.text.split("+") {

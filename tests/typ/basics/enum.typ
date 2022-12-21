@@ -17,16 +17,16 @@
 
 ---
 // Test label pattern.
-#set enum(label: "~ A:")
+#set enum(numbering: "~ A:")
 1. First
  + Second
 
-#set enum(label: "(*)")
+#set enum(numbering: "(*)")
 + A
 + B
 + C
 
-#set enum(label: "i)")
+#set enum(numbering: "i)")
 + A
 + B
 
@@ -37,17 +37,17 @@
 / Desc: List
 
 ---
-// Test label closure.
+// Test numbering with closure.
 #enum(
    start: 4,
    spacing: 0.65em - 3pt,
    tight: false,
-   label: n => text(fill: (red, green, blue)(mod(n, 3)), numbering("A", n)),
+   numbering: n => text(fill: (red, green, blue)(mod(n, 3)), numbering("A", n)),
    [Red], [Green], [Blue],
 )
 
 ---
-#set enum(label: n => n > 1)
+#set enum(numbering: n => n > 1)
 + A
 + B
 
@@ -57,9 +57,9 @@
 No enum
 
 ---
-// Error: 18-20 invalid numbering pattern
-#set enum(label: "")
+// Error: 22-24 invalid numbering pattern
+#set enum(numbering: "")
 
 ---
-// Error: 18-24 invalid numbering pattern
-#set enum(label: "(())")
+// Error: 22-28 invalid numbering pattern
+#set enum(numbering: "(())")

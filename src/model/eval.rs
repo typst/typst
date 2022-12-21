@@ -398,8 +398,8 @@ impl Eval for ast::DescItem {
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let term = self.term().eval(vm)?;
-        let body = self.body().eval(vm)?;
-        Ok((vm.items.desc_item)(term, body))
+        let description = self.description().eval(vm)?;
+        Ok((vm.items.desc_item)(term, description))
     }
 }
 

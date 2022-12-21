@@ -407,10 +407,10 @@ impl DescItem {
     }
 
     /// The description of the term.
-    pub fn body(&self) -> Markup {
+    pub fn description(&self) -> Markup {
         self.0
             .cast_last_child()
-            .expect("description list item is missing body")
+            .expect("description list item is missing description")
     }
 }
 

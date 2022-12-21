@@ -40,7 +40,7 @@ use typst::model::{
     StyleVecBuilder, StyledNode,
 };
 
-use crate::basics::{DescNode, EnumNode, ListItem, ListNode, DESC, ENUM, LIST};
+use crate::basics::{DescItem, DescNode, EnumNode, ListNode};
 use crate::meta::DocumentNode;
 use crate::prelude::*;
 use crate::shared::BehavedBuilder;
@@ -589,12 +589,9 @@ impl<'a> ListBuilder<'a> {
         }
 
         if let Some(item) = content.to::<ListItem>() {
-            if self
-                .items
-                .items()
-                .next()
-                .map_or(true, |first| item.kind() == first.kind())
-            {
+            if self.items.items().next().map_or(true, |first| {
+                std::mem::discriminant(item) == std::mem::discriminant(first)
+            }) {
                 self.items.push(item.clone(), styles);
                 self.tight &= self.staged.drain(..).all(|(t, _)| !t.is::<ParbreakNode>());
                 return true;
@@ -607,10 +604,31 @@ impl<'a> ListBuilder<'a> {
     fn finish(self) -> (Content, StyleChain<'a>) {
         let (items, shared) = self.items.finish();
         let item = items.items().next().unwrap();
-        let output = match item.kind() {
-            LIST => ListNode::<LIST> { tight: self.tight, items }.pack(),
-            ENUM => ListNode::<ENUM> { tight: self.tight, items }.pack(),
-            DESC | _ => ListNode::<DESC> { tight: self.tight, items }.pack(),
+        let output = match item {
+            ListItem::List(_) => ListNode {
+                tight: self.tight,
+                items: items.map(|item| match item {
+                    ListItem::List(item) => item.clone(),
+                    _ => panic!("wrong list item"),
+                }),
+            }
+            .pack(),
+            ListItem::Enum(..) => EnumNode {
+                tight: self.tight,
+                items: items.map(|item| match item {
+                    ListItem::Enum(number, body) => (*number, body.clone()),
+                    _ => panic!("wrong list item"),
+                }),
+            }
+            .pack(),
+            ListItem::Desc(_) => DescNode {
+                tight: self.tight,
+                items: items.map(|item| match item {
+                    ListItem::Desc(item) => item.clone(),
+                    _ => panic!("wrong list item"),
+                }),
+            }
+            .pack(),
         };
         (output, shared)
     }
@@ -625,3 +643,18 @@ impl Default for ListBuilder<'_> {
         }
     }
 }
+
+/// An item in a list.
+#[capable]
+#[derive(Debug, Clone, Hash)]
+pub enum ListItem {
+    /// An item of an unordered list.
+    List(Content),
+    /// An item of an ordered list.
+    Enum(Option<NonZeroUsize>, Content),
+    /// An item of a description list.
+    Desc(DescItem),
+}
+
+#[node]
+impl ListItem {}

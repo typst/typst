@@ -11,8 +11,8 @@ use crate::text::{SpaceNode, TextNode, TextSize};
 /// With headings, you can structure your document into sections. Each heading
 /// has a _level,_ which starts at one and is unbounded upwards. This level
 /// indicates the logical role of the following content (section, subsection,
-/// etc.) Top-level heading indicates a top-level section of the document (not
-/// the document's title).
+/// etc.)  A top-level heading indicates a top-level section of the document
+/// (not the document's title).
 ///
 /// Typst can automatically number your headings for you. To enable numbering,
 /// specify how you want your headings to be numbered with a [numbering

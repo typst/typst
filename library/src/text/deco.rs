@@ -224,6 +224,9 @@ impl StrikeNode {
     /// How to stroke the line. The text color and thickness are read from the
     /// font tables if `{auto}`.
     ///
+    /// _Note:_ Please don't use this for real redaction as you can still
+    /// copy paste the text.
+    ///
     /// # Example
     /// ```
     /// This is #strike(stroke: 1.5pt + red)[very stricken through]. \

@@ -48,6 +48,6 @@ _Shopping list_
 		- B with 2 tabs
 
 ---
-#set list(label: [-])
+#set list(marker: [-])
 - Bare hyphen
 - is not a list

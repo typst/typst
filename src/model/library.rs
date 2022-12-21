@@ -64,7 +64,7 @@ pub struct LangItems {
     /// An item in an enumeration (ordered list): `+ ...` or `1. ...`.
     pub enum_item: fn(number: Option<NonZeroUsize>, body: Content) -> Content,
     /// An item in a description list: `/ Term: Details`.
-    pub desc_item: fn(term: Content, body: Content) -> Content,
+    pub desc_item: fn(term: Content, description: Content) -> Content,
     /// A mathematical formula: `$x$`, `$ x^2 $`.
     pub math: fn(children: Vec<Content>, block: bool) -> Content,
     /// An atom in a formula: `x`, `+`, `12`.

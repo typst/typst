@@ -41,7 +41,8 @@ pub fn type_(args: &mut Args) -> SourceResult<Value> {
 /// ```
 /// { none } vs #repr(none) \
 /// { "hello" } vs #repr("hello") \
-/// { (1, 2) } vs #repr((1, 2))
+/// { (1, 2) } vs #repr((1, 2)) \
+/// { [*Hi*] } vs #repr([*Hi*])
 /// ```
 ///
 /// ## Parameters

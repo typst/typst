@@ -8,8 +8,8 @@ No: list \
 ---
 // Test with constructor.
 #desc(
-  (term: [One], body: [First]),
-  (term: [Two], body: [Second]),
+  ([One], [First]),
+  ([Two], [Second]),
 )
 
 ---
@@ -32,7 +32,7 @@ No: list \
 #set text(8pt)
 / First list: #lorem(4)
 
-#set desc(body-indent: 30pt)
+#set desc(hanging-indent: 30pt)
 / Second list: #lorem(4)
 
 ---
@@ -40,7 +40,7 @@ No: list \
 #show desc: it => table(
   columns: 2,
   padding: 3pt,
-  ..it.items.map(item => (emph(item.term), item.body)).flatten(),
+  ..it.items.map(item => (emph(item(0)), item(1))).flatten(),
 )
 
 / A: One letter
