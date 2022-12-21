@@ -9,6 +9,16 @@ use crate::prelude::*;
 ///
 /// Supported formats are PNG, JPEG, GIF and SVG.
 ///
+/// ## Example
+/// ```
+/// #align(center)[
+///   #image("molecular.jpg", width: 2in)
+///
+///   *A step in the molecular testing
+///   pipeline of our lab*
+/// ]
+/// ```
+///
 /// ## Parameters
 /// - path: EcoString (positional, required)
 ///   Path to an image file.
@@ -122,10 +132,11 @@ pub enum ImageFit {
 
 castable! {
     ImageFit,
-    /// The image should completely cover the area.
+    /// The image should completely cover the area. This is the default.
     "cover" => Self::Cover,
     /// The image should be fully contained in the area.
     "contain" => Self::Contain,
-    /// The image should be stretched so that it exactly fills the area.
+    /// The image should be stretched so that it exactly fills the area, even if
+    /// this means that the image will be distorted.
     "stretch" => Self::Stretch,
 }
