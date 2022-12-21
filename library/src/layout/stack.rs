@@ -24,7 +24,12 @@ use crate::prelude::*;
 ///   The items to stack along an axis.
 ///
 /// - dir: Dir (named)
-///   The direction along which the items are stacked.
+///   The direction along which the items are stacked. Possible values are:
+///
+///   - `{ltr}`: Left to right.
+///   - `{rtl}`: Right to left.
+///   - `{ttb}`: Top to bottom.
+///   - `{btt}`: Bottom to top.
 ///
 /// - spacing: Spacing (named)
 ///   Spacing to insert between items where no explicit spacing was provided.

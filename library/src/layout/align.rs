@@ -20,15 +20,24 @@ use crate::prelude::*;
 /// - alignment: Axes<Option<GenAlign>> (positional, settable)
 ///   The alignment along both axes.
 ///
-///   Horizontal alignments can be `left`, `center`, `right`, `start`, or `end`.
-///   The `start` and `end` alignments are relative to the current
-///   [text direction](@text/dir).
+///   Possible values for horizontal alignments are:
+///   - `start`
+///   - `end`
+///   - `left`
+///   - `center`
+///   - `right`
 ///
-///   Vertical alignments can be `top`, `horizon`, or `bottom`.
+///   The `start` and `end` alignments are relative to the current [text
+///   direction](@text/dir).
+///
+///   Possible values for vertical alignments are:
+///   - `top`
+///   - `horizon`
+///   - `bottom`
 ///
 ///   To align along both axes at the same time, add the two alignments using
-///   the `+` operator to get a 2d alignment. For example, `top + right` aligns
-///   the content to the top right corner.
+///   the `+` operator to get a `2d alignment`. For example, `top + right`
+///   aligns the content to the top right corner.
 ///
 ///   ### Example
 ///   ```
