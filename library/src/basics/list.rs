@@ -2,8 +2,8 @@ use crate::layout::{BlockNode, GridNode, ParNode, Spacing, TrackSizing};
 use crate::prelude::*;
 use crate::text::TextNode;
 
-/// # List
-/// An unordered list.
+/// # Bullet List
+/// An bullet list.
 ///
 /// Displays a sequence of items vertically, with each item introduced by a
 /// marker.

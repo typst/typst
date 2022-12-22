@@ -274,7 +274,7 @@ impl Eval for ast::MarkupNode {
             Self::Heading(v) => v.eval(vm)?,
             Self::List(v) => v.eval(vm)?,
             Self::Enum(v) => v.eval(vm)?,
-            Self::Desc(v) => v.eval(vm)?,
+            Self::Term(v) => v.eval(vm)?,
             Self::Ref(v) => v.eval(vm)?,
             Self::Expr(_) => unimplemented!("handled above"),
         }
@@ -393,13 +393,13 @@ impl Eval for ast::EnumItem {
     }
 }
 
-impl Eval for ast::DescItem {
+impl Eval for ast::TermItem {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let term = self.term().eval(vm)?;
         let description = self.description().eval(vm)?;
-        Ok((vm.items.desc_item)(term, description))
+        Ok((vm.items.term_item)(term, description))
     }
 }
 

@@ -28,7 +28,7 @@ fn scope() -> Scope {
     std.def_func::<basics::HeadingNode>("heading");
     std.def_func::<basics::ListNode>("list");
     std.def_func::<basics::EnumNode>("enum");
-    std.def_func::<basics::DescNode>("desc");
+    std.def_func::<basics::TermsNode>("terms");
     std.def_func::<basics::TableNode>("table");
 
     // Text.
@@ -200,8 +200,8 @@ fn items() -> LangItems {
         heading: |level, body| basics::HeadingNode { level, title: body }.pack(),
         list_item: |body| layout::ListItem::List(body).pack(),
         enum_item: |number, body| layout::ListItem::Enum(number, body).pack(),
-        desc_item: |term, description| {
-            layout::ListItem::Desc(basics::DescItem { term, description }).pack()
+        term_item: |term, description| {
+            layout::ListItem::Term(basics::TermItem { term, description }).pack()
         },
         math: |children, block| math::MathNode { children, block }.pack(),
         math_atom: |atom| math::AtomNode(atom).pack(),

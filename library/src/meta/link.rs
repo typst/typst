@@ -13,11 +13,16 @@ use crate::text::TextNode;
 /// ```
 /// #show link: underline
 ///
+/// https://example.com \
 /// #link("https://example.com") \
 /// #link("https://example.com")[
 ///   See example.com
 /// ]
 /// ```
+///
+/// ## Syntax
+/// This function also has dedicated syntax: Text that starts with `http://` or
+/// `https://` is automatically turned into a link.
 ///
 /// ## Parameters
 /// - dest: Destination (positional, required)

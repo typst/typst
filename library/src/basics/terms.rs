@@ -2,7 +2,7 @@ use crate::layout::{BlockNode, GridNode, HNode, ParNode, Spacing, TrackSizing};
 use crate::prelude::*;
 use crate::text::{SpaceNode, TextNode};
 
-/// # Description List
+/// # Term List
 /// A list of terms and their descriptions.
 ///
 /// Displays a sequence of terms and their descriptions vertically. When the
@@ -11,8 +11,7 @@ use crate::text::{SpaceNode, TextNode};
 ///
 /// ## Syntax
 /// This function also has dedicated syntax: Starting a line with a slash,
-/// followed by a term, a colon and a description creates a description list
-/// item.
+/// followed by a term, a colon and a description creates a term list item.
 ///
 /// ## Example
 /// ```
@@ -23,10 +22,10 @@ use crate::text::{SpaceNode, TextNode};
 ///
 /// ## Parameters
 /// - items: Content (positional, variadic)
-///   The descrition list's children.
+///   The term list's children.
 ///
-///   When using the description list syntax, adjacents items are automatically
-///   collected into description lists, even through constructs like for loops.
+///   When using the term list syntax, adjacents items are automatically
+///   collected into term lists, even through constructs like for loops.
 ///
 ///   ### Example
 ///   ```
@@ -38,17 +37,17 @@ use crate::text::{SpaceNode, TextNode};
 ///   ```
 ///
 /// - tight: bool (named)
-///   If this is `{false}`, the items are spaced apart with [description list
-///   spacing](@desc/spacing). If it is `{true}`, they use normal
-///   [leading](@par/leading) instead. This makes the description list more
-///   compact, which can look better if the items are short.
+///   If this is `{false}`, the items are spaced apart with [term list
+///   spacing](@terms/spacing). If it is `{true}`, they use normal
+///   [leading](@par/leading) instead. This makes the term list more compact,
+///   which can look better if the items are short.
 ///
 ///   ### Example
 ///   ```
-///   / Fact: If a description list has
-///     a lot of text, and maybe other
-///     inline content, it should not be
-///     tight anymore.
+///   / Fact: If a term list has a lot
+///     of text, and maybe other inline
+///     content, it should not be tight
+///     anymore.
 ///
 ///   / Tip: To make it wide, simply
 ///     insert a blank line between the
@@ -60,15 +59,15 @@ use crate::text::{SpaceNode, TextNode};
 #[func]
 #[capable(Layout)]
 #[derive(Debug, Hash)]
-pub struct DescNode {
+pub struct TermsNode {
     /// If true, the items are separated by leading instead of list spacing.
     pub tight: bool,
     /// The individual bulleted or numbered items.
-    pub items: StyleVec<DescItem>,
+    pub items: StyleVec<TermItem>,
 }
 
 #[node]
-impl DescNode {
+impl TermsNode {
     /// The indentation of each item's term.
     #[property(resolve)]
     pub const INDENT: Length = Length::zero();
@@ -77,15 +76,14 @@ impl DescNode {
     ///
     /// # Example
     /// ```
-    /// #set desc(hanging-indent: 0pt)
-    /// / Term: This description list
-    ///   does not make use of hanging
-    ///   indents.
+    /// #set terms(hanging-indent: 0pt)
+    /// / Term: This term list does not
+    ///   make use of hanging indents.
     /// ```
     #[property(resolve)]
     pub const HANGING_INDENT: Length = Em::new(1.0).into();
 
-    /// The spacing between the items of a wide (non-tight) description list.
+    /// The spacing between the items of a wide (non-tight) term list.
     ///
     /// If set to `{auto}` uses the spacing [below blocks](@block/below).
     pub const SPACING: Smart<Spacing> = Smart::Auto;
@@ -109,7 +107,7 @@ impl DescNode {
     }
 }
 
-impl Layout for DescNode {
+impl Layout for TermsNode {
     fn layout(
         &self,
         vt: &mut Vt,
@@ -151,16 +149,16 @@ impl Layout for DescNode {
     }
 }
 
-/// A description list item.
+/// A term list item.
 #[derive(Debug, Clone, Hash)]
-pub struct DescItem {
+pub struct TermItem {
     /// The term described by the list item.
     pub term: Content,
     /// The description of the term.
     pub description: Content,
 }
 
-impl DescItem {
+impl TermItem {
     /// Encode the item into a value.
     fn encode(&self) -> Value {
         Value::Array(array![
@@ -171,7 +169,7 @@ impl DescItem {
 }
 
 castable! {
-    DescItem,
+    TermItem,
     array: Array => {
         let mut iter = array.into_iter();
         let (term, description) = match (iter.next(), iter.next(), iter.next()) {

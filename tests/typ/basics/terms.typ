@@ -1,4 +1,4 @@
-// Test description lists.
+// Test term list.
 
 ---
 /
@@ -7,7 +7,7 @@ No: list \
 
 ---
 // Test with constructor.
-#desc(
+#terms(
   ([One], [First]),
   ([Two], [Second]),
 )
@@ -32,12 +32,12 @@ No: list \
 #set text(8pt)
 / First list: #lorem(4)
 
-#set desc(hanging-indent: 30pt)
+#set terms(hanging-indent: 30pt)
 / Second list: #lorem(4)
 
 ---
 // Test grid like show rule.
-#show desc: it => table(
+#show terms: it => table(
   columns: 2,
   inset: 3pt,
   ..it.items.map(item => (emph(item(0)), item(1))).flatten(),

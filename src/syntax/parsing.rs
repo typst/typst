@@ -247,7 +247,7 @@ fn markup_node(p: &mut Parser, at_start: &mut bool) {
         SyntaxKind::Minus => list_item(p, *at_start),
         SyntaxKind::Plus | SyntaxKind::EnumNumbering(_) => enum_item(p, *at_start),
         SyntaxKind::Slash => {
-            desc_item(p, *at_start).ok();
+            term_item(p, *at_start).ok();
         }
         SyntaxKind::Colon => {
             let marker = p.marker();
@@ -341,7 +341,7 @@ fn enum_item(p: &mut Parser, at_start: bool) {
     }
 }
 
-fn desc_item(p: &mut Parser, at_start: bool) -> ParseResult {
+fn term_item(p: &mut Parser, at_start: bool) -> ParseResult {
     let marker = p.marker();
     let text: EcoString = p.peek_src().into();
     p.eat();
@@ -351,7 +351,7 @@ fn desc_item(p: &mut Parser, at_start: bool) -> ParseResult {
         markup_line(p, |node| matches!(node, SyntaxKind::Colon));
         p.expect(SyntaxKind::Colon)?;
         markup_indented(p, min_indent);
-        marker.end(p, SyntaxKind::DescItem);
+        marker.end(p, SyntaxKind::TermItem);
     } else {
         marker.convert(p, SyntaxKind::Text(text));
     }

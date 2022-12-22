@@ -39,8 +39,7 @@ pub enum SyntaxKind {
     /// A semicolon terminating an expression: `;`.
     Semicolon,
     /// A colon between name/key and value in a dictionary, argument or
-    /// parameter list, or between the term and body of a description list
-    /// term: `:`.
+    /// parameter list, or between the term and body of a term list term: `:`.
     Colon,
     /// The strong text toggle, multiplication operator, and wildcard import
     /// symbol: `*`.
@@ -54,8 +53,8 @@ pub enum SyntaxKind {
     /// The unary negation, binary subtraction operator, and start of list
     /// items: `-`.
     Minus,
-    /// The division operator, start of description list items, and fraction
-    /// operator in a formula: `/`.
+    /// The division operator, start of term list items, and fraction operator
+    /// in a formula: `/`.
     Slash,
     /// The superscript operator in a formula: `^`.
     Hat,
@@ -163,14 +162,14 @@ pub enum SyntaxKind {
     Ref(EcoString),
     /// A section heading: `= Introduction`.
     Heading,
-    /// An item in an unordered list: `- ...`.
+    /// An item in a bullet list: `- ...`.
     ListItem,
-    /// An item in an enumeration (ordered list): `+ ...` or `1. ...`.
+    /// An item in an enumeration (numbered list): `+ ...` or `1. ...`.
     EnumItem,
     /// An explicit enumeration numbering: `23.`.
     EnumNumbering(NonZeroUsize),
-    /// An item in a description list: `/ Term: Details`.
-    DescItem,
+    /// An item in a term list: `/ Term: Details`.
+    TermItem,
     /// A mathematical formula: `$x$`, `$ x^2 $`.
     Math,
     /// An atom in a formula: `x`, `+`, `12`.
@@ -405,7 +404,7 @@ impl SyntaxKind {
             Self::ListItem => "list item",
             Self::EnumItem => "enumeration item",
             Self::EnumNumbering(_) => "enumeration item numbering",
-            Self::DescItem => "description list item",
+            Self::TermItem => "term list item",
             Self::Math => "math formula",
             Self::Atom(s) => match s.as_str() {
                 "(" => "opening paren",
@@ -533,7 +532,7 @@ impl Hash for SyntaxKind {
             Self::ListItem => {}
             Self::EnumItem => {}
             Self::EnumNumbering(num) => num.hash(state),
-            Self::DescItem => {}
+            Self::TermItem => {}
             Self::Math => {}
             Self::Atom(c) => c.hash(state),
             Self::Script => {}

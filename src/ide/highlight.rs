@@ -23,9 +23,9 @@ pub enum Category {
     Ref,
     /// A section heading.
     Heading,
-    /// A marker of a list, enumeration, or description list.
+    /// A marker of a list, enumeration, or term list.
     ListMarker,
-    /// A term in a description list.
+    /// A term in a term list.
     ListTerm,
     /// The delimiters of a math formula.
     MathDelimiter,
@@ -114,7 +114,7 @@ pub fn highlight(node: &LinkedNode) -> Option<Category> {
             _ => Category::Operator,
         }),
         SyntaxKind::Slash => Some(match node.parent_kind() {
-            Some(SyntaxKind::DescItem) => Category::ListMarker,
+            Some(SyntaxKind::TermItem) => Category::ListMarker,
             Some(SyntaxKind::Frac) => Category::MathOperator,
             _ => Category::Operator,
         }),
@@ -159,7 +159,7 @@ pub fn highlight(node: &LinkedNode) -> Option<Category> {
         SyntaxKind::From => Some(Category::Keyword),
 
         SyntaxKind::Markup { .. }
-            if node.parent_kind() == Some(&SyntaxKind::DescItem)
+            if node.parent_kind() == Some(&SyntaxKind::TermItem)
                 && node.next_sibling().as_ref().map(|v| v.kind())
                     == Some(&SyntaxKind::Colon) =>
         {
@@ -183,7 +183,7 @@ pub fn highlight(node: &LinkedNode) -> Option<Category> {
         SyntaxKind::ListItem => None,
         SyntaxKind::EnumItem => None,
         SyntaxKind::EnumNumbering(_) => Some(Category::ListMarker),
-        SyntaxKind::DescItem => None,
+        SyntaxKind::TermItem => None,
         SyntaxKind::Math => None,
         SyntaxKind::Atom(_) => None,
         SyntaxKind::Script => None,

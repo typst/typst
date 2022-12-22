@@ -712,25 +712,25 @@ impl<'a> CompletionContext<'a> {
         self.snippet_completion(
             "list item",
             "- ${item}",
-            "Inserts an item of an unordered list.",
+            "Inserts an item of a bullet list.",
         );
 
         self.snippet_completion(
             "enumeration item",
             "+ ${item}",
-            "Inserts an item of an ordered list.",
+            "Inserts an item of a numbered list.",
         );
 
         self.snippet_completion(
             "enumeration item (numbered)",
             "${number}. ${item}",
-            "Inserts an explicitly numbered item of an ordered list.",
+            "Inserts an explicitly numbered list item.",
         );
 
         self.snippet_completion(
-            "description list item",
+            "term list item",
             "/ ${term}: ${description}",
-            "Inserts an item of a description list.",
+            "Inserts an item of a term list.",
         );
 
         self.snippet_completion(

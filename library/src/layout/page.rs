@@ -125,17 +125,15 @@ impl PageNode {
     /// # Example
     /// ```
     /// #set page(columns: 2, height: 4.8cm)
-    /// Climate change is one of the
-    /// most pressing issues of our
-    /// time, with the potential to
-    /// devastate communities,
-    /// ecosystems, and economies
-    /// around the world. It's clear
-    /// that we need to take urgent
+    /// Climate change is one of the most
+    /// pressing issues of our time, with
+    /// the potential to devastate
+    /// communities, ecosystems, and
+    /// economies around the world. It's
+    /// clear that we need to take urgent
     /// action to reduce our carbon
-    /// emissions and mitigate the
-    /// impacts of a rapidly changing
-    /// climate.
+    /// emissions and mitigate the impacts
+    /// of a rapidly changing climate.
     /// ```
     pub const COLUMNS: NonZeroUsize = NonZeroUsize::new(1).unwrap();
 
@@ -191,13 +189,13 @@ impl PageNode {
     /// ```
     /// #set par(justify: true)
     /// #set page(
-    ///     margin: (x: 24pt, y: 32pt),
-    ///     footer: i => align(horizon + right,
-    ///       text(8pt, numbering("I", i))
-    ///     )
+    ///   margin: (x: 24pt, y: 32pt),
+    ///   footer: i => align(horizon + right,
+    ///     text(8pt, numbering("I", i))
     ///   )
+    /// )
     ///
-    ///   #lorem(18)
+    /// #lorem(18)
     /// ```
     #[property(referenced)]
     pub const FOOTER: Marginal = Marginal::None;
@@ -209,14 +207,12 @@ impl PageNode {
     ///
     /// # Example
     /// ```
-    /// #set page(
-    ///  background: align(
-    ///    center + horizon,
-    ///    rotate(24deg,
-    ///      text(18pt, fill: rgb("FFCBC4"))[*CONFIDENTIAL*]
-    ///    )
+    /// #set page(background: align(
+    ///   center + horizon,
+    ///   rotate(24deg,
+    ///     text(18pt, fill: rgb("FFCBC4"))[*CONFIDENTIAL*]
     ///   ),
-    /// )
+    /// ))
     ///
     /// = Typst's secret plans
     ///
@@ -232,12 +228,10 @@ impl PageNode {
     ///
     /// # Example
     /// ```
-    /// #set page(
-    ///   foreground: align(
-    ///    center + horizon,
-    ///    text(24pt)[🥸]
-    ///   ),
-    /// )
+    /// #set page(foreground: align(
+    ///   center + horizon,
+    ///   text(24pt)[🥸],
+    /// ))
     ///
     /// Reviewer 2 has marked our paper
     /// "Weak Reject" because they did

@@ -5,8 +5,8 @@ use crate::layout::{BlockNode, GridNode, ParNode, Spacing, TrackSizing};
 use crate::prelude::*;
 use crate::text::TextNode;
 
-/// # Enumeration
-/// An ordered list.
+/// # Numbered List
+/// A numbered list.
 ///
 /// Displays a sequence of items vertically and numbers them consecutively.
 ///

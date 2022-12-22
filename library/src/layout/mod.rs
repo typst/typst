@@ -40,7 +40,7 @@ use typst::model::{
     StyleVecBuilder, StyledNode,
 };
 
-use crate::basics::{DescItem, DescNode, EnumNode, ListNode};
+use crate::basics::{EnumNode, ListNode, TermItem, TermsNode};
 use crate::meta::DocumentNode;
 use crate::prelude::*;
 use crate::shared::BehavedBuilder;
@@ -418,7 +418,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
             self.interrupt_par()?;
         } else if map.interruption::<ListNode>().is_some()
             || map.interruption::<EnumNode>().is_some()
-            || map.interruption::<DescNode>().is_some()
+            || map.interruption::<TermsNode>().is_some()
         {
             self.interrupt_list()?;
         }
@@ -519,7 +519,7 @@ impl<'a> FlowBuilder<'a> {
                 node.tight
             } else if let Some(node) = content.to::<EnumNode>() {
                 node.tight
-            } else if let Some(node) = content.to::<DescNode>() {
+            } else if let Some(node) = content.to::<TermsNode>() {
                 node.tight
             } else {
                 false
@@ -621,10 +621,10 @@ impl<'a> ListBuilder<'a> {
                 }),
             }
             .pack(),
-            ListItem::Desc(_) => DescNode {
+            ListItem::Term(_) => TermsNode {
                 tight: self.tight,
                 items: items.map(|item| match item {
-                    ListItem::Desc(item) => item.clone(),
+                    ListItem::Term(item) => item.clone(),
                     _ => panic!("wrong list item"),
                 }),
             }
@@ -648,12 +648,12 @@ impl Default for ListBuilder<'_> {
 #[capable]
 #[derive(Debug, Clone, Hash)]
 pub enum ListItem {
-    /// An item of an unordered list.
+    /// An item of a bullet list.
     List(Content),
-    /// An item of an ordered list.
+    /// An item of a numbered list.
     Enum(Option<NonZeroUsize>, Content),
-    /// An item of a description list.
-    Desc(DescItem),
+    /// An item of a term list.
+    Term(TermItem),
 }
 
 #[node]

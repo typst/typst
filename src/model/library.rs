@@ -59,12 +59,12 @@ pub struct LangItems {
     pub ref_: fn(target: EcoString) -> Content,
     /// A section heading: `= Introduction`.
     pub heading: fn(level: NonZeroUsize, body: Content) -> Content,
-    /// An item in an unordered list: `- ...`.
+    /// An item in a bullet list: `- ...`.
     pub list_item: fn(body: Content) -> Content,
-    /// An item in an enumeration (ordered list): `+ ...` or `1. ...`.
+    /// An item in an enumeration (numbered list): `+ ...` or `1. ...`.
     pub enum_item: fn(number: Option<NonZeroUsize>, body: Content) -> Content,
-    /// An item in a description list: `/ Term: Details`.
-    pub desc_item: fn(term: Content, description: Content) -> Content,
+    /// An item in a term list: `/ Term: Details`.
+    pub term_item: fn(term: Content, description: Content) -> Content,
     /// A mathematical formula: `$x$`, `$ x^2 $`.
     pub math: fn(children: Vec<Content>, block: bool) -> Content,
     /// An atom in a formula: `x`, `+`, `12`.
@@ -102,7 +102,7 @@ impl Hash for LangItems {
         self.heading.hash(state);
         self.list_item.hash(state);
         self.enum_item.hash(state);
-        self.desc_item.hash(state);
+        self.term_item.hash(state);
         self.math.hash(state);
         self.math_atom.hash(state);
         self.math_script.hash(state);

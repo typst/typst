@@ -32,9 +32,9 @@
 
 ---
 // Mix of different lists
-- List
-+ Enum
-/ Desc: List
+- Bullet List
++ Numbered List
+/ Term: List
 
 ---
 // Test numbering with closure.

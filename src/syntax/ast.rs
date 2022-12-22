@@ -101,12 +101,12 @@ pub enum MarkupNode {
     Ref(Ref),
     /// A section heading: `= Introduction`.
     Heading(Heading),
-    /// An item in an unordered list: `- ...`.
+    /// An item in a bullet list: `- ...`.
     List(ListItem),
-    /// An item in an enumeration (ordered list): `+ ...` or `1. ...`.
+    /// An item in an enumeration (numbered list): `+ ...` or `1. ...`.
     Enum(EnumItem),
-    /// An item in a description list: `/ Term: Details`.
-    Desc(DescItem),
+    /// An item in a term list: `/ Term: Details`.
+    Term(TermItem),
     /// An expression.
     Expr(Expr),
 }
@@ -129,7 +129,7 @@ impl AstNode for MarkupNode {
             SyntaxKind::Heading => node.cast().map(Self::Heading),
             SyntaxKind::ListItem => node.cast().map(Self::List),
             SyntaxKind::EnumItem => node.cast().map(Self::Enum),
-            SyntaxKind::DescItem => node.cast().map(Self::Desc),
+            SyntaxKind::TermItem => node.cast().map(Self::Term),
             _ => node.cast().map(Self::Expr),
         }
     }
@@ -151,7 +151,7 @@ impl AstNode for MarkupNode {
             Self::Heading(v) => v.as_untyped(),
             Self::List(v) => v.as_untyped(),
             Self::Enum(v) => v.as_untyped(),
-            Self::Desc(v) => v.as_untyped(),
+            Self::Term(v) => v.as_untyped(),
             Self::Expr(v) => v.as_untyped(),
         }
     }
@@ -362,7 +362,7 @@ impl Heading {
 }
 
 node! {
-    /// An item in an unordered list: `- ...`.
+    /// An item in a bullet list: `- ...`.
     ListItem
 }
 
@@ -374,7 +374,7 @@ impl ListItem {
 }
 
 node! {
-    /// An item in an enumeration (ordered list): `+ ...` or `1. ...`.
+    /// An item in an enumeration (numbered list): `+ ...` or `1. ...`.
     EnumItem
 }
 
@@ -394,23 +394,21 @@ impl EnumItem {
 }
 
 node! {
-    /// An item in a description list: `/ Term: Details`.
-    DescItem
+    /// An item in a term list: `/ Term: Details`.
+    TermItem
 }
 
-impl DescItem {
+impl TermItem {
     /// The term described by the item.
     pub fn term(&self) -> Markup {
-        self.0
-            .cast_first_child()
-            .expect("description list item is missing term")
+        self.0.cast_first_child().expect("term list item is missing term")
     }
 
     /// The description of the term.
     pub fn description(&self) -> Markup {
         self.0
             .cast_last_child()
-            .expect("description list item is missing description")
+            .expect("term list item is missing description")
     }
 }
 

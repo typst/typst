@@ -1,4 +1,4 @@
-// Test unordered lists.
+// Test bullet lists.
 
 ---
 -
