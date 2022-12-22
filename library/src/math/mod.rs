@@ -17,18 +17,25 @@ use crate::text::{FontFamily, LinebreakNode, SpaceNode, SymbolNode, TextNode};
 /// # Math
 /// A mathematical formula.
 ///
-/// _Note:_ Math mode is still rather limited in Typst. We're working hard to
-/// improve it, so please bear with us in the meantime!
-///
 /// ## Syntax
 /// This function also has dedicated syntax: Write mathematical markup within
 /// dollar signs to create a formula. Starting and ending the formula with at
 /// least one space lifts it into a separate block that is centered
 /// horizontally.
-/// 
-/// Within math mode, additional shorthands are available to easily type various
-/// arrows and other symbols. The page on the [`symbol`](@symbol) function lists
-/// all of them.
+///
+/// In math, single letters are always displayed as is. Multiple letters,
+/// however, are interpreted as variables, symbols or functions. To display
+/// multiple letters verbatim, you can place them into quotes. Math mode also
+/// supports extra shorthands to easily type various arrows and other symbols.
+/// The page on the [`symbol`](@symbol) function lists all of them.
+///
+/// When a variable and a symbol share the same name, the variable is preferred.
+/// To force the symbol, surround it with colons. To access a variable with a
+/// single letter name, you can prefix it with a `#`.
+///
+/// In math mode, the arguments to a function call are always parsed as
+/// mathematical content. To work with other kinds of values, you first need to
+/// enter a code block using the `[$#{..}$]` syntax.
 ///
 /// ## Example
 /// ```
