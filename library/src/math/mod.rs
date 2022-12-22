@@ -25,6 +25,10 @@ use crate::text::{FontFamily, LinebreakNode, SpaceNode, SymbolNode, TextNode};
 /// dollar signs to create a formula. Starting and ending the formula with at
 /// least one space lifts it into a separate block that is centered
 /// horizontally.
+/// 
+/// Within math mode, additional shorthands are available to easily type various
+/// arrows and other symbols. The page on the [`symbol`](@symbol) function lists
+/// all of them.
 ///
 /// ## Example
 /// ```

@@ -19,6 +19,32 @@ use crate::text::TextNode;
 /// the notation directly. There, all letter sequence of length at least two are
 /// automatically parsed as symbols (unless a variable of that name is defined).
 ///
+/// Additionally, some very common but hard to type symbols can be expressed with
+/// dedicated shortcuts. These are:
+///
+/// | Symmie      | Shorthand | Result |
+/// | ----------- | --------- | ------ |
+/// | `dots:b`    | `...`     | …      |
+/// | `dash:en`   | `---`     | –      |
+/// | `dash:em`   | `--`      | —      |
+/// | none yet    | `-?`      | A soft hyphen |
+/// | none yet    | `~`       | A non breaking space |
+///
+/// Within math mode, additional shorthands are available:
+///
+/// | Symmie             | Shorthand | Result |
+/// | ------------------ | --------- | ------ |
+/// | `arrow:r`          | `->`      | `→`    |
+/// | `arrow:r:double`   | `=>`      | `⇒`    |
+/// | `arrow:l`          | `<-`      | `←`    |
+/// | `arrow:r:bar`      | <code>&VerticalLine;-></code> | `↦` |
+/// | `arrow:l:r`        | `<->`     | `↔`    |
+/// | `arrow:l:r:double` | `<=>`     | `⇔`    |
+/// | `eq:not`           | `!=`      | `≠`    |
+/// | `eq:gt`            | `>=`      | `≥`    |
+/// | `eq:lt`            | `<=`      | `≤`    |
+/// | `colon:eq`         | `:=`      | `≔`    |
+///
 /// ## Example
 /// ```
 /// // In text, with colons.
