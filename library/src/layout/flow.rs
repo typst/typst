@@ -5,7 +5,7 @@ use crate::prelude::*;
 
 /// Arrange spacing, paragraphs and block-level nodes into a flow.
 ///
-/// This node is reponsible for layouting both the top-level content flow and
+/// This node is responsible for layouting both the top-level content flow and
 /// the contents of boxes.
 #[capable(Layout)]
 #[derive(Hash)]
@@ -244,7 +244,7 @@ impl<'a> FlowLayouter<'a> {
             }
         }
 
-        // Determine the size of the flow in this region dependening on whether
+        // Determine the size of the flow in this region depending on whether
         // the region expands.
         let mut size = self.expand.select(self.full, used);
 

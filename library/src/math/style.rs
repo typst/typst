@@ -253,7 +253,7 @@ impl Texify for MonoNode {
     }
 }
 
-/// # Doublestruck
+/// # Blackboard Bold
 /// Blackboard bold (double-struck) font style in math.
 ///
 /// For uppercase latin letters, blackboard bold is additionally available

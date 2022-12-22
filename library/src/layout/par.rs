@@ -198,17 +198,17 @@ impl Resolve for HorizontalAlign {
 /// How to determine line breaks in a paragraph.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Linebreaks {
-    /// Determine the linebreaks in a simple first-fit style.
+    /// Determine the line breaks in a simple first-fit style.
     Simple,
-    /// Optimize the linebreaks for the whole paragraph.
+    /// Optimize the line breaks for the whole paragraph.
     Optimized,
 }
 
 castable! {
     Linebreaks,
-    /// Determine the linebreaks in a simple first-fit style.
+    /// Determine the line breaks in a simple first-fit style.
     "simple" => Self::Simple,
-    /// Optimize the linebreaks for the whole paragraph.
+    /// Optimize the line breaks for the whole paragraph.
     ///
     /// Typst will try to produce more evenly filled lines of text by
     /// considering the whole paragraph when calculating line breaks.
@@ -861,12 +861,7 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
                 // has minimum cost. All breakpoints before this one become
                 // inactive since no line can span above the mandatory break.
                 active = k;
-                MIN_COST
-                    + if attempt.justify {
-                        ratio.powi(3).abs()
-                    } else {
-                        0.0
-                    }
+                MIN_COST + if attempt.justify { ratio.powi(3).abs() } else { 0.0 }
             } else {
                 // Normal line with cost of |ratio^3|.
                 ratio.powi(3).abs()

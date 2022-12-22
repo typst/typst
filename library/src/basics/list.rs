@@ -38,7 +38,7 @@ use crate::text::TextNode;
 /// - items: Content (positional, variadic)
 ///   The list's children.
 ///
-///   When using the list syntax, adjacents items are automatically collected
+///   When using the list syntax, adjacent items are automatically collected
 ///   into lists, even through constructs like for loops.
 ///
 ///   ### Example

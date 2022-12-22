@@ -64,7 +64,7 @@ impl SmartQuoteNode {
     }
 }
 
-/// State machine for smart quote subtitution.
+/// State machine for smart quote substitution.
 #[derive(Debug, Clone)]
 pub struct Quoter {
     /// How many quotes have been opened.

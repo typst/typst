@@ -24,7 +24,7 @@ use crate::text::{SpaceNode, TextNode};
 /// - items: Content (positional, variadic)
 ///   The term list's children.
 ///
-///   When using the term list syntax, adjacents items are automatically
+///   When using the term list syntax, adjacent items are automatically
 ///   collected into term lists, even through constructs like for loops.
 ///
 ///   ### Example

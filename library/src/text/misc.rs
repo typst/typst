@@ -29,7 +29,7 @@ impl Behave for SpaceNode {
 /// # Line Break
 /// Inserts a line break.
 ///
-/// Advances the paragraph to the next line. A single trailing linebreak at the
+/// Advances the paragraph to the next line. A single trailing line break at the
 /// end of a paragraph is ignored, but more than one creates additional empty
 /// lines.
 ///
@@ -41,7 +41,7 @@ impl Behave for SpaceNode {
 /// ```
 ///
 /// ## Syntax
-/// This function also has dedicated syntax: To insert a linebreak, simply write
+/// This function also has dedicated syntax: To insert a line break, simply write
 /// a backslash followed by whitespace. This always creates an unjustified
 /// break.
 ///
@@ -58,7 +58,7 @@ impl Behave for SpaceNode {
 ///   #let jb = linebreak(justify: true)
 ///
 ///   I have manually tuned the #jb
-///   linebreaks in this paragraph #jb
+///   line breaks in this paragraph #jb
 ///   for an _interesting_ result. #jb
 ///   ```
 ///

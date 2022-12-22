@@ -42,7 +42,7 @@ impl SubNode {
     /// N#sub(typographic: false)[1]
     /// ```
     pub const TYPOGRAPHIC: bool = true;
-    /// The baseline shift for synthetic subcripts. Does not apply if
+    /// The baseline shift for synthetic subscripts. Does not apply if
     /// `typographic` is true and the font has subscript codepoints for the
     /// given `body`.
     pub const BASELINE: Length = Em::new(0.2).into();

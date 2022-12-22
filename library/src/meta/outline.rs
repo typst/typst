@@ -40,7 +40,7 @@ impl OutlineNode {
     pub const TITLE: Option<Smart<Content>> = Some(Smart::Auto);
 
     /// The maximum depth up to which headings are included in the outline. When
-    /// this arguement is `{none}`, all headings are included.
+    /// this argument is `{none}`, all headings are included.
     pub const DEPTH: Option<NonZeroUsize> = None;
 
     /// Whether to indent the subheadings to align the start of their numbering

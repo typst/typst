@@ -227,7 +227,7 @@ impl<'a> Regions<'a> {
     /// An iterator that returns the sizes of the first and all following
     /// regions, equivalently to what would be produced by calling
     /// [`next()`](Self::next) repeatedly until all regions are exhausted.
-    /// This iterater may be infinite.
+    /// This iterator may be infinite.
     pub fn iter(&self) -> impl Iterator<Item = Size> + '_ {
         let first = std::iter::once(self.first);
         let backlog = self.backlog.iter();

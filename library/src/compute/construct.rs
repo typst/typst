@@ -126,7 +126,7 @@ pub fn luma(args: &mut Args) -> SourceResult<Value> {
 ///
 /// ## Parameters
 /// - hex: EcoString (positional)
-///   The color in hexademical notation.
+///   The color in hexadecimal notation.
 ///
 ///   Accepts three, four, six or eight hexadecimal digits and optionally
 ///   a leading hashtag.

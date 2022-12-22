@@ -4,7 +4,7 @@ use crate::prelude::*;
 /// # Table
 /// A table of items.
 ///
-/// Tables are used to arrange content in cells. Cells can contain arbitray
+/// Tables are used to arrange content in cells. Cells can contain arbitrary
 /// content, including multiple paragraphs and are specified in row-major order.
 /// Because tables are just grids with configurable cell properties, refer to
 /// the [grid documentation](@grid) for more information on how to size the

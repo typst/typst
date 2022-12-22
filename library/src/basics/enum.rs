@@ -42,7 +42,7 @@ use crate::text::TextNode;
 /// - items: Content (positional, variadic)
 ///   The enumeration's children.
 ///
-///   When using the enum syntax, adjacents items are automatically collected
+///   When using the enum syntax, adjacent items are automatically collected
 ///   into enumerations, even through constructs like for loops.
 ///
 ///   ### Example
