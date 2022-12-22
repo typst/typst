@@ -28,7 +28,8 @@ use crate::text::TextNode;
 ///
 /// ## Example
 /// ```
-/// #set page("us-letter", margin: auto)
+/// >>> #set page(margin: auto)
+/// #set page("us-letter")
 ///
 /// There you go, US friends!
 /// ```
