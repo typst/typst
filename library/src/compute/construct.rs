@@ -315,10 +315,10 @@ pub fn label(args: &mut Args) -> SourceResult<Value> {
 /// # Regex
 /// Create a regular expression from a string.
 ///
-/// The result can be used as a show rule
-/// [selector](/docs/reference/concepts/#selector) and with
-/// [string methods](/docs/reference/concepts/#methods) like `find`, `split`,
-/// and `replace`.
+/// The result can be used as a
+/// [show rule selector](/docs/reference/styling/#show-rules) and with
+/// [string methods](/docs/reference/types/string/#methods) like `find`,
+/// `split`, and `replace`.
 ///
 /// [See here](https://docs.rs/regex/latest/regex/#syntax) for a specification
 /// of the supported syntax.

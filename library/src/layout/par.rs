@@ -219,7 +219,7 @@ castable! {
 /// A paragraph break.
 ///
 /// This starts a new paragraph. Especially useful when used within code like
-/// [for loops](/docs/reference/concepts#for-loop). Multiple consecutive
+/// [for loops](/docs/reference/scripting/#loops). Multiple consecutive
 /// paragraph breaks collapse into a single one.
 ///
 /// ## Syntax
