@@ -307,8 +307,7 @@ fn complete_math(ctx: &mut CompletionContext) -> bool {
     // Behind existing atom or identifier: "$a|$" or "$abc|$".
     if matches!(ctx.leaf.kind(), SyntaxKind::Atom(_) | SyntaxKind::Ident(_)) {
         ctx.from = ctx.leaf.offset();
-        ctx.symbol_completions(false);
-        ctx.scope_completions();
+        ctx.math_completions();
         return true;
     }
 
@@ -334,7 +333,7 @@ fn complete_code(ctx: &mut CompletionContext) -> bool {
     // An existing identifier: "{ pa| }".
     if matches!(ctx.leaf.kind(), SyntaxKind::Ident(_)) {
         ctx.from = ctx.leaf.offset();
-        ctx.expr_completions(true);
+        ctx.expr_completions(false);
         return true;
     }
 
@@ -413,13 +412,8 @@ impl<'a> CompletionContext<'a> {
         });
     }
 
-    /// Add completions for the global scope.
-    fn scope_completions(&mut self) {
-        self.scope_completions_where(|_| true);
-    }
-
     /// Add completions for a subset of the global scope.
-    fn scope_completions_where(&mut self, filter: impl Fn(&Value) -> bool) {
+    fn scope_completions(&mut self, filter: impl Fn(&Value) -> bool) {
         for (name, value) in self.scope.iter() {
             if filter(value) {
                 self.value_completion(Some(name.clone()), value, None);
@@ -459,7 +453,7 @@ impl<'a> CompletionContext<'a> {
                     kind: CompletionKind::Param,
                     label: param.name.into(),
                     apply: Some(format_eco!("{}: ${{}}", param.name)),
-                    detail: Some(param.docs.into()),
+                    detail: Some(plain_docs_sentence(param.docs)),
                 });
             }
 
@@ -529,7 +523,7 @@ impl<'a> CompletionContext<'a> {
                     "cmyk(${c}, ${m}, ${y}, ${k})",
                     "A custom CMYK color.",
                 );
-                self.scope_completions_where(|value| value.type_name() == "color");
+                self.scope_completions(|value| value.type_name() == "color");
             }
             CastInfo::Type("function") => {
                 self.snippet_completion(
@@ -545,7 +539,7 @@ impl<'a> CompletionContext<'a> {
                     apply: Some(format_eco!("${{{ty}}}")),
                     detail: Some(format_eco!("A value of type {ty}.")),
                 });
-                self.scope_completions_where(|value| value.type_name() == *ty);
+                self.scope_completions(|value| value.type_name() == *ty);
             }
             CastInfo::Union(union) => {
                 for info in union {
@@ -565,19 +559,14 @@ impl<'a> CompletionContext<'a> {
         let mut label = label.unwrap_or_else(|| value.repr().into());
         let mut apply = None;
 
-        if matches!(value, Value::Func(_)) {
-            apply = Some(format_eco!("{label}(${{}})"));
-            label.push_str("()");
-        } else {
-            if label.starts_with('"') {
-                let trimmed = label.trim_matches('"').into();
-                apply = Some(label);
-                label = trimmed;
-            }
+        if label.starts_with('"') {
+            let trimmed = label.trim_matches('"').into();
+            apply = Some(label);
+            label = trimmed;
         }
 
         let detail = docs.map(Into::into).or_else(|| match value {
-            Value::Func(func) => func.info().map(|info| info.docs.into()),
+            Value::Func(func) => func.info().map(|info| plain_docs_sentence(info.docs)),
             Value::Color(color) => Some(format_eco!("The color {color:?}.")),
             Value::Auto => Some("A smart default.".into()),
             _ => None,
@@ -770,7 +759,7 @@ impl<'a> CompletionContext<'a> {
             _ => true,
         });
 
-        self.scope_completions_where(|value| {
+        self.scope_completions(|value| {
             matches!(
                 value,
                 Value::Func(func) if func.info().map_or(false, |info| {
@@ -801,7 +790,7 @@ impl<'a> CompletionContext<'a> {
     /// Add completions for expression snippets.
     #[rustfmt::skip]
     fn expr_completions(&mut self,  short_form: bool) {
-        self.scope_completions_where(|value| {
+        self.scope_completions(|value| {
             !short_form || matches!(
                 value,
                 Value::Func(func) if func.info().map_or(true, |info| {
@@ -943,7 +932,7 @@ impl<'a> CompletionContext<'a> {
 
     /// Add completions for all functions from the global scope.
     fn set_rule_completions(&mut self) {
-        self.scope_completions_where(|value| {
+        self.scope_completions(|value| {
             matches!(
                 value,
                 Value::Func(func) if func.info().map_or(false, |info| {
@@ -955,7 +944,7 @@ impl<'a> CompletionContext<'a> {
 
     /// Add completions for selectors.
     fn show_rule_selector_completions(&mut self) {
-        self.scope_completions_where(
+        self.scope_completions(
             |value| matches!(value, Value::Func(func) if func.select(None).is_ok()),
         );
 
@@ -974,7 +963,7 @@ impl<'a> CompletionContext<'a> {
         );
     }
 
-    /// Add completions for selectors.
+    /// Add completions for recipes.
     fn show_rule_recipe_completions(&mut self) {
         self.snippet_completion(
             "replacement",
@@ -994,6 +983,51 @@ impl<'a> CompletionContext<'a> {
             "Transform the element with a function.",
         );
 
-        self.scope_completions_where(|value| matches!(value, Value::Func(_)));
+        self.scope_completions(|value| matches!(value, Value::Func(_)));
     }
+}
+
+/// Extract the first sentence of plain text of a piece of documentation.
+///
+/// Removes Markdown formatting.
+fn plain_docs_sentence(docs: &str) -> EcoString {
+    let mut s = unscanny::Scanner::new(docs);
+    let mut output = String::new();
+    let mut link = false;
+    while let Some(c) = s.eat() {
+        match c {
+            '`' => {
+                let mut raw = s.eat_until('`');
+                if (raw.starts_with('{') && raw.ends_with('}'))
+                    || (raw.starts_with('[') && raw.ends_with(']'))
+                {
+                    raw = &raw[1..raw.len() - 1];
+                }
+
+                s.eat();
+                output.push('`');
+                output.push_str(raw);
+                output.push('`');
+            }
+            '[' => link = true,
+            ']' if link => {
+                if s.eat_if('(') {
+                    s.eat_until(')');
+                    s.eat();
+                } else if s.eat_if('[') {
+                    s.eat_until(']');
+                    s.eat();
+                }
+                link = false
+            }
+            '*' | '_' => {}
+            '.' => {
+                output.push('.');
+                break;
+            }
+            _ => output.push(c),
+        }
+    }
+
+    output.into()
 }

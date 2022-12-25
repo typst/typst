@@ -3,7 +3,7 @@ use crate::prelude::*;
 use crate::text::TextNode;
 
 /// # Bullet List
-/// An bullet list.
+/// A bullet list.
 ///
 /// Displays a sequence of items vertically, with each item introduced by a
 /// marker.
