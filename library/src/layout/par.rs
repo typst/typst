@@ -223,7 +223,7 @@ castable! {
 /// paragraph breaks collapse into a single one.
 ///
 /// ## Syntax
-/// Instead of calling this function, you can insert two empty lines in your
+/// Instead of calling this function, you can insert a blank line into your
 /// markup to create a paragraph break.
 ///
 /// ## Example

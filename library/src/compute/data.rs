@@ -111,7 +111,7 @@ fn format_csv_error(error: csv::Error) -> String {
 ///
 /// The function returns a dictionary or an array, depending on the JSON file.
 ///
-/// The JSON files in the example contain a object with the keys `temperature`,
+/// The JSON files in the example contain objects with the keys `temperature`,
 /// `unit`, and `weather`.
 ///
 /// ## Example
