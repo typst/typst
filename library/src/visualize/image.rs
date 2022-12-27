@@ -23,6 +23,12 @@ use crate::prelude::*;
 /// - path: EcoString (positional, required)
 ///   Path to an image file.
 ///
+/// - width: Rel<Length> (named)
+///   The width of the image.
+///
+/// - height: Rel<Length> (named)
+///   The height of the image.
+///
 /// ## Category
 /// visualize
 #[func]

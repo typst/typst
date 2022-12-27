@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use if_chain::if_chain;
 
-use super::summarize_font_family;
+use super::{plain_docs_sentence, summarize_font_family};
 use crate::model::{CastInfo, Scope, Value};
 use crate::syntax::ast::AstNode;
 use crate::syntax::{ast, LinkedNode, Source, SyntaxKind};
@@ -453,7 +453,7 @@ impl<'a> CompletionContext<'a> {
                     kind: CompletionKind::Param,
                     label: param.name.into(),
                     apply: Some(format_eco!("{}: ${{}}", param.name)),
-                    detail: Some(plain_docs_sentence(param.docs)),
+                    detail: Some(plain_docs_sentence(param.docs).into()),
                 });
             }
 
@@ -504,8 +504,8 @@ impl<'a> CompletionContext<'a> {
                 self.snippet_completion("auto", "auto", "A smart default.");
             }
             CastInfo::Type("boolean") => {
-                self.snippet_completion("false", "false", "Yes / Enabled.");
-                self.snippet_completion("true", "true", "No / Disabled.");
+                self.snippet_completion("false", "false", "No / Disabled.");
+                self.snippet_completion("true", "true", "Yes / Enabled.");
             }
             CastInfo::Type("color") => {
                 self.snippet_completion(
@@ -566,7 +566,9 @@ impl<'a> CompletionContext<'a> {
         }
 
         let detail = docs.map(Into::into).or_else(|| match value {
-            Value::Func(func) => func.info().map(|info| plain_docs_sentence(info.docs)),
+            Value::Func(func) => {
+                func.info().map(|info| plain_docs_sentence(info.docs).into())
+            }
             Value::Color(color) => Some(format_eco!("The color {color:?}.")),
             Value::Auto => Some("A smart default.".into()),
             _ => None,
@@ -985,49 +987,4 @@ impl<'a> CompletionContext<'a> {
 
         self.scope_completions(|value| matches!(value, Value::Func(_)));
     }
-}
-
-/// Extract the first sentence of plain text of a piece of documentation.
-///
-/// Removes Markdown formatting.
-fn plain_docs_sentence(docs: &str) -> EcoString {
-    let mut s = unscanny::Scanner::new(docs);
-    let mut output = String::new();
-    let mut link = false;
-    while let Some(c) = s.eat() {
-        match c {
-            '`' => {
-                let mut raw = s.eat_until('`');
-                if (raw.starts_with('{') && raw.ends_with('}'))
-                    || (raw.starts_with('[') && raw.ends_with(']'))
-                {
-                    raw = &raw[1..raw.len() - 1];
-                }
-
-                s.eat();
-                output.push('`');
-                output.push_str(raw);
-                output.push('`');
-            }
-            '[' => link = true,
-            ']' if link => {
-                if s.eat_if('(') {
-                    s.eat_until(')');
-                    s.eat();
-                } else if s.eat_if('[') {
-                    s.eat_until(']');
-                    s.eat();
-                }
-                link = false
-            }
-            '*' | '_' => {}
-            '.' => {
-                output.push('.');
-                break;
-            }
-            _ => output.push(c),
-        }
-    }
-
-    output.into()
 }

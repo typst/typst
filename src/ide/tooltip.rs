@@ -1,8 +1,6 @@
-use std::fmt::Write;
-
 use if_chain::if_chain;
 
-use crate::font::{FontInfo, FontStyle};
+use super::{plain_docs_sentence, summarize_font_family};
 use crate::model::{CastInfo, Value};
 use crate::syntax::ast::{self, AstNode};
 use crate::syntax::{LinkedNode, Source, SyntaxKind};
@@ -28,7 +26,7 @@ fn function_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<String> {
         if let Some(Value::Func(func)) = world.library().scope.get(ident);
         if let Some(info) = func.info();
         then {
-            return Some(info.docs.into());
+            return Some(plain_docs_sentence(&info.docs));
         }
     }
 
@@ -65,7 +63,7 @@ fn named_param_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<String> {
         if let SyntaxKind::Ident(ident) = leaf.kind();
         if let Some(param) = info.param(ident);
         then {
-            return Some(param.docs.into());
+            return Some(plain_docs_sentence(param.docs));
         }
     }
 
@@ -125,38 +123,4 @@ fn font_family_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<String> {
     };
 
     None
-}
-
-/// Create a short description of a font family.
-pub(super) fn summarize_font_family<'a>(
-    variants: impl Iterator<Item = &'a FontInfo>,
-) -> String {
-    let mut infos: Vec<_> = variants.collect();
-    infos.sort_by_key(|info| info.variant);
-
-    let mut has_italic = false;
-    let mut min_weight = u16::MAX;
-    let mut max_weight = 0;
-    for info in &infos {
-        let weight = info.variant.weight.to_number();
-        has_italic |= info.variant.style == FontStyle::Italic;
-        min_weight = min_weight.min(weight);
-        max_weight = min_weight.max(weight);
-    }
-
-    let count = infos.len();
-    let s = if count == 1 { "" } else { "s" };
-    let mut detail = format!("{count} variant{s}.");
-
-    if min_weight == max_weight {
-        write!(detail, " Weight {min_weight}.").unwrap();
-    } else {
-        write!(detail, " Weights {min_weight}–{max_weight}.").unwrap();
-    }
-
-    if has_italic {
-        detail.push_str(" Has italics.");
-    }
-
-    detail
 }
