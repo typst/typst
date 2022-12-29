@@ -4,6 +4,40 @@ use typst::diag::{format_xml_like_error, FileError};
 
 use crate::prelude::*;
 
+/// # Read file
+/// Read plain text from a file.
+///
+/// The file will be read and returned as a string.
+///
+/// ## Example
+/// ```
+/// #let text = read("data.html")
+///
+/// An HTML file could look like this:
+/// #raw(text, lang: "html")
+/// ```
+///
+/// ## Parameters
+/// - path: EcoString (positional, required)
+///   Path to a file.
+///
+/// - returns: EcoString
+///
+/// ## Category
+/// data-loading
+#[func]
+pub fn read(vm: &Vm, args: &mut Args) -> SourceResult<Value> {
+    let Spanned { v: path, span } = args.expect::<Spanned<EcoString>>("path to file")?;
+
+    let path = vm.locate(&path).at(span)?;
+    let data = vm.world().file(&path).at(span)?;
+
+    let text = String::from_utf8(data.to_vec())
+        .map_err(|_| "file is not valid utf-8")
+        .at(span)?;
+    Ok(Value::Str(text.into()))
+}
+
 /// # CSV
 /// Read structured data from a CSV file.
 ///
@@ -184,7 +218,10 @@ fn convert_json(value: serde_json::Value) -> Value {
 /// Format the user-facing JSON error message.
 fn format_json_error(error: serde_json::Error) -> String {
     assert!(error.is_syntax() || error.is_eof());
-    format!("failed to parse json file: syntax error in line {}", error.line())
+    format!(
+        "failed to parse json file: syntax error in line {}",
+        error.line()
+    )
 }
 
 /// # XML

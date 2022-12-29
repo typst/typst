@@ -1,5 +1,18 @@
-// Test reading structured data.
+// Test reading structured data and files.
 // Ref: false
+
+---
+// Test reading plain text files
+#let data = read("../../res/hello.txt")
+#test(data, "Hello, world!")
+
+---
+// Error: 18-41 file not found (searched at res/missing.txt)
+#let data = read("../../res/missing.txt")
+
+---
+// Error: 18-46 file is not valid utf-8
+#let data = read("../../res/invalid-utf8.txt")
 
 ---
 // Test reading CSV data.

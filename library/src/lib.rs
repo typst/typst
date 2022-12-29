@@ -124,6 +124,7 @@ fn scope() -> Scope {
     std.def_func::<compute::EvenFunc>("even");
     std.def_func::<compute::OddFunc>("odd");
     std.def_func::<compute::ModFunc>("mod");
+    std.def_func::<compute::ReadFunc>("read");
     std.def_func::<compute::CsvFunc>("csv");
     std.def_func::<compute::JsonFunc>("json");
     std.def_func::<compute::XmlFunc>("xml");
