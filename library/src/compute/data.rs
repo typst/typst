@@ -4,7 +4,7 @@ use typst::diag::{format_xml_like_error, FileError};
 
 use crate::prelude::*;
 
-/// # Read file
+/// # Plain text
 /// Read plain text from a file.
 ///
 /// The file will be read and returned as a string.
@@ -13,7 +13,7 @@ use crate::prelude::*;
 /// ```
 /// #let text = read("data.html")
 ///
-/// An HTML file could look like this:
+/// An HTML file could look like this: \
 /// #raw(text, lang: "html")
 /// ```
 ///
