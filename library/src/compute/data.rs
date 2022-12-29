@@ -13,7 +13,7 @@ use crate::prelude::*;
 /// ```
 /// #let text = read("data.html")
 ///
-/// An HTML file could look like this: \
+/// An example for a HTML file:\
 /// #raw(text, lang: "html")
 /// ```
 ///
@@ -21,7 +21,7 @@ use crate::prelude::*;
 /// - path: EcoString (positional, required)
 ///   Path to a file.
 ///
-/// - returns: EcoString
+/// - returns: string
 ///
 /// ## Category
 /// data-loading
