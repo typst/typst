@@ -34,6 +34,18 @@
 {1em <= 10pt}
 
 ---
+// Error: 2-11 cannot divide by zero
+{1.2 / 0.0}
+
+---
+// Error: 2-7 cannot divide by zero
+{1 / 0}
+
+---
+// Error: 2-14 cannot divide by zero
+{15deg / 0deg}
+
+---
 // Special messages for +, -, * and /.
 // Error: 03-10 cannot add integer and string
 {(1 + "2", 40% - 1)}

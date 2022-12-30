@@ -1,10 +1,11 @@
 //! Operations on values.
 
+use std::cmp::Ordering;
+
 use super::{Regex, Value};
 use crate::diag::StrResult;
 use crate::geom::{Axes, Axis, GenAlign, Length, Numeric, PartialStroke, Rel, Smart};
 use crate::util::format_eco;
-use std::cmp::Ordering;
 use Value::*;
 
 /// Bail with a type mismatch error.
@@ -195,6 +196,10 @@ pub fn mul(lhs: Value, rhs: Value) -> StrResult<Value> {
 
 /// Compute the quotient of two values.
 pub fn div(lhs: Value, rhs: Value) -> StrResult<Value> {
+    if is_zero(&rhs) {
+        Err("cannot divide by zero")?;
+    }
+
     Ok(match (lhs, rhs) {
         (Int(a), Int(b)) => Float(a as f64 / b as f64),
         (Int(a), Float(b)) => Float(a as f64 / b),
@@ -227,6 +232,20 @@ pub fn div(lhs: Value, rhs: Value) -> StrResult<Value> {
 
         (a, b) => mismatch!("cannot divide {} by {}", a, b),
     })
+}
+
+/// Whether a value is a numeric zero.
+fn is_zero(v: &Value) -> bool {
+    match *v {
+        Int(v) => v == 0,
+        Float(v) => v == 0.0,
+        Length(v) => v.is_zero(),
+        Angle(v) => v.is_zero(),
+        Ratio(v) => v.is_zero(),
+        Relative(v) => v.is_zero(),
+        Fraction(v) => v.is_zero(),
+        _ => false,
+    }
 }
 
 /// Try to divide two lengths.
