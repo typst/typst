@@ -52,6 +52,7 @@ fn stroke_segments(
     let mut connection = Connection::default();
     let mut path = Path::new();
     let mut always_continuous = true;
+    let max_radius = size.x.min(size.y) / 2.0;
 
     for side in [Side::Top, Side::Right, Side::Bottom, Side::Left] {
         let continuous = stroke.get(side) == stroke.get(side.next_cw());
@@ -62,8 +63,8 @@ fn stroke_segments(
             &mut path,
             side,
             size,
-            radius.get(side.start_corner()),
-            radius.get(side.end_corner()),
+            radius.get(side.start_corner()).clamp(Abs::zero(), max_radius),
+            radius.get(side.end_corner()).clamp(Abs::zero(), max_radius),
             connection,
         );
 
