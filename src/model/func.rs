@@ -96,7 +96,7 @@ impl Func {
     pub fn call(&self, vm: &Vm, mut args: Args) -> SourceResult<Value> {
         let value = match self.0.as_ref() {
             Repr::Native(native) => (native.func)(vm, &mut args)?,
-            Repr::Closure(closure) => closure.call(vm, &mut args)?,
+            Repr::Closure(closure) => closure.call(vm, self, &mut args)?,
             Repr::With(wrapped, applied) => {
                 args.items.splice(..0, applied.items.iter().cloned());
                 return wrapped.call(vm, args);
@@ -115,7 +115,7 @@ impl Func {
         let route = Route::default();
         let id = SourceId::detached();
         let scopes = Scopes::new(None);
-        let vm = Vm::new(world, route.track(), id, scopes);
+        let vm = Vm::new(world, route.track(), id, scopes, 0);
         self.call(&vm, args)
     }
 
@@ -274,11 +274,16 @@ pub(super) struct Closure {
 
 impl Closure {
     /// Call the function in the context with the arguments.
-    fn call(&self, vm: &Vm, args: &mut Args) -> SourceResult<Value> {
+    fn call(&self, vm: &Vm, this: &Func, args: &mut Args) -> SourceResult<Value> {
         // Don't leak the scopes from the call site. Instead, we use the scope
         // of captured variables we collected earlier.
         let mut scopes = Scopes::new(None);
         scopes.top = self.captured.clone();
+
+        // Provide the closure itself for recursive calls.
+        if let Some(name) = &self.name {
+            scopes.top.define(name.clone(), Value::Func(this.clone()));
+        }
 
         // Parse the arguments according to the parameter list.
         for (param, default) in &self.params {
@@ -304,7 +309,7 @@ impl Closure {
         let route = if detached { fresh.track() } else { vm.route };
 
         // Evaluate the body.
-        let mut sub = Vm::new(vm.world, route, self.location, scopes);
+        let mut sub = Vm::new(vm.world, route, self.location, scopes, vm.depth + 1);
         let result = self.body.eval(&mut sub);
 
         // Handle control flow.
@@ -376,6 +381,10 @@ impl<'a> CapturesVisitor<'a> {
                     if let ast::Param::Named(named) = param {
                         self.visit(named.expr().as_untyped());
                     }
+                }
+
+                if let Some(name) = expr.name() {
+                    self.bind(name);
                 }
 
                 for param in expr.params() {
@@ -456,6 +465,7 @@ mod tests {
     #[track_caller]
     fn test(text: &str, result: &[&str]) {
         let mut scopes = Scopes::new(None);
+        scopes.top.define("f", 0);
         scopes.top.define("x", 0);
         scopes.top.define("y", 0);
         scopes.top.define("z", 0);
@@ -477,6 +487,8 @@ mod tests {
         test("#let x = x", &["x"]);
         test("#let x; {x + y}", &["y"]);
         test("#let f(x, y) = x + y", &[]);
+        test("#let f(x, y) = f", &[]);
+        test("#let f = (x, y) => f", &["f"]);
 
         // Closure with different kinds of params.
         test("{(x, y) => x + z}", &["z"]);

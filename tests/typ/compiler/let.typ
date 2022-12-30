@@ -11,8 +11,8 @@
 
 // Syntax sugar for function definitions.
 #let fill = conifer
-#let rect(body) = rect(width: 2cm, fill: fill, inset: 5pt, body)
-#rect[Hi!]
+#let f(body) = rect(width: 2cm, fill: fill, inset: 5pt, body)
+#f[Hi!]
 
 ---
 // Termination.

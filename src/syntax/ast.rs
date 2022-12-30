@@ -1277,7 +1277,7 @@ impl Closure {
     ///
     /// This only exists if you use the function syntax sugar: `let f(x) = y`.
     pub fn name(&self) -> Option<Ident> {
-        self.0.cast_first_child()
+        self.0.children().next()?.cast()
     }
 
     /// The parameter bindings.

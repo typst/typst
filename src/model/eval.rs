@@ -20,6 +20,9 @@ use crate::syntax::{ast, Source, SourceId, Span, Spanned, SyntaxKind, SyntaxNode
 use crate::util::{format_eco, EcoString, PathExt};
 use crate::World;
 
+const MAX_ITERATIONS: usize = 10_000;
+const MAX_CALL_DEPTH: usize = 256;
+
 /// Evaluate a source file and return the resulting module.
 #[comemo::memoize]
 pub fn eval(
@@ -41,7 +44,7 @@ pub fn eval(
     // Evaluate the module.
     let route = unsafe { Route::insert(route, id) };
     let scopes = Scopes::new(Some(&library.scope));
-    let mut vm = Vm::new(world, route.track(), id, scopes);
+    let mut vm = Vm::new(world, route.track(), id, scopes, 0);
     let result = source.ast()?.eval(&mut vm);
 
     // Handle control flow.
@@ -70,6 +73,8 @@ pub struct Vm<'a> {
     pub(super) flow: Option<Flow>,
     /// The stack of scopes.
     pub(super) scopes: Scopes<'a>,
+    /// The current call depth.
+    pub(super) depth: usize,
 }
 
 impl<'a> Vm<'a> {
@@ -79,6 +84,7 @@ impl<'a> Vm<'a> {
         route: Tracked<'a, Route>,
         location: SourceId,
         scopes: Scopes<'a>,
+        depth: usize,
     ) -> Self {
         Self {
             world,
@@ -87,6 +93,7 @@ impl<'a> Vm<'a> {
             location,
             flow: None,
             scopes,
+            depth,
         }
     }
 
@@ -787,6 +794,10 @@ impl Eval for ast::FuncCall {
     type Output = Value;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        if vm.depth >= MAX_CALL_DEPTH {
+            bail!(self.span(), "maximum function call depth exceeded");
+        }
+
         let callee = self.callee().eval(vm)?;
         let args = self.args().eval(vm)?;
 
@@ -994,8 +1005,6 @@ impl Eval for ast::WhileLoop {
     type Output = Value;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        const MAX_ITERS: usize = 10_000;
-
         let flow = vm.flow.take();
         let mut output = Value::None;
         let mut i = 0;
@@ -1009,7 +1018,7 @@ impl Eval for ast::WhileLoop {
                 && !can_diverge(body.as_untyped())
             {
                 bail!(condition.span(), "condition is always true");
-            } else if i >= MAX_ITERS {
+            } else if i >= MAX_ITERATIONS {
                 bail!(self.span(), "loop seems to be infinite");
             }
 
