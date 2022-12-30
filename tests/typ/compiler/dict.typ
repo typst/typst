@@ -12,17 +12,17 @@
 #dict
 
 #test(dict.normal, 1)
-#test(dict("spacy key"), 2)
+#test(dict.at("spacy key"), 2)
 
 ---
 // Test lvalue and rvalue access.
 {
   let dict = (a: 1, "b b": 1)
-  dict("b b") += 1
+  dict.at("b b") += 1
   dict.state = (ok: true, err: false)
   test(dict, (a: 1, "b b": 2, state: (ok: true, err: false)))
   test(dict.state.ok, true)
-  dict("state").ok = false
+  dict.at("state").ok = false
   test(dict.state.ok, false)
   test(dict.state.err, false)
 }
@@ -31,17 +31,29 @@
 // Test rvalue missing key.
 {
   let dict = (a: 1, b: 2)
-  // Error: 11-20 dictionary does not contain key "c"
-  let x = dict("c")
+  // Error: 11-23 dictionary does not contain key "c"
+  let x = dict.at("c")
 }
 
 ---
 // Missing lvalue is automatically none-initialized.
 {
   let dict = (:)
-  dict("b") += 1
+  dict.at("b") += 1
   test(dict, (b: 1))
 }
+
+---
+// Test dictionary methods.
+#let dict = (a: 3, c: 2, b: 1)
+#test("c" in dict, true)
+#test(dict.len(), 3)
+#test(dict.values(), (3, 1, 2))
+#test(dict.pairs((k, v) => k + str(v)).join(), "a3b1c2")
+
+{ dict.remove("c") }
+#test("c" in dict, false)
+#test(dict, (a: 3, b: 1))
 
 ---
 // Error: 24-32 pair has duplicate key
@@ -65,7 +77,7 @@
 
 ---
 // Error: 3-15 cannot mutate a temporary value
-{ (key: value).other = "some" }
+{ (key: "val").other = "some" }
 
 ---
 {

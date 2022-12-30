@@ -2,6 +2,35 @@
 // Ref: false
 
 ---
+// Test the `len` method.
+#test("Hello World!".len(), 12)
+
+---
+// Test the `first` and `last` methods.
+#test("Hello".first(), "H")
+#test("Hello".last(), "o")
+#test("🏳️‍🌈A🏳️‍⚧️".first(), "🏳️‍🌈")
+#test("🏳️‍🌈A🏳️‍⚧️".last(), "🏳️‍⚧️")
+
+---
+// Error: 3-13 string is empty
+{ "".first() }
+
+---
+// Error: 3-12 string is empty
+{ "".last() }
+
+---
+// Test the `at` method.
+#test("Hello".at(1), "e")
+#test("Hello".at(4), "o")
+#test("Hey: 🏳️‍🌈 there!".at(5), "🏳️‍🌈")
+
+---
+// Error: 3-16 string index out of bounds (index: 5, len: 5)
+{ "Hello".at(5) }
+
+---
 // Test the `slice` method.
 #test("abc".slice(1, 2), "b")
 #test("abc🏡def".slice(2, 7), "c🏡")
@@ -57,7 +86,7 @@
   let time = 0
   for match in text.matches(regex("(\d+):(\d+)")) {
     let caps = match.captures
-    time += 60 * int(caps(0)) + int(caps(1))
+    time += 60 * int(caps.at(0)) + int(caps.at(1))
   }
   str(int(time / 60)) + ":" + str(mod(time, 60))
 }

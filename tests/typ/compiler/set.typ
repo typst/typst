@@ -40,7 +40,7 @@ Hello *{x}*
 // Test relative path resolving in layout phase.
 #let choice = ("monkey.svg", "rhino.png", "tiger.jpg")
 #set enum(numbering: n => {
-  let path = "../../res/" + choice(n - 1)
+  let path = "../../res/" + choice.at(n - 1)
   move(dy: -0.15em, image(path, width: 1em, height: 1em))
 })
 

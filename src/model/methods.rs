@@ -1,6 +1,6 @@
 //! Methods on values.
 
-use super::{Args, Value, Vm};
+use super::{Args, Str, Value, Vm};
 use crate::diag::{At, SourceResult};
 use crate::syntax::Span;
 use crate::util::EcoString;
@@ -26,6 +26,9 @@ pub fn call(
 
         Value::Str(string) => match method {
             "len" => Value::Int(string.len() as i64),
+            "first" => Value::Str(string.first().at(span)?),
+            "last" => Value::Str(string.last().at(span)?),
+            "at" => Value::Str(string.at(args.expect("index")?).at(span)?),
             "slice" => {
                 let start = args.expect("start")?;
                 let mut end = args.eat()?;
@@ -65,8 +68,9 @@ pub fn call(
 
         Value::Array(array) => match method {
             "len" => Value::Int(array.len()),
-            "first" => array.first().cloned().unwrap_or(Value::None),
-            "last" => array.last().cloned().unwrap_or(Value::None),
+            "first" => array.first().at(span)?.clone(),
+            "last" => array.last().at(span)?.clone(),
+            "at" => array.at(args.expect("index")?).at(span)?.clone(),
             "slice" => {
                 let start = args.expect("start")?;
                 let mut end = args.eat()?;
@@ -82,6 +86,9 @@ pub fn call(
                 .map_or(Value::None, Value::Int),
             "filter" => Value::Array(array.filter(vm, args.expect("function")?)?),
             "map" => Value::Array(array.map(vm, args.expect("function")?)?),
+            "fold" => {
+                array.fold(vm, args.expect("initial value")?, args.expect("function")?)?
+            }
             "any" => Value::Bool(array.any(vm, args.expect("function")?)?),
             "all" => Value::Bool(array.all(vm, args.expect("function")?)?),
             "flatten" => Value::Array(array.flatten()),
@@ -97,6 +104,7 @@ pub fn call(
 
         Value::Dict(dict) => match method {
             "len" => Value::Int(dict.len()),
+            "at" => dict.at(&args.expect::<Str>("key")?).cloned().at(span)?,
             "keys" => Value::Array(dict.keys()),
             "values" => Value::Array(dict.values()),
             "pairs" => Value::Array(dict.map(vm, args.expect("function")?)?),
@@ -158,9 +166,42 @@ pub fn call_mut(
     Ok(output)
 }
 
+/// Call an accessor method on a value.
+pub fn call_access<'a>(
+    value: &'a mut Value,
+    method: &str,
+    mut args: Args,
+    span: Span,
+) -> SourceResult<&'a mut Value> {
+    let name = value.type_name();
+    let missing = || Err(missing_method(name, method)).at(span);
+
+    let slot = match value {
+        Value::Array(array) => match method {
+            "first" => array.first_mut().at(span)?,
+            "last" => array.last_mut().at(span)?,
+            "at" => array.at_mut(args.expect("index")?).at(span)?,
+            _ => return missing(),
+        },
+        Value::Dict(dict) => match method {
+            "at" => dict.at_mut(args.expect("index")?),
+            _ => return missing(),
+        },
+        _ => return missing(),
+    };
+
+    args.finish()?;
+    Ok(slot)
+}
+
 /// Whether a specific method is mutating.
 pub fn is_mutating(method: &str) -> bool {
     matches!(method, "push" | "pop" | "insert" | "remove")
+}
+
+/// Whether a specific method is an accessor.
+pub fn is_accessor(method: &str) -> bool {
+    matches!(method, "first" | "last" | "at")
 }
 
 /// The missing method error message.

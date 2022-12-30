@@ -780,7 +780,7 @@ impl Eval for ast::FieldAccess {
         let field = self.field().take();
 
         Ok(match object {
-            Value::Dict(dict) => dict.get(&field).at(span)?.clone(),
+            Value::Dict(dict) => dict.at(&field).at(span)?.clone(),
             Value::Content(content) => content
                 .field(&field)
                 .ok_or_else(|| format!("unknown field {field:?}"))
@@ -798,22 +798,11 @@ impl Eval for ast::FuncCall {
             bail!(self.span(), "maximum function call depth exceeded");
         }
 
-        let callee = self.callee().eval(vm)?;
+        let callee = self.callee();
+        let callee = callee.eval(vm)?.cast::<Func>().at(callee.span())?;
         let args = self.args().eval(vm)?;
-
-        Ok(match callee {
-            Value::Array(array) => array.get(args.into_index()?).at(self.span())?.clone(),
-            Value::Dict(dict) => dict.get(&args.into_key()?).at(self.span())?.clone(),
-            Value::Func(func) => {
-                let point = || Tracepoint::Call(func.name().map(Into::into));
-                func.call(vm, args).trace(vm.world, point, self.span())?
-            }
-            v => bail!(
-                self.callee().span(),
-                "expected callable or collection, found {}",
-                v.type_name(),
-            ),
-        })
+        let point = || Tracepoint::Call(callee.name().map(Into::into));
+        callee.call(vm, args).trace(vm.world, point, self.span())
     }
 }
 
@@ -1246,9 +1235,13 @@ impl Access for ast::Expr {
     fn access<'a>(&self, vm: &'a mut Vm) -> SourceResult<&'a mut Value> {
         match self {
             Self::Ident(v) => v.access(vm),
+            Self::Parenthesized(v) => v.access(vm),
             Self::FieldAccess(v) => v.access(vm),
-            Self::FuncCall(v) => v.access(vm),
-            _ => bail!(self.span(), "cannot mutate a temporary value"),
+            Self::MethodCall(v) => v.access(vm),
+            _ => {
+                let _ = self.eval(vm)?;
+                bail!(self.span(), "cannot mutate a temporary value");
+            }
         }
     }
 }
@@ -1259,10 +1252,16 @@ impl Access for ast::Ident {
     }
 }
 
+impl Access for ast::Parenthesized {
+    fn access<'a>(&self, vm: &'a mut Vm) -> SourceResult<&'a mut Value> {
+        self.expr().access(vm)
+    }
+}
+
 impl Access for ast::FieldAccess {
     fn access<'a>(&self, vm: &'a mut Vm) -> SourceResult<&'a mut Value> {
         Ok(match self.target().access(vm)? {
-            Value::Dict(dict) => dict.get_mut(self.field().take().into()),
+            Value::Dict(dict) => dict.at_mut(self.field().take().into()),
             v => bail!(
                 self.target().span(),
                 "expected dictionary, found {}",
@@ -1272,17 +1271,17 @@ impl Access for ast::FieldAccess {
     }
 }
 
-impl Access for ast::FuncCall {
+impl Access for ast::MethodCall {
     fn access<'a>(&self, vm: &'a mut Vm) -> SourceResult<&'a mut Value> {
+        let span = self.span();
+        let method = self.method();
         let args = self.args().eval(vm)?;
-        Ok(match self.callee().access(vm)? {
-            Value::Array(array) => array.get_mut(args.into_index()?).at(self.span())?,
-            Value::Dict(dict) => dict.get_mut(args.into_key()?),
-            v => bail!(
-                self.callee().span(),
-                "expected collection, found {}",
-                v.type_name(),
-            ),
-        })
+        if methods::is_accessor(&method) {
+            let value = self.target().access(vm)?;
+            methods::call_access(value, &method, args, span)
+        } else {
+            let _ = self.eval(vm)?;
+            bail!(span, "cannot mutate a temporary value");
+        }
     }
 }

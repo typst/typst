@@ -48,25 +48,25 @@
 #set text(family: "Arial", family: "Helvetica")
 
 ---
-// Error: 2-6 expected callable or collection, found boolean
+// Error: 2-6 expected function, found boolean
 {true()}
 
 ---
 #let x = "x"
 
-// Error: 1-3 expected callable or collection, found string
+// Error: 1-3 expected function, found string
 #x()
 
 ---
 #let f(x) = x
 
-// Error: 1-6 expected callable or collection, found integer
+// Error: 1-6 expected function, found integer
 #f(1)(2)
 
 ---
 #let f(x) = x
 
-// Error: 1-6 expected callable or collection, found content
+// Error: 1-6 expected function, found content
 #f[1](2)
 
 ---

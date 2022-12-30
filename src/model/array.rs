@@ -4,7 +4,7 @@ use std::ops::{Add, AddAssign};
 use std::sync::Arc;
 
 use super::{ops, Args, Func, Value, Vm};
-use crate::diag::{At, SourceResult, StrResult};
+use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::syntax::Spanned;
 use crate::util::{format_eco, ArcExt, EcoString};
 
@@ -45,24 +45,34 @@ impl Array {
     }
 
     /// The first value in the array.
-    pub fn first(&self) -> Option<&Value> {
-        self.0.first()
+    pub fn first(&self) -> StrResult<&Value> {
+        self.0.first().ok_or_else(array_is_empty)
+    }
+
+    /// Mutably borrow the first value in the array.
+    pub fn first_mut(&mut self) -> StrResult<&mut Value> {
+        Arc::make_mut(&mut self.0).first_mut().ok_or_else(array_is_empty)
     }
 
     /// The last value in the array.
-    pub fn last(&self) -> Option<&Value> {
-        self.0.last()
+    pub fn last(&self) -> StrResult<&Value> {
+        self.0.last().ok_or_else(array_is_empty)
+    }
+
+    /// Mutably borrow the last value in the array.
+    pub fn last_mut(&mut self) -> StrResult<&mut Value> {
+        Arc::make_mut(&mut self.0).last_mut().ok_or_else(array_is_empty)
     }
 
     /// Borrow the value at the given index.
-    pub fn get(&self, index: i64) -> StrResult<&Value> {
+    pub fn at(&self, index: i64) -> StrResult<&Value> {
         self.locate(index)
             .and_then(|i| self.0.get(i))
             .ok_or_else(|| out_of_bounds(index, self.len()))
     }
 
     /// Mutably borrow the value at the given index.
-    pub fn get_mut(&mut self, index: i64) -> StrResult<&mut Value> {
+    pub fn at_mut(&mut self, index: i64) -> StrResult<&mut Value> {
         let len = self.len();
         self.locate(index)
             .and_then(move |i| Arc::make_mut(&mut self.0).get_mut(i))
@@ -128,6 +138,9 @@ impl Array {
 
     /// Return the first matching element.
     pub fn find(&self, vm: &Vm, f: Spanned<Func>) -> SourceResult<Option<Value>> {
+        if f.v.argc().map_or(false, |count| count != 1) {
+            bail!(f.span, "function must have exactly one parameter");
+        }
         for item in self.iter() {
             let args = Args::new(f.span, [item.clone()]);
             if f.v.call(vm, args)?.cast::<bool>().at(f.span)? {
@@ -140,6 +153,9 @@ impl Array {
 
     /// Return the index of the first matching element.
     pub fn position(&self, vm: &Vm, f: Spanned<Func>) -> SourceResult<Option<i64>> {
+        if f.v.argc().map_or(false, |count| count != 1) {
+            bail!(f.span, "function must have exactly one parameter");
+        }
         for (i, item) in self.iter().enumerate() {
             let args = Args::new(f.span, [item.clone()]);
             if f.v.call(vm, args)?.cast::<bool>().at(f.span)? {
@@ -153,6 +169,9 @@ impl Array {
     /// Return a new array with only those elements for which the function
     /// returns true.
     pub fn filter(&self, vm: &Vm, f: Spanned<Func>) -> SourceResult<Self> {
+        if f.v.argc().map_or(false, |count| count != 1) {
+            bail!(f.span, "function must have exactly one parameter");
+        }
         let mut kept = vec![];
         for item in self.iter() {
             let args = Args::new(f.span, [item.clone()]);
@@ -165,6 +184,9 @@ impl Array {
 
     /// Transform each item in the array with a function.
     pub fn map(&self, vm: &Vm, f: Spanned<Func>) -> SourceResult<Self> {
+        if f.v.argc().map_or(false, |count| count < 1 || count > 2) {
+            bail!(f.span, "function must have one or two parameters");
+        }
         let enumerate = f.v.argc() == Some(2);
         self.iter()
             .enumerate()
@@ -179,8 +201,24 @@ impl Array {
             .collect()
     }
 
+    /// Fold all of the array's elements into one with a function.
+    pub fn fold(&self, vm: &Vm, init: Value, f: Spanned<Func>) -> SourceResult<Value> {
+        if f.v.argc().map_or(false, |count| count != 2) {
+            bail!(f.span, "function must have exactly two parameters");
+        }
+        let mut acc = init;
+        for item in self.iter() {
+            let args = Args::new(f.span, [acc, item.clone()]);
+            acc = f.v.call(vm, args)?;
+        }
+        Ok(acc)
+    }
+
     /// Whether any element matches.
     pub fn any(&self, vm: &Vm, f: Spanned<Func>) -> SourceResult<bool> {
+        if f.v.argc().map_or(false, |count| count != 1) {
+            bail!(f.span, "function must have exactly one parameter");
+        }
         for item in self.iter() {
             let args = Args::new(f.span, [item.clone()]);
             if f.v.call(vm, args)?.cast::<bool>().at(f.span)? {
@@ -193,6 +231,9 @@ impl Array {
 
     /// Whether all elements match.
     pub fn all(&self, vm: &Vm, f: Spanned<Func>) -> SourceResult<bool> {
+        if f.v.argc().map_or(false, |count| count != 1) {
+            bail!(f.span, "function must have exactly one parameter");
+        }
         for item in self.iter() {
             let args = Args::new(f.span, [item.clone()]);
             if !f.v.call(vm, args)?.cast::<bool>().at(f.span)? {

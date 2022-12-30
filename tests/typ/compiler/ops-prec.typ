@@ -12,8 +12,10 @@
 #test("a" == "a" and 2 < 3, true)
 #test(not "b" == "b", false)
 
+---
 // Assignment binds stronger than boolean operations.
-// Error: 2-7 cannot mutate a temporary value
+// Error: 2:2-2:7 cannot mutate a temporary value
+#let x = false
 {not x = "a"}
 
 ---

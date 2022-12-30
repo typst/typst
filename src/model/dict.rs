@@ -4,7 +4,7 @@ use std::ops::{Add, AddAssign};
 use std::sync::Arc;
 
 use super::{Args, Array, Func, Str, Value, Vm};
-use crate::diag::{SourceResult, StrResult};
+use crate::diag::{bail, SourceResult, StrResult};
 use crate::syntax::is_ident;
 use crate::syntax::Spanned;
 use crate::util::{format_eco, ArcExt, EcoString};
@@ -50,7 +50,7 @@ impl Dict {
     }
 
     /// Borrow the value the given `key` maps to.
-    pub fn get(&self, key: &str) -> StrResult<&Value> {
+    pub fn at(&self, key: &str) -> StrResult<&Value> {
         self.0.get(key).ok_or_else(|| missing_key(key))
     }
 
@@ -58,7 +58,7 @@ impl Dict {
     ///
     /// This inserts the key with [`None`](Value::None) as the value if not
     /// present so far.
-    pub fn get_mut(&mut self, key: Str) -> &mut Value {
+    pub fn at_mut(&mut self, key: Str) -> &mut Value {
         Arc::make_mut(&mut self.0).entry(key).or_default()
     }
 
@@ -108,6 +108,9 @@ impl Dict {
 
     /// Transform each pair in the dictionary with a function.
     pub fn map(&self, vm: &Vm, f: Spanned<Func>) -> SourceResult<Array> {
+        if f.v.argc().map_or(false, |count| count != 1) {
+            bail!(f.span, "function must have exactly two parameters");
+        }
         self.iter()
             .map(|(key, value)| {
                 let args = Args::new(f.span, [Value::Str(key.clone()), value.clone()]);

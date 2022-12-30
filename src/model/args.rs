@@ -165,36 +165,6 @@ impl Args {
             .filter_map(|item| item.name.clone().map(|name| (name, item.value.v.clone())))
             .collect()
     }
-
-    /// Reinterpret these arguments as actually being an array index.
-    pub fn into_index(self) -> SourceResult<i64> {
-        self.into_castable("index")
-    }
-
-    /// Reinterpret these arguments as actually being a dictionary key.
-    pub fn into_key(self) -> SourceResult<Str> {
-        self.into_castable("key")
-    }
-
-    /// Reinterpret these arguments as actually being a single castable thing.
-    fn into_castable<T: Cast>(self, what: &str) -> SourceResult<T> {
-        let mut iter = self.items.into_iter();
-        let value = match iter.next() {
-            Some(Arg { name: None, value, .. }) => value.v.cast().at(value.span)?,
-            None => {
-                bail!(self.span, "missing {}", what);
-            }
-            Some(Arg { name: Some(_), span, .. }) => {
-                bail!(span, "named pair is not allowed here");
-            }
-        };
-
-        if let Some(arg) = iter.next() {
-            bail!(arg.span, "only one {} is allowed", what);
-        }
-
-        Ok(value)
-    }
 }
 
 impl Debug for Args {

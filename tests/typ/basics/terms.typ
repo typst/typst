@@ -40,7 +40,7 @@ No: list \
 #show terms: it => table(
   columns: 2,
   inset: 3pt,
-  ..it.items.map(item => (emph(item(0)), item(1))).flatten(),
+  ..it.items.map(item => (emph(item.at(0)), item.at(1))).flatten(),
 )
 
 / A: One letter

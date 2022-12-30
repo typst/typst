@@ -39,11 +39,14 @@
 ---
 // Test numbering with closure.
 #enum(
-   start: 4,
-   spacing: 0.65em - 3pt,
-   tight: false,
-   numbering: n => text(fill: (red, green, blue)(mod(n, 3)), numbering("A", n)),
-   [Red], [Green], [Blue],
+  start: 4,
+  spacing: 0.65em - 3pt,
+  tight: false,
+  numbering: n => text(
+    fill: (red, green, blue).at(mod(n, 3)),
+    numbering("A", n),
+  ),
+  [Red], [Green], [Blue],
 )
 
 ---

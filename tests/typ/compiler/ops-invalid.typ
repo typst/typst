@@ -90,19 +90,28 @@
 {
   let x = 2
   for _ in range(61) {
-    x *= 2
+    (x) *= 2
   }
   // Error: 4-18 cannot repeat this string 4611686018427387904 times
   {x * "abcdefgh"}
 }
 
 ---
-// Error: 3-6 cannot mutate a temporary value
+// Error: 4-5 unknown variable
 { (x) = "" }
 
 ---
 // Error: 3-8 cannot mutate a temporary value
 { 1 + 2 += 3 }
+
+---
+// Error: 2:2-2:7 cannot apply 'not' to string
+#let x = "Hey"
+{not x = "a"}
+
+---
+// Error: 7-8 unknown variable
+{ 1 + x += 3 }
 
 ---
 // Error: 3-4 unknown variable

@@ -42,14 +42,38 @@ impl Str {
         self
     }
 
-    /// The codepoints the string consists of.
-    pub fn codepoints(&self) -> Array {
-        self.as_str().chars().map(|c| Value::Str(c.into())).collect()
-    }
-
     /// The grapheme clusters the string consists of.
     pub fn graphemes(&self) -> Array {
         self.as_str().graphemes(true).map(|s| Value::Str(s.into())).collect()
+    }
+
+    /// Extract the first grapheme cluster.
+    pub fn first(&self) -> StrResult<Self> {
+        self.0
+            .graphemes(true)
+            .next()
+            .map(Into::into)
+            .ok_or_else(string_is_empty)
+    }
+
+    /// Extract the last grapheme cluster.
+    pub fn last(&self) -> StrResult<Self> {
+        self.0
+            .graphemes(true)
+            .next_back()
+            .map(Into::into)
+            .ok_or_else(string_is_empty)
+    }
+
+    /// Extract the grapheme cluster at the given index.
+    pub fn at(&self, index: i64) -> StrResult<Self> {
+        let len = self.len();
+        let grapheme = self
+            .locate(index)
+            .filter(|&index| index <= self.0.len())
+            .and_then(|index| self.0[index..].graphemes(true).next())
+            .ok_or_else(|| out_of_bounds(index, len))?;
+        Ok(grapheme.into())
     }
 
     /// Extract a contigous substring.
@@ -268,6 +292,12 @@ impl Str {
 #[cold]
 fn out_of_bounds(index: i64, len: i64) -> String {
     format!("string index out of bounds (index: {}, len: {})", index, len)
+}
+
+/// The error message when the string is empty.
+#[cold]
+fn string_is_empty() -> EcoString {
+    "string is empty".into()
 }
 
 /// Convert an item of std's `match_indices` to a dictionary.
