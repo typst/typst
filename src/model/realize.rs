@@ -136,7 +136,12 @@ fn try_apply(
 #[capability]
 pub trait Prepare {
     /// Prepare the node for show rule application.
-    fn prepare(&self, vt: &mut Vt, this: Content, styles: StyleChain) -> Content;
+    fn prepare(
+        &self,
+        vt: &mut Vt,
+        this: Content,
+        styles: StyleChain,
+    ) -> SourceResult<Content>;
 }
 
 /// The base recipe for a node.

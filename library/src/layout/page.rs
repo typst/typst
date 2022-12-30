@@ -2,7 +2,6 @@ use std::str::FromStr;
 
 use super::ColumnsNode;
 use crate::prelude::*;
-use crate::text::TextNode;
 
 /// # Page
 /// Layouts its child onto one or multiple pages.
@@ -174,7 +173,7 @@ impl PageNode {
     /// #lorem(18)
     /// ```
     #[property(referenced)]
-    pub const HEADER: Marginal = Marginal::None;
+    pub const HEADER: Option<Marginal> = None;
 
     /// The page's footer.
     ///
@@ -199,7 +198,7 @@ impl PageNode {
     /// #lorem(18)
     /// ```
     #[property(referenced)]
-    pub const FOOTER: Marginal = Marginal::None;
+    pub const FOOTER: Option<Marginal> = None;
 
     /// Content in the page's background.
     ///
@@ -221,7 +220,7 @@ impl PageNode {
     /// (of typesetting).
     /// ```
     #[property(referenced)]
-    pub const BACKGROUND: Marginal = Marginal::None;
+    pub const BACKGROUND: Option<Marginal> = None;
 
     /// Content in the page's foreground.
     ///
@@ -239,7 +238,7 @@ impl PageNode {
     /// not understand our approach...
     /// ```
     #[property(referenced)]
-    pub const FOREGROUND: Marginal = Marginal::None;
+    pub const FOREGROUND: Option<Marginal> = None;
 
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self(args.expect("body")?).pack())
@@ -323,14 +322,15 @@ impl PageNode {
                 (foreground, Point::zero(), size),
                 (background, Point::zero(), size),
             ] {
-                if let Some(content) = marginal.resolve(vt, page)? {
-                    let pod = Regions::one(area, area, Axes::splat(true));
-                    let sub = content.layout(vt, styles, pod)?.into_frame();
-                    if std::ptr::eq(marginal, background) {
-                        frame.prepend_frame(pos, sub);
-                    } else {
-                        frame.push_frame(pos, sub);
-                    }
+                let in_background = std::ptr::eq(marginal, background);
+                let Some(marginal) = marginal else { continue };
+                let content = marginal.resolve(vt, page)?;
+                let pod = Regions::one(area, area, Axes::splat(true));
+                let sub = content.layout(vt, styles, pod)?.into_frame();
+                if in_background {
+                    frame.prepend_frame(pos, sub);
+                } else {
+                    frame.push_frame(pos, sub);
                 }
             }
 
@@ -396,53 +396,29 @@ impl PagebreakNode {
 /// A header, footer, foreground or background definition.
 #[derive(Debug, Clone, Hash)]
 pub enum Marginal {
-    /// Nothing,
-    None,
     /// Bare content.
     Content(Content),
     /// A closure mapping from a page number to content.
-    Func(Func, Span),
+    Func(Func),
 }
 
 impl Marginal {
     /// Resolve the marginal based on the page number.
-    pub fn resolve(&self, vt: &Vt, page: usize) -> SourceResult<Option<Content>> {
+    pub fn resolve(&self, vt: &Vt, page: usize) -> SourceResult<Content> {
         Ok(match self {
-            Self::None => None,
-            Self::Content(content) => Some(content.clone()),
-            Self::Func(func, span) => {
-                let args = Args::new(*span, [Value::Int(page as i64)]);
-                Some(func.call_detached(vt.world(), args)?.display())
+            Self::Content(content) => content.clone(),
+            Self::Func(func) => {
+                let args = Args::new(func.span(), [Value::Int(page as i64)]);
+                func.call_detached(vt.world(), args)?.display()
             }
         })
     }
 }
 
-impl Cast<Spanned<Value>> for Marginal {
-    fn is(value: &Spanned<Value>) -> bool {
-        matches!(
-            &value.v,
-            Value::None | Value::Str(_) | Value::Content(_) | Value::Func(_)
-        )
-    }
-
-    fn cast(value: Spanned<Value>) -> StrResult<Self> {
-        match value.v {
-            Value::None => Ok(Self::None),
-            Value::Str(v) => Ok(Self::Content(TextNode::packed(v))),
-            Value::Content(v) => Ok(Self::Content(v)),
-            Value::Func(v) => Ok(Self::Func(v, value.span)),
-            v => Self::error(v),
-        }
-    }
-
-    fn describe() -> CastInfo {
-        CastInfo::Union(vec![
-            CastInfo::Type("none"),
-            CastInfo::Type("content"),
-            CastInfo::Type("function"),
-        ])
-    }
+castable! {
+    Marginal,
+    v: Content => Self::Content(v),
+    v: Func => Self::Func(v),
 }
 
 /// Specification of a paper.

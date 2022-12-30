@@ -563,7 +563,11 @@ impl Eval for ast::Ident {
     type Output = Value;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        vm.scopes.get(self).cloned().at(self.span())
+        let value = vm.scopes.get(self).cloned().at(self.span())?;
+        Ok(match value {
+            Value::Func(func) => Value::Func(func.spanned(self.span())),
+            value => value,
+        })
     }
 }
 
@@ -912,15 +916,17 @@ impl Eval for ast::Closure {
             }
         }
 
-        // Define the actual function.
-        Ok(Value::Func(Func::from_closure(Closure {
+        // Define the closure function.
+        let closure = Closure {
             location: vm.location,
             name,
             captured,
             params,
             sink,
             body: self.body(),
-        })))
+        };
+
+        Ok(Value::Func(Func::from_closure(closure, self.span())))
     }
 }
 

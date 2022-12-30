@@ -10,13 +10,13 @@ use super::{
 };
 use crate::diag::{bail, SourceResult, StrResult};
 use crate::syntax::ast::{self, AstNode, Expr};
-use crate::syntax::{SourceId, SyntaxNode};
+use crate::syntax::{SourceId, Span, SyntaxNode};
 use crate::util::EcoString;
 use crate::World;
 
 /// An evaluatable function.
 #[derive(Clone, Hash)]
-pub struct Func(Arc<Repr>);
+pub struct Func(Arc<Repr>, Span);
 
 /// The different kinds of function representations.
 #[derive(Hash)]
@@ -40,27 +40,33 @@ impl Func {
         func: fn(&Vm, &mut Args) -> SourceResult<Value>,
         info: FuncInfo,
     ) -> Self {
-        Self(Arc::new(Repr::Native(Native { func, set: None, node: None, info })))
+        Self(
+            Arc::new(Repr::Native(Native { func, set: None, node: None, info })),
+            Span::detached(),
+        )
     }
 
     /// Create a new function from a native rust node.
     pub fn from_node<T: Node>(mut info: FuncInfo) -> Self {
         info.params.extend(T::properties());
-        Self(Arc::new(Repr::Native(Native {
-            func: |ctx, args| {
-                let styles = T::set(args, true)?;
-                let content = T::construct(ctx, args)?;
-                Ok(Value::Content(content.styled_with_map(styles.scoped())))
-            },
-            set: Some(|args| T::set(args, false)),
-            node: Some(NodeId::of::<T>()),
-            info,
-        })))
+        Self(
+            Arc::new(Repr::Native(Native {
+                func: |ctx, args| {
+                    let styles = T::set(args, true)?;
+                    let content = T::construct(ctx, args)?;
+                    Ok(Value::Content(content.styled_with_map(styles.scoped())))
+                },
+                set: Some(|args| T::set(args, false)),
+                node: Some(NodeId::of::<T>()),
+                info,
+            })),
+            Span::detached(),
+        )
     }
 
     /// Create a new function from a closure.
-    pub(super) fn from_closure(closure: Closure) -> Self {
-        Self(Arc::new(Repr::Closure(closure)))
+    pub(super) fn from_closure(closure: Closure, span: Span) -> Self {
+        Self(Arc::new(Repr::Closure(closure)), span)
     }
 
     /// The name of the function.
@@ -79,6 +85,17 @@ impl Func {
             Repr::With(func, _) => func.info(),
             _ => None,
         }
+    }
+
+    /// The function's span.
+    pub fn span(&self) -> Span {
+        self.1
+    }
+
+    /// Attach a span to the function.
+    pub fn spanned(mut self, span: Span) -> Self {
+        self.1 = span;
+        self
     }
 
     /// The number of positional arguments this function takes, if known.
@@ -121,7 +138,8 @@ impl Func {
 
     /// Apply the given arguments to the function.
     pub fn with(self, args: Args) -> Self {
-        Self(Arc::new(Repr::With(self, args)))
+        let span = self.1;
+        Self(Arc::new(Repr::With(self, args)), span)
     }
 
     /// Create a selector for this function's node type, filtering by node's

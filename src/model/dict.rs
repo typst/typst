@@ -6,7 +6,6 @@ use std::sync::Arc;
 use super::{Args, Array, Func, Str, Value, Vm};
 use crate::diag::{bail, SourceResult, StrResult};
 use crate::syntax::is_ident;
-use crate::syntax::Spanned;
 use crate::util::{format_eco, ArcExt, EcoString};
 
 /// Create a new [`Dict`] from key-value pairs.
@@ -107,14 +106,15 @@ impl Dict {
     }
 
     /// Transform each pair in the dictionary with a function.
-    pub fn map(&self, vm: &Vm, f: Spanned<Func>) -> SourceResult<Array> {
-        if f.v.argc().map_or(false, |count| count != 1) {
-            bail!(f.span, "function must have exactly two parameters");
+    pub fn map(&self, vm: &Vm, func: Func) -> SourceResult<Array> {
+        if func.argc().map_or(false, |count| count != 2) {
+            bail!(func.span(), "function must have exactly two parameters");
         }
         self.iter()
             .map(|(key, value)| {
-                let args = Args::new(f.span, [Value::Str(key.clone()), value.clone()]);
-                f.v.call(vm, args)
+                let args =
+                    Args::new(func.span(), [Value::Str(key.clone()), value.clone()]);
+                func.call(vm, args)
             })
             .collect()
     }

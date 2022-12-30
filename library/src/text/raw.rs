@@ -132,7 +132,12 @@ impl RawNode {
 }
 
 impl Prepare for RawNode {
-    fn prepare(&self, _: &mut Vt, mut this: Content, styles: StyleChain) -> Content {
+    fn prepare(
+        &self,
+        _: &mut Vt,
+        mut this: Content,
+        styles: StyleChain,
+    ) -> SourceResult<Content> {
         this.push_field(
             "lang",
             match styles.get(Self::LANG) {
@@ -140,7 +145,7 @@ impl Prepare for RawNode {
                 None => Value::None,
             },
         );
-        this
+        Ok(this)
     }
 }
 

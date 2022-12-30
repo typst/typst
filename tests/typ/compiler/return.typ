@@ -57,7 +57,7 @@
 // Test that the expression is evaluated to the end.
 #let sum(..args) = {
   let s = 0
-  for v in args.positional() {
+  for v in args.pos() {
     s += v
   }
   s

@@ -317,7 +317,8 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         // Prepare only if this is the first application for this node.
         if let Some(node) = content.with::<dyn Prepare>() {
             if !content.is_prepared() {
-                let prepared = node.prepare(self.vt, content.clone().prepared(), styles);
+                let prepared =
+                    node.prepare(self.vt, content.clone().prepared(), styles)?;
                 let stored = self.scratch.content.alloc(prepared);
                 return self.accept(stored, styles);
             }

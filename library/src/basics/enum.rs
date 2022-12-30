@@ -1,9 +1,8 @@
 use std::str::FromStr;
 
-use crate::compute::NumberingPattern;
+use crate::compute::{Numbering, NumberingPattern};
 use crate::layout::{BlockNode, GridNode, ParNode, Spacing, TrackSizing};
 use crate::prelude::*;
-use crate::text::TextNode;
 
 /// # Numbered List
 /// A numbered list.
@@ -98,7 +97,7 @@ pub struct EnumNode {
 #[node]
 impl EnumNode {
     /// How to number the enumeration. Accepts a
-    /// [numbering pattern](@numbering).
+    /// [numbering pattern or function](@numbering).
     ///
     /// # Example
     /// ```
@@ -109,8 +108,8 @@ impl EnumNode {
     /// + Style
     /// ```
     #[property(referenced)]
-    pub const NUMBERING: EnumNumbering =
-        EnumNumbering::Pattern(NumberingPattern::from_str("1.").unwrap());
+    pub const NUMBERING: Numbering =
+        Numbering::Pattern(NumberingPattern::from_str("1.").unwrap());
 
     /// The indentation of each item's label.
     #[property(resolve)]
@@ -188,7 +187,7 @@ impl Layout for EnumNode {
         let mut number = NonZeroUsize::new(1).unwrap();
         for ((n, item), map) in self.items.iter() {
             number = n.unwrap_or(number);
-            let resolved = numbering.resolve(vt, number)?;
+            let resolved = numbering.apply(vt.world(), &[number])?.display();
             cells.push(Content::empty());
             cells.push(resolved.styled_with_map(map.clone()));
             cells.push(Content::empty());
@@ -207,45 +206,5 @@ impl Layout for EnumNode {
             cells,
         }
         .layout(vt, styles, regions)
-    }
-}
-
-/// How to number an enumeration.
-#[derive(Debug, Clone, Hash)]
-pub enum EnumNumbering {
-    /// A pattern with prefix, numbering, lower / upper case and suffix.
-    Pattern(NumberingPattern),
-    /// A closure mapping from an item's number to content.
-    Func(Func, Span),
-}
-
-impl EnumNumbering {
-    /// Resolve the marker based on the number.
-    pub fn resolve(&self, vt: &Vt, number: NonZeroUsize) -> SourceResult<Content> {
-        Ok(match self {
-            Self::Pattern(pattern) => TextNode::packed(pattern.apply(&[number])),
-            Self::Func(func, span) => {
-                let args = Args::new(*span, [Value::Int(number.get() as i64)]);
-                func.call_detached(vt.world(), args)?.display()
-            }
-        })
-    }
-}
-
-impl Cast<Spanned<Value>> for EnumNumbering {
-    fn is(value: &Spanned<Value>) -> bool {
-        matches!(&value.v, Value::Content(_) | Value::Func(_))
-    }
-
-    fn cast(value: Spanned<Value>) -> StrResult<Self> {
-        match value.v {
-            Value::Str(v) => Ok(Self::Pattern(v.parse()?)),
-            Value::Func(v) => Ok(Self::Func(v, value.span)),
-            v => Self::error(v),
-        }
-    }
-
-    fn describe() -> CastInfo {
-        CastInfo::Union(vec![CastInfo::Type("string"), CastInfo::Type("function")])
     }
 }

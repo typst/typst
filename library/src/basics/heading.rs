@@ -1,6 +1,6 @@
 use typst::font::FontWeight;
 
-use crate::compute::NumberingPattern;
+use crate::compute::Numbering;
 use crate::layout::{BlockNode, VNode};
 use crate::prelude::*;
 use crate::text::{SpaceNode, TextNode, TextSize};
@@ -15,8 +15,8 @@ use crate::text::{SpaceNode, TextNode, TextSize};
 /// (not the document's title).
 ///
 /// Typst can automatically number your headings for you. To enable numbering,
-/// specify how you want your headings to be numbered with a [numbering
-/// pattern](@numbering).
+/// specify how you want your headings to be numbered with a
+/// [numbering pattern or function](@numbering).
 ///
 /// Independently from the numbering, Typst can also automatically generate an
 /// [outline](@outline) of all headings for you. To exclude one or more headings
@@ -60,7 +60,8 @@ pub struct HeadingNode {
 
 #[node]
 impl HeadingNode {
-    /// How to number the heading. Accepts a [numbering pattern](@numbering).
+    /// How to number the heading. Accepts a
+    /// [numbering pattern or function](@numbering).
     ///
     /// # Example
     /// ```
@@ -71,7 +72,7 @@ impl HeadingNode {
     /// === A sub-subsection
     /// ```
     #[property(referenced)]
-    pub const NUMBERING: Option<NumberingPattern> = None;
+    pub const NUMBERING: Option<Numbering> = None;
 
     /// Whether the heading should appear in the outline.
     ///
@@ -106,7 +107,12 @@ impl HeadingNode {
 }
 
 impl Prepare for HeadingNode {
-    fn prepare(&self, vt: &mut Vt, mut this: Content, styles: StyleChain) -> Content {
+    fn prepare(
+        &self,
+        vt: &mut Vt,
+        mut this: Content,
+        styles: StyleChain,
+    ) -> SourceResult<Content> {
         let my_id = vt.identify(&this);
 
         let mut counter = HeadingCounter::new();
@@ -115,30 +121,32 @@ impl Prepare for HeadingNode {
                 break;
             }
 
-            if matches!(node.field("numbers"), Some(Value::Str(_))) {
+            let numbers = node.field("numbers").unwrap();
+            if numbers != Value::None {
                 let heading = node.to::<Self>().unwrap();
                 counter.advance(heading);
             }
         }
 
         let mut numbers = Value::None;
-        if let Some(pattern) = styles.get(Self::NUMBERING) {
-            numbers = Value::Str(pattern.apply(counter.advance(self)).into());
+        if let Some(numbering) = styles.get(Self::NUMBERING) {
+            numbers = numbering.apply(vt.world(), counter.advance(self))?;
         }
 
         this.push_field("outlined", Value::Bool(styles.get(Self::OUTLINED)));
         this.push_field("numbers", numbers);
 
         let meta = Meta::Node(my_id, this.clone());
-        this.styled(Meta::DATA, vec![meta])
+        Ok(this.styled(Meta::DATA, vec![meta]))
     }
 }
 
 impl Show for HeadingNode {
     fn show(&self, _: &mut Vt, this: &Content, _: StyleChain) -> SourceResult<Content> {
         let mut realized = self.title.clone();
-        if let Some(Value::Str(numbering)) = this.field("numbers") {
-            realized = TextNode::packed(numbering) + SpaceNode.pack() + realized;
+        let numbers = this.field("numbers").unwrap();
+        if numbers != Value::None {
+            realized = numbers.display() + SpaceNode.pack() + realized;
         }
         Ok(BlockNode(realized).pack())
     }

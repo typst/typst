@@ -118,7 +118,7 @@ pub fn call(
         },
 
         Value::Args(args) => match method {
-            "positional" => Value::Array(args.to_positional()),
+            "pos" => Value::Array(args.to_pos()),
             "named" => Value::Dict(args.to_named()),
             _ => return missing(),
         },

@@ -150,7 +150,7 @@ impl Args {
     }
 
     /// Extract the positional arguments as an array.
-    pub fn to_positional(&self) -> Array {
+    pub fn to_pos(&self) -> Array {
         self.items
             .iter()
             .filter(|item| item.name.is_none())

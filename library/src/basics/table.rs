@@ -199,7 +199,7 @@ pub enum Celled<T> {
     /// A bare value, the same for all cells.
     Value(T),
     /// A closure mapping from cell coordinates to a value.
-    Func(Func, Span),
+    Func(Func),
 }
 
 impl<T: Cast + Clone> Celled<T> {
@@ -207,24 +207,25 @@ impl<T: Cast + Clone> Celled<T> {
     pub fn resolve(&self, vt: &Vt, x: usize, y: usize) -> SourceResult<T> {
         Ok(match self {
             Self::Value(value) => value.clone(),
-            Self::Func(func, span) => {
-                let args = Args::new(*span, [Value::Int(x as i64), Value::Int(y as i64)]);
-                func.call_detached(vt.world(), args)?.cast().at(*span)?
+            Self::Func(func) => {
+                let args =
+                    Args::new(func.span(), [Value::Int(x as i64), Value::Int(y as i64)]);
+                func.call_detached(vt.world(), args)?.cast().at(func.span())?
             }
         })
     }
 }
 
-impl<T: Cast> Cast<Spanned<Value>> for Celled<T> {
-    fn is(value: &Spanned<Value>) -> bool {
-        matches!(&value.v, Value::Func(_)) || T::is(&value.v)
+impl<T: Cast> Cast for Celled<T> {
+    fn is(value: &Value) -> bool {
+        matches!(value, Value::Func(_)) || T::is(value)
     }
 
-    fn cast(value: Spanned<Value>) -> StrResult<Self> {
-        match value.v {
-            Value::Func(v) => Ok(Self::Func(v, value.span)),
+    fn cast(value: Value) -> StrResult<Self> {
+        match value {
+            Value::Func(v) => Ok(Self::Func(v)),
             v if T::is(&v) => Ok(Self::Value(T::cast(v)?)),
-            v => Self::error(v),
+            v => <Self as Cast>::error(v),
         }
     }
 

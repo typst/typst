@@ -35,53 +35,105 @@ pub fn lorem(args: &mut Args) -> SourceResult<Value> {
 }
 
 /// # Numbering
-/// Apply a numbering pattern to a sequence of numbers.
+/// Apply a numbering to a sequence of numbers.
 ///
-/// Numbering patterns are strings that define how a sequence of numbers should
-/// be rendered as text. The patterns consist of [counting
-/// symbols](#parameters--pattern) for which the actual number is substituted,
-/// their prefixes, and one suffix. The prefixes and the suffix are repeated as-is.
+/// A numbering defines how a sequence of numbers should be displayed as
+/// content. It is defined either through a pattern string or an arbitrary
+/// function.
+///
+/// A numbering pattern consists of [counting symbols](#parameters--numbering)
+/// for which the actual number is substituted, their prefixes, and one suffix.
+/// The prefixes and the suffix are repeated as-is.
 ///
 /// ## Example
 /// ```
 /// #numbering("1.1)", 1, 2, 3) \
 /// #numbering("1.a.i", 1, 2) \
-/// #numbering("I – 1", 12, 2)
+/// #numbering("I – 1", 12, 2) \
+/// #numbering(
+///   (..nums) => nums
+///     .pos()
+///     .map(str)
+///     .join(".") + ")",
+///   1, 2, 3,
+/// )
 /// ```
 ///
 /// ## Parameters
-/// - pattern: NumberingPattern (positional, required)
-///   A string that defines how the numbering works.
+/// - numbering: Numbering (positional, required)
+///   Defines how the numbering works.
 ///
-///   **Counting symbols** are `1`, `a`, `A`, `i`, `I` and `*`. They are replaced
-///   by the number in the sequence, in the given case.
+///   **Counting symbols** are `1`, `a`, `A`, `i`, `I` and `*`. They are
+///   replaced by the number in the sequence, in the given case.
 ///
-///   The `*` character means that symbols should be used to count, in the order
-///   of `*`, `†`, `‡`, `§`, `¶`, and `‖`. If there are more than six items, the
-///   number is represented using multiple symbols.
+///   The `*` character means that symbols should be used to count, in the
+///   order of `*`, `†`, `‡`, `§`, `¶`, and `‖`. If there are more than six
+///   items, the number is represented using multiple symbols.
 ///
 ///   **Suffixes** are all characters after the last counting symbol. They are
 ///   repeated as-is at the end of any rendered number.
 ///
 ///   **Prefixes** are all characters that are neither counting symbols nor
-///   suffixes. They are repeated as-is at in front of their rendered equivalent
-///   of their counting symbol.
+///   suffixes. They are repeated as-is at in front of their rendered
+///   equivalent of their counting symbol.
+///
+///   This parameter can also be an arbitrary function that gets each number as
+///   an individual argument. When given a function, the `numbering` function
+///   just forwards the arguments to that function. While this is not
+///   particularly useful in itself, it means that you can just give arbitrary
+///   numberings to the `numbering` function without caring whether they are
+///   defined as a pattern or function.
 ///
 /// - numbers: NonZeroUsize (positional, variadic)
-///   The numbers to apply the pattern to. Must be positive.
+///   The numbers to apply the numbering to. Must be positive.
 ///
-///   If more numbers than counting symbols are given, the last counting symbol
-///   with its prefix is repeated.
+///   If `numbering` is a pattern and more numbers than counting symbols are
+///   given, the last counting symbol with its prefix is repeated.
 ///
-/// - returns: string
+/// - returns: any
 ///
 /// ## Category
 /// utility
 #[func]
-pub fn numbering(args: &mut Args) -> SourceResult<Value> {
-    let pattern = args.expect::<NumberingPattern>("pattern")?;
+pub fn numbering(vm: &Vm, args: &mut Args) -> SourceResult<Value> {
+    let numbering = args.expect::<Numbering>("pattern or function")?;
     let numbers = args.all::<NonZeroUsize>()?;
-    Ok(Value::Str(pattern.apply(&numbers).into()))
+    numbering.apply(vm.world(), &numbers)
+}
+
+/// How to number an enumeration.
+#[derive(Debug, Clone, Hash)]
+pub enum Numbering {
+    /// A pattern with prefix, numbering, lower / upper case and suffix.
+    Pattern(NumberingPattern),
+    /// A closure mapping from an item's number to content.
+    Func(Func),
+}
+
+impl Numbering {
+    /// Apply the pattern to the given numbers.
+    pub fn apply(
+        &self,
+        world: Tracked<dyn World>,
+        numbers: &[NonZeroUsize],
+    ) -> SourceResult<Value> {
+        Ok(match self {
+            Self::Pattern(pattern) => Value::Str(pattern.apply(numbers).into()),
+            Self::Func(func) => {
+                let args = Args::new(
+                    func.span(),
+                    numbers.iter().map(|n| Value::Int(n.get() as i64)),
+                );
+                func.call_detached(world, args)?
+            }
+        })
+    }
+}
+
+castable! {
+    Numbering,
+    v: Str => Self::Pattern(v.parse()?),
+    v: Func => Self::Func(v),
 }
 
 /// How to turn a number into text.
@@ -155,11 +207,6 @@ impl FromStr for NumberingPattern {
 
         Ok(Self { pieces, suffix })
     }
-}
-
-castable! {
-    NumberingPattern,
-    string: EcoString => string.parse()?,
 }
 
 /// Different kinds of numberings.

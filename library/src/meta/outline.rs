@@ -84,7 +84,12 @@ impl OutlineNode {
 }
 
 impl Prepare for OutlineNode {
-    fn prepare(&self, vt: &mut Vt, mut this: Content, _: StyleChain) -> Content {
+    fn prepare(
+        &self,
+        vt: &mut Vt,
+        mut this: Content,
+        _: StyleChain,
+    ) -> SourceResult<Content> {
         let headings = vt
             .locate(Selector::node::<HeadingNode>())
             .into_iter()
@@ -94,7 +99,7 @@ impl Prepare for OutlineNode {
             .collect();
 
         this.push_field("headings", Value::Array(Array::from_vec(headings)));
-        this
+        Ok(this)
     }
 }
 
@@ -151,32 +156,27 @@ impl Show for OutlineNode {
 
             // Add hidden ancestors numberings to realize the indent.
             if indent {
-                let text = ancestors
+                let hidden: Vec<_> = ancestors
                     .iter()
-                    .filter_map(|node| match node.field("numbers").unwrap() {
-                        Value::Str(numbering) => {
-                            Some(EcoString::from(numbering) + ' '.into())
-                        }
-                        _ => None,
-                    })
-                    .collect::<EcoString>();
+                    .map(|node| node.field("numbers").unwrap())
+                    .filter(|numbers| *numbers != Value::None)
+                    .map(|numbers| numbers.display() + SpaceNode.pack())
+                    .collect();
 
-                if !text.is_empty() {
-                    seq.push(HideNode(TextNode::packed(text)).pack());
+                if !hidden.is_empty() {
+                    seq.push(HideNode(Content::sequence(hidden)).pack());
                     seq.push(SpaceNode.pack());
                 }
             }
 
             // Format the numbering.
-            let numbering = match node.field("numbers").unwrap() {
-                Value::Str(numbering) => {
-                    TextNode::packed(EcoString::from(numbering) + ' '.into())
-                }
-                _ => Content::empty(),
+            let mut start = heading.title.clone();
+            let numbers = node.field("numbers").unwrap();
+            if numbers != Value::None {
+                start = numbers.display() + SpaceNode.pack() + start;
             };
 
             // Add the numbering and section name.
-            let start = numbering + heading.title.clone();
             seq.push(start.linked(Destination::Internal(loc)));
 
             // Add filler symbols between the section name and page number.

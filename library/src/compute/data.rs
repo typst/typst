@@ -218,10 +218,7 @@ fn convert_json(value: serde_json::Value) -> Value {
 /// Format the user-facing JSON error message.
 fn format_json_error(error: serde_json::Error) -> String {
     assert!(error.is_syntax() || error.is_eof());
-    format!(
-        "failed to parse json file: syntax error in line {}",
-        error.line()
-    )
+    format!("failed to parse json file: syntax error in line {}", error.line())
 }
 
 /// # XML
@@ -252,22 +249,22 @@ fn format_json_error(error: serde_json::Error) -> String {
 ///   let author = findChild(elem, "author")
 ///   let pars = findChild(elem, "content")
 ///
-///   heading((title.children)(0))
+///   heading(title.children.first())
 ///   text(10pt, weight: "medium")[
 ///     Published by
-///     {(author.children)(0)}
+///     {author.children.first()}
 ///   ]
 ///
 ///   for p in pars.children {
 ///     if (type(p) == "dictionary") {
 ///       parbreak()
-///       (p.children)(0)
+///       p.children.first()
 ///     }
 ///   }
 /// }
 ///
-/// #let file = xml("example.xml")
-/// #for child in file(0).children {
+/// #let data = xml("example.xml")
+/// #for child in data.first().children {
 ///   if (type(child) == "dictionary") {
 ///     article(child)
 ///   }
