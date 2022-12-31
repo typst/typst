@@ -586,11 +586,23 @@ fn expr_prec(p: &mut Parser, atomic: bool, min_prec: usize) -> ParseResult {
 }
 
 fn primary(p: &mut Parser, atomic: bool) -> ParseResult {
-    if literal(p) {
-        return Ok(());
-    }
-
     match p.peek() {
+        // Literals and few other things.
+        Some(
+            SyntaxKind::None
+            | SyntaxKind::Auto
+            | SyntaxKind::Int(_)
+            | SyntaxKind::Float(_)
+            | SyntaxKind::Bool(_)
+            | SyntaxKind::Numeric(_, _)
+            | SyntaxKind::Str(_)
+            | SyntaxKind::Label(_)
+            | SyntaxKind::Raw(_),
+        ) => {
+            p.eat();
+            Ok(())
+        }
+
         // Things that start with an identifier.
         Some(SyntaxKind::Ident(_)) => {
             let marker = p.marker();
@@ -635,25 +647,6 @@ fn primary(p: &mut Parser, atomic: bool) -> ParseResult {
             p.expected_found("expression");
             Err(ParseError)
         }
-    }
-}
-
-fn literal(p: &mut Parser) -> bool {
-    match p.peek() {
-        Some(
-            SyntaxKind::None
-            | SyntaxKind::Auto
-            | SyntaxKind::Int(_)
-            | SyntaxKind::Float(_)
-            | SyntaxKind::Bool(_)
-            | SyntaxKind::Numeric(_, _)
-            | SyntaxKind::Str(_)
-            | SyntaxKind::Label(_),
-        ) => {
-            p.eat();
-            true
-        }
-        _ => false,
     }
 }
 

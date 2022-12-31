@@ -180,7 +180,7 @@ fn items() -> LangItems {
         em: |styles| styles.get(text::TextNode::SIZE),
         dir: |styles| styles.get(text::TextNode::DIR),
         space: || text::SpaceNode.pack(),
-        linebreak: |justify| text::LinebreakNode { justify }.pack(),
+        linebreak: || text::LinebreakNode { justify: false }.pack(),
         text: |text| text::TextNode(text).pack(),
         text_id: NodeId::of::<text::TextNode>(),
         text_str: |content| Some(&content.to::<text::TextNode>()?.0),

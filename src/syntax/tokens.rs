@@ -523,8 +523,9 @@ impl Tokens<'_> {
             // Math.
             '$' => SyntaxKind::Dollar,
 
-            // Labels.
+            // Labels and raw.
             '<' if self.s.at(is_id_continue) => self.label(),
+            '`' => self.raw(),
 
             // Two-char operators.
             '=' if self.s.eat_if('=') => SyntaxKind::EqEq,

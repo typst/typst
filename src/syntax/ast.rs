@@ -1,6 +1,6 @@
 //! A typed layer over the untyped syntax tree.
 //!
-//! The AST is rooted in the [`MarkupNode`].
+//! The AST is rooted in the [`Markup`] node.
 
 use std::num::NonZeroUsize;
 use std::ops::Deref;
@@ -54,26 +54,26 @@ node! {
 }
 
 impl Markup {
-    /// The children.
-    pub fn children(&self) -> impl DoubleEndedIterator<Item = MarkupNode> + '_ {
+    /// The expressions.
+    pub fn exprs(&self) -> impl DoubleEndedIterator<Item = Expr> + '_ {
         let mut was_stmt = false;
         self.0
             .children()
             .filter(move |node| {
-                // Ignore linebreak directly after statements without semicolons.
+                // Ignore newline directly after statements without semicolons.
                 let kind = node.kind();
                 let keep =
                     !was_stmt || !matches!(kind, SyntaxKind::Space { newlines: 1 });
                 was_stmt = kind.is_stmt();
                 keep
             })
-            .filter_map(SyntaxNode::cast)
+            .filter_map(Expr::cast_with_space)
     }
 }
 
-/// A single piece of markup.
-#[derive(Debug, Clone, PartialEq)]
-pub enum MarkupNode {
+/// An expression in markup, math or code.
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub enum Expr {
     /// Whitespace.
     Space(Space),
     /// A forced line break: `\`.
@@ -107,14 +107,78 @@ pub enum MarkupNode {
     Enum(EnumItem),
     /// An item in a term list: `/ Term: Details`.
     Term(TermItem),
-    /// An expression.
-    Expr(Expr),
+    /// A math formula: `$x$`, `$ x^2 $`.
+    Math(Math),
+    /// An atom in a math formula: `x`, `+`, `12`.
+    Atom(Atom),
+    /// A base with optional sub- and superscripts in a math formula: `a_1^2`.
+    Script(Script),
+    /// A fraction in a math formula: `x/2`.
+    Frac(Frac),
+    /// An alignment point in a math formula: `&`, `&&`.
+    AlignPoint(AlignPoint),
+    /// A literal: `1`, `true`, ...
+    Lit(Lit),
+    /// An identifier: `left`.
+    Ident(Ident),
+    /// A code block: `{ let x = 1; x + 2 }`.
+    Code(CodeBlock),
+    /// A content block: `[*Hi* there!]`.
+    Content(ContentBlock),
+    /// A grouped expression: `(1 + 2)`.
+    Parenthesized(Parenthesized),
+    /// An array: `(1, "hi", 12cm)`.
+    Array(Array),
+    /// A dictionary: `(thickness: 3pt, pattern: dashed)`.
+    Dict(Dict),
+    /// A unary operation: `-x`.
+    Unary(Unary),
+    /// A binary operation: `a + b`.
+    Binary(Binary),
+    /// A field access: `properties.age`.
+    FieldAccess(FieldAccess),
+    /// An invocation of a function: `f(x, y)`.
+    FuncCall(FuncCall),
+    /// An invocation of a method: `array.push(v)`.
+    MethodCall(MethodCall),
+    /// A closure: `(x, y) => z`.
+    Closure(Closure),
+    /// A let binding: `let x = 1`.
+    Let(LetBinding),
+    /// A set rule: `set text(...)`.
+    Set(SetRule),
+    /// A show rule: `show heading: it => [*{it.body}*]`.
+    Show(ShowRule),
+    /// An if-else conditional: `if x { y } else { z }`.
+    Conditional(Conditional),
+    /// A while loop: `while x { y }`.
+    While(WhileLoop),
+    /// A for loop: `for x in y { z }`.
+    For(ForLoop),
+    /// A module import: `import a, b, c from "utils.typ"`.
+    Import(ModuleImport),
+    /// A module include: `include "chapter1.typ"`.
+    Include(ModuleInclude),
+    /// A break from a loop: `break`.
+    Break(LoopBreak),
+    /// A continue in a loop: `continue`.
+    Continue(LoopContinue),
+    /// A return from a function: `return`, `return x + 1`.
+    Return(FuncReturn),
 }
 
-impl AstNode for MarkupNode {
-    fn from_untyped(node: &SyntaxNode) -> Option<Self> {
+impl Expr {
+    fn cast_with_space(node: &SyntaxNode) -> Option<Self> {
         match node.kind() {
             SyntaxKind::Space { .. } => node.cast().map(Self::Space),
+            _ => Self::from_untyped(node),
+        }
+    }
+}
+
+impl AstNode for Expr {
+    fn from_untyped(node: &SyntaxNode) -> Option<Self> {
+        match node.kind() {
             SyntaxKind::Linebreak => node.cast().map(Self::Linebreak),
             SyntaxKind::Text(_) => node.cast().map(Self::Text),
             SyntaxKind::Escape(_) => node.cast().map(Self::Escape),
@@ -130,7 +194,35 @@ impl AstNode for MarkupNode {
             SyntaxKind::ListItem => node.cast().map(Self::List),
             SyntaxKind::EnumItem => node.cast().map(Self::Enum),
             SyntaxKind::TermItem => node.cast().map(Self::Term),
-            _ => node.cast().map(Self::Expr),
+            SyntaxKind::Math => node.cast().map(Self::Math),
+            SyntaxKind::Atom(_) => node.cast().map(Self::Atom),
+            SyntaxKind::Script => node.cast().map(Self::Script),
+            SyntaxKind::Frac => node.cast().map(Self::Frac),
+            SyntaxKind::AlignPoint => node.cast().map(Self::AlignPoint),
+            SyntaxKind::Ident(_) => node.cast().map(Self::Ident),
+            SyntaxKind::CodeBlock => node.cast().map(Self::Code),
+            SyntaxKind::ContentBlock => node.cast().map(Self::Content),
+            SyntaxKind::Parenthesized => node.cast().map(Self::Parenthesized),
+            SyntaxKind::Array => node.cast().map(Self::Array),
+            SyntaxKind::Dict => node.cast().map(Self::Dict),
+            SyntaxKind::Unary => node.cast().map(Self::Unary),
+            SyntaxKind::Binary => node.cast().map(Self::Binary),
+            SyntaxKind::FieldAccess => node.cast().map(Self::FieldAccess),
+            SyntaxKind::FuncCall => node.cast().map(Self::FuncCall),
+            SyntaxKind::MethodCall => node.cast().map(Self::MethodCall),
+            SyntaxKind::Closure => node.cast().map(Self::Closure),
+            SyntaxKind::LetBinding => node.cast().map(Self::Let),
+            SyntaxKind::SetRule => node.cast().map(Self::Set),
+            SyntaxKind::ShowRule => node.cast().map(Self::Show),
+            SyntaxKind::Conditional => node.cast().map(Self::Conditional),
+            SyntaxKind::WhileLoop => node.cast().map(Self::While),
+            SyntaxKind::ForLoop => node.cast().map(Self::For),
+            SyntaxKind::ModuleImport => node.cast().map(Self::Import),
+            SyntaxKind::ModuleInclude => node.cast().map(Self::Include),
+            SyntaxKind::LoopBreak => node.cast().map(Self::Break),
+            SyntaxKind::LoopContinue => node.cast().map(Self::Continue),
+            SyntaxKind::FuncReturn => node.cast().map(Self::Return),
+            _ => node.cast().map(Self::Lit),
         }
     }
 
@@ -152,8 +244,55 @@ impl AstNode for MarkupNode {
             Self::List(v) => v.as_untyped(),
             Self::Enum(v) => v.as_untyped(),
             Self::Term(v) => v.as_untyped(),
-            Self::Expr(v) => v.as_untyped(),
+            Self::Math(v) => v.as_untyped(),
+            Self::Atom(v) => v.as_untyped(),
+            Self::Script(v) => v.as_untyped(),
+            Self::Frac(v) => v.as_untyped(),
+            Self::AlignPoint(v) => v.as_untyped(),
+            Self::Lit(v) => v.as_untyped(),
+            Self::Code(v) => v.as_untyped(),
+            Self::Content(v) => v.as_untyped(),
+            Self::Ident(v) => v.as_untyped(),
+            Self::Array(v) => v.as_untyped(),
+            Self::Dict(v) => v.as_untyped(),
+            Self::Parenthesized(v) => v.as_untyped(),
+            Self::Unary(v) => v.as_untyped(),
+            Self::Binary(v) => v.as_untyped(),
+            Self::FieldAccess(v) => v.as_untyped(),
+            Self::FuncCall(v) => v.as_untyped(),
+            Self::MethodCall(v) => v.as_untyped(),
+            Self::Closure(v) => v.as_untyped(),
+            Self::Let(v) => v.as_untyped(),
+            Self::Set(v) => v.as_untyped(),
+            Self::Show(v) => v.as_untyped(),
+            Self::Conditional(v) => v.as_untyped(),
+            Self::While(v) => v.as_untyped(),
+            Self::For(v) => v.as_untyped(),
+            Self::Import(v) => v.as_untyped(),
+            Self::Include(v) => v.as_untyped(),
+            Self::Break(v) => v.as_untyped(),
+            Self::Continue(v) => v.as_untyped(),
+            Self::Return(v) => v.as_untyped(),
         }
+    }
+}
+
+impl Expr {
+    /// Whether the expression can be shortened in markup with a hashtag.
+    pub fn has_short_form(&self) -> bool {
+        matches!(
+            self,
+            Self::Ident(_)
+                | Self::FuncCall(_)
+                | Self::Let(_)
+                | Self::Set(_)
+                | Self::Show(_)
+                | Self::Conditional(_)
+                | Self::While(_)
+                | Self::For(_)
+                | Self::Import(_)
+                | Self::Include(_)
+        )
     }
 }
 
@@ -418,78 +557,15 @@ node! {
 }
 
 impl Math {
-    /// The children.
-    pub fn children(&self) -> impl DoubleEndedIterator<Item = MathNode> + '_ {
-        self.0.children().filter_map(SyntaxNode::cast)
+    /// The expressions the formula consists of.
+    pub fn exprs(&self) -> impl DoubleEndedIterator<Item = Expr> + '_ {
+        self.0.children().filter_map(Expr::cast_with_space)
     }
 
     /// Whether the formula should be displayed as a separate block.
     pub fn block(&self) -> bool {
-        matches!(self.children().next(), Some(MathNode::Space(_)))
-            && matches!(self.children().last(), Some(MathNode::Space(_)))
-    }
-}
-
-/// A single piece of a math formula.
-#[derive(Debug, Clone, PartialEq, Hash)]
-pub enum MathNode {
-    /// Whitespace.
-    Space(Space),
-    /// A forced line break: `\`.
-    Linebreak(Linebreak),
-    /// An escape sequence: `\#`, `\u{1F5FA}`.
-    Escape(Escape),
-    /// A shorthand for a unicode codepoint. For example, `->` for a right
-    /// arrow.
-    Shorthand(Shorthand),
-    /// An atom: `x`, `+`, `12`.
-    Atom(Atom),
-    /// Symbol notation: `:arrow:l:` or `arrow:l`. Notations without any colons
-    /// are parsed as identifier expression and handled during evaluation.
-    Symbol(Symbol),
-    /// A base with optional sub- and superscripts: `a_1^2`.
-    Script(Script),
-    /// A fraction: `x/2`.
-    Frac(Frac),
-    /// An alignment point: `&`, `&&`.
-    AlignPoint(AlignPoint),
-    /// Grouped mathematical material.
-    Group(Math),
-    /// An expression.
-    Expr(Expr),
-}
-
-impl AstNode for MathNode {
-    fn from_untyped(node: &SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            SyntaxKind::Space { .. } => node.cast().map(Self::Space),
-            SyntaxKind::Linebreak => node.cast().map(Self::Linebreak),
-            SyntaxKind::Escape(_) => node.cast().map(Self::Escape),
-            SyntaxKind::Shorthand(_) => node.cast().map(Self::Shorthand),
-            SyntaxKind::Atom(_) => node.cast().map(Self::Atom),
-            SyntaxKind::Symbol(_) => node.cast().map(Self::Symbol),
-            SyntaxKind::Script => node.cast().map(Self::Script),
-            SyntaxKind::Frac => node.cast().map(Self::Frac),
-            SyntaxKind::AlignPoint => node.cast().map(Self::AlignPoint),
-            SyntaxKind::Math => node.cast().map(Self::Group),
-            _ => node.cast().map(Self::Expr),
-        }
-    }
-
-    fn as_untyped(&self) -> &SyntaxNode {
-        match self {
-            Self::Space(v) => v.as_untyped(),
-            Self::Linebreak(v) => v.as_untyped(),
-            Self::Escape(v) => v.as_untyped(),
-            Self::Shorthand(v) => v.as_untyped(),
-            Self::Atom(v) => v.as_untyped(),
-            Self::Symbol(v) => v.as_untyped(),
-            Self::Script(v) => v.as_untyped(),
-            Self::Frac(v) => v.as_untyped(),
-            Self::AlignPoint(v) => v.as_untyped(),
-            Self::Group(v) => v.as_untyped(),
-            Self::Expr(v) => v.as_untyped(),
-        }
+        matches!(self.exprs().next(), Some(Expr::Space(_)))
+            && matches!(self.exprs().last(), Some(Expr::Space(_)))
     }
 }
 
@@ -515,12 +591,12 @@ node! {
 
 impl Script {
     /// The base of the script.
-    pub fn base(&self) -> MathNode {
+    pub fn base(&self) -> Expr {
         self.0.cast_first_child().expect("script node is missing base")
     }
 
     /// The subscript.
-    pub fn sub(&self) -> Option<MathNode> {
+    pub fn sub(&self) -> Option<Expr> {
         self.0
             .children()
             .skip_while(|node| !matches!(node.kind(), SyntaxKind::Underscore))
@@ -529,7 +605,7 @@ impl Script {
     }
 
     /// The superscript.
-    pub fn sup(&self) -> Option<MathNode> {
+    pub fn sup(&self) -> Option<Expr> {
         self.0
             .children()
             .skip_while(|node| !matches!(node.kind(), SyntaxKind::Hat))
@@ -545,12 +621,12 @@ node! {
 
 impl Frac {
     /// The numerator.
-    pub fn num(&self) -> MathNode {
+    pub fn num(&self) -> Expr {
         self.0.cast_first_child().expect("fraction is missing numerator")
     }
 
     /// The denominator.
-    pub fn denom(&self) -> MathNode {
+    pub fn denom(&self) -> Expr {
         self.0.cast_last_child().expect("fraction is missing denominator")
     }
 }
@@ -569,142 +645,6 @@ impl AlignPoint {
             .count()
             .try_into()
             .expect("alignment point is missing ampersand sign")
-    }
-}
-
-/// An expression.
-#[derive(Debug, Clone, PartialEq, Hash)]
-pub enum Expr {
-    /// A literal: `1`, `true`, ...
-    Lit(Lit),
-    /// An identifier: `left`.
-    Ident(Ident),
-    /// A code block: `{ let x = 1; x + 2 }`.
-    Code(CodeBlock),
-    /// A content block: `[*Hi* there!]`.
-    Content(ContentBlock),
-    /// A math formula: `$x$`, `$ x^2 $`.
-    Math(Math),
-    /// A grouped expression: `(1 + 2)`.
-    Parenthesized(Parenthesized),
-    /// An array: `(1, "hi", 12cm)`.
-    Array(Array),
-    /// A dictionary: `(thickness: 3pt, pattern: dashed)`.
-    Dict(Dict),
-    /// A unary operation: `-x`.
-    Unary(Unary),
-    /// A binary operation: `a + b`.
-    Binary(Binary),
-    /// A field access: `properties.age`.
-    FieldAccess(FieldAccess),
-    /// An invocation of a function: `f(x, y)`.
-    FuncCall(FuncCall),
-    /// An invocation of a method: `array.push(v)`.
-    MethodCall(MethodCall),
-    /// A closure: `(x, y) => z`.
-    Closure(Closure),
-    /// A let binding: `let x = 1`.
-    Let(LetBinding),
-    /// A set rule: `set text(...)`.
-    Set(SetRule),
-    /// A show rule: `show heading: it => [*{it.body}*]`.
-    Show(ShowRule),
-    /// An if-else conditional: `if x { y } else { z }`.
-    Conditional(Conditional),
-    /// A while loop: `while x { y }`.
-    While(WhileLoop),
-    /// A for loop: `for x in y { z }`.
-    For(ForLoop),
-    /// A module import: `import a, b, c from "utils.typ"`.
-    Import(ModuleImport),
-    /// A module include: `include "chapter1.typ"`.
-    Include(ModuleInclude),
-    /// A break from a loop: `break`.
-    Break(LoopBreak),
-    /// A continue in a loop: `continue`.
-    Continue(LoopContinue),
-    /// A return from a function: `return`, `return x + 1`.
-    Return(FuncReturn),
-}
-
-impl AstNode for Expr {
-    fn from_untyped(node: &SyntaxNode) -> Option<Self> {
-        match node.kind() {
-            SyntaxKind::Ident(_) => node.cast().map(Self::Ident),
-            SyntaxKind::CodeBlock => node.cast().map(Self::Code),
-            SyntaxKind::ContentBlock => node.cast().map(Self::Content),
-            SyntaxKind::Math => node.cast().map(Self::Math),
-            SyntaxKind::Parenthesized => node.cast().map(Self::Parenthesized),
-            SyntaxKind::Array => node.cast().map(Self::Array),
-            SyntaxKind::Dict => node.cast().map(Self::Dict),
-            SyntaxKind::Unary => node.cast().map(Self::Unary),
-            SyntaxKind::Binary => node.cast().map(Self::Binary),
-            SyntaxKind::FieldAccess => node.cast().map(Self::FieldAccess),
-            SyntaxKind::FuncCall => node.cast().map(Self::FuncCall),
-            SyntaxKind::MethodCall => node.cast().map(Self::MethodCall),
-            SyntaxKind::Closure => node.cast().map(Self::Closure),
-            SyntaxKind::LetBinding => node.cast().map(Self::Let),
-            SyntaxKind::SetRule => node.cast().map(Self::Set),
-            SyntaxKind::ShowRule => node.cast().map(Self::Show),
-            SyntaxKind::Conditional => node.cast().map(Self::Conditional),
-            SyntaxKind::WhileLoop => node.cast().map(Self::While),
-            SyntaxKind::ForLoop => node.cast().map(Self::For),
-            SyntaxKind::ModuleImport => node.cast().map(Self::Import),
-            SyntaxKind::ModuleInclude => node.cast().map(Self::Include),
-            SyntaxKind::LoopBreak => node.cast().map(Self::Break),
-            SyntaxKind::LoopContinue => node.cast().map(Self::Continue),
-            SyntaxKind::FuncReturn => node.cast().map(Self::Return),
-            _ => node.cast().map(Self::Lit),
-        }
-    }
-
-    fn as_untyped(&self) -> &SyntaxNode {
-        match self {
-            Self::Lit(v) => v.as_untyped(),
-            Self::Code(v) => v.as_untyped(),
-            Self::Content(v) => v.as_untyped(),
-            Self::Math(v) => v.as_untyped(),
-            Self::Ident(v) => v.as_untyped(),
-            Self::Array(v) => v.as_untyped(),
-            Self::Dict(v) => v.as_untyped(),
-            Self::Parenthesized(v) => v.as_untyped(),
-            Self::Unary(v) => v.as_untyped(),
-            Self::Binary(v) => v.as_untyped(),
-            Self::FieldAccess(v) => v.as_untyped(),
-            Self::FuncCall(v) => v.as_untyped(),
-            Self::MethodCall(v) => v.as_untyped(),
-            Self::Closure(v) => v.as_untyped(),
-            Self::Let(v) => v.as_untyped(),
-            Self::Set(v) => v.as_untyped(),
-            Self::Show(v) => v.as_untyped(),
-            Self::Conditional(v) => v.as_untyped(),
-            Self::While(v) => v.as_untyped(),
-            Self::For(v) => v.as_untyped(),
-            Self::Import(v) => v.as_untyped(),
-            Self::Include(v) => v.as_untyped(),
-            Self::Break(v) => v.as_untyped(),
-            Self::Continue(v) => v.as_untyped(),
-            Self::Return(v) => v.as_untyped(),
-        }
-    }
-}
-
-impl Expr {
-    /// Whether the expression can be shortened in markup with a hashtag.
-    pub fn has_short_form(&self) -> bool {
-        matches!(
-            self,
-            Self::Ident(_)
-                | Self::FuncCall(_)
-                | Self::Let(_)
-                | Self::Set(_)
-                | Self::Show(_)
-                | Self::Conditional(_)
-                | Self::While(_)
-                | Self::For(_)
-                | Self::Import(_)
-                | Self::Include(_)
-        )
     }
 }
 

@@ -27,7 +27,7 @@
 {(:).invalid}
 
 ---
-// Error: 2-7 cannot access field on boolean
+// Error: 2-7 expected dictionary or content, found boolean
 {false.ok}
 
 ---

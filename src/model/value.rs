@@ -112,6 +112,15 @@ impl Value {
             _ => item!(raw)(self.repr().into(), Some("typc".into()), false),
         }
     }
+
+    /// Return the display representation of the value in math mode.
+    pub fn display_in_math(self) -> Content {
+        match self {
+            Self::Int(v) => item!(math_atom)(format_eco!("{}", v)),
+            Self::Float(v) => item!(math_atom)(format_eco!("{}", v)),
+            _ => self.display(),
+        }
+    }
 }
 
 impl Default for Value {

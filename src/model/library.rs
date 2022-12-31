@@ -34,7 +34,7 @@ pub struct LangItems {
     /// Whitespace.
     pub space: fn() -> Content,
     /// A forced line break: `\`.
-    pub linebreak: fn(justify: bool) -> Content,
+    pub linebreak: fn() -> Content,
     /// Plain text without markup.
     pub text: fn(text: EcoString) -> Content,
     /// The id of the text node.
