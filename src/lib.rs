@@ -66,7 +66,7 @@ pub fn compile(world: &(dyn World + 'static), source: &Source) -> SourceResult<D
     let module = model::eval(world.track(), route.track(), source)?;
 
     // Typeset the module's contents.
-    model::typeset(world.track(), &module.content)
+    model::typeset(world.track(), &module.content())
 }
 
 /// The environment in which typesetting occurs.

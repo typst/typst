@@ -443,8 +443,8 @@ impl<'a> CapturesVisitor<'a> {
             // An import contains items, but these are active only after the
             // path is evaluated.
             Some(ast::Expr::Import(expr)) => {
-                self.visit(expr.path().as_untyped());
-                if let ast::Imports::Items(items) = expr.imports() {
+                self.visit(expr.source().as_untyped());
+                if let Some(ast::Imports::Items(items)) = expr.imports() {
                     for item in items {
                         self.bind(item);
                     }
@@ -525,8 +525,8 @@ mod tests {
         test("#for x in y {} #x", &["x", "y"]);
 
         // Import.
-        test("#import x, y from z", &["z"]);
-        test("#import x, y, z from x + y", &["x", "y"]);
+        test("#import z: x, y", &["z"]);
+        test("#import x + y: x, y, z", &["x", "y"]);
 
         // Blocks.
         test("{ let x = 1; { let y = 2; y }; x + y }", &["y"]);

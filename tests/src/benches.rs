@@ -72,7 +72,8 @@ fn bench_typeset(iai: &mut Iai) {
     let world = BenchWorld::new();
     let route = typst::model::Route::default();
     let module = typst::model::eval(world.track(), route.track(), &world.source).unwrap();
-    iai.run(|| typst::model::typeset(world.track(), &module.content));
+    let content = module.content();
+    iai.run(|| typst::model::typeset(world.track(), &content));
 }
 
 fn bench_compile(iai: &mut Iai) {

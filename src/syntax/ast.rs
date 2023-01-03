@@ -1430,29 +1430,26 @@ impl ForPattern {
 }
 
 node! {
-    /// A module import: `import a, b, c from "utils.typ"`.
+    /// A module import: `import "utils.typ": a, b, c`.
     ModuleImport
 }
 
 impl ModuleImport {
-    /// The items to be imported.
-    pub fn imports(&self) -> Imports {
-        self.0
-            .children()
-            .find_map(|node| match node.kind() {
-                SyntaxKind::Star => Some(Imports::Wildcard),
-                SyntaxKind::ImportItems => {
-                    let items = node.children().filter_map(SyntaxNode::cast).collect();
-                    Some(Imports::Items(items))
-                }
-                _ => None,
-            })
-            .expect("module import is missing items")
+    /// The module or path from which the items should be imported.
+    pub fn source(&self) -> Expr {
+        self.0.cast_last_child().expect("module import is missing source")
     }
 
-    /// The path to the file that should be imported.
-    pub fn path(&self) -> Expr {
-        self.0.cast_last_child().expect("module import is missing path")
+    /// The items to be imported.
+    pub fn imports(&self) -> Option<Imports> {
+        self.0.children().find_map(|node| match node.kind() {
+            SyntaxKind::Star => Some(Imports::Wildcard),
+            SyntaxKind::ImportItems => {
+                let items = node.children().filter_map(SyntaxNode::cast).collect();
+                Some(Imports::Items(items))
+            }
+            _ => None,
+        })
     }
 }
 
@@ -1471,8 +1468,8 @@ node! {
 }
 
 impl ModuleInclude {
-    /// The path to the file that should be included.
-    pub fn path(&self) -> Expr {
+    /// The module or path from which the content should be included.
+    pub fn source(&self) -> Expr {
         self.0.cast_last_child().expect("module include is missing path")
     }
 }

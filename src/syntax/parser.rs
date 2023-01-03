@@ -237,7 +237,7 @@ impl<'s> Parser<'s> {
         self.tokens.set_mode(match kind {
             Group::Bracket | Group::Strong | Group::Emph => TokenMode::Markup,
             Group::Math | Group::MathRow(_, _) => TokenMode::Math,
-            Group::Brace | Group::Paren | Group::Expr | Group::Imports => TokenMode::Code,
+            Group::Brace | Group::Paren | Group::Expr => TokenMode::Code,
         });
 
         match kind {
@@ -249,7 +249,6 @@ impl<'s> Parser<'s> {
             Group::Math => self.assert(SyntaxKind::Dollar),
             Group::MathRow(l, _) => self.assert(SyntaxKind::Atom(l.into())),
             Group::Expr => self.repeek(),
-            Group::Imports => self.repeek(),
         }
     }
 
@@ -274,7 +273,6 @@ impl<'s> Parser<'s> {
             Group::Math => Some((SyntaxKind::Dollar, true)),
             Group::MathRow(_, r) => Some((SyntaxKind::Atom(r.into()), true)),
             Group::Expr => Some((SyntaxKind::Semicolon, false)),
-            Group::Imports => None,
         } {
             if self.current.as_ref() == Some(&end) {
                 // If another group closes after a group with the missing
@@ -346,7 +344,6 @@ impl<'s> Parser<'s> {
                 .next()
                 .map_or(false, |group| group.kind == Group::Math),
             Some(SyntaxKind::Semicolon) => self.inside(Group::Expr),
-            Some(SyntaxKind::From) => self.inside(Group::Imports),
             Some(SyntaxKind::Atom(s)) => match s.as_str() {
                 ")" => self.inside(Group::MathRow('(', ')')),
                 "}" => self.inside(Group::MathRow('{', '}')),
@@ -377,7 +374,6 @@ impl<'s> Parser<'s> {
 
         match self.groups.last().map(|group| group.kind) {
             Some(Group::Strong | Group::Emph) => n >= 2,
-            Some(Group::Imports) => n >= 1,
             Some(Group::Expr) if n >= 1 => {
                 // Allow else and method call to continue on next line.
                 self.groups.iter().nth_back(1).map(|group| group.kind)
@@ -541,8 +537,6 @@ pub enum Group {
     MathRow(char, char),
     /// A group ended by a semicolon or a line break: `;`, `\n`.
     Expr,
-    /// A group for import items, ended by a semicolon, line break or `from`.
-    Imports,
 }
 
 impl Group {

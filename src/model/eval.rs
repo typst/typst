@@ -9,7 +9,7 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use super::{
     methods, ops, Arg, Args, Array, CapturesVisitor, Closure, Content, Dict, Func, Label,
-    LangItems, Recipe, Scope, Scopes, Selector, StyleMap, Transform, Value,
+    LangItems, Module, Recipe, Scopes, Selector, StyleMap, Transform, Value,
 };
 use crate::diag::{
     bail, error, At, SourceError, SourceResult, StrResult, Trace, Tracepoint,
@@ -17,7 +17,7 @@ use crate::diag::{
 use crate::geom::{Abs, Angle, Em, Fr, Ratio};
 use crate::syntax::ast::AstNode;
 use crate::syntax::{ast, Source, SourceId, Span, Spanned, SyntaxKind, SyntaxNode, Unit};
-use crate::util::{EcoString, PathExt};
+use crate::util::PathExt;
 use crate::World;
 
 const MAX_ITERATIONS: usize = 10_000;
@@ -53,7 +53,7 @@ pub fn eval(
     }
 
     // Assemble the module.
-    Ok(Module { scope: vm.scopes.top, content: result? })
+    Ok(Module::evaluated(source.path(), vm.scopes.top, result?))
 }
 
 /// A virtual machine.
@@ -179,15 +179,6 @@ impl Route {
     fn contains(&self, id: SourceId) -> bool {
         self.id == Some(id) || self.parent.map_or(false, |parent| parent.contains(id))
     }
-}
-
-/// An evaluated module, ready for importing or typesetting.
-#[derive(Debug, Clone)]
-pub struct Module {
-    /// The top-level definitions that were bound in this module.
-    pub scope: Scope,
-    /// The module's layoutable contents.
-    pub content: Content,
 }
 
 /// Evaluate an expression.
@@ -803,7 +794,15 @@ impl Eval for ast::FieldAccess {
             Value::Dict(dict) => dict.at(&field).at(span)?.clone(),
             Value::Content(content) => content
                 .field(&field)
-                .ok_or_else(|| format!("unknown field {field:?}"))
+                .ok_or_else(|| format!("unknown field `{field}`"))
+                .at(span)?,
+            Value::Module(module) => module
+                .scope()
+                .get(&field)
+                .cloned()
+                .ok_or_else(|| {
+                    format!("module `{}` does not contain `{field}`", module.name())
+                })
                 .at(span)?,
             v => bail!(
                 self.target().span(),
@@ -1163,19 +1162,22 @@ impl Eval for ast::ModuleImport {
     type Output = Value;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let span = self.path().span();
-        let path = self.path().eval(vm)?.cast::<EcoString>().at(span)?;
-        let module = import(vm, &path, span)?;
+        let span = self.source().span();
+        let source = self.source().eval(vm)?;
+        let module = import(vm, source, span)?;
 
         match self.imports() {
-            ast::Imports::Wildcard => {
-                for (var, value) in module.scope.iter() {
+            None => {
+                vm.scopes.top.define(module.name().clone(), module);
+            }
+            Some(ast::Imports::Wildcard) => {
+                for (var, value) in module.scope().iter() {
                     vm.scopes.top.define(var.clone(), value.clone());
                 }
             }
-            ast::Imports::Items(idents) => {
+            Some(ast::Imports::Items(idents)) => {
                 for ident in idents {
-                    if let Some(value) = module.scope.get(&ident) {
+                    if let Some(value) = module.scope().get(&ident) {
                         vm.scopes.top.define(ident.take(), value.clone());
                     } else {
                         bail!(ident.span(), "unresolved import");
@@ -1192,17 +1194,23 @@ impl Eval for ast::ModuleInclude {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let span = self.path().span();
-        let path = self.path().eval(vm)?.cast::<EcoString>().at(span)?;
-        let module = import(vm, &path, span)?;
-        Ok(module.content)
+        let span = self.source().span();
+        let source = self.source().eval(vm)?;
+        let module = import(vm, source, span)?;
+        Ok(module.content())
     }
 }
 
 /// Process an import of a module relative to the current location.
-fn import(vm: &Vm, path: &str, span: Span) -> SourceResult<Module> {
+fn import(vm: &Vm, source: Value, span: Span) -> SourceResult<Module> {
+    let path = match source {
+        Value::Str(path) => path,
+        Value::Module(module) => return Ok(module),
+        v => bail!(span, "expected path or module, found {}", v.type_name()),
+    };
+
     // Load the source file.
-    let full = vm.locate(path).at(span)?;
+    let full = vm.locate(&path).at(span)?;
     let id = vm.world.resolve(&full).at(span)?;
 
     // Prevent cyclic importing.

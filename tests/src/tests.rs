@@ -432,7 +432,7 @@ fn test_part(
         let world = (world as &dyn World).track();
         let route = typst::model::Route::default();
         let module = typst::model::eval(world, route.track(), source).unwrap();
-        println!("Model:\n{:#?}\n", module.content);
+        println!("Model:\n{:#?}\n", module.content());
     }
 
     let (mut frames, errors) = match typst::compile(world, source) {

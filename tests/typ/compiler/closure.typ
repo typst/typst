@@ -62,7 +62,7 @@
 {
   let b = "module.typ"
   let f() = {
-    import b from b
+    import b: b
     b
   }
   test(f(), 1)

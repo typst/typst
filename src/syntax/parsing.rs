@@ -1052,27 +1052,26 @@ fn for_pattern(p: &mut Parser) -> ParseResult {
 fn module_import(p: &mut Parser) -> ParseResult {
     p.perform(SyntaxKind::ModuleImport, |p| {
         p.assert(SyntaxKind::Import);
+        expr(p)?;
 
-        if !p.eat_if(SyntaxKind::Star) {
-            // This is the list of identifiers scenario.
-            p.perform(SyntaxKind::ImportItems, |p| {
-                p.start_group(Group::Imports);
-                let marker = p.marker();
-                let items = collection(p, false).1;
-                if items == 0 {
-                    p.expected("import items");
-                }
-                p.end_group();
+        if !p.eat_if(SyntaxKind::Colon) || p.eat_if(SyntaxKind::Star) {
+            return Ok(());
+        }
 
-                marker.filter_children(p, |n| match n.kind() {
-                    SyntaxKind::Ident(_) | SyntaxKind::Comma => Ok(()),
-                    _ => Err("expected identifier"),
-                });
+        // This is the list of identifiers scenario.
+        p.perform(SyntaxKind::ImportItems, |p| {
+            let marker = p.marker();
+            let items = collection(p, false).1;
+            if items == 0 {
+                p.expected("import items");
+            }
+            marker.filter_children(p, |n| match n.kind() {
+                SyntaxKind::Ident(_) | SyntaxKind::Comma => Ok(()),
+                _ => Err("expected identifier"),
             });
-        };
+        });
 
-        p.expect(SyntaxKind::From)?;
-        expr(p)
+        Ok(())
     })
 }
 

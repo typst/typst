@@ -7,7 +7,7 @@ use std::sync::Arc;
 use siphasher::sip128::{Hasher128, SipHasher};
 
 use super::{
-    format_str, ops, Args, Array, Cast, CastInfo, Content, Dict, Func, Label, Str,
+    format_str, ops, Args, Array, Cast, CastInfo, Content, Dict, Func, Label, Module, Str,
 };
 use crate::diag::StrResult;
 use crate::geom::{Abs, Angle, Color, Em, Fr, Length, Ratio, Rel, RgbaColor};
@@ -52,6 +52,8 @@ pub enum Value {
     Func(Func),
     /// Captured arguments to a function.
     Args(Args),
+    /// A module.
+    Module(Module),
     /// A dynamic value.
     Dyn(Dynamic),
 }
@@ -86,6 +88,7 @@ impl Value {
             Self::Dict(_) => Dict::TYPE_NAME,
             Self::Func(_) => Func::TYPE_NAME,
             Self::Args(_) => Args::TYPE_NAME,
+            Self::Module(_) => Module::TYPE_NAME,
             Self::Dyn(v) => v.type_name(),
         }
     }
@@ -109,6 +112,7 @@ impl Value {
             Self::Str(v) => item!(text)(v.into()),
             Self::Content(v) => v,
             Self::Func(_) => Content::empty(),
+            Self::Module(module) => module.content(),
             _ => item!(raw)(self.repr().into(), Some("typc".into()), false),
         }
     }
@@ -150,6 +154,7 @@ impl Debug for Value {
             Self::Dict(v) => Debug::fmt(v, f),
             Self::Func(v) => Debug::fmt(v, f),
             Self::Args(v) => Debug::fmt(v, f),
+            Self::Module(v) => Debug::fmt(v, f),
             Self::Dyn(v) => Debug::fmt(v, f),
         }
     }
@@ -189,6 +194,7 @@ impl Hash for Value {
             Self::Dict(v) => v.hash(state),
             Self::Func(v) => v.hash(state),
             Self::Args(v) => v.hash(state),
+            Self::Module(v) => v.hash(state),
             Self::Dyn(v) => v.hash(state),
         }
     }
@@ -402,6 +408,7 @@ primitive! { Content: "content",
 primitive! { Array: "array", Array }
 primitive! { Dict: "dictionary", Dict }
 primitive! { Func: "function", Func }
+primitive! { Module: "module", Module }
 primitive! { Args: "arguments", Args }
 
 #[cfg(test)]

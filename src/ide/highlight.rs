@@ -156,7 +156,7 @@ pub fn highlight(node: &LinkedNode) -> Option<Category> {
         SyntaxKind::Return => Some(Category::Keyword),
         SyntaxKind::Import => Some(Category::Keyword),
         SyntaxKind::Include => Some(Category::Keyword),
-        SyntaxKind::From => Some(Category::Keyword),
+        SyntaxKind::As => Some(Category::Keyword),
 
         SyntaxKind::Markup { .. }
             if node.parent_kind() == Some(&SyntaxKind::TermItem)
@@ -198,6 +198,17 @@ pub fn highlight(node: &LinkedNode) -> Option<Category> {
                 | SyntaxKind::Frac,
             ) => Some(Category::Interpolated),
             Some(SyntaxKind::FuncCall) => Some(Category::Function),
+            Some(SyntaxKind::FieldAccess)
+                if node
+                    .parent()
+                    .and_then(|p| p.parent())
+                    .filter(|gp| gp.kind() == &SyntaxKind::Parenthesized)
+                    .and_then(|gp| gp.parent())
+                    .map_or(false, |ggp| ggp.kind() == &SyntaxKind::FuncCall)
+                    && node.next_sibling().is_none() =>
+            {
+                Some(Category::Function)
+            }
             Some(SyntaxKind::MethodCall) if node.prev_sibling().is_some() => {
                 Some(Category::Function)
             }

@@ -113,5 +113,5 @@ pub fn eval(vm: &Vm, args: &mut Args) -> SourceResult<Value> {
     let source = Source::synthesized(text, span);
     let route = model::Route::default();
     let module = model::eval(vm.world(), route.track(), &source)?;
-    Ok(Value::Content(module.content))
+    Ok(Value::Content(module.content()))
 }

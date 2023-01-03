@@ -125,8 +125,8 @@ pub enum SyntaxKind {
     Import,
     /// The `include` keyword.
     Include,
-    /// The `from` keyword.
-    From,
+    /// The `as` keyword.
+    As,
 
     /// Markup of which all lines must have a minimal indentation.
     ///
@@ -387,7 +387,7 @@ impl SyntaxKind {
             Self::Return => "keyword `return`",
             Self::Import => "keyword `import`",
             Self::Include => "keyword `include`",
-            Self::From => "keyword `from`",
+            Self::As => "keyword `as`",
             Self::Markup { .. } => "markup",
             Self::Text(_) => "text",
             Self::Linebreak => "linebreak",
@@ -514,7 +514,7 @@ impl Hash for SyntaxKind {
             Self::Return => {}
             Self::Import => {}
             Self::Include => {}
-            Self::From => {}
+            Self::As => {}
             Self::Markup { min_indent } => min_indent.hash(state),
             Self::Text(s) => s.hash(state),
             Self::Linebreak => {}

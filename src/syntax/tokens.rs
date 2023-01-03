@@ -684,7 +684,7 @@ fn keyword(ident: &str) -> Option<SyntaxKind> {
         "return" => SyntaxKind::Return,
         "import" => SyntaxKind::Import,
         "include" => SyntaxKind::Include,
-        "from" => SyntaxKind::From,
+        "as" => SyntaxKind::As,
         _ => return None,
     })
 }

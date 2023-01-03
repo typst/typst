@@ -79,7 +79,7 @@
 ---
 // Double block creates a scope.
 {{
-  import b from "module.typ"
+  import "module.typ": b
   test(b, 1)
 }}
 
