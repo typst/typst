@@ -418,6 +418,18 @@ impl Coverage {
 
         false
     }
+
+    /// Iterate over all covered codepoints.
+    pub fn iter(&self) -> impl Iterator<Item = u32> + '_ {
+        let mut inside = false;
+        let mut cursor = 0;
+        self.0.iter().flat_map(move |run| {
+            let range = if inside { cursor..cursor + run } else { 0..0 };
+            inside = !inside;
+            cursor += run;
+            range
+        })
+    }
 }
 
 #[cfg(test)]
@@ -465,5 +477,12 @@ mod tests {
             &[18, 19, 2, 4, 9, 11, 15, 3, 3, 10],
             &[2, 3, 4, 3, 3, 1, 2, 2],
         )
+    }
+
+    #[test]
+    fn test_coverage_iter() {
+        let codepoints = vec![2, 3, 7, 8, 9, 14, 15, 19, 21];
+        let coverage = Coverage::from_vec(codepoints.clone());
+        assert_eq!(coverage.iter().collect::<Vec<_>>(), codepoints);
     }
 }
