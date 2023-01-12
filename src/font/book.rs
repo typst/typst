@@ -418,6 +418,27 @@ impl Coverage {
 
         false
     }
+
+    /// Return the first n covered code points.
+    pub fn first_n(&self, n: usize) -> Vec<u32> {
+        let mut inside = false;
+        let mut cursor = 0;
+        let mut result = Vec::with_capacity(n);
+
+        for &run in &self.0 {
+            if inside {
+                result.extend(cursor..cursor + run.max(n as u32));
+                if result.len() >= n {
+                    return result;
+                }
+            }
+
+            cursor += run;
+            inside = !inside;
+        }
+
+        result
+    }
 }
 
 #[cfg(test)]
