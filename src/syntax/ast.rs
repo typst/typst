@@ -37,7 +37,7 @@ macro_rules! node {
                 if matches!(node.kind(), $variants) {
                     Some(Self(node.clone()))
                 } else {
-                    None
+                    Option::None
                 }
             }
 
@@ -97,6 +97,8 @@ pub enum Expr {
     Raw(Raw),
     /// A hyperlink: `https://typst.org`.
     Link(Link),
+    /// A label: `<intro>`.
+    Label(Label),
     /// A reference: `@target`.
     Ref(Ref),
     /// A section heading: `= Introduction`.
@@ -117,10 +119,22 @@ pub enum Expr {
     Frac(Frac),
     /// An alignment point in a math formula: `&`, `&&`.
     AlignPoint(AlignPoint),
-    /// A literal: `1`, `true`, ...
-    Lit(Lit),
     /// An identifier: `left`.
     Ident(Ident),
+    /// The `none` literal.
+    None(None),
+    /// The `auto` literal.
+    Auto(Auto),
+    /// A boolean: `true`, `false`.
+    Bool(Bool),
+    /// An integer: `120`.
+    Int(Int),
+    /// A floating-point number: `1.2`, `10e-4`.
+    Float(Float),
+    /// A numeric value with a unit: `12pt`, `3cm`, `2em`, `90deg`, `50%`.
+    Numeric(Numeric),
+    /// A quoted string: `"..."`.
+    Str(Str),
     /// A code block: `{ let x = 1; x + 2 }`.
     Code(CodeBlock),
     /// A content block: `[*Hi* there!]`.
@@ -189,6 +203,7 @@ impl AstNode for Expr {
             SyntaxKind::Emph => node.cast().map(Self::Emph),
             SyntaxKind::Raw(_) => node.cast().map(Self::Raw),
             SyntaxKind::Link(_) => node.cast().map(Self::Link),
+            SyntaxKind::Label(_) => node.cast().map(Self::Label),
             SyntaxKind::Ref(_) => node.cast().map(Self::Ref),
             SyntaxKind::Heading => node.cast().map(Self::Heading),
             SyntaxKind::ListItem => node.cast().map(Self::List),
@@ -200,6 +215,13 @@ impl AstNode for Expr {
             SyntaxKind::Frac => node.cast().map(Self::Frac),
             SyntaxKind::AlignPoint => node.cast().map(Self::AlignPoint),
             SyntaxKind::Ident(_) => node.cast().map(Self::Ident),
+            SyntaxKind::None => node.cast().map(Self::None),
+            SyntaxKind::Auto => node.cast().map(Self::Auto),
+            SyntaxKind::Bool(_) => node.cast().map(Self::Bool),
+            SyntaxKind::Int(_) => node.cast().map(Self::Int),
+            SyntaxKind::Float(_) => node.cast().map(Self::Float),
+            SyntaxKind::Numeric(_, _) => node.cast().map(Self::Numeric),
+            SyntaxKind::Str(_) => node.cast().map(Self::Str),
             SyntaxKind::CodeBlock => node.cast().map(Self::Code),
             SyntaxKind::ContentBlock => node.cast().map(Self::Content),
             SyntaxKind::Parenthesized => node.cast().map(Self::Parenthesized),
@@ -222,7 +244,7 @@ impl AstNode for Expr {
             SyntaxKind::LoopBreak => node.cast().map(Self::Break),
             SyntaxKind::LoopContinue => node.cast().map(Self::Continue),
             SyntaxKind::FuncReturn => node.cast().map(Self::Return),
-            _ => node.cast().map(Self::Lit),
+            _ => Option::None,
         }
     }
 
@@ -239,6 +261,7 @@ impl AstNode for Expr {
             Self::Emph(v) => v.as_untyped(),
             Self::Raw(v) => v.as_untyped(),
             Self::Link(v) => v.as_untyped(),
+            Self::Label(v) => v.as_untyped(),
             Self::Ref(v) => v.as_untyped(),
             Self::Heading(v) => v.as_untyped(),
             Self::List(v) => v.as_untyped(),
@@ -249,10 +272,16 @@ impl AstNode for Expr {
             Self::Script(v) => v.as_untyped(),
             Self::Frac(v) => v.as_untyped(),
             Self::AlignPoint(v) => v.as_untyped(),
-            Self::Lit(v) => v.as_untyped(),
+            Self::Ident(v) => v.as_untyped(),
+            Self::None(v) => v.as_untyped(),
+            Self::Auto(v) => v.as_untyped(),
+            Self::Bool(v) => v.as_untyped(),
+            Self::Int(v) => v.as_untyped(),
+            Self::Float(v) => v.as_untyped(),
+            Self::Numeric(v) => v.as_untyped(),
+            Self::Str(v) => v.as_untyped(),
             Self::Code(v) => v.as_untyped(),
             Self::Content(v) => v.as_untyped(),
-            Self::Ident(v) => v.as_untyped(),
             Self::Array(v) => v.as_untyped(),
             Self::Dict(v) => v.as_untyped(),
             Self::Parenthesized(v) => v.as_untyped(),
@@ -274,25 +303,6 @@ impl AstNode for Expr {
             Self::Continue(v) => v.as_untyped(),
             Self::Return(v) => v.as_untyped(),
         }
-    }
-}
-
-impl Expr {
-    /// Whether the expression can be shortened in markup with a hashtag.
-    pub fn has_short_form(&self) -> bool {
-        matches!(
-            self,
-            Self::Ident(_)
-                | Self::FuncCall(_)
-                | Self::Let(_)
-                | Self::Set(_)
-                | Self::Show(_)
-                | Self::Conditional(_)
-                | Self::While(_)
-                | Self::For(_)
-                | Self::Import(_)
-                | Self::Include(_)
-        )
     }
 }
 
@@ -464,6 +474,21 @@ impl Link {
 }
 
 node! {
+    /// A label: `<intro>`.
+    Label
+}
+
+impl Label {
+    /// Get the label's text.
+    pub fn get(&self) -> &EcoString {
+        match self.0.kind() {
+            SyntaxKind::Label(v) => v,
+            _ => panic!("label is of wrong kind"),
+        }
+    }
+}
+
+node! {
     /// A reference: `@target`.
     Ref
 }
@@ -522,7 +547,7 @@ impl EnumItem {
     pub fn number(&self) -> Option<NonZeroUsize> {
         self.0.children().find_map(|node| match node.kind() {
             SyntaxKind::EnumNumbering(num) => Some(*num),
-            _ => None,
+            _ => Option::None,
         })
     }
 
@@ -649,53 +674,124 @@ impl AlignPoint {
 }
 
 node! {
-    /// A literal: `1`, `true`, ...
-    Lit: SyntaxKind::None
-       | SyntaxKind::Auto
-       | SyntaxKind::Bool(_)
-       | SyntaxKind::Int(_)
-       | SyntaxKind::Float(_)
-       | SyntaxKind::Numeric(_, _)
-       | SyntaxKind::Str(_)
-       | SyntaxKind::Label(_)
+    /// An identifier: `it`.
+    Ident
 }
 
-impl Lit {
-    /// The kind of literal.
-    pub fn kind(&self) -> LitKind {
-        match *self.0.kind() {
-            SyntaxKind::None => LitKind::None,
-            SyntaxKind::Auto => LitKind::Auto,
-            SyntaxKind::Bool(v) => LitKind::Bool(v),
-            SyntaxKind::Int(v) => LitKind::Int(v),
-            SyntaxKind::Float(v) => LitKind::Float(v),
-            SyntaxKind::Numeric(v, unit) => LitKind::Numeric(v, unit),
-            SyntaxKind::Str(ref v) => LitKind::Str(v.clone()),
-            SyntaxKind::Label(ref v) => LitKind::Label(v.clone()),
-            _ => panic!("literal is of wrong kind"),
+impl Ident {
+    /// Get the identifier.
+    pub fn get(&self) -> &EcoString {
+        match self.0.kind() {
+            SyntaxKind::Ident(id) => id,
+            _ => panic!("identifier is of wrong kind"),
+        }
+    }
+
+    /// Take out the container identifier.
+    pub fn take(self) -> EcoString {
+        match self.0.take() {
+            SyntaxKind::Ident(id) => id,
+            _ => panic!("identifier is of wrong kind"),
+        }
+    }
+
+    /// Get the identifier as a string slice.
+    pub fn as_str(&self) -> &str {
+        self.get()
+    }
+}
+
+impl Deref for Ident {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        self.as_str()
+    }
+}
+
+node! {
+    /// The `none` literal.
+    None
+}
+
+node! {
+    /// The `auto` literal.
+    Auto
+}
+
+node! {
+    /// A boolean: `true`, `false`.
+    Bool
+}
+
+impl Bool {
+    /// Get the value.
+    pub fn get(&self) -> bool {
+        match self.0.kind() {
+            SyntaxKind::Bool(v) => *v,
+            _ => panic!("boolean is of wrong kind"),
         }
     }
 }
 
-/// The kind of a literal.
-#[derive(Debug, Clone, PartialEq)]
-pub enum LitKind {
-    /// The none literal: `none`.
-    None,
-    /// The auto literal: `auto`.
-    Auto,
-    /// A boolean: `true`, `false`.
-    Bool(bool),
+node! {
     /// An integer: `120`.
-    Int(i64),
+    Int
+}
+
+impl Int {
+    /// Get the value.
+    pub fn get(&self) -> i64 {
+        match self.0.kind() {
+            SyntaxKind::Int(v) => *v,
+            _ => panic!("integer is of wrong kind"),
+        }
+    }
+}
+
+node! {
     /// A floating-point number: `1.2`, `10e-4`.
-    Float(f64),
+    Float
+}
+
+impl Float {
+    /// Get the value.
+    pub fn get(&self) -> f64 {
+        match self.0.kind() {
+            SyntaxKind::Float(v) => *v,
+            _ => panic!("float is of wrong kind"),
+        }
+    }
+}
+
+node! {
     /// A numeric value with a unit: `12pt`, `3cm`, `2em`, `90deg`, `50%`.
-    Numeric(f64, Unit),
+    Numeric
+}
+
+impl Numeric {
+    /// Get the value and unit.
+    pub fn get(&self) -> (f64, Unit) {
+        match self.0.kind() {
+            SyntaxKind::Numeric(v, unit) => (*v, *unit),
+            _ => panic!("numeric is of wrong kind"),
+        }
+    }
+}
+
+node! {
     /// A quoted string: `"..."`.
-    Str(EcoString),
-    /// A label: `<intro>`.
-    Label(EcoString),
+    Str
+}
+
+impl Str {
+    /// Get the value.
+    pub fn get(&self) -> &EcoString {
+        match self.0.kind() {
+            SyntaxKind::Str(v) => v,
+            _ => panic!("string is of wrong kind"),
+        }
+    }
 }
 
 node! {
@@ -802,7 +898,7 @@ impl AstNode for DictItem {
             SyntaxKind::Named => node.cast().map(Self::Named),
             SyntaxKind::Keyed => node.cast().map(Self::Keyed),
             SyntaxKind::Spread => node.cast_first_child().map(Self::Spread),
-            _ => None,
+            _ => Option::None,
         }
     }
 
@@ -844,7 +940,7 @@ impl Keyed {
             .children()
             .find_map(|node| match node.kind() {
                 SyntaxKind::Str(key) => Some(key.clone()),
-                _ => None,
+                _ => Option::None,
             })
             .expect("keyed pair is missing key")
     }
@@ -893,7 +989,7 @@ impl UnOp {
             SyntaxKind::Plus => Self::Pos,
             SyntaxKind::Minus => Self::Neg,
             SyntaxKind::Not => Self::Not,
-            _ => return None,
+            _ => return Option::None,
         })
     }
 
@@ -929,7 +1025,7 @@ impl Binary {
             .find_map(|node| match node.kind() {
                 SyntaxKind::Not => {
                     not = true;
-                    None
+                    Option::None
                 }
                 SyntaxKind::In if not => Some(BinOp::NotIn),
                 _ => BinOp::from_token(node.kind()),
@@ -1017,7 +1113,7 @@ impl BinOp {
             SyntaxKind::HyphEq => Self::SubAssign,
             SyntaxKind::StarEq => Self::MulAssign,
             SyntaxKind::SlashEq => Self::DivAssign,
-            _ => return None,
+            _ => return Option::None,
         })
     }
 
@@ -1253,7 +1349,7 @@ impl AstNode for Param {
             SyntaxKind::Ident(_) => node.cast().map(Self::Pos),
             SyntaxKind::Named => node.cast().map(Self::Named),
             SyntaxKind::Spread => node.cast_first_child().map(Self::Sink),
-            _ => None,
+            _ => Option::None,
         }
     }
 
@@ -1419,7 +1515,7 @@ impl ForPattern {
         if children.next().is_some() {
             key
         } else {
-            None
+            Option::None
         }
     }
 
@@ -1448,7 +1544,7 @@ impl ModuleImport {
                 let items = node.children().filter_map(SyntaxNode::cast).collect();
                 Some(Imports::Items(items))
             }
-            _ => None,
+            _ => Option::None,
         })
     }
 }
@@ -1493,41 +1589,5 @@ impl FuncReturn {
     /// The expression to return.
     pub fn body(&self) -> Option<Expr> {
         self.0.cast_last_child()
-    }
-}
-
-node! {
-    /// An identifier: `it`.
-    Ident
-}
-
-impl Ident {
-    /// Get the identifier.
-    pub fn get(&self) -> &EcoString {
-        match self.0.kind() {
-            SyntaxKind::Ident(id) => id,
-            _ => panic!("identifier is of wrong kind"),
-        }
-    }
-
-    /// Take out the container identifier.
-    pub fn take(self) -> EcoString {
-        match self.0.take() {
-            SyntaxKind::Ident(id) => id,
-            _ => panic!("identifier is of wrong kind"),
-        }
-    }
-
-    /// Get the identifier as a string slice.
-    pub fn as_str(&self) -> &str {
-        self.get()
-    }
-}
-
-impl Deref for Ident {
-    type Target = str;
-
-    fn deref(&self) -> &Self::Target {
-        self.as_str()
     }
 }

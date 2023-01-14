@@ -270,8 +270,9 @@ impl Eval for ast::Expr {
             Self::SmartQuote(v) => v.eval(vm).map(Value::Content),
             Self::Strong(v) => v.eval(vm).map(Value::Content),
             Self::Emph(v) => v.eval(vm).map(Value::Content),
-            Self::Link(v) => v.eval(vm).map(Value::Content),
             Self::Raw(v) => v.eval(vm).map(Value::Content),
+            Self::Link(v) => v.eval(vm).map(Value::Content),
+            Self::Label(v) => v.eval(vm),
             Self::Ref(v) => v.eval(vm).map(Value::Content),
             Self::Heading(v) => v.eval(vm).map(Value::Content),
             Self::List(v) => v.eval(vm).map(Value::Content),
@@ -281,8 +282,14 @@ impl Eval for ast::Expr {
             Self::Script(v) => v.eval(vm).map(Value::Content),
             Self::Frac(v) => v.eval(vm).map(Value::Content),
             Self::AlignPoint(v) => v.eval(vm).map(Value::Content),
-            Self::Lit(v) => v.eval(vm),
             Self::Ident(v) => v.eval(vm),
+            Self::None(v) => v.eval(vm),
+            Self::Auto(v) => v.eval(vm),
+            Self::Bool(v) => v.eval(vm),
+            Self::Int(v) => v.eval(vm),
+            Self::Float(v) => v.eval(vm),
+            Self::Numeric(v) => v.eval(vm),
+            Self::Str(v) => v.eval(vm),
             Self::Code(v) => v.eval(vm),
             Self::Content(v) => v.eval(vm).map(Value::Content),
             Self::Math(v) => v.eval(vm).map(Value::Content),
@@ -435,6 +442,14 @@ impl Eval for ast::Link {
     }
 }
 
+impl Eval for ast::Label {
+    type Output = Value;
+
+    fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
+        Ok(Value::Label(Label(self.get().clone())))
+    }
+}
+
 impl Eval for ast::Ref {
     type Output = Content;
 
@@ -531,29 +546,6 @@ impl Eval for ast::AlignPoint {
     }
 }
 
-impl Eval for ast::Lit {
-    type Output = Value;
-
-    fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(match self.kind() {
-            ast::LitKind::None => Value::None,
-            ast::LitKind::Auto => Value::Auto,
-            ast::LitKind::Bool(v) => Value::Bool(v),
-            ast::LitKind::Int(v) => Value::Int(v),
-            ast::LitKind::Float(v) => Value::Float(v),
-            ast::LitKind::Numeric(v, unit) => match unit {
-                Unit::Length(unit) => Abs::with_unit(v, unit).into(),
-                Unit::Angle(unit) => Angle::with_unit(v, unit).into(),
-                Unit::Em => Em::new(v).into(),
-                Unit::Fr => Fr::new(v).into(),
-                Unit::Percent => Ratio::new(v / 100.0).into(),
-            },
-            ast::LitKind::Str(v) => Value::Str(v.into()),
-            ast::LitKind::Label(v) => Value::Label(Label(v)),
-        })
-    }
-}
-
 impl Eval for ast::Ident {
     type Output = Value;
 
@@ -575,6 +567,69 @@ impl ast::Ident {
         } else {
             Ok(self.eval(vm)?.display_in_math())
         }
+    }
+}
+
+impl Eval for ast::None {
+    type Output = Value;
+
+    fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
+        Ok(Value::None)
+    }
+}
+
+impl Eval for ast::Auto {
+    type Output = Value;
+
+    fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
+        Ok(Value::Auto)
+    }
+}
+
+impl Eval for ast::Bool {
+    type Output = Value;
+
+    fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
+        Ok(Value::Bool(self.get()))
+    }
+}
+
+impl Eval for ast::Int {
+    type Output = Value;
+
+    fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
+        Ok(Value::Int(self.get()))
+    }
+}
+
+impl Eval for ast::Float {
+    type Output = Value;
+
+    fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
+        Ok(Value::Float(self.get()))
+    }
+}
+
+impl Eval for ast::Numeric {
+    type Output = Value;
+
+    fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
+        let (v, unit) = self.get();
+        Ok(match unit {
+            Unit::Length(unit) => Abs::with_unit(v, unit).into(),
+            Unit::Angle(unit) => Angle::with_unit(v, unit).into(),
+            Unit::Em => Em::new(v).into(),
+            Unit::Fr => Fr::new(v).into(),
+            Unit::Percent => Ratio::new(v / 100.0).into(),
+        })
+    }
+}
+
+impl Eval for ast::Str {
+    type Output = Value;
+
+    fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
+        Ok(Value::Str(self.get().clone().into()))
     }
 }
 
