@@ -9,13 +9,13 @@ use super::{ErrorPos, RawFields, SyntaxKind, Unit};
 use crate::geom::{AbsUnit, AngleUnit};
 use crate::util::{format_eco, EcoString};
 
-/// An iterator over the tokens of a string of source code.
+/// Splits up a string of source code into tokens.
 #[derive(Clone)]
-pub struct Tokens<'s> {
+pub struct Lexer<'s> {
     /// The underlying scanner.
     s: Scanner<'s>,
-    /// The mode the scanner is in. This determines what tokens it recognizes.
-    mode: TokenMode,
+    /// The mode the lexer is in. This determines what tokens it recognizes.
+    mode: LexMode,
     /// Whether the last token has been terminated.
     terminated: bool,
     /// Offsets the indentation on the first line of the source.
@@ -24,7 +24,7 @@ pub struct Tokens<'s> {
 
 /// What kind of tokens to emit.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum TokenMode {
+pub enum LexMode {
     /// Text and markup.
     Markup,
     /// Math atoms, operators, etc.
@@ -33,15 +33,15 @@ pub enum TokenMode {
     Code,
 }
 
-impl<'s> Tokens<'s> {
-    /// Create a new token iterator with the given mode.
-    pub fn new(text: &'s str, mode: TokenMode) -> Self {
+impl<'s> Lexer<'s> {
+    /// Create a new lexer with the given mode.
+    pub fn new(text: &'s str, mode: LexMode) -> Self {
         Self::with_prefix("", text, mode)
     }
 
-    /// Create a new token iterator with the given mode and a prefix to offset
-    /// column calculations.
-    pub fn with_prefix(prefix: &str, text: &'s str, mode: TokenMode) -> Self {
+    /// Create a new lexer with the given mode and a prefix to offset column
+    /// calculations.
+    pub fn with_prefix(prefix: &str, text: &'s str, mode: LexMode) -> Self {
         Self {
             s: Scanner::new(text),
             mode,
@@ -50,13 +50,13 @@ impl<'s> Tokens<'s> {
         }
     }
 
-    /// Get the current token mode.
-    pub fn mode(&self) -> TokenMode {
+    /// Get the current lexing mode.
+    pub fn mode(&self) -> LexMode {
         self.mode
     }
 
-    /// Change the token mode.
-    pub fn set_mode(&mut self, mode: TokenMode) {
+    /// Change the lexing mode.
+    pub fn set_mode(&mut self, mode: LexMode) {
         self.mode = mode;
     }
 
@@ -87,10 +87,10 @@ impl<'s> Tokens<'s> {
     }
 }
 
-impl Iterator for Tokens<'_> {
+impl Iterator for Lexer<'_> {
     type Item = SyntaxKind;
 
-    /// Parse the next token in the source code.
+    /// Produce the next token.
     fn next(&mut self) -> Option<Self::Item> {
         let start = self.s.cursor();
         let c = self.s.eat()?;
@@ -106,16 +106,16 @@ impl Iterator for Tokens<'_> {
 
             // Other things.
             _ => match self.mode {
-                TokenMode::Markup => self.markup(start, c),
-                TokenMode::Math => self.math(start, c),
-                TokenMode::Code => self.code(start, c),
+                LexMode::Markup => self.markup(start, c),
+                LexMode::Math => self.math(start, c),
+                LexMode::Code => self.code(start, c),
             },
         })
     }
 }
 
 /// Shared.
-impl Tokens<'_> {
+impl Lexer<'_> {
     fn line_comment(&mut self) -> SyntaxKind {
         self.s.eat_until(is_newline);
         if self.s.peek().is_none() {
@@ -182,7 +182,7 @@ impl Tokens<'_> {
     }
 }
 
-impl Tokens<'_> {
+impl Lexer<'_> {
     fn markup(&mut self, start: usize, c: char) -> SyntaxKind {
         match c {
             // Blocks.
@@ -304,7 +304,7 @@ impl Tokens<'_> {
                 Some(keyword) => keyword,
                 None => SyntaxKind::Ident(read.into()),
             }
-        } else if self.mode == TokenMode::Markup {
+        } else if self.mode == LexMode::Markup {
             self.text(start)
         } else {
             SyntaxKind::Atom("#".into())
@@ -339,7 +339,7 @@ impl Tokens<'_> {
         if start < end {
             self.s.expect(':');
             SyntaxKind::Symbol(self.s.get(start..end).into())
-        } else if self.mode == TokenMode::Markup {
+        } else if self.mode == LexMode::Markup {
             SyntaxKind::Colon
         } else {
             SyntaxKind::Atom(":".into())
@@ -438,7 +438,7 @@ impl Tokens<'_> {
 }
 
 /// Math.
-impl Tokens<'_> {
+impl Lexer<'_> {
     fn math(&mut self, start: usize, c: char) -> SyntaxKind {
         match c {
             // Symbol shorthands.
@@ -507,7 +507,7 @@ impl Tokens<'_> {
 }
 
 /// Code.
-impl Tokens<'_> {
+impl Lexer<'_> {
     fn code(&mut self, start: usize, c: char) -> SyntaxKind {
         match c {
             // Blocks.

@@ -46,7 +46,7 @@ const LIMIT: usize = 14;
 
 impl EcoString {
     /// Create a new, empty string.
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self(Repr::Small { buf: [0; LIMIT], len: 0 })
     }
 

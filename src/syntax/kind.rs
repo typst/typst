@@ -7,7 +7,7 @@ use crate::util::EcoString;
 
 /// All syntactical building blocks that can be part of a Typst document.
 ///
-/// Can be created by the tokenizer or by the parser.
+/// Can be created by the lexer or by the parser.
 #[derive(Debug, Clone, PartialEq)]
 pub enum SyntaxKind {
     /// A line comment: `// ...`.

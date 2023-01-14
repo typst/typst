@@ -404,9 +404,23 @@ fn next_at_start(kind: &SyntaxKind, prev: bool) -> bool {
 #[cfg(test)]
 #[rustfmt::skip]
 mod tests {
+    use std::fmt::Debug;
+
     use super::*;
     use super::super::{parse, Source};
-    use super::super::tests::check;
+
+    #[track_caller]
+    fn check<T>(text: &str, found: T, expected: T)
+    where
+        T: Debug + PartialEq,
+    {
+        if found != expected {
+            println!("source:   {text:?}");
+            println!("expected: {expected:#?}");
+            println!("found:    {found:#?}");
+            panic!("test failed");
+        }
+    }
 
     #[track_caller]
     fn test(prev: &str, range: Range<usize>, with: &str, goal: Range<usize>) {

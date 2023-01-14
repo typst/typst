@@ -5,7 +5,7 @@ use iai::{black_box, main, Iai};
 use typst::diag::{FileError, FileResult};
 use typst::font::{Font, FontBook};
 use typst::model::Library;
-use typst::syntax::{Source, SourceId, TokenMode, Tokens};
+use typst::syntax::{LexMode, Lexer, Source, SourceId};
 use typst::util::Buffer;
 use typst::World;
 use unscanny::Scanner;
@@ -16,7 +16,7 @@ const FONT: &[u8] = include_bytes!("../fonts/IBMPlexSans-Regular.ttf");
 main!(
     bench_decode,
     bench_scan,
-    bench_tokenize,
+    bench_lex,
     bench_parse,
     bench_edit,
     bench_eval,
@@ -49,8 +49,8 @@ fn bench_scan(iai: &mut Iai) {
     })
 }
 
-fn bench_tokenize(iai: &mut Iai) {
-    iai.run(|| Tokens::new(black_box(TEXT), black_box(TokenMode::Markup)).count());
+fn bench_lex(iai: &mut Iai) {
+    iai.run(|| Lexer::new(black_box(TEXT), black_box(LexMode::Markup)).count());
 }
 
 fn bench_parse(iai: &mut Iai) {

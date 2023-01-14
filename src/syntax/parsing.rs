@@ -2,21 +2,21 @@ use std::collections::HashSet;
 
 use super::ast::{Assoc, BinOp, UnOp};
 use super::{
-    ErrorPos, Group, Marker, ParseError, ParseResult, Parser, SyntaxKind, SyntaxNode,
-    TokenMode,
+    ErrorPos, Group, LexMode, Marker, ParseError, ParseResult, Parser, SyntaxKind,
+    SyntaxNode,
 };
 use crate::util::EcoString;
 
 /// Parse a source file.
 pub fn parse(text: &str) -> SyntaxNode {
-    let mut p = Parser::new(text, TokenMode::Markup);
+    let mut p = Parser::new(text, LexMode::Markup);
     markup(&mut p, true);
     p.finish().into_iter().next().unwrap()
 }
 
 /// Parse code directly, only used for syntax highlighting.
 pub fn parse_code(text: &str) -> SyntaxNode {
-    let mut p = Parser::new(text, TokenMode::Code);
+    let mut p = Parser::new(text, LexMode::Code);
     p.perform(SyntaxKind::CodeBlock, code);
     p.finish().into_iter().next().unwrap()
 }
@@ -29,7 +29,7 @@ pub(crate) fn reparse_code_block(
     text: &str,
     end_pos: usize,
 ) -> Option<(Vec<SyntaxNode>, bool, usize)> {
-    let mut p = Parser::with_prefix(prefix, text, TokenMode::Code);
+    let mut p = Parser::with_prefix(prefix, text, LexMode::Code);
     if !p.at(SyntaxKind::LeftBrace) {
         return None;
     }
@@ -53,7 +53,7 @@ pub(crate) fn reparse_content_block(
     text: &str,
     end_pos: usize,
 ) -> Option<(Vec<SyntaxNode>, bool, usize)> {
-    let mut p = Parser::with_prefix(prefix, text, TokenMode::Code);
+    let mut p = Parser::with_prefix(prefix, text, LexMode::Code);
     if !p.at(SyntaxKind::LeftBracket) {
         return None;
     }
@@ -81,7 +81,7 @@ pub(crate) fn reparse_markup_elements(
     mut at_start: bool,
     min_indent: usize,
 ) -> Option<(Vec<SyntaxNode>, bool, usize)> {
-    let mut p = Parser::with_prefix(prefix, text, TokenMode::Markup);
+    let mut p = Parser::with_prefix(prefix, text, LexMode::Markup);
 
     let mut node: Option<&SyntaxNode> = None;
     let mut iter = reference.iter();

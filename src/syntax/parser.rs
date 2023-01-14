@@ -2,13 +2,13 @@ use std::fmt::{self, Display, Formatter};
 use std::mem;
 use std::ops::Range;
 
-use super::{ErrorPos, SyntaxKind, SyntaxNode, TokenMode, Tokens};
+use super::{ErrorPos, LexMode, Lexer, SyntaxKind, SyntaxNode};
 use crate::util::{format_eco, EcoString};
 
 /// A convenient token-based parser.
 pub struct Parser<'s> {
     /// An iterator over the source tokens.
-    tokens: Tokens<'s>,
+    tokens: Lexer<'s>,
     /// Whether we are at the end of the file or of a group.
     eof: bool,
     /// The current token.
@@ -29,15 +29,15 @@ pub struct Parser<'s> {
 
 impl<'s> Parser<'s> {
     /// Create a new parser for the source string.
-    pub fn new(text: &'s str, mode: TokenMode) -> Self {
+    pub fn new(text: &'s str, mode: LexMode) -> Self {
         Self::with_prefix("", text, mode)
     }
 
     /// Create a new parser for the source string that is prefixed by some text
     /// that does not need to be parsed but taken into account for column
     /// calculation.
-    pub fn with_prefix(prefix: &str, text: &'s str, mode: TokenMode) -> Self {
-        let mut tokens = Tokens::with_prefix(prefix, text, mode);
+    pub fn with_prefix(prefix: &str, text: &'s str, mode: LexMode) -> Self {
+        let mut tokens = Lexer::with_prefix(prefix, text, mode);
         let current = tokens.next();
         Self {
             tokens,
@@ -91,7 +91,7 @@ impl<'s> Parser<'s> {
         let until = self.trivia_start();
         let mut children = mem::replace(&mut self.children, prev);
 
-        if self.tokens.mode() == TokenMode::Markup {
+        if self.tokens.mode() == LexMode::Markup {
             self.children.push(SyntaxNode::inner(kind, children));
         } else {
             // Trailing trivia should not be wrapped into the new node.
@@ -121,7 +121,7 @@ impl<'s> Parser<'s> {
         self.prev_end = self.tokens.cursor();
         self.bump();
 
-        if self.tokens.mode() != TokenMode::Markup {
+        if self.tokens.mode() != LexMode::Markup {
             // Skip whitespace and comments.
             while self.current.as_ref().map_or(false, |x| self.is_trivia(x)) {
                 self.bump();
@@ -235,9 +235,9 @@ impl<'s> Parser<'s> {
     pub fn start_group(&mut self, kind: Group) {
         self.groups.push(GroupEntry { kind, prev_mode: self.tokens.mode() });
         self.tokens.set_mode(match kind {
-            Group::Bracket | Group::Strong | Group::Emph => TokenMode::Markup,
-            Group::Math | Group::MathRow(_, _) => TokenMode::Math,
-            Group::Brace | Group::Paren | Group::Expr => TokenMode::Code,
+            Group::Bracket | Group::Strong | Group::Emph => LexMode::Markup,
+            Group::Math | Group::MathRow(_, _) => LexMode::Math,
+            Group::Brace | Group::Paren | Group::Expr => LexMode::Code,
         });
 
         match kind {
@@ -296,7 +296,7 @@ impl<'s> Parser<'s> {
         // Rescan the peeked token if the mode changed.
         if rescan {
             let mut target = self.prev_end();
-            if group_mode != TokenMode::Markup {
+            if group_mode != LexMode::Markup {
                 let start = self.trivia_start().0;
                 target = self.current_start
                     - self.children[start..].iter().map(SyntaxNode::len).sum::<usize>();
@@ -488,7 +488,7 @@ impl Marker {
             }
 
             // Don't expose trivia in code.
-            if p.tokens.mode() != TokenMode::Markup && child.kind().is_trivia() {
+            if p.tokens.mode() != LexMode::Markup && child.kind().is_trivia() {
                 continue;
             }
 
@@ -515,7 +515,7 @@ struct GroupEntry {
     pub kind: Group,
     /// The mode the parser was in _before_ the group started (to which we go
     /// back once the group ends).
-    pub prev_mode: TokenMode,
+    pub prev_mode: LexMode,
 }
 
 /// A group, confined by optional start and end delimiters.
