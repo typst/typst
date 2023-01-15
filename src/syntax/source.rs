@@ -8,10 +8,10 @@ use std::path::{Path, PathBuf};
 use comemo::Prehashed;
 use unscanny::Scanner;
 
+use super::ast::Markup;
+use super::reparse::reparse;
+use super::{is_newline, parse, Span, SyntaxNode};
 use crate::diag::SourceResult;
-use crate::syntax::ast::Markup;
-use crate::syntax::{is_newline, parse, reparse};
-use crate::syntax::{Span, SyntaxNode};
 use crate::util::{PathExt, StrExt};
 
 /// A source file.
@@ -124,11 +124,8 @@ impl Source {
         }
 
         // Recalculate the line starts after the edit.
-        self.lines.extend(lines_from(
-            start_byte,
-            start_utf16,
-            &self.text[start_byte..],
-        ));
+        self.lines
+            .extend(lines_from(start_byte, start_utf16, &self.text[start_byte..]));
 
         // Incrementally reparse the replaced range.
         let mut root = std::mem::take(&mut self.root).into_inner();

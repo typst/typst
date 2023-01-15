@@ -1,17 +1,12 @@
-use std::num::NonZeroUsize;
-use std::sync::Arc;
-
 use unicode_xid::UnicodeXID;
 use unscanny::Scanner;
 
-use super::resolve::{resolve_hex, resolve_raw, resolve_string};
-use super::{ErrorPos, RawFields, SyntaxKind, Unit};
-use crate::geom::{AbsUnit, AngleUnit};
+use super::{ErrorPos, SyntaxKind};
 use crate::util::{format_eco, EcoString};
 
 /// Splits up a string of source code into tokens.
 #[derive(Clone)]
-pub struct Lexer<'s> {
+pub(super) struct Lexer<'s> {
     /// The underlying scanner.
     s: Scanner<'s>,
     /// The mode the lexer is in. This determines what tokens it recognizes.
@@ -20,11 +15,13 @@ pub struct Lexer<'s> {
     terminated: bool,
     /// Offsets the indentation on the first line of the source.
     column_offset: usize,
+    /// An error for the last token.
+    error: Option<(EcoString, ErrorPos)>,
 }
 
 /// What kind of tokens to emit.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum LexMode {
+pub(super) enum LexMode {
     /// Text and markup.
     Markup,
     /// Math atoms, operators, etc.
@@ -34,11 +31,6 @@ pub enum LexMode {
 }
 
 impl<'s> Lexer<'s> {
-    /// Create a new lexer with the given mode.
-    pub fn new(text: &'s str, mode: LexMode) -> Self {
-        Self::with_prefix("", text, mode)
-    }
-
     /// Create a new lexer with the given mode and a prefix to offset column
     /// calculations.
     pub fn with_prefix(prefix: &str, text: &'s str, mode: LexMode) -> Self {
@@ -47,6 +39,7 @@ impl<'s> Lexer<'s> {
             mode,
             terminated: true,
             column_offset: column(prefix, prefix.len(), 0),
+            error: None,
         }
     }
 
@@ -85,6 +78,23 @@ impl<'s> Lexer<'s> {
     pub fn column(&self, index: usize) -> usize {
         column(self.s.string(), index, self.column_offset)
     }
+
+    /// Take out the last error.
+    pub fn last_error(&mut self) -> Option<(EcoString, ErrorPos)> {
+        self.error.take()
+    }
+
+    /// Construct a full-positioned syntax error.
+    fn error(&mut self, message: impl Into<EcoString>) -> SyntaxKind {
+        self.error = Some((message.into(), ErrorPos::Full));
+        SyntaxKind::Error
+    }
+
+    /// Construct a positioned syntax error.
+    fn error_at_end(&mut self, message: impl Into<EcoString>) -> SyntaxKind {
+        self.error = Some((message.into(), ErrorPos::End));
+        SyntaxKind::Error
+    }
 }
 
 impl Iterator for Lexer<'_> {
@@ -92,22 +102,20 @@ impl Iterator for Lexer<'_> {
 
     /// Produce the next token.
     fn next(&mut self) -> Option<Self::Item> {
+        self.error = None;
         let start = self.s.cursor();
         let c = self.s.eat()?;
         Some(match c {
             // Trivia.
+            c if c.is_whitespace() => self.whitespace(c),
             '/' if self.s.eat_if('/') => self.line_comment(),
             '/' if self.s.eat_if('*') => self.block_comment(),
-            '*' if self.s.eat_if('/') => SyntaxKind::Error(
-                ErrorPos::Full,
-                "unexpected end of block comment".into(),
-            ),
-            c if c.is_whitespace() => self.whitespace(c),
+            '*' if self.s.eat_if('/') => self.error("unexpected end of block comment"),
 
             // Other things.
             _ => match self.mode {
                 LexMode::Markup => self.markup(start, c),
-                LexMode::Math => self.math(start, c),
+                LexMode::Math => self.math(c),
                 LexMode::Code => self.code(start, c),
             },
         })
@@ -118,7 +126,7 @@ impl Iterator for Lexer<'_> {
 impl Lexer<'_> {
     fn line_comment(&mut self) -> SyntaxKind {
         self.s.eat_until(is_newline);
-        if self.s.peek().is_none() {
+        if self.s.done() {
             self.terminated = false;
         }
         SyntaxKind::LineComment
@@ -182,57 +190,64 @@ impl Lexer<'_> {
     }
 }
 
+/// Markup.
 impl Lexer<'_> {
     fn markup(&mut self, start: usize, c: char) -> SyntaxKind {
         match c {
-            // Blocks.
+            '\\' => self.backslash(),
+            ':' if self.s.at(is_id_start) => self.maybe_symbol(),
+            '`' => self.raw(),
+            'h' if self.s.eat_if("ttp://") => self.link(),
+            'h' if self.s.eat_if("ttps://") => self.link(),
+            '<' if self.s.at(is_id_continue) => self.label(),
+            '@' if self.s.at(is_id_continue) => self.reference(),
+            '0'..='9' => self.numbering(start),
+            '#' if self.s.eat_if('{') => SyntaxKind::LeftBrace,
+            '#' if self.s.eat_if('[') => SyntaxKind::LeftBracket,
+            '#' if self.s.at(is_id_start) => {
+                match keyword(self.s.eat_while(is_id_continue)) {
+                    Some(keyword) => keyword,
+                    None => SyntaxKind::Ident,
+                }
+            }
+
+            '.' if self.s.eat_if("..") => SyntaxKind::Shorthand,
+            '-' if self.s.eat_if("--") => SyntaxKind::Shorthand,
+            '-' if self.s.eat_if('-') => SyntaxKind::Shorthand,
+            '-' if self.s.eat_if('?') => SyntaxKind::Shorthand,
+            '*' if !self.in_word() => SyntaxKind::Star,
+            '_' if !self.in_word() => SyntaxKind::Underscore,
+
             '{' => SyntaxKind::LeftBrace,
             '}' => SyntaxKind::RightBrace,
             '[' => SyntaxKind::LeftBracket,
             ']' => SyntaxKind::RightBracket,
-
-            // Multi-char things.
-            '#' => self.hash(start),
-            '.' if self.s.eat_if("..") => SyntaxKind::Shorthand('\u{2026}'),
-            '-' => self.hyph(),
-            ':' => self.colon(),
-            'h' if self.s.eat_if("ttp://") || self.s.eat_if("ttps://") => {
-                self.link(start)
-            }
-            '`' => self.raw(),
-            c if c.is_ascii_digit() => self.numbering(start),
-            '<' if self.s.at(is_id_continue) => self.label(),
-            '@' if self.s.at(is_id_continue) => self.reference(),
-
-            // Escape sequences.
-            '\\' => self.backslash(),
-
-            // Single-char things.
-            '~' => SyntaxKind::Shorthand('\u{00A0}'),
-            '\'' => SyntaxKind::SmartQuote { double: false },
-            '"' => SyntaxKind::SmartQuote { double: true },
-            '*' if !self.in_word() => SyntaxKind::Star,
-            '_' if !self.in_word() => SyntaxKind::Underscore,
+            '\'' => SyntaxKind::SmartQuote,
+            '"' => SyntaxKind::SmartQuote,
             '$' => SyntaxKind::Dollar,
             '=' => SyntaxKind::Eq,
             '+' => SyntaxKind::Plus,
             '/' => SyntaxKind::Slash,
+            '~' => SyntaxKind::Shorthand,
+            ':' => SyntaxKind::Colon,
+            '-' => SyntaxKind::Minus,
 
-            // Plain text.
-            _ => self.text(start),
+            _ => self.text(),
         }
     }
 
-    fn text(&mut self, start: usize) -> SyntaxKind {
+    fn text(&mut self) -> SyntaxKind {
         macro_rules! table {
-            ($(|$c:literal)*) => {{
-                let mut t = [false; 128];
-                $(t[$c as usize] = true;)*
-                t
-            }}
+            ($(|$c:literal)*) => {
+                static TABLE: [bool; 128] = {
+                    let mut t = [false; 128];
+                    $(t[$c as usize] = true;)*
+                    t
+                };
+            };
         }
 
-        const TABLE: [bool; 128] = table! {
+        table! {
             | ' ' | '\t' | '\n' | '\x0b' | '\x0c' | '\r' | '\\' | '/'
             | '[' | ']' | '{' | '}' | '~' | '-' | '.' | '\'' | '"'
             | '*' | '_' | ':' | 'h' | '`' | '$' | '<' | '>' | '@' | '#'
@@ -247,8 +262,8 @@ impl Lexer<'_> {
             // anyway.
             let mut s = self.s;
             match s.eat() {
-                Some('/') if !s.at(['/', '*']) => {}
                 Some(' ') if s.at(char::is_alphanumeric) => {}
+                Some('/') if !s.at(['/', '*']) => {}
                 Some('-') if !s.at(['-', '?']) => {}
                 Some('.') if !s.at("..") => {}
                 Some('h') if !s.at("ttp://") && !s.at("ttps://") => {}
@@ -259,77 +274,40 @@ impl Lexer<'_> {
             self.s = s;
         }
 
-        SyntaxKind::Text(self.s.from(start).into())
+        SyntaxKind::Text
     }
 
     fn backslash(&mut self) -> SyntaxKind {
-        match self.s.peek() {
-            Some('u') if self.s.eat_if("u{") => {
-                let sequence = self.s.eat_while(char::is_ascii_alphanumeric);
-                if self.s.eat_if('}') {
-                    if let Some(c) = resolve_hex(sequence) {
-                        SyntaxKind::Escape(c)
-                    } else {
-                        SyntaxKind::Error(
-                            ErrorPos::Full,
-                            "invalid unicode escape sequence".into(),
-                        )
-                    }
-                } else {
-                    self.terminated = false;
-                    SyntaxKind::Error(ErrorPos::End, "expected closing brace".into())
-                }
+        if self.s.eat_if("u{") {
+            let hex = self.s.eat_while(char::is_ascii_alphanumeric);
+            if !self.s.eat_if('}') {
+                self.terminated = false;
+                return self.error_at_end("expected closing brace");
             }
 
-            // Linebreaks.
-            Some(c) if c.is_whitespace() => SyntaxKind::Linebreak,
-            None => SyntaxKind::Linebreak,
-
-            // Escapes.
-            Some(c) => {
-                self.s.expect(c);
-                SyntaxKind::Escape(c)
+            if u32::from_str_radix(hex, 16)
+                .ok()
+                .and_then(std::char::from_u32)
+                .is_none()
+            {
+                return self.error("invalid unicode escape sequence");
             }
+
+            return SyntaxKind::Escape;
         }
-    }
 
-    fn hash(&mut self, start: usize) -> SyntaxKind {
-        if self.s.eat_if('{') {
-            SyntaxKind::LeftBrace
-        } else if self.s.eat_if('[') {
-            SyntaxKind::LeftBracket
-        } else if self.s.at(is_id_start) {
-            let read = self.s.eat_while(is_id_continue);
-            match keyword(read) {
-                Some(keyword) => keyword,
-                None => SyntaxKind::Ident(read.into()),
-            }
-        } else if self.mode == LexMode::Markup {
-            self.text(start)
+        if self.s.done() || self.s.at(char::is_whitespace) {
+            SyntaxKind::Linebreak
         } else {
-            SyntaxKind::Atom("#".into())
+            self.s.eat();
+            SyntaxKind::Escape
         }
     }
 
-    fn hyph(&mut self) -> SyntaxKind {
-        if self.s.eat_if('-') {
-            if self.s.eat_if('-') {
-                SyntaxKind::Shorthand('\u{2014}')
-            } else {
-                SyntaxKind::Shorthand('\u{2013}')
-            }
-        } else if self.s.eat_if('?') {
-            SyntaxKind::Shorthand('\u{00AD}')
-        } else {
-            SyntaxKind::Minus
-        }
-    }
-
-    fn colon(&mut self) -> SyntaxKind {
+    fn maybe_symbol(&mut self) -> SyntaxKind {
         let start = self.s.cursor();
         let mut end = start;
-        while !self.s.eat_while(char::is_ascii_alphanumeric).is_empty() && self.s.at(':')
-        {
+        while !self.s.eat_while(is_id_continue).is_empty() && self.s.at(':') {
             end = self.s.cursor();
             self.s.eat();
         }
@@ -338,15 +316,15 @@ impl Lexer<'_> {
 
         if start < end {
             self.s.expect(':');
-            SyntaxKind::Symbol(self.s.get(start..end).into())
+            SyntaxKind::Symbol
         } else if self.mode == LexMode::Markup {
             SyntaxKind::Colon
         } else {
-            SyntaxKind::Atom(":".into())
+            SyntaxKind::Atom
         }
     }
 
-    fn link(&mut self, start: usize) -> SyntaxKind {
+    fn link(&mut self) -> SyntaxKind {
         #[rustfmt::skip]
         self.s.eat_while(|c: char| matches!(c,
             | '0' ..= '9'
@@ -355,10 +333,12 @@ impl Lexer<'_> {
             | '~'  | '/' | '%' | '?' | '#' | '&' | '+' | '='
             | '\'' | '.' | ',' | ';'
         ));
+
         if self.s.scout(-1) == Some('.') {
             self.s.uneat();
         }
-        SyntaxKind::Link(self.s.from(start).into())
+
+        SyntaxKind::Link
     }
 
     fn raw(&mut self) -> SyntaxKind {
@@ -369,16 +349,10 @@ impl Lexer<'_> {
             backticks += 1;
         }
 
-        // Special case for empty inline block.
         if backticks == 2 {
-            return SyntaxKind::Raw(Arc::new(RawFields {
-                text: EcoString::new(),
-                lang: None,
-                block: false,
-            }));
+            return SyntaxKind::Raw { column };
         }
 
-        let start = self.s.cursor();
         let mut found = 0;
         while found < backticks {
             match self.s.eat() {
@@ -388,45 +362,40 @@ impl Lexer<'_> {
             }
         }
 
-        if found == backticks {
-            let end = self.s.cursor() - found as usize;
-            SyntaxKind::Raw(Arc::new(resolve_raw(
-                column,
-                backticks,
-                self.s.get(start..end),
-            )))
-        } else {
+        if found != backticks {
             self.terminated = false;
             let remaining = backticks - found;
             let noun = if remaining == 1 { "backtick" } else { "backticks" };
-            SyntaxKind::Error(
-                ErrorPos::End,
-                if found == 0 {
-                    format_eco!("expected {} {}", remaining, noun)
-                } else {
-                    format_eco!("expected {} more {}", remaining, noun)
-                },
-            )
+            return self.error_at_end(if found == 0 {
+                format_eco!("expected {} {}", remaining, noun)
+            } else {
+                format_eco!("expected {} more {}", remaining, noun)
+            });
         }
+
+        SyntaxKind::Raw { column }
     }
 
     fn numbering(&mut self, start: usize) -> SyntaxKind {
         self.s.eat_while(char::is_ascii_digit);
+
         let read = self.s.from(start);
         if self.s.eat_if('.') {
             if let Ok(number) = read.parse::<usize>() {
-                return match NonZeroUsize::new(number) {
-                    Some(number) => SyntaxKind::EnumNumbering(number),
-                    None => SyntaxKind::Error(ErrorPos::Full, "must be positive".into()),
-                };
+                if number == 0 {
+                    return self.error("must be positive");
+                }
+
+                return SyntaxKind::EnumNumbering;
             }
         }
 
-        self.text(start)
+        self.text()
     }
 
     fn reference(&mut self) -> SyntaxKind {
-        SyntaxKind::Ref(self.s.eat_while(is_id_continue).into())
+        self.s.eat_while(is_id_continue);
+        SyntaxKind::Ref
     }
 
     fn in_word(&self) -> bool {
@@ -439,70 +408,70 @@ impl Lexer<'_> {
 
 /// Math.
 impl Lexer<'_> {
-    fn math(&mut self, start: usize, c: char) -> SyntaxKind {
+    fn math(&mut self, c: char) -> SyntaxKind {
         match c {
-            // Symbol shorthands.
-            '|' if self.s.eat_if("->") => SyntaxKind::Shorthand('\u{21A6}'),
-            '<' if self.s.eat_if("->") => SyntaxKind::Shorthand('\u{2194}'),
-            '<' if self.s.eat_if("=>") => SyntaxKind::Shorthand('\u{21D4}'),
-            '!' if self.s.eat_if('=') => SyntaxKind::Shorthand('\u{2260}'),
-            '<' if self.s.eat_if('=') => SyntaxKind::Shorthand('\u{2264}'),
-            '>' if self.s.eat_if('=') => SyntaxKind::Shorthand('\u{2265}'),
-            '<' if self.s.eat_if('-') => SyntaxKind::Shorthand('\u{2190}'),
-            '-' if self.s.eat_if('>') => SyntaxKind::Shorthand('\u{2192}'),
-            '=' if self.s.eat_if('>') => SyntaxKind::Shorthand('\u{21D2}'),
-            ':' if self.s.eat_if('=') => SyntaxKind::Shorthand('\u{2254}'),
-
-            // Multi-char things.
-            '#' => self.hash(start),
-
-            // Escape sequences.
             '\\' => self.backslash(),
-
-            // Single-char things.
-            '_' => SyntaxKind::Underscore,
-            '^' => SyntaxKind::Hat,
-            '/' => SyntaxKind::Slash,
-            '&' => SyntaxKind::Amp,
-            '$' => SyntaxKind::Dollar,
-
-            // Symbol notation.
-            ':' => self.colon(),
-
-            // Strings.
+            ':' if self.s.at(is_id_start) => self.maybe_symbol(),
             '"' => self.string(),
+            '#' if self.s.eat_if('{') => SyntaxKind::LeftBrace,
+            '#' if self.s.eat_if('[') => SyntaxKind::LeftBracket,
+            '#' if self.s.at(is_id_start) => {
+                match keyword(self.s.eat_while(is_id_continue)) {
+                    Some(keyword) => keyword,
+                    None => SyntaxKind::Ident,
+                }
+            }
+
+            '|' if self.s.eat_if("->") => SyntaxKind::Shorthand,
+            '<' if self.s.eat_if("->") => SyntaxKind::Shorthand,
+            '<' if self.s.eat_if("=>") => SyntaxKind::Shorthand,
+            '!' if self.s.eat_if('=') => SyntaxKind::Shorthand,
+            '<' if self.s.eat_if('=') => SyntaxKind::Shorthand,
+            '>' if self.s.eat_if('=') => SyntaxKind::Shorthand,
+            '<' if self.s.eat_if('-') => SyntaxKind::Shorthand,
+            '-' if self.s.eat_if('>') => SyntaxKind::Shorthand,
+            '=' if self.s.eat_if('>') => SyntaxKind::Shorthand,
+            ':' if self.s.eat_if('=') => SyntaxKind::Shorthand,
+
+            '_' => SyntaxKind::Underscore,
+            '$' => SyntaxKind::Dollar,
+            '/' => SyntaxKind::Slash,
+            '^' => SyntaxKind::Hat,
+            '&' => SyntaxKind::AlignPoint,
 
             // Identifiers and symbol notation.
             c if is_math_id_start(c) && self.s.at(is_math_id_continue) => {
-                self.s.eat_while(is_math_id_continue);
-
-                let mut symbol = false;
-                while self.s.eat_if(':')
-                    && !self.s.eat_while(char::is_alphanumeric).is_empty()
-                {
-                    symbol = true;
-                }
-
-                if symbol {
-                    SyntaxKind::Symbol(self.s.from(start).into())
-                } else {
-                    if self.s.scout(-1) == Some(':') {
-                        self.s.uneat();
-                    }
-
-                    SyntaxKind::Ident(self.s.from(start).into())
-                }
-            }
-
-            // Numbers.
-            c if c.is_numeric() => {
-                self.s.eat_while(char::is_numeric);
-                SyntaxKind::Atom(self.s.from(start).into())
+                self.math_ident()
             }
 
             // Other math atoms.
-            c => SyntaxKind::Atom(c.into()),
+            _ => {
+                // Keep numbers together.
+                if c.is_numeric() {
+                    self.s.eat_while(char::is_numeric);
+                }
+                SyntaxKind::Atom
+            }
         }
+    }
+
+    fn math_ident(&mut self) -> SyntaxKind {
+        self.s.eat_while(is_math_id_continue);
+
+        let mut symbol = false;
+        while self.s.eat_if(':') && !self.s.eat_while(char::is_alphanumeric).is_empty() {
+            symbol = true;
+        }
+
+        if symbol {
+            return SyntaxKind::Symbol;
+        }
+
+        if self.s.scout(-1) == Some(':') {
+            self.s.uneat();
+        }
+
+        SyntaxKind::Ident
     }
 }
 
@@ -510,24 +479,12 @@ impl Lexer<'_> {
 impl Lexer<'_> {
     fn code(&mut self, start: usize, c: char) -> SyntaxKind {
         match c {
-            // Blocks.
-            '{' => SyntaxKind::LeftBrace,
-            '}' => SyntaxKind::RightBrace,
-            '[' => SyntaxKind::LeftBracket,
-            ']' => SyntaxKind::RightBracket,
-
-            // Parentheses.
-            '(' => SyntaxKind::LeftParen,
-            ')' => SyntaxKind::RightParen,
-
-            // Math.
-            '$' => SyntaxKind::Dollar,
-
-            // Labels and raw.
-            '<' if self.s.at(is_id_continue) => self.label(),
             '`' => self.raw(),
+            '<' if self.s.at(is_id_continue) => self.label(),
+            '0'..='9' => self.number(start, c),
+            '.' if self.s.at(char::is_ascii_digit) => self.number(start, c),
+            '"' => self.string(),
 
-            // Two-char operators.
             '=' if self.s.eat_if('=') => SyntaxKind::EqEq,
             '!' if self.s.eat_if('=') => SyntaxKind::ExclEq,
             '<' if self.s.eat_if('=') => SyntaxKind::LtEq,
@@ -539,10 +496,17 @@ impl Lexer<'_> {
             '.' if self.s.eat_if('.') => SyntaxKind::Dots,
             '=' if self.s.eat_if('>') => SyntaxKind::Arrow,
 
-            // Single-char operators.
+            '{' => SyntaxKind::LeftBrace,
+            '}' => SyntaxKind::RightBrace,
+            '[' => SyntaxKind::LeftBracket,
+            ']' => SyntaxKind::RightBracket,
+            '(' => SyntaxKind::LeftParen,
+            ')' => SyntaxKind::RightParen,
+            '$' => SyntaxKind::Dollar,
             ',' => SyntaxKind::Comma,
             ';' => SyntaxKind::Semicolon,
             ':' => SyntaxKind::Colon,
+            '.' => SyntaxKind::Dot,
             '+' => SyntaxKind::Plus,
             '-' => SyntaxKind::Minus,
             '*' => SyntaxKind::Star,
@@ -550,21 +514,10 @@ impl Lexer<'_> {
             '=' => SyntaxKind::Eq,
             '<' => SyntaxKind::Lt,
             '>' => SyntaxKind::Gt,
-            '.' if !self.s.at(char::is_ascii_digit) => SyntaxKind::Dot,
 
-            // Identifiers.
             c if is_id_start(c) => self.ident(start),
 
-            // Numbers.
-            c if c.is_ascii_digit() || (c == '.' && self.s.at(char::is_ascii_digit)) => {
-                self.number(start, c)
-            }
-
-            // Strings.
-            '"' => self.string(),
-
-            // Invalid token.
-            _ => SyntaxKind::Error(ErrorPos::Full, "not valid here".into()),
+            _ => self.error("not valid here"),
         }
     }
 
@@ -573,9 +526,9 @@ impl Lexer<'_> {
         match self.s.from(start) {
             "none" => SyntaxKind::None,
             "auto" => SyntaxKind::Auto,
-            "true" => SyntaxKind::Bool(true),
-            "false" => SyntaxKind::Bool(false),
-            id => keyword(id).unwrap_or_else(|| SyntaxKind::Ident(id.into())),
+            "true" => SyntaxKind::Bool,
+            "false" => SyntaxKind::Bool,
+            id => keyword(id).unwrap_or(SyntaxKind::Ident),
         }
     }
 
@@ -604,64 +557,54 @@ impl Lexer<'_> {
         let number = self.s.get(start..suffix_start);
         let suffix = self.s.from(suffix_start);
 
-        // Find out whether it is a simple number.
         if suffix.is_empty() {
-            if let Ok(i) = number.parse::<i64>() {
-                return SyntaxKind::Int(i);
-            }
+            return if number.parse::<i64>().is_ok() {
+                SyntaxKind::Int
+            } else if number.parse::<f64>().is_ok() {
+                SyntaxKind::Float
+            } else {
+                self.error("invalid number")
+            };
         }
 
-        let Ok(v) = number.parse::<f64>() else {
-            return SyntaxKind::Error(ErrorPos::Full, "invalid number".into());
-        };
-
-        match suffix {
-            "" => SyntaxKind::Float(v),
-            "pt" => SyntaxKind::Numeric(v, Unit::Length(AbsUnit::Pt)),
-            "mm" => SyntaxKind::Numeric(v, Unit::Length(AbsUnit::Mm)),
-            "cm" => SyntaxKind::Numeric(v, Unit::Length(AbsUnit::Cm)),
-            "in" => SyntaxKind::Numeric(v, Unit::Length(AbsUnit::In)),
-            "deg" => SyntaxKind::Numeric(v, Unit::Angle(AngleUnit::Deg)),
-            "rad" => SyntaxKind::Numeric(v, Unit::Angle(AngleUnit::Rad)),
-            "em" => SyntaxKind::Numeric(v, Unit::Em),
-            "fr" => SyntaxKind::Numeric(v, Unit::Fr),
-            "%" => SyntaxKind::Numeric(v, Unit::Percent),
-            _ => SyntaxKind::Error(ErrorPos::Full, "invalid number suffix".into()),
+        if !matches!(
+            suffix,
+            "pt" | "mm" | "cm" | "in" | "deg" | "rad" | "em" | "fr" | "%"
+        ) {
+            return self.error("invalid number suffix");
         }
+
+        SyntaxKind::Numeric
     }
 
     fn string(&mut self) -> SyntaxKind {
         let mut escaped = false;
-        let verbatim = self.s.eat_until(|c| {
-            if c == '"' && !escaped {
-                true
-            } else {
-                escaped = c == '\\' && !escaped;
-                false
-            }
+        self.s.eat_until(|c| {
+            let stop = c == '"' && !escaped;
+            escaped = c == '\\' && !escaped;
+            stop
         });
 
-        let string = resolve_string(verbatim);
-        if self.s.eat_if('"') {
-            SyntaxKind::Str(string)
-        } else {
+        if !self.s.eat_if('"') {
             self.terminated = false;
-            SyntaxKind::Error(ErrorPos::End, "expected quote".into())
+            return self.error_at_end("expected quote");
         }
+
+        SyntaxKind::Str
     }
 
     fn label(&mut self) -> SyntaxKind {
         let label = self.s.eat_while(is_id_continue);
-        if self.s.eat_if('>') {
-            if !label.is_empty() {
-                SyntaxKind::Label(label.into())
-            } else {
-                SyntaxKind::Error(ErrorPos::Full, "label cannot be empty".into())
-            }
-        } else {
-            self.terminated = false;
-            SyntaxKind::Error(ErrorPos::End, "expected closing angle bracket".into())
+        if label.is_empty() {
+            return self.error("label cannot be empty");
         }
+
+        if !self.s.eat_if('>') {
+            self.terminated = false;
+            return self.error_at_end("expected closing angle bracket");
+        }
+
+        SyntaxKind::Label
     }
 }
 
@@ -729,6 +672,29 @@ pub fn is_newline(character: char) -> bool {
     )
 }
 
+/// Split text at newlines.
+pub(super) fn split_newlines(text: &str) -> Vec<&str> {
+    let mut s = Scanner::new(text);
+    let mut lines = Vec::new();
+    let mut start = 0;
+    let mut end = 0;
+
+    while let Some(c) = s.eat() {
+        if is_newline(c) {
+            if c == '\r' {
+                s.eat_if('\n');
+            }
+
+            lines.push(&text[start..end]);
+            start = s.cursor();
+        }
+        end = s.cursor();
+    }
+
+    lines.push(&text[start..]);
+    lines
+}
+
 /// Whether a string is a valid unicode identifier.
 ///
 /// In addition to what is specified in the [Unicode Standard][uax31], we allow:
@@ -746,13 +712,13 @@ pub fn is_ident(string: &str) -> bool {
 
 /// Whether a character can start an identifier.
 #[inline]
-fn is_id_start(c: char) -> bool {
+pub(super) fn is_id_start(c: char) -> bool {
     c.is_xid_start() || c == '_'
 }
 
 /// Whether a character can continue an identifier.
 #[inline]
-fn is_id_continue(c: char) -> bool {
+pub(super) fn is_id_continue(c: char) -> bool {
     c.is_xid_continue() || c == '_' || c == '-'
 }
 

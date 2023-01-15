@@ -24,5 +24,5 @@ $ A sub:eq:not B $
 <table>
 
 ---
-// Error: 8 expected closing paren
+// Error: 8 expected math atom
 $ sum_( $

@@ -18,12 +18,12 @@ pub fn tooltip(world: &dyn World, source: &Source, cursor: usize) -> Option<Stri
 /// Tooltip for a function or set rule name.
 fn function_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<String> {
     if_chain! {
-        if let SyntaxKind::Ident(ident) = leaf.kind();
+        if let Some(ident) = leaf.cast::<ast::Ident>();
         if matches!(
             leaf.parent_kind(),
             Some(SyntaxKind::FuncCall | SyntaxKind::SetRule),
         );
-        if let Some(Value::Func(func)) = world.library().scope.get(ident);
+        if let Some(Value::Func(func)) = world.library().scope.get(&ident);
         if let Some(info) = func.info();
         then {
             return Some(plain_docs_sentence(&info.docs));
@@ -60,8 +60,8 @@ fn named_param_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<String> {
     // Hovering over the parameter name.
     if_chain! {
         if leaf.index() == 0;
-        if let SyntaxKind::Ident(ident) = leaf.kind();
-        if let Some(param) = info.param(ident);
+        if let Some(ident) = leaf.cast::<ast::Ident>();
+        if let Some(param) = info.param(&ident);
         then {
             return Some(plain_docs_sentence(param.docs));
         }
@@ -69,9 +69,9 @@ fn named_param_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<String> {
 
     // Hovering over a string parameter value.
     if_chain! {
-        if let SyntaxKind::Str(string) = leaf.kind();
+        if let Some(string) = leaf.cast::<ast::Str>();
         if let Some(param) = info.param(&named.name());
-        if let Some(docs) = find_string_doc(&param.cast, string);
+        if let Some(docs) = find_string_doc(&param.cast, &string.get());
         then {
             return Some(docs.into());
         }
@@ -95,8 +95,8 @@ fn find_string_doc(info: &CastInfo, string: &str) -> Option<&'static str> {
 fn font_family_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<String> {
     if_chain! {
         // Ensure that we are on top of a string.
-        if let SyntaxKind::Str(string) = leaf.kind();
-        let lower = string.to_lowercase();
+        if let Some(string) = leaf.cast::<ast::Str>();
+        let lower = string.get().to_lowercase();
 
         // Ensure that we are in the arguments to the text function.
         if let Some(parent) = leaf.parent();

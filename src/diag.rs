@@ -50,7 +50,7 @@ pub type SourceResult<T> = Result<T, Box<Vec<SourceError>>>;
 
 /// An error in a source file.
 ///
-/// This contained spans will only be detached if any of the input source files
+/// The contained spans will only be detached if any of the input source files
 /// were detached.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct SourceError {

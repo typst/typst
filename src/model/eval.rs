@@ -16,8 +16,8 @@ use crate::diag::{
 };
 use crate::geom::{Abs, Angle, Em, Fr, Ratio};
 use crate::syntax::ast::AstNode;
-use crate::syntax::{ast, Source, SourceId, Span, Spanned, SyntaxKind, SyntaxNode, Unit};
-use crate::util::PathExt;
+use crate::syntax::{ast, Source, SourceId, Span, Spanned, SyntaxKind, SyntaxNode};
+use crate::util::{EcoString, PathExt};
 use crate::World;
 
 const MAX_ITERATIONS: usize = 10_000;
@@ -389,13 +389,13 @@ impl Eval for ast::Symbol {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok((vm.items.symbol)(self.get().clone()))
+        Ok((vm.items.symbol)(self.get().into()))
     }
 }
 
 impl ast::Symbol {
     fn eval_in_math(&self, vm: &mut Vm) -> SourceResult<Content> {
-        Ok((vm.items.symbol)(self.get().clone() + ":op".into()))
+        Ok((vm.items.symbol)(EcoString::from(self.get()) + ":op".into()))
     }
 }
 
@@ -427,8 +427,8 @@ impl Eval for ast::Raw {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let text = self.text().clone();
-        let lang = self.lang().cloned();
+        let text = self.text();
+        let lang = self.lang().map(Into::into);
         let block = self.block();
         Ok((vm.items.raw)(text, lang, block))
     }
@@ -446,7 +446,7 @@ impl Eval for ast::Label {
     type Output = Value;
 
     fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(Value::Label(Label(self.get().clone())))
+        Ok(Value::Label(Label(self.get().into())))
     }
 }
 
@@ -454,7 +454,7 @@ impl Eval for ast::Ref {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok((vm.items.ref_)(self.get().clone()))
+        Ok((vm.items.ref_)(self.get().into()))
     }
 }
 
@@ -542,7 +542,7 @@ impl Eval for ast::AlignPoint {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok((vm.items.math_align_point)(self.count()))
+        Ok((vm.items.math_align_point)())
     }
 }
 
@@ -563,7 +563,7 @@ impl ast::Ident {
         if self.as_untyped().len() == self.len()
             && matches!(vm.scopes.get(&self), Ok(Value::Func(_)) | Err(_))
         {
-            Ok((vm.items.symbol)(self.get().clone() + ":op".into()))
+            Ok((vm.items.symbol)(EcoString::from(self.get()) + ":op".into()))
         } else {
             Ok(self.eval(vm)?.display_in_math())
         }
@@ -616,11 +616,11 @@ impl Eval for ast::Numeric {
     fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
         let (v, unit) = self.get();
         Ok(match unit {
-            Unit::Length(unit) => Abs::with_unit(v, unit).into(),
-            Unit::Angle(unit) => Angle::with_unit(v, unit).into(),
-            Unit::Em => Em::new(v).into(),
-            Unit::Fr => Fr::new(v).into(),
-            Unit::Percent => Ratio::new(v / 100.0).into(),
+            ast::Unit::Length(unit) => Abs::with_unit(v, unit).into(),
+            ast::Unit::Angle(unit) => Angle::with_unit(v, unit).into(),
+            ast::Unit::Em => Em::new(v).into(),
+            ast::Unit::Fr => Fr::new(v).into(),
+            ast::Unit::Percent => Ratio::new(v / 100.0).into(),
         })
     }
 }
@@ -743,7 +743,7 @@ impl Eval for ast::Dict {
                     map.insert(named.name().take().into(), named.expr().eval(vm)?);
                 }
                 ast::DictItem::Keyed(keyed) => {
-                    map.insert(keyed.key().into(), keyed.expr().eval(vm)?);
+                    map.insert(keyed.key().get().into(), keyed.expr().eval(vm)?);
                 }
                 ast::DictItem::Spread(expr) => match expr.eval(vm)? {
                     Value::None => {}

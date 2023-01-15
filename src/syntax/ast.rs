@@ -5,7 +5,12 @@
 use std::num::NonZeroUsize;
 use std::ops::Deref;
 
-use super::{RawFields, Span, SyntaxKind, SyntaxNode, Unit};
+use unscanny::Scanner;
+
+use super::{
+    is_id_continue, is_id_start, is_newline, split_newlines, Span, SyntaxKind, SyntaxNode,
+};
+use crate::geom::{AbsUnit, AngleUnit};
 use crate::util::EcoString;
 
 /// A typed AST node.
@@ -117,7 +122,7 @@ pub enum Expr {
     Script(Script),
     /// A fraction in a math formula: `x/2`.
     Frac(Frac),
-    /// An alignment point in a math formula: `&`, `&&`.
+    /// An alignment point in a math formula: `&`.
     AlignPoint(AlignPoint),
     /// An identifier: `left`.
     Ident(Ident),
@@ -194,34 +199,34 @@ impl AstNode for Expr {
     fn from_untyped(node: &SyntaxNode) -> Option<Self> {
         match node.kind() {
             SyntaxKind::Linebreak => node.cast().map(Self::Linebreak),
-            SyntaxKind::Text(_) => node.cast().map(Self::Text),
-            SyntaxKind::Escape(_) => node.cast().map(Self::Escape),
-            SyntaxKind::Shorthand(_) => node.cast().map(Self::Shorthand),
-            SyntaxKind::Symbol(_) => node.cast().map(Self::Symbol),
+            SyntaxKind::Text => node.cast().map(Self::Text),
+            SyntaxKind::Escape => node.cast().map(Self::Escape),
+            SyntaxKind::Shorthand => node.cast().map(Self::Shorthand),
+            SyntaxKind::Symbol => node.cast().map(Self::Symbol),
             SyntaxKind::SmartQuote { .. } => node.cast().map(Self::SmartQuote),
             SyntaxKind::Strong => node.cast().map(Self::Strong),
             SyntaxKind::Emph => node.cast().map(Self::Emph),
-            SyntaxKind::Raw(_) => node.cast().map(Self::Raw),
-            SyntaxKind::Link(_) => node.cast().map(Self::Link),
-            SyntaxKind::Label(_) => node.cast().map(Self::Label),
-            SyntaxKind::Ref(_) => node.cast().map(Self::Ref),
+            SyntaxKind::Raw { .. } => node.cast().map(Self::Raw),
+            SyntaxKind::Link => node.cast().map(Self::Link),
+            SyntaxKind::Label => node.cast().map(Self::Label),
+            SyntaxKind::Ref => node.cast().map(Self::Ref),
             SyntaxKind::Heading => node.cast().map(Self::Heading),
             SyntaxKind::ListItem => node.cast().map(Self::List),
             SyntaxKind::EnumItem => node.cast().map(Self::Enum),
             SyntaxKind::TermItem => node.cast().map(Self::Term),
             SyntaxKind::Math => node.cast().map(Self::Math),
-            SyntaxKind::Atom(_) => node.cast().map(Self::Atom),
+            SyntaxKind::Atom => node.cast().map(Self::Atom),
             SyntaxKind::Script => node.cast().map(Self::Script),
             SyntaxKind::Frac => node.cast().map(Self::Frac),
             SyntaxKind::AlignPoint => node.cast().map(Self::AlignPoint),
-            SyntaxKind::Ident(_) => node.cast().map(Self::Ident),
+            SyntaxKind::Ident => node.cast().map(Self::Ident),
             SyntaxKind::None => node.cast().map(Self::None),
             SyntaxKind::Auto => node.cast().map(Self::Auto),
-            SyntaxKind::Bool(_) => node.cast().map(Self::Bool),
-            SyntaxKind::Int(_) => node.cast().map(Self::Int),
-            SyntaxKind::Float(_) => node.cast().map(Self::Float),
-            SyntaxKind::Numeric(_, _) => node.cast().map(Self::Numeric),
-            SyntaxKind::Str(_) => node.cast().map(Self::Str),
+            SyntaxKind::Bool => node.cast().map(Self::Bool),
+            SyntaxKind::Int => node.cast().map(Self::Int),
+            SyntaxKind::Float => node.cast().map(Self::Float),
+            SyntaxKind::Numeric => node.cast().map(Self::Numeric),
+            SyntaxKind::Str => node.cast().map(Self::Str),
             SyntaxKind::CodeBlock => node.cast().map(Self::Code),
             SyntaxKind::ContentBlock => node.cast().map(Self::Content),
             SyntaxKind::Parenthesized => node.cast().map(Self::Parenthesized),
@@ -315,7 +320,7 @@ impl Space {
     /// Get the number of newlines.
     pub fn newlines(&self) -> usize {
         match self.0.kind() {
-            &SyntaxKind::Space { newlines } => newlines,
+            SyntaxKind::Space { newlines } => newlines,
             _ => panic!("space is of wrong kind"),
         }
     }
@@ -334,10 +339,7 @@ node! {
 impl Text {
     /// Get the text.
     pub fn get(&self) -> &EcoString {
-        match self.0.kind() {
-            SyntaxKind::Text(v) => v,
-            _ => panic!("text is of wrong kind"),
-        }
+        self.0.text()
     }
 }
 
@@ -349,15 +351,22 @@ node! {
 impl Escape {
     /// Get the escaped character.
     pub fn get(&self) -> char {
-        match self.0.kind() {
-            &SyntaxKind::Escape(v) => v,
-            _ => panic!("escape is of wrong kind"),
+        let mut s = Scanner::new(self.0.text());
+        s.expect('\\');
+        if s.eat_if("u{") {
+            let hex = s.eat_while(char::is_ascii_hexdigit);
+            u32::from_str_radix(hex, 16)
+                .ok()
+                .and_then(std::char::from_u32)
+                .expect("unicode escape is invalid")
+        } else {
+            s.eat().expect("escape is missing escaped character")
         }
     }
 }
 
 node! {
-    /// A shorthand for a unicode codepoint. For example, `~` for non-breaking
+    /// A shorthand for a unicode codepoint. For example, `~` for a non-breaking
     /// space or `-?` for a soft hyphen.
     Shorthand
 }
@@ -365,9 +374,26 @@ node! {
 impl Shorthand {
     /// Get the shorthanded character.
     pub fn get(&self) -> char {
-        match self.0.kind() {
-            &SyntaxKind::Shorthand(v) => v,
-            _ => panic!("shorthand is of wrong kind"),
+        match self.0.text().as_str() {
+            "~" => '\u{00A0}',
+            "..." => '\u{2026}',
+            "--" => '\u{2013}',
+            "---" => '\u{2014}',
+            "-?" => '\u{00AD}',
+            "!=" => '≠',
+            "<=" => '≤',
+            ">=" => '≥',
+            "<-" => '←',
+            "->" => '→',
+            "=>" => '⇒',
+            ":=" => '≔',
+            "[|" => '⟦',
+            "|]" => '⟧',
+            "||" => '‖',
+            "|->" => '↦',
+            "<->" => '↔',
+            "<=>" => '⇔',
+            _ => panic!("shorthand is invalid"),
         }
     }
 }
@@ -379,11 +405,8 @@ node! {
 
 impl Symbol {
     /// Get the symbol's notation.
-    pub fn get(&self) -> &EcoString {
-        match self.0.kind() {
-            SyntaxKind::Symbol(v) => v,
-            _ => panic!("symbol is of wrong kind"),
-        }
+    pub fn get(&self) -> &str {
+        self.0.text().trim_matches(':')
     }
 }
 
@@ -395,10 +418,7 @@ node! {
 impl SmartQuote {
     /// Whether this is a double quote.
     pub fn double(&self) -> bool {
-        match self.0.kind() {
-            &SyntaxKind::SmartQuote { double } => double,
-            _ => panic!("smart quote is of wrong kind"),
-        }
+        self.0.text() == "\""
     }
 }
 
@@ -410,7 +430,7 @@ node! {
 impl Strong {
     /// The contents of the strong node.
     pub fn body(&self) -> Markup {
-        self.0.cast_first_child().expect("strong node is missing markup body")
+        self.0.cast_first_match().expect("strong emphasis is missing body")
     }
 }
 
@@ -422,9 +442,7 @@ node! {
 impl Emph {
     /// The contents of the emphasis node.
     pub fn body(&self) -> Markup {
-        self.0
-            .cast_first_child()
-            .expect("emphasis node is missing markup body")
+        self.0.cast_first_match().expect("emphasis is missing body")
     }
 }
 
@@ -434,27 +452,75 @@ node! {
 }
 
 impl Raw {
-    /// The raw text.
-    pub fn text(&self) -> &EcoString {
-        &self.get().text
+    /// The trimmed raw text.
+    pub fn text(&self) -> EcoString {
+        let SyntaxKind::Raw { column } = self.0.kind() else {
+            panic!("raw node is of wrong kind");
+        };
+
+        let mut text = self.0.text().as_str();
+        let blocky = text.starts_with("```");
+        text = text.trim_matches('`');
+
+        // Trim tag, one space at the start, and one space at the end if the
+        // last non-whitespace char is a backtick.
+        if blocky {
+            let mut s = Scanner::new(text);
+            if s.eat_if(is_id_start) {
+                s.eat_while(is_id_continue);
+            }
+            text = s.after();
+            text = text.strip_prefix(' ').unwrap_or(text);
+            if text.trim_end().ends_with('`') {
+                text = text.strip_suffix(' ').unwrap_or(text);
+            }
+        }
+
+        // Split into lines.
+        let mut lines = split_newlines(text);
+
+        if blocky {
+            // Dedent based on column, but not for the first line.
+            for line in lines.iter_mut().skip(1) {
+                let offset = line
+                    .chars()
+                    .take(column)
+                    .take_while(|c| c.is_whitespace())
+                    .map(char::len_utf8)
+                    .sum();
+                *line = &line[offset..];
+            }
+
+            let is_whitespace = |line: &&str| line.chars().all(char::is_whitespace);
+
+            // Trims a sequence of whitespace followed by a newline at the start.
+            if lines.first().map_or(false, is_whitespace) {
+                lines.remove(0);
+            }
+
+            // Trims a newline followed by a sequence of whitespace at the end.
+            if lines.last().map_or(false, is_whitespace) {
+                lines.pop();
+            }
+        }
+
+        lines.join("\n").into()
     }
 
     /// An optional identifier specifying the language to syntax-highlight in.
-    pub fn lang(&self) -> Option<&EcoString> {
-        self.get().lang.as_ref()
+    pub fn lang(&self) -> Option<&str> {
+        let inner = self.0.text().trim_start_matches('`');
+        let mut s = Scanner::new(inner);
+        s.eat_if(is_id_start).then(|| {
+            s.eat_while(is_id_continue);
+            s.before()
+        })
     }
 
     /// Whether the raw text should be displayed in a separate block.
     pub fn block(&self) -> bool {
-        self.get().block
-    }
-
-    /// The raw fields.
-    fn get(&self) -> &RawFields {
-        match self.0.kind() {
-            SyntaxKind::Raw(v) => v.as_ref(),
-            _ => panic!("raw is of wrong kind"),
-        }
+        let text = self.0.text();
+        text.starts_with("```") && text.chars().any(is_newline)
     }
 }
 
@@ -466,10 +532,7 @@ node! {
 impl Link {
     /// Get the URL.
     pub fn url(&self) -> &EcoString {
-        match self.0.kind() {
-            SyntaxKind::Link(url) => url,
-            _ => panic!("link is of wrong kind"),
-        }
+        self.0.text()
     }
 }
 
@@ -480,11 +543,8 @@ node! {
 
 impl Label {
     /// Get the label's text.
-    pub fn get(&self) -> &EcoString {
-        match self.0.kind() {
-            SyntaxKind::Label(v) => v,
-            _ => panic!("label is of wrong kind"),
-        }
+    pub fn get(&self) -> &str {
+        self.0.text().trim_start_matches('<').trim_end_matches('>')
     }
 }
 
@@ -495,11 +555,8 @@ node! {
 
 impl Ref {
     /// Get the target.
-    pub fn get(&self) -> &EcoString {
-        match self.0.kind() {
-            SyntaxKind::Ref(v) => v,
-            _ => panic!("reference is of wrong kind"),
-        }
+    pub fn get(&self) -> &str {
+        self.0.text().trim_start_matches('@')
     }
 }
 
@@ -511,14 +568,14 @@ node! {
 impl Heading {
     /// The contents of the heading.
     pub fn body(&self) -> Markup {
-        self.0.cast_first_child().expect("heading is missing markup body")
+        self.0.cast_first_match().expect("heading is missing markup body")
     }
 
     /// The section depth (numer of equals signs).
     pub fn level(&self) -> NonZeroUsize {
         self.0
             .children()
-            .filter(|n| n.kind() == &SyntaxKind::Eq)
+            .filter(|n| n.kind() == SyntaxKind::Eq)
             .count()
             .try_into()
             .expect("heading is missing equals sign")
@@ -533,7 +590,7 @@ node! {
 impl ListItem {
     /// The contents of the list item.
     pub fn body(&self) -> Markup {
-        self.0.cast_first_child().expect("list item is missing body")
+        self.0.cast_first_match().expect("list item is missing body")
     }
 }
 
@@ -546,14 +603,14 @@ impl EnumItem {
     /// The explicit numbering, if any: `23.`.
     pub fn number(&self) -> Option<NonZeroUsize> {
         self.0.children().find_map(|node| match node.kind() {
-            SyntaxKind::EnumNumbering(num) => Some(*num),
+            SyntaxKind::EnumNumbering => node.text().trim_end_matches('.').parse().ok(),
             _ => Option::None,
         })
     }
 
     /// The contents of the list item.
     pub fn body(&self) -> Markup {
-        self.0.cast_first_child().expect("enum item is missing body")
+        self.0.cast_first_match().expect("enum item is missing body")
     }
 }
 
@@ -565,13 +622,13 @@ node! {
 impl TermItem {
     /// The term described by the item.
     pub fn term(&self) -> Markup {
-        self.0.cast_first_child().expect("term list item is missing term")
+        self.0.cast_first_match().expect("term list item is missing term")
     }
 
     /// The description of the term.
     pub fn description(&self) -> Markup {
         self.0
-            .cast_last_child()
+            .cast_last_match()
             .expect("term list item is missing description")
     }
 }
@@ -602,10 +659,7 @@ node! {
 impl Atom {
     /// Get the atom's text.
     pub fn get(&self) -> &EcoString {
-        match self.0.kind() {
-            SyntaxKind::Atom(v) => v,
-            _ => panic!("atom is of wrong kind"),
-        }
+        self.0.text()
     }
 }
 
@@ -617,7 +671,7 @@ node! {
 impl Script {
     /// The base of the script.
     pub fn base(&self) -> Expr {
-        self.0.cast_first_child().expect("script node is missing base")
+        self.0.cast_first_match().expect("script node is missing base")
     }
 
     /// The subscript.
@@ -647,30 +701,18 @@ node! {
 impl Frac {
     /// The numerator.
     pub fn num(&self) -> Expr {
-        self.0.cast_first_child().expect("fraction is missing numerator")
+        self.0.cast_first_match().expect("fraction is missing numerator")
     }
 
     /// The denominator.
     pub fn denom(&self) -> Expr {
-        self.0.cast_last_child().expect("fraction is missing denominator")
+        self.0.cast_last_match().expect("fraction is missing denominator")
     }
 }
 
 node! {
-    /// An alignment point in a formula: `&`, `&&`.
+    /// An alignment point in a formula: `&`.
     AlignPoint
-}
-
-impl AlignPoint {
-    /// The number of ampersands.
-    pub fn count(&self) -> NonZeroUsize {
-        self.0
-            .children()
-            .filter(|n| n.kind() == &SyntaxKind::Amp)
-            .count()
-            .try_into()
-            .expect("alignment point is missing ampersand sign")
-    }
 }
 
 node! {
@@ -680,18 +722,16 @@ node! {
 
 impl Ident {
     /// Get the identifier.
-    pub fn get(&self) -> &EcoString {
-        match self.0.kind() {
-            SyntaxKind::Ident(id) => id,
-            _ => panic!("identifier is of wrong kind"),
-        }
+    pub fn get(&self) -> &str {
+        self.0.text().trim_start_matches('#')
     }
 
     /// Take out the container identifier.
     pub fn take(self) -> EcoString {
-        match self.0.take() {
-            SyntaxKind::Ident(id) => id,
-            _ => panic!("identifier is of wrong kind"),
+        let text = self.0.into_text();
+        match text.strip_prefix('#') {
+            Some(text) => text.into(),
+            Option::None => text,
         }
     }
 
@@ -727,10 +767,7 @@ node! {
 impl Bool {
     /// Get the value.
     pub fn get(&self) -> bool {
-        match self.0.kind() {
-            SyntaxKind::Bool(v) => *v,
-            _ => panic!("boolean is of wrong kind"),
-        }
+        self.0.text() == "true"
     }
 }
 
@@ -742,10 +779,7 @@ node! {
 impl Int {
     /// Get the value.
     pub fn get(&self) -> i64 {
-        match self.0.kind() {
-            SyntaxKind::Int(v) => *v,
-            _ => panic!("integer is of wrong kind"),
-        }
+        self.0.text().parse().expect("integer is invalid")
     }
 }
 
@@ -757,10 +791,7 @@ node! {
 impl Float {
     /// Get the value.
     pub fn get(&self) -> f64 {
-        match self.0.kind() {
-            SyntaxKind::Float(v) => *v,
-            _ => panic!("float is of wrong kind"),
-        }
+        self.0.text().parse().expect("float is invalid")
     }
 }
 
@@ -772,11 +803,45 @@ node! {
 impl Numeric {
     /// Get the value and unit.
     pub fn get(&self) -> (f64, Unit) {
-        match self.0.kind() {
-            SyntaxKind::Numeric(v, unit) => (*v, *unit),
-            _ => panic!("numeric is of wrong kind"),
-        }
+        let text = self.0.text();
+        let count = text
+            .chars()
+            .rev()
+            .take_while(|c| matches!(c, 'a'..='z' | '%'))
+            .count();
+
+        let split = text.len() - count;
+        let value = text[..split].parse().expect("number is invalid");
+        let unit = match &text[split..] {
+            "pt" => Unit::Length(AbsUnit::Pt),
+            "mm" => Unit::Length(AbsUnit::Mm),
+            "cm" => Unit::Length(AbsUnit::Cm),
+            "in" => Unit::Length(AbsUnit::In),
+            "deg" => Unit::Angle(AngleUnit::Deg),
+            "rad" => Unit::Angle(AngleUnit::Rad),
+            "em" => Unit::Em,
+            "fr" => Unit::Fr,
+            "%" => Unit::Percent,
+            _ => panic!("number has invalid suffix"),
+        };
+
+        (value, unit)
     }
+}
+
+/// Unit of a numeric value.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum Unit {
+    /// An absolute length unit.
+    Length(AbsUnit),
+    /// An angular unit.
+    Angle(AngleUnit),
+    /// Font-relative: `1em` is the same as the font size.
+    Em,
+    /// Fractions: `fr`.
+    Fr,
+    /// Percentage: `%`.
+    Percent,
 }
 
 node! {
@@ -786,11 +851,46 @@ node! {
 
 impl Str {
     /// Get the value.
-    pub fn get(&self) -> &EcoString {
-        match self.0.kind() {
-            SyntaxKind::Str(v) => v,
-            _ => panic!("string is of wrong kind"),
+    pub fn get(&self) -> EcoString {
+        let text = self.0.text();
+        let unquoted = &text[1..text.len() - 1];
+        if !unquoted.contains('\\') {
+            return unquoted.into();
         }
+
+        let mut out = EcoString::with_capacity(unquoted.len());
+        let mut s = Scanner::new(unquoted);
+
+        while let Some(c) = s.eat() {
+            if c != '\\' {
+                out.push(c);
+                continue;
+            }
+
+            let start = s.locate(-1);
+            match s.eat() {
+                Some('\\') => out.push('\\'),
+                Some('"') => out.push('"'),
+                Some('n') => out.push('\n'),
+                Some('r') => out.push('\r'),
+                Some('t') => out.push('\t'),
+                Some('u') if s.eat_if('{') => {
+                    let sequence = s.eat_while(char::is_ascii_hexdigit);
+                    s.eat_if('}');
+
+                    match u32::from_str_radix(sequence, 16)
+                        .ok()
+                        .and_then(std::char::from_u32)
+                    {
+                        Some(c) => out.push(c),
+                        Option::None => out.push_str(s.from(start)),
+                    }
+                }
+                _ => out.push_str(s.from(start)),
+            }
+        }
+
+        out
     }
 }
 
@@ -814,7 +914,7 @@ node! {
 impl ContentBlock {
     /// The contained markup.
     pub fn body(&self) -> Markup {
-        self.0.cast_first_child().expect("content block is missing body")
+        self.0.cast_first_match().expect("content block is missing body")
     }
 }
 
@@ -827,7 +927,7 @@ impl Parenthesized {
     /// The wrapped expression.
     pub fn expr(&self) -> Expr {
         self.0
-            .cast_first_child()
+            .cast_first_match()
             .expect("parenthesized expression is missing expression")
     }
 }
@@ -856,7 +956,7 @@ pub enum ArrayItem {
 impl AstNode for ArrayItem {
     fn from_untyped(node: &SyntaxNode) -> Option<Self> {
         match node.kind() {
-            SyntaxKind::Spread => node.cast_first_child().map(Self::Spread),
+            SyntaxKind::Spread => node.cast_first_match().map(Self::Spread),
             _ => node.cast().map(Self::Pos),
         }
     }
@@ -897,7 +997,7 @@ impl AstNode for DictItem {
         match node.kind() {
             SyntaxKind::Named => node.cast().map(Self::Named),
             SyntaxKind::Keyed => node.cast().map(Self::Keyed),
-            SyntaxKind::Spread => node.cast_first_child().map(Self::Spread),
+            SyntaxKind::Spread => node.cast_first_match().map(Self::Spread),
             _ => Option::None,
         }
     }
@@ -919,12 +1019,12 @@ node! {
 impl Named {
     /// The name: `thickness`.
     pub fn name(&self) -> Ident {
-        self.0.cast_first_child().expect("named pair is missing name")
+        self.0.cast_first_match().expect("named pair is missing name")
     }
 
     /// The right-hand side of the pair: `3pt`.
     pub fn expr(&self) -> Expr {
-        self.0.cast_last_child().expect("named pair is missing expression")
+        self.0.cast_last_match().expect("named pair is missing expression")
     }
 }
 
@@ -935,19 +1035,16 @@ node! {
 
 impl Keyed {
     /// The key: `"spacy key"`.
-    pub fn key(&self) -> EcoString {
+    pub fn key(&self) -> Str {
         self.0
             .children()
-            .find_map(|node| match node.kind() {
-                SyntaxKind::Str(key) => Some(key.clone()),
-                _ => Option::None,
-            })
+            .find_map(|node| node.cast::<Str>())
             .expect("keyed pair is missing key")
     }
 
     /// The right-hand side of the pair: `true`.
     pub fn expr(&self) -> Expr {
-        self.0.cast_last_child().expect("keyed pair is missing expression")
+        self.0.cast_last_match().expect("keyed pair is missing expression")
     }
 }
 
@@ -967,7 +1064,7 @@ impl Unary {
 
     /// The expression to operate on: `x`.
     pub fn expr(&self) -> Expr {
-        self.0.cast_last_child().expect("unary operation is missing child")
+        self.0.cast_last_match().expect("unary operation is missing child")
     }
 }
 
@@ -984,7 +1081,7 @@ pub enum UnOp {
 
 impl UnOp {
     /// Try to convert the token into a unary operation.
-    pub fn from_token(token: &SyntaxKind) -> Option<Self> {
+    pub fn from_token(token: SyntaxKind) -> Option<Self> {
         Some(match token {
             SyntaxKind::Plus => Self::Pos,
             SyntaxKind::Minus => Self::Neg,
@@ -1036,14 +1133,14 @@ impl Binary {
     /// The left-hand side of the operation: `a`.
     pub fn lhs(&self) -> Expr {
         self.0
-            .cast_first_child()
+            .cast_first_match()
             .expect("binary operation is missing left-hand side")
     }
 
     /// The right-hand side of the operation: `b`.
     pub fn rhs(&self) -> Expr {
         self.0
-            .cast_last_child()
+            .cast_last_match()
             .expect("binary operation is missing right-hand side")
     }
 }
@@ -1093,7 +1190,7 @@ pub enum BinOp {
 
 impl BinOp {
     /// Try to convert the token into a binary operation.
-    pub fn from_token(token: &SyntaxKind) -> Option<Self> {
+    pub fn from_token(token: SyntaxKind) -> Option<Self> {
         Some(match token {
             SyntaxKind::Plus => Self::Add,
             SyntaxKind::Minus => Self::Sub,
@@ -1210,12 +1307,12 @@ node! {
 impl FieldAccess {
     /// The expression to access the field on.
     pub fn target(&self) -> Expr {
-        self.0.cast_first_child().expect("field access is missing object")
+        self.0.cast_first_match().expect("field access is missing object")
     }
 
     /// The name of the field.
     pub fn field(&self) -> Ident {
-        self.0.cast_last_child().expect("field access is missing name")
+        self.0.cast_last_match().expect("field access is missing name")
     }
 }
 
@@ -1227,13 +1324,13 @@ node! {
 impl FuncCall {
     /// The function to call.
     pub fn callee(&self) -> Expr {
-        self.0.cast_first_child().expect("function call is missing callee")
+        self.0.cast_first_match().expect("function call is missing callee")
     }
 
     /// The arguments to the function.
     pub fn args(&self) -> Args {
         self.0
-            .cast_last_child()
+            .cast_last_match()
             .expect("function call is missing argument list")
     }
 }
@@ -1246,18 +1343,18 @@ node! {
 impl MethodCall {
     /// The expression to call the method on.
     pub fn target(&self) -> Expr {
-        self.0.cast_first_child().expect("method call is missing target")
+        self.0.cast_first_match().expect("method call is missing target")
     }
 
     /// The name of the method.
     pub fn method(&self) -> Ident {
-        self.0.cast_last_child().expect("method call is missing name")
+        self.0.cast_last_match().expect("method call is missing name")
     }
 
     /// The arguments to the method.
     pub fn args(&self) -> Args {
         self.0
-            .cast_last_child()
+            .cast_last_match()
             .expect("method call is missing argument list")
     }
 }
@@ -1289,7 +1386,7 @@ impl AstNode for Arg {
     fn from_untyped(node: &SyntaxNode) -> Option<Self> {
         match node.kind() {
             SyntaxKind::Named => node.cast().map(Self::Named),
-            SyntaxKind::Spread => node.cast_first_child().map(Self::Spread),
+            SyntaxKind::Spread => node.cast_first_match().map(Self::Spread),
             _ => node.cast().map(Self::Pos),
         }
     }
@@ -1320,7 +1417,7 @@ impl Closure {
     pub fn params(&self) -> impl DoubleEndedIterator<Item = Param> + '_ {
         self.0
             .children()
-            .find(|x| x.kind() == &SyntaxKind::Params)
+            .find(|x| x.kind() == SyntaxKind::Params)
             .expect("closure is missing parameter list")
             .children()
             .filter_map(SyntaxNode::cast)
@@ -1328,7 +1425,7 @@ impl Closure {
 
     /// The body of the closure.
     pub fn body(&self) -> Expr {
-        self.0.cast_last_child().expect("closure is missing body")
+        self.0.cast_last_match().expect("closure is missing body")
     }
 }
 
@@ -1346,9 +1443,9 @@ pub enum Param {
 impl AstNode for Param {
     fn from_untyped(node: &SyntaxNode) -> Option<Self> {
         match node.kind() {
-            SyntaxKind::Ident(_) => node.cast().map(Self::Pos),
+            SyntaxKind::Ident => node.cast().map(Self::Pos),
             SyntaxKind::Named => node.cast().map(Self::Named),
-            SyntaxKind::Spread => node.cast_first_child().map(Self::Sink),
+            SyntaxKind::Spread => node.cast_first_match().map(Self::Sink),
             _ => Option::None,
         }
     }
@@ -1370,7 +1467,7 @@ node! {
 impl LetBinding {
     /// The binding to assign to.
     pub fn binding(&self) -> Ident {
-        match self.0.cast_first_child() {
+        match self.0.cast_first_match() {
             Some(Expr::Ident(binding)) => binding,
             Some(Expr::Closure(closure)) => {
                 closure.name().expect("let-bound closure is missing name")
@@ -1381,12 +1478,12 @@ impl LetBinding {
 
     /// The expression the binding is initialized with.
     pub fn init(&self) -> Option<Expr> {
-        if self.0.cast_first_child::<Ident>().is_some() {
+        if self.0.cast_first_match::<Ident>().is_some() {
             // This is a normal binding like `let x = 1`.
             self.0.children().filter_map(SyntaxNode::cast).nth(1)
         } else {
             // This is a closure binding like `let f(x) = 1`.
-            self.0.cast_first_child()
+            self.0.cast_first_match()
         }
     }
 }
@@ -1399,19 +1496,19 @@ node! {
 impl SetRule {
     /// The function to set style properties for.
     pub fn target(&self) -> Ident {
-        self.0.cast_first_child().expect("set rule is missing target")
+        self.0.cast_first_match().expect("set rule is missing target")
     }
 
     /// The style properties to set.
     pub fn args(&self) -> Args {
-        self.0.cast_last_child().expect("set rule is missing argument list")
+        self.0.cast_last_match().expect("set rule is missing argument list")
     }
 
     /// A condition under which the set rule applies.
     pub fn condition(&self) -> Option<Expr> {
         self.0
             .children()
-            .skip_while(|child| child.kind() != &SyntaxKind::If)
+            .skip_while(|child| child.kind() != SyntaxKind::If)
             .find_map(SyntaxNode::cast)
     }
 }
@@ -1427,13 +1524,13 @@ impl ShowRule {
         self.0
             .children()
             .rev()
-            .skip_while(|child| child.kind() != &SyntaxKind::Colon)
+            .skip_while(|child| child.kind() != SyntaxKind::Colon)
             .find_map(SyntaxNode::cast)
     }
 
     /// The transformation recipe.
     pub fn transform(&self) -> Expr {
-        self.0.cast_last_child().expect("show rule is missing transform")
+        self.0.cast_last_match().expect("show rule is missing transform")
     }
 }
 
@@ -1445,7 +1542,7 @@ node! {
 impl Conditional {
     /// The condition which selects the body to evaluate.
     pub fn condition(&self) -> Expr {
-        self.0.cast_first_child().expect("conditional is missing condition")
+        self.0.cast_first_match().expect("conditional is missing condition")
     }
 
     /// The expression to evaluate if the condition is true.
@@ -1471,12 +1568,12 @@ node! {
 impl WhileLoop {
     /// The condition which selects whether to evaluate the body.
     pub fn condition(&self) -> Expr {
-        self.0.cast_first_child().expect("while loop is missing condition")
+        self.0.cast_first_match().expect("while loop is missing condition")
     }
 
     /// The expression to evaluate while the condition is true.
     pub fn body(&self) -> Expr {
-        self.0.cast_last_child().expect("while loop is missing body")
+        self.0.cast_last_match().expect("while loop is missing body")
     }
 }
 
@@ -1488,17 +1585,17 @@ node! {
 impl ForLoop {
     /// The pattern to assign to.
     pub fn pattern(&self) -> ForPattern {
-        self.0.cast_first_child().expect("for loop is missing pattern")
+        self.0.cast_first_match().expect("for loop is missing pattern")
     }
 
     /// The expression to iterate over.
     pub fn iter(&self) -> Expr {
-        self.0.cast_first_child().expect("for loop is missing iterable")
+        self.0.cast_first_match().expect("for loop is missing iterable")
     }
 
     /// The expression to evaluate for each iteration.
     pub fn body(&self) -> Expr {
-        self.0.cast_last_child().expect("for loop is missing body")
+        self.0.cast_last_match().expect("for loop is missing body")
     }
 }
 
@@ -1521,7 +1618,7 @@ impl ForPattern {
 
     /// The value part of the pattern.
     pub fn value(&self) -> Ident {
-        self.0.cast_last_child().expect("for loop pattern is missing value")
+        self.0.cast_last_match().expect("for loop pattern is missing value")
     }
 }
 
@@ -1533,7 +1630,7 @@ node! {
 impl ModuleImport {
     /// The module or path from which the items should be imported.
     pub fn source(&self) -> Expr {
-        self.0.cast_last_child().expect("module import is missing source")
+        self.0.cast_last_match().expect("module import is missing source")
     }
 
     /// The items to be imported.
@@ -1566,7 +1663,7 @@ node! {
 impl ModuleInclude {
     /// The module or path from which the content should be included.
     pub fn source(&self) -> Expr {
-        self.0.cast_last_child().expect("module include is missing path")
+        self.0.cast_last_match().expect("module include is missing path")
     }
 }
 
@@ -1588,6 +1685,6 @@ node! {
 impl FuncReturn {
     /// The expression to return.
     pub fn body(&self) -> Option<Expr> {
-        self.0.cast_last_child()
+        self.0.cast_last_match()
     }
 }

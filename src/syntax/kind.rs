@@ -1,14 +1,7 @@
-use std::hash::{Hash, Hasher};
-use std::num::NonZeroUsize;
-use std::sync::Arc;
-
-use crate::geom::{AbsUnit, AngleUnit};
-use crate::util::EcoString;
-
 /// All syntactical building blocks that can be part of a Typst document.
 ///
 /// Can be created by the lexer or by the parser.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum SyntaxKind {
     /// A line comment: `// ...`.
     LineComment,
@@ -58,8 +51,6 @@ pub enum SyntaxKind {
     Slash,
     /// The superscript operator in a formula: `^`.
     Hat,
-    /// The alignment operator in a formula: `&`.
-    Amp,
     /// The field access and method call operator: `.`.
     Dot,
     /// The assignment operator: `=`.
@@ -135,31 +126,31 @@ pub enum SyntaxKind {
     /// so it is zero except inside indent-aware constructs like lists.
     Markup { min_indent: usize },
     /// Plain text without markup.
-    Text(EcoString),
+    Text,
     /// A forced line break: `\`.
     Linebreak,
     /// An escape sequence: `\#`, `\u{1F5FA}`.
-    Escape(char),
+    Escape,
     /// A shorthand for a unicode codepoint. For example, `~` for non-breaking
     /// space or `-?` for a soft hyphen.
-    Shorthand(char),
+    Shorthand,
     /// Symbol notation: `:arrow:l:`. The string only contains the inner part
     /// without leading and trailing dot.
-    Symbol(EcoString),
+    Symbol,
     /// A smart quote: `'` or `"`.
-    SmartQuote { double: bool },
+    SmartQuote,
     /// Strong content: `*Strong*`.
     Strong,
     /// Emphasized content: `_Emphasized_`.
     Emph,
     /// Raw text with optional syntax highlighting: `` `...` ``.
-    Raw(Arc<RawFields>),
+    Raw { column: usize },
     /// A hyperlink: `https://typst.org`.
-    Link(EcoString),
+    Link,
     /// A label: `<intro>`.
-    Label(EcoString),
+    Label,
     /// A reference: `@target`.
-    Ref(EcoString),
+    Ref,
     /// A section heading: `= Introduction`.
     Heading,
     /// An item in a bullet list: `- ...`.
@@ -167,32 +158,32 @@ pub enum SyntaxKind {
     /// An item in an enumeration (numbered list): `+ ...` or `1. ...`.
     EnumItem,
     /// An explicit enumeration numbering: `23.`.
-    EnumNumbering(NonZeroUsize),
+    EnumNumbering,
     /// An item in a term list: `/ Term: Details`.
     TermItem,
     /// A mathematical formula: `$x$`, `$ x^2 $`.
     Math,
     /// An atom in a formula: `x`, `+`, `12`.
-    Atom(EcoString),
+    Atom,
     /// A base with optional sub- and superscripts in a formula: `a_1^2`.
     Script,
     /// A fraction in a formula: `x/2`.
     Frac,
-    /// An alignment point in a formula: `&`, `&&`.
+    /// An alignment point in a formula: `&`.
     AlignPoint,
 
     /// An identifier: `it`.
-    Ident(EcoString),
+    Ident,
     /// A boolean: `true`, `false`.
-    Bool(bool),
+    Bool,
     /// An integer: `120`.
-    Int(i64),
+    Int,
     /// A floating-point number: `1.2`, `10e-4`.
-    Float(f64),
+    Float,
     /// A numeric value with a unit: `12pt`, `3cm`, `2em`, `90deg`, `50%`.
-    Numeric(f64, Unit),
+    Numeric,
     /// A quoted string: `"..."`.
-    Str(EcoString),
+    Str,
     /// A code block: `{ let x = 1; x + 2 }`.
     CodeBlock,
     /// A content block: `[*Hi* there!]`.
@@ -253,73 +244,37 @@ pub enum SyntaxKind {
     FuncReturn,
 
     /// An invalid sequence of characters.
-    Error(ErrorPos, EcoString),
-}
-
-/// Fields of the raw syntax kind.
-#[derive(Debug, Clone, PartialEq, Hash)]
-pub struct RawFields {
-    /// An optional identifier specifying the language to syntax-highlight in.
-    pub lang: Option<EcoString>,
-    /// The raw text, determined as the raw string between the backticks trimmed
-    /// according to the above rules.
-    pub text: EcoString,
-    /// Whether the element is block-level, that is, it has 3+ backticks
-    /// and contains at least one newline.
-    pub block: bool,
-}
-
-/// Unit of a numeric value.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum Unit {
-    /// An absolute length unit.
-    Length(AbsUnit),
-    /// An angular unit.
-    Angle(AngleUnit),
-    /// Font-relative: `1em` is the same as the font size.
-    Em,
-    /// Fractions: `fr`.
-    Fr,
-    /// Percentage: `%`.
-    Percent,
-}
-
-/// Where in a node an error should be annotated,
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum ErrorPos {
-    /// Over the full width of the node.
-    Full,
-    /// At the start of the node.
-    Start,
-    /// At the end of the node.
-    End,
+    Error,
 }
 
 impl SyntaxKind {
     /// Whether this is trivia.
-    pub fn is_trivia(&self) -> bool {
-        self.is_space()
-            || self.is_error()
-            || matches!(self, Self::LineComment | Self::BlockComment)
+    pub fn is_trivia(self) -> bool {
+        self.is_space() || self.is_comment() || self.is_error()
     }
 
     /// Whether this is a space.
-    pub fn is_space(&self) -> bool {
+    pub fn is_space(self) -> bool {
         matches!(self, Self::Space { .. })
     }
 
-    /// Whether this is a left or right parenthesis.
-    pub fn is_paren(&self) -> bool {
-        matches!(self, Self::LeftParen | Self::RightParen)
+    /// Whether this is a comment.
+    pub fn is_comment(self) -> bool {
+        matches!(self, Self::LineComment | Self::BlockComment)
     }
 
     /// Whether this is an error.
-    pub fn is_error(&self) -> bool {
-        matches!(self, SyntaxKind::Error(_, _))
+    pub fn is_error(self) -> bool {
+        matches!(self, SyntaxKind::Error)
+    }
+
+    /// Whether this is a left or right parenthesis.
+    pub fn is_paren(self) -> bool {
+        matches!(self, Self::LeftParen | Self::RightParen)
     }
 
     /// Does this node need termination through a semicolon or linebreak?
-    pub fn is_stmt(&self) -> bool {
+    pub fn is_stmt(self) -> bool {
         matches!(
             self,
             SyntaxKind::LetBinding
@@ -331,7 +286,7 @@ impl SyntaxKind {
     }
 
     /// A human-readable name for the kind.
-    pub fn name(&self) -> &'static str {
+    pub fn name(self) -> &'static str {
         match self {
             Self::LineComment => "line comment",
             Self::BlockComment => "block comment",
@@ -348,13 +303,11 @@ impl SyntaxKind {
             Self::Star => "star",
             Self::Underscore => "underscore",
             Self::Dollar => "dollar sign",
-            Self::SmartQuote { double: false } => "single quote",
-            Self::SmartQuote { double: true } => "double quote",
+            Self::SmartQuote => "smart quote",
             Self::Plus => "plus",
             Self::Minus => "minus",
             Self::Slash => "slash",
             Self::Hat => "hat",
-            Self::Amp => "ampersand",
             Self::Dot => "dot",
             Self::Eq => "assignment operator",
             Self::EqEq => "equality operator",
@@ -389,41 +342,33 @@ impl SyntaxKind {
             Self::Include => "keyword `include`",
             Self::As => "keyword `as`",
             Self::Markup { .. } => "markup",
-            Self::Text(_) => "text",
+            Self::Text => "text",
             Self::Linebreak => "linebreak",
-            Self::Escape(_) => "escape sequence",
-            Self::Shorthand(_) => "shorthand",
-            Self::Symbol(_) => "symbol notation",
+            Self::Escape => "escape sequence",
+            Self::Shorthand => "shorthand",
+            Self::Symbol => "symbol notation",
             Self::Strong => "strong content",
             Self::Emph => "emphasized content",
-            Self::Raw(_) => "raw block",
-            Self::Link(_) => "link",
-            Self::Label(_) => "label",
-            Self::Ref(_) => "reference",
+            Self::Raw { .. } => "raw block",
+            Self::Link => "link",
+            Self::Label => "label",
+            Self::Ref => "reference",
             Self::Heading => "heading",
             Self::ListItem => "list item",
             Self::EnumItem => "enumeration item",
-            Self::EnumNumbering(_) => "enumeration item numbering",
+            Self::EnumNumbering => "enumeration item numbering",
             Self::TermItem => "term list item",
             Self::Math => "math formula",
-            Self::Atom(s) => match s.as_str() {
-                "(" => "opening paren",
-                ")" => "closing paren",
-                "{" => "opening brace",
-                "}" => "closing brace",
-                "[" => "opening bracket",
-                "]" => "closing bracket",
-                _ => "math atom",
-            },
+            Self::Atom => "math atom",
             Self::Script => "script",
             Self::Frac => "fraction",
             Self::AlignPoint => "alignment point",
-            Self::Ident(_) => "identifier",
-            Self::Bool(_) => "boolean",
-            Self::Int(_) => "integer",
-            Self::Float(_) => "float",
-            Self::Numeric(_, _) => "numeric value",
-            Self::Str(_) => "string",
+            Self::Ident => "identifier",
+            Self::Bool => "boolean",
+            Self::Int => "integer",
+            Self::Float => "float",
+            Self::Numeric => "numeric value",
+            Self::Str => "string",
             Self::CodeBlock => "code block",
             Self::ContentBlock => "content block",
             Self::Parenthesized => "group",
@@ -453,127 +398,7 @@ impl SyntaxKind {
             Self::LoopBreak => "`break` expression",
             Self::LoopContinue => "`continue` expression",
             Self::FuncReturn => "`return` expression",
-            Self::Error(_, _) => "syntax error",
-        }
-    }
-}
-
-impl Hash for SyntaxKind {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        std::mem::discriminant(self).hash(state);
-        match self {
-            Self::LineComment => {}
-            Self::BlockComment => {}
-            Self::Space { newlines } => newlines.hash(state),
-            Self::LeftBrace => {}
-            Self::RightBrace => {}
-            Self::LeftBracket => {}
-            Self::RightBracket => {}
-            Self::LeftParen => {}
-            Self::RightParen => {}
-            Self::Comma => {}
-            Self::Semicolon => {}
-            Self::Colon => {}
-            Self::Star => {}
-            Self::Underscore => {}
-            Self::Dollar => {}
-            Self::Plus => {}
-            Self::Minus => {}
-            Self::Slash => {}
-            Self::Hat => {}
-            Self::Amp => {}
-            Self::Dot => {}
-            Self::Eq => {}
-            Self::EqEq => {}
-            Self::ExclEq => {}
-            Self::Lt => {}
-            Self::LtEq => {}
-            Self::Gt => {}
-            Self::GtEq => {}
-            Self::PlusEq => {}
-            Self::HyphEq => {}
-            Self::StarEq => {}
-            Self::SlashEq => {}
-            Self::Dots => {}
-            Self::Arrow => {}
-            Self::Not => {}
-            Self::And => {}
-            Self::Or => {}
-            Self::None => {}
-            Self::Auto => {}
-            Self::Let => {}
-            Self::Set => {}
-            Self::Show => {}
-            Self::If => {}
-            Self::Else => {}
-            Self::For => {}
-            Self::In => {}
-            Self::While => {}
-            Self::Break => {}
-            Self::Continue => {}
-            Self::Return => {}
-            Self::Import => {}
-            Self::Include => {}
-            Self::As => {}
-            Self::Markup { min_indent } => min_indent.hash(state),
-            Self::Text(s) => s.hash(state),
-            Self::Linebreak => {}
-            Self::Escape(c) => c.hash(state),
-            Self::Shorthand(c) => c.hash(state),
-            Self::Symbol(s) => s.hash(state),
-            Self::SmartQuote { double } => double.hash(state),
-            Self::Strong => {}
-            Self::Emph => {}
-            Self::Raw(raw) => raw.hash(state),
-            Self::Link(link) => link.hash(state),
-            Self::Label(c) => c.hash(state),
-            Self::Ref(c) => c.hash(state),
-            Self::Heading => {}
-            Self::ListItem => {}
-            Self::EnumItem => {}
-            Self::EnumNumbering(num) => num.hash(state),
-            Self::TermItem => {}
-            Self::Math => {}
-            Self::Atom(c) => c.hash(state),
-            Self::Script => {}
-            Self::Frac => {}
-            Self::AlignPoint => {}
-            Self::Ident(v) => v.hash(state),
-            Self::Bool(v) => v.hash(state),
-            Self::Int(v) => v.hash(state),
-            Self::Float(v) => v.to_bits().hash(state),
-            Self::Numeric(v, u) => (v.to_bits(), u).hash(state),
-            Self::Str(v) => v.hash(state),
-            Self::CodeBlock => {}
-            Self::ContentBlock => {}
-            Self::Parenthesized => {}
-            Self::Array => {}
-            Self::Dict => {}
-            Self::Named => {}
-            Self::Keyed => {}
-            Self::Unary => {}
-            Self::Binary => {}
-            Self::FieldAccess => {}
-            Self::FuncCall => {}
-            Self::MethodCall => {}
-            Self::Args => {}
-            Self::Spread => {}
-            Self::Closure => {}
-            Self::Params => {}
-            Self::LetBinding => {}
-            Self::SetRule => {}
-            Self::ShowRule => {}
-            Self::Conditional => {}
-            Self::WhileLoop => {}
-            Self::ForLoop => {}
-            Self::ForPattern => {}
-            Self::ModuleImport => {}
-            Self::ImportItems => {}
-            Self::ModuleInclude => {}
-            Self::LoopBreak => {}
-            Self::LoopContinue => {}
-            Self::FuncReturn => {}
-            Self::Error(pos, msg) => (pos, msg).hash(state),
+            Self::Error => "syntax error",
         }
     }
 }

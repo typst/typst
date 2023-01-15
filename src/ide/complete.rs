@@ -138,7 +138,7 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
             (SyntaxKind::Colon, _) => prev.prev_leaf(),
             _ => None,
         };
-        if let SyntaxKind::Ident(param) = before_colon.kind();
+        if let Some(param) = before_colon.cast::<ast::Ident>();
         then {
             ctx.from = match ctx.leaf.kind() {
                 SyntaxKind::Colon | SyntaxKind::Space { .. } => ctx.cursor,
@@ -160,11 +160,11 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
             deciding.kind(),
             SyntaxKind::LeftParen
                 | SyntaxKind::Comma
-                | SyntaxKind::Ident(_)
+                | SyntaxKind::Ident
         );
         then {
             ctx.from = match deciding.kind() {
-                SyntaxKind::Ident(_) => deciding.offset(),
+                SyntaxKind::Ident => deciding.offset(),
                 _ => ctx.cursor,
             };
 
@@ -192,9 +192,9 @@ fn complete_symbols(ctx: &mut CompletionContext) -> bool {
 
     // Behind half-completed symbol: "$arrow:|$".
     if_chain! {
-        if matches!(ctx.leaf.kind(), SyntaxKind::Atom(s) if s == ":");
+        if matches!(ctx.leaf.kind(), SyntaxKind::Atom if ctx.leaf.text() == ":");
         if let Some(prev) = ctx.leaf.prev_leaf();
-        if matches!(prev.kind(), SyntaxKind::Ident(_));
+        if matches!(prev.kind(), SyntaxKind::Ident);
         then {
             ctx.from = prev.offset();
             ctx.symbol_completions(false);
@@ -205,7 +205,7 @@ fn complete_symbols(ctx: &mut CompletionContext) -> bool {
     // Start of a symbol: ":|".
     // Checking for a text node ensures that "\:" isn't completed.
     if ctx.before.ends_with(':')
-        && matches!(ctx.leaf.kind(), SyntaxKind::Text(_) | SyntaxKind::Atom(_))
+        && matches!(ctx.leaf.kind(), SyntaxKind::Text | SyntaxKind::Atom)
     {
         ctx.from = ctx.cursor;
         ctx.symbol_completions(needs_colon);
@@ -213,7 +213,7 @@ fn complete_symbols(ctx: &mut CompletionContext) -> bool {
     }
 
     // An existing symbol: ":arrow:".
-    if matches!(ctx.leaf.kind(), SyntaxKind::Symbol(_)) {
+    if matches!(ctx.leaf.kind(), SyntaxKind::Symbol) {
         // We want to complete behind the colon, therefore plus 1.
         let has_colon = ctx.after.starts_with(':');
         ctx.from = ctx.leaf.offset() + (has_colon as usize);
@@ -225,12 +225,12 @@ fn complete_symbols(ctx: &mut CompletionContext) -> bool {
     if_chain! {
         if matches!(
             ctx.leaf.kind(),
-            SyntaxKind::Text(_) | SyntaxKind::Atom(_) | SyntaxKind::Ident(_)
+            SyntaxKind::Text | SyntaxKind::Atom | SyntaxKind::Ident
         );
         if let Some(prev) = ctx.leaf.prev_leaf();
-        if matches!(prev.kind(), SyntaxKind::Symbol(_)) || matches!(
+        if matches!(prev.kind(), SyntaxKind::Symbol) || matches!(
             prev.kind(),
-            SyntaxKind::Text(s) | SyntaxKind::Atom(s) if s == ":"
+            SyntaxKind::Text | SyntaxKind::Atom if prev.text() == ":"
         );
         then {
             // We want to complete behind the colon, therefore plus 1.
@@ -252,14 +252,14 @@ fn complete_markup(ctx: &mut CompletionContext) -> bool {
 
     // Start of an interpolated identifier: "#|".
     // Checking for a text node ensures that "\#" isn't completed.
-    if ctx.before.ends_with('#') && matches!(ctx.leaf.kind(), SyntaxKind::Text(_)) {
+    if ctx.before.ends_with('#') && matches!(ctx.leaf.kind(), SyntaxKind::Text) {
         ctx.from = ctx.cursor;
         ctx.expr_completions(true);
         return true;
     }
 
     // An existing identifier: "#pa|".
-    if matches!(ctx.leaf.kind(), SyntaxKind::Ident(_)) {
+    if matches!(ctx.leaf.kind(), SyntaxKind::Ident) {
         // We want to complete behind the hashtag, therefore plus 1.
         ctx.from = ctx.leaf.offset() + 1;
         ctx.expr_completions(true);
@@ -298,14 +298,14 @@ fn complete_math(ctx: &mut CompletionContext) -> bool {
     }
 
     // Start of an interpolated identifier: "#|".
-    if matches!(ctx.leaf.kind(), SyntaxKind::Atom(s) if s == "#") {
+    if matches!(ctx.leaf.kind(), SyntaxKind::Atom if ctx.leaf.text() == "#") {
         ctx.from = ctx.cursor;
         ctx.expr_completions(true);
         return true;
     }
 
     // Behind existing atom or identifier: "$a|$" or "$abc|$".
-    if matches!(ctx.leaf.kind(), SyntaxKind::Atom(_) | SyntaxKind::Ident(_)) {
+    if matches!(ctx.leaf.kind(), SyntaxKind::Atom | SyntaxKind::Ident) {
         ctx.from = ctx.leaf.offset();
         ctx.math_completions();
         return true;
@@ -331,7 +331,7 @@ fn complete_code(ctx: &mut CompletionContext) -> bool {
     }
 
     // An existing identifier: "{ pa| }".
-    if matches!(ctx.leaf.kind(), SyntaxKind::Ident(_)) {
+    if matches!(ctx.leaf.kind(), SyntaxKind::Ident) {
         ctx.from = ctx.leaf.offset();
         ctx.expr_completions(false);
         return true;

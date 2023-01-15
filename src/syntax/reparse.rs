@@ -87,8 +87,8 @@ fn try_reparse(
                     // reject text that points to the special case for URL
                     // evasion and line comments.
                     if !child.kind().is_space()
-                        && child.kind() != &SyntaxKind::Semicolon
-                        && child.kind() != &SyntaxKind::Text('/'.into())
+                        && child.kind() != SyntaxKind::Semicolon
+                        && (child.kind() != SyntaxKind::Text || child.text() != "/")
                         && (ahead.is_none() || change.replaced.start > child_span.end)
                         && !ahead.map_or(false, Ahead::is_compulsory)
                     {
@@ -177,7 +177,7 @@ fn try_reparse(
     // Make sure this is a markup node and that we may replace. If so, save
     // the current indent.
     let min_indent = match node.kind() {
-        SyntaxKind::Markup { min_indent } if safe_to_replace => *min_indent,
+        SyntaxKind::Markup { min_indent } if safe_to_replace => min_indent,
         _ => return None,
     };
 
@@ -375,23 +375,23 @@ enum ReparseMode {
 
 /// Whether changes _inside_ this node are safely encapsulated, so that only
 /// this node must be reparsed.
-fn is_bounded(kind: &SyntaxKind) -> bool {
+fn is_bounded(kind: SyntaxKind) -> bool {
     matches!(
         kind,
         SyntaxKind::CodeBlock
             | SyntaxKind::ContentBlock
             | SyntaxKind::Linebreak
-            | SyntaxKind::SmartQuote { .. }
+            | SyntaxKind::SmartQuote
             | SyntaxKind::BlockComment
             | SyntaxKind::Space { .. }
-            | SyntaxKind::Escape(_)
-            | SyntaxKind::Shorthand(_)
+            | SyntaxKind::Escape
+            | SyntaxKind::Shorthand
     )
 }
 
 /// Whether `at_start` would still be true after this node given the
 /// previous value of the property.
-fn next_at_start(kind: &SyntaxKind, prev: bool) -> bool {
+fn next_at_start(kind: SyntaxKind, prev: bool) -> bool {
     match kind {
         SyntaxKind::Space { newlines: (1..) } => true,
         SyntaxKind::Space { .. } | SyntaxKind::LineComment | SyntaxKind::BlockComment => {

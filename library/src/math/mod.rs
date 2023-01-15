@@ -637,12 +637,12 @@ impl Texify for ScriptNode {
 #[func]
 #[capable(Texify)]
 #[derive(Debug, Hash)]
-pub struct AlignPointNode(pub NonZeroUsize);
+pub struct AlignPointNode;
 
 #[node]
 impl AlignPointNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Self(args.expect("index")?).pack())
+    fn construct(_: &Vm, _: &mut Args) -> SourceResult<Content> {
+        Ok(Self.pack())
     }
 }
 

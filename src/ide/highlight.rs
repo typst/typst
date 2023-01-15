@@ -119,7 +119,6 @@ pub fn highlight(node: &LinkedNode) -> Option<Category> {
             _ => Category::Operator,
         }),
         SyntaxKind::Hat => Some(Category::MathOperator),
-        SyntaxKind::Amp => Some(Category::MathOperator),
         SyntaxKind::Dot => Some(Category::Punctuation),
         SyntaxKind::Eq => match node.parent_kind() {
             Some(SyntaxKind::Heading) => None,
@@ -159,38 +158,38 @@ pub fn highlight(node: &LinkedNode) -> Option<Category> {
         SyntaxKind::As => Some(Category::Keyword),
 
         SyntaxKind::Markup { .. }
-            if node.parent_kind() == Some(&SyntaxKind::TermItem)
+            if node.parent_kind() == Some(SyntaxKind::TermItem)
                 && node.next_sibling().as_ref().map(|v| v.kind())
-                    == Some(&SyntaxKind::Colon) =>
+                    == Some(SyntaxKind::Colon) =>
         {
             Some(Category::ListTerm)
         }
         SyntaxKind::Markup { .. } => None,
 
-        SyntaxKind::Text(_) => None,
+        SyntaxKind::Text => None,
         SyntaxKind::Linebreak => Some(Category::Escape),
-        SyntaxKind::Escape(_) => Some(Category::Escape),
-        SyntaxKind::Shorthand(_) => Some(Category::Escape),
-        SyntaxKind::Symbol(_) => Some(Category::Escape),
+        SyntaxKind::Escape => Some(Category::Escape),
+        SyntaxKind::Shorthand => Some(Category::Escape),
+        SyntaxKind::Symbol => Some(Category::Escape),
         SyntaxKind::SmartQuote { .. } => None,
         SyntaxKind::Strong => Some(Category::Strong),
         SyntaxKind::Emph => Some(Category::Emph),
-        SyntaxKind::Raw(_) => Some(Category::Raw),
-        SyntaxKind::Link(_) => Some(Category::Link),
-        SyntaxKind::Label(_) => Some(Category::Label),
-        SyntaxKind::Ref(_) => Some(Category::Ref),
+        SyntaxKind::Raw { .. } => Some(Category::Raw),
+        SyntaxKind::Link => Some(Category::Link),
+        SyntaxKind::Label => Some(Category::Label),
+        SyntaxKind::Ref => Some(Category::Ref),
         SyntaxKind::Heading => Some(Category::Heading),
         SyntaxKind::ListItem => None,
         SyntaxKind::EnumItem => None,
-        SyntaxKind::EnumNumbering(_) => Some(Category::ListMarker),
+        SyntaxKind::EnumNumbering => Some(Category::ListMarker),
         SyntaxKind::TermItem => None,
         SyntaxKind::Math => None,
-        SyntaxKind::Atom(_) => None,
+        SyntaxKind::Atom => None,
         SyntaxKind::Script => None,
         SyntaxKind::Frac => None,
-        SyntaxKind::AlignPoint => None,
+        SyntaxKind::AlignPoint => Some(Category::MathOperator),
 
-        SyntaxKind::Ident(_) => match node.parent_kind() {
+        SyntaxKind::Ident => match node.parent_kind() {
             Some(
                 SyntaxKind::Markup { .. }
                 | SyntaxKind::Math
@@ -202,9 +201,9 @@ pub fn highlight(node: &LinkedNode) -> Option<Category> {
                 if node
                     .parent()
                     .and_then(|p| p.parent())
-                    .filter(|gp| gp.kind() == &SyntaxKind::Parenthesized)
+                    .filter(|gp| gp.kind() == SyntaxKind::Parenthesized)
                     .and_then(|gp| gp.parent())
-                    .map_or(false, |ggp| ggp.kind() == &SyntaxKind::FuncCall)
+                    .map_or(false, |ggp| ggp.kind() == SyntaxKind::FuncCall)
                     && node.next_sibling().is_none() =>
             {
                 Some(Category::Function)
@@ -218,17 +217,17 @@ pub fn highlight(node: &LinkedNode) -> Option<Category> {
             Some(SyntaxKind::SetRule) => Some(Category::Function),
             Some(SyntaxKind::ShowRule)
                 if node.prev_sibling().as_ref().map(|v| v.kind())
-                    == Some(&SyntaxKind::Show) =>
+                    == Some(SyntaxKind::Show) =>
             {
                 Some(Category::Function)
             }
             _ => None,
         },
-        SyntaxKind::Bool(_) => Some(Category::Keyword),
-        SyntaxKind::Int(_) => Some(Category::Number),
-        SyntaxKind::Float(_) => Some(Category::Number),
-        SyntaxKind::Numeric(_, _) => Some(Category::Number),
-        SyntaxKind::Str(_) => Some(Category::String),
+        SyntaxKind::Bool => Some(Category::Keyword),
+        SyntaxKind::Int => Some(Category::Number),
+        SyntaxKind::Float => Some(Category::Number),
+        SyntaxKind::Numeric => Some(Category::Number),
+        SyntaxKind::Str => Some(Category::String),
         SyntaxKind::CodeBlock => None,
         SyntaxKind::ContentBlock => None,
         SyntaxKind::Parenthesized => None,
@@ -259,7 +258,7 @@ pub fn highlight(node: &LinkedNode) -> Option<Category> {
         SyntaxKind::LoopContinue => None,
         SyntaxKind::FuncReturn => None,
 
-        SyntaxKind::Error(_, _) => Some(Category::Error),
+        SyntaxKind::Error => Some(Category::Error),
     }
 }
 
