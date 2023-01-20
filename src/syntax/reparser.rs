@@ -179,10 +179,10 @@ fn expand(node: &SyntaxNode) -> bool {
 /// Whether `at_start` would still be true after this node given the
 /// previous value of the property.
 fn next_at_start(node: &SyntaxNode, at_start: &mut bool) {
-    if node.kind().is_trivia() {
-        if node.text().chars().any(is_newline) {
-            *at_start = true;
-        }
+    let kind = node.kind();
+    if kind.is_trivia() {
+        *at_start |= kind == SyntaxKind::Parbreak
+            || (kind == SyntaxKind::Space && node.text().chars().any(is_newline));
     } else {
         *at_start = false;
     }
