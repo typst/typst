@@ -183,7 +183,7 @@ impl Array {
 
     /// Transform each item in the array with a function.
     pub fn map(&self, vm: &Vm, func: Func) -> SourceResult<Self> {
-        if func.argc().map_or(false, |count| count < 1 || count > 2) {
+        if func.argc().map_or(false, |count| !(1..=2).contains(&count)) {
             bail!(func.span(), "function must have one or two parameters");
         }
         let enumerate = func.argc() == Some(2);

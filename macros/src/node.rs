@@ -220,7 +220,7 @@ fn create(node: &Node) -> Result<TokenStream> {
     let scope = quote::format_ident!("__{}_keys", node.self_name);
 
     for property in node.properties.iter() {
-        let (key, module) = create_property_module(node, &property);
+        let (key, module) = create_property_module(node, property);
         modules.push(module);
 
         let name = &property.name;

@@ -39,7 +39,7 @@ pub fn realize(
     for recipe in styles.recipes() {
         let guard = Guard::Nth(n);
         if recipe.applicable(target) && !target.is_guarded(guard) {
-            if let Some(content) = try_apply(vt, &target, recipe, guard)? {
+            if let Some(content) = try_apply(vt, target, recipe, guard)? {
                 realized = Some(content);
                 break;
             }
@@ -92,13 +92,13 @@ fn try_apply(
         }
 
         Some(Selector::Regex(regex)) => {
-            let Some(text) = item!(text_str)(&target) else {
+            let Some(text) = item!(text_str)(target) else {
                 return Ok(None);
             };
 
             let make = |s| {
                 let mut content = item!(text)(s);
-                content.copy_modifiers(&target);
+                content.copy_modifiers(target);
                 content
             };
 
@@ -166,7 +166,7 @@ pub trait Finalize {
 }
 
 /// Guards content against being affected by the same show rule multiple times.
-#[derive(Debug, Copy, Clone, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Guard {
     /// The nth recipe from the top of the chain.
     Nth(usize),

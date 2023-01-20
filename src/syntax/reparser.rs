@@ -96,7 +96,7 @@ fn try_reparse(
     // contained in things like headings or lists because too much can go wrong
     // with indent and line breaks.
     if node.kind() == SyntaxKind::Markup
-        && (parent_kind == None || parent_kind == Some(SyntaxKind::ContentBlock))
+        && (parent_kind.is_none() || parent_kind == Some(SyntaxKind::ContentBlock))
         && !overlap.is_empty()
     {
         // Add one node of slack in both directions.

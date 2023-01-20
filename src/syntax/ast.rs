@@ -720,7 +720,7 @@ impl Ident {
         self.0.text().trim_start_matches('#')
     }
 
-    /// Take out the container identifier.
+    /// Take out the contained identifier.
     pub fn take(self) -> EcoString {
         let text = self.0.into_text();
         match text.strip_prefix('#') {

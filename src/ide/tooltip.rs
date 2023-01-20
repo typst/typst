@@ -26,7 +26,7 @@ fn function_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<String> {
         if let Some(Value::Func(func)) = world.library().scope.get(&ident);
         if let Some(info) = func.info();
         then {
-            return Some(plain_docs_sentence(&info.docs));
+            return Some(plain_docs_sentence(info.docs));
         }
     }
 

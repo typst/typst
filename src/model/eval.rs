@@ -567,7 +567,7 @@ impl Eval for ast::Ident {
 impl ast::Ident {
     fn eval_in_math(&self, vm: &mut Vm) -> SourceResult<Content> {
         if self.as_untyped().len() == self.len()
-            && matches!(vm.scopes.get(&self), Ok(Value::Func(_)) | Err(_))
+            && matches!(vm.scopes.get(self), Ok(Value::Func(_)) | Err(_))
         {
             Ok((vm.items.symbol)(EcoString::from(self.get()) + ":op".into()))
         } else {
@@ -635,7 +635,7 @@ impl Eval for ast::Str {
     type Output = Value;
 
     fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(Value::Str(self.get().clone().into()))
+        Ok(Value::Str(self.get().into()))
     }
 }
 
@@ -1245,7 +1245,7 @@ impl Eval for ast::ModuleImport {
                         errors.push(error!(ident.span(), "unresolved import"));
                     }
                 }
-                if errors.len() > 0 {
+                if !errors.is_empty() {
                     return Err(Box::new(errors));
                 }
             }

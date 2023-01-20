@@ -54,7 +54,7 @@ pub(super) fn reparse_markup(
     at_start: &mut bool,
     mut stop: impl FnMut(SyntaxKind) -> bool,
 ) -> Option<Vec<SyntaxNode>> {
-    let mut p = Parser::new(&text, range.start, LexMode::Markup);
+    let mut p = Parser::new(text, range.start, LexMode::Markup);
     while !p.eof() && !stop(p.current) && p.current_start() < range.end {
         if p.newline() {
             *at_start = true;
@@ -512,7 +512,7 @@ fn block(p: &mut Parser) {
 }
 
 pub(super) fn reparse_block(text: &str, range: Range<usize>) -> Option<SyntaxNode> {
-    let mut p = Parser::new(&text, range.start, LexMode::Code);
+    let mut p = Parser::new(text, range.start, LexMode::Code);
     assert!(p.at(SyntaxKind::LeftBracket) || p.at(SyntaxKind::LeftBrace));
     block(&mut p);
     (p.balanced && p.prev_end() == range.end)
@@ -630,7 +630,7 @@ fn item(p: &mut Parser, keyed: bool) -> SyntaxKind {
         Some(SyntaxKind::Ident) => SyntaxKind::Named,
         Some(SyntaxKind::Str) if keyed => SyntaxKind::Keyed,
         _ => {
-            for child in p.post_process(m).next() {
+            for child in p.post_process(m) {
                 if child.kind() == SyntaxKind::Colon {
                     break;
                 }

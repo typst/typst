@@ -44,7 +44,7 @@ pub fn func(item: syn::Item) -> Result<TokenStream> {
         let vis = &item.vis;
         let ident = &item.sig.ident;
         let s = ident.to_string();
-        let mut chars = s.trim_end_matches("_").chars();
+        let mut chars = s.trim_end_matches('_').chars();
         let ty = quote::format_ident!(
             "{}{}Func",
             chars.next().unwrap().to_ascii_uppercase(),
@@ -98,8 +98,8 @@ pub fn section(docs: &mut String, title: &str, level: usize) -> Option<String> {
     let rest = &docs[start..];
     let len = rest[1..]
         .find("\n# ")
-        .or(rest[1..].find("\n## "))
-        .or(rest[1..].find("\n### "))
+        .or_else(|| rest[1..].find("\n## "))
+        .or_else(|| rest[1..].find("\n### "))
         .map(|x| 1 + x)
         .unwrap_or(rest.len());
     let end = start + len;

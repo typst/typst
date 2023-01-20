@@ -861,14 +861,12 @@ mod tests {
         // Find "text".
         let node = LinkedNode::new(source.root()).leaf_at(7).unwrap();
         assert_eq!(node.offset(), 5);
-        assert_eq!(node.len(), 4);
-        assert_eq!(node.kind(), SyntaxKind::Ident);
+        assert_eq!(node.text(), "text");
 
         // Go back to "#set". Skips the space.
         let prev = node.prev_sibling().unwrap();
         assert_eq!(prev.offset(), 0);
-        assert_eq!(prev.len(), 4);
-        assert_eq!(prev.kind(), SyntaxKind::Set);
+        assert_eq!(prev.text(), "#set");
     }
 
     #[test]
@@ -876,15 +874,15 @@ mod tests {
         let source = Source::detached("#set fun(12pt, red)");
         let leaf = LinkedNode::new(source.root()).leaf_at(6).unwrap();
         let prev = leaf.prev_leaf().unwrap();
-        assert_eq!(leaf.kind(), SyntaxKind::Ident);
-        assert_eq!(prev.kind(), SyntaxKind::Set);
+        assert_eq!(leaf.text(), "fun");
+        assert_eq!(prev.text(), "#set");
 
         let source = Source::detached("#let x = 10");
         let leaf = LinkedNode::new(source.root()).leaf_at(9).unwrap();
         let prev = leaf.prev_leaf().unwrap();
         let next = leaf.next_leaf().unwrap();
-        assert_eq!(prev.kind(), SyntaxKind::Eq);
-        assert_eq!(leaf.kind(), SyntaxKind::Space);
-        assert_eq!(next.kind(), SyntaxKind::Int);
+        assert_eq!(prev.text(), "=");
+        assert_eq!(leaf.text(), " ");
+        assert_eq!(next.text(), "10");
     }
 }

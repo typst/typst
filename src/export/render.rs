@@ -9,7 +9,7 @@ use tiny_skia as sk;
 use ttf_parser::{GlyphId, OutlineBuilder};
 use usvg::FitTo;
 
-use crate::doc::{Element, Frame, Group, Text};
+use crate::doc::{Element, Frame, Group, Meta, Text};
 use crate::geom::{
     self, Abs, Geometry, Paint, PathElement, Shape, Size, Stroke, Transform,
 };
@@ -58,7 +58,10 @@ fn render_frame(
             Element::Image(image, size) => {
                 render_image(canvas, ts, mask, image, *size);
             }
-            Element::Meta(_, _) => {}
+            Element::Meta(meta, _) => match meta {
+                Meta::Link(_) => {}
+                Meta::Node(_, _) => {}
+            },
         }
     }
 }
@@ -400,7 +403,7 @@ fn scaled_texture(image: &Image, w: u32, h: u32) -> Option<Arc<sk::Pixmap>> {
         }
         DecodedImage::Svg(tree) => {
             resvg::render(
-                &tree,
+                tree,
                 FitTo::Size(w, h),
                 sk::Transform::identity(),
                 pixmap.as_mut(),

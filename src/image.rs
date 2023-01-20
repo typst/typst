@@ -140,8 +140,8 @@ fn determine_size(data: &Buffer, format: ImageFormat) -> StrResult<(u32, u32)> {
         }
         ImageFormat::Vector(VectorFormat::Svg) => {
             let opts = usvg::Options::default();
-            let tree = usvg::Tree::from_data(&data, &opts.to_ref())
-                .map_err(format_usvg_error)?;
+            let tree =
+                usvg::Tree::from_data(data, &opts.to_ref()).map_err(format_usvg_error)?;
 
             let size = tree.svg_node().size;
             let width = size.width().ceil() as u32;

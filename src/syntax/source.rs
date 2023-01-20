@@ -291,7 +291,7 @@ struct Line {
 /// Create a line vector.
 fn lines(text: &str) -> Vec<Line> {
     std::iter::once(Line { byte_idx: 0, utf16_idx: 0 })
-        .chain(lines_from(0, 0, &text))
+        .chain(lines_from(0, 0, text))
         .collect()
 }
 

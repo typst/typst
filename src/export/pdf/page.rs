@@ -289,7 +289,7 @@ fn write_frame(ctx: &mut PageContext, frame: &Frame) {
             Element::Image(image, size) => write_image(ctx, x, y, image, *size),
             Element::Meta(meta, size) => match meta {
                 Meta::Link(dest) => write_link(ctx, pos, dest, *size),
-                _ => {}
+                Meta::Node(_, _) => {}
             },
         }
     }

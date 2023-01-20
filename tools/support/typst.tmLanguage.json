@@ -157,7 +157,7 @@
         },
         {
           "name": "keyword.other.typst",
-          "match": "(#)(as|in|from)\\b",
+          "match": "(#)(as|in)\\b",
           "captures": { "1": { "name": "punctuation.definition.keyword.typst" } }
         },
         {
@@ -257,7 +257,7 @@
         },
         {
           "name": "keyword.other.typst",
-          "match": "\\b(let|as|in|from|set|show)\\b"
+          "match": "\\b(let|as|in|set|show)\\b"
         },
         {
           "name": "keyword.control.conditional.typst",

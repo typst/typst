@@ -20,7 +20,7 @@ pub fn write_images(ctx: &mut PdfContext) {
         match image.decode().unwrap().as_ref() {
             DecodedImage::Raster(dynamic, format) => {
                 // TODO: Error if image could not be encoded.
-                let (data, filter, has_color) = encode_image(*format, &dynamic).unwrap();
+                let (data, filter, has_color) = encode_image(*format, dynamic).unwrap();
                 let mut image = ctx.writer.image_xobject(image_ref, &data);
                 image.filter(filter);
                 image.width(width as i32);
@@ -37,7 +37,7 @@ pub fn write_images(ctx: &mut PdfContext) {
                 // Add a second gray-scale image containing the alpha values if
                 // this image has an alpha channel.
                 if dynamic.color().has_alpha() {
-                    let (alpha_data, alpha_filter) = encode_alpha(&dynamic);
+                    let (alpha_data, alpha_filter) = encode_alpha(dynamic);
                     let mask_ref = ctx.alloc.bump();
                     image.s_mask(mask_ref);
                     image.finish();
@@ -52,7 +52,7 @@ pub fn write_images(ctx: &mut PdfContext) {
             }
             DecodedImage::Svg(svg) => {
                 let next_ref = svg2pdf::convert_tree_into(
-                    &svg,
+                    svg,
                     svg2pdf::Options::default(),
                     &mut ctx.writer,
                     image_ref,
