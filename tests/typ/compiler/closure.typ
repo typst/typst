@@ -146,6 +146,16 @@
 }
 
 ---
+// Error: 11-12 duplicate parameter
+#let f(x, x) = none
+
+---
+// Error: 14-15 duplicate parameter
+// Error: 23-24 duplicate parameter
+// Error: 35-36 duplicate parameter
+#let f(a, b, a: none, b: none, c, b) = none
+
+---
 // Error: 6-16 expected identifier, named pair or argument sink, found keyed pair
 {(a, "named": b) => none}
 

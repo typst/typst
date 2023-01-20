@@ -39,7 +39,8 @@ Three
 // Error: 5 expected identifier
 {let}
 
-// Error: 6-9 expected identifier, found string
+// Error: 5 expected identifier
+// Error: 5 expected semicolon or line break
 #let "v"
 
 // Error: 7 expected semicolon or line break
@@ -48,7 +49,8 @@ Three
 // Error: 9 expected expression
 #let v =
 
-// Error: 6-9 expected identifier, found string
+// Error: 5 expected identifier
+// Error: 5 expected semicolon or line break
 #let "v" = 1
 
 // Terminated because expression ends.
@@ -61,7 +63,7 @@ Three
 #let v5 = (1, 2 + ; Five
 
 ---
-// Error: 13 expected body
+// Error: 13 expected equals sign
 #let func(x)
 
 // Error: 15 expected expression

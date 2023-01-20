@@ -141,7 +141,7 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
         if let Some(param) = before_colon.cast::<ast::Ident>();
         then {
             ctx.from = match ctx.leaf.kind() {
-                SyntaxKind::Colon | SyntaxKind::Space { .. } => ctx.cursor,
+                SyntaxKind::Colon | SyntaxKind::Space  => ctx.cursor,
                 _ => ctx.leaf.offset(),
             };
             ctx.named_param_value_completions(&callee, &param);
@@ -246,7 +246,7 @@ fn complete_symbols(ctx: &mut CompletionContext) -> bool {
 /// Complete in markup mode.
 fn complete_markup(ctx: &mut CompletionContext) -> bool {
     // Bail if we aren't even in markup.
-    if !matches!(ctx.leaf.parent_kind(), None | Some(SyntaxKind::Markup { .. })) {
+    if !matches!(ctx.leaf.parent_kind(), None | Some(SyntaxKind::Markup)) {
         return false;
     }
 
@@ -325,7 +325,7 @@ fn complete_math(ctx: &mut CompletionContext) -> bool {
 fn complete_code(ctx: &mut CompletionContext) -> bool {
     if matches!(
         ctx.leaf.parent_kind(),
-        None | Some(SyntaxKind::Markup { .. }) | Some(SyntaxKind::Math)
+        None | Some(SyntaxKind::Markup) | Some(SyntaxKind::Math)
     ) {
         return false;
     }
@@ -887,7 +887,7 @@ impl<'a> CompletionContext<'a> {
 
         self.snippet_completion(
             "import",
-            "import ${items} from \"${file.typ}\"",
+            "import \"${file.typ}\": ${items}",
             "Imports variables from another file.",
         );
 

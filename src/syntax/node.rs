@@ -12,15 +12,15 @@ use crate::util::EcoString;
 #[derive(Clone, PartialEq, Hash)]
 pub struct SyntaxNode(Repr);
 
-/// The two internal representations.
+/// The three internal representations.
 #[derive(Clone, PartialEq, Hash)]
 enum Repr {
     /// A leaf node.
     Leaf(LeafNode),
     /// A reference-counted inner node.
     Inner(Arc<InnerNode>),
-    /// An error.
-    Error(ErrorNode),
+    /// An error node.
+    Error(Arc<ErrorNode>),
 }
 
 impl SyntaxNode {
@@ -36,7 +36,7 @@ impl SyntaxNode {
 
     /// Create a new error node.
     pub fn error(message: impl Into<EcoString>, pos: ErrorPos, len: usize) -> Self {
-        Self(Repr::Error(ErrorNode::new(message, pos, len)))
+        Self(Repr::Error(Arc::new(ErrorNode::new(message, pos, len))))
     }
 
     /// The type of the node.
@@ -134,17 +134,13 @@ impl SyntaxNode {
                 .collect()
         }
     }
+}
 
-    /// Change the type of the node.
-    pub(super) fn convert_to(&mut self, kind: SyntaxKind) {
-        debug_assert!(!kind.is_error());
-        match &mut self.0 {
-            Repr::Leaf(leaf) => leaf.kind = kind,
-            Repr::Inner(inner) => {
-                let node = Arc::make_mut(inner);
-                node.kind = kind;
-            }
-            Repr::Error(_) => {}
+impl SyntaxNode {
+    /// Mark this node as erroneous.
+    pub(super) fn make_erroneous(&mut self) {
+        if let Repr::Inner(inner) = &mut self.0 {
+            Arc::make_mut(inner).erroneous = true;
         }
     }
 
@@ -159,7 +155,7 @@ impl SyntaxNode {
         match &mut self.0 {
             Repr::Leaf(leaf) => leaf.span = span,
             Repr::Inner(inner) => Arc::make_mut(inner).synthesize(span),
-            Repr::Error(error) => error.span = span,
+            Repr::Error(error) => Arc::make_mut(error).span = span,
         }
     }
 
@@ -177,7 +173,7 @@ impl SyntaxNode {
         match &mut self.0 {
             Repr::Leaf(leaf) => leaf.span = mid,
             Repr::Inner(inner) => Arc::make_mut(inner).numberize(id, None, within)?,
-            Repr::Error(error) => error.span = mid,
+            Repr::Error(error) => Arc::make_mut(error).span = mid,
         }
 
         Ok(())
@@ -245,7 +241,7 @@ impl SyntaxNode {
     }
 
     /// The upper bound of assigned numbers in this subtree.
-    fn upper(&self) -> u64 {
+    pub(super) fn upper(&self) -> u64 {
         match &self.0 {
             Repr::Inner(inner) => inner.upper,
             Repr::Leaf(leaf) => leaf.span.number() + 1,
@@ -297,7 +293,7 @@ impl LeafNode {
 
 impl Debug for LeafNode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{:?}: {}", self.kind, self.len())
+        write!(f, "{:?}: {:?}", self.kind, self.text)
     }
 }
 
@@ -588,7 +584,7 @@ impl ErrorNode {
 
 impl Debug for ErrorNode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "({}): {}", self.message, self.len)
+        write!(f, "Error: {} ({})", self.len, self.message)
     }
 }
 
@@ -888,7 +884,7 @@ mod tests {
         let prev = leaf.prev_leaf().unwrap();
         let next = leaf.next_leaf().unwrap();
         assert_eq!(prev.kind(), SyntaxKind::Eq);
-        assert_eq!(leaf.kind(), SyntaxKind::Space { newlines: 0 });
+        assert_eq!(leaf.kind(), SyntaxKind::Space);
         assert_eq!(next.kind(), SyntaxKind::Int);
     }
 }

@@ -261,9 +261,10 @@ impl Eval for ast::Expr {
         };
 
         match self {
+            Self::Text(v) => v.eval(vm).map(Value::Content),
             Self::Space(v) => v.eval(vm).map(Value::Content),
             Self::Linebreak(v) => v.eval(vm).map(Value::Content),
-            Self::Text(v) => v.eval(vm).map(Value::Content),
+            Self::Parbreak(v) => v.eval(vm).map(Value::Content),
             Self::Escape(v) => v.eval(vm).map(Value::Content),
             Self::Shorthand(v) => v.eval(vm).map(Value::Content),
             Self::Symbol(v) => v.eval(vm).map(Value::Content),
@@ -330,14 +331,19 @@ impl ast::Expr {
     }
 }
 
+impl Eval for ast::Text {
+    type Output = Content;
+
+    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        Ok((vm.items.text)(self.get().clone()))
+    }
+}
+
 impl Eval for ast::Space {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(match self.newlines() {
-            0..=1 => (vm.items.space)(),
-            _ => (vm.items.parbreak)(),
-        })
+        Ok((vm.items.space)())
     }
 }
 
@@ -349,11 +355,11 @@ impl Eval for ast::Linebreak {
     }
 }
 
-impl Eval for ast::Text {
+impl Eval for ast::Parbreak {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok((vm.items.text)(self.get().clone()))
+        Ok((vm.items.parbreak)())
     }
 }
 
@@ -438,7 +444,7 @@ impl Eval for ast::Link {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok((vm.items.link)(self.url().clone()))
+        Ok((vm.items.link)(self.get().clone()))
     }
 }
 
@@ -1231,12 +1237,16 @@ impl Eval for ast::ModuleImport {
                 }
             }
             Some(ast::Imports::Items(idents)) => {
+                let mut errors = vec![];
                 for ident in idents {
                     if let Some(value) = module.scope().get(&ident) {
                         vm.scopes.top.define(ident.take(), value.clone());
                     } else {
-                        bail!(ident.span(), "unresolved import");
+                        errors.push(error!(ident.span(), "unresolved import"));
                     }
+                }
+                if errors.len() > 0 {
+                    return Err(Box::new(errors));
                 }
             }
         }

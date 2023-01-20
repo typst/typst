@@ -83,9 +83,41 @@ impl Category {
 /// highlighted.
 pub fn highlight(node: &LinkedNode) -> Option<Category> {
     match node.kind() {
-        SyntaxKind::LineComment => Some(Category::Comment),
-        SyntaxKind::BlockComment => Some(Category::Comment),
-        SyntaxKind::Space { .. } => None,
+        SyntaxKind::Markup
+            if node.parent_kind() == Some(SyntaxKind::TermItem)
+                && node.next_sibling().as_ref().map(|v| v.kind())
+                    == Some(SyntaxKind::Colon) =>
+        {
+            Some(Category::ListTerm)
+        }
+        SyntaxKind::Markup => None,
+        SyntaxKind::Text => None,
+        SyntaxKind::Space => None,
+        SyntaxKind::Linebreak => Some(Category::Escape),
+        SyntaxKind::Parbreak => None,
+        SyntaxKind::Escape => Some(Category::Escape),
+        SyntaxKind::Shorthand => Some(Category::Escape),
+        SyntaxKind::Symbol => Some(Category::Escape),
+        SyntaxKind::SmartQuote => None,
+        SyntaxKind::Strong => Some(Category::Strong),
+        SyntaxKind::Emph => Some(Category::Emph),
+        SyntaxKind::Raw => Some(Category::Raw),
+        SyntaxKind::Link => Some(Category::Link),
+        SyntaxKind::Label => Some(Category::Label),
+        SyntaxKind::Ref => Some(Category::Ref),
+        SyntaxKind::Heading => Some(Category::Heading),
+        SyntaxKind::HeadingMarker => None,
+        SyntaxKind::ListItem => None,
+        SyntaxKind::ListMarker => Some(Category::ListMarker),
+        SyntaxKind::EnumItem => None,
+        SyntaxKind::EnumMarker => Some(Category::ListMarker),
+        SyntaxKind::TermItem => None,
+        SyntaxKind::TermMarker => Some(Category::ListMarker),
+        SyntaxKind::Math => None,
+        SyntaxKind::Atom => None,
+        SyntaxKind::Script => None,
+        SyntaxKind::Frac => None,
+        SyntaxKind::AlignPoint => Some(Category::MathOperator),
 
         SyntaxKind::LeftBrace => Some(Category::Punctuation),
         SyntaxKind::RightBrace => Some(Category::Punctuation),
@@ -105,16 +137,9 @@ pub fn highlight(node: &LinkedNode) -> Option<Category> {
             _ => None,
         },
         SyntaxKind::Dollar => Some(Category::MathDelimiter),
-        SyntaxKind::Plus => Some(match node.parent_kind() {
-            Some(SyntaxKind::EnumItem) => Category::ListMarker,
-            _ => Category::Operator,
-        }),
-        SyntaxKind::Minus => Some(match node.parent_kind() {
-            Some(SyntaxKind::ListItem) => Category::ListMarker,
-            _ => Category::Operator,
-        }),
+        SyntaxKind::Plus => Some(Category::Operator),
+        SyntaxKind::Minus => Some(Category::Operator),
         SyntaxKind::Slash => Some(match node.parent_kind() {
-            Some(SyntaxKind::TermItem) => Category::ListMarker,
             Some(SyntaxKind::Frac) => Category::MathOperator,
             _ => Category::Operator,
         }),
@@ -157,41 +182,9 @@ pub fn highlight(node: &LinkedNode) -> Option<Category> {
         SyntaxKind::Include => Some(Category::Keyword),
         SyntaxKind::As => Some(Category::Keyword),
 
-        SyntaxKind::Markup { .. }
-            if node.parent_kind() == Some(SyntaxKind::TermItem)
-                && node.next_sibling().as_ref().map(|v| v.kind())
-                    == Some(SyntaxKind::Colon) =>
-        {
-            Some(Category::ListTerm)
-        }
-        SyntaxKind::Markup { .. } => None,
-
-        SyntaxKind::Text => None,
-        SyntaxKind::Linebreak => Some(Category::Escape),
-        SyntaxKind::Escape => Some(Category::Escape),
-        SyntaxKind::Shorthand => Some(Category::Escape),
-        SyntaxKind::Symbol => Some(Category::Escape),
-        SyntaxKind::SmartQuote { .. } => None,
-        SyntaxKind::Strong => Some(Category::Strong),
-        SyntaxKind::Emph => Some(Category::Emph),
-        SyntaxKind::Raw { .. } => Some(Category::Raw),
-        SyntaxKind::Link => Some(Category::Link),
-        SyntaxKind::Label => Some(Category::Label),
-        SyntaxKind::Ref => Some(Category::Ref),
-        SyntaxKind::Heading => Some(Category::Heading),
-        SyntaxKind::ListItem => None,
-        SyntaxKind::EnumItem => None,
-        SyntaxKind::EnumNumbering => Some(Category::ListMarker),
-        SyntaxKind::TermItem => None,
-        SyntaxKind::Math => None,
-        SyntaxKind::Atom => None,
-        SyntaxKind::Script => None,
-        SyntaxKind::Frac => None,
-        SyntaxKind::AlignPoint => Some(Category::MathOperator),
-
         SyntaxKind::Ident => match node.parent_kind() {
             Some(
-                SyntaxKind::Markup { .. }
+                SyntaxKind::Markup
                 | SyntaxKind::Math
                 | SyntaxKind::Script
                 | SyntaxKind::Frac,
@@ -258,7 +251,10 @@ pub fn highlight(node: &LinkedNode) -> Option<Category> {
         SyntaxKind::LoopContinue => None,
         SyntaxKind::FuncReturn => None,
 
+        SyntaxKind::LineComment => Some(Category::Comment),
+        SyntaxKind::BlockComment => Some(Category::Comment),
         SyntaxKind::Error => Some(Category::Error),
+        SyntaxKind::Eof => None,
     }
 }
 

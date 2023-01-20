@@ -208,17 +208,16 @@
 // Error: 3 expected closing paren
 {(}
 
-// Error: 2-3 expected expression, found closing paren
+// Error: 2-3 unexpected closing paren
 {)}
 
-// Error: 4 expected comma
 // Error: 4-6 unexpected end of block comment
 {(1*/2)}
 
 // Error: 6-8 invalid number suffix
 {(1, 1u 2)}
 
-// Error: 3-4 expected expression, found comma
+// Error: 3-4 unexpected comma
 {(,1)}
 
 // Missing expression makes named pair incomplete, making this an empty array.

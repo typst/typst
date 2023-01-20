@@ -36,5 +36,6 @@
 = A
 
 ---
-// Error: 8-12 expected identifier, found boolean
+// Error: 8 expected identifier
+// Error: 8 expected semicolon or line break
 {false.true}

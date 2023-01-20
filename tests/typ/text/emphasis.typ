@@ -38,6 +38,6 @@ _Hello
 World
 
 ---
-// Error: 1:12 expected star
-// Error: 2:1 expected star
-_Cannot *be_ interleaved*
+// Error: 25 expected star
+// Error: 25 expected underscore
+[_Cannot *be interleaved]

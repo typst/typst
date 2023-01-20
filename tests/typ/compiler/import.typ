@@ -81,21 +81,16 @@ This is never reached.
 #import
 
 ---
-// Error: 26-29 expected identifier, found string
+// Error: 26-29 unexpected string
 #import "module.typ": a, "b", c
 
 ---
-// Error: 22 expected import items
-#import "module.typ":
-
----
-// Error: 23-24 expected expression, found assignment operator
-// Error: 24 expected import items
+// Error: 23-24 unexpected equals sign
 #import "module.typ": =
 
 ---
 // An additional trailing comma.
-// Error: 31-32 expected expression, found comma
+// Error: 31-32 unexpected comma
 #import "module.typ": a, b, c,,
 
 ---
@@ -105,7 +100,7 @@ This is never reached.
 
 ---
 // A star in the list.
-// Error: 26-27 expected expression, found star
+// Error: 26-27 unexpected star
 #import "module.typ": a, *, b
 
 ---
@@ -114,5 +109,10 @@ This is never reached.
 #import "module.typ": *, a
 
 ---
-// Error: 13-17 expected identifier, found named pair
+// Error: 14-15 unexpected colon
+// Error: 16-17 unexpected integer
 #import "": a: 1
+
+---
+// Error: 14 expected comma
+#import "": a b

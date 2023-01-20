@@ -43,6 +43,7 @@ _Shopping list_
 	- A with 1 tab
 		- B with 2 tabs
 
+---
 // This doesn't work because of mixed tabs and spaces.
   - A with 2 spaces
 		- B with 2 tabs

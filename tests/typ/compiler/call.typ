@@ -44,7 +44,7 @@
 }
 
 ---
-// Error: 28-47 duplicate argument
+// Error: 28-34 duplicate argument
 #set text(family: "Arial", family: "Helvetica")
 
 ---
@@ -70,7 +70,8 @@
 #f[1](2)
 
 ---
-// Error: 7-8 expected expression, found colon
+// Error: 7 expected expression
+// Error: 8 expected expression
 #func(:)
 
 // Error: 10-12 unexpected end of block comment
@@ -102,5 +103,4 @@
 
 ---
 // Error: 2:1 expected quote
-// Error: 2:1 expected closing paren
 #func("]

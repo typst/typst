@@ -29,9 +29,6 @@ pub trait AstNode: Sized {
 
 macro_rules! node {
     ($(#[$attr:meta])* $name:ident) => {
-        node!{ $(#[$attr])* $name: SyntaxKind::$name { .. } }
-    };
-    ($(#[$attr:meta])* $name:ident: $variants:pat) => {
         #[derive(Debug, Clone, PartialEq, Hash)]
         #[repr(transparent)]
         $(#[$attr])*
@@ -39,7 +36,7 @@ macro_rules! node {
 
         impl AstNode for $name {
             fn from_untyped(node: &SyntaxNode) -> Option<Self> {
-                if matches!(node.kind(), $variants) {
+                if matches!(node.kind(), SyntaxKind::$name) {
                     Some(Self(node.clone()))
                 } else {
                     Option::None
@@ -67,8 +64,7 @@ impl Markup {
             .filter(move |node| {
                 // Ignore newline directly after statements without semicolons.
                 let kind = node.kind();
-                let keep =
-                    !was_stmt || !matches!(kind, SyntaxKind::Space { newlines: 1 });
+                let keep = !was_stmt || node.kind() != SyntaxKind::Space;
                 was_stmt = kind.is_stmt();
                 keep
             })
@@ -79,12 +75,15 @@ impl Markup {
 /// An expression in markup, math or code.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum Expr {
-    /// Whitespace.
+    /// Plain text without markup.
+    Text(Text),
+    /// Whitespace in markup or math. Has at most one newline in markup, as more
+    /// indicate a paragraph break.
     Space(Space),
     /// A forced line break: `\`.
     Linebreak(Linebreak),
-    /// Plain text without markup.
-    Text(Text),
+    /// A paragraph break, indicated by one or multiple blank lines.
+    Parbreak(Parbreak),
     /// An escape sequence: `\#`, `\u{1F5FA}`.
     Escape(Escape),
     /// A shorthand for a unicode codepoint. For example, `~` for non-breaking
@@ -189,7 +188,7 @@ pub enum Expr {
 impl Expr {
     fn cast_with_space(node: &SyntaxNode) -> Option<Self> {
         match node.kind() {
-            SyntaxKind::Space { .. } => node.cast().map(Self::Space),
+            SyntaxKind::Space => node.cast().map(Self::Space),
             _ => Self::from_untyped(node),
         }
     }
@@ -199,14 +198,15 @@ impl AstNode for Expr {
     fn from_untyped(node: &SyntaxNode) -> Option<Self> {
         match node.kind() {
             SyntaxKind::Linebreak => node.cast().map(Self::Linebreak),
+            SyntaxKind::Parbreak => node.cast().map(Self::Parbreak),
             SyntaxKind::Text => node.cast().map(Self::Text),
             SyntaxKind::Escape => node.cast().map(Self::Escape),
             SyntaxKind::Shorthand => node.cast().map(Self::Shorthand),
             SyntaxKind::Symbol => node.cast().map(Self::Symbol),
-            SyntaxKind::SmartQuote { .. } => node.cast().map(Self::SmartQuote),
+            SyntaxKind::SmartQuote => node.cast().map(Self::SmartQuote),
             SyntaxKind::Strong => node.cast().map(Self::Strong),
             SyntaxKind::Emph => node.cast().map(Self::Emph),
-            SyntaxKind::Raw { .. } => node.cast().map(Self::Raw),
+            SyntaxKind::Raw => node.cast().map(Self::Raw),
             SyntaxKind::Link => node.cast().map(Self::Link),
             SyntaxKind::Label => node.cast().map(Self::Label),
             SyntaxKind::Ref => node.cast().map(Self::Ref),
@@ -255,9 +255,10 @@ impl AstNode for Expr {
 
     fn as_untyped(&self) -> &SyntaxNode {
         match self {
+            Self::Text(v) => v.as_untyped(),
             Self::Space(v) => v.as_untyped(),
             Self::Linebreak(v) => v.as_untyped(),
-            Self::Text(v) => v.as_untyped(),
+            Self::Parbreak(v) => v.as_untyped(),
             Self::Escape(v) => v.as_untyped(),
             Self::Shorthand(v) => v.as_untyped(),
             Self::Symbol(v) => v.as_untyped(),
@@ -312,26 +313,6 @@ impl AstNode for Expr {
 }
 
 node! {
-    /// Whitespace.
-    Space
-}
-
-impl Space {
-    /// Get the number of newlines.
-    pub fn newlines(&self) -> usize {
-        match self.0.kind() {
-            SyntaxKind::Space { newlines } => newlines,
-            _ => panic!("space is of wrong kind"),
-        }
-    }
-}
-
-node! {
-    /// A forced line break: `\`.
-    Linebreak
-}
-
-node! {
     /// Plain text without markup.
     Text
 }
@@ -341,6 +322,22 @@ impl Text {
     pub fn get(&self) -> &EcoString {
         self.0.text()
     }
+}
+
+node! {
+    /// Whitespace in markup or math. Has at most one newline in markup, as more
+    /// indicate a paragraph break.
+    Space
+}
+
+node! {
+    /// A forced line break: `\`.
+    Linebreak
+}
+
+node! {
+    /// A paragraph break, indicated by one or multiple blank lines.
+    Parbreak
 }
 
 node! {
@@ -454,10 +451,6 @@ node! {
 impl Raw {
     /// The trimmed raw text.
     pub fn text(&self) -> EcoString {
-        let SyntaxKind::Raw { column } = self.0.kind() else {
-            panic!("raw node is of wrong kind");
-        };
-
         let mut text = self.0.text().as_str();
         let blocky = text.starts_with("```");
         text = text.trim_matches('`');
@@ -480,14 +473,16 @@ impl Raw {
         let mut lines = split_newlines(text);
 
         if blocky {
+            let dedent = lines
+                .iter()
+                .skip(1)
+                .map(|line| line.chars().take_while(|c| c.is_whitespace()).count())
+                .min()
+                .unwrap_or(0);
+
             // Dedent based on column, but not for the first line.
             for line in lines.iter_mut().skip(1) {
-                let offset = line
-                    .chars()
-                    .take(column)
-                    .take_while(|c| c.is_whitespace())
-                    .map(char::len_utf8)
-                    .sum();
+                let offset = line.chars().take(dedent).map(char::len_utf8).sum();
                 *line = &line[offset..];
             }
 
@@ -531,7 +526,7 @@ node! {
 
 impl Link {
     /// Get the URL.
-    pub fn url(&self) -> &EcoString {
+    pub fn get(&self) -> &EcoString {
         self.0.text()
     }
 }
@@ -575,10 +570,9 @@ impl Heading {
     pub fn level(&self) -> NonZeroUsize {
         self.0
             .children()
-            .filter(|n| n.kind() == SyntaxKind::Eq)
-            .count()
-            .try_into()
-            .expect("heading is missing equals sign")
+            .find(|node| node.kind() == SyntaxKind::HeadingMarker)
+            .and_then(|node| node.len().try_into().ok())
+            .expect("heading is missing marker")
     }
 }
 
@@ -603,7 +597,7 @@ impl EnumItem {
     /// The explicit numbering, if any: `23.`.
     pub fn number(&self) -> Option<NonZeroUsize> {
         self.0.children().find_map(|node| match node.kind() {
-            SyntaxKind::EnumNumbering => node.text().trim_end_matches('.').parse().ok(),
+            SyntaxKind::EnumMarker => node.text().trim_end_matches('.').parse().ok(),
             _ => Option::None,
         })
     }
@@ -765,7 +759,7 @@ node! {
 }
 
 impl Bool {
-    /// Get the value.
+    /// Get the boolean value.
     pub fn get(&self) -> bool {
         self.0.text() == "true"
     }
@@ -777,7 +771,7 @@ node! {
 }
 
 impl Int {
-    /// Get the value.
+    /// Get the integer value.
     pub fn get(&self) -> i64 {
         self.0.text().parse().expect("integer is invalid")
     }
@@ -789,7 +783,7 @@ node! {
 }
 
 impl Float {
-    /// Get the value.
+    /// Get the floating-point value.
     pub fn get(&self) -> f64 {
         self.0.text().parse().expect("float is invalid")
     }
@@ -801,7 +795,7 @@ node! {
 }
 
 impl Numeric {
-    /// Get the value and unit.
+    /// Get the numeric value and unit.
     pub fn get(&self) -> (f64, Unit) {
         let text = self.0.text();
         let count = text
@@ -850,7 +844,7 @@ node! {
 }
 
 impl Str {
-    /// Get the value.
+    /// Get the string value with resolved escape sequences.
     pub fn get(&self) -> EcoString {
         let text = self.0.text();
         let unquoted = &text[1..text.len() - 1];
@@ -1058,7 +1052,7 @@ impl Unary {
     pub fn op(&self) -> UnOp {
         self.0
             .children()
-            .find_map(|node| UnOp::from_token(node.kind()))
+            .find_map(|node| UnOp::from_kind(node.kind()))
             .expect("unary operation is missing operator")
     }
 
@@ -1081,7 +1075,7 @@ pub enum UnOp {
 
 impl UnOp {
     /// Try to convert the token into a unary operation.
-    pub fn from_token(token: SyntaxKind) -> Option<Self> {
+    pub fn from_kind(token: SyntaxKind) -> Option<Self> {
         Some(match token {
             SyntaxKind::Plus => Self::Pos,
             SyntaxKind::Minus => Self::Neg,
@@ -1125,7 +1119,7 @@ impl Binary {
                     Option::None
                 }
                 SyntaxKind::In if not => Some(BinOp::NotIn),
-                _ => BinOp::from_token(node.kind()),
+                _ => BinOp::from_kind(node.kind()),
             })
             .expect("binary operation is missing operator")
     }
@@ -1190,7 +1184,7 @@ pub enum BinOp {
 
 impl BinOp {
     /// Try to convert the token into a binary operation.
-    pub fn from_token(token: SyntaxKind) -> Option<Self> {
+    pub fn from_kind(token: SyntaxKind) -> Option<Self> {
         Some(match token {
             SyntaxKind::Plus => Self::Add,
             SyntaxKind::Minus => Self::Sub,

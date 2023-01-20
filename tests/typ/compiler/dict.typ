@@ -56,11 +56,11 @@
 #test(dict, (a: 3, b: 1))
 
 ---
-// Error: 24-32 pair has duplicate key
+// Error: 24-29 duplicate key
 {(first: 1, second: 2, first: 3)}
 
 ---
-// Error: 17-23 pair has duplicate key
+// Error: 17-20 duplicate key
 {(a: 1, "b": 2, "a": 3)}
 
 ---
@@ -72,8 +72,11 @@
 // Error: 4-5 expected named or keyed pair, found integer
 // Error: 5 expected comma
 // Error: 12-16 expected identifier or string, found boolean
-// Error: 17-18 expected expression, found colon
-{(:1 b:"", true::)}
+// Error: 17 expected expression
+{(:1 b:"", true:)}
+
+// Error: 3-8 expected identifier or string, found binary expression
+{(a + b: "hey")}
 
 ---
 // Error: 3-15 cannot mutate a temporary value

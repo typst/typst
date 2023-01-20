@@ -126,10 +126,12 @@
 
 // Should output `3`.
 {
-  // Error: 7-10 expected identifier, found string
+  // Error: 6 expected identifier
+  // Error: 10 expected block
   for "v"
 
   // Error: 8 expected keyword `in`
+  // Error: 22 expected block
   for v let z = 1 + 2
 
   z

@@ -60,7 +60,7 @@
 #min(.."nope")
 
 ---
-// Error: 8-14 expected identifier, named pair or argument sink, found spread
+// Error: 10-14 expected identifier, found boolean
 #let f(..true) = none
 
 ---
