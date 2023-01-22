@@ -31,7 +31,7 @@ Emoji: 🐪, 🌋, 🏞
 ]
 
 // Disable font fallback beyond the user-specified list.
-// Without disabling, NewComputerModernMath would come to the rescue.
+// Without disabling, New Computer Modern Math would come to the rescue.
 #set text("PT Sans", "Twitter Color Emoji", fallback: false)
 2π = 𝛼 + 𝛽. ✅
 

@@ -102,21 +102,21 @@ impl MathNode {
 }
 
 impl Show for MathNode {
-    fn show(&self, _: &mut Vt, _: &Content, styles: StyleChain) -> SourceResult<Content> {
-        let mut map = StyleMap::new();
-        map.set_family(FontFamily::new("NewComputerModernMath"), styles);
-
-        let mut realized = self
-            .clone()
-            .pack()
-            .guarded(Guard::Base(NodeId::of::<Self>()))
-            .styled_with_map(map);
-
+    fn show(&self, _: &mut Vt, _: &Content, _: StyleChain) -> SourceResult<Content> {
+        let mut realized = self.clone().pack().guarded(Guard::Base(NodeId::of::<Self>()));
         if self.block {
             realized = realized.aligned(Axes::with_x(Some(Align::Center.into())))
         }
-
         Ok(realized)
+    }
+}
+
+impl Finalize for MathNode {
+    fn finalize(&self, realized: Content) -> Content {
+        realized.styled(
+            TextNode::FAMILY,
+            FallbackList(vec![FontFamily::new("New Computer Modern Math")]),
+        )
     }
 }
 

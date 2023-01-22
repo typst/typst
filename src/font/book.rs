@@ -299,7 +299,7 @@ fn decode_mac_roman(coded: &[u8]) -> String {
     coded.iter().copied().map(char_from_mac_roman).collect()
 }
 
-/// Trim style naming from a family name.
+/// Trim style naming from a family name and fix bad names.
 fn typographic_family(mut family: &str) -> &str {
     // Separators between names, modifiers and styles.
     const SEPARATORS: [char; 3] = [' ', '-', '_'];
@@ -349,7 +349,11 @@ fn typographic_family(mut family: &str) -> &str {
         }
     }
 
-    &family[..len]
+    // Fix bad names.
+    match &family[..len] {
+        "NewComputerModernMath" => "New Computer Modern Math",
+        other => other,
+    }
 }
 
 /// How many words the two strings share in their prefix.

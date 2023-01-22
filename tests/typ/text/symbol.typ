@@ -6,7 +6,7 @@
 :woman:old:
 :turtle:
 
-#set text("NewComputerModernMath")
+#set text("New Computer Modern Math")
 :arrow:
 :arrow:l:
 :arrow:r:squiggly:
