@@ -1,6 +1,8 @@
 use std::collections::HashSet;
 use std::ops::Range;
 
+use unicode_math_class::MathClass;
+
 use super::{ast, is_newline, ErrorPos, LexMode, Lexer, SyntaxKind, SyntaxNode};
 use crate::util::{format_eco, EcoString};
 
@@ -233,12 +235,13 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
             }
         }
 
-        SyntaxKind::Atom => match p.current_text() {
-            "(" => math_delimited(p, ")"),
-            "{" => math_delimited(p, "}"),
-            "[" => math_delimited(p, "]"),
-            _ => p.eat(),
-        },
+        SyntaxKind::Atom if math_class(p.current_text()) == Some(MathClass::Fence) => {
+            math_delimited(p, MathClass::Fence)
+        }
+
+        SyntaxKind::Atom if math_class(p.current_text()) == Some(MathClass::Opening) => {
+            math_delimited(p, MathClass::Closing)
+        }
 
         SyntaxKind::Let
         | SyntaxKind::Set
@@ -254,7 +257,8 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
         | SyntaxKind::LeftBrace
         | SyntaxKind::LeftBracket => embedded_code_expr(p),
 
-        SyntaxKind::Linebreak
+        SyntaxKind::Atom
+        | SyntaxKind::Linebreak
         | SyntaxKind::Escape
         | SyntaxKind::Shorthand
         | SyntaxKind::Symbol
@@ -288,21 +292,30 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
     }
 }
 
-fn math_delimited(p: &mut Parser, closing: &str) {
+fn math_delimited(p: &mut Parser, stop: MathClass) {
     let m = p.marker();
     p.expect(SyntaxKind::Atom);
-    while !p.eof()
-        && !p.at(SyntaxKind::Dollar)
-        && (!p.at(SyntaxKind::Atom) || p.current_text() != closing)
-    {
+    while !p.eof() && !p.at(SyntaxKind::Dollar) {
+        if math_class(p.current_text()) == Some(stop) {
+            p.eat();
+            p.wrap(m, SyntaxKind::Delimited);
+            return;
+        }
+
         let prev = p.prev_end();
         math_expr(p);
         if !p.progress(prev) {
             p.unexpected();
         }
     }
-    p.expect(SyntaxKind::Atom);
-    p.wrap(m, SyntaxKind::Math);
+}
+
+fn math_class(text: &str) -> Option<MathClass> {
+    let mut chars = text.chars();
+    chars
+        .next()
+        .filter(|_| chars.next().is_none())
+        .and_then(unicode_math_class::class)
 }
 
 fn math_op(kind: SyntaxKind) -> Option<(SyntaxKind, SyntaxKind, ast::Assoc, usize)> {
@@ -324,7 +337,7 @@ fn math_args(p: &mut Parser) {
     p.expect(SyntaxKind::Atom);
     let m = p.marker();
     let mut m2 = p.marker();
-    while !p.eof() {
+    while !p.eof() && !p.at(SyntaxKind::Dollar) {
         match p.current_text() {
             ")" => break,
             "," => {

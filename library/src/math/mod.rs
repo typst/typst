@@ -8,6 +8,7 @@ mod atom;
 mod braced;
 mod frac;
 mod fragment;
+mod lr;
 mod matrix;
 mod op;
 mod root;
@@ -50,6 +51,7 @@ use crate::text::{families, variant, FallbackList, FontFamily, SpaceNode, Symbol
 /// Hook up all math definitions.
 pub fn define(scope: &mut Scope) {
     scope.def_func::<MathNode>("math");
+    scope.def_func::<LrNode>("lr");
     scope.def_func::<AccentNode>("accent");
     scope.def_func::<FracNode>("frac");
     scope.def_func::<BinomNode>("binom");

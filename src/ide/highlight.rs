@@ -115,6 +115,7 @@ pub fn highlight(node: &LinkedNode) -> Option<Category> {
         SyntaxKind::TermMarker => Some(Category::ListMarker),
         SyntaxKind::Math => None,
         SyntaxKind::Atom => None,
+        SyntaxKind::Delimited => None,
         SyntaxKind::Script => None,
         SyntaxKind::Frac => None,
         SyntaxKind::AlignPoint => Some(Category::MathOperator),

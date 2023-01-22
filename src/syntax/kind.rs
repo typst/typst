@@ -61,6 +61,9 @@ pub enum SyntaxKind {
     Math,
     /// An atom in math: `x`, `+`, `12`.
     Atom,
+    /// A subsection in a math formula that is surrounded by matched delimiters:
+    /// `[x + y]`.
+    Delimited,
     /// A base with optional sub- and superscripts in math: `a_1^2`.
     Script,
     /// A fraction in math: `x/2`.
@@ -336,6 +339,7 @@ impl SyntaxKind {
             Self::TermItem => "term list item",
             Self::TermMarker => "term marker",
             Self::Math => "math formula",
+            Self::Delimited => "delimited math",
             Self::Atom => "math atom",
             Self::Script => "script",
             Self::Frac => "fraction",

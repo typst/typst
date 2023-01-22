@@ -117,6 +117,9 @@ pub enum Expr {
     Math(Math),
     /// An atom in a math formula: `x`, `+`, `12`.
     Atom(Atom),
+    /// A subsection in a math formula that is surrounded by matched delimiters:
+    /// `[x + y]`.
+    Delimited(Delimited),
     /// A base with optional sub- and superscripts in a math formula: `a_1^2`.
     Script(Script),
     /// A fraction in a math formula: `x/2`.
@@ -216,6 +219,7 @@ impl AstNode for Expr {
             SyntaxKind::TermItem => node.cast().map(Self::Term),
             SyntaxKind::Math => node.cast().map(Self::Math),
             SyntaxKind::Atom => node.cast().map(Self::Atom),
+            SyntaxKind::Delimited => node.cast().map(Self::Delimited),
             SyntaxKind::Script => node.cast().map(Self::Script),
             SyntaxKind::Frac => node.cast().map(Self::Frac),
             SyntaxKind::AlignPoint => node.cast().map(Self::AlignPoint),
@@ -275,6 +279,7 @@ impl AstNode for Expr {
             Self::Term(v) => v.as_untyped(),
             Self::Math(v) => v.as_untyped(),
             Self::Atom(v) => v.as_untyped(),
+            Self::Delimited(v) => v.as_untyped(),
             Self::Script(v) => v.as_untyped(),
             Self::Frac(v) => v.as_untyped(),
             Self::AlignPoint(v) => v.as_untyped(),
@@ -658,6 +663,19 @@ impl Atom {
 }
 
 node! {
+    /// A subsection in a math formula that is surrounded by matched delimiters:
+    /// `[x + y]`.
+    Delimited
+}
+
+impl Delimited {
+    /// The contents, including the delimiters.
+    pub fn exprs(&self) -> impl DoubleEndedIterator<Item = Expr> + '_ {
+        self.0.children().filter_map(Expr::cast_with_space)
+    }
+}
+
+node! {
     /// A base with an optional sub- and superscript in a formula: `a_1^2`.
     Script
 }
@@ -673,8 +691,7 @@ impl Script {
         self.0
             .children()
             .skip_while(|node| !matches!(node.kind(), SyntaxKind::Underscore))
-            .nth(1)
-            .map(|node| node.cast().expect("script node has invalid subscript"))
+            .find_map(SyntaxNode::cast)
     }
 
     /// The superscript.
@@ -682,8 +699,7 @@ impl Script {
         self.0
             .children()
             .skip_while(|node| !matches!(node.kind(), SyntaxKind::Hat))
-            .nth(1)
-            .map(|node| node.cast().expect("script node has invalid superscript"))
+            .find_map(SyntaxNode::cast)
     }
 }
 

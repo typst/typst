@@ -280,6 +280,7 @@ impl Eval for ast::Expr {
             Self::Enum(v) => v.eval(vm).map(Value::Content),
             Self::Term(v) => v.eval(vm).map(Value::Content),
             Self::Atom(v) => v.eval(vm).map(Value::Content),
+            Self::Delimited(v) => v.eval(vm).map(Value::Content),
             Self::Script(v) => v.eval(vm).map(Value::Content),
             Self::Frac(v) => v.eval(vm).map(Value::Content),
             Self::AlignPoint(v) => v.eval(vm).map(Value::Content),
@@ -325,7 +326,16 @@ impl ast::Expr {
             Self::Shorthand(v) => v.eval_in_math(vm)?,
             Self::Symbol(v) => v.eval_in_math(vm)?,
             Self::Ident(v) => v.eval_in_math(vm)?,
+            Self::FuncCall(v) => v.eval_in_math(vm)?,
             _ => self.eval(vm)?.display_in_math(),
+        }
+        .spanned(self.span()))
+    }
+
+    fn eval_without_parens(&self, vm: &mut Vm) -> SourceResult<Content> {
+        Ok(match self {
+            Self::Delimited(v) => v.eval_without_parens(vm)?,
+            _ => self.eval_in_math(vm)?,
         }
         .spanned(self.span()))
     }
@@ -401,7 +411,7 @@ impl Eval for ast::Symbol {
 
 impl ast::Symbol {
     fn eval_in_math(&self, vm: &mut Vm) -> SourceResult<Content> {
-        Ok((vm.items.symbol)(EcoString::from(self.get()) + ":op".into()))
+        Ok((vm.items.symbol)(EcoString::from(self.get()) + ":op:square".into()))
     }
 }
 
@@ -511,7 +521,7 @@ impl Eval for ast::Math {
             .map(|expr| expr.eval_in_math(vm))
             .collect::<SourceResult<_>>()?;
         let block = self.block();
-        Ok((vm.items.math)(seq, block))
+        Ok((vm.items.math)(Content::sequence(seq), block))
     }
 }
 
@@ -523,13 +533,44 @@ impl Eval for ast::Atom {
     }
 }
 
+impl Eval for ast::Delimited {
+    type Output = Content;
+
+    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        let seq = self
+            .exprs()
+            .map(|expr| expr.eval_in_math(vm))
+            .collect::<SourceResult<_>>()?;
+        Ok((vm.items.math_delimited)(Content::sequence(seq)))
+    }
+}
+
+impl ast::Delimited {
+    fn eval_without_parens(&self, vm: &mut Vm) -> SourceResult<Content> {
+        let exprs: Vec<_> = self.exprs().collect();
+        let mut slice = exprs.as_slice();
+        if let (Some(ast::Expr::Atom(first)), Some(ast::Expr::Atom(last))) =
+            (exprs.first(), exprs.last())
+        {
+            if first.get() == "(" && last.get() == ")" {
+                slice = &exprs[1..exprs.len() - 1];
+            }
+        }
+        let seq = slice
+            .iter()
+            .map(|expr| expr.eval_in_math(vm))
+            .collect::<SourceResult<_>>()?;
+        Ok((vm.items.math_delimited)(Content::sequence(seq)))
+    }
+}
+
 impl Eval for ast::Script {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let base = self.base().eval_in_math(vm)?;
-        let sub = self.sub().map(|expr| expr.eval_in_math(vm)).transpose()?;
-        let sup = self.sup().map(|expr| expr.eval_in_math(vm)).transpose()?;
+        let sub = self.sub().map(|expr| expr.eval_without_parens(vm)).transpose()?;
+        let sup = self.sup().map(|expr| expr.eval_without_parens(vm)).transpose()?;
         Ok((vm.items.math_script)(base, sub, sup))
     }
 }
@@ -538,8 +579,8 @@ impl Eval for ast::Frac {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let num = self.num().eval_in_math(vm)?;
-        let denom = self.denom().eval_in_math(vm)?;
+        let num = self.num().eval_without_parens(vm)?;
+        let denom = self.denom().eval_without_parens(vm)?;
         Ok((vm.items.math_frac)(num, denom))
     }
 }
@@ -878,12 +919,29 @@ impl Eval for ast::FuncCall {
     type Output = Value;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        let callee = self.callee();
+        let callee = callee.eval(vm)?.cast::<Func>().at(callee.span())?;
+        self.eval_with_callee(vm, callee)
+    }
+}
+
+impl ast::FuncCall {
+    fn eval_in_math(&self, vm: &mut Vm) -> SourceResult<Content> {
+        let callee = self.callee().eval(vm)?;
+        if let Value::Func(callee) = callee {
+            Ok(self.eval_with_callee(vm, callee)?.display_in_math())
+        } else {
+            Ok(callee.display_in_math()
+                + (vm.items.math_atom)("(".into())
+                + (vm.items.math_atom)(")".into()))
+        }
+    }
+
+    fn eval_with_callee(&self, vm: &mut Vm, callee: Func) -> SourceResult<Value> {
         if vm.depth >= MAX_CALL_DEPTH {
             bail!(self.span(), "maximum function call depth exceeded");
         }
 
-        let callee = self.callee();
-        let callee = callee.eval(vm)?.cast::<Func>().at(callee.span())?;
         let args = self.args().eval(vm)?;
         let point = || Tracepoint::Call(callee.name().map(Into::into));
         callee.call(vm, args).trace(vm.world, point, self.span())
