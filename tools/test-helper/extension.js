@@ -108,13 +108,6 @@ function getWebviewContent(pngSrc, refSrc, stdout, stderr) {
         }
         .flex {
             display: flex;
-            flex-wrap: wrap;
-        }
-
-        .flex > * {
-            flex-grow: 1;
-            flex-shrink: 0;
-            max-width: 100%;
         }
         </style>
     </head>
