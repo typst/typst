@@ -48,6 +48,7 @@ pub fn define(scope: &mut Scope) {
     scope.def_func::<FracNode>("frac");
     scope.def_func::<ScriptNode>("script");
     scope.def_func::<SqrtNode>("sqrt");
+    scope.def_func::<RootNode>("root");
     scope.def_func::<VecNode>("vec");
     scope.def_func::<CasesNode>("cases");
     scope.def_func::<BoldNode>("bold");
