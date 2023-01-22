@@ -7,9 +7,11 @@ mod align;
 mod atom;
 mod braced;
 mod frac;
-mod group;
+mod fragment;
 mod matrix;
+mod op;
 mod root;
+mod row;
 mod script;
 mod spacing;
 mod stretch;
@@ -54,6 +56,8 @@ pub fn define(scope: &mut Scope) {
     scope.def_func::<ScriptNode>("script");
     scope.def_func::<SqrtNode>("sqrt");
     scope.def_func::<RootNode>("root");
+    scope.def_func::<FloorNode>("floor");
+    scope.def_func::<CeilNode>("ceil");
     scope.def_func::<VecNode>("vec");
     scope.def_func::<CasesNode>("cases");
     scope.def_func::<UnderbraceNode>("underbrace");
@@ -70,6 +74,7 @@ pub fn define(scope: &mut Scope) {
     scope.define("med", HNode::strong(MEDIUM).pack());
     scope.define("thick", HNode::strong(THICK).pack());
     scope.define("quad", HNode::strong(QUAD).pack());
+    define_operators(scope);
 }
 
 /// # Math
