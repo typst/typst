@@ -362,6 +362,56 @@ impl Frame {
     }
 }
 
+/// Tools for debugging.
+impl Frame {
+    /// Add a full size aqua background and a red baseline for debugging.
+    pub fn debug(mut self) -> Self {
+        self.insert(
+            0,
+            Point::zero(),
+            Element::Shape(
+                Geometry::Rect(self.size)
+                    .filled(RgbaColor { a: 100, ..Color::TEAL.to_rgba() }.into()),
+            ),
+        );
+        self.insert(
+            1,
+            Point::with_y(self.baseline()),
+            Element::Shape(
+                Geometry::Line(Point::with_x(self.size.x)).stroked(Stroke {
+                    paint: Color::RED.into(),
+                    thickness: Abs::pt(1.0),
+                }),
+            ),
+        );
+        self
+    }
+
+    /// Add a green marker at a position for debugging.
+    pub fn mark_point(&mut self, pos: Point) {
+        let radius = Abs::pt(2.0);
+        self.push(
+            pos - Point::splat(radius),
+            Element::Shape(geom::ellipse(
+                Size::splat(2.0 * radius),
+                Some(Color::GREEN.into()),
+                None,
+            )),
+        );
+    }
+
+    /// Add a green marker line at a position for debugging.
+    pub fn mark_line(&mut self, y: Abs) {
+        self.push(
+            Point::with_y(y),
+            Element::Shape(Geometry::Line(Point::with_x(self.size.x)).stroked(Stroke {
+                paint: Color::GREEN.into(),
+                thickness: Abs::pt(1.0),
+            })),
+        );
+    }
+}
+
 impl Debug for Frame {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.debug_list()
