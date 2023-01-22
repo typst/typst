@@ -3,6 +3,7 @@
 #[macro_use]
 mod ctx;
 mod accent;
+mod align;
 mod atom;
 mod frac;
 mod group;
