@@ -1,5 +1,7 @@
 //! Mathematical formulas.
 
+#[macro_use]
+mod ctx;
 mod accent;
 mod atom;
 mod frac;
@@ -8,23 +10,54 @@ mod matrix;
 mod root;
 mod script;
 mod style;
-mod tex;
 
 pub use self::accent::*;
+pub use self::align::*;
 pub use self::atom::*;
+pub use self::braced::*;
 pub use self::frac::*;
-pub use self::group::*;
+pub use self::lr::*;
 pub use self::matrix::*;
+pub use self::op::*;
 pub use self::root::*;
 pub use self::script::*;
 pub use self::style::*;
 
-use typst::model::{Guard, SequenceNode};
-use unicode_segmentation::UnicodeSegmentation;
+use ttf_parser::GlyphId;
+use ttf_parser::Rect;
+use typst::font::Font;
+use typst::model::{Guard, Scope, SequenceNode};
+use unicode_math_class::MathClass;
 
-use self::tex::layout_tex;
+use self::ctx::*;
+use self::fragment::*;
+use self::row::*;
+use self::spacing::*;
+use crate::layout::HNode;
+use crate::layout::ParNode;
 use crate::prelude::*;
-use crate::text::{FontFamily, LinebreakNode, SpaceNode, SymbolNode, TextNode};
+use crate::text::LinebreakNode;
+use crate::text::TextNode;
+use crate::text::TextSize;
+use crate::text::{families, variant, FallbackList, FontFamily, SpaceNode, SymbolNode};
+
+/// Hook up all math definitions.
+pub fn define(scope: &mut Scope) {
+    scope.def_func::<MathNode>("math");
+    scope.def_func::<FracNode>("frac");
+    scope.def_func::<ScriptNode>("script");
+    scope.def_func::<SqrtNode>("sqrt");
+    scope.def_func::<VecNode>("vec");
+    scope.def_func::<CasesNode>("cases");
+    scope.def_func::<BoldNode>("bold");
+    scope.def_func::<ItalicNode>("italic");
+    scope.def_func::<SerifNode>("serif");
+    scope.def_func::<SansNode>("sans");
+    scope.def_func::<CalNode>("cal");
+    scope.def_func::<FrakNode>("frak");
+    scope.def_func::<MonoNode>("mono");
+    scope.def_func::<BbNode>("bb");
+}
 
 /// # Math
 /// A mathematical formula.
@@ -67,8 +100,8 @@ use crate::text::{FontFamily, LinebreakNode, SpaceNode, SymbolNode, TextNode};
 /// ```
 ///
 /// ## Parameters
-/// - items: Content (positional, variadic)
-///   The individual parts of the formula.
+/// - body: Content (positional, required)
+///   The contents of the formula.
 ///
 /// - block: bool (named)
 ///   Whether the formula is displayed as a separate block.
@@ -76,21 +109,21 @@ use crate::text::{FontFamily, LinebreakNode, SpaceNode, SymbolNode, TextNode};
 /// ## Category
 /// math
 #[func]
-#[capable(Show, Layout, Inline, Texify)]
+#[capable(Show, Finalize, Layout, Inline, LayoutMath)]
 #[derive(Debug, Clone, Hash)]
 pub struct MathNode {
     /// Whether the formula is displayed as a separate block.
     pub block: bool,
-    /// The pieces of the formula.
-    pub children: Vec<Content>,
+    /// The content of the formula.
+    pub body: Content,
 }
 
 #[node]
 impl MathNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
+        let body = args.expect("body")?;
         let block = args.named("block")?.unwrap_or(false);
-        let children = args.all()?;
-        Ok(Self { block, children }.pack())
+        Ok(Self { block, body }.pack())
     }
 
     fn field(&self, name: &str) -> Option<Value> {
@@ -125,213 +158,74 @@ impl Layout for MathNode {
         &self,
         vt: &mut Vt,
         styles: StyleChain,
-        _: Regions,
+        regions: Regions,
     ) -> SourceResult<Fragment> {
-        let mut t = Texifier::new(styles);
-        self.texify(&mut t)?;
-        Ok(layout_tex(vt, &t.finish(), self.block, styles)
-            .unwrap_or(Fragment::frame(Frame::new(Size::zero()))))
+        // Find a math font.
+        let variant = variant(styles);
+        let world = vt.world();
+        let Some(font) = families(styles)
+            .find_map(|family| {
+                let id = world.book().select(family, variant)?;
+                let font = world.font(id)?;
+                let _ = font.ttf().tables().math?.constants?;
+                Some(font)
+            })
+        else {
+            return Ok(Fragment::frame(Frame::new(Size::zero())))
+        };
+
+        let mut ctx = MathContext::new(vt, styles, regions, &font, self.block);
+        let frame = ctx.layout_frame(self)?;
+        Ok(Fragment::frame(frame))
     }
 }
 
 impl Inline for MathNode {}
 
-/// Turn a math node into TeX math code.
 #[capability]
-trait Texify {
-    /// Perform the conversion.
-    fn texify(&self, t: &mut Texifier) -> SourceResult<()>;
+trait LayoutMath {
+    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()>;
+}
 
-    /// Texify the node, but trim parentheses..
-    fn texify_unparen(&self, t: &mut Texifier) -> SourceResult<()> {
-        let s = {
-            let mut sub = Texifier::new(t.styles);
-            self.texify(&mut sub)?;
-            sub.finish()
-        };
-
-        let unparened = if s.starts_with("\\left(") && s.ends_with("\\right)") {
-            s[6..s.len() - 7].into()
-        } else {
-            s
-        };
-
-        t.push_str(&unparened);
-        Ok(())
+impl LayoutMath for MathNode {
+    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+        self.body.layout_math(ctx)
     }
 }
 
-/// Builds the TeX representation of the formula.
-struct Texifier<'a> {
-    tex: EcoString,
-    support: bool,
-    space: bool,
-    styles: StyleChain<'a>,
-}
-
-impl<'a> Texifier<'a> {
-    /// Create a new texifier.
-    fn new(styles: StyleChain<'a>) -> Self {
-        Self {
-            tex: EcoString::new(),
-            support: false,
-            space: false,
-            styles,
-        }
-    }
-
-    /// Finish texifier and return the TeX string.
-    fn finish(self) -> EcoString {
-        self.tex
-    }
-
-    /// Push a weak space.
-    fn push_space(&mut self) {
-        self.space = !self.tex.is_empty();
-    }
-
-    /// Mark this position as supportive. This allows a space before or after
-    /// to exist.
-    fn support(&mut self) {
-        self.support = true;
-    }
-
-    /// Flush a space.
-    fn flush(&mut self) {
-        if self.space && self.support {
-            self.tex.push_str("\\ ");
-        }
-
-        self.space = false;
-        self.support = false;
-    }
-
-    /// Push a string.
-    fn push_str(&mut self, s: &str) {
-        self.flush();
-        self.tex.push_str(s);
-    }
-
-    /// Escape and push a char for TeX usage.
-    #[rustfmt::skip]
-    fn push_escaped(&mut self, c: char) {
-        self.flush();
-        match c {
-            ' ' => self.tex.push_str("\\ "),
-            '%' | '&' | '$' | '#' => {
-                self.tex.push('\\');
-                self.tex.push(c);
-                self.tex.push(' ');
-            }
-            '{' => self.tex.push_str("\\left\\{"),
-            '}' => self.tex.push_str("\\right\\}"),
-            '[' | '(' => {
-                self.tex.push_str("\\left");
-                self.tex.push(c);
-            }
-            ']' | ')' => {
-                self.tex.push_str("\\right");
-                self.tex.push(c);
-            }
-            'a' ..= 'z' | 'A' ..= 'Z' | '0' ..= '9' | 'Α' ..= 'Ω' | 'α' ..= 'ω' |
-            '*' | '+' | '-' | '?' | '!' | '=' | '<' | '>' |
-            ':' | ',' | ';' | '|' | '/' | '@' | '.' | '"' => self.tex.push(c),
-            c => {
-                if let Some(sym) = unicode_math::SYMBOLS
-                .iter()
-                .find(|sym| sym.codepoint == c) {
-                    self.tex.push('\\');
-                    self.tex.push_str(sym.name);
-                    self.tex.push(' ');
-                }
-            }
-        }
-    }
-}
-
-impl Texify for MathNode {
-    fn texify(&self, t: &mut Texifier) -> SourceResult<()> {
-        for child in &self.children {
-            child.texify(t)?;
-        }
-        Ok(())
-    }
-}
-
-impl Texify for Content {
-    fn texify(&self, t: &mut Texifier) -> SourceResult<()> {
+impl LayoutMath for Content {
+    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         if self.is::<SpaceNode>() {
-            t.push_space();
             return Ok(());
         }
 
         if self.is::<LinebreakNode>() {
-            t.push_str("\\");
+            ctx.push(MathFragment::Linebreak);
             return Ok(());
         }
 
         if let Some(node) = self.to::<SymbolNode>() {
             if let Some(c) = symmie::get(&node.0) {
-                t.push_escaped(c);
-                return Ok(());
+                return AtomNode(c.into()).layout_math(ctx);
             } else if let Some(span) = self.span() {
                 bail!(span, "unknown symbol");
             }
         }
 
-        if let Some(node) = self.to::<TextNode>() {
-            t.support();
-            t.push_str("\\mathrm{");
-            for c in node.0.chars() {
-                t.push_escaped(c);
-            }
-            t.push_str("}");
-            t.support();
-            return Ok(());
-        }
-
         if let Some(node) = self.to::<SequenceNode>() {
             for child in &node.0 {
-                child.texify(t)?;
+                child.layout_math(ctx)?;
             }
             return Ok(());
         }
 
-        if let Some(node) = self.with::<dyn Texify>() {
-            return node.texify(t);
+        if let Some(node) = self.with::<dyn LayoutMath>() {
+            return node.layout_math(ctx);
         }
 
-        if let Some(span) = self.span() {
-            bail!(span, "not allowed here");
-        }
+        let frame = ctx.layout_non_math(self)?;
+        ctx.push(frame);
 
-        Ok(())
-    }
-}
-
-/// # Alignment Point
-/// A math alignment point: `&`, `&&`.
-///
-/// ## Parameters
-/// - index: usize (positional, required)
-///   The alignment point's index.
-///
-/// ## Category
-/// math
-#[func]
-#[capable(Texify)]
-#[derive(Debug, Hash)]
-pub struct AlignPointNode;
-
-#[node]
-impl AlignPointNode {
-    fn construct(_: &Vm, _: &mut Args) -> SourceResult<Content> {
-        Ok(Self.pack())
-    }
-}
-
-impl Texify for AlignPointNode {
-    fn texify(&self, _: &mut Texifier) -> SourceResult<()> {
         Ok(())
     }
 }

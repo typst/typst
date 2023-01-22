@@ -7,7 +7,8 @@ use std::sync::Arc;
 
 use crate::font::Font;
 use crate::geom::{
-    Abs, Align, Axes, Dir, Em, Numeric, Paint, Point, Shape, Size, Transform,
+    self, Abs, Align, Axes, Color, Dir, Em, Geometry, Numeric, Paint, Point, RgbaColor,
+    Shape, Size, Stroke, Transform,
 };
 use crate::image::Image;
 use crate::model::{
@@ -160,7 +161,7 @@ impl Frame {
         self.size.y
     }
 
-    /// The baseline of the frame.
+    /// The vertical position of the frame's baseline.
     pub fn baseline(&self) -> Abs {
         self.baseline.unwrap_or(self.size.y)
     }
@@ -168,6 +169,19 @@ impl Frame {
     /// Set the frame's baseline from the top.
     pub fn set_baseline(&mut self, baseline: Abs) {
         self.baseline = Some(baseline);
+    }
+
+    /// The distance from the baseline to the top of the frame.
+    ///
+    /// This is the same as `baseline()`, but more in line with the terminology
+    /// used in math layout.
+    pub fn ascent(&self) -> Abs {
+        self.baseline()
+    }
+
+    /// The distance from the baseline to the bottom of the frame.
+    pub fn descent(&self) -> Abs {
+        self.size.y - self.baseline()
     }
 
     /// An iterator over the elements inside this frame alongside their

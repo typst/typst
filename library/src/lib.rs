@@ -49,24 +49,7 @@ fn scope() -> Scope {
     std.def_func::<text::RawNode>("raw");
 
     // Math.
-    std.def_func::<math::MathNode>("math");
-    std.def_func::<math::AccNode>("acc");
-    std.def_func::<math::FracNode>("frac");
-    std.def_func::<math::BinomNode>("binom");
-    std.def_func::<math::ScriptNode>("script");
-    std.def_func::<math::SqrtNode>("sqrt");
-    std.def_func::<math::FloorNode>("floor");
-    std.def_func::<math::CeilNode>("ceil");
-    std.def_func::<math::VecNode>("vec");
-    std.def_func::<math::CasesNode>("cases");
-    std.def_func::<math::SerifNode>("serif");
-    std.def_func::<math::SansNode>("sans");
-    std.def_func::<math::BoldNode>("bold");
-    std.def_func::<math::ItalNode>("ital");
-    std.def_func::<math::CalNode>("cal");
-    std.def_func::<math::FrakNode>("frak");
-    std.def_func::<math::MonoNode>("mono");
-    std.def_func::<math::BbNode>("bb");
+    math::define(&mut std);
 
     // Layout.
     std.def_func::<layout::PageNode>("page");
@@ -204,7 +187,7 @@ fn items() -> LangItems {
         term_item: |term, description| {
             layout::ListItem::Term(basics::TermItem { term, description }).pack()
         },
-        math: |children, block| math::MathNode { children, block }.pack(),
+        math: |body, block| math::MathNode { body, block }.pack(),
         math_atom: |atom| math::AtomNode(atom).pack(),
         math_script: |base, sub, sup| math::ScriptNode { base, sub, sup }.pack(),
         math_frac: |num, denom| math::FracNode { num, denom }.pack(),

@@ -48,6 +48,11 @@ impl StyleMap {
         }
     }
 
+    /// Remove the style that was last set.
+    pub fn unset(&mut self) {
+        self.0.pop();
+    }
+
     /// Whether the map contains a style property for the given key.
     pub fn contains<K: Key>(&self, _: K) -> bool {
         self.0
