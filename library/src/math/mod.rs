@@ -9,6 +9,7 @@ mod group;
 mod matrix;
 mod root;
 mod script;
+mod spacing;
 mod stretch;
 mod style;
 
@@ -59,6 +60,10 @@ pub fn define(scope: &mut Scope) {
     scope.def_func::<FrakNode>("frak");
     scope.def_func::<MonoNode>("mono");
     scope.def_func::<BbNode>("bb");
+    scope.define("thin", HNode::strong(THIN).pack());
+    scope.define("med", HNode::strong(MEDIUM).pack());
+    scope.define("thick", HNode::strong(THICK).pack());
+    scope.define("quad", HNode::strong(QUAD).pack());
 }
 
 /// # Math
