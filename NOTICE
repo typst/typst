@@ -71,11 +71,15 @@ The SIL Open Font License Version 1.1 applies to:
 
 * Noto fonts in tests/fonts/Noto*.ttf
   Copyright 2018 The Noto Project Authors
-  (github.com/googlei18n/noto-fonts)
+  (https://github.com/googlei18n/noto-fonts)
 
 * PT Sans fonts in tests/fonts/PTSans*.ttf
   Copyright (c) 2010, ParaType Ltd. (http://www.paratype.com/public),
   with Reserved Font Names "PT Sans" and "ParaType".
+
+* Fira math fonts in tests/fonts/FiraMath*.otf
+  Copyright (C) 2018--2021 by Xiangdong Zeng <xdzeng96@gmail.com>
+  (https://github.com/firamath/firamath)
 
 -----------------------------------------------------------
 SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
