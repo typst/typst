@@ -1,3 +1,4 @@
+use unicode_segmentation::UnicodeSegmentation;
 use unicode_xid::UnicodeXID;
 use unscanny::Scanner;
 
@@ -103,7 +104,7 @@ impl Lexer<'_> {
 
             Some(c) => match self.mode {
                 LexMode::Markup => self.markup(start, c),
-                LexMode::Math => self.math(c),
+                LexMode::Math => self.math(start, c),
                 LexMode::Code => self.code(start, c),
             },
 
@@ -404,7 +405,7 @@ impl Lexer<'_> {
 
 /// Math.
 impl Lexer<'_> {
-    fn math(&mut self, c: char) -> SyntaxKind {
+    fn math(&mut self, start: usize, c: char) -> SyntaxKind {
         match c {
             '\\' => self.backslash(),
             ':' if self.s.at(is_id_start) => self.maybe_symbol(),
@@ -441,13 +442,7 @@ impl Lexer<'_> {
             }
 
             // Other math atoms.
-            _ => {
-                // Keep numbers together.
-                if c.is_numeric() {
-                    self.s.eat_while(char::is_numeric);
-                }
-                SyntaxKind::Atom
-            }
+            _ => self.atom(start, c),
         }
     }
 
@@ -468,6 +463,22 @@ impl Lexer<'_> {
         }
 
         SyntaxKind::Ident
+    }
+
+    fn atom(&mut self, start: usize, c: char) -> SyntaxKind {
+        // Keep numbers and grapheme clusters together.
+        if c.is_numeric() {
+            self.s.eat_while(char::is_numeric);
+        } else {
+            let len = self
+                .s
+                .get(start..self.s.string().len())
+                .graphemes(true)
+                .next()
+                .map_or(0, str::len);
+            self.s.jump(start + len);
+        }
+        SyntaxKind::Atom
     }
 }
 

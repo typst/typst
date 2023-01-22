@@ -10,7 +10,7 @@ use super::*;
 /// ## Category
 /// math
 #[func]
-#[capable(Texify)]
+#[capable(LayoutMath)]
 #[derive(Debug, Hash)]
 pub struct AtomNode(pub EcoString);
 
@@ -21,26 +21,35 @@ impl AtomNode {
     }
 }
 
-impl Texify for AtomNode {
-    fn texify(&self, t: &mut Texifier) -> SourceResult<()> {
-        let multi = self.0.graphemes(true).count() > 1;
-        if multi {
-            t.push_str("\\mathrm{");
-        }
-
-        for c in self.0.chars() {
-            let supportive = c == '|';
-            if supportive {
-                t.support();
+impl LayoutMath for AtomNode {
+    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+        let mut chars = self.0.chars();
+        if let Some(glyph) = chars
+            .next()
+            .filter(|_| chars.next().is_none())
+            .and_then(|c| GlyphFragment::try_new(ctx, c))
+        {
+            // A single letter that is available in the math font.
+            if ctx.style.size == MathSize::Display
+                && glyph.class() == Some(MathClass::Large)
+            {
+                let height = scaled!(ctx, display_operator_min_height);
+                ctx.push(glyph.stretch_vertical(ctx, height, Abs::zero()));
+            } else {
+                ctx.push(glyph);
             }
-            t.push_escaped(c);
-            if supportive {
-                t.support();
+        } else if self.0.chars().all(|c| c.is_ascii_digit()) {
+            // A number that should respect math styling and can therefore
+            // not fall back to the normal text layout.
+            let mut vec = vec![];
+            for c in self.0.chars() {
+                vec.push(GlyphFragment::new(ctx, c).into());
             }
-        }
-
-        if multi {
-            t.push_str("}");
+            let frame = MathRow(vec).to_frame(ctx);
+            ctx.push(frame);
+        } else {
+            // Anything else is handled by Typst's standard text layout.
+            TextNode(self.0.clone()).pack().layout_math(ctx)?;
         }
 
         Ok(())
