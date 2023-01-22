@@ -1123,7 +1123,7 @@ fn finalize(
 ) -> SourceResult<Fragment> {
     // Determine the paragraph's width: Full width of the region if we
     // should expand or there's fractional spacing, fit-to-width otherwise.
-    if !expand && lines.iter().all(|line| line.fr().is_zero()) {
+    if !width.is_finite() || (!expand && lines.iter().all(|line| line.fr().is_zero())) {
         width = lines.iter().map(|line| line.width).max().unwrap_or_default();
     }
 
