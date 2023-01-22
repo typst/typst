@@ -45,7 +45,7 @@ impl Align {
     }
 
     /// Returns the position of this alignment in a container with the given
-    /// extentq.
+    /// extent.
     pub fn position(self, extent: Abs) -> Abs {
         match self {
             Self::Left | Self::Top => Abs::zero(),

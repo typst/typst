@@ -4,11 +4,11 @@ use crate::prelude::*;
 
 /// # Spacing (H)
 /// Insert horizontal spacing into a paragraph.
-/// 
+///
 /// The spacing can be a length or a fractional. In the latter case, the
 /// remaining space on the line is distributed among all fractional spacings
 /// according to their relative fractions.
-/// 
+///
 /// ## Example
 /// ```
 /// #circle(fill: red)
@@ -26,7 +26,7 @@ use crate::prelude::*;
 ///   If true, the spacing collapses at the start or end of a paragraph.
 ///   Moreover, from multiple adjacent weak spacings all but the largest one
 ///   collapse.
-/// 
+///
 ///   ### Example
 ///   ```
 ///   #h(1cm, weak: true)
@@ -70,13 +70,13 @@ impl HNode {
 
 impl HNode {
     /// Normal strong spacing.
-    pub fn strong(amount: Spacing) -> Self {
-        Self { amount, weak: false }
+    pub fn strong(amount: impl Into<Spacing>) -> Self {
+        Self { amount: amount.into(), weak: false }
     }
 
     /// User-created weak spacing.
-    pub fn weak(amount: Spacing) -> Self {
-        Self { amount, weak: true }
+    pub fn weak(amount: impl Into<Spacing>) -> Self {
+        Self { amount: amount.into(), weak: true }
     }
 }
 
@@ -99,7 +99,7 @@ impl Behave for HNode {
 
 /// # Spacing (V)
 /// Insert vertical spacing.
-/// 
+///
 /// The spacing can be a length or a fractional. In the latter case, the
 /// remaining space on the page is distributed among all fractional spacings
 /// according to their relative fractions.
@@ -111,15 +111,15 @@ impl Behave for HNode {
 /// considerations that must be
 /// taken into account when
 /// conducting psychological
-/// research: 
+/// research:
 /// #v(5mm)
-/// 
+///
 /// - Informed consent
 /// - Participant confidentiality
 /// - The use of
 ///   vulnerable populations.
 /// ```
-/// 
+///
 /// ## Parameters
 /// - amount: Spacing (positional, required)
 ///   How much spacing to insert.
@@ -129,7 +129,7 @@ impl Behave for HNode {
 ///   from multiple adjacent weak spacings all but the largest one collapse.
 ///   Weak spacings will always collapse adjacent paragraph spacing, even if the
 ///   paragraph spacing is larger.
-///   
+///
 ///   ### Example
 ///   ```
 ///   The following theorem is

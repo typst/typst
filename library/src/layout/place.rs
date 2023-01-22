@@ -39,7 +39,7 @@ use crate::prelude::*;
 ///   ### Example
 ///   ```
 ///   #set align(center)
-///   
+///
 ///   #box(
 ///     width: 80pt,
 ///     height: 80pt,
