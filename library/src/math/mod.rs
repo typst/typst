@@ -9,6 +9,7 @@ mod group;
 mod matrix;
 mod root;
 mod script;
+mod stretch;
 mod style;
 
 pub use self::accent::*;
