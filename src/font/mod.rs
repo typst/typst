@@ -10,9 +10,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use once_cell::unsync::OnceCell;
-use rex::font::MathHeader;
-use ttf_parser::{GlyphId, Tag};
+use ttf_parser::GlyphId;
 
 use crate::geom::Em;
 use crate::util::Buffer;
@@ -37,8 +35,6 @@ struct Repr {
     ttf: ttf_parser::Face<'static>,
     /// The underlying rustybuzz face.
     rusty: rustybuzz::Face<'static>,
-    /// The parsed ReX math header.
-    math: OnceCell<Option<MathHeader>>,
 }
 
 impl Font {
@@ -58,15 +54,7 @@ impl Font {
         let metrics = FontMetrics::from_ttf(&ttf);
         let info = FontInfo::from_ttf(&ttf)?;
 
-        Some(Self(Arc::new(Repr {
-            data,
-            index,
-            info,
-            metrics,
-            ttf,
-            rusty,
-            math: OnceCell::new(),
-        })))
+        Some(Self(Arc::new(Repr { data, index, info, metrics, ttf, rusty })))
     }
 
     /// Parse all fonts in the given data.
@@ -130,17 +118,6 @@ impl Font {
         // We can't implement Deref because that would leak the
         // internal 'static lifetime.
         &self.0.rusty
-    }
-
-    /// Access the math header, if any.
-    pub fn math(&self) -> Option<&MathHeader> {
-        self.0
-            .math
-            .get_or_init(|| {
-                let data = self.ttf().raw_face().table(Tag::from_bytes(b"MATH"))?;
-                MathHeader::parse(data).ok()
-            })
-            .as_ref()
     }
 }
 

@@ -25,7 +25,6 @@ pdf-writer = "0.6"
 pixglyph = { git = "https://github.com/typst/pixglyph" }
 regex = "1"
 resvg = { version = "0.22", default-features = false }
-rex = { git = "https://github.com/laurmaedje/ReX" }
 roxmltree = "0.14"
 rustybuzz = "0.5"
 serde = { version = "1", features = ["derive"] }
@@ -35,7 +34,8 @@ svg2pdf = "0.4"
 symmie = { git = "https://github.com/typst/symmie" }
 thin-vec = "0.2"
 tiny-skia = "0.6.2"
-ttf-parser = "0.17"
+ttf-parser = "0.18.1"
+unicode-math-class = { git = "https://github.com/typst/unicode-math-class" }
 unicode-segmentation = "1"
 unicode-xid = "0.2"
 unscanny = "0.1"

@@ -17,16 +17,15 @@ hypher = "0.1"
 kurbo = "0.8"
 lipsum = { git = "https://github.com/reknih/lipsum" }
 once_cell = "1"
-rex = { git = "https://github.com/laurmaedje/ReX" }
 roxmltree = "0.14"
 rustybuzz = "0.5"
 serde_json = "1"
 symmie = { git = "https://github.com/typst/symmie" }
 syntect = { version = "5", default-features = false, features = ["default-syntaxes", "regex-fancy"] }
-ttf-parser = "0.17"
+ttf-parser = "0.18.1"
 typed-arena = "2"
 unicode-bidi = "0.3.5"
-unicode-math = { git = "https://github.com/s3bk/unicode-math/" }
+unicode-math-class = { git = "https://github.com/typst/unicode-math-class" }
 unicode-script = "0.5"
 unicode-segmentation = "1"
 xi-unicode = "0.3"
