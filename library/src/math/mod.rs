@@ -5,6 +5,7 @@ mod ctx;
 mod accent;
 mod align;
 mod atom;
+mod braced;
 mod frac;
 mod group;
 mod matrix;
@@ -55,6 +56,8 @@ pub fn define(scope: &mut Scope) {
     scope.def_func::<RootNode>("root");
     scope.def_func::<VecNode>("vec");
     scope.def_func::<CasesNode>("cases");
+    scope.def_func::<UnderbraceNode>("underbrace");
+    scope.def_func::<OverbraceNode>("overbrace");
     scope.def_func::<BoldNode>("bold");
     scope.def_func::<ItalicNode>("italic");
     scope.def_func::<SerifNode>("serif");
