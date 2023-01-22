@@ -931,9 +931,16 @@ impl ast::FuncCall {
         if let Value::Func(callee) = callee {
             Ok(self.eval_with_callee(vm, callee)?.display_in_math())
         } else {
-            Ok(callee.display_in_math()
-                + (vm.items.math_atom)("(".into())
-                + (vm.items.math_atom)(")".into()))
+            let mut body = (vm.items.math_atom)('('.into());
+            let mut args = self.args().eval(vm)?;
+            for (i, arg) in args.all::<Content>()?.into_iter().enumerate() {
+                if i > 0 {
+                    body += (vm.items.math_atom)(','.into());
+                }
+                body += arg;
+            }
+            body += (vm.items.math_atom)(')'.into());
+            Ok(callee.display_in_math() + body)
         }
     }
 
