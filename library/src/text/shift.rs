@@ -9,9 +9,6 @@ use crate::prelude::*;
 ///
 /// The text is rendered smaller and its baseline is lowered.
 ///
-/// _Note:_ In the future, this might be unified with the [script](@script)
-/// function that handles subscripts in math.
-///
 /// ## Example
 /// ```
 /// Revenue#sub[yearly]
@@ -92,9 +89,6 @@ impl Show for SubNode {
 /// Set text in superscript.
 ///
 /// The text is rendered smaller and its baseline is raised.
-///
-/// _Note:_ In the future, this might be unified with the [script](@script)
-/// function that handles superscripts in math.
 ///
 /// ## Example
 /// ```
