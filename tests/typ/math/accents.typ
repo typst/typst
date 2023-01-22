@@ -3,26 +3,26 @@
 ---
 #set page(width: auto)
 
-$ acc(a,`),
-  acc(a,´),
-  acc(a,\^),
-  acc(a,~),
-  acc(a,¯),
-  acc(a,‾),
-  acc(a,˘),
-  acc(a,.),
-  acc(a,¨),
-  acc(a,ˇ),
-  acc(a,->) $
+$ accent(a,`),
+  accent(a,´),
+  accent(a,\^),
+  accent(a,~),
+  accent(a,¯),
+  accent(a,‾),
+  accent(a,˘),
+  accent(a,.),
+  accent(a,¨),
+  accent(a,ˇ),
+  accent(a,->) $
 
-$ acc(a, grave),
-  acc(a, acute),
-  acc(a, circum),
-  acc(a, tilde),
-  acc(a, macron),
-  acc(a, overline),
-  acc(a, breve),
-  acc(a, dot),
-  acc(a, dia),
-  acc(a, caron),
-  acc(a, arrow) $
+$ accent(a, grave),
+  accent(a, acute),
+  accent(a, circum),
+  accent(a, tilde),
+  accent(a, macron),
+  accent(a, overline),
+  accent(a, breve),
+  accent(a, dot),
+  accent(a, dia),
+  accent(a, caron),
+  accent(a, arrow) $

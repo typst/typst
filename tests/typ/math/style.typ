@@ -1,8 +1,8 @@
 #let part = $ a b A B $
 #let kinds = (serif, sans, cal, frak, mono, bb)
-#let modifiers = (v => v, ital, bold, v => ital(bold(v)))
+#let modifiers = (v => v, italic, bold, v => italic(bold(v)))
 
-#let cells = ([:triangle:nested:], [--], [`ital`], [`bold`], [both])
+#let cells = ([:triangle:nested:], [--], [`italic`], [`bold`], [both])
 #for k in kinds {
   cells.push(raw(repr(k).trim("<function ").trim(">")))
   for m in modifiers {
