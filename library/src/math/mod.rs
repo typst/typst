@@ -47,6 +47,7 @@ use crate::text::{families, variant, FallbackList, FontFamily, SpaceNode, Symbol
 /// Hook up all math definitions.
 pub fn define(scope: &mut Scope) {
     scope.def_func::<MathNode>("math");
+    scope.def_func::<AccentNode>("accent");
     scope.def_func::<FracNode>("frac");
     scope.def_func::<BinomNode>("binom");
     scope.def_func::<ScriptNode>("script");
