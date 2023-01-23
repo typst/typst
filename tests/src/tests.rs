@@ -186,10 +186,14 @@ fn library() -> Library {
     lib.styles.set(TextNode::SIZE, TextSize(Abs::pt(10.0).into()));
 
     // Hook up helpers into the global scope.
-    lib.scope.def_func::<TestFunc>("test");
-    lib.scope.def_func::<PrintFunc>("print");
-    lib.scope.define("conifer", RgbaColor::new(0x9f, 0xEB, 0x52, 0xFF));
-    lib.scope.define("forest", RgbaColor::new(0x43, 0xA1, 0x27, 0xFF));
+    lib.global.scope_mut().def_func::<TestFunc>("test");
+    lib.global.scope_mut().def_func::<PrintFunc>("print");
+    lib.global
+        .scope_mut()
+        .define("conifer", RgbaColor::new(0x9f, 0xEB, 0x52, 0xFF));
+    lib.global
+        .scope_mut()
+        .define("forest", RgbaColor::new(0x43, 0xA1, 0x27, 0xFF));
 
     lib
 }

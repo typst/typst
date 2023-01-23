@@ -1505,7 +1505,7 @@ node! {
 
 impl SetRule {
     /// The function to set style properties for.
-    pub fn target(&self) -> Ident {
+    pub fn target(&self) -> Expr {
         self.0.cast_first_match().expect("set rule is missing target")
     }
 

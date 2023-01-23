@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 
-use super::{Func, FuncType, Value};
+use super::{Func, FuncType, Library, Value};
 use crate::diag::StrResult;
 use crate::util::EcoString;
 
@@ -13,13 +13,13 @@ pub struct Scopes<'a> {
     pub top: Scope,
     /// The stack of lower scopes.
     pub scopes: Vec<Scope>,
-    /// The base scope.
-    pub base: Option<&'a Scope>,
+    /// The standard library.
+    pub base: Option<&'a Library>,
 }
 
 impl<'a> Scopes<'a> {
     /// Create a new, empty hierarchy of scopes.
-    pub fn new(base: Option<&'a Scope>) -> Self {
+    pub fn new(base: Option<&'a Library>) -> Self {
         Self { top: Scope::new(), scopes: vec![], base }
     }
 
@@ -39,7 +39,16 @@ impl<'a> Scopes<'a> {
     pub fn get(&self, var: &str) -> StrResult<&Value> {
         Ok(std::iter::once(&self.top)
             .chain(self.scopes.iter().rev())
-            .chain(self.base.into_iter())
+            .chain(self.base.map(|base| base.global.scope()))
+            .find_map(|scope| scope.get(var))
+            .ok_or("unknown variable")?)
+    }
+
+    /// Try to access a variable immutably from within a math formula.
+    pub fn get_in_math(&self, var: &str) -> StrResult<&Value> {
+        Ok(std::iter::once(&self.top)
+            .chain(self.scopes.iter().rev())
+            .chain(self.base.map(|base| base.math.scope()))
             .find_map(|scope| scope.get(var))
             .ok_or("unknown variable")?)
     }
@@ -50,10 +59,9 @@ impl<'a> Scopes<'a> {
             .chain(&mut self.scopes.iter_mut().rev())
             .find_map(|scope| scope.get_mut(var))
             .ok_or_else(|| {
-                if self.base.map_or(false, |base| base.get(var).is_some()) {
-                    "cannot mutate a constant"
-                } else {
-                    "unknown variable"
+                match self.base.and_then(|base| base.global.scope().get(var)) {
+                    Some(_) => "cannot mutate a constant",
+                    _ => "unknown variable",
                 }
             })?
     }
@@ -61,17 +69,29 @@ impl<'a> Scopes<'a> {
 
 /// A map from binding names to values.
 #[derive(Default, Clone, Hash)]
-pub struct Scope(BTreeMap<EcoString, Slot>);
+pub struct Scope(BTreeMap<EcoString, Slot>, bool);
 
 impl Scope {
     /// Create a new empty scope.
     pub fn new() -> Self {
-        Self::default()
+        Self(BTreeMap::new(), false)
+    }
+
+    /// Create a new scope with duplication prevention.
+    pub fn deduplicating() -> Self {
+        Self(BTreeMap::new(), true)
     }
 
     /// Bind a value to a name.
     pub fn define(&mut self, name: impl Into<EcoString>, value: impl Into<Value>) {
-        self.0.insert(name.into(), Slot::new(value.into(), Kind::Normal));
+        let name = name.into();
+
+        #[cfg(debug_assertions)]
+        if self.1 && self.0.contains_key(&name) {
+            panic!("duplicate definition: {name}");
+        }
+
+        self.0.insert(name, Slot::new(value.into(), Kind::Normal));
     }
 
     /// Define a function through a native rust function.

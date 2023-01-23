@@ -161,6 +161,7 @@ fn layout(
 ) -> SourceResult<()> {
     let axis = scaled!(ctx, axis_height);
     let gap = ROW_GAP.scaled(ctx);
+    let short_fall = DELIM_SHORT_FALL.scaled(ctx);
 
     ctx.style(ctx.style.for_denominator());
     let mut rows = vec![];
@@ -169,17 +170,20 @@ fn layout(
     }
     ctx.unstyle();
 
-    if let Some(left) = left {
-        ctx.push(GlyphFragment::new(ctx, left));
-    }
-
     let mut frame = stack(ctx, rows, align, gap, 0);
+    let height = frame.height();
     frame.set_baseline(frame.height() / 2.0 + axis);
+
+    if let Some(left) = left {
+        ctx.push(GlyphFragment::new(ctx, left).stretch_vertical(ctx, height, short_fall));
+    }
 
     ctx.push(frame);
 
     if let Some(right) = right {
-        ctx.push(GlyphFragment::new(ctx, right));
+        ctx.push(
+            GlyphFragment::new(ctx, right).stretch_vertical(ctx, height, short_fall),
+        );
     }
 
     Ok(())

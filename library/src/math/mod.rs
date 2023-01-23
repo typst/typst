@@ -33,7 +33,7 @@ pub use self::style::*;
 use ttf_parser::GlyphId;
 use ttf_parser::Rect;
 use typst::font::Font;
-use typst::model::{Guard, Scope, SequenceNode};
+use typst::model::{Guard, Module, Scope, SequenceNode};
 use unicode_math_class::MathClass;
 
 use self::ctx::*;
@@ -48,38 +48,38 @@ use crate::text::TextNode;
 use crate::text::TextSize;
 use crate::text::{families, variant, FallbackList, FontFamily, SpaceNode, SymbolNode};
 
-/// Hook up all math definitions.
-pub fn define(scope: &mut Scope) {
-    scope.def_func::<MathNode>("math");
-    scope.def_func::<LrNode>("lr");
-    scope.def_func::<AccentNode>("accent");
-    scope.def_func::<FracNode>("frac");
-    scope.def_func::<BinomNode>("binom");
-    scope.def_func::<ScriptNode>("script");
-    scope.def_func::<SqrtNode>("sqrt");
-    scope.def_func::<RootNode>("root");
-    scope.def_func::<FloorNode>("floor");
-    scope.def_func::<CeilNode>("ceil");
-    scope.def_func::<VecNode>("vec");
-    scope.def_func::<CasesNode>("cases");
-    scope.def_func::<UnderbraceNode>("underbrace");
-    scope.def_func::<OverbraceNode>("overbrace");
-    scope.def_func::<BoldNode>("bold");
-    scope.def_func::<ItalicNode>("italic");
-    scope.def_func::<SerifNode>("serif");
-    scope.def_func::<SansNode>("sans");
-    scope.def_func::<CalNode>("cal");
-    scope.def_func::<FrakNode>("frak");
-    scope.def_func::<MonoNode>("mono");
-    scope.def_func::<BbNode>("bb");
-    scope.define("thin", HNode::strong(THIN).pack());
-    scope.define("med", HNode::strong(MEDIUM).pack());
-    scope.define("thick", HNode::strong(THICK).pack());
-    scope.define("quad", HNode::strong(QUAD).pack());
-    define_operators(scope);
+/// Create a module with all math definitions.
+pub fn module() -> Module {
+    let mut math = Scope::deduplicating();
+    math.def_func::<FormulaNode>("formula");
+    math.def_func::<LrNode>("lr");
+    math.def_func::<FloorFunc>("floor");
+    math.def_func::<CeilFunc>("ceil");
+    math.def_func::<AbsFunc>("abs");
+    math.def_func::<AccentNode>("accent");
+    math.def_func::<FracNode>("frac");
+    math.def_func::<BinomNode>("binom");
+    math.def_func::<ScriptNode>("script");
+    math.def_func::<SqrtNode>("sqrt");
+    math.def_func::<RootNode>("root");
+    math.def_func::<VecNode>("vec");
+    math.def_func::<CasesNode>("cases");
+    math.def_func::<UnderbraceNode>("underbrace");
+    math.def_func::<OverbraceNode>("overbrace");
+    math.def_func::<BoldNode>("bold");
+    math.def_func::<ItalicNode>("italic");
+    math.def_func::<SerifNode>("serif");
+    math.def_func::<SansNode>("sans");
+    math.def_func::<CalNode>("cal");
+    math.def_func::<FrakNode>("frak");
+    math.def_func::<MonoNode>("mono");
+    math.def_func::<BbNode>("bb");
+    define_spacings(&mut math);
+    define_operators(&mut math);
+    Module::new("math").with_scope(math)
 }
 
-/// # Math
+/// # Formula
 /// A mathematical formula.
 ///
 /// ## Syntax
@@ -131,7 +131,7 @@ pub fn define(scope: &mut Scope) {
 #[func]
 #[capable(Show, Finalize, Layout, Inline, LayoutMath)]
 #[derive(Debug, Clone, Hash)]
-pub struct MathNode {
+pub struct FormulaNode {
     /// Whether the formula is displayed as a separate block.
     pub block: bool,
     /// The content of the formula.
@@ -139,7 +139,7 @@ pub struct MathNode {
 }
 
 #[node]
-impl MathNode {
+impl FormulaNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let body = args.expect("body")?;
         let block = args.named("block")?.unwrap_or(false);
@@ -148,13 +148,14 @@ impl MathNode {
 
     fn field(&self, name: &str) -> Option<Value> {
         match name {
+            "body" => Some(Value::Content(self.body.clone())),
             "block" => Some(Value::Bool(self.block)),
             _ => None,
         }
     }
 }
 
-impl Show for MathNode {
+impl Show for FormulaNode {
     fn show(&self, _: &mut Vt, _: &Content, _: StyleChain) -> SourceResult<Content> {
         let mut realized = self.clone().pack().guarded(Guard::Base(NodeId::of::<Self>()));
         if self.block {
@@ -164,7 +165,7 @@ impl Show for MathNode {
     }
 }
 
-impl Finalize for MathNode {
+impl Finalize for FormulaNode {
     fn finalize(&self, realized: Content) -> Content {
         realized.styled(
             TextNode::FAMILY,
@@ -173,7 +174,7 @@ impl Finalize for MathNode {
     }
 }
 
-impl Layout for MathNode {
+impl Layout for FormulaNode {
     fn layout(
         &self,
         vt: &mut Vt,
@@ -200,14 +201,14 @@ impl Layout for MathNode {
     }
 }
 
-impl Inline for MathNode {}
+impl Inline for FormulaNode {}
 
 #[capability]
 trait LayoutMath {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()>;
 }
 
-impl LayoutMath for MathNode {
+impl LayoutMath for FormulaNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         self.body.layout_math(ctx)
     }

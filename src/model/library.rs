@@ -4,7 +4,7 @@ use std::num::NonZeroUsize;
 
 use once_cell::sync::OnceCell;
 
-use super::{Content, NodeId, Scope, StyleChain, StyleMap, Vt};
+use super::{Content, Module, NodeId, StyleChain, StyleMap, Vt};
 use crate::diag::SourceResult;
 use crate::doc::Document;
 use crate::geom::{Abs, Dir};
@@ -14,7 +14,9 @@ use crate::util::{hash128, EcoString};
 #[derive(Debug, Clone, Hash)]
 pub struct Library {
     /// The scope containing definitions that are available everywhere.
-    pub scope: Scope,
+    pub global: Module,
+    /// The scope containing definitions available in math mode.
+    pub math: Module,
     /// The default properties for page size, font selection and so on.
     pub styles: StyleMap,
     /// Defines which standard library items fulfill which syntactical roles.
@@ -66,7 +68,7 @@ pub struct LangItems {
     /// An item in a term list: `/ Term: Details`.
     pub term_item: fn(term: Content, description: Content) -> Content,
     /// A mathematical formula: `$x$`, `$ x^2 $`.
-    pub math: fn(body: Content, block: bool) -> Content,
+    pub math_formula: fn(body: Content, block: bool) -> Content,
     /// A subsection in a math formula that is surrounded by matched delimiters:
     /// `[x + y]`.
     pub math_delimited: fn(body: Content) -> Content,
@@ -106,7 +108,7 @@ impl Hash for LangItems {
         self.list_item.hash(state);
         self.enum_item.hash(state);
         self.term_item.hash(state);
-        self.math.hash(state);
+        self.math_formula.hash(state);
         self.math_atom.hash(state);
         self.math_script.hash(state);
         self.math_frac.hash(state);

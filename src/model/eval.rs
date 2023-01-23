@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 use std::mem;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use comemo::{Track, Tracked};
 use unicode_segmentation::UnicodeSegmentation;
@@ -32,9 +32,9 @@ pub fn eval(
 ) -> SourceResult<Module> {
     // Prevent cyclic evaluation.
     let id = source.id();
+    let path = if id.is_detached() { Path::new("") } else { world.source(id).path() };
     if route.contains(id) {
-        let path = world.source(id).path().display();
-        panic!("Tried to cyclicly evaluate {}", path);
+        panic!("Tried to cyclicly evaluate {}", path.display());
     }
 
     // Hook up the lang items.
@@ -43,7 +43,7 @@ pub fn eval(
 
     // Evaluate the module.
     let route = unsafe { Route::insert(route, id) };
-    let scopes = Scopes::new(Some(&library.scope));
+    let scopes = Scopes::new(Some(library));
     let mut vm = Vm::new(world, route.track(), id, scopes, 0);
     let result = source.ast()?.eval(&mut vm);
 
@@ -53,7 +53,8 @@ pub fn eval(
     }
 
     // Assemble the module.
-    Ok(Module::evaluated(source.path(), vm.scopes.top, result?))
+    let name = path.file_stem().unwrap_or_default().to_string_lossy();
+    Ok(Module::new(name).with_scope(vm.scopes.top).with_content(result?))
 }
 
 /// A virtual machine.
@@ -521,7 +522,7 @@ impl Eval for ast::Math {
             .map(|expr| expr.eval_in_math(vm))
             .collect::<SourceResult<_>>()?;
         let block = self.block();
-        Ok((vm.items.math)(Content::sequence(seq), block))
+        Ok((vm.items.math_formula)(Content::sequence(seq), block))
     }
 }
 
@@ -608,11 +609,11 @@ impl Eval for ast::Ident {
 impl ast::Ident {
     fn eval_in_math(&self, vm: &mut Vm) -> SourceResult<Content> {
         if self.as_untyped().len() == self.len()
-            && matches!(vm.scopes.get(self), Ok(Value::Func(_)) | Err(_))
+            && matches!(vm.scopes.get_in_math(self), Ok(Value::Func(_)) | Err(_))
         {
             Ok((vm.items.symbol)(EcoString::from(self.get()) + ":op".into()))
         } else {
-            Ok(self.eval(vm)?.display_in_math())
+            Ok(vm.scopes.get_in_math(self).at(self.span())?.clone().display_in_math())
         }
     }
 }
@@ -933,7 +934,13 @@ impl Eval for ast::FuncCall {
 
 impl ast::FuncCall {
     fn eval_in_math(&self, vm: &mut Vm) -> SourceResult<Content> {
-        let callee = self.callee().eval(vm)?;
+        let callee = match self.callee() {
+            ast::Expr::Ident(ident) => {
+                vm.scopes.get_in_math(&ident).at(ident.span())?.clone()
+            }
+            expr => expr.eval(vm)?,
+        };
+
         if let Value::Func(callee) = callee {
             let args = self.args().eval(vm)?;
             Ok(Self::eval_call(vm, &callee, args, self.span())?.display_in_math())

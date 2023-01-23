@@ -25,12 +25,6 @@ pub struct OpNode {
     pub limits: bool,
 }
 
-impl OpNode {
-    fn new(text: impl Into<EcoString>, limits: bool) -> Self {
-        Self { text: text.into(), limits }
-    }
-}
-
 #[node]
 impl OpNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
@@ -55,96 +49,41 @@ impl LayoutMath for OpNode {
 }
 
 /// Hook up all operators.
-pub fn define_operators(scope: &mut Scope) {
-    let mut define = |name: &str, limits| {
-        scope.define(name, OpNode { text: name.into(), limits }.pack());
-    };
-
-    // These have the same name in code and display.
-    define("arccos", false);
-    define("arcsin", false);
-    define("arctan", false);
-    define("arg", false);
-    define("cos", false);
-    define("cosh", false);
-    define("cot", false);
-    define("coth", false);
-    define("csc", false);
-    define("deg", false);
-    define("det", true);
-    define("dim", false);
-    define("exp", false);
-    define("gcd", true);
-    define("hom", false);
-    define("inf", true);
-    define("ker", false);
-    define("lg", false);
-    define("lim", true);
-    define("ln", false);
-    define("log", false);
-    define("max", true);
-    define("min", true);
-    define("Pr", true);
-    define("sec", false);
-    define("sin", false);
-    define("sinh", false);
-    define("sup", true);
-    define("tan", false);
-    define("tanh", false);
-
-    // These have an extra thin space.
-    scope.define("liminf", OpNode::new("lim inf", true).pack());
-    scope.define("limsup", OpNode::new("lim sup", true).pack());
+pub(super) fn define_operators(math: &mut Scope) {
+    math.define("arccos", op("arccos", false));
+    math.define("arcsin", op("arcsin", false));
+    math.define("arctan", op("arctan", false));
+    math.define("arg", op("arg", false));
+    math.define("cos", op("cos", false));
+    math.define("cosh", op("cosh", false));
+    math.define("cot", op("cot", false));
+    math.define("coth", op("coth", false));
+    math.define("csc", op("csc", false));
+    math.define("deg", op("deg", false));
+    math.define("det", op("det", true));
+    math.define("dim", op("dim", false));
+    math.define("exp", op("exp", false));
+    math.define("gcd", op("gcd", true));
+    math.define("hom", op("hom", false));
+    math.define("inf", op("inf", true));
+    math.define("ker", op("ker", false));
+    math.define("lg", op("lg", false));
+    math.define("lim", op("lim", true));
+    math.define("ln", op("ln", false));
+    math.define("log", op("log", false));
+    math.define("max", op("max", true));
+    math.define("min", op("min", true));
+    math.define("Pr", op("Pr", true));
+    math.define("sec", op("sec", false));
+    math.define("sin", op("sin", false));
+    math.define("sinh", op("sinh", false));
+    math.define("sup", op("sup", true));
+    math.define("tan", op("tan", false));
+    math.define("tanh", op("tanh", false));
+    math.define("liminf", op("lim inf", true));
+    math.define("limsup", op("lim sup", true));
 }
 
-/// # Floor
-/// A floored expression.
-///
-/// ## Example
-/// ```
-/// $ floor(x/2) $
-/// ```
-///
-/// ## Parameters
-/// - body: Content (positional, required)
-///   The expression to floor.
-///
-/// ## Category
-/// math
-#[func]
-#[capable]
-#[derive(Debug, Hash)]
-pub struct FloorNode(pub Content);
-
-#[node]
-impl FloorNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Self(args.expect("body")?).pack())
-    }
-}
-
-/// # Ceil
-/// A ceiled expression.
-///
-/// ## Example
-/// ```
-/// $ ceil(x/2) $
-/// ```
-///
-/// ## Parameters
-/// - body: Content (positional, required)
-///   The expression to ceil.
-///
-/// ## Category
-/// math
-#[func]
-#[capable]
-#[derive(Debug, Hash)]
-pub struct CeilNode(pub Content);
-
-#[node]
-impl CeilNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Self(args.expect("body")?).pack())
-    }
+fn op(name: &str, limits: bool) -> Content {
+    OpNode { text: name.into(), limits }.pack()
 }

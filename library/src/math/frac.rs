@@ -98,6 +98,7 @@ fn layout(
     denom: &Content,
     binom: bool,
 ) -> SourceResult<()> {
+    let short_fall = DELIM_SHORT_FALL.scaled(ctx);
     let axis = scaled!(ctx, axis_height);
     let thickness = scaled!(ctx, fraction_rule_thickness);
     let shift_up = scaled!(
@@ -149,9 +150,9 @@ fn layout(
     frame.push_frame(denom_pos, denom);
 
     if binom {
-        ctx.push(GlyphFragment::new(ctx, '('));
+        ctx.push(GlyphFragment::new(ctx, '(').stretch_vertical(ctx, height, short_fall));
         ctx.push(frame);
-        ctx.push(GlyphFragment::new(ctx, ')'));
+        ctx.push(GlyphFragment::new(ctx, ')').stretch_vertical(ctx, height, short_fall));
     } else {
         frame.push(
             line_pos,

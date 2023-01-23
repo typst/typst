@@ -2,7 +2,7 @@ use if_chain::if_chain;
 
 use super::{plain_docs_sentence, summarize_font_family};
 use crate::model::{CastInfo, Value};
-use crate::syntax::ast::{self, AstNode};
+use crate::syntax::ast;
 use crate::syntax::{LinkedNode, Source, SyntaxKind};
 use crate::World;
 
@@ -23,7 +23,7 @@ fn function_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<String> {
             leaf.parent_kind(),
             Some(SyntaxKind::FuncCall | SyntaxKind::SetRule),
         );
-        if let Some(Value::Func(func)) = world.library().scope.get(&ident);
+        if let Some(Value::Func(func)) = world.library().global.scope().get(&ident);
         if let Some(info) = func.info();
         then {
             return Some(plain_docs_sentence(info.docs));
@@ -44,14 +44,14 @@ fn named_param_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<String> {
         if matches!(grand.kind(), SyntaxKind::Args);
         if let Some(grand_grand) = grand.parent();
         if let Some(expr) = grand_grand.cast::<ast::Expr>();
-        if let Some(callee) = match expr {
-            ast::Expr::FuncCall(call) => call.callee().as_untyped().cast(),
+        if let Some(ast::Expr::Ident(callee)) = match expr {
+            ast::Expr::FuncCall(call) => Some(call.callee()),
             ast::Expr::Set(set) => Some(set.target()),
             _ => None,
         };
 
         // Find metadata about the function.
-        if let Some(Value::Func(func)) = world.library().scope.get(&callee);
+        if let Some(Value::Func(func)) = world.library().global.scope().get(&callee);
         if let Some(info) = func.info();
         then { (info, named) }
         else { return None; }
@@ -103,8 +103,8 @@ fn font_family_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<String> {
         if matches!(parent.kind(), SyntaxKind::Args);
         if let Some(grand) = parent.parent();
         if let Some(expr) = grand.cast::<ast::Expr>();
-        if let Some(callee) = match expr {
-            ast::Expr::FuncCall(call) => call.callee().as_untyped().cast(),
+        if let Some(ast::Expr::Ident(callee)) = match expr {
+            ast::Expr::FuncCall(call) => Some(call.callee()),
             ast::Expr::Set(set) => Some(set.target()),
             _ => None,
         };

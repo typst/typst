@@ -1,5 +1,4 @@
 use std::fmt::{self, Debug, Formatter};
-use std::path::Path;
 use std::sync::Arc;
 
 use super::{Content, Scope, Value};
@@ -22,7 +21,7 @@ struct Repr {
 }
 
 impl Module {
-    /// Create a new, empty module with the given `name`.
+    /// Create a new module.
     pub fn new(name: impl Into<EcoString>) -> Self {
         Self(Arc::new(Repr {
             name: name.into(),
@@ -31,10 +30,16 @@ impl Module {
         }))
     }
 
-    /// Create a new module from an evalauted file.
-    pub fn evaluated(path: &Path, scope: Scope, content: Content) -> Self {
-        let name = path.file_stem().unwrap_or_default().to_string_lossy().into();
-        Self(Arc::new(Repr { name, scope, content }))
+    /// Update the module's scope.
+    pub fn with_scope(mut self, scope: Scope) -> Self {
+        Arc::make_mut(&mut self.0).scope = scope;
+        self
+    }
+
+    /// Update the module's content.
+    pub fn with_content(mut self, content: Content) -> Self {
+        Arc::make_mut(&mut self.0).content = content;
+        self
     }
 
     /// Get the module's name.
@@ -45,6 +50,11 @@ impl Module {
     /// Access the module's scope.
     pub fn scope(&self) -> &Scope {
         &self.0.scope
+    }
+
+    /// Access the module's scope, mutably.
+    pub fn scope_mut(&mut self) -> &mut Scope {
+        &mut Arc::make_mut(&mut self.0).scope
     }
 
     /// Try to access a definition in the module.

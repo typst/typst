@@ -712,7 +712,14 @@ fn let_binding(p: &mut Parser) {
 fn set_rule(p: &mut Parser) {
     let m = p.marker();
     p.assert(SyntaxKind::Set);
+
+    let m2 = p.marker();
     p.expect(SyntaxKind::Ident);
+    while p.eat_if(SyntaxKind::Dot) {
+        p.expect(SyntaxKind::Ident);
+        p.wrap(m2, SyntaxKind::FieldAccess);
+    }
+
     args(p);
     if p.eat_if(SyntaxKind::If) {
         code_expr(p);

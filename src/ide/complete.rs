@@ -4,7 +4,6 @@ use if_chain::if_chain;
 
 use super::{plain_docs_sentence, summarize_font_family};
 use crate::model::{CastInfo, Scope, Value};
-use crate::syntax::ast::AstNode;
 use crate::syntax::{ast, LinkedNode, Source, SyntaxKind};
 use crate::util::{format_eco, EcoString};
 use crate::World;
@@ -118,8 +117,8 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
         if let Some(grand) = parent.parent();
         if let Some(expr) = grand.cast::<ast::Expr>();
         let set = matches!(expr, ast::Expr::Set(_));
-        if let Some(callee) = match expr {
-            ast::Expr::FuncCall(call) => call.callee().as_untyped().cast(),
+        if let Some(ast::Expr::Ident(callee)) = match expr {
+            ast::Expr::FuncCall(call) => Some(call.callee()),
             ast::Expr::Set(set) => Some(set.target()),
             _ => None,
         };
@@ -377,7 +376,7 @@ impl<'a> CompletionContext<'a> {
         let leaf = LinkedNode::new(source.root()).leaf_at(cursor)?;
         Some(Self {
             world,
-            scope: &world.library().scope,
+            scope: &world.library().global.scope(),
             before: &text[..cursor],
             after: &text[cursor..],
             leaf,

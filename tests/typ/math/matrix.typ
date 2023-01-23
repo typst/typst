@@ -7,7 +7,7 @@ $ v = vec(1, 2+3, 4) $
 $ binom(n, 1) = 1/2 n (n-1) $
 
 ---
-#set vec(delim: "|")
+#set math.vec(delim: "|")
 $ vec(1, 2) $
 
 ---
@@ -19,8 +19,8 @@ $ f(x, y) := cases(
 ) $
 
 ---
-// Error: 17-20 expected "(", "[", "{", or "|"
-#set vec(delim: "%")
+// Error: 22-25 expected "(", "[", "{", "|", or "||"
+#set math.vec(delim: "%")
 
 ---
 // Error: 9-12 missing argument: lower index

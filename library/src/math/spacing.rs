@@ -1,10 +1,18 @@
 use super::*;
 
-pub(super) const ZERO: Em = Em::zero();
-pub(super) const THIN: Em = Em::new(1.0 / 6.0);
-pub(super) const MEDIUM: Em = Em::new(2.0 / 9.0);
-pub(super) const THICK: Em = Em::new(5.0 / 18.0);
-pub(super) const QUAD: Em = Em::new(1.0);
+const ZERO: Em = Em::zero();
+const THIN: Em = Em::new(1.0 / 6.0);
+const MEDIUM: Em = Em::new(2.0 / 9.0);
+const THICK: Em = Em::new(5.0 / 18.0);
+const QUAD: Em = Em::new(1.0);
+
+/// Hook up all spacings.
+pub(super) fn define_spacings(math: &mut Scope) {
+    math.define("thin", HNode::strong(THIN).pack());
+    math.define("med", HNode::strong(MEDIUM).pack());
+    math.define("thick", HNode::strong(THICK).pack());
+    math.define("quad", HNode::strong(QUAD).pack());
+}
 
 /// Determine the spacing between two fragments in a given style.
 pub(super) fn spacing(left: MathClass, right: MathClass, style: MathStyle) -> Em {

@@ -1,7 +1,7 @@
 use super::*;
 
 /// How much less high scaled delimiters can be than what they wrap.
-const DELIM_SHORT_FALL: Em = Em::new(0.1);
+pub(super) const DELIM_SHORT_FALL: Em = Em::new(0.1);
 
 /// # Left-Right
 /// Scales delimiters.
@@ -62,7 +62,7 @@ impl LayoutMath for LrNode {
                 }
 
                 let MathFragment::Glyph(glyph) = *fragment else { continue };
-                let short_fall = DELIM_SHORT_FALL.at(glyph.font_size);
+                let short_fall = DELIM_SHORT_FALL.scaled(ctx);
                 *fragment = MathFragment::Variant(
                     glyph.stretch_vertical(ctx, height, short_fall),
                 );
@@ -75,4 +75,91 @@ impl LayoutMath for LrNode {
 
         Ok(())
     }
+}
+
+/// # Floor
+/// Floor an expression.
+///
+/// ## Example
+/// ```
+/// $ floor(x/2) $
+/// ```
+///
+/// ## Parameters
+/// - body: Content (positional, required)
+///   The expression to floor.
+///
+/// ## Category
+/// math
+#[func]
+pub fn floor(args: &mut Args) -> SourceResult<Value> {
+    delimited(args, '⌊', '⌋')
+}
+
+/// # Ceil
+/// Ceil an expression.
+///
+/// ## Example
+/// ```
+/// $ ceil(x/2) $
+/// ```
+///
+/// ## Parameters
+/// - body: Content (positional, required)
+///   The expression to ceil.
+///
+/// ## Category
+/// math
+#[func]
+pub fn ceil(args: &mut Args) -> SourceResult<Value> {
+    delimited(args, '⌈', '⌉')
+}
+
+/// # Abs
+/// Take the absolute value of an expression.
+///
+/// ## Example
+/// ```
+/// $ abs(x/2) $
+/// ```
+///
+/// ## Parameters
+/// - body: Content (positional, required)
+///   The expression to take the absolute value of.
+///
+/// ## Category
+/// math
+#[func]
+pub fn abs(args: &mut Args) -> SourceResult<Value> {
+    delimited(args, '|', '|')
+}
+
+/// # Norm
+/// Take the norm of an expression.
+///
+/// ## Example
+/// ```
+/// $ norm(x/2) $
+/// ```
+///
+/// ## Parameters
+/// - body: Content (positional, required)
+///   The expression to take the norm of.
+///
+/// ## Category
+/// math
+#[func]
+pub fn norm(args: &mut Args) -> SourceResult<Value> {
+    delimited(args, '‖', '‖')
+}
+
+fn delimited(args: &mut Args, left: char, right: char) -> SourceResult<Value> {
+    Ok(Value::Content(
+        LrNode(Content::sequence(vec![
+            AtomNode(left.into()).pack(),
+            args.expect::<Content>("body")?,
+            AtomNode(right.into()).pack(),
+        ]))
+        .pack(),
+    ))
 }
