@@ -56,6 +56,7 @@ pub fn module() -> Module {
     math.def_func::<FloorFunc>("floor");
     math.def_func::<CeilFunc>("ceil");
     math.def_func::<AbsFunc>("abs");
+    math.def_func::<NormFunc>("norm");
     math.def_func::<AccentNode>("accent");
     math.def_func::<FracNode>("frac");
     math.def_func::<BinomNode>("binom");

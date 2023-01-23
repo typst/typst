@@ -37,7 +37,7 @@ impl LayoutMath for SqrtNode {
 ///
 /// ## Example
 /// ```
-/// $ radical(3, x) $
+/// $ root(3, x) $
 /// ```
 ///
 /// ## Parameters

@@ -1094,6 +1094,7 @@ dependencies = [
  "flate2",
  "if_chain",
  "image",
+ "log",
  "miniz_oxide 0.5.4",
  "once_cell",
  "pdf-writer",

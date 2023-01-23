@@ -31,7 +31,7 @@ impl VecNode {
     ///
     /// # Example
     /// ```
-    /// #set vec(delim: "[")
+    /// #set math.vec(delim: "[")
     /// $ vec(1, 2) $
     /// ```
     pub const DELIM: Delimiter = Delimiter::Paren;

@@ -192,6 +192,13 @@ pub fn highlight(node: &LinkedNode) -> Option<Category> {
             ) => Some(Category::Interpolated),
             Some(SyntaxKind::FuncCall) => Some(Category::Function),
             Some(SyntaxKind::FieldAccess)
+                if node.parent().and_then(|p| p.parent_kind())
+                    == Some(SyntaxKind::SetRule)
+                    && node.next_sibling().is_none() =>
+            {
+                Some(Category::Function)
+            }
+            Some(SyntaxKind::FieldAccess)
                 if node
                     .parent()
                     .and_then(|p| p.parent())
