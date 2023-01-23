@@ -153,6 +153,7 @@ pub fn call_mut(
         },
 
         Value::Dict(dict) => match method {
+            "insert" => dict.insert(args.expect::<Str>("key")?, args.expect("value")?),
             "remove" => {
                 output = dict.remove(&args.expect::<EcoString>("key")?).at(span)?
             }
@@ -184,7 +185,7 @@ pub fn call_access<'a>(
             _ => return missing(),
         },
         Value::Dict(dict) => match method {
-            "at" => dict.at_mut(args.expect("index")?),
+            "at" => dict.at_mut(&args.expect::<Str>("key")?).at(span)?,
             _ => return missing(),
         },
         _ => return missing(),

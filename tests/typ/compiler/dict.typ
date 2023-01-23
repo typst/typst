@@ -36,11 +36,11 @@
 }
 
 ---
-// Missing lvalue is automatically none-initialized.
+// Missing lvalue is not automatically none-initialized.
 {
   let dict = (:)
-  dict.at("b") += 1
-  test(dict, (b: 1))
+  // Error: 3-9 dictionary does not contain key "b"
+  dict.b += 1
 }
 
 ---

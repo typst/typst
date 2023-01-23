@@ -2,8 +2,9 @@ use std::fmt::{self, Debug, Formatter};
 use std::path::Path;
 use std::sync::Arc;
 
-use super::{Content, Scope};
-use crate::util::EcoString;
+use super::{Content, Scope, Value};
+use crate::diag::StrResult;
+use crate::util::{format_eco, EcoString};
 
 /// An evaluated module, ready for importing or typesetting.
 #[derive(Clone, Hash)]
@@ -44,6 +45,13 @@ impl Module {
     /// Access the module's scope.
     pub fn scope(&self) -> &Scope {
         &self.0.scope
+    }
+
+    /// Try to access a definition in the module.
+    pub fn get(&self, name: &str) -> StrResult<&Value> {
+        self.scope().get(&name).ok_or_else(|| {
+            format_eco!("module `{}` does not contain `{name}`", self.name())
+        })
     }
 
     /// Extract the module's content.

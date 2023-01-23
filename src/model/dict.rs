@@ -54,11 +54,10 @@ impl Dict {
     }
 
     /// Mutably borrow the value the given `key` maps to.
-    ///
-    /// This inserts the key with [`None`](Value::None) as the value if not
-    /// present so far.
-    pub fn at_mut(&mut self, key: Str) -> &mut Value {
-        Arc::make_mut(&mut self.0).entry(key).or_default()
+    pub fn at_mut(&mut self, key: &str) -> StrResult<&mut Value> {
+        Arc::make_mut(&mut self.0)
+            .get_mut(key)
+            .ok_or_else(|| missing_key(key))
     }
 
     /// Remove the value if the dictionary contains the given key.
