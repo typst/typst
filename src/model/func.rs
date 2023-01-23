@@ -401,6 +401,7 @@ impl<'a> CapturesVisitor<'a> {
                     }
                 }
 
+                self.internal.enter();
                 if let Some(name) = expr.name() {
                     self.bind(name);
                 }
@@ -414,6 +415,7 @@ impl<'a> CapturesVisitor<'a> {
                 }
 
                 self.visit(expr.body().as_untyped());
+                self.internal.exit();
             }
 
             // A let expression contains a binding, but that binding is only
@@ -513,6 +515,7 @@ mod tests {
         test("{(x: y, z) => x + z}", &["y"]);
         test("{(..x) => x + y}", &["y"]);
         test("{(x, y: x + z) => x + y}", &["x", "z"]);
+        test("{x => x; x}", &["x"]);
 
         // Show rule.
         test("#show y: x => x", &["y"]);
