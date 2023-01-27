@@ -53,6 +53,7 @@ pub fn module() -> Module {
     let mut math = Scope::deduplicating();
     math.def_func::<FormulaNode>("formula");
     math.def_func::<LrNode>("lr");
+    math.def_func::<OpNode>("op");
     math.def_func::<FloorFunc>("floor");
     math.def_func::<CeilFunc>("ceil");
     math.def_func::<AbsFunc>("abs");
@@ -75,8 +76,8 @@ pub fn module() -> Module {
     math.def_func::<FrakNode>("frak");
     math.def_func::<MonoNode>("mono");
     math.def_func::<BbNode>("bb");
-    define_spacings(&mut math);
-    define_operators(&mut math);
+    spacing::define(&mut math);
+    op::define(&mut math);
     Module::new("math").with_scope(math)
 }
 

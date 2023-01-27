@@ -7,7 +7,7 @@ const THICK: Em = Em::new(5.0 / 18.0);
 const QUAD: Em = Em::new(1.0);
 
 /// Hook up all spacings.
-pub(super) fn define_spacings(math: &mut Scope) {
+pub(super) fn define(math: &mut Scope) {
     math.define("thin", HNode::strong(THIN).pack());
     math.define("med", HNode::strong(MEDIUM).pack());
     math.define("thick", HNode::strong(THICK).pack());
