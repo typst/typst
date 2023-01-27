@@ -1,10 +1,10 @@
-use std::collections::HashSet;
+use std::collections::{BTreeSet, HashSet};
 
 use if_chain::if_chain;
 
-use super::{plain_docs_sentence, summarize_font_family};
+use super::{analyze, plain_docs_sentence, summarize_font_family};
 use crate::model::{CastInfo, Scope, Value};
-use crate::syntax::{ast, LinkedNode, Source, SyntaxKind};
+use crate::syntax::{ast, LinkedNode, Source, SyntaxKind, SyntaxNode};
 use crate::util::{format_eco, EcoString};
 use crate::World;
 
@@ -16,16 +16,16 @@ use crate::World;
 /// When `explicit` is `true`, the user requested the completion by pressing
 /// control and space or something similar.
 pub fn autocomplete(
-    world: &dyn World,
+    world: &(dyn World + 'static),
     source: &Source,
     cursor: usize,
     explicit: bool,
 ) -> Option<(usize, Vec<Completion>)> {
     let mut ctx = CompletionContext::new(world, source, cursor, explicit)?;
 
-    let _ = complete_rules(&mut ctx)
+    let _ = complete_field_accesses(&mut ctx)
+        || complete_rules(&mut ctx)
         || complete_params(&mut ctx)
-        || complete_symbols(&mut ctx)
         || complete_markup(&mut ctx)
         || complete_math(&mut ctx)
         || complete_code(&mut ctx);
@@ -62,8 +62,271 @@ pub enum CompletionKind {
     Constant,
     /// A font family.
     Font,
-    /// A symmie symbol.
+    /// A symbol.
     Symbol(char),
+}
+
+/// Complete in markup mode.
+fn complete_markup(ctx: &mut CompletionContext) -> bool {
+    // Bail if we aren't even in markup.
+    if !matches!(ctx.leaf.parent_kind(), None | Some(SyntaxKind::Markup)) {
+        return false;
+    }
+
+    // Start of an interpolated identifier: "#|".
+    if ctx.leaf.kind() == SyntaxKind::Hashtag {
+        ctx.from = ctx.cursor;
+        code_completions(ctx, true);
+        return true;
+    }
+
+    // An existing identifier: "#pa|".
+    if ctx.leaf.kind() == SyntaxKind::Ident {
+        ctx.from = ctx.leaf.offset();
+        code_completions(ctx, true);
+        return true;
+    }
+
+    // Behind a half-completed binding: "#let x = |".
+    if_chain! {
+        if let Some(prev) = ctx.leaf.prev_leaf();
+        if prev.kind() == SyntaxKind::Eq;
+        if prev.parent_kind() == Some(SyntaxKind::LetBinding);
+        then {
+            ctx.from = ctx.cursor;
+            code_completions(ctx, false);
+            return true;
+        }
+    }
+
+    // Anywhere: "|".
+    if ctx.explicit {
+        ctx.from = ctx.cursor;
+        markup_completions(ctx);
+        return true;
+    }
+
+    false
+}
+
+/// Add completions for markup snippets.
+#[rustfmt::skip]
+fn markup_completions(ctx: &mut CompletionContext) {
+    ctx.snippet_completion(
+        "expression",
+        "#${}",
+        "Variables, function calls, blocks, and more.",
+    );
+
+    ctx.snippet_completion(
+        "linebreak",
+        "\\\n${}",
+        "Inserts a forced linebreak.",
+    );
+
+    ctx.snippet_completion(
+        "strong text",
+        "*${strong}*",
+        "Strongly emphasizes content by increasing the font weight.",
+    );
+
+    ctx.snippet_completion(
+        "emphasized text",
+        "_${emphasized}_",
+        "Emphasizes content by setting it in italic font style.",
+    );
+
+    ctx.snippet_completion(
+        "raw text",
+        "`${text}`",
+        "Displays text verbatim, in monospace.",
+    );
+
+    ctx.snippet_completion(
+        "code listing",
+        "```${lang}\n${code}\n```",
+        "Inserts computer code with syntax highlighting.",
+    );
+
+    ctx.snippet_completion(
+        "hyperlink",
+        "https://${example.com}",
+        "Links to a URL.",
+    );
+
+    ctx.snippet_completion(
+        "label",
+        "<${name}>",
+        "Makes the preceding element referencable.",
+    );
+
+    ctx.snippet_completion(
+        "reference",
+        "@${name}",
+        "Inserts a reference to a label.",
+    );
+
+    ctx.snippet_completion(
+        "heading",
+        "= ${title}",
+        "Inserts a section heading.",
+    );
+
+    ctx.snippet_completion(
+        "list item",
+        "- ${item}",
+        "Inserts an item of a bullet list.",
+    );
+
+    ctx.snippet_completion(
+        "enumeration item",
+        "+ ${item}",
+        "Inserts an item of a numbered list.",
+    );
+
+    ctx.snippet_completion(
+        "enumeration item (numbered)",
+        "${number}. ${item}",
+        "Inserts an explicitly numbered list item.",
+    );
+
+    ctx.snippet_completion(
+        "term list item",
+        "/ ${term}: ${description}",
+        "Inserts an item of a term list.",
+    );
+
+    ctx.snippet_completion(
+        "math (inline)",
+        "$${x}$",
+        "Inserts an inline-level mathematical formula.",
+    );
+
+    ctx.snippet_completion(
+        "math (block)",
+        "$ ${sum_x^2} $",
+        "Inserts a block-level mathematical formula.",
+    );
+}
+
+/// Complete in math mode.
+fn complete_math(ctx: &mut CompletionContext) -> bool {
+    if !matches!(
+        ctx.leaf.parent_kind(),
+        Some(SyntaxKind::Formula)
+            | Some(SyntaxKind::Math)
+            | Some(SyntaxKind::MathFrac)
+            | Some(SyntaxKind::MathScript)
+    ) {
+        return false;
+    }
+
+    // Start of an interpolated identifier: "#|".
+    if ctx.leaf.kind() == SyntaxKind::Hashtag {
+        ctx.from = ctx.cursor;
+        code_completions(ctx, true);
+        return true;
+    }
+
+    // Behind existing atom or identifier: "$a|$" or "$abc|$".
+    if matches!(ctx.leaf.kind(), SyntaxKind::MathAtom | SyntaxKind::MathIdent) {
+        ctx.from = ctx.leaf.offset();
+        math_completions(ctx);
+        return true;
+    }
+
+    // Anywhere: "$|$".
+    if ctx.explicit {
+        ctx.from = ctx.cursor;
+        math_completions(ctx);
+        return true;
+    }
+
+    false
+}
+
+/// Add completions for math snippets.
+#[rustfmt::skip]
+fn math_completions(ctx: &mut CompletionContext) {
+    ctx.scope_completions(|_| true);
+
+    ctx.snippet_completion(
+        "subscript",
+        "${x}_${2:2}",
+        "Sets something in subscript.",
+    );
+
+    ctx.snippet_completion(
+        "superscript",
+        "${x}^${2:2}",
+        "Sets something in superscript.",
+    );
+
+    ctx.snippet_completion(
+        "fraction",
+        "${x}/${y}",
+        "Inserts a fraction.",
+    );
+}
+
+/// Complete field accesses.
+fn complete_field_accesses(ctx: &mut CompletionContext) -> bool {
+    // Behind an identifier plus dot: "emoji.|".
+    if_chain! {
+        if ctx.leaf.kind() == SyntaxKind::Dot
+            || (matches!(ctx.leaf.kind(), SyntaxKind::Text | SyntaxKind::MathAtom)
+                && ctx.leaf.text() == ".");
+        if ctx.leaf.range().end == ctx.cursor;
+        if let Some(prev) = ctx.leaf.prev_sibling();
+        if prev.is::<ast::Expr>();
+        if let Some(value) = analyze(ctx.world, &prev).into_iter().next();
+        then {
+            ctx.from = ctx.cursor;
+            field_access_completions(ctx, &value);
+            return true;
+        }
+    }
+
+    // Behind a started field access: "emoji.fa|".
+    if_chain! {
+        if ctx.leaf.kind() == SyntaxKind::Ident;
+        if let Some(prev) = ctx.leaf.prev_sibling();
+        if prev.kind() == SyntaxKind::Dot;
+        if let Some(prev_prev) = prev.prev_sibling();
+        if prev_prev.is::<ast::Expr>();
+        if let Some(value) = analyze(ctx.world, &prev_prev).into_iter().next();
+        then {
+            ctx.from = ctx.leaf.offset();
+            field_access_completions(ctx, &value);
+            return true;
+        }
+    }
+
+    false
+}
+
+/// Add completions for all fields on a value.
+fn field_access_completions(ctx: &mut CompletionContext, value: &Value) {
+    match value {
+        Value::Symbol(symbol) => {
+            for modifier in symbol.modifiers() {
+                if let Ok(modified) = symbol.clone().modified(modifier) {
+                    ctx.completions.push(Completion {
+                        kind: CompletionKind::Symbol(modified.get()),
+                        label: modifier.into(),
+                        apply: None,
+                        detail: None,
+                    });
+                }
+            }
+        }
+        Value::Module(module) => {
+            for (name, value) in module.scope().iter() {
+                ctx.value_completion(Some(name.clone()), value, None);
+            }
+        }
+        _ => {}
+    }
 }
 
 /// Complete set and show rules.
@@ -78,14 +341,14 @@ fn complete_rules(ctx: &mut CompletionContext) -> bool {
     // Behind the set keyword: "set |".
     if matches!(prev.kind(), SyntaxKind::Set) {
         ctx.from = ctx.cursor;
-        ctx.set_rule_completions();
+        set_rule_completions(ctx);
         return true;
     }
 
     // Behind the show keyword: "show |".
     if matches!(prev.kind(), SyntaxKind::Show) {
         ctx.from = ctx.cursor;
-        ctx.show_rule_selector_completions();
+        show_rule_selector_completions(ctx);
         return true;
     }
 
@@ -96,12 +359,68 @@ fn complete_rules(ctx: &mut CompletionContext) -> bool {
         if matches!(prev.parent_kind(), Some(SyntaxKind::ShowRule));
         then {
             ctx.from = ctx.cursor;
-            ctx.show_rule_recipe_completions();
+            show_rule_recipe_completions(ctx);
             return true;
         }
     }
 
     false
+}
+
+/// Add completions for all functions from the global scope.
+fn set_rule_completions(ctx: &mut CompletionContext) {
+    ctx.scope_completions(|value| {
+        matches!(
+            value,
+            Value::Func(func) if func.info().map_or(false, |info| {
+                info.params.iter().any(|param| param.settable)
+            }),
+        )
+    });
+}
+
+/// Add completions for selectors.
+fn show_rule_selector_completions(ctx: &mut CompletionContext) {
+    ctx.scope_completions(
+        |value| matches!(value, Value::Func(func) if func.select(None).is_ok()),
+    );
+
+    ctx.enrich("", ": ");
+
+    ctx.snippet_completion(
+        "text selector",
+        "\"${text}\": ${}",
+        "Replace occurances of specific text.",
+    );
+
+    ctx.snippet_completion(
+        "regex selector",
+        "regex(\"${regex}\"): ${}",
+        "Replace matches of a regular expression.",
+    );
+}
+
+/// Add completions for recipes.
+fn show_rule_recipe_completions(ctx: &mut CompletionContext) {
+    ctx.snippet_completion(
+        "replacement",
+        "[${content}]",
+        "Replace the selected element with content.",
+    );
+
+    ctx.snippet_completion(
+        "replacement (string)",
+        "\"${text}\"",
+        "Replace the selected element with a string of text.",
+    );
+
+    ctx.snippet_completion(
+        "transformation",
+        "element => [${content}]",
+        "Transform the element with a function.",
+    );
+
+    ctx.scope_completions(|value| matches!(value, Value::Func(_)));
 }
 
 /// Complete call and set rule parameters.
@@ -143,7 +462,7 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
                 SyntaxKind::Colon | SyntaxKind::Space  => ctx.cursor,
                 _ => ctx.leaf.offset(),
             };
-            ctx.named_param_value_completions(&callee, &param);
+            named_param_value_completions(ctx, &callee, &param);
             return true;
         }
     }
@@ -173,7 +492,7 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
                 _ => None,
             }).collect();
 
-            ctx.param_completions(&callee, set, &exclude);
+            param_completions(ctx, &callee, set, &exclude);
             return true;
         }
     }
@@ -181,158 +500,90 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
     false
 }
 
-/// Complete symbols.
-///
-/// Exception: Math identifiers which can also be symbols are handled separately
-/// in `math_completions`.
-fn complete_symbols(ctx: &mut CompletionContext) -> bool {
-    // Whether a colon is necessary.
-    let needs_colon = !ctx.after.starts_with(':');
+/// Add completions for the parameters of a function.
+fn param_completions(
+    ctx: &mut CompletionContext,
+    callee: &ast::Ident,
+    set: bool,
+    exclude: &[ast::Ident],
+) {
+    let info = if_chain! {
+        if let Some(Value::Func(func)) = ctx.global.get(callee);
+        if let Some(info) = func.info();
+        then { info }
+        else { return; }
+    };
 
-    // Behind half-completed symbol: "$arrow:|$".
-    if_chain! {
-        if matches!(ctx.leaf.kind(), SyntaxKind::Atom if ctx.leaf.text() == ":");
-        if let Some(prev) = ctx.leaf.prev_leaf();
-        if matches!(prev.kind(), SyntaxKind::Ident);
-        then {
-            ctx.from = prev.offset();
-            ctx.symbol_completions(false);
-            return true;
+    if callee.as_str() == "text" {
+        ctx.font_completions();
+    }
+
+    for param in &info.params {
+        if exclude.iter().any(|ident| ident.as_str() == param.name) {
+            continue;
+        }
+
+        if set && !param.settable {
+            continue;
+        }
+
+        if param.named {
+            ctx.completions.push(Completion {
+                kind: CompletionKind::Param,
+                label: param.name.into(),
+                apply: Some(format_eco!("{}: ${{}}", param.name)),
+                detail: Some(plain_docs_sentence(param.docs).into()),
+            });
+        }
+
+        if param.positional {
+            ctx.cast_completions(&param.cast);
         }
     }
 
-    // Start of a symbol: ":|".
-    // Checking for a text node ensures that "\:" isn't completed.
-    if ctx.before.ends_with(':')
-        && matches!(ctx.leaf.kind(), SyntaxKind::Text | SyntaxKind::Atom)
-    {
-        ctx.from = ctx.cursor;
-        ctx.symbol_completions(needs_colon);
-        return true;
+    if ctx.before.ends_with(',') {
+        ctx.enrich(" ", "");
     }
-
-    // An existing symbol: ":arrow:".
-    if matches!(ctx.leaf.kind(), SyntaxKind::Symbol) {
-        // We want to complete behind the colon, therefore plus 1.
-        let has_colon = ctx.after.starts_with(':');
-        ctx.from = ctx.leaf.offset() + (has_colon as usize);
-        ctx.symbol_completions(has_colon && needs_colon);
-        return true;
-    }
-
-    // Behind half-completed symbol: ":bar|" or ":arrow:dou|".
-    if_chain! {
-        if matches!(
-            ctx.leaf.kind(),
-            SyntaxKind::Text | SyntaxKind::Atom | SyntaxKind::Ident
-        );
-        if let Some(prev) = ctx.leaf.prev_leaf();
-        if matches!(prev.kind(), SyntaxKind::Symbol) || matches!(
-            prev.kind(),
-            SyntaxKind::Text | SyntaxKind::Atom if prev.text() == ":"
-        );
-        then {
-            // We want to complete behind the colon, therefore plus 1.
-            ctx.from = prev.offset() + 1;
-            ctx.symbol_completions(needs_colon);
-            return true;
-        }
-    }
-
-    false
 }
 
-/// Complete in markup mode.
-fn complete_markup(ctx: &mut CompletionContext) -> bool {
-    // Bail if we aren't even in markup.
-    if !matches!(ctx.leaf.parent_kind(), None | Some(SyntaxKind::Markup)) {
-        return false;
+/// Add completions for the values of a named function parameter.
+fn named_param_value_completions(
+    ctx: &mut CompletionContext,
+    callee: &ast::Ident,
+    name: &str,
+) {
+    let param = if_chain! {
+        if let Some(Value::Func(func)) = ctx.global.get(callee);
+        if let Some(info) = func.info();
+        if let Some(param) = info.param(name);
+        if param.named;
+        then { param }
+        else { return; }
+    };
+
+    ctx.cast_completions(&param.cast);
+
+    if ctx.before.ends_with(':') {
+        ctx.enrich(" ", "");
     }
-
-    // Start of an interpolated identifier: "#|".
-    // Checking for a text node ensures that "\#" isn't completed.
-    if ctx.before.ends_with('#') && matches!(ctx.leaf.kind(), SyntaxKind::Text) {
-        ctx.from = ctx.cursor;
-        ctx.expr_completions(true);
-        return true;
-    }
-
-    // An existing identifier: "#pa|".
-    if matches!(ctx.leaf.kind(), SyntaxKind::Ident) {
-        // We want to complete behind the hashtag, therefore plus 1.
-        ctx.from = ctx.leaf.offset() + 1;
-        ctx.expr_completions(true);
-        return true;
-    }
-
-    // Behind a half-completed binding: "#let x = |".
-    if_chain! {
-        if let Some(prev) = ctx.leaf.prev_leaf();
-        if matches!(prev.kind(), SyntaxKind::Eq);
-        if matches!(prev.parent_kind(), Some(SyntaxKind::LetBinding));
-        then {
-            ctx.from = ctx.cursor;
-            ctx.expr_completions(false);
-            return true;
-        }
-    }
-
-    // Anywhere: "|".
-    if ctx.explicit {
-        ctx.from = ctx.cursor;
-        ctx.markup_completions();
-        return true;
-    }
-
-    false
-}
-
-/// Complete in math mode.
-fn complete_math(ctx: &mut CompletionContext) -> bool {
-    if !matches!(
-        ctx.leaf.parent_kind(),
-        Some(SyntaxKind::Math) | Some(SyntaxKind::Frac) | Some(SyntaxKind::Script)
-    ) {
-        return false;
-    }
-
-    // Start of an interpolated identifier: "#|".
-    if matches!(ctx.leaf.kind(), SyntaxKind::Atom if ctx.leaf.text() == "#") {
-        ctx.from = ctx.cursor;
-        ctx.expr_completions(true);
-        return true;
-    }
-
-    // Behind existing atom or identifier: "$a|$" or "$abc|$".
-    if matches!(ctx.leaf.kind(), SyntaxKind::Atom | SyntaxKind::Ident) {
-        ctx.from = ctx.leaf.offset();
-        ctx.math_completions();
-        return true;
-    }
-
-    // Anywhere: "$|$".
-    if ctx.explicit {
-        ctx.from = ctx.cursor;
-        ctx.math_completions();
-        return true;
-    }
-
-    false
 }
 
 /// Complete in code mode.
 fn complete_code(ctx: &mut CompletionContext) -> bool {
     if matches!(
         ctx.leaf.parent_kind(),
-        None | Some(SyntaxKind::Markup) | Some(SyntaxKind::Math)
+        None | Some(SyntaxKind::Markup)
+            | Some(SyntaxKind::Math)
+            | Some(SyntaxKind::MathFrac)
+            | Some(SyntaxKind::MathScript)
     ) {
         return false;
     }
 
     // An existing identifier: "{ pa| }".
-    if matches!(ctx.leaf.kind(), SyntaxKind::Ident) {
+    if ctx.leaf.kind() == SyntaxKind::Ident {
         ctx.from = ctx.leaf.offset();
-        ctx.expr_completions(false);
+        code_completions(ctx, false);
         return true;
     }
 
@@ -343,19 +594,149 @@ fn complete_code(ctx: &mut CompletionContext) -> bool {
             || matches!(ctx.leaf.kind(), SyntaxKind::LeftParen | SyntaxKind::LeftBrace))
     {
         ctx.from = ctx.cursor;
-        ctx.expr_completions(false);
+        code_completions(ctx, false);
         return true;
     }
 
     false
 }
 
+/// Add completions for expression snippets.
+#[rustfmt::skip]
+fn code_completions(ctx: &mut CompletionContext, hashtag: bool) {
+    ctx.scope_completions(|value| !hashtag || {
+        matches!(value, Value::Symbol(_) | Value::Func(_) | Value::Module(_))
+    });
+
+    ctx.snippet_completion(
+        "function call",
+        "${function}(${arguments})[${body}]",
+        "Evaluates a function.",
+    );
+
+    ctx.snippet_completion(
+        "code block",
+        "{ ${} }",
+        "Inserts a nested code block.",
+    );
+
+    ctx.snippet_completion(
+        "content block",
+        "[${content}]",
+        "Switches into markup mode.",
+    );
+
+    ctx.snippet_completion(
+        "set rule",
+        "set ${}",
+        "Sets style properties on an element.",
+    );
+
+    ctx.snippet_completion(
+        "show rule",
+        "show ${}",
+        "Redefines the look of an element.",
+    );
+
+    ctx.snippet_completion(
+        "let binding",
+        "let ${name} = ${value}",
+        "Saves a value in a variable.",
+    );
+
+    ctx.snippet_completion(
+        "let binding (function)",
+        "let ${name}(${params}) = ${output}",
+        "Defines a function.",
+    );
+
+    ctx.snippet_completion(
+        "if conditional",
+        "if ${1 < 2} {\n\t${}\n}",
+        "Computes or inserts something conditionally.",
+    );
+
+    ctx.snippet_completion(
+        "if-else conditional",
+        "if ${1 < 2} {\n\t${}\n} else {\n\t${}\n}",
+        "Computes or inserts different things based on a condition.",
+    );
+
+    ctx.snippet_completion(
+        "while loop",
+        "while ${1 < 2} {\n\t${}\n}",
+        "Computes or inserts somthing while a condition is met.",
+    );
+
+    ctx.snippet_completion(
+        "for loop",
+        "for ${value} in ${(1, 2, 3)} {\n\t${}\n}",
+        "Computes or inserts somthing for each value in a collection.",
+    );
+
+    ctx.snippet_completion(
+        "for loop (with key)",
+        "for ${key}, ${value} in ${(a: 1, b: 2)} {\n\t${}\n}",
+        "Computes or inserts somthing for each key and value in a collection.",
+    );
+
+    ctx.snippet_completion(
+        "break",
+        "break",
+        "Exits early from a loop.",
+    );
+
+    ctx.snippet_completion(
+        "continue",
+        "continue",
+        "Continues with the next iteration of a loop.",
+    );
+
+    ctx.snippet_completion(
+        "return",
+        "return ${output}",
+        "Returns early from a function.",
+    );
+
+    ctx.snippet_completion(
+        "import",
+        "import \"${file.typ}\": ${items}",
+        "Imports variables from another file.",
+    );
+
+    ctx.snippet_completion(
+        "include",
+        "include \"${file.typ}\"",
+        "Includes content from another file.",
+    );
+
+    ctx.snippet_completion(
+        "array",
+        "(${1, 2, 3})",
+        "Creates a sequence of values.",
+    );
+
+    ctx.snippet_completion(
+        "dictionary",
+        "(${a: 1, b: 2})",
+        "Creates a mapping from names to value.",
+    );
+
+    if !hashtag {
+        ctx.snippet_completion(
+            "function",
+            "(${params}) => ${output}",
+            "Creates an unnamed function.",
+        );
+    }
+}
+
 /// Context for autocompletion.
 struct CompletionContext<'a> {
-    world: &'a dyn World,
-    scope: &'a Scope,
+    world: &'a (dyn World + 'static),
+    global: &'a Scope,
+    math: &'a Scope,
     before: &'a str,
-    after: &'a str,
     leaf: LinkedNode<'a>,
     cursor: usize,
     explicit: bool,
@@ -367,7 +748,7 @@ struct CompletionContext<'a> {
 impl<'a> CompletionContext<'a> {
     /// Create a new autocompletion context.
     fn new(
-        world: &'a dyn World,
+        world: &'a (dyn World + 'static),
         source: &'a Source,
         cursor: usize,
         explicit: bool,
@@ -376,9 +757,9 @@ impl<'a> CompletionContext<'a> {
         let leaf = LinkedNode::new(source.root()).leaf_at(cursor)?;
         Some(Self {
             world,
-            scope: &world.library().global.scope(),
+            global: &world.library().global.scope(),
+            math: &world.library().math.scope(),
             before: &text[..cursor],
-            after: &text[cursor..],
             leaf,
             cursor,
             explicit,
@@ -411,77 +792,54 @@ impl<'a> CompletionContext<'a> {
         });
     }
 
-    /// Add completions for a subset of the global scope.
-    fn scope_completions(&mut self, filter: impl Fn(&Value) -> bool) {
-        for (name, value) in self.scope.iter() {
-            if filter(value) {
-                self.value_completion(Some(name.clone()), value, None);
-            }
+    /// Add completions for all font families.
+    fn font_completions(&mut self) {
+        for (family, iter) in self.world.book().families() {
+            let detail = summarize_font_family(iter);
+            self.completions.push(Completion {
+                kind: CompletionKind::Font,
+                label: family.into(),
+                apply: Some(format_eco!("\"{family}\"")),
+                detail: Some(detail.into()),
+            })
         }
     }
 
-    /// Add completions for the parameters of a function.
-    fn param_completions(
+    /// Add a completion for a specific value.
+    fn value_completion(
         &mut self,
-        callee: &ast::Ident,
-        set: bool,
-        exclude: &[ast::Ident],
+        label: Option<EcoString>,
+        value: &Value,
+        docs: Option<&'static str>,
     ) {
-        let info = if_chain! {
-            if let Some(Value::Func(func)) = self.scope.get(callee);
-            if let Some(info) = func.info();
-            then { info }
-            else { return; }
-        };
+        let mut label = label.unwrap_or_else(|| value.repr().into());
+        let mut apply = None;
 
-        if callee.as_str() == "text" {
-            self.font_completions();
+        if label.starts_with('"') {
+            let trimmed = label.trim_matches('"').into();
+            apply = Some(label);
+            label = trimmed;
         }
 
-        for param in &info.params {
-            if exclude.iter().any(|ident| ident.as_str() == param.name) {
-                continue;
+        let detail = docs.map(Into::into).or_else(|| match value {
+            Value::Func(func) => {
+                func.info().map(|info| plain_docs_sentence(info.docs).into())
             }
+            Value::Color(color) => Some(format_eco!("The color {color:?}.")),
+            Value::Auto => Some("A smart default.".into()),
+            _ => None,
+        });
 
-            if set && !param.settable {
-                continue;
-            }
-
-            if param.named {
-                self.completions.push(Completion {
-                    kind: CompletionKind::Param,
-                    label: param.name.into(),
-                    apply: Some(format_eco!("{}: ${{}}", param.name)),
-                    detail: Some(plain_docs_sentence(param.docs).into()),
-                });
-            }
-
-            if param.positional {
-                self.cast_completions(&param.cast);
-            }
-        }
-
-        if self.before.ends_with(',') {
-            self.enrich(" ", "");
-        }
-    }
-
-    /// Add completions for the values of a function parameter.
-    fn named_param_value_completions(&mut self, callee: &ast::Ident, name: &str) {
-        let param = if_chain! {
-            if let Some(Value::Func(func)) = self.scope.get(callee);
-            if let Some(info) = func.info();
-            if let Some(param) = info.param(name);
-            if param.named;
-            then { param }
-            else { return; }
-        };
-
-        self.cast_completions(&param.cast);
-
-        if self.before.ends_with(':') {
-            self.enrich(" ", "");
-        }
+        self.completions.push(Completion {
+            kind: match value {
+                Value::Func(_) => CompletionKind::Func,
+                Value::Symbol(s) => CompletionKind::Symbol(s.get()),
+                _ => CompletionKind::Constant,
+            },
+            label,
+            apply,
+            detail,
+        });
     }
 
     /// Add completions for a castable.
@@ -548,442 +906,65 @@ impl<'a> CompletionContext<'a> {
         }
     }
 
-    /// Add a completion for a specific value.
-    fn value_completion(
-        &mut self,
-        label: Option<EcoString>,
-        value: &Value,
-        docs: Option<&'static str>,
-    ) {
-        let mut label = label.unwrap_or_else(|| value.repr().into());
-        let mut apply = None;
+    /// Add completions for definitions that are available at the cursor.
+    /// Filters the global/math scope with the given filter.
+    fn scope_completions(&mut self, filter: impl Fn(&Value) -> bool) {
+        let mut defined = BTreeSet::new();
 
-        if label.starts_with('"') {
-            let trimmed = label.trim_matches('"').into();
-            apply = Some(label);
-            label = trimmed;
-        }
-
-        let detail = docs.map(Into::into).or_else(|| match value {
-            Value::Func(func) => {
-                func.info().map(|info| plain_docs_sentence(info.docs).into())
+        let mut ancestor = Some(self.leaf.clone());
+        while let Some(node) = &ancestor {
+            let mut sibling = Some(node.clone());
+            while let Some(node) = &sibling {
+                if let Some(v) = node.cast::<ast::LetBinding>() {
+                    defined.insert(v.binding().take());
+                }
+                sibling = node.prev_sibling();
             }
-            Value::Color(color) => Some(format_eco!("The color {color:?}.")),
-            Value::Auto => Some("A smart default.".into()),
-            _ => None,
-        });
 
-        self.completions.push(Completion {
-            kind: match value {
-                Value::Func(_) => CompletionKind::Func,
-                _ => CompletionKind::Constant,
-            },
-            label,
-            apply,
-            detail,
-        });
-    }
+            if let Some(parent) = node.parent() {
+                if let Some(v) = parent.cast::<ast::ForLoop>() {
+                    if node.prev_sibling().as_deref().map(SyntaxNode::kind)
+                        != Some(SyntaxKind::In)
+                    {
+                        let pattern = v.pattern();
+                        if let Some(key) = pattern.key() {
+                            defined.insert(key.take());
+                        }
+                        defined.insert(pattern.value().take());
+                    }
+                }
 
-    /// Add completions for all font families.
-    fn font_completions(&mut self) {
-        for (family, iter) in self.world.book().families() {
-            let detail = summarize_font_family(iter);
-            self.completions.push(Completion {
-                kind: CompletionKind::Font,
-                label: family.into(),
-                apply: Some(format_eco!("\"{family}\"")),
-                detail: Some(detail.into()),
-            })
+                ancestor = Some(parent.clone());
+                continue;
+            }
+
+            break;
         }
-    }
 
-    /// Add completions for all symbols.
-    fn symbol_completions(&mut self, needs_colon: bool) {
-        self.symbol_completions_where(needs_colon, |_| true);
-    }
+        let in_math = matches!(
+            self.leaf.parent_kind(),
+            Some(SyntaxKind::Formula)
+                | Some(SyntaxKind::Math)
+                | Some(SyntaxKind::MathFrac)
+                | Some(SyntaxKind::MathScript)
+        );
 
-    /// Add completions for a subset of all symbols.
-    fn symbol_completions_where(
-        &mut self,
-        needs_colon: bool,
-        filter: impl Fn(char) -> bool,
-    ) {
-        self.completions.reserve(symmie::list().len());
-        for &(name, c) in symmie::list() {
-            if filter(c) {
+        let scope = if in_math { self.math } else { self.global };
+        for (name, value) in scope.iter() {
+            if filter(value) && !defined.contains(name) {
+                self.value_completion(Some(name.clone()), value, None);
+            }
+        }
+
+        for name in defined {
+            if !name.is_empty() {
                 self.completions.push(Completion {
-                    kind: CompletionKind::Symbol(c),
-                    label: name.into(),
+                    kind: CompletionKind::Constant,
+                    label: name,
                     apply: None,
                     detail: None,
                 });
             }
         }
-        if needs_colon {
-            self.enrich("", ":");
-        }
-    }
-
-    /// Add completions for markup snippets.
-    #[rustfmt::skip]
-    fn markup_completions(&mut self) {
-        self.snippet_completion(
-            "linebreak",
-            "\\\n${}",
-            "Inserts a forced linebreak.",
-        );
-
-        self.snippet_completion(
-            "symbol",
-            ":${}:",
-            "Inserts a symbol.",
-        );
-
-        self.snippet_completion(
-            "strong text",
-            "*${strong}*",
-            "Strongly emphasizes content by increasing the font weight.",
-        );
-
-        self.snippet_completion(
-            "emphasized text",
-            "_${emphasized}_",
-            "Emphasizes content by setting it in italic font style.",
-        );
-
-        self.snippet_completion(
-            "raw text",
-            "`${text}`",
-            "Displays text verbatim, in monospace.",
-        );
-
-        self.snippet_completion(
-            "code listing",
-            "```${lang}\n${code}\n```",
-            "Inserts computer code with syntax highlighting.",
-        );
-
-        self.snippet_completion(
-            "hyperlink",
-            "https://${example.com}",
-            "Links to a URL.",
-        );
-
-        self.snippet_completion(
-            "math (inline)",
-            "$${x}$",
-            "Inserts an inline-level mathematical formula.",
-        );
-
-        self.snippet_completion(
-            "math (block)",
-            "$ ${sum_x^2} $",
-            "Inserts a block-level mathematical formula.",
-        );
-
-        self.snippet_completion(
-            "label",
-            "<${name}>",
-            "Makes the preceding element referencable.",
-        );
-
-        self.snippet_completion(
-            "reference",
-            "@${name}",
-            "Inserts a reference to a label.",
-        );
-
-        self.snippet_completion(
-            "heading",
-            "= ${title}",
-            "Inserts a section heading.",
-        );
-
-        self.snippet_completion(
-            "list item",
-            "- ${item}",
-            "Inserts an item of a bullet list.",
-        );
-
-        self.snippet_completion(
-            "enumeration item",
-            "+ ${item}",
-            "Inserts an item of a numbered list.",
-        );
-
-        self.snippet_completion(
-            "enumeration item (numbered)",
-            "${number}. ${item}",
-            "Inserts an explicitly numbered list item.",
-        );
-
-        self.snippet_completion(
-            "term list item",
-            "/ ${term}: ${description}",
-            "Inserts an item of a term list.",
-        );
-
-        self.snippet_completion(
-            "expression",
-            "#${}",
-            "Variables, function calls, and more.",
-        );
-
-        self.snippet_completion(
-            "code block",
-            "{ ${} }",
-            "Switches into code mode.",
-        );
-
-        self.snippet_completion(
-            "content block",
-            "[${content}]",
-            "Inserts a nested content block that isolates styles.",
-        );
-    }
-
-    /// Add completions for math snippets.
-    #[rustfmt::skip]
-    fn math_completions(&mut self) {
-        // Exclude non-technical symbols.
-        self.symbol_completions_where(false, |c| match c as u32 {
-            9728..=9983 => false,
-            9984..=10175 => false,
-            127744..=128511 => false,
-            128512..=128591 => false,
-            128640..=128767 => false,
-            129280..=129535 => false,
-            129648..=129791 => false,
-            127136..=127231 => false,
-            127024..=127135 => false,
-            126976..=127023 => false,
-            _ => true,
-        });
-
-        self.scope_completions(|value| {
-            matches!(
-                value,
-                Value::Func(func) if func.info().map_or(false, |info| {
-                    info.category == "math"
-                }),
-            )
-        });
-
-        self.snippet_completion(
-            "subscript",
-            "${x}_${2:2}",
-            "Sets something in subscript.",
-        );
-
-        self.snippet_completion(
-            "superscript",
-            "${x}^${2:2}",
-            "Sets something in superscript.",
-        );
-
-        self.snippet_completion(
-            "fraction",
-            "${x}/${y}",
-            "Inserts a fraction.",
-        );
-    }
-
-    /// Add completions for expression snippets.
-    #[rustfmt::skip]
-    fn expr_completions(&mut self,  short_form: bool) {
-        self.scope_completions(|value| {
-            !short_form || matches!(
-                value,
-                Value::Func(func) if func.info().map_or(true, |info| {
-                    info.category != "math"
-                }),
-            )
-        });
-
-        self.snippet_completion(
-            "variable",
-            "${variable}",
-            "Accesses a variable.",
-        );
-
-        self.snippet_completion(
-            "function call",
-            "${function}(${arguments})[${body}]",
-            "Evaluates a function.",
-        );
-
-        self.snippet_completion(
-            "set rule",
-            "set ${}",
-            "Sets style properties on an element.",
-        );
-
-        self.snippet_completion(
-            "show rule",
-            "show ${}",
-            "Redefines the look of an element.",
-        );
-
-        self.snippet_completion(
-            "let binding",
-            "let ${name} = ${value}",
-            "Saves a value in a variable.",
-        );
-
-        self.snippet_completion(
-            "let binding (function)",
-            "let ${name}(${params}) = ${output}",
-            "Defines a function.",
-        );
-
-        self.snippet_completion(
-            "if conditional",
-            "if ${1 < 2} {\n\t${}\n}",
-            "Computes or inserts something conditionally.",
-        );
-
-        self.snippet_completion(
-            "if-else conditional",
-            "if ${1 < 2} {\n\t${}\n} else {\n\t${}\n}",
-            "Computes or inserts different things based on a condition.",
-        );
-
-        self.snippet_completion(
-            "while loop",
-            "while ${1 < 2} {\n\t${}\n}",
-            "Computes or inserts somthing while a condition is met.",
-        );
-
-        self.snippet_completion(
-            "for loop",
-            "for ${value} in ${(1, 2, 3)} {\n\t${}\n}",
-            "Computes or inserts somthing for each value in a collection.",
-        );
-
-        self.snippet_completion(
-            "for loop (with key)",
-            "for ${key}, ${value} in ${(a: 1, b: 2)} {\n\t${}\n}",
-            "Computes or inserts somthing for each key and value in a collection.",
-        );
-
-        self.snippet_completion(
-            "break",
-            "break",
-            "Exits early from a loop.",
-        );
-
-        self.snippet_completion(
-            "continue",
-            "continue",
-            "Continues with the next iteration of a loop.",
-        );
-
-        self.snippet_completion(
-            "return",
-            "return ${output}",
-            "Returns early from a function.",
-        );
-
-        self.snippet_completion(
-            "import",
-            "import \"${file.typ}\": ${items}",
-            "Imports variables from another file.",
-        );
-
-        self.snippet_completion(
-            "include",
-            "include \"${file.typ}\"",
-            "Includes content from another file.",
-        );
-
-        if short_form {
-            return;
-        }
-
-        self.snippet_completion(
-            "code block",
-            "{ ${} }",
-            "Inserts a nested code block.",
-        );
-
-        self.snippet_completion(
-            "content block",
-            "[${content}]",
-            "Switches into markup mode.",
-        );
-
-        self.snippet_completion(
-            "array",
-            "(${1, 2, 3})",
-            "Creates a sequence of values.",
-        );
-
-        self.snippet_completion(
-            "dictionary",
-            "(${a: 1, b: 2})",
-            "Creates a mapping from names to value.",
-        );
-
-        self.snippet_completion(
-            "function",
-            "(${params}) => ${output}",
-            "Creates an unnamed function.",
-        );
-    }
-
-    /// Add completions for all functions from the global scope.
-    fn set_rule_completions(&mut self) {
-        self.scope_completions(|value| {
-            matches!(
-                value,
-                Value::Func(func) if func.info().map_or(false, |info| {
-                    info.params.iter().any(|param| param.settable)
-                }),
-            )
-        });
-    }
-
-    /// Add completions for selectors.
-    fn show_rule_selector_completions(&mut self) {
-        self.scope_completions(
-            |value| matches!(value, Value::Func(func) if func.select(None).is_ok()),
-        );
-
-        self.enrich("", ": ");
-
-        self.snippet_completion(
-            "text selector",
-            "\"${text}\": ${}",
-            "Replace occurances of specific text.",
-        );
-
-        self.snippet_completion(
-            "regex selector",
-            "regex(\"${regex}\"): ${}",
-            "Replace matches of a regular expression.",
-        );
-    }
-
-    /// Add completions for recipes.
-    fn show_rule_recipe_completions(&mut self) {
-        self.snippet_completion(
-            "replacement",
-            "[${content}]",
-            "Replace the selected element with content.",
-        );
-
-        self.snippet_completion(
-            "replacement (string)",
-            "\"${text}\"",
-            "Replace the selected element with a string of text.",
-        );
-
-        self.snippet_completion(
-            "transformation",
-            "element => [${content}]",
-            "Transform the element with a function.",
-        );
-
-        self.scope_completions(|value| matches!(value, Value::Func(_)));
     }
 }
