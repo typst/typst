@@ -1025,6 +1025,7 @@ impl<'s> Parser<'s> {
         self.current == kind
     }
 
+    #[track_caller]
     fn assert(&mut self, kind: SyntaxKind) {
         assert_eq!(self.current, kind);
         self.eat();

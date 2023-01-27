@@ -38,6 +38,7 @@ impl Span {
     /// Create a new span from a source id and a unique number.
     ///
     /// Panics if the `number` is not contained in `FULL`.
+    #[track_caller]
     pub const fn new(id: SourceId, number: u64) -> Self {
         assert!(
             Self::FULL.start <= number && number < Self::FULL.end,
@@ -53,6 +54,7 @@ impl Span {
     }
 
     /// Pack the components into a span.
+    #[track_caller]
     const fn pack(id: SourceId, number: u64) -> Span {
         let bits = ((id.into_u16() as u64) << Self::BITS) | number;
         match NonZeroU64::new(bits) {

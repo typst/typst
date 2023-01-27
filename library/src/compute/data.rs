@@ -216,6 +216,7 @@ fn convert_json(value: serde_json::Value) -> Value {
 }
 
 /// Format the user-facing JSON error message.
+#[track_caller]
 fn format_json_error(error: serde_json::Error) -> String {
     assert!(error.is_syntax() || error.is_eof());
     format!("failed to parse json file: syntax error in line {}", error.line())

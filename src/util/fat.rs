@@ -14,6 +14,7 @@ use std::mem;
 /// Must only be called when `T` is a `dyn Trait`. The data address must point
 /// to a value whose type implements the trait of `T` and the `vtable` must have
 /// been extracted with [`vtable`].
+#[track_caller]
 pub unsafe fn from_raw_parts<T: ?Sized>(data: *const (), vtable: *const ()) -> *const T {
     let fat = FatPointer { data, vtable };
     debug_assert_eq!(Layout::new::<*const T>(), Layout::new::<FatPointer>());
@@ -26,6 +27,7 @@ pub unsafe fn from_raw_parts<T: ?Sized>(data: *const (), vtable: *const ()) -> *
 /// Must only be called when `T` is a `dyn Trait`. The data address must point
 /// to a value whose type implements the trait of `T` and the `vtable` must have
 /// been extracted with [`vtable`].
+#[track_caller]
 pub unsafe fn from_raw_parts_mut<T: ?Sized>(data: *mut (), vtable: *const ()) -> *mut T {
     let fat = FatPointer { data, vtable };
     debug_assert_eq!(Layout::new::<*mut T>(), Layout::new::<FatPointer>());
@@ -36,6 +38,7 @@ pub unsafe fn from_raw_parts_mut<T: ?Sized>(data: *mut (), vtable: *const ()) ->
 ///
 /// # Safety
 /// Must only be called when `T` is a `dyn Trait`.
+#[track_caller]
 pub unsafe fn vtable<T: ?Sized>(ptr: *const T) -> *const () {
     debug_assert_eq!(Layout::new::<*const T>(), Layout::new::<FatPointer>());
     mem::transmute_copy::<*const T, FatPointer>(&ptr).vtable

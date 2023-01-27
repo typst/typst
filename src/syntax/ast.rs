@@ -406,7 +406,7 @@ impl Shorthand {
             "|->" => '↦',
             "<->" => '↔',
             "<=>" => '⇔',
-            _ => panic!("shorthand is invalid"),
+            _ => char::default(),
         }
     }
 }
@@ -879,7 +879,7 @@ impl Numeric {
             "em" => Unit::Em,
             "fr" => Unit::Fr,
             "%" => Unit::Percent,
-            _ => panic!("number has invalid suffix"),
+            _ => Unit::Percent,
         };
 
         (value, unit)

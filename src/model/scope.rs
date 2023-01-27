@@ -83,6 +83,7 @@ impl Scope {
     }
 
     /// Bind a value to a name.
+    #[track_caller]
     pub fn define(&mut self, name: impl Into<EcoString>, value: impl Into<Value>) {
         let name = name.into();
 
