@@ -308,7 +308,12 @@ fn math_delimited(p: &mut Parser, stop: MathClass) {
     p.eat();
     let m2 = p.marker();
     while !p.eof() && !p.at(SyntaxKind::Dollar) {
-        if math_class(p.current_text()) == Some(stop) {
+        let class = math_class(p.current_text());
+        if stop == MathClass::Fence && class == Some(MathClass::Closing) {
+            break;
+        }
+
+        if class == Some(stop) {
             p.wrap(m2, SyntaxKind::Math);
             p.eat();
             p.wrap(m, SyntaxKind::MathDelimited);

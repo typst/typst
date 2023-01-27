@@ -39,11 +39,11 @@ impl OpNode {
 impl LayoutMath for OpNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let frame = ctx.layout_non_math(&TextNode(self.text.clone()).pack())?;
-        ctx.push(FrameFragment {
-            frame,
-            class: MathClass::Large,
-            limits: self.limits,
-        });
+        ctx.push(
+            FrameFragment::new(frame)
+                .with_class(MathClass::Large)
+                .with_limits(self.limits),
+        );
         Ok(())
     }
 }

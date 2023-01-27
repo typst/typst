@@ -9,7 +9,7 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use super::{
     methods, ops, Arg, Args, Array, CapturesVisitor, Closure, Content, Dict, Func, Label,
-    LangItems, Module, Recipe, Scopes, Selector, StyleMap, Transform, Value,
+    LangItems, Module, Recipe, Scopes, Selector, StyleMap, Symbol, Transform, Value,
 };
 use crate::diag::{
     bail, error, At, SourceError, SourceResult, StrResult, Trace, Tracepoint,
@@ -421,9 +421,7 @@ impl Eval for ast::Escape {
     type Output = Value;
 
     fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
-        // This can be in markup and math, going through a string ensure
-        // that either text or atom is picked.
-        Ok(Value::Str(self.get().into()))
+        Ok(Value::Symbol(Symbol::new(self.get())))
     }
 }
 
@@ -431,9 +429,7 @@ impl Eval for ast::Shorthand {
     type Output = Value;
 
     fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
-        // This can be in markup and math, going through a string ensure
-        // that either text or atom is picked.
-        Ok(Value::Str(self.get().into()))
+        Ok(Value::Symbol(Symbol::new(self.get())))
     }
 }
 

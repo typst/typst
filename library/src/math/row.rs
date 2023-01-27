@@ -15,36 +15,60 @@ impl MathRow {
     pub fn push(
         &mut self,
         font_size: Abs,
+        space_width: Em,
         style: MathStyle,
         fragment: impl Into<MathFragment>,
     ) {
-        let fragment = fragment.into();
-        if let Some(fragment_class) = fragment.class() {
-            for (i, prev) in self.0.iter().enumerate().rev() {
-                if matches!(prev, MathFragment::Align) {
-                    continue;
-                }
-
-                let mut amount = Abs::zero();
-                if let MathFragment::Glyph(glyph) = *prev {
-                    if !glyph.italics_correction.is_zero()
-                        && fragment_class != MathClass::Alphabetic
-                    {
-                        amount += glyph.italics_correction;
-                    }
-                }
-
-                if let Some(prev_class) = prev.class() {
-                    amount += spacing(prev_class, fragment_class, style).at(font_size);
-                }
-
-                if !amount.is_zero() {
-                    self.0.insert(i + 1, MathFragment::Spacing(amount));
-                }
-
-                break;
-            }
+        let mut fragment = fragment.into();
+        if !fragment.participating() {
+            self.0.push(fragment);
+            return;
         }
+
+        let mut space = false;
+        for (i, prev) in self.0.iter().enumerate().rev() {
+            if !prev.participating() {
+                space |= matches!(prev, MathFragment::Space);
+                if matches!(prev, MathFragment::Spacing(_)) {
+                    break;
+                }
+                continue;
+            }
+
+            if fragment.class() == Some(MathClass::Vary) {
+                if matches!(
+                    prev.class(),
+                    Some(
+                        MathClass::Normal
+                            | MathClass::Alphabetic
+                            | MathClass::Binary
+                            | MathClass::Closing
+                            | MathClass::Fence
+                            | MathClass::Relation
+                    )
+                ) {
+                    fragment.set_class(MathClass::Binary);
+                }
+            }
+
+            let mut amount = Abs::zero();
+            if let MathFragment::Glyph(glyph) = *prev {
+                if !glyph.italics_correction.is_zero()
+                    && fragment.class() != Some(MathClass::Alphabetic)
+                {
+                    amount += glyph.italics_correction;
+                }
+            }
+
+            amount += spacing(prev, &fragment, style, space, space_width).at(font_size);
+
+            if !amount.is_zero() {
+                self.0.insert(i + 1, MathFragment::Spacing(amount));
+            }
+
+            break;
+        }
+
         self.0.push(fragment);
     }
 

@@ -6,8 +6,9 @@ pub(super) enum MathFragment {
     Variant(VariantFragment),
     Frame(FrameFragment),
     Spacing(Abs),
-    Align,
+    Space,
     Linebreak,
+    Align,
 }
 
 impl MathFragment {
@@ -54,11 +55,24 @@ impl MathFragment {
 
     pub fn class(&self) -> Option<MathClass> {
         match self {
-            Self::Glyph(glyph) => glyph.class(),
-            Self::Variant(variant) => variant.class(),
+            Self::Glyph(glyph) => glyph.class,
+            Self::Variant(variant) => variant.class,
             Self::Frame(fragment) => Some(fragment.class),
             _ => None,
         }
+    }
+
+    pub fn set_class(&mut self, class: MathClass) {
+        match self {
+            Self::Glyph(glyph) => glyph.class = Some(class),
+            Self::Variant(variant) => variant.class = Some(class),
+            Self::Frame(fragment) => fragment.class = class,
+            _ => {}
+        }
+    }
+
+    pub fn participating(&self) -> bool {
+        !matches!(self, Self::Space | Self::Spacing(_) | Self::Align)
     }
 
     pub fn italics_correction(&self) -> Abs {
@@ -99,7 +113,7 @@ impl From<FrameFragment> for MathFragment {
 
 impl From<Frame> for MathFragment {
     fn from(frame: Frame) -> Self {
-        Self::Frame(FrameFragment { frame, class: MathClass::Normal, limits: false })
+        Self::Frame(FrameFragment::new(frame))
     }
 }
 
@@ -112,6 +126,7 @@ pub(super) struct GlyphFragment {
     pub ascent: Abs,
     pub descent: Abs,
     pub italics_correction: Abs,
+    pub class: Option<MathClass>,
 }
 
 impl GlyphFragment {
@@ -144,15 +159,15 @@ impl GlyphFragment {
             ascent: bbox.y_max.scaled(ctx),
             descent: -bbox.y_min.scaled(ctx),
             italics_correction: italics,
+            class: match c {
+                ':' => Some(MathClass::Relation),
+                _ => unicode_math_class::class(c),
+            },
         }
     }
 
     pub fn height(&self) -> Abs {
         self.ascent + self.descent
-    }
-
-    pub fn class(&self) -> Option<MathClass> {
-        unicode_math_class::class(self.c)
     }
 
     pub fn to_variant(&self, ctx: &MathContext) -> VariantFragment {
@@ -161,6 +176,7 @@ impl GlyphFragment {
             id: Some(self.id),
             frame: self.to_frame(ctx),
             italics_correction: self.italics_correction,
+            class: self.class,
         }
     }
 
@@ -191,12 +207,7 @@ pub struct VariantFragment {
     pub id: Option<GlyphId>,
     pub frame: Frame,
     pub italics_correction: Abs,
-}
-
-impl VariantFragment {
-    pub fn class(&self) -> Option<MathClass> {
-        unicode_math_class::class(self.c)
-    }
+    pub class: Option<MathClass>,
 }
 
 #[derive(Debug, Clone)]
@@ -204,6 +215,30 @@ pub struct FrameFragment {
     pub frame: Frame,
     pub class: MathClass,
     pub limits: bool,
+    pub spaced: bool,
+}
+
+impl FrameFragment {
+    pub fn new(frame: Frame) -> Self {
+        Self {
+            frame,
+            class: MathClass::Normal,
+            limits: false,
+            spaced: false,
+        }
+    }
+
+    pub fn with_class(self, class: MathClass) -> Self {
+        Self { class, ..self }
+    }
+
+    pub fn with_limits(self, limits: bool) -> Self {
+        Self { limits, ..self }
+    }
+
+    pub fn with_spaced(self, spaced: bool) -> Self {
+        Self { spaced, ..self }
+    }
 }
 
 /// Look up the italics correction for a glyph.

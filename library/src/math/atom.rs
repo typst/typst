@@ -31,7 +31,7 @@ impl LayoutMath for AtomNode {
         {
             // A single letter that is available in the math font.
             if ctx.style.size == MathSize::Display
-                && glyph.class() == Some(MathClass::Large)
+                && glyph.class == Some(MathClass::Large)
             {
                 let height = scaled!(ctx, display_operator_min_height);
                 ctx.push(glyph.stretch_vertical(ctx, height, Abs::zero()));
@@ -49,7 +49,8 @@ impl LayoutMath for AtomNode {
             ctx.push(frame);
         } else {
             // Anything else is handled by Typst's standard text layout.
-            TextNode(self.0.clone()).pack().layout_math(ctx)?;
+            let frame = ctx.layout_non_math(&TextNode(self.0.clone()).pack())?;
+            ctx.push(FrameFragment::new(frame).with_class(MathClass::Alphabetic));
         }
 
         Ok(())

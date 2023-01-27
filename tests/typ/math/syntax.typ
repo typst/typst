@@ -12,8 +12,8 @@
 ```
 Let $x in NN$ be ...
 $ (1 + x/2)^2 $
-$ x arrow:l y $
-$ sum_(n=1)^mu 1 + (2pi (5 + n)) / k $
+$ x arrow.l y $
+$ sum_(n=1)^mu 1 + (2pi(5 + n)) / k $
 $ { x in RR | x "is natural" and x < 10 } $
 $ sqrt(x^2) = frac(x, 1) $
 $ "profit" = "income" - "expenses" $

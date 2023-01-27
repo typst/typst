@@ -139,7 +139,7 @@ fn scripts(
     frame.push_frame(base_pos, base.to_frame(ctx));
     frame.push_frame(sub_pos, sub);
     frame.push_frame(sup_pos, sup);
-    ctx.push(FrameFragment { frame, class, limits: false });
+    ctx.push(FrameFragment::new(frame).with_class(class));
 
     Ok(())
 }
@@ -172,7 +172,7 @@ fn limits(
     frame.push_frame(base_pos, base.to_frame(ctx));
     frame.push_frame(sub_pos, sub);
     frame.push_frame(sup_pos, sup);
-    ctx.push(FrameFragment { frame, class, limits: false });
+    ctx.push(FrameFragment::new(frame).with_class(class));
 
     Ok(())
 }

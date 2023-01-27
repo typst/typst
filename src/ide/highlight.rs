@@ -209,7 +209,12 @@ pub fn highlight(node: &LinkedNode) -> Option<Category> {
         SyntaxKind::Unary => None,
         SyntaxKind::Binary => None,
         SyntaxKind::FieldAccess => match node.parent_kind() {
-            Some(SyntaxKind::Markup | SyntaxKind::Math) => Some(Category::Interpolated),
+            Some(
+                SyntaxKind::Markup
+                | SyntaxKind::Math
+                | SyntaxKind::MathFrac
+                | SyntaxKind::MathScript,
+            ) => Some(Category::Interpolated),
             Some(SyntaxKind::FieldAccess) => node.parent().and_then(highlight),
             _ => None,
         },

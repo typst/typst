@@ -30,6 +30,7 @@ pub(super) struct MathContext<'a, 'b, 'v> {
     pub ttf: &'a ttf_parser::Face<'a>,
     pub table: ttf_parser::math::Table<'a>,
     pub constants: ttf_parser::math::Constants<'a>,
+    pub space_width: Em,
     pub fill: Paint,
     pub lang: Lang,
     pub row: MathRow,
@@ -50,6 +51,14 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         let table = font.ttf().tables().math.unwrap();
         let constants = table.constants.unwrap();
         let size = styles.get(TextNode::SIZE);
+
+        let ttf = font.ttf();
+        let space_width = ttf
+            .glyph_index(' ')
+            .and_then(|id| ttf.glyph_hor_advance(id))
+            .map(|advance| font.to_em(advance))
+            .unwrap_or(THICK);
+
         Self {
             vt,
             outer: styles,
@@ -71,6 +80,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
             ttf: font.ttf(),
             table,
             constants,
+            space_width,
             row: MathRow::new(),
             base_size: size,
             scaled_size: size,
@@ -79,7 +89,16 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
     }
 
     pub fn push(&mut self, fragment: impl Into<MathFragment>) {
-        self.row.push(self.scaled_size, self.style, fragment);
+        self.row
+            .push(self.scaled_size, self.space_width, self.style, fragment);
+    }
+
+    pub fn extend(&mut self, row: MathRow) {
+        let mut iter = row.0.into_iter();
+        if let Some(first) = iter.next() {
+            self.push(first);
+        }
+        self.row.0.extend(iter);
     }
 
     pub fn layout_non_math(&mut self, content: &Content) -> SourceResult<Frame> {

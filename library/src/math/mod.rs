@@ -43,6 +43,7 @@ use self::row::*;
 use self::spacing::*;
 use crate::layout::HNode;
 use crate::layout::ParNode;
+use crate::layout::Spacing;
 use crate::prelude::*;
 use crate::text::LinebreakNode;
 use crate::text::TextNode;
@@ -222,11 +223,23 @@ impl LayoutMath for FormulaNode {
 impl LayoutMath for Content {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         if self.is::<SpaceNode>() {
+            ctx.push(MathFragment::Space);
             return Ok(());
         }
 
         if self.is::<LinebreakNode>() {
             ctx.push(MathFragment::Linebreak);
+            return Ok(());
+        }
+
+        if let Some(node) = self.to::<HNode>() {
+            if let Spacing::Relative(rel) = node.amount {
+                if rel.rel.is_zero() {
+                    ctx.push(MathFragment::Spacing(
+                        rel.abs.resolve(ctx.outer.chain(&ctx.map)),
+                    ));
+                }
+            }
             return Ok(());
         }
 
@@ -242,7 +255,7 @@ impl LayoutMath for Content {
         }
 
         let frame = ctx.layout_non_math(self)?;
-        ctx.push(frame);
+        ctx.push(FrameFragment::new(frame).with_spaced(true));
 
         Ok(())
     }

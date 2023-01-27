@@ -69,9 +69,7 @@ impl LayoutMath for LrNode {
             }
         }
 
-        for fragment in row.0 {
-            ctx.push(fragment);
-        }
+        ctx.extend(row);
 
         Ok(())
     }

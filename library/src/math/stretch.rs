@@ -178,6 +178,7 @@ fn assemble(
         id: None,
         frame,
         italics_correction: Abs::zero(),
+        class: base.class,
     }
 }
 

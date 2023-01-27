@@ -1,10 +1,10 @@
 use super::*;
 
-const ZERO: Em = Em::zero();
-const THIN: Em = Em::new(1.0 / 6.0);
-const MEDIUM: Em = Em::new(2.0 / 9.0);
-const THICK: Em = Em::new(5.0 / 18.0);
-const QUAD: Em = Em::new(1.0);
+pub(super) const ZERO: Em = Em::zero();
+pub(super) const THIN: Em = Em::new(1.0 / 6.0);
+pub(super) const MEDIUM: Em = Em::new(2.0 / 9.0);
+pub(super) const THICK: Em = Em::new(5.0 / 18.0);
+pub(super) const QUAD: Em = Em::new(1.0);
 
 /// Hook up all spacings.
 pub(super) fn define(math: &mut Scope) {
@@ -15,10 +15,20 @@ pub(super) fn define(math: &mut Scope) {
 }
 
 /// Determine the spacing between two fragments in a given style.
-pub(super) fn spacing(left: MathClass, right: MathClass, style: MathStyle) -> Em {
+pub(super) fn spacing(
+    left: &MathFragment,
+    right: &MathFragment,
+    style: MathStyle,
+    space: bool,
+    space_width: Em,
+) -> Em {
     use MathClass::*;
     let script = style.size <= MathSize::Script;
-    match (left, right) {
+    let (Some(l), Some(r)) = (left.class(), right.class()) else {
+        return ZERO;
+    };
+
+    match (l, r) {
         // No spacing before punctuation; thin spacing after punctuation, unless
         // in script size.
         (_, Punctuation) => ZERO,
@@ -33,12 +43,23 @@ pub(super) fn spacing(left: MathClass, right: MathClass, style: MathStyle) -> Em
         (Relation, _) | (_, Relation) if !script => THICK,
 
         // Medium spacing around binary operators, unless in script size.
-        (Vary | Binary, _) | (_, Vary | Binary) if !script => MEDIUM,
+        (Binary, _) | (_, Binary) if !script => MEDIUM,
 
         // Thin spacing around large operators, unless next to a delimiter.
         (Large, Opening | Fence) | (Closing | Fence, Large) => ZERO,
         (Large, _) | (_, Large) => THIN,
 
+        // Spacing around spaced frames.
+        _ if space && (is_spaced(left) || is_spaced(right)) => space_width,
+
         _ => ZERO,
+    }
+}
+
+/// Whether this fragment should react to adjacent spaces.
+fn is_spaced(fragment: &MathFragment) -> bool {
+    match fragment {
+        MathFragment::Frame(frame) => frame.spaced,
+        _ => fragment.class() == Some(MathClass::Fence),
     }
 }

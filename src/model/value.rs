@@ -151,7 +151,6 @@ impl Value {
             Self::Int(v) => item!(math_atom)(format_eco!("{}", v)),
             Self::Float(v) => item!(math_atom)(format_eco!("{}", v)),
             Self::Symbol(v) => item!(math_atom)(v.get().into()),
-            Self::Str(v) => item!(math_atom)(v.into()),
             _ => self.display(),
         }
     }
