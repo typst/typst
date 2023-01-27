@@ -81,12 +81,12 @@ impl Symbol {
     }
 
     /// The characters that are covered by this symbol.
-    pub fn chars(&self) -> impl Iterator<Item = char> {
+    pub fn variants(&self) -> impl Iterator<Item = (&str, char)> {
         let (first, slice) = match self.repr {
-            Repr::Single(c) => (Some(c), [].as_slice()),
+            Repr::Single(c) => (Some(("", c)), [].as_slice()),
             Repr::List(list) => (None, list),
         };
-        first.into_iter().chain(slice.iter().map(|&(_, c)| c))
+        first.into_iter().chain(slice.iter().copied())
     }
 
     /// Possible modifiers.
