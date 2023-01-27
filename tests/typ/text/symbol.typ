@@ -1,27 +1,18 @@
-// Test symbol notation.
+// Test symbols.
 
 ---
-:face:
-:face:unknown:
-:woman:old:
-:turtle:
+#emoji.face
+#emoji.woman.old
+#emoji.turtle
 
 #set text("New Computer Modern Math")
-:arrow:
-:arrow:l:
-:arrow:r:squiggly:
-#symbol(("arrow", "tr", "hook").join(":"))
+#sym.arrow
+#sym.arrow.l
+#sym.arrow.r.squiggly
+#sym.arrow.tr.hook
+
+#sym.arrow.r;this and this#sym.arrow.l;
 
 ---
-Just a: colon. \
-Still :not a symbol. \
-Also not:a symbol \
-:arrow:r:this and this:arrow:l: \
-
----
-#show symbol.where(notation: "my:custom"): "MY"
-This is :my:custom: notation.
-
----
-// Error: 1-14 unknown symbol
-:nonexisting:
+// Error: 13-20 unknown modifier
+#emoji.face.garbage

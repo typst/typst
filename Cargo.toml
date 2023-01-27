@@ -32,7 +32,6 @@ serde = { version = "1", features = ["derive"] }
 siphasher = "0.3"
 subsetter = "0.1"
 svg2pdf = "0.4"
-symmie = { git = "https://github.com/typst/symmie" }
 thin-vec = "0.2"
 tiny-skia = "0.6.2"
 ttf-parser = "0.18.1"

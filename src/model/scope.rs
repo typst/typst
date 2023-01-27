@@ -108,6 +108,15 @@ impl Scope {
         self.0.insert(var.into(), Slot::new(value.into(), Kind::Captured));
     }
 
+    /// Copy definitions from another scope that aren't yet defined in this one.
+    pub fn copy_from(&mut self, other: &Self) {
+        for (name, value) in other.iter() {
+            self.0
+                .entry(name.clone())
+                .or_insert_with(|| Slot::new(value.clone(), Kind::Normal));
+        }
+    }
+
     /// Try to access a variable immutably.
     pub fn get(&self, var: &str) -> Option<&Value> {
         self.0.get(var).map(Slot::read)

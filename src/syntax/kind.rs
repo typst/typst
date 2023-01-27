@@ -24,9 +24,6 @@ pub enum SyntaxKind {
     /// A shorthand for a unicode codepoint. For example, `~` for non-breaking
     /// space or `-?` for a soft hyphen.
     Shorthand,
-    /// Symbol notation: `:arrow:l:`. The string only contains the inner part
-    /// without leading and trailing dot.
-    Symbol,
     /// A smart quote: `'` or `"`.
     SmartQuote,
     /// Strong content: `*Strong*`.
@@ -332,7 +329,6 @@ impl SyntaxKind {
             Self::Parbreak => "paragraph break",
             Self::Escape => "escape sequence",
             Self::Shorthand => "shorthand",
-            Self::Symbol => "symbol notation",
             Self::Strong => "strong content",
             Self::Emph => "emphasized content",
             Self::Raw => "raw block",

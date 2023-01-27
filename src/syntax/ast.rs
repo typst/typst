@@ -89,8 +89,6 @@ pub enum Expr {
     /// A shorthand for a unicode codepoint. For example, `~` for non-breaking
     /// space or `-?` for a soft hyphen.
     Shorthand(Shorthand),
-    /// Symbol notation: `:arrow:l:`.
-    Symbol(Symbol),
     /// A smart quote: `'` or `"`.
     SmartQuote(SmartQuote),
     /// Strong content: `*Strong*`.
@@ -410,18 +408,6 @@ impl Shorthand {
             "<=>" => '⇔',
             _ => panic!("shorthand is invalid"),
         }
-    }
-}
-
-node! {
-    /// Symbol notation: `:arrow:l:`.
-    Symbol
-}
-
-impl Symbol {
-    /// Get the symbol's notation.
-    pub fn get(&self) -> &str {
-        self.0.text().trim_matches(':')
     }
 }
 

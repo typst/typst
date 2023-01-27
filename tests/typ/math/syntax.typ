@@ -19,6 +19,6 @@ $ sqrt(x^2) = frac(x, 1) $
 $ "profit" = "income" - "expenses" $
 $ x < #for i in range(5) [$ #i < $] y $
 $ 1 + 2 = #{1 + 2} $
-$ A sub:eq:not B $
+$ A subset.eq.not B $
 ```
 <table>

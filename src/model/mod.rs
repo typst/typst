@@ -23,6 +23,7 @@ mod module;
 mod ops;
 mod realize;
 mod scope;
+mod symbol;
 mod typeset;
 
 #[doc(hidden)]
@@ -42,5 +43,6 @@ pub use self::realize::*;
 pub use self::scope::*;
 pub use self::str::*;
 pub use self::styles::*;
+pub use self::symbol::*;
 pub use self::typeset::*;
 pub use self::value::*;

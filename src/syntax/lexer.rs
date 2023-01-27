@@ -167,21 +167,12 @@ impl Lexer<'_> {
     fn markup(&mut self, start: usize, c: char) -> SyntaxKind {
         match c {
             '\\' => self.backslash(),
-            ':' if self.s.at(is_id_start) => self.maybe_symbol(),
             '`' => self.raw(),
             'h' if self.s.eat_if("ttp://") => self.link(),
             'h' if self.s.eat_if("ttps://") => self.link(),
             '0'..='9' => self.numbering(start),
             '<' if self.s.at(is_id_continue) => self.label(),
             '@' if self.s.at(is_id_continue) => self.reference(),
-            '#' if self.s.eat_if('{') => SyntaxKind::LeftBrace,
-            '#' if self.s.eat_if('[') => SyntaxKind::LeftBracket,
-            '#' if self.s.at(is_id_start) => {
-                match keyword(self.s.eat_while(is_id_continue)) {
-                    Some(keyword) => keyword,
-                    None => SyntaxKind::Ident,
-                }
-            }
 
             '.' if self.s.eat_if("..") => SyntaxKind::Shorthand,
             '-' if self.s.eat_if("--") => SyntaxKind::Shorthand,
@@ -190,8 +181,7 @@ impl Lexer<'_> {
             '*' if !self.in_word() => SyntaxKind::Star,
             '_' if !self.in_word() => SyntaxKind::Underscore,
 
-            '{' => SyntaxKind::LeftBrace,
-            '}' => SyntaxKind::RightBrace,
+            '#' if !self.s.at(char::is_whitespace) => SyntaxKind::Hashtag,
             '[' => SyntaxKind::LeftBracket,
             ']' => SyntaxKind::RightBracket,
             '\'' => SyntaxKind::SmartQuote,
@@ -238,26 +228,6 @@ impl Lexer<'_> {
         } else {
             self.s.eat();
             SyntaxKind::Escape
-        }
-    }
-
-    fn maybe_symbol(&mut self) -> SyntaxKind {
-        let start = self.s.cursor();
-        let mut end = start;
-        while !self.s.eat_while(is_id_continue).is_empty() && self.s.at(':') {
-            end = self.s.cursor();
-            self.s.eat();
-        }
-
-        self.s.jump(end);
-
-        if start < end {
-            self.s.expect(':');
-            SyntaxKind::Symbol
-        } else if self.mode == LexMode::Markup {
-            SyntaxKind::Colon
-        } else {
-            SyntaxKind::Atom
         }
     }
 
@@ -408,7 +378,6 @@ impl Lexer<'_> {
     fn math(&mut self, start: usize, c: char) -> SyntaxKind {
         match c {
             '\\' => self.backslash(),
-            ':' if self.s.at(is_id_start) => self.maybe_symbol(),
             '"' => self.string(),
 
             '.' if self.s.eat_if("..") => SyntaxKind::Shorthand,
@@ -434,33 +403,15 @@ impl Lexer<'_> {
             '^' => SyntaxKind::Hat,
             '&' => SyntaxKind::MathAlignPoint,
 
-            // Identifiers and symbol notation.
+            // Identifiers.
             c if is_math_id_start(c) && self.s.at(is_math_id_continue) => {
-                self.math_ident()
+                self.s.eat_while(is_math_id_continue);
+                SyntaxKind::MathIdent
             }
 
             // Other math atoms.
             _ => self.atom(start, c),
         }
-    }
-
-    fn math_ident(&mut self) -> SyntaxKind {
-        self.s.eat_while(is_math_id_continue);
-
-        let mut symbol = false;
-        while self.s.eat_if(':') && !self.s.eat_while(char::is_alphanumeric).is_empty() {
-            symbol = true;
-        }
-
-        if symbol {
-            return SyntaxKind::Symbol;
-        }
-
-        if self.s.scout(-1) == Some(':') {
-            self.s.uneat();
-        }
-
-        SyntaxKind::Ident
     }
 
     fn atom(&mut self, start: usize, c: char) -> SyntaxKind {

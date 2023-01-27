@@ -17,6 +17,7 @@ mod script;
 mod spacing;
 mod stretch;
 mod style;
+mod symbols;
 
 pub use self::accent::*;
 pub use self::align::*;
@@ -46,10 +47,10 @@ use crate::prelude::*;
 use crate::text::LinebreakNode;
 use crate::text::TextNode;
 use crate::text::TextSize;
-use crate::text::{families, variant, FallbackList, FontFamily, SpaceNode, SymbolNode};
+use crate::text::{families, variant, FallbackList, FontFamily, SpaceNode};
 
 /// Create a module with all math definitions.
-pub fn module() -> Module {
+pub fn module(sym: &Module) -> Module {
     let mut math = Scope::deduplicating();
     math.def_func::<FormulaNode>("formula");
     math.def_func::<LrNode>("lr");
@@ -77,7 +78,9 @@ pub fn module() -> Module {
     math.def_func::<MonoNode>("mono");
     math.def_func::<BbNode>("bb");
     spacing::define(&mut math);
+    symbols::define(&mut math);
     op::define(&mut math);
+    math.copy_from(sym.scope());
     Module::new("math").with_scope(math)
 }
 
@@ -225,14 +228,6 @@ impl LayoutMath for Content {
         if self.is::<LinebreakNode>() {
             ctx.push(MathFragment::Linebreak);
             return Ok(());
-        }
-
-        if let Some(node) = self.to::<SymbolNode>() {
-            if let Some(c) = symmie::get(&node.0) {
-                return AtomNode(c.into()).layout_math(ctx);
-            } else if let Some(span) = self.span() {
-                bail!(span, "unknown symbol");
-            }
         }
 
         if let Some(node) = self.to::<SequenceNode>() {

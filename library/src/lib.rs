@@ -17,13 +17,14 @@ use self::layout::LayoutRoot;
 
 /// Construct the standard library.
 pub fn build() -> Library {
-    let math = math::module();
-    let global = global(math.clone());
+    let sym = text::sym();
+    let math = math::module(&sym);
+    let global = global(sym, math.clone());
     Library { global, math, styles: styles(), items: items() }
 }
 
 /// Construct the module with global definitions.
-fn global(math: Module) -> Module {
+fn global(sym: Module, math: Module) -> Module {
     let mut global = Scope::deduplicating();
 
     // Basics.
@@ -36,7 +37,6 @@ fn global(math: Module) -> Module {
     // Text.
     global.def_func::<text::TextNode>("text");
     global.def_func::<text::LinebreakNode>("linebreak");
-    global.def_func::<text::SymbolNode>("symbol");
     global.def_func::<text::SmartQuoteNode>("smartquote");
     global.def_func::<text::StrongNode>("strong");
     global.def_func::<text::EmphNode>("emph");
@@ -49,6 +49,8 @@ fn global(math: Module) -> Module {
     global.def_func::<text::StrikeNode>("strike");
     global.def_func::<text::OverlineNode>("overline");
     global.def_func::<text::RawNode>("raw");
+    global.define("sym", sym);
+    global.define("emoji", text::emoji());
 
     // Math.
     global.define("math", math);
@@ -169,7 +171,6 @@ fn items() -> LangItems {
         text: |text| text::TextNode(text).pack(),
         text_id: NodeId::of::<text::TextNode>(),
         text_str: |content| Some(&content.to::<text::TextNode>()?.0),
-        symbol: |notation| text::SymbolNode(notation).pack(),
         smart_quote: |double| text::SmartQuoteNode { double }.pack(),
         parbreak: || layout::ParbreakNode.pack(),
         strong: |body| text::StrongNode(body).pack(),

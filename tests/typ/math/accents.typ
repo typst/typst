@@ -23,6 +23,6 @@ $ accent(a, grave),
   accent(a, overline),
   accent(a, breve),
   accent(a, dot),
-  accent(a, dia),
+  accent(a, diaer),
   accent(a, caron),
   accent(a, arrow) $

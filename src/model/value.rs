@@ -7,10 +7,12 @@ use std::sync::Arc;
 use siphasher::sip128::{Hasher128, SipHasher};
 
 use super::{
-    format_str, ops, Args, Array, Cast, CastInfo, Content, Dict, Func, Label, Module, Str,
+    format_str, ops, Args, Array, Cast, CastInfo, Content, Dict, Func, Label, Module,
+    Str, Symbol,
 };
 use crate::diag::StrResult;
 use crate::geom::{Abs, Angle, Color, Em, Fr, Length, Ratio, Rel, RgbaColor};
+use crate::syntax::Span;
 use crate::util::{format_eco, EcoString};
 
 /// A computational value.
@@ -38,6 +40,8 @@ pub enum Value {
     Fraction(Fr),
     /// A color value: `#f79143ff`.
     Color(Color),
+    /// A symbol: `arrow.l`.
+    Symbol(Symbol),
     /// A string: `"string"`.
     Str(Str),
     /// A label: `<intro>`.
@@ -81,6 +85,7 @@ impl Value {
             Self::Relative(_) => Rel::<Length>::TYPE_NAME,
             Self::Fraction(_) => Fr::TYPE_NAME,
             Self::Color(_) => Color::TYPE_NAME,
+            Self::Symbol(_) => Symbol::TYPE_NAME,
             Self::Str(_) => Str::TYPE_NAME,
             Self::Label(_) => Label::TYPE_NAME,
             Self::Content(_) => Content::TYPE_NAME,
@@ -98,9 +103,31 @@ impl Value {
         T::cast(self)
     }
 
+    /// Try to access a field on the value.
+    pub fn field(&self, field: &str) -> StrResult<Value> {
+        match self {
+            Self::Symbol(symbol) => symbol.clone().modified(&field).map(Self::Symbol),
+            Self::Dict(dict) => dict.at(&field).cloned(),
+            Self::Content(content) => content
+                .field(&field)
+                .ok_or_else(|| format_eco!("unknown field `{field}`")),
+            Self::Module(module) => module.get(&field).cloned(),
+            v => Err(format_eco!("cannot access fields on type {}", v.type_name())),
+        }
+    }
+
     /// Return the debug representation of the value.
     pub fn repr(&self) -> Str {
         format_str!("{:?}", self)
+    }
+
+    /// Attach a span to the value, if possibly.
+    pub fn spanned(self, span: Span) -> Self {
+        match self {
+            Value::Content(v) => Value::Content(v.spanned(span)),
+            Value::Func(v) => Value::Func(v.spanned(span)),
+            v => v,
+        }
     }
 
     /// Return the display representation of the value.
@@ -110,6 +137,7 @@ impl Value {
             Self::Int(v) => item!(text)(format_eco!("{}", v)),
             Self::Float(v) => item!(text)(format_eco!("{}", v)),
             Self::Str(v) => item!(text)(v.into()),
+            Self::Symbol(v) => item!(text)(v.get().into()),
             Self::Content(v) => v,
             Self::Func(_) => Content::empty(),
             Self::Module(module) => module.content(),
@@ -122,6 +150,8 @@ impl Value {
         match self {
             Self::Int(v) => item!(math_atom)(format_eco!("{}", v)),
             Self::Float(v) => item!(math_atom)(format_eco!("{}", v)),
+            Self::Symbol(v) => item!(math_atom)(v.get().into()),
+            Self::Str(v) => item!(math_atom)(v.into()),
             _ => self.display(),
         }
     }
@@ -147,6 +177,7 @@ impl Debug for Value {
             Self::Relative(v) => Debug::fmt(v, f),
             Self::Fraction(v) => Debug::fmt(v, f),
             Self::Color(v) => Debug::fmt(v, f),
+            Self::Symbol(v) => Debug::fmt(v, f),
             Self::Str(v) => Debug::fmt(v, f),
             Self::Label(v) => Debug::fmt(v, f),
             Self::Content(_) => f.pad("[...]"),
@@ -187,6 +218,7 @@ impl Hash for Value {
             Self::Relative(v) => v.hash(state),
             Self::Fraction(v) => v.hash(state),
             Self::Color(v) => v.hash(state),
+            Self::Symbol(v) => v.hash(state),
             Self::Str(v) => v.hash(state),
             Self::Label(v) => v.hash(state),
             Self::Content(v) => v.hash(state),
@@ -398,11 +430,13 @@ primitive! { Rel<Length>:  "relative length",
 }
 primitive! { Fr: "fraction", Fraction }
 primitive! { Color: "color", Color }
+primitive! { Symbol: "symbol", Symbol }
 primitive! { Str: "string", Str }
 primitive! { Label: "label", Label }
 primitive! { Content: "content",
     Content,
     None => Content::empty(),
+    Symbol(symbol) => item!(text)(symbol.get().into()),
     Str(text) => item!(text)(text.into())
 }
 primitive! { Array: "array", Array }
