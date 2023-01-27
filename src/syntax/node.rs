@@ -150,6 +150,7 @@ impl SyntaxNode {
     }
 
     /// Convert the child to another kind.
+    #[track_caller]
     pub(super) fn convert_to_kind(&mut self, kind: SyntaxKind) {
         debug_assert!(!kind.is_error());
         match &mut self.0 {
@@ -295,6 +296,7 @@ struct LeafNode {
 
 impl LeafNode {
     /// Create a new leaf node.
+    #[track_caller]
     fn new(kind: SyntaxKind, text: impl Into<EcoString>) -> Self {
         debug_assert!(!kind.is_error());
         Self { kind, text: text.into(), span: Span::detached() }
@@ -340,6 +342,7 @@ struct InnerNode {
 
 impl InnerNode {
     /// Create a new inner node with the given kind and children.
+    #[track_caller]
     fn new(kind: SyntaxKind, children: Vec<SyntaxNode>) -> Self {
         debug_assert!(!kind.is_error());
 

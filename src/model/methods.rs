@@ -210,3 +210,36 @@ pub fn is_accessor(method: &str) -> bool {
 fn missing_method(type_name: &str, method: &str) -> String {
     format!("type {type_name} has no method `{method}`")
 }
+
+/// List the available methods for a type.
+pub fn methods_on(type_name: &str) -> &[&'static str] {
+    match type_name {
+        "color" => &["lighten", "darken", "negate"],
+        "string" => &[
+            "len",
+            "at",
+            "contains",
+            "ends-with",
+            "find",
+            "first",
+            "last",
+            "match",
+            "matches",
+            "position",
+            "replace",
+            "slice",
+            "split",
+            "starts-with",
+            "trim",
+        ],
+        "array" => &[
+            "all", "any", "at", "contains", "filter", "find", "first", "flatten", "fold",
+            "insert", "join", "last", "len", "map", "pop", "position", "push", "remove",
+            "rev", "slice", "sorted",
+        ],
+        "dictionary" => &["at", "insert", "keys", "len", "pairs", "remove", "values"],
+        "function" => &["where", "with"],
+        "arguments" => &["named", "pos"],
+        _ => &[],
+    }
+}

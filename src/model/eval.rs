@@ -46,7 +46,12 @@ pub fn eval(
     let route = unsafe { Route::insert(route, id) };
     let scopes = Scopes::new(Some(library));
     let mut vm = Vm::new(world, route.track(), tracer, id, scopes, 0);
-    let result = source.ast()?.eval(&mut vm);
+    let root = match source.root().cast::<ast::Markup>() {
+        Some(markup) if vm.traced.is_some() => markup,
+        _ => source.ast()?,
+    };
+
+    let result = root.eval(&mut vm);
 
     // Handle control flow.
     if let Some(flow) = vm.flow {

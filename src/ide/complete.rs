@@ -3,7 +3,7 @@ use std::collections::{BTreeSet, HashSet};
 use if_chain::if_chain;
 
 use super::{analyze, plain_docs_sentence, summarize_font_family};
-use crate::model::{CastInfo, Scope, Value};
+use crate::model::{methods_on, CastInfo, Scope, Value};
 use crate::syntax::{ast, LinkedNode, Source, SyntaxKind, SyntaxNode};
 use crate::util::{format_eco, EcoString};
 use crate::World;
@@ -271,7 +271,7 @@ fn math_completions(ctx: &mut CompletionContext) {
 
 /// Complete field accesses.
 fn complete_field_accesses(ctx: &mut CompletionContext) -> bool {
-    // Behind an identifier plus dot: "emoji.|".
+    // Behind an expression plus dot: "emoji.|".
     if_chain! {
         if ctx.leaf.kind() == SyntaxKind::Dot
             || (matches!(ctx.leaf.kind(), SyntaxKind::Text | SyntaxKind::MathAtom)
@@ -325,7 +325,16 @@ fn field_access_completions(ctx: &mut CompletionContext, value: &Value) {
                 ctx.value_completion(Some(name.clone()), value, None);
             }
         }
-        _ => {}
+        _ => {
+            for &method in methods_on(value.type_name()) {
+                ctx.completions.push(Completion {
+                    kind: CompletionKind::Func,
+                    label: method.into(),
+                    apply: Some(format_eco!("{method}(${{}})")),
+                    detail: None,
+                })
+            }
+        }
     }
 }
 

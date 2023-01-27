@@ -38,6 +38,7 @@ pub use self::dict::*;
 pub use self::eval::*;
 pub use self::func::*;
 pub use self::library::*;
+pub use self::methods::*;
 pub use self::module::*;
 pub use self::realize::*;
 pub use self::scope::*;

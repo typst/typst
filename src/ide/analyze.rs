@@ -22,6 +22,8 @@ pub fn analyze(world: &(dyn World + 'static), node: &LinkedNode) -> Vec<Value> {
             return tracer.finish();
         }
 
+        Some(ast::Expr::Str(s)) => return vec![Value::Str(s.get().into())],
+
         Some(ast::Expr::FieldAccess(access)) => {
             if let Some(child) = node.children().next() {
                 return analyze(world, &child)

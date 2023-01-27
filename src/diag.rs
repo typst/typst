@@ -140,8 +140,11 @@ impl<T> Trace<T> for SourceResult<T> {
         F: Fn() -> Tracepoint,
     {
         self.map_err(|mut errors| {
+            if span.is_detached() {
+                return errors;
+            }
             let range = world.source(span.source()).range(span);
-            for error in errors.iter_mut() {
+            for error in errors.iter_mut().filter(|e| !e.span.is_detached()) {
                 // Skip traces that surround the error.
                 let error_range = world.source(error.span.source()).range(error.span);
                 if range.start <= error_range.start && range.end >= error_range.end {
