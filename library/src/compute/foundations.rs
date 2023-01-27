@@ -80,8 +80,13 @@ pub fn repr(args: &mut Args) -> SourceResult<Value> {
 #[func]
 pub fn assert(args: &mut Args) -> SourceResult<Value> {
     let Spanned { v, span } = args.expect::<Spanned<bool>>("condition")?;
+    let message = args.named::<EcoString>("message")?;
     if !v {
-        bail!(span, "assertion failed");
+        if let Some(message) = message {
+            bail!(span, "assertion failed: {}", message);
+        } else {
+            bail!(span, "assertion failed");
+        }
     }
     Ok(Value::None)
 }
