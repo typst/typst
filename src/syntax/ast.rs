@@ -29,7 +29,7 @@ pub trait AstNode: Sized {
 
 macro_rules! node {
     ($(#[$attr:meta])* $name:ident) => {
-        #[derive(Debug, Clone, PartialEq, Hash)]
+        #[derive(Debug, Default, Clone, PartialEq, Hash)]
         #[repr(transparent)]
         $(#[$attr])*
         pub struct $name(SyntaxNode);
@@ -114,18 +114,22 @@ pub enum Expr {
     /// An item in a term list: `/ Term: Details`.
     Term(TermItem),
     /// A math formula: `$x$`, `$ x^2 $`.
+    Formula(Formula),
+    /// A math formula: `$x$`, `$ x^2 $`.
     Math(Math),
     /// An atom in a math formula: `x`, `+`, `12`.
-    Atom(Atom),
+    MathAtom(MathAtom),
+    /// An identifier in a math formula: `pi`.
+    MathIdent(MathIdent),
+    /// An alignment point in a math formula: `&`.
+    MathAlignPoint(MathAlignPoint),
     /// A subsection in a math formula that is surrounded by matched delimiters:
     /// `[x + y]`.
-    Delimited(Delimited),
+    MathDelimited(MathDelimited),
     /// A base with optional sub- and superscripts in a math formula: `a_1^2`.
-    Script(Script),
+    MathScript(MathScript),
     /// A fraction in a math formula: `x/2`.
-    Frac(Frac),
-    /// An alignment point in a math formula: `&`.
-    AlignPoint(AlignPoint),
+    MathFrac(MathFrac),
     /// An identifier: `left`.
     Ident(Ident),
     /// The `none` literal.
@@ -205,7 +209,6 @@ impl AstNode for Expr {
             SyntaxKind::Text => node.cast().map(Self::Text),
             SyntaxKind::Escape => node.cast().map(Self::Escape),
             SyntaxKind::Shorthand => node.cast().map(Self::Shorthand),
-            SyntaxKind::Symbol => node.cast().map(Self::Symbol),
             SyntaxKind::SmartQuote => node.cast().map(Self::SmartQuote),
             SyntaxKind::Strong => node.cast().map(Self::Strong),
             SyntaxKind::Emph => node.cast().map(Self::Emph),
@@ -217,12 +220,14 @@ impl AstNode for Expr {
             SyntaxKind::ListItem => node.cast().map(Self::List),
             SyntaxKind::EnumItem => node.cast().map(Self::Enum),
             SyntaxKind::TermItem => node.cast().map(Self::Term),
+            SyntaxKind::Formula => node.cast().map(Self::Formula),
             SyntaxKind::Math => node.cast().map(Self::Math),
-            SyntaxKind::Atom => node.cast().map(Self::Atom),
-            SyntaxKind::Delimited => node.cast().map(Self::Delimited),
-            SyntaxKind::Script => node.cast().map(Self::Script),
-            SyntaxKind::Frac => node.cast().map(Self::Frac),
-            SyntaxKind::AlignPoint => node.cast().map(Self::AlignPoint),
+            SyntaxKind::MathAtom => node.cast().map(Self::MathAtom),
+            SyntaxKind::MathIdent => node.cast().map(Self::MathIdent),
+            SyntaxKind::MathAlignPoint => node.cast().map(Self::MathAlignPoint),
+            SyntaxKind::MathDelimited => node.cast().map(Self::MathDelimited),
+            SyntaxKind::MathScript => node.cast().map(Self::MathScript),
+            SyntaxKind::MathFrac => node.cast().map(Self::MathFrac),
             SyntaxKind::Ident => node.cast().map(Self::Ident),
             SyntaxKind::None => node.cast().map(Self::None),
             SyntaxKind::Auto => node.cast().map(Self::Auto),
@@ -265,7 +270,6 @@ impl AstNode for Expr {
             Self::Parbreak(v) => v.as_untyped(),
             Self::Escape(v) => v.as_untyped(),
             Self::Shorthand(v) => v.as_untyped(),
-            Self::Symbol(v) => v.as_untyped(),
             Self::SmartQuote(v) => v.as_untyped(),
             Self::Strong(v) => v.as_untyped(),
             Self::Emph(v) => v.as_untyped(),
@@ -277,12 +281,14 @@ impl AstNode for Expr {
             Self::List(v) => v.as_untyped(),
             Self::Enum(v) => v.as_untyped(),
             Self::Term(v) => v.as_untyped(),
+            Self::Formula(v) => v.as_untyped(),
             Self::Math(v) => v.as_untyped(),
-            Self::Atom(v) => v.as_untyped(),
-            Self::Delimited(v) => v.as_untyped(),
-            Self::Script(v) => v.as_untyped(),
-            Self::Frac(v) => v.as_untyped(),
-            Self::AlignPoint(v) => v.as_untyped(),
+            Self::MathAtom(v) => v.as_untyped(),
+            Self::MathIdent(v) => v.as_untyped(),
+            Self::MathAlignPoint(v) => v.as_untyped(),
+            Self::MathDelimited(v) => v.as_untyped(),
+            Self::MathScript(v) => v.as_untyped(),
+            Self::MathFrac(v) => v.as_untyped(),
             Self::Ident(v) => v.as_untyped(),
             Self::None(v) => v.as_untyped(),
             Self::Auto(v) => v.as_untyped(),
@@ -314,6 +320,12 @@ impl AstNode for Expr {
             Self::Continue(v) => v.as_untyped(),
             Self::Return(v) => v.as_untyped(),
         }
+    }
+}
+
+impl Default for Expr {
+    fn default() -> Self {
+        Expr::Space(Space::default())
     }
 }
 
@@ -360,9 +372,9 @@ impl Escape {
             u32::from_str_radix(hex, 16)
                 .ok()
                 .and_then(std::char::from_u32)
-                .expect("unicode escape is invalid")
+                .unwrap_or_default()
         } else {
-            s.eat().expect("escape is missing escaped character")
+            s.eat().unwrap_or_default()
         }
     }
 }
@@ -378,10 +390,11 @@ impl Shorthand {
     pub fn get(&self) -> char {
         match self.0.text().as_str() {
             "~" => '\u{00A0}',
-            "..." => '\u{2026}',
             "--" => '\u{2013}',
             "---" => '\u{2014}',
             "-?" => '\u{00AD}',
+            "..." => '…',
+            "*" => '∗',
             "!=" => '≠',
             "<=" => '≤',
             ">=" => '≥',
@@ -432,7 +445,7 @@ node! {
 impl Strong {
     /// The contents of the strong node.
     pub fn body(&self) -> Markup {
-        self.0.cast_first_match().expect("strong emphasis is missing body")
+        self.0.cast_first_match().unwrap_or_default()
     }
 }
 
@@ -444,7 +457,7 @@ node! {
 impl Emph {
     /// The contents of the emphasis node.
     pub fn body(&self) -> Markup {
-        self.0.cast_first_match().expect("emphasis is missing body")
+        self.0.cast_first_match().unwrap_or_default()
     }
 }
 
@@ -568,7 +581,7 @@ node! {
 impl Heading {
     /// The contents of the heading.
     pub fn body(&self) -> Markup {
-        self.0.cast_first_match().expect("heading is missing markup body")
+        self.0.cast_first_match().unwrap_or_default()
     }
 
     /// The section depth (numer of equals signs).
@@ -577,7 +590,7 @@ impl Heading {
             .children()
             .find(|node| node.kind() == SyntaxKind::HeadingMarker)
             .and_then(|node| node.len().try_into().ok())
-            .expect("heading is missing marker")
+            .unwrap_or(NonZeroUsize::new(1).unwrap())
     }
 }
 
@@ -589,7 +602,7 @@ node! {
 impl ListItem {
     /// The contents of the list item.
     pub fn body(&self) -> Markup {
-        self.0.cast_first_match().expect("list item is missing body")
+        self.0.cast_first_match().unwrap_or_default()
     }
 }
 
@@ -609,7 +622,7 @@ impl EnumItem {
 
     /// The contents of the list item.
     pub fn body(&self) -> Markup {
-        self.0.cast_first_match().expect("enum item is missing body")
+        self.0.cast_first_match().unwrap_or_default()
     }
 }
 
@@ -621,41 +634,53 @@ node! {
 impl TermItem {
     /// The term described by the item.
     pub fn term(&self) -> Markup {
-        self.0.cast_first_match().expect("term list item is missing term")
+        self.0.cast_first_match().unwrap_or_default()
     }
 
     /// The description of the term.
     pub fn description(&self) -> Markup {
-        self.0
-            .cast_last_match()
-            .expect("term list item is missing description")
+        self.0.cast_last_match().unwrap_or_default()
     }
 }
 
 node! {
     /// A math formula: `$x$`, `$ x^2 $`.
-    Math
+    Formula
 }
 
-impl Math {
-    /// The expressions the formula consists of.
-    pub fn exprs(&self) -> impl DoubleEndedIterator<Item = Expr> + '_ {
-        self.0.children().filter_map(Expr::cast_with_space)
+impl Formula {
+    /// The contained math.
+    pub fn body(&self) -> Math {
+        self.0.cast_first_match().unwrap_or_default()
     }
 
     /// Whether the formula should be displayed as a separate block.
     pub fn block(&self) -> bool {
-        matches!(self.exprs().next(), Some(Expr::Space(_)))
-            && matches!(self.exprs().last(), Some(Expr::Space(_)))
+        let is_space = |node: Option<&SyntaxNode>| {
+            node.map(SyntaxNode::kind) == Some(SyntaxKind::Space)
+        };
+        is_space(self.0.children().nth(1)) && is_space(self.0.children().nth_back(1))
+    }
+}
+
+node! {
+    /// Math markup.
+    Math
+}
+
+impl Math {
+    /// The expressions the mathematical content consists of.
+    pub fn exprs(&self) -> impl DoubleEndedIterator<Item = Expr> + '_ {
+        self.0.children().filter_map(Expr::cast_with_space)
     }
 }
 
 node! {
     /// A atom in a formula: `x`, `+`, `12`.
-    Atom
+    MathAtom
 }
 
-impl Atom {
+impl MathAtom {
     /// Get the atom's text.
     pub fn get(&self) -> &EcoString {
         self.0.text()
@@ -663,27 +688,72 @@ impl Atom {
 }
 
 node! {
-    /// A subsection in a math formula that is surrounded by matched delimiters:
-    /// `[x + y]`.
-    Delimited
+    /// An identifier in a math formula: `pi`.
+    MathIdent
 }
 
-impl Delimited {
+impl MathIdent {
+    /// Get the identifier.
+    pub fn get(&self) -> &EcoString {
+        self.0.text()
+    }
+
+    /// Take out the contained identifier.
+    pub fn take(self) -> EcoString {
+        self.0.into_text()
+    }
+
+    /// Get the identifier as a string slice.
+    pub fn as_str(&self) -> &str {
+        self.get()
+    }
+}
+
+impl Deref for MathIdent {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        self.as_str()
+    }
+}
+
+node! {
+    /// An alignment point in a formula: `&`.
+    MathAlignPoint
+}
+
+node! {
+    /// A subsection in a math formula that is surrounded by matched delimiters:
+    /// `[x + y]`.
+    MathDelimited
+}
+
+impl MathDelimited {
+    /// The opening delimiter.
+    pub fn open(&self) -> MathAtom {
+        self.0.cast_first_match().unwrap_or_default()
+    }
+
     /// The contents, including the delimiters.
-    pub fn exprs(&self) -> impl DoubleEndedIterator<Item = Expr> + '_ {
-        self.0.children().filter_map(Expr::cast_with_space)
+    pub fn body(&self) -> Math {
+        self.0.cast_first_match().unwrap_or_default()
+    }
+
+    /// The closing delimiter.
+    pub fn close(&self) -> MathAtom {
+        self.0.cast_last_match().unwrap_or_default()
     }
 }
 
 node! {
     /// A base with an optional sub- and superscript in a formula: `a_1^2`.
-    Script
+    MathScript
 }
 
-impl Script {
+impl MathScript {
     /// The base of the script.
     pub fn base(&self) -> Expr {
-        self.0.cast_first_match().expect("script node is missing base")
+        self.0.cast_first_match().unwrap_or_default()
     }
 
     /// The subscript.
@@ -705,24 +775,19 @@ impl Script {
 
 node! {
     /// A fraction in a formula: `x/2`
-    Frac
+    MathFrac
 }
 
-impl Frac {
+impl MathFrac {
     /// The numerator.
     pub fn num(&self) -> Expr {
-        self.0.cast_first_match().expect("fraction is missing numerator")
+        self.0.cast_first_match().unwrap_or_default()
     }
 
     /// The denominator.
     pub fn denom(&self) -> Expr {
-        self.0.cast_last_match().expect("fraction is missing denominator")
+        self.0.cast_last_match().unwrap_or_default()
     }
-}
-
-node! {
-    /// An alignment point in a formula: `&`.
-    AlignPoint
 }
 
 node! {
@@ -732,17 +797,13 @@ node! {
 
 impl Ident {
     /// Get the identifier.
-    pub fn get(&self) -> &str {
-        self.0.text().trim_start_matches('#')
+    pub fn get(&self) -> &EcoString {
+        self.0.text()
     }
 
     /// Take out the contained identifier.
     pub fn take(self) -> EcoString {
-        let text = self.0.into_text();
-        match text.strip_prefix('#') {
-            Some(text) => text.into(),
-            Option::None => text,
-        }
+        self.0.into_text()
     }
 
     /// Get the identifier as a string slice.
@@ -789,7 +850,7 @@ node! {
 impl Int {
     /// Get the integer value.
     pub fn get(&self) -> i64 {
-        self.0.text().parse().expect("integer is invalid")
+        self.0.text().parse().unwrap_or_default()
     }
 }
 
@@ -801,7 +862,7 @@ node! {
 impl Float {
     /// Get the floating-point value.
     pub fn get(&self) -> f64 {
-        self.0.text().parse().expect("float is invalid")
+        self.0.text().parse().unwrap_or_default()
     }
 }
 
@@ -821,7 +882,7 @@ impl Numeric {
             .count();
 
         let split = text.len() - count;
-        let value = text[..split].parse().expect("number is invalid");
+        let value = text[..split].parse().unwrap_or_default();
         let unit = match &text[split..] {
             "pt" => Unit::Length(AbsUnit::Pt),
             "mm" => Unit::Length(AbsUnit::Mm),
@@ -910,7 +971,19 @@ node! {
 }
 
 impl CodeBlock {
-    /// The list of expressions contained in the block.
+    /// The contained code.
+    pub fn body(&self) -> Code {
+        self.0.cast_first_match().unwrap_or_default()
+    }
+}
+
+node! {
+    /// Code.
+    Code
+}
+
+impl Code {
+    /// The list of expressions contained in the code.
     pub fn exprs(&self) -> impl DoubleEndedIterator<Item = Expr> + '_ {
         self.0.children().filter_map(SyntaxNode::cast)
     }
@@ -924,7 +997,7 @@ node! {
 impl ContentBlock {
     /// The contained markup.
     pub fn body(&self) -> Markup {
-        self.0.cast_first_match().expect("content block is missing body")
+        self.0.cast_first_match().unwrap_or_default()
     }
 }
 
@@ -936,9 +1009,7 @@ node! {
 impl Parenthesized {
     /// The wrapped expression.
     pub fn expr(&self) -> Expr {
-        self.0
-            .cast_first_match()
-            .expect("parenthesized expression is missing expression")
+        self.0.cast_first_match().unwrap_or_default()
     }
 }
 
@@ -1029,12 +1100,12 @@ node! {
 impl Named {
     /// The name: `thickness`.
     pub fn name(&self) -> Ident {
-        self.0.cast_first_match().expect("named pair is missing name")
+        self.0.cast_first_match().unwrap_or_default()
     }
 
     /// The right-hand side of the pair: `3pt`.
     pub fn expr(&self) -> Expr {
-        self.0.cast_last_match().expect("named pair is missing expression")
+        self.0.cast_last_match().unwrap_or_default()
     }
 }
 
@@ -1049,12 +1120,12 @@ impl Keyed {
         self.0
             .children()
             .find_map(|node| node.cast::<Str>())
-            .expect("keyed pair is missing key")
+            .unwrap_or_default()
     }
 
     /// The right-hand side of the pair: `true`.
     pub fn expr(&self) -> Expr {
-        self.0.cast_last_match().expect("keyed pair is missing expression")
+        self.0.cast_last_match().unwrap_or_default()
     }
 }
 
@@ -1069,12 +1140,12 @@ impl Unary {
         self.0
             .children()
             .find_map(|node| UnOp::from_kind(node.kind()))
-            .expect("unary operation is missing operator")
+            .unwrap_or(UnOp::Pos)
     }
 
     /// The expression to operate on: `x`.
     pub fn expr(&self) -> Expr {
-        self.0.cast_last_match().expect("unary operation is missing child")
+        self.0.cast_last_match().unwrap_or_default()
     }
 }
 
@@ -1137,21 +1208,17 @@ impl Binary {
                 SyntaxKind::In if not => Some(BinOp::NotIn),
                 _ => BinOp::from_kind(node.kind()),
             })
-            .expect("binary operation is missing operator")
+            .unwrap_or(BinOp::Add)
     }
 
     /// The left-hand side of the operation: `a`.
     pub fn lhs(&self) -> Expr {
-        self.0
-            .cast_first_match()
-            .expect("binary operation is missing left-hand side")
+        self.0.cast_first_match().unwrap_or_default()
     }
 
     /// The right-hand side of the operation: `b`.
     pub fn rhs(&self) -> Expr {
-        self.0
-            .cast_last_match()
-            .expect("binary operation is missing right-hand side")
+        self.0.cast_last_match().unwrap_or_default()
     }
 }
 
@@ -1317,12 +1384,12 @@ node! {
 impl FieldAccess {
     /// The expression to access the field on.
     pub fn target(&self) -> Expr {
-        self.0.cast_first_match().expect("field access is missing object")
+        self.0.cast_first_match().unwrap_or_default()
     }
 
     /// The name of the field.
     pub fn field(&self) -> Ident {
-        self.0.cast_last_match().expect("field access is missing name")
+        self.0.cast_last_match().unwrap_or_default()
     }
 }
 
@@ -1334,14 +1401,12 @@ node! {
 impl FuncCall {
     /// The function to call.
     pub fn callee(&self) -> Expr {
-        self.0.cast_first_match().expect("function call is missing callee")
+        self.0.cast_first_match().unwrap_or_default()
     }
 
     /// The arguments to the function.
     pub fn args(&self) -> Args {
-        self.0
-            .cast_last_match()
-            .expect("function call is missing argument list")
+        self.0.cast_last_match().unwrap_or_default()
     }
 }
 
@@ -1353,19 +1418,17 @@ node! {
 impl MethodCall {
     /// The expression to call the method on.
     pub fn target(&self) -> Expr {
-        self.0.cast_first_match().expect("method call is missing target")
+        self.0.cast_first_match().unwrap_or_default()
     }
 
     /// The name of the method.
     pub fn method(&self) -> Ident {
-        self.0.cast_last_match().expect("method call is missing name")
+        self.0.cast_last_match().unwrap_or_default()
     }
 
     /// The arguments to the method.
     pub fn args(&self) -> Args {
-        self.0
-            .cast_last_match()
-            .expect("method call is missing argument list")
+        self.0.cast_last_match().unwrap_or_default()
     }
 }
 
@@ -1428,14 +1491,13 @@ impl Closure {
         self.0
             .children()
             .find(|x| x.kind() == SyntaxKind::Params)
-            .expect("closure is missing parameter list")
-            .children()
+            .map_or([].iter(), |params| params.children())
             .filter_map(SyntaxNode::cast)
     }
 
     /// The body of the closure.
     pub fn body(&self) -> Expr {
-        self.0.cast_last_match().expect("closure is missing body")
+        self.0.cast_last_match().unwrap_or_default()
     }
 }
 
@@ -1479,10 +1541,8 @@ impl LetBinding {
     pub fn binding(&self) -> Ident {
         match self.0.cast_first_match() {
             Some(Expr::Ident(binding)) => binding,
-            Some(Expr::Closure(closure)) => {
-                closure.name().expect("let-bound closure is missing name")
-            }
-            _ => panic!("let is missing binding"),
+            Some(Expr::Closure(closure)) => closure.name().unwrap_or_default(),
+            _ => Ident::default(),
         }
     }
 
@@ -1506,12 +1566,12 @@ node! {
 impl SetRule {
     /// The function to set style properties for.
     pub fn target(&self) -> Expr {
-        self.0.cast_first_match().expect("set rule is missing target")
+        self.0.cast_first_match().unwrap_or_default()
     }
 
     /// The style properties to set.
     pub fn args(&self) -> Args {
-        self.0.cast_last_match().expect("set rule is missing argument list")
+        self.0.cast_last_match().unwrap_or_default()
     }
 
     /// A condition under which the set rule applies.
@@ -1540,7 +1600,7 @@ impl ShowRule {
 
     /// The transformation recipe.
     pub fn transform(&self) -> Expr {
-        self.0.cast_last_match().expect("show rule is missing transform")
+        self.0.cast_last_match().unwrap_or_default()
     }
 }
 
@@ -1552,7 +1612,7 @@ node! {
 impl Conditional {
     /// The condition which selects the body to evaluate.
     pub fn condition(&self) -> Expr {
-        self.0.cast_first_match().expect("conditional is missing condition")
+        self.0.cast_first_match().unwrap_or_default()
     }
 
     /// The expression to evaluate if the condition is true.
@@ -1561,7 +1621,7 @@ impl Conditional {
             .children()
             .filter_map(SyntaxNode::cast)
             .nth(1)
-            .expect("conditional is missing body")
+            .unwrap_or_default()
     }
 
     /// The expression to evaluate if the condition is false.
@@ -1578,12 +1638,12 @@ node! {
 impl WhileLoop {
     /// The condition which selects whether to evaluate the body.
     pub fn condition(&self) -> Expr {
-        self.0.cast_first_match().expect("while loop is missing condition")
+        self.0.cast_first_match().unwrap_or_default()
     }
 
     /// The expression to evaluate while the condition is true.
     pub fn body(&self) -> Expr {
-        self.0.cast_last_match().expect("while loop is missing body")
+        self.0.cast_last_match().unwrap_or_default()
     }
 }
 
@@ -1595,17 +1655,17 @@ node! {
 impl ForLoop {
     /// The pattern to assign to.
     pub fn pattern(&self) -> ForPattern {
-        self.0.cast_first_match().expect("for loop is missing pattern")
+        self.0.cast_first_match().unwrap_or_default()
     }
 
     /// The expression to iterate over.
     pub fn iter(&self) -> Expr {
-        self.0.cast_first_match().expect("for loop is missing iterable")
+        self.0.cast_first_match().unwrap_or_default()
     }
 
     /// The expression to evaluate for each iteration.
     pub fn body(&self) -> Expr {
-        self.0.cast_last_match().expect("for loop is missing body")
+        self.0.cast_last_match().unwrap_or_default()
     }
 }
 
@@ -1628,7 +1688,7 @@ impl ForPattern {
 
     /// The value part of the pattern.
     pub fn value(&self) -> Ident {
-        self.0.cast_last_match().expect("for loop pattern is missing value")
+        self.0.cast_last_match().unwrap_or_default()
     }
 }
 
@@ -1640,7 +1700,7 @@ node! {
 impl ModuleImport {
     /// The module or path from which the items should be imported.
     pub fn source(&self) -> Expr {
-        self.0.cast_last_match().expect("module import is missing source")
+        self.0.cast_last_match().unwrap_or_default()
     }
 
     /// The items to be imported.
@@ -1673,7 +1733,7 @@ node! {
 impl ModuleInclude {
     /// The module or path from which the content should be included.
     pub fn source(&self) -> Expr {
-        self.0.cast_last_match().expect("module include is missing path")
+        self.0.cast_last_match().unwrap_or_default()
     }
 }
 

@@ -11,7 +11,7 @@
 = Analyse
 #lorem(10)
 
-[
+#[
   #set heading(outlined: false)
   == Methodik
   #lorem(6)

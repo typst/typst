@@ -95,6 +95,11 @@ impl SyntaxNode {
         }
     }
 
+    /// Whether the node can be cast to the given AST node.
+    pub fn is<T: AstNode>(&self) -> bool {
+        self.cast::<T>().is_some()
+    }
+
     /// Try to convert the node to a typed AST node.
     pub fn cast<T: AstNode>(&self) -> Option<T> {
         T::from_untyped(self)
@@ -141,6 +146,16 @@ impl SyntaxNode {
     pub(super) fn make_erroneous(&mut self) {
         if let Repr::Inner(inner) = &mut self.0 {
             Arc::make_mut(inner).erroneous = true;
+        }
+    }
+
+    /// Convert the child to another kind.
+    pub(super) fn convert_to_kind(&mut self, kind: SyntaxKind) {
+        debug_assert!(!kind.is_error());
+        match &mut self.0 {
+            Repr::Leaf(leaf) => leaf.kind = kind,
+            Repr::Inner(inner) => Arc::make_mut(inner).kind = kind,
+            Repr::Error(_) => panic!("cannot convert error"),
         }
     }
 
@@ -695,6 +710,14 @@ impl<'a> LinkedNode<'a> {
             Some(next)
         }
     }
+
+    /// Whether an error follows directly after the node.
+    pub fn before_error(&self) -> bool {
+        let Some(parent) = self.parent() else { return false };
+        let Some(index) = self.index.checked_add(1) else { return false };
+        let Some(node) = parent.node.children().nth(index) else { return false };
+        node.kind().is_error()
+    }
 }
 
 /// Access to leafs.
@@ -865,8 +888,8 @@ mod tests {
 
         // Go back to "#set". Skips the space.
         let prev = node.prev_sibling().unwrap();
-        assert_eq!(prev.offset(), 0);
-        assert_eq!(prev.text(), "#set");
+        assert_eq!(prev.offset(), 1);
+        assert_eq!(prev.text(), "set");
     }
 
     #[test]
@@ -875,7 +898,7 @@ mod tests {
         let leaf = LinkedNode::new(source.root()).leaf_at(6).unwrap();
         let prev = leaf.prev_leaf().unwrap();
         assert_eq!(leaf.text(), "fun");
-        assert_eq!(prev.text(), "#set");
+        assert_eq!(prev.text(), "set");
 
         let source = Source::detached("#let x = 10");
         let leaf = LinkedNode::new(source.root()).leaf_at(9).unwrap();

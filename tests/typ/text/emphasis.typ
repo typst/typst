@@ -8,7 +8,7 @@ _Emphasized and *strong* words!_
 hello_world Nutzer*innen
 
 // Can contain paragraph in nested content block.
-_Still [
+_Still #[
 
 ] emphasized._
 
@@ -24,7 +24,7 @@ Normal
 *Bold*
 
 #set strong(delta: 150)
-*Medium* and *[*Bold*]*
+*Medium* and *#[*Bold*]*
 
 ---
 // Error: 13 expected underscore
@@ -38,6 +38,6 @@ _Hello
 World
 
 ---
-// Error: 25 expected star
-// Error: 25 expected underscore
-[_Cannot *be interleaved]
+// Error: 26 expected star
+// Error: 26 expected underscore
+#[_Cannot *be interleaved]

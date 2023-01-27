@@ -3,10 +3,10 @@
 #let modifiers = (v => v, math.italic, math.bold, v => math.italic(math.bold(v)))
 
 #let cells = ([:triangle:nested:], [--], [`italic`], [`bold`], [both])
-#for k in kinds {
-  cells.push(raw(repr(k).trim("<function ").trim(">")))
-  for m in modifiers {
-    cells.push($ #m(#k(part)) $)
+#for kk in kinds {
+  cells.push(raw(repr(kk).trim("<function ").trim(">")))
+  for mm in modifiers {
+    cells.push($ mm(kk(part)) $)
   }
 }
 

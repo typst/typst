@@ -7,7 +7,7 @@ C #let x = 2;D #test(x, 2) \
 E#if true [F]G \
 H #if true{"I"} J \
 K #if true [L] else []M \
-#let c = true; N#while c [{c = false}O] P \
+#let c = true; N#while c [#{c = false}O] P \
 #let c = true; Q #while c { c = false; "R" } S \
 T#for _ in (none,) {"U"}V
 
@@ -19,11 +19,11 @@ A /**/B/**/ C
 
 ---
 // Test that a run consisting only of whitespace isn't trimmed.
-A[#set text("IBM Plex Serif"); ]B
+A#text("IBM Plex Serif")[ ]B
 
 ---
 // Test font change after space.
-Left [#set text("IBM Plex Serif");Right].
+Left #text("IBM Plex Serif")[Right].
 
 ---
 // Test that linebreak consumed surrounding spaces.
@@ -31,7 +31,7 @@ Left [#set text("IBM Plex Serif");Right].
 
 ---
 // Test that space at start of non-backslash-linebreak line isn't trimmed.
-A{"\n"} B
+A#"\n" B
 
 ---
 // Test that trailing space does not force a line break.

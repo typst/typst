@@ -133,7 +133,7 @@ fn attachment(ctx: &MathContext, id: GlyphId, italics_correction: Abs) -> Abs {
 
 /// Extract a single character from content.
 fn extract(accent: &Content) -> Option<char> {
-    let atom = accent.to::<FormulaNode>()?.body.to::<AtomNode>()?;
+    let atom = accent.to::<AtomNode>()?;
     let mut chars = atom.0.chars();
     let c = chars.next().filter(|_| chars.next().is_none())?;
     Some(combining(c))
@@ -166,6 +166,8 @@ fn combining(c: char) -> char {
         '\u{2190}' => '\u{20d6}',
         '\u{2192}' => '\u{20d7}',
         '\u{2212}' => '\u{0305}',
+        '\u{223C}' => '\u{0303}',
+        '\u{22C5}' => '\u{0307}',
         '\u{27f6}' => '\u{20d7}',
         _ => c,
     }

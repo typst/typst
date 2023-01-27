@@ -14,7 +14,7 @@
 // Test full reset.
 #show heading: [B]
 #show heading: set text(size: 10pt, weight: 400)
-A [= Heading] C
+A #[= Heading] C
 
 ---
 // Test full removal.
@@ -58,7 +58,7 @@ Another text.
 
 ---
 // Test that scoping works as expected.
-{
+#{
   let world = [ World ]
   show "W": strong
   world
@@ -100,5 +100,5 @@ Another text.
 #show red: []
 
 ---
-// Error: 7-25 show is only allowed directly in code and content blocks
-{ 1 + show heading: none }
+// Error: 8-26 show is only allowed directly in code and content blocks
+#{ 1 + show heading: none }

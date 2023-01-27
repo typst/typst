@@ -189,11 +189,11 @@ fn items() -> LangItems {
         term_item: |term, description| {
             layout::ListItem::Term(basics::TermItem { term, description }).pack()
         },
-        math_formula: |body, block| math::FormulaNode { body, block }.pack(),
+        formula: |body, block| math::FormulaNode { body, block }.pack(),
         math_atom: |atom| math::AtomNode(atom).pack(),
-        math_delimited: |body| math::LrNode(body).pack(),
+        math_align_point: || math::AlignPointNode.pack(),
+        math_delimited: |open, body, close| math::LrNode(open + body + close).pack(),
         math_script: |base, sub, sup| math::ScriptNode { base, sub, sup }.pack(),
         math_frac: |num, denom| math::FracNode { num, denom }.pack(),
-        math_align_point: || math::AlignPointNode.pack(),
     }
 }

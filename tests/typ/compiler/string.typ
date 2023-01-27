@@ -13,12 +13,12 @@
 #test("🏳️‍🌈A🏳️‍⚧️".last(), "🏳️‍⚧️")
 
 ---
-// Error: 3-13 string is empty
-{ "".first() }
+// Error: 4-14 string is empty
+#{ "".first() }
 
 ---
-// Error: 3-12 string is empty
-{ "".last() }
+// Error: 4-13 string is empty
+#{ "".last() }
 
 ---
 // Test the `at` method.
@@ -27,8 +27,8 @@
 #test("Hey: 🏳️‍🌈 there!".at(5), "🏳️‍🌈")
 
 ---
-// Error: 3-16 string index out of bounds (index: 5, len: 5)
-{ "Hello".at(5) }
+// Error: 4-17 string index out of bounds (index: 5, len: 5)
+#{ "Hello".at(5) }
 
 ---
 // Test the `slice` method.
@@ -135,8 +135,8 @@
 #test("hello world".trim(regex(".")), "")
 
 ---
-// Error: 17-21 expected either `start` or `end`
-{"abc".trim(at: left)}
+// Error: 18-22 expected either `start` or `end`
+#{"abc".trim(at: left)}
 
 ---
 // Test the `split` method.

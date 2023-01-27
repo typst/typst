@@ -6,10 +6,10 @@
 
 ---
 // Test the `end` argument.
-{
-    line(end: (10pt, 0pt))
-    line(start: (0pt, 10pt), end: (0pt, 0pt))
-    line(end: (15pt, 15pt))
+#{
+  line(end: (10pt, 0pt))
+  line(start: (0pt, 10pt), end: (0pt, 0pt))
+  line(end: (15pt, 15pt))
 }
 #v(.5cm)
 

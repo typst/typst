@@ -47,7 +47,7 @@ Lריווח #h(1cm) R
 
 ---
 // Test whether L1 whitespace resetting destroys stuff.
-الغالب #h(70pt) ن{" "}ة
+الغالب #h(70pt) ن#" "ة
 
 ---
 // Test setting a vertical direction.

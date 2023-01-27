@@ -26,7 +26,7 @@ The end.
   it
 }
 
-This is a thing [that <last>] happened.
+This is a thing #[that <last>] happened.
 
 ---
 // Test abusing dynamic labels for styling.
@@ -50,7 +50,7 @@ _Visible_
 ---
 // Test that label only works within one content block.
 #show <strike>: strike
-*This is* [<strike>] *protected.*
+*This is* #[<strike>] *protected.*
 *This is not.* <strike>
 
 ---

@@ -3,18 +3,18 @@
 ---
 // Test that text is affected by instantiation-site bold.
 #let x = [World]
-Hello *{x}*
+Hello *#x*
 
 ---
 // Test that lists are affected by correct indents.
 #let fruit = [
   - Apple
   - Orange
-  #list(body-indent: 20pt, [Pear])
+  #list(body-indent: 20pt)[Pear]
 ]
 
 - Fruit
-[#set list(indent: 10pt)
+#[#set list(indent: 10pt)
  #fruit]
 - No more fruit
 
@@ -28,7 +28,7 @@ Hello *{x}*
 
 ---
 // Test that scoping works as expected.
-{
+#{
   if true {
     set text(blue)
     [Blue ]
@@ -62,5 +62,5 @@ Hello *{x}*
 #set text(red) if 1 + 2
 
 ---
-// Error: 11-25 set is only allowed directly in code and content blocks
-{ let x = set text(blue) }
+// Error: 12-26 set is only allowed directly in code and content blocks
+#{ let x = set text(blue) }

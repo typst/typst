@@ -43,8 +43,8 @@ Blue #move(dy: -0.15em)[🌊]
 ```
 
 ---
-// Error: 7-19 cannot continue outside of loop
-#eval("{continue}")
+// Error: 7-18 cannot continue outside of loop
+#eval("#continue")
 
 ---
 // Error: 7-33 cannot access file system from here
@@ -72,5 +72,5 @@ _No relative giraffe!_
 ```
 
 ---
-// Error: 7-16 expected comma
-#eval("{(1 2)}")
+// Error: 7-15 expected comma
+#eval("#(1 2)")

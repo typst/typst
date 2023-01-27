@@ -4,7 +4,7 @@
 // Should output `2 4 6 8 10`.
 #let i = 0
 #while i < 10 [
-  { i += 2 }
+  #{ i += 2 }
   #i
 ]
 
@@ -26,7 +26,7 @@
 #test(while false {}, none)
 
 #let i = 0
-#test(type(while i < 1 [{ i += 1 }]), "content")
+#test(type(while i < 1 [#{ i += 1 }]), "content")
 
 ---
 // Condition must be boolean.
@@ -38,7 +38,7 @@
 #while 2 < "hello".len() {}
 
 ---
-// Error: 2:1-2:24 loop seems to be infinite
+// Error: 2:2-2:24 loop seems to be infinite
 #let i = 1
 #while i > 0 { i += 1 }
 
@@ -46,8 +46,8 @@
 // Error: 7 expected expression
 #while
 
-// Error: 7 expected expression
-{while}
+// Error: 8 expected expression
+#{while}
 
 // Error: 9 expected block
 #while x

@@ -4,7 +4,7 @@
 ---
 // Test adding content.
 // Ref: true
-{[*Hello* ] + [world!]}
+#{[*Hello* ] + [world!]}
 
 ---
 // Test math operators.
@@ -176,17 +176,17 @@
 // Test assignment operators.
 
 #let x = 0
-{ x = 10 }       #test(x, 10)
-{ x -= 5 }       #test(x, 5)
-{ x += 1 }       #test(x, 6)
-{ x *= x }       #test(x, 36)
-{ x /= 2.0 }     #test(x, 18.0)
-{ x = "some" }   #test(x, "some")
-{ x += "thing" } #test(x, "something")
+#{ x = 10 }       #test(x, 10)
+#{ x -= 5 }       #test(x, 5)
+#{ x += 1 }       #test(x, 6)
+#{ x *= x }       #test(x, 36)
+#{ x /= 2.0 }     #test(x, 18.0)
+#{ x = "some" }   #test(x, "some")
+#{ x += "thing" } #test(x, "something")
 
 ---
-// Error: 3-6 cannot mutate a constant
-{ box = 1 }
+// Error: 4-7 cannot mutate a constant
+#{ box = 1 }
 
 ---
 // Test `in` operator.
@@ -204,8 +204,8 @@
 /* fun comment? */ in "abc", false)
 
 ---
-// Error: 9 expected keyword `in`
-{"a" not}
+// Error: 10 expected keyword `in`
+#{"a" not}
 
 ---
 // Test `with` method.

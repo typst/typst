@@ -15,7 +15,7 @@
 #chap2
 
 ---
-{
+#{
   // Error: 19-38 file not found (searched at typ/compiler/modules/chap3.typ)
   let x = include "modules/chap3.typ"
 }
@@ -24,7 +24,7 @@
 #include "modules/chap1.typ"
 
 // The variables of the file should not appear in this scope.
-// Error: 1-6 unknown variable
+// Error: 2-6 unknown variable
 #name
 
 ---

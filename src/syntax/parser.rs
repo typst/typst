@@ -18,9 +18,7 @@ pub fn parse(text: &str) -> SyntaxNode {
 /// This is only used for syntax highlighting.
 pub fn parse_code(text: &str) -> SyntaxNode {
     let mut p = Parser::new(text, 0, LexMode::Code);
-    let m = p.marker();
     code(&mut p, |_| false);
-    p.wrap(m, SyntaxKind::CodeBlock);
     p.finish().into_iter().next().unwrap()
 }
 
@@ -31,7 +29,15 @@ fn markup(
     mut stop: impl FnMut(SyntaxKind) -> bool,
 ) {
     let m = p.marker();
-    while !p.eof() && !stop(p.current) {
+    let mut nesting: usize = 0;
+    while !p.eof() {
+        match p.current() {
+            SyntaxKind::LeftBracket => nesting += 1,
+            SyntaxKind::RightBracket if nesting > 0 => nesting -= 1,
+            _ if stop(p.current) => break,
+            _ => {}
+        }
+
         if p.newline() {
             at_start = true;
             if min_indent > 0 && p.column(p.current_end()) < min_indent {
@@ -54,10 +60,18 @@ pub(super) fn reparse_markup(
     text: &str,
     range: Range<usize>,
     at_start: &mut bool,
+    nesting: &mut usize,
     mut stop: impl FnMut(SyntaxKind) -> bool,
 ) -> Option<Vec<SyntaxNode>> {
     let mut p = Parser::new(text, range.start, LexMode::Markup);
-    while !p.eof() && !stop(p.current) && p.current_start() < range.end {
+    while !p.eof() && p.current_start() < range.end {
+        match p.current() {
+            SyntaxKind::LeftBracket => *nesting += 1,
+            SyntaxKind::RightBracket if *nesting > 0 => *nesting -= 1,
+            _ if stop(p.current) => break,
+            _ => {}
+        }
+
         if p.newline() {
             *at_start = true;
             p.eat();
@@ -75,46 +89,6 @@ pub(super) fn reparse_markup(
 
 fn markup_expr(p: &mut Parser, at_start: &mut bool) {
     match p.current() {
-        SyntaxKind::Star => strong(p),
-        SyntaxKind::Underscore => emph(p),
-        SyntaxKind::HeadingMarker if *at_start => heading(p),
-        SyntaxKind::ListMarker if *at_start => list_item(p),
-        SyntaxKind::EnumMarker if *at_start => enum_item(p),
-        SyntaxKind::TermMarker if *at_start => term_item(p),
-        SyntaxKind::Dollar => equation(p),
-
-        SyntaxKind::HeadingMarker
-        | SyntaxKind::ListMarker
-        | SyntaxKind::EnumMarker
-        | SyntaxKind::TermMarker
-        | SyntaxKind::Colon => p.convert(SyntaxKind::Text),
-
-        SyntaxKind::Ident
-        | SyntaxKind::Let
-        | SyntaxKind::Set
-        | SyntaxKind::Show
-        | SyntaxKind::If
-        | SyntaxKind::While
-        | SyntaxKind::For
-        | SyntaxKind::Import
-        | SyntaxKind::Include
-        | SyntaxKind::Break
-        | SyntaxKind::Continue
-        | SyntaxKind::Return
-        | SyntaxKind::LeftBrace
-        | SyntaxKind::LeftBracket => embedded_code_expr(p),
-
-        SyntaxKind::Text
-        | SyntaxKind::Linebreak
-        | SyntaxKind::Escape
-        | SyntaxKind::Shorthand
-        | SyntaxKind::Symbol
-        | SyntaxKind::SmartQuote
-        | SyntaxKind::Raw
-        | SyntaxKind::Link
-        | SyntaxKind::Label
-        | SyntaxKind::Ref => p.eat(),
-
         SyntaxKind::Space
         | SyntaxKind::Parbreak
         | SyntaxKind::LineComment
@@ -122,6 +96,34 @@ fn markup_expr(p: &mut Parser, at_start: &mut bool) {
             p.eat();
             return;
         }
+
+        SyntaxKind::Text
+        | SyntaxKind::Linebreak
+        | SyntaxKind::Escape
+        | SyntaxKind::Shorthand
+        | SyntaxKind::SmartQuote
+        | SyntaxKind::Raw
+        | SyntaxKind::Link
+        | SyntaxKind::Label
+        | SyntaxKind::Ref => p.eat(),
+
+        SyntaxKind::Hashtag => embedded_code_expr(p),
+        SyntaxKind::Star => strong(p),
+        SyntaxKind::Underscore => emph(p),
+        SyntaxKind::HeadingMarker if *at_start => heading(p),
+        SyntaxKind::ListMarker if *at_start => list_item(p),
+        SyntaxKind::EnumMarker if *at_start => enum_item(p),
+        SyntaxKind::TermMarker if *at_start => term_item(p),
+        SyntaxKind::Dollar => formula(p),
+
+        SyntaxKind::LeftBracket
+        | SyntaxKind::RightBracket
+        | SyntaxKind::HeadingMarker
+        | SyntaxKind::ListMarker
+        | SyntaxKind::EnumMarker
+        | SyntaxKind::TermMarker
+        | SyntaxKind::Colon => p.convert(SyntaxKind::Text),
+
         _ => {}
     }
 
@@ -130,7 +132,7 @@ fn markup_expr(p: &mut Parser, at_start: &mut bool) {
 
 fn strong(p: &mut Parser) {
     let m = p.marker();
-    p.expect(SyntaxKind::Star);
+    p.assert(SyntaxKind::Star);
     markup(p, false, 0, |kind| {
         kind == SyntaxKind::Star
             || kind == SyntaxKind::Parbreak
@@ -142,7 +144,7 @@ fn strong(p: &mut Parser) {
 
 fn emph(p: &mut Parser) {
     let m = p.marker();
-    p.expect(SyntaxKind::Underscore);
+    p.assert(SyntaxKind::Underscore);
     markup(p, false, 0, |kind| {
         kind == SyntaxKind::Underscore
             || kind == SyntaxKind::Parbreak
@@ -154,7 +156,7 @@ fn emph(p: &mut Parser) {
 
 fn heading(p: &mut Parser) {
     let m = p.marker();
-    p.expect(SyntaxKind::HeadingMarker);
+    p.assert(SyntaxKind::HeadingMarker);
     whitespace(p);
     markup(p, false, usize::MAX, |kind| {
         kind == SyntaxKind::Label || kind == SyntaxKind::RightBracket
@@ -164,7 +166,7 @@ fn heading(p: &mut Parser) {
 
 fn list_item(p: &mut Parser) {
     let m = p.marker();
-    p.expect(SyntaxKind::ListMarker);
+    p.assert(SyntaxKind::ListMarker);
     let min_indent = p.column(p.prev_end());
     whitespace(p);
     markup(p, false, min_indent, |kind| kind == SyntaxKind::RightBracket);
@@ -173,7 +175,7 @@ fn list_item(p: &mut Parser) {
 
 fn enum_item(p: &mut Parser) {
     let m = p.marker();
-    p.expect(SyntaxKind::EnumMarker);
+    p.assert(SyntaxKind::EnumMarker);
     let min_indent = p.column(p.prev_end());
     whitespace(p);
     markup(p, false, min_indent, |kind| kind == SyntaxKind::RightBracket);
@@ -182,7 +184,7 @@ fn enum_item(p: &mut Parser) {
 
 fn term_item(p: &mut Parser) {
     let m = p.marker();
-    p.expect(SyntaxKind::TermMarker);
+    p.assert(SyntaxKind::TermMarker);
     let min_indent = p.column(p.prev_end());
     whitespace(p);
     markup(p, false, usize::MAX, |kind| {
@@ -200,17 +202,18 @@ fn whitespace(p: &mut Parser) {
     }
 }
 
-fn equation(p: &mut Parser) {
+fn formula(p: &mut Parser) {
     let m = p.marker();
     p.enter(LexMode::Math);
-    p.expect(SyntaxKind::Dollar);
+    p.assert(SyntaxKind::Dollar);
     math(p, |kind| kind == SyntaxKind::Dollar);
     p.expect(SyntaxKind::Dollar);
     p.exit();
-    p.wrap(m, SyntaxKind::Math);
+    p.wrap(m, SyntaxKind::Formula);
 }
 
 fn math(p: &mut Parser, mut stop: impl FnMut(SyntaxKind) -> bool) {
+    let m = p.marker();
     while !p.eof() && !stop(p.current()) {
         let prev = p.prev_end();
         math_expr(p);
@@ -218,6 +221,7 @@ fn math(p: &mut Parser, mut stop: impl FnMut(SyntaxKind) -> bool) {
             p.unexpected();
         }
     }
+    p.wrap(m, SyntaxKind::Math);
 }
 
 fn math_expr(p: &mut Parser) {
@@ -227,45 +231,44 @@ fn math_expr(p: &mut Parser) {
 fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
     let m = p.marker();
     match p.current() {
-        SyntaxKind::Ident => {
+        SyntaxKind::Hashtag => embedded_code_expr(p),
+        SyntaxKind::MathIdent => {
             p.eat();
-            if p.directly_at(SyntaxKind::Atom) && p.current_text() == "(" {
+            if p.directly_at(SyntaxKind::MathAtom) && p.current_text() == "(" {
                 math_args(p);
                 p.wrap(m, SyntaxKind::FuncCall);
+            } else {
+                while p.directly_at(SyntaxKind::MathAtom)
+                    && p.current_text() == "."
+                    && matches!(
+                        p.lexer.clone().next(),
+                        SyntaxKind::MathIdent | SyntaxKind::MathAtom
+                    )
+                {
+                    p.convert(SyntaxKind::Dot);
+                    p.convert(SyntaxKind::Ident);
+                    p.wrap(m, SyntaxKind::FieldAccess);
+                }
             }
         }
 
-        SyntaxKind::Atom if math_class(p.current_text()) == Some(MathClass::Fence) => {
-            math_delimited(p, MathClass::Fence)
+        SyntaxKind::MathAtom => {
+            if math_class(p.current_text()) == Some(MathClass::Fence) {
+                math_delimited(p, MathClass::Fence)
+            } else if math_class(p.current_text()) == Some(MathClass::Opening) {
+                math_delimited(p, MathClass::Closing)
+            } else {
+                p.eat()
+            }
         }
 
-        SyntaxKind::Atom if math_class(p.current_text()) == Some(MathClass::Opening) => {
-            math_delimited(p, MathClass::Closing)
-        }
-
-        SyntaxKind::Let
-        | SyntaxKind::Set
-        | SyntaxKind::Show
-        | SyntaxKind::If
-        | SyntaxKind::While
-        | SyntaxKind::For
-        | SyntaxKind::Import
-        | SyntaxKind::Include
-        | SyntaxKind::Break
-        | SyntaxKind::Continue
-        | SyntaxKind::Return
-        | SyntaxKind::LeftBrace
-        | SyntaxKind::LeftBracket => embedded_code_expr(p),
-
-        SyntaxKind::Atom
-        | SyntaxKind::Linebreak
+        SyntaxKind::Linebreak
         | SyntaxKind::Escape
         | SyntaxKind::Shorthand
-        | SyntaxKind::Symbol
-        | SyntaxKind::AlignPoint
+        | SyntaxKind::MathAlignPoint
         | SyntaxKind::Str => p.eat(),
 
-        _ => return,
+        _ => p.expected("expression"),
     }
 
     while !p.eof() && !p.at(stop) {
@@ -282,10 +285,19 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
             ast::Assoc::Right => {}
         }
 
+        if kind == SyntaxKind::MathFrac {
+            math_unparen(p, m);
+        }
+
         p.eat();
+        let m2 = p.marker();
         math_expr_prec(p, prec, stop);
+        math_unparen(p, m2);
+
         if p.eat_if(SyntaxKind::Underscore) || p.eat_if(SyntaxKind::Hat) {
+            let m3 = p.marker();
             math_expr_prec(p, prec, SyntaxKind::Eof);
+            math_unparen(p, m3);
         }
 
         p.wrap(m, kind);
@@ -294,11 +306,13 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
 
 fn math_delimited(p: &mut Parser, stop: MathClass) {
     let m = p.marker();
-    p.expect(SyntaxKind::Atom);
+    p.assert(SyntaxKind::MathAtom);
+    let m2 = p.marker();
     while !p.eof() && !p.at(SyntaxKind::Dollar) {
         if math_class(p.current_text()) == Some(stop) {
-            p.eat();
-            p.wrap(m, SyntaxKind::Delimited);
+            p.wrap(m2, SyntaxKind::Math);
+            p.assert(SyntaxKind::MathAtom);
+            p.wrap(m, SyntaxKind::MathDelimited);
             return;
         }
 
@@ -308,6 +322,22 @@ fn math_delimited(p: &mut Parser, stop: MathClass) {
             p.unexpected();
         }
     }
+}
+
+fn math_unparen(p: &mut Parser, m: Marker) {
+    let Some(node) = p.nodes.get_mut(m.0) else { return };
+    if node.kind() != SyntaxKind::MathDelimited {
+        return;
+    }
+
+    if let [first, .., last] = node.children_mut() {
+        if first.text() == "(" && last.text() == ")" {
+            first.convert_to_kind(SyntaxKind::LeftParen);
+            last.convert_to_kind(SyntaxKind::RightParen);
+        }
+    }
+
+    node.convert_to_kind(SyntaxKind::Math);
 }
 
 fn math_class(text: &str) -> Option<MathClass> {
@@ -321,20 +351,20 @@ fn math_class(text: &str) -> Option<MathClass> {
 fn math_op(kind: SyntaxKind) -> Option<(SyntaxKind, SyntaxKind, ast::Assoc, usize)> {
     match kind {
         SyntaxKind::Underscore => {
-            Some((SyntaxKind::Script, SyntaxKind::Hat, ast::Assoc::Right, 2))
+            Some((SyntaxKind::MathScript, SyntaxKind::Hat, ast::Assoc::Right, 2))
         }
         SyntaxKind::Hat => {
-            Some((SyntaxKind::Script, SyntaxKind::Underscore, ast::Assoc::Right, 2))
+            Some((SyntaxKind::MathScript, SyntaxKind::Underscore, ast::Assoc::Right, 2))
         }
         SyntaxKind::Slash => {
-            Some((SyntaxKind::Frac, SyntaxKind::Eof, ast::Assoc::Left, 1))
+            Some((SyntaxKind::MathFrac, SyntaxKind::Eof, ast::Assoc::Left, 1))
         }
         _ => None,
     }
 }
 
 fn math_args(p: &mut Parser) {
-    p.expect(SyntaxKind::Atom);
+    p.assert(SyntaxKind::MathAtom);
     let m = p.marker();
     let mut m2 = p.marker();
     while !p.eof() && !p.at(SyntaxKind::Dollar) {
@@ -359,10 +389,11 @@ fn math_args(p: &mut Parser) {
         p.wrap(m2, SyntaxKind::Math);
     }
     p.wrap(m, SyntaxKind::Args);
-    p.expect(SyntaxKind::Atom);
+    p.expect(SyntaxKind::MathAtom);
 }
 
 fn code(p: &mut Parser, mut stop: impl FnMut(SyntaxKind) -> bool) {
+    let m = p.marker();
     while !p.eof() && !stop(p.current()) {
         p.stop_at_newline(true);
         let prev = p.prev_end();
@@ -379,6 +410,7 @@ fn code(p: &mut Parser, mut stop: impl FnMut(SyntaxKind) -> bool) {
             p.unexpected();
         }
     }
+    p.wrap(m, SyntaxKind::Code);
 }
 
 fn code_expr(p: &mut Parser) {
@@ -386,6 +418,10 @@ fn code_expr(p: &mut Parser) {
 }
 
 fn embedded_code_expr(p: &mut Parser) {
+    p.stop_at_newline(true);
+    p.enter(LexMode::Code);
+    p.assert(SyntaxKind::Hashtag);
+
     let stmt = matches!(
         p.current(),
         SyntaxKind::Let
@@ -395,13 +431,12 @@ fn embedded_code_expr(p: &mut Parser) {
             | SyntaxKind::Include
     );
 
-    p.stop_at_newline(true);
-    p.enter(LexMode::Code);
     code_expr_prec(p, true, 0);
     let semi = p.eat_if(SyntaxKind::Semicolon);
     if stmt && !semi && !p.eof() && !p.at(SyntaxKind::RightBracket) {
         p.expected("semicolon or line break");
     }
+
     p.exit();
     p.unstop();
 }
@@ -424,7 +459,10 @@ fn code_expr_prec(p: &mut Parser, atomic: bool, min_prec: usize) {
             continue;
         }
 
-        if atomic {
+        let at_field_or_method =
+            p.directly_at(SyntaxKind::Dot) && p.lexer.clone().next() == SyntaxKind::Ident;
+
+        if atomic && !at_field_or_method {
             break;
         }
 
@@ -480,7 +518,7 @@ fn code_primary(p: &mut Parser, atomic: bool) {
             p.eat();
             if !atomic && p.at(SyntaxKind::Arrow) {
                 p.wrap(m, SyntaxKind::Params);
-                p.expect(SyntaxKind::Arrow);
+                p.assert(SyntaxKind::Arrow);
                 code_expr(p);
                 p.wrap(m, SyntaxKind::Closure);
             }
@@ -489,7 +527,7 @@ fn code_primary(p: &mut Parser, atomic: bool) {
         SyntaxKind::LeftBrace => code_block(p),
         SyntaxKind::LeftBracket => content_block(p),
         SyntaxKind::LeftParen => with_paren(p),
-        SyntaxKind::Dollar => equation(p),
+        SyntaxKind::Dollar => formula(p),
         SyntaxKind::Let => let_binding(p),
         SyntaxKind::Set => set_rule(p),
         SyntaxKind::Show => show_rule(p),
@@ -536,7 +574,7 @@ fn code_block(p: &mut Parser) {
     let m = p.marker();
     p.enter(LexMode::Code);
     p.stop_at_newline(false);
-    p.expect(SyntaxKind::LeftBrace);
+    p.assert(SyntaxKind::LeftBrace);
     code(p, |kind| kind == SyntaxKind::RightBrace);
     p.expect(SyntaxKind::RightBrace);
     p.exit();
@@ -547,7 +585,7 @@ fn code_block(p: &mut Parser) {
 fn content_block(p: &mut Parser) {
     let m = p.marker();
     p.enter(LexMode::Markup);
-    p.expect(SyntaxKind::LeftBracket);
+    p.assert(SyntaxKind::LeftBracket);
     markup(p, true, 0, |kind| kind == SyntaxKind::RightBracket);
     p.expect(SyntaxKind::RightBracket);
     p.exit();
@@ -560,7 +598,7 @@ fn with_paren(p: &mut Parser) {
     if p.at(SyntaxKind::Arrow) {
         validate_params(p, m);
         p.wrap(m, SyntaxKind::Params);
-        p.expect(SyntaxKind::Arrow);
+        p.assert(SyntaxKind::Arrow);
         code_expr(p);
         kind = SyntaxKind::Closure;
     }
@@ -574,7 +612,7 @@ fn with_paren(p: &mut Parser) {
 
 fn collection(p: &mut Parser, keyed: bool) -> SyntaxKind {
     p.stop_at_newline(false);
-    p.expect(SyntaxKind::LeftParen);
+    p.assert(SyntaxKind::LeftParen);
 
     let mut count = 0;
     let mut parenthesized = true;

@@ -114,20 +114,30 @@ fn try_reparse(
             end += 1;
         }
 
-        // Synthesize what `at_start` would be at the start of the reparse.
+        // Also take hashtag.
+        if start > 0 && children[start - 1].kind() == SyntaxKind::Hashtag {
+            start -= 1;
+        }
+
+        // Synthesize what `at_start` and `nesting` would be at the start of the
+        // reparse.
         let mut prefix_len = 0;
+        let mut nesting = 0;
         let mut at_start = true;
         for child in &children[..start] {
             prefix_len += child.len();
             next_at_start(child, &mut at_start);
+            next_nesting(child, &mut nesting);
         }
 
         // Determine what `at_start` will have to be at the end of the reparse.
         let mut prev_len = 0;
         let mut prev_at_start_after = at_start;
+        let mut prev_nesting_after = nesting;
         for child in &children[start..end] {
             prev_len += child.len();
             next_at_start(child, &mut prev_at_start_after);
+            next_nesting(child, &mut prev_nesting_after);
         }
 
         let shifted = offset + prefix_len;
@@ -139,11 +149,11 @@ fn try_reparse(
         };
 
         if let Some(newborns) =
-            reparse_markup(text, new_range.clone(), &mut at_start, |kind| {
+            reparse_markup(text, new_range.clone(), &mut at_start, &mut nesting, |kind| {
                 kind == stop_kind
             })
         {
-            if at_start == prev_at_start_after {
+            if at_start == prev_at_start_after && nesting == prev_nesting_after {
                 return node
                     .replace_children(start..end, newborns)
                     .is_ok()
@@ -188,6 +198,17 @@ fn next_at_start(node: &SyntaxNode, at_start: &mut bool) {
     }
 }
 
+/// Update `nesting` based on the node.
+fn next_nesting(node: &SyntaxNode, nesting: &mut usize) {
+    if node.kind() == SyntaxKind::Text {
+        match node.text().as_str() {
+            "[" => *nesting += 1,
+            "]" if *nesting > 0 => *nesting -= 1,
+            _ => {}
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::ops::Range;
@@ -209,9 +230,13 @@ mod tests {
             panic!("test failed");
         }
         if incremental {
-            assert_ne!(source.len_bytes(), range.len());
+            assert_ne!(source.len_bytes(), range.len(), "should have been incremental");
         } else {
-            assert_eq!(source.len_bytes(), range.len());
+            assert_eq!(
+                source.len_bytes(),
+                range.len(),
+                "shouldn't have been incremental"
+            );
         }
     }
 
@@ -220,6 +245,7 @@ mod tests {
         test("abc~def~ghi", 5..6, "+", true);
         test("~~~~~~~", 3..4, "A", true);
         test("abc~~", 1..2, "", true);
+        test("#var. hello", 5..6, " ", false);
         test("#var;hello", 9..10, "a", false);
         test("https:/world", 7..7, "/", false);
         test("hello  world", 7..12, "walkers", false);
@@ -228,8 +254,8 @@ mod tests {
         test("a d e", 1..3, " b c d", false);
         test("~*~*~", 2..2, "*", false);
         test("::1\n2. a\n3", 7..7, "4", true);
-        test("* {1+2} *", 5..6, "3", true);
-        test("{(0, 1, 2)}", 5..6, "11pt", false);
+        test("* #{1+2} *", 6..7, "3", true);
+        test("#{(0, 1, 2)}", 6..7, "11pt", true);
         test("\n= A heading", 4..4, "n evocative", false);
         test("#call() abc~d", 7..7, "[]", true);
         test("a your thing a", 6..7, "a", false);
@@ -239,24 +265,26 @@ mod tests {
         test("#for", 4..4, "//", false);
         test("a\n#let \nb", 7..7, "i", true);
         test("#let x = (1, 2 + ;~ Five\r\n\r", 20..23, "2.", true);
-        test(r"{{let x = z}; a = 1} b", 6..6, "//", false);
+        test(r"#{{let x = z}; a = 1} b", 7..7, "//", false);
         test(r#"a ```typst hello```"#, 16..17, "", false);
     }
 
     #[test]
     fn test_reparse_block() {
-        test("Hello { x + 1 }!", 8..9, "abc", true);
-        test("A{}!", 2..2, "\"", false);
-        test("{ [= x] }!", 4..4, "=", true);
-        test("[[]]", 2..2, "\\", false);
-        test("[[ab]]", 3..4, "\\", false);
-        test("{}}", 1..1, "{", false);
-        test("A: [BC]", 5..5, "{", false);
-        test("A: [BC]", 5..5, "{}", true);
-        test("{\"ab\"}A", 4..4, "c", true);
-        test("{\"ab\"}A", 4..5, "c", false);
-        test("a[]b", 2..2, "{", false);
-        test("a{call(); abc}b", 7..7, "[]", true);
+        test("Hello #{ x + 1 }!", 9..10, "abc", true);
+        test("A#{}!", 3..3, "\"", false);
+        test("#{ [= x] }!", 5..5, "=", true);
+        test("#[[]]", 3..3, "\\", false);
+        test("#[[ab]]", 4..5, "\\", false);
+        test("#{}}", 2..2, "{", false);
+        test("A: #[BC]", 6..6, "{", true);
+        test("A: #[BC]", 6..6, "#{", false);
+        test("A: #[BC]", 6..6, "#{}", true);
+        test("#{\"ab\"}A", 5..5, "c", true);
+        test("#{\"ab\"}A", 5..6, "c", false);
+        test("a#[]b", 3..3, "#{", false);
+        test("a#{call(); abc}b", 8..8, "[]", true);
         test("a #while x {\n g(x) \n}  b", 12..12, "//", true);
+        test("a#[]b", 3..3, "[hey]", true);
     }
 }

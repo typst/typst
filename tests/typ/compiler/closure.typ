@@ -12,7 +12,7 @@
 
 ---
 // Basic closure without captures.
-{
+#{
   let adder = (x, y) => x + y
   test(adder(2, 3), 5)
 }
@@ -20,7 +20,7 @@
 ---
 // Pass closure as argument and return closure.
 // Also uses shorthand syntax for a single argument.
-{
+#{
   let chain = (f, g) => (x) => f(g(x))
   let f = x => x + 1
   let g = x => 2 * x
@@ -30,7 +30,7 @@
 
 ---
 // Capture environment.
-{
+#{
   let mark = "!"
   let greet = {
     let hi = "Hi"
@@ -48,7 +48,7 @@
 
 ---
 // Redefined variable.
-{
+#{
   let x = 1
   let f() = {
     let x = x + 2
@@ -59,7 +59,7 @@
 
 ---
 // Import bindings.
-{
+#{
   let b = "module.typ"
   let f() = {
     import b: b
@@ -70,7 +70,7 @@
 
 ---
 // For loop bindings.
-{
+#{
   let v = (1, 2, 3)
   let f() = {
     let s = 0
@@ -82,7 +82,7 @@
 
 ---
 // Let + closure bindings.
-{
+#{
   let g = "hi"
   let f() = {
     let g() = "bye"
@@ -93,7 +93,7 @@
 
 ---
 // Parameter bindings.
-{
+#{
   let x = 5
   let g() = {
     let f(x, y: x) = x + y
@@ -105,7 +105,7 @@
 
 ---
 // Don't leak environment.
-{
+#{
   // Error: 16-17 unknown variable
   let func() = x
   let x = "hi"
@@ -114,7 +114,7 @@
 
 ---
 // Too few arguments.
-{
+#{
   let types(x, y) = "[" + type(x) + ", " + type(y) + "]"
   test(types(14%, 12pt), "[ratio, length]")
 
@@ -124,7 +124,7 @@
 
 ---
 // Too many arguments.
-{
+#{
   let f(x) = x + 1
 
   // Error: 8-13 unexpected argument
@@ -133,7 +133,7 @@
 
 ---
 // Named arguments.
-{
+#{
   let greet(name, birthday: false) = {
     if birthday { "Happy Birthday, " } else { "Hey, " } + name + "!"
   }
@@ -156,8 +156,8 @@
 #let f(a, b, a: none, b: none, c, b) = none
 
 ---
-// Error: 6-16 expected identifier, named pair or argument sink, found keyed pair
-{(a, "named": b) => none}
+// Error: 7-17 expected identifier, named pair or argument sink, found keyed pair
+#{(a, "named": b) => none}
 
 ---
 // Error: 10-15 expected identifier, found string

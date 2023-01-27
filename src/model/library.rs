@@ -68,19 +68,19 @@ pub struct LangItems {
     /// An item in a term list: `/ Term: Details`.
     pub term_item: fn(term: Content, description: Content) -> Content,
     /// A mathematical formula: `$x$`, `$ x^2 $`.
-    pub math_formula: fn(body: Content, block: bool) -> Content,
-    /// A subsection in a math formula that is surrounded by matched delimiters:
-    /// `[x + y]`.
-    pub math_delimited: fn(body: Content) -> Content,
+    pub formula: fn(body: Content, block: bool) -> Content,
     /// An atom in a formula: `x`, `+`, `12`.
     pub math_atom: fn(atom: EcoString) -> Content,
+    /// An alignment point in a formula: `&`.
+    pub math_align_point: fn() -> Content,
+    /// A subsection in a math formula that is surrounded by matched delimiters:
+    /// `[x + y]`.
+    pub math_delimited: fn(open: Content, body: Content, close: Content) -> Content,
     /// A base with optional sub- and superscripts in a formula: `a_1^2`.
     pub math_script:
         fn(base: Content, sub: Option<Content>, sup: Option<Content>) -> Content,
     /// A fraction in a formula: `x/2`.
     pub math_frac: fn(num: Content, denom: Content) -> Content,
-    /// An alignment point in a formula: `&`.
-    pub math_align_point: fn() -> Content,
 }
 
 impl Debug for LangItems {
@@ -108,7 +108,7 @@ impl Hash for LangItems {
         self.list_item.hash(state);
         self.enum_item.hash(state);
         self.term_item.hash(state);
-        self.math_formula.hash(state);
+        self.formula.hash(state);
         self.math_atom.hash(state);
         self.math_script.hash(state);
         self.math_frac.hash(state);

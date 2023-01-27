@@ -24,21 +24,7 @@
     },
     "common": {
       "patterns": [
-        { "include": "#comments" },
-        {
-          "name": "meta.block.code.typst",
-          "begin": "{",
-          "end": "}",
-          "captures": { "0": { "name": "punctuation.definition.block.code.typst" } },
-          "patterns": [{ "include": "#code" }]
-        },
-        {
-          "name": "meta.block.content.typst",
-          "begin": "\\[",
-          "end": "\\]",
-          "captures": { "0": { "name": "punctuation.definition.block.content.typst" } },
-          "patterns": [{ "include": "#markup" }]
-        }
+        { "include": "#comments" }
       ]
     },
     "markup": {
@@ -213,14 +199,34 @@
         },
         {
           "name": "entity.other.interpolated.typst",
-          "match": "(#)[[:alpha:]_][[:alnum:]_-]*",
+          "match": "(#)[[:alpha:]_][.[:alnum:]_-]*",
           "captures": { "1": { "name": "punctuation.definition.variable.typst" } }
+        },
+        {
+          "name": "meta.block.content.typst",
+          "begin": "#",
+          "end": "\\s",
+          "patterns": [{ "include": "#code" }]
         }
       ]
     },
     "code": {
       "patterns": [
         { "include": "#common" },
+        {
+          "name": "meta.block.code.typst",
+          "begin": "{",
+          "end": "}",
+          "captures": { "0": { "name": "punctuation.definition.block.code.typst" } },
+          "patterns": [{ "include": "#code" }]
+        },
+        {
+          "name": "meta.block.content.typst",
+          "begin": "\\[",
+          "end": "\\]",
+          "captures": { "0": { "name": "punctuation.definition.block.content.typst" } },
+          "patterns": [{ "include": "#markup" }]
+        },
         {
           "name": "comment.line.double-slash.typst",
           "begin": "//",

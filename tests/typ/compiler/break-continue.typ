@@ -96,7 +96,7 @@
 #let x = { continue }
 
 ---
-// Error: 1-10 cannot continue outside of loop
+// Error: 2-10 cannot continue outside of loop
 #continue
 
 ---
@@ -104,7 +104,7 @@
 // Should output `Hello World 🌎`.
 #for _ in range(10) {
   [Hello ]
-  [World {
+  [World #{
     [🌎]
     break
   }]

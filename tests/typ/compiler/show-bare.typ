@@ -16,7 +16,7 @@ in booklovers and the great fulfiller of human need.
 
 ---
 // Test bare show in content block.
-A [_B #show c => [*#c*]; C_] D
+A #[_B #show c => [*#c*]; C_] D
 
 ---
 // Test style precedence.
@@ -29,5 +29,5 @@ Forest
 Ignored
 
 ---
-// Error: 4-18 show is only allowed directly in code and content blocks
-{ (show body => 2) * body }
+// Error: 5-19 show is only allowed directly in code and content blocks
+#{ (show body => 2) * body }

@@ -8,7 +8,7 @@
 // Test custom paragraphs with user code.
 #set text(8pt)
 
-{
+#{
   let sentences = lorem(59)
     .split(".")
     .filter(s => s != "")

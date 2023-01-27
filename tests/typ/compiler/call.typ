@@ -6,7 +6,7 @@
 
 // Ommitted space.
 #let f() = {}
-[#f()*Bold*]
+#[#f()*Bold*]
 
 // Call return value of function with body.
 #let f(x, body) = (y) => [#x] + body + [#y]
@@ -34,7 +34,7 @@
 #test(alias(alias), "function")
 
 // Callee expressions.
-{
+#{
   // Wrapped in parens.
   test((type)("hi"), "string")
 
@@ -48,25 +48,25 @@
 #set text(family: "Arial", family: "Helvetica")
 
 ---
-// Error: 2-6 expected function, found boolean
-{true()}
+// Error: 3-7 expected function, found boolean
+#{true()}
 
 ---
 #let x = "x"
 
-// Error: 1-3 expected function, found string
+// Error: 2-3 expected function, found string
 #x()
 
 ---
 #let f(x) = x
 
-// Error: 1-6 expected function, found integer
+// Error: 2-6 expected function, found integer
 #f(1)(2)
 
 ---
 #let f(x) = x
 
-// Error: 1-6 expected function, found content
+// Error: 2-6 expected function, found content
 #f[1](2)
 
 ---
@@ -90,16 +90,16 @@
 // Error: 7-12 expected identifier, found string
 #func("abc": 2)
 
-// Error: 7-10 expected identifier, found group
-{func((x):1)}
+// Error: 8-11 expected identifier, found group
+#{func((x):1)}
 
 ---
 // Error: 2:1 expected closing bracket
 #func[`a]`
 
 ---
-// Error: 7 expected closing paren
-{func(}
+// Error: 8 expected closing paren
+#{func(}
 
 ---
 // Error: 2:1 expected quote

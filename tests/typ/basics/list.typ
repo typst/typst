@@ -24,7 +24,7 @@ _Shopping list_
 
 ---
 - Level 1
-  - Level [
+  - Level #[
 2 through content block
 ]
 

@@ -7,7 +7,7 @@ pub enum Category {
     Comment,
     /// Punctuation in code.
     Punctuation,
-    /// An escape sequence, shorthand or symbol notation.
+    /// An escape sequence or shorthand.
     Escape,
     /// Strong markup.
     Strong,
@@ -97,7 +97,6 @@ pub fn highlight(node: &LinkedNode) -> Option<Category> {
         SyntaxKind::Parbreak => None,
         SyntaxKind::Escape => Some(Category::Escape),
         SyntaxKind::Shorthand => Some(Category::Escape),
-        SyntaxKind::Symbol => Some(Category::Escape),
         SyntaxKind::SmartQuote => None,
         SyntaxKind::Strong => Some(Category::Strong),
         SyntaxKind::Emph => Some(Category::Emph),
@@ -113,12 +112,22 @@ pub fn highlight(node: &LinkedNode) -> Option<Category> {
         SyntaxKind::EnumMarker => Some(Category::ListMarker),
         SyntaxKind::TermItem => None,
         SyntaxKind::TermMarker => Some(Category::ListMarker),
+        SyntaxKind::Formula => None,
+
         SyntaxKind::Math => None,
-        SyntaxKind::Atom => None,
-        SyntaxKind::Delimited => None,
-        SyntaxKind::Script => None,
-        SyntaxKind::Frac => None,
-        SyntaxKind::AlignPoint => Some(Category::MathOperator),
+        SyntaxKind::MathAtom => None,
+        SyntaxKind::MathIdent => highlight_ident(node),
+        SyntaxKind::MathDelimited => None,
+        SyntaxKind::MathScript => None,
+        SyntaxKind::MathFrac => None,
+        SyntaxKind::MathAlignPoint => Some(Category::MathOperator),
+
+        SyntaxKind::Hashtag if node.before_error() => None,
+        SyntaxKind::Hashtag => node
+            .next_leaf()
+            .filter(|node| node.kind() != SyntaxKind::Dollar)
+            .as_ref()
+            .and_then(highlight),
 
         SyntaxKind::LeftBrace => Some(Category::Punctuation),
         SyntaxKind::RightBrace => Some(Category::Punctuation),
@@ -134,14 +143,14 @@ pub fn highlight(node: &LinkedNode) -> Option<Category> {
             _ => Some(Category::Operator),
         },
         SyntaxKind::Underscore => match node.parent_kind() {
-            Some(SyntaxKind::Script) => Some(Category::MathOperator),
+            Some(SyntaxKind::MathScript) => Some(Category::MathOperator),
             _ => None,
         },
         SyntaxKind::Dollar => Some(Category::MathDelimiter),
         SyntaxKind::Plus => Some(Category::Operator),
         SyntaxKind::Minus => Some(Category::Operator),
         SyntaxKind::Slash => Some(match node.parent_kind() {
-            Some(SyntaxKind::Frac) => Category::MathOperator,
+            Some(SyntaxKind::MathFrac) => Category::MathOperator,
             _ => Category::Operator,
         }),
         SyntaxKind::Hat => Some(Category::MathOperator),
@@ -183,47 +192,8 @@ pub fn highlight(node: &LinkedNode) -> Option<Category> {
         SyntaxKind::Include => Some(Category::Keyword),
         SyntaxKind::As => Some(Category::Keyword),
 
-        SyntaxKind::Ident => match node.parent_kind() {
-            Some(
-                SyntaxKind::Markup
-                | SyntaxKind::Math
-                | SyntaxKind::Script
-                | SyntaxKind::Frac,
-            ) => Some(Category::Interpolated),
-            Some(SyntaxKind::FuncCall) => Some(Category::Function),
-            Some(SyntaxKind::FieldAccess)
-                if node.parent().and_then(|p| p.parent_kind())
-                    == Some(SyntaxKind::SetRule)
-                    && node.next_sibling().is_none() =>
-            {
-                Some(Category::Function)
-            }
-            Some(SyntaxKind::FieldAccess)
-                if node
-                    .parent()
-                    .and_then(|p| p.parent())
-                    .filter(|gp| gp.kind() == SyntaxKind::Parenthesized)
-                    .and_then(|gp| gp.parent())
-                    .map_or(false, |ggp| ggp.kind() == SyntaxKind::FuncCall)
-                    && node.next_sibling().is_none() =>
-            {
-                Some(Category::Function)
-            }
-            Some(SyntaxKind::MethodCall) if node.prev_sibling().is_some() => {
-                Some(Category::Function)
-            }
-            Some(SyntaxKind::Closure) if node.prev_sibling().is_none() => {
-                Some(Category::Function)
-            }
-            Some(SyntaxKind::SetRule) => Some(Category::Function),
-            Some(SyntaxKind::ShowRule)
-                if node.prev_sibling().as_ref().map(|v| v.kind())
-                    == Some(SyntaxKind::Show) =>
-            {
-                Some(Category::Function)
-            }
-            _ => None,
-        },
+        SyntaxKind::Code => None,
+        SyntaxKind::Ident => highlight_ident(node),
         SyntaxKind::Bool => Some(Category::Keyword),
         SyntaxKind::Int => Some(Category::Number),
         SyntaxKind::Float => Some(Category::Number),
@@ -238,7 +208,11 @@ pub fn highlight(node: &LinkedNode) -> Option<Category> {
         SyntaxKind::Keyed => None,
         SyntaxKind::Unary => None,
         SyntaxKind::Binary => None,
-        SyntaxKind::FieldAccess => None,
+        SyntaxKind::FieldAccess => match node.parent_kind() {
+            Some(SyntaxKind::Markup | SyntaxKind::Math) => Some(Category::Interpolated),
+            Some(SyntaxKind::FieldAccess) => node.parent().and_then(highlight),
+            _ => None,
+        },
         SyntaxKind::FuncCall => None,
         SyntaxKind::MethodCall => None,
         SyntaxKind::Args => None,
@@ -263,6 +237,52 @@ pub fn highlight(node: &LinkedNode) -> Option<Category> {
         SyntaxKind::BlockComment => Some(Category::Comment),
         SyntaxKind::Error => Some(Category::Error),
         SyntaxKind::Eof => None,
+    }
+}
+
+/// Highlight an identifier based on context.
+fn highlight_ident(node: &LinkedNode) -> Option<Category> {
+    match node.parent_kind() {
+        Some(
+            SyntaxKind::Markup
+            | SyntaxKind::Math
+            | SyntaxKind::MathFrac
+            | SyntaxKind::MathScript,
+        ) => Some(Category::Interpolated),
+        Some(SyntaxKind::FuncCall) => Some(Category::Function),
+        Some(SyntaxKind::FieldAccess)
+            if node.parent().and_then(|p| p.parent_kind())
+                == Some(SyntaxKind::SetRule)
+                && node.next_sibling().is_none() =>
+        {
+            Some(Category::Function)
+        }
+        Some(SyntaxKind::FieldAccess)
+            if node
+                .parent()
+                .and_then(|p| p.parent())
+                .filter(|gp| gp.kind() == SyntaxKind::Parenthesized)
+                .and_then(|gp| gp.parent())
+                .map_or(false, |ggp| ggp.kind() == SyntaxKind::FuncCall)
+                && node.next_sibling().is_none() =>
+        {
+            Some(Category::Function)
+        }
+        Some(SyntaxKind::FieldAccess) => node.parent().and_then(highlight),
+        Some(SyntaxKind::MethodCall) if node.prev_sibling().is_some() => {
+            Some(Category::Function)
+        }
+        Some(SyntaxKind::Closure) if node.prev_sibling().is_none() => {
+            Some(Category::Function)
+        }
+        Some(SyntaxKind::SetRule) => Some(Category::Function),
+        Some(SyntaxKind::ShowRule)
+            if node.prev_sibling().as_ref().map(|v| v.kind())
+                == Some(SyntaxKind::Show) =>
+        {
+            Some(Category::Function)
+        }
+        _ => None,
     }
 }
 
@@ -300,7 +320,8 @@ mod tests {
         test(
             "#f(x + 1)",
             &[
-                (0..2, Function),
+                (0..1, Function),
+                (1..2, Function),
                 (2..3, Punctuation),
                 (5..6, Operator),
                 (7..8, Number),
@@ -311,7 +332,8 @@ mod tests {
         test(
             "#let f(x) = x",
             &[
-                (0..4, Keyword),
+                (0..1, Keyword),
+                (1..4, Keyword),
                 (5..6, Function),
                 (6..7, Punctuation),
                 (8..9, Punctuation),

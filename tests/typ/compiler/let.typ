@@ -36,8 +36,8 @@ Three
 // Error: 5 expected identifier
 #let
 
-// Error: 5 expected identifier
-{let}
+// Error: 6 expected identifier
+#{let}
 
 // Error: 5 expected identifier
 // Error: 5 expected semicolon or line break

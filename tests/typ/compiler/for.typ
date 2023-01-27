@@ -10,12 +10,12 @@
 // Dictionary is not traversed in insertion order.
 // Should output `Age: 2. Name: Typst.`.
 #for k, v in (Name: "Typst", Age: 2) [
-  {k}: {v}.
+  #k: #v.
 ]
 
 // Block body.
 // Should output `[1st, 2nd, 3rd, 4th]`.
-{
+#{
   "["
   for v in (1, 2, 3, 4) {
     if v > 1 [, ]
@@ -97,8 +97,8 @@
 // Error: 5 expected identifier
 #for//
 
-// Error: 5 expected identifier
-{for}
+// Error: 6 expected identifier
+#{for}
 
 // Error: 7 expected keyword `in`
 #for v

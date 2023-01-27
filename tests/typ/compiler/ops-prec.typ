@@ -14,9 +14,14 @@
 
 ---
 // Assignment binds stronger than boolean operations.
-// Error: 2:2-2:7 cannot mutate a temporary value
+// Error: 2:3-2:8 cannot mutate a temporary value
 #let x = false
-{not x = "a"}
+#{not x = "a"}
+
+---
+// Precedence doesn't matter for chained unary operators.
+// Error: 3-12 cannot apply '-' to boolean
+#{-not true}
 
 ---
 // Parentheses override precedence.
@@ -25,8 +30,3 @@
 
 // Error: 14 expected closing paren
 #test({(1 + 1}, 2)
-
----
-// Precedence doesn't matter for chained unary operators.
-// Error: 2-11 cannot apply '-' to boolean
-{-not true}

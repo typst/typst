@@ -40,7 +40,7 @@
 }
 
 // Content block can be argument or body depending on whitespace.
-{
+#{
   if "content" == type[b] [Fi] else [Nope]
   if "content" == type [Nope] else [ve.]
 }
@@ -76,7 +76,7 @@
 // Value of if expressions.
 // Ref: false
 
-{
+#{
   let x = 1
   let y = 2
   let z
@@ -109,13 +109,13 @@
 // Error: 4 expected expression
 #if
 
-// Error: 4 expected expression
-{if}
+// Error: 5 expected expression
+#{if}
 
 // Error: 6 expected block
 #if x
 
-// Error: 1-6 unexpected keyword `else`
+// Error: 2 expected expression
 #else {}
 
 // Should output `x`.

@@ -24,9 +24,9 @@
 #rect(height: 1cm, width: 100%, fill: rgb("734ced"))[Topleft]
 
 // These are inline with text.
-\{#rect(width: 0.5in, height: 7pt, fill: rgb("d6cd67"))
-  #rect(width: 0.5in, height: 7pt, fill: rgb("edd466"))
-  #rect(width: 0.5in, height: 7pt, fill: rgb("e3be62"))\}
+{#rect(width: 0.5in, height: 7pt, fill: rgb("d6cd67"))
+ #rect(width: 0.5in, height: 7pt, fill: rgb("edd466"))
+ #rect(width: 0.5in, height: 7pt, fill: rgb("e3be62"))}
 
 // Rounded corners.
 #rect(width: 2cm, radius: 60%)
@@ -39,10 +39,8 @@
 ))
 
 // Different strokes.
-[
-  #set rect(stroke: (right: red))
-  #rect(width: 100%, fill: lime, stroke: (x: 5pt, y: 1pt))
-]
+#set rect(stroke: (right: red))
+#rect(width: 100%, fill: lime, stroke: (x: 5pt, y: 1pt))
 
 ---
 // Error: 15-38 unexpected key "cake", valid keys are "top-left", "top-right", "bottom-right", "bottom-left", "left", "top", "right", "bottom", and "rest"

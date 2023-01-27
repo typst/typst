@@ -25,7 +25,7 @@
 Emoji: 🐪, 🌋, 🏞
 
 // Colors.
-[
+#[
   #set text(fill: eastern)
   This is #text(rgb("FA644B"))[way more] colorful.
 ]

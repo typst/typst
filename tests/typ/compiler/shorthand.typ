@@ -17,4 +17,4 @@ a~b
 
 ---
 #set text("Roboto")
-A... vs {"A..."}
+A... vs #"A..."

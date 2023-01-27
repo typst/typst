@@ -16,7 +16,7 @@
   variant(fill: forest, stroke: black + 2pt),
   variant(fill: forest, stroke: conifer + 2pt),
 ) {
-  (align(horizon)[{i + 1}.], item, [])
+  (align(horizon)[#{i + 1}.], item, [])
 }
 
 #grid(

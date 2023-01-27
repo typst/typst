@@ -5,7 +5,7 @@
 // Test field on dictionary.
 #let dict = (nothing: "ness", hello: "world")
 #test(dict.nothing, "ness")
-{
+#{
   let world = dict
     .hello
 
@@ -23,12 +23,12 @@
 - C
 
 ---
-// Error: 6-13 dictionary does not contain key "invalid"
-{(:).invalid}
+// Error: 7-14 dictionary does not contain key "invalid"
+#{(:).invalid}
 
 ---
-// Error: 2-7 expected dictionary or content, found boolean
-{false.ok}
+// Error: 9-11 cannot access fields on type boolean
+#{false.ok}
 
 ---
 // Error: 29-32 unknown field `fun`
@@ -36,6 +36,6 @@
 = A
 
 ---
-// Error: 8 expected identifier
-// Error: 8 expected semicolon or line break
-{false.true}
+// Error: 9 expected identifier
+// Error: 9 expected semicolon or line break
+#{false.true}

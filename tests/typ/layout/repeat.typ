@@ -12,7 +12,7 @@
 )
 
 #for section in sections [
-  {section.at(0)} #repeat[.] {section.at(1)} \
+  #section.at(0) #repeat[.] #section.at(1) \
 ]
 
 ---

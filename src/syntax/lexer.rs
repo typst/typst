@@ -376,7 +376,7 @@ impl Lexer<'_> {
                 Some('-') if !s.at(['-', '?']) => {}
                 Some('.') if !s.at("..") => {}
                 Some('h') if !s.at("ttp://") && !s.at("ttps://") => {}
-                Some('@' | '#') if !s.at(is_id_start) => {}
+                Some('@') if !s.at(is_id_start) => {}
                 _ => break,
             }
 
@@ -410,15 +410,8 @@ impl Lexer<'_> {
             '\\' => self.backslash(),
             ':' if self.s.at(is_id_start) => self.maybe_symbol(),
             '"' => self.string(),
-            '#' if self.s.eat_if('{') => SyntaxKind::LeftBrace,
-            '#' if self.s.eat_if('[') => SyntaxKind::LeftBracket,
-            '#' if self.s.at(is_id_start) => {
-                match keyword(self.s.eat_while(is_id_continue)) {
-                    Some(keyword) => keyword,
-                    None => SyntaxKind::Ident,
-                }
-            }
 
+            '.' if self.s.eat_if("..") => SyntaxKind::Shorthand,
             '|' if self.s.eat_if("->") => SyntaxKind::Shorthand,
             '<' if self.s.eat_if("->") => SyntaxKind::Shorthand,
             '<' if self.s.eat_if("=>") => SyntaxKind::Shorthand,
@@ -429,13 +422,17 @@ impl Lexer<'_> {
             '-' if self.s.eat_if('>') => SyntaxKind::Shorthand,
             '=' if self.s.eat_if('>') => SyntaxKind::Shorthand,
             ':' if self.s.eat_if('=') => SyntaxKind::Shorthand,
-            '.' if self.s.eat_if("..") => SyntaxKind::Shorthand,
+            '[' if self.s.eat_if('|') => SyntaxKind::Shorthand,
+            '|' if self.s.eat_if(']') => SyntaxKind::Shorthand,
+            '|' if self.s.eat_if('|') => SyntaxKind::Shorthand,
+            '*' => SyntaxKind::Shorthand,
 
+            '#' if !self.s.at(char::is_whitespace) => SyntaxKind::Hashtag,
             '_' => SyntaxKind::Underscore,
             '$' => SyntaxKind::Dollar,
             '/' => SyntaxKind::Slash,
             '^' => SyntaxKind::Hat,
-            '&' => SyntaxKind::AlignPoint,
+            '&' => SyntaxKind::MathAlignPoint,
 
             // Identifiers and symbol notation.
             c if is_math_id_start(c) && self.s.at(is_math_id_continue) => {
@@ -479,7 +476,7 @@ impl Lexer<'_> {
                 .map_or(0, str::len);
             self.s.jump(start + len);
         }
-        SyntaxKind::Atom
+        SyntaxKind::MathAtom
     }
 }
 

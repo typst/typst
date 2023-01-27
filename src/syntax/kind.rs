@@ -58,19 +58,26 @@ pub enum SyntaxKind {
     /// Introduces a term item: `/`.
     TermMarker,
     /// A mathematical formula: `$x$`, `$ x^2 $`.
+    Formula,
+
+    /// Mathematical markup.
     Math,
     /// An atom in math: `x`, `+`, `12`.
-    Atom,
+    MathAtom,
+    /// An identifier in math: `pi`.
+    MathIdent,
+    /// An alignment point in math: `&`.
+    MathAlignPoint,
     /// A subsection in a math formula that is surrounded by matched delimiters:
     /// `[x + y]`.
-    Delimited,
+    MathDelimited,
     /// A base with optional sub- and superscripts in math: `a_1^2`.
-    Script,
+    MathScript,
     /// A fraction in math: `x/2`.
-    Frac,
-    /// An alignment point in math: `&`.
-    AlignPoint,
+    MathFrac,
 
+    /// A hashtag that switches into code mode: `#`.
+    Hashtag,
     /// A left curly brace, starting a code block: `{`.
     LeftBrace,
     /// A right curly brace, terminating a code block: `}`.
@@ -175,6 +182,8 @@ pub enum SyntaxKind {
     /// The `as` keyword.
     As,
 
+    /// Code.
+    Code,
     /// An identifier: `it`.
     Ident,
     /// A boolean: `true`, `false`.
@@ -338,12 +347,15 @@ impl SyntaxKind {
             Self::EnumMarker => "enum marker",
             Self::TermItem => "term list item",
             Self::TermMarker => "term marker",
-            Self::Math => "math formula",
-            Self::Delimited => "delimited math",
-            Self::Atom => "math atom",
-            Self::Script => "script",
-            Self::Frac => "fraction",
-            Self::AlignPoint => "alignment point",
+            Self::Formula => "math formula",
+            Self::Math => "math",
+            Self::MathIdent => "math identifier",
+            Self::MathAtom => "math atom",
+            Self::MathAlignPoint => "math alignment point",
+            Self::MathDelimited => "delimited math",
+            Self::MathScript => "math script",
+            Self::MathFrac => "math fraction",
+            Self::Hashtag => "hashtag",
             Self::LeftBrace => "opening brace",
             Self::RightBrace => "closing brace",
             Self::LeftBracket => "opening bracket",
@@ -394,6 +406,7 @@ impl SyntaxKind {
             Self::Import => "keyword `import`",
             Self::Include => "keyword `include`",
             Self::As => "keyword `as`",
+            Self::Code => "code",
             Self::Ident => "identifier",
             Self::Bool => "boolean",
             Self::Int => "integer",
