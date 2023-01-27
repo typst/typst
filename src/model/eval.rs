@@ -584,9 +584,9 @@ impl Eval for ast::MathDelimited {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let open = self.open().eval(vm)?;
+        let open = self.open().eval(vm)?.display_in_math();
         let body = self.body().eval(vm)?;
-        let close = self.close().eval(vm)?;
+        let close = self.close().eval(vm)?.display_in_math();
         Ok((vm.items.math_delimited)(open, body, close))
     }
 }

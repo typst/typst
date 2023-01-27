@@ -252,7 +252,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
             }
         }
 
-        SyntaxKind::MathAtom => {
+        SyntaxKind::MathAtom | SyntaxKind::Shorthand => {
             if math_class(p.current_text()) == Some(MathClass::Fence) {
                 math_delimited(p, MathClass::Fence)
             } else if math_class(p.current_text()) == Some(MathClass::Opening) {
@@ -264,7 +264,6 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
 
         SyntaxKind::Linebreak
         | SyntaxKind::Escape
-        | SyntaxKind::Shorthand
         | SyntaxKind::MathAlignPoint
         | SyntaxKind::Str => p.eat(),
 
@@ -306,12 +305,12 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
 
 fn math_delimited(p: &mut Parser, stop: MathClass) {
     let m = p.marker();
-    p.assert(SyntaxKind::MathAtom);
+    p.eat();
     let m2 = p.marker();
     while !p.eof() && !p.at(SyntaxKind::Dollar) {
         if math_class(p.current_text()) == Some(stop) {
             p.wrap(m2, SyntaxKind::Math);
-            p.assert(SyntaxKind::MathAtom);
+            p.eat();
             p.wrap(m, SyntaxKind::MathDelimited);
             return;
         }
@@ -341,6 +340,13 @@ fn math_unparen(p: &mut Parser, m: Marker) {
 }
 
 fn math_class(text: &str) -> Option<MathClass> {
+    match text {
+        "[|" => return Some(MathClass::Opening),
+        "|]" => return Some(MathClass::Closing),
+        "||" => return Some(MathClass::Fence),
+        _ => {}
+    }
+
     let mut chars = text.chars();
     chars
         .next()

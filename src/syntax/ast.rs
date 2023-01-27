@@ -716,7 +716,7 @@ node! {
 
 impl MathDelimited {
     /// The opening delimiter.
-    pub fn open(&self) -> MathAtom {
+    pub fn open(&self) -> Expr {
         self.0.cast_first_match().unwrap_or_default()
     }
 
@@ -726,7 +726,7 @@ impl MathDelimited {
     }
 
     /// The closing delimiter.
-    pub fn close(&self) -> MathAtom {
+    pub fn close(&self) -> Expr {
         self.0.cast_last_match().unwrap_or_default()
     }
 }
