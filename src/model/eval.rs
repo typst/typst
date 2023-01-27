@@ -553,7 +553,8 @@ impl Eval for ast::Math {
             self.exprs()
                 .map(|expr| Ok(expr.eval(vm)?.display_in_math()))
                 .collect::<SourceResult<_>>()?,
-        ))
+        )
+        .spanned(self.span()))
     }
 }
 

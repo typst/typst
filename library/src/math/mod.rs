@@ -198,6 +198,9 @@ impl Layout for FormulaNode {
                 Some(font)
             })
         else {
+            if let Some(span) = self.body.span() {
+                bail!(span, "current font does not support math");
+            }
             return Ok(Fragment::frame(Frame::new(Size::zero())))
         };
 
