@@ -7,7 +7,7 @@ use crate::util::EcoString;
 
 /// Call a method on a value.
 pub fn call(
-    vm: &Vm,
+    vm: &mut Vm,
     value: Value,
     method: &str,
     mut args: Args,

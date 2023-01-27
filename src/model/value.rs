@@ -155,6 +155,14 @@ impl Value {
             _ => self.display(),
         }
     }
+
+    /// Try to extract documentation for the value.
+    pub fn docs(&self) -> Option<&'static str> {
+        match self {
+            Self::Func(func) => func.info().map(|info| info.docs),
+            _ => None,
+        }
+    }
 }
 
 impl Default for Value {

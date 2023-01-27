@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use std::mem;
 use std::path::{Path, PathBuf};
 
-use comemo::{Track, Tracked};
+use comemo::{Track, Tracked, TrackedMut};
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::{
@@ -17,7 +17,7 @@ use crate::diag::{
 use crate::geom::{Abs, Angle, Em, Fr, Ratio};
 use crate::syntax::ast::AstNode;
 use crate::syntax::{ast, Source, SourceId, Span, Spanned, SyntaxKind, SyntaxNode};
-use crate::util::{EcoString, PathExt};
+use crate::util::PathExt;
 use crate::World;
 
 const MAX_ITERATIONS: usize = 10_000;
@@ -28,6 +28,7 @@ const MAX_CALL_DEPTH: usize = 256;
 pub fn eval(
     world: Tracked<dyn World>,
     route: Tracked<Route>,
+    tracer: TrackedMut<Tracer>,
     source: &Source,
 ) -> SourceResult<Module> {
     // Prevent cyclic evaluation.
@@ -44,7 +45,7 @@ pub fn eval(
     // Evaluate the module.
     let route = unsafe { Route::insert(route, id) };
     let scopes = Scopes::new(Some(library));
-    let mut vm = Vm::new(world, route.track(), id, scopes, 0);
+    let mut vm = Vm::new(world, route.track(), tracer, id, scopes, 0);
     let result = source.ast()?.eval(&mut vm);
 
     // Handle control flow.
@@ -68,6 +69,8 @@ pub struct Vm<'a> {
     pub(super) items: LangItems,
     /// The route of source ids the VM took to reach its current location.
     pub(super) route: Tracked<'a, Route>,
+    /// The tracer for inspection of the values an expression produces.
+    pub(super) tracer: TrackedMut<'a, Tracer>,
     /// The current location.
     pub(super) location: SourceId,
     /// A control flow event that is currently happening.
@@ -76,6 +79,8 @@ pub struct Vm<'a> {
     pub(super) scopes: Scopes<'a>,
     /// The current call depth.
     pub(super) depth: usize,
+    /// A span that is currently traced.
+    pub(super) traced: Option<Span>,
 }
 
 impl<'a> Vm<'a> {
@@ -83,24 +88,37 @@ impl<'a> Vm<'a> {
     pub(super) fn new(
         world: Tracked<'a, dyn World>,
         route: Tracked<'a, Route>,
+        tracer: TrackedMut<'a, Tracer>,
         location: SourceId,
         scopes: Scopes<'a>,
         depth: usize,
     ) -> Self {
+        let traced = tracer.span(location);
         Self {
             world,
             items: world.library().items.clone(),
             route,
+            tracer,
             location,
             flow: None,
             scopes,
             depth,
+            traced,
         }
     }
 
     /// Access the underlying world.
     pub fn world(&self) -> Tracked<'a, dyn World> {
         self.world
+    }
+
+    /// Define a variable in the current scope.
+    pub fn define(&mut self, var: ast::Ident, value: impl Into<Value>) {
+        let value = value.into();
+        if self.traced == Some(var.span()) {
+            self.tracer.trace(value.clone());
+        }
+        self.scopes.top.define(var.take(), value);
     }
 
     /// Resolve a user-entered path to be relative to the compilation
@@ -182,6 +200,47 @@ impl Route {
     }
 }
 
+/// Traces which values existed for the expression with the given span.
+#[derive(Default, Clone)]
+pub struct Tracer {
+    span: Option<Span>,
+    values: Vec<Value>,
+}
+
+impl Tracer {
+    /// The maximum number of traced items.
+    pub const MAX: usize = 10;
+
+    /// Create a new tracer, possibly with a span under inspection.
+    pub fn new(span: Option<Span>) -> Self {
+        Self { span, values: vec![] }
+    }
+
+    /// Get the traced values.
+    pub fn finish(self) -> Vec<Value> {
+        self.values
+    }
+}
+
+#[comemo::track]
+impl Tracer {
+    /// The traced span if it is part of the given source file.
+    fn span(&self, id: SourceId) -> Option<Span> {
+        if self.span.map(Span::source) == Some(id) {
+            self.span
+        } else {
+            None
+        }
+    }
+
+    /// Trace a value for the span.
+    fn trace(&mut self, v: Value) {
+        if self.values.len() < Self::MAX {
+            self.values.push(v);
+        }
+    }
+}
+
 /// Evaluate an expression.
 pub(super) trait Eval {
     /// The output of evaluating the expression.
@@ -259,12 +318,11 @@ impl Eval for ast::Expr {
             error!(span, "{} is only allowed directly in code and content blocks", name)
         };
 
-        match self {
+        let v = match self {
             Self::Text(v) => v.eval(vm).map(Value::Content),
             Self::Space(v) => v.eval(vm).map(Value::Content),
             Self::Linebreak(v) => v.eval(vm).map(Value::Content),
             Self::Parbreak(v) => v.eval(vm).map(Value::Content),
-            Self::Symbol(v) => v.eval(vm).map(Value::Content),
             Self::Escape(v) => v.eval(vm),
             Self::Shorthand(v) => v.eval(vm),
             Self::SmartQuote(v) => v.eval(vm).map(Value::Content),
@@ -319,6 +377,8 @@ impl Eval for ast::Expr {
         }?
         .spanned(span);
 
+        if vm.traced == Some(span) {
+            vm.tracer.trace(v.clone());
         }
 
         Ok(v)
@@ -1049,7 +1109,7 @@ impl Eval for ast::LetBinding {
             Some(expr) => expr.eval(vm)?,
             None => Value::None,
         };
-        vm.scopes.top.define(self.binding().take(), value);
+        vm.define(self.binding(), value);
         Ok(Value::None)
     }
 }
@@ -1183,7 +1243,7 @@ impl Eval for ast::ForLoop {
 
                 #[allow(unused_parens)]
                 for ($($value),*) in $iter {
-                    $(vm.scopes.top.define($binding.clone(), $value);)*
+                    $(vm.define($binding.clone(), $value);)*
 
                     let body = self.body();
                     let value = body.eval(vm)?;
@@ -1206,8 +1266,8 @@ impl Eval for ast::ForLoop {
 
         let iter = self.iter().eval(vm)?;
         let pattern = self.pattern();
-        let key = pattern.key().map(ast::Ident::take);
-        let value = pattern.value().take();
+        let key = pattern.key();
+        let value = pattern.value();
 
         match (key, value, iter) {
             (None, v, Value::Str(string)) => {
@@ -1271,7 +1331,7 @@ impl Eval for ast::ModuleImport {
                 let mut errors = vec![];
                 for ident in idents {
                     if let Some(value) = module.scope().get(&ident) {
-                        vm.scopes.top.define(ident.take(), value.clone());
+                        vm.define(ident, value.clone());
                     } else {
                         errors.push(error!(ident.span(), "unresolved import"));
                     }

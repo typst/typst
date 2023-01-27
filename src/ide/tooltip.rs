@@ -1,40 +1,71 @@
 use if_chain::if_chain;
+use unicode_segmentation::UnicodeSegmentation;
 
-use super::{plain_docs_sentence, summarize_font_family};
-use crate::model::{CastInfo, Value};
+use super::{analyze, plain_docs_sentence, summarize_font_family};
+use crate::model::{CastInfo, Tracer, Value};
 use crate::syntax::ast;
 use crate::syntax::{LinkedNode, Source, SyntaxKind};
 use crate::World;
 
 /// Describe the item under the cursor.
-pub fn tooltip(world: &dyn World, source: &Source, cursor: usize) -> Option<String> {
+pub fn tooltip(
+    world: &(dyn World + 'static),
+    source: &Source,
+    cursor: usize,
+) -> Option<String> {
     let leaf = LinkedNode::new(source.root()).leaf_at(cursor)?;
 
-    function_tooltip(world, &leaf)
-        .or_else(|| named_param_tooltip(world, &leaf))
+    named_param_tooltip(world, &leaf)
         .or_else(|| font_family_tooltip(world, &leaf))
+        .or_else(|| expr_tooltip(world, &leaf))
 }
 
-/// Tooltip for a function or set rule name.
-fn function_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<String> {
-    if_chain! {
-        if let Some(ident) = leaf.cast::<ast::Ident>();
-        if matches!(
-            leaf.parent_kind(),
-            Some(SyntaxKind::FuncCall | SyntaxKind::SetRule),
-        );
-        if let Some(Value::Func(func)) = world.library().global.scope().get(&ident);
-        if let Some(info) = func.info();
-        then {
-            return Some(plain_docs_sentence(info.docs));
+/// Tooltip for a hovered expression.
+fn expr_tooltip(world: &(dyn World + 'static), leaf: &LinkedNode) -> Option<String> {
+    if !leaf.is::<ast::Expr>() {
+        return None;
+    }
+
+    let values = analyze(world, leaf);
+    if let [value] = values.as_slice() {
+        if let Some(docs) = value.docs() {
+            return Some(plain_docs_sentence(docs));
         }
     }
 
-    None
+    let mut tooltip = String::new();
+    let mut iter = values.into_iter().enumerate();
+    for (i, value) in (&mut iter).take(Tracer::MAX - 1) {
+        if i > 0 && !tooltip.is_empty() {
+            tooltip.push_str(", ");
+        }
+        let repr = value.repr();
+        let repr = repr.as_str();
+        let len = repr.len();
+        if len <= 40 {
+            tooltip.push_str(repr);
+        } else {
+            let mut graphemes = repr.graphemes(true);
+            let r = graphemes.next_back().map_or(0, str::len);
+            let l = graphemes.take(40).map(str::len).sum();
+            tooltip.push_str(&repr[..l]);
+            tooltip.push_str("...");
+            tooltip.push_str(&repr[len - r..]);
+        }
+    }
+
+    if iter.next().is_some() {
+        tooltip.push_str(", ...");
+    }
+
+    (!tooltip.is_empty()).then(|| tooltip)
 }
 
 /// Tooltips for components of a named parameter.
-fn named_param_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<String> {
+fn named_param_tooltip(
+    world: &(dyn World + 'static),
+    leaf: &LinkedNode,
+) -> Option<String> {
     let (info, named) = if_chain! {
         // Ensure that we are in a named pair in the arguments to a function
         // call or set rule.
@@ -92,7 +123,10 @@ fn find_string_doc(info: &CastInfo, string: &str) -> Option<&'static str> {
 }
 
 /// Tooltip for font family.
-fn font_family_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<String> {
+fn font_family_tooltip(
+    world: &(dyn World + 'static),
+    leaf: &LinkedNode,
+) -> Option<String> {
     if_chain! {
         // Ensure that we are on top of a string.
         if let Some(string) = leaf.cast::<ast::Str>();

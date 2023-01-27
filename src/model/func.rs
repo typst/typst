@@ -2,11 +2,11 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use comemo::{Track, Tracked};
+use comemo::{Track, Tracked, TrackedMut};
 
 use super::{
     Args, CastInfo, Dict, Eval, Flow, Node, NodeId, Route, Scope, Scopes, Selector,
-    StyleMap, Value, Vm,
+    StyleMap, Tracer, Value, Vm,
 };
 use crate::diag::{bail, SourceResult, StrResult};
 use crate::syntax::ast::{self, AstNode, Expr};
@@ -110,7 +110,7 @@ impl Func {
     }
 
     /// Call the function with the given arguments.
-    pub fn call(&self, vm: &Vm, mut args: Args) -> SourceResult<Value> {
+    pub fn call(&self, vm: &mut Vm, mut args: Args) -> SourceResult<Value> {
         let value = match self.0.as_ref() {
             Repr::Native(native) => (native.func)(vm, &mut args)?,
             Repr::Closure(closure) => closure.call(vm, self, &mut args)?,
@@ -132,8 +132,9 @@ impl Func {
         let route = Route::default();
         let id = SourceId::detached();
         let scopes = Scopes::new(None);
-        let vm = Vm::new(world, route.track(), id, scopes, 0);
-        self.call(&vm, args)
+        let mut tracer = Tracer::default();
+        let mut vm = Vm::new(world, route.track(), tracer.track_mut(), id, scopes, 0);
+        self.call(&mut vm, args)
     }
 
     /// Apply the given arguments to the function.
@@ -292,7 +293,7 @@ pub(super) struct Closure {
 
 impl Closure {
     /// Call the function in the context with the arguments.
-    fn call(&self, vm: &Vm, this: &Func, args: &mut Args) -> SourceResult<Value> {
+    fn call(&self, vm: &mut Vm, this: &Func, args: &mut Args) -> SourceResult<Value> {
         // Don't leak the scopes from the call site. Instead, we use the scope
         // of captured variables we collected earlier.
         let mut scopes = Scopes::new(None);
@@ -327,7 +328,14 @@ impl Closure {
         let route = if detached { fresh.track() } else { vm.route };
 
         // Evaluate the body.
-        let mut sub = Vm::new(vm.world, route, self.location, scopes, vm.depth + 1);
+        let mut sub = Vm::new(
+            vm.world,
+            route,
+            TrackedMut::reborrow_mut(&mut vm.tracer),
+            self.location,
+            scopes,
+            vm.depth + 1,
+        );
         let result = self.body.eval(&mut sub);
 
         // Handle control flow.

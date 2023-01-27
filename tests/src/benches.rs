@@ -60,13 +60,29 @@ fn bench_edit(iai: &mut Iai) {
 fn bench_eval(iai: &mut Iai) {
     let world = BenchWorld::new();
     let route = typst::model::Route::default();
-    iai.run(|| typst::model::eval(world.track(), route.track(), &world.source).unwrap());
+    let mut tracer = typst::model::Tracer::default();
+    iai.run(|| {
+        typst::model::eval(
+            world.track(),
+            route.track(),
+            tracer.track_mut(),
+            &world.source,
+        )
+        .unwrap()
+    });
 }
 
 fn bench_typeset(iai: &mut Iai) {
     let world = BenchWorld::new();
     let route = typst::model::Route::default();
-    let module = typst::model::eval(world.track(), route.track(), &world.source).unwrap();
+    let mut tracer = typst::model::Tracer::default();
+    let module = typst::model::eval(
+        world.track(),
+        route.track(),
+        tracer.track_mut(),
+        &world.source,
+    )
+    .unwrap();
     let content = module.content();
     iai.run(|| typst::model::typeset(world.track(), &content));
 }

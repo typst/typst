@@ -435,7 +435,9 @@ fn test_part(
     if world.print.model {
         let world = (world as &dyn World).track();
         let route = typst::model::Route::default();
-        let module = typst::model::eval(world, route.track(), source).unwrap();
+        let mut tracer = typst::model::Tracer::default();
+        let module =
+            typst::model::eval(world, route.track(), tracer.track_mut(), source).unwrap();
         println!("Model:\n{:#?}\n", module.content());
     }
 

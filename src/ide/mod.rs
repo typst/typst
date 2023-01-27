@@ -1,9 +1,11 @@
 //! Capabilities for IDE support.
 
+mod analyze;
 mod complete;
 mod highlight;
 mod tooltip;
 
+pub use analyze::*;
 pub use complete::*;
 pub use highlight::*;
 pub use tooltip::*;

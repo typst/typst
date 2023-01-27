@@ -105,7 +105,7 @@ impl Dict {
     }
 
     /// Transform each pair in the dictionary with a function.
-    pub fn map(&self, vm: &Vm, func: Func) -> SourceResult<Array> {
+    pub fn map(&self, vm: &mut Vm, func: Func) -> SourceResult<Array> {
         if func.argc().map_or(false, |count| count != 2) {
             bail!(func.span(), "function must have exactly two parameters");
         }

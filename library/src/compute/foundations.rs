@@ -112,6 +112,7 @@ pub fn eval(vm: &Vm, args: &mut Args) -> SourceResult<Value> {
     let Spanned { v: text, span } = args.expect::<Spanned<String>>("source")?;
     let source = Source::synthesized(text, span);
     let route = model::Route::default();
-    let module = model::eval(vm.world(), route.track(), &source)?;
+    let mut tracer = model::Tracer::default();
+    let module = model::eval(vm.world(), route.track(), tracer.track_mut(), &source)?;
     Ok(Value::Content(module.content()))
 }

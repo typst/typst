@@ -136,7 +136,7 @@ impl Array {
     }
 
     /// Return the first matching element.
-    pub fn find(&self, vm: &Vm, func: Func) -> SourceResult<Option<Value>> {
+    pub fn find(&self, vm: &mut Vm, func: Func) -> SourceResult<Option<Value>> {
         if func.argc().map_or(false, |count| count != 1) {
             bail!(func.span(), "function must have exactly one parameter");
         }
@@ -151,7 +151,7 @@ impl Array {
     }
 
     /// Return the index of the first matching element.
-    pub fn position(&self, vm: &Vm, func: Func) -> SourceResult<Option<i64>> {
+    pub fn position(&self, vm: &mut Vm, func: Func) -> SourceResult<Option<i64>> {
         if func.argc().map_or(false, |count| count != 1) {
             bail!(func.span(), "function must have exactly one parameter");
         }
@@ -167,7 +167,7 @@ impl Array {
 
     /// Return a new array with only those elements for which the function
     /// returns true.
-    pub fn filter(&self, vm: &Vm, func: Func) -> SourceResult<Self> {
+    pub fn filter(&self, vm: &mut Vm, func: Func) -> SourceResult<Self> {
         if func.argc().map_or(false, |count| count != 1) {
             bail!(func.span(), "function must have exactly one parameter");
         }
@@ -182,7 +182,7 @@ impl Array {
     }
 
     /// Transform each item in the array with a function.
-    pub fn map(&self, vm: &Vm, func: Func) -> SourceResult<Self> {
+    pub fn map(&self, vm: &mut Vm, func: Func) -> SourceResult<Self> {
         if func.argc().map_or(false, |count| !(1..=2).contains(&count)) {
             bail!(func.span(), "function must have one or two parameters");
         }
@@ -201,7 +201,7 @@ impl Array {
     }
 
     /// Fold all of the array's elements into one with a function.
-    pub fn fold(&self, vm: &Vm, init: Value, func: Func) -> SourceResult<Value> {
+    pub fn fold(&self, vm: &mut Vm, init: Value, func: Func) -> SourceResult<Value> {
         if func.argc().map_or(false, |count| count != 2) {
             bail!(func.span(), "function must have exactly two parameters");
         }
@@ -214,7 +214,7 @@ impl Array {
     }
 
     /// Whether any element matches.
-    pub fn any(&self, vm: &Vm, func: Func) -> SourceResult<bool> {
+    pub fn any(&self, vm: &mut Vm, func: Func) -> SourceResult<bool> {
         if func.argc().map_or(false, |count| count != 1) {
             bail!(func.span(), "function must have exactly one parameter");
         }
@@ -229,7 +229,7 @@ impl Array {
     }
 
     /// Whether all elements match.
-    pub fn all(&self, vm: &Vm, func: Func) -> SourceResult<bool> {
+    pub fn all(&self, vm: &mut Vm, func: Func) -> SourceResult<bool> {
         if func.argc().map_or(false, |count| count != 1) {
             bail!(func.span(), "function must have exactly one parameter");
         }
