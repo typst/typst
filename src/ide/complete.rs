@@ -307,6 +307,19 @@ fn complete_field_accesses(ctx: &mut CompletionContext) -> bool {
 
 /// Add completions for all fields on a value.
 fn field_access_completions(ctx: &mut CompletionContext, value: &Value) {
+    for &(method, args) in methods_on(value.type_name()) {
+        ctx.completions.push(Completion {
+            kind: CompletionKind::Func,
+            label: method.into(),
+            apply: Some(if args {
+                format_eco!("{method}(${{}})")
+            } else {
+                format_eco!("{method}()${{}}")
+            }),
+            detail: None,
+        })
+    }
+
     match value {
         Value::Symbol(symbol) => {
             for modifier in symbol.modifiers() {
@@ -320,25 +333,17 @@ fn field_access_completions(ctx: &mut CompletionContext, value: &Value) {
                 }
             }
         }
+        Value::Dict(dict) => {
+            for (name, value) in dict.iter() {
+                ctx.value_completion(Some(name.clone().into()), value, None);
+            }
+        }
         Value::Module(module) => {
             for (name, value) in module.scope().iter() {
                 ctx.value_completion(Some(name.clone()), value, None);
             }
         }
-        _ => {
-            for &(method, args) in methods_on(value.type_name()) {
-                ctx.completions.push(Completion {
-                    kind: CompletionKind::Func,
-                    label: method.into(),
-                    apply: Some(if args {
-                        format_eco!("{method}(${{}})")
-                    } else {
-                        format_eco!("{method}()${{}}")
-                    }),
-                    detail: None,
-                })
-            }
-        }
+        _ => {}
     }
 }
 
@@ -835,12 +840,12 @@ impl<'a> CompletionContext<'a> {
         }
 
         let detail = docs.map(Into::into).or_else(|| match value {
+            Value::Symbol(_) => None,
+            Value::Content(_) => None,
             Value::Func(func) => {
                 func.info().map(|info| plain_docs_sentence(info.docs).into())
             }
-            Value::Color(color) => Some(format_eco!("The color {color:?}.")),
-            Value::Auto => Some("A smart default.".into()),
-            _ => None,
+            v => Some(v.repr().into()),
         });
 
         self.completions.push(Completion {
@@ -867,9 +872,7 @@ impl<'a> CompletionContext<'a> {
             CastInfo::Value(value, docs) => {
                 self.value_completion(None, value, Some(docs));
             }
-            CastInfo::Type("none") => {
-                self.snippet_completion("none", "none", "Nonexistent.")
-            }
+            CastInfo::Type("none") => self.snippet_completion("none", "none", "Nothing."),
             CastInfo::Type("auto") => {
                 self.snippet_completion("auto", "auto", "A smart default.");
             }

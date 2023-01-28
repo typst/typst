@@ -23,7 +23,7 @@ pub fn analyze(world: &(dyn World + 'static), node: &LinkedNode) -> Vec<Value> {
                 .collect()
         }
 
-        Some(ast::Expr::Ident(_) | ast::Expr::MathIdent(_) | ast::Expr::FuncCall(_)) => {
+        Some(_) => {
             if let Some(parent) = node.parent() {
                 if parent.kind() == SyntaxKind::FieldAccess && node.index() > 0 {
                     return analyze(world, parent);

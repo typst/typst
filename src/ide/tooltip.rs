@@ -24,6 +24,10 @@ pub fn tooltip(
 /// Tooltip for a hovered expression.
 fn expr_tooltip(world: &(dyn World + 'static), leaf: &LinkedNode) -> Option<String> {
     let expr = leaf.cast::<ast::Expr>()?;
+    if !expr.hashtag() {
+        return None;
+    }
+
     let values = analyze(world, leaf);
 
     if let [value] = values.as_slice() {
