@@ -345,6 +345,20 @@ impl Expr {
             _ => false,
         }
     }
+
+    /// Is this a literal?
+    pub fn is_literal(&self) -> bool {
+        match self {
+            Self::None(_) => true,
+            Self::Auto(_) => true,
+            Self::Bool(_) => true,
+            Self::Int(_) => true,
+            Self::Float(_) => true,
+            Self::Numeric(_) => true,
+            Self::Str(_) => true,
+            _ => false,
+        }
+    }
 }
 
 impl Default for Expr {

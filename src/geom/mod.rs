@@ -131,6 +131,6 @@ pub trait Numeric:
 }
 
 /// Round a float to two decimal places.
-fn round_2(value: f64) -> f64 {
+pub fn round_2(value: f64) -> f64 {
     (value * 100.0).round() / 100.0
 }

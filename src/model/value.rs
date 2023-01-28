@@ -12,7 +12,7 @@ use super::{
 };
 use crate::diag::StrResult;
 use crate::geom::{Abs, Angle, Color, Em, Fr, Length, Ratio, Rel, RgbaColor};
-use crate::syntax::Span;
+use crate::syntax::{ast, Span};
 use crate::util::{format_eco, EcoString};
 
 /// A computational value.
@@ -69,6 +69,18 @@ impl Value {
         T: Type + Debug + PartialEq + Hash + Sync + Send + 'static,
     {
         Self::Dyn(Dynamic::new(any))
+    }
+
+    /// Create a numeric value from a number with a unit.
+    pub fn numeric(pair: (f64, ast::Unit)) -> Self {
+        let (v, unit) = pair;
+        match unit {
+            ast::Unit::Length(unit) => Abs::with_unit(v, unit).into(),
+            ast::Unit::Angle(unit) => Angle::with_unit(v, unit).into(),
+            ast::Unit::Em => Em::new(v).into(),
+            ast::Unit::Fr => Fr::new(v).into(),
+            ast::Unit::Percent => Ratio::new(v / 100.0).into(),
+        }
     }
 
     /// The name of the stored value's type.

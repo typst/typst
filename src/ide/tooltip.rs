@@ -2,6 +2,7 @@ use if_chain::if_chain;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::{analyze, plain_docs_sentence, summarize_font_family};
+use crate::geom::{round_2, Length, Numeric};
 use crate::model::{CastInfo, Tracer, Value};
 use crate::syntax::ast;
 use crate::syntax::{LinkedNode, Source, SyntaxKind};
@@ -22,15 +23,23 @@ pub fn tooltip(
 
 /// Tooltip for a hovered expression.
 fn expr_tooltip(world: &(dyn World + 'static), leaf: &LinkedNode) -> Option<String> {
-    if !leaf.is::<ast::Expr>() {
-        return None;
-    }
-
+    let expr = leaf.cast::<ast::Expr>()?;
     let values = analyze(world, leaf);
+
     if let [value] = values.as_slice() {
         if let Some(docs) = value.docs() {
             return Some(plain_docs_sentence(docs));
         }
+
+        if let &Value::Length(length) = value {
+            if let Some(tooltip) = length_tooltip(length) {
+                return Some(tooltip);
+            }
+        }
+    }
+
+    if expr.is_literal() {
+        return None;
     }
 
     let mut tooltip = String::new();
@@ -59,6 +68,19 @@ fn expr_tooltip(world: &(dyn World + 'static), leaf: &LinkedNode) -> Option<Stri
     }
 
     (!tooltip.is_empty()).then(|| tooltip)
+}
+
+/// Tooltip text for a hovered length.
+fn length_tooltip(length: Length) -> Option<String> {
+    length.em.is_zero().then(|| {
+        format!(
+            "{}pt = {}mm = {}cm = {}in",
+            round_2(length.abs.to_pt()),
+            round_2(length.abs.to_mm()),
+            round_2(length.abs.to_cm()),
+            round_2(length.abs.to_inches())
+        )
+    })
 }
 
 /// Tooltips for components of a named parameter.

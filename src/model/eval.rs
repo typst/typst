@@ -15,7 +15,6 @@ use super::{
 use crate::diag::{
     bail, error, At, SourceError, SourceResult, StrResult, Trace, Tracepoint,
 };
-use crate::geom::{Abs, Angle, Em, Fr, Ratio};
 use crate::syntax::ast::AstNode;
 use crate::syntax::{ast, Source, SourceId, Span, Spanned, SyntaxKind, SyntaxNode};
 use crate::util::PathExt;
@@ -660,14 +659,7 @@ impl Eval for ast::Numeric {
     type Output = Value;
 
     fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
-        let (v, unit) = self.get();
-        Ok(match unit {
-            ast::Unit::Length(unit) => Abs::with_unit(v, unit).into(),
-            ast::Unit::Angle(unit) => Angle::with_unit(v, unit).into(),
-            ast::Unit::Em => Em::new(v).into(),
-            ast::Unit::Fr => Fr::new(v).into(),
-            ast::Unit::Percent => Ratio::new(v / 100.0).into(),
-        })
+        Ok(Value::numeric(self.get()))
     }
 }
 

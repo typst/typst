@@ -499,7 +499,11 @@ impl Lexer<'_> {
 
         // Read the fractional part if not already done.
         // Make sure not to confuse a range for the decimal separator.
-        if c != '.' && !self.s.at("..") && self.s.eat_if('.') {
+        if c != '.'
+            && !self.s.at("..")
+            && !self.s.scout(1).map_or(false, is_id_start)
+            && self.s.eat_if('.')
+        {
             self.s.eat_while(char::is_ascii_digit);
         }
 
