@@ -150,13 +150,11 @@ symbols! {
     breve: '˘',
     caret: '‸',
     caron: 'ˇ',
-    cedilla: '¸',
     circum: '^',
     diaer: '¨',
     grave: '`',
     macron: '¯',
     tilde: '~',
-    overline: '‾',
 
     // Currency.
     bitcoin: '₿',

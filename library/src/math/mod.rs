@@ -5,7 +5,6 @@ mod ctx;
 mod accent;
 mod align;
 mod attach;
-mod braced;
 mod frac;
 mod fragment;
 mod lr;
@@ -14,6 +13,7 @@ mod op;
 mod root;
 mod row;
 mod spacing;
+mod stack;
 mod stretch;
 mod style;
 mod symbols;
@@ -21,12 +21,12 @@ mod symbols;
 pub use self::accent::*;
 pub use self::align::*;
 pub use self::attach::*;
-pub use self::braced::*;
 pub use self::frac::*;
 pub use self::lr::*;
 pub use self::matrix::*;
 pub use self::op::*;
 pub use self::root::*;
+pub use self::stack::*;
 pub use self::style::*;
 
 use ttf_parser::GlyphId;
@@ -65,8 +65,12 @@ pub fn module(sym: &Module) -> Module {
     math.def_func::<ScriptsNode>("scripts");
     math.def_func::<LimitsNode>("limits");
     math.def_func::<AccentNode>("accent");
+    math.def_func::<UnderlineNode>("underline");
+    math.def_func::<OverlineNode>("overline");
     math.def_func::<UnderbraceNode>("underbrace");
     math.def_func::<OverbraceNode>("overbrace");
+    math.def_func::<UnderbracketNode>("underbracket");
+    math.def_func::<OverbracketNode>("overbracket");
 
     // Fractions and matrix-likes.
     math.def_func::<FracNode>("frac");

@@ -172,61 +172,20 @@ fn layout(
 
     let mut frame = stack(ctx, rows, align, gap, 0);
     let height = frame.height();
+    let target = height + VERTICAL_PADDING.of(height);
     frame.set_baseline(frame.height() / 2.0 + axis);
 
     if let Some(left) = left {
-        ctx.push(GlyphFragment::new(ctx, left).stretch_vertical(ctx, height, short_fall));
+        ctx.push(GlyphFragment::new(ctx, left).stretch_vertical(ctx, target, short_fall));
     }
 
     ctx.push(frame);
 
     if let Some(right) = right {
         ctx.push(
-            GlyphFragment::new(ctx, right).stretch_vertical(ctx, height, short_fall),
+            GlyphFragment::new(ctx, right).stretch_vertical(ctx, target, short_fall),
         );
     }
 
     Ok(())
-}
-
-/// Stack rows on top of each other.
-///
-/// Add a `gap` between each row and uses the baseline of the `baseline`th
-/// row for the whole frame.
-pub(super) fn stack(
-    ctx: &MathContext,
-    rows: Vec<MathRow>,
-    align: Align,
-    gap: Abs,
-    baseline: usize,
-) -> Frame {
-    let mut width = Abs::zero();
-    let mut height = rows.len().saturating_sub(1) as f64 * gap;
-
-    let points = alignments(&rows);
-    let rows: Vec<_> =
-        rows.into_iter().map(|row| row.to_line_frame(ctx, &points)).collect();
-
-    for row in &rows {
-        height += row.height();
-        width.set_max(row.width());
-    }
-
-    let extra = VERTICAL_PADDING.of(height);
-    height += extra;
-
-    let mut y = extra / 2.0;
-    let mut frame = Frame::new(Size::new(width, height));
-
-    for (i, row) in rows.into_iter().enumerate() {
-        let x = align.position(width - row.width());
-        let pos = Point::new(x, y);
-        if i == baseline {
-            frame.set_baseline(y + row.baseline());
-        }
-        y += row.height() + gap;
-        frame.push_frame(pos, row);
-    }
-
-    frame
 }

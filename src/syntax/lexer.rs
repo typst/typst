@@ -181,7 +181,7 @@ impl Lexer<'_> {
             '*' if !self.in_word() => SyntaxKind::Star,
             '_' if !self.in_word() => SyntaxKind::Underscore,
 
-            '#' if !self.s.at(char::is_whitespace) => SyntaxKind::Hashtag,
+            '#' if self.s.at(|c: char| !c.is_whitespace()) => SyntaxKind::Hashtag,
             '[' => SyntaxKind::LeftBracket,
             ']' => SyntaxKind::RightBracket,
             '\'' => SyntaxKind::SmartQuote,
@@ -389,7 +389,6 @@ impl Lexer<'_> {
             '<' if self.s.eat_if('<') => SyntaxKind::Shorthand,
             '>' if self.s.eat_if(">>") => SyntaxKind::Shorthand,
             '>' if self.s.eat_if('>') => SyntaxKind::Shorthand,
-
             '<' if self.s.eat_if("=>") => SyntaxKind::Shorthand,
             '<' if self.s.eat_if("->") => SyntaxKind::Shorthand,
             '<' if self.s.eat_if('=') => SyntaxKind::Shorthand,
@@ -397,13 +396,12 @@ impl Lexer<'_> {
             '<' if self.s.eat_if('-') => SyntaxKind::Shorthand,
             '-' if self.s.eat_if('>') => SyntaxKind::Shorthand,
             '=' if self.s.eat_if('>') => SyntaxKind::Shorthand,
-
             ':' if self.s.eat_if('=') => SyntaxKind::Shorthand,
             '[' if self.s.eat_if('|') => SyntaxKind::Shorthand,
             '|' if self.s.eat_if(']') => SyntaxKind::Shorthand,
             '|' if self.s.eat_if('|') => SyntaxKind::Shorthand,
 
-            '#' if !self.s.at(char::is_whitespace) => SyntaxKind::Hashtag,
+            '#' if self.s.at(|c: char| !c.is_whitespace()) => SyntaxKind::Hashtag,
             '_' => SyntaxKind::Underscore,
             '$' => SyntaxKind::Dollar,
             '/' => SyntaxKind::Slash,
