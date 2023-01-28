@@ -32,12 +32,17 @@ pub enum Tooltip {
 
 /// Tooltip for a hovered expression.
 fn expr_tooltip(world: &(dyn World + 'static), leaf: &LinkedNode) -> Option<Tooltip> {
-    let expr = leaf.cast::<ast::Expr>()?;
+    let mut ancestor = leaf;
+    while !ancestor.is::<ast::Expr>() {
+        ancestor = ancestor.parent()?;
+    }
+
+    let expr = ancestor.cast::<ast::Expr>()?;
     if !expr.hashtag() {
         return None;
     }
 
-    let values = analyze(world, leaf);
+    let values = analyze(world, ancestor);
 
     if let [value] = values.as_slice() {
         if let Some(docs) = value.docs() {
