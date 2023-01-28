@@ -13,7 +13,7 @@ pub fn tooltip(
     world: &(dyn World + 'static),
     source: &Source,
     cursor: usize,
-) -> Option<String> {
+) -> Option<Tooltip> {
     let leaf = LinkedNode::new(source.root()).leaf_at(cursor)?;
 
     named_param_tooltip(world, &leaf)
@@ -21,8 +21,17 @@ pub fn tooltip(
         .or_else(|| expr_tooltip(world, &leaf))
 }
 
+/// A hover tooltip.
+#[derive(Debug, Clone)]
+pub enum Tooltip {
+    /// A string of text.
+    Text(String),
+    /// A string of Typst code.
+    Code(String),
+}
+
 /// Tooltip for a hovered expression.
-fn expr_tooltip(world: &(dyn World + 'static), leaf: &LinkedNode) -> Option<String> {
+fn expr_tooltip(world: &(dyn World + 'static), leaf: &LinkedNode) -> Option<Tooltip> {
     let expr = leaf.cast::<ast::Expr>()?;
     if !expr.hashtag() {
         return None;
@@ -32,12 +41,12 @@ fn expr_tooltip(world: &(dyn World + 'static), leaf: &LinkedNode) -> Option<Stri
 
     if let [value] = values.as_slice() {
         if let Some(docs) = value.docs() {
-            return Some(plain_docs_sentence(docs));
+            return Some(Tooltip::Text(plain_docs_sentence(docs)));
         }
 
         if let &Value::Length(length) = value {
             if let Some(tooltip) = length_tooltip(length) {
-                return Some(tooltip);
+                return Some(Tooltip::Code(tooltip));
             }
         }
     }
@@ -71,7 +80,7 @@ fn expr_tooltip(world: &(dyn World + 'static), leaf: &LinkedNode) -> Option<Stri
         tooltip.push_str(", ...");
     }
 
-    (!tooltip.is_empty()).then(|| tooltip)
+    (!tooltip.is_empty()).then(|| Tooltip::Code(tooltip))
 }
 
 /// Tooltip text for a hovered length.
@@ -91,7 +100,7 @@ fn length_tooltip(length: Length) -> Option<String> {
 fn named_param_tooltip(
     world: &(dyn World + 'static),
     leaf: &LinkedNode,
-) -> Option<String> {
+) -> Option<Tooltip> {
     let (info, named) = if_chain! {
         // Ensure that we are in a named pair in the arguments to a function
         // call or set rule.
@@ -120,7 +129,7 @@ fn named_param_tooltip(
         if let Some(ident) = leaf.cast::<ast::Ident>();
         if let Some(param) = info.param(&ident);
         then {
-            return Some(plain_docs_sentence(param.docs));
+            return Some(Tooltip::Text(plain_docs_sentence(param.docs)));
         }
     }
 
@@ -130,7 +139,7 @@ fn named_param_tooltip(
         if let Some(param) = info.param(&named.name());
         if let Some(docs) = find_string_doc(&param.cast, &string.get());
         then {
-            return Some(docs.into());
+            return Some(Tooltip::Text(docs.into()));
         }
     }
 
@@ -152,7 +161,7 @@ fn find_string_doc(info: &CastInfo, string: &str) -> Option<&'static str> {
 fn font_family_tooltip(
     world: &(dyn World + 'static),
     leaf: &LinkedNode,
-) -> Option<String> {
+) -> Option<Tooltip> {
     if_chain! {
         // Ensure that we are on top of a string.
         if let Some(string) = leaf.cast::<ast::Str>();
@@ -178,7 +187,7 @@ fn font_family_tooltip(
 
         then {
             let detail = summarize_font_family(iter);
-            return Some(detail);
+            return Some(Tooltip::Text(detail));
         }
     };
 
