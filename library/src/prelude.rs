@@ -18,7 +18,7 @@ pub use typst::model::{
     array, capability, capable, castable, dict, format_str, func, node, Args, Array,
     AutoValue, Cast, CastInfo, Content, Dict, Finalize, Fold, Func, Introspector, Label,
     Node, NodeId, NoneValue, Prepare, Resolve, Selector, Show, StabilityProvider, Str,
-    StyleChain, StyleMap, StyleVec, Unlabellable, Value, Vm, Vt,
+    StyleChain, StyleMap, StyleVec, Symbol, Unlabellable, Value, Vm, Vt,
 };
 #[doc(no_inline)]
 pub use typst::syntax::{Span, Spanned};

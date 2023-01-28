@@ -1,4 +1,5 @@
 use ttf_parser::math::MathValue;
+use unicode_segmentation::UnicodeSegmentation;
 
 use super::*;
 
@@ -127,6 +128,45 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
 
     pub fn layout_frame(&mut self, node: &dyn LayoutMath) -> SourceResult<Frame> {
         Ok(self.layout_fragment(node)?.to_frame(self))
+    }
+
+    pub fn layout_text(&mut self, text: &EcoString) -> SourceResult<()> {
+        let mut chars = text.chars();
+        if let Some(glyph) = chars
+            .next()
+            .filter(|_| chars.next().is_none())
+            .and_then(|c| GlyphFragment::try_new(self, c))
+        {
+            // A single letter that is available in the math font.
+            if self.style.size == MathSize::Display
+                && glyph.class == Some(MathClass::Large)
+            {
+                let height = scaled!(self, display_operator_min_height);
+                self.push(glyph.stretch_vertical(self, height, Abs::zero()));
+            } else {
+                self.push(glyph);
+            }
+        } else if text.chars().all(|c| c.is_ascii_digit()) {
+            // A number that should respect math styling and can therefore
+            // not fall back to the normal text layout.
+            let mut vec = vec![];
+            for c in text.chars() {
+                vec.push(GlyphFragment::new(self, c).into());
+            }
+            let frame = MathRow(vec).to_frame(self);
+            self.push(frame);
+        } else {
+            // Anything else is handled by Typst's standard text layout.
+            let spaced = text.graphemes(true).count() > 1;
+            let frame = self.layout_non_math(&TextNode::packed(text.clone()))?;
+            self.push(
+                FrameFragment::new(frame)
+                    .with_class(MathClass::Alphabetic)
+                    .with_spaced(spaced),
+            );
+        }
+
+        Ok(())
     }
 
     pub fn size(&self) -> Abs {

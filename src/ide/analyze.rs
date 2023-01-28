@@ -7,7 +7,9 @@ use crate::World;
 /// Try to determine a set of possible values for an expression.
 pub fn analyze(world: &(dyn World + 'static), node: &LinkedNode) -> Vec<Value> {
     match node.cast::<ast::Expr>() {
-        Some(ast::Expr::Ident(_) | ast::Expr::MathIdent(_)) => {
+        Some(
+            ast::Expr::Ident(_) | ast::Expr::MathIdent(_) | ast::Expr::MethodCall(_),
+        ) => {
             if let Some(parent) = node.parent() {
                 if parent.kind() == SyntaxKind::FieldAccess && node.index() > 0 {
                     return analyze(world, parent);

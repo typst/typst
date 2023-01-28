@@ -10,8 +10,9 @@ const ACCENT_SHORT_FALL: Em = Em::new(0.5);
 ///
 /// ## Example
 /// ```
+/// $grave(a) = accent(a, `)$ \
 /// $arrow(a) = accent(a, arrow)$ \
-/// $grave(a) = accent(a, `)$
+/// $tilde(a) = accent(a, \u{0303})$
 /// ```
 ///
 /// ## Parameters
@@ -58,9 +59,20 @@ pub struct AccentNode {
 impl AccentNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let base = args.expect("base")?;
-        let accent = args.expect("accent")?;
+        let accent = args.expect::<Accent>("accent")?.0;
         Ok(Self { base, accent }.pack())
     }
+}
+
+struct Accent(char);
+
+castable! {
+    Accent,
+    v: char => Self(v),
+    v: Content => match v.to::<TextNode>() {
+        Some(text) => Self(Value::Str(text.0.clone().into()).cast()?),
+        None => Err("expected text")?,
+    },
 }
 
 impl LayoutMath for AccentNode {

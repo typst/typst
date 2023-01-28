@@ -49,7 +49,7 @@
 #test("c" in dict, true)
 #test(dict.len(), 3)
 #test(dict.values(), (3, 1, 2))
-#test(dict.pairs((k, v) => k + str(v)).join(), "a3b1c2")
+#test(dict.pairs().map(p => p.first() + str(p.last())).join(), "a3b1c2")
 
 #{ dict.remove("c") }
 #test("c" in dict, false)

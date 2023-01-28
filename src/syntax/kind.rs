@@ -59,8 +59,6 @@ pub enum SyntaxKind {
 
     /// Mathematical markup.
     Math,
-    /// An atom in math: `x`, `+`, `12`.
-    MathAtom,
     /// An identifier in math: `pi`.
     MathIdent,
     /// An alignment point in math: `&`.
@@ -345,7 +343,6 @@ impl SyntaxKind {
             Self::Formula => "math formula",
             Self::Math => "math",
             Self::MathIdent => "math identifier",
-            Self::MathAtom => "math atom",
             Self::MathAlignPoint => "math alignment point",
             Self::MathDelimited => "delimited math",
             Self::MathAttach => "math attachments",

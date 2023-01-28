@@ -234,24 +234,24 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
         SyntaxKind::Hashtag => embedded_code_expr(p),
         SyntaxKind::MathIdent => {
             p.eat();
-            while p.directly_at(SyntaxKind::MathAtom)
+            while p.directly_at(SyntaxKind::Text)
                 && p.current_text() == "."
                 && matches!(
                     p.lexer.clone().next(),
-                    SyntaxKind::MathIdent | SyntaxKind::MathAtom
+                    SyntaxKind::MathIdent | SyntaxKind::Text
                 )
             {
                 p.convert(SyntaxKind::Dot);
                 p.convert(SyntaxKind::Ident);
                 p.wrap(m, SyntaxKind::FieldAccess);
             }
-            if p.directly_at(SyntaxKind::MathAtom) && p.current_text() == "(" {
+            if p.directly_at(SyntaxKind::Text) && p.current_text() == "(" {
                 math_args(p);
                 p.wrap(m, SyntaxKind::FuncCall);
             }
         }
 
-        SyntaxKind::MathAtom | SyntaxKind::Shorthand => {
+        SyntaxKind::Text | SyntaxKind::Shorthand => {
             if math_class(p.current_text()) == Some(MathClass::Fence) {
                 math_delimited(p, MathClass::Fence)
             } else if math_class(p.current_text()) == Some(MathClass::Opening) {
@@ -374,16 +374,32 @@ fn math_op(kind: SyntaxKind) -> Option<(SyntaxKind, SyntaxKind, ast::Assoc, usiz
 }
 
 fn math_args(p: &mut Parser) {
-    p.assert(SyntaxKind::MathAtom);
+    p.assert(SyntaxKind::Text);
+
     let m = p.marker();
-    let mut m2 = p.marker();
+    let mut arg = p.marker();
+    let mut namable = true;
+    let mut named = None;
+
     while !p.eof() && !p.at(SyntaxKind::Dollar) {
+        if namable
+            && (p.at(SyntaxKind::MathIdent) || p.at(SyntaxKind::Text))
+            && p.text[p.current_end()..].starts_with(':')
+        {
+            p.convert(SyntaxKind::Ident);
+            p.convert(SyntaxKind::Colon);
+            named = Some(arg);
+            arg = p.marker();
+        }
+
         match p.current_text() {
             ")" => break,
             "," => {
-                p.wrap(m2, SyntaxKind::Math);
+                maybe_wrap_in_math(p, arg, named);
                 p.convert(SyntaxKind::Comma);
-                m2 = p.marker();
+                arg = p.marker();
+                namable = true;
+                named = None;
                 continue;
             }
             _ => {}
@@ -394,12 +410,30 @@ fn math_args(p: &mut Parser) {
         if !p.progress(prev) {
             p.unexpected();
         }
+
+        namable = false;
     }
-    if m2 != p.marker() {
-        p.wrap(m2, SyntaxKind::Math);
+
+    if arg != p.marker() {
+        maybe_wrap_in_math(p, arg, named);
     }
+
     p.wrap(m, SyntaxKind::Args);
-    p.expect(SyntaxKind::MathAtom);
+    if !p.eat_if(SyntaxKind::Text) {
+        p.expected("closing paren");
+        p.balanced = false;
+    }
+}
+
+fn maybe_wrap_in_math(p: &mut Parser, arg: Marker, named: Option<Marker>) {
+    let exprs = p.post_process(arg).filter(|node| node.is::<ast::Expr>()).count();
+    if exprs != 1 {
+        p.wrap(arg, SyntaxKind::Math);
+    }
+
+    if let Some(m) = named {
+        p.wrap(m, SyntaxKind::Named);
+    }
 }
 
 fn code(p: &mut Parser, mut stop: impl FnMut(SyntaxKind) -> bool) {

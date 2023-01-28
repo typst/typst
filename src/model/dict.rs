@@ -3,8 +3,8 @@ use std::fmt::{self, Debug, Formatter, Write};
 use std::ops::{Add, AddAssign};
 use std::sync::Arc;
 
-use super::{Args, Array, Func, Str, Value, Vm};
-use crate::diag::{bail, SourceResult, StrResult};
+use super::{array, Array, Str, Value};
+use crate::diag::StrResult;
 use crate::syntax::is_ident;
 use crate::util::{format_eco, ArcExt, EcoString};
 
@@ -104,17 +104,12 @@ impl Dict {
         self.0.values().cloned().collect()
     }
 
-    /// Transform each pair in the dictionary with a function.
-    pub fn map(&self, vm: &mut Vm, func: Func) -> SourceResult<Array> {
-        if func.argc().map_or(false, |count| count != 2) {
-            bail!(func.span(), "function must have exactly two parameters");
-        }
-        self.iter()
-            .map(|(key, value)| {
-                let args =
-                    Args::new(func.span(), [Value::Str(key.clone()), value.clone()]);
-                func.call(vm, args)
-            })
+    /// Return the values of the dictionary as an array of pairs (arrays of
+    /// length two).
+    pub fn pairs(&self) -> Array {
+        self.0
+            .iter()
+            .map(|(k, v)| Value::Array(array![k.clone(), v.clone()]))
             .collect()
     }
 

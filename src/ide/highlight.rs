@@ -1,4 +1,4 @@
-use crate::syntax::{LinkedNode, SyntaxKind};
+use crate::syntax::{ast, LinkedNode, SyntaxKind};
 
 /// Syntax highlighting categories.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
@@ -115,19 +115,17 @@ pub fn highlight(node: &LinkedNode) -> Option<Category> {
         SyntaxKind::Formula => None,
 
         SyntaxKind::Math => None,
-        SyntaxKind::MathAtom => None,
         SyntaxKind::MathIdent => highlight_ident(node),
         SyntaxKind::MathDelimited => None,
         SyntaxKind::MathAttach => None,
         SyntaxKind::MathFrac => None,
         SyntaxKind::MathAlignPoint => Some(Category::MathOperator),
 
-        SyntaxKind::Hashtag if node.before_error() => None,
         SyntaxKind::Hashtag => node
-            .next_leaf()
-            .filter(|node| node.kind() != SyntaxKind::Dollar)
-            .as_ref()
-            .and_then(highlight),
+            .next_sibling()
+            .filter(|node| node.cast::<ast::Expr>().map_or(false, |e| e.hashtag()))
+            .and_then(|node| node.leftmost_leaf())
+            .and_then(|node| highlight(&node)),
 
         SyntaxKind::LeftBrace => Some(Category::Punctuation),
         SyntaxKind::RightBrace => Some(Category::Punctuation),
@@ -248,12 +246,6 @@ pub fn highlight(node: &LinkedNode) -> Option<Category> {
 /// Highlight an identifier based on context.
 fn highlight_ident(node: &LinkedNode) -> Option<Category> {
     match node.parent_kind() {
-        Some(
-            SyntaxKind::Markup
-            | SyntaxKind::Math
-            | SyntaxKind::MathFrac
-            | SyntaxKind::MathAttach,
-        ) => Some(Category::Interpolated),
         Some(SyntaxKind::FuncCall) => Some(Category::Function),
         Some(SyntaxKind::FieldAccess)
             if node.parent().and_then(|p| p.parent_kind())
@@ -287,6 +279,13 @@ fn highlight_ident(node: &LinkedNode) -> Option<Category> {
         {
             Some(Category::Function)
         }
+        Some(
+            SyntaxKind::Markup
+            | SyntaxKind::Math
+            | SyntaxKind::MathFrac
+            | SyntaxKind::MathAttach,
+        ) => Some(Category::Interpolated),
+        _ if node.kind() == SyntaxKind::MathIdent => Some(Category::Interpolated),
         _ => None,
     }
 }

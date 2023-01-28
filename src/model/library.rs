@@ -67,8 +67,6 @@ pub struct LangItems {
     pub term_item: fn(term: Content, description: Content) -> Content,
     /// A mathematical formula: `$x$`, `$ x^2 $`.
     pub formula: fn(body: Content, block: bool) -> Content,
-    /// An atom in a formula: `x`, `+`, `12`.
-    pub math_atom: fn(atom: EcoString) -> Content,
     /// An alignment point in a formula: `&`.
     pub math_align_point: fn() -> Content,
     /// Matched delimiters surrounding math in a formula: `[x + y]`.
@@ -110,7 +108,6 @@ impl Hash for LangItems {
         self.enum_item.hash(state);
         self.term_item.hash(state);
         self.formula.hash(state);
-        self.math_atom.hash(state);
         self.math_align_point.hash(state);
         self.math_delimited.hash(state);
         self.math_attach.hash(state);

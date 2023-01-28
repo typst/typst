@@ -183,12 +183,18 @@ impl Content {
     }
 
     /// Whether the contained node is of type `T`.
-    pub fn is<T: 'static>(&self) -> bool {
+    pub fn is<T>(&self) -> bool
+    where
+        T: Capable + 'static,
+    {
         (*self.obj).as_any().is::<T>()
     }
 
     /// Cast to `T` if the contained node is of type `T`.
-    pub fn to<T: 'static>(&self) -> Option<&T> {
+    pub fn to<T>(&self) -> Option<&T>
+    where
+        T: Capable + 'static,
+    {
         (*self.obj).as_any().downcast_ref::<T>()
     }
 

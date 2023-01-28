@@ -155,7 +155,7 @@ fn layout(
 
 /// Select a precomposed radical, if the font has it.
 fn precomposed(ctx: &MathContext, index: Option<&Content>, target: Abs) -> Option<Frame> {
-    let node = index?.to::<AtomNode>()?;
+    let node = index?.to::<TextNode>()?;
     let c = match node.0.as_str() {
         "3" => '∛',
         "4" => '∜',

@@ -145,16 +145,6 @@ impl Value {
         }
     }
 
-    /// Return the display representation of the value in math mode.
-    pub fn display_in_math(self) -> Content {
-        match self {
-            Self::Int(v) => item!(math_atom)(format_eco!("{}", v)),
-            Self::Float(v) => item!(math_atom)(format_eco!("{}", v)),
-            Self::Symbol(v) => item!(math_atom)(v.get().into()),
-            _ => self.display(),
-        }
-    }
-
     /// Try to extract documentation for the value.
     pub fn docs(&self) -> Option<&'static str> {
         match self {
@@ -447,8 +437,8 @@ primitive! { Label: "label", Label }
 primitive! { Content: "content",
     Content,
     None => Content::empty(),
-    Symbol(symbol) => item!(text)(symbol.get().into()),
-    Str(text) => item!(text)(text.into())
+    Symbol(v) => item!(text)(v.get().into()),
+    Str(v) => item!(text)(v.into())
 }
 primitive! { Array: "array", Array }
 primitive! { Dict: "dictionary", Dict }

@@ -713,14 +713,6 @@ impl<'a> LinkedNode<'a> {
             Some(next)
         }
     }
-
-    /// Whether an error follows directly after the node.
-    pub fn before_error(&self) -> bool {
-        let Some(parent) = self.parent() else { return false };
-        let Some(index) = self.index.checked_add(1) else { return false };
-        let Some(node) = parent.node.children().nth(index) else { return false };
-        node.kind().is_error()
-    }
 }
 
 /// Access to leafs.

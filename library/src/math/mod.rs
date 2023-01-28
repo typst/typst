@@ -4,7 +4,6 @@
 mod ctx;
 mod accent;
 mod align;
-mod atom;
 mod attach;
 mod braced;
 mod frac;
@@ -21,7 +20,6 @@ mod symbols;
 
 pub use self::accent::*;
 pub use self::align::*;
-pub use self::atom::*;
 pub use self::attach::*;
 pub use self::braced::*;
 pub use self::frac::*;
@@ -260,6 +258,11 @@ impl LayoutMath for Content {
                     ));
                 }
             }
+            return Ok(());
+        }
+
+        if let Some(node) = self.to::<TextNode>() {
+            ctx.layout_text(&node.0)?;
             return Ok(());
         }
 

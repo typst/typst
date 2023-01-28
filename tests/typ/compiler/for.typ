@@ -34,7 +34,7 @@
 
 // Map captured arguments.
 #let f1(..args) = args.pos().map(repr)
-#let f2(..args) = args.named().pairs((k, v) => repr(k) + ": " + repr(v))
+#let f2(..args) = args.named().pairs().map(p => repr(p.first()) + ": " + repr(p.last()))
 #let f(..args) = (f1(..args) + f2(..args)).join(", ")
 #f(1, a: 2)
 

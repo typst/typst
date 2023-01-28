@@ -12,18 +12,29 @@ pub(super) const DELIM_SHORT_FALL: Em = Em::new(0.1);
 /// ## Example
 /// ```
 /// $ lr(]a, b/2]) $
+/// $ lr(]sum_(x=1)^n] x, #size: 50%) $
 /// ```
 ///
 /// ## Parameters
 /// - body: Content (positional, variadic)
 ///   The delimited content, including the delimiters.
 ///
+/// - size: Rel<Length> (named)
+///   The size of the brackets, relative to the height of the wrapped content.
+///
+///   Defaults to `{100%}`.
+///
 /// ## Category
 /// math
 #[func]
 #[capable(LayoutMath)]
 #[derive(Debug, Hash)]
-pub struct LrNode(pub Content);
+pub struct LrNode {
+    /// The delimited content, including the delimiters.
+    pub body: Content,
+    /// The size of the brackets.
+    pub size: Option<Rel<Length>>,
+}
 
 #[node]
 impl LrNode {
@@ -31,17 +42,18 @@ impl LrNode {
         let mut body = Content::empty();
         for (i, arg) in args.all::<Content>()?.into_iter().enumerate() {
             if i > 0 {
-                body += AtomNode(','.into()).pack();
+                body += TextNode::packed(',');
             }
             body += arg;
         }
-        Ok(Self(body).pack())
+        let size = args.named("size")?;
+        Ok(Self { body, size }.pack())
     }
 }
 
 impl LayoutMath for LrNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        let mut row = ctx.layout_row(&self.0)?;
+        let mut row = ctx.layout_row(&self.body)?;
 
         let axis = scaled!(ctx, axis_height);
         let max_extent = row
@@ -51,27 +63,46 @@ impl LayoutMath for LrNode {
             .max()
             .unwrap_or_default();
 
-        let height = 2.0 * max_extent;
-        if let [first, .., last] = row.0.as_mut_slice() {
-            for fragment in [first, last] {
-                if !matches!(
-                    fragment.class(),
-                    Some(MathClass::Opening | MathClass::Closing | MathClass::Fence)
-                ) {
-                    continue;
-                }
+        let height = self
+            .size
+            .unwrap_or(Rel::one())
+            .resolve(ctx.outer.chain(&ctx.map))
+            .relative_to(2.0 * max_extent);
 
-                let MathFragment::Glyph(glyph) = *fragment else { continue };
-                let short_fall = DELIM_SHORT_FALL.scaled(ctx);
-                *fragment = MathFragment::Variant(
-                    glyph.stretch_vertical(ctx, height, short_fall),
-                );
+        match row.0.as_mut_slice() {
+            [one] => scale(ctx, one, height, None),
+            [first, .., last] => {
+                scale(ctx, first, height, Some(MathClass::Opening));
+                scale(ctx, last, height, Some(MathClass::Closing));
             }
+            _ => {}
         }
 
         ctx.extend(row);
 
         Ok(())
+    }
+}
+
+/// Scale a math fragment to a height.
+fn scale(
+    ctx: &mut MathContext,
+    fragment: &mut MathFragment,
+    height: Abs,
+    apply: Option<MathClass>,
+) {
+    if matches!(
+        fragment.class(),
+        Some(MathClass::Opening | MathClass::Closing | MathClass::Fence)
+    ) {
+        let MathFragment::Glyph(glyph) = *fragment else { return };
+        let short_fall = DELIM_SHORT_FALL.scaled(ctx);
+        *fragment =
+            MathFragment::Variant(glyph.stretch_vertical(ctx, height, short_fall));
+
+        if let Some(class) = apply {
+            fragment.set_class(class);
+        }
     }
 }
 
@@ -153,11 +184,14 @@ pub fn norm(args: &mut Args) -> SourceResult<Value> {
 
 fn delimited(args: &mut Args, left: char, right: char) -> SourceResult<Value> {
     Ok(Value::Content(
-        LrNode(Content::sequence(vec![
-            AtomNode(left.into()).pack(),
-            args.expect::<Content>("body")?,
-            AtomNode(right.into()).pack(),
-        ]))
+        LrNode {
+            body: Content::sequence(vec![
+                TextNode::packed(left),
+                args.expect::<Content>("body")?,
+                TextNode::packed(right),
+            ]),
+            size: None,
+        }
         .pack(),
     ))
 }

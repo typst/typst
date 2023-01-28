@@ -229,7 +229,7 @@ fn complete_math(ctx: &mut CompletionContext) -> bool {
     }
 
     // Behind existing atom or identifier: "$a|$" or "$abc|$".
-    if matches!(ctx.leaf.kind(), SyntaxKind::MathAtom | SyntaxKind::MathIdent) {
+    if matches!(ctx.leaf.kind(), SyntaxKind::Text | SyntaxKind::MathIdent) {
         ctx.from = ctx.leaf.offset();
         math_completions(ctx);
         return true;
@@ -274,7 +274,7 @@ fn complete_field_accesses(ctx: &mut CompletionContext) -> bool {
     // Behind an expression plus dot: "emoji.|".
     if_chain! {
         if ctx.leaf.kind() == SyntaxKind::Dot
-            || (matches!(ctx.leaf.kind(), SyntaxKind::Text | SyntaxKind::MathAtom)
+            || (ctx.leaf.kind() == SyntaxKind::Text
                 && ctx.leaf.text() == ".");
         if ctx.leaf.range().end == ctx.cursor;
         if let Some(prev) = ctx.leaf.prev_sibling();
@@ -326,11 +326,15 @@ fn field_access_completions(ctx: &mut CompletionContext, value: &Value) {
             }
         }
         _ => {
-            for &method in methods_on(value.type_name()) {
+            for &(method, args) in methods_on(value.type_name()) {
                 ctx.completions.push(Completion {
                     kind: CompletionKind::Func,
                     label: method.into(),
-                    apply: Some(format_eco!("{method}(${{}})")),
+                    apply: Some(if args {
+                        format_eco!("{method}(${{}})")
+                    } else {
+                        format_eco!("{method}()${{}}")
+                    }),
                     detail: None,
                 })
             }

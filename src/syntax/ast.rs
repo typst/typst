@@ -115,8 +115,6 @@ pub enum Expr {
     Formula(Formula),
     /// A math formula: `$x$`, `$ x^2 $`.
     Math(Math),
-    /// An atom in a math formula: `x`, `+`, `12`.
-    MathAtom(MathAtom),
     /// An identifier in a math formula: `pi`.
     MathIdent(MathIdent),
     /// An alignment point in a math formula: `&`.
@@ -219,7 +217,6 @@ impl AstNode for Expr {
             SyntaxKind::TermItem => node.cast().map(Self::Term),
             SyntaxKind::Formula => node.cast().map(Self::Formula),
             SyntaxKind::Math => node.cast().map(Self::Math),
-            SyntaxKind::MathAtom => node.cast().map(Self::MathAtom),
             SyntaxKind::MathIdent => node.cast().map(Self::MathIdent),
             SyntaxKind::MathAlignPoint => node.cast().map(Self::MathAlignPoint),
             SyntaxKind::MathDelimited => node.cast().map(Self::MathDelimited),
@@ -280,7 +277,6 @@ impl AstNode for Expr {
             Self::Term(v) => v.as_untyped(),
             Self::Formula(v) => v.as_untyped(),
             Self::Math(v) => v.as_untyped(),
-            Self::MathAtom(v) => v.as_untyped(),
             Self::MathIdent(v) => v.as_untyped(),
             Self::MathAlignPoint(v) => v.as_untyped(),
             Self::MathDelimited(v) => v.as_untyped(),
@@ -316,6 +312,42 @@ impl AstNode for Expr {
             Self::Break(v) => v.as_untyped(),
             Self::Continue(v) => v.as_untyped(),
             Self::Return(v) => v.as_untyped(),
+        }
+    }
+}
+
+impl Expr {
+    /// Can this expression be embedded into markup with a hashtag?
+    pub fn hashtag(&self) -> bool {
+        match self {
+            Self::Ident(_) => true,
+            Self::None(_) => true,
+            Self::Auto(_) => true,
+            Self::Bool(_) => true,
+            Self::Int(_) => true,
+            Self::Float(_) => true,
+            Self::Numeric(_) => true,
+            Self::Str(_) => true,
+            Self::Code(_) => true,
+            Self::Content(_) => true,
+            Self::Array(_) => true,
+            Self::Dict(_) => true,
+            Self::Parenthesized(_) => true,
+            Self::FieldAccess(_) => true,
+            Self::FuncCall(_) => true,
+            Self::MethodCall(_) => true,
+            Self::Let(_) => true,
+            Self::Set(_) => true,
+            Self::Show(_) => true,
+            Self::Conditional(_) => true,
+            Self::While(_) => true,
+            Self::For(_) => true,
+            Self::Import(_) => true,
+            Self::Include(_) => true,
+            Self::Break(_) => true,
+            Self::Continue(_) => true,
+            Self::Return(_) => true,
+            _ => false,
         }
     }
 }
@@ -393,18 +425,23 @@ impl Shorthand {
             "..." => '…',
             "*" => '∗',
             "!=" => '≠',
+            "<<" => '≪',
+            "<<<" => '⋘',
+            ">>" => '≫',
+            ">>>" => '⋙',
             "<=" => '≤',
             ">=" => '≥',
             "<-" => '←',
             "->" => '→',
             "=>" => '⇒',
+            "|->" => '↦',
+            "|=>" => '⤇',
+            "<->" => '↔',
+            "<=>" => '⇔',
             ":=" => '≔',
             "[|" => '⟦',
             "|]" => '⟧',
             "||" => '‖',
-            "|->" => '↦',
-            "<->" => '↔',
-            "<=>" => '⇔',
             _ => char::default(),
         }
     }
@@ -657,18 +694,6 @@ impl Math {
     /// The expressions the mathematical content consists of.
     pub fn exprs(&self) -> impl DoubleEndedIterator<Item = Expr> + '_ {
         self.0.children().filter_map(Expr::cast_with_space)
-    }
-}
-
-node! {
-    /// A atom in a formula: `x`, `+`, `12`.
-    MathAtom
-}
-
-impl MathAtom {
-    /// Get the atom's text.
-    pub fn get(&self) -> &EcoString {
-        self.0.text()
     }
 }
 

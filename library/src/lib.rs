@@ -191,12 +191,11 @@ fn items() -> LangItems {
             layout::ListItem::Term(basics::TermItem { term, description }).pack()
         },
         formula: |body, block| math::FormulaNode { body, block }.pack(),
-        math_atom: |atom| math::AtomNode(atom).pack(),
         math_align_point: || math::AlignPointNode.pack(),
-        math_delimited: |open, body, close| math::LrNode(open + body + close).pack(),
-        math_attach: |base, sub, sup| {
-            math::AttachNode { base, top: sub, bottom: sup }.pack()
+        math_delimited: |open, body, close| {
+            math::LrNode { body: open + body + close, size: None }.pack()
         },
+        math_attach: |base, bottom, top| math::AttachNode { base, bottom, top }.pack(),
         math_accent: |base, accent| math::AccentNode { base, accent }.pack(),
         math_frac: |num, denom| math::FracNode { num, denom }.pack(),
     }

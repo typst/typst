@@ -380,21 +380,28 @@ impl Lexer<'_> {
             '\\' => self.backslash(),
             '"' => self.string(),
 
+            '*' => SyntaxKind::Shorthand,
             '.' if self.s.eat_if("..") => SyntaxKind::Shorthand,
             '|' if self.s.eat_if("->") => SyntaxKind::Shorthand,
-            '<' if self.s.eat_if("->") => SyntaxKind::Shorthand,
-            '<' if self.s.eat_if("=>") => SyntaxKind::Shorthand,
+            '|' if self.s.eat_if("=>") => SyntaxKind::Shorthand,
             '!' if self.s.eat_if('=') => SyntaxKind::Shorthand,
+            '<' if self.s.eat_if("<<") => SyntaxKind::Shorthand,
+            '<' if self.s.eat_if('<') => SyntaxKind::Shorthand,
+            '>' if self.s.eat_if(">>") => SyntaxKind::Shorthand,
+            '>' if self.s.eat_if('>') => SyntaxKind::Shorthand,
+
+            '<' if self.s.eat_if("=>") => SyntaxKind::Shorthand,
+            '<' if self.s.eat_if("->") => SyntaxKind::Shorthand,
             '<' if self.s.eat_if('=') => SyntaxKind::Shorthand,
             '>' if self.s.eat_if('=') => SyntaxKind::Shorthand,
             '<' if self.s.eat_if('-') => SyntaxKind::Shorthand,
             '-' if self.s.eat_if('>') => SyntaxKind::Shorthand,
             '=' if self.s.eat_if('>') => SyntaxKind::Shorthand,
+
             ':' if self.s.eat_if('=') => SyntaxKind::Shorthand,
             '[' if self.s.eat_if('|') => SyntaxKind::Shorthand,
             '|' if self.s.eat_if(']') => SyntaxKind::Shorthand,
             '|' if self.s.eat_if('|') => SyntaxKind::Shorthand,
-            '*' => SyntaxKind::Shorthand,
 
             '#' if !self.s.at(char::is_whitespace) => SyntaxKind::Hashtag,
             '_' => SyntaxKind::Underscore,
@@ -410,11 +417,11 @@ impl Lexer<'_> {
             }
 
             // Other math atoms.
-            _ => self.atom(start, c),
+            _ => self.math_text(start, c),
         }
     }
 
-    fn atom(&mut self, start: usize, c: char) -> SyntaxKind {
+    fn math_text(&mut self, start: usize, c: char) -> SyntaxKind {
         // Keep numbers and grapheme clusters together.
         if c.is_numeric() {
             self.s.eat_while(char::is_numeric);
@@ -427,7 +434,7 @@ impl Lexer<'_> {
                 .map_or(0, str::len);
             self.s.jump(start + len);
         }
-        SyntaxKind::MathAtom
+        SyntaxKind::Text
     }
 }
 

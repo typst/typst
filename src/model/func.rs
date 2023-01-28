@@ -389,6 +389,7 @@ impl<'a> CapturesVisitor<'a> {
             // actually bind a new name are handled below (individually through
             // the expressions that contain them).
             Some(ast::Expr::Ident(ident)) => self.capture(ident),
+            Some(ast::Expr::MathIdent(ident)) => self.capture_in_math(ident),
 
             // Code and content blocks create a scope.
             Some(ast::Expr::Code(_) | ast::Expr::Content(_)) => {
@@ -479,6 +480,15 @@ impl<'a> CapturesVisitor<'a> {
     fn capture(&mut self, ident: ast::Ident) {
         if self.internal.get(&ident).is_err() {
             if let Ok(value) = self.external.get(&ident) {
+                self.captures.define_captured(ident.take(), value.clone());
+            }
+        }
+    }
+
+    /// Capture a variable in math mode if it isn't internal.
+    fn capture_in_math(&mut self, ident: ast::MathIdent) {
+        if self.internal.get(&ident).is_err() {
+            if let Ok(value) = self.external.get_in_math(&ident) {
                 self.captures.define_captured(ident.take(), value.clone());
             }
         }

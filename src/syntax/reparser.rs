@@ -99,9 +99,9 @@ fn try_reparse(
         && (parent_kind.is_none() || parent_kind == Some(SyntaxKind::ContentBlock))
         && !overlap.is_empty()
     {
-        // Add one node of slack in both directions.
+        // Add slack in both directions.
         let children = node.children_mut();
-        let mut start = overlap.start.saturating_sub(1);
+        let mut start = overlap.start.saturating_sub(2);
         let mut end = (overlap.end + 1).min(children.len());
 
         // Expand to the left.
@@ -242,7 +242,7 @@ mod tests {
 
     #[test]
     fn test_reparse_markup() {
-        test("abc~def~ghi", 5..6, "+", true);
+        test("abc~def~gh~", 5..6, "+", true);
         test("~~~~~~~", 3..4, "A", true);
         test("abc~~", 1..2, "", true);
         test("#var. hello", 5..6, " ", false);
@@ -264,7 +264,6 @@ mod tests {
         test("#show f: a => b..", 16..16, "c", false);
         test("#for", 4..4, "//", false);
         test("a\n#let \nb", 7..7, "i", true);
-        test("#let x = (1, 2 + ;~ Five\r\n\r", 20..23, "2.", true);
         test(r"#{{let x = z}; a = 1} b", 7..7, "//", false);
         test(r#"a ```typst hello```"#, 16..17, "", false);
     }

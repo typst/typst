@@ -68,7 +68,6 @@ impl SourceError {
     /// Create a new, bare error.
     #[track_caller]
     pub fn new(span: Span, message: impl Into<EcoString>) -> Self {
-        assert!(!span.is_detached());
         Self {
             span,
             pos: ErrorPos::Full,
