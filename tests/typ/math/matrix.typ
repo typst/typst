@@ -23,5 +23,5 @@ $ f(x, y) := cases(
 #set math.vec(delim: "%")
 
 ---
-// Error: 9-12 missing argument: lower index
+// Error: 8-13 missing argument: lower index
 $ binom(x^2) $

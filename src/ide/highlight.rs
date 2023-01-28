@@ -85,8 +85,7 @@ pub fn highlight(node: &LinkedNode) -> Option<Category> {
     match node.kind() {
         SyntaxKind::Markup
             if node.parent_kind() == Some(SyntaxKind::TermItem)
-                && node.next_sibling().as_ref().map(|v| v.kind())
-                    == Some(SyntaxKind::Colon) =>
+                && node.next_sibling_kind() == Some(SyntaxKind::Colon) =>
         {
             Some(Category::ListTerm)
         }
@@ -116,17 +115,12 @@ pub fn highlight(node: &LinkedNode) -> Option<Category> {
 
         SyntaxKind::Math => None,
         SyntaxKind::MathIdent => highlight_ident(node),
+        SyntaxKind::MathAlignPoint => Some(Category::MathOperator),
         SyntaxKind::MathDelimited => None,
         SyntaxKind::MathAttach => None,
         SyntaxKind::MathFrac => None,
-        SyntaxKind::MathAlignPoint => Some(Category::MathOperator),
 
-        SyntaxKind::Hashtag => node
-            .next_sibling()
-            .filter(|node| node.cast::<ast::Expr>().map_or(false, |e| e.hashtag()))
-            .and_then(|node| node.leftmost_leaf())
-            .and_then(|node| highlight(&node)),
-
+        SyntaxKind::Hashtag => highlight_hashtag(node),
         SyntaxKind::LeftBrace => Some(Category::Punctuation),
         SyntaxKind::RightBrace => Some(Category::Punctuation),
         SyntaxKind::LeftBracket => Some(Category::Punctuation),
@@ -206,18 +200,8 @@ pub fn highlight(node: &LinkedNode) -> Option<Category> {
         SyntaxKind::Keyed => None,
         SyntaxKind::Unary => None,
         SyntaxKind::Binary => None,
-        SyntaxKind::FieldAccess => match node.parent_kind() {
-            Some(
-                SyntaxKind::Markup
-                | SyntaxKind::Math
-                | SyntaxKind::MathFrac
-                | SyntaxKind::MathAttach,
-            ) => Some(Category::Interpolated),
-            Some(SyntaxKind::FieldAccess) => node.parent().and_then(highlight),
-            _ => None,
-        },
+        SyntaxKind::FieldAccess => None,
         SyntaxKind::FuncCall => None,
-        SyntaxKind::MethodCall => None,
         SyntaxKind::Args => None,
         SyntaxKind::Spread => None,
         SyntaxKind::Closure => None,
@@ -245,49 +229,60 @@ pub fn highlight(node: &LinkedNode) -> Option<Category> {
 
 /// Highlight an identifier based on context.
 fn highlight_ident(node: &LinkedNode) -> Option<Category> {
-    match node.parent_kind() {
-        Some(SyntaxKind::FuncCall) => Some(Category::Function),
-        Some(SyntaxKind::FieldAccess)
-            if node.parent().and_then(|p| p.parent_kind())
-                == Some(SyntaxKind::SetRule)
-                && node.next_sibling().is_none() =>
-        {
-            Some(Category::Function)
-        }
-        Some(SyntaxKind::FieldAccess)
-            if node
-                .parent()
-                .and_then(|p| p.parent())
-                .filter(|gp| gp.kind() == SyntaxKind::Parenthesized)
-                .and_then(|gp| gp.parent())
-                .map_or(false, |ggp| ggp.kind() == SyntaxKind::FuncCall)
-                && node.next_sibling().is_none() =>
-        {
-            Some(Category::Function)
-        }
-        Some(SyntaxKind::FieldAccess) => node.parent().and_then(highlight),
-        Some(SyntaxKind::MethodCall) if node.prev_sibling().is_some() => {
-            Some(Category::Function)
-        }
-        Some(SyntaxKind::Closure) if node.prev_sibling().is_none() => {
-            Some(Category::Function)
-        }
-        Some(SyntaxKind::SetRule) => Some(Category::Function),
-        Some(SyntaxKind::ShowRule)
-            if node.prev_sibling().as_ref().map(|v| v.kind())
-                == Some(SyntaxKind::Show) =>
-        {
-            Some(Category::Function)
-        }
-        Some(
-            SyntaxKind::Markup
-            | SyntaxKind::Math
-            | SyntaxKind::MathFrac
-            | SyntaxKind::MathAttach,
-        ) => Some(Category::Interpolated),
-        _ if node.kind() == SyntaxKind::MathIdent => Some(Category::Interpolated),
-        _ => None,
+    // Are we directly before an argument list?
+    let next_leaf_kind = node.next_leaf().map(|leaf| leaf.kind());
+    if matches!(next_leaf_kind, Some(SyntaxKind::LeftParen | SyntaxKind::LeftBracket)) {
+        return Some(Category::Function);
     }
+
+    // Are we in math?
+    if node.kind() == SyntaxKind::MathIdent {
+        return Some(Category::Interpolated);
+    }
+
+    // Find the first non-field access ancestor.
+    let mut ancestor = node;
+    while ancestor.parent_kind() == Some(SyntaxKind::FieldAccess) {
+        ancestor = ancestor.parent()?;
+    }
+
+    // Are we directly before a show rule colon?
+    if next_leaf_kind == Some(SyntaxKind::Colon)
+        && ancestor.parent_kind() == Some(SyntaxKind::ShowRule)
+    {
+        return Some(Category::Function);
+    }
+
+    // Are we (or an ancestor field access) directly after a hashtag.
+    if ancestor.prev_leaf().map(|leaf| leaf.kind()) == Some(SyntaxKind::Hashtag) {
+        return Some(Category::Interpolated);
+    }
+
+    // Are we behind a dot, that is behind another identifier?
+    let prev = node.prev_leaf()?;
+    if prev.kind() == SyntaxKind::Dot {
+        let prev_prev = prev.prev_leaf()?;
+        if is_ident(&prev_prev) {
+            return highlight_ident(&prev_prev);
+        }
+    }
+
+    None
+}
+
+/// Highlight a hashtag based on context.
+fn highlight_hashtag(node: &LinkedNode) -> Option<Category> {
+    let next = node.next_sibling()?;
+    let expr = next.cast::<ast::Expr>()?;
+    if !expr.hashtag() {
+        return None;
+    }
+    highlight(&next.leftmost_leaf()?)
+}
+
+/// Whether the node is one of the two identifier nodes.
+fn is_ident(node: &LinkedNode) -> bool {
+    matches!(node.kind(), SyntaxKind::Ident | SyntaxKind::MathIdent)
 }
 
 #[cfg(test)]

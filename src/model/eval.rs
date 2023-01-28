@@ -364,7 +364,6 @@ impl Eval for ast::Expr {
             Self::Parenthesized(v) => v.eval(vm),
             Self::FieldAccess(v) => v.eval(vm),
             Self::FuncCall(v) => v.eval(vm),
-            Self::MethodCall(v) => v.eval(vm),
             Self::Closure(v) => v.eval(vm),
             Self::Unary(v) => v.eval(vm),
             Self::Binary(v) => v.eval(vm),
@@ -918,12 +917,51 @@ impl Eval for ast::FuncCall {
     type Output = Value;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let callee_expr = self.callee();
-        let callee_span = callee_expr.span();
-        let callee = callee_expr.eval(vm)?;
-        let mut args = self.args().eval(vm)?;
+        let span = self.span();
+        let callee = self.callee();
+        let in_math = in_math(&callee);
+        let callee_span = callee.span();
+        let args = self.args();
 
-        if in_math(&callee_expr) && !matches!(callee, Value::Func(_)) {
+        // Try to evaluate as a method call. This is possible if the callee is a
+        // field access and does not evaluate to a module.
+        let (callee, mut args) = if let ast::Expr::FieldAccess(access) = callee {
+            let target = access.target();
+            let method = access.field();
+            let method_span = method.span();
+            let method = method.take();
+            let point = || Tracepoint::Call(Some(method.clone()));
+            if methods::is_mutating(&method) {
+                let args = args.eval(vm)?;
+                let value = target.access(vm)?;
+
+                let value = if let Value::Module(module) = &value {
+                    module.get(&method).cloned().at(method_span)?
+                } else {
+                    return methods::call_mut(value, &method, args, span)
+                        .trace(vm.world, point, span);
+                };
+
+                (value, args)
+            } else {
+                let target = target.eval(vm)?;
+                let args = args.eval(vm)?;
+                let value = if let Value::Module(module) = &target {
+                    module.get(&method).cloned().at(method_span)?
+                } else {
+                    return methods::call(vm, target, &method, args, span)
+                        .trace(vm.world, point, span);
+                };
+                (value, args)
+            }
+        } else {
+            (callee.eval(vm)?, args.eval(vm)?)
+        };
+
+        // Handle math special cases for non-functions:
+        // Combining accent symbols apply themselves while everything else
+        // simply displays the arguments verbatim.
+        if in_math && !matches!(callee, Value::Func(_)) {
             if let Value::Symbol(sym) = &callee {
                 let c = sym.get();
                 if let Some(accent) = combining_accent(c) {
@@ -932,7 +970,6 @@ impl Eval for ast::FuncCall {
                     return Ok(Value::Content((vm.items.math_accent)(base, accent)));
                 }
             }
-
             let mut body = (vm.items.text)('('.into());
             for (i, arg) in args.all::<Content>()?.into_iter().enumerate() {
                 if i > 0 {
@@ -944,8 +981,14 @@ impl Eval for ast::FuncCall {
             return Ok(Value::Content(callee.display() + body));
         }
 
+        // Finally, just a normal function call!
+        if vm.depth >= MAX_CALL_DEPTH {
+            bail!(span, "maximum function call depth exceeded");
+        }
+
         let callee = callee.cast::<Func>().at(callee_span)?;
-        complete_call(vm, &callee, args, self.span())
+        let point = || Tracepoint::Call(callee.name().map(Into::into));
+        callee.call(vm, args).trace(vm.world, point, span)
     }
 }
 
@@ -954,59 +997,6 @@ fn in_math(expr: &ast::Expr) -> bool {
         ast::Expr::MathIdent(_) => true,
         ast::Expr::FieldAccess(access) => in_math(&access.target()),
         _ => false,
-    }
-}
-
-fn complete_call(
-    vm: &mut Vm,
-    callee: &Func,
-    args: Args,
-    span: Span,
-) -> SourceResult<Value> {
-    if vm.depth >= MAX_CALL_DEPTH {
-        bail!(span, "maximum function call depth exceeded");
-    }
-
-    let point = || Tracepoint::Call(callee.name().map(Into::into));
-    callee.call(vm, args).trace(vm.world, point, span)
-}
-
-impl Eval for ast::MethodCall {
-    type Output = Value;
-
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let span = self.span();
-        let method = self.method();
-
-        let result = if methods::is_mutating(&method) {
-            let args = self.args().eval(vm)?;
-            let value = self.target().access(vm)?;
-
-            if let Value::Module(module) = &value {
-                if let Value::Func(callee) =
-                    module.get(&method).cloned().at(method.span())?
-                {
-                    return complete_call(vm, &callee, args, self.span());
-                }
-            }
-
-            methods::call_mut(value, &method, args, span)
-        } else {
-            let value = self.target().eval(vm)?;
-            let args = self.args().eval(vm)?;
-
-            if let Value::Module(module) = &value {
-                if let Value::Func(callee) = module.get(&method).at(method.span())? {
-                    return complete_call(vm, callee, args, self.span());
-                }
-            }
-
-            methods::call(vm, value, &method, args, span)
-        };
-
-        let method = method.take();
-        let point = || Tracepoint::Call(Some(method.clone()));
-        result.trace(vm.world, point, span)
     }
 }
 
@@ -1223,8 +1213,12 @@ impl Eval for ast::WhileLoop {
 fn is_invariant(expr: &SyntaxNode) -> bool {
     match expr.cast() {
         Some(ast::Expr::Ident(_)) => false,
-        Some(ast::Expr::MethodCall(call)) => {
-            is_invariant(call.target().as_untyped())
+        Some(ast::Expr::MathIdent(_)) => false,
+        Some(ast::Expr::FieldAccess(access)) => {
+            is_invariant(access.target().as_untyped())
+        }
+        Some(ast::Expr::FuncCall(call)) => {
+            is_invariant(call.callee().as_untyped())
                 && is_invariant(call.args().as_untyped())
         }
         _ => expr.children().all(is_invariant),
@@ -1434,7 +1428,7 @@ impl Access for ast::Expr {
             Self::Ident(v) => v.access(vm),
             Self::Parenthesized(v) => v.access(vm),
             Self::FieldAccess(v) => v.access(vm),
-            Self::MethodCall(v) => v.access(vm),
+            Self::FuncCall(v) => v.access(vm),
             _ => {
                 let _ = self.eval(vm)?;
                 bail!(self.span(), "cannot mutate a temporary value");
@@ -1479,22 +1473,22 @@ impl ast::FieldAccess {
     }
 }
 
-impl Access for ast::MethodCall {
+impl Access for ast::FuncCall {
     fn access<'a>(&self, vm: &'a mut Vm) -> SourceResult<&'a mut Value> {
-        let span = self.span();
-        let method = self.method().take();
-        let world = vm.world();
-
-        if !methods::is_accessor(&method) {
-            let _ = self.eval(vm)?;
-            bail!(span, "cannot mutate a temporary value");
+        if let ast::Expr::FieldAccess(access) = self.callee() {
+            let method = access.field().take();
+            if methods::is_accessor(&method) {
+                let span = self.span();
+                let world = vm.world();
+                let args = self.args().eval(vm)?;
+                let value = access.target().access(vm)?;
+                let result = methods::call_access(value, &method, args, span);
+                let point = || Tracepoint::Call(Some(method.clone()));
+                return result.trace(world, point, span);
+            }
         }
 
-        let args = self.args().eval(vm)?;
-        let value = self.target().access(vm)?;
-        let result = methods::call_access(value, &method, args, span);
-
-        let point = || Tracepoint::Call(Some(method.clone()));
-        result.trace(world, point, span)
+        let _ = self.eval(vm)?;
+        bail!(self.span(), "cannot mutate a temporary value");
     }
 }

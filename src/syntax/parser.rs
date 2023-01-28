@@ -374,12 +374,12 @@ fn math_op(kind: SyntaxKind) -> Option<(SyntaxKind, SyntaxKind, ast::Assoc, usiz
 }
 
 fn math_args(p: &mut Parser) {
-    p.assert(SyntaxKind::Text);
-
     let m = p.marker();
-    let mut arg = p.marker();
+    p.convert(SyntaxKind::LeftParen);
+
     let mut namable = true;
     let mut named = None;
+    let mut arg = p.marker();
 
     while !p.eof() && !p.at(SyntaxKind::Dollar) {
         if namable
@@ -418,11 +418,14 @@ fn math_args(p: &mut Parser) {
         maybe_wrap_in_math(p, arg, named);
     }
 
-    p.wrap(m, SyntaxKind::Args);
-    if !p.eat_if(SyntaxKind::Text) {
+    if p.at(SyntaxKind::Text) && p.current_text() == ")" {
+        p.convert(SyntaxKind::RightParen);
+    } else {
         p.expected("closing paren");
         p.balanced = false;
     }
+
+    p.wrap(m, SyntaxKind::Args);
 }
 
 fn maybe_wrap_in_math(p: &mut Parser, arg: Marker, named: Option<Marker>) {
@@ -512,14 +515,7 @@ fn code_expr_prec(p: &mut Parser, atomic: bool, min_prec: usize) {
 
         if p.eat_if(SyntaxKind::Dot) {
             p.expect(SyntaxKind::Ident);
-            if p.directly_at(SyntaxKind::LeftParen)
-                || p.directly_at(SyntaxKind::LeftBracket)
-            {
-                args(p);
-                p.wrap(m, SyntaxKind::MethodCall);
-            } else {
-                p.wrap(m, SyntaxKind::FieldAccess)
-            }
+            p.wrap(m, SyntaxKind::FieldAccess);
             continue;
         }
 

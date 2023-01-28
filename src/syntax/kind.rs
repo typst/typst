@@ -210,10 +210,8 @@ pub enum SyntaxKind {
     Binary,
     /// A field access: `properties.age`.
     FieldAccess,
-    /// An invocation of a function: `f(x, y)`.
+    /// An invocation of a function or method: `f(x, y)`.
     FuncCall,
-    /// An invocation of a method: `array.push(v)`.
-    MethodCall,
     /// A function call's argument list: `(12pt, y)`.
     Args,
     /// Spreaded arguments or an argument sink: `..x`.
@@ -416,7 +414,6 @@ impl SyntaxKind {
             Self::Binary => "binary expression",
             Self::FieldAccess => "field access",
             Self::FuncCall => "function call",
-            Self::MethodCall => "method call",
             Self::Args => "call arguments",
             Self::Spread => "spread",
             Self::Closure => "closure",

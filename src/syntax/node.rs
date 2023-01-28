@@ -681,11 +681,6 @@ impl<'a> LinkedNode<'a> {
         self.parent.as_deref()
     }
 
-    /// Get the kind of this node's parent.
-    pub fn parent_kind(&self) -> Option<SyntaxKind> {
-        Some(self.parent()?.node.kind())
-    }
-
     /// Get the first previous non-trivia sibling node.
     pub fn prev_sibling(&self) -> Option<Self> {
         let parent = self.parent()?;
@@ -712,6 +707,21 @@ impl<'a> LinkedNode<'a> {
         } else {
             Some(next)
         }
+    }
+
+    /// Get the kind of this node's parent.
+    pub fn parent_kind(&self) -> Option<SyntaxKind> {
+        Some(self.parent()?.node.kind())
+    }
+
+    /// Get the kind of this node's first previous non-trivia sibling.
+    pub fn prev_sibling_kind(&self) -> Option<SyntaxKind> {
+        Some(self.prev_sibling()?.node.kind())
+    }
+
+    /// Get the kind of this node's next non-trivia sibling.
+    pub fn next_sibling_kind(&self) -> Option<SyntaxKind> {
+        Some(self.next_sibling()?.node.kind())
     }
 }
 

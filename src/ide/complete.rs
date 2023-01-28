@@ -4,7 +4,7 @@ use if_chain::if_chain;
 
 use super::{analyze, plain_docs_sentence, summarize_font_family};
 use crate::model::{methods_on, CastInfo, Scope, Value};
-use crate::syntax::{ast, LinkedNode, Source, SyntaxKind, SyntaxNode};
+use crate::syntax::{ast, LinkedNode, Source, SyntaxKind};
 use crate::util::{format_eco, EcoString};
 use crate::World;
 
@@ -936,9 +936,7 @@ impl<'a> CompletionContext<'a> {
 
             if let Some(parent) = node.parent() {
                 if let Some(v) = parent.cast::<ast::ForLoop>() {
-                    if node.prev_sibling().as_deref().map(SyntaxNode::kind)
-                        != Some(SyntaxKind::In)
-                    {
+                    if node.prev_sibling_kind() != Some(SyntaxKind::In) {
                         let pattern = v.pattern();
                         if let Some(key) = pattern.key() {
                             defined.insert(key.take());

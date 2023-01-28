@@ -157,10 +157,8 @@ pub enum Expr {
     Binary(Binary),
     /// A field access: `properties.age`.
     FieldAccess(FieldAccess),
-    /// An invocation of a function: `f(x, y)`.
+    /// An invocation of a function or method: `f(x, y)`.
     FuncCall(FuncCall),
-    /// An invocation of a method: `array.push(v)`.
-    MethodCall(MethodCall),
     /// A closure: `(x, y) => z`.
     Closure(Closure),
     /// A let binding: `let x = 1`.
@@ -239,7 +237,6 @@ impl AstNode for Expr {
             SyntaxKind::Binary => node.cast().map(Self::Binary),
             SyntaxKind::FieldAccess => node.cast().map(Self::FieldAccess),
             SyntaxKind::FuncCall => node.cast().map(Self::FuncCall),
-            SyntaxKind::MethodCall => node.cast().map(Self::MethodCall),
             SyntaxKind::Closure => node.cast().map(Self::Closure),
             SyntaxKind::LetBinding => node.cast().map(Self::Let),
             SyntaxKind::SetRule => node.cast().map(Self::Set),
@@ -299,7 +296,6 @@ impl AstNode for Expr {
             Self::Binary(v) => v.as_untyped(),
             Self::FieldAccess(v) => v.as_untyped(),
             Self::FuncCall(v) => v.as_untyped(),
-            Self::MethodCall(v) => v.as_untyped(),
             Self::Closure(v) => v.as_untyped(),
             Self::Let(v) => v.as_untyped(),
             Self::Set(v) => v.as_untyped(),
@@ -335,7 +331,6 @@ impl Expr {
             Self::Parenthesized(_) => true,
             Self::FieldAccess(_) => true,
             Self::FuncCall(_) => true,
-            Self::MethodCall(_) => true,
             Self::Let(_) => true,
             Self::Set(_) => true,
             Self::Show(_) => true,
@@ -1403,7 +1398,7 @@ impl FieldAccess {
 }
 
 node! {
-    /// An invocation of a function: `f(x, y)`.
+    /// An invocation of a function or method: `f(x, y)`.
     FuncCall
 }
 
@@ -1414,28 +1409,6 @@ impl FuncCall {
     }
 
     /// The arguments to the function.
-    pub fn args(&self) -> Args {
-        self.0.cast_last_match().unwrap_or_default()
-    }
-}
-
-node! {
-    /// An invocation of a method: `array.push(v)`.
-    MethodCall
-}
-
-impl MethodCall {
-    /// The expression to call the method on.
-    pub fn target(&self) -> Expr {
-        self.0.cast_first_match().unwrap_or_default()
-    }
-
-    /// The name of the method.
-    pub fn method(&self) -> Ident {
-        self.0.cast_last_match().unwrap_or_default()
-    }
-
-    /// The arguments to the method.
     pub fn args(&self) -> Args {
         self.0.cast_last_match().unwrap_or_default()
     }
