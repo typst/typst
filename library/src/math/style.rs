@@ -289,7 +289,7 @@ pub struct MathStyle {
     pub cramped: bool,
     /// Whether to use bold glyphs.
     pub bold: bool,
-    /// Wherher to use italic glyphs.
+    /// Whether to use italic glyphs.
     pub italic: bool,
 }
 
@@ -319,17 +319,17 @@ impl MathStyle {
         Self { size, ..self }
     }
 
-    /// This style, with `cramped` set to given value.
+    /// This style, with `cramped` set to the given value.
     pub fn with_cramped(self, cramped: bool) -> Self {
         Self { cramped, ..self }
     }
 
-    /// This style, with `bold` set to given value.
+    /// This style, with `bold` set to the given value.
     pub fn with_bold(self, bold: bool) -> Self {
         Self { bold, ..self }
     }
 
-    /// This style, with `italic` set to given value.
+    /// This style, with `italic` set to the given value.
     pub fn with_italic(self, italic: bool) -> Self {
         Self { italic, ..self }
     }
