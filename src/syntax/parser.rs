@@ -234,21 +234,20 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
         SyntaxKind::Hashtag => embedded_code_expr(p),
         SyntaxKind::MathIdent => {
             p.eat();
+            while p.directly_at(SyntaxKind::MathAtom)
+                && p.current_text() == "."
+                && matches!(
+                    p.lexer.clone().next(),
+                    SyntaxKind::MathIdent | SyntaxKind::MathAtom
+                )
+            {
+                p.convert(SyntaxKind::Dot);
+                p.convert(SyntaxKind::Ident);
+                p.wrap(m, SyntaxKind::FieldAccess);
+            }
             if p.directly_at(SyntaxKind::MathAtom) && p.current_text() == "(" {
                 math_args(p);
                 p.wrap(m, SyntaxKind::FuncCall);
-            } else {
-                while p.directly_at(SyntaxKind::MathAtom)
-                    && p.current_text() == "."
-                    && matches!(
-                        p.lexer.clone().next(),
-                        SyntaxKind::MathIdent | SyntaxKind::MathAtom
-                    )
-                {
-                    p.convert(SyntaxKind::Dot);
-                    p.convert(SyntaxKind::Ident);
-                    p.wrap(m, SyntaxKind::FieldAccess);
-                }
             }
         }
 
@@ -362,10 +361,10 @@ fn math_class(text: &str) -> Option<MathClass> {
 fn math_op(kind: SyntaxKind) -> Option<(SyntaxKind, SyntaxKind, ast::Assoc, usize)> {
     match kind {
         SyntaxKind::Underscore => {
-            Some((SyntaxKind::MathScript, SyntaxKind::Hat, ast::Assoc::Right, 2))
+            Some((SyntaxKind::MathAttach, SyntaxKind::Hat, ast::Assoc::Right, 2))
         }
         SyntaxKind::Hat => {
-            Some((SyntaxKind::MathScript, SyntaxKind::Underscore, ast::Assoc::Right, 2))
+            Some((SyntaxKind::MathAttach, SyntaxKind::Underscore, ast::Assoc::Right, 2))
         }
         SyntaxKind::Slash => {
             Some((SyntaxKind::MathFrac, SyntaxKind::Eof, ast::Assoc::Left, 1))

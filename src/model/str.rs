@@ -1,5 +1,5 @@
 use std::borrow::{Borrow, Cow};
-use std::fmt::{self, Debug, Formatter, Write};
+use std::fmt::{self, Debug, Display, Formatter, Write};
 use std::hash::{Hash, Hasher};
 use std::ops::{Add, AddAssign, Deref};
 
@@ -331,6 +331,12 @@ impl Deref for Str {
 
     fn deref(&self) -> &str {
         &self.0
+    }
+}
+
+impl Display for Str {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.pad(self)
     }
 }
 

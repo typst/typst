@@ -1,6 +1,6 @@
 use std::cmp::Reverse;
 use std::collections::BTreeSet;
-use std::fmt::{self, Debug, Formatter, Write};
+use std::fmt::{self, Debug, Display, Formatter, Write};
 
 use crate::diag::StrResult;
 use crate::util::EcoString;
@@ -109,6 +109,12 @@ impl Debug for Symbol {
     }
 }
 
+impl Display for Symbol {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.write_char(self.get())
+    }
+}
+
 /// Find the best symbol from the list.
 fn find(list: &[(&str, char)], modifiers: &str) -> Option<char> {
     let mut best = None;
@@ -149,4 +155,31 @@ fn parts(modifiers: &str) -> impl Iterator<Item = &str> {
 /// Whether the modifier string contains the modifier `m`.
 fn contained(modifiers: &str, m: &str) -> bool {
     parts(modifiers).any(|part| part == m)
+}
+
+/// Normalize an accent to a combining one.
+///
+/// https://www.w3.org/TR/mathml-core/#combining-character-equivalences
+pub fn combining_accent(c: char) -> Option<char> {
+    Some(match c {
+        '\u{0300}' | '`' => '\u{0300}',
+        '\u{0301}' | '´' => '\u{0301}',
+        '\u{0302}' | '^' | 'ˆ' => '\u{0302}',
+        '\u{0303}' | '~' | '∼' | '˜' => '\u{0303}',
+        '\u{0304}' | '¯' => '\u{0304}',
+        '\u{0305}' | '-' | '‾' | '−' => '\u{0305}',
+        '\u{0306}' | '˘' => '\u{0306}',
+        '\u{0307}' | '.' | '˙' | '⋅' => '\u{0307}',
+        '\u{0308}' | '¨' => '\u{0308}',
+        '\u{030a}' | '∘' | '○' => '\u{030a}',
+        '\u{030b}' | '˝' => '\u{030b}',
+        '\u{030c}' | 'ˇ' => '\u{030c}',
+        '\u{0327}' | '¸' => '\u{0327}',
+        '\u{0328}' | '˛' => '\u{0328}',
+        '\u{0332}' | '_' => '\u{0332}',
+        '\u{20d6}' | '←' => '\u{20d6}',
+        '\u{20d7}' | '→' | '⟶' => '\u{20d7}',
+        '⏞' | '⏟' | '⎴' | '⎵' | '⏜' | '⏝' | '⏠' | '⏡' => c,
+        _ => return None,
+    })
 }

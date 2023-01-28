@@ -5,6 +5,7 @@ mod ctx;
 mod accent;
 mod align;
 mod atom;
+mod attach;
 mod braced;
 mod frac;
 mod fragment;
@@ -13,7 +14,6 @@ mod matrix;
 mod op;
 mod root;
 mod row;
-mod script;
 mod spacing;
 mod stretch;
 mod style;
@@ -22,13 +22,13 @@ mod symbols;
 pub use self::accent::*;
 pub use self::align::*;
 pub use self::atom::*;
+pub use self::attach::*;
 pub use self::braced::*;
 pub use self::frac::*;
 pub use self::lr::*;
 pub use self::matrix::*;
 pub use self::op::*;
 pub use self::root::*;
-pub use self::script::*;
 pub use self::style::*;
 
 use ttf_parser::GlyphId;
@@ -54,22 +54,33 @@ use crate::text::{families, variant, FallbackList, FontFamily, SpaceNode};
 pub fn module(sym: &Module) -> Module {
     let mut math = Scope::deduplicating();
     math.def_func::<FormulaNode>("formula");
+
+    // Grouping.
     math.def_func::<LrNode>("lr");
-    math.def_func::<OpNode>("op");
-    math.def_func::<FloorFunc>("floor");
-    math.def_func::<CeilFunc>("ceil");
     math.def_func::<AbsFunc>("abs");
     math.def_func::<NormFunc>("norm");
+    math.def_func::<FloorFunc>("floor");
+    math.def_func::<CeilFunc>("ceil");
+
+    // Attachments and accents.
+    math.def_func::<AttachNode>("attach");
+    math.def_func::<ScriptsNode>("scripts");
+    math.def_func::<LimitsNode>("limits");
     math.def_func::<AccentNode>("accent");
-    math.def_func::<FracNode>("frac");
-    math.def_func::<BinomNode>("binom");
-    math.def_func::<ScriptNode>("script");
-    math.def_func::<SqrtNode>("sqrt");
-    math.def_func::<RootNode>("root");
-    math.def_func::<VecNode>("vec");
-    math.def_func::<CasesNode>("cases");
     math.def_func::<UnderbraceNode>("underbrace");
     math.def_func::<OverbraceNode>("overbrace");
+
+    // Fractions and matrix-likes.
+    math.def_func::<FracNode>("frac");
+    math.def_func::<BinomNode>("binom");
+    math.def_func::<VecNode>("vec");
+    math.def_func::<CasesNode>("cases");
+
+    // Roots.
+    math.def_func::<SqrtNode>("sqrt");
+    math.def_func::<RootNode>("root");
+
+    // Styles.
     math.def_func::<BoldNode>("bold");
     math.def_func::<ItalicNode>("italic");
     math.def_func::<SerifNode>("serif");
@@ -78,10 +89,16 @@ pub fn module(sym: &Module) -> Module {
     math.def_func::<FrakNode>("frak");
     math.def_func::<MonoNode>("mono");
     math.def_func::<BbNode>("bb");
-    spacing::define(&mut math);
-    symbols::define(&mut math);
+
+    // Text operators.
+    math.def_func::<OpNode>("op");
     op::define(&mut math);
+
+    // Symbols and spacing.
+    symbols::define(&mut math);
+    spacing::define(&mut math);
     math.copy_from(sym.scope());
+
     Module::new("math").with_scope(math)
 }
 

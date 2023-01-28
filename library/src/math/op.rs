@@ -9,9 +9,9 @@ use super::*;
 /// - text: EcoString (positional, required)
 ///   The operator's text.
 /// - limits: bool (named)
-///   Whether the operator should display sub- and superscripts as limits.
+///   Whether the operator should force attachments to display as limits.
 ///
-///   Defaults to `true`.
+///   Defaults to `false`.
 ///
 /// ## Category
 /// math
@@ -21,7 +21,7 @@ use super::*;
 pub struct OpNode {
     /// The operator's text.
     pub text: EcoString,
-    /// Whether the operator should display sub- and superscripts as limits.
+    /// Whether the operator should force attachments to display as limits.
     pub limits: bool,
 }
 
@@ -30,7 +30,7 @@ impl OpNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self {
             text: args.expect("text")?,
-            limits: args.named("limits")?.unwrap_or(true),
+            limits: args.named("limits")?.unwrap_or(false),
         }
         .pack())
     }

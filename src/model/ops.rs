@@ -2,7 +2,7 @@
 
 use std::cmp::Ordering;
 
-use super::{Regex, Value};
+use super::{format_str, Regex, Value};
 use crate::diag::StrResult;
 use crate::geom::{Axes, Axis, GenAlign, Length, Numeric, PartialStroke, Rel, Smart};
 use crate::util::format_eco;
@@ -20,10 +20,15 @@ pub fn join(lhs: Value, rhs: Value) -> StrResult<Value> {
     Ok(match (lhs, rhs) {
         (a, None) => a,
         (None, b) => b,
+        (Symbol(a), Symbol(b)) => Str(format_str!("{a}{b}")),
         (Str(a), Str(b)) => Str(a + b),
-        (Str(a), Content(b)) => Content(item!(text)(a.into()) + b),
-        (Content(a), Str(b)) => Content(a + item!(text)(b.into())),
+        (Str(a), Symbol(b)) => Str(format_str!("{a}{b}")),
+        (Symbol(a), Str(b)) => Str(format_str!("{a}{b}")),
         (Content(a), Content(b)) => Content(a + b),
+        (Content(a), Symbol(b)) => Content(a + item!(text)(b.get().into())),
+        (Content(a), Str(b)) => Content(a + item!(text)(b.into())),
+        (Str(a), Content(b)) => Content(item!(text)(a.into()) + b),
+        (Symbol(a), Content(b)) => Content(item!(text)(a.get().into()) + b),
         (Array(a), Array(b)) => Array(a + b),
         (Dict(a), Dict(b)) => Dict(a + b),
         (a, b) => mismatch!("cannot join {} with {}", a, b),
@@ -85,10 +90,15 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
 
         (Fraction(a), Fraction(b)) => Fraction(a + b),
 
+        (Symbol(a), Symbol(b)) => Str(format_str!("{a}{b}")),
         (Str(a), Str(b)) => Str(a + b),
+        (Str(a), Symbol(b)) => Str(format_str!("{a}{b}")),
+        (Symbol(a), Str(b)) => Str(format_str!("{a}{b}")),
         (Content(a), Content(b)) => Content(a + b),
+        (Content(a), Symbol(b)) => Content(a + item!(text)(b.get().into())),
         (Content(a), Str(b)) => Content(a + item!(text)(b.into())),
         (Str(a), Content(b)) => Content(item!(text)(a.into()) + b),
+        (Symbol(a), Content(b)) => Content(item!(text)(a.get().into()) + b),
 
         (Array(a), Array(b)) => Array(a + b),
         (Dict(a), Dict(b)) => Dict(a + b),
@@ -326,11 +336,14 @@ pub fn equal(lhs: &Value, rhs: &Value) -> bool {
         (Relative(a), Relative(b)) => a == b,
         (Fraction(a), Fraction(b)) => a == b,
         (Color(a), Color(b)) => a == b,
+        (Symbol(a), Symbol(b)) => a == b,
         (Str(a), Str(b)) => a == b,
         (Label(a), Label(b)) => a == b,
         (Array(a), Array(b)) => a == b,
         (Dict(a), Dict(b)) => a == b,
         (Func(a), Func(b)) => a == b,
+        (Args(a), Args(b)) => a == b,
+        (Module(a), Module(b)) => a == b,
         (Dyn(a), Dyn(b)) => a == b,
 
         // Some technically different things should compare equal.

@@ -1,86 +1,153 @@
 use super::*;
 
-/// # Script
-/// A mathematical sub- and/or superscript.
+/// # Attachment
+/// A base with optional attachments.
 ///
 /// ## Syntax
 /// This function also has dedicated syntax: Use the underscore (`_`) to
-/// indicate a subscript and the circumflex (`^`) to indicate a superscript.
+/// indicate a bottom attachment and the circumflex (`^`) to indicate a top
+/// attachment.
 ///
 /// ## Example
 /// ```
-/// $ a_i = 2^(1+i) $
+/// $ sum_(i=0)^n a_i = 2^(1+i) $
 /// ```
 ///
 /// ## Parameters
 /// - base: Content (positional, required)
-///   The base to which the applies the sub- and/or superscript.
+///   The base to which things are attached.
 ///
-/// - sub: Content (named)
-///   The subscript.
+/// - top: Content (named)
+///   The top attachment.
 ///
-/// - sup: Content (named)
-///   The superscript.
+/// - bottom: Content (named)
+///   The bottom attachment.
 ///
 /// ## Category
 /// math
 #[func]
 #[capable(LayoutMath)]
 #[derive(Debug, Hash)]
-pub struct ScriptNode {
+pub struct AttachNode {
     /// The base.
     pub base: Content,
-    /// The subscript.
-    pub sub: Option<Content>,
-    /// The superscript.
-    pub sup: Option<Content>,
+    /// The top attachment.
+    pub top: Option<Content>,
+    /// The bottom attachment.
+    pub bottom: Option<Content>,
 }
 
 #[node]
-impl ScriptNode {
+impl AttachNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let base = args.expect("base")?;
-        let sub = args.named("sub")?;
-        let sup = args.named("sup")?;
-        Ok(Self { base, sub, sup }.pack())
+        let top = args.named("top")?;
+        let bottom = args.named("bottom")?;
+        Ok(Self { base, top, bottom }.pack())
     }
 }
 
-impl LayoutMath for ScriptNode {
+impl LayoutMath for AttachNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let base = ctx.layout_fragment(&self.base)?;
 
         let mut sub = Frame::new(Size::zero());
-        if let Some(node) = &self.sub {
+        if let Some(node) = &self.top {
             ctx.style(ctx.style.for_subscript());
             sub = ctx.layout_frame(node)?;
             ctx.unstyle();
         }
 
         let mut sup = Frame::new(Size::zero());
-        if let Some(node) = &self.sup {
+        if let Some(node) = &self.bottom {
             ctx.style(ctx.style.for_superscript());
             sup = ctx.layout_frame(node)?;
             ctx.unstyle();
         }
 
-        let render_limits = ctx.style.size == MathSize::Display
-            && base.class() == Some(MathClass::Large)
-            && match &base {
-                MathFragment::Variant(variant) => LIMITS.contains(&variant.c),
-                MathFragment::Frame(fragment) => fragment.limits,
-                _ => false,
-            };
+        let render_limits = self.base.is::<LimitsNode>()
+            || (!self.base.is::<ScriptsNode>()
+                && ctx.style.size == MathSize::Display
+                && base.class() == Some(MathClass::Large)
+                && match &base {
+                    MathFragment::Variant(variant) => LIMITS.contains(&variant.c),
+                    MathFragment::Frame(fragment) => fragment.limits,
+                    _ => false,
+                });
 
         if render_limits {
             limits(ctx, base, sub, sup)
         } else {
-            scripts(ctx, base, sub, sup, self.sub.is_some() && self.sup.is_some())
+            scripts(ctx, base, sub, sup, self.top.is_some() && self.bottom.is_some())
         }
     }
 }
 
-/// Layout normal sub- and superscripts.
+/// # Scripts
+/// Force a base to display attachments as scripts.
+///
+/// ## Example
+/// ```
+/// $ scripts(sum)_1^2 != sum_1^2 $
+/// ```
+///
+/// ## Parameters
+/// - base: Content (positional, required)
+///   The base to attach the scripts to.
+///
+/// ## Category
+/// math
+#[func]
+#[capable(LayoutMath)]
+#[derive(Debug, Hash)]
+pub struct ScriptsNode(Content);
+
+#[node]
+impl ScriptsNode {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
+        Ok(Self(args.expect("base")?).pack())
+    }
+}
+
+impl LayoutMath for ScriptsNode {
+    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+        self.0.layout_math(ctx)
+    }
+}
+
+/// # Limits
+/// Force a base to display attachments as limits.
+///
+/// ## Example
+/// ```
+/// $ limits(A)_1^2 != A_1^2 $
+/// ```
+///
+/// ## Parameters
+/// - base: Content (positional, required)
+///   The base to attach the limits to.
+///
+/// ## Category
+/// math
+#[func]
+#[capable(LayoutMath)]
+#[derive(Debug, Hash)]
+pub struct LimitsNode(Content);
+
+#[node]
+impl LimitsNode {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
+        Ok(Self(args.expect("base")?).pack())
+    }
+}
+
+impl LayoutMath for LimitsNode {
+    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+        self.0.layout_math(ctx)
+    }
+}
+
+/// Layout sub- and superscripts.
 fn scripts(
     ctx: &mut MathContext,
     base: MathFragment,

@@ -438,7 +438,11 @@ primitive! { Rel<Length>:  "relative length",
 primitive! { Fr: "fraction", Fraction }
 primitive! { Color: "color", Color }
 primitive! { Symbol: "symbol", Symbol }
-primitive! { Str: "string", Str }
+primitive! {
+    Str: "string",
+    Str,
+    Symbol(symbol) => symbol.get().into()
+}
 primitive! { Label: "label", Label }
 primitive! { Content: "content",
     Content,

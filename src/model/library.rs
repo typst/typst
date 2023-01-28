@@ -71,12 +71,13 @@ pub struct LangItems {
     pub math_atom: fn(atom: EcoString) -> Content,
     /// An alignment point in a formula: `&`.
     pub math_align_point: fn() -> Content,
-    /// A subsection in a math formula that is surrounded by matched delimiters:
-    /// `[x + y]`.
+    /// Matched delimiters surrounding math in a formula: `[x + y]`.
     pub math_delimited: fn(open: Content, body: Content, close: Content) -> Content,
-    /// A base with optional sub- and superscripts in a formula: `a_1^2`.
-    pub math_script:
-        fn(base: Content, sub: Option<Content>, sup: Option<Content>) -> Content,
+    /// A base with optional attachments in a formula: `a_1^2`.
+    pub math_attach:
+        fn(base: Content, bottom: Option<Content>, top: Option<Content>) -> Content,
+    /// A base with an accent: `arrow(x)`.
+    pub math_accent: fn(base: Content, accent: char) -> Content,
     /// A fraction in a formula: `x/2`.
     pub math_frac: fn(num: Content, denom: Content) -> Content,
 }
@@ -95,6 +96,8 @@ impl Hash for LangItems {
         self.space.hash(state);
         self.linebreak.hash(state);
         self.text.hash(state);
+        self.text_id.hash(state);
+        (self.text_str as usize).hash(state);
         self.smart_quote.hash(state);
         self.parbreak.hash(state);
         self.strong.hash(state);
@@ -108,9 +111,11 @@ impl Hash for LangItems {
         self.term_item.hash(state);
         self.formula.hash(state);
         self.math_atom.hash(state);
-        self.math_script.hash(state);
-        self.math_frac.hash(state);
         self.math_align_point.hash(state);
+        self.math_delimited.hash(state);
+        self.math_attach.hash(state);
+        self.math_accent.hash(state);
+        self.math_frac.hash(state);
     }
 }
 

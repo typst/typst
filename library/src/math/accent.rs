@@ -1,15 +1,17 @@
+use typst::model::combining_accent;
+
 use super::*;
 
 /// How much the accent can be shorter than the base.
 const ACCENT_SHORT_FALL: Em = Em::new(0.5);
 
 /// # Accent
-/// An accented node.
+/// Attach an accent to a base.
 ///
 /// ## Example
 /// ```
-/// $accent(a, ->) != accent(a, ~)$ \
-/// $accent(a, `) = accent(a, grave)$
+/// $arrow(a) = accent(a, arrow)$ \
+/// $grave(a) = accent(a, `)$
 /// ```
 ///
 /// ## Parameters
@@ -19,30 +21,26 @@ const ACCENT_SHORT_FALL: Em = Em::new(0.5);
 ///
 ///   ### Example
 ///   ```
-///   $accent(A B C, ->)$
+///   $arrow(A B C)$
 ///   ```
 ///
-/// - accent: Content (positional, required)
+/// - accent: char (positional, required)
 ///   The accent to apply to the base.
 ///
 ///   Supported accents include:
-///   - Plus: `` + ``
-///   - Overline: `` - ``, `‾`
-///   - Dot: `.`
-///   - Circumflex: `^`
-///   - Acute: `´`
-///   - Low Line: `_`
-///   - Grave: `` ` ``
-///   - Tilde: `~`
-///   - Diaeresis: `¨`
-///   - Macron: `¯`
-///   - Acute: `´`
-///   - Cedilla: `¸`
-///   - Caron: `ˇ`
-///   - Breve: `˘`
-///   - Double acute: `˝`
-///   - Left arrow: `<-`
-///   - Right arrow: `->`
+///   - Grave: `grave`, `` ` ``
+///   - Acute: `acute`, `´`
+///   - Circumflex: `circum`, `^`
+///   - Tilde: `tilde`, `~`
+///   - Macron: `macron`, `¯`
+///   - Breve: `breve`, `˘`
+///   - Dot: `dot`, `.`
+///   - Diaeresis: `diaer` `¨`
+///   - Circle: `circle`, `∘`
+///   - Double acute: `acute.double`, `˝`
+///   - Caron: `caron`, `ˇ`
+///   - Right arrow: `arrow`, `->`
+///   - Left arrow: `arrow.l`, `<-`
 ///
 /// ## Category
 /// math
@@ -53,7 +51,7 @@ pub struct AccentNode {
     /// The accent base.
     pub base: Content,
     /// The accent.
-    pub accent: Content,
+    pub accent: char,
 }
 
 #[node]
@@ -78,16 +76,9 @@ impl LayoutMath for AccentNode {
             _ => (base.width() + base.italics_correction()) / 2.0,
         };
 
-        let Some(c) = extract(&self.accent) else {
-            ctx.push(base);
-            if let Some(span) = self.accent.span() {
-                bail!(span, "not an accent");
-            }
-            return Ok(());
-        };
-
         // Forcing the accent to be at least as large as the base makes it too
         // wide in many case.
+        let c = combining_accent(self.accent).unwrap_or(self.accent);
         let glyph = GlyphFragment::new(ctx, c);
         let short_fall = ACCENT_SHORT_FALL.scaled(ctx);
         let variant = glyph.stretch_horizontal(ctx, base.width(), short_fall);
@@ -129,46 +120,4 @@ fn attachment(ctx: &MathContext, id: GlyphId, italics_correction: Abs) -> Abs {
             let advance = ctx.ttf.glyph_hor_advance(id).unwrap_or_default();
             (advance.scaled(ctx) + italics_correction) / 2.0
         })
-}
-
-/// Extract a single character from content.
-fn extract(accent: &Content) -> Option<char> {
-    let atom = accent.to::<AtomNode>()?;
-    let mut chars = atom.0.chars();
-    let c = chars.next().filter(|_| chars.next().is_none())?;
-    Some(combining(c))
-}
-
-/// Convert from a non-combining accent to a combining one.
-///
-/// https://www.w3.org/TR/mathml-core/#combining-character-equivalences
-fn combining(c: char) -> char {
-    match c {
-        '\u{002b}' => '\u{031f}',
-        '\u{002d}' => '\u{0305}',
-        '\u{002e}' => '\u{0307}',
-        '\u{005e}' => '\u{0302}',
-        '\u{005f}' => '\u{0332}',
-        '\u{0060}' => '\u{0300}',
-        '\u{007e}' => '\u{0303}',
-        '\u{00a8}' => '\u{0308}',
-        '\u{00af}' => '\u{0304}',
-        '\u{00b4}' => '\u{0301}',
-        '\u{00b8}' => '\u{0327}',
-        '\u{02c6}' => '\u{0302}',
-        '\u{02c7}' => '\u{030c}',
-        '\u{02d8}' => '\u{0306}',
-        '\u{02d9}' => '\u{0307}',
-        '\u{02db}' => '\u{0328}',
-        '\u{02dc}' => '\u{0303}',
-        '\u{02dd}' => '\u{030b}',
-        '\u{203e}' => '\u{0305}',
-        '\u{2190}' => '\u{20d6}',
-        '\u{2192}' => '\u{20d7}',
-        '\u{2212}' => '\u{0305}',
-        '\u{223C}' => '\u{0303}',
-        '\u{22C5}' => '\u{0307}',
-        '\u{27f6}' => '\u{20d7}',
-        _ => c,
-    }
 }

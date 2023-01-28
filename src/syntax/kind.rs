@@ -65,11 +65,10 @@ pub enum SyntaxKind {
     MathIdent,
     /// An alignment point in math: `&`.
     MathAlignPoint,
-    /// A subsection in a math formula that is surrounded by matched delimiters:
-    /// `[x + y]`.
+    /// Matched delimiters surrounding math in a formula: `[x + y]`.
     MathDelimited,
-    /// A base with optional sub- and superscripts in math: `a_1^2`.
-    MathScript,
+    /// A base with optional attachments in a formula: `a_1^2`.
+    MathAttach,
     /// A fraction in math: `x/2`.
     MathFrac,
 
@@ -349,7 +348,7 @@ impl SyntaxKind {
             Self::MathAtom => "math atom",
             Self::MathAlignPoint => "math alignment point",
             Self::MathDelimited => "delimited math",
-            Self::MathScript => "math script",
+            Self::MathAttach => "math attachments",
             Self::MathFrac => "math fraction",
             Self::Hashtag => "hashtag",
             Self::LeftBrace => "opening brace",

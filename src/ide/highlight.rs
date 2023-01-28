@@ -118,7 +118,7 @@ pub fn highlight(node: &LinkedNode) -> Option<Category> {
         SyntaxKind::MathAtom => None,
         SyntaxKind::MathIdent => highlight_ident(node),
         SyntaxKind::MathDelimited => None,
-        SyntaxKind::MathScript => None,
+        SyntaxKind::MathAttach => None,
         SyntaxKind::MathFrac => None,
         SyntaxKind::MathAlignPoint => Some(Category::MathOperator),
 
@@ -143,7 +143,7 @@ pub fn highlight(node: &LinkedNode) -> Option<Category> {
             _ => Some(Category::Operator),
         },
         SyntaxKind::Underscore => match node.parent_kind() {
-            Some(SyntaxKind::MathScript) => Some(Category::MathOperator),
+            Some(SyntaxKind::MathAttach) => Some(Category::MathOperator),
             _ => None,
         },
         SyntaxKind::Dollar => Some(Category::MathDelimiter),
@@ -213,7 +213,7 @@ pub fn highlight(node: &LinkedNode) -> Option<Category> {
                 SyntaxKind::Markup
                 | SyntaxKind::Math
                 | SyntaxKind::MathFrac
-                | SyntaxKind::MathScript,
+                | SyntaxKind::MathAttach,
             ) => Some(Category::Interpolated),
             Some(SyntaxKind::FieldAccess) => node.parent().and_then(highlight),
             _ => None,
@@ -252,7 +252,7 @@ fn highlight_ident(node: &LinkedNode) -> Option<Category> {
             SyntaxKind::Markup
             | SyntaxKind::Math
             | SyntaxKind::MathFrac
-            | SyntaxKind::MathScript,
+            | SyntaxKind::MathAttach,
         ) => Some(Category::Interpolated),
         Some(SyntaxKind::FuncCall) => Some(Category::Function),
         Some(SyntaxKind::FieldAccess)

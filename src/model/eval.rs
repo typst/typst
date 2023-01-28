@@ -8,8 +8,9 @@ use comemo::{Track, Tracked, TrackedMut};
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::{
-    methods, ops, Arg, Args, Array, CapturesVisitor, Closure, Content, Dict, Func, Label,
-    LangItems, Module, Recipe, Scopes, Selector, StyleMap, Symbol, Transform, Value,
+    combining_accent, methods, ops, Arg, Args, Array, CapturesVisitor, Closure, Content,
+    Dict, Func, Label, LangItems, Module, Recipe, Scopes, Selector, StyleMap, Symbol,
+    Transform, Value,
 };
 use crate::diag::{
     bail, error, At, SourceError, SourceResult, StrResult, Trace, Tracepoint,
@@ -347,7 +348,7 @@ impl Eval for ast::Expr {
             Self::MathIdent(v) => v.eval(vm),
             Self::MathAlignPoint(v) => v.eval(vm).map(Value::Content),
             Self::MathDelimited(v) => v.eval(vm).map(Value::Content),
-            Self::MathScript(v) => v.eval(vm).map(Value::Content),
+            Self::MathAttach(v) => v.eval(vm).map(Value::Content),
             Self::MathFrac(v) => v.eval(vm).map(Value::Content),
             Self::Ident(v) => v.eval(vm),
             Self::None(v) => v.eval(vm),
@@ -593,20 +594,20 @@ impl Eval for ast::MathDelimited {
     }
 }
 
-impl Eval for ast::MathScript {
+impl Eval for ast::MathAttach {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let base = self.base().eval(vm)?.display_in_math();
         let sub = self
-            .sub()
+            .bottom()
             .map(|expr| expr.eval(vm).map(Value::display_in_math))
             .transpose()?;
         let sup = self
-            .sup()
+            .top()
             .map(|expr| expr.eval(vm).map(Value::display_in_math))
             .transpose()?;
-        Ok((vm.items.math_script)(base, sub, sup))
+        Ok((vm.items.math_attach)(base, sub, sup))
     }
 }
 
@@ -929,13 +930,21 @@ impl Eval for ast::FuncCall {
     type Output = Value;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let callee = self.callee();
-        let callee_span = callee.span();
-        let in_math = matches!(callee, ast::Expr::MathIdent(_));
-        let callee = callee.eval(vm)?;
+        let callee_expr = self.callee();
+        let callee_span = callee_expr.span();
+        let callee = callee_expr.eval(vm)?;
         let mut args = self.args().eval(vm)?;
 
-        if in_math && !matches!(callee, Value::Func(_)) {
+        if in_math(&callee_expr) && !matches!(callee, Value::Func(_)) {
+            if let Value::Symbol(sym) = &callee {
+                let c = sym.get();
+                if let Some(accent) = combining_accent(c) {
+                    let base = args.expect("base")?;
+                    args.finish()?;
+                    return Ok(Value::Content((vm.items.math_accent)(base, accent)));
+                }
+            }
+
             let mut body = (vm.items.math_atom)('('.into());
             for (i, arg) in args.all::<Content>()?.into_iter().enumerate() {
                 if i > 0 {
@@ -949,6 +958,14 @@ impl Eval for ast::FuncCall {
 
         let callee = callee.cast::<Func>().at(callee_span)?;
         complete_call(vm, &callee, args, self.span())
+    }
+}
+
+fn in_math(expr: &ast::Expr) -> bool {
+    match expr {
+        ast::Expr::MathIdent(_) => true,
+        ast::Expr::FieldAccess(access) => in_math(&access.target()),
+        _ => false,
     }
 }
 

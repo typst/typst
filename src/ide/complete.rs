@@ -216,7 +216,7 @@ fn complete_math(ctx: &mut CompletionContext) -> bool {
         Some(SyntaxKind::Formula)
             | Some(SyntaxKind::Math)
             | Some(SyntaxKind::MathFrac)
-            | Some(SyntaxKind::MathScript)
+            | Some(SyntaxKind::MathAttach)
     ) {
         return false;
     }
@@ -584,7 +584,7 @@ fn complete_code(ctx: &mut CompletionContext) -> bool {
         None | Some(SyntaxKind::Markup)
             | Some(SyntaxKind::Math)
             | Some(SyntaxKind::MathFrac)
-            | Some(SyntaxKind::MathScript)
+            | Some(SyntaxKind::MathAttach)
     ) {
         return false;
     }
@@ -955,7 +955,7 @@ impl<'a> CompletionContext<'a> {
             Some(SyntaxKind::Formula)
                 | Some(SyntaxKind::Math)
                 | Some(SyntaxKind::MathFrac)
-                | Some(SyntaxKind::MathScript)
+                | Some(SyntaxKind::MathAttach)
         );
 
         let scope = if in_math { self.math } else { self.global };

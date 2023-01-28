@@ -121,11 +121,10 @@ pub enum Expr {
     MathIdent(MathIdent),
     /// An alignment point in a math formula: `&`.
     MathAlignPoint(MathAlignPoint),
-    /// A subsection in a math formula that is surrounded by matched delimiters:
-    /// `[x + y]`.
+    /// Matched delimiters surrounding math in a formula: `[x + y]`.
     MathDelimited(MathDelimited),
-    /// A base with optional sub- and superscripts in a math formula: `a_1^2`.
-    MathScript(MathScript),
+    /// A base with optional attachments in a formula: `a_1^2`.
+    MathAttach(MathAttach),
     /// A fraction in a math formula: `x/2`.
     MathFrac(MathFrac),
     /// An identifier: `left`.
@@ -224,7 +223,7 @@ impl AstNode for Expr {
             SyntaxKind::MathIdent => node.cast().map(Self::MathIdent),
             SyntaxKind::MathAlignPoint => node.cast().map(Self::MathAlignPoint),
             SyntaxKind::MathDelimited => node.cast().map(Self::MathDelimited),
-            SyntaxKind::MathScript => node.cast().map(Self::MathScript),
+            SyntaxKind::MathAttach => node.cast().map(Self::MathAttach),
             SyntaxKind::MathFrac => node.cast().map(Self::MathFrac),
             SyntaxKind::Ident => node.cast().map(Self::Ident),
             SyntaxKind::None => node.cast().map(Self::None),
@@ -285,7 +284,7 @@ impl AstNode for Expr {
             Self::MathIdent(v) => v.as_untyped(),
             Self::MathAlignPoint(v) => v.as_untyped(),
             Self::MathDelimited(v) => v.as_untyped(),
-            Self::MathScript(v) => v.as_untyped(),
+            Self::MathAttach(v) => v.as_untyped(),
             Self::MathFrac(v) => v.as_untyped(),
             Self::Ident(v) => v.as_untyped(),
             Self::None(v) => v.as_untyped(),
@@ -709,8 +708,7 @@ node! {
 }
 
 node! {
-    /// A subsection in a math formula that is surrounded by matched delimiters:
-    /// `[x + y]`.
+    /// Matched delimiters surrounding math in a formula: `[x + y]`.
     MathDelimited
 }
 
@@ -732,26 +730,26 @@ impl MathDelimited {
 }
 
 node! {
-    /// A base with an optional sub- and superscript in a formula: `a_1^2`.
-    MathScript
+    /// A base with optional attachments in a formula: `a_1^2`.
+    MathAttach
 }
 
-impl MathScript {
-    /// The base of the script.
+impl MathAttach {
+    /// The base, to which things are attached.
     pub fn base(&self) -> Expr {
         self.0.cast_first_match().unwrap_or_default()
     }
 
-    /// The subscript.
-    pub fn sub(&self) -> Option<Expr> {
+    /// The bottom attachment.
+    pub fn bottom(&self) -> Option<Expr> {
         self.0
             .children()
             .skip_while(|node| !matches!(node.kind(), SyntaxKind::Underscore))
             .find_map(SyntaxNode::cast)
     }
 
-    /// The superscript.
-    pub fn sup(&self) -> Option<Expr> {
+    /// The top attachment.
+    pub fn top(&self) -> Option<Expr> {
         self.0
             .children()
             .skip_while(|node| !matches!(node.kind(), SyntaxKind::Hat))

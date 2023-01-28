@@ -233,6 +233,17 @@ castable! {
 }
 
 castable! {
+    char,
+    string: Str => {
+        let mut chars = string.chars();
+        match (chars.next(), chars.next()) {
+            (Some(c), None) => c,
+            _ => Err("expected exactly one character")?,
+        }
+    },
+}
+
+castable! {
     EcoString,
     string: Str => string.into(),
 }

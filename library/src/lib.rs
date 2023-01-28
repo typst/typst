@@ -194,7 +194,10 @@ fn items() -> LangItems {
         math_atom: |atom| math::AtomNode(atom).pack(),
         math_align_point: || math::AlignPointNode.pack(),
         math_delimited: |open, body, close| math::LrNode(open + body + close).pack(),
-        math_script: |base, sub, sup| math::ScriptNode { base, sub, sup }.pack(),
+        math_attach: |base, sub, sup| {
+            math::AttachNode { base, top: sub, bottom: sup }.pack()
+        },
+        math_accent: |base, accent| math::AccentNode { base, accent }.pack(),
         math_frac: |num, denom| math::FracNode { num, denom }.pack(),
     }
 }
