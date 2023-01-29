@@ -157,8 +157,10 @@ fn layout(
         frame.push(
             line_pos,
             Element::Shape(
-                Geometry::Line(Point::with_x(line_width))
-                    .stroked(Stroke { paint: ctx.fill, thickness }),
+                Geometry::Line(Point::with_x(line_width)).stroked(Stroke {
+                    paint: ctx.styles().get(TextNode::FILL),
+                    thickness,
+                }),
             ),
         );
         ctx.push(frame);

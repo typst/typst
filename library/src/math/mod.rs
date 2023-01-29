@@ -29,29 +29,27 @@ pub use self::root::*;
 pub use self::stack::*;
 pub use self::style::*;
 
-use ttf_parser::GlyphId;
-use ttf_parser::Rect;
+use ttf_parser::{GlyphId, Rect};
 use typst::font::Font;
-use typst::model::{Guard, Module, Scope, SequenceNode};
+use typst::model::{Guard, Module, Scope, SequenceNode, StyledNode};
 use unicode_math_class::MathClass;
 
 use self::ctx::*;
 use self::fragment::*;
 use self::row::*;
 use self::spacing::*;
-use crate::layout::HNode;
-use crate::layout::ParNode;
-use crate::layout::Spacing;
+use crate::layout::{HNode, ParNode, Spacing};
 use crate::prelude::*;
-use crate::text::LinebreakNode;
-use crate::text::TextNode;
-use crate::text::TextSize;
-use crate::text::{families, variant, FallbackList, FontFamily, SpaceNode};
+use crate::text::{
+    families, variant, FallbackList, FontFamily, LinebreakNode, SpaceNode, TextNode,
+    TextSize,
+};
 
 /// Create a module with all math definitions.
 pub fn module(sym: &Module) -> Module {
     let mut math = Scope::deduplicating();
     math.def_func::<FormulaNode>("formula");
+    math.def_func::<TextNode>("text");
 
     // Grouping.
     math.def_func::<LrNode>("lr");
@@ -83,6 +81,7 @@ pub fn module(sym: &Module) -> Module {
     math.def_func::<RootNode>("root");
 
     // Styles.
+    math.def_func::<UprightNode>("upright");
     math.def_func::<BoldNode>("bold");
     math.def_func::<ItalicNode>("italic");
     math.def_func::<SerifNode>("serif");
@@ -243,6 +242,24 @@ impl LayoutMath for FormulaNode {
 
 impl LayoutMath for Content {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+        if let Some(node) = self.to::<SequenceNode>() {
+            for child in &node.0 {
+                child.layout_math(ctx)?;
+            }
+            return Ok(());
+        }
+
+        if let Some(styled) = self.to::<StyledNode>() {
+            let prev_map = std::mem::replace(&mut ctx.map, styled.map.clone());
+            let prev_size = ctx.size;
+            ctx.map.apply(prev_map.clone());
+            ctx.size = ctx.styles().get(TextNode::SIZE);
+            styled.sub.layout_math(ctx)?;
+            ctx.size = prev_size;
+            ctx.map = prev_map;
+            return Ok(());
+        }
+
         if self.is::<SpaceNode>() {
             ctx.push(MathFragment::Space);
             return Ok(());
@@ -256,9 +273,7 @@ impl LayoutMath for Content {
         if let Some(node) = self.to::<HNode>() {
             if let Spacing::Relative(rel) = node.amount {
                 if rel.rel.is_zero() {
-                    ctx.push(MathFragment::Spacing(
-                        rel.abs.resolve(ctx.outer.chain(&ctx.map)),
-                    ));
+                    ctx.push(MathFragment::Spacing(rel.abs.resolve(ctx.styles())));
                 }
             }
             return Ok(());
@@ -266,13 +281,6 @@ impl LayoutMath for Content {
 
         if let Some(node) = self.to::<TextNode>() {
             ctx.layout_text(&node.0)?;
-            return Ok(());
-        }
-
-        if let Some(node) = self.to::<SequenceNode>() {
-            for child in &node.0 {
-                child.layout_math(ctx)?;
-            }
             return Ok(());
         }
 

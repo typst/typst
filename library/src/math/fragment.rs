@@ -121,6 +121,8 @@ impl From<Frame> for MathFragment {
 pub(super) struct GlyphFragment {
     pub id: GlyphId,
     pub c: char,
+    pub lang: Lang,
+    pub fill: Paint,
     pub font_size: Abs,
     pub width: Abs,
     pub ascent: Abs,
@@ -131,7 +133,6 @@ pub(super) struct GlyphFragment {
 
 impl GlyphFragment {
     pub fn new(ctx: &MathContext, c: char) -> Self {
-        let c = ctx.style.styled_char(c);
         let id = ctx.ttf.glyph_index(c).unwrap_or_default();
         Self::with_id(ctx, c, id)
     }
@@ -154,7 +155,9 @@ impl GlyphFragment {
         Self {
             id,
             c,
-            font_size: ctx.size(),
+            lang: ctx.styles().get(TextNode::LANG),
+            fill: ctx.styles().get(TextNode::FILL),
+            font_size: ctx.size,
             width: advance.scaled(ctx),
             ascent: bbox.y_max.scaled(ctx),
             descent: -bbox.y_min.scaled(ctx),
@@ -184,12 +187,12 @@ impl GlyphFragment {
         let text = Text {
             font: ctx.font.clone(),
             size: self.font_size,
-            fill: ctx.fill,
-            lang: ctx.lang,
+            fill: self.fill,
+            lang: self.lang,
             glyphs: vec![Glyph {
                 id: self.id.0,
                 c: self.c,
-                x_advance: Em::from_length(self.width, ctx.size()),
+                x_advance: Em::from_length(self.width, ctx.size),
                 x_offset: Em::zero(),
             }],
         };

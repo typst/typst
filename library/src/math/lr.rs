@@ -66,7 +66,7 @@ impl LayoutMath for LrNode {
         let height = self
             .size
             .unwrap_or(Rel::one())
-            .resolve(ctx.outer.chain(&ctx.map))
+            .resolve(ctx.styles())
             .relative_to(2.0 * max_extent);
 
         match row.0.as_mut_slice() {

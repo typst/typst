@@ -39,20 +39,11 @@ impl VecNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self(args.all()?).pack())
     }
-
-    fn field(&self, name: &str) -> Option<Value> {
-        match name {
-            "elements" => {
-                Some(Value::Array(self.0.iter().cloned().map(Value::Content).collect()))
-            }
-            _ => None,
-        }
-    }
 }
 
 impl LayoutMath for VecNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        let delim = ctx.outer.get(Self::DELIM);
+        let delim = ctx.styles().get(Self::DELIM);
         layout(ctx, &self.0, Align::Center, Some(delim.open()), Some(delim.close()))
     }
 }
@@ -85,15 +76,6 @@ pub struct CasesNode(Vec<Content>);
 impl CasesNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self(args.all()?).pack())
-    }
-
-    fn field(&self, name: &str) -> Option<Value> {
-        match name {
-            "branches" => {
-                Some(Value::Array(self.0.iter().cloned().map(Value::Content).collect()))
-            }
-            _ => None,
-        }
     }
 }
 

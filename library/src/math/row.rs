@@ -77,7 +77,7 @@ impl MathRow {
             let mut frame = Frame::new(Size::zero());
             let fragments = std::mem::take(&mut self.0);
 
-            let leading = ctx.outer.chain(&ctx.map).get(ParNode::LEADING);
+            let leading = ctx.styles().get(ParNode::LEADING);
             let rows: Vec<_> = fragments
                 .split(|frag| matches!(frag, MathFragment::Linebreak))
                 .map(|slice| Self(slice.to_vec()))

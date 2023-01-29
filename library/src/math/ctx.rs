@@ -1,4 +1,5 @@
 use ttf_parser::math::MathValue;
+use typst::font::{FontStyle, FontWeight};
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::*;
@@ -24,21 +25,18 @@ macro_rules! percent {
 /// The context for math layout.
 pub(super) struct MathContext<'a, 'b, 'v> {
     pub vt: &'v mut Vt<'b>,
-    pub outer: StyleChain<'a>,
-    pub map: StyleMap,
     pub regions: Regions<'a>,
     pub font: &'a Font,
     pub ttf: &'a ttf_parser::Face<'a>,
     pub table: ttf_parser::math::Table<'a>,
     pub constants: ttf_parser::math::Constants<'a>,
     pub space_width: Em,
-    pub fill: Paint,
-    pub lang: Lang,
     pub row: MathRow,
+    pub map: StyleMap,
     pub style: MathStyle,
-    base_size: Abs,
-    scaled_size: Abs,
-    style_stack: Vec<MathStyle>,
+    pub size: Abs,
+    outer: StyleChain<'a>,
+    style_stack: Vec<(MathStyle, Abs)>,
 }
 
 impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
@@ -52,7 +50,6 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         let table = font.ttf().tables().math.unwrap();
         let constants = table.constants.unwrap();
         let size = styles.get(TextNode::SIZE);
-
         let ttf = font.ttf();
         let space_width = ttf
             .glyph_index(' ')
@@ -60,38 +57,38 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
             .map(|advance| font.to_em(advance))
             .unwrap_or(THICK);
 
+        let variant = variant(styles);
         Self {
             vt,
-            outer: styles,
-            map: StyleMap::new(),
             regions: {
                 let size = Size::new(regions.first.x, regions.base.y);
                 Regions::one(size, regions.base, Axes::splat(false))
             },
-            style: MathStyle {
-                variant: MathVariant::Serif,
-                size: if block { MathSize::Display } else { MathSize::Text },
-                cramped: false,
-                bold: false,
-                italic: true,
-            },
-            fill: styles.get(TextNode::FILL),
-            lang: styles.get(TextNode::LANG),
             font: &font,
             ttf: font.ttf(),
             table,
             constants,
             space_width,
             row: MathRow::new(),
-            base_size: size,
-            scaled_size: size,
+            map: StyleMap::new(),
+            style: MathStyle {
+                variant: MathVariant::Serif,
+                size: if block { MathSize::Display } else { MathSize::Text },
+                cramped: false,
+                bold: variant.weight >= FontWeight::BOLD,
+                italic: match variant.style {
+                    FontStyle::Normal => Smart::Auto,
+                    FontStyle::Italic | FontStyle::Oblique => Smart::Custom(true),
+                },
+            },
+            size,
+            outer: styles,
             style_stack: vec![],
         }
     }
 
     pub fn push(&mut self, fragment: impl Into<MathFragment>) {
-        self.row
-            .push(self.scaled_size, self.space_width, self.style, fragment);
+        self.row.push(self.size, self.space_width, self.style, fragment);
     }
 
     pub fn extend(&mut self, row: MathRow) {
@@ -130,11 +127,12 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         Ok(self.layout_fragment(node)?.to_frame(self))
     }
 
-    pub fn layout_text(&mut self, text: &EcoString) -> SourceResult<()> {
+    pub fn layout_text(&mut self, text: &str) -> SourceResult<()> {
         let mut chars = text.chars();
         if let Some(glyph) = chars
             .next()
             .filter(|_| chars.next().is_none())
+            .map(|c| self.style.styled_char(c))
             .and_then(|c| GlyphFragment::try_new(self, c))
         {
             // A single letter that is available in the math font.
@@ -147,10 +145,10 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
                 self.push(glyph);
             }
         } else if text.chars().all(|c| c.is_ascii_digit()) {
-            // A number that should respect math styling and can therefore
-            // not fall back to the normal text layout.
+            // Numbers aren't that difficult.
             let mut vec = vec![];
             for c in text.chars() {
+                let c = self.style.styled_char(c);
                 vec.push(GlyphFragment::new(self, c).into());
             }
             let frame = MathRow(vec).to_frame(self);
@@ -158,7 +156,12 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         } else {
             // Anything else is handled by Typst's standard text layout.
             let spaced = text.graphemes(true).count() > 1;
-            let frame = self.layout_non_math(&TextNode::packed(text.clone()))?;
+            let mut style = self.style;
+            if self.style.italic == Smart::Auto {
+                style = style.with_italic(false);
+            }
+            let text: EcoString = text.chars().map(|c| style.styled_char(c)).collect();
+            let frame = self.layout_non_math(&TextNode::packed(text))?;
             self.push(
                 FrameFragment::new(frame)
                     .with_class(MathClass::Alphabetic)
@@ -169,33 +172,35 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         Ok(())
     }
 
-    pub fn size(&self) -> Abs {
-        self.scaled_size
+    pub fn styles(&self) -> StyleChain {
+        self.outer.chain(&self.map)
     }
 
     pub fn style(&mut self, style: MathStyle) {
-        self.style_stack.push(self.style);
+        self.style_stack.push((self.style, self.size));
+        let base_size = self.styles().get(TextNode::SIZE) / self.style.size.factor(self);
+        self.size = base_size * style.size.factor(self);
+        self.map.set(TextNode::SIZE, TextSize(self.size.into()));
+        self.map.set(
+            TextNode::STYLE,
+            if style.italic == Smart::Custom(true) {
+                FontStyle::Italic
+            } else {
+                FontStyle::Normal
+            },
+        );
+        self.map.set(
+            TextNode::WEIGHT,
+            if style.bold { FontWeight::BOLD } else { FontWeight::REGULAR },
+        );
         self.style = style;
-        self.rescale();
-        self.map.set(TextNode::SIZE, TextSize(self.scaled_size.into()));
     }
 
     pub fn unstyle(&mut self) {
-        self.style = self.style_stack.pop().unwrap();
-        self.rescale();
+        (self.style, self.size) = self.style_stack.pop().unwrap();
         self.map.unset();
-    }
-
-    fn rescale(&mut self) {
-        self.scaled_size = match self.style.size {
-            MathSize::Display | MathSize::Text => self.base_size,
-            MathSize::Script => {
-                self.base_size * percent!(self, script_percent_scale_down)
-            }
-            MathSize::ScriptScript => {
-                self.base_size * percent!(self, script_script_percent_scale_down)
-            }
-        };
+        self.map.unset();
+        self.map.unset();
     }
 }
 
@@ -217,7 +222,7 @@ impl Scaled for u16 {
 
 impl Scaled for Em {
     fn scaled(self, ctx: &MathContext) -> Abs {
-        self.at(ctx.size())
+        self.at(ctx.size)
     }
 }
 

@@ -1,5 +1,40 @@
 use super::*;
 
+/// # Upright
+/// Upright (non-italic) font style in math.
+///
+/// ## Example
+/// ```
+/// $ upright(A) != A $
+/// ```
+///
+/// ## Parameters
+/// - body: Content (positional, required)
+///   The piece of formula to style.
+///
+/// ## Category
+/// math
+#[func]
+#[capable(LayoutMath)]
+#[derive(Debug, Hash)]
+pub struct UprightNode(pub Content);
+
+#[node]
+impl UprightNode {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
+        Ok(Self(args.expect("body")?).pack())
+    }
+}
+
+impl LayoutMath for UprightNode {
+    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+        ctx.style(ctx.style.with_italic(false));
+        self.0.layout_math(ctx)?;
+        ctx.unstyle();
+        Ok(())
+    }
+}
+
 /// # Bold
 /// Bold font style in math.
 ///
@@ -28,7 +63,7 @@ impl BoldNode {
 
 impl LayoutMath for BoldNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        ctx.style(ctx.style.with_italic(false).with_bold_toggled());
+        ctx.style(ctx.style.with_bold(true));
         self.0.layout_math(ctx)?;
         ctx.unstyle();
         Ok(())
@@ -60,7 +95,7 @@ impl ItalicNode {
 
 impl LayoutMath for ItalicNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        ctx.style(ctx.style.with_italic_toggled());
+        ctx.style(ctx.style.with_italic(true));
         self.0.layout_math(ctx)?;
         ctx.unstyle();
         Ok(())
@@ -290,22 +325,7 @@ pub struct MathStyle {
     /// Whether to use bold glyphs.
     pub bold: bool,
     /// Whether to use italic glyphs.
-    pub italic: bool,
-}
-
-/// The size of elements in a formula.
-///
-/// See the TeXbook p. 141.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub enum MathSize {
-    /// Second-level sub- and superscripts.
-    ScriptScript,
-    /// Sub- and superscripts.
-    Script,
-    /// Math in text.
-    Text,
-    /// Math on its own line.
-    Display,
+    pub italic: Smart<bool>,
 }
 
 impl MathStyle {
@@ -331,17 +351,7 @@ impl MathStyle {
 
     /// This style, with `italic` set to the given value.
     pub fn with_italic(self, italic: bool) -> Self {
-        Self { italic, ..self }
-    }
-
-    /// This style, with boldness inverted.
-    pub fn with_bold_toggled(self) -> Self {
-        self.with_bold(!self.bold)
-    }
-
-    /// This style, with italicness inverted.
-    pub fn with_italic_toggled(self) -> Self {
-        self.with_italic(!self.italic)
+        Self { italic: Smart::Custom(italic), ..self }
     }
 
     /// The style for subscripts in the current style.
@@ -377,6 +387,31 @@ impl MathStyle {
     }
 }
 
+/// The size of elements in a formula.
+///
+/// See the TeXbook p. 141.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
+pub enum MathSize {
+    /// Second-level sub- and superscripts.
+    ScriptScript,
+    /// Sub- and superscripts.
+    Script,
+    /// Math in text.
+    Text,
+    /// Math on its own line.
+    Display,
+}
+
+impl MathSize {
+    pub(super) fn factor(self, ctx: &MathContext) -> f64 {
+        match self {
+            Self::Display | Self::Text => 1.0,
+            Self::Script => percent!(ctx, script_percent_scale_down),
+            Self::ScriptScript => percent!(ctx, script_script_percent_scale_down),
+        }
+    }
+}
+
 /// A mathematical style variant, as defined by Unicode.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum MathVariant {
@@ -401,17 +436,17 @@ impl Default for MathVariant {
 pub(super) fn styled_char(style: MathStyle, c: char) -> char {
     use MathVariant::*;
 
-    let tuple = (style.variant, style.bold, style.italic);
-    let base = match c {
-        'a'..='z' => 'a',
-        'A'..='Z' => 'A',
-        'α'..='ω' => 'α',
-        'Α'..='Ω' => 'Α',
-        '0'..='9' => '0',
+    let (base, default_italic) = match c {
+        'a'..='z' => ('a', true),
+        'A'..='Z' => ('A', true),
+        'α'..='ω' => ('α', false),
+        'Α'..='Ω' => ('Α', false),
+        '0'..='9' => ('0', false),
         '-' => return '−',
         _ => return c,
     };
 
+    let tuple = (style.variant, style.bold, style.italic.unwrap_or(default_italic));
     let start = match c {
         // Latin upper.
         'A'..='Z' => match tuple {
