@@ -223,7 +223,20 @@ impl Layout for FormulaNode {
         };
 
         let mut ctx = MathContext::new(vt, styles, regions, &font, self.block);
-        let frame = ctx.layout_frame(self)?;
+        let mut frame = ctx.layout_frame(self)?;
+
+        if !self.block {
+            let slack = styles.get(ParNode::LEADING) * 0.7;
+            let top_edge = styles.get(TextNode::TOP_EDGE).resolve(styles, font.metrics());
+            let bottom_edge =
+                -styles.get(TextNode::BOTTOM_EDGE).resolve(styles, font.metrics());
+
+            let ascent = top_edge.max(frame.ascent() - slack);
+            let descent = bottom_edge.max(frame.descent() - slack);
+            frame.translate(Point::with_y(ascent - frame.baseline()));
+            frame.size_mut().y = ascent + descent;
+        }
+
         Ok(Fragment::frame(frame))
     }
 }
