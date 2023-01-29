@@ -290,8 +290,10 @@ pub(super) fn stack(
     let mut height = rows.len().saturating_sub(1) as f64 * gap;
 
     let points = alignments(&rows);
-    let rows: Vec<_> =
-        rows.into_iter().map(|row| row.to_line_frame(ctx, &points)).collect();
+    let rows: Vec<_> = rows
+        .into_iter()
+        .map(|row| row.to_line_frame(ctx, &points, align))
+        .collect();
 
     for row in &rows {
         height += row.height();

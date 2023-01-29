@@ -86,7 +86,7 @@ impl MathRow {
             let points = alignments(&rows);
             for (i, row) in rows.into_iter().enumerate() {
                 let size = frame.size_mut();
-                let sub = row.to_line_frame(ctx, &points);
+                let sub = row.to_line_frame(ctx, &points, Align::Center);
                 if i > 0 {
                     size.y += leading;
                 }
@@ -97,11 +97,11 @@ impl MathRow {
             }
             frame
         } else {
-            self.to_line_frame(ctx, &[])
+            self.to_line_frame(ctx, &[], Align::Center)
         }
     }
 
-    pub fn to_line_frame(self, ctx: &MathContext, points: &[Abs]) -> Frame {
+    pub fn to_line_frame(self, ctx: &MathContext, points: &[Abs], align: Align) -> Frame {
         let ascent = self.0.iter().map(MathFragment::ascent).max().unwrap_or_default();
         let descent = self.0.iter().map(MathFragment::descent).max().unwrap_or_default();
 
@@ -109,6 +109,16 @@ impl MathRow {
         let mut frame = Frame::new(size);
         let mut x = Abs::zero();
         frame.set_baseline(ascent);
+
+        if let (Some(&first), Align::Center) = (points.first(), align) {
+            let segment: Abs = self
+                .0
+                .iter()
+                .take_while(|fragment| !matches!(fragment, MathFragment::Align))
+                .map(|fragment| fragment.width())
+                .sum();
+            x = first - segment;
+        }
 
         let mut fragments = self.0.into_iter().peekable();
         let mut i = 0;
