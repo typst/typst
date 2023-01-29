@@ -1696,7 +1696,7 @@ node! {
 impl ModuleImport {
     /// The module or path from which the items should be imported.
     pub fn source(&self) -> Expr {
-        self.0.cast_last_match().unwrap_or_default()
+        self.0.cast_first_match().unwrap_or_default()
     }
 
     /// The items to be imported.

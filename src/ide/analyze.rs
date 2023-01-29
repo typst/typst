@@ -1,11 +1,14 @@
+use std::path::PathBuf;
+
 use comemo::Track;
 
-use crate::model::{eval, Route, Tracer, Value};
-use crate::syntax::{ast, LinkedNode, SyntaxKind};
+use crate::model::{eval, Module, Route, Tracer, Value};
+use crate::syntax::{ast, LinkedNode, Source, SyntaxKind};
+use crate::util::PathExt;
 use crate::World;
 
 /// Try to determine a set of possible values for an expression.
-pub fn analyze(world: &(dyn World + 'static), node: &LinkedNode) -> Vec<Value> {
+pub fn analyze_expr(world: &(dyn World + 'static), node: &LinkedNode) -> Vec<Value> {
     match node.cast::<ast::Expr>() {
         Some(ast::Expr::None(_)) => vec![Value::None],
         Some(ast::Expr::Auto(_)) => vec![Value::Auto],
@@ -17,7 +20,7 @@ pub fn analyze(world: &(dyn World + 'static), node: &LinkedNode) -> Vec<Value> {
 
         Some(ast::Expr::FieldAccess(access)) => {
             let Some(child) = node.children().next() else { return vec![] };
-            analyze(world, &child)
+            analyze_expr(world, &child)
                 .into_iter()
                 .filter_map(|target| target.field(&access.field()).ok())
                 .collect()
@@ -26,7 +29,7 @@ pub fn analyze(world: &(dyn World + 'static), node: &LinkedNode) -> Vec<Value> {
         Some(_) => {
             if let Some(parent) = node.parent() {
                 if parent.kind() == SyntaxKind::FieldAccess && node.index() > 0 {
-                    return analyze(world, parent);
+                    return analyze_expr(world, parent);
                 }
             }
 
@@ -40,4 +43,24 @@ pub fn analyze(world: &(dyn World + 'static), node: &LinkedNode) -> Vec<Value> {
 
         _ => vec![],
     }
+}
+
+/// Try to load a module from the current source file.
+pub fn analyze_import(
+    world: &(dyn World + 'static),
+    source: &Source,
+    path: &str,
+) -> Option<Module> {
+    let full: PathBuf = if let Some(path) = path.strip_prefix('/') {
+        world.root().join(path).normalize()
+    } else if let Some(dir) = source.path().parent() {
+        dir.join(path).normalize()
+    } else {
+        path.into()
+    };
+    let route = Route::default();
+    let mut tracer = Tracer::default();
+    let id = world.resolve(&full).ok()?;
+    let source = world.source(id);
+    eval(world.track(), route.track(), tracer.track_mut(), source).ok()
 }

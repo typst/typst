@@ -1,7 +1,7 @@
 use if_chain::if_chain;
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::{analyze, plain_docs_sentence, summarize_font_family};
+use super::{analyze_expr, plain_docs_sentence, summarize_font_family};
 use crate::geom::{round_2, Length, Numeric};
 use crate::model::{CastInfo, Tracer, Value};
 use crate::syntax::ast;
@@ -42,7 +42,7 @@ fn expr_tooltip(world: &(dyn World + 'static), leaf: &LinkedNode) -> Option<Tool
         return None;
     }
 
-    let values = analyze(world, ancestor);
+    let values = analyze_expr(world, ancestor);
 
     if let [value] = values.as_slice() {
         if let Some(docs) = value.docs() {

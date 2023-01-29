@@ -2,7 +2,7 @@ use std::collections::{BTreeSet, HashSet};
 
 use if_chain::if_chain;
 
-use super::{analyze, plain_docs_sentence, summarize_font_family};
+use super::{analyze_expr, analyze_import, plain_docs_sentence, summarize_font_family};
 use crate::model::{methods_on, CastInfo, Scope, Value};
 use crate::syntax::{ast, LinkedNode, Source, SyntaxKind};
 use crate::util::{format_eco, EcoString};
@@ -24,6 +24,7 @@ pub fn autocomplete(
     let mut ctx = CompletionContext::new(world, source, cursor, explicit)?;
 
     let _ = complete_field_accesses(&mut ctx)
+        || complete_imports(&mut ctx)
         || complete_rules(&mut ctx)
         || complete_params(&mut ctx)
         || complete_markup(&mut ctx)
@@ -279,7 +280,7 @@ fn complete_field_accesses(ctx: &mut CompletionContext) -> bool {
         if ctx.leaf.range().end == ctx.cursor;
         if let Some(prev) = ctx.leaf.prev_sibling();
         if prev.is::<ast::Expr>();
-        if let Some(value) = analyze(ctx.world, &prev).into_iter().next();
+        if let Some(value) = analyze_expr(ctx.world, &prev).into_iter().next();
         then {
             ctx.from = ctx.cursor;
             field_access_completions(ctx, &value);
@@ -294,7 +295,7 @@ fn complete_field_accesses(ctx: &mut CompletionContext) -> bool {
         if prev.kind() == SyntaxKind::Dot;
         if let Some(prev_prev) = prev.prev_sibling();
         if prev_prev.is::<ast::Expr>();
-        if let Some(value) = analyze(ctx.world, &prev_prev).into_iter().next();
+        if let Some(value) = analyze_expr(ctx.world, &prev_prev).into_iter().next();
         then {
             ctx.from = ctx.leaf.offset();
             field_access_completions(ctx, &value);
@@ -344,6 +345,71 @@ fn field_access_completions(ctx: &mut CompletionContext, value: &Value) {
             }
         }
         _ => {}
+    }
+}
+
+/// Complete imports.
+fn complete_imports(ctx: &mut CompletionContext) -> bool {
+    // Behind an import list:
+    // "#import "path.typ": |",
+    // "#import "path.typ": a, b, |".
+    if_chain! {
+        if let Some(prev) = ctx.leaf.prev_sibling();
+        if let Some(ast::Expr::Import(import)) = prev.cast();
+        if let Some(ast::Imports::Items(items)) = import.imports();
+        if let Some(source) = prev.children().find(|child| child.is::<ast::Expr>());
+        if let Some(value) = analyze_expr(ctx.world, &source).into_iter().next();
+        then {
+            ctx.from = ctx.cursor;
+            import_completions(ctx, &items, &value);
+            return true;
+        }
+    }
+
+    // Behind a half-started identifier in an import list:
+    // "#import "path.typ": thi|",
+    if_chain! {
+        if ctx.leaf.kind() == SyntaxKind::Ident;
+        if let Some(parent) = ctx.leaf.parent();
+        if parent.kind() == SyntaxKind::ImportItems;
+        if let Some(grand) = parent.parent();
+        if let Some(ast::Expr::Import(import)) = grand.cast();
+        if let Some(ast::Imports::Items(items)) = import.imports();
+        if let Some(source) = grand.children().find(|child| child.is::<ast::Expr>());
+        if let Some(value) = analyze_expr(ctx.world, &source).into_iter().next();
+        then {
+            ctx.from = ctx.leaf.offset();
+            import_completions(ctx, &items, &value);
+            return true;
+        }
+    }
+
+    false
+}
+
+/// Add completions for all exports of a module.
+fn import_completions(
+    ctx: &mut CompletionContext,
+    existing: &[ast::Ident],
+    value: &Value,
+) {
+    let module = match value {
+        Value::Str(path) => match analyze_import(ctx.world, ctx.source, path) {
+            Some(module) => module,
+            None => return,
+        },
+        Value::Module(module) => module.clone(),
+        _ => return,
+    };
+
+    if existing.is_empty() {
+        ctx.snippet_completion("*", "*", "Import everything.");
+    }
+
+    for (name, value) in module.scope().iter() {
+        if existing.iter().all(|ident| ident.as_str() != name.as_str()) {
+            ctx.value_completion(Some(name.clone()), value, None);
+        }
     }
 }
 
@@ -752,6 +818,7 @@ fn code_completions(ctx: &mut CompletionContext, hashtag: bool) {
 /// Context for autocompletion.
 struct CompletionContext<'a> {
     world: &'a (dyn World + 'static),
+    source: &'a Source,
     global: &'a Scope,
     math: &'a Scope,
     before: &'a str,
@@ -775,6 +842,7 @@ impl<'a> CompletionContext<'a> {
         let leaf = LinkedNode::new(source.root()).leaf_at(cursor)?;
         Some(Self {
             world,
+            source,
             global: &world.library().global.scope(),
             math: &world.library().math.scope(),
             before: &text[..cursor],
