@@ -1,4 +1,4 @@
-#let part = $ a b A B $
+#let part = $ a B pi Delta $
 #let kinds = (math.serif, math.sans, math.cal, math.frak, math.mono, math.bb)
 #let modifiers = (v => v, math.italic, math.bold, v => math.italic(math.bold(v)))
 
