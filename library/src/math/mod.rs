@@ -117,7 +117,8 @@ pub fn module(sym: &Module) -> Module {
 /// however, are interpreted as variables, symbols or functions. To display
 /// multiple letters verbatim, you can place them into quotes. Math mode also
 /// supports extra shorthands to easily type various arrows and other symbols.
-/// The page on the [`symbol`](@symbol) function lists all of them.
+/// The [text](/docs/reference/text/) and [math](/docs/reference/math/) sections
+/// list all of them.
 ///
 /// When a variable and a symbol share the same name, the variable is preferred.
 /// To force the symbol, surround it with colons. To access a variable with a
@@ -145,11 +146,9 @@ pub fn module(sym: &Module) -> Module {
 /// ```
 ///
 /// ## Parameters
-/// - body: Content (positional, required)
-///   The contents of the formula.
+/// - body: Content (positional, required) The contents of the formula.
 ///
-/// - block: bool (named)
-///   Whether the formula is displayed as a separate block.
+/// - block: bool (named) Whether the formula is displayed as a separate block.
 ///
 /// ## Category
 /// math

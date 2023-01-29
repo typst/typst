@@ -12,7 +12,7 @@ pub(super) const DELIM_SHORT_FALL: Em = Em::new(0.1);
 /// ## Example
 /// ```
 /// $ lr(]a, b/2]) $
-/// $ lr(]sum_(x=1)^n] x, #size: 50%) $
+/// $ lr(]sum_(x=1)^n] x, size: #50%) $
 /// ```
 ///
 /// ## Parameters

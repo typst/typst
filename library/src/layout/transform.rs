@@ -96,7 +96,7 @@ impl Inline for MoveNode {}
 ///
 /// ## Example
 /// ```
-/// {
+/// #{
 ///   range(16)
 ///     .map(i => rotate(24deg * i)[X])
 ///     .join(h(1fr))

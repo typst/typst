@@ -243,7 +243,7 @@ impl LayoutMath for MonoNode {
 /// Blackboard bold (double-struck) font style in math.
 ///
 /// For uppercase latin letters, blackboard bold is additionally available
-/// through [symmie symbols](@symbol) of the form `NN` and `RR`.
+/// through [symbols](/docs/reference/math/) of the form `NN` and `RR`.
 ///
 /// ## Example
 /// ```
