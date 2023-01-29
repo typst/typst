@@ -166,7 +166,7 @@ fn format_csv_error(error: csv::Error) -> String {
 ///   )
 ///   #h(6pt)
 ///   #set text(22pt, baseline: -8pt)
-///   {day.temperature} °{day.unit}
+///   #{day.temperature} °#{day.unit}
 /// ]
 ///
 /// #forecast(json("monday.json"))
@@ -253,7 +253,7 @@ fn format_json_error(error: serde_json::Error) -> String {
 ///   heading(title.children.first())
 ///   text(10pt, weight: "medium")[
 ///     Published by
-///     {author.children.first()}
+///     #{author.children.first()}
 ///   ]
 ///
 ///   for p in pars.children {

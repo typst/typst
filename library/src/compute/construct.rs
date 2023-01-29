@@ -16,7 +16,7 @@ use crate::prelude::*;
 /// #int(false) \
 /// #int(true) \
 /// #int(2.7) \
-/// { int("27") + int("4") }
+/// #{ int("27") + int("4") }
 /// ```
 ///
 /// ## Parameters
@@ -331,7 +331,7 @@ pub fn label(args: &mut Args) -> SourceResult<Value> {
 /// The numbers 1 to 10.
 ///
 /// // Works with string methods.
-/// { "a,b;c"
+/// #{ "a,b;c"
 ///     .split(regex("[,;]")) }
 /// ```
 ///

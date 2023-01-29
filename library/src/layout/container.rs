@@ -110,13 +110,13 @@ impl Inline for BoxNode {}
 ///
 /// ## Example
 /// ```
-/// [
+/// #[
 ///   #show heading: it => it.title
 ///   = No block
 ///   Some text
 /// ]
 ///
-/// [
+/// #[
 ///   #show heading: it => block(it.title)
 ///   = Block
 ///   Some more text

@@ -111,7 +111,7 @@ fn minmax(args: &mut Args, goal: Ordering) -> SourceResult<Value> {
 /// ```
 /// #even(4) \
 /// #even(5) \
-/// { range(10).filter(even) }
+/// #range(10).filter(even)
 /// ```
 ///
 /// ## Parameters
@@ -134,7 +134,7 @@ pub fn even(args: &mut Args) -> SourceResult<Value> {
 /// ```
 /// #odd(4) \
 /// #odd(5) \
-/// { range(10).filter(odd) }
+/// #range(10).filter(odd)
 /// ```
 ///
 ///
