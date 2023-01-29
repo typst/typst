@@ -1198,12 +1198,11 @@ impl<'s> Parser<'s> {
     }
 
     fn save(&mut self) {
+        let text = self.current_text();
         if self.at(SyntaxKind::Error) {
             let (message, pos) = self.lexer.take_error().unwrap();
-            let len = self.current_end() - self.current_start;
-            self.nodes.push(SyntaxNode::error(message, pos, len));
+            self.nodes.push(SyntaxNode::error(message, text, pos));
         } else {
-            let text = self.current_text();
             self.nodes.push(SyntaxNode::leaf(self.current, text));
         }
 
@@ -1243,7 +1242,7 @@ impl<'s> Parser<'s> {
             .map_or(true, |child| child.kind() != SyntaxKind::Error)
         {
             let message = format_eco!("expected {}", thing);
-            self.nodes.push(SyntaxNode::error(message, ErrorPos::Full, 0));
+            self.nodes.push(SyntaxNode::error(message, "", ErrorPos::Full));
         }
         self.skip();
     }

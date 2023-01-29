@@ -5,13 +5,13 @@ mod complete;
 mod highlight;
 mod tooltip;
 
-pub use analyze::*;
-pub use complete::*;
-pub use highlight::*;
-pub use tooltip::*;
+pub use self::complete::*;
+pub use self::highlight::*;
+pub use self::tooltip::*;
 
 use std::fmt::Write;
 
+use self::analyze::*;
 use crate::font::{FontInfo, FontStyle};
 
 /// Extract the first sentence of plain text of a piece of documentation.
@@ -60,7 +60,7 @@ fn plain_docs_sentence(docs: &str) -> String {
 }
 
 /// Create a short description of a font family.
-pub fn summarize_font_family<'a>(variants: impl Iterator<Item = &'a FontInfo>) -> String {
+fn summarize_font_family<'a>(variants: impl Iterator<Item = &'a FontInfo>) -> String {
     let mut infos: Vec<_> = variants.collect();
     infos.sort_by_key(|info| info.variant);
 

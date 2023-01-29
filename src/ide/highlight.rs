@@ -1,4 +1,4 @@
-use crate::syntax::{ast, LinkedNode, SyntaxKind};
+use crate::syntax::{ast, LinkedNode, SyntaxKind, SyntaxNode};
 
 /// Syntax highlighting categories.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
@@ -75,12 +75,38 @@ impl Category {
             Self::Error => "invalid.typst",
         }
     }
+
+    /// The recommended CSS class for the highlighting category.
+    pub fn css_class(self) -> &'static str {
+        match self {
+            Self::Comment => "typ-comment",
+            Self::Punctuation => "typ-punct",
+            Self::Escape => "typ-escape",
+            Self::Strong => "typ-strong",
+            Self::Emph => "typ-emph",
+            Self::Link => "typ-link",
+            Self::Raw => "typ-raw",
+            Self::Label => "typ-label",
+            Self::Ref => "typ-ref",
+            Self::Heading => "typ-heading",
+            Self::ListMarker => "typ-marker",
+            Self::ListTerm => "typ-term",
+            Self::MathDelimiter => "typ-math-delim",
+            Self::MathOperator => "typ-math-op",
+            Self::Keyword => "typ-key",
+            Self::Operator => "typ-op",
+            Self::Number => "typ-num",
+            Self::String => "typ-str",
+            Self::Function => "typ-func",
+            Self::Interpolated => "typ-pol",
+            Self::Error => "typ-error",
+        }
+    }
 }
 
-/// Highlight a linked syntax node.
+/// Determine the highlight category of a linked syntax node.
 ///
-/// Produces a highlighting category or `None` if the node should not be
-/// highlighted.
+/// Returns `None` if the node should not be highlighted.
 pub fn highlight(node: &LinkedNode) -> Option<Category> {
     match node.kind() {
         SyntaxKind::Markup
@@ -283,6 +309,52 @@ fn highlight_hashtag(node: &LinkedNode) -> Option<Category> {
 /// Whether the node is one of the two identifier nodes.
 fn is_ident(node: &LinkedNode) -> bool {
     matches!(node.kind(), SyntaxKind::Ident | SyntaxKind::MathIdent)
+}
+
+/// Highlight a node to an HTML `code` element.
+///
+/// This uses these [CSS classes for categories](Category::css_class).
+pub fn highlight_html(root: &SyntaxNode) -> String {
+    let mut buf = String::from("<code>");
+    let node = LinkedNode::new(root);
+    highlight_html_impl(&mut buf, &node);
+    buf.push_str("</code>");
+    buf
+}
+
+/// Highlight one source node, emitting HTML.
+fn highlight_html_impl(html: &mut String, node: &LinkedNode) {
+    let mut span = false;
+    if let Some(category) = highlight(node) {
+        if category != Category::Error {
+            span = true;
+            html.push_str("<span class=\"");
+            html.push_str(category.css_class());
+            html.push_str("\">");
+        }
+    }
+
+    let text = node.text();
+    if !text.is_empty() {
+        for c in text.chars() {
+            match c {
+                '<' => html.push_str("&lt;"),
+                '>' => html.push_str("&gt;"),
+                '&' => html.push_str("&amp;"),
+                '\'' => html.push_str("&#39;"),
+                '"' => html.push_str("&quot;"),
+                _ => html.push(c),
+            }
+        }
+    } else {
+        for child in node.children() {
+            highlight_html_impl(html, &child);
+        }
+    }
+
+    if span {
+        html.push_str("</span>");
+    }
 }
 
 #[cfg(test)]

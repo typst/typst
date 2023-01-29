@@ -35,8 +35,12 @@ impl SyntaxNode {
     }
 
     /// Create a new error node.
-    pub fn error(message: impl Into<EcoString>, pos: ErrorPos, len: usize) -> Self {
-        Self(Repr::Error(Arc::new(ErrorNode::new(message, pos, len))))
+    pub fn error(
+        message: impl Into<EcoString>,
+        text: impl Into<EcoString>,
+        pos: ErrorPos,
+    ) -> Self {
+        Self(Repr::Error(Arc::new(ErrorNode::new(message, text, pos))))
     }
 
     /// The type of the node.
@@ -53,7 +57,7 @@ impl SyntaxNode {
         match &self.0 {
             Repr::Leaf(leaf) => leaf.len(),
             Repr::Inner(inner) => inner.len,
-            Repr::Error(error) => error.len,
+            Repr::Error(error) => error.len(),
         }
     }
 
@@ -68,22 +72,26 @@ impl SyntaxNode {
 
     /// The text of the node if it is a leaf node.
     ///
-    /// Returns an empty string if this is an inner or error node.
+    /// Returns the empty string if this is an inner node.
     pub fn text(&self) -> &EcoString {
         static EMPTY: EcoString = EcoString::new();
         match &self.0 {
             Repr::Leaf(leaf) => &leaf.text,
-            Repr::Inner(_) | Repr::Error(_) => &EMPTY,
+            Repr::Error(error) => &error.text,
+            Repr::Inner(_) => &EMPTY,
         }
     }
 
     /// Extract the text from the node.
     ///
-    /// Returns an empty string if this is an inner or error node.
+    /// Builds the string if this is an inner node.
     pub fn into_text(self) -> EcoString {
         match self.0 {
             Repr::Leaf(leaf) => leaf.text,
-            Repr::Inner(_) | Repr::Error(_) => EcoString::new(),
+            Repr::Error(error) => error.text.clone(),
+            Repr::Inner(node) => {
+                node.children.iter().cloned().map(Self::into_text).collect()
+            }
         }
     }
 
@@ -162,8 +170,8 @@ impl SyntaxNode {
 
     /// Convert the child to an error.
     pub(super) fn convert_to_error(&mut self, message: impl Into<EcoString>) {
-        let len = self.len();
-        *self = SyntaxNode::error(message, ErrorPos::Full, len);
+        let text = std::mem::take(self).into_text();
+        *self = SyntaxNode::error(message, text, ErrorPos::Full);
     }
 
     /// Set a synthetic span for the node and all its descendants.
@@ -204,7 +212,7 @@ impl SyntaxNode {
     }
 
     /// Whether this is a leaf node.
-    pub(super) fn is_leaf(&self) -> bool {
+    pub(crate) fn is_leaf(&self) -> bool {
         matches!(self.0, Repr::Leaf(_))
     }
 
@@ -278,7 +286,7 @@ impl Debug for SyntaxNode {
 
 impl Default for SyntaxNode {
     fn default() -> Self {
-        Self::error("", ErrorPos::Full, 0)
+        Self::error("", "", ErrorPos::Full)
     }
 }
 
@@ -580,35 +588,44 @@ impl PartialEq for InnerNode {
 struct ErrorNode {
     /// The error message.
     message: EcoString,
+    /// The source text of the node.
+    text: EcoString,
     /// Where in the node an error should be annotated.
     pos: ErrorPos,
-    /// The byte length of the error in the source.
-    len: usize,
     /// The node's span.
     span: Span,
 }
 
 impl ErrorNode {
     /// Create new error node.
-    fn new(message: impl Into<EcoString>, pos: ErrorPos, len: usize) -> Self {
+    fn new(
+        message: impl Into<EcoString>,
+        text: impl Into<EcoString>,
+        pos: ErrorPos,
+    ) -> Self {
         Self {
             message: message.into(),
+            text: text.into(),
             pos,
-            len,
             span: Span::detached(),
         }
+    }
+
+    /// The byte length of the node in the source text.
+    fn len(&self) -> usize {
+        self.text.len()
     }
 }
 
 impl Debug for ErrorNode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "Error: {} ({})", self.len, self.message)
+        write!(f, "Error: {:?} ({})", self.text, self.message)
     }
 }
 
 impl PartialEq for ErrorNode {
     fn eq(&self, other: &Self) -> bool {
-        self.message == other.message && self.pos == other.pos && self.len == other.len
+        self.message == other.message && self.text == other.text && self.pos == other.pos
     }
 }
 
