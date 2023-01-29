@@ -75,7 +75,7 @@ impl LayoutMath for VecNode {
 /// - rows: Array (positional, variadic)
 ///   An array of arrays with the rows of the matrix.
 ///
-///   # Example
+///   ### Example
 ///   ```
 ///   #let data = ((1, 2, 3), (4, 5, 6))
 ///   #let matrix = math.mat(..data)
@@ -210,15 +210,15 @@ impl Delimiter {
 
 castable! {
     Delimiter,
-    /// Delimit the vector with parentheses.
+    /// Delimit with parentheses.
     "(" => Self::Paren,
-    /// Delimit the vector with brackets.
+    /// Delimit with brackets.
     "[" => Self::Bracket,
-    /// Delimit the vector with curly braces.
+    /// Delimit with curly braces.
     "{" => Self::Brace,
-    /// Delimit the vector with vertical bars.
+    /// Delimit with vertical bars.
     "|" => Self::Bar,
-    /// Delimit the vector with double vertical bars.
+    /// Delimit with double vertical bars.
     "||" => Self::DoubleBar,
 }
 
