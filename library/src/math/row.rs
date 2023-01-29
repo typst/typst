@@ -1,3 +1,5 @@
+use crate::layout::AlignNode;
+
 use super::*;
 
 #[derive(Debug, Default, Clone)]
@@ -78,7 +80,9 @@ impl MathRow {
     }
 
     pub fn to_frame(self, ctx: &MathContext) -> Frame {
-        self.to_aligned_frame(ctx, &[], Align::Center)
+        let styles = ctx.styles();
+        let align = styles.get(AlignNode::ALIGNS).x.resolve(styles);
+        self.to_aligned_frame(ctx, &[], align)
     }
 
     pub fn to_aligned_frame(
@@ -88,23 +92,29 @@ impl MathRow {
         align: Align,
     ) -> Frame {
         if self.0.iter().any(|frag| matches!(frag, MathFragment::Linebreak)) {
-            let mut frame = Frame::new(Size::zero());
             let fragments = std::mem::take(&mut self.0);
 
-            let leading = ctx.styles().get(ParNode::LEADING);
+            let leading = ctx.styles().get(ParNode::LEADING) * ctx.style.size.factor(ctx);
             let rows: Vec<_> = fragments
                 .split(|frag| matches!(frag, MathFragment::Linebreak))
                 .map(|slice| Self(slice.to_vec()))
                 .collect();
 
+            let width = rows.iter().map(|row| row.width()).max().unwrap_or_default();
             let points = alignments(&rows);
+            let mut frame = Frame::new(Size::zero());
+
             for (i, row) in rows.into_iter().enumerate() {
-                let size = frame.size_mut();
                 let sub = row.to_line_frame(ctx, &points, align);
+                let size = frame.size_mut();
                 if i > 0 {
                     size.y += leading;
                 }
-                let pos = Point::with_y(size.y);
+
+                let mut pos = Point::with_y(size.y);
+                if points.is_empty() {
+                    pos.x = align.position(width - sub.width());
+                }
                 size.y += sub.height();
                 size.x.set_max(sub.width());
                 frame.push_frame(pos, sub);
@@ -123,13 +133,14 @@ impl MathRow {
         frame.set_baseline(ascent);
 
         if let (Some(&first), Align::Center) = (points.first(), align) {
-            let segment: Abs = self
-                .0
-                .iter()
-                .take_while(|fragment| !matches!(fragment, MathFragment::Align))
-                .map(|fragment| fragment.width())
-                .sum();
-            x = first - segment;
+            let mut offset = first;
+            for fragment in &self.0 {
+                offset -= fragment.width();
+                if matches!(fragment, MathFragment::Align) {
+                    x = offset;
+                    break;
+                }
+            }
         }
 
         let mut fragments = self.0.into_iter().peekable();
