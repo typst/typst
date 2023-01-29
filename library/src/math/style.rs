@@ -1,40 +1,5 @@
 use super::*;
 
-/// # Upright
-/// Upright (non-italic) font style in math.
-///
-/// ## Example
-/// ```
-/// $ upright(A) != A $
-/// ```
-///
-/// ## Parameters
-/// - body: Content (positional, required)
-///   The piece of formula to style.
-///
-/// ## Category
-/// math
-#[func]
-#[capable(LayoutMath)]
-#[derive(Debug, Hash)]
-pub struct UprightNode(pub Content);
-
-#[node]
-impl UprightNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Self(args.expect("body")?).pack())
-    }
-}
-
-impl LayoutMath for UprightNode {
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        ctx.style(ctx.style.with_italic(false));
-        self.0.layout_math(ctx)?;
-        ctx.unstyle();
-        Ok(())
-    }
-}
-
 /// # Bold
 /// Bold font style in math.
 ///
@@ -70,10 +35,45 @@ impl LayoutMath for BoldNode {
     }
 }
 
+/// # Upright
+/// Upright (non-italic) font style in math.
+///
+/// ## Example
+/// ```
+/// $ upright(A) != A $
+/// ```
+///
+/// ## Parameters
+/// - body: Content (positional, required)
+///   The piece of formula to style.
+///
+/// ## Category
+/// math
+#[func]
+#[capable(LayoutMath)]
+#[derive(Debug, Hash)]
+pub struct UprightNode(pub Content);
+
+#[node]
+impl UprightNode {
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
+        Ok(Self(args.expect("body")?).pack())
+    }
+}
+
+impl LayoutMath for UprightNode {
+    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+        ctx.style(ctx.style.with_italic(false));
+        self.0.layout_math(ctx)?;
+        ctx.unstyle();
+        Ok(())
+    }
+}
+
 /// # Italic
 /// Italic font style in math.
 ///
-/// This is already the default.
+/// For roman letters and greek lowercase letters, this is already the default.
 ///
 /// ## Parameters
 /// - body: Content (positional, required)
@@ -278,7 +278,7 @@ impl LayoutMath for MonoNode {
 /// Blackboard bold (double-struck) font style in math.
 ///
 /// For uppercase latin letters, blackboard bold is additionally available
-/// through [symbols](/docs/reference/math/) of the form `NN` and `RR`.
+/// through [symbols](/docs/reference/math/symbols) of the form `NN` and `RR`.
 ///
 /// ## Example
 /// ```

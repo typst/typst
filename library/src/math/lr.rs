@@ -3,7 +3,7 @@ use super::*;
 /// How much less high scaled delimiters can be than what they wrap.
 pub(super) const DELIM_SHORT_FALL: Em = Em::new(0.1);
 
-/// # Left-Right
+/// # Left/Right
 /// Scales delimiters.
 ///
 /// While matched delimiters scale by default, this can be used to scale

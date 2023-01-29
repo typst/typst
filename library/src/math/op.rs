@@ -11,7 +11,7 @@ use super::*;
 /// - limits: bool (named)
 ///   Whether the operator should force attachments to display as limits.
 ///
-///   Defaults to `false`.
+///   Defaults to `{false}`.
 ///
 /// ## Category
 /// math

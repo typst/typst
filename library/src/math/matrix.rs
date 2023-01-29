@@ -7,6 +7,8 @@ const VERTICAL_PADDING: Ratio = Ratio::new(0.1);
 /// # Vector
 /// A column vector.
 ///
+/// Content in the vector's elements can be aligned with the `&` symbol.
+///
 /// ## Example
 /// ```
 /// $ vec(a, b, c) dot vec(1, 2, 3)
@@ -51,14 +53,34 @@ impl LayoutMath for VecNode {
 /// # Matrix
 /// A matrix.
 ///
+/// The elements of a row should be separated by commas, while the rows
+/// themselves should be separated by semicolons. The semicolon syntax merges
+/// preceding arguments separated by commas into a array arguments. You
+/// can also use this special syntax of math function calls to define custom
+/// functions that take 2D data.
+///
+/// Content in cells that are in the same row can be aligned with the `&` symbol.
+///
 /// ## Example
 /// ```
-/// $ mat(1, 2; 3, 4) $
+/// $ mat(
+///   1, 2, ..., 10;
+///   2, 2, ..., 10;
+///   dots.v, dots.v, dots.down, dots.v;
+///   10, 10, ..., 10;
+/// ) $
 /// ```
 ///
 /// ## Parameters
 /// - rows: Array (positional, variadic)
 ///   An array of arrays with the rows of the matrix.
+///
+///   # Example
+///   ```
+///   #let data = ((1, 2, 3), (4, 5, 6))
+///   #let matrix = math.mat(..data)
+///   $ v := matrix $
+///   ```
 ///
 /// ## Category
 /// math
@@ -115,12 +137,14 @@ impl LayoutMath for MatNode {
 /// # Cases
 /// A case distinction.
 ///
+/// Content across different branches can be aligned with the `&` symbol.
+///
 /// ## Example
 /// ```
 /// $ f(x, y) := cases(
 ///   1 "if" (x dot y)/2 <= 0,
-///   2 "if" x in NN,
-///   3 "if" x "is even",
+///   2 "if" x "is even",
+///   3 "if" x in NN,
 ///   4 "else",
 /// ) $
 /// ```

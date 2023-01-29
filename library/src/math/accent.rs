@@ -29,19 +29,22 @@ const ACCENT_SHORT_FALL: Em = Em::new(0.5);
 ///   The accent to apply to the base.
 ///
 ///   Supported accents include:
-///   - Grave: `grave`, `` ` ``
-///   - Acute: `acute`, `´`
-///   - Circumflex: `circum`, `^`
-///   - Tilde: `tilde`, `~`
-///   - Macron: `macron`, `¯`
-///   - Breve: `breve`, `˘`
-///   - Dot: `dot`, `.`
-///   - Diaeresis: `diaer` `¨`
-///   - Circle: `circle`, `∘`
-///   - Double acute: `acute.double`, `˝`
-///   - Caron: `caron`, `ˇ`
-///   - Right arrow: `arrow`, `->`
-///   - Left arrow: `arrow.l`, `<-`
+///
+///   | Accent       | Name            | Codepoint |
+///   | ------------ | --------------- | --------- |
+///   | Grave        | `grave`         | <code>&DiacriticalGrave;</code> |
+///   | Acute        | `acute`         | `´`       |
+///   | Circumflex   | `circum`        | `^`       |
+///   | Tilde        | `tilde`         | `~`       |
+///   | Macron       | `macron`        | `¯`       |
+///   | Breve        | `breve`         | `˘`       |
+///   | Dot          | `dot`           | `.`       |
+///   | Diaeresis    | `diaer`         | `¨`       |
+///   | Circle       | `circle`        | `∘`       |
+///   | Double acute | `acute.double`  | `˝`       |
+///   | Caron        | `caron`         | `ˇ`       |
+///   | Right arrow  | `arrow`, `->`   | `→`       |
+///   | Left arrow   | `arrow.l`, `<-` | `←`       |
 ///
 /// ## Category
 /// math
