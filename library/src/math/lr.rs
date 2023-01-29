@@ -53,8 +53,14 @@ impl LrNode {
 
 impl LayoutMath for LrNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        let mut row = ctx.layout_row(&self.body)?;
+        let mut body = &self.body;
+        if let Some(node) = self.body.to::<LrNode>() {
+            if node.size.is_none() {
+                body = &node.body;
+            }
+        }
 
+        let mut row = ctx.layout_row(body)?;
         let axis = scaled!(ctx, axis_height);
         let max_extent = row
             .0
@@ -95,7 +101,12 @@ fn scale(
         fragment.class(),
         Some(MathClass::Opening | MathClass::Closing | MathClass::Fence)
     ) {
-        let MathFragment::Glyph(glyph) = *fragment else { return };
+        let glyph = match fragment {
+            MathFragment::Glyph(glyph) => *glyph,
+            MathFragment::Variant(variant) => GlyphFragment::new(ctx, variant.c),
+            _ => return,
+        };
+
         let short_fall = DELIM_SHORT_FALL.scaled(ctx);
         *fragment =
             MathFragment::Variant(glyph.stretch_vertical(ctx, height, short_fall));
