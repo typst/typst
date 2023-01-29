@@ -379,6 +379,8 @@ fn math_args(p: &mut Parser) {
 
     let mut namable = true;
     let mut named = None;
+    let mut has_arrays = false;
+    let mut array = p.marker();
     let mut arg = p.marker();
 
     while !p.eof() && !p.at(SyntaxKind::Dollar) {
@@ -394,6 +396,17 @@ fn math_args(p: &mut Parser) {
 
         match p.current_text() {
             ")" => break,
+            ";" => {
+                maybe_wrap_in_math(p, arg, named);
+                p.wrap(array, SyntaxKind::Array);
+                p.convert(SyntaxKind::Semicolon);
+                array = p.marker();
+                arg = p.marker();
+                namable = true;
+                named = None;
+                has_arrays = true;
+                continue;
+            }
             "," => {
                 maybe_wrap_in_math(p, arg, named);
                 p.convert(SyntaxKind::Comma);
@@ -416,6 +429,10 @@ fn math_args(p: &mut Parser) {
 
     if arg != p.marker() {
         maybe_wrap_in_math(p, arg, named);
+    }
+
+    if has_arrays && array != p.marker() {
+        p.wrap(array, SyntaxKind::Array);
     }
 
     if p.at(SyntaxKind::Text) && p.current_text() == ")" {

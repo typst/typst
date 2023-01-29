@@ -1,12 +1,11 @@
 use super::*;
 
 const ROW_GAP: Em = Em::new(0.5);
+const COL_GAP: Em = Em::new(0.75);
 const VERTICAL_PADDING: Ratio = Ratio::new(0.1);
 
 /// # Vector
 /// A column vector.
-///
-/// _Note:_ Matrices are not yet supported.
 ///
 /// ## Example
 /// ```
@@ -44,7 +43,72 @@ impl VecNode {
 impl LayoutMath for VecNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let delim = ctx.styles().get(Self::DELIM);
-        layout(ctx, &self.0, Align::Center, Some(delim.open()), Some(delim.close()))
+        let frame = layout_vec_body(ctx, &self.0, Align::Center)?;
+        layout_delimiters(ctx, frame, Some(delim.open()), Some(delim.close()))
+    }
+}
+
+/// # Matrix
+/// A matrix.
+///
+/// ## Example
+/// ```
+/// $ mat(1, 2; 3, 4) $
+/// ```
+///
+/// ## Parameters
+/// - rows: Array (positional, variadic)
+///   An array of arrays with the rows of the matrix.
+///
+/// ## Category
+/// math
+#[func]
+#[capable(LayoutMath)]
+#[derive(Debug, Hash)]
+pub struct MatNode(Vec<Vec<Content>>);
+
+#[node]
+impl MatNode {
+    /// The delimiter to use.
+    ///
+    /// # Example
+    /// ```
+    /// #set math.mat(delim: "[")
+    /// $ mat(1, 2; 3, 4) $
+    /// ```
+    pub const DELIM: Delimiter = Delimiter::Paren;
+
+    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
+        let mut rows = vec![];
+        let mut width = 0;
+
+        let values = args.all::<Spanned<Value>>()?;
+        if values.iter().all(|spanned| matches!(spanned.v, Value::Content(_))) {
+            rows = vec![values.into_iter().map(|spanned| spanned.v.display()).collect()];
+        } else {
+            for Spanned { v, span } in values {
+                let array = v.cast::<Array>().at(span)?;
+                let row: Vec<_> = array.into_iter().map(Value::display).collect();
+                width = width.max(row.len());
+                rows.push(row);
+            }
+        }
+
+        for row in &mut rows {
+            if row.len() < width {
+                row.resize(width, Content::empty());
+            }
+        }
+
+        Ok(Self(rows).pack())
+    }
+}
+
+impl LayoutMath for MatNode {
+    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+        let delim = ctx.styles().get(Self::DELIM);
+        let frame = layout_mat_body(ctx, &self.0)?;
+        layout_delimiters(ctx, frame, Some(delim.open()), Some(delim.close()))
     }
 }
 
@@ -81,7 +145,8 @@ impl CasesNode {
 
 impl LayoutMath for CasesNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout(ctx, &self.0, Align::Left, Some('{'), None)
+        let frame = layout_vec_body(ctx, &self.0, Align::Left)?;
+        layout_delimiters(ctx, frame, Some('{'), None)
     }
 }
 
@@ -133,29 +198,84 @@ castable! {
     "||" => Self::DoubleBar,
 }
 
-/// Layout a matrix.
-fn layout(
+/// Layout the inner contents of a vector.
+fn layout_vec_body(
     ctx: &mut MathContext,
-    elements: &[Content],
+    column: &[Content],
     align: Align,
+) -> SourceResult<Frame> {
+    let gap = ROW_GAP.scaled(ctx);
+    ctx.style(ctx.style.for_denominator());
+    let mut flat = vec![];
+    for element in column {
+        flat.push(ctx.layout_row(element)?);
+    }
+    ctx.unstyle();
+    Ok(stack(ctx, flat, align, gap, 0))
+}
+
+/// Layout the inner contents of a matrix.
+fn layout_mat_body(ctx: &mut MathContext, rows: &[Vec<Content>]) -> SourceResult<Frame> {
+    let row_gap = ROW_GAP.scaled(ctx);
+    let col_gap = COL_GAP.scaled(ctx);
+
+    let ncols = rows.first().map_or(0, |row| row.len());
+    let nrows = rows.len();
+    if ncols == 0 || nrows == 0 {
+        return Ok(Frame::new(Size::zero()));
+    }
+
+    let mut rcols = vec![Abs::zero(); ncols];
+    let mut rrows = vec![Abs::zero(); nrows];
+
+    ctx.style(ctx.style.for_denominator());
+    let mut cols = vec![vec![]; ncols];
+    for (row, rrow) in rows.iter().zip(&mut rrows) {
+        for ((cell, rcol), col) in row.iter().zip(&mut rcols).zip(&mut cols) {
+            let cell = ctx.layout_row(cell)?;
+            rcol.set_max(cell.width());
+            rrow.set_max(cell.height());
+            col.push(cell);
+        }
+    }
+    ctx.unstyle();
+
+    let width = rcols.iter().sum::<Abs>() + col_gap * (ncols - 1) as f64;
+    let height = rrows.iter().sum::<Abs>() + row_gap * (nrows - 1) as f64;
+    let size = Size::new(width, height);
+
+    let mut frame = Frame::new(size);
+    let mut x = Abs::zero();
+    for (col, &rcol) in cols.into_iter().zip(&rcols) {
+        let points = alignments(&col);
+        let mut y = Abs::zero();
+        for (cell, &rrow) in col.into_iter().zip(&rrows) {
+            let cell = cell.to_aligned_frame(ctx, &points, Align::Center);
+            let pos = Point::new(
+                x + (rcol - cell.width()) / 2.0,
+                y + (rrow - cell.height()) / 2.0,
+            );
+            frame.push_frame(pos, cell);
+            y += rrow + row_gap;
+        }
+        x += rcol + col_gap;
+    }
+
+    Ok(frame)
+}
+
+/// Layout the outer wrapper around a vector's or matrices' body.
+fn layout_delimiters(
+    ctx: &mut MathContext,
+    mut frame: Frame,
     left: Option<char>,
     right: Option<char>,
 ) -> SourceResult<()> {
     let axis = scaled!(ctx, axis_height);
-    let gap = ROW_GAP.scaled(ctx);
     let short_fall = DELIM_SHORT_FALL.scaled(ctx);
-
-    ctx.style(ctx.style.for_denominator());
-    let mut rows = vec![];
-    for element in elements {
-        rows.push(ctx.layout_row(element)?);
-    }
-    ctx.unstyle();
-
-    let mut frame = stack(ctx, rows, align, gap, 0);
     let height = frame.height();
     let target = height + VERTICAL_PADDING.of(height);
-    frame.set_baseline(frame.height() / 2.0 + axis);
+    frame.set_baseline(height / 2.0 + axis);
 
     if let Some(left) = left {
         ctx.push(GlyphFragment::new(ctx, left).stretch_vertical(ctx, target, short_fall));

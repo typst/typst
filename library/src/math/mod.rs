@@ -74,6 +74,7 @@ pub fn module(sym: &Module) -> Module {
     math.def_func::<FracNode>("frac");
     math.def_func::<BinomNode>("binom");
     math.def_func::<VecNode>("vec");
+    math.def_func::<MatNode>("mat");
     math.def_func::<CasesNode>("cases");
 
     // Roots.

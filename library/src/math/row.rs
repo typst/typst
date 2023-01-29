@@ -12,6 +12,11 @@ impl MathRow {
         self.0.iter().map(|fragment| fragment.width()).sum()
     }
 
+    pub fn height(&self) -> Abs {
+        let (ascent, descent) = self.extent();
+        ascent + descent
+    }
+
     pub fn push(
         &mut self,
         font_size: Abs,
@@ -72,7 +77,16 @@ impl MathRow {
         self.0.push(fragment);
     }
 
-    pub fn to_frame(mut self, ctx: &MathContext) -> Frame {
+    pub fn to_frame(self, ctx: &MathContext) -> Frame {
+        self.to_aligned_frame(ctx, &[], Align::Center)
+    }
+
+    pub fn to_aligned_frame(
+        mut self,
+        ctx: &MathContext,
+        points: &[Abs],
+        align: Align,
+    ) -> Frame {
         if self.0.iter().any(|frag| matches!(frag, MathFragment::Linebreak)) {
             let mut frame = Frame::new(Size::zero());
             let fragments = std::mem::take(&mut self.0);
@@ -86,7 +100,7 @@ impl MathRow {
             let points = alignments(&rows);
             for (i, row) in rows.into_iter().enumerate() {
                 let size = frame.size_mut();
-                let sub = row.to_line_frame(ctx, &points, Align::Center);
+                let sub = row.to_line_frame(ctx, &points, align);
                 if i > 0 {
                     size.y += leading;
                 }
@@ -97,14 +111,12 @@ impl MathRow {
             }
             frame
         } else {
-            self.to_line_frame(ctx, &[], Align::Center)
+            self.to_line_frame(ctx, points, align)
         }
     }
 
-    pub fn to_line_frame(self, ctx: &MathContext, points: &[Abs], align: Align) -> Frame {
-        let ascent = self.0.iter().map(MathFragment::ascent).max().unwrap_or_default();
-        let descent = self.0.iter().map(MathFragment::descent).max().unwrap_or_default();
-
+    fn to_line_frame(self, ctx: &MathContext, points: &[Abs], align: Align) -> Frame {
+        let (ascent, descent) = self.extent();
         let size = Size::new(Abs::zero(), ascent + descent);
         let mut frame = Frame::new(size);
         let mut x = Abs::zero();
@@ -139,6 +151,12 @@ impl MathRow {
 
         frame.size_mut().x = x;
         frame
+    }
+
+    fn extent(&self) -> (Abs, Abs) {
+        let ascent = self.0.iter().map(MathFragment::ascent).max().unwrap_or_default();
+        let descent = self.0.iter().map(MathFragment::descent).max().unwrap_or_default();
+        (ascent, descent)
     }
 }
 

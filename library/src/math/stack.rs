@@ -292,7 +292,7 @@ pub(super) fn stack(
     let points = alignments(&rows);
     let rows: Vec<_> = rows
         .into_iter()
-        .map(|row| row.to_line_frame(ctx, &points, align))
+        .map(|row| row.to_aligned_frame(ctx, &points, align))
         .collect();
 
     for row in &rows {
