@@ -1,4 +1,5 @@
 use std::cmp::Ordering;
+use std::ops::Rem;
 
 use typst::model::{Module, Scope};
 
@@ -95,8 +96,7 @@ pub fn pow(args: &mut Args) -> SourceResult<Value> {
             _ => bail!(n.span, "exponent must be non-negative"),
         })?
         .v;
-
-    Ok(base.apply2(exponent, |a, b| a.pow(b as u32), |a, b| a.powf(b)))
+    Ok(base.apply2(exponent, |a, b| a.pow(b as u32), f64::powf))
 }
 
 /// # Square Root
@@ -117,7 +117,7 @@ pub fn pow(args: &mut Args) -> SourceResult<Value> {
 #[func]
 pub fn sqrt(args: &mut Args) -> SourceResult<Value> {
     let value = args.expect::<Spanned<Num>>("value")?;
-    if value.v.is_negative() {
+    if value.v.float() < 0.0 {
         bail!(value.span, "cannot take square root of negative number");
     }
     Ok(Value::Float(value.v.float().sqrt()))
@@ -143,7 +143,6 @@ pub fn sqrt(args: &mut Args) -> SourceResult<Value> {
 #[func]
 pub fn sin(args: &mut Args) -> SourceResult<Value> {
     let arg = args.expect::<AngleLike>("angle")?;
-
     Ok(Value::Float(match arg {
         AngleLike::Angle(a) => a.sin(),
         AngleLike::Int(n) => (n as f64).sin(),
@@ -171,7 +170,6 @@ pub fn sin(args: &mut Args) -> SourceResult<Value> {
 #[func]
 pub fn cos(args: &mut Args) -> SourceResult<Value> {
     let arg = args.expect::<AngleLike>("angle")?;
-
     Ok(Value::Float(match arg {
         AngleLike::Angle(a) => a.cos(),
         AngleLike::Int(n) => (n as f64).cos(),
@@ -198,7 +196,6 @@ pub fn cos(args: &mut Args) -> SourceResult<Value> {
 #[func]
 pub fn tan(args: &mut Args) -> SourceResult<Value> {
     let arg = args.expect::<AngleLike>("angle")?;
-
     Ok(Value::Float(match arg {
         AngleLike::Angle(a) => a.tan(),
         AngleLike::Int(n) => (n as f64).tan(),
@@ -228,7 +225,6 @@ pub fn asin(args: &mut Args) -> SourceResult<Value> {
     if val < -1.0 || val > 1.0 {
         bail!(span, "arcsin must be between -1 and 1");
     }
-
     Ok(Value::Angle(Angle::rad(val.asin())))
 }
 
@@ -254,7 +250,6 @@ pub fn acos(args: &mut Args) -> SourceResult<Value> {
     if val < -1.0 || val > 1.0 {
         bail!(span, "arccos must be between -1 and 1");
     }
-
     Ok(Value::Angle(Angle::rad(val.acos())))
 }
 
@@ -276,7 +271,6 @@ pub fn acos(args: &mut Args) -> SourceResult<Value> {
 #[func]
 pub fn atan(args: &mut Args) -> SourceResult<Value> {
     let value = args.expect::<Num>("value")?;
-
     Ok(Value::Angle(Angle::rad(value.float().atan())))
 }
 
@@ -299,9 +293,8 @@ pub fn atan(args: &mut Args) -> SourceResult<Value> {
 #[func]
 pub fn sinh(args: &mut Args) -> SourceResult<Value> {
     let arg = args.expect::<AngleLike>("angle")?;
-
     Ok(Value::Float(match arg {
-        AngleLike::Angle(a) => a.to_rad(),
+        AngleLike::Angle(a) => a.to_rad().sinh(),
         AngleLike::Int(n) => (n as f64).sinh(),
         AngleLike::Float(n) => n.sinh(),
     }))
@@ -326,9 +319,8 @@ pub fn sinh(args: &mut Args) -> SourceResult<Value> {
 #[func]
 pub fn cosh(args: &mut Args) -> SourceResult<Value> {
     let arg = args.expect::<AngleLike>("angle")?;
-
     Ok(Value::Float(match arg {
-        AngleLike::Angle(a) => a.to_rad(),
+        AngleLike::Angle(a) => a.to_rad().cosh(),
         AngleLike::Int(n) => (n as f64).cosh(),
         AngleLike::Float(n) => n.cosh(),
     }))
@@ -353,9 +345,8 @@ pub fn cosh(args: &mut Args) -> SourceResult<Value> {
 #[func]
 pub fn tanh(args: &mut Args) -> SourceResult<Value> {
     let arg = args.expect::<AngleLike>("angle")?;
-
     Ok(Value::Float(match arg {
-        AngleLike::Angle(a) => a.to_rad(),
+        AngleLike::Angle(a) => a.to_rad().tanh(),
         AngleLike::Int(n) => (n as f64).tanh(),
         AngleLike::Float(n) => n.tanh(),
     }))
@@ -380,10 +371,9 @@ pub fn tanh(args: &mut Args) -> SourceResult<Value> {
 /// calculate
 #[func]
 pub fn log(args: &mut Args) -> SourceResult<Value> {
-    let value = args.expect::<Num>("value")?;
-    let base = args.named::<Num>("base")?.unwrap_or_else(|| Num::Int(10));
-
-    Ok(value.apply2(base, |a, b| a.ilog(b) as i64, |a, b| a.log(b)))
+    let value = args.expect::<f64>("value")?;
+    let base = args.named::<f64>("base")?.unwrap_or_else(|| 10.0);
+    Ok(Value::Float(value.log(base)))
 }
 
 /// # Round down
@@ -406,7 +396,6 @@ pub fn log(args: &mut Args) -> SourceResult<Value> {
 #[func]
 pub fn floor(args: &mut Args) -> SourceResult<Value> {
     let value = args.expect::<Num>("value")?;
-
     Ok(match value {
         Num::Int(n) => Value::Int(n),
         Num::Float(n) => Value::Int(n.floor() as i64),
@@ -433,7 +422,6 @@ pub fn floor(args: &mut Args) -> SourceResult<Value> {
 #[func]
 pub fn ceil(args: &mut Args) -> SourceResult<Value> {
     let value = args.expect::<Num>("value")?;
-
     Ok(match value {
         Num::Int(n) => Value::Int(n),
         Num::Float(n) => Value::Int(n.ceil() as i64),
@@ -461,22 +449,12 @@ pub fn ceil(args: &mut Args) -> SourceResult<Value> {
 #[func]
 pub fn round(args: &mut Args) -> SourceResult<Value> {
     let value = args.expect::<Num>("value")?;
-    let digits = args.named::<Spanned<i64>>("digits").and_then(|n| match n {
-        Some(Spanned { v, span }) if v < 0 => {
-            bail!(span, "digits must be non-negative")
-        }
-        Some(Spanned { v, span }) if v > i32::MAX as i64 => {
-            bail!(span, "digits must be less than {}", i32::MAX)
-        }
-        Some(Spanned { v, .. }) => Ok(v as i32),
-        None => Ok(0),
-    })?;
-
+    let digits = args.named::<u32>("digits")?.unwrap_or(0);
     Ok(match value {
         Num::Int(n) if digits == 0 => Value::Int(n),
         _ => {
             let n = value.float();
-            let factor = 10.0_f64.powi(digits) as f64;
+            let factor = 10.0_f64.powi(digits as i32) as f64;
             Value::Float((n * factor).round() / factor)
         }
     })
@@ -507,33 +485,10 @@ pub fn clamp(args: &mut Args) -> SourceResult<Value> {
     let value = args.expect::<Num>("value")?;
     let min = args.expect::<Num>("min")?;
     let max = args.expect::<Spanned<Num>>("max")?;
-
     if max.v.float() < min.float() {
         bail!(max.span, "max must be greater than or equal to min")
     }
-
-    Ok(value.apply3(
-        min,
-        max.v,
-        |v, min, max| {
-            if v < min {
-                min
-            } else if v > max {
-                max
-            } else {
-                v
-            }
-        },
-        |v, min, max| {
-            if v < min {
-                min
-            } else if v > max {
-                max
-            } else {
-                v
-            }
-        },
-    ))
+    Ok(value.apply3(min, max.v, i64::clamp, f64::clamp))
 }
 
 /// # Minimum
@@ -672,33 +627,15 @@ pub fn odd(args: &mut Args) -> SourceResult<Value> {
 /// calculate
 #[func]
 pub fn mod_(args: &mut Args) -> SourceResult<Value> {
-    let Spanned { v: v1, span: span1 } = args.expect("dividend")?;
-    let Spanned { v: v2, span: span2 } = args.expect("divisor")?;
-
-    let (a, b) = match (v1, v2) {
-        (Value::Int(a), Value::Int(b)) => match a.checked_rem(b) {
-            Some(res) => return Ok(Value::Int(res)),
-            None => bail!(span2, "divisor must not be zero"),
-        },
-        (Value::Int(a), Value::Float(b)) => (a as f64, b),
-        (Value::Float(a), Value::Int(b)) => (a, b as f64),
-        (Value::Float(a), Value::Float(b)) => (a, b),
-        (Value::Int(_), b) | (Value::Float(_), b) => {
-            bail!(span2, format!("expected integer or float, found {}", b.type_name()))
-        }
-        (a, _) => {
-            bail!(span1, format!("expected integer or float, found {}", a.type_name()))
-        }
-    };
-
-    if b == 0.0 {
-        bail!(span2, "divisor must not be zero");
+    let dividend = args.expect::<Num>("dividend")?;
+    let Spanned { v: divisor, span } = args.expect::<Spanned<Num>>("divisor")?;
+    if divisor.float() == 0.0 {
+        bail!(span, "divisor must not be zero");
     }
-
-    Ok(Value::Float(a % b))
+    Ok(dividend.apply2(divisor, Rem::rem, Rem::rem))
 }
 
-/// A value which can be passed to the `mod` function.
+/// A value which can be passed to functions that work with integers and floats.
 #[derive(Debug, Copy, Clone)]
 enum Num {
     Int(i64),
@@ -735,13 +672,6 @@ impl Num {
         match self {
             Self::Int(v) => v as f64,
             Self::Float(v) => v,
-        }
-    }
-
-    fn is_negative(self) -> bool {
-        match self {
-            Self::Int(v) => v < 0,
-            Self::Float(v) => v < 0.0,
         }
     }
 }
