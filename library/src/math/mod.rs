@@ -107,26 +107,7 @@ pub fn module(sym: &Module) -> Module {
 /// # Formula
 /// A mathematical formula.
 ///
-/// ## Syntax
-/// This function also has dedicated syntax: Write mathematical markup within
-/// dollar signs to create a formula. Starting and ending the formula with at
-/// least one space lifts it into a separate block that is centered
-/// horizontally.
-///
-/// In math, single letters are always displayed as is. Multiple letters,
-/// however, are interpreted as variables, symbols or functions. To display
-/// multiple letters verbatim, you can place them into quotes. Math mode also
-/// supports extra shorthands to easily type various arrows and other symbols.
-/// The [text](/docs/reference/text/) and [math](/docs/reference/math/) sections
-/// list all of them.
-///
-/// When a variable and a symbol share the same name, the variable is preferred.
-/// To force the symbol, surround it with colons. To access a variable with a
-/// single letter name, you can prefix it with a `#`.
-///
-/// In math mode, the arguments to a function call are always parsed as
-/// mathematical content. To work with other kinds of values, you first need to
-/// enter a code block using the `[$#{..}$]` syntax.
+/// Can be displayed inline with text or as a separate block.
 ///
 /// ## Example
 /// ```
@@ -139,16 +120,21 @@ pub fn module(sym: &Module) -> Module {
 ///
 /// Prove by induction:
 /// $ sum_(k=1)^n k = (n(n+1)) / 2 $
-///
-/// We define the following set:
-/// $ cal(A) :=
-///     { x in RR | x "is natural" } $
 /// ```
 ///
-/// ## Parameters
-/// - body: Content (positional, required) The contents of the formula.
+/// ## Syntax
+/// This function also has dedicated syntax: Write mathematical markup within
+/// dollar signs to create a formula. Starting and ending the formula with at
+/// least one space lifts it into a separate block that is centered
+/// horizontally. For more details about math syntax, see the
+/// [main math page](/docs/reference/math).
 ///
-/// - block: bool (named) Whether the formula is displayed as a separate block.
+/// ## Parameters
+/// - body: Content (positional, required)
+///   The contents of the formula.
+///
+/// - block: bool (named)
+///   Whether the formula is displayed as a separate block.
 ///
 /// ## Category
 /// math

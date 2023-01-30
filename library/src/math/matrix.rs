@@ -55,9 +55,9 @@ impl LayoutMath for VecNode {
 ///
 /// The elements of a row should be separated by commas, while the rows
 /// themselves should be separated by semicolons. The semicolon syntax merges
-/// preceding arguments separated by commas into a array arguments. You
-/// can also use this special syntax of math function calls to define custom
-/// functions that take 2D data.
+/// preceding arguments separated by commas into an array. You can also use this
+/// special syntax of math function calls to define custom functions that take
+/// 2D data.
 ///
 /// Content in cells that are in the same row can be aligned with the `&` symbol.
 ///

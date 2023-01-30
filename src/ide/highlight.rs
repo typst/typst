@@ -256,9 +256,13 @@ pub fn highlight(node: &LinkedNode) -> Option<Category> {
 /// Highlight an identifier based on context.
 fn highlight_ident(node: &LinkedNode) -> Option<Category> {
     // Are we directly before an argument list?
-    let next_leaf_kind = node.next_leaf().map(|leaf| leaf.kind());
-    if matches!(next_leaf_kind, Some(SyntaxKind::LeftParen | SyntaxKind::LeftBracket)) {
-        return Some(Category::Function);
+    let next_leaf = node.next_leaf();
+    if let Some(next) = &next_leaf {
+        if node.range().end == next.offset()
+            && matches!(next.kind(), SyntaxKind::LeftParen | SyntaxKind::LeftBracket)
+        {
+            return Some(Category::Function);
+        }
     }
 
     // Are we in math?
@@ -273,7 +277,7 @@ fn highlight_ident(node: &LinkedNode) -> Option<Category> {
     }
 
     // Are we directly before a show rule colon?
-    if next_leaf_kind == Some(SyntaxKind::Colon)
+    if next_leaf.map(|leaf| leaf.kind()) == Some(SyntaxKind::Colon)
         && ancestor.parent_kind() == Some(SyntaxKind::ShowRule)
     {
         return Some(Category::Function);

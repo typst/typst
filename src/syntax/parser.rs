@@ -507,7 +507,7 @@ fn embedded_code_expr(p: &mut Parser) {
 
 fn code_expr_prec(p: &mut Parser, atomic: bool, min_prec: usize) {
     let m = p.marker();
-    if let Some(op) = ast::UnOp::from_kind(p.current()) {
+    if let (false, Some(op)) = (atomic, ast::UnOp::from_kind(p.current())) {
         p.eat();
         code_expr_prec(p, atomic, op.precedence());
         p.wrap(m, SyntaxKind::Unary);
