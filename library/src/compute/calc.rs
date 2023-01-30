@@ -30,6 +30,10 @@ pub fn calc() -> Module {
     scope.def_func::<EvenFunc>("even");
     scope.def_func::<OddFunc>("odd");
     scope.def_func::<ModFunc>("mod");
+    scope.define("inf", Value::Float(f64::INFINITY));
+    scope.define("nan", Value::Float(f64::NAN));
+    scope.define("pi", Value::Float(std::f64::consts::PI));
+    scope.define("e", Value::Float(std::f64::consts::E));
     Module::new("calc").with_scope(scope)
 }
 

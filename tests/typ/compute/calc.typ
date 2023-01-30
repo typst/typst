@@ -13,6 +13,10 @@
 #test(type(float(10)), "float")
 
 ---
+#test(calc.round(calc.e, digits: 2), 2.72)
+#test(calc.round(calc.pi, digits: 2), 3.14)
+
+---
 // Error: 6-10 expected boolean, integer, float, or string, found length
 #int(10pt)
 
