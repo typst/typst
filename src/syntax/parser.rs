@@ -485,6 +485,7 @@ fn embedded_code_expr(p: &mut Parser) {
     p.stop_at_newline(true);
     p.enter(LexMode::Code);
     p.assert(SyntaxKind::Hashtag);
+    p.unskip();
 
     let stmt = matches!(
         p.current(),
