@@ -19,12 +19,13 @@ use self::layout::LayoutRoot;
 pub fn build() -> Library {
     let sym = text::sym();
     let math = math::module(&sym);
-    let global = global(sym, math.clone());
+    let calc = compute::calc();
+    let global = global(sym, math.clone(), calc);
     Library { global, math, styles: styles(), items: items() }
 }
 
 /// Construct the module with global definitions.
-fn global(sym: Module, math: Module) -> Module {
+fn global(sym: Module, math: Module, calc: Module) -> Module {
     let mut global = Scope::deduplicating();
 
     // Basics.
@@ -106,18 +107,15 @@ fn global(sym: Module, math: Module) -> Module {
     global.def_func::<compute::LabelFunc>("label");
     global.def_func::<compute::RegexFunc>("regex");
     global.def_func::<compute::RangeFunc>("range");
-    global.def_func::<compute::AbsFunc>("abs");
-    global.def_func::<compute::MinFunc>("min");
-    global.def_func::<compute::MaxFunc>("max");
-    global.def_func::<compute::EvenFunc>("even");
-    global.def_func::<compute::OddFunc>("odd");
-    global.def_func::<compute::ModFunc>("mod");
     global.def_func::<compute::ReadFunc>("read");
     global.def_func::<compute::CsvFunc>("csv");
     global.def_func::<compute::JsonFunc>("json");
     global.def_func::<compute::XmlFunc>("xml");
     global.def_func::<compute::LoremFunc>("lorem");
     global.def_func::<compute::NumberingFunc>("numbering");
+
+    // Calc.
+    global.define("calc", calc);
 
     // Colors.
     global.define("black", Color::BLACK);

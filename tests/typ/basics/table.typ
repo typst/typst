@@ -2,7 +2,7 @@
 
 ---
 #set page(height: 70pt)
-#set table(fill: (x, y) => if even(x + y) { rgb("aaa") })
+#set table(fill: (x, y) => if calc.even(x + y) { rgb("aaa") })
 
 #table(
   columns: (1fr,) * 3,

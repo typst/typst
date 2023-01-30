@@ -30,55 +30,55 @@
 
 ---
 // Test the `abs` function.
-#test(abs(-3), 3)
-#test(abs(3), 3)
-#test(abs(-0.0), 0.0)
-#test(abs(0.0), -0.0)
-#test(abs(-3.14), 3.14)
-#test(abs(50%), 50%)
-#test(abs(-25%), 25%)
+#test(calc.abs(-3), 3)
+#test(calc.abs(3), 3)
+#test(calc.abs(-0.0), 0.0)
+#test(calc.abs(0.0), -0.0)
+#test(calc.abs(-3.14), 3.14)
+#test(calc.abs(50%), 50%)
+#test(calc.abs(-25%), 25%)
 
 ---
-// Error: 6-17 expected integer, float, length, angle, ratio, or fraction, found string
-#abs("no number")
+// Error: 11-22 expected integer, float, length, angle, ratio, or fraction, found string
+#calc.abs("no number")
 
 ---
 // Test the `even` and `odd` functions.
-#test(even(2), true)
-#test(odd(2), false)
-#test(odd(-1), true)
-#test(even(-11), false)
+#test(calc.even(2), true)
+#test(calc.odd(2), false)
+#test(calc.odd(-1), true)
+#test(calc.even(-11), false)
 
 ---
 // Test the `mod` function.
-#test(mod(1, 1), 0)
-#test(mod(5, 3), 2)
-#test(mod(5, -3), 2)
-#test(mod(22.5, 10), 2.5)
-#test(mod(9, 4.5), 0)
+#test(calc.mod(1, 1), 0)
+#test(calc.mod(5, 3), 2)
+#test(calc.mod(5, -3), 2)
+#test(calc.mod(22.5, 10), 2.5)
+#test(calc.mod(9, 4.5), 0)
 
 ---
-// Error: 9-10 divisor must not be zero
-#mod(5, 0)
+// Error: 14-15 divisor must not be zero
+#calc.mod(5, 0)
 
 ---
-// Error: 11-14 divisor must not be zero
-#mod(3.0, 0.0)
+// Error: 16-19 divisor must not be zero
+#calc.mod(3.0, 0.0)
 
 ---
 // Test the `min` and `max` functions.
-#test(min(2, -4), -4)
-#test(min(3.5, 1e2, -0.1, 3), -0.1)
-#test(max(-3, 11), 11)
-#test(min("hi"), "hi")
+#test(calc.min(2, -4), -4)
+#test(calc.min(3.5, 1e2, -0.1, 3), -0.1)
+#test(calc.max(-3, 11), 11)
+#test(calc.min("hi"), "hi")
 
 ---
-// Error: 5-7 missing argument: value
-#min()
+// Error: 10-12 missing argument: value
+#calc.min()
 
 ---
-// Error: 9-13 cannot compare integer and string
-#min(1, "hi")
+// Error: 14-18 cannot compare integer and string
+#calc.min(1, "hi")
 
 ---
 // Test the `range` function.

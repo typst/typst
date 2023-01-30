@@ -88,7 +88,7 @@
     let caps = match.captures
     time += 60 * int(caps.at(0)) + int(caps.at(1))
   }
-  str(int(time / 60)) + ":" + str(mod(time, 60))
+  str(int(time / 60)) + ":" + str(calc.mod(time, 60))
 }
 
 #test(timesum(""), "0:0")

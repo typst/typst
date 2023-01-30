@@ -37,9 +37,9 @@
 // Test spreading array and dictionary.
 #{
   let more = (3, -3, 6, 10)
-  test(min(1, 2, ..more), -3)
-  test(max(..more, 9), 10)
-  test(max(..more, 11), 11)
+  test(calc.min(1, 2, ..more), -3)
+  test(calc.max(..more, 9), 10)
+  test(calc.max(..more, 11), 11)
 }
 
 #{
@@ -56,8 +56,8 @@
 #f(..for x in () [])
 
 ---
-// Error: 8-14 cannot spread string
-#min(.."nope")
+// Error: 13-19 cannot spread string
+#calc.min(.."nope")
 
 ---
 // Error: 10-14 expected identifier, found boolean

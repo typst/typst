@@ -79,7 +79,7 @@ impl TableNode {
     /// # Example
     /// ```
     /// #table(
-    ///   fill: (col, _) => if odd(col) { luma(240) } else { white },
+    ///   fill: (col, _) => if calc.odd(col) { luma(240) } else { white },
     ///   align: (col, row) =>
     ///     if row == 0 { center }
     ///     else if col == 0 { left }
