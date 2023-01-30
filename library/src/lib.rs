@@ -101,6 +101,7 @@ fn global(sym: Module, math: Module) -> Module {
     global.def_func::<compute::LumaFunc>("luma");
     global.def_func::<compute::RgbFunc>("rgb");
     global.def_func::<compute::CmykFunc>("cmyk");
+    global.def_func::<compute::SymbolFunc>("symbol");
     global.def_func::<compute::StrFunc>("str");
     global.def_func::<compute::LabelFunc>("label");
     global.def_func::<compute::RegexFunc>("regex");

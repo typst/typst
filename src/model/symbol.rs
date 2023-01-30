@@ -1,6 +1,7 @@
 use std::cmp::Reverse;
 use std::collections::BTreeSet;
 use std::fmt::{self, Debug, Display, Formatter, Write};
+use std::sync::Arc;
 
 use crate::diag::StrResult;
 use crate::util::EcoString;
@@ -38,7 +39,8 @@ pub struct Symbol {
 #[derive(Clone, Eq, PartialEq, Hash)]
 enum Repr {
     Single(char),
-    List(&'static [(&'static str, char)]),
+    Static(&'static [(&'static str, char)]),
+    Runtime(Arc<Vec<(EcoString, char)>>),
 }
 
 impl Symbol {
@@ -47,12 +49,22 @@ impl Symbol {
         Self { repr: Repr::Single(c), modifiers: EcoString::new() }
     }
 
-    /// Create a symbol with variants.
+    /// Create a symbol with a static variant list.
     #[track_caller]
     pub fn list(list: &'static [(&'static str, char)]) -> Self {
         debug_assert!(!list.is_empty());
         Self {
-            repr: Repr::List(list),
+            repr: Repr::Static(list),
+            modifiers: EcoString::new(),
+        }
+    }
+
+    /// Create a symbol with a runtime variant list.
+    #[track_caller]
+    pub fn runtime(list: Vec<(EcoString, char)>) -> Self {
+        debug_assert!(!list.is_empty());
+        Self {
+            repr: Repr::Runtime(Arc::new(list)),
             modifiers: EcoString::new(),
         }
     }
@@ -61,7 +73,7 @@ impl Symbol {
     pub fn get(&self) -> char {
         match self.repr {
             Repr::Single(c) => c,
-            Repr::List(list) => find(list, &self.modifiers).unwrap(),
+            _ => find(self.variants(), &self.modifiers).unwrap(),
         }
     }
 
@@ -71,10 +83,7 @@ impl Symbol {
             self.modifiers.push('.');
         }
         self.modifiers.push_str(modifier);
-        if match self.repr {
-            Repr::Single(_) => true,
-            Repr::List(list) => find(list, &self.modifiers).is_none(),
-        } {
+        if find(self.variants(), &self.modifiers).is_none() {
             Err("unknown modifier")?
         }
         Ok(self)
@@ -82,21 +91,19 @@ impl Symbol {
 
     /// The characters that are covered by this symbol.
     pub fn variants(&self) -> impl Iterator<Item = (&str, char)> {
-        let (first, slice) = match self.repr {
-            Repr::Single(c) => (Some(("", c)), [].as_slice()),
-            Repr::List(list) => (None, list),
-        };
-        first.into_iter().chain(slice.iter().copied())
+        match &self.repr {
+            Repr::Single(c) => Variants::Single(Some(*c).into_iter()),
+            Repr::Static(list) => Variants::Static(list.iter()),
+            Repr::Runtime(list) => Variants::Runtime(list.iter()),
+        }
     }
 
     /// Possible modifiers.
     pub fn modifiers(&self) -> impl Iterator<Item = &str> + '_ {
         let mut set = BTreeSet::new();
-        if let Repr::List(list) = self.repr {
-            for modifier in list.iter().flat_map(|(name, _)| name.split('.')) {
-                if !modifier.is_empty() && !contained(&self.modifiers, modifier) {
-                    set.insert(modifier);
-                }
+        for modifier in self.variants().flat_map(|(name, _)| name.split('.')) {
+            if !modifier.is_empty() && !contained(&self.modifiers, modifier) {
+                set.insert(modifier);
             }
         }
         set.into_iter()
@@ -115,13 +122,35 @@ impl Display for Symbol {
     }
 }
 
+/// Iterator over variants.
+enum Variants<'a> {
+    Single(std::option::IntoIter<char>),
+    Static(std::slice::Iter<'static, (&'static str, char)>),
+    Runtime(std::slice::Iter<'a, (EcoString, char)>),
+}
+
+impl<'a> Iterator for Variants<'a> {
+    type Item = (&'a str, char);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Self::Single(iter) => Some(("", iter.next()?)),
+            Self::Static(list) => list.next().copied(),
+            Self::Runtime(list) => list.next().map(|(s, c)| (s.as_str(), *c)),
+        }
+    }
+}
+
 /// Find the best symbol from the list.
-fn find(list: &[(&str, char)], modifiers: &str) -> Option<char> {
+fn find<'a>(
+    variants: impl Iterator<Item = (&'a str, char)>,
+    modifiers: &str,
+) -> Option<char> {
     let mut best = None;
     let mut best_score = None;
 
     // Find the best table entry with this name.
-    'outer: for candidate in list {
+    'outer: for candidate in variants {
         for modifier in parts(modifiers) {
             if !contained(candidate.0, modifier) {
                 continue 'outer;

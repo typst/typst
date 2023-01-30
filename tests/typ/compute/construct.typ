@@ -42,6 +42,23 @@
 #rgb(10%, 20%, 30%, false)
 
 ---
+// Ref: true
+#let envelope = symbol(
+  "🖂",
+  ("stamped", "🖃"),
+  ("stamped.pen", "🖆"),
+  ("lightning", "🖄"),
+  ("fly", "🖅"),
+)
+
+#envelope
+#envelope.stamped
+#envelope.pen
+#envelope.stamped.pen
+#envelope.lightning
+#envelope.fly
+
+---
 // Test conversion to string.
 #test(str(123), "123")
 #test(str(50.14), "50.14")

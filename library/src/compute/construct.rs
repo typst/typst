@@ -240,6 +240,67 @@ castable! {
     },
 }
 
+/// # Symbol
+/// Create a custom symbol with modifiers.
+///
+/// ## Example
+/// ```
+/// #let envelope = symbol(
+///   "🖂",
+///   ("stamped", "🖃"),
+///   ("stamped.pen", "🖆"),
+///   ("lightning", "🖄"),
+///   ("fly", "🖅"),
+/// )
+///
+/// #envelope
+/// #envelope.stamped
+/// #envelope.stamped.pen
+/// #envelope.lightning
+/// #envelope.fly
+/// ```
+///
+/// ## Parameters
+/// - variants: Variant (positional, variadic)
+///   The variants of the symbol.
+///
+///   Can be a just a string consisting of a single character for the
+///   modifierless variant or an array with two strings specifying the modifiers
+///   and the symbol. Individual modifiers should be separated by dots. When
+///   displaying a symbol, Typst selects the first from the variants that have
+///   all attached modifiers and the minimum number of other modifiers.
+///
+/// - returns: symbol
+///
+/// ## Category
+/// construct
+#[func]
+pub fn symbol(args: &mut Args) -> SourceResult<Value> {
+    let mut list: Vec<(EcoString, char)> = vec![];
+    for Spanned { v, span } in args.all::<Spanned<Variant>>()? {
+        if list.iter().any(|(prev, _)| &v.0 == prev) {
+            bail!(span, "duplicate variant");
+        }
+        list.push((v.0, v.1));
+    }
+    Ok(Value::Symbol(Symbol::runtime(list)))
+}
+
+/// A value that can be cast to a symbol.
+struct Variant(EcoString, char);
+
+castable! {
+    Variant,
+    c: char => Self(EcoString::new(), c),
+    array: Array => {
+        let mut iter = array.into_iter();
+        match (iter.next(), iter.next(), iter.next()) {
+            (Some(a), Some(b), None) => Self(a.cast()?, b.cast()?),
+            _ => Err("point array must contain exactly two entries")?,
+        }
+    },
+}
+
 /// # String
 /// Convert a value to a string.
 ///
