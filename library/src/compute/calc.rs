@@ -38,7 +38,7 @@ pub fn calc() -> Module {
 }
 
 /// # Absolute
-/// The absolute value of a numeric value.
+/// Calculate the absolute value of a numeric value.
 ///
 /// ## Example
 /// ```
@@ -104,7 +104,7 @@ pub fn pow(args: &mut Args) -> SourceResult<Value> {
 }
 
 /// # Square Root
-/// The square root of a number.
+/// Calculate the square root of a number.
 ///
 /// ## Example
 /// ```
@@ -128,8 +128,10 @@ pub fn sqrt(args: &mut Args) -> SourceResult<Value> {
 }
 
 /// # Sine
-/// Calculate the sine of an angle. When called with an integer or a number,
-/// they will be interpreted as radians.
+/// Calculate the sine of an angle.
+///
+/// When called with an integer or a float, they will be interpreted as
+/// radians.
 ///
 /// ## Example
 /// ```
@@ -155,8 +157,10 @@ pub fn sin(args: &mut Args) -> SourceResult<Value> {
 }
 
 /// # Cosine
-/// Calculate the cosine of an angle. When called with an integer or a number,
-/// they will be interpreted as radians.
+/// Calculate the cosine of an angle.
+///
+/// When called with an integer or a float, they will be interpreted as
+/// radians.
 ///
 /// ## Example
 /// ```
@@ -182,8 +186,10 @@ pub fn cos(args: &mut Args) -> SourceResult<Value> {
 }
 
 /// # Tangent
-/// Calculate the tangent of an angle. When called with an integer or a number,
-/// they will be interpreted as radians.
+/// Calculate the tangent of an angle.
+///
+/// When called with an integer or a float, they will be interpreted as
+/// radians.
 ///
 /// ## Example
 /// ```
@@ -279,8 +285,9 @@ pub fn atan(args: &mut Args) -> SourceResult<Value> {
 }
 
 /// # Hyperbolic sine
-/// Calculate the hyperbolic sine of an angle. When called with an integer or
-/// a number, they will be interpreted as radians.
+/// Calculate the hyperbolic sine of an angle.
+///
+/// When called with an integer or a float, they will be interpreted as radians.
 ///
 /// ## Example
 /// ```
@@ -305,8 +312,9 @@ pub fn sinh(args: &mut Args) -> SourceResult<Value> {
 }
 
 /// # Hyperbolic cosine
-/// Calculate the hyperbolic cosine of an angle. When called with an integer or
-/// a number, they will be interpreted as radians.
+/// Calculate the hyperbolic cosine of an angle.
+///
+/// When called with an integer or a float, they will be interpreted as radians.
 ///
 /// ## Example
 /// ```
@@ -331,8 +339,9 @@ pub fn cosh(args: &mut Args) -> SourceResult<Value> {
 }
 
 /// # Hyperbolic tangent
-/// Calculate the hyperbolic tangent of an angle. When called with an integer or
-/// a number, they will be interpreted as radians.
+/// Calculate the hyperbolic tangent of an angle.
+///
+/// When called with an integer or a float, they will be interpreted as radians.
 ///
 /// ## Example
 /// ```
@@ -358,6 +367,7 @@ pub fn tanh(args: &mut Args) -> SourceResult<Value> {
 
 /// # Logarithm
 /// Calculate the logarithm of a number.
+///
 /// If the base is not specified, the logarithm is calculated in base 10.
 ///
 /// ## Example
@@ -382,6 +392,7 @@ pub fn log(args: &mut Args) -> SourceResult<Value> {
 
 /// # Round down
 /// Round a number down to the nearest integer.
+///
 /// If the number is already an integer, it is returned unchanged.
 ///
 /// ## Example
@@ -408,6 +419,7 @@ pub fn floor(args: &mut Args) -> SourceResult<Value> {
 
 /// # Round up
 /// Round a number up to the nearest integer.
+///
 /// If the number is already an integer, it is returned unchanged.
 ///
 /// ## Example
@@ -434,6 +446,7 @@ pub fn ceil(args: &mut Args) -> SourceResult<Value> {
 
 /// # Round
 /// Round a number to the nearest integer.
+///
 /// Optionally, a number of decimal places can be specified.
 ///
 /// ## Example
@@ -496,7 +509,7 @@ pub fn clamp(args: &mut Args) -> SourceResult<Value> {
 }
 
 /// # Minimum
-/// The minimum of a sequence of values.
+/// Determine the minimum of a sequence of values.
 ///
 /// ## Example
 /// ```
@@ -519,7 +532,7 @@ pub fn min(args: &mut Args) -> SourceResult<Value> {
 }
 
 /// # Maximum
-/// The maximum of a sequence of values.
+/// Determine the maximum of a sequence of values.
 ///
 /// ## Example
 /// ```
@@ -563,7 +576,7 @@ fn minmax(args: &mut Args, goal: Ordering) -> SourceResult<Value> {
 }
 
 /// # Even
-/// Whether an integer is even.
+/// Determine whether an integer is even.
 ///
 /// ## Example
 /// ```
@@ -586,7 +599,7 @@ pub fn even(args: &mut Args) -> SourceResult<Value> {
 }
 
 /// # Odd
-/// Whether an integer is odd.
+/// Determine whether an integer is odd.
 ///
 /// ## Example
 /// ```
@@ -610,7 +623,7 @@ pub fn odd(args: &mut Args) -> SourceResult<Value> {
 }
 
 /// # Modulus
-/// The modulus of two numbers.
+/// Calculate the modulus of two numbers.
 ///
 /// ## Example
 /// ```
