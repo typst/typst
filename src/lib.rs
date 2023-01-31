@@ -75,7 +75,11 @@ pub fn compile(world: &(dyn World + 'static), source: &Source) -> SourceResult<D
 #[comemo::track]
 pub trait World {
     /// The path relative to which absolute paths are.
-    fn root(&self) -> &Path;
+    ///
+    /// Defaults to the empty path.
+    fn root(&self) -> &Path {
+        Path::new("")
+    }
 
     /// The standard library.
     fn library(&self) -> &Prehashed<Library>;

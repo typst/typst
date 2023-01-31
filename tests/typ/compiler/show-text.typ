@@ -54,6 +54,6 @@ World
 ---
 // Test absolute path in layout phase.
 
-#show "GRAPH": image("/res/graph.png")
+#show "GRAPH": image("/graph.png")
 
 The GRAPH has nodes.

@@ -6,7 +6,7 @@
 = Document
 
 // Include a file
-#include "/typ/compiler/modules/chap1.typ"
+#include "modules/chap1.typ"
 
 // Expression as a file name.
 #let chap2 = include "modu" + "les/chap" + "2.typ"

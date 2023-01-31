@@ -51,15 +51,15 @@ Blue #move(dy: -0.15em)[🌊]
 #eval("#include \"../coma.typ\"")
 
 ---
-// Error: 7-35 cannot access file system from here
-#eval("#image(\"/res/tiger.jpg\")")
+// Error: 7-31 cannot access file system from here
+#eval("#image(\"/tiger.jpg\")")
 
 ---
 // Error: 23-30 cannot access file system from here
 #show raw: it => eval(it.text)
 
 ```
-#image("/res/tiger.jpg")
+#image("/tiger.jpg")
 ```
 
 ---
@@ -67,7 +67,7 @@ Blue #move(dy: -0.15em)[🌊]
 #show raw: it => eval(it.text)
 
 ```
-#show emph: _ => image("../../res/giraffe.jpg")
+#show emph: _ => image("/giraffe.jpg")
 _No relative giraffe!_
 ```
 

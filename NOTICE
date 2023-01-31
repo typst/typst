@@ -65,19 +65,19 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ================================================================================
 The SIL Open Font License Version 1.1 applies to:
 
-* IBM Plex fonts in tests/fonts/IBMPlex*.ttf
+* IBM Plex fonts in assets/fonts/IBMPlex*.ttf
   Copyright © 2017 IBM Corp. with Reserved Font Name "Plex"
   (https://github.com/IBM/plex)
 
-* Noto fonts in tests/fonts/Noto*.ttf
+* Noto fonts in assets/fonts/Noto*.ttf
   Copyright 2018 The Noto Project Authors
   (https://github.com/googlei18n/noto-fonts)
 
-* PT Sans fonts in tests/fonts/PTSans*.ttf
+* PT Sans fonts in assets/fonts/PTSans*.ttf
   Copyright (c) 2010, ParaType Ltd. (http://www.paratype.com/public),
   with Reserved Font Names "PT Sans" and "ParaType".
 
-* Fira math fonts in tests/fonts/FiraMath*.otf
+* Fira math fonts in assets/fonts/FiraMath*.otf
   Copyright (C) 2018--2021 by Xiangdong Zeng <xdzeng96@gmail.com>
   (https://github.com/firamath/firamath)
 
@@ -172,7 +172,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 ================================================================================
 The Apache License Version 2.0 applies to:
 
-* Roboto fonts in tests/fonts/Roboto*.ttf
+* Roboto fonts in assets/fonts/Roboto*.ttf
   (https://github.com/googlefonts/roboto)
 
                                  Apache License
@@ -356,7 +356,7 @@ The Apache License Version 2.0 applies to:
 ================================================================================
 The Ubuntu Font License Version 1.0 applies to:
 
-* Ubuntu fonts in tests/fonts/Ubuntu*.ttf
+* Ubuntu fonts in assets/fonts/Ubuntu*.ttf
   (https://design.ubuntu.com/font/)
 
 -------------------------------
@@ -461,10 +461,10 @@ DEALINGS IN THE FONT SOFTWARE.
 ================================================================================
 The GUST Font License Version 1.0 applies to:
 
-* Latin Modern fonts in tests/fonts/LatinModern*.otf
+* Latin Modern fonts in assets/fonts/LatinModern*.otf
   (http://www.gust.org.pl/projects/e-foundry/lm-math)
 
-* NewComputerModern fonts in tests/fonts/NewCM*.otf
+* NewComputerModern fonts in assets/fonts/NewCM*.otf
 
 % This is version 1.0, dated 22 June 2009, of the GUST Font License.
 % (GUST is the Polish TeX Users Group, http://www.gust.org.pl)
@@ -499,7 +499,7 @@ The GUST Font License Version 1.0 applies to:
 ================================================================================
 The Creative Commons Attribution 4.0 International License applies to:
 
-* Twitter Color Emoji font in tests/fonts/TwitterColorEmoji.ttf
+* Twitter Color Emoji font in assets/fonts/TwitterColorEmoji.ttf
   Copyright 2016 Brad Erickson
   Copyright 2016 Twitter, Inc.
   (https://github.com/eosrei/twemoji-color-font)
@@ -509,7 +509,7 @@ The Creative Commons Attribution 4.0 International License applies to:
   Copyright 2020 Twitter, Inc and other contributors
   (https://github.com/twitter/twemoji)
 
-* Monkey emoji in tests/res/monkey.svg
+* Monkey emoji in assets/files/monkey.svg
   Copyright 2018 Vincent Le Moign, Streamline Emoji Project
   Via Wikimedia Commons
   (https://commons.wikimedia.org/wiki/File:440-monkey.svg)

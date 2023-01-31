@@ -69,8 +69,8 @@
 
 ---
 // Some non-text stuff.
-// Error: 9-30 file is not valid utf-8
-#import "../../res/rhino.png"
+// Error: 9-21 file is not valid utf-8
+#import "/rhino.png"
 
 ---
 // Unresolved import.

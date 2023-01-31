@@ -28,7 +28,8 @@ const TYP_DIR: &str = "typ";
 const REF_DIR: &str = "ref";
 const PNG_DIR: &str = "png";
 const PDF_DIR: &str = "pdf";
-const FONT_DIR: &str = "fonts";
+const FONT_DIR: &str = "../assets/fonts";
+const FILE_DIR: &str = "../assets/files";
 
 fn main() {
     let args = Args::new(env::args().skip(1));
@@ -240,7 +241,7 @@ impl TestWorld {
 
 impl World for TestWorld {
     fn root(&self) -> &Path {
-        Path::new("")
+        Path::new(FILE_DIR)
     }
 
     fn library(&self) -> &Prehashed<Library> {
@@ -306,10 +307,15 @@ impl TestWorld {
     }
 }
 
-/// Read a file.
+/// Read as file.
 fn read(path: &Path) -> FileResult<Vec<u8>> {
-    let f = |e| FileError::from_io(e, path);
-    let mut file = File::open(path).map_err(f)?;
+    let suffix = path
+        .strip_prefix(FILE_DIR)
+        .map(|suffix| Path::new("/").join(suffix))
+        .unwrap_or_else(|_| path.into());
+
+    let f = |e| FileError::from_io(e, &suffix);
+    let mut file = File::open(&path).map_err(f)?;
     if file.metadata().map_err(f)?.is_file() {
         let mut data = vec![];
         file.read_to_end(&mut data).map_err(f)?;

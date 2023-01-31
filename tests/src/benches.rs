@@ -11,7 +11,7 @@ use typst::World;
 use unscanny::Scanner;
 
 const TEXT: &str = include_str!("../typ/compiler/bench.typ");
-const FONT: &[u8] = include_bytes!("../fonts/IBMPlexSans-Regular.ttf");
+const FONT: &[u8] = include_bytes!("../../assets/fonts/IBMPlexSans-Regular.ttf");
 
 main!(
     bench_decode,
@@ -124,10 +124,6 @@ impl BenchWorld {
 }
 
 impl World for BenchWorld {
-    fn root(&self) -> &Path {
-        Path::new("")
-    }
-
     fn library(&self) -> &Prehashed<Library> {
         &self.library
     }

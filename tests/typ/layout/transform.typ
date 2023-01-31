@@ -31,13 +31,13 @@ nor #xetex!
 // Test combination of scaling and rotation.
 #set page(height: 80pt)
 #align(center + horizon,
-  rotate(20deg, scale(70%, image("/res/tiger.jpg")))
+  rotate(20deg, scale(70%, image("/tiger.jpg")))
 )
 
 ---
 // Test setting rotation origin.
 #rotate(10deg, origin: top + left,
-  image("/res/tiger.jpg", width: 50%)
+  image("/tiger.jpg", width: 50%)
 )
 
 ---
