@@ -439,7 +439,7 @@ pub(super) fn styled_char(style: MathStyle, c: char) -> char {
     let (base, default_italic) = match c {
         'a'..='z' => ('a', true),
         'A'..='Z' => ('A', true),
-        'α'..='ω' => ('α', false),
+        'α'..='ω' => ('α', true),
         'Α'..='Ω' => ('Α', false),
         '0'..='9' => ('0', false),
         '-' => return '−',
