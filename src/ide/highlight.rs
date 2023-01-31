@@ -1,8 +1,8 @@
 use crate::syntax::{ast, LinkedNode, SyntaxKind, SyntaxNode};
 
-/// Syntax highlighting categories.
+/// Syntax highlighting tag.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum Category {
+pub enum Tag {
     /// A line or block comment.
     Comment,
     /// Punctuation in code.
@@ -47,9 +47,9 @@ pub enum Category {
     Error,
 }
 
-impl Category {
+impl Tag {
     /// Return the recommended TextMate grammar scope for the given highlighting
-    /// category.
+    /// tag.
     pub fn tm_scope(&self) -> &'static str {
         match self {
             Self::Comment => "comment.typst",
@@ -76,7 +76,7 @@ impl Category {
         }
     }
 
-    /// The recommended CSS class for the highlighting category.
+    /// The recommended CSS class for the highlighting tag.
     pub fn css_class(self) -> &'static str {
         match self {
             Self::Comment => "typ-comment",
@@ -104,119 +104,119 @@ impl Category {
     }
 }
 
-/// Determine the highlight category of a linked syntax node.
+/// Determine the highlight tag of a linked syntax node.
 ///
 /// Returns `None` if the node should not be highlighted.
-pub fn highlight(node: &LinkedNode) -> Option<Category> {
+pub fn highlight(node: &LinkedNode) -> Option<Tag> {
     match node.kind() {
         SyntaxKind::Markup
             if node.parent_kind() == Some(SyntaxKind::TermItem)
                 && node.next_sibling_kind() == Some(SyntaxKind::Colon) =>
         {
-            Some(Category::ListTerm)
+            Some(Tag::ListTerm)
         }
         SyntaxKind::Markup => None,
         SyntaxKind::Text => None,
         SyntaxKind::Space => None,
-        SyntaxKind::Linebreak => Some(Category::Escape),
+        SyntaxKind::Linebreak => Some(Tag::Escape),
         SyntaxKind::Parbreak => None,
-        SyntaxKind::Escape => Some(Category::Escape),
-        SyntaxKind::Shorthand => Some(Category::Escape),
+        SyntaxKind::Escape => Some(Tag::Escape),
+        SyntaxKind::Shorthand => Some(Tag::Escape),
         SyntaxKind::SmartQuote => None,
-        SyntaxKind::Strong => Some(Category::Strong),
-        SyntaxKind::Emph => Some(Category::Emph),
-        SyntaxKind::Raw => Some(Category::Raw),
-        SyntaxKind::Link => Some(Category::Link),
-        SyntaxKind::Label => Some(Category::Label),
-        SyntaxKind::Ref => Some(Category::Ref),
-        SyntaxKind::Heading => Some(Category::Heading),
+        SyntaxKind::Strong => Some(Tag::Strong),
+        SyntaxKind::Emph => Some(Tag::Emph),
+        SyntaxKind::Raw => Some(Tag::Raw),
+        SyntaxKind::Link => Some(Tag::Link),
+        SyntaxKind::Label => Some(Tag::Label),
+        SyntaxKind::Ref => Some(Tag::Ref),
+        SyntaxKind::Heading => Some(Tag::Heading),
         SyntaxKind::HeadingMarker => None,
         SyntaxKind::ListItem => None,
-        SyntaxKind::ListMarker => Some(Category::ListMarker),
+        SyntaxKind::ListMarker => Some(Tag::ListMarker),
         SyntaxKind::EnumItem => None,
-        SyntaxKind::EnumMarker => Some(Category::ListMarker),
+        SyntaxKind::EnumMarker => Some(Tag::ListMarker),
         SyntaxKind::TermItem => None,
-        SyntaxKind::TermMarker => Some(Category::ListMarker),
+        SyntaxKind::TermMarker => Some(Tag::ListMarker),
         SyntaxKind::Formula => None,
 
         SyntaxKind::Math => None,
         SyntaxKind::MathIdent => highlight_ident(node),
-        SyntaxKind::MathAlignPoint => Some(Category::MathOperator),
+        SyntaxKind::MathAlignPoint => Some(Tag::MathOperator),
         SyntaxKind::MathDelimited => None,
         SyntaxKind::MathAttach => None,
         SyntaxKind::MathFrac => None,
 
         SyntaxKind::Hashtag => highlight_hashtag(node),
-        SyntaxKind::LeftBrace => Some(Category::Punctuation),
-        SyntaxKind::RightBrace => Some(Category::Punctuation),
-        SyntaxKind::LeftBracket => Some(Category::Punctuation),
-        SyntaxKind::RightBracket => Some(Category::Punctuation),
-        SyntaxKind::LeftParen => Some(Category::Punctuation),
-        SyntaxKind::RightParen => Some(Category::Punctuation),
-        SyntaxKind::Comma => Some(Category::Punctuation),
-        SyntaxKind::Semicolon => Some(Category::Punctuation),
-        SyntaxKind::Colon => Some(Category::Punctuation),
+        SyntaxKind::LeftBrace => Some(Tag::Punctuation),
+        SyntaxKind::RightBrace => Some(Tag::Punctuation),
+        SyntaxKind::LeftBracket => Some(Tag::Punctuation),
+        SyntaxKind::RightBracket => Some(Tag::Punctuation),
+        SyntaxKind::LeftParen => Some(Tag::Punctuation),
+        SyntaxKind::RightParen => Some(Tag::Punctuation),
+        SyntaxKind::Comma => Some(Tag::Punctuation),
+        SyntaxKind::Semicolon => Some(Tag::Punctuation),
+        SyntaxKind::Colon => Some(Tag::Punctuation),
         SyntaxKind::Star => match node.parent_kind() {
             Some(SyntaxKind::Strong) => None,
-            _ => Some(Category::Operator),
+            _ => Some(Tag::Operator),
         },
         SyntaxKind::Underscore => match node.parent_kind() {
-            Some(SyntaxKind::MathAttach) => Some(Category::MathOperator),
+            Some(SyntaxKind::MathAttach) => Some(Tag::MathOperator),
             _ => None,
         },
-        SyntaxKind::Dollar => Some(Category::MathDelimiter),
-        SyntaxKind::Plus => Some(Category::Operator),
-        SyntaxKind::Minus => Some(Category::Operator),
+        SyntaxKind::Dollar => Some(Tag::MathDelimiter),
+        SyntaxKind::Plus => Some(Tag::Operator),
+        SyntaxKind::Minus => Some(Tag::Operator),
         SyntaxKind::Slash => Some(match node.parent_kind() {
-            Some(SyntaxKind::MathFrac) => Category::MathOperator,
-            _ => Category::Operator,
+            Some(SyntaxKind::MathFrac) => Tag::MathOperator,
+            _ => Tag::Operator,
         }),
-        SyntaxKind::Hat => Some(Category::MathOperator),
-        SyntaxKind::Dot => Some(Category::Punctuation),
+        SyntaxKind::Hat => Some(Tag::MathOperator),
+        SyntaxKind::Dot => Some(Tag::Punctuation),
         SyntaxKind::Eq => match node.parent_kind() {
             Some(SyntaxKind::Heading) => None,
-            _ => Some(Category::Operator),
+            _ => Some(Tag::Operator),
         },
-        SyntaxKind::EqEq => Some(Category::Operator),
-        SyntaxKind::ExclEq => Some(Category::Operator),
-        SyntaxKind::Lt => Some(Category::Operator),
-        SyntaxKind::LtEq => Some(Category::Operator),
-        SyntaxKind::Gt => Some(Category::Operator),
-        SyntaxKind::GtEq => Some(Category::Operator),
-        SyntaxKind::PlusEq => Some(Category::Operator),
-        SyntaxKind::HyphEq => Some(Category::Operator),
-        SyntaxKind::StarEq => Some(Category::Operator),
-        SyntaxKind::SlashEq => Some(Category::Operator),
-        SyntaxKind::Dots => Some(Category::Operator),
-        SyntaxKind::Arrow => Some(Category::Operator),
+        SyntaxKind::EqEq => Some(Tag::Operator),
+        SyntaxKind::ExclEq => Some(Tag::Operator),
+        SyntaxKind::Lt => Some(Tag::Operator),
+        SyntaxKind::LtEq => Some(Tag::Operator),
+        SyntaxKind::Gt => Some(Tag::Operator),
+        SyntaxKind::GtEq => Some(Tag::Operator),
+        SyntaxKind::PlusEq => Some(Tag::Operator),
+        SyntaxKind::HyphEq => Some(Tag::Operator),
+        SyntaxKind::StarEq => Some(Tag::Operator),
+        SyntaxKind::SlashEq => Some(Tag::Operator),
+        SyntaxKind::Dots => Some(Tag::Operator),
+        SyntaxKind::Arrow => Some(Tag::Operator),
 
-        SyntaxKind::Not => Some(Category::Keyword),
-        SyntaxKind::And => Some(Category::Keyword),
-        SyntaxKind::Or => Some(Category::Keyword),
-        SyntaxKind::None => Some(Category::Keyword),
-        SyntaxKind::Auto => Some(Category::Keyword),
-        SyntaxKind::Let => Some(Category::Keyword),
-        SyntaxKind::Set => Some(Category::Keyword),
-        SyntaxKind::Show => Some(Category::Keyword),
-        SyntaxKind::If => Some(Category::Keyword),
-        SyntaxKind::Else => Some(Category::Keyword),
-        SyntaxKind::For => Some(Category::Keyword),
-        SyntaxKind::In => Some(Category::Keyword),
-        SyntaxKind::While => Some(Category::Keyword),
-        SyntaxKind::Break => Some(Category::Keyword),
-        SyntaxKind::Continue => Some(Category::Keyword),
-        SyntaxKind::Return => Some(Category::Keyword),
-        SyntaxKind::Import => Some(Category::Keyword),
-        SyntaxKind::Include => Some(Category::Keyword),
-        SyntaxKind::As => Some(Category::Keyword),
+        SyntaxKind::Not => Some(Tag::Keyword),
+        SyntaxKind::And => Some(Tag::Keyword),
+        SyntaxKind::Or => Some(Tag::Keyword),
+        SyntaxKind::None => Some(Tag::Keyword),
+        SyntaxKind::Auto => Some(Tag::Keyword),
+        SyntaxKind::Let => Some(Tag::Keyword),
+        SyntaxKind::Set => Some(Tag::Keyword),
+        SyntaxKind::Show => Some(Tag::Keyword),
+        SyntaxKind::If => Some(Tag::Keyword),
+        SyntaxKind::Else => Some(Tag::Keyword),
+        SyntaxKind::For => Some(Tag::Keyword),
+        SyntaxKind::In => Some(Tag::Keyword),
+        SyntaxKind::While => Some(Tag::Keyword),
+        SyntaxKind::Break => Some(Tag::Keyword),
+        SyntaxKind::Continue => Some(Tag::Keyword),
+        SyntaxKind::Return => Some(Tag::Keyword),
+        SyntaxKind::Import => Some(Tag::Keyword),
+        SyntaxKind::Include => Some(Tag::Keyword),
+        SyntaxKind::As => Some(Tag::Keyword),
 
         SyntaxKind::Code => None,
         SyntaxKind::Ident => highlight_ident(node),
-        SyntaxKind::Bool => Some(Category::Keyword),
-        SyntaxKind::Int => Some(Category::Number),
-        SyntaxKind::Float => Some(Category::Number),
-        SyntaxKind::Numeric => Some(Category::Number),
-        SyntaxKind::Str => Some(Category::String),
+        SyntaxKind::Bool => Some(Tag::Keyword),
+        SyntaxKind::Int => Some(Tag::Number),
+        SyntaxKind::Float => Some(Tag::Number),
+        SyntaxKind::Numeric => Some(Tag::Number),
+        SyntaxKind::Str => Some(Tag::String),
         SyntaxKind::CodeBlock => None,
         SyntaxKind::ContentBlock => None,
         SyntaxKind::Parenthesized => None,
@@ -246,15 +246,15 @@ pub fn highlight(node: &LinkedNode) -> Option<Category> {
         SyntaxKind::LoopContinue => None,
         SyntaxKind::FuncReturn => None,
 
-        SyntaxKind::LineComment => Some(Category::Comment),
-        SyntaxKind::BlockComment => Some(Category::Comment),
-        SyntaxKind::Error => Some(Category::Error),
+        SyntaxKind::LineComment => Some(Tag::Comment),
+        SyntaxKind::BlockComment => Some(Tag::Comment),
+        SyntaxKind::Error => Some(Tag::Error),
         SyntaxKind::Eof => None,
     }
 }
 
 /// Highlight an identifier based on context.
-fn highlight_ident(node: &LinkedNode) -> Option<Category> {
+fn highlight_ident(node: &LinkedNode) -> Option<Tag> {
     // Are we directly before an argument list?
     let next_leaf = node.next_leaf();
     if let Some(next) = &next_leaf {
@@ -264,13 +264,13 @@ fn highlight_ident(node: &LinkedNode) -> Option<Category> {
             || (next.kind() == SyntaxKind::LeftBracket
                 && next.parent_kind() == Some(SyntaxKind::ContentBlock))
         {
-            return Some(Category::Function);
+            return Some(Tag::Function);
         }
     }
 
     // Are we in math?
     if node.kind() == SyntaxKind::MathIdent {
-        return Some(Category::Interpolated);
+        return Some(Tag::Interpolated);
     }
 
     // Find the first non-field access ancestor.
@@ -283,12 +283,12 @@ fn highlight_ident(node: &LinkedNode) -> Option<Category> {
     if next_leaf.map(|leaf| leaf.kind()) == Some(SyntaxKind::Colon)
         && ancestor.parent_kind() == Some(SyntaxKind::ShowRule)
     {
-        return Some(Category::Function);
+        return Some(Tag::Function);
     }
 
     // Are we (or an ancestor field access) directly after a hashtag.
     if ancestor.prev_leaf().map(|leaf| leaf.kind()) == Some(SyntaxKind::Hashtag) {
-        return Some(Category::Interpolated);
+        return Some(Tag::Interpolated);
     }
 
     // Are we behind a dot, that is behind another identifier?
@@ -304,7 +304,7 @@ fn highlight_ident(node: &LinkedNode) -> Option<Category> {
 }
 
 /// Highlight a hashtag based on context.
-fn highlight_hashtag(node: &LinkedNode) -> Option<Category> {
+fn highlight_hashtag(node: &LinkedNode) -> Option<Tag> {
     let next = node.next_sibling()?;
     let expr = next.cast::<ast::Expr>()?;
     if !expr.hashtag() {
@@ -320,7 +320,7 @@ fn is_ident(node: &LinkedNode) -> bool {
 
 /// Highlight a node to an HTML `code` element.
 ///
-/// This uses these [CSS classes for categories](Category::css_class).
+/// This uses these [CSS classes for categories](Tag::css_class).
 pub fn highlight_html(root: &SyntaxNode) -> String {
     let mut buf = String::from("<code>");
     let node = LinkedNode::new(root);
@@ -332,11 +332,11 @@ pub fn highlight_html(root: &SyntaxNode) -> String {
 /// Highlight one source node, emitting HTML.
 fn highlight_html_impl(html: &mut String, node: &LinkedNode) {
     let mut span = false;
-    if let Some(category) = highlight(node) {
-        if category != Category::Error {
+    if let Some(tag) = highlight(node) {
+        if tag != Tag::Error {
             span = true;
             html.push_str("<span class=\"");
-            html.push_str(category.css_class());
+            html.push_str(tag.css_class());
             html.push_str("\">");
         }
     }
@@ -373,17 +373,17 @@ mod tests {
 
     #[test]
     fn test_highlighting() {
-        use Category::*;
+        use Tag::*;
 
         #[track_caller]
-        fn test(text: &str, goal: &[(Range<usize>, Category)]) {
+        fn test(text: &str, goal: &[(Range<usize>, Tag)]) {
             let mut vec = vec![];
             let source = Source::detached(text);
             highlight_tree(&mut vec, &LinkedNode::new(source.root()));
             assert_eq!(vec, goal);
         }
 
-        fn highlight_tree(tags: &mut Vec<(Range<usize>, Category)>, node: &LinkedNode) {
+        fn highlight_tree(tags: &mut Vec<(Range<usize>, Tag)>, node: &LinkedNode) {
             if let Some(tag) = highlight(node) {
                 tags.push((node.range(), tag));
             }
