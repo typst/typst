@@ -5,8 +5,7 @@ use super::*;
 ///
 /// ## Syntax
 /// This function also has dedicated syntax: Use the underscore (`_`) to
-/// indicate a bottom attachment and the circumflex (`^`) to indicate a top
-/// attachment.
+/// indicate a bottom attachment and the hat (`^`) to indicate a top attachment.
 ///
 /// ## Example
 /// ```

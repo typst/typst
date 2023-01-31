@@ -5,7 +5,7 @@
 
 $ grave(a),
   acute(a),
-  circum(a),
+  hat(a),
   tilde(a),
   macron(a),
   breve(a),

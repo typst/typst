@@ -150,7 +150,7 @@ symbols! {
     breve: '˘',
     caret: '‸',
     caron: 'ˇ',
-    circum: '^',
+    hat: '^',
     diaer: '¨',
     grave: '`',
     macron: '¯',

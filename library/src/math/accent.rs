@@ -34,7 +34,7 @@ const ACCENT_SHORT_FALL: Em = Em::new(0.5);
 ///   | ------------ | --------------- | --------- |
 ///   | Grave        | `grave`         | <code>&DiacriticalGrave;</code> |
 ///   | Acute        | `acute`         | `´`       |
-///   | Circumflex   | `circum`        | `^`       |
+///   | Circumflex   | `hat`           | `^`       |
 ///   | Tilde        | `tilde`         | `~`       |
 ///   | Macron       | `macron`        | `¯`       |
 ///   | Breve        | `breve`         | `˘`       |

@@ -330,7 +330,7 @@ symbols! {
     // Logic.
     forall: '∀',
     exists: ['∃', "not": '∄'],
-    top: '⟙',
+    top: '⊤',
     bot: '⊥',
     not: '¬',
     and: [
@@ -412,6 +412,7 @@ symbols! {
     ],
     prop: '∝',
     divides: ['∣', "not": '∤'],
+    compose: '∘',
 
     // Miscellaneous.
     diff: '∂',

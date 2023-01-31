@@ -58,6 +58,10 @@ macro_rules! ops {
                     limits: ops!(@limit $($tts)*),
                 }.pack()
             );)*
+
+            let dif = |d| HNode::strong(THIN).pack() + UprightNode(TextNode::packed(d)).pack();
+            math.define("dif", dif('d'));
+            math.define("Dif", dif('D'));
         }
     };
     (@name $name:ident) => { stringify!($name) };
