@@ -115,9 +115,7 @@ fn write_page(ctx: &mut PdfContext, page: Page) {
         link.subtype(AnnotationType::Link).rect(rect);
         match dest {
             Destination::Url(uri) => {
-                link.action()
-                    .action_type(ActionType::Uri)
-                    .uri(Str(uri.as_str().as_bytes()));
+                link.action().action_type(ActionType::Uri).uri(Str(uri.as_bytes()));
             }
             Destination::Internal(loc) => {
                 let index = loc.page.get() - 1;

@@ -173,7 +173,7 @@ impl Content {
 
         for modifier in &self.modifiers {
             if let Modifier::Field(other, value) = modifier {
-                if name == other.as_str() {
+                if name == other {
                     return Some(value.clone());
                 }
             }

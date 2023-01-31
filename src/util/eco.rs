@@ -262,6 +262,18 @@ impl PartialEq<&str> for EcoString {
     }
 }
 
+impl PartialEq<EcoString> for str {
+    fn eq(&self, other: &EcoString) -> bool {
+        self.eq(other.as_str())
+    }
+}
+
+impl PartialEq<EcoString> for &str {
+    fn eq(&self, other: &EcoString) -> bool {
+        (*self).eq(other.as_str())
+    }
+}
+
 impl Ord for EcoString {
     fn cmp(&self, other: &Self) -> Ordering {
         self.as_str().cmp(other.as_str())

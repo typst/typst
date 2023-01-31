@@ -407,7 +407,7 @@ fn import_completions(
     }
 
     for (name, value) in module.scope().iter() {
-        if existing.iter().all(|ident| ident.as_str() != name.as_str()) {
+        if existing.iter().all(|ident| ident.as_str() != name) {
             ctx.value_completion(Some(name.clone()), value, None);
         }
     }

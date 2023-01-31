@@ -459,7 +459,7 @@ impl Shorthand {
 
     /// Get the shorthanded character.
     pub fn get(&self) -> char {
-        let text = self.0.text().as_str();
+        let text = self.0.text();
         Self::LIST
             .iter()
             .find(|&&(s, _)| s == text)
