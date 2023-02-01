@@ -962,15 +962,21 @@ impl Eval for ast::FuncCall {
                     return Ok(Value::Content((vm.items.math_accent)(base, accent)));
                 }
             }
-            let mut body = (vm.items.text)('('.into());
+            let mut body = Content::empty();
             for (i, arg) in args.all::<Content>()?.into_iter().enumerate() {
                 if i > 0 {
                     body += (vm.items.text)(','.into());
                 }
                 body += arg;
             }
-            body += (vm.items.text)(')'.into());
-            return Ok(Value::Content(callee.display() + body));
+            return Ok(Value::Content(
+                callee.display()
+                    + (vm.items.math_delimited)(
+                        (vm.items.text)('('.into()),
+                        body,
+                        (vm.items.text)(')'.into()),
+                    ),
+            ));
         }
 
         // Finally, just a normal function call!
