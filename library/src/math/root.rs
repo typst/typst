@@ -88,10 +88,10 @@ fn layout(
         display: radical_display_style_vertical_gap,
     );
     let thickness = scaled!(ctx, radical_rule_thickness);
-    let ascender = scaled!(ctx, radical_extra_ascender);
+    let extra_ascender = scaled!(ctx, radical_extra_ascender);
     let kern_before = scaled!(ctx, radical_kern_before_degree);
     let kern_after = scaled!(ctx, radical_kern_after_degree);
-    let raise = percent!(ctx, radical_degree_bottom_raise_percent);
+    let raise_factor = percent!(ctx, radical_degree_bottom_raise_percent);
 
     // Layout radicand.
     ctx.style(ctx.style.with_cramped(true));
@@ -111,42 +111,50 @@ fn layout(
         });
 
     // Layout the index.
-    let mut offset = Abs::zero();
-    let index = if let Some(index) = index {
-        // Script-script style looks too small, we use Script style instead.
-        ctx.style(ctx.style.with_size(MathSize::Script));
-        let frame = ctx.layout_frame(index)?;
-        offset = kern_before + frame.width() + kern_after;
-        ctx.unstyle();
-        frame
-    } else {
-        Frame::new(Size::zero())
-    };
+    // Script-script style looks too small, we use Script style instead.
+    ctx.style(ctx.style.with_size(MathSize::Script));
+    let index = index.map(|node| ctx.layout_frame(node)).transpose()?;
+    ctx.unstyle();
 
-    let width = offset + sqrt.width() + radicand.width();
-    let height = sqrt.height() + ascender;
-    let size = Size::new(width, height);
-    let remains = (sqrt.height() - radicand.height() - thickness) / 2.0;
-    let index_pos =
-        Point::new(kern_before, height - index.ascent() - raise * sqrt.height());
-    let sqrt_pos = Point::new(offset, ascender);
-    let line_pos = Point::new(offset + sqrt.width(), ascender + thickness / 2.0);
-    let line_length = radicand.width();
-    let radicand_pos =
-        Point::new(offset + sqrt.width(), ascender + thickness + gap.max(remains));
-    let baseline = radicand_pos.y + radicand.ascent();
+    let gap = gap.max((sqrt.height() - radicand.height() - thickness) / 2.0);
+    let descent = radicand.descent() + gap;
+    let inner_ascent = extra_ascender + thickness + gap + radicand.ascent();
+
+    let mut sqrt_offset = Abs::zero();
+    let mut ascent = inner_ascent;
+    let mut shift_up = raise_factor * sqrt.height() - descent;
+
+    if let Some(index) = &index {
+        sqrt_offset = kern_before + index.width() + kern_after;
+        shift_up.set_max(index.descent() + Em::new(0.35).scaled(ctx));
+        ascent.set_max(shift_up + index.ascent());
+    }
+
+    let radicant_offset = sqrt_offset + sqrt.width();
+    let width = radicant_offset + radicand.width();
+    let size = Size::new(width, ascent + descent);
+
+    let sqrt_pos = Point::new(sqrt_offset, ascent - inner_ascent);
+    let line_pos = Point::new(radicant_offset, ascent - inner_ascent + thickness / 2.0);
+    let radicand_pos = Point::new(radicant_offset, ascent - radicand.ascent());
 
     let mut frame = Frame::new(size);
-    frame.set_baseline(baseline);
-    frame.push_frame(index_pos, index);
+    frame.set_baseline(ascent);
+
+    if let Some(index) = index {
+        let index_pos = Point::new(kern_before, ascent - shift_up - index.ascent());
+        frame.push_frame(index_pos, index);
+    }
+
     frame.push_frame(sqrt_pos, sqrt);
     frame.push(
         line_pos,
         Element::Shape(
-            Geometry::Line(Point::with_x(line_length))
+            Geometry::Line(Point::with_x(radicand.width()))
                 .stroked(Stroke { paint: ctx.styles().get(TextNode::FILL), thickness }),
         ),
     );
+
     frame.push_frame(radicand_pos, radicand);
     ctx.push(frame);
 
