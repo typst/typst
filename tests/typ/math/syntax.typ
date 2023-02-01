@@ -1,11 +1,10 @@
 #set page(width: auto)
-#set text("Latin Modern Roman")
 #show <table>: it => table(
   columns: 2,
   inset: 8pt,
   ..it.text
     .split("\n")
-    .map(line => (text(10pt, raw(line, lang: "typ")), eval(line) + [ ]))
+    .map(line => (raw(line, lang: "typ"), text("Latin Modern Roman", eval(line))))
     .flatten()
 )
 

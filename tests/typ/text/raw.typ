@@ -45,6 +45,11 @@ The keyword ```rust let```.
      ```
 
 ---
+// Text show rule
+#show raw: set text("Roboto")
+`Roboto`
+
+---
 // Unterminated.
 // Error: 2:1 expected 1 backtick
 `endless

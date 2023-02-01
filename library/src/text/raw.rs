@@ -2,7 +2,9 @@ use once_cell::sync::Lazy;
 use syntect::highlighting as synt;
 use typst::syntax::{self, LinkedNode};
 
-use super::{FontFamily, Hyphenate, LinebreakNode, SmartQuoteNode, TextNode};
+use super::{
+    FallbackList, FontFamily, Hyphenate, LinebreakNode, SmartQuoteNode, TextNode,
+};
 use crate::layout::BlockNode;
 use crate::prelude::*;
 
@@ -88,7 +90,7 @@ use crate::prelude::*;
 /// ## Category
 /// text
 #[func]
-#[capable(Show, Prepare)]
+#[capable(Prepare, Show, Finalize)]
 #[derive(Debug, Hash)]
 pub struct RawNode {
     /// The raw text.
@@ -203,13 +205,18 @@ impl Show for RawNode {
             realized = BlockNode(realized).pack();
         }
 
+        Ok(realized)
+    }
+}
+
+impl Finalize for RawNode {
+    fn finalize(&self, realized: Content) -> Content {
         let mut map = StyleMap::new();
         map.set(TextNode::OVERHANG, false);
         map.set(TextNode::HYPHENATE, Hyphenate(Smart::Custom(false)));
         map.set(SmartQuoteNode::ENABLED, false);
-        map.set_family(FontFamily::new("IBM Plex Mono"), styles);
-
-        Ok(realized.styled_with_map(map))
+        map.set(TextNode::FAMILY, FallbackList(vec![FontFamily::new("IBM Plex Mono")]));
+        realized.styled_with_map(map)
     }
 }
 
