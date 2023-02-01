@@ -192,11 +192,8 @@ fn scripts(
     }
 
     let italics = base.italics_correction();
+    let sup_delta = Abs::zero();
     let sub_delta = -italics;
-    let sup_delta = match base.class() {
-        Some(MathClass::Large) => Abs::zero(),
-        _ => italics,
-    };
 
     let mut width = Abs::zero();
     let mut ascent = base.ascent();

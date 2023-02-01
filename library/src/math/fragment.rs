@@ -152,13 +152,19 @@ impl GlyphFragment {
             x_max: 0,
             y_max: 0,
         });
+
+        let mut width = advance.scaled(ctx);
+        if !is_extended_shape(ctx, id) {
+            width += italics;
+        }
+
         Self {
             id,
             c,
             lang: ctx.styles().get(TextNode::LANG),
             fill: ctx.styles().get(TextNode::FILL),
             font_size: ctx.size,
-            width: advance.scaled(ctx),
+            width,
             ascent: bbox.y_max.scaled(ctx),
             descent: -bbox.y_min.scaled(ctx),
             italics_correction: italics,
@@ -247,6 +253,15 @@ impl FrameFragment {
 /// Look up the italics correction for a glyph.
 fn italics_correction(ctx: &MathContext, id: GlyphId) -> Option<Abs> {
     Some(ctx.table.glyph_info?.italic_corrections?.get(id)?.scaled(ctx))
+}
+
+/// Look up the italics correction for a glyph.
+fn is_extended_shape(ctx: &MathContext, id: GlyphId) -> bool {
+    ctx.table
+        .glyph_info
+        .and_then(|info| info.extended_shapes)
+        .and_then(|info| info.get(id))
+        .is_some()
 }
 
 /// Look up a kerning value at a specific corner and height.

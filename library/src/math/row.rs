@@ -59,10 +59,6 @@ impl MathRow {
             }
 
             let mut amount = Abs::zero();
-            if let MathFragment::Glyph(glyph) = *prev {
-                amount += glyph.italics_correction;
-            }
-
             amount += spacing(prev, &fragment, style, space, space_width).at(font_size);
 
             if !amount.is_zero() {
