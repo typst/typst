@@ -436,17 +436,35 @@ impl Default for MathVariant {
 pub(super) fn styled_char(style: MathStyle, c: char) -> char {
     use MathVariant::*;
 
-    let (base, default_italic) = match c {
-        'a'..='z' => ('a', true),
-        'A'..='Z' => ('A', true),
-        'α'..='ω' => ('α', true),
-        'Α'..='Ω' => ('Α', false),
-        '0'..='9' => ('0', false),
-        '-' => return '−',
+    let MathStyle { variant, bold, .. } = style;
+    let italic = style.italic.unwrap_or(matches!(
+        c,
+        'a'..='z' | 'ı' | 'ȷ' | 'A'..='Z' | 'α'..='ω' |
+        '∂' | 'ϵ' | 'ϑ' | 'ϰ' | 'ϕ' | 'ϱ' | 'ϖ'
+    ));
+
+    if c == '-' {
+        return '−';
+    }
+
+    if let Some(c) = latin_exception(c, variant, bold, italic) {
+        return c;
+    }
+
+    if let Some(c) = greek_exception(c, variant, bold, italic) {
+        return c;
+    }
+
+    let base = match c {
+        'A'..='Z' => 'A',
+        'a'..='z' => 'a',
+        'Α'..='Ω' => 'Α',
+        'α'..='ω' => 'α',
+        '0'..='9' => '0',
         _ => return c,
     };
 
-    let tuple = (style.variant, style.bold, style.italic.unwrap_or(default_italic));
+    let tuple = (variant, bold, italic);
     let start = match c {
         // Latin upper.
         'A'..='Z' => match tuple {
@@ -517,36 +535,76 @@ pub(super) fn styled_char(style: MathStyle, c: char) -> char {
             (Cal | Frak, _, _) => return c,
         },
 
-        _ => return c,
+        _ => unreachable!(),
     };
 
-    // Map and fix up codepoints that are defined in previous Unicode Blocks.
-    let code = start + (c as u32 - base as u32);
-    match code {
-        0x1D455 => '\u{210E}',
-        0x1D49D => '\u{212C}',
-        0x1D4A0 => '\u{2130}',
-        0x1D4A1 => '\u{2131}',
-        0x1D4A3 => '\u{210B}',
-        0x1D4A4 => '\u{2110}',
-        0x1D4A7 => '\u{2112}',
-        0x1D4A8 => '\u{2133}',
-        0x1D4AD => '\u{211B}',
-        0x1D4BA => '\u{212F}',
-        0x1D4BC => '\u{210A}',
-        0x1D4C4 => '\u{2134}',
-        0x1D506 => '\u{212D}',
-        0x1D50B => '\u{210C}',
-        0x1D50C => '\u{2111}',
-        0x1D515 => '\u{211C}',
-        0x1D51D => '\u{2128}',
-        0x1D53A => '\u{2102}',
-        0x1D53F => '\u{210D}',
-        0x1D545 => '\u{2115}',
-        0x1D547 => '\u{2119}',
-        0x1D548 => '\u{211A}',
-        0x1D549 => '\u{211D}',
-        0x1D551 => '\u{2124}',
-        code => std::char::from_u32(code).unwrap(),
-    }
+    std::char::from_u32(start + (c as u32 - base as u32)).unwrap()
+}
+
+fn latin_exception(
+    c: char,
+    variant: MathVariant,
+    bold: bool,
+    italic: bool,
+) -> Option<char> {
+    use MathVariant::*;
+    Some(match (c, variant, bold, italic) {
+        ('B', Cal, false, _) => 'ℬ',
+        ('E', Cal, false, _) => 'ℰ',
+        ('F', Cal, false, _) => 'ℱ',
+        ('H', Cal, false, _) => 'ℋ',
+        ('I', Cal, false, _) => 'ℐ',
+        ('L', Cal, false, _) => 'ℒ',
+        ('M', Cal, false, _) => 'ℳ',
+        ('R', Cal, false, _) => 'ℜ',
+        ('C', Frak, false, _) => 'ℭ',
+        ('H', Frak, false, _) => 'ℌ',
+        ('I', Frak, false, _) => 'ℑ',
+        ('R', Frak, false, _) => 'ℛ',
+        ('Z', Frak, false, _) => 'ℨ',
+        ('C', Bb, ..) => 'ℂ',
+        ('H', Bb, ..) => 'ℍ',
+        ('N', Bb, ..) => 'ℕ',
+        ('P', Bb, ..) => 'ℙ',
+        ('Q', Bb, ..) => 'ℚ',
+        ('R', Bb, ..) => 'ℝ',
+        ('Z', Bb, ..) => 'ℤ',
+        ('h', Serif, false, true) => 'ℎ',
+        ('e', Cal, false, _) => 'ℯ',
+        ('g', Cal, false, _) => 'ℊ',
+        ('o', Cal, false, _) => 'ℴ',
+        ('ı', Serif, .., true) => '𝚤',
+        ('ȷ', Serif, .., true) => '𝚥',
+        _ => return None,
+    })
+}
+
+fn greek_exception(
+    c: char,
+    variant: MathVariant,
+    bold: bool,
+    italic: bool,
+) -> Option<char> {
+    use MathVariant::*;
+    let list = match c {
+        'ϴ' => ['𝚹', '𝛳', '𝜭', '𝝧', '𝞡'],
+        '∇' => ['𝛁', '𝛻', '𝜵', '𝝯', '𝞩'],
+        '∂' => ['𝛛', '𝜕', '𝝏', '𝞉', '𝟃'],
+        'ϵ' => ['𝛜', '𝜖', '𝝐', '𝞊', '𝟄'],
+        'ϑ' => ['𝛝', '𝜗', '𝝑', '𝞋', '𝟅'],
+        'ϰ' => ['𝛞', '𝜘', '𝝒', '𝞌', '𝟆'],
+        'ϕ' => ['𝛟', '𝜙', '𝝓', '𝞍', '𝟇'],
+        'ϱ' => ['𝛠', '𝜚', '𝝔', '𝞎', '𝟈'],
+        'ϖ' => ['𝛡', '𝜛', '𝝕', '𝞏', '𝟉'],
+        _ => return None,
+    };
+
+    Some(match (variant, bold, italic) {
+        (Serif, true, false) => list[0],
+        (Serif, false, true) => list[1],
+        (Serif, true, true) => list[2],
+        (Sans, _, false) => list[3],
+        (Sans, _, true) => list[4],
+        _ => return None,
+    })
 }
