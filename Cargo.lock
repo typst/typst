@@ -1142,6 +1142,7 @@ dependencies = [
  "hypher",
  "kurbo",
  "lipsum",
+ "log",
  "once_cell",
  "roxmltree",
  "rustybuzz",

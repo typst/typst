@@ -16,6 +16,7 @@ csv = "1"
 hypher = "0.1"
 kurbo = "0.8"
 lipsum = { git = "https://github.com/reknih/lipsum" }
+log = "0.4"
 once_cell = "1"
 roxmltree = "0.14"
 rustybuzz = "0.5"
