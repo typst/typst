@@ -50,19 +50,14 @@ impl LayoutMath for AttachNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let base = ctx.layout_fragment(&self.base)?;
 
-        let mut top = Frame::new(Size::zero());
-        if let Some(node) = &self.top {
-            ctx.style(ctx.style.for_subscript());
-            top = ctx.layout_frame(node)?;
-            ctx.unstyle();
-        }
+        ctx.style(ctx.style.for_subscript());
+        let top = self.top.as_ref().map(|node| ctx.layout_frame(node)).transpose()?;
+        ctx.unstyle();
 
-        let mut bottom = Frame::new(Size::zero());
-        if let Some(node) = &self.bottom {
-            ctx.style(ctx.style.for_superscript());
-            bottom = ctx.layout_frame(node)?;
-            ctx.unstyle();
-        }
+        ctx.style(ctx.style.for_superscript());
+        let bottom =
+            self.bottom.as_ref().map(|node| ctx.layout_frame(node)).transpose()?;
+        ctx.unstyle();
 
         let render_limits = self.base.is::<LimitsNode>()
             || (!self.base.is::<ScriptsNode>()
@@ -77,7 +72,7 @@ impl LayoutMath for AttachNode {
         if render_limits {
             limits(ctx, base, top, bottom)
         } else {
-            scripts(ctx, base, top, bottom, self.top.is_some() && self.bottom.is_some())
+            scripts(ctx, base, top, bottom)
         }
     }
 }
@@ -150,9 +145,8 @@ impl LayoutMath for LimitsNode {
 fn scripts(
     ctx: &mut MathContext,
     base: MathFragment,
-    sup: Frame,
-    sub: Frame,
-    both: bool,
+    sup: Option<Frame>,
+    sub: Option<Frame>,
 ) -> SourceResult<()> {
     let sup_shift_up = if ctx.style.cramped {
         scaled!(ctx, superscript_shift_up_cramped)
@@ -168,15 +162,22 @@ fn scripts(
     let sub_drop_min = scaled!(ctx, subscript_baseline_drop_min);
     let space_after = scaled!(ctx, space_after_script);
 
-    let mut shift_up = sup_shift_up
-        .max(base.ascent() - sup_drop_max)
-        .max(sup_bottom_min + sup.descent());
+    let mut shift_up = Abs::zero();
+    let mut shift_down = Abs::zero();
 
-    let mut shift_down = sub_shift_down
-        .max(base.descent() + sub_drop_min)
-        .max(sub.ascent() - sub_top_max);
+    if let Some(sup) = &sup {
+        shift_up = sup_shift_up
+            .max(base.ascent() - sup_drop_max)
+            .max(sup_bottom_min + sup.descent());
+    }
 
-    if both {
+    if let Some(sub) = &sub {
+        shift_down = sub_shift_down
+            .max(base.descent() + sub_drop_min)
+            .max(sub.ascent() - sub_top_max);
+    }
+
+    if let (Some(sup), Some(sub)) = (&sup, &sub) {
         let sup_bottom = shift_up - sup.descent();
         let sub_top = sub.ascent() - shift_down;
         let gap = sup_bottom - sub_top;
@@ -191,27 +192,48 @@ fn scripts(
     }
 
     let italics = base.italics_correction();
-    let top_delta = match base.class() {
+    let sub_delta = -italics;
+    let sup_delta = match base.class() {
         Some(MathClass::Large) => Abs::zero(),
         _ => italics,
     };
-    let bottom_delta = -italics;
-    let ascent = shift_up + sup.ascent();
-    let descent = shift_down + sub.descent();
-    let height = ascent + descent;
-    let width = base.width()
-        + (sup.width() + top_delta).max(sub.width() + bottom_delta)
-        + space_after;
+
+    let mut width = Abs::zero();
+    let mut ascent = base.ascent();
+    let mut descent = base.descent();
+
+    if let Some(sup) = &sup {
+        ascent.set_max(shift_up + sup.ascent());
+        width.set_max(sup_delta + sup.width());
+    }
+
+    if let Some(sub) = &sub {
+        descent.set_max(shift_down + sub.descent());
+        width.set_max(sub_delta + sub.width());
+    }
+
+    width += base.width() + space_after;
+
     let base_pos = Point::with_y(ascent - base.ascent());
-    let sup_pos = Point::with_x(base.width() + top_delta);
-    let sub_pos = Point::new(base.width() + bottom_delta, height - sub.height());
+    let base_width = base.width();
     let class = base.class().unwrap_or(MathClass::Normal);
 
-    let mut frame = Frame::new(Size::new(width, height));
+    let mut frame = Frame::new(Size::new(width, ascent + descent));
     frame.set_baseline(ascent);
     frame.push_frame(base_pos, base.to_frame(ctx));
-    frame.push_frame(sup_pos, sup);
-    frame.push_frame(sub_pos, sub);
+
+    if let Some(sup) = sup {
+        let sup_pos =
+            Point::new(sup_delta + base_width, ascent - shift_up - sup.ascent());
+        frame.push_frame(sup_pos, sup);
+    }
+
+    if let Some(sub) = sub {
+        let sub_pos =
+            Point::new(sub_delta + base_width, ascent + shift_down - sub.ascent());
+        frame.push_frame(sub_pos, sub);
+    }
+
     ctx.push(FrameFragment::new(frame).with_class(class));
 
     Ok(())
@@ -221,31 +243,50 @@ fn scripts(
 fn limits(
     ctx: &mut MathContext,
     base: MathFragment,
-    top: Frame,
-    bottom: Frame,
+    top: Option<Frame>,
+    bottom: Option<Frame>,
 ) -> SourceResult<()> {
     let upper_gap_min = scaled!(ctx, upper_limit_gap_min);
     let upper_rise_min = scaled!(ctx, upper_limit_baseline_rise_min);
     let lower_gap_min = scaled!(ctx, lower_limit_gap_min);
     let lower_drop_min = scaled!(ctx, lower_limit_baseline_drop_min);
 
-    let top_gap = upper_gap_min.max(upper_rise_min - top.descent());
-    let bottom_gap = lower_gap_min.max(lower_drop_min - bottom.ascent());
+    let mut base_offset = Abs::zero();
+    let mut width = base.width();
+    let mut height = base.height();
 
-    let delta = base.italics_correction() / 2.0;
-    let width = base.width().max(top.width()).max(bottom.width());
-    let height = top.height() + top_gap + base.height() + bottom_gap + bottom.height();
-    let base_pos = Point::new((width - base.width()) / 2.0, top.height() + top_gap);
-    let sup_pos = Point::with_x((width - top.width()) / 2.0 + delta);
-    let sub_pos =
-        Point::new((width - bottom.width()) / 2.0 - delta, height - bottom.height());
+    if let Some(top) = &top {
+        let top_gap = upper_gap_min.max(upper_rise_min - top.descent());
+        width.set_max(top.width());
+        height += top.height() + top_gap;
+        base_offset = top_gap + top.height();
+    }
+
+    if let Some(bottom) = &bottom {
+        let bottom_gap = lower_gap_min.max(lower_drop_min - bottom.ascent());
+        width.set_max(bottom.width());
+        height += bottom.height() + bottom_gap;
+    }
+
+    let base_pos = Point::new((width - base.width()) / 2.0, base_offset);
     let class = base.class().unwrap_or(MathClass::Normal);
+    let delta = base.italics_correction() / 2.0;
 
     let mut frame = Frame::new(Size::new(width, height));
     frame.set_baseline(base_pos.y + base.ascent());
     frame.push_frame(base_pos, base.to_frame(ctx));
-    frame.push_frame(sub_pos, bottom);
-    frame.push_frame(sup_pos, top);
+
+    if let Some(top) = top {
+        let top_pos = Point::with_x((width - top.width()) / 2.0 + delta);
+        frame.push_frame(top_pos, top);
+    }
+
+    if let Some(bottom) = bottom {
+        let bottom_pos =
+            Point::new((width - bottom.width()) / 2.0 - delta, height - bottom.height());
+        frame.push_frame(bottom_pos, bottom);
+    }
+
     ctx.push(FrameFragment::new(frame).with_class(class));
 
     Ok(())
