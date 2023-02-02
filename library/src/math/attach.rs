@@ -51,12 +51,15 @@ impl LayoutMath for AttachNode {
         let base = ctx.layout_fragment(&self.base)?;
 
         ctx.style(ctx.style.for_subscript());
-        let top = self.top.as_ref().map(|node| ctx.layout_frame(node)).transpose()?;
+        let top = self.top.as_ref().map(|node| ctx.layout_fragment(node)).transpose()?;
         ctx.unstyle();
 
         ctx.style(ctx.style.for_superscript());
-        let bottom =
-            self.bottom.as_ref().map(|node| ctx.layout_frame(node)).transpose()?;
+        let bottom = self
+            .bottom
+            .as_ref()
+            .map(|node| ctx.layout_fragment(node))
+            .transpose()?;
         ctx.unstyle();
 
         let render_limits = self.base.is::<LimitsNode>()
@@ -145,8 +148,8 @@ impl LayoutMath for LimitsNode {
 fn scripts(
     ctx: &mut MathContext,
     base: MathFragment,
-    sup: Option<Frame>,
-    sub: Option<Frame>,
+    sup: Option<MathFragment>,
+    sub: Option<MathFragment>,
 ) -> SourceResult<()> {
     let sup_shift_up = if ctx.style.cramped {
         scaled!(ctx, superscript_shift_up_cramped)
@@ -166,8 +169,13 @@ fn scripts(
     let mut shift_down = Abs::zero();
 
     if let Some(sup) = &sup {
+        let ascent = match &base {
+            MathFragment::Frame(frame) => frame.base_ascent,
+            _ => base.ascent(),
+        };
+
         shift_up = sup_shift_up
-            .max(base.ascent() - sup_drop_max)
+            .max(ascent - sup_drop_max)
             .max(sup_bottom_min + sup.descent());
     }
 
@@ -222,13 +230,13 @@ fn scripts(
     if let Some(sup) = sup {
         let sup_pos =
             Point::new(sup_delta + base_width, ascent - shift_up - sup.ascent());
-        frame.push_frame(sup_pos, sup);
+        frame.push_frame(sup_pos, sup.to_frame(ctx));
     }
 
     if let Some(sub) = sub {
         let sub_pos =
             Point::new(sub_delta + base_width, ascent + shift_down - sub.ascent());
-        frame.push_frame(sub_pos, sub);
+        frame.push_frame(sub_pos, sub.to_frame(ctx));
     }
 
     ctx.push(FrameFragment::new(ctx, frame).with_class(class));
@@ -240,8 +248,8 @@ fn scripts(
 fn limits(
     ctx: &mut MathContext,
     base: MathFragment,
-    top: Option<Frame>,
-    bottom: Option<Frame>,
+    top: Option<MathFragment>,
+    bottom: Option<MathFragment>,
 ) -> SourceResult<()> {
     let upper_gap_min = scaled!(ctx, upper_limit_gap_min);
     let upper_rise_min = scaled!(ctx, upper_limit_baseline_rise_min);
@@ -275,13 +283,13 @@ fn limits(
 
     if let Some(top) = top {
         let top_pos = Point::with_x((width - top.width()) / 2.0 + delta);
-        frame.push_frame(top_pos, top);
+        frame.push_frame(top_pos, top.to_frame(ctx));
     }
 
     if let Some(bottom) = bottom {
         let bottom_pos =
             Point::new((width - bottom.width()) / 2.0 - delta, height - bottom.height());
-        frame.push_frame(bottom_pos, bottom);
+        frame.push_frame(bottom_pos, bottom.to_frame(ctx));
     }
 
     ctx.push(FrameFragment::new(ctx, frame).with_class(class));

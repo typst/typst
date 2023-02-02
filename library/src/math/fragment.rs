@@ -218,7 +218,7 @@ impl GlyphFragment {
             glyphs: vec![Glyph {
                 id: self.id.0,
                 c: self.c,
-                x_advance: Em::from_length(self.width, ctx.size),
+                x_advance: Em::from_length(self.width, self.font_size),
                 x_offset: Em::zero(),
             }],
         };
@@ -256,22 +256,25 @@ impl Debug for VariantFragment {
 #[derive(Debug, Clone)]
 pub struct FrameFragment {
     pub frame: Frame,
-    pub limits: bool,
-    pub spaced: bool,
     pub style: MathStyle,
     pub font_size: Abs,
     pub class: MathClass,
+    pub limits: bool,
+    pub spaced: bool,
+    pub base_ascent: Abs,
 }
 
 impl FrameFragment {
     pub fn new(ctx: &MathContext, frame: Frame) -> Self {
+        let base_ascent = frame.ascent();
         Self {
             frame,
-            limits: false,
-            spaced: false,
             font_size: ctx.size,
             style: ctx.style,
             class: MathClass::Normal,
+            limits: false,
+            spaced: false,
+            base_ascent,
         }
     }
 
@@ -285,6 +288,10 @@ impl FrameFragment {
 
     pub fn with_spaced(self, spaced: bool) -> Self {
         Self { spaced, ..self }
+    }
+
+    pub fn with_base_ascent(self, base_ascent: Abs) -> Self {
+        Self { base_ascent, ..self }
     }
 }
 

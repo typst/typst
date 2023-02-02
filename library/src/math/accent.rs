@@ -112,13 +112,14 @@ impl LayoutMath for AccentNode {
         let size = Size::new(base.width(), accent.height() + gap + base.height());
         let accent_pos = Point::with_x(base_attach - accent_attach);
         let base_pos = Point::with_y(accent.height() + gap);
+        let base_ascent = base.ascent();
         let baseline = base_pos.y + base.ascent();
 
         let mut frame = Frame::new(size);
         frame.set_baseline(baseline);
         frame.push_frame(accent_pos, accent);
         frame.push_frame(base_pos, base.to_frame(ctx));
-        ctx.push(FrameFragment::new(ctx, frame));
+        ctx.push(FrameFragment::new(ctx, frame).with_base_ascent(base_ascent));
 
         Ok(())
     }

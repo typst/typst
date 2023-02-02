@@ -2,7 +2,7 @@
 
 ---
 // Test function call.
-$grave(a), acute(b), hat(f), tilde(§), macron(ä), diaer(a), ä, \
+$grave(a), acute(b), hat(f), tilde(§), macron(ä), diaer(a), ä \
  breve(\&), dot(!), circle(a), caron(@), arrow(Z), arrow.l(Z)$
 
 ---
@@ -16,6 +16,10 @@ $sqrt(tilde(T)) + hat(f)/hat(g)$
 ---
 // Test wide base.
 $arrow("ABC" + d), tilde(sum)$
+
+---
+// Test effect of accent on superscript.
+$A^x != hat(A)^x != hat(hat(A))^x$
 
 ---
 // Test high base.
