@@ -1,7 +1,5 @@
 use super::*;
 
-const MIN_INDEX_SHIFT: Em = Em::new(0.35);
-
 /// # Square Root
 /// A square root.
 ///
@@ -123,12 +121,12 @@ fn layout(
     let inner_ascent = extra_ascender + thickness + gap + radicand.ascent();
 
     let mut sqrt_offset = Abs::zero();
+    let mut shift_up = Abs::zero();
     let mut ascent = inner_ascent;
-    let mut shift_up = raise_factor * sqrt.height() - descent;
 
     if let Some(index) = &index {
         sqrt_offset = kern_before + index.width() + kern_after;
-        shift_up.set_max(index.descent() + MIN_INDEX_SHIFT.scaled(ctx));
+        shift_up = raise_factor * sqrt.height() - descent + index.descent();
         ascent.set_max(shift_up + index.ascent());
     }
 

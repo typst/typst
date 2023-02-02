@@ -35,4 +35,5 @@ $ v = sqrt((1/2) / (4/5))
 // Test large index.
 $ root(2, x) quad
   root(3/(2/1), x) quad
-  root(1/11, x) $
+  root(1/11, x) quad
+  root(1/2/3, 1) $
