@@ -230,9 +230,11 @@ fn math_expr(p: &mut Parser) {
 
 fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
     let m = p.marker();
+    let mut continuable = false;
     match p.current() {
         SyntaxKind::Hashtag => embedded_code_expr(p),
         SyntaxKind::MathIdent => {
+            continuable = true;
             p.eat();
             while p.directly_at(SyntaxKind::Text)
                 && p.current_text() == "."
@@ -245,28 +247,39 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
                 p.convert(SyntaxKind::Ident);
                 p.wrap(m, SyntaxKind::FieldAccess);
             }
-            if p.directly_at(SyntaxKind::Text) && p.current_text() == "(" {
+            if min_prec < 3 && p.directly_at(SyntaxKind::Text) && p.current_text() == "("
+            {
                 math_args(p);
                 p.wrap(m, SyntaxKind::FuncCall);
+                continuable = false;
             }
         }
 
         SyntaxKind::Text | SyntaxKind::Shorthand => {
-            if math_class(p.current_text()) == Some(MathClass::Fence) {
-                math_delimited(p, MathClass::Fence)
-            } else if math_class(p.current_text()) == Some(MathClass::Opening) {
-                math_delimited(p, MathClass::Closing)
-            } else {
-                p.eat()
+            continuable = matches!(
+                math_class(p.current_text()),
+                None | Some(MathClass::Alphabetic)
+            );
+            if !maybe_delimited(p, true) {
+                p.eat();
             }
         }
 
-        SyntaxKind::Linebreak
-        | SyntaxKind::Escape
-        | SyntaxKind::MathAlignPoint
-        | SyntaxKind::Str => p.eat(),
+        SyntaxKind::Linebreak | SyntaxKind::MathAlignPoint => p.eat(),
+        SyntaxKind::Escape | SyntaxKind::Str => {
+            continuable = true;
+            p.eat();
+        }
 
         _ => p.expected("expression"),
+    }
+
+    if continuable
+        && min_prec < 3
+        && p.prev_end() == p.current_start()
+        && maybe_delimited(p, false)
+    {
+        p.wrap(m, SyntaxKind::Math);
     }
 
     while !p.eof() && !p.at(stop) {
@@ -299,6 +312,18 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
         }
 
         p.wrap(m, kind);
+    }
+}
+
+fn maybe_delimited(p: &mut Parser, allow_fence: bool) -> bool {
+    if allow_fence && math_class(p.current_text()) == Some(MathClass::Fence) {
+        math_delimited(p, MathClass::Fence);
+        true
+    } else if math_class(p.current_text()) == Some(MathClass::Opening) {
+        math_delimited(p, MathClass::Closing);
+        true
+    } else {
+        false
     }
 }
 
@@ -361,10 +386,10 @@ fn math_class(text: &str) -> Option<MathClass> {
 fn math_op(kind: SyntaxKind) -> Option<(SyntaxKind, SyntaxKind, ast::Assoc, usize)> {
     match kind {
         SyntaxKind::Underscore => {
-            Some((SyntaxKind::MathAttach, SyntaxKind::Hat, ast::Assoc::Right, 2))
+            Some((SyntaxKind::MathAttach, SyntaxKind::Hat, ast::Assoc::Right, 3))
         }
         SyntaxKind::Hat => {
-            Some((SyntaxKind::MathAttach, SyntaxKind::Underscore, ast::Assoc::Right, 2))
+            Some((SyntaxKind::MathAttach, SyntaxKind::Underscore, ast::Assoc::Right, 3))
         }
         SyntaxKind::Slash => {
             Some((SyntaxKind::MathFrac, SyntaxKind::Eof, ast::Assoc::Left, 1))

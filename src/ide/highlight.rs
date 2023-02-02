@@ -260,6 +260,7 @@ fn highlight_ident(node: &LinkedNode) -> Option<Category> {
     if let Some(next) = &next_leaf {
         if node.range().end == next.offset()
             && matches!(next.kind(), SyntaxKind::LeftParen | SyntaxKind::LeftBracket)
+            && matches!(next.parent_kind(), Some(SyntaxKind::Args | SyntaxKind::Params))
         {
             return Some(Category::Function);
         }

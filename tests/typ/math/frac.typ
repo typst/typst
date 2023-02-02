@@ -9,10 +9,6 @@ $ x = 1/2 = a/(a h) = a/a = a/(1/2) $
 $ (|x| + |y|)/2 < [1+2]/3 $
 
 ---
-// Test associativity.
-$ 1/2/3 = (1/2)/3 = 1/(2/3) $
-
----
 // Test large fraction.
 $ x = (-b plus.minus sqrt(b^2 - 4a c))/(2a) $
 
@@ -23,3 +19,14 @@ $ binom(circle, square) $
 ---
 // Error: 8-13 missing argument: lower index
 $ binom(x^2) $
+
+---
+// Test associativity.
+$ 1/2/3 = (1/2)/3 = 1/(2/3) $
+
+---
+// Test precedence.
+$ a_1/b_2, 1/f(x), zeta(x)/2, "foo"[|x|]/2 \
+  🏳️‍🌈[x]/2, f [x]/2, phi [x]/2, 🏳️‍🌈 [x]/2 \
+  +[x]/2, 1(x)/2, 2[x]/2 \
+  (a)b/2, b(a)[b]/2 $

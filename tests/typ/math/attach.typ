@@ -6,8 +6,9 @@ $f_x + t^b + V_1^2
  + attach(A, top: alpha, bottom: beta)$
 
 ---
-// Test text vs ident parsing.
-$pi_1(Y), a_f(x) != a_zeta(x)$
+// Test function call after subscript.
+$pi_1(Y), a_f(x), a^zeta(x) \
+ a^subset.eq(x), a_(zeta(x)), pi_(1(Y))$
 
 ---
 // Test associativity and scaling.
