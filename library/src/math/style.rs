@@ -313,7 +313,7 @@ impl LayoutMath for BbNode {
     }
 }
 
-/// The style in a formula.
+/// Text properties in a formula.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct MathStyle {
     /// The style variant to select.

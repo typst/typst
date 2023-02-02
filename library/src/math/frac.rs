@@ -153,7 +153,7 @@ fn layout(
 
     if binom {
         ctx.push(GlyphFragment::new(ctx, '(').stretch_vertical(ctx, height, short_fall));
-        ctx.push(frame);
+        ctx.push(FrameFragment::new(ctx, frame));
         ctx.push(GlyphFragment::new(ctx, ')').stretch_vertical(ctx, height, short_fall));
     } else {
         frame.push(
@@ -165,7 +165,7 @@ fn layout(
                 }),
             ),
         );
-        ctx.push(frame);
+        ctx.push(FrameFragment::new(ctx, frame));
     }
 
     Ok(())

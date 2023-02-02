@@ -6,7 +6,7 @@ pub enum MathFragment {
     Variant(VariantFragment),
     Frame(FrameFragment),
     Spacing(Abs),
-    Space,
+    Space(Abs),
     Linebreak,
     Align,
 }
@@ -22,6 +22,7 @@ impl MathFragment {
             Self::Variant(variant) => variant.frame.width(),
             Self::Frame(fragment) => fragment.frame.width(),
             Self::Spacing(amount) => *amount,
+            Self::Space(amount) => *amount,
             _ => Abs::zero(),
         }
     }
@@ -62,6 +63,24 @@ impl MathFragment {
         }
     }
 
+    pub fn style(&self) -> Option<MathStyle> {
+        match self {
+            Self::Glyph(glyph) => Some(glyph.style),
+            Self::Variant(variant) => Some(variant.style),
+            Self::Frame(fragment) => Some(fragment.style),
+            _ => None,
+        }
+    }
+
+    pub fn font_size(&self) -> Option<Abs> {
+        match self {
+            Self::Glyph(glyph) => Some(glyph.font_size),
+            Self::Variant(variant) => Some(variant.font_size),
+            Self::Frame(fragment) => Some(fragment.font_size),
+            _ => None,
+        }
+    }
+
     pub fn set_class(&mut self, class: MathClass) {
         match self {
             Self::Glyph(glyph) => glyph.class = Some(class),
@@ -71,8 +90,11 @@ impl MathFragment {
         }
     }
 
-    pub fn participating(&self) -> bool {
-        !matches!(self, Self::Space | Self::Spacing(_) | Self::Align)
+    pub fn is_spaced(&self) -> bool {
+        match self {
+            MathFragment::Frame(frame) => frame.spaced,
+            _ => self.class() == Some(MathClass::Fence),
+        }
     }
 
     pub fn italics_correction(&self) -> Abs {
@@ -111,23 +133,18 @@ impl From<FrameFragment> for MathFragment {
     }
 }
 
-impl From<Frame> for MathFragment {
-    fn from(frame: Frame) -> Self {
-        Self::Frame(FrameFragment::new(frame))
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub struct GlyphFragment {
     pub id: GlyphId,
     pub c: char,
     pub lang: Lang,
     pub fill: Paint,
-    pub font_size: Abs,
     pub width: Abs,
     pub ascent: Abs,
     pub descent: Abs,
     pub italics_correction: Abs,
+    pub style: MathStyle,
+    pub font_size: Abs,
     pub class: Option<MathClass>,
 }
 
@@ -163,6 +180,7 @@ impl GlyphFragment {
             c,
             lang: ctx.styles().get(TextNode::LANG),
             fill: ctx.styles().get(TextNode::FILL),
+            style: ctx.style,
             font_size: ctx.size,
             width,
             ascent: bbox.y_max.scaled(ctx),
@@ -184,6 +202,8 @@ impl GlyphFragment {
             c: self.c,
             id: Some(self.id),
             frame: self.to_frame(ctx),
+            style: self.style,
+            font_size: self.font_size,
             italics_correction: self.italics_correction,
             class: self.class,
         }
@@ -210,30 +230,48 @@ impl GlyphFragment {
     }
 }
 
-#[derive(Debug, Clone)]
+impl Debug for GlyphFragment {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "GlyphFragment({:?})", self.c)
+    }
+}
+
+#[derive(Clone)]
 pub struct VariantFragment {
     pub c: char,
     pub id: Option<GlyphId>,
-    pub frame: Frame,
     pub italics_correction: Abs,
+    pub frame: Frame,
+    pub style: MathStyle,
+    pub font_size: Abs,
     pub class: Option<MathClass>,
+}
+
+impl Debug for VariantFragment {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "VariantFragment({:?})", self.c)
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct FrameFragment {
     pub frame: Frame,
-    pub class: MathClass,
     pub limits: bool,
     pub spaced: bool,
+    pub style: MathStyle,
+    pub font_size: Abs,
+    pub class: MathClass,
 }
 
 impl FrameFragment {
-    pub fn new(frame: Frame) -> Self {
+    pub fn new(ctx: &MathContext, frame: Frame) -> Self {
         Self {
             frame,
-            class: MathClass::Normal,
             limits: false,
             spaced: false,
+            font_size: ctx.size,
+            style: ctx.style,
+            class: MathClass::Normal,
         }
     }
 

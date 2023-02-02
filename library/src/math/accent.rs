@@ -118,7 +118,7 @@ impl LayoutMath for AccentNode {
         frame.set_baseline(baseline);
         frame.push_frame(accent_pos, accent);
         frame.push_frame(base_pos, base.to_frame(ctx));
-        ctx.push(frame);
+        ctx.push(FrameFragment::new(ctx, frame));
 
         Ok(())
     }

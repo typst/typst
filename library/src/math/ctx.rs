@@ -31,7 +31,7 @@ pub struct MathContext<'a, 'b, 'v> {
     pub table: ttf_parser::math::Table<'a>,
     pub constants: ttf_parser::math::Constants<'a>,
     pub space_width: Em,
-    pub row: MathRow,
+    pub fragments: Vec<MathFragment>,
     pub map: StyleMap,
     pub style: MathStyle,
     pub size: Abs,
@@ -69,7 +69,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
             table,
             constants,
             space_width,
-            row: MathRow::new(),
+            fragments: vec![],
             map: StyleMap::new(),
             style: MathStyle {
                 variant: MathVariant::Serif,
@@ -88,43 +88,43 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
     }
 
     pub fn push(&mut self, fragment: impl Into<MathFragment>) {
-        self.row.push(self.size, self.space_width, self.style, fragment);
+        self.fragments.push(fragment.into());
     }
 
-    pub fn extend(&mut self, row: MathRow) {
-        let mut iter = row.0.into_iter();
-        if let Some(first) = iter.next() {
-            self.push(first);
-        }
-        self.row.0.extend(iter);
-    }
-
-    pub fn layout_non_math(&mut self, content: &Content) -> SourceResult<Frame> {
-        Ok(content
-            .layout(&mut self.vt, self.outer.chain(&self.map), self.regions)?
-            .into_frame())
+    pub fn extend(&mut self, fragments: Vec<MathFragment>) {
+        self.fragments.extend(fragments);
     }
 
     pub fn layout_fragment(
         &mut self,
         node: &dyn LayoutMath,
     ) -> SourceResult<MathFragment> {
-        let row = self.layout_row(node)?;
-        Ok(if row.0.len() == 1 {
-            row.0.into_iter().next().unwrap()
-        } else {
-            row.to_frame(self).into()
-        })
+        let row = self.layout_fragments(node)?;
+        Ok(MathRow::new(row).to_fragment(self))
+    }
+
+    pub fn layout_fragments(
+        &mut self,
+        node: &dyn LayoutMath,
+    ) -> SourceResult<Vec<MathFragment>> {
+        let prev = std::mem::take(&mut self.fragments);
+        node.layout_math(self)?;
+        Ok(std::mem::replace(&mut self.fragments, prev))
     }
 
     pub fn layout_row(&mut self, node: &dyn LayoutMath) -> SourceResult<MathRow> {
-        let prev = std::mem::take(&mut self.row);
-        node.layout_math(self)?;
-        Ok(std::mem::replace(&mut self.row, prev))
+        let fragments = self.layout_fragments(node)?;
+        Ok(MathRow::new(fragments))
     }
 
     pub fn layout_frame(&mut self, node: &dyn LayoutMath) -> SourceResult<Frame> {
         Ok(self.layout_fragment(node)?.to_frame(self))
+    }
+
+    pub fn layout_content(&mut self, content: &Content) -> SourceResult<Frame> {
+        Ok(content
+            .layout(&mut self.vt, self.outer.chain(&self.map), self.regions)?
+            .into_frame())
     }
 
     pub fn layout_text(&mut self, text: &str) -> SourceResult<()> {
@@ -146,13 +146,13 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
             }
         } else if text.chars().all(|c| c.is_ascii_digit()) {
             // Numbers aren't that difficult.
-            let mut vec = vec![];
+            let mut fragments = vec![];
             for c in text.chars() {
                 let c = self.style.styled_char(c);
-                vec.push(GlyphFragment::new(self, c).into());
+                fragments.push(GlyphFragment::new(self, c).into());
             }
-            let frame = MathRow(vec).to_frame(self);
-            self.push(frame);
+            let frame = MathRow::new(fragments).to_frame(self);
+            self.push(FrameFragment::new(self, frame));
         } else {
             // Anything else is handled by Typst's standard text layout.
             let spaced = text.graphemes(true).count() > 1;
@@ -161,9 +161,9 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
                 style = style.with_italic(false);
             }
             let text: EcoString = text.chars().map(|c| style.styled_char(c)).collect();
-            let frame = self.layout_non_math(&TextNode::packed(text))?;
+            let frame = self.layout_content(&TextNode::packed(text))?;
             self.push(
-                FrameFragment::new(frame)
+                FrameFragment::new(self, frame)
                     .with_class(MathClass::Alphabetic)
                     .with_spaced(spaced),
             );

@@ -158,7 +158,7 @@ fn layout(
     );
 
     frame.push_frame(radicand_pos, radicand);
-    ctx.push(frame);
+    ctx.push(FrameFragment::new(ctx, frame));
 
     Ok(())
 }

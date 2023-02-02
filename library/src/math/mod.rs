@@ -261,7 +261,7 @@ impl LayoutMath for Content {
         }
 
         if self.is::<SpaceNode>() {
-            ctx.push(MathFragment::Space);
+            ctx.push(MathFragment::Space(ctx.space_width.scaled(ctx)));
             return Ok(());
         }
 
@@ -288,8 +288,8 @@ impl LayoutMath for Content {
             return node.layout_math(ctx);
         }
 
-        let frame = ctx.layout_non_math(self)?;
-        ctx.push(FrameFragment::new(frame).with_spaced(true));
+        let frame = ctx.layout_content(self)?;
+        ctx.push(FrameFragment::new(ctx, frame).with_spaced(true));
 
         Ok(())
     }

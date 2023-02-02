@@ -307,7 +307,7 @@ fn layout_delimiters(
         ctx.push(GlyphFragment::new(ctx, left).stretch_vertical(ctx, target, short_fall));
     }
 
-    ctx.push(frame);
+    ctx.push(FrameFragment::new(ctx, frame));
 
     if let Some(right) = right {
         ctx.push(

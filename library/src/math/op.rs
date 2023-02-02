@@ -38,9 +38,9 @@ impl OpNode {
 
 impl LayoutMath for OpNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        let frame = ctx.layout_non_math(&TextNode(self.text.clone()).pack())?;
+        let frame = ctx.layout_content(&TextNode(self.text.clone()).pack())?;
         ctx.push(
-            FrameFragment::new(frame)
+            FrameFragment::new(ctx, frame)
                 .with_class(MathClass::Large)
                 .with_limits(self.limits),
         );

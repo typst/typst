@@ -60,10 +60,9 @@ impl LayoutMath for LrNode {
             }
         }
 
-        let mut row = ctx.layout_row(body)?;
+        let mut fragments = ctx.layout_fragments(body)?;
         let axis = scaled!(ctx, axis_height);
-        let max_extent = row
-            .0
+        let max_extent = fragments
             .iter()
             .map(|fragment| (fragment.ascent() - axis).max(fragment.descent() + axis))
             .max()
@@ -75,7 +74,7 @@ impl LayoutMath for LrNode {
             .resolve(ctx.styles())
             .relative_to(2.0 * max_extent);
 
-        match row.0.as_mut_slice() {
+        match fragments.as_mut_slice() {
             [one] => scale(ctx, one, height, None),
             [first, .., last] => {
                 scale(ctx, first, height, Some(MathClass::Opening));
@@ -84,7 +83,7 @@ impl LayoutMath for LrNode {
             _ => {}
         }
 
-        ctx.extend(row);
+        ctx.extend(fragments);
 
         Ok(())
     }

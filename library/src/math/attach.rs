@@ -231,7 +231,7 @@ fn scripts(
         frame.push_frame(sub_pos, sub);
     }
 
-    ctx.push(FrameFragment::new(frame).with_class(class));
+    ctx.push(FrameFragment::new(ctx, frame).with_class(class));
 
     Ok(())
 }
@@ -284,7 +284,7 @@ fn limits(
         frame.push_frame(bottom_pos, bottom);
     }
 
-    ctx.push(FrameFragment::new(frame).with_class(class));
+    ctx.push(FrameFragment::new(ctx, frame).with_class(class));
 
     Ok(())
 }

@@ -177,6 +177,8 @@ fn assemble(
         c: base.c,
         id: None,
         frame,
+        style: base.style,
+        font_size: base.font_size,
         italics_correction: Abs::zero(),
         class: base.class,
     }

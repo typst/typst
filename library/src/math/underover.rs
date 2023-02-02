@@ -270,7 +270,8 @@ fn layout(
         baseline = rows.len() - 1;
     }
 
-    ctx.push(stack(ctx, rows, Align::Center, gap, baseline));
+    let frame = stack(ctx, rows, Align::Center, gap, baseline);
+    ctx.push(FrameFragment::new(ctx, frame));
 
     Ok(())
 }

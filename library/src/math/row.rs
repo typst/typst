@@ -5,55 +5,55 @@ use super::*;
 pub const TIGHT_LEADING: Em = Em::new(0.25);
 
 #[derive(Debug, Default, Clone)]
-pub struct MathRow(pub Vec<MathFragment>);
+pub struct MathRow(Vec<MathFragment>);
 
 impl MathRow {
-    pub fn new() -> Self {
-        Self(vec![])
-    }
+    pub fn new(fragments: Vec<MathFragment>) -> Self {
+        let mut iter = fragments.into_iter().peekable();
+        let mut last: Option<usize> = None;
+        let mut space: Option<MathFragment> = None;
+        let mut resolved: Vec<MathFragment> = vec![];
 
-    pub fn width(&self) -> Abs {
-        self.0.iter().map(|fragment| fragment.width()).sum()
-    }
-
-    pub fn height(&self) -> Abs {
-        self.ascent() + self.descent()
-    }
-
-    pub fn ascent(&self) -> Abs {
-        self.0.iter().map(MathFragment::ascent).max().unwrap_or_default()
-    }
-
-    pub fn descent(&self) -> Abs {
-        self.0.iter().map(MathFragment::descent).max().unwrap_or_default()
-    }
-
-    pub fn push(
-        &mut self,
-        font_size: Abs,
-        space_width: Em,
-        style: MathStyle,
-        fragment: impl Into<MathFragment>,
-    ) {
-        let mut fragment = fragment.into();
-        if !fragment.participating() {
-            self.0.push(fragment);
-            return;
-        }
-
-        let mut space = false;
-        for (i, prev) in self.0.iter().enumerate().rev() {
-            if !prev.participating() {
-                space |= matches!(prev, MathFragment::Space);
-                if matches!(prev, MathFragment::Spacing(_)) {
-                    break;
+        while let Some(mut fragment) = iter.next() {
+            match fragment {
+                // Keep space only if supported by spaced fragments.
+                MathFragment::Space(_) => {
+                    if last.is_some() {
+                        space = Some(fragment);
+                    }
+                    continue;
                 }
-                continue;
+
+                // Explicit spacing disables automatic spacing.
+                MathFragment::Spacing(_) => {
+                    last = None;
+                    space = None;
+                    resolved.push(fragment);
+                    continue;
+                }
+
+                // Alignment points are resolved later.
+                MathFragment::Align => {
+                    resolved.push(fragment);
+                    continue;
+                }
+
+                // New line, new things.
+                MathFragment::Linebreak => {
+                    resolved.push(fragment);
+                    space = None;
+                    last = None;
+                    continue;
+                }
+
+                _ => {}
             }
 
-            if fragment.class() == Some(MathClass::Vary) {
-                if matches!(
-                    prev.class(),
+            // Convert variable operators into binary operators if something
+            // precedes them.
+            if fragment.class() == Some(MathClass::Vary)
+                && matches!(
+                    last.and_then(|i| resolved[i].class()),
                     Some(
                         MathClass::Normal
                             | MathClass::Alphabetic
@@ -62,22 +62,43 @@ impl MathRow {
                             | MathClass::Fence
                             | MathClass::Relation
                     )
-                ) {
-                    fragment.set_class(MathClass::Binary);
+                )
+            {
+                fragment.set_class(MathClass::Binary);
+            }
+
+            // Insert spacing between the last and this item.
+            if let Some(i) = last {
+                if let Some(s) = spacing(&resolved[i], space.take(), &fragment) {
+                    resolved.insert(i + 1, s);
                 }
             }
 
-            let mut amount = Abs::zero();
-            amount += spacing(prev, &fragment, style, space, space_width).at(font_size);
-
-            if !amount.is_zero() {
-                self.0.insert(i + 1, MathFragment::Spacing(amount));
-            }
-
-            break;
+            last = Some(resolved.len());
+            resolved.push(fragment);
         }
 
-        self.0.push(fragment);
+        Self(resolved)
+    }
+
+    pub fn iter(&self) -> std::slice::Iter<'_, MathFragment> {
+        self.0.iter()
+    }
+
+    pub fn width(&self) -> Abs {
+        self.iter().map(MathFragment::width).sum()
+    }
+
+    pub fn height(&self) -> Abs {
+        self.ascent() + self.descent()
+    }
+
+    pub fn ascent(&self) -> Abs {
+        self.iter().map(MathFragment::ascent).max().unwrap_or_default()
+    }
+
+    pub fn descent(&self) -> Abs {
+        self.iter().map(MathFragment::descent).max().unwrap_or_default()
     }
 
     pub fn to_frame(self, ctx: &MathContext) -> Frame {
@@ -86,14 +107,22 @@ impl MathRow {
         self.to_aligned_frame(ctx, &[], align)
     }
 
+    pub fn to_fragment(self, ctx: &MathContext) -> MathFragment {
+        if self.0.len() == 1 {
+            self.0.into_iter().next().unwrap()
+        } else {
+            FrameFragment::new(ctx, self.to_frame(ctx)).into()
+        }
+    }
+
     pub fn to_aligned_frame(
         mut self,
         ctx: &MathContext,
         points: &[Abs],
         align: Align,
     ) -> Frame {
-        if self.0.iter().any(|frag| matches!(frag, MathFragment::Linebreak)) {
-            let fragments = std::mem::take(&mut self.0);
+        if self.iter().any(|frag| matches!(frag, MathFragment::Linebreak)) {
+            let fragments: Vec<_> = std::mem::take(&mut self.0);
             let leading = if ctx.style.size >= MathSize::Text {
                 ctx.styles().get(ParNode::LEADING)
             } else {
@@ -140,7 +169,7 @@ impl MathRow {
 
         if let (Some(&first), Align::Center) = (points.first(), align) {
             let mut offset = first;
-            for fragment in &self.0 {
+            for fragment in self.iter() {
                 offset -= fragment.width();
                 if matches!(fragment, MathFragment::Align) {
                     x = offset;
