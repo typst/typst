@@ -249,38 +249,40 @@ fn layout_mat_body(ctx: &mut MathContext, rows: &[Vec<Content>]) -> SourceResult
         return Ok(Frame::new(Size::zero()));
     }
 
-    let mut rcols = vec![Abs::zero(); ncols];
-    let mut rrows = vec![Abs::zero(); nrows];
+    let mut widths = vec![Abs::zero(); ncols];
+    let mut ascents = vec![Abs::zero(); nrows];
+    let mut descents = vec![Abs::zero(); nrows];
 
     ctx.style(ctx.style.for_denominator());
     let mut cols = vec![vec![]; ncols];
-    for (row, rrow) in rows.iter().zip(&mut rrows) {
-        for ((cell, rcol), col) in row.iter().zip(&mut rcols).zip(&mut cols) {
+    for ((row, ascent), descent) in rows.iter().zip(&mut ascents).zip(&mut descents) {
+        for ((cell, rcol), col) in row.iter().zip(&mut widths).zip(&mut cols) {
             let cell = ctx.layout_row(cell)?;
             rcol.set_max(cell.width());
-            rrow.set_max(cell.height());
+            ascent.set_max(cell.ascent());
+            descent.set_max(cell.descent());
             col.push(cell);
         }
     }
     ctx.unstyle();
 
-    let width = rcols.iter().sum::<Abs>() + col_gap * (ncols - 1) as f64;
-    let height = rrows.iter().sum::<Abs>() + row_gap * (nrows - 1) as f64;
+    let width = widths.iter().sum::<Abs>() + col_gap * (ncols - 1) as f64;
+    let height = ascents.iter().sum::<Abs>()
+        + descents.iter().sum::<Abs>()
+        + row_gap * (nrows - 1) as f64;
     let size = Size::new(width, height);
 
     let mut frame = Frame::new(size);
     let mut x = Abs::zero();
-    for (col, &rcol) in cols.into_iter().zip(&rcols) {
+    for (col, &rcol) in cols.into_iter().zip(&widths) {
         let points = alignments(&col);
         let mut y = Abs::zero();
-        for (cell, &rrow) in col.into_iter().zip(&rrows) {
+        for ((cell, &ascent), &descent) in col.into_iter().zip(&ascents).zip(&descents) {
             let cell = cell.to_aligned_frame(ctx, &points, Align::Center);
-            let pos = Point::new(
-                x + (rcol - cell.width()) / 2.0,
-                y + (rrow - cell.height()) / 2.0,
-            );
+            let pos =
+                Point::new(x + (rcol - cell.width()) / 2.0, y + ascent - cell.ascent());
             frame.push_frame(pos, cell);
-            y += rrow + row_gap;
+            y += ascent + descent + row_gap;
         }
         x += rcol + col_gap;
     }

@@ -17,8 +17,15 @@ impl MathRow {
     }
 
     pub fn height(&self) -> Abs {
-        let (ascent, descent) = self.extent();
-        ascent + descent
+        self.ascent() + self.descent()
+    }
+
+    pub fn ascent(&self) -> Abs {
+        self.0.iter().map(MathFragment::ascent).max().unwrap_or_default()
+    }
+
+    pub fn descent(&self) -> Abs {
+        self.0.iter().map(MathFragment::descent).max().unwrap_or_default()
     }
 
     pub fn push(
@@ -124,7 +131,8 @@ impl MathRow {
     }
 
     fn to_line_frame(self, ctx: &MathContext, points: &[Abs], align: Align) -> Frame {
-        let (ascent, descent) = self.extent();
+        let ascent = self.ascent();
+        let descent = self.descent();
         let size = Size::new(Abs::zero(), ascent + descent);
         let mut frame = Frame::new(size);
         let mut x = Abs::zero();
@@ -160,12 +168,6 @@ impl MathRow {
 
         frame.size_mut().x = x;
         frame
-    }
-
-    fn extent(&self) -> (Abs, Abs) {
-        let ascent = self.0.iter().map(MathFragment::ascent).max().unwrap_or_default();
-        let descent = self.0.iter().map(MathFragment::descent).max().unwrap_or_default();
-        (ascent, descent)
     }
 }
 

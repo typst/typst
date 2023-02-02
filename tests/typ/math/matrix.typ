@@ -13,12 +13,20 @@ $mat() dot
 
 ---
 // Test sparse matrix.
-$mat(
+$ mat(
   1, 2, ..., 10;
   2, 2, ..., 10;
   dots.v, dots.v, dots.down, dots.v;
   10, 10, ..., 10;
-)$
+) $
+
+---
+// Test baseline alignment.
+$ mat(
+    a, b^2;
+    sum_(x \ y) x, a^(1/2);
+    zeta, alpha;
+  ) $
 
 ---
 // Test alternative delimiter.
