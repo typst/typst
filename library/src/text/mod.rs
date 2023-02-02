@@ -1,22 +1,18 @@
 //! Text handling.
 
 mod deco;
-mod emoji;
 mod misc;
 mod quotes;
 mod raw;
 mod shaping;
 mod shift;
-mod symbols;
 
 pub use self::deco::*;
-pub use self::emoji::*;
 pub use self::misc::*;
 pub use self::quotes::*;
 pub use self::raw::*;
 pub use self::shaping::*;
 pub use self::shift::*;
-pub use self::symbols::*;
 
 use std::borrow::Cow;
 

@@ -443,6 +443,10 @@ pub(super) fn styled_char(style: MathStyle, c: char) -> char {
         '∂' | 'ϵ' | 'ϑ' | 'ϰ' | 'ϕ' | 'ϱ' | 'ϖ'
     ));
 
+    if let Some(c) = basic_exception(c) {
+        return c;
+    }
+
     if let Some(c) = latin_exception(c, variant, bold, italic) {
         return c;
     }
@@ -535,6 +539,16 @@ pub(super) fn styled_char(style: MathStyle, c: char) -> char {
     };
 
     std::char::from_u32(start + (c as u32 - base as u32)).unwrap()
+}
+
+fn basic_exception(c: char) -> Option<char> {
+    Some(match c {
+        '〈' => '⟨',
+        '〉' => '⟩',
+        '《' => '⟪',
+        '》' => '⟫',
+        _ => return None,
+    })
 }
 
 fn latin_exception(

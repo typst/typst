@@ -22,6 +22,7 @@ mod capable;
 mod castable;
 mod func;
 mod node;
+mod symbols;
 
 use proc_macro::TokenStream as BoundaryStream;
 use proc_macro2::{TokenStream, TokenTree};
@@ -64,6 +65,14 @@ pub fn capable(stream: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
 #[proc_macro]
 pub fn castable(stream: BoundaryStream) -> BoundaryStream {
     castable::castable(stream.into())
+        .unwrap_or_else(|err| err.to_compile_error())
+        .into()
+}
+
+/// Define a list of symbols.
+#[proc_macro]
+pub fn symbols(stream: BoundaryStream) -> BoundaryStream {
+    symbols::symbols(stream.into())
         .unwrap_or_else(|err| err.to_compile_error())
         .into()
 }

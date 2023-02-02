@@ -7,26 +7,8 @@ use crate::diag::StrResult;
 use crate::util::EcoString;
 
 /// Define a list of symbols.
-#[macro_export]
-#[doc(hidden)]
-macro_rules! __symbols {
-    ($func:ident, $($name:ident: $value:tt),* $(,)?) => {
-        pub(super) fn $func(scope: &mut $crate::model::Scope) {
-            $(scope.define(stringify!($name), $crate::model::symbols!(@one $value));)*
-        }
-    };
-    (@one $c:literal) => { $crate::model::Symbol::new($c) };
-    (@one [$($first:literal $(: $second:literal)?),* $(,)?]) => {
-        $crate::model::Symbol::list(&[
-            $($crate::model::symbols!(@pair $first $(: $second)?)),*
-        ])
-    };
-    (@pair $first:literal) => { ("", $first) };
-    (@pair $first:literal: $second:literal) => { ($first, $second) };
-}
-
 #[doc(inline)]
-pub use crate::__symbols as symbols;
+pub use typst_macros::symbols;
 
 /// A symbol.
 #[derive(Clone, Eq, PartialEq, Hash)]
@@ -45,13 +27,13 @@ enum Repr {
 
 impl Symbol {
     /// Create a new symbol from a single character.
-    pub fn new(c: char) -> Self {
+    pub const fn new(c: char) -> Self {
         Self { repr: Repr::Single(c), modifiers: EcoString::new() }
     }
 
     /// Create a symbol with a static variant list.
     #[track_caller]
-    pub fn list(list: &'static [(&'static str, char)]) -> Self {
+    pub const fn list(list: &'static [(&'static str, char)]) -> Self {
         debug_assert!(!list.is_empty());
         Self {
             repr: Repr::Static(list),

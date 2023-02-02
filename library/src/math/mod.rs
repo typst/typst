@@ -15,7 +15,6 @@ mod row;
 mod spacing;
 mod stretch;
 mod style;
-mod symbols;
 mod underover;
 
 pub use self::accent::*;
@@ -46,7 +45,7 @@ use crate::text::{
 };
 
 /// Create a module with all math definitions.
-pub fn module(sym: &Module) -> Module {
+pub fn module() -> Module {
     let mut math = Scope::deduplicating();
     math.def_func::<FormulaNode>("formula");
     math.def_func::<TextNode>("text");
@@ -96,10 +95,13 @@ pub fn module(sym: &Module) -> Module {
     math.def_func::<OpNode>("op");
     op::define(&mut math);
 
-    // Symbols and spacing.
-    symbols::define(&mut math);
+    // Spacings.
     spacing::define(&mut math);
-    math.copy_from(sym.scope());
+
+    // Symbols.
+    for (name, symbol) in crate::symbols::SYM {
+        math.define(*name, symbol.clone());
+    }
 
     Module::new("math").with_scope(math)
 }

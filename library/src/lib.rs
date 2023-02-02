@@ -7,6 +7,7 @@ pub mod math;
 pub mod meta;
 pub mod prelude;
 pub mod shared;
+pub mod symbols;
 pub mod text;
 pub mod visualize;
 
@@ -17,15 +18,14 @@ use self::layout::LayoutRoot;
 
 /// Construct the standard library.
 pub fn build() -> Library {
-    let sym = text::sym();
-    let math = math::module(&sym);
+    let math = math::module();
     let calc = compute::calc();
-    let global = global(sym, math.clone(), calc);
+    let global = global(math.clone(), calc);
     Library { global, math, styles: styles(), items: items() }
 }
 
 /// Construct the module with global definitions.
-fn global(sym: Module, math: Module, calc: Module) -> Module {
+fn global(math: Module, calc: Module) -> Module {
     let mut global = Scope::deduplicating();
 
     // Basics.
@@ -50,8 +50,6 @@ fn global(sym: Module, math: Module, calc: Module) -> Module {
     global.def_func::<text::StrikeNode>("strike");
     global.def_func::<text::OverlineNode>("overline");
     global.def_func::<text::RawNode>("raw");
-    global.define("sym", sym);
-    global.define("emoji", text::emoji());
 
     // Math.
     global.define("math", math);
@@ -91,6 +89,10 @@ fn global(sym: Module, math: Module, calc: Module) -> Module {
     global.def_func::<meta::RefNode>("ref");
     global.def_func::<meta::LinkNode>("link");
     global.def_func::<meta::OutlineNode>("outline");
+
+    // Symbols.
+    global.define("sym", symbols::sym());
+    global.define("emoji", symbols::emoji());
 
     // Compute.
     global.def_func::<compute::TypeFunc>("type");
