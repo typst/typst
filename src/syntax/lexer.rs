@@ -191,15 +191,15 @@ impl Lexer<'_> {
             ':' => SyntaxKind::Colon,
             '=' => {
                 self.s.eat_while('=');
-                if self.space_and_more() {
+                if self.space_or_end() {
                     SyntaxKind::HeadingMarker
                 } else {
                     self.text()
                 }
             }
-            '-' if self.space_and_more() => SyntaxKind::ListMarker,
-            '+' if self.space_and_more() => SyntaxKind::EnumMarker,
-            '/' if self.space_and_more() => SyntaxKind::TermMarker,
+            '-' if self.space_or_end() => SyntaxKind::ListMarker,
+            '+' if self.space_or_end() => SyntaxKind::EnumMarker,
+            '/' if self.space_or_end() => SyntaxKind::TermMarker,
 
             _ => self.text(),
         }
@@ -363,13 +363,8 @@ impl Lexer<'_> {
         alphanum(prev) && alphanum(next)
     }
 
-    fn space_and_more(&self) -> bool {
-        let mut s = self.s;
-        if !s.at(char::is_whitespace) {
-            return false;
-        }
-        s.eat_while(|c: char| c.is_whitespace() && !is_newline(c));
-        !s.done() && !s.at(is_newline)
+    fn space_or_end(&self) -> bool {
+        self.s.done() || self.s.at(char::is_whitespace)
     }
 }
 

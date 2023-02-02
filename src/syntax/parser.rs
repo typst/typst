@@ -157,7 +157,7 @@ fn emph(p: &mut Parser) {
 fn heading(p: &mut Parser) {
     let m = p.marker();
     p.assert(SyntaxKind::HeadingMarker);
-    whitespace(p);
+    whitespace_line(p);
     markup(p, false, usize::MAX, |kind| {
         kind == SyntaxKind::Label || kind == SyntaxKind::RightBracket
     });
@@ -168,7 +168,7 @@ fn list_item(p: &mut Parser) {
     let m = p.marker();
     p.assert(SyntaxKind::ListMarker);
     let min_indent = p.column(p.prev_end());
-    whitespace(p);
+    whitespace_line(p);
     markup(p, false, min_indent, |kind| kind == SyntaxKind::RightBracket);
     p.wrap(m, SyntaxKind::ListItem);
 }
@@ -177,7 +177,7 @@ fn enum_item(p: &mut Parser) {
     let m = p.marker();
     p.assert(SyntaxKind::EnumMarker);
     let min_indent = p.column(p.prev_end());
-    whitespace(p);
+    whitespace_line(p);
     markup(p, false, min_indent, |kind| kind == SyntaxKind::RightBracket);
     p.wrap(m, SyntaxKind::EnumItem);
 }
@@ -186,18 +186,18 @@ fn term_item(p: &mut Parser) {
     let m = p.marker();
     p.assert(SyntaxKind::TermMarker);
     let min_indent = p.column(p.prev_end());
-    whitespace(p);
+    whitespace_line(p);
     markup(p, false, usize::MAX, |kind| {
         kind == SyntaxKind::Colon || kind == SyntaxKind::RightBracket
     });
     p.expect(SyntaxKind::Colon);
-    whitespace(p);
+    whitespace_line(p);
     markup(p, false, min_indent, |kind| kind == SyntaxKind::RightBracket);
     p.wrap(m, SyntaxKind::TermItem);
 }
 
-fn whitespace(p: &mut Parser) {
-    while p.current().is_trivia() {
+fn whitespace_line(p: &mut Parser) {
+    while !p.newline() && p.current().is_trivia() {
         p.eat();
     }
 }

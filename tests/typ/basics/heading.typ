@@ -1,12 +1,6 @@
 // Test headings.
 
 ---
-#show heading: it => text(blue, it.title)
-
-=
-No heading
-
----
 // Different number of equals signs.
 
 = Level 1
@@ -50,3 +44,10 @@ multiline.
 = Heading
 ===== Heading 🌍
 #heading(level: 5)[Heading]
+
+---
+// Edge cases.
+#set heading(numbering: "1.")
+=
+Not in heading
+=Nope

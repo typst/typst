@@ -1,10 +1,6 @@
 // Test bullet lists.
 
 ---
--
-No list
-
----
 _Shopping list_
 #list[Apples][Potatoes][Juice]
 
@@ -52,3 +48,9 @@ _Shopping list_
 #set list(marker: [-])
 - Bare hyphen
 - is not a list
+
+---
+// Edge cases.
+-
+Not in list
+-Nope

@@ -1,11 +1,6 @@
 // Test term list.
 
 ---
-/
-No: list \
-/No: list
-
----
 // Test with constructor.
 #terms(
   ([One], [First]),
@@ -46,3 +41,12 @@ No: list \
 / A: One letter
 / BB: Two letters
 / CCC: Three letters
+
+---
+/ Term:
+Not in list
+/Nope
+
+---
+// Error: 8 expected colon
+/ Hello

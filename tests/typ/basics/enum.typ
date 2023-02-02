@@ -55,9 +55,10 @@
 + B
 
 ---
-// Lone plus is not an enum.
+// Edge cases.
 +
-No enum
+Empty
++Nope
 
 ---
 // Error: 22-24 invalid numbering pattern
