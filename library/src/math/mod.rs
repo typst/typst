@@ -5,29 +5,29 @@ mod ctx;
 mod accent;
 mod align;
 mod attach;
+mod delimited;
 mod frac;
 mod fragment;
-mod lr;
 mod matrix;
 mod op;
 mod root;
 mod row;
 mod spacing;
-mod stack;
 mod stretch;
 mod style;
 mod symbols;
+mod underover;
 
 pub use self::accent::*;
 pub use self::align::*;
 pub use self::attach::*;
+pub use self::delimited::*;
 pub use self::frac::*;
-pub use self::lr::*;
 pub use self::matrix::*;
 pub use self::op::*;
 pub use self::root::*;
-pub use self::stack::*;
 pub use self::style::*;
+pub use self::underover::*;
 
 use ttf_parser::{GlyphId, Rect};
 use typst::font::Font;
@@ -230,7 +230,7 @@ impl Layout for FormulaNode {
 impl Inline for FormulaNode {}
 
 #[capability]
-trait LayoutMath {
+pub trait LayoutMath {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()>;
 }
 

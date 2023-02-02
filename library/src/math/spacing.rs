@@ -24,11 +24,8 @@ pub(super) fn spacing(
 ) -> Em {
     use MathClass::*;
     let script = style.size <= MathSize::Script;
-    let (Some(l), Some(r)) = (left.class(), right.class()) else {
-        return ZERO;
-    };
-
-    match (l, r) {
+    let class = |frag: &MathFragment| frag.class().unwrap_or(Special);
+    match (class(left), class(right)) {
         // No spacing before punctuation; thin spacing after punctuation, unless
         // in script size.
         (_, Punctuation) => ZERO,

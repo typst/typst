@@ -1,7 +1,7 @@
 use super::*;
 
 const ROW_GAP: Em = Em::new(0.5);
-const COL_GAP: Em = Em::new(0.75);
+const COL_GAP: Em = Em::new(0.5);
 const VERTICAL_PADDING: Ratio = Ratio::new(0.1);
 
 /// # Vector

@@ -426,11 +426,14 @@ node! {
 impl Shorthand {
     /// A list of all shorthands.
     pub const LIST: &[(&'static str, char)] = &[
+        // Text only.
         ("~", '\u{00A0}'),
         ("--", '\u{2013}'),
         ("---", '\u{2014}'),
         ("-?", '\u{00AD}'),
-        ("...", '…'),
+        // Math only.
+        ("-", '\u{2212}'),
+        ("'", '′'),
         ("*", '∗'),
         ("!=", '≠'),
         ("<<", '≪'),
@@ -450,6 +453,8 @@ impl Shorthand {
         ("[|", '⟦'),
         ("|]", '⟧'),
         ("||", '‖'),
+        // Both.
+        ("...", '…'),
     ];
 
     /// Get the shorthanded character.

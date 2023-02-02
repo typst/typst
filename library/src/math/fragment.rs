@@ -1,7 +1,7 @@
 use super::*;
 
 #[derive(Debug, Clone)]
-pub(super) enum MathFragment {
+pub enum MathFragment {
     Glyph(GlyphFragment),
     Variant(VariantFragment),
     Frame(FrameFragment),
@@ -118,7 +118,7 @@ impl From<Frame> for MathFragment {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub(super) struct GlyphFragment {
+pub struct GlyphFragment {
     pub id: GlyphId,
     pub c: char,
     pub lang: Lang,

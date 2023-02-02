@@ -919,32 +919,26 @@ impl Eval for ast::FuncCall {
         // field access and does not evaluate to a module.
         let (callee, mut args) = if let ast::Expr::FieldAccess(access) = callee {
             let target = access.target();
-            let method = access.field();
-            let method_span = method.span();
-            let method = method.take();
-            let point = || Tracepoint::Call(Some(method.clone()));
-            if methods::is_mutating(&method) {
+            let field = access.field();
+            let field_span = field.span();
+            let field = field.take();
+            let point = || Tracepoint::Call(Some(field.clone()));
+            if methods::is_mutating(&field) {
                 let args = args.eval(vm)?;
-                let value = target.access(vm)?;
-
-                let value = if let Value::Module(module) = &value {
-                    module.get(&method).cloned().at(method_span)?
-                } else {
-                    return methods::call_mut(value, &method, args, span)
+                let target = target.access(vm)?;
+                if !matches!(target, Value::Symbol(_) | Value::Module(_)) {
+                    return methods::call_mut(target, &field, args, span)
                         .trace(vm.world, point, span);
-                };
-
-                (value, args)
+                }
+                (target.field(&field).at(field_span)?, args)
             } else {
                 let target = target.eval(vm)?;
                 let args = args.eval(vm)?;
-                let value = if let Value::Module(module) = &target {
-                    module.get(&method).cloned().at(method_span)?
-                } else {
-                    return methods::call(vm, target, &method, args, span)
+                if !matches!(target, Value::Symbol(_) | Value::Module(_)) {
+                    return methods::call(vm, target, &field, args, span)
                         .trace(vm.world, point, span);
-                };
-                (value, args)
+                }
+                (target.field(&field).at(field_span)?, args)
             }
         } else {
             (callee.eval(vm)?, args.eval(vm)?)

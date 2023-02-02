@@ -1,27 +1,26 @@
-// Test vectors, matrices, and cases.
+// Test matrices.
 
 ---
-$ v = vec(1, 2+3, 4) $
+// Test semicolon syntax.
+#set align(center)
+$mat() dot
+ mat(;) dot
+ mat(1, 2) dot
+ mat(1, 2;) \
+ mat(1; 2) dot
+ mat(1, 2; 3, 4) dot
+ mat(1 + &2, 1/2; &3, 4)$
 
 ---
-$ binom(n, 1) = 1/2 n (n-1) $
+// Test sparse matrix.
+$mat(
+  1, 2, ..., 10;
+  2, 2, ..., 10;
+  dots.v, dots.v, dots.down, dots.v;
+  10, 10, ..., 10;
+)$
 
 ---
-#set math.vec(delim: "|")
-$ vec(1, 2) $
-
----
-$ f(x, y) := cases(
-  1 "if" (x dot y)/2 <= 0,
-  2 "if" x in NN,
-  3 "if" x "is even",
-  4 "else",
-) $
-
----
-// Error: 22-25 expected "(", "[", "{", "|", or "||"
-#set math.vec(delim: "%")
-
----
-// Error: 8-13 missing argument: lower index
-$ binom(x^2) $
+// Test alternative delimiter.
+#set math.mat(delim: "[")
+$ mat(1, 2; 3, 4) $

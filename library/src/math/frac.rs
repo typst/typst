@@ -1,5 +1,7 @@
 use super::*;
 
+const FRAC_AROUND: Em = Em::new(0.1);
+
 /// # Fraction
 /// A mathematical fraction.
 ///
@@ -130,7 +132,7 @@ fn layout(
     let denom = ctx.layout_frame(denom)?;
     ctx.unstyle();
 
-    let around = Em::new(0.1).scaled(ctx);
+    let around = FRAC_AROUND.scaled(ctx);
     let num_gap = (shift_up - axis - num.descent()).max(num_min + thickness / 2.0);
     let denom_gap = (shift_down + axis - denom.ascent()).max(denom_min + thickness / 2.0);
 

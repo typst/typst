@@ -443,10 +443,6 @@ pub(super) fn styled_char(style: MathStyle, c: char) -> char {
         '∂' | 'ϵ' | 'ϑ' | 'ϰ' | 'ϕ' | 'ϱ' | 'ϖ'
     ));
 
-    if c == '-' {
-        return '−';
-    }
-
     if let Some(c) = latin_exception(c, variant, bold, italic) {
         return c;
     }

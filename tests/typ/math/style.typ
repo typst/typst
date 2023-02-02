@@ -1,15 +1,30 @@
-#let part = $ a B pi Delta $
-#let kinds = (math.serif, math.sans, math.cal, math.frak, math.mono, math.bb)
-#let modifiers = (v => v, math.italic, math.bold, v => math.italic(math.bold(v)))
+// Test text styling in math.
 
-#let cells = (sym.triangle.nested, [--], [`italic`], [`bold`], [both])
-#for kk in kinds {
-  cells.push(raw(repr(kk).trim("<function ").trim(">")))
-  for mm in modifiers {
-    cells.push($ mm(kk(part)) $)
-  }
-}
+---
+// Test italic defaults.
+$a, A, delta, ϵ, diff, Delta, ϴ$
 
-#set page(width: auto)
-#set align(center)
-#table(columns: 1 + modifiers.len(), ..cells)
+---
+// Test forcing a specific style.
+$A, italic(A), upright(A), bold(A), bold(upright(A)), \
+ serif(A), sans(A), cal(A), frak(A), mono(A), bb(A), \
+ italic(diff), upright(diff), \
+ bb("hello") + bold(cal("world")), \
+ mono("SQRT")(x) wreath mono(123 + 456)$
+
+---
+// Test a few style exceptions.
+$h, bb(N), frak(R), Theta, italic(Theta), sans(Theta), sans(italic(Theta))$
+
+---
+// Test font fallback.
+$ よ and 🏳️‍🌈 $
+
+---
+// Test text properties.
+$text(#red, "time"^2) + sqrt("place")$
+
+---
+// Test different font.
+#show math.formula: set text(family: "Fira Math")
+$ v := vec(1 + 2, 2 - 4, sqrt(3), arrow(x)) + 1 $

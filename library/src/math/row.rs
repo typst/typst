@@ -2,8 +2,10 @@ use crate::layout::AlignNode;
 
 use super::*;
 
+pub const TIGHT_LEADING: Em = Em::new(0.25);
+
 #[derive(Debug, Default, Clone)]
-pub(super) struct MathRow(pub Vec<MathFragment>);
+pub struct MathRow(pub Vec<MathFragment>);
 
 impl MathRow {
     pub fn new() -> Self {
@@ -85,8 +87,12 @@ impl MathRow {
     ) -> Frame {
         if self.0.iter().any(|frag| matches!(frag, MathFragment::Linebreak)) {
             let fragments = std::mem::take(&mut self.0);
+            let leading = if ctx.style.size >= MathSize::Text {
+                ctx.styles().get(ParNode::LEADING)
+            } else {
+                TIGHT_LEADING.scaled(ctx)
+            };
 
-            let leading = ctx.styles().get(ParNode::LEADING) * ctx.style.size.factor(ctx);
             let rows: Vec<_> = fragments
                 .split(|frag| matches!(frag, MathFragment::Linebreak))
                 .map(|slice| Self(slice.to_vec()))

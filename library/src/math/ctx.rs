@@ -23,7 +23,7 @@ macro_rules! percent {
 }
 
 /// The context for math layout.
-pub(super) struct MathContext<'a, 'b, 'v> {
+pub struct MathContext<'a, 'b, 'v> {
     pub vt: &'v mut Vt<'b>,
     pub regions: Regions<'a>,
     pub font: &'a Font,
