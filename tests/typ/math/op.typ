@@ -12,8 +12,8 @@ $  &sin x + log_2 x \
 ---
 // Test scripts vs limits.
 #set text("Latin Modern Roman")
-Discuss $lim_(n->infty) 1/n$ now.
-$ lim_(n->infty) 1/n = 0 $
+Discuss $lim_(n->oo) 1/n$ now.
+$ lim_(n->infinity) 1/n = 0 $
 
 ---
 // Test custom operator.

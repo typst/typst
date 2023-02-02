@@ -342,7 +342,8 @@ pub(crate) const SYM: &[(&'static str, Symbol)] = symbols! {
     ],
 
     // Calculus.
-    infty: '∞',
+    infinity: '∞',
+    oo: '∞',
     diff: '∂',
     nabla: '∇',
     sum: ['∑', integral: '⨋'],
