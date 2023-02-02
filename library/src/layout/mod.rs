@@ -41,6 +41,7 @@ use typst::model::{
 };
 
 use crate::basics::{EnumNode, ListNode, TermItem, TermsNode};
+use crate::math::{FormulaNode, LayoutMath};
 use crate::meta::DocumentNode;
 use crate::prelude::*;
 use crate::shared::BehavedBuilder;
@@ -555,9 +556,16 @@ impl<'a> ParBuilder<'a> {
             || content.is::<HNode>()
             || content.is::<SmartQuoteNode>()
             || content.is::<TextNode>()
+            || content.is::<FormulaNode>()
             || content.has::<dyn Inline>()
         {
             self.0.push(content.clone(), styles);
+            return true;
+        }
+
+        if content.has::<dyn LayoutMath>() {
+            let formula = FormulaNode { body: content.clone(), block: false }.pack();
+            self.0.push(formula, styles);
             return true;
         }
 
