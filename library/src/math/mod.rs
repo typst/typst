@@ -252,6 +252,12 @@ impl LayoutMath for Content {
         }
 
         if let Some(styled) = self.to::<StyledNode>() {
+            if styled.map.contains(TextNode::FAMILY) {
+                let frame = ctx.layout_content(self)?;
+                ctx.push(FrameFragment::new(ctx, frame).with_spaced(true));
+                return Ok(());
+            }
+
             let prev_map = std::mem::replace(&mut ctx.map, styled.map.clone());
             let prev_size = ctx.size;
             ctx.map.apply(prev_map.clone());

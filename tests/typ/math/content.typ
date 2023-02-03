@@ -12,3 +12,8 @@ $ x := #table(columns: 2)[x][y]/mat(1, 2, 3) $
 ---
 // Test non-formula math directly in content.
 #math.attach($a$, top: [b])
+
+---
+// Test font switch.
+#let here = text.with("Noto Sans")
+$#here[f] := #here[Hi there]$.
