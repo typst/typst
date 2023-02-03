@@ -101,7 +101,7 @@ fn scale(
         Some(MathClass::Opening | MathClass::Closing | MathClass::Fence)
     ) {
         let glyph = match fragment {
-            MathFragment::Glyph(glyph) => *glyph,
+            MathFragment::Glyph(glyph) => glyph.clone(),
             MathFragment::Variant(variant) => GlyphFragment::new(ctx, variant.c),
             _ => return,
         };

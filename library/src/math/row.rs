@@ -139,7 +139,7 @@ impl MathRow {
             let mut frame = Frame::new(Size::zero());
 
             for (i, row) in rows.into_iter().enumerate() {
-                let sub = row.to_line_frame(ctx, &points, align);
+                let sub = row.to_line_frame(&points, align);
                 let size = frame.size_mut();
                 if i > 0 {
                     size.y += leading;
@@ -155,11 +155,11 @@ impl MathRow {
             }
             frame
         } else {
-            self.to_line_frame(ctx, points, align)
+            self.to_line_frame(points, align)
         }
     }
 
-    fn to_line_frame(self, ctx: &MathContext, points: &[Abs], align: Align) -> Frame {
+    fn to_line_frame(self, points: &[Abs], align: Align) -> Frame {
         let ascent = self.ascent();
         let descent = self.descent();
         let size = Size::new(Abs::zero(), ascent + descent);
@@ -192,7 +192,7 @@ impl MathRow {
             let y = ascent - fragment.ascent();
             let pos = Point::new(x, y);
             x += fragment.width();
-            frame.push_frame(pos, fragment.to_frame(ctx));
+            frame.push_frame(pos, fragment.to_frame());
         }
 
         frame.size_mut().x = x;

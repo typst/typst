@@ -105,9 +105,9 @@ impl MathFragment {
         }
     }
 
-    pub fn to_frame(self, ctx: &MathContext) -> Frame {
+    pub fn to_frame(self) -> Frame {
         match self {
-            Self::Glyph(glyph) => glyph.to_frame(ctx),
+            Self::Glyph(glyph) => glyph.to_frame(),
             Self::Variant(variant) => variant.frame,
             Self::Frame(fragment) => fragment.frame,
             _ => Frame::new(self.size()),
@@ -133,10 +133,11 @@ impl From<FrameFragment> for MathFragment {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct GlyphFragment {
     pub id: GlyphId,
     pub c: char,
+    pub font: Font,
     pub lang: Lang,
     pub fill: Paint,
     pub width: Abs,
@@ -178,6 +179,7 @@ impl GlyphFragment {
         Self {
             id,
             c,
+            font: ctx.font.clone(),
             lang: ctx.styles().get(TextNode::LANG),
             fill: ctx.styles().get(TextNode::FILL),
             style: ctx.style,
@@ -197,11 +199,11 @@ impl GlyphFragment {
         self.ascent + self.descent
     }
 
-    pub fn to_variant(&self, ctx: &MathContext) -> VariantFragment {
+    pub fn to_variant(&self) -> VariantFragment {
         VariantFragment {
             c: self.c,
             id: Some(self.id),
-            frame: self.to_frame(ctx),
+            frame: self.to_frame(),
             style: self.style,
             font_size: self.font_size,
             italics_correction: self.italics_correction,
@@ -209,9 +211,9 @@ impl GlyphFragment {
         }
     }
 
-    pub fn to_frame(&self, ctx: &MathContext) -> Frame {
+    pub fn to_frame(&self) -> Frame {
         let text = Text {
-            font: ctx.font.clone(),
+            font: self.font.clone(),
             size: self.font_size,
             fill: self.fill,
             lang: self.lang,

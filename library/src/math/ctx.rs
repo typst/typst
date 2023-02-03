@@ -118,7 +118,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
     }
 
     pub fn layout_frame(&mut self, node: &dyn LayoutMath) -> SourceResult<Frame> {
-        Ok(self.layout_fragment(node)?.to_frame(self))
+        Ok(self.layout_fragment(node)?.to_frame())
     }
 
     pub fn layout_content(&mut self, content: &Content) -> SourceResult<Frame> {

@@ -225,18 +225,18 @@ fn scripts(
 
     let mut frame = Frame::new(Size::new(width, ascent + descent));
     frame.set_baseline(ascent);
-    frame.push_frame(base_pos, base.to_frame(ctx));
+    frame.push_frame(base_pos, base.to_frame());
 
     if let Some(sup) = sup {
         let sup_pos =
             Point::new(sup_delta + base_width, ascent - shift_up - sup.ascent());
-        frame.push_frame(sup_pos, sup.to_frame(ctx));
+        frame.push_frame(sup_pos, sup.to_frame());
     }
 
     if let Some(sub) = sub {
         let sub_pos =
             Point::new(sub_delta + base_width, ascent + shift_down - sub.ascent());
-        frame.push_frame(sub_pos, sub.to_frame(ctx));
+        frame.push_frame(sub_pos, sub.to_frame());
     }
 
     ctx.push(FrameFragment::new(ctx, frame).with_class(class));
@@ -279,17 +279,17 @@ fn limits(
 
     let mut frame = Frame::new(Size::new(width, height));
     frame.set_baseline(base_pos.y + base.ascent());
-    frame.push_frame(base_pos, base.to_frame(ctx));
+    frame.push_frame(base_pos, base.to_frame());
 
     if let Some(top) = top {
         let top_pos = Point::with_x((width - top.width()) / 2.0 + delta);
-        frame.push_frame(top_pos, top.to_frame(ctx));
+        frame.push_frame(top_pos, top.to_frame());
     }
 
     if let Some(bottom) = bottom {
         let bottom_pos =
             Point::new((width - bottom.width()) / 2.0 - delta, height - bottom.height());
-        frame.push_frame(bottom_pos, bottom.to_frame(ctx));
+        frame.push_frame(bottom_pos, bottom.to_frame());
     }
 
     ctx.push(FrameFragment::new(ctx, frame).with_class(class));

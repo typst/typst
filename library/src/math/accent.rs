@@ -84,7 +84,7 @@ impl LayoutMath for AccentNode {
         let base = ctx.layout_fragment(&self.base)?;
         ctx.unstyle();
 
-        let base_attach = match base {
+        let base_attach = match &base {
             MathFragment::Glyph(base) => {
                 attachment(ctx, base.id, base.italics_correction)
             }
@@ -118,7 +118,7 @@ impl LayoutMath for AccentNode {
         let mut frame = Frame::new(size);
         frame.set_baseline(baseline);
         frame.push_frame(accent_pos, accent);
-        frame.push_frame(base_pos, base.to_frame(ctx));
+        frame.push_frame(base_pos, base.to_frame());
         ctx.push(FrameFragment::new(ctx, frame).with_base_ascent(base_ascent));
 
         Ok(())
