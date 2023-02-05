@@ -84,9 +84,8 @@ impl Array {
     }
 
     /// Remove the last value in the array.
-    pub fn pop(&mut self) -> StrResult<()> {
-        Arc::make_mut(&mut self.0).pop().ok_or_else(array_is_empty)?;
-        Ok(())
+    pub fn pop(&mut self) -> StrResult<Value> {
+        Arc::make_mut(&mut self.0).pop().ok_or_else(array_is_empty)
     }
 
     /// Insert a value at the specified index.

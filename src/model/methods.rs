@@ -144,7 +144,7 @@ pub fn call_mut(
     match value {
         Value::Array(array) => match method {
             "push" => array.push(args.expect("value")?),
-            "pop" => array.pop().at(span)?,
+            "pop" => output = array.pop().at(span)?,
             "insert" => {
                 array.insert(args.expect("index")?, args.expect("value")?).at(span)?
             }
