@@ -60,6 +60,9 @@ pub fn provide(resolver: &dyn Resolver) -> Vec<PageModel> {
 
 /// Resolve consumer dependencies.
 pub trait Resolver {
+    /// Try to resolve a link that the system cannot resolve itself.
+    fn link(&self, link: &str) -> Option<String>;
+
     /// Produce an URL for an image file.
     fn image(&self, filename: &str, data: &[u8]) -> String;
 
@@ -294,6 +297,7 @@ fn category_page(resolver: &dyn Resolver, category: &str) -> PageModel {
 #[derive(Debug, Serialize)]
 pub struct FuncModel {
     pub name: &'static str,
+    pub display: &'static str,
     pub oneliner: &'static str,
     pub details: Html,
     pub showable: bool,
@@ -330,6 +334,7 @@ fn function_page(
 fn func_model(resolver: &dyn Resolver, func: &Func, info: &FuncInfo) -> FuncModel {
     FuncModel {
         name: info.name.into(),
+        display: info.display,
         oneliner: oneliner(info.docs),
         details: Html::markdown(resolver, info.docs),
         showable: func.select(None).is_ok() && info.category != "math",
@@ -442,7 +447,7 @@ fn types_page(resolver: &dyn Resolver, parent: &str) -> PageModel {
     let mut items = vec![];
 
     for model in type_models(resolver) {
-        let route = format!("{route}{}/", model.name);
+        let route = format!("{route}{}/", urlify(&model.name));
         items.push(CategoryItem {
             name: model.name.clone(),
             route: route.clone(),
@@ -694,7 +699,7 @@ fn details(key: &str) -> &str {
 }
 
 /// Turn a title into an URL fragment.
-fn urlify(title: &str) -> String {
+pub fn urlify(title: &str) -> String {
     title
         .chars()
         .map(|c| c.to_ascii_lowercase())

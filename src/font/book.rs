@@ -160,6 +160,7 @@ pub struct FontInfo {
 bitflags::bitflags! {
     /// Bitflags describing characteristics of a font.
     #[derive(Serialize, Deserialize)]
+    #[serde(transparent)]
     pub struct FontFlags: u32 {
         /// All glyphs have the same width.
         const MONOSPACE = 1 << 0;

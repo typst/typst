@@ -48,6 +48,7 @@ impl Html {
         let mut raw = String::new();
         md::html::push_html(&mut raw, iter);
         raw.truncate(raw.trim_end().len());
+
         Html { md: text.into(), raw, description }
     }
 
@@ -171,19 +172,23 @@ impl<'a> Handler<'a> {
         true
     }
 
-    fn handle_image(&self, path: &str) -> String {
-        let data = IMAGES
-            .get_file(path)
-            .unwrap_or_else(|| panic!("missing image: {path}"))
-            .contents();
-        self.resolver.image(&path, data).into()
+    fn handle_image(&self, link: &str) -> String {
+        if let Some(file) = IMAGES.get_file(link) {
+            self.resolver.image(&link, file.contents()).into()
+        } else if let Some(url) = self.resolver.link(link) {
+            url
+        } else {
+            panic!("missing image: {link}")
+        }
     }
 
     fn handle_link(&self, link: &str) -> Option<String> {
-        if link.starts_with(['#', 'h']) {
+        if link.starts_with('#') || link.starts_with("http") {
             return Some(link.into());
-        } else if !link.starts_with('$') {
-            return None;
+        }
+
+        if !link.starts_with('$') {
+            return self.resolver.link(link);
         }
 
         let root = link.split('/').next()?;
@@ -196,9 +201,10 @@ impl<'a> Handler<'a> {
             "$styling" => "/docs/reference/styling/",
             "$scripting" => "/docs/reference/scripting/",
             "$types" => "/docs/reference/types/",
-            "$community" => "/docs/community/",
             "$type" => "/docs/reference/types/",
             "$func" => "/docs/reference/",
+            "$changelog" => "/docs/changelog/",
+            "$community" => "/docs/community/",
             _ => panic!("unknown link root: {root}"),
         };
 
@@ -221,6 +227,7 @@ impl<'a> Handler<'a> {
             route.push_str(info.category);
             route.push('/');
             route.push_str(name);
+            route.push('/');
             if let Some(param) = param {
                 route.push_str("#parameters--");
                 route.push_str(param);
