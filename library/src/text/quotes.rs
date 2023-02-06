@@ -6,14 +6,10 @@ use crate::prelude::*;
 /// A language-aware quote that reacts to its context.
 ///
 /// Automatically turns into an appropriate opening or closing quote based on
-/// the active [text language](@text/lang).
-///
-/// ## Syntax
-/// This function also has dedicated syntax: The normal quote characters
-/// (`'` and `"`). Typst automatically makes your quotes smart.
+/// the active [text language]($func/text.lang).
 ///
 /// ## Example
-/// ```
+/// ```example
 /// "This is in quotes."
 ///
 /// #set text(lang: "de")
@@ -23,8 +19,12 @@ use crate::prelude::*;
 /// "C'est entre guillemets."
 /// ```
 ///
+/// ## Syntax
+/// This function also has dedicated syntax: The normal quote characters
+/// (`'` and `"`). Typst automatically makes your quotes smart.
+///
 /// ## Parameters
-/// - double: bool (named)
+/// - double: `bool` (named)
 ///   Whether this should be a double quote.
 ///
 /// ## Category
@@ -43,8 +43,7 @@ impl SmartQuoteNode {
     /// To disable smartness for a single quote, you can also escape it with a
     /// backslash.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #set smartquote(enabled: false)
     ///
     /// These are "dumb" quotes.

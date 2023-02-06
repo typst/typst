@@ -10,13 +10,13 @@ const VERTICAL_PADDING: Ratio = Ratio::new(0.1);
 /// Content in the vector's elements can be aligned with the `&` symbol.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// $ vec(a, b, c) dot vec(1, 2, 3)
 ///     = a + 2b + 3c $
 /// ```
 ///
 /// ## Parameters
-/// - elements: Content (positional, variadic)
+/// - elements: `Content` (positional, variadic)
 ///   The elements of the vector.
 ///
 /// ## Category
@@ -30,8 +30,7 @@ pub struct VecNode(Vec<Content>);
 impl VecNode {
     /// The delimiter to use.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #set math.vec(delim: "[")
     /// $ vec(1, 2) $
     /// ```
@@ -62,7 +61,7 @@ impl LayoutMath for VecNode {
 /// Content in cells that are in the same row can be aligned with the `&` symbol.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// $ mat(
 ///   1, 2, ..., 10;
 ///   2, 2, ..., 10;
@@ -72,11 +71,10 @@ impl LayoutMath for VecNode {
 /// ```
 ///
 /// ## Parameters
-/// - rows: Array (positional, variadic)
+/// - rows: `Array` (positional, variadic)
 ///   An array of arrays with the rows of the matrix.
 ///
-///   ### Example
-///   ```
+///   ```example
 ///   #let data = ((1, 2, 3), (4, 5, 6))
 ///   #let matrix = math.mat(..data)
 ///   $ v := matrix $
@@ -93,8 +91,7 @@ pub struct MatNode(Vec<Vec<Content>>);
 impl MatNode {
     /// The delimiter to use.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #set math.mat(delim: "[")
     /// $ mat(1, 2; 3, 4) $
     /// ```
@@ -140,7 +137,7 @@ impl LayoutMath for MatNode {
 /// Content across different branches can be aligned with the `&` symbol.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// $ f(x, y) := cases(
 ///   1 "if" (x dot y)/2 <= 0,
 ///   2 "if" x "is even",
@@ -150,7 +147,7 @@ impl LayoutMath for MatNode {
 /// ```
 ///
 /// ## Parameters
-/// - branches: Content (positional, variadic)
+/// - branches: `Content` (positional, variadic)
 ///   The branches of the case distinction.
 ///
 /// ## Category

@@ -23,7 +23,7 @@ use crate::prelude::*;
 /// escape sequences.
 ///
 /// ## Example
-/// ````
+/// ````example
 /// Adding `rbx` to `rcx` gives
 /// the desired result.
 ///
@@ -35,14 +35,13 @@ use crate::prelude::*;
 /// ````
 ///
 /// ## Parameters
-/// - text: EcoString (positional, required)
+/// - text: `EcoString` (positional, required)
 ///   The raw text.
 ///
 ///   You can also use raw blocks creatively to create custom syntaxes for
 ///   your automations.
 ///
-///   ### Example
-///   ````
+///   ````example
 ///   // Parse numbers in raw blocks with the
 ///   // `mydsl` tag and sum them up.
 ///   #show raw.where(lang: "mydsl"): it => {
@@ -58,11 +57,10 @@ use crate::prelude::*;
 ///   ```
 ///   ````
 ///
-/// - block: bool (named)
+/// - block: `bool` (named)
 ///   Whether the raw text is displayed as a separate block.
 ///
-///   ### Example
-///   ````
+///   ````example
 ///   // Display inline code in a small box
 ///   // that retains the correct baseline.
 ///   #show raw.where(block: false): rect.with(
@@ -107,8 +105,7 @@ impl RawNode {
     /// `{"typ"}` and `{"typc"}` tags for Typst markup and Typst code,
     /// respectively.
     ///
-    /// # Example
-    /// ````
+    /// ````example
     /// ```typ
     /// This is *Typst!*
     /// ```

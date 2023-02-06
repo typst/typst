@@ -4,7 +4,7 @@ use super::*;
 /// A math alignment point: `&`, `&&`.
 ///
 /// ## Parameters
-/// - index: usize (positional, required)
+/// - index: `usize` (positional, required)
 ///   The alignment point's index.
 ///
 /// ## Category

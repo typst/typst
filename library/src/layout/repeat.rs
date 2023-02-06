@@ -9,7 +9,7 @@ use crate::prelude::*;
 /// sure to include negative space if you need the instances to overlap.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// Sign on the dotted line: #repeat[.]
 ///
 /// #set text(10pt)
@@ -20,7 +20,7 @@ use crate::prelude::*;
 /// ```
 ///
 /// ## Parameters
-/// - body: Content (positional, required)
+/// - body: `Content` (positional, required)
 ///   The content to repeat.
 ///
 /// ## Category

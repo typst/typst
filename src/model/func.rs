@@ -226,18 +226,14 @@ pub struct FuncInfo {
     pub name: &'static str,
     /// The display name of the function.
     pub display: &'static str,
-    /// Which category the function is part of.
-    pub category: &'static str,
     /// Documentation for the function.
     pub docs: &'static str,
-    /// The source code of an example, if any.
-    pub example: Option<&'static str>,
-    /// Documentation about this function's syntax, if it has syntax.
-    pub syntax: Option<&'static str>,
     /// Details about the function's parameters.
     pub params: Vec<ParamInfo>,
     /// Valid types for the return value.
     pub returns: Vec<&'static str>,
+    /// Which category the function is part of.
+    pub category: &'static str,
 }
 
 impl FuncInfo {
@@ -254,8 +250,6 @@ pub struct ParamInfo {
     pub name: &'static str,
     /// Documentation for the parameter.
     pub docs: &'static str,
-    /// The source code of an example, if any.
-    pub example: Option<&'static str>,
     /// Valid values for the parameter.
     pub cast: CastInfo,
     /// Is the parameter positional?

@@ -12,7 +12,7 @@ use crate::text::Case;
 /// sense. Use it as a placeholder to try layouts.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// = Blind Text
 /// #lorem(30)
 ///
@@ -21,7 +21,7 @@ use crate::text::Case;
 /// ```
 ///
 /// ## Parameters
-/// - words: usize (positional, required)
+/// - words: `usize` (positional, required)
 ///   The length of the blind text in words.
 ///
 /// - returns: string
@@ -41,12 +41,12 @@ pub fn lorem(args: &mut Args) -> SourceResult<Value> {
 /// content. It is defined either through a pattern string or an arbitrary
 /// function.
 ///
-/// A numbering pattern consists of [counting symbols](#parameters--numbering)
-/// for which the actual number is substituted, their prefixes, and one suffix.
-/// The prefixes and the suffix are repeated as-is.
+/// A numbering pattern consists of counting symbols, for which the actual
+/// number is substituted, their prefixes, and one suffix. The prefixes and the
+/// suffix are repeated as-is.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #numbering("1.1)", 1, 2, 3) \
 /// #numbering("1.a.i", 1, 2) \
 /// #numbering("I – 1", 12, 2) \
@@ -60,7 +60,7 @@ pub fn lorem(args: &mut Args) -> SourceResult<Value> {
 /// ```
 ///
 /// ## Parameters
-/// - numbering: Numbering (positional, required)
+/// - numbering: `Numbering` (positional, required)
 ///   Defines how the numbering works.
 ///
 ///   **Counting symbols** are `1`, `a`, `A`, `i`, `I` and `*`. They are
@@ -84,7 +84,7 @@ pub fn lorem(args: &mut Args) -> SourceResult<Value> {
 ///   numberings to the `numbering` function without caring whether they are
 ///   defined as a pattern or function.
 ///
-/// - numbers: NonZeroUsize (positional, variadic)
+/// - numbers: `NonZeroUsize` (positional, variadic)
 ///   The numbers to apply the numbering to. Must be positive.
 ///
 ///   If `numbering` is a pattern and more numbers than counting symbols are

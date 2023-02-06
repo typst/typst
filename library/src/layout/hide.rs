@@ -9,13 +9,13 @@ use crate::prelude::*;
 /// not included in the output.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// Hello Jane \
 /// #hide[Hello] Joe
 /// ```
 ///
 /// ## Parameters
-/// - body: Content (positional, required)
+/// - body: `Content` (positional, required)
 ///   The content to hide.
 ///
 /// ## Category

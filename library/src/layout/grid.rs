@@ -35,7 +35,7 @@ use super::Spacing;
 /// `columns:` `{(auto, auto, auto)}`.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #set text(10pt, weight: "bold")
 /// #let cell = rect.with(
 ///   inset: 8pt,
@@ -60,30 +60,30 @@ use super::Spacing;
 /// ```
 ///
 /// ## Parameters
-/// - cells: Content (positional, variadic) The contents of the table cells.
+/// - cells: `Content` (positional, variadic) The contents of the table cells.
 ///
 ///   The cells are populated in row-major order.
 ///
-/// - rows: TrackSizings (named) Defines the row sizes.
+/// - rows: `TrackSizings` (named) Defines the row sizes.
 ///
 ///   If there are more cells than fit the defined rows, the last row is
 ///   repeated until there are no more cells.
 ///
-/// - columns: TrackSizings (named) Defines the column sizes.
+/// - columns: `TrackSizings` (named) Defines the column sizes.
 ///
 ///   Either specify a track size array or provide an integer to create a grid
 ///   with that many `{auto}`-sized columns. Note that opposed to rows and
 ///   gutters, providing a single track size will only ever create a single
 ///   column.
 ///
-/// - gutter: TrackSizings (named) Defines the gaps between rows & columns.
+/// - gutter: `TrackSizings` (named) Defines the gaps between rows & columns.
 ///
 ///   If there are more gutters than defined sizes, the last gutter is repeated.
 ///
-/// - column-gutter: TrackSizings (named) Defines the gaps between columns.
+/// - column-gutter: `TrackSizings` (named) Defines the gaps between columns.
 ///   Takes precedence over `gutter`.
 ///
-/// - row-gutter: TrackSizings (named) Defines the gaps between rows. Takes
+/// - row-gutter: `TrackSizings` (named) Defines the gaps between rows. Takes
 ///   precedence over `gutter`.
 ///
 /// ## Category

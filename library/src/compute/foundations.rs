@@ -10,7 +10,7 @@ use typst::syntax::Source;
 /// Returns the name of the value's type.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #type(12) \
 /// #type(14.7) \
 /// #type("hello") \
@@ -20,7 +20,7 @@ use typst::syntax::Source;
 /// ```
 ///
 /// ## Parameters
-/// - value: Value (positional, required)
+/// - value: `Value` (positional, required)
 ///   The value whose type's to determine.
 ///
 /// - returns: string
@@ -40,7 +40,7 @@ pub fn type_(args: &mut Args) -> SourceResult<Value> {
 /// integers, floats, strings, content, and functions.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #none vs #repr(none) \
 /// #"hello" vs #repr("hello") \
 /// #(1, 2) vs #repr((1, 2)) \
@@ -48,7 +48,7 @@ pub fn type_(args: &mut Args) -> SourceResult<Value> {
 /// ```
 ///
 /// ## Parameters
-/// - value: Value (positional, required)
+/// - value: `Value` (positional, required)
 ///   The value whose string representation to produce.
 ///
 /// - returns: string
@@ -67,12 +67,12 @@ pub fn repr(args: &mut Args) -> SourceResult<Value> {
 /// produce any output in the document.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #assert(1 < 2)
 /// ```
 ///
 /// ## Parameters
-/// - condition: bool (positional, required)
+/// - condition: `bool` (positional, required)
 ///   The condition that must be true for the assertion to pass.
 ///
 /// ## Category
@@ -97,13 +97,13 @@ pub fn assert(args: &mut Args) -> SourceResult<Value> {
 /// You shouldn't typically need this function, but it is there if you do.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #let markup = "= Heading\n _Emphasis_"
 /// #eval(markup)
 /// ```
 ///
 /// ## Parameters
-/// - source: String (positional, required)
+/// - source: `String` (positional, required)
 ///   A string of Typst markup to evaluate.
 ///
 ///   The markup and code in the string cannot interact with the file system.

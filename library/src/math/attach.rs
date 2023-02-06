@@ -8,18 +8,18 @@ use super::*;
 /// indicate a bottom attachment and the hat (`^`) to indicate a top attachment.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// $ sum_(i=0)^n a_i = 2^(1+i) $
 /// ```
 ///
 /// ## Parameters
-/// - base: Content (positional, required)
+/// - base: `Content` (positional, required)
 ///   The base to which things are attached.
 ///
-/// - top: Content (named)
+/// - top: `Content` (named)
 ///   The top attachment.
 ///
-/// - bottom: Content (named)
+/// - bottom: `Content` (named)
 ///   The bottom attachment.
 ///
 /// ## Category
@@ -84,12 +84,12 @@ impl LayoutMath for AttachNode {
 /// Force a base to display attachments as scripts.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// $ scripts(sum)_1^2 != sum_1^2 $
 /// ```
 ///
 /// ## Parameters
-/// - base: Content (positional, required)
+/// - base: `Content` (positional, required)
 ///   The base to attach the scripts to.
 ///
 /// ## Category
@@ -116,12 +116,12 @@ impl LayoutMath for ScriptsNode {
 /// Force a base to display attachments as limits.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// $ limits(A)_1^2 != A_1^2 $
 /// ```
 ///
 /// ## Parameters
-/// - base: Content (positional, required)
+/// - base: `Content` (positional, required)
 ///   The base to attach the limits to.
 ///
 /// ## Category

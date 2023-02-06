@@ -10,7 +10,7 @@ use crate::prelude::*;
 /// The file will be read and returned as a string.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #let text = read("data.html")
 ///
 /// An example for a HTML file:\
@@ -18,7 +18,7 @@ use crate::prelude::*;
 /// ```
 ///
 /// ## Parameters
-/// - path: EcoString (positional, required)
+/// - path: `EcoString` (positional, required)
 ///   Path to a file.
 ///
 /// - returns: string
@@ -47,7 +47,7 @@ pub fn read(vm: &Vm, args: &mut Args) -> SourceResult<Value> {
 /// stripped.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #let results = csv("data.csv")
 ///
 /// #table(
@@ -58,10 +58,10 @@ pub fn read(vm: &Vm, args: &mut Args) -> SourceResult<Value> {
 /// ```
 ///
 /// ## Parameters
-/// - path: EcoString (positional, required)
+/// - path: `EcoString` (positional, required)
 ///   Path to a CSV file.
 ///
-/// - delimiter: Delimiter (named)
+/// - delimiter: `Delimiter` (named)
 ///   The delimiter that separates columns in the CSV file.
 ///   Must be a single ASCII character.
 ///   Defaults to a comma.
@@ -149,7 +149,7 @@ fn format_csv_error(error: csv::Error) -> String {
 /// `unit`, and `weather`.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #let forecast(day) = block[
 ///   #square(
 ///     width: 2cm,
@@ -174,7 +174,7 @@ fn format_csv_error(error: csv::Error) -> String {
 /// ```
 ///
 /// ## Parameters
-/// - path: EcoString (positional, required)
+/// - path: `EcoString` (positional, required)
 ///   Path to a JSON file.
 ///
 /// - returns: dictionary or array
@@ -239,7 +239,7 @@ fn format_json_error(error: serde_json::Error) -> String {
 /// tags.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #let findChild(elem, tag) = {
 ///   elem.children
 ///     .find(e => "tag" in e and e.tag == tag)
@@ -273,7 +273,7 @@ fn format_json_error(error: serde_json::Error) -> String {
 /// ```
 ///
 /// ## Parameters
-/// - path: EcoString (positional, required)
+/// - path: `EcoString` (positional, required)
 ///   Path to an XML file.
 ///
 /// - returns: array

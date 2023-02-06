@@ -8,12 +8,12 @@ const BRACKET_GAP: Em = Em::new(0.25);
 /// A horizontal line under content.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// $ underline(1 + 2 + ... + 5) $
 /// ```
 ///
 /// ## Parameters
-/// - body: Content (positional, required)
+/// - body: `Content` (positional, required)
 ///   The content above the line.
 ///
 /// ## Category
@@ -40,12 +40,12 @@ impl LayoutMath for UnderlineNode {
 /// A horizontal line over content.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// $ overline(1 + 2 + ... + 5) $
 /// ```
 ///
 /// ## Parameters
-/// - body: Content (positional, required)
+/// - body: `Content` (positional, required)
 ///   The content below the line.
 ///
 /// ## Category
@@ -72,15 +72,15 @@ impl LayoutMath for OverlineNode {
 /// A horizontal brace under content, with an optional annotation below.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// $ underbrace(1 + 2 + ... + 5, "numbers") $
 /// ```
 ///
 /// ## Parameters
-/// - body: Content (positional, required)
+/// - body: `Content` (positional, required)
 ///   The content above the brace.
 ///
-/// - annotation: Content (positional)
+/// - annotation: `Content` (positional)
 ///   The optional content below the brace.
 ///
 /// ## Category
@@ -114,15 +114,15 @@ impl LayoutMath for UnderbraceNode {
 /// A horizontal brace over content, with an optional annotation above.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// $ overbrace(1 + 2 + ... + 5, "numbers") $
 /// ```
 ///
 /// ## Parameters
-/// - body: Content (positional, required)
+/// - body: `Content` (positional, required)
 ///   The content below the brace.
 ///
-/// - annotation: Content (positional)
+/// - annotation: `Content` (positional)
 ///   The optional content above the brace.
 ///
 /// ## Category
@@ -156,15 +156,15 @@ impl LayoutMath for OverbraceNode {
 /// A horizontal bracket under content, with an optional annotation below.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// $ underbracket(1 + 2 + ... + 5, "numbers") $
 /// ```
 ///
 /// ## Parameters
-/// - body: Content (positional, required)
+/// - body: `Content` (positional, required)
 ///   The content above the bracket.
 ///
-/// - annotation: Content (positional)
+/// - annotation: `Content` (positional)
 ///   The optional content below the bracket.
 ///
 /// ## Category
@@ -198,15 +198,15 @@ impl LayoutMath for UnderbracketNode {
 /// A horizontal bracket over content, with an optional annotation above.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// $ overbracket(1 + 2 + ... + 5, "numbers") $
 /// ```
 ///
 /// ## Parameters
-/// - body: Content (positional, required)
+/// - body: `Content` (positional, required)
 ///   The content below the bracket.
 ///
-/// - annotation: Content (positional)
+/// - annotation: `Content` (positional)
 ///   The optional content above the bracket.
 ///
 /// ## Category

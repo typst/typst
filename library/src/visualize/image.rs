@@ -10,7 +10,7 @@ use crate::prelude::*;
 /// Supported formats are PNG, JPEG, GIF and SVG.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #align(center)[
 ///   #image("molecular.jpg", width: 80%)
 ///
@@ -20,13 +20,13 @@ use crate::prelude::*;
 /// ```
 ///
 /// ## Parameters
-/// - path: EcoString (positional, required)
+/// - path: `EcoString` (positional, required)
 ///   Path to an image file.
 ///
-/// - width: Rel<Length> (named)
+/// - width: `Rel<Length>` (named)
 ///   The width of the image.
 ///
-/// - height: Rel<Length> (named)
+/// - height: `Rel<Length>` (named)
 ///   The height of the image.
 ///
 /// ## Category

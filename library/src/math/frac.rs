@@ -5,23 +5,23 @@ const FRAC_AROUND: Em = Em::new(0.1);
 /// # Fraction
 /// A mathematical fraction.
 ///
+/// ## Example
+/// ```example
+/// $ 1/2 < (x+1)/2 $
+/// $ ((x+1)) / 2 = frac(a, b) $
+/// ```
+///
 /// ## Syntax
 /// This function also has dedicated syntax: Use a slash to turn neighbouring
 /// expressions into a fraction. Multiple atoms can be grouped into a single
 /// expression using round grouping parenthesis. Such parentheses are removed
 /// from the output, but you can nest multiple to force them.
 ///
-/// ## Example
-/// ```
-/// $ 1/2 < (x+1)/2 $
-/// $ ((x+1)) / 2 = frac(a, b) $
-/// ```
-///
 /// ## Parameters
-/// - num: Content (positional, required)
+/// - num: `Content` (positional, required)
 ///   The fraction's numerator.
 ///
-/// - denom: Content (positional, required)
+/// - denom: `Content` (positional, required)
 ///   The fraction's denominator.
 ///
 /// ## Category
@@ -55,15 +55,15 @@ impl LayoutMath for FracNode {
 /// A binomial expression.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// $ binom(n, k) $
 /// ```
 ///
 /// ## Parameters
-/// - upper: Content (positional, required)
+/// - upper: `Content` (positional, required)
 ///   The binomial's upper index.
 ///
-/// - lower: Content (positional, required)
+/// - lower: `Content` (positional, required)
 ///   The binomial's lower index.
 ///
 /// ## Category

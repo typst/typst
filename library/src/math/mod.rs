@@ -112,7 +112,7 @@ pub fn module() -> Module {
 /// Can be displayed inline with text or as a separate block.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #set text("Latin Modern Roman")
 ///
 /// Let $a$, $b$, and $c$ be the side
@@ -129,13 +129,13 @@ pub fn module() -> Module {
 /// dollar signs to create a formula. Starting and ending the formula with at
 /// least one space lifts it into a separate block that is centered
 /// horizontally. For more details about math syntax, see the
-/// [main math page](/docs/reference/math).
+/// [main math page]($category/math).
 ///
 /// ## Parameters
-/// - body: Content (positional, required)
+/// - body: `Content` (positional, required)
 ///   The contents of the formula.
 ///
-/// - block: bool (named)
+/// - block: `bool` (named)
 ///   Whether the formula is displayed as a separate block.
 ///
 /// ## Category

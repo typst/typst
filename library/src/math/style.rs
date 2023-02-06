@@ -4,12 +4,12 @@ use super::*;
 /// Bold font style in math.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// $ bold(A) := B^+ $
 /// ```
 ///
 /// ## Parameters
-/// - body: Content (positional, required)
+/// - body: `Content` (positional, required)
 ///   The piece of formula to style.
 ///
 /// ## Category
@@ -39,12 +39,12 @@ impl LayoutMath for BoldNode {
 /// Upright (non-italic) font style in math.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// $ upright(A) != A $
 /// ```
 ///
 /// ## Parameters
-/// - body: Content (positional, required)
+/// - body: `Content` (positional, required)
 ///   The piece of formula to style.
 ///
 /// ## Category
@@ -76,7 +76,7 @@ impl LayoutMath for UprightNode {
 /// For roman letters and greek lowercase letters, this is already the default.
 ///
 /// ## Parameters
-/// - body: Content (positional, required)
+/// - body: `Content` (positional, required)
 ///   The piece of formula to style.
 ///
 /// ## Category
@@ -108,7 +108,7 @@ impl LayoutMath for ItalicNode {
 /// This is already the default.
 ///
 /// ## Parameters
-/// - body: Content (positional, required)
+/// - body: `Content` (positional, required)
 ///   The piece of formula to style.
 ///
 /// ## Category
@@ -138,12 +138,12 @@ impl LayoutMath for SerifNode {
 /// Sans-serif font style in math.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// $ sans(A B C) $
 /// ```
 ///
 /// ## Parameters
-/// - body: Content (positional, required)
+/// - body: `Content` (positional, required)
 ///   The piece of formula to style.
 ///
 /// ## Category
@@ -173,12 +173,12 @@ impl LayoutMath for SansNode {
 /// Calligraphic font style in math.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// Let $cal(P)$ be the set of ...
 /// ```
 ///
 /// ## Parameters
-/// - body: Content (positional, required)
+/// - body: `Content` (positional, required)
 ///   The piece of formula to style.
 ///
 /// ## Category
@@ -208,12 +208,12 @@ impl LayoutMath for CalNode {
 /// Fraktur font style in math.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// $ frak(P) $
 /// ```
 ///
 /// ## Parameters
-/// - body: Content (positional, required)
+/// - body: `Content` (positional, required)
 ///   The piece of formula to style.
 ///
 /// ## Category
@@ -243,12 +243,12 @@ impl LayoutMath for FrakNode {
 /// Monospace font style in math.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// $ mono(x + y = z) $
 /// ```
 ///
 /// ## Parameters
-/// - body: Content (positional, required)
+/// - body: `Content` (positional, required)
 ///   The piece of formula to style.
 ///
 /// ## Category
@@ -278,17 +278,18 @@ impl LayoutMath for MonoNode {
 /// Blackboard bold (double-struck) font style in math.
 ///
 /// For uppercase latin letters, blackboard bold is additionally available
-/// through [symbols](/docs/reference/math/symbols) of the form `NN` and `RR`.
+/// through [symbols]($category/symbols/sym) of the form `NN` and `RR`.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// $ bb(b) $
 /// $ bb(N) = NN $
 /// $ f: NN -> RR $
 /// ```
 ///
 /// ## Parameters
-/// - body: Content (positional, required) The piece of formula to style.
+/// - body: `Content` (positional, required)
+///   The piece of formula to style.
 ///
 /// ## Category
 /// math

@@ -11,11 +11,12 @@ use crate::prelude::*;
 /// explicitly.
 ///
 /// _Note:_ While the behavior above will be the default in the future, the
-/// transformation functions [`scale`](@scale), [`rotate`](@rotate), and
-/// [`move`](@move) will currently yield inline nodes within paragraphs.
+/// transformation functions [`scale`]($func/scale), [`rotate`]($func/rotate),
+/// and [`move`]($func/move) will currently yield inline nodes within
+/// paragraphs.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// Refer to the docs
 /// #box(
 ///   height: 9pt,
@@ -25,13 +26,13 @@ use crate::prelude::*;
 /// ```
 ///
 /// ## Parameters
-/// - body: Content (positional)
+/// - body: `Content` (positional)
 ///   The contents of the box.
 ///
-/// - width: Rel<Length> (named)
+/// - width: `Rel<Length>` (named)
 ///   The width of the box.
 ///
-/// - height: Rel<Length> (named)
+/// - height: `Rel<Length>` (named)
 ///   The height of the box.
 ///
 /// ## Category
@@ -109,7 +110,7 @@ impl Inline for BoxNode {}
 /// block-level. This is especially useful when writing show rules.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #[
 ///   #show heading: it => it.title
 ///   = No block
@@ -124,19 +125,19 @@ impl Inline for BoxNode {}
 /// ```
 ///
 /// ## Parameters
-/// - body: Content (positional)
+/// - body: `Content` (positional)
 ///   The contents of the block.
 ///
-/// - spacing: Spacing (named, settable)
+/// - spacing: `Spacing` (named, settable)
 ///   The spacing around this block.
 ///
-/// - above: Spacing (named, settable)
+/// - above: `Spacing` (named, settable)
 ///   The spacing between this block and its predecessor. Takes precedence over
 ///   `spacing`.
 ///
 ///   The default value is `{1.2em}`.
 ///
-/// - below: Spacing (named, settable)
+/// - below: `Spacing` (named, settable)
 ///   The spacing between this block and its successor. Takes precedence
 ///   over `spacing`.
 ///

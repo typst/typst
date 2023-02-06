@@ -6,7 +6,7 @@ use crate::prelude::*;
 /// A rectangle with optional content.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// // Without content.
 /// #rect(width: 35%, height: 30pt)
 ///
@@ -18,16 +18,16 @@ use crate::prelude::*;
 /// ```
 ///
 /// ## Parameters
-/// - body: Content (positional)
+/// - body: `Content` (positional)
 ///   The content to place into the rectangle.
 ///
 ///   When this is omitted, the rectangle takes on a default size of at most
 ///   `{45pt}` by `{30pt}`.
 ///
-/// - width: Rel<Length> (named)
+/// - width: `Rel<Length>` (named)
 ///   The rectangle's width, relative to its parent container.
 ///
-/// - height: Rel<Length> (named)
+/// - height: `Rel<Length>` (named)
 ///   The rectangle's height, relative to its parent container.
 ///
 /// ## Category
@@ -44,8 +44,7 @@ impl RectNode {
     /// When setting a fill, the default stroke disappears. To create a
     /// rectangle with both fill and stroke, you have to configure both.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #rect(fill: blue)
     /// ```
     pub const FILL: Option<Paint> = None;
@@ -73,8 +72,7 @@ impl RectNode {
     ///   - `rest`: The stroke on all sides except those for which the
     ///     dictionary explicitly sets a size.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #stack(
     ///   dir: ltr,
     ///   spacing: 1fr,
@@ -104,8 +102,7 @@ impl RectNode {
     ///   - `rest`: The radii for all corners except those for which the
     ///     dictionary explicitly sets a size.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #set rect(stroke: 4pt)
     /// #rect(
     ///   radius: (
@@ -129,10 +126,9 @@ impl RectNode {
     /// The default value is `{5pt}`.
     ///
     /// _Note:_ When the rectangle contains text, its exact size depends on the
-    /// current [text edges](@text/top-edge).
+    /// current [text edges]($func/text.top-edge).
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// A #rect(inset: 0pt)[tight] fit.
     /// ```
     #[property(resolve, fold)]
@@ -142,10 +138,10 @@ impl RectNode {
     ///
     /// This is, for instance, useful to prevent an inline rectangle from
     /// affecting line layout. For a generalized version of the example below,
-    /// see the documentation for the [raw text's block parameter](@raw/block).
+    /// see the documentation for the
+    /// [raw text's block parameter]($func/raw.block).
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// This
     /// #rect(
     ///   fill: luma(235),
@@ -203,7 +199,7 @@ impl Inline for RectNode {}
 /// A square with optional content.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// // Without content.
 /// #square(size: 40pt)
 ///
@@ -215,24 +211,24 @@ impl Inline for RectNode {}
 /// ```
 ///
 /// ## Parameters
-/// - body: Content (positional)
+/// - body: `Content` (positional)
 ///   The content to place into the square. The square expands to fit this
 ///   content, keeping the 1-1 aspect ratio.
 ///
 ///   When this is omitted, the square takes on a default size of at most
 ///   `{30pt}`.
 ///
-/// - size: Length (named)
+/// - size: `Length` (named)
 ///   The square's side length. This is mutually exclusive with `width` and
 ///   `height`.
 ///
-/// - width: Rel<Length> (named)
+/// - width: `Rel<Length>` (named)
 ///   The square's width. This is mutually exclusive with `size` and `height`.
 ///
 ///   In contrast to `size`, this can be relative to the parent container's
 ///   width.
 ///
-/// - height: Rel<Length> (named)
+/// - height: `Rel<Length>` (named)
 ///   The square's height. This is mutually exclusive with `size` and `width`.
 ///
 ///   In contrast to `size`, this can be relative to the parent container's
@@ -247,29 +243,29 @@ pub struct SquareNode(pub Option<Content>);
 
 #[node]
 impl SquareNode {
-    /// How to fill the square. See the [rectangle's documentation](@rect/fill)
-    /// for more details.
+    /// How to fill the square. See the
+    /// [rectangle's documentation]($func/rect.fill) for more details.
     pub const FILL: Option<Paint> = None;
 
     /// How to stroke the square. See the [rectangle's
-    /// documentation](@rect/stroke) for more details.
+    /// documentation]($func/rect.stroke) for more details.
     #[property(resolve, fold)]
     pub const STROKE: Smart<Sides<Option<Option<PartialStroke>>>> = Smart::Auto;
 
     /// How much to round the square's corners. See the [rectangle's
-    /// documentation](@rect/radius) for more details.
+    /// documentation]($func/rect.radius) for more details.
     #[property(resolve, fold)]
     pub const RADIUS: Corners<Option<Rel<Length>>> = Corners::splat(Rel::zero());
 
     /// How much to pad the square's content. See the [rectangle's
-    /// documentation](@rect/inset) for more details.
+    /// documentation]($func/rect.inset) for more details.
     ///
     /// The default value is `{5pt}`.
     #[property(resolve, fold)]
     pub const INSET: Sides<Option<Rel<Length>>> = Sides::splat(Abs::pt(5.0).into());
 
     /// How much to expand the square's size without affecting the layout. See
-    /// the [rectangle's documentation](@rect/outset) for more details.
+    /// the [rectangle's documentation]($func/rect.outset) for more details.
     #[property(resolve, fold)]
     pub const OUTSET: Sides<Option<Rel<Length>>> = Sides::splat(Rel::zero());
 
@@ -326,7 +322,7 @@ impl Inline for SquareNode {}
 /// An ellipse with optional content.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// // Without content.
 /// #ellipse(width: 35%, height: 30pt)
 ///
@@ -339,16 +335,16 @@ impl Inline for SquareNode {}
 /// ```
 ///
 /// ## Parameters
-/// - body: Content (positional)
+/// - body: `Content` (positional)
 ///   The content to place into the ellipse.
 ///
 ///   When this is omitted, the ellipse takes on a default size of at most
 ///   `{45pt}` by `{30pt}`.
 ///
-/// - width: Rel<Length> (named)
+/// - width: `Rel<Length>` (named)
 ///   The ellipse's width, relative to its parent container.
 ///
-/// - height: Rel<Length> (named)
+/// - height: `Rel<Length>` (named)
 ///   The ellipse's height, relative to its parent container.
 ///
 /// ## Category
@@ -360,24 +356,24 @@ pub struct EllipseNode(pub Option<Content>);
 
 #[node]
 impl EllipseNode {
-    /// How to fill the ellipse. See the [rectangle's documentation](@rect/fill)
-    /// for more details.
+    /// How to fill the ellipse. See the
+    /// [rectangle's documentation]($func/rect.fill) for more details.
     pub const FILL: Option<Paint> = None;
 
     /// How to stroke the ellipse. See the [rectangle's
-    /// documentation](@rect/stroke) for more details.
+    /// documentation]($func/rect.stroke) for more details.
     #[property(resolve, fold)]
     pub const STROKE: Smart<Option<PartialStroke>> = Smart::Auto;
 
     /// How much to pad the ellipse's content. See the [rectangle's
-    /// documentation](@rect/inset) for more details.
+    /// documentation]($func/rect.inset) for more details.
     ///
     /// The default value is `{5pt}`.
     #[property(resolve, fold)]
     pub const INSET: Sides<Option<Rel<Length>>> = Sides::splat(Abs::pt(5.0).into());
 
     /// How much to expand the ellipse's size without affecting the layout. See
-    /// the [rectangle's documentation](@rect/outset) for more details.
+    /// the [rectangle's documentation]($func/rect.outset) for more details.
     #[property(resolve, fold)]
     pub const OUTSET: Sides<Option<Rel<Length>>> = Sides::splat(Rel::zero());
 
@@ -426,7 +422,7 @@ impl Inline for EllipseNode {}
 /// A circle with optional content.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// // Without content.
 /// #circle(radius: 25pt)
 ///
@@ -439,21 +435,21 @@ impl Inline for EllipseNode {}
 /// ```
 ///
 /// ## Parameters
-/// - body: Content (positional)
+/// - body: `Content` (positional)
 ///   The content to place into the circle. The circle expands to fit this
 ///   content, keeping the 1-1 aspect ratio.
 ///
-/// - radius: Length (named)
+/// - radius: `Length` (named)
 ///   The circle's radius. This is mutually exclusive with `width` and
 ///   `height`.
 ///
-/// - width: Rel<Length> (named)
+/// - width: `Rel<Length>` (named)
 ///   The circle's width. This is mutually exclusive with `radius` and `height`.
 ///
 ///   In contrast to `size`, this can be relative to the parent container's
 ///   width.
 ///
-/// - height: Rel<Length> (named)
+/// - height: `Rel<Length>` (named)
 ///   The circle's height.This is mutually exclusive with `radius` and `width`.
 ///
 ///   In contrast to `size`, this can be relative to the parent container's
@@ -468,24 +464,24 @@ pub struct CircleNode(pub Option<Content>);
 
 #[node]
 impl CircleNode {
-    /// How to fill the circle. See the [rectangle's documentation](@rect/fill)
-    /// for more details.
+    /// How to fill the circle. See the
+    /// [rectangle's documentation]($func/rect.fill) for more details.
     pub const FILL: Option<Paint> = None;
 
     /// How to stroke the circle. See the [rectangle's
-    /// documentation](@rect/stroke) for more details.
+    /// documentation]($func/rect.stroke) for more details.
     #[property(resolve, fold)]
     pub const STROKE: Smart<Option<PartialStroke>> = Smart::Auto;
 
     /// How much to pad the circle's content. See the [rectangle's
-    /// documentation](@rect/inset) for more details.
+    /// documentation]($func/rect.inset) for more details.
     ///
     /// The default value is `{5pt}`.
     #[property(resolve, fold)]
     pub const INSET: Sides<Option<Rel<Length>>> = Sides::splat(Abs::pt(5.0).into());
 
     /// How much to expand the circle's size without affecting the layout. See
-    /// the [rectangle's documentation](@rect/outset) for more details.
+    /// the [rectangle's documentation]($func/rect.outset) for more details.
     #[property(resolve, fold)]
     pub const OUTSET: Sides<Option<Rel<Length>>> = Sides::splat(Rel::zero());
 

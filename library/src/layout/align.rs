@@ -4,7 +4,7 @@ use crate::prelude::*;
 /// Align content horizontally and vertically.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #set align(center)
 ///
 /// Centered text, a sight to see \
@@ -14,10 +14,10 @@ use crate::prelude::*;
 /// ```
 ///
 /// ## Parameters
-/// - body: Content (positional, required)
+/// - body: `Content` (positional, required)
 ///   The content to align.
 ///
-/// - alignment: Axes<Option<GenAlign>> (positional, settable)
+/// - alignment: `Axes<Option<GenAlign>>` (positional, settable)
 ///   The alignment along both axes.
 ///
 ///   Possible values for horizontal alignments are:
@@ -28,7 +28,7 @@ use crate::prelude::*;
 ///   - `right`
 ///
 ///   The `start` and `end` alignments are relative to the current [text
-///   direction](@text/dir).
+///   direction]($func/text.dir).
 ///
 ///   Possible values for vertical alignments are:
 ///   - `top`
@@ -39,8 +39,7 @@ use crate::prelude::*;
 ///   the `+` operator to get a `2d alignment`. For example, `top + right`
 ///   aligns the content to the top right corner.
 ///
-///   ### Example
-///   ```
+///   ```example
 ///   #set page(height: 6cm)
 ///   #set text(lang: "ar")
 ///

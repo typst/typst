@@ -8,12 +8,12 @@ use crate::prelude::*;
 /// Underline text.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// This is #underline[important].
 /// ```
 ///
 /// ## Parameters
-/// - body: Content (positional, required)
+/// - body: `Content` (positional, required)
 ///   The content to underline.
 ///
 /// ## Category
@@ -28,8 +28,7 @@ impl UnderlineNode {
     /// How to stroke the line. The text color and thickness are read from the
     /// font tables if `{auto}`.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// Take #underline(
     ///   stroke: 1.5pt + red,
     ///   offset: 2pt,
@@ -42,8 +41,7 @@ impl UnderlineNode {
     /// Position of the line relative to the baseline, read from the font tables
     /// if `{auto}`.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #underline(offset: 5pt)[
     ///   The Tale Of A Faraway Line I
     /// ]
@@ -53,8 +51,7 @@ impl UnderlineNode {
 
     /// Amount that the line will be longer or shorter than its associated text.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #align(center,
     ///   underline(extent: 2pt)[Chapter 1]
     /// )
@@ -65,8 +62,7 @@ impl UnderlineNode {
     /// Whether the line skips sections in which it would collide with the
     /// glyphs.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// This #underline(evade: true)[is great].
     /// This #underline(evade: false)[is less great].
     /// ```
@@ -103,12 +99,12 @@ impl Show for UnderlineNode {
 /// Add a line over text.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #overline[A line over text.]
 /// ```
 ///
 /// ## Parameters
-/// - body: Content (positional, required)
+/// - body: `Content` (positional, required)
 ///   The content to add a line over.
 ///
 /// ## Category
@@ -123,8 +119,7 @@ impl OverlineNode {
     /// How to stroke the line. The text color and thickness are read from the
     /// font tables if `{auto}`.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #set text(fill: olive)
     /// #overline(
     ///   stroke: green.darken(20%),
@@ -138,8 +133,7 @@ impl OverlineNode {
     /// Position of the line relative to the baseline, read from the font tables
     /// if `{auto}`.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #overline(offset: -1.2em)[
     ///   The Tale Of A Faraway Line II
     /// ]
@@ -149,8 +143,7 @@ impl OverlineNode {
 
     /// Amount that the line will be longer or shorter than its associated text.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #set overline(extent: 4pt)
     /// #set underline(extent: 4pt)
     /// #overline(underline[Typography Today])
@@ -161,8 +154,7 @@ impl OverlineNode {
     /// Whether the line skips sections in which it would collide with the
     /// glyphs.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #overline(
     ///   evade: false,
     ///   offset: -7.5pt,
@@ -204,12 +196,12 @@ impl Show for OverlineNode {
 /// Strike through text.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// This is #strike[not] relevant.
 /// ```
 ///
 /// ## Parameters
-/// - body: Content (positional, required)
+/// - body: `Content` (positional, required)
 ///   The content to strike through.
 ///
 /// ## Category
@@ -227,8 +219,7 @@ impl StrikeNode {
     /// _Note:_ Please don't use this for real redaction as you can still
     /// copy paste the text.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// This is #strike(stroke: 1.5pt + red)[very stricken through]. \
     /// This is #strike(stroke: 10pt)[redacted].
     /// ```
@@ -240,8 +231,7 @@ impl StrikeNode {
     ///
     /// This is useful if you are unhappy with the offset your font provides.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #set text(family: "Inria Serif")
     /// This is #strike(offset: auto)[low-ish]. \
     /// This is #strike(offset: -3.5pt)[on-top].
@@ -251,8 +241,7 @@ impl StrikeNode {
 
     /// Amount that the line will be longer or shorter than its associated text.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// This #strike(extent: -2pt)[skips] parts of the word.
     /// This #strike(extent: 2pt)[extends] beyond the word.
     /// ```
@@ -287,8 +276,6 @@ impl Show for StrikeNode {
 }
 
 /// Defines a line that is positioned over, under or on top of text.
-///
-/// For more details, see [`DecoNode`].
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Decoration {
     pub line: DecoLine,

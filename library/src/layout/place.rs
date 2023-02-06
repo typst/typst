@@ -9,7 +9,7 @@ use crate::prelude::*;
 ///
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #set page(height: 60pt)
 /// Hello, world!
 ///
@@ -23,21 +23,20 @@ use crate::prelude::*;
 /// ```
 ///
 /// ## Parameters
-/// - alignment: Axes<Option<GenAlign>> (positional)
+/// - alignment: `Axes<Option<GenAlign>>` (positional)
 ///   Relative to which position in the parent container to place the content.
 ///
 ///   When an axis of the page is `{auto}` sized, all alignments relative to that
 ///   axis will be ignored, instead, the item will be placed in the origin of the
 ///   axis.
 ///
-/// - body: Content (positional, required)
+/// - body: `Content` (positional, required)
 ///   The content to place.
 ///
-/// - dx: Rel<Length> (named)
+/// - dx: `Rel<Length>` (named)
 ///   The horizontal displacement of the placed content.
 ///
-///   ### Example
-///   ```
+///   ```example
 ///   #set align(center)
 ///
 ///   #box(
@@ -52,7 +51,7 @@ use crate::prelude::*;
 ///   )
 ///   ```
 ///
-/// - dy: Rel<Length> (named)
+/// - dy: `Rel<Length>` (named)
 ///   The vertical displacement of the placed content.
 ///
 /// ## Category

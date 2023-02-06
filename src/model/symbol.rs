@@ -6,7 +6,6 @@ use std::sync::Arc;
 use crate::diag::StrResult;
 use crate::util::EcoString;
 
-/// Define a list of symbols.
 #[doc(inline)]
 pub use typst_macros::symbols;
 
@@ -169,8 +168,6 @@ fn contained(modifiers: &str, m: &str) -> bool {
 }
 
 /// Normalize an accent to a combining one.
-///
-/// https://www.w3.org/TR/mathml-core/#combining-character-equivalences
 pub fn combining_accent(c: char) -> Option<char> {
     Some(match c {
         '\u{0300}' | '`' => '\u{0300}',

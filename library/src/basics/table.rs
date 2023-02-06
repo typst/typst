@@ -7,11 +7,11 @@ use crate::prelude::*;
 /// Tables are used to arrange content in cells. Cells can contain arbitrary
 /// content, including multiple paragraphs and are specified in row-major order.
 /// Because tables are just grids with configurable cell properties, refer to
-/// the [grid documentation](@grid) for more information on how to size the
+/// the [grid documentation]($func/grid) for more information on how to size the
 /// table tracks.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #table(
 ///   columns: (1fr, auto, auto),
 ///   inset: 10pt,
@@ -31,28 +31,30 @@ use crate::prelude::*;
 /// ```
 ///
 /// ## Parameters
-/// - cells: Content (positional, variadic)
+/// - cells: `Content` (positional, variadic)
 ///   The contents of the table cells.
 ///
-/// - rows: TrackSizings (named)
+/// - rows: `TrackSizings` (named)
 ///   Defines the row sizes.
-///   See the [grid documentation](@grid) for more information on track sizing.
+///   See the [grid documentation]($func/grid) for more information on track
+///   sizing.
 ///
-/// - columns: TrackSizings (named)
+/// - columns: `TrackSizings` (named)
 ///   Defines the column sizes.
-///   See the [grid documentation](@grid) for more information on track sizing.
+///   See the [grid documentation]($func/grid) for more information on track
+///   sizing.
 ///
-/// - gutter: TrackSizings (named)
+/// - gutter: `TrackSizings` (named)
 ///   Defines the gaps between rows & columns.
-///   See the [grid documentation](@grid) for more information on gutters.
+///   See the [grid documentation]($func/grid) for more information on gutters.
 ///
-/// - column-gutter: TrackSizings (named)
+/// - column-gutter: `TrackSizings` (named)
 ///   Defines the gaps between columns. Takes precedence over `gutter`.
-///   See the [grid documentation](@grid) for more information on gutters.
+///   See the [grid documentation]($func/grid) for more information on gutters.
 ///
-/// - row-gutter: TrackSizings (named)
+/// - row-gutter: `TrackSizings` (named)
 ///   Defines the gaps between rows. Takes precedence over `gutter`.
-///   See the [grid documentation](@grid) for more information on gutters.
+///   See the [grid documentation]($func/grid) for more information on gutters.
 ///
 /// ## Category
 /// basics
@@ -76,8 +78,7 @@ impl TableNode {
     /// passed the cell's column and row index, starting at zero. This can be
     /// used to implement striped tables.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #table(
     ///   fill: (col, _) => if calc.odd(col) { luma(240) } else { white },
     ///   align: (col, row) =>

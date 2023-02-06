@@ -34,7 +34,7 @@ impl Behave for SpaceNode {
 /// lines.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// *Date:* 26.12.2022 \
 /// *Topic:* Infrastructure Test \
 /// *Severity:* High \
@@ -46,14 +46,13 @@ impl Behave for SpaceNode {
 /// break.
 ///
 /// ## Parameters
-/// - justify: bool (named)
+/// - justify: `bool` (named)
 ///   Whether to justify the line before the break.
 ///
 ///   This is useful if you found a better line break opportunity in your
 ///   justified text than Typst did.
 ///
-///   ### Example
-///   ```
+///   ```example
 ///   #set par(justify: true)
 ///   #let jb = linebreak(justify: true)
 ///
@@ -98,7 +97,7 @@ impl Behave for LinebreakNode {
 /// Increases the current font weight by a given `delta`.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// This is *strong.* \
 /// This is #strong[too.] \
 ///
@@ -113,7 +112,7 @@ impl Behave for LinebreakNode {
 /// function.
 ///
 /// ## Parameters
-/// - body: Content (positional, required)
+/// - body: `Content` (positional, required)
 ///   The content to strongly emphasize.
 ///
 /// ## Category
@@ -127,8 +126,7 @@ pub struct StrongNode(pub Content);
 impl StrongNode {
     /// The delta to apply on the font weight.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #set strong(delta: 0)
     /// No *effect!*
     /// ```
@@ -172,13 +170,13 @@ impl Fold for Delta {
 /// # Emphasis
 /// Emphasizes content by setting it in italics.
 ///
-/// - If the current [text style](@text/style) is `{"normal"}`,
+/// - If the current [text style]($func/text.style) is `{"normal"}`,
 ///   this turns it into `{"italic"}`.
 /// - If it is already `{"italic"}` or `{"oblique"}`,
 ///   it turns it back to `{"normal"}`.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// This is _emphasized._ \
 /// This is #emph[too.]
 ///
@@ -195,7 +193,7 @@ impl Fold for Delta {
 /// boundaries. To emphasize part of a word, you have to use the function.
 ///
 /// ## Parameters
-/// - body: Content (positional, required)
+/// - body: `Content` (positional, required)
 ///   The content to emphasize.
 ///
 /// ## Category
@@ -241,14 +239,14 @@ impl Fold for Toggle {
 /// Convert text or content to lowercase.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #lower("ABC") \
 /// #lower[*My Text*] \
 /// #lower[already low]
 /// ```
 ///
 /// ## Parameters
-/// - text: ToCase (positional, required)
+/// - text: `ToCase` (positional, required)
 ///   The text to convert to lowercase.
 ///
 /// ## Category
@@ -262,14 +260,14 @@ pub fn lower(args: &mut Args) -> SourceResult<Value> {
 /// Convert text or content to uppercase.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #upper("abc") \
 /// #upper[*my text*] \
 /// #upper[ALREADY HIGH]
 /// ```
 ///
 /// ## Parameters
-/// - text: ToCase (positional, required)
+/// - text: `ToCase` (positional, required)
 ///   The text to convert to uppercase.
 ///
 /// ## Category
@@ -328,7 +326,7 @@ impl Case {
 /// smallcaps from normal letters, but this is not yet implemented.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #set par(justify: true)
 /// #set text(family: "Noto Serif")
 /// #set heading(numbering: "I.")
@@ -344,7 +342,7 @@ impl Case {
 /// ```
 ///
 /// ## Parameters
-/// - text: Content (positional, required)
+/// - text: `Content` (positional, required)
 ///   The text to display to small capitals.
 ///
 /// ## Category

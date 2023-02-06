@@ -7,11 +7,11 @@ use crate::text::{LinebreakNode, SpaceNode, TextNode};
 /// A section outline / table of contents.
 ///
 /// This function generates a list of all headings in the document, up to a
-/// given depth. The [heading](@heading) numbering will be reproduced within the
-/// outline.
+/// given depth. The [heading]($func/heading) numbering will be reproduced
+/// within the outline.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #outline()
 ///
 /// = Introduction
@@ -33,7 +33,7 @@ impl OutlineNode {
     /// The title of the outline.
     ///
     /// - When set to `{auto}`, an appropriate title for the [text
-    ///   language](@text/lang) will be used. This is the default.
+    ///   language]($func/text.lang) will be used. This is the default.
     /// - When set to `{none}`, the outline will not have a title.
     /// - A custom title can be set by passing content.
     #[property(referenced)]
@@ -45,10 +45,9 @@ impl OutlineNode {
 
     /// Whether to indent the subheadings to align the start of their numbering
     /// with the title of their parents. This will only have an effect if a
-    /// [heading numbering](@heading/numbering) is set.
+    /// [heading numbering]($func/heading.numbering) is set.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #set heading(numbering: "1.a.")
     ///
     /// #outline(indent: true)
@@ -67,8 +66,7 @@ impl OutlineNode {
     /// number. Can be set to `none` to disable filling. The default is a
     /// single dot.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #outline(
     ///   fill: pad(x: -1.5pt)[―]
     /// )

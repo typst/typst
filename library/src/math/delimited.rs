@@ -10,16 +10,16 @@ pub(super) const DELIM_SHORT_FALL: Em = Em::new(0.1);
 /// unmatched delimiters and to control the delimiter scaling more precisely.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// $ lr(]a, b/2]) $
 /// $ lr(]sum_(x=1)^n] x, size: #50%) $
 /// ```
 ///
 /// ## Parameters
-/// - body: Content (positional, variadic)
+/// - body: `Content` (positional, variadic)
 ///   The delimited content, including the delimiters.
 ///
-/// - size: Rel<Length> (named)
+/// - size: `Rel<Length>` (named)
 ///   The size of the brackets, relative to the height of the wrapped content.
 ///
 ///   Defaults to `{100%}`.
@@ -120,12 +120,12 @@ fn scale(
 /// Floor an expression.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// $ floor(x/2) $
 /// ```
 ///
 /// ## Parameters
-/// - body: Content (positional, required)
+/// - body: `Content` (positional, required)
 ///   The expression to floor.
 ///
 /// ## Category
@@ -139,12 +139,12 @@ pub fn floor(args: &mut Args) -> SourceResult<Value> {
 /// Ceil an expression.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// $ ceil(x/2) $
 /// ```
 ///
 /// ## Parameters
-/// - body: Content (positional, required)
+/// - body: `Content` (positional, required)
 ///   The expression to ceil.
 ///
 /// ## Category
@@ -158,12 +158,12 @@ pub fn ceil(args: &mut Args) -> SourceResult<Value> {
 /// Take the absolute value of an expression.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// $ abs(x/2) $
 /// ```
 ///
 /// ## Parameters
-/// - body: Content (positional, required)
+/// - body: `Content` (positional, required)
 ///   The expression to take the absolute value of.
 ///
 /// ## Category
@@ -177,12 +177,12 @@ pub fn abs(args: &mut Args) -> SourceResult<Value> {
 /// Take the norm of an expression.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// $ norm(x/2) $
 /// ```
 ///
 /// ## Parameters
-/// - body: Content (positional, required)
+/// - body: `Content` (positional, required)
 ///   The expression to take the norm of.
 ///
 /// ## Category

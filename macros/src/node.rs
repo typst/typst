@@ -336,15 +336,13 @@ fn create_node_properties_func(node: &Node) -> syn::ImplItemMethod {
         let value_ty = &property.value_ty;
         let shorthand = matches!(property.shorthand, Some(Shorthand::Positional));
 
-        let mut docs = documentation(&property.attrs);
-        let example = quote_option(super::func::example(&mut docs, 1));
+        let docs = documentation(&property.attrs);
         let docs = docs.trim();
 
         quote! {
             ::typst::model::ParamInfo {
                 name: #name,
                 docs: #docs,
-                example: #example,
                 cast: <#value_ty as ::typst::model::Cast<
                     ::typst::syntax::Spanned<::typst::model::Value>
                 >>::describe(),

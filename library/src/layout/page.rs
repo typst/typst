@@ -14,19 +14,19 @@ use crate::prelude::*;
 /// the pages will grow to fit their content on the respective axis.
 ///
 /// ## Parameters
-/// - body: Content (positional, required)
+/// - body: `Content` (positional, required)
 ///   The contents of the page(s).
 ///
 ///   Multiple pages will be created if the content does not fit on a single
 ///   page. A new page with the page properties prior to the function invocation
 ///   will be created after the body has been typeset.
 ///
-/// - paper: Paper (positional, settable)
+/// - paper: `Paper` (positional, settable)
 ///   A standard paper size to set width and height. When this is not specified,
 ///   Typst defaults to `{"a4"}` paper.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// >>> #set page(margin: auto)
 /// #set page("us-letter")
 ///
@@ -44,8 +44,7 @@ pub struct PageNode(pub Content);
 impl PageNode {
     /// The width of the page.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #set page(
     ///   width: 3cm,
     ///   margin: (x: 0cm),
@@ -61,16 +60,15 @@ impl PageNode {
     /// The height of the page.
     ///
     /// If this is set to `{auto}`, page breaks can only be triggered manually
-    /// by inserting a [page break](@pagebreak). Most examples throughout this
-    /// documentation use `{auto}` for the height of the page to dynamically
-    /// grow and shrink to fit their content.
+    /// by inserting a [page break]($func/pagebreak). Most examples throughout
+    /// this documentation use `{auto}` for the height of the page to
+    /// dynamically grow and shrink to fit their content.
     #[property(resolve)]
     pub const HEIGHT: Smart<Length> = Smart::Custom(Paper::A4.height().into());
 
     /// Whether the page is flipped into landscape orientation.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #set page(
     ///   "us-business-card",
     ///   flipped: true,
@@ -103,8 +101,7 @@ impl PageNode {
     ///   - `rest`: The margins on all sides except those for which the
     ///     dictionary explicitly sets a size.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #set page(
     ///  width: 3cm,
     ///  height: 4cm,
@@ -122,8 +119,7 @@ impl PageNode {
 
     /// How many columns the page has.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #set page(columns: 2, height: 4.8cm)
     /// Climate change is one of the most
     /// pressing issues of our time, with
@@ -144,8 +140,7 @@ impl PageNode {
     /// environmentally friendly and cost-effective to source pre-dyed pages and
     /// not set this property.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #set page(fill: rgb("444352"))
     /// #set text(fill: rgb("fdfdfd"))
     /// *Dark mode enabled.*
@@ -162,8 +157,7 @@ impl PageNode {
     ///   the header.
     /// - `{none}`: The header will be empty.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #set par(justify: true)
     /// #set page(
     ///   margin: (x: 24pt, y: 32pt),
@@ -185,8 +179,7 @@ impl PageNode {
     ///   the footer.
     /// - `{none}`: The footer will be empty.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #set par(justify: true)
     /// #set page(
     ///   margin: (x: 24pt, y: 32pt),
@@ -205,8 +198,7 @@ impl PageNode {
     /// This content will be placed behind the page's body. It can be
     /// used to place a background image or a watermark.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #set page(background: align(
     ///   center + horizon,
     ///   rotate(24deg,
@@ -226,8 +218,7 @@ impl PageNode {
     ///
     /// This content will overlay the page's body.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #set page(foreground: align(
     ///   center + horizon,
     ///   text(24pt)[🥸],
@@ -355,7 +346,7 @@ impl Debug for PageNode {
 /// A manually forced page break. It must not be used inside any containers.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// The next page contains
 /// more details on compound theory.
 /// #pagebreak()
@@ -366,7 +357,7 @@ impl Debug for PageNode {
 /// ```
 ///
 /// ## Parameters
-/// - weak: bool (named)
+/// - weak: `bool` (named)
 ///   If `{true}`, the page break is skipped if the current page is already empty.
 ///
 /// ## Category

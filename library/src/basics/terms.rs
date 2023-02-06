@@ -14,21 +14,20 @@ use crate::text::{SpaceNode, TextNode};
 /// followed by a term, a colon and a description creates a term list item.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// / Ligature: A merged glyph.
 /// / Kerning: A spacing adjustment
 ///   between two adjacent letters.
 /// ```
 ///
 /// ## Parameters
-/// - items: Content (positional, variadic)
+/// - items: `Content` (positional, variadic)
 ///   The term list's children.
 ///
 ///   When using the term list syntax, adjacent items are automatically
 ///   collected into term lists, even through constructs like for loops.
 ///
-///   ### Example
-///   ```
+///   ```example
 ///   #for year, product in (
 ///     "1978": "TeX",
 ///     "1984": "LaTeX",
@@ -36,14 +35,13 @@ use crate::text::{SpaceNode, TextNode};
 ///   ) [/ #product: Born in #year.]
 ///   ```
 ///
-/// - tight: bool (named)
+/// - tight: `bool` (named)
 ///   If this is `{false}`, the items are spaced apart with [term list
-///   spacing](@terms/spacing). If it is `{true}`, they use normal
-///   [leading](@par/leading) instead. This makes the term list more compact,
-///   which can look better if the items are short.
+///   spacing]($func/terms.spacing). If it is `{true}`, they use normal
+///   [leading]($func/par.leading) instead. This makes the term list more
+///   compact, which can look better if the items are short.
 ///
-///   ### Example
-///   ```
+///   ```example
 ///   / Fact: If a term list has a lot
 ///     of text, and maybe other inline
 ///     content, it should not be tight
@@ -74,8 +72,7 @@ impl TermsNode {
 
     /// The hanging indent of the description.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #set terms(hanging-indent: 0pt)
     /// / Term: This term list does not
     ///   make use of hanging indents.
@@ -85,7 +82,7 @@ impl TermsNode {
 
     /// The spacing between the items of a wide (non-tight) term list.
     ///
-    /// If set to `{auto}` uses the spacing [below blocks](@block/below).
+    /// If set to `{auto}` uses the spacing [below blocks]($func/block.below).
     pub const SPACING: Smart<Spacing> = Smart::Auto;
 
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {

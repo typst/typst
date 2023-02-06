@@ -9,20 +9,8 @@ use crate::prelude::*;
 ///
 /// Displays a sequence of items vertically and numbers them consecutively.
 ///
-/// ## Syntax
-/// This functions also has dedicated syntax:
-///
-/// - Starting a line with a plus sign creates an automatically numbered
-///   enumeration item.
-/// - Start a line with a number followed by a dot creates an explicitly
-///   numbered enumeration item.
-///
-/// Enumeration items can contain multiple paragraphs and other block-level
-/// content. All content that is indented more than an item's plus sign or dot
-/// becomes part of that item.
-///
 /// ## Example
-/// ```
+/// ```example
 /// Automatically numbered:
 /// + Preparations
 /// + Analysis
@@ -37,15 +25,26 @@ use crate::prelude::*;
 /// #enum[First][Second]
 /// ```
 ///
+/// ## Syntax
+/// This functions also has dedicated syntax:
+///
+/// - Starting a line with a plus sign creates an automatically numbered
+///   enumeration item.
+/// - Start a line with a number followed by a dot creates an explicitly
+///   numbered enumeration item.
+///
+/// Enumeration items can contain multiple paragraphs and other block-level
+/// content. All content that is indented more than an item's plus sign or dot
+/// becomes part of that item.
+///
 /// ## Parameters
-/// - items: Content (positional, variadic)
+/// - items: `Content` (positional, variadic)
 ///   The enumeration's children.
 ///
 ///   When using the enum syntax, adjacent items are automatically collected
 ///   into enumerations, even through constructs like for loops.
 ///
-///   ### Example
-///   ```
+///   ```example
 ///   #for phase in (
 ///      "Launch",
 ///      "Orbit",
@@ -53,11 +52,10 @@ use crate::prelude::*;
 ///   ) [+ #phase]
 ///   ```
 ///
-/// - start: NonZeroUsize (named)
+/// - start: `NonZeroUsize` (named)
 ///   Which number to start the enumeration with.
 ///
-///   ### Example
-///   ```
+///   ```example
 ///   #enum(
 ///     start: 3,
 ///     [Skipping],
@@ -65,14 +63,13 @@ use crate::prelude::*;
 ///   )
 ///   ```
 ///
-/// - tight: bool (named)
+/// - tight: `bool` (named)
 ///   If this is `{false}`, the items are spaced apart with
-///   [enum spacing](@enum/spacing). If it is `{true}`, they use normal
-///   [leading](@par/leading) instead. This makes the enumeration more compact,
-///   which can look better if the items are short.
+///   [enum spacing]($func/enum.spacing). If it is `{true}`, they use normal
+///   [leading]($func/par.leading) instead. This makes the enumeration more
+///   compact, which can look better if the items are short.
 ///
-///   ### Example
-///   ```
+///   ```example
 ///   + If an enum has a lot of text, and
 ///     maybe other inline content, it
 ///     should not be tight anymore.
@@ -97,10 +94,9 @@ pub struct EnumNode {
 #[node]
 impl EnumNode {
     /// How to number the enumeration. Accepts a
-    /// [numbering pattern or function](@numbering).
+    /// [numbering pattern or function]($func/numbering).
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #set enum(numbering: "(a)")
     ///
     /// + Different
@@ -121,7 +117,7 @@ impl EnumNode {
 
     /// The spacing between the items of a wide (non-tight) enumeration.
     ///
-    /// If set to `{auto}` uses the spacing [below blocks](@block/below).
+    /// If set to `{auto}` uses the spacing [below blocks]($func/block.below).
     pub const SPACING: Smart<Spacing> = Smart::Auto;
 
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {

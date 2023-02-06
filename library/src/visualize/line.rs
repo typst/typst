@@ -4,24 +4,24 @@ use crate::prelude::*;
 /// A line from one point to another.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #set page(height: 100pt)
 /// #line(end: (50%, 50%))
 /// ```
 ///
 /// ## Parameters
-/// - start: Axes<Rel<Length>> (named)
+/// - start: `Axes<Rel<Length>>` (named)
 ///   The start point of the line.
 ///   Must be an array of exactly two relative lengths.
 ///
-/// - end: Axes<Rel<Length>> (named)
+/// - end: `Axes<Rel<Length>>` (named)
 ///   The end point of the line.
 ///   Must be an array of exactly two relative lengths.
 ///
-/// - length: Rel<Length> (named)
+/// - length: `Rel<Length>` (named)
 ///   The line's length. Mutually exclusive with `end`.
 ///
-/// - angle: Angle (named)
+/// - angle: `Angle` (named)
 ///   The angle at which the line points away from the origin. Mutually
 ///   exclusive with `end`.
 ///
@@ -48,8 +48,7 @@ impl LineNode {
     /// - A stroke combined from color and thickness using the `+` operator as
     ///   in `{2pt + red}`.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #line(length: 100%, stroke: 2pt + red)
     /// ```
     #[property(resolve, fold)]

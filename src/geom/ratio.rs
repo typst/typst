@@ -3,7 +3,7 @@ use super::*;
 /// A ratio of a whole.
 ///
 /// _Note_: `50%` is represented as `0.5` here, but stored as `50.0` in the
-/// corresponding [literal](crate::syntax::ast::LitKind::Numeric).
+/// corresponding [literal](crate::syntax::ast::Numeric).
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Ratio(Scalar);
 

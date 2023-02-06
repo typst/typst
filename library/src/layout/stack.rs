@@ -10,7 +10,7 @@ use crate::prelude::*;
 /// between each item.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #stack(
 ///   dir: ttb,
 ///   rect(width: 40pt),
@@ -20,10 +20,10 @@ use crate::prelude::*;
 /// ```
 ///
 /// ## Parameters
-/// - items: StackChild (positional, variadic)
+/// - items: `StackChild` (positional, variadic)
 ///   The items to stack along an axis.
 ///
-/// - dir: Dir (named)
+/// - dir: `Dir` (named)
 ///   The direction along which the items are stacked. Possible values are:
 ///
 ///   - `{ltr}`: Left to right.
@@ -31,7 +31,7 @@ use crate::prelude::*;
 ///   - `{ttb}`: Top to bottom.
 ///   - `{btt}`: Bottom to top.
 ///
-/// - spacing: Spacing (named)
+/// - spacing: `Spacing` (named)
 ///   Spacing to insert between items where no explicit spacing was provided.
 ///
 /// ## Category

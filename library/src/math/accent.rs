@@ -9,23 +9,22 @@ const ACCENT_SHORT_FALL: Em = Em::new(0.5);
 /// Attach an accent to a base.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// $grave(a) = accent(a, `)$ \
 /// $arrow(a) = accent(a, arrow)$ \
 /// $tilde(a) = accent(a, \u{0303})$
 /// ```
 ///
 /// ## Parameters
-/// - base: Content (positional, required)
+/// - base: `Content` (positional, required)
 ///   The base to which the accent is applied.
 ///   May consist of multiple letters.
 ///
-///   ### Example
-///   ```
+///   ```example
 ///   $arrow(A B C)$
 ///   ```
 ///
-/// - accent: char (positional, required)
+/// - accent: `char` (positional, required)
 ///   The accent to apply to the base.
 ///
 ///   Supported accents include:

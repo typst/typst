@@ -17,7 +17,7 @@ use crate::text::TextNode;
 /// Introduction <intro>]` can be referenced by typing `[@intro]`).
 ///
 /// ## Parameters
-/// - target: Label (positional, required)
+/// - target: `Label` (positional, required)
 ///   The label that should be referenced.
 ///
 /// ## Category

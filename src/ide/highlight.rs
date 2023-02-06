@@ -1,6 +1,6 @@
 use crate::syntax::{ast, LinkedNode, SyntaxKind, SyntaxNode};
 
-/// Syntax highlighting tag.
+/// A syntax highlighting tag.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Tag {
     /// A line or block comment.

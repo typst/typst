@@ -26,7 +26,7 @@ mod symbols;
 
 use proc_macro::TokenStream as BoundaryStream;
 use proc_macro2::{TokenStream, TokenTree};
-use quote::{quote, quote_spanned, ToTokens};
+use quote::{quote, quote_spanned};
 use syn::{parse_quote, Ident, Result};
 
 /// Implement `FuncType` for a type or function.
@@ -104,12 +104,4 @@ fn dedent(text: &str) -> String {
         .map(|s| s.strip_prefix("  ").unwrap_or(s))
         .collect::<Vec<_>>()
         .join("\n")
-}
-
-/// Quote an optional value.
-fn quote_option<T: ToTokens>(option: Option<T>) -> TokenStream {
-    match option {
-        Some(value) => quote! { Some(#value) },
-        None => quote! { None },
-    }
 }

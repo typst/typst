@@ -19,7 +19,7 @@ use crate::text::{
 /// paragraph of its own.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #set par(indent: 1em, justify: true)
 /// #show par: set block(spacing: 0.65em)
 ///
@@ -36,7 +36,7 @@ use crate::text::{
 /// ```
 ///
 /// ## Parameters
-/// - body: Content (positional, required)
+/// - body: `Content` (positional, required)
 ///   The contents of the paragraph.
 ///
 /// ## Category
@@ -54,8 +54,8 @@ impl ParNode {
     ///
     /// By typographic convention, paragraph breaks are indicated by either some
     /// space between paragraphs or indented first lines. Consider turning the
-    /// [paragraph spacing](@block/spacing) off when using this property (e.g.
-    /// using `[#show par: set block(spacing: 0pt)]`).
+    /// [paragraph spacing]($func/block.spacing) off when using this property
+    /// (e.g. using `[#show par: set block(spacing: 0pt)]`).
     #[property(resolve)]
     pub const INDENT: Length = Length::zero();
 
@@ -68,12 +68,12 @@ impl ParNode {
     /// Whether to justify text in its line.
     ///
     /// Hyphenation will be enabled for justified paragraphs if the [text
-    /// property hyphenate](@text/hyphenate) is set to `{auto}` and the current
-    /// language is known.
+    /// property hyphenate]($func/text.hyphenate) is set to `{auto}` and the
+    /// current language is known.
     ///
-    /// Note that the current [alignment](@align) still has an effect on the
-    /// placement of the last line except if it ends with a [justified line
-    /// break](@linebreak/justify).
+    /// Note that the current [alignment]($func/align) still has an effect on
+    /// the placement of the last line except if it ends with a [justified line
+    /// break]($func/linebreak.justify).
     pub const JUSTIFY: bool = false;
 
     /// How to determine line breaks.
@@ -83,8 +83,7 @@ impl ParNode {
     /// breaks for ragged paragraphs may also be worthwhile to improve the
     /// appearance of the text.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #set page(width: 190pt)
     /// #set par(linebreaks: "simple")
     /// Some texts are frustratingly
@@ -219,21 +218,21 @@ castable! {
 /// A paragraph break.
 ///
 /// This starts a new paragraph. Especially useful when used within code like
-/// [for loops](/docs/reference/scripting/#loops). Multiple consecutive
+/// [for loops]($scripting/#loops). Multiple consecutive
 /// paragraph breaks collapse into a single one.
 ///
-/// ## Syntax
-/// Instead of calling this function, you can insert a blank line into your
-/// markup to create a paragraph break.
-///
 /// ## Example
-/// ```
+/// ```example
 /// #for i in range(3) {
 ///   [Blind text #i: ]
 ///   lorem(5)
 ///   parbreak()
 /// }
 /// ```
+///
+/// ## Syntax
+/// Instead of calling this function, you can insert a blank line into your
+/// markup to create a paragraph break.
 ///
 /// ## Category
 /// layout

@@ -8,14 +8,8 @@ use crate::text::TextNode;
 /// Displays a sequence of items vertically, with each item introduced by a
 /// marker.
 ///
-/// ## Syntax
-/// This functions also has dedicated syntax: Start a line with a hyphen,
-/// followed by a space to create a list item. A list item can contain multiple
-/// paragraphs and other block-level content. All content that is indented
-/// more than an item's hyphen becomes part of that item.
-///
 /// ## Example
-/// ```
+/// ```example
 /// - *Content*
 ///   - Basics
 ///   - Text
@@ -34,28 +28,32 @@ use crate::text::TextNode;
 ///   )
 /// ```
 ///
+/// ## Syntax
+/// This functions also has dedicated syntax: Start a line with a hyphen,
+/// followed by a space to create a list item. A list item can contain multiple
+/// paragraphs and other block-level content. All content that is indented
+/// more than an item's hyphen becomes part of that item.
+///
 /// ## Parameters
-/// - items: Content (positional, variadic)
+/// - items: `Content` (positional, variadic)
 ///   The list's children.
 ///
 ///   When using the list syntax, adjacent items are automatically collected
 ///   into lists, even through constructs like for loops.
 ///
-///   ### Example
-///   ```
+///   ```example
 ///   #for letter in "ABC" [
 ///     - Letter #letter
 ///   ]
 ///   ```
 ///
-/// - tight: bool (named)
-///   If this is `{false}`, the items are spaced apart with
-///   [list spacing](@list/spacing). If it is `{true}`, they use normal
-///   [leading](@par/leading) instead. This makes the list more compact, which
-///   can look better if the items are short.
+/// - tight: `bool` (named)
+///   If this is `{false}`, the items are spaced apart with [list
+///   spacing]($func/list.spacing). If it is `{true}`, they use normal
+///   [leading]($func/par.leading) instead. This makes the list more compact,
+///   which can look better if the items are short.
 ///
-///   ### Example
-///   ```
+///   ```example
 ///   - If a list has a lot of text, and
 ///     maybe other inline content, it
 ///     should not be tight anymore.
@@ -80,8 +78,7 @@ pub struct ListNode {
 impl ListNode {
     /// The marker which introduces each element.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #set list(marker: [--])
     ///
     /// - A more classic list
@@ -100,7 +97,7 @@ impl ListNode {
 
     /// The spacing between the items of a wide (non-tight) list.
     ///
-    /// If set to `{auto}` uses the spacing [below blocks](@block/below).
+    /// If set to `{auto}` uses the spacing [below blocks]($func/block.below).
     pub const SPACING: Smart<Spacing> = Smart::Auto;
 
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {

@@ -12,7 +12,7 @@ use crate::prelude::*;
 /// - Strings are parsed in base 10.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #int(false) \
 /// #int(true) \
 /// #int(2.7) \
@@ -20,7 +20,7 @@ use crate::prelude::*;
 /// ```
 ///
 /// ## Parameters
-/// - value: ToInt (positional, required)
+/// - value: `ToInt` (positional, required)
 ///   The value that should be converted to an integer.
 ///
 /// - returns: integer
@@ -52,7 +52,7 @@ castable! {
 ///   Exponential notation is supported.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #float(false) \
 /// #float(true) \
 /// #float(4) \
@@ -61,7 +61,7 @@ castable! {
 /// ```
 ///
 /// ## Parameters
-/// - value: ToFloat (positional, required)
+/// - value: `ToFloat` (positional, required)
 ///   The value that should be converted to a float.
 ///
 /// - returns: float
@@ -88,14 +88,14 @@ castable! {
 /// Create a grayscale color.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #for x in range(250, step: 50) {
 ///   square(fill: luma(x))
 /// }
 /// ```
 ///
 /// ## Parameters
-/// - gray: Component (positional, required)
+/// - gray: `Component` (positional, required)
 ///   The gray component.
 ///
 /// - returns: color
@@ -118,14 +118,14 @@ pub fn luma(args: &mut Args) -> SourceResult<Value> {
 /// moment. This will be fixed in the future.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #square(fill: rgb("#b1f2eb"))
 /// #square(fill: rgb(87, 127, 230))
 /// #square(fill: rgb(25%, 13%, 65%))
 /// ```
 ///
 /// ## Parameters
-/// - hex: EcoString (positional)
+/// - hex: `EcoString` (positional)
 ///   The color in hexadecimal notation.
 ///
 ///   Accepts three, four, six or eight hexadecimal digits and optionally
@@ -133,23 +133,22 @@ pub fn luma(args: &mut Args) -> SourceResult<Value> {
 ///
 ///   If this string is given, the individual components should not be given.
 ///
-///   ### Example
-///   ```
+///   ```example
 ///   #text(16pt, rgb("#239dad"))[
 ///     *Typst*
 ///   ]
 ///   ```
 ///
-/// - red: Component (positional)
+/// - red: `Component` (positional)
 ///   The red component.
 ///
-/// - green: Component (positional)
+/// - green: `Component` (positional)
 ///   The green component.
 ///
-/// - blue: Component (positional)
+/// - blue: `Component` (positional)
 ///   The blue component.
 ///
-/// - alpha: Component (positional)
+/// - alpha: `Component` (positional)
 ///   The alpha component.
 ///
 /// - returns: color
@@ -196,23 +195,23 @@ castable! {
 /// the color.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #square(
 ///   fill: cmyk(27%, 0%, 3%, 5%)
 /// )
 /// ````
 ///
 /// ## Parameters
-/// - cyan: RatioComponent (positional, required)
+/// - cyan: `RatioComponent` (positional, required)
 ///   The cyan component.
 ///
-/// - magenta: RatioComponent (positional, required)
+/// - magenta: `RatioComponent` (positional, required)
 ///   The magenta component.
 ///
-/// - yellow: RatioComponent (positional, required)
+/// - yellow: `RatioComponent` (positional, required)
 ///   The yellow component.
 ///
-/// - key: RatioComponent (positional, required)
+/// - key: `RatioComponent` (positional, required)
 ///   The key component.
 ///
 /// - returns: color
@@ -244,7 +243,7 @@ castable! {
 /// Create a custom symbol with modifiers.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #let envelope = symbol(
 ///   "🖂",
 ///   ("stamped", "🖃"),
@@ -261,7 +260,7 @@ castable! {
 /// ```
 ///
 /// ## Parameters
-/// - variants: Variant (positional, variadic)
+/// - variants: `Variant` (positional, variadic)
 ///   The variants of the symbol.
 ///
 ///   Can be a just a string consisting of a single character for the
@@ -309,7 +308,7 @@ castable! {
 /// - From labels the name is extracted.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #str(10) \
 /// #str(2.7) \
 /// #str(1e8) \
@@ -317,7 +316,7 @@ castable! {
 /// ```
 ///
 /// ## Parameters
-/// - value: ToStr (positional, required)
+/// - value: `ToStr` (positional, required)
 ///   The value that should be converted to a string.
 ///
 /// - returns: string
@@ -344,11 +343,11 @@ castable! {
 /// Create a label from a string.
 ///
 /// Inserting a label into content attaches it to the closest previous element
-/// that is not a space. Then, the element can be [referenced](@ref) and styled
-/// through the label.
+/// that is not a space. Then, the element can be [referenced]($func/ref) and
+/// styled through the label.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #show <a>: set text(blue)
 /// #show label("b"): set text(red)
 ///
@@ -361,7 +360,7 @@ castable! {
 /// its name in angle brackets. This works both in markup and code.
 ///
 /// ## Parameters
-/// - name: EcoString (positional, required)
+/// - name: `EcoString` (positional, required)
 ///   The name of the label.
 ///
 /// - returns: label
@@ -377,15 +376,14 @@ pub fn label(args: &mut Args) -> SourceResult<Value> {
 /// Create a regular expression from a string.
 ///
 /// The result can be used as a
-/// [show rule selector](/docs/reference/styling/#show-rules) and with
-/// [string methods](/docs/reference/types/string/#methods) like `find`,
-/// `split`, and `replace`.
+/// [show rule selector]($styling/#show-rules) and with
+/// [string methods]($type/string) like `find`, `split`, and `replace`.
 ///
 /// [See here](https://docs.rs/regex/latest/regex/#syntax) for a specification
 /// of the supported syntax.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// // Works with show rules.
 /// #show regex("\d+"): set text(red)
 ///
@@ -397,7 +395,7 @@ pub fn label(args: &mut Args) -> SourceResult<Value> {
 /// ```
 ///
 /// ## Parameters
-/// - regex: EcoString (positional, required)
+/// - regex: `EcoString` (positional, required)
 ///   The regular expression as a string.
 ///
 ///   Most regex escape sequences just work because they are not valid Typst
@@ -423,7 +421,7 @@ pub fn regex(args: &mut Args) -> SourceResult<Value> {
 /// range.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #range(5) \
 /// #range(2, 5) \
 /// #range(20, step: 4) \
@@ -432,13 +430,13 @@ pub fn regex(args: &mut Args) -> SourceResult<Value> {
 /// ```
 ///
 /// ## Parameters
-/// - start: i64 (positional)
+/// - start: `i64` (positional)
 ///   The start of the range (inclusive).
 ///
-/// - end: i64 (positional, required)
+/// - end: `i64` (positional, required)
 ///   The end of the range (exclusive).
 ///
-/// - step: i64 (named)
+/// - step: `i64` (named)
 ///   The distance between the generated numbers.
 ///
 /// - returns: array

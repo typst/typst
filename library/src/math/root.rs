@@ -4,12 +4,12 @@ use super::*;
 /// A square root.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// $ sqrt(x^2) = x = sqrt(x)^2 $
 /// ```
 ///
 /// ## Parameters
-/// - radicand: Content (positional, required)
+/// - radicand: `Content` (positional, required)
 ///   The expression to take the square root of.
 ///
 /// ## Category
@@ -36,15 +36,15 @@ impl LayoutMath for SqrtNode {
 /// A general root.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// $ root(3, x) $
 /// ```
 ///
 /// ## Parameters
-/// - index: Content (positional, required)
+/// - index: `Content` (positional, required)
 ///   Which root of the radicand to take.
 ///
-/// - radicand: Content (positional, required)
+/// - radicand: `Content` (positional, required)
 ///   The expression to take the root of.
 ///
 /// ## Category

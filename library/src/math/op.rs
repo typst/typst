@@ -5,10 +5,18 @@ use super::*;
 /// # Text Operator
 /// A text operator in a math formula.
 ///
+/// ## Predefined Operators
+/// Typst predefines the operators `arccos`,  `arcsin`,  `arctan`,  `arg`,
+/// `cos`,  `cosh`,  `cot`,  `coth`,  `csc`,  `deg`,  `det`,  `dim`,  `exp`,
+/// `gcd`,  `hom`,  `mod`,  `inf`,  `ker`,  `lg`,  `lim`,  `ln`,  `log`,  `max`,
+/// `min`,  `Pr`,  `sec`,  `sin`,  `sinh`,  `sup`,  `tan`,  `tanh`,  `liminf`,
+/// and `limsup`.
+///
 /// ## Parameters
-/// - text: EcoString (positional, required)
+/// - text: `EcoString` (positional, required)
 ///   The operator's text.
-/// - limits: bool (named)
+///
+/// - limits: `bool` (named)
 ///   Whether the operator should force attachments to display as limits.
 ///
 ///   Defaults to `{false}`.

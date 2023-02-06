@@ -10,12 +10,12 @@ use crate::prelude::*;
 /// The text is rendered smaller and its baseline is lowered.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// Revenue#sub[yearly]
 /// ```
 ///
 /// ## Parameters
-/// - body: Content (positional, required)
+/// - body: `Content` (positional, required)
 ///   The text to display in subscript.
 ///
 /// ## Category
@@ -33,8 +33,7 @@ impl SubNode {
     /// codepoints. If that fails, it falls back to rendering lowered and shrunk
     /// normal letters.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// N#sub(typographic: true)[1]
     /// N#sub(typographic: false)[1]
     /// ```
@@ -91,12 +90,12 @@ impl Show for SubNode {
 /// The text is rendered smaller and its baseline is raised.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// 1#super[st] try!
 /// ```
 ///
 /// ## Parameters
-/// - body: Content (positional, required)
+/// - body: `Content` (positional, required)
 ///   The text to display in superscript.
 ///
 /// ## Category
@@ -114,8 +113,7 @@ impl SuperNode {
     /// superscript codepoints. If that fails, it falls back to rendering
     /// raised and shrunk normal letters.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// N#super(typographic: true)[1]
     /// N#super(typographic: false)[1]
     /// ```

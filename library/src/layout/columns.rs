@@ -11,7 +11,7 @@ use crate::text::TextNode;
 /// necessary.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// = Towards Advanced Deep Learning
 ///
 /// #box(height: 68pt,
@@ -32,10 +32,10 @@ use crate::text::TextNode;
 /// ```
 ///
 /// ## Parameters
-/// - count: usize (positional, required)
+/// - count: `usize` (positional, required)
 ///   The number of columns.
 ///
-/// - body: Content (positional, required)
+/// - body: `Content` (positional, required)
 ///   The content that should be layouted into the columns.
 ///
 /// ## Category
@@ -151,12 +151,12 @@ impl Layout for ColumnsNode {
 /// # Column Break
 /// A forced column break.
 ///
-/// The function will behave like a [page break](@pagebreak) when used in a
+/// The function will behave like a [page break]($func/pagebreak) when used in a
 /// single column layout or the last column on a page. Otherwise, content after
 /// the column break will be placed in the next column.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #set page(columns: 2)
 /// Preliminary findings from our
 /// ongoing research project have
@@ -174,7 +174,7 @@ impl Layout for ColumnsNode {
 /// ```
 ///
 /// ## Parameters
-/// - weak: bool (named)
+/// - weak: `bool` (named)
 ///   If `{true}`, the column break is skipped if the current column is already
 ///   empty.
 ///

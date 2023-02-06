@@ -16,14 +16,15 @@ use crate::text::{SpaceNode, TextNode, TextSize};
 ///
 /// Typst can automatically number your headings for you. To enable numbering,
 /// specify how you want your headings to be numbered with a
-/// [numbering pattern or function](@numbering).
+/// [numbering pattern or function]($func/numbering).
 ///
 /// Independently from the numbering, Typst can also automatically generate an
-/// [outline](@outline) of all headings for you. To exclude one or more headings
-/// from this outline, you can set the `outlined` parameter to `{false}`.
+/// [outline]($func/outline) of all headings for you. To exclude one or more
+/// headings from this outline, you can set the `outlined` parameter to
+/// `{false}`.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #set heading(numbering: "1.a)")
 ///
 /// = Introduction
@@ -39,10 +40,10 @@ use crate::text::{SpaceNode, TextNode, TextSize};
 /// signs determines the heading's logical nesting depth.
 ///
 /// ## Parameters
-/// - title: Content (positional, required)
+/// - title: `Content` (positional, required)
 ///   The heading's title.
 ///
-/// - level: NonZeroUsize (named)
+/// - level: `NonZeroUsize` (named)
 ///   The logical nesting depth of the heading, starting from one.
 ///
 /// ## Category
@@ -61,10 +62,9 @@ pub struct HeadingNode {
 #[node]
 impl HeadingNode {
     /// How to number the heading. Accepts a
-    /// [numbering pattern or function](@numbering).
+    /// [numbering pattern or function]($func/numbering).
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #set heading(numbering: "1.a.")
     ///
     /// = A section
@@ -76,8 +76,7 @@ impl HeadingNode {
 
     /// Whether the heading should appear in the outline.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #outline()
     ///
     /// #heading[Normal]

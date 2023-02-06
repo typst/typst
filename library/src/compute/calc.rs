@@ -41,14 +41,14 @@ pub fn calc() -> Module {
 /// Calculate the absolute value of a numeric value.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #calc.abs(-5) \
 /// #calc.abs(5pt - 2cm) \
 /// #calc.abs(2fr)
 /// ```
 ///
 /// ## Parameters
-/// - value: ToAbs (positional, required)
+/// - value: `ToAbs` (positional, required)
 ///   The value whose absolute value to calculate.
 ///
 /// ## Category
@@ -76,14 +76,14 @@ castable! {
 /// Raise a value to some exponent.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #calc.pow(2, 3)
 /// ```
 ///
 /// ## Parameters
-/// - base: Num (positional, required)
+/// - base: `Num` (positional, required)
 ///   The base of the power.
-/// - exponent: Num (positional, required)
+/// - exponent: `Num` (positional, required)
 ///   The exponent of the power. Must be non-negative.
 ///
 /// ## Category
@@ -107,13 +107,13 @@ pub fn pow(args: &mut Args) -> SourceResult<Value> {
 /// Calculate the square root of a number.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #calc.sqrt(16) \
 /// #calc.sqrt(2.5)
 /// ```
 ///
 /// ## Parameters
-/// - value: Num (positional, required)
+/// - value: `Num` (positional, required)
 ///   The number whose square root to calculate. Must be non-negative.
 ///
 /// ## Category
@@ -134,14 +134,14 @@ pub fn sqrt(args: &mut Args) -> SourceResult<Value> {
 /// radians.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #assert(calc.sin(90deg) == calc.sin(-270deg))
 /// #calc.sin(1.5) \
 /// #calc.sin(90deg)
 /// ```
 ///
 /// ## Parameters
-/// - angle: AngleLike (positional, required)
+/// - angle: `AngleLike` (positional, required)
 ///   The angle whose sine to calculate.
 ///
 /// ## Category
@@ -163,14 +163,14 @@ pub fn sin(args: &mut Args) -> SourceResult<Value> {
 /// radians.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #calc.cos(90deg)
 /// #calc.cos(1.5) \
 /// #calc.cos(90deg)
 /// ```
 ///
 /// ## Parameters
-/// - angle: AngleLike (positional, required)
+/// - angle: `AngleLike` (positional, required)
 ///   The angle whose cosine to calculate.
 ///
 /// ## Category
@@ -192,13 +192,13 @@ pub fn cos(args: &mut Args) -> SourceResult<Value> {
 /// radians.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #calc.tan(1.5) \
 /// #calc.tan(90deg)
 /// ```
 ///
 /// ## Parameters
-/// - angle: AngleLike (positional, required)
+/// - angle: `AngleLike` (positional, required)
 ///   The angle whose tangent to calculate.
 ///
 /// ## Category
@@ -217,13 +217,13 @@ pub fn tan(args: &mut Args) -> SourceResult<Value> {
 /// Calculate the arcsine of a number.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #calc.asin(0) \
 /// #calc.asin(1)
 /// ```
 ///
 /// ## Parameters
-/// - value: Num (positional, required)
+/// - value: `Num` (positional, required)
 ///   The number whose arcsine to calculate. Must be between -1 and 1.
 ///
 /// ## Category
@@ -242,13 +242,13 @@ pub fn asin(args: &mut Args) -> SourceResult<Value> {
 /// Calculate the arccosine of a number.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #calc.acos(0) \
 /// #calc.acos(1)
 /// ```
 ///
 /// ## Parameters
-/// - value: Num (positional, required)
+/// - value: `Num` (positional, required)
 ///   The number whose arccosine to calculate. Must be between -1 and 1.
 ///
 /// ## Category
@@ -267,13 +267,13 @@ pub fn acos(args: &mut Args) -> SourceResult<Value> {
 /// Calculate the arctangent of a number.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #calc.atan(0) \
 /// #calc.atan(1)
 /// ```
 ///
 /// ## Parameters
-/// - value: Num (positional, required)
+/// - value: `Num` (positional, required)
 ///   The number whose arctangent to calculate.
 ///
 /// ## Category
@@ -290,13 +290,13 @@ pub fn atan(args: &mut Args) -> SourceResult<Value> {
 /// When called with an integer or a float, they will be interpreted as radians.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #calc.sinh(0) \
 /// #calc.sinh(45deg)
 /// ```
 ///
 /// ## Parameters
-/// - angle: AngleLike (positional, required)
+/// - angle: `AngleLike` (positional, required)
 ///   The angle whose hyperbolic sine to calculate.
 ///
 /// ## Category
@@ -317,13 +317,13 @@ pub fn sinh(args: &mut Args) -> SourceResult<Value> {
 /// When called with an integer or a float, they will be interpreted as radians.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #calc.cosh(0) \
 /// #calc.cosh(45deg)
 /// ```
 ///
 /// ## Parameters
-/// - angle: AngleLike (positional, required)
+/// - angle: `AngleLike` (positional, required)
 ///   The angle whose hyperbolic cosine to calculate.
 ///
 /// ## Category
@@ -344,13 +344,13 @@ pub fn cosh(args: &mut Args) -> SourceResult<Value> {
 /// When called with an integer or a float, they will be interpreted as radians.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #calc.tanh(0) \
 /// #calc.tanh(45deg)
 /// ```
 ///
 /// ## Parameters
-/// - angle: AngleLike (positional, required)
+/// - angle: `AngleLike` (positional, required)
 ///   The angle whose hyperbolic tangent to calculate.
 ///
 /// ## Category
@@ -371,14 +371,14 @@ pub fn tanh(args: &mut Args) -> SourceResult<Value> {
 /// If the base is not specified, the logarithm is calculated in base 10.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #calc.log(100) \
 /// ```
 ///
 /// ## Parameters
-/// - value: Num (positional, required)
+/// - value: `Num` (positional, required)
 ///   The number whose logarithm to calculate.
-/// - base: Num (named)
+/// - base: `Num` (named)
 ///   The base of the logarithm.
 ///
 /// ## Category
@@ -396,14 +396,14 @@ pub fn log(args: &mut Args) -> SourceResult<Value> {
 /// If the number is already an integer, it is returned unchanged.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #assert(calc.floor(3.14) == 3)
 /// #assert(calc.floor(3) == 3)
 /// #calc.floor(500.1)
 /// ```
 ///
 /// ## Parameters
-/// - value: Num (positional, required)
+/// - value: `Num` (positional, required)
 ///   The number to round down.
 ///
 /// ## Category
@@ -423,14 +423,14 @@ pub fn floor(args: &mut Args) -> SourceResult<Value> {
 /// If the number is already an integer, it is returned unchanged.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #assert(calc.ceil(3.14) == 4)
 /// #assert(calc.ceil(3) == 3)
 /// #calc.ceil(500.1)
 /// ```
 ///
 /// ## Parameters
-/// - value: Num (positional, required)
+/// - value: `Num` (positional, required)
 ///   The number to round up.
 ///
 /// ## Category
@@ -450,16 +450,16 @@ pub fn ceil(args: &mut Args) -> SourceResult<Value> {
 /// Optionally, a number of decimal places can be specified.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #assert(calc.round(3.14) == 3)
 /// #assert(calc.round(3.5) == 4)
 /// #calc.round(3.1415, digits: 2)
 /// ```
 ///
 /// ## Parameters
-/// - value: Num (positional, required)
+/// - value: `Num` (positional, required)
 ///   The number to round.
-/// - digits: i64 (named)
+/// - digits: `i64` (named)
 ///
 /// ## Category
 /// calculate
@@ -481,18 +481,18 @@ pub fn round(args: &mut Args) -> SourceResult<Value> {
 /// Clamp a number between a minimum and maximum value.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #assert(calc.clamp(5, 0, 10) == 5)
 /// #assert(calc.clamp(5, 6, 10) == 6)
 /// #calc.clamp(5, 0, 4)
 /// ```
 ///
 /// ## Parameters
-/// - value: Num (positional, required)
+/// - value: `Num` (positional, required)
 ///   The number to clamp.
-/// - min: Num (positional, required)
+/// - min: `Num` (positional, required)
 ///   The inclusive minimum value.
-/// - max: Num (positional, required)
+/// - max: `Num` (positional, required)
 ///   The inclusive maximum value.
 ///
 /// ## Category
@@ -512,13 +512,13 @@ pub fn clamp(args: &mut Args) -> SourceResult<Value> {
 /// Determine the minimum of a sequence of values.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #calc.min(1, -3, -5, 20, 3, 6) \
 /// #calc.min("typst", "in", "beta")
 /// ```
 ///
 /// ## Parameters
-/// - values: Value (positional, variadic)
+/// - values: `Value` (positional, variadic)
 ///   The sequence of values from which to extract the minimum.
 ///   Must not be empty.
 ///
@@ -535,13 +535,13 @@ pub fn min(args: &mut Args) -> SourceResult<Value> {
 /// Determine the maximum of a sequence of values.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #calc.max(1, -3, -5, 20, 3, 6) \
 /// #calc.max("typst", "in", "beta")
 /// ```
 ///
 /// ## Parameters
-/// - values: Value (positional, variadic)
+/// - values: `Value` (positional, variadic)
 ///   The sequence of values from which to extract the maximum.
 ///   Must not be empty.
 ///
@@ -579,14 +579,14 @@ fn minmax(args: &mut Args, goal: Ordering) -> SourceResult<Value> {
 /// Determine whether an integer is even.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #calc.even(4) \
 /// #calc.even(5) \
 /// #range(10).filter(calc.even)
 /// ```
 ///
 /// ## Parameters
-/// - value: i64 (positional, required)
+/// - value: `i64` (positional, required)
 ///   The number to check for evenness.
 ///
 /// - returns: boolean
@@ -602,7 +602,7 @@ pub fn even(args: &mut Args) -> SourceResult<Value> {
 /// Determine whether an integer is odd.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #calc.odd(4) \
 /// #calc.odd(5) \
 /// #range(10).filter(calc.odd)
@@ -610,7 +610,7 @@ pub fn even(args: &mut Args) -> SourceResult<Value> {
 ///
 ///
 /// ## Parameters
-/// - value: i64 (positional, required)
+/// - value: `i64` (positional, required)
 ///   The number to check for oddness.
 ///
 /// - returns: boolean
@@ -626,16 +626,16 @@ pub fn odd(args: &mut Args) -> SourceResult<Value> {
 /// Calculate the modulus of two numbers.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #calc.mod(20, 6) \
 /// #calc.mod(1.75, 0.5)
 /// ```
 ///
 /// ## Parameters
-/// - dividend: Num (positional, required)
+/// - dividend: `Num` (positional, required)
 ///   The dividend of the modulus.
 ///
-/// - divisor: Num (positional, required)
+/// - divisor: `Num` (positional, required)
 ///   The divisor of the modulus.
 ///
 /// - returns: integer or float

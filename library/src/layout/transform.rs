@@ -10,7 +10,7 @@ use crate::prelude::*;
 /// was not moved.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #rect(inset: 0pt, move(
 ///   dx: 6pt, dy: 6pt,
 ///   rect(
@@ -23,18 +23,17 @@ use crate::prelude::*;
 /// ```
 ///
 /// ## Parameters
-/// - body: Content (positional, required)
+/// - body: `Content` (positional, required)
 ///   The content to move.
 ///
-///   ### Example
-///   ```
+///   ```example
 ///   Hello, world!#move(dy: -2pt)[!]#move(dy: 2pt)[!]
 ///   ```
 ///
-/// - dx: Rel<Length> (named)
+/// - dx: `Rel<Length>` (named)
 ///   The horizontal displacement of the content.
 ///
-/// - dy: Rel<Length> (named)
+/// - dy: `Rel<Length>` (named)
 ///   The vertical displacement of the content.
 ///
 /// ## Category
@@ -95,7 +94,7 @@ impl Inline for MoveNode {}
 /// was not rotated.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #{
 ///   range(16)
 ///     .map(i => rotate(24deg * i)[X])
@@ -104,14 +103,13 @@ impl Inline for MoveNode {}
 /// ```
 ///
 /// ## Parameters
-/// - body: Content (positional, required)
+/// - body: `Content` (positional, required)
 ///   The content to rotate.
 ///
-/// - angle: Angle (named)
+/// - angle: `Angle` (named)
 ///   The amount of rotation.
 ///
-///   ### Example
-///   ```
+///   ```example
 ///   #rotate(angle: -1.571rad)[To space!]
 ///   ```
 ///
@@ -136,8 +134,7 @@ impl RotateNode {
     /// stay aligned with the baseline, you would set the origin to `bottom +
     /// left`.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #set text(spacing: 8pt)
     /// #let square = square.with(width: 8pt)
     ///
@@ -195,21 +192,21 @@ impl Inline for RotateNode {}
 ///
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #set align(center)
 /// #scale(x: -100%)[👍]👩‍🦱👍
 /// ```
 ///
 /// ## Parameters
-/// - body: Content (positional, required)
+/// - body: `Content` (positional, required)
 ///   The content to scale.
 ///
-/// - x: Ratio (named)
+/// - x: `Ratio` (named)
 ///   The horizontal scaling factor.
 ///
 ///   The body will be mirrored horizontally if the parameter is negative.
 ///
-/// - y: Ratio (named)
+/// - y: `Ratio` (named)
 ///   The vertical scaling factor.
 ///
 ///   The body will be mirrored vertically if the parameter is negative.
@@ -232,8 +229,7 @@ impl ScaleNode {
     ///
     /// By default, the origin is the center of the scaled element.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// A#scale(75%)[A]A \
     /// B#scale(75%, origin: bottom + left)[B]B
     /// ```

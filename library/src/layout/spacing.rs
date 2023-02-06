@@ -10,7 +10,7 @@ use crate::prelude::*;
 /// according to their relative fractions.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #circle(fill: red)
 /// #h(1fr)
 /// #circle(fill: yellow)
@@ -18,17 +18,20 @@ use crate::prelude::*;
 /// #circle(fill: green)
 /// ```
 ///
+/// ## Mathematical Spacing
+/// In [mathematical formulas]($category/math), you can additionally use these
+/// constants to add spacing between elements: `thin`, `med`, `thick, `quad`.
+///
 /// ## Parameters
-/// - amount: Spacing (positional, required)
+/// - amount: `Spacing` (positional, required)
 ///   How much spacing to insert.
 ///
-/// - weak: bool (named)
+/// - weak: `bool` (named)
 ///   If true, the spacing collapses at the start or end of a paragraph.
 ///   Moreover, from multiple adjacent weak spacings all but the largest one
 ///   collapse.
 ///
-///   ### Example
-///   ```
+///   ```example
 ///   #h(1cm, weak: true)
 ///   We identified a group of
 ///   _weak_ specimens that fail to
@@ -105,7 +108,7 @@ impl Behave for HNode {
 /// according to their relative fractions.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// In this report, we will explore
 /// the various ethical
 /// considerations that must be
@@ -121,17 +124,16 @@ impl Behave for HNode {
 /// ```
 ///
 /// ## Parameters
-/// - amount: Spacing (positional, required)
+/// - amount: `Spacing` (positional, required)
 ///   How much spacing to insert.
 ///
-/// - weak: bool (named)
+/// - weak: `bool` (named)
 ///   If true, the spacing collapses at the start or end of a flow. Moreover,
 ///   from multiple adjacent weak spacings all but the largest one collapse.
 ///   Weak spacings will always collapse adjacent paragraph spacing, even if the
 ///   paragraph spacing is larger.
 ///
-///   ### Example
-///   ```
+///   ```example
 ///   The following theorem is
 ///   foundational to the field:
 ///   #v(4pt, weak: true)

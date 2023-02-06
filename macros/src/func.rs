@@ -16,16 +16,9 @@ pub fn func(item: syn::Item) -> Result<TokenStream> {
     let display = display.trim();
 
     let mut docs = docs[first.len()..].to_string();
-    let example = example(&mut docs, 2);
     let (params, returns) = params(&mut docs)?;
-    let syntax = quote_option(section(&mut docs, "Syntax", 2));
     let category = section(&mut docs, "Category", 2).expect("missing category");
-    let example = quote_option(example);
-
     let docs = docs.trim();
-    if docs.contains("# ") {
-        bail!(item, "unrecognized heading");
-    }
 
     let info = quote! {
         ::typst::model::FuncInfo {
@@ -33,8 +26,6 @@ pub fn func(item: syn::Item) -> Result<TokenStream> {
             display: #display,
             category: #category,
             docs: #docs,
-            example: #example,
-            syntax: #syntax,
             params: ::std::vec![#(#params),*],
             returns: ::std::vec![#(#returns),*]
         }
@@ -108,17 +99,6 @@ pub fn section(docs: &mut String, title: &str, level: usize) -> Option<String> {
     Some(section)
 }
 
-/// Parse the example section.
-pub fn example(docs: &mut String, level: usize) -> Option<String> {
-    let section = section(docs, "Example", level)?;
-    let mut s = unscanny::Scanner::new(&section);
-    let count = s.eat_while('`').len();
-    let term = "`".repeat(count);
-    let text = s.eat_until(term.as_str()).trim();
-    s.expect(term.as_str());
-    Some(text.into())
-}
-
 /// Parse the parameter section.
 fn params(docs: &mut String) -> Result<(Vec<TokenStream>, Vec<String>)> {
     let Some(section) = section(docs, "Parameters", 2) else {
@@ -151,7 +131,9 @@ fn params(docs: &mut String) -> Result<(Vec<TokenStream>, Vec<String>)> {
             continue;
         }
 
-        let ty: syn::Type = syn::parse_str(s.eat_until(char::is_whitespace))?;
+        s.expect('`');
+        let ty: syn::Type = syn::parse_str(s.eat_until('`'))?;
+        s.expect('`');
         s.eat_whitespace();
         s.expect('(');
 
@@ -176,15 +158,13 @@ fn params(docs: &mut String) -> Result<(Vec<TokenStream>, Vec<String>)> {
 
         s.expect(')');
 
-        let mut docs = dedent(s.eat_until("\n-").trim());
-        let example = quote_option(example(&mut docs, 3));
+        let docs = dedent(s.eat_until("\n-").trim());
         let docs = docs.trim();
 
         infos.push(quote! {
             ::typst::model::ParamInfo {
                 name: #name,
                 docs: #docs,
-                example: #example,
                 cast: <#ty as ::typst::model::Cast<
                     ::typst::syntax::Spanned<::typst::model::Value>
                 >>::describe(),

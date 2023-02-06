@@ -31,7 +31,7 @@ use crate::prelude::*;
 /// useful when passing text as an argument to another function.
 ///
 /// ## Example
-/// ```
+/// ```example
 /// #set text(18pt)
 /// With a set rule.
 ///
@@ -41,7 +41,7 @@ use crate::prelude::*;
 /// ```
 ///
 /// ## Parameters
-/// - family: EcoString (positional, variadic, settable)
+/// - family: `EcoString` (positional, variadic, settable)
 ///   A prioritized sequence of font families.
 ///
 ///   When processing text, Typst tries all specified font families in order
@@ -49,8 +49,7 @@ use crate::prelude::*;
 ///   the font `Inria Serif` is preferred, but since it does not contain Arabic
 ///   glyphs, the arabic text uses `Noto Sans Arabic` instead.
 ///
-///   ### Example
-///   ```
+///   ```example
 ///   #set text(
 ///     "Inria Serif",
 ///     "Noto Sans Arabic",
@@ -61,7 +60,7 @@ use crate::prelude::*;
 ///
 ///   ```
 ///
-/// - body: Content (positional, required)
+/// - body: `Content` (positional, required)
 ///   Content in which all text is styled according to the other arguments.
 ///
 /// ## Category
@@ -94,8 +93,7 @@ impl TextNode {
     /// future, you will be able to instruct Typst to issue warnings so you know
     /// something is up.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #set text(family: "Inria Serif")
     /// هذا عربي
     ///
@@ -114,11 +112,10 @@ impl TextNode {
     /// italic and oblique style is rarely observable.
     ///
     /// If you want to emphasize your text, you should do so using the
-    /// [emph](@emph) function instead. This makes it easy to adapt the style
-    /// later if you change your mind about how to signify the emphasis.
+    /// [emph]($func/emph) function instead. This makes it easy to adapt the
+    /// style later if you change your mind about how to signify the emphasis.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #text("IBM Plex Sans", style: "italic")[Italic]
     /// #text("DejaVu Sans", style: "oblique")[Oblique]
     /// ```
@@ -130,12 +127,11 @@ impl TextNode {
     /// that is closest in weight.
     ///
     /// If you want to strongly emphasize your text, you should do so using the
-    /// [strong](@strong) function instead. This makes it easy to adapt the
+    /// [strong]($func/strong) function instead. This makes it easy to adapt the
     /// style later if you change your mind about how to signify the strong
     /// emphasis.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #text(weight: "light")[Light] \
     /// #text(weight: "regular")[Regular] \
     /// #text(weight: "medium")[Medium] \
@@ -148,8 +144,7 @@ impl TextNode {
     /// `{200%}`. When the desired weight is not available, Typst selects the
     /// font from the family that is closest in stretch.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #text(stretch: 75%)[Condensed] \
     /// #text(stretch: 100%)[Normal]
     /// ```
@@ -161,8 +156,7 @@ impl TextNode {
     /// You can also give the font size itself in `em` units. Then, it is
     /// relative to the previous font size.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #set text(size: 20pt)
     /// very #text(1.5em)[big] text
     /// ```
@@ -171,8 +165,7 @@ impl TextNode {
 
     /// The glyph fill color.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #set text(fill: red)
     /// This text is red.
     /// ```
@@ -181,8 +174,7 @@ impl TextNode {
 
     /// The amount of space that should be added between characters.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #set text(tracking: 1.5pt)
     /// Distant text.
     /// ```
@@ -194,8 +186,7 @@ impl TextNode {
     /// Can be given as an absolute length, but also relative to the width of
     /// the space character in the font.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #set text(spacing: 200%)
     /// Text with distant words.
     /// ```
@@ -204,8 +195,7 @@ impl TextNode {
 
     /// An amount to shift the text baseline by.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// A #text(baseline: 3pt)[lowered]
     /// word.
     /// ```
@@ -215,8 +205,7 @@ impl TextNode {
     /// Whether certain glyphs can hang over into the margin in justified text.
     /// This can make justification visually more pleasing.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #set par(justify: true)
     /// In this particular text, the
     /// justification produces a hyphen
@@ -238,8 +227,7 @@ impl TextNode {
     /// The top end of the conceptual frame around the text used for layout and
     /// positioning. This affects the size of containers that hold text.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #set rect(inset: 0pt)
     /// #set text(size: 20pt)
     ///
@@ -254,8 +242,7 @@ impl TextNode {
     /// The bottom end of the conceptual frame around the text used for layout
     /// and positioning. This affects the size of containers that hold text.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #set rect(inset: 0pt)
     /// #set text(size: 20pt)
     ///
@@ -273,12 +260,11 @@ impl TextNode {
     ///
     /// - The text processing pipeline can make more informed choices.
     /// - Hyphenation will use the correct patterns for the language.
-    /// - [Smart quotes](@smartquote) turns into the correct quotes for the
+    /// - [Smart quotes]($func/smartquote) turns into the correct quotes for the
     ///   language.
     /// - And all other things which are language-aware.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #set text(lang: "de")
     /// #outline()
     ///
@@ -299,20 +285,20 @@ impl TextNode {
     /// - `{rtl}`: Layout text from right to left.
     ///
     /// When writing in right-to-left scripts like Arabic or Hebrew, you should
-    /// set the [text language](@text/lang) or direction. While individual runs
-    /// of text are automatically layouted in the correct direction, setting the
-    /// dominant direction gives the bidirectional reordering algorithm the
-    /// necessary information to correctly place punctuation and inline objects.
-    /// Furthermore, setting the direction affects the alignment values `start`
-    /// and `end`, which are equivalent to `left` and `right` in `ltr` text and
-    /// the other way around in `rtl` text.
+    /// set the [text language]($func/text.lang) or direction. While individual
+    /// runs of text are automatically layouted in the correct direction,
+    /// setting the dominant direction gives the bidirectional reordering
+    /// algorithm the necessary information to correctly place punctuation and
+    /// inline objects. Furthermore, setting the direction affects the alignment
+    /// values `start` and `end`, which are equivalent to `left` and `right` in
+    /// `ltr` text and the other way around in `rtl` text.
     ///
     /// If you set this to `rtl` and experience bugs or in some way bad looking
-    /// output, please do get in touch with us through the [contact
-    /// form](/contact) or our [Discord server](/docs/community/#discord)!
+    /// output, please do get in touch with us through the
+    /// [contact form](https://typst.app/contact) or our
+    /// [Discord server]($community/#discord)!
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #set text(dir: rtl)
     /// هذا عربي.
     /// ```
@@ -322,11 +308,10 @@ impl TextNode {
     /// Whether to hyphenate text to improve line breaking. When `{auto}`, text
     /// will be hyphenated if and only if justification is enabled.
     ///
-    /// Setting the [text language](@text/lang) ensures that the correct
+    /// Setting the [text language]($func/text.lang) ensures that the correct
     /// hyphenation patterns are used.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #set par(justify: true)
     /// This text illustrates how
     /// enabling hyphenation can
@@ -348,8 +333,7 @@ impl TextNode {
     /// more natural look. Setting this to `{false}` disables kerning by turning
     /// off the OpenType `kern` font feature.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #set text(size: 25pt)
     /// Totally
     ///
@@ -364,8 +348,7 @@ impl TextNode {
     /// Setting this to `{true}` switches to these by enabling the OpenType
     /// `salt` font feature.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #set text(size: 20pt)
     /// 0, a, g, ß
     ///
@@ -388,8 +371,7 @@ impl TextNode {
     /// these ligatures by turning off the OpenType `liga` and `clig` font
     /// features.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #set text(size: 20pt)
     /// A fine ligature.
     ///
@@ -409,8 +391,7 @@ impl TextNode {
     /// Which kind of numbers / figures to select. When set to `{auto}`, the
     /// default numbers for the font are used.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #set text(20pt, "Noto Sans")
     /// #set text(number-type: "lining")
     /// Number 9.
@@ -423,8 +404,7 @@ impl TextNode {
     /// The width of numbers / figures. When set to `{auto}`, the default
     /// numbers for the font are used.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// #set text(20pt, "Noto Sans")
     /// #set text(number-width: "proportional")
     /// A 12 B 34. \
@@ -439,8 +419,7 @@ impl TextNode {
     /// Whether to have a slash through the zero glyph. Setting this to `{true}`
     /// enables the OpenType `zero` font feature.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// 0, #text(slashed-zero: true)[0]
     /// ```
     pub const SLASHED_ZERO: bool = false;
@@ -448,8 +427,7 @@ impl TextNode {
     /// Whether to turns numbers into fractions. Setting this to `{true}`
     /// enables the OpenType `frac` font feature.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// 1/2 \
     /// #text(fractions: true)[1/2]
     /// ```
@@ -462,8 +440,7 @@ impl TextNode {
     /// - If given a dictionary mapping to numbers, sets the features
     ///   identified by the keys to the values.
     ///
-    /// # Example
-    /// ```
+    /// ```example
     /// // Enable the `frac` feature manually.
     /// #set text(features: ("frac",))
     /// 1/2
