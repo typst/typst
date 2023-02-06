@@ -11,7 +11,7 @@ const VERTICAL_PADDING: Ratio = Ratio::new(0.1);
 ///
 /// ## Example
 /// ```example
-/// $ vec(a, b, c) dot vec(1, 2, 3)
+/// $ vec(a, b, c) dot.op vec(1, 2, 3)
 ///     = a + 2b + 3c $
 /// ```
 ///
@@ -139,7 +139,7 @@ impl LayoutMath for MatNode {
 /// ## Example
 /// ```example
 /// $ f(x, y) := cases(
-///   1 "if" (x dot y)/2 <= 0,
+///   1 "if" (x dot.op y)/2 <= 0,
 ///   2 "if" x "is even",
 ///   3 "if" x in NN,
 ///   4 "else",
