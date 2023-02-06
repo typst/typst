@@ -1,0 +1,147 @@
+types: |
+  To style your document, you need to work with values of different kinds: Lengths
+  specifying the size of your elements, colors for your text and shapes, and more.
+  Typst categorizes these into clearly defined _types_ and tells you where it
+  expects which type of value.
+
+  Apart from very basic types for numeric values and typical types known from
+  programming languages, Typst provides a special type for _content._ A value of
+  this type can hold anything that you can enter into your document: Text,
+  elements like headings and shapes, and style information.
+
+  In some places of Typst more specialized data types are used. Instead of listing
+  all of them here, they are explained where they are relevant.
+
+basics: |
+  Basic structural elements of documents.
+
+text: |
+  Style and transform your text.
+
+  The [text function]($func/text) is of particular interest.
+
+math: |
+  Typst has special [syntax]($syntax/#math) and library functions
+  to typeset mathematical formulas. Math formulas can be displayed inline with
+  text or as separate blocks. They will be typeset into their own block if they
+  start and end with at least one space (e.g. `[$ x^2 $]`).
+
+  In math, single letters are always displayed as is. Multiple letters, however,
+  are interpreted as variables and functions. To display multiple letters
+  verbatim, you can place them into quotes and to access single letter
+  variables, you can use the
+  [hashtag syntax]($scripting/#expressions).
+
+  ```example
+  $ A = pi r^2 $
+  $ "area" = pi dot "radius"^2 $
+  $ cal(A) :=
+      { x in RR | x "is natural" } $
+  ```
+
+  Math mode defines a wide selection of [symbols]($category/math/symbols) like
+  `pi`, `dot`, or `RR`. Many mathematical symbols are available in different
+  variants. You can select between different variants by applying
+  [modifiers]($type/symbol) to the symbol. Typst further recognizes a number of
+  shorthand sequences like `=>` that approximate a symbol. When such a shorthand
+  exists, the symbol's documentation lists it.
+
+  ```example
+  $ x < y => x gt.eq.not y $
+  ```
+
+  Formulas can also contain line breaks. Each line can contain one or multiple
+  _alignment points_ (`&`) which are then aligned.
+  ```example
+  $ sum_(x=0)^n
+      &= 1 + ... + n \
+      &= (n(n+1)) / 2 $
+  ```
+
+  Math mode supports special function calls without the hashtag prefix. In these
+  "math calls", the argument list works a little differently than in code:
+
+  - Within them, Typst is still in "math mode". Thus, you can write math directly
+    into them, but need to use hashtag syntax to pass code expressions (except
+    for strings, which are available in the math syntax).
+  - They support positional and named arguments, but don't support
+    trailing content blocks and argument spreading.
+  - They provide additional syntax for 2-dimensional argument lists. The
+    semicolon (`;`) merges preceding arguments separated by commas into an array
+    argument.
+
+  ```example
+  $ frac(a^2, 2) $
+  $ vec(1, 2, delim: "[") $
+  $ mat(1, 2; 3, 4) $
+  $ lim_x =
+      op("lim", limits: #true)_x $
+  ```
+
+  To write a verbatim comma or semicolon in a math call, escape it with a
+  backslash. The colon on the other hand is only recognized in a special way if
+  directly preceded by an identifier, so to display it verbatim in those cases,
+  you can just insert a space before it.
+
+  Functions calls preceded by a hashtag are normal code function calls and not
+  affected by these rules.
+
+layout: |
+  Arrange elements on the page.
+
+  Combine layout functions to create complex and automatic layouts.
+
+visualize: |
+  Draw and visualize data.
+
+  _Note:_ Functions for plotting and diagrams are not yet available. They will
+  be in the future.
+
+meta: |
+  Modify and use document metadata.
+
+  Here, you can also find functions to work with other elements in the document,
+  such as labels and headings.
+
+symbols: |
+  These two modules give names to symbols and emoji to make them easy to insert
+  with a normal keyboard. Alternatively, you can also always directly enter
+  Unicode symbols into your text and formulas. In addition to the symbols listed
+  below, math mode defines `dif` and `Dif`. These are not normal symbol values
+  because they also affect spacing and font style.
+
+sym: |
+  Insert general symbols by name.
+
+  For example, `#sym.arrow` produces the → symbol. Within
+  [formulas]($category/math), these symbols can be used without the `#sym.`
+  prefix.
+
+emoji: |
+  Insert emoji by name.
+
+  For example, `#emoji.face` produces the 😀 emoji. If you frequently use
+  certain emojis, you can also import them from the `emoji` module (`[#import
+  emoji: face]`) to use them without the `#emoji.` prefix.
+
+foundations: |
+  Foundational functions.
+
+calculate: |
+  Calculate with and process numeric values.
+
+  These functions are part of the `calc` module and not imported by default. In
+  addition to the functions listed below, the `calc` module also defines the
+  constants `pi`, `e`, `inf`, and `nan`.
+
+construct: |
+  Construct and convert between values of different types.
+
+data-loading: |
+  Load data from external files.
+
+  These functions help you with embedding data from experiments and APIs in your
+  documents.
+
+utility: |
+  Useful utility functions.
