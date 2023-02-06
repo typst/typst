@@ -12,7 +12,7 @@
 ]
 
 // Test hanging punctuation with RTL.
-#set text(lang: "he")
+#set text(lang: "he", "IBM Plex Sans", "Noto Serif Hebrew")
 בנייה נכונה של משפטים ארוכים דורשת ידע בשפה. אז בואו נדבר על מזג האוויר.
 
 ---

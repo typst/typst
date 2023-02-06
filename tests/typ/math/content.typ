@@ -2,7 +2,7 @@
 
 ---
 // Test images and font fallback.
-#let monkey = move(dy: 0.2em, image("/res/monkey.svg", height: 1em))
+#let monkey = move(dy: 0.2em, image("/monkey.svg", height: 1em))
 $ sum_(i=#emoji.apple)^#emoji.apple.red i + monkey/2 $
 
 ---

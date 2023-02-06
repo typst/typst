@@ -81,6 +81,15 @@ The SIL Open Font License Version 1.1 applies to:
   Copyright (C) 2018--2021 by Xiangdong Zeng <xdzeng96@gmail.com>
   (https://github.com/firamath/firamath)
 
+* Inria fonts in assets/fonts/Inria*.ttf
+  Copyright 2017 The Inria Sans Project Authors
+  (https://github.com/BlackFoundryCom/InriaFonts)
+
+* Linux Libertine fonts in assets/fonts/LinLibertine*.ttf
+  Copyright (c) 2003–2012, Philipp H. Poll
+  (www.linuxlibertine.org | gillian at linuxlibertine.org),
+  with Reserved Font Name "Linux Libertine" and "Biolinum".
+
 -----------------------------------------------------------
 SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
 -----------------------------------------------------------
