@@ -1161,7 +1161,7 @@ checksum = "0685c84d5d54d1c26f7d3eb96cd41550adb97baed141a761cf335d3d33bcd0ae"
 
 [[package]]
 name = "typst"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "bitflags",
  "bytemuck",
@@ -1195,7 +1195,7 @@ dependencies = [
 
 [[package]]
 name = "typst-cli"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "chrono",
  "codespan-reporting",
@@ -1215,7 +1215,7 @@ dependencies = [
 
 [[package]]
 name = "typst-docs"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "comemo",
  "heck",
@@ -1233,7 +1233,7 @@ dependencies = [
 
 [[package]]
 name = "typst-library"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "comemo",
  "csv",
@@ -1258,7 +1258,7 @@ dependencies = [
 
 [[package]]
 name = "typst-macros"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1268,7 +1268,7 @@ dependencies = [
 
 [[package]]
 name = "typst-tests"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "comemo",
  "elsa",
