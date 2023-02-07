@@ -57,7 +57,7 @@ use crate::prelude::*;
 ///   See the [grid documentation]($func/grid) for more information on gutters.
 ///
 /// ## Category
-/// basics
+/// layout
 #[func]
 #[capable(Layout)]
 #[derive(Debug, Hash)]

@@ -47,7 +47,7 @@ use crate::text::{SpaceNode, TextNode, TextSize};
 ///   The logical nesting depth of the heading, starting from one.
 ///
 /// ## Category
-/// basics
+/// meta
 #[func]
 #[capable(Prepare, Show, Finalize)]
 #[derive(Debug, Hash)]

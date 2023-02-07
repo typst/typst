@@ -1,11 +1,13 @@
 //! Interaction between document parts.
 
 mod document;
+mod heading;
 mod link;
-mod reference;
 mod outline;
+mod reference;
 
 pub use self::document::*;
-pub use self::outline::*;
+pub use self::heading::*;
 pub use self::link::*;
+pub use self::outline::*;
 pub use self::reference::*;

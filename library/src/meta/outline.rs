@@ -1,4 +1,4 @@
-use crate::basics::HeadingNode;
+use super::HeadingNode;
 use crate::layout::{BlockNode, HNode, HideNode, RepeatNode, Spacing};
 use crate::prelude::*;
 use crate::text::{LinebreakNode, SpaceNode, TextNode};

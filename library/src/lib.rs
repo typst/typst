@@ -1,6 +1,5 @@
 //! Typst's standard library.
 
-pub mod basics;
 pub mod compute;
 pub mod layout;
 pub mod math;
@@ -27,13 +26,6 @@ pub fn build() -> Library {
 /// Construct the module with global definitions.
 fn global(math: Module, calc: Module) -> Module {
     let mut global = Scope::deduplicating();
-
-    // Basics.
-    global.def_func::<basics::HeadingNode>("heading");
-    global.def_func::<basics::ListNode>("list");
-    global.def_func::<basics::EnumNode>("enum");
-    global.def_func::<basics::TermsNode>("terms");
-    global.def_func::<basics::TableNode>("table");
 
     // Text.
     global.def_func::<text::TextNode>("text");
@@ -63,6 +55,10 @@ fn global(math: Module, calc: Module) -> Module {
     global.def_func::<layout::HNode>("h");
     global.def_func::<layout::BoxNode>("box");
     global.def_func::<layout::BlockNode>("block");
+    global.def_func::<layout::ListNode>("list");
+    global.def_func::<layout::EnumNode>("enum");
+    global.def_func::<layout::TermsNode>("terms");
+    global.def_func::<layout::TableNode>("table");
     global.def_func::<layout::StackNode>("stack");
     global.def_func::<layout::GridNode>("grid");
     global.def_func::<layout::ColumnsNode>("columns");
@@ -89,6 +85,7 @@ fn global(math: Module, calc: Module) -> Module {
     global.def_func::<meta::RefNode>("ref");
     global.def_func::<meta::LinkNode>("link");
     global.def_func::<meta::OutlineNode>("outline");
+    global.def_func::<meta::HeadingNode>("heading");
 
     // Symbols.
     global.define("sym", symbols::sym());
@@ -185,11 +182,11 @@ fn items() -> LangItems {
         },
         link: |url| meta::LinkNode::from_url(url).pack(),
         ref_: |target| meta::RefNode(target).pack(),
-        heading: |level, body| basics::HeadingNode { level, title: body }.pack(),
+        heading: |level, body| meta::HeadingNode { level, title: body }.pack(),
         list_item: |body| layout::ListItem::List(body).pack(),
         enum_item: |number, body| layout::ListItem::Enum(number, body).pack(),
         term_item: |term, description| {
-            layout::ListItem::Term(basics::TermItem { term, description }).pack()
+            layout::ListItem::Term(layout::TermItem { term, description }).pack()
         },
         formula: |body, block| math::FormulaNode { body, block }.pack(),
         math_align_point: || math::AlignPointNode.pack(),

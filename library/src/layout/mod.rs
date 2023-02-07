@@ -3,9 +3,12 @@
 mod align;
 mod columns;
 mod container;
+#[path = "enum.rs"]
+mod enum_;
 mod flow;
 mod grid;
 mod hide;
+mod list;
 mod pad;
 mod page;
 mod par;
@@ -13,14 +16,18 @@ mod place;
 mod repeat;
 mod spacing;
 mod stack;
+mod table;
+mod terms;
 mod transform;
 
 pub use self::align::*;
 pub use self::columns::*;
 pub use self::container::*;
+pub use self::enum_::*;
 pub use self::flow::*;
 pub use self::grid::*;
 pub use self::hide::*;
+pub use self::list::*;
 pub use self::pad::*;
 pub use self::page::*;
 pub use self::par::*;
@@ -28,6 +35,8 @@ pub use self::place::*;
 pub use self::repeat::*;
 pub use self::spacing::*;
 pub use self::stack::*;
+pub use self::table::*;
+pub use self::terms::*;
 pub use self::transform::*;
 
 use std::mem;
@@ -40,7 +49,6 @@ use typst::model::{
     StyleVecBuilder, StyledNode,
 };
 
-use crate::basics::{EnumNode, ListNode, TermItem, TermsNode};
 use crate::math::{FormulaNode, LayoutMath};
 use crate::meta::DocumentNode;
 use crate::prelude::*;

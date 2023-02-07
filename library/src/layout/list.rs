@@ -63,7 +63,7 @@ use crate::text::TextNode;
 ///   ```
 ///
 /// ## Category
-/// basics
+/// layout
 #[func]
 #[capable(Layout)]
 #[derive(Debug, Hash)]

@@ -80,7 +80,7 @@ use crate::prelude::*;
 ///   ```
 ///
 /// ## Category
-/// basics
+/// layout
 #[func]
 #[capable(Layout)]
 #[derive(Debug, Hash)]
