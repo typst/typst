@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use crate::text::TextNode;
+use crate::text::{Hyphenate, TextNode};
 
 /// # Link
 /// Link to a URL or another location in the document.
@@ -109,6 +109,8 @@ impl Show for LinkNode {
 
 impl Finalize for LinkNode {
     fn finalize(&self, realized: Content) -> Content {
-        realized.styled(Meta::DATA, vec![Meta::Link(self.dest.clone())])
+        realized
+            .styled(Meta::DATA, vec![Meta::Link(self.dest.clone())])
+            .styled(TextNode::HYPHENATE, Hyphenate(Smart::Custom(false)))
     }
 }
