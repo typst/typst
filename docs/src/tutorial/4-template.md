@@ -322,7 +322,7 @@ path of the file after the `{from}` keyword.
 >>>  set align(left)
 >>>  columns(2, doc)
 >>>}
-<<< #import conf from "conf.typ"
+<<< #import "conf.typ": conf
 
 #show doc => conf(
   title: [
