@@ -6,6 +6,7 @@ mod container;
 #[path = "enum.rs"]
 mod enum_;
 mod flow;
+mod fragment;
 mod grid;
 mod hide;
 mod list;
@@ -25,6 +26,7 @@ pub use self::columns::*;
 pub use self::container::*;
 pub use self::enum_::*;
 pub use self::flow::*;
+pub use self::fragment::*;
 pub use self::grid::*;
 pub use self::hide::*;
 pub use self::list::*;
