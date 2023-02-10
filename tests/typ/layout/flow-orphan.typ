@@ -1,4 +1,4 @@
-// Test that a heading doesn't become an orphan.
+// Test that lines and headings doesn't become orphan.
 
 ---
 #set page(height: 100pt)

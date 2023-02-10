@@ -347,6 +347,7 @@ impl Frame {
 
 impl Debug for Frame {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.write_str("Frame ")?;
         f.debug_list()
             .entries(self.elements.iter().map(|(_, element)| element))
             .finish()

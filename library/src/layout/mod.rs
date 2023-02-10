@@ -148,7 +148,7 @@ impl Layout for Content {
 pub trait Inline: Layout {}
 
 /// A sequence of regions to layout into.
-#[derive(Debug, Copy, Clone, Hash)]
+#[derive(Copy, Clone, Hash)]
 pub struct Regions<'a> {
     /// The (remaining) size of the first region.
     pub first: Size,
@@ -247,6 +247,26 @@ impl<'a> Regions<'a> {
     }
 }
 
+impl Debug for Regions<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.write_str("Regions ")?;
+        let mut list = f.debug_list();
+        let mut prev = self.first.y;
+        list.entry(&self.first);
+        for &height in self.backlog {
+            list.entry(&Size::new(self.first.x, height));
+            prev = height;
+        }
+        if let Some(last) = self.last {
+            if last != prev {
+                list.entry(&Size::new(self.first.x, last));
+            }
+            list.entry(&(..));
+        }
+        list.finish()
+    }
+}
+
 /// Realize into a node that is capable of root-level layout.
 fn realize_root<'a>(
     vt: &mut Vt,
@@ -280,7 +300,7 @@ fn realize_block<'a>(
     builder.accept(content, styles)?;
     builder.interrupt_par()?;
     let (children, shared) = builder.flow.0.finish();
-    Ok((FlowNode(children, false).pack(), shared))
+    Ok((FlowNode(children).pack(), shared))
 }
 
 /// Builds a document or a flow node from content.
@@ -468,7 +488,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
             let (flow, shared) = mem::take(&mut self.flow).0.finish();
             let styles =
                 if shared == StyleChain::default() { styles.unwrap() } else { shared };
-            let page = PageNode(FlowNode(flow, true).pack()).pack();
+            let page = PageNode(FlowNode(flow).pack()).pack();
             let stored = self.scratch.content.alloc(page);
             self.accept(stored, styles)?;
         }

@@ -1127,11 +1127,36 @@ fn finalize(
     }
 
     // Stack the lines into one frame per region.
-    lines
+    let mut frames: Vec<Frame> = lines
         .iter()
         .map(|line| commit(vt, p, line, base, width))
-        .collect::<SourceResult<_>>()
-        .map(Fragment::frames)
+        .collect::<SourceResult<_>>()?;
+
+    // Prevent orphans.
+    let leading = p.styles.get(ParNode::LEADING);
+    if frames.len() >= 2 && !frames[1].is_empty() {
+        let second = frames.remove(1);
+        let first = &mut frames[0];
+        merge(first, second, leading);
+    }
+
+    // Prevent widows.
+    let len = frames.len();
+    if len >= 2 && !frames[len - 2].is_empty() {
+        let second = frames.pop().unwrap();
+        let first = frames.last_mut().unwrap();
+        merge(first, second, leading);
+    }
+
+    Ok(Fragment::frames(frames))
+}
+
+/// Merge two line frames
+fn merge(first: &mut Frame, second: Frame, leading: Abs) {
+    let offset = first.height() + leading;
+    let total = offset + second.height();
+    first.push_frame(Point::with_y(offset), second);
+    first.size_mut().y = total;
 }
 
 /// Commit to a line and build its frame.

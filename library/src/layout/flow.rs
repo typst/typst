@@ -9,7 +9,7 @@ use crate::prelude::*;
 /// the contents of boxes.
 #[capable(Layout)]
 #[derive(Hash)]
-pub struct FlowNode(pub StyleVec<Content>, pub bool);
+pub struct FlowNode(pub StyleVec<Content>);
 
 #[node]
 impl FlowNode {}
@@ -21,12 +21,12 @@ impl Layout for FlowNode {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let mut layouter = FlowLayouter::new(regions, self.1);
+        let mut layouter = FlowLayouter::new(regions);
 
         for (child, map) in self.0.iter() {
             let styles = styles.chain(&map);
             if let Some(&node) = child.to::<VNode>() {
-                layouter.layout_spacing(node.amount, styles);
+                layouter.layout_spacing(node, styles);
             } else if let Some(node) = child.to::<ParNode>() {
                 let barrier = Style::Barrier(child.id());
                 let styles = styles.chain_one(&barrier);
@@ -34,7 +34,7 @@ impl Layout for FlowNode {
             } else if child.has::<dyn Layout>() {
                 layouter.layout_block(vt, child, styles)?;
             } else if child.is::<ColbreakNode>() {
-                layouter.finish_region(false);
+                layouter.finish_region();
             } else {
                 panic!("unexpected flow child: {child:?}");
             }
@@ -53,8 +53,6 @@ impl Debug for FlowNode {
 
 /// Performs flow layout.
 struct FlowLayouter<'a> {
-    /// Whether this is a root page-level flow.
-    root: bool,
     /// The regions to layout children into.
     regions: Regions<'a>,
     /// Whether the flow should expand to fill the region.
@@ -73,13 +71,11 @@ struct FlowLayouter<'a> {
 /// A prepared item in a flow layout.
 #[derive(Debug)]
 enum FlowItem {
-    /// Absolute spacing between other items.
-    Absolute(Abs),
-    /// Leading between paragraph lines.
-    Leading(Abs),
+    /// Spacing between other items and whether it is weak.
+    Absolute(Abs, bool),
     /// Fractional spacing between other items.
     Fractional(Fr),
-    /// A frame for a layouted block and how to align it.
+    /// A frame for a layouted block, how to align it, and whether it is sticky.
     Frame(Frame, Axes<Align>, bool),
     /// An absolutely placed frame.
     Placed(Frame),
@@ -87,7 +83,7 @@ enum FlowItem {
 
 impl<'a> FlowLayouter<'a> {
     /// Create a new flow layouter.
-    fn new(mut regions: Regions<'a>, root: bool) -> Self {
+    fn new(mut regions: Regions<'a>) -> Self {
         let expand = regions.expand;
         let full = regions.first;
 
@@ -95,7 +91,6 @@ impl<'a> FlowLayouter<'a> {
         regions.expand.y = false;
 
         Self {
-            root,
             regions,
             expand,
             full,
@@ -106,11 +101,12 @@ impl<'a> FlowLayouter<'a> {
     }
 
     /// Layout vertical spacing.
-    fn layout_spacing(&mut self, spacing: Spacing, styles: StyleChain) {
-        self.layout_item(match spacing {
-            Spacing::Relative(v) => {
-                FlowItem::Absolute(v.resolve(styles).relative_to(self.full.y))
-            }
+    fn layout_spacing(&mut self, node: VNode, styles: StyleChain) {
+        self.layout_item(match node.amount {
+            Spacing::Relative(v) => FlowItem::Absolute(
+                v.resolve(styles).relative_to(self.full.y),
+                node.weakness > 0,
+            ),
             Spacing::Fractional(v) => FlowItem::Fractional(v),
         });
     }
@@ -125,25 +121,42 @@ impl<'a> FlowLayouter<'a> {
         let aligns = styles.get(AlignNode::ALIGNS).resolve(styles);
         let leading = styles.get(ParNode::LEADING);
         let consecutive = self.last_was_par;
-        let fragment = par.layout(
-            vt,
-            styles,
-            consecutive,
-            self.regions.first.x,
-            self.regions.base,
-            self.regions.expand.x,
-        )?;
+        let frames = par
+            .layout(
+                vt,
+                styles,
+                consecutive,
+                self.regions.first.x,
+                self.regions.base,
+                self.regions.expand.x,
+            )?
+            .into_frames();
 
-        let len = fragment.len();
-        for (i, frame) in fragment.into_iter().enumerate() {
+        let mut sticky = self.items.len();
+        for (i, item) in self.items.iter().enumerate().rev() {
+            match *item {
+                FlowItem::Absolute(_, _) => {}
+                FlowItem::Frame(.., true) => sticky = i,
+                _ => break,
+            }
+        }
+
+        if let [first, ..] = frames.as_slice() {
+            if !self.regions.first.y.fits(first.height()) && !self.regions.in_last() {
+                let carry: Vec<_> = self.items.drain(sticky..).collect();
+                self.finish_region();
+                for item in carry {
+                    self.layout_item(item);
+                }
+            }
+        }
+
+        for (i, frame) in frames.into_iter().enumerate() {
             if i > 0 {
-                self.layout_item(FlowItem::Leading(leading));
+                self.layout_item(FlowItem::Absolute(leading, true));
             }
 
-            // Prevent widows and orphans.
-            let border = (i == 0 && len >= 2) || i + 2 == len;
-            let sticky = self.root && !frame.is_empty() && border;
-            self.layout_item(FlowItem::Frame(frame, aligns, sticky));
+            self.layout_item(FlowItem::Frame(frame, aligns, false));
         }
 
         self.last_was_par = true;
@@ -186,15 +199,12 @@ impl<'a> FlowLayouter<'a> {
     /// Layout a finished frame.
     fn layout_item(&mut self, item: FlowItem) {
         match item {
-            FlowItem::Absolute(v) | FlowItem::Leading(v) => self.regions.first.y -= v,
+            FlowItem::Absolute(v, _) => self.regions.first.y -= v,
             FlowItem::Fractional(_) => {}
             FlowItem::Frame(ref frame, ..) => {
                 let size = frame.size();
-                if !self.regions.first.y.fits(size.y)
-                    && !self.regions.in_last()
-                    && self.items.iter().any(|item| !matches!(item, FlowItem::Leading(_)))
-                {
-                    self.finish_region(true);
+                if !self.regions.first.y.fits(size.y) && !self.regions.in_last() {
+                    self.finish_region();
                 }
 
                 self.regions.first.y -= size.y;
@@ -206,34 +216,22 @@ impl<'a> FlowLayouter<'a> {
     }
 
     /// Finish the frame for one region.
-    fn finish_region(&mut self, something_follows: bool) {
-        let mut end = self.items.len();
-        if something_follows {
-            for (i, item) in self.items.iter().enumerate().rev() {
-                match *item {
-                    FlowItem::Absolute(_)
-                    | FlowItem::Leading(_)
-                    | FlowItem::Fractional(_) => {}
-                    FlowItem::Frame(.., true) => end = i,
-                    _ => break,
-                }
-            }
-            if end == 0 {
-                return;
-            }
-        }
-
-        let carry: Vec<_> = self.items.drain(end..).collect();
-
-        while let Some(FlowItem::Leading(_)) = self.items.last() {
+    fn finish_region(&mut self) {
+        // Trim weak spacing.
+        while self
+            .items
+            .last()
+            .map_or(false, |item| matches!(item, FlowItem::Absolute(_, true)))
+        {
             self.items.pop();
         }
 
+        // Determine the used size.
         let mut fr = Fr::zero();
         let mut used = Size::zero();
         for item in &self.items {
             match *item {
-                FlowItem::Absolute(v) | FlowItem::Leading(v) => used.y += v,
+                FlowItem::Absolute(v, _) => used.y += v,
                 FlowItem::Fractional(v) => fr += v,
                 FlowItem::Frame(ref frame, ..) => {
                     let size = frame.size();
@@ -247,6 +245,7 @@ impl<'a> FlowLayouter<'a> {
         // Determine the size of the flow in this region depending on whether
         // the region expands.
         let mut size = self.expand.select(self.full, used);
+        size.y.set_min(self.full.y);
 
         // Account for fractional spacing in the size calculation.
         let remaining = self.full.y - used.y;
@@ -262,7 +261,7 @@ impl<'a> FlowLayouter<'a> {
         // Place all frames.
         for item in self.items.drain(..) {
             match item {
-                FlowItem::Absolute(v) | FlowItem::Leading(v) => {
+                FlowItem::Absolute(v, _) => {
                     offset += v;
                 }
                 FlowItem::Fractional(v) => {
@@ -286,21 +285,17 @@ impl<'a> FlowLayouter<'a> {
         self.finished.push(output);
         self.regions.next();
         self.full = self.regions.first;
-
-        for item in carry {
-            self.layout_item(item);
-        }
     }
 
     /// Finish layouting and return the resulting fragment.
     fn finish(mut self) -> Fragment {
         if self.expand.y {
             while !self.regions.backlog.is_empty() {
-                self.finish_region(false);
+                self.finish_region();
             }
         }
 
-        self.finish_region(false);
+        self.finish_region();
         Fragment::frames(self.finished)
     }
 }
