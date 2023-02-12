@@ -562,16 +562,17 @@ fn code_expr_prec(p: &mut Parser, atomic: bool, min_prec: usize) {
             continue;
         }
 
-        let binop = if p.eat_if(SyntaxKind::Not) {
-            if p.at(SyntaxKind::In) {
-                Some(ast::BinOp::NotIn)
+        let binop =
+            if ast::BinOp::NotIn.precedence() >= min_prec && p.eat_if(SyntaxKind::Not) {
+                if p.at(SyntaxKind::In) {
+                    Some(ast::BinOp::NotIn)
+                } else {
+                    p.expected("keyword `in`");
+                    break;
+                }
             } else {
-                p.expected("keyword `in`");
-                break;
-            }
-        } else {
-            ast::BinOp::from_kind(p.current())
-        };
+                ast::BinOp::from_kind(p.current())
+            };
 
         if let Some(op) = binop {
             let mut prec = op.precedence();
