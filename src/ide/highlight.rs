@@ -279,9 +279,10 @@ fn highlight_ident(node: &LinkedNode) -> Option<Tag> {
         ancestor = ancestor.parent()?;
     }
 
-    // Are we directly before a show rule colon?
-    if next_leaf.map(|leaf| leaf.kind()) == Some(SyntaxKind::Colon)
-        && ancestor.parent_kind() == Some(SyntaxKind::ShowRule)
+    // Are we directly before or behind a show rule colon?
+    if ancestor.parent_kind() == Some(SyntaxKind::ShowRule)
+        && (next_leaf.map(|leaf| leaf.kind()) == Some(SyntaxKind::Colon)
+            || node.prev_leaf().map(|leaf| leaf.kind()) == Some(SyntaxKind::Colon))
     {
         return Some(Tag::Function);
     }

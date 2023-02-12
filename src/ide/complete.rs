@@ -724,6 +724,12 @@ fn code_completions(ctx: &mut CompletionContext, hashtag: bool) {
     );
 
     ctx.snippet_completion(
+        "show rule (everything)",
+        "show: ${}",
+        "Transforms everything that follows.",
+    );
+
+    ctx.snippet_completion(
         "let binding",
         "let ${name} = ${value}",
         "Saves a value in a variable.",

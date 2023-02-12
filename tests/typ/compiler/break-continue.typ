@@ -116,7 +116,7 @@
 // Everything should be in smallcaps.
 #for color in (red, blue, green, yellow) [
   #set text("Roboto")
-  #show it => text(fill: color, it)
+  #show: it => text(fill: color, it)
   #smallcaps(if color != green [
     Some
   ] else [

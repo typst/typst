@@ -110,7 +110,7 @@ element. And apart from a function, the left-hand side of a show rule can also
 take a number of other _selectors_ that define what to apply the transformation
 to:
 
-- **Everything:** `{show rest => ..}` \
+- **Everything:** `{show: rest => ..}` \
   Transform everything after the show rule. This is useful to apply a more
   complex layout to your whole document without wrapping everything in a giant
   function call.

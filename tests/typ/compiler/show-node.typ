@@ -64,7 +64,7 @@ Another text.
   world
   {
     set text(blue)
-    show it => {
+    show: it => {
       show "o": "Ø"
       it
     }

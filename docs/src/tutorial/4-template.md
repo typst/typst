@@ -48,7 +48,7 @@ function to our whole document. Let's do that with our `amazed` function.
 >>> #let amazed(term, color: blue) = {
 >>>   text(color, box[✨ #term ✨])
 >>> }
-#show amazed
+#show: amazed
 I choose to focus on the good
 in my life and let go of any
 negative thoughts or beliefs.
@@ -72,7 +72,7 @@ that content block.
   #doc
 ]
 
-#show template
+#show: template
 I am learning something cool today.
 It's going great so far!
 ```
@@ -125,7 +125,7 @@ previous chapter.
   columns(2, doc)
 }
 
-#show doc => conf([Paper title], doc)
+#show: doc => conf([Paper title], doc)
 
 = Introduction
 #lorem(90)
@@ -161,7 +161,7 @@ things readable, we'll add those as named arguments. In the end, we want it to
 work like this:
 
 ```typ
-#show doc => conf(
+#show: doc => conf(
   title: [Towards Improved Modelling],
   authors: (
     (
@@ -324,7 +324,7 @@ path of the file after the `{from}` keyword.
 >>>}
 <<< #import "conf.typ": conf
 
-#show doc => conf(
+#show: doc => conf(
   title: [
     Towards Improved Modelling
   ],

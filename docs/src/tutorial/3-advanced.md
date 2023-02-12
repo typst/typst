@@ -268,11 +268,11 @@ abstract to be in two columns, we need to apply the column function to our whole
 document.
 
 Instead of wrapping the whole document in a giant function call, we can use an
-"everything" show rule. This show rule does not feature a colon. Instead, we
-directly provide a function that is given the rest of the document as a
-parameter. We have called the parameter `rest` here, but you are free to choose
-any name. The rule can then do anything with this content. In our case, it
-passes it on to the `columns` function.
+"everything" show rule. To write such a show rule, put a colon directly behind
+the show keyword and then provide a function. This function is given the rest of
+the document as a parameter. We have called the parameter `rest` here, but you
+are free to choose any name. The function can then do anything with this
+content. In our case, it passes it on to the `columns` function.
 
 ```example
 >>> #let title = [
@@ -323,7 +323,7 @@ passes it on to the `columns` function.
 >>> #v(4mm)
 <<< ...
 
-#show rest => columns(2, rest)
+#show: rest => columns(2, rest)
 
 = Introduction
 #lorem(300)
@@ -391,7 +391,7 @@ a way to set any of that, we need to write our own heading show rule.
 >>> ]
 >>>
 >>> #v(4mm)
->>> #show rest => columns(2, rest)
+>>> #show: rest => columns(2, rest)
 >>>
 >>> = Introduction
 >>> #lorem(35)
@@ -480,7 +480,7 @@ differentiate between section and subsection headings:
 >>> ]
 >>>
 >>> #v(4mm)
->>> #show rest => columns(2, rest)
+>>> #show: rest => columns(2, rest)
 >>>
 >>> = Introduction
 >>> #lorem(35)

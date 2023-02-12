@@ -852,10 +852,11 @@ fn set_rule(p: &mut Parser) {
 fn show_rule(p: &mut Parser) {
     let m = p.marker();
     p.assert(SyntaxKind::Show);
-    code_expr(p);
-    if p.eat_if(SyntaxKind::Colon) {
+    if !p.at(SyntaxKind::Colon) {
         code_expr(p);
     }
+    p.expect(SyntaxKind::Colon);
+    code_expr(p);
     p.wrap(m, SyntaxKind::ShowRule);
 }
 

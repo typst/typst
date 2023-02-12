@@ -89,8 +89,9 @@ a table listing all syntax that is available in code mode:
 | Named function           | `{let f(x) = 2 * x}`          | [Function]($type/function)           |
 | Set rule                 | `{set text(14pt)}`            | [Styling]($styling/#set-rules)        |
 | Set-if rule              | `{set text(..) if .. }`       | [Styling]($styling/#set-rules)        |
-| Show rule                | `{show raw: it => {..}}`      | [Styling]($styling/#set-rules)        |
 | Show-set rule            | `{show par: set block(..)}`   | [Styling]($styling/#show-rules)       |
+| Show rule with function  | `{show raw: it => {..}}`      | [Styling]($styling/#show-rules)        |
+| Show-everything rule     | `{show: columns.with(2)}`      | [Styling]($styling/#show-rules)        |
 | Conditional              | `{if x == 1 {..} else {..}}`  | [Scripting]($scripting/#conditionals) |
 | For loop                 | `{for x in (1, 2, 3) {..}}`   | [Scripting]($scripting/#loops)        |
 | While loop               | `{while x < 10 {..}}`         | [Scripting]($scripting/#loops)        |

@@ -40,7 +40,7 @@ Expanded by height.
 ---
 // Test relative sizing.
 #set text(fill: white)
-#show rect.with(width: 100pt, height: 50pt, inset: 0pt, fill: rgb("aaa"))
+#show: rect.with(width: 100pt, height: 50pt, inset: 0pt, fill: rgb("aaa"))
 #set align(center + horizon)
 #stack(
   dir: ltr,
