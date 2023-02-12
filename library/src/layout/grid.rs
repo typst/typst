@@ -1,4 +1,5 @@
 use crate::prelude::*;
+use crate::text::TextNode;
 
 use super::Spacing;
 
@@ -218,6 +219,8 @@ struct GridLayouter<'a, 'v> {
     vt: &'a mut Vt<'v>,
     /// The grid cells.
     cells: &'a [Content],
+    /// Whether this is an RTL grid.
+    rtl: bool,
     /// The column tracks including gutter tracks.
     cols: Vec<TrackSizing>,
     /// The row tracks including gutter tracks.
@@ -299,6 +302,12 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
         cols.pop();
         rows.pop();
 
+        // Reverse for RTL.
+        let rtl = styles.get(TextNode::DIR) == Dir::RTL;
+        if rtl {
+            cols.reverse();
+        }
+
         let full = regions.first.y;
         let rcols = vec![Abs::zero(); cols.len()];
         let lrows = vec![];
@@ -311,6 +320,7 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
         Self {
             vt,
             cells,
+            rtl,
             cols,
             rows,
             regions,
@@ -680,9 +690,14 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
     ///
     /// Returns `None` if it's a gutter cell.
     #[track_caller]
-    fn cell(&self, x: usize, y: usize) -> Option<&'a Content> {
+    fn cell(&self, mut x: usize, y: usize) -> Option<&'a Content> {
         assert!(x < self.cols.len());
         assert!(y < self.rows.len());
+
+        // Columns are reorded, but the cell slice is not.
+        if self.rtl {
+            x = self.cols.len() - 1 - x;
+        }
 
         // Even columns and rows are children, odd ones are gutter.
         if x % 2 == 0 && y % 2 == 0 {

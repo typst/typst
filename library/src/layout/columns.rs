@@ -131,7 +131,7 @@ impl Layout for ColumnsNode {
                 }
 
                 let width = frame.width();
-                let x = if dir.is_positive() {
+                let x = if dir == Dir::LTR {
                     cursor
                 } else {
                     regions.first.x - cursor - width
