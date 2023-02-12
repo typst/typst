@@ -433,9 +433,10 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
             if self.doc.is_none() {
                 bail!(span, "not allowed here");
             }
-            if !self.flow.0.is_empty()
-                || !self.par.0.is_empty()
-                || !self.list.items.is_empty()
+            if styles.is_none()
+                && (!self.flow.0.is_empty()
+                    || !self.par.0.is_empty()
+                    || !self.list.items.is_empty())
             {
                 bail!(span, "must appear before any content");
             }

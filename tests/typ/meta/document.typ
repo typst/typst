@@ -2,8 +2,8 @@
 
 ---
 // This is okay.
-// Ref: false
 #set document(title: "Hello")
+What's up?
 
 ---
 Hello
