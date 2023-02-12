@@ -11,6 +11,7 @@ use std::hash::Hash;
 
 use pdf_writer::types::Direction;
 use pdf_writer::{Finish, Name, PdfWriter, Ref, TextStr};
+use xmp_writer::{LangId, RenditionClass, XmpWriter};
 
 use self::outline::HeadingNode;
 use self::page::Page;
@@ -115,20 +116,39 @@ fn write_catalog(ctx: &mut PdfContext) {
     };
 
     // Write the document information.
+    let meta_ref = ctx.alloc.bump();
+    let mut xmp = XmpWriter::new();
+
     let mut info = ctx.writer.document_info(ctx.alloc.bump());
     if let Some(title) = &ctx.document.title {
         info.title(TextStr(title));
+        xmp.title([(None, title.as_str())]);
     }
     if let Some(author) = &ctx.document.author {
         info.author(TextStr(author));
+        xmp.creator([(author.as_str())]);
     }
     info.creator(TextStr("Typst"));
+    xmp.creator_tool("Typst");
+    xmp.num_pages(ctx.document.pages.len() as u32);
+    xmp.format("application/pdf");
+    xmp.language(ctx.languages.keys().map(|lang| LangId(lang.as_str())));
+    xmp.rendition_class(RenditionClass::Proof);
+    xmp.pdf_version("1.7");
+
     info.finish();
+
+    let xmp_buf = xmp.finish(None);
+    let mut meta_stream = ctx.writer.stream(meta_ref, &xmp_buf);
+    meta_stream.pair(Name(b"Type"), Name(b"Metadata"));
+    meta_stream.pair(Name(b"Subtype"), Name(b"XML"));
+    meta_stream.finish();
 
     // Write the document catalog.
     let mut catalog = ctx.writer.catalog(ctx.alloc.bump());
     catalog.pages(ctx.page_tree_ref);
     catalog.viewer_preferences().direction(dir);
+    catalog.pair(Name(b"Metadata"), meta_ref);
 
     if let Some(outline_root_id) = outline_root_id {
         catalog.outlines(outline_root_id);
