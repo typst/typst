@@ -47,6 +47,8 @@ pub struct BoxNode {
     pub width: Smart<Rel<Length>>,
     /// The box's height.
     pub height: Smart<Rel<Length>>,
+    /// The box's baseline shift.
+    pub baseline: Rel<Length>,
 }
 
 #[node]
@@ -55,7 +57,8 @@ impl BoxNode {
         let body = args.eat::<Content>()?.unwrap_or_default();
         let width = args.named("width")?.unwrap_or_default();
         let height = args.named("height")?.unwrap_or_default();
-        Ok(Self { body, width, height }.pack())
+        let baseline = args.named("baseline")?.unwrap_or_default();
+        Ok(Self { body, width, height, baseline }.pack())
     }
 
     fn field(&self, name: &str) -> Option<Value> {
@@ -86,7 +89,15 @@ impl Layout for BoxNode {
         let is_auto = sizing.as_ref().map(Smart::is_auto);
         let expand = regions.expand | !is_auto;
         let pod = Regions::one(size, expand);
-        self.body.layout(vt, styles, pod)
+        let mut frame = self.body.layout(vt, styles, pod)?.into_frame();
+
+        // Apply baseline shift.
+        let shift = self.baseline.resolve(styles).relative_to(frame.height());
+        if !shift.is_zero() {
+            frame.set_baseline(frame.baseline() - shift);
+        }
+
+        Ok(Fragment::frame(frame))
     }
 }
 
