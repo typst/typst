@@ -294,7 +294,11 @@ impl LayoutMath for Content {
             return node.layout_math(ctx);
         }
 
-        let frame = ctx.layout_content(self)?;
+        let mut frame = ctx.layout_content(self)?;
+        if !frame.has_baseline() {
+            let axis = scaled!(ctx, axis_height);
+            frame.set_baseline(frame.height() / 2.0 + axis);
+        }
         ctx.push(FrameFragment::new(ctx, frame).with_spaced(true));
 
         Ok(())

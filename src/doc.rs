@@ -85,6 +85,11 @@ impl Frame {
         self.baseline.unwrap_or(self.size.y)
     }
 
+    /// Whether the frame has a non-default baseline.
+    pub fn has_baseline(&mut self) -> bool {
+        self.baseline.is_some()
+    }
+
     /// Set the frame's baseline from the top.
     pub fn set_baseline(&mut self, baseline: Abs) {
         self.baseline = Some(baseline);

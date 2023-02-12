@@ -6,9 +6,9 @@
 $ sum_(i=#emoji.apple)^#emoji.apple.red i + monkey/2 $
 
 ---
-// Test table above fraction.
-$ x := #table(columns: 2)[x][y]/mat(1, 2, 3) $
-
+// Test tables.
+$ x := #table(columns: 2)[x][y]/mat(1, 2, 3)
+     = #table[A][B][C] $
 ---
 // Test non-formula math directly in content.
 #math.attach($a$, top: [b])
