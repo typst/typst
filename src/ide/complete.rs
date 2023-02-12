@@ -249,7 +249,7 @@ fn complete_math(ctx: &mut CompletionContext) -> bool {
 /// Add completions for math snippets.
 #[rustfmt::skip]
 fn math_completions(ctx: &mut CompletionContext) {
-    ctx.scope_completions(|_| true);
+    ctx.scope_completions(true, |_| true);
 
     ctx.snippet_completion(
         "subscript",
@@ -336,12 +336,12 @@ fn field_access_completions(ctx: &mut CompletionContext, value: &Value) {
         }
         Value::Dict(dict) => {
             for (name, value) in dict.iter() {
-                ctx.value_completion(Some(name.clone().into()), value, None);
+                ctx.value_completion(Some(name.clone().into()), value, false, None);
             }
         }
         Value::Module(module) => {
             for (name, value) in module.scope().iter() {
-                ctx.value_completion(Some(name.clone()), value, None);
+                ctx.value_completion(Some(name.clone()), value, true, None);
             }
         }
         _ => {}
@@ -408,7 +408,7 @@ fn import_completions(
 
     for (name, value) in module.scope().iter() {
         if existing.iter().all(|ident| ident.as_str() != name) {
-            ctx.value_completion(Some(name.clone()), value, None);
+            ctx.value_completion(Some(name.clone()), value, false, None);
         }
     }
 }
@@ -453,7 +453,7 @@ fn complete_rules(ctx: &mut CompletionContext) -> bool {
 
 /// Add completions for all functions from the global scope.
 fn set_rule_completions(ctx: &mut CompletionContext) {
-    ctx.scope_completions(|value| {
+    ctx.scope_completions(true, |value| {
         matches!(
             value,
             Value::Func(func) if func.info().map_or(false, |info| {
@@ -466,6 +466,7 @@ fn set_rule_completions(ctx: &mut CompletionContext) {
 /// Add completions for selectors.
 fn show_rule_selector_completions(ctx: &mut CompletionContext) {
     ctx.scope_completions(
+        false,
         |value| matches!(value, Value::Func(func) if func.select(None).is_ok()),
     );
 
@@ -504,7 +505,7 @@ fn show_rule_recipe_completions(ctx: &mut CompletionContext) {
         "Transform the element with a function.",
     );
 
-    ctx.scope_completions(|value| matches!(value, Value::Func(_)));
+    ctx.scope_completions(false, |value| matches!(value, Value::Func(_)));
 }
 
 /// Complete call and set rule parameters.
@@ -688,7 +689,7 @@ fn complete_code(ctx: &mut CompletionContext) -> bool {
 /// Add completions for expression snippets.
 #[rustfmt::skip]
 fn code_completions(ctx: &mut CompletionContext, hashtag: bool) {
-    ctx.scope_completions(|value| !hashtag || {
+    ctx.scope_completions(true, |value| !hashtag || {
         matches!(value, Value::Symbol(_) | Value::Func(_) | Value::Module(_))
     });
 
@@ -896,6 +897,7 @@ impl<'a> CompletionContext<'a> {
         &mut self,
         label: Option<EcoString>,
         value: &Value,
+        parens: bool,
         docs: Option<&'static str>,
     ) {
         let mut label = label.unwrap_or_else(|| value.repr().into());
@@ -915,6 +917,10 @@ impl<'a> CompletionContext<'a> {
             }
             v => Some(v.repr().into()),
         });
+
+        if parens && matches!(value, Value::Func(_)) {
+            apply = Some(format_eco!("{label}(${{}})"));
+        }
 
         self.completions.push(Completion {
             kind: match value {
@@ -938,7 +944,7 @@ impl<'a> CompletionContext<'a> {
         match cast {
             CastInfo::Any => {}
             CastInfo::Value(value, docs) => {
-                self.value_completion(None, value, Some(docs));
+                self.value_completion(None, value, true, Some(docs));
             }
             CastInfo::Type("none") => self.snippet_completion("none", "none", "Nothing."),
             CastInfo::Type("auto") => {
@@ -964,7 +970,7 @@ impl<'a> CompletionContext<'a> {
                     "cmyk(${c}, ${m}, ${y}, ${k})",
                     "A custom CMYK color.",
                 );
-                self.scope_completions(|value| value.type_name() == "color");
+                self.scope_completions(false, |value| value.type_name() == "color");
             }
             CastInfo::Type("function") => {
                 self.snippet_completion(
@@ -980,7 +986,7 @@ impl<'a> CompletionContext<'a> {
                     apply: Some(format_eco!("${{{ty}}}")),
                     detail: Some(format_eco!("A value of type {ty}.")),
                 });
-                self.scope_completions(|value| value.type_name() == *ty);
+                self.scope_completions(false, |value| value.type_name() == *ty);
             }
             CastInfo::Union(union) => {
                 for info in union {
@@ -992,7 +998,7 @@ impl<'a> CompletionContext<'a> {
 
     /// Add completions for definitions that are available at the cursor.
     /// Filters the global/math scope with the given filter.
-    fn scope_completions(&mut self, filter: impl Fn(&Value) -> bool) {
+    fn scope_completions(&mut self, parens: bool, filter: impl Fn(&Value) -> bool) {
         let mut defined = BTreeSet::new();
 
         let mut ancestor = Some(self.leaf.clone());
@@ -1034,7 +1040,7 @@ impl<'a> CompletionContext<'a> {
         let scope = if in_math { self.math } else { self.global };
         for (name, value) in scope.iter() {
             if filter(value) && !defined.contains(name) {
-                self.value_completion(Some(name.clone()), value, None);
+                self.value_completion(Some(name.clone()), value, parens, None);
             }
         }
 
