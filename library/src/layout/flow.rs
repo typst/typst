@@ -2,6 +2,7 @@ use typst::model::Style;
 
 use super::{AlignNode, BlockNode, ColbreakNode, ParNode, PlaceNode, Spacing, VNode};
 use crate::prelude::*;
+use crate::visualize::{CircleNode, EllipseNode, ImageNode, RectNode, SquareNode};
 
 /// Arrange spacing, paragraphs and block-level nodes into a flow.
 ///
@@ -31,8 +32,17 @@ impl Layout for FlowNode {
                 let barrier = Style::Barrier(child.id());
                 let styles = styles.chain_one(&barrier);
                 layouter.layout_par(vt, node, styles)?;
+            } else if child.is::<RectNode>()
+                || child.is::<SquareNode>()
+                || child.is::<EllipseNode>()
+                || child.is::<CircleNode>()
+                || child.is::<ImageNode>()
+            {
+                let barrier = Style::Barrier(child.id());
+                let styles = styles.chain_one(&barrier);
+                layouter.layout_single(vt, child, styles)?;
             } else if child.has::<dyn Layout>() {
-                layouter.layout_block(vt, child, styles)?;
+                layouter.layout_multiple(vt, child, styles)?;
             } else if child.is::<ColbreakNode>() {
                 layouter.finish_region();
             } else {
@@ -157,8 +167,25 @@ impl<'a> FlowLayouter<'a> {
         Ok(())
     }
 
-    /// Layout a block.
-    fn layout_block(
+    /// Layout into a single region.
+    fn layout_single(
+        &mut self,
+        vt: &mut Vt,
+        content: &Content,
+        styles: StyleChain,
+    ) -> SourceResult<()> {
+        let aligns = styles.get(AlignNode::ALIGNS).resolve(styles);
+        let sticky = styles.get(BlockNode::STICKY);
+        let pod = Regions::one(self.regions.base(), Axes::splat(false));
+        let layoutable = content.with::<dyn Layout>().unwrap();
+        let frame = layoutable.layout(vt, styles, pod)?.into_frame();
+        self.layout_item(FlowItem::Frame(frame, aligns, sticky));
+        self.last_was_par = false;
+        Ok(())
+    }
+
+    /// Layout into multiple regions.
+    fn layout_multiple(
         &mut self,
         vt: &mut Vt,
         block: &Content,

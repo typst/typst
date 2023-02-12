@@ -27,7 +27,7 @@
 
 ---
 // Test stroke folding.
-#let sq = square.with(size: 10pt)
+#let sq(..args) = box(square(size: 10pt, ..args))
 
 #set square(stroke: none)
 #sq()

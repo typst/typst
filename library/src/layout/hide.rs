@@ -21,7 +21,7 @@ use crate::prelude::*;
 /// ## Category
 /// layout
 #[func]
-#[capable(Layout, Inline)]
+#[capable(Show)]
 #[derive(Debug, Hash)]
 pub struct HideNode(pub Content);
 
@@ -39,19 +39,8 @@ impl HideNode {
     }
 }
 
-impl Layout for HideNode {
-    fn layout(
-        &self,
-        vt: &mut Vt,
-        styles: StyleChain,
-        regions: Regions,
-    ) -> SourceResult<Fragment> {
-        let mut fragment = self.0.layout(vt, styles, regions)?;
-        for frame in &mut fragment {
-            frame.clear();
-        }
-        Ok(fragment)
+impl Show for HideNode {
+    fn show(&self, _: &mut Vt, _: &Content, _: StyleChain) -> SourceResult<Content> {
+        Ok(self.0.clone().styled(Meta::DATA, vec![Meta::Hidden]))
     }
 }
-
-impl Inline for HideNode {}

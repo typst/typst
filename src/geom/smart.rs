@@ -10,6 +10,16 @@ pub enum Smart<T> {
 }
 
 impl<T> Smart<T> {
+    /// Whether the value is `Auto`.
+    pub fn is_auto(&self) -> bool {
+        matches!(self, Self::Auto)
+    }
+
+    /// Whether this holds a custom value.
+    pub fn is_custom(&self) -> bool {
+        matches!(self, Self::Custom(_))
+    }
+
     /// Map the contained custom value with `f`.
     pub fn map<F, U>(self, f: F) -> Smart<U>
     where

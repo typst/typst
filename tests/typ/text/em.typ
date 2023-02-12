@@ -30,5 +30,4 @@ G // 5pt
   size - 3pt
 }
 
-#square(size: size)
-#square(size: 25pt)
+#stack(dir: ltr, spacing: 1fr, square(size: size), square(size: 25pt))

@@ -288,6 +288,7 @@ fn write_frame(ctx: &mut PageContext, frame: &Frame) {
             Element::Meta(meta, size) => match meta {
                 Meta::Link(dest) => write_link(ctx, pos, dest, *size),
                 Meta::Node(_, _) => {}
+                Meta::Hidden => {}
             },
         }
     }

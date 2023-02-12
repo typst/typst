@@ -267,6 +267,10 @@ impl Frame {
     /// Attach the metadata from this style chain to the frame.
     pub fn meta(&mut self, styles: StyleChain) {
         for meta in styles.get(Meta::DATA) {
+            if matches!(meta, Meta::Hidden) {
+                self.clear();
+                break;
+            }
             self.push(Point::zero(), Element::Meta(meta, self.size));
         }
     }
@@ -533,6 +537,8 @@ pub enum Meta {
     /// An identifiable piece of content that produces something within the
     /// area this metadata is attached to.
     Node(StableId, Content),
+    /// Indicates that the content is hidden.
+    Hidden,
 }
 
 #[node]

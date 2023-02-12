@@ -35,12 +35,27 @@ impl Point {
         Self { x: Abs::zero(), y }
     }
 
+    /// The component-wise minimum of this and another point.
+    pub fn min(self, other: Self) -> Self {
+        Self { x: self.x.min(other.x), y: self.y.min(other.y) }
+    }
+
+    /// The component-wise minimum of this and another point.
+    pub fn max(self, other: Self) -> Self {
+        Self { x: self.x.max(other.x), y: self.y.max(other.y) }
+    }
+
     /// Transform the point with the given transformation.
     pub fn transform(self, ts: Transform) -> Self {
         Self::new(
             ts.sx.of(self.x) + ts.kx.of(self.y) + ts.tx,
             ts.ky.of(self.x) + ts.sy.of(self.y) + ts.ty,
         )
+    }
+
+    /// Convert to a size.
+    pub fn to_size(self) -> Size {
+        Size::new(self.x, self.y)
     }
 }
 

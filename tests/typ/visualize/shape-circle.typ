@@ -2,14 +2,14 @@
 
 ---
 // Default circle.
-#circle()
-#circle[Hey]
+#box(circle())
+#box(circle[Hey])
 
 ---
 // Test auto sizing.
 #set circle(inset: 0pt)
 
-Auto-sized circle. \
+Auto-sized circle.
 #circle(fill: rgb("eb5278"), stroke: 2pt + black,
   align(center + horizon)[But, soft!]
 )
@@ -21,7 +21,7 @@ Center-aligned rect in auto-sized circle.
   )
 )
 
-Rect in auto-sized circle. \
+Rect in auto-sized circle.
 #circle(fill: forest,
   rect(fill: conifer, stroke: white, inset: 4pt)[
     #set text(8pt)
@@ -39,13 +39,18 @@ Expanded by height.
 
 ---
 // Test relative sizing.
-#let centered(body) = align(center + horizon, body)
 #set text(fill: white)
-#rect(width: 100pt, height: 50pt, inset: 0pt, fill: rgb("aaa"), centered[
-  #circle(radius: 10pt, fill: eastern, centered[A])      // D=20pt
-  #circle(height: 60%, fill: eastern, centered[B])       // D=30pt
-  #circle(width: 20% + 20pt, fill: eastern, centered[C]) // D=40pt
-])
+#show rect.with(width: 100pt, height: 50pt, inset: 0pt, fill: rgb("aaa"))
+#set align(center + horizon)
+#stack(
+  dir: ltr,
+  spacing: 1fr,
+  1fr,
+  circle(radius: 10pt, fill: eastern, [A]),      // D=20pt
+  circle(height: 60%, fill: eastern, [B]),       // D=30pt
+  circle(width: 20% + 20pt, fill: eastern, [C]), // D=40pt
+  1fr,
+)
 
 ---
 // Radius wins over width and height.

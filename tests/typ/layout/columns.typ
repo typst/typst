@@ -6,10 +6,10 @@
 #set text(lang: "ar", "Noto Sans Arabic", "IBM Plex Serif")
 #set columns(gutter: 30pt)
 
-#rect(fill: conifer, height: 8pt, width: 6pt) وتحفيز
+#box(rect(fill: conifer, height: 8pt, width: 6pt)) وتحفيز
 العديد من التفاعلات الكيميائية. (DNA) من أهم الأحماض النووية التي تُشكِّل
 إلى جانب كل من البروتينات والليبيدات والسكريات المتعددة
-#rect(fill: eastern, height: 8pt, width: 6pt)
+#box(rect(fill: eastern, height: 8pt, width: 6pt))
 الجزيئات الضخمة الأربعة الضرورية للحياة.
 
 ---

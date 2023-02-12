@@ -8,7 +8,7 @@ Die Zeitung Der Spiegel existiert.
 
 ---
 // Another classic example.
-#show "TeX": [T#h(-0.145em)#move(dy: 0.233em)[E]#h(-0.135em)X]
+#show "TeX": [T#h(-0.145em)#box(move(dy: 0.233em)[E])#h(-0.135em)X]
 #show regex("(Lua)?(La)?TeX"): name => box(text("Latin Modern Roman")[#name])
 
 TeX, LaTeX, LuaTeX and LuaLaTeX!
@@ -28,7 +28,7 @@ Treeworld, the World of worlds, is a world.
 ---
 // This is a fun one.
 #set par(justify: true)
-#show regex("\S"): letter => rect(inset: 2pt)[#upper(letter)]
+#show regex("\S"): letter => box(rect(inset: 2pt, upper(letter)))
 #lorem(5)
 
 ---

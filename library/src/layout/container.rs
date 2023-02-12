@@ -38,7 +38,7 @@ use crate::prelude::*;
 /// ## Category
 /// layout
 #[func]
-#[capable(Layout, Inline)]
+#[capable(Layout)]
 #[derive(Debug, Hash)]
 pub struct BoxNode {
     /// How to size the content horizontally and vertically.
@@ -98,8 +98,6 @@ impl Layout for BoxNode {
         Ok(Fragment::frame(frame))
     }
 }
-
-impl Inline for BoxNode {}
 
 /// # Block
 /// A block-level container that places content into a separate flow.

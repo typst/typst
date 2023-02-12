@@ -9,7 +9,7 @@ The first paragraph has no indent.
 
 But the second one does.
 
-#image("/tiger.jpg", height: 6pt)
+#box(image("/tiger.jpg", height: 6pt))
 starts a paragraph without indent.
 
 #align(center, image("/rhino.png", width: 1cm))

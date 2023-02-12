@@ -14,8 +14,8 @@
 // Test configuring the size and fitting behaviour of images.
 
 // Set width and height explicitly.
-#image("/rhino.png", width: 30pt)
-#image("/rhino.png", height: 30pt)
+#box(image("/rhino.png", width: 30pt))
+#box(image("/rhino.png", height: 30pt))
 
 // Set width and height explicitly and force stretching.
 #image("/monkey.svg", width: 100%, height: 20pt, fit: "stretch")
@@ -38,13 +38,12 @@
 ---
 // Does not fit to remaining height of page.
 #set page(height: 60pt)
-Stuff #parbreak()
 Stuff
 #image("/rhino.png")
 
 ---
 // Test baseline.
-A #image("/tiger.jpg", height: 1cm, width: 80%) B
+A #box(image("/tiger.jpg", height: 1cm, width: 80%)) B
 
 ---
 // Test advanced SVG features.

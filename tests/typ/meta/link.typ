@@ -32,13 +32,13 @@ You could also make the
 // Transformed link.
 #set page(height: 60pt)
 #let mylink = link("https://typst.org/")[LINK]
-My cool #move(dx: 0.7cm, dy: 0.7cm, rotate(10deg, scale(200%, mylink)))
+My cool #box(move(dx: 0.7cm, dy: 0.7cm, rotate(10deg, scale(200%, mylink))))
 
 ---
 // Link containing a block.
 #link("https://example.com/", block[
   My cool rhino
-  #move(dx: 10pt, image("/rhino.png", width: 1cm))
+  #box(move(dx: 10pt, image("/rhino.png", width: 1cm)))
 ])
 
 ---

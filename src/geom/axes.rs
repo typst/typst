@@ -104,6 +104,16 @@ impl<T: Ord> Axes<T> {
     pub fn max(self, other: Self) -> Self {
         Self { x: self.x.max(other.x), y: self.y.max(other.y) }
     }
+
+    /// The minimum of width and height.
+    pub fn min_by_side(self) -> T {
+        self.x.min(self.y)
+    }
+
+    /// The minimum of width and height.
+    pub fn max_by_side(self) -> T {
+        self.x.max(self.y)
+    }
 }
 
 impl<T> Get<Axis> for Axes<T> {
@@ -180,6 +190,16 @@ impl Debug for Axis {
 }
 
 impl<T> Axes<Option<T>> {
+    /// Unwrap the individual fields.
+    pub fn unwrap_or(self, other: Axes<T>) -> Axes<T> {
+        Axes {
+            x: self.x.unwrap_or(other.x),
+            y: self.y.unwrap_or(other.y),
+        }
+    }
+}
+
+impl<T> Axes<Smart<T>> {
     /// Unwrap the individual fields.
     pub fn unwrap_or(self, other: Axes<T>) -> Axes<T> {
         Axes {

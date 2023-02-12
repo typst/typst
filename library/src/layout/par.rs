@@ -500,12 +500,14 @@ fn collect<'a>(
                 .0
                 .items()
                 .find_map(|child| {
-                    if child.is::<TextNode>() || child.is::<SmartQuoteNode>() {
-                        Some(true)
-                    } else if child.has::<dyn Inline>() {
-                        Some(false)
-                    } else {
+                    if child.with::<dyn Behave>().map_or(false, |behaved| {
+                        behaved.behaviour() == Behaviour::Ignorant
+                    }) {
                         None
+                    } else if child.is::<TextNode>() || child.is::<SmartQuoteNode>() {
+                        Some(true)
+                    } else {
+                        Some(false)
                     }
                 })
                 .unwrap_or_default()
@@ -558,11 +560,9 @@ fn collect<'a>(
         } else if let Some(&node) = child.to::<HNode>() {
             full.push(SPACING_REPLACE);
             Segment::Spacing(node.amount)
-        } else if child.has::<dyn Inline>() {
+        } else {
             full.push(NODE_REPLACE);
             Segment::Inline(child)
-        } else {
-            panic!("unexpected par child: {child:?}");
         };
 
         if let Some(last) = full.chars().last() {

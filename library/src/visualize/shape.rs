@@ -33,9 +33,13 @@ use crate::prelude::*;
 /// ## Category
 /// visualize
 #[func]
-#[capable(Layout, Inline)]
+#[capable(Layout)]
 #[derive(Debug, Hash)]
-pub struct RectNode(pub Option<Content>);
+pub struct RectNode {
+    pub body: Option<Content>,
+    pub width: Smart<Rel<Length>>,
+    pub height: Smart<Rel<Length>>,
+}
 
 #[node]
 impl RectNode {
@@ -155,14 +159,15 @@ impl RectNode {
     pub const OUTSET: Sides<Option<Rel<Length>>> = Sides::splat(Rel::zero());
 
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        let width = args.named("width")?;
-        let height = args.named("height")?;
-        Ok(Self(args.eat()?).pack().boxed(Axes::new(width, height)))
+        let width = args.named("width")?.unwrap_or_default();
+        let height = args.named("height")?.unwrap_or_default();
+        let body = args.eat()?;
+        Ok(Self { body, width, height }.pack())
     }
 
     fn field(&self, name: &str) -> Option<Value> {
         match name {
-            "body" => match &self.0 {
+            "body" => match &self.body {
                 Some(body) => Some(Value::Content(body.clone())),
                 None => Some(Value::None),
             },
@@ -181,7 +186,8 @@ impl Layout for RectNode {
         layout(
             vt,
             ShapeKind::Rect,
-            &self.0,
+            &self.body,
+            Axes::new(self.width, self.height),
             styles.get(Self::FILL),
             styles.get(Self::STROKE),
             styles.get(Self::INSET),
@@ -192,8 +198,6 @@ impl Layout for RectNode {
         )
     }
 }
-
-impl Inline for RectNode {}
 
 /// # Square
 /// A square with optional content.
@@ -237,9 +241,13 @@ impl Inline for RectNode {}
 /// ## Category
 /// visualize
 #[func]
-#[capable(Layout, Inline)]
+#[capable(Layout)]
 #[derive(Debug, Hash)]
-pub struct SquareNode(pub Option<Content>);
+pub struct SquareNode {
+    pub body: Option<Content>,
+    pub width: Smart<Rel<Length>>,
+    pub height: Smart<Rel<Length>>,
+}
 
 #[node]
 impl SquareNode {
@@ -270,22 +278,24 @@ impl SquareNode {
     pub const OUTSET: Sides<Option<Rel<Length>>> = Sides::splat(Rel::zero());
 
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        let size = args.named::<Length>("size")?.map(Rel::from);
+        let size = args.named::<Smart<Length>>("size")?.map(|s| s.map(Rel::from));
         let width = match size {
             None => args.named("width")?,
             size => size,
-        };
-
+        }
+        .unwrap_or_default();
         let height = match size {
             None => args.named("height")?,
             size => size,
-        };
-        Ok(Self(args.eat()?).pack().boxed(Axes::new(width, height)))
+        }
+        .unwrap_or_default();
+        let body = args.eat()?;
+        Ok(Self { body, width, height }.pack())
     }
 
     fn field(&self, name: &str) -> Option<Value> {
         match name {
-            "body" => match &self.0 {
+            "body" => match &self.body {
                 Some(body) => Some(Value::Content(body.clone())),
                 None => Some(Value::None),
             },
@@ -304,7 +314,8 @@ impl Layout for SquareNode {
         layout(
             vt,
             ShapeKind::Square,
-            &self.0,
+            &self.body,
+            Axes::new(self.width, self.height),
             styles.get(Self::FILL),
             styles.get(Self::STROKE),
             styles.get(Self::INSET),
@@ -315,8 +326,6 @@ impl Layout for SquareNode {
         )
     }
 }
-
-impl Inline for SquareNode {}
 
 /// # Ellipse
 /// An ellipse with optional content.
@@ -350,9 +359,13 @@ impl Inline for SquareNode {}
 /// ## Category
 /// visualize
 #[func]
-#[capable(Layout, Inline)]
+#[capable(Layout)]
 #[derive(Debug, Hash)]
-pub struct EllipseNode(pub Option<Content>);
+pub struct EllipseNode {
+    pub body: Option<Content>,
+    pub width: Smart<Rel<Length>>,
+    pub height: Smart<Rel<Length>>,
+}
 
 #[node]
 impl EllipseNode {
@@ -378,14 +391,15 @@ impl EllipseNode {
     pub const OUTSET: Sides<Option<Rel<Length>>> = Sides::splat(Rel::zero());
 
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        let width = args.named("width")?;
-        let height = args.named("height")?;
-        Ok(Self(args.eat()?).pack().boxed(Axes::new(width, height)))
+        let width = args.named("width")?.unwrap_or_default();
+        let height = args.named("height")?.unwrap_or_default();
+        let body = args.eat()?;
+        Ok(Self { body, width, height }.pack())
     }
 
     fn field(&self, name: &str) -> Option<Value> {
         match name {
-            "body" => match &self.0 {
+            "body" => match &self.body {
                 Some(body) => Some(Value::Content(body.clone())),
                 None => Some(Value::None),
             },
@@ -404,7 +418,8 @@ impl Layout for EllipseNode {
         layout(
             vt,
             ShapeKind::Ellipse,
-            &self.0,
+            &self.body,
+            Axes::new(self.width, self.height),
             styles.get(Self::FILL),
             styles.get(Self::STROKE).map(Sides::splat),
             styles.get(Self::INSET),
@@ -415,8 +430,6 @@ impl Layout for EllipseNode {
         )
     }
 }
-
-impl Inline for EllipseNode {}
 
 /// # Circle
 /// A circle with optional content.
@@ -458,9 +471,13 @@ impl Inline for EllipseNode {}
 /// ## Category
 /// visualize
 #[func]
-#[capable(Layout, Inline)]
+#[capable(Layout)]
 #[derive(Debug, Hash)]
-pub struct CircleNode(pub Option<Content>);
+pub struct CircleNode {
+    pub body: Option<Content>,
+    pub width: Smart<Rel<Length>>,
+    pub height: Smart<Rel<Length>>,
+}
 
 #[node]
 impl CircleNode {
@@ -486,22 +503,26 @@ impl CircleNode {
     pub const OUTSET: Sides<Option<Rel<Length>>> = Sides::splat(Rel::zero());
 
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        let size = args.named::<Length>("radius")?.map(|r| 2.0 * Rel::from(r));
+        let size = args
+            .named::<Smart<Length>>("radius")?
+            .map(|s| s.map(|r| 2.0 * Rel::from(r)));
         let width = match size {
             None => args.named("width")?,
             size => size,
-        };
-
+        }
+        .unwrap_or_default();
         let height = match size {
             None => args.named("height")?,
             size => size,
-        };
-        Ok(Self(args.eat()?).pack().boxed(Axes::new(width, height)))
+        }
+        .unwrap_or_default();
+        let body = args.eat()?;
+        Ok(Self { body, width, height }.pack())
     }
 
     fn field(&self, name: &str) -> Option<Value> {
         match name {
-            "body" => match &self.0 {
+            "body" => match &self.body {
                 Some(body) => Some(Value::Content(body.clone())),
                 None => Some(Value::None),
             },
@@ -520,7 +541,8 @@ impl Layout for CircleNode {
         layout(
             vt,
             ShapeKind::Circle,
-            &self.0,
+            &self.body,
+            Axes::new(self.width, self.height),
             styles.get(Self::FILL),
             styles.get(Self::STROKE).map(Sides::splat),
             styles.get(Self::INSET),
@@ -532,13 +554,12 @@ impl Layout for CircleNode {
     }
 }
 
-impl Inline for CircleNode {}
-
 /// Layout a shape.
 fn layout(
     vt: &mut Vt,
     kind: ShapeKind,
     body: &Option<Content>,
+    sizing: Axes<Smart<Rel<Length>>>,
     fill: Option<Paint>,
     stroke: Smart<Sides<Option<PartialStroke<Abs>>>>,
     mut inset: Sides<Rel<Abs>>,
@@ -547,29 +568,28 @@ fn layout(
     styles: StyleChain,
     regions: Regions,
 ) -> SourceResult<Fragment> {
+    let resolved = sizing
+        .zip(regions.base())
+        .map(|(s, r)| s.map(|v| v.resolve(styles).relative_to(r)));
+
     let mut frame;
     if let Some(child) = body {
+        let region = resolved.unwrap_or(regions.base());
+
         if kind.is_round() {
             inset = inset.map(|side| side + Ratio::new(0.5 - SQRT_2 / 4.0));
         }
 
         // Pad the child.
         let child = child.clone().padded(inset.map(|side| side.map(Length::from)));
-        let pod = Regions::one(regions.size, regions.expand);
+        let expand = sizing.as_ref().map(Smart::is_custom);
+        let pod = Regions::one(region, expand);
         frame = child.layout(vt, styles, pod)?.into_frame();
 
         // Relayout with full expansion into square region to make sure
         // the result is really a square or circle.
         if kind.is_quadratic() {
-            let length = if regions.expand.x || regions.expand.y {
-                let target = regions.expand.select(regions.size, Size::zero());
-                target.x.max(target.y)
-            } else {
-                let size = frame.size();
-                let desired = size.x.max(size.y);
-                desired.min(regions.size.x).min(regions.size.y)
-            };
-
+            let length = frame.size().max_by_side().min(region.min_by_side());
             let size = Size::splat(length);
             let pod = Regions::one(size, Axes::splat(true));
             frame = child.layout(vt, styles, pod)?.into_frame();
@@ -577,20 +597,11 @@ fn layout(
     } else {
         // The default size that a shape takes on if it has no child and
         // enough space.
-        let mut size = Size::new(Abs::pt(45.0), Abs::pt(30.0)).min(regions.size);
-
+        let default = Size::new(Abs::pt(45.0), Abs::pt(30.0));
+        let mut size = resolved.unwrap_or(default.min(regions.base()));
         if kind.is_quadratic() {
-            let length = if regions.expand.x || regions.expand.y {
-                let target = regions.expand.select(regions.size, Size::zero());
-                target.x.max(target.y)
-            } else {
-                size.x.min(size.y)
-            };
-            size = Size::splat(length);
-        } else {
-            size = regions.expand.select(regions.size, size);
+            size = Size::splat(size.min_by_side());
         }
-
         frame = Frame::new(size);
     }
 

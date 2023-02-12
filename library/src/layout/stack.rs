@@ -169,7 +169,7 @@ enum StackItem {
     /// Fractional spacing between other items.
     Fractional(Fr),
     /// A frame for a layouted block.
-    Frame(Frame, Align),
+    Frame(Frame, Axes<Align>),
 }
 
 impl<'a> StackLayouter<'a> {
@@ -239,7 +239,7 @@ impl<'a> StackLayouter<'a> {
             styles.get(AlignNode::ALIGNS)
         };
 
-        let align = aligns.get(self.axis).resolve(styles);
+        let aligns = aligns.resolve(styles);
         let fragment = block.layout(vt, styles, self.regions)?;
         let len = fragment.len();
         for (i, frame) in fragment.into_iter().enumerate() {
@@ -257,7 +257,7 @@ impl<'a> StackLayouter<'a> {
             self.used.main += gen.main;
             self.used.cross.set_max(gen.cross);
 
-            self.items.push(StackItem::Frame(frame, align));
+            self.items.push(StackItem::Frame(frame, aligns));
 
             if i + 1 < len {
                 self.finish_region();
@@ -291,24 +291,30 @@ impl<'a> StackLayouter<'a> {
             match item {
                 StackItem::Absolute(v) => cursor += v,
                 StackItem::Fractional(v) => cursor += v.share(self.fr, remaining),
-                StackItem::Frame(frame, align) => {
+                StackItem::Frame(frame, aligns) => {
                     if self.dir.is_positive() {
-                        ruler = ruler.max(align);
+                        ruler = ruler.max(aligns.get(self.axis));
                     } else {
-                        ruler = ruler.min(align);
+                        ruler = ruler.min(aligns.get(self.axis));
                     }
 
-                    // Align along the block axis.
+                    // Align along the main axis.
                     let parent = size.get(self.axis);
                     let child = frame.size().get(self.axis);
-                    let block = ruler.position(parent - self.used.main)
+                    let main = ruler.position(parent - self.used.main)
                         + if self.dir.is_positive() {
                             cursor
                         } else {
                             self.used.main - child - cursor
                         };
 
-                    let pos = Gen::new(Abs::zero(), block).to_point(self.axis);
+                    // Align along the cross axis.
+                    let other = self.axis.other();
+                    let cross = aligns
+                        .get(other)
+                        .position(size.get(other) - frame.size().get(other));
+
+                    let pos = Gen::new(cross, main).to_point(self.axis);
                     cursor += child;
                     output.push_frame(pos, frame);
                 }

@@ -141,7 +141,7 @@ pub fn module() -> Module {
 /// ## Category
 /// math
 #[func]
-#[capable(Show, Finalize, Layout, Inline, LayoutMath)]
+#[capable(Show, Finalize, Layout, LayoutMath)]
 #[derive(Debug, Clone, Hash)]
 pub struct FormulaNode {
     /// Whether the formula is displayed as a separate block.
@@ -228,8 +228,6 @@ impl Layout for FormulaNode {
         Ok(Fragment::frame(frame))
     }
 }
-
-impl Inline for FormulaNode {}
 
 #[capability]
 pub trait LayoutMath {

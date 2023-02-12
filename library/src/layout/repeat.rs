@@ -26,7 +26,7 @@ use crate::prelude::*;
 /// ## Category
 /// layout
 #[func]
-#[capable(Layout, Inline)]
+#[capable(Layout)]
 #[derive(Debug, Hash)]
 pub struct RepeatNode(pub Content);
 
@@ -54,5 +54,3 @@ impl Layout for RepeatNode {
         self.0.layout(vt, styles, regions)
     }
 }
-
-impl Inline for RepeatNode {}

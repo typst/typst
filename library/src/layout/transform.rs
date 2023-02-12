@@ -39,7 +39,7 @@ use crate::prelude::*;
 /// ## Category
 /// layout
 #[func]
-#[capable(Layout, Inline)]
+#[capable(Layout)]
 #[derive(Debug, Hash)]
 pub struct MoveNode {
     /// The offset by which to move the content.
@@ -75,17 +75,14 @@ impl Layout for MoveNode {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let mut fragment = self.body.layout(vt, styles, regions)?;
-        for frame in &mut fragment {
-            let delta = self.delta.resolve(styles);
-            let delta = delta.zip(regions.base()).map(|(d, s)| d.relative_to(s));
-            frame.translate(delta.to_point());
-        }
-        Ok(fragment)
+        let pod = Regions::one(regions.base(), Axes::splat(false));
+        let mut frame = self.body.layout(vt, styles, pod)?.into_frame();
+        let delta = self.delta.resolve(styles);
+        let delta = delta.zip(regions.base()).map(|(d, s)| d.relative_to(s));
+        frame.translate(delta.to_point());
+        Ok(Fragment::frame(frame))
     }
 }
-
-impl Inline for MoveNode {}
 
 /// # Rotate
 /// Rotate content with affecting layout.
@@ -116,7 +113,7 @@ impl Inline for MoveNode {}
 /// ## Category
 /// layout
 #[func]
-#[capable(Layout, Inline)]
+#[capable(Layout)]
 #[derive(Debug, Hash)]
 pub struct RotateNode {
     /// The angle by which to rotate the node.
@@ -169,20 +166,17 @@ impl Layout for RotateNode {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let mut fragment = self.body.layout(vt, styles, regions)?;
-        for frame in &mut fragment {
-            let origin = styles.get(Self::ORIGIN).unwrap_or(Align::CENTER_HORIZON);
-            let Axes { x, y } = origin.zip(frame.size()).map(|(o, s)| o.position(s));
-            let transform = Transform::translate(x, y)
-                .pre_concat(Transform::rotate(self.angle))
-                .pre_concat(Transform::translate(-x, -y));
-            frame.transform(transform);
-        }
-        Ok(fragment)
+        let pod = Regions::one(regions.base(), Axes::splat(false));
+        let mut frame = self.body.layout(vt, styles, pod)?.into_frame();
+        let origin = styles.get(Self::ORIGIN).unwrap_or(Align::CENTER_HORIZON);
+        let Axes { x, y } = origin.zip(frame.size()).map(|(o, s)| o.position(s));
+        let ts = Transform::translate(x, y)
+            .pre_concat(Transform::rotate(self.angle))
+            .pre_concat(Transform::translate(-x, -y));
+        frame.transform(ts);
+        Ok(Fragment::frame(frame))
     }
 }
-
-impl Inline for RotateNode {}
 
 /// # Scale
 /// Scale content without affecting layout.
@@ -214,7 +208,7 @@ impl Inline for RotateNode {}
 /// ## Category
 /// layout
 #[func]
-#[capable(Layout, Inline)]
+#[capable(Layout)]
 #[derive(Debug, Hash)]
 pub struct ScaleNode {
     /// Scaling factor.
@@ -262,17 +256,14 @@ impl Layout for ScaleNode {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let mut fragment = self.body.layout(vt, styles, regions)?;
-        for frame in &mut fragment {
-            let origin = styles.get(Self::ORIGIN).unwrap_or(Align::CENTER_HORIZON);
-            let Axes { x, y } = origin.zip(frame.size()).map(|(o, s)| o.position(s));
-            let transform = Transform::translate(x, y)
-                .pre_concat(Transform::scale(self.factor.x, self.factor.y))
-                .pre_concat(Transform::translate(-x, -y));
-            frame.transform(transform);
-        }
-        Ok(fragment)
+        let pod = Regions::one(regions.base(), Axes::splat(false));
+        let mut frame = self.body.layout(vt, styles, pod)?.into_frame();
+        let origin = styles.get(Self::ORIGIN).unwrap_or(Align::CENTER_HORIZON);
+        let Axes { x, y } = origin.zip(frame.size()).map(|(o, s)| o.position(s));
+        let transform = Transform::translate(x, y)
+            .pre_concat(Transform::scale(self.factor.x, self.factor.y))
+            .pre_concat(Transform::translate(-x, -y));
+        frame.transform(transform);
+        Ok(Fragment::frame(frame))
     }
 }
-
-impl Inline for ScaleNode {}

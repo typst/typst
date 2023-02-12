@@ -28,7 +28,7 @@ my heading?
 // Test integrated example.
 #show heading: it => block({
   set text(10pt)
-  move(dy: -1pt)[📖]
+  box(move(dy: -1pt)[📖])
   h(5pt)
   if it.level == 1 {
     underline(text(1.25em, blue, it.title))

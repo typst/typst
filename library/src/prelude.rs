@@ -28,6 +28,6 @@ pub use typst::util::{format_eco, EcoString};
 pub use typst::World;
 
 #[doc(no_inline)]
-pub use crate::layout::{Fragment, Inline, Layout, Regions};
+pub use crate::layout::{Fragment, Layout, Regions};
 #[doc(no_inline)]
 pub use crate::shared::{Behave, Behaviour, ContentExt, StyleMapExt};

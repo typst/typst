@@ -2,8 +2,8 @@
 
 ---
 // Default square.
-#square()
-#square[hey!]
+#box(square())
+#box(square[hey!])
 
 ---
 // Test auto-sized square.
@@ -15,7 +15,7 @@
 ---
 // Test relative-sized child.
 #square(fill: eastern)[
-  #rect(width: 10pt, height: 5pt, fill: conifer) \
+  #rect(width: 10pt, height: 5pt, fill: conifer)
   #rect(width: 40%, height: 5pt, stroke: conifer)
 ]
 

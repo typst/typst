@@ -17,8 +17,7 @@
 ---
 // Test gray color conversion.
 // Ref: true
-#rect(fill: luma(0))
-#rect(fill: luma(80%))
+#stack(dir: ltr, rect(fill: luma(0)), rect(fill: luma(80%)))
 
 ---
 // Error for values that are out of range.

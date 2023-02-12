@@ -28,7 +28,7 @@ use crate::prelude::*;
 /// ## Category
 /// visualize
 #[func]
-#[capable(Layout, Inline)]
+#[capable(Layout)]
 #[derive(Debug, Hash)]
 pub struct LineNode {
     /// Where the line starts.
@@ -61,7 +61,7 @@ impl LineNode {
             Some(end) => end.zip(start).map(|(to, from)| to - from),
             None => {
                 let length =
-                    args.named::<Rel<Length>>("length")?.unwrap_or(Abs::cm(1.0).into());
+                    args.named::<Rel<Length>>("length")?.unwrap_or(Abs::pt(30.0).into());
 
                 let angle = args.named::<Angle>("angle")?.unwrap_or_default();
                 let x = angle.cos() * length;
@@ -106,5 +106,3 @@ impl Layout for LineNode {
         Ok(Fragment::frame(frame))
     }
 }
-
-impl Inline for LineNode {}

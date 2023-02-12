@@ -57,6 +57,7 @@ use crate::meta::DocumentNode;
 use crate::prelude::*;
 use crate::shared::BehavedBuilder;
 use crate::text::{LinebreakNode, SmartQuoteNode, SpaceNode, TextNode};
+use crate::visualize::{CircleNode, EllipseNode, ImageNode, RectNode, SquareNode};
 
 /// Root-level layout.
 #[capability]
@@ -144,10 +145,6 @@ impl Layout for Content {
     }
 }
 
-/// Inline-level layout.
-#[capability]
-pub trait Inline: Layout {}
-
 /// Realize into a node that is capable of root-level layout.
 fn realize_root<'a>(
     vt: &mut Vt,
@@ -173,7 +170,14 @@ fn realize_block<'a>(
     content: &'a Content,
     styles: StyleChain<'a>,
 ) -> SourceResult<(Content, StyleChain<'a>)> {
-    if content.has::<dyn Layout>() && !applicable(content, styles) {
+    if content.has::<dyn Layout>()
+        && !content.is::<RectNode>()
+        && !content.is::<SquareNode>()
+        && !content.is::<EllipseNode>()
+        && !content.is::<CircleNode>()
+        && !content.is::<ImageNode>()
+        && !applicable(content, styles)
+    {
         return Ok((content.clone(), styles));
     }
 
@@ -464,18 +468,19 @@ struct ParBuilder<'a>(BehavedBuilder<'a>);
 impl<'a> ParBuilder<'a> {
     fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) -> bool {
         if content.is::<SpaceNode>()
-            || content.is::<LinebreakNode>()
+            || content.is::<TextNode>()
             || content.is::<HNode>()
             || content.is::<SmartQuoteNode>()
-            || content.is::<TextNode>()
-            || content.is::<FormulaNode>()
-            || content.has::<dyn Inline>()
+            || content.is::<LinebreakNode>()
+            || content.is::<BoxNode>()
+            || content.is::<RepeatNode>()
+            || content.to::<FormulaNode>().map_or(false, |node| !node.block)
         {
             self.0.push(content.clone(), styles);
             return true;
         }
 
-        if content.has::<dyn LayoutMath>() {
+        if !content.is::<FormulaNode>() && content.has::<dyn LayoutMath>() {
             let formula = FormulaNode { body: content.clone(), block: false }.pack();
             self.0.push(formula, styles);
             return true;

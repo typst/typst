@@ -22,7 +22,7 @@
 
 ---
 // The inner rectangle should not be yellow here.
-A #rect(fill: yellow, inset: 5pt, rect()) B
+A #box(rect(fill: yellow, inset: 5pt, rect())) B
 
 ---
 // The constructor property should still work

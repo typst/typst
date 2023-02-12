@@ -32,9 +32,13 @@ use crate::prelude::*;
 /// ## Category
 /// visualize
 #[func]
-#[capable(Layout, Inline)]
+#[capable(Layout)]
 #[derive(Debug, Hash)]
-pub struct ImageNode(pub Image);
+pub struct ImageNode {
+    pub image: Image,
+    pub width: Smart<Rel<Length>>,
+    pub height: Smart<Rel<Length>>,
+}
 
 #[node]
 impl ImageNode {
@@ -57,10 +61,9 @@ impl ImageNode {
         };
 
         let image = Image::new(buffer, format).at(span)?;
-        let width = args.named("width")?;
-        let height = args.named("height")?;
-
-        Ok(ImageNode(image).pack().boxed(Axes::new(width, height)))
+        let width = args.named("width")?.unwrap_or_default();
+        let height = args.named("height")?.unwrap_or_default();
+        Ok(ImageNode { image, width, height }.pack())
     }
 }
 
@@ -71,22 +74,28 @@ impl Layout for ImageNode {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let pxw = self.0.width() as f64;
-        let pxh = self.0.height() as f64;
-        let px_ratio = pxw / pxh;
+        let sizing = Axes::new(self.width, self.height);
+        let region = sizing
+            .zip(regions.base())
+            .map(|(s, r)| s.map(|v| v.resolve(styles).relative_to(r)))
+            .unwrap_or(regions.base());
+
+        let expand = sizing.as_ref().map(Smart::is_custom) | regions.expand;
+        let region_ratio = region.x / region.y;
 
         // Find out whether the image is wider or taller than the target size.
-        let Regions { size: first, expand, .. } = regions;
-        let region_ratio = first.x / first.y;
+        let pxw = self.image.width() as f64;
+        let pxh = self.image.height() as f64;
+        let px_ratio = pxw / pxh;
         let wide = px_ratio > region_ratio;
 
         // The space into which the image will be placed according to its fit.
         let target = if expand.x && expand.y {
-            first
-        } else if expand.x || (!expand.y && wide && first.x.is_finite()) {
-            Size::new(first.x, first.y.min(first.x.safe_div(px_ratio)))
-        } else if first.y.is_finite() {
-            Size::new(first.x.min(first.y * px_ratio), first.y)
+            region
+        } else if expand.x || (!expand.y && wide && region.x.is_finite()) {
+            Size::new(region.x, region.y.min(region.x.safe_div(px_ratio)))
+        } else if region.y.is_finite() {
+            Size::new(region.x.min(region.y * px_ratio), region.y)
         } else {
             Size::new(Abs::pt(pxw), Abs::pt(pxh))
         };
@@ -108,7 +117,7 @@ impl Layout for ImageNode {
         // the frame to the target size, center aligning the image in the
         // process.
         let mut frame = Frame::new(fitted);
-        frame.push(Point::zero(), Element::Image(self.0.clone(), fitted));
+        frame.push(Point::zero(), Element::Image(self.image.clone(), fitted));
         frame.resize(target, Align::CENTER_HORIZON);
 
         // Create a clipping group if only part of the image should be visible.
@@ -122,8 +131,6 @@ impl Layout for ImageNode {
         Ok(Fragment::frame(frame))
     }
 }
-
-impl Inline for ImageNode {}
 
 /// How an image should adjust itself to a given area.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
