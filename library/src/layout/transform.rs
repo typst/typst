@@ -26,10 +26,6 @@ use crate::prelude::*;
 /// - body: `Content` (positional, required)
 ///   The content to move.
 ///
-///   ```example
-///   Hello, world!#move(dy: -2pt)[!]#move(dy: 2pt)[!]
-///   ```
-///
 /// - dx: `Rel<Length>` (named)
 ///   The horizontal displacement of the content.
 ///
@@ -92,11 +88,12 @@ impl Layout for MoveNode {
 ///
 /// ## Example
 /// ```example
-/// #{
-///   range(16)
-///     .map(i => rotate(24deg * i)[X])
-///     .join(h(1fr))
-/// }
+/// #stack(
+///   dir: ltr,
+///   spacing: 1fr,
+///   ..range(16)
+///     .map(i => rotate(24deg * i)[X]),
+/// )
 /// ```
 ///
 /// ## Parameters
@@ -107,7 +104,7 @@ impl Layout for MoveNode {
 ///   The amount of rotation.
 ///
 ///   ```example
-///   #rotate(angle: -1.571rad)[To space!]
+///   #rotate(angle: -1.571rad)[Space!]
 ///   ```
 ///
 /// ## Category
@@ -135,10 +132,10 @@ impl RotateNode {
     /// #set text(spacing: 8pt)
     /// #let square = square.with(width: 8pt)
     ///
-    /// #square()
-    /// #rotate(angle: 30deg, origin: center, square())
-    /// #rotate(angle: 30deg, origin: top + left, square())
-    /// #rotate(angle: 30deg, origin: bottom + right, square())
+    /// #box(square())
+    /// #box(rotate(angle: 30deg, origin: center, square()))
+    /// #box(rotate(angle: 30deg, origin: top + left, square()))
+    /// #box(rotate(angle: 30deg, origin: bottom + right, square()))
     /// ```
     #[property(resolve)]
     pub const ORIGIN: Axes<Option<GenAlign>> = Axes::default();
@@ -188,7 +185,7 @@ impl Layout for RotateNode {
 /// ## Example
 /// ```example
 /// #set align(center)
-/// #scale(x: -100%)[👍]👩‍🦱👍
+/// #scale(x: -100%)[This is mirrored.]
 /// ```
 ///
 /// ## Parameters
@@ -224,8 +221,8 @@ impl ScaleNode {
     /// By default, the origin is the center of the scaled element.
     ///
     /// ```example
-    /// A#scale(75%)[A]A \
-    /// B#scale(75%, origin: bottom + left)[B]B
+    /// A#box(scale(75%)[A])A \
+    /// B#box(scale(75%, origin: bottom + left)[B])B
     /// ```
     #[property(resolve)]
     pub const ORIGIN: Axes<Option<GenAlign>> = Axes::default();

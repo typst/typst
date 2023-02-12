@@ -6,14 +6,9 @@ use crate::prelude::*;
 /// An inline-level container that sizes content.
 ///
 /// All elements except inline math, text, and boxes are block-level and cannot
-/// occur inside of a paragraph. The box element is an inline-level container.
-/// Boxes take the size of their contents by default but can also be sized
-/// explicitly.
-///
-/// _Note:_ While the behavior above will be the default in the future, the
-/// transformation functions [`scale`]($func/scale), [`rotate`]($func/rotate),
-/// and [`move`]($func/move) will currently yield inline nodes within
-/// paragraphs.
+/// occur inside of a paragraph. The box function can be used to integrate such
+/// elements into a paragraph. Boxes take the size of their contents by default
+/// but can also be sized explicitly.
 ///
 /// ## Example
 /// ```example
@@ -29,8 +24,19 @@ use crate::prelude::*;
 /// - body: `Content` (positional)
 ///   The contents of the box.
 ///
-/// - width: `Rel<Length>` (named)
+/// - width: `Sizing` (named)
 ///   The width of the box.
+///
+///   Boxes can have [fractional]($type/fraction) widths, as the example
+///   below demonstrates.
+///
+///   _Note:_ Currently, only boxes and only their widths might be fractionally
+///   sized within paragraphs. Support for fractionally sized images, shapes,
+///   and more might be added in the future.
+///
+///   ```example
+///   Line in #box(width: 1fr, line(length: 100%)) between.
+///   ```
 ///
 /// - height: `Rel<Length>` (named)
 ///   The height of the box.

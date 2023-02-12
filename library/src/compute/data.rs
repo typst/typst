@@ -151,7 +151,7 @@ fn format_csv_error(error: csv::Error) -> String {
 /// ## Example
 /// ```example
 /// #let forecast(day) = block[
-///   #square(
+///   #box(square(
 ///     width: 2cm,
 ///     inset: 8pt,
 ///     fill: if day.weather == "sunny" {
@@ -163,7 +163,7 @@ fn format_csv_error(error: csv::Error) -> String {
 ///       bottom + right,
 ///       strong(day.weather),
 ///     ),
-///   )
+///   ))
 ///   #h(6pt)
 ///   #set text(22pt, baseline: -8pt)
 ///   #day.temperature °#day.unit

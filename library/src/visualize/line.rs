@@ -6,6 +6,7 @@ use crate::prelude::*;
 /// ## Example
 /// ```example
 /// #set page(height: 100pt)
+/// #line(length: 100%)
 /// #line(end: (50%, 50%))
 /// ```
 ///

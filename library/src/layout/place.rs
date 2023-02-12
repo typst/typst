@@ -37,18 +37,11 @@ use crate::prelude::*;
 ///   The horizontal displacement of the placed content.
 ///
 ///   ```example
-///   #set align(center)
-///
-///   #box(
-///     width: 80pt,
-///     height: 80pt,
-///     {
-///       for i in range(18) {
-///         let amount = i * 4pt
-///         place(dx: amount, dy: amount)[A]
-///       }
-///     }
-///   )
+///   #set page(height: 100pt)
+///   #for i in range(16) {
+///     let amount = i * 4pt
+///     place(center, dx: amount - 32pt, dy: amount)[A]
+///   }
 ///   ```
 ///
 /// - dy: `Rel<Length>` (named)

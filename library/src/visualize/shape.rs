@@ -133,7 +133,7 @@ impl RectNode {
     /// current [text edges]($func/text.top-edge).
     ///
     /// ```example
-    /// A #rect(inset: 0pt)[tight] fit.
+    /// A #box(rect(inset: 0pt)[tight]) fit.
     /// ```
     #[property(resolve, fold)]
     pub const INSET: Sides<Option<Rel<Length>>> = Sides::splat(Abs::pt(5.0).into());
@@ -147,12 +147,12 @@ impl RectNode {
     ///
     /// ```example
     /// This
-    /// #rect(
+    /// #box(rect(
     ///   fill: luma(235),
     ///   inset: (x: 3pt, y: 0pt),
     ///   outset: (y: 3pt),
     ///   radius: 2pt,
-    /// )[rectangle]
+    /// )[rectangle])
     /// is inline.
     /// ```
     #[property(resolve, fold)]

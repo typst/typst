@@ -17,7 +17,7 @@ be interpreted as text, the expression can forcibly be ended with a semicolon
 (`;`).
 
 ```example
-#rect[Hello] \
+#emph[Hello] \
 #emoji.face \
 #"hello".len()
 ```

@@ -76,8 +76,8 @@ Typst supports the following length units:
 
 ## Example
 ```example
-#rect(width: 20pt) \
-#rect(width: 2em) \
+#rect(width: 20pt)
+#rect(width: 2em)
 #rect(width: 1in)
 ```
 
@@ -797,10 +797,10 @@ arguments, arrays and dictionaries into a function call with the spread operator
 ## Example
 ```example
 #let format(title, ..authors) = [
-  *{title}* \
-  _Written by {authors
+  *#title* \
+  _Written by #(authors
     .pos()
-    .join(", ", last: " and ")}._
+    .join(", ", last: " and "));._
 ]
 
 #format("ArtosFlow", "Jane", "Joe")

@@ -63,12 +63,13 @@ use crate::prelude::*;
 ///   ````example
 ///   // Display inline code in a small box
 ///   // that retains the correct baseline.
-///   #show raw.where(block: false): rect.with(
+///   #show raw.where(block: false): it => box(rect(
 ///     fill: luma(240),
 ///     inset: (x: 3pt, y: 0pt),
 ///     outset: (y: 3pt),
 ///     radius: 2pt,
-///   )
+///     it,
+///   ))
 ///
 ///   // Display block code in a larger box
 ///   // with more padding.

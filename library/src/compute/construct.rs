@@ -90,7 +90,7 @@ castable! {
 /// ## Example
 /// ```example
 /// #for x in range(250, step: 50) {
-///   square(fill: luma(x))
+///   box(square(fill: luma(x)))
 /// }
 /// ```
 ///

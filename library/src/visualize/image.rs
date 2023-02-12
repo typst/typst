@@ -13,9 +13,8 @@ use crate::prelude::*;
 /// ```example
 /// #align(center)[
 ///   #image("molecular.jpg", width: 80%)
-///
 ///   *A step in the molecular testing
-///   pipeline of our lab*
+///    pipeline of our lab*
 /// ]
 /// ```
 ///

@@ -64,19 +64,16 @@ impl OutlineNode {
     /// ```
     pub const INDENT: bool = false;
 
-    /// The symbol used to fill the space between the title and the page
-    /// number. Can be set to `none` to disable filling. The default is a
-    /// single dot.
+    /// Content to fill the space between the title and the page number. Can be
+    /// set to `none` to disable filling. The default is `{repeat[.]}`.
     ///
     /// ```example
-    /// #outline(
-    ///   fill: pad(x: -1.5pt)[―]
-    /// )
+    /// #outline(fill: line(length: 100%))
     ///
     /// = A New Beginning
     /// ```
     #[property(referenced)]
-    pub const FILL: Option<Content> = Some(TextNode::packed("."));
+    pub const FILL: Option<Content> = Some(RepeatNode(TextNode::packed(".")).pack());
 
     fn construct(_: &Vm, _: &mut Args) -> SourceResult<Content> {
         Ok(Self.pack())
@@ -184,7 +181,7 @@ impl Show for OutlineNode {
                 seq.push(SpaceNode.pack());
                 seq.push(
                     BoxNode {
-                        body: RepeatNode(filler.clone()).pack(),
+                        body: filler.clone(),
                         width: Sizing::Fr(Fr::one()),
                         height: Smart::Auto,
                         baseline: Rel::zero(),
