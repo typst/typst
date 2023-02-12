@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use crate::compute::{Numbering, NumberingPattern};
-use crate::layout::{BlockNode, GridNode, ParNode, Spacing, TrackSizing};
+use crate::layout::{BlockNode, GridNode, ParNode, Sizing, Spacing};
 use crate::prelude::*;
 
 /// # Numbered List
@@ -193,10 +193,10 @@ impl Layout for EnumNode {
 
         GridNode {
             tracks: Axes::with_x(vec![
-                TrackSizing::Relative(indent.into()),
-                TrackSizing::Auto,
-                TrackSizing::Relative(body_indent.into()),
-                TrackSizing::Auto,
+                Sizing::Rel(indent.into()),
+                Sizing::Auto,
+                Sizing::Rel(body_indent.into()),
+                Sizing::Auto,
             ]),
             gutter: Axes::with_y(vec![gutter.into()]),
             cells,

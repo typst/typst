@@ -1,4 +1,4 @@
-use crate::layout::{BlockNode, GridNode, HNode, ParNode, Spacing, TrackSizing};
+use crate::layout::{BlockNode, GridNode, HNode, ParNode, Sizing, Spacing};
 use crate::prelude::*;
 use crate::text::{SpaceNode, TextNode};
 
@@ -136,8 +136,8 @@ impl Layout for TermsNode {
 
         GridNode {
             tracks: Axes::with_x(vec![
-                TrackSizing::Relative((indent + body_indent).into()),
-                TrackSizing::Auto,
+                Sizing::Rel((indent + body_indent).into()),
+                Sizing::Auto,
             ]),
             gutter: Axes::with_y(vec![gutter.into()]),
             cells,

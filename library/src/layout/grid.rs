@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use crate::text::TextNode;
 
-use super::Spacing;
+use super::Sizing;
 
 /// # Grid
 /// Arrange content in a grid.
@@ -94,9 +94,9 @@ use super::Spacing;
 #[derive(Debug, Hash)]
 pub struct GridNode {
     /// Defines sizing for content rows and columns.
-    pub tracks: Axes<Vec<TrackSizing>>,
+    pub tracks: Axes<Vec<Sizing>>,
     /// Defines sizing of gutter rows and columns between content.
-    pub gutter: Axes<Vec<TrackSizing>>,
+    pub gutter: Axes<Vec<Sizing>>,
     /// The content to be arranged in a grid.
     pub cells: Vec<Content>,
 }
@@ -122,10 +122,10 @@ impl GridNode {
 
     fn field(&self, name: &str) -> Option<Value> {
         match name {
-            "columns" => Some(TrackSizing::encode_slice(&self.tracks.x)),
-            "rows" => Some(TrackSizing::encode_slice(&self.tracks.y)),
-            "column-gutter" => Some(TrackSizing::encode_slice(&self.gutter.x)),
-            "row-gutter" => Some(TrackSizing::encode_slice(&self.gutter.y)),
+            "columns" => Some(Sizing::encode_slice(&self.tracks.x)),
+            "rows" => Some(Sizing::encode_slice(&self.tracks.y)),
+            "column-gutter" => Some(Sizing::encode_slice(&self.gutter.x)),
+            "row-gutter" => Some(Sizing::encode_slice(&self.gutter.y)),
             "cells" => Some(Value::Array(
                 self.cells.iter().cloned().map(Value::Content).collect(),
             )),
@@ -156,50 +156,14 @@ impl Layout for GridNode {
     }
 }
 
-/// Defines how to size a grid cell along an axis.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum TrackSizing {
-    /// A track that fits its cell's contents.
-    Auto,
-    /// A track size specified in absolute terms and relative to the parent's
-    /// size.
-    Relative(Rel<Length>),
-    /// A track size specified as a fraction of the remaining free space in the
-    /// parent.
-    Fractional(Fr),
-}
-
-impl TrackSizing {
-    pub fn encode(self) -> Value {
-        match self {
-            Self::Auto => Value::Auto,
-            Self::Relative(rel) => Spacing::Relative(rel).encode(),
-            Self::Fractional(fr) => Spacing::Fractional(fr).encode(),
-        }
-    }
-
-    pub fn encode_slice(vec: &[TrackSizing]) -> Value {
-        Value::Array(vec.iter().copied().map(Self::encode).collect())
-    }
-}
-
-impl From<Spacing> for TrackSizing {
-    fn from(spacing: Spacing) -> Self {
-        match spacing {
-            Spacing::Relative(rel) => Self::Relative(rel),
-            Spacing::Fractional(fr) => Self::Fractional(fr),
-        }
-    }
-}
-
 /// Track sizing definitions.
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
-pub struct TrackSizings(pub Vec<TrackSizing>);
+pub struct TrackSizings(pub Vec<Sizing>);
 
 castable! {
     TrackSizings,
-    sizing: TrackSizing => Self(vec![sizing]),
-    count: NonZeroUsize => Self(vec![TrackSizing::Auto; count.get()]),
+    sizing: Sizing => Self(vec![sizing]),
+    count: NonZeroUsize => Self(vec![Sizing::Auto; count.get()]),
     values: Array => Self(values
         .into_iter()
         .filter_map(|v| v.cast().ok())
@@ -207,10 +171,10 @@ castable! {
 }
 
 castable! {
-    TrackSizing,
+    Sizing,
     _: AutoValue => Self::Auto,
-    v: Rel<Length> => Self::Relative(v),
-    v: Fr => Self::Fractional(v),
+    v: Rel<Length> => Self::Rel(v),
+    v: Fr => Self::Fr(v),
 }
 
 /// Performs grid layout.
@@ -224,9 +188,9 @@ struct GridLayouter<'a, 'v> {
     /// Whether this grid has gutters.
     has_gutter: bool,
     /// The column tracks including gutter tracks.
-    cols: Vec<TrackSizing>,
+    cols: Vec<Sizing>,
     /// The row tracks including gutter tracks.
-    rows: Vec<TrackSizing>,
+    rows: Vec<Sizing>,
     /// The regions to layout children into.
     regions: Regions<'a>,
     /// The inherited styles.
@@ -259,8 +223,8 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
     /// This prepares grid layout by unifying content and gutter tracks.
     fn new(
         vt: &'a mut Vt<'v>,
-        tracks: Axes<&[TrackSizing]>,
-        gutter: Axes<&[TrackSizing]>,
+        tracks: Axes<&[Sizing]>,
+        gutter: Axes<&[Sizing]>,
         cells: &'a [Content],
         regions: Regions<'a>,
         styles: StyleChain<'a>,
@@ -281,8 +245,8 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
         };
 
         let has_gutter = gutter.any(|tracks| !tracks.is_empty());
-        let auto = TrackSizing::Auto;
-        let zero = TrackSizing::Relative(Rel::zero());
+        let auto = Sizing::Auto;
+        let zero = Sizing::Rel(Rel::zero());
         let get_or = |tracks: &[_], idx, default| {
             tracks.get(idx).or(tracks.last()).copied().unwrap_or(default)
         };
@@ -352,9 +316,9 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
             }
 
             match self.rows[y] {
-                TrackSizing::Auto => self.layout_auto_row(y)?,
-                TrackSizing::Relative(v) => self.layout_relative_row(v, y)?,
-                TrackSizing::Fractional(v) => {
+                Sizing::Auto => self.layout_auto_row(y)?,
+                Sizing::Rel(v) => self.layout_relative_row(v, y)?,
+                Sizing::Fr(v) => {
                     self.lrows.push(Row::Fr(v, y));
                     self.fr += v;
                 }
@@ -377,14 +341,14 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
         // fractional tracks.
         for (&col, rcol) in self.cols.iter().zip(&mut self.rcols) {
             match col {
-                TrackSizing::Auto => {}
-                TrackSizing::Relative(v) => {
+                Sizing::Auto => {}
+                Sizing::Rel(v) => {
                     let resolved =
                         v.resolve(self.styles).relative_to(self.regions.base().x);
                     *rcol = resolved;
                     rel += resolved;
                 }
-                TrackSizing::Fractional(v) => fr += v,
+                Sizing::Fr(v) => fr += v,
             }
         }
 
@@ -418,7 +382,7 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
         // Determine size of auto columns by laying out all cells in those
         // columns, measuring them and finding the largest one.
         for (x, &col) in self.cols.iter().enumerate() {
-            if col != TrackSizing::Auto {
+            if col != Sizing::Auto {
                 continue;
             }
 
@@ -428,7 +392,7 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
                     // For relative rows, we can already resolve the correct
                     // base and for auto and fr we could only guess anyway.
                     let height = match self.rows[y] {
-                        TrackSizing::Relative(v) => {
+                        Sizing::Rel(v) => {
                             v.resolve(self.styles).relative_to(self.regions.base().y)
                         }
                         _ => self.regions.base().y,
@@ -456,7 +420,7 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
         }
 
         for (&col, rcol) in self.cols.iter().zip(&mut self.rcols) {
-            if let TrackSizing::Fractional(v) = col {
+            if let Sizing::Fr(v) = col {
                 *rcol = v.share(fr, remaining);
             }
         }
@@ -479,7 +443,7 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
             for (&col, &rcol) in self.cols.iter().zip(&self.rcols) {
                 // Remove an auto column if it is not overlarge (rcol <= fair),
                 // but also hasn't already been removed (rcol > last).
-                if col == TrackSizing::Auto && rcol <= fair && rcol > last {
+                if col == Sizing::Auto && rcol <= fair && rcol > last {
                     redistribute -= rcol;
                     overlarge -= 1;
                     changed = true;
@@ -489,7 +453,7 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
 
         // Redistribute space fairly among overlarge columns.
         for (&col, rcol) in self.cols.iter().zip(&mut self.rcols) {
-            if col == TrackSizing::Auto && *rcol > fair {
+            if col == Sizing::Auto && *rcol > fair {
                 *rcol = fair;
             }
         }
@@ -597,7 +561,7 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
             if let Some(cell) = self.cell(x, y) {
                 let size = Size::new(rcol, height);
                 let mut pod = Regions::one(size, Axes::splat(true));
-                if self.rows[y] == TrackSizing::Auto {
+                if self.rows[y] == Sizing::Auto {
                     pod.full = self.regions.full;
                 }
                 let frame = cell.layout(self.vt, self.styles, pod)?.into_frame();

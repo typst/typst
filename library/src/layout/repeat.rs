@@ -1,7 +1,9 @@
 use crate::prelude::*;
 
+use super::AlignNode;
+
 /// # Repeat
-/// Repeats content to fill a line.
+/// Repeats content to the available space.
 ///
 /// This can be useful when implementing a custom index, reference, or outline.
 ///
@@ -10,7 +12,8 @@ use crate::prelude::*;
 ///
 /// ## Example
 /// ```example
-/// Sign on the dotted line: #repeat[.]
+/// Sign on the dotted line:
+/// #box(width: 1fr, repeat[.])
 ///
 /// #set text(10pt)
 /// #v(8pt, weak: true)
@@ -51,6 +54,34 @@ impl Layout for RepeatNode {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        self.0.layout(vt, styles, regions)
+        let pod = Regions::one(regions.size, Axes::new(false, false));
+        let piece = self.0.layout(vt, styles, pod)?.into_frame();
+        let align = styles.get(AlignNode::ALIGNS).x.resolve(styles);
+
+        let fill = regions.size.x;
+        let width = piece.width();
+        let count = (fill / width).floor();
+        let remaining = fill % width;
+        let apart = remaining / (count - 1.0);
+
+        let size = Size::new(regions.size.x, piece.height());
+        let mut frame = Frame::new(size);
+        if piece.has_baseline() {
+            frame.set_baseline(piece.baseline());
+        }
+
+        let mut offset = Abs::zero();
+        if count == 1.0 {
+            offset += align.position(remaining);
+        }
+
+        if width > Abs::zero() {
+            for _ in 0..(count as usize).min(1000) {
+                frame.push_frame(Point::with_x(offset), piece.clone());
+                offset += piece.width() + apart;
+            }
+        }
+
+        Ok(Fragment::frame(frame))
     }
 }

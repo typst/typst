@@ -4,8 +4,9 @@ use xi_unicode::LineBreakIterator;
 
 use typst::model::Key;
 
-use super::{HNode, RepeatNode, Spacing};
+use super::{BoxNode, HNode, Sizing, Spacing};
 use crate::layout::AlignNode;
+use crate::math::FormulaNode;
 use crate::prelude::*;
 use crate::text::{
     shape, LinebreakNode, Quoter, Quotes, ShapedText, SmartQuoteNode, SpaceNode, TextNode,
@@ -330,8 +331,10 @@ enum Segment<'a> {
     Text(usize),
     /// Horizontal spacing between other segments.
     Spacing(Spacing),
-    /// Arbitrary inline-level content.
-    Inline(&'a Content),
+    /// A math formula.
+    Formula(&'a FormulaNode),
+    /// A box with arbitrary content.
+    Box(&'a BoxNode),
 }
 
 impl Segment<'_> {
@@ -340,7 +343,8 @@ impl Segment<'_> {
         match *self {
             Self::Text(len) => len,
             Self::Spacing(_) => SPACING_REPLACE.len_utf8(),
-            Self::Inline(_) => NODE_REPLACE.len_utf8(),
+            Self::Box(node) if node.width.is_fractional() => SPACING_REPLACE.len_utf8(),
+            Self::Formula(_) | Self::Box(_) => NODE_REPLACE.len_utf8(),
         }
     }
 }
@@ -353,11 +357,9 @@ enum Item<'a> {
     /// Absolute spacing between other items.
     Absolute(Abs),
     /// Fractional spacing between other items.
-    Fractional(Fr),
+    Fractional(Fr, Option<(&'a BoxNode, StyleChain<'a>)>),
     /// Layouted inline-level content.
     Frame(Frame),
-    /// A repeating node that fills the remaining space in a line.
-    Repeat(&'a RepeatNode, StyleChain<'a>),
 }
 
 impl<'a> Item<'a> {
@@ -373,8 +375,8 @@ impl<'a> Item<'a> {
     fn len(&self) -> usize {
         match self {
             Self::Text(shaped) => shaped.text.len(),
-            Self::Absolute(_) | Self::Fractional(_) => SPACING_REPLACE.len_utf8(),
-            Self::Frame(_) | Self::Repeat(_, _) => NODE_REPLACE.len_utf8(),
+            Self::Absolute(_) | Self::Fractional(_, _) => SPACING_REPLACE.len_utf8(),
+            Self::Frame(_) => NODE_REPLACE.len_utf8(),
         }
     }
 
@@ -384,7 +386,7 @@ impl<'a> Item<'a> {
             Self::Text(shaped) => shaped.width,
             Self::Absolute(v) => *v,
             Self::Frame(frame) => frame.width(),
-            Self::Fractional(_) | Self::Repeat(_, _) => Abs::zero(),
+            Self::Fractional(_, _) => Abs::zero(),
         }
     }
 }
@@ -473,8 +475,7 @@ impl<'a> Line<'a> {
     fn fr(&self) -> Fr {
         self.items()
             .filter_map(|item| match item {
-                Item::Fractional(fr) => Some(*fr),
-                Item::Repeat(_, _) => Some(Fr::one()),
+                Item::Fractional(fr, _) => Some(*fr),
                 _ => None,
             })
             .sum()
@@ -530,6 +531,9 @@ fn collect<'a>(
                 full.push_str(&node.0);
             }
             Segment::Text(full.len() - prev)
+        } else if let Some(&node) = child.to::<HNode>() {
+            full.push(SPACING_REPLACE);
+            Segment::Spacing(node.amount)
         } else if let Some(node) = child.to::<LinebreakNode>() {
             let c = if node.justify { '\u{2028}' } else { '\n' };
             full.push(c);
@@ -557,12 +561,18 @@ fn collect<'a>(
                 full.push(if node.double { '"' } else { '\'' });
             }
             Segment::Text(full.len() - prev)
-        } else if let Some(&node) = child.to::<HNode>() {
-            full.push(SPACING_REPLACE);
-            Segment::Spacing(node.amount)
-        } else {
+        } else if let Some(node) = child.to::<FormulaNode>() {
             full.push(NODE_REPLACE);
-            Segment::Inline(child)
+            Segment::Formula(node)
+        } else if let Some(node) = child.to::<BoxNode>() {
+            full.push(if node.width.is_fractional() {
+                SPACING_REPLACE
+            } else {
+                NODE_REPLACE
+            });
+            Segment::Box(node)
+        } else {
+            panic!("unexpected par child: {child:?}");
         };
 
         if let Some(last) = full.chars().last() {
@@ -614,20 +624,26 @@ fn prepare<'a>(
                 shape_range(&mut items, vt, &bidi, cursor..end, styles);
             }
             Segment::Spacing(spacing) => match spacing {
-                Spacing::Relative(v) => {
+                Spacing::Rel(v) => {
                     let resolved = v.resolve(styles).relative_to(region.x);
                     items.push(Item::Absolute(resolved));
                 }
-                Spacing::Fractional(v) => {
-                    items.push(Item::Fractional(v));
+                Spacing::Fr(v) => {
+                    items.push(Item::Fractional(v, None));
                 }
             },
-            Segment::Inline(inline) => {
-                if let Some(repeat) = inline.to::<RepeatNode>() {
-                    items.push(Item::Repeat(repeat, styles));
+            Segment::Formula(formula) => {
+                let pod = Regions::one(region, Axes::splat(false));
+                let mut frame = formula.layout(vt, styles, pod)?.into_frame();
+                frame.translate(Point::with_y(styles.get(TextNode::BASELINE)));
+                items.push(Item::Frame(frame));
+            }
+            Segment::Box(node) => {
+                if let Sizing::Fr(v) = node.width {
+                    items.push(Item::Fractional(v, Some((node, styles))));
                 } else {
                     let pod = Regions::one(region, Axes::splat(false));
-                    let mut frame = inline.layout(vt, styles, pod)?.into_frame();
+                    let mut frame = node.layout(vt, styles, pod)?.into_frame();
                     frame.translate(Point::with_y(styles.get(TextNode::BASELINE)));
                     items.push(Item::Frame(frame));
                 }
@@ -1111,20 +1127,23 @@ fn finalize(
     vt: &mut Vt,
     p: &Preparation,
     lines: &[Line],
-    mut region: Size,
+    region: Size,
     expand: bool,
 ) -> SourceResult<Fragment> {
     // Determine the paragraph's width: Full width of the region if we
     // should expand or there's fractional spacing, fit-to-width otherwise.
-    if !region.x.is_finite() || (!expand && lines.iter().all(|line| line.fr().is_zero()))
+    let width = if !region.x.is_finite()
+        || (!expand && lines.iter().all(|line| line.fr().is_zero()))
     {
-        region.x = lines.iter().map(|line| line.width).max().unwrap_or_default();
-    }
+        lines.iter().map(|line| line.width).max().unwrap_or_default()
+    } else {
+        region.x
+    };
 
     // Stack the lines into one frame per region.
     let mut frames: Vec<Frame> = lines
         .iter()
-        .map(|line| commit(vt, p, line, region))
+        .map(|line| commit(vt, p, line, width, region.y))
         .collect::<SourceResult<_>>()?;
 
     // Prevent orphans.
@@ -1159,9 +1178,10 @@ fn commit(
     vt: &mut Vt,
     p: &Preparation,
     line: &Line,
-    region: Size,
+    width: Abs,
+    full: Abs,
 ) -> SourceResult<Frame> {
-    let mut remaining = region.x - line.width;
+    let mut remaining = width - line.width;
     let mut offset = Abs::zero();
 
     // Reorder the line from logical to visual order.
@@ -1223,8 +1243,17 @@ fn commit(
             Item::Absolute(v) => {
                 offset += *v;
             }
-            Item::Fractional(v) => {
-                offset += v.share(fr, remaining);
+            Item::Fractional(v, node) => {
+                let amount = v.share(fr, remaining);
+                if let Some((node, styles)) = node {
+                    let region = Size::new(amount, full);
+                    let pod = Regions::one(region, Axes::new(true, false));
+                    let mut frame = node.layout(vt, *styles, pod)?.into_frame();
+                    frame.translate(Point::with_y(styles.get(TextNode::BASELINE)));
+                    push(&mut offset, frame);
+                } else {
+                    offset += amount;
+                }
             }
             Item::Text(shaped) => {
                 let frame = shaped.build(vt, justification);
@@ -1232,27 +1261,6 @@ fn commit(
             }
             Item::Frame(frame) => {
                 push(&mut offset, frame.clone());
-            }
-            Item::Repeat(repeat, styles) => {
-                let before = offset;
-                let fill = Fr::one().share(fr, remaining);
-                let size = Size::new(fill, region.y);
-                let pod = Regions::one(size, Axes::new(false, false));
-                let frame = repeat.layout(vt, *styles, pod)?.into_frame();
-                let width = frame.width();
-                let count = (fill / width).floor();
-                let remaining = fill % width;
-                let apart = remaining / (count - 1.0);
-                if count == 1.0 {
-                    offset += p.align.position(remaining);
-                }
-                if width > Abs::zero() {
-                    for _ in 0..(count as usize).min(1000) {
-                        push(&mut offset, frame.clone());
-                        offset += apart;
-                    }
-                }
-                offset = before + fill;
             }
         }
     }
@@ -1262,7 +1270,7 @@ fn commit(
         remaining = Abs::zero();
     }
 
-    let size = Size::new(region.x, top + bottom);
+    let size = Size::new(width, top + bottom);
     let mut output = Frame::new(size);
     output.set_baseline(top);
 

@@ -12,28 +12,28 @@
 )
 
 #for section in sections [
-  #section.at(0) #repeat[.] #section.at(1) \
+  #section.at(0) #box(width: 1fr, repeat[.]) #section.at(1) \
 ]
 
 ---
 // Test dots with RTL.
 #set text(lang: "ar")
-مقدمة #repeat[.] 15
+مقدمة #box(width: 1fr, repeat[.]) 15
 
 ---
 // Test empty repeat.
-A #repeat[] B
+A #box(width: 1fr, repeat[]) B
 
 ---
-// Test spaceless repeat.
-A#repeat(rect(width: 2.5em, height: 1em))B
+// Test unboxed repeat.
+#repeat(rect(width: 2em, height: 1em))
 
 ---
 // Test single repeat in both directions.
-A#repeat(rect(width: 6em, height: 0.7em))B
+A#box(width: 1fr, repeat(rect(width: 6em, height: 0.7em)))B
 
 #set align(center)
-A#repeat(rect(width: 6em, height: 0.7em))B
+A#box(width: 1fr, repeat(rect(width: 6em, height: 0.7em)))B
 
 #set text(dir: rtl)
-ريجين#repeat(rect(width: 4em, height: 0.7em))سون
+ريجين#box(width: 1fr, repeat(rect(width: 4em, height: 0.7em)))سون

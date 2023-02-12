@@ -1,4 +1,4 @@
-use crate::layout::{AlignNode, GridNode, TrackSizing, TrackSizings};
+use crate::layout::{AlignNode, GridNode, Sizing, TrackSizings};
 use crate::prelude::*;
 
 /// # Table
@@ -63,9 +63,9 @@ use crate::prelude::*;
 #[derive(Debug, Hash)]
 pub struct TableNode {
     /// Defines sizing for content rows and columns.
-    pub tracks: Axes<Vec<TrackSizing>>,
+    pub tracks: Axes<Vec<Sizing>>,
     /// Defines sizing of gutter rows and columns between content.
-    pub gutter: Axes<Vec<TrackSizing>>,
+    pub gutter: Axes<Vec<Sizing>>,
     /// The content to be arranged in the table.
     pub cells: Vec<Content>,
 }
@@ -134,10 +134,10 @@ impl TableNode {
 
     fn field(&self, name: &str) -> Option<Value> {
         match name {
-            "columns" => Some(TrackSizing::encode_slice(&self.tracks.x)),
-            "rows" => Some(TrackSizing::encode_slice(&self.tracks.y)),
-            "column-gutter" => Some(TrackSizing::encode_slice(&self.gutter.x)),
-            "row-gutter" => Some(TrackSizing::encode_slice(&self.gutter.y)),
+            "columns" => Some(Sizing::encode_slice(&self.tracks.x)),
+            "rows" => Some(Sizing::encode_slice(&self.tracks.y)),
+            "column-gutter" => Some(Sizing::encode_slice(&self.gutter.x)),
+            "row-gutter" => Some(Sizing::encode_slice(&self.gutter.y)),
             "cells" => Some(Value::Array(
                 self.cells.iter().cloned().map(Value::Content).collect(),
             )),

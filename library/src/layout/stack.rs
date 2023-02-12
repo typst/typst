@@ -200,7 +200,7 @@ impl<'a> StackLayouter<'a> {
     /// Add spacing along the spacing direction.
     fn layout_spacing(&mut self, spacing: Spacing) {
         match spacing {
-            Spacing::Relative(v) => {
+            Spacing::Rel(v) => {
                 // Resolve the spacing and limit it to the remaining space.
                 let resolved = v
                     .resolve(self.styles)
@@ -213,7 +213,7 @@ impl<'a> StackLayouter<'a> {
                 self.used.main += limited;
                 self.items.push(StackItem::Absolute(resolved));
             }
-            Spacing::Fractional(v) => {
+            Spacing::Fr(v) => {
                 self.fr += v;
                 self.items.push(StackItem::Fractional(v));
             }

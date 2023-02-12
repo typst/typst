@@ -44,7 +44,7 @@ pub struct BoxNode {
     /// The content to be sized.
     pub body: Content,
     /// The box's width.
-    pub width: Smart<Rel<Length>>,
+    pub width: Sizing,
     /// The box's height.
     pub height: Smart<Rel<Length>>,
     /// The box's baseline shift.
@@ -76,8 +76,14 @@ impl Layout for BoxNode {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
+        let width = match self.width {
+            Sizing::Auto => Smart::Auto,
+            Sizing::Rel(rel) => Smart::Custom(rel),
+            Sizing::Fr(_) => Smart::Custom(Ratio::one().into()),
+        };
+
         // Resolve the sizing to a concrete size.
-        let sizing = Axes::new(self.width, self.height);
+        let sizing = Axes::new(width, self.height);
         let size = sizing
             .resolve(styles)
             .zip(regions.base())
@@ -194,5 +200,52 @@ impl Layout for BlockNode {
         regions: Regions,
     ) -> SourceResult<Fragment> {
         self.0.layout(vt, styles, regions)
+    }
+}
+
+/// Defines how to size a grid cell along an axis.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum Sizing {
+    /// A track that fits its cell's contents.
+    Auto,
+    /// A track size specified in absolute terms and relative to the parent's
+    /// size.
+    Rel(Rel<Length>),
+    /// A track size specified as a fraction of the remaining free space in the
+    /// parent.
+    Fr(Fr),
+}
+
+impl Sizing {
+    /// Whether this is fractional sizing.
+    pub fn is_fractional(self) -> bool {
+        matches!(self, Self::Fr(_))
+    }
+
+    pub fn encode(self) -> Value {
+        match self {
+            Self::Auto => Value::Auto,
+            Self::Rel(rel) => Spacing::Rel(rel).encode(),
+            Self::Fr(fr) => Spacing::Fr(fr).encode(),
+        }
+    }
+
+    pub fn encode_slice(vec: &[Sizing]) -> Value {
+        Value::Array(vec.iter().copied().map(Self::encode).collect())
+    }
+}
+
+impl Default for Sizing {
+    fn default() -> Self {
+        Self::Auto
+    }
+}
+
+impl From<Spacing> for Sizing {
+    fn from(spacing: Spacing) -> Self {
+        match spacing {
+            Spacing::Rel(rel) => Self::Rel(rel),
+            Spacing::Fr(fr) => Self::Fr(fr),
+        }
     }
 }

@@ -113,11 +113,11 @@ impl<'a> FlowLayouter<'a> {
     /// Layout vertical spacing.
     fn layout_spacing(&mut self, node: VNode, styles: StyleChain) {
         self.layout_item(match node.amount {
-            Spacing::Relative(v) => FlowItem::Absolute(
+            Spacing::Rel(v) => FlowItem::Absolute(
                 v.resolve(styles).relative_to(self.full.y),
                 node.weakness > 0,
             ),
-            Spacing::Fractional(v) => FlowItem::Fractional(v),
+            Spacing::Fr(v) => FlowItem::Fractional(v),
         });
     }
 

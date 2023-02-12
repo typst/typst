@@ -86,7 +86,7 @@ impl Frame {
     }
 
     /// Whether the frame has a non-default baseline.
-    pub fn has_baseline(&mut self) -> bool {
+    pub fn has_baseline(&self) -> bool {
         self.baseline.is_some()
     }
 

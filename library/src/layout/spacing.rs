@@ -222,22 +222,22 @@ impl Behave for VNode {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Spacing {
     /// Spacing specified in absolute terms and relative to the parent's size.
-    Relative(Rel<Length>),
+    Rel(Rel<Length>),
     /// Spacing specified as a fraction of the remaining free space in the
     /// parent.
-    Fractional(Fr),
+    Fr(Fr),
 }
 
 impl Spacing {
     /// Whether this is fractional spacing.
     pub fn is_fractional(self) -> bool {
-        matches!(self, Self::Fractional(_))
+        matches!(self, Self::Fr(_))
     }
 
     /// Encode into a value.
     pub fn encode(self) -> Value {
         match self {
-            Self::Relative(rel) => {
+            Self::Rel(rel) => {
                 if rel.rel.is_zero() {
                     Value::Length(rel.abs)
                 } else if rel.abs.is_zero() {
@@ -246,28 +246,28 @@ impl Spacing {
                     Value::Relative(rel)
                 }
             }
-            Self::Fractional(fr) => Value::Fraction(fr),
+            Self::Fr(fr) => Value::Fraction(fr),
         }
     }
 }
 
 impl From<Abs> for Spacing {
     fn from(abs: Abs) -> Self {
-        Self::Relative(abs.into())
+        Self::Rel(abs.into())
     }
 }
 
 impl From<Em> for Spacing {
     fn from(em: Em) -> Self {
-        Self::Relative(Rel::new(Ratio::zero(), em.into()))
+        Self::Rel(Rel::new(Ratio::zero(), em.into()))
     }
 }
 
 impl PartialOrd for Spacing {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         match (self, other) {
-            (Self::Relative(a), Self::Relative(b)) => a.partial_cmp(b),
-            (Self::Fractional(a), Self::Fractional(b)) => a.partial_cmp(b),
+            (Self::Rel(a), Self::Rel(b)) => a.partial_cmp(b),
+            (Self::Fr(a), Self::Fr(b)) => a.partial_cmp(b),
             _ => None,
         }
     }
@@ -275,6 +275,6 @@ impl PartialOrd for Spacing {
 
 castable! {
     Spacing,
-    v: Rel<Length> => Self::Relative(v),
-    v: Fr => Self::Fractional(v),
+    v: Rel<Length> => Self::Rel(v),
+    v: Fr => Self::Fr(v),
 }

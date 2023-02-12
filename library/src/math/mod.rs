@@ -277,7 +277,7 @@ impl LayoutMath for Content {
         }
 
         if let Some(node) = self.to::<HNode>() {
-            if let Spacing::Relative(rel) = node.amount {
+            if let Spacing::Rel(rel) = node.amount {
                 if rel.rel.is_zero() {
                     ctx.push(MathFragment::Spacing(rel.abs.resolve(ctx.styles())));
                 }

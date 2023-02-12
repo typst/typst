@@ -227,9 +227,16 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
 
     fn accept(
         &mut self,
-        content: &'a Content,
+        mut content: &'a Content,
         styles: StyleChain<'a>,
     ) -> SourceResult<()> {
+        if content.has::<dyn LayoutMath>() && !content.is::<FormulaNode>() {
+            content = self
+                .scratch
+                .content
+                .alloc(FormulaNode { body: content.clone(), block: false }.pack());
+        }
+
         // Prepare only if this is the first application for this node.
         if let Some(node) = content.with::<dyn Prepare>() {
             if !content.is_prepared() {
@@ -470,19 +477,12 @@ impl<'a> ParBuilder<'a> {
         if content.is::<SpaceNode>()
             || content.is::<TextNode>()
             || content.is::<HNode>()
-            || content.is::<SmartQuoteNode>()
             || content.is::<LinebreakNode>()
-            || content.is::<BoxNode>()
-            || content.is::<RepeatNode>()
+            || content.is::<SmartQuoteNode>()
             || content.to::<FormulaNode>().map_or(false, |node| !node.block)
+            || content.is::<BoxNode>()
         {
             self.0.push(content.clone(), styles);
-            return true;
-        }
-
-        if !content.is::<FormulaNode>() && content.has::<dyn LayoutMath>() {
-            let formula = FormulaNode { body: content.clone(), block: false }.pack();
-            self.0.push(formula, styles);
             return true;
         }
 

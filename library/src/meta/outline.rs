@@ -1,5 +1,7 @@
 use super::HeadingNode;
-use crate::layout::{HNode, HideNode, ParbreakNode, RepeatNode, Spacing};
+use crate::layout::{
+    BoxNode, HNode, HideNode, ParbreakNode, RepeatNode, Sizing, Spacing,
+};
 use crate::prelude::*;
 use crate::text::{LinebreakNode, SpaceNode, TextNode};
 
@@ -180,10 +182,18 @@ impl Show for OutlineNode {
             // Add filler symbols between the section name and page number.
             if let Some(filler) = styles.get(Self::FILL) {
                 seq.push(SpaceNode.pack());
-                seq.push(RepeatNode(filler.clone()).pack());
+                seq.push(
+                    BoxNode {
+                        body: RepeatNode(filler.clone()).pack(),
+                        width: Sizing::Fr(Fr::one()),
+                        height: Smart::Auto,
+                        baseline: Rel::zero(),
+                    }
+                    .pack(),
+                );
                 seq.push(SpaceNode.pack());
             } else {
-                let amount = Spacing::Fractional(Fr::one());
+                let amount = Spacing::Fr(Fr::one());
                 seq.push(HNode { amount, weak: false }.pack());
             }
 
