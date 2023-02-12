@@ -220,7 +220,9 @@ struct GridLayouter<'a, 'v> {
     /// The grid cells.
     cells: &'a [Content],
     /// Whether this is an RTL grid.
-    rtl: bool,
+    is_rtl: bool,
+    /// Whether this grid has gutters.
+    has_gutter: bool,
     /// The column tracks including gutter tracks.
     cols: Vec<TrackSizing>,
     /// The row tracks including gutter tracks.
@@ -280,6 +282,7 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
             given.max(needed)
         };
 
+        let has_gutter = gutter.any(|tracks| !tracks.is_empty());
         let auto = TrackSizing::Auto;
         let zero = TrackSizing::Relative(Rel::zero());
         let get_or = |tracks: &[_], idx, default| {
@@ -289,22 +292,28 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
         // Collect content and gutter columns.
         for x in 0..c {
             cols.push(get_or(tracks.x, x, auto));
-            cols.push(get_or(gutter.x, x, zero));
+            if has_gutter {
+                cols.push(get_or(gutter.x, x, zero));
+            }
         }
 
         // Collect content and gutter rows.
         for y in 0..r {
             rows.push(get_or(tracks.y, y, auto));
-            rows.push(get_or(gutter.y, y, zero));
+            if has_gutter {
+                rows.push(get_or(gutter.y, y, zero));
+            }
         }
 
         // Remove superfluous gutter tracks.
-        cols.pop();
-        rows.pop();
+        if has_gutter {
+            cols.pop();
+            rows.pop();
+        }
 
         // Reverse for RTL.
-        let rtl = styles.get(TextNode::DIR) == Dir::RTL;
-        if rtl {
+        let is_rtl = styles.get(TextNode::DIR) == Dir::RTL;
+        if is_rtl {
             cols.reverse();
         }
 
@@ -320,7 +329,8 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
         Self {
             vt,
             cells,
-            rtl,
+            is_rtl,
+            has_gutter,
             cols,
             rows,
             regions,
@@ -695,16 +705,21 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
         assert!(y < self.rows.len());
 
         // Columns are reorded, but the cell slice is not.
-        if self.rtl {
+        if self.is_rtl {
             x = self.cols.len() - 1 - x;
         }
 
-        // Even columns and rows are children, odd ones are gutter.
-        if x % 2 == 0 && y % 2 == 0 {
-            let c = 1 + self.cols.len() / 2;
-            self.cells.get((y / 2) * c + x / 2)
+        if self.has_gutter {
+            // Even columns and rows are children, odd ones are gutter.
+            if x % 2 == 0 && y % 2 == 0 {
+                let c = 1 + self.cols.len() / 2;
+                self.cells.get((y / 2) * c + x / 2)
+            } else {
+                None
+            }
         } else {
-            None
+            let c = self.cols.len();
+            self.cells.get(y * c + x)
         }
     }
 }
