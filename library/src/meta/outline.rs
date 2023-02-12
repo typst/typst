@@ -1,5 +1,5 @@
 use super::HeadingNode;
-use crate::layout::{BlockNode, HNode, HideNode, RepeatNode, Spacing};
+use crate::layout::{HNode, HideNode, ParbreakNode, RepeatNode, Spacing};
 use crate::prelude::*;
 use crate::text::{LinebreakNode, SpaceNode, TextNode};
 
@@ -108,7 +108,7 @@ impl Show for OutlineNode {
         _: &Content,
         styles: StyleChain,
     ) -> SourceResult<Content> {
-        let mut seq = vec![];
+        let mut seq = vec![ParbreakNode.pack()];
         if let Some(title) = styles.get(Self::TITLE) {
             let body = title.clone().unwrap_or_else(|| {
                 TextNode::packed(match styles.get(TextNode::LANG) {
@@ -195,6 +195,8 @@ impl Show for OutlineNode {
             ancestors.push(node);
         }
 
-        Ok(BlockNode(Content::sequence(seq)).pack())
+        seq.push(ParbreakNode.pack());
+
+        Ok(Content::sequence(seq))
     }
 }
