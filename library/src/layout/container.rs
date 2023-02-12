@@ -41,19 +41,21 @@ use crate::prelude::*;
 #[capable(Layout)]
 #[derive(Debug, Hash)]
 pub struct BoxNode {
-    /// How to size the content horizontally and vertically.
-    pub sizing: Axes<Option<Rel<Length>>>,
     /// The content to be sized.
     pub body: Content,
+    /// The box's width.
+    pub width: Smart<Rel<Length>>,
+    /// The box's height.
+    pub height: Smart<Rel<Length>>,
 }
 
 #[node]
 impl BoxNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        let width = args.named("width")?;
-        let height = args.named("height")?;
         let body = args.eat::<Content>()?.unwrap_or_default();
-        Ok(Self { sizing: Axes::new(width, height), body }.pack())
+        let width = args.named("width")?.unwrap_or_default();
+        let height = args.named("height")?.unwrap_or_default();
+        Ok(Self { body, width, height }.pack())
     }
 
     fn field(&self, name: &str) -> Option<Value> {
@@ -71,31 +73,20 @@ impl Layout for BoxNode {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        // The "pod" is the region into which the child will be layouted.
-        let pod = {
-            // Resolve the sizing to a concrete size.
-            let size = self
-                .sizing
-                .resolve(styles)
-                .zip(regions.base())
-                .map(|(s, b)| s.map(|v| v.relative_to(b)))
-                .unwrap_or(regions.size);
+        // Resolve the sizing to a concrete size.
+        let sizing = Axes::new(self.width, self.height);
+        let size = sizing
+            .resolve(styles)
+            .zip(regions.base())
+            .map(|(s, b)| s.map(|v| v.relative_to(b)))
+            .unwrap_or(regions.size);
 
-            // Select the appropriate base and expansion for the child depending
-            // on whether it is automatically or relatively sized.
-            let is_auto = self.sizing.as_ref().map(Option::is_none);
-            let expand = regions.expand | !is_auto;
-            Regions::one(size, expand)
-        };
-
-        // Layout the child.
-        let mut frame = self.body.layout(vt, styles, pod)?.into_frame();
-
-        // Ensure frame size matches regions size if expansion is on.
-        let target = regions.expand.select(regions.size, frame.size());
-        frame.resize(target, Align::LEFT_TOP);
-
-        Ok(Fragment::frame(frame))
+        // Select the appropriate base and expansion for the child depending
+        // on whether it is automatically or relatively sized.
+        let is_auto = sizing.as_ref().map(Smart::is_auto);
+        let expand = regions.expand | !is_auto;
+        let pod = Regions::one(size, expand);
+        self.body.layout(vt, styles, pod)
     }
 }
 

@@ -16,9 +16,6 @@ pub trait ContentExt {
     /// Link the content to a destination.
     fn linked(self, dest: Destination) -> Self;
 
-    /// Force a size for this content.
-    fn boxed(self, sizing: Axes<Option<Rel<Length>>>) -> Self;
-
     /// Set alignments for this content.
     fn aligned(self, aligns: Axes<Option<GenAlign>>) -> Self;
 
@@ -50,10 +47,6 @@ impl ContentExt for Content {
 
     fn linked(self, dest: Destination) -> Self {
         self.styled(Meta::DATA, vec![Meta::Link(dest.clone())])
-    }
-
-    fn boxed(self, sizing: Axes<Option<Rel<Length>>>) -> Self {
-        crate::layout::BoxNode { sizing, body: self }.pack()
     }
 
     fn aligned(self, aligns: Axes<Option<GenAlign>>) -> Self {
