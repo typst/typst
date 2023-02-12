@@ -410,12 +410,10 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
             for y in 0..self.rows.len() {
                 if let Some(cell) = self.cell(x, y) {
                     let size = Size::new(available, self.regions.base.y);
-                    let mut pod =
-                        Regions::one(size, self.regions.base, Axes::splat(false));
+                    let mut pod = Regions::one(size, size, Axes::splat(false));
 
                     // For relative rows, we can already resolve the correct
-                    // base, for auto it's already correct and for fr we could
-                    // only guess anyway.
+                    // base and for auto and fr we could only guess anyway.
                     if let TrackSizing::Relative(v) = self.rows[y] {
                         pod.base.y =
                             v.resolve(self.styles).relative_to(self.regions.base.y);
@@ -488,14 +486,9 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
         // Determine the size for each region of the row.
         for (x, &rcol) in self.rcols.iter().enumerate() {
             if let Some(cell) = self.cell(x, y) {
-                let mut pod = self.regions.clone();
+                let mut pod = self.regions;
                 pod.first.x = rcol;
                 pod.base.x = rcol;
-
-                // All widths should be `rcol` except the base for auto columns.
-                if self.cols[x] == TrackSizing::Auto {
-                    pod.base.x = self.regions.base.x;
-                }
 
                 let mut sizes = cell
                     .layout(self.vt, self.styles, pod)?
@@ -578,13 +571,13 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
         for (x, &rcol) in self.rcols.iter().enumerate() {
             if let Some(cell) = self.cell(x, y) {
                 let size = Size::new(rcol, height);
-
-                // Set the base to the region's base for auto rows and to the
-                // size for relative and fractional rows.
-                let base = Axes::new(self.cols[x], self.rows[y])
-                    .map(|s| s == TrackSizing::Auto)
-                    .select(self.regions.base, size);
-
+                let base = Size::new(
+                    rcol,
+                    match self.rows[y] {
+                        TrackSizing::Auto => self.regions.base.y,
+                        _ => height,
+                    },
+                );
                 let pod = Regions::one(size, base, Axes::splat(true));
                 let frame = cell.layout(self.vt, self.styles, pod)?.into_frame();
                 output.push_frame(pos, frame);
@@ -615,11 +608,6 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
             if let Some(cell) = self.cell(x, y) {
                 pod.first.x = rcol;
                 pod.base.x = rcol;
-
-                // All widths should be `rcol` except the base for auto columns.
-                if self.cols[x] == TrackSizing::Auto {
-                    pod.base.x = self.regions.base.x;
-                }
 
                 // Push the layouted frames into the individual output frames.
                 let fragment = cell.layout(self.vt, self.styles, pod)?;
