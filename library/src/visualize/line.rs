@@ -96,7 +96,8 @@ impl Layout for LineNode {
             .zip(regions.base)
             .map(|(l, b)| l.relative_to(b));
 
-        let target = regions.expand.select(regions.first, Size::zero());
+        let size = origin.max(origin + delta).max(Size::zero());
+        let target = regions.expand.select(regions.first, size);
 
         let mut frame = Frame::new(target);
         let shape = Geometry::Line(delta.to_point()).stroked(stroke);
