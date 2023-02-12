@@ -5,6 +5,34 @@ description: |
 ---
 
 # Changelog
+## February 12, 2023
+- Shapes, images, and transformations (move/rotate/scale/repeat) are now
+  block-level. To integrate them into a paragraph, use a [`box`]($func/box) as
+  with other elements.
+- A colon is now required in an "everything" show rule: Write `{show: it => ..}`
+  instead of `{show it => ..}`. This prevents intermediate states that ruin
+  your whole document.
+- Non-math content like a shape or table in a math formula is now centered
+  vertically
+- Support for widow and orphan prevention within containers
+- Support for [RTL]($func/text.dir) in lists, grids, and tables
+- Support for explicit `{auto}` sizing for boxes and shapes
+- Support for fractional (i.e. `{1fr}`) widths for boxes
+- Fixed bug where columns jump to next page
+- Fixed bug where list items have no leading
+- Fixed relative sizing in lists, squares and grid auto columns
+- Fixed relative displacement in [`place`]($func/place) function
+- Fixed that lines don't have a size
+- Fixed bug where `{set document(..)}` complains about being after content
+- Fixed parsing of `{not in}` operation
+- Fixed hover tooltips in math
+- Fixed bug where a heading show rule may not contain a pagebreak when an
+  outline is present
+- Added [`baseline`]($func/box.baseline) property on [`box`]($func/box)
+- Added [`tg`]($func/op) and [`ctg`]($func/op) operators in math
+- Added delimiter setting for [`cases`]($func/cases) function
+- Parentheses are now included when accepting a function autocompletion
+
 ## February 2, 2023
 - Merged text and math symbols, renamed a few symbols
   (including `infty` to `infinity` with the alias `oo`)
@@ -103,7 +131,7 @@ description: |
   - Tooltips for all buttons
   - Improved account protection
   - Moved Status indicator into the error list button
-- Fixes
+- Further fixes
   - Multiple bug fixes for incremental parser
   - Fixed closure parameter capturing
   - Fixed tons of math bugs

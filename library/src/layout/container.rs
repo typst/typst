@@ -41,6 +41,13 @@ use crate::prelude::*;
 /// - height: `Rel<Length>` (named)
 ///   The height of the box.
 ///
+/// - baseline: `Rel<Length>` (named)
+///   An amount to shift the box's baseline by.
+///
+///   ```example
+///   Image: #box(baseline: 40%, image("tiger.jpg", width: 2cm)).
+///   ```
+///
 /// ## Category
 /// layout
 #[func]

@@ -5,6 +5,13 @@ use super::*;
 /// # Text Operator
 /// A text operator in a math formula.
 ///
+/// ## Example
+/// ```example
+/// $ tan x = (sin x)/(cos x) $
+/// $ op("custom",
+///      limits: #true)_(n->oo) n $
+/// ```
+///
 /// ## Predefined Operators
 /// Typst predefines the operators `arccos`,  `arcsin`,  `arctan`,  `arg`,
 /// `cos`,  `cosh`,  `cot`, `ctg`, `coth`,  `csc`,  `deg`,  `det`,  `dim`,
