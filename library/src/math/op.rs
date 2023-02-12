@@ -7,10 +7,10 @@ use super::*;
 ///
 /// ## Predefined Operators
 /// Typst predefines the operators `arccos`,  `arcsin`,  `arctan`,  `arg`,
-/// `cos`,  `cosh`,  `cot`,  `coth`,  `csc`,  `deg`,  `det`,  `dim`,  `exp`,
-/// `gcd`,  `hom`,  `mod`,  `inf`,  `ker`,  `lg`,  `lim`,  `ln`,  `log`,  `max`,
-/// `min`,  `Pr`,  `sec`,  `sin`,  `sinh`,  `sup`,  `tan`,  `tanh`,  `liminf`,
-/// and `limsup`.
+/// `cos`,  `cosh`,  `cot`, `ctg`, `coth`,  `csc`,  `deg`,  `det`,  `dim`,
+/// `exp`, `gcd`,  `hom`,  `mod`,  `inf`,  `ker`,  `lg`,  `lim`,  `ln`,  `log`,
+/// `max`, `min`,  `Pr`,  `sec`,  `sin`,  `sinh`,  `sup`,  `tan`, `tg`, `tanh`,
+/// `liminf`, and `limsup`.
 ///
 /// ## Parameters
 /// - text: `EcoString` (positional, required)
@@ -86,6 +86,7 @@ ops! {
     cos,
     cosh,
     cot,
+    ctg,
     coth,
     csc,
     deg,
@@ -109,6 +110,7 @@ ops! {
     sinh,
     sup (limits),
     tan,
+    tg,
     tanh,
     liminf: "lim inf" (limits),
     limsup: "lim sup" (limits),
