@@ -555,41 +555,40 @@ fn layout(
 
         // Pad the child.
         let child = child.clone().padded(inset.map(|side| side.map(Length::from)));
-
-        let pod = Regions::one(regions.first, regions.base, regions.expand);
+        let pod = Regions::one(regions.size, regions.expand);
         frame = child.layout(vt, styles, pod)?.into_frame();
 
         // Relayout with full expansion into square region to make sure
         // the result is really a square or circle.
         if kind.is_quadratic() {
             let length = if regions.expand.x || regions.expand.y {
-                let target = regions.expand.select(regions.first, Size::zero());
+                let target = regions.expand.select(regions.size, Size::zero());
                 target.x.max(target.y)
             } else {
                 let size = frame.size();
                 let desired = size.x.max(size.y);
-                desired.min(regions.first.x).min(regions.first.y)
+                desired.min(regions.size.x).min(regions.size.y)
             };
 
             let size = Size::splat(length);
-            let pod = Regions::one(size, size, Axes::splat(true));
+            let pod = Regions::one(size, Axes::splat(true));
             frame = child.layout(vt, styles, pod)?.into_frame();
         }
     } else {
         // The default size that a shape takes on if it has no child and
         // enough space.
-        let mut size = Size::new(Abs::pt(45.0), Abs::pt(30.0)).min(regions.first);
+        let mut size = Size::new(Abs::pt(45.0), Abs::pt(30.0)).min(regions.size);
 
         if kind.is_quadratic() {
             let length = if regions.expand.x || regions.expand.y {
-                let target = regions.expand.select(regions.first, Size::zero());
+                let target = regions.expand.select(regions.size, Size::zero());
                 target.x.max(target.y)
             } else {
                 size.x.min(size.y)
             };
             size = Size::splat(length);
         } else {
-            size = regions.expand.select(regions.first, size);
+            size = regions.expand.select(regions.size, size);
         }
 
         frame = Frame::new(size);

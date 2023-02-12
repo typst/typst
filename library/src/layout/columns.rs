@@ -83,16 +83,16 @@ impl Layout for ColumnsNode {
     ) -> SourceResult<Fragment> {
         // Separating the infinite space into infinite columns does not make
         // much sense.
-        if !regions.first.x.is_finite() {
+        if !regions.size.x.is_finite() {
             return self.body.layout(vt, styles, regions);
         }
 
         // Determine the width of the gutter and each column.
         let columns = self.count.get();
-        let gutter = styles.get(Self::GUTTER).relative_to(regions.base.x);
-        let width = (regions.first.x - gutter * (columns - 1) as f64) / columns as f64;
+        let gutter = styles.get(Self::GUTTER).relative_to(regions.base().x);
+        let width = (regions.size.x - gutter * (columns - 1) as f64) / columns as f64;
 
-        let backlog: Vec<_> = std::iter::once(&regions.first.y)
+        let backlog: Vec<_> = std::iter::once(&regions.size.y)
             .chain(regions.backlog)
             .flat_map(|&height| std::iter::repeat(height).take(columns))
             .skip(1)
@@ -100,8 +100,8 @@ impl Layout for ColumnsNode {
 
         // Create the pod regions.
         let pod = Regions {
-            first: Size::new(width, regions.first.y),
-            base: Size::new(width, regions.base.y),
+            size: Size::new(width, regions.size.y),
+            full: regions.full,
             backlog: &backlog,
             last: regions.last,
             expand: Axes::new(true, regions.expand.y),
@@ -121,7 +121,7 @@ impl Layout for ColumnsNode {
             // case, the frame is first created with zero height and then
             // resized.
             let height = if regions.expand.y { region.y } else { Abs::zero() };
-            let mut output = Frame::new(Size::new(regions.first.x, height));
+            let mut output = Frame::new(Size::new(regions.size.x, height));
             let mut cursor = Abs::zero();
 
             for _ in 0..columns {
@@ -134,7 +134,7 @@ impl Layout for ColumnsNode {
                 let x = if dir == Dir::LTR {
                     cursor
                 } else {
-                    regions.first.x - cursor - width
+                    regions.size.x - cursor - width
                 };
 
                 output.push_frame(Point::with_x(x), frame);

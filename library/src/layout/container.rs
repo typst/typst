@@ -77,24 +77,22 @@ impl Layout for BoxNode {
             let size = self
                 .sizing
                 .resolve(styles)
-                .zip(regions.base)
+                .zip(regions.base())
                 .map(|(s, b)| s.map(|v| v.relative_to(b)))
-                .unwrap_or(regions.first);
+                .unwrap_or(regions.size);
 
             // Select the appropriate base and expansion for the child depending
             // on whether it is automatically or relatively sized.
             let is_auto = self.sizing.as_ref().map(Option::is_none);
-            let base = is_auto.select(regions.base, size);
             let expand = regions.expand | !is_auto;
-
-            Regions::one(size, base, expand)
+            Regions::one(size, expand)
         };
 
         // Layout the child.
         let mut frame = self.body.layout(vt, styles, pod)?.into_frame();
 
         // Ensure frame size matches regions size if expansion is on.
-        let target = regions.expand.select(regions.first, frame.size());
+        let target = regions.expand.select(regions.size, frame.size());
         frame.resize(target, Align::LEFT_TOP);
 
         Ok(Fragment::frame(frame))

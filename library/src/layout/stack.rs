@@ -177,7 +177,7 @@ impl<'a> StackLayouter<'a> {
     fn new(dir: Dir, regions: Regions<'a>, styles: StyleChain<'a>) -> Self {
         let axis = dir.axis();
         let expand = regions.expand;
-        let full = regions.first;
+        let full = regions.size;
 
         // Disable expansion along the block axis for children.
         let mut regions = regions.clone();
@@ -202,11 +202,14 @@ impl<'a> StackLayouter<'a> {
         match spacing {
             Spacing::Relative(v) => {
                 // Resolve the spacing and limit it to the remaining space.
-                let resolved =
-                    v.resolve(self.styles).relative_to(self.regions.base.get(self.axis));
-                let remaining = self.regions.first.get_mut(self.axis);
+                let resolved = v
+                    .resolve(self.styles)
+                    .relative_to(self.regions.base().get(self.axis));
+                let remaining = self.regions.size.get_mut(self.axis);
                 let limited = resolved.min(*remaining);
-                *remaining -= limited;
+                if self.dir.axis() == Axis::Y {
+                    *remaining -= limited;
+                }
                 self.used.main += limited;
                 self.items.push(StackItem::Absolute(resolved));
             }
@@ -242,14 +245,18 @@ impl<'a> StackLayouter<'a> {
         for (i, frame) in fragment.into_iter().enumerate() {
             // Grow our size, shrink the region and save the frame for later.
             let size = frame.size();
-            let size = match self.axis {
+            if self.dir.axis() == Axis::Y {
+                self.regions.size.y -= size.y;
+            }
+
+            let gen = match self.axis {
                 Axis::X => Gen::new(size.y, size.x),
                 Axis::Y => Gen::new(size.x, size.y),
             };
 
-            self.used.main += size.main;
-            self.used.cross.set_max(size.cross);
-            *self.regions.first.get_mut(self.axis) -= size.main;
+            self.used.main += gen.main;
+            self.used.cross.set_max(gen.cross);
+
             self.items.push(StackItem::Frame(frame, align));
 
             if i + 1 < len {
@@ -310,7 +317,7 @@ impl<'a> StackLayouter<'a> {
 
         // Advance to the next region.
         self.regions.next();
-        self.full = self.regions.first;
+        self.full = self.regions.size;
         self.used = Gen::zero();
         self.fr = Fr::zero();
         self.finished.push(output);

@@ -25,7 +25,7 @@ macro_rules! percent {
 /// The context for math layout.
 pub struct MathContext<'a, 'b, 'v> {
     pub vt: &'v mut Vt<'b>,
-    pub regions: Regions<'a>,
+    pub regions: Regions<'static>,
     pub font: &'a Font,
     pub ttf: &'a ttf_parser::Face<'a>,
     pub table: ttf_parser::math::Table<'a>,
@@ -60,10 +60,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         let variant = variant(styles);
         Self {
             vt,
-            regions: {
-                let size = Size::new(regions.first.x, regions.base.y);
-                Regions::one(size, regions.base, Axes::splat(false))
-            },
+            regions: Regions::one(regions.base(), Axes::splat(false)),
             font: &font,
             ttf: font.ttf(),
             table,

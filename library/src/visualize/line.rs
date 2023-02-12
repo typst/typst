@@ -87,17 +87,17 @@ impl Layout for LineNode {
         let origin = self
             .start
             .resolve(styles)
-            .zip(regions.base)
+            .zip(regions.base())
             .map(|(l, b)| l.relative_to(b));
 
         let delta = self
             .delta
             .resolve(styles)
-            .zip(regions.base)
+            .zip(regions.base())
             .map(|(l, b)| l.relative_to(b));
 
         let size = origin.max(origin + delta).max(Size::zero());
-        let target = regions.expand.select(regions.first, size);
+        let target = regions.expand.select(regions.size, size);
 
         let mut frame = Frame::new(target);
         let shape = Geometry::Line(delta.to_point()).stroked(stroke);

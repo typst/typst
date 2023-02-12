@@ -120,8 +120,7 @@ impl ParNode {
         vt: &mut Vt,
         styles: StyleChain,
         consecutive: bool,
-        width: Abs,
-        base: Size,
+        region: Size,
         expand: bool,
     ) -> SourceResult<Fragment> {
         #[comemo::memoize]
@@ -132,8 +131,7 @@ impl ParNode {
             introspector: Tracked<Introspector>,
             styles: StyleChain,
             consecutive: bool,
-            width: Abs,
-            base: Size,
+            region: Size,
             expand: bool,
         ) -> SourceResult<Fragment> {
             let mut vt = Vt { world, provider, introspector };
@@ -144,13 +142,13 @@ impl ParNode {
             // Perform BiDi analysis and then prepare paragraph layout by building a
             // representation on which we can do line breaking without layouting
             // each and every line from scratch.
-            let p = prepare(&mut vt, par, &text, segments, styles, width, base)?;
+            let p = prepare(&mut vt, par, &text, segments, styles, region)?;
 
             // Break the paragraph into lines.
-            let lines = linebreak(&vt, &p, width);
+            let lines = linebreak(&vt, &p, region.x);
 
             // Stack the lines into one frame per region.
-            finalize(&mut vt, &p, &lines, width, base, expand)
+            finalize(&mut vt, &p, &lines, region, expand)
         }
 
         cached(
@@ -160,8 +158,7 @@ impl ParNode {
             vt.introspector,
             styles,
             consecutive,
-            width,
-            base,
+            region,
             expand,
         )
     }
@@ -595,8 +592,7 @@ fn prepare<'a>(
     text: &'a str,
     segments: Vec<(Segment<'a>, StyleChain<'a>)>,
     styles: StyleChain<'a>,
-    width: Abs,
-    base: Size,
+    region: Size,
 ) -> SourceResult<Preparation<'a>> {
     let bidi = BidiInfo::new(
         text,
@@ -619,7 +615,7 @@ fn prepare<'a>(
             }
             Segment::Spacing(spacing) => match spacing {
                 Spacing::Relative(v) => {
-                    let resolved = v.resolve(styles).relative_to(base.x);
+                    let resolved = v.resolve(styles).relative_to(region.x);
                     items.push(Item::Absolute(resolved));
                 }
                 Spacing::Fractional(v) => {
@@ -630,8 +626,7 @@ fn prepare<'a>(
                 if let Some(repeat) = inline.to::<RepeatNode>() {
                     items.push(Item::Repeat(repeat, styles));
                 } else {
-                    let size = Size::new(width, base.y);
-                    let pod = Regions::one(size, base, Axes::splat(false));
+                    let pod = Regions::one(region, Axes::splat(false));
                     let mut frame = inline.layout(vt, styles, pod)?.into_frame();
                     frame.translate(Point::with_y(styles.get(TextNode::BASELINE)));
                     items.push(Item::Frame(frame));
@@ -1116,20 +1111,20 @@ fn finalize(
     vt: &mut Vt,
     p: &Preparation,
     lines: &[Line],
-    mut width: Abs,
-    base: Size,
+    mut region: Size,
     expand: bool,
 ) -> SourceResult<Fragment> {
     // Determine the paragraph's width: Full width of the region if we
     // should expand or there's fractional spacing, fit-to-width otherwise.
-    if !width.is_finite() || (!expand && lines.iter().all(|line| line.fr().is_zero())) {
-        width = lines.iter().map(|line| line.width).max().unwrap_or_default();
+    if !region.x.is_finite() || (!expand && lines.iter().all(|line| line.fr().is_zero()))
+    {
+        region.x = lines.iter().map(|line| line.width).max().unwrap_or_default();
     }
 
     // Stack the lines into one frame per region.
     let mut frames: Vec<Frame> = lines
         .iter()
-        .map(|line| commit(vt, p, line, base, width))
+        .map(|line| commit(vt, p, line, region))
         .collect::<SourceResult<_>>()?;
 
     // Prevent orphans.
@@ -1164,10 +1159,9 @@ fn commit(
     vt: &mut Vt,
     p: &Preparation,
     line: &Line,
-    base: Size,
-    width: Abs,
+    region: Size,
 ) -> SourceResult<Frame> {
-    let mut remaining = width - line.width;
+    let mut remaining = region.x - line.width;
     let mut offset = Abs::zero();
 
     // Reorder the line from logical to visual order.
@@ -1242,8 +1236,8 @@ fn commit(
             Item::Repeat(repeat, styles) => {
                 let before = offset;
                 let fill = Fr::one().share(fr, remaining);
-                let size = Size::new(fill, base.y);
-                let pod = Regions::one(size, base, Axes::new(false, false));
+                let size = Size::new(fill, region.y);
+                let pod = Regions::one(size, Axes::new(false, false));
                 let frame = repeat.layout(vt, *styles, pod)?.into_frame();
                 let width = frame.width();
                 let count = (fill / width).floor();
@@ -1268,7 +1262,7 @@ fn commit(
         remaining = Abs::zero();
     }
 
-    let size = Size::new(width, top + bottom);
+    let size = Size::new(region.x, top + bottom);
     let mut output = Frame::new(size);
     output.set_baseline(top);
 

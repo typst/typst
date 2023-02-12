@@ -76,7 +76,7 @@ impl Layout for ImageNode {
         let px_ratio = pxw / pxh;
 
         // Find out whether the image is wider or taller than the target size.
-        let Regions { first, expand, .. } = regions;
+        let Regions { size: first, expand, .. } = regions;
         let region_ratio = first.x / first.y;
         let wide = px_ratio > region_ratio;
 

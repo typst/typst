@@ -78,7 +78,7 @@ impl Layout for MoveNode {
         let mut fragment = self.body.layout(vt, styles, regions)?;
         for frame in &mut fragment {
             let delta = self.delta.resolve(styles);
-            let delta = delta.zip(regions.base).map(|(d, s)| d.relative_to(s));
+            let delta = delta.zip(regions.base()).map(|(d, s)| d.relative_to(s));
             frame.translate(delta.to_point());
         }
         Ok(fragment)

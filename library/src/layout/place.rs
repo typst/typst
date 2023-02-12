@@ -92,16 +92,16 @@ impl Layout for PlaceNode {
         // The pod is the base area of the region because for absolute
         // placement we don't really care about the already used area.
         let pod = {
-            let finite = regions.base.map(Abs::is_finite);
+            let finite = regions.base().map(Abs::is_finite);
             let expand = finite & (regions.expand | out_of_flow);
-            Regions::one(regions.base, regions.base, expand)
+            Regions::one(regions.base(), expand)
         };
 
         let mut frame = self.0.layout(vt, styles, pod)?.into_frame();
 
         // If expansion is off, zero all sizes so that we don't take up any
         // space in our parent. Otherwise, respect the expand settings.
-        let target = regions.expand.select(regions.first, Size::zero());
+        let target = regions.expand.select(regions.size, Size::zero());
         frame.resize(target, Align::LEFT_TOP);
 
         Ok(Fragment::frame(frame))

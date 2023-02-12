@@ -5,10 +5,10 @@ use typst::geom::{Abs, Axes, Size};
 /// A sequence of regions to layout into.
 #[derive(Copy, Clone, Hash)]
 pub struct Regions<'a> {
-    /// The (remaining) size of the first region.
-    pub first: Size,
-    /// The base size for relative sizing.
-    pub base: Size,
+    /// The remaining size of the first region.
+    pub size: Size,
+    /// The full height of the region for relative sizing.
+    pub full: Abs,
     /// The height of followup regions. The width is the same for all regions.
     pub backlog: &'a [Abs],
     /// The height of the final region that is repeated once the backlog is
@@ -19,12 +19,12 @@ pub struct Regions<'a> {
     pub expand: Axes<bool>,
 }
 
-impl<'a> Regions<'a> {
+impl Regions<'_> {
     /// Create a new region sequence with exactly one region.
-    pub fn one(size: Size, base: Size, expand: Axes<bool>) -> Self {
+    pub fn one(size: Size, expand: Axes<bool>) -> Self {
         Self {
-            first: size,
-            base,
+            size,
+            full: size.y,
             backlog: &[],
             last: None,
             expand,
@@ -32,14 +32,22 @@ impl<'a> Regions<'a> {
     }
 
     /// Create a new sequence of same-size regions that repeats indefinitely.
-    pub fn repeat(size: Size, base: Size, expand: Axes<bool>) -> Self {
+    pub fn repeat(size: Size, expand: Axes<bool>) -> Self {
         Self {
-            first: size,
-            base,
+            size,
+            full: size.y,
             backlog: &[],
             last: Some(size.y),
             expand,
         }
+    }
+
+    /// The base size, which doesn't take into account that the regions is
+    /// already partially used up.
+    ///
+    /// This is also used for relative sizing.
+    pub fn base(&self) -> Size {
+        Size::new(self.size.x, self.full)
     }
 
     /// Create new regions where all sizes are mapped with `f`.
@@ -50,12 +58,12 @@ impl<'a> Regions<'a> {
     where
         F: FnMut(Size) -> Size,
     {
-        let x = self.first.x;
+        let x = self.size.x;
         backlog.clear();
         backlog.extend(self.backlog.iter().map(|&y| f(Size::new(x, y)).y));
         Regions {
-            first: f(self.first),
-            base: f(self.base),
+            size: f(self.size),
+            full: f(Size::new(x, self.full)).y,
             backlog,
             last: self.last.map(|y| f(Size::new(x, y)).y),
             expand: self.expand,
@@ -64,14 +72,14 @@ impl<'a> Regions<'a> {
 
     /// Whether the first region is full and a region break is called for.
     pub fn is_full(&self) -> bool {
-        Abs::zero().fits(self.first.y) && !self.in_last()
+        Abs::zero().fits(self.size.y) && !self.in_last()
     }
 
     /// Whether the first region is the last usable region.
     ///
     /// If this is true, calling `next()` will have no effect.
     pub fn in_last(&self) -> bool {
-        self.backlog.is_empty() && self.last.map_or(true, |height| self.first.y == height)
+        self.backlog.is_empty() && self.last.map_or(true, |height| self.size.y == height)
     }
 
     /// Advance to the next region if there is any.
@@ -85,8 +93,8 @@ impl<'a> Regions<'a> {
             })
             .or(self.last)
         {
-            self.first.y = height;
-            self.base.y = height;
+            self.size.y = height;
+            self.full = height;
         }
     }
 
@@ -95,10 +103,10 @@ impl<'a> Regions<'a> {
     /// [`next()`](Self::next) repeatedly until all regions are exhausted.
     /// This iterator may be infinite.
     pub fn iter(&self) -> impl Iterator<Item = Size> + '_ {
-        let first = std::iter::once(self.first);
+        let first = std::iter::once(self.size);
         let backlog = self.backlog.iter();
         let last = self.last.iter().cycle();
-        first.chain(backlog.chain(last).map(|&h| Size::new(self.first.x, h)))
+        first.chain(backlog.chain(last).map(|&h| Size::new(self.size.x, h)))
     }
 }
 
@@ -106,15 +114,15 @@ impl Debug for Regions<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.write_str("Regions ")?;
         let mut list = f.debug_list();
-        let mut prev = self.first.y;
-        list.entry(&self.first);
+        let mut prev = self.size.y;
+        list.entry(&self.size);
         for &height in self.backlog {
-            list.entry(&Size::new(self.first.x, height));
+            list.entry(&Size::new(self.size.x, height));
             prev = height;
         }
         if let Some(last) = self.last {
             if last != prev {
-                list.entry(&Size::new(self.first.x, last));
+                list.entry(&Size::new(self.size.x, last));
             }
             list.entry(&(..));
         }

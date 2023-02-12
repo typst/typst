@@ -235,8 +235,6 @@ struct GridLayouter<'a, 'v> {
     rcols: Vec<Abs>,
     /// Rows in the current region.
     lrows: Vec<Row>,
-    /// The full height of the current region.
-    full: Abs,
     /// The used-up size of the current region. The horizontal size is
     /// determined once after columns are resolved and not touched again.
     used: Size,
@@ -317,7 +315,6 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
             cols.reverse();
         }
 
-        let full = regions.first.y;
         let rcols = vec![Abs::zero(); cols.len()];
         let lrows = vec![];
 
@@ -337,7 +334,6 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
             styles,
             rcols,
             lrows,
-            full,
             used: Size::zero(),
             fr: Fr::zero(),
             finished: vec![],
@@ -384,7 +380,7 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
                 TrackSizing::Auto => {}
                 TrackSizing::Relative(v) => {
                     let resolved =
-                        v.resolve(self.styles).relative_to(self.regions.base.x);
+                        v.resolve(self.styles).relative_to(self.regions.base().x);
                     *rcol = resolved;
                     rel += resolved;
                 }
@@ -393,7 +389,7 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
         }
 
         // Size that is not used by fixed-size columns.
-        let available = self.regions.first.x - rel;
+        let available = self.regions.size.x - rel;
         if available >= Abs::zero() {
             // Determine size of auto columns.
             let (auto, count) = self.measure_auto_columns(available)?;
@@ -429,16 +425,17 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
             let mut resolved = Abs::zero();
             for y in 0..self.rows.len() {
                 if let Some(cell) = self.cell(x, y) {
-                    let size = Size::new(available, self.regions.base.y);
-                    let mut pod = Regions::one(size, size, Axes::splat(false));
-
                     // For relative rows, we can already resolve the correct
                     // base and for auto and fr we could only guess anyway.
-                    if let TrackSizing::Relative(v) = self.rows[y] {
-                        pod.base.y =
-                            v.resolve(self.styles).relative_to(self.regions.base.y);
-                    }
+                    let height = match self.rows[y] {
+                        TrackSizing::Relative(v) => {
+                            v.resolve(self.styles).relative_to(self.regions.base().y)
+                        }
+                        _ => self.regions.base().y,
+                    };
 
+                    let size = Size::new(available, height);
+                    let pod = Regions::one(size, Axes::splat(false));
                     let frame = cell.layout(self.vt, self.styles, pod)?.into_frame();
                     resolved.set_max(frame.width());
                 }
@@ -508,8 +505,7 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
         for (x, &rcol) in self.rcols.iter().enumerate() {
             if let Some(cell) = self.cell(x, y) {
                 let mut pod = self.regions;
-                pod.first.x = rcol;
-                pod.base.x = rcol;
+                pod.size.x = rcol;
 
                 let frames = cell.layout(self.vt, self.styles, pod)?.into_frames();
                 if let [first, rest @ ..] = frames.as_slice() {
@@ -573,12 +569,12 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
     /// Layout a row with relative height. Such a row cannot break across
     /// multiple regions, but it may force a region break.
     fn layout_relative_row(&mut self, v: Rel<Length>, y: usize) -> SourceResult<()> {
-        let resolved = v.resolve(self.styles).relative_to(self.regions.base.y);
+        let resolved = v.resolve(self.styles).relative_to(self.regions.base().y);
         let frame = self.layout_single_row(resolved, y)?;
 
         // Skip to fitting region.
         let height = frame.height();
-        while !self.regions.first.y.fits(height) && !self.regions.in_last() {
+        while !self.regions.size.y.fits(height) && !self.regions.in_last() {
             self.finish_region()?;
 
             // Don't skip multiple regions for gutter and don't push a row.
@@ -600,14 +596,10 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
         for (x, &rcol) in self.rcols.iter().enumerate() {
             if let Some(cell) = self.cell(x, y) {
                 let size = Size::new(rcol, height);
-                let base = Size::new(
-                    rcol,
-                    match self.rows[y] {
-                        TrackSizing::Auto => self.regions.base.y,
-                        _ => height,
-                    },
-                );
-                let pod = Regions::one(size, base, Axes::splat(true));
+                let mut pod = Regions::one(size, Axes::splat(true));
+                if self.rows[y] == TrackSizing::Auto {
+                    pod.full = self.regions.full;
+                }
                 let frame = cell.layout(self.vt, self.styles, pod)?.into_frame();
                 output.push_frame(pos, frame);
             }
@@ -628,15 +620,15 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
 
         // Prepare regions.
         let size = Size::new(self.used.x, heights[0]);
-        let mut pod = Regions::one(size, self.regions.base, Axes::splat(true));
+        let mut pod = Regions::one(size, Axes::splat(true));
+        pod.full = self.regions.full;
         pod.backlog = &heights[1..];
 
         // Layout the row.
         let mut pos = Point::zero();
         for (x, &rcol) in self.rcols.iter().enumerate() {
             if let Some(cell) = self.cell(x, y) {
-                pod.first.x = rcol;
-                pod.base.x = rcol;
+                pod.size.x = rcol;
 
                 // Push the layouted frames into the individual output frames.
                 let fragment = cell.layout(self.vt, self.styles, pod)?;
@@ -653,7 +645,7 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
 
     /// Push a row frame into the current region.
     fn push_row(&mut self, frame: Frame) {
-        self.regions.first.y -= frame.height();
+        self.regions.size.y -= frame.height();
         self.used.y += frame.height();
         self.lrows.push(Row::Frame(frame));
     }
@@ -663,8 +655,8 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
         // Determine the size of the grid in this region, expanding fully if
         // there are fr rows.
         let mut size = self.used;
-        if self.fr.get() > 0.0 && self.full.is_finite() {
-            size.y = self.full;
+        if self.fr.get() > 0.0 && self.regions.full.is_finite() {
+            size.y = self.regions.full;
         }
 
         // The frame for the region.
@@ -676,7 +668,7 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
             let frame = match row {
                 Row::Frame(frame) => frame,
                 Row::Fr(v, y) => {
-                    let remaining = self.full - self.used.y;
+                    let remaining = self.regions.full - self.used.y;
                     let height = v.share(self.fr, remaining);
                     self.layout_single_row(height, y)?
                 }
@@ -689,7 +681,6 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
 
         self.finished.push(output);
         self.regions.next();
-        self.full = self.regions.first.y;
         self.used.y = Abs::zero();
         self.fr = Fr::zero();
 

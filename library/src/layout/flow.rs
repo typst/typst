@@ -85,7 +85,7 @@ impl<'a> FlowLayouter<'a> {
     /// Create a new flow layouter.
     fn new(mut regions: Regions<'a>) -> Self {
         let expand = regions.expand;
-        let full = regions.first;
+        let full = regions.size;
 
         // Disable vertical expansion for children.
         regions.expand.y = false;
@@ -122,14 +122,7 @@ impl<'a> FlowLayouter<'a> {
         let leading = styles.get(ParNode::LEADING);
         let consecutive = self.last_was_par;
         let frames = par
-            .layout(
-                vt,
-                styles,
-                consecutive,
-                self.regions.first.x,
-                self.regions.base,
-                self.regions.expand.x,
-            )?
+            .layout(vt, styles, consecutive, self.regions.base(), self.regions.expand.x)?
             .into_frames();
 
         let mut sticky = self.items.len();
@@ -142,7 +135,7 @@ impl<'a> FlowLayouter<'a> {
         }
 
         if let [first, ..] = frames.as_slice() {
-            if !self.regions.first.y.fits(first.height()) && !self.regions.in_last() {
+            if !self.regions.size.y.fits(first.height()) && !self.regions.in_last() {
                 let carry: Vec<_> = self.items.drain(sticky..).collect();
                 self.finish_region();
                 for item in carry {
@@ -199,15 +192,15 @@ impl<'a> FlowLayouter<'a> {
     /// Layout a finished frame.
     fn layout_item(&mut self, item: FlowItem) {
         match item {
-            FlowItem::Absolute(v, _) => self.regions.first.y -= v,
+            FlowItem::Absolute(v, _) => self.regions.size.y -= v,
             FlowItem::Fractional(_) => {}
             FlowItem::Frame(ref frame, ..) => {
                 let size = frame.size();
-                if !self.regions.first.y.fits(size.y) && !self.regions.in_last() {
+                if !self.regions.size.y.fits(size.y) && !self.regions.in_last() {
                     self.finish_region();
                 }
 
-                self.regions.first.y -= size.y;
+                self.regions.size.y -= size.y;
             }
             FlowItem::Placed(_) => {}
         }
@@ -284,7 +277,7 @@ impl<'a> FlowLayouter<'a> {
         // Advance to the next region.
         self.finished.push(output);
         self.regions.next();
-        self.full = self.regions.first;
+        self.full = self.regions.size;
     }
 
     /// Finish layouting and return the resulting fragment.
