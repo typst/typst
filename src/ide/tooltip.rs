@@ -38,7 +38,7 @@ fn expr_tooltip(world: &(dyn World + 'static), leaf: &LinkedNode) -> Option<Tool
     }
 
     let expr = ancestor.cast::<ast::Expr>()?;
-    if !expr.hashtag() {
+    if !expr.hashtag() && !matches!(expr, ast::Expr::MathIdent(_)) {
         return None;
     }
 
