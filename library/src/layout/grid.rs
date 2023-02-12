@@ -482,6 +482,7 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
     /// regions.
     fn layout_auto_row(&mut self, y: usize) -> SourceResult<()> {
         let mut resolved: Vec<Abs> = vec![];
+        let mut skip = false;
 
         // Determine the size for each region of the row.
         for (x, &rcol) in self.rcols.iter().enumerate() {
@@ -490,13 +491,15 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
                 pod.first.x = rcol;
                 pod.base.x = rcol;
 
-                let mut sizes = cell
-                    .layout(self.vt, self.styles, pod)?
-                    .into_iter()
-                    .map(|frame| frame.height());
+                let frames = cell.layout(self.vt, self.styles, pod)?.into_frames();
+                if let [first, rest @ ..] = frames.as_slice() {
+                    skip |=
+                        first.is_empty() && rest.iter().any(|frame| !frame.is_empty());
+                }
 
                 // For each region, we want to know the maximum height any
                 // column requires.
+                let mut sizes = frames.iter().map(|frame| frame.height());
                 for (target, size) in resolved.iter_mut().zip(&mut sizes) {
                     target.set_max(size);
                 }
@@ -517,6 +520,12 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
             let frame = self.layout_single_row(first, y)?;
             self.push_row(frame);
             return Ok(());
+        }
+
+        // Skip the first region if it's empty for some cell.
+        if skip && !self.regions.in_last() {
+            self.finish_region()?;
+            resolved.remove(0);
         }
 
         // Expand all but the last region if the space is not
