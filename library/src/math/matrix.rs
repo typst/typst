@@ -159,6 +159,14 @@ pub struct CasesNode(Vec<Content>);
 
 #[node]
 impl CasesNode {
+    /// The delimiter to use.
+    ///
+    /// ```example
+    /// #set math.cases(delim: "[")
+    /// $ x = cases(1, 2) $
+    /// ```
+    pub const DELIM: Delimiter = Delimiter::Brace;
+
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         Ok(Self(args.all()?).pack())
     }
@@ -166,8 +174,9 @@ impl CasesNode {
 
 impl LayoutMath for CasesNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+        let delim = ctx.styles().get(Self::DELIM);
         let frame = layout_vec_body(ctx, &self.0, Align::Left)?;
-        layout_delimiters(ctx, frame, Some('{'), None)
+        layout_delimiters(ctx, frame, Some(delim.open()), None)
     }
 }
 
