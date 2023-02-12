@@ -40,6 +40,7 @@ unicode-segmentation = "1"
 unicode-xid = "0.2"
 unscanny = "0.1"
 usvg = { version = "0.22", default-features = false }
+xmp-writer = { git = "https://github.com/typst/xmp-writer" }
 
 [profile.dev]
 debug = 0

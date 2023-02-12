@@ -1191,6 +1191,7 @@ dependencies = [
  "unicode-xid",
  "unscanny",
  "usvg",
+ "xmp-writer",
 ]
 
 [[package]]
@@ -1564,6 +1565,11 @@ name = "xmlparser"
 version = "0.13.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4d25c75bf9ea12c4040a97f829154768bbbce366287e2dc044af160cd79a13fd"
+
+[[package]]
+name = "xmp-writer"
+version = "0.1.0"
+source = "git+https://github.com/typst/xmp-writer#a4a36967cd73c9c19548e940bbcc55583a901417"
 
 [[package]]
 name = "yaml-front-matter"
