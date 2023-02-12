@@ -556,7 +556,7 @@ fn layout(
         // Pad the child.
         let child = child.clone().padded(inset.map(|side| side.map(Length::from)));
 
-        let mut pod = Regions::one(regions.first, regions.base, regions.expand);
+        let pod = Regions::one(regions.first, regions.base, regions.expand);
         frame = child.layout(vt, styles, pod)?.into_frame();
 
         // Relayout with full expansion into square region to make sure
@@ -571,8 +571,8 @@ fn layout(
                 desired.min(regions.first.x).min(regions.first.y)
             };
 
-            pod.first = Size::splat(length);
-            pod.expand = Axes::splat(true);
+            let size = Size::splat(length);
+            let pod = Regions::one(size, size, Axes::splat(true));
             frame = child.layout(vt, styles, pod)?.into_frame();
         }
     } else {

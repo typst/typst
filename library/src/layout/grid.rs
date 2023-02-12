@@ -321,7 +321,7 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
         let rcols = vec![Abs::zero(); cols.len()];
         let lrows = vec![];
 
-        // We use the regions for auto row measurement. Since at that moment,
+        // We use these regions for auto row measurement. Since at that moment,
         // columns are already sized, we can enable horizontal expansion.
         let mut regions = regions.clone();
         regions.expand = Axes::new(true, false);
