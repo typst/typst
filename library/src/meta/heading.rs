@@ -147,7 +147,7 @@ impl Show for HeadingNode {
         if numbers != Value::None {
             realized = numbers.display() + SpaceNode.pack() + realized;
         }
-        Ok(BlockNode(realized).pack())
+        Ok(BlockNode { body: realized }.pack())
     }
 }
 

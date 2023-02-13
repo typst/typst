@@ -133,28 +133,13 @@ impl RectNode {
     /// current [text edges]($func/text.top-edge).
     ///
     /// ```example
-    /// A #box(rect(inset: 0pt)[tight]) fit.
+    /// #rect(inset: 0pt)[Tight])
     /// ```
     #[property(resolve, fold)]
     pub const INSET: Sides<Option<Rel<Length>>> = Sides::splat(Abs::pt(5.0).into());
 
     /// How much to expand the rectangle's size without affecting the layout.
-    ///
-    /// This is, for instance, useful to prevent an inline rectangle from
-    /// affecting line layout. For a generalized version of the example below,
-    /// see the documentation for the
-    /// [raw text's block parameter]($func/raw.block).
-    ///
-    /// ```example
-    /// This
-    /// #box(rect(
-    ///   fill: luma(235),
-    ///   inset: (x: 3pt, y: 0pt),
-    ///   outset: (y: 3pt),
-    ///   radius: 2pt,
-    /// )[rectangle])
-    /// is inline.
-    /// ```
+    /// See the [box's documentation]($func/box.outset) for more details.
     #[property(resolve, fold)]
     pub const OUTSET: Sides<Option<Rel<Length>>> = Sides::splat(Rel::zero());
 
@@ -535,7 +520,6 @@ fn layout(
     let mut frame;
     if let Some(child) = body {
         let region = resolved.unwrap_or(regions.base());
-
         if kind.is_round() {
             inset = inset.map(|side| side + Ratio::new(0.5 - SQRT_2 / 4.0));
         }
@@ -565,7 +549,7 @@ fn layout(
         frame = Frame::new(size);
     }
 
-    // Add fill and/or stroke.
+    // Prepare stroke.
     let stroke = match stroke {
         Smart::Auto if fill.is_none() => Sides::splat(Some(Stroke::default())),
         Smart::Auto => Sides::splat(None),
@@ -574,21 +558,16 @@ fn layout(
         }
     };
 
-    let outset = outset.relative_to(frame.size());
-    let size = frame.size() + outset.sum_by_axis();
-    let radius = radius.map(|side| side.relative_to(size.x.min(size.y) / 2.0));
-    let pos = Point::new(-outset.left, -outset.top);
-
+    // Add fill and/or stroke.
     if fill.is_some() || stroke.iter().any(Option::is_some) {
         if kind.is_round() {
+            let outset = outset.relative_to(frame.size());
+            let size = frame.size() + outset.sum_by_axis();
+            let pos = Point::new(-outset.left, -outset.top);
             let shape = ellipse(size, fill, stroke.left);
             frame.prepend(pos, Element::Shape(shape));
         } else {
-            frame.prepend_multiple(
-                rounded_rect(size, radius, fill, stroke)
-                    .into_iter()
-                    .map(|x| (pos, Element::Shape(x))),
-            )
+            frame.fill_and_stroke(fill, stroke, outset, radius);
         }
     }
 

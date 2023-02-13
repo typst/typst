@@ -2,16 +2,15 @@
 
 ---
 // Inline code.
-#show raw.where(block: false): it => box(rect(
+#show raw.where(block: false): box.with(
   radius: 2pt,
-  outset: (y: 3pt),
+  outset: (y: 2.5pt),
   inset: (x: 3pt, y: 0pt),
   fill: luma(230),
-  it,
-))
+)
 
 // Code blocks.
-#show raw.where(block: true): rect.with(
+#show raw.where(block: true): block.with(
   outset: -3pt,
   inset: 11pt,
   fill: luma(230),

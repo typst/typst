@@ -184,7 +184,6 @@ impl Show for OutlineNode {
                         body: filler.clone(),
                         width: Sizing::Fr(Fr::one()),
                         height: Smart::Auto,
-                        baseline: Rel::zero(),
                     }
                     .pack(),
                 );

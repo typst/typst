@@ -63,17 +63,16 @@ use crate::prelude::*;
 ///   ````example
 ///   // Display inline code in a small box
 ///   // that retains the correct baseline.
-///   #show raw.where(block: false): it => box(rect(
+///   #show raw.where(block: false): box.with(
 ///     fill: luma(240),
 ///     inset: (x: 3pt, y: 0pt),
 ///     outset: (y: 3pt),
 ///     radius: 2pt,
-///     it,
-///   ))
+///   )
 ///
-///   // Display block code in a larger box
+///   // Display block code in a larger block
 ///   // with more padding.
-///   #show raw.where(block: true): rect.with(
+///   #show raw.where(block: true): block.with(
 ///     fill: luma(240),
 ///     inset: 10pt,
 ///     radius: 4pt,
@@ -200,7 +199,7 @@ impl Show for RawNode {
         };
 
         if self.block {
-            realized = BlockNode(realized).pack();
+            realized = BlockNode { body: realized }.pack();
         }
 
         Ok(realized)

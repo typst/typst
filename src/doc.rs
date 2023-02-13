@@ -7,8 +7,8 @@ use std::sync::Arc;
 
 use crate::font::Font;
 use crate::geom::{
-    self, Abs, Align, Axes, Color, Dir, Em, Geometry, Numeric, Paint, Point, RgbaColor,
-    Shape, Size, Stroke, Transform,
+    self, rounded_rect, Abs, Align, Axes, Color, Corners, Dir, Em, Geometry, Numeric,
+    Paint, Point, Rel, RgbaColor, Shape, Sides, Size, Stroke, Transform,
 };
 use crate::image::Image;
 use crate::model::{
@@ -271,6 +271,9 @@ impl Frame {
 
     /// Attach the metadata from this style chain to the frame.
     pub fn meta(&mut self, styles: StyleChain) {
+        if self.is_empty() {
+            return;
+        }
         for meta in styles.get(Meta::DATA) {
             if matches!(meta, Meta::Hidden) {
                 self.clear();
@@ -278,6 +281,25 @@ impl Frame {
             }
             self.push(Point::zero(), Element::Meta(meta, self.size));
         }
+    }
+
+    /// Add a fill and stroke with optional radius and outset to the frame.
+    pub fn fill_and_stroke(
+        &mut self,
+        fill: Option<Paint>,
+        stroke: Sides<Option<Stroke>>,
+        outset: Sides<Rel<Abs>>,
+        radius: Corners<Rel<Abs>>,
+    ) {
+        let outset = outset.relative_to(self.size());
+        let size = self.size() + outset.sum_by_axis();
+        let pos = Point::new(-outset.left, -outset.top);
+        let radius = radius.map(|side| side.relative_to(size.x.min(size.y) / 2.0));
+        self.prepend_multiple(
+            rounded_rect(size, radius, fill, stroke)
+                .into_iter()
+                .map(|x| (pos, Element::Shape(x))),
+        )
     }
 
     /// Arbitrarily transform the contents of the frame.
