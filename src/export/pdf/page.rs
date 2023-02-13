@@ -113,6 +113,7 @@ fn write_page(ctx: &mut PdfContext, page: Page) {
     for (dest, rect) in page.links {
         let mut link = annotations.push();
         link.subtype(AnnotationType::Link).rect(rect);
+        link.border(0.0, 0.0, 0.0, None);
         match dest {
             Destination::Url(uri) => {
                 link.action().action_type(ActionType::Uri).uri(Str(uri.as_bytes()));
