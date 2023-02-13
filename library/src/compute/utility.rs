@@ -176,6 +176,24 @@ impl NumberingPattern {
         fmt.push_str(&self.suffix);
         fmt
     }
+
+    /// Apply only the k-th segment of the pattern to a number.
+    pub fn apply_kth(&self, k: usize, number: NonZeroUsize) -> EcoString {
+        let mut fmt = EcoString::new();
+        if let Some((prefix, _, _)) = self.pieces.first() {
+            fmt.push_str(prefix);
+        }
+        if let Some((_, kind, case)) = self
+            .pieces
+            .iter()
+            .chain(self.pieces.last().into_iter().cycle())
+            .nth(k)
+        {
+            fmt.push_str(&kind.apply(number, *case));
+        }
+        fmt.push_str(&self.suffix);
+        fmt
+    }
 }
 
 impl FromStr for NumberingPattern {

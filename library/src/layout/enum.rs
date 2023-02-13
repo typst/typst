@@ -3,6 +3,7 @@ use std::str::FromStr;
 use crate::compute::{Numbering, NumberingPattern};
 use crate::layout::{BlockNode, GridNode, ParNode, Sizing, Spacing};
 use crate::prelude::*;
+use crate::text::TextNode;
 
 /// # Numbered List
 /// A numbered list.
@@ -105,10 +106,16 @@ impl EnumNode {
     /// How to number the enumeration. Accepts a
     /// [numbering pattern or function]($func/numbering).
     ///
+    /// If the numbering pattern contains multiple counting symbols, they apply
+    /// to nested enums. If given a function, the function receives one argument
+    /// if `full` is `{false}` and multiple arguments if `full` is `{true}`.
+    ///
     /// ```example
-    /// #set enum(numbering: "(a)")
+    /// #set enum(numbering: "1.a)")
     /// + Different
     /// + Numbering
+    ///   + Nested
+    ///   + Items
     /// + Style
     ///
     /// #set enum(numbering: n => super[#n])
@@ -118,6 +125,20 @@ impl EnumNode {
     #[property(referenced)]
     pub const NUMBERING: Numbering =
         Numbering::Pattern(NumberingPattern::from_str("1.").unwrap());
+
+    /// Whether to display the full numbering, including the numbers of
+    /// all parent enumerations.
+    ///
+    /// Defaults to `{false}`.
+    ///
+    /// ```example
+    /// #set enum(numbering: "1.a)", full: true)
+    /// + Cook
+    ///   + Heat water
+    ///   + Add integredients
+    /// + Eat
+    /// ```
+    pub const FULL: bool = false;
 
     /// The indentation of each item's label.
     #[property(resolve)]
@@ -131,6 +152,10 @@ impl EnumNode {
     ///
     /// If set to `{auto}` uses the spacing [below blocks]($func/block.below).
     pub const SPACING: Smart<Spacing> = Smart::Auto;
+
+    /// The numbers of parent items.
+    #[property(skip, fold)]
+    const PARENTS: Parent = vec![];
 
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let mut number: NonZeroUsize =
@@ -193,13 +218,34 @@ impl Layout for EnumNode {
 
         let mut cells = vec![];
         let mut number = NonZeroUsize::new(1).unwrap();
+        let mut parents = styles.get(Self::PARENTS);
+        let full = styles.get(Self::FULL);
+
         for ((n, item), map) in self.items.iter() {
             number = n.unwrap_or(number);
-            let resolved = numbering.apply(vt.world(), &[number])?.display();
+
+            let resolved = if full {
+                parents.push(number);
+                let content = numbering.apply(vt.world(), &parents)?.display();
+                parents.pop();
+                content
+            } else {
+                match numbering {
+                    Numbering::Pattern(pattern) => {
+                        TextNode::packed(pattern.apply_kth(parents.len(), number))
+                    }
+                    other => other.apply(vt.world(), &[number])?.display(),
+                }
+            };
+
             cells.push(Content::empty());
             cells.push(resolved.styled_with_map(map.clone()));
             cells.push(Content::empty());
-            cells.push(item.clone().styled_with_map(map.clone()));
+            cells.push(
+                item.clone()
+                    .styled_with_map(map.clone())
+                    .styled(Self::PARENTS, Parent(number)),
+            );
             number = number.saturating_add(1);
         }
 
@@ -214,5 +260,17 @@ impl Layout for EnumNode {
             cells,
         }
         .layout(vt, styles, regions)
+    }
+}
+
+#[derive(Debug, Clone, Hash)]
+struct Parent(NonZeroUsize);
+
+impl Fold for Parent {
+    type Output = Vec<NonZeroUsize>;
+
+    fn fold(self, mut outer: Self::Output) -> Self::Output {
+        outer.push(self.0);
+        outer
     }
 }
