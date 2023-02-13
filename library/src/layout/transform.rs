@@ -55,13 +55,6 @@ impl MoveNode {
         }
         .pack())
     }
-
-    fn field(&self, name: &str) -> Option<Value> {
-        match name {
-            "body" => Some(Value::Content(self.body.clone())),
-            _ => None,
-        }
-    }
 }
 
 impl Layout for MoveNode {
@@ -147,13 +140,6 @@ impl RotateNode {
         }
         .pack())
     }
-
-    fn field(&self, name: &str) -> Option<Value> {
-        match name {
-            "body" => Some(Value::Content(self.body.clone())),
-            _ => None,
-        }
-    }
 }
 
 impl Layout for RotateNode {
@@ -236,13 +222,6 @@ impl ScaleNode {
             body: args.expect("body")?,
         }
         .pack())
-    }
-
-    fn field(&self, name: &str) -> Option<Value> {
-        match name {
-            "body" => Some(Value::Content(self.body.clone())),
-            _ => None,
-        }
     }
 }
 

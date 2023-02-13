@@ -76,13 +76,6 @@ impl LinebreakNode {
         let justify = args.named("justify")?.unwrap_or(false);
         Ok(Self { justify }.pack())
     }
-
-    fn field(&self, name: &str) -> Option<Value> {
-        match name {
-            "justify" => Some(Value::Bool(self.justify)),
-            _ => None,
-        }
-    }
 }
 
 impl Behave for LinebreakNode {

@@ -58,26 +58,6 @@ impl StackNode {
         }
         .pack())
     }
-
-    fn field(&self, name: &str) -> Option<Value> {
-        match name {
-            "dir" => Some(Value::dynamic(self.dir)),
-            "spacing" => Some(match self.spacing {
-                Some(spacing) => spacing.encode(),
-                None => Value::None,
-            }),
-            "items" => Some(Value::Array(
-                self.children
-                    .iter()
-                    .map(|child| match child {
-                        StackChild::Spacing(spacing) => spacing.encode(),
-                        StackChild::Block(content) => Value::Content(content.clone()),
-                    })
-                    .collect(),
-            )),
-            _ => None,
-        }
-    }
 }
 
 impl Layout for StackNode {

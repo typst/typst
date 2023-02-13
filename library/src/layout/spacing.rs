@@ -61,14 +61,6 @@ impl HNode {
         let weak = args.named("weak")?.unwrap_or(false);
         Ok(Self { amount, weak }.pack())
     }
-
-    fn field(&self, name: &str) -> Option<Value> {
-        match name {
-            "amount" => Some(self.amount.encode()),
-            "weak" => Some(Value::Bool(self.weak)),
-            _ => None,
-        }
-    }
 }
 
 impl HNode {
@@ -163,14 +155,6 @@ impl VNode {
             Self::strong(amount)
         };
         Ok(node.pack())
-    }
-
-    fn field(&self, name: &str) -> Option<Value> {
-        match name {
-            "amount" => Some(self.amount.encode()),
-            "weak" => Some(Value::Bool(self.weakness != 0)),
-            _ => None,
-        }
     }
 }
 

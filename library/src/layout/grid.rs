@@ -119,19 +119,6 @@ impl GridNode {
         }
         .pack())
     }
-
-    fn field(&self, name: &str) -> Option<Value> {
-        match name {
-            "columns" => Some(Sizing::encode_slice(&self.tracks.x)),
-            "rows" => Some(Sizing::encode_slice(&self.tracks.y)),
-            "column-gutter" => Some(Sizing::encode_slice(&self.gutter.x)),
-            "row-gutter" => Some(Sizing::encode_slice(&self.gutter.y)),
-            "cells" => Some(Value::Array(
-                self.cells.iter().cloned().map(Value::Content).collect(),
-            )),
-            _ => None,
-        }
-    }
 }
 
 impl Layout for GridNode {

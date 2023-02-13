@@ -73,13 +73,6 @@ impl BoxNode {
         let baseline = args.named("baseline")?.unwrap_or_default();
         Ok(Self { body, width, height, baseline }.pack())
     }
-
-    fn field(&self, name: &str) -> Option<Value> {
-        match name {
-            "body" => Some(Value::Content(self.body.clone())),
-            _ => None,
-        }
-    }
 }
 
 impl Layout for BoxNode {
@@ -195,13 +188,6 @@ impl BlockNode {
             Self::BELOW,
             args.named("below")?.map(VNode::block_around).or(spacing),
         );
-    }
-
-    fn field(&self, name: &str) -> Option<Value> {
-        match name {
-            "body" => Some(Value::Content(self.0.clone())),
-            _ => None,
-        }
     }
 }
 

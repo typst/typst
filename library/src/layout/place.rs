@@ -64,13 +64,6 @@ impl PlaceNode {
         let out_of_flow = aligns.y.is_some();
         Ok(Self(body.moved(Axes::new(dx, dy)).aligned(aligns), out_of_flow).pack())
     }
-
-    fn field(&self, name: &str) -> Option<Value> {
-        match name {
-            "body" => Some(Value::Content(self.0.clone())),
-            _ => None,
-        }
-    }
 }
 
 impl Layout for PlaceNode {

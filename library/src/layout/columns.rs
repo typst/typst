@@ -64,14 +64,6 @@ impl ColumnsNode {
         }
         .pack())
     }
-
-    fn field(&self, name: &str) -> Option<Value> {
-        match name {
-            "count" => Some(Value::Int(self.count.get() as i64)),
-            "body" => Some(Value::Content(self.body.clone())),
-            _ => None,
-        }
-    }
 }
 
 impl Layout for ColumnsNode {
@@ -192,13 +184,6 @@ impl ColbreakNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let weak = args.named("weak")?.unwrap_or(false);
         Ok(Self { weak }.pack())
-    }
-
-    fn field(&self, name: &str) -> Option<Value> {
-        match name {
-            "weak" => Some(Value::Bool(self.weak)),
-            _ => None,
-        }
     }
 }
 

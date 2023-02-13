@@ -375,13 +375,6 @@ impl PagebreakNode {
         let weak = args.named("weak")?.unwrap_or(false);
         Ok(Self { weak }.pack())
     }
-
-    fn field(&self, name: &str) -> Option<Value> {
-        match name {
-            "weak" => Some(Value::Bool(self.weak)),
-            _ => None,
-        }
-    }
 }
 
 /// A header, footer, foreground or background definition.

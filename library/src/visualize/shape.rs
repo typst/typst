@@ -164,16 +164,6 @@ impl RectNode {
         let body = args.eat()?;
         Ok(Self { body, width, height }.pack())
     }
-
-    fn field(&self, name: &str) -> Option<Value> {
-        match name {
-            "body" => match &self.body {
-                Some(body) => Some(Value::Content(body.clone())),
-                None => Some(Value::None),
-            },
-            _ => None,
-        }
-    }
 }
 
 impl Layout for RectNode {
@@ -292,16 +282,6 @@ impl SquareNode {
         let body = args.eat()?;
         Ok(Self { body, width, height }.pack())
     }
-
-    fn field(&self, name: &str) -> Option<Value> {
-        match name {
-            "body" => match &self.body {
-                Some(body) => Some(Value::Content(body.clone())),
-                None => Some(Value::None),
-            },
-            _ => None,
-        }
-    }
 }
 
 impl Layout for SquareNode {
@@ -395,16 +375,6 @@ impl EllipseNode {
         let height = args.named("height")?.unwrap_or_default();
         let body = args.eat()?;
         Ok(Self { body, width, height }.pack())
-    }
-
-    fn field(&self, name: &str) -> Option<Value> {
-        match name {
-            "body" => match &self.body {
-                Some(body) => Some(Value::Content(body.clone())),
-                None => Some(Value::None),
-            },
-            _ => None,
-        }
     }
 }
 
@@ -518,16 +488,6 @@ impl CircleNode {
         .unwrap_or_default();
         let body = args.eat()?;
         Ok(Self { body, width, height }.pack())
-    }
-
-    fn field(&self, name: &str) -> Option<Value> {
-        match name {
-            "body" => match &self.body {
-                Some(body) => Some(Value::Content(body.clone())),
-                None => Some(Value::None),
-            },
-            _ => None,
-        }
     }
 }
 
