@@ -199,7 +199,12 @@ impl Show for RawNode {
         };
 
         if self.block {
-            realized = BlockNode { body: realized }.pack();
+            realized = BlockNode {
+                body: realized,
+                width: Smart::Auto,
+                height: Smart::Auto,
+            }
+            .pack();
         }
 
         Ok(realized)

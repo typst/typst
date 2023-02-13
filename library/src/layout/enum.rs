@@ -25,12 +25,21 @@ use crate::prelude::*;
 /// #enum[First][Second]
 /// ```
 ///
+/// You can easily switch all your enumerations to a different numbering style
+/// with a set rule.
+/// ```example
+/// #set enum(numbering: "a)")
+///
+/// + Starting off ...
+/// + Don't forget step two
+/// ```
+///
 /// ## Syntax
 /// This functions also has dedicated syntax:
 ///
 /// - Starting a line with a plus sign creates an automatically numbered
 ///   enumeration item.
-/// - Start a line with a number followed by a dot creates an explicitly
+/// - Starting a line with a number followed by a dot creates an explicitly
 ///   numbered enumeration item.
 ///
 /// Enumeration items can contain multiple paragraphs and other block-level
@@ -98,10 +107,13 @@ impl EnumNode {
     ///
     /// ```example
     /// #set enum(numbering: "(a)")
-    ///
     /// + Different
     /// + Numbering
     /// + Style
+    ///
+    /// #set enum(numbering: n => super[#n])
+    /// + Superscript
+    /// + Numbering!
     /// ```
     #[property(referenced)]
     pub const NUMBERING: Numbering =

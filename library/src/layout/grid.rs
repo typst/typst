@@ -37,7 +37,7 @@ use super::Sizing;
 ///
 /// ## Example
 /// ```example
-/// #set text(10pt, weight: "bold")
+/// #set text(10pt, style: "italic")
 /// #let cell = rect.with(
 ///   inset: 8pt,
 ///   fill: rgb("e4e5ea"),

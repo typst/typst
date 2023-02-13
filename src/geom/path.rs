@@ -1,11 +1,11 @@
 use super::*;
 
 /// A bezier path.
-#[derive(Debug, Default, Clone, Eq, PartialEq)]
+#[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct Path(pub Vec<PathElement>);
 
 /// An element in a bezier path.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum PathElement {
     MoveTo(Point),
     LineTo(Point),

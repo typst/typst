@@ -287,17 +287,17 @@ fn code_block(resolver: &dyn Resolver, lang: &str, text: &str) -> Html {
 
     let source = Source::new(SourceId::from_u16(0), Path::new("main.typ"), compile);
     let world = DocWorld(source);
-    let mut frame = match typst::compile(&world, &world.0) {
-        Ok(doc) => doc.pages.into_iter().next().unwrap(),
+    let mut frames = match typst::compile(&world, &world.0) {
+        Ok(doc) => doc.pages,
         Err(err) => panic!("failed to compile {text}: {err:?}"),
     };
 
     if let Some([x, y, w, h]) = zoom {
-        frame.translate(Point::new(-x, -y));
-        *frame.size_mut() = Size::new(w, h);
+        frames[0].translate(Point::new(-x, -y));
+        *frames[0].size_mut() = Size::new(w, h);
     }
 
-    resolver.example(highlighted, frame)
+    resolver.example(highlighted, &frames)
 }
 
 /// World for example compilations.

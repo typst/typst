@@ -17,7 +17,7 @@ use crate::model::{
 use crate::util::EcoString;
 
 /// A finished document with metadata and page frames.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Hash)]
 pub struct Document {
     /// The page frames.
     pub pages: Vec<Frame>,
@@ -28,7 +28,7 @@ pub struct Document {
 }
 
 /// A finished layout with elements at fixed positions.
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Hash)]
 pub struct Frame {
     /// The size of the frame.
     size: Size,
@@ -304,12 +304,16 @@ impl Frame {
 
     /// Arbitrarily transform the contents of the frame.
     pub fn transform(&mut self, transform: Transform) {
-        self.group(|g| g.transform = transform);
+        if !self.is_empty() {
+            self.group(|g| g.transform = transform);
+        }
     }
 
     /// Clip the contents of a frame to its size.
     pub fn clip(&mut self) {
-        self.group(|g| g.clips = true);
+        if !self.is_empty() {
+            self.group(|g| g.clips = true);
+        }
     }
 
     /// Wrap the frame's contents in a group and modify that group with `f`.
@@ -386,7 +390,7 @@ impl Debug for Frame {
 }
 
 /// The building block frames are composed of.
-#[derive(Clone)]
+#[derive(Clone, Hash)]
 pub enum Element {
     /// A group of elements.
     Group(Group),
@@ -413,7 +417,7 @@ impl Debug for Element {
 }
 
 /// A group of elements with optional clipping.
-#[derive(Clone)]
+#[derive(Clone, Hash)]
 pub struct Group {
     /// The group's frame.
     pub frame: Frame,
@@ -442,7 +446,7 @@ impl Debug for Group {
 }
 
 /// A run of shaped text.
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 pub struct Text {
     /// The font the glyphs are contained in.
     pub font: Font,
@@ -477,7 +481,7 @@ impl Debug for Text {
 }
 
 /// A glyph in a run of shaped text.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Glyph {
     /// The glyph's index in the font.
     pub id: u16,

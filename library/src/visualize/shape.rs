@@ -160,6 +160,8 @@ impl Layout for RectNode {
     ) -> SourceResult<Fragment> {
         layout(
             vt,
+            styles,
+            regions,
             ShapeKind::Rect,
             &self.body,
             Axes::new(self.width, self.height),
@@ -168,8 +170,6 @@ impl Layout for RectNode {
             styles.get(Self::INSET),
             styles.get(Self::OUTSET),
             styles.get(Self::RADIUS),
-            styles,
-            regions,
         )
     }
 }
@@ -278,6 +278,8 @@ impl Layout for SquareNode {
     ) -> SourceResult<Fragment> {
         layout(
             vt,
+            styles,
+            regions,
             ShapeKind::Square,
             &self.body,
             Axes::new(self.width, self.height),
@@ -286,8 +288,6 @@ impl Layout for SquareNode {
             styles.get(Self::INSET),
             styles.get(Self::OUTSET),
             styles.get(Self::RADIUS),
-            styles,
-            regions,
         )
     }
 }
@@ -372,6 +372,8 @@ impl Layout for EllipseNode {
     ) -> SourceResult<Fragment> {
         layout(
             vt,
+            styles,
+            regions,
             ShapeKind::Ellipse,
             &self.body,
             Axes::new(self.width, self.height),
@@ -380,8 +382,6 @@ impl Layout for EllipseNode {
             styles.get(Self::INSET),
             styles.get(Self::OUTSET),
             Corners::splat(Rel::zero()),
-            styles,
-            regions,
         )
     }
 }
@@ -485,6 +485,8 @@ impl Layout for CircleNode {
     ) -> SourceResult<Fragment> {
         layout(
             vt,
+            styles,
+            regions,
             ShapeKind::Circle,
             &self.body,
             Axes::new(self.width, self.height),
@@ -493,8 +495,6 @@ impl Layout for CircleNode {
             styles.get(Self::INSET),
             styles.get(Self::OUTSET),
             Corners::splat(Rel::zero()),
-            styles,
-            regions,
         )
     }
 }
@@ -502,6 +502,8 @@ impl Layout for CircleNode {
 /// Layout a shape.
 fn layout(
     vt: &mut Vt,
+    styles: StyleChain,
+    regions: Regions,
     kind: ShapeKind,
     body: &Option<Content>,
     sizing: Axes<Smart<Rel<Length>>>,
@@ -510,8 +512,6 @@ fn layout(
     mut inset: Sides<Rel<Abs>>,
     outset: Sides<Rel<Abs>>,
     radius: Corners<Rel<Abs>>,
-    styles: StyleChain,
-    regions: Regions,
 ) -> SourceResult<Fragment> {
     let resolved = sizing
         .zip(regions.base())

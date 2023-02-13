@@ -16,8 +16,8 @@ use crate::prelude::*;
 /// #place(
 ///   top + right,
 ///   square(
-///     width: 10pt,
-///     stroke: 1pt + blue
+///     width: 20pt,
+///     stroke: 2pt + blue
 ///   ),
 /// )
 /// ```

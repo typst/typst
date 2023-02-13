@@ -13,7 +13,7 @@ use crate::prelude::*;
 ///
 /// #pad(x: 16pt, image("typing.jpg"))
 /// _Typing speeds can be
-/// measured in words per minute._
+///  measured in words per minute._
 /// ```
 ///
 /// ## Parameters

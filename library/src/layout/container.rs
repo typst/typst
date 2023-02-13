@@ -41,20 +41,13 @@ use crate::prelude::*;
 /// - height: `Rel<Length>` (named)
 ///   The height of the box.
 ///
-/// - baseline: `Rel<Length>` (named)
-///   An amount to shift the box's baseline by.
-///
-///   ```example
-///   Image: #box(baseline: 40%, image("tiger.jpg", width: 2cm)).
-///   ```
-///
 /// ## Category
 /// layout
 #[func]
 #[capable(Layout)]
 #[derive(Debug, Hash)]
 pub struct BoxNode {
-    /// The content to be sized.
+    /// The box's content.
     pub body: Content,
     /// The box's width.
     pub width: Sizing,
@@ -64,7 +57,11 @@ pub struct BoxNode {
 
 #[node]
 impl BoxNode {
-    /// The box's baseline shift.
+    /// An amount to shift the box's baseline by.
+    ///
+    /// ```example
+    /// Image: #box(baseline: 40%, image("tiger.jpg", width: 2cm)).
+    /// ```
     #[property(resolve)]
     pub const BASELINE: Rel<Length> = Rel::zero();
 
@@ -127,11 +124,12 @@ impl Layout for BoxNode {
 
         // Resolve the sizing to a concrete size.
         let sizing = Axes::new(width, self.height);
+        let expand = sizing.as_ref().map(Smart::is_custom);
         let size = sizing
             .resolve(styles)
             .zip(regions.base())
             .map(|(s, b)| s.map(|v| v.relative_to(b)))
-            .unwrap_or(regions.size);
+            .unwrap_or(regions.base());
 
         // Apply inset.
         let mut child = self.body.clone();
@@ -142,8 +140,6 @@ impl Layout for BoxNode {
 
         // Select the appropriate base and expansion for the child depending
         // on whether it is automatically or relatively sized.
-        let is_auto = sizing.as_ref().map(Smart::is_auto);
-        let expand = regions.expand | !is_auto;
         let pod = Regions::one(size, expand);
         let mut frame = child.layout(vt, styles, pod)?.into_frame();
 
@@ -181,9 +177,9 @@ impl Layout for BoxNode {
 ///
 /// ## Examples
 /// With a block, you can give a background to content while still allowing it
-/// to break across multiple pages. The documentation examples can only have a
-/// single page, but the example below demonstrates how this would work.
+/// to break across multiple pages.
 /// ```example
+/// #set page(height: 100pt)
 /// #block(
 ///   fill: luma(230),
 ///   inset: 8pt,
@@ -204,27 +200,55 @@ impl Layout for BoxNode {
 /// More text.
 /// ```
 ///
-/// Last but not least, set rules for the block function can be used to
-/// configure the spacing around arbitrary block-level elements.
-/// ```example
-/// #set align(center)
-/// #show math.formula: set block(above: 8pt, below: 16pt)
-///
-/// This sum of $x$ and $y$:
-/// $ x + y = z $
-/// A second paragraph.
-/// ```
-///
 /// ## Parameters
 /// - body: `Content` (positional)
 ///   The contents of the block.
 ///
+/// - width: `Smart<Rel<Length>>` (named)
+///   The block's width.
+///
+///   ```example
+///   #set align(center)
+///   #block(
+///     width: 60%,
+///     inset: 8pt,
+///     fill: silver,
+///     lorem(10),
+///   )
+///   ```
+///
+/// - height: `Smart<Rel<Length>>` (named)
+///   The block's height. When the height is larger than the remaining space on
+///   a page and [`breakable`]($func/block.breakable) is `{true}`, the block
+///   will continue on the next page with the remaining height.
+///
+///   ```example
+///   #set page(height: 80pt)
+///   #set align(center)
+///   #block(
+///     width: 80%,
+///     height: 150%,
+///     fill: aqua,
+///   )
+///   ```
+///
 /// - spacing: `Spacing` (named, settable)
-///   The spacing around this block.
+///   The spacing around this block. This is shorthand to set `above` and
+///   `below` to the same value.
+///
+///   ```example
+///   #set align(center)
+///   #show math.formula: set block(above: 8pt, below: 16pt)
+///
+///   This sum of $x$ and $y$:
+///   $ x + y = z $
+///   A second paragraph.
+///   ```
 ///
 /// - above: `Spacing` (named, settable)
 ///   The spacing between this block and its predecessor. Takes precedence over
-///   `spacing`.
+///   `spacing`. Can be used in combination with a show rule to adjust the
+///   spacing around arbitrary block-level elements.
 ///
 ///   The default value is `{1.2em}`.
 ///
@@ -240,11 +264,30 @@ impl Layout for BoxNode {
 #[capable(Layout)]
 #[derive(Debug, Hash)]
 pub struct BlockNode {
+    /// The block's content.
     pub body: Content,
+    /// The box's width.
+    pub width: Smart<Rel<Length>>,
+    /// The box's height.
+    pub height: Smart<Rel<Length>>,
 }
 
 #[node]
 impl BlockNode {
+    /// Whether the block can be broken and continue on the next page.
+    ///
+    /// Defaults to `{true}`.
+    /// ```example
+    /// #set page(height: 80pt)
+    /// The following block will
+    /// jump to its own page.
+    /// #block(
+    ///   breakable: false,
+    ///   lorem(15),
+    /// )
+    /// ```
+    pub const BREAKABLE: bool = true;
+
     /// The block's background color. See the
     /// [rectangle's documentation]($func/rect.fill) for more details.
     pub const FILL: Option<Paint> = None;
@@ -285,7 +328,9 @@ impl BlockNode {
 
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let body = args.eat()?.unwrap_or_default();
-        Ok(Self { body }.pack())
+        let width = args.named("width")?.unwrap_or_default();
+        let height = args.named("height")?.unwrap_or_default();
+        Ok(Self { body, width, height }.pack())
     }
 
     fn set(...) {
@@ -315,8 +360,52 @@ impl Layout for BlockNode {
             child = child.clone().padded(inset.map(|side| side.map(Length::from)));
         }
 
+        // Resolve the sizing to a concrete size.
+        let sizing = Axes::new(self.width, self.height);
+        let mut expand = sizing.as_ref().map(Smart::is_custom);
+        let mut size = sizing
+            .resolve(styles)
+            .zip(regions.base())
+            .map(|(s, b)| s.map(|v| v.relative_to(b)))
+            .unwrap_or(regions.base());
+
         // Layout the child.
-        let mut frames = child.layout(vt, styles, regions)?.into_frames();
+        let mut frames = if styles.get(Self::BREAKABLE) {
+            // Measure to ensure frames for all regions have the same width.
+            if self.width == Smart::Auto {
+                let pod = Regions::one(size, Axes::splat(false));
+                let frame = child.layout(vt, styles, pod)?.into_frame();
+                size.x = frame.width();
+                expand.x = true;
+            }
+
+            let mut pod = regions;
+            pod.size.x = size.x;
+            pod.expand = expand;
+
+            // Generate backlog for fixed height.
+            let mut heights = vec![];
+            if self.height.is_custom() {
+                let mut remaining = size.y;
+                for region in regions.iter() {
+                    let limited = region.y.min(remaining);
+                    heights.push(limited);
+                    remaining -= limited;
+                    if Abs::zero().fits(remaining) {
+                        break;
+                    }
+                }
+
+                pod.size.y = heights[0];
+                pod.backlog = &heights[1..];
+                pod.last = None;
+            }
+
+            child.layout(vt, styles, pod)?.into_frames()
+        } else {
+            let pod = Regions::one(size, expand);
+            child.layout(vt, styles, pod)?.into_frames()
+        };
 
         // Prepare fill and stroke.
         let fill = styles.get(Self::FILL);
@@ -326,9 +415,14 @@ impl Layout for BlockNode {
 
         // Add fill and/or stroke.
         if fill.is_some() || stroke.iter().any(Option::is_some) {
+            let mut skip = false;
+            if let [first, rest @ ..] = frames.as_slice() {
+                skip = first.is_empty() && rest.iter().any(|frame| !frame.is_empty());
+            }
+
             let outset = styles.get(Self::OUTSET);
             let radius = styles.get(Self::RADIUS);
-            for frame in &mut frames {
+            for frame in frames.iter_mut().skip(skip as usize) {
                 frame.fill_and_stroke(fill, stroke, outset, radius);
             }
         }

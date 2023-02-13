@@ -73,7 +73,7 @@ pub trait Get<Index> {
 }
 
 /// A geometric shape with optional fill and stroke.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Shape {
     /// The shape's geometry.
     pub geometry: Geometry,
@@ -84,7 +84,7 @@ pub struct Shape {
 }
 
 /// A shape's geometry.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum Geometry {
     /// A line to a point (relative to its position).
     Line(Point),

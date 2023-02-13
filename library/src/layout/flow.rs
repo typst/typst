@@ -44,7 +44,10 @@ impl Layout for FlowNode {
             } else if child.has::<dyn Layout>() {
                 layouter.layout_multiple(vt, child, styles)?;
             } else if child.is::<ColbreakNode>() {
-                layouter.finish_region();
+                if !layouter.regions.backlog.is_empty() || layouter.regions.last.is_some()
+                {
+                    layouter.finish_region();
+                }
             } else {
                 panic!("unexpected flow child: {child:?}");
             }
@@ -207,7 +210,10 @@ impl<'a> FlowLayouter<'a> {
         // Layout the block itself.
         let sticky = styles.get(BlockNode::STICKY);
         let fragment = block.layout(vt, styles, self.regions)?;
-        for frame in fragment {
+        for (i, frame) in fragment.into_iter().enumerate() {
+            if i > 0 {
+                self.finish_region();
+            }
             self.layout_item(FlowItem::Frame(frame, aligns, sticky));
         }
 
@@ -264,8 +270,7 @@ impl<'a> FlowLayouter<'a> {
 
         // Determine the size of the flow in this region depending on whether
         // the region expands.
-        let mut size = self.expand.select(self.full, used);
-        size.y.set_min(self.full.y);
+        let mut size = self.expand.select(self.full, used).min(self.full);
 
         // Account for fractional spacing in the size calculation.
         let remaining = self.full.y - used.y;

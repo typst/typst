@@ -67,7 +67,7 @@ pub trait Resolver {
     fn image(&self, filename: &str, data: &[u8]) -> String;
 
     /// Produce HTML for an example.
-    fn example(&self, source: Html, frame: Frame) -> Html;
+    fn example(&self, source: Html, frames: &[Frame]) -> Html;
 }
 
 /// Details about a documentation page and its children.

@@ -351,14 +351,14 @@ impl Debug for PageNode {
 /// more details on compound theory.
 /// #pagebreak()
 ///
-/// // Examples only render the first
-/// // page, so this is not visible.
 /// == Compound Theory
+/// In 1984, the first ...
 /// ```
 ///
 /// ## Parameters
 /// - weak: `bool` (named)
-///   If `{true}`, the page break is skipped if the current page is already empty.
+///   If `{true}`, the page break is skipped if the current page is already
+///   empty.
 ///
 /// ## Category
 /// layout
