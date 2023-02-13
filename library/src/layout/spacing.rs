@@ -5,22 +5,20 @@ use crate::prelude::*;
 /// # Spacing (H)
 /// Insert horizontal spacing into a paragraph.
 ///
-/// The spacing can be a length or a fractional. In the latter case, the
+/// The spacing can be absolute, relative, or fractional. In the last case, the
 /// remaining space on the line is distributed among all fractional spacings
 /// according to their relative fractions.
 ///
 /// ## Example
 /// ```example
-/// #circle(fill: red)
-/// #h(1fr)
-/// #circle(fill: yellow)
-/// #h(2fr)
-/// #circle(fill: green)
+/// First #h(1cm) Second \
+/// First #h(30%) Second \
+/// First #h(2fr) Second #h(1fr) Third
 /// ```
 ///
 /// ## Mathematical Spacing
 /// In [mathematical formulas]($category/math), you can additionally use these
-/// constants to add spacing between elements: `thin`, `med`, `thick, `quad`.
+/// constants to add spacing between elements: `thin`, `med`, `thick`, `quad`.
 ///
 /// ## Parameters
 /// - amount: `Spacing` (positional, required)
@@ -93,26 +91,25 @@ impl Behave for HNode {
 }
 
 /// # Spacing (V)
-/// Insert vertical spacing.
+/// Insert vertical spacing into a flow of blocks.
 ///
-/// The spacing can be a length or a fractional. In the latter case, the
-/// remaining space on the page is distributed among all fractional spacings
+/// The spacing can be absolute, relative, or fractional. In the last case,
+/// the remaining space on the page is distributed among all fractional spacings
 /// according to their relative fractions.
 ///
 /// ## Example
 /// ```example
-/// In this report, we will explore
-/// the various ethical
-/// considerations that must be
-/// taken into account when
-/// conducting psychological
-/// research:
-/// #v(5mm)
-///
-/// - Informed consent
-/// - Participant confidentiality
-/// - The use of
-///   vulnerable populations.
+/// #grid(
+///   rows: 3cm,
+///   columns: 6,
+///   gutter: 1fr,
+///   [A #parbreak() B],
+///   [A #v(0pt) B],
+///   [A #v(10pt) B],
+///   [A #v(0pt, weak: true) B],
+///   [A #v(40%, weak: true) B],
+///   [A #v(1fr) B],
+/// )
 /// ```
 ///
 /// ## Parameters
