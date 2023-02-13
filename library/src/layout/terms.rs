@@ -82,7 +82,7 @@ impl TermsNode {
 
     /// The spacing between the items of a wide (non-tight) term list.
     ///
-    /// If set to `{auto}` uses the spacing [below blocks]($func/block.below).
+    /// If set to `{auto}`, uses the spacing [below blocks]($func/block.below).
     pub const SPACING: Smart<Spacing> = Smart::Auto;
 
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
@@ -171,7 +171,7 @@ castable! {
         let mut iter = array.into_iter();
         let (term, description) = match (iter.next(), iter.next(), iter.next()) {
             (Some(a), Some(b), None) => (a.cast()?, b.cast()?),
-            _ => Err("array must contain exactly two entries")?,
+            _ => Err("term array must contain exactly two entries")?,
         };
         Self { term, description }
     },

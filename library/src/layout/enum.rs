@@ -150,7 +150,7 @@ impl EnumNode {
 
     /// The spacing between the items of a wide (non-tight) enumeration.
     ///
-    /// If set to `{auto}` uses the spacing [below blocks]($func/block.below).
+    /// If set to `{auto}`, uses the spacing [below blocks]($func/block.below).
     pub const SPACING: Smart<Spacing> = Smart::Auto;
 
     /// The numbers of parent items.

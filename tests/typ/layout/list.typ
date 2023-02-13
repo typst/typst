@@ -45,11 +45,6 @@ _Shopping list_
 		- B with 2 tabs
 
 ---
-#set list(marker: [-])
-- Bare hyphen
-- is not a list
-
----
 // Edge cases.
 -
 Not in list
