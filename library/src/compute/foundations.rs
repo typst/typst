@@ -1,9 +1,5 @@
 use crate::prelude::*;
 
-use comemo::Track;
-use typst::model;
-use typst::syntax::Source;
-
 /// # Type
 /// Determine a value's type.
 ///
@@ -92,32 +88,29 @@ pub fn assert(args: &mut Args) -> SourceResult<Value> {
 }
 
 /// # Evaluate
-/// Evaluate a string as Typst markup.
+/// Evaluate a string as Typst code.
 ///
-/// You shouldn't typically need this function, but it is there if you do.
+/// This function should only be used as a last resort.
 ///
 /// ## Example
 /// ```example
-/// #let markup = "= Heading\n _Emphasis_"
-/// #eval(markup)
+/// #eval("1 + 2") \
+/// #eval("[*Strong text*]") \
+/// #eval("(1, 2, 3)").len()
 /// ```
 ///
 /// ## Parameters
 /// - source: `String` (positional, required)
-///   A string of Typst markup to evaluate.
+///   A string of Typst code to evaluate.
 ///
-///   The markup and code in the string cannot interact with the file system.
+///   The code in the string cannot interact with the file system.
 ///
-/// - returns: content
+/// - returns: any
 ///
 /// ## Category
 /// foundations
 #[func]
 pub fn eval(vm: &Vm, args: &mut Args) -> SourceResult<Value> {
     let Spanned { v: text, span } = args.expect::<Spanned<String>>("source")?;
-    let source = Source::synthesized(text, span);
-    let route = model::Route::default();
-    let mut tracer = model::Tracer::default();
-    let module = model::eval(vm.world(), route.track(), tracer.track_mut(), &source)?;
-    Ok(Value::Content(module.content()))
+    typst::model::eval_code_str(vm.world(), &text, span)
 }

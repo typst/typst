@@ -175,7 +175,7 @@ impl SyntaxNode {
     }
 
     /// Set a synthetic span for the node and all its descendants.
-    pub(super) fn synthesize(&mut self, span: Span) {
+    pub(crate) fn synthesize(&mut self, span: Span) {
         match &mut self.0 {
             Repr::Leaf(leaf) => leaf.span = span,
             Repr::Inner(inner) => Arc::make_mut(inner).synthesize(span),

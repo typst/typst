@@ -16,7 +16,9 @@ use crate::diag::{
     bail, error, At, SourceError, SourceResult, StrResult, Trace, Tracepoint,
 };
 use crate::syntax::ast::AstNode;
-use crate::syntax::{ast, Source, SourceId, Span, Spanned, SyntaxKind, SyntaxNode};
+use crate::syntax::{
+    ast, parse_code, Source, SourceId, Span, Spanned, SyntaxKind, SyntaxNode,
+};
 use crate::util::PathExt;
 use crate::World;
 
@@ -61,6 +63,40 @@ pub fn eval(
     // Assemble the module.
     let name = path.file_stem().unwrap_or_default().to_string_lossy();
     Ok(Module::new(name).with_scope(vm.scopes.top).with_content(result?))
+}
+
+/// Evaluate a string as code and return the resulting value.
+///
+/// Everything in the output is associated with the given `span`.
+#[comemo::memoize]
+pub fn eval_code_str(
+    world: Tracked<dyn World>,
+    text: &str,
+    span: Span,
+) -> SourceResult<Value> {
+    let mut root = parse_code(text);
+    root.synthesize(span);
+
+    let errors = root.errors();
+    if !errors.is_empty() {
+        return Err(Box::new(errors));
+    }
+
+    let id = SourceId::detached();
+    let library = world.library();
+    let scopes = Scopes::new(Some(library));
+    let route = Route::default();
+    let mut tracer = Tracer::default();
+    let mut vm = Vm::new(world, route.track(), tracer.track_mut(), id, scopes, 0);
+    let code = root.cast::<ast::Code>().unwrap();
+    let result = code.eval(&mut vm);
+
+    // Handle control flow.
+    if let Some(flow) = vm.flow {
+        bail!(flow.forbidden());
+    }
+
+    result
 }
 
 /// A virtual machine.

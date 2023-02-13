@@ -27,14 +27,14 @@
 #test(type(10 / 3), "float")
 
 ---
-#eval("_Hello" + " World!_")
+#eval("[_Hello" + " World!_]")
 
 ---
-// Error: 7-13 expected identifier
-#eval("#let")
+// Error: 7-12 expected identifier
+#eval("let")
 
 ---
-#show raw: it => text("IBM Plex Sans", eval(it.text))
+#show raw: it => text("IBM Plex Sans", eval("[" + it.text + "]"))
 
 Interacting
 ```
@@ -43,28 +43,28 @@ Blue #move(dy: -0.15em)[🌊]
 ```
 
 ---
-// Error: 7-18 cannot continue outside of loop
-#eval("#continue")
+// Error: 7-17 cannot continue outside of loop
+#eval("continue")
 
 ---
-// Error: 7-33 cannot access file system from here
-#eval("#include \"../coma.typ\"")
+// Error: 7-32 cannot access file system from here
+#eval("include \"../coma.typ\"")
 
 ---
-// Error: 7-31 cannot access file system from here
-#eval("#image(\"/tiger.jpg\")")
+// Error: 7-30 cannot access file system from here
+#eval("image(\"/tiger.jpg\")")
 
 ---
 // Error: 23-30 cannot access file system from here
 #show raw: it => eval(it.text)
 
 ```
-#image("/tiger.jpg")
+image("/tiger.jpg")
 ```
 
 ---
-// Error: 23-30 cannot access file system from here
-#show raw: it => eval(it.text)
+// Error: 23-42 cannot access file system from here
+#show raw: it => eval("[" + it.text + "]")
 
 ```
 #show emph: _ => image("/giraffe.jpg")
@@ -72,5 +72,5 @@ _No relative giraffe!_
 ```
 
 ---
-// Error: 7-15 expected comma
-#eval("#(1 2)")
+// Error: 7-12 expected semicolon or line break
+#eval("1 2")
