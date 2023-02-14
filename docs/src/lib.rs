@@ -209,7 +209,7 @@ fn category_page(resolver: &dyn Resolver, category: &str) -> PageModel {
         // Skip grouped functions.
         if grouped
             .iter()
-            .flat_map(|merge| &merge.functions)
+            .flat_map(|group| &group.functions)
             .any(|f| f == info.name)
         {
             continue;

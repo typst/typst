@@ -125,15 +125,10 @@ impl<'a> Handler<'a> {
                     "unsupported link type: {ty:?}",
                 );
 
-                let mut link = self
+                *dest = self
                     .handle_link(dest)
-                    .unwrap_or_else(|| panic!("invalid link: {dest}"));
-
-                if !link.contains('#') && !link.ends_with('/') {
-                    link.push('/');
-                }
-
-                *dest = link.into();
+                    .unwrap_or_else(|| panic!("invalid link: {dest}"))
+                    .into();
             }
 
             // Inline raw.
@@ -226,14 +221,34 @@ impl<'a> Handler<'a> {
             let info = func.info()?;
             route.push_str(info.category);
             route.push('/');
-            route.push_str(name);
-            route.push('/');
-            if let Some(param) = param {
-                route.push_str("#parameters--");
-                route.push_str(param);
+
+            if let Some(group) = GROUPS
+                .iter()
+                .find(|group| group.functions.iter().any(|func| func == info.name))
+            {
+                route.push_str(&group.name);
+                route.push_str("/#");
+                route.push_str(info.name);
+                if let Some(param) = param {
+                    route.push_str("-parameters--");
+                    route.push_str(param);
+                } else {
+                    route.push_str("-summary");
+                }
+            } else {
+                route.push_str(name);
+                route.push('/');
+                if let Some(param) = param {
+                    route.push_str("#parameters--");
+                    route.push_str(param);
+                }
             }
         } else {
             route.push_str(rest);
+        }
+
+        if !route.contains('#') && !route.ends_with('/') {
+            route.push('/');
         }
 
         Some(route)

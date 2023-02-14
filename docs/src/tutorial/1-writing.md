@@ -239,8 +239,8 @@ $ v := vec(x_1, x_2, x_3) $
 ```
 
 Some functions are only available within math mode. For example, the
-[`cal`]($func/cal) function is used to typeset calligraphic letters commonly used for
-sets. The [math section of the reference]($category/math) provides a
+[`cal`]($func/cal) function is used to typeset calligraphic letters commonly
+used for sets. The [math section of the reference]($category/math) provides a
 complete list of all functions that math mode makes available.
 
 One more thing: Many symbols, such as the arrow, have a lot of variants. You can
@@ -251,8 +251,9 @@ name:
 $ a arrow.squiggly b $
 ```
 
-This notation is also available in markup mode, but the complete symbol name
-with modifiers must then be enclosed in colons. See the documentation of the [text]($category/text) and [math sections]($category/math) for more details.
+This notation is also available in markup mode, but the symbol name must be
+preceded with `#sym.` there. See the [symbols section]($category/symbols/sym)
+for a list of all available symbols.
 
 ## Review
 You have now seen how to write a basic document in Typst. You learned how to
