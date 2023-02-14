@@ -184,15 +184,14 @@ pub struct GridLayouter<'a, 'v> {
     styles: StyleChain<'a>,
     /// Resolved column sizes.
     rcols: Vec<Abs>,
+    /// The sum of `rcols`.
+    width: Abs,
     /// Resolve row sizes, by region.
     rrows: Vec<Vec<RowPiece>>,
     /// Rows in the current region.
     lrows: Vec<Row>,
-    /// The used-up size of the current region. The horizontal size is
-    /// determined once after columns are resolved and not touched again.
-    used: Size,
-    /// The sum of fractions in the current region.
-    fr: Fr,
+    /// The initial size of the current region before we started subtracting.
+    initial: Size,
     /// Frames for finished regions.
     finished: Vec<Frame>,
 }
@@ -306,10 +305,10 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
             regions,
             styles,
             rcols,
+            width: Abs::zero(),
             rrows: vec![],
             lrows,
-            used: Size::zero(),
-            fr: Fr::zero(),
+            initial: regions.size,
             finished: vec![],
         }
     }
@@ -328,10 +327,7 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
             match self.rows[y] {
                 Sizing::Auto => self.layout_auto_row(y)?,
                 Sizing::Rel(v) => self.layout_relative_row(v, y)?,
-                Sizing::Fr(v) => {
-                    self.lrows.push(Row::Fr(v, y));
-                    self.fr += v;
-                }
+                Sizing::Fr(v) => self.lrows.push(Row::Fr(v, y)),
             }
         }
 
@@ -384,7 +380,7 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
         }
 
         // Sum up the resolved column sizes once here.
-        self.used.x = self.rcols.iter().sum();
+        self.width = self.rcols.iter().sum();
 
         Ok(())
     }
@@ -523,13 +519,16 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
             resolved.remove(0);
         }
 
-        // Expand all but the last region if the space is not
-        // eaten up by any fr rows.
-        if self.fr.is_zero() {
-            let len = resolved.len();
-            for (region, target) in self.regions.iter().zip(&mut resolved[..len - 1]) {
-                target.set_max(region.y);
-            }
+        // Expand all but the last region.
+        // Skip the first region if the space is eaten up by an fr row.
+        let len = resolved.len();
+        for (region, target) in self
+            .regions
+            .iter()
+            .zip(&mut resolved[..len - 1])
+            .skip(self.lrows.iter().any(|row| matches!(row, Row::Fr(..))) as usize)
+        {
+            target.set_max(region.y);
         }
 
         // Layout into multiple regions.
@@ -569,7 +568,7 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
 
     /// Layout a row with fixed height and return its frame.
     fn layout_single_row(&mut self, height: Abs, y: usize) -> SourceResult<Frame> {
-        let mut output = Frame::new(Size::new(self.used.x, height));
+        let mut output = Frame::new(Size::new(self.width, height));
         let mut pos = Point::zero();
 
         for (x, &rcol) in self.rcols.iter().enumerate() {
@@ -594,11 +593,11 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
         // Prepare frames.
         let mut outputs: Vec<_> = heights
             .iter()
-            .map(|&h| Frame::new(Size::new(self.used.x, h)))
+            .map(|&h| Frame::new(Size::new(self.width, h)))
             .collect();
 
         // Prepare regions.
-        let size = Size::new(self.used.x, heights[0]);
+        let size = Size::new(self.width, heights[0]);
         let mut pod = Regions::one(size, Axes::splat(true));
         pod.full = self.regions.full;
         pod.backlog = &heights[1..];
@@ -625,17 +624,26 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
     /// Push a row frame into the current region.
     fn push_row(&mut self, frame: Frame, y: usize) {
         self.regions.size.y -= frame.height();
-        self.used.y += frame.height();
         self.lrows.push(Row::Frame(frame, y));
     }
 
     /// Finish rows for one region.
     fn finish_region(&mut self) -> SourceResult<()> {
+        // Determine the height of existing rows in the region.
+        let mut used = Abs::zero();
+        let mut fr = Fr::zero();
+        for row in &self.lrows {
+            match row {
+                Row::Frame(frame, _) => used += frame.height(),
+                Row::Fr(v, _) => fr += *v,
+            }
+        }
+
         // Determine the size of the grid in this region, expanding fully if
         // there are fr rows.
-        let mut size = self.used;
-        if self.fr.get() > 0.0 && self.regions.full.is_finite() {
-            size.y = self.regions.full;
+        let mut size = Size::new(self.width, used).min(self.initial);
+        if fr.get() > 0.0 && self.initial.y.is_finite() {
+            size.y = self.initial.y;
         }
 
         // The frame for the region.
@@ -648,8 +656,8 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
             let (frame, y) = match row {
                 Row::Frame(frame, y) => (frame, y),
                 Row::Fr(v, y) => {
-                    let remaining = self.regions.full - self.used.y;
-                    let height = v.share(self.fr, remaining);
+                    let remaining = self.regions.full - used;
+                    let height = v.share(fr, remaining);
                     (self.layout_single_row(height, y)?, y)
                 }
             };
@@ -661,10 +669,9 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
         }
 
         self.finished.push(output);
-        self.regions.next();
         self.rrows.push(rrows);
-        self.used.y = Abs::zero();
-        self.fr = Fr::zero();
+        self.regions.next();
+        self.initial = self.regions.size;
 
         Ok(())
     }

@@ -34,7 +34,7 @@ impl Fr {
     pub fn share(self, total: Self, remaining: Abs) -> Abs {
         let ratio = self / total;
         if ratio.is_finite() && remaining.is_finite() {
-            ratio * remaining
+            (ratio * remaining).max(Abs::zero())
         } else {
             Abs::zero()
         }

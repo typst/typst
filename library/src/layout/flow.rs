@@ -70,9 +70,9 @@ struct FlowLayouter<'a> {
     regions: Regions<'a>,
     /// Whether the flow should expand to fill the region.
     expand: Axes<bool>,
-    /// The full size of `regions.size` that was available before we started
+    /// The intial size of `regions.size` that was available before we started
     /// subtracting.
-    full: Size,
+    initial: Size,
     /// Whether the last block was a paragraph.
     last_was_par: bool,
     /// Spacing and layouted blocks.
@@ -98,7 +98,6 @@ impl<'a> FlowLayouter<'a> {
     /// Create a new flow layouter.
     fn new(mut regions: Regions<'a>) -> Self {
         let expand = regions.expand;
-        let full = regions.size;
 
         // Disable vertical expansion for children.
         regions.expand.y = false;
@@ -106,7 +105,7 @@ impl<'a> FlowLayouter<'a> {
         Self {
             regions,
             expand,
-            full,
+            initial: regions.size,
             last_was_par: false,
             items: vec![],
             finished: vec![],
@@ -117,7 +116,7 @@ impl<'a> FlowLayouter<'a> {
     fn layout_spacing(&mut self, node: VNode, styles: StyleChain) {
         self.layout_item(match node.amount {
             Spacing::Rel(v) => FlowItem::Absolute(
-                v.resolve(styles).relative_to(self.full.y),
+                v.resolve(styles).relative_to(self.initial.y),
                 node.weakness > 0,
             ),
             Spacing::Fr(v) => FlowItem::Fractional(v),
@@ -256,10 +255,10 @@ impl<'a> FlowLayouter<'a> {
         let mut fr = Fr::zero();
         let mut used = Size::zero();
         for item in &self.items {
-            match *item {
-                FlowItem::Absolute(v, _) => used.y += v,
-                FlowItem::Fractional(v) => fr += v,
-                FlowItem::Frame(ref frame, ..) => {
+            match item {
+                FlowItem::Absolute(v, _) => used.y += *v,
+                FlowItem::Fractional(v) => fr += *v,
+                FlowItem::Frame(frame, ..) => {
                     let size = frame.size();
                     used.y += size.y;
                     used.x.set_max(size.x);
@@ -269,14 +268,10 @@ impl<'a> FlowLayouter<'a> {
         }
 
         // Determine the size of the flow in this region depending on whether
-        // the region expands.
-        let mut size = self.expand.select(self.full, used).min(self.full);
-
-        // Account for fractional spacing in the size calculation.
-        let remaining = self.full.y - used.y;
-        if fr.get() > 0.0 && self.full.y.is_finite() {
-            used.y = self.full.y;
-            size.y = self.full.y;
+        // the region expands. Also account for fractional spacing.
+        let mut size = self.expand.select(self.initial, used).min(self.initial);
+        if fr.get() > 0.0 && self.initial.y.is_finite() {
+            size.y = self.initial.y;
         }
 
         let mut output = Frame::new(size);
@@ -290,6 +285,7 @@ impl<'a> FlowLayouter<'a> {
                     offset += v;
                 }
                 FlowItem::Fractional(v) => {
+                    let remaining = self.initial.y - used.y;
                     offset += v.share(fr, remaining);
                 }
                 FlowItem::Frame(frame, aligns, _) => {
@@ -309,7 +305,7 @@ impl<'a> FlowLayouter<'a> {
         // Advance to the next region.
         self.finished.push(output);
         self.regions.next();
-        self.full = self.regions.size;
+        self.initial = self.regions.size;
     }
 
     /// Finish layouting and return the resulting fragment.

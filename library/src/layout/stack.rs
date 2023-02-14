@@ -129,8 +129,8 @@ struct StackLayouter<'a> {
     styles: StyleChain<'a>,
     /// Whether the stack itself should expand to fill the region.
     expand: Axes<bool>,
-    /// The full size of the current region that was available at the start.
-    full: Size,
+    /// The initial size of the current region before we started subtracting.
+    initial: Size,
     /// The generic size used by the frames for the current region.
     used: Gen<Abs>,
     /// The sum of fractions in the current region.
@@ -154,13 +154,11 @@ enum StackItem {
 
 impl<'a> StackLayouter<'a> {
     /// Create a new stack layouter.
-    fn new(dir: Dir, regions: Regions<'a>, styles: StyleChain<'a>) -> Self {
+    fn new(dir: Dir, mut regions: Regions<'a>, styles: StyleChain<'a>) -> Self {
         let axis = dir.axis();
         let expand = regions.expand;
-        let full = regions.size;
 
         // Disable expansion along the block axis for children.
-        let mut regions = regions.clone();
         regions.expand.set(axis, false);
 
         Self {
@@ -169,7 +167,7 @@ impl<'a> StackLayouter<'a> {
             regions,
             styles,
             expand,
-            full,
+            initial: regions.size,
             used: Gen::zero(),
             fr: Fr::zero(),
             items: vec![],
@@ -251,11 +249,13 @@ impl<'a> StackLayouter<'a> {
     fn finish_region(&mut self) {
         // Determine the size of the stack in this region dependening on whether
         // the region expands.
-        let used = self.used.to_axes(self.axis);
-        let mut size = self.expand.select(self.full, used);
+        let mut size = self
+            .expand
+            .select(self.initial, self.used.to_axes(self.axis))
+            .min(self.initial);
 
         // Expand fully if there are fr spacings.
-        let full = self.full.get(self.axis);
+        let full = self.initial.get(self.axis);
         let remaining = full - self.used.main;
         if self.fr.get() > 0.0 && full.is_finite() {
             self.used.main = full;
@@ -303,7 +303,7 @@ impl<'a> StackLayouter<'a> {
 
         // Advance to the next region.
         self.regions.next();
-        self.full = self.regions.size;
+        self.initial = self.regions.size;
         self.used = Gen::zero();
         self.fr = Fr::zero();
         self.finished.push(output);
