@@ -1,4 +1,4 @@
-use crate::layout::{AlignNode, GridNode, Sizing, TrackSizings};
+use crate::layout::{AlignNode, GridLayouter, Sizing, TrackSizings};
 use crate::prelude::*;
 
 /// # Table
@@ -153,13 +153,11 @@ impl Layout for TableNode {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let fill = styles.get(Self::FILL);
-        let stroke = styles.get(Self::STROKE).map(PartialStroke::unwrap_or_default);
         let inset = styles.get(Self::INSET);
         let align = styles.get(Self::ALIGN);
 
         let cols = self.tracks.x.len().max(1);
-        let cells = self
+        let cells: Vec<_> = self
             .cells
             .iter()
             .cloned()
@@ -173,25 +171,79 @@ impl Layout for TableNode {
                     child = child.styled(AlignNode::ALIGNS, alignment)
                 }
 
-                if let Some(stroke) = stroke {
-                    child = child.stroked(stroke);
-                }
-
-                if let Some(fill) = fill.resolve(vt, x, y)? {
-                    child = child.filled(fill);
-                }
-
                 Ok(child)
             })
             .collect::<SourceResult<_>>()?;
 
-        GridNode {
-            tracks: self.tracks.clone(),
-            gutter: self.gutter.clone(),
-            cells,
+        let fill = styles.get(Self::FILL);
+        let stroke = styles.get(Self::STROKE).map(PartialStroke::unwrap_or_default);
+
+        // Prepare grid layout by unifying content and gutter tracks.
+        let layouter = GridLayouter::new(
+            vt,
+            self.tracks.as_deref(),
+            self.gutter.as_deref(),
+            &cells,
+            regions,
+            styles,
+        );
+
+        // Measure the columns and layout the grid row-by-row.
+        let mut layout = layouter.layout()?;
+
+        // Add lines and backgrounds.
+        for (frame, rows) in layout.fragment.iter_mut().zip(&layout.rows) {
+            // Render table lines.
+            if let Some(stroke) = stroke {
+                let thickness = stroke.thickness;
+                let half = thickness / 2.0;
+
+                // Render horizontal lines.
+                for offset in points(rows.iter().map(|piece| piece.height)) {
+                    let target = Point::with_x(frame.width() + thickness);
+                    let hline = Geometry::Line(target).stroked(stroke);
+                    frame.prepend(Point::new(-half, offset), Element::Shape(hline));
+                }
+
+                // Render vertical lines.
+                for offset in points(layout.cols.iter().copied()) {
+                    let target = Point::with_y(frame.height() + thickness);
+                    let vline = Geometry::Line(target).stroked(stroke);
+                    frame.prepend(Point::new(offset, -half), Element::Shape(vline));
+                }
+            }
+
+            // Render cell backgrounds.
+            let mut dx = Abs::zero();
+            for (x, &col) in layout.cols.iter().enumerate() {
+                let mut dy = Abs::zero();
+                for row in rows {
+                    if let Some(fill) = fill.resolve(vt, x, row.y)? {
+                        let pos = Point::new(dx, dy);
+                        let size = Size::new(col, row.height);
+                        let rect = Geometry::Rect(size).filled(fill);
+                        frame.prepend(pos, Element::Shape(rect));
+                    }
+                    dy += row.height;
+                }
+                dx += col;
+            }
         }
-        .layout(vt, styles, regions)
+
+        Ok(layout.fragment)
     }
+}
+
+/// Turn an iterator extents into an iterator of offsets before, in between, and
+/// after the extents, e.g. [10mm, 5mm] -> [0mm, 10mm, 15mm].
+fn points(extents: impl IntoIterator<Item = Abs>) -> impl Iterator<Item = Abs> {
+    let mut offset = Abs::zero();
+    std::iter::once(Abs::zero())
+        .chain(extents.into_iter())
+        .map(move |extent| {
+            offset += extent;
+            offset
+        })
 }
 
 /// A value that can be configured per cell.

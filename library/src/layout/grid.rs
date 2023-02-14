@@ -139,7 +139,7 @@ impl Layout for GridNode {
         );
 
         // Measure the columns and layout the grid row-by-row.
-        layouter.layout()
+        Ok(layouter.layout()?.fragment)
     }
 }
 
@@ -165,7 +165,7 @@ castable! {
 }
 
 /// Performs grid layout.
-struct GridLayouter<'a, 'v> {
+pub struct GridLayouter<'a, 'v> {
     /// The core context.
     vt: &'a mut Vt<'v>,
     /// The grid cells.
@@ -184,6 +184,8 @@ struct GridLayouter<'a, 'v> {
     styles: StyleChain<'a>,
     /// Resolved column sizes.
     rcols: Vec<Abs>,
+    /// Resolve row sizes, by region.
+    rrows: Vec<Vec<RowPiece>>,
     /// Rows in the current region.
     lrows: Vec<Row>,
     /// The used-up size of the current region. The horizontal size is
@@ -195,11 +197,31 @@ struct GridLayouter<'a, 'v> {
     finished: Vec<Frame>,
 }
 
+/// The resulting sizes of columns and rows in a grid.
+#[derive(Debug)]
+pub struct GridLayout {
+    /// The fragment.
+    pub fragment: Fragment,
+    /// The column widths.
+    pub cols: Vec<Abs>,
+    /// The heights of the resulting rows segments, by region.
+    pub rows: Vec<Vec<RowPiece>>,
+}
+
+/// Details about a resulting row piece.
+#[derive(Debug)]
+pub struct RowPiece {
+    /// The height of the segment.
+    pub height: Abs,
+    /// The index of the row.
+    pub y: usize,
+}
+
 /// Produced by initial row layout, auto and relative rows are already finished,
 /// fractional rows not yet.
 enum Row {
-    /// Finished row frame of auto or relative row.
-    Frame(Frame),
+    /// Finished row frame of auto or relative row with y index.
+    Frame(Frame, usize),
     /// Fractional row with y index.
     Fr(Fr, usize),
 }
@@ -208,7 +230,7 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
     /// Create a new grid layouter.
     ///
     /// This prepares grid layout by unifying content and gutter tracks.
-    fn new(
+    pub fn new(
         vt: &'a mut Vt<'v>,
         tracks: Axes<&[Sizing]>,
         gutter: Axes<&[Sizing]>,
@@ -284,6 +306,7 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
             regions,
             styles,
             rcols,
+            rrows: vec![],
             lrows,
             used: Size::zero(),
             fr: Fr::zero(),
@@ -292,7 +315,7 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
     }
 
     /// Determines the columns sizes and then layouts the grid row-by-row.
-    fn layout(mut self) -> SourceResult<Fragment> {
+    pub fn layout(mut self) -> SourceResult<GridLayout> {
         self.measure_columns()?;
 
         for y in 0..self.rows.len() {
@@ -313,7 +336,12 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
         }
 
         self.finish_region()?;
-        Ok(Fragment::frames(self.finished))
+
+        Ok(GridLayout {
+            fragment: Fragment::frames(self.finished),
+            cols: self.rcols,
+            rows: self.rrows,
+        })
     }
 
     /// Determine all column sizes.
@@ -485,7 +513,7 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
         // Layout into a single region.
         if let &[first] = resolved.as_slice() {
             let frame = self.layout_single_row(first, y)?;
-            self.push_row(frame);
+            self.push_row(frame, y);
             return Ok(());
         }
 
@@ -508,7 +536,7 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
         let fragment = self.layout_multi_row(&resolved, y)?;
         let len = fragment.len();
         for (i, frame) in fragment.into_iter().enumerate() {
-            self.push_row(frame);
+            self.push_row(frame, y);
             if i + 1 < len {
                 self.finish_region()?;
             }
@@ -534,7 +562,7 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
             }
         }
 
-        self.push_row(frame);
+        self.push_row(frame, y);
 
         Ok(())
     }
@@ -595,10 +623,10 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
     }
 
     /// Push a row frame into the current region.
-    fn push_row(&mut self, frame: Frame) {
+    fn push_row(&mut self, frame: Frame, y: usize) {
         self.regions.size.y -= frame.height();
         self.used.y += frame.height();
-        self.lrows.push(Row::Frame(frame));
+        self.lrows.push(Row::Frame(frame, y));
     }
 
     /// Finish rows for one region.
@@ -613,25 +641,28 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
         // The frame for the region.
         let mut output = Frame::new(size);
         let mut pos = Point::zero();
+        let mut rrows = vec![];
 
         // Place finished rows and layout fractional rows.
         for row in std::mem::take(&mut self.lrows) {
-            let frame = match row {
-                Row::Frame(frame) => frame,
+            let (frame, y) = match row {
+                Row::Frame(frame, y) => (frame, y),
                 Row::Fr(v, y) => {
                     let remaining = self.regions.full - self.used.y;
                     let height = v.share(self.fr, remaining);
-                    self.layout_single_row(height, y)?
+                    (self.layout_single_row(height, y)?, y)
                 }
             };
 
             let height = frame.height();
             output.push_frame(pos, frame);
+            rrows.push(RowPiece { height, y });
             pos.y += height;
         }
 
         self.finished.push(output);
         self.regions.next();
+        self.rrows.push(rrows);
         self.used.y = Abs::zero();
         self.fr = Fr::zero();
 
