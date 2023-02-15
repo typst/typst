@@ -125,7 +125,10 @@ previous chapter.
   columns(2, doc)
 }
 
-#show: doc => conf([Paper title], doc)
+#show: doc => conf(
+  [Paper title],
+  doc,
+)
 
 = Introduction
 #lorem(90)
@@ -256,7 +259,7 @@ adding an import before the show rule. Name the function that you want to import
 from another file between the `{import}` and `{from}` keywords and specify the
 path of the file after the `{from}` keyword.
 
-```example
+```example:single
 >>> #let conf(
 >>>   title: none,
 >>>   authors: (),

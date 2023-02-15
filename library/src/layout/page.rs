@@ -119,7 +119,7 @@ impl PageNode {
 
     /// How many columns the page has.
     ///
-    /// ```example
+    /// ```example:single
     /// #set page(columns: 2, height: 4.8cm)
     /// Climate change is one of the most
     /// pressing issues of our time, with
@@ -341,9 +341,9 @@ impl Debug for PageNode {
 }
 
 /// # Page Break
-/// A page break.
+/// A manual page break.
 ///
-/// A manually forced page break. It must not be used inside any containers.
+/// Must not be used inside any containers.
 ///
 /// ## Example
 /// ```example

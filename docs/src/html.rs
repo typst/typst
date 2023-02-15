@@ -276,15 +276,20 @@ fn code_block(resolver: &dyn Resolver, lang: &str, text: &str) -> Html {
 
     let mut parts = lang.split(':');
     let lang = parts.next().unwrap_or(lang);
+
     let mut zoom: Option<[Abs; 4]> = None;
+    let mut single = false;
     if let Some(args) = parts.next() {
-        zoom = args
-            .split(',')
-            .take(4)
-            .map(|s| Abs::pt(s.parse().unwrap()))
-            .collect::<Vec<_>>()
-            .try_into()
-            .ok();
+        single = true;
+        if !args.contains("single") {
+            zoom = args
+                .split(',')
+                .take(4)
+                .map(|s| Abs::pt(s.parse().unwrap()))
+                .collect::<Vec<_>>()
+                .try_into()
+                .ok();
+        }
     }
 
     if !matches!(lang, "example" | "typ") {
@@ -310,6 +315,10 @@ fn code_block(resolver: &dyn Resolver, lang: &str, text: &str) -> Html {
     if let Some([x, y, w, h]) = zoom {
         frames[0].translate(Point::new(-x, -y));
         *frames[0].size_mut() = Size::new(w, h);
+    }
+
+    if single {
+        frames.truncate(1);
     }
 
     resolver.example(highlighted, &frames)

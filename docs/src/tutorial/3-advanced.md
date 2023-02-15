@@ -202,7 +202,7 @@ Another tweak could be to save the paper title in a variable, so that we do not
 have to type it twice, for header and title. We can do that with the `{let}`
 keyword:
 
-```example
+```example:single
 #let title = [
   A fluid dynamic model
   for glacier flow
@@ -274,7 +274,7 @@ the document as a parameter. We have called the parameter `rest` here, but you
 are free to choose any name. The function can then do anything with this
 content. In our case, it passes it on to the `columns` function.
 
-```example
+```example:single
 >>> #let title = [
 >>>   A fluid dynamic model
 >>>   for glacier flow
