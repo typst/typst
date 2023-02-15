@@ -1,6 +1,7 @@
 // Test code highlighting.
 
 ---
+#set page(width: 180pt)
 #set text(6pt)
 ```typ
 = Chapter 1
@@ -25,12 +26,26 @@ fn advance(state: State<'_>) -> State<'_> {
 ```
 
 ---
+#set page(width: 180pt)
 #set text(6pt)
+
 ```py
 import this
 
 def hi():
   print("Hi!")
+```
+
+---
+#set page(width: 180pt)
+#set text(6pt)
+
+```cpp
+#include <iostream>
+
+int main() {
+  std::cout << "Hello, world!";
+}
 ```
 
 ---
