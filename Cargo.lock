@@ -1569,7 +1569,7 @@ checksum = "4d25c75bf9ea12c4040a97f829154768bbbce366287e2dc044af160cd79a13fd"
 [[package]]
 name = "xmp-writer"
 version = "0.1.0"
-source = "git+https://github.com/typst/xmp-writer#a4a36967cd73c9c19548e940bbcc55583a901417"
+source = "git+https://github.com/typst/xmp-writer#0bce4e38395877dad229ea4518d4f78038738155"
 
 [[package]]
 name = "yaml-front-matter"

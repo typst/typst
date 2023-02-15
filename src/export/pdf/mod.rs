@@ -116,10 +116,8 @@ fn write_catalog(ctx: &mut PdfContext) {
     };
 
     // Write the document information.
-    let meta_ref = ctx.alloc.bump();
-    let mut xmp = XmpWriter::new();
-
     let mut info = ctx.writer.document_info(ctx.alloc.bump());
+    let mut xmp = XmpWriter::new();
     if let Some(title) = &ctx.document.title {
         info.title(TextStr(title));
         xmp.title([(None, title.as_str())]);
@@ -129,6 +127,7 @@ fn write_catalog(ctx: &mut PdfContext) {
         xmp.creator([(author.as_str())]);
     }
     info.creator(TextStr("Typst"));
+    info.finish();
     xmp.creator_tool("Typst");
     xmp.num_pages(ctx.document.pages.len() as u32);
     xmp.format("application/pdf");
@@ -136,10 +135,9 @@ fn write_catalog(ctx: &mut PdfContext) {
     xmp.rendition_class(RenditionClass::Proof);
     xmp.pdf_version("1.7");
 
-    info.finish();
-
     let xmp_buf = xmp.finish(None);
-    let mut meta_stream = ctx.writer.stream(meta_ref, &xmp_buf);
+    let meta_ref = ctx.alloc.bump();
+    let mut meta_stream = ctx.writer.stream(meta_ref, xmp_buf.as_bytes());
     meta_stream.pair(Name(b"Type"), Name(b"Metadata"));
     meta_stream.pair(Name(b"Subtype"), Name(b"XML"));
     meta_stream.finish();
