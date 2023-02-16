@@ -1,4 +1,4 @@
-// Test integrated numbering patterns.
+// Test blind text.
 
 ---
 // Test basic call.
@@ -30,20 +30,3 @@
 ---
 // Error: 7-9 missing argument: number of words
 #lorem()
-
----
-#for i in range(1, 9) {
-  numbering("*", i)
-  [ and ]
-  numbering("I.a", i, i)
-  [ for #i]
-  parbreak()
-}
-
----
-// Error: 17-18 number must be positive
-#numbering("1", 0)
-
----
-// Error: 17-19 number must be positive
-#numbering("1", -1)

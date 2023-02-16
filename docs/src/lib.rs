@@ -136,7 +136,6 @@ fn reference_page(resolver: &dyn Resolver) -> PageModel {
         category_page(resolver, "calculate"),
         category_page(resolver, "construct"),
         category_page(resolver, "data-loading"),
-        category_page(resolver, "utility"),
     ];
     page
 }

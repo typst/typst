@@ -42,6 +42,7 @@ fn global(math: Module, calc: Module) -> Module {
     global.def_func::<text::StrikeNode>("strike");
     global.def_func::<text::OverlineNode>("overline");
     global.def_func::<text::RawNode>("raw");
+    global.def_func::<text::LoremFunc>("lorem");
 
     // Math.
     global.define("math", math);
@@ -86,6 +87,7 @@ fn global(math: Module, calc: Module) -> Module {
     global.def_func::<meta::LinkNode>("link");
     global.def_func::<meta::OutlineNode>("outline");
     global.def_func::<meta::HeadingNode>("heading");
+    global.def_func::<meta::NumberingFunc>("numbering");
 
     // Symbols.
     global.define("sym", symbols::sym());
@@ -110,8 +112,6 @@ fn global(math: Module, calc: Module) -> Module {
     global.def_func::<compute::CsvFunc>("csv");
     global.def_func::<compute::JsonFunc>("json");
     global.def_func::<compute::XmlFunc>("xml");
-    global.def_func::<compute::LoremFunc>("lorem");
-    global.def_func::<compute::NumberingFunc>("numbering");
 
     // Calc.
     global.define("calc", calc);

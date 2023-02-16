@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
-use crate::compute::{Numbering, NumberingPattern};
 use crate::layout::{BlockNode, GridNode, ParNode, Sizing, Spacing};
+use crate::meta::{Numbering, NumberingPattern};
 use crate::prelude::*;
 use crate::text::TextNode;
 

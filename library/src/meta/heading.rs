@@ -1,6 +1,6 @@
 use typst::font::FontWeight;
 
-use crate::compute::Numbering;
+use super::Numbering;
 use crate::layout::{BlockNode, VNode};
 use crate::prelude::*;
 use crate::text::{SpaceNode, TextNode, TextSize};
