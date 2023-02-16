@@ -233,8 +233,8 @@ The resulting template function looks like this:
     columns: (1fr,) * ncols,
     row-gutter: 24pt,
     ..authors.map(author => [
-      {author.name} \
-      {author.affiliation} \
+      #author.name \
+      #author.affiliation \
       #link("mailto:" + author.email)
     ]),
   )
@@ -311,8 +311,8 @@ path of the file after the `{from}` keyword.
 >>>    columns: (1fr,) * count,
 >>>    row-gutter: 24pt,
 >>>    ..authors.map(author => [
->>>      {author.name} \
->>>      {author.affiliation} \
+>>>      #author.name \
+>>>      #author.affiliation \
 >>>      #link("mailto:" + author.email)
 >>>    ]),
 >>>  )
