@@ -10,6 +10,10 @@ K #if true [L] else []M \
 #let c = true; N#while c [#(c = false)O] P \
 #let c = true; Q #while c { c = false; "R" } S \
 T#for _ in (none,) {"U"}V
+#let foo = "A" ; \
+#foo;B \
+#foo; B \
+#foo ;B
 
 ---
 // Test spacing with comments.

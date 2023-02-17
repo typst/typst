@@ -529,7 +529,9 @@ fn embedded_code_expr(p: &mut Parser) {
         p.unexpected();
     }
 
-    let semi = p.eat_if(SyntaxKind::Semicolon);
+    let semi =
+        (stmt || p.directly_at(SyntaxKind::Semicolon)) && p.eat_if(SyntaxKind::Semicolon);
+
     if stmt && !semi && !p.eof() && !p.at(SyntaxKind::RightBracket) {
         p.expected("semicolon or line break");
     }
