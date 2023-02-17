@@ -197,18 +197,18 @@ $arrow.t.quad$
 # String
 A sequence of Unicode codepoints.
 
-You can iterate over the characters (or rather, grapheme clusters) of the string
-using a [for loop]($scripting/#loops). Strings can be added with
-the `+` operator, [joined together]($scripting/#blocks) and
-multiplied with integers.
+You can iterate over the grapheme clusters of the string using a
+[for loop]($scripting/#loops). Grapheme clusters are basically characters but
+keep together things that belong together, e.g. multiple codepoints that
+together form a flag emoji. Strings can be added with the `+` operator,
+[joined together]($scripting/#blocks) and multiplied with integers.
 
 Typst provides utility methods for string manipulation. Many of these methods
 (e.g., `split`, `trim` and `replace`) operate on _patterns:_ A pattern can be
 either a string or a [regular expression]($func/regex). This makes the methods
 quite versatile.
 
-_Note:_ Currently all lengths and indices are expressed in terms of UTF-8 bytes.
-This _might_ change to grapheme clusters in the future.
+All lengths and indices are expressed in terms of UTF-8 bytes.
 
 ### Example
 ```example
@@ -236,20 +236,20 @@ The length of the string in UTF-8 encoded bytes.
 - returns: integer
 
 ### first()
-Extract the first character (or rather, grapheme cluster) of the string.
+Extract the first grapheme cluster of the string.
 Fails with an error if the string is empty.
 
 - returns: any
 
 ### last()
-Extract the last character (or rather, grapheme cluster) of the string.
+Extract the last grapheme cluster of the string.
 Fails with an error if the string is empty.
 
 - returns: any
 
 ### at()
-Extract the first character (or rather, grapheme cluster) after the specified
-index. Fails with an error if the index is out of bounds.
+Extract the first grapheme cluster after the specified index. Fails with an
+error if the index is out of bounds.
 
 - index: integer (positional, required)
   The byte index.
@@ -268,6 +268,16 @@ Fails with an error if the start or end index is out of bounds.
   The number of bytes to extract. This is equivalent to passing `start + count`
   as the `end` position. Mutually exclusive with `end`.
 - returns: string
+
+### clusters()
+Returns the grapheme clusters of the string as array of substrings.
+
+- returns: array
+
+### codepoints()
+Returns the Unicode codepoints of the string as array of substrings.
+
+- returns: array
 
 ### contains()
 Whether the string contains the specified pattern.

@@ -37,6 +37,8 @@ pub fn call(
                 }
                 Value::Str(string.slice(start, end).at(span)?)
             }
+            "clusters" => Value::Array(string.clusters()),
+            "codepoints" => Value::Array(string.codepoints()),
             "contains" => Value::Bool(string.contains(args.expect("pattern")?)),
             "starts-with" => Value::Bool(string.starts_with(args.expect("pattern")?)),
             "ends-with" => Value::Bool(string.ends_with(args.expect("pattern")?)),
@@ -218,6 +220,8 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
         "string" => &[
             ("len", false),
             ("at", true),
+            ("clusters", false),
+            ("codepoints", false),
             ("contains", true),
             ("ends-with", true),
             ("find", true),

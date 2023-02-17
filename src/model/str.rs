@@ -42,11 +42,6 @@ impl Str {
         self
     }
 
-    /// The grapheme clusters the string consists of.
-    pub fn graphemes(&self) -> Array {
-        self.as_str().graphemes(true).map(|s| Value::Str(s.into())).collect()
-    }
-
     /// Extract the first grapheme cluster.
     pub fn first(&self) -> StrResult<Self> {
         self.0
@@ -80,6 +75,16 @@ impl Str {
         let start = self.locate(start)?;
         let end = self.locate(end.unwrap_or(self.len()))?.max(start);
         Ok(self.0[start..end].into())
+    }
+
+    /// The grapheme clusters the string consists of.
+    pub fn clusters(&self) -> Array {
+        self.as_str().graphemes(true).map(|s| Value::Str(s.into())).collect()
+    }
+
+    /// The codepoints the string consists of.
+    pub fn codepoints(&self) -> Array {
+        self.chars().map(|c| Value::Str(c.into())).collect()
     }
 
     /// Whether the given pattern exists in this string.
@@ -350,12 +355,10 @@ impl Debug for Str {
         f.write_char('"')?;
         for c in self.chars() {
             match c {
-                '\\' => f.write_str(r"\\")?,
+                '\0' => f.write_str("\\u{0}")?,
+                '\'' => f.write_str("'")?,
                 '"' => f.write_str(r#"\""#)?,
-                '\n' => f.write_str(r"\n")?,
-                '\r' => f.write_str(r"\r")?,
-                '\t' => f.write_str(r"\t")?,
-                _ => f.write_char(c)?,
+                _ => Display::fmt(&c.escape_debug(), f)?,
             }
         }
         f.write_char('"')

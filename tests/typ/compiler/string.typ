@@ -46,6 +46,13 @@
 #"🏳️‍🌈".slice(0, -1)
 
 ---
+// Test the `clusters` and `codepoints` methods.
+#test("abc".clusters(), ("a", "b", "c"))
+#test("abc".clusters(), ("a", "b", "c"))
+#test("🏳️‍🌈!".clusters(), ("🏳️‍🌈", "!"))
+#test("🏳️‍🌈!".codepoints(), ("🏳", "\u{fe0f}", "\u{200d}", "🌈", "!"))
+
+---
 // Test the `contains` method.
 #test("abc".contains("b"), true)
 #test("b" in "abc", true)
