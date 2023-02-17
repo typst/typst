@@ -2,7 +2,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use comemo::{Track, Tracked, TrackedMut};
+use comemo::{Prehashed, Track, Tracked, TrackedMut};
 
 use super::{
     Args, CastInfo, Dict, Eval, Flow, Node, NodeId, Route, Scope, Scopes, Selector,
@@ -11,12 +11,13 @@ use super::{
 use crate::diag::{bail, SourceResult, StrResult};
 use crate::syntax::ast::{self, AstNode, Expr};
 use crate::syntax::{SourceId, Span, SyntaxNode};
+use crate::util::hash128;
 use crate::util::EcoString;
 use crate::World;
 
 /// An evaluatable function.
 #[derive(Clone, Hash)]
-pub struct Func(Arc<Repr>, Span);
+pub struct Func(Arc<Prehashed<Repr>>, Span);
 
 /// The different kinds of function representations.
 #[derive(Hash)]
@@ -41,7 +42,12 @@ impl Func {
         info: FuncInfo,
     ) -> Self {
         Self(
-            Arc::new(Repr::Native(Native { func, set: None, node: None, info })),
+            Arc::new(Prehashed::new(Repr::Native(Native {
+                func,
+                set: None,
+                node: None,
+                info,
+            }))),
             Span::detached(),
         )
     }
@@ -50,7 +56,7 @@ impl Func {
     pub fn from_node<T: Node>(mut info: FuncInfo) -> Self {
         info.params.extend(T::properties());
         Self(
-            Arc::new(Repr::Native(Native {
+            Arc::new(Prehashed::new(Repr::Native(Native {
                 func: |ctx, args| {
                     let styles = T::set(args, true)?;
                     let content = T::construct(ctx, args)?;
@@ -59,19 +65,19 @@ impl Func {
                 set: Some(|args| T::set(args, false)),
                 node: Some(NodeId::of::<T>()),
                 info,
-            })),
+            }))),
             Span::detached(),
         )
     }
 
     /// Create a new function from a closure.
     pub(super) fn from_closure(closure: Closure, span: Span) -> Self {
-        Self(Arc::new(Repr::Closure(closure)), span)
+        Self(Arc::new(Prehashed::new(Repr::Closure(closure))), span)
     }
 
     /// The name of the function.
     pub fn name(&self) -> Option<&str> {
-        match self.0.as_ref() {
+        match &**self.0 {
             Repr::Native(native) => Some(native.info.name),
             Repr::Closure(closure) => closure.name.as_deref(),
             Repr::With(func, _) => func.name(),
@@ -80,7 +86,7 @@ impl Func {
 
     /// Extract details the function.
     pub fn info(&self) -> Option<&FuncInfo> {
-        match self.0.as_ref() {
+        match &**self.0 {
             Repr::Native(native) => Some(&native.info),
             Repr::With(func, _) => func.info(),
             _ => None,
@@ -100,7 +106,7 @@ impl Func {
 
     /// The number of positional arguments this function takes, if known.
     pub fn argc(&self) -> Option<usize> {
-        match self.0.as_ref() {
+        match &**self.0 {
             Repr::Closure(closure) => closure.argc(),
             Repr::With(wrapped, applied) => Some(wrapped.argc()?.saturating_sub(
                 applied.items.iter().filter(|arg| arg.name.is_none()).count(),
@@ -111,16 +117,32 @@ impl Func {
 
     /// Call the function with the given arguments.
     pub fn call(&self, vm: &mut Vm, mut args: Args) -> SourceResult<Value> {
-        let value = match self.0.as_ref() {
-            Repr::Native(native) => (native.func)(vm, &mut args)?,
-            Repr::Closure(closure) => closure.call(vm, self, &mut args)?,
+        match &**self.0 {
+            Repr::Native(native) => {
+                let value = (native.func)(vm, &mut args)?;
+                args.finish()?;
+                Ok(value)
+            }
+            Repr::Closure(closure) => {
+                // Determine the route inside the closure.
+                let fresh = Route::new(closure.location);
+                let route =
+                    if vm.location.is_detached() { fresh.track() } else { vm.route };
+
+                Closure::call(
+                    self,
+                    vm.world,
+                    route,
+                    TrackedMut::reborrow_mut(&mut vm.tracer),
+                    vm.depth + 1,
+                    args,
+                )
+            }
             Repr::With(wrapped, applied) => {
                 args.items.splice(..0, applied.items.iter().cloned());
-                return wrapped.call(vm, args);
+                wrapped.call(vm, args)
             }
-        };
-        args.finish()?;
-        Ok(value)
+        }
     }
 
     /// Call the function without an existing virtual machine.
@@ -140,7 +162,7 @@ impl Func {
     /// Apply the given arguments to the function.
     pub fn with(self, args: Args) -> Self {
         let span = self.1;
-        Self(Arc::new(Repr::With(self, args)), span)
+        Self(Arc::new(Prehashed::new(Repr::With(self, args))), span)
     }
 
     /// Create a selector for this function's node type, filtering by node's
@@ -153,7 +175,7 @@ impl Func {
 
     /// Execute the function's set rule and return the resulting style map.
     pub fn set(&self, mut args: Args) -> SourceResult<StyleMap> {
-        Ok(match self.0.as_ref() {
+        Ok(match &**self.0 {
             Repr::Native(Native { set: Some(set), .. }) => {
                 let styles = set(&mut args)?;
                 args.finish()?;
@@ -165,8 +187,8 @@ impl Func {
 
     /// Create a selector for this function's node type.
     pub fn select(&self, fields: Option<Dict>) -> StrResult<Selector> {
-        match self.0.as_ref() {
-            &Repr::Native(Native { node: Some(id), .. }) => {
+        match **self.0 {
+            Repr::Native(Native { node: Some(id), .. }) => {
                 if id == item!(text_id) {
                     Err("to select text, please use a string or regex instead")?;
                 }
@@ -189,7 +211,7 @@ impl Debug for Func {
 
 impl PartialEq for Func {
     fn eq(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.0, &other.0)
+        hash128(&self.0) == hash128(&other.0)
     }
 }
 
@@ -287,19 +309,32 @@ pub(super) struct Closure {
 
 impl Closure {
     /// Call the function in the context with the arguments.
-    fn call(&self, vm: &mut Vm, this: &Func, args: &mut Args) -> SourceResult<Value> {
+    #[comemo::memoize]
+    fn call(
+        this: &Func,
+        world: Tracked<dyn World>,
+        route: Tracked<Route>,
+        tracer: TrackedMut<Tracer>,
+        depth: usize,
+        mut args: Args,
+    ) -> SourceResult<Value> {
+        let closure = match &**this.0 {
+            Repr::Closure(closure) => closure,
+            _ => panic!("`this` must be a closure"),
+        };
+
         // Don't leak the scopes from the call site. Instead, we use the scope
         // of captured variables we collected earlier.
         let mut scopes = Scopes::new(None);
-        scopes.top = self.captured.clone();
+        scopes.top = closure.captured.clone();
 
         // Provide the closure itself for recursive calls.
-        if let Some(name) = &self.name {
+        if let Some(name) = &closure.name {
             scopes.top.define(name.clone(), Value::Func(this.clone()));
         }
 
         // Parse the arguments according to the parameter list.
-        for (param, default) in &self.params {
+        for (param, default) in &closure.params {
             scopes.top.define(
                 param.clone(),
                 match default {
@@ -312,25 +347,16 @@ impl Closure {
         }
 
         // Put the remaining arguments into the sink.
-        if let Some(sink) = &self.sink {
+        if let Some(sink) = &closure.sink {
             scopes.top.define(sink.clone(), args.take());
         }
 
-        // Determine the route inside the closure.
-        let detached = vm.location.is_detached();
-        let fresh = Route::new(self.location);
-        let route = if detached { fresh.track() } else { vm.route };
+        // Ensure all arguments have been used.
+        args.finish()?;
 
         // Evaluate the body.
-        let mut sub = Vm::new(
-            vm.world,
-            route,
-            TrackedMut::reborrow_mut(&mut vm.tracer),
-            self.location,
-            scopes,
-            vm.depth + 1,
-        );
-        let result = self.body.eval(&mut sub);
+        let mut sub = Vm::new(world, route, tracer, closure.location, scopes, depth);
+        let result = closure.body.eval(&mut sub);
 
         // Handle control flow.
         match sub.flow {
