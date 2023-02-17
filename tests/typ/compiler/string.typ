@@ -27,8 +27,12 @@
 #test("Hey: 🏳️‍🌈 there!".at(5), "🏳️‍🌈")
 
 ---
-// Error: 4-17 string index out of bounds (index: 5, len: 5)
-#{ "Hello".at(5) }
+// Error: 2-14 string index 2 is not a character boundary
+#"🏳️‍🌈".at(2)
+
+---
+// Error: 2-15 string index out of bounds (index: 5, len: 5)
+#"Hello".at(5)
 
 ---
 // Test the `slice` method.
@@ -36,6 +40,10 @@
 #test("abc🏡def".slice(2, 7), "c🏡")
 #test("abc🏡def".slice(2, -2), "c🏡d")
 #test("abc🏡def".slice(-3, -1), "de")
+
+---
+// Error: 2-21 string index -1 is not a character boundary
+#"🏳️‍🌈".slice(0, -1)
 
 ---
 // Test the `contains` method.

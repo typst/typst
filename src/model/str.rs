@@ -68,36 +68,18 @@ impl Str {
     /// Extract the grapheme cluster at the given index.
     pub fn at(&self, index: i64) -> StrResult<Self> {
         let len = self.len();
-        let grapheme = self
-            .locate(index)
-            .filter(|&index| index <= self.0.len())
-            .and_then(|index| self.0[index..].graphemes(true).next())
+        let grapheme = self.0[self.locate(index)?..]
+            .graphemes(true)
+            .next()
             .ok_or_else(|| out_of_bounds(index, len))?;
         Ok(grapheme.into())
     }
 
     /// Extract a contigous substring.
     pub fn slice(&self, start: i64, end: Option<i64>) -> StrResult<Self> {
-        let len = self.len();
-        let start = self
-            .locate(start)
-            .filter(|&start| start <= self.0.len())
-            .ok_or_else(|| out_of_bounds(start, len))?;
-
-        let end = end.unwrap_or(self.len());
-        let end = self
-            .locate(end)
-            .filter(|&end| end <= self.0.len())
-            .ok_or_else(|| out_of_bounds(end, len))?
-            .max(start);
-
+        let start = self.locate(start)?;
+        let end = self.locate(end.unwrap_or(self.len()))?.max(start);
         Ok(self.0[start..end].into())
-    }
-
-    /// Resolve an index.
-    fn locate(&self, index: i64) -> Option<usize> {
-        usize::try_from(if index >= 0 { index } else { self.len().checked_add(index)? })
-            .ok()
     }
 
     /// Whether the given pattern exists in this string.
@@ -286,12 +268,35 @@ impl Str {
 
         Ok(Self(self.0.repeat(n)))
     }
+
+    /// Resolve an index.
+    fn locate(&self, index: i64) -> StrResult<usize> {
+        let wrapped =
+            if index >= 0 { Some(index) } else { self.len().checked_add(index) };
+
+        let resolved = wrapped
+            .and_then(|v| usize::try_from(v).ok())
+            .filter(|&v| v <= self.0.len())
+            .ok_or_else(|| out_of_bounds(index, self.len()))?;
+
+        if !self.0.is_char_boundary(resolved) {
+            return Err(not_a_char_boundary(index));
+        }
+
+        Ok(resolved)
+    }
 }
 
 /// The out of bounds access error message.
 #[cold]
-fn out_of_bounds(index: i64, len: i64) -> String {
-    format!("string index out of bounds (index: {}, len: {})", index, len)
+fn out_of_bounds(index: i64, len: i64) -> EcoString {
+    format_eco!("string index out of bounds (index: {}, len: {})", index, len)
+}
+
+/// The char boundary access error message.
+#[cold]
+fn not_a_char_boundary(index: i64) -> EcoString {
+    format_eco!("string index {} is not a character boundary", index)
 }
 
 /// The error message when the string is empty.
