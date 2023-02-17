@@ -29,7 +29,7 @@ pub trait AstNode: Sized {
 
 macro_rules! node {
     ($(#[$attr:meta])* $name:ident) => {
-        #[derive(Debug, Default, Clone, PartialEq, Hash)]
+        #[derive(Debug, Default, Clone, Hash)]
         #[repr(transparent)]
         $(#[$attr])*
         pub struct $name(SyntaxNode);
@@ -73,7 +73,7 @@ impl Markup {
 }
 
 /// An expression in markup, math or code.
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, Hash)]
 pub enum Expr {
     /// Plain text without markup.
     Text(Text),
@@ -1055,7 +1055,7 @@ impl Array {
 }
 
 /// An item in an array.
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, Hash)]
 pub enum ArrayItem {
     /// A bare expression: `12`.
     Pos(Expr),
@@ -1092,7 +1092,7 @@ impl Dict {
 }
 
 /// An item in an dictionary expresssion.
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, Hash)]
 pub enum DictItem {
     /// A named pair: `thickness: 3pt`.
     Named(Named),
@@ -1452,7 +1452,7 @@ impl Args {
 }
 
 /// An argument to a function call.
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, Hash)]
 pub enum Arg {
     /// A positional argument: `12`.
     Pos(Expr),
@@ -1509,7 +1509,7 @@ impl Closure {
 }
 
 /// A parameter to a closure.
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, Hash)]
 pub enum Param {
     /// A positional parameter: `x`.
     Pos(Ident),
@@ -1724,7 +1724,7 @@ impl ModuleImport {
 }
 
 /// The items that ought to be imported from a file.
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, Hash)]
 pub enum Imports {
     /// All items in the scope of the file should be imported.
     Wildcard,

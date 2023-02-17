@@ -16,7 +16,7 @@ use typst::doc::{Document, Element, Frame, Meta};
 use typst::font::{Font, FontBook};
 use typst::geom::{Abs, RgbaColor, Sides, Smart};
 use typst::model::{func, Library, Value};
-use typst::syntax::{Source, SourceId, SyntaxNode};
+use typst::syntax::{Source, SourceId, Span, SyntaxNode};
 use typst::util::{Buffer, PathExt};
 use typst::World;
 use typst_library::layout::PageNode;
@@ -591,11 +591,21 @@ fn test_reparse(text: &str, i: usize, rng: &mut LinearShift) -> bool {
         incr_source.edit(replace.clone(), with);
 
         let edited_src = incr_source.text();
-        let incr_root = incr_source.root();
         let ref_source = Source::detached(edited_src);
-        let ref_root = ref_source.root();
-        let mut ok = incr_root == ref_root;
-        if !ok {
+        let mut ref_root = ref_source.root().clone();
+        let mut incr_root = incr_source.root().clone();
+
+        // Ensures that the span numbering invariants hold.
+        let spans_ok = test_spans(&ref_root) && test_spans(&incr_root);
+
+        // Remove all spans so that the comparison works out.
+        let tree_ok = {
+            ref_root.synthesize(Span::detached());
+            incr_root.synthesize(Span::detached());
+            ref_root == incr_root
+        };
+
+        if !tree_ok {
             println!(
                 "    Subtest {i} reparse differs from clean parse when inserting '{with}' at {}-{} ❌\n",
                 replace.start, replace.end,
@@ -605,9 +615,7 @@ fn test_reparse(text: &str, i: usize, rng: &mut LinearShift) -> bool {
             println!("    Full source ({}):\n\"{edited_src:?}\"", edited_src.len());
         }
 
-        ok &= test_spans(ref_root);
-        ok &= test_spans(incr_root);
-        ok
+        spans_ok && tree_ok
     };
 
     let mut pick = |range: Range<usize>| {

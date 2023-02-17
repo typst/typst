@@ -213,16 +213,18 @@ fn next_nesting(node: &SyntaxNode, nesting: &mut usize) {
 mod tests {
     use std::ops::Range;
 
-    use super::super::{parse, Source};
+    use super::super::{parse, Source, Span};
 
     #[track_caller]
     fn test(prev: &str, range: Range<usize>, with: &str, incremental: bool) {
         let mut source = Source::detached(prev);
         let prev = source.root().clone();
         let range = source.edit(range, with);
-        let found = source.root();
-        let expected = parse(source.text());
-        if found != &expected {
+        let mut found = source.root().clone();
+        let mut expected = parse(source.text());
+        found.synthesize(Span::detached());
+        expected.synthesize(Span::detached());
+        if found != expected {
             eprintln!("source:   {:?}", source.text());
             eprintln!("previous: {prev:#?}");
             eprintln!("expected: {expected:#?}");

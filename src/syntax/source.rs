@@ -406,6 +406,8 @@ mod tests {
 
     #[test]
     fn test_source_file_edit() {
+        // This tests only the non-parser parts. The reparsing itself is
+        // tested separately.
         #[track_caller]
         fn test(prev: &str, range: Range<usize>, with: &str, after: &str) {
             let mut source = Source::detached(prev);
@@ -413,7 +415,6 @@ mod tests {
             source.edit(range, with);
             assert_eq!(source.text, result.text);
             assert_eq!(source.lines, result.lines);
-            assert_eq!(*source.root, *result.root);
         }
 
         // Test inserting at the begining.

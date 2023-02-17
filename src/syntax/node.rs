@@ -9,11 +9,11 @@ use crate::diag::SourceError;
 use crate::util::EcoString;
 
 /// A node in the untyped syntax tree.
-#[derive(Clone, PartialEq, Hash)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 pub struct SyntaxNode(Repr);
 
 /// The three internal representations.
-#[derive(Clone, PartialEq, Hash)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 enum Repr {
     /// A leaf node.
     Leaf(LeafNode),
@@ -147,6 +147,15 @@ impl SyntaxNode {
                 .collect()
         }
     }
+
+    /// Set a synthetic span for the node and all its descendants.
+    pub fn synthesize(&mut self, span: Span) {
+        match &mut self.0 {
+            Repr::Leaf(leaf) => leaf.span = span,
+            Repr::Inner(inner) => Arc::make_mut(inner).synthesize(span),
+            Repr::Error(error) => Arc::make_mut(error).span = span,
+        }
+    }
 }
 
 impl SyntaxNode {
@@ -172,15 +181,6 @@ impl SyntaxNode {
     pub(super) fn convert_to_error(&mut self, message: impl Into<EcoString>) {
         let text = std::mem::take(self).into_text();
         *self = SyntaxNode::error(message, text, ErrorPos::Full);
-    }
-
-    /// Set a synthetic span for the node and all its descendants.
-    pub(crate) fn synthesize(&mut self, span: Span) {
-        match &mut self.0 {
-            Repr::Leaf(leaf) => leaf.span = span,
-            Repr::Inner(inner) => Arc::make_mut(inner).synthesize(span),
-            Repr::Error(error) => Arc::make_mut(error).span = span,
-        }
     }
 
     /// Assign spans to each node.
@@ -212,7 +212,7 @@ impl SyntaxNode {
     }
 
     /// Whether this is a leaf node.
-    pub(crate) fn is_leaf(&self) -> bool {
+    pub(super) fn is_leaf(&self) -> bool {
         matches!(self.0, Repr::Leaf(_))
     }
 
@@ -291,7 +291,7 @@ impl Default for SyntaxNode {
 }
 
 /// A leaf node in the untyped syntax tree.
-#[derive(Clone, Hash)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 struct LeafNode {
     /// What kind of node this is (each kind would have its own struct in a
     /// strongly typed AST).
@@ -322,14 +322,8 @@ impl Debug for LeafNode {
     }
 }
 
-impl PartialEq for LeafNode {
-    fn eq(&self, other: &Self) -> bool {
-        self.kind == other.kind && self.text == other.text
-    }
-}
-
 /// An inner node in the untyped syntax tree.
-#[derive(Clone, Hash)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 struct InnerNode {
     /// What kind of node this is (each kind would have its own struct in a
     /// strongly typed AST).
@@ -378,6 +372,7 @@ impl InnerNode {
     /// Set a synthetic span for the node and all its descendants.
     fn synthesize(&mut self, span: Span) {
         self.span = span;
+        self.upper = span.number();
         for child in &mut self.children {
             child.synthesize(span);
         }
@@ -573,18 +568,8 @@ impl Debug for InnerNode {
     }
 }
 
-impl PartialEq for InnerNode {
-    fn eq(&self, other: &Self) -> bool {
-        self.kind == other.kind
-            && self.len == other.len
-            && self.descendants == other.descendants
-            && self.erroneous == other.erroneous
-            && self.children == other.children
-    }
-}
-
 /// An error node in the untyped syntax tree.
-#[derive(Clone, Hash)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 struct ErrorNode {
     /// The error message.
     message: EcoString,
@@ -620,12 +605,6 @@ impl ErrorNode {
 impl Debug for ErrorNode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "Error: {:?} ({})", self.text, self.message)
-    }
-}
-
-impl PartialEq for ErrorNode {
-    fn eq(&self, other: &Self) -> bool {
-        self.message == other.message && self.text == other.text && self.pos == other.pos
     }
 }
 
