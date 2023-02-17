@@ -7,21 +7,21 @@
 #set page(width: 150pt)
 
 // Empty.
-#{()}
+#()
 
 // Not an array, just a parenthesized expression.
-#{(1)}
+#(1)
 
 // One item and trailing comma.
-#{(-1,)}
+#(-1,)
 
 // No trailing comma.
-#{(true, false)}
+#(true, false)
 
 // Multiple lines and items and trailing comma.
-#{("1"
-     , rgb("002")
-     ,)}
+#("1"
+    , rgb("002")
+    ,)
 
 ---
 // Test the `len` method.
@@ -47,8 +47,8 @@
 
 ---
 // Test rvalue out of bounds.
-// Error: 3-18 array index out of bounds (index: 5, len: 3)
-#{(1, 2, 3).at(5)}
+// Error: 2-17 array index out of bounds (index: 5, len: 3)
+#(1, 2, 3).at(5)
 
 ---
 // Test lvalue out of bounds.
@@ -60,15 +60,15 @@
 
 ---
 // Test bad lvalue.
-// Error: 2:4-2:15 cannot mutate a temporary value
+// Error: 2:3-2:14 cannot mutate a temporary value
 #let array = (1, 2, 3)
-#{ array.len() = 4 }
+#(array.len() = 4)
 
 ---
 // Test bad lvalue.
-// Error: 2:4-2:16 type array has no method `yolo`
+// Error: 2:3-2:15 type array has no method `yolo`
 #let array = (1, 2, 3)
-#{ array.yolo() = 4 }
+#(array.yolo() = 4)
 
 ---
 // Test negative indices.
@@ -89,12 +89,12 @@
 #test((1, 2, 3).last(), 3)
 
 ---
-// Error: 4-14 array is empty
-#{ ().first() }
+// Error: 2-12 array is empty
+#().first()
 
 ---
-// Error: 4-13 array is empty
-#{ ().last() }
+// Error: 2-11 array is empty
+#().last()
 
 ---
 // Test the `push` and `pop` methods.
@@ -117,9 +117,9 @@
 }
 
 ---
-// Error: 2:18-2:20 missing argument: index
+// Error: 2:16-2:18 missing argument: index
 #let numbers = ()
-#{ numbers.insert() }
+#numbers.insert()
 
 ---
 // Test the `slice` method.
@@ -133,12 +133,12 @@
 #test("ABCD".split("").slice(1, -1).join("-"), "A-B-C-D")
 
 ---
-// Error: 4-32 array index out of bounds (index: 12, len: 10)
-#{ range(10).slice(9, count: 3) }
+// Error: 2-30 array index out of bounds (index: 12, len: 10)
+#range(10).slice(9, count: 3)
 
 ---
-// Error: 4-26 array index out of bounds (index: -4, len: 3)
-#{ (1, 2, 3).slice(0, -4) }
+// Error: 2-24 array index out of bounds (index: -4, len: 3)
+#(1, 2, 3).slice(0, -4)
 
 ---
 // Test the `position` method.
@@ -163,8 +163,8 @@
 #test((1, 2, 3, 4).fold(0, (s, x) => s + x), 10)
 
 ---
-// Error: 22-32 function must have exactly two parameters
-#{ (1, 2, 3).fold(0, () => none) }
+// Error: 20-30 function must have exactly two parameters
+#(1, 2, 3).fold(0, () => none)
 
 ---
 // Test the `rev` method.
@@ -178,17 +178,17 @@
 #test("(" + ("a", "b", "c").join(", ") + ")", "(a, b, c)")
 
 ---
-// Error: 3-23 cannot join boolean with boolean
-#{(true, false).join()}
+// Error: 2-22 cannot join boolean with boolean
+#(true, false).join()
 
 ---
-// Error: 3-21 cannot join string with integer
-#{("a", "b").join(1)}
+// Error: 2-20 cannot join string with integer
+#("a", "b").join(1)
 
 ---
 // Test joining content.
 // Ref: true
-#{([One], [Two], [Three]).join([, ], last: [ and ])}.
+#([One], [Two], [Three]).join([, ], last: [ and ]).
 
 ---
 // Test the `sorted` method.
@@ -198,12 +198,12 @@
 #test((2, 1, 3, 10, 5, 8, 6, -7, 2).sorted(), (-7, 1, 2, 2, 3, 5, 6, 8, 10))
 
 ---
-// Error: 3-27 cannot order content and content
-#{([Hi], [There]).sorted()}
+// Error: 2-26 cannot order content and content
+#([Hi], [There]).sorted()
 
 ---
-// Error: 3-19 array index out of bounds (index: -4, len: 3)
-#{(1, 2, 3).at(-4)}
+// Error: 2-18 array index out of bounds (index: -4, len: 3)
+#(1, 2, 3).at(-4)
 
 ---
 // Error: 4 expected closing paren
@@ -212,23 +212,23 @@
 // Error: 3-4 unexpected closing paren
 #{)}
 
-// Error: 5-7 unexpected end of block comment
-#{(1*/2)}
+// Error: 4-6 unexpected end of block comment
+#(1*/2)
 
-// Error: 7-9 invalid number suffix
-#{(1, 1u 2)}
+// Error: 6-8 invalid number suffix
+#(1, 1u 2)
 
-// Error: 4-5 unexpected comma
-#{(,1)}
+// Error: 3-4 unexpected comma
+#(,1)
 
 // Missing expression makes named pair incomplete, making this an empty array.
-// Error: 6 expected expression
-#{(a:)}
+// Error: 5 expected expression
+#(a:)
 
 // Named pair after this is already identified as an array.
-// Error: 7-11 expected expression, found named pair
-#{(1, b: 2)}
+// Error: 6-10 expected expression, found named pair
+#(1, b: 2)
 
 // Keyed pair after this is already identified as an array.
-// Error: 7-15 expected expression, found keyed pair
-#{(1, "key": 2)}
+// Error: 6-14 expected expression, found keyed pair
+#(1, "key": 2)

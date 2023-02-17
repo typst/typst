@@ -157,7 +157,7 @@
 
 ---
 // Error: 7-17 expected identifier, named pair or argument sink, found keyed pair
-#{(a, "named": b) => none}
+#((a, "named": b) => none)
 
 ---
 // Error: 10-15 expected identifier, found string

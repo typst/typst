@@ -390,8 +390,8 @@ pub fn label(args: &mut Args) -> SourceResult<Value> {
 /// The numbers 1 to 10.
 ///
 /// // Works with string methods.
-/// #{ "a,b;c"
-///     .split(regex("[,;]")) }
+/// #("a,b;c"
+///     .split(regex("[,;]")))
 /// ```
 ///
 /// ## Parameters

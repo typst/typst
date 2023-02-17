@@ -4,7 +4,7 @@
 // Should output `2 4 6 8 10`.
 #let i = 0
 #while i < 10 [
-  #{ i += 2 }
+  #(i += 2)
   #i
 ]
 
@@ -26,7 +26,7 @@
 #test(while false {}, none)
 
 #let i = 0
-#test(type(while i < 1 [#{ i += 1 }]), "content")
+#test(type(while i < 1 [#(i += 1)]), "content")
 
 ---
 // Condition must be boolean.

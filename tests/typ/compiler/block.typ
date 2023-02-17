@@ -83,8 +83,8 @@
   test(b, 1)
 }}
 
-// Error: 3-4 unknown variable
-#{b}
+// Error: 2-3 unknown variable
+#b
 
 ---
 // Multiple nested scopes.
@@ -106,14 +106,14 @@
 // Content blocks also create a scope.
 #[#let x = 1]
 
-// Error: 3-4 unknown variable
-#{x}
+// Error: 2-3 unknown variable
+#x
 
 ---
 // Multiple unseparated expressions in one line.
 
-// Error: 3-5 invalid number suffix
-#{1u}
+// Error: 2-4 invalid number suffix
+#1u
 
 // Should output `1`.
 // Error: 4 expected semicolon or line break
@@ -142,5 +142,5 @@
 #{
 
 ---
-// Error: 2 expected expression
+// Error: 2-3 unexpected closing brace
 #}

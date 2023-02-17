@@ -7,7 +7,7 @@
 // ... but also "content" values. While these contain markup,
 // they are also values and can be summed, stored in arrays etc.
 // There are also more standard control flow structures, like #if and #for.
-#let university = [*Technische Universität #{city}*]
+#let university = [*Technische Universität #city*]
 #let faculty = [*Fakultät II, Institut for Mathematik*]
 
 // The `box` function just places content into a rectangular container. When

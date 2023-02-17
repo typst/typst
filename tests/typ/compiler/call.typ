@@ -48,8 +48,8 @@
 #set text(family: "Arial", family: "Helvetica")
 
 ---
-// Error: 3-7 expected function, found boolean
-#{true()}
+// Error: 2-6 expected function, found boolean
+#true()
 
 ---
 #let x = "x"
@@ -90,8 +90,8 @@
 // Error: 7-12 expected identifier, found string
 #func("abc": 2)
 
-// Error: 8-11 expected identifier, found group
-#{func((x):1)}
+// Error: 7-10 expected identifier, found group
+#func((x):1)
 
 ---
 // Error: 2:1 expected closing bracket

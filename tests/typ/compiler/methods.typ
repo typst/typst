@@ -27,20 +27,20 @@
 }
 
 ---
-// Error: 2:4-2:17 type array has no method `fun`
+// Error: 2:2-2:15 type array has no method `fun`
 #let numbers = ()
-#{ numbers.fun() }
+#numbers.fun()
 
 ---
-// Error: 2:4-2:45 cannot mutate a temporary value
+// Error: 2:2-2:43 cannot mutate a temporary value
 #let numbers = (1, 2, 3)
-#{ numbers.map(v => v / 2).sorted().map(str).remove(4) }
+#numbers.map(v => v / 2).sorted().map(str).remove(4)
 
 ---
-// Error: 2:4-2:20 cannot mutate a temporary value
+// Error: 2:3-2:19 cannot mutate a temporary value
 #let numbers = (1, 2, 3)
-#{ numbers.sorted() = 1 }
+#(numbers.sorted() = 1)
 
 ---
-// Error: 4-7 cannot mutate a constant
-#{ box.push(1) }
+// Error: 2-5 cannot mutate a constant
+#box.push(1)

@@ -49,8 +49,8 @@
 #test((module,).at(0).item(1, 2), 3)
 
 // Doesn't work because of mutating name.
-// Error: 3-12 cannot mutate a temporary value
-#{(module,).at(0).push()}
+// Error: 2-11 cannot mutate a temporary value
+#(module,).at(0).push()
 
 ---
 // Who needs whitespace anyways?

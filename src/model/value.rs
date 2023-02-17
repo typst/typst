@@ -133,7 +133,7 @@ impl Value {
         format_str!("{:?}", self)
     }
 
-    /// Attach a span to the value, if possibly.
+    /// Attach a span to the value, if possible.
     pub fn spanned(self, span: Span) -> Self {
         match self {
             Value::Content(v) => Value::Content(v.spanned(span)),

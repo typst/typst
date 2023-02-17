@@ -85,9 +85,9 @@
 }
 
 ---
-// Error: 12-18 cannot spread dictionary into array
-#{(1, 2, ..(a: 1))}
+// Error: 11-17 cannot spread dictionary into array
+#(1, 2, ..(a: 1))
 
 ---
-// Error: 6-12 cannot spread array into dictionary
-#{(..(1, 2), a: 1)}
+// Error: 5-11 cannot spread array into dictionary
+#(..(1, 2), a: 1)

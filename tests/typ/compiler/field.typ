@@ -23,12 +23,12 @@
 - C
 
 ---
-// Error: 7-14 dictionary does not contain key "invalid"
-#{(:).invalid}
+// Error: 6-13 dictionary does not contain key "invalid"
+#(:).invalid
 
 ---
-// Error: 9-11 cannot access fields on type boolean
-#{false.ok}
+// Error: 8-10 cannot access fields on type boolean
+#false.ok
 
 ---
 // Error: 29-32 unknown field `fun`

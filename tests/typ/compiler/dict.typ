@@ -5,7 +5,7 @@
 // Ref: true
 
 // Empty
-#{(:)}
+#(:)
 
 // Two pairs and string key.
 #let dict = (normal: 1, "spacy key": 2)
@@ -51,36 +51,36 @@
 #test(dict.values(), (3, 1, 2))
 #test(dict.pairs().map(p => p.first() + str(p.last())).join(), "a3b1c2")
 
-#{ dict.remove("c") }
+#dict.remove("c")
 #test("c" in dict, false)
 #test(dict, (a: 3, b: 1))
 
 ---
-// Error: 25-30 duplicate key
-#{(first: 1, second: 2, first: 3)}
+// Error: 24-29 duplicate key
+#(first: 1, second: 2, first: 3)
 
 ---
-// Error: 18-21 duplicate key
-#{(a: 1, "b": 2, "a": 3)}
+// Error: 17-20 duplicate key
+#(a: 1, "b": 2, "a": 3)
 
 ---
 // Simple expression after already being identified as a dictionary.
-// Error: 10-11 expected named or keyed pair, found identifier
-#{(a: 1, b)}
+// Error: 9-10 expected named or keyed pair, found identifier
+#(a: 1, b)
 
 // Identified as dictionary due to initial colon.
-// Error: 5-6 expected named or keyed pair, found integer
-// Error: 6 expected comma
-// Error: 13-17 expected identifier or string, found boolean
-// Error: 18 expected expression
-#{(:1 b:"", true:)}
+// Error: 4-5 expected named or keyed pair, found integer
+// Error: 5 expected comma
+// Error: 12-16 expected identifier or string, found boolean
+// Error: 17 expected expression
+#(:1 b:"", true:)
 
-// Error: 4-9 expected identifier or string, found binary expression
-#{(a + b: "hey")}
+// Error: 3-8 expected identifier or string, found binary expression
+#(a + b: "hey")
 
 ---
-// Error: 4-16 cannot mutate a temporary value
-#{ (key: "val").other = "some" }
+// Error: 3-15 cannot mutate a temporary value
+#((key: "val").other = "some")
 
 ---
 #{

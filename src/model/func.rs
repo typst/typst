@@ -517,16 +517,16 @@ mod tests {
     fn test_captures() {
         // Let binding and function definition.
         test("#let x = x", &["x"]);
-        test("#let x; #{x + y}", &["y"]);
+        test("#let x; #(x + y)", &["y"]);
         test("#let f(x, y) = x + y", &[]);
         test("#let f(x, y) = f", &[]);
         test("#let f = (x, y) => f", &["f"]);
 
         // Closure with different kinds of params.
-        test("#{(x, y) => x + z}", &["z"]);
-        test("#{(x: y, z) => x + z}", &["y"]);
-        test("#{(..x) => x + y}", &["y"]);
-        test("#{(x, y: x + z) => x + y}", &["x", "z"]);
+        test("#((x, y) => x + z)", &["z"]);
+        test("#((x: y, z) => x + z)", &["y"]);
+        test("#((..x) => x + y)", &["y"]);
+        test("#((x, y: x + z) => x + y)", &["x", "z"]);
         test("#{x => x; x}", &["x"]);
 
         // Show rule.

@@ -20,15 +20,15 @@
 #2.5rad \
 #45deg \
 #1.7em \
-#{1cm + 0em} \
-#{2em + 10pt} \
+#(1cm + 0em) \
+#(2em + 10pt) \
 #2.3fr
 
 ---
 // Colors and strokes.
 #set text(0.8em)
 #rgb("f7a205") \
-#{2pt + rgb("f7a205")}
+#(2pt + rgb("f7a205"))
 
 ---
 // Strings and escaping.
@@ -45,4 +45,4 @@ Nothing
 #let f(x) = x
 #f
 #rect
-#{() => none}
+#(() => none)

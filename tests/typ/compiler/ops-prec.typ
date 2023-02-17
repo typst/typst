@@ -16,12 +16,12 @@
 // Assignment binds stronger than boolean operations.
 // Error: 2:3-2:8 cannot mutate a temporary value
 #let x = false
-#{not x = "a"}
+#(not x = "a")
 
 ---
 // Precedence doesn't matter for chained unary operators.
 // Error: 3-12 cannot apply '-' to boolean
-#{-not true}
+#(-not true)
 
 ---
 // Not in handles precedence.

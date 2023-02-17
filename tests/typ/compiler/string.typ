@@ -13,12 +13,12 @@
 #test("🏳️‍🌈A🏳️‍⚧️".last(), "🏳️‍⚧️")
 
 ---
-// Error: 4-14 string is empty
-#{ "".first() }
+// Error: 2-12 string is empty
+#"".first()
 
 ---
-// Error: 4-13 string is empty
-#{ "".last() }
+// Error: 2-11 string is empty
+#"".last()
 
 ---
 // Test the `at` method.
@@ -150,8 +150,8 @@
 #test("hello world".trim(regex(".")), "")
 
 ---
-// Error: 18-22 expected either `start` or `end`
-#{"abc".trim(at: left)}
+// Error: 17-21 expected either `start` or `end`
+#"abc".trim(at: left)
 
 ---
 // Test the `split` method.
@@ -159,3 +159,7 @@
 #test("abc".split("b"), ("a", "c"))
 #test("a123c".split(regex("\d")), ("a", "", "", "c"))
 #test("a123c".split(regex("\d+")), ("a", "c"))
+
+---
+// Error: 2:1 expected quote
+#"hello\"

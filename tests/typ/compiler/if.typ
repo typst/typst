@@ -115,7 +115,7 @@
 // Error: 6 expected block
 #if x
 
-// Error: 2 expected expression
+// Error: 2-6 unexpected keyword `else`
 #else {}
 
 // Should output `x`.
