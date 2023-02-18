@@ -149,7 +149,7 @@ impl PageNode {
 
     /// The page's header.
     ///
-    /// The header is placed at in the top margin of each page.
+    /// The header is placed in the top margin of each page.
     ///
     /// - Content: The content will be placed in the header.
     /// - A function: The function will be called with the page number (starting
@@ -171,7 +171,7 @@ impl PageNode {
 
     /// The page's footer.
     ///
-    /// The footer is placed at in the bottom margin of each page.
+    /// The footer is placed in the bottom margin of each page.
     ///
     /// - Content: The content will be placed in the footer.
     /// - A function: The function will be called with the page number (starting
