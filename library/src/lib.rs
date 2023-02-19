@@ -96,6 +96,7 @@ fn global(math: Module, calc: Module) -> Module {
     // Compute.
     global.def_func::<compute::TypeFunc>("type");
     global.def_func::<compute::ReprFunc>("repr");
+    global.def_func::<compute::PanicFunc>("panic");
     global.def_func::<compute::AssertFunc>("assert");
     global.def_func::<compute::EvalFunc>("eval");
     global.def_func::<compute::IntFunc>("int");

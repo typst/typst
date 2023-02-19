@@ -56,6 +56,29 @@ pub fn repr(args: &mut Args) -> SourceResult<Value> {
     Ok(args.expect::<Value>("value")?.repr().into())
 }
 
+/// # Panic
+/// Fail with an error.
+///
+/// ## Example
+/// The code below produces the error `panicked at: "this is wrong"`.
+/// ```typ
+/// #panic("this is wrong")
+/// ```
+///
+/// ## Parameters
+/// - payload: `Value` (positional)
+///   The value (or message) to panic with.
+///
+/// ## Category
+/// foundations
+#[func]
+pub fn panic(args: &mut Args) -> SourceResult<Value> {
+    match args.eat::<Value>()? {
+        Some(v) => bail!(args.span, "panicked with: {}", v.repr()),
+        None => bail!(args.span, "panicked"),
+    }
+}
+
 /// # Assert
 /// Ensure that a condition is fulfilled.
 ///
@@ -64,24 +87,26 @@ pub fn repr(args: &mut Args) -> SourceResult<Value> {
 ///
 /// ## Example
 /// ```example
-/// #assert(1 < 2)
+/// #assert(1 < 2, message: "one is")
 /// ```
 ///
 /// ## Parameters
 /// - condition: `bool` (positional, required)
 ///   The condition that must be true for the assertion to pass.
+/// - message: `EcoString` (named)
+///   The error message when the assertion fails.
 ///
 /// ## Category
 /// foundations
 #[func]
 pub fn assert(args: &mut Args) -> SourceResult<Value> {
-    let Spanned { v, span } = args.expect::<Spanned<bool>>("condition")?;
+    let check = args.expect::<bool>("condition")?;
     let message = args.named::<EcoString>("message")?;
-    if !v {
+    if !check {
         if let Some(message) = message {
-            bail!(span, "assertion failed: {}", message);
+            bail!(args.span, "assertion failed: {}", message);
         } else {
-            bail!(span, "assertion failed");
+            bail!(args.span, "assertion failed");
         }
     }
     Ok(Value::None)
