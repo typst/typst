@@ -3,10 +3,12 @@ use std::fmt::{self, Debug, Formatter, Write};
 use std::ops::{Add, AddAssign};
 use std::sync::Arc;
 
+use ecow::{format_eco, EcoString};
+
 use super::{array, Array, Str, Value};
 use crate::diag::StrResult;
 use crate::syntax::is_ident;
-use crate::util::{format_eco, ArcExt, EcoString};
+use crate::util::ArcExt;
 
 /// Create a new [`Dict`] from key-value pairs.
 #[macro_export]

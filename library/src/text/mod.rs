@@ -18,7 +18,6 @@ use std::borrow::Cow;
 
 use rustybuzz::Tag;
 use typst::font::{FontMetrics, FontStretch, FontStyle, FontWeight, VerticalFontMetric};
-use typst::util::EcoString;
 
 use crate::layout::ParNode;
 use crate::prelude::*;

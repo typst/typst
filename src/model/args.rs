@@ -1,5 +1,7 @@
 use std::fmt::{self, Debug, Formatter, Write};
 
+use ecow::EcoVec;
+
 use super::{Array, Cast, Dict, Str, Value};
 use crate::diag::{bail, At, SourceResult};
 use crate::syntax::{Span, Spanned};
@@ -10,7 +12,7 @@ pub struct Args {
     /// The span of the whole argument list.
     pub span: Span,
     /// The positional and named arguments.
-    pub items: Vec<Arg>,
+    pub items: EcoVec<Arg>,
 }
 
 /// An argument to a function call: `12` or `draw: false`.

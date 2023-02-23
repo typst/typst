@@ -3,6 +3,7 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use comemo::{Prehashed, Track, Tracked, TrackedMut};
+use ecow::EcoString;
 
 use super::{
     Args, CastInfo, Dict, Eval, Flow, Node, NodeId, Route, Scope, Scopes, Selector,
@@ -12,7 +13,6 @@ use crate::diag::{bail, SourceResult, StrResult};
 use crate::syntax::ast::{self, AstNode, Expr};
 use crate::syntax::{SourceId, Span, SyntaxNode};
 use crate::util::hash128;
-use crate::util::EcoString;
 use crate::World;
 
 /// An evaluatable function.
@@ -139,8 +139,8 @@ impl Func {
                 )
             }
             Repr::With(wrapped, applied) => {
-                args.items.splice(..0, applied.items.iter().cloned());
-                wrapped.call(vm, args)
+                args.items = applied.items.iter().cloned().chain(args.items).collect();
+                return wrapped.call(vm, args);
             }
         }
     }

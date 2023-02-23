@@ -5,6 +5,8 @@ use std::num::NonZeroUsize;
 use std::str::FromStr;
 use std::sync::Arc;
 
+use ecow::EcoString;
+
 use crate::font::Font;
 use crate::geom::{
     self, rounded_rect, Abs, Align, Axes, Color, Corners, Dir, Em, Geometry, Numeric,
@@ -14,7 +16,6 @@ use crate::image::Image;
 use crate::model::{
     capable, dict, node, Content, Dict, Fold, StableId, StyleChain, Value,
 };
-use crate::util::EcoString;
 
 /// A finished document with metadata and page frames.
 #[derive(Debug, Default, Clone, Hash)]

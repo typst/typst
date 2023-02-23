@@ -5,13 +5,13 @@
 use std::num::NonZeroUsize;
 use std::ops::Deref;
 
+use ecow::EcoString;
 use unscanny::Scanner;
 
 use super::{
     is_id_continue, is_id_start, is_newline, split_newlines, Span, SyntaxKind, SyntaxNode,
 };
 use crate::geom::{AbsUnit, AngleUnit};
-use crate::util::EcoString;
 
 /// A typed AST node.
 pub trait AstNode: Sized {

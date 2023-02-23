@@ -1,11 +1,11 @@
 use std::collections::{BTreeSet, HashSet};
 
+use ecow::{format_eco, EcoString};
 use if_chain::if_chain;
 
 use super::{analyze_expr, analyze_import, plain_docs_sentence, summarize_font_family};
 use crate::model::{methods_on, CastInfo, Scope, Value};
 use crate::syntax::{ast, LinkedNode, Source, SyntaxKind};
-use crate::util::{format_eco, EcoString};
 use crate::World;
 
 /// Autocomplete a cursor position in a source file.

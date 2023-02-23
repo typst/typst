@@ -50,7 +50,7 @@ math: |
   Formulas can also contain line breaks. Each line can contain one or multiple
   _alignment points_ (`&`) which are then aligned.
   ```example
-  $ sum_(x=0)^n
+  $ sum_(k=0)^n k
       &= 1 + ... + n \
       &= (n(n+1)) / 2 $
   ```

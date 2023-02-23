@@ -1,31 +1,33 @@
 use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter, Write};
 use std::ops::{Add, AddAssign};
-use std::sync::Arc;
+
+use ecow::{format_eco, EcoString, EcoVec};
 
 use super::{ops, Args, Func, Value, Vm};
 use crate::diag::{bail, At, SourceResult, StrResult};
-use crate::util::{format_eco, ArcExt, EcoString};
 
 /// Create a new [`Array`] from values.
 #[macro_export]
 #[doc(hidden)]
 macro_rules! __array {
     ($value:expr; $count:expr) => {
-        $crate::model::Array::from_vec(vec![$value.into(); $count])
+        $crate::model::Array::from_vec($crate::model::eco_vec![$value.into(); $count])
     };
 
     ($($value:expr),* $(,)?) => {
-        $crate::model::Array::from_vec(vec![$($value.into()),*])
+        $crate::model::Array::from_vec($crate::model::eco_vec![$($value.into()),*])
     };
 }
 
 #[doc(inline)]
 pub use crate::__array as array;
+#[doc(hidden)]
+pub use ecow::eco_vec;
 
 /// A reference counted array with value semantics.
 #[derive(Default, Clone, PartialEq, Hash)]
-pub struct Array(Arc<Vec<Value>>);
+pub struct Array(EcoVec<Value>);
 
 impl Array {
     /// Create a new, empty array.
@@ -33,9 +35,9 @@ impl Array {
         Self::default()
     }
 
-    /// Create a new array from a vector of values.
-    pub fn from_vec(vec: Vec<Value>) -> Self {
-        Self(Arc::new(vec))
+    /// Create a new array from an eco vector of values.
+    pub fn from_vec(vec: EcoVec<Value>) -> Self {
+        Self(vec)
     }
 
     /// The length of the array.
@@ -50,7 +52,7 @@ impl Array {
 
     /// Mutably borrow the first value in the array.
     pub fn first_mut(&mut self) -> StrResult<&mut Value> {
-        Arc::make_mut(&mut self.0).first_mut().ok_or_else(array_is_empty)
+        self.0.make_mut().first_mut().ok_or_else(array_is_empty)
     }
 
     /// The last value in the array.
@@ -60,7 +62,7 @@ impl Array {
 
     /// Mutably borrow the last value in the array.
     pub fn last_mut(&mut self) -> StrResult<&mut Value> {
-        Arc::make_mut(&mut self.0).last_mut().ok_or_else(array_is_empty)
+        self.0.make_mut().last_mut().ok_or_else(array_is_empty)
     }
 
     /// Borrow the value at the given index.
@@ -74,18 +76,18 @@ impl Array {
     pub fn at_mut(&mut self, index: i64) -> StrResult<&mut Value> {
         let len = self.len();
         self.locate(index)
-            .and_then(move |i| Arc::make_mut(&mut self.0).get_mut(i))
+            .and_then(move |i| self.0.make_mut().get_mut(i))
             .ok_or_else(|| out_of_bounds(index, len))
     }
 
     /// Push a value to the end of the array.
     pub fn push(&mut self, value: Value) {
-        Arc::make_mut(&mut self.0).push(value);
+        self.0.push(value);
     }
 
     /// Remove the last value in the array.
     pub fn pop(&mut self) -> StrResult<Value> {
-        Arc::make_mut(&mut self.0).pop().ok_or_else(array_is_empty)
+        self.0.pop().ok_or_else(array_is_empty)
     }
 
     /// Insert a value at the specified index.
@@ -96,7 +98,7 @@ impl Array {
             .filter(|&i| i <= self.0.len())
             .ok_or_else(|| out_of_bounds(index, len))?;
 
-        Arc::make_mut(&mut self.0).insert(i, value);
+        self.0.insert(i, value);
         Ok(())
     }
 
@@ -108,7 +110,7 @@ impl Array {
             .filter(|&i| i < self.0.len())
             .ok_or_else(|| out_of_bounds(index, len))?;
 
-        Ok(Arc::make_mut(&mut self.0).remove(i))
+        Ok(self.0.remove(i))
     }
 
     /// Extract a contigous subregion of the array.
@@ -126,7 +128,7 @@ impl Array {
             .ok_or_else(|| out_of_bounds(end, len))?
             .max(start);
 
-        Ok(Self::from_vec(self.0[start..end].to_vec()))
+        Ok(Self::from_vec(self.0[start..end].into()))
     }
 
     /// Whether the array contains a specific value.
@@ -170,7 +172,7 @@ impl Array {
         if func.argc().map_or(false, |count| count != 1) {
             bail!(func.span(), "function must have exactly one parameter");
         }
-        let mut kept = vec![];
+        let mut kept = EcoVec::new();
         for item in self.iter() {
             let args = Args::new(func.span(), [item.clone()]);
             if func.call(vm, args)?.cast::<bool>().at(func.span())? {
@@ -244,7 +246,7 @@ impl Array {
 
     /// Return a new array with all items from this and nested arrays.
     pub fn flatten(&self) -> Self {
-        let mut flat = Vec::with_capacity(self.0.len());
+        let mut flat = EcoVec::with_capacity(self.0.len());
         for item in self.iter() {
             if let Value::Array(nested) = item {
                 flat.extend(nested.flatten().into_iter());
@@ -287,8 +289,8 @@ impl Array {
     /// Returns an error if two values could not be compared.
     pub fn sorted(&self) -> StrResult<Self> {
         let mut result = Ok(());
-        let mut vec = (*self.0).clone();
-        vec.sort_by(|a, b| {
+        let mut vec = self.0.clone();
+        vec.make_mut().sort_by(|a, b| {
             a.partial_cmp(b).unwrap_or_else(|| {
                 if result.is_ok() {
                     result = Err(format_eco!(
@@ -369,31 +371,28 @@ impl Add for Array {
 
 impl AddAssign for Array {
     fn add_assign(&mut self, rhs: Array) {
-        match Arc::try_unwrap(rhs.0) {
-            Ok(vec) => self.extend(vec),
-            Err(rc) => self.extend(rc.iter().cloned()),
-        }
+        self.0.extend(rhs.0);
     }
 }
 
 impl Extend<Value> for Array {
     fn extend<T: IntoIterator<Item = Value>>(&mut self, iter: T) {
-        Arc::make_mut(&mut self.0).extend(iter);
+        self.0.extend(iter);
     }
 }
 
 impl FromIterator<Value> for Array {
     fn from_iter<T: IntoIterator<Item = Value>>(iter: T) -> Self {
-        Self(Arc::new(iter.into_iter().collect()))
+        Self(iter.into_iter().collect())
     }
 }
 
 impl IntoIterator for Array {
     type Item = Value;
-    type IntoIter = std::vec::IntoIter<Value>;
+    type IntoIter = ecow::IntoIter<Value>;
 
     fn into_iter(self) -> Self::IntoIter {
-        Arc::take(self.0).into_iter()
+        self.0.into_iter()
     }
 }
 

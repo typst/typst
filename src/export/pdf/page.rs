@@ -1,3 +1,4 @@
+use ecow::format_eco;
 use pdf_writer::types::{ActionType, AnnotationType, ColorSpaceOperand};
 use pdf_writer::writers::ColorSpace;
 use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str};
@@ -10,7 +11,6 @@ use crate::geom::{
     Transform,
 };
 use crate::image::Image;
-use crate::util::format_eco;
 
 /// Construct page objects.
 pub fn construct_pages(ctx: &mut PdfContext, frames: &[Frame]) {

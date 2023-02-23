@@ -11,9 +11,29 @@
 #test(repr((1, 2, false, )), "(1, 2, false)")
 
 ---
+// Test panic.
+// Error: 7-9 panicked
+#panic()
+
+---
+// Test panic.
+// Error: 7-12 panicked with: 123
+#panic(123)
+
+---
+// Test panic.
+// Error: 7-24 panicked with: "this is wrong"
+#panic("this is wrong")
+
+---
 // Test failing assertions.
-// Error: 9-15 assertion failed
+// Error: 8-16 assertion failed
 #assert(1 == 2)
+
+---
+// Test failing assertions.
+// Error: 8-51 assertion failed: two is smaller than one
+#assert(2 < 1, message: "two is smaller than one")
 
 ---
 // Test failing assertions.

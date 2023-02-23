@@ -1,9 +1,10 @@
 use std::fmt::{self, Debug, Formatter};
 use std::sync::Arc;
 
+use ecow::{format_eco, EcoString};
+
 use super::{Content, Scope, Value};
 use crate::diag::StrResult;
-use crate::util::{format_eco, EcoString};
 
 /// An evaluated module, ready for importing or typesetting.
 #[derive(Clone, Hash)]

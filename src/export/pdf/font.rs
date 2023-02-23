@@ -1,11 +1,12 @@
 use std::collections::BTreeMap;
 
+use ecow::format_eco;
 use pdf_writer::types::{CidFontType, FontFlags, SystemInfo, UnicodeCmap};
 use pdf_writer::{Filter, Finish, Name, Rect, Str};
 use ttf_parser::{name_id, GlyphId, Tag};
 
 use super::{deflate, EmExt, PdfContext, RefExt};
-use crate::util::{format_eco, SliceExt};
+use crate::util::SliceExt;
 
 /// Embed all used fonts into the PDF.
 pub fn write_fonts(ctx: &mut PdfContext) {

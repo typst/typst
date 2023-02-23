@@ -1,10 +1,10 @@
 use std::collections::HashSet;
 use std::ops::Range;
 
+use ecow::{format_eco, EcoString};
 use unicode_math_class::MathClass;
 
 use super::{ast, is_newline, ErrorPos, LexMode, Lexer, SyntaxKind, SyntaxNode};
-use crate::util::{format_eco, EcoString};
 
 /// Parse a source file.
 pub fn parse(text: &str) -> SyntaxNode {

@@ -4,6 +4,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
+use ecow::{format_eco, EcoString};
 use siphasher::sip128::{Hasher128, SipHasher};
 
 use super::{
@@ -13,7 +14,6 @@ use super::{
 use crate::diag::StrResult;
 use crate::geom::{Abs, Angle, Color, Em, Fr, Length, Ratio, Rel, RgbaColor};
 use crate::syntax::{ast, Span};
-use crate::util::{format_eco, EcoString};
 
 /// A computational value.
 #[derive(Clone)]

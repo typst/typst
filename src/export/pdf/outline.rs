@@ -1,8 +1,8 @@
+use ecow::EcoString;
 use pdf_writer::{Finish, Ref, TextStr};
 
 use super::{AbsExt, PdfContext, RefExt};
 use crate::geom::{Abs, Point};
-use crate::util::EcoString;
 
 /// A heading in the outline panel.
 #[derive(Debug, Clone)]
