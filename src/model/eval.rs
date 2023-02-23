@@ -1033,7 +1033,7 @@ impl Eval for ast::Args {
     type Output = Args;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let mut items = Vec::new();
+        let mut items = EcoVec::new();
 
         for arg in self.items() {
             let span = arg.span();

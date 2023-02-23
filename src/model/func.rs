@@ -115,7 +115,7 @@ impl Func {
             Repr::Native(native) => (native.func)(vm, &mut args)?,
             Repr::Closure(closure) => closure.call(vm, self, &mut args)?,
             Repr::With(wrapped, applied) => {
-                args.items.splice(..0, applied.items.iter().cloned());
+                args.items = applied.items.iter().cloned().chain(args.items).collect();
                 return wrapped.call(vm, args);
             }
         };

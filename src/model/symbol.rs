@@ -1,9 +1,8 @@
 use std::cmp::Reverse;
 use std::collections::BTreeSet;
 use std::fmt::{self, Debug, Display, Formatter, Write};
-use std::sync::Arc;
 
-use ecow::EcoString;
+use ecow::{EcoString, EcoVec};
 
 use crate::diag::StrResult;
 
@@ -22,7 +21,7 @@ pub struct Symbol {
 enum Repr {
     Single(char),
     Static(&'static [(&'static str, char)]),
-    Runtime(Arc<Vec<(EcoString, char)>>),
+    Runtime(EcoVec<(EcoString, char)>),
 }
 
 impl Symbol {
@@ -43,10 +42,10 @@ impl Symbol {
 
     /// Create a symbol with a runtime variant list.
     #[track_caller]
-    pub fn runtime(list: Vec<(EcoString, char)>) -> Self {
+    pub fn runtime(list: EcoVec<(EcoString, char)>) -> Self {
         debug_assert!(!list.is_empty());
         Self {
-            repr: Repr::Runtime(Arc::new(list)),
+            repr: Repr::Runtime(list),
             modifiers: EcoString::new(),
         }
     }

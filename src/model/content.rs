@@ -6,9 +6,8 @@ use std::ops::{Add, AddAssign};
 use std::sync::Arc;
 
 use comemo::Tracked;
-use ecow::EcoString;
+use ecow::{EcoString, EcoVec};
 use siphasher::sip128::{Hasher128, SipHasher};
-use thin_vec::ThinVec;
 use typst_macros::node;
 
 use super::{
@@ -25,7 +24,7 @@ use crate::World;
 pub struct Content {
     obj: Arc<dyn Bounds>,
     span: Option<Span>,
-    modifiers: ThinVec<Modifier>,
+    modifiers: EcoVec<Modifier>,
 }
 
 /// Modifiers that can be attached to content.
@@ -68,9 +67,9 @@ impl Content {
 
     /// Attach a label to the content.
     pub fn labelled(mut self, label: Label) -> Self {
-        for modifier in &mut self.modifiers {
-            if let Modifier::Label(prev) = modifier {
-                *prev = label;
+        for (i, modifier) in self.modifiers.iter().enumerate() {
+            if matches!(modifier, Modifier::Label(_)) {
+                self.modifiers.make_mut()[i] = Modifier::Label(label);
                 return self;
             }
         }
@@ -408,7 +407,7 @@ pub trait Node: 'static + Capable {
         Content {
             obj: Arc::new(self),
             span: None,
-            modifiers: ThinVec::new(),
+            modifiers: EcoVec::new(),
         }
     }
 

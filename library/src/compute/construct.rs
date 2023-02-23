@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use ecow::EcoVec;
 use typst::model::Regex;
 
 use crate::prelude::*;
@@ -275,7 +276,7 @@ castable! {
 /// construct
 #[func]
 pub fn symbol(args: &mut Args) -> SourceResult<Value> {
-    let mut list: Vec<(EcoString, char)> = vec![];
+    let mut list = EcoVec::new();
     for Spanned { v, span } in args.all::<Spanned<Variant>>()? {
         if list.iter().any(|(prev, _)| &v.0 == prev) {
             bail!(span, "duplicate variant");
