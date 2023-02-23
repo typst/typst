@@ -2,10 +2,11 @@
 
 use std::cmp::Ordering;
 
+use ecow::format_eco;
+
 use super::{format_str, Regex, Value};
 use crate::diag::StrResult;
 use crate::geom::{Axes, Axis, GenAlign, Length, Numeric, PartialStroke, Rel, Smart};
-use crate::util::format_eco;
 use Value::*;
 
 /// Bail with a type mismatch error.

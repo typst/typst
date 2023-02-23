@@ -1,9 +1,10 @@
 //! Methods on values.
 
+use ecow::EcoString;
+
 use super::{Args, Str, Value, Vm};
 use crate::diag::{At, SourceResult};
 use crate::syntax::Span;
-use crate::util::EcoString;
 
 /// Call a method on a value.
 pub fn call(

@@ -2,6 +2,8 @@ use std::num::NonZeroUsize;
 use std::ops::Add;
 use std::str::FromStr;
 
+use ecow::EcoString;
+
 use super::{
     castable, Array, Content, Dict, Func, Label, Regex, Selector, Str, Transform, Value,
 };
@@ -13,7 +15,6 @@ use crate::geom::{
     Rel, Sides, Smart,
 };
 use crate::syntax::Spanned;
-use crate::util::EcoString;
 
 /// Cast from a value to a specific type.
 pub trait Cast<V = Value>: Sized {

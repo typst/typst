@@ -1,5 +1,4 @@
 use typst::model::SequenceNode;
-use typst::util::EcoString;
 
 use super::{variant, SpaceNode, TextNode, TextSize};
 use crate::prelude::*;

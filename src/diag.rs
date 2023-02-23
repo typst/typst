@@ -8,9 +8,9 @@ use std::str::Utf8Error;
 use std::string::FromUtf8Error;
 
 use comemo::Tracked;
+use ecow::EcoString;
 
 use crate::syntax::{ErrorPos, Span, Spanned};
-use crate::util::{format_eco, EcoString};
 use crate::World;
 
 /// Early-return with a [`SourceError`].
@@ -38,12 +38,14 @@ macro_rules! __error {
     };
 
     ($span:expr, $fmt:expr, $($arg:expr),+ $(,)?) => {
-        $crate::diag::error!($span, $crate::util::format_eco!($fmt, $($arg),+))
+        $crate::diag::error!($span, $crate::diag::format_eco!($fmt, $($arg),+))
     };
 }
 
 #[doc(inline)]
 pub use crate::__error as error;
+#[doc(hidden)]
+pub use ecow::format_eco;
 
 /// A result that can carry multiple source errors.
 pub type SourceResult<T> = Result<T, Box<Vec<SourceError>>>;

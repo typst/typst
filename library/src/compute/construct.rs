@@ -458,12 +458,12 @@ pub fn range(args: &mut Args) -> SourceResult<Value> {
     };
 
     let mut x = start;
-    let mut seq = vec![];
+    let mut array = Array::new();
 
     while x.cmp(&end) == 0.cmp(&step) {
-        seq.push(Value::Int(x));
+        array.push(Value::Int(x));
         x += step;
     }
 
-    Ok(Value::Array(Array::from_vec(seq)))
+    Ok(Value::Array(array))
 }

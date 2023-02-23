@@ -3,24 +3,26 @@ use std::fmt::{self, Debug, Display, Formatter, Write};
 use std::hash::{Hash, Hasher};
 use std::ops::{Add, AddAssign, Deref};
 
+use ecow::EcoString;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::{castable, dict, Array, Dict, Value};
 use crate::diag::StrResult;
 use crate::geom::GenAlign;
-use crate::util::{format_eco, EcoString};
 
 /// Create a new [`Str`] from a format string.
 #[macro_export]
 #[doc(hidden)]
 macro_rules! __format_str {
     ($($tts:tt)*) => {{
-        $crate::model::Str::from(format_eco!($($tts)*))
+        $crate::model::Str::from($crate::model::format_eco!($($tts)*))
     }};
 }
 
 #[doc(inline)]
 pub use crate::__format_str as format_str;
+#[doc(hidden)]
+pub use ecow::format_eco;
 
 /// An immutable reference counted string.
 #[derive(Default, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -407,11 +409,13 @@ impl From<String> for Str {
         Self(s.into())
     }
 }
+
 impl From<Cow<'_, str>> for Str {
     fn from(s: Cow<str>) -> Self {
         Self(s.into())
     }
 }
+
 impl FromIterator<char> for Str {
     fn from_iter<T: IntoIterator<Item = char>>(iter: T) -> Self {
         Self(iter.into_iter().collect())

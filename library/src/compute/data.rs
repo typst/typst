@@ -86,15 +86,15 @@ pub fn csv(vm: &Vm, args: &mut Args) -> SourceResult<Value> {
     }
 
     let mut reader = builder.from_reader(data.as_slice());
-    let mut vec = vec![];
+    let mut array = Array::new();
 
     for result in reader.records() {
         let row = result.map_err(format_csv_error).at(span)?;
-        let array = row.iter().map(|field| Value::Str(field.into())).collect();
-        vec.push(Value::Array(array))
+        let sub = row.iter().map(|field| Value::Str(field.into())).collect();
+        array.push(Value::Array(sub))
     }
 
-    Ok(Value::Array(Array::from_vec(vec)))
+    Ok(Value::Array(array))
 }
 
 /// The delimiter to use when parsing CSV files.

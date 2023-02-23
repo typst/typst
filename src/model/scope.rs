@@ -2,9 +2,10 @@ use std::collections::BTreeMap;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 
+use ecow::EcoString;
+
 use super::{Func, FuncType, Library, Value};
 use crate::diag::StrResult;
-use crate::util::EcoString;
 
 /// A stack of scopes.
 #[derive(Debug, Default, Clone)]

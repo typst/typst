@@ -3,8 +3,9 @@ use std::collections::BTreeSet;
 use std::fmt::{self, Debug, Display, Formatter, Write};
 use std::sync::Arc;
 
+use ecow::EcoString;
+
 use crate::diag::StrResult;
-use crate::util::EcoString;
 
 #[doc(inline)]
 pub use typst_macros::symbols;

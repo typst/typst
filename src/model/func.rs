@@ -3,6 +3,7 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use comemo::{Track, Tracked, TrackedMut};
+use ecow::EcoString;
 
 use super::{
     Args, CastInfo, Dict, Eval, Flow, Node, NodeId, Route, Scope, Scopes, Selector,
@@ -11,7 +12,6 @@ use super::{
 use crate::diag::{bail, SourceResult, StrResult};
 use crate::syntax::ast::{self, AstNode, Expr};
 use crate::syntax::{SourceId, Span, SyntaxNode};
-use crate::util::EcoString;
 use crate::World;
 
 /// An evaluatable function.

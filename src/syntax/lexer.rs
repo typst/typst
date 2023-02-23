@@ -1,9 +1,9 @@
+use ecow::{format_eco, EcoString};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_xid::UnicodeXID;
 use unscanny::Scanner;
 
 use super::{ErrorPos, SyntaxKind};
-use crate::util::{format_eco, EcoString};
 
 /// Splits up a string of source code into tokens.
 #[derive(Clone)]

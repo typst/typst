@@ -305,6 +305,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "ecow"
+version = "0.1.0"
+source = "git+https://github.com/typst/ecow#36b624de42f12f90ebad3e0498d770e1700f2e90"
+
+[[package]]
 name = "elsa"
 version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1166,6 +1171,7 @@ dependencies = [
  "bitflags",
  "bytemuck",
  "comemo",
+ "ecow",
  "flate2",
  "if_chain",
  "image",
@@ -1238,6 +1244,7 @@ version = "0.0.0"
 dependencies = [
  "comemo",
  "csv",
+ "ecow",
  "hypher",
  "kurbo",
  "lipsum",
@@ -1569,7 +1576,8 @@ checksum = "4d25c75bf9ea12c4040a97f829154768bbbce366287e2dc044af160cd79a13fd"
 [[package]]
 name = "xmp-writer"
 version = "0.1.0"
-source = "git+https://github.com/typst/xmp-writer#0bce4e38395877dad229ea4518d4f78038738155"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9fd742bbbb930fc972b28bf66b7546dfbc7bb9a4c7924299df0ae6a5641fcadf"
 
 [[package]]
 name = "yaml-front-matter"

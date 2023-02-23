@@ -5,6 +5,7 @@ use std::mem;
 use std::path::{Path, PathBuf};
 
 use comemo::{Track, Tracked, TrackedMut};
+use ecow::EcoVec;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::{
@@ -797,7 +798,7 @@ impl Eval for ast::Array {
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let items = self.items();
 
-        let mut vec = Vec::with_capacity(items.size_hint().0);
+        let mut vec = EcoVec::with_capacity(items.size_hint().0);
         for item in items {
             match item {
                 ast::ArrayItem::Pos(expr) => vec.push(expr.eval(vm)?),

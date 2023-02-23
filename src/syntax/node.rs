@@ -3,10 +3,11 @@ use std::ops::{Deref, Range};
 use std::rc::Rc;
 use std::sync::Arc;
 
+use ecow::EcoString;
+
 use super::ast::AstNode;
 use super::{SourceId, Span, SyntaxKind};
 use crate::diag::SourceError;
-use crate::util::EcoString;
 
 /// A node in the untyped syntax tree.
 #[derive(Clone, PartialEq, Hash)]

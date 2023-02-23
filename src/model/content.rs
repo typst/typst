@@ -6,6 +6,7 @@ use std::ops::{Add, AddAssign};
 use std::sync::Arc;
 
 use comemo::Tracked;
+use ecow::EcoString;
 use siphasher::sip128::{Hasher128, SipHasher};
 use thin_vec::ThinVec;
 use typst_macros::node;
@@ -16,7 +17,7 @@ use super::{
 };
 use crate::diag::{SourceResult, StrResult};
 use crate::syntax::Span;
-use crate::util::{EcoString, ReadableTypeId};
+use crate::util::ReadableTypeId;
 use crate::World;
 
 /// Composable representation of styled content.

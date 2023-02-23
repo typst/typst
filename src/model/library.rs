@@ -2,13 +2,14 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::num::NonZeroUsize;
 
+use ecow::EcoString;
 use once_cell::sync::OnceCell;
 
 use super::{Content, Module, NodeId, StyleChain, StyleMap, Vt};
 use crate::diag::SourceResult;
 use crate::doc::Document;
 use crate::geom::{Abs, Dir};
-use crate::util::{hash128, EcoString};
+use crate::util::hash128;
 
 /// Definition of Typst's standard library.
 #[derive(Debug, Clone, Hash)]
