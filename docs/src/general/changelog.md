@@ -5,6 +5,19 @@ description: |
 ---
 
 # Changelog
+## Unreleased
+- Added [`panic`]($func/panic) function
+- Added [`clusters`]($type/string.clusters) and [`codepoints`]($type/string.codepoints)
+  methods for strings
+- Support for multiple authors in [`set document`]($func/document.author)
+- Fixed crash when string is accessed at a position that is not a char boundary
+- Fixed semicolon parsing in `[#var ;]`
+- Fixed incremental parsing when inserting backslash at end of `[#"abc"]`
+- Fixed names of a few font families
+  (including Noto Sans Symbols and New Computer Modern families)
+- Fixed autocompletion for font families
+- Improved incremental compilation for user-defined functions
+
 ## February 15, 2023
 - [Box]($func/box) and [block]($func/block) have gained `fill`, `stroke`,
   `radius`, and `inset` properties

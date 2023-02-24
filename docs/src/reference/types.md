@@ -270,12 +270,12 @@ Fails with an error if the start or end index is out of bounds.
 - returns: string
 
 ### clusters()
-Returns the grapheme clusters of the string as array of substrings.
+Returns the grapheme clusters of the string as an array of substrings.
 
 - returns: array
 
 ### codepoints()
-Returns the Unicode codepoints of the string as array of substrings.
+Returns the Unicode codepoints of the string as an array of substrings.
 
 - returns: array
 
