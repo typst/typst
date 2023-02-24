@@ -23,7 +23,8 @@ pub fn autocomplete(
 ) -> Option<(usize, Vec<Completion>)> {
     let mut ctx = CompletionContext::new(world, source, cursor, explicit)?;
 
-    let _ = complete_field_accesses(&mut ctx)
+    let _ = complete_comments(&mut ctx)
+        || complete_field_accesses(&mut ctx)
         || complete_imports(&mut ctx)
         || complete_rules(&mut ctx)
         || complete_params(&mut ctx)
@@ -65,6 +66,11 @@ pub enum CompletionKind {
     Font,
     /// A symbol.
     Symbol(char),
+}
+
+/// Complete in comments. Or rather, don't!
+fn complete_comments(ctx: &mut CompletionContext) -> bool {
+    matches!(ctx.leaf.kind(), SyntaxKind::LineComment | SyntaxKind::BlockComment)
 }
 
 /// Complete in markup mode.
