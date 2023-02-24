@@ -565,6 +565,7 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
                 | SyntaxKind::Comma
                 | SyntaxKind::Ident
         );
+        if deciding.kind() != SyntaxKind::Comma || deciding.range().end < ctx.cursor;
         then {
             ctx.from = match deciding.kind() {
                 SyntaxKind::Ident => deciding.offset(),
