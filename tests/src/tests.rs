@@ -220,6 +220,7 @@ impl TestWorld {
         // Search for fonts.
         let mut fonts = vec![];
         for entry in WalkDir::new(FONT_DIR)
+            .sort_by_file_name()
             .into_iter()
             .filter_map(|e| e.ok())
             .filter(|entry| entry.file_type().is_file())

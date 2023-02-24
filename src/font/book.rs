@@ -199,7 +199,10 @@ impl FontInfo {
         // up.
         let family = {
             let mut family = find_name(ttf, name_id::FAMILY)?;
-            if family.starts_with("Noto") || family.starts_with("NewComputerModern") {
+            if family.starts_with("Noto")
+                || family.starts_with("NewCM")
+                || family.starts_with("NewComputerModern")
+            {
                 family = find_name(ttf, name_id::FULL_NAME)?;
             }
             typographic_family(&family).to_string()
@@ -221,9 +224,18 @@ impl FontInfo {
                 (_, true) => FontStyle::Oblique,
             };
 
-            let weight = FontWeight::from_number(ttf.weight().to_number());
-            let stretch = FontStretch::from_number(ttf.width().to_number());
+            let weight = {
+                let mut number = ttf.weight().to_number();
+                if (family.starts_with("NewCM")
+                    || family.starts_with("New Computer Modern"))
+                    && full.contains("book")
+                {
+                    number += 50;
+                }
+                FontWeight::from_number(number)
+            };
 
+            let stretch = FontStretch::from_number(ttf.width().to_number());
             FontVariant { style, weight, stretch }
         };
 
@@ -318,6 +330,12 @@ fn typographic_family(mut family: &str) -> &str {
         "narrow", "condensed", "cond", "cn", "cd", "compressed", "expanded", "exp"
     ];
 
+    let mut extra = [].as_slice();
+    let newcm = family.starts_with("NewCM") || family.starts_with("NewComputerModern");
+    if newcm {
+        extra = &["book"];
+    }
+
     // Trim spacing and weird leading dots in Apple fonts.
     family = family.trim().trim_start_matches('.');
 
@@ -331,9 +349,16 @@ fn typographic_family(mut family: &str) -> &str {
         len = trimmed.len();
 
         // Find style suffix.
-        let Some(mut t) = SUFFIXES.iter().find_map(|s| trimmed.strip_suffix(s)) else {
+        let mut t = trimmed;
+        let mut shortened = false;
+        while let Some(s) = SUFFIXES.iter().chain(extra).find_map(|s| t.strip_suffix(s)) {
+            shortened = true;
+            t = s;
+        }
+
+        if !shortened {
             break;
-        };
+        }
 
         // Strip optional separator.
         if let Some(s) = t.strip_suffix(SEPARATORS) {
@@ -350,10 +375,21 @@ fn typographic_family(mut family: &str) -> &str {
         }
     }
 
+    // Apply style suffix trimming.
+    family = &family[..len];
+
+    if newcm {
+        family = family.trim_end_matches("10");
+    }
+
     // Fix bad names.
-    match &family[..len] {
+    match family {
+        "Noto Sans Symbols2" => "Noto Sans Symbols 2",
+        "NewComputerModern" => "New Computer Modern",
+        "NewComputerModernMono" => "New Computer Modern Mono",
+        "NewComputerModernSans" => "New Computer Modern Sans",
         "NewComputerModernMath" => "New Computer Modern Math",
-        "NewComputerModernMath-Book" => "New Computer Modern Math Book",
+        "NewCMUncial" | "NewComputerModernUncial" => "New Computer Modern Uncial",
         other => other,
     }
 }
