@@ -6,6 +6,17 @@
 What's up?
 
 ---
+// This, too.
+// Ref: false
+#set document(author: ("A", "B"))
+
+---
+// This, too.
+// Error: 23-29 expected string, found integer
+#set document(author: (123,))
+What's up?
+
+---
 Hello
 
 // Error: 2-30 must appear before any content

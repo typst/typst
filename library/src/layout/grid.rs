@@ -151,10 +151,7 @@ castable! {
     TrackSizings,
     sizing: Sizing => Self(vec![sizing]),
     count: NonZeroUsize => Self(vec![Sizing::Auto; count.get()]),
-    values: Array => Self(values
-        .into_iter()
-        .filter_map(|v| v.cast().ok())
-        .collect()),
+    values: Array => Self(values.into_iter().map(Value::cast).collect::<StrResult<_>>()?),
 }
 
 castable! {

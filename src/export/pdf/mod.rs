@@ -122,9 +122,11 @@ fn write_catalog(ctx: &mut PdfContext) {
         info.title(TextStr(title));
         xmp.title([(None, title.as_str())]);
     }
-    if let Some(author) = &ctx.document.author {
-        info.author(TextStr(author));
-        xmp.creator([(author.as_str())]);
+
+    let authors = &ctx.document.author;
+    if !authors.is_empty() {
+        info.author(TextStr(&authors.join(", ")));
+        xmp.creator(authors.iter().map(|s| s.as_str()));
     }
     info.creator(TextStr("Typst"));
     info.finish();

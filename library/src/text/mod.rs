@@ -548,10 +548,7 @@ pub struct FallbackList(pub Vec<FontFamily>);
 castable! {
     FallbackList,
     family: FontFamily => Self(vec![family]),
-    values: Array => Self(values
-        .into_iter()
-        .filter_map(|v| v.cast().ok())
-        .collect()),
+    values: Array => Self(values.into_iter().map(|v| v.cast()).collect::<StrResult<_>>()?),
 }
 
 /// The size of text.

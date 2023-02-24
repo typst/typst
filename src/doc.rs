@@ -25,7 +25,7 @@ pub struct Document {
     /// The document's title.
     pub title: Option<EcoString>,
     /// The document's author.
-    pub author: Option<EcoString>,
+    pub author: Vec<EcoString>,
 }
 
 /// A finished layout with elements at fixed positions.

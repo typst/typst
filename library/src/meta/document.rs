@@ -25,9 +25,9 @@ impl DocumentNode {
     #[property(referenced)]
     pub const TITLE: Option<EcoString> = None;
 
-    /// The document's author.
+    /// The document's authors.
     #[property(referenced)]
-    pub const AUTHOR: Option<EcoString> = None;
+    pub const AUTHOR: Author = Author(vec![]);
 }
 
 impl LayoutRoot for DocumentNode {
@@ -43,7 +43,7 @@ impl LayoutRoot for DocumentNode {
         Ok(Document {
             pages,
             title: styles.get(Self::TITLE).clone(),
-            author: styles.get(Self::AUTHOR).clone(),
+            author: styles.get(Self::AUTHOR).0.clone(),
         })
     }
 }
@@ -53,4 +53,14 @@ impl Debug for DocumentNode {
         f.write_str("Document ")?;
         self.0.fmt(f)
     }
+}
+
+/// A list of authors.
+#[derive(Debug, Clone, Hash)]
+pub struct Author(Vec<EcoString>);
+
+castable! {
+    Author,
+    v: EcoString => Self(vec![v]),
+    v: Array => Self(v.into_iter().map(Value::cast).collect::<StrResult<_>>()?),
 }

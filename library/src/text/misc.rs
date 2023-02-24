@@ -374,5 +374,5 @@ pub fn smallcaps(args: &mut Args) -> SourceResult<Value> {
 #[func]
 pub fn lorem(args: &mut Args) -> SourceResult<Value> {
     let words: usize = args.expect("number of words")?;
-    Ok(Value::Str(lipsum::lipsum(words).into()))
+    Ok(Value::Str(lipsum::lipsum(words).replace("--", "–").into()))
 }
