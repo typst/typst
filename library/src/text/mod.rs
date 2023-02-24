@@ -40,7 +40,7 @@ use crate::prelude::*;
 /// ```
 ///
 /// ## Parameters
-/// - family: `EcoString` (positional, variadic, settable)
+/// - family: `FallbackList` (positional, named, variadic, settable)
 ///   A prioritized sequence of font families.
 ///
 ///   When processing text, Typst tries all specified font families in order

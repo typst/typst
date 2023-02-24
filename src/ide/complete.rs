@@ -62,8 +62,6 @@ pub enum CompletionKind {
     Param,
     /// A constant.
     Constant,
-    /// A font family.
-    Font,
     /// A symbol.
     Symbol(char),
 }
@@ -539,20 +537,26 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
         }
     };
 
+    // Find the piece of syntax that decides what we're completion.
+    let mut deciding = ctx.leaf.clone();
+    while !matches!(
+        deciding.kind(),
+        SyntaxKind::LeftParen | SyntaxKind::Comma | SyntaxKind::Colon
+    ) {
+        let Some(prev) = deciding.prev_leaf() else { break };
+        deciding = prev;
+    }
+
     // Parameter values: "func(param:|)", "func(param: |)".
     if_chain! {
-        if let Some(prev) = ctx.leaf.prev_leaf();
-        if let Some(before_colon) = match (prev.kind(), ctx.leaf.kind()) {
-            (_, SyntaxKind::Colon) => Some(prev),
-            (SyntaxKind::Colon, _) => prev.prev_leaf(),
-            _ => None,
-        };
-        if let Some(param) = before_colon.cast::<ast::Ident>();
+        if deciding.kind() == SyntaxKind::Colon;
+        if let Some(prev) = deciding.prev_leaf();
+        if let Some(param) = prev.cast::<ast::Ident>();
         then {
-            ctx.from = match ctx.leaf.kind() {
-                SyntaxKind::Colon | SyntaxKind::Space  => ctx.cursor,
-                _ => ctx.leaf.offset(),
-            };
+            if let Some(next) = deciding.next_leaf() {
+                ctx.from = ctx.cursor.min(next.offset());
+            }
+
             named_param_value_completions(ctx, &callee, &param);
             return true;
         }
@@ -560,23 +564,12 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
 
     // Parameters: "func(|)", "func(hi|)", "func(12,|)".
     if_chain! {
-        if let Some(deciding) = if ctx.leaf.kind().is_trivia() {
-            ctx.leaf.prev_leaf()
-        } else {
-            Some(ctx.leaf.clone())
-        };
-        if matches!(
-            deciding.kind(),
-            SyntaxKind::LeftParen
-                | SyntaxKind::Comma
-                | SyntaxKind::Ident
-        );
+        if matches!(deciding.kind(), SyntaxKind::LeftParen | SyntaxKind::Comma);
         if deciding.kind() != SyntaxKind::Comma || deciding.range().end < ctx.cursor;
         then {
-            ctx.from = match deciding.kind() {
-                SyntaxKind::Ident => deciding.offset(),
-                _ => ctx.cursor,
-            };
+            if let Some(next) = deciding.next_leaf() {
+                ctx.from = ctx.cursor.min(next.offset());
+            }
 
             // Exclude arguments which are already present.
             let exclude: Vec<_> = args.items().filter_map(|arg| match arg {
@@ -606,10 +599,6 @@ fn param_completions(
         else { return; }
     };
 
-    if callee.as_str() == "text" {
-        ctx.font_completions();
-    }
-
     for param in &info.params {
         if exclude.iter().any(|ident| ident.as_str() == param.name) {
             continue;
@@ -633,6 +622,10 @@ fn param_completions(
         }
     }
 
+    if callee.as_str() == "text" {
+        ctx.font_completions();
+    }
+
     if ctx.before.ends_with(',') {
         ctx.enrich(" ", "");
     }
@@ -654,6 +647,10 @@ fn named_param_value_completions(
     };
 
     ctx.cast_completions(&param.cast);
+
+    if callee.as_str() == "text" && name == "family" {
+        ctx.font_completions();
+    }
 
     if ctx.before.ends_with(':') {
         ctx.enrich(" ", "");
@@ -836,6 +833,7 @@ struct CompletionContext<'a> {
     global: &'a Scope,
     math: &'a Scope,
     before: &'a str,
+    after: &'a str,
     leaf: LinkedNode<'a>,
     cursor: usize,
     explicit: bool,
@@ -860,6 +858,7 @@ impl<'a> CompletionContext<'a> {
             global: &world.library().global.scope(),
             math: &world.library().math.scope(),
             before: &text[..cursor],
+            after: &text[cursor..],
             leaf,
             cursor,
             explicit,
@@ -896,12 +895,12 @@ impl<'a> CompletionContext<'a> {
     fn font_completions(&mut self) {
         for (family, iter) in self.world.book().families() {
             let detail = summarize_font_family(iter);
-            self.completions.push(Completion {
-                kind: CompletionKind::Font,
-                label: family.into(),
-                apply: Some(format_eco!("\"{family}\"")),
-                detail: Some(detail.into()),
-            })
+            self.value_completion(
+                None,
+                &Value::Str(family.into()),
+                false,
+                Some(detail.as_str()),
+            );
         }
     }
 
@@ -911,15 +910,15 @@ impl<'a> CompletionContext<'a> {
         label: Option<EcoString>,
         value: &Value,
         parens: bool,
-        docs: Option<&'static str>,
+        docs: Option<&str>,
     ) {
-        let mut label = label.unwrap_or_else(|| value.repr().into());
+        let label = label.unwrap_or_else(|| value.repr().into());
         let mut apply = None;
 
-        if label.starts_with('"') {
-            let trimmed = label.trim_matches('"').into();
-            apply = Some(label);
-            label = trimmed;
+        if label.starts_with('"') && self.after.starts_with('"') {
+            if let Some(trimmed) = label.strip_suffix('"') {
+                apply = Some(trimmed.into());
+            }
         }
 
         let detail = docs.map(Into::into).or_else(|| match value {

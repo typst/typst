@@ -148,10 +148,7 @@ fn params(docs: &mut String) -> Result<(Vec<TokenStream>, Vec<String>)> {
             }
         }
 
-        if (!named && !positional)
-            || (variadic && !positional)
-            || (named && variadic)
-            || (required && variadic)
+        if (!named && !positional) || (variadic && !positional) || (required && variadic)
         {
             bail!(callsite, "invalid combination of parameter flags");
         }
