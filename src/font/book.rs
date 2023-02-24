@@ -199,7 +199,7 @@ impl FontInfo {
         // up.
         let family = {
             let mut family = find_name(ttf, name_id::FAMILY)?;
-            if family.starts_with("Noto") {
+            if family.starts_with("Noto") || family.starts_with("NewComputerModern") {
                 family = find_name(ttf, name_id::FULL_NAME)?;
             }
             typographic_family(&family).to_string()
@@ -353,6 +353,7 @@ fn typographic_family(mut family: &str) -> &str {
     // Fix bad names.
     match &family[..len] {
         "NewComputerModernMath" => "New Computer Modern Math",
+        "NewComputerModernMath-Book" => "New Computer Modern Math Book",
         other => other,
     }
 }
