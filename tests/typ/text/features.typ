@@ -7,7 +7,6 @@
 
 ---
 // Test smallcaps.
-#set text("Roboto")
 #smallcaps[Smallcaps]
 
 ---
@@ -22,27 +21,24 @@ fi vs. #text(ligatures: false)[No fi]
 
 ---
 // Test number type.
-#set text("Roboto")
 #set text(number-type: "old-style")
 0123456789 \
 #text(number-type: auto)[0123456789]
 
 ---
 // Test number width.
-#set text("Roboto")
 #text(number-width: "proportional")[0123456789] \
 #text(number-width: "tabular")[3456789123] \
 #text(number-width: "tabular")[0123456789]
 
 ---
 // Test extra number stuff.
-#set text("IBM Plex Sans")
+#set text("IBM Plex Serif")
 0 vs. #text(slashed-zero: true)[0] \
 1/2 vs. #text(fractions: true)[1/2]
 
 ---
 // Test raw features.
-#set text("Roboto")
 #text(features: ("smcp",))[Smcp] \
 fi vs. #text(features: (liga: 0))[No fi]
 

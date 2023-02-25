@@ -321,7 +321,6 @@ impl Case {
 /// ## Example
 /// ```example
 /// #set par(justify: true)
-/// #set text(family: "Noto Serif")
 /// #set heading(numbering: "I.")
 ///
 /// #show heading: it => {

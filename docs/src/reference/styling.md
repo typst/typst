@@ -20,7 +20,7 @@ settable parameters. In the example below, we use two set rules to change the
 [heading numbering]($func/heading.numbering) style.
 
 ```example
-#set text("Latin Modern Roman")
+#set text("New Computer Modern")
 #set heading(numbering: "I.")
 
 = Introduction
@@ -131,7 +131,6 @@ to:
   See the documentation of the [`label` function]($func/label) for more details.
 
 ```example
-#set text("Noto Serif")
 #show "Project": smallcaps
 #show "badly": "great"
 

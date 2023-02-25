@@ -23,7 +23,7 @@
   [X]
 }
 
-#set text("Latin Modern Roman", size)
+#set text("New Computer Modern", size)
 Neither #tex, \
 nor #xetex!
 

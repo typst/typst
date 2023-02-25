@@ -20,7 +20,7 @@ starts a paragraph without indent.
 
   Except if you have another paragraph in them.
 
-#set text(8pt, lang: "ar", "Noto Sans Arabic", "IBM Plex Sans")
+#set text(8pt, lang: "ar", "Noto Sans Arabic", "Linux Libertine")
 #set par(leading: 8pt)
 
 = Arabic

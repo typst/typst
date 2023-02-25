@@ -11,7 +11,7 @@ I'm in#text(tracking: 0.15em + 1.5pt)[ spaace]!
 
 ---
 // Test that tracking doesn't disrupt mark placement.
-#set text("IBM Plex Sans", "Noto Serif Hebrew")
+#set text("PT Sans", "Noto Serif Hebrew")
 #set text(tracking: 0.3em)
 טֶקסט
 

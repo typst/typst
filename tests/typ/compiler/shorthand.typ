@@ -7,7 +7,7 @@ The non-breaking~space does work.
 // Make sure non-breaking and normal space always
 // have the same width. Even if the font decided
 // differently.
-#set text("Latin Modern Roman")
+#set text("New Computer Modern")
 a b \
 a~b
 

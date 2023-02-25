@@ -30,6 +30,7 @@ pub use self::underover::*;
 
 use ttf_parser::{GlyphId, Rect};
 use typst::font::Font;
+use typst::font::FontWeight;
 use typst::model::{Guard, Module, Scope, SequenceNode, StyledNode};
 use unicode_math_class::MathClass;
 
@@ -113,7 +114,7 @@ pub fn module() -> Module {
 ///
 /// ## Example
 /// ```example
-/// #set text("Latin Modern Roman")
+/// #set text("New Computer Modern")
 ///
 /// Let $a$, $b$, and $c$ be the side
 /// lengths of right-angled triangle.
@@ -179,10 +180,12 @@ impl Show for FormulaNode {
 
 impl Finalize for FormulaNode {
     fn finalize(&self, realized: Content) -> Content {
-        realized.styled(
-            TextNode::FAMILY,
-            FallbackList(vec![FontFamily::new("New Computer Modern Math")]),
-        )
+        realized
+            .styled(TextNode::WEIGHT, FontWeight::from_number(450))
+            .styled(
+                TextNode::FAMILY,
+                FallbackList(vec![FontFamily::new("New Computer Modern Math")]),
+            )
     }
 }
 

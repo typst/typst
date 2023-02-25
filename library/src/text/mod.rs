@@ -80,7 +80,8 @@ impl TextNode {
 impl TextNode {
     /// A prioritized sequence of font families.
     #[property(skip, referenced)]
-    pub const FAMILY: FallbackList = FallbackList(vec![FontFamily::new("IBM Plex Sans")]);
+    pub const FAMILY: FallbackList =
+        FallbackList(vec![FontFamily::new("Linux Libertine")]);
 
     /// Whether to allow last resort font fallback when the primary font list
     /// contains no match. This lets Typst search through all available fonts
@@ -115,7 +116,7 @@ impl TextNode {
     /// style later if you change your mind about how to signify the emphasis.
     ///
     /// ```example
-    /// #text("IBM Plex Sans", style: "italic")[Italic]
+    /// #text("Linux Libertine", style: "italic")[Italic]
     /// #text("DejaVu Sans", style: "oblique")[Oblique]
     /// ```
     pub const STYLE: FontStyle = FontStyle::Normal;

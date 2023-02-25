@@ -11,7 +11,7 @@ use typst::World;
 use unscanny::Scanner;
 
 const TEXT: &str = include_str!("../typ/compiler/bench.typ");
-const FONT: &[u8] = include_bytes!("../../assets/fonts/IBMPlexSans-Regular.ttf");
+const FONT: &[u8] = include_bytes!("../../assets/fonts/LinLibertine_R.ttf");
 
 main!(
     bench_decode,

@@ -8,7 +8,7 @@
 This is the start and it goes on.
 
 ---
-#set page("a8", height: 150pt)
+#set page("a8", height: 140pt)
 #set text(weight: 700)
 
 // Fits fully onto the first page.

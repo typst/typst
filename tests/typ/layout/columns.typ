@@ -3,7 +3,7 @@
 ---
 // Test normal operation and RTL directions.
 #set page(height: 3.25cm, width: 7.05cm, columns: 2)
-#set text(lang: "ar", "Noto Sans Arabic", "IBM Plex Serif")
+#set text(lang: "ar", "Noto Sans Arabic", "Linux Libertine")
 #set columns(gutter: 30pt)
 
 #box(fill: conifer, height: 8pt, width: 6pt) وتحفيز

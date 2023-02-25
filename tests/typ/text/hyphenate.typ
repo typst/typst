@@ -5,13 +5,14 @@
 #set text(hyphenate: true)
 #set page(width: auto)
 #grid(
-  columns: (70pt, 60pt),
+  columns: (50pt, 50pt),
   [Warm welcomes to Typst.],
   text(lang: "el")[διαμερίσματα. \ λατρευτός],
 )
 
 ---
 // Test disabling hyphenation for short passages.
+#set page(width: 110pt)
 #set text(hyphenate: true)
 
 Welcome to wonderful experiences. \
@@ -45,6 +46,6 @@ It's a #emph[Tree]beard.
 // punctuation instead of just the words. So this tests that we don't
 // do that. The test passes if there's just one hyphenation between
 // "net" and "works".
-#set page(width: 70pt)
+#set page(width: 60pt)
 #set text(hyphenate: true)
 #h(6pt) networks, the rest.

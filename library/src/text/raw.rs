@@ -4,6 +4,7 @@ use typst::syntax::{self, LinkedNode};
 
 use super::{
     FallbackList, FontFamily, Hyphenate, LinebreakNode, SmartQuoteNode, TextNode,
+    TextSize,
 };
 use crate::layout::BlockNode;
 use crate::prelude::*;
@@ -216,8 +217,12 @@ impl Finalize for RawNode {
         let mut map = StyleMap::new();
         map.set(TextNode::OVERHANG, false);
         map.set(TextNode::HYPHENATE, Hyphenate(Smart::Custom(false)));
+        map.set(TextNode::SIZE, TextSize(Em::new(0.8).into()));
+        map.set(
+            TextNode::FAMILY,
+            FallbackList(vec![FontFamily::new("DejaVu Sans Mono")]),
+        );
         map.set(SmartQuoteNode::ENABLED, false);
-        map.set(TextNode::FAMILY, FallbackList(vec![FontFamily::new("IBM Plex Mono")]));
         realized.styled_with_map(map)
     }
 }

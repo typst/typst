@@ -25,10 +25,10 @@
 ---
 // Test style change.
 #set text(8pt)
-/ First list: #lorem(4)
+/ First list: #lorem(6)
 
 #set terms(hanging-indent: 30pt)
-/ Second list: #lorem(4)
+/ Second list: #lorem(5)
 
 ---
 // Test grid like show rule.

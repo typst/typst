@@ -100,7 +100,7 @@ Let's add a few more styles to our document. We want larger margins and a serif
 font. For the purposes of the example, we'll also set another page size.
 
 ```example
-#set text(10pt, "Latin Modern Roman")
+#set text(10pt, "New Computer Modern")
 #set page(
   "a6",
   margin: (x: 1.8cm, y: 1.5cm),
@@ -151,7 +151,7 @@ We could also have specified separate margins for each side by passing a
 dictionary with the keys `{left}`, `{right}`, `{top}`, and `{bottom}`.
 
 Next is the set [`text`]($func/text) set rule. Here, we set the font size to
-`{10pt}` and font family to `{"Latin Modern Roman"}`. The Typst app comes with
+`{10pt}` and font family to `{"New Computer Modern"}`. The Typst app comes with
 many fonts that you can try for your document. When you are in the text
 function's argument list, you can discover the available fonts in the
 autocomplete panel.
@@ -171,7 +171,7 @@ can do this by setting the `numbering` parameter of the
 [`heading`]($func/heading) function.
 
 ```example
->>> #set text("Latin Modern Roman")
+>>> #set text("New Computer Modern")
 #set heading(numbering: "1.")
 
 = Introduction
@@ -190,7 +190,7 @@ each level. We can also use
 [letters, roman numerals, and symbols]($func/numbering) for our headings:
 
 ```example
->>> #set text("Latin Modern Roman")
+>>> #set text("New Computer Modern")
 #set heading(numbering: "1.a")
 
 = Introduction

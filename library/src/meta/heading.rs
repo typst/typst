@@ -1,9 +1,9 @@
 use typst::font::FontWeight;
 
 use super::Numbering;
-use crate::layout::{BlockNode, VNode};
+use crate::layout::{BlockNode, HNode, VNode};
 use crate::prelude::*;
-use crate::text::{SpaceNode, TextNode, TextSize};
+use crate::text::{TextNode, TextSize};
 
 /// # Heading
 /// A section heading.
@@ -145,7 +145,9 @@ impl Show for HeadingNode {
         let mut realized = self.title.clone();
         let numbers = this.field("numbers").unwrap();
         if numbers != Value::None {
-            realized = numbers.display() + SpaceNode.pack() + realized;
+            realized = numbers.display()
+                + HNode { amount: Em::new(0.3).into(), weak: true }.pack()
+                + realized;
         }
         Ok(BlockNode {
             body: realized,
@@ -166,7 +168,7 @@ impl Finalize for HeadingNode {
 
         let size = Em::new(scale);
         let above = Em::new(if self.level.get() == 1 { 1.8 } else { 1.44 }) / scale;
-        let below = Em::new(0.66) / scale;
+        let below = Em::new(0.75) / scale;
 
         let mut map = StyleMap::new();
         map.set(TextNode::SIZE, TextSize(size.into()));

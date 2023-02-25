@@ -5,7 +5,16 @@ description: |
 ---
 
 # Changelog
-## Unreleased
+## February 25, 2023
+- Font changes
+  - New default font: Linux Libertine
+  - New default font for raw blocks: DejaVu Sans Mono
+  - New default font for math: Book weight of New Computer Modern Math
+  - Lots of new math fonts available
+  - Removed Latin Modern fonts in favor of New Computer Modern family
+  - Removed unnecessary smallcaps fonts which are already accessible through
+    the corresponding main font and the [`smallcaps`]($func/smallcaps) function
+- Improved default spacing for headings
 - Added [`panic`]($func/panic) function
 - Added [`clusters`]($type/string.clusters) and [`codepoints`]($type/string.codepoints)
   methods for strings

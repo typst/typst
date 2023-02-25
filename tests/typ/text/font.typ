@@ -41,7 +41,7 @@ Emoji: 🐪, 🌋, 🏞
 #text(red, "Text") \
 #text("Ubuntu", blue, "Text") \
 #text([Text], teal, "IBM Plex Serif") \
-#text(forest, "Latin Modern Roman", [Text]) \
+#text(forest, "New Computer Modern", [Text]) \
 
 ---
 // Error: 11-16 unexpected argument
