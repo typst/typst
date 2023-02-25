@@ -893,14 +893,17 @@ impl<'a> CompletionContext<'a> {
 
     /// Add completions for all font families.
     fn font_completions(&mut self) {
+        let formula = self.before[self.cursor.saturating_sub(25)..].contains("formula");
         for (family, iter) in self.world.book().families() {
             let detail = summarize_font_family(iter);
-            self.value_completion(
-                None,
-                &Value::Str(family.into()),
-                false,
-                Some(detail.as_str()),
-            );
+            if !formula || family.contains("Math") {
+                self.value_completion(
+                    None,
+                    &Value::Str(family.into()),
+                    false,
+                    Some(detail.as_str()),
+                );
+            }
         }
     }
 
