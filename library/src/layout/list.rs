@@ -11,20 +11,19 @@ use crate::text::TextNode;
 /// ## Example
 /// ```example
 /// - *Content*
-///   - Basics
 ///   - Text
 ///   - Math
 ///   - Layout
 ///   - Visualize
 ///   - Meta
+///   - Symbols
 ///
 /// - *Compute*
 ///   #list(
 ///     [Foundations],
 ///     [Calculate],
-///     [Create],
+///     [Construct],
 ///     [Data Loading],
-///     [Utility],
 ///   )
 /// ```
 ///

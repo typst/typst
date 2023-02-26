@@ -312,8 +312,7 @@ impl Case {
 /// Display text in small capitals.
 ///
 /// _Note:_ This enables the OpenType `smcp` feature for the font. Not all fonts
-/// support this feature (including Typst's current default font,
-/// unfortunately). Sometimes smallcaps are part of a dedicated font and
+/// support this feature. Sometimes smallcaps are part of a dedicated font and
 /// sometimes they are not available at all. In the future, this function will
 /// support selecting a dedicated smallcaps font as well as synthesizing
 /// smallcaps from normal letters, but this is not yet implemented.

@@ -32,7 +32,7 @@ use crate::text::{
 /// integer value of $n > 2$.
 ///
 /// Without loss of generality,
-/// let a be the smallest of the
+/// let $a$ be the smallest of the
 /// three integers. Then, we ...
 /// ```
 ///

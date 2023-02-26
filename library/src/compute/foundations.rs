@@ -86,8 +86,8 @@ pub fn panic(args: &mut Args) -> SourceResult<Value> {
 /// produce any output in the document.
 ///
 /// ## Example
-/// ```example
-/// #assert(1 < 2, message: "one is")
+/// ```typ
+/// #assert(1 < 2, message: "math broke")
 /// ```
 ///
 /// ## Parameters
@@ -119,9 +119,9 @@ pub fn assert(args: &mut Args) -> SourceResult<Value> {
 ///
 /// ## Example
 /// ```example
-/// #eval("1 + 2") \
-/// #eval("[*Strong text*]") \
-/// #eval("(1, 2, 3)").len()
+/// #eval("1 + 1") \
+/// #eval("(1, 2, 3, 4)").len() \
+/// #eval("[*Strong text*]")
 /// ```
 ///
 /// ## Parameters

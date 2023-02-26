@@ -680,11 +680,9 @@ Returns the values of the dictionary as an array in key-order.
 - returns: array
 
 ### pairs()
-Call a function for each key-value pair and return the results in an array.
+Returns the keys and values of the dictionary as an array of pairs. Each pair is
+represented as an array of length two.
 
-- mapper: function (positional, required)
-  The function to apply to each pair. Gets passed the key and value as two
-  separate arguments.
 - returns: array
 
 ### remove()
