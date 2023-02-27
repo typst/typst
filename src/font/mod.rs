@@ -124,6 +124,7 @@ impl Font {
 impl Hash for Font {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.0.data.hash(state);
+        self.0.index.hash(state);
     }
 }
 
@@ -137,7 +138,7 @@ impl Eq for Font {}
 
 impl PartialEq for Font {
     fn eq(&self, other: &Self) -> bool {
-        self.0.data.eq(&other.0.data)
+        self.0.data == other.0.data && self.0.index == other.0.index
     }
 }
 
