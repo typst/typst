@@ -13,9 +13,9 @@ use once_cell::unsync::OnceCell;
 use tiny_skia as sk;
 use typst::diag::{bail, FileError, FileResult, SourceResult};
 use typst::doc::{Document, Element, Frame, Meta};
+use typst::eval::{func, Library, Value};
 use typst::font::{Font, FontBook};
 use typst::geom::{Abs, RgbaColor, Sides, Smart};
-use typst::model::{func, Library, Value};
 use typst::syntax::{Source, SourceId, Span, SyntaxNode};
 use typst::util::{Buffer, PathExt};
 use typst::World;
@@ -150,7 +150,7 @@ fn library() -> Library {
     /// ## Category
     /// test
     #[func]
-    fn test(args: &mut typst::model::Args) -> SourceResult<Value> {
+    fn test(args: &mut typst::eval::Args) -> SourceResult<Value> {
         let lhs = args.expect::<Value>("left-hand side")?;
         let rhs = args.expect::<Value>("right-hand side")?;
         if lhs != rhs {
@@ -163,7 +163,7 @@ fn library() -> Library {
     /// ## Category
     /// test
     #[func]
-    fn print(args: &mut typst::model::Args) -> SourceResult<Value> {
+    fn print(args: &mut typst::eval::Args) -> SourceResult<Value> {
         print!("> ");
         for (i, value) in args.all::<Value>()?.into_iter().enumerate() {
             if i > 0 {
@@ -441,10 +441,10 @@ fn test_part(
 
     if world.print.model {
         let world = (world as &dyn World).track();
-        let route = typst::model::Route::default();
-        let mut tracer = typst::model::Tracer::default();
+        let route = typst::eval::Route::default();
+        let mut tracer = typst::eval::Tracer::default();
         let module =
-            typst::model::eval(world, route.track(), tracer.track_mut(), source).unwrap();
+            typst::eval::eval(world, route.track(), tracer.track_mut(), source).unwrap();
         println!("Model:\n{:#?}\n", module.content());
     }
 

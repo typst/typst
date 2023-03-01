@@ -10,8 +10,9 @@ pub mod symbols;
 pub mod text;
 pub mod visualize;
 
+use typst::eval::{LangItems, Library, Module, Scope};
 use typst::geom::{Align, Color, Dir, GenAlign};
-use typst::model::{LangItems, Library, Module, Node, NodeId, Scope, StyleMap};
+use typst::model::{Node, NodeId, StyleMap};
 
 use self::layout::LayoutRoot;
 

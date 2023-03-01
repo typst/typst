@@ -7,15 +7,14 @@ use std::sync::Arc;
 
 use ecow::EcoString;
 
+use crate::eval::{dict, Dict, Value};
 use crate::font::Font;
 use crate::geom::{
     self, rounded_rect, Abs, Align, Axes, Color, Corners, Dir, Em, Geometry, Numeric,
     Paint, Point, Rel, RgbaColor, Shape, Sides, Size, Stroke, Transform,
 };
 use crate::image::Image;
-use crate::model::{
-    capable, dict, node, Content, Dict, Fold, StableId, StyleChain, Value,
-};
+use crate::model::{capable, node, Content, Fold, StableId, StyleChain};
 
 /// A finished document with metadata and page frames.
 #[derive(Debug, Default, Clone, Hash)]

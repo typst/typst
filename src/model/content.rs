@@ -10,11 +10,9 @@ use ecow::{EcoString, EcoVec};
 use siphasher::sip128::{Hasher128, SipHasher};
 use typst_macros::node;
 
-use super::{
-    capability, capable, Args, Guard, Key, ParamInfo, Property, Recipe, Style, StyleMap,
-    Value, Vm,
-};
+use super::{capability, capable, Guard, Key, Property, Recipe, Style, StyleMap};
 use crate::diag::{SourceResult, StrResult};
+use crate::eval::{Args, ParamInfo, Value, Vm};
 use crate::syntax::Span;
 use crate::util::ReadableTypeId;
 use crate::World;
@@ -243,7 +241,7 @@ impl Content {
     }
 
     /// Whether a label can be attached to the content.
-    pub(super) fn labellable(&self) -> bool {
+    pub(crate) fn labellable(&self) -> bool {
         !self.has::<dyn Unlabellable>()
     }
 

@@ -29,9 +29,9 @@ pub use self::style::*;
 pub use self::underover::*;
 
 use ttf_parser::{GlyphId, Rect};
-use typst::font::Font;
-use typst::font::FontWeight;
-use typst::model::{Guard, Module, Scope, SequenceNode, StyledNode};
+use typst::eval::{Module, Scope};
+use typst::font::{Font, FontWeight};
+use typst::model::{Guard, SequenceNode, StyledNode};
 use unicode_math_class::MathClass;
 
 use self::ctx::*;

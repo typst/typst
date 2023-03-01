@@ -5,11 +5,9 @@ use std::sync::Arc;
 use comemo::{Prehashed, Track, Tracked, TrackedMut};
 use ecow::EcoString;
 
-use super::{
-    Args, CastInfo, Dict, Eval, Flow, Node, NodeId, Route, Scope, Scopes, Selector,
-    StyleMap, Tracer, Value, Vm,
-};
+use super::{Args, CastInfo, Dict, Eval, Flow, Route, Scope, Scopes, Tracer, Value, Vm};
 use crate::diag::{bail, SourceResult, StrResult};
+use crate::model::{Node, NodeId, Selector, StyleMap};
 use crate::syntax::ast::{self, AstNode, Expr};
 use crate::syntax::{SourceId, Span, SyntaxNode};
 use crate::util::hash128;

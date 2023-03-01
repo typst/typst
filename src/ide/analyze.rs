@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use comemo::Track;
 
-use crate::model::{eval, Module, Route, Tracer, Value};
+use crate::eval::{eval, Module, Route, Tracer, Value};
 use crate::syntax::{ast, LinkedNode, Source, SyntaxKind};
 use crate::util::PathExt;
 use crate::World;

@@ -1,5 +1,40 @@
 //! Evaluation of markup into modules.
 
+#[macro_use]
+mod library;
+#[macro_use]
+mod cast;
+#[macro_use]
+mod array;
+#[macro_use]
+mod dict;
+#[macro_use]
+mod str;
+#[macro_use]
+mod value;
+mod args;
+mod func;
+mod methods;
+mod module;
+mod ops;
+mod scope;
+mod symbol;
+
+pub use typst_macros::{castable, func};
+
+pub use self::args::*;
+pub use self::array::*;
+pub use self::cast::*;
+pub use self::dict::*;
+pub use self::func::*;
+pub use self::library::*;
+pub use self::methods::*;
+pub use self::module::*;
+pub use self::scope::*;
+pub use self::str::*;
+pub use self::symbol::*;
+pub use self::value::*;
+
 use std::collections::BTreeMap;
 use std::mem;
 use std::path::{Path, PathBuf};
@@ -8,14 +43,10 @@ use comemo::{Track, Tracked, TrackedMut};
 use ecow::EcoVec;
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::{
-    combining_accent, methods, ops, Arg, Args, Array, CapturesVisitor, Closure, Content,
-    Dict, Func, Label, LangItems, Module, Recipe, Scopes, Selector, StyleMap, Symbol,
-    Transform, Value,
-};
 use crate::diag::{
     bail, error, At, SourceError, SourceResult, StrResult, Trace, Tracepoint,
 };
+use crate::model::{Content, Label, Recipe, Selector, StyleMap, Transform};
 use crate::syntax::ast::AstNode;
 use crate::syntax::{
     ast, parse_code, Source, SourceId, Span, Spanned, SyntaxKind, SyntaxNode,
@@ -43,7 +74,7 @@ pub fn eval(
 
     // Hook up the lang items.
     let library = world.library();
-    super::set_lang_items(library.items.clone());
+    set_lang_items(library.items.clone());
 
     // Evaluate the module.
     let route = unsafe { Route::insert(route, id) };

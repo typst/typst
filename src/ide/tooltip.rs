@@ -2,8 +2,8 @@ use if_chain::if_chain;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::{analyze_expr, plain_docs_sentence, summarize_font_family};
+use crate::eval::{CastInfo, Tracer, Value};
 use crate::geom::{round_2, Length, Numeric};
-use crate::model::{CastInfo, Tracer, Value};
 use crate::syntax::ast;
 use crate::syntax::{LinkedNode, Source, SyntaxKind};
 use crate::World;

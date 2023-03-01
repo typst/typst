@@ -23,8 +23,8 @@
 //! [parsed]: syntax::parse
 //! [syntax tree]: syntax::SyntaxNode
 //! [AST]: syntax::ast
-//! [evaluate]: model::eval
-//! [module]: model::Module
+//! [evaluate]: eval::eval
+//! [module]: eval::Module
 //! [content]: model::Content
 //! [typeset]: model::typeset
 //! [document]: doc::Document
@@ -43,23 +43,23 @@ pub mod geom;
 #[macro_use]
 pub mod diag;
 #[macro_use]
-pub mod model;
+pub mod eval;
 pub mod doc;
 pub mod export;
 pub mod font;
 pub mod ide;
 pub mod image;
+pub mod model;
 pub mod syntax;
 
 use std::path::Path;
 
 use comemo::{Prehashed, Track};
-use model::Tracer;
 
 use crate::diag::{FileResult, SourceResult};
 use crate::doc::Document;
+use crate::eval::{Library, Route, Tracer};
 use crate::font::{Font, FontBook};
-use crate::model::{Library, Route};
 use crate::syntax::{Source, SourceId};
 use crate::util::Buffer;
 
@@ -68,7 +68,7 @@ pub fn compile(world: &(dyn World + 'static), source: &Source) -> SourceResult<D
     // Evaluate the source file into a module.
     let route = Route::default();
     let mut tracer = Tracer::default();
-    let module = model::eval(world.track(), route.track(), tracer.track_mut(), source)?;
+    let module = eval::eval(world.track(), route.track(), tracer.track_mut(), source)?;
 
     // Typeset the module's contents.
     model::typeset(world.track(), &module.content())

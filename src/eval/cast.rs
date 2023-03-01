@@ -4,9 +4,7 @@ use std::str::FromStr;
 
 use ecow::EcoString;
 
-use super::{
-    castable, Array, Content, Dict, Func, Label, Regex, Selector, Str, Transform, Value,
-};
+use super::{castable, Array, Dict, Func, Regex, Str, Value};
 use crate::diag::StrResult;
 use crate::doc::{Destination, Lang, Location, Region};
 use crate::font::{FontStretch, FontStyle, FontWeight};
@@ -14,6 +12,7 @@ use crate::geom::{
     Axes, Color, Corners, Dir, GenAlign, Get, Length, Paint, PartialStroke, Point, Ratio,
     Rel, Sides, Smart,
 };
+use crate::model::{Content, Label, Selector, Transform};
 use crate::syntax::Spanned;
 
 /// Cast from a value to a specific type.

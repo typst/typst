@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use ecow::EcoVec;
-use typst::model::Regex;
+use typst::eval::Regex;
 
 use crate::prelude::*;
 

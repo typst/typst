@@ -1,4 +1,4 @@
-use typst::model::combining_accent;
+use typst::eval::combining_accent;
 
 use super::*;
 

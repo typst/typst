@@ -270,8 +270,8 @@ fn create_node_construct_func(node: &Node) -> syn::ImplItemMethod {
     node.construct.clone().unwrap_or_else(|| {
         parse_quote! {
             fn construct(
-                _: &::typst::model::Vm,
-                args: &mut ::typst::model::Args,
+                _: &::typst::eval::Vm,
+                args: &mut ::typst::eval::Args,
             ) -> ::typst::diag::SourceResult<::typst::model::Content> {
                 ::typst::diag::bail!(args.span, "cannot be constructed manually");
             }
@@ -317,7 +317,7 @@ fn create_node_set_func(node: &Node) -> syn::ImplItemMethod {
 
     parse_quote! {
         fn set(
-            args: &mut ::typst::model::Args,
+            args: &mut ::typst::eval::Args,
             constructor: bool,
         ) -> ::typst::diag::SourceResult<::typst::model::StyleMap> {
             let mut styles = ::typst::model::StyleMap::new();
@@ -340,11 +340,11 @@ fn create_node_properties_func(node: &Node) -> syn::ImplItemMethod {
         let docs = docs.trim();
 
         quote! {
-            ::typst::model::ParamInfo {
+            ::typst::eval::ParamInfo {
                 name: #name,
                 docs: #docs,
-                cast: <#value_ty as ::typst::model::Cast<
-                    ::typst::syntax::Spanned<::typst::model::Value>
+                cast: <#value_ty as ::typst::eval::Cast<
+                    ::typst::syntax::Spanned<::typst::eval::Value>
                 >>::describe(),
                 named: true,
                 positional: #shorthand,
@@ -356,7 +356,7 @@ fn create_node_properties_func(node: &Node) -> syn::ImplItemMethod {
     });
 
     parse_quote! {
-        fn properties() -> ::std::vec::Vec<::typst::model::ParamInfo>
+        fn properties() -> ::std::vec::Vec<::typst::eval::ParamInfo>
         where
             Self: Sized
         {
@@ -372,7 +372,7 @@ fn create_node_field_method(node: &Node) -> syn::ImplItemMethod {
             fn field(
                 &self,
                 _: &str,
-            ) -> ::std::option::Option<::typst::model::Value> {
+            ) -> ::std::option::Option<::typst::eval::Value> {
                 None
             }
         }

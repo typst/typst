@@ -18,20 +18,20 @@ pub fn castable(stream: TokenStream) -> Result<TokenStream> {
     let describe_func = create_describe_func(&castable);
     let dynamic_impls = castable.name.as_ref().map(|name| {
         quote! {
-            impl ::typst::model::Type for #ty {
+            impl ::typst::eval::Type for #ty {
                 const TYPE_NAME: &'static str = #name;
             }
 
-            impl From<#ty> for ::typst::model::Value {
+            impl From<#ty> for ::typst::eval::Value {
                 fn from(v: #ty) -> Self {
-                    ::typst::model::Value::Dyn(::typst::model::Dynamic::new(v))
+                    ::typst::eval::Value::Dyn(::typst::eval::Dynamic::new(v))
                 }
             }
         }
     });
 
     Ok(quote! {
-        impl ::typst::model::Cast for #ty {
+        impl ::typst::eval::Cast for #ty {
             #is_func
             #cast_func
             #describe_func
@@ -53,7 +53,7 @@ fn create_is_func(castable: &Castable) -> TokenStream {
             }
             Pattern::Ty(_, ty) => {
                 cast_checks.push(quote! {
-                    if <#ty as ::typst::model::Cast>::is(value) {
+                    if <#ty as ::typst::eval::Cast>::is(value) {
                         return true;
                     }
                 });
@@ -63,7 +63,7 @@ fn create_is_func(castable: &Castable) -> TokenStream {
 
     let dynamic_check = castable.name.is_some().then(|| {
         quote! {
-            if let ::typst::model::Value::Dyn(dynamic) = &value {
+            if let ::typst::eval::Value::Dyn(dynamic) = &value {
                 if dynamic.is::<Self>() {
                     return true;
                 }
@@ -73,7 +73,7 @@ fn create_is_func(castable: &Castable) -> TokenStream {
 
     let str_check = (!string_arms.is_empty()).then(|| {
         quote! {
-            if let ::typst::model::Value::Str(string) = &value {
+            if let ::typst::eval::Value::Str(string) = &value {
                 match string.as_str() {
                     #(#string_arms,)*
                     _ => {}
@@ -83,7 +83,7 @@ fn create_is_func(castable: &Castable) -> TokenStream {
     });
 
     quote! {
-        fn is(value: &typst::model::Value) -> bool {
+        fn is(value: &::typst::eval::Value) -> bool {
             #dynamic_check
             #str_check
             #(#cast_checks)*
@@ -105,8 +105,8 @@ fn create_cast_func(castable: &Castable) -> TokenStream {
             }
             Pattern::Ty(binding, ty) => {
                 cast_checks.push(quote! {
-                    if <#ty as ::typst::model::Cast>::is(&value) {
-                        let #binding = <#ty as ::typst::model::Cast>::cast(value)?;
+                    if <#ty as ::typst::eval::Cast>::is(&value) {
+                        let #binding = <#ty as ::typst::eval::Cast>::cast(value)?;
                         return Ok(#expr);
                     }
                 });
@@ -116,7 +116,7 @@ fn create_cast_func(castable: &Castable) -> TokenStream {
 
     let dynamic_check = castable.name.is_some().then(|| {
         quote! {
-            if let ::typst::model::Value::Dyn(dynamic) = &value {
+            if let ::typst::eval::Value::Dyn(dynamic) = &value {
                 if let Some(concrete) = dynamic.downcast::<Self>() {
                     return Ok(concrete.clone());
                 }
@@ -126,7 +126,7 @@ fn create_cast_func(castable: &Castable) -> TokenStream {
 
     let str_check = (!string_arms.is_empty()).then(|| {
         quote! {
-            if let ::typst::model::Value::Str(string) = &value {
+            if let ::typst::eval::Value::Str(string) = &value {
                 match string.as_str() {
                     #(#string_arms,)*
                     _ => {}
@@ -136,11 +136,11 @@ fn create_cast_func(castable: &Castable) -> TokenStream {
     });
 
     quote! {
-        fn cast(value: ::typst::model::Value) -> ::typst::diag::StrResult<Self> {
+        fn cast(value: ::typst::eval::Value) -> ::typst::diag::StrResult<Self> {
             #dynamic_check
             #str_check
             #(#cast_checks)*
-            <Self as ::typst::model::Cast>::error(value)
+            <Self as ::typst::eval::Cast>::error(value)
         }
     }
 }
@@ -153,10 +153,10 @@ fn create_describe_func(castable: &Castable) -> TokenStream {
         let docs = documentation(&cast.attrs);
         infos.push(match &cast.pattern {
             Pattern::Str(lit) => {
-                quote! { ::typst::model::CastInfo::Value(#lit.into(), #docs) }
+                quote! { ::typst::eval::CastInfo::Value(#lit.into(), #docs) }
             }
             Pattern::Ty(_, ty) => {
-                quote! { <#ty as ::typst::model::Cast>::describe() }
+                quote! { <#ty as ::typst::eval::Cast>::describe() }
             }
         });
     }
@@ -168,7 +168,7 @@ fn create_describe_func(castable: &Castable) -> TokenStream {
     }
 
     quote! {
-        fn describe() -> ::typst::model::CastInfo {
+        fn describe() -> ::typst::eval::CastInfo {
             #(#infos)+*
         }
     }

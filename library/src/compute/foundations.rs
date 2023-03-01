@@ -137,5 +137,5 @@ pub fn assert(args: &mut Args) -> SourceResult<Value> {
 #[func]
 pub fn eval(vm: &Vm, args: &mut Args) -> SourceResult<Value> {
     let Spanned { v: text, span } = args.expect::<Spanned<String>>("source")?;
-    typst::model::eval_code_str(vm.world(), &text, span)
+    typst::eval::eval_code_str(vm.world(), &text, span)
 }

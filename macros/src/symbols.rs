@@ -62,11 +62,11 @@ impl Parse for Kind {
 impl Kind {
     fn expand(&self) -> TokenStream {
         match self {
-            Self::Single(c) => quote! { typst::model::Symbol::new(#c), },
+            Self::Single(c) => quote! { typst::eval::Symbol::new(#c), },
             Self::Multiple(variants) => {
                 let variants = variants.iter().map(Variant::expand);
                 quote! {
-                    typst::model::Symbol::list(&[#(#variants),*])
+                    typst::eval::Symbol::list(&[#(#variants),*])
                 }
             }
         }

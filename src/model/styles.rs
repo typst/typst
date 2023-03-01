@@ -7,8 +7,9 @@ use std::sync::Arc;
 
 use comemo::{Prehashed, Tracked};
 
-use super::{Args, Content, Dict, Func, Label, NodeId, Regex, Value};
+use super::{Content, Label, NodeId};
 use crate::diag::{SourceResult, Trace, Tracepoint};
+use crate::eval::{Args, Dict, Func, Regex, Value};
 use crate::geom::{
     Abs, Align, Axes, Corners, Em, GenAlign, Length, Numeric, PartialStroke, Rel, Sides,
     Smart,

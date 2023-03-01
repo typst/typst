@@ -18,7 +18,7 @@ macro_rules! __dict {
         #[allow(unused_mut)]
         let mut map = std::collections::BTreeMap::new();
         $(map.insert($key.into(), $value.into());)*
-        $crate::model::Dict::from_map(map)
+        $crate::eval::Dict::from_map(map)
     }};
 }
 

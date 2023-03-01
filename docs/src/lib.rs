@@ -15,9 +15,9 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_yaml as yaml;
 use typst::doc::Frame;
+use typst::eval::{CastInfo, Func, FuncInfo, Library, Module, ParamInfo, Value};
 use typst::font::{Font, FontBook};
 use typst::geom::{Abs, Sides, Smart};
-use typst::model::{CastInfo, Func, FuncInfo, Library, Module, ParamInfo, Value};
 use typst_library::layout::PageNode;
 use unscanny::Scanner;
 
@@ -43,7 +43,7 @@ static LIBRARY: Lazy<Prehashed<Library>> = Lazy::new(|| {
     lib.styles.set(PageNode::HEIGHT, Smart::Auto);
     lib.styles
         .set(PageNode::MARGIN, Sides::splat(Some(Smart::Custom(Abs::pt(15.0).into()))));
-    typst::model::set_lang_items(lib.items.clone());
+    typst::eval::set_lang_items(lib.items.clone());
     Prehashed::new(lib)
 });
 
@@ -630,7 +630,7 @@ fn symbol_page(resolver: &dyn Resolver, parent: &str, name: &str) -> PageModel {
                     .find(|&(_, x)| x == c)
                     .map(|(s, _)| s),
                 codepoint: c as u32,
-                accent: typst::model::combining_accent(c).is_some(),
+                accent: typst::eval::combining_accent(c).is_some(),
                 unicode_name: unicode_names2::name(c)
                     .map(|s| s.to_string().to_title_case()),
                 alternates: symbol

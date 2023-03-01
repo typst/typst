@@ -21,7 +21,7 @@ pub fn func(item: syn::Item) -> Result<TokenStream> {
     let docs = docs.trim();
 
     let info = quote! {
-        ::typst::model::FuncInfo {
+        ::typst::eval::FuncInfo {
             name,
             display: #display,
             category: #category,
@@ -54,9 +54,9 @@ pub fn func(item: syn::Item) -> Result<TokenStream> {
             #[doc(hidden)]
             #vis enum #ty {}
 
-            impl::typst::model::FuncType for #ty {
-                fn create_func(name: &'static str) -> ::typst::model::Func {
-                    ::typst::model::Func::from_fn(#full, #info)
+            impl::typst::eval::FuncType for #ty {
+                fn create_func(name: &'static str) -> ::typst::eval::Func {
+                    ::typst::eval::Func::from_fn(#full, #info)
                 }
             }
         })
@@ -72,9 +72,9 @@ pub fn func(item: syn::Item) -> Result<TokenStream> {
         Ok(quote! {
             #item
 
-            impl #params ::typst::model::FuncType for #ident #args #clause {
-                fn create_func(name: &'static str) -> ::typst::model::Func {
-                    ::typst::model::Func::from_node::<Self>(#info)
+            impl #params ::typst::eval::FuncType for #ident #args #clause {
+                fn create_func(name: &'static str) -> ::typst::eval::Func {
+                    ::typst::eval::Func::from_node::<Self>(#info)
                 }
             }
         })
@@ -159,11 +159,11 @@ fn params(docs: &mut String) -> Result<(Vec<TokenStream>, Vec<String>)> {
         let docs = docs.trim();
 
         infos.push(quote! {
-            ::typst::model::ParamInfo {
+            ::typst::eval::ParamInfo {
                 name: #name,
                 docs: #docs,
-                cast: <#ty as ::typst::model::Cast<
-                    ::typst::syntax::Spanned<::typst::model::Value>
+                cast: <#ty as ::typst::eval::Cast<
+                    ::typst::syntax::Spanned<::typst::eval::Value>
                 >>::describe(),
                 named: #named,
                 positional: #positional,

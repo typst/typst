@@ -5,10 +5,11 @@ use std::num::NonZeroUsize;
 use ecow::EcoString;
 use once_cell::sync::OnceCell;
 
-use super::{Content, Module, NodeId, StyleChain, StyleMap, Vt};
+use super::Module;
 use crate::diag::SourceResult;
 use crate::doc::Document;
 use crate::geom::{Abs, Dir};
+use crate::model::{Content, NodeId, StyleChain, StyleMap, Vt};
 use crate::util::hash128;
 
 /// Definition of Typst's standard library.
@@ -139,6 +140,6 @@ pub fn set_lang_items(items: LangItems) {
 /// Access a lang item.
 macro_rules! item {
     ($name:ident) => {
-        $crate::model::LANG_ITEMS.get().unwrap().$name
+        $crate::eval::LANG_ITEMS.get().unwrap().$name
     };
 }

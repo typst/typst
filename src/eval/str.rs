@@ -15,7 +15,7 @@ use crate::geom::GenAlign;
 #[doc(hidden)]
 macro_rules! __format_str {
     ($($tts:tt)*) => {{
-        $crate::model::Str::from($crate::model::eco_format!($($tts)*))
+        $crate::eval::Str::from($crate::eval::eco_format!($($tts)*))
     }};
 }
 

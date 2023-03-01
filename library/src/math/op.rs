@@ -1,4 +1,4 @@
-use typst::model::Scope;
+use typst::eval::Scope;
 
 use super::*;
 

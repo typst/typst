@@ -3,8 +3,8 @@ use std::path::Path;
 use comemo::{Prehashed, Track, Tracked};
 use iai::{black_box, main, Iai};
 use typst::diag::{FileError, FileResult};
+use typst::eval::Library;
 use typst::font::{Font, FontBook};
-use typst::model::Library;
 use typst::syntax::{Source, SourceId};
 use typst::util::Buffer;
 use typst::World;
@@ -59,24 +59,19 @@ fn bench_edit(iai: &mut Iai) {
 
 fn bench_eval(iai: &mut Iai) {
     let world = BenchWorld::new();
-    let route = typst::model::Route::default();
-    let mut tracer = typst::model::Tracer::default();
+    let route = typst::eval::Route::default();
+    let mut tracer = typst::eval::Tracer::default();
     iai.run(|| {
-        typst::model::eval(
-            world.track(),
-            route.track(),
-            tracer.track_mut(),
-            &world.source,
-        )
-        .unwrap()
+        typst::eval::eval(world.track(), route.track(), tracer.track_mut(), &world.source)
+            .unwrap()
     });
 }
 
 fn bench_typeset(iai: &mut Iai) {
     let world = BenchWorld::new();
-    let route = typst::model::Route::default();
-    let mut tracer = typst::model::Tracer::default();
-    let module = typst::model::eval(
+    let route = typst::eval::Route::default();
+    let mut tracer = typst::eval::Tracer::default();
+    let module = typst::eval::eval(
         world.track(),
         route.track(),
         tracer.track_mut(),

@@ -461,7 +461,7 @@ primitive! { Args: "arguments", Args }
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::{array, dict};
+    use crate::eval::{array, dict};
 
     #[track_caller]
     fn test(value: impl Into<Value>, exp: &str) {

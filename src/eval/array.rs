@@ -12,11 +12,11 @@ use crate::diag::{bail, At, SourceResult, StrResult};
 #[doc(hidden)]
 macro_rules! __array {
     ($value:expr; $count:expr) => {
-        $crate::model::Array::from_vec($crate::model::eco_vec![$value.into(); $count])
+        $crate::eval::Array::from_vec($crate::eval::eco_vec![$value.into(); $count])
     };
 
     ($($value:expr),* $(,)?) => {
-        $crate::model::Array::from_vec($crate::model::eco_vec![$($value.into()),*])
+        $crate::eval::Array::from_vec($crate::eval::eco_vec![$($value.into()),*])
     };
 }
 

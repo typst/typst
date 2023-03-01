@@ -5,9 +5,10 @@ use std::num::NonZeroUsize;
 
 use comemo::{Track, Tracked, TrackedMut};
 
-use super::{Content, Selector, StyleChain, Value};
+use super::{Content, Selector, StyleChain};
 use crate::diag::SourceResult;
 use crate::doc::{Document, Element, Frame, Location, Meta};
+use crate::eval::Value;
 use crate::geom::Transform;
 use crate::util::hash128;
 use crate::World;
@@ -46,7 +47,7 @@ pub fn typeset(world: Tracked<dyn World>, content: &Content) -> SourceResult<Doc
 /// A virtual typesetter.
 ///
 /// Holds the state needed to [typeset] content. This is the equivalent to the
-/// [Vm](super::Vm) for typesetting.
+/// [Vm](crate::eval::Vm) for typesetting.
 pub struct Vt<'a> {
     /// The compilation environment.
     #[doc(hidden)]

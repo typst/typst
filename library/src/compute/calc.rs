@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
 use std::ops::Rem;
 
-use typst::model::{Module, Scope};
+use typst::eval::{Module, Scope};
 
 use crate::prelude::*;
 

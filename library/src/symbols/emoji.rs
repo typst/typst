@@ -1,4 +1,4 @@
-use typst::model::{symbols, Module, Scope, Symbol};
+use typst::eval::{symbols, Module, Scope, Symbol};
 
 /// A module with all emoji.
 pub fn emoji() -> Module {
