@@ -1,4 +1,4 @@
-use ecow::{format_eco, EcoString};
+use ecow::{eco_format, EcoString};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_xid::UnicodeXID;
 use unscanny::Scanner;
@@ -254,9 +254,9 @@ impl Lexer<'_> {
             let remaining = backticks - found;
             let noun = if remaining == 1 { "backtick" } else { "backticks" };
             return self.error_at_end(if found == 0 {
-                format_eco!("expected {} {}", remaining, noun)
+                eco_format!("expected {} {}", remaining, noun)
             } else {
-                format_eco!("expected {} more {}", remaining, noun)
+                eco_format!("expected {} more {}", remaining, noun)
             });
         }
 

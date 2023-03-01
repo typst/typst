@@ -13,7 +13,7 @@ bench = false
 typst = { path = ".." }
 comemo = { git = "https://github.com/typst/comemo" }
 csv = "1"
-ecow = { git = "https://github.com/typst/ecow" }
+ecow = "0.1"
 hypher = "0.1"
 kurbo = "0.8"
 lipsum = { git = "https://github.com/reknih/lipsum" }

@@ -3,7 +3,7 @@ use std::fmt::{self, Debug, Formatter, Write};
 use std::ops::{Add, AddAssign};
 use std::sync::Arc;
 
-use ecow::{format_eco, EcoString};
+use ecow::{eco_format, EcoString};
 
 use super::{array, Array, Str, Value};
 use crate::diag::StrResult;
@@ -66,7 +66,7 @@ impl Dict {
     pub fn take(&mut self, key: &str) -> StrResult<Value> {
         Arc::make_mut(&mut self.0)
             .remove(key)
-            .ok_or_else(|| format_eco!("missing key: {:?}", Str::from(key)))
+            .ok_or_else(|| eco_format!("missing key: {:?}", Str::from(key)))
     }
 
     /// Whether the dictionary contains a specific key.
@@ -123,7 +123,7 @@ impl Dict {
     /// Return an "unexpected key" error if there is any remaining pair.
     pub fn finish(&self, expected: &[&str]) -> StrResult<()> {
         if let Some((key, _)) = self.iter().next() {
-            let parts: Vec<_> = expected.iter().map(|s| format_eco!("\"{s}\"")).collect();
+            let parts: Vec<_> = expected.iter().map(|s| eco_format!("\"{s}\"")).collect();
             let mut msg = format!("unexpected key {key:?}, valid keys are ");
             crate::diag::comma_list(&mut msg, &parts, "and");
             return Err(msg.into());
@@ -135,7 +135,7 @@ impl Dict {
 /// The missing key access error message.
 #[cold]
 fn missing_key(key: &str) -> EcoString {
-    format_eco!("dictionary does not contain key {:?}", Str::from(key))
+    eco_format!("dictionary does not contain key {:?}", Str::from(key))
 }
 
 impl Debug for Dict {

@@ -2,7 +2,7 @@
 
 use std::cmp::Ordering;
 
-use ecow::format_eco;
+use ecow::eco_format;
 
 use super::{format_str, Regex, Value};
 use crate::diag::StrResult;
@@ -12,7 +12,7 @@ use Value::*;
 /// Bail with a type mismatch error.
 macro_rules! mismatch {
     ($fmt:expr, $($value:expr),* $(,)?) => {
-        return Err(format_eco!($fmt, $($value.type_name()),*))
+        return Err(eco_format!($fmt, $($value.type_name()),*))
     };
 }
 
@@ -117,7 +117,7 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
                 (a.downcast::<GenAlign>(), b.downcast::<GenAlign>())
             {
                 if a.axis() == b.axis() {
-                    return Err(format_eco!("cannot add two {:?} alignments", a.axis()));
+                    return Err(eco_format!("cannot add two {:?} alignments", a.axis()));
                 }
 
                 return Ok(Value::dynamic(match a.axis() {

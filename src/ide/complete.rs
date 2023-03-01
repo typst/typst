@@ -1,6 +1,6 @@
 use std::collections::{BTreeSet, HashSet};
 
-use ecow::{format_eco, EcoString};
+use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
 
 use super::{analyze_expr, analyze_import, plain_docs_sentence, summarize_font_family};
@@ -317,9 +317,9 @@ fn field_access_completions(ctx: &mut CompletionContext, value: &Value) {
             kind: CompletionKind::Func,
             label: method.into(),
             apply: Some(if args {
-                format_eco!("{method}(${{}})")
+                eco_format!("{method}(${{}})")
             } else {
-                format_eco!("{method}()${{}}")
+                eco_format!("{method}()${{}}")
             }),
             detail: None,
         })
@@ -612,7 +612,7 @@ fn param_completions(
             ctx.completions.push(Completion {
                 kind: CompletionKind::Param,
                 label: param.name.into(),
-                apply: Some(format_eco!("{}: ${{}}", param.name)),
+                apply: Some(eco_format!("{}: ${{}}", param.name)),
                 detail: Some(plain_docs_sentence(param.docs).into()),
             });
         }
@@ -872,7 +872,7 @@ impl<'a> CompletionContext<'a> {
     fn enrich(&mut self, prefix: &str, suffix: &str) {
         for Completion { label, apply, .. } in &mut self.completions {
             let current = apply.as_ref().unwrap_or(label);
-            *apply = Some(format_eco!("{prefix}{current}{suffix}"));
+            *apply = Some(eco_format!("{prefix}{current}{suffix}"));
         }
     }
 
@@ -934,7 +934,7 @@ impl<'a> CompletionContext<'a> {
         });
 
         if parens && matches!(value, Value::Func(_)) {
-            apply = Some(format_eco!("{label}(${{}})"));
+            apply = Some(eco_format!("{label}(${{}})"));
         }
 
         self.completions.push(Completion {
@@ -998,8 +998,8 @@ impl<'a> CompletionContext<'a> {
                 self.completions.push(Completion {
                     kind: CompletionKind::Syntax,
                     label: (*ty).into(),
-                    apply: Some(format_eco!("${{{ty}}}")),
-                    detail: Some(format_eco!("A value of type {ty}.")),
+                    apply: Some(eco_format!("${{{ty}}}")),
+                    detail: Some(eco_format!("A value of type {ty}.")),
                 });
                 self.scope_completions(false, |value| value.type_name() == *ty);
             }

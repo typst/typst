@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter, Write};
 use std::ops::{Add, AddAssign};
 
-use ecow::{format_eco, EcoString, EcoVec};
+use ecow::{eco_format, EcoString, EcoVec};
 
 use super::{ops, Args, Func, Value, Vm};
 use crate::diag::{bail, At, SourceResult, StrResult};
@@ -293,7 +293,7 @@ impl Array {
         vec.make_mut().sort_by(|a, b| {
             a.partial_cmp(b).unwrap_or_else(|| {
                 if result.is_ok() {
-                    result = Err(format_eco!(
+                    result = Err(eco_format!(
                         "cannot order {} and {}",
                         a.type_name(),
                         b.type_name(),
@@ -335,7 +335,7 @@ impl Array {
 /// The out of bounds access error message.
 #[cold]
 fn out_of_bounds(index: i64, len: i64) -> EcoString {
-    format_eco!("array index out of bounds (index: {}, len: {})", index, len)
+    eco_format!("array index out of bounds (index: {}, len: {})", index, len)
 }
 
 /// The error message when the array is empty.
@@ -389,7 +389,7 @@ impl FromIterator<Value> for Array {
 
 impl IntoIterator for Array {
     type Item = Value;
-    type IntoIter = ecow::IntoIter<Value>;
+    type IntoIter = ecow::vec::IntoIter<Value>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()

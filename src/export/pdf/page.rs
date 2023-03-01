@@ -1,4 +1,4 @@
-use ecow::format_eco;
+use ecow::eco_format;
 use pdf_writer::types::{ActionType, AnnotationType, ColorSpaceOperand};
 use pdf_writer::writers::ColorSpace;
 use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str};
@@ -80,7 +80,7 @@ pub fn write_page_tree(ctx: &mut PdfContext) {
 
     let mut fonts = resources.fonts();
     for (font_ref, f) in ctx.font_map.pdf_indices(&ctx.font_refs) {
-        let name = format_eco!("F{}", f);
+        let name = eco_format!("F{}", f);
         fonts.pair(Name(name.as_bytes()), font_ref);
     }
 
@@ -88,7 +88,7 @@ pub fn write_page_tree(ctx: &mut PdfContext) {
 
     let mut images = resources.x_objects();
     for (image_ref, im) in ctx.image_map.pdf_indices(&ctx.image_refs) {
-        let name = format_eco!("Im{}", im);
+        let name = eco_format!("Im{}", im);
         images.pair(Name(name.as_bytes()), image_ref);
     }
 
@@ -201,7 +201,7 @@ impl PageContext<'_, '_> {
     fn set_font(&mut self, font: &Font, size: Abs) {
         if self.state.font.as_ref().map(|(f, s)| (f, *s)) != Some((font, size)) {
             self.parent.font_map.insert(font.clone());
-            let name = format_eco!("F{}", self.parent.font_map.map(font.clone()));
+            let name = eco_format!("F{}", self.parent.font_map.map(font.clone()));
             self.content.set_font(Name(name.as_bytes()), size.to_f32());
             self.state.font = Some((font.clone(), size));
         }
@@ -439,7 +439,7 @@ fn write_path(ctx: &mut PageContext, x: f32, y: f32, path: &geom::Path) {
 /// Encode a vector or raster image into the content stream.
 fn write_image(ctx: &mut PageContext, x: f32, y: f32, image: &Image, size: Size) {
     ctx.parent.image_map.insert(image.clone());
-    let name = format_eco!("Im{}", ctx.parent.image_map.map(image.clone()));
+    let name = eco_format!("Im{}", ctx.parent.image_map.map(image.clone()));
     let w = size.x.to_f32();
     let h = size.y.to_f32();
     ctx.content.save_state();

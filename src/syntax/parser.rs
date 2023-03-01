@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::ops::Range;
 
-use ecow::{format_eco, EcoString};
+use ecow::{eco_format, EcoString};
 use unicode_math_class::MathClass;
 
 use super::{ast, is_newline, ErrorPos, LexMode, Lexer, SyntaxKind, SyntaxNode};
@@ -968,7 +968,7 @@ fn validate_array(p: &mut Parser, m: Marker) {
     for child in p.post_process(m) {
         let kind = child.kind();
         if kind == SyntaxKind::Named || kind == SyntaxKind::Keyed {
-            child.convert_to_error(format_eco!(
+            child.convert_to_error(eco_format!(
                 "expected expression, found {}",
                 kind.name()
             ));
@@ -998,7 +998,7 @@ fn validate_dict(p: &mut Parser, m: Marker) {
             | SyntaxKind::Comma
             | SyntaxKind::Colon => {}
             kind => {
-                child.convert_to_error(format_eco!(
+                child.convert_to_error(eco_format!(
                     "expected named or keyed pair, found {}",
                     kind.name()
                 ));
@@ -1026,7 +1026,7 @@ fn validate_params(p: &mut Parser, m: Marker) {
             SyntaxKind::Spread => {
                 let Some(within) = child.children_mut().last_mut() else { continue };
                 if within.kind() != SyntaxKind::Ident {
-                    within.convert_to_error(format_eco!(
+                    within.convert_to_error(eco_format!(
                         "expected identifier, found {}",
                         within.kind().name(),
                     ));
@@ -1035,7 +1035,7 @@ fn validate_params(p: &mut Parser, m: Marker) {
             }
             SyntaxKind::LeftParen | SyntaxKind::RightParen | SyntaxKind::Comma => {}
             kind => {
-                child.convert_to_error(format_eco!(
+                child.convert_to_error(eco_format!(
                     "expected identifier, named pair or argument sink, found {}",
                     kind.name()
                 ));
@@ -1278,7 +1278,7 @@ impl<'s> Parser<'s> {
             .last()
             .map_or(true, |child| child.kind() != SyntaxKind::Error)
         {
-            let message = format_eco!("expected {}", thing);
+            let message = eco_format!("expected {}", thing);
             self.nodes.push(SyntaxNode::error(message, "", ErrorPos::Full));
         }
         self.skip();
@@ -1302,7 +1302,7 @@ impl<'s> Parser<'s> {
 
         if !kind.is_error() {
             self.nodes[offset]
-                .convert_to_error(format_eco!("unexpected {}", kind.name()));
+                .convert_to_error(eco_format!("unexpected {}", kind.name()));
         }
     }
 }

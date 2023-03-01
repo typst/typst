@@ -211,7 +211,7 @@ impl NumberingKind {
         let mut n = n.get();
         match self {
             Self::Arabic => {
-                format_eco!("{n}")
+                eco_format!("{n}")
             }
             Self::Letter => {
                 n -= 1;

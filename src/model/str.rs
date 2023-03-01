@@ -15,14 +15,14 @@ use crate::geom::GenAlign;
 #[doc(hidden)]
 macro_rules! __format_str {
     ($($tts:tt)*) => {{
-        $crate::model::Str::from($crate::model::format_eco!($($tts)*))
+        $crate::model::Str::from($crate::model::eco_format!($($tts)*))
     }};
 }
 
 #[doc(inline)]
 pub use crate::__format_str as format_str;
 #[doc(hidden)]
-pub use ecow::format_eco;
+pub use ecow::eco_format;
 
 /// An immutable reference counted string.
 #[derive(Default, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -297,13 +297,13 @@ impl Str {
 /// The out of bounds access error message.
 #[cold]
 fn out_of_bounds(index: i64, len: i64) -> EcoString {
-    format_eco!("string index out of bounds (index: {}, len: {})", index, len)
+    eco_format!("string index out of bounds (index: {}, len: {})", index, len)
 }
 
 /// The char boundary access error message.
 #[cold]
 fn not_a_char_boundary(index: i64) -> EcoString {
-    format_eco!("string index {} is not a character boundary", index)
+    eco_format!("string index {} is not a character boundary", index)
 }
 
 /// The error message when the string is empty.
@@ -449,7 +449,7 @@ pub struct Regex(regex::Regex);
 impl Regex {
     /// Create a new regular expression.
     pub fn new(re: &str) -> StrResult<Self> {
-        regex::Regex::new(re).map(Self).map_err(|err| format_eco!("{err}"))
+        regex::Regex::new(re).map(Self).map_err(|err| eco_format!("{err}"))
     }
 }
 

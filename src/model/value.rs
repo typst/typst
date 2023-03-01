@@ -4,7 +4,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use ecow::{format_eco, EcoString};
+use ecow::{eco_format, EcoString};
 use siphasher::sip128::{Hasher128, SipHasher};
 
 use super::{
@@ -122,9 +122,9 @@ impl Value {
             Self::Dict(dict) => dict.at(&field).cloned(),
             Self::Content(content) => content
                 .field(&field)
-                .ok_or_else(|| format_eco!("unknown field `{field}`")),
+                .ok_or_else(|| eco_format!("unknown field `{field}`")),
             Self::Module(module) => module.get(&field).cloned(),
-            v => Err(format_eco!("cannot access fields on type {}", v.type_name())),
+            v => Err(eco_format!("cannot access fields on type {}", v.type_name())),
         }
     }
 
@@ -146,8 +146,8 @@ impl Value {
     pub fn display(self) -> Content {
         match self {
             Self::None => Content::empty(),
-            Self::Int(v) => item!(text)(format_eco!("{}", v)),
-            Self::Float(v) => item!(text)(format_eco!("{}", v)),
+            Self::Int(v) => item!(text)(eco_format!("{}", v)),
+            Self::Float(v) => item!(text)(eco_format!("{}", v)),
             Self::Str(v) => item!(text)(v.into()),
             Self::Symbol(v) => item!(text)(v.get().into()),
             Self::Content(v) => v,
@@ -402,7 +402,7 @@ macro_rules! primitive {
                 match value {
                     Value::$variant(v) => Ok(v),
                     $(Value::$other$(($binding))? => Ok($out),)*
-                    v => Err(format_eco!(
+                    v => Err(eco_format!(
                         "expected {}, found {}",
                         Self::TYPE_NAME,
                         v.type_name(),

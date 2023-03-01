@@ -38,14 +38,14 @@ macro_rules! __error {
     };
 
     ($span:expr, $fmt:expr, $($arg:expr),+ $(,)?) => {
-        $crate::diag::error!($span, $crate::diag::format_eco!($fmt, $($arg),+))
+        $crate::diag::error!($span, $crate::diag::eco_format!($fmt, $($arg),+))
     };
 }
 
 #[doc(inline)]
 pub use crate::__error as error;
 #[doc(hidden)]
-pub use ecow::format_eco;
+pub use ecow::eco_format;
 
 /// A result that can carry multiple source errors.
 pub type SourceResult<T> = Result<T, Box<Vec<SourceError>>>;
@@ -268,7 +268,7 @@ impl From<FromUtf8Error> for FileError {
 
 impl From<FileError> for EcoString {
     fn from(error: FileError) -> Self {
-        format_eco!("{error}")
+        eco_format!("{error}")
     }
 }
 

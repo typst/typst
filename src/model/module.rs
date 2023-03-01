@@ -1,7 +1,7 @@
 use std::fmt::{self, Debug, Formatter};
 use std::sync::Arc;
 
-use ecow::{format_eco, EcoString};
+use ecow::{eco_format, EcoString};
 
 use super::{Content, Scope, Value};
 use crate::diag::StrResult;
@@ -61,7 +61,7 @@ impl Module {
     /// Try to access a definition in the module.
     pub fn get(&self, name: &str) -> StrResult<&Value> {
         self.scope().get(&name).ok_or_else(|| {
-            format_eco!("module `{}` does not contain `{name}`", self.name())
+            eco_format!("module `{}` does not contain `{name}`", self.name())
         })
     }
 

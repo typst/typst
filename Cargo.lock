@@ -307,7 +307,8 @@ dependencies = [
 [[package]]
 name = "ecow"
 version = "0.1.0"
-source = "git+https://github.com/typst/ecow#36b624de42f12f90ebad3e0498d770e1700f2e90"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e60e2840fbfc397c7972b11a6e6bd99a0248921cc1e31f293c5f6c5ac24831da"
 
 [[package]]
 name = "elsa"

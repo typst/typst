@@ -194,7 +194,7 @@ impl Show for OutlineNode {
             }
 
             // Add the page number and linebreak.
-            let end = TextNode::packed(format_eco!("{}", loc.page));
+            let end = TextNode::packed(eco_format!("{}", loc.page));
             seq.push(end.linked(Destination::Internal(loc)));
             seq.push(LinebreakNode { justify: false }.pack());
 

@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use ecow::format_eco;
+use ecow::eco_format;
 use pdf_writer::types::{CidFontType, FontFlags, SystemInfo, UnicodeCmap};
 use pdf_writer::{Filter, Finish, Name, Rect, Str};
 use ttf_parser::{name_id, GlyphId, Tag};
@@ -26,7 +26,7 @@ pub fn write_fonts(ctx: &mut PdfContext) {
             .find_name(name_id::POST_SCRIPT_NAME)
             .unwrap_or_else(|| "unknown".to_string());
 
-        let base_font = format_eco!("ABCDEF+{}", postscript_name);
+        let base_font = eco_format!("ABCDEF+{}", postscript_name);
         let base_font = Name(base_font.as_bytes());
         let cmap_name = Name(b"Custom");
         let system_info = SystemInfo {
