@@ -1,27 +1,24 @@
-use std::any::{Any, TypeId};
-use std::fmt::{self, Debug, Formatter};
+use std::any::TypeId;
+use std::fmt::{self, Debug, Formatter, Write};
 use std::hash::{Hash, Hasher};
 use std::iter::{self, Sum};
 use std::ops::{Add, AddAssign};
-use std::sync::Arc;
 
 use comemo::Tracked;
 use ecow::{EcoString, EcoVec};
-use siphasher::sip128::{Hasher128, SipHasher};
-use typst_macros::node;
 
-use super::{capability, capable, Guard, Key, Property, Recipe, Style, StyleMap};
+use super::{node, Guard, Key, Property, Recipe, Style, StyleMap};
 use crate::diag::{SourceResult, StrResult};
-use crate::eval::{Args, ParamInfo, Value, Vm};
+use crate::eval::{cast_from_value, Args, Cast, ParamInfo, Value, Vm};
 use crate::syntax::Span;
-use crate::util::ReadableTypeId;
 use crate::World;
 
 /// Composable representation of styled content.
 #[derive(Clone, Hash)]
 pub struct Content {
-    obj: Arc<dyn Bounds>,
+    id: NodeId,
     span: Option<Span>,
+    fields: EcoVec<(EcoString, Value)>,
     modifiers: EcoVec<Modifier>,
 }
 
@@ -30,55 +27,43 @@ pub struct Content {
 enum Modifier {
     Prepared,
     Guard(Guard),
-    Label(Label),
-    Field(EcoString, Value),
 }
 
 impl Content {
+    pub fn new<T: Node>() -> Self {
+        Self {
+            id: T::id(),
+            span: None,
+            fields: EcoVec::new(),
+            modifiers: EcoVec::new(),
+        }
+    }
+
     /// Create empty content.
     pub fn empty() -> Self {
-        SequenceNode(vec![]).pack()
+        SequenceNode::new(vec![]).pack()
     }
 
     /// Create a new sequence node from multiples nodes.
     pub fn sequence(seq: Vec<Self>) -> Self {
         match seq.as_slice() {
             [_] => seq.into_iter().next().unwrap(),
-            _ => SequenceNode(seq).pack(),
+            _ => SequenceNode::new(seq).pack(),
         }
     }
 
     /// Attach a span to the content.
     pub fn spanned(mut self, span: Span) -> Self {
-        if let Some(styled) = self.to_mut::<StyledNode>() {
-            styled.sub.span = Some(span);
-        } else if let Some(styled) = self.to::<StyledNode>() {
-            self = StyledNode {
-                sub: styled.sub.clone().spanned(span),
-                map: styled.map.clone(),
-            }
-            .pack();
+        if let Some(styled) = self.to::<StyledNode>() {
+            self = StyledNode::new(styled.sub().spanned(span), styled.map()).pack();
         }
         self.span = Some(span);
         self
     }
 
     /// Attach a label to the content.
-    pub fn labelled(mut self, label: Label) -> Self {
-        for (i, modifier) in self.modifiers.iter().enumerate() {
-            if matches!(modifier, Modifier::Label(_)) {
-                self.modifiers.make_mut()[i] = Modifier::Label(label);
-                return self;
-            }
-        }
-
-        self.modifiers.push(Modifier::Label(label));
-        self
-    }
-
-    /// Attach a field to the content.
-    pub fn push_field(&mut self, name: impl Into<EcoString>, value: Value) {
-        self.modifiers.push(Modifier::Field(name.into(), value));
+    pub fn labelled(self, label: Label) -> Self {
+        self.with_field("label", label)
     }
 
     /// Style this content with a single style property.
@@ -87,31 +72,21 @@ impl Content {
     }
 
     /// Style this content with a style entry.
-    pub fn styled_with_entry(mut self, style: Style) -> Self {
-        if let Some(styled) = self.to_mut::<StyledNode>() {
-            styled.map.apply_one(style);
-            self
-        } else if let Some(styled) = self.to::<StyledNode>() {
-            let mut map = styled.map.clone();
-            map.apply_one(style);
-            StyledNode { sub: styled.sub.clone(), map }.pack()
-        } else {
-            StyledNode { sub: self, map: style.into() }.pack()
-        }
+    pub fn styled_with_entry(self, style: Style) -> Self {
+        self.styled_with_map(style.into())
     }
 
     /// Style this content with a full style map.
-    pub fn styled_with_map(mut self, styles: StyleMap) -> Self {
+    pub fn styled_with_map(self, styles: StyleMap) -> Self {
         if styles.is_empty() {
-            return self;
+            self
+        } else if let Some(styled) = self.to::<StyledNode>() {
+            let mut map = styled.map();
+            map.apply(styles);
+            StyledNode::new(styled.sub(), map).pack()
+        } else {
+            StyledNode::new(self, styles).pack()
         }
-
-        if let Some(styled) = self.to_mut::<StyledNode>() {
-            styled.map.apply(styles);
-            return self;
-        }
-
-        StyledNode { sub: self, map: styles }.pack()
     }
 
     /// Style this content with a recipe, eagerly applying it if possible.
@@ -139,12 +114,12 @@ impl Content {
 impl Content {
     /// The id of the contained node.
     pub fn id(&self) -> NodeId {
-        (*self.obj).id()
+        self.id
     }
 
     /// The node's human-readable name.
     pub fn name(&self) -> &'static str {
-        (*self.obj).name()
+        self.id.name()
     }
 
     /// The node's span.
@@ -154,70 +129,84 @@ impl Content {
 
     /// The content's label.
     pub fn label(&self) -> Option<&Label> {
-        self.modifiers.iter().find_map(|modifier| match modifier {
-            Modifier::Label(label) => Some(label),
+        match self.field("label")? {
+            Value::Label(label) => Some(label),
             _ => None,
-        })
+        }
     }
 
-    /// Access a field on this content.
-    pub fn field(&self, name: &str) -> Option<Value> {
-        if name == "label" {
-            return Some(match self.label() {
-                Some(label) => Value::Label(label.clone()),
-                None => Value::None,
-            });
-        }
+    pub fn with_field(
+        mut self,
+        name: impl Into<EcoString>,
+        value: impl Into<Value>,
+    ) -> Self {
+        self.push_field(name, value);
+        self
+    }
 
-        for modifier in &self.modifiers {
-            if let Modifier::Field(other, value) = modifier {
-                if name == other {
-                    return Some(value.clone());
-                }
-            }
+    /// Attach a field to the content.
+    pub fn push_field(&mut self, name: impl Into<EcoString>, value: impl Into<Value>) {
+        let name = name.into();
+        if let Some(i) = self.fields.iter().position(|(field, _)| *field == name) {
+            self.fields.make_mut()[i] = (name, value.into());
+        } else {
+            self.fields.push((name, value.into()));
         }
+    }
 
-        self.obj.field(name)
+    pub fn field(&self, name: &str) -> Option<&Value> {
+        static NONE: Value = Value::None;
+        self.fields
+            .iter()
+            .find(|(field, _)| field == name)
+            .map(|(_, value)| value)
+            .or_else(|| (name == "label").then(|| &NONE))
+    }
+
+    pub fn fields(&self) -> &[(EcoString, Value)] {
+        &self.fields
+    }
+
+    #[track_caller]
+    pub fn cast_field<T: Cast>(&self, name: &str) -> T {
+        match self.field(name) {
+            Some(value) => value.clone().cast().unwrap(),
+            None => field_is_missing(name),
+        }
     }
 
     /// Whether the contained node is of type `T`.
     pub fn is<T>(&self) -> bool
     where
-        T: Capable + 'static,
+        T: Node + 'static,
     {
-        (*self.obj).as_any().is::<T>()
+        self.id == NodeId::of::<T>()
     }
 
     /// Cast to `T` if the contained node is of type `T`.
     pub fn to<T>(&self) -> Option<&T>
     where
-        T: Capable + 'static,
+        T: Node + 'static,
     {
-        (*self.obj).as_any().downcast_ref::<T>()
+        self.is::<T>().then(|| unsafe { std::mem::transmute(self) })
     }
 
     /// Whether this content has the given capability.
     pub fn has<C>(&self) -> bool
     where
-        C: Capability + ?Sized,
+        C: ?Sized + 'static,
     {
-        self.obj.vtable(TypeId::of::<C>()).is_some()
+        (self.id.0.vtable)(TypeId::of::<C>()).is_some()
     }
 
     /// Cast to a trait object if this content has the given capability.
     pub fn with<C>(&self) -> Option<&C>
     where
-        C: Capability + ?Sized,
+        C: ?Sized + 'static,
     {
-        let node: &dyn Bounds = &*self.obj;
-        let vtable = node.vtable(TypeId::of::<C>())?;
-        let data = node as *const dyn Bounds as *const ();
+        let vtable = (self.id.0.vtable)(TypeId::of::<C>())?;
+        let data = self as *const Self as *const ();
         Some(unsafe { &*crate::util::fat::from_raw_parts(data, vtable) })
-    }
-
-    /// Try to cast to a mutable instance of `T`.
-    fn to_mut<T: 'static>(&mut self) -> Option<&mut T> {
-        Arc::get_mut(&mut self.obj)?.as_any_mut().downcast_mut::<T>()
     }
 
     /// Disable a show rule recipe.
@@ -262,12 +251,40 @@ impl Content {
     pub(super) fn copy_modifiers(&mut self, from: &Content) {
         self.span = from.span;
         self.modifiers = from.modifiers.clone();
+        if let Some(label) = from.label() {
+            self.push_field("label", label.clone())
+        }
     }
 }
 
 impl Debug for Content {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        self.obj.fmt(f)
+        struct Pad<'a>(&'a str);
+        impl Debug for Pad<'_> {
+            fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+                f.pad(self.0)
+            }
+        }
+
+        if let Some(styled) = self.to::<StyledNode>() {
+            styled.map().fmt(f)?;
+            styled.sub().fmt(f)
+        } else if let Some(seq) = self.to::<SequenceNode>() {
+            f.debug_list().entries(&seq.children()).finish()
+        } else if self.id.name() == "space" {
+            ' '.fmt(f)
+        } else if self.id.name() == "text" {
+            self.field("text").unwrap().fmt(f)
+        } else {
+            f.write_str(self.name())?;
+            if self.fields.is_empty() {
+                return Ok(());
+            }
+            f.write_char(' ')?;
+            f.debug_map()
+                .entries(self.fields.iter().map(|(name, value)| (Pad(name), value)))
+                .finish()
+        }
     }
 }
 
@@ -280,27 +297,19 @@ impl Default for Content {
 impl Add for Content {
     type Output = Self;
 
-    fn add(self, mut rhs: Self) -> Self::Output {
-        let mut lhs = self;
-        if let Some(lhs_mut) = lhs.to_mut::<SequenceNode>() {
-            if let Some(rhs_mut) = rhs.to_mut::<SequenceNode>() {
-                lhs_mut.0.append(&mut rhs_mut.0);
-            } else if let Some(rhs) = rhs.to::<SequenceNode>() {
-                lhs_mut.0.extend(rhs.0.iter().cloned());
-            } else {
-                lhs_mut.0.push(rhs);
-            }
-            return lhs;
-        }
-
+    fn add(self, rhs: Self) -> Self::Output {
+        let lhs = self;
         let seq = match (lhs.to::<SequenceNode>(), rhs.to::<SequenceNode>()) {
-            (Some(lhs), Some(rhs)) => lhs.0.iter().chain(&rhs.0).cloned().collect(),
-            (Some(lhs), None) => lhs.0.iter().cloned().chain(iter::once(rhs)).collect(),
-            (None, Some(rhs)) => iter::once(lhs).chain(rhs.0.iter().cloned()).collect(),
+            (Some(lhs), Some(rhs)) => {
+                lhs.children().into_iter().chain(rhs.children()).collect()
+            }
+            (Some(lhs), None) => {
+                lhs.children().into_iter().chain(iter::once(rhs)).collect()
+            }
+            (None, Some(rhs)) => iter::once(lhs).chain(rhs.children()).collect(),
             (None, None) => vec![lhs, rhs],
         };
-
-        SequenceNode(seq).pack()
+        SequenceNode::new(seq).pack()
     }
 }
 
@@ -316,73 +325,33 @@ impl Sum for Content {
     }
 }
 
-trait Bounds: Node + Debug + Sync + Send + 'static {
-    fn as_any(&self) -> &dyn Any;
-    fn as_any_mut(&mut self) -> &mut dyn Any;
-    fn hash128(&self) -> u128;
-}
-
-impl<T> Bounds for T
-where
-    T: Node + Debug + Hash + Sync + Send + 'static,
-{
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-
-    fn hash128(&self) -> u128 {
-        let mut state = SipHasher::new();
-        self.type_id().hash(&mut state);
-        self.hash(&mut state);
-        state.finish128().as_u128()
-    }
-}
-
-impl Hash for dyn Bounds {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write_u128(self.hash128());
-    }
-}
-
 /// A node with applied styles.
-#[capable]
-#[derive(Clone, Hash)]
+#[node]
 pub struct StyledNode {
     /// The styled content.
+    #[positional]
+    #[required]
     pub sub: Content,
+
     /// The styles.
+    #[positional]
+    #[required]
     pub map: StyleMap,
 }
 
-#[node]
-impl StyledNode {}
-
-impl Debug for StyledNode {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        self.map.fmt(f)?;
-        self.sub.fmt(f)
-    }
+cast_from_value! {
+    StyleMap: "style map",
 }
 
 /// A sequence of nodes.
 ///
 /// Combines other arbitrary content. So, when you write `[Hi] + [you]` in
 /// Typst, the two text nodes are combined into a single sequence node.
-#[capable]
-#[derive(Clone, Hash)]
-pub struct SequenceNode(pub Vec<Content>);
-
 #[node]
-impl SequenceNode {}
-
-impl Debug for SequenceNode {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.debug_list().entries(self.0.iter()).finish()
-    }
+pub struct SequenceNode {
+    #[variadic]
+    #[required]
+    pub children: Vec<Content>,
 }
 
 /// A label for a node.
@@ -396,80 +365,83 @@ impl Debug for Label {
 }
 
 /// A constructable, stylable content node.
-pub trait Node: 'static + Capable {
+pub trait Node: Construct + Set + Sized + 'static {
+    /// The node's ID.
+    fn id() -> NodeId;
+
     /// Pack a node into type-erased content.
-    fn pack(self) -> Content
-    where
-        Self: Node + Debug + Hash + Sync + Send + Sized + 'static,
-    {
-        Content {
-            obj: Arc::new(self),
-            span: None,
-            modifiers: EcoVec::new(),
-        }
-    }
-
-    /// A unique identifier of the node type.
-    fn id(&self) -> NodeId;
-
-    /// The node's name.
-    fn name(&self) -> &'static str;
-
-    /// Construct a node from the arguments.
-    ///
-    /// This is passed only the arguments that remain after execution of the
-    /// node's set rule.
-    fn construct(vm: &Vm, args: &mut Args) -> SourceResult<Content>
-    where
-        Self: Sized;
-
-    /// Parse relevant arguments into style properties for this node.
-    ///
-    /// When `constructor` is true, [`construct`](Self::construct) will run
-    /// after this invocation of `set` with the remaining arguments.
-    fn set(args: &mut Args, constructor: bool) -> SourceResult<StyleMap>
-    where
-        Self: Sized;
-
-    /// List the settable properties.
-    fn properties() -> Vec<ParamInfo>
-    where
-        Self: Sized;
-
-    /// Access a field on this node.
-    fn field(&self, name: &str) -> Option<Value>;
+    fn pack(self) -> Content;
 }
 
-/// A unique identifier for a node type.
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
-pub struct NodeId(ReadableTypeId);
+/// A unique identifier for a node.
+#[derive(Copy, Clone)]
+pub struct NodeId(&'static NodeMeta);
 
 impl NodeId {
-    /// The id of the given node type.
-    pub fn of<T: 'static>() -> Self {
-        Self(ReadableTypeId::of::<T>())
+    pub fn of<T: Node>() -> Self {
+        T::id()
+    }
+
+    pub fn from_meta(meta: &'static NodeMeta) -> Self {
+        Self(meta)
+    }
+
+    /// The name of the identified node.
+    pub fn name(self) -> &'static str {
+        self.0.name
     }
 }
 
 impl Debug for NodeId {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        self.0.fmt(f)
+        f.pad(self.name())
     }
 }
 
-/// A capability a node can have.
-///
-/// Should be implemented by trait objects that are accessible through
-/// [`Capable`].
-pub trait Capability: 'static {}
+impl Hash for NodeId {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write_usize(self.0 as *const _ as usize);
+    }
+}
 
-/// Dynamically access a trait implementation at runtime.
-pub unsafe trait Capable {
-    /// Return the vtable pointer of the trait object with given type `id`
-    /// if `self` implements the trait.
-    fn vtable(&self, of: TypeId) -> Option<*const ()>;
+impl Eq for NodeId {}
+
+impl PartialEq for NodeId {
+    fn eq(&self, other: &Self) -> bool {
+        std::ptr::eq(self.0, other.0)
+    }
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct NodeMeta {
+    pub name: &'static str,
+    pub vtable: fn(of: TypeId) -> Option<*const ()>,
+}
+
+pub trait Construct {
+    /// Construct a node from the arguments.
+    ///
+    /// This is passed only the arguments that remain after execution of the
+    /// node's set rule.
+    fn construct(vm: &Vm, args: &mut Args) -> SourceResult<Content>;
+}
+
+pub trait Set {
+    /// Parse relevant arguments into style properties for this node.
+    ///
+    /// When `constructor` is true, [`construct`](Construct::construct) will run
+    /// after this invocation of `set` with the remaining arguments.
+    fn set(args: &mut Args, constructor: bool) -> SourceResult<StyleMap>;
+
+    /// List the settable properties.
+    fn properties() -> Vec<ParamInfo>;
 }
 
 /// Indicates that a node cannot be labelled.
-#[capability]
 pub trait Unlabellable {}
+
+#[cold]
+#[track_caller]
+fn field_is_missing(name: &str) -> ! {
+    panic!("required field `{name}` is missing")
+}

@@ -3,7 +3,6 @@ use typst::model::StyledNode;
 use super::{AlignNode, Spacing};
 use crate::prelude::*;
 
-/// # Stack
 /// Arrange content and spacing horizontally or vertically.
 ///
 /// The stack places a list of items along an axis, with optional spacing
@@ -19,45 +18,28 @@ use crate::prelude::*;
 /// )
 /// ```
 ///
-/// ## Parameters
-/// - items: `StackChild` (positional, variadic)
-///   The items to stack along an axis.
-///
-/// - dir: `Dir` (named)
-///   The direction along which the items are stacked. Possible values are:
-///
-///   - `{ltr}`: Left to right.
-///   - `{rtl}`: Right to left.
-///   - `{ttb}`: Top to bottom.
-///   - `{btt}`: Bottom to top.
-///
-/// - spacing: `Spacing` (named)
-///   Spacing to insert between items where no explicit spacing was provided.
-///
-/// ## Category
-/// layout
-#[func]
-#[capable(Layout)]
-#[derive(Debug, Hash)]
+/// Display: Stack
+/// Category: layout
+#[node(Layout)]
 pub struct StackNode {
-    /// The stacking direction.
-    pub dir: Dir,
-    /// The spacing between non-spacing children.
-    pub spacing: Option<Spacing>,
-    /// The children to be stacked.
+    /// The childfren to stack along the axis.
+    #[variadic]
     pub children: Vec<StackChild>,
-}
 
-#[node]
-impl StackNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Self {
-            dir: args.named("dir")?.unwrap_or(Dir::TTB),
-            spacing: args.named("spacing")?,
-            children: args.all()?,
-        }
-        .pack())
-    }
+    /// The direction along which the items are stacked. Possible values are:
+    ///
+    /// - `{ltr}`: Left to right.
+    /// - `{rtl}`: Right to left.
+    /// - `{ttb}`: Top to bottom.
+    /// - `{btt}`: Bottom to top.
+    #[named]
+    #[default(Dir::TTB)]
+    pub dir: Dir,
+
+    /// Spacing to insert between items where no explicit spacing was provided.
+    #[named]
+    #[default]
+    pub spacing: Option<Spacing>,
 }
 
 impl Layout for StackNode {
@@ -67,15 +49,16 @@ impl Layout for StackNode {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let mut layouter = StackLayouter::new(self.dir, regions, styles);
+        let mut layouter = StackLayouter::new(self.dir(), regions, styles);
 
         // Spacing to insert before the next block.
+        let spacing = self.spacing();
         let mut deferred = None;
 
-        for child in &self.children {
+        for child in self.children() {
             match child {
                 StackChild::Spacing(kind) => {
-                    layouter.layout_spacing(*kind);
+                    layouter.layout_spacing(kind);
                     deferred = None;
                 }
                 StackChild::Block(block) => {
@@ -83,8 +66,8 @@ impl Layout for StackNode {
                         layouter.layout_spacing(kind);
                     }
 
-                    layouter.layout_block(vt, block, styles)?;
-                    deferred = self.spacing;
+                    layouter.layout_block(vt, &block, styles)?;
+                    deferred = spacing;
                 }
             }
         }
@@ -111,10 +94,17 @@ impl Debug for StackChild {
     }
 }
 
-castable! {
+cast_from_value! {
     StackChild,
-    spacing: Spacing => Self::Spacing(spacing),
-    content: Content => Self::Block(content),
+    v: Spacing => Self::Spacing(v),
+    v: Content => Self::Block(v),
+}
+
+cast_to_value! {
+    v: StackChild => match v {
+        StackChild::Spacing(spacing) => spacing.into(),
+        StackChild::Block(content) => content.into(),
+    }
 }
 
 /// Performs stack layout.
@@ -212,9 +202,9 @@ impl<'a> StackLayouter<'a> {
         // Block-axis alignment of the `AlignNode` is respected
         // by the stack node.
         let aligns = if let Some(styled) = block.to::<StyledNode>() {
-            styles.chain(&styled.map).get(AlignNode::ALIGNS)
+            styles.chain(&styled.map()).get(AlignNode::ALIGNMENT)
         } else {
-            styles.get(AlignNode::ALIGNS)
+            styles.get(AlignNode::ALIGNMENT)
         };
 
         let aligns = aligns.resolve(styles);

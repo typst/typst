@@ -1,9 +1,8 @@
 //! Node interaction.
 
-use typst::model::{capability, Content, StyleChain, StyleVec, StyleVecBuilder};
+use typst::model::{Content, StyleChain, StyleVec, StyleVecBuilder};
 
 /// How a node interacts with other nodes.
-#[capability]
 pub trait Behave {
     /// The node's interaction behaviour.
     fn behaviour(&self) -> Behaviour;
@@ -23,7 +22,7 @@ pub enum Behaviour {
     /// after it. Furthermore, per consecutive run of weak nodes, only one
     /// survives: The one with the lowest weakness level (or the larger one if
     /// there is a tie).
-    Weak(u8),
+    Weak(usize),
     /// A node that enables adjacent weak nodes to exist. The default.
     Supportive,
     /// A node that destroys adjacent weak nodes.

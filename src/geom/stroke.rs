@@ -58,3 +58,37 @@ impl<T: Debug> Debug for PartialStroke<T> {
         }
     }
 }
+
+cast_from_value! {
+    PartialStroke: "stroke",
+    thickness: Length => Self {
+        paint: Smart::Auto,
+        thickness: Smart::Custom(thickness),
+    },
+    color: Color => Self {
+        paint: Smart::Custom(color.into()),
+        thickness: Smart::Auto,
+    },
+}
+
+impl Resolve for PartialStroke {
+    type Output = PartialStroke<Abs>;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        PartialStroke {
+            paint: self.paint,
+            thickness: self.thickness.resolve(styles),
+        }
+    }
+}
+
+impl Fold for PartialStroke<Abs> {
+    type Output = Self;
+
+    fn fold(self, outer: Self::Output) -> Self::Output {
+        Self {
+            paint: self.paint.or(outer.paint),
+            thickness: self.thickness.or(outer.thickness),
+        }
+    }
+}

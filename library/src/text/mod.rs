@@ -22,7 +22,6 @@ use typst::font::{FontMetrics, FontStretch, FontStyle, FontWeight, VerticalFontM
 use crate::layout::ParNode;
 use crate::prelude::*;
 
-/// # Text
 /// Customize the look and layout of text in a variety of ways.
 ///
 /// This function is used often, both with set rules and directly. While the set
@@ -62,26 +61,50 @@ use crate::prelude::*;
 /// - body: `Content` (positional, required)
 ///   Content in which all text is styled according to the other arguments.
 ///
-/// ## Category
-/// text
-#[func]
-#[capable]
-#[derive(Clone, Hash)]
-pub struct TextNode(pub EcoString);
+/// Display: Text
+/// Category: text
+#[node(Construct)]
+#[set({
+    if let Some(family) = args.named("family")? {
+        styles.set(Self::FAMILY, family);
+    } else {
+        let mut count = 0;
+        let mut content = false;
+        for item in args.items.iter().filter(|item| item.name.is_none()) {
+            if EcoString::is(&item.value) {
+                count += 1;
+            } else if <Content as Cast<Spanned<Value>>>::is(&item.value) {
+                content = true;
+            }
+        }
 
-impl TextNode {
-    /// Create a new packed text node.
-    pub fn packed(text: impl Into<EcoString>) -> Content {
-        Self(text.into()).pack()
+        // Skip the final string if it's needed as the body.
+        if constructor && !content && count > 0 {
+            count -= 1;
+        }
+
+        if count > 0 {
+            let mut list = Vec::with_capacity(count);
+            for _ in 0..count {
+                list.push(args.find()?.unwrap());
+            }
+
+            styles.set(Self::FAMILY, FallbackList(list));
+        }
     }
-}
+})]
+pub struct TextNode {
+    /// The text.
+    #[positional]
+    #[required]
+    #[skip]
+    pub text: EcoString,
 
-#[node]
-impl TextNode {
     /// A prioritized sequence of font families.
-    #[property(skip, referenced)]
-    pub const FAMILY: FallbackList =
-        FallbackList(vec![FontFamily::new("Linux Libertine")]);
+    #[settable]
+    #[skip]
+    #[default(FallbackList(vec![FontFamily::new("Linux Libertine")]))]
+    pub family: FallbackList,
 
     /// Whether to allow last resort font fallback when the primary font list
     /// contains no match. This lets Typst search through all available fonts
@@ -100,7 +123,9 @@ impl TextNode {
     /// #set text(fallback: false)
     /// هذا عربي
     /// ```
-    pub const FALLBACK: bool = true;
+    #[settable]
+    #[default(true)]
+    pub fallback: bool,
 
     /// The desired font style.
     ///
@@ -119,7 +144,9 @@ impl TextNode {
     /// #text("Linux Libertine", style: "italic")[Italic]
     /// #text("DejaVu Sans", style: "oblique")[Oblique]
     /// ```
-    pub const STYLE: FontStyle = FontStyle::Normal;
+    #[settable]
+    #[default(FontStyle::Normal)]
+    pub style: FontStyle,
 
     /// The desired thickness of the font's glyphs. Accepts an integer between
     /// `{100}` and `{900}` or one of the predefined weight names. When the
@@ -138,7 +165,9 @@ impl TextNode {
     /// #text(weight: 500)[Medium] \
     /// #text(weight: "bold")[Bold]
     /// ```
-    pub const WEIGHT: FontWeight = FontWeight::REGULAR;
+    #[settable]
+    #[default(FontWeight::REGULAR)]
+    pub weight: FontWeight,
 
     /// The desired width of the glyphs. Accepts a ratio between `{50%}` and
     /// `{200%}`. When the desired weight is not available, Typst selects the
@@ -148,7 +177,9 @@ impl TextNode {
     /// #text(stretch: 75%)[Condensed] \
     /// #text(stretch: 100%)[Normal]
     /// ```
-    pub const STRETCH: FontStretch = FontStretch::NORMAL;
+    #[settable]
+    #[default(FontStretch::NORMAL)]
+    pub stretch: FontStretch,
 
     /// The size of the glyphs. This value forms the basis of the `em` unit:
     /// `{1em}` is equivalent to the font size.
@@ -160,8 +191,11 @@ impl TextNode {
     /// #set text(size: 20pt)
     /// very #text(1.5em)[big] text
     /// ```
-    #[property(shorthand, fold)]
-    pub const SIZE: TextSize = Abs::pt(11.0);
+    #[settable]
+    #[shorthand]
+    #[fold]
+    #[default(Abs::pt(11.0))]
+    pub size: TextSize,
 
     /// The glyph fill color.
     ///
@@ -169,8 +203,10 @@ impl TextNode {
     /// #set text(fill: red)
     /// This text is red.
     /// ```
-    #[property(shorthand)]
-    pub const FILL: Paint = Color::BLACK.into();
+    #[shorthand]
+    #[settable]
+    #[default(Color::BLACK.into())]
+    pub fill: Paint,
 
     /// The amount of space that should be added between characters.
     ///
@@ -178,8 +214,10 @@ impl TextNode {
     /// #set text(tracking: 1.5pt)
     /// Distant text.
     /// ```
-    #[property(resolve)]
-    pub const TRACKING: Length = Length::zero();
+    #[settable]
+    #[resolve]
+    #[default(Length::zero())]
+    pub tracking: Length,
 
     /// The amount of space between words.
     ///
@@ -190,8 +228,10 @@ impl TextNode {
     /// #set text(spacing: 200%)
     /// Text with distant words.
     /// ```
-    #[property(resolve)]
-    pub const SPACING: Rel<Length> = Rel::one();
+    #[settable]
+    #[resolve]
+    #[default(Rel::one())]
+    pub spacing: Rel<Length>,
 
     /// An amount to shift the text baseline by.
     ///
@@ -199,8 +239,10 @@ impl TextNode {
     /// A #text(baseline: 3pt)[lowered]
     /// word.
     /// ```
-    #[property(resolve)]
-    pub const BASELINE: Length = Length::zero();
+    #[settable]
+    #[resolve]
+    #[default(Length::zero())]
+    pub baseline: Length,
 
     /// Whether certain glyphs can hang over into the margin in justified text.
     /// This can make justification visually more pleasing.
@@ -222,7 +264,9 @@ impl TextNode {
     /// margin, making the paragraph's
     /// edge less clear.
     /// ```
-    pub const OVERHANG: bool = true;
+    #[settable]
+    #[default(true)]
+    pub overhang: bool,
 
     /// The top end of the conceptual frame around the text used for layout and
     /// positioning. This affects the size of containers that hold text.
@@ -237,7 +281,9 @@ impl TextNode {
     /// #set text(top-edge: "cap-height")
     /// #rect(fill: aqua)[Typst]
     /// ```
-    pub const TOP_EDGE: TextEdge = TextEdge::Metric(VerticalFontMetric::CapHeight);
+    #[settable]
+    #[default(TextEdge::Metric(VerticalFontMetric::CapHeight))]
+    pub top_edge: TextEdge,
 
     /// The bottom end of the conceptual frame around the text used for layout
     /// and positioning. This affects the size of containers that hold text.
@@ -252,7 +298,9 @@ impl TextNode {
     /// #set text(bottom-edge: "descender")
     /// #rect(fill: aqua)[Typst]
     /// ```
-    pub const BOTTOM_EDGE: TextEdge = TextEdge::Metric(VerticalFontMetric::Baseline);
+    #[settable]
+    #[default(TextEdge::Metric(VerticalFontMetric::Baseline))]
+    pub bottom_edge: TextEdge,
 
     /// An [ISO 639-1/2/3 language code.](https://en.wikipedia.org/wiki/ISO_639)
     ///
@@ -271,12 +319,16 @@ impl TextNode {
     /// = Einleitung
     /// In diesem Dokument, ...
     /// ```
-    pub const LANG: Lang = Lang::ENGLISH;
+    #[settable]
+    #[default(Lang::ENGLISH)]
+    pub lang: Lang,
 
     /// An [ISO 3166-1 alpha-2 region code.](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2)
     ///
     /// This lets the text processing pipeline make more informed choices.
-    pub const REGION: Option<Region> = None;
+    #[settable]
+    #[default(None)]
+    pub region: Option<Region>,
 
     /// The dominant direction for text and inline objects. Possible values are:
     ///
@@ -302,8 +354,10 @@ impl TextNode {
     /// #set text(dir: rtl)
     /// هذا عربي.
     /// ```
-    #[property(resolve)]
-    pub const DIR: HorizontalDir = HorizontalDir(Smart::Auto);
+    #[settable]
+    #[resolve]
+    #[default(HorizontalDir(Smart::Auto))]
+    pub dir: HorizontalDir,
 
     /// Whether to hyphenate text to improve line breaking. When `{auto}`, text
     /// will be hyphenated if and only if justification is enabled.
@@ -322,8 +376,10 @@ impl TextNode {
     /// enabling hyphenation can
     /// improve justification.
     /// ```
-    #[property(resolve)]
-    pub const HYPHENATE: Hyphenate = Hyphenate(Smart::Auto);
+    #[settable]
+    #[resolve]
+    #[default(Hyphenate(Smart::Auto))]
+    pub hyphenate: Hyphenate,
 
     /// Whether to apply kerning.
     ///
@@ -340,7 +396,9 @@ impl TextNode {
     /// #set text(kerning: false)
     /// Totally
     /// ```
-    pub const KERNING: bool = true;
+    #[settable]
+    #[default(true)]
+    pub kerning: bool,
 
     /// Whether to apply stylistic alternates.
     ///
@@ -355,14 +413,18 @@ impl TextNode {
     /// #set text(alternates: true)
     /// 0, a, g, ß
     /// ```
-    pub const ALTERNATES: bool = false;
+    #[settable]
+    #[default(false)]
+    pub alternates: bool,
 
     /// Which stylistic set to apply. Font designers can categorize alternative
     /// glyphs forms into stylistic sets. As this value is highly font-specific,
     /// you need to consult your font to know which sets are available. When set
     /// to an integer between `{1}` and `{20}`, enables the corresponding
     /// OpenType font feature from `ss01`, ..., `ss20`.
-    pub const STYLISTIC_SET: Option<StylisticSet> = None;
+    #[settable]
+    #[default(None)]
+    pub stylistic_set: Option<StylisticSet>,
 
     /// Whether standard ligatures are active.
     ///
@@ -378,15 +440,21 @@ impl TextNode {
     /// #set text(ligatures: false)
     /// A fine ligature.
     /// ```
-    pub const LIGATURES: bool = true;
+    #[settable]
+    #[default(true)]
+    pub ligatures: bool,
 
     /// Whether ligatures that should be used sparingly are active. Setting this
     /// to `{true}` enables the OpenType `dlig` font feature.
-    pub const DISCRETIONARY_LIGATURES: bool = false;
+    #[settable]
+    #[default(false)]
+    pub discretionary_ligatures: bool,
 
     /// Whether historical ligatures are active. Setting this to `{true}`
     /// enables the OpenType `hlig` font feature.
-    pub const HISTORICAL_LIGATURES: bool = false;
+    #[settable]
+    #[default(false)]
+    pub historical_ligatures: bool,
 
     /// Which kind of numbers / figures to select. When set to `{auto}`, the
     /// default numbers for the font are used.
@@ -399,7 +467,9 @@ impl TextNode {
     /// #set text(number-type: "old-style")
     /// Number 9.
     /// ```
-    pub const NUMBER_TYPE: Smart<NumberType> = Smart::Auto;
+    #[settable]
+    #[default(Smart::Auto)]
+    pub number_type: Smart<NumberType>,
 
     /// The width of numbers / figures. When set to `{auto}`, the default
     /// numbers for the font are used.
@@ -414,7 +484,9 @@ impl TextNode {
     /// A 12 B 34. \
     /// A 56 B 78.
     /// ```
-    pub const NUMBER_WIDTH: Smart<NumberWidth> = Smart::Auto;
+    #[settable]
+    #[default(Smart::Auto)]
+    pub number_width: Smart<NumberWidth>,
 
     /// Whether to have a slash through the zero glyph. Setting this to `{true}`
     /// enables the OpenType `zero` font feature.
@@ -422,7 +494,9 @@ impl TextNode {
     /// ```example
     /// 0, #text(slashed-zero: true)[0]
     /// ```
-    pub const SLASHED_ZERO: bool = false;
+    #[settable]
+    #[default(false)]
+    pub slashed_zero: bool,
 
     /// Whether to turns numbers into fractions. Setting this to `{true}`
     /// enables the OpenType `frac` font feature.
@@ -431,7 +505,9 @@ impl TextNode {
     /// 1/2 \
     /// #text(fractions: true)[1/2]
     /// ```
-    pub const FRACTIONS: bool = false;
+    #[settable]
+    #[default(false)]
+    pub fractions: bool,
 
     /// Raw OpenType features to apply.
     ///
@@ -445,73 +521,58 @@ impl TextNode {
     /// #set text(features: ("frac",))
     /// 1/2
     /// ```
-    #[property(fold)]
-    pub const FEATURES: FontFeatures = FontFeatures(vec![]);
+    #[settable]
+    #[fold]
+    #[default(FontFeatures(vec![]))]
+    pub features: FontFeatures,
 
     /// A delta to apply on the font weight.
-    #[property(skip, fold)]
-    pub const DELTA: Delta = 0;
-    /// Whether the font style should be inverted.
-    #[property(skip, fold)]
-    pub const EMPH: Toggle = false;
-    /// A case transformation that should be applied to the text.
-    #[property(skip)]
-    pub const CASE: Option<Case> = None;
-    /// Whether small capital glyphs should be used. ("smcp")
-    #[property(skip)]
-    pub const SMALLCAPS: bool = false;
-    /// Decorative lines.
-    #[property(skip, fold)]
-    pub const DECO: Decoration = vec![];
+    #[settable]
+    #[fold]
+    #[skip]
+    #[default(0)]
+    pub delta: Delta,
 
+    /// Whether the font style should be inverted.
+    #[settable]
+    #[fold]
+    #[skip]
+    #[default(false)]
+    pub emph: Toggle,
+
+    /// A case transformation that should be applied to the text.
+    #[settable]
+    #[skip]
+    #[default(None)]
+    pub case: Option<Case>,
+
+    /// Whether small capital glyphs should be used. ("smcp")
+    #[settable]
+    #[skip]
+    #[default(false)]
+    pub smallcaps: bool,
+
+    /// Decorative lines.
+    #[settable]
+    #[fold]
+    #[skip]
+    #[default(vec![])]
+    pub deco: Decoration,
+}
+
+impl TextNode {
+    /// Create a new packed text node.
+    pub fn packed(text: impl Into<EcoString>) -> Content {
+        Self::new(text.into()).pack()
+    }
+}
+
+impl Construct for TextNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         // The text constructor is special: It doesn't create a text node.
         // Instead, it leaves the passed argument structurally unchanged, but
         // styles all text in it.
         args.expect("body")
-    }
-
-    fn set(...) {
-        if let Some(family) = args.named("family")? {
-            styles.set(Self::FAMILY, family);
-        } else {
-            let mut count = 0;
-            let mut content = false;
-            for item in args.items.iter().filter(|item| item.name.is_none()) {
-                if EcoString::is(&item.value) {
-                    count += 1;
-                } else if <Content as Cast<Spanned<Value>>>::is(&item.value) {
-                    content = true;
-                }
-            }
-
-            // Skip the final string if it's needed as the body.
-            if constructor && !content && count > 0 {
-                count -= 1;
-            }
-
-            if count > 0 {
-                let mut list = Vec::with_capacity(count);
-                for _ in 0..count {
-                    list.push(args.find()?.unwrap());
-                }
-
-                styles.set(Self::FAMILY, FallbackList(list));
-            }
-        }
-    }
-
-    fn field(&self, name: &str) -> Option<Value> {
-        match name {
-            "text" => Some(Value::Str(self.0.clone().into())),
-            _ => None,
-        }
-    }
-}
-
-impl Debug for TextNode {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "Text({:?})", self.0)
     }
 }
 
@@ -537,19 +598,27 @@ impl Debug for FontFamily {
     }
 }
 
-castable! {
+cast_from_value! {
     FontFamily,
     string: EcoString => Self::new(&string),
+}
+
+cast_to_value! {
+    v: FontFamily => v.0.into()
 }
 
 /// Font family fallback list.
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct FallbackList(pub Vec<FontFamily>);
 
-castable! {
+cast_from_value! {
     FallbackList,
     family: FontFamily => Self(vec![family]),
     values: Array => Self(values.into_iter().map(|v| v.cast()).collect::<StrResult<_>>()?),
+}
+
+cast_to_value! {
+    v: FallbackList => v.0.into()
 }
 
 /// The size of text.
@@ -564,9 +633,13 @@ impl Fold for TextSize {
     }
 }
 
-castable! {
+cast_from_value! {
     TextSize,
     v: Length => Self(v),
+}
+
+cast_to_value! {
+    v: TextSize => v.0.into()
 }
 
 /// Specifies the bottom or top edge of text.
@@ -588,32 +661,35 @@ impl TextEdge {
     }
 }
 
-castable! {
+cast_from_value! {
     TextEdge,
+    v: VerticalFontMetric => Self::Metric(v),
     v: Length => Self::Length(v),
-    /// The font's ascender, which typically exceeds the height of all glyphs.
-    "ascender" => Self::Metric(VerticalFontMetric::Ascender),
-    /// The approximate height of uppercase letters.
-    "cap-height" => Self::Metric(VerticalFontMetric::CapHeight),
-    /// The approximate height of non-ascending lowercase letters.
-    "x-height" => Self::Metric(VerticalFontMetric::XHeight),
-    /// The baseline on which the letters rest.
-    "baseline" => Self::Metric(VerticalFontMetric::Baseline),
-    /// The font's ascender, which typically exceeds the depth of all glyphs.
-    "descender" => Self::Metric(VerticalFontMetric::Descender),
+}
+
+cast_to_value! {
+    v: TextEdge => match v {
+        TextEdge::Metric(metric) => metric.into(),
+        TextEdge::Length(length) => length.into(),
+    }
 }
 
 /// The direction of text and inline objects in their line.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct HorizontalDir(pub Smart<Dir>);
 
-castable! {
+cast_from_value! {
     HorizontalDir,
-    _: AutoValue => Self(Smart::Auto),
-    dir: Dir => match dir.axis() {
-        Axis::X => Self(Smart::Custom(dir)),
-        Axis::Y => Err("must be horizontal")?,
+    v: Smart<Dir> => {
+        if v.map_or(false, |dir| dir.axis() == Axis::Y) {
+            Err("must be horizontal")?;
+        }
+        Self(v)
     },
+}
+
+cast_to_value! {
+    v: HorizontalDir => v.0.into()
 }
 
 impl Resolve for HorizontalDir {
@@ -631,10 +707,13 @@ impl Resolve for HorizontalDir {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Hyphenate(pub Smart<bool>);
 
-castable! {
+cast_from_value! {
     Hyphenate,
-    _: AutoValue => Self(Smart::Auto),
-    v: bool => Self(Smart::Custom(v)),
+    v: Smart<bool> => Self(v),
+}
+
+cast_to_value! {
+    v: Hyphenate => v.0.into()
 }
 
 impl Resolve for Hyphenate {
@@ -664,12 +743,16 @@ impl StylisticSet {
     }
 }
 
-castable! {
+cast_from_value! {
     StylisticSet,
     v: i64 => match v {
         1 ..= 20 => Self::new(v as u8),
         _ => Err("must be between 1 and 20")?,
     },
+}
+
+cast_to_value! {
+    v: StylisticSet => v.0.into()
 }
 
 /// Which kind of numbers / figures to select.
@@ -681,14 +764,21 @@ pub enum NumberType {
     OldStyle,
 }
 
-castable! {
+cast_from_value! {
     NumberType,
     /// Numbers that fit well with capital text (the OpenType `lnum`
     /// font feature).
     "lining" => Self::Lining,
-    /// Numbers that fit well into a flow of upper- and lowercase text (the
+    // Numbers that fit well into a flow of upper- and lowercase text (the
     /// OpenType `onum` font feature).
     "old-style" => Self::OldStyle,
+}
+
+cast_to_value! {
+    v: NumberType => Value::from(match v {
+        NumberType::Lining => "lining",
+        NumberType::OldStyle => "old-style",
+    })
 }
 
 /// The width of numbers / figures.
@@ -700,7 +790,7 @@ pub enum NumberWidth {
     Tabular,
 }
 
-castable! {
+cast_from_value! {
     NumberWidth,
     /// Numbers with glyph-specific widths (the OpenType `pnum` font feature).
     "proportional" => Self::Proportional,
@@ -708,11 +798,18 @@ castable! {
     "tabular" => Self::Tabular,
 }
 
+cast_to_value! {
+    v: NumberWidth => Value::from(match v {
+        NumberWidth::Proportional => "proportional",
+        NumberWidth::Tabular => "tabular",
+    })
+}
+
 /// OpenType font features settings.
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct FontFeatures(pub Vec<(Tag, u32)>);
 
-castable! {
+cast_from_value! {
     FontFeatures,
     values: Array => Self(values
         .into_iter()
@@ -729,6 +826,18 @@ castable! {
             Ok((tag, num))
         })
         .collect::<StrResult<_>>()?),
+}
+
+cast_to_value! {
+    v: FontFeatures => Value::Dict(
+        v.0.into_iter()
+            .map(|(tag, num)| {
+                let bytes = tag.to_bytes();
+                let key = std::str::from_utf8(&bytes).unwrap_or_default();
+                (key.into(), num.into())
+            })
+            .collect(),
+    )
 }
 
 impl Fold for FontFeatures {

@@ -5,7 +5,6 @@ use typst::eval::Regex;
 
 use crate::prelude::*;
 
-/// # Integer
 /// Convert a value to an integer.
 ///
 /// - Booleans are converted to `0` or `1`.
@@ -26,8 +25,8 @@ use crate::prelude::*;
 ///
 /// - returns: integer
 ///
-/// ## Category
-/// construct
+/// Display: Integer
+/// Category: construct
 #[func]
 pub fn int(args: &mut Args) -> SourceResult<Value> {
     Ok(Value::Int(args.expect::<ToInt>("value")?.0))
@@ -36,7 +35,7 @@ pub fn int(args: &mut Args) -> SourceResult<Value> {
 /// A value that can be cast to an integer.
 struct ToInt(i64);
 
-castable! {
+cast_from_value! {
     ToInt,
     v: bool => Self(v as i64),
     v: i64 => Self(v),
@@ -44,7 +43,6 @@ castable! {
     v: EcoString => Self(v.parse().map_err(|_| "not a valid integer")?),
 }
 
-/// # Float
 /// Convert a value to a float.
 ///
 /// - Booleans are converted to `0.0` or `1.0`.
@@ -67,8 +65,8 @@ castable! {
 ///
 /// - returns: float
 ///
-/// ## Category
-/// construct
+/// Display: Float
+/// Category: construct
 #[func]
 pub fn float(args: &mut Args) -> SourceResult<Value> {
     Ok(Value::Float(args.expect::<ToFloat>("value")?.0))
@@ -77,7 +75,7 @@ pub fn float(args: &mut Args) -> SourceResult<Value> {
 /// A value that can be cast to a float.
 struct ToFloat(f64);
 
-castable! {
+cast_from_value! {
     ToFloat,
     v: bool => Self(v as i64 as f64),
     v: i64 => Self(v as f64),
@@ -85,7 +83,6 @@ castable! {
     v: EcoString => Self(v.parse().map_err(|_| "not a valid float")?),
 }
 
-/// # Luma
 /// Create a grayscale color.
 ///
 /// ## Example
@@ -101,15 +98,14 @@ castable! {
 ///
 /// - returns: color
 ///
-/// ## Category
-/// construct
+/// Display: Luma
+/// Category: construct
 #[func]
 pub fn luma(args: &mut Args) -> SourceResult<Value> {
     let Component(luma) = args.expect("gray component")?;
     Ok(Value::Color(LumaColor::new(luma).into()))
 }
 
-/// # RGBA
 /// Create an RGB(A) color.
 ///
 /// The color is specified in the sRGB color space.
@@ -154,8 +150,8 @@ pub fn luma(args: &mut Args) -> SourceResult<Value> {
 ///
 /// - returns: color
 ///
-/// ## Category
-/// construct
+/// Display: RGBA
+/// Category: construct
 #[func]
 pub fn rgb(args: &mut Args) -> SourceResult<Value> {
     Ok(Value::Color(if let Some(string) = args.find::<Spanned<EcoString>>()? {
@@ -175,7 +171,7 @@ pub fn rgb(args: &mut Args) -> SourceResult<Value> {
 /// An integer or ratio component.
 struct Component(u8);
 
-castable! {
+cast_from_value! {
     Component,
     v: i64 => match v {
         0 ..= 255 => Self(v as u8),
@@ -188,7 +184,6 @@ castable! {
     },
 }
 
-/// # CMYK
 /// Create a CMYK color.
 ///
 /// This is useful if you want to target a specific printer. The conversion
@@ -217,8 +212,8 @@ castable! {
 ///
 /// - returns: color
 ///
-/// ## Category
-/// construct
+/// Display: CMYK
+/// Category: construct
 #[func]
 pub fn cmyk(args: &mut Args) -> SourceResult<Value> {
     let RatioComponent(c) = args.expect("cyan component")?;
@@ -231,7 +226,7 @@ pub fn cmyk(args: &mut Args) -> SourceResult<Value> {
 /// A component that must be a ratio.
 struct RatioComponent(u8);
 
-castable! {
+cast_from_value! {
     RatioComponent,
     v: Ratio => if (0.0 ..= 1.0).contains(&v.get()) {
         Self((v.get() * 255.0).round() as u8)
@@ -240,7 +235,6 @@ castable! {
     },
 }
 
-/// # Symbol
 /// Create a custom symbol with modifiers.
 ///
 /// ## Example
@@ -272,8 +266,8 @@ castable! {
 ///
 /// - returns: symbol
 ///
-/// ## Category
-/// construct
+/// Display: Symbol
+/// Category: construct
 #[func]
 pub fn symbol(args: &mut Args) -> SourceResult<Value> {
     let mut list = EcoVec::new();
@@ -289,7 +283,7 @@ pub fn symbol(args: &mut Args) -> SourceResult<Value> {
 /// A value that can be cast to a symbol.
 struct Variant(EcoString, char);
 
-castable! {
+cast_from_value! {
     Variant,
     c: char => Self(EcoString::new(), c),
     array: Array => {
@@ -301,7 +295,6 @@ castable! {
     },
 }
 
-/// # String
 /// Convert a value to a string.
 ///
 /// - Integers are formatted in base 10.
@@ -322,8 +315,8 @@ castable! {
 ///
 /// - returns: string
 ///
-/// ## Category
-/// construct
+/// Display: String
+/// Category: construct
 #[func]
 pub fn str(args: &mut Args) -> SourceResult<Value> {
     Ok(Value::Str(args.expect::<ToStr>("value")?.0))
@@ -332,7 +325,7 @@ pub fn str(args: &mut Args) -> SourceResult<Value> {
 /// A value that can be cast to a string.
 struct ToStr(Str);
 
-castable! {
+cast_from_value! {
     ToStr,
     v: i64 => Self(format_str!("{}", v)),
     v: f64 => Self(format_str!("{}", v)),
@@ -340,7 +333,6 @@ castable! {
     v: Str => Self(v),
 }
 
-/// # Label
 /// Create a label from a string.
 ///
 /// Inserting a label into content attaches it to the closest previous element
@@ -366,14 +358,13 @@ castable! {
 ///
 /// - returns: label
 ///
-/// ## Category
-/// construct
+/// Display: Label
+/// Category: construct
 #[func]
 pub fn label(args: &mut Args) -> SourceResult<Value> {
     Ok(Value::Label(Label(args.expect("string")?)))
 }
 
-/// # Regex
 /// Create a regular expression from a string.
 ///
 /// The result can be used as a
@@ -406,15 +397,14 @@ pub fn label(args: &mut Args) -> SourceResult<Value> {
 ///
 /// - returns: regex
 ///
-/// ## Category
-/// construct
+/// Display: Regex
+/// Category: construct
 #[func]
 pub fn regex(args: &mut Args) -> SourceResult<Value> {
     let Spanned { v, span } = args.expect::<Spanned<EcoString>>("regular expression")?;
     Ok(Regex::new(&v).at(span)?.into())
 }
 
-/// # Range
 /// Create an array consisting of a sequence of numbers.
 ///
 /// If you pass just one positional parameter, it is interpreted as the `end` of
@@ -442,8 +432,8 @@ pub fn regex(args: &mut Args) -> SourceResult<Value> {
 ///
 /// - returns: array
 ///
-/// ## Category
-/// construct
+/// Display: Range
+/// Category: construct
 #[func]
 pub fn range(args: &mut Args) -> SourceResult<Value> {
     let first = args.expect::<i64>("end")?;

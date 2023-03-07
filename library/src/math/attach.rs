@@ -1,6 +1,5 @@
 use super::*;
 
-/// # Attachment
 /// A base with optional attachments.
 ///
 /// ## Syntax
@@ -12,58 +11,44 @@ use super::*;
 /// $ sum_(i=0)^n a_i = 2^(1+i) $
 /// ```
 ///
-/// ## Parameters
-/// - base: `Content` (positional, required)
-///   The base to which things are attached.
-///
-/// - top: `Content` (named)
-///   The top attachment.
-///
-/// - bottom: `Content` (named)
-///   The bottom attachment.
-///
-/// ## Category
-/// math
-#[func]
-#[capable(LayoutMath)]
-#[derive(Debug, Hash)]
+/// Display: Attachment
+/// Category: math
+#[node(LayoutMath)]
 pub struct AttachNode {
-    /// The base.
+    /// The base to which things are attached.
+    #[positional]
+    #[required]
     pub base: Content,
-    /// The top attachment.
-    pub top: Option<Content>,
-    /// The bottom attachment.
-    pub bottom: Option<Content>,
-}
 
-#[node]
-impl AttachNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        let base = args.expect("base")?;
-        let top = args.named("top")?;
-        let bottom = args.named("bottom")?;
-        Ok(Self { base, top, bottom }.pack())
-    }
+    /// The top attachment.
+    #[named]
+    #[default]
+    pub top: Option<Content>,
+
+    /// The bottom attachment.
+    #[named]
+    #[default]
+    pub bottom: Option<Content>,
 }
 
 impl LayoutMath for AttachNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        let base = ctx.layout_fragment(&self.base)?;
+        let base = self.base();
+        let display_limits = base.is::<LimitsNode>();
+        let display_scripts = base.is::<ScriptsNode>();
+
+        let base = ctx.layout_fragment(&base)?;
 
         ctx.style(ctx.style.for_subscript());
-        let top = self.top.as_ref().map(|node| ctx.layout_fragment(node)).transpose()?;
+        let top = self.top().map(|node| ctx.layout_fragment(&node)).transpose()?;
         ctx.unstyle();
 
         ctx.style(ctx.style.for_superscript());
-        let bottom = self
-            .bottom
-            .as_ref()
-            .map(|node| ctx.layout_fragment(node))
-            .transpose()?;
+        let bottom = self.bottom().map(|node| ctx.layout_fragment(&node)).transpose()?;
         ctx.unstyle();
 
-        let render_limits = self.base.is::<LimitsNode>()
-            || (!self.base.is::<ScriptsNode>()
+        let display_limits = display_limits
+            || (!display_scripts
                 && ctx.style.size == MathSize::Display
                 && base.class() == Some(MathClass::Large)
                 && match &base {
@@ -72,7 +57,7 @@ impl LayoutMath for AttachNode {
                     _ => false,
                 });
 
-        if render_limits {
+        if display_limits {
             limits(ctx, base, top, bottom)
         } else {
             scripts(ctx, base, top, bottom)
@@ -80,7 +65,6 @@ impl LayoutMath for AttachNode {
     }
 }
 
-/// # Scripts
 /// Force a base to display attachments as scripts.
 ///
 /// ## Example
@@ -88,31 +72,22 @@ impl LayoutMath for AttachNode {
 /// $ scripts(sum)_1^2 != sum_1^2 $
 /// ```
 ///
-/// ## Parameters
-/// - base: `Content` (positional, required)
-///   The base to attach the scripts to.
-///
-/// ## Category
-/// math
-#[func]
-#[capable(LayoutMath)]
-#[derive(Debug, Hash)]
-pub struct ScriptsNode(Content);
-
-#[node]
-impl ScriptsNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Self(args.expect("base")?).pack())
-    }
+/// Display: Scripts
+/// Category: math
+#[node(LayoutMath)]
+pub struct ScriptsNode {
+    /// The base to attach the scripts to.
+    #[positional]
+    #[required]
+    pub base: Content,
 }
 
 impl LayoutMath for ScriptsNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        self.0.layout_math(ctx)
+        self.base().layout_math(ctx)
     }
 }
 
-/// # Limits
 /// Force a base to display attachments as limits.
 ///
 /// ## Example
@@ -120,27 +95,19 @@ impl LayoutMath for ScriptsNode {
 /// $ limits(A)_1^2 != A_1^2 $
 /// ```
 ///
-/// ## Parameters
-/// - base: `Content` (positional, required)
-///   The base to attach the limits to.
-///
-/// ## Category
-/// math
-#[func]
-#[capable(LayoutMath)]
-#[derive(Debug, Hash)]
-pub struct LimitsNode(Content);
-
-#[node]
-impl LimitsNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Self(args.expect("base")?).pack())
-    }
+/// Display: Limits
+/// Category: math
+#[node(LayoutMath)]
+pub struct LimitsNode {
+    /// The base to attach the limits to.
+    #[positional]
+    #[required]
+    pub base: Content,
 }
 
 impl LayoutMath for LimitsNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        self.0.layout_math(ctx)
+        self.base().layout_math(ctx)
     }
 }
 

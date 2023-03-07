@@ -1,7 +1,6 @@
 use crate::prelude::*;
 use crate::text::TextNode;
 
-/// # Columns
 /// Separate a region into multiple equally sized columns.
 ///
 /// The `column` function allows to separate the interior of any container into
@@ -31,39 +30,25 @@ use crate::text::TextNode;
 /// variety of problems.
 /// ```
 ///
-/// ## Parameters
-/// - count: `usize` (positional, required)
-///   The number of columns.
-///
-/// - body: `Content` (positional, required)
-///   The content that should be layouted into the columns.
-///
-/// ## Category
-/// layout
-#[func]
-#[capable(Layout)]
-#[derive(Debug, Hash)]
+/// Display: Columns
+/// Category: layout
+#[node(Layout)]
 pub struct ColumnsNode {
-    /// How many columns there should be.
+    /// The number of columns.
+    #[positional]
+    #[required]
     pub count: NonZeroUsize,
-    /// The child to be layouted into the columns. Most likely, this should be a
-    /// flow or stack node.
+
+    /// The content that should be layouted into the columns.
+    #[positional]
+    #[required]
     pub body: Content,
-}
 
-#[node]
-impl ColumnsNode {
     /// The size of the gutter space between each column.
-    #[property(resolve)]
-    pub const GUTTER: Rel<Length> = Ratio::new(0.04).into();
-
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Self {
-            count: args.expect("column count")?,
-            body: args.expect("body")?,
-        }
-        .pack())
-    }
+    #[settable]
+    #[resolve]
+    #[default(Ratio::new(0.04).into())]
+    pub gutter: Rel<Length>,
 }
 
 impl Layout for ColumnsNode {
@@ -73,14 +58,16 @@ impl Layout for ColumnsNode {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
+        let body = self.body();
+
         // Separating the infinite space into infinite columns does not make
         // much sense.
         if !regions.size.x.is_finite() {
-            return self.body.layout(vt, styles, regions);
+            return body.layout(vt, styles, regions);
         }
 
         // Determine the width of the gutter and each column.
-        let columns = self.count.get();
+        let columns = self.count().get();
         let gutter = styles.get(Self::GUTTER).relative_to(regions.base().x);
         let width = (regions.size.x - gutter * (columns - 1) as f64) / columns as f64;
 
@@ -100,7 +87,7 @@ impl Layout for ColumnsNode {
         };
 
         // Layout the children.
-        let mut frames = self.body.layout(vt, styles, pod)?.into_iter();
+        let mut frames = body.layout(vt, styles, pod)?.into_iter();
         let mut finished = vec![];
 
         let dir = styles.get(TextNode::DIR);
@@ -140,7 +127,6 @@ impl Layout for ColumnsNode {
     }
 }
 
-/// # Column Break
 /// A forced column break.
 ///
 /// The function will behave like a [page break]($func/pagebreak) when used in a
@@ -165,31 +151,20 @@ impl Layout for ColumnsNode {
 /// laws of nature.
 /// ```
 ///
-/// ## Parameters
-/// - weak: `bool` (named)
-///   If `{true}`, the column break is skipped if the current column is already
-///   empty.
-///
-/// ## Category
-/// layout
-#[func]
-#[capable(Behave)]
-#[derive(Debug, Hash)]
+/// Display: Column Break
+/// Category: layout
+#[node(Behave)]
 pub struct ColbreakNode {
+    /// If `{true}`, the column break is skipped if the current column is
+    /// already empty.
+    #[named]
+    #[default(false)]
     pub weak: bool,
-}
-
-#[node]
-impl ColbreakNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        let weak = args.named("weak")?.unwrap_or(false);
-        Ok(Self { weak }.pack())
-    }
 }
 
 impl Behave for ColbreakNode {
     fn behaviour(&self) -> Behaviour {
-        if self.weak {
+        if self.weak() {
             Behaviour::Weak(1)
         } else {
             Behaviour::Destructive

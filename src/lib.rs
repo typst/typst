@@ -39,14 +39,13 @@ extern crate self as typst;
 #[macro_use]
 pub mod util;
 #[macro_use]
-pub mod geom;
-#[macro_use]
 pub mod diag;
 #[macro_use]
 pub mod eval;
 pub mod doc;
 pub mod export;
 pub mod font;
+pub mod geom;
 pub mod ide;
 pub mod image;
 pub mod model;

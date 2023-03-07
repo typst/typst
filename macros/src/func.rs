@@ -1,30 +1,22 @@
-use unscanny::Scanner;
-
 use super::*;
 
 /// Expand the `#[func]` macro.
 pub fn func(item: syn::Item) -> Result<TokenStream> {
-    let docs = match &item {
+    let mut docs = match &item {
         syn::Item::Struct(item) => documentation(&item.attrs),
         syn::Item::Enum(item) => documentation(&item.attrs),
         syn::Item::Fn(item) => documentation(&item.attrs),
         _ => String::new(),
     };
 
-    let first = docs.lines().next().unwrap();
-    let display = first.strip_prefix("# ").unwrap();
-    let display = display.trim();
-
-    let mut docs = docs[first.len()..].to_string();
     let (params, returns) = params(&mut docs)?;
-    let category = section(&mut docs, "Category", 2).expect("missing category");
     let docs = docs.trim();
 
     let info = quote! {
         ::typst::eval::FuncInfo {
             name,
-            display: #display,
-            category: #category,
+            display: "TODO",
+            category: "TODO",
             docs: #docs,
             params: ::std::vec![#(#params),*],
             returns: ::std::vec![#(#returns),*]
@@ -82,7 +74,7 @@ pub fn func(item: syn::Item) -> Result<TokenStream> {
 }
 
 /// Extract a section.
-pub fn section(docs: &mut String, title: &str, level: usize) -> Option<String> {
+fn section(docs: &mut String, title: &str, level: usize) -> Option<String> {
     let hashtags = "#".repeat(level);
     let needle = format!("\n{hashtags} {title}\n");
     let start = docs.find(&needle)?;

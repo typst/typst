@@ -17,7 +17,7 @@ $ x = (-b plus.minus sqrt(b^2 - 4a c))/(2a) $
 $ binom(circle, square) $
 
 ---
-// Error: 8-13 missing argument: lower index
+// Error: 8-13 missing argument: lower
 $ binom(x^2) $
 
 ---

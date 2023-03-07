@@ -4,15 +4,15 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use ecow::{eco_format, EcoString};
+use ecow::eco_format;
 use siphasher::sip128::{Hasher128, SipHasher};
 
 use super::{
-    format_str, ops, Args, Array, Cast, CastInfo, Content, Dict, Func, Label, Module,
-    Str, Symbol,
+    cast_to_value, format_str, ops, Args, Array, Cast, CastInfo, Content, Dict, Func,
+    Label, Module, Str, Symbol,
 };
 use crate::diag::StrResult;
-use crate::geom::{Abs, Angle, Color, Em, Fr, Length, Ratio, Rel, RgbaColor};
+use crate::geom::{Abs, Angle, Color, Em, Fr, Length, Ratio, Rel};
 use crate::syntax::{ast, Span};
 
 /// A computational value.
@@ -122,6 +122,7 @@ impl Value {
             Self::Dict(dict) => dict.at(&field).cloned(),
             Self::Content(content) => content
                 .field(&field)
+                .cloned()
                 .ok_or_else(|| eco_format!("unknown field `{field}`")),
             Self::Module(module) => module.get(&field).cloned(),
             v => Err(eco_format!("cannot access fields on type {}", v.type_name())),
@@ -241,60 +242,6 @@ impl Hash for Value {
     }
 }
 
-impl From<i32> for Value {
-    fn from(v: i32) -> Self {
-        Self::Int(v as i64)
-    }
-}
-
-impl From<usize> for Value {
-    fn from(v: usize) -> Self {
-        Self::Int(v as i64)
-    }
-}
-
-impl From<Abs> for Value {
-    fn from(v: Abs) -> Self {
-        Self::Length(v.into())
-    }
-}
-
-impl From<Em> for Value {
-    fn from(v: Em) -> Self {
-        Self::Length(v.into())
-    }
-}
-
-impl From<RgbaColor> for Value {
-    fn from(v: RgbaColor) -> Self {
-        Self::Color(v.into())
-    }
-}
-
-impl From<&str> for Value {
-    fn from(v: &str) -> Self {
-        Self::Str(v.into())
-    }
-}
-
-impl From<EcoString> for Value {
-    fn from(v: EcoString) -> Self {
-        Self::Str(v.into())
-    }
-}
-
-impl From<String> for Value {
-    fn from(v: String) -> Self {
-        Self::Str(v.into())
-    }
-}
-
-impl From<Dynamic> for Value {
-    fn from(v: Dynamic) -> Self {
-        Self::Dyn(v)
-    }
-}
-
 /// A dynamic value.
 #[derive(Clone, Hash)]
 pub struct Dynamic(Arc<dyn Bounds>);
@@ -334,6 +281,10 @@ impl PartialEq for Dynamic {
     fn eq(&self, other: &Self) -> bool {
         self.0.dyn_eq(other)
     }
+}
+
+cast_to_value! {
+    v: Dynamic => Value::Dyn(v)
 }
 
 trait Bounds: Debug + Sync + Send + 'static {
@@ -462,6 +413,7 @@ primitive! { Args: "arguments", Args }
 mod tests {
     use super::*;
     use crate::eval::{array, dict};
+    use crate::geom::RgbaColor;
 
     #[track_caller]
     fn test(value: impl Into<Value>, exp: &str) {

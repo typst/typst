@@ -2,6 +2,7 @@ use std::any::Any;
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
 
 use super::*;
+use crate::eval::Array;
 
 /// A container with a horizontal and vertical component.
 #[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
@@ -270,5 +271,39 @@ impl BitAndAssign for Axes<bool> {
     fn bitand_assign(&mut self, rhs: Self) {
         self.x &= rhs.x;
         self.y &= rhs.y;
+    }
+}
+
+cast_from_value! {
+    Axes<Rel<Length>>,
+    array: Array => {
+        let mut iter = array.into_iter();
+        match (iter.next(), iter.next(), iter.next()) {
+            (Some(a), Some(b), None) => Axes::new(a.cast()?, b.cast()?),
+            _ => Err("point array must contain exactly two entries")?,
+        }
+    },
+}
+
+cast_to_value! {
+    v: Axes<Rel<Length>> => Value::Array(array![v.x, v.y])
+}
+
+impl<T: Resolve> Resolve for Axes<T> {
+    type Output = Axes<T::Output>;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        self.map(|v| v.resolve(styles))
+    }
+}
+
+impl<T: Fold> Fold for Axes<Option<T>> {
+    type Output = Axes<T::Output>;
+
+    fn fold(self, outer: Self::Output) -> Self::Output {
+        self.zip(outer).map(|(inner, outer)| match inner {
+            Some(value) => value.fold(outer),
+            None => outer,
+        })
     }
 }

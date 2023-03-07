@@ -19,7 +19,7 @@ use self::layout::LayoutRoot;
 /// Construct the standard library.
 pub fn build() -> Library {
     let math = math::module();
-    let calc = compute::calc();
+    let calc = compute::calc::module();
     let global = global(math.clone(), calc);
     Library { global, math, styles: styles(), items: items() }
 }
@@ -166,37 +166,37 @@ fn items() -> LangItems {
         layout: |world, content, styles| content.layout_root(world, styles),
         em: |styles| styles.get(text::TextNode::SIZE),
         dir: |styles| styles.get(text::TextNode::DIR),
-        space: || text::SpaceNode.pack(),
-        linebreak: || text::LinebreakNode { justify: false }.pack(),
-        text: |text| text::TextNode(text).pack(),
+        space: || text::SpaceNode::new().pack(),
+        linebreak: || text::LinebreakNode::new().pack(),
+        text: |text| text::TextNode::new(text).pack(),
         text_id: NodeId::of::<text::TextNode>(),
-        text_str: |content| Some(&content.to::<text::TextNode>()?.0),
-        smart_quote: |double| text::SmartQuoteNode { double }.pack(),
-        parbreak: || layout::ParbreakNode.pack(),
-        strong: |body| text::StrongNode(body).pack(),
-        emph: |body| text::EmphNode(body).pack(),
+        text_str: |content| Some(content.to::<text::TextNode>()?.text()),
+        smart_quote: |double| text::SmartQuoteNode::new().with_double(double).pack(),
+        parbreak: || layout::ParbreakNode::new().pack(),
+        strong: |body| text::StrongNode::new(body).pack(),
+        emph: |body| text::EmphNode::new(body).pack(),
         raw: |text, lang, block| {
-            let content = text::RawNode { text, block }.pack();
+            let content = text::RawNode::new(text).with_block(block).pack();
             match lang {
                 Some(_) => content.styled(text::RawNode::LANG, lang),
                 None => content,
             }
         },
         link: |url| meta::LinkNode::from_url(url).pack(),
-        ref_: |target| meta::RefNode(target).pack(),
-        heading: |level, body| meta::HeadingNode { level, title: body }.pack(),
-        list_item: |body| layout::ListItem::List(body).pack(),
-        enum_item: |number, body| layout::ListItem::Enum(number, body).pack(),
-        term_item: |term, description| {
-            layout::ListItem::Term(layout::TermItem { term, description }).pack()
+        ref_: |target| meta::RefNode::new(target).pack(),
+        heading: |level, title| meta::HeadingNode::new(title).with_level(level).pack(),
+        list_item: |body| layout::ListItem::new(body).pack(),
+        enum_item: |number, body| layout::EnumItem::new(body).with_number(number).pack(),
+        term_item: |term, description| layout::TermItem::new(term, description).pack(),
+        formula: |body, block| math::FormulaNode::new(body).with_block(block).pack(),
+        math_align_point: || math::AlignPointNode::new().pack(),
+        math_delimited: |open, body, close| math::LrNode::new(open + body + close).pack(),
+        math_attach: |base, bottom, top| {
+            math::AttachNode::new(base).with_bottom(bottom).with_top(top).pack()
         },
-        formula: |body, block| math::FormulaNode { body, block }.pack(),
-        math_align_point: || math::AlignPointNode.pack(),
-        math_delimited: |open, body, close| {
-            math::LrNode { body: open + body + close, size: None }.pack()
+        math_accent: |base, accent| {
+            math::AccentNode::new(base, math::Accent::new(accent)).pack()
         },
-        math_attach: |base, bottom, top| math::AttachNode { base, bottom, top }.pack(),
-        math_accent: |base, accent| math::AccentNode { base, accent }.pack(),
-        math_frac: |num, denom| math::FracNode { num, denom }.pack(),
+        math_frac: |num, denom| math::FracNode::new(num, denom).pack(),
     }
 }

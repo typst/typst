@@ -154,7 +154,7 @@ impl<'a> ShapedText<'a> {
             for family in families(self.styles) {
                 if let Some(font) = world
                     .book()
-                    .select(family, self.variant)
+                    .select(family.as_str(), self.variant)
                     .and_then(|id| world.font(id))
                 {
                     expand(&font);
@@ -209,7 +209,7 @@ impl<'a> ShapedText<'a> {
             let world = vt.world();
             let font = world
                 .book()
-                .select(family, self.variant)
+                .select(family.as_str(), self.variant)
                 .and_then(|id| world.font(id))?;
             let ttf = font.ttf();
             let glyph_id = ttf.glyph_index('-')?;
@@ -351,7 +351,7 @@ fn shape_segment<'a>(
     ctx: &mut ShapingContext,
     base: usize,
     text: &str,
-    mut families: impl Iterator<Item = &'a str> + Clone,
+    mut families: impl Iterator<Item = FontFamily> + Clone,
 ) {
     // Fonts dont have newlines and tabs.
     if text.chars().all(|c| c == '\n' || c == '\t') {
@@ -362,7 +362,7 @@ fn shape_segment<'a>(
     let world = ctx.vt.world();
     let book = world.book();
     let mut selection = families.find_map(|family| {
-        book.select(family, ctx.variant)
+        book.select(family.as_str(), ctx.variant)
             .and_then(|id| world.font(id))
             .filter(|font| !ctx.used.contains(font))
     });
@@ -549,7 +549,7 @@ pub fn variant(styles: StyleChain) -> FontVariant {
 }
 
 /// Resolve a prioritized iterator over the font families.
-pub fn families(styles: StyleChain) -> impl Iterator<Item = &str> + Clone {
+pub fn families(styles: StyleChain) -> impl Iterator<Item = FontFamily> + Clone {
     const FALLBACKS: &[&str] = &[
         "linux libertine",
         "twitter color emoji",
@@ -562,9 +562,8 @@ pub fn families(styles: StyleChain) -> impl Iterator<Item = &str> + Clone {
     styles
         .get(TextNode::FAMILY)
         .0
-        .iter()
-        .map(|family| family.as_str())
-        .chain(tail.iter().copied())
+        .into_iter()
+        .chain(tail.iter().copied().map(FontFamily::new))
 }
 
 /// Collect the tags of the OpenType features to apply.

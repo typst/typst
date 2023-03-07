@@ -1,7 +1,8 @@
+use typst::model::StyledNode;
+
 use crate::layout::{LayoutRoot, PageNode};
 use crate::prelude::*;
 
-/// # Document
 /// The root element of a document and its metadata.
 ///
 /// All documents are automatically wrapped in a `document` element. The main
@@ -11,33 +12,48 @@ use crate::prelude::*;
 /// The metadata set with this function is not rendered within the document.
 /// Instead, it is embedded in the compiled PDF file.
 ///
-/// ## Category
-/// meta
-#[func]
-#[capable(LayoutRoot)]
-#[derive(Hash)]
-pub struct DocumentNode(pub StyleVec<PageNode>);
+/// Display: Document
+/// Category: meta
+#[node(LayoutRoot)]
+pub struct DocumentNode {
+    /// The page runs.
+    #[variadic]
+    pub children: Vec<Content>,
 
-#[node]
-impl DocumentNode {
     /// The document's title. This is often rendered as the title of the
     /// PDF viewer window.
-    #[property(referenced)]
-    pub const TITLE: Option<EcoString> = None;
+    #[settable]
+    #[default]
+    pub title: Option<EcoString>,
 
     /// The document's authors.
-    #[property(referenced)]
-    pub const AUTHOR: Author = Author(vec![]);
+    #[settable]
+    #[default]
+    pub author: Author,
 }
 
 impl LayoutRoot for DocumentNode {
     /// Layout the document into a sequence of frames, one per page.
     fn layout_root(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Document> {
         let mut pages = vec![];
-        for (page, map) in self.0.iter() {
-            let number = 1 + pages.len();
-            let fragment = page.layout(vt, number, styles.chain(map))?;
-            pages.extend(fragment);
+
+        for mut child in self.children() {
+            let map;
+            let outer = styles;
+            let mut styles = outer;
+            if let Some(node) = child.to::<StyledNode>() {
+                map = node.map();
+                styles = outer.chain(&map);
+                child = node.sub();
+            }
+
+            if let Some(page) = child.to::<PageNode>() {
+                let number = 1 + pages.len();
+                let fragment = page.layout(vt, number, styles)?;
+                pages.extend(fragment);
+            } else if let Some(span) = child.span() {
+                bail!(span, "unexpected document child");
+            }
         }
 
         Ok(Document {
@@ -48,19 +64,16 @@ impl LayoutRoot for DocumentNode {
     }
 }
 
-impl Debug for DocumentNode {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_str("Document ")?;
-        self.0.fmt(f)
-    }
-}
-
 /// A list of authors.
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Default, Clone, Hash)]
 pub struct Author(Vec<EcoString>);
 
-castable! {
+cast_from_value! {
     Author,
     v: EcoString => Self(vec![v]),
     v: Array => Self(v.into_iter().map(Value::cast).collect::<StrResult<_>>()?),
+}
+
+cast_to_value! {
+    v: Author => v.0.into()
 }

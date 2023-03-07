@@ -17,41 +17,27 @@ const FRAC_AROUND: Em = Em::new(0.1);
 /// expression using round grouping parenthesis. Such parentheses are removed
 /// from the output, but you can nest multiple to force them.
 ///
-/// ## Parameters
-/// - num: `Content` (positional, required)
-///   The fraction's numerator.
-///
-/// - denom: `Content` (positional, required)
-///   The fraction's denominator.
-///
-/// ## Category
-/// math
-#[func]
-#[capable(LayoutMath)]
-#[derive(Debug, Hash)]
+/// Display: Fraction
+/// Category: math
+#[node(LayoutMath)]
 pub struct FracNode {
-    /// The numerator.
+    /// The fraction's numerator.
+    #[positional]
+    #[required]
     pub num: Content,
-    /// The denominator.
-    pub denom: Content,
-}
 
-#[node]
-impl FracNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        let num = args.expect("numerator")?;
-        let denom = args.expect("denominator")?;
-        Ok(Self { num, denom }.pack())
-    }
+    /// The fraction's denominator.
+    #[positional]
+    #[required]
+    pub denom: Content,
 }
 
 impl LayoutMath for FracNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout(ctx, &self.num, &self.denom, false)
+        layout(ctx, &self.num(), &self.denom(), false)
     }
 }
 
-/// # Binomial
 /// A binomial expression.
 ///
 /// ## Example
@@ -59,37 +45,24 @@ impl LayoutMath for FracNode {
 /// $ binom(n, k) $
 /// ```
 ///
-/// ## Parameters
-/// - upper: `Content` (positional, required)
-///   The binomial's upper index.
-///
-/// - lower: `Content` (positional, required)
-///   The binomial's lower index.
-///
-/// ## Category
-/// math
-#[func]
-#[capable(LayoutMath)]
-#[derive(Debug, Hash)]
+/// Display: Binomial
+/// Category: math
+#[node(LayoutMath)]
 pub struct BinomNode {
-    /// The upper index.
+    /// The binomial's upper index.
+    #[positional]
+    #[required]
     pub upper: Content,
-    /// The lower index.
-    pub lower: Content,
-}
 
-#[node]
-impl BinomNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        let upper = args.expect("upper index")?;
-        let lower = args.expect("lower index")?;
-        Ok(Self { upper, lower }.pack())
-    }
+    /// The binomial's lower index.
+    #[positional]
+    #[required]
+    pub lower: Content,
 }
 
 impl LayoutMath for BinomNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout(ctx, &self.upper, &self.lower, true)
+        layout(ctx, &self.upper(), &self.lower(), true)
     }
 }
 

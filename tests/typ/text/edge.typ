@@ -17,9 +17,9 @@
 #try(1pt + 0.3em, -0.15em)
 
 ---
-// Error: 21-23 expected length, "ascender", "cap-height", "x-height", "baseline", or "descender", found array
+// Error: 21-23 expected "ascender", "cap-height", "x-height", "baseline", "descender", or length, found array
 #set text(top-edge: ())
 
 ---
-// Error: 24-26 expected length, "ascender", "cap-height", "x-height", "baseline", or "descender"
+// Error: 24-26 expected "ascender", "cap-height", "x-height", "baseline", "descender", or length
 #set text(bottom-edge: "")

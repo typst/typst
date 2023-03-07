@@ -2,6 +2,9 @@ use std::fmt::{self, Debug, Formatter};
 
 use serde::{Deserialize, Serialize};
 
+use crate::eval::{cast_from_value, cast_to_value, Value};
+use crate::geom::Ratio;
+
 /// Properties that distinguish a font from other fonts in the same family.
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[derive(Serialize, Deserialize)]
@@ -57,6 +60,24 @@ impl Default for FontStyle {
     fn default() -> Self {
         Self::Normal
     }
+}
+
+cast_from_value! {
+    FontStyle,
+    /// The default, typically upright style.
+    "normal" => Self::Normal,
+    /// A cursive style with custom letterform.
+    "italic" => Self::Italic,
+    /// Just a slanted version of the normal style.
+    "oblique" => Self::Oblique,
+}
+
+cast_to_value! {
+    v: FontStyle => Value::from(match v {
+        FontStyle::Normal => "normal",
+        FontStyle::Italic => "italic",
+        FontStyle::Oblique => "oblique",
+    })
 }
 
 /// The weight of a font.
@@ -127,6 +148,44 @@ impl Debug for FontWeight {
     }
 }
 
+cast_from_value! {
+    FontWeight,
+    v: i64 => Self::from_number(v.clamp(0, u16::MAX as i64) as u16),
+    /// Thin weight (100).
+    "thin" => Self::THIN,
+    /// Extra light weight (200).
+    "extralight" => Self::EXTRALIGHT,
+    /// Light weight (300).
+    "light" => Self::LIGHT,
+    /// Regular weight (400).
+    "regular" => Self::REGULAR,
+    /// Medium weight (500).
+    "medium" => Self::MEDIUM,
+    /// Semibold weight (600).
+    "semibold" => Self::SEMIBOLD,
+    /// Bold weight (700).
+    "bold" => Self::BOLD,
+    /// Extrabold weight (800).
+    "extrabold" => Self::EXTRABOLD,
+    /// Black weight (900).
+    "black" => Self::BLACK,
+}
+
+cast_to_value! {
+    v: FontWeight => Value::from(match v {
+        FontWeight::THIN => "thin",
+        FontWeight::EXTRALIGHT => "extralight",
+        FontWeight::LIGHT => "light",
+        FontWeight::REGULAR => "regular",
+        FontWeight::MEDIUM => "medium",
+        FontWeight::SEMIBOLD => "semibold",
+        FontWeight::BOLD => "bold",
+        FontWeight::EXTRABOLD => "extrabold",
+        FontWeight::BLACK => "black",
+        _ => return v.to_number().into(),
+    })
+}
+
 /// The width of a font.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[derive(Serialize, Deserialize)]
@@ -163,8 +222,8 @@ impl FontStretch {
 
     /// Create a font stretch from a ratio between 0.5 and 2.0, clamping it if
     /// necessary.
-    pub fn from_ratio(ratio: f32) -> Self {
-        Self((ratio.max(0.5).min(2.0) * 1000.0) as u16)
+    pub fn from_ratio(ratio: Ratio) -> Self {
+        Self((ratio.get().max(0.5).min(2.0) * 1000.0) as u16)
     }
 
     /// Create a font stretch from an OpenType-style number between 1 and 9,
@@ -184,12 +243,12 @@ impl FontStretch {
     }
 
     /// The ratio between 0.5 and 2.0 corresponding to this stretch.
-    pub fn to_ratio(self) -> f32 {
-        self.0 as f32 / 1000.0
+    pub fn to_ratio(self) -> Ratio {
+        Ratio::new(self.0 as f64 / 1000.0)
     }
 
     /// The absolute ratio distance between this and another font stretch.
-    pub fn distance(self, other: Self) -> f32 {
+    pub fn distance(self, other: Self) -> Ratio {
         (self.to_ratio() - other.to_ratio()).abs()
     }
 }
@@ -202,8 +261,17 @@ impl Default for FontStretch {
 
 impl Debug for FontStretch {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}%", 100.0 * self.to_ratio())
+        self.to_ratio().fmt(f)
     }
+}
+
+cast_from_value! {
+    FontStretch,
+    v: Ratio => Self::from_ratio(v),
+}
+
+cast_to_value! {
+    v: FontStretch => v.to_ratio().into()
 }
 
 #[cfg(test)]

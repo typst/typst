@@ -1,6 +1,5 @@
 use crate::prelude::*;
 
-/// # Type
 /// Determine a value's type.
 ///
 /// Returns the name of the value's type.
@@ -21,14 +20,13 @@ use crate::prelude::*;
 ///
 /// - returns: string
 ///
-/// ## Category
-/// foundations
+/// Display: Type
+/// Category: foundations
 #[func]
 pub fn type_(args: &mut Args) -> SourceResult<Value> {
     Ok(args.expect::<Value>("value")?.type_name().into())
 }
 
-/// # Representation
 /// The string representation of a value.
 ///
 /// When inserted into content, most values are displayed as this representation
@@ -49,14 +47,13 @@ pub fn type_(args: &mut Args) -> SourceResult<Value> {
 ///
 /// - returns: string
 ///
-/// ## Category
-/// foundations
+/// Display: Representation
+/// Category: foundations
 #[func]
 pub fn repr(args: &mut Args) -> SourceResult<Value> {
     Ok(args.expect::<Value>("value")?.repr().into())
 }
 
-/// # Panic
 /// Fail with an error.
 ///
 /// ## Example
@@ -69,8 +66,8 @@ pub fn repr(args: &mut Args) -> SourceResult<Value> {
 /// - payload: `Value` (positional)
 ///   The value (or message) to panic with.
 ///
-/// ## Category
-/// foundations
+/// Display: Panic
+/// Category: foundations
 #[func]
 pub fn panic(args: &mut Args) -> SourceResult<Value> {
     match args.eat::<Value>()? {
@@ -79,7 +76,6 @@ pub fn panic(args: &mut Args) -> SourceResult<Value> {
     }
 }
 
-/// # Assert
 /// Ensure that a condition is fulfilled.
 ///
 /// Fails with an error if the condition is not fulfilled. Does not
@@ -96,8 +92,8 @@ pub fn panic(args: &mut Args) -> SourceResult<Value> {
 /// - message: `EcoString` (named)
 ///   The error message when the assertion fails.
 ///
-/// ## Category
-/// foundations
+/// Display: Assert
+/// Category: foundations
 #[func]
 pub fn assert(args: &mut Args) -> SourceResult<Value> {
     let check = args.expect::<bool>("condition")?;
@@ -112,7 +108,6 @@ pub fn assert(args: &mut Args) -> SourceResult<Value> {
     Ok(Value::None)
 }
 
-/// # Evaluate
 /// Evaluate a string as Typst code.
 ///
 /// This function should only be used as a last resort.
@@ -132,8 +127,8 @@ pub fn assert(args: &mut Args) -> SourceResult<Value> {
 ///
 /// - returns: any
 ///
-/// ## Category
-/// foundations
+/// Display: Evaluate
+/// Category: foundations
 #[func]
 pub fn eval(vm: &Vm, args: &mut Args) -> SourceResult<Value> {
     let Spanned { v: text, span } = args.expect::<Spanned<String>>("source")?;

@@ -1,7 +1,6 @@
 use crate::prelude::*;
 use crate::text::TextNode;
 
-/// # Reference
 /// A reference to a label.
 ///
 /// *Note: This function is currently unimplemented.*
@@ -16,33 +15,18 @@ use crate::text::TextNode;
 /// created by typing an `@` followed by the name of the label (e.g. `[=
 /// Introduction <intro>]` can be referenced by typing `[@intro]`).
 ///
-/// ## Parameters
-/// - target: `Label` (positional, required)
-///   The label that should be referenced.
-///
-/// ## Category
-/// meta
-#[func]
-#[capable(Show)]
-#[derive(Debug, Hash)]
-pub struct RefNode(pub EcoString);
-
-#[node]
-impl RefNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Self(args.expect("target")?).pack())
-    }
-
-    fn field(&self, name: &str) -> Option<Value> {
-        match name {
-            "target" => Some(Value::Str(self.0.clone().into())),
-            _ => None,
-        }
-    }
+/// Display: Reference
+/// Category: meta
+#[node(Show)]
+pub struct RefNode {
+    /// The label that should be referenced.
+    #[positional]
+    #[required]
+    pub target: EcoString,
 }
 
 impl Show for RefNode {
     fn show(&self, _: &mut Vt, _: &Content, _: StyleChain) -> SourceResult<Content> {
-        Ok(TextNode::packed(eco_format!("@{}", self.0)))
+        Ok(TextNode::packed(eco_format!("@{}", self.target())))
     }
 }

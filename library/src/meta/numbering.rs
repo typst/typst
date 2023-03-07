@@ -3,7 +3,6 @@ use std::str::FromStr;
 use crate::prelude::*;
 use crate::text::Case;
 
-/// # Numbering
 /// Apply a numbering to a sequence of numbers.
 ///
 /// A numbering defines how a sequence of numbers should be displayed as
@@ -61,8 +60,8 @@ use crate::text::Case;
 ///
 /// - returns: any
 ///
-/// ## Category
-/// meta
+/// Display: Numbering
+/// Category: meta
 #[func]
 pub fn numbering(vm: &Vm, args: &mut Args) -> SourceResult<Value> {
     let numbering = args.expect::<Numbering>("pattern or function")?;
@@ -99,10 +98,17 @@ impl Numbering {
     }
 }
 
-castable! {
+cast_from_value! {
     Numbering,
-    v: Str => Self::Pattern(v.parse()?),
+    v: NumberingPattern => Self::Pattern(v),
     v: Func => Self::Func(v),
+}
+
+cast_to_value! {
+    v: Numbering => match v {
+        Numbering::Pattern(pattern) => pattern.into(),
+        Numbering::Func(func) => func.into(),
+    }
 }
 
 /// How to turn a number into text.
@@ -173,12 +179,8 @@ impl FromStr for NumberingPattern {
         let mut handled = 0;
 
         for (i, c) in pattern.char_indices() {
-            let kind = match c.to_ascii_lowercase() {
-                '1' => NumberingKind::Arabic,
-                'a' => NumberingKind::Letter,
-                'i' => NumberingKind::Roman,
-                '*' => NumberingKind::Symbol,
-                _ => continue,
+            let Some(kind) = NumberingKind::from_char(c.to_ascii_lowercase()) else {
+                continue;
             };
 
             let prefix = pattern[handled..i].into();
@@ -196,6 +198,27 @@ impl FromStr for NumberingPattern {
     }
 }
 
+cast_from_value! {
+    NumberingPattern,
+    v: Str => v.parse()?,
+}
+
+cast_to_value! {
+    v: NumberingPattern => {
+        let mut pat = EcoString::new();
+        for (prefix, kind, case) in &v.pieces {
+            pat.push_str(prefix);
+            let mut c = kind.to_char();
+            if *case == Case::Upper {
+                c = c.to_ascii_uppercase();
+            }
+            pat.push(c);
+        }
+        pat.push_str(&v.suffix);
+        pat.into()
+    }
+}
+
 /// Different kinds of numberings.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 enum NumberingKind {
@@ -206,6 +229,27 @@ enum NumberingKind {
 }
 
 impl NumberingKind {
+    /// Create a numbering kind from a lowercase character.
+    pub fn from_char(c: char) -> Option<Self> {
+        Some(match c {
+            '1' => NumberingKind::Arabic,
+            'a' => NumberingKind::Letter,
+            'i' => NumberingKind::Roman,
+            '*' => NumberingKind::Symbol,
+            _ => return None,
+        })
+    }
+
+    /// The lowercase character for this numbering kind.
+    pub fn to_char(self) -> char {
+        match self {
+            Self::Arabic => '1',
+            Self::Letter => 'a',
+            Self::Roman => 'i',
+            Self::Symbol => '*',
+        }
+    }
+
     /// Apply the numbering to the given number.
     pub fn apply(self, n: NonZeroUsize, case: Case) -> EcoString {
         let mut n = n.get();

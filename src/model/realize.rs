@@ -1,4 +1,4 @@
-use super::{capability, Content, NodeId, Recipe, Selector, StyleChain, Vt};
+use super::{Content, NodeId, Recipe, Selector, StyleChain, Vt};
 use crate::diag::SourceResult;
 
 /// Whether the target is affected by show rules in the given style chain.
@@ -105,7 +105,7 @@ fn try_apply(
             let mut result = vec![];
             let mut cursor = 0;
 
-            for m in regex.find_iter(text) {
+            for m in regex.find_iter(&text) {
                 let start = m.start();
                 if cursor < start {
                     result.push(make(text[cursor..start].into()));
@@ -133,7 +133,6 @@ fn try_apply(
 }
 
 /// Preparations before execution of any show rule.
-#[capability]
 pub trait Prepare {
     /// Prepare the node for show rule application.
     fn prepare(
@@ -145,7 +144,6 @@ pub trait Prepare {
 }
 
 /// The base recipe for a node.
-#[capability]
 pub trait Show {
     /// Execute the base recipe for this node.
     fn show(
@@ -157,7 +155,6 @@ pub trait Show {
 }
 
 /// Post-process a node after it was realized.
-#[capability]
 pub trait Finalize {
     /// Finalize the fully realized form of the node. Use this for effects that
     /// should work even in the face of a user-defined show rule, for example

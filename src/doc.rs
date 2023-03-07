@@ -7,14 +7,14 @@ use std::sync::Arc;
 
 use ecow::EcoString;
 
-use crate::eval::{dict, Dict, Value};
+use crate::eval::{cast_from_value, cast_to_value, dict, Dict, Value};
 use crate::font::Font;
 use crate::geom::{
-    self, rounded_rect, Abs, Align, Axes, Color, Corners, Dir, Em, Geometry, Numeric,
-    Paint, Point, Rel, RgbaColor, Shape, Sides, Size, Stroke, Transform,
+    self, rounded_rect, Abs, Align, Axes, Color, Corners, Dir, Em, Geometry, Length,
+    Numeric, Paint, Point, Rel, RgbaColor, Shape, Sides, Size, Stroke, Transform,
 };
 use crate::image::Image;
-use crate::model::{capable, node, Content, Fold, StableId, StyleChain};
+use crate::model::{node, Content, Fold, StableId, StyleChain};
 
 /// A finished document with metadata and page frames.
 #[derive(Debug, Default, Clone, Hash)]
@@ -274,13 +274,21 @@ impl Frame {
         if self.is_empty() {
             return;
         }
-        for meta in styles.get(Meta::DATA) {
+        for meta in styles.get(MetaNode::DATA) {
             if matches!(meta, Meta::Hidden) {
                 self.clear();
                 break;
             }
             self.push(Point::zero(), Element::Meta(meta, self.size));
         }
+    }
+
+    /// Add a background fill.
+    pub fn fill(&mut self, fill: Paint) {
+        self.prepend(
+            Point::zero(),
+            Element::Shape(Geometry::Rect(self.size()).filled(fill)),
+        );
     }
 
     /// Add a fill and stroke with optional radius and outset to the frame.
@@ -533,6 +541,15 @@ impl FromStr for Lang {
     }
 }
 
+cast_from_value! {
+    Lang,
+    string: EcoString => Self::from_str(&string)?,
+}
+
+cast_to_value! {
+    v: Lang => v.as_str().into()
+}
+
 /// An identifier for a region somewhere in the world.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Region([u8; 2]);
@@ -559,8 +576,16 @@ impl FromStr for Region {
     }
 }
 
+cast_from_value! {
+    Region,
+    string: EcoString => Self::from_str(&string)?,
+}
+
+cast_to_value! {
+    v: Region => v.as_str().into()
+}
+
 /// Meta information that isn't visible or renderable.
-#[capable]
 #[derive(Debug, Clone, Hash)]
 pub enum Meta {
     /// An internal or external link.
@@ -572,12 +597,16 @@ pub enum Meta {
     Hidden,
 }
 
+/// Host for metadata.
 #[node]
-impl Meta {
+pub struct MetaNode {
     /// Metadata that should be attached to all elements affected by this style
     /// property.
-    #[property(fold, skip)]
-    pub const DATA: Vec<Meta> = vec![];
+    #[settable]
+    #[fold]
+    #[skip]
+    #[default]
+    pub data: Vec<Meta>,
 }
 
 impl Fold for Vec<Meta> {
@@ -586,6 +615,16 @@ impl Fold for Vec<Meta> {
     fn fold(mut self, outer: Self::Output) -> Self::Output {
         self.extend(outer);
         self
+    }
+}
+
+cast_from_value! {
+    Meta: "meta",
+}
+
+impl PartialEq for Meta {
+    fn eq(&self, other: &Self) -> bool {
+        crate::util::hash128(self) == crate::util::hash128(other)
     }
 }
 
@@ -598,6 +637,19 @@ pub enum Destination {
     Url(EcoString),
 }
 
+cast_from_value! {
+    Destination,
+    loc: Location => Self::Internal(loc),
+    string: EcoString => Self::Url(string),
+}
+
+cast_to_value! {
+    v: Destination => match v {
+        Destination::Internal(loc) => loc.into(),
+        Destination::Url(url) => url.into(),
+    }
+}
+
 /// A physical location in a document.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Location {
@@ -607,53 +659,21 @@ pub struct Location {
     pub pos: Point,
 }
 
-impl Location {
-    /// Encode into a user-facing dictionary.
-    pub fn encode(&self) -> Dict {
-        dict! {
-            "page" => Value::Int(self.page.get() as i64),
-            "x" => Value::Length(self.pos.x.into()),
-            "y" => Value::Length(self.pos.y.into()),
-        }
-    }
+cast_from_value! {
+    Location,
+    mut dict: Dict => {
+        let page = dict.take("page")?.cast()?;
+        let x: Length = dict.take("x")?.cast()?;
+        let y: Length = dict.take("y")?.cast()?;
+        dict.finish(&["page", "x", "y"])?;
+        Self { page, pos: Point::new(x.abs, y.abs) }
+    },
 }
 
-/// Standard semantic roles.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum Role {
-    /// A paragraph.
-    Paragraph,
-    /// A heading of the given level and whether it should be part of the
-    /// outline.
-    Heading { level: NonZeroUsize, outlined: bool },
-    /// A generic block-level subdivision.
-    GenericBlock,
-    /// A generic inline subdivision.
-    GenericInline,
-    /// A list and whether it is ordered.
-    List { ordered: bool },
-    /// A list item. Must have a list parent.
-    ListItem,
-    /// The label of a list item. Must have a list item parent.
-    ListLabel,
-    /// The body of a list item. Must have a list item parent.
-    ListItemBody,
-    /// A mathematical formula.
-    Formula,
-    /// A table.
-    Table,
-    /// A table row. Must have a table parent.
-    TableRow,
-    /// A table cell. Must have a table row parent.
-    TableCell,
-    /// A code fragment.
-    Code,
-    /// A page header.
-    Header,
-    /// A page footer.
-    Footer,
-    /// A page background.
-    Background,
-    /// A page foreground.
-    Foreground,
+cast_to_value! {
+    v: Location => Value::Dict(dict! {
+        "page" => Value::Int(v.page.get() as i64),
+        "x" => Value::Length(v.pos.x.into()),
+        "y" => Value::Length(v.pos.y.into()),
+    })
 }

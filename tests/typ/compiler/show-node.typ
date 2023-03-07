@@ -2,7 +2,7 @@
 
 ---
 // Override lists.
-#show list: it => "(" + it.items.join(", ") + ")"
+#show list: it => "(" + it.items.map(item => item.body).join(", ") + ")"
 
 - A
   - B

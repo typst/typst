@@ -199,3 +199,31 @@ impl<T: Numeric> Add<Ratio> for Rel<T> {
         self + Rel::from(other)
     }
 }
+
+impl<T> Resolve for Rel<T>
+where
+    T: Resolve + Numeric,
+    <T as Resolve>::Output: Numeric,
+{
+    type Output = Rel<<T as Resolve>::Output>;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        self.map(|abs| abs.resolve(styles))
+    }
+}
+
+impl Fold for Rel<Abs> {
+    type Output = Self;
+
+    fn fold(self, _: Self::Output) -> Self::Output {
+        self
+    }
+}
+
+impl Fold for Rel<Length> {
+    type Output = Self;
+
+    fn fold(self, _: Self::Output) -> Self::Output {
+        self
+    }
+}

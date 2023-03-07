@@ -214,6 +214,10 @@ impl<'a> Sum<&'a Self> for Abs {
     }
 }
 
+cast_to_value! {
+    v: Abs => Value::Length(v.into())
+}
+
 /// Different units of absolute measurement.
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub enum AbsUnit {

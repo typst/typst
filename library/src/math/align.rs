@@ -1,21 +1,11 @@
 use super::*;
 
-/// # Alignment Point
 /// A math alignment point: `&`, `&&`.
 ///
-/// ## Parameters
-/// - index: `usize` (positional, required)
-///   The alignment point's index.
-///
-/// ## Category
-/// math
-#[func]
-#[capable(LayoutMath)]
-#[derive(Debug, Hash)]
-pub struct AlignPointNode;
-
-#[node]
-impl AlignPointNode {}
+/// Display: Alignment Point
+/// Category: math
+#[node(LayoutMath)]
+pub struct AlignPointNode {}
 
 impl LayoutMath for AlignPointNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {

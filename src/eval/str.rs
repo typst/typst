@@ -6,7 +6,7 @@ use std::ops::{Add, AddAssign, Deref};
 use ecow::EcoString;
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::{castable, dict, Array, Dict, Value};
+use super::{cast_from_value, dict, Array, Dict, Value};
 use crate::diag::StrResult;
 use crate::geom::GenAlign;
 
@@ -479,6 +479,10 @@ impl Hash for Regex {
     }
 }
 
+cast_from_value! {
+    Regex: "regular expression",
+}
+
 /// A pattern which can be searched for in a string.
 #[derive(Debug, Clone)]
 pub enum StrPattern {
@@ -488,7 +492,7 @@ pub enum StrPattern {
     Regex(Regex),
 }
 
-castable! {
+cast_from_value! {
     StrPattern,
     text: Str => Self::Str(text),
     regex: Regex => Self::Regex(regex),
@@ -504,7 +508,7 @@ pub enum StrSide {
     End,
 }
 
-castable! {
+cast_from_value! {
     StrSide,
     align: GenAlign => match align {
         GenAlign::Start => Self::Start,

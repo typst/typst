@@ -107,3 +107,100 @@ pub enum Corner {
     /// The bottom left corner.
     BottomLeft,
 }
+
+impl<T> Cast for Corners<Option<T>>
+where
+    T: Cast + Copy,
+{
+    fn is(value: &Value) -> bool {
+        matches!(value, Value::Dict(_)) || T::is(value)
+    }
+
+    fn cast(mut value: Value) -> StrResult<Self> {
+        if let Value::Dict(dict) = &mut value {
+            let mut take = |key| dict.take(key).ok().map(T::cast).transpose();
+
+            let rest = take("rest")?;
+            let left = take("left")?.or(rest);
+            let top = take("top")?.or(rest);
+            let right = take("right")?.or(rest);
+            let bottom = take("bottom")?.or(rest);
+            let corners = Corners {
+                top_left: take("top-left")?.or(top).or(left),
+                top_right: take("top-right")?.or(top).or(right),
+                bottom_right: take("bottom-right")?.or(bottom).or(right),
+                bottom_left: take("bottom-left")?.or(bottom).or(left),
+            };
+
+            dict.finish(&[
+                "top-left",
+                "top-right",
+                "bottom-right",
+                "bottom-left",
+                "left",
+                "top",
+                "right",
+                "bottom",
+                "rest",
+            ])?;
+
+            Ok(corners)
+        } else if T::is(&value) {
+            Ok(Self::splat(Some(T::cast(value)?)))
+        } else {
+            <Self as Cast>::error(value)
+        }
+    }
+
+    fn describe() -> CastInfo {
+        T::describe() + CastInfo::Type("dictionary")
+    }
+}
+
+impl<T: Resolve> Resolve for Corners<T> {
+    type Output = Corners<T::Output>;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        self.map(|v| v.resolve(styles))
+    }
+}
+
+impl<T: Fold> Fold for Corners<Option<T>> {
+    type Output = Corners<T::Output>;
+
+    fn fold(self, outer: Self::Output) -> Self::Output {
+        self.zip(outer).map(|(inner, outer)| match inner {
+            Some(value) => value.fold(outer),
+            None => outer,
+        })
+    }
+}
+
+impl<T> From<Corners<Option<T>>> for Value
+where
+    T: PartialEq + Into<Value>,
+{
+    fn from(corners: Corners<Option<T>>) -> Self {
+        if corners.is_uniform() {
+            if let Some(value) = corners.top_left {
+                return value.into();
+            }
+        }
+
+        let mut dict = Dict::new();
+        if let Some(top_left) = corners.top_left {
+            dict.insert("top-left".into(), top_left.into());
+        }
+        if let Some(top_right) = corners.top_right {
+            dict.insert("top-right".into(), top_right.into());
+        }
+        if let Some(bottom_right) = corners.bottom_right {
+            dict.insert("bottom-right".into(), bottom_right.into());
+        }
+        if let Some(bottom_left) = corners.bottom_left {
+            dict.insert("bottom-left".into(), bottom_left.into());
+        }
+
+        Value::Dict(dict)
+    }
+}

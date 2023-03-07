@@ -1,24 +1,12 @@
 use super::TextNode;
 use crate::prelude::*;
 
-/// # Space
 /// A text space.
 ///
-/// ## Category
-/// text
-#[func]
-#[capable(Unlabellable, Behave)]
-#[derive(Debug, Hash)]
-pub struct SpaceNode;
-
-#[node]
-impl SpaceNode {
-    fn construct(_: &Vm, _: &mut Args) -> SourceResult<Content> {
-        Ok(Self.pack())
-    }
-}
-
-impl Unlabellable for SpaceNode {}
+/// Display: Space
+/// Category: text
+#[node(Unlabellable, Behave)]
+pub struct SpaceNode {}
 
 impl Behave for SpaceNode {
     fn behaviour(&self) -> Behaviour {
@@ -26,7 +14,8 @@ impl Behave for SpaceNode {
     }
 }
 
-/// # Line Break
+impl Unlabellable for SpaceNode {}
+
 /// Inserts a line break.
 ///
 /// Advances the paragraph to the next line. A single trailing line break at the
@@ -45,37 +34,26 @@ impl Behave for SpaceNode {
 /// a backslash followed by whitespace. This always creates an unjustified
 /// break.
 ///
-/// ## Parameters
-/// - justify: `bool` (named)
-///   Whether to justify the line before the break.
-///
-///   This is useful if you found a better line break opportunity in your
-///   justified text than Typst did.
-///
-///   ```example
-///   #set par(justify: true)
-///   #let jb = linebreak(justify: true)
-///
-///   I have manually tuned the #jb
-///   line breaks in this paragraph #jb
-///   for an _interesting_ result. #jb
-///   ```
-///
-/// ## Category
-/// text
-#[func]
-#[capable(Behave)]
-#[derive(Debug, Hash)]
+/// Display: Line Break
+/// Category: text
+#[node(Behave)]
 pub struct LinebreakNode {
+    /// Whether to justify the line before the break.
+    ///
+    /// This is useful if you found a better line break opportunity in your
+    /// justified text than Typst did.
+    ///
+    /// ```example
+    /// #set par(justify: true)
+    /// #let jb = linebreak(justify: true)
+    ///
+    /// I have manually tuned the #jb
+    /// line breaks in this paragraph #jb
+    /// for an _interesting_ result. #jb
+    /// ```
+    #[named]
+    #[default(false)]
     pub justify: bool,
-}
-
-#[node]
-impl LinebreakNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        let justify = args.named("justify")?.unwrap_or(false);
-        Ok(Self { justify }.pack())
-    }
 }
 
 impl Behave for LinebreakNode {
@@ -84,7 +62,6 @@ impl Behave for LinebreakNode {
     }
 }
 
-/// # Strong Emphasis
 /// Strongly emphasizes content by increasing the font weight.
 ///
 /// Increases the current font weight by a given `delta`.
@@ -104,42 +81,29 @@ impl Behave for LinebreakNode {
 /// word boundaries. To strongly emphasize part of a word, you have to use the
 /// function.
 ///
-/// ## Parameters
-/// - body: `Content` (positional, required)
-///   The content to strongly emphasize.
-///
-/// ## Category
-/// text
-#[func]
-#[capable(Show)]
-#[derive(Debug, Hash)]
-pub struct StrongNode(pub Content);
+/// Display: Strong Emphasis
+/// Category: text
+#[node(Show)]
+pub struct StrongNode {
+    /// The content to strongly emphasize.
+    #[positional]
+    #[required]
+    pub body: Content,
 
-#[node]
-impl StrongNode {
     /// The delta to apply on the font weight.
     ///
     /// ```example
     /// #set strong(delta: 0)
     /// No *effect!*
     /// ```
-    pub const DELTA: i64 = 300;
-
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Self(args.expect("body")?).pack())
-    }
-
-    fn field(&self, name: &str) -> Option<Value> {
-        match name {
-            "body" => Some(Value::Content(self.0.clone())),
-            _ => None,
-        }
-    }
+    #[settable]
+    #[default(300)]
+    pub delta: i64,
 }
 
 impl Show for StrongNode {
     fn show(&self, _: &mut Vt, _: &Content, styles: StyleChain) -> SourceResult<Content> {
-        Ok(self.0.clone().styled(TextNode::DELTA, Delta(styles.get(Self::DELTA))))
+        Ok(self.body().styled(TextNode::DELTA, Delta(styles.get(Self::DELTA))))
     }
 }
 
@@ -147,9 +111,13 @@ impl Show for StrongNode {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Delta(pub i64);
 
-castable! {
+cast_from_value! {
     Delta,
     v: i64 => Self(v),
+}
+
+cast_to_value! {
+    v: Delta => v.0.into()
 }
 
 impl Fold for Delta {
@@ -160,7 +128,6 @@ impl Fold for Delta {
     }
 }
 
-/// # Emphasis
 /// Emphasizes content by setting it in italics.
 ///
 /// - If the current [text style]($func/text.style) is `{"normal"}`,
@@ -185,40 +152,34 @@ impl Fold for Delta {
 /// enclose it in underscores (`_`). Note that this only works at word
 /// boundaries. To emphasize part of a word, you have to use the function.
 ///
-/// ## Parameters
-/// - body: `Content` (positional, required)
-///   The content to emphasize.
-///
-/// ## Category
-/// text
-#[func]
-#[capable(Show)]
-#[derive(Debug, Hash)]
-pub struct EmphNode(pub Content);
-
-#[node]
-impl EmphNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Self(args.expect("body")?).pack())
-    }
-
-    fn field(&self, name: &str) -> Option<Value> {
-        match name {
-            "body" => Some(Value::Content(self.0.clone())),
-            _ => None,
-        }
-    }
+/// Display: Emphasis
+/// Category: text
+#[node(Show)]
+pub struct EmphNode {
+    /// The content to emphasize.
+    #[positional]
+    #[required]
+    pub body: Content,
 }
 
 impl Show for EmphNode {
     fn show(&self, _: &mut Vt, _: &Content, _: StyleChain) -> SourceResult<Content> {
-        Ok(self.0.clone().styled(TextNode::EMPH, Toggle))
+        Ok(self.body().styled(TextNode::EMPH, Toggle))
     }
 }
 
 /// A toggle that turns on and off alternatingly if folded.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Toggle;
+
+cast_from_value! {
+    Toggle,
+    _: Value => Self,
+}
+
+cast_to_value! {
+    _: Toggle => Value::None
+}
 
 impl Fold for Toggle {
     type Output = bool;
@@ -228,7 +189,6 @@ impl Fold for Toggle {
     }
 }
 
-/// # Lowercase
 /// Convert text or content to lowercase.
 ///
 /// ## Example
@@ -242,14 +202,13 @@ impl Fold for Toggle {
 /// - text: `ToCase` (positional, required)
 ///   The text to convert to lowercase.
 ///
-/// ## Category
-/// text
+/// Display: Lowercase
+/// Category: text
 #[func]
 pub fn lower(args: &mut Args) -> SourceResult<Value> {
     case(Case::Lower, args)
 }
 
-/// # Uppercase
 /// Convert text or content to uppercase.
 ///
 /// ## Example
@@ -263,8 +222,8 @@ pub fn lower(args: &mut Args) -> SourceResult<Value> {
 /// - text: `ToCase` (positional, required)
 ///   The text to convert to uppercase.
 ///
-/// ## Category
-/// text
+/// Display: Uppercase
+/// Category: text
 #[func]
 pub fn upper(args: &mut Args) -> SourceResult<Value> {
     case(Case::Upper, args)
@@ -272,21 +231,22 @@ pub fn upper(args: &mut Args) -> SourceResult<Value> {
 
 /// Change the case of text.
 fn case(case: Case, args: &mut Args) -> SourceResult<Value> {
-    let Spanned { v, span } = args.expect("string or content")?;
-    Ok(match v {
-        Value::Str(v) => Value::Str(case.apply(&v).into()),
-        Value::Content(v) => Value::Content(v.styled(TextNode::CASE, Some(case))),
-        v => bail!(span, "expected string or content, found {}", v.type_name()),
+    Ok(match args.expect("string or content")? {
+        ToCase::Str(v) => Value::Str(case.apply(&v).into()),
+        ToCase::Content(v) => Value::Content(v.styled(TextNode::CASE, Some(case))),
     })
 }
 
 /// A value whose case can be changed.
-struct ToCase;
+enum ToCase {
+    Str(Str),
+    Content(Content),
+}
 
-castable! {
+cast_from_value! {
     ToCase,
-    _: Str => Self,
-    _: Content => Self,
+    v: Str => Self::Str(v),
+    v: Content => Self::Content(v),
 }
 
 /// A case transformation on text.
@@ -308,7 +268,19 @@ impl Case {
     }
 }
 
-/// # Small Capitals
+cast_from_value! {
+    Case,
+    "lower" => Self::Lower,
+    "upper" => Self::Upper,
+}
+
+cast_to_value! {
+    v: Case => Value::from(match v {
+        Case::Lower => "lower",
+        Case::Upper => "upper",
+    })
+}
+
 /// Display text in small capitals.
 ///
 /// _Note:_ This enables the OpenType `smcp` feature for the font. Not all fonts
@@ -336,15 +308,14 @@ impl Case {
 /// - text: `Content` (positional, required)
 ///   The text to display to small capitals.
 ///
-/// ## Category
-/// text
+/// Display: Small Capitals
+/// Category: text
 #[func]
 pub fn smallcaps(args: &mut Args) -> SourceResult<Value> {
     let body: Content = args.expect("content")?;
     Ok(Value::Content(body.styled(TextNode::SMALLCAPS, true)))
 }
 
-/// # Blind Text
 /// Create blind text.
 ///
 /// This function yields a Latin-like _Lorem Ipsum_ blind text with the given
@@ -367,8 +338,8 @@ pub fn smallcaps(args: &mut Args) -> SourceResult<Value> {
 ///
 /// - returns: string
 ///
-/// ## Category
-/// text
+/// Display: Blind Text
+/// Category: text
 #[func]
 pub fn lorem(args: &mut Args) -> SourceResult<Value> {
     let words: usize = args.expect("number of words")?;

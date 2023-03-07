@@ -7,10 +7,10 @@ pub(super) const QUAD: Em = Em::new(1.0);
 
 /// Hook up all spacings.
 pub(super) fn define(math: &mut Scope) {
-    math.define("thin", HNode::strong(THIN).pack());
-    math.define("med", HNode::strong(MEDIUM).pack());
-    math.define("thick", HNode::strong(THICK).pack());
-    math.define("quad", HNode::strong(QUAD).pack());
+    math.define("thin", HNode::new(THIN.into()).pack());
+    math.define("med", HNode::new(MEDIUM.into()).pack());
+    math.define("thick", HNode::new(THICK.into()).pack());
+    math.define("quad", HNode::new(QUAD.into()).pack());
 }
 
 /// Create the spacing between two fragments in a given style.

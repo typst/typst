@@ -2,7 +2,7 @@ use unicode_bidi::{BidiInfo, Level as BidiLevel};
 use unicode_script::{Script, UnicodeScript};
 use xi_unicode::LineBreakIterator;
 
-use typst::model::Key;
+use typst::model::{Key, StyledNode};
 
 use super::{BoxNode, HNode, Sizing, Spacing};
 use crate::layout::AlignNode;
@@ -12,7 +12,6 @@ use crate::text::{
     shape, LinebreakNode, Quoter, Quotes, ShapedText, SmartQuoteNode, SpaceNode, TextNode,
 };
 
-/// # Paragraph
 /// Arrange text, spacing and inline-level nodes into a paragraph.
 ///
 /// Although this function is primarily used in set rules to affect paragraph
@@ -40,15 +39,14 @@ use crate::text::{
 /// - body: `Content` (positional, required)
 ///   The contents of the paragraph.
 ///
-/// ## Category
-/// layout
-#[func]
-#[capable]
-#[derive(Hash)]
-pub struct ParNode(pub StyleVec<Content>);
+/// Display: Paragraph
+/// Category: layout
+#[node(Construct)]
+pub struct ParNode {
+    /// The paragraph's children.
+    #[variadic]
+    pub children: Vec<Content>,
 
-#[node]
-impl ParNode {
     /// The indent the first line of a consecutive paragraph should have.
     ///
     /// The first paragraph on a page will never be indented.
@@ -57,14 +55,18 @@ impl ParNode {
     /// space between paragraphs or indented first lines. Consider turning the
     /// [paragraph spacing]($func/block.spacing) off when using this property
     /// (e.g. using `[#show par: set block(spacing: 0pt)]`).
-    #[property(resolve)]
-    pub const INDENT: Length = Length::zero();
+    #[settable]
+    #[resolve]
+    #[default]
+    pub indent: Length,
 
     /// The spacing between lines.
     ///
     /// The default value is `{0.65em}`.
-    #[property(resolve)]
-    pub const LEADING: Length = Em::new(0.65).into();
+    #[settable]
+    #[resolve]
+    #[default(Em::new(0.65).into())]
+    pub leading: Length,
 
     /// Whether to justify text in its line.
     ///
@@ -75,7 +77,9 @@ impl ParNode {
     /// Note that the current [alignment]($func/align) still has an effect on
     /// the placement of the last line except if it ends with a [justified line
     /// break]($func/linebreak.justify).
-    pub const JUSTIFY: bool = false;
+    #[settable]
+    #[default(false)]
+    pub justify: bool,
 
     /// How to determine line breaks.
     ///
@@ -100,16 +104,20 @@ impl ParNode {
     /// very aesthetic example is one
     /// of them.
     /// ```
-    pub const LINEBREAKS: Smart<Linebreaks> = Smart::Auto;
+    #[settable]
+    #[default]
+    pub linebreaks: Smart<Linebreaks>,
+}
 
+impl Construct for ParNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         // The paragraph constructor is special: It doesn't create a paragraph
         // node. Instead, it just ensures that the passed content lives in a
         // separate paragraph and styles it.
         Ok(Content::sequence(vec![
-            ParbreakNode.pack(),
+            ParbreakNode::new().pack(),
             args.expect("body")?,
-            ParbreakNode.pack(),
+            ParbreakNode::new().pack(),
         ]))
     }
 }
@@ -136,14 +144,15 @@ impl ParNode {
             expand: bool,
         ) -> SourceResult<Fragment> {
             let mut vt = Vt { world, provider, introspector };
+            let children = par.children();
 
             // Collect all text into one string for BiDi analysis.
-            let (text, segments) = collect(par, &styles, consecutive);
+            let (text, segments) = collect(&children, &styles, consecutive)?;
 
             // Perform BiDi analysis and then prepare paragraph layout by building a
             // representation on which we can do line breaking without layouting
             // each and every line from scratch.
-            let p = prepare(&mut vt, par, &text, segments, styles, region)?;
+            let p = prepare(&mut vt, &children, &text, segments, styles, region)?;
 
             // Break the paragraph into lines.
             let lines = linebreak(&vt, &p, region.x);
@@ -165,18 +174,11 @@ impl ParNode {
     }
 }
 
-impl Debug for ParNode {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_str("Par ")?;
-        self.0.fmt(f)
-    }
-}
-
 /// A horizontal alignment.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct HorizontalAlign(pub GenAlign);
 
-castable! {
+cast_from_value! {
     HorizontalAlign,
     align: GenAlign => match align.axis() {
         Axis::X => Self(align),
@@ -201,7 +203,7 @@ pub enum Linebreaks {
     Optimized,
 }
 
-castable! {
+cast_from_value! {
     Linebreaks,
     /// Determine the line breaks in a simple first-fit style.
     "simple" => Self::Simple,
@@ -212,7 +214,13 @@ castable! {
     "optimized" => Self::Optimized,
 }
 
-/// # Paragraph Break
+cast_to_value! {
+    v: Linebreaks => Value::from(match v {
+        Linebreaks::Simple => "simple",
+        Linebreaks::Optimized => "optimized",
+    })
+}
+
 /// A paragraph break.
 ///
 /// This starts a new paragraph. Especially useful when used within code like
@@ -232,19 +240,10 @@ castable! {
 /// Instead of calling this function, you can insert a blank line into your
 /// markup to create a paragraph break.
 ///
-/// ## Category
-/// layout
-#[func]
-#[capable(Unlabellable)]
-#[derive(Debug, Hash)]
-pub struct ParbreakNode;
-
-#[node]
-impl ParbreakNode {
-    fn construct(_: &Vm, _: &mut Args) -> SourceResult<Content> {
-        Ok(Self.pack())
-    }
-}
+/// Display: Paragraph Break
+/// Category: layout
+#[node(Unlabellable)]
+pub struct ParbreakNode {}
 
 impl Unlabellable for ParbreakNode {}
 
@@ -343,7 +342,7 @@ impl Segment<'_> {
         match *self {
             Self::Text(len) => len,
             Self::Spacing(_) => SPACING_REPLACE.len_utf8(),
-            Self::Box(node) if node.width.is_fractional() => SPACING_REPLACE.len_utf8(),
+            Self::Box(node) if node.width().is_fractional() => SPACING_REPLACE.len_utf8(),
             Self::Formula(_) | Self::Box(_) => NODE_REPLACE.len_utf8(),
         }
     }
@@ -485,21 +484,20 @@ impl<'a> Line<'a> {
 /// Collect all text of the paragraph into one string. This also performs
 /// string-level preprocessing like case transformations.
 fn collect<'a>(
-    par: &'a ParNode,
+    children: &'a [Content],
     styles: &'a StyleChain<'a>,
     consecutive: bool,
-) -> (String, Vec<(Segment<'a>, StyleChain<'a>)>) {
+) -> SourceResult<(String, Vec<(Segment<'a>, StyleChain<'a>)>)> {
     let mut full = String::new();
     let mut quoter = Quoter::new();
     let mut segments = vec![];
-    let mut iter = par.0.iter().peekable();
+    let mut iter = children.iter().peekable();
 
     if consecutive {
         let indent = styles.get(ParNode::INDENT);
         if !indent.is_zero()
-            && par
-                .0
-                .items()
+            && children
+                .iter()
                 .find_map(|child| {
                     if child.with::<dyn Behave>().map_or(false, |behaved| {
                         behaved.behaviour() == Behaviour::Ignorant
@@ -518,24 +516,30 @@ fn collect<'a>(
         }
     }
 
-    while let Some((child, map)) = iter.next() {
-        let styles = styles.chain(map);
+    while let Some(mut child) = iter.next() {
+        let outer = styles;
+        let mut styles = *styles;
+        if let Some(node) = child.to::<StyledNode>() {
+            child = Box::leak(Box::new(node.sub()));
+            styles = outer.chain(Box::leak(Box::new(node.map())));
+        }
+
         let segment = if child.is::<SpaceNode>() {
             full.push(' ');
             Segment::Text(1)
         } else if let Some(node) = child.to::<TextNode>() {
             let prev = full.len();
             if let Some(case) = styles.get(TextNode::CASE) {
-                full.push_str(&case.apply(&node.0));
+                full.push_str(&case.apply(&node.text()));
             } else {
-                full.push_str(&node.0);
+                full.push_str(&node.text());
             }
             Segment::Text(full.len() - prev)
-        } else if let Some(&node) = child.to::<HNode>() {
+        } else if let Some(node) = child.to::<HNode>() {
             full.push(SPACING_REPLACE);
-            Segment::Spacing(node.amount)
+            Segment::Spacing(node.amount())
         } else if let Some(node) = child.to::<LinebreakNode>() {
-            let c = if node.justify { '\u{2028}' } else { '\n' };
+            let c = if node.justify() { '\u{2028}' } else { '\n' };
             full.push(c);
             Segment::Text(c.len_utf8())
         } else if let Some(node) = child.to::<SmartQuoteNode>() {
@@ -544,9 +548,9 @@ fn collect<'a>(
                 let lang = styles.get(TextNode::LANG);
                 let region = styles.get(TextNode::REGION);
                 let quotes = Quotes::from_lang(lang, region);
-                let peeked = iter.peek().and_then(|(child, _)| {
+                let peeked = iter.peek().and_then(|child| {
                     if let Some(node) = child.to::<TextNode>() {
-                        node.0.chars().next()
+                        node.text().chars().next()
                     } else if child.is::<SmartQuoteNode>() {
                         Some('"')
                     } else if child.is::<SpaceNode>() || child.is::<HNode>() {
@@ -556,23 +560,25 @@ fn collect<'a>(
                     }
                 });
 
-                full.push_str(quoter.quote(&quotes, node.double, peeked));
+                full.push_str(quoter.quote(&quotes, node.double(), peeked));
             } else {
-                full.push(if node.double { '"' } else { '\'' });
+                full.push(if node.double() { '"' } else { '\'' });
             }
             Segment::Text(full.len() - prev)
         } else if let Some(node) = child.to::<FormulaNode>() {
             full.push(NODE_REPLACE);
             Segment::Formula(node)
         } else if let Some(node) = child.to::<BoxNode>() {
-            full.push(if node.width.is_fractional() {
+            full.push(if node.width().is_fractional() {
                 SPACING_REPLACE
             } else {
                 NODE_REPLACE
             });
             Segment::Box(node)
+        } else if let Some(span) = child.span() {
+            bail!(span, "unexpected document child");
         } else {
-            panic!("unexpected par child: {child:?}");
+            continue;
         };
 
         if let Some(last) = full.chars().last() {
@@ -591,14 +597,14 @@ fn collect<'a>(
         segments.push((segment, styles));
     }
 
-    (full, segments)
+    Ok((full, segments))
 }
 
 /// Prepare paragraph layout by shaping the whole paragraph and layouting all
 /// contained inline-level content.
 fn prepare<'a>(
     vt: &mut Vt,
-    par: &'a ParNode,
+    children: &'a [Content],
     text: &'a str,
     segments: Vec<(Segment<'a>, StyleChain<'a>)>,
     styles: StyleChain<'a>,
@@ -639,7 +645,7 @@ fn prepare<'a>(
                 items.push(Item::Frame(frame));
             }
             Segment::Box(node) => {
-                if let Sizing::Fr(v) = node.width {
+                if let Sizing::Fr(v) = node.width() {
                     items.push(Item::Fractional(v, Some((node, styles))));
                 } else {
                     let pod = Regions::one(region, Axes::splat(false));
@@ -657,9 +663,9 @@ fn prepare<'a>(
         bidi,
         items,
         styles,
-        hyphenate: shared_get(styles, &par.0, TextNode::HYPHENATE),
-        lang: shared_get(styles, &par.0, TextNode::LANG),
-        align: styles.get(AlignNode::ALIGNS).x.resolve(styles),
+        hyphenate: shared_get(styles, children, TextNode::HYPHENATE),
+        lang: shared_get(styles, children, TextNode::LANG),
+        align: styles.get(AlignNode::ALIGNMENT).x.resolve(styles),
         justify: styles.get(ParNode::JUSTIFY),
     })
 }
@@ -722,12 +728,13 @@ fn is_compatible(a: Script, b: Script) -> bool {
 /// paragraph.
 fn shared_get<'a, K: Key>(
     styles: StyleChain<'a>,
-    children: &StyleVec<Content>,
+    children: &[Content],
     key: K,
-) -> Option<K::Output<'a>> {
+) -> Option<K::Output> {
     children
-        .styles()
-        .all(|map| !map.contains(key))
+        .iter()
+        .filter_map(|child| child.to::<StyledNode>())
+        .all(|node| !node.map().contains(key))
         .then(|| styles.get(key))
 }
 

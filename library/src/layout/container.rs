@@ -2,7 +2,6 @@ use super::VNode;
 use crate::layout::Spacing;
 use crate::prelude::*;
 
-/// # Box
 /// An inline-level container that sizes content.
 ///
 /// All elements except inline math, text, and boxes are block-level and cannot
@@ -20,69 +19,75 @@ use crate::prelude::*;
 /// for more information.
 /// ```
 ///
-/// ## Parameters
-/// - body: `Content` (positional)
-///   The contents of the box.
-///
-/// - width: `Sizing` (named)
-///   The width of the box.
-///
-///   Boxes can have [fractional]($type/fraction) widths, as the example
-///   below demonstrates.
-///
-///   _Note:_ Currently, only boxes and only their widths might be fractionally
-///   sized within paragraphs. Support for fractionally sized images, shapes,
-///   and more might be added in the future.
-///
-///   ```example
-///   Line in #box(width: 1fr, line(length: 100%)) between.
-///   ```
-///
-/// - height: `Rel<Length>` (named)
-///   The height of the box.
-///
-/// ## Category
-/// layout
-#[func]
-#[capable(Layout)]
-#[derive(Debug, Hash)]
+/// Display: Box
+/// Category: layout
+#[node(Layout)]
 pub struct BoxNode {
-    /// The box's content.
+    /// The contents of the box.
+    #[positional]
+    #[default]
     pub body: Content,
-    /// The box's width.
-    pub width: Sizing,
-    /// The box's height.
-    pub height: Smart<Rel<Length>>,
-}
 
-#[node]
-impl BoxNode {
+    /// The width of the box.
+    ///
+    /// Boxes can have [fractional]($type/fraction) widths, as the example
+    /// below demonstrates.
+    ///
+    /// _Note:_ Currently, only boxes and only their widths might be fractionally
+    /// sized within paragraphs. Support for fractionally sized images, shapes,
+    /// and more might be added in the future.
+    ///
+    /// ```example
+    /// Line in #box(width: 1fr, line(length: 100%)) between.
+    /// ```
+    #[named]
+    #[default]
+    pub width: Sizing,
+
+    /// The height of the box.
+    #[named]
+    #[default]
+    pub height: Smart<Rel<Length>>,
+
     /// An amount to shift the box's baseline by.
     ///
     /// ```example
     /// Image: #box(baseline: 40%, image("tiger.jpg", width: 2cm)).
     /// ```
-    #[property(resolve)]
-    pub const BASELINE: Rel<Length> = Rel::zero();
+    #[settable]
+    #[resolve]
+    #[default]
+    pub baseline: Rel<Length>,
 
     /// The box's background color. See the
     /// [rectangle's documentation]($func/rect.fill) for more details.
-    pub const FILL: Option<Paint> = None;
+    #[settable]
+    #[default]
+    pub fill: Option<Paint>,
 
     /// The box's border color. See the
     /// [rectangle's documentation]($func/rect.stroke) for more details.
-    #[property(resolve, fold)]
-    pub const STROKE: Sides<Option<Option<PartialStroke>>> = Sides::splat(None);
+    #[settable]
+    #[resolve]
+    #[fold]
+    #[default]
+    pub stroke: Sides<Option<Option<PartialStroke>>>,
 
     /// How much to round the box's corners. See the [rectangle's
     /// documentation]($func/rect.radius) for more details.
-    #[property(resolve, fold)]
-    pub const RADIUS: Corners<Option<Rel<Length>>> = Corners::splat(Rel::zero());
+    #[settable]
+    #[resolve]
+    #[fold]
+    #[default]
+    pub radius: Corners<Option<Rel<Length>>>,
 
     /// How much to pad the box's content. See the [rectangle's
     /// documentation]($func/rect.inset) for more details.
-    #[property(resolve, fold)]
-    pub const INSET: Sides<Option<Rel<Length>>> = Sides::splat(Rel::zero());
+    #[settable]
+    #[resolve]
+    #[fold]
+    #[default]
+    pub inset: Sides<Option<Rel<Length>>>,
 
     /// How much to expand the box's size without affecting the layout.
     ///
@@ -98,15 +103,11 @@ impl BoxNode {
     ///   outset: (y: 3pt),
     ///   radius: 2pt,
     /// )[rectangle].
-    #[property(resolve, fold)]
-    pub const OUTSET: Sides<Option<Rel<Length>>> = Sides::splat(Rel::zero());
-
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        let body = args.eat()?.unwrap_or_default();
-        let width = args.named("width")?.unwrap_or_default();
-        let height = args.named("height")?.unwrap_or_default();
-        Ok(Self { body, width, height }.pack())
-    }
+    #[settable]
+    #[resolve]
+    #[fold]
+    #[default]
+    pub outset: Sides<Option<Rel<Length>>>,
 }
 
 impl Layout for BoxNode {
@@ -116,14 +117,14 @@ impl Layout for BoxNode {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let width = match self.width {
+        let width = match self.width() {
             Sizing::Auto => Smart::Auto,
             Sizing::Rel(rel) => Smart::Custom(rel),
             Sizing::Fr(_) => Smart::Custom(Ratio::one().into()),
         };
 
         // Resolve the sizing to a concrete size.
-        let sizing = Axes::new(width, self.height);
+        let sizing = Axes::new(width, self.height());
         let expand = sizing.as_ref().map(Smart::is_custom);
         let size = sizing
             .resolve(styles)
@@ -132,10 +133,10 @@ impl Layout for BoxNode {
             .unwrap_or(regions.base());
 
         // Apply inset.
-        let mut child = self.body.clone();
+        let mut child = self.body();
         let inset = styles.get(Self::INSET);
         if inset.iter().any(|v| !v.is_zero()) {
-            child = child.clone().padded(inset.map(|side| side.map(Length::from)));
+            child = child.padded(inset.map(|side| side.map(Length::from)));
         }
 
         // Select the appropriate base and expansion for the child depending
@@ -169,7 +170,6 @@ impl Layout for BoxNode {
     }
 }
 
-/// # Block
 /// A block-level container.
 ///
 /// Such a container can be used to separate content, size it and give it a
@@ -201,37 +201,6 @@ impl Layout for BoxNode {
 /// ```
 ///
 /// ## Parameters
-/// - body: `Content` (positional)
-///   The contents of the block.
-///
-/// - width: `Smart<Rel<Length>>` (named)
-///   The block's width.
-///
-///   ```example
-///   #set align(center)
-///   #block(
-///     width: 60%,
-///     inset: 8pt,
-///     fill: silver,
-///     lorem(10),
-///   )
-///   ```
-///
-/// - height: `Smart<Rel<Length>>` (named)
-///   The block's height. When the height is larger than the remaining space on
-///   a page and [`breakable`]($func/block.breakable) is `{true}`, the block
-///   will continue on the next page with the remaining height.
-///
-///   ```example
-///   #set page(height: 80pt)
-///   #set align(center)
-///   #block(
-///     width: 80%,
-///     height: 150%,
-///     fill: aqua,
-///   )
-///   ```
-///
 /// - spacing: `Spacing` (named, settable)
 ///   The spacing around this block. This is shorthand to set `above` and
 ///   `below` to the same value.
@@ -245,35 +214,62 @@ impl Layout for BoxNode {
 ///   A second paragraph.
 ///   ```
 ///
-/// - above: `Spacing` (named, settable)
-///   The spacing between this block and its predecessor. Takes precedence over
-///   `spacing`. Can be used in combination with a show rule to adjust the
-///   spacing around arbitrary block-level elements.
-///
-///   The default value is `{1.2em}`.
-///
-/// - below: `Spacing` (named, settable)
-///   The spacing between this block and its successor. Takes precedence
-///   over `spacing`.
-///
-///   The default value is `{1.2em}`.
-///
-/// ## Category
-/// layout
-#[func]
-#[capable(Layout)]
-#[derive(Debug, Hash)]
+/// Display: Block
+/// Category: layout
+#[node(Layout)]
+#[set({
+    let spacing = args.named("spacing")?;
+    styles.set_opt(
+        Self::ABOVE,
+        args.named("above")?
+            .map(VNode::block_around)
+            .or_else(|| spacing.map(VNode::block_spacing)),
+    );
+    styles.set_opt(
+        Self::BELOW,
+        args.named("below")?
+            .map(VNode::block_around)
+            .or_else(|| spacing.map(VNode::block_spacing)),
+    );
+})]
 pub struct BlockNode {
-    /// The block's content.
+    /// The contents of the block.
+    #[positional]
+    #[default]
     pub body: Content,
-    /// The box's width.
-    pub width: Smart<Rel<Length>>,
-    /// The box's height.
-    pub height: Smart<Rel<Length>>,
-}
 
-#[node]
-impl BlockNode {
+    /// The block's width.
+    ///
+    /// ```example
+    /// #set align(center)
+    /// #block(
+    ///   width: 60%,
+    ///   inset: 8pt,
+    ///   fill: silver,
+    ///   lorem(10),
+    /// )
+    /// ```
+    #[named]
+    #[default]
+    pub width: Smart<Rel<Length>>,
+
+    /// The block's height. When the height is larger than the remaining space on
+    /// a page and [`breakable`]($func/block.breakable) is `{true}`, the block
+    /// will continue on the next page with the remaining height.
+    ///
+    /// ```example
+    /// #set page(height: 80pt)
+    /// #set align(center)
+    /// #block(
+    ///   width: 80%,
+    ///   height: 150%,
+    ///   fill: aqua,
+    /// )
+    /// ```
+    #[named]
+    #[default]
+    pub height: Smart<Rel<Length>>,
+
     /// Whether the block can be broken and continue on the next page.
     ///
     /// Defaults to `{true}`.
@@ -286,64 +282,74 @@ impl BlockNode {
     ///   lorem(15),
     /// )
     /// ```
-    pub const BREAKABLE: bool = true;
+    #[settable]
+    #[default(true)]
+    pub breakable: bool,
 
     /// The block's background color. See the
     /// [rectangle's documentation]($func/rect.fill) for more details.
-    pub const FILL: Option<Paint> = None;
+    #[settable]
+    #[default]
+    pub fill: Option<Paint>,
 
     /// The block's border color. See the
     /// [rectangle's documentation]($func/rect.stroke) for more details.
-    #[property(resolve, fold)]
-    pub const STROKE: Sides<Option<Option<PartialStroke>>> = Sides::splat(None);
+    #[settable]
+    #[resolve]
+    #[fold]
+    #[default]
+    pub stroke: Sides<Option<Option<PartialStroke>>>,
 
     /// How much to round the block's corners. See the [rectangle's
     /// documentation]($func/rect.radius) for more details.
-    #[property(resolve, fold)]
-    pub const RADIUS: Corners<Option<Rel<Length>>> = Corners::splat(Rel::zero());
+    #[settable]
+    #[resolve]
+    #[fold]
+    #[default]
+    pub radius: Corners<Option<Rel<Length>>>,
 
     /// How much to pad the block's content. See the [rectangle's
     /// documentation]($func/rect.inset) for more details.
-    #[property(resolve, fold)]
-    pub const INSET: Sides<Option<Rel<Length>>> = Sides::splat(Rel::zero());
+    #[settable]
+    #[resolve]
+    #[fold]
+    #[default]
+    pub inset: Sides<Option<Rel<Length>>>,
 
     /// How much to expand the block's size without affecting the layout. See
     /// the [rectangle's documentation]($func/rect.outset) for more details.
-    #[property(resolve, fold)]
-    pub const OUTSET: Sides<Option<Rel<Length>>> = Sides::splat(Rel::zero());
+    #[settable]
+    #[resolve]
+    #[fold]
+    #[default]
+    pub outset: Sides<Option<Rel<Length>>>,
 
-    /// The spacing between the previous and this block.
-    #[property(skip)]
-    pub const ABOVE: VNode = VNode::block_spacing(Em::new(1.2).into());
+    /// The spacing between this block and its predecessor. Takes precedence over
+    /// `spacing`. Can be used in combination with a show rule to adjust the
+    /// spacing around arbitrary block-level elements.
+    ///
+    /// The default value is `{1.2em}`.
+    #[settable]
+    #[skip]
+    #[default(VNode::block_spacing(Em::new(1.2).into()))]
+    pub above: VNode,
 
-    /// The spacing between this and the following block.
-    #[property(skip)]
-    pub const BELOW: VNode = VNode::block_spacing(Em::new(1.2).into());
+    /// The spacing between this block and its successor. Takes precedence
+    /// over `spacing`.
+    ///
+    /// The default value is `{1.2em}`.
+    #[settable]
+    #[skip]
+    #[default(VNode::block_spacing(Em::new(1.2).into()))]
+    pub below: VNode,
 
     /// Whether this block must stick to the following one.
     ///
     /// Use this to prevent page breaks between e.g. a heading and its body.
-    #[property(skip)]
-    pub const STICKY: bool = false;
-
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        let body = args.eat()?.unwrap_or_default();
-        let width = args.named("width")?.unwrap_or_default();
-        let height = args.named("height")?.unwrap_or_default();
-        Ok(Self { body, width, height }.pack())
-    }
-
-    fn set(...) {
-        let spacing = args.named("spacing")?.map(VNode::block_spacing);
-        styles.set_opt(
-            Self::ABOVE,
-            args.named("above")?.map(VNode::block_around).or(spacing),
-        );
-        styles.set_opt(
-            Self::BELOW,
-            args.named("below")?.map(VNode::block_around).or(spacing),
-        );
-    }
+    #[settable]
+    #[skip]
+    #[default(false)]
+    pub sticky: bool,
 }
 
 impl Layout for BlockNode {
@@ -354,14 +360,14 @@ impl Layout for BlockNode {
         regions: Regions,
     ) -> SourceResult<Fragment> {
         // Apply inset.
-        let mut child = self.body.clone();
+        let mut child = self.body();
         let inset = styles.get(Self::INSET);
         if inset.iter().any(|v| !v.is_zero()) {
             child = child.clone().padded(inset.map(|side| side.map(Length::from)));
         }
 
         // Resolve the sizing to a concrete size.
-        let sizing = Axes::new(self.width, self.height);
+        let sizing = Axes::new(self.width(), self.height());
         let mut expand = sizing.as_ref().map(Smart::is_custom);
         let mut size = sizing
             .resolve(styles)
@@ -372,7 +378,7 @@ impl Layout for BlockNode {
         // Layout the child.
         let mut frames = if styles.get(Self::BREAKABLE) {
             // Measure to ensure frames for all regions have the same width.
-            if self.width == Smart::Auto {
+            if sizing.x == Smart::Auto {
                 let pod = Regions::one(size, Axes::splat(false));
                 let frame = child.layout(vt, styles, pod)?.into_frame();
                 size.x = frame.width();
@@ -385,7 +391,7 @@ impl Layout for BlockNode {
 
             // Generate backlog for fixed height.
             let mut heights = vec![];
-            if self.height.is_custom() {
+            if sizing.y.is_custom() {
                 let mut remaining = size.y;
                 for region in regions.iter() {
                     let limited = region.y.min(remaining);
@@ -454,18 +460,6 @@ impl Sizing {
     pub fn is_fractional(self) -> bool {
         matches!(self, Self::Fr(_))
     }
-
-    pub fn encode(self) -> Value {
-        match self {
-            Self::Auto => Value::Auto,
-            Self::Rel(rel) => Spacing::Rel(rel).encode(),
-            Self::Fr(fr) => Spacing::Fr(fr).encode(),
-        }
-    }
-
-    pub fn encode_slice(vec: &[Sizing]) -> Value {
-        Value::Array(vec.iter().copied().map(Self::encode).collect())
-    }
 }
 
 impl Default for Sizing {
@@ -474,11 +468,26 @@ impl Default for Sizing {
     }
 }
 
-impl From<Spacing> for Sizing {
-    fn from(spacing: Spacing) -> Self {
-        match spacing {
+impl<T: Into<Spacing>> From<T> for Sizing {
+    fn from(spacing: T) -> Self {
+        match spacing.into() {
             Spacing::Rel(rel) => Self::Rel(rel),
             Spacing::Fr(fr) => Self::Fr(fr),
         }
+    }
+}
+
+cast_from_value! {
+    Sizing,
+    _: Smart<Never> => Self::Auto,
+    v: Rel<Length> => Self::Rel(v),
+    v: Fr => Self::Fr(v),
+}
+
+cast_to_value! {
+    v: Sizing => match v {
+        Sizing::Auto => Value::Auto,
+        Sizing::Rel(rel) => Value::Relative(rel),
+        Sizing::Fr(fr) => Value::Fraction(fr),
     }
 }

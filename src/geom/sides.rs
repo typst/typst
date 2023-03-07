@@ -177,3 +177,88 @@ impl Side {
         }
     }
 }
+
+impl<T> Cast for Sides<Option<T>>
+where
+    T: Default + Cast + Copy,
+{
+    fn is(value: &Value) -> bool {
+        matches!(value, Value::Dict(_)) || T::is(value)
+    }
+
+    fn cast(mut value: Value) -> StrResult<Self> {
+        if let Value::Dict(dict) = &mut value {
+            let mut take = |key| dict.take(key).ok().map(T::cast).transpose();
+
+            let rest = take("rest")?;
+            let x = take("x")?.or(rest);
+            let y = take("y")?.or(rest);
+            let sides = Sides {
+                left: take("left")?.or(x),
+                top: take("top")?.or(y),
+                right: take("right")?.or(x),
+                bottom: take("bottom")?.or(y),
+            };
+
+            dict.finish(&["left", "top", "right", "bottom", "x", "y", "rest"])?;
+
+            Ok(sides)
+        } else if T::is(&value) {
+            Ok(Self::splat(Some(T::cast(value)?)))
+        } else {
+            <Self as Cast>::error(value)
+        }
+    }
+
+    fn describe() -> CastInfo {
+        T::describe() + CastInfo::Type("dictionary")
+    }
+}
+
+impl<T> From<Sides<Option<T>>> for Value
+where
+    T: PartialEq + Into<Value>,
+{
+    fn from(sides: Sides<Option<T>>) -> Self {
+        if sides.is_uniform() {
+            if let Some(value) = sides.left {
+                return value.into();
+            }
+        }
+
+        let mut dict = Dict::new();
+        if let Some(left) = sides.left {
+            dict.insert("left".into(), left.into());
+        }
+        if let Some(top) = sides.top {
+            dict.insert("top".into(), top.into());
+        }
+        if let Some(right) = sides.right {
+            dict.insert("right".into(), right.into());
+        }
+        if let Some(bottom) = sides.bottom {
+            dict.insert("bottom".into(), bottom.into());
+        }
+
+        Value::Dict(dict)
+    }
+}
+
+impl<T: Resolve> Resolve for Sides<T> {
+    type Output = Sides<T::Output>;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        self.map(|v| v.resolve(styles))
+    }
+}
+
+impl<T: Fold> Fold for Sides<Option<T>> {
+    type Output = Sides<T::Output>;
+
+    fn fold(self, outer: Self::Output) -> Self::Output {
+        self.zip(outer).map(|(inner, outer)| match inner {
+            Some(value) => value.fold(outer),
+            None => outer,
+        })
+    }
+}

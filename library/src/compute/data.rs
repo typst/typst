@@ -4,7 +4,6 @@ use typst::diag::{format_xml_like_error, FileError};
 
 use crate::prelude::*;
 
-/// # Plain text
 /// Read plain text from a file.
 ///
 /// The file will be read and returned as a string.
@@ -23,8 +22,8 @@ use crate::prelude::*;
 ///
 /// - returns: string
 ///
-/// ## Category
-/// data-loading
+/// Display: Plain text
+/// Category: data-loading
 #[func]
 pub fn read(vm: &Vm, args: &mut Args) -> SourceResult<Value> {
     let Spanned { v: path, span } = args.expect::<Spanned<EcoString>>("path to file")?;
@@ -38,7 +37,6 @@ pub fn read(vm: &Vm, args: &mut Args) -> SourceResult<Value> {
     Ok(Value::Str(text.into()))
 }
 
-/// # CSV
 /// Read structured data from a CSV file.
 ///
 /// The CSV file will be read and parsed into a 2-dimensional array of strings:
@@ -68,8 +66,8 @@ pub fn read(vm: &Vm, args: &mut Args) -> SourceResult<Value> {
 ///
 /// - returns: array
 ///
-/// ## Category
-/// data-loading
+/// Display: CSV
+/// Category: data-loading
 #[func]
 pub fn csv(vm: &Vm, args: &mut Args) -> SourceResult<Value> {
     let Spanned { v: path, span } =
@@ -100,7 +98,7 @@ pub fn csv(vm: &Vm, args: &mut Args) -> SourceResult<Value> {
 /// The delimiter to use when parsing CSV files.
 struct Delimiter(u8);
 
-castable! {
+cast_from_value! {
     Delimiter,
     v: EcoString => {
         let mut chars = v.chars();
@@ -134,7 +132,6 @@ fn format_csv_error(error: csv::Error) -> String {
     }
 }
 
-/// # JSON
 /// Read structured data from a JSON file.
 ///
 /// The file must contain a valid JSON object or array. JSON objects will be
@@ -179,8 +176,8 @@ fn format_csv_error(error: csv::Error) -> String {
 ///
 /// - returns: dictionary or array
 ///
-/// ## Category
-/// data-loading
+/// Display: JSON
+/// Category: data-loading
 #[func]
 pub fn json(vm: &Vm, args: &mut Args) -> SourceResult<Value> {
     let Spanned { v: path, span } =
@@ -222,7 +219,6 @@ fn format_json_error(error: serde_json::Error) -> String {
     format!("failed to parse json file: syntax error in line {}", error.line())
 }
 
-/// # XML
 /// Read structured data from an XML file.
 ///
 /// The XML file is parsed into an array of dictionaries and strings. XML nodes
@@ -278,8 +274,8 @@ fn format_json_error(error: serde_json::Error) -> String {
 ///
 /// - returns: array
 ///
-/// ## Category
-/// data-loading
+/// Display: XML
+/// Category: data-loading
 #[func]
 pub fn xml(vm: &Vm, args: &mut Args) -> SourceResult<Value> {
     let Spanned { v: path, span } =

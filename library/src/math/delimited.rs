@@ -3,7 +3,6 @@ use super::*;
 /// How much less high scaled delimiters can be than what they wrap.
 pub(super) const DELIM_SHORT_FALL: Em = Em::new(0.1);
 
-/// # Left/Right
 /// Scales delimiters.
 ///
 /// While matched delimiters scale by default, this can be used to scale
@@ -24,20 +23,22 @@ pub(super) const DELIM_SHORT_FALL: Em = Em::new(0.1);
 ///
 ///   Defaults to `{100%}`.
 ///
-/// ## Category
-/// math
-#[func]
-#[capable(LayoutMath)]
-#[derive(Debug, Hash)]
+/// Display: Left/Right
+/// Category: math
+#[node(Construct, LayoutMath)]
 pub struct LrNode {
     /// The delimited content, including the delimiters.
+    #[positional]
+    #[required]
     pub body: Content,
+
     /// The size of the brackets.
-    pub size: Option<Rel<Length>>,
+    #[named]
+    #[default]
+    pub size: Smart<Rel<Length>>,
 }
 
-#[node]
-impl LrNode {
+impl Construct for LrNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let mut body = Content::empty();
         for (i, arg) in args.all::<Content>()?.into_iter().enumerate() {
@@ -46,21 +47,21 @@ impl LrNode {
             }
             body += arg;
         }
-        let size = args.named("size")?;
-        Ok(Self { body, size }.pack())
+        let size = args.named::<Smart<Rel<Length>>>("size")?.unwrap_or_default();
+        Ok(Self::new(body).with_size(size).pack())
     }
 }
 
 impl LayoutMath for LrNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        let mut body = &self.body;
-        if let Some(node) = self.body.to::<LrNode>() {
-            if node.size.is_none() {
-                body = &node.body;
+        let mut body = self.body();
+        if let Some(node) = body.to::<LrNode>() {
+            if node.size().is_auto() {
+                body = node.body();
             }
         }
 
-        let mut fragments = ctx.layout_fragments(body)?;
+        let mut fragments = ctx.layout_fragments(&body)?;
         let axis = scaled!(ctx, axis_height);
         let max_extent = fragments
             .iter()
@@ -69,7 +70,7 @@ impl LayoutMath for LrNode {
             .unwrap_or_default();
 
         let height = self
-            .size
+            .size()
             .unwrap_or(Rel::one())
             .resolve(ctx.styles())
             .relative_to(2.0 * max_extent);
@@ -116,7 +117,6 @@ fn scale(
     }
 }
 
-/// # Floor
 /// Floor an expression.
 ///
 /// ## Example
@@ -128,14 +128,13 @@ fn scale(
 /// - body: `Content` (positional, required)
 ///   The expression to floor.
 ///
-/// ## Category
-/// math
+/// Display: Floor
+/// Category: math
 #[func]
 pub fn floor(args: &mut Args) -> SourceResult<Value> {
     delimited(args, '⌊', '⌋')
 }
 
-/// # Ceil
 /// Ceil an expression.
 ///
 /// ## Example
@@ -147,14 +146,13 @@ pub fn floor(args: &mut Args) -> SourceResult<Value> {
 /// - body: `Content` (positional, required)
 ///   The expression to ceil.
 ///
-/// ## Category
-/// math
+/// Display: Ceil
+/// Category: math
 #[func]
 pub fn ceil(args: &mut Args) -> SourceResult<Value> {
     delimited(args, '⌈', '⌉')
 }
 
-/// # Abs
 /// Take the absolute value of an expression.
 ///
 /// ## Example
@@ -166,14 +164,13 @@ pub fn ceil(args: &mut Args) -> SourceResult<Value> {
 /// - body: `Content` (positional, required)
 ///   The expression to take the absolute value of.
 ///
-/// ## Category
-/// math
+/// Display: Abs
+/// Category: math
 #[func]
 pub fn abs(args: &mut Args) -> SourceResult<Value> {
     delimited(args, '|', '|')
 }
 
-/// # Norm
 /// Take the norm of an expression.
 ///
 /// ## Example
@@ -185,8 +182,8 @@ pub fn abs(args: &mut Args) -> SourceResult<Value> {
 /// - body: `Content` (positional, required)
 ///   The expression to take the norm of.
 ///
-/// ## Category
-/// math
+/// Display: Norm
+/// Category: math
 #[func]
 pub fn norm(args: &mut Args) -> SourceResult<Value> {
     delimited(args, '‖', '‖')
@@ -194,14 +191,11 @@ pub fn norm(args: &mut Args) -> SourceResult<Value> {
 
 fn delimited(args: &mut Args, left: char, right: char) -> SourceResult<Value> {
     Ok(Value::Content(
-        LrNode {
-            body: Content::sequence(vec![
-                TextNode::packed(left),
-                args.expect::<Content>("body")?,
-                TextNode::packed(right),
-            ]),
-            size: None,
-        }
+        LrNode::new(Content::sequence(vec![
+            TextNode::packed(left),
+            args.expect::<Content>("body")?,
+            TextNode::packed(right),
+        ]))
         .pack(),
     ))
 }

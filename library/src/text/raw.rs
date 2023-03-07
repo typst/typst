@@ -9,7 +9,6 @@ use super::{
 use crate::layout::BlockNode;
 use crate::prelude::*;
 
-/// # Raw Text / Code
 /// Raw text with optional syntax highlighting.
 ///
 /// Displays the text verbatim and in a monospace font. This is typically used
@@ -35,71 +34,64 @@ use crate::prelude::*;
 /// ```
 /// ````
 ///
-/// ## Parameters
-/// - text: `EcoString` (positional, required)
-///   The raw text.
-///
-///   You can also use raw blocks creatively to create custom syntaxes for
-///   your automations.
-///
-///   ````example
-///   // Parse numbers in raw blocks with the
-///   // `mydsl` tag and sum them up.
-///   #show raw.where(lang: "mydsl"): it => {
-///     let sum = 0
-///     for part in it.text.split("+") {
-///       sum += int(part.trim())
-///     }
-///     sum
-///   }
-///
-///   ```mydsl
-///   1 + 2 + 3 + 4 + 5
-///   ```
-///   ````
-///
-/// - block: `bool` (named)
-///   Whether the raw text is displayed as a separate block.
-///
-///   ````example
-///   // Display inline code in a small box
-///   // that retains the correct baseline.
-///   #show raw.where(block: false): box.with(
-///     fill: luma(240),
-///     inset: (x: 3pt, y: 0pt),
-///     outset: (y: 3pt),
-///     radius: 2pt,
-///   )
-///
-///   // Display block code in a larger block
-///   // with more padding.
-///   #show raw.where(block: true): block.with(
-///     fill: luma(240),
-///     inset: 10pt,
-///     radius: 4pt,
-///   )
-///
-///   With `rg`, you can search through your files quickly.
-///
-///   ```bash
-///   rg "Hello World"
-///   ```
-///   ````
-///
-/// ## Category
-/// text
-#[func]
-#[capable(Prepare, Show, Finalize)]
-#[derive(Debug, Hash)]
+/// Display: Raw Text / Code
+/// Category: text
+#[node(Prepare, Show, Finalize)]
 pub struct RawNode {
     /// The raw text.
+    ///
+    /// You can also use raw blocks creatively to create custom syntaxes for
+    /// your automations.
+    ///
+    /// ````example
+    /// // Parse numbers in raw blocks with the
+    /// // `mydsl` tag and sum them up.
+    /// #show raw.where(lang: "mydsl"): it => {
+    ///   let sum = 0
+    ///   for part in it.text.split("+") {
+    ///     sum += int(part.trim())
+    ///   }
+    ///   sum
+    /// }
+    ///
+    /// ```mydsl
+    /// 1 + 2 + 3 + 4 + 5
+    /// ```
+    /// ````
+    #[positional]
+    #[required]
     pub text: EcoString,
-    /// Whether the raw text is displayed as a separate block.
-    pub block: bool,
-}
 
-#[node]
-impl RawNode {
+    /// Whether the raw text is displayed as a separate block.
+    ///
+    /// ````example
+    /// // Display inline code in a small box
+    /// // that retains the correct baseline.
+    /// #show raw.where(block: false): box.with(
+    ///   fill: luma(240),
+    ///   inset: (x: 3pt, y: 0pt),
+    ///   outset: (y: 3pt),
+    ///   radius: 2pt,
+    /// )
+    ///
+    /// // Display block code in a larger block
+    /// // with more padding.
+    /// #show raw.where(block: true): block.with(
+    ///   fill: luma(240),
+    ///   inset: 10pt,
+    ///   radius: 4pt,
+    /// )
+    ///
+    /// With `rg`, you can search through your files quickly.
+    ///
+    /// ```bash
+    /// rg "Hello World"
+    /// ```
+    /// ````
+    #[named]
+    #[default(false)]
+    pub block: bool,
+
     /// The language to syntax-highlight in.
     ///
     /// Apart from typical language tags known from Markdown, this supports the
@@ -111,24 +103,9 @@ impl RawNode {
     /// This is *Typst!*
     /// ```
     /// ````
-    #[property(referenced)]
-    pub const LANG: Option<EcoString> = None;
-
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Self {
-            text: args.expect("text")?,
-            block: args.named("block")?.unwrap_or(false),
-        }
-        .pack())
-    }
-
-    fn field(&self, name: &str) -> Option<Value> {
-        match name {
-            "text" => Some(Value::Str(self.text.clone().into())),
-            "block" => Some(Value::Bool(self.block)),
-            _ => None,
-        }
-    }
+    #[settable]
+    #[default]
+    pub lang: Option<EcoString>,
 }
 
 impl Prepare for RawNode {
@@ -138,19 +115,14 @@ impl Prepare for RawNode {
         mut this: Content,
         styles: StyleChain,
     ) -> SourceResult<Content> {
-        this.push_field(
-            "lang",
-            match styles.get(Self::LANG) {
-                Some(lang) => Value::Str(lang.clone().into()),
-                None => Value::None,
-            },
-        );
+        this.push_field("lang", styles.get(Self::LANG).clone());
         Ok(this)
     }
 }
 
 impl Show for RawNode {
     fn show(&self, _: &mut Vt, _: &Content, styles: StyleChain) -> SourceResult<Content> {
+        let text = self.text();
         let lang = styles.get(Self::LANG).as_ref().map(|s| s.to_lowercase());
         let foreground = THEME
             .settings
@@ -161,8 +133,8 @@ impl Show for RawNode {
 
         let mut realized = if matches!(lang.as_deref(), Some("typ" | "typst" | "typc")) {
             let root = match lang.as_deref() {
-                Some("typc") => syntax::parse_code(&self.text),
-                _ => syntax::parse(&self.text),
+                Some("typc") => syntax::parse_code(&text),
+                _ => syntax::parse(&text),
             };
 
             let mut seq = vec![];
@@ -172,7 +144,7 @@ impl Show for RawNode {
                 vec![],
                 &highlighter,
                 &mut |node, style| {
-                    seq.push(styled(&self.text[node.range()], foreground, style));
+                    seq.push(styled(&text[node.range()], foreground, style));
                 },
             );
 
@@ -182,9 +154,9 @@ impl Show for RawNode {
         {
             let mut seq = vec![];
             let mut highlighter = syntect::easy::HighlightLines::new(syntax, &THEME);
-            for (i, line) in self.text.lines().enumerate() {
+            for (i, line) in text.lines().enumerate() {
                 if i != 0 {
-                    seq.push(LinebreakNode { justify: false }.pack());
+                    seq.push(LinebreakNode::new().pack());
                 }
 
                 for (style, piece) in
@@ -196,16 +168,11 @@ impl Show for RawNode {
 
             Content::sequence(seq)
         } else {
-            TextNode::packed(self.text.clone())
+            TextNode::packed(text)
         };
 
-        if self.block {
-            realized = BlockNode {
-                body: realized,
-                width: Smart::Auto,
-                height: Smart::Auto,
-            }
-            .pack();
+        if self.block() {
+            realized = BlockNode::new().with_body(realized).pack();
         }
 
         Ok(realized)

@@ -1,6 +1,5 @@
 use super::*;
 
-/// # Square Root
 /// A square root.
 ///
 /// ## Example
@@ -8,31 +7,22 @@ use super::*;
 /// $ sqrt(x^2) = x = sqrt(x)^2 $
 /// ```
 ///
-/// ## Parameters
-/// - radicand: `Content` (positional, required)
-///   The expression to take the square root of.
-///
-/// ## Category
-/// math
-#[func]
-#[capable(LayoutMath)]
-#[derive(Debug, Hash)]
-pub struct SqrtNode(pub Content);
-
-#[node]
-impl SqrtNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Self(args.expect("radicand")?).pack())
-    }
+/// Display: Square Root
+/// Category: math
+#[node(LayoutMath)]
+pub struct SqrtNode {
+    /// The expression to take the square root of.
+    #[positional]
+    #[required]
+    pub radicand: Content,
 }
 
 impl LayoutMath for SqrtNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout(ctx, None, &self.0)
+        layout(ctx, None, &self.radicand())
     }
 }
 
-/// # Root
 /// A general root.
 ///
 /// ## Example
@@ -40,37 +30,24 @@ impl LayoutMath for SqrtNode {
 /// $ root(3, x) $
 /// ```
 ///
-/// ## Parameters
-/// - index: `Content` (positional, required)
-///   Which root of the radicand to take.
-///
-/// - radicand: `Content` (positional, required)
-///   The expression to take the root of.
-///
-/// ## Category
-/// math
-#[func]
-#[capable(LayoutMath)]
-#[derive(Debug, Hash)]
+/// Display: Root
+/// Category: math
+#[node(LayoutMath)]
 pub struct RootNode {
+    /// Which root of the radicand to take.
+    #[positional]
+    #[required]
     index: Content,
-    radicand: Content,
-}
 
-#[node]
-impl RootNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Self {
-            index: args.expect("index")?,
-            radicand: args.expect("radicand")?,
-        }
-        .pack())
-    }
+    /// The expression to take the root of.
+    #[positional]
+    #[required]
+    radicand: Content,
 }
 
 impl LayoutMath for RootNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout(ctx, Some(&self.index), &self.radicand)
+        layout(ctx, Some(&self.index()), &self.radicand())
     }
 }
 
@@ -164,7 +141,7 @@ fn layout(
 /// Select a precomposed radical, if the font has it.
 fn precomposed(ctx: &MathContext, index: Option<&Content>, target: Abs) -> Option<Frame> {
     let node = index?.to::<TextNode>()?;
-    let c = match node.0.as_str() {
+    let c = match node.text().as_str() {
         "3" => '∛',
         "4" => '∜',
         _ => return None,

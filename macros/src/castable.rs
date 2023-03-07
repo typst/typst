@@ -1,11 +1,7 @@
-use syn::parse::{Parse, ParseStream};
-use syn::punctuated::Punctuated;
-use syn::Token;
-
 use super::*;
 
-/// Expand the `castable!` macro.
-pub fn castable(stream: TokenStream) -> Result<TokenStream> {
+/// Expand the `cast_from_value!` macro.
+pub fn cast_from_value(stream: TokenStream) -> Result<TokenStream> {
     let castable: Castable = syn::parse2(stream)?;
     let ty = &castable.ty;
 
@@ -39,6 +35,77 @@ pub fn castable(stream: TokenStream) -> Result<TokenStream> {
 
         #dynamic_impls
     })
+}
+
+/// Expand the `cast_to_value!` macro.
+pub fn cast_to_value(stream: TokenStream) -> Result<TokenStream> {
+    let cast: Cast = syn::parse2(stream)?;
+    let Pattern::Ty(pat, ty) = &cast.pattern else {
+        bail!(callsite, "expected pattern");
+    };
+
+    let expr = &cast.expr;
+    Ok(quote! {
+        impl ::std::convert::From<#ty> for ::typst::eval::Value {
+            fn from(#pat: #ty) -> Self {
+                #expr
+            }
+        }
+    })
+}
+
+struct Castable {
+    ty: syn::Type,
+    name: Option<syn::LitStr>,
+    casts: Punctuated<Cast, Token![,]>,
+}
+
+struct Cast {
+    attrs: Vec<syn::Attribute>,
+    pattern: Pattern,
+    expr: syn::Expr,
+}
+
+enum Pattern {
+    Str(syn::LitStr),
+    Ty(syn::Pat, syn::Type),
+}
+
+impl Parse for Castable {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let ty = input.parse()?;
+        let mut name = None;
+        if input.peek(Token![:]) {
+            let _: syn::Token![:] = input.parse()?;
+            name = Some(input.parse()?);
+        }
+        let _: syn::Token![,] = input.parse()?;
+        let casts = Punctuated::parse_terminated(input)?;
+        Ok(Self { ty, name, casts })
+    }
+}
+
+impl Parse for Cast {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let attrs = input.call(syn::Attribute::parse_outer)?;
+        let pattern = input.parse()?;
+        let _: syn::Token![=>] = input.parse()?;
+        let expr = input.parse()?;
+        Ok(Self { attrs, pattern, expr })
+    }
+}
+
+impl Parse for Pattern {
+    fn parse(input: ParseStream) -> Result<Self> {
+        if input.peek(syn::LitStr) {
+            Ok(Pattern::Str(input.parse()?))
+        } else {
+            let pat = input.parse()?;
+            let _: syn::Token![:] = input.parse()?;
+            let ty = input.parse()?;
+            Ok(Pattern::Ty(pat, ty))
+        }
+    }
 }
 
 /// Create the castable's `is` function.
@@ -163,67 +230,13 @@ fn create_describe_func(castable: &Castable) -> TokenStream {
 
     if let Some(name) = &castable.name {
         infos.push(quote! {
-            CastInfo::Type(#name)
+            ::typst::eval::CastInfo::Type(#name)
         });
     }
 
     quote! {
         fn describe() -> ::typst::eval::CastInfo {
             #(#infos)+*
-        }
-    }
-}
-
-struct Castable {
-    ty: syn::Type,
-    name: Option<syn::LitStr>,
-    casts: Punctuated<Cast, Token![,]>,
-}
-
-impl Parse for Castable {
-    fn parse(input: ParseStream) -> Result<Self> {
-        let ty = input.parse()?;
-        let mut name = None;
-        if input.peek(Token![:]) {
-            let _: syn::Token![:] = input.parse()?;
-            name = Some(input.parse()?);
-        }
-        let _: syn::Token![,] = input.parse()?;
-        let casts = Punctuated::parse_terminated(input)?;
-        Ok(Self { ty, name, casts })
-    }
-}
-
-struct Cast {
-    attrs: Vec<syn::Attribute>,
-    pattern: Pattern,
-    expr: syn::Expr,
-}
-
-impl Parse for Cast {
-    fn parse(input: ParseStream) -> Result<Self> {
-        let attrs = input.call(syn::Attribute::parse_outer)?;
-        let pattern = input.parse()?;
-        let _: syn::Token![=>] = input.parse()?;
-        let expr = input.parse()?;
-        Ok(Self { attrs, pattern, expr })
-    }
-}
-
-enum Pattern {
-    Str(syn::LitStr),
-    Ty(syn::Pat, syn::Type),
-}
-
-impl Parse for Pattern {
-    fn parse(input: ParseStream) -> Result<Self> {
-        if input.peek(syn::LitStr) {
-            Ok(Pattern::Str(input.parse()?))
-        } else {
-            let pat = input.parse()?;
-            let _: syn::Token![:] = input.parse()?;
-            let ty = input.parse()?;
-            Ok(Pattern::Ty(pat, ty))
         }
     }
 }

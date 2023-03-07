@@ -4,7 +4,6 @@ const LINE_GAP: Em = Em::new(0.15);
 const BRACE_GAP: Em = Em::new(0.25);
 const BRACKET_GAP: Em = Em::new(0.25);
 
-/// # Underline
 /// A horizontal line under content.
 ///
 /// ## Example
@@ -12,31 +11,22 @@ const BRACKET_GAP: Em = Em::new(0.25);
 /// $ underline(1 + 2 + ... + 5) $
 /// ```
 ///
-/// ## Parameters
-/// - body: `Content` (positional, required)
-///   The content above the line.
-///
-/// ## Category
-/// math
-#[func]
-#[capable(LayoutMath)]
-#[derive(Debug, Hash)]
-pub struct UnderlineNode(Content);
-
-#[node]
-impl UnderlineNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Self(args.expect("body")?).pack())
-    }
+/// Display: Underline
+/// Category: math
+#[node(LayoutMath)]
+pub struct UnderlineNode {
+    /// The content above the line.
+    #[positional]
+    #[required]
+    pub body: Content,
 }
 
 impl LayoutMath for UnderlineNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout(ctx, &self.0, &None, '\u{305}', LINE_GAP, false)
+        layout(ctx, &self.body(), &None, '\u{305}', LINE_GAP, false)
     }
 }
 
-/// # Overline
 /// A horizontal line over content.
 ///
 /// ## Example
@@ -44,31 +34,22 @@ impl LayoutMath for UnderlineNode {
 /// $ overline(1 + 2 + ... + 5) $
 /// ```
 ///
-/// ## Parameters
-/// - body: `Content` (positional, required)
-///   The content below the line.
-///
-/// ## Category
-/// math
-#[func]
-#[capable(LayoutMath)]
-#[derive(Debug, Hash)]
-pub struct OverlineNode(Content);
-
-#[node]
-impl OverlineNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Self(args.expect("body")?).pack())
-    }
+/// Display: Overline
+/// Category: math
+#[node(LayoutMath)]
+pub struct OverlineNode {
+    /// The content below the line.
+    #[positional]
+    #[required]
+    pub body: Content,
 }
 
 impl LayoutMath for OverlineNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout(ctx, &self.0, &None, '\u{332}', LINE_GAP, true)
+        layout(ctx, &self.body(), &None, '\u{332}', LINE_GAP, true)
     }
 }
 
-/// # Underbrace
 /// A horizontal brace under content, with an optional annotation below.
 ///
 /// ## Example
@@ -76,41 +57,27 @@ impl LayoutMath for OverlineNode {
 /// $ underbrace(1 + 2 + ... + 5, "numbers") $
 /// ```
 ///
-/// ## Parameters
-/// - body: `Content` (positional, required)
-///   The content above the brace.
-///
-/// - annotation: `Content` (positional)
-///   The optional content below the brace.
-///
-/// ## Category
-/// math
-#[func]
-#[capable(LayoutMath)]
-#[derive(Debug, Hash)]
+/// Display: Underbrace
+/// Category: math
+#[node(LayoutMath)]
 pub struct UnderbraceNode {
     /// The content above the brace.
+    #[positional]
+    #[required]
     pub body: Content,
-    /// The optional content below the brace.
-    pub annotation: Option<Content>,
-}
 
-#[node]
-impl UnderbraceNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        let body = args.expect("body")?;
-        let annotation = args.eat()?;
-        Ok(Self { body, annotation }.pack())
-    }
+    /// The optional content below the brace.
+    #[positional]
+    #[default]
+    pub annotation: Option<Content>,
 }
 
 impl LayoutMath for UnderbraceNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout(ctx, &self.body, &self.annotation, '⏟', BRACE_GAP, false)
+        layout(ctx, &self.body(), &self.annotation(), '⏟', BRACE_GAP, false)
     }
 }
 
-/// # Overbrace
 /// A horizontal brace over content, with an optional annotation above.
 ///
 /// ## Example
@@ -118,41 +85,27 @@ impl LayoutMath for UnderbraceNode {
 /// $ overbrace(1 + 2 + ... + 5, "numbers") $
 /// ```
 ///
-/// ## Parameters
-/// - body: `Content` (positional, required)
-///   The content below the brace.
-///
-/// - annotation: `Content` (positional)
-///   The optional content above the brace.
-///
-/// ## Category
-/// math
-#[func]
-#[capable(LayoutMath)]
-#[derive(Debug, Hash)]
+/// Display: Overbrace
+/// Category: math
+#[node(LayoutMath)]
 pub struct OverbraceNode {
     /// The content below the brace.
+    #[positional]
+    #[required]
     pub body: Content,
-    /// The optional content above the brace.
-    pub annotation: Option<Content>,
-}
 
-#[node]
-impl OverbraceNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        let body = args.expect("body")?;
-        let annotation = args.eat()?;
-        Ok(Self { body, annotation }.pack())
-    }
+    /// The optional content above the brace.
+    #[positional]
+    #[default]
+    pub annotation: Option<Content>,
 }
 
 impl LayoutMath for OverbraceNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout(ctx, &self.body, &self.annotation, '⏞', BRACE_GAP, true)
+        layout(ctx, &self.body(), &self.annotation(), '⏞', BRACE_GAP, true)
     }
 }
 
-/// # Underbracket
 /// A horizontal bracket under content, with an optional annotation below.
 ///
 /// ## Example
@@ -160,41 +113,27 @@ impl LayoutMath for OverbraceNode {
 /// $ underbracket(1 + 2 + ... + 5, "numbers") $
 /// ```
 ///
-/// ## Parameters
-/// - body: `Content` (positional, required)
-///   The content above the bracket.
-///
-/// - annotation: `Content` (positional)
-///   The optional content below the bracket.
-///
-/// ## Category
-/// math
-#[func]
-#[capable(LayoutMath)]
-#[derive(Debug, Hash)]
+/// Display: Underbracket
+/// Category: math
+#[node(LayoutMath)]
 pub struct UnderbracketNode {
     /// The content above the bracket.
+    #[positional]
+    #[required]
     pub body: Content,
-    /// The optional content below the bracket.
-    pub annotation: Option<Content>,
-}
 
-#[node]
-impl UnderbracketNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        let body = args.expect("body")?;
-        let annotation = args.eat()?;
-        Ok(Self { body, annotation }.pack())
-    }
+    /// The optional content below the bracket.
+    #[positional]
+    #[default]
+    pub annotation: Option<Content>,
 }
 
 impl LayoutMath for UnderbracketNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout(ctx, &self.body, &self.annotation, '⎵', BRACKET_GAP, false)
+        layout(ctx, &self.body(), &self.annotation(), '⎵', BRACKET_GAP, false)
     }
 }
 
-/// # Overbracket
 /// A horizontal bracket over content, with an optional annotation above.
 ///
 /// ## Example
@@ -202,37 +141,24 @@ impl LayoutMath for UnderbracketNode {
 /// $ overbracket(1 + 2 + ... + 5, "numbers") $
 /// ```
 ///
-/// ## Parameters
-/// - body: `Content` (positional, required)
-///   The content below the bracket.
-///
-/// - annotation: `Content` (positional)
-///   The optional content above the bracket.
-///
-/// ## Category
-/// math
-#[func]
-#[capable(LayoutMath)]
-#[derive(Debug, Hash)]
+/// Display: Overbracket
+/// Category: math
+#[node(LayoutMath)]
 pub struct OverbracketNode {
     /// The content below the bracket.
+    #[positional]
+    #[required]
     pub body: Content,
-    /// The optional content above the bracket.
-    pub annotation: Option<Content>,
-}
 
-#[node]
-impl OverbracketNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        let body = args.expect("body")?;
-        let annotation = args.eat()?;
-        Ok(Self { body, annotation }.pack())
-    }
+    /// The optional content above the bracket.
+    #[positional]
+    #[default]
+    pub annotation: Option<Content>,
 }
 
 impl LayoutMath for OverbracketNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout(ctx, &self.body, &self.annotation, '⎴', BRACKET_GAP, true)
+        layout(ctx, &self.body(), &self.annotation(), '⎴', BRACKET_GAP, true)
     }
 }
 

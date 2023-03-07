@@ -338,6 +338,11 @@ fn field_access_completions(ctx: &mut CompletionContext, value: &Value) {
                 }
             }
         }
+        Value::Content(content) => {
+            for (name, value) in content.fields() {
+                ctx.value_completion(Some(name.clone()), value, false, None);
+            }
+        }
         Value::Dict(dict) => {
             for (name, value) in dict.iter() {
                 ctx.value_completion(Some(name.clone().into()), value, false, None);

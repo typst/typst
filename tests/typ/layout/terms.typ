@@ -35,7 +35,7 @@
 #show terms: it => table(
   columns: 2,
   inset: 3pt,
-  ..it.items.map(item => (emph(item.at(0)), item.at(1))).flatten(),
+  ..it.items.map(item => (emph(item.term), item.description)).flatten(),
 )
 
 / A: One letter

@@ -73,3 +73,7 @@ impl Debug for Dir {
         })
     }
 }
+
+cast_from_value! {
+    Dir: "direction",
+}

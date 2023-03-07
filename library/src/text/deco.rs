@@ -4,7 +4,6 @@ use ttf_parser::{GlyphId, OutlineBuilder};
 use super::TextNode;
 use crate::prelude::*;
 
-/// # Underline
 /// Underline text.
 ///
 /// ## Example
@@ -12,19 +11,15 @@ use crate::prelude::*;
 /// This is #underline[important].
 /// ```
 ///
-/// ## Parameters
-/// - body: `Content` (positional, required)
-///   The content to underline.
-///
-/// ## Category
-/// text
-#[func]
-#[capable(Show)]
-#[derive(Debug, Hash)]
-pub struct UnderlineNode(pub Content);
+/// Display: Underline
+/// Category: text
+#[node(Show)]
+pub struct UnderlineNode {
+    /// The content to underline.
+    #[positional]
+    #[required]
+    pub body: Content,
 
-#[node]
-impl UnderlineNode {
     /// How to stroke the line. The text color and thickness are read from the
     /// font tables if `{auto}`.
     ///
@@ -35,8 +30,12 @@ impl UnderlineNode {
     ///   [care],
     /// )
     /// ```
-    #[property(shorthand, resolve, fold)]
-    pub const STROKE: Smart<PartialStroke> = Smart::Auto;
+    #[settable]
+    #[shorthand]
+    #[resolve]
+    #[fold]
+    #[default]
+    pub stroke: Smart<PartialStroke>,
 
     /// Position of the line relative to the baseline, read from the font tables
     /// if `{auto}`.
@@ -46,8 +45,10 @@ impl UnderlineNode {
     ///   The Tale Of A Faraway Line I
     /// ]
     /// ```
-    #[property(resolve)]
-    pub const OFFSET: Smart<Length> = Smart::Auto;
+    #[settable]
+    #[resolve]
+    #[default]
+    pub offset: Smart<Length>,
 
     /// Amount that the line will be longer or shorter than its associated text.
     ///
@@ -56,8 +57,10 @@ impl UnderlineNode {
     ///   underline(extent: 2pt)[Chapter 1]
     /// )
     /// ```
-    #[property(resolve)]
-    pub const EXTENT: Length = Length::zero();
+    #[settable]
+    #[resolve]
+    #[default]
+    pub extent: Length,
 
     /// Whether the line skips sections in which it would collide with the
     /// glyphs.
@@ -66,23 +69,14 @@ impl UnderlineNode {
     /// This #underline(evade: true)[is great].
     /// This #underline(evade: false)[is less great].
     /// ```
-    pub const EVADE: bool = true;
-
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Self(args.expect("body")?).pack())
-    }
-
-    fn field(&self, name: &str) -> Option<Value> {
-        match name {
-            "body" => Some(Value::Content(self.0.clone())),
-            _ => None,
-        }
-    }
+    #[settable]
+    #[default(true)]
+    pub evade: bool,
 }
 
 impl Show for UnderlineNode {
     fn show(&self, _: &mut Vt, _: &Content, styles: StyleChain) -> SourceResult<Content> {
-        Ok(self.0.clone().styled(
+        Ok(self.body().styled(
             TextNode::DECO,
             Decoration {
                 line: DecoLine::Underline,
@@ -95,7 +89,6 @@ impl Show for UnderlineNode {
     }
 }
 
-/// # Overline
 /// Add a line over text.
 ///
 /// ## Example
@@ -103,19 +96,15 @@ impl Show for UnderlineNode {
 /// #overline[A line over text.]
 /// ```
 ///
-/// ## Parameters
-/// - body: `Content` (positional, required)
-///   The content to add a line over.
-///
-/// ## Category
-/// text
-#[func]
-#[capable(Show)]
-#[derive(Debug, Hash)]
-pub struct OverlineNode(pub Content);
+/// Display: Overline
+/// Category: text
+#[node(Show)]
+pub struct OverlineNode {
+    /// The content to add a line over.
+    #[positional]
+    #[required]
+    pub body: Content,
 
-#[node]
-impl OverlineNode {
     /// How to stroke the line. The text color and thickness are read from the
     /// font tables if `{auto}`.
     ///
@@ -127,8 +116,12 @@ impl OverlineNode {
     ///   [The Forest Theme],
     /// )
     /// ```
-    #[property(shorthand, resolve, fold)]
-    pub const STROKE: Smart<PartialStroke> = Smart::Auto;
+    #[settable]
+    #[shorthand]
+    #[resolve]
+    #[fold]
+    #[default]
+    pub stroke: Smart<PartialStroke>,
 
     /// Position of the line relative to the baseline, read from the font tables
     /// if `{auto}`.
@@ -138,8 +131,10 @@ impl OverlineNode {
     ///   The Tale Of A Faraway Line II
     /// ]
     /// ```
-    #[property(resolve)]
-    pub const OFFSET: Smart<Length> = Smart::Auto;
+    #[settable]
+    #[resolve]
+    #[default]
+    pub offset: Smart<Length>,
 
     /// Amount that the line will be longer or shorter than its associated text.
     ///
@@ -148,8 +143,10 @@ impl OverlineNode {
     /// #set underline(extent: 4pt)
     /// #overline(underline[Typography Today])
     /// ```
-    #[property(resolve)]
-    pub const EXTENT: Length = Length::zero();
+    #[settable]
+    #[resolve]
+    #[default]
+    pub extent: Length,
 
     /// Whether the line skips sections in which it would collide with the
     /// glyphs.
@@ -163,23 +160,14 @@ impl OverlineNode {
     ///   [Temple],
     /// )
     /// ```
-    pub const EVADE: bool = true;
-
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Self(args.expect("body")?).pack())
-    }
-
-    fn field(&self, name: &str) -> Option<Value> {
-        match name {
-            "body" => Some(Value::Content(self.0.clone())),
-            _ => None,
-        }
-    }
+    #[settable]
+    #[default(true)]
+    pub evade: bool,
 }
 
 impl Show for OverlineNode {
     fn show(&self, _: &mut Vt, _: &Content, styles: StyleChain) -> SourceResult<Content> {
-        Ok(self.0.clone().styled(
+        Ok(self.body().styled(
             TextNode::DECO,
             Decoration {
                 line: DecoLine::Overline,
@@ -192,7 +180,6 @@ impl Show for OverlineNode {
     }
 }
 
-/// # Strikethrough
 /// Strike through text.
 ///
 /// ## Example
@@ -200,19 +187,15 @@ impl Show for OverlineNode {
 /// This is #strike[not] relevant.
 /// ```
 ///
-/// ## Parameters
-/// - body: `Content` (positional, required)
-///   The content to strike through.
-///
-/// ## Category
-/// text
-#[func]
-#[capable(Show)]
-#[derive(Debug, Hash)]
-pub struct StrikeNode(pub Content);
+/// Display: Strikethrough
+/// Category: text
+#[node(Show)]
+pub struct StrikeNode {
+    /// The content to strike through.
+    #[positional]
+    #[required]
+    pub body: Content,
 
-#[node]
-impl StrikeNode {
     /// How to stroke the line. The text color and thickness are read from the
     /// font tables if `{auto}`.
     ///
@@ -223,8 +206,12 @@ impl StrikeNode {
     /// This is #strike(stroke: 1.5pt + red)[very stricken through]. \
     /// This is #strike(stroke: 10pt)[redacted].
     /// ```
-    #[property(shorthand, resolve, fold)]
-    pub const STROKE: Smart<PartialStroke> = Smart::Auto;
+    #[settable]
+    #[shorthand]
+    #[resolve]
+    #[fold]
+    #[default]
+    pub stroke: Smart<PartialStroke>,
 
     /// Position of the line relative to the baseline, read from the font tables
     /// if `{auto}`.
@@ -236,8 +223,10 @@ impl StrikeNode {
     /// This is #strike(offset: auto)[low-ish]. \
     /// This is #strike(offset: -3.5pt)[on-top].
     /// ```
-    #[property(resolve)]
-    pub const OFFSET: Smart<Length> = Smart::Auto;
+    #[settable]
+    #[resolve]
+    #[default]
+    pub offset: Smart<Length>,
 
     /// Amount that the line will be longer or shorter than its associated text.
     ///
@@ -245,24 +234,15 @@ impl StrikeNode {
     /// This #strike(extent: -2pt)[skips] parts of the word.
     /// This #strike(extent: 2pt)[extends] beyond the word.
     /// ```
-    #[property(resolve)]
-    pub const EXTENT: Length = Length::zero();
-
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Self(args.expect("body")?).pack())
-    }
-
-    fn field(&self, name: &str) -> Option<Value> {
-        match name {
-            "body" => Some(Value::Content(self.0.clone())),
-            _ => None,
-        }
-    }
+    #[settable]
+    #[resolve]
+    #[default]
+    pub extent: Length,
 }
 
 impl Show for StrikeNode {
     fn show(&self, _: &mut Vt, _: &Content, styles: StyleChain) -> SourceResult<Content> {
-        Ok(self.0.clone().styled(
+        Ok(self.body().styled(
             TextNode::DECO,
             Decoration {
                 line: DecoLine::Strikethrough,
@@ -292,6 +272,10 @@ impl Fold for Decoration {
         outer.insert(0, self);
         outer
     }
+}
+
+cast_from_value! {
+    Decoration: "decoration",
 }
 
 /// A kind of decorative line.

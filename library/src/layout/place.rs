@@ -1,6 +1,5 @@
 use crate::prelude::*;
 
-/// # Place
 /// Place content at an absolute position.
 ///
 /// Placed content will not affect the position of other content. Place is
@@ -22,48 +21,41 @@ use crate::prelude::*;
 /// )
 /// ```
 ///
-/// ## Parameters
-/// - alignment: `Axes<Option<GenAlign>>` (positional)
-///   Relative to which position in the parent container to place the content.
-///
-///   When an axis of the page is `{auto}` sized, all alignments relative to that
-///   axis will be ignored, instead, the item will be placed in the origin of the
-///   axis.
-///
-/// - body: `Content` (positional, required)
-///   The content to place.
-///
-/// - dx: `Rel<Length>` (named)
-///   The horizontal displacement of the placed content.
-///
-///   ```example
-///   #set page(height: 100pt)
-///   #for i in range(16) {
-///     let amount = i * 4pt
-///     place(center, dx: amount - 32pt, dy: amount)[A]
-///   }
-///   ```
-///
-/// - dy: `Rel<Length>` (named)
-///   The vertical displacement of the placed content.
-///
-/// ## Category
-/// layout
-#[func]
-#[capable(Layout, Behave)]
-#[derive(Debug, Hash)]
-pub struct PlaceNode(pub Content, bool);
+/// Display: Place
+/// Category: layout
+#[node(Layout, Behave)]
+pub struct PlaceNode {
+    /// Relative to which position in the parent container to place the content.
+    ///
+    /// When an axis of the page is `{auto}` sized, all alignments relative to that
+    /// axis will be ignored, instead, the item will be placed in the origin of the
+    /// axis.
+    #[positional]
+    #[default(Axes::with_x(Some(GenAlign::Start)))]
+    pub alignment: Axes<Option<GenAlign>>,
 
-#[node]
-impl PlaceNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        let aligns = args.find()?.unwrap_or(Axes::with_x(Some(GenAlign::Start)));
-        let dx = args.named("dx")?.unwrap_or_default();
-        let dy = args.named("dy")?.unwrap_or_default();
-        let body = args.expect::<Content>("body")?;
-        let out_of_flow = aligns.y.is_some();
-        Ok(Self(body.moved(Axes::new(dx, dy)).aligned(aligns), out_of_flow).pack())
-    }
+    /// The content to place.
+    #[positional]
+    #[required]
+    pub body: Content,
+
+    /// The horizontal displacement of the placed content.
+    ///
+    /// ```example
+    /// #set page(height: 100pt)
+    /// #for i in range(16) {
+    ///   let amount = i * 4pt
+    ///   place(center, dx: amount - 32pt, dy: amount)[A]
+    /// }
+    /// ```
+    #[named]
+    #[default]
+    pub dx: Rel<Length>,
+
+    /// The vertical displacement of the placed content.
+    #[named]
+    #[default]
+    pub dy: Rel<Length>,
 }
 
 impl Layout for PlaceNode {
@@ -83,7 +75,12 @@ impl Layout for PlaceNode {
             Regions::one(regions.base(), expand)
         };
 
-        let mut frame = self.0.layout(vt, styles, pod)?.into_frame();
+        let child = self
+            .body()
+            .moved(Axes::new(self.dx(), self.dy()))
+            .aligned(self.alignment());
+
+        let mut frame = child.layout(vt, styles, pod)?.into_frame();
 
         // If expansion is off, zero all sizes so that we don't take up any
         // space in our parent. Otherwise, respect the expand settings.
@@ -99,7 +96,7 @@ impl PlaceNode {
     /// origin. Instead of relative to the parent's current flow/cursor
     /// position.
     pub fn out_of_flow(&self) -> bool {
-        self.1
+        self.alignment().y.is_some()
     }
 }
 

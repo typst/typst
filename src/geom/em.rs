@@ -134,3 +134,19 @@ impl Sum for Em {
         Self(iter.map(|s| s.0).sum())
     }
 }
+
+cast_to_value! {
+    v: Em => Value::Length(v.into())
+}
+
+impl Resolve for Em {
+    type Output = Abs;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        if self.is_zero() {
+            Abs::zero()
+        } else {
+            self.at(item!(em)(styles))
+        }
+    }
+}

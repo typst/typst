@@ -13,4 +13,4 @@ pub use self::typeset::*;
 
 #[doc(hidden)]
 pub use once_cell;
-pub use typst_macros::{capability, capable, node};
+pub use typst_macros::node;

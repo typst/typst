@@ -31,6 +31,18 @@ impl<T> Smart<T> {
         }
     }
 
+    /// Map the contained custom value with `f` if it contains a custom value,
+    /// otherwise returns `default`.
+    pub fn map_or<F, U>(self, default: U, f: F) -> U
+    where
+        F: FnOnce(T) -> U,
+    {
+        match self {
+            Self::Auto => default,
+            Self::Custom(x) => f(x),
+        }
+    }
+
     /// Keeps `self` if it contains a custom value, otherwise returns `other`.
     pub fn or(self, other: Smart<T>) -> Self {
         match self {
@@ -70,5 +82,52 @@ impl<T> Smart<T> {
 impl<T> Default for Smart<T> {
     fn default() -> Self {
         Self::Auto
+    }
+}
+
+impl<T: Cast> Cast for Smart<T> {
+    fn is(value: &Value) -> bool {
+        matches!(value, Value::Auto) || T::is(value)
+    }
+
+    fn cast(value: Value) -> StrResult<Self> {
+        match value {
+            Value::Auto => Ok(Self::Auto),
+            v if T::is(&v) => Ok(Self::Custom(T::cast(v)?)),
+            _ => <Self as Cast>::error(value),
+        }
+    }
+
+    fn describe() -> CastInfo {
+        T::describe() + CastInfo::Type("auto")
+    }
+}
+
+impl<T: Resolve> Resolve for Smart<T> {
+    type Output = Smart<T::Output>;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        self.map(|v| v.resolve(styles))
+    }
+}
+
+impl<T> Fold for Smart<T>
+where
+    T: Fold,
+    T::Output: Default,
+{
+    type Output = Smart<T::Output>;
+
+    fn fold(self, outer: Self::Output) -> Self::Output {
+        self.map(|inner| inner.fold(outer.unwrap_or_default()))
+    }
+}
+
+impl<T: Into<Value>> From<Smart<T>> for Value {
+    fn from(v: Smart<T>) -> Self {
+        match v {
+            Smart::Custom(v) => v.into(),
+            Smart::Auto => Value::Auto,
+        }
     }
 }

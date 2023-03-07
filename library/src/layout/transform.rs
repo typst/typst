@@ -2,7 +2,6 @@ use typst::geom::Transform;
 
 use crate::prelude::*;
 
-/// # Move
 /// Move content without affecting layout.
 ///
 /// The `move` function allows you to move content while the layout still 'sees'
@@ -22,39 +21,24 @@ use crate::prelude::*;
 /// ))
 /// ```
 ///
-/// ## Parameters
-/// - body: `Content` (positional, required)
-///   The content to move.
-///
-/// - dx: `Rel<Length>` (named)
-///   The horizontal displacement of the content.
-///
-/// - dy: `Rel<Length>` (named)
-///   The vertical displacement of the content.
-///
-/// ## Category
-/// layout
-#[func]
-#[capable(Layout)]
-#[derive(Debug, Hash)]
+/// Display: Move
+/// Category: layout
+#[node(Layout)]
 pub struct MoveNode {
-    /// The offset by which to move the content.
-    pub delta: Axes<Rel<Length>>,
-    /// The content that should be moved.
+    /// The content to move.
+    #[positional]
+    #[required]
     pub body: Content,
-}
 
-#[node]
-impl MoveNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        let dx = args.named("dx")?.unwrap_or_default();
-        let dy = args.named("dy")?.unwrap_or_default();
-        Ok(Self {
-            delta: Axes::new(dx, dy),
-            body: args.expect("body")?,
-        }
-        .pack())
-    }
+    /// The horizontal displacement of the content.
+    #[named]
+    #[default]
+    pub dx: Rel<Length>,
+
+    /// The vertical displacement of the content.
+    #[named]
+    #[default]
+    pub dy: Rel<Length>,
 }
 
 impl Layout for MoveNode {
@@ -65,15 +49,14 @@ impl Layout for MoveNode {
         regions: Regions,
     ) -> SourceResult<Fragment> {
         let pod = Regions::one(regions.base(), Axes::splat(false));
-        let mut frame = self.body.layout(vt, styles, pod)?.into_frame();
-        let delta = self.delta.resolve(styles);
+        let mut frame = self.body().layout(vt, styles, pod)?.into_frame();
+        let delta = Axes::new(self.dx(), self.dy()).resolve(styles);
         let delta = delta.zip(regions.base()).map(|(d, s)| d.relative_to(s));
         frame.translate(delta.to_point());
         Ok(Fragment::frame(frame))
     }
 }
 
-/// # Rotate
 /// Rotate content with affecting layout.
 ///
 /// Rotate an element by a given angle. The layout will act as if the element
@@ -89,31 +72,26 @@ impl Layout for MoveNode {
 /// )
 /// ```
 ///
-/// ## Parameters
-/// - body: `Content` (positional, required)
-///   The content to rotate.
-///
-/// - angle: `Angle` (named)
-///   The amount of rotation.
-///
-///   ```example
-///   #rotate(angle: -1.571rad)[Space!]
-///   ```
-///
-/// ## Category
-/// layout
-#[func]
-#[capable(Layout)]
-#[derive(Debug, Hash)]
+/// Display: Rotate
+/// Category: layout
+#[node(Layout)]
 pub struct RotateNode {
-    /// The angle by which to rotate the node.
+    /// The amount of rotation.
+    ///
+    /// ```example
+    /// #rotate(angle: -1.571rad)[Space!]
+    /// ```
+    ///
+    #[named]
+    #[shorthand]
+    #[default]
     pub angle: Angle,
-    /// The content that should be rotated.
-    pub body: Content,
-}
 
-#[node]
-impl RotateNode {
+    /// The content to rotate.
+    #[positional]
+    #[required]
+    pub body: Content,
+
     /// The origin of the rotation.
     ///
     /// By default, the origin is the center of the rotated element. If,
@@ -130,16 +108,10 @@ impl RotateNode {
     /// #box(rotate(angle: 30deg, origin: top + left, square()))
     /// #box(rotate(angle: 30deg, origin: bottom + right, square()))
     /// ```
-    #[property(resolve)]
-    pub const ORIGIN: Axes<Option<GenAlign>> = Axes::default();
-
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Self {
-            angle: args.named_or_find("angle")?.unwrap_or_default(),
-            body: args.expect("body")?,
-        }
-        .pack())
-    }
+    #[settable]
+    #[resolve]
+    #[default]
+    pub origin: Axes<Option<GenAlign>>,
 }
 
 impl Layout for RotateNode {
@@ -150,18 +122,17 @@ impl Layout for RotateNode {
         regions: Regions,
     ) -> SourceResult<Fragment> {
         let pod = Regions::one(regions.base(), Axes::splat(false));
-        let mut frame = self.body.layout(vt, styles, pod)?.into_frame();
+        let mut frame = self.body().layout(vt, styles, pod)?.into_frame();
         let origin = styles.get(Self::ORIGIN).unwrap_or(Align::CENTER_HORIZON);
         let Axes { x, y } = origin.zip(frame.size()).map(|(o, s)| o.position(s));
         let ts = Transform::translate(x, y)
-            .pre_concat(Transform::rotate(self.angle))
+            .pre_concat(Transform::rotate(self.angle()))
             .pre_concat(Transform::translate(-x, -y));
         frame.transform(ts);
         Ok(Fragment::frame(frame))
     }
 }
 
-/// # Scale
 /// Scale content without affecting layout.
 ///
 /// The `scale` function allows you to scale and mirror content without
@@ -174,34 +145,29 @@ impl Layout for RotateNode {
 /// #scale(x: -100%)[This is mirrored.]
 /// ```
 ///
-/// ## Parameters
-/// - body: `Content` (positional, required)
-///   The content to scale.
-///
-/// - x: `Ratio` (named)
-///   The horizontal scaling factor.
-///
-///   The body will be mirrored horizontally if the parameter is negative.
-///
-/// - y: `Ratio` (named)
-///   The vertical scaling factor.
-///
-///   The body will be mirrored vertically if the parameter is negative.
-///
-/// ## Category
-/// layout
-#[func]
-#[capable(Layout)]
-#[derive(Debug, Hash)]
+/// Display: Scale
+/// Category: layout
+#[node(Construct, Layout)]
 pub struct ScaleNode {
-    /// Scaling factor.
-    pub factor: Axes<Ratio>,
-    /// The content that should be scaled.
+    /// The content to scale.
+    #[positional]
+    #[required]
     pub body: Content,
-}
 
-#[node]
-impl ScaleNode {
+    /// The horizontal scaling factor.
+    ///
+    /// The body will be mirrored horizontally if the parameter is negative.
+    #[named]
+    #[default(Ratio::one())]
+    pub x: Ratio,
+
+    /// The vertical scaling factor.
+    ///
+    /// The body will be mirrored vertically if the parameter is negative.
+    #[named]
+    #[default(Ratio::one())]
+    pub y: Ratio,
+
     /// The origin of the transformation.
     ///
     /// By default, the origin is the center of the scaled element.
@@ -210,18 +176,18 @@ impl ScaleNode {
     /// A#box(scale(75%)[A])A \
     /// B#box(scale(75%, origin: bottom + left)[B])B
     /// ```
-    #[property(resolve)]
-    pub const ORIGIN: Axes<Option<GenAlign>> = Axes::default();
+    #[settable]
+    #[resolve]
+    #[default]
+    pub origin: Axes<Option<GenAlign>>,
+}
 
+impl Construct for ScaleNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let all = args.find()?;
         let x = args.named("x")?.or(all).unwrap_or(Ratio::one());
         let y = args.named("y")?.or(all).unwrap_or(Ratio::one());
-        Ok(Self {
-            factor: Axes::new(x, y),
-            body: args.expect("body")?,
-        }
-        .pack())
+        Ok(Self::new(args.expect::<Content>("body")?).with_x(x).with_y(y).pack())
     }
 }
 
@@ -233,11 +199,11 @@ impl Layout for ScaleNode {
         regions: Regions,
     ) -> SourceResult<Fragment> {
         let pod = Regions::one(regions.base(), Axes::splat(false));
-        let mut frame = self.body.layout(vt, styles, pod)?.into_frame();
+        let mut frame = self.body().layout(vt, styles, pod)?.into_frame();
         let origin = styles.get(Self::ORIGIN).unwrap_or(Align::CENTER_HORIZON);
         let Axes { x, y } = origin.zip(frame.size()).map(|(o, s)| o.position(s));
         let transform = Transform::translate(x, y)
-            .pre_concat(Transform::scale(self.factor.x, self.factor.y))
+            .pre_concat(Transform::scale(self.x(), self.y()))
             .pre_concat(Transform::translate(-x, -y));
         frame.transform(transform);
         Ok(Fragment::frame(frame))

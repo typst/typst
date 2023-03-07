@@ -1,6 +1,5 @@
 use crate::prelude::*;
 
-/// # Hide
 /// Hide content without affecting layout.
 ///
 /// The `hide` function allows you to hide content while the layout still 'sees'
@@ -14,26 +13,18 @@ use crate::prelude::*;
 /// #hide[Hello] Joe
 /// ```
 ///
-/// ## Parameters
-/// - body: `Content` (positional, required)
-///   The content to hide.
-///
-/// ## Category
-/// layout
-#[func]
-#[capable(Show)]
-#[derive(Debug, Hash)]
-pub struct HideNode(pub Content);
-
-#[node]
-impl HideNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Self(args.expect("body")?).pack())
-    }
+/// Display: Hide
+/// Category: layout
+#[node(Show)]
+pub struct HideNode {
+    /// The content to hide.
+    #[positional]
+    #[required]
+    pub body: Content,
 }
 
 impl Show for HideNode {
     fn show(&self, _: &mut Vt, _: &Content, _: StyleChain) -> SourceResult<Content> {
-        Ok(self.0.clone().styled(Meta::DATA, vec![Meta::Hidden]))
+        Ok(self.body().styled(MetaNode::DATA, vec![Meta::Hidden]))
     }
 }

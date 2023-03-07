@@ -60,10 +60,7 @@ pub trait ArcExt<T> {
     fn take(self) -> T;
 }
 
-impl<T> ArcExt<T> for Arc<T>
-where
-    T: Clone,
-{
+impl<T: Clone> ArcExt<T> for Arc<T> {
     fn take(self) -> T {
         match Arc::try_unwrap(self) {
             Ok(v) => v,

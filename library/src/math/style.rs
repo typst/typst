@@ -1,6 +1,5 @@
 use super::*;
 
-/// # Bold
 /// Bold font style in math.
 ///
 /// ## Example
@@ -8,34 +7,25 @@ use super::*;
 /// $ bold(A) := B^+ $
 /// ```
 ///
-/// ## Parameters
-/// - body: `Content` (positional, required)
-///   The piece of formula to style.
-///
-/// ## Category
-/// math
-#[func]
-#[capable(LayoutMath)]
-#[derive(Debug, Hash)]
-pub struct BoldNode(pub Content);
-
-#[node]
-impl BoldNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Self(args.expect("body")?).pack())
-    }
+/// Display: Bold
+/// Category: math
+#[node(LayoutMath)]
+pub struct BoldNode {
+    /// The piece of formula to style.
+    #[positional]
+    #[required]
+    pub body: Content,
 }
 
 impl LayoutMath for BoldNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         ctx.style(ctx.style.with_bold(true));
-        self.0.layout_math(ctx)?;
+        self.body().layout_math(ctx)?;
         ctx.unstyle();
         Ok(())
     }
 }
 
-/// # Upright
 /// Upright (non-italic) font style in math.
 ///
 /// ## Example
@@ -43,98 +33,71 @@ impl LayoutMath for BoldNode {
 /// $ upright(A) != A $
 /// ```
 ///
-/// ## Parameters
-/// - body: `Content` (positional, required)
-///   The piece of formula to style.
-///
-/// ## Category
-/// math
-#[func]
-#[capable(LayoutMath)]
-#[derive(Debug, Hash)]
-pub struct UprightNode(pub Content);
-
-#[node]
-impl UprightNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Self(args.expect("body")?).pack())
-    }
+/// Display: Upright
+/// Category: math
+#[node(LayoutMath)]
+pub struct UprightNode {
+    /// The piece of formula to style.
+    #[positional]
+    #[required]
+    pub body: Content,
 }
 
 impl LayoutMath for UprightNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         ctx.style(ctx.style.with_italic(false));
-        self.0.layout_math(ctx)?;
+        self.body().layout_math(ctx)?;
         ctx.unstyle();
         Ok(())
     }
 }
 
-/// # Italic
 /// Italic font style in math.
 ///
 /// For roman letters and greek lowercase letters, this is already the default.
 ///
-/// ## Parameters
-/// - body: `Content` (positional, required)
-///   The piece of formula to style.
-///
-/// ## Category
-/// math
-#[func]
-#[capable(LayoutMath)]
-#[derive(Debug, Hash)]
-pub struct ItalicNode(pub Content);
-
-#[node]
-impl ItalicNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Self(args.expect("body")?).pack())
-    }
+/// Display: Italic
+/// Category: math
+#[node(LayoutMath)]
+pub struct ItalicNode {
+    /// The piece of formula to style.
+    #[positional]
+    #[required]
+    pub body: Content,
 }
 
 impl LayoutMath for ItalicNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         ctx.style(ctx.style.with_italic(true));
-        self.0.layout_math(ctx)?;
+        self.body().layout_math(ctx)?;
         ctx.unstyle();
         Ok(())
     }
 }
 
-/// # Serif
 /// Serif (roman) font style in math.
 ///
 /// This is already the default.
 ///
-/// ## Parameters
-/// - body: `Content` (positional, required)
-///   The piece of formula to style.
-///
-/// ## Category
-/// math
-#[func]
-#[capable(LayoutMath)]
-#[derive(Debug, Hash)]
-pub struct SerifNode(pub Content);
-
-#[node]
-impl SerifNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Self(args.expect("body")?).pack())
-    }
+/// Display: Serif
+/// Category: math
+#[node(LayoutMath)]
+pub struct SerifNode {
+    /// The piece of formula to style.
+    #[positional]
+    #[required]
+    pub body: Content,
 }
 
 impl LayoutMath for SerifNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         ctx.style(ctx.style.with_variant(MathVariant::Serif));
-        self.0.layout_math(ctx)?;
+        self.body().layout_math(ctx)?;
         ctx.unstyle();
         Ok(())
     }
 }
 
-/// # Sans-serif
 /// Sans-serif font style in math.
 ///
 /// ## Example
@@ -142,34 +105,25 @@ impl LayoutMath for SerifNode {
 /// $ sans(A B C) $
 /// ```
 ///
-/// ## Parameters
-/// - body: `Content` (positional, required)
-///   The piece of formula to style.
-///
-/// ## Category
-/// math
-#[func]
-#[capable(LayoutMath)]
-#[derive(Debug, Hash)]
-pub struct SansNode(pub Content);
-
-#[node]
-impl SansNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Self(args.expect("body")?).pack())
-    }
+/// Display: Sans-serif
+/// Category: math
+#[node(LayoutMath)]
+pub struct SansNode {
+    /// The piece of formula to style.
+    #[positional]
+    #[required]
+    pub body: Content,
 }
 
 impl LayoutMath for SansNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         ctx.style(ctx.style.with_variant(MathVariant::Sans));
-        self.0.layout_math(ctx)?;
+        self.body().layout_math(ctx)?;
         ctx.unstyle();
         Ok(())
     }
 }
 
-/// # Calligraphic
 /// Calligraphic font style in math.
 ///
 /// ## Example
@@ -177,34 +131,25 @@ impl LayoutMath for SansNode {
 /// Let $cal(P)$ be the set of ...
 /// ```
 ///
-/// ## Parameters
-/// - body: `Content` (positional, required)
-///   The piece of formula to style.
-///
-/// ## Category
-/// math
-#[func]
-#[capable(LayoutMath)]
-#[derive(Debug, Hash)]
-pub struct CalNode(pub Content);
-
-#[node]
-impl CalNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Self(args.expect("body")?).pack())
-    }
+/// Display: Calligraphic
+/// Category: math
+#[node(LayoutMath)]
+pub struct CalNode {
+    /// The piece of formula to style.
+    #[positional]
+    #[required]
+    pub body: Content,
 }
 
 impl LayoutMath for CalNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         ctx.style(ctx.style.with_variant(MathVariant::Cal));
-        self.0.layout_math(ctx)?;
+        self.body().layout_math(ctx)?;
         ctx.unstyle();
         Ok(())
     }
 }
 
-/// # Fraktur
 /// Fraktur font style in math.
 ///
 /// ## Example
@@ -212,34 +157,25 @@ impl LayoutMath for CalNode {
 /// $ frak(P) $
 /// ```
 ///
-/// ## Parameters
-/// - body: `Content` (positional, required)
-///   The piece of formula to style.
-///
-/// ## Category
-/// math
-#[func]
-#[capable(LayoutMath)]
-#[derive(Debug, Hash)]
-pub struct FrakNode(pub Content);
-
-#[node]
-impl FrakNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Self(args.expect("body")?).pack())
-    }
+/// Display: Fraktur
+/// Category: math
+#[node(LayoutMath)]
+pub struct FrakNode {
+    /// The piece of formula to style.
+    #[positional]
+    #[required]
+    pub body: Content,
 }
 
 impl LayoutMath for FrakNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         ctx.style(ctx.style.with_variant(MathVariant::Frak));
-        self.0.layout_math(ctx)?;
+        self.body().layout_math(ctx)?;
         ctx.unstyle();
         Ok(())
     }
 }
 
-/// # Monospace
 /// Monospace font style in math.
 ///
 /// ## Example
@@ -247,34 +183,25 @@ impl LayoutMath for FrakNode {
 /// $ mono(x + y = z) $
 /// ```
 ///
-/// ## Parameters
-/// - body: `Content` (positional, required)
-///   The piece of formula to style.
-///
-/// ## Category
-/// math
-#[func]
-#[capable(LayoutMath)]
-#[derive(Debug, Hash)]
-pub struct MonoNode(pub Content);
-
-#[node]
-impl MonoNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Self(args.expect("body")?).pack())
-    }
+///  Display: Monospace
+/// Category: math
+#[node(LayoutMath)]
+pub struct MonoNode {
+    /// The piece of formula to style.
+    #[positional]
+    #[required]
+    pub body: Content,
 }
 
 impl LayoutMath for MonoNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         ctx.style(ctx.style.with_variant(MathVariant::Mono));
-        self.0.layout_math(ctx)?;
+        self.body().layout_math(ctx)?;
         ctx.unstyle();
         Ok(())
     }
 }
 
-/// # Blackboard Bold
 /// Blackboard bold (double-struck) font style in math.
 ///
 /// For uppercase latin letters, blackboard bold is additionally available
@@ -287,28 +214,20 @@ impl LayoutMath for MonoNode {
 /// $ f: NN -> RR $
 /// ```
 ///
-/// ## Parameters
-/// - body: `Content` (positional, required)
-///   The piece of formula to style.
-///
-/// ## Category
-/// math
-#[func]
-#[capable(LayoutMath)]
-#[derive(Debug, Hash)]
-pub struct BbNode(pub Content);
-
-#[node]
-impl BbNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Self(args.expect("body")?).pack())
-    }
+/// Display: Blackboard Bold
+/// Category: math
+#[node(LayoutMath)]
+pub struct BbNode {
+    /// The piece of formula to style.
+    #[positional]
+    #[required]
+    pub body: Content,
 }
 
 impl LayoutMath for BbNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         ctx.style(ctx.style.with_variant(MathVariant::Bb));
-        self.0.layout_math(ctx)?;
+        self.body().layout_math(ctx)?;
         ctx.unstyle();
         Ok(())
     }

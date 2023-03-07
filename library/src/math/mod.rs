@@ -107,7 +107,6 @@ pub fn module() -> Module {
     Module::new("math").with_scope(math)
 }
 
-/// # Formula
 /// A mathematical formula.
 ///
 /// Can be displayed inline with text or as a separate block.
@@ -132,46 +131,25 @@ pub fn module() -> Module {
 /// horizontally. For more details about math syntax, see the
 /// [main math page]($category/math).
 ///
-/// ## Parameters
-/// - body: `Content` (positional, required)
-///   The contents of the formula.
-///
-/// - block: `bool` (named)
-///   Whether the formula is displayed as a separate block.
-///
-/// ## Category
-/// math
-#[func]
-#[capable(Show, Finalize, Layout, LayoutMath)]
-#[derive(Debug, Clone, Hash)]
+/// Display: Formula
+/// Category: math
+#[node(Show, Finalize, Layout, LayoutMath)]
 pub struct FormulaNode {
-    /// Whether the formula is displayed as a separate block.
-    pub block: bool,
     /// The content of the formula.
+    #[positional]
+    #[required]
     pub body: Content,
-}
 
-#[node]
-impl FormulaNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        let body = args.expect("body")?;
-        let block = args.named("block")?.unwrap_or(false);
-        Ok(Self { block, body }.pack())
-    }
-
-    fn field(&self, name: &str) -> Option<Value> {
-        match name {
-            "body" => Some(Value::Content(self.body.clone())),
-            "block" => Some(Value::Bool(self.block)),
-            _ => None,
-        }
-    }
+    /// Whether the formula is displayed as a separate block.
+    #[named]
+    #[default(false)]
+    pub block: bool,
 }
 
 impl Show for FormulaNode {
     fn show(&self, _: &mut Vt, _: &Content, _: StyleChain) -> SourceResult<Content> {
         let mut realized = self.clone().pack().guarded(Guard::Base(NodeId::of::<Self>()));
-        if self.block {
+        if self.block() {
             realized = realized.aligned(Axes::with_x(Some(Align::Center.into())))
         }
         Ok(realized)
@@ -196,27 +174,29 @@ impl Layout for FormulaNode {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
+        let block = self.block();
+
         // Find a math font.
         let variant = variant(styles);
         let world = vt.world();
         let Some(font) = families(styles)
             .find_map(|family| {
-                let id = world.book().select(family, variant)?;
+                let id = world.book().select(family.as_str(), variant)?;
                 let font = world.font(id)?;
                 let _ = font.ttf().tables().math?.constants?;
                 Some(font)
             })
         else {
-            if let Some(span) = self.body.span() {
+            if let Some(span) = self.span() {
                 bail!(span, "current font does not support math");
             }
             return Ok(Fragment::frame(Frame::new(Size::zero())))
         };
 
-        let mut ctx = MathContext::new(vt, styles, regions, &font, self.block);
+        let mut ctx = MathContext::new(vt, styles, regions, &font, block);
         let mut frame = ctx.layout_frame(self)?;
 
-        if !self.block {
+        if !block {
             let slack = styles.get(ParNode::LEADING) * 0.7;
             let top_edge = styles.get(TextNode::TOP_EDGE).resolve(styles, font.metrics());
             let bottom_edge =
@@ -232,38 +212,38 @@ impl Layout for FormulaNode {
     }
 }
 
-#[capability]
 pub trait LayoutMath {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()>;
 }
 
 impl LayoutMath for FormulaNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        self.body.layout_math(ctx)
+        self.body().layout_math(ctx)
     }
 }
 
 impl LayoutMath for Content {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         if let Some(node) = self.to::<SequenceNode>() {
-            for child in &node.0 {
+            for child in node.children() {
                 child.layout_math(ctx)?;
             }
             return Ok(());
         }
 
         if let Some(styled) = self.to::<StyledNode>() {
-            if styled.map.contains(TextNode::FAMILY) {
+            let map = styled.map();
+            if map.contains(TextNode::FAMILY) {
                 let frame = ctx.layout_content(self)?;
                 ctx.push(FrameFragment::new(ctx, frame).with_spaced(true));
                 return Ok(());
             }
 
-            let prev_map = std::mem::replace(&mut ctx.map, styled.map.clone());
+            let prev_map = std::mem::replace(&mut ctx.map, map);
             let prev_size = ctx.size;
             ctx.map.apply(prev_map.clone());
             ctx.size = ctx.styles().get(TextNode::SIZE);
-            styled.sub.layout_math(ctx)?;
+            styled.sub().layout_math(ctx)?;
             ctx.size = prev_size;
             ctx.map = prev_map;
             return Ok(());
@@ -280,7 +260,7 @@ impl LayoutMath for Content {
         }
 
         if let Some(node) = self.to::<HNode>() {
-            if let Spacing::Rel(rel) = node.amount {
+            if let Spacing::Rel(rel) = node.amount() {
                 if rel.rel.is_zero() {
                     ctx.push(MathFragment::Spacing(rel.abs.resolve(ctx.styles())));
                 }
@@ -289,7 +269,7 @@ impl LayoutMath for Content {
         }
 
         if let Some(node) = self.to::<TextNode>() {
-            ctx.layout_text(&node.0)?;
+            ctx.layout_text(&node.text())?;
             return Ok(());
         }
 

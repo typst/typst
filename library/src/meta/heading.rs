@@ -5,7 +5,6 @@ use crate::layout::{BlockNode, HNode, VNode};
 use crate::prelude::*;
 use crate::text::{TextNode, TextSize};
 
-/// # Heading
 /// A section heading.
 ///
 /// With headings, you can structure your document into sections. Each heading
@@ -39,28 +38,20 @@ use crate::text::{TextNode, TextSize};
 /// one or multiple equals signs, followed by a space. The number of equals
 /// signs determines the heading's logical nesting depth.
 ///
-/// ## Parameters
-/// - title: `Content` (positional, required)
-///   The heading's title.
-///
-/// - level: `NonZeroUsize` (named)
-///   The logical nesting depth of the heading, starting from one.
-///
-/// ## Category
-/// meta
-#[func]
-#[capable(Prepare, Show, Finalize)]
-#[derive(Debug, Hash)]
+/// Display: Heading
+/// Category: meta
+#[node(Prepare, Show, Finalize)]
 pub struct HeadingNode {
-    /// The logical nesting depth of the section, starting from one. In the
-    /// default style, this controls the text size of the heading.
-    pub level: NonZeroUsize,
-    /// The heading's contents.
+    /// The heading's title.
+    #[positional]
+    #[required]
     pub title: Content,
-}
 
-#[node]
-impl HeadingNode {
+    /// The logical nesting depth of the heading, starting from one.
+    #[named]
+    #[default(NonZeroUsize::new(1).unwrap())]
+    pub level: NonZeroUsize,
+
     /// How to number the heading. Accepts a
     /// [numbering pattern or function]($func/numbering).
     ///
@@ -71,8 +62,9 @@ impl HeadingNode {
     /// == A subsection
     /// === A sub-subsection
     /// ```
-    #[property(referenced)]
-    pub const NUMBERING: Option<Numbering> = None;
+    #[settable]
+    #[default]
+    pub numbering: Option<Numbering>,
 
     /// Whether the heading should appear in the outline.
     ///
@@ -86,23 +78,9 @@ impl HeadingNode {
     /// This heading does not appear
     /// in the outline.
     /// ```
-    pub const OUTLINED: bool = true;
-
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Self {
-            title: args.expect("title")?,
-            level: args.named("level")?.unwrap_or(NonZeroUsize::new(1).unwrap()),
-        }
-        .pack())
-    }
-
-    fn field(&self, name: &str) -> Option<Value> {
-        match name {
-            "level" => Some(Value::Int(self.level.get() as i64)),
-            "title" => Some(Value::Content(self.title.clone())),
-            _ => None,
-        }
-    }
+    #[settable]
+    #[default(true)]
+    pub outlined: bool,
 }
 
 impl Prepare for HeadingNode {
@@ -121,7 +99,7 @@ impl Prepare for HeadingNode {
             }
 
             let numbers = node.field("numbers").unwrap();
-            if numbers != Value::None {
+            if *numbers != Value::None {
                 let heading = node.to::<Self>().unwrap();
                 counter.advance(heading);
             }
@@ -136,38 +114,34 @@ impl Prepare for HeadingNode {
         this.push_field("numbers", numbers);
 
         let meta = Meta::Node(my_id, this.clone());
-        Ok(this.styled(Meta::DATA, vec![meta]))
+        Ok(this.styled(MetaNode::DATA, vec![meta]))
     }
 }
 
 impl Show for HeadingNode {
     fn show(&self, _: &mut Vt, this: &Content, _: StyleChain) -> SourceResult<Content> {
-        let mut realized = self.title.clone();
+        let mut realized = self.title();
         let numbers = this.field("numbers").unwrap();
-        if numbers != Value::None {
-            realized = numbers.display()
-                + HNode { amount: Em::new(0.3).into(), weak: true }.pack()
+        if *numbers != Value::None {
+            realized = numbers.clone().display()
+                + HNode::new(Em::new(0.3).into()).with_weak(true).pack()
                 + realized;
         }
-        Ok(BlockNode {
-            body: realized,
-            width: Smart::Auto,
-            height: Smart::Auto,
-        }
-        .pack())
+        Ok(BlockNode::new().with_body(realized).pack())
     }
 }
 
 impl Finalize for HeadingNode {
     fn finalize(&self, realized: Content) -> Content {
-        let scale = match self.level.get() {
+        let level = self.level().get();
+        let scale = match level {
             1 => 1.4,
             2 => 1.2,
             _ => 1.0,
         };
 
         let size = Em::new(scale);
-        let above = Em::new(if self.level.get() == 1 { 1.8 } else { 1.44 }) / scale;
+        let above = Em::new(if level == 1 { 1.8 } else { 1.44 }) / scale;
         let below = Em::new(0.75) / scale;
 
         let mut map = StyleMap::new();
@@ -191,7 +165,7 @@ impl HeadingCounter {
 
     /// Advance the counter and return the numbers for the given heading.
     pub fn advance(&mut self, heading: &HeadingNode) -> &[NonZeroUsize] {
-        let level = heading.level.get();
+        let level = heading.level().get();
 
         if self.0.len() >= level {
             self.0[level - 1] = self.0[level - 1].saturating_add(1);

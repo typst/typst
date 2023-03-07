@@ -44,7 +44,7 @@ pub struct LangItems {
     /// The id of the text node.
     pub text_id: NodeId,
     /// Get the string if this is a text node.
-    pub text_str: fn(&Content) -> Option<&str>,
+    pub text_str: fn(&Content) -> Option<EcoString>,
     /// A smart quote: `'` or `"`.
     pub smart_quote: fn(double: bool) -> Content,
     /// A paragraph break.

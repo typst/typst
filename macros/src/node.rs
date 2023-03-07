@@ -1,309 +1,370 @@
-use syn::punctuated::Punctuated;
-use syn::spanned::Spanned;
-use syn::Token;
-
 use super::*;
 
 /// Expand the `#[node]` macro.
-pub fn node(body: syn::ItemImpl) -> Result<TokenStream> {
-    let node = prepare(body)?;
-    create(&node)
+pub fn node(stream: TokenStream, body: syn::ItemStruct) -> Result<TokenStream> {
+    let node = prepare(stream, &body)?;
+    Ok(create(&node))
 }
 
-/// Details about a node.
 struct Node {
-    body: syn::ItemImpl,
-    params: Punctuated<syn::GenericParam, Token![,]>,
-    self_ty: syn::Type,
-    self_name: String,
-    self_args: Punctuated<syn::GenericArgument, Token![,]>,
-    properties: Vec<Property>,
-    construct: Option<syn::ImplItemMethod>,
-    set: Option<syn::ImplItemMethod>,
-    field: Option<syn::ImplItemMethod>,
-}
-
-/// A style property.
-struct Property {
     attrs: Vec<syn::Attribute>,
     vis: syn::Visibility,
-    name: Ident,
-    value_ty: syn::Type,
-    output_ty: syn::Type,
-    default: syn::Expr,
-    skip: bool,
-    referenced: bool,
-    shorthand: Option<Shorthand>,
-    resolve: bool,
-    fold: bool,
+    ident: Ident,
+    name: String,
+    capable: Vec<Ident>,
+    set: Option<syn::Block>,
+    fields: Vec<Field>,
 }
 
-/// The shorthand form of a style property.
+struct Field {
+    attrs: Vec<syn::Attribute>,
+    vis: syn::Visibility,
+    ident: Ident,
+    with_ident: Ident,
+    name: String,
+
+    positional: bool,
+    required: bool,
+    variadic: bool,
+
+    named: bool,
+    shorthand: Option<Shorthand>,
+
+    settable: bool,
+    fold: bool,
+    resolve: bool,
+    skip: bool,
+
+    ty: syn::Type,
+    default: Option<syn::Expr>,
+}
+
 enum Shorthand {
     Positional,
     Named(Ident),
 }
 
-/// Preprocess the impl block of a node.
-fn prepare(body: syn::ItemImpl) -> Result<Node> {
-    // Extract the generic type arguments.
-    let params = body.generics.params.clone();
-
-    // Extract the node type for which we want to generate properties.
-    let self_ty = (*body.self_ty).clone();
-    let self_path = match &self_ty {
-        syn::Type::Path(path) => path,
-        ty => bail!(ty, "must be a path type"),
-    };
-
-    // Split up the type into its name and its generic type arguments.
-    let last = self_path.path.segments.last().unwrap();
-    let self_name = last.ident.to_string();
-    let self_args = match &last.arguments {
-        syn::PathArguments::AngleBracketed(args) => args.args.clone(),
-        _ => Punctuated::new(),
-    };
-
-    let mut properties = vec![];
-    let mut construct = None;
-    let mut set = None;
-    let mut field = None;
-
-    // Parse the properties and methods.
-    for item in &body.items {
-        match item {
-            syn::ImplItem::Const(item) => {
-                properties.push(prepare_property(item)?);
-            }
-            syn::ImplItem::Method(method) => {
-                match method.sig.ident.to_string().as_str() {
-                    "construct" => construct = Some(method.clone()),
-                    "set" => set = Some(method.clone()),
-                    "field" => field = Some(method.clone()),
-                    _ => bail!(method, "unexpected method"),
-                }
-            }
-            _ => bail!(item, "unexpected item"),
-        }
+impl Node {
+    fn inherent(&self) -> impl Iterator<Item = &Field> + Clone {
+        self.fields.iter().filter(|field| !field.settable)
     }
 
+    fn settable(&self) -> impl Iterator<Item = &Field> + Clone {
+        self.fields.iter().filter(|field| field.settable)
+    }
+}
+
+/// Preprocess the node's definition.
+fn prepare(stream: TokenStream, body: &syn::ItemStruct) -> Result<Node> {
+    let syn::Fields::Named(named) = &body.fields else {
+        bail!(body, "expected named fields");
+    };
+
+    let mut fields = vec![];
+    for field in &named.named {
+        let Some(mut ident) = field.ident.clone() else {
+            bail!(field, "expected named field");
+        };
+
+        let mut attrs = field.attrs.clone();
+        let settable = has_attr(&mut attrs, "settable");
+        if settable {
+            ident = Ident::new(&ident.to_string().to_uppercase(), ident.span());
+        }
+
+        let field = Field {
+            vis: field.vis.clone(),
+            ident: ident.clone(),
+            with_ident: Ident::new(&format!("with_{}", ident), ident.span()),
+            name: kebab_case(&ident),
+
+            positional: has_attr(&mut attrs, "positional"),
+            required: has_attr(&mut attrs, "required"),
+            variadic: has_attr(&mut attrs, "variadic"),
+
+            named: has_attr(&mut attrs, "named"),
+            shorthand: parse_attr(&mut attrs, "shorthand")?.map(|v| match v {
+                None => Shorthand::Positional,
+                Some(ident) => Shorthand::Named(ident),
+            }),
+
+            settable,
+            fold: has_attr(&mut attrs, "fold"),
+            resolve: has_attr(&mut attrs, "resolve"),
+            skip: has_attr(&mut attrs, "skip"),
+
+            ty: field.ty.clone(),
+            default: parse_attr(&mut attrs, "default")?.map(|opt| {
+                opt.unwrap_or_else(|| parse_quote! { ::std::default::Default::default() })
+            }),
+
+            attrs: {
+                validate_attrs(&attrs)?;
+                attrs
+            },
+        };
+
+        if !field.positional && !field.named && !field.variadic && !field.settable {
+            bail!(ident, "expected positional, named, variadic, or settable");
+        }
+
+        if !field.required && !field.variadic && field.default.is_none() {
+            bail!(ident, "non-required fields must have a default value");
+        }
+
+        fields.push(field);
+    }
+
+    let capable = Punctuated::<Ident, Token![,]>::parse_terminated
+        .parse2(stream)?
+        .into_iter()
+        .collect();
+
+    let mut attrs = body.attrs.clone();
     Ok(Node {
-        body,
-        params,
-        self_ty,
-        self_name,
-        self_args,
-        properties,
-        construct,
-        set,
-        field,
+        vis: body.vis.clone(),
+        ident: body.ident.clone(),
+        name: body.ident.to_string().trim_end_matches("Node").to_lowercase(),
+        capable,
+        fields,
+        set: parse_attr(&mut attrs, "set")?.flatten(),
+        attrs: {
+            validate_attrs(&attrs)?;
+            attrs
+        },
     })
 }
 
-/// Preprocess and validate a property constant.
-fn prepare_property(item: &syn::ImplItemConst) -> Result<Property> {
-    let mut attrs = item.attrs.clone();
-    let tokens = match attrs
+/// Produce the node's definition.
+fn create(node: &Node) -> TokenStream {
+    let attrs = &node.attrs;
+    let vis = &node.vis;
+    let ident = &node.ident;
+    let name = &node.name;
+    let new = create_new_func(node);
+    let construct = node
+        .capable
         .iter()
-        .position(|attr| attr.path.is_ident("property"))
-        .map(|i| attrs.remove(i))
-    {
-        Some(attr) => attr.parse_args::<TokenStream>()?,
-        None => TokenStream::default(),
-    };
+        .all(|capability| capability != "Construct")
+        .then(|| create_construct_impl(node));
+    let set = create_set_impl(node);
+    let builders = node.inherent().map(create_builder_method);
+    let accessors = node.inherent().map(create_accessor_method);
+    let vtable = create_vtable(node);
 
-    let mut skip = false;
-    let mut shorthand = None;
-    let mut referenced = false;
-    let mut resolve = false;
-    let mut fold = false;
+    let mut modules = vec![];
+    let mut items = vec![];
+    let scope = quote::format_ident!("__{}_keys", ident);
 
-    // Parse the `#[property(..)]` attribute.
-    let mut stream = tokens.into_iter().peekable();
-    while let Some(token) = stream.next() {
-        let ident = match token {
-            TokenTree::Ident(ident) => ident,
-            TokenTree::Punct(_) => continue,
-            _ => bail!(token, "invalid token"),
-        };
-
-        let mut arg = None;
-        if let Some(TokenTree::Group(group)) = stream.peek() {
-            let span = group.span();
-            let string = group.to_string();
-            let ident = string.trim_start_matches('(').trim_end_matches(')');
-            if !ident.chars().all(|c| c.is_ascii_alphabetic()) {
-                bail!(group, "invalid arguments");
-            }
-            arg = Some(Ident::new(ident, span));
-            stream.next();
-        };
-
-        match ident.to_string().as_str() {
-            "skip" => skip = true,
-            "shorthand" => {
-                shorthand = Some(match arg {
-                    Some(name) => Shorthand::Named(name),
-                    None => Shorthand::Positional,
-                });
-            }
-            "referenced" => referenced = true,
-            "resolve" => resolve = true,
-            "fold" => fold = true,
-            _ => bail!(ident, "invalid attribute"),
-        }
-    }
-
-    if referenced && (fold || resolve) {
-        bail!(item.ident, "referenced is mutually exclusive with fold and resolve");
-    }
-
-    // The type of the property's value is what the user of our macro wrote as
-    // type of the const, but the real type of the const will be a unique `Key`
-    // type.
-    let value_ty = item.ty.clone();
-    let output_ty = if referenced {
-        parse_quote! { &'a #value_ty }
-    } else if fold && resolve {
-        parse_quote! {
-            <<#value_ty as ::typst::model::Resolve>::Output
-                as ::typst::model::Fold>::Output
-        }
-    } else if fold {
-        parse_quote! { <#value_ty as ::typst::model::Fold>::Output }
-    } else if resolve {
-        parse_quote! { <#value_ty as ::typst::model::Resolve>::Output }
-    } else {
-        value_ty.clone()
-    };
-
-    Ok(Property {
-        attrs,
-        vis: item.vis.clone(),
-        name: item.ident.clone(),
-        value_ty,
-        output_ty,
-        default: item.expr.clone(),
-        skip,
-        shorthand,
-        referenced,
-        resolve,
-        fold,
-    })
-}
-
-/// Produce the necessary items for a type to become a node.
-fn create(node: &Node) -> Result<TokenStream> {
-    let params = &node.params;
-    let self_ty = &node.self_ty;
-
-    let id_method = create_node_id_method();
-    let name_method = create_node_name_method(node);
-    let construct_func = create_node_construct_func(node);
-    let set_func = create_node_set_func(node);
-    let properties_func = create_node_properties_func(node);
-    let field_method = create_node_field_method(node);
-
-    let node_impl = quote! {
-        impl<#params> ::typst::model::Node for #self_ty {
-            #id_method
-            #name_method
-            #construct_func
-            #set_func
-            #properties_func
-            #field_method
-        }
-    };
-
-    let mut modules: Vec<syn::ItemMod> = vec![];
-    let mut items: Vec<syn::ImplItem> = vec![];
-    let scope = quote::format_ident!("__{}_keys", node.self_name);
-
-    for property in node.properties.iter() {
-        let (key, module) = create_property_module(node, property);
-        modules.push(module);
-
-        let name = &property.name;
-        let attrs = &property.attrs;
-        let vis = &property.vis;
-        items.push(parse_quote! {
+    for field in node.settable() {
+        let ident = &field.ident;
+        let attrs = &field.attrs;
+        let vis = &field.vis;
+        let ty = &field.ty;
+        modules.push(create_field_module(node, field));
+        items.push(quote! {
             #(#attrs)*
-            #vis const #name: #scope::#name::#key
-                = #scope::#name::Key(::std::marker::PhantomData);
+            #vis const #ident: #scope::#ident::Key<#ty>
+                = #scope::#ident::Key(::std::marker::PhantomData);
         });
     }
 
-    let mut body = node.body.clone();
-    body.items = items;
+    quote! {
+        #(#attrs)*
+        #[::typst::eval::func]
+        #[derive(Debug, Clone, Hash)]
+        #[repr(transparent)]
+        #vis struct #ident(::typst::model::Content);
 
-    Ok(quote! {
-        #body
+        impl #ident {
+            #new
+            #(#builders)*
+
+            /// The node's span.
+            pub fn span(&self) -> Option<::typst::syntax::Span> {
+                self.0.span()
+            }
+        }
+
+        impl #ident {
+            #(#accessors)*
+            #(#items)*
+        }
+
+        impl ::typst::model::Node for #ident {
+            fn id() -> ::typst::model::NodeId {
+                static META: ::typst::model::NodeMeta = ::typst::model::NodeMeta {
+                    name: #name,
+                    vtable: #vtable,
+                };
+                ::typst::model::NodeId::from_meta(&META)
+            }
+
+            fn pack(self) -> ::typst::model::Content {
+                self.0
+            }
+        }
+
+        #construct
+        #set
+
+        impl From<#ident> for ::typst::eval::Value {
+            fn from(value: #ident) -> Self {
+                value.0.into()
+            }
+        }
+
+        #[allow(non_snake_case)]
         mod #scope {
             use super::*;
-            #node_impl
             #(#modules)*
         }
-    })
+    }
 }
 
-/// Create the node's id method.
-fn create_node_id_method() -> syn::ImplItemMethod {
-    parse_quote! {
-        fn id(&self) -> ::typst::model::NodeId {
-            ::typst::model::NodeId::of::<Self>()
+/// Create the `new` function for the node.
+fn create_new_func(node: &Node) -> TokenStream {
+    let relevant = node.inherent().filter(|field| field.required || field.variadic);
+    let params = relevant.clone().map(|field| {
+        let ident = &field.ident;
+        let ty = &field.ty;
+        quote! { #ident: #ty }
+    });
+    let pushes = relevant.map(|field| {
+        let ident = &field.ident;
+        let with_ident = &field.with_ident;
+        quote! { .#with_ident(#ident) }
+    });
+    let defaults = node
+        .inherent()
+        .filter_map(|field| field.default.as_ref().map(|default| (field, default)))
+        .map(|(field, default)| {
+            let with_ident = &field.with_ident;
+            quote! { .#with_ident(#default) }
+        });
+    quote! {
+        /// Create a new node.
+        pub fn new(#(#params),*) -> Self {
+            Self(::typst::model::Content::new::<Self>())
+            #(#pushes)*
+            #(#defaults)*
         }
     }
 }
 
-/// Create the node's name method.
-fn create_node_name_method(node: &Node) -> syn::ImplItemMethod {
-    let name = node.self_name.trim_end_matches("Node").to_lowercase();
-    parse_quote! {
-        fn name(&self) -> &'static str {
-            #name
+/// Create a builder pattern method for a field.
+fn create_builder_method(field: &Field) -> TokenStream {
+    let Field { with_ident, ident, name, ty, .. } = field;
+    let doc = format!("Set the [`{}`](Self::{}) field.", name, ident);
+    quote! {
+        #[doc = #doc]
+        pub fn #with_ident(mut self, #ident: #ty) -> Self {
+            Self(self.0.with_field(#name, #ident))
         }
     }
 }
 
-/// Create the node's `construct` function.
-fn create_node_construct_func(node: &Node) -> syn::ImplItemMethod {
-    node.construct.clone().unwrap_or_else(|| {
-        parse_quote! {
+/// Create an accessor methods for a field.
+fn create_accessor_method(field: &Field) -> TokenStream {
+    let Field { attrs, vis, ident, name, ty, .. } = field;
+    quote! {
+        #(#attrs)*
+        #vis fn #ident(&self) -> #ty {
+            self.0.cast_field(#name)
+        }
+    }
+}
+
+/// Create the node's `Construct` implementation.
+fn create_construct_impl(node: &Node) -> TokenStream {
+    let ident = &node.ident;
+    let shorthands = create_construct_shorthands(node);
+    let builders = node.inherent().map(create_construct_builder_call);
+    quote! {
+        impl ::typst::model::Construct for #ident {
             fn construct(
                 _: &::typst::eval::Vm,
                 args: &mut ::typst::eval::Args,
             ) -> ::typst::diag::SourceResult<::typst::model::Content> {
-                ::typst::diag::bail!(args.span, "cannot be constructed manually");
+                #(#shorthands)*
+                Ok(::typst::model::Node::pack(
+                    Self(::typst::model::Content::new::<Self>())
+                        #(#builders)*))
             }
         }
+    }
+}
+
+/// Create let bindings for shorthands in the constructor.
+fn create_construct_shorthands(node: &Node) -> impl Iterator<Item = TokenStream> + '_ {
+    let mut shorthands = vec![];
+    for field in node.inherent() {
+        if let Some(Shorthand::Named(named)) = &field.shorthand {
+            shorthands.push(named);
+        }
+    }
+
+    shorthands.sort();
+    shorthands.dedup_by_key(|ident| ident.to_string());
+    shorthands.into_iter().map(|ident| {
+        let string = ident.to_string();
+        quote! { let #ident = args.named(#string)?; }
     })
 }
 
-/// Create the node's `set` function.
-fn create_node_set_func(node: &Node) -> syn::ImplItemMethod {
-    let user = node.set.as_ref().map(|method| {
-        let block = &method.block;
+/// Create a builder call for the constructor.
+fn create_construct_builder_call(field: &Field) -> TokenStream {
+    let name = &field.name;
+    let with_ident = &field.with_ident;
+
+    let mut value = if field.variadic {
+        quote! { args.all()? }
+    } else if field.required {
+        quote! { args.expect(#name)? }
+    } else if let Some(shorthand) = &field.shorthand {
+        match shorthand {
+            Shorthand::Positional => quote! { args.named_or_find(#name)? },
+            Shorthand::Named(named) => {
+                quote! { args.named(#name)?.or_else(|| #named.clone()) }
+            }
+        }
+    } else if field.named {
+        quote! { args.named(#name)? }
+    } else {
+        quote! { args.find()? }
+    };
+
+    if let Some(default) = &field.default {
+        value = quote! { #value.unwrap_or(#default) };
+    }
+
+    quote! { .#with_ident(#value) }
+}
+
+/// Create the node's `Set` implementation.
+fn create_set_impl(node: &Node) -> TokenStream {
+    let ident = &node.ident;
+    let custom = node.set.as_ref().map(|block| {
         quote! { (|| -> typst::diag::SourceResult<()> { #block; Ok(()) } )()?; }
     });
 
     let mut shorthands = vec![];
     let sets: Vec<_> = node
-        .properties
-        .iter()
-        .filter(|p| !p.skip)
-        .map(|property| {
-            let name = &property.name;
-            let string = name.to_string().replace('_', "-").to_lowercase();
-            let value = match &property.shorthand {
-                Some(Shorthand::Positional) => quote! { args.named_or_find(#string)? },
+        .settable()
+        .filter(|field| !field.skip)
+        .map(|field| {
+            let ident = &field.ident;
+            let name = &field.name;
+            let value = match &field.shorthand {
+                Some(Shorthand::Positional) => quote! { args.named_or_find(#name)? },
                 Some(Shorthand::Named(named)) => {
                     shorthands.push(named);
-                    quote! { args.named(#string)?.or_else(|| #named.clone()) }
+                    quote! { args.named(#name)?.or_else(|| #named.clone()) }
                 }
-                None => quote! { args.named(#string)? },
+                None => quote! { args.named(#name)? },
             };
 
-            quote! { styles.set_opt(Self::#name, #value); }
+            quote! { styles.set_opt(Self::#ident, #value); }
         })
         .collect();
 
@@ -315,30 +376,12 @@ fn create_node_set_func(node: &Node) -> syn::ImplItemMethod {
         quote! { let #ident = args.named(#string)?; }
     });
 
-    parse_quote! {
-        fn set(
-            args: &mut ::typst::eval::Args,
-            constructor: bool,
-        ) -> ::typst::diag::SourceResult<::typst::model::StyleMap> {
-            let mut styles = ::typst::model::StyleMap::new();
-            #user
-            #(#bindings)*
-            #(#sets)*
-            Ok(styles)
-        }
-    }
-}
-
-/// Create the node's `properties` function.
-fn create_node_properties_func(node: &Node) -> syn::ImplItemMethod {
-    let infos = node.properties.iter().filter(|p| !p.skip).map(|property| {
-        let name = property.name.to_string().replace('_', "-").to_lowercase();
-        let value_ty = &property.value_ty;
-        let shorthand = matches!(property.shorthand, Some(Shorthand::Positional));
-
-        let docs = documentation(&property.attrs);
+    let infos = node.fields.iter().filter(|p| !p.skip).map(|field| {
+        let name = &field.name;
+        let value_ty = &field.ty;
+        let shorthand = matches!(field.shorthand, Some(Shorthand::Positional));
+        let docs = documentation(&field.attrs);
         let docs = docs.trim();
-
         quote! {
             ::typst::eval::ParamInfo {
                 name: #name,
@@ -355,167 +398,142 @@ fn create_node_properties_func(node: &Node) -> syn::ImplItemMethod {
         }
     });
 
-    parse_quote! {
-        fn properties() -> ::std::vec::Vec<::typst::eval::ParamInfo>
-        where
-            Self: Sized
-        {
-            ::std::vec![#(#infos),*]
+    quote! {
+        impl ::typst::model::Set for #ident {
+            fn set(
+                args: &mut ::typst::eval::Args,
+                constructor: bool,
+            ) -> ::typst::diag::SourceResult<::typst::model::StyleMap> {
+                let mut styles = ::typst::model::StyleMap::new();
+                #custom
+                #(#bindings)*
+                #(#sets)*
+                Ok(styles)
+            }
+
+            fn properties() -> ::std::vec::Vec<::typst::eval::ParamInfo> {
+                ::std::vec![#(#infos),*]
+            }
         }
     }
 }
 
-/// Create the node's `field` method.
-fn create_node_field_method(node: &Node) -> syn::ImplItemMethod {
-    node.field.clone().unwrap_or_else(|| {
-        parse_quote! {
-            fn field(
-                &self,
-                _: &str,
-            ) -> ::std::option::Option<::typst::eval::Value> {
-                None
-            }
+/// Create the module for a single field.
+fn create_field_module(node: &Node, field: &Field) -> TokenStream {
+    let node_ident = &node.ident;
+    let ident = &field.ident;
+    let name = &field.name;
+    let ty = &field.ty;
+    let default = &field.default;
+
+    let mut output = quote! { #ty };
+    if field.resolve {
+        output = quote! { <#output as ::typst::model::Resolve>::Output };
+    }
+    if field.fold {
+        output = quote! { <#output as ::typst::model::Fold>::Output };
+    }
+
+    let value = if field.resolve && field.fold {
+        quote! {
+            values
+                .next()
+                .map(|value| {
+                    ::typst::model::Fold::fold(
+                        ::typst::model::Resolve::resolve(value, chain),
+                        Self::get(chain, values),
+                    )
+                })
+                .unwrap_or(#default)
         }
-    })
-}
-
-/// Process a single const item.
-fn create_property_module(node: &Node, property: &Property) -> (syn::Type, syn::ItemMod) {
-    let params = &node.params;
-    let self_args = &node.self_args;
-    let name = &property.name;
-    let value_ty = &property.value_ty;
-    let output_ty = &property.output_ty;
-
-    let key = parse_quote! { Key<#value_ty, #self_args> };
-    let phantom_args = self_args.iter().filter(|arg| match arg {
-        syn::GenericArgument::Type(syn::Type::Path(path)) => {
-            node.params.iter().all(|param| match param {
-                syn::GenericParam::Const(c) => !path.path.is_ident(&c.ident),
-                _ => true,
-            })
+    } else if field.resolve {
+        quote! {
+            ::typst::model::Resolve::resolve(
+                values.next().unwrap_or(#default),
+                chain
+            )
         }
-        _ => true,
-    });
-
-    let name_const = create_property_name_const(node, property);
-    let node_func = create_property_node_func(node);
-    let get_method = create_property_get_method(property);
-    let copy_assertion = create_property_copy_assertion(property);
+    } else if field.fold {
+        quote! {
+            values
+                .next()
+                .map(|value| {
+                    ::typst::model::Fold::fold(
+                        value,
+                        Self::get(chain, values),
+                    )
+                })
+                .unwrap_or(#default)
+        }
+    } else {
+        quote! {
+            values.next().unwrap_or(#default)
+        }
+    };
 
     // Generate the contents of the module.
     let scope = quote! {
         use super::*;
 
-        pub struct Key<__T, #params>(
-            pub ::std::marker::PhantomData<(__T, #(#phantom_args,)*)>
-        );
-
-        impl<#params> ::std::marker::Copy for #key {}
-        impl<#params> ::std::clone::Clone for #key {
+        pub struct Key<T>(pub ::std::marker::PhantomData<T>);
+        impl ::std::marker::Copy for Key<#ty> {}
+        impl ::std::clone::Clone for Key<#ty> {
             fn clone(&self) -> Self { *self }
         }
 
-        impl<#params> ::typst::model::Key for #key {
-            type Value = #value_ty;
-            type Output<'a> = #output_ty;
-            #name_const
-            #node_func
-            #get_method
-        }
+        impl ::typst::model::Key for Key<#ty> {
+            type Value = #ty;
+            type Output = #output;
 
-        #copy_assertion
+            fn id() -> ::typst::model::KeyId {
+                static META: ::typst::model::KeyMeta = ::typst::model::KeyMeta {
+                    name: #name,
+                };
+                ::typst::model::KeyId::from_meta(&META)
+            }
+
+            fn node() -> ::typst::model::NodeId {
+                ::typst::model::NodeId::of::<#node_ident>()
+            }
+
+            fn get(
+                chain: ::typst::model::StyleChain,
+                mut values: impl ::std::iter::Iterator<Item = Self::Value>,
+            ) -> Self::Output {
+                #value
+            }
+        }
     };
 
     // Generate the module code.
-    let module = parse_quote! {
-        #[allow(non_snake_case)]
-        pub mod #name { #scope }
-    };
-
-    (key, module)
-}
-
-/// Create the property's node method.
-fn create_property_name_const(node: &Node, property: &Property) -> syn::ImplItemConst {
-    // The display name, e.g. `TextNode::BOLD`.
-    let name = format!("{}::{}", node.self_name, &property.name);
-    parse_quote! {
-        const NAME: &'static str = #name;
+    quote! {
+        pub mod #ident { #scope }
     }
 }
 
-/// Create the property's node method.
-fn create_property_node_func(node: &Node) -> syn::ImplItemMethod {
-    let self_ty = &node.self_ty;
-    parse_quote! {
-        fn node() -> ::typst::model::NodeId {
-            ::typst::model::NodeId::of::<#self_ty>()
+/// Create the node's metadata vtable.
+fn create_vtable(node: &Node) -> TokenStream {
+    let ident = &node.ident;
+    let checks =
+        node.capable
+            .iter()
+            .filter(|&ident| ident != "Construct")
+            .map(|capability| {
+                quote! {
+                    if id == ::std::any::TypeId::of::<dyn #capability>() {
+                        return Some(unsafe {
+                            ::typst::util::fat::vtable(&
+                                Self(::typst::model::Content::new::<#ident>()) as &dyn #capability
+                            )
+                        });
+                    }
+                }
+            });
+
+    quote! {
+        |id| {
+            #(#checks)*
+            None
         }
     }
-}
-
-/// Create the property's get method.
-fn create_property_get_method(property: &Property) -> syn::ImplItemMethod {
-    let default = &property.default;
-    let value_ty = &property.value_ty;
-
-    let value = if property.referenced {
-        quote! {
-            values.next().unwrap_or_else(|| {
-                static LAZY: ::typst::model::once_cell::sync::Lazy<#value_ty>
-                    = ::typst::model::once_cell::sync::Lazy::new(|| #default);
-                &*LAZY
-            })
-        }
-    } else if property.resolve && property.fold {
-        quote! {
-            match values.next().cloned() {
-                Some(value) => ::typst::model::Fold::fold(
-                    ::typst::model::Resolve::resolve(value, chain),
-                    Self::get(chain, values),
-                ),
-                None => #default,
-            }
-        }
-    } else if property.resolve {
-        quote! {
-            let value = values.next().cloned().unwrap_or_else(|| #default);
-            ::typst::model::Resolve::resolve(value, chain)
-        }
-    } else if property.fold {
-        quote! {
-            match values.next().cloned() {
-                Some(value) => ::typst::model::Fold::fold(value, Self::get(chain, values)),
-                None => #default,
-            }
-        }
-    } else {
-        quote! {
-            values.next().copied().unwrap_or(#default)
-        }
-    };
-
-    parse_quote! {
-        fn get<'a>(
-            chain: ::typst::model::StyleChain<'a>,
-            mut values: impl ::std::iter::Iterator<Item = &'a Self::Value>,
-        ) -> Self::Output<'a> {
-            #value
-        }
-    }
-}
-
-/// Create the assertion if the property's value must be copyable.
-fn create_property_copy_assertion(property: &Property) -> Option<TokenStream> {
-    let value_ty = &property.value_ty;
-    let must_be_copy = !property.fold && !property.resolve && !property.referenced;
-    must_be_copy.then(|| {
-        quote_spanned! { value_ty.span() =>
-            const _: fn() -> () = || {
-                fn must_be_copy_fold_resolve_or_referenced<T: ::std::marker::Copy>() {}
-                must_be_copy_fold_resolve_or_referenced::<#value_ty>();
-            };
-        }
-    })
 }

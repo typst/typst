@@ -1,10 +1,10 @@
 use std::ffi::OsStr;
+use std::path::Path;
 
 use typst::image::{Image, ImageFormat, RasterFormat, VectorFormat};
 
 use crate::prelude::*;
 
-/// # Image
 /// A raster or vector graphic.
 ///
 /// Supported formats are PNG, JPEG, GIF and SVG.
@@ -18,62 +18,52 @@ use crate::prelude::*;
 /// ]
 /// ```
 ///
-/// ## Parameters
-/// - path: `EcoString` (positional, required)
-///   Path to an image file.
-///
-/// - width: `Rel<Length>` (named)
-///   The width of the image.
-///
-/// - height: `Rel<Length>` (named)
-///   The height of the image.
-///
-/// ## Category
-/// visualize
-#[func]
-#[capable(Layout)]
-#[derive(Debug, Hash)]
+/// Display: Image
+/// Category: visualize
+#[node(Construct, Layout)]
 pub struct ImageNode {
-    pub image: Image,
+    /// Path to an image file.
+    #[positional]
+    #[required]
+    pub path: EcoString,
+
+    /// The width of the image.
+    #[named]
+    #[default]
     pub width: Smart<Rel<Length>>,
+
+    /// The height of the image.
+    #[named]
+    #[default]
     pub height: Smart<Rel<Length>>,
+
+    /// How the image should adjust itself to a given area.
+    #[settable]
+    #[default(ImageFit::Cover)]
+    pub fit: ImageFit,
 }
 
-#[node]
-impl ImageNode {
-    /// How the image should adjust itself to a given area.
-    pub const FIT: ImageFit = ImageFit::Cover;
-
+impl Construct for ImageNode {
     fn construct(vm: &Vm, args: &mut Args) -> SourceResult<Content> {
         let Spanned { v: path, span } =
             args.expect::<Spanned<EcoString>>("path to image file")?;
-
-        let full = vm.locate(&path).at(span)?;
-        let buffer = vm.world().file(&full).at(span)?;
-        let ext = full.extension().and_then(OsStr::to_str).unwrap_or_default();
-        let format = match ext.to_lowercase().as_str() {
-            "png" => ImageFormat::Raster(RasterFormat::Png),
-            "jpg" | "jpeg" => ImageFormat::Raster(RasterFormat::Jpg),
-            "gif" => ImageFormat::Raster(RasterFormat::Gif),
-            "svg" | "svgz" => ImageFormat::Vector(VectorFormat::Svg),
-            _ => bail!(span, "unknown image format"),
-        };
-
-        let image = Image::new(buffer, format).at(span)?;
-        let width = args.named("width")?.unwrap_or_default();
-        let height = args.named("height")?.unwrap_or_default();
-        Ok(ImageNode { image, width, height }.pack())
+        let path: EcoString = vm.locate(&path).at(span)?.to_string_lossy().into();
+        let _ = load(vm.world(), &path).at(span)?;
+        let width = args.named::<Smart<Rel<Length>>>("width")?.unwrap_or_default();
+        let height = args.named::<Smart<Rel<Length>>>("height")?.unwrap_or_default();
+        Ok(ImageNode::new(path).with_width(width).with_height(height).pack())
     }
 }
 
 impl Layout for ImageNode {
     fn layout(
         &self,
-        _: &mut Vt,
+        vt: &mut Vt,
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let sizing = Axes::new(self.width, self.height);
+        let image = load(vt.world(), &self.path()).unwrap();
+        let sizing = Axes::new(self.width(), self.height());
         let region = sizing
             .zip(regions.base())
             .map(|(s, r)| s.map(|v| v.resolve(styles).relative_to(r)))
@@ -83,8 +73,8 @@ impl Layout for ImageNode {
         let region_ratio = region.x / region.y;
 
         // Find out whether the image is wider or taller than the target size.
-        let pxw = self.image.width() as f64;
-        let pxh = self.image.height() as f64;
+        let pxw = image.width() as f64;
+        let pxh = image.height() as f64;
         let px_ratio = pxw / pxh;
         let wide = px_ratio > region_ratio;
 
@@ -116,7 +106,7 @@ impl Layout for ImageNode {
         // the frame to the target size, center aligning the image in the
         // process.
         let mut frame = Frame::new(fitted);
-        frame.push(Point::zero(), Element::Image(self.image.clone(), fitted));
+        frame.push(Point::zero(), Element::Image(image, fitted));
         frame.resize(target, Align::CENTER_HORIZON);
 
         // Create a clipping group if only part of the image should be visible.
@@ -142,7 +132,7 @@ pub enum ImageFit {
     Stretch,
 }
 
-castable! {
+cast_from_value! {
     ImageFit,
     /// The image should completely cover the area. This is the default.
     "cover" => Self::Cover,
@@ -151,4 +141,28 @@ castable! {
     /// The image should be stretched so that it exactly fills the area, even if
     /// this means that the image will be distorted.
     "stretch" => Self::Stretch,
+}
+
+cast_to_value! {
+    fit: ImageFit => Value::from(match fit {
+        ImageFit::Cover => "cover",
+        ImageFit::Contain => "contain",
+        ImageFit::Stretch => "stretch",
+    })
+}
+
+/// Load an image from a path.
+#[comemo::memoize]
+fn load(world: Tracked<dyn World>, full: &str) -> StrResult<Image> {
+    let full = Path::new(full);
+    let buffer = world.file(full)?;
+    let ext = full.extension().and_then(OsStr::to_str).unwrap_or_default();
+    let format = match ext.to_lowercase().as_str() {
+        "png" => ImageFormat::Raster(RasterFormat::Png),
+        "jpg" | "jpeg" => ImageFormat::Raster(RasterFormat::Jpg),
+        "gif" => ImageFormat::Raster(RasterFormat::Gif),
+        "svg" | "svgz" => ImageFormat::Vector(VectorFormat::Svg),
+        _ => return Err("unknown image format".into()),
+    };
+    Image::new(buffer, format)
 }

@@ -115,3 +115,51 @@ impl Debug for GenAlign {
         }
     }
 }
+
+cast_from_value! {
+    GenAlign: "alignment",
+}
+
+cast_from_value! {
+    Axes<GenAlign>: "2d alignment",
+}
+
+cast_from_value! {
+    Axes<Option<GenAlign>>,
+    align: GenAlign => {
+        let mut aligns = Axes::default();
+        aligns.set(align.axis(), Some(align));
+        aligns
+    },
+    aligns: Axes<GenAlign> => aligns.map(Some),
+}
+
+cast_to_value! {
+    v: Axes<Option<GenAlign>> => match (v.x, v.y) {
+        (Some(x), Some(y)) => Axes::new(x, y).into(),
+        (Some(x), None) => x.into(),
+        (None, Some(y)) => y.into(),
+        (None, None) => Value::None,
+    }
+}
+
+impl Resolve for GenAlign {
+    type Output = Align;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        let dir = item!(dir)(styles);
+        match self {
+            Self::Start => dir.start().into(),
+            Self::End => dir.end().into(),
+            Self::Specific(align) => align,
+        }
+    }
+}
+
+impl Fold for GenAlign {
+    type Output = Self;
+
+    fn fold(self, _: Self::Output) -> Self::Output {
+        self
+    }
+}

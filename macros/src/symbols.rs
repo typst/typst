@@ -1,28 +1,42 @@
-use syn::ext::IdentExt;
-use syn::parse::{Parse, ParseStream};
-use syn::punctuated::Punctuated;
-use syn::Token;
-
 use super::*;
 
 /// Expand the `symbols!` macro.
 pub fn symbols(stream: TokenStream) -> Result<TokenStream> {
-    let list: List = syn::parse2(stream)?;
-    let pairs = list.0.iter().map(Symbol::expand);
+    let list: Punctuated<Symbol, Token![,]> =
+        Punctuated::parse_terminated.parse2(stream)?;
+    let pairs = list.iter().map(|symbol| {
+        let name = symbol.name.to_string();
+        let kind = match &symbol.kind {
+            Kind::Single(c) => quote! { typst::eval::Symbol::new(#c), },
+            Kind::Multiple(variants) => {
+                let variants = variants.iter().map(|variant| {
+                    let name = &variant.name;
+                    let c = &variant.c;
+                    quote! { (#name, #c) }
+                });
+                quote! {
+                    typst::eval::Symbol::list(&[#(#variants),*])
+                }
+            }
+        };
+        quote! { (#name, #kind) }
+    });
     Ok(quote! { &[#(#pairs),*] })
-}
-
-struct List(Punctuated<Symbol, Token![,]>);
-
-impl Parse for List {
-    fn parse(input: ParseStream) -> Result<Self> {
-        Punctuated::parse_terminated(input).map(Self)
-    }
 }
 
 struct Symbol {
     name: syn::Ident,
     kind: Kind,
+}
+
+enum Kind {
+    Single(syn::LitChar),
+    Multiple(Punctuated<Variant, Token![,]>),
+}
+
+struct Variant {
+    name: String,
+    c: syn::LitChar,
 }
 
 impl Parse for Symbol {
@@ -32,19 +46,6 @@ impl Parse for Symbol {
         let kind = input.parse()?;
         Ok(Self { name, kind })
     }
-}
-
-impl Symbol {
-    fn expand(&self) -> TokenStream {
-        let name = self.name.to_string();
-        let kind = self.kind.expand();
-        quote! { (#name, #kind) }
-    }
-}
-
-enum Kind {
-    Single(syn::LitChar),
-    Multiple(Punctuated<Variant, Token![,]>),
 }
 
 impl Parse for Kind {
@@ -57,25 +58,6 @@ impl Parse for Kind {
             Ok(Self::Multiple(Punctuated::parse_terminated(&content)?))
         }
     }
-}
-
-impl Kind {
-    fn expand(&self) -> TokenStream {
-        match self {
-            Self::Single(c) => quote! { typst::eval::Symbol::new(#c), },
-            Self::Multiple(variants) => {
-                let variants = variants.iter().map(Variant::expand);
-                quote! {
-                    typst::eval::Symbol::list(&[#(#variants),*])
-                }
-            }
-        }
-    }
-}
-
-struct Variant {
-    name: String,
-    c: syn::LitChar,
 }
 
 impl Parse for Variant {
@@ -92,13 +74,5 @@ impl Parse for Variant {
         }
         let c = input.parse()?;
         Ok(Self { name, c })
-    }
-}
-
-impl Variant {
-    fn expand(&self) -> TokenStream {
-        let name = &self.name;
-        let c = &self.c;
-        quote! { (#name, #c) }
     }
 }

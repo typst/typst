@@ -1,4 +1,4 @@
-use typst::model::Style;
+use typst::model::{Style, StyledNode};
 
 use super::{AlignNode, BlockNode, ColbreakNode, ParNode, PlaceNode, Spacing, VNode};
 use crate::prelude::*;
@@ -8,12 +8,12 @@ use crate::visualize::{CircleNode, EllipseNode, ImageNode, RectNode, SquareNode}
 ///
 /// This node is responsible for layouting both the top-level content flow and
 /// the contents of boxes.
-#[capable(Layout)]
-#[derive(Hash)]
-pub struct FlowNode(pub StyleVec<Content>);
-
-#[node]
-impl FlowNode {}
+#[node(Layout)]
+pub struct FlowNode {
+    /// The children that will be arranges into a flow.
+    #[variadic]
+    pub children: Vec<Content>,
+}
 
 impl Layout for FlowNode {
     fn layout(
@@ -24,9 +24,17 @@ impl Layout for FlowNode {
     ) -> SourceResult<Fragment> {
         let mut layouter = FlowLayouter::new(regions);
 
-        for (child, map) in self.0.iter() {
-            let styles = styles.chain(&map);
-            if let Some(&node) = child.to::<VNode>() {
+        for mut child in self.children() {
+            let map;
+            let outer = styles;
+            let mut styles = outer;
+            if let Some(node) = child.to::<StyledNode>() {
+                map = node.map();
+                styles = outer.chain(&map);
+                child = node.sub();
+            }
+
+            if let Some(node) = child.to::<VNode>() {
                 layouter.layout_spacing(node, styles);
             } else if let Some(node) = child.to::<ParNode>() {
                 let barrier = Style::Barrier(child.id());
@@ -40,27 +48,20 @@ impl Layout for FlowNode {
             {
                 let barrier = Style::Barrier(child.id());
                 let styles = styles.chain_one(&barrier);
-                layouter.layout_single(vt, child, styles)?;
+                layouter.layout_single(vt, &child, styles)?;
             } else if child.has::<dyn Layout>() {
-                layouter.layout_multiple(vt, child, styles)?;
+                layouter.layout_multiple(vt, &child, styles)?;
             } else if child.is::<ColbreakNode>() {
                 if !layouter.regions.backlog.is_empty() || layouter.regions.last.is_some()
                 {
                     layouter.finish_region();
                 }
-            } else {
-                panic!("unexpected flow child: {child:?}");
+            } else if let Some(span) = child.span() {
+                bail!(span, "unexpected flow child");
             }
         }
 
         Ok(layouter.finish())
-    }
-}
-
-impl Debug for FlowNode {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_str("Flow ")?;
-        self.0.fmt(f)
     }
 }
 
@@ -113,11 +114,11 @@ impl<'a> FlowLayouter<'a> {
     }
 
     /// Layout vertical spacing.
-    fn layout_spacing(&mut self, node: VNode, styles: StyleChain) {
-        self.layout_item(match node.amount {
+    fn layout_spacing(&mut self, node: &VNode, styles: StyleChain) {
+        self.layout_item(match node.amount() {
             Spacing::Rel(v) => FlowItem::Absolute(
                 v.resolve(styles).relative_to(self.initial.y),
-                node.weakness > 0,
+                node.weakness() > 0,
             ),
             Spacing::Fr(v) => FlowItem::Fractional(v),
         });
@@ -130,7 +131,7 @@ impl<'a> FlowLayouter<'a> {
         par: &ParNode,
         styles: StyleChain,
     ) -> SourceResult<()> {
-        let aligns = styles.get(AlignNode::ALIGNS).resolve(styles);
+        let aligns = styles.get(AlignNode::ALIGNMENT).resolve(styles);
         let leading = styles.get(ParNode::LEADING);
         let consecutive = self.last_was_par;
         let frames = par
@@ -176,7 +177,7 @@ impl<'a> FlowLayouter<'a> {
         content: &Content,
         styles: StyleChain,
     ) -> SourceResult<()> {
-        let aligns = styles.get(AlignNode::ALIGNS).resolve(styles);
+        let aligns = styles.get(AlignNode::ALIGNMENT).resolve(styles);
         let sticky = styles.get(BlockNode::STICKY);
         let pod = Regions::one(self.regions.base(), Axes::splat(false));
         let layoutable = content.with::<dyn Layout>().unwrap();
@@ -204,7 +205,7 @@ impl<'a> FlowLayouter<'a> {
         }
 
         // How to align the block.
-        let aligns = styles.get(AlignNode::ALIGNS).resolve(styles);
+        let aligns = styles.get(AlignNode::ALIGNMENT).resolve(styles);
 
         // Layout the block itself.
         let sticky = styles.get(BlockNode::STICKY);

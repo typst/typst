@@ -19,6 +19,7 @@ mod ratio;
 mod rel;
 mod rounded;
 mod scalar;
+mod shape;
 mod sides;
 mod size;
 mod smart;
@@ -42,6 +43,7 @@ pub use self::ratio::*;
 pub use self::rel::*;
 pub use self::rounded::*;
 pub use self::scalar::*;
+pub use self::shape::*;
 pub use self::sides::*;
 pub use self::size::*;
 pub use self::smart::*;
@@ -54,6 +56,10 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::iter::Sum;
 use std::ops::*;
+
+use crate::diag::StrResult;
+use crate::eval::{array, cast_from_value, cast_to_value, Cast, CastInfo, Dict, Value};
+use crate::model::{Fold, Resolve, StyleChain};
 
 /// Generic access to a structure's components.
 pub trait Get<Index> {
@@ -69,40 +75,6 @@ pub trait Get<Index> {
     /// Convenience method for setting a component.
     fn set(&mut self, index: Index, component: Self::Component) {
         *self.get_mut(index) = component;
-    }
-}
-
-/// A geometric shape with optional fill and stroke.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct Shape {
-    /// The shape's geometry.
-    pub geometry: Geometry,
-    /// The shape's background fill.
-    pub fill: Option<Paint>,
-    /// The shape's border stroke.
-    pub stroke: Option<Stroke>,
-}
-
-/// A shape's geometry.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum Geometry {
-    /// A line to a point (relative to its position).
-    Line(Point),
-    /// A rectangle with its origin in the topleft corner.
-    Rect(Size),
-    /// A bezier path.
-    Path(Path),
-}
-
-impl Geometry {
-    /// Fill the geometry without a stroke.
-    pub fn filled(self, fill: Paint) -> Shape {
-        Shape { geometry: self, fill: Some(fill), stroke: None }
-    }
-
-    /// Stroke the geometry without a fill.
-    pub fn stroked(self, stroke: Stroke) -> Shape {
-        Shape { geometry: self, fill: None, stroke: Some(stroke) }
     }
 }
 

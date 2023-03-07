@@ -1,3 +1,5 @@
+//! Calculations and processing of numeric values.
+
 use std::cmp::Ordering;
 use std::ops::Rem;
 
@@ -6,7 +8,7 @@ use typst::eval::{Module, Scope};
 use crate::prelude::*;
 
 /// A module with computational functions.
-pub fn calc() -> Module {
+pub fn module() -> Module {
     let mut scope = Scope::new();
     scope.def_func::<AbsFunc>("abs");
     scope.def_func::<PowFunc>("pow");
@@ -37,7 +39,6 @@ pub fn calc() -> Module {
     Module::new("calc").with_scope(scope)
 }
 
-/// # Absolute
 /// Calculate the absolute value of a numeric value.
 ///
 /// ## Example
@@ -51,8 +52,8 @@ pub fn calc() -> Module {
 /// - value: `ToAbs` (positional, required)
 ///   The value whose absolute value to calculate.
 ///
-/// ## Category
-/// calculate
+/// Display: Absolute
+/// Category: calculate
 #[func]
 pub fn abs(args: &mut Args) -> SourceResult<Value> {
     Ok(args.expect::<ToAbs>("value")?.0)
@@ -61,7 +62,7 @@ pub fn abs(args: &mut Args) -> SourceResult<Value> {
 /// A value of which the absolute value can be taken.
 struct ToAbs(Value);
 
-castable! {
+cast_from_value! {
     ToAbs,
     v: i64 => Self(Value::Int(v.abs())),
     v: f64 => Self(Value::Float(v.abs())),
@@ -72,7 +73,6 @@ castable! {
     v: Fr => Self(Value::Fraction(v.abs())),
 }
 
-/// # Power
 /// Raise a value to some exponent.
 ///
 /// ## Example
@@ -86,8 +86,8 @@ castable! {
 /// - exponent: `Num` (positional, required)
 ///   The exponent of the power. Must be non-negative.
 ///
-/// ## Category
-/// calculate
+/// Display: Power
+/// Category: calculate
 #[func]
 pub fn pow(args: &mut Args) -> SourceResult<Value> {
     let base = args.expect::<Num>("base")?;
@@ -103,7 +103,6 @@ pub fn pow(args: &mut Args) -> SourceResult<Value> {
     Ok(base.apply2(exponent, |a, b| a.pow(b as u32), f64::powf))
 }
 
-/// # Square Root
 /// Calculate the square root of a number.
 ///
 /// ## Example
@@ -116,8 +115,8 @@ pub fn pow(args: &mut Args) -> SourceResult<Value> {
 /// - value: `Num` (positional, required)
 ///   The number whose square root to calculate. Must be non-negative.
 ///
-/// ## Category
-/// calculate
+/// Display: Square Root
+/// Category: calculate
 #[func]
 pub fn sqrt(args: &mut Args) -> SourceResult<Value> {
     let value = args.expect::<Spanned<Num>>("value")?;
@@ -127,7 +126,6 @@ pub fn sqrt(args: &mut Args) -> SourceResult<Value> {
     Ok(Value::Float(value.v.float().sqrt()))
 }
 
-/// # Sine
 /// Calculate the sine of an angle.
 ///
 /// When called with an integer or a float, they will be interpreted as
@@ -144,8 +142,8 @@ pub fn sqrt(args: &mut Args) -> SourceResult<Value> {
 /// - angle: `AngleLike` (positional, required)
 ///   The angle whose sine to calculate.
 ///
-/// ## Category
-/// calculate
+/// Display: Sine
+/// Category: calculate
 #[func]
 pub fn sin(args: &mut Args) -> SourceResult<Value> {
     let arg = args.expect::<AngleLike>("angle")?;
@@ -156,7 +154,6 @@ pub fn sin(args: &mut Args) -> SourceResult<Value> {
     }))
 }
 
-/// # Cosine
 /// Calculate the cosine of an angle.
 ///
 /// When called with an integer or a float, they will be interpreted as
@@ -173,8 +170,8 @@ pub fn sin(args: &mut Args) -> SourceResult<Value> {
 /// - angle: `AngleLike` (positional, required)
 ///   The angle whose cosine to calculate.
 ///
-/// ## Category
-/// calculate
+/// Display: Cosine
+/// Category: calculate
 #[func]
 pub fn cos(args: &mut Args) -> SourceResult<Value> {
     let arg = args.expect::<AngleLike>("angle")?;
@@ -185,7 +182,6 @@ pub fn cos(args: &mut Args) -> SourceResult<Value> {
     }))
 }
 
-/// # Tangent
 /// Calculate the tangent of an angle.
 ///
 /// When called with an integer or a float, they will be interpreted as
@@ -201,8 +197,8 @@ pub fn cos(args: &mut Args) -> SourceResult<Value> {
 /// - angle: `AngleLike` (positional, required)
 ///   The angle whose tangent to calculate.
 ///
-/// ## Category
-/// calculate
+/// Display: Tangent
+/// Category: calculate
 #[func]
 pub fn tan(args: &mut Args) -> SourceResult<Value> {
     let arg = args.expect::<AngleLike>("angle")?;
@@ -213,7 +209,6 @@ pub fn tan(args: &mut Args) -> SourceResult<Value> {
     }))
 }
 
-/// # Arcsine
 /// Calculate the arcsine of a number.
 ///
 /// ## Example
@@ -226,8 +221,8 @@ pub fn tan(args: &mut Args) -> SourceResult<Value> {
 /// - value: `Num` (positional, required)
 ///   The number whose arcsine to calculate. Must be between -1 and 1.
 ///
-/// ## Category
-/// calculate
+/// Display: Arcsine
+/// Category: calculate
 #[func]
 pub fn asin(args: &mut Args) -> SourceResult<Value> {
     let Spanned { v, span } = args.expect::<Spanned<Num>>("value")?;
@@ -238,7 +233,6 @@ pub fn asin(args: &mut Args) -> SourceResult<Value> {
     Ok(Value::Angle(Angle::rad(val.asin())))
 }
 
-/// # Arccosine
 /// Calculate the arccosine of a number.
 ///
 /// ## Example
@@ -251,8 +245,8 @@ pub fn asin(args: &mut Args) -> SourceResult<Value> {
 /// - value: `Num` (positional, required)
 ///   The number whose arccosine to calculate. Must be between -1 and 1.
 ///
-/// ## Category
-/// calculate
+/// Display: Arccosine
+/// Category: calculate
 #[func]
 pub fn acos(args: &mut Args) -> SourceResult<Value> {
     let Spanned { v, span } = args.expect::<Spanned<Num>>("value")?;
@@ -263,7 +257,6 @@ pub fn acos(args: &mut Args) -> SourceResult<Value> {
     Ok(Value::Angle(Angle::rad(val.acos())))
 }
 
-/// # Arctangent
 /// Calculate the arctangent of a number.
 ///
 /// ## Example
@@ -276,15 +269,14 @@ pub fn acos(args: &mut Args) -> SourceResult<Value> {
 /// - value: `Num` (positional, required)
 ///   The number whose arctangent to calculate.
 ///
-/// ## Category
-/// calculate
+/// Display: Arctangent
+/// Category: calculate
 #[func]
 pub fn atan(args: &mut Args) -> SourceResult<Value> {
     let value = args.expect::<Num>("value")?;
     Ok(Value::Angle(Angle::rad(value.float().atan())))
 }
 
-/// # Hyperbolic sine
 /// Calculate the hyperbolic sine of an angle.
 ///
 /// When called with an integer or a float, they will be interpreted as radians.
@@ -299,8 +291,8 @@ pub fn atan(args: &mut Args) -> SourceResult<Value> {
 /// - angle: `AngleLike` (positional, required)
 ///   The angle whose hyperbolic sine to calculate.
 ///
-/// ## Category
-/// calculate
+/// Display: Hyperbolic sine
+/// Category: calculate
 #[func]
 pub fn sinh(args: &mut Args) -> SourceResult<Value> {
     let arg = args.expect::<AngleLike>("angle")?;
@@ -311,7 +303,6 @@ pub fn sinh(args: &mut Args) -> SourceResult<Value> {
     }))
 }
 
-/// # Hyperbolic cosine
 /// Calculate the hyperbolic cosine of an angle.
 ///
 /// When called with an integer or a float, they will be interpreted as radians.
@@ -326,8 +317,8 @@ pub fn sinh(args: &mut Args) -> SourceResult<Value> {
 /// - angle: `AngleLike` (positional, required)
 ///   The angle whose hyperbolic cosine to calculate.
 ///
-/// ## Category
-/// calculate
+/// Display: Hyperbolic cosine
+/// Category: calculate
 #[func]
 pub fn cosh(args: &mut Args) -> SourceResult<Value> {
     let arg = args.expect::<AngleLike>("angle")?;
@@ -338,7 +329,6 @@ pub fn cosh(args: &mut Args) -> SourceResult<Value> {
     }))
 }
 
-/// # Hyperbolic tangent
 /// Calculate the hyperbolic tangent of an angle.
 ///
 /// When called with an integer or a float, they will be interpreted as radians.
@@ -353,8 +343,8 @@ pub fn cosh(args: &mut Args) -> SourceResult<Value> {
 /// - angle: `AngleLike` (positional, required)
 ///   The angle whose hyperbolic tangent to calculate.
 ///
-/// ## Category
-/// calculate
+/// Display: Hyperbolic tangent
+/// Category: calculate
 #[func]
 pub fn tanh(args: &mut Args) -> SourceResult<Value> {
     let arg = args.expect::<AngleLike>("angle")?;
@@ -365,7 +355,6 @@ pub fn tanh(args: &mut Args) -> SourceResult<Value> {
     }))
 }
 
-/// # Logarithm
 /// Calculate the logarithm of a number.
 ///
 /// If the base is not specified, the logarithm is calculated in base 10.
@@ -381,8 +370,8 @@ pub fn tanh(args: &mut Args) -> SourceResult<Value> {
 /// - base: `Num` (named)
 ///   The base of the logarithm.
 ///
-/// ## Category
-/// calculate
+/// Display: Logarithm
+/// Category: calculate
 #[func]
 pub fn log(args: &mut Args) -> SourceResult<Value> {
     let value = args.expect::<f64>("value")?;
@@ -390,7 +379,6 @@ pub fn log(args: &mut Args) -> SourceResult<Value> {
     Ok(Value::Float(value.log(base)))
 }
 
-/// # Round down
 /// Round a number down to the nearest integer.
 ///
 /// If the number is already an integer, it is returned unchanged.
@@ -406,8 +394,8 @@ pub fn log(args: &mut Args) -> SourceResult<Value> {
 /// - value: `Num` (positional, required)
 ///   The number to round down.
 ///
-/// ## Category
-/// calculate
+/// Display: Round down
+/// Category: calculate
 #[func]
 pub fn floor(args: &mut Args) -> SourceResult<Value> {
     let value = args.expect::<Num>("value")?;
@@ -417,7 +405,6 @@ pub fn floor(args: &mut Args) -> SourceResult<Value> {
     })
 }
 
-/// # Round up
 /// Round a number up to the nearest integer.
 ///
 /// If the number is already an integer, it is returned unchanged.
@@ -433,8 +420,8 @@ pub fn floor(args: &mut Args) -> SourceResult<Value> {
 /// - value: `Num` (positional, required)
 ///   The number to round up.
 ///
-/// ## Category
-/// calculate
+/// Display: Round up
+/// Category: calculate
 #[func]
 pub fn ceil(args: &mut Args) -> SourceResult<Value> {
     let value = args.expect::<Num>("value")?;
@@ -444,7 +431,6 @@ pub fn ceil(args: &mut Args) -> SourceResult<Value> {
     })
 }
 
-/// # Round
 /// Round a number to the nearest integer.
 ///
 /// Optionally, a number of decimal places can be specified.
@@ -461,8 +447,8 @@ pub fn ceil(args: &mut Args) -> SourceResult<Value> {
 ///   The number to round.
 /// - digits: `i64` (named)
 ///
-/// ## Category
-/// calculate
+/// Display: Round
+/// Category: calculate
 #[func]
 pub fn round(args: &mut Args) -> SourceResult<Value> {
     let value = args.expect::<Num>("value")?;
@@ -477,7 +463,6 @@ pub fn round(args: &mut Args) -> SourceResult<Value> {
     })
 }
 
-/// # Clamp
 /// Clamp a number between a minimum and maximum value.
 ///
 /// ## Example
@@ -495,8 +480,8 @@ pub fn round(args: &mut Args) -> SourceResult<Value> {
 /// - max: `Num` (positional, required)
 ///   The inclusive maximum value.
 ///
-/// ## Category
-/// calculate
+/// Display: Clamp
+/// Category: calculate
 #[func]
 pub fn clamp(args: &mut Args) -> SourceResult<Value> {
     let value = args.expect::<Num>("value")?;
@@ -508,7 +493,6 @@ pub fn clamp(args: &mut Args) -> SourceResult<Value> {
     Ok(value.apply3(min, max.v, i64::clamp, f64::clamp))
 }
 
-/// # Minimum
 /// Determine the minimum of a sequence of values.
 ///
 /// ## Example
@@ -524,14 +508,13 @@ pub fn clamp(args: &mut Args) -> SourceResult<Value> {
 ///
 /// - returns: any
 ///
-/// ## Category
-/// calculate
+/// Display: Minimum
+/// Category: calculate
 #[func]
 pub fn min(args: &mut Args) -> SourceResult<Value> {
     minmax(args, Ordering::Less)
 }
 
-/// # Maximum
 /// Determine the maximum of a sequence of values.
 ///
 /// ## Example
@@ -547,8 +530,8 @@ pub fn min(args: &mut Args) -> SourceResult<Value> {
 ///
 /// - returns: any
 ///
-/// ## Category
-/// calculate
+/// Display: Maximum
+/// Category: calculate
 #[func]
 pub fn max(args: &mut Args) -> SourceResult<Value> {
     minmax(args, Ordering::Greater)
@@ -575,7 +558,6 @@ fn minmax(args: &mut Args, goal: Ordering) -> SourceResult<Value> {
     Ok(extremum)
 }
 
-/// # Even
 /// Determine whether an integer is even.
 ///
 /// ## Example
@@ -591,14 +573,13 @@ fn minmax(args: &mut Args, goal: Ordering) -> SourceResult<Value> {
 ///
 /// - returns: boolean
 ///
-/// ## Category
-/// calculate
+/// Display: Even
+/// Category: calculate
 #[func]
 pub fn even(args: &mut Args) -> SourceResult<Value> {
     Ok(Value::Bool(args.expect::<i64>("value")? % 2 == 0))
 }
 
-/// # Odd
 /// Determine whether an integer is odd.
 ///
 /// ## Example
@@ -615,14 +596,13 @@ pub fn even(args: &mut Args) -> SourceResult<Value> {
 ///
 /// - returns: boolean
 ///
-/// ## Category
-/// calculate
+/// Display: Odd
+/// Category: calculate
 #[func]
 pub fn odd(args: &mut Args) -> SourceResult<Value> {
     Ok(Value::Bool(args.expect::<i64>("value")? % 2 != 0))
 }
 
-/// # Modulus
 /// Calculate the modulus of two numbers.
 ///
 /// ## Example
@@ -640,8 +620,8 @@ pub fn odd(args: &mut Args) -> SourceResult<Value> {
 ///
 /// - returns: integer or float
 ///
-/// ## Category
-/// calculate
+/// Display: Modulus
+/// Category: calculate
 #[func]
 pub fn mod_(args: &mut Args) -> SourceResult<Value> {
     let dividend = args.expect::<Num>("dividend")?;
@@ -693,7 +673,7 @@ impl Num {
     }
 }
 
-castable! {
+cast_from_value! {
     Num,
     v: i64 => Self::Int(v),
     v: f64 => Self::Float(v),
@@ -706,7 +686,7 @@ enum AngleLike {
     Angle(Angle),
 }
 
-castable! {
+cast_from_value! {
     AngleLike,
     v: i64 => Self::Int(v),
     v: f64 => Self::Float(v),

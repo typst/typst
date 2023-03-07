@@ -124,3 +124,11 @@ assign_impl!(Length += Length);
 assign_impl!(Length -= Length);
 assign_impl!(Length *= f64);
 assign_impl!(Length /= f64);
+
+impl Resolve for Length {
+    type Output = Abs;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        self.abs + self.em.resolve(styles)
+    }
+}

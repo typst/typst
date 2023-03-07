@@ -3,7 +3,6 @@ use std::str::FromStr;
 use super::ColumnsNode;
 use crate::prelude::*;
 
-/// # Page
 /// Layouts its child onto one or multiple pages.
 ///
 /// Although this function is primarily used in set rules to affect page
@@ -14,13 +13,6 @@ use crate::prelude::*;
 /// the pages will grow to fit their content on the respective axis.
 ///
 /// ## Parameters
-/// - body: `Content` (positional, required)
-///   The contents of the page(s).
-///
-///   Multiple pages will be created if the content does not fit on a single
-///   page. A new page with the page properties prior to the function invocation
-///   will be created after the body has been typeset.
-///
 /// - paper: `Paper` (positional, settable)
 ///   A standard paper size to set width and height. When this is not specified,
 ///   Typst defaults to `{"a4"}` paper.
@@ -33,15 +25,25 @@ use crate::prelude::*;
 /// There you go, US friends!
 /// ```
 ///
-/// ## Category
-/// layout
-#[func]
-#[capable]
-#[derive(Clone, Hash)]
-pub struct PageNode(pub Content);
-
+/// Display: Page
+/// Category: layout
 #[node]
-impl PageNode {
+#[set({
+    if let Some(paper) = args.named_or_find::<Paper>("paper")? {
+        styles.set(Self::WIDTH, Smart::Custom(paper.width().into()));
+        styles.set(Self::HEIGHT, Smart::Custom(paper.height().into()));
+    }
+})]
+pub struct PageNode {
+    /// The contents of the page(s).
+    ///
+    /// Multiple pages will be created if the content does not fit on a single
+    /// page. A new page with the page properties prior to the function invocation
+    /// will be created after the body has been typeset.
+    #[positional]
+    #[required]
+    pub body: Content,
+
     /// The width of the page.
     ///
     /// ```example
@@ -54,8 +56,10 @@ impl PageNode {
     ///   box(square(width: 1cm))
     /// }
     /// ```
-    #[property(resolve)]
-    pub const WIDTH: Smart<Length> = Smart::Custom(Paper::A4.width().into());
+    #[settable]
+    #[resolve]
+    #[default(Smart::Custom(Paper::A4.width().into()))]
+    pub width: Smart<Length>,
 
     /// The height of the page.
     ///
@@ -63,8 +67,10 @@ impl PageNode {
     /// by inserting a [page break]($func/pagebreak). Most examples throughout
     /// this documentation use `{auto}` for the height of the page to
     /// dynamically grow and shrink to fit their content.
-    #[property(resolve)]
-    pub const HEIGHT: Smart<Length> = Smart::Custom(Paper::A4.height().into());
+    #[settable]
+    #[resolve]
+    #[default(Smart::Custom(Paper::A4.height().into()))]
+    pub height: Smart<Length>,
 
     /// Whether the page is flipped into landscape orientation.
     ///
@@ -84,7 +90,9 @@ impl PageNode {
     /// New York, NY 10001 \
     /// +1 555 555 5555
     /// ```
-    pub const FLIPPED: bool = false;
+    #[settable]
+    #[default(false)]
+    pub flipped: bool,
 
     /// The page's margins.
     ///
@@ -114,8 +122,10 @@ impl PageNode {
     ///   fill: aqua,
     /// )
     /// ```
-    #[property(fold)]
-    pub const MARGIN: Sides<Option<Smart<Rel<Length>>>> = Sides::splat(Smart::Auto);
+    #[settable]
+    #[fold]
+    #[default]
+    pub margin: Sides<Option<Smart<Rel<Length>>>>,
 
     /// How many columns the page has.
     ///
@@ -131,7 +141,9 @@ impl PageNode {
     /// emissions and mitigate the impacts
     /// of a rapidly changing climate.
     /// ```
-    pub const COLUMNS: NonZeroUsize = NonZeroUsize::new(1).unwrap();
+    #[settable]
+    #[default(NonZeroUsize::new(1).unwrap())]
+    pub columns: NonZeroUsize,
 
     /// The page's background color.
     ///
@@ -145,7 +157,9 @@ impl PageNode {
     /// #set text(fill: rgb("fdfdfd"))
     /// *Dark mode enabled.*
     /// ```
-    pub const FILL: Option<Paint> = None;
+    #[settable]
+    #[default]
+    pub fill: Option<Paint>,
 
     /// The page's header.
     ///
@@ -166,8 +180,9 @@ impl PageNode {
     ///
     /// #lorem(18)
     /// ```
-    #[property(referenced)]
-    pub const HEADER: Option<Marginal> = None;
+    #[settable]
+    #[default]
+    pub header: Option<Marginal>,
 
     /// The page's footer.
     ///
@@ -190,8 +205,9 @@ impl PageNode {
     ///
     /// #lorem(18)
     /// ```
-    #[property(referenced)]
-    pub const FOOTER: Option<Marginal> = None;
+    #[settable]
+    #[default]
+    pub footer: Option<Marginal>,
 
     /// Content in the page's background.
     ///
@@ -211,8 +227,9 @@ impl PageNode {
     /// In the year 2023, we plan to take over the world
     /// (of typesetting).
     /// ```
-    #[property(referenced)]
-    pub const BACKGROUND: Option<Marginal> = None;
+    #[settable]
+    #[default]
+    pub background: Option<Marginal>,
 
     /// Content in the page's foreground.
     ///
@@ -228,26 +245,9 @@ impl PageNode {
     /// "Weak Reject" because they did
     /// not understand our approach...
     /// ```
-    #[property(referenced)]
-    pub const FOREGROUND: Option<Marginal> = None;
-
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Self(args.expect("body")?).pack())
-    }
-
-    fn set(...) {
-        if let Some(paper) = args.named_or_find::<Paper>("paper")? {
-            styles.set(Self::WIDTH, Smart::Custom(paper.width().into()));
-            styles.set(Self::HEIGHT, Smart::Custom(paper.height().into()));
-        }
-    }
-
-    fn field(&self, name: &str) -> Option<Value> {
-        match name {
-            "body" => Some(Value::Content(self.0.clone())),
-            _ => None,
-        }
-    }
+    #[settable]
+    #[default]
+    pub foreground: Option<Marginal>,
 }
 
 impl PageNode {
@@ -276,26 +276,22 @@ impl PageNode {
         let default = Rel::from(0.1190 * min);
         let padding = styles.get(Self::MARGIN).map(|side| side.unwrap_or(default));
 
-        let mut child = self.0.clone();
+        let mut child = self.body();
 
         // Realize columns.
         let columns = styles.get(Self::COLUMNS);
         if columns.get() > 1 {
-            child = ColumnsNode { count: columns, body: self.0.clone() }.pack();
+            child = ColumnsNode::new(columns, child).pack();
         }
 
         // Realize margins.
         child = child.padded(padding);
 
-        // Realize background fill.
-        if let Some(fill) = styles.get(Self::FILL) {
-            child = child.filled(fill);
-        }
-
         // Layout the child.
         let regions = Regions::repeat(size, size.map(Abs::is_finite));
         let mut fragment = child.layout(vt, styles, regions)?;
 
+        let fill = styles.get(Self::FILL);
         let header = styles.get(Self::HEADER);
         let footer = styles.get(Self::FOOTER);
         let foreground = styles.get(Self::FOREGROUND);
@@ -303,17 +299,21 @@ impl PageNode {
 
         // Realize overlays.
         for frame in &mut fragment {
+            if let Some(fill) = fill {
+                frame.fill(fill);
+            }
+
             let size = frame.size();
             let pad = padding.resolve(styles).relative_to(size);
             let pw = size.x - pad.left - pad.right;
             let py = size.y - pad.bottom;
             for (marginal, pos, area) in [
-                (header, Point::with_x(pad.left), Size::new(pw, pad.top)),
-                (footer, Point::new(pad.left, py), Size::new(pw, pad.bottom)),
-                (foreground, Point::zero(), size),
-                (background, Point::zero(), size),
+                (&header, Point::with_x(pad.left), Size::new(pw, pad.top)),
+                (&footer, Point::new(pad.left, py), Size::new(pw, pad.bottom)),
+                (&foreground, Point::zero(), size),
+                (&background, Point::zero(), size),
             ] {
-                let in_background = std::ptr::eq(marginal, background);
+                let in_background = std::ptr::eq(marginal, &background);
                 let Some(marginal) = marginal else { continue };
                 let content = marginal.resolve(vt, page)?;
                 let pod = Regions::one(area, Axes::splat(true));
@@ -332,15 +332,6 @@ impl PageNode {
     }
 }
 
-impl Debug for PageNode {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_str("Page(")?;
-        self.0.fmt(f)?;
-        f.write_str(")")
-    }
-}
-
-/// # Page Break
 /// A manual page break.
 ///
 /// Must not be used inside any containers.
@@ -355,26 +346,15 @@ impl Debug for PageNode {
 /// In 1984, the first ...
 /// ```
 ///
-/// ## Parameters
-/// - weak: `bool` (named)
-///   If `{true}`, the page break is skipped if the current page is already
-///   empty.
-///
-/// ## Category
-/// layout
-#[func]
-#[capable]
-#[derive(Debug, Copy, Clone, Hash)]
-pub struct PagebreakNode {
-    pub weak: bool,
-}
-
+/// Display: Page Break
+/// Category: layout
 #[node]
-impl PagebreakNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        let weak = args.named("weak")?.unwrap_or(false);
-        Ok(Self { weak }.pack())
-    }
+pub struct PagebreakNode {
+    /// If `{true}`, the page break is skipped if the current page is already
+    /// empty.
+    #[named]
+    #[default(false)]
+    pub weak: bool,
 }
 
 /// A header, footer, foreground or background definition.
@@ -399,10 +379,17 @@ impl Marginal {
     }
 }
 
-castable! {
+cast_from_value! {
     Marginal,
     v: Content => Self::Content(v),
     v: Func => Self::Func(v),
+}
+
+cast_to_value! {
+    v: Marginal => match v {
+        Marginal::Content(v) => v.into(),
+        Marginal::Func(v) => v.into(),
+    }
 }
 
 /// Specification of a paper.
@@ -450,7 +437,7 @@ macro_rules! papers {
             }
         }
 
-        castable! {
+        cast_from_value! {
             Paper,
             $(
                 /// Produces a paper of the respective size.

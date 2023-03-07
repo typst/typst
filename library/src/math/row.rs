@@ -103,7 +103,7 @@ impl MathRow {
 
     pub fn to_frame(self, ctx: &MathContext) -> Frame {
         let styles = ctx.styles();
-        let align = styles.get(AlignNode::ALIGNS).x.resolve(styles);
+        let align = styles.get(AlignNode::ALIGNMENT).x.resolve(styles);
         self.to_aligned_frame(ctx, &[], align)
     }
 
@@ -200,10 +200,7 @@ impl MathRow {
     }
 }
 
-impl<T> From<T> for MathRow
-where
-    T: Into<MathFragment>,
-{
+impl<T: Into<MathFragment>> From<T> for MathRow {
     fn from(fragment: T) -> Self {
         Self(vec![fragment.into()])
     }

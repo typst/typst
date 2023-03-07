@@ -48,8 +48,8 @@ use std::mem;
 use typed_arena::Arena;
 use typst::diag::SourceResult;
 use typst::model::{
-    applicable, capability, realize, Content, Node, SequenceNode, Style, StyleChain,
-    StyleVecBuilder, StyledNode,
+    applicable, realize, Content, Node, SequenceNode, Style, StyleChain, StyleVecBuilder,
+    StyledNode,
 };
 
 use crate::math::{FormulaNode, LayoutMath};
@@ -60,7 +60,6 @@ use crate::text::{LinebreakNode, SmartQuoteNode, SpaceNode, TextNode};
 use crate::visualize::{CircleNode, EllipseNode, ImageNode, RectNode, SquareNode};
 
 /// Root-level layout.
-#[capability]
 pub trait LayoutRoot {
     /// Layout into one frame per page.
     fn layout_root(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Document>;
@@ -96,7 +95,6 @@ impl LayoutRoot for Content {
 }
 
 /// Layout into regions.
-#[capability]
 pub trait Layout {
     /// Layout into one frame per region.
     fn layout(
@@ -160,7 +158,7 @@ fn realize_root<'a>(
     builder.accept(content, styles)?;
     builder.interrupt_page(Some(styles))?;
     let (pages, shared) = builder.doc.unwrap().pages.finish();
-    Ok((DocumentNode(pages).pack(), shared))
+    Ok((DocumentNode::new(pages.to_vec()).pack(), shared))
 }
 
 /// Realize into a node that is capable of block-level layout.
@@ -185,7 +183,7 @@ fn realize_block<'a>(
     builder.accept(content, styles)?;
     builder.interrupt_par()?;
     let (children, shared) = builder.flow.0.finish();
-    Ok((FlowNode(children).pack(), shared))
+    Ok((FlowNode::new(children.to_vec()).pack(), shared))
 }
 
 /// Builds a document or a flow node from content.
@@ -211,6 +209,7 @@ struct Scratch<'a> {
     styles: Arena<StyleChain<'a>>,
     /// An arena where intermediate content resulting from show rules is stored.
     content: Arena<Content>,
+    maps: Arena<StyleMap>,
 }
 
 impl<'a, 'v, 't> Builder<'a, 'v, 't> {
@@ -231,10 +230,8 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         styles: StyleChain<'a>,
     ) -> SourceResult<()> {
         if content.has::<dyn LayoutMath>() && !content.is::<FormulaNode>() {
-            content = self
-                .scratch
-                .content
-                .alloc(FormulaNode { body: content.clone(), block: false }.pack());
+            content =
+                self.scratch.content.alloc(FormulaNode::new(content.clone()).pack());
         }
 
         // Prepare only if this is the first application for this node.
@@ -252,8 +249,9 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         }
 
         if let Some(seq) = content.to::<SequenceNode>() {
-            for sub in &seq.0 {
-                self.accept(sub, styles)?;
+            for sub in seq.children() {
+                let stored = self.scratch.content.alloc(sub);
+                self.accept(stored, styles)?;
             }
             return Ok(());
         }
@@ -269,8 +267,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
 
         self.interrupt_list()?;
 
-        if content.is::<ListItem>() {
-            self.list.accept(content, styles);
+        if self.list.accept(content, styles) {
             return Ok(());
         }
 
@@ -286,7 +283,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
 
         let keep = content
             .to::<PagebreakNode>()
-            .map_or(false, |pagebreak| !pagebreak.weak);
+            .map_or(false, |pagebreak| !pagebreak.weak());
 
         self.interrupt_page(keep.then(|| styles))?;
 
@@ -308,11 +305,13 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         styled: &'a StyledNode,
         styles: StyleChain<'a>,
     ) -> SourceResult<()> {
+        let map = self.scratch.maps.alloc(styled.map());
         let stored = self.scratch.styles.alloc(styles);
-        let styles = stored.chain(&styled.map);
-        self.interrupt_style(&styled.map, None)?;
-        self.accept(&styled.sub, styles)?;
-        self.interrupt_style(&styled.map, Some(styles))?;
+        let content = self.scratch.content.alloc(styled.sub());
+        let styles = stored.chain(map);
+        self.interrupt_style(&map, None)?;
+        self.accept(content, styles)?;
+        self.interrupt_style(map, Some(styles))?;
         Ok(())
     }
 
@@ -381,7 +380,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
             let (flow, shared) = mem::take(&mut self.flow).0.finish();
             let styles =
                 if shared == StyleChain::default() { styles.unwrap() } else { shared };
-            let page = PageNode(FlowNode(flow).pack()).pack();
+            let page = PageNode::new(FlowNode::new(flow.to_vec()).pack()).pack();
             let stored = self.scratch.content.alloc(page);
             self.accept(stored, styles)?;
         }
@@ -392,7 +391,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
 /// Accepts pagebreaks and pages.
 struct DocBuilder<'a> {
     /// The page runs built so far.
-    pages: StyleVecBuilder<'a, PageNode>,
+    pages: StyleVecBuilder<'a, Content>,
     /// Whether to keep a following page even if it is empty.
     keep_next: bool,
 }
@@ -400,12 +399,12 @@ struct DocBuilder<'a> {
 impl<'a> DocBuilder<'a> {
     fn accept(&mut self, content: &Content, styles: StyleChain<'a>) -> bool {
         if let Some(pagebreak) = content.to::<PagebreakNode>() {
-            self.keep_next = !pagebreak.weak;
+            self.keep_next = !pagebreak.weak();
             return true;
         }
 
-        if let Some(page) = content.to::<PageNode>() {
-            self.pages.push(page.clone(), styles);
+        if content.is::<PageNode>() {
+            self.pages.push(content.clone(), styles);
             self.keep_next = false;
             return true;
         }
@@ -441,11 +440,11 @@ impl<'a> FlowBuilder<'a> {
 
         if content.has::<dyn Layout>() || content.is::<ParNode>() {
             let is_tight_list = if let Some(node) = content.to::<ListNode>() {
-                node.tight
+                node.tight()
             } else if let Some(node) = content.to::<EnumNode>() {
-                node.tight
+                node.tight()
             } else if let Some(node) = content.to::<TermsNode>() {
-                node.tight
+                node.tight()
             } else {
                 false
             };
@@ -458,9 +457,9 @@ impl<'a> FlowBuilder<'a> {
 
             let above = styles.get(BlockNode::ABOVE);
             let below = styles.get(BlockNode::BELOW);
-            self.0.push(above.pack(), styles);
+            self.0.push(above.clone().pack(), styles);
             self.0.push(content.clone(), styles);
-            self.0.push(below.pack(), styles);
+            self.0.push(below.clone().pack(), styles);
             return true;
         }
 
@@ -479,7 +478,7 @@ impl<'a> ParBuilder<'a> {
             || content.is::<HNode>()
             || content.is::<LinebreakNode>()
             || content.is::<SmartQuoteNode>()
-            || content.to::<FormulaNode>().map_or(false, |node| !node.block)
+            || content.to::<FormulaNode>().map_or(false, |node| !node.block())
             || content.is::<BoxNode>()
         {
             self.0.push(content.clone(), styles);
@@ -491,14 +490,14 @@ impl<'a> ParBuilder<'a> {
 
     fn finish(self) -> (Content, StyleChain<'a>) {
         let (children, shared) = self.0.finish();
-        (ParNode(children).pack(), shared)
+        (ParNode::new(children.to_vec()).pack(), shared)
     }
 }
 
 /// Accepts list / enum items, spaces, paragraph breaks.
 struct ListBuilder<'a> {
     /// The list items collected so far.
-    items: StyleVecBuilder<'a, ListItem>,
+    items: StyleVecBuilder<'a, Content>,
     /// Whether the list contains no paragraph breaks.
     tight: bool,
     /// Trailing content for which it is unclear whether it is part of the list.
@@ -514,14 +513,18 @@ impl<'a> ListBuilder<'a> {
             return true;
         }
 
-        if let Some(item) = content.to::<ListItem>() {
-            if self.items.items().next().map_or(true, |first| {
-                std::mem::discriminant(item) == std::mem::discriminant(first)
-            }) {
-                self.items.push(item.clone(), styles);
-                self.tight &= self.staged.drain(..).all(|(t, _)| !t.is::<ParbreakNode>());
-                return true;
-            }
+        if (content.is::<ListItem>()
+            || content.is::<EnumItem>()
+            || content.is::<TermItem>())
+            && self
+                .items
+                .items()
+                .next()
+                .map_or(true, |first| first.id() == content.id())
+        {
+            self.items.push(content.clone(), styles);
+            self.tight &= self.staged.drain(..).all(|(t, _)| !t.is::<ParbreakNode>());
+            return true;
         }
 
         false
@@ -530,31 +533,48 @@ impl<'a> ListBuilder<'a> {
     fn finish(self) -> (Content, StyleChain<'a>) {
         let (items, shared) = self.items.finish();
         let item = items.items().next().unwrap();
-        let output = match item {
-            ListItem::List(_) => ListNode {
-                tight: self.tight,
-                items: items.map(|item| match item {
-                    ListItem::List(item) => item.clone(),
-                    _ => panic!("wrong list item"),
-                }),
-            }
-            .pack(),
-            ListItem::Enum(..) => EnumNode {
-                tight: self.tight,
-                items: items.map(|item| match item {
-                    ListItem::Enum(number, body) => (*number, body.clone()),
-                    _ => panic!("wrong list item"),
-                }),
-            }
-            .pack(),
-            ListItem::Term(_) => TermsNode {
-                tight: self.tight,
-                items: items.map(|item| match item {
-                    ListItem::Term(item) => item.clone(),
-                    _ => panic!("wrong list item"),
-                }),
-            }
-            .pack(),
+        let output = if item.is::<ListItem>() {
+            ListNode::new(
+                items
+                    .iter()
+                    .map(|(item, map)| {
+                        let item = item.to::<ListItem>().unwrap();
+                        ListItem::new(item.body().styled_with_map(map.clone()))
+                    })
+                    .collect::<Vec<_>>(),
+            )
+            .with_tight(self.tight)
+            .pack()
+        } else if item.is::<EnumItem>() {
+            EnumNode::new(
+                items
+                    .iter()
+                    .map(|(item, map)| {
+                        let item = item.to::<EnumItem>().unwrap();
+                        EnumItem::new(item.body().styled_with_map(map.clone()))
+                            .with_number(item.number())
+                    })
+                    .collect::<Vec<_>>(),
+            )
+            .with_tight(self.tight)
+            .pack()
+        } else if item.is::<TermItem>() {
+            TermsNode::new(
+                items
+                    .iter()
+                    .map(|(item, map)| {
+                        let item = item.to::<TermItem>().unwrap();
+                        TermItem::new(
+                            item.term().styled_with_map(map.clone()),
+                            item.description().styled_with_map(map.clone()),
+                        )
+                    })
+                    .collect::<Vec<_>>(),
+            )
+            .with_tight(self.tight)
+            .pack()
+        } else {
+            unreachable!()
         };
         (output, shared)
     }
@@ -569,18 +589,3 @@ impl Default for ListBuilder<'_> {
         }
     }
 }
-
-/// An item in a list.
-#[capable]
-#[derive(Debug, Clone, Hash)]
-pub enum ListItem {
-    /// An item of a bullet list.
-    List(Content),
-    /// An item of a numbered list.
-    Enum(Option<NonZeroUsize>, Content),
-    /// An item of a term list.
-    Term(TermItem),
-}
-
-#[node]
-impl ListItem {}

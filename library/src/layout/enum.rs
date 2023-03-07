@@ -1,11 +1,12 @@
 use std::str::FromStr;
 
-use crate::layout::{BlockNode, GridNode, ParNode, Sizing, Spacing};
+use crate::layout::{BlockNode, ParNode, Sizing, Spacing};
 use crate::meta::{Numbering, NumberingPattern};
 use crate::prelude::*;
 use crate::text::TextNode;
 
-/// # Numbered List
+use super::GridLayouter;
+
 /// A numbered list.
 ///
 /// Displays a sequence of items vertically and numbers them consecutively.
@@ -89,20 +90,19 @@ use crate::text::TextNode;
 ///     items.
 ///   ```
 ///
-/// ## Category
-/// layout
-#[func]
-#[capable(Layout)]
-#[derive(Debug, Hash)]
+/// Display: Numbered List
+/// Category: layout
+#[node(Construct, Layout)]
 pub struct EnumNode {
-    /// If true, the items are separated by leading instead of list spacing.
-    pub tight: bool,
-    /// The individual numbered items.
-    pub items: StyleVec<(Option<NonZeroUsize>, Content)>,
-}
+    /// The numbered list's items.
+    #[variadic]
+    pub items: Vec<EnumItem>,
 
-#[node]
-impl EnumNode {
+    /// If true, the items are separated by leading instead of list spacing.
+    #[named]
+    #[default(true)]
+    pub tight: bool,
+
     /// How to number the enumeration. Accepts a
     /// [numbering pattern or function]($func/numbering).
     ///
@@ -122,9 +122,9 @@ impl EnumNode {
     /// + Superscript
     /// + Numbering!
     /// ```
-    #[property(referenced)]
-    pub const NUMBERING: Numbering =
-        Numbering::Pattern(NumberingPattern::from_str("1.").unwrap());
+    #[settable]
+    #[default(Numbering::Pattern(NumberingPattern::from_str("1.").unwrap()))]
+    pub numbering: Numbering,
 
     /// Whether to display the full numbering, including the numbers of
     /// all parent enumerations.
@@ -138,63 +138,51 @@ impl EnumNode {
     ///   + Add integredients
     /// + Eat
     /// ```
-    pub const FULL: bool = false;
+    #[settable]
+    #[default(false)]
+    pub full: bool,
 
     /// The indentation of each item's label.
-    #[property(resolve)]
-    pub const INDENT: Length = Length::zero();
+    #[settable]
+    #[resolve]
+    #[default]
+    pub indent: Length,
 
     /// The space between the numbering and the body of each item.
-    #[property(resolve)]
-    pub const BODY_INDENT: Length = Em::new(0.5).into();
+    #[settable]
+    #[resolve]
+    #[default(Em::new(0.5).into())]
+    pub body_indent: Length,
 
     /// The spacing between the items of a wide (non-tight) enumeration.
     ///
     /// If set to `{auto}`, uses the spacing [below blocks]($func/block.below).
-    pub const SPACING: Smart<Spacing> = Smart::Auto;
+    #[settable]
+    #[default]
+    pub spacing: Smart<Spacing>,
 
     /// The numbers of parent items.
-    #[property(skip, fold)]
-    const PARENTS: Parent = vec![];
+    #[settable]
+    #[fold]
+    #[skip]
+    #[default]
+    parents: Parent,
+}
 
+impl Construct for EnumNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        let mut number: NonZeroUsize =
-            args.named("start")?.unwrap_or(NonZeroUsize::new(1).unwrap());
-
-        Ok(Self {
-            tight: args.named("tight")?.unwrap_or(true),
-            items: args
-                .all()?
-                .into_iter()
-                .map(|body| {
-                    let item = (Some(number), body);
-                    number = number.saturating_add(1);
-                    item
-                })
-                .collect(),
+        let mut items = args.all::<EnumItem>()?;
+        if let Some(number) = args.named::<NonZeroUsize>("start")? {
+            if let Some(first) = items.first_mut() {
+                if first.number().is_none() {
+                    *first = EnumItem::new(first.body()).with_number(Some(number));
+                }
+            }
         }
-        .pack())
-    }
 
-    fn field(&self, name: &str) -> Option<Value> {
-        match name {
-            "tight" => Some(Value::Bool(self.tight)),
-            "items" => Some(Value::Array(
-                self.items
-                    .items()
-                    .map(|(number, body)| {
-                        Value::Dict(dict! {
-                            "number" => match *number {
-                                Some(n) => Value::Int(n.get() as i64),
-                                None => Value::None,
-                            },
-                            "body" => Value::Content(body.clone()),
-                        })
-                    })
-                    .collect(),
-            )),
-            _ => None,
-        }
+        Ok(Self::new(items)
+            .with_tight(args.named("tight")?.unwrap_or(true))
+            .pack())
     }
 }
 
@@ -208,12 +196,12 @@ impl Layout for EnumNode {
         let numbering = styles.get(Self::NUMBERING);
         let indent = styles.get(Self::INDENT);
         let body_indent = styles.get(Self::BODY_INDENT);
-        let gutter = if self.tight {
+        let gutter = if self.tight() {
             styles.get(ParNode::LEADING).into()
         } else {
             styles
                 .get(Self::SPACING)
-                .unwrap_or_else(|| styles.get(BlockNode::BELOW).amount)
+                .unwrap_or_else(|| styles.get(BlockNode::BELOW).amount())
         };
 
         let mut cells = vec![];
@@ -221,8 +209,8 @@ impl Layout for EnumNode {
         let mut parents = styles.get(Self::PARENTS);
         let full = styles.get(Self::FULL);
 
-        for ((n, item), map) in self.items.iter() {
-            number = n.unwrap_or(number);
+        for item in self.items() {
+            number = item.number().unwrap_or(number);
 
             let resolved = if full {
                 parents.push(number);
@@ -230,7 +218,7 @@ impl Layout for EnumNode {
                 parents.pop();
                 content
             } else {
-                match numbering {
+                match &numbering {
                     Numbering::Pattern(pattern) => {
                         TextNode::packed(pattern.apply_kth(parents.len(), number))
                     }
@@ -239,32 +227,67 @@ impl Layout for EnumNode {
             };
 
             cells.push(Content::empty());
-            cells.push(resolved.styled_with_map(map.clone()));
+            cells.push(resolved);
             cells.push(Content::empty());
-            cells.push(
-                item.clone()
-                    .styled_with_map(map.clone())
-                    .styled(Self::PARENTS, Parent(number)),
-            );
+            cells.push(item.body().styled(Self::PARENTS, Parent(number)));
             number = number.saturating_add(1);
         }
 
-        GridNode {
-            tracks: Axes::with_x(vec![
+        let layouter = GridLayouter::new(
+            vt,
+            Axes::with_x(&[
                 Sizing::Rel(indent.into()),
                 Sizing::Auto,
                 Sizing::Rel(body_indent.into()),
                 Sizing::Auto,
             ]),
-            gutter: Axes::with_y(vec![gutter.into()]),
-            cells,
-        }
-        .layout(vt, styles, regions)
+            Axes::with_y(&[gutter.into()]),
+            &cells,
+            regions,
+            styles,
+        );
+
+        Ok(layouter.layout()?.fragment)
     }
 }
 
-#[derive(Debug, Clone, Hash)]
+/// An enumeration item.
+#[node]
+pub struct EnumItem {
+    /// The item's number.
+    #[positional]
+    #[default]
+    pub number: Option<NonZeroUsize>,
+
+    /// The item's body.
+    #[positional]
+    #[required]
+    pub body: Content,
+}
+
+cast_from_value! {
+    EnumItem,
+    array: Array => {
+        let mut iter = array.into_iter();
+        let (number, body) = match (iter.next(), iter.next(), iter.next()) {
+            (Some(a), Some(b), None) => (a.cast()?, b.cast()?),
+            _ => Err("array must contain exactly two entries")?,
+        };
+        Self::new(body).with_number(number)
+    },
+    v: Content => v.to::<Self>().cloned().unwrap_or_else(|| Self::new(v.clone())),
+}
+
 struct Parent(NonZeroUsize);
+
+cast_from_value! {
+    Parent,
+    v: NonZeroUsize => Self(v),
+}
+
+cast_to_value! {
+    v: Parent => v.0.into()
+}
 
 impl Fold for Parent {
     type Output = Vec<NonZeroUsize>;

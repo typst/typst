@@ -2,7 +2,6 @@ use crate::prelude::*;
 
 use super::AlignNode;
 
-/// # Repeat
 /// Repeats content to the available space.
 ///
 /// This can be useful when implementing a custom index, reference, or outline.
@@ -22,22 +21,14 @@ use super::AlignNode;
 /// ]
 /// ```
 ///
-/// ## Parameters
-/// - body: `Content` (positional, required)
-///   The content to repeat.
-///
-/// ## Category
-/// layout
-#[func]
-#[capable(Layout)]
-#[derive(Debug, Hash)]
-pub struct RepeatNode(pub Content);
-
-#[node]
-impl RepeatNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Self(args.expect("body")?).pack())
-    }
+/// Display: Repeat
+/// Category: layout
+#[node(Layout)]
+pub struct RepeatNode {
+    /// The content to repeat.
+    #[positional]
+    #[required]
+    pub body: Content,
 }
 
 impl Layout for RepeatNode {
@@ -48,8 +39,8 @@ impl Layout for RepeatNode {
         regions: Regions,
     ) -> SourceResult<Fragment> {
         let pod = Regions::one(regions.size, Axes::new(false, false));
-        let piece = self.0.layout(vt, styles, pod)?.into_frame();
-        let align = styles.get(AlignNode::ALIGNS).x.resolve(styles);
+        let piece = self.body().layout(vt, styles, pod)?.into_frame();
+        let align = styles.get(AlignNode::ALIGNMENT).x.resolve(styles);
 
         let fill = regions.size.x;
         let width = piece.width();

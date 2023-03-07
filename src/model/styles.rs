@@ -1,21 +1,16 @@
 use std::any::Any;
 use std::fmt::{self, Debug, Formatter};
-use std::hash::Hash;
+use std::hash::{Hash, Hasher};
 use std::iter;
 use std::marker::PhantomData;
-use std::sync::Arc;
 
-use comemo::{Prehashed, Tracked};
+use comemo::Tracked;
+use ecow::EcoString;
 
-use super::{Content, Label, NodeId};
+use super::{Content, Label, Node, NodeId};
 use crate::diag::{SourceResult, Trace, Tracepoint};
-use crate::eval::{Args, Dict, Func, Regex, Value};
-use crate::geom::{
-    Abs, Align, Axes, Corners, Em, GenAlign, Length, Numeric, PartialStroke, Rel, Sides,
-    Smart,
-};
+use crate::eval::{cast_from_value, Args, Cast, Dict, Func, Regex, Value};
 use crate::syntax::Span;
-use crate::util::ReadableTypeId;
 use crate::World;
 
 /// A map of style properties.
@@ -76,7 +71,7 @@ impl StyleMap {
     /// Mark all contained properties as _scoped_. This means that they only
     /// apply to the first descendant node (of their type) in the hierarchy and
     /// not its children, too. This is used by
-    /// [constructors](super::Node::construct).
+    /// [constructors](super::Construct::construct).
     pub fn scoped(mut self) -> Self {
         for entry in &mut self.0 {
             if let Style::Property(property) = entry {
@@ -98,7 +93,7 @@ impl StyleMap {
 
     /// Returns `Some(_)` with an optional span if this map contains styles for
     /// the given `node`.
-    pub fn interruption<T: 'static>(&self) -> Option<Option<Span>> {
+    pub fn interruption<T: Node>(&self) -> Option<Option<Span>> {
         let node = NodeId::of::<T>();
         self.0.iter().find_map(|entry| match entry {
             Style::Property(property) => property.is_of(node).then(|| property.origin),
@@ -111,6 +106,12 @@ impl StyleMap {
 impl From<Style> for StyleMap {
     fn from(entry: Style) -> Self {
         Self(vec![entry])
+    }
+}
+
+impl PartialEq for StyleMap {
+    fn eq(&self, other: &Self) -> bool {
+        crate::util::hash128(self) == crate::util::hash128(other)
     }
 }
 
@@ -154,13 +155,11 @@ impl Style {
 
 impl Debug for Style {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_str("#[")?;
         match self {
-            Self::Property(property) => property.fmt(f)?,
-            Self::Recipe(recipe) => recipe.fmt(f)?,
-            Self::Barrier(id) => write!(f, "Barrier for {id:?}")?,
+            Self::Property(property) => property.fmt(f),
+            Self::Recipe(recipe) => recipe.fmt(f),
+            Self::Barrier(id) => write!(f, "#[Barrier for {id:?}]"),
         }
-        f.write_str("]")
     }
 }
 
@@ -175,12 +174,9 @@ pub struct Property {
     /// hierarchy. Used by constructors.
     scoped: bool,
     /// The property's value.
-    value: Arc<Prehashed<dyn Bounds>>,
+    value: Value,
     /// The span of the set rule the property stems from.
     origin: Option<Span>,
-    /// The name of the property.
-    #[cfg(debug_assertions)]
-    name: &'static str,
 }
 
 impl Property {
@@ -189,11 +185,9 @@ impl Property {
         Self {
             key: KeyId::of::<K>(),
             node: K::node(),
-            value: Arc::new(Prehashed::new(value)),
+            value: value.into(),
             scoped: false,
             origin: None,
-            #[cfg(debug_assertions)]
-            name: K::NAME,
         }
     }
 
@@ -208,9 +202,12 @@ impl Property {
     }
 
     /// Access the property's value if it is of the given key.
-    pub fn downcast<K: Key>(&self) -> Option<&K::Value> {
+    #[track_caller]
+    pub fn cast<K: Key>(&self) -> Option<K::Value> {
         if self.key == KeyId::of::<K>() {
-            (**self.value).as_any().downcast_ref()
+            Some(self.value.clone().cast().unwrap_or_else(|err| {
+                panic!("{} (for {} with value {:?})", err, self.key.name(), self.value)
+            }))
         } else {
             None
         }
@@ -234,9 +231,7 @@ impl Property {
 
 impl Debug for Property {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        #[cfg(debug_assertions)]
-        write!(f, "{} = ", self.name)?;
-        write!(f, "{:?}", self.value)?;
+        write!(f, "#set {}({}: {:?})", self.node.name(), self.key.name(), self.value)?;
         if self.scoped {
             write!(f, " [scoped]")?;
         }
@@ -267,45 +262,67 @@ where
 
 /// A style property key.
 ///
-/// This trait is not intended to be implemented manually, but rather through
-/// the `#[node]` proc-macro.
+/// This trait is not intended to be implemented manually.
 pub trait Key: Copy + 'static {
     /// The unfolded type which this property is stored as in a style map.
-    type Value: Debug + Clone + Hash + Sync + Send + 'static;
+    type Value: Cast + Into<Value>;
 
     /// The folded type of value that is returned when reading this property
     /// from a style chain.
-    type Output<'a>;
+    type Output;
 
-    /// The name of the property, used for debug printing.
-    const NAME: &'static str;
+    /// The id of the property.
+    fn id() -> KeyId;
 
     /// The id of the node the key belongs to.
     fn node() -> NodeId;
 
     /// Compute an output value from a sequence of values belonging to this key,
     /// folding if necessary.
-    fn get<'a>(
-        chain: StyleChain<'a>,
-        values: impl Iterator<Item = &'a Self::Value>,
-    ) -> Self::Output<'a>;
+    fn get(chain: StyleChain, values: impl Iterator<Item = Self::Value>) -> Self::Output;
 }
 
-/// A unique identifier for a property key.
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
-struct KeyId(ReadableTypeId);
+/// A unique identifier for a style key.
+#[derive(Copy, Clone)]
+pub struct KeyId(&'static KeyMeta);
 
 impl KeyId {
-    /// The id of the given key.
     pub fn of<T: Key>() -> Self {
-        Self(ReadableTypeId::of::<T>())
+        T::id()
+    }
+
+    pub fn from_meta(meta: &'static KeyMeta) -> Self {
+        Self(meta)
+    }
+
+    pub fn name(self) -> &'static str {
+        self.0.name
     }
 }
 
 impl Debug for KeyId {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        self.0.fmt(f)
+        f.pad(self.name())
     }
+}
+
+impl Hash for KeyId {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write_usize(self.0 as *const _ as usize);
+    }
+}
+
+impl Eq for KeyId {}
+
+impl PartialEq for KeyId {
+    fn eq(&self, other: &Self) -> bool {
+        std::ptr::eq(self.0, other.0)
+    }
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct KeyMeta {
+    pub name: &'static str,
 }
 
 /// A show rule recipe.
@@ -362,7 +379,7 @@ impl Recipe {
 
 impl Debug for Recipe {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "Recipe matching {:?}", self.selector)
+        write!(f, "#show {:?}: {:?}", self.selector, self.transform)
     }
 }
 
@@ -382,7 +399,7 @@ pub enum Selector {
 
 impl Selector {
     /// Define a simple node selector.
-    pub fn node<T: 'static>() -> Self {
+    pub fn node<T: Node>() -> Self {
         Self::Node(NodeId::of::<T>(), None)
     }
 
@@ -399,15 +416,23 @@ impl Selector {
                     && dict
                         .iter()
                         .flat_map(|dict| dict.iter())
-                        .all(|(name, value)| target.field(name).as_ref() == Some(value))
+                        .all(|(name, value)| target.field(name) == Some(value))
             }
             Self::Label(label) => target.label() == Some(label),
             Self::Regex(regex) => {
                 target.id() == item!(text_id)
-                    && item!(text_str)(target).map_or(false, |text| regex.is_match(text))
+                    && item!(text_str)(target).map_or(false, |text| regex.is_match(&text))
             }
         }
     }
+}
+
+cast_from_value! {
+    Selector: "selector",
+    text: EcoString => Self::text(&text),
+    label: Label => Self::Label(label),
+    func: Func => func.select(None)?,
+    regex: Regex => Self::Regex(regex),
 }
 
 /// A show rule transformation that can be applied to a match.
@@ -419,6 +444,17 @@ pub enum Transform {
     Func(Func),
     /// Apply styles to the content.
     Style(StyleMap),
+}
+
+cast_from_value! {
+    Transform,
+    content: Content => Self::Content(content),
+    func: Func => {
+        if func.argc().map_or(false, |count| count != 1) {
+            Err("function must have exactly one parameter")?
+        }
+        Self::Func(func)
+    },
 }
 
 /// A chain of style maps, similar to a linked list.
@@ -478,7 +514,7 @@ impl<'a> StyleChain<'a> {
     /// Returns the property's default value if no map in the chain contains an
     /// entry for it. Also takes care of resolving and folding and returns
     /// references where applicable.
-    pub fn get<K: Key>(self, key: K) -> K::Output<'a> {
+    pub fn get<K: Key>(self, key: K) -> K::Output {
         K::get(self, self.values(key))
     }
 
@@ -534,10 +570,7 @@ impl Debug for StyleChain<'_> {
 
 impl PartialEq for StyleChain<'_> {
     fn eq(&self, other: &Self) -> bool {
-        let as_ptr = |s| s as *const _;
-        self.head.as_ptr() == other.head.as_ptr()
-            && self.head.len() == other.head.len()
-            && self.tail.map(as_ptr) == other.tail.map(as_ptr)
+        crate::util::hash128(self) == crate::util::hash128(other)
     }
 }
 
@@ -585,13 +618,14 @@ struct Values<'a, K> {
 }
 
 impl<'a, K: Key> Iterator for Values<'a, K> {
-    type Item = &'a K::Value;
+    type Item = K::Value;
 
+    #[track_caller]
     fn next(&mut self) -> Option<Self::Item> {
         for entry in &mut self.entries {
             match entry {
                 Style::Property(property) => {
-                    if let Some(value) = property.downcast::<K>() {
+                    if let Some(value) = property.cast::<K>() {
                         if !property.scoped() || self.barriers <= 1 {
                             return Some(value);
                         }
@@ -669,6 +703,20 @@ impl<T> StyleVec<T> {
     /// any of the maps fulfills a specific property.
     pub fn styles(&self) -> impl Iterator<Item = &StyleMap> {
         self.maps.iter().map(|(map, _)| map)
+    }
+}
+
+impl StyleVec<Content> {
+    pub fn to_vec(self) -> Vec<Content> {
+        self.items
+            .into_iter()
+            .zip(
+                self.maps
+                    .iter()
+                    .flat_map(|(map, count)| iter::repeat(map).take(*count)),
+            )
+            .map(|(content, map)| content.styled_with_map(map.clone()))
+            .collect()
     }
 }
 
@@ -791,99 +839,11 @@ pub trait Resolve {
     fn resolve(self, styles: StyleChain) -> Self::Output;
 }
 
-impl Resolve for Em {
-    type Output = Abs;
-
-    fn resolve(self, styles: StyleChain) -> Self::Output {
-        if self.is_zero() {
-            Abs::zero()
-        } else {
-            self.at(item!(em)(styles))
-        }
-    }
-}
-
-impl Resolve for Length {
-    type Output = Abs;
-
-    fn resolve(self, styles: StyleChain) -> Self::Output {
-        self.abs + self.em.resolve(styles)
-    }
-}
-
 impl<T: Resolve> Resolve for Option<T> {
     type Output = Option<T::Output>;
 
     fn resolve(self, styles: StyleChain) -> Self::Output {
         self.map(|v| v.resolve(styles))
-    }
-}
-
-impl<T: Resolve> Resolve for Smart<T> {
-    type Output = Smart<T::Output>;
-
-    fn resolve(self, styles: StyleChain) -> Self::Output {
-        self.map(|v| v.resolve(styles))
-    }
-}
-
-impl<T: Resolve> Resolve for Axes<T> {
-    type Output = Axes<T::Output>;
-
-    fn resolve(self, styles: StyleChain) -> Self::Output {
-        self.map(|v| v.resolve(styles))
-    }
-}
-
-impl<T: Resolve> Resolve for Sides<T> {
-    type Output = Sides<T::Output>;
-
-    fn resolve(self, styles: StyleChain) -> Self::Output {
-        self.map(|v| v.resolve(styles))
-    }
-}
-
-impl<T: Resolve> Resolve for Corners<T> {
-    type Output = Corners<T::Output>;
-
-    fn resolve(self, styles: StyleChain) -> Self::Output {
-        self.map(|v| v.resolve(styles))
-    }
-}
-
-impl<T> Resolve for Rel<T>
-where
-    T: Resolve + Numeric,
-    <T as Resolve>::Output: Numeric,
-{
-    type Output = Rel<<T as Resolve>::Output>;
-
-    fn resolve(self, styles: StyleChain) -> Self::Output {
-        self.map(|abs| abs.resolve(styles))
-    }
-}
-
-impl Resolve for GenAlign {
-    type Output = Align;
-
-    fn resolve(self, styles: StyleChain) -> Self::Output {
-        let dir = item!(dir)(styles);
-        match self {
-            Self::Start => dir.start().into(),
-            Self::End => dir.end().into(),
-            Self::Specific(align) => align,
-        }
-    }
-}
-
-impl Resolve for PartialStroke {
-    type Output = PartialStroke<Abs>;
-
-    fn resolve(self, styles: StyleChain) -> Self::Output {
-        PartialStroke {
-            paint: self.paint,
-            thickness: self.thickness.resolve(styles),
-        }
     }
 }
 
@@ -905,94 +865,5 @@ where
 
     fn fold(self, outer: Self::Output) -> Self::Output {
         self.map(|inner| inner.fold(outer.unwrap_or_default()))
-    }
-}
-
-impl<T> Fold for Smart<T>
-where
-    T: Fold,
-    T::Output: Default,
-{
-    type Output = Smart<T::Output>;
-
-    fn fold(self, outer: Self::Output) -> Self::Output {
-        self.map(|inner| inner.fold(outer.unwrap_or_default()))
-    }
-}
-
-impl<T> Fold for Axes<Option<T>>
-where
-    T: Fold,
-{
-    type Output = Axes<T::Output>;
-
-    fn fold(self, outer: Self::Output) -> Self::Output {
-        self.zip(outer).map(|(inner, outer)| match inner {
-            Some(value) => value.fold(outer),
-            None => outer,
-        })
-    }
-}
-
-impl<T> Fold for Sides<Option<T>>
-where
-    T: Fold,
-{
-    type Output = Sides<T::Output>;
-
-    fn fold(self, outer: Self::Output) -> Self::Output {
-        self.zip(outer).map(|(inner, outer)| match inner {
-            Some(value) => value.fold(outer),
-            None => outer,
-        })
-    }
-}
-
-impl<T> Fold for Corners<Option<T>>
-where
-    T: Fold,
-{
-    type Output = Corners<T::Output>;
-
-    fn fold(self, outer: Self::Output) -> Self::Output {
-        self.zip(outer).map(|(inner, outer)| match inner {
-            Some(value) => value.fold(outer),
-            None => outer,
-        })
-    }
-}
-
-impl Fold for PartialStroke<Abs> {
-    type Output = Self;
-
-    fn fold(self, outer: Self::Output) -> Self::Output {
-        Self {
-            paint: self.paint.or(outer.paint),
-            thickness: self.thickness.or(outer.thickness),
-        }
-    }
-}
-
-impl Fold for Rel<Length> {
-    type Output = Self;
-
-    fn fold(self, _: Self::Output) -> Self::Output {
-        self
-    }
-}
-
-impl Fold for Rel<Abs> {
-    type Output = Self;
-
-    fn fold(self, _: Self::Output) -> Self::Output {
-        self
-    }
-}
-
-impl Fold for GenAlign {
-    type Output = Self;
-
-    fn fold(self, _: Self::Output) -> Self::Output {
-        self
     }
 }

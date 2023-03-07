@@ -8,7 +8,6 @@ use comemo::{Track, Tracked, TrackedMut};
 use super::{Content, Selector, StyleChain};
 use crate::diag::SourceResult;
 use crate::doc::{Document, Element, Frame, Location, Meta};
-use crate::eval::Value;
 use crate::geom::Transform;
 use crate::util::hash128;
 use crate::World;
@@ -162,7 +161,7 @@ impl Introspector {
                         let pos = pos.transform(ts);
                         let mut node = content.clone();
                         let loc = Location { page, pos };
-                        node.push_field("loc", Value::Dict(loc.encode()));
+                        node.push_field("loc", loc);
                         self.nodes.push((id, node));
                     }
                 }

@@ -3,7 +3,6 @@ use crate::text::TextNode;
 
 use super::Sizing;
 
-/// # Grid
 /// Arrange content in a grid.
 ///
 /// The grid element allows you to arrange content in a grid. You can define the
@@ -61,64 +60,50 @@ use super::Sizing;
 /// ```
 ///
 /// ## Parameters
-/// - cells: `Content` (positional, variadic) The contents of the table cells.
-///
-///   The cells are populated in row-major order.
-///
-/// - rows: `TrackSizings` (named) Defines the row sizes.
-///
-///   If there are more cells than fit the defined rows, the last row is
-///   repeated until there are no more cells.
-///
-/// - columns: `TrackSizings` (named) Defines the column sizes.
-///
-///   Either specify a track size array or provide an integer to create a grid
-///   with that many `{auto}`-sized columns. Note that opposed to rows and
-///   gutters, providing a single track size will only ever create a single
-///   column.
-///
-/// - gutter: `TrackSizings` (named) Defines the gaps between rows & columns.
+/// - gutter: `TrackSizings` (named)
+///   Defines the gaps between rows & columns.
 ///
 ///   If there are more gutters than defined sizes, the last gutter is repeated.
 ///
-/// - column-gutter: `TrackSizings` (named) Defines the gaps between columns.
-///   Takes precedence over `gutter`.
-///
-/// - row-gutter: `TrackSizings` (named) Defines the gaps between rows. Takes
-///   precedence over `gutter`.
-///
-/// ## Category
-/// layout
-#[func]
-#[capable(Layout)]
-#[derive(Debug, Hash)]
+/// Display: Grid
+/// Category: layout
+#[node(Layout)]
 pub struct GridNode {
-    /// Defines sizing for content rows and columns.
-    pub tracks: Axes<Vec<Sizing>>,
-    /// Defines sizing of gutter rows and columns between content.
-    pub gutter: Axes<Vec<Sizing>>,
-    /// The content to be arranged in a grid.
+    /// The contents of the table cells.
+    ///
+    /// The cells are populated in row-major order.
+    #[variadic]
     pub cells: Vec<Content>,
-}
 
-#[node]
-impl GridNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        let TrackSizings(columns) = args.named("columns")?.unwrap_or_default();
-        let TrackSizings(rows) = args.named("rows")?.unwrap_or_default();
-        let TrackSizings(base_gutter) = args.named("gutter")?.unwrap_or_default();
-        let column_gutter = args.named("column-gutter")?.map(|TrackSizings(v)| v);
-        let row_gutter = args.named("row-gutter")?.map(|TrackSizings(v)| v);
-        Ok(Self {
-            tracks: Axes::new(columns, rows),
-            gutter: Axes::new(
-                column_gutter.unwrap_or_else(|| base_gutter.clone()),
-                row_gutter.unwrap_or(base_gutter),
-            ),
-            cells: args.all()?,
-        }
-        .pack())
-    }
+    /// Defines the column sizes.
+    ///
+    /// Either specify a track size array or provide an integer to create a grid
+    /// with that many `{auto}`-sized columns. Note that opposed to rows and
+    /// gutters, providing a single track size will only ever create a single
+    /// column.
+    #[named]
+    #[default]
+    pub columns: TrackSizings,
+
+    /// Defines the row sizes.
+    ///
+    /// If there are more cells than fit the defined rows, the last row is
+    /// repeated until there are no more cells.
+    #[named]
+    #[default]
+    pub rows: TrackSizings,
+
+    /// Defines the gaps between columns. Takes precedence over `gutter`.
+    #[named]
+    #[shorthand(gutter)]
+    #[default]
+    pub column_gutter: TrackSizings,
+
+    /// Defines the gaps between rows. Takes precedence over `gutter`.
+    #[named]
+    #[shorthand(gutter)]
+    #[default]
+    pub row_gutter: TrackSizings,
 }
 
 impl Layout for GridNode {
@@ -129,11 +114,12 @@ impl Layout for GridNode {
         regions: Regions,
     ) -> SourceResult<Fragment> {
         // Prepare grid layout by unifying content and gutter tracks.
+        let cells = self.cells();
         let layouter = GridLayouter::new(
             vt,
-            self.tracks.as_deref(),
-            self.gutter.as_deref(),
-            &self.cells,
+            Axes::new(&self.columns().0, &self.rows().0),
+            Axes::new(&self.column_gutter().0, &self.row_gutter().0),
+            &cells,
             regions,
             styles,
         );
@@ -147,18 +133,15 @@ impl Layout for GridNode {
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct TrackSizings(pub Vec<Sizing>);
 
-castable! {
+cast_from_value! {
     TrackSizings,
     sizing: Sizing => Self(vec![sizing]),
     count: NonZeroUsize => Self(vec![Sizing::Auto; count.get()]),
     values: Array => Self(values.into_iter().map(Value::cast).collect::<StrResult<_>>()?),
 }
 
-castable! {
-    Sizing,
-    _: AutoValue => Self::Auto,
-    v: Rel<Length> => Self::Rel(v),
-    v: Fr => Self::Fr(v),
+cast_to_value! {
+    v: TrackSizings => v.0.into()
 }
 
 /// Performs grid layout.

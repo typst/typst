@@ -2,7 +2,6 @@ use std::cmp::Ordering;
 
 use crate::prelude::*;
 
-/// # Spacing (H)
 /// Insert horizontal spacing into a paragraph.
 ///
 /// The spacing can be absolute, relative, or fractional. In the last case, the
@@ -20,64 +19,39 @@ use crate::prelude::*;
 /// In [mathematical formulas]($category/math), you can additionally use these
 /// constants to add spacing between elements: `thin`, `med`, `thick`, `quad`.
 ///
-/// ## Parameters
-/// - amount: `Spacing` (positional, required)
-///   How much spacing to insert.
-///
-/// - weak: `bool` (named)
-///   If true, the spacing collapses at the start or end of a paragraph.
-///   Moreover, from multiple adjacent weak spacings all but the largest one
-///   collapse.
-///
-///   ```example
-///   #h(1cm, weak: true)
-///   We identified a group of
-///   _weak_ specimens that fail to
-///   manifest in most cases. However,
-///   when #h(8pt, weak: true)
-///   supported
-///   #h(8pt, weak: true) on both
-///   sides, they do show up.
-///   ```
-///
-/// ## Category
-/// layout
-#[func]
-#[capable(Behave)]
-#[derive(Debug, Copy, Clone, Hash)]
+/// Display: Spacing (H)
+/// Category: layout
+#[node(Behave)]
 pub struct HNode {
-    /// The amount of horizontal spacing.
+    /// How much spacing to insert.
+    #[positional]
+    #[required]
     pub amount: Spacing,
-    /// Whether the node is weak, see also [`Behaviour`].
+
+    /// If true, the spacing collapses at the start or end of a paragraph.
+    /// Moreover, from multiple adjacent weak spacings all but the largest one
+    /// collapse.
+    ///
+    /// ```example
+    /// #h(1cm, weak: true)
+    /// We identified a group of
+    /// _weak_ specimens that fail to
+    /// manifest in most cases. However,
+    /// when #h(8pt, weak: true)
+    /// supported
+    /// #h(8pt, weak: true) on both
+    /// sides, they do show up.
+    /// ```
+    #[named]
+    #[default(false)]
     pub weak: bool,
-}
-
-#[node]
-impl HNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        let amount = args.expect("amount")?;
-        let weak = args.named("weak")?.unwrap_or(false);
-        Ok(Self { amount, weak }.pack())
-    }
-}
-
-impl HNode {
-    /// Normal strong spacing.
-    pub fn strong(amount: impl Into<Spacing>) -> Self {
-        Self { amount: amount.into(), weak: false }
-    }
-
-    /// User-created weak spacing.
-    pub fn weak(amount: impl Into<Spacing>) -> Self {
-        Self { amount: amount.into(), weak: true }
-    }
 }
 
 impl Behave for HNode {
     fn behaviour(&self) -> Behaviour {
-        if self.amount.is_fractional() {
+        if self.amount().is_fractional() {
             Behaviour::Destructive
-        } else if self.weak {
+        } else if self.weak() {
             Behaviour::Weak(1)
         } else {
             Behaviour::Ignorant
@@ -86,11 +60,10 @@ impl Behave for HNode {
 
     fn larger(&self, prev: &Content) -> bool {
         let Some(prev) = prev.to::<Self>() else { return false };
-        self.amount > prev.amount
+        self.amount() > prev.amount()
     }
 }
 
-/// # Spacing (V)
 /// Insert vertical spacing into a flow of blocks.
 ///
 /// The spacing can be absolute, relative, or fractional. In the last case,
@@ -130,20 +103,24 @@ impl Behave for HNode {
 ///   #v(4pt, weak: true)
 ///   The proof is simple:
 ///   ```
-/// ## Category
-/// layout
-#[func]
-#[capable(Behave)]
-#[derive(Debug, Copy, Clone, Hash, PartialEq, PartialOrd)]
+///
+/// Display: Spacing (V)
+/// Category: layout
+#[node(Construct, Behave)]
 pub struct VNode {
     /// The amount of vertical spacing.
+    #[positional]
+    #[required]
     pub amount: Spacing,
+
     /// The node's weakness level, see also [`Behaviour`].
-    pub weakness: u8,
+    #[named]
+    #[skip]
+    #[default]
+    pub weakness: usize,
 }
 
-#[node]
-impl VNode {
+impl Construct for VNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let amount = args.expect("spacing")?;
         let node = if args.named("weak")?.unwrap_or(false) {
@@ -158,36 +135,36 @@ impl VNode {
 impl VNode {
     /// Normal strong spacing.
     pub fn strong(amount: Spacing) -> Self {
-        Self { amount, weakness: 0 }
+        Self::new(amount).with_weakness(0)
     }
 
     /// User-created weak spacing.
     pub fn weak(amount: Spacing) -> Self {
-        Self { amount, weakness: 1 }
+        Self::new(amount).with_weakness(1)
     }
 
     /// Weak spacing with list attach weakness.
     pub fn list_attach(amount: Spacing) -> Self {
-        Self { amount, weakness: 2 }
+        Self::new(amount).with_weakness(2)
     }
 
     /// Weak spacing with BlockNode::ABOVE/BELOW weakness.
     pub fn block_around(amount: Spacing) -> Self {
-        Self { amount, weakness: 3 }
+        Self::new(amount).with_weakness(3)
     }
 
     /// Weak spacing with BlockNode::SPACING weakness.
     pub fn block_spacing(amount: Spacing) -> Self {
-        Self { amount, weakness: 4 }
+        Self::new(amount).with_weakness(4)
     }
 }
 
 impl Behave for VNode {
     fn behaviour(&self) -> Behaviour {
-        if self.amount.is_fractional() {
+        if self.amount().is_fractional() {
             Behaviour::Destructive
-        } else if self.weakness > 0 {
-            Behaviour::Weak(self.weakness)
+        } else if self.weakness() > 0 {
+            Behaviour::Weak(self.weakness())
         } else {
             Behaviour::Ignorant
         }
@@ -195,8 +172,13 @@ impl Behave for VNode {
 
     fn larger(&self, prev: &Content) -> bool {
         let Some(prev) = prev.to::<Self>() else { return false };
-        self.amount > prev.amount
+        self.amount() > prev.amount()
     }
+}
+
+cast_from_value! {
+    VNode,
+    v: Content => v.to::<Self>().cloned().ok_or("expected vnode")?,
 }
 
 /// Kinds of spacing.
@@ -214,22 +196,6 @@ impl Spacing {
     pub fn is_fractional(self) -> bool {
         matches!(self, Self::Fr(_))
     }
-
-    /// Encode into a value.
-    pub fn encode(self) -> Value {
-        match self {
-            Self::Rel(rel) => {
-                if rel.rel.is_zero() {
-                    Value::Length(rel.abs)
-                } else if rel.abs.is_zero() {
-                    Value::Ratio(rel.rel)
-                } else {
-                    Value::Relative(rel)
-                }
-            }
-            Self::Fr(fr) => Value::Fraction(fr),
-        }
-    }
 }
 
 impl From<Abs> for Spacing {
@@ -244,6 +210,12 @@ impl From<Em> for Spacing {
     }
 }
 
+impl From<Fr> for Spacing {
+    fn from(fr: Fr) -> Self {
+        Self::Fr(fr)
+    }
+}
+
 impl PartialOrd for Spacing {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         match (self, other) {
@@ -254,8 +226,23 @@ impl PartialOrd for Spacing {
     }
 }
 
-castable! {
+cast_from_value! {
     Spacing,
     v: Rel<Length> => Self::Rel(v),
     v: Fr => Self::Fr(v),
+}
+
+cast_to_value! {
+    v: Spacing => match v {
+        Spacing::Rel(rel) => {
+            if rel.rel.is_zero() {
+                Value::Length(rel.abs)
+            } else if rel.abs.is_zero() {
+                Value::Ratio(rel.rel)
+            } else {
+                Value::Relative(rel)
+            }
+        }
+        Spacing::Fr(fr) => Value::Fraction(fr),
+    }
 }

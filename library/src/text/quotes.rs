@@ -2,7 +2,6 @@ use typst::syntax::is_newline;
 
 use crate::prelude::*;
 
-/// # Smart Quote
 /// A language-aware quote that reacts to its context.
 ///
 /// Automatically turns into an appropriate opening or closing quote based on
@@ -23,21 +22,15 @@ use crate::prelude::*;
 /// This function also has dedicated syntax: The normal quote characters
 /// (`'` and `"`). Typst automatically makes your quotes smart.
 ///
-/// ## Parameters
-/// - double: `bool` (named)
-///   Whether this should be a double quote.
-///
-/// ## Category
-/// text
-#[func]
-#[capable]
-#[derive(Debug, Hash)]
-pub struct SmartQuoteNode {
-    pub double: bool,
-}
-
+/// Display: Smart Quote
+/// Category: text
 #[node]
-impl SmartQuoteNode {
+pub struct SmartQuoteNode {
+    /// Whether this should be a double quote.
+    #[named]
+    #[default(true)]
+    pub double: bool,
+
     /// Whether smart quotes are enabled.
     ///
     /// To disable smartness for a single quote, you can also escape it with a
@@ -48,19 +41,9 @@ impl SmartQuoteNode {
     ///
     /// These are "dumb" quotes.
     /// ```
-    pub const ENABLED: bool = true;
-
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        let double = args.named("double")?.unwrap_or(true);
-        Ok(Self { double }.pack())
-    }
-
-    fn field(&self, name: &str) -> Option<Value> {
-        match name {
-            "double" => Some(Value::Bool(self.double)),
-            _ => None,
-        }
-    }
+    #[settable]
+    #[default(true)]
+    pub enabled: bool,
 }
 
 /// State machine for smart quote substitution.

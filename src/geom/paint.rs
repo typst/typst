@@ -9,10 +9,7 @@ pub enum Paint {
     Solid(Color),
 }
 
-impl<T> From<T> for Paint
-where
-    T: Into<Color>,
-{
+impl<T: Into<Color>> From<T> for Paint {
     fn from(t: T) -> Self {
         Self::Solid(t.into())
     }
@@ -24,6 +21,15 @@ impl Debug for Paint {
             Self::Solid(color) => color.fmt(f),
         }
     }
+}
+
+cast_from_value! {
+    Paint,
+    color: Color => Self::Solid(color),
+}
+
+cast_to_value! {
+    Paint::Solid(color): Paint => Value::Color(color)
 }
 
 /// A color in a dynamic format.
@@ -274,13 +280,14 @@ impl Debug for RgbaColor {
     }
 }
 
-impl<T> From<T> for Color
-where
-    T: Into<RgbaColor>,
-{
+impl<T: Into<RgbaColor>> From<T> for Color {
     fn from(rgba: T) -> Self {
         Self::Rgba(rgba.into())
     }
+}
+
+cast_to_value! {
+    v: RgbaColor => Value::Color(v.into())
 }
 
 /// An 8-bit CMYK color.

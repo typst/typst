@@ -1,7 +1,6 @@
-use crate::layout::{AlignNode, GridLayouter, Sizing, TrackSizings};
+use crate::layout::{AlignNode, GridLayouter, TrackSizings};
 use crate::prelude::*;
 
-/// # Table
 /// A table of items.
 ///
 /// Tables are used to arrange content in cells. Cells can contain arbitrary
@@ -31,47 +30,46 @@ use crate::prelude::*;
 /// ```
 ///
 /// ## Parameters
-/// - cells: `Content` (positional, variadic)
-///   The contents of the table cells.
-///
-/// - rows: `TrackSizings` (named)
-///   Defines the row sizes.
-///   See the [grid documentation]($func/grid) for more information on track
-///   sizing.
-///
-/// - columns: `TrackSizings` (named)
-///   Defines the column sizes.
-///   See the [grid documentation]($func/grid) for more information on track
-///   sizing.
-///
 /// - gutter: `TrackSizings` (named)
 ///   Defines the gaps between rows & columns.
 ///   See the [grid documentation]($func/grid) for more information on gutters.
 ///
-/// - column-gutter: `TrackSizings` (named)
-///   Defines the gaps between columns. Takes precedence over `gutter`.
-///   See the [grid documentation]($func/grid) for more information on gutters.
-///
-/// - row-gutter: `TrackSizings` (named)
-///   Defines the gaps between rows. Takes precedence over `gutter`.
-///   See the [grid documentation]($func/grid) for more information on gutters.
-///
-/// ## Category
-/// layout
-#[func]
-#[capable(Layout)]
-#[derive(Debug, Hash)]
+/// Display: Table
+/// Category: layout
+#[node(Layout)]
 pub struct TableNode {
-    /// Defines sizing for content rows and columns.
-    pub tracks: Axes<Vec<Sizing>>,
-    /// Defines sizing of gutter rows and columns between content.
-    pub gutter: Axes<Vec<Sizing>>,
-    /// The content to be arranged in the table.
+    /// The contents of the table cells.
+    #[variadic]
     pub cells: Vec<Content>,
-}
 
-#[node]
-impl TableNode {
+    /// Defines the column sizes.
+    /// See the [grid documentation]($func/grid) for more information on track
+    /// sizing.
+    #[named]
+    #[default]
+    pub columns: TrackSizings,
+
+    /// Defines the row sizes.
+    /// See the [grid documentation]($func/grid) for more information on track
+    /// sizing.
+    #[named]
+    #[default]
+    pub rows: TrackSizings,
+
+    /// Defines the gaps between columns. Takes precedence over `gutter`.
+    /// See the [grid documentation]($func/grid) for more information on gutters.
+    #[named]
+    #[shorthand(gutter)]
+    #[default]
+    pub column_gutter: TrackSizings,
+
+    /// Defines the gaps between rows. Takes precedence over `gutter`.
+    /// See the [grid documentation]($func/grid) for more information on gutters.
+    #[named]
+    #[shorthand(gutter)]
+    #[default]
+    pub row_gutter: TrackSizings,
+
     /// How to fill the cells.
     ///
     /// This can be a color or a function that returns a color. The function is
@@ -92,58 +90,35 @@ impl TableNode {
     ///   [Profit:], [500 €], [1000 €], [1500 €],
     /// )
     /// ```
-    #[property(referenced)]
-    pub const FILL: Celled<Option<Paint>> = Celled::Value(None);
+    #[settable]
+    #[default]
+    pub fill: Celled<Option<Paint>>,
 
     /// How to align the cell's content.
     ///
     /// This can either be a single alignment or a function that returns an
     /// alignment. The function is passed the cell's column and row index,
     /// starting at zero. If set to `{auto}`, the outer alignment is used.
-    #[property(referenced)]
-    pub const ALIGN: Celled<Smart<Axes<Option<GenAlign>>>> = Celled::Value(Smart::Auto);
+    #[settable]
+    #[default]
+    pub align: Celled<Smart<Axes<Option<GenAlign>>>>,
 
     /// How to stroke the cells.
     ///
     /// This can be a color, a stroke width, both, or `{none}` to disable
     /// the stroke.
-    #[property(resolve, fold)]
-    pub const STROKE: Option<PartialStroke> = Some(PartialStroke::default());
+    #[settable]
+    #[resolve]
+    #[fold]
+    #[default(Some(PartialStroke::default()))]
+    pub stroke: Option<PartialStroke>,
 
     /// How much to pad the cells's content.
     ///
     /// The default value is `{5pt}`.
-    pub const INSET: Rel<Length> = Abs::pt(5.0).into();
-
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        let TrackSizings(columns) = args.named("columns")?.unwrap_or_default();
-        let TrackSizings(rows) = args.named("rows")?.unwrap_or_default();
-        let TrackSizings(base_gutter) = args.named("gutter")?.unwrap_or_default();
-        let column_gutter = args.named("column-gutter")?.map(|TrackSizings(v)| v);
-        let row_gutter = args.named("row-gutter")?.map(|TrackSizings(v)| v);
-        Ok(Self {
-            tracks: Axes::new(columns, rows),
-            gutter: Axes::new(
-                column_gutter.unwrap_or_else(|| base_gutter.clone()),
-                row_gutter.unwrap_or(base_gutter),
-            ),
-            cells: args.all()?,
-        }
-        .pack())
-    }
-
-    fn field(&self, name: &str) -> Option<Value> {
-        match name {
-            "columns" => Some(Sizing::encode_slice(&self.tracks.x)),
-            "rows" => Some(Sizing::encode_slice(&self.tracks.y)),
-            "column-gutter" => Some(Sizing::encode_slice(&self.gutter.x)),
-            "row-gutter" => Some(Sizing::encode_slice(&self.gutter.y)),
-            "cells" => Some(Value::Array(
-                self.cells.iter().cloned().map(Value::Content).collect(),
-            )),
-            _ => None,
-        }
-    }
+    #[settable]
+    #[default(Abs::pt(5.0).into())]
+    pub inset: Rel<Length>,
 }
 
 impl Layout for TableNode {
@@ -156,11 +131,12 @@ impl Layout for TableNode {
         let inset = styles.get(Self::INSET);
         let align = styles.get(Self::ALIGN);
 
-        let cols = self.tracks.x.len().max(1);
+        let tracks = Axes::new(self.columns().0, self.rows().0);
+        let gutter = Axes::new(self.column_gutter().0, self.row_gutter().0);
+        let cols = tracks.x.len().max(1);
         let cells: Vec<_> = self
-            .cells
-            .iter()
-            .cloned()
+            .cells()
+            .into_iter()
             .enumerate()
             .map(|(i, child)| {
                 let mut child = child.padded(Sides::splat(inset));
@@ -168,7 +144,7 @@ impl Layout for TableNode {
                 let x = i % cols;
                 let y = i / cols;
                 if let Smart::Custom(alignment) = align.resolve(vt, x, y)? {
-                    child = child.styled(AlignNode::ALIGNS, alignment)
+                    child = child.styled(AlignNode::ALIGNMENT, alignment)
                 }
 
                 Ok(child)
@@ -181,8 +157,8 @@ impl Layout for TableNode {
         // Prepare grid layout by unifying content and gutter tracks.
         let layouter = GridLayouter::new(
             vt,
-            self.tracks.as_deref(),
-            self.gutter.as_deref(),
+            tracks.as_deref(),
+            gutter.as_deref(),
             &cells,
             regions,
             styles,
@@ -269,6 +245,12 @@ impl<T: Cast + Clone> Celled<T> {
     }
 }
 
+impl<T: Default> Default for Celled<T> {
+    fn default() -> Self {
+        Self::Value(T::default())
+    }
+}
+
 impl<T: Cast> Cast for Celled<T> {
     fn is(value: &Value) -> bool {
         matches!(value, Value::Func(_)) || T::is(value)
@@ -284,5 +266,14 @@ impl<T: Cast> Cast for Celled<T> {
 
     fn describe() -> CastInfo {
         T::describe() + CastInfo::Type("function")
+    }
+}
+
+impl<T: Into<Value>> From<Celled<T>> for Value {
+    fn from(celled: Celled<T>) -> Self {
+        match celled {
+            Celled::Value(value) => value.into(),
+            Celled::Func(func) => func.into(),
+        }
     }
 }

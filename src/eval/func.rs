@@ -1,3 +1,5 @@
+pub use typst_macros::func;
+
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;

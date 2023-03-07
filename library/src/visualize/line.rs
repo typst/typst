@@ -1,6 +1,5 @@
 use crate::prelude::*;
 
-/// # Line
 /// A line from one point to another.
 ///
 /// ## Example
@@ -26,20 +25,20 @@ use crate::prelude::*;
 ///   The angle at which the line points away from the origin. Mutually
 ///   exclusive with `end`.
 ///
-/// ## Category
-/// visualize
-#[func]
-#[capable(Layout)]
-#[derive(Debug, Hash)]
+/// Display: Line
+/// Category: visualize
+#[node(Construct, Layout)]
 pub struct LineNode {
     /// Where the line starts.
+    #[named]
+    #[default]
     pub start: Axes<Rel<Length>>,
-    /// The offset from `start` where the line ends.
-    pub delta: Axes<Rel<Length>>,
-}
 
-#[node]
-impl LineNode {
+    /// The offset from `start` where the line ends.
+    #[named]
+    #[default]
+    pub delta: Axes<Rel<Length>>,
+
     /// How to stroke the line. This can be:
     ///
     /// - A length specifying the stroke's thickness. The color is inherited,
@@ -52,12 +51,16 @@ impl LineNode {
     /// ```example
     /// #line(length: 100%, stroke: 2pt + red)
     /// ```
-    #[property(resolve, fold)]
-    pub const STROKE: PartialStroke = PartialStroke::default();
+    #[settable]
+    #[resolve]
+    #[fold]
+    #[default]
+    pub stroke: PartialStroke,
+}
 
+impl Construct for LineNode {
     fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
         let start = args.named("start")?.unwrap_or_default();
-
         let delta = match args.named::<Axes<Rel<Length>>>("end")? {
             Some(end) => end.zip(start).map(|(to, from)| to - from),
             None => {
@@ -71,8 +74,7 @@ impl LineNode {
                 Axes::new(x, y)
             }
         };
-
-        Ok(Self { start, delta }.pack())
+        Ok(Self::new().with_start(start).with_delta(delta).pack())
     }
 }
 
@@ -86,13 +88,13 @@ impl Layout for LineNode {
         let stroke = styles.get(Self::STROKE).unwrap_or_default();
 
         let origin = self
-            .start
+            .start()
             .resolve(styles)
             .zip(regions.base())
             .map(|(l, b)| l.relative_to(b));
 
         let delta = self
-            .delta
+            .delta()
             .resolve(styles)
             .zip(regions.base())
             .map(|(l, b)| l.relative_to(b));

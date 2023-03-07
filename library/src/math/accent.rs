@@ -5,7 +5,6 @@ use super::*;
 /// How much the accent can be shorter than the base.
 const ACCENT_SHORT_FALL: Em = Em::new(0.5);
 
-/// # Accent
 /// Attach an accent to a base.
 ///
 /// ## Example
@@ -15,72 +14,48 @@ const ACCENT_SHORT_FALL: Em = Em::new(0.5);
 /// $tilde(a) = accent(a, \u{0303})$
 /// ```
 ///
-/// ## Parameters
-/// - base: `Content` (positional, required)
-///   The base to which the accent is applied.
-///   May consist of multiple letters.
-///
-///   ```example
-///   $arrow(A B C)$
-///   ```
-///
-/// - accent: `char` (positional, required)
-///   The accent to apply to the base.
-///
-///   Supported accents include:
-///
-///   | Accent       | Name            | Codepoint |
-///   | ------------ | --------------- | --------- |
-///   | Grave        | `grave`         | <code>&DiacriticalGrave;</code> |
-///   | Acute        | `acute`         | `´`       |
-///   | Circumflex   | `hat`           | `^`       |
-///   | Tilde        | `tilde`         | `~`       |
-///   | Macron       | `macron`        | `¯`       |
-///   | Breve        | `breve`         | `˘`       |
-///   | Dot          | `dot`           | `.`       |
-///   | Diaeresis    | `diaer`         | `¨`       |
-///   | Circle       | `circle`        | `∘`       |
-///   | Double acute | `acute.double`  | `˝`       |
-///   | Caron        | `caron`         | `ˇ`       |
-///   | Right arrow  | `arrow`, `->`   | `→`       |
-///   | Left arrow   | `arrow.l`, `<-` | `←`       |
-///
-/// ## Category
-/// math
-#[func]
-#[capable(LayoutMath)]
-#[derive(Debug, Hash)]
+/// Display: Accent
+/// Category: math
+#[node(LayoutMath)]
 pub struct AccentNode {
-    /// The accent base.
+    /// The base to which the accent is applied.
+    /// May consist of multiple letters.
+    ///
+    /// ```example
+    /// $arrow(A B C)$
+    /// ```
+    #[positional]
+    #[required]
     pub base: Content,
-    /// The accent.
-    pub accent: char,
-}
 
-#[node]
-impl AccentNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        let base = args.expect("base")?;
-        let accent = args.expect::<Accent>("accent")?.0;
-        Ok(Self { base, accent }.pack())
-    }
-}
-
-struct Accent(char);
-
-castable! {
-    Accent,
-    v: char => Self(v),
-    v: Content => match v.to::<TextNode>() {
-        Some(text) => Self(Value::Str(text.0.clone().into()).cast()?),
-        None => Err("expected text")?,
-    },
+    /// The accent to apply to the base.
+    ///
+    /// Supported accents include:
+    ///
+    /// | Accent       | Name            | Codepoint |
+    /// | ------------ | --------------- | --------- |
+    /// | Grave        | `grave`         | <code>&DiacriticalGrave;</code> |
+    /// | Acute        | `acute`         | `´`       |
+    /// | Circumflex   | `hat`           | `^`       |
+    /// | Tilde        | `tilde`         | `~`       |
+    /// | Macron       | `macron`        | `¯`       |
+    /// | Breve        | `breve`         | `˘`       |
+    /// | Dot          | `dot`           | `.`       |
+    /// | Diaeresis    | `diaer`         | `¨`       |
+    /// | Circle       | `circle`        | `∘`       |
+    /// | Double acute | `acute.double`  | `˝`       |
+    /// | Caron        | `caron`         | `ˇ`       |
+    /// | Right arrow  | `arrow`, `->`   | `→`       |
+    /// | Left arrow   | `arrow.l`, `<-` | `←`       |
+    #[positional]
+    #[required]
+    pub accent: Accent,
 }
 
 impl LayoutMath for AccentNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         ctx.style(ctx.style.with_cramped(true));
-        let base = ctx.layout_fragment(&self.base)?;
+        let base = ctx.layout_fragment(&self.base())?;
         ctx.unstyle();
 
         let base_attach = match &base {
@@ -92,7 +67,7 @@ impl LayoutMath for AccentNode {
 
         // Forcing the accent to be at least as large as the base makes it too
         // wide in many case.
-        let c = combining_accent(self.accent).unwrap_or(self.accent);
+        let Accent(c) = self.accent();
         let glyph = GlyphFragment::new(ctx, c);
         let short_fall = ACCENT_SHORT_FALL.scaled(ctx);
         let variant = glyph.stretch_horizontal(ctx, base.width(), short_fall);
@@ -135,4 +110,27 @@ fn attachment(ctx: &MathContext, id: GlyphId, italics_correction: Abs) -> Abs {
             let advance = ctx.ttf.glyph_hor_advance(id).unwrap_or_default();
             (advance.scaled(ctx) + italics_correction) / 2.0
         })
+}
+
+/// An accent character.
+pub struct Accent(char);
+
+impl Accent {
+    /// Normalize a character into an accent.
+    pub fn new(c: char) -> Self {
+        Self(combining_accent(c).unwrap_or(c))
+    }
+}
+
+cast_from_value! {
+    Accent,
+    v: char => Self::new(v),
+    v: Content => match v.to::<TextNode>() {
+        Some(node) => Value::Str(node.text().into()).cast()?,
+        None => Err("expected text")?,
+    },
+}
+
+cast_to_value! {
+    v: Accent => v.0.into()
 }

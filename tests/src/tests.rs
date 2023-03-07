@@ -146,9 +146,8 @@ impl Args {
 }
 
 fn library() -> Library {
-    /// # Test
-    /// ## Category
-    /// test
+    /// Category: test
+    /// Display: Test
     #[func]
     fn test(args: &mut typst::eval::Args) -> SourceResult<Value> {
         let lhs = args.expect::<Value>("left-hand side")?;
@@ -159,9 +158,8 @@ fn library() -> Library {
         Ok(Value::None)
     }
 
-    /// # Print
-    /// ## Category
-    /// test
+    /// Category: test
+    /// Display: Print
     #[func]
     fn print(args: &mut typst::eval::Args) -> SourceResult<Value> {
         print!("> ");

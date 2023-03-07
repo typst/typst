@@ -2,32 +2,23 @@
 
 extern crate proc_macro;
 
-/// Return an error at the given item.
-macro_rules! bail {
-    (callsite, $fmt:literal $($tts:tt)*) => {
-        return Err(syn::Error::new(
-            proc_macro2::Span::call_site(),
-            format!(concat!("typst: ", $fmt) $($tts)*)
-        ))
-    };
-    ($item:expr, $fmt:literal $($tts:tt)*) => {
-        return Err(syn::Error::new_spanned(
-            &$item,
-            format!(concat!("typst: ", $fmt) $($tts)*)
-        ))
-    };
-}
-
-mod capable;
+#[macro_use]
+mod util;
 mod castable;
 mod func;
 mod node;
 mod symbols;
 
 use proc_macro::TokenStream as BoundaryStream;
-use proc_macro2::{TokenStream, TokenTree};
-use quote::{quote, quote_spanned};
-use syn::{parse_quote, Ident, Result};
+use proc_macro2::TokenStream;
+use quote::quote;
+use syn::ext::IdentExt;
+use syn::parse::{Parse, ParseStream, Parser};
+use syn::punctuated::Punctuated;
+use syn::{parse_quote, Ident, Result, Token};
+use unscanny::Scanner;
+
+use self::util::*;
 
 /// Implement `FuncType` for a type or function.
 #[proc_macro_attribute]
@@ -38,33 +29,25 @@ pub fn func(_: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
 
 /// Implement `Node` for a struct.
 #[proc_macro_attribute]
-pub fn node(_: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
-    let item = syn::parse_macro_input!(item as syn::ItemImpl);
-    node::node(item).unwrap_or_else(|err| err.to_compile_error()).into()
-}
-
-/// Implement `Capability` for a trait.
-#[proc_macro_attribute]
-pub fn capability(_: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
-    let item = syn::parse_macro_input!(item as syn::ItemTrait);
-    capable::capability(item)
-        .unwrap_or_else(|err| err.to_compile_error())
-        .into()
-}
-
-/// Implement `Capable` for a type.
-#[proc_macro_attribute]
-pub fn capable(stream: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
-    let item = syn::parse_macro_input!(item as syn::Item);
-    capable::capable(stream.into(), item)
+pub fn node(stream: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
+    let item = syn::parse_macro_input!(item as syn::ItemStruct);
+    node::node(stream.into(), item)
         .unwrap_or_else(|err| err.to_compile_error())
         .into()
 }
 
 /// Implement `Cast` and optionally `Type` for a type.
 #[proc_macro]
-pub fn castable(stream: BoundaryStream) -> BoundaryStream {
-    castable::castable(stream.into())
+pub fn cast_from_value(stream: BoundaryStream) -> BoundaryStream {
+    castable::cast_from_value(stream.into())
+        .unwrap_or_else(|err| err.to_compile_error())
+        .into()
+}
+
+/// Implement `From<T> for Value` for a type `T`.
+#[proc_macro]
+pub fn cast_to_value(stream: BoundaryStream) -> BoundaryStream {
+    castable::cast_to_value(stream.into())
         .unwrap_or_else(|err| err.to_compile_error())
         .into()
 }
@@ -75,33 +58,4 @@ pub fn symbols(stream: BoundaryStream) -> BoundaryStream {
     symbols::symbols(stream.into())
         .unwrap_or_else(|err| err.to_compile_error())
         .into()
-}
-
-/// Extract documentation comments from an attribute list.
-fn documentation(attrs: &[syn::Attribute]) -> String {
-    let mut doc = String::new();
-
-    // Parse doc comments.
-    for attr in attrs {
-        if let Ok(syn::Meta::NameValue(meta)) = attr.parse_meta() {
-            if meta.path.is_ident("doc") {
-                if let syn::Lit::Str(string) = &meta.lit {
-                    let full = string.value();
-                    let line = full.strip_prefix(' ').unwrap_or(&full);
-                    doc.push_str(line);
-                    doc.push('\n');
-                }
-            }
-        }
-    }
-
-    doc.trim().into()
-}
-
-/// Dedent documentation text.
-fn dedent(text: &str) -> String {
-    text.lines()
-        .map(|s| s.strip_prefix("  ").unwrap_or(s))
-        .collect::<Vec<_>>()
-        .join("\n")
 }

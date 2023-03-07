@@ -2,7 +2,6 @@ use typst::eval::Scope;
 
 use super::*;
 
-/// # Text Operator
 /// A text operator in a math formula.
 ///
 /// ## Example
@@ -19,45 +18,30 @@ use super::*;
 /// `max`, `min`,  `Pr`,  `sec`,  `sin`,  `sinh`,  `sup`,  `tan`, `tg`, `tanh`,
 /// `liminf`, and `limsup`.
 ///
-/// ## Parameters
-/// - text: `EcoString` (positional, required)
-///   The operator's text.
-///
-/// - limits: `bool` (named)
-///   Whether the operator should force attachments to display as limits.
-///
-///   Defaults to `{false}`.
-///
-/// ## Category
-/// math
-#[func]
-#[capable(LayoutMath)]
-#[derive(Debug, Hash)]
+/// Display: Text Operator
+/// Category: math
+#[node(LayoutMath)]
 pub struct OpNode {
     /// The operator's text.
+    #[positional]
+    #[required]
     pub text: EcoString,
-    /// Whether the operator should force attachments to display as limits.
-    pub limits: bool,
-}
 
-#[node]
-impl OpNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        Ok(Self {
-            text: args.expect("text")?,
-            limits: args.named("limits")?.unwrap_or(false),
-        }
-        .pack())
-    }
+    /// Whether the operator should force attachments to display as limits.
+    ///
+    /// Defaults to `{false}`.
+    #[named]
+    #[default(false)]
+    pub limits: bool,
 }
 
 impl LayoutMath for OpNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        let frame = ctx.layout_content(&TextNode(self.text.clone()).pack())?;
+        let frame = ctx.layout_content(&TextNode::packed(self.text()))?;
         ctx.push(
             FrameFragment::new(ctx, frame)
                 .with_class(MathClass::Large)
-                .with_limits(self.limits),
+                .with_limits(self.limits()),
         );
         Ok(())
     }
@@ -68,13 +52,15 @@ macro_rules! ops {
         pub(super) fn define(math: &mut Scope) {
             $(math.define(
                 stringify!($name),
-                OpNode {
-                    text: ops!(@name $name $(: $value)?).into(),
-                    limits: ops!(@limit $($tts)*),
-                }.pack()
+                OpNode::new(ops!(@name $name $(: $value)?).into())
+                    .with_limits(ops!(@limit $($tts)*))
+                    .pack()
             );)*
 
-            let dif = |d| HNode::strong(THIN).pack() + UprightNode(TextNode::packed(d)).pack();
+            let dif = |d| {
+                HNode::new(THIN.into()).pack()
+                    + UprightNode::new(TextNode::packed(d)).pack()
+            };
             math.define("dif", dif('d'));
             math.define("Dif", dif('D'));
         }
