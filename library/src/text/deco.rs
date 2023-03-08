@@ -31,7 +31,6 @@ pub struct UnderlineNode {
     /// )
     /// ```
     #[settable]
-    #[shorthand]
     #[resolve]
     #[fold]
     #[default]
@@ -117,7 +116,6 @@ pub struct OverlineNode {
     /// )
     /// ```
     #[settable]
-    #[shorthand]
     #[resolve]
     #[fold]
     #[default]
@@ -207,7 +205,6 @@ pub struct StrikeNode {
     /// This is #strike(stroke: 10pt)[redacted].
     /// ```
     #[settable]
-    #[shorthand]
     #[resolve]
     #[fold]
     #[default]
@@ -219,7 +216,7 @@ pub struct StrikeNode {
     /// This is useful if you are unhappy with the offset your font provides.
     ///
     /// ```example
-    /// #set text(family: "Inria Serif")
+    /// #set text(font: "Inria Serif")
     /// This is #strike(offset: auto)[low-ish]. \
     /// This is #strike(offset: -3.5pt)[on-top].
     /// ```

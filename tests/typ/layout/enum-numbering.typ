@@ -37,7 +37,7 @@
 
 ---
 // Test numbering with closure and nested lists.
-#set text("New Computer Modern")
+#set text(font: "New Computer Modern")
 #set enum(numbering: (..args) => math.mat(args.pos()), full: true)
 + A
   + B

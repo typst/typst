@@ -1,22 +1,34 @@
 use super::*;
 
 /// Expand the `#[func]` macro.
-pub fn func(item: syn::Item) -> Result<TokenStream> {
-    let mut docs = match &item {
-        syn::Item::Struct(item) => documentation(&item.attrs),
-        syn::Item::Enum(item) => documentation(&item.attrs),
-        syn::Item::Fn(item) => documentation(&item.attrs),
-        _ => String::new(),
+pub fn func(mut item: syn::Item) -> Result<TokenStream> {
+    let attrs = match &mut item {
+        syn::Item::Struct(item) => &mut item.attrs,
+        syn::Item::Fn(item) => &mut item.attrs,
+        _ => bail!(item, "expected struct or fn"),
     };
 
+    let docs = documentation(&attrs);
+
+    let mut lines: Vec<_> = docs.lines().collect();
+    let Some(category) = lines.pop().and_then(|s| s.strip_prefix("Category: ")) else {
+        bail!(item, "expected category");
+    };
+    let Some(display) = lines.pop().and_then(|s| s.strip_prefix("Display: ")) else {
+        bail!(item, "expected display name");
+    };
+
+    let mut docs = lines.join("\n");
     let (params, returns) = params(&mut docs)?;
     let docs = docs.trim();
+    attrs.retain(|attr| !attr.path.is_ident("doc"));
+    attrs.push(parse_quote! { #[doc = #docs] });
 
     let info = quote! {
         ::typst::eval::FuncInfo {
             name,
-            display: "TODO",
-            category: "TODO",
+            display: #display,
+            category: #category,
             docs: #docs,
             params: ::std::vec![#(#params),*],
             returns: ::std::vec![#(#returns),*]

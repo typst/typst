@@ -45,6 +45,7 @@ use crate::text::{
 pub struct ParNode {
     /// The paragraph's children.
     #[variadic]
+    #[skip]
     pub children: Vec<Content>,
 
     /// The indent the first line of a consecutive paragraph should have.

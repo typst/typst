@@ -10,10 +10,6 @@ use crate::prelude::*;
 /// ```
 ///
 /// ## Parameters
-/// - start: `Axes<Rel<Length>>` (named)
-///   The start point of the line.
-///   Must be an array of exactly two relative lengths.
-///
 /// - end: `Axes<Rel<Length>>` (named)
 ///   The end point of the line.
 ///   Must be an array of exactly two relative lengths.
@@ -29,7 +25,9 @@ use crate::prelude::*;
 /// Category: visualize
 #[node(Construct, Layout)]
 pub struct LineNode {
-    /// Where the line starts.
+    /// The start point of the line.
+    ///
+    /// Must be an array of exactly two relative lengths.
     #[named]
     #[default]
     pub start: Axes<Rel<Length>>,
@@ -37,6 +35,7 @@ pub struct LineNode {
     /// The offset from `start` where the line ends.
     #[named]
     #[default]
+    #[skip]
     pub delta: Axes<Rel<Length>>,
 
     /// How to stroke the line. This can be:

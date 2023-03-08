@@ -12,7 +12,7 @@
 
 ---
 // Test that the language passed to the shaper has an effect.
-#set text("Ubuntu")
+#set text(font: "Ubuntu")
 
 // Some lowercase letters are different in Serbian Cyrillic compared to other
 // Cyrillic languages. Since there is only one set of Unicode codepoints for

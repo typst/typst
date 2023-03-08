@@ -15,5 +15,5 @@ $ x := #table(columns: 2)[x][y]/mat(1, 2, 3)
 
 ---
 // Test font switch.
-#let here = text.with("Noto Sans")
+#let here = text.with(font: "Noto Sans")
 $#here[f] := #here[Hi there]$.

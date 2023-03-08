@@ -74,10 +74,10 @@ pub trait StyleMapExt {
 impl StyleMapExt for StyleMap {
     fn set_family(&mut self, preferred: crate::text::FontFamily, existing: StyleChain) {
         self.set(
-            crate::text::TextNode::FAMILY,
-            crate::text::FallbackList(
+            crate::text::TextNode::FONT,
+            crate::text::FontList(
                 std::iter::once(preferred)
-                    .chain(existing.get(crate::text::TextNode::FAMILY).0.iter().cloned())
+                    .chain(existing.get(crate::text::TextNode::FONT).0.iter().cloned())
                     .collect(),
             ),
         );

@@ -100,7 +100,7 @@ Let's add a few more styles to our document. We want larger margins and a serif
 font. For the purposes of the example, we'll also set another page size.
 
 ```example
-#set text(10pt, "New Computer Modern")
+#set text(font: "New Computer Modern", 10pt)
 #set page(
   "a6",
   margin: (x: 1.8cm, y: 1.5cm),
@@ -171,7 +171,7 @@ can do this by setting the `numbering` parameter of the
 [`heading`]($func/heading) function.
 
 ```example
->>> #set text("New Computer Modern")
+>>> #set text(font: "New Computer Modern")
 #set heading(numbering: "1.")
 
 = Introduction
@@ -190,7 +190,7 @@ each level. We can also use
 [letters, roman numerals, and symbols]($func/numbering) for our headings:
 
 ```example
->>> #set text("New Computer Modern")
+>>> #set text(font: "New Computer Modern")
 #set heading(numbering: "1.a")
 
 = Introduction

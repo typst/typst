@@ -190,6 +190,11 @@ impl Layout for RectNode {
 /// ]
 /// ```
 ///
+/// ## Parameters
+/// - size: `Smart<Length>` (named)
+///   The square's side length. This is mutually exclusive with `width` and
+///   `height`.
+///
 /// Display: Square
 /// Category: visualize
 #[node(Construct, Layout)]
@@ -414,25 +419,9 @@ impl Layout for EllipseNode {
 /// ```
 ///
 /// ## Parameters
-/// - body: `Content` (positional)
-///   The content to place into the circle. The circle expands to fit this
-///   content, keeping the 1-1 aspect ratio.
-///
 /// - radius: `Length` (named)
 ///   The circle's radius. This is mutually exclusive with `width` and
 ///   `height`.
-///
-/// - width: `Rel<Length>` (named)
-///   The circle's width. This is mutually exclusive with `radius` and `height`.
-///
-///   In contrast to `size`, this can be relative to the parent container's
-///   width.
-///
-/// - height: `Rel<Length>` (named)
-///   The circle's height.This is mutually exclusive with `radius` and `width`.
-///
-///   In contrast to `size`, this can be relative to the parent container's
-///   height.
 ///
 /// Display: Circle
 /// Category: visualize

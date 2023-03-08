@@ -560,7 +560,7 @@ pub fn families(styles: StyleChain) -> impl Iterator<Item = FontFamily> + Clone 
 
     let tail = if styles.get(TextNode::FALLBACK) { FALLBACKS } else { &[] };
     styles
-        .get(TextNode::FAMILY)
+        .get(TextNode::FONT)
         .0
         .into_iter()
         .chain(tail.iter().copied().map(FontFamily::new))

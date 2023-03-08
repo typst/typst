@@ -46,7 +46,7 @@ The keyword ```rust let```.
 
 ---
 // Text show rule
-#show raw: set text("Roboto")
+#show raw: set text(font: "Roboto")
 `Roboto`
 
 ---

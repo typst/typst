@@ -44,8 +44,8 @@
 }
 
 ---
-// Error: 28-34 duplicate argument
-#set text(family: "Arial", family: "Helvetica")
+// Error: 26-30 duplicate argument
+#set text(font: "Arial", font: "Helvetica")
 
 ---
 // Error: 2-6 expected function, found boolean

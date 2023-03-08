@@ -12,11 +12,6 @@ use crate::prelude::*;
 /// Pages can be set to use `{auto}` as their width or height. In this case,
 /// the pages will grow to fit their content on the respective axis.
 ///
-/// ## Parameters
-/// - paper: `Paper` (positional, settable)
-///   A standard paper size to set width and height. When this is not specified,
-///   Typst defaults to `{"a4"}` paper.
-///
 /// ## Example
 /// ```example
 /// >>> #set page(margin: auto)
@@ -24,6 +19,11 @@ use crate::prelude::*;
 ///
 /// There you go, US friends!
 /// ```
+///
+/// ## Parameters
+/// - paper: `Paper` (positional, settable)
+///   A standard paper size to set width and height. When this is not specified,
+///   Typst defaults to `{"a4"}` paper.
 ///
 /// Display: Page
 /// Category: layout

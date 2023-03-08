@@ -14,15 +14,6 @@ pub(super) const DELIM_SHORT_FALL: Em = Em::new(0.1);
 /// $ lr(]sum_(x=1)^n] x, size: #50%) $
 /// ```
 ///
-/// ## Parameters
-/// - body: `Content` (positional, variadic)
-///   The delimited content, including the delimiters.
-///
-/// - size: `Rel<Length>` (named)
-///   The size of the brackets, relative to the height of the wrapped content.
-///
-///   Defaults to `{100%}`.
-///
 /// Display: Left/Right
 /// Category: math
 #[node(Construct, LayoutMath)]
@@ -32,7 +23,9 @@ pub struct LrNode {
     #[required]
     pub body: Content,
 
-    /// The size of the brackets.
+    /// The size of the brackets, relative to the height of the wrapped content.
+    ///
+    /// Defaults to `{100%}`.
     #[named]
     #[default]
     pub size: Smart<Rel<Length>>,

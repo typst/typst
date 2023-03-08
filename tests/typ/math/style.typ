@@ -26,5 +26,5 @@ $text(#red, "time"^2) + sqrt("place")$
 
 ---
 // Test different font.
-#show math.formula: set text(family: "Fira Math")
+#show math.formula: set text(font: "Fira Math")
 $ v := vec(1 + 2, 2 - 4, sqrt(3), arrow(x)) + 1 $

@@ -39,60 +39,12 @@ use crate::prelude::*;
 /// ```
 ///
 /// ## Parameters
-/// - family: `FallbackList` (positional, named, variadic, settable)
-///   A prioritized sequence of font families.
-///
-///   When processing text, Typst tries all specified font families in order
-///   until it finds a font that has the necessary glyphs. In the example below,
-///   the font `Inria Serif` is preferred, but since it does not contain Arabic
-///   glyphs, the arabic text uses `Noto Sans Arabic` instead.
-///
-///   ```example
-///   #set text(
-///     "Inria Serif",
-///     "Noto Sans Arabic",
-///   )
-///
-///   This is Latin. \
-///   هذا عربي.
-///
-///   ```
-///
 /// - body: `Content` (positional, required)
 ///   Content in which all text is styled according to the other arguments.
 ///
 /// Display: Text
 /// Category: text
 #[node(Construct)]
-#[set({
-    if let Some(family) = args.named("family")? {
-        styles.set(Self::FAMILY, family);
-    } else {
-        let mut count = 0;
-        let mut content = false;
-        for item in args.items.iter().filter(|item| item.name.is_none()) {
-            if EcoString::is(&item.value) {
-                count += 1;
-            } else if <Content as Cast<Spanned<Value>>>::is(&item.value) {
-                content = true;
-            }
-        }
-
-        // Skip the final string if it's needed as the body.
-        if constructor && !content && count > 0 {
-            count -= 1;
-        }
-
-        if count > 0 {
-            let mut list = Vec::with_capacity(count);
-            for _ in 0..count {
-                list.push(args.find()?.unwrap());
-            }
-
-            styles.set(Self::FAMILY, FallbackList(list));
-        }
-    }
-})]
 pub struct TextNode {
     /// The text.
     #[positional]
@@ -101,10 +53,25 @@ pub struct TextNode {
     pub text: EcoString,
 
     /// A prioritized sequence of font families.
+    ///
+    /// When processing text, Typst tries all specified font families in order
+    /// until it finds a font that has the necessary glyphs. In the example
+    /// below, the font `Inria Serif` is preferred, but since it does not
+    /// contain Arabic glyphs, the arabic text uses `Noto Sans Arabic` instead.
+    ///
+    /// ```example
+    /// #set text(font: (
+    ///   "Inria Serif",
+    ///   "Noto Sans Arabic",
+    /// ))
+    ///
+    /// This is Latin. \
+    /// هذا عربي.
+    ///
+    /// ```
     #[settable]
-    #[skip]
-    #[default(FallbackList(vec![FontFamily::new("Linux Libertine")]))]
-    pub family: FallbackList,
+    #[default(FontList(vec![FontFamily::new("Linux Libertine")]))]
+    pub font: FontList,
 
     /// Whether to allow last resort font fallback when the primary font list
     /// contains no match. This lets Typst search through all available fonts
@@ -117,7 +84,7 @@ pub struct TextNode {
     /// something is up.
     ///
     /// ```example
-    /// #set text(family: "Inria Serif")
+    /// #set text(font: "Inria Serif")
     /// هذا عربي
     ///
     /// #set text(fallback: false)
@@ -141,8 +108,8 @@ pub struct TextNode {
     /// style later if you change your mind about how to signify the emphasis.
     ///
     /// ```example
-    /// #text("Linux Libertine", style: "italic")[Italic]
-    /// #text("DejaVu Sans", style: "oblique")[Oblique]
+    /// #text(font: "Linux Libertine", style: "italic")[Italic]
+    /// #text(font: "DejaVu Sans", style: "oblique")[Oblique]
     /// ```
     #[settable]
     #[default(FontStyle::Normal)]
@@ -460,7 +427,7 @@ pub struct TextNode {
     /// default numbers for the font are used.
     ///
     /// ```example
-    /// #set text(20pt, "Noto Sans")
+    /// #set text(font: "Noto Sans", 20pt)
     /// #set text(number-type: "lining")
     /// Number 9.
     ///
@@ -475,7 +442,7 @@ pub struct TextNode {
     /// numbers for the font are used.
     ///
     /// ```example
-    /// #set text(20pt, "Noto Sans")
+    /// #set text(font: "Noto Sans", 20pt)
     /// #set text(number-width: "proportional")
     /// A 12 B 34. \
     /// A 56 B 78.
@@ -609,16 +576,16 @@ cast_to_value! {
 
 /// Font family fallback list.
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
-pub struct FallbackList(pub Vec<FontFamily>);
+pub struct FontList(pub Vec<FontFamily>);
 
 cast_from_value! {
-    FallbackList,
+    FontList,
     family: FontFamily => Self(vec![family]),
     values: Array => Self(values.into_iter().map(|v| v.cast()).collect::<StrResult<_>>()?),
 }
 
 cast_to_value! {
-    v: FallbackList => v.0.into()
+    v: FontList => v.0.into()
 }
 
 /// The size of text.

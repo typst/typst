@@ -24,5 +24,5 @@
 #set page("a4")
 #set page("a5")
 #set page("a11", flipped: true, fill: eastern)
-#set text("Roboto", white)
+#set text(font: "Roboto", white)
 #smallcaps[Typst]

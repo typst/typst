@@ -2,14 +2,14 @@
 
 ---
 // Test classic example.
-#set text("Roboto")
+#set text(font: "Roboto")
 #show "Der Spiegel": smallcaps
 Die Zeitung Der Spiegel existiert.
 
 ---
 // Another classic example.
 #show "TeX": [T#h(-0.145em)#box(move(dy: 0.233em)[E])#h(-0.135em)X]
-#show regex("(Lua)?(La)?TeX"): name => box(text("New Computer Modern")[#name])
+#show regex("(Lua)?(La)?TeX"): name => box(text(font: "New Computer Modern")[#name])
 
 TeX, LaTeX, LuaTeX and LuaLaTeX!
 

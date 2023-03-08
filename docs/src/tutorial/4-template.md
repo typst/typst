@@ -67,7 +67,7 @@ that content block.
 
 ```example
 #let template(doc) = [
-  #set text("Inria Serif")
+  #set text(font: "Inria Serif")
   #show "something cool": [Typst]
   #doc
 ]
@@ -86,7 +86,7 @@ previous chapter.
 
 ```example
 #let conf(title, doc) = {
-  set text(11pt, "Linux Libertine")
+  set text(font: "Linux Libertine", 11pt)
   set par(justify: true)
   set page(
     paper: "us-letter",
@@ -266,7 +266,7 @@ path of the file after the `{from}` keyword.
 >>>   abstract: [],
 >>>   doc,
 >>> ) = {
->>>  set text(11pt, "Linux Libertine")
+>>>  set text(font: "Linux Libertine", 11pt)
 >>>  set par(justify: true)
 >>>  set page(
 >>>    "us-letter",

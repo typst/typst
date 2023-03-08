@@ -11,7 +11,7 @@
 
 ---
 // Test alternates and stylistic sets.
-#set text("IBM Plex Serif")
+#set text(font: "IBM Plex Serif")
 a vs #text(alternates: true)[a] \
 ß vs #text(stylistic-set: 5)[ß]
 
@@ -33,7 +33,7 @@ fi vs. #text(ligatures: false)[No fi]
 
 ---
 // Test extra number stuff.
-#set text("IBM Plex Serif")
+#set text(font: "IBM Plex Serif")
 0 vs. #text(slashed-zero: true)[0] \
 1/2 vs. #text(fractions: true)[1/2]
 

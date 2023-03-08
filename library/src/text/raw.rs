@@ -3,8 +3,7 @@ use syntect::highlighting as synt;
 use typst::syntax::{self, LinkedNode};
 
 use super::{
-    FallbackList, FontFamily, Hyphenate, LinebreakNode, SmartQuoteNode, TextNode,
-    TextSize,
+    FontFamily, FontList, Hyphenate, LinebreakNode, SmartQuoteNode, TextNode, TextSize,
 };
 use crate::layout::BlockNode;
 use crate::prelude::*;
@@ -185,10 +184,7 @@ impl Finalize for RawNode {
         map.set(TextNode::OVERHANG, false);
         map.set(TextNode::HYPHENATE, Hyphenate(Smart::Custom(false)));
         map.set(TextNode::SIZE, TextSize(Em::new(0.8).into()));
-        map.set(
-            TextNode::FAMILY,
-            FallbackList(vec![FontFamily::new("DejaVu Sans Mono")]),
-        );
+        map.set(TextNode::FONT, FontList(vec![FontFamily::new("DejaVu Sans Mono")]));
         map.set(SmartQuoteNode::ENABLED, false);
         realized.styled_with_map(map)
     }

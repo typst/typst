@@ -54,7 +54,7 @@
 #eval("let")
 
 ---
-#show raw: it => text("PT Sans", eval("[" + it.text + "]"))
+#show raw: it => text(font: "PT Sans", eval("[" + it.text + "]"))
 
 Interacting
 ```

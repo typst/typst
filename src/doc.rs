@@ -598,13 +598,15 @@ pub enum Meta {
 }
 
 /// Host for metadata.
+///
+/// Display: Meta
+/// Category: special
 #[node]
 pub struct MetaNode {
     /// Metadata that should be attached to all elements affected by this style
     /// property.
     #[settable]
     #[fold]
-    #[skip]
     #[default]
     pub data: Vec<Meta>,
 }

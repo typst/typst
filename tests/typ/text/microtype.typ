@@ -12,7 +12,7 @@
 ]
 
 // Test hanging punctuation with RTL.
-#set text(lang: "he", "PT Sans", "Noto Serif Hebrew")
+#set text(lang: "he", font: ("PT Sans", "Noto Serif Hebrew"))
 בנייה נכונה של משפטים ארוכים דורשת ידע בשפה. אז בואו נדבר על מזג האוויר.
 
 ---

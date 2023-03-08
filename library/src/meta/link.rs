@@ -23,42 +23,38 @@ use crate::text::{Hyphenate, TextNode};
 /// This function also has dedicated syntax: Text that starts with `http://` or
 /// `https://` is automatically turned into a link.
 ///
-/// ## Parameters
-/// - dest: `Destination` (positional, required)
-///   The destination the link points to.
-///
-///   - To link to web pages, `dest` should be a valid URL string. If the URL is
-///     in the `mailto:` or `tel:` scheme and the `body` parameter is omitted,
-///     the email address or phone number will be the link's body, without the
-///     scheme.
-///
-///   - To link to another part of the document, `dest` must contain a
-///     dictionary with a `page` key of type `integer` and `x` and `y`
-///     coordinates of type `length`. Pages are counted from one, and the
-///     coordinates are relative to the page's top left corner.
-///
-///   ```example
-///   #link("mailto:hello@typst.app") \
-///   #link((page: 1, x: 0pt, y: 0pt))[
-///     Go to top
-///   ]
-///   ```
-///
-/// - body: `Content` (positional)
-///
-///   The content that should become a link. If `dest` is an URL string, the
-///   parameter can be omitted. In this case, the URL will be shown as the link.
-///
 /// Display: Link
 /// Category: meta
 #[node(Construct, Show, Finalize)]
 pub struct LinkNode {
     /// The destination the link points to.
+    ///
+    /// - To link to web pages, `dest` should be a valid URL string. If the URL is
+    ///   in the `mailto:` or `tel:` scheme and the `body` parameter is omitted,
+    ///   the email address or phone number will be the link's body, without the
+    ///   scheme.
+    ///
+    /// - To link to another part of the document, `dest` must contain a
+    ///   dictionary with a `page` key of type `integer` and `x` and `y`
+    ///   coordinates of type `length`. Pages are counted from one, and the
+    ///   coordinates are relative to the page's top left corner.
+    ///
+    /// ```example
+    /// #link("mailto:hello@typst.app") \
+    /// #link((page: 1, x: 0pt, y: 0pt))[
+    ///   Go to top
+    /// ]
+    /// ```
+    ///
     #[positional]
     #[required]
     pub dest: Destination,
 
     /// How the link is represented.
+    ///
+    /// The content that should become a link. If `dest` is an URL string, the
+    /// parameter can be omitted. In this case, the URL will be shown as the
+    /// link.
     #[positional]
     #[default]
     pub body: Content,

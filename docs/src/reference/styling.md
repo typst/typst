@@ -20,7 +20,7 @@ settable parameters. In the example below, we use two set rules to change the
 [heading numbering]($func/heading.numbering) style.
 
 ```example
-#set text("New Computer Modern")
+#set text(font: "New Computer Modern")
 #set heading(numbering: "I.")
 
 = Introduction
@@ -85,8 +85,8 @@ fantasy encyclopedia.
 #set heading(numbering: "(I)")
 #show heading: it => block[
   #set align(center)
-  #set text("Inria Serif")
   \~ _#it.title;_
+  #set text(font: "Inria Serif")
       #it.numbers \~
 ]
 

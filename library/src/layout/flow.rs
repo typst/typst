@@ -8,6 +8,9 @@ use crate::visualize::{CircleNode, EllipseNode, ImageNode, RectNode, SquareNode}
 ///
 /// This node is responsible for layouting both the top-level content flow and
 /// the contents of boxes.
+///
+/// Display: Flow
+/// Category: layout
 #[node(Layout)]
 pub struct FlowNode {
     /// The children that will be arranges into a flow.

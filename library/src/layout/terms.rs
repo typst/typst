@@ -127,6 +127,9 @@ impl Layout for TermsNode {
 }
 
 /// A term list item.
+///
+/// Display: Term List Item
+/// Category: layout
 #[node]
 pub struct TermItem {
     /// The term described by the list item.

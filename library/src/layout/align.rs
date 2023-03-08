@@ -57,6 +57,7 @@ pub struct AlignNode {
     /// )
     /// ```
     #[settable]
+    #[positional]
     #[fold]
     #[skip]
     #[default(Axes::new(GenAlign::Start, GenAlign::Specific(Align::Top)))]

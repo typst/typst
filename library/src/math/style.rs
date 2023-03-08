@@ -183,7 +183,7 @@ impl LayoutMath for FrakNode {
 /// $ mono(x + y = z) $
 /// ```
 ///
-///  Display: Monospace
+/// Display: Monospace
 /// Category: math
 #[node(LayoutMath)]
 pub struct MonoNode {

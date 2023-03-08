@@ -86,9 +86,6 @@ impl Behave for HNode {
 /// ```
 ///
 /// ## Parameters
-/// - amount: `Spacing` (positional, required)
-///   How much spacing to insert.
-///
 /// - weak: `bool` (named)
 ///   If true, the spacing collapses at the start or end of a flow. Moreover,
 ///   from multiple adjacent weak spacings all but the largest one collapse.
@@ -108,7 +105,7 @@ impl Behave for HNode {
 /// Category: layout
 #[node(Construct, Behave)]
 pub struct VNode {
-    /// The amount of vertical spacing.
+    /// How much spacing to insert.
     #[positional]
     #[required]
     pub amount: Spacing,

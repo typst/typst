@@ -50,7 +50,7 @@ to learn some new tricks.
 Let's start by writing some set rules for the document.
 
 ```example
-#set text(11pt, "Linux Libertine")
+#set text(font: "Linux Libertine", 11pt)
 #set par(justify: true)
 
 #set page(
@@ -97,7 +97,7 @@ align it and increase its font weight by enclosing it in `[*stars*]`.
 
 ```example
 >>> #set page(width: 300pt, margin: 30pt)
->>> #set text(11pt, "Linux Libertine")
+>>> #set text(font: "Linux Libertine", 11pt)
 #align(center, text(17pt)[
   *A fluid dynamic model
   for glacier flow*
@@ -111,7 +111,7 @@ supervisor, we'll add our own and their name.
 
 ```example
 >>> #set page(width: 300pt, margin: 30pt)
->>> #set text(11pt, "Linux Libertine")
+>>> #set text(font: "Linux Libertine", 11pt)
 >>>
 >>> #align(center, text(17pt)[
 >>>   *A fluid dynamic model
@@ -148,7 +148,7 @@ Now, let's add the abstract. Remember that the conference wants the abstract to
 be set ragged and centered.
 
 ```example:0,0,612,317.5
->>> #set text(11pt, "Linux Libertine")
+>>> #set text(font: "Linux Libertine", 11pt)
 >>> #set par(justify: true)
 >>> #set page(
 >>>   "us-letter",
@@ -210,7 +210,7 @@ keyword:
 
 <<< ...
 
->>> #set text(11pt, "Linux Libertine")
+>>> #set text(font: "Linux Libertine", 11pt)
 >>> #set par(justify: true)
 #set page(
 >>> "us-letter",
@@ -280,7 +280,7 @@ content. In our case, it passes it on to the `columns` function.
 >>>   for glacier flow
 >>> ]
 >>>
->>> #set text(11pt, "Linux Libertine")
+>>> #set text(font: "Linux Libertine", 11pt)
 >>> #set par(justify: true)
 >>> #set page(
 >>>   "us-letter",
@@ -342,7 +342,7 @@ a way to set any of that, we need to write our own heading show rule.
 >>>   for glacier flow
 >>> ]
 >>>
->>> #set text(11pt, "Linux Libertine")
+>>> #set text(font: "Linux Libertine", 11pt)
 >>> #set par(justify: true)
 >>> #set page(
 >>>   "us-letter",
@@ -421,7 +421,7 @@ differentiate between section and subsection headings:
 >>>   for glacier flow
 >>> ]
 >>>
->>> #set text(11pt, "Linux Libertine")
+>>> #set text(font: "Linux Libertine", 11pt)
 >>> #set par(justify: true)
 >>> #set page(
 >>>   "us-letter",

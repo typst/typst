@@ -5,7 +5,7 @@
 #emoji.woman.old
 #emoji.turtle
 
-#set text("New Computer Modern Math")
+#set text(font: "New Computer Modern Math")
 #sym.arrow
 #sym.arrow.l
 #sym.arrow.r.squiggly

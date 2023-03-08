@@ -10,7 +10,7 @@
 #underline(offset: 5pt)[Further below.]
 
 // Different color.
-#underline(red, evade: false)[Critical information is conveyed here.]
+#underline(stroke: red, evade: false)[Critical information is conveyed here.]
 
 // Inherits font color.
 #text(fill: red, underline[Change with the wind.])
@@ -19,7 +19,7 @@
 #overline(underline[Running amongst the wolves.])
 
 ---
-#let redact = strike.with(10pt, extent: 0.05em)
+#let redact = strike.with(stroke: 10pt, extent: 0.05em)
 #let highlight = strike.with(stroke: 10pt + rgb("abcdef88"), extent: 0.05em)
 
 // Abuse thickness and transparency for redacting and highlighting stuff.

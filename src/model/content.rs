@@ -326,6 +326,9 @@ impl Sum for Content {
 }
 
 /// A node with applied styles.
+///
+/// Display: Styled
+/// Category: special
 #[node]
 pub struct StyledNode {
     /// The styled content.
@@ -347,6 +350,9 @@ cast_from_value! {
 ///
 /// Combines other arbitrary content. So, when you write `[Hi] + [you]` in
 /// Typst, the two text nodes are combined into a single sequence node.
+///
+/// Display: Sequence
+/// Category: special
 #[node]
 pub struct SequenceNode {
     #[variadic]

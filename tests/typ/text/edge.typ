@@ -5,7 +5,7 @@
 #set text(size: 8pt)
 
 #let try(top, bottom) = rect(inset: 0pt, fill: conifer)[
-  #set text("IBM Plex Mono", top-edge: top, bottom-edge: bottom)
+  #set text(font: "IBM Plex Mono", top-edge: top, bottom-edge: bottom)
   From #top to #bottom
 ]
 

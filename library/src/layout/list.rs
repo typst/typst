@@ -167,6 +167,9 @@ impl Layout for ListNode {
 }
 
 /// A bullet list item.
+///
+/// Display: Bullet List Item
+/// Category: layout
 #[node]
 pub struct ListItem {
     /// The item's body.

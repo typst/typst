@@ -49,20 +49,6 @@ use super::GridLayouter;
 /// becomes part of that item.
 ///
 /// ## Parameters
-/// - items: `Content` (positional, variadic)
-///   The enumeration's children.
-///
-///   When using the enum syntax, adjacent items are automatically collected
-///   into enumerations, even through constructs like for loops.
-///
-///   ```example
-///   #for phase in (
-///      "Launch",
-///      "Orbit",
-///      "Descent",
-///   ) [+ #phase]
-///   ```
-///
 /// - start: `NonZeroUsize` (named)
 ///   Which number to start the enumeration with.
 ///
@@ -74,31 +60,39 @@ use super::GridLayouter;
 ///   )
 ///   ```
 ///
-/// - tight: `bool` (named)
-///   If this is `{false}`, the items are spaced apart with
-///   [enum spacing]($func/enum.spacing). If it is `{true}`, they use normal
-///   [leading]($func/par.leading) instead. This makes the enumeration more
-///   compact, which can look better if the items are short.
-///
-///   ```example
-///   + If an enum has a lot of text, and
-///     maybe other inline content, it
-///     should not be tight anymore.
-///
-///   + To make an enum wide, simply
-///     insert a blank line between the
-///     items.
-///   ```
-///
 /// Display: Numbered List
 /// Category: layout
 #[node(Construct, Layout)]
 pub struct EnumNode {
     /// The numbered list's items.
+    ///
+    /// When using the enum syntax, adjacent items are automatically collected
+    /// into enumerations, even through constructs like for loops.
+    ///
+    /// ```example
+    /// #for phase in (
+    ///    "Launch",
+    ///    "Orbit",
+    ///    "Descent",
+    /// ) [+ #phase]
+    /// ```
     #[variadic]
     pub items: Vec<EnumItem>,
 
-    /// If true, the items are separated by leading instead of list spacing.
+    /// If this is `{false}`, the items are spaced apart with
+    /// [enum spacing]($func/enum.spacing). If it is `{true}`, they use normal
+    /// [leading]($func/par.leading) instead. This makes the enumeration more
+    /// compact, which can look better if the items are short.
+    ///
+    /// ```example
+    /// + If an enum has a lot of text, and
+    ///   maybe other inline content, it
+    ///   should not be tight anymore.
+    ///
+    /// + To make an enum wide, simply
+    ///   insert a blank line between the
+    ///   items.
+    /// ```
     #[named]
     #[default(true)]
     pub tight: bool,
@@ -252,6 +246,9 @@ impl Layout for EnumNode {
 }
 
 /// An enumeration item.
+///
+/// Display: Numbered List Item
+/// Category: layout
 #[node]
 pub struct EnumItem {
     /// The item's number.

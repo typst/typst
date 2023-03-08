@@ -41,8 +41,7 @@ use self::spacing::*;
 use crate::layout::{HNode, ParNode, Spacing};
 use crate::prelude::*;
 use crate::text::{
-    families, variant, FallbackList, FontFamily, LinebreakNode, SpaceNode, TextNode,
-    TextSize,
+    families, variant, FontFamily, FontList, LinebreakNode, SpaceNode, TextNode, TextSize,
 };
 
 /// Create a module with all math definitions.
@@ -113,7 +112,7 @@ pub fn module() -> Module {
 ///
 /// ## Example
 /// ```example
-/// #set text("New Computer Modern")
+/// #set text(font: "New Computer Modern")
 ///
 /// Let $a$, $b$, and $c$ be the side
 /// lengths of right-angled triangle.
@@ -161,8 +160,8 @@ impl Finalize for FormulaNode {
         realized
             .styled(TextNode::WEIGHT, FontWeight::from_number(450))
             .styled(
-                TextNode::FAMILY,
-                FallbackList(vec![FontFamily::new("New Computer Modern Math")]),
+                TextNode::FONT,
+                FontList(vec![FontFamily::new("New Computer Modern Math")]),
             )
     }
 }
@@ -233,7 +232,7 @@ impl LayoutMath for Content {
 
         if let Some(styled) = self.to::<StyledNode>() {
             let map = styled.map();
-            if map.contains(TextNode::FAMILY) {
+            if map.contains(TextNode::FONT) {
                 let frame = ctx.layout_content(self)?;
                 ctx.push(FrameFragment::new(ctx, frame).with_spaced(true));
                 return Ok(());

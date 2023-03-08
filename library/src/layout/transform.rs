@@ -79,12 +79,11 @@ pub struct RotateNode {
     /// The amount of rotation.
     ///
     /// ```example
-    /// #rotate(angle: -1.571rad)[Space!]
+    /// #rotate(-1.571rad)[Space!]
     /// ```
     ///
-    #[named]
-    #[shorthand]
-    #[default]
+    #[positional]
+    #[required]
     pub angle: Angle,
 
     /// The content to rotate.
@@ -104,9 +103,9 @@ pub struct RotateNode {
     /// #let square = square.with(width: 8pt)
     ///
     /// #box(square())
-    /// #box(rotate(angle: 30deg, origin: center, square()))
-    /// #box(rotate(angle: 30deg, origin: top + left, square()))
-    /// #box(rotate(angle: 30deg, origin: bottom + right, square()))
+    /// #box(rotate(30deg, origin: center, square()))
+    /// #box(rotate(30deg, origin: top + left, square()))
+    /// #box(rotate(30deg, origin: bottom + right, square()))
     /// ```
     #[settable]
     #[resolve]
