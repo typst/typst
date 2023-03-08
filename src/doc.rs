@@ -274,7 +274,7 @@ impl Frame {
         if self.is_empty() {
             return;
         }
-        for meta in styles.get(MetaNode::DATA) {
+        for meta in MetaNode::data_in(styles) {
             if matches!(meta, Meta::Hidden) {
                 self.clear();
                 break;

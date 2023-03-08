@@ -133,7 +133,7 @@ fn layout(
             line_pos,
             Element::Shape(
                 Geometry::Line(Point::with_x(line_width)).stroked(Stroke {
-                    paint: ctx.styles().get(TextNode::FILL),
+                    paint: TextNode::fill_in(ctx.styles()),
                     thickness,
                 }),
             ),

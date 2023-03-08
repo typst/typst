@@ -58,8 +58,8 @@ impl LayoutRoot for DocumentNode {
 
         Ok(Document {
             pages,
-            title: styles.get(Self::TITLE).clone(),
-            author: styles.get(Self::AUTHOR).0.clone(),
+            title: Self::title_in(styles),
+            author: Self::author_in(styles).0,
         })
     }
 }

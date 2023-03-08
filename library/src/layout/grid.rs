@@ -262,7 +262,7 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
         }
 
         // Reverse for RTL.
-        let is_rtl = styles.get(TextNode::DIR) == Dir::RTL;
+        let is_rtl = TextNode::dir_in(styles) == Dir::RTL;
         if is_rtl {
             cols.reverse();
         }

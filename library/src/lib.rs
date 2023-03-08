@@ -164,8 +164,8 @@ fn styles() -> StyleMap {
 fn items() -> LangItems {
     LangItems {
         layout: |world, content, styles| content.layout_root(world, styles),
-        em: |styles| styles.get(text::TextNode::SIZE),
-        dir: |styles| styles.get(text::TextNode::DIR),
+        em: text::TextNode::size_in,
+        dir: text::TextNode::dir_in,
         space: || text::SpaceNode::new().pack(),
         linebreak: || text::LinebreakNode::new().pack(),
         text: |text| text::TextNode::new(text).pack(),
@@ -178,7 +178,7 @@ fn items() -> LangItems {
         raw: |text, lang, block| {
             let content = text::RawNode::new(text).with_block(block).pack();
             match lang {
-                Some(_) => content.styled(text::RawNode::LANG, lang),
+                Some(_) => content.styled(text::RawNode::set_lang(lang)),
                 None => content,
             }
         },

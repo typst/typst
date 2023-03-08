@@ -578,6 +578,15 @@ cast_to_value! {
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct FontList(pub Vec<FontFamily>);
 
+impl IntoIterator for FontList {
+    type IntoIter = std::vec::IntoIter<FontFamily>;
+    type Item = FontFamily;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
 cast_from_value! {
     FontList,
     family: FontFamily => Self(vec![family]),
@@ -664,7 +673,7 @@ impl Resolve for HorizontalDir {
 
     fn resolve(self, styles: StyleChain) -> Self::Output {
         match self.0 {
-            Smart::Auto => styles.get(TextNode::LANG).dir(),
+            Smart::Auto => TextNode::lang_in(styles).dir(),
             Smart::Custom(dir) => dir,
         }
     }
@@ -688,7 +697,7 @@ impl Resolve for Hyphenate {
 
     fn resolve(self, styles: StyleChain) -> Self::Output {
         match self.0 {
-            Smart::Auto => styles.get(ParNode::JUSTIFY),
+            Smart::Auto => ParNode::justify_in(styles),
             Smart::Custom(v) => v,
         }
     }

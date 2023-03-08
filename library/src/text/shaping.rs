@@ -88,10 +88,10 @@ impl<'a> ShapedText<'a> {
         let mut frame = Frame::new(size);
         frame.set_baseline(top);
 
-        let shift = self.styles.get(TextNode::BASELINE);
-        let lang = self.styles.get(TextNode::LANG);
-        let decos = self.styles.get(TextNode::DECO);
-        let fill = self.styles.get(TextNode::FILL);
+        let shift = TextNode::baseline_in(self.styles);
+        let lang = TextNode::lang_in(self.styles);
+        let decos = TextNode::deco_in(self.styles);
+        let fill = TextNode::fill_in(self.styles);
 
         for ((font, y_offset), group) in
             self.glyphs.as_ref().group_by_key(|g| (g.font.clone(), g.y_offset))
@@ -137,8 +137,8 @@ impl<'a> ShapedText<'a> {
         let mut top = Abs::zero();
         let mut bottom = Abs::zero();
 
-        let top_edge = self.styles.get(TextNode::TOP_EDGE);
-        let bottom_edge = self.styles.get(TextNode::BOTTOM_EDGE);
+        let top_edge = TextNode::top_edge_in(self.styles);
+        let bottom_edge = TextNode::bottom_edge_in(self.styles);
 
         // Expand top and bottom by reading the font's vertical metrics.
         let mut expand = |font: &Font| {
@@ -315,8 +315,7 @@ pub fn shape<'a>(
     styles: StyleChain<'a>,
     dir: Dir,
 ) -> ShapedText<'a> {
-    let size = styles.get(TextNode::SIZE);
-
+    let size = TextNode::size_in(styles);
     let mut ctx = ShapingContext {
         vt,
         size,
@@ -325,7 +324,7 @@ pub fn shape<'a>(
         styles,
         variant: variant(styles),
         tags: tags(styles),
-        fallback: styles.get(TextNode::FALLBACK),
+        fallback: TextNode::fallback_in(styles),
         dir,
     };
 
@@ -494,11 +493,9 @@ fn shape_tofus(ctx: &mut ShapingContext, base: usize, text: &str, font: Font) {
 
 /// Apply tracking and spacing to the shaped glyphs.
 fn track_and_space(ctx: &mut ShapingContext) {
-    let tracking = Em::from_length(ctx.styles.get(TextNode::TRACKING), ctx.size);
-    let spacing = ctx
-        .styles
-        .get(TextNode::SPACING)
-        .map(|abs| Em::from_length(abs, ctx.size));
+    let tracking = Em::from_length(TextNode::tracking_in(ctx.styles), ctx.size);
+    let spacing =
+        TextNode::spacing_in(ctx.styles).map(|abs| Em::from_length(abs, ctx.size));
 
     let mut glyphs = ctx.glyphs.iter_mut().peekable();
     while let Some(glyph) = glyphs.next() {
@@ -527,17 +524,17 @@ fn nbsp_delta(font: &Font) -> Option<Em> {
 /// Resolve the font variant.
 pub fn variant(styles: StyleChain) -> FontVariant {
     let mut variant = FontVariant::new(
-        styles.get(TextNode::STYLE),
-        styles.get(TextNode::WEIGHT),
-        styles.get(TextNode::STRETCH),
+        TextNode::style_in(styles),
+        TextNode::weight_in(styles),
+        TextNode::stretch_in(styles),
     );
 
-    let delta = styles.get(TextNode::DELTA);
+    let delta = TextNode::delta_in(styles);
     variant.weight = variant
         .weight
         .thicken(delta.clamp(i16::MIN as i64, i16::MAX as i64) as i16);
 
-    if styles.get(TextNode::EMPH) {
+    if TextNode::emph_in(styles) {
         variant.style = match variant.style {
             FontStyle::Normal => FontStyle::Italic,
             FontStyle::Italic => FontStyle::Normal,
@@ -558,10 +555,8 @@ pub fn families(styles: StyleChain) -> impl Iterator<Item = FontFamily> + Clone 
         "segoe ui emoji",
     ];
 
-    let tail = if styles.get(TextNode::FALLBACK) { FALLBACKS } else { &[] };
-    styles
-        .get(TextNode::FONT)
-        .0
+    let tail = if TextNode::fallback_in(styles) { FALLBACKS } else { &[] };
+    TextNode::font_in(styles)
         .into_iter()
         .chain(tail.iter().copied().map(FontFamily::new))
 }
@@ -574,59 +569,59 @@ fn tags(styles: StyleChain) -> Vec<Feature> {
     };
 
     // Features that are on by default in Harfbuzz are only added if disabled.
-    if !styles.get(TextNode::KERNING) {
+    if !TextNode::kerning_in(styles) {
         feat(b"kern", 0);
     }
 
     // Features that are off by default in Harfbuzz are only added if enabled.
-    if styles.get(TextNode::SMALLCAPS) {
+    if TextNode::smallcaps_in(styles) {
         feat(b"smcp", 1);
     }
 
-    if styles.get(TextNode::ALTERNATES) {
+    if TextNode::alternates_in(styles) {
         feat(b"salt", 1);
     }
 
     let storage;
-    if let Some(set) = styles.get(TextNode::STYLISTIC_SET) {
+    if let Some(set) = TextNode::stylistic_set_in(styles) {
         storage = [b's', b's', b'0' + set.get() / 10, b'0' + set.get() % 10];
         feat(&storage, 1);
     }
 
-    if !styles.get(TextNode::LIGATURES) {
+    if !TextNode::ligatures_in(styles) {
         feat(b"liga", 0);
         feat(b"clig", 0);
     }
 
-    if styles.get(TextNode::DISCRETIONARY_LIGATURES) {
+    if TextNode::discretionary_ligatures_in(styles) {
         feat(b"dlig", 1);
     }
 
-    if styles.get(TextNode::HISTORICAL_LIGATURES) {
+    if TextNode::historical_ligatures_in(styles) {
         feat(b"hilg", 1);
     }
 
-    match styles.get(TextNode::NUMBER_TYPE) {
+    match TextNode::number_type_in(styles) {
         Smart::Auto => {}
         Smart::Custom(NumberType::Lining) => feat(b"lnum", 1),
         Smart::Custom(NumberType::OldStyle) => feat(b"onum", 1),
     }
 
-    match styles.get(TextNode::NUMBER_WIDTH) {
+    match TextNode::number_width_in(styles) {
         Smart::Auto => {}
         Smart::Custom(NumberWidth::Proportional) => feat(b"pnum", 1),
         Smart::Custom(NumberWidth::Tabular) => feat(b"tnum", 1),
     }
 
-    if styles.get(TextNode::SLASHED_ZERO) {
+    if TextNode::slashed_zero_in(styles) {
         feat(b"zero", 1);
     }
 
-    if styles.get(TextNode::FRACTIONS) {
+    if TextNode::fractions_in(styles) {
         feat(b"frac", 1);
     }
 
-    for (tag, value) in styles.get(TextNode::FEATURES).0 {
+    for (tag, value) in TextNode::features_in(styles).0 {
         tags.push(Feature::new(tag, value, ..))
     }
 
@@ -636,8 +631,8 @@ fn tags(styles: StyleChain) -> Vec<Feature> {
 /// Process the language and and region of a style chain into a
 /// rustybuzz-compatible BCP 47 language.
 fn language(styles: StyleChain) -> rustybuzz::Language {
-    let mut bcp: EcoString = styles.get(TextNode::LANG).as_str().into();
-    if let Some(region) = styles.get(TextNode::REGION) {
+    let mut bcp: EcoString = TextNode::lang_in(styles).as_str().into();
+    if let Some(region) = TextNode::region_in(styles) {
         bcp.push('-');
         bcp.push_str(region.as_str());
     }

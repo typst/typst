@@ -30,8 +30,8 @@ use crate::prelude::*;
 #[node]
 #[set({
     if let Some(paper) = args.named_or_find::<Paper>("paper")? {
-        styles.set(Self::WIDTH, Smart::Custom(paper.width().into()));
-        styles.set(Self::HEIGHT, Smart::Custom(paper.height().into()));
+        styles.set(Self::set_width(Smart::Custom(paper.width().into())));
+        styles.set(Self::set_height(Smart::Custom(paper.height().into())));
     }
 })]
 pub struct PageNode {
@@ -260,10 +260,10 @@ impl PageNode {
     ) -> SourceResult<Fragment> {
         // When one of the lengths is infinite the page fits its content along
         // that axis.
-        let width = styles.get(Self::WIDTH).unwrap_or(Abs::inf());
-        let height = styles.get(Self::HEIGHT).unwrap_or(Abs::inf());
+        let width = Self::width_in(styles).unwrap_or(Abs::inf());
+        let height = Self::height_in(styles).unwrap_or(Abs::inf());
         let mut size = Size::new(width, height);
-        if styles.get(Self::FLIPPED) {
+        if Self::flipped_in(styles) {
             std::mem::swap(&mut size.x, &mut size.y);
         }
 
@@ -274,12 +274,12 @@ impl PageNode {
 
         // Determine the margins.
         let default = Rel::from(0.1190 * min);
-        let padding = styles.get(Self::MARGIN).map(|side| side.unwrap_or(default));
+        let padding = Self::margin_in(styles).map(|side| side.unwrap_or(default));
 
         let mut child = self.body();
 
         // Realize columns.
-        let columns = styles.get(Self::COLUMNS);
+        let columns = Self::columns_in(styles);
         if columns.get() > 1 {
             child = ColumnsNode::new(columns, child).pack();
         }
@@ -291,11 +291,11 @@ impl PageNode {
         let regions = Regions::repeat(size, size.map(Abs::is_finite));
         let mut fragment = child.layout(vt, styles, regions)?;
 
-        let fill = styles.get(Self::FILL);
-        let header = styles.get(Self::HEADER);
-        let footer = styles.get(Self::FOOTER);
-        let foreground = styles.get(Self::FOREGROUND);
-        let background = styles.get(Self::BACKGROUND);
+        let fill = Self::fill_in(styles);
+        let header = Self::header_in(styles);
+        let footer = Self::footer_in(styles);
+        let foreground = Self::foreground_in(styles);
+        let background = Self::background_in(styles);
 
         // Realize overlays.
         for frame in &mut fragment {

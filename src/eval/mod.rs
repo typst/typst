@@ -354,7 +354,7 @@ fn eval_markup(
                 }
 
                 let tail = eval_markup(vm, exprs)?;
-                seq.push(tail.styled_with_recipe(vm.world, recipe)?)
+                seq.push(tail.apply_recipe(vm.world, recipe)?)
             }
             expr => match expr.eval(vm)? {
                 Value::Label(label) => {
@@ -783,7 +783,7 @@ fn eval_code(
                 }
 
                 let tail = eval_code(vm, exprs)?.display();
-                Value::Content(tail.styled_with_recipe(vm.world, recipe)?)
+                Value::Content(tail.apply_recipe(vm.world, recipe)?)
             }
             _ => expr.eval(vm)?,
         };

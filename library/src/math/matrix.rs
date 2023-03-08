@@ -35,7 +35,7 @@ pub struct VecNode {
 
 impl LayoutMath for VecNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        let delim = ctx.styles().get(Self::DELIM);
+        let delim = Self::delim_in(ctx.styles());
         let frame = layout_vec_body(ctx, &self.children(), Align::Center)?;
         layout_delimiters(ctx, frame, Some(delim.open()), Some(delim.close()))
     }
@@ -115,7 +115,7 @@ impl Construct for MatNode {
 
 impl LayoutMath for MatNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        let delim = ctx.styles().get(Self::DELIM);
+        let delim = Self::delim_in(ctx.styles());
         let frame = layout_mat_body(ctx, &self.rows())?;
         layout_delimiters(ctx, frame, Some(delim.open()), Some(delim.close()))
     }
@@ -156,7 +156,7 @@ pub struct CasesNode {
 
 impl LayoutMath for CasesNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        let delim = ctx.styles().get(Self::DELIM);
+        let delim = Self::delim_in(ctx.styles());
         let frame = layout_vec_body(ctx, &self.children(), Align::Left)?;
         layout_delimiters(ctx, frame, Some(delim.open()), None)
     }

@@ -167,11 +167,11 @@ impl Layout for RectNode {
             ShapeKind::Rect,
             &self.body(),
             Axes::new(self.width(), self.height()),
-            styles.get(Self::FILL),
-            styles.get(Self::STROKE),
-            styles.get(Self::INSET),
-            styles.get(Self::OUTSET),
-            styles.get(Self::RADIUS),
+            Self::fill_in(styles),
+            Self::stroke_in(styles),
+            Self::inset_in(styles),
+            Self::outset_in(styles),
+            Self::radius_in(styles),
         )
     }
 }
@@ -301,11 +301,11 @@ impl Layout for SquareNode {
             ShapeKind::Square,
             &self.body(),
             Axes::new(self.width(), self.height()),
-            styles.get(Self::FILL),
-            styles.get(Self::STROKE),
-            styles.get(Self::INSET),
-            styles.get(Self::OUTSET),
-            styles.get(Self::RADIUS),
+            Self::fill_in(styles),
+            Self::stroke_in(styles),
+            Self::inset_in(styles),
+            Self::outset_in(styles),
+            Self::radius_in(styles),
         )
     }
 }
@@ -394,10 +394,10 @@ impl Layout for EllipseNode {
             ShapeKind::Ellipse,
             &self.body(),
             Axes::new(self.width(), self.height()),
-            styles.get(Self::FILL),
-            styles.get(Self::STROKE).map(Sides::splat),
-            styles.get(Self::INSET),
-            styles.get(Self::OUTSET),
+            Self::fill_in(styles),
+            Self::stroke_in(styles).map(Sides::splat),
+            Self::inset_in(styles),
+            Self::outset_in(styles),
             Corners::splat(Rel::zero()),
         )
     }
@@ -522,10 +522,10 @@ impl Layout for CircleNode {
             ShapeKind::Circle,
             &self.body(),
             Axes::new(self.width(), self.height()),
-            styles.get(Self::FILL),
-            styles.get(Self::STROKE).map(Sides::splat),
-            styles.get(Self::INSET),
-            styles.get(Self::OUTSET),
+            Self::fill_in(styles),
+            Self::stroke_in(styles).map(Sides::splat),
+            Self::inset_in(styles),
+            Self::outset_in(styles),
             Corners::splat(Rel::zero()),
         )
     }

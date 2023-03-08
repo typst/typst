@@ -178,11 +178,13 @@ fn library() -> Library {
     // Set page width to 120pt with 10pt margins, so that the inner page is
     // exactly 100pt wide. Page height is unbounded and font size is 10pt so
     // that it multiplies to nice round numbers.
-    lib.styles.set(PageNode::WIDTH, Smart::Custom(Abs::pt(120.0).into()));
-    lib.styles.set(PageNode::HEIGHT, Smart::Auto);
     lib.styles
-        .set(PageNode::MARGIN, Sides::splat(Some(Smart::Custom(Abs::pt(10.0).into()))));
-    lib.styles.set(TextNode::SIZE, TextSize(Abs::pt(10.0).into()));
+        .set(PageNode::set_width(Smart::Custom(Abs::pt(120.0).into())));
+    lib.styles.set(PageNode::set_height(Smart::Auto));
+    lib.styles.set(PageNode::set_margin(Sides::splat(Some(Smart::Custom(
+        Abs::pt(10.0).into(),
+    )))));
+    lib.styles.set(TextNode::set_size(TextSize(Abs::pt(10.0).into())));
 
     // Hook up helpers into the global scope.
     lib.global.scope_mut().def_func::<TestFunc>("test");

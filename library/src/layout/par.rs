@@ -2,7 +2,7 @@ use unicode_bidi::{BidiInfo, Level as BidiLevel};
 use unicode_script::{Script, UnicodeScript};
 use xi_unicode::LineBreakIterator;
 
-use typst::model::{Key, StyledNode};
+use typst::model::StyledNode;
 
 use super::{BoxNode, HNode, Sizing, Spacing};
 use crate::layout::AlignNode;
@@ -495,7 +495,7 @@ fn collect<'a>(
     let mut iter = children.iter().peekable();
 
     if consecutive {
-        let indent = styles.get(ParNode::INDENT);
+        let indent = ParNode::indent_in(*styles);
         if !indent.is_zero()
             && children
                 .iter()
@@ -530,7 +530,7 @@ fn collect<'a>(
             Segment::Text(1)
         } else if let Some(node) = child.to::<TextNode>() {
             let prev = full.len();
-            if let Some(case) = styles.get(TextNode::CASE) {
+            if let Some(case) = TextNode::case_in(styles) {
                 full.push_str(&case.apply(&node.text()));
             } else {
                 full.push_str(&node.text());
@@ -545,9 +545,9 @@ fn collect<'a>(
             Segment::Text(c.len_utf8())
         } else if let Some(node) = child.to::<SmartQuoteNode>() {
             let prev = full.len();
-            if styles.get(SmartQuoteNode::ENABLED) {
-                let lang = styles.get(TextNode::LANG);
-                let region = styles.get(TextNode::REGION);
+            if SmartQuoteNode::enabled_in(styles) {
+                let lang = TextNode::lang_in(styles);
+                let region = TextNode::region_in(styles);
                 let quotes = Quotes::from_lang(lang, region);
                 let peeked = iter.peek().and_then(|child| {
                     if let Some(node) = child.to::<TextNode>() {
@@ -613,7 +613,7 @@ fn prepare<'a>(
 ) -> SourceResult<Preparation<'a>> {
     let bidi = BidiInfo::new(
         text,
-        match styles.get(TextNode::DIR) {
+        match TextNode::dir_in(styles) {
             Dir::LTR => Some(BidiLevel::ltr()),
             Dir::RTL => Some(BidiLevel::rtl()),
             _ => None,
@@ -642,7 +642,7 @@ fn prepare<'a>(
             Segment::Formula(formula) => {
                 let pod = Regions::one(region, Axes::splat(false));
                 let mut frame = formula.layout(vt, styles, pod)?.into_frame();
-                frame.translate(Point::with_y(styles.get(TextNode::BASELINE)));
+                frame.translate(Point::with_y(TextNode::baseline_in(styles)));
                 items.push(Item::Frame(frame));
             }
             Segment::Box(node) => {
@@ -651,7 +651,7 @@ fn prepare<'a>(
                 } else {
                     let pod = Regions::one(region, Axes::splat(false));
                     let mut frame = node.layout(vt, styles, pod)?.into_frame();
-                    frame.translate(Point::with_y(styles.get(TextNode::BASELINE)));
+                    frame.translate(Point::with_y(TextNode::baseline_in(styles)));
                     items.push(Item::Frame(frame));
                 }
             }
@@ -664,10 +664,10 @@ fn prepare<'a>(
         bidi,
         items,
         styles,
-        hyphenate: shared_get(styles, children, TextNode::HYPHENATE),
-        lang: shared_get(styles, children, TextNode::LANG),
-        align: styles.get(AlignNode::ALIGNMENT).x.resolve(styles),
-        justify: styles.get(ParNode::JUSTIFY),
+        hyphenate: shared_get(styles, children, TextNode::hyphenate_in),
+        lang: shared_get(styles, children, TextNode::lang_in),
+        align: AlignNode::alignment_in(styles).x.resolve(styles),
+        justify: ParNode::justify_in(styles),
     })
 }
 
@@ -727,22 +727,23 @@ fn is_compatible(a: Script, b: Script) -> bool {
 
 /// Get a style property, but only if it is the same for all children of the
 /// paragraph.
-fn shared_get<'a, K: Key>(
+fn shared_get<'a, T: PartialEq>(
     styles: StyleChain<'a>,
     children: &[Content],
-    key: K,
-) -> Option<K::Output> {
+    getter: fn(StyleChain) -> T,
+) -> Option<T> {
+    let value = getter(styles);
     children
         .iter()
         .filter_map(|child| child.to::<StyledNode>())
-        .all(|node| !node.map().contains(key))
-        .then(|| styles.get(key))
+        .all(|node| getter(styles.chain(&node.map())) == value)
+        .then(|| value)
 }
 
 /// Find suitable linebreaks.
 fn linebreak<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<Line<'a>> {
-    let linebreaks = p.styles.get(ParNode::LINEBREAKS).unwrap_or_else(|| {
-        if p.styles.get(ParNode::JUSTIFY) {
+    let linebreaks = ParNode::linebreaks_in(p.styles).unwrap_or_else(|| {
+        if ParNode::justify_in(p.styles) {
             Linebreaks::Optimized
         } else {
             Linebreaks::Simple
@@ -840,7 +841,7 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
         line: line(vt, p, 0..0, false, false),
     }];
 
-    let em = p.styles.get(TextNode::SIZE);
+    let em = TextNode::size_in(p.styles);
 
     for (end, mandatory, hyphen) in breakpoints(p) {
         let k = table.len();
@@ -1005,7 +1006,7 @@ impl Breakpoints<'_> {
             .hyphenate
             .or_else(|| {
                 let shaped = self.p.find(offset)?.text()?;
-                Some(shaped.styles.get(TextNode::HYPHENATE))
+                Some(TextNode::hyphenate_in(shaped.styles))
             })
             .unwrap_or(false)
     }
@@ -1014,7 +1015,7 @@ impl Breakpoints<'_> {
     fn lang(&self, offset: usize) -> Option<hypher::Lang> {
         let lang = self.p.lang.or_else(|| {
             let shaped = self.p.find(offset)?.text()?;
-            Some(shaped.styles.get(TextNode::LANG))
+            Some(TextNode::lang_in(shaped.styles))
         })?;
 
         let bytes = lang.as_str().as_bytes().try_into().ok()?;
@@ -1155,7 +1156,7 @@ fn finalize(
         .collect::<SourceResult<_>>()?;
 
     // Prevent orphans.
-    let leading = p.styles.get(ParNode::LEADING);
+    let leading = ParNode::leading_in(p.styles);
     if frames.len() >= 2 && !frames[1].is_empty() {
         let second = frames.remove(1);
         let first = &mut frames[0];
@@ -1199,7 +1200,7 @@ fn commit(
     if let Some(Item::Text(text)) = reordered.first() {
         if let Some(glyph) = text.glyphs.first() {
             if !text.dir.is_positive()
-                && text.styles.get(TextNode::OVERHANG)
+                && TextNode::overhang_in(text.styles)
                 && (reordered.len() > 1 || text.glyphs.len() > 1)
             {
                 let amount = overhang(glyph.c) * glyph.x_advance.at(text.size);
@@ -1213,7 +1214,7 @@ fn commit(
     if let Some(Item::Text(text)) = reordered.last() {
         if let Some(glyph) = text.glyphs.last() {
             if text.dir.is_positive()
-                && text.styles.get(TextNode::OVERHANG)
+                && TextNode::overhang_in(text.styles)
                 && (reordered.len() > 1 || text.glyphs.len() > 1)
             {
                 let amount = overhang(glyph.c) * glyph.x_advance.at(text.size);
@@ -1257,7 +1258,7 @@ fn commit(
                     let region = Size::new(amount, full);
                     let pod = Regions::one(region, Axes::new(true, false));
                     let mut frame = node.layout(vt, *styles, pod)?.into_frame();
-                    frame.translate(Point::with_y(styles.get(TextNode::BASELINE)));
+                    frame.translate(Point::with_y(TextNode::baseline_in(*styles)));
                     push(&mut offset, frame);
                 } else {
                     offset += amount;

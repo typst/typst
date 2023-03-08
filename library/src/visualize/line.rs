@@ -84,7 +84,7 @@ impl Layout for LineNode {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let stroke = styles.get(Self::STROKE).unwrap_or_default();
+        let stroke = Self::stroke_in(styles).unwrap_or_default();
 
         let origin = self
             .start()

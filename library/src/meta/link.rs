@@ -91,8 +91,8 @@ impl Show for LinkNode {
 impl Finalize for LinkNode {
     fn finalize(&self, realized: Content) -> Content {
         realized
-            .styled(MetaNode::DATA, vec![Meta::Link(self.dest())])
-            .styled(TextNode::HYPHENATE, Hyphenate(Smart::Custom(false)))
+            .styled(MetaNode::set_data(vec![Meta::Link(self.dest())]))
+            .styled(TextNode::set_hyphenate(Hyphenate(Smart::Custom(false))))
     }
 }
 

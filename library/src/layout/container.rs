@@ -134,7 +134,7 @@ impl Layout for BoxNode {
 
         // Apply inset.
         let mut body = self.body().unwrap_or_default();
-        let inset = styles.get(Self::INSET);
+        let inset = Self::inset_in(styles);
         if inset.iter().any(|v| !v.is_zero()) {
             body = body.padded(inset.map(|side| side.map(Length::from)));
         }
@@ -145,21 +145,20 @@ impl Layout for BoxNode {
         let mut frame = body.layout(vt, styles, pod)?.into_frame();
 
         // Apply baseline shift.
-        let shift = styles.get(Self::BASELINE).relative_to(frame.height());
+        let shift = Self::baseline_in(styles).relative_to(frame.height());
         if !shift.is_zero() {
             frame.set_baseline(frame.baseline() - shift);
         }
 
         // Prepare fill and stroke.
-        let fill = styles.get(Self::FILL);
-        let stroke = styles
-            .get(Self::STROKE)
-            .map(|s| s.map(PartialStroke::unwrap_or_default));
+        let fill = Self::fill_in(styles);
+        let stroke =
+            Self::stroke_in(styles).map(|s| s.map(PartialStroke::unwrap_or_default));
 
         // Add fill and/or stroke.
         if fill.is_some() || stroke.iter().any(Option::is_some) {
-            let outset = styles.get(Self::OUTSET);
-            let radius = styles.get(Self::RADIUS);
+            let outset = Self::outset_in(styles);
+            let radius = Self::radius_in(styles);
             frame.fill_and_stroke(fill, stroke, outset, radius);
         }
 
@@ -220,16 +219,16 @@ impl Layout for BoxNode {
 #[set({
     let spacing = args.named("spacing")?;
     styles.set_opt(
-        Self::ABOVE,
         args.named("above")?
             .map(VNode::block_around)
-            .or_else(|| spacing.map(VNode::block_spacing)),
+            .or_else(|| spacing.map(VNode::block_spacing))
+            .map(Self::set_above),
     );
     styles.set_opt(
-        Self::BELOW,
         args.named("below")?
             .map(VNode::block_around)
-            .or_else(|| spacing.map(VNode::block_spacing)),
+            .or_else(|| spacing.map(VNode::block_spacing))
+            .map(Self::set_below),
     );
 })]
 pub struct BlockNode {
@@ -361,7 +360,7 @@ impl Layout for BlockNode {
     ) -> SourceResult<Fragment> {
         // Apply inset.
         let mut body = self.body().unwrap_or_default();
-        let inset = styles.get(Self::INSET);
+        let inset = Self::inset_in(styles);
         if inset.iter().any(|v| !v.is_zero()) {
             body = body.clone().padded(inset.map(|side| side.map(Length::from)));
         }
@@ -376,7 +375,7 @@ impl Layout for BlockNode {
             .unwrap_or(regions.base());
 
         // Layout the child.
-        let mut frames = if styles.get(Self::BREAKABLE) {
+        let mut frames = if Self::breakable_in(styles) {
             // Measure to ensure frames for all regions have the same width.
             if sizing.x == Smart::Auto {
                 let pod = Regions::one(size, Axes::splat(false));
@@ -414,10 +413,9 @@ impl Layout for BlockNode {
         };
 
         // Prepare fill and stroke.
-        let fill = styles.get(Self::FILL);
-        let stroke = styles
-            .get(Self::STROKE)
-            .map(|s| s.map(PartialStroke::unwrap_or_default));
+        let fill = Self::fill_in(styles);
+        let stroke =
+            Self::stroke_in(styles).map(|s| s.map(PartialStroke::unwrap_or_default));
 
         // Add fill and/or stroke.
         if fill.is_some() || stroke.iter().any(Option::is_some) {
@@ -426,8 +424,8 @@ impl Layout for BlockNode {
                 skip = first.is_empty() && rest.iter().any(|frame| !frame.is_empty());
             }
 
-            let outset = styles.get(Self::OUTSET);
-            let radius = styles.get(Self::RADIUS);
+            let outset = Self::outset_in(styles);
+            let radius = Self::radius_in(styles);
             for frame in frames.iter_mut().skip(skip as usize) {
                 frame.fill_and_stroke(fill, stroke, outset, radius);
             }

@@ -90,14 +90,13 @@ impl Layout for TermsNode {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let indent = styles.get(Self::INDENT);
-        let body_indent = styles.get(Self::HANGING_INDENT);
+        let indent = Self::indent_in(styles);
+        let body_indent = Self::hanging_indent_in(styles);
         let gutter = if self.tight() {
-            styles.get(ParNode::LEADING).into()
+            ParNode::leading_in(styles).into()
         } else {
-            styles
-                .get(Self::SPACING)
-                .unwrap_or_else(|| styles.get(BlockNode::BELOW).amount())
+            Self::spacing_in(styles)
+                .unwrap_or_else(|| BlockNode::below_in(styles).amount())
         };
 
         let mut cells = vec![];

@@ -201,10 +201,9 @@ impl<'a> StackLayouter<'a> {
 
         // Block-axis alignment of the `AlignNode` is respected
         // by the stack node.
-        let aligns = if let Some(styled) = block.to::<StyledNode>() {
-            styles.chain(&styled.map()).get(AlignNode::ALIGNMENT)
-        } else {
-            styles.get(AlignNode::ALIGNMENT)
+        let aligns = match block.to::<StyledNode>() {
+            Some(styled) => AlignNode::alignment_in(styles.chain(&styled.map())),
+            None => AlignNode::alignment_in(styles),
         };
 
         let aligns = aligns.resolve(styles);

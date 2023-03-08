@@ -128,8 +128,8 @@ impl Layout for TableNode {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let inset = styles.get(Self::INSET);
-        let align = styles.get(Self::ALIGN);
+        let inset = Self::inset_in(styles);
+        let align = Self::align_in(styles);
 
         let tracks = Axes::new(self.columns().0, self.rows().0);
         let gutter = Axes::new(self.column_gutter().0, self.row_gutter().0);
@@ -144,15 +144,15 @@ impl Layout for TableNode {
                 let x = i % cols;
                 let y = i / cols;
                 if let Smart::Custom(alignment) = align.resolve(vt, x, y)? {
-                    child = child.styled(AlignNode::ALIGNMENT, alignment)
+                    child = child.styled(AlignNode::set_alignment(alignment));
                 }
 
                 Ok(child)
             })
             .collect::<SourceResult<_>>()?;
 
-        let fill = styles.get(Self::FILL);
-        let stroke = styles.get(Self::STROKE).map(PartialStroke::unwrap_or_default);
+        let fill = Self::fill_in(styles);
+        let stroke = Self::stroke_in(styles).map(PartialStroke::unwrap_or_default);
 
         // Prepare grid layout by unifying content and gutter tracks.
         let layouter = GridLayouter::new(

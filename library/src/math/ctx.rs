@@ -49,7 +49,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
     ) -> Self {
         let table = font.ttf().tables().math.unwrap();
         let constants = table.constants.unwrap();
-        let size = styles.get(TextNode::SIZE);
+        let size = TextNode::size_in(styles);
         let ttf = font.ttf();
         let space_width = ttf
             .glyph_index(' ')
@@ -175,21 +175,20 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
 
     pub fn style(&mut self, style: MathStyle) {
         self.style_stack.push((self.style, self.size));
-        let base_size = self.styles().get(TextNode::SIZE) / self.style.size.factor(self);
+        let base_size = TextNode::size_in(self.styles()) / self.style.size.factor(self);
         self.size = base_size * style.size.factor(self);
-        self.map.set(TextNode::SIZE, TextSize(self.size.into()));
-        self.map.set(
-            TextNode::STYLE,
-            if style.italic == Smart::Custom(true) {
+        self.map.set(TextNode::set_size(TextSize(self.size.into())));
+        self.map
+            .set(TextNode::set_style(if style.italic == Smart::Custom(true) {
                 FontStyle::Italic
             } else {
                 FontStyle::Normal
-            },
-        );
-        self.map.set(
-            TextNode::WEIGHT,
-            if style.bold { FontWeight::BOLD } else { FontWeight::REGULAR },
-        );
+            }));
+        self.map.set(TextNode::set_weight(if style.bold {
+            FontWeight::BOLD
+        } else {
+            FontWeight::REGULAR
+        }));
         self.style = style;
     }
 

@@ -90,7 +90,7 @@ impl Layout for ImageNode {
         };
 
         // Compute the actual size of the fitted image.
-        let fit = styles.get(Self::FIT);
+        let fit = Self::fit_in(styles);
         let fitted = match fit {
             ImageFit::Cover | ImageFit::Contain => {
                 if wide == (fit == ImageFit::Contain) {

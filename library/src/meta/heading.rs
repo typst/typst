@@ -106,15 +106,15 @@ impl Prepare for HeadingNode {
         }
 
         let mut numbers = Value::None;
-        if let Some(numbering) = styles.get(Self::NUMBERING) {
+        if let Some(numbering) = Self::numbering_in(styles) {
             numbers = numbering.apply(vt.world(), counter.advance(self))?;
         }
 
-        this.push_field("outlined", Value::Bool(styles.get(Self::OUTLINED)));
+        this.push_field("outlined", Value::Bool(Self::outlined_in(styles)));
         this.push_field("numbers", numbers);
 
         let meta = Meta::Node(my_id, this.clone());
-        Ok(this.styled(MetaNode::DATA, vec![meta]))
+        Ok(this.styled(MetaNode::set_data(vec![meta])))
     }
 }
 
@@ -145,11 +145,11 @@ impl Finalize for HeadingNode {
         let below = Em::new(0.75) / scale;
 
         let mut map = StyleMap::new();
-        map.set(TextNode::SIZE, TextSize(size.into()));
-        map.set(TextNode::WEIGHT, FontWeight::BOLD);
-        map.set(BlockNode::ABOVE, VNode::block_around(above.into()));
-        map.set(BlockNode::BELOW, VNode::block_around(below.into()));
-        map.set(BlockNode::STICKY, true);
+        map.set(TextNode::set_size(TextSize(size.into())));
+        map.set(TextNode::set_weight(FontWeight::BOLD));
+        map.set(BlockNode::set_above(VNode::block_around(above.into())));
+        map.set(BlockNode::set_below(VNode::block_around(below.into())));
+        map.set(BlockNode::set_sticky(true));
         realized.styled_with_map(map)
     }
 }

@@ -134,8 +134,8 @@ impl<'a> FlowLayouter<'a> {
         par: &ParNode,
         styles: StyleChain,
     ) -> SourceResult<()> {
-        let aligns = styles.get(AlignNode::ALIGNMENT).resolve(styles);
-        let leading = styles.get(ParNode::LEADING);
+        let aligns = AlignNode::alignment_in(styles).resolve(styles);
+        let leading = ParNode::leading_in(styles);
         let consecutive = self.last_was_par;
         let frames = par
             .layout(vt, styles, consecutive, self.regions.base(), self.regions.expand.x)?
@@ -180,8 +180,8 @@ impl<'a> FlowLayouter<'a> {
         content: &Content,
         styles: StyleChain,
     ) -> SourceResult<()> {
-        let aligns = styles.get(AlignNode::ALIGNMENT).resolve(styles);
-        let sticky = styles.get(BlockNode::STICKY);
+        let aligns = AlignNode::alignment_in(styles).resolve(styles);
+        let sticky = BlockNode::sticky_in(styles);
         let pod = Regions::one(self.regions.base(), Axes::splat(false));
         let layoutable = content.with::<dyn Layout>().unwrap();
         let frame = layoutable.layout(vt, styles, pod)?.into_frame();
@@ -208,10 +208,10 @@ impl<'a> FlowLayouter<'a> {
         }
 
         // How to align the block.
-        let aligns = styles.get(AlignNode::ALIGNMENT).resolve(styles);
+        let aligns = AlignNode::alignment_in(styles).resolve(styles);
 
         // Layout the block itself.
-        let sticky = styles.get(BlockNode::STICKY);
+        let sticky = BlockNode::sticky_in(styles);
         let fragment = block.layout(vt, styles, self.regions)?;
         for (i, frame) in fragment.into_iter().enumerate() {
             if i > 0 {

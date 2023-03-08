@@ -68,7 +68,7 @@ impl Layout for ColumnsNode {
 
         // Determine the width of the gutter and each column.
         let columns = self.count().get();
-        let gutter = styles.get(Self::GUTTER).relative_to(regions.base().x);
+        let gutter = Self::gutter_in(styles).relative_to(regions.base().x);
         let width = (regions.size.x - gutter * (columns - 1) as f64) / columns as f64;
 
         let backlog: Vec<_> = std::iter::once(&regions.size.y)
@@ -90,7 +90,7 @@ impl Layout for ColumnsNode {
         let mut frames = body.layout(vt, styles, pod)?.into_iter();
         let mut finished = vec![];
 
-        let dir = styles.get(TextNode::DIR);
+        let dir = TextNode::dir_in(styles);
         let total_regions = (frames.len() as f32 / columns as f32).ceil() as usize;
 
         // Stitch together the columns for each region.

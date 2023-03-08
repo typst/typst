@@ -103,7 +103,7 @@ pub struct StrongNode {
 
 impl Show for StrongNode {
     fn show(&self, _: &mut Vt, _: &Content, styles: StyleChain) -> SourceResult<Content> {
-        Ok(self.body().styled(TextNode::DELTA, Delta(styles.get(Self::DELTA))))
+        Ok(self.body().styled(TextNode::set_delta(Delta(Self::delta_in(styles)))))
     }
 }
 
@@ -164,7 +164,7 @@ pub struct EmphNode {
 
 impl Show for EmphNode {
     fn show(&self, _: &mut Vt, _: &Content, _: StyleChain) -> SourceResult<Content> {
-        Ok(self.body().styled(TextNode::EMPH, Toggle))
+        Ok(self.body().styled(TextNode::set_emph(Toggle)))
     }
 }
 
@@ -233,7 +233,7 @@ pub fn upper(args: &mut Args) -> SourceResult<Value> {
 fn case(case: Case, args: &mut Args) -> SourceResult<Value> {
     Ok(match args.expect("string or content")? {
         ToCase::Str(v) => Value::Str(case.apply(&v).into()),
-        ToCase::Content(v) => Value::Content(v.styled(TextNode::CASE, Some(case))),
+        ToCase::Content(v) => Value::Content(v.styled(TextNode::set_case(Some(case)))),
     })
 }
 
@@ -313,7 +313,7 @@ cast_to_value! {
 #[func]
 pub fn smallcaps(args: &mut Args) -> SourceResult<Value> {
     let body: Content = args.expect("content")?;
-    Ok(Value::Content(body.styled(TextNode::SMALLCAPS, true)))
+    Ok(Value::Content(body.styled(TextNode::set_smallcaps(true))))
 }
 
 /// Create blind text.

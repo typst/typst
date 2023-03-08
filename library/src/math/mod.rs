@@ -158,11 +158,10 @@ impl Show for FormulaNode {
 impl Finalize for FormulaNode {
     fn finalize(&self, realized: Content) -> Content {
         realized
-            .styled(TextNode::WEIGHT, FontWeight::from_number(450))
-            .styled(
-                TextNode::FONT,
-                FontList(vec![FontFamily::new("New Computer Modern Math")]),
-            )
+            .styled(TextNode::set_weight(FontWeight::from_number(450)))
+            .styled(TextNode::set_font(FontList(vec![FontFamily::new(
+                "New Computer Modern Math",
+            )])))
     }
 }
 
@@ -196,10 +195,10 @@ impl Layout for FormulaNode {
         let mut frame = ctx.layout_frame(self)?;
 
         if !block {
-            let slack = styles.get(ParNode::LEADING) * 0.7;
-            let top_edge = styles.get(TextNode::TOP_EDGE).resolve(styles, font.metrics());
+            let slack = ParNode::leading_in(styles) * 0.7;
+            let top_edge = TextNode::top_edge_in(styles).resolve(styles, font.metrics());
             let bottom_edge =
-                -styles.get(TextNode::BOTTOM_EDGE).resolve(styles, font.metrics());
+                -TextNode::bottom_edge_in(styles).resolve(styles, font.metrics());
 
             let ascent = top_edge.max(frame.ascent() - slack);
             let descent = bottom_edge.max(frame.descent() - slack);
@@ -232,7 +231,9 @@ impl LayoutMath for Content {
 
         if let Some(styled) = self.to::<StyledNode>() {
             let map = styled.map();
-            if map.contains(TextNode::FONT) {
+            if TextNode::font_in(ctx.styles().chain(&map))
+                != TextNode::font_in(ctx.styles())
+            {
                 let frame = ctx.layout_content(self)?;
                 ctx.push(FrameFragment::new(ctx, frame).with_spaced(true));
                 return Ok(());
@@ -241,7 +242,7 @@ impl LayoutMath for Content {
             let prev_map = std::mem::replace(&mut ctx.map, map);
             let prev_size = ctx.size;
             ctx.map.apply(prev_map.clone());
-            ctx.size = ctx.styles().get(TextNode::SIZE);
+            ctx.size = TextNode::size_in(ctx.styles());
             styled.body().layout_math(ctx)?;
             ctx.size = prev_size;
             ctx.map = prev_map;

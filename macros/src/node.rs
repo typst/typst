@@ -20,7 +20,9 @@ struct Field {
     attrs: Vec<syn::Attribute>,
     vis: syn::Visibility,
     ident: Ident,
+    ident_in: Ident,
     with_ident: Ident,
+    set_ident: Ident,
     name: String,
 
     positional: bool,
@@ -36,6 +38,7 @@ struct Field {
     skip: bool,
 
     ty: syn::Type,
+    output: syn::Type,
     default: Option<syn::Expr>,
 }
 
@@ -62,20 +65,17 @@ fn prepare(stream: TokenStream, body: &syn::ItemStruct) -> Result<Node> {
 
     let mut fields = vec![];
     for field in &named.named {
-        let Some(mut ident) = field.ident.clone() else {
+        let Some(ident) = field.ident.clone() else {
             bail!(field, "expected named field");
         };
 
         let mut attrs = field.attrs.clone();
-        let settable = has_attr(&mut attrs, "settable");
-        if settable {
-            ident = Ident::new(&ident.to_string().to_uppercase(), ident.span());
-        }
-
-        let field = Field {
+        let mut field = Field {
             vis: field.vis.clone(),
             ident: ident.clone(),
+            ident_in: Ident::new(&format!("{}_in", ident), ident.span()),
             with_ident: Ident::new(&format!("with_{}", ident), ident.span()),
+            set_ident: Ident::new(&format!("set_{}", ident), ident.span()),
             name: kebab_case(&ident),
 
             positional: has_attr(&mut attrs, "positional"),
@@ -88,12 +88,13 @@ fn prepare(stream: TokenStream, body: &syn::ItemStruct) -> Result<Node> {
                 Some(ident) => Shorthand::Named(ident),
             }),
 
-            settable,
+            settable: has_attr(&mut attrs, "settable"),
             fold: has_attr(&mut attrs, "fold"),
             resolve: has_attr(&mut attrs, "resolve"),
             skip: has_attr(&mut attrs, "skip"),
 
             ty: field.ty.clone(),
+            output: field.ty.clone(),
             default: parse_attr(&mut attrs, "default")?.map(|opt| {
                 opt.unwrap_or_else(|| parse_quote! { ::std::default::Default::default() })
             }),
@@ -103,6 +104,15 @@ fn prepare(stream: TokenStream, body: &syn::ItemStruct) -> Result<Node> {
                 attrs
             },
         };
+
+        if field.resolve {
+            let output = &field.output;
+            field.output = parse_quote! { <#output as ::typst::model::Resolve>::Output };
+        }
+        if field.fold {
+            let output = &field.output;
+            field.output = parse_quote! { <#output as ::typst::model::Fold>::Output };
+        }
 
         if !field.positional && !field.named && !field.variadic && !field.settable {
             bail!(ident, "expected positional, named, variadic, or settable");
@@ -140,34 +150,22 @@ fn create(node: &Node) -> TokenStream {
     let attrs = &node.attrs;
     let vis = &node.vis;
     let ident = &node.ident;
-    let name = &node.name;
+
+    // Inherent methods and functions.
     let new = create_new_func(node);
+    let field_methods = node.inherent().map(create_field_method);
+    let with_fields_methods = node.inherent().map(create_with_field_method);
+    let field_in_methods = node.settable().map(create_field_in_method);
+    let field_style_methods = node.settable().map(create_field_style_method);
+
+    // Trait implementations.
     let construct = node
         .capable
         .iter()
         .all(|capability| capability != "Construct")
         .then(|| create_construct_impl(node));
     let set = create_set_impl(node);
-    let builders = node.inherent().map(create_builder_method);
-    let accessors = node.inherent().map(create_accessor_method);
-    let vtable = create_vtable(node);
-
-    let mut modules = vec![];
-    let mut items = vec![];
-    let scope = quote::format_ident!("__{}_keys", ident);
-
-    for field in node.settable() {
-        let ident = &field.ident;
-        let attrs = &field.attrs;
-        let vis = &field.vis;
-        let ty = &field.ty;
-        modules.push(create_field_module(node, field));
-        items.push(quote! {
-            #(#attrs)*
-            #vis const #ident: #scope::#ident::Key<#ty>
-                = #scope::#ident::Key(::std::marker::PhantomData);
-        });
-    }
+    let node = create_node_impl(node);
 
     quote! {
         #(#attrs)*
@@ -178,7 +176,10 @@ fn create(node: &Node) -> TokenStream {
 
         impl #ident {
             #new
-            #(#builders)*
+            #(#field_methods)*
+            #(#with_fields_methods)*
+            #(#field_in_methods)*
+            #(#field_style_methods)*
 
             /// The node's span.
             pub fn span(&self) -> Option<::typst::syntax::Span> {
@@ -186,25 +187,7 @@ fn create(node: &Node) -> TokenStream {
             }
         }
 
-        impl #ident {
-            #(#accessors)*
-            #(#items)*
-        }
-
-        impl ::typst::model::Node for #ident {
-            fn id() -> ::typst::model::NodeId {
-                static META: ::typst::model::NodeMeta = ::typst::model::NodeMeta {
-                    name: #name,
-                    vtable: #vtable,
-                };
-                ::typst::model::NodeId::from_meta(&META)
-            }
-
-            fn pack(self) -> ::typst::model::Content {
-                self.0
-            }
-        }
-
+        #node
         #construct
         #set
 
@@ -212,12 +195,6 @@ fn create(node: &Node) -> TokenStream {
             fn from(value: #ident) -> Self {
                 value.0.into()
             }
-        }
-
-        #[allow(non_snake_case)]
-        mod #scope {
-            use super::*;
-            #(#modules)*
         }
     }
 }
@@ -252,25 +229,152 @@ fn create_new_func(node: &Node) -> TokenStream {
     }
 }
 
-/// Create a builder pattern method for a field.
-fn create_builder_method(field: &Field) -> TokenStream {
-    let Field { with_ident, ident, name, ty, .. } = field;
-    let doc = format!("Set the [`{}`](Self::{}) field.", name, ident);
-    quote! {
-        #[doc = #doc]
-        pub fn #with_ident(mut self, #ident: #ty) -> Self {
-            Self(self.0.with_field(#name, #ident))
-        }
-    }
-}
-
 /// Create an accessor methods for a field.
-fn create_accessor_method(field: &Field) -> TokenStream {
+fn create_field_method(field: &Field) -> TokenStream {
     let Field { attrs, vis, ident, name, ty, .. } = field;
     quote! {
         #(#attrs)*
         #vis fn #ident(&self) -> #ty {
             self.0.cast_field(#name)
+        }
+    }
+}
+
+/// Create a builder pattern method for a field.
+fn create_with_field_method(field: &Field) -> TokenStream {
+    let Field { vis, ident, with_ident, name, ty, .. } = field;
+    let doc = format!("Set the [`{}`](Self::{}) field.", name, ident);
+    quote! {
+        #[doc = #doc]
+        #vis fn #with_ident(mut self, #ident: #ty) -> Self {
+            Self(self.0.with_field(#name, #ident))
+        }
+    }
+}
+
+/// Create a style chain access method for a field.
+fn create_field_in_method(field: &Field) -> TokenStream {
+    let Field { vis, ident_in, name, ty, output, default, .. } = field;
+
+    let doc = format!("Access the `{}` field in the given style chain.", name);
+    let args = quote! { ::typst::model::NodeId::of::<Self>(), #name };
+
+    let body = if field.fold && field.resolve {
+        quote! {
+            fn next(
+                mut values: impl ::std::iter::Iterator<Item = #ty>,
+                styles: ::typst::model::StyleChain,
+            ) -> #output {
+                values
+                    .next()
+                    .map(|value| {
+                        ::typst::model::Fold::fold(
+                            ::typst::model::Resolve::resolve(value, styles),
+                            next(values, styles),
+                        )
+                    })
+                    .unwrap_or_else(|| #default)
+            }
+            next(styles.properties(#args), styles)
+        }
+    } else if field.fold {
+        quote! {
+            fn next(
+                mut values: impl ::std::iter::Iterator<Item = #ty>,
+                styles: ::typst::model::StyleChain,
+            ) -> #output {
+                values
+                    .next()
+                    .map(|value| {
+                        ::typst::model::Fold::fold(value, next(values, styles))
+                    })
+                    .unwrap_or_else(|| #default)
+            }
+            next(styles.properties(#args), styles)
+        }
+    } else if field.resolve {
+        quote! {
+            ::typst::model::Resolve::resolve(
+                styles.property::<#ty>(#args).unwrap_or_else(|| #default),
+                styles
+            )
+        }
+    } else {
+        quote! {
+            styles.property(#args).unwrap_or_else(|| #default)
+        }
+    };
+
+    quote! {
+        #[doc = #doc]
+        #[allow(unused)]
+        #vis fn #ident_in(styles: ::typst::model::StyleChain) -> #output {
+            #body
+        }
+    }
+}
+
+/// Create a style creation method for a field.
+fn create_field_style_method(field: &Field) -> TokenStream {
+    let Field { vis, ident, set_ident, name, ty, .. } = field;
+    let doc = format!("Create a style property for the `{}` field.", name);
+    quote! {
+        #[doc = #doc]
+        #vis fn #set_ident(#ident: #ty) -> ::typst::model::Property {
+            ::typst::model::Property::new(
+                ::typst::model::NodeId::of::<Self>(),
+                #name.into(),
+                #ident.into()
+            )
+        }
+    }
+}
+
+/// Create the node's `Node` implementation.
+fn create_node_impl(node: &Node) -> TokenStream {
+    let ident = &node.ident;
+    let name = &node.name;
+    let vtable_func = create_vtable_func(node);
+    quote! {
+        impl ::typst::model::Node for #ident {
+            fn id() -> ::typst::model::NodeId {
+                static META: ::typst::model::NodeMeta = ::typst::model::NodeMeta {
+                    name: #name,
+                    vtable: #vtable_func,
+                };
+                ::typst::model::NodeId::from_meta(&META)
+            }
+
+            fn pack(self) -> ::typst::model::Content {
+                self.0
+            }
+        }
+    }
+}
+
+/// Create the node's metadata vtable.
+fn create_vtable_func(node: &Node) -> TokenStream {
+    let ident = &node.ident;
+    let checks =
+        node.capable
+            .iter()
+            .filter(|&ident| ident != "Construct")
+            .map(|capability| {
+                quote! {
+                    if id == ::std::any::TypeId::of::<dyn #capability>() {
+                        return Some(unsafe {
+                            ::typst::util::fat::vtable(&
+                                Self(::typst::model::Content::new::<#ident>()) as &dyn #capability
+                            )
+                        });
+                    }
+                }
+            });
+
+    quote! {
+        |id| {
+            #(#checks)*
+            None
         }
     }
 }
@@ -353,8 +457,8 @@ fn create_set_impl(node: &Node) -> TokenStream {
         .settable()
         .filter(|field| !field.skip)
         .map(|field| {
-            let ident = &field.ident;
             let name = &field.name;
+            let set_ident = &field.set_ident;
             let value = match &field.shorthand {
                 Some(Shorthand::Positional) => quote! { args.named_or_find(#name)? },
                 Some(Shorthand::Named(named)) => {
@@ -364,7 +468,7 @@ fn create_set_impl(node: &Node) -> TokenStream {
                 None => quote! { args.named(#name)? },
             };
 
-            quote! { styles.set_opt(Self::#ident, #value); }
+            quote! { styles.set_opt(#value.map(Self::#set_ident)); }
         })
         .collect();
 
@@ -414,126 +518,6 @@ fn create_set_impl(node: &Node) -> TokenStream {
             fn properties() -> ::std::vec::Vec<::typst::eval::ParamInfo> {
                 ::std::vec![#(#infos),*]
             }
-        }
-    }
-}
-
-/// Create the module for a single field.
-fn create_field_module(node: &Node, field: &Field) -> TokenStream {
-    let node_ident = &node.ident;
-    let ident = &field.ident;
-    let name = &field.name;
-    let ty = &field.ty;
-    let default = &field.default;
-
-    let mut output = quote! { #ty };
-    if field.resolve {
-        output = quote! { <#output as ::typst::model::Resolve>::Output };
-    }
-    if field.fold {
-        output = quote! { <#output as ::typst::model::Fold>::Output };
-    }
-
-    let value = if field.resolve && field.fold {
-        quote! {
-            values
-                .next()
-                .map(|value| {
-                    ::typst::model::Fold::fold(
-                        ::typst::model::Resolve::resolve(value, chain),
-                        Self::get(chain, values),
-                    )
-                })
-                .unwrap_or(#default)
-        }
-    } else if field.resolve {
-        quote! {
-            ::typst::model::Resolve::resolve(
-                values.next().unwrap_or(#default),
-                chain
-            )
-        }
-    } else if field.fold {
-        quote! {
-            values
-                .next()
-                .map(|value| {
-                    ::typst::model::Fold::fold(
-                        value,
-                        Self::get(chain, values),
-                    )
-                })
-                .unwrap_or(#default)
-        }
-    } else {
-        quote! {
-            values.next().unwrap_or(#default)
-        }
-    };
-
-    // Generate the contents of the module.
-    let scope = quote! {
-        use super::*;
-
-        pub struct Key<T>(pub ::std::marker::PhantomData<T>);
-        impl ::std::marker::Copy for Key<#ty> {}
-        impl ::std::clone::Clone for Key<#ty> {
-            fn clone(&self) -> Self { *self }
-        }
-
-        impl ::typst::model::Key for Key<#ty> {
-            type Value = #ty;
-            type Output = #output;
-
-            fn id() -> ::typst::model::KeyId {
-                static META: ::typst::model::KeyMeta = ::typst::model::KeyMeta {
-                    name: #name,
-                };
-                ::typst::model::KeyId::from_meta(&META)
-            }
-
-            fn node() -> ::typst::model::NodeId {
-                ::typst::model::NodeId::of::<#node_ident>()
-            }
-
-            fn get(
-                chain: ::typst::model::StyleChain,
-                mut values: impl ::std::iter::Iterator<Item = Self::Value>,
-            ) -> Self::Output {
-                #value
-            }
-        }
-    };
-
-    // Generate the module code.
-    quote! {
-        pub mod #ident { #scope }
-    }
-}
-
-/// Create the node's metadata vtable.
-fn create_vtable(node: &Node) -> TokenStream {
-    let ident = &node.ident;
-    let checks =
-        node.capable
-            .iter()
-            .filter(|&ident| ident != "Construct")
-            .map(|capability| {
-                quote! {
-                    if id == ::std::any::TypeId::of::<dyn #capability>() {
-                        return Some(unsafe {
-                            ::typst::util::fat::vtable(&
-                                Self(::typst::model::Content::new::<#ident>()) as &dyn #capability
-                            )
-                        });
-                    }
-                }
-            });
-
-    quote! {
-        |id| {
-            #(#checks)*
-            None
         }
     }
 }

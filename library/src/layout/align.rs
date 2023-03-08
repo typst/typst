@@ -16,8 +16,7 @@ use crate::prelude::*;
 /// Category: layout
 #[node(Show)]
 #[set({
-    let aligns: Axes<Option<GenAlign>> = args.find()?.unwrap_or_default();
-    styles.set(Self::ALIGNMENT, aligns);
+    styles.set(Self::set_alignment(args.find()?.unwrap_or_default()));
 })]
 pub struct AlignNode {
     /// The alignment along both axes.

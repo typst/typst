@@ -450,13 +450,13 @@ impl<'a> FlowBuilder<'a> {
             };
 
             if !last_was_parbreak && is_tight_list {
-                let leading = styles.get(ParNode::LEADING);
+                let leading = ParNode::leading_in(styles);
                 let spacing = VNode::list_attach(leading.into());
                 self.0.push(spacing.pack(), styles);
             }
 
-            let above = styles.get(BlockNode::ABOVE);
-            let below = styles.get(BlockNode::BELOW);
+            let above = BlockNode::above_in(styles);
+            let below = BlockNode::below_in(styles);
             self.0.push(above.clone().pack(), styles);
             self.0.push(content.clone(), styles);
             self.0.push(below.clone().pack(), styles);

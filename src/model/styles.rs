@@ -1,8 +1,5 @@
-use std::any::Any;
 use std::fmt::{self, Debug, Formatter};
-use std::hash::{Hash, Hasher};
 use std::iter;
-use std::marker::PhantomData;
 
 use comemo::Tracked;
 use ecow::EcoString;
@@ -33,28 +30,18 @@ impl StyleMap {
     /// If the property needs folding and the value is already contained in the
     /// style map, `self` contributes the outer values and `value` is the inner
     /// one.
-    pub fn set<K: Key>(&mut self, key: K, value: K::Value) {
-        self.0.push(Style::Property(Property::new(key, value)));
+    pub fn set(&mut self, property: Property) {
+        self.0.push(Style::Property(property));
     }
 
     /// Set an inner value for a style property if it is `Some(_)`.
-    pub fn set_opt<K: Key>(&mut self, key: K, value: Option<K::Value>) {
-        if let Some(value) = value {
-            self.set(key, value);
-        }
+    pub fn set_opt(&mut self, property: Option<Property>) {
+        self.0.extend(property.map(Style::Property));
     }
 
     /// Remove the style that was last set.
     pub fn unset(&mut self) {
         self.0.pop();
-    }
-
-    /// Whether the map contains a style property for the given key.
-    pub fn contains<K: Key>(&self, _: K) -> bool {
-        self.0
-            .iter()
-            .filter_map(|entry| entry.property())
-            .any(|property| property.is::<K>())
     }
 
     /// Apply outer styles. Like [`chain`](StyleChain::chain), but in-place.
@@ -75,7 +62,7 @@ impl StyleMap {
     pub fn scoped(mut self) -> Self {
         for entry in &mut self.0 {
             if let Style::Property(property) = entry {
-                property.make_scoped();
+                property.scoped = true;
             }
         }
         self
@@ -163,37 +150,37 @@ impl Debug for Style {
     }
 }
 
+impl From<Property> for Style {
+    fn from(property: Property) -> Self {
+        Self::Property(property)
+    }
+}
+
 /// A style property originating from a set rule or constructor.
 #[derive(Clone, Hash)]
 pub struct Property {
-    /// The id of the property's [key](Key).
-    key: KeyId,
     /// The id of the node the property belongs to.
     node: NodeId,
+    /// The property's name.
+    name: EcoString,
+    /// The property's value.
+    value: Value,
     /// Whether the property should only affect the first node down the
     /// hierarchy. Used by constructors.
     scoped: bool,
-    /// The property's value.
-    value: Value,
     /// The span of the set rule the property stems from.
     origin: Option<Span>,
 }
 
 impl Property {
     /// Create a new property from a key-value pair.
-    pub fn new<K: Key>(_: K, value: K::Value) -> Self {
-        Self {
-            key: KeyId::of::<K>(),
-            node: K::node(),
-            value: value.into(),
-            scoped: false,
-            origin: None,
-        }
+    pub fn new(node: NodeId, name: EcoString, value: Value) -> Self {
+        Self { node, name, value, scoped: false, origin: None }
     }
 
-    /// Whether this property has the given key.
-    pub fn is<K: Key>(&self) -> bool {
-        self.key == KeyId::of::<K>()
+    /// Whether this property is the given one.
+    pub fn is(&self, node: NodeId, name: &str) -> bool {
+        self.node == node && self.name == name
     }
 
     /// Whether this property belongs to the node with the given id.
@@ -201,128 +188,29 @@ impl Property {
         self.node == node
     }
 
-    /// Access the property's value if it is of the given key.
+    /// Access the property's value as the given type.
     #[track_caller]
-    pub fn cast<K: Key>(&self) -> Option<K::Value> {
-        if self.key == KeyId::of::<K>() {
-            Some(self.value.clone().cast().unwrap_or_else(|err| {
-                panic!("{} (for {} with value {:?})", err, self.key.name(), self.value)
-            }))
-        } else {
-            None
-        }
-    }
-
-    /// The node this property is for.
-    pub fn node(&self) -> NodeId {
-        self.node
-    }
-
-    /// Whether the property is scoped.
-    pub fn scoped(&self) -> bool {
-        self.scoped
-    }
-
-    /// Make the property scoped.
-    pub fn make_scoped(&mut self) {
-        self.scoped = true;
+    pub fn cast<T: Cast>(&self) -> T {
+        self.value.clone().cast().unwrap_or_else(|err| {
+            panic!(
+                "{} (for {}.{} with value {:?})",
+                err,
+                self.node.name(),
+                self.name,
+                self.value
+            )
+        })
     }
 }
 
 impl Debug for Property {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "#set {}({}: {:?})", self.node.name(), self.key.name(), self.value)?;
+        write!(f, "#set {}({}: {:?})", self.node.name(), self.name, self.value)?;
         if self.scoped {
             write!(f, " [scoped]")?;
         }
         Ok(())
     }
-}
-
-impl PartialEq for Property {
-    fn eq(&self, other: &Self) -> bool {
-        self.key == other.key
-            && self.value.eq(&other.value)
-            && self.scoped == other.scoped
-    }
-}
-
-trait Bounds: Debug + Sync + Send + 'static {
-    fn as_any(&self) -> &dyn Any;
-}
-
-impl<T> Bounds for T
-where
-    T: Debug + Sync + Send + 'static,
-{
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-}
-
-/// A style property key.
-///
-/// This trait is not intended to be implemented manually.
-pub trait Key: Copy + 'static {
-    /// The unfolded type which this property is stored as in a style map.
-    type Value: Cast + Into<Value>;
-
-    /// The folded type of value that is returned when reading this property
-    /// from a style chain.
-    type Output;
-
-    /// The id of the property.
-    fn id() -> KeyId;
-
-    /// The id of the node the key belongs to.
-    fn node() -> NodeId;
-
-    /// Compute an output value from a sequence of values belonging to this key,
-    /// folding if necessary.
-    fn get(chain: StyleChain, values: impl Iterator<Item = Self::Value>) -> Self::Output;
-}
-
-/// A unique identifier for a style key.
-#[derive(Copy, Clone)]
-pub struct KeyId(&'static KeyMeta);
-
-impl KeyId {
-    pub fn of<T: Key>() -> Self {
-        T::id()
-    }
-
-    pub fn from_meta(meta: &'static KeyMeta) -> Self {
-        Self(meta)
-    }
-
-    pub fn name(self) -> &'static str {
-        self.0.name
-    }
-}
-
-impl Debug for KeyId {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad(self.name())
-    }
-}
-
-impl Hash for KeyId {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write_usize(self.0 as *const _ as usize);
-    }
-}
-
-impl Eq for KeyId {}
-
-impl PartialEq for KeyId {
-    fn eq(&self, other: &Self) -> bool {
-        std::ptr::eq(self.0, other.0)
-    }
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct KeyMeta {
-    pub name: &'static str,
 }
 
 /// A show rule recipe.
@@ -497,7 +385,7 @@ impl<'a> StyleChain<'a> {
             if !self
                 .entries()
                 .filter_map(Style::property)
-                .any(|p| p.scoped() && *id == p.node())
+                .any(|p| p.scoped && *id == p.node)
             {
                 return *self;
             }
@@ -509,27 +397,39 @@ impl<'a> StyleChain<'a> {
         }
     }
 
-    /// Get the output value of a style property.
-    ///
-    /// Returns the property's default value if no map in the chain contains an
-    /// entry for it. Also takes care of resolving and folding and returns
-    /// references where applicable.
-    pub fn get<K: Key>(self, key: K) -> K::Output {
-        K::get(self, self.values(key))
-    }
-
     /// Iterate over all style recipes in the chain.
     pub fn recipes(self) -> impl Iterator<Item = &'a Recipe> {
         self.entries().filter_map(Style::recipe)
     }
 
+    /// Cast the first value for the given property in the chain.
+    pub fn property<T: Cast>(self, node: NodeId, name: &'a str) -> Option<T> {
+        self.properties(node, name).next()
+    }
+
     /// Iterate over all values for the given property in the chain.
-    fn values<K: Key>(self, _: K) -> Values<'a, K> {
-        Values {
-            entries: self.entries(),
-            key: PhantomData,
-            barriers: 0,
-        }
+    pub fn properties<T: Cast>(
+        self,
+        node: NodeId,
+        name: &'a str,
+    ) -> impl Iterator<Item = T> + '_ {
+        let mut barriers = 0;
+        self.entries().filter_map(move |entry| {
+            match entry {
+                Style::Property(property) => {
+                    if property.is(node, name) {
+                        if !property.scoped || barriers <= 1 {
+                            return Some(property.cast());
+                        }
+                    }
+                }
+                Style::Barrier(id) => {
+                    barriers += (*id == node) as usize;
+                }
+                _ => {}
+            }
+            None
+        })
     }
 
     /// Iterate over the entries of the chain.
@@ -607,38 +507,6 @@ impl<'a> Iterator for Links<'a> {
         let StyleChain { head, tail } = self.0?;
         self.0 = tail.copied();
         Some(head)
-    }
-}
-
-/// An iterator over the values in a style chain.
-struct Values<'a, K> {
-    entries: Entries<'a>,
-    key: PhantomData<K>,
-    barriers: usize,
-}
-
-impl<'a, K: Key> Iterator for Values<'a, K> {
-    type Item = K::Value;
-
-    #[track_caller]
-    fn next(&mut self) -> Option<Self::Item> {
-        for entry in &mut self.entries {
-            match entry {
-                Style::Property(property) => {
-                    if let Some(value) = property.cast::<K>() {
-                        if !property.scoped() || self.barriers <= 1 {
-                            return Some(value);
-                        }
-                    }
-                }
-                Style::Barrier(id) => {
-                    self.barriers += (*id == K::node()) as usize;
-                }
-                _ => {}
-            }
-        }
-
-        None
     }
 }
 

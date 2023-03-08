@@ -7,7 +7,7 @@ use std::ops::{Add, AddAssign};
 use comemo::Tracked;
 use ecow::{EcoString, EcoVec};
 
-use super::{node, Guard, Key, Property, Recipe, Style, StyleMap};
+use super::{node, Guard, Recipe, Style, StyleMap};
 use crate::diag::{SourceResult, StrResult};
 use crate::eval::{cast_from_value, Args, Cast, ParamInfo, Value, Vm};
 use crate::syntax::Span;
@@ -66,14 +66,9 @@ impl Content {
         self.with_field("label", label)
     }
 
-    /// Style this content with a single style property.
-    pub fn styled<K: Key>(self, key: K, value: K::Value) -> Self {
-        self.styled_with_entry(Style::Property(Property::new(key, value)))
-    }
-
     /// Style this content with a style entry.
-    pub fn styled_with_entry(self, style: Style) -> Self {
-        self.styled_with_map(style.into())
+    pub fn styled(self, style: impl Into<Style>) -> Self {
+        self.styled_with_map(style.into().into())
     }
 
     /// Style this content with a full style map.
@@ -90,7 +85,7 @@ impl Content {
     }
 
     /// Style this content with a recipe, eagerly applying it if possible.
-    pub fn styled_with_recipe(
+    pub fn apply_recipe(
         self,
         world: Tracked<dyn World>,
         recipe: Recipe,
@@ -98,7 +93,7 @@ impl Content {
         if recipe.selector.is_none() {
             recipe.apply(world, self)
         } else {
-            Ok(self.styled_with_entry(Style::Recipe(recipe)))
+            Ok(self.styled(Style::Recipe(recipe)))
         }
     }
 
@@ -135,6 +130,7 @@ impl Content {
         }
     }
 
+    /// Attach a field to the content.
     pub fn with_field(
         mut self,
         name: impl Into<EcoString>,
@@ -154,6 +150,7 @@ impl Content {
         }
     }
 
+    /// Access a field on the content.
     pub fn field(&self, name: &str) -> Option<&Value> {
         static NONE: Value = Value::None;
         self.fields
@@ -163,16 +160,17 @@ impl Content {
             .or_else(|| (name == "label").then(|| &NONE))
     }
 
-    pub fn fields(&self) -> &[(EcoString, Value)] {
-        &self.fields
-    }
-
     #[track_caller]
     pub fn cast_field<T: Cast>(&self, name: &str) -> T {
         match self.field(name) {
             Some(value) => value.clone().cast().unwrap(),
             None => field_is_missing(name),
         }
+    }
+
+    /// List all fields on the content.
+    pub fn fields(&self) -> &[(EcoString, Value)] {
+        &self.fields
     }
 
     /// Whether the contained node is of type `T`.

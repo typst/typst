@@ -122,7 +122,7 @@ impl Layout for RotateNode {
     ) -> SourceResult<Fragment> {
         let pod = Regions::one(regions.base(), Axes::splat(false));
         let mut frame = self.body().layout(vt, styles, pod)?.into_frame();
-        let origin = styles.get(Self::ORIGIN).unwrap_or(Align::CENTER_HORIZON);
+        let origin = Self::origin_in(styles).unwrap_or(Align::CENTER_HORIZON);
         let Axes { x, y } = origin.zip(frame.size()).map(|(o, s)| o.position(s));
         let ts = Transform::translate(x, y)
             .pre_concat(Transform::rotate(self.angle()))
@@ -199,7 +199,7 @@ impl Layout for ScaleNode {
     ) -> SourceResult<Fragment> {
         let pod = Regions::one(regions.base(), Axes::splat(false));
         let mut frame = self.body().layout(vt, styles, pod)?.into_frame();
-        let origin = styles.get(Self::ORIGIN).unwrap_or(Align::CENTER_HORIZON);
+        let origin = Self::origin_in(styles).unwrap_or(Align::CENTER_HORIZON);
         let Axes { x, y } = origin.zip(frame.size()).map(|(o, s)| o.position(s));
         let transform = Transform::translate(x, y)
             .pre_concat(Transform::scale(self.x(), self.y()))

@@ -75,16 +75,13 @@ pub struct UnderlineNode {
 
 impl Show for UnderlineNode {
     fn show(&self, _: &mut Vt, _: &Content, styles: StyleChain) -> SourceResult<Content> {
-        Ok(self.body().styled(
-            TextNode::DECO,
-            Decoration {
-                line: DecoLine::Underline,
-                stroke: styles.get(Self::STROKE).unwrap_or_default(),
-                offset: styles.get(Self::OFFSET),
-                extent: styles.get(Self::EXTENT),
-                evade: styles.get(Self::EVADE),
-            },
-        ))
+        Ok(self.body().styled(TextNode::set_deco(Decoration {
+            line: DecoLine::Underline,
+            stroke: Self::stroke_in(styles).unwrap_or_default(),
+            offset: Self::offset_in(styles),
+            extent: Self::extent_in(styles),
+            evade: Self::evade_in(styles),
+        })))
     }
 }
 
@@ -165,16 +162,13 @@ pub struct OverlineNode {
 
 impl Show for OverlineNode {
     fn show(&self, _: &mut Vt, _: &Content, styles: StyleChain) -> SourceResult<Content> {
-        Ok(self.body().styled(
-            TextNode::DECO,
-            Decoration {
-                line: DecoLine::Overline,
-                stroke: styles.get(Self::STROKE).unwrap_or_default(),
-                offset: styles.get(Self::OFFSET),
-                extent: styles.get(Self::EXTENT),
-                evade: styles.get(Self::EVADE),
-            },
-        ))
+        Ok(self.body().styled(TextNode::set_deco(Decoration {
+            line: DecoLine::Overline,
+            stroke: Self::stroke_in(styles).unwrap_or_default(),
+            offset: Self::offset_in(styles),
+            extent: Self::extent_in(styles),
+            evade: Self::evade_in(styles),
+        })))
     }
 }
 
@@ -239,16 +233,13 @@ pub struct StrikeNode {
 
 impl Show for StrikeNode {
     fn show(&self, _: &mut Vt, _: &Content, styles: StyleChain) -> SourceResult<Content> {
-        Ok(self.body().styled(
-            TextNode::DECO,
-            Decoration {
-                line: DecoLine::Strikethrough,
-                stroke: styles.get(Self::STROKE).unwrap_or_default(),
-                offset: styles.get(Self::OFFSET),
-                extent: styles.get(Self::EXTENT),
-                evade: false,
-            },
-        ))
+        Ok(self.body().styled(TextNode::set_deco(Decoration {
+            line: DecoLine::Strikethrough,
+            stroke: Self::stroke_in(styles).unwrap_or_default(),
+            offset: Self::offset_in(styles),
+            extent: Self::extent_in(styles),
+            evade: false,
+        })))
     }
 }
 

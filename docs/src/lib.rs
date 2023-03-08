@@ -39,10 +39,12 @@ static FONTS: Lazy<(Prehashed<FontBook>, Vec<Font>)> = Lazy::new(|| {
 
 static LIBRARY: Lazy<Prehashed<Library>> = Lazy::new(|| {
     let mut lib = typst_library::build();
-    lib.styles.set(PageNode::WIDTH, Smart::Custom(Abs::pt(240.0).into()));
-    lib.styles.set(PageNode::HEIGHT, Smart::Auto);
     lib.styles
-        .set(PageNode::MARGIN, Sides::splat(Some(Smart::Custom(Abs::pt(15.0).into()))));
+        .set(PageNode::set_width(Smart::Custom(Abs::pt(240.0).into())));
+    lib.styles.set(PageNode::set_height(Smart::Auto));
+    lib.styles.set(PageNode::set_margin(Sides::splat(Some(Smart::Custom(
+        Abs::pt(15.0).into(),
+    )))));
     typst::eval::set_lang_items(lib.items.clone());
     Prehashed::new(lib)
 });

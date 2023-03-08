@@ -127,25 +127,24 @@ impl Layout for ListNode {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let indent = styles.get(Self::INDENT);
-        let body_indent = styles.get(Self::BODY_INDENT);
+        let indent = Self::indent_in(styles);
+        let body_indent = Self::body_indent_in(styles);
         let gutter = if self.tight() {
-            styles.get(ParNode::LEADING).into()
+            ParNode::leading_in(styles).into()
         } else {
-            styles
-                .get(Self::SPACING)
-                .unwrap_or_else(|| styles.get(BlockNode::BELOW).amount())
+            Self::spacing_in(styles)
+                .unwrap_or_else(|| BlockNode::below_in(styles).amount())
         };
 
-        let depth = styles.get(Self::DEPTH);
-        let marker = styles.get(Self::MARKER).resolve(vt.world(), depth)?;
+        let depth = Self::depth_in(styles);
+        let marker = Self::marker_in(styles).resolve(vt.world(), depth)?;
 
         let mut cells = vec![];
         for item in self.children() {
             cells.push(Content::empty());
             cells.push(marker.clone());
             cells.push(Content::empty());
-            cells.push(item.body().styled(Self::DEPTH, Depth));
+            cells.push(item.body().styled(Self::set_depth(Depth)));
         }
 
         let layouter = GridLayouter::new(

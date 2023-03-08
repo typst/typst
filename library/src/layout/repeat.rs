@@ -40,7 +40,7 @@ impl Layout for RepeatNode {
     ) -> SourceResult<Fragment> {
         let pod = Regions::one(regions.size, Axes::new(false, false));
         let piece = self.body().layout(vt, styles, pod)?.into_frame();
-        let align = styles.get(AlignNode::ALIGNMENT).x.resolve(styles);
+        let align = AlignNode::alignment_in(styles).x.resolve(styles);
 
         let fill = regions.size.x;
         let width = piece.width();

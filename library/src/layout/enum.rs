@@ -187,21 +187,20 @@ impl Layout for EnumNode {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let numbering = styles.get(Self::NUMBERING);
-        let indent = styles.get(Self::INDENT);
-        let body_indent = styles.get(Self::BODY_INDENT);
+        let numbering = Self::numbering_in(styles);
+        let indent = Self::indent_in(styles);
+        let body_indent = Self::body_indent_in(styles);
         let gutter = if self.tight() {
-            styles.get(ParNode::LEADING).into()
+            ParNode::leading_in(styles).into()
         } else {
-            styles
-                .get(Self::SPACING)
-                .unwrap_or_else(|| styles.get(BlockNode::BELOW).amount())
+            Self::spacing_in(styles)
+                .unwrap_or_else(|| BlockNode::below_in(styles).amount())
         };
 
         let mut cells = vec![];
         let mut number = NonZeroUsize::new(1).unwrap();
-        let mut parents = styles.get(Self::PARENTS);
-        let full = styles.get(Self::FULL);
+        let mut parents = Self::parents_in(styles);
+        let full = Self::full_in(styles);
 
         for item in self.children() {
             number = item.number().unwrap_or(number);
@@ -223,7 +222,7 @@ impl Layout for EnumNode {
             cells.push(Content::empty());
             cells.push(resolved);
             cells.push(Content::empty());
-            cells.push(item.body().styled(Self::PARENTS, Parent(number)));
+            cells.push(item.body().styled(Self::set_parents(Parent(number))));
             number = number.saturating_add(1);
         }
 

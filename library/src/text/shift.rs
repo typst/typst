@@ -59,7 +59,7 @@ impl Show for SubNode {
     ) -> SourceResult<Content> {
         let body = self.body();
         let mut transformed = None;
-        if styles.get(Self::TYPOGRAPHIC) {
+        if Self::typographic_in(styles) {
             if let Some(text) = search_text(&body, true) {
                 if is_shapable(vt, &text, styles) {
                     transformed = Some(TextNode::packed(text));
@@ -68,10 +68,8 @@ impl Show for SubNode {
         };
 
         Ok(transformed.unwrap_or_else(|| {
-            let mut map = StyleMap::new();
-            map.set(TextNode::BASELINE, styles.get(Self::BASELINE));
-            map.set(TextNode::SIZE, styles.get(Self::SIZE));
-            body.styled_with_map(map)
+            body.styled(TextNode::set_baseline(Self::baseline_in(styles)))
+                .styled(TextNode::set_size(Self::size_in(styles)))
         }))
     }
 }
@@ -132,7 +130,7 @@ impl Show for SuperNode {
     ) -> SourceResult<Content> {
         let body = self.body();
         let mut transformed = None;
-        if styles.get(Self::TYPOGRAPHIC) {
+        if Self::typographic_in(styles) {
             if let Some(text) = search_text(&body, false) {
                 if is_shapable(vt, &text, styles) {
                     transformed = Some(TextNode::packed(text));
@@ -141,10 +139,8 @@ impl Show for SuperNode {
         };
 
         Ok(transformed.unwrap_or_else(|| {
-            let mut map = StyleMap::new();
-            map.set(TextNode::BASELINE, styles.get(Self::BASELINE));
-            map.set(TextNode::SIZE, styles.get(Self::SIZE));
-            body.styled_with_map(map)
+            body.styled(TextNode::set_baseline(Self::baseline_in(styles)))
+                .styled(TextNode::set_size(Self::size_in(styles)))
         }))
     }
 }
@@ -174,7 +170,7 @@ fn search_text(content: &Content, sub: bool) -> Option<EcoString> {
 /// given string.
 fn is_shapable(vt: &Vt, text: &str, styles: StyleChain) -> bool {
     let world = vt.world();
-    for family in styles.get(TextNode::FONT).0.iter() {
+    for family in TextNode::font_in(styles) {
         if let Some(font) = world
             .book()
             .select(family.as_str(), variant(styles))

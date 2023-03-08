@@ -1,6 +1,8 @@
 //! Extension traits.
 
+use crate::layout::{AlignNode, MoveNode, PadNode};
 use crate::prelude::*;
+use crate::text::{EmphNode, FontFamily, FontList, StrongNode, TextNode, UnderlineNode};
 
 /// Additional methods on content.
 pub trait ContentExt {
@@ -28,27 +30,27 @@ pub trait ContentExt {
 
 impl ContentExt for Content {
     fn strong(self) -> Self {
-        crate::text::StrongNode::new(self).pack()
+        StrongNode::new(self).pack()
     }
 
     fn emph(self) -> Self {
-        crate::text::EmphNode::new(self).pack()
+        EmphNode::new(self).pack()
     }
 
     fn underlined(self) -> Self {
-        crate::text::UnderlineNode::new(self).pack()
+        UnderlineNode::new(self).pack()
     }
 
     fn linked(self, dest: Destination) -> Self {
-        self.styled(MetaNode::DATA, vec![Meta::Link(dest.clone())])
+        self.styled(MetaNode::set_data(vec![Meta::Link(dest.clone())]))
     }
 
     fn aligned(self, aligns: Axes<Option<GenAlign>>) -> Self {
-        self.styled(crate::layout::AlignNode::ALIGNMENT, aligns)
+        self.styled(AlignNode::set_alignment(aligns))
     }
 
     fn padded(self, padding: Sides<Rel<Length>>) -> Self {
-        crate::layout::PadNode::new(self)
+        PadNode::new(self)
             .with_left(padding.left)
             .with_top(padding.top)
             .with_right(padding.right)
@@ -57,10 +59,7 @@ impl ContentExt for Content {
     }
 
     fn moved(self, delta: Axes<Rel<Length>>) -> Self {
-        crate::layout::MoveNode::new(self)
-            .with_dx(delta.x)
-            .with_dy(delta.y)
-            .pack()
+        MoveNode::new(self).with_dx(delta.x).with_dy(delta.y).pack()
     }
 }
 
@@ -68,18 +67,15 @@ impl ContentExt for Content {
 pub trait StyleMapExt {
     /// Set a font family composed of a preferred family and existing families
     /// from a style chain.
-    fn set_family(&mut self, preferred: crate::text::FontFamily, existing: StyleChain);
+    fn set_family(&mut self, preferred: FontFamily, existing: StyleChain);
 }
 
 impl StyleMapExt for StyleMap {
-    fn set_family(&mut self, preferred: crate::text::FontFamily, existing: StyleChain) {
-        self.set(
-            crate::text::TextNode::FONT,
-            crate::text::FontList(
-                std::iter::once(preferred)
-                    .chain(existing.get(crate::text::TextNode::FONT).0.iter().cloned())
-                    .collect(),
-            ),
-        );
+    fn set_family(&mut self, preferred: FontFamily, existing: StyleChain) {
+        self.set(TextNode::set_font(FontList(
+            std::iter::once(preferred)
+                .chain(TextNode::font_in(existing))
+                .collect(),
+        )));
     }
 }

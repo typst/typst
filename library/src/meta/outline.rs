@@ -102,9 +102,9 @@ impl Show for OutlineNode {
         styles: StyleChain,
     ) -> SourceResult<Content> {
         let mut seq = vec![ParbreakNode::new().pack()];
-        if let Some(title) = styles.get(Self::TITLE) {
+        if let Some(title) = Self::title_in(styles) {
             let title = title.clone().unwrap_or_else(|| {
-                TextNode::packed(match styles.get(TextNode::LANG) {
+                TextNode::packed(match TextNode::lang_in(styles) {
                     Lang::GERMAN => "Inhaltsverzeichnis",
                     Lang::ENGLISH | _ => "Contents",
                 })
@@ -113,13 +113,13 @@ impl Show for OutlineNode {
             seq.push(
                 HeadingNode::new(title)
                     .pack()
-                    .styled(HeadingNode::NUMBERING, None)
-                    .styled(HeadingNode::OUTLINED, false),
+                    .styled(HeadingNode::set_numbering(None))
+                    .styled(HeadingNode::set_outlined(false)),
             );
         }
 
-        let indent = styles.get(Self::INDENT);
-        let depth = styles.get(Self::DEPTH);
+        let indent = Self::indent_in(styles);
+        let depth = Self::depth_in(styles);
 
         let mut ancestors: Vec<&Content> = vec![];
         for (_, node) in vt.locate(Selector::node::<HeadingNode>()) {
@@ -171,7 +171,7 @@ impl Show for OutlineNode {
             seq.push(start.linked(Destination::Internal(loc)));
 
             // Add filler symbols between the section name and page number.
-            if let Some(filler) = styles.get(Self::FILL) {
+            if let Some(filler) = Self::fill_in(styles) {
                 seq.push(SpaceNode::new().pack());
                 seq.push(
                     BoxNode::new()
