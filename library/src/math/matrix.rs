@@ -20,7 +20,7 @@ const VERTICAL_PADDING: Ratio = Ratio::new(0.1);
 pub struct VecNode {
     /// The elements of the vector.
     #[variadic]
-    pub elements: Vec<Content>,
+    pub children: Vec<Content>,
 
     /// The delimiter to use.
     ///
@@ -36,7 +36,7 @@ pub struct VecNode {
 impl LayoutMath for VecNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let delim = ctx.styles().get(Self::DELIM);
-        let frame = layout_vec_body(ctx, &self.elements(), Align::Center)?;
+        let frame = layout_vec_body(ctx, &self.children(), Align::Center)?;
         layout_delimiters(ctx, frame, Some(delim.open()), Some(delim.close()))
     }
 }
@@ -141,7 +141,7 @@ impl LayoutMath for MatNode {
 pub struct CasesNode {
     /// The branches of the case distinction.
     #[variadic]
-    pub branches: Vec<Content>,
+    pub children: Vec<Content>,
 
     /// The delimiter to use.
     ///
@@ -157,7 +157,7 @@ pub struct CasesNode {
 impl LayoutMath for CasesNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let delim = ctx.styles().get(Self::DELIM);
-        let frame = layout_vec_body(ctx, &self.branches(), Align::Left)?;
+        let frame = layout_vec_body(ctx, &self.children(), Align::Left)?;
         layout_delimiters(ctx, frame, Some(delim.open()), None)
     }
 }

@@ -103,7 +103,7 @@ impl Show for OutlineNode {
     ) -> SourceResult<Content> {
         let mut seq = vec![ParbreakNode::new().pack()];
         if let Some(title) = styles.get(Self::TITLE) {
-            let body = title.clone().unwrap_or_else(|| {
+            let title = title.clone().unwrap_or_else(|| {
                 TextNode::packed(match styles.get(TextNode::LANG) {
                     Lang::GERMAN => "Inhaltsverzeichnis",
                     Lang::ENGLISH | _ => "Contents",
@@ -111,7 +111,7 @@ impl Show for OutlineNode {
             });
 
             seq.push(
-                HeadingNode::new(body)
+                HeadingNode::new(title)
                     .pack()
                     .styled(HeadingNode::NUMBERING, None)
                     .styled(HeadingNode::OUTLINED, false),
@@ -161,7 +161,7 @@ impl Show for OutlineNode {
             }
 
             // Format the numbering.
-            let mut start = heading.title();
+            let mut start = heading.body();
             let numbers = node.field("numbers").unwrap();
             if *numbers != Value::None {
                 start = numbers.clone().display() + SpaceNode::new().pack() + start;
@@ -175,7 +175,7 @@ impl Show for OutlineNode {
                 seq.push(SpaceNode::new().pack());
                 seq.push(
                     BoxNode::new()
-                        .with_body(filler.clone())
+                        .with_body(Some(filler.clone()))
                         .with_width(Fr::one().into())
                         .pack(),
                 );

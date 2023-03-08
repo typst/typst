@@ -40,7 +40,7 @@ use crate::prelude::*;
 pub struct TableNode {
     /// The contents of the table cells.
     #[variadic]
-    pub cells: Vec<Content>,
+    pub children: Vec<Content>,
 
     /// Defines the column sizes.
     /// See the [grid documentation]($func/grid) for more information on track
@@ -135,7 +135,7 @@ impl Layout for TableNode {
         let gutter = Axes::new(self.column_gutter().0, self.row_gutter().0);
         let cols = tracks.x.len().max(1);
         let cells: Vec<_> = self
-            .cells()
+            .children()
             .into_iter()
             .enumerate()
             .map(|(i, child)| {

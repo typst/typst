@@ -745,3 +745,29 @@ const TYPE_ORDER: &[&str] = &[
     "selector",
     "stroke",
 ];
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_docs() {
+        provide(&TestResolver);
+    }
+
+    struct TestResolver;
+
+    impl Resolver for TestResolver {
+        fn link(&self, _: &str) -> Option<String> {
+            None
+        }
+
+        fn example(&self, _: Html, _: &[Frame]) -> Html {
+            Html::new(String::new())
+        }
+
+        fn image(&self, _: &str, _: &[u8]) -> String {
+            String::new()
+        }
+    }
+}

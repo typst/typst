@@ -79,12 +79,12 @@ pub struct ScriptsNode {
     /// The base to attach the scripts to.
     #[positional]
     #[required]
-    pub base: Content,
+    pub body: Content,
 }
 
 impl LayoutMath for ScriptsNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        self.base().layout_math(ctx)
+        self.body().layout_math(ctx)
     }
 }
 
@@ -102,12 +102,12 @@ pub struct LimitsNode {
     /// The base to attach the limits to.
     #[positional]
     #[required]
-    pub base: Content,
+    pub body: Content,
 }
 
 impl LayoutMath for LimitsNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        self.base().layout_math(ctx)
+        self.body().layout_math(ctx)
     }
 }
 

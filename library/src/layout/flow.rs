@@ -34,7 +34,7 @@ impl Layout for FlowNode {
             if let Some(node) = child.to::<StyledNode>() {
                 map = node.map();
                 styles = outer.chain(&map);
-                child = node.sub();
+                child = node.body();
             }
 
             if let Some(node) = child.to::<VNode>() {

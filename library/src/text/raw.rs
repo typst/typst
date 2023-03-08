@@ -171,7 +171,7 @@ impl Show for RawNode {
         };
 
         if self.block() {
-            realized = BlockNode::new().with_body(realized).pack();
+            realized = BlockNode::new().with_body(Some(realized)).pack();
         }
 
         Ok(realized)

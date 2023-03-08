@@ -2,7 +2,7 @@
 
 ---
 // Override lists.
-#show list: it => "(" + it.items.map(item => item.body).join(", ") + ")"
+#show list: it => "(" + it.children.map(v => v.body).join(", ") + ")"
 
 - A
   - B
@@ -31,9 +31,9 @@ my heading?
   box(move(dy: -1pt)[📖])
   h(5pt)
   if it.level == 1 {
-    underline(text(1.25em, blue, it.title))
+    underline(text(1.25em, blue, it.body))
   } else {
-    text(red, it.title)
+    text(red, it.body)
   }
 })
 
@@ -51,7 +51,7 @@ Another text.
 #show heading: it => {
   set text(red)
   show "ding": [🛎]
-  it.title
+  it.body
 }
 
 = Heading

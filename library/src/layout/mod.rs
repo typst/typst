@@ -307,7 +307,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
     ) -> SourceResult<()> {
         let map = self.scratch.maps.alloc(styled.map());
         let stored = self.scratch.styles.alloc(styles);
-        let content = self.scratch.content.alloc(styled.sub());
+        let content = self.scratch.content.alloc(styled.body());
         let styles = stored.chain(map);
         self.interrupt_style(&map, None)?;
         self.accept(content, styles)?;

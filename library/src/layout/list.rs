@@ -49,7 +49,7 @@ pub struct ListNode {
     /// ]
     /// ```
     #[variadic]
-    pub items: Vec<ListItem>,
+    pub children: Vec<ListItem>,
 
     /// If this is `{false}`, the items are spaced apart with [list
     /// spacing]($func/list.spacing). If it is `{true}`, they use normal
@@ -141,7 +141,7 @@ impl Layout for ListNode {
         let marker = styles.get(Self::MARKER).resolve(vt.world(), depth)?;
 
         let mut cells = vec![];
-        for item in self.items() {
+        for item in self.children() {
             cells.push(Content::empty());
             cells.push(marker.clone());
             cells.push(Content::empty());

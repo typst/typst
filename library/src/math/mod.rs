@@ -242,7 +242,7 @@ impl LayoutMath for Content {
             let prev_size = ctx.size;
             ctx.map.apply(prev_map.clone());
             ctx.size = ctx.styles().get(TextNode::SIZE);
-            styled.sub().layout_math(ctx)?;
+            styled.body().layout_math(ctx)?;
             ctx.size = prev_size;
             ctx.map = prev_map;
             return Ok(());

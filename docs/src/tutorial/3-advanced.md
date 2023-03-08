@@ -359,7 +359,7 @@ a way to set any of that, we need to write our own heading show rule.
 #show heading: it => block[
   #set align(center)
   #set text(12pt, weight: "regular")
-  #smallcaps(it.title)
+  #smallcaps(it.body)
 ]
 
 <<< ...
@@ -441,7 +441,7 @@ differentiate between section and subsection headings:
 ): it => block[
   #set align(center)
   #set text(12pt, weight: "regular")
-  #smallcaps(it.title)
+  #smallcaps(it.body)
 ]
 
 #show heading.where(
@@ -450,7 +450,7 @@ differentiate between section and subsection headings:
   size: 11pt,
   weight: "regular",
   style: "italic",
-  it.title + [.],
+  it.body + [.],
 )
 >>>
 >>> #align(center, text(

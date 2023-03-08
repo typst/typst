@@ -26,7 +26,7 @@ pub struct BoxNode {
     /// The contents of the box.
     #[positional]
     #[default]
-    pub body: Content,
+    pub body: Option<Content>,
 
     /// The width of the box.
     ///
@@ -133,16 +133,16 @@ impl Layout for BoxNode {
             .unwrap_or(regions.base());
 
         // Apply inset.
-        let mut child = self.body();
+        let mut body = self.body().unwrap_or_default();
         let inset = styles.get(Self::INSET);
         if inset.iter().any(|v| !v.is_zero()) {
-            child = child.padded(inset.map(|side| side.map(Length::from)));
+            body = body.padded(inset.map(|side| side.map(Length::from)));
         }
 
         // Select the appropriate base and expansion for the child depending
         // on whether it is automatically or relatively sized.
         let pod = Regions::one(size, expand);
-        let mut frame = child.layout(vt, styles, pod)?.into_frame();
+        let mut frame = body.layout(vt, styles, pod)?.into_frame();
 
         // Apply baseline shift.
         let shift = styles.get(Self::BASELINE).relative_to(frame.height());
@@ -191,11 +191,11 @@ impl Layout for BoxNode {
 /// Blocks are also useful to force elements that would otherwise be inline to
 /// become block-level, especially when writing show rules.
 /// ```example
-/// #show heading: it => it.title
+/// #show heading: it => it.body
 /// = Blockless
 /// More text.
 ///
-/// #show heading: it => block(it.title)
+/// #show heading: it => block(it.body)
 /// = Blocky
 /// More text.
 /// ```
@@ -236,7 +236,7 @@ pub struct BlockNode {
     /// The contents of the block.
     #[positional]
     #[default]
-    pub body: Content,
+    pub body: Option<Content>,
 
     /// The block's width.
     ///
@@ -360,10 +360,10 @@ impl Layout for BlockNode {
         regions: Regions,
     ) -> SourceResult<Fragment> {
         // Apply inset.
-        let mut child = self.body();
+        let mut body = self.body().unwrap_or_default();
         let inset = styles.get(Self::INSET);
         if inset.iter().any(|v| !v.is_zero()) {
-            child = child.clone().padded(inset.map(|side| side.map(Length::from)));
+            body = body.clone().padded(inset.map(|side| side.map(Length::from)));
         }
 
         // Resolve the sizing to a concrete size.
@@ -380,7 +380,7 @@ impl Layout for BlockNode {
             // Measure to ensure frames for all regions have the same width.
             if sizing.x == Smart::Auto {
                 let pod = Regions::one(size, Axes::splat(false));
-                let frame = child.layout(vt, styles, pod)?.into_frame();
+                let frame = body.layout(vt, styles, pod)?.into_frame();
                 size.x = frame.width();
                 expand.x = true;
             }
@@ -407,10 +407,10 @@ impl Layout for BlockNode {
                 pod.last = None;
             }
 
-            child.layout(vt, styles, pod)?.into_frames()
+            body.layout(vt, styles, pod)?.into_frames()
         } else {
             let pod = Regions::one(size, expand);
-            child.layout(vt, styles, pod)?.into_frames()
+            body.layout(vt, styles, pod)?.into_frames()
         };
 
         // Prepare fill and stroke.

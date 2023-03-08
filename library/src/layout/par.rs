@@ -521,7 +521,7 @@ fn collect<'a>(
         let outer = styles;
         let mut styles = *styles;
         if let Some(node) = child.to::<StyledNode>() {
-            child = Box::leak(Box::new(node.sub()));
+            child = Box::leak(Box::new(node.body()));
             styles = outer.chain(Box::leak(Box::new(node.map())));
         }
 

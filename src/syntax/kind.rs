@@ -224,7 +224,7 @@ pub enum SyntaxKind {
     LetBinding,
     /// A set rule: `set text(...)`.
     SetRule,
-    /// A show rule: `show heading: it => [*{it.body}*]`.
+    /// A show rule: `show heading: it => emph(it.body)`.
     ShowRule,
     /// An if-else conditional: `if x { y } else { z }`.
     Conditional,

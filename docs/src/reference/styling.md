@@ -85,8 +85,8 @@ fantasy encyclopedia.
 #set heading(numbering: "(I)")
 #show heading: it => block[
   #set align(center)
-  \~ _#it.title;_
   #set text(font: "Inria Serif")
+  \~ _#it.body;_
       #it.numbers \~
 ]
 

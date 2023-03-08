@@ -77,7 +77,7 @@ pub struct EnumNode {
     /// ) [+ #phase]
     /// ```
     #[variadic]
-    pub items: Vec<EnumItem>,
+    pub children: Vec<EnumItem>,
 
     /// If this is `{false}`, the items are spaced apart with
     /// [enum spacing]($func/enum.spacing). If it is `{true}`, they use normal
@@ -203,7 +203,7 @@ impl Layout for EnumNode {
         let mut parents = styles.get(Self::PARENTS);
         let full = styles.get(Self::FULL);
 
-        for item in self.items() {
+        for item in self.children() {
             number = item.number().unwrap_or(number);
 
             let resolved = if full {

@@ -107,7 +107,7 @@ previous chapter.
 >>>      text(
 >>>        13pt,
 >>>        weight: "regular",
->>>        smallcaps(it.title),
+>>>        smallcaps(it.body),
 >>>      )
 >>>    ),
 >>>  )
@@ -118,7 +118,7 @@ previous chapter.
 >>>      11pt,
 >>>      weight: "regular",
 >>>      style: "italic",
->>>      it.title + [.],
+>>>      it.body + [.],
 >>>    )
 >>>  )
 
@@ -288,7 +288,7 @@ path of the file after the `{from}` keyword.
 >>>      text(
 >>>        13pt,
 >>>        weight: "regular",
->>>        smallcaps(it.title),
+>>>        smallcaps(it.body),
 >>>      )
 >>>    ),
 >>>  )
@@ -299,7 +299,7 @@ path of the file after the `{from}` keyword.
 >>>      11pt,
 >>>      weight: "regular",
 >>>      style: "italic",
->>>      it.title + [.],
+>>>      it.body + [.],
 >>>    )
 >>>  )
 >>>

@@ -73,7 +73,7 @@ pub struct GridNode {
     ///
     /// The cells are populated in row-major order.
     #[variadic]
-    pub cells: Vec<Content>,
+    pub children: Vec<Content>,
 
     /// Defines the column sizes.
     ///
@@ -114,7 +114,7 @@ impl Layout for GridNode {
         regions: Regions,
     ) -> SourceResult<Fragment> {
         // Prepare grid layout by unifying content and gutter tracks.
-        let cells = self.cells();
+        let cells = self.children();
         let layouter = GridLayouter::new(
             vt,
             Axes::new(&self.columns().0, &self.rows().0),

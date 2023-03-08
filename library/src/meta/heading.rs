@@ -45,7 +45,7 @@ pub struct HeadingNode {
     /// The heading's title.
     #[positional]
     #[required]
-    pub title: Content,
+    pub body: Content,
 
     /// The logical nesting depth of the heading, starting from one.
     #[named]
@@ -120,14 +120,14 @@ impl Prepare for HeadingNode {
 
 impl Show for HeadingNode {
     fn show(&self, _: &mut Vt, this: &Content, _: StyleChain) -> SourceResult<Content> {
-        let mut realized = self.title();
+        let mut realized = self.body();
         let numbers = this.field("numbers").unwrap();
         if *numbers != Value::None {
             realized = numbers.clone().display()
                 + HNode::new(Em::new(0.3).into()).with_weak(true).pack()
                 + realized;
         }
-        Ok(BlockNode::new().with_body(realized).pack())
+        Ok(BlockNode::new().with_body(Some(realized)).pack())
     }
 }
 

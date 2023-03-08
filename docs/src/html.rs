@@ -309,7 +309,10 @@ fn code_block(resolver: &dyn Resolver, lang: &str, text: &str) -> Html {
     let world = DocWorld(source);
     let mut frames = match typst::compile(&world, &world.0) {
         Ok(doc) => doc.pages,
-        Err(err) => panic!("failed to compile {text}: {err:?}"),
+        Err(err) => {
+            let msg = &err[0].message;
+            panic!("while trying to compile {text}:\n\nerror: {msg}");
+        }
     };
 
     if let Some([x, y, w, h]) = zoom {

@@ -20,11 +20,6 @@ use crate::prelude::*;
     styles.set(Self::ALIGNMENT, aligns);
 })]
 pub struct AlignNode {
-    /// The content to align.
-    #[positional]
-    #[required]
-    pub body: Content,
-
     /// The alignment along both axes.
     ///
     /// Possible values for horizontal alignments are:
@@ -62,6 +57,11 @@ pub struct AlignNode {
     #[skip]
     #[default(Axes::new(GenAlign::Start, GenAlign::Specific(Align::Top)))]
     pub alignment: Axes<Option<GenAlign>>,
+
+    /// The content to align.
+    #[positional]
+    #[required]
+    pub body: Content,
 }
 
 impl Show for AlignNode {

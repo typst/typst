@@ -55,7 +55,7 @@ impl Content {
     /// Attach a span to the content.
     pub fn spanned(mut self, span: Span) -> Self {
         if let Some(styled) = self.to::<StyledNode>() {
-            self = StyledNode::new(styled.sub().spanned(span), styled.map()).pack();
+            self = StyledNode::new(styled.body().spanned(span), styled.map()).pack();
         }
         self.span = Some(span);
         self
@@ -83,7 +83,7 @@ impl Content {
         } else if let Some(styled) = self.to::<StyledNode>() {
             let mut map = styled.map();
             map.apply(styles);
-            StyledNode::new(styled.sub(), map).pack()
+            StyledNode::new(styled.body(), map).pack()
         } else {
             StyledNode::new(self, styles).pack()
         }
@@ -268,7 +268,7 @@ impl Debug for Content {
 
         if let Some(styled) = self.to::<StyledNode>() {
             styled.map().fmt(f)?;
-            styled.sub().fmt(f)
+            styled.body().fmt(f)
         } else if let Some(seq) = self.to::<SequenceNode>() {
             f.debug_list().entries(&seq.children()).finish()
         } else if self.id.name() == "space" {
@@ -334,7 +334,7 @@ pub struct StyledNode {
     /// The styled content.
     #[positional]
     #[required]
-    pub sub: Content,
+    pub body: Content,
 
     /// The styles.
     #[positional]

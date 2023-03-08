@@ -36,7 +36,7 @@ pub struct TermsNode {
     /// ) [/ #product: Born in #year.]
     /// ```
     #[variadic]
-    pub items: Vec<TermItem>,
+    pub children: Vec<TermItem>,
 
     /// If this is `{false}`, the items are spaced apart with [term list
     /// spacing]($func/terms.spacing). If it is `{true}`, they use normal
@@ -101,12 +101,12 @@ impl Layout for TermsNode {
         };
 
         let mut cells = vec![];
-        for item in self.items() {
+        for child in self.children() {
             let body = Content::sequence(vec![
                 HNode::new((-body_indent).into()).pack(),
-                (item.term() + TextNode::packed(':')).strong(),
+                (child.term() + TextNode::packed(':')).strong(),
                 SpaceNode::new().pack(),
-                item.description(),
+                child.description(),
             ]);
 
             cells.push(Content::empty());

@@ -165,7 +165,7 @@ pub enum Expr {
     Let(LetBinding),
     /// A set rule: `set text(...)`.
     Set(SetRule),
-    /// A show rule: `show heading: it => [*{it.body}*]`.
+    /// A show rule: `show heading: it => emph(it.body)`.
     Show(ShowRule),
     /// An if-else conditional: `if x { y } else { z }`.
     Conditional(Conditional),
@@ -1591,7 +1591,7 @@ impl SetRule {
 }
 
 node! {
-    /// A show rule: `show heading: it => [*{it.body}*]`.
+    /// A show rule: `show heading: it => emph(it.body)`.
     ShowRule
 }
 

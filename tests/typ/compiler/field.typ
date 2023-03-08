@@ -15,7 +15,7 @@
 ---
 // Test field on node.
 #show list: node => {
-  test(node.items.len(), 3)
+  test(node.children.len(), 3)
 }
 
 - A
