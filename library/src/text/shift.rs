@@ -16,11 +16,6 @@ use crate::prelude::*;
 /// Category: text
 #[node(Show)]
 pub struct SubNode {
-    /// The text to display in subscript.
-    #[positional]
-    #[required]
-    pub body: Content,
-
     /// Whether to prefer the dedicated subscript characters of the font.
     ///
     /// If this is enabled, Typst first tries to transform the text to subscript
@@ -31,23 +26,25 @@ pub struct SubNode {
     /// N#sub(typographic: true)[1]
     /// N#sub(typographic: false)[1]
     /// ```
-    #[settable]
     #[default(true)]
     pub typographic: bool,
 
     /// The baseline shift for synthetic subscripts. Does not apply if
     /// `typographic` is true and the font has subscript codepoints for the
     /// given `body`.
-    #[settable]
     #[default(Em::new(0.2).into())]
     pub baseline: Length,
 
     /// The font size for synthetic subscripts. Does not apply if
     /// `typographic` is true and the font has subscript codepoints for the
     /// given `body`.
-    #[settable]
     #[default(TextSize(Em::new(0.6).into()))]
     pub size: TextSize,
+
+    /// The text to display in subscript.
+    #[positional]
+    #[required]
+    pub body: Content,
 }
 
 impl Show for SubNode {
@@ -59,7 +56,7 @@ impl Show for SubNode {
     ) -> SourceResult<Content> {
         let body = self.body();
         let mut transformed = None;
-        if Self::typographic_in(styles) {
+        if self.typographic(styles) {
             if let Some(text) = search_text(&body, true) {
                 if is_shapable(vt, &text, styles) {
                     transformed = Some(TextNode::packed(text));
@@ -68,8 +65,8 @@ impl Show for SubNode {
         };
 
         Ok(transformed.unwrap_or_else(|| {
-            body.styled(TextNode::set_baseline(Self::baseline_in(styles)))
-                .styled(TextNode::set_size(Self::size_in(styles)))
+            body.styled(TextNode::set_baseline(self.baseline(styles)))
+                .styled(TextNode::set_size(self.size(styles)))
         }))
     }
 }
@@ -87,11 +84,6 @@ impl Show for SubNode {
 /// Category: text
 #[node(Show)]
 pub struct SuperNode {
-    /// The text to display in superscript.
-    #[positional]
-    #[required]
-    pub body: Content,
-
     /// Whether to prefer the dedicated superscript characters of the font.
     ///
     /// If this is enabled, Typst first tries to transform the text to
@@ -102,23 +94,25 @@ pub struct SuperNode {
     /// N#super(typographic: true)[1]
     /// N#super(typographic: false)[1]
     /// ```
-    #[settable]
     #[default(true)]
     pub typographic: bool,
 
     /// The baseline shift for synthetic superscripts. Does not apply if
     /// `typographic` is true and the font has superscript codepoints for the
     /// given `body`.
-    #[settable]
     #[default(Em::new(-0.5).into())]
     pub baseline: Length,
 
     /// The font size for synthetic superscripts. Does not apply if
     /// `typographic` is true and the font has superscript codepoints for the
     /// given `body`.
-    #[settable]
     #[default(TextSize(Em::new(0.6).into()))]
     pub size: TextSize,
+
+    /// The text to display in superscript.
+    #[positional]
+    #[required]
+    pub body: Content,
 }
 
 impl Show for SuperNode {
@@ -130,7 +124,7 @@ impl Show for SuperNode {
     ) -> SourceResult<Content> {
         let body = self.body();
         let mut transformed = None;
-        if Self::typographic_in(styles) {
+        if self.typographic(styles) {
             if let Some(text) = search_text(&body, false) {
                 if is_shapable(vt, &text, styles) {
                     transformed = Some(TextNode::packed(text));
@@ -139,8 +133,8 @@ impl Show for SuperNode {
         };
 
         Ok(transformed.unwrap_or_else(|| {
-            body.styled(TextNode::set_baseline(Self::baseline_in(styles)))
-                .styled(TextNode::set_size(Self::size_in(styles)))
+            body.styled(TextNode::set_baseline(self.baseline(styles)))
+                .styled(TextNode::set_size(self.size(styles)))
         }))
     }
 }

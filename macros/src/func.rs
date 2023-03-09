@@ -143,8 +143,8 @@ fn params(docs: &mut String) -> Result<(Vec<TokenStream>, Vec<String>)> {
 
         for part in s.eat_until(')').split(',').map(str::trim).filter(|s| !s.is_empty()) {
             match part {
-                "named" => named = true,
                 "positional" => positional = true,
+                "named" => named = true,
                 "required" => required = true,
                 "variadic" => variadic = true,
                 "settable" => settable = true,
@@ -152,8 +152,7 @@ fn params(docs: &mut String) -> Result<(Vec<TokenStream>, Vec<String>)> {
             }
         }
 
-        if (!named && !positional) || (variadic && !positional) || (required && variadic)
-        {
+        if (!named && !positional) || (variadic && !positional) {
             bail!(callsite, "invalid combination of parameter flags");
         }
 
@@ -169,10 +168,10 @@ fn params(docs: &mut String) -> Result<(Vec<TokenStream>, Vec<String>)> {
                 cast: <#ty as ::typst::eval::Cast<
                     ::typst::syntax::Spanned<::typst::eval::Value>
                 >>::describe(),
-                named: #named,
                 positional: #positional,
-                required: #required,
+                named: #named,
                 variadic: #variadic,
+                required: #required,
                 settable: #settable,
             }
         });

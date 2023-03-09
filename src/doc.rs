@@ -605,9 +605,7 @@ pub enum Meta {
 pub struct MetaNode {
     /// Metadata that should be attached to all elements affected by this style
     /// property.
-    #[settable]
     #[fold]
-    #[default]
     pub data: Vec<Meta>,
 }
 

@@ -16,20 +16,17 @@ use crate::prelude::*;
 /// Category: meta
 #[node(LayoutRoot)]
 pub struct DocumentNode {
-    /// The page runs.
-    #[variadic]
-    pub children: Vec<Content>,
-
     /// The document's title. This is often rendered as the title of the
     /// PDF viewer window.
-    #[settable]
-    #[default]
     pub title: Option<EcoString>,
 
     /// The document's authors.
-    #[settable]
-    #[default]
     pub author: Author,
+
+    /// The page runs.
+    #[internal]
+    #[variadic]
+    pub children: Vec<Content>,
 }
 
 impl LayoutRoot for DocumentNode {
@@ -58,8 +55,8 @@ impl LayoutRoot for DocumentNode {
 
         Ok(Document {
             pages,
-            title: Self::title_in(styles),
-            author: Self::author_in(styles).0,
+            title: self.title(styles),
+            author: self.author(styles).0,
         })
     }
 }

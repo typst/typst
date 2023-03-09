@@ -30,7 +30,7 @@ use crate::prelude::*;
 /// ```
 ///
 /// ## Parameters
-/// - gutter: `TrackSizings` (named)
+/// - gutter: `TrackSizings` (named, settable)
 ///   Defines the gaps between rows & columns.
 ///   See the [grid documentation]($func/grid) for more information on gutters.
 ///
@@ -38,36 +38,27 @@ use crate::prelude::*;
 /// Category: layout
 #[node(Layout)]
 pub struct TableNode {
-    /// The contents of the table cells.
-    #[variadic]
-    pub children: Vec<Content>,
-
     /// Defines the column sizes.
     /// See the [grid documentation]($func/grid) for more information on track
     /// sizing.
-    #[named]
-    #[default]
     pub columns: TrackSizings,
 
     /// Defines the row sizes.
     /// See the [grid documentation]($func/grid) for more information on track
     /// sizing.
-    #[named]
-    #[default]
     pub rows: TrackSizings,
 
     /// Defines the gaps between columns. Takes precedence over `gutter`.
     /// See the [grid documentation]($func/grid) for more information on gutters.
-    #[named]
-    #[shorthand(gutter)]
-    #[default]
+    #[parse(
+        let gutter = args.named("gutter")?;
+        args.named("column-gutter")?.or_else(|| gutter.clone())
+    )]
     pub column_gutter: TrackSizings,
 
     /// Defines the gaps between rows. Takes precedence over `gutter`.
     /// See the [grid documentation]($func/grid) for more information on gutters.
-    #[named]
-    #[shorthand(gutter)]
-    #[default]
+    #[parse(args.named("row-gutter")?.or_else(|| gutter.clone()))]
     pub row_gutter: TrackSizings,
 
     /// How to fill the cells.
@@ -90,8 +81,6 @@ pub struct TableNode {
     ///   [Profit:], [500 €], [1000 €], [1500 €],
     /// )
     /// ```
-    #[settable]
-    #[default]
     pub fill: Celled<Option<Paint>>,
 
     /// How to align the cell's content.
@@ -99,15 +88,12 @@ pub struct TableNode {
     /// This can either be a single alignment or a function that returns an
     /// alignment. The function is passed the cell's column and row index,
     /// starting at zero. If set to `{auto}`, the outer alignment is used.
-    #[settable]
-    #[default]
     pub align: Celled<Smart<Axes<Option<GenAlign>>>>,
 
     /// How to stroke the cells.
     ///
     /// This can be a color, a stroke width, both, or `{none}` to disable
     /// the stroke.
-    #[settable]
     #[resolve]
     #[fold]
     #[default(Some(PartialStroke::default()))]
@@ -116,9 +102,12 @@ pub struct TableNode {
     /// How much to pad the cells's content.
     ///
     /// The default value is `{5pt}`.
-    #[settable]
     #[default(Abs::pt(5.0).into())]
     pub inset: Rel<Length>,
+
+    /// The contents of the table cells.
+    #[variadic]
+    pub children: Vec<Content>,
 }
 
 impl Layout for TableNode {
@@ -128,11 +117,11 @@ impl Layout for TableNode {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let inset = Self::inset_in(styles);
-        let align = Self::align_in(styles);
+        let inset = self.inset(styles);
+        let align = self.align(styles);
 
-        let tracks = Axes::new(self.columns().0, self.rows().0);
-        let gutter = Axes::new(self.column_gutter().0, self.row_gutter().0);
+        let tracks = Axes::new(self.columns(styles).0, self.rows(styles).0);
+        let gutter = Axes::new(self.column_gutter(styles).0, self.row_gutter(styles).0);
         let cols = tracks.x.len().max(1);
         let cells: Vec<_> = self
             .children()
@@ -151,8 +140,8 @@ impl Layout for TableNode {
             })
             .collect::<SourceResult<_>>()?;
 
-        let fill = Self::fill_in(styles);
-        let stroke = Self::stroke_in(styles).map(PartialStroke::unwrap_or_default);
+        let fill = self.fill(styles);
+        let stroke = self.stroke(styles).map(PartialStroke::unwrap_or_default);
 
         // Prepare grid layout by unifying content and gutter tracks.
         let layouter = GridLayouter::new(

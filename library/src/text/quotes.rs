@@ -27,7 +27,6 @@ use crate::prelude::*;
 #[node]
 pub struct SmartQuoteNode {
     /// Whether this should be a double quote.
-    #[named]
     #[default(true)]
     pub double: bool,
 
@@ -41,7 +40,6 @@ pub struct SmartQuoteNode {
     ///
     /// These are "dumb" quotes.
     /// ```
-    #[settable]
     #[default(true)]
     pub enabled: bool,
 }

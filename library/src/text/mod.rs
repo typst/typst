@@ -46,12 +46,6 @@ use crate::prelude::*;
 /// Category: text
 #[node(Construct)]
 pub struct TextNode {
-    /// The text.
-    #[positional]
-    #[required]
-    #[skip]
-    pub text: EcoString,
-
     /// A prioritized sequence of font families.
     ///
     /// When processing text, Typst tries all specified font families in order
@@ -69,7 +63,6 @@ pub struct TextNode {
     /// هذا عربي.
     ///
     /// ```
-    #[settable]
     #[default(FontList(vec![FontFamily::new("Linux Libertine")]))]
     pub font: FontList,
 
@@ -90,7 +83,6 @@ pub struct TextNode {
     /// #set text(fallback: false)
     /// هذا عربي
     /// ```
-    #[settable]
     #[default(true)]
     pub fallback: bool,
 
@@ -111,8 +103,6 @@ pub struct TextNode {
     /// #text(font: "Linux Libertine", style: "italic")[Italic]
     /// #text(font: "DejaVu Sans", style: "oblique")[Oblique]
     /// ```
-    #[settable]
-    #[default(FontStyle::Normal)]
     pub style: FontStyle,
 
     /// The desired thickness of the font's glyphs. Accepts an integer between
@@ -132,8 +122,6 @@ pub struct TextNode {
     /// #text(weight: 500)[Medium] \
     /// #text(weight: "bold")[Bold]
     /// ```
-    #[settable]
-    #[default(FontWeight::REGULAR)]
     pub weight: FontWeight,
 
     /// The desired width of the glyphs. Accepts a ratio between `{50%}` and
@@ -144,8 +132,6 @@ pub struct TextNode {
     /// #text(stretch: 75%)[Condensed] \
     /// #text(stretch: 100%)[Normal]
     /// ```
-    #[settable]
-    #[default(FontStretch::NORMAL)]
     pub stretch: FontStretch,
 
     /// The size of the glyphs. This value forms the basis of the `em` unit:
@@ -158,8 +144,7 @@ pub struct TextNode {
     /// #set text(size: 20pt)
     /// very #text(1.5em)[big] text
     /// ```
-    #[settable]
-    #[shorthand]
+    #[parse(args.named_or_find("size")?)]
     #[fold]
     #[default(Abs::pt(11.0))]
     pub size: TextSize,
@@ -170,8 +155,7 @@ pub struct TextNode {
     /// #set text(fill: red)
     /// This text is red.
     /// ```
-    #[shorthand]
-    #[settable]
+    #[parse(args.named_or_find("fill")?)]
     #[default(Color::BLACK.into())]
     pub fill: Paint,
 
@@ -181,9 +165,7 @@ pub struct TextNode {
     /// #set text(tracking: 1.5pt)
     /// Distant text.
     /// ```
-    #[settable]
     #[resolve]
-    #[default(Length::zero())]
     pub tracking: Length,
 
     /// The amount of space between words.
@@ -195,7 +177,6 @@ pub struct TextNode {
     /// #set text(spacing: 200%)
     /// Text with distant words.
     /// ```
-    #[settable]
     #[resolve]
     #[default(Rel::one())]
     pub spacing: Rel<Length>,
@@ -206,9 +187,7 @@ pub struct TextNode {
     /// A #text(baseline: 3pt)[lowered]
     /// word.
     /// ```
-    #[settable]
     #[resolve]
-    #[default(Length::zero())]
     pub baseline: Length,
 
     /// Whether certain glyphs can hang over into the margin in justified text.
@@ -231,7 +210,6 @@ pub struct TextNode {
     /// margin, making the paragraph's
     /// edge less clear.
     /// ```
-    #[settable]
     #[default(true)]
     pub overhang: bool,
 
@@ -248,7 +226,6 @@ pub struct TextNode {
     /// #set text(top-edge: "cap-height")
     /// #rect(fill: aqua)[Typst]
     /// ```
-    #[settable]
     #[default(TextEdge::Metric(VerticalFontMetric::CapHeight))]
     pub top_edge: TextEdge,
 
@@ -265,7 +242,6 @@ pub struct TextNode {
     /// #set text(bottom-edge: "descender")
     /// #rect(fill: aqua)[Typst]
     /// ```
-    #[settable]
     #[default(TextEdge::Metric(VerticalFontMetric::Baseline))]
     pub bottom_edge: TextEdge,
 
@@ -286,15 +262,12 @@ pub struct TextNode {
     /// = Einleitung
     /// In diesem Dokument, ...
     /// ```
-    #[settable]
     #[default(Lang::ENGLISH)]
     pub lang: Lang,
 
     /// An [ISO 3166-1 alpha-2 region code.](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2)
     ///
     /// This lets the text processing pipeline make more informed choices.
-    #[settable]
-    #[default(None)]
     pub region: Option<Region>,
 
     /// The dominant direction for text and inline objects. Possible values are:
@@ -321,9 +294,7 @@ pub struct TextNode {
     /// #set text(dir: rtl)
     /// هذا عربي.
     /// ```
-    #[settable]
     #[resolve]
-    #[default(HorizontalDir(Smart::Auto))]
     pub dir: HorizontalDir,
 
     /// Whether to hyphenate text to improve line breaking. When `{auto}`, text
@@ -343,9 +314,7 @@ pub struct TextNode {
     /// enabling hyphenation can
     /// improve justification.
     /// ```
-    #[settable]
     #[resolve]
-    #[default(Hyphenate(Smart::Auto))]
     pub hyphenate: Hyphenate,
 
     /// Whether to apply kerning.
@@ -363,7 +332,6 @@ pub struct TextNode {
     /// #set text(kerning: false)
     /// Totally
     /// ```
-    #[settable]
     #[default(true)]
     pub kerning: bool,
 
@@ -380,7 +348,6 @@ pub struct TextNode {
     /// #set text(alternates: true)
     /// 0, a, g, ß
     /// ```
-    #[settable]
     #[default(false)]
     pub alternates: bool,
 
@@ -389,8 +356,6 @@ pub struct TextNode {
     /// you need to consult your font to know which sets are available. When set
     /// to an integer between `{1}` and `{20}`, enables the corresponding
     /// OpenType font feature from `ss01`, ..., `ss20`.
-    #[settable]
-    #[default(None)]
     pub stylistic_set: Option<StylisticSet>,
 
     /// Whether standard ligatures are active.
@@ -407,19 +372,16 @@ pub struct TextNode {
     /// #set text(ligatures: false)
     /// A fine ligature.
     /// ```
-    #[settable]
     #[default(true)]
     pub ligatures: bool,
 
     /// Whether ligatures that should be used sparingly are active. Setting this
     /// to `{true}` enables the OpenType `dlig` font feature.
-    #[settable]
     #[default(false)]
     pub discretionary_ligatures: bool,
 
     /// Whether historical ligatures are active. Setting this to `{true}`
     /// enables the OpenType `hlig` font feature.
-    #[settable]
     #[default(false)]
     pub historical_ligatures: bool,
 
@@ -434,8 +396,6 @@ pub struct TextNode {
     /// #set text(number-type: "old-style")
     /// Number 9.
     /// ```
-    #[settable]
-    #[default(Smart::Auto)]
     pub number_type: Smart<NumberType>,
 
     /// The width of numbers / figures. When set to `{auto}`, the default
@@ -451,8 +411,6 @@ pub struct TextNode {
     /// A 12 B 34. \
     /// A 56 B 78.
     /// ```
-    #[settable]
-    #[default(Smart::Auto)]
     pub number_width: Smart<NumberWidth>,
 
     /// Whether to have a slash through the zero glyph. Setting this to `{true}`
@@ -461,7 +419,6 @@ pub struct TextNode {
     /// ```example
     /// 0, #text(slashed-zero: true)[0]
     /// ```
-    #[settable]
     #[default(false)]
     pub slashed_zero: bool,
 
@@ -472,7 +429,6 @@ pub struct TextNode {
     /// 1/2 \
     /// #text(fractions: true)[1/2]
     /// ```
-    #[settable]
     #[default(false)]
     pub fractions: bool,
 
@@ -488,43 +444,39 @@ pub struct TextNode {
     /// #set text(features: ("frac",))
     /// 1/2
     /// ```
-    #[settable]
     #[fold]
-    #[default(FontFeatures(vec![]))]
     pub features: FontFeatures,
 
+    /// The text.
+    #[internal]
+    #[positional]
+    #[required]
+    pub text: EcoString,
+
     /// A delta to apply on the font weight.
-    #[settable]
+    #[internal]
     #[fold]
-    #[skip]
-    #[default(0)]
     pub delta: Delta,
 
     /// Whether the font style should be inverted.
-    #[settable]
+    #[internal]
     #[fold]
-    #[skip]
     #[default(false)]
     pub emph: Toggle,
 
+    /// Decorative lines.
+    #[internal]
+    #[fold]
+    pub deco: Decoration,
+
     /// A case transformation that should be applied to the text.
-    #[settable]
-    #[skip]
-    #[default(None)]
+    #[internal]
     pub case: Option<Case>,
 
     /// Whether small capital glyphs should be used. ("smcp")
-    #[settable]
-    #[skip]
+    #[internal]
     #[default(false)]
     pub smallcaps: bool,
-
-    /// Decorative lines.
-    #[settable]
-    #[fold]
-    #[skip]
-    #[default(vec![])]
-    pub deco: Decoration,
 }
 
 impl TextNode {
@@ -539,7 +491,9 @@ impl Construct for TextNode {
         // The text constructor is special: It doesn't create a text node.
         // Instead, it leaves the passed argument structurally unchanged, but
         // styles all text in it.
-        args.expect("body")
+        let styles = Self::set(args)?;
+        let body = args.expect::<Content>("body")?;
+        Ok(body.styled_with_map(styles))
     }
 }
 
@@ -651,7 +605,7 @@ cast_to_value! {
 }
 
 /// The direction of text and inline objects in their line.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct HorizontalDir(pub Smart<Dir>);
 
 cast_from_value! {
@@ -680,7 +634,7 @@ impl Resolve for HorizontalDir {
 }
 
 /// Whether to hyphenate text.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Hyphenate(pub Smart<bool>);
 
 cast_from_value! {

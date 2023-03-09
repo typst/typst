@@ -38,19 +38,6 @@ use super::GridLayouter;
 /// Category: layout
 #[node(Layout)]
 pub struct ListNode {
-    /// The bullet list's children.
-    ///
-    /// When using the list syntax, adjacent items are automatically collected
-    /// into lists, even through constructs like for loops.
-    ///
-    /// ```example
-    /// #for letter in "ABC" [
-    ///   - Letter #letter
-    /// ]
-    /// ```
-    #[variadic]
-    pub children: Vec<ListItem>,
-
     /// If this is `{false}`, the items are spaced apart with [list
     /// spacing]($func/list.spacing). If it is `{true}`, they use normal
     /// [leading]($func/par.leading) instead. This makes the list more compact,
@@ -64,7 +51,6 @@ pub struct ListNode {
     /// - To make a list wide, simply insert
     ///   a blank line between the items.
     /// ```
-    #[named]
     #[default(true)]
     pub tight: bool,
 
@@ -89,18 +75,14 @@ pub struct ListNode {
     ///   - Items
     /// - Items
     /// ```
-    #[settable]
     #[default(ListMarker::Content(vec![]))]
     pub marker: ListMarker,
 
     /// The indent of each item's marker.
-    #[settable]
     #[resolve]
-    #[default]
     pub indent: Length,
 
     /// The spacing between the marker and the body of each item.
-    #[settable]
     #[resolve]
     #[default(Em::new(0.5).into())]
     pub body_indent: Length,
@@ -108,15 +90,24 @@ pub struct ListNode {
     /// The spacing between the items of a wide (non-tight) list.
     ///
     /// If set to `{auto}`, uses the spacing [below blocks]($func/block.below).
-    #[settable]
-    #[default]
     pub spacing: Smart<Spacing>,
 
+    /// The bullet list's children.
+    ///
+    /// When using the list syntax, adjacent items are automatically collected
+    /// into lists, even through constructs like for loops.
+    ///
+    /// ```example
+    /// #for letter in "ABC" [
+    ///   - Letter #letter
+    /// ]
+    /// ```
+    #[variadic]
+    pub children: Vec<ListItem>,
+
     /// The nesting depth.
-    #[settable]
+    #[internal]
     #[fold]
-    #[skip]
-    #[default]
     depth: Depth,
 }
 
@@ -127,17 +118,17 @@ impl Layout for ListNode {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let indent = Self::indent_in(styles);
-        let body_indent = Self::body_indent_in(styles);
-        let gutter = if self.tight() {
+        let indent = self.indent(styles);
+        let body_indent = self.body_indent(styles);
+        let gutter = if self.tight(styles) {
             ParNode::leading_in(styles).into()
         } else {
-            Self::spacing_in(styles)
+            self.spacing(styles)
                 .unwrap_or_else(|| BlockNode::below_in(styles).amount())
         };
 
-        let depth = Self::depth_in(styles);
-        let marker = Self::marker_in(styles).resolve(vt.world(), depth)?;
+        let depth = self.depth(styles);
+        let marker = self.marker(styles).resolve(vt.world(), depth)?;
 
         let mut cells = vec![];
         for item in self.children() {

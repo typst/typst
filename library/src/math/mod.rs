@@ -134,21 +134,20 @@ pub fn module() -> Module {
 /// Category: math
 #[node(Show, Finalize, Layout, LayoutMath)]
 pub struct FormulaNode {
+    /// Whether the formula is displayed as a separate block.
+    #[default(false)]
+    pub block: bool,
+
     /// The content of the formula.
     #[positional]
     #[required]
     pub body: Content,
-
-    /// Whether the formula is displayed as a separate block.
-    #[named]
-    #[default(false)]
-    pub block: bool,
 }
 
 impl Show for FormulaNode {
-    fn show(&self, _: &mut Vt, _: &Content, _: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _: &mut Vt, _: &Content, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.clone().pack().guarded(Guard::Base(NodeId::of::<Self>()));
-        if self.block() {
+        if self.block(styles) {
             realized = realized.aligned(Axes::with_x(Some(Align::Center.into())))
         }
         Ok(realized)
@@ -156,7 +155,7 @@ impl Show for FormulaNode {
 }
 
 impl Finalize for FormulaNode {
-    fn finalize(&self, realized: Content) -> Content {
+    fn finalize(&self, realized: Content, _: StyleChain) -> Content {
         realized
             .styled(TextNode::set_weight(FontWeight::from_number(450)))
             .styled(TextNode::set_font(FontList(vec![FontFamily::new(
@@ -172,7 +171,7 @@ impl Layout for FormulaNode {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let block = self.block();
+        let block = self.block(styles);
 
         // Find a math font.
         let variant = variant(styles);

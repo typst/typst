@@ -51,7 +51,6 @@ pub struct LinebreakNode {
     /// line breaks in this paragraph #jb
     /// for an _interesting_ result. #jb
     /// ```
-    #[named]
     #[default(false)]
     pub justify: bool,
 }
@@ -85,25 +84,24 @@ impl Behave for LinebreakNode {
 /// Category: text
 #[node(Show)]
 pub struct StrongNode {
-    /// The content to strongly emphasize.
-    #[positional]
-    #[required]
-    pub body: Content,
-
     /// The delta to apply on the font weight.
     ///
     /// ```example
     /// #set strong(delta: 0)
     /// No *effect!*
     /// ```
-    #[settable]
     #[default(300)]
     pub delta: i64,
+
+    /// The content to strongly emphasize.
+    #[positional]
+    #[required]
+    pub body: Content,
 }
 
 impl Show for StrongNode {
     fn show(&self, _: &mut Vt, _: &Content, styles: StyleChain) -> SourceResult<Content> {
-        Ok(self.body().styled(TextNode::set_delta(Delta(Self::delta_in(styles)))))
+        Ok(self.body().styled(TextNode::set_delta(Delta(self.delta(styles)))))
     }
 }
 

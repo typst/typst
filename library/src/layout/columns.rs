@@ -36,19 +36,18 @@ use crate::text::TextNode;
 pub struct ColumnsNode {
     /// The number of columns.
     #[positional]
-    #[required]
+    #[default(NonZeroUsize::new(2).unwrap())]
     pub count: NonZeroUsize,
+
+    /// The size of the gutter space between each column.
+    #[resolve]
+    #[default(Ratio::new(0.04).into())]
+    pub gutter: Rel<Length>,
 
     /// The content that should be layouted into the columns.
     #[positional]
     #[required]
     pub body: Content,
-
-    /// The size of the gutter space between each column.
-    #[settable]
-    #[resolve]
-    #[default(Ratio::new(0.04).into())]
-    pub gutter: Rel<Length>,
 }
 
 impl Layout for ColumnsNode {
@@ -67,8 +66,8 @@ impl Layout for ColumnsNode {
         }
 
         // Determine the width of the gutter and each column.
-        let columns = self.count().get();
-        let gutter = Self::gutter_in(styles).relative_to(regions.base().x);
+        let columns = self.count(styles).get();
+        let gutter = self.gutter(styles).relative_to(regions.base().x);
         let width = (regions.size.x - gutter * (columns - 1) as f64) / columns as f64;
 
         let backlog: Vec<_> = std::iter::once(&regions.size.y)
@@ -157,14 +156,13 @@ impl Layout for ColumnsNode {
 pub struct ColbreakNode {
     /// If `{true}`, the column break is skipped if the current column is
     /// already empty.
-    #[named]
     #[default(false)]
     pub weak: bool,
 }
 
 impl Behave for ColbreakNode {
     fn behaviour(&self) -> Behaviour {
-        if self.weak() {
+        if self.weak(StyleChain::default()) {
             Behaviour::Weak(1)
         } else {
             Behaviour::Destructive

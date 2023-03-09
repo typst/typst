@@ -55,7 +55,7 @@ impl Content {
     /// Attach a span to the content.
     pub fn spanned(mut self, span: Span) -> Self {
         if let Some(styled) = self.to::<StyledNode>() {
-            self = StyledNode::new(styled.body().spanned(span), styled.map()).pack();
+            self = StyledNode::new(styled.map(), styled.body().spanned(span)).pack();
         }
         self.span = Some(span);
         self
@@ -78,9 +78,9 @@ impl Content {
         } else if let Some(styled) = self.to::<StyledNode>() {
             let mut map = styled.map();
             map.apply(styles);
-            StyledNode::new(styled.body(), map).pack()
+            StyledNode::new(map, styled.body()).pack()
         } else {
-            StyledNode::new(self, styles).pack()
+            StyledNode::new(styles, self).pack()
         }
     }
 
@@ -161,7 +161,7 @@ impl Content {
     }
 
     #[track_caller]
-    pub fn cast_field<T: Cast>(&self, name: &str) -> T {
+    pub fn cast_required_field<T: Cast>(&self, name: &str) -> T {
         match self.field(name) {
             Some(value) => value.clone().cast().unwrap(),
             None => field_is_missing(name),
@@ -329,15 +329,15 @@ impl Sum for Content {
 /// Category: special
 #[node]
 pub struct StyledNode {
-    /// The styled content.
-    #[positional]
-    #[required]
-    pub body: Content,
-
     /// The styles.
     #[positional]
     #[required]
     pub map: StyleMap,
+
+    /// The styled content.
+    #[positional]
+    #[required]
+    pub body: Content,
 }
 
 cast_from_value! {
@@ -353,8 +353,8 @@ cast_from_value! {
 /// Category: special
 #[node]
 pub struct SequenceNode {
+    #[positional]
     #[variadic]
-    #[required]
     pub children: Vec<Content>,
 }
 
@@ -370,11 +370,14 @@ impl Debug for Label {
 
 /// A constructable, stylable content node.
 pub trait Node: Construct + Set + Sized + 'static {
+    /// Pack a node into type-erased content.
+    fn pack(self) -> Content;
+
     /// The node's ID.
     fn id() -> NodeId;
 
-    /// Pack a node into type-erased content.
-    fn pack(self) -> Content;
+    /// List the fields of the node.
+    fn params() -> Vec<ParamInfo>;
 }
 
 /// A unique identifier for a node.
@@ -432,13 +435,7 @@ pub trait Construct {
 
 pub trait Set {
     /// Parse relevant arguments into style properties for this node.
-    ///
-    /// When `constructor` is true, [`construct`](Construct::construct) will run
-    /// after this invocation of `set` with the remaining arguments.
-    fn set(args: &mut Args, constructor: bool) -> SourceResult<StyleMap>;
-
-    /// List the settable properties.
-    fn properties() -> Vec<ParamInfo>;
+    fn set(args: &mut Args) -> SourceResult<StyleMap>;
 }
 
 /// Indicates that a node cannot be labelled.

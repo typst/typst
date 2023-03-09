@@ -20,22 +20,10 @@ use crate::prelude::*;
 /// Category: visualize
 #[node(Layout)]
 pub struct RectNode {
-    /// The content to place into the rectangle.
-    ///
-    /// When this is omitted, the rectangle takes on a default size of at most
-    /// `{45pt}` by `{30pt}`.
-    #[positional]
-    #[default]
-    pub body: Option<Content>,
-
     /// The rectangle's width, relative to its parent container.
-    #[named]
-    #[default]
     pub width: Smart<Rel<Length>>,
 
     /// The rectangle's height, relative to its parent container.
-    #[named]
-    #[default]
     pub height: Smart<Rel<Length>>,
 
     /// How to fill the rectangle.
@@ -46,8 +34,6 @@ pub struct RectNode {
     /// ```example
     /// #rect(fill: blue)
     /// ```
-    #[settable]
-    #[default]
     pub fill: Option<Paint>,
 
     /// How to stroke the rectangle. This can be:
@@ -82,10 +68,8 @@ pub struct RectNode {
     ///   rect(stroke: 2pt + red),
     /// )
     /// ```
-    #[settable]
     #[resolve]
     #[fold]
-    #[default]
     pub stroke: Smart<Sides<Option<Option<PartialStroke>>>>,
 
     /// How much to round the rectangle's corners, relative to the minimum of
@@ -122,10 +106,8 @@ pub struct RectNode {
     ///   ),
     /// )
     /// ```
-    #[settable]
     #[resolve]
     #[fold]
-    #[default]
     pub radius: Corners<Option<Rel<Length>>>,
 
     /// How much to pad the rectangle's content.
@@ -138,7 +120,6 @@ pub struct RectNode {
     /// ```example
     /// #rect(inset: 0pt)[Tight])
     /// ```
-    #[settable]
     #[resolve]
     #[fold]
     #[default(Sides::splat(Abs::pt(5.0).into()))]
@@ -146,11 +127,16 @@ pub struct RectNode {
 
     /// How much to expand the rectangle's size without affecting the layout.
     /// See the [box's documentation]($func/box.outset) for more details.
-    #[settable]
     #[resolve]
     #[fold]
-    #[default]
     pub outset: Sides<Option<Rel<Length>>>,
+
+    /// The content to place into the rectangle.
+    ///
+    /// When this is omitted, the rectangle takes on a default size of at most
+    /// `{45pt}` by `{30pt}`.
+    #[positional]
+    pub body: Option<Content>,
 }
 
 impl Layout for RectNode {
@@ -165,13 +151,13 @@ impl Layout for RectNode {
             styles,
             regions,
             ShapeKind::Rect,
-            &self.body(),
-            Axes::new(self.width(), self.height()),
-            Self::fill_in(styles),
-            Self::stroke_in(styles),
-            Self::inset_in(styles),
-            Self::outset_in(styles),
-            Self::radius_in(styles),
+            &self.body(styles),
+            Axes::new(self.width(styles), self.height(styles)),
+            self.fill(styles),
+            self.stroke(styles),
+            self.inset(styles),
+            self.outset(styles),
+            self.radius(styles),
         )
     }
 }
@@ -191,66 +177,57 @@ impl Layout for RectNode {
 /// ```
 ///
 /// ## Parameters
-/// - size: `Smart<Length>` (named)
+/// - size: `Smart<Length>` (named, settable)
 ///   The square's side length. This is mutually exclusive with `width` and
 ///   `height`.
 ///
 /// Display: Square
 /// Category: visualize
-#[node(Construct, Layout)]
+#[node(Layout)]
 pub struct SquareNode {
-    /// The content to place into the square. The square expands to fit this
-    /// content, keeping the 1-1 aspect ratio.
-    ///
-    /// When this is omitted, the square takes on a default size of at most
-    /// `{30pt}`.
-    #[positional]
-    #[default]
-    pub body: Option<Content>,
-
     /// The square's width. This is mutually exclusive with `size` and `height`.
     ///
     /// In contrast to `size`, this can be relative to the parent container's
     /// width.
-    #[named]
-    #[default]
+    #[parse(
+        let size = args.named::<Smart<Length>>("size")?.map(|s| s.map(Rel::from));
+        match size {
+            None => args.named("width")?,
+            size => size,
+        }
+    )]
     pub width: Smart<Rel<Length>>,
 
     /// The square's height. This is mutually exclusive with `size` and `width`.
     ///
     /// In contrast to `size`, this can be relative to the parent container's
     /// height.
-    #[named]
-    #[default]
+    #[parse(match size {
+        None => args.named("height")?,
+        size => size,
+    })]
     pub height: Smart<Rel<Length>>,
 
     /// How to fill the square. See the
     /// [rectangle's documentation]($func/rect.fill) for more details.
-    #[settable]
-    #[default]
     pub fill: Option<Paint>,
 
     /// How to stroke the square. See the [rectangle's
     /// documentation]($func/rect.stroke) for more details.
-    #[settable]
     #[resolve]
     #[fold]
-    #[default]
     pub stroke: Smart<Sides<Option<Option<PartialStroke>>>>,
 
     /// How much to round the square's corners. See the [rectangle's
     /// documentation]($func/rect.radius) for more details.
-    #[settable]
     #[resolve]
     #[fold]
-    #[default]
     pub radius: Corners<Option<Rel<Length>>>,
 
     /// How much to pad the square's content. See the [rectangle's
     /// documentation]($func/rect.inset) for more details.
     ///
     /// The default value is `{5pt}`.
-    #[settable]
     #[resolve]
     #[fold]
     #[default(Sides::splat(Abs::pt(5.0).into()))]
@@ -258,33 +235,17 @@ pub struct SquareNode {
 
     /// How much to expand the square's size without affecting the layout. See
     /// the [rectangle's documentation]($func/rect.outset) for more details.
-    #[settable]
     #[resolve]
     #[fold]
-    #[default]
     pub outset: Sides<Option<Rel<Length>>>,
-}
 
-impl Construct for SquareNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        let size = args.named::<Smart<Length>>("size")?.map(|s| s.map(Rel::from));
-        let width = match size {
-            None => args.named("width")?,
-            size => size,
-        }
-        .unwrap_or_default();
-        let height = match size {
-            None => args.named("height")?,
-            size => size,
-        }
-        .unwrap_or_default();
-        let body = args.eat::<Content>()?;
-        Ok(Self::new()
-            .with_body(body)
-            .with_width(width)
-            .with_height(height)
-            .pack())
-    }
+    /// The content to place into the square. The square expands to fit this
+    /// content, keeping the 1-1 aspect ratio.
+    ///
+    /// When this is omitted, the square takes on a default size of at most
+    /// `{30pt}`.
+    #[positional]
+    pub body: Option<Content>,
 }
 
 impl Layout for SquareNode {
@@ -299,13 +260,13 @@ impl Layout for SquareNode {
             styles,
             regions,
             ShapeKind::Square,
-            &self.body(),
-            Axes::new(self.width(), self.height()),
-            Self::fill_in(styles),
-            Self::stroke_in(styles),
-            Self::inset_in(styles),
-            Self::outset_in(styles),
-            Self::radius_in(styles),
+            &self.body(styles),
+            Axes::new(self.width(styles), self.height(styles)),
+            self.fill(styles),
+            self.stroke(styles),
+            self.inset(styles),
+            self.outset(styles),
+            self.radius(styles),
         )
     }
 }
@@ -329,43 +290,26 @@ impl Layout for SquareNode {
 /// Category: visualize
 #[node(Layout)]
 pub struct EllipseNode {
-    /// The content to place into the ellipse.
-    ///
-    /// When this is omitted, the ellipse takes on a default size of at most
-    /// `{45pt}` by `{30pt}`.
-    #[positional]
-    #[default]
-    pub body: Option<Content>,
-
     /// The ellipse's width, relative to its parent container.
-    #[named]
-    #[default]
     pub width: Smart<Rel<Length>>,
 
     /// The ellipse's height, relative to its parent container.
-    #[named]
-    #[default]
     pub height: Smart<Rel<Length>>,
 
     /// How to fill the ellipse. See the
     /// [rectangle's documentation]($func/rect.fill) for more details.
-    #[settable]
-    #[default]
     pub fill: Option<Paint>,
 
     /// How to stroke the ellipse. See the [rectangle's
     /// documentation]($func/rect.stroke) for more details.
-    #[settable]
     #[resolve]
     #[fold]
-    #[default]
     pub stroke: Smart<Option<PartialStroke>>,
 
     /// How much to pad the ellipse's content. See the [rectangle's
     /// documentation]($func/rect.inset) for more details.
     ///
     /// The default value is `{5pt}`.
-    #[settable]
     #[resolve]
     #[fold]
     #[default(Sides::splat(Abs::pt(5.0).into()))]
@@ -373,11 +317,16 @@ pub struct EllipseNode {
 
     /// How much to expand the ellipse's size without affecting the layout. See
     /// the [rectangle's documentation]($func/rect.outset) for more details.
-    #[settable]
     #[resolve]
     #[fold]
-    #[default]
     pub outset: Sides<Option<Rel<Length>>>,
+
+    /// The content to place into the ellipse.
+    ///
+    /// When this is omitted, the ellipse takes on a default size of at most
+    /// `{45pt}` by `{30pt}`.
+    #[positional]
+    pub body: Option<Content>,
 }
 
 impl Layout for EllipseNode {
@@ -392,12 +341,12 @@ impl Layout for EllipseNode {
             styles,
             regions,
             ShapeKind::Ellipse,
-            &self.body(),
-            Axes::new(self.width(), self.height()),
-            Self::fill_in(styles),
-            Self::stroke_in(styles).map(Sides::splat),
-            Self::inset_in(styles),
-            Self::outset_in(styles),
+            &self.body(styles),
+            Axes::new(self.width(styles), self.height(styles)),
+            self.fill(styles),
+            self.stroke(styles).map(Sides::splat),
+            self.inset(styles),
+            self.outset(styles),
             Corners::splat(Rel::zero()),
         )
     }
@@ -419,27 +368,28 @@ impl Layout for EllipseNode {
 /// ```
 ///
 /// ## Parameters
-/// - radius: `Length` (named)
+/// - radius: `Length` (named, settable)
 ///   The circle's radius. This is mutually exclusive with `width` and
 ///   `height`.
 ///
 /// Display: Circle
 /// Category: visualize
-#[node(Construct, Layout)]
+#[node(Layout)]
 pub struct CircleNode {
-    /// The content to place into the circle. The circle expands to fit this
-    /// content, keeping the 1-1 aspect ratio.
-    #[positional]
-    #[default]
-    pub body: Option<Content>,
-
     /// The circle's width. This is mutually exclusive with `radius` and
     /// `height`.
     ///
     /// In contrast to `size`, this can be relative to the parent container's
     /// width.
-    #[named]
-    #[default]
+    #[parse(
+        let size = args
+            .named::<Smart<Length>>("radius")?
+            .map(|s| s.map(|r| 2.0 * Rel::from(r)));
+        match size {
+            None => args.named("width")?,
+            size => size,
+        }
+    )]
     pub width: Smart<Rel<Length>>,
 
     /// The circle's height.This is mutually exclusive with `radius` and
@@ -447,19 +397,18 @@ pub struct CircleNode {
     ///
     /// In contrast to `size`, this can be relative to the parent container's
     /// height.
-    #[named]
-    #[default]
+    #[parse(match size {
+        None => args.named("height")?,
+        size => size,
+    })]
     pub height: Smart<Rel<Length>>,
 
     /// How to fill the circle. See the
     /// [rectangle's documentation]($func/rect.fill) for more details.
-    #[settable]
-    #[default]
     pub fill: Option<Paint>,
 
     /// How to stroke the circle. See the [rectangle's
     /// documentation]($func/rect.stroke) for more details.
-    #[settable]
     #[resolve]
     #[fold]
     #[default(Smart::Auto)]
@@ -469,7 +418,6 @@ pub struct CircleNode {
     /// documentation]($func/rect.inset) for more details.
     ///
     /// The default value is `{5pt}`.
-    #[settable]
     #[resolve]
     #[fold]
     #[default(Sides::splat(Abs::pt(5.0).into()))]
@@ -477,35 +425,14 @@ pub struct CircleNode {
 
     /// How much to expand the circle's size without affecting the layout. See
     /// the [rectangle's documentation]($func/rect.outset) for more details.
-    #[settable]
     #[resolve]
     #[fold]
-    #[default]
     pub outset: Sides<Option<Rel<Length>>>,
-}
 
-impl Construct for CircleNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        let size = args
-            .named::<Smart<Length>>("radius")?
-            .map(|s| s.map(|r| 2.0 * Rel::from(r)));
-        let width = match size {
-            None => args.named("width")?,
-            size => size,
-        }
-        .unwrap_or_default();
-        let height = match size {
-            None => args.named("height")?,
-            size => size,
-        }
-        .unwrap_or_default();
-        let body = args.eat::<Content>()?;
-        Ok(Self::new()
-            .with_body(body)
-            .with_width(width)
-            .with_height(height)
-            .pack())
-    }
+    /// The content to place into the circle. The circle expands to fit this
+    /// content, keeping the 1-1 aspect ratio.
+    #[positional]
+    pub body: Option<Content>,
 }
 
 impl Layout for CircleNode {
@@ -520,12 +447,12 @@ impl Layout for CircleNode {
             styles,
             regions,
             ShapeKind::Circle,
-            &self.body(),
-            Axes::new(self.width(), self.height()),
-            Self::fill_in(styles),
-            Self::stroke_in(styles).map(Sides::splat),
-            Self::inset_in(styles),
-            Self::outset_in(styles),
+            &self.body(styles),
+            Axes::new(self.width(styles), self.height(styles)),
+            self.fill(styles),
+            self.stroke(styles).map(Sides::splat),
+            self.inset(styles),
+            self.outset(styles),
             Corners::splat(Rel::zero()),
         )
     }

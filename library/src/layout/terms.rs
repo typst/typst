@@ -23,21 +23,6 @@ use crate::text::{SpaceNode, TextNode};
 /// Category: layout
 #[node(Layout)]
 pub struct TermsNode {
-    /// The term list's children.
-    ///
-    /// When using the term list syntax, adjacent items are automatically
-    /// collected into term lists, even through constructs like for loops.
-    ///
-    /// ```example
-    /// #for year, product in (
-    ///   "1978": "TeX",
-    ///   "1984": "LaTeX",
-    ///   "2019": "Typst",
-    /// ) [/ #product: Born in #year.]
-    /// ```
-    #[variadic]
-    pub children: Vec<TermItem>,
-
     /// If this is `{false}`, the items are spaced apart with [term list
     /// spacing]($func/terms.spacing). If it is `{true}`, they use normal
     /// [leading]($func/par.leading) instead. This makes the term list more
@@ -53,14 +38,11 @@ pub struct TermsNode {
     ///   insert a blank line between the
     ///   items.
     /// ```
-    #[named]
     #[default(true)]
     pub tight: bool,
 
     /// The indentation of each item's term.
-    #[settable]
     #[resolve]
-    #[default]
     pub indent: Length,
 
     /// The hanging indent of the description.
@@ -70,7 +52,6 @@ pub struct TermsNode {
     /// / Term: This term list does not
     ///   make use of hanging indents.
     /// ```
-    #[settable]
     #[resolve]
     #[default(Em::new(1.0).into())]
     pub hanging_indent: Length,
@@ -78,9 +59,22 @@ pub struct TermsNode {
     /// The spacing between the items of a wide (non-tight) term list.
     ///
     /// If set to `{auto}`, uses the spacing [below blocks]($func/block.below).
-    #[settable]
-    #[default]
     pub spacing: Smart<Spacing>,
+
+    /// The term list's children.
+    ///
+    /// When using the term list syntax, adjacent items are automatically
+    /// collected into term lists, even through constructs like for loops.
+    ///
+    /// ```example
+    /// #for year, product in (
+    ///   "1978": "TeX",
+    ///   "1984": "LaTeX",
+    ///   "2019": "Typst",
+    /// ) [/ #product: Born in #year.]
+    /// ```
+    #[variadic]
+    pub children: Vec<TermItem>,
 }
 
 impl Layout for TermsNode {
@@ -90,12 +84,12 @@ impl Layout for TermsNode {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let indent = Self::indent_in(styles);
-        let body_indent = Self::hanging_indent_in(styles);
-        let gutter = if self.tight() {
+        let indent = self.indent(styles);
+        let body_indent = self.hanging_indent(styles);
+        let gutter = if self.tight(styles) {
             ParNode::leading_in(styles).into()
         } else {
-            Self::spacing_in(styles)
+            self.spacing(styles)
                 .unwrap_or_else(|| BlockNode::below_in(styles).amount())
         };
 

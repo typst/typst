@@ -15,11 +15,6 @@ use crate::prelude::*;
 /// Category: text
 #[node(Show)]
 pub struct UnderlineNode {
-    /// The content to underline.
-    #[positional]
-    #[required]
-    pub body: Content,
-
     /// How to stroke the line. The text color and thickness are read from the
     /// font tables if `{auto}`.
     ///
@@ -30,10 +25,8 @@ pub struct UnderlineNode {
     ///   [care],
     /// )
     /// ```
-    #[settable]
     #[resolve]
     #[fold]
-    #[default]
     pub stroke: Smart<PartialStroke>,
 
     /// Position of the line relative to the baseline, read from the font tables
@@ -44,9 +37,7 @@ pub struct UnderlineNode {
     ///   The Tale Of A Faraway Line I
     /// ]
     /// ```
-    #[settable]
     #[resolve]
-    #[default]
     pub offset: Smart<Length>,
 
     /// Amount that the line will be longer or shorter than its associated text.
@@ -56,9 +47,7 @@ pub struct UnderlineNode {
     ///   underline(extent: 2pt)[Chapter 1]
     /// )
     /// ```
-    #[settable]
     #[resolve]
-    #[default]
     pub extent: Length,
 
     /// Whether the line skips sections in which it would collide with the
@@ -68,19 +57,23 @@ pub struct UnderlineNode {
     /// This #underline(evade: true)[is great].
     /// This #underline(evade: false)[is less great].
     /// ```
-    #[settable]
     #[default(true)]
     pub evade: bool,
+
+    /// The content to underline.
+    #[positional]
+    #[required]
+    pub body: Content,
 }
 
 impl Show for UnderlineNode {
     fn show(&self, _: &mut Vt, _: &Content, styles: StyleChain) -> SourceResult<Content> {
         Ok(self.body().styled(TextNode::set_deco(Decoration {
             line: DecoLine::Underline,
-            stroke: Self::stroke_in(styles).unwrap_or_default(),
-            offset: Self::offset_in(styles),
-            extent: Self::extent_in(styles),
-            evade: Self::evade_in(styles),
+            stroke: self.stroke(styles).unwrap_or_default(),
+            offset: self.offset(styles),
+            extent: self.extent(styles),
+            evade: self.evade(styles),
         })))
     }
 }
@@ -96,11 +89,6 @@ impl Show for UnderlineNode {
 /// Category: text
 #[node(Show)]
 pub struct OverlineNode {
-    /// The content to add a line over.
-    #[positional]
-    #[required]
-    pub body: Content,
-
     /// How to stroke the line. The text color and thickness are read from the
     /// font tables if `{auto}`.
     ///
@@ -112,10 +100,8 @@ pub struct OverlineNode {
     ///   [The Forest Theme],
     /// )
     /// ```
-    #[settable]
     #[resolve]
     #[fold]
-    #[default]
     pub stroke: Smart<PartialStroke>,
 
     /// Position of the line relative to the baseline, read from the font tables
@@ -126,9 +112,7 @@ pub struct OverlineNode {
     ///   The Tale Of A Faraway Line II
     /// ]
     /// ```
-    #[settable]
     #[resolve]
-    #[default]
     pub offset: Smart<Length>,
 
     /// Amount that the line will be longer or shorter than its associated text.
@@ -138,9 +122,7 @@ pub struct OverlineNode {
     /// #set underline(extent: 4pt)
     /// #overline(underline[Typography Today])
     /// ```
-    #[settable]
     #[resolve]
-    #[default]
     pub extent: Length,
 
     /// Whether the line skips sections in which it would collide with the
@@ -155,19 +137,23 @@ pub struct OverlineNode {
     ///   [Temple],
     /// )
     /// ```
-    #[settable]
     #[default(true)]
     pub evade: bool,
+
+    /// The content to add a line over.
+    #[positional]
+    #[required]
+    pub body: Content,
 }
 
 impl Show for OverlineNode {
     fn show(&self, _: &mut Vt, _: &Content, styles: StyleChain) -> SourceResult<Content> {
         Ok(self.body().styled(TextNode::set_deco(Decoration {
             line: DecoLine::Overline,
-            stroke: Self::stroke_in(styles).unwrap_or_default(),
-            offset: Self::offset_in(styles),
-            extent: Self::extent_in(styles),
-            evade: Self::evade_in(styles),
+            stroke: self.stroke(styles).unwrap_or_default(),
+            offset: self.offset(styles),
+            extent: self.extent(styles),
+            evade: self.evade(styles),
         })))
     }
 }
@@ -183,11 +169,6 @@ impl Show for OverlineNode {
 /// Category: text
 #[node(Show)]
 pub struct StrikeNode {
-    /// The content to strike through.
-    #[positional]
-    #[required]
-    pub body: Content,
-
     /// How to stroke the line. The text color and thickness are read from the
     /// font tables if `{auto}`.
     ///
@@ -198,10 +179,8 @@ pub struct StrikeNode {
     /// This is #strike(stroke: 1.5pt + red)[very stricken through]. \
     /// This is #strike(stroke: 10pt)[redacted].
     /// ```
-    #[settable]
     #[resolve]
     #[fold]
-    #[default]
     pub stroke: Smart<PartialStroke>,
 
     /// Position of the line relative to the baseline, read from the font tables
@@ -214,9 +193,7 @@ pub struct StrikeNode {
     /// This is #strike(offset: auto)[low-ish]. \
     /// This is #strike(offset: -3.5pt)[on-top].
     /// ```
-    #[settable]
     #[resolve]
-    #[default]
     pub offset: Smart<Length>,
 
     /// Amount that the line will be longer or shorter than its associated text.
@@ -225,19 +202,22 @@ pub struct StrikeNode {
     /// This #strike(extent: -2pt)[skips] parts of the word.
     /// This #strike(extent: 2pt)[extends] beyond the word.
     /// ```
-    #[settable]
     #[resolve]
-    #[default]
     pub extent: Length,
+
+    /// The content to strike through.
+    #[positional]
+    #[required]
+    pub body: Content,
 }
 
 impl Show for StrikeNode {
     fn show(&self, _: &mut Vt, _: &Content, styles: StyleChain) -> SourceResult<Content> {
         Ok(self.body().styled(TextNode::set_deco(Decoration {
             line: DecoLine::Strikethrough,
-            stroke: Self::stroke_in(styles).unwrap_or_default(),
-            offset: Self::offset_in(styles),
-            extent: Self::extent_in(styles),
+            stroke: self.stroke(styles).unwrap_or_default(),
+            offset: self.offset(styles),
+            extent: self.extent(styles),
             evade: false,
         })))
     }

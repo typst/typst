@@ -48,7 +48,7 @@ use std::mem;
 use typed_arena::Arena;
 use typst::diag::SourceResult;
 use typst::model::{
-    applicable, realize, Content, Node, SequenceNode, Style, StyleChain, StyleVecBuilder,
+    applicable, realize, Content, Node, SequenceNode, StyleChain, StyleVecBuilder,
     StyledNode,
 };
 
@@ -124,8 +124,6 @@ impl Layout for Content {
             let mut vt = Vt { world, provider, introspector };
             let scratch = Scratch::default();
             let (realized, styles) = realize_block(&mut vt, &scratch, node, styles)?;
-            let barrier = Style::Barrier(realized.id());
-            let styles = styles.chain_one(&barrier);
             realized
                 .with::<dyn Layout>()
                 .unwrap()
@@ -283,7 +281,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
 
         let keep = content
             .to::<PagebreakNode>()
-            .map_or(false, |pagebreak| !pagebreak.weak());
+            .map_or(false, |pagebreak| !pagebreak.weak(styles));
 
         self.interrupt_page(keep.then(|| styles))?;
 
@@ -399,7 +397,7 @@ struct DocBuilder<'a> {
 impl<'a> DocBuilder<'a> {
     fn accept(&mut self, content: &Content, styles: StyleChain<'a>) -> bool {
         if let Some(pagebreak) = content.to::<PagebreakNode>() {
-            self.keep_next = !pagebreak.weak();
+            self.keep_next = !pagebreak.weak(styles);
             return true;
         }
 
@@ -440,11 +438,11 @@ impl<'a> FlowBuilder<'a> {
 
         if content.has::<dyn Layout>() || content.is::<ParNode>() {
             let is_tight_list = if let Some(node) = content.to::<ListNode>() {
-                node.tight()
+                node.tight(styles)
             } else if let Some(node) = content.to::<EnumNode>() {
-                node.tight()
+                node.tight(styles)
             } else if let Some(node) = content.to::<TermsNode>() {
-                node.tight()
+                node.tight(styles)
             } else {
                 false
             };
@@ -478,7 +476,7 @@ impl<'a> ParBuilder<'a> {
             || content.is::<HNode>()
             || content.is::<LinebreakNode>()
             || content.is::<SmartQuoteNode>()
-            || content.to::<FormulaNode>().map_or(false, |node| !node.block())
+            || content.to::<FormulaNode>().map_or(false, |node| !node.block(styles))
             || content.is::<BoxNode>()
         {
             self.0.push(content.clone(), styles);
@@ -539,7 +537,7 @@ impl<'a> ListBuilder<'a> {
                     .iter()
                     .map(|(item, map)| {
                         let item = item.to::<ListItem>().unwrap();
-                        ListItem::new(item.body().styled_with_map(map.clone()))
+                        item.clone().with_body(item.body().styled_with_map(map.clone()))
                     })
                     .collect::<Vec<_>>(),
             )
@@ -551,8 +549,7 @@ impl<'a> ListBuilder<'a> {
                     .iter()
                     .map(|(item, map)| {
                         let item = item.to::<EnumItem>().unwrap();
-                        EnumItem::new(item.body().styled_with_map(map.clone()))
-                            .with_number(item.number())
+                        item.clone().with_body(item.body().styled_with_map(map.clone()))
                     })
                     .collect::<Vec<_>>(),
             )
@@ -564,10 +561,11 @@ impl<'a> ListBuilder<'a> {
                     .iter()
                     .map(|(item, map)| {
                         let item = item.to::<TermItem>().unwrap();
-                        TermItem::new(
-                            item.term().styled_with_map(map.clone()),
-                            item.description().styled_with_map(map.clone()),
-                        )
+                        item.clone()
+                            .with_term(item.term().styled_with_map(map.clone()))
+                            .with_description(
+                                item.description().styled_with_map(map.clone()),
+                            )
                     })
                     .collect::<Vec<_>>(),
             )

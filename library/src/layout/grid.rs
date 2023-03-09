@@ -60,7 +60,7 @@ use super::Sizing;
 /// ```
 ///
 /// ## Parameters
-/// - gutter: `TrackSizings` (named)
+/// - gutter: `TrackSizings` (named, settable)
 ///   Defines the gaps between rows & columns.
 ///
 ///   If there are more gutters than defined sizes, the last gutter is repeated.
@@ -69,41 +69,36 @@ use super::Sizing;
 /// Category: layout
 #[node(Layout)]
 pub struct GridNode {
-    /// The contents of the table cells.
-    ///
-    /// The cells are populated in row-major order.
-    #[variadic]
-    pub children: Vec<Content>,
-
     /// Defines the column sizes.
     ///
     /// Either specify a track size array or provide an integer to create a grid
     /// with that many `{auto}`-sized columns. Note that opposed to rows and
     /// gutters, providing a single track size will only ever create a single
     /// column.
-    #[named]
-    #[default]
     pub columns: TrackSizings,
 
     /// Defines the row sizes.
     ///
     /// If there are more cells than fit the defined rows, the last row is
     /// repeated until there are no more cells.
-    #[named]
-    #[default]
     pub rows: TrackSizings,
 
     /// Defines the gaps between columns. Takes precedence over `gutter`.
-    #[named]
-    #[shorthand(gutter)]
-    #[default]
+    #[parse(
+        let gutter = args.named("gutter")?;
+        args.named("column-gutter")?.or_else(|| gutter.clone())
+    )]
     pub column_gutter: TrackSizings,
 
     /// Defines the gaps between rows. Takes precedence over `gutter`.
-    #[named]
-    #[shorthand(gutter)]
-    #[default]
+    #[parse(args.named("row-gutter")?.or_else(|| gutter.clone()))]
     pub row_gutter: TrackSizings,
+
+    /// The contents of the table cells.
+    ///
+    /// The cells are populated in row-major order.
+    #[variadic]
+    pub children: Vec<Content>,
 }
 
 impl Layout for GridNode {
@@ -117,8 +112,8 @@ impl Layout for GridNode {
         let cells = self.children();
         let layouter = GridLayouter::new(
             vt,
-            Axes::new(&self.columns().0, &self.rows().0),
-            Axes::new(&self.column_gutter().0, &self.row_gutter().0),
+            Axes::new(&self.columns(styles).0, &self.rows(styles).0),
+            Axes::new(&self.column_gutter(styles).0, &self.row_gutter(styles).0),
             &cells,
             regions,
             styles,

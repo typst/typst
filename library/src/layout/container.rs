@@ -23,11 +23,6 @@ use crate::prelude::*;
 /// Category: layout
 #[node(Layout)]
 pub struct BoxNode {
-    /// The contents of the box.
-    #[positional]
-    #[default]
-    pub body: Option<Content>,
-
     /// The width of the box.
     ///
     /// Boxes can have [fractional]($type/fraction) widths, as the example
@@ -40,13 +35,9 @@ pub struct BoxNode {
     /// ```example
     /// Line in #box(width: 1fr, line(length: 100%)) between.
     /// ```
-    #[named]
-    #[default]
     pub width: Sizing,
 
     /// The height of the box.
-    #[named]
-    #[default]
     pub height: Smart<Rel<Length>>,
 
     /// An amount to shift the box's baseline by.
@@ -54,39 +45,29 @@ pub struct BoxNode {
     /// ```example
     /// Image: #box(baseline: 40%, image("tiger.jpg", width: 2cm)).
     /// ```
-    #[settable]
     #[resolve]
-    #[default]
     pub baseline: Rel<Length>,
 
     /// The box's background color. See the
     /// [rectangle's documentation]($func/rect.fill) for more details.
-    #[settable]
-    #[default]
     pub fill: Option<Paint>,
 
     /// The box's border color. See the
     /// [rectangle's documentation]($func/rect.stroke) for more details.
-    #[settable]
     #[resolve]
     #[fold]
-    #[default]
     pub stroke: Sides<Option<Option<PartialStroke>>>,
 
     /// How much to round the box's corners. See the [rectangle's
     /// documentation]($func/rect.radius) for more details.
-    #[settable]
     #[resolve]
     #[fold]
-    #[default]
     pub radius: Corners<Option<Rel<Length>>>,
 
     /// How much to pad the box's content. See the [rectangle's
     /// documentation]($func/rect.inset) for more details.
-    #[settable]
     #[resolve]
     #[fold]
-    #[default]
     pub inset: Sides<Option<Rel<Length>>>,
 
     /// How much to expand the box's size without affecting the layout.
@@ -103,11 +84,13 @@ pub struct BoxNode {
     ///   outset: (y: 3pt),
     ///   radius: 2pt,
     /// )[rectangle].
-    #[settable]
     #[resolve]
     #[fold]
-    #[default]
     pub outset: Sides<Option<Rel<Length>>>,
+
+    /// The contents of the box.
+    #[positional]
+    pub body: Option<Content>,
 }
 
 impl Layout for BoxNode {
@@ -117,14 +100,14 @@ impl Layout for BoxNode {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let width = match self.width() {
+        let width = match self.width(styles) {
             Sizing::Auto => Smart::Auto,
             Sizing::Rel(rel) => Smart::Custom(rel),
             Sizing::Fr(_) => Smart::Custom(Ratio::one().into()),
         };
 
         // Resolve the sizing to a concrete size.
-        let sizing = Axes::new(width, self.height());
+        let sizing = Axes::new(width, self.height(styles));
         let expand = sizing.as_ref().map(Smart::is_custom);
         let size = sizing
             .resolve(styles)
@@ -133,8 +116,8 @@ impl Layout for BoxNode {
             .unwrap_or(regions.base());
 
         // Apply inset.
-        let mut body = self.body().unwrap_or_default();
-        let inset = Self::inset_in(styles);
+        let mut body = self.body(styles).unwrap_or_default();
+        let inset = self.inset(styles);
         if inset.iter().any(|v| !v.is_zero()) {
             body = body.padded(inset.map(|side| side.map(Length::from)));
         }
@@ -145,20 +128,19 @@ impl Layout for BoxNode {
         let mut frame = body.layout(vt, styles, pod)?.into_frame();
 
         // Apply baseline shift.
-        let shift = Self::baseline_in(styles).relative_to(frame.height());
+        let shift = self.baseline(styles).relative_to(frame.height());
         if !shift.is_zero() {
             frame.set_baseline(frame.baseline() - shift);
         }
 
         // Prepare fill and stroke.
-        let fill = Self::fill_in(styles);
-        let stroke =
-            Self::stroke_in(styles).map(|s| s.map(PartialStroke::unwrap_or_default));
+        let fill = self.fill(styles);
+        let stroke = self.stroke(styles).map(|s| s.map(PartialStroke::unwrap_or_default));
 
         // Add fill and/or stroke.
         if fill.is_some() || stroke.iter().any(Option::is_some) {
-            let outset = Self::outset_in(styles);
-            let radius = Self::radius_in(styles);
+            let outset = self.outset(styles);
+            let radius = self.radius(styles);
             frame.fill_and_stroke(fill, stroke, outset, radius);
         }
 
@@ -216,27 +198,7 @@ impl Layout for BoxNode {
 /// Display: Block
 /// Category: layout
 #[node(Layout)]
-#[set({
-    let spacing = args.named("spacing")?;
-    styles.set_opt(
-        args.named("above")?
-            .map(VNode::block_around)
-            .or_else(|| spacing.map(VNode::block_spacing))
-            .map(Self::set_above),
-    );
-    styles.set_opt(
-        args.named("below")?
-            .map(VNode::block_around)
-            .or_else(|| spacing.map(VNode::block_spacing))
-            .map(Self::set_below),
-    );
-})]
 pub struct BlockNode {
-    /// The contents of the block.
-    #[positional]
-    #[default]
-    pub body: Option<Content>,
-
     /// The block's width.
     ///
     /// ```example
@@ -248,8 +210,6 @@ pub struct BlockNode {
     ///   lorem(10),
     /// )
     /// ```
-    #[named]
-    #[default]
     pub width: Smart<Rel<Length>>,
 
     /// The block's height. When the height is larger than the remaining space on
@@ -265,8 +225,6 @@ pub struct BlockNode {
     ///   fill: aqua,
     /// )
     /// ```
-    #[named]
-    #[default]
     pub height: Smart<Rel<Length>>,
 
     /// Whether the block can be broken and continue on the next page.
@@ -281,55 +239,48 @@ pub struct BlockNode {
     ///   lorem(15),
     /// )
     /// ```
-    #[settable]
     #[default(true)]
     pub breakable: bool,
 
     /// The block's background color. See the
     /// [rectangle's documentation]($func/rect.fill) for more details.
-    #[settable]
-    #[default]
     pub fill: Option<Paint>,
 
     /// The block's border color. See the
     /// [rectangle's documentation]($func/rect.stroke) for more details.
-    #[settable]
     #[resolve]
     #[fold]
-    #[default]
     pub stroke: Sides<Option<Option<PartialStroke>>>,
 
     /// How much to round the block's corners. See the [rectangle's
     /// documentation]($func/rect.radius) for more details.
-    #[settable]
     #[resolve]
     #[fold]
-    #[default]
     pub radius: Corners<Option<Rel<Length>>>,
 
     /// How much to pad the block's content. See the [rectangle's
     /// documentation]($func/rect.inset) for more details.
-    #[settable]
     #[resolve]
     #[fold]
-    #[default]
     pub inset: Sides<Option<Rel<Length>>>,
 
     /// How much to expand the block's size without affecting the layout. See
     /// the [rectangle's documentation]($func/rect.outset) for more details.
-    #[settable]
     #[resolve]
     #[fold]
-    #[default]
     pub outset: Sides<Option<Rel<Length>>>,
 
-    /// The spacing between this block and its predecessor. Takes precedence over
-    /// `spacing`. Can be used in combination with a show rule to adjust the
-    /// spacing around arbitrary block-level elements.
+    /// The spacing between this block and its predecessor. Takes precedence
+    /// over `spacing`. Can be used in combination with a show rule to adjust
+    /// the spacing around arbitrary block-level elements.
     ///
     /// The default value is `{1.2em}`.
-    #[settable]
-    #[skip]
+    #[parse(
+        let spacing = args.named("spacing")?;
+        args.named("above")?
+            .map(VNode::block_around)
+            .or_else(|| spacing.map(VNode::block_spacing))
+    )]
     #[default(VNode::block_spacing(Em::new(1.2).into()))]
     pub above: VNode,
 
@@ -337,16 +288,22 @@ pub struct BlockNode {
     /// over `spacing`.
     ///
     /// The default value is `{1.2em}`.
-    #[settable]
-    #[skip]
+    #[parse(
+        args.named("below")?
+            .map(VNode::block_around)
+            .or_else(|| spacing.map(VNode::block_spacing))
+    )]
     #[default(VNode::block_spacing(Em::new(1.2).into()))]
     pub below: VNode,
+
+    /// The contents of the block.
+    #[positional]
+    pub body: Option<Content>,
 
     /// Whether this block must stick to the following one.
     ///
     /// Use this to prevent page breaks between e.g. a heading and its body.
-    #[settable]
-    #[skip]
+    #[internal]
     #[default(false)]
     pub sticky: bool,
 }
@@ -359,14 +316,14 @@ impl Layout for BlockNode {
         regions: Regions,
     ) -> SourceResult<Fragment> {
         // Apply inset.
-        let mut body = self.body().unwrap_or_default();
-        let inset = Self::inset_in(styles);
+        let mut body = self.body(styles).unwrap_or_default();
+        let inset = self.inset(styles);
         if inset.iter().any(|v| !v.is_zero()) {
             body = body.clone().padded(inset.map(|side| side.map(Length::from)));
         }
 
         // Resolve the sizing to a concrete size.
-        let sizing = Axes::new(self.width(), self.height());
+        let sizing = Axes::new(self.width(styles), self.height(styles));
         let mut expand = sizing.as_ref().map(Smart::is_custom);
         let mut size = sizing
             .resolve(styles)
@@ -375,7 +332,7 @@ impl Layout for BlockNode {
             .unwrap_or(regions.base());
 
         // Layout the child.
-        let mut frames = if Self::breakable_in(styles) {
+        let mut frames = if self.breakable(styles) {
             // Measure to ensure frames for all regions have the same width.
             if sizing.x == Smart::Auto {
                 let pod = Regions::one(size, Axes::splat(false));
@@ -413,9 +370,8 @@ impl Layout for BlockNode {
         };
 
         // Prepare fill and stroke.
-        let fill = Self::fill_in(styles);
-        let stroke =
-            Self::stroke_in(styles).map(|s| s.map(PartialStroke::unwrap_or_default));
+        let fill = self.fill(styles);
+        let stroke = self.stroke(styles).map(|s| s.map(PartialStroke::unwrap_or_default));
 
         // Add fill and/or stroke.
         if fill.is_some() || stroke.iter().any(Option::is_some) {
@@ -424,8 +380,8 @@ impl Layout for BlockNode {
                 skip = first.is_empty() && rest.iter().any(|frame| !frame.is_empty());
             }
 
-            let outset = Self::outset_in(styles);
-            let radius = Self::radius_in(styles);
+            let outset = self.outset(styles);
+            let radius = self.radius(styles);
             for frame in frames.iter_mut().skip(skip as usize) {
                 frame.fill_and_stroke(fill, stroke, outset, radius);
             }

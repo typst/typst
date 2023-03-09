@@ -176,11 +176,11 @@ fn items() -> LangItems {
         strong: |body| text::StrongNode::new(body).pack(),
         emph: |body| text::EmphNode::new(body).pack(),
         raw: |text, lang, block| {
-            let content = text::RawNode::new(text).with_block(block).pack();
-            match lang {
-                Some(_) => content.styled(text::RawNode::set_lang(lang)),
-                None => content,
+            let mut node = text::RawNode::new(text).with_block(block);
+            if let Some(lang) = lang {
+                node = node.with_lang(Some(lang));
             }
+            node.pack()
         },
         link: |url| meta::LinkNode::from_url(url).pack(),
         ref_: |target| meta::RefNode::new(target).pack(),

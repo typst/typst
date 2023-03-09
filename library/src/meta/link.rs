@@ -25,7 +25,7 @@ use crate::text::{Hyphenate, TextNode};
 ///
 /// Display: Link
 /// Category: meta
-#[node(Construct, Show, Finalize)]
+#[node(Show, Finalize)]
 pub struct LinkNode {
     /// The destination the link points to.
     ///
@@ -48,6 +48,10 @@ pub struct LinkNode {
     ///
     #[positional]
     #[required]
+    #[parse(
+        let dest = args.expect::<Destination>("destination")?;
+        dest.clone()
+    )]
     pub dest: Destination,
 
     /// How the link is represented.
@@ -56,7 +60,14 @@ pub struct LinkNode {
     /// parameter can be omitted. In this case, the URL will be shown as the
     /// link.
     #[positional]
-    #[default]
+    #[required]
+    #[parse(match &dest {
+        Destination::Url(url) => match args.eat()? {
+            Some(body) => body,
+            None => body_from_url(url),
+        },
+        Destination::Internal(_) => args.expect("body")?,
+    })]
     pub body: Content,
 }
 
@@ -64,21 +75,7 @@ impl LinkNode {
     /// Create a link node from a URL with its bare text.
     pub fn from_url(url: EcoString) -> Self {
         let body = body_from_url(&url);
-        Self::new(Destination::Url(url)).with_body(body)
-    }
-}
-
-impl Construct for LinkNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        let dest = args.expect::<Destination>("destination")?;
-        let body = match &dest {
-            Destination::Url(url) => match args.eat()? {
-                Some(body) => body,
-                None => body_from_url(url),
-            },
-            Destination::Internal(_) => args.expect("body")?,
-        };
-        Ok(Self::new(dest).with_body(body).pack())
+        Self::new(Destination::Url(url), body)
     }
 }
 
@@ -89,7 +86,7 @@ impl Show for LinkNode {
 }
 
 impl Finalize for LinkNode {
-    fn finalize(&self, realized: Content) -> Content {
+    fn finalize(&self, realized: Content, _: StyleChain) -> Content {
         realized
             .styled(MetaNode::set_data(vec![Meta::Link(self.dest())]))
             .styled(TextNode::set_hyphenate(Hyphenate(Smart::Custom(false))))

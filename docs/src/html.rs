@@ -311,7 +311,7 @@ fn code_block(resolver: &dyn Resolver, lang: &str, text: &str) -> Html {
         Ok(doc) => doc.pages,
         Err(err) => {
             let msg = &err[0].message;
-            panic!("while trying to compile {text}:\n\nerror: {msg}");
+            panic!("while trying to compile:\n{text}:\n\nerror: {msg}");
         }
     };
 

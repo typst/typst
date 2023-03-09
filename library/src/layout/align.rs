@@ -15,9 +15,6 @@ use crate::prelude::*;
 /// Display: Align
 /// Category: layout
 #[node(Show)]
-#[set({
-    styles.set(Self::set_alignment(args.find()?.unwrap_or_default()));
-})]
 pub struct AlignNode {
     /// The alignment along both axes.
     ///
@@ -50,10 +47,8 @@ pub struct AlignNode {
     ///   rect(inset: 12pt)[ركن]
     /// )
     /// ```
-    #[settable]
     #[positional]
     #[fold]
-    #[skip]
     #[default(Axes::new(GenAlign::Start, GenAlign::Specific(Align::Top)))]
     pub alignment: Axes<Option<GenAlign>>,
 
@@ -64,7 +59,9 @@ pub struct AlignNode {
 }
 
 impl Show for AlignNode {
-    fn show(&self, _: &mut Vt, _: &Content, _: StyleChain) -> SourceResult<Content> {
-        Ok(self.body())
+    fn show(&self, _: &mut Vt, _: &Content, styles: StyleChain) -> SourceResult<Content> {
+        Ok(self
+            .body()
+            .styled(Self::set_alignment(self.alignment(styles).map(Some))))
     }
 }

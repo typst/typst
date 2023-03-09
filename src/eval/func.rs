@@ -54,15 +54,11 @@ impl Func {
 
     /// Create a new function from a native rust node.
     pub fn from_node<T: Node>(mut info: FuncInfo) -> Self {
-        info.params.extend(T::properties());
+        info.params.extend(T::params());
         Self(
             Arc::new(Prehashed::new(Repr::Native(Native {
-                func: |ctx, args| {
-                    let styles = T::set(args, true)?;
-                    let content = T::construct(ctx, args)?;
-                    Ok(Value::Content(content.styled_with_map(styles.scoped())))
-                },
-                set: Some(|args| T::set(args, false)),
+                func: |vm, args| T::construct(vm, args).map(Value::Content),
+                set: Some(T::set),
                 node: Some(NodeId::of::<T>()),
                 info,
             }))),
@@ -281,10 +277,10 @@ pub struct ParamInfo {
     /// Can be true even if `positional` is true if the parameter can be given
     /// in both variants.
     pub named: bool,
-    /// Is the parameter required?
-    pub required: bool,
     /// Can the parameter be given any number of times?
     pub variadic: bool,
+    /// Is the parameter required?
+    pub required: bool,
     /// Is the parameter settable with a set rule?
     pub settable: bool,
 }

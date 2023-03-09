@@ -34,11 +34,6 @@ impl StyleMap {
         self.0.push(Style::Property(property));
     }
 
-    /// Set an inner value for a style property if it is `Some(_)`.
-    pub fn set_opt(&mut self, property: Option<Property>) {
-        self.0.extend(property.map(Style::Property));
-    }
-
     /// Remove the style that was last set.
     pub fn unset(&mut self) {
         self.0.pop();
@@ -49,30 +44,11 @@ impl StyleMap {
         self.0.splice(0..0, outer.0.iter().cloned());
     }
 
-    /// Set an outer style. Like [`chain_one`](StyleChain::chain_one), but
-    /// in-place.
-    pub fn apply_one(&mut self, outer: Style) {
-        self.0.insert(0, outer);
-    }
-
-    /// Mark all contained properties as _scoped_. This means that they only
-    /// apply to the first descendant node (of their type) in the hierarchy and
-    /// not its children, too. This is used by
-    /// [constructors](super::Construct::construct).
-    pub fn scoped(mut self) -> Self {
-        for entry in &mut self.0 {
-            if let Style::Property(property) = entry {
-                property.scoped = true;
-            }
-        }
-        self
-    }
-
     /// Add an origin span to all contained properties.
     pub fn spanned(mut self, span: Span) -> Self {
         for entry in &mut self.0 {
             if let Style::Property(property) = entry {
-                property.origin = Some(span);
+                property.span = Some(span);
             }
         }
         self
@@ -83,9 +59,8 @@ impl StyleMap {
     pub fn interruption<T: Node>(&self) -> Option<Option<Span>> {
         let node = NodeId::of::<T>();
         self.0.iter().find_map(|entry| match entry {
-            Style::Property(property) => property.is_of(node).then(|| property.origin),
+            Style::Property(property) => property.is_of(node).then(|| property.span),
             Style::Recipe(recipe) => recipe.is_of(node).then(|| Some(recipe.span)),
-            _ => None,
         })
     }
 }
@@ -118,8 +93,6 @@ pub enum Style {
     Property(Property),
     /// A show rule recipe.
     Recipe(Recipe),
-    /// A barrier for scoped styles.
-    Barrier(NodeId),
 }
 
 impl Style {
@@ -145,7 +118,6 @@ impl Debug for Style {
         match self {
             Self::Property(property) => property.fmt(f),
             Self::Recipe(recipe) => recipe.fmt(f),
-            Self::Barrier(id) => write!(f, "#[Barrier for {id:?}]"),
         }
     }
 }
@@ -165,17 +137,14 @@ pub struct Property {
     name: EcoString,
     /// The property's value.
     value: Value,
-    /// Whether the property should only affect the first node down the
-    /// hierarchy. Used by constructors.
-    scoped: bool,
     /// The span of the set rule the property stems from.
-    origin: Option<Span>,
+    span: Option<Span>,
 }
 
 impl Property {
     /// Create a new property from a key-value pair.
     pub fn new(node: NodeId, name: EcoString, value: Value) -> Self {
-        Self { node, name, value, scoped: false, origin: None }
+        Self { node, name, value, span: None }
     }
 
     /// Whether this property is the given one.
@@ -187,28 +156,11 @@ impl Property {
     pub fn is_of(&self, node: NodeId) -> bool {
         self.node == node
     }
-
-    /// Access the property's value as the given type.
-    #[track_caller]
-    pub fn cast<T: Cast>(&self) -> T {
-        self.value.clone().cast().unwrap_or_else(|err| {
-            panic!(
-                "{} (for {}.{} with value {:?})",
-                err,
-                self.node.name(),
-                self.name,
-                self.value
-            )
-        })
-    }
 }
 
 impl Debug for Property {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "#set {}({}: {:?})", self.node.name(), self.name, self.value)?;
-        if self.scoped {
-            write!(f, " [scoped]")?;
-        }
         Ok(())
     }
 }
@@ -381,20 +333,84 @@ impl<'a> StyleChain<'a> {
 
     /// Make the given style the first link of the this chain.
     pub fn chain_one<'b>(&'b self, style: &'b Style) -> StyleChain<'b> {
-        if let Style::Barrier(id) = style {
-            if !self
-                .entries()
-                .filter_map(Style::property)
-                .any(|p| p.scoped && *id == p.node)
-            {
-                return *self;
-            }
-        }
-
         StyleChain {
             head: std::slice::from_ref(style),
             tail: Some(self),
         }
+    }
+
+    /// Cast the first value for the given property in the chain.
+    pub fn get<T: Cast>(
+        self,
+        node: NodeId,
+        name: &'a str,
+        inherent: Option<Value>,
+        default: impl Fn() -> T,
+    ) -> T {
+        self.properties::<T>(node, name, inherent)
+            .next()
+            .unwrap_or_else(default)
+    }
+
+    /// Cast the first value for the given property in the chain.
+    pub fn get_resolve<T: Cast + Resolve>(
+        self,
+        node: NodeId,
+        name: &'a str,
+        inherent: Option<Value>,
+        default: impl Fn() -> T,
+    ) -> T::Output {
+        self.get(node, name, inherent, default).resolve(self)
+    }
+
+    /// Cast the first value for the given property in the chain.
+    pub fn get_fold<T: Cast + Fold>(
+        self,
+        node: NodeId,
+        name: &'a str,
+        inherent: Option<Value>,
+        default: impl Fn() -> T::Output,
+    ) -> T::Output {
+        fn next<T: Fold>(
+            mut values: impl Iterator<Item = T>,
+            styles: StyleChain,
+            default: &impl Fn() -> T::Output,
+        ) -> T::Output {
+            values
+                .next()
+                .map(|value| value.fold(next(values, styles, default)))
+                .unwrap_or_else(|| default())
+        }
+        next(self.properties::<T>(node, name, inherent), self, &default)
+    }
+
+    /// Cast the first value for the given property in the chain.
+    pub fn get_resolve_fold<T>(
+        self,
+        node: NodeId,
+        name: &'a str,
+        inherent: Option<Value>,
+        default: impl Fn() -> <T::Output as Fold>::Output,
+    ) -> <T::Output as Fold>::Output
+    where
+        T: Cast + Resolve,
+        T::Output: Fold,
+    {
+        fn next<T>(
+            mut values: impl Iterator<Item = T>,
+            styles: StyleChain,
+            default: &impl Fn() -> <T::Output as Fold>::Output,
+        ) -> <T::Output as Fold>::Output
+        where
+            T: Resolve,
+            T::Output: Fold,
+        {
+            values
+                .next()
+                .map(|value| value.resolve(styles).fold(next(values, styles, default)))
+                .unwrap_or_else(|| default())
+        }
+        next(self.properties::<T>(node, name, inherent), self, &default)
     }
 
     /// Iterate over all style recipes in the chain.
@@ -402,34 +418,26 @@ impl<'a> StyleChain<'a> {
         self.entries().filter_map(Style::recipe)
     }
 
-    /// Cast the first value for the given property in the chain.
-    pub fn property<T: Cast>(self, node: NodeId, name: &'a str) -> Option<T> {
-        self.properties(node, name).next()
-    }
-
     /// Iterate over all values for the given property in the chain.
-    pub fn properties<T: Cast>(
+    pub fn properties<T: Cast + 'a>(
         self,
         node: NodeId,
         name: &'a str,
+        inherent: Option<Value>,
     ) -> impl Iterator<Item = T> + '_ {
-        let mut barriers = 0;
-        self.entries().filter_map(move |entry| {
-            match entry {
-                Style::Property(property) => {
-                    if property.is(node, name) {
-                        if !property.scoped || barriers <= 1 {
-                            return Some(property.cast());
-                        }
-                    }
-                }
-                Style::Barrier(id) => {
-                    barriers += (*id == node) as usize;
-                }
-                _ => {}
-            }
-            None
-        })
+        inherent
+            .into_iter()
+            .chain(
+                self.entries()
+                    .filter_map(Style::property)
+                    .filter(move |property| property.is(node, name))
+                    .map(|property| property.value.clone()),
+            )
+            .map(move |value| {
+                value.cast().unwrap_or_else(|err| {
+                    panic!("{} (for {}.{})", err, node.name(), name)
+                })
+            })
     }
 
     /// Iterate over the entries of the chain.

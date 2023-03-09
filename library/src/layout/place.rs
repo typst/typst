@@ -34,11 +34,6 @@ pub struct PlaceNode {
     #[default(Axes::with_x(Some(GenAlign::Start)))]
     pub alignment: Axes<Option<GenAlign>>,
 
-    /// The content to place.
-    #[positional]
-    #[required]
-    pub body: Content,
-
     /// The horizontal displacement of the placed content.
     ///
     /// ```example
@@ -48,14 +43,15 @@ pub struct PlaceNode {
     ///   place(center, dx: amount - 32pt, dy: amount)[A]
     /// }
     /// ```
-    #[named]
-    #[default]
     pub dx: Rel<Length>,
 
     /// The vertical displacement of the placed content.
-    #[named]
-    #[default]
     pub dy: Rel<Length>,
+
+    /// The content to place.
+    #[positional]
+    #[required]
+    pub body: Content,
 }
 
 impl Layout for PlaceNode {
@@ -65,7 +61,7 @@ impl Layout for PlaceNode {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let out_of_flow = self.out_of_flow();
+        let out_of_flow = self.out_of_flow(styles);
 
         // The pod is the base area of the region because for absolute
         // placement we don't really care about the already used area.
@@ -77,8 +73,8 @@ impl Layout for PlaceNode {
 
         let child = self
             .body()
-            .moved(Axes::new(self.dx(), self.dy()))
-            .aligned(self.alignment());
+            .moved(Axes::new(self.dx(styles), self.dy(styles)))
+            .aligned(self.alignment(styles));
 
         let mut frame = child.layout(vt, styles, pod)?.into_frame();
 
@@ -95,8 +91,8 @@ impl PlaceNode {
     /// Whether this node wants to be placed relative to its its parent's base
     /// origin. Instead of relative to the parent's current flow/cursor
     /// position.
-    pub fn out_of_flow(&self) -> bool {
-        self.alignment().y.is_some()
+    pub fn out_of_flow(&self, styles: StyleChain) -> bool {
+        self.alignment(styles).y.is_some()
     }
 }
 

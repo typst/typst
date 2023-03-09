@@ -16,62 +16,44 @@ use crate::prelude::*;
 /// ```
 ///
 /// ## Parameters
-/// - x: `Rel<Length>` (named)
+/// - x: `Rel<Length>` (named, settable)
 ///   The horizontal padding. Both `left` and `right` take precedence over this.
 ///
-/// - y: `Rel<Length>` (named)
+/// - y: `Rel<Length>` (named, settable)
 ///   The vertical padding. Both `top` and `bottom` take precedence over this.
 ///
-/// - rest: `Rel<Length>` (named)
+/// - rest: `Rel<Length>` (named, settable)
 ///   The padding for all sides. All other parameters take precedence over this.
 ///
 /// Display: Padding
 /// Category: layout
-#[node(Construct, Layout)]
+#[node(Layout)]
 pub struct PadNode {
+    /// The padding at the left side.
+    #[parse(
+        let all = args.named("rest")?.or(args.find()?);
+        let x = args.named("x")?.or(all);
+        let y = args.named("y")?.or(all);
+        args.named("left")?.or(x)
+    )]
+    pub left: Rel<Length>,
+
+    /// The padding at the top side.
+    #[parse(args.named("top")?.or(y))]
+    pub top: Rel<Length>,
+
+    /// The padding at the right side.
+    #[parse(args.named("right")?.or(x))]
+    pub right: Rel<Length>,
+
+    /// The padding at the bottom side.
+    #[parse(args.named("bottom")?.or(y))]
+    pub bottom: Rel<Length>,
+
     /// The content to pad at the sides.
     #[positional]
     #[required]
     pub body: Content,
-
-    /// The padding at the left side.
-    #[named]
-    #[default]
-    pub left: Rel<Length>,
-
-    /// The padding at the right side.
-    #[named]
-    #[default]
-    pub right: Rel<Length>,
-
-    /// The padding at the top side.
-    #[named]
-    #[default]
-    pub top: Rel<Length>,
-
-    /// The padding at the bottom side.
-    #[named]
-    #[default]
-    pub bottom: Rel<Length>,
-}
-
-impl Construct for PadNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        let all = args.named("rest")?.or(args.find()?);
-        let x = args.named("x")?;
-        let y = args.named("y")?;
-        let left = args.named("left")?.or(x).or(all).unwrap_or_default();
-        let top = args.named("top")?.or(y).or(all).unwrap_or_default();
-        let right = args.named("right")?.or(x).or(all).unwrap_or_default();
-        let bottom = args.named("bottom")?.or(y).or(all).unwrap_or_default();
-        let body = args.expect::<Content>("body")?;
-        Ok(Self::new(body)
-            .with_left(left)
-            .with_top(top)
-            .with_bottom(bottom)
-            .with_right(right)
-            .pack())
-    }
 }
 
 impl Layout for PadNode {
@@ -81,10 +63,15 @@ impl Layout for PadNode {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let mut backlog = vec![];
+        let sides = Sides::new(
+            self.left(styles),
+            self.top(styles),
+            self.right(styles),
+            self.bottom(styles),
+        );
 
         // Layout child into padded regions.
-        let sides = Sides::new(self.left(), self.top(), self.right(), self.bottom());
+        let mut backlog = vec![];
         let padding = sides.resolve(styles);
         let pod = regions.map(&mut backlog, |size| shrink(size, padding));
         let mut fragment = self.body().layout(vt, styles, pod)?;

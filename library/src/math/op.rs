@@ -30,7 +30,6 @@ pub struct OpNode {
     /// Whether the operator should force attachments to display as limits.
     ///
     /// Defaults to `{false}`.
-    #[named]
     #[default(false)]
     pub limits: bool,
 }
@@ -41,7 +40,7 @@ impl LayoutMath for OpNode {
         ctx.push(
             FrameFragment::new(ctx, frame)
                 .with_class(MathClass::Large)
-                .with_limits(self.limits()),
+                .with_limits(self.limits(ctx.styles())),
         );
         Ok(())
     }

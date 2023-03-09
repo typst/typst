@@ -18,24 +18,23 @@ const VERTICAL_PADDING: Ratio = Ratio::new(0.1);
 /// Category: math
 #[node(LayoutMath)]
 pub struct VecNode {
-    /// The elements of the vector.
-    #[variadic]
-    pub children: Vec<Content>,
-
     /// The delimiter to use.
     ///
     /// ```example
     /// #set math.vec(delim: "[")
     /// $ vec(1, 2) $
     /// ```
-    #[settable]
     #[default(Delimiter::Paren)]
     pub delim: Delimiter,
+
+    /// The elements of the vector.
+    #[variadic]
+    pub children: Vec<Content>,
 }
 
 impl LayoutMath for VecNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        let delim = Self::delim_in(ctx.styles());
+        let delim = self.delim(ctx.styles());
         let frame = layout_vec_body(ctx, &self.children(), Align::Center)?;
         layout_delimiters(ctx, frame, Some(delim.open()), Some(delim.close()))
     }
@@ -63,8 +62,17 @@ impl LayoutMath for VecNode {
 ///
 /// Display: Matrix
 /// Category: math
-#[node(Construct, LayoutMath)]
+#[node(LayoutMath)]
 pub struct MatNode {
+    /// The delimiter to use.
+    ///
+    /// ```example
+    /// #set math.mat(delim: "[")
+    /// $ mat(1, 2; 3, 4) $
+    /// ```
+    #[default(Delimiter::Paren)]
+    pub delim: Delimiter,
+
     /// An array of arrays with the rows of the matrix.
     ///
     /// ```example
@@ -73,21 +81,7 @@ pub struct MatNode {
     /// $ v := matrix $
     /// ```
     #[variadic]
-    pub rows: Vec<Vec<Content>>,
-
-    /// The delimiter to use.
-    ///
-    /// ```example
-    /// #set math.mat(delim: "[")
-    /// $ mat(1, 2; 3, 4) $
-    /// ```
-    #[settable]
-    #[default(Delimiter::Paren)]
-    pub delim: Delimiter,
-}
-
-impl Construct for MatNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
+    #[parse(
         let mut rows = vec![];
         let mut width = 0;
 
@@ -109,13 +103,14 @@ impl Construct for MatNode {
             }
         }
 
-        Ok(Self::new(rows).pack())
-    }
+        rows
+    )]
+    pub rows: Vec<Vec<Content>>,
 }
 
 impl LayoutMath for MatNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        let delim = Self::delim_in(ctx.styles());
+        let delim = self.delim(ctx.styles());
         let frame = layout_mat_body(ctx, &self.rows())?;
         layout_delimiters(ctx, frame, Some(delim.open()), Some(delim.close()))
     }
@@ -139,24 +134,23 @@ impl LayoutMath for MatNode {
 /// Category: math
 #[node(LayoutMath)]
 pub struct CasesNode {
-    /// The branches of the case distinction.
-    #[variadic]
-    pub children: Vec<Content>,
-
     /// The delimiter to use.
     ///
     /// ```example
     /// #set math.cases(delim: "[")
     /// $ x = cases(1, 2) $
     /// ```
-    #[settable]
     #[default(Delimiter::Brace)]
     pub delim: Delimiter,
+
+    /// The branches of the case distinction.
+    #[variadic]
+    pub children: Vec<Content>,
 }
 
 impl LayoutMath for CasesNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        let delim = Self::delim_in(ctx.styles());
+        let delim = self.delim(ctx.styles());
         let frame = layout_vec_body(ctx, &self.children(), Align::Left)?;
         layout_delimiters(ctx, frame, Some(delim.open()), None)
     }

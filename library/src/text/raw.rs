@@ -87,7 +87,6 @@ pub struct RawNode {
     /// rg "Hello World"
     /// ```
     /// ````
-    #[named]
     #[default(false)]
     pub block: bool,
 
@@ -102,8 +101,6 @@ pub struct RawNode {
     /// This is *Typst!*
     /// ```
     /// ````
-    #[settable]
-    #[default]
     pub lang: Option<EcoString>,
 }
 
@@ -114,7 +111,7 @@ impl Prepare for RawNode {
         mut this: Content,
         styles: StyleChain,
     ) -> SourceResult<Content> {
-        this.push_field("lang", Self::lang_in(styles).clone());
+        this.push_field("lang", self.lang(styles).clone());
         Ok(this)
     }
 }
@@ -122,7 +119,7 @@ impl Prepare for RawNode {
 impl Show for RawNode {
     fn show(&self, _: &mut Vt, _: &Content, styles: StyleChain) -> SourceResult<Content> {
         let text = self.text();
-        let lang = Self::lang_in(styles).as_ref().map(|s| s.to_lowercase());
+        let lang = self.lang(styles).as_ref().map(|s| s.to_lowercase());
         let foreground = THEME
             .settings
             .foreground
@@ -170,7 +167,7 @@ impl Show for RawNode {
             TextNode::packed(text)
         };
 
-        if self.block() {
+        if self.block(styles) {
             realized = BlockNode::new().with_body(Some(realized)).pack();
         }
 
@@ -179,7 +176,7 @@ impl Show for RawNode {
 }
 
 impl Finalize for RawNode {
-    fn finalize(&self, realized: Content) -> Content {
+    fn finalize(&self, realized: Content, _: StyleChain) -> Content {
         let mut map = StyleMap::new();
         map.set(TextNode::set_overhang(false));
         map.set(TextNode::set_hyphenate(Hyphenate(Smart::Custom(false))));

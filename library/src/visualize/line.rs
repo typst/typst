@@ -9,34 +9,28 @@ use crate::prelude::*;
 /// #line(end: (50%, 50%))
 /// ```
 ///
-/// ## Parameters
-/// - end: `Axes<Rel<Length>>` (named)
-///   The end point of the line.
-///   Must be an array of exactly two relative lengths.
-///
-/// - length: `Rel<Length>` (named)
-///   The line's length. Mutually exclusive with `end`.
-///
-/// - angle: `Angle` (named)
-///   The angle at which the line points away from the origin. Mutually
-///   exclusive with `end`.
-///
 /// Display: Line
 /// Category: visualize
-#[node(Construct, Layout)]
+#[node(Layout)]
 pub struct LineNode {
     /// The start point of the line.
     ///
     /// Must be an array of exactly two relative lengths.
-    #[named]
-    #[default]
+    #[resolve]
     pub start: Axes<Rel<Length>>,
 
     /// The offset from `start` where the line ends.
-    #[named]
-    #[default]
-    #[skip]
-    pub delta: Axes<Rel<Length>>,
+    #[resolve]
+    pub end: Smart<Axes<Rel<Length>>>,
+
+    /// The line's length. Mutually exclusive with `end`.
+    #[resolve]
+    #[default(Abs::pt(30.0).into())]
+    pub length: Rel<Length>,
+
+    /// The angle at which the line points away from the origin. Mutually
+    /// exclusive with `end`.
+    pub angle: Angle,
 
     /// How to stroke the line. This can be:
     ///
@@ -50,31 +44,9 @@ pub struct LineNode {
     /// ```example
     /// #line(length: 100%, stroke: 2pt + red)
     /// ```
-    #[settable]
     #[resolve]
     #[fold]
-    #[default]
     pub stroke: PartialStroke,
-}
-
-impl Construct for LineNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        let start = args.named("start")?.unwrap_or_default();
-        let delta = match args.named::<Axes<Rel<Length>>>("end")? {
-            Some(end) => end.zip(start).map(|(to, from)| to - from),
-            None => {
-                let length =
-                    args.named::<Rel<Length>>("length")?.unwrap_or(Abs::pt(30.0).into());
-
-                let angle = args.named::<Angle>("angle")?.unwrap_or_default();
-                let x = angle.cos() * length;
-                let y = angle.sin() * length;
-
-                Axes::new(x, y)
-            }
-        };
-        Ok(Self::new().with_start(start).with_delta(delta).pack())
-    }
 }
 
 impl Layout for LineNode {
@@ -84,27 +56,27 @@ impl Layout for LineNode {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let stroke = Self::stroke_in(styles).unwrap_or_default();
+        let resolve = |axes: Axes<Rel<Abs>>| {
+            axes.zip(regions.base()).map(|(l, b)| l.relative_to(b))
+        };
 
-        let origin = self
-            .start()
-            .resolve(styles)
-            .zip(regions.base())
-            .map(|(l, b)| l.relative_to(b));
+        let start = resolve(self.start(styles));
+        let delta =
+            self.end(styles).map(|end| resolve(end) - start).unwrap_or_else(|| {
+                let length = self.length(styles);
+                let angle = self.angle(styles);
+                let x = angle.cos() * length;
+                let y = angle.sin() * length;
+                resolve(Axes::new(x, y))
+            });
 
-        let delta = self
-            .delta()
-            .resolve(styles)
-            .zip(regions.base())
-            .map(|(l, b)| l.relative_to(b));
-
-        let size = origin.max(origin + delta).max(Size::zero());
+        let stroke = self.stroke(styles).unwrap_or_default();
+        let size = start.max(start + delta).max(Size::zero());
         let target = regions.expand.select(regions.size, size);
 
         let mut frame = Frame::new(target);
         let shape = Geometry::Line(delta.to_point()).stroked(stroke);
-        frame.push(origin.to_point(), Element::Shape(shape));
-
+        frame.push(start.to_point(), Element::Shape(shape));
         Ok(Fragment::frame(frame))
     }
 }

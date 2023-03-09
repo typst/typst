@@ -68,13 +68,12 @@ pub struct UnderbraceNode {
 
     /// The optional content below the brace.
     #[positional]
-    #[default]
     pub annotation: Option<Content>,
 }
 
 impl LayoutMath for UnderbraceNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout(ctx, &self.body(), &self.annotation(), '⏟', BRACE_GAP, false)
+        layout(ctx, &self.body(), &self.annotation(ctx.styles()), '⏟', BRACE_GAP, false)
     }
 }
 
@@ -96,13 +95,12 @@ pub struct OverbraceNode {
 
     /// The optional content above the brace.
     #[positional]
-    #[default]
     pub annotation: Option<Content>,
 }
 
 impl LayoutMath for OverbraceNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout(ctx, &self.body(), &self.annotation(), '⏞', BRACE_GAP, true)
+        layout(ctx, &self.body(), &self.annotation(ctx.styles()), '⏞', BRACE_GAP, true)
     }
 }
 
@@ -124,13 +122,12 @@ pub struct UnderbracketNode {
 
     /// The optional content below the bracket.
     #[positional]
-    #[default]
     pub annotation: Option<Content>,
 }
 
 impl LayoutMath for UnderbracketNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout(ctx, &self.body(), &self.annotation(), '⎵', BRACKET_GAP, false)
+        layout(ctx, &self.body(), &self.annotation(ctx.styles()), '⎵', BRACKET_GAP, false)
     }
 }
 
@@ -152,13 +149,12 @@ pub struct OverbracketNode {
 
     /// The optional content above the bracket.
     #[positional]
-    #[default]
     pub annotation: Option<Content>,
 }
 
 impl LayoutMath for OverbracketNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout(ctx, &self.body(), &self.annotation(), '⎴', BRACKET_GAP, true)
+        layout(ctx, &self.body(), &self.annotation(ctx.styles()), '⎴', BRACKET_GAP, true)
     }
 }
 

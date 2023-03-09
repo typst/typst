@@ -59,7 +59,7 @@ pub fn realize(
     if let Some(node) = target.with::<dyn Finalize>() {
         if target.is_pristine() {
             if let Some(already) = realized {
-                realized = Some(node.finalize(already));
+                realized = Some(node.finalize(already, styles));
             }
         }
     }
@@ -159,7 +159,7 @@ pub trait Finalize {
     /// Finalize the fully realized form of the node. Use this for effects that
     /// should work even in the face of a user-defined show rule, for example
     /// the linking behaviour of a link node.
-    fn finalize(&self, realized: Content) -> Content;
+    fn finalize(&self, realized: Content, styles: StyleChain) -> Content;
 }
 
 /// Guards content against being affected by the same show rule multiple times.

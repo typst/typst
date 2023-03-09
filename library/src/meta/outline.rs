@@ -30,14 +30,11 @@ pub struct OutlineNode {
     ///   language]($func/text.lang) will be used. This is the default.
     /// - When set to `{none}`, the outline will not have a title.
     /// - A custom title can be set by passing content.
-    #[settable]
     #[default(Some(Smart::Auto))]
     pub title: Option<Smart<Content>>,
 
     /// The maximum depth up to which headings are included in the outline. When
     /// this argument is `{none}`, all headings are included.
-    #[settable]
-    #[default]
     pub depth: Option<NonZeroUsize>,
 
     /// Whether to indent the subheadings to align the start of their numbering
@@ -57,7 +54,6 @@ pub struct OutlineNode {
     /// == Products
     /// #lorem(10)
     /// ```
-    #[settable]
     #[default(false)]
     pub indent: bool,
 
@@ -69,7 +65,6 @@ pub struct OutlineNode {
     ///
     /// = A New Beginning
     /// ```
-    #[settable]
     #[default(Some(RepeatNode::new(TextNode::packed(".")).pack()))]
     pub fill: Option<Content>,
 }
@@ -102,7 +97,7 @@ impl Show for OutlineNode {
         styles: StyleChain,
     ) -> SourceResult<Content> {
         let mut seq = vec![ParbreakNode::new().pack()];
-        if let Some(title) = Self::title_in(styles) {
+        if let Some(title) = self.title(styles) {
             let title = title.clone().unwrap_or_else(|| {
                 TextNode::packed(match TextNode::lang_in(styles) {
                     Lang::GERMAN => "Inhaltsverzeichnis",
@@ -112,14 +107,15 @@ impl Show for OutlineNode {
 
             seq.push(
                 HeadingNode::new(title)
-                    .pack()
-                    .styled(HeadingNode::set_numbering(None))
-                    .styled(HeadingNode::set_outlined(false)),
+                    .with_level(NonZeroUsize::new(1).unwrap())
+                    .with_numbering(None)
+                    .with_outlined(false)
+                    .pack(),
             );
         }
 
-        let indent = Self::indent_in(styles);
-        let depth = Self::depth_in(styles);
+        let indent = self.indent(styles);
+        let depth = self.depth(styles);
 
         let mut ancestors: Vec<&Content> = vec![];
         for (_, node) in vt.locate(Selector::node::<HeadingNode>()) {
@@ -129,13 +125,14 @@ impl Show for OutlineNode {
 
             let heading = node.to::<HeadingNode>().unwrap();
             if let Some(depth) = depth {
-                if depth < heading.level() {
+                if depth < heading.level(StyleChain::default()) {
                     continue;
                 }
             }
 
             while ancestors.last().map_or(false, |last| {
-                last.to::<HeadingNode>().unwrap().level() >= heading.level()
+                last.to::<HeadingNode>().unwrap().level(StyleChain::default())
+                    >= heading.level(StyleChain::default())
             }) {
                 ancestors.pop();
             }
@@ -171,7 +168,7 @@ impl Show for OutlineNode {
             seq.push(start.linked(Destination::Internal(loc)));
 
             // Add filler symbols between the section name and page number.
-            if let Some(filler) = Self::fill_in(styles) {
+            if let Some(filler) = self.fill(styles) {
                 seq.push(SpaceNode::new().pack());
                 seq.push(
                     BoxNode::new()

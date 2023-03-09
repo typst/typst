@@ -21,29 +21,14 @@ use crate::prelude::*;
 /// ```
 ///
 /// ## Parameters
-/// - paper: `Paper` (positional, settable)
+/// - paper: `Paper` (positional, named, settable)
 ///   A standard paper size to set width and height. When this is not specified,
 ///   Typst defaults to `{"a4"}` paper.
 ///
 /// Display: Page
 /// Category: layout
 #[node]
-#[set({
-    if let Some(paper) = args.named_or_find::<Paper>("paper")? {
-        styles.set(Self::set_width(Smart::Custom(paper.width().into())));
-        styles.set(Self::set_height(Smart::Custom(paper.height().into())));
-    }
-})]
 pub struct PageNode {
-    /// The contents of the page(s).
-    ///
-    /// Multiple pages will be created if the content does not fit on a single
-    /// page. A new page with the page properties prior to the function invocation
-    /// will be created after the body has been typeset.
-    #[positional]
-    #[required]
-    pub body: Content,
-
     /// The width of the page.
     ///
     /// ```example
@@ -56,8 +41,12 @@ pub struct PageNode {
     ///   box(square(width: 1cm))
     /// }
     /// ```
-    #[settable]
     #[resolve]
+    #[parse(
+        let paper = args.named_or_find::<Paper>("paper")?;
+        args.named("width")?
+            .or_else(|| paper.map(|paper| Smart::Custom(paper.width().into())))
+    )]
     #[default(Smart::Custom(Paper::A4.width().into()))]
     pub width: Smart<Length>,
 
@@ -67,8 +56,11 @@ pub struct PageNode {
     /// by inserting a [page break]($func/pagebreak). Most examples throughout
     /// this documentation use `{auto}` for the height of the page to
     /// dynamically grow and shrink to fit their content.
-    #[settable]
     #[resolve]
+    #[parse(
+        args.named("height")?
+            .or_else(|| paper.map(|paper| Smart::Custom(paper.height().into())))
+    )]
     #[default(Smart::Custom(Paper::A4.height().into()))]
     pub height: Smart<Length>,
 
@@ -90,7 +82,6 @@ pub struct PageNode {
     /// New York, NY 10001 \
     /// +1 555 555 5555
     /// ```
-    #[settable]
     #[default(false)]
     pub flipped: bool,
 
@@ -122,9 +113,7 @@ pub struct PageNode {
     ///   fill: aqua,
     /// )
     /// ```
-    #[settable]
     #[fold]
-    #[default]
     pub margin: Sides<Option<Smart<Rel<Length>>>>,
 
     /// How many columns the page has.
@@ -141,7 +130,6 @@ pub struct PageNode {
     /// emissions and mitigate the impacts
     /// of a rapidly changing climate.
     /// ```
-    #[settable]
     #[default(NonZeroUsize::new(1).unwrap())]
     pub columns: NonZeroUsize,
 
@@ -157,8 +145,6 @@ pub struct PageNode {
     /// #set text(fill: rgb("fdfdfd"))
     /// *Dark mode enabled.*
     /// ```
-    #[settable]
-    #[default]
     pub fill: Option<Paint>,
 
     /// The page's header.
@@ -180,8 +166,6 @@ pub struct PageNode {
     ///
     /// #lorem(18)
     /// ```
-    #[settable]
-    #[default]
     pub header: Option<Marginal>,
 
     /// The page's footer.
@@ -205,8 +189,6 @@ pub struct PageNode {
     ///
     /// #lorem(18)
     /// ```
-    #[settable]
-    #[default]
     pub footer: Option<Marginal>,
 
     /// Content in the page's background.
@@ -227,8 +209,6 @@ pub struct PageNode {
     /// In the year 2023, we plan to take over the world
     /// (of typesetting).
     /// ```
-    #[settable]
-    #[default]
     pub background: Option<Marginal>,
 
     /// Content in the page's foreground.
@@ -245,9 +225,16 @@ pub struct PageNode {
     /// "Weak Reject" because they did
     /// not understand our approach...
     /// ```
-    #[settable]
-    #[default]
     pub foreground: Option<Marginal>,
+
+    /// The contents of the page(s).
+    ///
+    /// Multiple pages will be created if the content does not fit on a single
+    /// page. A new page with the page properties prior to the function invocation
+    /// will be created after the body has been typeset.
+    #[positional]
+    #[required]
+    pub body: Content,
 }
 
 impl PageNode {
@@ -260,10 +247,10 @@ impl PageNode {
     ) -> SourceResult<Fragment> {
         // When one of the lengths is infinite the page fits its content along
         // that axis.
-        let width = Self::width_in(styles).unwrap_or(Abs::inf());
-        let height = Self::height_in(styles).unwrap_or(Abs::inf());
+        let width = self.width(styles).unwrap_or(Abs::inf());
+        let height = self.height(styles).unwrap_or(Abs::inf());
         let mut size = Size::new(width, height);
-        if Self::flipped_in(styles) {
+        if self.flipped(styles) {
             std::mem::swap(&mut size.x, &mut size.y);
         }
 
@@ -274,14 +261,14 @@ impl PageNode {
 
         // Determine the margins.
         let default = Rel::from(0.1190 * min);
-        let padding = Self::margin_in(styles).map(|side| side.unwrap_or(default));
+        let padding = self.margin(styles).map(|side| side.unwrap_or(default));
 
         let mut child = self.body();
 
         // Realize columns.
-        let columns = Self::columns_in(styles);
+        let columns = self.columns(styles);
         if columns.get() > 1 {
-            child = ColumnsNode::new(columns, child).pack();
+            child = ColumnsNode::new(child).with_count(columns).pack();
         }
 
         // Realize margins.
@@ -291,11 +278,11 @@ impl PageNode {
         let regions = Regions::repeat(size, size.map(Abs::is_finite));
         let mut fragment = child.layout(vt, styles, regions)?;
 
-        let fill = Self::fill_in(styles);
-        let header = Self::header_in(styles);
-        let footer = Self::footer_in(styles);
-        let foreground = Self::foreground_in(styles);
-        let background = Self::background_in(styles);
+        let fill = self.fill(styles);
+        let header = self.header(styles);
+        let footer = self.footer(styles);
+        let foreground = self.foreground(styles);
+        let background = self.background(styles);
 
         // Realize overlays.
         for frame in &mut fragment {
@@ -352,7 +339,6 @@ impl PageNode {
 pub struct PagebreakNode {
     /// If `{true}`, the page break is skipped if the current page is already
     /// empty.
-    #[named]
     #[default(false)]
     pub weak: bool,
 }

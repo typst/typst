@@ -1,4 +1,4 @@
-use typst::model::{Style, StyledNode};
+use typst::model::StyledNode;
 
 use super::{AlignNode, BlockNode, ColbreakNode, ParNode, PlaceNode, Spacing, VNode};
 use crate::prelude::*;
@@ -40,8 +40,6 @@ impl Layout for FlowNode {
             if let Some(node) = child.to::<VNode>() {
                 layouter.layout_spacing(node, styles);
             } else if let Some(node) = child.to::<ParNode>() {
-                let barrier = Style::Barrier(child.id());
-                let styles = styles.chain_one(&barrier);
                 layouter.layout_par(vt, node, styles)?;
             } else if child.is::<RectNode>()
                 || child.is::<SquareNode>()
@@ -49,8 +47,6 @@ impl Layout for FlowNode {
                 || child.is::<CircleNode>()
                 || child.is::<ImageNode>()
             {
-                let barrier = Style::Barrier(child.id());
-                let styles = styles.chain_one(&barrier);
                 layouter.layout_single(vt, &child, styles)?;
             } else if child.has::<dyn Layout>() {
                 layouter.layout_multiple(vt, &child, styles)?;
@@ -121,7 +117,7 @@ impl<'a> FlowLayouter<'a> {
         self.layout_item(match node.amount() {
             Spacing::Rel(v) => FlowItem::Absolute(
                 v.resolve(styles).relative_to(self.initial.y),
-                node.weakness() > 0,
+                node.weakness(styles) > 0,
             ),
             Spacing::Fr(v) => FlowItem::Fractional(v),
         });
@@ -200,7 +196,7 @@ impl<'a> FlowLayouter<'a> {
         // Placed nodes that are out of flow produce placed items which aren't
         // aligned later.
         if let Some(placed) = block.to::<PlaceNode>() {
-            if placed.out_of_flow() {
+            if placed.out_of_flow(styles) {
                 let frame = block.layout(vt, styles, self.regions)?.into_frame();
                 self.layout_item(FlowItem::Placed(frame));
                 return Ok(());
@@ -208,7 +204,14 @@ impl<'a> FlowLayouter<'a> {
         }
 
         // How to align the block.
-        let aligns = AlignNode::alignment_in(styles).resolve(styles);
+        let aligns = if let Some(align) = block.to::<AlignNode>() {
+            align.alignment(styles)
+        } else if let Some(styled) = block.to::<StyledNode>() {
+            AlignNode::alignment_in(styles.chain(&styled.map()))
+        } else {
+            AlignNode::alignment_in(styles)
+        }
+        .resolve(styles);
 
         // Layout the block itself.
         let sticky = BlockNode::sticky_in(styles);

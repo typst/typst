@@ -21,13 +21,9 @@ pub struct AttachNode {
     pub base: Content,
 
     /// The top attachment.
-    #[named]
-    #[default]
     pub top: Option<Content>,
 
     /// The bottom attachment.
-    #[named]
-    #[default]
     pub bottom: Option<Content>,
 }
 
@@ -40,11 +36,17 @@ impl LayoutMath for AttachNode {
         let base = ctx.layout_fragment(&base)?;
 
         ctx.style(ctx.style.for_subscript());
-        let top = self.top().map(|node| ctx.layout_fragment(&node)).transpose()?;
+        let top = self
+            .top(ctx.styles())
+            .map(|node| ctx.layout_fragment(&node))
+            .transpose()?;
         ctx.unstyle();
 
         ctx.style(ctx.style.for_superscript());
-        let bottom = self.bottom().map(|node| ctx.layout_fragment(&node)).transpose()?;
+        let bottom = self
+            .bottom(ctx.styles())
+            .map(|node| ctx.layout_fragment(&node))
+            .transpose()?;
         ctx.unstyle();
 
         let display_limits = display_limits

@@ -48,37 +48,10 @@ use super::GridLayouter;
 /// content. All content that is indented more than an item's plus sign or dot
 /// becomes part of that item.
 ///
-/// ## Parameters
-/// - start: `NonZeroUsize` (named)
-///   Which number to start the enumeration with.
-///
-///   ```example
-///   #enum(
-///     start: 3,
-///     [Skipping],
-///     [Ahead],
-///   )
-///   ```
-///
 /// Display: Numbered List
 /// Category: layout
-#[node(Construct, Layout)]
+#[node(Layout)]
 pub struct EnumNode {
-    /// The numbered list's items.
-    ///
-    /// When using the enum syntax, adjacent items are automatically collected
-    /// into enumerations, even through constructs like for loops.
-    ///
-    /// ```example
-    /// #for phase in (
-    ///    "Launch",
-    ///    "Orbit",
-    ///    "Descent",
-    /// ) [+ #phase]
-    /// ```
-    #[variadic]
-    pub children: Vec<EnumItem>,
-
     /// If this is `{false}`, the items are spaced apart with
     /// [enum spacing]($func/enum.spacing). If it is `{true}`, they use normal
     /// [leading]($func/par.leading) instead. This makes the enumeration more
@@ -93,7 +66,6 @@ pub struct EnumNode {
     ///   insert a blank line between the
     ///   items.
     /// ```
-    #[named]
     #[default(true)]
     pub tight: bool,
 
@@ -116,9 +88,20 @@ pub struct EnumNode {
     /// + Superscript
     /// + Numbering!
     /// ```
-    #[settable]
     #[default(Numbering::Pattern(NumberingPattern::from_str("1.").unwrap()))]
     pub numbering: Numbering,
+
+    /// Which number to start the enumeration with.
+    ///
+    /// ```example
+    /// #enum(
+    ///   start: 3,
+    ///   [Skipping],
+    ///   [Ahead],
+    /// )
+    /// ```
+    #[default(NonZeroUsize::new(1).unwrap())]
+    pub start: NonZeroUsize,
 
     /// Whether to display the full numbering, including the numbers of
     /// all parent enumerations.
@@ -132,18 +115,14 @@ pub struct EnumNode {
     ///   + Add integredients
     /// + Eat
     /// ```
-    #[settable]
     #[default(false)]
     pub full: bool,
 
     /// The indentation of each item's label.
-    #[settable]
     #[resolve]
-    #[default]
     pub indent: Length,
 
     /// The space between the numbering and the body of each item.
-    #[settable]
     #[resolve]
     #[default(Em::new(0.5).into())]
     pub body_indent: Length,
@@ -151,33 +130,27 @@ pub struct EnumNode {
     /// The spacing between the items of a wide (non-tight) enumeration.
     ///
     /// If set to `{auto}`, uses the spacing [below blocks]($func/block.below).
-    #[settable]
-    #[default]
     pub spacing: Smart<Spacing>,
 
+    /// The numbered list's items.
+    ///
+    /// When using the enum syntax, adjacent items are automatically collected
+    /// into enumerations, even through constructs like for loops.
+    ///
+    /// ```example
+    /// #for phase in (
+    ///    "Launch",
+    ///    "Orbit",
+    ///    "Descent",
+    /// ) [+ #phase]
+    /// ```
+    #[variadic]
+    pub children: Vec<EnumItem>,
+
     /// The numbers of parent items.
-    #[settable]
+    #[internal]
     #[fold]
-    #[skip]
-    #[default]
     parents: Parent,
-}
-
-impl Construct for EnumNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        let mut items = args.all::<EnumItem>()?;
-        if let Some(number) = args.named::<NonZeroUsize>("start")? {
-            if let Some(first) = items.first_mut() {
-                if first.number().is_none() {
-                    *first = EnumItem::new(first.body()).with_number(Some(number));
-                }
-            }
-        }
-
-        Ok(Self::new(items)
-            .with_tight(args.named("tight")?.unwrap_or(true))
-            .pack())
-    }
 }
 
 impl Layout for EnumNode {
@@ -187,23 +160,23 @@ impl Layout for EnumNode {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let numbering = Self::numbering_in(styles);
-        let indent = Self::indent_in(styles);
-        let body_indent = Self::body_indent_in(styles);
-        let gutter = if self.tight() {
+        let numbering = self.numbering(styles);
+        let indent = self.indent(styles);
+        let body_indent = self.body_indent(styles);
+        let gutter = if self.tight(styles) {
             ParNode::leading_in(styles).into()
         } else {
-            Self::spacing_in(styles)
+            self.spacing(styles)
                 .unwrap_or_else(|| BlockNode::below_in(styles).amount())
         };
 
         let mut cells = vec![];
-        let mut number = NonZeroUsize::new(1).unwrap();
-        let mut parents = Self::parents_in(styles);
-        let full = Self::full_in(styles);
+        let mut number = self.start(styles);
+        let mut parents = self.parents(styles);
+        let full = self.full(styles);
 
         for item in self.children() {
-            number = item.number().unwrap_or(number);
+            number = item.number(styles).unwrap_or(number);
 
             let resolved = if full {
                 parents.push(number);
@@ -252,7 +225,6 @@ impl Layout for EnumNode {
 pub struct EnumItem {
     /// The item's number.
     #[positional]
-    #[default]
     pub number: Option<NonZeroUsize>,
 
     /// The item's body.

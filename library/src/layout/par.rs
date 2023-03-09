@@ -43,11 +43,6 @@ use crate::text::{
 /// Category: layout
 #[node(Construct)]
 pub struct ParNode {
-    /// The paragraph's children.
-    #[variadic]
-    #[skip]
-    pub children: Vec<Content>,
-
     /// The indent the first line of a consecutive paragraph should have.
     ///
     /// The first paragraph on a page will never be indented.
@@ -56,15 +51,12 @@ pub struct ParNode {
     /// space between paragraphs or indented first lines. Consider turning the
     /// [paragraph spacing]($func/block.spacing) off when using this property
     /// (e.g. using `[#show par: set block(spacing: 0pt)]`).
-    #[settable]
     #[resolve]
-    #[default]
     pub indent: Length,
 
     /// The spacing between lines.
     ///
     /// The default value is `{0.65em}`.
-    #[settable]
     #[resolve]
     #[default(Em::new(0.65).into())]
     pub leading: Length,
@@ -78,7 +70,6 @@ pub struct ParNode {
     /// Note that the current [alignment]($func/align) still has an effect on
     /// the placement of the last line except if it ends with a [justified line
     /// break]($func/linebreak.justify).
-    #[settable]
     #[default(false)]
     pub justify: bool,
 
@@ -105,9 +96,13 @@ pub struct ParNode {
     /// very aesthetic example is one
     /// of them.
     /// ```
-    #[settable]
     #[default]
     pub linebreaks: Smart<Linebreaks>,
+
+    /// The paragraph's children.
+    #[internal]
+    #[variadic]
+    pub children: Vec<Content>,
 }
 
 impl Construct for ParNode {
@@ -115,9 +110,11 @@ impl Construct for ParNode {
         // The paragraph constructor is special: It doesn't create a paragraph
         // node. Instead, it just ensures that the passed content lives in a
         // separate paragraph and styles it.
+        let styles = Self::set(args)?;
+        let body = args.expect::<Content>("body")?;
         Ok(Content::sequence(vec![
             ParbreakNode::new().pack(),
-            args.expect("body")?,
+            body.styled_with_map(styles),
             ParbreakNode::new().pack(),
         ]))
     }
@@ -334,7 +331,7 @@ enum Segment<'a> {
     /// A math formula.
     Formula(&'a FormulaNode),
     /// A box with arbitrary content.
-    Box(&'a BoxNode),
+    Box(&'a BoxNode, bool),
 }
 
 impl Segment<'_> {
@@ -343,8 +340,8 @@ impl Segment<'_> {
         match *self {
             Self::Text(len) => len,
             Self::Spacing(_) => SPACING_REPLACE.len_utf8(),
-            Self::Box(node) if node.width().is_fractional() => SPACING_REPLACE.len_utf8(),
-            Self::Formula(_) | Self::Box(_) => NODE_REPLACE.len_utf8(),
+            Self::Box(_, true) => SPACING_REPLACE.len_utf8(),
+            Self::Formula(_) | Self::Box(_, _) => NODE_REPLACE.len_utf8(),
         }
     }
 }
@@ -540,7 +537,7 @@ fn collect<'a>(
             full.push(SPACING_REPLACE);
             Segment::Spacing(node.amount())
         } else if let Some(node) = child.to::<LinebreakNode>() {
-            let c = if node.justify() { '\u{2028}' } else { '\n' };
+            let c = if node.justify(styles) { '\u{2028}' } else { '\n' };
             full.push(c);
             Segment::Text(c.len_utf8())
         } else if let Some(node) = child.to::<SmartQuoteNode>() {
@@ -561,21 +558,18 @@ fn collect<'a>(
                     }
                 });
 
-                full.push_str(quoter.quote(&quotes, node.double(), peeked));
+                full.push_str(quoter.quote(&quotes, node.double(styles), peeked));
             } else {
-                full.push(if node.double() { '"' } else { '\'' });
+                full.push(if node.double(styles) { '"' } else { '\'' });
             }
             Segment::Text(full.len() - prev)
         } else if let Some(node) = child.to::<FormulaNode>() {
             full.push(NODE_REPLACE);
             Segment::Formula(node)
         } else if let Some(node) = child.to::<BoxNode>() {
-            full.push(if node.width().is_fractional() {
-                SPACING_REPLACE
-            } else {
-                NODE_REPLACE
-            });
-            Segment::Box(node)
+            let frac = node.width(styles).is_fractional();
+            full.push(if frac { SPACING_REPLACE } else { NODE_REPLACE });
+            Segment::Box(node, frac)
         } else if let Some(span) = child.span() {
             bail!(span, "unexpected document child");
         } else {
@@ -645,8 +639,8 @@ fn prepare<'a>(
                 frame.translate(Point::with_y(TextNode::baseline_in(styles)));
                 items.push(Item::Frame(frame));
             }
-            Segment::Box(node) => {
-                if let Sizing::Fr(v) = node.width() {
+            Segment::Box(node, _) => {
+                if let Sizing::Fr(v) = node.width(styles) {
                     items.push(Item::Fractional(v, Some((node, styles))));
                 } else {
                     let pod = Regions::one(region, Axes::splat(false));

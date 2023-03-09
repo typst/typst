@@ -16,23 +16,17 @@ pub(super) const DELIM_SHORT_FALL: Em = Em::new(0.1);
 ///
 /// Display: Left/Right
 /// Category: math
-#[node(Construct, LayoutMath)]
+#[node(LayoutMath)]
 pub struct LrNode {
-    /// The delimited content, including the delimiters.
-    #[positional]
-    #[required]
-    pub body: Content,
-
     /// The size of the brackets, relative to the height of the wrapped content.
     ///
     /// Defaults to `{100%}`.
-    #[named]
-    #[default]
     pub size: Smart<Rel<Length>>,
-}
 
-impl Construct for LrNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
+    /// The delimited content, including the delimiters.
+    #[positional]
+    #[required]
+    #[parse(
         let mut body = Content::empty();
         for (i, arg) in args.all::<Content>()?.into_iter().enumerate() {
             if i > 0 {
@@ -40,16 +34,16 @@ impl Construct for LrNode {
             }
             body += arg;
         }
-        let size = args.named::<Smart<Rel<Length>>>("size")?.unwrap_or_default();
-        Ok(Self::new(body).with_size(size).pack())
-    }
+        body
+    )]
+    pub body: Content,
 }
 
 impl LayoutMath for LrNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let mut body = self.body();
         if let Some(node) = body.to::<LrNode>() {
-            if node.size().is_auto() {
+            if node.size(ctx.styles()).is_auto() {
                 body = node.body();
             }
         }
@@ -63,7 +57,7 @@ impl LayoutMath for LrNode {
             .unwrap_or_default();
 
         let height = self
-            .size()
+            .size(ctx.styles())
             .unwrap_or(Rel::one())
             .resolve(ctx.styles())
             .relative_to(2.0 * max_extent);

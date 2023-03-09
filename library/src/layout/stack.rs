@@ -22,24 +22,21 @@ use crate::prelude::*;
 /// Category: layout
 #[node(Layout)]
 pub struct StackNode {
-    /// The childfren to stack along the axis.
-    #[variadic]
-    pub children: Vec<StackChild>,
-
     /// The direction along which the items are stacked. Possible values are:
     ///
     /// - `{ltr}`: Left to right.
     /// - `{rtl}`: Right to left.
     /// - `{ttb}`: Top to bottom.
     /// - `{btt}`: Bottom to top.
-    #[named]
     #[default(Dir::TTB)]
     pub dir: Dir,
 
     /// Spacing to insert between items where no explicit spacing was provided.
-    #[named]
-    #[default]
     pub spacing: Option<Spacing>,
+
+    /// The childfren to stack along the axis.
+    #[variadic]
+    pub children: Vec<StackChild>,
 }
 
 impl Layout for StackNode {
@@ -49,10 +46,10 @@ impl Layout for StackNode {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let mut layouter = StackLayouter::new(self.dir(), regions, styles);
+        let mut layouter = StackLayouter::new(self.dir(styles), regions, styles);
 
         // Spacing to insert before the next block.
-        let spacing = self.spacing();
+        let spacing = self.spacing(styles);
         let mut deferred = None;
 
         for child in self.children() {
@@ -201,12 +198,15 @@ impl<'a> StackLayouter<'a> {
 
         // Block-axis alignment of the `AlignNode` is respected
         // by the stack node.
-        let aligns = match block.to::<StyledNode>() {
-            Some(styled) => AlignNode::alignment_in(styles.chain(&styled.map())),
-            None => AlignNode::alignment_in(styles),
-        };
+        let aligns = if let Some(align) = block.to::<AlignNode>() {
+            align.alignment(styles)
+        } else if let Some(styled) = block.to::<StyledNode>() {
+            AlignNode::alignment_in(styles.chain(&styled.map()))
+        } else {
+            AlignNode::alignment_in(styles)
+        }
+        .resolve(styles);
 
-        let aligns = aligns.resolve(styles);
         let fragment = block.layout(vt, styles, self.regions)?;
         let len = fragment.len();
         for (i, frame) in fragment.into_iter().enumerate() {

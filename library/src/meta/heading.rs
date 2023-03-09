@@ -42,13 +42,7 @@ use crate::text::{TextNode, TextSize};
 /// Category: meta
 #[node(Prepare, Show, Finalize)]
 pub struct HeadingNode {
-    /// The heading's title.
-    #[positional]
-    #[required]
-    pub body: Content,
-
     /// The logical nesting depth of the heading, starting from one.
-    #[named]
     #[default(NonZeroUsize::new(1).unwrap())]
     pub level: NonZeroUsize,
 
@@ -62,8 +56,6 @@ pub struct HeadingNode {
     /// == A subsection
     /// === A sub-subsection
     /// ```
-    #[settable]
-    #[default]
     pub numbering: Option<Numbering>,
 
     /// Whether the heading should appear in the outline.
@@ -78,9 +70,13 @@ pub struct HeadingNode {
     /// This heading does not appear
     /// in the outline.
     /// ```
-    #[settable]
     #[default(true)]
     pub outlined: bool,
+
+    /// The heading's title.
+    #[positional]
+    #[required]
+    pub body: Content,
 }
 
 impl Prepare for HeadingNode {
@@ -106,11 +102,11 @@ impl Prepare for HeadingNode {
         }
 
         let mut numbers = Value::None;
-        if let Some(numbering) = Self::numbering_in(styles) {
+        if let Some(numbering) = self.numbering(styles) {
             numbers = numbering.apply(vt.world(), counter.advance(self))?;
         }
 
-        this.push_field("outlined", Value::Bool(Self::outlined_in(styles)));
+        this.push_field("outlined", Value::Bool(self.outlined(styles)));
         this.push_field("numbers", numbers);
 
         let meta = Meta::Node(my_id, this.clone());
@@ -132,8 +128,8 @@ impl Show for HeadingNode {
 }
 
 impl Finalize for HeadingNode {
-    fn finalize(&self, realized: Content) -> Content {
-        let level = self.level().get();
+    fn finalize(&self, realized: Content, styles: StyleChain) -> Content {
+        let level = self.level(styles).get();
         let scale = match level {
             1 => 1.4,
             2 => 1.2,
@@ -165,7 +161,7 @@ impl HeadingCounter {
 
     /// Advance the counter and return the numbers for the given heading.
     pub fn advance(&mut self, heading: &HeadingNode) -> &[NonZeroUsize] {
-        let level = heading.level().get();
+        let level = heading.level(StyleChain::default()).get();
 
         if self.0.len() >= level {
             self.0[level - 1] = self.0[level - 1].saturating_add(1);

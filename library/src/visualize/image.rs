@@ -20,39 +20,29 @@ use crate::prelude::*;
 ///
 /// Display: Image
 /// Category: visualize
-#[node(Construct, Layout)]
+#[node(Layout)]
 pub struct ImageNode {
     /// Path to an image file.
     #[positional]
     #[required]
-    pub path: EcoString,
-
-    /// The width of the image.
-    #[named]
-    #[default]
-    pub width: Smart<Rel<Length>>,
-
-    /// The height of the image.
-    #[named]
-    #[default]
-    pub height: Smart<Rel<Length>>,
-
-    /// How the image should adjust itself to a given area.
-    #[settable]
-    #[default(ImageFit::Cover)]
-    pub fit: ImageFit,
-}
-
-impl Construct for ImageNode {
-    fn construct(vm: &Vm, args: &mut Args) -> SourceResult<Content> {
+    #[parse(
         let Spanned { v: path, span } =
             args.expect::<Spanned<EcoString>>("path to image file")?;
         let path: EcoString = vm.locate(&path).at(span)?.to_string_lossy().into();
         let _ = load(vm.world(), &path).at(span)?;
-        let width = args.named::<Smart<Rel<Length>>>("width")?.unwrap_or_default();
-        let height = args.named::<Smart<Rel<Length>>>("height")?.unwrap_or_default();
-        Ok(ImageNode::new(path).with_width(width).with_height(height).pack())
-    }
+        path
+    )]
+    pub path: EcoString,
+
+    /// The width of the image.
+    pub width: Smart<Rel<Length>>,
+
+    /// The height of the image.
+    pub height: Smart<Rel<Length>>,
+
+    /// How the image should adjust itself to a given area.
+    #[default(ImageFit::Cover)]
+    pub fit: ImageFit,
 }
 
 impl Layout for ImageNode {
@@ -63,7 +53,7 @@ impl Layout for ImageNode {
         regions: Regions,
     ) -> SourceResult<Fragment> {
         let image = load(vt.world(), &self.path()).unwrap();
-        let sizing = Axes::new(self.width(), self.height());
+        let sizing = Axes::new(self.width(styles), self.height(styles));
         let region = sizing
             .zip(regions.base())
             .map(|(s, r)| s.map(|v| v.resolve(styles).relative_to(r)))
@@ -90,7 +80,7 @@ impl Layout for ImageNode {
         };
 
         // Compute the actual size of the fitted image.
-        let fit = Self::fit_in(styles);
+        let fit = self.fit(styles);
         let fitted = match fit {
             ImageFit::Cover | ImageFit::Contain => {
                 if wide == (fit == ImageFit::Contain) {

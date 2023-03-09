@@ -42,7 +42,6 @@ pub struct HNode {
     /// #h(8pt, weak: true) on both
     /// sides, they do show up.
     /// ```
-    #[named]
     #[default(false)]
     pub weak: bool,
 }
@@ -51,7 +50,7 @@ impl Behave for HNode {
     fn behaviour(&self) -> Behaviour {
         if self.amount().is_fractional() {
             Behaviour::Destructive
-        } else if self.weak() {
+        } else if self.weak(StyleChain::default()) {
             Behaviour::Weak(1)
         } else {
             Behaviour::Ignorant
@@ -86,7 +85,7 @@ impl Behave for HNode {
 /// ```
 ///
 /// ## Parameters
-/// - weak: `bool` (named)
+/// - weak: `bool` (named, settable)
 ///   If true, the spacing collapses at the start or end of a flow. Moreover,
 ///   from multiple adjacent weak spacings all but the largest one collapse.
 ///   Weak spacings will always collapse adjacent paragraph spacing, even if the
@@ -103,7 +102,7 @@ impl Behave for HNode {
 ///
 /// Display: Spacing (V)
 /// Category: layout
-#[node(Construct, Behave)]
+#[node(Behave)]
 pub struct VNode {
     /// How much spacing to insert.
     #[positional]
@@ -111,22 +110,9 @@ pub struct VNode {
     pub amount: Spacing,
 
     /// The node's weakness level, see also [`Behaviour`].
-    #[named]
-    #[skip]
-    #[default]
+    #[internal]
+    #[parse(args.named("weak")?.map(|v: bool| v as usize))]
     pub weakness: usize,
-}
-
-impl Construct for VNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        let amount = args.expect("spacing")?;
-        let node = if args.named("weak")?.unwrap_or(false) {
-            Self::weak(amount)
-        } else {
-            Self::strong(amount)
-        };
-        Ok(node.pack())
-    }
 }
 
 impl VNode {
@@ -160,8 +146,8 @@ impl Behave for VNode {
     fn behaviour(&self) -> Behaviour {
         if self.amount().is_fractional() {
             Behaviour::Destructive
-        } else if self.weakness() > 0 {
-            Behaviour::Weak(self.weakness())
+        } else if self.weakness(StyleChain::default()) > 0 {
+            Behaviour::Weak(self.weakness(StyleChain::default()))
         } else {
             Behaviour::Ignorant
         }
