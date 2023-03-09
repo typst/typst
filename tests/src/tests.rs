@@ -14,7 +14,7 @@ use tiny_skia as sk;
 use typst::diag::{bail, FileError, FileResult, SourceResult};
 use typst::doc::{Document, Element, Frame, Meta};
 use typst::font::{Font, FontBook};
-use typst::geom::{Abs, RgbaColor, Sides, Smart};
+use typst::geom::{Abs, Color, RgbaColor, Sides, Smart};
 use typst::model::{func, Library, Value};
 use typst::syntax::{Source, SourceId, Span, SyntaxNode};
 use typst::util::{Buffer, PathExt};
@@ -690,7 +690,7 @@ fn render(frames: &[Frame]) -> sk::Pixmap {
             if frame.width() > limit || frame.height() > limit {
                 panic!("overlarge frame: {:?}", frame.size());
             }
-            typst::export::render(frame, pixel_per_pt)
+            typst::export::render(frame, pixel_per_pt, Color::WHITE)
         })
         .collect();
 
