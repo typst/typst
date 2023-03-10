@@ -1,13 +1,14 @@
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::{self, Debug, Formatter, Write};
 use std::iter;
 
 use comemo::Tracked;
-use ecow::EcoString;
+use ecow::{eco_format, EcoString};
 
 use super::{Content, Label, Node, NodeId};
 use crate::diag::{SourceResult, Trace, Tracepoint};
 use crate::eval::{cast_from_value, Args, Cast, Dict, Func, Regex, Value};
 use crate::syntax::Span;
+use crate::util::pretty_array;
 use crate::World;
 
 /// A map of style properties.
@@ -79,10 +80,13 @@ impl PartialEq for StyleMap {
 
 impl Debug for StyleMap {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        for entry in self.0.iter() {
-            writeln!(f, "{:?}", entry)?;
+        if let [style] = self.0.as_slice() {
+            return style.fmt(f);
         }
-        Ok(())
+
+        let pieces: Vec<_> =
+            self.0.iter().map(|value| eco_format!("{value:?}")).collect();
+        f.write_str(&pretty_array(&pieces, false))
     }
 }
 
@@ -160,7 +164,7 @@ impl Property {
 
 impl Debug for Property {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "#set {}({}: {:?})", self.node.name(), self.name, self.value)?;
+        write!(f, "set {}({}: {:?})", self.node.name, self.name, self.value)?;
         Ok(())
     }
 }
@@ -203,12 +207,10 @@ impl Recipe {
             Transform::Func(func) => {
                 let args = Args::new(self.span, [Value::Content(content.clone())]);
                 let mut result = func.call_detached(world, args);
-                if let Some(span) = content.span() {
-                    // For selector-less show rules, a tracepoint makes no sense.
-                    if self.selector.is_some() {
-                        let point = || Tracepoint::Show(content.name().into());
-                        result = result.trace(world, point, span);
-                    }
+                // For selector-less show rules, a tracepoint makes no sense.
+                if self.selector.is_some() {
+                    let point = || Tracepoint::Show(content.id().name.into());
+                    result = result.trace(world, point, content.span());
                 }
                 Ok(result?.display())
             }
@@ -219,12 +221,18 @@ impl Recipe {
 
 impl Debug for Recipe {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "#show {:?}: {:?}", self.selector, self.transform)
+        f.write_str("show")?;
+        if let Some(selector) = &self.selector {
+            f.write_char(' ')?;
+            selector.fmt(f)?;
+        }
+        f.write_str(": ")?;
+        self.transform.fmt(f)
     }
 }
 
 /// A selector in a show rule.
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Clone, PartialEq, Hash)]
 pub enum Selector {
     /// Matches a specific type of node.
     ///
@@ -267,6 +275,23 @@ impl Selector {
     }
 }
 
+impl Debug for Selector {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Self::Node(node, dict) => {
+                f.write_str(node.name)?;
+                if let Some(dict) = dict {
+                    f.write_str(".where")?;
+                    dict.fmt(f)?;
+                }
+                Ok(())
+            }
+            Self::Label(label) => label.fmt(f),
+            Self::Regex(regex) => regex.fmt(f),
+        }
+    }
+}
+
 cast_from_value! {
     Selector: "selector",
     text: EcoString => Self::text(&text),
@@ -276,7 +301,7 @@ cast_from_value! {
 }
 
 /// A show rule transformation that can be applied to a match.
-#[derive(Debug, Clone, Hash)]
+#[derive(Clone, Hash)]
 pub enum Transform {
     /// Replacement content.
     Content(Content),
@@ -284,6 +309,16 @@ pub enum Transform {
     Func(Func),
     /// Apply styles to the content.
     Style(StyleMap),
+}
+
+impl Debug for Transform {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Self::Content(content) => content.fmt(f),
+            Self::Func(func) => func.fmt(f),
+            Self::Style(styles) => styles.fmt(f),
+        }
+    }
 }
 
 cast_from_value! {
@@ -434,9 +469,9 @@ impl<'a> StyleChain<'a> {
                     .map(|property| property.value.clone()),
             )
             .map(move |value| {
-                value.cast().unwrap_or_else(|err| {
-                    panic!("{} (for {}.{})", err, node.name(), name)
-                })
+                value
+                    .cast()
+                    .unwrap_or_else(|err| panic!("{} (for {}.{})", err, node.name, name))
             })
     }
 

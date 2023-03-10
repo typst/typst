@@ -6,12 +6,12 @@ mod buffer;
 
 pub use buffer::Buffer;
 
-use std::any::TypeId;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 
+use ecow::EcoString;
 use siphasher::sip128::{Hasher128, SipHasher};
 
 /// Turn a closure into a struct implementing [`Debug`].
@@ -133,35 +133,63 @@ impl PathExt for Path {
     }
 }
 
-/// An alternative type id that prints as something readable in debug mode.
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
-pub struct ReadableTypeId {
-    id: TypeId,
-    #[cfg(debug_assertions)]
-    name: &'static str,
+/// Format something as a a comma-separated list that support horizontal
+/// formatting but falls back to vertical formatting if the pieces are too long.
+pub fn pretty_array(pieces: &[EcoString], trailing_comma: bool) -> String {
+    let list = pretty_comma_list(&pieces, trailing_comma);
+    let mut buf = String::new();
+    buf.push('(');
+    if list.contains('\n') {
+        buf.push('\n');
+        buf.push_str(&indent(&list, 2));
+        buf.push('\n');
+    } else {
+        buf.push_str(&list);
+    }
+    buf.push(')');
+    buf
 }
 
-impl ReadableTypeId {
-    /// The type id of the given type.
-    pub fn of<T: 'static>() -> Self {
-        Self {
-            id: TypeId::of::<T>(),
-            #[cfg(debug_assertions)]
-            name: std::any::type_name::<T>(),
+/// Format something as a a comma-separated list that support horizontal
+/// formatting but falls back to vertical formatting if the pieces are too long.
+pub fn pretty_comma_list(pieces: &[EcoString], trailing_comma: bool) -> String {
+    const MAX_WIDTH: usize = 50;
+
+    let mut buf = String::new();
+    let len = pieces.iter().map(|s| s.len()).sum::<usize>()
+        + 2 * pieces.len().saturating_sub(1);
+
+    if len <= MAX_WIDTH {
+        for (i, piece) in pieces.iter().enumerate() {
+            if i > 0 {
+                buf.push_str(", ");
+            }
+            buf.push_str(piece);
+        }
+        if trailing_comma {
+            buf.push(',');
+        }
+    } else {
+        for piece in pieces {
+            buf.push_str(piece.trim());
+            buf.push_str(",\n");
         }
     }
+
+    buf
 }
 
-impl Debug for ReadableTypeId {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        #[cfg(debug_assertions)]
-        if let Some(part) = self.name.split("::").last() {
-            f.pad(part)?;
+/// Indent a string by two spaces.
+pub fn indent(text: &str, amount: usize) -> String {
+    let mut buf = String::new();
+    for (i, line) in text.lines().enumerate() {
+        if i > 0 {
+            buf.push('\n');
         }
-
-        #[cfg(not(debug_assertions))]
-        f.pad("ReadableTypeId")?;
-
-        Ok(())
+        for _ in 0..amount {
+            buf.push(' ');
+        }
+        buf.push_str(line);
     }
+    buf
 }

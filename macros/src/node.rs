@@ -186,7 +186,7 @@ fn create(node: &Node) -> TokenStream {
             #(#field_style_methods)*
 
             /// The node's span.
-            pub fn span(&self) -> Option<::typst::syntax::Span> {
+            pub fn span(&self) -> ::typst::syntax::Span {
                 self.0.span()
             }
         }
@@ -228,7 +228,7 @@ fn create_field_method(field: &Field) -> TokenStream {
         quote! {
             #[doc = #docs]
             #vis fn #ident(&self) -> #output {
-                self.0.cast_required_field(#name)
+                self.0.field(#name).unwrap().clone().cast().unwrap()
             }
         }
     } else {
@@ -319,19 +319,8 @@ fn create_node_impl(node: &Node) -> TokenStream {
                 static META: ::typst::model::NodeMeta = ::typst::model::NodeMeta {
                     name: #name,
                     vtable: #vtable_func,
-                };
-                ::typst::model::NodeId::from_meta(&META)
-            }
-
-            fn pack(self) -> ::typst::model::Content {
-                self.0
-            }
-
-            fn func() -> ::typst::eval::NodeFunc {
-                ::typst::eval::NodeFunc {
-                    id: Self::id(),
-                    construct: <Self as ::typst::model::Construct>::construct,
-                    set: <Self as ::typst::model::Set>::set,
+                    construct: <#ident as ::typst::model::Construct>::construct,
+                    set: <#ident as ::typst::model::Set>::set,
                     info: ::typst::eval::Lazy::new(|| typst::eval::FuncInfo {
                         name: #name,
                         display: #display,
@@ -340,7 +329,12 @@ fn create_node_impl(node: &Node) -> TokenStream {
                         returns: ::std::vec!["content"],
                         category: #category,
                     }),
-                }
+                };
+                ::typst::model::NodeId(&META)
+            }
+
+            fn pack(self) -> ::typst::model::Content {
+                self.0
             }
         }
     }

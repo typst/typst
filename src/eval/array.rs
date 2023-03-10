@@ -1,11 +1,12 @@
 use std::cmp::Ordering;
-use std::fmt::{self, Debug, Formatter, Write};
+use std::fmt::{self, Debug, Formatter};
 use std::ops::{Add, AddAssign};
 
 use ecow::{eco_format, EcoString, EcoVec};
 
 use super::{ops, Args, Func, Value, Vm};
 use crate::diag::{bail, At, SourceResult, StrResult};
+use crate::util::pretty_array;
 
 /// Create a new [`Array`] from values.
 #[macro_export]
@@ -147,7 +148,6 @@ impl Array {
                 return Ok(Some(item.clone()));
             }
         }
-
         Ok(None)
     }
 
@@ -262,6 +262,14 @@ impl Array {
         self.0.iter().cloned().rev().collect()
     }
 
+    /// Split all values in the array.
+    pub fn split(&self, at: Value) -> Array {
+        self.as_slice()
+            .split(|value| *value == at)
+            .map(|subslice| Value::Array(subslice.iter().cloned().collect()))
+            .collect()
+    }
+
     /// Join all values in the array, optionally with separator and last
     /// separator (between the final two items).
     pub fn join(&self, sep: Option<Value>, mut last: Option<Value>) -> StrResult<Value> {
@@ -332,31 +340,10 @@ impl Array {
     }
 }
 
-/// The out of bounds access error message.
-#[cold]
-fn out_of_bounds(index: i64, len: i64) -> EcoString {
-    eco_format!("array index out of bounds (index: {}, len: {})", index, len)
-}
-
-/// The error message when the array is empty.
-#[cold]
-fn array_is_empty() -> EcoString {
-    "array is empty".into()
-}
-
 impl Debug for Array {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_char('(')?;
-        for (i, value) in self.iter().enumerate() {
-            value.fmt(f)?;
-            if i + 1 < self.0.len() {
-                f.write_str(", ")?;
-            }
-        }
-        if self.len() == 1 {
-            f.write_char(',')?;
-        }
-        f.write_char(')')
+        let pieces: Vec<_> = self.iter().map(|value| eco_format!("{value:?}")).collect();
+        f.write_str(&pretty_array(&pieces, self.len() == 1))
     }
 }
 
@@ -403,4 +390,16 @@ impl<'a> IntoIterator for &'a Array {
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
     }
+}
+
+/// The error message when the array is empty.
+#[cold]
+fn array_is_empty() -> EcoString {
+    "array is empty".into()
+}
+
+/// The out of bounds access error message.
+#[cold]
+fn out_of_bounds(index: i64, len: i64) -> EcoString {
+    eco_format!("array index out of bounds (index: {}, len: {})", index, len)
 }

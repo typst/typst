@@ -152,11 +152,13 @@
 #test(test == test, true)
 #test((() => {}) == (() => {}), false)
 
-// Content cannot be compared.
+// Content compares field by field.
 #let t = [a]
-#test(t == t, false)
-#test([] == [], false)
-#test([a] == [a], false)
+#test(t == t, true)
+#test([] == [], true)
+#test([a] == [a], true)
+#test(grid[a] == grid[a], true)
+#test(grid[a] == grid[b], false)
 
 ---
 // Test comparison operators.

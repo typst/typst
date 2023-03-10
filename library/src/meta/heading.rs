@@ -79,13 +79,8 @@ pub struct HeadingNode {
 }
 
 impl Prepare for HeadingNode {
-    fn prepare(
-        &self,
-        vt: &mut Vt,
-        mut this: Content,
-        styles: StyleChain,
-    ) -> SourceResult<Content> {
-        let my_id = vt.identify(&this);
+    fn prepare(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+        let my_id = vt.identify(self);
 
         let mut counter = HeadingCounter::new();
         for (node_id, node) in vt.locate(Selector::node::<HeadingNode>()) {
@@ -105,18 +100,18 @@ impl Prepare for HeadingNode {
             numbers = numbering.apply(vt.world(), counter.advance(self))?;
         }
 
-        this.push_field("outlined", Value::Bool(self.outlined(styles)));
-        this.push_field("numbers", numbers);
-
-        let meta = Meta::Node(my_id, this.clone());
-        Ok(this.styled(MetaNode::set_data(vec![meta])))
+        let mut node = self.clone().pack();
+        node.push_field("outlined", Value::Bool(self.outlined(styles)));
+        node.push_field("numbers", numbers);
+        let meta = Meta::Node(my_id, node.clone());
+        Ok(node.styled(MetaNode::set_data(vec![meta])))
     }
 }
 
 impl Show for HeadingNode {
-    fn show(&self, _: &mut Vt, this: &Content, _: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _: &mut Vt, _: StyleChain) -> SourceResult<Content> {
         let mut realized = self.body();
-        let numbers = this.field("numbers").unwrap();
+        let numbers = self.0.field("numbers").unwrap();
         if *numbers != Value::None {
             realized = numbers.clone().display()
                 + HNode::new(Em::new(0.3).into()).with_weak(true).pack()

@@ -69,6 +69,13 @@ pub fn call(
             _ => return missing(),
         },
 
+        Value::Content(content) => match method {
+            "func" => Value::Func(content.id().into()),
+            "has" => Value::Bool(content.has(&args.expect::<EcoString>("field")?)),
+            "at" => content.at(&args.expect::<EcoString>("field")?).at(span)?.clone(),
+            _ => return missing(),
+        },
+
         Value::Array(array) => match method {
             "len" => Value::Int(array.len()),
             "first" => array.first().at(span)?.clone(),
@@ -96,6 +103,7 @@ pub fn call(
             "all" => Value::Bool(array.all(vm, args.expect("function")?)?),
             "flatten" => Value::Array(array.flatten()),
             "rev" => Value::Array(array.rev()),
+            "split" => Value::Array(array.split(args.expect("separator")?)),
             "join" => {
                 let sep = args.eat()?;
                 let last = args.named("last")?;
@@ -107,7 +115,7 @@ pub fn call(
 
         Value::Dict(dict) => match method {
             "len" => Value::Int(dict.len()),
-            "at" => dict.at(&args.expect::<Str>("key")?).cloned().at(span)?,
+            "at" => dict.at(&args.expect::<Str>("key")?).at(span)?.clone(),
             "keys" => Value::Array(dict.keys()),
             "values" => Value::Array(dict.values()),
             "pairs" => Value::Array(dict.pairs()),
@@ -237,6 +245,7 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
             ("starts-with", true),
             ("trim", true),
         ],
+        "content" => &[("func", false), ("has", true), ("at", true)],
         "array" => &[
             ("all", true),
             ("any", true),
@@ -248,6 +257,7 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
             ("flatten", false),
             ("fold", true),
             ("insert", true),
+            ("split", true),
             ("join", true),
             ("last", false),
             ("len", false),

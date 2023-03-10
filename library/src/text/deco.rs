@@ -66,7 +66,7 @@ pub struct UnderlineNode {
 }
 
 impl Show for UnderlineNode {
-    fn show(&self, _: &mut Vt, _: &Content, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         Ok(self.body().styled(TextNode::set_deco(Decoration {
             line: DecoLine::Underline,
             stroke: self.stroke(styles).unwrap_or_default(),
@@ -145,7 +145,7 @@ pub struct OverlineNode {
 }
 
 impl Show for OverlineNode {
-    fn show(&self, _: &mut Vt, _: &Content, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         Ok(self.body().styled(TextNode::set_deco(Decoration {
             line: DecoLine::Overline,
             stroke: self.stroke(styles).unwrap_or_default(),
@@ -209,7 +209,7 @@ pub struct StrikeNode {
 }
 
 impl Show for StrikeNode {
-    fn show(&self, _: &mut Vt, _: &Content, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         Ok(self.body().styled(TextNode::set_deco(Decoration {
             line: DecoLine::Strikethrough,
             stroke: self.stroke(styles).unwrap_or_default(),

@@ -104,19 +104,15 @@ pub struct RawNode {
 }
 
 impl Prepare for RawNode {
-    fn prepare(
-        &self,
-        _: &mut Vt,
-        mut this: Content,
-        styles: StyleChain,
-    ) -> SourceResult<Content> {
-        this.push_field("lang", self.lang(styles).clone());
-        Ok(this)
+    fn prepare(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+        let mut node = self.clone().pack();
+        node.push_field("lang", self.lang(styles).clone());
+        Ok(node)
     }
 }
 
 impl Show for RawNode {
-    fn show(&self, _: &mut Vt, _: &Content, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let text = self.text();
         let lang = self.lang(styles).as_ref().map(|s| s.to_lowercase());
         let foreground = THEME
@@ -279,7 +275,6 @@ pub static THEME: Lazy<synt::Theme> = Lazy::new(|| synt::Theme {
         item("support.macro", Some("#16718d"), None),
         item("meta.annotation", Some("#301414"), None),
         item("entity.other, meta.interpolation", Some("#8b41b1"), None),
-        item("invalid", Some("#ff0000"), None),
     ],
 });
 

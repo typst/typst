@@ -99,7 +99,7 @@ pub struct StrongNode {
 }
 
 impl Show for StrongNode {
-    fn show(&self, _: &mut Vt, _: &Content, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         Ok(self.body().styled(TextNode::set_delta(Delta(self.delta(styles)))))
     }
 }
@@ -159,7 +159,7 @@ pub struct EmphNode {
 }
 
 impl Show for EmphNode {
-    fn show(&self, _: &mut Vt, _: &Content, _: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _: &mut Vt, _: StyleChain) -> SourceResult<Content> {
         Ok(self.body().styled(TextNode::set_emph(Toggle)))
     }
 }

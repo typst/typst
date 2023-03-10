@@ -519,7 +519,7 @@ fn collect<'a>(
         let mut styles = *styles;
         if let Some(node) = child.to::<StyledNode>() {
             child = Box::leak(Box::new(node.body()));
-            styles = outer.chain(Box::leak(Box::new(node.map())));
+            styles = outer.chain(Box::leak(Box::new(node.styles())));
         }
 
         let segment = if child.is::<SpaceNode>() {
@@ -570,10 +570,8 @@ fn collect<'a>(
             let frac = node.width(styles).is_fractional();
             full.push(if frac { SPACING_REPLACE } else { NODE_REPLACE });
             Segment::Box(node, frac)
-        } else if let Some(span) = child.span() {
-            bail!(span, "unexpected document child");
         } else {
-            continue;
+            bail!(child.span(), "unexpected paragraph child");
         };
 
         if let Some(last) = full.chars().last() {
@@ -730,7 +728,7 @@ fn shared_get<'a, T: PartialEq>(
     children
         .iter()
         .filter_map(|child| child.to::<StyledNode>())
-        .all(|node| getter(styles.chain(&node.map())) == value)
+        .all(|node| getter(styles.chain(&node.styles())) == value)
         .then(|| value)
 }
 

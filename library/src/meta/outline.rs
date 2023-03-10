@@ -70,12 +70,7 @@ pub struct OutlineNode {
 }
 
 impl Prepare for OutlineNode {
-    fn prepare(
-        &self,
-        vt: &mut Vt,
-        mut this: Content,
-        _: StyleChain,
-    ) -> SourceResult<Content> {
+    fn prepare(&self, vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
         let headings = vt
             .locate(Selector::node::<HeadingNode>())
             .into_iter()
@@ -84,18 +79,14 @@ impl Prepare for OutlineNode {
             .map(|node| Value::Content(node.clone()))
             .collect();
 
-        this.push_field("headings", Value::Array(Array::from_vec(headings)));
-        Ok(this)
+        let mut node = self.clone().pack();
+        node.push_field("headings", Value::Array(Array::from_vec(headings)));
+        Ok(node)
     }
 }
 
 impl Show for OutlineNode {
-    fn show(
-        &self,
-        vt: &mut Vt,
-        _: &Content,
-        styles: StyleChain,
-    ) -> SourceResult<Content> {
+    fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let mut seq = vec![ParbreakNode::new().pack()];
         if let Some(title) = self.title(styles) {
             let title = title.clone().unwrap_or_else(|| {

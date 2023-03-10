@@ -1,10 +1,11 @@
-use std::fmt::{self, Debug, Formatter, Write};
+use std::fmt::{self, Debug, Formatter};
 
-use ecow::EcoVec;
+use ecow::{eco_format, EcoVec};
 
 use super::{Array, Cast, Dict, Str, Value};
 use crate::diag::{bail, At, SourceResult};
 use crate::syntax::{Span, Spanned};
+use crate::util::pretty_array;
 
 /// Evaluated arguments to a function.
 #[derive(Clone, PartialEq, Hash)]
@@ -171,14 +172,9 @@ impl Args {
 
 impl Debug for Args {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_char('(')?;
-        for (i, arg) in self.items.iter().enumerate() {
-            arg.fmt(f)?;
-            if i + 1 < self.items.len() {
-                f.write_str(", ")?;
-            }
-        }
-        f.write_char(')')
+        let pieces: Vec<_> =
+            self.items.iter().map(|arg| eco_format!("{arg:?}")).collect();
+        f.write_str(&pretty_array(&pieces, false))
     }
 }
 

@@ -148,7 +148,7 @@ fn realize_root<'a>(
     content: &'a Content,
     styles: StyleChain<'a>,
 ) -> SourceResult<(Content, StyleChain<'a>)> {
-    if content.has::<dyn LayoutRoot>() && !applicable(content, styles) {
+    if content.can::<dyn LayoutRoot>() && !applicable(content, styles) {
         return Ok((content.clone(), styles));
     }
 
@@ -166,7 +166,7 @@ fn realize_block<'a>(
     content: &'a Content,
     styles: StyleChain<'a>,
 ) -> SourceResult<(Content, StyleChain<'a>)> {
-    if content.has::<dyn Layout>()
+    if content.can::<dyn Layout>()
         && !content.is::<RectNode>()
         && !content.is::<SquareNode>()
         && !content.is::<EllipseNode>()
@@ -227,16 +227,20 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         mut content: &'a Content,
         styles: StyleChain<'a>,
     ) -> SourceResult<()> {
-        if content.has::<dyn LayoutMath>() && !content.is::<FormulaNode>() {
+        if content.can::<dyn LayoutMath>() && !content.is::<FormulaNode>() {
             content =
                 self.scratch.content.alloc(FormulaNode::new(content.clone()).pack());
         }
 
         // Prepare only if this is the first application for this node.
-        if let Some(node) = content.with::<dyn Prepare>() {
+        if content.can::<dyn Prepare>() {
             if !content.is_prepared() {
-                let prepared =
-                    node.prepare(self.vt, content.clone().prepared(), styles)?;
+                let prepared = content
+                    .clone()
+                    .prepared()
+                    .with::<dyn Prepare>()
+                    .unwrap()
+                    .prepare(self.vt, styles)?;
                 let stored = self.scratch.content.alloc(prepared);
                 return self.accept(stored, styles);
             }
@@ -291,11 +295,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
             }
         }
 
-        if let Some(span) = content.span() {
-            bail!(span, "not allowed here");
-        }
-
-        Ok(())
+        bail!(content.span(), "not allowed here");
     }
 
     fn styled(
@@ -303,7 +303,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         styled: &'a StyledNode,
         styles: StyleChain<'a>,
     ) -> SourceResult<()> {
-        let map = self.scratch.maps.alloc(styled.map());
+        let map = self.scratch.maps.alloc(styled.styles());
         let stored = self.scratch.styles.alloc(styles);
         let content = self.scratch.content.alloc(styled.body());
         let styles = stored.chain(map);
@@ -436,7 +436,7 @@ impl<'a> FlowBuilder<'a> {
             return true;
         }
 
-        if content.has::<dyn Layout>() || content.is::<ParNode>() {
+        if content.can::<dyn Layout>() || content.is::<ParNode>() {
             let is_tight_list = if let Some(node) = content.to::<ListNode>() {
                 node.tight(styles)
             } else if let Some(node) = content.to::<EnumNode>() {

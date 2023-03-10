@@ -3,11 +3,11 @@ use crate::diag::SourceResult;
 
 /// Whether the target is affected by show rules in the given style chain.
 pub fn applicable(target: &Content, styles: StyleChain) -> bool {
-    if target.has::<dyn Prepare>() && !target.is_prepared() {
+    if target.can::<dyn Prepare>() && !target.is_prepared() {
         return true;
     }
 
-    if target.has::<dyn Show>() && target.is_pristine() {
+    if target.can::<dyn Show>() && target.is_pristine() {
         return true;
     }
 
@@ -51,7 +51,7 @@ pub fn realize(
     if let Some(showable) = target.with::<dyn Show>() {
         let guard = Guard::Base(target.id());
         if realized.is_none() && !target.is_guarded(guard) {
-            realized = Some(showable.show(vt, target, styles)?);
+            realized = Some(showable.show(vt, styles)?);
         }
     }
 
@@ -135,23 +135,13 @@ fn try_apply(
 /// Preparations before execution of any show rule.
 pub trait Prepare {
     /// Prepare the node for show rule application.
-    fn prepare(
-        &self,
-        vt: &mut Vt,
-        this: Content,
-        styles: StyleChain,
-    ) -> SourceResult<Content>;
+    fn prepare(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content>;
 }
 
 /// The base recipe for a node.
 pub trait Show {
     /// Execute the base recipe for this node.
-    fn show(
-        &self,
-        vt: &mut Vt,
-        this: &Content,
-        styles: StyleChain,
-    ) -> SourceResult<Content>;
+    fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content>;
 }
 
 /// Post-process a node after it was realized.

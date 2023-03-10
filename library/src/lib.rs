@@ -29,65 +29,65 @@ fn global(math: Module, calc: Module) -> Module {
     let mut global = Scope::deduplicating();
 
     // Text.
-    global.define("text", text::TextNode::func());
-    global.define("linebreak", text::LinebreakNode::func());
-    global.define("smartquote", text::SmartQuoteNode::func());
-    global.define("strong", text::StrongNode::func());
-    global.define("emph", text::EmphNode::func());
+    global.define("text", text::TextNode::id());
+    global.define("linebreak", text::LinebreakNode::id());
+    global.define("smartquote", text::SmartQuoteNode::id());
+    global.define("strong", text::StrongNode::id());
+    global.define("emph", text::EmphNode::id());
     global.define("lower", text::lower);
     global.define("upper", text::upper);
     global.define("smallcaps", text::smallcaps);
-    global.define("sub", text::SubNode::func());
-    global.define("super", text::SuperNode::func());
-    global.define("underline", text::UnderlineNode::func());
-    global.define("strike", text::StrikeNode::func());
-    global.define("overline", text::OverlineNode::func());
-    global.define("raw", text::RawNode::func());
+    global.define("sub", text::SubNode::id());
+    global.define("super", text::SuperNode::id());
+    global.define("underline", text::UnderlineNode::id());
+    global.define("strike", text::StrikeNode::id());
+    global.define("overline", text::OverlineNode::id());
+    global.define("raw", text::RawNode::id());
     global.define("lorem", text::lorem);
 
     // Math.
     global.define("math", math);
 
     // Layout.
-    global.define("page", layout::PageNode::func());
-    global.define("pagebreak", layout::PagebreakNode::func());
-    global.define("v", layout::VNode::func());
-    global.define("par", layout::ParNode::func());
-    global.define("parbreak", layout::ParbreakNode::func());
-    global.define("h", layout::HNode::func());
-    global.define("box", layout::BoxNode::func());
-    global.define("block", layout::BlockNode::func());
-    global.define("list", layout::ListNode::func());
-    global.define("enum", layout::EnumNode::func());
-    global.define("terms", layout::TermsNode::func());
-    global.define("table", layout::TableNode::func());
-    global.define("stack", layout::StackNode::func());
-    global.define("grid", layout::GridNode::func());
-    global.define("columns", layout::ColumnsNode::func());
-    global.define("colbreak", layout::ColbreakNode::func());
-    global.define("place", layout::PlaceNode::func());
-    global.define("align", layout::AlignNode::func());
-    global.define("pad", layout::PadNode::func());
-    global.define("repeat", layout::RepeatNode::func());
-    global.define("move", layout::MoveNode::func());
-    global.define("scale", layout::ScaleNode::func());
-    global.define("rotate", layout::RotateNode::func());
-    global.define("hide", layout::HideNode::func());
+    global.define("page", layout::PageNode::id());
+    global.define("pagebreak", layout::PagebreakNode::id());
+    global.define("v", layout::VNode::id());
+    global.define("par", layout::ParNode::id());
+    global.define("parbreak", layout::ParbreakNode::id());
+    global.define("h", layout::HNode::id());
+    global.define("box", layout::BoxNode::id());
+    global.define("block", layout::BlockNode::id());
+    global.define("list", layout::ListNode::id());
+    global.define("enum", layout::EnumNode::id());
+    global.define("terms", layout::TermsNode::id());
+    global.define("table", layout::TableNode::id());
+    global.define("stack", layout::StackNode::id());
+    global.define("grid", layout::GridNode::id());
+    global.define("columns", layout::ColumnsNode::id());
+    global.define("colbreak", layout::ColbreakNode::id());
+    global.define("place", layout::PlaceNode::id());
+    global.define("align", layout::AlignNode::id());
+    global.define("pad", layout::PadNode::id());
+    global.define("repeat", layout::RepeatNode::id());
+    global.define("move", layout::MoveNode::id());
+    global.define("scale", layout::ScaleNode::id());
+    global.define("rotate", layout::RotateNode::id());
+    global.define("hide", layout::HideNode::id());
 
     // Visualize.
-    global.define("image", visualize::ImageNode::func());
-    global.define("line", visualize::LineNode::func());
-    global.define("rect", visualize::RectNode::func());
-    global.define("square", visualize::SquareNode::func());
-    global.define("ellipse", visualize::EllipseNode::func());
-    global.define("circle", visualize::CircleNode::func());
+    global.define("image", visualize::ImageNode::id());
+    global.define("line", visualize::LineNode::id());
+    global.define("rect", visualize::RectNode::id());
+    global.define("square", visualize::SquareNode::id());
+    global.define("ellipse", visualize::EllipseNode::id());
+    global.define("circle", visualize::CircleNode::id());
 
     // Meta.
-    global.define("document", meta::DocumentNode::func());
-    global.define("ref", meta::RefNode::func());
-    global.define("link", meta::LinkNode::func());
-    global.define("outline", meta::OutlineNode::func());
-    global.define("heading", meta::HeadingNode::func());
+    global.define("document", meta::DocumentNode::id());
+    global.define("ref", meta::RefNode::id());
+    global.define("link", meta::LinkNode::id());
+    global.define("outline", meta::OutlineNode::id());
+    global.define("heading", meta::HeadingNode::id());
     global.define("numbering", meta::numbering);
 
     // Symbols.

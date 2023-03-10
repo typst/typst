@@ -31,7 +31,7 @@
 #false.ok
 
 ---
-// Error: 29-32 unknown field `fun`
+// Error: 29-32 content does not contain field "fun"
 #show heading: node => node.fun
 = A
 

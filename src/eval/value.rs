@@ -120,10 +120,7 @@ impl Value {
         match self {
             Self::Symbol(symbol) => symbol.clone().modified(&field).map(Self::Symbol),
             Self::Dict(dict) => dict.at(&field).cloned(),
-            Self::Content(content) => content
-                .field(&field)
-                .cloned()
-                .ok_or_else(|| eco_format!("unknown field `{field}`")),
+            Self::Content(content) => content.at(&field).cloned(),
             Self::Module(module) => module.get(&field).cloned(),
             v => Err(eco_format!("cannot access fields on type {}", v.type_name())),
         }
@@ -190,7 +187,7 @@ impl Debug for Value {
             Self::Symbol(v) => Debug::fmt(v, f),
             Self::Str(v) => Debug::fmt(v, f),
             Self::Label(v) => Debug::fmt(v, f),
-            Self::Content(_) => f.pad("[...]"),
+            Self::Content(v) => Debug::fmt(v, f),
             Self::Array(v) => Debug::fmt(v, f),
             Self::Dict(v) => Debug::fmt(v, f),
             Self::Func(v) => Debug::fmt(v, f),

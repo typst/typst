@@ -1,11 +1,15 @@
+use std::fmt::Write;
+
+use ecow::EcoString;
+
 use if_chain::if_chain;
-use unicode_segmentation::UnicodeSegmentation;
 
 use super::{analyze_expr, plain_docs_sentence, summarize_font_family};
 use crate::eval::{CastInfo, Tracer, Value};
 use crate::geom::{round_2, Length, Numeric};
 use crate::syntax::ast;
 use crate::syntax::{LinkedNode, Source, SyntaxKind};
+use crate::util::pretty_comma_list;
 use crate::World;
 
 /// Describe the item under the cursor.
@@ -60,31 +64,27 @@ fn expr_tooltip(world: &(dyn World + 'static), leaf: &LinkedNode) -> Option<Tool
         return None;
     }
 
-    let mut tooltip = String::new();
-    let mut iter = values.into_iter().enumerate();
-    for (i, value) in (&mut iter).take(Tracer::MAX - 1) {
-        if i > 0 && !tooltip.is_empty() {
-            tooltip.push_str(", ");
+    let mut last = None;
+    let mut pieces: Vec<EcoString> = vec![];
+    let mut iter = values.iter();
+    for value in (&mut iter).take(Tracer::MAX - 1) {
+        if let Some((prev, count)) = &mut last {
+            if *prev == value {
+                *count += 1;
+                continue;
+            } else if *count > 1 {
+                write!(pieces.last_mut().unwrap(), " (x{count})").unwrap();
+            }
         }
-        let repr = value.repr();
-        let repr = repr.as_str();
-        let len = repr.len();
-        if len <= 40 {
-            tooltip.push_str(repr);
-        } else {
-            let mut graphemes = repr.graphemes(true);
-            let r = graphemes.next_back().map_or(0, str::len);
-            let l = graphemes.take(40).map(str::len).sum();
-            tooltip.push_str(&repr[..l]);
-            tooltip.push_str("...");
-            tooltip.push_str(&repr[len - r..]);
-        }
+        pieces.push(value.repr().into());
+        last = Some((value, 1));
     }
 
     if iter.next().is_some() {
-        tooltip.push_str(", ...");
+        pieces.push("...".into());
     }
 
+    let tooltip = pretty_comma_list(&pieces, false);
     (!tooltip.is_empty()).then(|| Tooltip::Code(tooltip))
 }
 

@@ -47,6 +47,7 @@ use unicode_segmentation::UnicodeSegmentation;
 use crate::diag::{
     bail, error, At, SourceError, SourceResult, StrResult, Trace, Tracepoint,
 };
+use crate::model::Unlabellable;
 use crate::model::{Content, Label, Recipe, Selector, StyleMap, Transform};
 use crate::syntax::ast::AstNode;
 use crate::syntax::{
@@ -357,12 +358,12 @@ fn eval_markup(
                 }
 
                 let tail = eval_markup(vm, exprs)?;
-                seq.push(tail.apply_recipe(vm.world, recipe)?)
+                seq.push(tail.styled_with_recipe(vm.world, recipe)?)
             }
             expr => match expr.eval(vm)? {
                 Value::Label(label) => {
                     if let Some(node) =
-                        seq.iter_mut().rev().find(|node| node.labellable())
+                        seq.iter_mut().rev().find(|node| !node.can::<dyn Unlabellable>())
                     {
                         *node = mem::take(node).labelled(label);
                     }
@@ -786,7 +787,7 @@ fn eval_code(
                 }
 
                 let tail = eval_code(vm, exprs)?.display();
-                Value::Content(tail.apply_recipe(vm.world, recipe)?)
+                Value::Content(tail.styled_with_recipe(vm.world, recipe)?)
             }
             _ => expr.eval(vm)?,
         };
@@ -979,6 +980,10 @@ impl Eval for ast::FuncCall {
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let span = self.span();
+        if vm.depth >= MAX_CALL_DEPTH {
+            bail!(span, "maximum function call depth exceeded");
+        }
+
         let callee = self.callee();
         let in_math = in_math(&callee);
         let callee_span = callee.span();
@@ -1040,11 +1045,6 @@ impl Eval for ast::FuncCall {
                         (vm.items.text)(')'.into()),
                     ),
             ));
-        }
-
-        // Finally, just a normal function call!
-        if vm.depth >= MAX_CALL_DEPTH {
-            bail!(span, "maximum function call depth exceeded");
         }
 
         let callee = callee.cast::<Func>().at(callee_span)?;

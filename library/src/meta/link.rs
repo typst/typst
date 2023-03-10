@@ -78,7 +78,7 @@ impl LinkNode {
 }
 
 impl Show for LinkNode {
-    fn show(&self, _: &mut Vt, _: &Content, _: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _: &mut Vt, _: StyleChain) -> SourceResult<Content> {
         Ok(self.body())
     }
 }

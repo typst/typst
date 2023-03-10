@@ -58,7 +58,7 @@ pub struct AlignNode {
 }
 
 impl Show for AlignNode {
-    fn show(&self, _: &mut Vt, _: &Content, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         Ok(self
             .body()
             .styled(Self::set_alignment(self.alignment(styles).map(Some))))

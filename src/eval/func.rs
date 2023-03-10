@@ -13,7 +13,7 @@ use super::{
     Vm,
 };
 use crate::diag::{bail, SourceResult, StrResult};
-use crate::model::{Content, NodeId, Selector, StyleMap};
+use crate::model::{NodeId, Selector, StyleMap};
 use crate::syntax::ast::{self, AstNode, Expr};
 use crate::syntax::{SourceId, Span, SyntaxNode};
 use crate::util::hash128;
@@ -29,7 +29,7 @@ enum Repr {
     /// A native Rust function.
     Native(NativeFunc),
     /// A function for a node.
-    Node(NodeFunc),
+    Node(NodeId),
     /// A user-defined closure.
     Closure(Closure),
     /// A nested function with pre-applied arguments.
@@ -156,13 +156,13 @@ impl Func {
 
     /// Create a selector for this function's node type.
     pub fn select(&self, fields: Option<Dict>) -> StrResult<Selector> {
-        match &**self.0 {
-            Repr::Node(node) => {
-                if node.id == item!(text_id) {
+        match **self.0 {
+            Repr::Node(id) => {
+                if id == item!(text_id) {
                     Err("to select text, please use a string or regex instead")?;
                 }
 
-                Ok(Selector::Node(node.id, fields))
+                Ok(Selector::Node(id, fields))
             }
             _ => Err("this function is not selectable")?,
         }
@@ -172,8 +172,8 @@ impl Func {
 impl Debug for Func {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self.name() {
-            Some(name) => write!(f, "<function {name}>"),
-            None => f.write_str("<function>"),
+            Some(name) => write!(f, "{name}"),
+            None => f.write_str("(..) => .."),
         }
     }
 }
@@ -188,6 +188,16 @@ impl From<Repr> for Func {
     fn from(repr: Repr) -> Self {
         Self(Arc::new(Prehashed::new(repr)), Span::detached())
     }
+}
+
+impl From<NodeId> for Func {
+    fn from(id: NodeId) -> Self {
+        Repr::Node(id).into()
+    }
+}
+
+cast_to_value! {
+    v: NodeId => Value::Func(v.into())
 }
 
 /// A native Rust function.
@@ -221,36 +231,6 @@ where
     fn from(f: F) -> Self {
         f().into()
     }
-}
-
-/// A function defined by a native Rust node.
-pub struct NodeFunc {
-    /// The node's id.
-    pub id: NodeId,
-    /// The node's constructor.
-    pub construct: fn(&Vm, &mut Args) -> SourceResult<Content>,
-    /// The node's set rule.
-    pub set: fn(&mut Args) -> SourceResult<StyleMap>,
-    /// Details about the function.
-    pub info: Lazy<FuncInfo>,
-}
-
-impl Hash for NodeFunc {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.id.hash(state);
-        (self.construct as usize).hash(state);
-        (self.set as usize).hash(state);
-    }
-}
-
-impl From<NodeFunc> for Func {
-    fn from(node: NodeFunc) -> Self {
-        Repr::Node(node).into()
-    }
-}
-
-cast_to_value! {
-    v: NodeFunc => Value::Func(v.into())
 }
 
 /// Details about a function.

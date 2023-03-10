@@ -23,7 +23,7 @@ pub struct HideNode {
 }
 
 impl Show for HideNode {
-    fn show(&self, _: &mut Vt, _: &Content, _: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _: &mut Vt, _: StyleChain) -> SourceResult<Content> {
         Ok(self.body().styled(MetaNode::set_data(vec![Meta::Hidden])))
     }
 }

@@ -39,7 +39,7 @@ impl LayoutRoot for DocumentNode {
             let outer = styles;
             let mut styles = outer;
             if let Some(node) = child.to::<StyledNode>() {
-                map = node.map();
+                map = node.styles();
                 styles = outer.chain(&map);
                 child = node.body();
             }
@@ -48,8 +48,8 @@ impl LayoutRoot for DocumentNode {
                 let number = 1 + pages.len();
                 let fragment = page.layout(vt, number, styles)?;
                 pages.extend(fragment);
-            } else if let Some(span) = child.span() {
-                bail!(span, "unexpected document child");
+            } else {
+                bail!(child.span(), "unexpected document child");
             }
         }
 

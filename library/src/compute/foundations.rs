@@ -53,7 +53,7 @@ pub fn repr(
 /// Fail with an error.
 ///
 /// ## Example
-/// The code below produces the error `panicked at: "this is wrong"`.
+/// The code below produces the error `panicked with: "this is wrong"`.
 /// ```typ
 /// #panic("this is wrong")
 /// ```
@@ -63,14 +63,21 @@ pub fn repr(
 /// Returns:
 #[func]
 pub fn panic(
-    /// The value (or message) to panic with.
-    #[default]
-    payload: Option<Value>,
+    /// The values to panic with.
+    #[variadic]
+    values: Vec<Value>,
 ) -> Value {
-    match payload {
-        Some(v) => bail!(args.span, "panicked with: {}", v.repr()),
-        None => bail!(args.span, "panicked"),
+    let mut msg = EcoString::from("panicked");
+    if !values.is_empty() {
+        msg.push_str(" with: ");
+        for (i, value) in values.iter().enumerate() {
+            if i > 0 {
+                msg.push_str(", ");
+            }
+            msg.push_str(&value.repr());
+        }
     }
+    bail!(args.span, msg);
 }
 
 /// Ensure that a condition is fulfilled.

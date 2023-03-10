@@ -1,5 +1,5 @@
 use std::collections::BTreeMap;
-use std::fmt::{self, Debug, Formatter, Write};
+use std::fmt::{self, Debug, Formatter};
 use std::ops::{Add, AddAssign};
 use std::sync::Arc;
 
@@ -8,7 +8,7 @@ use ecow::{eco_format, EcoString};
 use super::{array, Array, Str, Value};
 use crate::diag::StrResult;
 use crate::syntax::is_ident;
-use crate::util::ArcExt;
+use crate::util::{pretty_array, ArcExt};
 
 /// Create a new [`Dict`] from key-value pairs.
 #[macro_export]
@@ -132,31 +132,24 @@ impl Dict {
     }
 }
 
-/// The missing key access error message.
-#[cold]
-fn missing_key(key: &str) -> EcoString {
-    eco_format!("dictionary does not contain key {:?}", Str::from(key))
-}
-
 impl Debug for Dict {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_char('(')?;
         if self.is_empty() {
-            f.write_char(':')?;
+            return f.write_str("(:)");
         }
-        for (i, (key, value)) in self.iter().enumerate() {
-            if is_ident(key) {
-                f.write_str(key)?;
-            } else {
-                write!(f, "{key:?}")?;
-            }
-            f.write_str(": ")?;
-            value.fmt(f)?;
-            if i + 1 < self.0.len() {
-                f.write_str(", ")?;
-            }
-        }
-        f.write_char(')')
+
+        let pieces: Vec<_> = self
+            .iter()
+            .map(|(key, value)| {
+                if is_ident(key) {
+                    eco_format!("{key}: {value:?}")
+                } else {
+                    eco_format!("{key:?}: {value:?}")
+                }
+            })
+            .collect();
+
+        f.write_str(&pretty_array(&pieces, false))
     }
 }
 
@@ -206,4 +199,10 @@ impl<'a> IntoIterator for &'a Dict {
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
     }
+}
+
+/// The missing key access error message.
+#[cold]
+fn missing_key(key: &str) -> EcoString {
+    eco_format!("dictionary does not contain key {:?}", Str::from(key))
 }

@@ -32,7 +32,7 @@ impl Layout for FlowNode {
             let outer = styles;
             let mut styles = outer;
             if let Some(node) = child.to::<StyledNode>() {
-                map = node.map();
+                map = node.styles();
                 styles = outer.chain(&map);
                 child = node.body();
             }
@@ -48,15 +48,15 @@ impl Layout for FlowNode {
                 || child.is::<ImageNode>()
             {
                 layouter.layout_single(vt, &child, styles)?;
-            } else if child.has::<dyn Layout>() {
+            } else if child.can::<dyn Layout>() {
                 layouter.layout_multiple(vt, &child, styles)?;
             } else if child.is::<ColbreakNode>() {
                 if !layouter.regions.backlog.is_empty() || layouter.regions.last.is_some()
                 {
                     layouter.finish_region();
                 }
-            } else if let Some(span) = child.span() {
-                bail!(span, "unexpected flow child");
+            } else {
+                bail!(child.span(), "unexpected flow child");
             }
         }
 
@@ -207,7 +207,7 @@ impl<'a> FlowLayouter<'a> {
         let aligns = if let Some(align) = block.to::<AlignNode>() {
             align.alignment(styles)
         } else if let Some(styled) = block.to::<StyledNode>() {
-            AlignNode::alignment_in(styles.chain(&styled.map()))
+            AlignNode::alignment_in(styles.chain(&styled.styles()))
         } else {
             AlignNode::alignment_in(styles)
         }

@@ -47,12 +47,7 @@ pub struct SubNode {
 }
 
 impl Show for SubNode {
-    fn show(
-        &self,
-        vt: &mut Vt,
-        _: &Content,
-        styles: StyleChain,
-    ) -> SourceResult<Content> {
+    fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let body = self.body();
         let mut transformed = None;
         if self.typographic(styles) {
@@ -114,12 +109,7 @@ pub struct SuperNode {
 }
 
 impl Show for SuperNode {
-    fn show(
-        &self,
-        vt: &mut Vt,
-        _: &Content,
-        styles: StyleChain,
-    ) -> SourceResult<Content> {
+    fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let body = self.body();
         let mut transformed = None;
         if self.typographic(styles) {

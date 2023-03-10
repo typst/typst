@@ -47,52 +47,52 @@ use crate::text::{
 /// Create a module with all math definitions.
 pub fn module() -> Module {
     let mut math = Scope::deduplicating();
-    math.define("formula", FormulaNode::func());
-    math.define("text", TextNode::func());
+    math.define("formula", FormulaNode::id());
+    math.define("text", TextNode::id());
 
     // Grouping.
-    math.define("lr", LrNode::func());
+    math.define("lr", LrNode::id());
     math.define("abs", abs);
     math.define("norm", norm);
     math.define("floor", floor);
     math.define("ceil", ceil);
 
     // Attachments and accents.
-    math.define("attach", AttachNode::func());
-    math.define("scripts", ScriptsNode::func());
-    math.define("limits", LimitsNode::func());
-    math.define("accent", AccentNode::func());
-    math.define("underline", UnderlineNode::func());
-    math.define("overline", OverlineNode::func());
-    math.define("underbrace", UnderbraceNode::func());
-    math.define("overbrace", OverbraceNode::func());
-    math.define("underbracket", UnderbracketNode::func());
-    math.define("overbracket", OverbracketNode::func());
+    math.define("attach", AttachNode::id());
+    math.define("scripts", ScriptsNode::id());
+    math.define("limits", LimitsNode::id());
+    math.define("accent", AccentNode::id());
+    math.define("underline", UnderlineNode::id());
+    math.define("overline", OverlineNode::id());
+    math.define("underbrace", UnderbraceNode::id());
+    math.define("overbrace", OverbraceNode::id());
+    math.define("underbracket", UnderbracketNode::id());
+    math.define("overbracket", OverbracketNode::id());
 
     // Fractions and matrix-likes.
-    math.define("frac", FracNode::func());
-    math.define("binom", BinomNode::func());
-    math.define("vec", VecNode::func());
-    math.define("mat", MatNode::func());
-    math.define("cases", CasesNode::func());
+    math.define("frac", FracNode::id());
+    math.define("binom", BinomNode::id());
+    math.define("vec", VecNode::id());
+    math.define("mat", MatNode::id());
+    math.define("cases", CasesNode::id());
 
     // Roots.
-    math.define("sqrt", SqrtNode::func());
-    math.define("root", RootNode::func());
+    math.define("sqrt", SqrtNode::id());
+    math.define("root", RootNode::id());
 
     // Styles.
-    math.define("upright", UprightNode::func());
-    math.define("bold", BoldNode::func());
-    math.define("italic", ItalicNode::func());
-    math.define("serif", SerifNode::func());
-    math.define("sans", SansNode::func());
-    math.define("cal", CalNode::func());
-    math.define("frak", FrakNode::func());
-    math.define("mono", MonoNode::func());
-    math.define("bb", BbNode::func());
+    math.define("upright", UprightNode::id());
+    math.define("bold", BoldNode::id());
+    math.define("italic", ItalicNode::id());
+    math.define("serif", SerifNode::id());
+    math.define("sans", SansNode::id());
+    math.define("cal", CalNode::id());
+    math.define("frak", FrakNode::id());
+    math.define("mono", MonoNode::id());
+    math.define("bb", BbNode::id());
 
     // Text operators.
-    math.define("op", OpNode::func());
+    math.define("op", OpNode::id());
     op::define(&mut math);
 
     // Spacings.
@@ -144,7 +144,7 @@ pub struct FormulaNode {
 }
 
 impl Show for FormulaNode {
-    fn show(&self, _: &mut Vt, _: &Content, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.clone().pack().guarded(Guard::Base(NodeId::of::<Self>()));
         if self.block(styles) {
             realized = realized.aligned(Axes::with_x(Some(Align::Center.into())))
@@ -183,10 +183,7 @@ impl Layout for FormulaNode {
                 Some(font)
             })
         else {
-            if let Some(span) = self.span() {
-                bail!(span, "current font does not support math");
-            }
-            return Ok(Fragment::frame(Frame::new(Size::zero())))
+            bail!(self.span(), "current font does not support math");
         };
 
         let mut ctx = MathContext::new(vt, styles, regions, &font, block);
@@ -228,7 +225,7 @@ impl LayoutMath for Content {
         }
 
         if let Some(styled) = self.to::<StyledNode>() {
-            let map = styled.map();
+            let map = styled.styles();
             if TextNode::font_in(ctx.styles().chain(&map))
                 != TextNode::font_in(ctx.styles())
             {
