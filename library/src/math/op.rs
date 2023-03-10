@@ -23,7 +23,6 @@ use super::*;
 #[node(LayoutMath)]
 pub struct OpNode {
     /// The operator's text.
-    #[positional]
     #[required]
     pub text: EcoString,
 

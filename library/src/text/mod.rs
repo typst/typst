@@ -38,10 +38,6 @@ use crate::prelude::*;
 /// ])
 /// ```
 ///
-/// ## Parameters
-/// - body: `Content` (positional, required)
-///   Content in which all text is styled according to the other arguments.
-///
 /// Display: Text
 /// Category: text
 #[node(Construct)]
@@ -447,9 +443,13 @@ pub struct TextNode {
     #[fold]
     pub features: FontFeatures,
 
+    /// Content in which all text is styled according to the other arguments.
+    #[external]
+    #[required]
+    pub body: Content,
+
     /// The text.
     #[internal]
-    #[positional]
     #[required]
     pub text: EcoString,
 

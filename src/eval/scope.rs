@@ -4,7 +4,7 @@ use std::hash::Hash;
 
 use ecow::EcoString;
 
-use super::{Func, FuncType, Library, Value};
+use super::{Library, Value};
 use crate::diag::StrResult;
 
 /// A stack of scopes.
@@ -94,11 +94,6 @@ impl Scope {
         }
 
         self.0.insert(name, Slot::new(value.into(), Kind::Normal));
-    }
-
-    /// Define a function through a native rust function.
-    pub fn def_func<T: FuncType>(&mut self, name: &'static str) {
-        self.define(name, Func::from_type::<T>(name));
     }
 
     /// Define a captured, immutable binding.

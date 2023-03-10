@@ -20,7 +20,6 @@ use crate::text::TextNode;
 #[node(Show)]
 pub struct RefNode {
     /// The label that should be referenced.
-    #[positional]
     #[required]
     pub target: EcoString,
 }

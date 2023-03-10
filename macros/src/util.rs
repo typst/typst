@@ -58,14 +58,6 @@ pub fn kebab_case(name: &Ident) -> String {
     name.to_string().to_lowercase().replace('_', "-")
 }
 
-/// Dedent documentation text.
-pub fn dedent(text: &str) -> String {
-    text.lines()
-        .map(|s| s.strip_prefix("  ").unwrap_or(s))
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
 /// Extract documentation comments from an attribute list.
 pub fn documentation(attrs: &[syn::Attribute]) -> String {
     let mut doc = String::new();
@@ -85,4 +77,12 @@ pub fn documentation(attrs: &[syn::Attribute]) -> String {
     }
 
     doc.trim().into()
+}
+
+/// Extract a line of metadata from documentation.
+pub fn meta_line<'a>(lines: &mut Vec<&'a str>, key: &str) -> Result<&'a str> {
+    match lines.pop().and_then(|line| line.strip_prefix(&format!("{key}:"))) {
+        Some(value) => Ok(value.trim()),
+        None => bail!(callsite, "missing metadata key: {}", key),
+    }
 }

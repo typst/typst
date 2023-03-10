@@ -24,7 +24,6 @@ use crate::prelude::*;
 #[node(Behave)]
 pub struct HNode {
     /// How much spacing to insert.
-    #[positional]
     #[required]
     pub amount: Spacing,
 
@@ -84,30 +83,29 @@ impl Behave for HNode {
 /// )
 /// ```
 ///
-/// ## Parameters
-/// - weak: `bool` (named, settable)
-///   If true, the spacing collapses at the start or end of a flow. Moreover,
-///   from multiple adjacent weak spacings all but the largest one collapse.
-///   Weak spacings will always collapse adjacent paragraph spacing, even if the
-///   paragraph spacing is larger.
-///
-///   ```example
-///   The following theorem is
-///   foundational to the field:
-///   #v(4pt, weak: true)
-///   $ x^2 + y^2 = r^2 $
-///   #v(4pt, weak: true)
-///   The proof is simple:
-///   ```
-///
 /// Display: Spacing (V)
 /// Category: layout
 #[node(Behave)]
 pub struct VNode {
     /// How much spacing to insert.
-    #[positional]
     #[required]
     pub amount: Spacing,
+
+    /// If true, the spacing collapses at the start or end of a flow. Moreover,
+    /// from multiple adjacent weak spacings all but the largest one collapse.
+    /// Weak spacings will always collapse adjacent paragraph spacing, even if the
+    /// paragraph spacing is larger.
+    ///
+    /// ```example
+    /// The following theorem is
+    /// foundational to the field:
+    /// #v(4pt, weak: true)
+    /// $ x^2 + y^2 = r^2 $
+    /// #v(4pt, weak: true)
+    /// The proof is simple:
+    /// ```
+    #[external]
+    pub weak: bool,
 
     /// The node's weakness level, see also [`Behaviour`].
     #[internal]

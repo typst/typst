@@ -1,183 +1,183 @@
+use quote::ToTokens;
+
 use super::*;
 
 /// Expand the `#[func]` macro.
-pub fn func(mut item: syn::Item) -> Result<TokenStream> {
-    let attrs = match &mut item {
-        syn::Item::Struct(item) => &mut item.attrs,
-        syn::Item::Fn(item) => &mut item.attrs,
-        _ => bail!(item, "expected struct or fn"),
-    };
-
-    let docs = documentation(&attrs);
-
-    let mut lines: Vec<_> = docs.lines().collect();
-    let Some(category) = lines.pop().and_then(|s| s.strip_prefix("Category: ")) else {
-        bail!(item, "expected category");
-    };
-    let Some(display) = lines.pop().and_then(|s| s.strip_prefix("Display: ")) else {
-        bail!(item, "expected display name");
-    };
-
-    let mut docs = lines.join("\n");
-    let (params, returns) = params(&mut docs)?;
-    let docs = docs.trim();
-    attrs.retain(|attr| !attr.path.is_ident("doc"));
-    attrs.push(parse_quote! { #[doc = #docs] });
-
-    let info = quote! {
-        ::typst::eval::FuncInfo {
-            name,
-            display: #display,
-            category: #category,
-            docs: #docs,
-            params: ::std::vec![#(#params),*],
-            returns: ::std::vec![#(#returns),*]
-        }
-    };
-
-    if let syn::Item::Fn(item) = &item {
-        let vis = &item.vis;
-        let ident = &item.sig.ident;
-        let s = ident.to_string();
-        let mut chars = s.trim_end_matches('_').chars();
-        let ty = quote::format_ident!(
-            "{}{}Func",
-            chars.next().unwrap().to_ascii_uppercase(),
-            chars.as_str()
-        );
-
-        let full = if item.sig.inputs.len() == 1 {
-            quote! { |_, args| #ident(args) }
-        } else {
-            quote! { #ident }
-        };
-
-        Ok(quote! {
-            #item
-
-            #[doc(hidden)]
-            #vis enum #ty {}
-
-            impl::typst::eval::FuncType for #ty {
-                fn create_func(name: &'static str) -> ::typst::eval::Func {
-                    ::typst::eval::Func::from_fn(#full, #info)
-                }
-            }
-        })
-    } else {
-        let (ident, generics) = match &item {
-            syn::Item::Struct(s) => (&s.ident, &s.generics),
-            syn::Item::Enum(s) => (&s.ident, &s.generics),
-            _ => bail!(item, "only structs, enums, and functions are supported"),
-        };
-
-        let (params, args, clause) = generics.split_for_impl();
-
-        Ok(quote! {
-            #item
-
-            impl #params ::typst::eval::FuncType for #ident #args #clause {
-                fn create_func(name: &'static str) -> ::typst::eval::Func {
-                    ::typst::eval::Func::from_node::<Self>(#info)
-                }
-            }
-        })
-    }
+pub fn func(item: syn::ItemFn) -> Result<TokenStream> {
+    let func = prepare(&item)?;
+    Ok(create(&func))
 }
 
-/// Extract a section.
-fn section(docs: &mut String, title: &str, level: usize) -> Option<String> {
-    let hashtags = "#".repeat(level);
-    let needle = format!("\n{hashtags} {title}\n");
-    let start = docs.find(&needle)?;
-    let rest = &docs[start..];
-    let len = rest[1..]
-        .find("\n# ")
-        .or_else(|| rest[1..].find("\n## "))
-        .or_else(|| rest[1..].find("\n### "))
-        .map(|x| 1 + x)
-        .unwrap_or(rest.len());
-    let end = start + len;
-    let section = docs[start + needle.len()..end].trim().to_owned();
-    docs.replace_range(start..end, "");
-    Some(section)
+struct Func {
+    name: String,
+    display: String,
+    category: String,
+    docs: String,
+    vis: syn::Visibility,
+    ident: Ident,
+    params: Vec<Param>,
+    returns: Vec<String>,
+    body: syn::Block,
 }
 
-/// Parse the parameter section.
-fn params(docs: &mut String) -> Result<(Vec<TokenStream>, Vec<String>)> {
-    let Some(section) = section(docs, "Parameters", 2) else {
-        return Ok((vec![], vec![]));
-    };
+struct Param {
+    name: String,
+    docs: String,
+    external: bool,
+    named: bool,
+    variadic: bool,
+    default: Option<syn::Expr>,
+    ident: Ident,
+    ty: syn::Type,
+}
 
-    let mut s = Scanner::new(&section);
-    let mut infos = vec![];
-    let mut returns = vec![];
+fn prepare(item: &syn::ItemFn) -> Result<Func> {
+    let sig = &item.sig;
 
-    while s.eat_if('-') {
-        let mut named = false;
-        let mut positional = false;
-        let mut required = false;
-        let mut variadic = false;
-        let mut settable = false;
+    let mut params = vec![];
+    for input in &sig.inputs {
+        let syn::FnArg::Typed(typed) = input else {
+            bail!(input, "self is not allowed here");
+        };
 
-        s.eat_whitespace();
-        let name = s.eat_until(':');
-        s.expect(": ");
+        let syn::Pat::Ident(syn::PatIdent {
+            by_ref: None,
+            mutability: None,
+            ident,
+            ..
+        }) = &*typed.pat else {
+            bail!(typed.pat, "expected identifier");
+        };
 
-        if name == "returns" {
-            returns = s
-                .eat_until('\n')
-                .split(" or ")
-                .map(str::trim)
-                .map(Into::into)
-                .collect();
-            s.eat_whitespace();
-            continue;
+        if sig.output.to_token_stream().to_string() != "-> Value" {
+            bail!(sig.output, "must return `Value`");
         }
 
-        s.expect('`');
-        let ty: syn::Type = syn::parse_str(s.eat_until('`'))?;
-        s.expect('`');
-        s.eat_whitespace();
-        s.expect('(');
-
-        for part in s.eat_until(')').split(',').map(str::trim).filter(|s| !s.is_empty()) {
-            match part {
-                "positional" => positional = true,
-                "named" => named = true,
-                "required" => required = true,
-                "variadic" => variadic = true,
-                "settable" => settable = true,
-                _ => bail!(callsite, "unknown parameter flag {:?}", part),
-            }
-        }
-
-        if (!named && !positional) || (variadic && !positional) {
-            bail!(callsite, "invalid combination of parameter flags");
-        }
-
-        s.expect(')');
-
-        let docs = dedent(s.eat_until("\n-").trim());
-        let docs = docs.trim();
-
-        infos.push(quote! {
-            ::typst::eval::ParamInfo {
-                name: #name,
-                docs: #docs,
-                cast: <#ty as ::typst::eval::Cast<
-                    ::typst::syntax::Spanned<::typst::eval::Value>
-                >>::describe(),
-                positional: #positional,
-                named: #named,
-                variadic: #variadic,
-                required: #required,
-                settable: #settable,
-            }
+        let mut attrs = typed.attrs.clone();
+        params.push(Param {
+            name: kebab_case(ident),
+            docs: documentation(&attrs),
+            external: has_attr(&mut attrs, "external"),
+            named: has_attr(&mut attrs, "named"),
+            variadic: has_attr(&mut attrs, "variadic"),
+            default: parse_attr(&mut attrs, "default")?.map(|expr| {
+                expr.unwrap_or_else(
+                    || parse_quote! { ::std::default::Default::default() },
+                )
+            }),
+            ident: ident.clone(),
+            ty: (*typed.ty).clone(),
         });
 
-        s.eat_whitespace();
+        validate_attrs(&attrs)?;
     }
 
-    Ok((infos, returns))
+    let docs = documentation(&item.attrs);
+    let mut lines = docs.split("\n").collect();
+    let returns = meta_line(&mut lines, "Returns")?
+        .split(" or ")
+        .map(Into::into)
+        .collect();
+    let category = meta_line(&mut lines, "Category")?.into();
+    let display = meta_line(&mut lines, "Display")?.into();
+    let docs = lines.join("\n").trim().into();
+
+    let func = Func {
+        name: sig.ident.to_string().replace('_', ""),
+        display,
+        category,
+        docs,
+        vis: item.vis.clone(),
+        ident: sig.ident.clone(),
+        params,
+        returns,
+        body: (*item.block).clone(),
+    };
+
+    validate_attrs(&item.attrs)?;
+    Ok(func)
+}
+
+fn create(func: &Func) -> TokenStream {
+    let Func {
+        name,
+        display,
+        category,
+        docs,
+        vis,
+        ident,
+        params,
+        returns,
+        body,
+        ..
+    } = func;
+    let handlers = params.iter().filter(|param| !param.external).map(create_param_parser);
+    let params = params.iter().map(create_param_info);
+    quote! {
+        #[doc = #docs]
+        #vis fn #ident() -> ::typst::eval::NativeFunc {
+            ::typst::eval::NativeFunc {
+                func: |vm, args| {
+                    #(#handlers)*
+                    #[allow(unreachable_code)]
+                    Ok(#body)
+                },
+                info: ::typst::eval::Lazy::new(|| typst::eval::FuncInfo {
+                    name: #name,
+                    display: #display,
+                    docs: #docs,
+                    params: ::std::vec![#(#params),*],
+                    returns: ::std::vec![#(#returns),*],
+                    category: #category,
+                }),
+            }
+        }
+    }
+}
+
+/// Create a parameter info for a field.
+fn create_param_info(param: &Param) -> TokenStream {
+    let Param { name, docs, named, variadic, ty, default, .. } = param;
+    let positional = !named;
+    let required = default.is_none();
+    let ty = if *variadic {
+        quote! { <#ty as ::typst::eval::Variadics>::Inner }
+    } else {
+        quote! { #ty }
+    };
+    quote! {
+        ::typst::eval::ParamInfo {
+            name: #name,
+            docs: #docs,
+            cast: <#ty as ::typst::eval::Cast<
+                ::typst::syntax::Spanned<::typst::eval::Value>
+            >>::describe(),
+            positional: #positional,
+            named: #named,
+            variadic: #variadic,
+            required: #required,
+            settable: false,
+        }
+    }
+}
+
+/// Create argument parsing code for a parameter.
+fn create_param_parser(param: &Param) -> TokenStream {
+    let Param { name, ident, ty, .. } = param;
+
+    let mut value = if param.variadic {
+        quote! { args.all()? }
+    } else if param.named {
+        quote! { args.named(#name)? }
+    } else if param.default.is_some() {
+        quote! { args.eat()? }
+    } else {
+        quote! { args.expect(#name)? }
+    };
+
+    if let Some(default) = &param.default {
+        value = quote! { #value.unwrap_or_else(|| #default) }
+    }
+
+    quote! { let #ident: #ty = #value; }
 }

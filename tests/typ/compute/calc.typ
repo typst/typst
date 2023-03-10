@@ -77,7 +77,7 @@
 #test(calc.min("hi"), "hi")
 
 ---
-// Error: 10-12 missing argument: value
+// Error: 10-12 expected at least one value
 #calc.min()
 
 ---
@@ -109,5 +109,5 @@
 #range(4, step: "one")
 
 ---
-// Error: 18-19 step must not be zero
+// Error: 18-19 number must be positive
 #range(10, step: 0)

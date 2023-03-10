@@ -11,6 +11,4 @@ pub use self::realize::*;
 pub use self::styles::*;
 pub use self::typeset::*;
 
-#[doc(hidden)]
-pub use once_cell;
 pub use typst_macros::node;

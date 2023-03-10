@@ -23,7 +23,6 @@ use crate::prelude::*;
 #[node(Layout)]
 pub struct ImageNode {
     /// Path to an image file.
-    #[positional]
     #[required]
     #[parse(
         let Spanned { v: path, span } =

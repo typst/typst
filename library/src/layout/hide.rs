@@ -18,7 +18,6 @@ use crate::prelude::*;
 #[node(Show)]
 pub struct HideNode {
     /// The content to hide.
-    #[positional]
     #[required]
     pub body: Content,
 }

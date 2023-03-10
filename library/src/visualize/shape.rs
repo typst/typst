@@ -176,15 +176,15 @@ impl Layout for RectNode {
 /// ]
 /// ```
 ///
-/// ## Parameters
-/// - size: `Smart<Length>` (named, settable)
-///   The square's side length. This is mutually exclusive with `width` and
-///   `height`.
-///
 /// Display: Square
 /// Category: visualize
 #[node(Layout)]
 pub struct SquareNode {
+    /// The square's side length. This is mutually exclusive with `width` and
+    /// `height`.
+    #[external]
+    pub size: Smart<Length>,
+
     /// The square's width. This is mutually exclusive with `size` and `height`.
     ///
     /// In contrast to `size`, this can be relative to the parent container's
@@ -367,15 +367,15 @@ impl Layout for EllipseNode {
 /// ]
 /// ```
 ///
-/// ## Parameters
-/// - radius: `Length` (named, settable)
-///   The circle's radius. This is mutually exclusive with `width` and
-///   `height`.
-///
 /// Display: Circle
 /// Category: visualize
 #[node(Layout)]
 pub struct CircleNode {
+    /// The circle's radius. This is mutually exclusive with `width` and
+    /// `height`.
+    #[external]
+    pub radius: Length,
+
     /// The circle's width. This is mutually exclusive with `radius` and
     /// `height`.
     ///

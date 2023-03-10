@@ -20,15 +20,15 @@ use crate::prelude::*;
 /// There you go, US friends!
 /// ```
 ///
-/// ## Parameters
-/// - paper: `Paper` (positional, named, settable)
-///   A standard paper size to set width and height. When this is not specified,
-///   Typst defaults to `{"a4"}` paper.
-///
 /// Display: Page
 /// Category: layout
 #[node]
 pub struct PageNode {
+    /// A standard paper size to set width and height. When this is not
+    /// specified, Typst defaults to `{"a4"}` paper.
+    #[external]
+    pub paper: Paper,
+
     /// The width of the page.
     ///
     /// ```example
@@ -232,7 +232,6 @@ pub struct PageNode {
     /// Multiple pages will be created if the content does not fit on a single
     /// page. A new page with the page properties prior to the function invocation
     /// will be created after the body has been typeset.
-    #[positional]
     #[required]
     pub body: Content,
 }

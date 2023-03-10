@@ -163,7 +163,6 @@ impl Layout for ListNode {
 #[node]
 pub struct ListItem {
     /// The item's body.
-    #[positional]
     #[required]
     pub body: Content,
 }

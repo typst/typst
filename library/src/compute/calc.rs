@@ -10,28 +10,28 @@ use crate::prelude::*;
 /// A module with computational functions.
 pub fn module() -> Module {
     let mut scope = Scope::new();
-    scope.def_func::<AbsFunc>("abs");
-    scope.def_func::<PowFunc>("pow");
-    scope.def_func::<SqrtFunc>("sqrt");
-    scope.def_func::<SinFunc>("sin");
-    scope.def_func::<CosFunc>("cos");
-    scope.def_func::<TanFunc>("tan");
-    scope.def_func::<AsinFunc>("asin");
-    scope.def_func::<AcosFunc>("acos");
-    scope.def_func::<AtanFunc>("atan");
-    scope.def_func::<SinhFunc>("sinh");
-    scope.def_func::<CoshFunc>("cosh");
-    scope.def_func::<TanhFunc>("tanh");
-    scope.def_func::<LogFunc>("log");
-    scope.def_func::<FloorFunc>("floor");
-    scope.def_func::<CeilFunc>("ceil");
-    scope.def_func::<RoundFunc>("round");
-    scope.def_func::<ClampFunc>("clamp");
-    scope.def_func::<MinFunc>("min");
-    scope.def_func::<MaxFunc>("max");
-    scope.def_func::<EvenFunc>("even");
-    scope.def_func::<OddFunc>("odd");
-    scope.def_func::<ModFunc>("mod");
+    scope.define("abs", abs);
+    scope.define("pow", pow);
+    scope.define("sqrt", sqrt);
+    scope.define("sin", sin);
+    scope.define("cos", cos);
+    scope.define("tan", tan);
+    scope.define("asin", asin);
+    scope.define("acos", acos);
+    scope.define("atan", atan);
+    scope.define("sinh", sinh);
+    scope.define("cosh", cosh);
+    scope.define("tanh", tanh);
+    scope.define("log", log);
+    scope.define("floor", floor);
+    scope.define("ceil", ceil);
+    scope.define("round", round);
+    scope.define("clamp", clamp);
+    scope.define("min", min);
+    scope.define("max", max);
+    scope.define("even", even);
+    scope.define("odd", odd);
+    scope.define("mod", mod_);
     scope.define("inf", Value::Float(f64::INFINITY));
     scope.define("nan", Value::Float(f64::NAN));
     scope.define("pi", Value::Float(std::f64::consts::PI));
@@ -48,15 +48,15 @@ pub fn module() -> Module {
 /// #calc.abs(2fr)
 /// ```
 ///
-/// ## Parameters
-/// - value: `ToAbs` (positional, required)
-///   The value whose absolute value to calculate.
-///
 /// Display: Absolute
 /// Category: calculate
+/// Returns: any
 #[func]
-pub fn abs(args: &mut Args) -> SourceResult<Value> {
-    Ok(args.expect::<ToAbs>("value")?.0)
+pub fn abs(
+    /// The value whose absolute value to calculate.
+    value: ToAbs,
+) -> Value {
+    value.0
 }
 
 /// A value of which the absolute value can be taken.
@@ -80,27 +80,27 @@ cast_from_value! {
 /// #calc.pow(2, 3)
 /// ```
 ///
-/// ## Parameters
-/// - base: `Num` (positional, required)
-///   The base of the power.
-/// - exponent: `Num` (positional, required)
-///   The exponent of the power. Must be non-negative.
-///
 /// Display: Power
 /// Category: calculate
+/// Returns: integer or float
 #[func]
-pub fn pow(args: &mut Args) -> SourceResult<Value> {
-    let base = args.expect::<Num>("base")?;
-    let exponent = args
-        .expect::<Spanned<Num>>("exponent")
-        .and_then(|n| match n.v {
-            Num::Int(i) if i > u32::MAX as i64 => bail!(n.span, "exponent too large"),
-            Num::Int(i) if i >= 0 => Ok(n),
-            Num::Float(f) if f >= 0.0 => Ok(n),
-            _ => bail!(n.span, "exponent must be non-negative"),
-        })?
-        .v;
-    Ok(base.apply2(exponent, |a, b| a.pow(b as u32), f64::powf))
+pub fn pow(
+    /// The base of the power.
+    base: Num,
+    /// The exponent of the power. Must be non-negative.
+    exponent: Spanned<Num>,
+) -> Value {
+    let exponent = match exponent.v {
+        Num::Int(i) if i > u32::MAX as i64 => {
+            bail!(exponent.span, "exponent too large");
+        }
+        Num::Int(0..) => exponent.v,
+        Num::Float(f) if f >= 0.0 => exponent.v,
+        _ => {
+            bail!(exponent.span, "exponent must be non-negative");
+        }
+    };
+    base.apply2(exponent, |a, b| a.pow(b as u32), f64::powf)
 }
 
 /// Calculate the square root of a number.
@@ -111,19 +111,18 @@ pub fn pow(args: &mut Args) -> SourceResult<Value> {
 /// #calc.sqrt(2.5)
 /// ```
 ///
-/// ## Parameters
-/// - value: `Num` (positional, required)
-///   The number whose square root to calculate. Must be non-negative.
-///
 /// Display: Square Root
 /// Category: calculate
+/// Returns: float
 #[func]
-pub fn sqrt(args: &mut Args) -> SourceResult<Value> {
-    let value = args.expect::<Spanned<Num>>("value")?;
+pub fn sqrt(
+    /// The number whose square root to calculate. Must be non-negative.
+    value: Spanned<Num>,
+) -> Value {
     if value.v.float() < 0.0 {
         bail!(value.span, "cannot take square root of negative number");
     }
-    Ok(Value::Float(value.v.float().sqrt()))
+    Value::Float(value.v.float().sqrt())
 }
 
 /// Calculate the sine of an angle.
@@ -138,20 +137,19 @@ pub fn sqrt(args: &mut Args) -> SourceResult<Value> {
 /// #calc.sin(90deg)
 /// ```
 ///
-/// ## Parameters
-/// - angle: `AngleLike` (positional, required)
-///   The angle whose sine to calculate.
-///
 /// Display: Sine
 /// Category: calculate
+/// Returns: float
 #[func]
-pub fn sin(args: &mut Args) -> SourceResult<Value> {
-    let arg = args.expect::<AngleLike>("angle")?;
-    Ok(Value::Float(match arg {
+pub fn sin(
+    /// The angle whose sine to calculate.
+    angle: AngleLike,
+) -> Value {
+    Value::Float(match angle {
         AngleLike::Angle(a) => a.sin(),
         AngleLike::Int(n) => (n as f64).sin(),
         AngleLike::Float(n) => n.sin(),
-    }))
+    })
 }
 
 /// Calculate the cosine of an angle.
@@ -161,25 +159,24 @@ pub fn sin(args: &mut Args) -> SourceResult<Value> {
 ///
 /// ## Example
 /// ```example
-/// #calc.cos(90deg)
+/// #calc.cos(90deg) \
 /// #calc.cos(1.5) \
 /// #calc.cos(90deg)
 /// ```
 ///
-/// ## Parameters
-/// - angle: `AngleLike` (positional, required)
-///   The angle whose cosine to calculate.
-///
 /// Display: Cosine
 /// Category: calculate
+/// Returns: float
 #[func]
-pub fn cos(args: &mut Args) -> SourceResult<Value> {
-    let arg = args.expect::<AngleLike>("angle")?;
-    Ok(Value::Float(match arg {
+pub fn cos(
+    /// The angle whose cosine to calculate.
+    angle: AngleLike,
+) -> Value {
+    Value::Float(match angle {
         AngleLike::Angle(a) => a.cos(),
         AngleLike::Int(n) => (n as f64).cos(),
         AngleLike::Float(n) => n.cos(),
-    }))
+    })
 }
 
 /// Calculate the tangent of an angle.
@@ -193,20 +190,19 @@ pub fn cos(args: &mut Args) -> SourceResult<Value> {
 /// #calc.tan(90deg)
 /// ```
 ///
-/// ## Parameters
-/// - angle: `AngleLike` (positional, required)
-///   The angle whose tangent to calculate.
-///
 /// Display: Tangent
 /// Category: calculate
+/// Returns: float
 #[func]
-pub fn tan(args: &mut Args) -> SourceResult<Value> {
-    let arg = args.expect::<AngleLike>("angle")?;
-    Ok(Value::Float(match arg {
+pub fn tan(
+    /// The angle whose tangent to calculate.
+    angle: AngleLike,
+) -> Value {
+    Value::Float(match angle {
         AngleLike::Angle(a) => a.tan(),
         AngleLike::Int(n) => (n as f64).tan(),
         AngleLike::Float(n) => n.tan(),
-    }))
+    })
 }
 
 /// Calculate the arcsine of a number.
@@ -217,20 +213,19 @@ pub fn tan(args: &mut Args) -> SourceResult<Value> {
 /// #calc.asin(1)
 /// ```
 ///
-/// ## Parameters
-/// - value: `Num` (positional, required)
-///   The number whose arcsine to calculate. Must be between -1 and 1.
-///
 /// Display: Arcsine
 /// Category: calculate
+/// Returns: angle
 #[func]
-pub fn asin(args: &mut Args) -> SourceResult<Value> {
-    let Spanned { v, span } = args.expect::<Spanned<Num>>("value")?;
-    let val = v.float();
+pub fn asin(
+    /// The number whose arcsine to calculate. Must be between -1 and 1.
+    value: Spanned<Num>,
+) -> Value {
+    let val = value.v.float();
     if val < -1.0 || val > 1.0 {
-        bail!(span, "arcsin must be between -1 and 1");
+        bail!(value.span, "arcsin must be between -1 and 1");
     }
-    Ok(Value::Angle(Angle::rad(val.asin())))
+    Value::Angle(Angle::rad(val.asin()))
 }
 
 /// Calculate the arccosine of a number.
@@ -241,20 +236,19 @@ pub fn asin(args: &mut Args) -> SourceResult<Value> {
 /// #calc.acos(1)
 /// ```
 ///
-/// ## Parameters
-/// - value: `Num` (positional, required)
-///   The number whose arccosine to calculate. Must be between -1 and 1.
-///
 /// Display: Arccosine
 /// Category: calculate
+/// Returns: angle
 #[func]
-pub fn acos(args: &mut Args) -> SourceResult<Value> {
-    let Spanned { v, span } = args.expect::<Spanned<Num>>("value")?;
-    let val = v.float();
+pub fn acos(
+    /// The number whose arcsine to calculate. Must be between -1 and 1.
+    value: Spanned<Num>,
+) -> Value {
+    let val = value.v.float();
     if val < -1.0 || val > 1.0 {
-        bail!(span, "arccos must be between -1 and 1");
+        bail!(value.span, "arccos must be between -1 and 1");
     }
-    Ok(Value::Angle(Angle::rad(val.acos())))
+    Value::Angle(Angle::rad(val.acos()))
 }
 
 /// Calculate the arctangent of a number.
@@ -265,16 +259,15 @@ pub fn acos(args: &mut Args) -> SourceResult<Value> {
 /// #calc.atan(1)
 /// ```
 ///
-/// ## Parameters
-/// - value: `Num` (positional, required)
-///   The number whose arctangent to calculate.
-///
 /// Display: Arctangent
 /// Category: calculate
+/// Returns: angle
 #[func]
-pub fn atan(args: &mut Args) -> SourceResult<Value> {
-    let value = args.expect::<Num>("value")?;
-    Ok(Value::Angle(Angle::rad(value.float().atan())))
+pub fn atan(
+    /// The number whose arctangent to calculate.
+    value: Num,
+) -> Value {
+    Value::Angle(Angle::rad(value.float().atan()))
 }
 
 /// Calculate the hyperbolic sine of an angle.
@@ -287,20 +280,19 @@ pub fn atan(args: &mut Args) -> SourceResult<Value> {
 /// #calc.sinh(45deg)
 /// ```
 ///
-/// ## Parameters
-/// - angle: `AngleLike` (positional, required)
-///   The angle whose hyperbolic sine to calculate.
-///
 /// Display: Hyperbolic sine
 /// Category: calculate
+/// Returns: float
 #[func]
-pub fn sinh(args: &mut Args) -> SourceResult<Value> {
-    let arg = args.expect::<AngleLike>("angle")?;
-    Ok(Value::Float(match arg {
+pub fn sinh(
+    /// The angle whose hyperbolic sine to calculate.
+    angle: AngleLike,
+) -> Value {
+    Value::Float(match angle {
         AngleLike::Angle(a) => a.to_rad().sinh(),
         AngleLike::Int(n) => (n as f64).sinh(),
         AngleLike::Float(n) => n.sinh(),
-    }))
+    })
 }
 
 /// Calculate the hyperbolic cosine of an angle.
@@ -313,20 +305,19 @@ pub fn sinh(args: &mut Args) -> SourceResult<Value> {
 /// #calc.cosh(45deg)
 /// ```
 ///
-/// ## Parameters
-/// - angle: `AngleLike` (positional, required)
-///   The angle whose hyperbolic cosine to calculate.
-///
 /// Display: Hyperbolic cosine
 /// Category: calculate
+/// Returns: float
 #[func]
-pub fn cosh(args: &mut Args) -> SourceResult<Value> {
-    let arg = args.expect::<AngleLike>("angle")?;
-    Ok(Value::Float(match arg {
+pub fn cosh(
+    /// The angle whose hyperbolic cosine to calculate.
+    angle: AngleLike,
+) -> Value {
+    Value::Float(match angle {
         AngleLike::Angle(a) => a.to_rad().cosh(),
         AngleLike::Int(n) => (n as f64).cosh(),
         AngleLike::Float(n) => n.cosh(),
-    }))
+    })
 }
 
 /// Calculate the hyperbolic tangent of an angle.
@@ -339,20 +330,19 @@ pub fn cosh(args: &mut Args) -> SourceResult<Value> {
 /// #calc.tanh(45deg)
 /// ```
 ///
-/// ## Parameters
-/// - angle: `AngleLike` (positional, required)
-///   The angle whose hyperbolic tangent to calculate.
-///
 /// Display: Hyperbolic tangent
 /// Category: calculate
+/// Returns: float
 #[func]
-pub fn tanh(args: &mut Args) -> SourceResult<Value> {
-    let arg = args.expect::<AngleLike>("angle")?;
-    Ok(Value::Float(match arg {
+pub fn tanh(
+    /// The angle whose hyperbolic tangent to calculate.
+    angle: AngleLike,
+) -> Value {
+    Value::Float(match angle {
         AngleLike::Angle(a) => a.to_rad().tanh(),
         AngleLike::Int(n) => (n as f64).tanh(),
         AngleLike::Float(n) => n.tanh(),
-    }))
+    })
 }
 
 /// Calculate the logarithm of a number.
@@ -361,22 +351,22 @@ pub fn tanh(args: &mut Args) -> SourceResult<Value> {
 ///
 /// ## Example
 /// ```example
-/// #calc.log(100) \
+/// #calc.log(100)
 /// ```
-///
-/// ## Parameters
-/// - value: `Num` (positional, required)
-///   The number whose logarithm to calculate.
-/// - base: `Num` (named)
-///   The base of the logarithm.
 ///
 /// Display: Logarithm
 /// Category: calculate
+/// Returns: float
 #[func]
-pub fn log(args: &mut Args) -> SourceResult<Value> {
-    let value = args.expect::<f64>("value")?;
-    let base = args.named::<f64>("base")?.unwrap_or_else(|| 10.0);
-    Ok(Value::Float(value.log(base)))
+pub fn log(
+    /// The number whose logarithm to calculate.
+    value: f64,
+    /// The base of the logarithm.
+    #[named]
+    #[default(10.0)]
+    base: f64,
+) -> Value {
+    Value::Float(value.log(base))
 }
 
 /// Round a number down to the nearest integer.
@@ -390,19 +380,18 @@ pub fn log(args: &mut Args) -> SourceResult<Value> {
 /// #calc.floor(500.1)
 /// ```
 ///
-/// ## Parameters
-/// - value: `Num` (positional, required)
-///   The number to round down.
-///
 /// Display: Round down
 /// Category: calculate
+/// Returns: integer
 #[func]
-pub fn floor(args: &mut Args) -> SourceResult<Value> {
-    let value = args.expect::<Num>("value")?;
-    Ok(match value {
+pub fn floor(
+    /// The number to round down.
+    value: Num,
+) -> Value {
+    match value {
         Num::Int(n) => Value::Int(n),
         Num::Float(n) => Value::Int(n.floor() as i64),
-    })
+    }
 }
 
 /// Round a number up to the nearest integer.
@@ -416,19 +405,18 @@ pub fn floor(args: &mut Args) -> SourceResult<Value> {
 /// #calc.ceil(500.1)
 /// ```
 ///
-/// ## Parameters
-/// - value: `Num` (positional, required)
-///   The number to round up.
-///
 /// Display: Round up
 /// Category: calculate
+/// Returns: integer
 #[func]
-pub fn ceil(args: &mut Args) -> SourceResult<Value> {
-    let value = args.expect::<Num>("value")?;
-    Ok(match value {
+pub fn ceil(
+    /// The number to round up.
+    value: Num,
+) -> Value {
+    match value {
         Num::Int(n) => Value::Int(n),
         Num::Float(n) => Value::Int(n.ceil() as i64),
-    })
+    }
 }
 
 /// Round a number to the nearest integer.
@@ -442,25 +430,26 @@ pub fn ceil(args: &mut Args) -> SourceResult<Value> {
 /// #calc.round(3.1415, digits: 2)
 /// ```
 ///
-/// ## Parameters
-/// - value: `Num` (positional, required)
-///   The number to round.
-/// - digits: `i64` (named)
-///
 /// Display: Round
 /// Category: calculate
+/// Returns: integer or float
 #[func]
-pub fn round(args: &mut Args) -> SourceResult<Value> {
-    let value = args.expect::<Num>("value")?;
-    let digits = args.named::<u32>("digits")?.unwrap_or(0);
-    Ok(match value {
+pub fn round(
+    /// The number to round.
+    value: Num,
+    /// The number of decimal places.
+    #[named]
+    #[default(0)]
+    digits: i64,
+) -> Value {
+    match value {
         Num::Int(n) if digits == 0 => Value::Int(n),
         _ => {
             let n = value.float();
             let factor = 10.0_f64.powi(digits as i32) as f64;
             Value::Float((n * factor).round() / factor)
         }
-    })
+    }
 }
 
 /// Clamp a number between a minimum and maximum value.
@@ -472,25 +461,22 @@ pub fn round(args: &mut Args) -> SourceResult<Value> {
 /// #calc.clamp(5, 0, 4)
 /// ```
 ///
-/// ## Parameters
-/// - value: `Num` (positional, required)
-///   The number to clamp.
-/// - min: `Num` (positional, required)
-///   The inclusive minimum value.
-/// - max: `Num` (positional, required)
-///   The inclusive maximum value.
-///
 /// Display: Clamp
 /// Category: calculate
+/// Returns: integer or float
 #[func]
-pub fn clamp(args: &mut Args) -> SourceResult<Value> {
-    let value = args.expect::<Num>("value")?;
-    let min = args.expect::<Num>("min")?;
-    let max = args.expect::<Spanned<Num>>("max")?;
+pub fn clamp(
+    /// The number to clamp.
+    value: Num,
+    /// The inclusive minimum value.
+    min: Num,
+    /// The inclusive maximum value.
+    max: Spanned<Num>,
+) -> Value {
     if max.v.float() < min.float() {
         bail!(max.span, "max must be greater than or equal to min")
     }
-    Ok(value.apply3(min, max.v, i64::clamp, f64::clamp))
+    value.apply3(min, max.v, i64::clamp, f64::clamp)
 }
 
 /// Determine the minimum of a sequence of values.
@@ -501,18 +487,17 @@ pub fn clamp(args: &mut Args) -> SourceResult<Value> {
 /// #calc.min("typst", "in", "beta")
 /// ```
 ///
-/// ## Parameters
-/// - values: `Value` (positional, variadic)
-///   The sequence of values from which to extract the minimum.
-///   Must not be empty.
-///
-/// - returns: any
-///
 /// Display: Minimum
 /// Category: calculate
+/// Returns: any
 #[func]
-pub fn min(args: &mut Args) -> SourceResult<Value> {
-    minmax(args, Ordering::Less)
+pub fn min(
+    /// The sequence of values from which to extract the minimum.
+    /// Must not be empty.
+    #[variadic]
+    values: Vec<Spanned<Value>>,
+) -> Value {
+    minmax(args.span, values, Ordering::Less)?
 }
 
 /// Determine the maximum of a sequence of values.
@@ -523,24 +508,31 @@ pub fn min(args: &mut Args) -> SourceResult<Value> {
 /// #calc.max("typst", "in", "beta")
 /// ```
 ///
-/// ## Parameters
-/// - values: `Value` (positional, variadic)
-///   The sequence of values from which to extract the maximum.
-///   Must not be empty.
-///
-/// - returns: any
-///
 /// Display: Maximum
 /// Category: calculate
+/// Returns: any
 #[func]
-pub fn max(args: &mut Args) -> SourceResult<Value> {
-    minmax(args, Ordering::Greater)
+pub fn max(
+    /// The sequence of values from which to extract the maximum.
+    /// Must not be empty.
+    #[variadic]
+    values: Vec<Spanned<Value>>,
+) -> Value {
+    minmax(args.span, values, Ordering::Greater)?
 }
 
 /// Find the minimum or maximum of a sequence of values.
-fn minmax(args: &mut Args, goal: Ordering) -> SourceResult<Value> {
-    let mut extremum = args.expect::<Value>("value")?;
-    for Spanned { v, span } in args.all::<Spanned<Value>>()? {
+fn minmax(
+    span: Span,
+    values: Vec<Spanned<Value>>,
+    goal: Ordering,
+) -> SourceResult<Value> {
+    let mut iter = values.into_iter();
+    let Some(Spanned { v: mut extremum, ..}) = iter.next() else {
+        bail!(span, "expected at least one value");
+    };
+
+    for Spanned { v, span } in iter {
         match v.partial_cmp(&extremum) {
             Some(ordering) => {
                 if ordering == goal {
@@ -555,6 +547,7 @@ fn minmax(args: &mut Args, goal: Ordering) -> SourceResult<Value> {
             ),
         }
     }
+
     Ok(extremum)
 }
 
@@ -567,17 +560,15 @@ fn minmax(args: &mut Args, goal: Ordering) -> SourceResult<Value> {
 /// #range(10).filter(calc.even)
 /// ```
 ///
-/// ## Parameters
-/// - value: `i64` (positional, required)
-///   The number to check for evenness.
-///
-/// - returns: boolean
-///
 /// Display: Even
 /// Category: calculate
+/// Returns: boolean
 #[func]
-pub fn even(args: &mut Args) -> SourceResult<Value> {
-    Ok(Value::Bool(args.expect::<i64>("value")? % 2 == 0))
+pub fn even(
+    /// The number to check for evenness.
+    value: i64,
+) -> Value {
+    Value::Bool(value % 2 == 0)
 }
 
 /// Determine whether an integer is odd.
@@ -589,18 +580,15 @@ pub fn even(args: &mut Args) -> SourceResult<Value> {
 /// #range(10).filter(calc.odd)
 /// ```
 ///
-///
-/// ## Parameters
-/// - value: `i64` (positional, required)
-///   The number to check for oddness.
-///
-/// - returns: boolean
-///
 /// Display: Odd
 /// Category: calculate
+/// Returns: boolean
 #[func]
-pub fn odd(args: &mut Args) -> SourceResult<Value> {
-    Ok(Value::Bool(args.expect::<i64>("value")? % 2 != 0))
+pub fn odd(
+    /// The number to check for oddness.
+    value: i64,
+) -> Value {
+    Value::Bool(value % 2 != 0)
 }
 
 /// Calculate the modulus of two numbers.
@@ -611,25 +599,20 @@ pub fn odd(args: &mut Args) -> SourceResult<Value> {
 /// #calc.mod(1.75, 0.5)
 /// ```
 ///
-/// ## Parameters
-/// - dividend: `Num` (positional, required)
-///   The dividend of the modulus.
-///
-/// - divisor: `Num` (positional, required)
-///   The divisor of the modulus.
-///
-/// - returns: integer or float
-///
 /// Display: Modulus
 /// Category: calculate
+/// Returns: integer or float
 #[func]
-pub fn mod_(args: &mut Args) -> SourceResult<Value> {
-    let dividend = args.expect::<Num>("dividend")?;
-    let Spanned { v: divisor, span } = args.expect::<Spanned<Num>>("divisor")?;
-    if divisor.float() == 0.0 {
-        bail!(span, "divisor must not be zero");
+pub fn mod_(
+    /// The dividend of the modulus.
+    dividend: Num,
+    /// The divisor of the modulus.
+    divisor: Spanned<Num>,
+) -> Value {
+    if divisor.v.float() == 0.0 {
+        bail!(divisor.span, "divisor must not be zero");
     }
-    Ok(dividend.apply2(divisor, Rem::rem, Rem::rem))
+    dividend.apply2(divisor.v, Rem::rem, Rem::rem)
 }
 
 /// A value which can be passed to functions that work with integers and floats.

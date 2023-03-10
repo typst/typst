@@ -57,7 +57,6 @@ pub struct RawNode {
     /// 1 + 2 + 3 + 4 + 5
     /// ```
     /// ````
-    #[positional]
     #[required]
     pub text: EcoString,
 

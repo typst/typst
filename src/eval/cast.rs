@@ -1,6 +1,6 @@
 pub use typst_macros::{cast_from_value, cast_to_value};
 
-use std::num::NonZeroUsize;
+use std::num::{NonZeroI64, NonZeroUsize};
 use std::ops::Add;
 
 use ecow::EcoString;
@@ -128,6 +128,20 @@ cast_to_value! {
 }
 
 cast_from_value! {
+    NonZeroI64,
+    int: i64 => int.try_into()
+        .map_err(|_| if int <= 0 {
+            "number must be positive"
+        } else {
+            "number too large"
+        })?,
+}
+
+cast_to_value! {
+    v: NonZeroI64 => Value::Int(v.get())
+}
+
+cast_from_value! {
     char,
     string: Str => {
         let mut chars = string.chars();
@@ -209,6 +223,16 @@ impl<T: Into<Value>> From<Vec<T>> for Value {
     fn from(v: Vec<T>) -> Self {
         Value::Array(v.into_iter().map(Into::into).collect())
     }
+}
+
+/// A container for a variadic argument.
+pub trait Variadics {
+    /// The contained type.
+    type Inner;
+}
+
+impl<T> Variadics for Vec<T> {
+    type Inner = T;
 }
 
 /// Describes a possible value for a cast.

@@ -7,45 +7,35 @@ pub fn node(stream: TokenStream, body: syn::ItemStruct) -> Result<TokenStream> {
 }
 
 struct Node {
-    attrs: Vec<syn::Attribute>,
+    name: String,
+    display: String,
+    category: String,
+    docs: String,
     vis: syn::Visibility,
     ident: Ident,
-    name: String,
     capable: Vec<Ident>,
     fields: Vec<Field>,
 }
 
-impl Node {
-    fn inherent(&self) -> impl Iterator<Item = &Field> {
-        self.fields.iter().filter(|field| field.inherent())
-    }
-
-    fn settable(&self) -> impl Iterator<Item = &Field> {
-        self.fields.iter().filter(|field| field.settable())
-    }
-}
-
 struct Field {
-    attrs: Vec<syn::Attribute>,
-    vis: syn::Visibility,
-
     name: String,
-    ident: Ident,
-    ident_in: Ident,
-    with_ident: Ident,
-    set_ident: Ident,
-
+    docs: String,
     internal: bool,
+    external: bool,
     positional: bool,
     required: bool,
     variadic: bool,
     fold: bool,
     resolve: bool,
     parse: Option<FieldParser>,
-
+    default: syn::Expr,
+    vis: syn::Visibility,
+    ident: Ident,
+    ident_in: Ident,
+    with_ident: Ident,
+    set_ident: Ident,
     ty: syn::Type,
     output: syn::Type,
-    default: syn::Expr,
 }
 
 impl Field {
@@ -87,34 +77,30 @@ fn prepare(stream: TokenStream, body: &syn::ItemStruct) -> Result<Node> {
 
         let mut attrs = field.attrs.clone();
         let variadic = has_attr(&mut attrs, "variadic");
+        let required = has_attr(&mut attrs, "required") || variadic;
+        let positional = has_attr(&mut attrs, "positional") || required;
 
         let mut field = Field {
-            vis: field.vis.clone(),
-
             name: kebab_case(&ident),
-            ident: ident.clone(),
-            ident_in: Ident::new(&format!("{}_in", ident), ident.span()),
-            with_ident: Ident::new(&format!("with_{}", ident), ident.span()),
-            set_ident: Ident::new(&format!("set_{}", ident), ident.span()),
-
+            docs: documentation(&attrs),
             internal: has_attr(&mut attrs, "internal"),
-            positional: has_attr(&mut attrs, "positional") || variadic,
-            required: has_attr(&mut attrs, "required") || variadic,
+            external: has_attr(&mut attrs, "external"),
+            positional,
+            required,
             variadic,
             fold: has_attr(&mut attrs, "fold"),
             resolve: has_attr(&mut attrs, "resolve"),
             parse: parse_attr(&mut attrs, "parse")?.flatten(),
-
-            ty: field.ty.clone(),
-            output: field.ty.clone(),
             default: parse_attr(&mut attrs, "default")?
                 .flatten()
                 .unwrap_or_else(|| parse_quote! { ::std::default::Default::default() }),
-
-            attrs: {
-                validate_attrs(&attrs)?;
-                attrs
-            },
+            vis: field.vis.clone(),
+            ident: ident.clone(),
+            ident_in: Ident::new(&format!("{}_in", ident), ident.span()),
+            with_ident: Ident::new(&format!("with_{}", ident), ident.span()),
+            set_ident: Ident::new(&format!("set_{}", ident), ident.span()),
+            ty: field.ty.clone(),
+            output: field.ty.clone(),
         };
 
         if field.required && (field.fold || field.resolve) {
@@ -134,6 +120,7 @@ fn prepare(stream: TokenStream, body: &syn::ItemStruct) -> Result<Node> {
             field.output = parse_quote! { <#output as ::typst::model::Fold>::Output };
         }
 
+        validate_attrs(&attrs)?;
         fields.push(field);
     }
 
@@ -142,32 +129,39 @@ fn prepare(stream: TokenStream, body: &syn::ItemStruct) -> Result<Node> {
         .into_iter()
         .collect();
 
-    let attrs = body.attrs.clone();
-    Ok(Node {
+    let docs = documentation(&body.attrs);
+    let mut lines = docs.split("\n").collect();
+    let category = meta_line(&mut lines, "Category")?.into();
+    let display = meta_line(&mut lines, "Display")?.into();
+    let docs = lines.join("\n").trim().into();
+
+    let node = Node {
+        name: body.ident.to_string().trim_end_matches("Node").to_lowercase(),
+        display,
+        category,
+        docs,
         vis: body.vis.clone(),
         ident: body.ident.clone(),
-        name: body.ident.to_string().trim_end_matches("Node").to_lowercase(),
         capable,
         fields,
-        attrs: {
-            validate_attrs(&attrs)?;
-            attrs
-        },
-    })
+    };
+
+    validate_attrs(&body.attrs)?;
+    Ok(node)
 }
 
 /// Produce the node's definition.
 fn create(node: &Node) -> TokenStream {
-    let attrs = &node.attrs;
-    let vis = &node.vis;
-    let ident = &node.ident;
+    let Node { vis, ident, docs, .. } = node;
+    let all = node.fields.iter().filter(|field| !field.external);
+    let settable = all.clone().filter(|field| field.settable());
 
     // Inherent methods and functions.
     let new = create_new_func(node);
-    let field_methods = node.fields.iter().map(create_field_method);
-    let field_in_methods = node.settable().map(create_field_in_method);
-    let with_fields_methods = node.fields.iter().map(create_with_field_method);
-    let field_style_methods = node.settable().map(create_set_field_method);
+    let field_methods = all.clone().map(create_field_method);
+    let field_in_methods = settable.clone().map(create_field_in_method);
+    let with_fields_methods = all.map(create_with_field_method);
+    let field_style_methods = settable.map(create_set_field_method);
 
     // Trait implementations.
     let construct = node
@@ -179,8 +173,7 @@ fn create(node: &Node) -> TokenStream {
     let node = create_node_impl(node);
 
     quote! {
-        #(#attrs)*
-        #[::typst::eval::func]
+        #[doc = #docs]
         #[derive(Debug, Clone, Hash)]
         #[repr(transparent)]
         #vis struct #ident(::typst::model::Content);
@@ -212,10 +205,11 @@ fn create(node: &Node) -> TokenStream {
 
 /// Create the `new` function for the node.
 fn create_new_func(node: &Node) -> TokenStream {
-    let params = node.inherent().map(|Field { ident, ty, .. }| {
+    let relevant = node.fields.iter().filter(|field| !field.external && field.inherent());
+    let params = relevant.clone().map(|Field { ident, ty, .. }| {
         quote! { #ident: #ty }
     });
-    let builder_calls = node.inherent().map(|Field { ident, with_ident, .. }| {
+    let builder_calls = relevant.map(|Field { ident, with_ident, .. }| {
         quote! { .#with_ident(#ident) }
     });
     quote! {
@@ -229,10 +223,10 @@ fn create_new_func(node: &Node) -> TokenStream {
 
 /// Create an accessor methods for a field.
 fn create_field_method(field: &Field) -> TokenStream {
-    let Field { attrs, vis, ident, name, output, .. } = field;
+    let Field { vis, docs, ident, name, output, .. } = field;
     if field.inherent() {
         quote! {
-            #(#attrs)*
+            #[doc = #docs]
             #vis fn #ident(&self) -> #output {
                 self.0.cast_required_field(#name)
             }
@@ -241,7 +235,7 @@ fn create_field_method(field: &Field) -> TokenStream {
         let access =
             create_style_chain_access(field, quote! { self.0.field(#name).cloned() });
         quote! {
-            #(#attrs)*
+            #[doc = #docs]
             #vis fn #ident(&self, styles: ::typst::model::StyleChain) -> #output {
                 #access
             }
@@ -312,8 +306,7 @@ fn create_set_field_method(field: &Field) -> TokenStream {
 
 /// Create the node's `Node` implementation.
 fn create_node_impl(node: &Node) -> TokenStream {
-    let ident = &node.ident;
-    let name = &node.name;
+    let Node { ident, name, display, category, docs, .. } = node;
     let vtable_func = create_vtable_func(node);
     let infos = node
         .fields
@@ -322,10 +315,6 @@ fn create_node_impl(node: &Node) -> TokenStream {
         .map(create_param_info);
     quote! {
         impl ::typst::model::Node for #ident {
-            fn pack(self) -> ::typst::model::Content {
-                self.0
-            }
-
             fn id() -> ::typst::model::NodeId {
                 static META: ::typst::model::NodeMeta = ::typst::model::NodeMeta {
                     name: #name,
@@ -334,8 +323,24 @@ fn create_node_impl(node: &Node) -> TokenStream {
                 ::typst::model::NodeId::from_meta(&META)
             }
 
-            fn params() -> ::std::vec::Vec<::typst::eval::ParamInfo> {
-                ::std::vec![#(#infos),*]
+            fn pack(self) -> ::typst::model::Content {
+                self.0
+            }
+
+            fn func() -> ::typst::eval::NodeFunc {
+                ::typst::eval::NodeFunc {
+                    id: Self::id(),
+                    construct: <Self as ::typst::model::Construct>::construct,
+                    set: <Self as ::typst::model::Set>::set,
+                    info: ::typst::eval::Lazy::new(|| typst::eval::FuncInfo {
+                        name: #name,
+                        display: #display,
+                        docs: #docs,
+                        params: ::std::vec![#(#infos),*],
+                        returns: ::std::vec!["content"],
+                        category: #category,
+                    }),
+                }
             }
         }
     }
@@ -366,11 +371,14 @@ fn create_vtable_func(node: &Node) -> TokenStream {
 
 /// Create a parameter info for a field.
 fn create_param_info(field: &Field) -> TokenStream {
-    let Field { name, positional, variadic, required, ty, .. } = field;
+    let Field { name, docs, positional, variadic, required, ty, .. } = field;
     let named = !positional;
     let settable = field.settable();
-    let docs = documentation(&field.attrs);
-    let docs = docs.trim();
+    let ty = if *variadic {
+        quote! { <#ty as ::typst::eval::Variadics>::Inner }
+    } else {
+        quote! { #ty }
+    };
     quote! {
         ::typst::eval::ParamInfo {
             name: #name,
@@ -393,7 +401,7 @@ fn create_construct_impl(node: &Node) -> TokenStream {
     let handlers = node
         .fields
         .iter()
-        .filter(|field| !field.internal || field.parse.is_some())
+        .filter(|field| !field.external && (!field.internal || field.parse.is_some()))
         .map(|field| {
             let with_ident = &field.with_ident;
             let (prefix, value) = create_field_parser(field);
@@ -432,7 +440,11 @@ fn create_set_impl(node: &Node) -> TokenStream {
     let handlers = node
         .fields
         .iter()
-        .filter(|field| field.settable() && (!field.internal || field.parse.is_some()))
+        .filter(|field| {
+            !field.external
+                && field.settable()
+                && (!field.internal || field.parse.is_some())
+        })
         .map(|field| {
             let set_ident = &field.set_ident;
             let (prefix, value) = create_field_parser(field);
@@ -459,11 +471,11 @@ fn create_set_impl(node: &Node) -> TokenStream {
 
 /// Create argument parsing code for a field.
 fn create_field_parser(field: &Field) -> (TokenStream, TokenStream) {
-    let name = &field.name;
     if let Some(FieldParser { prefix, expr }) = &field.parse {
         return (quote! { #(#prefix);* }, quote! { #expr });
     }
 
+    let name = &field.name;
     let value = if field.variadic {
         quote! { args.all()? }
     } else if field.required {

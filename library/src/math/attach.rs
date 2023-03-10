@@ -16,7 +16,6 @@ use super::*;
 #[node(LayoutMath)]
 pub struct AttachNode {
     /// The base to which things are attached.
-    #[positional]
     #[required]
     pub base: Content,
 
@@ -79,7 +78,6 @@ impl LayoutMath for AttachNode {
 #[node(LayoutMath)]
 pub struct ScriptsNode {
     /// The base to attach the scripts to.
-    #[positional]
     #[required]
     pub body: Content,
 }
@@ -102,7 +100,6 @@ impl LayoutMath for ScriptsNode {
 #[node(LayoutMath)]
 pub struct LimitsNode {
     /// The base to attach the limits to.
-    #[positional]
     #[required]
     pub body: Content,
 }

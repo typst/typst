@@ -9,7 +9,7 @@ use ecow::{EcoString, EcoVec};
 
 use super::{node, Guard, Recipe, Style, StyleMap};
 use crate::diag::{SourceResult, StrResult};
-use crate::eval::{cast_from_value, Args, Cast, ParamInfo, Value, Vm};
+use crate::eval::{cast_from_value, Args, Cast, NodeFunc, Value, Vm};
 use crate::syntax::Span;
 use crate::World;
 
@@ -330,12 +330,10 @@ impl Sum for Content {
 #[node]
 pub struct StyledNode {
     /// The styles.
-    #[positional]
     #[required]
     pub map: StyleMap,
 
     /// The styled content.
-    #[positional]
     #[required]
     pub body: Content,
 }
@@ -353,7 +351,6 @@ cast_from_value! {
 /// Category: special
 #[node]
 pub struct SequenceNode {
-    #[positional]
     #[variadic]
     pub children: Vec<Content>,
 }
@@ -370,14 +367,14 @@ impl Debug for Label {
 
 /// A constructable, stylable content node.
 pub trait Node: Construct + Set + Sized + 'static {
-    /// Pack a node into type-erased content.
-    fn pack(self) -> Content;
-
     /// The node's ID.
     fn id() -> NodeId;
 
-    /// List the fields of the node.
-    fn params() -> Vec<ParamInfo>;
+    /// Pack a node into type-erased content.
+    fn pack(self) -> Content;
+
+    /// The node's function.
+    fn func() -> NodeFunc;
 }
 
 /// A unique identifier for a node.
@@ -425,6 +422,7 @@ pub struct NodeMeta {
     pub vtable: fn(of: TypeId) -> Option<*const ()>,
 }
 
+/// A node's constructor function.
 pub trait Construct {
     /// Construct a node from the arguments.
     ///
@@ -433,6 +431,7 @@ pub trait Construct {
     fn construct(vm: &Vm, args: &mut Args) -> SourceResult<Content>;
 }
 
+/// A node's set rule.
 pub trait Set {
     /// Parse relevant arguments into style properties for this node.
     fn set(args: &mut Args) -> SourceResult<StyleMap>;

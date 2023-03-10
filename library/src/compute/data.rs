@@ -16,25 +16,21 @@ use crate::prelude::*;
 /// #raw(text, lang: "html")
 /// ```
 ///
-/// ## Parameters
-/// - path: `EcoString` (positional, required)
-///   Path to a file.
-///
-/// - returns: string
-///
 /// Display: Plain text
 /// Category: data-loading
+/// Returns: string
 #[func]
-pub fn read(vm: &Vm, args: &mut Args) -> SourceResult<Value> {
-    let Spanned { v: path, span } = args.expect::<Spanned<EcoString>>("path to file")?;
-
+pub fn read(
+    /// Path to a file.
+    path: Spanned<EcoString>,
+) -> Value {
+    let Spanned { v: path, span } = path;
     let path = vm.locate(&path).at(span)?;
     let data = vm.world().file(&path).at(span)?;
-
     let text = String::from_utf8(data.to_vec())
         .map_err(|_| "file is not valid utf-8")
         .at(span)?;
-    Ok(Value::Str(text.into()))
+    Value::Str(text.into())
 }
 
 /// Read structured data from a CSV file.
@@ -55,33 +51,27 @@ pub fn read(vm: &Vm, args: &mut Args) -> SourceResult<Value> {
 /// )
 /// ```
 ///
-/// ## Parameters
-/// - path: `EcoString` (positional, required)
-///   Path to a CSV file.
-///
-/// - delimiter: `Delimiter` (named)
-///   The delimiter that separates columns in the CSV file.
-///   Must be a single ASCII character.
-///   Defaults to a comma.
-///
-/// - returns: array
-///
 /// Display: CSV
 /// Category: data-loading
+/// Returns: array
 #[func]
-pub fn csv(vm: &Vm, args: &mut Args) -> SourceResult<Value> {
-    let Spanned { v: path, span } =
-        args.expect::<Spanned<EcoString>>("path to csv file")?;
-
+pub fn csv(
+    /// Path to a CSV file.
+    path: Spanned<EcoString>,
+    /// The delimiter that separates columns in the CSV file.
+    /// Must be a single ASCII character.
+    /// Defaults to a comma.
+    #[named]
+    #[default]
+    delimiter: Delimiter,
+) -> Value {
+    let Spanned { v: path, span } = path;
     let path = vm.locate(&path).at(span)?;
     let data = vm.world().file(&path).at(span)?;
 
     let mut builder = csv::ReaderBuilder::new();
     builder.has_headers(false);
-
-    if let Some(delimiter) = args.named::<Delimiter>("delimiter")? {
-        builder.delimiter(delimiter.0);
-    }
+    builder.delimiter(delimiter.0);
 
     let mut reader = builder.from_reader(data.as_slice());
     let mut array = Array::new();
@@ -92,7 +82,7 @@ pub fn csv(vm: &Vm, args: &mut Args) -> SourceResult<Value> {
         array.push(Value::Array(sub))
     }
 
-    Ok(Value::Array(array))
+    Value::Array(array)
 }
 
 /// The delimiter to use when parsing CSV files.
@@ -113,6 +103,12 @@ cast_from_value! {
 
         Self(first as u8)
     },
+}
+
+impl Default for Delimiter {
+    fn default() -> Self {
+        Self(b',')
+    }
 }
 
 /// Format the user-facing CSV error message.
@@ -170,25 +166,20 @@ fn format_csv_error(error: csv::Error) -> String {
 /// #forecast(json("tuesday.json"))
 /// ```
 ///
-/// ## Parameters
-/// - path: `EcoString` (positional, required)
-///   Path to a JSON file.
-///
-/// - returns: dictionary or array
-///
 /// Display: JSON
 /// Category: data-loading
+/// Returns: array or dictionary
 #[func]
-pub fn json(vm: &Vm, args: &mut Args) -> SourceResult<Value> {
-    let Spanned { v: path, span } =
-        args.expect::<Spanned<EcoString>>("path to json file")?;
-
+pub fn json(
+    /// Path to a JSON file.
+    path: Spanned<EcoString>,
+) -> Value {
+    let Spanned { v: path, span } = path;
     let path = vm.locate(&path).at(span)?;
     let data = vm.world().file(&path).at(span)?;
     let value: serde_json::Value =
         serde_json::from_slice(&data).map_err(format_json_error).at(span)?;
-
-    Ok(convert_json(value))
+    convert_json(value)
 }
 
 /// Convert a JSON value to a Typst value.
@@ -268,26 +259,20 @@ fn format_json_error(error: serde_json::Error) -> String {
 /// }
 /// ```
 ///
-/// ## Parameters
-/// - path: `EcoString` (positional, required)
-///   Path to an XML file.
-///
-/// - returns: array
-///
 /// Display: XML
 /// Category: data-loading
+/// Returns: array
 #[func]
-pub fn xml(vm: &Vm, args: &mut Args) -> SourceResult<Value> {
-    let Spanned { v: path, span } =
-        args.expect::<Spanned<EcoString>>("path to xml file")?;
-
+pub fn xml(
+    /// Path to an XML file.
+    path: Spanned<EcoString>,
+) -> Value {
+    let Spanned { v: path, span } = path;
     let path = vm.locate(&path).at(span)?;
     let data = vm.world().file(&path).at(span)?;
     let text = std::str::from_utf8(&data).map_err(FileError::from).at(span)?;
-
     let document = roxmltree::Document::parse(text).map_err(format_xml_error).at(span)?;
-
-    Ok(convert_xml(document.root()))
+    convert_xml(document.root())
 }
 
 /// Convert an XML node to a Typst value.

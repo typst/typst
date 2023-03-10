@@ -24,7 +24,6 @@ pub struct LrNode {
     pub size: Smart<Rel<Length>>,
 
     /// The delimited content, including the delimiters.
-    #[positional]
     #[required]
     #[parse(
         let mut body = Content::empty();
@@ -111,15 +110,15 @@ fn scale(
 /// $ floor(x/2) $
 /// ```
 ///
-/// ## Parameters
-/// - body: `Content` (positional, required)
-///   The expression to floor.
-///
 /// Display: Floor
 /// Category: math
+/// Returns: content
 #[func]
-pub fn floor(args: &mut Args) -> SourceResult<Value> {
-    delimited(args, '⌊', '⌋')
+pub fn floor(
+    /// The expression to floor.
+    body: Content,
+) -> Value {
+    delimited(body, '⌊', '⌋')
 }
 
 /// Ceil an expression.
@@ -129,15 +128,15 @@ pub fn floor(args: &mut Args) -> SourceResult<Value> {
 /// $ ceil(x/2) $
 /// ```
 ///
-/// ## Parameters
-/// - body: `Content` (positional, required)
-///   The expression to ceil.
-///
 /// Display: Ceil
 /// Category: math
+/// Returns: content
 #[func]
-pub fn ceil(args: &mut Args) -> SourceResult<Value> {
-    delimited(args, '⌈', '⌉')
+pub fn ceil(
+    /// The expression to ceil.
+    body: Content,
+) -> Value {
+    delimited(body, '⌈', '⌉')
 }
 
 /// Take the absolute value of an expression.
@@ -147,15 +146,16 @@ pub fn ceil(args: &mut Args) -> SourceResult<Value> {
 /// $ abs(x/2) $
 /// ```
 ///
-/// ## Parameters
-/// - body: `Content` (positional, required)
-///   The expression to take the absolute value of.
 ///
 /// Display: Abs
 /// Category: math
+/// Returns: content
 #[func]
-pub fn abs(args: &mut Args) -> SourceResult<Value> {
-    delimited(args, '|', '|')
+pub fn abs(
+    /// The expression to take the absolute value of.
+    body: Content,
+) -> Value {
+    delimited(body, '|', '|')
 }
 
 /// Take the norm of an expression.
@@ -165,24 +165,24 @@ pub fn abs(args: &mut Args) -> SourceResult<Value> {
 /// $ norm(x/2) $
 /// ```
 ///
-/// ## Parameters
-/// - body: `Content` (positional, required)
-///   The expression to take the norm of.
-///
 /// Display: Norm
 /// Category: math
+/// Returns: content
 #[func]
-pub fn norm(args: &mut Args) -> SourceResult<Value> {
-    delimited(args, '‖', '‖')
+pub fn norm(
+    /// The expression to take the norm of.
+    body: Content,
+) -> Value {
+    delimited(body, '‖', '‖')
 }
 
-fn delimited(args: &mut Args, left: char, right: char) -> SourceResult<Value> {
-    Ok(Value::Content(
+fn delimited(body: Content, left: char, right: char) -> Value {
+    Value::Content(
         LrNode::new(Content::sequence(vec![
             TextNode::packed(left),
-            args.expect::<Content>("body")?,
+            body,
             TextNode::packed(right),
         ]))
         .pack(),
-    ))
+    )
 }

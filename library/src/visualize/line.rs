@@ -21,15 +21,15 @@ pub struct LineNode {
 
     /// The offset from `start` where the line ends.
     #[resolve]
-    pub end: Smart<Axes<Rel<Length>>>,
+    pub end: Option<Axes<Rel<Length>>>,
 
-    /// The line's length. Mutually exclusive with `end`.
+    /// The line's length. This is only respected if `end` is `none`.
     #[resolve]
     #[default(Abs::pt(30.0).into())]
     pub length: Rel<Length>,
 
-    /// The angle at which the line points away from the origin. Mutually
-    /// exclusive with `end`.
+    /// The angle at which the line points away from the origin. This is only
+    /// respected if `end` is `none`.
     pub angle: Angle,
 
     /// How to stroke the line. This can be:

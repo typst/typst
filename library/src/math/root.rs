@@ -12,7 +12,6 @@ use super::*;
 #[node(LayoutMath)]
 pub struct SqrtNode {
     /// The expression to take the square root of.
-    #[positional]
     #[required]
     pub radicand: Content,
 }
@@ -35,12 +34,10 @@ impl LayoutMath for SqrtNode {
 #[node(LayoutMath)]
 pub struct RootNode {
     /// Which root of the radicand to take.
-    #[positional]
     #[required]
     index: Content,
 
     /// The expression to take the root of.
-    #[positional]
     #[required]
     radicand: Content,
 }

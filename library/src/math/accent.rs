@@ -24,7 +24,6 @@ pub struct AccentNode {
     /// ```example
     /// $arrow(A B C)$
     /// ```
-    #[positional]
     #[required]
     pub base: Content,
 
@@ -47,7 +46,6 @@ pub struct AccentNode {
     /// | Caron        | `caron`         | `ˇ`       |
     /// | Right arrow  | `arrow`, `->`   | `→`       |
     /// | Left arrow   | `arrow.l`, `<-` | `←`       |
-    #[positional]
     #[required]
     pub accent: Accent,
 }

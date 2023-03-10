@@ -16,7 +16,6 @@ const BRACKET_GAP: Em = Em::new(0.25);
 #[node(LayoutMath)]
 pub struct UnderlineNode {
     /// The content above the line.
-    #[positional]
     #[required]
     pub body: Content,
 }
@@ -39,7 +38,6 @@ impl LayoutMath for UnderlineNode {
 #[node(LayoutMath)]
 pub struct OverlineNode {
     /// The content below the line.
-    #[positional]
     #[required]
     pub body: Content,
 }
@@ -62,7 +60,6 @@ impl LayoutMath for OverlineNode {
 #[node(LayoutMath)]
 pub struct UnderbraceNode {
     /// The content above the brace.
-    #[positional]
     #[required]
     pub body: Content,
 
@@ -89,7 +86,6 @@ impl LayoutMath for UnderbraceNode {
 #[node(LayoutMath)]
 pub struct OverbraceNode {
     /// The content below the brace.
-    #[positional]
     #[required]
     pub body: Content,
 
@@ -116,7 +112,6 @@ impl LayoutMath for OverbraceNode {
 #[node(LayoutMath)]
 pub struct UnderbracketNode {
     /// The content above the bracket.
-    #[positional]
     #[required]
     pub body: Content,
 
@@ -143,7 +138,6 @@ impl LayoutMath for UnderbracketNode {
 #[node(LayoutMath)]
 pub struct OverbracketNode {
     /// The content below the bracket.
-    #[positional]
     #[required]
     pub body: Content,
 

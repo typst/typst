@@ -35,10 +35,6 @@ use crate::text::{
 /// three integers. Then, we ...
 /// ```
 ///
-/// ## Parameters
-/// - body: `Content` (positional, required)
-///   The contents of the paragraph.
-///
 /// Display: Paragraph
 /// Category: layout
 #[node(Construct)]
@@ -98,6 +94,10 @@ pub struct ParNode {
     /// ```
     #[default]
     pub linebreaks: Smart<Linebreaks>,
+
+    /// The contents of the paragraph.
+    #[external]
+    pub body: Content,
 
     /// The paragraph's children.
     #[internal]

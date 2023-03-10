@@ -86,7 +86,7 @@ impl Debug for StyleMap {
     }
 }
 
-/// A single style property, recipe or barrier.
+/// A single style property or recipe.
 #[derive(Clone, Hash)]
 pub enum Style {
     /// A style property originating from a set rule or constructor.

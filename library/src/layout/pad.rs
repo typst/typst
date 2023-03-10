@@ -15,16 +15,6 @@ use crate::prelude::*;
 ///  measured in words per minute._
 /// ```
 ///
-/// ## Parameters
-/// - x: `Rel<Length>` (named, settable)
-///   The horizontal padding. Both `left` and `right` take precedence over this.
-///
-/// - y: `Rel<Length>` (named, settable)
-///   The vertical padding. Both `top` and `bottom` take precedence over this.
-///
-/// - rest: `Rel<Length>` (named, settable)
-///   The padding for all sides. All other parameters take precedence over this.
-///
 /// Display: Padding
 /// Category: layout
 #[node(Layout)]
@@ -50,8 +40,21 @@ pub struct PadNode {
     #[parse(args.named("bottom")?.or(y))]
     pub bottom: Rel<Length>,
 
+    /// The horizontal padding. Both `left` and `right` take precedence over
+    /// this.
+    #[external]
+    pub x: Rel<Length>,
+
+    /// The vertical padding. Both `top` and `bottom` take precedence over this.
+    #[external]
+    pub y: Rel<Length>,
+
+    /// The padding for all sides. All other parameters take precedence over
+    /// this.
+    #[external]
+    pub rest: Rel<Length>,
+
     /// The content to pad at the sides.
-    #[positional]
     #[required]
     pub body: Content,
 }

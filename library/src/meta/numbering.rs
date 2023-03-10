@@ -27,46 +27,42 @@ use crate::text::Case;
 /// )
 /// ```
 ///
-/// ## Parameters
-/// - numbering: `Numbering` (positional, required)
-///   Defines how the numbering works.
-///
-///   **Counting symbols** are `1`, `a`, `A`, `i`, `I` and `*`. They are
-///   replaced by the number in the sequence, in the given case.
-///
-///   The `*` character means that symbols should be used to count, in the
-///   order of `*`, `†`, `‡`, `§`, `¶`, and `‖`. If there are more than six
-///   items, the number is represented using multiple symbols.
-///
-///   **Suffixes** are all characters after the last counting symbol. They are
-///   repeated as-is at the end of any rendered number.
-///
-///   **Prefixes** are all characters that are neither counting symbols nor
-///   suffixes. They are repeated as-is at in front of their rendered
-///   equivalent of their counting symbol.
-///
-///   This parameter can also be an arbitrary function that gets each number as
-///   an individual argument. When given a function, the `numbering` function
-///   just forwards the arguments to that function. While this is not
-///   particularly useful in itself, it means that you can just give arbitrary
-///   numberings to the `numbering` function without caring whether they are
-///   defined as a pattern or function.
-///
-/// - numbers: `NonZeroUsize` (positional, variadic)
-///   The numbers to apply the numbering to. Must be positive.
-///
-///   If `numbering` is a pattern and more numbers than counting symbols are
-///   given, the last counting symbol with its prefix is repeated.
-///
-/// - returns: any
-///
 /// Display: Numbering
 /// Category: meta
+/// Returns: any
 #[func]
-pub fn numbering(vm: &Vm, args: &mut Args) -> SourceResult<Value> {
-    let numbering = args.expect::<Numbering>("pattern or function")?;
-    let numbers = args.all::<NonZeroUsize>()?;
-    numbering.apply(vm.world(), &numbers)
+pub fn numbering(
+    /// Defines how the numbering works.
+    ///
+    /// **Counting symbols** are `1`, `a`, `A`, `i`, `I` and `*`. They are
+    /// replaced by the number in the sequence, in the given case.
+    ///
+    /// The `*` character means that symbols should be used to count, in the
+    /// order of `*`, `†`, `‡`, `§`, `¶`, and `‖`. If there are more than six
+    /// items, the number is represented using multiple symbols.
+    ///
+    /// **Suffixes** are all characters after the last counting symbol. They are
+    /// repeated as-is at the end of any rendered number.
+    ///
+    /// **Prefixes** are all characters that are neither counting symbols nor
+    /// suffixes. They are repeated as-is at in front of their rendered
+    /// equivalent of their counting symbol.
+    ///
+    /// This parameter can also be an arbitrary function that gets each number as
+    /// an individual argument. When given a function, the `numbering` function
+    /// just forwards the arguments to that function. While this is not
+    /// particularly useful in itself, it means that you can just give arbitrary
+    /// numberings to the `numbering` function without caring whether they are
+    /// defined as a pattern or function.
+    numbering: Numbering,
+    /// The numbers to apply the numbering to. Must be positive.
+    ///
+    /// If `numbering` is a pattern and more numbers than counting symbols are
+    /// given, the last counting symbol with its prefix is repeated.
+    #[variadic]
+    numbers: Vec<NonZeroUsize>,
+) -> Value {
+    numbering.apply(vm.world(), &numbers)?
 }
 
 /// How to number an enumeration.

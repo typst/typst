@@ -61,7 +61,6 @@ pub struct UnderlineNode {
     pub evade: bool,
 
     /// The content to underline.
-    #[positional]
     #[required]
     pub body: Content,
 }
@@ -141,7 +140,6 @@ pub struct OverlineNode {
     pub evade: bool,
 
     /// The content to add a line over.
-    #[positional]
     #[required]
     pub body: Content,
 }
@@ -206,7 +204,6 @@ pub struct StrikeNode {
     pub extent: Length,
 
     /// The content to strike through.
-    #[positional]
     #[required]
     pub body: Content,
 }

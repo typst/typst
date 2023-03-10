@@ -42,7 +42,6 @@ pub struct SubNode {
     pub size: TextSize,
 
     /// The text to display in subscript.
-    #[positional]
     #[required]
     pub body: Content,
 }
@@ -110,7 +109,6 @@ pub struct SuperNode {
     pub size: TextSize,
 
     /// The text to display in superscript.
-    #[positional]
     #[required]
     pub body: Content,
 }

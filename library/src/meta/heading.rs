@@ -74,7 +74,6 @@ pub struct HeadingNode {
     pub outlined: bool,
 
     /// The heading's title.
-    #[positional]
     #[required]
     pub body: Content,
 }

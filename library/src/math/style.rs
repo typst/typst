@@ -12,7 +12,6 @@ use super::*;
 #[node(LayoutMath)]
 pub struct BoldNode {
     /// The piece of formula to style.
-    #[positional]
     #[required]
     pub body: Content,
 }
@@ -38,7 +37,6 @@ impl LayoutMath for BoldNode {
 #[node(LayoutMath)]
 pub struct UprightNode {
     /// The piece of formula to style.
-    #[positional]
     #[required]
     pub body: Content,
 }
@@ -61,7 +59,6 @@ impl LayoutMath for UprightNode {
 #[node(LayoutMath)]
 pub struct ItalicNode {
     /// The piece of formula to style.
-    #[positional]
     #[required]
     pub body: Content,
 }
@@ -84,7 +81,6 @@ impl LayoutMath for ItalicNode {
 #[node(LayoutMath)]
 pub struct SerifNode {
     /// The piece of formula to style.
-    #[positional]
     #[required]
     pub body: Content,
 }
@@ -110,7 +106,6 @@ impl LayoutMath for SerifNode {
 #[node(LayoutMath)]
 pub struct SansNode {
     /// The piece of formula to style.
-    #[positional]
     #[required]
     pub body: Content,
 }
@@ -136,7 +131,6 @@ impl LayoutMath for SansNode {
 #[node(LayoutMath)]
 pub struct CalNode {
     /// The piece of formula to style.
-    #[positional]
     #[required]
     pub body: Content,
 }
@@ -162,7 +156,6 @@ impl LayoutMath for CalNode {
 #[node(LayoutMath)]
 pub struct FrakNode {
     /// The piece of formula to style.
-    #[positional]
     #[required]
     pub body: Content,
 }
@@ -188,7 +181,6 @@ impl LayoutMath for FrakNode {
 #[node(LayoutMath)]
 pub struct MonoNode {
     /// The piece of formula to style.
-    #[positional]
     #[required]
     pub body: Content,
 }
@@ -219,7 +211,6 @@ impl LayoutMath for MonoNode {
 #[node(LayoutMath)]
 pub struct BbNode {
     /// The piece of formula to style.
-    #[positional]
     #[required]
     pub body: Content,
 }

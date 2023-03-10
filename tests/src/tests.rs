@@ -11,7 +11,7 @@ use comemo::{Prehashed, Track};
 use elsa::FrozenVec;
 use once_cell::unsync::OnceCell;
 use tiny_skia as sk;
-use typst::diag::{bail, FileError, FileResult, SourceResult};
+use typst::diag::{bail, FileError, FileResult};
 use typst::doc::{Document, Element, Frame, Meta};
 use typst::eval::{func, Library, Value};
 use typst::font::{Font, FontBook};
@@ -148,29 +148,29 @@ impl Args {
 fn library() -> Library {
     /// Display: Test
     /// Category: test
+    /// Returns:
     #[func]
-    fn test(args: &mut typst::eval::Args) -> SourceResult<Value> {
-        let lhs = args.expect::<Value>("left-hand side")?;
-        let rhs = args.expect::<Value>("right-hand side")?;
+    fn test(lhs: Value, rhs: Value) -> Value {
         if lhs != rhs {
             bail!(args.span, "Assertion failed: {:?} != {:?}", lhs, rhs,);
         }
-        Ok(Value::None)
+        Value::None
     }
 
     /// Display: Print
     /// Category: test
+    /// Returns:
     #[func]
-    fn print(args: &mut typst::eval::Args) -> SourceResult<Value> {
+    fn print(#[variadic] values: Vec<Value>) -> Value {
         print!("> ");
-        for (i, value) in args.all::<Value>()?.into_iter().enumerate() {
+        for (i, value) in values.into_iter().enumerate() {
             if i > 0 {
                 print!(", ")
             }
             print!("{value:?}");
         }
         println!();
-        Ok(Value::None)
+        Value::None
     }
 
     let mut lib = typst_library::build();
@@ -187,8 +187,8 @@ fn library() -> Library {
     lib.styles.set(TextNode::set_size(TextSize(Abs::pt(10.0).into())));
 
     // Hook up helpers into the global scope.
-    lib.global.scope_mut().def_func::<TestFunc>("test");
-    lib.global.scope_mut().def_func::<PrintFunc>("print");
+    lib.global.scope_mut().define("test", test);
+    lib.global.scope_mut().define("print", print);
     lib.global
         .scope_mut()
         .define("conifer", RgbaColor::new(0x9f, 0xEB, 0x52, 0xFF));

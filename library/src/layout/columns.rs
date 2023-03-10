@@ -45,7 +45,6 @@ pub struct ColumnsNode {
     pub gutter: Rel<Length>,
 
     /// The content that should be layouted into the columns.
-    #[positional]
     #[required]
     pub body: Content,
 }

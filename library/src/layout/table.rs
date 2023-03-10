@@ -29,35 +29,33 @@ use crate::prelude::*;
 /// )
 /// ```
 ///
-/// ## Parameters
-/// - gutter: `TrackSizings` (named, settable)
-///   Defines the gaps between rows & columns.
-///   See the [grid documentation]($func/grid) for more information on gutters.
-///
 /// Display: Table
 /// Category: layout
 #[node(Layout)]
 pub struct TableNode {
-    /// Defines the column sizes.
-    /// See the [grid documentation]($func/grid) for more information on track
-    /// sizing.
+    /// Defines the column sizes. See the [grid documentation]($func/grid) for
+    /// more information on track sizing.
     pub columns: TrackSizings,
 
-    /// Defines the row sizes.
-    /// See the [grid documentation]($func/grid) for more information on track
-    /// sizing.
+    /// Defines the row sizes. See the [grid documentation]($func/grid) for more
+    /// information on track sizing.
     pub rows: TrackSizings,
 
-    /// Defines the gaps between columns. Takes precedence over `gutter`.
-    /// See the [grid documentation]($func/grid) for more information on gutters.
+    /// Defines the gaps between rows & columns. See the [grid
+    /// documentation]($func/grid) for more information on gutters.
+    #[external]
+    pub gutter: TrackSizings,
+
+    /// Defines the gaps between columns. Takes precedence over `gutter`. See
+    /// the [grid documentation]($func/grid) for more information on gutters.
     #[parse(
         let gutter = args.named("gutter")?;
         args.named("column-gutter")?.or_else(|| gutter.clone())
     )]
     pub column_gutter: TrackSizings,
 
-    /// Defines the gaps between rows. Takes precedence over `gutter`.
-    /// See the [grid documentation]($func/grid) for more information on gutters.
+    /// Defines the gaps between rows. Takes precedence over `gutter`. See the
+    /// [grid documentation]($func/grid) for more information on gutters.
     #[parse(args.named("row-gutter")?.or_else(|| gutter.clone()))]
     pub row_gutter: TrackSizings,
 

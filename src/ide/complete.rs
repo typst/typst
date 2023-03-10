@@ -627,10 +627,6 @@ fn param_completions(
         }
     }
 
-    if callee.as_str() == "text" {
-        ctx.font_completions();
-    }
-
     if ctx.before.ends_with(',') {
         ctx.enrich(" ", "");
     }
@@ -653,7 +649,7 @@ fn named_param_value_completions(
 
     ctx.cast_completions(&param.cast);
 
-    if callee.as_str() == "text" && name == "family" {
+    if callee.as_str() == "text" && name == "font" {
         ctx.font_completions();
     }
 

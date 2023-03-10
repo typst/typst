@@ -126,12 +126,10 @@ impl Layout for TermsNode {
 #[node]
 pub struct TermItem {
     /// The term described by the list item.
-    #[positional]
     #[required]
     pub term: Content,
 
     /// The description of the term.
-    #[positional]
     #[required]
     pub description: Content,
 }

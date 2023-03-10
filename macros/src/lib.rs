@@ -16,14 +16,13 @@ use syn::ext::IdentExt;
 use syn::parse::{Parse, ParseStream, Parser};
 use syn::punctuated::Punctuated;
 use syn::{parse_quote, Ident, Result, Token};
-use unscanny::Scanner;
 
 use self::util::*;
 
-/// Implement `FuncType` for a type or function.
+/// Turns a function into a `NativeFunc`.
 #[proc_macro_attribute]
 pub fn func(_: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
-    let item = syn::parse_macro_input!(item as syn::Item);
+    let item = syn::parse_macro_input!(item as syn::ItemFn);
     func::func(item).unwrap_or_else(|err| err.to_compile_error()).into()
 }
 

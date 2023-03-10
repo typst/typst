@@ -14,17 +14,15 @@ use crate::prelude::*;
 /// #type(x => x + 1)
 /// ```
 ///
-/// ## Parameters
-/// - value: `Value` (positional, required)
-///   The value whose type's to determine.
-///
-/// - returns: string
-///
 /// Display: Type
 /// Category: foundations
+/// Returns: string
 #[func]
-pub fn type_(args: &mut Args) -> SourceResult<Value> {
-    Ok(args.expect::<Value>("value")?.type_name().into())
+pub fn type_(
+    /// The value whose type's to determine.
+    value: Value,
+) -> Value {
+    value.type_name().into()
 }
 
 /// The string representation of a value.
@@ -41,17 +39,15 @@ pub fn type_(args: &mut Args) -> SourceResult<Value> {
 /// #[*Hi*] vs #repr([*Hi*])
 /// ```
 ///
-/// ## Parameters
-/// - value: `Value` (positional, required)
-///   The value whose string representation to produce.
-///
-/// - returns: string
-///
 /// Display: Representation
 /// Category: foundations
+/// Returns: string
 #[func]
-pub fn repr(args: &mut Args) -> SourceResult<Value> {
-    Ok(args.expect::<Value>("value")?.repr().into())
+pub fn repr(
+    /// The value whose string representation to produce.
+    value: Value,
+) -> Value {
+    value.repr().into()
 }
 
 /// Fail with an error.
@@ -62,15 +58,16 @@ pub fn repr(args: &mut Args) -> SourceResult<Value> {
 /// #panic("this is wrong")
 /// ```
 ///
-/// ## Parameters
-/// - payload: `Value` (positional)
-///   The value (or message) to panic with.
-///
 /// Display: Panic
 /// Category: foundations
+/// Returns:
 #[func]
-pub fn panic(args: &mut Args) -> SourceResult<Value> {
-    match args.eat::<Value>()? {
+pub fn panic(
+    /// The value (or message) to panic with.
+    #[default]
+    payload: Option<Value>,
+) -> Value {
+    match payload {
         Some(v) => bail!(args.span, "panicked with: {}", v.repr()),
         None => bail!(args.span, "panicked"),
     }
@@ -86,26 +83,26 @@ pub fn panic(args: &mut Args) -> SourceResult<Value> {
 /// #assert(1 < 2, message: "math broke")
 /// ```
 ///
-/// ## Parameters
-/// - condition: `bool` (positional, required)
-///   The condition that must be true for the assertion to pass.
-/// - message: `EcoString` (named)
-///   The error message when the assertion fails.
-///
 /// Display: Assert
 /// Category: foundations
+/// Returns:
 #[func]
-pub fn assert(args: &mut Args) -> SourceResult<Value> {
-    let check = args.expect::<bool>("condition")?;
-    let message = args.named::<EcoString>("message")?;
-    if !check {
+pub fn assert(
+    /// The condition that must be true for the assertion to pass.
+    condition: bool,
+    /// The error message when the assertion fails.
+    #[named]
+    #[default]
+    message: Option<EcoString>,
+) -> Value {
+    if !condition {
         if let Some(message) = message {
             bail!(args.span, "assertion failed: {}", message);
         } else {
             bail!(args.span, "assertion failed");
         }
     }
-    Ok(Value::None)
+    Value::None
 }
 
 /// Evaluate a string as Typst code.
@@ -119,18 +116,16 @@ pub fn assert(args: &mut Args) -> SourceResult<Value> {
 /// #eval("[*Strong text*]")
 /// ```
 ///
-/// ## Parameters
-/// - source: `String` (positional, required)
-///   A string of Typst code to evaluate.
-///
-///   The code in the string cannot interact with the file system.
-///
-/// - returns: any
-///
 /// Display: Evaluate
 /// Category: foundations
+/// Returns: any
 #[func]
-pub fn eval(vm: &Vm, args: &mut Args) -> SourceResult<Value> {
-    let Spanned { v: text, span } = args.expect::<Spanned<String>>("source")?;
-    typst::eval::eval_code_str(vm.world(), &text, span)
+pub fn eval(
+    /// A string of Typst code to evaluate.
+    ///
+    /// The code in the string cannot interact with the file system.
+    source: Spanned<String>,
+) -> Value {
+    let Spanned { v: text, span } = source;
+    typst::eval::eval_code_str(vm.world(), &text, span)?
 }

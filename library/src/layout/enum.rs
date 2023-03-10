@@ -228,7 +228,6 @@ pub struct EnumItem {
     pub number: Option<NonZeroUsize>,
 
     /// The item's body.
-    #[positional]
     #[required]
     pub body: Content,
 }

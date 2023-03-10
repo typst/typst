@@ -49,7 +49,6 @@ pub struct PlaceNode {
     pub dy: Rel<Length>,
 
     /// The content to place.
-    #[positional]
     #[required]
     pub body: Content,
 }

@@ -47,52 +47,52 @@ use crate::text::{
 /// Create a module with all math definitions.
 pub fn module() -> Module {
     let mut math = Scope::deduplicating();
-    math.def_func::<FormulaNode>("formula");
-    math.def_func::<TextNode>("text");
+    math.define("formula", FormulaNode::func());
+    math.define("text", TextNode::func());
 
     // Grouping.
-    math.def_func::<LrNode>("lr");
-    math.def_func::<AbsFunc>("abs");
-    math.def_func::<NormFunc>("norm");
-    math.def_func::<FloorFunc>("floor");
-    math.def_func::<CeilFunc>("ceil");
+    math.define("lr", LrNode::func());
+    math.define("abs", abs);
+    math.define("norm", norm);
+    math.define("floor", floor);
+    math.define("ceil", ceil);
 
     // Attachments and accents.
-    math.def_func::<AttachNode>("attach");
-    math.def_func::<ScriptsNode>("scripts");
-    math.def_func::<LimitsNode>("limits");
-    math.def_func::<AccentNode>("accent");
-    math.def_func::<UnderlineNode>("underline");
-    math.def_func::<OverlineNode>("overline");
-    math.def_func::<UnderbraceNode>("underbrace");
-    math.def_func::<OverbraceNode>("overbrace");
-    math.def_func::<UnderbracketNode>("underbracket");
-    math.def_func::<OverbracketNode>("overbracket");
+    math.define("attach", AttachNode::func());
+    math.define("scripts", ScriptsNode::func());
+    math.define("limits", LimitsNode::func());
+    math.define("accent", AccentNode::func());
+    math.define("underline", UnderlineNode::func());
+    math.define("overline", OverlineNode::func());
+    math.define("underbrace", UnderbraceNode::func());
+    math.define("overbrace", OverbraceNode::func());
+    math.define("underbracket", UnderbracketNode::func());
+    math.define("overbracket", OverbracketNode::func());
 
     // Fractions and matrix-likes.
-    math.def_func::<FracNode>("frac");
-    math.def_func::<BinomNode>("binom");
-    math.def_func::<VecNode>("vec");
-    math.def_func::<MatNode>("mat");
-    math.def_func::<CasesNode>("cases");
+    math.define("frac", FracNode::func());
+    math.define("binom", BinomNode::func());
+    math.define("vec", VecNode::func());
+    math.define("mat", MatNode::func());
+    math.define("cases", CasesNode::func());
 
     // Roots.
-    math.def_func::<SqrtNode>("sqrt");
-    math.def_func::<RootNode>("root");
+    math.define("sqrt", SqrtNode::func());
+    math.define("root", RootNode::func());
 
     // Styles.
-    math.def_func::<UprightNode>("upright");
-    math.def_func::<BoldNode>("bold");
-    math.def_func::<ItalicNode>("italic");
-    math.def_func::<SerifNode>("serif");
-    math.def_func::<SansNode>("sans");
-    math.def_func::<CalNode>("cal");
-    math.def_func::<FrakNode>("frak");
-    math.def_func::<MonoNode>("mono");
-    math.def_func::<BbNode>("bb");
+    math.define("upright", UprightNode::func());
+    math.define("bold", BoldNode::func());
+    math.define("italic", ItalicNode::func());
+    math.define("serif", SerifNode::func());
+    math.define("sans", SansNode::func());
+    math.define("cal", CalNode::func());
+    math.define("frak", FrakNode::func());
+    math.define("mono", MonoNode::func());
+    math.define("bb", BbNode::func());
 
     // Text operators.
-    math.def_func::<OpNode>("op");
+    math.define("op", OpNode::func());
     op::define(&mut math);
 
     // Spacings.
@@ -139,7 +139,6 @@ pub struct FormulaNode {
     pub block: bool,
 
     /// The content of the formula.
-    #[positional]
     #[required]
     pub body: Content,
 }

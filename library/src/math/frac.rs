@@ -22,12 +22,10 @@ const FRAC_AROUND: Em = Em::new(0.1);
 #[node(LayoutMath)]
 pub struct FracNode {
     /// The fraction's numerator.
-    #[positional]
     #[required]
     pub num: Content,
 
     /// The fraction's denominator.
-    #[positional]
     #[required]
     pub denom: Content,
 }
@@ -50,12 +48,10 @@ impl LayoutMath for FracNode {
 #[node(LayoutMath)]
 pub struct BinomNode {
     /// The binomial's upper index.
-    #[positional]
     #[required]
     pub upper: Content,
 
     /// The binomial's lower index.
-    #[positional]
     #[required]
     pub lower: Content,
 }

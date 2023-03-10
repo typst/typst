@@ -28,5 +28,5 @@
 }
 
 ---
-// Error: 7-9 missing argument: number of words
+// Error: 7-9 missing argument: words
 #lorem()

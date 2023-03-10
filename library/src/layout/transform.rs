@@ -32,7 +32,6 @@ pub struct MoveNode {
     pub dy: Rel<Length>,
 
     /// The content to move.
-    #[positional]
     #[required]
     pub body: Content,
 }
@@ -101,7 +100,6 @@ pub struct RotateNode {
     pub origin: Axes<Option<GenAlign>>,
 
     /// The content to rotate.
-    #[positional]
     #[required]
     pub body: Content,
 }
@@ -170,7 +168,6 @@ pub struct ScaleNode {
     pub origin: Axes<Option<GenAlign>>,
 
     /// The content to scale.
-    #[positional]
     #[required]
     pub body: Content,
 }

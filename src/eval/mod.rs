@@ -20,6 +20,9 @@ mod ops;
 mod scope;
 mod symbol;
 
+#[doc(hidden)]
+pub use once_cell::sync::Lazy;
+
 pub use self::args::*;
 pub use self::array::*;
 pub use self::cast::*;
@@ -1152,7 +1155,7 @@ impl Eval for ast::Closure {
             body: self.body(),
         };
 
-        Ok(Value::Func(Func::from_closure(closure, self.span())))
+        Ok(Value::Func(Func::from(closure).spanned(self.span())))
     }
 }
 

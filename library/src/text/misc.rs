@@ -94,7 +94,6 @@ pub struct StrongNode {
     pub delta: i64,
 
     /// The content to strongly emphasize.
-    #[positional]
     #[required]
     pub body: Content,
 }
@@ -155,7 +154,6 @@ impl Fold for Delta {
 #[node(Show)]
 pub struct EmphNode {
     /// The content to emphasize.
-    #[positional]
     #[required]
     pub body: Content,
 }
@@ -196,15 +194,15 @@ impl Fold for Toggle {
 /// #lower[already low]
 /// ```
 ///
-/// ## Parameters
-/// - text: `ToCase` (positional, required)
-///   The text to convert to lowercase.
-///
 /// Display: Lowercase
 /// Category: text
+/// Returns: string or content
 #[func]
-pub fn lower(args: &mut Args) -> SourceResult<Value> {
-    case(Case::Lower, args)
+pub fn lower(
+    /// The text to convert to lowercase.
+    text: ToCase,
+) -> Value {
+    case(text, Case::Lower)
 }
 
 /// Convert text or content to uppercase.
@@ -216,23 +214,23 @@ pub fn lower(args: &mut Args) -> SourceResult<Value> {
 /// #upper[ALREADY HIGH]
 /// ```
 ///
-/// ## Parameters
-/// - text: `ToCase` (positional, required)
-///   The text to convert to uppercase.
-///
 /// Display: Uppercase
 /// Category: text
+/// Returns: string or content
 #[func]
-pub fn upper(args: &mut Args) -> SourceResult<Value> {
-    case(Case::Upper, args)
+pub fn upper(
+    /// The text to convert to uppercase.
+    text: ToCase,
+) -> Value {
+    case(text, Case::Upper)
 }
 
 /// Change the case of text.
-fn case(case: Case, args: &mut Args) -> SourceResult<Value> {
-    Ok(match args.expect("string or content")? {
+fn case(text: ToCase, case: Case) -> Value {
+    match text {
         ToCase::Str(v) => Value::Str(case.apply(&v).into()),
         ToCase::Content(v) => Value::Content(v.styled(TextNode::set_case(Some(case)))),
-    })
+    }
 }
 
 /// A value whose case can be changed.
@@ -302,16 +300,15 @@ cast_to_value! {
 /// #lorem(40)
 /// ```
 ///
-/// ## Parameters
-/// - text: `Content` (positional, required)
-///   The text to display to small capitals.
-///
 /// Display: Small Capitals
 /// Category: text
+/// Returns: content
 #[func]
-pub fn smallcaps(args: &mut Args) -> SourceResult<Value> {
-    let body: Content = args.expect("content")?;
-    Ok(Value::Content(body.styled(TextNode::set_smallcaps(true))))
+pub fn smallcaps(
+    /// The text to display to small capitals.
+    body: Content,
+) -> Value {
+    Value::Content(body.styled(TextNode::set_smallcaps(true)))
 }
 
 /// Create blind text.
@@ -330,16 +327,13 @@ pub fn smallcaps(args: &mut Args) -> SourceResult<Value> {
 /// #lorem(15)
 /// ```
 ///
-/// ## Parameters
-/// - words: `usize` (positional, required)
-///   The length of the blind text in words.
-///
-/// - returns: string
-///
 /// Display: Blind Text
 /// Category: text
+/// Returns: string
 #[func]
-pub fn lorem(args: &mut Args) -> SourceResult<Value> {
-    let words: usize = args.expect("number of words")?;
-    Ok(Value::Str(lipsum::lipsum(words).replace("--", "–").into()))
+pub fn lorem(
+    /// The length of the blind text in words.
+    words: usize,
+) -> Value {
+    Value::Str(lipsum::lipsum(words).replace("--", "–").into())
 }

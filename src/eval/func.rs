@@ -6,10 +6,14 @@ use std::sync::Arc;
 
 use comemo::{Prehashed, Track, Tracked, TrackedMut};
 use ecow::EcoString;
+use once_cell::sync::Lazy;
 
-use super::{Args, CastInfo, Dict, Eval, Flow, Route, Scope, Scopes, Tracer, Value, Vm};
+use super::{
+    cast_to_value, Args, CastInfo, Dict, Eval, Flow, Route, Scope, Scopes, Tracer, Value,
+    Vm,
+};
 use crate::diag::{bail, SourceResult, StrResult};
-use crate::model::{Node, NodeId, Selector, StyleMap};
+use crate::model::{Content, NodeId, Selector, StyleMap};
 use crate::syntax::ast::{self, AstNode, Expr};
 use crate::syntax::{SourceId, Span, SyntaxNode};
 use crate::util::hash128;
@@ -22,8 +26,10 @@ pub struct Func(Arc<Prehashed<Repr>>, Span);
 /// The different kinds of function representations.
 #[derive(Hash)]
 enum Repr {
-    /// A native rust function.
-    Native(Native),
+    /// A native Rust function.
+    Native(NativeFunc),
+    /// A function for a node.
+    Node(NodeFunc),
     /// A user-defined closure.
     Closure(Closure),
     /// A nested function with pre-applied arguments.
@@ -31,50 +37,11 @@ enum Repr {
 }
 
 impl Func {
-    /// Create a new function from a type that can be turned into a function.
-    pub fn from_type<T: FuncType>(name: &'static str) -> Self {
-        T::create_func(name)
-    }
-
-    /// Create a new function from a native rust function.
-    pub fn from_fn(
-        func: fn(&Vm, &mut Args) -> SourceResult<Value>,
-        info: FuncInfo,
-    ) -> Self {
-        Self(
-            Arc::new(Prehashed::new(Repr::Native(Native {
-                func,
-                set: None,
-                node: None,
-                info,
-            }))),
-            Span::detached(),
-        )
-    }
-
-    /// Create a new function from a native rust node.
-    pub fn from_node<T: Node>(mut info: FuncInfo) -> Self {
-        info.params.extend(T::params());
-        Self(
-            Arc::new(Prehashed::new(Repr::Native(Native {
-                func: |vm, args| T::construct(vm, args).map(Value::Content),
-                set: Some(T::set),
-                node: Some(NodeId::of::<T>()),
-                info,
-            }))),
-            Span::detached(),
-        )
-    }
-
-    /// Create a new function from a closure.
-    pub(super) fn from_closure(closure: Closure, span: Span) -> Self {
-        Self(Arc::new(Prehashed::new(Repr::Closure(closure))), span)
-    }
-
     /// The name of the function.
     pub fn name(&self) -> Option<&str> {
         match &**self.0 {
             Repr::Native(native) => Some(native.info.name),
+            Repr::Node(node) => Some(node.info.name),
             Repr::Closure(closure) => closure.name.as_deref(),
             Repr::With(func, _) => func.name(),
         }
@@ -84,6 +51,7 @@ impl Func {
     pub fn info(&self) -> Option<&FuncInfo> {
         match &**self.0 {
             Repr::Native(native) => Some(&native.info),
+            Repr::Node(node) => Some(&node.info),
             Repr::With(func, _) => func.info(),
             _ => None,
         }
@@ -118,6 +86,11 @@ impl Func {
                 let value = (native.func)(vm, &mut args)?;
                 args.finish()?;
                 Ok(value)
+            }
+            Repr::Node(node) => {
+                let value = (node.construct)(vm, &mut args)?;
+                args.finish()?;
+                Ok(Value::Content(value))
             }
             Repr::Closure(closure) => {
                 // Determine the route inside the closure.
@@ -172,8 +145,8 @@ impl Func {
     /// Execute the function's set rule and return the resulting style map.
     pub fn set(&self, mut args: Args) -> SourceResult<StyleMap> {
         Ok(match &**self.0 {
-            Repr::Native(Native { set: Some(set), .. }) => {
-                let styles = set(&mut args)?;
+            Repr::Node(node) => {
+                let styles = (node.set)(&mut args)?;
                 args.finish()?;
                 styles
             }
@@ -183,13 +156,13 @@ impl Func {
 
     /// Create a selector for this function's node type.
     pub fn select(&self, fields: Option<Dict>) -> StrResult<Selector> {
-        match **self.0 {
-            Repr::Native(Native { node: Some(id), .. }) => {
-                if id == item!(text_id) {
+        match &**self.0 {
+            Repr::Node(node) => {
+                if node.id == item!(text_id) {
                     Err("to select text, please use a string or regex instead")?;
                 }
 
-                Ok(Selector::Node(id, fields))
+                Ok(Selector::Node(node.id, fields))
             }
             _ => Err("this function is not selectable")?,
         }
@@ -211,30 +184,73 @@ impl PartialEq for Func {
     }
 }
 
-/// Types that can be turned into functions.
-pub trait FuncType {
-    /// Create a function with the given name from this type.
-    fn create_func(name: &'static str) -> Func;
+impl From<Repr> for Func {
+    fn from(repr: Repr) -> Self {
+        Self(Arc::new(Prehashed::new(repr)), Span::detached())
+    }
 }
 
-/// A function defined by a native rust function or node.
-struct Native {
-    /// The function pointer.
-    func: fn(&Vm, &mut Args) -> SourceResult<Value>,
-    /// The set rule.
-    set: Option<fn(&mut Args) -> SourceResult<StyleMap>>,
-    /// The id of the node to customize with this function's show rule.
-    node: Option<NodeId>,
-    /// Documentation of the function.
-    info: FuncInfo,
+/// A native Rust function.
+pub struct NativeFunc {
+    /// The function's implementation.
+    pub func: fn(&Vm, &mut Args) -> SourceResult<Value>,
+    /// Details about the function.
+    pub info: Lazy<FuncInfo>,
 }
 
-impl Hash for Native {
+impl Hash for NativeFunc {
     fn hash<H: Hasher>(&self, state: &mut H) {
         (self.func as usize).hash(state);
-        self.set.map(|set| set as usize).hash(state);
-        self.node.hash(state);
     }
+}
+
+impl From<NativeFunc> for Func {
+    fn from(native: NativeFunc) -> Self {
+        Repr::Native(native).into()
+    }
+}
+
+cast_to_value! {
+    v: NativeFunc => Value::Func(v.into())
+}
+
+impl<F> From<F> for Value
+where
+    F: Fn() -> NativeFunc,
+{
+    fn from(f: F) -> Self {
+        f().into()
+    }
+}
+
+/// A function defined by a native Rust node.
+pub struct NodeFunc {
+    /// The node's id.
+    pub id: NodeId,
+    /// The node's constructor.
+    pub construct: fn(&Vm, &mut Args) -> SourceResult<Content>,
+    /// The node's set rule.
+    pub set: fn(&mut Args) -> SourceResult<StyleMap>,
+    /// Details about the function.
+    pub info: Lazy<FuncInfo>,
+}
+
+impl Hash for NodeFunc {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+        (self.construct as usize).hash(state);
+        (self.set as usize).hash(state);
+    }
+}
+
+impl From<NodeFunc> for Func {
+    fn from(node: NodeFunc) -> Self {
+        Repr::Node(node).into()
+    }
+}
+
+cast_to_value! {
+    v: NodeFunc => Value::Func(v.into())
 }
 
 /// Details about a function.
@@ -373,6 +389,16 @@ impl Closure {
 
         Some(self.params.iter().filter(|(_, default)| default.is_none()).count())
     }
+}
+
+impl From<Closure> for Func {
+    fn from(closure: Closure) -> Self {
+        Repr::Closure(closure).into()
+    }
+}
+
+cast_to_value! {
+    v: Closure => Value::Func(v.into())
 }
 
 /// A visitor that determines which variables to capture for a closure.

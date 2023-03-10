@@ -59,12 +59,6 @@ use super::Sizing;
 /// )
 /// ```
 ///
-/// ## Parameters
-/// - gutter: `TrackSizings` (named, settable)
-///   Defines the gaps between rows & columns.
-///
-///   If there are more gutters than defined sizes, the last gutter is repeated.
-///
 /// Display: Grid
 /// Category: layout
 #[node(Layout)]
@@ -82,6 +76,12 @@ pub struct GridNode {
     /// If there are more cells than fit the defined rows, the last row is
     /// repeated until there are no more cells.
     pub rows: TrackSizings,
+
+    /// Defines the gaps between rows & columns.
+    ///
+    /// If there are more gutters than defined sizes, the last gutter is repeated.
+    #[external]
+    pub gutter: TrackSizings,
 
     /// Defines the gaps between columns. Takes precedence over `gutter`.
     #[parse(

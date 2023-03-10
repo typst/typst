@@ -53,7 +53,6 @@ pub struct AlignNode {
     pub alignment: Axes<Option<GenAlign>>,
 
     /// The content to align.
-    #[positional]
     #[required]
     pub body: Content,
 }

@@ -181,20 +181,6 @@ impl Layout for BoxNode {
 /// More text.
 /// ```
 ///
-/// ## Parameters
-/// - spacing: `Spacing` (named, settable)
-///   The spacing around this block. This is shorthand to set `above` and
-///   `below` to the same value.
-///
-///   ```example
-///   #set align(center)
-///   #show math.formula: set block(above: 8pt, below: 16pt)
-///
-///   This sum of $x$ and $y$:
-///   $ x + y = z $
-///   A second paragraph.
-///   ```
-///
 /// Display: Block
 /// Category: layout
 #[node(Layout)]
@@ -269,6 +255,20 @@ pub struct BlockNode {
     #[resolve]
     #[fold]
     pub outset: Sides<Option<Rel<Length>>>,
+
+    /// The spacing around this block. This is shorthand to set `above` and
+    /// `below` to the same value.
+    ///
+    /// ```example
+    /// #set align(center)
+    /// #show math.formula: set block(above: 8pt, below: 16pt)
+    ///
+    /// This sum of $x$ and $y$:
+    /// $ x + y = z $
+    /// A second paragraph.
+    /// ```
+    #[external]
+    pub spacing: Spacing,
 
     /// The spacing between this block and its predecessor. Takes precedence
     /// over `spacing`. Can be used in combination with a show rule to adjust

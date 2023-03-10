@@ -46,7 +46,6 @@ pub struct LinkNode {
     /// ]
     /// ```
     ///
-    #[positional]
     #[required]
     #[parse(
         let dest = args.expect::<Destination>("destination")?;
@@ -59,7 +58,6 @@ pub struct LinkNode {
     /// The content that should become a link. If `dest` is an URL string, the
     /// parameter can be omitted. In this case, the URL will be shown as the
     /// link.
-    #[positional]
     #[required]
     #[parse(match &dest {
         Destination::Url(url) => match args.eat()? {

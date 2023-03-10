@@ -26,7 +26,6 @@ use super::AlignNode;
 #[node(Layout)]
 pub struct RepeatNode {
     /// The content to repeat.
-    #[positional]
     #[required]
     pub body: Content,
 }

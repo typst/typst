@@ -1,3 +1,4 @@
+use std::num::NonZeroI64;
 use std::str::FromStr;
 
 use ecow::EcoVec;
@@ -19,17 +20,15 @@ use crate::prelude::*;
 /// #{ int("27") + int("4") }
 /// ```
 ///
-/// ## Parameters
-/// - value: `ToInt` (positional, required)
-///   The value that should be converted to an integer.
-///
-/// - returns: integer
-///
 /// Display: Integer
 /// Category: construct
+/// Returns: integer
 #[func]
-pub fn int(args: &mut Args) -> SourceResult<Value> {
-    Ok(Value::Int(args.expect::<ToInt>("value")?.0))
+pub fn int(
+    /// The value that should be converted to an integer.
+    value: ToInt,
+) -> Value {
+    Value::Int(value.0)
 }
 
 /// A value that can be cast to an integer.
@@ -59,17 +58,15 @@ cast_from_value! {
 /// #float("1e5")
 /// ```
 ///
-/// ## Parameters
-/// - value: `ToFloat` (positional, required)
-///   The value that should be converted to a float.
-///
-/// - returns: float
-///
 /// Display: Float
 /// Category: construct
+/// Returns: float
 #[func]
-pub fn float(args: &mut Args) -> SourceResult<Value> {
-    Ok(Value::Float(args.expect::<ToFloat>("value")?.0))
+pub fn float(
+    /// The value that should be converted to a float.
+    value: ToFloat,
+) -> Value {
+    Value::Float(value.0)
 }
 
 /// A value that can be cast to a float.
@@ -92,18 +89,15 @@ cast_from_value! {
 /// }
 /// ```
 ///
-/// ## Parameters
-/// - gray: `Component` (positional, required)
-///   The gray component.
-///
-/// - returns: color
-///
 /// Display: Luma
 /// Category: construct
+/// Returns: color
 #[func]
-pub fn luma(args: &mut Args) -> SourceResult<Value> {
-    let Component(luma) = args.expect("gray component")?;
-    Ok(Value::Color(LumaColor::new(luma).into()))
+pub fn luma(
+    /// The gray component.
+    gray: Component,
+) -> Value {
+    Value::Color(LumaColor::new(gray.0).into())
 }
 
 /// Create an RGB(A) color.
@@ -121,40 +115,44 @@ pub fn luma(args: &mut Args) -> SourceResult<Value> {
 /// #square(fill: rgb(25%, 13%, 65%))
 /// ```
 ///
-/// ## Parameters
-/// - hex: `EcoString` (positional)
-///   The color in hexadecimal notation.
-///
-///   Accepts three, four, six or eight hexadecimal digits and optionally
-///   a leading hashtag.
-///
-///   If this string is given, the individual components should not be given.
-///
-///   ```example
-///   #text(16pt, rgb("#239dad"))[
-///     *Typst*
-///   ]
-///   ```
-///
-/// - red: `Component` (positional)
-///   The red component.
-///
-/// - green: `Component` (positional)
-///   The green component.
-///
-/// - blue: `Component` (positional)
-///   The blue component.
-///
-/// - alpha: `Component` (positional)
-///   The alpha component.
-///
-/// - returns: color
-///
-/// Display: RGBA
+/// Display: RGB
 /// Category: construct
+/// Returns: color
 #[func]
-pub fn rgb(args: &mut Args) -> SourceResult<Value> {
-    Ok(Value::Color(if let Some(string) = args.find::<Spanned<EcoString>>()? {
+pub fn rgb(
+    /// The color in hexadecimal notation.
+    ///
+    /// Accepts three, four, six or eight hexadecimal digits and optionally
+    /// a leading hashtag.
+    ///
+    /// If this string is given, the individual components should not be given.
+    ///
+    /// ```example
+    /// #text(16pt, rgb("#239dad"))[
+    ///   *Typst*
+    /// ]
+    /// ```
+    #[external]
+    #[default]
+    hex: EcoString,
+    /// The red component.
+    #[external]
+    #[default]
+    red: Component,
+    /// The green component.
+    #[external]
+    #[default]
+    green: Component,
+    /// The blue component.
+    #[external]
+    #[default]
+    blue: Component,
+    /// The alpha component.
+    #[external]
+    #[default]
+    alpha: Component,
+) -> Value {
+    Value::Color(if let Some(string) = args.find::<Spanned<EcoString>>()? {
         match RgbaColor::from_str(&string.v) {
             Ok(color) => color.into(),
             Err(msg) => bail!(string.span, msg),
@@ -165,7 +163,7 @@ pub fn rgb(args: &mut Args) -> SourceResult<Value> {
         let Component(b) = args.expect("blue component")?;
         let Component(a) = args.eat()?.unwrap_or(Component(255));
         RgbaColor::new(r, g, b, a).into()
-    }))
+    })
 }
 
 /// An integer or ratio component.
@@ -197,30 +195,21 @@ cast_from_value! {
 /// )
 /// ````
 ///
-/// ## Parameters
-/// - cyan: `RatioComponent` (positional, required)
-///   The cyan component.
-///
-/// - magenta: `RatioComponent` (positional, required)
-///   The magenta component.
-///
-/// - yellow: `RatioComponent` (positional, required)
-///   The yellow component.
-///
-/// - key: `RatioComponent` (positional, required)
-///   The key component.
-///
-/// - returns: color
-///
 /// Display: CMYK
 /// Category: construct
+/// Returns: color
 #[func]
-pub fn cmyk(args: &mut Args) -> SourceResult<Value> {
-    let RatioComponent(c) = args.expect("cyan component")?;
-    let RatioComponent(m) = args.expect("magenta component")?;
-    let RatioComponent(y) = args.expect("yellow component")?;
-    let RatioComponent(k) = args.expect("key component")?;
-    Ok(Value::Color(CmykColor::new(c, m, y, k).into()))
+pub fn cmyk(
+    /// The cyan component.
+    cyan: RatioComponent,
+    /// The magenta component.
+    magenta: RatioComponent,
+    /// The yellow component.
+    yellow: RatioComponent,
+    /// The key component.
+    key: RatioComponent,
+) -> Value {
+    Value::Color(CmykColor::new(cyan.0, magenta.0, yellow.0, key.0).into())
 }
 
 /// A component that must be a ratio.
@@ -254,30 +243,29 @@ cast_from_value! {
 /// #envelope.fly
 /// ```
 ///
-/// ## Parameters
-/// - variants: `Variant` (positional, variadic)
-///   The variants of the symbol.
-///
-///   Can be a just a string consisting of a single character for the
-///   modifierless variant or an array with two strings specifying the modifiers
-///   and the symbol. Individual modifiers should be separated by dots. When
-///   displaying a symbol, Typst selects the first from the variants that have
-///   all attached modifiers and the minimum number of other modifiers.
-///
-/// - returns: symbol
-///
 /// Display: Symbol
 /// Category: construct
+/// Returns: symbol
 #[func]
-pub fn symbol(args: &mut Args) -> SourceResult<Value> {
+pub fn symbol(
+    /// The variants of the symbol.
+    ///
+    /// Can be a just a string consisting of a single character for the
+    /// modifierless variant or an array with two strings specifying the modifiers
+    /// and the symbol. Individual modifiers should be separated by dots. When
+    /// displaying a symbol, Typst selects the first from the variants that have
+    /// all attached modifiers and the minimum number of other modifiers.
+    #[variadic]
+    variants: Vec<Spanned<Variant>>,
+) -> Value {
     let mut list = EcoVec::new();
-    for Spanned { v, span } in args.all::<Spanned<Variant>>()? {
+    for Spanned { v, span } in variants {
         if list.iter().any(|(prev, _)| &v.0 == prev) {
             bail!(span, "duplicate variant");
         }
         list.push((v.0, v.1));
     }
-    Ok(Value::Symbol(Symbol::runtime(list)))
+    Value::Symbol(Symbol::runtime(list))
 }
 
 /// A value that can be cast to a symbol.
@@ -309,17 +297,15 @@ cast_from_value! {
 /// #str(<intro>)
 /// ```
 ///
-/// ## Parameters
-/// - value: `ToStr` (positional, required)
-///   The value that should be converted to a string.
-///
-/// - returns: string
-///
 /// Display: String
 /// Category: construct
+/// Returns: string
 #[func]
-pub fn str(args: &mut Args) -> SourceResult<Value> {
-    Ok(Value::Str(args.expect::<ToStr>("value")?.0))
+pub fn str(
+    /// The value that should be converted to a string.
+    value: ToStr,
+) -> Value {
+    Value::Str(value.0)
 }
 
 /// A value that can be cast to a string.
@@ -352,17 +338,15 @@ cast_from_value! {
 /// This function also has dedicated syntax: You can create a label by enclosing
 /// its name in angle brackets. This works both in markup and code.
 ///
-/// ## Parameters
-/// - name: `EcoString` (positional, required)
-///   The name of the label.
-///
-/// - returns: label
-///
 /// Display: Label
 /// Category: construct
+/// Returns: label
 #[func]
-pub fn label(args: &mut Args) -> SourceResult<Value> {
-    Ok(Value::Label(Label(args.expect("string")?)))
+pub fn label(
+    /// The name of the label.
+    name: EcoString,
+) -> Value {
+    Value::Label(Label(name))
 }
 
 /// Create a regular expression from a string.
@@ -386,23 +370,20 @@ pub fn label(args: &mut Args) -> SourceResult<Value> {
 ///     .split(regex("[,;]")))
 /// ```
 ///
-/// ## Parameters
-/// - regex: `EcoString` (positional, required)
-///   The regular expression as a string.
-///
-///   Most regex escape sequences just work because they are not valid Typst
-///   escape sequences. To produce regex escape sequences that are also valid in
-///   Typst (e.g. `[\\]`), you need to escape twice. Thus, to match a verbatim
-///   backslash, you would need to write `{regex("\\\\")}`.
-///
-/// - returns: regex
-///
 /// Display: Regex
 /// Category: construct
+/// Returns: regex
 #[func]
-pub fn regex(args: &mut Args) -> SourceResult<Value> {
-    let Spanned { v, span } = args.expect::<Spanned<EcoString>>("regular expression")?;
-    Ok(Regex::new(&v).at(span)?.into())
+pub fn regex(
+    /// The regular expression as a string.
+    ///
+    /// Most regex escape sequences just work because they are not valid Typst
+    /// escape sequences. To produce regex escape sequences that are also valid in
+    /// Typst (e.g. `[\\]`), you need to escape twice. Thus, to match a verbatim
+    /// backslash, you would need to write `{regex("\\\\")}`.
+    regex: Spanned<EcoString>,
+) -> Value {
+    Regex::new(&regex.v).at(regex.span)?.into()
 }
 
 /// Create an array consisting of a sequence of numbers.
@@ -420,33 +401,30 @@ pub fn regex(args: &mut Args) -> SourceResult<Value> {
 /// #range(5, 2, step: -1)
 /// ```
 ///
-/// ## Parameters
-/// - start: `i64` (positional)
-///   The start of the range (inclusive).
-///
-/// - end: `i64` (positional, required)
-///   The end of the range (exclusive).
-///
-/// - step: `i64` (named)
-///   The distance between the generated numbers.
-///
-/// - returns: array
-///
 /// Display: Range
 /// Category: construct
+/// Returns: array
 #[func]
-pub fn range(args: &mut Args) -> SourceResult<Value> {
+pub fn range(
+    /// The start of the range (inclusive).
+    #[external]
+    #[default]
+    start: i64,
+    /// The end of the range (exclusive).
+    #[external]
+    end: i64,
+    /// The distance between the generated numbers.
+    #[named]
+    #[default(NonZeroI64::new(1).unwrap())]
+    step: NonZeroI64,
+) -> Value {
     let first = args.expect::<i64>("end")?;
     let (start, end) = match args.eat::<i64>()? {
         Some(second) => (first, second),
         None => (0, first),
     };
 
-    let step: i64 = match args.named("step")? {
-        Some(Spanned { v: 0, span }) => bail!(span, "step must not be zero"),
-        Some(Spanned { v, .. }) => v,
-        None => 1,
-    };
+    let step = step.get();
 
     let mut x = start;
     let mut array = Array::new();
@@ -456,5 +434,5 @@ pub fn range(args: &mut Args) -> SourceResult<Value> {
         x += step;
     }
 
-    Ok(Value::Array(array))
+    Value::Array(array)
 }
