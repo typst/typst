@@ -8,6 +8,7 @@ use ecow::EcoString;
 use super::{Array, Str, Value};
 use crate::diag::StrResult;
 use crate::syntax::Spanned;
+use crate::util::separated_list;
 
 /// Cast from a value to a specific type.
 pub trait Cast<V = Value>: Sized {
@@ -284,7 +285,7 @@ impl CastInfo {
             msg.push_str(" nothing");
         }
 
-        crate::diag::comma_list(&mut msg, &parts, "or");
+        msg.push_str(&separated_list(&parts, "or"));
 
         if !matching_type {
             msg.push_str(", found ");

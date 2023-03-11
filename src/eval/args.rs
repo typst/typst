@@ -5,7 +5,7 @@ use ecow::{eco_format, EcoVec};
 use super::{Array, Cast, Dict, Str, Value};
 use crate::diag::{bail, At, SourceResult};
 use crate::syntax::{Span, Spanned};
-use crate::util::pretty_array;
+use crate::util::pretty_array_like;
 
 /// Evaluated arguments to a function.
 #[derive(Clone, PartialEq, Hash)]
@@ -174,7 +174,7 @@ impl Debug for Args {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let pieces: Vec<_> =
             self.items.iter().map(|arg| eco_format!("{arg:?}")).collect();
-        f.write_str(&pretty_array(&pieces, false))
+        f.write_str(&pretty_array_like(&pieces, false))
     }
 }
 

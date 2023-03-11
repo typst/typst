@@ -182,6 +182,7 @@ fn items() -> LangItems {
             }
             node.pack()
         },
+        raw_languages: text::RawNode::languages,
         link: |url| meta::LinkNode::from_url(url).pack(),
         ref_: |target| meta::RefNode::new(target).pack(),
         heading: |level, title| meta::HeadingNode::new(title).with_level(level).pack(),

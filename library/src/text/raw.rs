@@ -103,6 +103,23 @@ pub struct RawNode {
     pub lang: Option<EcoString>,
 }
 
+impl RawNode {
+    /// The supported language names and tags.
+    pub fn languages() -> Vec<(&'static str, Vec<&'static str>)> {
+        SYNTAXES
+            .syntaxes()
+            .iter()
+            .map(|syntax| {
+                (
+                    syntax.name.as_str(),
+                    syntax.file_extensions.iter().map(|s| s.as_str()).collect(),
+                )
+            })
+            .chain([("Typst", vec!["typ"]), ("Typst (code)", vec!["typc"])])
+            .collect()
+    }
+}
+
 impl Prepare for RawNode {
     fn prepare(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let mut node = self.clone().pack();

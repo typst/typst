@@ -644,13 +644,13 @@ pub fn is_ident(string: &str) -> bool {
 
 /// Whether a character can start an identifier.
 #[inline]
-pub(super) fn is_id_start(c: char) -> bool {
+pub fn is_id_start(c: char) -> bool {
     c.is_xid_start() || c == '_'
 }
 
 /// Whether a character can continue an identifier.
 #[inline]
-pub(super) fn is_id_continue(c: char) -> bool {
+pub fn is_id_continue(c: char) -> bool {
     c.is_xid_continue() || c == '_' || c == '-'
 }
 

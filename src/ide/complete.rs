@@ -2,10 +2,14 @@ use std::collections::{BTreeSet, HashSet};
 
 use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
+use unscanny::Scanner;
 
 use super::{analyze_expr, analyze_import, plain_docs_sentence, summarize_font_family};
-use crate::eval::{methods_on, CastInfo, Scope, Value};
-use crate::syntax::{ast, LinkedNode, Source, SyntaxKind};
+use crate::eval::{methods_on, CastInfo, Library, Scope, Value};
+use crate::syntax::{
+    ast, is_id_continue, is_id_start, is_ident, LinkedNode, Source, SyntaxKind,
+};
+use crate::util::separated_list;
 use crate::World;
 
 /// Autocomplete a cursor position in a source file.
@@ -102,6 +106,22 @@ fn complete_markup(ctx: &mut CompletionContext) -> bool {
             code_completions(ctx, false);
             return true;
         }
+    }
+
+    // Directly after a raw block.
+    let mut s = Scanner::new(&ctx.text);
+    s.jump(ctx.leaf.offset());
+    if s.eat_if("```") {
+        s.eat_while('`');
+        let start = s.cursor();
+        if s.eat_if(is_id_start) {
+            s.eat_while(is_id_continue);
+        }
+        if s.cursor() == ctx.cursor {
+            ctx.from = start;
+            ctx.raw_completions();
+        }
+        return true;
     }
 
     // Anywhere: "|".
@@ -830,9 +850,11 @@ fn code_completions(ctx: &mut CompletionContext, hashtag: bool) {
 /// Context for autocompletion.
 struct CompletionContext<'a> {
     world: &'a (dyn World + 'static),
+    library: &'a Library,
     source: &'a Source,
     global: &'a Scope,
     math: &'a Scope,
+    text: &'a str,
     before: &'a str,
     after: &'a str,
     leaf: LinkedNode<'a>,
@@ -852,12 +874,15 @@ impl<'a> CompletionContext<'a> {
         explicit: bool,
     ) -> Option<Self> {
         let text = source.text();
+        let library = world.library();
         let leaf = LinkedNode::new(source.root()).leaf_at(cursor)?;
         Some(Self {
             world,
+            library,
             source,
-            global: &world.library().global.scope(),
-            math: &world.library().math.scope(),
+            global: &library.global.scope(),
+            math: &library.math.scope(),
+            text,
             before: &text[..cursor],
             after: &text[cursor..],
             leaf,
@@ -905,6 +930,28 @@ impl<'a> CompletionContext<'a> {
                     Some(detail.as_str()),
                 );
             }
+        }
+    }
+
+    /// Add completions for raw block tags.
+    fn raw_completions(&mut self) {
+        for (name, mut tags) in (self.library.items.raw_languages)() {
+            let lower = name.to_lowercase();
+            if !tags.contains(&lower.as_str()) {
+                tags.push(lower.as_str());
+            }
+
+            tags.retain(|tag| is_ident(tag));
+            if tags.is_empty() {
+                continue;
+            }
+
+            self.completions.push(Completion {
+                kind: CompletionKind::Constant,
+                label: name.into(),
+                apply: Some(tags[0].into()),
+                detail: Some(separated_list(&tags, " or ").into()),
+            });
         }
     }
 

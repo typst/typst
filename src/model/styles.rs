@@ -8,7 +8,7 @@ use super::{Content, Label, Node, NodeId};
 use crate::diag::{SourceResult, Trace, Tracepoint};
 use crate::eval::{cast_from_value, Args, Cast, Dict, Func, Regex, Value};
 use crate::syntax::Span;
-use crate::util::pretty_array;
+use crate::util::pretty_array_like;
 use crate::World;
 
 /// A map of style properties.
@@ -86,7 +86,7 @@ impl Debug for StyleMap {
 
         let pieces: Vec<_> =
             self.0.iter().map(|value| eco_format!("{value:?}")).collect();
-        f.write_str(&pretty_array(&pieces, false))
+        f.write_str(&pretty_array_like(&pieces, false))
     }
 }
 

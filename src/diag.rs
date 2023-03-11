@@ -177,30 +177,6 @@ where
     }
 }
 
-/// Format the parts separated with commas and a final "and" or "or".
-pub(crate) fn comma_list<S>(buf: &mut String, parts: &[S], last: &str)
-where
-    S: AsRef<str>,
-{
-    for (i, part) in parts.iter().enumerate() {
-        match i {
-            0 => {}
-            1 if parts.len() == 2 => {
-                buf.push(' ');
-                buf.push_str(last);
-                buf.push(' ');
-            }
-            i if i + 1 == parts.len() => {
-                buf.push_str(", ");
-                buf.push_str(last);
-                buf.push(' ');
-            }
-            _ => buf.push_str(", "),
-        }
-        buf.push_str(part.as_ref());
-    }
-}
-
 /// A result type with a file-related error.
 pub type FileResult<T> = Result<T, FileError>;
 

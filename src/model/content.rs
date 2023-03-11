@@ -12,7 +12,7 @@ use super::{node, Guard, Recipe, Style, StyleMap};
 use crate::diag::{SourceResult, StrResult};
 use crate::eval::{cast_from_value, Args, FuncInfo, Str, Value, Vm};
 use crate::syntax::Span;
-use crate::util::pretty_array;
+use crate::util::pretty_array_like;
 use crate::World;
 
 /// Composable representation of styled content.
@@ -261,7 +261,7 @@ impl Debug for Content {
             .collect();
 
         f.write_str(name)?;
-        f.write_str(&pretty_array(&pieces, false))
+        f.write_str(&pretty_array_like(&pieces, false))
     }
 }
 

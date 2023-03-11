@@ -8,7 +8,7 @@ use ecow::{eco_format, EcoString};
 use super::{array, Array, Str, Value};
 use crate::diag::StrResult;
 use crate::syntax::is_ident;
-use crate::util::{pretty_array, ArcExt};
+use crate::util::{pretty_array_like, separated_list, ArcExt};
 
 /// Create a new [`Dict`] from key-value pairs.
 #[macro_export]
@@ -125,7 +125,7 @@ impl Dict {
         if let Some((key, _)) = self.iter().next() {
             let parts: Vec<_> = expected.iter().map(|s| eco_format!("\"{s}\"")).collect();
             let mut msg = format!("unexpected key {key:?}, valid keys are ");
-            crate::diag::comma_list(&mut msg, &parts, "and");
+            msg.push_str(&separated_list(&parts, "and"));
             return Err(msg.into());
         }
         Ok(())
@@ -149,7 +149,7 @@ impl Debug for Dict {
             })
             .collect();
 
-        f.write_str(&pretty_array(&pieces, false))
+        f.write_str(&pretty_array_like(&pieces, false))
     }
 }
 

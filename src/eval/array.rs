@@ -6,7 +6,7 @@ use ecow::{eco_format, EcoString, EcoVec};
 
 use super::{ops, Args, Func, Value, Vm};
 use crate::diag::{bail, At, SourceResult, StrResult};
-use crate::util::pretty_array;
+use crate::util::pretty_array_like;
 
 /// Create a new [`Array`] from values.
 #[macro_export]
@@ -343,7 +343,7 @@ impl Array {
 impl Debug for Array {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let pieces: Vec<_> = self.iter().map(|value| eco_format!("{value:?}")).collect();
-        f.write_str(&pretty_array(&pieces, self.len() == 1))
+        f.write_str(&pretty_array_like(&pieces, self.len() == 1))
     }
 }
 
