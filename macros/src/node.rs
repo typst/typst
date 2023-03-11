@@ -25,6 +25,7 @@ struct Field {
     positional: bool,
     required: bool,
     variadic: bool,
+    synthesized: bool,
     fold: bool,
     resolve: bool,
     parse: Option<FieldParser>,
@@ -88,6 +89,7 @@ fn prepare(stream: TokenStream, body: &syn::ItemStruct) -> Result<Node> {
             positional,
             required,
             variadic,
+            synthesized: has_attr(&mut attrs, "synthesized"),
             fold: has_attr(&mut attrs, "fold"),
             resolve: has_attr(&mut attrs, "resolve"),
             parse: parse_attr(&mut attrs, "parse")?.flatten(),
@@ -154,7 +156,7 @@ fn prepare(stream: TokenStream, body: &syn::ItemStruct) -> Result<Node> {
 fn create(node: &Node) -> TokenStream {
     let Node { vis, ident, docs, .. } = node;
     let all = node.fields.iter().filter(|field| !field.external);
-    let settable = all.clone().filter(|field| field.settable());
+    let settable = all.clone().filter(|field| !field.synthesized && field.settable());
 
     // Inherent methods and functions.
     let new = create_new_func(node);
@@ -176,7 +178,7 @@ fn create(node: &Node) -> TokenStream {
         #[doc = #docs]
         #[derive(Debug, Clone, Hash)]
         #[repr(transparent)]
-        #vis struct #ident(::typst::model::Content);
+        #vis struct #ident(pub ::typst::model::Content);
 
         impl #ident {
             #new
@@ -205,7 +207,10 @@ fn create(node: &Node) -> TokenStream {
 
 /// Create the `new` function for the node.
 fn create_new_func(node: &Node) -> TokenStream {
-    let relevant = node.fields.iter().filter(|field| !field.external && field.inherent());
+    let relevant = node
+        .fields
+        .iter()
+        .filter(|field| !field.external && !field.synthesized && field.inherent());
     let params = relevant.clone().map(|Field { ident, ty, .. }| {
         quote! { #ident: #ty }
     });
@@ -224,11 +229,11 @@ fn create_new_func(node: &Node) -> TokenStream {
 /// Create an accessor methods for a field.
 fn create_field_method(field: &Field) -> TokenStream {
     let Field { vis, docs, ident, name, output, .. } = field;
-    if field.inherent() {
+    if field.inherent() || field.synthesized {
         quote! {
             #[doc = #docs]
             #vis fn #ident(&self) -> #output {
-                self.0.field(#name).unwrap().clone().cast().unwrap()
+                self.0.expect_field(#name)
             }
         }
     } else {
@@ -311,7 +316,7 @@ fn create_node_impl(node: &Node) -> TokenStream {
     let infos = node
         .fields
         .iter()
-        .filter(|field| !field.internal)
+        .filter(|field| !field.internal && !field.synthesized)
         .map(create_param_info);
     quote! {
         impl ::typst::model::Node for #ident {
@@ -395,7 +400,11 @@ fn create_construct_impl(node: &Node) -> TokenStream {
     let handlers = node
         .fields
         .iter()
-        .filter(|field| !field.external && (!field.internal || field.parse.is_some()))
+        .filter(|field| {
+            !field.external
+                && !field.synthesized
+                && (!field.internal || field.parse.is_some())
+        })
         .map(|field| {
             let with_ident = &field.with_ident;
             let (prefix, value) = create_field_parser(field);
@@ -436,6 +445,7 @@ fn create_set_impl(node: &Node) -> TokenStream {
         .iter()
         .filter(|field| {
             !field.external
+                && !field.synthesized
                 && field.settable()
                 && (!field.internal || field.parse.is_some())
         })

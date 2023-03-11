@@ -3,7 +3,7 @@ use crate::diag::SourceResult;
 
 /// Whether the target is affected by show rules in the given style chain.
 pub fn applicable(target: &Content, styles: StyleChain) -> bool {
-    if target.can::<dyn Prepare>() && !target.is_prepared() {
+    if target.can::<dyn Synthesize>() && !target.is_synthesized() {
         return true;
     }
 
@@ -33,6 +33,18 @@ pub fn realize(
 ) -> SourceResult<Option<Content>> {
     // Find out how many recipes there are.
     let mut n = styles.recipes().count();
+
+    // Synthesize if not already happened for this node.
+    if target.can::<dyn Synthesize>() && !target.is_synthesized() {
+        return Ok(Some(
+            target
+                .clone()
+                .synthesized()
+                .with::<dyn Synthesize>()
+                .unwrap()
+                .synthesize(vt, styles),
+        ));
+    }
 
     // Find an applicable recipe.
     let mut realized = None;
@@ -132,10 +144,10 @@ fn try_apply(
     }
 }
 
-/// Preparations before execution of any show rule.
-pub trait Prepare {
+/// Synthesize fields on a node. This happens before execution of any show rule.
+pub trait Synthesize {
     /// Prepare the node for show rule application.
-    fn prepare(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content>;
+    fn synthesize(&self, vt: &mut Vt, styles: StyleChain) -> Content;
 }
 
 /// The base recipe for a node.

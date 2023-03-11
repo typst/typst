@@ -35,7 +35,7 @@ use crate::prelude::*;
 ///
 /// Display: Raw Text / Code
 /// Category: text
-#[node(Prepare, Show, Finalize)]
+#[node(Synthesize, Show, Finalize)]
 pub struct RawNode {
     /// The raw text.
     ///
@@ -120,11 +120,9 @@ impl RawNode {
     }
 }
 
-impl Prepare for RawNode {
-    fn prepare(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        let mut node = self.clone().pack();
-        node.push_field("lang", self.lang(styles).clone());
-        Ok(node)
+impl Synthesize for RawNode {
+    fn synthesize(&self, _: &mut Vt, styles: StyleChain) -> Content {
+        self.clone().with_lang(self.lang(styles)).pack()
     }
 }
 

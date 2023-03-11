@@ -82,7 +82,7 @@ impl Numbering {
         numbers: &[NonZeroUsize],
     ) -> SourceResult<Value> {
         Ok(match self {
-            Self::Pattern(pattern) => Value::Str(pattern.apply(numbers).into()),
+            Self::Pattern(pattern) => Value::Str(pattern.apply(numbers, false).into()),
             Self::Func(func) => {
                 let args = Args::new(
                     func.span(),
@@ -124,12 +124,16 @@ pub struct NumberingPattern {
 
 impl NumberingPattern {
     /// Apply the pattern to the given number.
-    pub fn apply(&self, numbers: &[NonZeroUsize]) -> EcoString {
+    pub fn apply(&self, numbers: &[NonZeroUsize], trimmed: bool) -> EcoString {
         let mut fmt = EcoString::new();
         let mut numbers = numbers.into_iter();
 
-        for ((prefix, kind, case), &n) in self.pieces.iter().zip(&mut numbers) {
-            fmt.push_str(prefix);
+        for (i, ((prefix, kind, case), &n)) in
+            self.pieces.iter().zip(&mut numbers).enumerate()
+        {
+            if i > 0 || !trimmed {
+                fmt.push_str(prefix);
+            }
             fmt.push_str(&kind.apply(n, *case));
         }
 
@@ -144,7 +148,10 @@ impl NumberingPattern {
             fmt.push_str(&kind.apply(n, *case));
         }
 
-        fmt.push_str(&self.suffix);
+        if !trimmed {
+            fmt.push_str(&self.suffix);
+        }
+
         fmt
     }
 

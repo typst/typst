@@ -10,7 +10,7 @@ use once_cell::sync::Lazy;
 
 use super::{node, Guard, Recipe, Style, StyleMap};
 use crate::diag::{SourceResult, StrResult};
-use crate::eval::{cast_from_value, Args, FuncInfo, Str, Value, Vm};
+use crate::eval::{cast_from_value, Args, Cast, FuncInfo, Str, Value, Vm};
 use crate::syntax::Span;
 use crate::util::pretty_array_like;
 use crate::World;
@@ -27,7 +27,7 @@ pub struct Content {
 /// Modifiers that can be attached to content.
 #[derive(Debug, Clone, PartialEq, Hash)]
 enum Modifier {
-    Prepared,
+    Synthesized,
     Guard(Guard),
 }
 
@@ -57,6 +57,12 @@ impl Content {
     /// The id of the contained node.
     pub fn id(&self) -> NodeId {
         self.id
+    }
+
+    /// Whether the content is empty.
+    pub fn is_empty(&self) -> bool {
+        self.to::<SequenceNode>()
+            .map_or(false, |seq| seq.children().is_empty())
     }
 
     /// Whether the contained node is of type `T`.
@@ -110,6 +116,21 @@ impl Content {
             .iter()
             .find(|(field, _)| field == name)
             .map(|(_, value)| value)
+    }
+
+    /// Access a field on the content as a specified type.
+    #[track_caller]
+    pub fn cast_field<T: Cast>(&self, name: &str) -> Option<T> {
+        match self.field(name) {
+            Some(value) => Some(value.clone().cast().unwrap()),
+            None => None,
+        }
+    }
+
+    /// Expect a field on the content to exist as a specified type.
+    #[track_caller]
+    pub fn expect_field<T: Cast>(&self, name: &str) -> T {
+        self.cast_field(name).unwrap()
     }
 
     /// List all fields on the content.
@@ -209,14 +230,14 @@ impl Content {
     }
 
     /// Mark this content as prepared.
-    pub fn prepared(mut self) -> Self {
-        self.modifiers.push(Modifier::Prepared);
+    pub fn synthesized(mut self) -> Self {
+        self.modifiers.push(Modifier::Synthesized);
         self
     }
 
     /// Whether this node was prepared.
-    pub fn is_prepared(&self) -> bool {
-        self.modifiers.contains(&Modifier::Prepared)
+    pub fn is_synthesized(&self) -> bool {
+        self.modifiers.contains(&Modifier::Synthesized)
     }
 
     /// Whether no show rule was executed for this node so far.

@@ -9,7 +9,7 @@ use super::Module;
 use crate::diag::SourceResult;
 use crate::doc::Document;
 use crate::geom::{Abs, Dir};
-use crate::model::{Content, NodeId, StyleChain, StyleMap, Vt};
+use crate::model::{Content, Label, NodeId, StyleChain, StyleMap, Vt};
 use crate::util::hash128;
 
 /// Definition of Typst's standard library.
@@ -60,7 +60,7 @@ pub struct LangItems {
     /// A hyperlink: `https://typst.org`.
     pub link: fn(url: EcoString) -> Content,
     /// A reference: `@target`.
-    pub ref_: fn(target: EcoString) -> Content,
+    pub ref_: fn(target: Label) -> Content,
     /// A section heading: `= Introduction`.
     pub heading: fn(level: NonZeroUsize, body: Content) -> Content,
     /// An item in a bullet list: `- ...`.

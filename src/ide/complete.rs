@@ -974,7 +974,6 @@ impl<'a> CompletionContext<'a> {
 
         let detail = docs.map(Into::into).or_else(|| match value {
             Value::Symbol(_) => None,
-            Value::Content(_) => None,
             Value::Func(func) => {
                 func.info().map(|info| plain_docs_sentence(info.docs).into())
             }

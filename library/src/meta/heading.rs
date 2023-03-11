@@ -40,7 +40,7 @@ use crate::text::{TextNode, TextSize};
 ///
 /// Display: Heading
 /// Category: meta
-#[node(Prepare, Show, Finalize)]
+#[node(Synthesize, Show, Finalize)]
 pub struct HeadingNode {
     /// The logical nesting depth of the heading, starting from one.
     #[default(NonZeroUsize::new(1).unwrap())]
@@ -76,44 +76,61 @@ pub struct HeadingNode {
     /// The heading's title.
     #[required]
     pub body: Content,
+
+    /// The heading's numbering numbers.
+    ///
+    /// ```example
+    /// #show heading: it => it.numbers
+    ///
+    /// = First
+    /// == Second
+    /// = Third
+    /// ```
+    #[synthesized]
+    pub numbers: Option<Vec<NonZeroUsize>>,
 }
 
-impl Prepare for HeadingNode {
-    fn prepare(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+impl Synthesize for HeadingNode {
+    fn synthesize(&self, vt: &mut Vt, styles: StyleChain) -> Content {
         let my_id = vt.identify(self);
+        let numbered = self.numbering(styles).is_some();
 
         let mut counter = HeadingCounter::new();
-        for (node_id, node) in vt.locate(Selector::node::<HeadingNode>()) {
-            if node_id == my_id {
-                break;
+        if numbered {
+            // Advance passed existing headings.
+            for (_, node) in vt
+                .locate(Selector::node::<HeadingNode>())
+                .into_iter()
+                .take_while(|&(id, _)| id != my_id)
+            {
+                let heading = node.to::<HeadingNode>().unwrap();
+                if heading.numbering(StyleChain::default()).is_some() {
+                    counter.advance(heading);
+                }
             }
 
-            let numbers = node.field("numbers").unwrap();
-            if *numbers != Value::None {
-                let heading = node.to::<Self>().unwrap();
-                counter.advance(heading);
-            }
+            // Advance passed self.
+            counter.advance(self);
         }
 
-        let mut numbers = Value::None;
-        if let Some(numbering) = self.numbering(styles) {
-            numbers = numbering.apply(vt.world(), counter.advance(self))?;
-        }
+        let node = self
+            .clone()
+            .with_outlined(self.outlined(styles))
+            .with_numbering(self.numbering(styles))
+            .with_numbers(numbered.then(|| counter.take()))
+            .pack();
 
-        let mut node = self.clone().pack();
-        node.push_field("outlined", Value::Bool(self.outlined(styles)));
-        node.push_field("numbers", numbers);
         let meta = Meta::Node(my_id, node.clone());
-        Ok(node.styled(MetaNode::set_data(vec![meta])))
+        node.styled(MetaNode::set_data(vec![meta]))
     }
 }
 
 impl Show for HeadingNode {
-    fn show(&self, _: &mut Vt, _: StyleChain) -> SourceResult<Content> {
+    fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.body();
-        let numbers = self.0.field("numbers").unwrap();
-        if *numbers != Value::None {
-            realized = numbers.clone().display()
+        if let Some(numbering) = self.numbering(styles) {
+            let numbers = self.numbers().unwrap();
+            realized = numbering.apply(vt.world(), &numbers)?.display()
                 + HNode::new(Em::new(0.3).into()).with_weak(true).pack()
                 + realized;
         }
@@ -168,4 +185,14 @@ impl HeadingCounter {
 
         &self.0
     }
+
+    /// Take out the current counts.
+    pub fn take(self) -> Vec<NonZeroUsize> {
+        self.0
+    }
+}
+
+cast_from_value! {
+    HeadingNode,
+    v: Content => v.to::<Self>().ok_or("expected heading")?.clone(),
 }

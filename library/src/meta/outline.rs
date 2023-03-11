@@ -22,7 +22,7 @@ use crate::text::{LinebreakNode, SpaceNode, TextNode};
 ///
 /// Display: Outline
 /// Category: meta
-#[node(Prepare, Show)]
+#[node(Synthesize, Show)]
 pub struct OutlineNode {
     /// The title of the outline.
     ///
@@ -67,21 +67,22 @@ pub struct OutlineNode {
     /// ```
     #[default(Some(RepeatNode::new(TextNode::packed(".")).pack()))]
     pub fill: Option<Content>,
+
+    /// All outlined headings in the document.
+    #[synthesized]
+    pub headings: Vec<HeadingNode>,
 }
 
-impl Prepare for OutlineNode {
-    fn prepare(&self, vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
+impl Synthesize for OutlineNode {
+    fn synthesize(&self, vt: &mut Vt, _: StyleChain) -> Content {
         let headings = vt
             .locate(Selector::node::<HeadingNode>())
             .into_iter()
-            .map(|(_, node)| node)
-            .filter(|node| *node.field("outlined").unwrap() == Value::Bool(true))
-            .map(|node| Value::Content(node.clone()))
+            .map(|(_, node)| node.to::<HeadingNode>().unwrap().clone())
+            .filter(|node| node.outlined(StyleChain::default()))
             .collect();
 
-        let mut node = self.clone().pack();
-        node.push_field("headings", Value::Array(Array::from_vec(headings)));
-        Ok(node)
+        self.clone().with_headings(headings).pack()
     }
 }
 
@@ -108,13 +109,12 @@ impl Show for OutlineNode {
         let indent = self.indent(styles);
         let depth = self.depth(styles);
 
-        let mut ancestors: Vec<&Content> = vec![];
-        for (_, node) in vt.locate(Selector::node::<HeadingNode>()) {
-            if *node.field("outlined").unwrap() != Value::Bool(true) {
+        let mut ancestors: Vec<&HeadingNode> = vec![];
+        for heading in self.headings().iter() {
+            if !heading.outlined(StyleChain::default()) {
                 continue;
             }
 
-            let heading = node.to::<HeadingNode>().unwrap();
             if let Some(depth) = depth {
                 if depth < heading.level(StyleChain::default()) {
                     continue;
@@ -122,37 +122,40 @@ impl Show for OutlineNode {
             }
 
             while ancestors.last().map_or(false, |last| {
-                last.to::<HeadingNode>().unwrap().level(StyleChain::default())
-                    >= heading.level(StyleChain::default())
+                last.level(StyleChain::default()) >= heading.level(StyleChain::default())
             }) {
                 ancestors.pop();
             }
 
             // Adjust the link destination a bit to the topleft so that the
             // heading is fully visible.
-            let mut loc = node.field("loc").unwrap().clone().cast::<Location>().unwrap();
+            let mut loc = heading.0.expect_field::<Location>("location");
             loc.pos -= Point::splat(Abs::pt(10.0));
 
             // Add hidden ancestors numberings to realize the indent.
             if indent {
-                let hidden: Vec<_> = ancestors
-                    .iter()
-                    .map(|node| node.field("numbers").unwrap())
-                    .filter(|&numbers| *numbers != Value::None)
-                    .map(|numbers| numbers.clone().display() + SpaceNode::new().pack())
-                    .collect();
+                let mut hidden = Content::empty();
+                for ancestor in &ancestors {
+                    if let Some(numbering) = ancestor.numbering(StyleChain::default()) {
+                        let numbers = ancestor.numbers().unwrap();
+                        hidden += numbering.apply(vt.world(), &numbers)?.display()
+                            + SpaceNode::new().pack();
+                    };
+                }
 
-                if !hidden.is_empty() {
-                    seq.push(HideNode::new(Content::sequence(hidden)).pack());
+                if !ancestors.is_empty() {
+                    seq.push(HideNode::new(hidden).pack());
                     seq.push(SpaceNode::new().pack());
                 }
             }
 
             // Format the numbering.
             let mut start = heading.body();
-            let numbers = node.field("numbers").unwrap();
-            if *numbers != Value::None {
-                start = numbers.clone().display() + SpaceNode::new().pack() + start;
+            if let Some(numbering) = heading.numbering(StyleChain::default()) {
+                let numbers = heading.numbers().unwrap();
+                start = numbering.apply(vt.world(), &numbers)?.display()
+                    + SpaceNode::new().pack()
+                    + start;
             };
 
             // Add the numbering and section name.
@@ -176,8 +179,7 @@ impl Show for OutlineNode {
             let end = TextNode::packed(eco_format!("{}", loc.page));
             seq.push(end.linked(Destination::Internal(loc)));
             seq.push(LinebreakNode::new().pack());
-
-            ancestors.push(node);
+            ancestors.push(heading);
         }
 
         seq.push(ParbreakNode::new().pack());

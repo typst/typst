@@ -51,8 +51,8 @@ Hello *#x*
 ---
 // Test conditional set.
 #show ref: it => {
-  set text(red) if it.target == "unknown"
-  it
+  set text(red) if it.label == <unknown>
+  "@" + str(it.label)
 }
 
 @hello from the @unknown

@@ -232,20 +232,6 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
                 self.scratch.content.alloc(FormulaNode::new(content.clone()).pack());
         }
 
-        // Prepare only if this is the first application for this node.
-        if content.can::<dyn Prepare>() {
-            if !content.is_prepared() {
-                let prepared = content
-                    .clone()
-                    .prepared()
-                    .with::<dyn Prepare>()
-                    .unwrap()
-                    .prepare(self.vt, styles)?;
-                let stored = self.scratch.content.alloc(prepared);
-                return self.accept(stored, styles);
-            }
-        }
-
         if let Some(styled) = content.to::<StyledNode>() {
             return self.styled(styled, styles);
         }

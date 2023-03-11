@@ -77,6 +77,11 @@ impl<'a> Vt<'a> {
         self.provider.identify(hash128(key))
     }
 
+    /// Whether things are locatable already.
+    pub fn locatable(&self) -> bool {
+        self.introspector.init()
+    }
+
     /// Locate all metadata matches for the given selector.
     pub fn locate(&self, selector: Selector) -> Vec<(StableId, &Content)> {
         self.introspector.locate(selector)
@@ -115,6 +120,7 @@ impl StabilityProvider {
 /// Provides access to information about the document.
 #[doc(hidden)]
 pub struct Introspector {
+    init: bool,
     nodes: Vec<(StableId, Content)>,
     queries: RefCell<Vec<(Selector, u128)>>,
 }
@@ -122,7 +128,11 @@ pub struct Introspector {
 impl Introspector {
     /// Create a new introspector.
     fn new() -> Self {
-        Self { nodes: vec![], queries: RefCell::new(vec![]) }
+        Self {
+            init: false,
+            nodes: vec![],
+            queries: RefCell::new(vec![]),
+        }
     }
 
     /// Update the information given new frames and return whether we can stop
@@ -135,12 +145,18 @@ impl Introspector {
             self.extract(frame, page, Transform::identity());
         }
 
+        let was_init = std::mem::replace(&mut self.init, true);
         let queries = std::mem::take(&mut self.queries).into_inner();
-        for (selector, hash) in queries {
-            let nodes = self.locate_impl(&selector);
-            if hash128(&nodes) != hash {
+
+        for (selector, hash) in &queries {
+            let nodes = self.locate_impl(selector);
+            if hash128(&nodes) != *hash {
                 return false;
             }
+        }
+
+        if !was_init && !queries.is_empty() {
+            return false;
         }
 
         true
@@ -161,7 +177,7 @@ impl Introspector {
                         let pos = pos.transform(ts);
                         let mut node = content.clone();
                         let loc = Location { page, pos };
-                        node.push_field("loc", loc);
+                        node.push_field("location", loc);
                         self.nodes.push((id, node));
                     }
                 }
@@ -173,6 +189,11 @@ impl Introspector {
 
 #[comemo::track]
 impl Introspector {
+    /// Whether this introspector is not yet initialized.
+    fn init(&self) -> bool {
+        self.init
+    }
+
     /// Locate all metadata matches for the given selector.
     fn locate(&self, selector: Selector) -> Vec<(StableId, &Content)> {
         let nodes = self.locate_impl(&selector);

@@ -26,7 +26,7 @@ fn markup(
     p: &mut Parser,
     mut at_start: bool,
     min_indent: usize,
-    mut stop: impl FnMut(SyntaxKind) -> bool,
+    mut stop: impl FnMut(&Parser) -> bool,
 ) {
     let m = p.marker();
     let mut nesting: usize = 0;
@@ -34,7 +34,7 @@ fn markup(
         match p.current() {
             SyntaxKind::LeftBracket => nesting += 1,
             SyntaxKind::RightBracket if nesting > 0 => nesting -= 1,
-            _ if stop(p.current) => break,
+            _ if stop(p) => break,
             _ => {}
         }
 
@@ -133,10 +133,10 @@ fn markup_expr(p: &mut Parser, at_start: &mut bool) {
 fn strong(p: &mut Parser) {
     let m = p.marker();
     p.assert(SyntaxKind::Star);
-    markup(p, false, 0, |kind| {
-        kind == SyntaxKind::Star
-            || kind == SyntaxKind::Parbreak
-            || kind == SyntaxKind::RightBracket
+    markup(p, false, 0, |p| {
+        p.at(SyntaxKind::Star)
+            || p.at(SyntaxKind::Parbreak)
+            || p.at(SyntaxKind::RightBracket)
     });
     p.expect(SyntaxKind::Star);
     p.wrap(m, SyntaxKind::Strong);
@@ -145,10 +145,10 @@ fn strong(p: &mut Parser) {
 fn emph(p: &mut Parser) {
     let m = p.marker();
     p.assert(SyntaxKind::Underscore);
-    markup(p, false, 0, |kind| {
-        kind == SyntaxKind::Underscore
-            || kind == SyntaxKind::Parbreak
-            || kind == SyntaxKind::RightBracket
+    markup(p, false, 0, |p| {
+        p.at(SyntaxKind::Underscore)
+            || p.at(SyntaxKind::Parbreak)
+            || p.at(SyntaxKind::RightBracket)
     });
     p.expect(SyntaxKind::Underscore);
     p.wrap(m, SyntaxKind::Emph);
@@ -158,8 +158,10 @@ fn heading(p: &mut Parser) {
     let m = p.marker();
     p.assert(SyntaxKind::HeadingMarker);
     whitespace_line(p);
-    markup(p, false, usize::MAX, |kind| {
-        kind == SyntaxKind::Label || kind == SyntaxKind::RightBracket
+    markup(p, false, usize::MAX, |p| {
+        p.at(SyntaxKind::Label)
+            || p.at(SyntaxKind::RightBracket)
+            || (p.at(SyntaxKind::Space) && p.lexer.clone().next() == SyntaxKind::Label)
     });
     p.wrap(m, SyntaxKind::Heading);
 }
@@ -169,7 +171,7 @@ fn list_item(p: &mut Parser) {
     p.assert(SyntaxKind::ListMarker);
     let min_indent = p.column(p.prev_end());
     whitespace_line(p);
-    markup(p, false, min_indent, |kind| kind == SyntaxKind::RightBracket);
+    markup(p, false, min_indent, |p| p.at(SyntaxKind::RightBracket));
     p.wrap(m, SyntaxKind::ListItem);
 }
 
@@ -178,7 +180,7 @@ fn enum_item(p: &mut Parser) {
     p.assert(SyntaxKind::EnumMarker);
     let min_indent = p.column(p.prev_end());
     whitespace_line(p);
-    markup(p, false, min_indent, |kind| kind == SyntaxKind::RightBracket);
+    markup(p, false, min_indent, |p| p.at(SyntaxKind::RightBracket));
     p.wrap(m, SyntaxKind::EnumItem);
 }
 
@@ -187,12 +189,12 @@ fn term_item(p: &mut Parser) {
     p.assert(SyntaxKind::TermMarker);
     let min_indent = p.column(p.prev_end());
     whitespace_line(p);
-    markup(p, false, usize::MAX, |kind| {
-        kind == SyntaxKind::Colon || kind == SyntaxKind::RightBracket
+    markup(p, false, usize::MAX, |p| {
+        p.at(SyntaxKind::Colon) || p.at(SyntaxKind::RightBracket)
     });
     p.expect(SyntaxKind::Colon);
     whitespace_line(p);
-    markup(p, false, min_indent, |kind| kind == SyntaxKind::RightBracket);
+    markup(p, false, min_indent, |p| p.at(SyntaxKind::RightBracket));
     p.wrap(m, SyntaxKind::TermItem);
 }
 
@@ -679,7 +681,7 @@ fn content_block(p: &mut Parser) {
     let m = p.marker();
     p.enter(LexMode::Markup);
     p.assert(SyntaxKind::LeftBracket);
-    markup(p, true, 0, |kind| kind == SyntaxKind::RightBracket);
+    markup(p, true, 0, |p| p.at(SyntaxKind::RightBracket));
     p.expect(SyntaxKind::RightBracket);
     p.exit();
     p.wrap(m, SyntaxKind::ContentBlock);
