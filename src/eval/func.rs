@@ -142,6 +142,14 @@ impl Func {
         self.select(Some(fields))
     }
 
+    /// The node id of this function if it is an element function.
+    pub fn id(&self) -> Option<NodeId> {
+        match **self.0 {
+            Repr::Node(id) => Some(id),
+            _ => None,
+        }
+    }
+
     /// Execute the function's set rule and return the resulting style map.
     pub fn set(&self, mut args: Args) -> SourceResult<StyleMap> {
         Ok(match &**self.0 {
@@ -156,16 +164,15 @@ impl Func {
 
     /// Create a selector for this function's node type.
     pub fn select(&self, fields: Option<Dict>) -> StrResult<Selector> {
-        match **self.0 {
-            Repr::Node(id) => {
-                if id == item!(text_id) {
-                    Err("to select text, please use a string or regex instead")?;
-                }
+        let Some(id) = self.id() else {
+            return Err("this function is not selectable".into());
+        };
 
-                Ok(Selector::Node(id, fields))
-            }
-            _ => Err("this function is not selectable")?,
+        if id == item!(text_id) {
+            Err("to select text, please use a string or regex instead")?;
         }
+
+        Ok(Selector::Node(id, fields))
     }
 }
 
@@ -194,10 +201,6 @@ impl From<NodeId> for Func {
     fn from(id: NodeId) -> Self {
         Repr::Node(id).into()
     }
-}
-
-cast_to_value! {
-    v: NodeId => Value::Func(v.into())
 }
 
 /// A native Rust function.

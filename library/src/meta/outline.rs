@@ -1,4 +1,4 @@
-use super::HeadingNode;
+use super::{HeadingNode, LocalName};
 use crate::layout::{BoxNode, HNode, HideNode, ParbreakNode, RepeatNode};
 use crate::prelude::*;
 use crate::text::{LinebreakNode, SpaceNode, TextNode};
@@ -22,7 +22,7 @@ use crate::text::{LinebreakNode, SpaceNode, TextNode};
 ///
 /// Display: Outline
 /// Category: meta
-#[node(Synthesize, Show)]
+#[node(Synthesize, Show, LocalName)]
 pub struct OutlineNode {
     /// The title of the outline.
     ///
@@ -91,10 +91,7 @@ impl Show for OutlineNode {
         let mut seq = vec![ParbreakNode::new().pack()];
         if let Some(title) = self.title(styles) {
             let title = title.clone().unwrap_or_else(|| {
-                TextNode::packed(match TextNode::lang_in(styles) {
-                    Lang::GERMAN => "Inhaltsverzeichnis",
-                    Lang::ENGLISH | _ => "Contents",
-                })
+                TextNode::packed(self.local_name(TextNode::lang_in(styles)))
             });
 
             seq.push(
@@ -185,5 +182,14 @@ impl Show for OutlineNode {
         seq.push(ParbreakNode::new().pack());
 
         Ok(Content::sequence(seq))
+    }
+}
+
+impl LocalName for OutlineNode {
+    fn local_name(&self, lang: Lang) -> &'static str {
+        match lang {
+            Lang::GERMAN => "Inhaltsverzeichnis",
+            Lang::ENGLISH | _ => "Contents",
+        }
     }
 }

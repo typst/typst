@@ -191,6 +191,12 @@ impl From<Em> for Spacing {
     }
 }
 
+impl From<Length> for Spacing {
+    fn from(length: Length) -> Self {
+        Self::Rel(length.into())
+    }
+}
+
 impl From<Fr> for Spacing {
     fn from(fr: Fr) -> Self {
         Self::Fr(fr)

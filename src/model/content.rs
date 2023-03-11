@@ -10,7 +10,9 @@ use once_cell::sync::Lazy;
 
 use super::{node, Guard, Recipe, Style, StyleMap};
 use crate::diag::{SourceResult, StrResult};
-use crate::eval::{cast_from_value, Args, Cast, FuncInfo, Str, Value, Vm};
+use crate::eval::{
+    cast_from_value, cast_to_value, Args, Cast, Func, FuncInfo, Str, Value, Vm,
+};
 use crate::syntax::Span;
 use crate::util::pretty_array_like;
 use crate::World;
@@ -380,6 +382,15 @@ impl Deref for NodeId {
     fn deref(&self) -> &Self::Target {
         self.0
     }
+}
+
+cast_from_value! {
+    NodeId,
+    v: Func => v.id().ok_or("this function is not an element")?
+}
+
+cast_to_value! {
+    v: NodeId => Value::Func(v.into())
 }
 
 /// Static node for a node.

@@ -88,6 +88,7 @@ fn global(math: Module, calc: Module) -> Module {
     global.define("link", meta::LinkNode::id());
     global.define("outline", meta::OutlineNode::id());
     global.define("heading", meta::HeadingNode::id());
+    global.define("figure", meta::FigureNode::id());
     global.define("numbering", meta::numbering);
 
     // Symbols.

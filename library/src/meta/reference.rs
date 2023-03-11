@@ -1,4 +1,4 @@
-use super::{HeadingNode, Numbering};
+use super::{FigureNode, HeadingNode, Numbering};
 use crate::prelude::*;
 use crate::text::TextNode;
 
@@ -92,7 +92,9 @@ impl Show for RefNode {
         };
 
         let mut prefix = match self.prefix(styles) {
-            Smart::Auto => prefix(target, TextNode::lang_in(styles))
+            Smart::Auto => target
+                .with::<dyn LocalName>()
+                .map(|node| node.local_name(TextNode::lang_in(styles)))
                 .map(TextNode::packed)
                 .unwrap_or_default(),
             Smart::Custom(None) => Content::empty(),
@@ -112,6 +114,13 @@ impl Show for RefNode {
                 numbered(vt, prefix, &numbering, &numbers)?
             } else {
                 bail!(self.span(), "cannot reference unnumbered heading");
+            }
+        } else if let Some(figure) = target.to::<FigureNode>() {
+            if let Some(numbering) = figure.numbering(StyleChain::default()) {
+                let number = figure.number().unwrap();
+                numbered(vt, prefix, &numbering, &[number])?
+            } else {
+                bail!(self.span(), "cannot reference unnumbered figure");
             }
         } else {
             bail!(self.span(), "cannot reference {}", target.id().name);
@@ -138,15 +147,8 @@ fn numbered(
         })
 }
 
-/// The default prefix.
-fn prefix(node: &Content, lang: Lang) -> Option<&str> {
-    if node.is::<HeadingNode>() {
-        match lang {
-            Lang::ENGLISH => Some("Section"),
-            Lang::GERMAN => Some("Abschnitt"),
-            _ => None,
-        }
-    } else {
-        None
-    }
+/// The named with which an element is referenced.
+pub trait LocalName {
+    /// Get the name in the given language.
+    fn local_name(&self, lang: Lang) -> &'static str;
 }

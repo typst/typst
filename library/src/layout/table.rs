@@ -1,4 +1,5 @@
 use crate::layout::{AlignNode, GridLayouter, TrackSizings};
+use crate::meta::LocalName;
 use crate::prelude::*;
 
 /// A table of items.
@@ -31,7 +32,7 @@ use crate::prelude::*;
 ///
 /// Display: Table
 /// Category: layout
-#[node(Layout)]
+#[node(Layout, LocalName)]
 pub struct TableNode {
     /// Defines the column sizes. See the [grid documentation]($func/grid) for
     /// more information on track sizing.
@@ -261,6 +262,15 @@ impl<T: Into<Value>> From<Celled<T>> for Value {
         match celled {
             Celled::Value(value) => value.into(),
             Celled::Func(func) => func.into(),
+        }
+    }
+}
+
+impl LocalName for TableNode {
+    fn local_name(&self, lang: Lang) -> &'static str {
+        match lang {
+            Lang::GERMAN => "Tabelle",
+            Lang::ENGLISH | _ => "Table",
         }
     }
 }

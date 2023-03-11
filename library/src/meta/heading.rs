@@ -1,6 +1,6 @@
 use typst::font::FontWeight;
 
-use super::Numbering;
+use super::{LocalName, Numbering};
 use crate::layout::{BlockNode, HNode, VNode};
 use crate::prelude::*;
 use crate::text::{TextNode, TextSize};
@@ -40,7 +40,7 @@ use crate::text::{TextNode, TextSize};
 ///
 /// Display: Heading
 /// Category: meta
-#[node(Synthesize, Show, Finalize)]
+#[node(Synthesize, Show, Finalize, LocalName)]
 pub struct HeadingNode {
     /// The logical nesting depth of the heading, starting from one.
     #[default(NonZeroUsize::new(1).unwrap())]
@@ -78,14 +78,6 @@ pub struct HeadingNode {
     pub body: Content,
 
     /// The heading's numbering numbers.
-    ///
-    /// ```example
-    /// #show heading: it => it.numbers
-    ///
-    /// = First
-    /// == Second
-    /// = Third
-    /// ```
     #[synthesized]
     pub numbers: Option<Vec<NonZeroUsize>>,
 }
@@ -93,17 +85,17 @@ pub struct HeadingNode {
 impl Synthesize for HeadingNode {
     fn synthesize(&self, vt: &mut Vt, styles: StyleChain) -> Content {
         let my_id = vt.identify(self);
-        let numbered = self.numbering(styles).is_some();
+        let numbering = self.numbering(styles);
 
         let mut counter = HeadingCounter::new();
-        if numbered {
-            // Advance passed existing headings.
+        if numbering.is_some() {
+            // Advance past existing headings.
             for (_, node) in vt
-                .locate(Selector::node::<HeadingNode>())
+                .locate(Selector::node::<Self>())
                 .into_iter()
                 .take_while(|&(id, _)| id != my_id)
             {
-                let heading = node.to::<HeadingNode>().unwrap();
+                let heading = node.to::<Self>().unwrap();
                 if heading.numbering(StyleChain::default()).is_some() {
                     counter.advance(heading);
                 }
@@ -116,8 +108,8 @@ impl Synthesize for HeadingNode {
         let node = self
             .clone()
             .with_outlined(self.outlined(styles))
-            .with_numbering(self.numbering(styles))
-            .with_numbers(numbered.then(|| counter.take()))
+            .with_numbers(numbering.is_some().then(|| counter.take()))
+            .with_numbering(numbering)
             .pack();
 
         let meta = Meta::Node(my_id, node.clone());
@@ -195,4 +187,13 @@ impl HeadingCounter {
 cast_from_value! {
     HeadingNode,
     v: Content => v.to::<Self>().ok_or("expected heading")?.clone(),
+}
+
+impl LocalName for HeadingNode {
+    fn local_name(&self, lang: Lang) -> &'static str {
+        match lang {
+            Lang::GERMAN => "Abschnitt",
+            Lang::ENGLISH | _ => "Section",
+        }
+    }
 }

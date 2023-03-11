@@ -11,11 +11,13 @@ use crate::prelude::*;
 ///
 /// ## Example
 /// ```example
-/// #align(center)[
-///   #image("molecular.jpg", width: 80%)
-///   *A step in the molecular testing
-///    pipeline of our lab*
-/// ]
+/// #figure(
+///   image("molecular.jpg", width: 80%),
+///   caption: [
+///     A step in the molecular testing
+///     pipeline of our lab.
+///   ],
+/// )
 /// ```
 ///
 /// Display: Image
