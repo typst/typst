@@ -145,12 +145,12 @@ impl ParNode {
             let children = par.children();
 
             // Collect all text into one string for BiDi analysis.
-            let (text, segments) = collect(&children, &styles, consecutive)?;
+            let (text, segments, spans) = collect(&children, &styles, consecutive)?;
 
             // Perform BiDi analysis and then prepare paragraph layout by building a
             // representation on which we can do line breaking without layouting
             // each and every line from scratch.
-            let p = prepare(&mut vt, &children, &text, segments, styles, region)?;
+            let p = prepare(&mut vt, &children, &text, segments, spans, styles, region)?;
 
             // Break the paragraph into lines.
             let lines = linebreak(&vt, &p, region.x);
@@ -264,6 +264,8 @@ struct Preparation<'a> {
     bidi: BidiInfo<'a>,
     /// Text runs, spacing and layouted nodes.
     items: Vec<Item<'a>>,
+    /// The span mapper.
+    spans: SpanMapper,
     /// The styles shared by all children.
     styles: StyleChain<'a>,
     /// Whether to hyphenate if it's the same for all children.
@@ -388,6 +390,35 @@ impl<'a> Item<'a> {
     }
 }
 
+/// Maps byte offsets back to spans.
+pub struct SpanMapper(Vec<(usize, Span)>);
+
+impl SpanMapper {
+    /// Create a new span mapper.
+    pub fn new() -> Self {
+        Self(vec![])
+    }
+
+    /// Push a span for a segment with the given length.
+    pub fn push(&mut self, len: usize, span: Span) {
+        self.0.push((len, span));
+    }
+
+    /// Determine the span at the given byte offset.
+    ///
+    /// May return a detached span.
+    pub fn span_at(&self, offset: usize) -> (Span, u16) {
+        let mut cursor = 0;
+        for &(len, span) in &self.0 {
+            if (cursor..=cursor + len).contains(&offset) {
+                return (span, u16::try_from(offset - cursor).unwrap_or(0));
+            }
+            cursor += len;
+        }
+        (Span::detached(), 0)
+    }
+}
+
 /// A layouted line, consisting of a sequence of layouted paragraph items that
 /// are mostly borrowed from the preparation phase. This type enables you to
 /// measure the size of a line in a range before comitting to building the
@@ -485,10 +516,11 @@ fn collect<'a>(
     children: &'a [Content],
     styles: &'a StyleChain<'a>,
     consecutive: bool,
-) -> SourceResult<(String, Vec<(Segment<'a>, StyleChain<'a>)>)> {
+) -> SourceResult<(String, Vec<(Segment<'a>, StyleChain<'a>)>, SpanMapper)> {
     let mut full = String::new();
     let mut quoter = Quoter::new();
     let mut segments = vec![];
+    let mut spans = SpanMapper::new();
     let mut iter = children.iter().peekable();
 
     if consecutive {
@@ -578,6 +610,8 @@ fn collect<'a>(
             quoter.last(last);
         }
 
+        spans.push(segment.len(), child.span());
+
         if let (Some((Segment::Text(last_len), last_styles)), Segment::Text(len)) =
             (segments.last_mut(), segment)
         {
@@ -590,7 +624,7 @@ fn collect<'a>(
         segments.push((segment, styles));
     }
 
-    Ok((full, segments))
+    Ok((full, segments, spans))
 }
 
 /// Prepare paragraph layout by shaping the whole paragraph and layouting all
@@ -600,6 +634,7 @@ fn prepare<'a>(
     children: &'a [Content],
     text: &'a str,
     segments: Vec<(Segment<'a>, StyleChain<'a>)>,
+    spans: SpanMapper,
     styles: StyleChain<'a>,
     region: Size,
 ) -> SourceResult<Preparation<'a>> {
@@ -620,7 +655,7 @@ fn prepare<'a>(
         let end = cursor + segment.len();
         match segment {
             Segment::Text(_) => {
-                shape_range(&mut items, vt, &bidi, cursor..end, styles);
+                shape_range(&mut items, vt, &bidi, cursor..end, &spans, styles);
             }
             Segment::Spacing(spacing) => match spacing {
                 Spacing::Rel(v) => {
@@ -655,6 +690,7 @@ fn prepare<'a>(
     Ok(Preparation {
         bidi,
         items,
+        spans,
         styles,
         hyphenate: shared_get(styles, children, TextNode::hyphenate_in),
         lang: shared_get(styles, children, TextNode::lang_in),
@@ -670,11 +706,12 @@ fn shape_range<'a>(
     vt: &Vt,
     bidi: &BidiInfo<'a>,
     range: Range,
+    spans: &SpanMapper,
     styles: StyleChain<'a>,
 ) {
-    let mut process = |text, level: BidiLevel| {
+    let mut process = |range: Range, level: BidiLevel| {
         let dir = if level.is_ltr() { Dir::LTR } else { Dir::RTL };
-        let shaped = shape(vt, text, styles, dir);
+        let shaped = shape(vt, range.start, &bidi.text[range], spans, styles, dir);
         items.push(Item::Text(shaped));
     };
 
@@ -694,7 +731,7 @@ fn shape_range<'a>(
 
         if level != prev_level || !is_compatible(script, prev_script) {
             if cursor < i {
-                process(&bidi.text[cursor..i], prev_level);
+                process(cursor..i, prev_level);
             }
             cursor = i;
             prev_level = level;
@@ -704,7 +741,7 @@ fn shape_range<'a>(
         }
     }
 
-    process(&bidi.text[cursor..range.end], prev_level);
+    process(cursor..range.end, prev_level);
 }
 
 /// Whether this is not a specific script.
@@ -1073,7 +1110,7 @@ fn line<'a>(
         if hyphen || start + shaped.text.len() > range.end {
             if hyphen || start < range.end || before.is_empty() {
                 let shifted = start - base..range.end - base;
-                let mut reshaped = shaped.reshape(vt, shifted);
+                let mut reshaped = shaped.reshape(vt, &p.spans, shifted);
                 if hyphen || shy {
                     reshaped.push_hyphen(vt);
                 }
@@ -1096,7 +1133,7 @@ fn line<'a>(
         if range.start + shaped.text.len() > end {
             if range.start < end {
                 let shifted = range.start - base..end - base;
-                let reshaped = shaped.reshape(vt, shifted);
+                let reshaped = shaped.reshape(vt, &p.spans, shifted);
                 width += reshaped.width;
                 first = Some(Item::Text(reshaped));
             }

@@ -9,7 +9,7 @@ use comemo::Prehashed;
 use unscanny::Scanner;
 
 use super::ast::Markup;
-use super::{is_newline, parse, reparse, Span, SyntaxNode};
+use super::{is_newline, parse, reparse, LinkedNode, Span, SyntaxNode};
 use crate::diag::SourceResult;
 use crate::util::{PathExt, StrExt};
 
@@ -149,13 +149,20 @@ impl Source {
         self.lines.len()
     }
 
+    /// Find the node with the given span.
+    ///
+    /// Panics if the span does not point into this source file.
+    pub fn find(&self, span: Span) -> LinkedNode<'_> {
+        LinkedNode::new(&self.root)
+            .find(span)
+            .expect("span does not point into this source file")
+    }
+
     /// Map a span that points into this source file to a byte range.
     ///
     /// Panics if the span does not point into this source file.
     pub fn range(&self, span: Span) -> Range<usize> {
-        self.root
-            .range(span, 0)
-            .expect("span does not point into this source file")
+        self.find(span).range()
     }
 
     /// Return the index of the UTF-16 code unit at the byte index.

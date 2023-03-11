@@ -6,6 +6,7 @@ use typst::font::{Font, FontVariant};
 use typst::util::SliceExt;
 
 use super::*;
+use crate::layout::SpanMapper;
 use crate::prelude::*;
 
 /// The result of shaping text.
@@ -14,6 +15,8 @@ use crate::prelude::*;
 /// measured, used to reshape substrings more quickly and converted into a
 /// frame.
 pub struct ShapedText<'a> {
+    /// The start of the text in the full paragraph.
+    pub base: usize,
     /// The text that was shaped.
     pub text: &'a str,
     /// The text direction.
@@ -53,6 +56,10 @@ pub struct ShapedGlyph {
     pub safe_to_break: bool,
     /// The first char in this glyph's cluster.
     pub c: char,
+    /// The source code location of the text.
+    pub span: Span,
+    /// The offset within the spanned text.
+    pub offset: u16,
 }
 
 impl ShapedGlyph {
@@ -110,6 +117,8 @@ impl<'a> ShapedText<'a> {
                         },
                     x_offset: glyph.x_offset,
                     c: glyph.c,
+                    span: glyph.span,
+                    offset: glyph.offset,
                 })
                 .collect();
 
@@ -187,9 +196,15 @@ impl<'a> ShapedText<'a> {
 
     /// Reshape a range of the shaped text, reusing information from this
     /// shaping process if possible.
-    pub fn reshape(&'a self, vt: &Vt, text_range: Range<usize>) -> ShapedText<'a> {
+    pub fn reshape(
+        &'a self,
+        vt: &Vt,
+        spans: &SpanMapper,
+        text_range: Range<usize>,
+    ) -> ShapedText<'a> {
         if let Some(glyphs) = self.slice_safe_to_break(text_range.clone()) {
             Self {
+                base: self.base + text_range.start,
                 text: &self.text[text_range],
                 dir: self.dir,
                 styles: self.styles,
@@ -199,7 +214,14 @@ impl<'a> ShapedText<'a> {
                 glyphs: Cow::Borrowed(glyphs),
             }
         } else {
-            shape(vt, &self.text[text_range], self.styles, self.dir)
+            shape(
+                vt,
+                self.base + text_range.start,
+                &self.text[text_range],
+                spans,
+                self.styles,
+                self.dir,
+            )
         }
     }
 
@@ -225,6 +247,8 @@ impl<'a> ShapedText<'a> {
                 cluster,
                 safe_to_break: true,
                 c: '-',
+                span: Span::detached(),
+                offset: 0,
             });
             Some(())
         });
@@ -298,6 +322,8 @@ impl Debug for ShapedText<'_> {
 /// Holds shaping results and metadata common to all shaped segments.
 struct ShapingContext<'a> {
     vt: &'a Vt<'a>,
+    base: usize,
+    spans: &'a SpanMapper,
     glyphs: Vec<ShapedGlyph>,
     used: Vec<Font>,
     styles: StyleChain<'a>,
@@ -311,13 +337,17 @@ struct ShapingContext<'a> {
 /// Shape text into [`ShapedText`].
 pub fn shape<'a>(
     vt: &Vt,
+    base: usize,
     text: &'a str,
+    spans: &SpanMapper,
     styles: StyleChain<'a>,
     dir: Dir,
 ) -> ShapedText<'a> {
     let size = TextNode::size_in(styles);
     let mut ctx = ShapingContext {
         vt,
+        base,
+        spans,
         size,
         glyphs: vec![],
         used: vec![],
@@ -335,6 +365,7 @@ pub fn shape<'a>(
     track_and_space(&mut ctx);
 
     ShapedText {
+        base,
         text,
         dir,
         styles,
@@ -410,6 +441,7 @@ fn shape_segment<'a>(
         if info.glyph_id != 0 {
             // Add the glyph to the shaped output.
             // TODO: Don't ignore y_advance.
+            let (span, offset) = ctx.spans.span_at(ctx.base + cluster);
             ctx.glyphs.push(ShapedGlyph {
                 font: font.clone(),
                 glyph_id: info.glyph_id as u16,
@@ -419,6 +451,8 @@ fn shape_segment<'a>(
                 cluster: base + cluster,
                 safe_to_break: !info.unsafe_to_break(),
                 c: text[cluster..].chars().next().unwrap(),
+                span,
+                offset,
             });
         } else {
             // Determine the source text range for the tofu sequence.
@@ -478,15 +512,19 @@ fn shape_segment<'a>(
 fn shape_tofus(ctx: &mut ShapingContext, base: usize, text: &str, font: Font) {
     let x_advance = font.advance(0).unwrap_or_default();
     for (cluster, c) in text.char_indices() {
+        let cluster = base + cluster;
+        let (span, offset) = ctx.spans.span_at(ctx.base + cluster);
         ctx.glyphs.push(ShapedGlyph {
             font: font.clone(),
             glyph_id: 0,
             x_advance,
             x_offset: Em::zero(),
             y_offset: Em::zero(),
-            cluster: base + cluster,
+            cluster,
             safe_to_break: true,
             c,
+            span,
+            offset,
         });
     }
 }

@@ -204,14 +204,6 @@ impl SyntaxNode {
         Ok(())
     }
 
-    /// If the span points into this node, convert it to a byte range.
-    pub(super) fn range(&self, span: Span, offset: usize) -> Option<Range<usize>> {
-        match &self.0 {
-            Repr::Inner(inner) => inner.range(span, offset),
-            _ => (self.span() == span).then(|| offset..offset + self.len()),
-        }
-    }
-
     /// Whether this is a leaf node.
     pub(super) fn is_leaf(&self) -> bool {
         matches!(self.0, Repr::Leaf(_))
@@ -429,40 +421,6 @@ impl InnerNode {
         Ok(())
     }
 
-    /// If the span points into this node, convert it to a byte range.
-    fn range(&self, span: Span, mut offset: usize) -> Option<Range<usize>> {
-        // Check whether we found it.
-        if span == self.span {
-            return Some(offset..offset + self.len);
-        }
-
-        // The parent of a subtree has a smaller span number than all of its
-        // descendants. Therefore, we can bail out early if the target span's
-        // number is smaller than our number.
-        if span.number() < self.span.number() {
-            return None;
-        }
-
-        let mut children = self.children.iter().peekable();
-        while let Some(child) = children.next() {
-            // Every node in this child's subtree has a smaller span number than
-            // the next sibling. Therefore we only need to recurse if the next
-            // sibling's span number is larger than the target span's number.
-            if children
-                .peek()
-                .map_or(true, |next| next.span().number() > span.number())
-            {
-                if let Some(range) = child.range(span, offset) {
-                    return Some(range);
-                }
-            }
-
-            offset += child.len();
-        }
-
-        None
-    }
-
     /// Replaces a range of children with a replacement.
     ///
     /// May have mutated the children if it returns `Err(_)`.
@@ -668,6 +626,39 @@ impl<'a> LinkedNode<'a> {
             front: self.offset,
             back: self.offset + self.len(),
         }
+    }
+
+    /// Find a descendant with the given span.
+    pub fn find(&self, span: Span) -> Option<LinkedNode<'a>> {
+        if self.span() == span {
+            return Some(self.clone());
+        }
+
+        if let Repr::Inner(inner) = &self.0 {
+            // The parent of a subtree has a smaller span number than all of its
+            // descendants. Therefore, we can bail out early if the target span's
+            // number is smaller than our number.
+            if span.number() < inner.span.number() {
+                return None;
+            }
+
+            let mut children = self.children().peekable();
+            while let Some(child) = children.next() {
+                // Every node in this child's subtree has a smaller span number than
+                // the next sibling. Therefore we only need to recurse if the next
+                // sibling's span number is larger than the target span's number.
+                if children
+                    .peek()
+                    .map_or(true, |next| next.span().number() > span.number())
+                {
+                    if let Some(found) = child.find(span) {
+                        return Some(found);
+                    }
+                }
+            }
+        }
+
+        None
     }
 }
 

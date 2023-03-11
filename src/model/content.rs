@@ -106,9 +106,11 @@ impl Content {
         self.span
     }
 
-    /// Attach a span to the content.
+    /// Attach a span to the content if it doesn't already have one.
     pub fn spanned(mut self, span: Span) -> Self {
-        self.span = span;
+        if self.span.is_detached() {
+            self.span = span;
+        }
         self
     }
 

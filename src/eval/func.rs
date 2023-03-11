@@ -62,9 +62,11 @@ impl Func {
         self.1
     }
 
-    /// Attach a span to the function.
+    /// Attach a span to this function if it doesn't already have one.
     pub fn spanned(mut self, span: Span) -> Self {
-        self.1 = span;
+        if self.1.is_detached() {
+            self.1 = span;
+        }
         self
     }
 

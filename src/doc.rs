@@ -15,6 +15,7 @@ use crate::geom::{
 };
 use crate::image::Image;
 use crate::model::{node, Content, Fold, StableId, StyleChain};
+use crate::syntax::Span;
 
 /// A finished document with metadata and page frames.
 #[derive(Debug, Default, Clone, Hash)]
@@ -119,8 +120,8 @@ impl Frame {
         let mut text = EcoString::new();
         for (_, element) in self.elements() {
             match element {
-                Element::Text(content) => {
-                    for glyph in &content.glyphs {
+                Element::Text(element) => {
+                    for glyph in &element.glyphs {
                         text.push(glyph.c);
                     }
                 }
@@ -499,6 +500,10 @@ pub struct Glyph {
     pub x_offset: Em,
     /// The first character of the glyph's cluster.
     pub c: char,
+    /// The source code location of the text.
+    pub span: Span,
+    /// The offset within the spanned text.
+    pub offset: u16,
 }
 
 /// An identifier for a natural language.

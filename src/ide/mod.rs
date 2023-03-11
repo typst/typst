@@ -3,10 +3,12 @@
 mod analyze;
 mod complete;
 mod highlight;
+mod jump;
 mod tooltip;
 
 pub use self::complete::*;
 pub use self::highlight::*;
+pub use self::jump::*;
 pub use self::tooltip::*;
 
 use std::fmt::Write;

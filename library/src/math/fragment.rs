@@ -222,6 +222,8 @@ impl GlyphFragment {
                 c: self.c,
                 x_advance: Em::from_length(self.width, self.font_size),
                 x_offset: Em::zero(),
+                span: Span::detached(),
+                offset: 0,
             }],
         };
         let size = Size::new(self.width, self.ascent + self.descent);
