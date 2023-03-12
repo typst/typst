@@ -40,7 +40,11 @@ pub fn jump_from_click(world: &dyn World, frame: &Frame, click: Point) -> Option
                     let node = source.find(glyph.span);
                     let pos = if node.kind() == SyntaxKind::Text {
                         let range = node.range();
-                        (range.start + usize::from(glyph.offset)).min(range.end)
+                        let mut offset = range.start + usize::from(glyph.offset);
+                        if (click.x - pos.x) > width / 2.0 {
+                            offset += glyph.c.len_utf8();
+                        }
+                        offset.min(range.end)
                     } else {
                         node.offset()
                     };
