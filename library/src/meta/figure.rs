@@ -100,6 +100,7 @@ impl Show for FigureNode {
 
         Ok(BlockNode::new()
             .with_body(Some(realized))
+            .with_breakable(false)
             .pack()
             .aligned(Axes::with_x(Some(Align::Center.into()))))
     }
