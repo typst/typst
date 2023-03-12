@@ -11,7 +11,7 @@ use usvg::FitTo;
 
 use crate::doc::{Element, Frame, Group, Meta, Text};
 use crate::geom::{
-    self, Abs, Geometry, Paint, PathElement, Shape, Size, Stroke, Transform,
+    self, Abs, Color, Geometry, Paint, PathElement, Shape, Size, Stroke, Transform,
 };
 use crate::image::{DecodedImage, Image};
 
@@ -19,13 +19,13 @@ use crate::image::{DecodedImage, Image};
 ///
 /// This renders the frame at the given number of pixels per point and returns
 /// the resulting `tiny-skia` pixel buffer.
-pub fn render(frame: &Frame, pixel_per_pt: f32) -> sk::Pixmap {
+pub fn render(frame: &Frame, pixel_per_pt: f32, fill: Color) -> sk::Pixmap {
     let size = frame.size();
     let pxw = (pixel_per_pt * size.x.to_f32()).round().max(1.0) as u32;
     let pxh = (pixel_per_pt * size.y.to_f32()).round().max(1.0) as u32;
 
     let mut canvas = sk::Pixmap::new(pxw, pxh).unwrap();
-    canvas.fill(sk::Color::WHITE);
+    canvas.fill(fill.into());
 
     let ts = sk::Transform::from_scale(pixel_per_pt, pixel_per_pt);
     render_frame(&mut canvas, ts, None, frame);
@@ -432,10 +432,16 @@ impl From<Paint> for sk::Paint<'static> {
     fn from(paint: Paint) -> Self {
         let mut sk_paint = sk::Paint::default();
         let Paint::Solid(color) = paint;
-        let c = color.to_rgba();
-        sk_paint.set_color_rgba8(c.r, c.g, c.b, c.a);
+        sk_paint.set_color(color.into());
         sk_paint.anti_alias = true;
         sk_paint
+    }
+}
+
+impl From<Color> for sk::Color {
+    fn from(color: Color) -> Self {
+        let c = color.to_rgba();
+        sk::Color::from_rgba8(c.r, c.g, c.b, c.a)
     }
 }
 

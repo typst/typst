@@ -690,7 +690,7 @@ fn render(frames: &[Frame]) -> sk::Pixmap {
             if frame.width() > limit || frame.height() > limit {
                 panic!("overlarge frame: {:?}", frame.size());
             }
-            typst::export::render(frame, pixel_per_pt)
+            typst::export::render(frame, pixel_per_pt, Color::WHITE)
         })
         .collect();
 

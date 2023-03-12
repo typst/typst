@@ -103,7 +103,7 @@ impl<'a> ShapedText<'a> {
         for ((font, y_offset), group) in
             self.glyphs.as_ref().group_by_key(|g| (g.font.clone(), g.y_offset))
         {
-            let pos = Point::new(offset, top + shift + y_offset.at(self.size));
+            let pos = Point::new(offset, top + shift - y_offset.at(self.size));
             let glyphs = group
                 .iter()
                 .map(|glyph| Glyph {

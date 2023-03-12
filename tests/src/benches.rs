@@ -5,6 +5,7 @@ use iai::{black_box, main, Iai};
 use typst::diag::{FileError, FileResult};
 use typst::eval::Library;
 use typst::font::{Font, FontBook};
+use typst::geom::Color;
 use typst::syntax::{Source, SourceId};
 use typst::util::Buffer;
 use typst::World;
@@ -90,7 +91,7 @@ fn bench_compile(iai: &mut Iai) {
 fn bench_render(iai: &mut Iai) {
     let world = BenchWorld::new();
     let document = typst::compile(&world, &world.source).unwrap();
-    iai.run(|| typst::export::render(&document.pages[0], 1.0))
+    iai.run(|| typst::export::render(&document.pages[0], 1.0, Color::WHITE))
 }
 
 struct BenchWorld {
