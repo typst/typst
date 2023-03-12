@@ -18,7 +18,7 @@ pub struct SqrtNode {
 
 impl LayoutMath for SqrtNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout(ctx, None, &self.radicand())
+        layout(ctx, None, &self.radicand(), self.span())
     }
 }
 
@@ -44,7 +44,7 @@ pub struct RootNode {
 
 impl LayoutMath for RootNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout(ctx, Some(&self.index()), &self.radicand())
+        layout(ctx, Some(&self.index()), &self.radicand(), self.span())
     }
 }
 
@@ -55,6 +55,7 @@ fn layout(
     ctx: &mut MathContext,
     mut index: Option<&Content>,
     radicand: &Content,
+    span: Span,
 ) -> SourceResult<()> {
     let gap = scaled!(
         ctx,
@@ -80,7 +81,7 @@ fn layout(
             frame
         })
         .unwrap_or_else(|| {
-            let glyph = GlyphFragment::new(ctx, '√');
+            let glyph = GlyphFragment::new(ctx, '√', span);
             glyph.stretch_vertical(ctx, target, Abs::zero()).frame
         });
 
@@ -145,7 +146,7 @@ fn precomposed(ctx: &MathContext, index: Option<&Content>, target: Abs) -> Optio
     };
 
     ctx.ttf.glyph_index(c)?;
-    let glyph = GlyphFragment::new(ctx, c);
+    let glyph = GlyphFragment::new(ctx, c, node.span());
     let variant = glyph.stretch_vertical(ctx, target, Abs::zero()).frame;
     if variant.height() < target {
         return None;

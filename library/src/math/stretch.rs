@@ -73,7 +73,7 @@ fn stretch_glyph(
 
     // This is either good or the best we've got.
     if short_target <= best_advance || construction.assembly.is_none() {
-        return GlyphFragment::with_id(ctx, base.c, best_id).to_variant();
+        return GlyphFragment::with_id(ctx, base.c, best_id, base.span).to_variant();
     }
 
     // Assemble from parts.
@@ -142,7 +142,7 @@ fn assemble(
             advance += ratio * (max_overlap - min_overlap);
         }
 
-        let fragment = GlyphFragment::with_id(ctx, base.c, part.glyph_id);
+        let fragment = GlyphFragment::with_id(ctx, base.c, part.glyph_id, base.span);
         selected.push((fragment, advance));
     }
 
@@ -181,6 +181,7 @@ fn assemble(
         font_size: base.font_size,
         italics_correction: Abs::zero(),
         class: base.class,
+        span: base.span,
     }
 }
 

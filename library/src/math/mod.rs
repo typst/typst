@@ -264,7 +264,7 @@ impl LayoutMath for Content {
         }
 
         if let Some(node) = self.to::<TextNode>() {
-            ctx.layout_text(&node.text())?;
+            ctx.layout_text(node)?;
             return Ok(());
         }
 

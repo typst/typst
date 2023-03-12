@@ -107,6 +107,7 @@ impl Synthesize for HeadingNode {
 
         let node = self
             .clone()
+            .with_level(self.level(styles))
             .with_outlined(self.outlined(styles))
             .with_numbers(numbering.is_some().then(|| counter.take()))
             .with_numbering(numbering)

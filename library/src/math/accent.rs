@@ -66,7 +66,7 @@ impl LayoutMath for AccentNode {
         // Forcing the accent to be at least as large as the base makes it too
         // wide in many case.
         let Accent(c) = self.accent();
-        let glyph = GlyphFragment::new(ctx, c);
+        let glyph = GlyphFragment::new(ctx, c, self.span());
         let short_fall = ACCENT_SHORT_FALL.scaled(ctx);
         let variant = glyph.stretch_horizontal(ctx, base.width(), short_fall);
         let accent = variant.frame;

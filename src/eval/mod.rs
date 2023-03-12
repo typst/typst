@@ -368,7 +368,7 @@ fn eval_markup(
                         *node = mem::take(node).labelled(label);
                     }
                 }
-                value => seq.push(value.display()),
+                value => seq.push(value.display().spanned(expr.span())),
             },
         }
 
@@ -455,6 +455,12 @@ impl Eval for ast::Expr {
         }
 
         Ok(v)
+    }
+}
+
+impl ast::Expr {
+    fn eval_display(&self, vm: &mut Vm) -> SourceResult<Content> {
+        Ok(self.eval(vm)?.display().spanned(self.span()))
     }
 }
 
@@ -619,10 +625,9 @@ impl Eval for ast::Math {
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         Ok(Content::sequence(
             self.exprs()
-                .map(|expr| Ok(expr.eval(vm)?.display()))
+                .map(|expr| expr.eval_display(vm))
                 .collect::<SourceResult<_>>()?,
-        )
-        .spanned(self.span()))
+        ))
     }
 }
 
@@ -646,9 +651,9 @@ impl Eval for ast::MathDelimited {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let open = self.open().eval(vm)?.display();
+        let open = self.open().eval_display(vm)?;
         let body = self.body().eval(vm)?;
-        let close = self.close().eval(vm)?.display();
+        let close = self.close().eval_display(vm)?;
         Ok((vm.items.math_delimited)(open, body, close))
     }
 }
@@ -657,12 +662,9 @@ impl Eval for ast::MathAttach {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let base = self.base().eval(vm)?.display();
-        let bottom = self
-            .bottom()
-            .map(|expr| expr.eval(vm).map(Value::display))
-            .transpose()?;
-        let top = self.top().map(|expr| expr.eval(vm).map(Value::display)).transpose()?;
+        let base = self.base().eval_display(vm)?;
+        let bottom = self.bottom().map(|expr| expr.eval_display(vm)).transpose()?;
+        let top = self.top().map(|expr| expr.eval_display(vm)).transpose()?;
         Ok((vm.items.math_attach)(base, bottom, top))
     }
 }
@@ -671,8 +673,8 @@ impl Eval for ast::MathFrac {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let num = self.num().eval(vm)?.display();
-        let denom = self.denom().eval(vm)?.display();
+        let num = self.num().eval_display(vm)?;
+        let denom = self.denom().eval_display(vm)?;
         Ok((vm.items.math_frac)(num, denom))
     }
 }
@@ -1038,7 +1040,7 @@ impl Eval for ast::FuncCall {
                 body += arg;
             }
             return Ok(Value::Content(
-                callee.display()
+                callee.display().spanned(callee_span)
                     + (vm.items.math_delimited)(
                         (vm.items.text)('('.into()),
                         body,

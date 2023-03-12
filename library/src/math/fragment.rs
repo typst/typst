@@ -147,21 +147,22 @@ pub struct GlyphFragment {
     pub style: MathStyle,
     pub font_size: Abs,
     pub class: Option<MathClass>,
+    pub span: Span,
 }
 
 impl GlyphFragment {
-    pub fn new(ctx: &MathContext, c: char) -> Self {
+    pub fn new(ctx: &MathContext, c: char, span: Span) -> Self {
         let id = ctx.ttf.glyph_index(c).unwrap_or_default();
-        Self::with_id(ctx, c, id)
+        Self::with_id(ctx, c, id, span)
     }
 
-    pub fn try_new(ctx: &MathContext, c: char) -> Option<Self> {
+    pub fn try_new(ctx: &MathContext, c: char, span: Span) -> Option<Self> {
         let c = ctx.style.styled_char(c);
         let id = ctx.ttf.glyph_index(c)?;
-        Some(Self::with_id(ctx, c, id))
+        Some(Self::with_id(ctx, c, id, span))
     }
 
-    pub fn with_id(ctx: &MathContext, c: char, id: GlyphId) -> Self {
+    pub fn with_id(ctx: &MathContext, c: char, id: GlyphId, span: Span) -> Self {
         let advance = ctx.ttf.glyph_hor_advance(id).unwrap_or_default();
         let italics = italics_correction(ctx, id).unwrap_or_default();
         let bbox = ctx.ttf.glyph_bounding_box(id).unwrap_or(Rect {
@@ -192,6 +193,7 @@ impl GlyphFragment {
                 ':' => Some(MathClass::Relation),
                 _ => unicode_math_class::class(c),
             },
+            span,
         }
     }
 
@@ -208,6 +210,7 @@ impl GlyphFragment {
             font_size: self.font_size,
             italics_correction: self.italics_correction,
             class: self.class,
+            span: self.span,
         }
     }
 
@@ -222,7 +225,7 @@ impl GlyphFragment {
                 c: self.c,
                 x_advance: Em::from_length(self.width, self.font_size),
                 x_offset: Em::zero(),
-                span: Span::detached(),
+                span: self.span,
                 offset: 0,
             }],
         };
@@ -249,6 +252,7 @@ pub struct VariantFragment {
     pub style: MathStyle,
     pub font_size: Abs,
     pub class: Option<MathClass>,
+    pub span: Span,
 }
 
 impl Debug for VariantFragment {

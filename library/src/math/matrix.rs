@@ -36,7 +36,13 @@ impl LayoutMath for VecNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let delim = self.delim(ctx.styles());
         let frame = layout_vec_body(ctx, &self.children(), Align::Center)?;
-        layout_delimiters(ctx, frame, Some(delim.open()), Some(delim.close()))
+        layout_delimiters(
+            ctx,
+            frame,
+            Some(delim.open()),
+            Some(delim.close()),
+            self.span(),
+        )
     }
 }
 
@@ -112,7 +118,13 @@ impl LayoutMath for MatNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let delim = self.delim(ctx.styles());
         let frame = layout_mat_body(ctx, &self.rows())?;
-        layout_delimiters(ctx, frame, Some(delim.open()), Some(delim.close()))
+        layout_delimiters(
+            ctx,
+            frame,
+            Some(delim.open()),
+            Some(delim.close()),
+            self.span(),
+        )
     }
 }
 
@@ -152,7 +164,7 @@ impl LayoutMath for CasesNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let delim = self.delim(ctx.styles());
         let frame = layout_vec_body(ctx, &self.children(), Align::Left)?;
-        layout_delimiters(ctx, frame, Some(delim.open()), None)
+        layout_delimiters(ctx, frame, Some(delim.open()), None, self.span())
     }
 }
 
@@ -288,6 +300,7 @@ fn layout_delimiters(
     mut frame: Frame,
     left: Option<char>,
     right: Option<char>,
+    span: Span,
 ) -> SourceResult<()> {
     let axis = scaled!(ctx, axis_height);
     let short_fall = DELIM_SHORT_FALL.scaled(ctx);
@@ -296,14 +309,17 @@ fn layout_delimiters(
     frame.set_baseline(height / 2.0 + axis);
 
     if let Some(left) = left {
-        ctx.push(GlyphFragment::new(ctx, left).stretch_vertical(ctx, target, short_fall));
+        ctx.push(
+            GlyphFragment::new(ctx, left, span).stretch_vertical(ctx, target, short_fall),
+        );
     }
 
     ctx.push(FrameFragment::new(ctx, frame));
 
     if let Some(right) = right {
         ctx.push(
-            GlyphFragment::new(ctx, right).stretch_vertical(ctx, target, short_fall),
+            GlyphFragment::new(ctx, right, span)
+                .stretch_vertical(ctx, target, short_fall),
         );
     }
 

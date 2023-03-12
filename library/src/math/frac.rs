@@ -32,7 +32,7 @@ pub struct FracNode {
 
 impl LayoutMath for FracNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout(ctx, &self.num(), &self.denom(), false)
+        layout(ctx, &self.num(), &self.denom(), false, self.span())
     }
 }
 
@@ -58,7 +58,7 @@ pub struct BinomNode {
 
 impl LayoutMath for BinomNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout(ctx, &self.upper(), &self.lower(), true)
+        layout(ctx, &self.upper(), &self.lower(), true, self.span())
     }
 }
 
@@ -68,6 +68,7 @@ fn layout(
     num: &Content,
     denom: &Content,
     binom: bool,
+    span: Span,
 ) -> SourceResult<()> {
     let short_fall = DELIM_SHORT_FALL.scaled(ctx);
     let axis = scaled!(ctx, axis_height);
@@ -121,9 +122,13 @@ fn layout(
     frame.push_frame(denom_pos, denom);
 
     if binom {
-        ctx.push(GlyphFragment::new(ctx, '(').stretch_vertical(ctx, height, short_fall));
+        ctx.push(
+            GlyphFragment::new(ctx, '(', span).stretch_vertical(ctx, height, short_fall),
+        );
         ctx.push(FrameFragment::new(ctx, frame));
-        ctx.push(GlyphFragment::new(ctx, ')').stretch_vertical(ctx, height, short_fall));
+        ctx.push(
+            GlyphFragment::new(ctx, ')', span).stretch_vertical(ctx, height, short_fall),
+        );
     } else {
         frame.push(
             line_pos,

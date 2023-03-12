@@ -124,13 +124,15 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
             .into_frame())
     }
 
-    pub fn layout_text(&mut self, text: &str) -> SourceResult<()> {
+    pub fn layout_text(&mut self, node: &TextNode) -> SourceResult<()> {
+        let text = node.text();
+        let span = node.span();
         let mut chars = text.chars();
         if let Some(glyph) = chars
             .next()
             .filter(|_| chars.next().is_none())
             .map(|c| self.style.styled_char(c))
-            .and_then(|c| GlyphFragment::try_new(self, c))
+            .and_then(|c| GlyphFragment::try_new(self, c, span))
         {
             // A single letter that is available in the math font.
             if self.style.size == MathSize::Display
@@ -146,7 +148,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
             let mut fragments = vec![];
             for c in text.chars() {
                 let c = self.style.styled_char(c);
-                fragments.push(GlyphFragment::new(self, c).into());
+                fragments.push(GlyphFragment::new(self, c, span).into());
             }
             let frame = MathRow::new(fragments).to_frame(self);
             self.push(FrameFragment::new(self, frame));
@@ -158,7 +160,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
                 style = style.with_italic(false);
             }
             let text: EcoString = text.chars().map(|c| style.styled_char(c)).collect();
-            let frame = self.layout_content(&TextNode::packed(text))?;
+            let frame = self.layout_content(&TextNode::packed(text).spanned(span))?;
             self.push(
                 FrameFragment::new(self, frame)
                     .with_class(MathClass::Alphabetic)

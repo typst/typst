@@ -22,7 +22,7 @@ pub struct UnderlineNode {
 
 impl LayoutMath for UnderlineNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout(ctx, &self.body(), &None, '\u{305}', LINE_GAP, false)
+        layout(ctx, &self.body(), &None, '\u{305}', LINE_GAP, false, self.span())
     }
 }
 
@@ -44,7 +44,7 @@ pub struct OverlineNode {
 
 impl LayoutMath for OverlineNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout(ctx, &self.body(), &None, '\u{332}', LINE_GAP, true)
+        layout(ctx, &self.body(), &None, '\u{332}', LINE_GAP, true, self.span())
     }
 }
 
@@ -70,7 +70,15 @@ pub struct UnderbraceNode {
 
 impl LayoutMath for UnderbraceNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout(ctx, &self.body(), &self.annotation(ctx.styles()), '⏟', BRACE_GAP, false)
+        layout(
+            ctx,
+            &self.body(),
+            &self.annotation(ctx.styles()),
+            '⏟',
+            BRACE_GAP,
+            false,
+            self.span(),
+        )
     }
 }
 
@@ -96,7 +104,15 @@ pub struct OverbraceNode {
 
 impl LayoutMath for OverbraceNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout(ctx, &self.body(), &self.annotation(ctx.styles()), '⏞', BRACE_GAP, true)
+        layout(
+            ctx,
+            &self.body(),
+            &self.annotation(ctx.styles()),
+            '⏞',
+            BRACE_GAP,
+            true,
+            self.span(),
+        )
     }
 }
 
@@ -122,7 +138,15 @@ pub struct UnderbracketNode {
 
 impl LayoutMath for UnderbracketNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout(ctx, &self.body(), &self.annotation(ctx.styles()), '⎵', BRACKET_GAP, false)
+        layout(
+            ctx,
+            &self.body(),
+            &self.annotation(ctx.styles()),
+            '⎵',
+            BRACKET_GAP,
+            false,
+            self.span(),
+        )
     }
 }
 
@@ -148,7 +172,15 @@ pub struct OverbracketNode {
 
 impl LayoutMath for OverbracketNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout(ctx, &self.body(), &self.annotation(ctx.styles()), '⎴', BRACKET_GAP, true)
+        layout(
+            ctx,
+            &self.body(),
+            &self.annotation(ctx.styles()),
+            '⎴',
+            BRACKET_GAP,
+            true,
+            self.span(),
+        )
     }
 }
 
@@ -160,10 +192,11 @@ fn layout(
     c: char,
     gap: Em,
     reverse: bool,
+    span: Span,
 ) -> SourceResult<()> {
     let gap = gap.scaled(ctx);
     let body = ctx.layout_row(body)?;
-    let glyph = GlyphFragment::new(ctx, c);
+    let glyph = GlyphFragment::new(ctx, c, span);
     let stretched = glyph.stretch_horizontal(ctx, body.width(), Abs::zero());
 
     let mut rows = vec![body, stretched.into()];
