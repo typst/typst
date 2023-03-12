@@ -188,13 +188,26 @@ fn items() -> LangItems {
         ref_: |target| meta::RefNode::new(target).pack(),
         heading: |level, title| meta::HeadingNode::new(title).with_level(level).pack(),
         list_item: |body| layout::ListItem::new(body).pack(),
-        enum_item: |number, body| layout::EnumItem::new(body).with_number(number).pack(),
+        enum_item: |number, body| {
+            let mut node = layout::EnumItem::new(body);
+            if let Some(number) = number {
+                node = node.with_number(Some(number));
+            }
+            node.pack()
+        },
         term_item: |term, description| layout::TermItem::new(term, description).pack(),
         formula: |body, block| math::FormulaNode::new(body).with_block(block).pack(),
         math_align_point: || math::AlignPointNode::new().pack(),
         math_delimited: |open, body, close| math::LrNode::new(open + body + close).pack(),
         math_attach: |base, bottom, top| {
-            math::AttachNode::new(base).with_bottom(bottom).with_top(top).pack()
+            let mut node = math::AttachNode::new(base);
+            if let Some(bottom) = bottom {
+                node = node.with_bottom(Some(bottom));
+            }
+            if let Some(top) = top {
+                node = node.with_top(Some(top));
+            }
+            node.pack()
         },
         math_accent: |base, accent| {
             math::AccentNode::new(base, math::Accent::new(accent)).pack()
