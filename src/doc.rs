@@ -280,7 +280,7 @@ impl Frame {
                 self.clear();
                 break;
             }
-            self.push(Point::zero(), Element::Meta(meta, self.size));
+            self.prepend(Point::zero(), Element::Meta(meta, self.size));
         }
     }
 
