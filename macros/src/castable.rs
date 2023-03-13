@@ -1,5 +1,67 @@
 use super::*;
 
+/// Expand the `#[derive(Cast)]` macro.
+pub fn cast(item: DeriveInput) -> Result<TokenStream> {
+    let ty = &item.ident;
+
+    let syn::Data::Enum(data) = &item.data else {
+        bail!(item, "only enums are supported");
+    };
+
+    let mut variants = vec![];
+    for variant in &data.variants {
+        if let Some((_, expr)) = &variant.discriminant {
+            bail!(expr, "explicit discriminant is not allowed");
+        }
+
+        let string = if let Some(attr) =
+            variant.attrs.iter().find(|attr| attr.path.is_ident("string"))
+        {
+            attr.parse_args::<syn::LitStr>()?.value()
+        } else {
+            kebab_case(&variant.ident)
+        };
+
+        variants.push(Variant {
+            ident: variant.ident.clone(),
+            string,
+            docs: documentation(&variant.attrs),
+        });
+    }
+
+    let strs_to_variants = variants.iter().map(|Variant { ident, string, docs }| {
+        quote! {
+            #[doc = #docs]
+            #string => Self::#ident
+        }
+    });
+
+    let variants_to_strs = variants.iter().map(|Variant { ident, string, .. }| {
+        quote! {
+            #ty::#ident => #string
+        }
+    });
+
+    Ok(quote! {
+        ::typst::eval::cast_from_value! {
+            #ty,
+            #(#strs_to_variants),*
+        }
+
+        ::typst::eval::cast_to_value! {
+            v: #ty => ::typst::eval::Value::from(match v {
+                #(#variants_to_strs),*
+            })
+        }
+    })
+}
+
+struct Variant {
+    ident: Ident,
+    string: String,
+    docs: String,
+}
+
 /// Expand the `cast_from_value!` macro.
 pub fn cast_from_value(stream: TokenStream) -> Result<TokenStream> {
     let castable: Castable = syn::parse2(stream)?;

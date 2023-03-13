@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use ttf_parser::GlyphId;
 
-use crate::eval::{cast_from_value, cast_to_value, Value};
+use crate::eval::Cast;
 use crate::geom::Em;
 use crate::util::Buffer;
 
@@ -231,12 +231,9 @@ pub struct LineMetrics {
 }
 
 /// Identifies a vertical metric of a font.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum VerticalFontMetric {
-    /// The typographic ascender.
-    ///
-    /// Corresponds to the typographic ascender from the `OS/2` table if present
-    /// and falls back to the ascender from the `hhea` table otherwise.
+    /// The font's ascender, which typically exceeds the height of all glyphs.
     Ascender,
     /// The approximate height of uppercase letters.
     CapHeight,
@@ -244,33 +241,6 @@ pub enum VerticalFontMetric {
     XHeight,
     /// The baseline on which the letters rest.
     Baseline,
-    /// The typographic descender.
-    ///
-    /// Corresponds to the typographic descender from the `OS/2` table if
-    /// present and falls back to the descender from the `hhea` table otherwise.
-    Descender,
-}
-
-cast_from_value! {
-    VerticalFontMetric,
-    /// The font's ascender, which typically exceeds the height of all glyphs.
-    "ascender" => Self::Ascender,
-    /// The approximate height of uppercase letters.
-    "cap-height" => Self::CapHeight,
-    /// The approximate height of non-ascending lowercase letters.
-    "x-height" => Self::XHeight,
-    /// The baseline on which the letters rest.
-    "baseline" => Self::Baseline,
     /// The font's ascender, which typically exceeds the depth of all glyphs.
-    "descender" => Self::Descender,
-}
-
-cast_to_value! {
-    v: VerticalFontMetric => Value::from(match v {
-        VerticalFontMetric::Ascender => "ascender",
-        VerticalFontMetric::CapHeight => "cap-height",
-        VerticalFontMetric::XHeight => "x-height",
-        VerticalFontMetric::Baseline => "baseline" ,
-        VerticalFontMetric::Descender => "descender",
-    })
+    Descender,
 }

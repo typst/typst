@@ -15,7 +15,7 @@ use quote::quote;
 use syn::ext::IdentExt;
 use syn::parse::{Parse, ParseStream, Parser};
 use syn::punctuated::Punctuated;
-use syn::{parse_quote, Ident, Result, Token};
+use syn::{parse_quote, DeriveInput, Ident, Result, Token};
 
 use self::util::*;
 
@@ -31,6 +31,15 @@ pub fn func(_: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
 pub fn node(stream: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
     let item = syn::parse_macro_input!(item as syn::ItemStruct);
     node::node(stream.into(), item)
+        .unwrap_or_else(|err| err.to_compile_error())
+        .into()
+}
+
+/// Implement `Cast` for an enum.
+#[proc_macro_derive(Cast, attributes(string))]
+pub fn cast(item: BoundaryStream) -> BoundaryStream {
+    let item = syn::parse_macro_input!(item as DeriveInput);
+    castable::cast(item)
         .unwrap_or_else(|err| err.to_compile_error())
         .into()
 }

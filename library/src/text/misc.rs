@@ -246,7 +246,7 @@ cast_from_value! {
 }
 
 /// A case transformation on text.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum Case {
     /// Everything is lowercased.
     Lower,
@@ -262,19 +262,6 @@ impl Case {
             Self::Upper => text.to_uppercase(),
         }
     }
-}
-
-cast_from_value! {
-    Case,
-    "lower" => Self::Lower,
-    "upper" => Self::Upper,
-}
-
-cast_to_value! {
-    v: Case => Value::from(match v {
-        Case::Lower => "lower",
-        Case::Upper => "upper",
-    })
 }
 
 /// Display text in small capitals.

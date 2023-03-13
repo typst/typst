@@ -1,4 +1,4 @@
-pub use typst_macros::{cast_from_value, cast_to_value};
+pub use typst_macros::{cast_from_value, cast_to_value, Cast};
 
 use std::num::{NonZeroI64, NonZeroUsize};
 use std::ops::Add;

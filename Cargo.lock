@@ -1269,6 +1269,7 @@ dependencies = [
 name = "typst-macros"
 version = "0.0.0"
 dependencies = [
+ "heck",
  "proc-macro2",
  "quote",
  "syn",

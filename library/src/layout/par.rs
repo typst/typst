@@ -193,30 +193,15 @@ impl Resolve for HorizontalAlign {
 }
 
 /// How to determine line breaks in a paragraph.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum Linebreaks {
     /// Determine the line breaks in a simple first-fit style.
     Simple,
     /// Optimize the line breaks for the whole paragraph.
-    Optimized,
-}
-
-cast_from_value! {
-    Linebreaks,
-    /// Determine the line breaks in a simple first-fit style.
-    "simple" => Self::Simple,
-    /// Optimize the line breaks for the whole paragraph.
     ///
     /// Typst will try to produce more evenly filled lines of text by
     /// considering the whole paragraph when calculating line breaks.
-    "optimized" => Self::Optimized,
-}
-
-cast_to_value! {
-    v: Linebreaks => Value::from(match v {
-        Linebreaks::Simple => "simple",
-        Linebreaks::Optimized => "optimized",
-    })
+    Optimized,
 }
 
 /// A paragraph break.

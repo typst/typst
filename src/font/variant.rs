@@ -2,7 +2,7 @@ use std::fmt::{self, Debug, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::eval::{cast_from_value, cast_to_value, Value};
+use crate::eval::{cast_from_value, cast_to_value, Cast, Value};
 use crate::geom::Ratio;
 
 /// Properties that distinguish a font from other fonts in the same family.
@@ -32,7 +32,7 @@ impl Debug for FontVariant {
 
 /// The style of a font.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Cast)]
 #[serde(rename_all = "kebab-case")]
 pub enum FontStyle {
     /// The default, typically upright style.
@@ -60,24 +60,6 @@ impl Default for FontStyle {
     fn default() -> Self {
         Self::Normal
     }
-}
-
-cast_from_value! {
-    FontStyle,
-    /// The default, typically upright style.
-    "normal" => Self::Normal,
-    /// A cursive style with custom letterform.
-    "italic" => Self::Italic,
-    /// Just a slanted version of the normal style.
-    "oblique" => Self::Oblique,
-}
-
-cast_to_value! {
-    v: FontStyle => Value::from(match v {
-        FontStyle::Normal => "normal",
-        FontStyle::Italic => "italic",
-        FontStyle::Oblique => "oblique",
-    })
 }
 
 /// The weight of a font.

@@ -169,12 +169,22 @@ impl LayoutMath for CasesNode {
 }
 
 /// A vector / matrix delimiter.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum Delimiter {
+    /// Delimit with parentheses.
+    #[string("(")]
     Paren,
+    /// Delimit with brackets.
+    #[string("[")]
     Bracket,
+    /// Delimit with curly braces.
+    #[string("{")]
     Brace,
+    /// Delimit with vertical bars.
+    #[string("|")]
     Bar,
+    /// Delimit with double vertical bars.
+    #[string("||")]
     DoubleBar,
 }
 
@@ -200,30 +210,6 @@ impl Delimiter {
             Self::DoubleBar => '‖',
         }
     }
-}
-
-cast_from_value! {
-    Delimiter,
-    /// Delimit with parentheses.
-    "(" => Self::Paren,
-    /// Delimit with brackets.
-    "[" => Self::Bracket,
-    /// Delimit with curly braces.
-    "{" => Self::Brace,
-    /// Delimit with vertical bars.
-    "|" => Self::Bar,
-    /// Delimit with double vertical bars.
-    "||" => Self::DoubleBar,
-}
-
-cast_to_value! {
-    v: Delimiter => Value::from(match v {
-        Delimiter::Paren => "(",
-        Delimiter::Bracket => "[",
-        Delimiter::Brace => "{",
-        Delimiter::Bar => "|",
-        Delimiter::DoubleBar => "||",
-    })
 }
 
 /// Layout the inner contents of a vector.

@@ -1,3 +1,5 @@
+use heck::ToKebabCase;
+
 use super::*;
 
 /// Return an error at the given item.
@@ -55,7 +57,7 @@ pub fn validate_attrs(attrs: &[syn::Attribute]) -> Result<()> {
 
 /// Convert an identifier to a kebab-case string.
 pub fn kebab_case(name: &Ident) -> String {
-    name.to_string().to_lowercase().replace('_', "-")
+    name.to_string().to_kebab_case()
 }
 
 /// Extract documentation comments from an attribute list.

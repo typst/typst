@@ -686,53 +686,23 @@ cast_to_value! {
 }
 
 /// Which kind of numbers / figures to select.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum NumberType {
-    /// Numbers that fit well with capital text. ("lnum")
+    /// Numbers that fit well with capital text (the OpenType `lnum`
+    /// font feature).
     Lining,
-    /// Numbers that fit well into a flow of upper- and lowercase text. ("onum")
+    /// Numbers that fit well into a flow of upper- and lowercase text (the
+    /// OpenType `onum` font feature).
     OldStyle,
 }
 
-cast_from_value! {
-    NumberType,
-    /// Numbers that fit well with capital text (the OpenType `lnum`
-    /// font feature).
-    "lining" => Self::Lining,
-    // Numbers that fit well into a flow of upper- and lowercase text (the
-    /// OpenType `onum` font feature).
-    "old-style" => Self::OldStyle,
-}
-
-cast_to_value! {
-    v: NumberType => Value::from(match v {
-        NumberType::Lining => "lining",
-        NumberType::OldStyle => "old-style",
-    })
-}
-
 /// The width of numbers / figures.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum NumberWidth {
-    /// Number widths are glyph specific. ("pnum")
-    Proportional,
-    /// All numbers are of equal width / monospaced. ("tnum")
-    Tabular,
-}
-
-cast_from_value! {
-    NumberWidth,
     /// Numbers with glyph-specific widths (the OpenType `pnum` font feature).
-    "proportional" => Self::Proportional,
+    Proportional,
     /// Numbers of equal width (the OpenType `tnum` font feature).
-    "tabular" => Self::Tabular,
-}
-
-cast_to_value! {
-    v: NumberWidth => Value::from(match v {
-        NumberWidth::Proportional => "proportional",
-        NumberWidth::Tabular => "tabular",
-    })
+    Tabular,
 }
 
 /// OpenType font features settings.

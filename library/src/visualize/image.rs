@@ -113,33 +113,15 @@ impl Layout for ImageNode {
 }
 
 /// How an image should adjust itself to a given area.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum ImageFit {
-    /// The image should completely cover the area.
+    /// The image should completely cover the area. This is the default.
     Cover,
     /// The image should be fully contained in the area.
     Contain,
-    /// The image should be stretched so that it exactly fills the area.
-    Stretch,
-}
-
-cast_from_value! {
-    ImageFit,
-    /// The image should completely cover the area. This is the default.
-    "cover" => Self::Cover,
-    /// The image should be fully contained in the area.
-    "contain" => Self::Contain,
     /// The image should be stretched so that it exactly fills the area, even if
     /// this means that the image will be distorted.
-    "stretch" => Self::Stretch,
-}
-
-cast_to_value! {
-    fit: ImageFit => Value::from(match fit {
-        ImageFit::Cover => "cover",
-        ImageFit::Contain => "contain",
-        ImageFit::Stretch => "stretch",
-    })
+    Stretch,
 }
 
 /// Load an image from a path.
