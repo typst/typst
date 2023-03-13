@@ -74,15 +74,14 @@ pub struct OutlineNode {
 }
 
 impl Synthesize for OutlineNode {
-    fn synthesize(&self, vt: &mut Vt, _: StyleChain) -> Content {
+    fn synthesize(&mut self, vt: &Vt, _: StyleChain) {
         let headings = vt
-            .locate(Selector::node::<HeadingNode>())
-            .into_iter()
-            .map(|(_, node)| node.to::<HeadingNode>().unwrap().clone())
+            .locate_node::<HeadingNode>()
+            .map(|(_, node)| node.clone())
             .filter(|node| node.outlined(StyleChain::default()))
             .collect();
 
-        self.clone().with_headings(headings).pack()
+        self.push_headings(headings);
     }
 }
 

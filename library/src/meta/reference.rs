@@ -37,9 +37,9 @@ use crate::text::TextNode;
 /// Category: meta
 #[node(Synthesize, Show)]
 pub struct RefNode {
-    /// The label that should be referenced.
+    /// The target label that should be referenced.
     #[required]
-    pub label: Label,
+    pub target: Label,
 
     /// The prefix before the referenced number.
     ///
@@ -59,20 +59,19 @@ pub struct RefNode {
     /// ```
     pub prefix: Smart<Option<Func>>,
 
-    /// All elements with the `target` label in the document.
+    /// All elements with the target label in the document.
     #[synthesized]
     pub matches: Vec<Content>,
 }
 
 impl Synthesize for RefNode {
-    fn synthesize(&self, vt: &mut Vt, _: StyleChain) -> Content {
+    fn synthesize(&mut self, vt: &Vt, _: StyleChain) {
         let matches = vt
-            .locate(Selector::Label(self.label()))
-            .into_iter()
+            .locate(Selector::Label(self.target()))
             .map(|(_, node)| node.clone())
             .collect();
 
-        self.clone().with_matches(matches).pack()
+        self.push_matches(matches);
     }
 }
 

@@ -5,7 +5,7 @@ use std::num::NonZeroUsize;
 
 use comemo::{Track, Tracked, TrackedMut};
 
-use super::{Content, Selector, StyleChain};
+use super::{Content, Node, Selector, StyleChain};
 use crate::diag::SourceResult;
 use crate::doc::{Document, Element, Frame, Location, Meta};
 use crate::geom::Transform;
@@ -83,8 +83,17 @@ impl<'a> Vt<'a> {
     }
 
     /// Locate all metadata matches for the given selector.
-    pub fn locate(&self, selector: Selector) -> Vec<(StableId, &Content)> {
-        self.introspector.locate(selector)
+    pub fn locate(
+        &self,
+        selector: Selector,
+    ) -> impl Iterator<Item = (StableId, &Content)> {
+        self.introspector.locate(selector).into_iter()
+    }
+
+    /// Locate all metadata matches for the given node.
+    pub fn locate_node<T: Node>(&self) -> impl Iterator<Item = (StableId, &T)> {
+        self.locate(Selector::node::<T>())
+            .map(|(id, content)| (id, content.to::<T>().unwrap()))
     }
 }
 

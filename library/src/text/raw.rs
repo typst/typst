@@ -121,8 +121,8 @@ impl RawNode {
 }
 
 impl Synthesize for RawNode {
-    fn synthesize(&self, _: &mut Vt, styles: StyleChain) -> Content {
-        self.clone().with_lang(self.lang(styles)).pack()
+    fn synthesize(&mut self, _: &Vt, styles: StyleChain) {
+        self.push_lang(self.lang(styles));
     }
 }
 

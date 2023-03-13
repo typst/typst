@@ -34,6 +34,7 @@ struct Field {
     ident: Ident,
     ident_in: Ident,
     with_ident: Ident,
+    push_ident: Ident,
     set_ident: Ident,
     ty: syn::Type,
     output: syn::Type,
@@ -81,6 +82,10 @@ fn prepare(stream: TokenStream, body: &syn::ItemStruct) -> Result<Node> {
         let required = has_attr(&mut attrs, "required") || variadic;
         let positional = has_attr(&mut attrs, "positional") || required;
 
+        if ident == "label" {
+            bail!(ident, "invalid field name");
+        }
+
         let mut field = Field {
             name: kebab_case(&ident),
             docs: documentation(&attrs),
@@ -100,6 +105,7 @@ fn prepare(stream: TokenStream, body: &syn::ItemStruct) -> Result<Node> {
             ident: ident.clone(),
             ident_in: Ident::new(&format!("{}_in", ident), ident.span()),
             with_ident: Ident::new(&format!("with_{}", ident), ident.span()),
+            push_ident: Ident::new(&format!("push_{}", ident), ident.span()),
             set_ident: Ident::new(&format!("set_{}", ident), ident.span()),
             ty: field.ty.clone(),
             output: field.ty.clone(),
@@ -162,17 +168,23 @@ fn create(node: &Node) -> TokenStream {
     let new = create_new_func(node);
     let field_methods = all.clone().map(create_field_method);
     let field_in_methods = settable.clone().map(create_field_in_method);
-    let with_fields_methods = all.map(create_with_field_method);
+    let with_field_methods = all.clone().map(create_with_field_method);
+    let push_field_methods = all.map(create_push_field_method);
     let field_style_methods = settable.map(create_set_field_method);
 
     // Trait implementations.
-    let construct = node
+    let node_impl = create_node_impl(node);
+    let construct_impl = node
         .capable
         .iter()
         .all(|capability| capability != "Construct")
         .then(|| create_construct_impl(node));
-    let set = create_set_impl(node);
-    let node = create_node_impl(node);
+    let set_impl = create_set_impl(node);
+    let locatable_impl = node
+        .capable
+        .iter()
+        .any(|capability| capability == "Locatable")
+        .then(|| quote! { impl ::typst::model::Locatable for #ident {} });
 
     quote! {
         #[doc = #docs]
@@ -184,7 +196,8 @@ fn create(node: &Node) -> TokenStream {
             #new
             #(#field_methods)*
             #(#field_in_methods)*
-            #(#with_fields_methods)*
+            #(#with_field_methods)*
+            #(#push_field_methods)*
             #(#field_style_methods)*
 
             /// The node's span.
@@ -193,9 +206,10 @@ fn create(node: &Node) -> TokenStream {
             }
         }
 
-        #node
-        #construct
-        #set
+        #node_impl
+        #construct_impl
+        #set_impl
+        #locatable_impl
 
         impl From<#ident> for ::typst::eval::Value {
             fn from(value: #ident) -> Self {
@@ -232,6 +246,7 @@ fn create_field_method(field: &Field) -> TokenStream {
     if field.inherent() || field.synthesized {
         quote! {
             #[doc = #docs]
+            #[track_caller]
             #vis fn #ident(&self) -> #output {
                 self.0.expect_field(#name)
             }
@@ -289,6 +304,18 @@ fn create_with_field_method(field: &Field) -> TokenStream {
         #[doc = #doc]
         #vis fn #with_ident(mut self, #ident: #ty) -> Self {
             Self(self.0.with_field(#name, #ident))
+        }
+    }
+}
+
+/// Create a set-style method for a field.
+fn create_push_field_method(field: &Field) -> TokenStream {
+    let Field { vis, ident, push_ident, name, ty, .. } = field;
+    let doc = format!("Push the [`{}`](Self::{}) field.", name, ident);
+    quote! {
+        #[doc = #doc]
+        #vis fn #push_ident(&mut self, #ident: #ty) {
+            self.0.push_field(#name, #ident);
         }
     }
 }

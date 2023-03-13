@@ -22,9 +22,9 @@ pub use typst::eval::{
 pub use typst::geom::*;
 #[doc(no_inline)]
 pub use typst::model::{
-    node, Construct, Content, Finalize, Fold, Introspector, Label, Node, NodeId, Resolve,
-    Selector, Set, Show, StabilityProvider, StyleChain, StyleMap, StyleVec, Synthesize,
-    Unlabellable, Vt,
+    node, Construct, Content, Finalize, Fold, Introspector, Label, Locatable, Node,
+    NodeId, Resolve, Selector, Set, Show, StabilityProvider, StableId, StyleChain,
+    StyleMap, StyleVec, Synthesize, Unlabellable, Vt,
 };
 #[doc(no_inline)]
 pub use typst::syntax::{Span, Spanned};

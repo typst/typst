@@ -8,7 +8,7 @@ use comemo::Tracked;
 use ecow::{eco_format, EcoString, EcoVec};
 use once_cell::sync::Lazy;
 
-use super::{node, Guard, Recipe, Style, StyleMap};
+use super::{node, Guard, Locatable, Recipe, StableId, Style, StyleMap, Synthesize};
 use crate::diag::{SourceResult, StrResult};
 use crate::eval::{
     cast_from_value, cast_to_value, Args, Cast, Func, FuncInfo, Str, Value, Vm,
@@ -29,8 +29,9 @@ pub struct Content {
 /// Modifiers that can be attached to content.
 #[derive(Debug, Clone, PartialEq, Hash)]
 enum Modifier {
-    Synthesized,
+    Prepared,
     Guard(Guard),
+    Id(StableId),
 }
 
 impl Content {
@@ -99,6 +100,16 @@ impl Content {
         let vtable = (self.id.0.vtable)(TypeId::of::<C>())?;
         let data = self as *const Self as *const ();
         Some(unsafe { &*crate::util::fat::from_raw_parts(data, vtable) })
+    }
+
+    /// Cast to a trait object if this content has the given capability.
+    pub fn with_mut<C>(&mut self) -> Option<&mut C>
+    where
+        C: ?Sized + 'static,
+    {
+        let vtable = (self.id.0.vtable)(TypeId::of::<C>())?;
+        let data = self as *mut Self as *mut ();
+        Some(unsafe { &mut *crate::util::fat::from_raw_parts_mut(data, vtable) })
     }
 
     /// The node's span.
@@ -233,17 +244,6 @@ impl Content {
         self
     }
 
-    /// Mark this content as prepared.
-    pub fn synthesized(mut self) -> Self {
-        self.modifiers.push(Modifier::Synthesized);
-        self
-    }
-
-    /// Whether this node was prepared.
-    pub fn is_synthesized(&self) -> bool {
-        self.modifiers.contains(&Modifier::Synthesized)
-    }
-
     /// Whether no show rule was executed for this node so far.
     pub(super) fn is_pristine(&self) -> bool {
         !self
@@ -255,6 +255,37 @@ impl Content {
     /// Check whether a show rule recipe is disabled.
     pub(super) fn is_guarded(&self, id: Guard) -> bool {
         self.modifiers.contains(&Modifier::Guard(id))
+    }
+
+    /// Whether this node was prepared.
+    pub fn is_prepared(&self) -> bool {
+        self.modifiers.contains(&Modifier::Prepared)
+    }
+
+    /// Whether the node needs to be realized specially.
+    pub fn needs_preparation(&self) -> bool {
+        (self.can::<dyn Locatable>()
+            || self.can::<dyn Synthesize>()
+            || self.label().is_some())
+            && !self.is_prepared()
+    }
+
+    /// Mark this content as prepared.
+    pub fn mark_prepared(&mut self) {
+        self.modifiers.push(Modifier::Prepared);
+    }
+
+    /// Attach a stable id to this content.
+    pub fn set_stable_id(&mut self, id: StableId) {
+        self.modifiers.push(Modifier::Id(id));
+    }
+
+    /// This content's stable identifier.
+    pub fn stable_id(&self) -> Option<StableId> {
+        self.modifiers.iter().find_map(|modifier| match modifier {
+            Modifier::Id(id) => Some(*id),
+            _ => None,
+        })
     }
 
     /// Copy the modifiers from another piece of content.

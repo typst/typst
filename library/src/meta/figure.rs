@@ -23,7 +23,7 @@ use crate::text::TextNode;
 ///
 /// Display: Figure
 /// Category: meta
-#[node(Synthesize, Show, LocalName)]
+#[node(Locatable, Synthesize, Show, LocalName)]
 pub struct FigureNode {
     /// The content of the figure. Often, an [image]($func/image).
     #[required]
@@ -57,26 +57,24 @@ impl FigureNode {
 }
 
 impl Synthesize for FigureNode {
-    fn synthesize(&self, vt: &mut Vt, styles: StyleChain) -> Content {
-        let my_id = vt.identify(self);
+    fn synthesize(&mut self, vt: &Vt, styles: StyleChain) {
+        let my_id = self.0.stable_id().unwrap();
         let element = self.element();
 
-        let numbering = self.numbering(styles);
         let mut number = None;
+        let numbering = self.numbering(styles);
         if numbering.is_some() {
             number = NonZeroUsize::new(
                 1 + vt
-                    .locate(Selector::node::<Self>())
-                    .into_iter()
+                    .locate_node::<Self>()
                     .take_while(|&(id, _)| id != my_id)
-                    .filter(|(_, node)| node.to::<Self>().unwrap().element() == element)
+                    .filter(|(_, figure)| figure.element() == element)
                     .count(),
             );
         }
 
-        let node = self.clone().with_number(number).with_numbering(numbering).pack();
-        let meta = Meta::Node(my_id, node.clone());
-        node.styled(MetaNode::set_data(vec![meta]))
+        self.push_number(number);
+        self.push_numbering(numbering);
     }
 }
 

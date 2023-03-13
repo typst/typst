@@ -40,7 +40,7 @@ use crate::text::{TextNode, TextSize};
 ///
 /// Display: Heading
 /// Category: meta
-#[node(Synthesize, Show, Finalize, LocalName)]
+#[node(Locatable, Synthesize, Show, Finalize, LocalName)]
 pub struct HeadingNode {
     /// The logical nesting depth of the heading, starting from one.
     #[default(NonZeroUsize::new(1).unwrap())]
@@ -83,19 +83,16 @@ pub struct HeadingNode {
 }
 
 impl Synthesize for HeadingNode {
-    fn synthesize(&self, vt: &mut Vt, styles: StyleChain) -> Content {
-        let my_id = vt.identify(self);
+    fn synthesize(&mut self, vt: &Vt, styles: StyleChain) {
+        let my_id = self.0.stable_id().unwrap();
         let numbering = self.numbering(styles);
 
         let mut counter = HeadingCounter::new();
         if numbering.is_some() {
             // Advance past existing headings.
-            for (_, node) in vt
-                .locate(Selector::node::<Self>())
-                .into_iter()
-                .take_while(|&(id, _)| id != my_id)
+            for (_, heading) in
+                vt.locate_node::<Self>().take_while(|&(id, _)| id != my_id)
             {
-                let heading = node.to::<Self>().unwrap();
                 if heading.numbering(StyleChain::default()).is_some() {
                     counter.advance(heading);
                 }
@@ -105,16 +102,10 @@ impl Synthesize for HeadingNode {
             counter.advance(self);
         }
 
-        let node = self
-            .clone()
-            .with_level(self.level(styles))
-            .with_outlined(self.outlined(styles))
-            .with_numbers(numbering.is_some().then(|| counter.take()))
-            .with_numbering(numbering)
-            .pack();
-
-        let meta = Meta::Node(my_id, node.clone());
-        node.styled(MetaNode::set_data(vec![meta]))
+        self.push_level(self.level(styles));
+        self.push_outlined(self.outlined(styles));
+        self.push_numbers(numbering.is_some().then(|| counter.take()));
+        self.push_numbering(numbering);
     }
 }
 

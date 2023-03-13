@@ -27,7 +27,7 @@ pub fn read(
     let Spanned { v: path, span } = path;
     let path = vm.locate(&path).at(span)?;
     let data = vm.world().file(&path).at(span)?;
-    let text = String::from_utf8(data.to_vec())
+    let text = std::str::from_utf8(&data)
         .map_err(|_| "file is not valid utf-8")
         .at(span)?;
     Value::Str(text.into())

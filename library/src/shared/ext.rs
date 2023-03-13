@@ -42,7 +42,7 @@ impl ContentExt for Content {
     }
 
     fn linked(self, dest: Destination) -> Self {
-        self.styled(MetaNode::set_data(vec![Meta::Link(dest.clone())]))
+        self.styled(MetaNode::set_data(vec![Meta::Link(dest)]))
     }
 
     fn aligned(self, aligns: Axes<Option<GenAlign>>) -> Self {

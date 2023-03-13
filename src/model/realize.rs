@@ -1,9 +1,10 @@
 use super::{Content, NodeId, Recipe, Selector, StyleChain, Vt};
 use crate::diag::SourceResult;
+use crate::doc::{Meta, MetaNode};
 
 /// Whether the target is affected by show rules in the given style chain.
 pub fn applicable(target: &Content, styles: StyleChain) -> bool {
-    if target.can::<dyn Synthesize>() && !target.is_synthesized() {
+    if target.needs_preparation() {
         return true;
     }
 
@@ -31,20 +32,30 @@ pub fn realize(
     target: &Content,
     styles: StyleChain,
 ) -> SourceResult<Option<Content>> {
+    // Pre-process.
+    if target.needs_preparation() {
+        let mut node = target.clone();
+        if target.can::<dyn Locatable>() || target.label().is_some() {
+            let id = vt.identify(target);
+            node.set_stable_id(id);
+        }
+
+        if let Some(node) = node.with_mut::<dyn Synthesize>() {
+            node.synthesize(vt, styles);
+        }
+
+        node.mark_prepared();
+
+        if let Some(id) = node.stable_id() {
+            let meta = Meta::Node(id, node.clone());
+            return Ok(Some(node.styled(MetaNode::set_data(vec![meta]))));
+        }
+
+        return Ok(Some(node));
+    }
+
     // Find out how many recipes there are.
     let mut n = styles.recipes().count();
-
-    // Synthesize if not already happened for this node.
-    if target.can::<dyn Synthesize>() && !target.is_synthesized() {
-        return Ok(Some(
-            target
-                .clone()
-                .synthesized()
-                .with::<dyn Synthesize>()
-                .unwrap()
-                .synthesize(vt, styles),
-        ));
-    }
 
     // Find an applicable recipe.
     let mut realized = None;
@@ -144,10 +155,13 @@ fn try_apply(
     }
 }
 
+/// Makes this node locatable through `vt.locate`.
+pub trait Locatable {}
+
 /// Synthesize fields on a node. This happens before execution of any show rule.
 pub trait Synthesize {
     /// Prepare the node for show rule application.
-    fn synthesize(&self, vt: &mut Vt, styles: StyleChain) -> Content;
+    fn synthesize(&mut self, vt: &Vt, styles: StyleChain);
 }
 
 /// The base recipe for a node.
