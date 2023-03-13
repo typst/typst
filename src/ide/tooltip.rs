@@ -21,7 +21,7 @@ pub fn tooltip(
     let leaf = LinkedNode::new(source.root()).leaf_at(cursor)?;
 
     named_param_tooltip(world, &leaf)
-        .or_else(|| font_family_tooltip(world, &leaf))
+        .or_else(|| font_tooltip(world, &leaf))
         .or_else(|| expr_tooltip(world, &leaf))
 }
 
@@ -162,11 +162,8 @@ fn find_string_doc(info: &CastInfo, string: &str) -> Option<&'static str> {
     }
 }
 
-/// Tooltip for font family.
-fn font_family_tooltip(
-    world: &(dyn World + 'static),
-    leaf: &LinkedNode,
-) -> Option<Tooltip> {
+/// Tooltip for font.
+fn font_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<Tooltip> {
     if_chain! {
         // Ensure that we are on top of a string.
         if let Some(string) = leaf.cast::<ast::Str>();
@@ -174,17 +171,10 @@ fn font_family_tooltip(
 
         // Ensure that we are in the arguments to the text function.
         if let Some(parent) = leaf.parent();
-        if matches!(parent.kind(), SyntaxKind::Args);
-        if let Some(grand) = parent.parent();
-        if let Some(expr) = grand.cast::<ast::Expr>();
-        if let Some(ast::Expr::Ident(callee)) = match expr {
-            ast::Expr::FuncCall(call) => Some(call.callee()),
-            ast::Expr::Set(set) => Some(set.target()),
-            _ => None,
-        };
+        if let Some(named) = parent.cast::<ast::Named>();
+        if named.name().as_str() == "font";
 
         // Find the font family.
-        if callee.as_str() == "text";
         if let Some((_, iter)) = world
             .book()
             .families()

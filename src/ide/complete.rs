@@ -562,7 +562,7 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
         }
     };
 
-    // Find the piece of syntax that decides what we're completion.
+    // Find the piece of syntax that decides what we're completing.
     let mut deciding = ctx.leaf.clone();
     while !matches!(
         deciding.kind(),
