@@ -366,7 +366,13 @@ pub fn log(
     #[default(10.0)]
     base: f64,
 ) -> Value {
-    Value::Float(value.log(base))
+    Value::Float(if base == 2.0 {
+        value.log2()
+    } else if base == 10.0 {
+        value.log10()
+    } else {
+        value.log(base)
+    })
 }
 
 /// Round a number down to the nearest integer.
