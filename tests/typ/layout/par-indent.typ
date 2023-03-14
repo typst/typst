@@ -1,7 +1,7 @@
 // Test paragraph indent.
 
 ---
-#set par(indent: 12pt, leading: 5pt)
+#set par(first-line-indent: 12pt, leading: 5pt)
 #set block(spacing: 5pt)
 #show heading: set text(size: 10pt)
 
@@ -31,7 +31,22 @@ starts a paragraph without indent.
 
 ---
 // This is madness.
-#set par(indent: 12pt)
+#set par(first-line-indent: 12pt)
 Why would anybody ever ...
 
 ... want spacing and indent?
+
+---
+// Test hanging indent.
+#set par(hanging-indent: 15pt, justify: true)
+#lorem(10)
+
+---
+#set par(hanging-indent: 1em)
+Welcome \ here. Does this work well?
+
+---
+#set par(hanging-indent: 2em)
+#set text(dir: rtl)
+لآن وقد أظلم الليل وبدأت النجوم
+تنضخ وجه الطبيعة التي أعْيَتْ من طول ما انبعثت في النهار

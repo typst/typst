@@ -1,4 +1,5 @@
-use crate::layout::{BlockNode, GridLayouter, HNode, ParNode, Sizing, Spacing};
+use super::{HNode, VNode};
+use crate::layout::{BlockNode, ParNode, Spacing};
 use crate::prelude::*;
 use crate::text::{SpaceNode, TextNode};
 
@@ -42,7 +43,6 @@ pub struct TermsNode {
     pub tight: bool,
 
     /// The indentation of each item's term.
-    #[resolve]
     pub indent: Length,
 
     /// The hanging indent of the description.
@@ -52,7 +52,6 @@ pub struct TermsNode {
     /// / Term: This term list does not
     ///   make use of hanging indents.
     /// ```
-    #[resolve]
     #[default(Em::new(1.0).into())]
     pub hanging_indent: Length,
 
@@ -85,7 +84,7 @@ impl Layout for TermsNode {
         regions: Regions,
     ) -> SourceResult<Fragment> {
         let indent = self.indent(styles);
-        let body_indent = self.hanging_indent(styles);
+        let hanging_indent = self.hanging_indent(styles);
         let gutter = if self.tight(styles) {
             ParNode::leading_in(styles).into()
         } else {
@@ -93,29 +92,22 @@ impl Layout for TermsNode {
                 .unwrap_or_else(|| BlockNode::below_in(styles).amount())
         };
 
-        let mut cells = vec![];
-        for child in self.children() {
-            let body = Content::sequence(vec![
-                HNode::new((-body_indent).into()).pack(),
-                (child.term() + TextNode::packed(':')).strong(),
-                SpaceNode::new().pack(),
-                child.description(),
-            ]);
-
-            cells.push(Content::empty());
-            cells.push(body);
+        let mut seq = vec![];
+        for (i, child) in self.children().into_iter().enumerate() {
+            if i > 0 {
+                seq.push(VNode::new(gutter).with_weakness(1).pack());
+            }
+            if indent.is_zero() {
+                seq.push(HNode::new(indent.into()).pack());
+            }
+            seq.push((child.term() + TextNode::packed(':')).strong());
+            seq.push(SpaceNode::new().pack());
+            seq.push(child.description());
         }
 
-        let layouter = GridLayouter::new(
-            vt,
-            Axes::with_x(&[Sizing::Rel((indent + body_indent).into()), Sizing::Auto]),
-            Axes::with_y(&[gutter.into()]),
-            &cells,
-            regions,
-            styles,
-        );
-
-        Ok(layouter.layout()?.fragment)
+        Content::sequence(seq)
+            .styled(ParNode::set_hanging_indent(hanging_indent + indent))
+            .layout(vt, styles, regions)
     }
 }
 

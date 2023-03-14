@@ -20,7 +20,7 @@ use crate::text::{
 ///
 /// ## Example
 /// ```example
-/// #set par(indent: 1em, justify: true)
+/// #set par(first-line-indent: 1em, justify: true)
 /// #show par: set block(spacing: 0.65em)
 ///
 /// We proceed by contradiction.
@@ -39,17 +39,6 @@ use crate::text::{
 /// Category: layout
 #[node(Construct)]
 pub struct ParNode {
-    /// The indent the first line of a consecutive paragraph should have.
-    ///
-    /// The first paragraph on a page will never be indented.
-    ///
-    /// By typographic convention, paragraph breaks are indicated by either some
-    /// space between paragraphs or indented first lines. Consider turning the
-    /// [paragraph spacing]($func/block.spacing) off when using this property
-    /// (e.g. using `[#show par: set block(spacing: 0pt)]`).
-    #[resolve]
-    pub indent: Length,
-
     /// The spacing between lines.
     ///
     /// The default value is `{0.65em}`.
@@ -94,6 +83,21 @@ pub struct ParNode {
     /// ```
     #[default]
     pub linebreaks: Smart<Linebreaks>,
+
+    /// The indent the first line of a consecutive paragraph should have.
+    ///
+    /// The first paragraph on a page will never be indented.
+    ///
+    /// By typographic convention, paragraph breaks are indicated by either some
+    /// space between paragraphs or indented first lines. Consider turning the
+    /// [paragraph spacing]($func/block.spacing) off when using this property
+    /// (e.g. using `[#show par: set block(spacing: 0pt)]`).
+    #[resolve]
+    pub first_line_indent: Length,
+
+    /// The indent all but the first line of a paragraph should have.
+    #[resolve]
+    pub hanging_indent: Length,
 
     /// The contents of the paragraph.
     #[external]
@@ -153,7 +157,7 @@ impl ParNode {
             let p = prepare(&mut vt, &children, &text, segments, spans, styles, region)?;
 
             // Break the paragraph into lines.
-            let lines = linebreak(&vt, &p, region.x);
+            let lines = linebreak(&vt, &p, region.x - p.hang);
 
             // Stack the lines into one frame per region.
             finalize(&mut vt, &p, &lines, region, expand)
@@ -261,6 +265,8 @@ struct Preparation<'a> {
     align: Align,
     /// Whether to justify the paragraph.
     justify: bool,
+    /// The paragraph's hanging indent.
+    hang: Abs,
 }
 
 impl<'a> Preparation<'a> {
@@ -509,8 +515,8 @@ fn collect<'a>(
     let mut iter = children.iter().peekable();
 
     if consecutive {
-        let indent = ParNode::indent_in(*styles);
-        if !indent.is_zero()
+        let first_line_indent = ParNode::first_line_indent_in(*styles);
+        if !first_line_indent.is_zero()
             && children
                 .iter()
                 .find_map(|child| {
@@ -527,8 +533,14 @@ fn collect<'a>(
                 .unwrap_or_default()
         {
             full.push(SPACING_REPLACE);
-            segments.push((Segment::Spacing(indent.into()), *styles));
+            segments.push((Segment::Spacing(first_line_indent.into()), *styles));
         }
+    }
+
+    let hang = ParNode::hanging_indent_in(*styles);
+    if !hang.is_zero() {
+        full.push(SPACING_REPLACE);
+        segments.push((Segment::Spacing((-hang).into()), *styles));
     }
 
     while let Some(mut child) = iter.next() {
@@ -681,6 +693,7 @@ fn prepare<'a>(
         lang: shared_get(styles, children, TextNode::lang_in),
         align: AlignNode::alignment_in(styles).x.resolve(styles),
         justify: ParNode::justify_in(styles),
+        hang: ParNode::hanging_indent_in(styles),
     })
 }
 
@@ -1158,7 +1171,7 @@ fn finalize(
     let width = if !region.x.is_finite()
         || (!expand && lines.iter().all(|line| line.fr().is_zero()))
     {
-        lines.iter().map(|line| line.width).max().unwrap_or_default()
+        p.hang + lines.iter().map(|line| line.width).max().unwrap_or_default()
     } else {
         region.x
     };
@@ -1204,11 +1217,14 @@ fn commit(
     width: Abs,
     full: Abs,
 ) -> SourceResult<Frame> {
-    let mut remaining = width - line.width;
+    let mut remaining = width - line.width - p.hang;
     let mut offset = Abs::zero();
 
     // Reorder the line from logical to visual order.
-    let reordered = reorder(line);
+    let (reordered, starts_rtl) = reorder(line);
+    if !starts_rtl {
+        offset += p.hang;
+    }
 
     // Handle hanging punctuation to the left.
     if let Some(Item::Text(text)) = reordered.first() {
@@ -1308,12 +1324,12 @@ fn commit(
 }
 
 /// Return a line's items in visual order.
-fn reorder<'a>(line: &'a Line<'a>) -> Vec<&Item<'a>> {
+fn reorder<'a>(line: &'a Line<'a>) -> (Vec<&Item<'a>>, bool) {
     let mut reordered = vec![];
 
     // The bidi crate doesn't like empty lines.
     if line.trimmed.is_empty() {
-        return line.slice(line.trimmed.clone()).collect();
+        return (line.slice(line.trimmed.clone()).collect(), false);
     }
 
     // Find the paragraph that contains the line.
@@ -1326,6 +1342,7 @@ fn reorder<'a>(line: &'a Line<'a>) -> Vec<&Item<'a>> {
 
     // Compute the reordered ranges in visual order (left to right).
     let (levels, runs) = line.bidi.visual_runs(para, line.trimmed.clone());
+    let starts_rtl = levels.first().map_or(false, |level| level.is_rtl());
 
     // Collect the reordered items.
     for run in runs {
@@ -1343,7 +1360,7 @@ fn reorder<'a>(line: &'a Line<'a>) -> Vec<&Item<'a>> {
         }
     }
 
-    reordered
+    (reordered, starts_rtl)
 }
 
 /// How much a character should hang into the end margin.
