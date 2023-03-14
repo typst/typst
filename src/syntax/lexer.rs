@@ -479,13 +479,16 @@ impl Lexer<'_> {
 
     fn ident(&mut self, start: usize) -> SyntaxKind {
         self.s.eat_while(is_id_continue);
-        match self.s.from(start) {
-            "none" => SyntaxKind::None,
-            "auto" => SyntaxKind::Auto,
-            "true" => SyntaxKind::Bool,
-            "false" => SyntaxKind::Bool,
-            id => keyword(id).unwrap_or(SyntaxKind::Ident),
+        let ident = self.s.from(start);
+
+        let prev = self.s.get(0..start);
+        if !prev.ends_with(['.', '@']) || prev.ends_with("..") {
+            if let Some(keyword) = keyword(ident) {
+                return keyword;
+            }
         }
+
+        SyntaxKind::Ident
     }
 
     fn number(&mut self, start: usize, c: char) -> SyntaxKind {
@@ -556,6 +559,10 @@ impl Lexer<'_> {
 /// Try to parse an identifier into a keyword.
 fn keyword(ident: &str) -> Option<SyntaxKind> {
     Some(match ident {
+        "none" => SyntaxKind::None,
+        "auto" => SyntaxKind::Auto,
+        "true" => SyntaxKind::Bool,
+        "false" => SyntaxKind::Bool,
         "not" => SyntaxKind::Not,
         "and" => SyntaxKind::And,
         "or" => SyntaxKind::Or,

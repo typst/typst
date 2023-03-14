@@ -36,6 +36,5 @@
 = A
 
 ---
-// Error: 9 expected identifier
-// Error: 9 expected semicolon or line break
+// Error: 9-13 cannot access fields on type boolean
 #{false.true}
