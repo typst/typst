@@ -433,19 +433,19 @@ fn create_construct_impl(node: &Node) -> TokenStream {
                 && (!field.internal || field.parse.is_some())
         })
         .map(|field| {
-            let with_ident = &field.with_ident;
+            let push_ident = &field.push_ident;
             let (prefix, value) = create_field_parser(field);
             if field.settable() {
                 quote! {
                     #prefix
                     if let Some(value) = #value {
-                        node = node.#with_ident(value);
+                        node.#push_ident(value);
                     }
                 }
             } else {
                 quote! {
                     #prefix
-                    node = node.#with_ident(#value);
+                    node.#push_ident(#value);
                 }
             }
         });

@@ -104,8 +104,7 @@ fn markup_expr(p: &mut Parser, at_start: &mut bool) {
         | SyntaxKind::SmartQuote
         | SyntaxKind::Raw
         | SyntaxKind::Link
-        | SyntaxKind::Label
-        | SyntaxKind::Ref => p.eat(),
+        | SyntaxKind::Label => p.eat(),
 
         SyntaxKind::Hashtag => embedded_code_expr(p),
         SyntaxKind::Star => strong(p),
@@ -114,6 +113,7 @@ fn markup_expr(p: &mut Parser, at_start: &mut bool) {
         SyntaxKind::ListMarker if *at_start => list_item(p),
         SyntaxKind::EnumMarker if *at_start => enum_item(p),
         SyntaxKind::TermMarker if *at_start => term_item(p),
+        SyntaxKind::RefMarker => reference(p),
         SyntaxKind::Dollar => formula(p),
 
         SyntaxKind::LeftBracket
@@ -196,6 +196,15 @@ fn term_item(p: &mut Parser) {
     whitespace_line(p);
     markup(p, false, min_indent, |p| p.at(SyntaxKind::RightBracket));
     p.wrap(m, SyntaxKind::TermItem);
+}
+
+fn reference(p: &mut Parser) {
+    let m = p.marker();
+    p.assert(SyntaxKind::RefMarker);
+    if p.directly_at(SyntaxKind::LeftBracket) {
+        content_block(p);
+    }
+    p.wrap(m, SyntaxKind::Ref);
 }
 
 fn whitespace_line(p: &mut Parser) {

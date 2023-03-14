@@ -59,8 +59,8 @@ pub struct LangItems {
     pub raw_languages: fn() -> Vec<(&'static str, Vec<&'static str>)>,
     /// A hyperlink: `https://typst.org`.
     pub link: fn(url: EcoString) -> Content,
-    /// A reference: `@target`.
-    pub ref_: fn(target: Label) -> Content,
+    /// A reference: `@target`, `@target[..]`.
+    pub reference: fn(target: Label, supplement: Option<Content>) -> Content,
     /// A section heading: `= Introduction`.
     pub heading: fn(level: NonZeroUsize, body: Content) -> Content,
     /// An item in a bullet list: `- ...`.
@@ -106,7 +106,7 @@ impl Hash for LangItems {
         self.emph.hash(state);
         self.raw.hash(state);
         self.link.hash(state);
-        self.ref_.hash(state);
+        self.reference.hash(state);
         self.heading.hash(state);
         self.list_item.hash(state);
         self.enum_item.hash(state);

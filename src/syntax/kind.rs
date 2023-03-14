@@ -36,8 +36,10 @@ pub enum SyntaxKind {
     Link,
     /// A label: `<intro>`.
     Label,
-    /// A reference: `@target`.
+    /// A reference: `@target`, `@target[..]`.
     Ref,
+    /// Introduces a reference: `@target`.
+    RefMarker,
     /// A section heading: `= Introduction`.
     Heading,
     /// Introduces a section heading: `=`, `==`, ...
@@ -324,12 +326,14 @@ impl SyntaxKind {
             Self::Parbreak => "paragraph break",
             Self::Escape => "escape sequence",
             Self::Shorthand => "shorthand",
+            Self::SmartQuote => "smart quote",
             Self::Strong => "strong content",
             Self::Emph => "emphasized content",
             Self::Raw => "raw block",
             Self::Link => "link",
             Self::Label => "label",
             Self::Ref => "reference",
+            Self::RefMarker => "reference marker",
             Self::Heading => "heading",
             Self::HeadingMarker => "heading marker",
             Self::ListItem => "list item",
@@ -358,7 +362,6 @@ impl SyntaxKind {
             Self::Star => "star",
             Self::Underscore => "underscore",
             Self::Dollar => "dollar sign",
-            Self::SmartQuote => "smart quote",
             Self::Plus => "plus",
             Self::Minus => "minus",
             Self::Slash => "slash",

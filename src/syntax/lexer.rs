@@ -172,7 +172,7 @@ impl Lexer<'_> {
             'h' if self.s.eat_if("ttps://") => self.link(),
             '0'..='9' => self.numbering(start),
             '<' if self.s.at(is_id_continue) => self.label(),
-            '@' if self.s.at(is_id_continue) => self.reference(),
+            '@' => self.ref_marker(),
 
             '.' if self.s.eat_if("..") => SyntaxKind::Shorthand,
             '-' if self.s.eat_if("--") => SyntaxKind::Shorthand,
@@ -297,6 +297,11 @@ impl Lexer<'_> {
         self.text()
     }
 
+    fn ref_marker(&mut self) -> SyntaxKind {
+        self.s.eat_while(is_id_continue);
+        SyntaxKind::RefMarker
+    }
+
     fn label(&mut self) -> SyntaxKind {
         let label = self.s.eat_while(is_id_continue);
         if label.is_empty() {
@@ -308,11 +313,6 @@ impl Lexer<'_> {
         }
 
         SyntaxKind::Label
-    }
-
-    fn reference(&mut self) -> SyntaxKind {
-        self.s.eat_while(is_id_continue);
-        SyntaxKind::Ref
     }
 
     fn text(&mut self) -> SyntaxKind {

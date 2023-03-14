@@ -567,7 +567,9 @@ impl Eval for ast::Ref {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok((vm.items.ref_)(Label(self.get().into())))
+        let label = Label(self.target().into());
+        let supplement = self.supplement().map(|block| block.eval(vm)).transpose()?;
+        Ok((vm.items.reference)(label, supplement))
     }
 }
 

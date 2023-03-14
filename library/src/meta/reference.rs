@@ -1,4 +1,4 @@
-use super::{FigureNode, HeadingNode, Numbering};
+use super::{FigureNode, HeadingNode, LocalName, Numbering};
 use crate::prelude::*;
 use crate::text::TextNode;
 
@@ -41,11 +41,14 @@ pub struct RefNode {
     #[required]
     pub target: Label,
 
-    /// The prefix before the referenced number.
+    /// A supplement for the reference.
+    ///
+    /// For references to headings or figures, this is added before the
+    /// referenced number. For citations, this can be used to add a page number.
     ///
     /// ```example
     /// #set heading(numbering: "1.")
-    /// #set ref(prefix: it => {
+    /// #set ref(supplement: it => {
     ///   if it.func() == heading {
     ///     "Chapter"
     ///   } else {
@@ -57,11 +60,11 @@ pub struct RefNode {
     /// In @intro, we see how to turn
     /// Sections into Chapters.
     /// ```
-    pub prefix: Smart<Option<Func>>,
 
     /// All elements with the target label in the document.
     #[synthesized]
     pub matches: Vec<Content>,
+    pub supplement: Smart<Option<Supplement>>,
 }
 
 impl Synthesize for RefNode {
@@ -90,34 +93,36 @@ impl Show for RefNode {
             }
         };
 
-        let mut prefix = match self.prefix(styles) {
+        let supplement = self.supplement(styles);
+        let mut supplement = match supplement {
             Smart::Auto => target
                 .with::<dyn LocalName>()
                 .map(|node| node.local_name(TextNode::lang_in(styles)))
                 .map(TextNode::packed)
                 .unwrap_or_default(),
             Smart::Custom(None) => Content::empty(),
-            Smart::Custom(Some(func)) => {
+            Smart::Custom(Some(Supplement::Content(content))) => content.clone(),
+            Smart::Custom(Some(Supplement::Func(func))) => {
                 let args = Args::new(func.span(), [target.clone().into()]);
                 func.call_detached(vt.world(), args)?.display()
             }
         };
 
-        if !prefix.is_empty() {
-            prefix += TextNode::packed('\u{a0}');
+        if !supplement.is_empty() {
+            supplement += TextNode::packed('\u{a0}');
         }
 
         let formatted = if let Some(heading) = target.to::<HeadingNode>() {
             if let Some(numbering) = heading.numbering(StyleChain::default()) {
                 let numbers = heading.numbers().unwrap();
-                numbered(vt, prefix, &numbering, &numbers)?
+                numbered(vt, supplement, &numbering, &numbers)?
             } else {
                 bail!(self.span(), "cannot reference unnumbered heading");
             }
         } else if let Some(figure) = target.to::<FigureNode>() {
             if let Some(numbering) = figure.numbering(StyleChain::default()) {
                 let number = figure.number().unwrap();
-                numbered(vt, prefix, &numbering, &[number])?
+                numbered(vt, supplement, &numbering, &[number])?
             } else {
                 bail!(self.span(), "cannot reference unnumbered figure");
             }
@@ -146,8 +151,21 @@ fn numbered(
         })
 }
 
-/// The named with which an element is referenced.
-pub trait LocalName {
-    /// Get the name in the given language.
-    fn local_name(&self, lang: Lang) -> &'static str;
+/// Additional content for a reference.
+pub enum Supplement {
+    Content(Content),
+    Func(Func),
+}
+
+cast_from_value! {
+    Supplement,
+    v: Content => Self::Content(v),
+    v: Func => Self::Func(v),
+}
+
+cast_to_value! {
+    v: Supplement => match v {
+        Supplement::Content(v) => v.into(),
+        Supplement::Func(v) => v.into(),
+    }
 }

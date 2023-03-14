@@ -11,7 +11,7 @@ pub mod text;
 pub mod visualize;
 
 use typst::eval::{LangItems, Library, Module, Scope};
-use typst::geom::{Align, Color, Dir, GenAlign};
+use typst::geom::{Align, Color, Dir, GenAlign, Smart};
 use typst::model::{Node, NodeId, StyleMap};
 
 use self::layout::LayoutRoot;
@@ -185,13 +185,21 @@ fn items() -> LangItems {
         },
         raw_languages: text::RawNode::languages,
         link: |url| meta::LinkNode::from_url(url).pack(),
-        ref_: |target| meta::RefNode::new(target).pack(),
+        reference: |target, supplement| {
+            let mut node = meta::RefNode::new(target);
+            if let Some(supplement) = supplement {
+                node.push_supplement(Smart::Custom(Some(meta::Supplement::Content(
+                    supplement,
+                ))));
+            }
+            node.pack()
+        },
         heading: |level, title| meta::HeadingNode::new(title).with_level(level).pack(),
         list_item: |body| layout::ListItem::new(body).pack(),
         enum_item: |number, body| {
             let mut node = layout::EnumItem::new(body);
             if let Some(number) = number {
-                node = node.with_number(Some(number));
+                node.push_number(Some(number));
             }
             node.pack()
         },
@@ -202,10 +210,10 @@ fn items() -> LangItems {
         math_attach: |base, bottom, top| {
             let mut node = math::AttachNode::new(base);
             if let Some(bottom) = bottom {
-                node = node.with_bottom(Some(bottom));
+                node.push_bottom(Some(bottom));
             }
             if let Some(top) = top {
-                node = node.with_top(Some(top));
+                node.push_top(Some(top));
             }
             node.pack()
         },

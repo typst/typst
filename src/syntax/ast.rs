@@ -101,7 +101,7 @@ pub enum Expr {
     Link(Link),
     /// A label: `<intro>`.
     Label(Label),
-    /// A reference: `@target`.
+    /// A reference: `@target`, `@target[..]`.
     Ref(Ref),
     /// A section heading: `= Introduction`.
     Heading(Heading),
@@ -604,14 +604,23 @@ impl Label {
 }
 
 node! {
-    /// A reference: `@target`.
+    /// A reference: `@target`, `@target[..]`.
     Ref
 }
 
 impl Ref {
     /// Get the target.
-    pub fn get(&self) -> &str {
-        self.0.text().trim_start_matches('@')
+    pub fn target(&self) -> &str {
+        self.0
+            .children()
+            .find(|node| node.kind() == SyntaxKind::RefMarker)
+            .map(|node| node.text().trim_start_matches('@'))
+            .unwrap_or_default()
+    }
+
+    /// Get the supplement.
+    pub fn supplement(&self) -> Option<ContentBlock> {
+        self.0.cast_last_match()
     }
 }
 
