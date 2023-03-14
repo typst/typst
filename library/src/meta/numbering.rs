@@ -65,7 +65,7 @@ pub fn numbering(
     numbering.apply(vm.world(), &numbers)?
 }
 
-/// How to number an enumeration.
+/// How to number a sequence of things.
 #[derive(Debug, Clone, Hash)]
 pub enum Numbering {
     /// A pattern with prefix, numbering, lower / upper case and suffix.

@@ -2,6 +2,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::num::NonZeroUsize;
 
+use comemo::Tracked;
 use ecow::EcoString;
 use once_cell::sync::OnceCell;
 
@@ -9,8 +10,9 @@ use super::Module;
 use crate::diag::SourceResult;
 use crate::doc::Document;
 use crate::geom::{Abs, Dir};
-use crate::model::{Content, Label, NodeId, StyleChain, StyleMap, Vt};
+use crate::model::{Content, Introspector, Label, NodeId, StyleChain, StyleMap, Vt};
 use crate::util::hash128;
+use crate::World;
 
 /// Definition of Typst's standard library.
 #[derive(Debug, Clone, Hash)]
@@ -61,6 +63,11 @@ pub struct LangItems {
     pub link: fn(url: EcoString) -> Content,
     /// A reference: `@target`, `@target[..]`.
     pub reference: fn(target: Label, supplement: Option<Content>) -> Content,
+    /// The keys contained in the bibliography and short descriptions of them.
+    pub bibliography_keys: fn(
+        world: Tracked<dyn World>,
+        introspector: Tracked<Introspector>,
+    ) -> Vec<(EcoString, Option<EcoString>)>,
     /// A section heading: `= Introduction`.
     pub heading: fn(level: NonZeroUsize, body: Content) -> Content,
     /// An item in a bullet list: `- ...`.

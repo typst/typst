@@ -145,7 +145,7 @@ impl Finalize for HeadingNode {
     }
 }
 
-/// Counters through headings with different levels.
+/// Counts through headings with different levels.
 pub struct HeadingCounter(Vec<NonZeroUsize>);
 
 impl HeadingCounter {

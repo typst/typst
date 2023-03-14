@@ -1,4 +1,4 @@
-use super::{FigureNode, HeadingNode, LocalName, Numbering};
+use super::{BibliographyNode, CiteNode, FigureNode, HeadingNode, LocalName, Numbering};
 use crate::prelude::*;
 use crate::text::TextNode;
 
@@ -35,7 +35,7 @@ use crate::text::TextNode;
 ///
 /// Display: Reference
 /// Category: meta
-#[node(Synthesize, Show)]
+#[node(Show)]
 pub struct RefNode {
     /// The target label that should be referenced.
     #[required]
@@ -60,27 +60,33 @@ pub struct RefNode {
     /// In @intro, we see how to turn
     /// Sections into Chapters.
     /// ```
-
-    /// All elements with the target label in the document.
-    #[synthesized]
-    pub matches: Vec<Content>,
     pub supplement: Smart<Option<Supplement>>,
-}
-
-impl Synthesize for RefNode {
-    fn synthesize(&mut self, vt: &Vt, _: StyleChain) {
-        let matches = vt
-            .locate(Selector::Label(self.target()))
-            .map(|(_, node)| node.clone())
-            .collect();
-
-        self.push_matches(matches);
-    }
 }
 
 impl Show for RefNode {
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        let matches = self.matches();
+        let target = self.target();
+        let supplement = self.supplement(styles);
+
+        let matches: Vec<_> = vt
+            .locate(Selector::Label(self.target()))
+            .map(|(_, node)| node.clone())
+            .collect();
+
+        if !vt.locatable() || BibliographyNode::has(vt, &target.0) {
+            if !matches.is_empty() {
+                bail!(self.span(), "label occurs in the document and its bibliography");
+            }
+
+            return Ok(CiteNode::new(target.0)
+                .with_supplement(match supplement {
+                    Smart::Custom(Some(Supplement::Content(content))) => Some(content),
+                    _ => None,
+                })
+                .pack()
+                .spanned(self.span()));
+        }
+
         let [target] = matches.as_slice() else {
             if vt.locatable() {
                 bail!(self.span(), if matches.is_empty() {

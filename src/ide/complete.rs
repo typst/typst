@@ -4,7 +4,9 @@ use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
 use unscanny::Scanner;
 
+use super::analyze::analyze_labels;
 use super::{analyze_expr, analyze_import, plain_docs_sentence, summarize_font_family};
+use crate::doc::Frame;
 use crate::eval::{methods_on, CastInfo, Library, Scope, Value};
 use crate::syntax::{
     ast, is_id_continue, is_id_start, is_ident, LinkedNode, Source, SyntaxKind,
@@ -21,11 +23,12 @@ use crate::World;
 /// control and space or something similar.
 pub fn autocomplete(
     world: &(dyn World + 'static),
+    frames: &[Frame],
     source: &Source,
     cursor: usize,
     explicit: bool,
 ) -> Option<(usize, Vec<Completion>)> {
-    let mut ctx = CompletionContext::new(world, source, cursor, explicit)?;
+    let mut ctx = CompletionContext::new(world, frames, source, cursor, explicit)?;
 
     let _ = complete_comments(&mut ctx)
         || complete_field_accesses(&mut ctx)
@@ -78,7 +81,10 @@ fn complete_comments(ctx: &mut CompletionContext) -> bool {
 /// Complete in markup mode.
 fn complete_markup(ctx: &mut CompletionContext) -> bool {
     // Bail if we aren't even in markup.
-    if !matches!(ctx.leaf.parent_kind(), None | Some(SyntaxKind::Markup)) {
+    if !matches!(
+        ctx.leaf.parent_kind(),
+        None | Some(SyntaxKind::Markup) | Some(SyntaxKind::Ref)
+    ) {
         return false;
     }
 
@@ -93,6 +99,13 @@ fn complete_markup(ctx: &mut CompletionContext) -> bool {
     if ctx.leaf.kind() == SyntaxKind::Ident {
         ctx.from = ctx.leaf.offset();
         code_completions(ctx, true);
+        return true;
+    }
+
+    // Start of an reference: "@|" or "@he|".
+    if ctx.leaf.kind() == SyntaxKind::RefMarker {
+        ctx.from = ctx.leaf.offset() + 1;
+        ctx.label_completions();
         return true;
     }
 
@@ -850,6 +863,7 @@ fn code_completions(ctx: &mut CompletionContext, hashtag: bool) {
 /// Context for autocompletion.
 struct CompletionContext<'a> {
     world: &'a (dyn World + 'static),
+    frames: &'a [Frame],
     library: &'a Library,
     source: &'a Source,
     global: &'a Scope,
@@ -869,6 +883,7 @@ impl<'a> CompletionContext<'a> {
     /// Create a new autocompletion context.
     fn new(
         world: &'a (dyn World + 'static),
+        frames: &'a [Frame],
         source: &'a Source,
         cursor: usize,
         explicit: bool,
@@ -878,6 +893,7 @@ impl<'a> CompletionContext<'a> {
         let leaf = LinkedNode::new(source.root()).leaf_at(cursor)?;
         Some(Self {
             world,
+            frames,
             library,
             source,
             global: &library.global.scope(),
@@ -951,6 +967,18 @@ impl<'a> CompletionContext<'a> {
                 label: name.into(),
                 apply: Some(tags[0].into()),
                 detail: Some(separated_list(&tags, " or ").into()),
+            });
+        }
+    }
+
+    /// Add completions for all labels.
+    fn label_completions(&mut self) {
+        for (label, detail) in analyze_labels(self.world, self.frames).0 {
+            self.completions.push(Completion {
+                kind: CompletionKind::Constant,
+                label: label.0,
+                apply: None,
+                detail,
             });
         }
     }

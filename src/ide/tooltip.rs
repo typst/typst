@@ -1,20 +1,22 @@
 use std::fmt::Write;
 
-use ecow::EcoString;
+use ecow::{eco_format, EcoString};
 
 use if_chain::if_chain;
 
+use super::analyze::analyze_labels;
 use super::{analyze_expr, plain_docs_sentence, summarize_font_family};
+use crate::doc::Frame;
 use crate::eval::{CastInfo, Tracer, Value};
 use crate::geom::{round_2, Length, Numeric};
-use crate::syntax::ast;
-use crate::syntax::{LinkedNode, Source, SyntaxKind};
+use crate::syntax::{ast, LinkedNode, Source, SyntaxKind};
 use crate::util::pretty_comma_list;
 use crate::World;
 
 /// Describe the item under the cursor.
 pub fn tooltip(
     world: &(dyn World + 'static),
+    frames: &[Frame],
     source: &Source,
     cursor: usize,
 ) -> Option<Tooltip> {
@@ -22,6 +24,7 @@ pub fn tooltip(
 
     named_param_tooltip(world, &leaf)
         .or_else(|| font_tooltip(world, &leaf))
+        .or_else(|| ref_tooltip(world, frames, &leaf))
         .or_else(|| expr_tooltip(world, &leaf))
 }
 
@@ -29,9 +32,9 @@ pub fn tooltip(
 #[derive(Debug, Clone)]
 pub enum Tooltip {
     /// A string of text.
-    Text(String),
+    Text(EcoString),
     /// A string of Typst code.
-    Code(String),
+    Code(EcoString),
 }
 
 /// Tooltip for a hovered expression.
@@ -55,7 +58,7 @@ fn expr_tooltip(world: &(dyn World + 'static), leaf: &LinkedNode) -> Option<Tool
 
         if let &Value::Length(length) = value {
             if let Some(tooltip) = length_tooltip(length) {
-                return Some(Tooltip::Code(tooltip));
+                return Some(tooltip);
             }
         }
     }
@@ -85,20 +88,40 @@ fn expr_tooltip(world: &(dyn World + 'static), leaf: &LinkedNode) -> Option<Tool
     }
 
     let tooltip = pretty_comma_list(&pieces, false);
-    (!tooltip.is_empty()).then(|| Tooltip::Code(tooltip))
+    (!tooltip.is_empty()).then(|| Tooltip::Code(tooltip.into()))
 }
 
 /// Tooltip text for a hovered length.
-fn length_tooltip(length: Length) -> Option<String> {
+fn length_tooltip(length: Length) -> Option<Tooltip> {
     length.em.is_zero().then(|| {
-        format!(
+        Tooltip::Code(eco_format!(
             "{}pt = {}mm = {}cm = {}in",
             round_2(length.abs.to_pt()),
             round_2(length.abs.to_mm()),
             round_2(length.abs.to_cm()),
             round_2(length.abs.to_inches())
-        )
+        ))
     })
+}
+
+/// Tooltip for a hovered reference.
+fn ref_tooltip(
+    world: &(dyn World + 'static),
+    frames: &[Frame],
+    leaf: &LinkedNode,
+) -> Option<Tooltip> {
+    if leaf.kind() != SyntaxKind::RefMarker {
+        return None;
+    }
+
+    let target = leaf.text().trim_start_matches('@');
+    for (label, detail) in analyze_labels(world, frames).0 {
+        if label.0 == target {
+            return Some(Tooltip::Text(detail?.into()));
+        }
+    }
+
+    None
 }
 
 /// Tooltips for components of a named parameter.

@@ -35,7 +35,7 @@ pub fn typeset(world: Tracked<dyn World>, content: &Content) -> SourceResult<Doc
         document = (library.items.layout)(&mut vt, content, styles)?;
         iter += 1;
 
-        if iter >= 5 || introspector.update(&document) {
+        if iter >= 5 || introspector.update(&document.pages) {
             break;
         }
     }
@@ -49,13 +49,10 @@ pub fn typeset(world: Tracked<dyn World>, content: &Content) -> SourceResult<Doc
 /// [Vm](crate::eval::Vm) for typesetting.
 pub struct Vt<'a> {
     /// The compilation environment.
-    #[doc(hidden)]
     pub world: Tracked<'a, dyn World>,
     /// Provides stable identities to nodes.
-    #[doc(hidden)]
     pub provider: TrackedMut<'a, StabilityProvider>,
     /// Provides access to information about the document.
-    #[doc(hidden)]
     pub introspector: Tracked<'a, Introspector>,
 }
 
@@ -127,7 +124,6 @@ impl StabilityProvider {
 }
 
 /// Provides access to information about the document.
-#[doc(hidden)]
 pub struct Introspector {
     init: bool,
     nodes: Vec<(StableId, Content)>,
@@ -136,7 +132,7 @@ pub struct Introspector {
 
 impl Introspector {
     /// Create a new introspector.
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             init: false,
             nodes: vec![],
@@ -146,10 +142,10 @@ impl Introspector {
 
     /// Update the information given new frames and return whether we can stop
     /// layouting.
-    fn update(&mut self, document: &Document) -> bool {
+    pub fn update(&mut self, frames: &[Frame]) -> bool {
         self.nodes.clear();
 
-        for (i, frame) in document.pages.iter().enumerate() {
+        for (i, frame) in frames.iter().enumerate() {
             let page = NonZeroUsize::new(1 + i).unwrap();
             self.extract(frame, page, Transform::identity());
         }
@@ -169,6 +165,11 @@ impl Introspector {
         }
 
         true
+    }
+
+    /// Iterate over all nodes.
+    pub fn iter(&self) -> impl Iterator<Item = &Content> {
+        self.nodes.iter().map(|(_, node)| node)
     }
 
     /// Extract metadata from a frame.
@@ -199,12 +200,12 @@ impl Introspector {
 #[comemo::track]
 impl Introspector {
     /// Whether this introspector is not yet initialized.
-    fn init(&self) -> bool {
+    pub fn init(&self) -> bool {
         self.init
     }
 
     /// Locate all metadata matches for the given selector.
-    fn locate(&self, selector: Selector) -> Vec<(StableId, &Content)> {
+    pub fn locate(&self, selector: Selector) -> Vec<(StableId, &Content)> {
         let nodes = self.locate_impl(&selector);
         let mut queries = self.queries.borrow_mut();
         if !queries.iter().any(|(prev, _)| prev == &selector) {

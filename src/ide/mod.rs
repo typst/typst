@@ -6,6 +6,7 @@ mod highlight;
 mod jump;
 mod tooltip;
 
+pub use self::analyze::analyze_labels;
 pub use self::complete::*;
 pub use self::highlight::*;
 pub use self::jump::*;
@@ -13,15 +14,17 @@ pub use self::tooltip::*;
 
 use std::fmt::Write;
 
+use ecow::{eco_format, EcoString};
+
 use self::analyze::*;
 use crate::font::{FontInfo, FontStyle};
 
 /// Extract the first sentence of plain text of a piece of documentation.
 ///
 /// Removes Markdown formatting.
-fn plain_docs_sentence(docs: &str) -> String {
+fn plain_docs_sentence(docs: &str) -> EcoString {
     let mut s = unscanny::Scanner::new(docs);
-    let mut output = String::new();
+    let mut output = EcoString::new();
     let mut link = false;
     while let Some(c) = s.eat() {
         match c {
@@ -62,7 +65,7 @@ fn plain_docs_sentence(docs: &str) -> String {
 }
 
 /// Create a short description of a font family.
-fn summarize_font_family<'a>(variants: impl Iterator<Item = &'a FontInfo>) -> String {
+fn summarize_font_family<'a>(variants: impl Iterator<Item = &'a FontInfo>) -> EcoString {
     let mut infos: Vec<_> = variants.collect();
     infos.sort_by_key(|info| info.variant);
 
@@ -78,7 +81,7 @@ fn summarize_font_family<'a>(variants: impl Iterator<Item = &'a FontInfo>) -> St
 
     let count = infos.len();
     let s = if count == 1 { "" } else { "s" };
-    let mut detail = format!("{count} variant{s}.");
+    let mut detail = eco_format!("{count} variant{s}.");
 
     if min_weight == max_weight {
         write!(detail, " Weight {min_weight}.").unwrap();

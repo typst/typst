@@ -11,8 +11,8 @@
 #let data = read("/missing.txt")
 
 ---
-// Error: 18-37 file is not valid utf-8
-#let data = read("/invalid-utf8.txt")
+// Error: 18-28 file is not valid utf-8
+#let data = read("/bad.txt")
 
 ---
 // Test reading CSV data.

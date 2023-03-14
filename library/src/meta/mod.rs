@@ -1,5 +1,6 @@
 //! Interaction between document parts.
 
+mod bibliography;
 mod document;
 mod figure;
 mod heading;
@@ -8,6 +9,7 @@ mod numbering;
 mod outline;
 mod reference;
 
+pub use self::bibliography::*;
 pub use self::document::*;
 pub use self::figure::*;
 pub use self::heading::*;

@@ -89,6 +89,8 @@ fn global(math: Module, calc: Module) -> Module {
     global.define("outline", meta::OutlineNode::id());
     global.define("heading", meta::HeadingNode::id());
     global.define("figure", meta::FigureNode::id());
+    global.define("cite", meta::CiteNode::id());
+    global.define("bibliography", meta::BibliographyNode::id());
     global.define("numbering", meta::numbering);
 
     // Symbols.
@@ -179,7 +181,7 @@ fn items() -> LangItems {
         raw: |text, lang, block| {
             let mut node = text::RawNode::new(text).with_block(block);
             if let Some(lang) = lang {
-                node = node.with_lang(Some(lang));
+                node.push_lang(Some(lang));
             }
             node.pack()
         },
@@ -194,6 +196,7 @@ fn items() -> LangItems {
             }
             node.pack()
         },
+        bibliography_keys: meta::BibliographyNode::keys,
         heading: |level, title| meta::HeadingNode::new(title).with_level(level).pack(),
         list_item: |body| layout::ListItem::new(body).pack(),
         enum_item: |number, body| {

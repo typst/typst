@@ -1,8 +1,11 @@
 use std::path::PathBuf;
 
 use comemo::Track;
+use ecow::EcoString;
 
+use crate::doc::Frame;
 use crate::eval::{eval, Module, Route, Tracer, Value};
+use crate::model::{Introspector, Label};
 use crate::syntax::{ast, LinkedNode, Source, SyntaxKind};
 use crate::util::PathExt;
 use crate::World;
@@ -63,4 +66,38 @@ pub fn analyze_import(
     let id = world.resolve(&full).ok()?;
     let source = world.source(id);
     eval(world.track(), route.track(), tracer.track_mut(), source).ok()
+}
+
+/// Find all labels and details for them.
+pub fn analyze_labels(
+    world: &(dyn World + 'static),
+    frames: &[Frame],
+) -> (Vec<(Label, Option<EcoString>)>, usize) {
+    let mut output = vec![];
+    let mut introspector = Introspector::new();
+    let items = &world.library().items;
+    introspector.update(frames);
+
+    // Labels in the document.
+    for node in introspector.iter() {
+        let Some(label) = node.label() else { continue };
+        let details = node
+            .field("caption")
+            .or_else(|| node.field("body"))
+            .and_then(|field| match field {
+                Value::Content(content) => Some(content),
+                _ => None,
+            })
+            .and_then(|content| (items.text_str)(content));
+        output.push((label.clone(), details));
+    }
+
+    let split = output.len();
+
+    // Bibliography keys.
+    for (key, detail) in (items.bibliography_keys)(world.track(), introspector.track()) {
+        output.push((Label(key), detail));
+    }
+
+    (output, split)
 }
