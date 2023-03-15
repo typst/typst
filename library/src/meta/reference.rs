@@ -68,14 +68,14 @@ impl Show for RefNode {
         let target = self.target();
         let supplement = self.supplement(styles);
 
-        let matches: Vec<_> = vt.locate(Selector::Label(self.target())).collect();
+        let matches = vt.introspector.query(Selector::Label(self.target()));
 
         if !vt.locatable() || BibliographyNode::has(vt, &target.0) {
             if !matches.is_empty() {
                 bail!(self.span(), "label occurs in the document and its bibliography");
             }
 
-            return Ok(CiteNode::new(target.0)
+            return Ok(CiteNode::new(vec![target.0])
                 .with_supplement(match supplement {
                     Smart::Custom(Some(Supplement::Content(content))) => Some(content),
                     _ => None,
@@ -133,8 +133,7 @@ impl Show for RefNode {
             bail!(self.span(), "cannot reference {}", target.id().name);
         };
 
-        let loc = target.expect_field::<Location>("location");
-        Ok(formatted.linked(Destination::Internal(loc)))
+        Ok(formatted.linked(Link::Node(target.stable_id().unwrap())))
     }
 }
 

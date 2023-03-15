@@ -91,7 +91,7 @@ impl Synthesize for HeadingNode {
         if numbering.is_some() {
             // Advance past existing headings.
             for heading in vt
-                .locate_node::<Self>()
+                .query_node::<Self>()
                 .take_while(|figure| figure.0.stable_id() != my_id)
             {
                 if heading.numbering(StyleChain::default()).is_some() {

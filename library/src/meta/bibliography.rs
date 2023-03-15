@@ -5,14 +5,14 @@ use std::sync::Arc;
 
 use ecow::EcoVec;
 use hayagriva::io::{BibLaTeXError, YamlBibliographyError};
-use hayagriva::style::{self, Citation, Database, DisplayString, Formatting};
-use typst::font::{FontStyle, FontWeight};
+use hayagriva::style::{self, Brackets, Citation, Database, DisplayString, Formatting};
+use hayagriva::Entry;
 
 use super::LocalName;
-use crate::layout::{GridNode, ParNode, Sizing, TrackSizings, VNode};
+use crate::layout::{BlockNode, GridNode, ParNode, Sizing, TrackSizings, VNode};
 use crate::meta::HeadingNode;
 use crate::prelude::*;
-use crate::text::{Hyphenate, TextNode};
+use crate::text::TextNode;
 
 /// A bibliography / reference listing.
 ///
@@ -48,7 +48,7 @@ pub struct BibliographyNode {
 impl BibliographyNode {
     /// Find the document's bibliography.
     pub fn find(introspector: Tracked<Introspector>) -> StrResult<Self> {
-        let mut iter = introspector.locate(Selector::node::<Self>()).into_iter();
+        let mut iter = introspector.query(Selector::node::<Self>()).into_iter();
         let Some(node) = iter.next() else {
             return Err("the document does not contain a bibliography".into());
         };
@@ -63,7 +63,7 @@ impl BibliographyNode {
     /// Whether the bibliography contains the given key.
     pub fn has(vt: &Vt, key: &str) -> bool {
         vt.introspector
-            .locate(Selector::node::<Self>())
+            .query(Selector::node::<Self>())
             .into_iter()
             .flat_map(|node| load(vt.world(), &node.to::<Self>().unwrap().path()))
             .flatten()
@@ -98,24 +98,19 @@ impl Synthesize for BibliographyNode {
 impl Show for BibliographyNode {
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         const COLUMN_GUTTER: Em = Em::new(0.65);
-        const ROW_GUTTER: Em = Em::new(1.0);
         const INDENT: Em = Em::new(1.5);
 
         let works = match Works::new(vt) {
             Ok(works) => works,
-            Err(error) => {
-                if vt.locatable() {
-                    bail!(self.span(), error)
-                } else {
-                    return Ok(TextNode::packed("bibliography"));
-                }
-            }
+            Err(error) if vt.locatable() => bail!(self.span(), error),
+            Err(_) => Arc::new(Works::default()),
         };
 
         let mut seq = vec![];
         if let Some(title) = self.title(styles) {
             let title = title.clone().unwrap_or_else(|| {
                 TextNode::packed(self.local_name(TextNode::lang_in(styles)))
+                    .spanned(self.span())
             });
 
             seq.push(
@@ -126,6 +121,7 @@ impl Show for BibliographyNode {
             );
         }
 
+        let row_gutter = BlockNode::below_in(styles).amount();
         if works.references.iter().any(|(prefix, _)| prefix.is_some()) {
             let mut cells = vec![];
             for (prefix, reference) in &works.references {
@@ -133,19 +129,18 @@ impl Show for BibliographyNode {
                 cells.push(reference.clone());
             }
 
+            seq.push(VNode::new(row_gutter).with_weakness(3).pack());
             seq.push(
                 GridNode::new(cells)
                     .with_columns(TrackSizings(vec![Sizing::Auto; 2]))
                     .with_column_gutter(TrackSizings(vec![COLUMN_GUTTER.into()]))
-                    .with_row_gutter(TrackSizings(vec![ROW_GUTTER.into()]))
+                    .with_row_gutter(TrackSizings(vec![row_gutter.into()]))
                     .pack(),
             );
         } else {
             let mut entries = vec![];
-            for (i, (_, reference)) in works.references.iter().enumerate() {
-                if i > 0 {
-                    entries.push(VNode::new(ROW_GUTTER.into()).with_weakness(1).pack());
-                }
+            for (_, reference) in &works.references {
+                entries.push(VNode::new(row_gutter).with_weakness(3).pack());
                 entries.push(reference.clone());
             }
 
@@ -204,12 +199,16 @@ impl BibliographyStyle {
 #[node(Locatable, Synthesize, Show)]
 pub struct CiteNode {
     /// The citation key.
-    #[required]
-    pub key: EcoString,
+    #[variadic]
+    pub keys: Vec<EcoString>,
 
     /// A supplement for the citation such as page or chapter number.
     #[positional]
     pub supplement: Option<Content>,
+
+    /// Whether the citation should include brackets.
+    #[default(true)]
+    pub brackets: bool,
 
     /// The citation style.
     ///
@@ -221,6 +220,7 @@ pub struct CiteNode {
 impl Synthesize for CiteNode {
     fn synthesize(&mut self, _: &Vt, styles: StyleChain) {
         self.push_supplement(self.supplement(styles));
+        self.push_brackets(self.brackets(styles));
         self.push_style(self.style(styles));
     }
 }
@@ -230,17 +230,12 @@ impl Show for CiteNode {
         let id = self.0.stable_id().unwrap();
         let works = match Works::new(vt) {
             Ok(works) => works,
-            Err(error) => {
-                if vt.locatable() {
-                    bail!(self.span(), error)
-                } else {
-                    return Ok(TextNode::packed("citation"));
-                }
-            }
+            Err(error) if vt.locatable() => bail!(self.span(), error),
+            Err(_) => Arc::new(Works::default()),
         };
 
         let Some(citation) = works.citations.get(&id).cloned() else {
-            return Ok(TextNode::packed("citation"));
+            return Ok(TextNode::packed("[1]"));
         };
 
         citation
@@ -268,6 +263,7 @@ pub enum CitationStyle {
 }
 
 /// Fully formatted citations and references.
+#[derive(Default)]
 pub struct Works {
     citations: HashMap<StableId, Option<Content>>,
     references: Vec<(Option<Content>, Content)>,
@@ -277,20 +273,8 @@ impl Works {
     /// Prepare all things need to cite a work or format a bibliography.
     pub fn new(vt: &Vt) -> StrResult<Arc<Self>> {
         let bibliography = BibliographyNode::find(vt.introspector)?;
-        let style = bibliography.style(StyleChain::default());
-        let citations = vt
-            .locate_node::<CiteNode>()
-            .map(|node| {
-                (
-                    node.0.stable_id().unwrap(),
-                    node.key(),
-                    node.supplement(StyleChain::default()),
-                    node.style(StyleChain::default())
-                        .unwrap_or(style.default_citation_style()),
-                )
-            })
-            .collect();
-        Ok(create(vt.world(), &bibliography.path(), style, citations))
+        let citations = vt.query_node::<CiteNode>().collect();
+        Ok(create(vt.world(), &bibliography, citations))
     }
 }
 
@@ -298,21 +282,37 @@ impl Works {
 #[comemo::memoize]
 fn create(
     world: Tracked<dyn World>,
-    path: &str,
-    style: BibliographyStyle,
-    citations: Vec<(StableId, EcoString, Option<Content>, CitationStyle)>,
+    bibliography: &BibliographyNode,
+    citations: Vec<&CiteNode>,
 ) -> Arc<Works> {
-    let entries = load(world, path).unwrap();
+    let entries = load(world, &bibliography.path()).unwrap();
+    let style = bibliography.style(StyleChain::default());
+    let bib_id = bibliography.0.stable_id().unwrap();
+    let ref_id = |target: &Entry| {
+        let i = entries
+            .iter()
+            .position(|entry| entry.key() == target.key())
+            .unwrap_or_default();
+        bib_id.variant(i as u64)
+    };
 
     let mut db = Database::new();
+    let mut ids = HashMap::new();
     let mut preliminary = vec![];
 
-    for (id, key, supplement, style) in citations {
-        let entry = entries.iter().find(|entry| entry.key() == key);
-        if let Some(entry) = &entry {
-            db.push(entry);
-        }
-        preliminary.push((id, entry, supplement, style));
+    for citation in citations {
+        let cite_id = citation.0.stable_id().unwrap();
+        let entries = citation
+            .keys()
+            .into_iter()
+            .map(|key| {
+                let entry = entries.iter().find(|entry| entry.key() == key)?;
+                ids.entry(entry.key()).or_insert(cite_id);
+                db.push(entry);
+                Some(entry)
+            })
+            .collect::<Option<Vec<_>>>();
+        preliminary.push((citation, entries));
     }
 
     let mut current = CitationStyle::Numerical;
@@ -321,34 +321,71 @@ fn create(
 
     let citations = preliminary
         .into_iter()
-        .map(|(id, result, supplement, style)| {
-            let formatted = result.map(|entry| {
-                if style != current {
-                    current = style;
-                    citation_style = match style {
-                        CitationStyle::Numerical => Box::new(style::Numerical::new()),
-                        CitationStyle::Alphanumerical => {
-                            Box::new(style::Alphanumerical::new())
-                        }
-                        CitationStyle::AuthorDate => {
-                            Box::new(style::ChicagoAuthorDate::new())
-                        }
-                        CitationStyle::AuthorTitle => Box::new(style::AuthorTitle::new()),
-                        CitationStyle::Keys => Box::new(style::Keys::new()),
-                    };
+        .map(|(citation, cited)| {
+            let id = citation.0.stable_id().unwrap();
+            let Some(cited) = cited else { return (id, None) };
+
+            let mut supplement = citation.supplement(StyleChain::default());
+            let brackets = citation.brackets(StyleChain::default());
+            let style = citation
+                .style(StyleChain::default())
+                .unwrap_or(style.default_citation_style());
+
+            if style != current {
+                current = style;
+                citation_style = match style {
+                    CitationStyle::Numerical => Box::new(style::Numerical::new()),
+                    CitationStyle::Alphanumerical => {
+                        Box::new(style::Alphanumerical::new())
+                    }
+                    CitationStyle::AuthorDate => {
+                        Box::new(style::ChicagoAuthorDate::new())
+                    }
+                    CitationStyle::AuthorTitle => Box::new(style::AuthorTitle::new()),
+                    CitationStyle::Keys => Box::new(style::Keys::new()),
+                };
+            }
+
+            let len = cited.len();
+            let mut content = Content::empty();
+            for (i, entry) in cited.into_iter().enumerate() {
+                let supplement = if i + 1 == len { supplement.take() } else { None };
+                let mut display = db
+                    .citation(
+                        &mut *citation_style,
+                        &[Citation {
+                            entry,
+                            supplement: supplement.is_some().then(|| SUPPLEMENT),
+                        }],
+                    )
+                    .display;
+
+                if brackets && len == 1 {
+                    display = display.with_default_brackets(&*citation_style);
                 }
 
-                let citation = db.citation(
-                    &mut *citation_style,
-                    &[Citation {
-                        entry,
-                        supplement: supplement.is_some().then(|| SUPPLEMENT),
-                    }],
-                );
-                let bracketed = citation.display.with_default_brackets(&*citation_style);
-                format_display_string(&bracketed, supplement)
-            });
-            (id, formatted)
+                if i > 0 {
+                    content += TextNode::packed(",\u{a0}");
+                }
+
+                // Format and link to the reference entry.
+                content += format_display_string(&display, supplement)
+                    .linked(Link::Node(ref_id(entry)));
+            }
+
+            if brackets && len > 1 {
+                content = match citation_style.brackets() {
+                    Brackets::None => content,
+                    Brackets::Round => {
+                        TextNode::packed('(') + content + TextNode::packed(')')
+                    }
+                    Brackets::Square => {
+                        TextNode::packed('[') + content + TextNode::packed(']')
+                    }
+                };
+            }
+
+            (id, Some(content))
         })
         .collect();
 
@@ -363,11 +400,26 @@ fn create(
         .bibliography(&*bibliography_style, None)
         .into_iter()
         .map(|reference| {
+            // Make link from citation to here work.
+            let backlink = {
+                let mut content = Content::empty();
+                content.set_stable_id(ref_id(&reference.entry));
+                MetaNode::set_data(vec![Meta::Node(content)])
+            };
+
             let prefix = reference.prefix.map(|prefix| {
+                // Format and link to first citation.
                 let bracketed = prefix.with_default_brackets(&*citation_style);
                 format_display_string(&bracketed, None)
+                    .linked(Link::Node(ids[reference.entry.key()]))
+                    .styled(backlink.clone())
             });
-            let reference = format_display_string(&reference.display, None);
+
+            let mut reference = format_display_string(&reference.display, None);
+            if prefix.is_none() {
+                reference = reference.styled(backlink);
+            }
+
             (prefix, reference)
         })
         .collect();
@@ -443,28 +495,27 @@ fn format_display_string(
             continue;
         }
 
-        let mut styles = StyleMap::new();
-        for (range, fmt) in &string.formatting {
-            if !range.contains(&start) {
-                continue;
-            }
-
-            styles.set(match fmt {
-                Formatting::Bold => TextNode::set_weight(FontWeight::BOLD),
-                Formatting::Italic => TextNode::set_style(FontStyle::Italic),
-                Formatting::NoHyphenation => {
-                    TextNode::set_hyphenate(Hyphenate(Smart::Custom(false)))
-                }
-            });
-        }
-
-        let content = if segment == SUPPLEMENT && supplement.is_some() {
+        let mut content = if segment == SUPPLEMENT && supplement.is_some() {
             supplement.take().unwrap_or_default()
         } else {
             TextNode::packed(segment)
         };
 
-        seq.push(content.styled_with_map(styles));
+        for (range, fmt) in &string.formatting {
+            if !range.contains(&start) {
+                continue;
+            }
+
+            content = match fmt {
+                Formatting::Bold => content.strong(),
+                Formatting::Italic => content.emph(),
+                Formatting::Link(link) => {
+                    content.linked(Link::Dest(Destination::Url(link.as_str().into())))
+                }
+            };
+        }
+
+        seq.push(content);
         start = stop;
     }
 

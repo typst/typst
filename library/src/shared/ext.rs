@@ -15,8 +15,8 @@ pub trait ContentExt {
     /// Underline this content.
     fn underlined(self) -> Self;
 
-    /// Link the content to a destination.
-    fn linked(self, dest: Destination) -> Self;
+    /// Link the content somewhere.
+    fn linked(self, link: Link) -> Self;
 
     /// Set alignments for this content.
     fn aligned(self, aligns: Axes<Option<GenAlign>>) -> Self;
@@ -41,8 +41,8 @@ impl ContentExt for Content {
         UnderlineNode::new(self).pack()
     }
 
-    fn linked(self, dest: Destination) -> Self {
-        self.styled(MetaNode::set_data(vec![Meta::Link(dest)]))
+    fn linked(self, link: Link) -> Self {
+        self.styled(MetaNode::set_data(vec![Meta::Link(link)]))
     }
 
     fn aligned(self, aligns: Axes<Option<GenAlign>>) -> Self {

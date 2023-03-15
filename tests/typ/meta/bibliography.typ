@@ -14,7 +14,7 @@
 ---
 #set page(width: 200pt)
 = Details
-See also #cite("arrgh", [p. 22]), @arrgh[p. 4], and @cannonfodder[p. 5].
+See also #cite("arrgh", "cannonfodder", [p. 22]), @arrgh[p. 4], and @cannonfodder[p. 5].
 #bibliography("/works.bib")
 
 ---
@@ -22,6 +22,7 @@ See also #cite("arrgh", [p. 22]), @arrgh[p. 4], and @cannonfodder[p. 5].
 #set page(width: 200pt)
 #bibliography("/works.bib", title: [Works to be cited], style: "author-date")
 #line(length: 100%)
-The net-work is a creature of its own. @stupid
+As described by #cite("stupid", brackets: false),
+the net-work is a creature of its own.
 This is close to piratery! @arrgh
 And quark! @quark

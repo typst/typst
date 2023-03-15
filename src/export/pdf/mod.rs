@@ -19,6 +19,7 @@ use crate::doc::{Document, Lang};
 use crate::font::Font;
 use crate::geom::{Abs, Dir, Em};
 use crate::image::Image;
+use crate::model::Introspector;
 
 /// Export a document into a PDF file.
 ///
@@ -40,6 +41,7 @@ const D65_GRAY: Name<'static> = Name(b"d65gray");
 /// Context for exporting a whole PDF document.
 pub struct PdfContext<'a> {
     document: &'a Document,
+    introspector: Introspector,
     writer: PdfWriter,
     pages: Vec<Page>,
     page_heights: Vec<f32>,
@@ -61,6 +63,7 @@ impl<'a> PdfContext<'a> {
         let page_tree_ref = alloc.bump();
         Self {
             document,
+            introspector: Introspector::new(&document.pages),
             writer: PdfWriter::new(),
             pages: vec![],
             page_heights: vec![],

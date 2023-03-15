@@ -444,7 +444,7 @@ checksum = "8a9ee70c43aaf417c914396645a0fa852624801b24ebb7ae78fe8272889ac888"
 [[package]]
 name = "hayagriva"
 version = "0.1.1"
-source = "git+https://github.com/typst/hayagriva#992389b23f9765198ee8d3f1818d6dbdc8f46b60"
+source = "git+https://github.com/typst/hayagriva#754efb7e1034bcd4d4f1366e432197edbbfb9ed5"
 dependencies = [
  "biblatex",
  "chrono",

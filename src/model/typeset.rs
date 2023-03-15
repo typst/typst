@@ -20,7 +20,7 @@ pub fn typeset(world: Tracked<dyn World>, content: &Content) -> SourceResult<Doc
 
     let mut document;
     let mut iter = 0;
-    let mut introspector = Introspector::new();
+    let mut introspector = Introspector::new(&[]);
 
     // Relayout until all introspections stabilize.
     // If that doesn't happen within five attempts, we give up.
@@ -39,8 +39,6 @@ pub fn typeset(world: Tracked<dyn World>, content: &Content) -> SourceResult<Doc
             break;
         }
     }
-
-    log::debug!("Took {iter} iterations");
 
     Ok(document)
 }
@@ -81,14 +79,11 @@ impl<'a> Vt<'a> {
         self.introspector.init()
     }
 
-    /// Locate all metadata matches for the given selector.
-    pub fn locate(&self, selector: Selector) -> impl Iterator<Item = &Content> {
-        self.introspector.locate(selector).into_iter()
-    }
-
     /// Locate all metadata matches for the given node.
-    pub fn locate_node<T: Node>(&self) -> impl Iterator<Item = &T> {
-        self.locate(Selector::node::<T>())
+    pub fn query_node<T: Node>(&self) -> impl Iterator<Item = &T> {
+        self.introspector
+            .query(Selector::node::<T>())
+            .into_iter()
             .map(|content| content.to::<T>().unwrap())
     }
 }
@@ -97,7 +92,14 @@ impl<'a> Vt<'a> {
 ///
 /// This struct is created by [`Vt::identify`].
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct StableId(u128, u64);
+pub struct StableId(u128, u64, u64);
+
+impl StableId {
+    /// Produce a variant of this id.
+    pub fn variant(self, n: u64) -> Self {
+        Self(self.0, self.1, n)
+    }
+}
 
 /// Provides stable identities to nodes.
 #[derive(Clone)]
@@ -115,7 +117,7 @@ impl StabilityProvider {
     /// Produce a stable identifier for this call site.
     fn identify(&mut self, hash: u128) -> StableId {
         let slot = self.0.entry(hash).or_default();
-        let id = StableId(hash, *slot);
+        let id = StableId(hash, *slot, 0);
         *slot += 1;
         id
     }
@@ -124,35 +126,33 @@ impl StabilityProvider {
 /// Provides access to information about the document.
 pub struct Introspector {
     init: bool,
-    nodes: Vec<Content>,
+    nodes: Vec<(Content, Location)>,
     queries: RefCell<Vec<(Selector, u128)>>,
 }
 
 impl Introspector {
     /// Create a new introspector.
-    pub fn new() -> Self {
-        Self {
+    pub fn new(frames: &[Frame]) -> Self {
+        let mut introspector = Self {
             init: false,
             nodes: vec![],
             queries: RefCell::new(vec![]),
-        }
+        };
+        introspector.extract_from_frames(frames);
+        introspector
     }
 
     /// Update the information given new frames and return whether we can stop
     /// layouting.
     pub fn update(&mut self, frames: &[Frame]) -> bool {
         self.nodes.clear();
-
-        for (i, frame) in frames.iter().enumerate() {
-            let page = NonZeroUsize::new(1 + i).unwrap();
-            self.extract(frame, page, Transform::identity());
-        }
+        self.extract_from_frames(frames);
 
         let was_init = std::mem::replace(&mut self.init, true);
         let queries = std::mem::take(&mut self.queries).into_inner();
 
         for (selector, hash) in &queries {
-            let nodes = self.locate_impl(selector);
+            let nodes = self.query_impl(selector);
             if hash128(&nodes) != *hash {
                 return false;
             }
@@ -166,32 +166,36 @@ impl Introspector {
     }
 
     /// Iterate over all nodes.
-    pub fn iter(&self) -> impl Iterator<Item = &Content> {
-        self.nodes.iter()
+    pub fn nodes(&self) -> impl Iterator<Item = &Content> {
+        self.nodes.iter().map(|(node, _)| node)
+    }
+
+    /// Extract metadata from frames.
+    fn extract_from_frames(&mut self, frames: &[Frame]) {
+        for (i, frame) in frames.iter().enumerate() {
+            let page = NonZeroUsize::new(1 + i).unwrap();
+            self.extract_from_frame(frame, page, Transform::identity());
+        }
     }
 
     /// Extract metadata from a frame.
-    fn extract(&mut self, frame: &Frame, page: NonZeroUsize, ts: Transform) {
+    fn extract_from_frame(&mut self, frame: &Frame, page: NonZeroUsize, ts: Transform) {
         for (pos, element) in frame.elements() {
             match element {
                 Element::Group(group) => {
                     let ts = ts
                         .pre_concat(Transform::translate(pos.x, pos.y))
                         .pre_concat(group.transform);
-                    self.extract(&group.frame, page, ts);
+                    self.extract_from_frame(&group.frame, page, ts);
                 }
-                Element::Meta(Meta::Node(content), _) => {
+                Element::Meta(Meta::Node(content), _)
                     if !self
                         .nodes
                         .iter()
-                        .any(|prev| prev.stable_id() == content.stable_id())
-                    {
-                        let pos = pos.transform(ts);
-                        let mut node = content.clone();
-                        let loc = Location { page, pos };
-                        node.push_field("location", loc);
-                        self.nodes.push(node);
-                    }
+                        .any(|(prev, _)| prev.stable_id() == content.stable_id()) =>
+                {
+                    let pos = pos.transform(ts);
+                    self.nodes.push((content.clone(), Location { page, pos }));
                 }
                 _ => {}
             }
@@ -206,19 +210,29 @@ impl Introspector {
         self.init
     }
 
-    /// Locate all metadata matches for the given selector.
-    pub fn locate(&self, selector: Selector) -> Vec<&Content> {
-        let nodes = self.locate_impl(&selector);
+    /// Query for all metadata matches for the given selector.
+    pub fn query(&self, selector: Selector) -> Vec<&Content> {
+        let nodes = self.query_impl(&selector);
         let mut queries = self.queries.borrow_mut();
         if !queries.iter().any(|(prev, _)| prev == &selector) {
             queries.push((selector, hash128(&nodes)));
         }
         nodes
     }
+
+    /// Find the page number for the given stable id.
+    pub fn page(&self, id: StableId) -> Option<NonZeroUsize> {
+        Some(self.location(id)?.page)
+    }
+
+    /// Find the location for the given stable id.
+    pub fn location(&self, id: StableId) -> Option<Location> {
+        Some(self.nodes.iter().find(|(node, _)| node.stable_id() == Some(id))?.1)
+    }
 }
 
 impl Introspector {
-    fn locate_impl(&self, selector: &Selector) -> Vec<&Content> {
-        self.nodes.iter().filter(|target| selector.matches(target)).collect()
+    fn query_impl(&self, selector: &Selector) -> Vec<&Content> {
+        self.nodes().filter(|node| selector.matches(node)).collect()
     }
 }

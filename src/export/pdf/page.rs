@@ -4,7 +4,7 @@ use pdf_writer::writers::ColorSpace;
 use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str};
 
 use super::{deflate, AbsExt, EmExt, PdfContext, RefExt, D65_GRAY, SRGB};
-use crate::doc::{Destination, Element, Frame, Group, Meta, Text};
+use crate::doc::{Destination, Element, Frame, Group, Link, Meta, Text};
 use crate::font::Font;
 use crate::geom::{
     self, Abs, Color, Em, Geometry, Numeric, Paint, Point, Ratio, Shape, Size, Stroke,
@@ -110,22 +110,31 @@ fn write_page(ctx: &mut PdfContext, page: Page) {
     page_writer.contents(content_id);
 
     let mut annotations = page_writer.annotations();
-    for (dest, rect) in page.links {
-        let mut link = annotations.push();
-        link.subtype(AnnotationType::Link).rect(rect);
-        link.border(0.0, 0.0, 0.0, None);
+    for (link, rect) in page.links {
+        let mut annotation = annotations.push();
+        annotation.subtype(AnnotationType::Link).rect(rect);
+        annotation.border(0.0, 0.0, 0.0, None);
+
+        let dest = link.resolve(|| &ctx.introspector);
+        let Some(dest) = dest else { continue };
+
         match dest {
             Destination::Url(uri) => {
-                link.action().action_type(ActionType::Uri).uri(Str(uri.as_bytes()));
+                annotation
+                    .action()
+                    .action_type(ActionType::Uri)
+                    .uri(Str(uri.as_bytes()));
             }
             Destination::Internal(loc) => {
                 let index = loc.page.get() - 1;
+                let y = (loc.pos.y - Abs::pt(10.0)).max(Abs::zero());
                 if let Some(&height) = ctx.page_heights.get(index) {
-                    link.action()
+                    annotation
+                        .action()
                         .action_type(ActionType::GoTo)
                         .destination_direct()
                         .page(ctx.page_refs[index])
-                        .xyz(loc.pos.x.to_f32(), height - loc.pos.y.to_f32(), None);
+                        .xyz(loc.pos.x.to_f32(), height - y.to_f32(), None);
                 }
             }
         }
@@ -148,7 +157,7 @@ pub struct Page {
     /// The page's content stream.
     pub content: Content,
     /// Links in the PDF coordinate system.
-    pub links: Vec<(Destination, Rect)>,
+    pub links: Vec<(Link, Rect)>,
 }
 
 /// An exporter for the contents of a single PDF page.
@@ -159,7 +168,7 @@ struct PageContext<'a, 'b> {
     state: State,
     saves: Vec<State>,
     bottom: f32,
-    links: Vec<(Destination, Rect)>,
+    links: Vec<(Link, Rect)>,
 }
 
 /// A simulated graphics state used to deduplicate graphics state changes and
@@ -287,9 +296,9 @@ fn write_frame(ctx: &mut PageContext, frame: &Frame) {
             Element::Shape(shape) => write_shape(ctx, x, y, shape),
             Element::Image(image, size) => write_image(ctx, x, y, image, *size),
             Element::Meta(meta, size) => match meta {
-                Meta::Link(dest) => write_link(ctx, pos, dest, *size),
+                Meta::Link(link) => write_link(ctx, pos, link, *size),
                 Meta::Node(_) => {}
-                Meta::Hidden => {}
+                Meta::Hide => {}
             },
         }
     }
@@ -449,7 +458,7 @@ fn write_image(ctx: &mut PageContext, x: f32, y: f32, image: &Image, size: Size)
 }
 
 /// Save a link for later writing in the annotations dictionary.
-fn write_link(ctx: &mut PageContext, pos: Point, dest: &Destination, size: Size) {
+fn write_link(ctx: &mut PageContext, pos: Point, link: &Link, size: Size) {
     let mut min_x = Abs::inf();
     let mut min_y = Abs::inf();
     let mut max_x = -Abs::inf();
@@ -475,5 +484,5 @@ fn write_link(ctx: &mut PageContext, pos: Point, dest: &Destination, size: Size)
     let y2 = min_y.to_f32();
     let rect = Rect::new(x1, y1, x2, y2);
 
-    ctx.links.push((dest.clone(), rect));
+    ctx.links.push((link.clone(), rect));
 }

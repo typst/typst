@@ -61,7 +61,7 @@ fn render_frame(
             Element::Meta(meta, _) => match meta {
                 Meta::Link(_) => {}
                 Meta::Node(_) => {}
-                Meta::Hidden => {}
+                Meta::Hide => {}
             },
         }
     }

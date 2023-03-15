@@ -66,7 +66,7 @@ impl Synthesize for FigureNode {
         if numbering.is_some() {
             number = NonZeroUsize::new(
                 1 + vt
-                    .locate_node::<Self>()
+                    .query_node::<Self>()
                     .take_while(|figure| figure.0.stable_id() != my_id)
                     .filter(|figure| figure.element() == element)
                     .count(),

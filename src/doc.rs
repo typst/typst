@@ -14,7 +14,7 @@ use crate::geom::{
     Numeric, Paint, Point, Rel, RgbaColor, Shape, Sides, Size, Stroke, Transform,
 };
 use crate::image::Image;
-use crate::model::{node, Content, Fold, StyleChain};
+use crate::model::{node, Content, Fold, Introspector, StableId, StyleChain};
 use crate::syntax::Span;
 
 /// A finished document with metadata and page frames.
@@ -276,7 +276,7 @@ impl Frame {
             return;
         }
         for meta in MetaNode::data_in(styles) {
-            if matches!(meta, Meta::Hidden) {
+            if matches!(meta, Meta::Hide) {
                 self.clear();
                 break;
             }
@@ -593,13 +593,37 @@ cast_to_value! {
 /// Meta information that isn't visible or renderable.
 #[derive(Debug, Clone, Hash)]
 pub enum Meta {
+    /// Indicates that the content should be hidden.
+    Hide,
     /// An internal or external link.
-    Link(Destination),
+    Link(Link),
     /// An identifiable piece of content that produces something within the
     /// area this metadata is attached to.
     Node(Content),
-    /// Indicates that the content is hidden.
-    Hidden,
+}
+
+/// A possibly unresolved link.
+#[derive(Debug, Clone, Hash)]
+pub enum Link {
+    /// A fully resolved.
+    Dest(Destination),
+    /// An unresolved link to a node.
+    Node(StableId),
+}
+
+impl Link {
+    /// Resolve a destination.
+    ///
+    /// Needs to lazily provide an introspector.
+    pub fn resolve<'a>(
+        &self,
+        introspector: impl FnOnce() -> &'a Introspector,
+    ) -> Option<Destination> {
+        match self {
+            Self::Dest(dest) => Some(dest.clone()),
+            Self::Node(id) => introspector().location(*id).map(Destination::Internal),
+        }
+    }
 }
 
 /// Host for metadata.

@@ -2,6 +2,7 @@ use std::num::NonZeroUsize;
 
 use crate::doc::{Destination, Element, Frame, Location, Meta};
 use crate::geom::{Point, Size};
+use crate::model::Introspector;
 use crate::syntax::{LinkedNode, Source, SourceId, Span, SyntaxKind};
 use crate::World;
 
@@ -15,11 +16,19 @@ pub enum Jump {
 }
 
 /// Determine where to jump to based on a click in a frame.
-pub fn jump_from_click(world: &dyn World, frame: &Frame, click: Point) -> Option<Jump> {
+pub fn jump_from_click(
+    world: &dyn World,
+    frames: &[Frame],
+    frame: &Frame,
+    click: Point,
+) -> Option<Jump> {
+    let mut introspector = None;
+
     for (mut pos, element) in frame.elements() {
         if let Element::Group(group) = element {
             // TODO: Handle transformation.
-            if let Some(span) = jump_from_click(world, &group.frame, click - pos) {
+            if let Some(span) = jump_from_click(world, frames, &group.frame, click - pos)
+            {
                 return Some(span);
             }
         }
@@ -55,9 +64,14 @@ pub fn jump_from_click(world: &dyn World, frame: &Frame, click: Point) -> Option
             }
         }
 
-        if let Element::Meta(Meta::Link(dest), size) = element {
+        if let Element::Meta(Meta::Link(link), size) = element {
             if is_in_rect(pos, *size, click) {
-                return Some(Jump::Dest(dest.clone()));
+                let dest = link.resolve(|| {
+                    introspector.get_or_insert_with(|| Introspector::new(frames))
+                });
+
+                let Some(dest) = dest else { continue };
+                return Some(Jump::Dest(dest));
             }
         }
     }

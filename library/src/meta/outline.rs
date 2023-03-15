@@ -76,9 +76,13 @@ pub struct OutlineNode {
 impl Synthesize for OutlineNode {
     fn synthesize(&mut self, vt: &Vt, _: StyleChain) {
         let headings = vt
-            .locate_node::<HeadingNode>()
-            .filter(|node| node.outlined(StyleChain::default()))
-            .cloned()
+            .introspector
+            .query(Selector::Node(
+                NodeId::of::<HeadingNode>(),
+                Some(dict! { "outlined" => true }),
+            ))
+            .into_iter()
+            .map(|node| node.to::<HeadingNode>().unwrap().clone())
             .collect();
 
         self.push_headings(headings);
@@ -91,6 +95,7 @@ impl Show for OutlineNode {
         if let Some(title) = self.title(styles) {
             let title = title.clone().unwrap_or_else(|| {
                 TextNode::packed(self.local_name(TextNode::lang_in(styles)))
+                    .spanned(self.span())
             });
 
             seq.push(
@@ -107,6 +112,7 @@ impl Show for OutlineNode {
 
         let mut ancestors: Vec<&HeadingNode> = vec![];
         for heading in self.headings().iter() {
+            let stable_id = heading.0.stable_id().unwrap();
             if !heading.outlined(StyleChain::default()) {
                 continue;
             }
@@ -122,11 +128,6 @@ impl Show for OutlineNode {
             }) {
                 ancestors.pop();
             }
-
-            // Adjust the link destination a bit to the topleft so that the
-            // heading is fully visible.
-            let mut loc = heading.0.expect_field::<Location>("location");
-            loc.pos -= Point::splat(Abs::pt(10.0));
 
             // Add hidden ancestors numberings to realize the indent.
             if indent {
@@ -155,7 +156,7 @@ impl Show for OutlineNode {
             };
 
             // Add the numbering and section name.
-            seq.push(start.linked(Destination::Internal(loc)));
+            seq.push(start.linked(Link::Node(stable_id)));
 
             // Add filler symbols between the section name and page number.
             if let Some(filler) = self.fill(styles) {
@@ -172,8 +173,9 @@ impl Show for OutlineNode {
             }
 
             // Add the page number and linebreak.
-            let end = TextNode::packed(eco_format!("{}", loc.page));
-            seq.push(end.linked(Destination::Internal(loc)));
+            let page = vt.introspector.page(stable_id).unwrap();
+            let end = TextNode::packed(eco_format!("{}", page));
+            seq.push(end.linked(Link::Node(stable_id)));
             seq.push(LinebreakNode::new().pack());
             ancestors.push(heading);
         }

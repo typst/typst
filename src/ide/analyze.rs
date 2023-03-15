@@ -74,12 +74,11 @@ pub fn analyze_labels(
     frames: &[Frame],
 ) -> (Vec<(Label, Option<EcoString>)>, usize) {
     let mut output = vec![];
-    let mut introspector = Introspector::new();
+    let introspector = Introspector::new(frames);
     let items = &world.library().items;
-    introspector.update(frames);
 
     // Labels in the document.
-    for node in introspector.iter() {
+    for node in introspector.nodes() {
         let Some(label) = node.label() else { continue };
         let details = node
             .field("caption")
