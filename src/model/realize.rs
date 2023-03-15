@@ -46,8 +46,8 @@ pub fn realize(
 
         node.mark_prepared();
 
-        if let Some(id) = node.stable_id() {
-            let meta = Meta::Node(id, node.clone());
+        if node.stable_id().is_some() {
+            let meta = Meta::Node(node.clone());
             return Ok(Some(node.styled(MetaNode::set_data(vec![meta]))));
         }
 

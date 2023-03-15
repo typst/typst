@@ -49,7 +49,7 @@ impl BibliographyNode {
     /// Find the document's bibliography.
     pub fn find(introspector: Tracked<Introspector>) -> StrResult<Self> {
         let mut iter = introspector.locate(Selector::node::<Self>()).into_iter();
-        let Some((_, node)) = iter.next() else {
+        let Some(node) = iter.next() else {
             return Err("the document does not contain a bibliography".into());
         };
 
@@ -65,7 +65,7 @@ impl BibliographyNode {
         vt.introspector
             .locate(Selector::node::<Self>())
             .into_iter()
-            .flat_map(|(_, node)| load(vt.world(), &node.to::<Self>().unwrap().path()))
+            .flat_map(|node| load(vt.world(), &node.to::<Self>().unwrap().path()))
             .flatten()
             .any(|entry| entry.key() == key)
     }
@@ -280,9 +280,9 @@ impl Works {
         let style = bibliography.style(StyleChain::default());
         let citations = vt
             .locate_node::<CiteNode>()
-            .map(|(id, node)| {
+            .map(|node| {
                 (
-                    id,
+                    node.0.stable_id().unwrap(),
                     node.key(),
                     node.supplement(StyleChain::default()),
                     node.style(StyleChain::default())

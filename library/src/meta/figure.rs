@@ -58,7 +58,7 @@ impl FigureNode {
 
 impl Synthesize for FigureNode {
     fn synthesize(&mut self, vt: &Vt, styles: StyleChain) {
-        let my_id = self.0.stable_id().unwrap();
+        let my_id = self.0.stable_id();
         let element = self.element();
 
         let mut number = None;
@@ -67,8 +67,8 @@ impl Synthesize for FigureNode {
             number = NonZeroUsize::new(
                 1 + vt
                     .locate_node::<Self>()
-                    .take_while(|&(id, _)| id != my_id)
-                    .filter(|(_, figure)| figure.element() == element)
+                    .take_while(|figure| figure.0.stable_id() != my_id)
+                    .filter(|figure| figure.element() == element)
                     .count(),
             );
         }

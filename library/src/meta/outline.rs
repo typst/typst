@@ -77,8 +77,8 @@ impl Synthesize for OutlineNode {
     fn synthesize(&mut self, vt: &Vt, _: StyleChain) {
         let headings = vt
             .locate_node::<HeadingNode>()
-            .map(|(_, node)| node.clone())
             .filter(|node| node.outlined(StyleChain::default()))
+            .cloned()
             .collect();
 
         self.push_headings(headings);

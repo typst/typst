@@ -68,10 +68,7 @@ impl Show for RefNode {
         let target = self.target();
         let supplement = self.supplement(styles);
 
-        let matches: Vec<_> = vt
-            .locate(Selector::Label(self.target()))
-            .map(|(_, node)| node.clone())
-            .collect();
+        let matches: Vec<_> = vt.locate(Selector::Label(self.target())).collect();
 
         if !vt.locatable() || BibliographyNode::has(vt, &target.0) {
             if !matches.is_empty() {
@@ -87,7 +84,7 @@ impl Show for RefNode {
                 .spanned(self.span()));
         }
 
-        let [target] = matches.as_slice() else {
+        let &[target] = matches.as_slice() else {
             if vt.locatable() {
                 bail!(self.span(), if matches.is_empty() {
                     "label does not exist in the document"

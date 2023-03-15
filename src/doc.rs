@@ -14,7 +14,7 @@ use crate::geom::{
     Numeric, Paint, Point, Rel, RgbaColor, Shape, Sides, Size, Stroke, Transform,
 };
 use crate::image::Image;
-use crate::model::{node, Content, Fold, StableId, StyleChain};
+use crate::model::{node, Content, Fold, StyleChain};
 use crate::syntax::Span;
 
 /// A finished document with metadata and page frames.
@@ -597,7 +597,7 @@ pub enum Meta {
     Link(Destination),
     /// An identifiable piece of content that produces something within the
     /// area this metadata is attached to.
-    Node(StableId, Content),
+    Node(Content),
     /// Indicates that the content is hidden.
     Hidden,
 }

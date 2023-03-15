@@ -40,6 +40,8 @@ pub fn typeset(world: Tracked<dyn World>, content: &Content) -> SourceResult<Doc
         }
     }
 
+    log::debug!("Took {iter} iterations");
+
     Ok(document)
 }
 
@@ -80,17 +82,14 @@ impl<'a> Vt<'a> {
     }
 
     /// Locate all metadata matches for the given selector.
-    pub fn locate(
-        &self,
-        selector: Selector,
-    ) -> impl Iterator<Item = (StableId, &Content)> {
+    pub fn locate(&self, selector: Selector) -> impl Iterator<Item = &Content> {
         self.introspector.locate(selector).into_iter()
     }
 
     /// Locate all metadata matches for the given node.
-    pub fn locate_node<T: Node>(&self) -> impl Iterator<Item = (StableId, &T)> {
+    pub fn locate_node<T: Node>(&self) -> impl Iterator<Item = &T> {
         self.locate(Selector::node::<T>())
-            .map(|(id, content)| (id, content.to::<T>().unwrap()))
+            .map(|content| content.to::<T>().unwrap())
     }
 }
 
@@ -102,7 +101,6 @@ pub struct StableId(u128, u64);
 
 /// Provides stable identities to nodes.
 #[derive(Clone)]
-#[doc(hidden)]
 pub struct StabilityProvider(HashMap<u128, u64>);
 
 impl StabilityProvider {
@@ -126,7 +124,7 @@ impl StabilityProvider {
 /// Provides access to information about the document.
 pub struct Introspector {
     init: bool,
-    nodes: Vec<(StableId, Content)>,
+    nodes: Vec<Content>,
     queries: RefCell<Vec<(Selector, u128)>>,
 }
 
@@ -169,26 +167,30 @@ impl Introspector {
 
     /// Iterate over all nodes.
     pub fn iter(&self) -> impl Iterator<Item = &Content> {
-        self.nodes.iter().map(|(_, node)| node)
+        self.nodes.iter()
     }
 
     /// Extract metadata from a frame.
     fn extract(&mut self, frame: &Frame, page: NonZeroUsize, ts: Transform) {
         for (pos, element) in frame.elements() {
-            match *element {
-                Element::Group(ref group) => {
+            match element {
+                Element::Group(group) => {
                     let ts = ts
                         .pre_concat(Transform::translate(pos.x, pos.y))
                         .pre_concat(group.transform);
                     self.extract(&group.frame, page, ts);
                 }
-                Element::Meta(Meta::Node(id, ref content), _) => {
-                    if !self.nodes.iter().any(|&(prev, _)| prev == id) {
+                Element::Meta(Meta::Node(content), _) => {
+                    if !self
+                        .nodes
+                        .iter()
+                        .any(|prev| prev.stable_id() == content.stable_id())
+                    {
                         let pos = pos.transform(ts);
                         let mut node = content.clone();
                         let loc = Location { page, pos };
                         node.push_field("location", loc);
-                        self.nodes.push((id, node));
+                        self.nodes.push(node);
                     }
                 }
                 _ => {}
@@ -205,7 +207,7 @@ impl Introspector {
     }
 
     /// Locate all metadata matches for the given selector.
-    pub fn locate(&self, selector: Selector) -> Vec<(StableId, &Content)> {
+    pub fn locate(&self, selector: Selector) -> Vec<&Content> {
         let nodes = self.locate_impl(&selector);
         let mut queries = self.queries.borrow_mut();
         if !queries.iter().any(|(prev, _)| prev == &selector) {
@@ -216,11 +218,7 @@ impl Introspector {
 }
 
 impl Introspector {
-    fn locate_impl(&self, selector: &Selector) -> Vec<(StableId, &Content)> {
-        self.nodes
-            .iter()
-            .map(|(id, node)| (*id, node))
-            .filter(|(_, target)| selector.matches(target))
-            .collect()
+    fn locate_impl(&self, selector: &Selector) -> Vec<&Content> {
+        self.nodes.iter().filter(|target| selector.matches(target)).collect()
     }
 }

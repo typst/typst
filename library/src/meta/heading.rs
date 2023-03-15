@@ -84,14 +84,15 @@ pub struct HeadingNode {
 
 impl Synthesize for HeadingNode {
     fn synthesize(&mut self, vt: &Vt, styles: StyleChain) {
-        let my_id = self.0.stable_id().unwrap();
+        let my_id = self.0.stable_id();
         let numbering = self.numbering(styles);
 
         let mut counter = HeadingCounter::new();
         if numbering.is_some() {
             // Advance past existing headings.
-            for (_, heading) in
-                vt.locate_node::<Self>().take_while(|&(id, _)| id != my_id)
+            for heading in vt
+                .locate_node::<Self>()
+                .take_while(|figure| figure.0.stable_id() != my_id)
             {
                 if heading.numbering(StyleChain::default()).is_some() {
                     counter.advance(heading);
