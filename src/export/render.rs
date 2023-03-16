@@ -52,10 +52,10 @@ fn render_frame(
             Element::Text(text) => {
                 render_text(canvas, ts, mask, text);
             }
-            Element::Shape(shape) => {
+            Element::Shape(shape, _) => {
                 render_shape(canvas, ts, mask, shape);
             }
-            Element::Image(image, size) => {
+            Element::Image(image, size, _) => {
                 render_image(canvas, ts, mask, image, *size);
             }
             Element::Meta(meta, _) => match meta {

@@ -293,8 +293,8 @@ fn write_frame(ctx: &mut PageContext, frame: &Frame) {
         match element {
             Element::Group(group) => write_group(ctx, pos, group),
             Element::Text(text) => write_text(ctx, x, y, text),
-            Element::Shape(shape) => write_shape(ctx, x, y, shape),
-            Element::Image(image, size) => write_image(ctx, x, y, image, *size),
+            Element::Shape(shape, _) => write_shape(ctx, x, y, shape),
+            Element::Image(image, size, _) => write_image(ctx, x, y, image, *size),
             Element::Meta(meta, size) => match meta {
                 Meta::Link(link) => write_link(ctx, pos, link, *size),
                 Meta::Node(_) => {}

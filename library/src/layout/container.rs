@@ -141,7 +141,7 @@ impl Layout for BoxNode {
         if fill.is_some() || stroke.iter().any(Option::is_some) {
             let outset = self.outset(styles);
             let radius = self.radius(styles);
-            frame.fill_and_stroke(fill, stroke, outset, radius);
+            frame.fill_and_stroke(fill, stroke, outset, radius, self.span());
         }
 
         // Apply metadata.
@@ -383,7 +383,7 @@ impl Layout for BlockNode {
             let outset = self.outset(styles);
             let radius = self.radius(styles);
             for frame in frames.iter_mut().skip(skip as usize) {
-                frame.fill_and_stroke(fill, stroke, outset, radius);
+                frame.fill_and_stroke(fill, stroke, outset, radius, self.span());
             }
         }
 

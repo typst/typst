@@ -158,6 +158,7 @@ impl Layout for RectNode {
             self.inset(styles),
             self.outset(styles),
             self.radius(styles),
+            self.span(),
         )
     }
 }
@@ -267,6 +268,7 @@ impl Layout for SquareNode {
             self.inset(styles),
             self.outset(styles),
             self.radius(styles),
+            self.span(),
         )
     }
 }
@@ -348,6 +350,7 @@ impl Layout for EllipseNode {
             self.inset(styles),
             self.outset(styles),
             Corners::splat(Rel::zero()),
+            self.span(),
         )
     }
 }
@@ -454,6 +457,7 @@ impl Layout for CircleNode {
             self.inset(styles),
             self.outset(styles),
             Corners::splat(Rel::zero()),
+            self.span(),
         )
     }
 }
@@ -471,6 +475,7 @@ fn layout(
     mut inset: Sides<Rel<Abs>>,
     outset: Sides<Rel<Abs>>,
     radius: Corners<Rel<Abs>>,
+    span: Span,
 ) -> SourceResult<Fragment> {
     let resolved = sizing
         .zip(regions.base())
@@ -524,9 +529,9 @@ fn layout(
             let size = frame.size() + outset.sum_by_axis();
             let pos = Point::new(-outset.left, -outset.top);
             let shape = ellipse(size, fill, stroke.left);
-            frame.prepend(pos, Element::Shape(shape));
+            frame.prepend(pos, Element::Shape(shape, span));
         } else {
-            frame.fill_and_stroke(fill, stroke, outset, radius);
+            frame.fill_and_stroke(fill, stroke, outset, radius, span);
         }
     }
 

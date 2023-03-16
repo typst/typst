@@ -76,7 +76,7 @@ impl Layout for LineNode {
 
         let mut frame = Frame::new(target);
         let shape = Geometry::Line(delta.to_point()).stroked(stroke);
-        frame.push(start.to_point(), Element::Shape(shape));
+        frame.push(start.to_point(), Element::Shape(shape, self.span()));
         Ok(Fragment::frame(frame))
     }
 }

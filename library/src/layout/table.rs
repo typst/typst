@@ -166,14 +166,20 @@ impl Layout for TableNode {
                 for offset in points(rows.iter().map(|piece| piece.height)) {
                     let target = Point::with_x(frame.width() + thickness);
                     let hline = Geometry::Line(target).stroked(stroke);
-                    frame.prepend(Point::new(-half, offset), Element::Shape(hline));
+                    frame.prepend(
+                        Point::new(-half, offset),
+                        Element::Shape(hline, self.span()),
+                    );
                 }
 
                 // Render vertical lines.
                 for offset in points(layout.cols.iter().copied()) {
                     let target = Point::with_y(frame.height() + thickness);
                     let vline = Geometry::Line(target).stroked(stroke);
-                    frame.prepend(Point::new(offset, -half), Element::Shape(vline));
+                    frame.prepend(
+                        Point::new(offset, -half),
+                        Element::Shape(vline, self.span()),
+                    );
                 }
             }
 
@@ -186,7 +192,7 @@ impl Layout for TableNode {
                         let pos = Point::new(dx, dy);
                         let size = Size::new(col, row.height);
                         let rect = Geometry::Rect(size).filled(fill);
-                        frame.prepend(pos, Element::Shape(rect));
+                        frame.prepend(pos, Element::Shape(rect, self.span()));
                     }
                     dy += row.height;
                 }

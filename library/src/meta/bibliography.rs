@@ -285,6 +285,7 @@ fn create(
     bibliography: &BibliographyNode,
     citations: Vec<&CiteNode>,
 ) -> Arc<Works> {
+    let span = bibliography.span();
     let entries = load(world, &bibliography.path()).unwrap();
     let style = bibliography.style(StyleChain::default());
     let bib_id = bibliography.0.stable_id().unwrap();
@@ -369,7 +370,7 @@ fn create(
                 }
 
                 // Format and link to the reference entry.
-                content += format_display_string(&display, supplement)
+                content += format_display_string(&display, supplement, citation.span())
                     .linked(Link::Node(ref_id(entry)));
             }
 
@@ -410,12 +411,12 @@ fn create(
             let prefix = reference.prefix.map(|prefix| {
                 // Format and link to first citation.
                 let bracketed = prefix.with_default_brackets(&*citation_style);
-                format_display_string(&bracketed, None)
+                format_display_string(&bracketed, None, span)
                     .linked(Link::Node(ids[reference.entry.key()]))
                     .styled(backlink.clone())
             });
 
-            let mut reference = format_display_string(&reference.display, None);
+            let mut reference = format_display_string(&reference.display, None, span);
             if prefix.is_none() {
                 reference = reference.styled(backlink);
             }
@@ -471,6 +472,7 @@ const SUPPLEMENT: &str = "cdc579c45cf3d648905c142c7082683f";
 fn format_display_string(
     string: &DisplayString,
     mut supplement: Option<Content>,
+    span: Span,
 ) -> Content {
     let mut stops: Vec<_> = string
         .formatting
@@ -498,7 +500,7 @@ fn format_display_string(
         let mut content = if segment == SUPPLEMENT && supplement.is_some() {
             supplement.take().unwrap_or_default()
         } else {
-            TextNode::packed(segment)
+            TextNode::packed(segment).spanned(span)
         };
 
         for (range, fmt) in &string.formatting {

@@ -137,6 +137,7 @@ fn layout(
                     paint: TextNode::fill_in(ctx.styles()),
                     thickness,
                 }),
+                span,
             ),
         );
         ctx.push(FrameFragment::new(ctx, frame));

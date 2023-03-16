@@ -97,7 +97,7 @@ impl Layout for ImageNode {
         // the frame to the target size, center aligning the image in the
         // process.
         let mut frame = Frame::new(fitted);
-        frame.push(Point::zero(), Element::Image(image, fitted));
+        frame.push(Point::zero(), Element::Image(image, fitted, self.span()));
         frame.resize(target, Align::CENTER_HORIZON);
 
         // Create a clipping group if only part of the image should be visible.

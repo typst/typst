@@ -285,7 +285,7 @@ pub(super) fn decorate(
 
         if target.x >= min_width || !deco.evade {
             let shape = Geometry::Line(target).stroked(stroke);
-            frame.push(origin, Element::Shape(shape));
+            frame.push(origin, Element::Shape(shape, Span::detached()));
         }
     };
 

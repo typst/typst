@@ -288,7 +288,7 @@ impl Frame {
     pub fn fill(&mut self, fill: Paint) {
         self.prepend(
             Point::zero(),
-            Element::Shape(Geometry::Rect(self.size()).filled(fill)),
+            Element::Shape(Geometry::Rect(self.size()).filled(fill), Span::detached()),
         );
     }
 
@@ -299,6 +299,7 @@ impl Frame {
         stroke: Sides<Option<Stroke>>,
         outset: Sides<Rel<Abs>>,
         radius: Corners<Rel<Abs>>,
+        span: Span,
     ) {
         let outset = outset.relative_to(self.size());
         let size = self.size() + outset.sum_by_axis();
@@ -307,7 +308,7 @@ impl Frame {
         self.prepend_multiple(
             rounded_rect(size, radius, fill, stroke)
                 .into_iter()
-                .map(|x| (pos, Element::Shape(x))),
+                .map(|x| (pos, Element::Shape(x, span))),
         )
     }
 
@@ -349,6 +350,7 @@ impl Frame {
             Element::Shape(
                 Geometry::Rect(self.size)
                     .filled(RgbaColor { a: 100, ..Color::TEAL.to_rgba() }.into()),
+                Span::detached(),
             ),
         );
         self.insert(
@@ -359,6 +361,7 @@ impl Frame {
                     paint: Color::RED.into(),
                     thickness: Abs::pt(1.0),
                 }),
+                Span::detached(),
             ),
         );
         self
@@ -369,11 +372,10 @@ impl Frame {
         let radius = Abs::pt(2.0);
         self.push(
             pos - Point::splat(radius),
-            Element::Shape(geom::ellipse(
-                Size::splat(2.0 * radius),
-                Some(Color::GREEN.into()),
-                None,
-            )),
+            Element::Shape(
+                geom::ellipse(Size::splat(2.0 * radius), Some(Color::GREEN.into()), None),
+                Span::detached(),
+            ),
         );
     }
 
@@ -381,10 +383,13 @@ impl Frame {
     pub fn mark_line(&mut self, y: Abs) {
         self.push(
             Point::with_y(y),
-            Element::Shape(Geometry::Line(Point::with_x(self.size.x)).stroked(Stroke {
-                paint: Color::GREEN.into(),
-                thickness: Abs::pt(1.0),
-            })),
+            Element::Shape(
+                Geometry::Line(Point::with_x(self.size.x)).stroked(Stroke {
+                    paint: Color::GREEN.into(),
+                    thickness: Abs::pt(1.0),
+                }),
+                Span::detached(),
+            ),
         );
     }
 }
@@ -406,9 +411,9 @@ pub enum Element {
     /// A run of shaped text.
     Text(Text),
     /// A geometric shape with optional fill and stroke.
-    Shape(Shape),
+    Shape(Shape, Span),
     /// An image and its size.
-    Image(Image, Size),
+    Image(Image, Size, Span),
     /// Meta information and the region it applies to.
     Meta(Meta, Size),
 }
@@ -418,8 +423,8 @@ impl Debug for Element {
         match self {
             Self::Group(group) => group.fmt(f),
             Self::Text(text) => write!(f, "{text:?}"),
-            Self::Shape(shape) => write!(f, "{shape:?}"),
-            Self::Image(image, _) => write!(f, "{image:?}"),
+            Self::Shape(shape, _) => write!(f, "{shape:?}"),
+            Self::Image(image, _, _) => write!(f, "{image:?}"),
             Self::Meta(meta, _) => write!(f, "{meta:?}"),
         }
     }

@@ -1,7 +1,7 @@
 use std::num::NonZeroUsize;
 
 use crate::doc::{Destination, Element, Frame, Location, Meta};
-use crate::geom::{Point, Size};
+use crate::geom::{Geometry, Point, Size};
 use crate::model::Introspector;
 use crate::syntax::{LinkedNode, Source, SourceId, Span, SyntaxKind};
 use crate::World;
@@ -15,6 +15,14 @@ pub enum Jump {
     Dest(Destination),
 }
 
+impl Jump {
+    fn from_span(world: &dyn World, span: Span) -> Self {
+        let source = world.source(span.source());
+        let node = source.find(span);
+        Self::Source(source.id(), node.offset())
+    }
+}
+
 /// Determine where to jump to based on a click in a frame.
 pub fn jump_from_click(
     world: &dyn World,
@@ -24,48 +32,10 @@ pub fn jump_from_click(
 ) -> Option<Jump> {
     let mut introspector = None;
 
-    for (mut pos, element) in frame.elements() {
-        if let Element::Group(group) = element {
-            // TODO: Handle transformation.
-            if let Some(span) = jump_from_click(world, frames, &group.frame, click - pos)
-            {
-                return Some(span);
-            }
-        }
-
-        if let Element::Text(text) = element {
-            for glyph in &text.glyphs {
-                if glyph.span.is_detached() {
-                    continue;
-                }
-
-                let width = glyph.x_advance.at(text.size);
-                if is_in_rect(
-                    Point::new(pos.x, pos.y - text.size),
-                    Size::new(width, text.size),
-                    click,
-                ) {
-                    let source = world.source(glyph.span.source());
-                    let node = source.find(glyph.span);
-                    let pos = if node.kind() == SyntaxKind::Text {
-                        let range = node.range();
-                        let mut offset = range.start + usize::from(glyph.offset);
-                        if (click.x - pos.x) > width / 2.0 {
-                            offset += glyph.c.len_utf8();
-                        }
-                        offset.min(range.end)
-                    } else {
-                        node.offset()
-                    };
-                    return Some(Jump::Source(source.id(), pos));
-                }
-
-                pos.x += width;
-            }
-        }
-
+    // Prefer metadata.
+    for (pos, element) in frame.elements() {
         if let Element::Meta(Meta::Link(link), size) = element {
-            if is_in_rect(pos, *size, click) {
+            if is_in_rect(*pos, *size, click) {
                 let dest = link.resolve(|| {
                     introspector.get_or_insert_with(|| Introspector::new(frames))
                 });
@@ -73,6 +43,63 @@ pub fn jump_from_click(
                 let Some(dest) = dest else { continue };
                 return Some(Jump::Dest(dest));
             }
+        }
+    }
+
+    for (mut pos, element) in frame.elements().rev() {
+        match element {
+            Element::Group(group) => {
+                // TODO: Handle transformation.
+                if let Some(span) =
+                    jump_from_click(world, frames, &group.frame, click - pos)
+                {
+                    return Some(span);
+                }
+            }
+
+            Element::Text(text) => {
+                for glyph in &text.glyphs {
+                    if glyph.span.is_detached() {
+                        continue;
+                    }
+
+                    let width = glyph.x_advance.at(text.size);
+                    if is_in_rect(
+                        Point::new(pos.x, pos.y - text.size),
+                        Size::new(width, text.size),
+                        click,
+                    ) {
+                        let source = world.source(glyph.span.source());
+                        let node = source.find(glyph.span);
+                        let pos = if node.kind() == SyntaxKind::Text {
+                            let range = node.range();
+                            let mut offset = range.start + usize::from(glyph.offset);
+                            if (click.x - pos.x) > width / 2.0 {
+                                offset += glyph.c.len_utf8();
+                            }
+                            offset.min(range.end)
+                        } else {
+                            node.offset()
+                        };
+                        return Some(Jump::Source(source.id(), pos));
+                    }
+
+                    pos.x += width;
+                }
+            }
+
+            Element::Shape(shape, span) => {
+                let Geometry::Rect(size) = shape.geometry else { continue };
+                if is_in_rect(pos, size, click) {
+                    return Some(Jump::from_span(world, *span));
+                }
+            }
+
+            Element::Image(_, size, span) if is_in_rect(pos, *size, click) => {
+                return Some(Jump::from_span(world, *span));
+            }
+
+            _ => {}
         }
     }
 
