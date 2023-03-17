@@ -60,7 +60,7 @@ impl Show for FigureNode {
                 let name = self.local_name(TextNode::lang_in(styles));
                 caption = TextNode::packed(eco_format!("{name}\u{a0}"))
                     + CounterNode::new(
-                        Counter::Selector(Selector::node::<Self>()),
+                        Counter::of(Self::id()),
                         CounterAction::Get(numbering),
                     )
                     .pack()

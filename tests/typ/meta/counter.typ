@@ -6,7 +6,6 @@
 
 Final: #mine.final() \
 #mine.step()
-#mine.step()
 First: #mine.get() \
 #mine.update(7)
 #mine.both("1 of 1") \

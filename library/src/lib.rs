@@ -10,6 +10,7 @@ pub mod symbols;
 pub mod text;
 pub mod visualize;
 
+use typst::diag::At;
 use typst::eval::{LangItems, Library, Module, Scope};
 use typst::geom::{Align, Color, Dir, GenAlign, Smart};
 use typst::model::{Node, NodeId, StyleMap};
@@ -93,6 +94,7 @@ fn global(math: Module, calc: Module) -> Module {
     global.define("bibliography", meta::BibliographyNode::id());
     global.define("counter", meta::counter);
     global.define("numbering", meta::numbering);
+    global.define("state", meta::state);
 
     // Symbols.
     global.define("sym", symbols::sym());
@@ -225,6 +227,15 @@ fn items() -> LangItems {
             math::AccentNode::new(base, math::Accent::new(accent)).pack()
         },
         math_frac: |num, denom| math::FracNode::new(num, denom).pack(),
-        counter_method: meta::counter_method,
+        library_method: |dynamic, method, args, span| {
+            if let Some(counter) = dynamic.downcast().cloned() {
+                meta::counter_method(counter, method, args, span)
+            } else if let Some(state) = dynamic.downcast().cloned() {
+                meta::state_method(state, method, args, span)
+            } else {
+                Err(format!("type {} has no method `{method}`", dynamic.type_name()))
+                    .at(span)
+            }
+        },
     }
 }

@@ -234,7 +234,7 @@ fn create_new_func(node: &Node) -> TokenStream {
     quote! {
         /// Create a new node.
         pub fn new(#(#params),*) -> Self {
-            Self(::typst::model::Content::new::<Self>())
+            Self(::typst::model::Content::new(<Self as ::typst::model::Node>::id()))
             #(#builder_calls)*
         }
     }
@@ -388,7 +388,7 @@ fn create_vtable_func(node: &Node) -> TokenStream {
 
     quote! {
         |id| {
-            let null = Self(::typst::model::Content::new::<#ident>());
+            let null = Self(::typst::model::Content::new(<#ident as ::typst::model::Node>::id()));
             #(#checks)*
             None
         }
@@ -456,7 +456,7 @@ fn create_construct_impl(node: &Node) -> TokenStream {
                 vm: &::typst::eval::Vm,
                 args: &mut ::typst::eval::Args,
             ) -> ::typst::diag::SourceResult<::typst::model::Content> {
-                let mut node = Self(::typst::model::Content::new::<Self>());
+                let mut node = Self(::typst::model::Content::new(<Self as ::typst::model::Node>::id()));
                 #(#handlers)*
                 Ok(node.0)
             }

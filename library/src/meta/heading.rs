@@ -91,14 +91,12 @@ impl Show for HeadingNode {
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.body();
         if let Some(numbering) = self.numbering(styles) {
-            realized = CounterNode::new(
-                Counter::Selector(Selector::node::<Self>()),
-                CounterAction::Get(numbering),
-            )
-            .pack()
-            .spanned(self.span())
-                + HNode::new(Em::new(0.3).into()).with_weak(true).pack()
-                + realized;
+            realized =
+                CounterNode::new(Counter::of(Self::id()), CounterAction::Get(numbering))
+                    .pack()
+                    .spanned(self.span())
+                    + HNode::new(Em::new(0.3).into()).with_weak(true).pack()
+                    + realized;
         }
         Ok(BlockNode::new().with_body(Some(realized)).pack())
     }

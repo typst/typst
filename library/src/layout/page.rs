@@ -2,7 +2,7 @@ use std::ptr;
 use std::str::FromStr;
 
 use super::{AlignNode, ColumnsNode};
-use crate::meta::{Counter, CounterAction, CounterNode, Numbering};
+use crate::meta::{Counter, CounterAction, CounterKey, CounterNode, Numbering};
 use crate::prelude::*;
 
 /// Layouts its child onto one or multiple pages.
@@ -311,9 +311,12 @@ impl PageNode {
         let header_ascent = self.header_ascent(styles);
         let footer = self.footer(styles).or_else(|| {
             self.numbering(styles).map(|numbering| {
-                CounterNode::new(Counter::Page, CounterAction::Both(numbering))
-                    .pack()
-                    .aligned(self.number_align(styles))
+                CounterNode::new(
+                    Counter::new(CounterKey::Page),
+                    CounterAction::Both(numbering),
+                )
+                .pack()
+                .aligned(self.number_align(styles))
             })
         });
         let footer_descent = self.footer_descent(styles);

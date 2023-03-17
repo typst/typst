@@ -9,6 +9,7 @@ mod link;
 mod numbering;
 mod outline;
 mod reference;
+mod state;
 
 pub use self::bibliography::*;
 pub use self::counter::*;
@@ -19,6 +20,7 @@ pub use self::link::*;
 pub use self::numbering::*;
 pub use self::outline::*;
 pub use self::reference::*;
+pub use self::state::*;
 
 use typst::doc::Lang;
 

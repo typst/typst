@@ -90,9 +90,8 @@ pub struct LangItems {
     pub math_accent: fn(base: Content, accent: char) -> Content,
     /// A fraction in a formula: `x/2`.
     pub math_frac: fn(num: Content, denom: Content) -> Content,
-    /// Dispatch a method on a counter. This is hacky and should be superseded
-    /// by more dynamic method dispatch.
-    pub counter_method: fn(
+    /// Dispatch a method on a library value.
+    pub library_method: fn(
         dynamic: &Dynamic,
         method: &str,
         args: Args,

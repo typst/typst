@@ -40,12 +40,7 @@ enum Modifier {
 
 impl Content {
     /// Create a content of the given node kind.
-    pub fn new<T: Node>() -> Self {
-        Self::new_of(T::id())
-    }
-
-    /// Create a content of the given node kind.
-    pub fn new_of(id: NodeId) -> Self {
+    pub fn new(id: NodeId) -> Self {
         Self {
             id,
             span: Span::detached(),
