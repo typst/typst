@@ -166,6 +166,22 @@ impl Introspector {
         self.all().filter(|node| selector.matches(node)).collect()
     }
 
+    /// Query for all metadata matches before the given id.
+    pub fn query_split(
+        &self,
+        selector: Selector,
+        id: StableId,
+    ) -> (Vec<&Content>, Vec<&Content>) {
+        let mut iter = self.all();
+        let before = iter
+            .by_ref()
+            .take_while(|node| node.stable_id() != Some(id))
+            .filter(|node| selector.matches(node))
+            .collect();
+        let after = iter.filter(|node| selector.matches(node)).collect();
+        (before, after)
+    }
+
     /// Find the page number for the given stable id.
     pub fn page(&self, id: StableId) -> NonZeroUsize {
         self.location(id).page

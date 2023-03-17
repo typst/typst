@@ -8,6 +8,7 @@ mod heading;
 mod link;
 mod numbering;
 mod outline;
+mod query;
 mod reference;
 mod state;
 
@@ -19,6 +20,7 @@ pub use self::heading::*;
 pub use self::link::*;
 pub use self::numbering::*;
 pub use self::outline::*;
+pub use self::query::*;
 pub use self::reference::*;
 pub use self::state::*;
 
