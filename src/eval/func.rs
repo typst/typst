@@ -5,7 +5,6 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use comemo::{Prehashed, Track, Tracked, TrackedMut};
-use ecow::EcoString;
 use once_cell::sync::Lazy;
 
 use super::{
@@ -14,7 +13,7 @@ use super::{
 };
 use crate::diag::{bail, SourceResult, StrResult};
 use crate::model::{Introspector, NodeId, Selector, StabilityProvider, StyleMap, Vt};
-use crate::syntax::ast::{self, AstNode, Expr};
+use crate::syntax::ast::{self, AstNode, Expr, Ident};
 use crate::syntax::{SourceId, Span, SyntaxNode};
 use crate::util::hash128;
 use crate::World;
@@ -294,14 +293,14 @@ pub(super) struct Closure {
     /// The source file where the closure was defined.
     pub location: SourceId,
     /// The name of the closure.
-    pub name: Option<EcoString>,
+    pub name: Option<Ident>,
     /// Captured values from outer scopes.
     pub captured: Scope,
     /// The parameter names and default values. Parameters with default value
     /// are named parameters.
-    pub params: Vec<(EcoString, Option<Value>)>,
+    pub params: Vec<(Ident, Option<Value>)>,
     /// The name of an argument sink where remaining arguments are placed.
-    pub sink: Option<EcoString>,
+    pub sink: Option<Ident>,
     /// The expression the closure should evaluate to.
     pub body: Expr,
 }
@@ -329,14 +328,19 @@ impl Closure {
         let mut scopes = Scopes::new(None);
         scopes.top = closure.captured.clone();
 
+        // Evaluate the body.
+        let vt = Vt { world, tracer, provider, introspector };
+        let mut vm = Vm::new(vt, route, closure.location, scopes);
+        vm.depth = depth;
+
         // Provide the closure itself for recursive calls.
         if let Some(name) = &closure.name {
-            scopes.top.define(name.clone(), Value::Func(this.clone()));
+            vm.define(name.clone(), Value::Func(this.clone()));
         }
 
         // Parse the arguments according to the parameter list.
         for (param, default) in &closure.params {
-            scopes.top.define(
+            vm.define(
                 param.clone(),
                 match default {
                     Some(default) => {
@@ -349,20 +353,15 @@ impl Closure {
 
         // Put the remaining arguments into the sink.
         if let Some(sink) = &closure.sink {
-            scopes.top.define(sink.clone(), args.take());
+            vm.define(sink.clone(), args.take());
         }
 
         // Ensure all arguments have been used.
         args.finish()?;
 
-        // Evaluate the body.
-        let vt = Vt { world, tracer, provider, introspector };
-        let mut sub = Vm::new(vt, route, closure.location, scopes);
-        sub.depth = depth;
-
         // Handle control flow.
-        let result = closure.body.eval(&mut sub);
-        match sub.flow {
+        let result = closure.body.eval(&mut vm);
+        match vm.flow {
             Some(Flow::Return(_, Some(explicit))) => return Ok(explicit),
             Some(Flow::Return(_, None)) => {}
             Some(flow) => bail!(flow.forbidden()),

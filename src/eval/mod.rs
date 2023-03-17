@@ -1140,7 +1140,7 @@ impl Eval for ast::Closure {
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         // The closure's name is defined by its let binding if there's one.
-        let name = self.name().map(ast::Ident::take);
+        let name = self.name();
 
         // Collect captured variables.
         let captured = {
@@ -1156,16 +1156,16 @@ impl Eval for ast::Closure {
         for param in self.params() {
             match param {
                 ast::Param::Pos(name) => {
-                    params.push((name.take(), None));
+                    params.push((name, None));
                 }
                 ast::Param::Named(named) => {
-                    params.push((named.name().take(), Some(named.expr().eval(vm)?)));
+                    params.push((named.name(), Some(named.expr().eval(vm)?)));
                 }
                 ast::Param::Sink(name) => {
                     if sink.is_some() {
                         bail!(name.span(), "only one argument sink is allowed");
                     }
-                    sink = Some(name.take());
+                    sink = Some(name);
                 }
             }
         }
