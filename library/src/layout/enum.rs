@@ -180,7 +180,7 @@ impl Layout for EnumNode {
 
             let resolved = if full {
                 parents.push(number);
-                let content = numbering.apply(vt.world, &parents)?.display();
+                let content = numbering.apply_vt(vt, &parents)?.display();
                 parents.pop();
                 content
             } else {
@@ -188,7 +188,7 @@ impl Layout for EnumNode {
                     Numbering::Pattern(pattern) => {
                         TextNode::packed(pattern.apply_kth(parents.len(), number))
                     }
-                    other => other.apply(vt.world, &[number])?.display(),
+                    other => other.apply_vt(vt, &[number])?.display(),
                 }
             };
 

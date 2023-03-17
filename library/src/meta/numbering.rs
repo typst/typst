@@ -64,7 +64,7 @@ pub fn numbering(
     #[variadic]
     numbers: Vec<NonZeroUsize>,
 ) -> Value {
-    numbering.apply(vm.world(), &numbers)?
+    numbering.apply_vm(vm, &numbers)?
 }
 
 /// How to number a sequence of things.
@@ -78,11 +78,7 @@ pub enum Numbering {
 
 impl Numbering {
     /// Apply the pattern to the given numbers.
-    pub fn apply(
-        &self,
-        world: Tracked<dyn World>,
-        numbers: &[NonZeroUsize],
-    ) -> SourceResult<Value> {
+    pub fn apply_vm(&self, vm: &mut Vm, numbers: &[NonZeroUsize]) -> SourceResult<Value> {
         Ok(match self {
             Self::Pattern(pattern) => Value::Str(pattern.apply(numbers).into()),
             Self::Func(func) => {
@@ -90,7 +86,17 @@ impl Numbering {
                     func.span(),
                     numbers.iter().map(|n| Value::Int(n.get() as i64)),
                 );
-                func.call_detached(world, args)?
+                func.call_vm(vm, args)?
+            }
+        })
+    }
+
+    /// Apply the pattern to the given numbers.
+    pub fn apply_vt(&self, vt: &mut Vt, numbers: &[NonZeroUsize]) -> SourceResult<Value> {
+        Ok(match self {
+            Self::Pattern(pattern) => Value::Str(pattern.apply(numbers).into()),
+            Self::Func(func) => {
+                func.call_vt(vt, numbers.iter().map(|n| Value::Int(n.get() as i64)))?
             }
         })
     }

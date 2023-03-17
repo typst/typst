@@ -3,6 +3,7 @@ use std::str::FromStr;
 
 use ecow::{eco_vec, EcoVec};
 use smallvec::{smallvec, SmallVec};
+use typst::eval::Tracer;
 
 use super::{Numbering, NumberingPattern};
 use crate::layout::PageNode;
@@ -125,10 +126,16 @@ impl Show for CounterNode {
                     return counter.resolve(vt, id, &numbering);
                 }
 
-                let sequence = counter.sequence(vt.world, vt.introspector)?;
+                let sequence = counter.sequence(
+                    vt.world,
+                    TrackedMut::reborrow_mut(&mut vt.tracer),
+                    TrackedMut::reborrow_mut(&mut vt.provider),
+                    vt.introspector,
+                )?;
+
                 Ok(match (sequence.single(id), sequence.single(None)) {
                     (Some(current), Some(total)) => {
-                        numbering.apply(vt.world, &[current, total])?.display()
+                        numbering.apply_vt(vt, &[current, total])?.display()
                     }
                     _ => Content::empty(),
                 })
@@ -213,7 +220,7 @@ impl Counter {
     /// id.
     pub fn resolve(
         &self,
-        vt: &Vt,
+        vt: &mut Vt,
         stop: Option<StableId>,
         numbering: &Numbering,
     ) -> SourceResult<Content> {
@@ -221,9 +228,15 @@ impl Counter {
             return Ok(Content::empty());
         }
 
-        let sequence = self.sequence(vt.world, vt.introspector)?;
+        let sequence = self.sequence(
+            vt.world,
+            TrackedMut::reborrow_mut(&mut vt.tracer),
+            TrackedMut::reborrow_mut(&mut vt.provider),
+            vt.introspector,
+        )?;
+
         Ok(match sequence.at(stop) {
-            Some(state) => numbering.apply(vt.world, &state.0)?.display(),
+            Some(state) => numbering.apply_vt(vt, &state.0)?.display(),
             None => Content::empty(),
         })
     }
@@ -236,8 +249,11 @@ impl Counter {
     fn sequence(
         &self,
         world: Tracked<dyn World>,
+        tracer: TrackedMut<Tracer>,
+        provider: TrackedMut<StabilityProvider>,
         introspector: Tracked<Introspector>,
     ) -> SourceResult<CounterSequence> {
+        let mut vt = Vt { world, tracer, provider, introspector };
         let mut search = Selector::Node(
             NodeId::of::<CounterNode>(),
             Some(dict! { "counter" => self.clone() }),
@@ -277,7 +293,7 @@ impl Counter {
                     None => Some(CounterUpdate::Step(NonZeroUsize::ONE)),
                 },
             } {
-                state.update(world, update)?;
+                state.update(&mut vt, update)?;
             }
 
             stops.push((id, state.clone()));
@@ -335,17 +351,15 @@ pub struct CounterState(pub SmallVec<[NonZeroUsize; 3]>);
 
 impl CounterState {
     /// Advance the counter and return the numbers for the given heading.
-    pub fn update(
-        &mut self,
-        world: Tracked<dyn World>,
-        update: CounterUpdate,
-    ) -> SourceResult<()> {
+    pub fn update(&mut self, vt: &mut Vt, update: CounterUpdate) -> SourceResult<()> {
         match update {
             CounterUpdate::Set(state) => *self = state,
             CounterUpdate::Step(level) => self.step(level),
             CounterUpdate::Func(func) => {
-                let args = Args::new(func.span(), self.0.iter().copied().map(Into::into));
-                *self = func.call_detached(world, args)?.cast().at(func.span())?
+                *self = func
+                    .call_vt(vt, self.0.iter().copied().map(Into::into))?
+                    .cast()
+                    .at(func.span())?
             }
         }
         Ok(())

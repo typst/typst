@@ -80,17 +80,17 @@ fn bench_typeset(iai: &mut Iai) {
     )
     .unwrap();
     let content = module.content();
-    iai.run(|| typst::model::typeset(world.track(), &content));
+    iai.run(|| typst::model::typeset(world.track(), tracer.track_mut(), &content));
 }
 
 fn bench_compile(iai: &mut Iai) {
     let world = BenchWorld::new();
-    iai.run(|| typst::compile(&world, &world.source));
+    iai.run(|| typst::compile(&world));
 }
 
 fn bench_render(iai: &mut Iai) {
     let world = BenchWorld::new();
-    let document = typst::compile(&world, &world.source).unwrap();
+    let document = typst::compile(&world).unwrap();
     iai.run(|| typst::export::render(&document.pages[0], 1.0, Color::WHITE))
 }
 
@@ -124,6 +124,18 @@ impl World for BenchWorld {
         &self.library
     }
 
+    fn main(&self) -> &Source {
+        &self.source
+    }
+
+    fn resolve(&self, path: &Path) -> FileResult<SourceId> {
+        Err(FileError::NotFound(path.into()))
+    }
+
+    fn source(&self, _: SourceId) -> &Source {
+        &self.source
+    }
+
     fn book(&self) -> &Prehashed<FontBook> {
         &self.book
     }
@@ -134,13 +146,5 @@ impl World for BenchWorld {
 
     fn file(&self, path: &Path) -> FileResult<Buffer> {
         Err(FileError::NotFound(path.into()))
-    }
-
-    fn resolve(&self, path: &Path) -> FileResult<SourceId> {
-        Err(FileError::NotFound(path.into()))
-    }
-
-    fn source(&self, _: SourceId) -> &Source {
-        unimplemented!()
     }
 }

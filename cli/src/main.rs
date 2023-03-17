@@ -229,12 +229,11 @@ fn compile(command: CompileCommand) -> StrResult<()> {
 /// Compile a single time.
 fn compile_once(world: &mut SystemWorld, command: &CompileCommand) -> StrResult<()> {
     status(command, Status::Compiling).unwrap();
+
     world.reset();
+    world.main = world.resolve(&command.input).map_err(|err| err.to_string())?;
 
-    let main = world.resolve(&command.input).map_err(|err| err.to_string())?;
-    let source = world.source(main);
-
-    match typst::compile(world, source) {
+    match typst::compile(world) {
         // Export the PDF.
         Ok(document) => {
             let buffer = typst::export::pdf(&document);
@@ -372,6 +371,7 @@ struct SystemWorld {
     hashes: RefCell<HashMap<PathBuf, FileResult<PathHash>>>,
     paths: RefCell<HashMap<PathHash, PathSlot>>,
     sources: FrozenVec<Box<Source>>,
+    main: SourceId,
 }
 
 /// Holds details about the location of a font and lazily the font itself.
@@ -401,6 +401,7 @@ impl SystemWorld {
             hashes: RefCell::default(),
             paths: RefCell::default(),
             sources: FrozenVec::new(),
+            main: SourceId::detached(),
         }
     }
 }
@@ -412,6 +413,25 @@ impl World for SystemWorld {
 
     fn library(&self) -> &Prehashed<Library> {
         &self.library
+    }
+
+    fn main(&self) -> &Source {
+        self.source(self.main)
+    }
+
+    fn resolve(&self, path: &Path) -> FileResult<SourceId> {
+        self.slot(path)?
+            .source
+            .get_or_init(|| {
+                let buf = read(path)?;
+                let text = String::from_utf8(buf)?;
+                Ok(self.insert(path, text))
+            })
+            .clone()
+    }
+
+    fn source(&self, id: SourceId) -> &Source {
+        &self.sources[id.into_u16() as usize]
     }
 
     fn book(&self) -> &Prehashed<FontBook> {
@@ -433,21 +453,6 @@ impl World for SystemWorld {
             .buffer
             .get_or_init(|| read(path).map(Buffer::from))
             .clone()
-    }
-
-    fn resolve(&self, path: &Path) -> FileResult<SourceId> {
-        self.slot(path)?
-            .source
-            .get_or_init(|| {
-                let buf = read(path)?;
-                let text = String::from_utf8(buf)?;
-                Ok(self.insert(path, text))
-            })
-            .clone()
-    }
-
-    fn source(&self, id: SourceId) -> &Source {
-        &self.sources[id.into_u16() as usize]
     }
 }
 

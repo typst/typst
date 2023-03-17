@@ -97,7 +97,7 @@ pub fn realize(
 
 /// Try to apply a recipe to the target.
 fn try_apply(
-    vt: &Vt,
+    vt: &mut Vt,
     target: &Content,
     recipe: &Recipe,
     guard: Guard,
@@ -108,7 +108,7 @@ fn try_apply(
                 return Ok(None);
             }
 
-            recipe.apply(vt.world, target.clone().guarded(guard)).map(Some)
+            recipe.apply_vt(vt, target.clone().guarded(guard)).map(Some)
         }
 
         Some(Selector::Label(label)) => {
@@ -116,7 +116,7 @@ fn try_apply(
                 return Ok(None);
             }
 
-            recipe.apply(vt.world, target.clone().guarded(guard)).map(Some)
+            recipe.apply_vt(vt, target.clone().guarded(guard)).map(Some)
         }
 
         Some(Selector::Regex(regex)) => {
@@ -140,7 +140,7 @@ fn try_apply(
                 }
 
                 let piece = make(m.as_str().into()).guarded(guard);
-                let transformed = recipe.apply(vt.world, piece)?;
+                let transformed = recipe.apply_vt(vt, piece)?;
                 result.push(transformed);
                 cursor = m.end();
             }

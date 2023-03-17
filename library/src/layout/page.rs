@@ -403,13 +403,10 @@ pub enum Marginal {
 
 impl Marginal {
     /// Resolve the marginal based on the page number.
-    pub fn resolve(&self, vt: &Vt, page: usize) -> SourceResult<Content> {
+    pub fn resolve(&self, vt: &mut Vt, page: usize) -> SourceResult<Content> {
         Ok(match self {
             Self::Content(content) => content.clone(),
-            Self::Func(func) => {
-                let args = Args::new(func.span(), [Value::Int(page as i64)]);
-                func.call_detached(vt.world, args)?.display()
-            }
+            Self::Func(func) => func.call_vt(vt, [Value::Int(page as i64)])?.display(),
         })
     }
 }

@@ -1,15 +1,13 @@
 use std::fmt::{self, Debug, Formatter, Write};
 use std::iter;
 
-use comemo::Tracked;
 use ecow::{eco_format, EcoString, EcoVec};
 
-use super::{Content, Label, Node, NodeId};
+use super::{Content, Label, Node, NodeId, Vt};
 use crate::diag::{SourceResult, Trace, Tracepoint};
-use crate::eval::{cast_from_value, Args, Cast, Dict, Func, Regex, Value};
+use crate::eval::{cast_from_value, Args, Cast, Dict, Func, Regex, Value, Vm};
 use crate::syntax::Span;
 use crate::util::pretty_array_like;
-use crate::World;
 
 /// A map of style properties.
 #[derive(Default, Clone, Hash)]
@@ -197,20 +195,32 @@ impl Recipe {
     }
 
     /// Apply the recipe to the given content.
-    pub fn apply(
-        &self,
-        world: Tracked<dyn World>,
-        content: Content,
-    ) -> SourceResult<Content> {
+    pub fn apply_vm(&self, vm: &mut Vm, content: Content) -> SourceResult<Content> {
         match &self.transform {
             Transform::Content(content) => Ok(content.clone()),
             Transform::Func(func) => {
                 let args = Args::new(self.span, [Value::Content(content.clone())]);
-                let mut result = func.call_detached(world, args);
+                let mut result = func.call_vm(vm, args);
                 // For selector-less show rules, a tracepoint makes no sense.
                 if self.selector.is_some() {
                     let point = || Tracepoint::Show(content.id().name.into());
-                    result = result.trace(world, point, content.span());
+                    result = result.trace(vm.world(), point, content.span());
+                }
+                Ok(result?.display())
+            }
+            Transform::Style(styles) => Ok(content.styled_with_map(styles.clone())),
+        }
+    }
+
+    /// Apply the recipe to the given content.
+    pub fn apply_vt(&self, vt: &mut Vt, content: Content) -> SourceResult<Content> {
+        match &self.transform {
+            Transform::Content(content) => Ok(content.clone()),
+            Transform::Func(func) => {
+                let mut result = func.call_vt(vt, [Value::Content(content.clone())]);
+                if self.selector.is_some() {
+                    let point = || Tracepoint::Show(content.id().name.into());
+                    result = result.trace(vt.world, point, content.span());
                 }
                 Ok(result?.display())
             }

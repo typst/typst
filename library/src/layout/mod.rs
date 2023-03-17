@@ -47,6 +47,7 @@ use std::mem;
 
 use typed_arena::Arena;
 use typst::diag::SourceResult;
+use typst::eval::Tracer;
 use typst::model::{applicable, realize, SequenceNode, StyleVecBuilder, StyledNode};
 
 use crate::math::{FormulaNode, LayoutMath};
@@ -68,11 +69,12 @@ impl LayoutRoot for Content {
         fn cached(
             node: &Content,
             world: Tracked<dyn World>,
+            tracer: TrackedMut<Tracer>,
             provider: TrackedMut<StabilityProvider>,
             introspector: Tracked<Introspector>,
             styles: StyleChain,
         ) -> SourceResult<Document> {
-            let mut vt = Vt { world, provider, introspector };
+            let mut vt = Vt { world, tracer, provider, introspector };
             let scratch = Scratch::default();
             let (realized, styles) = realize_root(&mut vt, &scratch, node, styles)?;
             realized
@@ -84,6 +86,7 @@ impl LayoutRoot for Content {
         cached(
             self,
             vt.world,
+            TrackedMut::reborrow_mut(&mut vt.tracer),
             TrackedMut::reborrow_mut(&mut vt.provider),
             vt.introspector,
             styles,
@@ -129,12 +132,13 @@ impl Layout for Content {
         fn cached(
             node: &Content,
             world: Tracked<dyn World>,
+            tracer: TrackedMut<Tracer>,
             provider: TrackedMut<StabilityProvider>,
             introspector: Tracked<Introspector>,
             styles: StyleChain,
             regions: Regions,
         ) -> SourceResult<Fragment> {
-            let mut vt = Vt { world, provider, introspector };
+            let mut vt = Vt { world, tracer, provider, introspector };
             let scratch = Scratch::default();
             let (realized, styles) = realize_block(&mut vt, &scratch, node, styles)?;
             realized
@@ -146,6 +150,7 @@ impl Layout for Content {
         cached(
             self,
             vt.world,
+            TrackedMut::reborrow_mut(&mut vt.tracer),
             TrackedMut::reborrow_mut(&mut vt.provider),
             vt.introspector,
             styles,

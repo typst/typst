@@ -59,11 +59,6 @@ impl Show for QueryNode {
         let target = self.target();
         let (before, after) = vt.introspector.query_split(target, id);
         let func = self.format();
-        let args = Args::new(func.span(), [encode(before), encode(after)]);
-        Ok(func.call_detached(vt.world, args)?.display())
+        Ok(func.call_vt(vt, [before.into(), after.into()])?.display())
     }
-}
-
-fn encode(list: Vec<&Content>) -> Value {
-    Value::Array(list.into_iter().cloned().map(Value::Content).collect())
 }

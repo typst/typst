@@ -80,7 +80,7 @@ impl Show for RefNode {
             return self.to_citation(styles).show(vt, styles);
         }
 
-        let &[node] = matches.as_slice() else {
+        let [node] = matches.as_slice() else {
             bail!(self.span(), if matches.is_empty() {
                 "label does not exist in the document"
             } else {
@@ -102,8 +102,7 @@ impl Show for RefNode {
             Smart::Custom(None) => Content::empty(),
             Smart::Custom(Some(Supplement::Content(content))) => content.clone(),
             Smart::Custom(Some(Supplement::Func(func))) => {
-                let args = Args::new(func.span(), [node.clone().into()]);
-                func.call_detached(vt.world, args)?.display()
+                func.call_vt(vt, [node.clone().into()])?.display()
             }
         };
 

@@ -128,7 +128,7 @@ impl Layout for ListNode {
         };
 
         let depth = self.depth(styles);
-        let marker = self.marker(styles).resolve(vt.world, depth)?;
+        let marker = self.marker(styles).resolve(vt, depth)?;
 
         let mut cells = vec![];
         for item in self.children() {
@@ -181,17 +181,14 @@ pub enum ListMarker {
 
 impl ListMarker {
     /// Resolve the marker for the given depth.
-    fn resolve(&self, world: Tracked<dyn World>, depth: usize) -> SourceResult<Content> {
+    fn resolve(&self, vt: &mut Vt, depth: usize) -> SourceResult<Content> {
         Ok(match self {
             Self::Content(list) => list
                 .get(depth)
                 .or(list.last())
                 .cloned()
                 .unwrap_or_else(|| TextNode::packed('•')),
-            Self::Func(func) => {
-                let args = Args::new(func.span(), [Value::Int(depth as i64)]);
-                func.call_detached(world, args)?.display()
-            }
+            Self::Func(func) => func.call_vt(vt, [Value::Int(depth as i64)])?.display(),
         })
     }
 }

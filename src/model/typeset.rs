@@ -6,13 +6,18 @@ use comemo::{Constraint, Track, Tracked, TrackedMut};
 use super::{Content, Selector, StyleChain};
 use crate::diag::SourceResult;
 use crate::doc::{Document, Element, Frame, Location, Meta};
+use crate::eval::Tracer;
 use crate::geom::{Point, Transform};
 use crate::util::NonZeroExt;
 use crate::World;
 
 /// Typeset content into a fully layouted document.
 #[comemo::memoize]
-pub fn typeset(world: Tracked<dyn World>, content: &Content) -> SourceResult<Document> {
+pub fn typeset(
+    world: Tracked<dyn World>,
+    mut tracer: TrackedMut<Tracer>,
+    content: &Content,
+) -> SourceResult<Document> {
     let library = world.library();
     let styles = StyleChain::new(&library.styles);
 
@@ -27,6 +32,7 @@ pub fn typeset(world: Tracked<dyn World>, content: &Content) -> SourceResult<Doc
         let mut provider = StabilityProvider::new();
         let mut vt = Vt {
             world,
+            tracer: TrackedMut::reborrow_mut(&mut tracer),
             provider: provider.track_mut(),
             introspector: introspector.track_with(&constraint),
         };
@@ -52,6 +58,8 @@ pub fn typeset(world: Tracked<dyn World>, content: &Content) -> SourceResult<Doc
 pub struct Vt<'a> {
     /// The compilation environment.
     pub world: Tracked<'a, dyn World>,
+    /// The tracer for inspection of the values an expression produces.
+    pub tracer: TrackedMut<'a, Tracer>,
     /// Provides stable identities to nodes.
     pub provider: TrackedMut<'a, StabilityProvider>,
     /// Provides access to information about the document.
@@ -162,8 +170,8 @@ impl Introspector {
     }
 
     /// Query for all metadata matches for the given selector.
-    pub fn query(&self, selector: Selector) -> Vec<&Content> {
-        self.all().filter(|node| selector.matches(node)).collect()
+    pub fn query(&self, selector: Selector) -> Vec<Content> {
+        self.all().filter(|node| selector.matches(node)).cloned().collect()
     }
 
     /// Query for all metadata matches before the given id.
@@ -171,14 +179,15 @@ impl Introspector {
         &self,
         selector: Selector,
         id: StableId,
-    ) -> (Vec<&Content>, Vec<&Content>) {
+    ) -> (Vec<Content>, Vec<Content>) {
         let mut iter = self.all();
         let before = iter
             .by_ref()
             .take_while(|node| node.stable_id() != Some(id))
             .filter(|node| selector.matches(node))
+            .cloned()
             .collect();
-        let after = iter.filter(|node| selector.matches(node)).collect();
+        let after = iter.filter(|node| selector.matches(node)).cloned().collect();
         (before, after)
     }
 

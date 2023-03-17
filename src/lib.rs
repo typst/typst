@@ -63,14 +63,15 @@ use crate::syntax::{Source, SourceId};
 use crate::util::Buffer;
 
 /// Compile a source file into a fully layouted document.
-pub fn compile(world: &(dyn World + 'static), source: &Source) -> SourceResult<Document> {
+pub fn compile(world: &(dyn World + 'static)) -> SourceResult<Document> {
     // Evaluate the source file into a module.
     let route = Route::default();
     let mut tracer = Tracer::default();
-    let module = eval::eval(world.track(), route.track(), tracer.track_mut(), source)?;
+    let module =
+        eval::eval(world.track(), route.track(), tracer.track_mut(), world.main())?;
 
     // Typeset the module's contents.
-    model::typeset(world.track(), &module.content())
+    model::typeset(world.track(), tracer.track_mut(), &module.content())
 }
 
 /// The environment in which typesetting occurs.
@@ -86,6 +87,15 @@ pub trait World {
     /// The standard library.
     fn library(&self) -> &Prehashed<Library>;
 
+    /// The main source file.
+    fn main(&self) -> &Source;
+
+    /// Try to resolve the unique id of a source file.
+    fn resolve(&self, path: &Path) -> FileResult<SourceId>;
+
+    /// Access a source file by id.
+    fn source(&self, id: SourceId) -> &Source;
+
     /// Metadata about all known fonts.
     fn book(&self) -> &Prehashed<FontBook>;
 
@@ -94,10 +104,4 @@ pub trait World {
 
     /// Try to access a file at a path.
     fn file(&self, path: &Path) -> FileResult<Buffer>;
-
-    /// Try to resolve the unique id of a source file.
-    fn resolve(&self, path: &Path) -> FileResult<SourceId>;
-
-    /// Access a source file by id.
-    fn source(&self, id: SourceId) -> &Source;
 }

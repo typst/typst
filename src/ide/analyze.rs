@@ -36,11 +36,23 @@ pub fn analyze_expr(world: &(dyn World + 'static), node: &LinkedNode) -> Vec<Val
                 }
             }
 
-            let span = node.span();
-            let source = world.source(span.source());
             let route = Route::default();
-            let mut tracer = Tracer::new(Some(span));
-            eval(world.track(), route.track(), tracer.track_mut(), source).ok();
+            let mut tracer = Tracer::new(Some(node.span()));
+            typst::eval::eval(
+                world.track(),
+                route.track(),
+                tracer.track_mut(),
+                world.main(),
+            )
+            .and_then(|module| {
+                typst::model::typeset(
+                    world.track(),
+                    tracer.track_mut(),
+                    &module.content(),
+                )
+            })
+            .ok();
+
             tracer.finish()
         }
 

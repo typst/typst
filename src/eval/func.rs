@@ -13,7 +13,7 @@ use super::{
     Vm,
 };
 use crate::diag::{bail, SourceResult, StrResult};
-use crate::model::{NodeId, Selector, StyleMap};
+use crate::model::{NodeId, Selector, StyleMap, Vt};
 use crate::syntax::ast::{self, AstNode, Expr};
 use crate::syntax::{SourceId, Span, SyntaxNode};
 use crate::util::hash128;
@@ -82,7 +82,7 @@ impl Func {
     }
 
     /// Call the function with the given arguments.
-    pub fn call(&self, vm: &mut Vm, mut args: Args) -> SourceResult<Value> {
+    pub fn call_vm(&self, vm: &mut Vm, mut args: Args) -> SourceResult<Value> {
         match &**self.0 {
             Repr::Native(native) => {
                 let value = (native.func)(vm, &mut args)?;
@@ -111,23 +111,29 @@ impl Func {
             }
             Repr::With(wrapped, applied) => {
                 args.items = applied.items.iter().cloned().chain(args.items).collect();
-                return wrapped.call(vm, args);
+                return wrapped.call_vm(vm, args);
             }
         }
     }
 
-    /// Call the function without an existing virtual machine.
-    pub fn call_detached(
+    /// Call the function with a Vt.
+    pub fn call_vt(
         &self,
-        world: Tracked<dyn World>,
-        args: Args,
+        vt: &mut Vt,
+        args: impl IntoIterator<Item = Value>,
     ) -> SourceResult<Value> {
         let route = Route::default();
         let id = SourceId::detached();
         let scopes = Scopes::new(None);
-        let mut tracer = Tracer::default();
-        let mut vm = Vm::new(world, route.track(), tracer.track_mut(), id, scopes, 0);
-        self.call(&mut vm, args)
+        let mut vm = Vm::new(
+            vt.world,
+            route.track(),
+            TrackedMut::reborrow_mut(&mut vt.tracer),
+            id,
+            scopes,
+        );
+        let args = Args::new(self.span(), args);
+        self.call_vm(&mut vm, args)
     }
 
     /// Apply the given arguments to the function.
@@ -208,7 +214,7 @@ impl From<NodeId> for Func {
 /// A native Rust function.
 pub struct NativeFunc {
     /// The function's implementation.
-    pub func: fn(&Vm, &mut Args) -> SourceResult<Value>,
+    pub func: fn(&mut Vm, &mut Args) -> SourceResult<Value>,
     /// Details about the function.
     pub info: Lazy<FuncInfo>,
 }
@@ -352,10 +358,11 @@ impl Closure {
         args.finish()?;
 
         // Evaluate the body.
-        let mut sub = Vm::new(world, route, tracer, closure.location, scopes, depth);
-        let result = closure.body.eval(&mut sub);
+        let mut sub = Vm::new(world, route, tracer, closure.location, scopes);
+        sub.depth = depth;
 
         // Handle control flow.
+        let result = closure.body.eval(&mut sub);
         match sub.flow {
             Some(Flow::Return(_, Some(explicit))) => return Ok(explicit),
             Some(Flow::Return(_, None)) => {}

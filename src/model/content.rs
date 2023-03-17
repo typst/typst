@@ -4,7 +4,6 @@ use std::hash::{Hash, Hasher};
 use std::iter::{self, Sum};
 use std::ops::{Add, AddAssign, Deref};
 
-use comemo::Tracked;
 use ecow::{eco_format, EcoString, EcoVec};
 use once_cell::sync::Lazy;
 
@@ -19,7 +18,6 @@ use crate::eval::{
 };
 use crate::syntax::Span;
 use crate::util::pretty_array_like;
-use crate::World;
 
 /// Composable representation of styled content.
 #[derive(Clone, Hash)]
@@ -219,13 +217,9 @@ impl Content {
     }
 
     /// Style this content with a recipe, eagerly applying it if possible.
-    pub fn styled_with_recipe(
-        self,
-        world: Tracked<dyn World>,
-        recipe: Recipe,
-    ) -> SourceResult<Self> {
+    pub fn styled_with_recipe(self, vm: &mut Vm, recipe: Recipe) -> SourceResult<Self> {
         if recipe.selector.is_none() {
-            recipe.apply(world, self)
+            recipe.apply_vm(vm, self)
         } else {
             Ok(self.styled(Style::Recipe(recipe)))
         }

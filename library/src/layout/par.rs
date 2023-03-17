@@ -1,3 +1,4 @@
+use typst::eval::Tracer;
 use unicode_bidi::{BidiInfo, Level as BidiLevel};
 use unicode_script::{Script, UnicodeScript};
 use xi_unicode::LineBreakIterator;
@@ -138,6 +139,7 @@ impl ParNode {
         fn cached(
             par: &ParNode,
             world: Tracked<dyn World>,
+            tracer: TrackedMut<Tracer>,
             provider: TrackedMut<StabilityProvider>,
             introspector: Tracked<Introspector>,
             styles: StyleChain,
@@ -145,7 +147,7 @@ impl ParNode {
             region: Size,
             expand: bool,
         ) -> SourceResult<Fragment> {
-            let mut vt = Vt { world, provider, introspector };
+            let mut vt = Vt { world, tracer, provider, introspector };
             let children = par.children();
 
             // Collect all text into one string for BiDi analysis.
@@ -166,6 +168,7 @@ impl ParNode {
         cached(
             self,
             vt.world,
+            TrackedMut::reborrow_mut(&mut vt.tracer),
             TrackedMut::reborrow_mut(&mut vt.provider),
             vt.introspector,
             styles,

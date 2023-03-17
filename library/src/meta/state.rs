@@ -1,6 +1,7 @@
 use std::fmt::{self, Debug, Formatter, Write};
 
 use ecow::EcoVec;
+use typst::eval::Tracer;
 
 use crate::prelude::*;
 
@@ -118,7 +119,7 @@ impl State {
     /// Display the state at the postition of the given stable id.
     fn resolve(
         &self,
-        vt: &Vt,
+        vt: &mut Vt,
         stop: Option<StableId>,
         func: Option<Func>,
     ) -> SourceResult<Content> {
@@ -126,12 +127,17 @@ impl State {
             return Ok(Content::empty());
         }
 
-        let sequence = self.sequence(vt.world, vt.introspector)?;
+        let sequence = self.sequence(
+            vt.world,
+            TrackedMut::reborrow_mut(&mut vt.tracer),
+            TrackedMut::reborrow_mut(&mut vt.provider),
+            vt.introspector,
+        )?;
+
         Ok(match sequence.at(stop) {
             Some(value) => {
                 if let Some(func) = func {
-                    let args = Args::new(func.span(), [value]);
-                    func.call_detached(vt.world, args)?.display()
+                    func.call_vt(vt, [value])?.display()
                 } else {
                     value.display()
                 }
@@ -148,8 +154,11 @@ impl State {
     fn sequence(
         &self,
         world: Tracked<dyn World>,
+        tracer: TrackedMut<Tracer>,
+        provider: TrackedMut<StabilityProvider>,
         introspector: Tracked<Introspector>,
     ) -> SourceResult<StateSequence> {
+        let mut vt = Vt { world, tracer, provider, introspector };
         let search = Selector::Node(
             NodeId::of::<StateNode>(),
             Some(dict! { "state" => self.clone() }),
@@ -165,10 +174,7 @@ impl State {
             if let StateAction::Update(update) = node.action() {
                 match update {
                     StateUpdate::Set(value) => state = value,
-                    StateUpdate::Func(func) => {
-                        let args = Args::new(func.span(), [state]);
-                        state = func.call_detached(world, args)?;
-                    }
+                    StateUpdate::Func(func) => state = func.call_vt(&mut vt, [state])?,
                 }
             }
 

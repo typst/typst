@@ -207,6 +207,7 @@ struct TestWorld {
     fonts: Vec<Font>,
     paths: RefCell<HashMap<PathBuf, PathSlot>>,
     sources: FrozenVec<Box<Source>>,
+    main: SourceId,
 }
 
 #[derive(Default)]
@@ -236,6 +237,7 @@ impl TestWorld {
             fonts,
             paths: RefCell::default(),
             sources: FrozenVec::new(),
+            main: SourceId::detached(),
         }
     }
 }
@@ -249,19 +251,8 @@ impl World for TestWorld {
         &self.library
     }
 
-    fn book(&self) -> &Prehashed<FontBook> {
-        &self.book
-    }
-
-    fn font(&self, id: usize) -> Option<Font> {
-        Some(self.fonts[id].clone())
-    }
-
-    fn file(&self, path: &Path) -> FileResult<Buffer> {
-        self.slot(path)
-            .buffer
-            .get_or_init(|| read(path).map(Buffer::from))
-            .clone()
+    fn main(&self) -> &Source {
+        self.source(self.main)
     }
 
     fn resolve(&self, path: &Path) -> FileResult<SourceId> {
@@ -278,20 +269,38 @@ impl World for TestWorld {
     fn source(&self, id: SourceId) -> &Source {
         &self.sources[id.into_u16() as usize]
     }
+
+    fn book(&self) -> &Prehashed<FontBook> {
+        &self.book
+    }
+
+    fn font(&self, id: usize) -> Option<Font> {
+        Some(self.fonts[id].clone())
+    }
+
+    fn file(&self, path: &Path) -> FileResult<Buffer> {
+        self.slot(path)
+            .buffer
+            .get_or_init(|| read(path).map(Buffer::from))
+            .clone()
+    }
 }
 
 impl TestWorld {
     fn set(&mut self, path: &Path, text: String) -> SourceId {
         let slot = self.slot(path);
-        if let Some(&Ok(id)) = slot.source.get() {
+        let id = if let Some(&Ok(id)) = slot.source.get() {
             drop(slot);
             self.sources.as_mut()[id.into_u16() as usize].replace(text);
             id
         } else {
             let id = self.insert(path, text);
             slot.source.set(Ok(id)).unwrap();
+            drop(slot);
             id
-        }
+        };
+        self.main = id;
+        id
     }
 
     fn slot(&self, path: &Path) -> RefMut<PathSlot> {
@@ -448,7 +457,7 @@ fn test_part(
         println!("Model:\n{:#?}\n", module.content());
     }
 
-    let (mut frames, errors) = match typst::compile(world, source) {
+    let (mut frames, errors) = match typst::compile(world) {
         Ok(document) => (document.pages, vec![]),
         Err(errors) => (vec![], *errors),
     };

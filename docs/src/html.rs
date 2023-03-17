@@ -307,7 +307,7 @@ fn code_block(resolver: &dyn Resolver, lang: &str, text: &str) -> Html {
 
     let source = Source::new(SourceId::from_u16(0), Path::new("main.typ"), compile);
     let world = DocWorld(source);
-    let mut frames = match typst::compile(&world, &world.0) {
+    let mut frames = match typst::compile(&world) {
         Ok(doc) => doc.pages,
         Err(err) => {
             let msg = &err[0].message;
@@ -335,6 +335,19 @@ impl World for DocWorld {
         &LIBRARY
     }
 
+    fn main(&self) -> &Source {
+        &self.0
+    }
+
+    fn resolve(&self, _: &Path) -> FileResult<SourceId> {
+        unimplemented!()
+    }
+
+    fn source(&self, id: SourceId) -> &Source {
+        assert_eq!(id.into_u16(), 0, "invalid source id");
+        &self.0
+    }
+
     fn book(&self) -> &Prehashed<FontBook> {
         &FONTS.0
     }
@@ -349,14 +362,5 @@ impl World for DocWorld {
             .unwrap_or_else(|| panic!("failed to load {path:?}"))
             .contents()
             .into())
-    }
-
-    fn resolve(&self, _: &Path) -> FileResult<SourceId> {
-        unimplemented!()
-    }
-
-    fn source(&self, id: SourceId) -> &Source {
-        assert_eq!(id.into_u16(), 0, "invalid source id");
-        &self.0
     }
 }

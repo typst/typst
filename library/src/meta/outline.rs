@@ -91,10 +91,12 @@ impl Show for OutlineNode {
         let depth = self.depth(styles);
 
         let mut ancestors: Vec<&HeadingNode> = vec![];
-        for node in vt.introspector.query(Selector::Node(
+        let nodes = vt.introspector.query(Selector::Node(
             NodeId::of::<HeadingNode>(),
             Some(dict! { "outlined" => true }),
-        )) {
+        ));
+
+        for node in &nodes {
             let heading = node.to::<HeadingNode>().unwrap();
             let stable_id = heading.0.stable_id().unwrap();
             if !heading.outlined(StyleChain::default()) {

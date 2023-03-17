@@ -227,14 +227,13 @@ pub enum Celled<T> {
 
 impl<T: Cast + Clone> Celled<T> {
     /// Resolve the value based on the cell position.
-    pub fn resolve(&self, vt: &Vt, x: usize, y: usize) -> SourceResult<T> {
+    pub fn resolve(&self, vt: &mut Vt, x: usize, y: usize) -> SourceResult<T> {
         Ok(match self {
             Self::Value(value) => value.clone(),
-            Self::Func(func) => {
-                let args =
-                    Args::new(func.span(), [Value::Int(x as i64), Value::Int(y as i64)]);
-                func.call_detached(vt.world, args)?.cast().at(func.span())?
-            }
+            Self::Func(func) => func
+                .call_vt(vt, [Value::Int(x as i64), Value::Int(y as i64)])?
+                .cast()
+                .at(func.span())?,
         })
     }
 }

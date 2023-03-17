@@ -144,7 +144,7 @@ impl Array {
         }
         for item in self.iter() {
             let args = Args::new(func.span(), [item.clone()]);
-            if func.call(vm, args)?.cast::<bool>().at(func.span())? {
+            if func.call_vm(vm, args)?.cast::<bool>().at(func.span())? {
                 return Ok(Some(item.clone()));
             }
         }
@@ -158,7 +158,7 @@ impl Array {
         }
         for (i, item) in self.iter().enumerate() {
             let args = Args::new(func.span(), [item.clone()]);
-            if func.call(vm, args)?.cast::<bool>().at(func.span())? {
+            if func.call_vm(vm, args)?.cast::<bool>().at(func.span())? {
                 return Ok(Some(i as i64));
             }
         }
@@ -175,7 +175,7 @@ impl Array {
         let mut kept = EcoVec::new();
         for item in self.iter() {
             let args = Args::new(func.span(), [item.clone()]);
-            if func.call(vm, args)?.cast::<bool>().at(func.span())? {
+            if func.call_vm(vm, args)?.cast::<bool>().at(func.span())? {
                 kept.push(item.clone())
             }
         }
@@ -196,7 +196,7 @@ impl Array {
                     args.push(func.span(), Value::Int(i as i64));
                 }
                 args.push(func.span(), item.clone());
-                func.call(vm, args)
+                func.call_vm(vm, args)
             })
             .collect()
     }
@@ -209,7 +209,7 @@ impl Array {
         let mut acc = init;
         for item in self.iter() {
             let args = Args::new(func.span(), [acc, item.clone()]);
-            acc = func.call(vm, args)?;
+            acc = func.call_vm(vm, args)?;
         }
         Ok(acc)
     }
@@ -221,7 +221,7 @@ impl Array {
         }
         for item in self.iter() {
             let args = Args::new(func.span(), [item.clone()]);
-            if func.call(vm, args)?.cast::<bool>().at(func.span())? {
+            if func.call_vm(vm, args)?.cast::<bool>().at(func.span())? {
                 return Ok(true);
             }
         }
@@ -236,7 +236,7 @@ impl Array {
         }
         for item in self.iter() {
             let args = Args::new(func.span(), [item.clone()]);
-            if !func.call(vm, args)?.cast::<bool>().at(func.span())? {
+            if !func.call_vm(vm, args)?.cast::<bool>().at(func.span())? {
                 return Ok(false);
             }
         }

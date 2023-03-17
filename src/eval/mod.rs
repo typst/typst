@@ -81,7 +81,7 @@ pub fn eval(
     // Evaluate the module.
     let route = unsafe { Route::insert(route, id) };
     let scopes = Scopes::new(Some(library));
-    let mut vm = Vm::new(world, route.track(), tracer, id, scopes, 0);
+    let mut vm = Vm::new(world, route.track(), tracer, id, scopes);
     let root = match source.root().cast::<ast::Markup>() {
         Some(markup) if vm.traced.is_some() => markup,
         _ => source.ast()?,
@@ -121,7 +121,7 @@ pub fn eval_code_str(
     let scopes = Scopes::new(Some(library));
     let route = Route::default();
     let mut tracer = Tracer::default();
-    let mut vm = Vm::new(world, route.track(), tracer.track_mut(), id, scopes, 0);
+    let mut vm = Vm::new(world, route.track(), tracer.track_mut(), id, scopes);
     let code = root.cast::<ast::Code>().unwrap();
     let result = code.eval(&mut vm);
 
@@ -139,34 +139,33 @@ pub fn eval_code_str(
 /// virtual machine is created for each module evaluation and function call.
 pub struct Vm<'a> {
     /// The compilation environment.
-    pub(super) world: Tracked<'a, dyn World>,
+    world: Tracked<'a, dyn World>,
     /// The language items.
-    pub(super) items: LangItems,
+    items: LangItems,
     /// The route of source ids the VM took to reach its current location.
-    pub(super) route: Tracked<'a, Route>,
+    route: Tracked<'a, Route>,
     /// The tracer for inspection of the values an expression produces.
-    pub(super) tracer: TrackedMut<'a, Tracer>,
+    tracer: TrackedMut<'a, Tracer>,
     /// The current location.
-    pub(super) location: SourceId,
+    location: SourceId,
     /// A control flow event that is currently happening.
-    pub(super) flow: Option<Flow>,
+    flow: Option<Flow>,
     /// The stack of scopes.
-    pub(super) scopes: Scopes<'a>,
+    scopes: Scopes<'a>,
     /// The current call depth.
-    pub(super) depth: usize,
+    depth: usize,
     /// A span that is currently traced.
-    pub(super) traced: Option<Span>,
+    traced: Option<Span>,
 }
 
 impl<'a> Vm<'a> {
     /// Create a new virtual machine.
-    pub(super) fn new(
+    fn new(
         world: Tracked<'a, dyn World>,
         route: Tracked<'a, Route>,
         tracer: TrackedMut<'a, Tracer>,
         location: SourceId,
         scopes: Scopes<'a>,
-        depth: usize,
     ) -> Self {
         let traced = tracer.span(location);
         Self {
@@ -177,7 +176,7 @@ impl<'a> Vm<'a> {
             location,
             flow: None,
             scopes,
-            depth,
+            depth: 0,
             traced,
         }
     }
@@ -358,7 +357,7 @@ fn eval_markup(
                 }
 
                 let tail = eval_markup(vm, exprs)?;
-                seq.push(tail.styled_with_recipe(vm.world, recipe)?)
+                seq.push(tail.styled_with_recipe(vm, recipe)?)
             }
             expr => match expr.eval(vm)? {
                 Value::Label(label) => {
@@ -791,7 +790,7 @@ fn eval_code(
                 }
 
                 let tail = eval_code(vm, exprs)?.display();
-                Value::Content(tail.styled_with_recipe(vm.world, recipe)?)
+                Value::Content(tail.styled_with_recipe(vm, recipe)?)
             }
             _ => expr.eval(vm)?,
         };
@@ -1053,7 +1052,7 @@ impl Eval for ast::FuncCall {
 
         let callee = callee.cast::<Func>().at(callee_span)?;
         let point = || Tracepoint::Call(callee.name().map(Into::into));
-        callee.call(vm, args).trace(vm.world, point, span)
+        callee.call_vm(vm, args).trace(vm.world, point, span)
     }
 }
 
