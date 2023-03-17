@@ -100,7 +100,7 @@ pub struct EnumNode {
     ///   [Ahead],
     /// )
     /// ```
-    #[default(NonZeroUsize::new(1).unwrap())]
+    #[default(NonZeroUsize::ONE)]
     pub start: NonZeroUsize,
 
     /// Whether to display the full numbering, including the numbers of
@@ -180,7 +180,7 @@ impl Layout for EnumNode {
 
             let resolved = if full {
                 parents.push(number);
-                let content = numbering.apply(vt.world(), &parents)?.display();
+                let content = numbering.apply(vt.world, &parents)?.display();
                 parents.pop();
                 content
             } else {
@@ -188,7 +188,7 @@ impl Layout for EnumNode {
                     Numbering::Pattern(pattern) => {
                         TextNode::packed(pattern.apply_kth(parents.len(), number))
                     }
-                    other => other.apply(vt.world(), &[number])?.display(),
+                    other => other.apply(vt.world, &[number])?.display(),
                 }
             };
 

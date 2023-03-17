@@ -1,38 +1,9 @@
 //! Node interaction.
 
-use typst::model::{Content, StyleChain, StyleVec, StyleVecBuilder};
-
-/// How a node interacts with other nodes.
-pub trait Behave {
-    /// The node's interaction behaviour.
-    fn behaviour(&self) -> Behaviour;
-
-    /// Whether this weak node is larger than a previous one and thus picked as
-    /// the maximum when the levels are the same.
-    #[allow(unused_variables)]
-    fn larger(&self, prev: &Content) -> bool {
-        false
-    }
-}
-
-/// How a node interacts with other nodes in a stream.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum Behaviour {
-    /// A weak node which only survives when a supportive node is before and
-    /// after it. Furthermore, per consecutive run of weak nodes, only one
-    /// survives: The one with the lowest weakness level (or the larger one if
-    /// there is a tie).
-    Weak(usize),
-    /// A node that enables adjacent weak nodes to exist. The default.
-    Supportive,
-    /// A node that destroys adjacent weak nodes.
-    Destructive,
-    /// A node that does not interact at all with other nodes, having the
-    /// same effect as if it didn't exist.
-    Ignorant,
-}
+use typst::model::{Behave, Behaviour, Content, StyleChain, StyleVec, StyleVecBuilder};
 
 /// A wrapper around a [`StyleVecBuilder`] that allows items to interact.
+#[derive(Debug)]
 pub struct BehavedBuilder<'a> {
     /// The internal builder.
     builder: StyleVecBuilder<'a, Content>,
@@ -53,9 +24,19 @@ impl<'a> BehavedBuilder<'a> {
         }
     }
 
-    /// Whether the builder is empty.
+    /// Whether the builder is totally empty.
     pub fn is_empty(&self) -> bool {
         self.builder.is_empty() && self.staged.is_empty()
+    }
+
+    /// Whether the builder is empty except for some weak items that will
+    /// probably collapse.
+    pub fn is_basically_empty(&self) -> bool {
+        self.builder.is_empty()
+            && self
+                .staged
+                .iter()
+                .all(|(_, behaviour, _)| matches!(behaviour, Behaviour::Weak(_)))
     }
 
     /// Push an item into the sequence.

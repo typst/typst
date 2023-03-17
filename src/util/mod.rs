@@ -8,6 +8,7 @@ pub use buffer::Buffer;
 
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
+use std::num::NonZeroUsize;
 use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 
@@ -37,6 +38,19 @@ pub fn hash128<T: Hash + ?Sized>(value: &T) -> u128 {
     let mut state = SipHasher::new();
     value.hash(&mut state);
     state.finish128().as_u128()
+}
+
+/// Extra methods for [`NonZeroUsize`].
+pub trait NonZeroExt {
+    /// The number `1`.
+    const ONE: Self;
+}
+
+impl NonZeroExt for NonZeroUsize {
+    const ONE: Self = match Self::new(1) {
+        Some(v) => v,
+        None => unreachable!(),
+    };
 }
 
 /// Extra methods for [`str`].

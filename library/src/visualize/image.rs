@@ -53,7 +53,7 @@ impl Layout for ImageNode {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let image = load(vt.world(), &self.path()).unwrap();
+        let image = load(vt.world, &self.path()).unwrap();
         let sizing = Axes::new(self.width(styles), self.height(styles));
         let region = sizing
             .zip(regions.base())
@@ -106,7 +106,7 @@ impl Layout for ImageNode {
         }
 
         // Apply metadata.
-        frame.meta(styles);
+        frame.meta(styles, false);
 
         Ok(Fragment::frame(frame))
     }

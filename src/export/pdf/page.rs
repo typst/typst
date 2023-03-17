@@ -114,11 +114,7 @@ fn write_page(ctx: &mut PdfContext, page: Page) {
         let mut annotation = annotations.push();
         annotation.subtype(AnnotationType::Link).rect(rect);
         annotation.border(0.0, 0.0, 0.0, None);
-
-        let dest = link.resolve(|| &ctx.introspector);
-        let Some(dest) = dest else { continue };
-
-        match dest {
+        match link.resolve(|| &ctx.introspector) {
             Destination::Url(uri) => {
                 annotation
                     .action()

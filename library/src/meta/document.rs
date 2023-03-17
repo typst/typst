@@ -45,8 +45,7 @@ impl LayoutRoot for DocumentNode {
             }
 
             if let Some(page) = child.to::<PageNode>() {
-                let number = 1 + pages.len();
-                let fragment = page.layout(vt, number, styles)?;
+                let fragment = page.layout(vt, styles)?;
                 pages.extend(fragment);
             } else {
                 bail!(child.span(), "unexpected document child");

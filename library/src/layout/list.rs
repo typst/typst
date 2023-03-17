@@ -128,7 +128,7 @@ impl Layout for ListNode {
         };
 
         let depth = self.depth(styles);
-        let marker = self.marker(styles).resolve(vt.world(), depth)?;
+        let marker = self.marker(styles).resolve(vt.world, depth)?;
 
         let mut cells = vec![];
         for item in self.children() {

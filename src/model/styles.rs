@@ -2,7 +2,7 @@ use std::fmt::{self, Debug, Formatter, Write};
 use std::iter;
 
 use comemo::Tracked;
-use ecow::{eco_format, EcoString};
+use ecow::{eco_format, EcoString, EcoVec};
 
 use super::{Content, Label, Node, NodeId};
 use crate::diag::{SourceResult, Trace, Tracepoint};
@@ -31,8 +31,8 @@ impl StyleMap {
     /// If the property needs folding and the value is already contained in the
     /// style map, `self` contributes the outer values and `value` is the inner
     /// one.
-    pub fn set(&mut self, property: Property) {
-        self.0.push(Style::Property(property));
+    pub fn set(&mut self, style: impl Into<Style>) {
+        self.0.push(style.into());
     }
 
     /// Remove the style that was last set.
@@ -243,6 +243,8 @@ pub enum Selector {
     Label(Label),
     /// Matches text nodes through a regular expression.
     Regex(Regex),
+    /// Matches if any of the subselectors match.
+    Any(EcoVec<Self>),
 }
 
 impl Selector {
@@ -271,6 +273,7 @@ impl Selector {
                 target.id() == item!(text_id)
                     && item!(text_str)(target).map_or(false, |text| regex.is_match(&text))
             }
+            Self::Any(selectors) => selectors.iter().any(|sel| sel.matches(target)),
         }
     }
 }
@@ -288,6 +291,12 @@ impl Debug for Selector {
             }
             Self::Label(label) => label.fmt(f),
             Self::Regex(regex) => regex.fmt(f),
+            Self::Any(selectors) => {
+                f.write_str("any")?;
+                let pieces: Vec<_> =
+                    selectors.iter().map(|sel| eco_format!("{sel:?}")).collect();
+                f.write_str(&pretty_array_like(&pieces, false))
+            }
         }
     }
 }
@@ -659,6 +668,7 @@ impl<T: Debug> Debug for StyleVec<T> {
 }
 
 /// Assists in the construction of a [`StyleVec`].
+#[derive(Debug)]
 pub struct StyleVecBuilder<'a, T> {
     items: Vec<T>,
     chains: Vec<(StyleChain<'a>, usize)>,

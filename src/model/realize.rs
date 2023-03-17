@@ -1,6 +1,7 @@
-use super::{Content, NodeId, Recipe, Selector, StyleChain, Vt};
+use super::{Content, MetaNode, Node, NodeId, Recipe, Selector, StyleChain, Vt};
 use crate::diag::SourceResult;
-use crate::doc::{Meta, MetaNode};
+use crate::doc::Meta;
+use crate::util::hash128;
 
 /// Whether the target is affected by show rules in the given style chain.
 pub fn applicable(target: &Content, styles: StyleChain) -> bool {
@@ -36,7 +37,7 @@ pub fn realize(
     if target.needs_preparation() {
         let mut node = target.clone();
         if target.can::<dyn Locatable>() || target.label().is_some() {
-            let id = vt.identify(target);
+            let id = vt.provider.identify(hash128(target));
             node.set_stable_id(id);
         }
 
@@ -47,8 +48,12 @@ pub fn realize(
         node.mark_prepared();
 
         if node.stable_id().is_some() {
+            let span = node.span();
             let meta = Meta::Node(node.clone());
-            return Ok(Some(node.styled(MetaNode::set_data(vec![meta]))));
+            return Ok(Some(
+                (node + MetaNode::new().pack().spanned(span))
+                    .styled(MetaNode::set_data(vec![meta])),
+            ));
         }
 
         return Ok(Some(node));
@@ -103,7 +108,7 @@ fn try_apply(
                 return Ok(None);
             }
 
-            recipe.apply(vt.world(), target.clone().guarded(guard)).map(Some)
+            recipe.apply(vt.world, target.clone().guarded(guard)).map(Some)
         }
 
         Some(Selector::Label(label)) => {
@@ -111,7 +116,7 @@ fn try_apply(
                 return Ok(None);
             }
 
-            recipe.apply(vt.world(), target.clone().guarded(guard)).map(Some)
+            recipe.apply(vt.world, target.clone().guarded(guard)).map(Some)
         }
 
         Some(Selector::Regex(regex)) => {
@@ -135,7 +140,7 @@ fn try_apply(
                 }
 
                 let piece = make(m.as_str().into()).guarded(guard);
-                let transformed = recipe.apply(vt.world(), piece)?;
+                let transformed = recipe.apply(vt.world, piece)?;
                 result.push(transformed);
                 cursor = m.end();
             }
@@ -150,6 +155,9 @@ fn try_apply(
 
             Ok(Some(Content::sequence(result)))
         }
+
+        // Not supported here.
+        Some(Selector::Any(_)) => Ok(None),
 
         None => Ok(None),
     }
@@ -176,6 +184,36 @@ pub trait Finalize {
     /// should work even in the face of a user-defined show rule, for example
     /// the linking behaviour of a link node.
     fn finalize(&self, realized: Content, styles: StyleChain) -> Content;
+}
+
+/// How a node interacts with other nodes.
+pub trait Behave {
+    /// The node's interaction behaviour.
+    fn behaviour(&self) -> Behaviour;
+
+    /// Whether this weak node is larger than a previous one and thus picked as
+    /// the maximum when the levels are the same.
+    #[allow(unused_variables)]
+    fn larger(&self, prev: &Content) -> bool {
+        false
+    }
+}
+
+/// How a node interacts with other nodes in a stream.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum Behaviour {
+    /// A weak node which only survives when a supportive node is before and
+    /// after it. Furthermore, per consecutive run of weak nodes, only one
+    /// survives: The one with the lowest weakness level (or the larger one if
+    /// there is a tie).
+    Weak(usize),
+    /// A node that enables adjacent weak nodes to exist. The default.
+    Supportive,
+    /// A node that destroys adjacent weak nodes.
+    Destructive,
+    /// A node that does not interact at all with other nodes, having the
+    /// same effect as if it didn't exist.
+    Ignorant,
 }
 
 /// Guards content against being affected by the same show rule multiple times.

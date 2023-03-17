@@ -14,7 +14,7 @@ use crate::geom::{
     Numeric, Paint, Point, Rel, RgbaColor, Shape, Sides, Size, Stroke, Transform,
 };
 use crate::image::Image;
-use crate::model::{node, Content, Fold, Introspector, StableId, StyleChain};
+use crate::model::{Content, Introspector, MetaNode, StableId, StyleChain};
 use crate::syntax::Span;
 
 /// A finished document with metadata and page frames.
@@ -271,16 +271,15 @@ impl Frame {
     }
 
     /// Attach the metadata from this style chain to the frame.
-    pub fn meta(&mut self, styles: StyleChain) {
-        if self.is_empty() {
-            return;
-        }
-        for meta in MetaNode::data_in(styles) {
-            if matches!(meta, Meta::Hide) {
-                self.clear();
-                break;
+    pub fn meta(&mut self, styles: StyleChain, force: bool) {
+        if force || !self.is_empty() {
+            for meta in MetaNode::data_in(styles) {
+                if matches!(meta, Meta::Hide) {
+                    self.clear();
+                    break;
+                }
+                self.prepend(Point::zero(), Element::Meta(meta, self.size));
             }
-            self.prepend(Point::zero(), Element::Meta(meta, self.size));
         }
     }
 
@@ -607,6 +606,16 @@ pub enum Meta {
     Node(Content),
 }
 
+cast_from_value! {
+    Meta: "meta",
+}
+
+impl PartialEq for Meta {
+    fn eq(&self, other: &Self) -> bool {
+        crate::util::hash128(self) == crate::util::hash128(other)
+    }
+}
+
 /// A possibly unresolved link.
 #[derive(Debug, Clone, Hash)]
 pub enum Link {
@@ -623,42 +632,11 @@ impl Link {
     pub fn resolve<'a>(
         &self,
         introspector: impl FnOnce() -> &'a Introspector,
-    ) -> Option<Destination> {
+    ) -> Destination {
         match self {
-            Self::Dest(dest) => Some(dest.clone()),
-            Self::Node(id) => introspector().location(*id).map(Destination::Internal),
+            Self::Dest(dest) => dest.clone(),
+            Self::Node(id) => Destination::Internal(introspector().location(*id)),
         }
-    }
-}
-
-/// Host for metadata.
-///
-/// Display: Meta
-/// Category: special
-#[node]
-pub struct MetaNode {
-    /// Metadata that should be attached to all elements affected by this style
-    /// property.
-    #[fold]
-    pub data: Vec<Meta>,
-}
-
-impl Fold for Vec<Meta> {
-    type Output = Self;
-
-    fn fold(mut self, outer: Self::Output) -> Self::Output {
-        self.extend(outer);
-        self
-    }
-}
-
-cast_from_value! {
-    Meta: "meta",
-}
-
-impl PartialEq for Meta {
-    fn eq(&self, other: &Self) -> bool {
-        crate::util::hash128(self) == crate::util::hash128(other)
     }
 }
 

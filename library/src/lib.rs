@@ -91,6 +91,7 @@ fn global(math: Module, calc: Module) -> Module {
     global.define("figure", meta::FigureNode::id());
     global.define("cite", meta::CiteNode::id());
     global.define("bibliography", meta::BibliographyNode::id());
+    global.define("counter", meta::counter);
     global.define("numbering", meta::numbering);
 
     // Symbols.
@@ -224,5 +225,6 @@ fn items() -> LangItems {
             math::AccentNode::new(base, math::Accent::new(accent)).pack()
         },
         math_frac: |num, denom| math::FracNode::new(num, denom).pack(),
+        counter_method: meta::counter_method,
     }
 }

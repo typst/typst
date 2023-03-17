@@ -536,7 +536,7 @@ fn layout(
     }
 
     // Apply metadata.
-    frame.meta(styles);
+    frame.meta(styles, false);
 
     Ok(Fragment::frame(frame))
 }

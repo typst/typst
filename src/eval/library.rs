@@ -6,11 +6,12 @@ use comemo::Tracked;
 use ecow::EcoString;
 use once_cell::sync::OnceCell;
 
-use super::Module;
+use super::{Args, Dynamic, Module, Value};
 use crate::diag::SourceResult;
 use crate::doc::Document;
 use crate::geom::{Abs, Dir};
 use crate::model::{Content, Introspector, Label, NodeId, StyleChain, StyleMap, Vt};
+use crate::syntax::Span;
 use crate::util::hash128;
 use crate::World;
 
@@ -89,6 +90,14 @@ pub struct LangItems {
     pub math_accent: fn(base: Content, accent: char) -> Content,
     /// A fraction in a formula: `x/2`.
     pub math_frac: fn(num: Content, denom: Content) -> Content,
+    /// Dispatch a method on a counter. This is hacky and should be superseded
+    /// by more dynamic method dispatch.
+    pub counter_method: fn(
+        dynamic: &Dynamic,
+        method: &str,
+        args: Args,
+        span: Span,
+    ) -> SourceResult<Value>,
 }
 
 impl Debug for LangItems {

@@ -325,6 +325,8 @@ enum Segment<'a> {
     Formula(&'a FormulaNode),
     /// A box with arbitrary content.
     Box(&'a BoxNode, bool),
+    /// Metadata.
+    Meta,
 }
 
 impl Segment<'_> {
@@ -334,7 +336,7 @@ impl Segment<'_> {
             Self::Text(len) => len,
             Self::Spacing(_) => SPACING_REPLACE.len_utf8(),
             Self::Box(_, true) => SPACING_REPLACE.len_utf8(),
-            Self::Formula(_) | Self::Box(_, _) => NODE_REPLACE.len_utf8(),
+            Self::Formula(_) | Self::Box(_, _) | Self::Meta => NODE_REPLACE.len_utf8(),
         }
     }
 }
@@ -599,6 +601,9 @@ fn collect<'a>(
             let frac = node.width(styles).is_fractional();
             full.push(if frac { SPACING_REPLACE } else { NODE_REPLACE });
             Segment::Box(node, frac)
+        } else if child.is::<MetaNode>() {
+            full.push(NODE_REPLACE);
+            Segment::Meta
         } else {
             bail!(child.span(), "unexpected paragraph child");
         };
@@ -678,6 +683,11 @@ fn prepare<'a>(
                     frame.translate(Point::with_y(TextNode::baseline_in(styles)));
                     items.push(Item::Frame(frame));
                 }
+            }
+            Segment::Meta => {
+                let mut frame = Frame::new(Size::zero());
+                frame.meta(styles, true);
+                items.push(Item::Frame(frame));
             }
         }
 

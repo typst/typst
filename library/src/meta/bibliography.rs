@@ -3,12 +3,12 @@ use std::ffi::OsStr;
 use std::path::Path;
 use std::sync::Arc;
 
-use ecow::EcoVec;
+use ecow::{eco_vec, EcoVec};
 use hayagriva::io::{BibLaTeXError, YamlBibliographyError};
 use hayagriva::style::{self, Brackets, Citation, Database, DisplayString, Formatting};
 use hayagriva::Entry;
 
-use super::LocalName;
+use super::{LocalName, RefNode};
 use crate::layout::{BlockNode, GridNode, ParNode, Sizing, TrackSizings, VNode};
 use crate::meta::HeadingNode;
 use crate::prelude::*;
@@ -65,7 +65,7 @@ impl BibliographyNode {
         vt.introspector
             .query(Selector::node::<Self>())
             .into_iter()
-            .flat_map(|node| load(vt.world(), &node.to::<Self>().unwrap().path()))
+            .flat_map(|node| load(vt.world, &node.to::<Self>().unwrap().path()))
             .flatten()
             .any(|entry| entry.key() == key)
     }
@@ -100,12 +100,6 @@ impl Show for BibliographyNode {
         const COLUMN_GUTTER: Em = Em::new(0.65);
         const INDENT: Em = Em::new(1.5);
 
-        let works = match Works::new(vt) {
-            Ok(works) => works,
-            Err(error) if vt.locatable() => bail!(self.span(), error),
-            Err(_) => Arc::new(Works::default()),
-        };
-
         let mut seq = vec![];
         if let Some(title) = self.title(styles) {
             let title = title.clone().unwrap_or_else(|| {
@@ -115,11 +109,17 @@ impl Show for BibliographyNode {
 
             seq.push(
                 HeadingNode::new(title)
-                    .with_level(NonZeroUsize::new(1).unwrap())
+                    .with_level(NonZeroUsize::ONE)
                     .with_numbering(None)
                     .pack(),
             );
         }
+
+        if !vt.introspector.init() {
+            return Ok(Content::sequence(seq));
+        }
+
+        let works = Works::new(vt).at(self.span())?;
 
         let row_gutter = BlockNode::below_in(styles).amount();
         if works.references.iter().any(|(prefix, _)| prefix.is_some()) {
@@ -227,18 +227,17 @@ impl Synthesize for CiteNode {
 
 impl Show for CiteNode {
     fn show(&self, vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
+        if !vt.introspector.init() {
+            return Ok(Content::empty());
+        }
+
+        let works = Works::new(vt).at(self.span())?;
         let id = self.0.stable_id().unwrap();
-        let works = match Works::new(vt) {
-            Ok(works) => works,
-            Err(error) if vt.locatable() => bail!(self.span(), error),
-            Err(_) => Arc::new(Works::default()),
-        };
-
-        let Some(citation) = works.citations.get(&id).cloned() else {
-            return Ok(TextNode::packed("[1]"));
-        };
-
-        citation
+        works
+            .citations
+            .get(&id)
+            .cloned()
+            .flatten()
             .ok_or("bibliography does not contain this key")
             .at(self.span())
     }
@@ -264,17 +263,28 @@ pub enum CitationStyle {
 
 /// Fully formatted citations and references.
 #[derive(Default)]
-pub struct Works {
+struct Works {
     citations: HashMap<StableId, Option<Content>>,
     references: Vec<(Option<Content>, Content)>,
 }
 
 impl Works {
     /// Prepare all things need to cite a work or format a bibliography.
-    pub fn new(vt: &Vt) -> StrResult<Arc<Self>> {
+    fn new(vt: &Vt) -> StrResult<Arc<Self>> {
         let bibliography = BibliographyNode::find(vt.introspector)?;
-        let citations = vt.query_node::<CiteNode>().collect();
-        Ok(create(vt.world(), &bibliography, citations))
+        let citations = vt
+            .introspector
+            .query(Selector::Any(eco_vec![
+                Selector::node::<RefNode>(),
+                Selector::node::<CiteNode>(),
+            ]))
+            .into_iter()
+            .map(|node| match node.to::<RefNode>() {
+                Some(reference) => reference.to_citation(StyleChain::default()),
+                _ => node.to::<CiteNode>().unwrap().clone(),
+            })
+            .collect();
+        Ok(create(vt.world, bibliography, citations))
     }
 }
 
@@ -282,8 +292,8 @@ impl Works {
 #[comemo::memoize]
 fn create(
     world: Tracked<dyn World>,
-    bibliography: &BibliographyNode,
-    citations: Vec<&CiteNode>,
+    bibliography: BibliographyNode,
+    citations: Vec<CiteNode>,
 ) -> Arc<Works> {
     let span = bibliography.span();
     let entries = load(world, &bibliography.path()).unwrap();
@@ -294,7 +304,7 @@ fn create(
             .iter()
             .position(|entry| entry.key() == target.key())
             .unwrap_or_default();
-        bib_id.variant(i as u64)
+        bib_id.variant(i)
     };
 
     let mut db = Database::new();

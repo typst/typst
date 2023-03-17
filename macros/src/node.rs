@@ -326,12 +326,12 @@ fn create_set_field_method(field: &Field) -> TokenStream {
     let doc = format!("Create a style property for the `{}` field.", name);
     quote! {
         #[doc = #doc]
-        #vis fn #set_ident(#ident: #ty) -> ::typst::model::Property {
-            ::typst::model::Property::new(
+        #vis fn #set_ident(#ident: #ty) -> ::typst::model::Style {
+            ::typst::model::Style::Property(::typst::model::Property::new(
                 ::typst::model::NodeId::of::<Self>(),
                 #name.into(),
                 #ident.into()
-            )
+            ))
         }
     }
 }

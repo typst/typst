@@ -12,6 +12,7 @@ use super::{
     is_id_continue, is_id_start, is_newline, split_newlines, Span, SyntaxKind, SyntaxNode,
 };
 use crate::geom::{AbsUnit, AngleUnit};
+use crate::util::NonZeroExt;
 
 /// A typed AST node.
 pub trait AstNode: Sized {
@@ -641,7 +642,7 @@ impl Heading {
             .children()
             .find(|node| node.kind() == SyntaxKind::HeadingMarker)
             .and_then(|node| node.len().try_into().ok())
-            .unwrap_or(NonZeroUsize::new(1).unwrap())
+            .unwrap_or(NonZeroUsize::ONE)
     }
 }
 

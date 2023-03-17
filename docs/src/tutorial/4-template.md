@@ -275,10 +275,7 @@ path of the file after the `{from}` keyword.
 >>>      right + horizon,
 >>>      title
 >>>    ),
->>>    footer: page => align(
->>>      center + horizon,
->>>      [#page]
->>>    ),
+>>>    numbering: "1",
 >>>  )
 >>>
 >>>  show heading.where(

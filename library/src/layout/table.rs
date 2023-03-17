@@ -233,7 +233,7 @@ impl<T: Cast + Clone> Celled<T> {
             Self::Func(func) => {
                 let args =
                     Args::new(func.span(), [Value::Int(x as i64), Value::Int(y as i64)]);
-                func.call_detached(vt.world(), args)?.cast().at(func.span())?
+                func.call_detached(vt.world, args)?.cast().at(func.span())?
             }
         })
     }

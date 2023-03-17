@@ -172,7 +172,7 @@ checksum = "3d7b894f5411737b7867f4827955924d7c254fc9f4d91a6aad6b097804b1018b"
 [[package]]
 name = "comemo"
 version = "0.1.0"
-source = "git+https://github.com/typst/comemo#36fb31c76eb42d67244bd9c7a2630c29767912f2"
+source = "git+https://github.com/typst/comemo#9b520e8f5284d1c39d0bb13eb426f923972775f8"
 dependencies = [
  "comemo-macros",
  "siphasher",
@@ -181,7 +181,7 @@ dependencies = [
 [[package]]
 name = "comemo-macros"
 version = "0.1.0"
-source = "git+https://github.com/typst/comemo#36fb31c76eb42d67244bd9c7a2630c29767912f2"
+source = "git+https://github.com/typst/comemo#9b520e8f5284d1c39d0bb13eb426f923972775f8"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1415,6 +1415,7 @@ dependencies = [
  "roxmltree",
  "rustybuzz",
  "serde_json",
+ "smallvec",
  "syntect",
  "ttf-parser 0.18.1",
  "typed-arena",

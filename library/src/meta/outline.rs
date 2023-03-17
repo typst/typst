@@ -1,4 +1,4 @@
-use super::{HeadingNode, LocalName};
+use super::{Counter, HeadingNode, LocalName};
 use crate::layout::{BoxNode, HNode, HideNode, ParbreakNode, RepeatNode};
 use crate::prelude::*;
 use crate::text::{LinebreakNode, SpaceNode, TextNode};
@@ -22,7 +22,7 @@ use crate::text::{LinebreakNode, SpaceNode, TextNode};
 ///
 /// Display: Outline
 /// Category: meta
-#[node(Synthesize, Show, LocalName)]
+#[node(Show, LocalName)]
 pub struct OutlineNode {
     /// The title of the outline.
     ///
@@ -67,26 +67,6 @@ pub struct OutlineNode {
     /// ```
     #[default(Some(RepeatNode::new(TextNode::packed(".")).pack()))]
     pub fill: Option<Content>,
-
-    /// All outlined headings in the document.
-    #[synthesized]
-    pub headings: Vec<HeadingNode>,
-}
-
-impl Synthesize for OutlineNode {
-    fn synthesize(&mut self, vt: &Vt, _: StyleChain) {
-        let headings = vt
-            .introspector
-            .query(Selector::Node(
-                NodeId::of::<HeadingNode>(),
-                Some(dict! { "outlined" => true }),
-            ))
-            .into_iter()
-            .map(|node| node.to::<HeadingNode>().unwrap().clone())
-            .collect();
-
-        self.push_headings(headings);
-    }
 }
 
 impl Show for OutlineNode {
@@ -100,7 +80,7 @@ impl Show for OutlineNode {
 
             seq.push(
                 HeadingNode::new(title)
-                    .with_level(NonZeroUsize::new(1).unwrap())
+                    .with_level(NonZeroUsize::ONE)
                     .with_numbering(None)
                     .with_outlined(false)
                     .pack(),
@@ -111,7 +91,11 @@ impl Show for OutlineNode {
         let depth = self.depth(styles);
 
         let mut ancestors: Vec<&HeadingNode> = vec![];
-        for heading in self.headings().iter() {
+        for node in vt.introspector.query(Selector::Node(
+            NodeId::of::<HeadingNode>(),
+            Some(dict! { "outlined" => true }),
+        )) {
+            let heading = node.to::<HeadingNode>().unwrap();
             let stable_id = heading.0.stable_id().unwrap();
             if !heading.outlined(StyleChain::default()) {
                 continue;
@@ -134,9 +118,9 @@ impl Show for OutlineNode {
                 let mut hidden = Content::empty();
                 for ancestor in &ancestors {
                     if let Some(numbering) = ancestor.numbering(StyleChain::default()) {
-                        let numbers = ancestor.numbers().unwrap();
-                        hidden += numbering.apply(vt.world(), &numbers)?.display()
-                            + SpaceNode::new().pack();
+                        let numbers = Counter::Selector(Selector::node::<HeadingNode>())
+                            .resolve(vt, ancestor.0.stable_id(), &numbering)?;
+                        hidden += numbers + SpaceNode::new().pack();
                     };
                 }
 
@@ -149,10 +133,9 @@ impl Show for OutlineNode {
             // Format the numbering.
             let mut start = heading.body();
             if let Some(numbering) = heading.numbering(StyleChain::default()) {
-                let numbers = heading.numbers().unwrap();
-                start = numbering.apply(vt.world(), &numbers)?.display()
-                    + SpaceNode::new().pack()
-                    + start;
+                let numbers = Counter::Selector(Selector::node::<HeadingNode>())
+                    .resolve(vt, Some(stable_id), &numbering)?;
+                start = numbers + SpaceNode::new().pack() + start;
             };
 
             // Add the numbering and section name.
@@ -173,8 +156,8 @@ impl Show for OutlineNode {
             }
 
             // Add the page number and linebreak.
-            let page = vt.introspector.page(stable_id).unwrap();
-            let end = TextNode::packed(eco_format!("{}", page));
+            let page = vt.introspector.page(stable_id);
+            let end = TextNode::packed(eco_format!("{page}"));
             seq.push(end.linked(Link::Node(stable_id)));
             seq.push(LinebreakNode::new().pack());
             ancestors.push(heading);

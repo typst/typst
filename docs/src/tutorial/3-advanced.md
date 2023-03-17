@@ -56,14 +56,11 @@ Let's start by writing some set rules for the document.
 #set page(
 >>>  margin: auto,
   paper: "us-letter",
-  header: align(right + horizon)[
+  header: align(right)[
     A fluid dynamic model for
     glacier flow
   ],
-  footer: nr => align(
-    center + horizon,
-    [#nr],
-  ),
+  numbering: "1",
 )
 
 #lorem(600)
@@ -73,23 +70,17 @@ You are already familiar with most of what is going on here. We set the text
 size to `{11pt}` and the font to Linux Libertine. We also enable paragraph
 justification and set the page size to US letter.
 
-The `header` and `footer` arguments are new: With these, we can provide content
-to fill the top and bottom margins of every page. In the header, we specify our
-paper's title as requested by the conference style guide. We use the `align`
-function to align the text to the right and the `horizon` keyword to make sure
-that it is vertically centered in the margin.
+The `header` argument is new: With it, we can provide content to fill the top
+margin of every page. In the header, we specify our paper's title as requested
+by the conference style guide. We use the `align` function to align the text to
+the right.
 
-Because we need a page number in the footer, we have to put different content
-onto each page. To do that, we can pass a
-[custom function]($type/function) to the footer argument that defines
-how the footer should look for a given page number. Typst provides the page
-number to this function. Once more, we use the `align` function to center the
-page number horizontally and vertically.
-
-We have to put the page variable into square brackets and prefix it with a
-hashtag because the align function expects
-[content,]($type/content) but the page number is an
-[integer]($type/integer).
+Last but not least is the `numbering` argument. Here, we can provide a
+[numbering pattern]($func/numbering) that defines how to number the pages. By
+setting into to `{"1"}`, Typst only displays the bare page number. Setting it to
+`{"(1/1)"}` would have displayed the current page and total number of pages
+surrounded by parentheses. And we can even have provided a completely custom
+function here to format things to our liking.
 
 ## Creating a title and abstract
 Now, let's add a title and an abstract. We'll start with the title. We center
@@ -157,10 +148,7 @@ be set ragged and centered.
 >>>     A fluid dynamic model for
 >>>     glacier flow
 >>>   ],
->>>   footer: page => align(
->>>     center+horizon,
->>>     [#page]
->>>   ),
+>>>   numbering: "1",
 >>> )
 >>>
 >>> #align(center, text(17pt)[
@@ -213,17 +201,14 @@ keyword:
 >>> #set text(font: "Linux Libertine", 11pt)
 >>> #set par(justify: true)
 #set page(
->>> "us-letter",
->>> margin: auto,
+>>>   "us-letter",
+>>>   margin: auto,
   header: align(
     right + horizon,
     title
   ),
 <<<   ...
->>> footer: page => align(
->>>   center+horizon,
->>>   [#page]
->>> ),
+>>>   numbering: "1",
 )
 
 #align(center, text(17pt)[
@@ -289,10 +274,7 @@ content. In our case, it passes it on to the `columns` function.
 >>>     right + horizon,
 >>>     title
 >>>   ),
->>>   footer: page => align(
->>>     center+horizon,
->>>     [#page]
->>>   ),
+>>>   numbering: "1",
 >>> )
 >>>
 >>> #align(center, text(
@@ -351,10 +333,7 @@ a way to set any of that, we need to write our own heading show rule.
 >>>     right + horizon,
 >>>     title
 >>>   ),
->>>   footer: page => align(
->>>     center + horizon,
->>>     [#page]
->>>   ),
+>>>   numbering: "1",
 >>> )
 #show heading: it => block[
   #set align(center)
@@ -430,10 +409,7 @@ differentiate between section and subsection headings:
 >>>     right + horizon,
 >>>     title
 >>>   ),
->>>   footer: page => align(
->>>     center + horizon,
->>>     [#page]
->>>   ),
+>>>   numbering: "1",
 >>> )
 >>>
 #show heading.where(

@@ -86,8 +86,9 @@ fantasy encyclopedia.
 #show heading: it => block[
   #set align(center)
   #set text(font: "Inria Serif")
-  \~ _#it.body;_
-      #it.numbers \~
+  \~ #emph(it.body)
+     #(counter(heading)
+         .get(it.numbering)) \~
 ]
 
 = Dragon

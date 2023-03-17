@@ -145,7 +145,7 @@ impl Layout for BoxNode {
         }
 
         // Apply metadata.
-        frame.meta(styles);
+        frame.meta(styles, false);
 
         Ok(Fragment::frame(frame))
     }
@@ -336,7 +336,7 @@ impl Layout for BlockNode {
             // Measure to ensure frames for all regions have the same width.
             if sizing.x == Smart::Auto {
                 let pod = Regions::one(size, Axes::splat(false));
-                let frame = body.layout(vt, styles, pod)?.into_frame();
+                let frame = body.measure(vt, styles, pod)?.into_frame();
                 size.x = frame.width();
                 expand.x = true;
             }
@@ -389,7 +389,7 @@ impl Layout for BlockNode {
 
         // Apply metadata.
         for frame in &mut frames {
-            frame.meta(styles);
+            frame.meta(styles, false);
         }
 
         Ok(Fragment::frames(frames))

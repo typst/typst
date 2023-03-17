@@ -8,8 +8,12 @@ use comemo::Tracked;
 use ecow::{eco_format, EcoString, EcoVec};
 use once_cell::sync::Lazy;
 
-use super::{node, Guard, Locatable, Recipe, StableId, Style, StyleMap, Synthesize};
+use super::{
+    node, Behave, Behaviour, Fold, Guard, Locatable, Recipe, StableId, Style, StyleMap,
+    Synthesize,
+};
 use crate::diag::{SourceResult, StrResult};
+use crate::doc::Meta;
 use crate::eval::{
     cast_from_value, cast_to_value, Args, Cast, Func, FuncInfo, Str, Value, Vm,
 };
@@ -35,9 +39,15 @@ enum Modifier {
 }
 
 impl Content {
+    /// Create a content of the given node kind.
     pub fn new<T: Node>() -> Self {
+        Self::new_of(T::id())
+    }
+
+    /// Create a content of the given node kind.
+    pub fn new_of(id: NodeId) -> Self {
         Self {
-            id: T::id(),
+            id,
             span: Span::detached(),
             fields: EcoVec::new(),
             modifiers: EcoVec::new(),
@@ -133,11 +143,10 @@ impl Content {
             .map(|(_, value)| value)
     }
 
-    /// Access a field on the content as a specified type.
-    #[track_caller]
+    /// Try to access a field on the content as a specified type.
     pub fn cast_field<T: Cast>(&self, name: &str) -> Option<T> {
         match self.field(name) {
-            Some(value) => Some(value.clone().cast().unwrap()),
+            Some(value) => value.clone().cast().ok(),
             None => None,
         }
     }
@@ -145,7 +154,7 @@ impl Content {
     /// Expect a field on the content to exist as a specified type.
     #[track_caller]
     pub fn expect_field<T: Cast>(&self, name: &str) -> T {
-        self.cast_field(name).unwrap()
+        self.field(name).unwrap().clone().cast().unwrap()
     }
 
     /// List all fields on the content.
@@ -498,6 +507,33 @@ pub struct StyledNode {
 
 cast_from_value! {
     StyleMap: "style map",
+}
+
+/// Host for metadata.
+///
+/// Display: Meta
+/// Category: special
+#[node(Behave)]
+pub struct MetaNode {
+    /// Metadata that should be attached to all elements affected by this style
+    /// property.
+    #[fold]
+    pub data: Vec<Meta>,
+}
+
+impl Behave for MetaNode {
+    fn behaviour(&self) -> Behaviour {
+        Behaviour::Ignorant
+    }
+}
+
+impl Fold for Vec<Meta> {
+    type Output = Self;
+
+    fn fold(mut self, outer: Self::Output) -> Self::Output {
+        self.extend(outer);
+        self
+    }
 }
 
 /// The missing key access error message.

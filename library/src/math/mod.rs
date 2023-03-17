@@ -174,7 +174,7 @@ impl Layout for FormulaNode {
 
         // Find a math font.
         let variant = variant(styles);
-        let world = vt.world();
+        let world = vt.world;
         let Some(font) = families(styles)
             .find_map(|family| {
                 let id = world.book().select(family.as_str(), variant)?;

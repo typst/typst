@@ -78,7 +78,7 @@ pub fn analyze_labels(
     let items = &world.library().items;
 
     // Labels in the document.
-    for node in introspector.nodes() {
+    for node in introspector.all() {
         let Some(label) = node.label() else { continue };
         let details = node
             .field("caption")

@@ -136,7 +136,7 @@ impl<'a> ShapedText<'a> {
         }
 
         // Apply metadata.
-        frame.meta(self.styles);
+        frame.meta(self.styles, false);
 
         frame
     }
@@ -159,7 +159,7 @@ impl<'a> ShapedText<'a> {
         if self.glyphs.is_empty() {
             // When there are no glyphs, we just use the vertical metrics of the
             // first available font.
-            let world = vt.world();
+            let world = vt.world;
             for family in families(self.styles) {
                 if let Some(font) = world
                     .book()
@@ -228,7 +228,7 @@ impl<'a> ShapedText<'a> {
     /// Push a hyphen to end of the text.
     pub fn push_hyphen(&mut self, vt: &Vt) {
         families(self.styles).find_map(|family| {
-            let world = vt.world();
+            let world = vt.world;
             let font = world
                 .book()
                 .select(family.as_str(), self.variant)
@@ -389,7 +389,7 @@ fn shape_segment<'a>(
     }
 
     // Find the next available family.
-    let world = ctx.vt.world();
+    let world = ctx.vt.world;
     let book = world.book();
     let mut selection = families.find_map(|family| {
         book.select(family.as_str(), ctx.variant)

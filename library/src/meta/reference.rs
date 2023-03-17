@@ -1,4 +1,4 @@
-use super::{BibliographyNode, CiteNode, FigureNode, HeadingNode, LocalName, Numbering};
+use super::{BibliographyNode, CiteNode, Counter, LocalName, Numbering};
 use crate::prelude::*;
 use crate::text::TextNode;
 
@@ -35,7 +35,7 @@ use crate::text::TextNode;
 ///
 /// Display: Reference
 /// Category: meta
-#[node(Show)]
+#[node(Locatable, Show)]
 pub struct RefNode {
     /// The target label that should be referenced.
     #[required]
@@ -65,40 +65,36 @@ pub struct RefNode {
 
 impl Show for RefNode {
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        let target = self.target();
-        let supplement = self.supplement(styles);
+        if !vt.introspector.init() {
+            return Ok(Content::empty());
+        }
 
+        let target = self.target();
         let matches = vt.introspector.query(Selector::Label(self.target()));
 
-        if !vt.locatable() || BibliographyNode::has(vt, &target.0) {
+        if BibliographyNode::has(vt, &target.0) {
             if !matches.is_empty() {
                 bail!(self.span(), "label occurs in the document and its bibliography");
             }
 
-            return Ok(CiteNode::new(vec![target.0])
-                .with_supplement(match supplement {
-                    Smart::Custom(Some(Supplement::Content(content))) => Some(content),
-                    _ => None,
-                })
-                .pack()
-                .spanned(self.span()));
+            return self.to_citation(styles).show(vt, styles);
         }
 
-        let &[target] = matches.as_slice() else {
-            if vt.locatable() {
-                bail!(self.span(), if matches.is_empty() {
-                    "label does not exist in the document"
-                } else {
-                    "label occurs multiple times in the document"
-                });
+        let &[node] = matches.as_slice() else {
+            bail!(self.span(), if matches.is_empty() {
+                "label does not exist in the document"
             } else {
-                return Ok(Content::empty());
-            }
+                "label occurs multiple times in the document"
+            });
         };
+
+        if !node.can::<dyn Locatable>() {
+            bail!(self.span(), "cannot reference {}", node.id().name);
+        }
 
         let supplement = self.supplement(styles);
         let mut supplement = match supplement {
-            Smart::Auto => target
+            Smart::Auto => node
                 .with::<dyn LocalName>()
                 .map(|node| node.local_name(TextNode::lang_in(styles)))
                 .map(TextNode::packed)
@@ -106,8 +102,8 @@ impl Show for RefNode {
             Smart::Custom(None) => Content::empty(),
             Smart::Custom(Some(Supplement::Content(content))) => content.clone(),
             Smart::Custom(Some(Supplement::Func(func))) => {
-                let args = Args::new(func.span(), [target.clone().into()]);
-                func.call_detached(vt.world(), args)?.display()
+                let args = Args::new(func.span(), [node.clone().into()]);
+                func.call_detached(vt.world, args)?.display()
             }
         };
 
@@ -115,42 +111,31 @@ impl Show for RefNode {
             supplement += TextNode::packed('\u{a0}');
         }
 
-        let formatted = if let Some(heading) = target.to::<HeadingNode>() {
-            if let Some(numbering) = heading.numbering(StyleChain::default()) {
-                let numbers = heading.numbers().unwrap();
-                numbered(vt, supplement, &numbering, &numbers)?
-            } else {
-                bail!(self.span(), "cannot reference unnumbered heading");
-            }
-        } else if let Some(figure) = target.to::<FigureNode>() {
-            if let Some(numbering) = figure.numbering(StyleChain::default()) {
-                let number = figure.number().unwrap();
-                numbered(vt, supplement, &numbering, &[number])?
-            } else {
-                bail!(self.span(), "cannot reference unnumbered figure");
-            }
-        } else {
-            bail!(self.span(), "cannot reference {}", target.id().name);
+        let Some(numbering) = node.cast_field::<Numbering>("numbering") else {
+            bail!(self.span(), "only numbered elements can be referenced");
         };
 
-        Ok(formatted.linked(Link::Node(target.stable_id().unwrap())))
+        let numbers = Counter::Selector(Selector::Node(node.id(), None)).resolve(
+            vt,
+            node.stable_id(),
+            &numbering.trimmed(),
+        )?;
+
+        Ok((supplement + numbers).linked(Link::Node(node.stable_id().unwrap())))
     }
 }
 
-/// Generate a numbered reference like "Section 1.1".
-fn numbered(
-    vt: &Vt,
-    prefix: Content,
-    numbering: &Numbering,
-    numbers: &[NonZeroUsize],
-) -> SourceResult<Content> {
-    Ok(prefix
-        + match numbering {
-            Numbering::Pattern(pattern) => {
-                TextNode::packed(pattern.apply(&numbers, true))
-            }
-            Numbering::Func(_) => numbering.apply(vt.world(), &numbers)?.display(),
-        })
+impl RefNode {
+    /// Turn the rference into a citation.
+    pub fn to_citation(&self, styles: StyleChain) -> CiteNode {
+        let mut node = CiteNode::new(vec![self.target().0]);
+        node.push_supplement(match self.supplement(styles) {
+            Smart::Custom(Some(Supplement::Content(content))) => Some(content),
+            _ => None,
+        });
+        node.0.set_stable_id(self.0.stable_id().unwrap());
+        node
+    }
 }
 
 /// Additional content for a reference.

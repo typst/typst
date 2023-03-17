@@ -1,7 +1,8 @@
 use typst::font::FontWeight;
 
-use super::{LocalName, Numbering};
+use super::{Counter, CounterAction, CounterNode, CounterUpdate, LocalName, Numbering};
 use crate::layout::{BlockNode, HNode, VNode};
+use crate::meta::Count;
 use crate::prelude::*;
 use crate::text::{TextNode, TextSize};
 
@@ -40,10 +41,10 @@ use crate::text::{TextNode, TextSize};
 ///
 /// Display: Heading
 /// Category: meta
-#[node(Locatable, Synthesize, Show, Finalize, LocalName)]
+#[node(Locatable, Synthesize, Count, Show, Finalize, LocalName)]
 pub struct HeadingNode {
     /// The logical nesting depth of the heading, starting from one.
-    #[default(NonZeroUsize::new(1).unwrap())]
+    #[default(NonZeroUsize::ONE)]
     pub level: NonZeroUsize,
 
     /// How to number the heading. Accepts a
@@ -76,46 +77,26 @@ pub struct HeadingNode {
     /// The heading's title.
     #[required]
     pub body: Content,
-
-    /// The heading's numbering numbers.
-    #[synthesized]
-    pub numbers: Option<Vec<NonZeroUsize>>,
 }
 
 impl Synthesize for HeadingNode {
-    fn synthesize(&mut self, vt: &Vt, styles: StyleChain) {
-        let my_id = self.0.stable_id();
-        let numbering = self.numbering(styles);
-
-        let mut counter = HeadingCounter::new();
-        if numbering.is_some() {
-            // Advance past existing headings.
-            for heading in vt
-                .query_node::<Self>()
-                .take_while(|figure| figure.0.stable_id() != my_id)
-            {
-                if heading.numbering(StyleChain::default()).is_some() {
-                    counter.advance(heading);
-                }
-            }
-
-            // Advance passed self.
-            counter.advance(self);
-        }
-
+    fn synthesize(&mut self, _: &Vt, styles: StyleChain) {
         self.push_level(self.level(styles));
+        self.push_numbering(self.numbering(styles));
         self.push_outlined(self.outlined(styles));
-        self.push_numbers(numbering.is_some().then(|| counter.take()));
-        self.push_numbering(numbering);
     }
 }
 
 impl Show for HeadingNode {
-    fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.body();
         if let Some(numbering) = self.numbering(styles) {
-            let numbers = self.numbers().unwrap();
-            realized = numbering.apply(vt.world(), &numbers)?.display()
+            realized = CounterNode::new(
+                Counter::Selector(Selector::node::<Self>()),
+                CounterAction::Get(numbering),
+            )
+            .pack()
+            .spanned(self.span())
                 + HNode::new(Em::new(0.3).into()).with_weak(true).pack()
                 + realized;
         }
@@ -146,34 +127,11 @@ impl Finalize for HeadingNode {
     }
 }
 
-/// Counts through headings with different levels.
-pub struct HeadingCounter(Vec<NonZeroUsize>);
-
-impl HeadingCounter {
-    /// Create a new heading counter.
-    pub fn new() -> Self {
-        Self(vec![])
-    }
-
-    /// Advance the counter and return the numbers for the given heading.
-    pub fn advance(&mut self, heading: &HeadingNode) -> &[NonZeroUsize] {
-        let level = heading.level(StyleChain::default()).get();
-
-        if self.0.len() >= level {
-            self.0[level - 1] = self.0[level - 1].saturating_add(1);
-            self.0.truncate(level);
-        }
-
-        while self.0.len() < level {
-            self.0.push(NonZeroUsize::new(1).unwrap());
-        }
-
-        &self.0
-    }
-
-    /// Take out the current counts.
-    pub fn take(self) -> Vec<NonZeroUsize> {
-        self.0
+impl Count for HeadingNode {
+    fn update(&self) -> Option<CounterUpdate> {
+        self.numbering(StyleChain::default())
+            .is_some()
+            .then(|| CounterUpdate::Step(self.level(StyleChain::default())))
     }
 }
 

@@ -151,7 +151,7 @@ fn search_text(content: &Content, sub: bool) -> Option<EcoString> {
 /// Checks whether the first retrievable family contains all code points of the
 /// given string.
 fn is_shapable(vt: &Vt, text: &str, styles: StyleChain) -> bool {
-    let world = vt.world();
+    let world = vt.world;
     for family in TextNode::font_in(styles) {
         if let Some(font) = world
             .book()

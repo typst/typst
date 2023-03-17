@@ -143,6 +143,26 @@ cast_to_value! {
     }
 }
 
+impl From<Axes<GenAlign>> for Axes<Option<GenAlign>> {
+    fn from(axes: Axes<GenAlign>) -> Self {
+        axes.map(Some)
+    }
+}
+
+impl From<Axes<Align>> for Axes<Option<GenAlign>> {
+    fn from(axes: Axes<Align>) -> Self {
+        axes.map(GenAlign::Specific).into()
+    }
+}
+
+impl From<Align> for Axes<Option<GenAlign>> {
+    fn from(align: Align) -> Self {
+        let mut axes = Axes::splat(None);
+        axes.set(align.axis(), Some(align.into()));
+        axes
+    }
+}
+
 impl Resolve for GenAlign {
     type Output = Align;
 

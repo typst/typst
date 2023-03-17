@@ -47,10 +47,7 @@ use std::mem;
 
 use typed_arena::Arena;
 use typst::diag::SourceResult;
-use typst::model::{
-    applicable, realize, Content, Node, SequenceNode, StyleChain, StyleVecBuilder,
-    StyledNode,
-};
+use typst::model::{applicable, realize, SequenceNode, StyleVecBuilder, StyledNode};
 
 use crate::math::{FormulaNode, LayoutMath};
 use crate::meta::DocumentNode;
@@ -103,6 +100,22 @@ pub trait Layout {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment>;
+
+    /// Layout without side effects.
+    ///
+    /// This node must be layouted again in the same order for the results to be
+    /// valid.
+    fn measure(
+        &self,
+        vt: &mut Vt,
+        styles: StyleChain,
+        regions: Regions,
+    ) -> SourceResult<Fragment> {
+        vt.provider.save();
+        let result = self.layout(vt, styles, regions);
+        vt.provider.restore();
+        result
+    }
 }
 
 impl Layout for Content {
@@ -417,7 +430,10 @@ impl<'a> FlowBuilder<'a> {
         let last_was_parbreak = self.1;
         self.1 = false;
 
-        if content.is::<VNode>() || content.is::<ColbreakNode>() {
+        if content.is::<VNode>()
+            || content.is::<ColbreakNode>()
+            || content.is::<MetaNode>()
+        {
             self.0.push(content.clone(), styles);
             return true;
         }
@@ -457,7 +473,12 @@ struct ParBuilder<'a>(BehavedBuilder<'a>);
 
 impl<'a> ParBuilder<'a> {
     fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) -> bool {
-        if content.is::<SpaceNode>()
+        if content.is::<MetaNode>() {
+            if !self.0.is_basically_empty() {
+                self.0.push(content.clone(), styles);
+                return true;
+            }
+        } else if content.is::<SpaceNode>()
             || content.is::<TextNode>()
             || content.is::<HNode>()
             || content.is::<LinebreakNode>()

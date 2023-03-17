@@ -386,7 +386,7 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
 
                     let size = Size::new(available, height);
                     let pod = Regions::one(size, Axes::splat(false));
-                    let frame = cell.layout(self.vt, self.styles, pod)?.into_frame();
+                    let frame = cell.measure(self.vt, self.styles, pod)?.into_frame();
                     resolved.set_max(frame.width());
                 }
             }
@@ -457,7 +457,7 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
                 let mut pod = self.regions;
                 pod.size.x = rcol;
 
-                let frames = cell.layout(self.vt, self.styles, pod)?.into_frames();
+                let frames = cell.measure(self.vt, self.styles, pod)?.into_frames();
                 if let [first, rest @ ..] = frames.as_slice() {
                     skip |=
                         first.is_empty() && rest.iter().any(|frame| !frame.is_empty());

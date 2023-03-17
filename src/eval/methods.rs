@@ -134,6 +134,14 @@ pub fn call(
             _ => return missing(),
         },
 
+        Value::Dyn(dynamic) => {
+            if dynamic.type_name() == "counter" {
+                return (vm.items.counter_method)(&dynamic, method, args, span);
+            }
+
+            return missing();
+        }
+
         _ => return missing(),
     };
 
@@ -281,6 +289,13 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
         ],
         "function" => &[("where", true), ("with", true)],
         "arguments" => &[("named", false), ("pos", false)],
+        "counter" => &[
+            ("get", true),
+            ("final", true),
+            ("both", true),
+            ("step", true),
+            ("update", true),
+        ],
         _ => &[],
     }
 }

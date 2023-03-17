@@ -1,6 +1,8 @@
+use std::ptr;
 use std::str::FromStr;
 
-use super::ColumnsNode;
+use super::{AlignNode, ColumnsNode};
+use crate::meta::{Counter, CounterAction, CounterNode, Numbering};
 use crate::prelude::*;
 
 /// Layouts its child onto one or multiple pages.
@@ -130,7 +132,7 @@ pub struct PageNode {
     /// emissions and mitigate the impacts
     /// of a rapidly changing climate.
     /// ```
-    #[default(NonZeroUsize::new(1).unwrap())]
+    #[default(NonZeroUsize::ONE)]
     pub columns: NonZeroUsize,
 
     /// The page's background color.
@@ -147,49 +149,84 @@ pub struct PageNode {
     /// ```
     pub fill: Option<Paint>,
 
-    /// The page's header.
+    /// How to [number]($func/numbering) the pages.
     ///
-    /// The header is placed in the top margin of each page.
-    ///
-    /// - Content: The content will be placed in the header.
-    /// - A function: The function will be called with the page number (starting
-    ///   at one) as its only argument. The content it returns will be placed in
-    ///   the header.
-    /// - `{none}`: The header will be empty.
+    /// If an explicit `footer` is given, the numbering is ignored.
     ///
     /// ```example
-    /// #set par(justify: true)
     /// #set page(
-    ///   margin: (x: 24pt, y: 32pt),
-    ///   header: align(horizon + right, text(8pt)[_Exercise Sheet 3_]),
+    ///   height: 100pt,
+    ///   margin: (top: 16pt, bottom: 24pt),
+    ///   numbering: "1 / 1",
     /// )
     ///
-    /// #lorem(18)
+    /// #lorem(48)
     /// ```
-    pub header: Option<Marginal>,
+    pub numbering: Option<Numbering>,
 
-    /// The page's footer.
+    /// The alignment of the page numbering.
     ///
-    /// The footer is placed in the bottom margin of each page.
+    /// ```example
+    /// #set page(
+    ///   margin: (top: 16pt, bottom: 24pt),
+    ///   numbering: "1",
+    ///   number-align: right,
+    /// )
     ///
-    /// - Content: The content will be placed in the footer.
-    /// - A function: The function will be called with the page number (starting
-    ///   at one) as its only argument. The content it returns will be placed in
-    ///   the footer.
-    /// - `{none}`: The footer will be empty.
+    /// #lorem(30)
+    /// ```
+    #[default(Align::Center.into())]
+    pub number_align: Axes<Option<GenAlign>>,
+
+    /// The page's header. Fills the top margin of each page.
     ///
     /// ```example
     /// #set par(justify: true)
     /// #set page(
-    ///   margin: (x: 24pt, y: 32pt),
-    ///   footer: i => align(horizon + right,
-    ///     text(8pt, numbering("I", i))
-    ///   )
+    ///   margin: (top: 32pt, bottom: 20pt),
+    ///   header: [
+    ///     #set text(8pt)
+    ///     #smallcaps[Typst Academcy]
+    ///     #h(1fr) _Exercise Sheet 3_
+    ///   ],
     /// )
     ///
-    /// #lorem(18)
+    /// #lorem(19)
     /// ```
-    pub footer: Option<Marginal>,
+    pub header: Option<Content>,
+
+    /// The amount the header is raised into the top margin.
+    #[resolve]
+    #[default(Ratio::new(0.3).into())]
+    pub header_ascent: Rel<Length>,
+
+    /// The page's footer. Fills the bottom margin of each page.
+    ///
+    /// For just a page number, the `numbering` property, typically suffices. If
+    /// you want to create a custom footer, but still display the page number,
+    /// you can directly access the [page counter]($func/counter).
+    ///
+    /// ```example
+    /// #set par(justify: true)
+    /// #set page(
+    ///   height: 100pt,
+    ///   margin: 20pt,
+    ///   footer: [
+    ///     #set align(right)
+    ///     #set text(8pt)
+    ///     #counter(page).get("1") of
+    ///     #counter(page).final("I")
+    ///   ]
+    /// )
+    ///
+    /// #lorem(48)
+    /// ```
+    pub footer: Option<Content>,
+
+    /// The amount the footer is lowered into the bottom margin.
+    #[resolve]
+    #[default(Ratio::new(0.3).into())]
+    pub footer_descent: Rel<Length>,
 
     /// Content in the page's background.
     ///
@@ -197,35 +234,30 @@ pub struct PageNode {
     /// used to place a background image or a watermark.
     ///
     /// ```example
-    /// #set page(background: align(
-    ///   center + horizon,
-    ///   rotate(24deg,
-    ///     text(18pt, fill: rgb("FFCBC4"))[*CONFIDENTIAL*]
-    ///   ),
+    /// #set page(background: rotate(24deg,
+    ///   text(18pt, fill: rgb("FFCBC4"))[
+    ///     *CONFIDENTIAL*
+    ///   ]
     /// ))
     ///
     /// = Typst's secret plans
-    ///
-    /// In the year 2023, we plan to take over the world
-    /// (of typesetting).
+    /// In the year 2023, we plan to take
+    /// over the world (of typesetting).
     /// ```
-    pub background: Option<Marginal>,
+    pub background: Option<Content>,
 
     /// Content in the page's foreground.
     ///
     /// This content will overlay the page's body.
     ///
     /// ```example
-    /// #set page(foreground: align(
-    ///   center + horizon,
-    ///   text(24pt)[🥸],
-    /// ))
+    /// #set page(foreground: text(24pt)[🥸])
     ///
     /// Reviewer 2 has marked our paper
     /// "Weak Reject" because they did
     /// not understand our approach...
     /// ```
-    pub foreground: Option<Marginal>,
+    pub foreground: Option<Content>,
 
     /// The contents of the page(s).
     ///
@@ -238,12 +270,7 @@ pub struct PageNode {
 
 impl PageNode {
     /// Layout the page run into a sequence of frames, one per page.
-    pub fn layout(
-        &self,
-        vt: &mut Vt,
-        mut page: usize,
-        styles: StyleChain,
-    ) -> SourceResult<Fragment> {
+    pub fn layout(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Fragment> {
         // When one of the lengths is infinite the page fits its content along
         // that axis.
         let width = self.width(styles).unwrap_or(Abs::inf());
@@ -278,10 +305,18 @@ impl PageNode {
         let mut fragment = child.layout(vt, styles, regions)?;
 
         let fill = self.fill(styles);
-        let header = self.header(styles);
-        let footer = self.footer(styles);
         let foreground = self.foreground(styles);
         let background = self.background(styles);
+        let header = self.header(styles);
+        let header_ascent = self.header_ascent(styles);
+        let footer = self.footer(styles).or_else(|| {
+            self.numbering(styles).map(|numbering| {
+                CounterNode::new(Counter::Page, CounterAction::Both(numbering))
+                    .pack()
+                    .aligned(self.number_align(styles))
+            })
+        });
+        let footer_descent = self.footer_descent(styles);
 
         // Realize overlays.
         for frame in &mut fragment {
@@ -292,26 +327,38 @@ impl PageNode {
             let size = frame.size();
             let pad = padding.resolve(styles).relative_to(size);
             let pw = size.x - pad.left - pad.right;
-            let py = size.y - pad.bottom;
-            for (marginal, pos, area) in [
-                (&header, Point::with_x(pad.left), Size::new(pw, pad.top)),
-                (&footer, Point::new(pad.left, py), Size::new(pw, pad.bottom)),
-                (&foreground, Point::zero(), size),
-                (&background, Point::zero(), size),
-            ] {
-                let in_background = std::ptr::eq(marginal, &background);
-                let Some(marginal) = marginal else { continue };
-                let content = marginal.resolve(vt, page)?;
+            for marginal in [&header, &footer, &background, &foreground] {
+                let Some(content) = marginal else { continue };
+
+                let (pos, area, align);
+                if ptr::eq(marginal, &header) {
+                    let ascent = header_ascent.relative_to(pad.top);
+                    pos = Point::with_x(pad.left);
+                    area = Size::new(pw, pad.top - ascent);
+                    align = Align::Bottom.into();
+                } else if ptr::eq(marginal, &footer) {
+                    let descent = footer_descent.relative_to(pad.bottom);
+                    pos = Point::new(pad.left, size.y - pad.bottom + descent);
+                    area = Size::new(pw, pad.bottom - descent);
+                    align = Align::Top.into();
+                } else {
+                    pos = Point::zero();
+                    area = size;
+                    align = Align::CENTER_HORIZON.into();
+                };
+
                 let pod = Regions::one(area, Axes::splat(true));
-                let sub = content.layout(vt, styles, pod)?.into_frame();
-                if in_background {
+                let sub = content
+                    .clone()
+                    .styled(AlignNode::set_alignment(align))
+                    .layout(vt, styles, pod)?
+                    .into_frame();
+                if ptr::eq(marginal, &header) || ptr::eq(marginal, &background) {
                     frame.prepend_frame(pos, sub);
                 } else {
                     frame.push_frame(pos, sub);
                 }
             }
-
-            page += 1;
         }
 
         Ok(fragment)
@@ -358,7 +405,7 @@ impl Marginal {
             Self::Content(content) => content.clone(),
             Self::Func(func) => {
                 let args = Args::new(func.span(), [Value::Int(page as i64)]);
-                func.call_detached(vt.world(), args)?.display()
+                func.call_detached(vt.world, args)?.display()
             }
         })
     }

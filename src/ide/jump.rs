@@ -36,12 +36,9 @@ pub fn jump_from_click(
     for (pos, element) in frame.elements() {
         if let Element::Meta(Meta::Link(link), size) = element {
             if is_in_rect(*pos, *size, click) {
-                let dest = link.resolve(|| {
+                return Some(Jump::Dest(link.resolve(|| {
                     introspector.get_or_insert_with(|| Introspector::new(frames))
-                });
-
-                let Some(dest) = dest else { continue };
-                return Some(Jump::Dest(dest));
+                })));
             }
         }
     }

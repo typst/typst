@@ -1,5 +1,7 @@
 use std::str::FromStr;
 
+use ecow::EcoVec;
+
 use crate::prelude::*;
 use crate::text::Case;
 
@@ -66,7 +68,7 @@ pub fn numbering(
 }
 
 /// How to number a sequence of things.
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum Numbering {
     /// A pattern with prefix, numbering, lower / upper case and suffix.
     Pattern(NumberingPattern),
@@ -82,7 +84,7 @@ impl Numbering {
         numbers: &[NonZeroUsize],
     ) -> SourceResult<Value> {
         Ok(match self {
-            Self::Pattern(pattern) => Value::Str(pattern.apply(numbers, false).into()),
+            Self::Pattern(pattern) => Value::Str(pattern.apply(numbers).into()),
             Self::Func(func) => {
                 let args = Args::new(
                     func.span(),
@@ -91,6 +93,20 @@ impl Numbering {
                 func.call_detached(world, args)?
             }
         })
+    }
+
+    /// Trim the prefix suffix if this is a pattern.
+    pub fn trimmed(mut self) -> Self {
+        if let Self::Pattern(pattern) = &mut self {
+            pattern.trimmed = true;
+        }
+        self
+    }
+}
+
+impl From<NumberingPattern> for Numbering {
+    fn from(pattern: NumberingPattern) -> Self {
+        Self::Pattern(pattern)
     }
 }
 
@@ -118,20 +134,21 @@ cast_to_value! {
 /// - `(I)`
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct NumberingPattern {
-    pieces: Vec<(EcoString, NumberingKind, Case)>,
+    pieces: EcoVec<(EcoString, NumberingKind, Case)>,
     suffix: EcoString,
+    trimmed: bool,
 }
 
 impl NumberingPattern {
     /// Apply the pattern to the given number.
-    pub fn apply(&self, numbers: &[NonZeroUsize], trimmed: bool) -> EcoString {
+    pub fn apply(&self, numbers: &[NonZeroUsize]) -> EcoString {
         let mut fmt = EcoString::new();
         let mut numbers = numbers.into_iter();
 
         for (i, ((prefix, kind, case), &n)) in
             self.pieces.iter().zip(&mut numbers).enumerate()
         {
-            if i > 0 || !trimmed {
+            if i > 0 || !self.trimmed {
                 fmt.push_str(prefix);
             }
             fmt.push_str(&kind.apply(n, *case));
@@ -148,7 +165,7 @@ impl NumberingPattern {
             fmt.push_str(&kind.apply(n, *case));
         }
 
-        if !trimmed {
+        if !self.trimmed {
             fmt.push_str(&self.suffix);
         }
 
@@ -172,13 +189,18 @@ impl NumberingPattern {
         fmt.push_str(&self.suffix);
         fmt
     }
+
+    /// How many counting symbols this pattern has.
+    pub fn pieces(&self) -> usize {
+        self.pieces.len()
+    }
 }
 
 impl FromStr for NumberingPattern {
     type Err = &'static str;
 
     fn from_str(pattern: &str) -> Result<Self, Self::Err> {
-        let mut pieces = vec![];
+        let mut pieces = EcoVec::new();
         let mut handled = 0;
 
         for (i, c) in pattern.char_indices() {
@@ -197,7 +219,7 @@ impl FromStr for NumberingPattern {
             Err("invalid numbering pattern")?;
         }
 
-        Ok(Self { pieces, suffix })
+        Ok(Self { pieces, suffix, trimmed: false })
     }
 }
 

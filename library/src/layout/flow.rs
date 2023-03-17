@@ -47,7 +47,16 @@ impl Layout for FlowNode {
                 || child.is::<CircleNode>()
                 || child.is::<ImageNode>()
             {
-                layouter.layout_single(vt, &child, styles)?;
+                let layoutable = child.with::<dyn Layout>().unwrap();
+                layouter.layout_single(vt, layoutable, styles)?;
+            } else if child.is::<MetaNode>() {
+                let mut frame = Frame::new(Size::zero());
+                frame.meta(styles, true);
+                layouter.items.push(FlowItem::Frame(
+                    frame,
+                    Axes::new(Align::Top, Align::Left),
+                    true,
+                ));
             } else if child.can::<dyn Layout>() {
                 layouter.layout_multiple(vt, &child, styles)?;
             } else if child.is::<ColbreakNode>() {
@@ -173,14 +182,13 @@ impl<'a> FlowLayouter<'a> {
     fn layout_single(
         &mut self,
         vt: &mut Vt,
-        content: &Content,
+        content: &dyn Layout,
         styles: StyleChain,
     ) -> SourceResult<()> {
         let aligns = AlignNode::alignment_in(styles).resolve(styles);
         let sticky = BlockNode::sticky_in(styles);
         let pod = Regions::one(self.regions.base(), Axes::splat(false));
-        let layoutable = content.with::<dyn Layout>().unwrap();
-        let frame = layoutable.layout(vt, styles, pod)?.into_frame();
+        let frame = content.layout(vt, styles, pod)?.into_frame();
         self.layout_item(FlowItem::Frame(frame, aligns, sticky));
         self.last_was_par = false;
         Ok(())
