@@ -73,6 +73,8 @@ pub fn call(
             "func" => Value::Func(content.id().into()),
             "has" => Value::Bool(content.has(&args.expect::<EcoString>("field")?)),
             "at" => content.at(&args.expect::<EcoString>("field")?).at(span)?.clone(),
+            "page" => content.page(&vm.vt).at(span)?.into(),
+            "location" => content.location(&vm.vt).at(span)?.into(),
             _ => return missing(),
         },
 
@@ -249,7 +251,13 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
             ("starts-with", true),
             ("trim", true),
         ],
-        "content" => &[("func", false), ("has", true), ("at", true)],
+        "content" => &[
+            ("func", false),
+            ("has", true),
+            ("at", true),
+            ("page", false),
+            ("location", false),
+        ],
         "array" => &[
             ("all", true),
             ("any", true),

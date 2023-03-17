@@ -53,8 +53,7 @@ pub fn typeset(
 
 /// A virtual typesetter.
 ///
-/// Holds the state needed to [typeset] content. This is the equivalent to the
-/// [Vm](crate::eval::Vm) for typesetting.
+/// Holds the state needed to [typeset] content.
 pub struct Vt<'a> {
     /// The compilation environment.
     pub world: Tracked<'a, dyn World>,
@@ -64,6 +63,18 @@ pub struct Vt<'a> {
     pub provider: TrackedMut<'a, StabilityProvider>,
     /// Provides access to information about the document.
     pub introspector: Tracked<'a, Introspector>,
+}
+
+impl Vt<'_> {
+    /// Mutably reborrow with a shorter lifetime.
+    pub fn reborrow_mut(&mut self) -> Vt<'_> {
+        Vt {
+            world: self.world,
+            tracer: TrackedMut::reborrow_mut(&mut self.tracer),
+            provider: TrackedMut::reborrow_mut(&mut self.provider),
+            introspector: self.introspector,
+        }
+    }
 }
 
 /// Provides stable identities to nodes.

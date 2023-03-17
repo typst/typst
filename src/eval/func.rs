@@ -13,7 +13,7 @@ use super::{
     Vm,
 };
 use crate::diag::{bail, SourceResult, StrResult};
-use crate::model::{NodeId, Selector, StyleMap, Vt};
+use crate::model::{Introspector, NodeId, Selector, StabilityProvider, StyleMap, Vt};
 use crate::syntax::ast::{self, AstNode, Expr};
 use crate::syntax::{SourceId, Span, SyntaxNode};
 use crate::util::hash128;
@@ -102,9 +102,11 @@ impl Func {
 
                 Closure::call(
                     self,
-                    vm.world,
+                    vm.world(),
                     route,
-                    TrackedMut::reborrow_mut(&mut vm.tracer),
+                    TrackedMut::reborrow_mut(&mut vm.vt.tracer),
+                    TrackedMut::reborrow_mut(&mut vm.vt.provider),
+                    vm.vt.introspector,
                     vm.depth + 1,
                     args,
                 )
@@ -125,13 +127,7 @@ impl Func {
         let route = Route::default();
         let id = SourceId::detached();
         let scopes = Scopes::new(None);
-        let mut vm = Vm::new(
-            vt.world,
-            route.track(),
-            TrackedMut::reborrow_mut(&mut vt.tracer),
-            id,
-            scopes,
-        );
+        let mut vm = Vm::new(vt.reborrow_mut(), route.track(), id, scopes);
         let args = Args::new(self.span(), args);
         self.call_vm(&mut vm, args)
     }
@@ -318,6 +314,8 @@ impl Closure {
         world: Tracked<dyn World>,
         route: Tracked<Route>,
         tracer: TrackedMut<Tracer>,
+        provider: TrackedMut<StabilityProvider>,
+        introspector: Tracked<Introspector>,
         depth: usize,
         mut args: Args,
     ) -> SourceResult<Value> {
@@ -358,7 +356,8 @@ impl Closure {
         args.finish()?;
 
         // Evaluate the body.
-        let mut sub = Vm::new(world, route, tracer, closure.location, scopes);
+        let vt = Vt { world, tracer, provider, introspector };
+        let mut sub = Vm::new(vt, route, closure.location, scopes);
         sub.depth = depth;
 
         // Handle control flow.

@@ -47,7 +47,10 @@ use unicode_segmentation::UnicodeSegmentation;
 use crate::diag::{
     bail, error, At, SourceError, SourceResult, StrResult, Trace, Tracepoint,
 };
+use crate::model::Introspector;
+use crate::model::StabilityProvider;
 use crate::model::Unlabellable;
+use crate::model::Vt;
 use crate::model::{Content, Label, Recipe, Selector, StyleMap, Transform};
 use crate::syntax::ast::AstNode;
 use crate::syntax::{
@@ -81,7 +84,15 @@ pub fn eval(
     // Evaluate the module.
     let route = unsafe { Route::insert(route, id) };
     let scopes = Scopes::new(Some(library));
-    let mut vm = Vm::new(world, route.track(), tracer, id, scopes);
+    let mut provider = StabilityProvider::new();
+    let introspector = Introspector::new(&[]);
+    let vt = Vt {
+        world,
+        tracer,
+        provider: provider.track_mut(),
+        introspector: introspector.track(),
+    };
+    let mut vm = Vm::new(vt, route.track(), id, scopes);
     let root = match source.root().cast::<ast::Markup>() {
         Some(markup) if vm.traced.is_some() => markup,
         _ => source.ast()?,
@@ -121,7 +132,15 @@ pub fn eval_code_str(
     let scopes = Scopes::new(Some(library));
     let route = Route::default();
     let mut tracer = Tracer::default();
-    let mut vm = Vm::new(world, route.track(), tracer.track_mut(), id, scopes);
+    let mut provider = StabilityProvider::new();
+    let introspector = Introspector::new(&[]);
+    let vt = Vt {
+        world,
+        tracer: tracer.track_mut(),
+        provider: provider.track_mut(),
+        introspector: introspector.track(),
+    };
+    let mut vm = Vm::new(vt, route.track(), id, scopes);
     let code = root.cast::<ast::Code>().unwrap();
     let result = code.eval(&mut vm);
 
@@ -138,14 +157,12 @@ pub fn eval_code_str(
 /// Holds the state needed to [evaluate](eval) Typst sources. A new
 /// virtual machine is created for each module evaluation and function call.
 pub struct Vm<'a> {
-    /// The compilation environment.
-    world: Tracked<'a, dyn World>,
+    /// The underlying virtual typesetter.
+    vt: Vt<'a>,
     /// The language items.
     items: LangItems,
     /// The route of source ids the VM took to reach its current location.
     route: Tracked<'a, Route>,
-    /// The tracer for inspection of the values an expression produces.
-    tracer: TrackedMut<'a, Tracer>,
     /// The current location.
     location: SourceId,
     /// A control flow event that is currently happening.
@@ -161,18 +178,17 @@ pub struct Vm<'a> {
 impl<'a> Vm<'a> {
     /// Create a new virtual machine.
     fn new(
-        world: Tracked<'a, dyn World>,
+        vt: Vt<'a>,
         route: Tracked<'a, Route>,
-        tracer: TrackedMut<'a, Tracer>,
         location: SourceId,
         scopes: Scopes<'a>,
     ) -> Self {
-        let traced = tracer.span(location);
+        let traced = vt.tracer.span(location);
+        let items = vt.world.library().items.clone();
         Self {
-            world,
-            items: world.library().items.clone(),
+            vt,
+            items,
             route,
-            tracer,
             location,
             flow: None,
             scopes,
@@ -183,14 +199,14 @@ impl<'a> Vm<'a> {
 
     /// Access the underlying world.
     pub fn world(&self) -> Tracked<'a, dyn World> {
-        self.world
+        self.vt.world
     }
 
     /// Define a variable in the current scope.
     pub fn define(&mut self, var: ast::Ident, value: impl Into<Value>) {
         let value = value.into();
         if self.traced == Some(var.span()) {
-            self.tracer.trace(value.clone());
+            self.vt.tracer.trace(value.clone());
         }
         self.scopes.top.define(var.take(), value);
     }
@@ -200,10 +216,10 @@ impl<'a> Vm<'a> {
     pub fn locate(&self, path: &str) -> StrResult<PathBuf> {
         if !self.location.is_detached() {
             if let Some(path) = path.strip_prefix('/') {
-                return Ok(self.world.root().join(path).normalize());
+                return Ok(self.world().root().join(path).normalize());
             }
 
-            if let Some(dir) = self.world.source(self.location).path().parent() {
+            if let Some(dir) = self.world().source(self.location).path().parent() {
                 return Ok(dir.join(path).normalize());
             }
         }
@@ -450,7 +466,7 @@ impl Eval for ast::Expr {
         .spanned(span);
 
         if vm.traced == Some(span) {
-            vm.tracer.trace(v.clone());
+            vm.vt.tracer.trace(v.clone());
         }
 
         Ok(v)
@@ -1004,16 +1020,22 @@ impl Eval for ast::FuncCall {
                 let args = args.eval(vm)?;
                 let target = target.access(vm)?;
                 if !matches!(target, Value::Symbol(_) | Value::Module(_)) {
-                    return methods::call_mut(target, &field, args, span)
-                        .trace(vm.world, point, span);
+                    return methods::call_mut(target, &field, args, span).trace(
+                        vm.world(),
+                        point,
+                        span,
+                    );
                 }
                 (target.field(&field).at(field_span)?, args)
             } else {
                 let target = target.eval(vm)?;
                 let args = args.eval(vm)?;
                 if !matches!(target, Value::Symbol(_) | Value::Module(_)) {
-                    return methods::call(vm, target, &field, args, span)
-                        .trace(vm.world, point, span);
+                    return methods::call(vm, target, &field, args, span).trace(
+                        vm.world(),
+                        point,
+                        span,
+                    );
                 }
                 (target.field(&field).at(field_span)?, args)
             }
@@ -1052,7 +1074,7 @@ impl Eval for ast::FuncCall {
 
         let callee = callee.cast::<Func>().at(callee_span)?;
         let point = || Tracepoint::Call(callee.name().map(Into::into));
-        callee.call_vm(vm, args).trace(vm.world, point, span)
+        callee.call_vm(vm, args).trace(vm.world(), point, span)
     }
 }
 
@@ -1431,8 +1453,9 @@ fn import(vm: &mut Vm, source: Value, span: Span) -> SourceResult<Module> {
     };
 
     // Load the source file.
+    let world = vm.world();
     let full = vm.locate(&path).at(span)?;
-    let id = vm.world.resolve(&full).at(span)?;
+    let id = world.resolve(&full).at(span)?;
 
     // Prevent cyclic importing.
     if vm.route.contains(id) {
@@ -1440,10 +1463,10 @@ fn import(vm: &mut Vm, source: Value, span: Span) -> SourceResult<Module> {
     }
 
     // Evaluate the file.
-    let source = vm.world.source(id);
+    let source = world.source(id);
     let point = || Tracepoint::Import;
-    eval(vm.world, vm.route, TrackedMut::reborrow_mut(&mut vm.tracer), source)
-        .trace(vm.world, point, span)
+    eval(world, vm.route, TrackedMut::reborrow_mut(&mut vm.vt.tracer), source)
+        .trace(world, point, span)
 }
 
 impl Eval for ast::LoopBreak {
@@ -1506,7 +1529,7 @@ impl Access for ast::Ident {
         let span = self.span();
         let value = vm.scopes.get_mut(self).at(span)?;
         if vm.traced == Some(span) {
-            vm.tracer.trace(value.clone());
+            vm.vt.tracer.trace(value.clone());
         }
         Ok(value)
     }
