@@ -380,8 +380,11 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         let Some(doc) = &mut self.doc else { return Ok(()) };
         if !self.flow.0.is_empty() || (doc.keep_next && styles.is_some()) {
             let (flow, shared) = mem::take(&mut self.flow).0.finish();
-            let styles =
-                if shared == StyleChain::default() { styles.unwrap() } else { shared };
+            let styles = if shared == StyleChain::default() {
+                styles.unwrap_or_default()
+            } else {
+                shared
+            };
             let page = PageNode::new(FlowNode::new(flow.to_vec()).pack()).pack();
             let stored = self.scratch.content.alloc(page);
             self.accept(stored, styles)?;

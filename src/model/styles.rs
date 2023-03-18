@@ -343,12 +343,7 @@ impl Debug for Transform {
 cast_from_value! {
     Transform,
     content: Content => Self::Content(content),
-    func: Func => {
-        if func.argc().map_or(false, |count| count != 1) {
-            Err("function must have exactly one parameter")?
-        }
-        Self::Func(func)
-    },
+    func: Func => Self::Func(func),
 }
 
 /// A chain of style maps, similar to a linked list.
@@ -492,6 +487,15 @@ impl<'a> StyleChain<'a> {
                     .cast()
                     .unwrap_or_else(|err| panic!("{} (for {}.{})", err, node.name, name))
             })
+    }
+
+    /// Convert to a style map.
+    pub fn to_map(self) -> StyleMap {
+        let mut suffix = StyleMap::new();
+        for link in self.links() {
+            suffix.0.splice(0..0, link.iter().cloned());
+        }
+        suffix
     }
 
     /// Iterate over the entries of the chain.

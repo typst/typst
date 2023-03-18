@@ -5,7 +5,7 @@ use std::ops::{Add, AddAssign};
 use ecow::{eco_format, EcoString, EcoVec};
 
 use super::{ops, Args, Func, Value, Vm};
-use crate::diag::{bail, At, SourceResult, StrResult};
+use crate::diag::{At, SourceResult, StrResult};
 use crate::util::pretty_array_like;
 
 /// Create a new [`Array`] from values.
@@ -139,9 +139,6 @@ impl Array {
 
     /// Return the first matching element.
     pub fn find(&self, vm: &mut Vm, func: Func) -> SourceResult<Option<Value>> {
-        if func.argc().map_or(false, |count| count != 1) {
-            bail!(func.span(), "function must have exactly one parameter");
-        }
         for item in self.iter() {
             let args = Args::new(func.span(), [item.clone()]);
             if func.call_vm(vm, args)?.cast::<bool>().at(func.span())? {
@@ -153,9 +150,6 @@ impl Array {
 
     /// Return the index of the first matching element.
     pub fn position(&self, vm: &mut Vm, func: Func) -> SourceResult<Option<i64>> {
-        if func.argc().map_or(false, |count| count != 1) {
-            bail!(func.span(), "function must have exactly one parameter");
-        }
         for (i, item) in self.iter().enumerate() {
             let args = Args::new(func.span(), [item.clone()]);
             if func.call_vm(vm, args)?.cast::<bool>().at(func.span())? {
@@ -169,9 +163,6 @@ impl Array {
     /// Return a new array with only those elements for which the function
     /// returns true.
     pub fn filter(&self, vm: &mut Vm, func: Func) -> SourceResult<Self> {
-        if func.argc().map_or(false, |count| count != 1) {
-            bail!(func.span(), "function must have exactly one parameter");
-        }
         let mut kept = EcoVec::new();
         for item in self.iter() {
             let args = Args::new(func.span(), [item.clone()]);
@@ -184,9 +175,6 @@ impl Array {
 
     /// Transform each item in the array with a function.
     pub fn map(&self, vm: &mut Vm, func: Func) -> SourceResult<Self> {
-        if func.argc().map_or(false, |count| !(1..=2).contains(&count)) {
-            bail!(func.span(), "function must have one or two parameters");
-        }
         let enumerate = func.argc() == Some(2);
         self.iter()
             .enumerate()
@@ -203,9 +191,6 @@ impl Array {
 
     /// Fold all of the array's elements into one with a function.
     pub fn fold(&self, vm: &mut Vm, init: Value, func: Func) -> SourceResult<Value> {
-        if func.argc().map_or(false, |count| count != 2) {
-            bail!(func.span(), "function must have exactly two parameters");
-        }
         let mut acc = init;
         for item in self.iter() {
             let args = Args::new(func.span(), [acc, item.clone()]);
@@ -216,9 +201,6 @@ impl Array {
 
     /// Whether any element matches.
     pub fn any(&self, vm: &mut Vm, func: Func) -> SourceResult<bool> {
-        if func.argc().map_or(false, |count| count != 1) {
-            bail!(func.span(), "function must have exactly one parameter");
-        }
         for item in self.iter() {
             let args = Args::new(func.span(), [item.clone()]);
             if func.call_vm(vm, args)?.cast::<bool>().at(func.span())? {
@@ -231,9 +213,6 @@ impl Array {
 
     /// Whether all elements match.
     pub fn all(&self, vm: &mut Vm, func: Func) -> SourceResult<bool> {
-        if func.argc().map_or(false, |count| count != 1) {
-            bail!(func.span(), "function must have exactly one parameter");
-        }
         for item in self.iter() {
             let args = Args::new(func.span(), [item.clone()]);
             if !func.call_vm(vm, args)?.cast::<bool>().at(func.span())? {

@@ -39,14 +39,14 @@ cast_from_value! {
 /// Display: Query
 /// Category: special
 #[node(Locatable, Show)]
-pub struct QueryNode {
+struct QueryNode {
     /// The thing to search for.
     #[required]
-    pub target: Selector,
+    target: Selector,
 
     /// The function to format the results with.
     #[required]
-    pub format: Func,
+    format: Func,
 }
 
 impl Show for QueryNode {
@@ -58,7 +58,6 @@ impl Show for QueryNode {
         let id = self.0.stable_id().unwrap();
         let target = self.target();
         let (before, after) = vt.introspector.query_split(target, id);
-        let func = self.format();
-        Ok(func.call_vt(vt, [before.into(), after.into()])?.display())
+        Ok(self.format().call_vt(vt, [before.into(), after.into()])?.display())
     }
 }

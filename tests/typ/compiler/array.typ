@@ -163,7 +163,7 @@
 #test((1, 2, 3, 4).fold(0, (s, x) => s + x), 10)
 
 ---
-// Error: 20-30 function must have exactly two parameters
+// Error: 20-22 unexpected argument
 #(1, 2, 3).fold(0, () => none)
 
 ---

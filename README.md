@@ -35,7 +35,7 @@ currently in public beta.
 ## Example
 This is what a Typst file with a bit of math and automation looks like:
 <p align="center">
-  <img alt="Example" width="900" src="https://user-images.githubusercontent.com/17899797/226110084-a4e7eff2-33cb-44b3-aced-2bef2e52148d.png"/>
+  <img alt="Example" width="900" src="https://user-images.githubusercontent.com/17899797/226122655-db82e9fa-6942-47a5-9e14-a67183617f6f.png"/>
 </p>
 
 Let's disect what's going on:
@@ -165,13 +165,13 @@ instant preview. To achieve these goals, we follow three core design principles:
   Luckily we have [`comemo`], a system for incremental compilation which does
   most of the hard work in the background.
 
-[docs]: https://typst.app/docs
+[docs]: https://typst.app/docs/
 [app]: https://typst.app/
 [discord]: https://discord.gg/2uDybryKPe
 [show]: https://typst.app/docs/reference/styling/#show-rules
 [math]: https://typst.app/docs/reference/math/
 [scripting]: https://typst.app/docs/reference/scripting/
-[rust]: https://rustup.rs
-[releases]: https://github.com/typst/typst/releases
+[rust]: https://rustup.rs/
+[releases]: https://github.com/typst/typst/releases/
 [architecture]: https://github.com/typst/typst/blob/main/ARCHITECTURE.md
 [`comemo`]: https://github.com/typst/comemo/
