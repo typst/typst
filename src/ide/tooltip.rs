@@ -83,6 +83,12 @@ fn expr_tooltip(world: &(dyn World + 'static), leaf: &LinkedNode) -> Option<Tool
         last = Some((value, 1));
     }
 
+    if let Some((_, count)) = last {
+        if count > 1 {
+            write!(pieces.last_mut().unwrap(), " (x{count})").unwrap();
+        }
+    }
+
     if iter.next().is_some() {
         pieces.push("...".into());
     }
